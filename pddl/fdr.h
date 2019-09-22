@@ -20,17 +20,33 @@
 #define __PDDL_FDR_H__
 
 #include <pddl/fdr_var.h>
+#include <pddl/fdr_op.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-void pddlFDRPrintAsFD(const pddl_strips_t *strips,
-                      const pddl_mgroups_t *mg,
-                      const pddl_mutex_pairs_t *mutex,
-                      unsigned fdr_var_flags,
-                      FILE *fout,
-                      bor_err_t *err);
+struct pddl_fdr {
+    pddl_fdr_vars_t var;
+    pddl_fdr_ops_t op;
+    int *init;
+    pddl_fdr_part_state_t goal;
+    int goal_is_unreachable;
+    int has_cond_eff;
+};
+typedef struct pddl_fdr pddl_fdr_t;
+
+int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
+                          const pddl_strips_t *strips,
+                          const pddl_mgroups_t *mg,
+                          const pddl_mutex_pairs_t *mutex,
+                          unsigned fdr_var_flags,
+                          bor_err_t *err);
+void pddlFDRFree(pddl_fdr_t *fdr);
+
+void pddlFDRPrintFD(const pddl_fdr_t *fdr,
+                    const pddl_mgroups_t *mgs,
+                    FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

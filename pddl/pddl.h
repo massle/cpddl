@@ -50,6 +50,8 @@
 #include <pddl/bitset.h>
 #include <pddl/disambiguation.h>
 #include <pddl/fdr_var.h>
+#include <pddl/fdr_part_state.h>
+#include <pddl/fdr_op.h>
 #include <pddl/fdr.h>
 #include <pddl/sym.h>
 

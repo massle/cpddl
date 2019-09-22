@@ -442,7 +442,12 @@ static int toFDR(void)
         fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
         return -1;
     }
-    pddlFDRPrintAsFD(&strips, &mgroups, &mutex, fdr_var_flag, fout, &err);
+
+    pddl_fdr_t fdr;
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlFDRPrintFD(&fdr, &mgroups, fout);
+    pddlFDRFree(&fdr);
+
     closeFile(fout);
 
     return 0;
