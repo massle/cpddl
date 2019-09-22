@@ -43,7 +43,7 @@ void pddlFDRValFree(pddl_fdr_val_t *val);
 struct pddl_fdr_var {
     int var_id; /*!< ID of the variable */
     pddl_fdr_val_t *val; /*!< List of values */
-    int val_size; /*!< Nymber of values, i.e., range of the variable */
+    int val_size; /*!< Number of values, i.e., range of the variable */
     int val_none_of_those; /*!< ID of the "none of those" value or -1 --
                                 this value is created during translation from
                                 STRIPS */
