@@ -54,5 +54,6 @@
 #include <pddl/fdr_op.h>
 #include <pddl/fdr.h>
 #include <pddl/sym.h>
+#include <pddl/pot.h>
 
 #endif /* __PDDL_H__ */

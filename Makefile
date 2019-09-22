@@ -46,6 +46,7 @@ OBJS += fdr_op
 OBJS += fdr
 OBJS += sym
 OBJS += famgroup
+OBJS += pot
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
