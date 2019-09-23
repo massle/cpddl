@@ -21,8 +21,8 @@
 #include <boruvka/lp.h>
 #include "pddl/pot.h"
 
-#define LPVAR_UPPER 1E7
-#define LPVAR_LOWER -1E7
+#define LPVAR_UPPER 1E9
+#define LPVAR_LOWER -1E20
 
 struct maxpot {
     bor_iset_t vars;
