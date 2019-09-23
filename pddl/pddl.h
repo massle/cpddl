@@ -55,5 +55,6 @@
 #include <pddl/fdr.h>
 #include <pddl/sym.h>
 #include <pddl/pot.h>
+#include <pddl/mg_strips.h>
 
 #endif /* __PDDL_H__ */

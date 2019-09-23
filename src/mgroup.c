@@ -381,6 +381,32 @@ void pddlMGroupFree(pddl_mgroup_t *m)
     borISetFree(&m->mgroup);
 }
 
+int pddlMGroupIsExactlyOne(const pddl_mgroup_t *mg,
+                           const pddl_strips_t *strips)
+{
+    if (borISetIsDisjunct(&mg->mgroup, &strips->init))
+        return 0;
+
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->op.op[op_id];
+        if (!borISetIsDisjunct(&op->del_eff, &mg->mgroup)
+                && borISetIsDisjunct(&op->add_eff, &mg->mgroup)){
+            return 0;
+        }
+
+        for (int ce_id = 0; ce_id < op->cond_eff_size; ++ce_id){
+            const pddl_strips_op_cond_eff_t *ce = op->cond_eff + ce_id;
+            if (!borISetIsDisjunct(&ce->del_eff, &mg->mgroup)
+                    && borISetIsDisjunct(&ce->add_eff, &mg->mgroup)
+                    && borISetIsDisjunct(&op->add_eff, &mg->mgroup)){
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 void pddlMGroupsInitEmpty(pddl_mgroups_t *mg)
 {
     bzero(mg, sizeof(*mg));

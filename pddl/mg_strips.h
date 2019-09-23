@@ -1,0 +1,52 @@
+/***
+ * cpddl
+ * -------
+ * Copyright (c)2019 Daniel Fiser <danfis@danfis.cz>,
+ * AI Center, Department of Computer Science,
+ * Faculty of Electrical Engineering, Czech Technical University in Prague.
+ * All rights reserved.
+ *
+ * This file is part of cpddl.
+ *
+ * Distributed under the OSI-approved BSD License (the "License");
+ * see accompanying file BDS-LICENSE for details or see
+ * <http://www.opensource.org/licenses/bsd-license.php>.
+ *
+ * This software is distributed WITHOUT ANY WARRANTY; without even the
+ * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the License for more information.
+ */
+
+#ifndef __PDDL_MG_STRIPS_H__
+#define __PDDL_MG_STRIPS_H__
+
+#include <pddl/strips.h>
+#include <pddl/mutex_pair.h>
+#include <pddl/mgroup.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+struct pddl_mg_strips {
+    pddl_strips_t strips;
+    pddl_mgroups_t mg;
+    pddl_mutex_pairs_t mutex;
+    pddl_mgroups_t mgroup;
+};
+typedef struct pddl_mg_strips pddl_mg_strips_t;
+
+
+void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
+                      const pddl_strips_t *strips,
+                      const pddl_mgroups_t *mgroups,
+                      const pddl_mutex_pairs_t *mutex);
+void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
+
+
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
+
+#endif /* __PDDL_MG_STRIPS_H__ */

@@ -47,6 +47,12 @@ struct pddl_mgroups {
 typedef struct pddl_mgroups pddl_mgroups_t;
 
 /**
+ * Returns true if the given mutex groups is "exactly-one"
+ */
+int pddlMGroupIsExactlyOne(const pddl_mgroup_t *mg,
+                           const pddl_strips_t *strips);
+
+/**
  * Initialize an empty set of mutex groups.
  */
 void pddlMGroupsInitEmpty(pddl_mgroups_t *mg);
