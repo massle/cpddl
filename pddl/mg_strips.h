@@ -29,18 +29,15 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_mg_strips {
-    pddl_strips_t strips;
-    pddl_mgroups_t mg;
-    pddl_mutex_pairs_t mutex;
-    pddl_mgroups_t mgroup;
+    pddl_strips_t strips; /*!< Planning task */
+    pddl_mgroups_t mg; /*!< Exactly-one mutex groups covering all facts */
 };
 typedef struct pddl_mg_strips pddl_mg_strips_t;
 
 
 void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_strips_t *strips,
-                      const pddl_mgroups_t *mgroups,
-                      const pddl_mutex_pairs_t *mutex);
+                      const pddl_mgroups_t *mgroups);
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
 
 

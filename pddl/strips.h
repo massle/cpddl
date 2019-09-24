@@ -126,6 +126,12 @@ void pddlStripsApplicableOps(const pddl_strips_t *strips,
 int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const bor_iset_t *facts);
 
 /**
+ * Returns true if the given set of facts is an exactly-one mutex group.
+ */
+int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
+                                 const bor_iset_t *facts);
+
+/**
  * Remove conditional effects by merging them into the operator if
  * possible.
  */

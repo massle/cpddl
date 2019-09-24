@@ -93,6 +93,8 @@ mrproper: clean boruvka-clean opts-clean bliss-clean lpsolve-clean
 
 check:
 	$(MAKE) -C test check
+check-noreg:
+	$(MAKE) -C test check-noreg
 check-ci:
 	$(MAKE) -C test check-ci
 check-valgrind:

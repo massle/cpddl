@@ -504,6 +504,33 @@ int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const bor_iset_t *facts)
     return 1;
 }
 
+int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
+                                 const bor_iset_t *facts)
+{
+    if (borISetIsDisjunct(facts, &strips->init))
+        return 0;
+
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->op.op[op_id];
+        if (!borISetIsDisjunct(&op->del_eff, facts)
+                && borISetIsDisjunct(&op->add_eff, facts)){
+            fprintf(stderr, "X %s\n", op->name);
+            return 0;
+        }
+
+        for (int ce_id = 0; ce_id < op->cond_eff_size; ++ce_id){
+            const pddl_strips_op_cond_eff_t *ce = op->cond_eff + ce_id;
+            if (!borISetIsDisjunct(&ce->del_eff, facts)
+                    && borISetIsDisjunct(&ce->add_eff, facts)
+                    && borISetIsDisjunct(&op->add_eff, facts)){
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 static void resetHasCondEffFlag(pddl_strips_t *strips)
 {
     int has_cond_eff = 0;

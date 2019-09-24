@@ -20,28 +20,7 @@
 #include "pddl/mg_strips.h"
 #include "assert.h"
 
-static void mgroupsFacts(bor_iset_t *facts,
-                         bor_iset_t *not_facts,
-                         const pddl_mgroups_t *mgroups,
-                         int fact_size)
-{
-    borISetEmpty(facts);
-    borISetEmpty(not_facts);
-
-    for (int mi = 0; mi < mgroups->mgroup_size; ++mi)
-        borISetUnion(facts, &mgroups->mgroup[mi].mgroup);
-    int cur = 0;
-    for (int fact_id = 0; fact_id < fact_size; ++fact_id){
-        if (cur < borISetSize(facts) && borISetGet(facts, cur) == fact_id){
-            ++cur;
-        }else{
-            borISetAdd(not_facts, fact_id);
-        }
-    }
-}
-
 static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
-                                 const bor_iset_t *uncovered_del_effs,
                                  const pddl_mgroup_t *mg_in)
 {
     if (borISetIsDisjunct(&mg_in->mgroup, &mg_strips->strips.init))
@@ -49,10 +28,9 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
 
     BOR_ISET(facts);
     borISetUnion(&facts, &mg_in->mgroup);
-    borISetMinus(&facts, uncovered_del_effs);
 
     pddl_mgroup_t *mg = pddlMGroupsAdd(&mg_strips->mg, &facts);
-    if (!pddlMGroupIsExactlyOne(mg, &mg_strips->strips)){
+    if (!pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &facts)){
         pddl_fact_t none_of_those;
         pddlFactInit(&none_of_those);
         int name_size = 5;
@@ -85,7 +63,6 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
 #ifdef PDDL_DEBUG
                 BOR_ISET(test);
                 borISetIntersect2(&test, &op->del_eff, &op->pre);
-                borISetIntersect(&test, uncovered_del_effs);
                 borISetIntersect(&test, &mg_in->mgroup);
                 ASSERT(borISetSize(&test) > 0);
                 borISetFree(&test);
@@ -98,127 +75,190 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
             borISetAdd(&mg_strips->strips.init, new_fact_id);
     }
 
-    mg->is_goal = !borISetIsDisjunct(&mg->mgroup, &mg_strips->strips.goal);
-    mg->is_exactly_one = 1;
-
     borISetFree(&facts);
-
-    ASSERT(pddlMGroupIsExactlyOne(mg, &mg_strips->strips));
 }
 
-static void encodeBinaryFact(pddl_mg_strips_t *mg_strips, int fact_id)
+static void encodeBinaryFact(pddl_mg_strips_t *mg_strips, int fact_id,
+                             int *covered)
 {
-    ASSERT(mg_strips->strips.fact.fact[fact_id]->neg_of < 0);
-    int name_size = strlen(mg_strips->strips.fact.fact[fact_id]->name) + 4;
+    pddl_fact_t *fact = mg_strips->strips.fact.fact[fact_id];
 
-    pddl_fact_t not;
-    pddlFactInit(&not);
-    not.name = BOR_ALLOC_ARR(char, name_size);
-    sprintf(not.name, "NOT:%s", mg_strips->strips.fact.fact[fact_id]->name);
-    int not_id = pddlFactsAdd(&mg_strips->strips.fact, &not);
-    ASSERT(not_id == mg_strips->strips.fact.fact_size - 1);
+    int not_id;
+    if (fact->neg_of >= 0){
+        not_id = fact->neg_of;
+        covered[not_id] = 1;
+    }else{
+        pddl_fact_t not;
+        pddlFactInit(&not);
+        int name_size = strlen(mg_strips->strips.fact.fact[fact_id]->name) + 5;
+        not.name = BOR_ALLOC_ARR(char, name_size);
+        sprintf(not.name, "NOT:%s", mg_strips->strips.fact.fact[fact_id]->name);
+        not_id = pddlFactsAdd(&mg_strips->strips.fact, &not);
+        ASSERT(not_id == mg_strips->strips.fact.fact_size - 1);
+        pddlFactFree(&not);
+
+        fact->neg_of = not_id;
+        mg_strips->strips.fact.fact[not_id]->neg_of = fact_id;
+    }
+    covered[fact_id] = 1;
 
     for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id){
         pddl_strips_op_t *op = mg_strips->strips.op.op[op_id];
         int in_del = borISetIn(fact_id, &op->del_eff);
         int in_add = borISetIn(fact_id, &op->add_eff);
+        int in_del_not = borISetIn(not_id, &op->del_eff);
+        int in_add_not = borISetIn(not_id, &op->add_eff);
 
         if (in_del && !in_add)
             borISetAdd(&op->add_eff, not_id);
         if (!in_del && in_add)
             borISetAdd(&op->del_eff, not_id);
+        if (in_del_not && !in_add_not)
+            borISetAdd(&op->add_eff, fact_id);
+        if (!in_del_not && in_add_not)
+            borISetAdd(&op->del_eff, fact_id);
     }
 
     if (!borISetIn(fact_id, &mg_strips->strips.init))
         borISetAdd(&mg_strips->strips.init, not_id);
-    pddlFactFree(&not);
 
     BOR_ISET(facts);
     BOR_ISET_SET(&facts, fact_id, not_id);
-    pddl_mgroup_t *mg = pddlMGroupsAdd(&mg_strips->mg, &facts);
-    mg->is_exactly_one = 1;
-    mg->is_goal = !borISetIsDisjunct(&mg->mgroup, &mg_strips->strips.goal);
+    pddlMGroupsAdd(&mg_strips->mg, &facts);
     borISetFree(&facts);
-
-    ASSERT(pddlMGroupIsExactlyOne(mg, &mg_strips->strips));
 }
 
 static void encodeBinaryFacts(pddl_mg_strips_t *mg_strips)
 {
-    BOR_ISET(covered);
-    BOR_ISET(not_covered);
+    int fact_size = mg_strips->strips.fact.fact_size;
+    int *covered;
 
-    mgroupsFacts(&covered, &not_covered, &mg_strips->mg,
-                 mg_strips->strips.fact.fact_size);
+    covered = BOR_CALLOC_ARR(int, fact_size);
+    for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
+        const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mi;
+        int fact_id;
+        BOR_ISET_FOR_EACH(&mg->mgroup, fact_id)
+            covered[fact_id] = 1;
+    }
 
-    int fact_id;
-    BOR_ISET_FOR_EACH(&not_covered, fact_id)
-        encodeBinaryFact(mg_strips, fact_id);
+    for (int fact_id = 0; fact_id < fact_size; ++fact_id){
+        if (!covered[fact_id])
+            encodeBinaryFact(mg_strips, fact_id, covered);
+    }
 
-    borISetFree(&covered);
-    borISetFree(&not_covered);
+    BOR_FREE(covered);
 }
 
-void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
-                      const pddl_strips_t *strips,
-                      const pddl_mgroups_t *mgroups,
-                      const pddl_mutex_pairs_t *mutex)
+static void encodeMGroups(pddl_mg_strips_t *mg_strips,
+                          pddl_mgroups_t *mgroups)
 {
-    if (strips->has_cond_eff)
-        BOR_FATAL2("pddlMGStripsInit: conditional effects not yet supported.");
-
-    // TODO: Remove subsets from mgroups
-
-    pddlStripsInitCopy(&mg_strips->strips, strips);
-    pddlMGroupsInitEmpty(&mg_strips->mg);
-
-    // Find facts that appear in delete effects but not in the precondition
-    BOR_ISET(uncovered_del_effs);
-    BOR_ISET(tmp);
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
-        const pddl_strips_op_t *op = strips->op.op[op_id];
-        borISetMinus2(&tmp, &op->del_eff, &op->pre);
-        borISetUnion(&uncovered_del_effs, &tmp);
-    }
-    borISetFree(&tmp);
-
-    // First add binary facts we know
-    for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
-        const pddl_fact_t *fact = strips->fact.fact[fact_id];
-        if (fact->neg_of > fact_id){
-            BOR_ISET(facts);
-            BOR_ISET_SET(&facts, fact_id, fact->neg_of);
-            pddl_mgroup_t *mg = pddlMGroupsAdd(&mg_strips->mg, &facts);
-            mg->is_exactly_one = 1;
-            borISetFree(&facts);
-        }
-    }
-
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg_in = mgroups->mgroup + mgi;
         if (borISetSize(&mg_in->mgroup) <= 1)
             continue;
 
-        if (pddlMGroupIsExactlyOne(mg_in, strips)){
+        if (pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &mg_in->mgroup)){
             // Copy exactly-one mutex groups directly to mg-strips
-            pddl_mgroup_t *mg = pddlMGroupsAdd(&mg_strips->mg, &mg_in->mgroup);
-            mg->is_exactly_one = 1;
-            mg->is_fam_group = mg_in->is_fam_group;
-            mg->is_goal = mg_in->is_goal;
+            pddlMGroupsAdd(&mg_strips->mg, &mg_in->mgroup);
 
         }else{
             // Mutex groups that are not exactly-one need "none-of-those"
             // fact
-            makeMGroupExactlyOne(mg_strips, &uncovered_del_effs, mg_in);
+            makeMGroupExactlyOne(mg_strips, mg_in);
         }
     }
+}
 
+static void findUncoveredDelEffs(bor_iset_t *out, const pddl_strips_t *strips)
+{
+    BOR_ISET(tmp);
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->op.op[op_id];
+        borISetMinus2(&tmp, &op->del_eff, &op->pre);
+        borISetUnion(out, &tmp);
+    }
+    borISetFree(&tmp);
+}
+
+static void prepareMGroups(pddl_mgroups_t *dst, const pddl_mgroups_t *src,
+                           const bor_iset_t *uncovered_del_effs)
+{
+    pddlMGroupsInitCopy(dst, src);
+
+    for (int mi = 0; mi < dst->mgroup_size; ++mi)
+        borISetMinus(&dst->mgroup[mi].mgroup, uncovered_del_effs);
+
+    for (int mi = 0; mi < dst->mgroup_size; ++mi){
+        pddl_mgroup_t *m1 = dst->mgroup + mi;
+        int m1size = borISetSize(&m1->mgroup);
+        if (m1size <= 1)
+            continue;
+
+        for (int mi2 = mi + 1; mi2 < dst->mgroup_size; ++mi2){
+            pddl_mgroup_t *m2 = dst->mgroup + mi2;
+            int m2size = borISetSize(&m1->mgroup);
+            if (m2size <= 1)
+                continue;
+
+            if (m1size == m2size){
+                continue;
+            }else if (m1size < m2size){
+                if (borISetIsSubset(&m1->mgroup, &m2->mgroup)){
+                    borISetEmpty(&m1->mgroup);
+                    break;
+                }
+            }else{
+                if (borISetIsSubset(&m2->mgroup, &m1->mgroup))
+                    borISetEmpty(&m2->mgroup);
+            }
+        }
+    }
+    pddlMGroupsRemoveSmall(dst, 1);
+    pddlMGroupsSortUniq(dst);
+    pddlMGroupsSortBySizeDesc(dst);
+}
+                                
+
+void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
+                      const pddl_strips_t *strips,
+                      const pddl_mgroups_t *mgroups_in)
+{
+    if (strips->has_cond_eff)
+        BOR_FATAL2("pddlMGStripsInit: conditional effects not yet supported.");
+
+    // Find facts that appear in delete effects but not in the precondition
+    BOR_ISET(uncovered_del_effs);
+    findUncoveredDelEffs(&uncovered_del_effs, strips);
+
+    // Prepare mutex groups: remove subsets, remove mutex groups having
+    // less than two facts and sort them.
+    pddl_mgroups_t mgroups;
+    prepareMGroups(&mgroups, mgroups_in, &uncovered_del_effs);
+
+    pddlStripsInitCopy(&mg_strips->strips, strips);
+    pddlMGroupsInitEmpty(&mg_strips->mg);
+
+    encodeMGroups(mg_strips, &mgroups);
     encodeBinaryFacts(mg_strips);
 
     borISetFree(&uncovered_del_effs);
+    pddlMGroupsFree(&mgroups);
 
-    pddlStripsPrintDebug(&mg_strips->strips, stderr);
-    pddlMGroupsPrint(NULL, &mg_strips->strips, &mg_strips->mg, stderr);
+    //pddlStripsPrintDebug(&mg_strips->strips, stderr);
+    //pddlMGroupsPrint(NULL, &mg_strips->strips, &mg_strips->mg, stderr);
+
+    // Set flags
+    for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
+        pddl_mgroup_t *mg = mg_strips->mg.mgroup + mi;
+        mg->is_exactly_one = 1;
+        mg->is_goal = !borISetIsDisjunct(&mg->mgroup, &mg_strips->strips.init);
+        mg->is_fam_group = pddlStripsIsFAMGroup(&mg_strips->strips,
+                                                &mg->mgroup);
+        ASSERT_RUNTIME(!borISetIsDisjunct(&mg_strips->strips.init,
+                                          &mg->mgroup));
+        ASSERT_RUNTIME(pddlStripsIsExactlyOneMGroup(&mg_strips->strips,
+                                                    &mg->mgroup));
+    }
 }
 
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips)
