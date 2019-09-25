@@ -29,7 +29,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 //typedef unsigned short pddl_bitset_word_t;
-typedef unsigned long long pddl_bitset_word_t;
+typedef unsigned long pddl_bitset_word_t;
 #define PDDL_BITSET_WORD_BITSIZE (sizeof(pddl_bitset_word_t) * 8)
 
 #define PDDL_BITSET_POPCOUNT(X) __builtin_popcountl(X)
@@ -107,10 +107,26 @@ _bor_inline void pddlBitsetAnd(pddl_bitset_t *dst, const pddl_bitset_t *src)
         dst->bitset[i] &= src->bitset[i];
 }
 
+_bor_inline void pddlBitsetAnd2(pddl_bitset_t *dst,
+                                const pddl_bitset_t *s1,
+                                const pddl_bitset_t *s2)
+{
+    for (int i = 0; i < s1->wordsize; ++i)
+        dst->bitset[i] = s1->bitset[i] & s2->bitset[i];
+}
+
 _bor_inline void pddlBitsetOr(pddl_bitset_t *dst, const pddl_bitset_t *src)
 {
     for (int i = 0; i < src->wordsize; ++i)
         dst->bitset[i] |= src->bitset[i];
+}
+
+_bor_inline void pddlBitsetOr2(pddl_bitset_t *dst,
+                               const pddl_bitset_t *s1,
+                               const pddl_bitset_t *s2)
+{
+    for (int i = 0; i < s1->wordsize; ++i)
+        dst->bitset[i] = s1->bitset[i] | s2->bitset[i];
 }
 
 /**
@@ -164,7 +180,12 @@ _bor_inline int pddlBitsetItNext(pddl_bitset_t *b)
         ffs = PDDL_BITSET_FFS(b->bitset[b->it_word]);
         b->it_id = b->it_word * PDDL_BITSET_WORD_BITSIZE - 1;
     }
-    b->bitset[b->it_word] >>= (pddl_bitset_word_t)ffs;
+
+    // ffs is always at least one so we can avoid the undefined behaviour of
+    // shifting by the bitsize of pddl_bitset_word_t by splitting the
+    // shifts into two.
+    b->bitset[b->it_word] >>= 1;
+    b->bitset[b->it_word] >>= ffs - 1;
     b->it_id += ffs;
     return b->it_id;
 }
