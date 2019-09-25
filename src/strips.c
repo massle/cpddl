@@ -514,7 +514,6 @@ int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
         const pddl_strips_op_t *op = strips->op.op[op_id];
         if (!borISetIsDisjunct(&op->del_eff, facts)
                 && borISetIsDisjunct(&op->add_eff, facts)){
-            fprintf(stderr, "X %s\n", op->name);
             return 0;
         }
 

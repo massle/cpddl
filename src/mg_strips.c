@@ -251,7 +251,7 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
     for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
         pddl_mgroup_t *mg = mg_strips->mg.mgroup + mi;
         mg->is_exactly_one = 1;
-        mg->is_goal = !borISetIsDisjunct(&mg->mgroup, &mg_strips->strips.init);
+        mg->is_goal = !borISetIsDisjunct(&mg->mgroup, &mg_strips->strips.goal);
         mg->is_fam_group = pddlStripsIsFAMGroup(&mg_strips->strips,
                                                 &mg->mgroup);
         ASSERT_RUNTIME(!borISetIsDisjunct(&mg_strips->strips.init,
