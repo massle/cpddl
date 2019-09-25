@@ -29,6 +29,7 @@
 #ifndef __PDDL_DISAMBIGUATION_H__
 #define __PDDL_DISAMBIGUATION_H__
 
+#include <boruvka/hashset.h>
 #include <pddl/strips.h>
 #include <pddl/mutex_pair.h>
 #include <pddl/mgroup.h>
@@ -39,13 +40,15 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_disambiguate_fact {
-    pddl_bitset_t mgroup; /*!< mgroups that does not contian this fact */
-    pddl_bitset_t fact; /*!< facts that are not mutex with this fact */
+    pddl_bitset_t mgroup; /*!< mgroups contianing this fact */
+    pddl_bitset_t not_mgroup; /*!< mgroups that do NOT contian this fact */
+    pddl_bitset_t not_mutex_fact; /*!< facts that are NOT mutex with this fact*/
 };
 typedef struct pddl_disambiguate_fact pddl_disambiguate_fact_t;
 
 struct pddl_disambiguate_mgroup {
     pddl_bitset_t fact; /*!< Facts contained in the mutex group */
+    bor_iset_t mgroup;
 };
 typedef struct pddl_disambiguate_mgroup pddl_disambiguate_mgroup_t;
 
@@ -60,6 +63,7 @@ struct pddl_disambiguate {
     pddl_bitset_t cur_mgroup_it;
     pddl_bitset_t cur_allowed_facts;
     pddl_bitset_t cur_allowed_facts_from_mgroup;
+    pddl_bitset_t tmp_fact_bitset;
 };
 typedef struct pddl_disambiguate pddl_disambiguate_t;
 
@@ -80,12 +84,39 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
 void pddlDisambiguateFree(pddl_disambiguate_t *dis);
 
 /**
+ * Disambiguate the given {set} by the selected mutex groups.
+ * If {mgroup_select} is non-NULL, only the mutex groups having non-empty
+ * intersection with {mgroup_select} and empty intersection with {set} are
+ * selected.
+ * If {mgroup_select} is NULL, then all mutex groups having empty
+ * intersection with {set} are selected.
+ * If {disamb_sets} is non-NULL, it is filled with the subsets of the selected
+ * mutex groups, that are not mutex with {set}.
+ * If {can_extend_with} is non-NULL, then it is filled with the facts that can
+ * extend {set}, because they are the only possible facts from the
+ * corresponding selected mutex groups.
+ * {cand_extend_with} and {set} may point to the same set.
+ *
+ * Return 0 if nothing was found,
+ *        1 if a disambiguation happened,
+ *        -1 if {set} was detected to be a mutex.
+ */
+int pddlDisambiguate(pddl_disambiguate_t *dis,
+                     const bor_iset_t *set,
+                     const bor_iset_t *mgroup_select,
+                     bor_hashset_t *disamb_sets,
+                     bor_iset_t *can_extend_with);
+
+/**
  * Disambiguate a set of facts.
  * Return 0 if nothing was changed,
  *        1 if some facts were added
  *        -1 if the set was detected to be mutex
  */
-int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set);
+_bor_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set)
+{
+    return pddlDisambiguate(dis, set, NULL, NULL, set);
+}
 
 /**
  * Update structure with additional mutex {f1, f2}.

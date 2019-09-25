@@ -129,6 +129,14 @@ _bor_inline void pddlBitsetOr2(pddl_bitset_t *dst,
         dst->bitset[i] = s1->bitset[i] | s2->bitset[i];
 }
 
+_bor_inline int pddlBitsetCnt(const pddl_bitset_t *s)
+{
+    int cnt = 0;
+    for (int i = 0; i < s->wordsize; ++i)
+        cnt += PDDL_BITSET_POPCOUNT(s->bitset[i]);
+    return cnt;
+}
+
 /**
  * Computes dst = s1 & s2 but terminates as soon as the number of ones is
  * higher than one and returns the detected number of ones.
