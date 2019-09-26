@@ -57,6 +57,8 @@ struct pddl_disambiguate {
     int fact_size;
     pddl_disambiguate_mgroup_t *mgroup;
     int mgroup_size;
+    pddl_bitset_t all_mgroups;
+    pddl_bitset_t all_facts;
 
     /** Preallocated bitset for internal computation */
     pddl_bitset_t cur_mgroup;
@@ -64,6 +66,7 @@ struct pddl_disambiguate {
     pddl_bitset_t cur_allowed_facts;
     pddl_bitset_t cur_allowed_facts_from_mgroup;
     pddl_bitset_t tmp_fact_bitset;
+    pddl_bitset_t tmp_mgroup_bitset;
 };
 typedef struct pddl_disambiguate pddl_disambiguate_t;
 
@@ -86,7 +89,9 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis);
 /**
  * Disambiguate the given {set} by the selected mutex groups.
  * If {mgroup_select} is non-NULL, only the mutex groups having non-empty
- * intersection with {mgroup_select} and empty intersection with {set} are
+ * intersection with {mgroup_select} are selected.
+ * If {only_disjunct_mgroups} is true, then only mutex groups with empty
+ * intersection with {set} are considered.
  * selected.
  * If {mgroup_select} is NULL, then all mutex groups having empty
  * intersection with {set} are selected.
@@ -104,6 +109,7 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis);
 int pddlDisambiguate(pddl_disambiguate_t *dis,
                      const bor_iset_t *set,
                      const bor_iset_t *mgroup_select,
+                     int only_disjunct_mgroups,
                      bor_hashset_t *disamb_sets,
                      bor_iset_t *can_extend_with);
 
@@ -115,7 +121,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
  */
 _bor_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set)
 {
-    return pddlDisambiguate(dis, set, NULL, NULL, set);
+    return pddlDisambiguate(dis, set, NULL, 1, NULL, set);
 }
 
 /**
