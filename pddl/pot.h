@@ -22,7 +22,7 @@
 #include <boruvka/htable.h>
 #include <boruvka/segmarr.h>
 #include <pddl/fdr.h>
-#include <pddl/strips.h>
+#include <pddl/mg_strips.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,16 +35,19 @@ struct pddl_pot_constr {
 };
 typedef struct pddl_pot_constr pddl_pot_constr_t;
 
+struct pddl_pot_constrs {
+    pddl_pot_constr_t *c;
+    int size;
+    int alloc;
+};
+typedef struct pddl_pot_constrs pddl_pot_constrs_t;
+
 struct pddl_pot {
     int var_size; /*!< Number of LP variables */
     double *obj; /*!< Objective function coeficients */
-    pddl_pot_constr_t *constr_op; /*!< Operator constraints */
-    int constr_op_size;
-    int constr_op_alloc;
-    pddl_pot_constr_t constr_goal; /*!< Goal constraint */
-    pddl_pot_constr_t *constr_maxpot; /*!< Maxpot constraints */
-    int constr_maxpot_size;
-    int constr_maxpot_alloc;
+    pddl_pot_constrs_t constr_op; /*!< Operator constraints */
+    pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
+    pddl_pot_constrs_t constr_maxpot; /*!< Maxpot constraints */
 
     bor_segmarr_t *maxpot;
     int maxpot_size;
@@ -55,6 +58,9 @@ struct pddl_pot {
 typedef struct pddl_pot pddl_pot_t;
 
 void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr);
+void pddlPotInitMGStrips(pddl_pot_t *pot,
+                         const pddl_mg_strips_t *mg_strips,
+                         const pddl_mutex_pairs_t *mutex);
 void pddlPotFree(pddl_pot_t *pot);
 
 void pddlPotSetObjFDRState(pddl_pot_t *pot,

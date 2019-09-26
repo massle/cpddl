@@ -52,6 +52,20 @@ static int htableEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
     return borISetEq(&m1->vars, &m2->vars);
 }
 
+static pddl_pot_constr_t *addConstr(pddl_pot_constrs_t *cs)
+{
+    if (cs->size >= cs->alloc){
+        if (cs->alloc == 0)
+            cs->alloc = 4;
+        cs->alloc *= 2;
+        cs->c = BOR_REALLOC_ARR(cs->c, pddl_pot_constr_t, cs->alloc);
+    }
+
+    pddl_pot_constr_t *c = cs->c + cs->size++;
+    bzero(c, sizeof(*c));
+    return c;
+}
+
 static int fdrVar(const pddl_pot_t *pot, int var, int val)
 {
     return pot->fdr_var_offset[var] + val;
@@ -59,17 +73,7 @@ static int fdrVar(const pddl_pot_t *pot, int var, int val)
 
 static void addMaxpotConstr(pddl_pot_t *pot, int maxpot_var_id, int var_id)
 {
-    if (pot->constr_maxpot_size >= pot->constr_maxpot_alloc){
-        if (pot->constr_maxpot_alloc == 0)
-            pot->constr_maxpot_alloc = 4;
-        pot->constr_maxpot_alloc *= 2;
-        pot->constr_maxpot = BOR_REALLOC_ARR(pot->constr_maxpot,
-                                             pddl_pot_constr_t,
-                                             pot->constr_maxpot_alloc);
-    }
-
-    pddl_pot_constr_t *c = pot->constr_maxpot + pot->constr_maxpot_size++;
-    bzero(c, sizeof(*c));
+    pddl_pot_constr_t *c = addConstr(&pot->constr_maxpot);
     borISetAdd(&c->plus, var_id);
     borISetAdd(&c->minus, maxpot_var_id);
     c->rhs = 0;
@@ -123,16 +127,7 @@ static void addFDROp(pddl_pot_t *pot,
                      const pddl_fdr_vars_t *vars,
                      const pddl_fdr_op_t *op)
 {
-    if (pot->constr_op_size >= pot->constr_op_alloc){
-        if (pot->constr_op_alloc == 0)
-            pot->constr_op_alloc = 4;
-        pot->constr_op_alloc *= 2;
-        pot->constr_op = BOR_REALLOC_ARR(pot->constr_op, pddl_pot_constr_t,
-                                         pot->constr_op_alloc);
-    }
-
-    pddl_pot_constr_t *c = pot->constr_op + pot->constr_op_size++;
-    bzero(c, sizeof(*c));
+    pddl_pot_constr_t *c = addConstr(&pot->constr_op);
 
     for (int effi = 0; effi < op->eff.fact_size; ++effi){
         const pddl_fdr_fact_t *eff = op->eff.fact + effi;
@@ -147,24 +142,35 @@ static void addFDROp(pddl_pot_t *pot,
     c->rhs = op->cost;
 }
 
-static void setFDRGoal(pddl_pot_t *pot,
+static void addFDRGoal(pddl_pot_t *pot,
                        const pddl_fdr_vars_t *vars,
                        const pddl_fdr_part_state_t *goal)
 {
+    pddl_pot_constr_t *c = addConstr(&pot->constr_goal);
     for (int var_id = 0; var_id < vars->var_size; ++var_id){
         int eff = pddlFDRPartStateGet(goal, var_id);
         if (eff >= 0){
-            borISetAdd(&pot->constr_goal.plus, fdrVar(pot, var_id, eff));
+            borISetAdd(&c->plus, fdrVar(pot, var_id, eff));
         }else{
-            borISetAdd(&pot->constr_goal.plus, getFDRMaxpot(pot, var_id, vars));
+            borISetAdd(&c->plus, getFDRMaxpot(pot, var_id, vars));
         }
     }
-    pot->constr_goal.rhs = 0;
+    c->rhs = 0;
+}
+
+static void init(pddl_pot_t *pot, int maxpot_segm_size)
+{
+    bzero(pot, sizeof(*pot));
+
+    int segm_size = BOR_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
+    pot->maxpot_size = 0;
+    pot->maxpot = borSegmArrNew(sizeof(maxpot_t), segm_size);
+    pot->maxpot_htable = borHTableNew(htableHash, htableEq, NULL);
 }
 
 void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
 {
-    bzero(pot, sizeof(*pot));
+    init(pot, fdr->var.var_size);
 
     pot->fdr_var_offset = BOR_CALLOC_ARR(int, fdr->var.var_size);
     for (int vi = 1; vi < fdr->var.var_size; ++vi){
@@ -174,19 +180,18 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
     pot->var_size = pot->fdr_var_offset[fdr->var.var_size - 1];
     pot->var_size += fdr->var.var[fdr->var.var_size - 1].val_size;
 
-    int segm_size = BOR_MAX(fdr->var.var_size, 8) * sizeof(maxpot_t);
-    pot->maxpot_size = 0;
-    pot->maxpot = borSegmArrNew(sizeof(maxpot_t), segm_size);
-    pot->maxpot_htable = borHTableNew(htableHash, htableEq, NULL);
-
-    pot->constr_op_alloc = fdr->op.op_size;
-    pot->constr_op = BOR_ALLOC_ARR(pddl_pot_constr_t, pot->constr_op_alloc);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
         addFDROp(pot, &fdr->var, fdr->op.op[op_id]);
 
-    setFDRGoal(pot, &fdr->var, &fdr->goal);
+    addFDRGoal(pot, &fdr->var, &fdr->goal);
 
     pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
+}
+
+void pddlPotInitMGStrips(pddl_pot_t *pot,
+                         const pddl_mg_strips_t *mg_strips,
+                         const pddl_mutex_pairs_t *mutex)
+{
 }
 
 void pddlPotFree(pddl_pot_t *pot)
@@ -242,6 +247,15 @@ static void setConstr(bor_lp_t *lp,
     borLPSetRHS(lp, row, c->rhs, 'L');
 }
 
+static void setConstrs(bor_lp_t *lp,
+                       const pddl_pot_t *pot,
+                       const pddl_pot_constrs_t *cs,
+                       int *row)
+{
+    for (int ci = 0; ci < cs->size; ++ci)
+        setConstr(lp, (*row)++, pot, cs->c + ci);
+}
+
 int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
 {
     int ret = 0;
@@ -251,7 +265,9 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     lp_flags  = BOR_LP_MAX;
     lp_flags |= BOR_LP_NUM_THREADS(1);
 
-    int rows = pot->constr_op_size + 1 + pot->constr_maxpot_size;
+    int rows = pot->constr_op.size;
+    rows += pot->constr_goal.size;
+    rows += pot->constr_maxpot.size;
     lp = borLPNew(rows, pot->var_size, lp_flags);
 
     for (int i = 0; i < pot->var_size; ++i){
@@ -262,11 +278,9 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     }
 
     int row = 0;
-    for (int ci = 0; ci < pot->constr_op_size; ++ci)
-        setConstr(lp, row++, pot, pot->constr_op + ci);
-    setConstr(lp, row++, pot, &pot->constr_goal);
-    for (int ci = 0; ci < pot->constr_maxpot_size; ++ci)
-        setConstr(lp, row++, pot, pot->constr_maxpot + ci);
+    setConstrs(lp, pot, &pot->constr_op, &row);
+    setConstrs(lp, pot, &pot->constr_goal, &row);
+    setConstrs(lp, pot, &pot->constr_maxpot, &row);
 
     double objval, *obj;
     obj = BOR_CALLOC_ARR(double, pot->var_size);
