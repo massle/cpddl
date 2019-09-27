@@ -47,7 +47,6 @@ struct pddl_pot {
     double *obj; /*!< Objective function coeficients */
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
-    pddl_pot_constrs_t constr_maxpot; /*!< Maxpot constraints */
 
     bor_segmarr_t *maxpot;
     int maxpot_size;
@@ -68,6 +67,8 @@ void pddlPotSetObjFDRState(pddl_pot_t *pot,
                            const int *state);
 void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
                                         const pddl_fdr_vars_t *vars);
+
+void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
 
 
 int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp);

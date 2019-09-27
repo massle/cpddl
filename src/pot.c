@@ -20,13 +20,22 @@
 #include <boruvka/hfunc.h>
 #include <boruvka/lp.h>
 #include "pddl/pot.h"
+#include "pddl/disambiguation.h"
+#include "assert.h"
 
 #define LPVAR_UPPER 1E9
 #define LPVAR_LOWER -1E20
 
-struct maxpot {
-    bor_iset_t vars;
+struct maxpot_var {
     int var_id;
+    int count;
+};
+typedef struct maxpot_var maxpot_var_t;
+
+struct maxpot {
+    maxpot_var_t *var;
+    int var_size;
+    int maxpot_id;
     int id;
 
     bor_htable_key_t hkey;
@@ -34,9 +43,9 @@ struct maxpot {
 };
 typedef struct maxpot maxpot_t;
 
-static bor_htable_key_t maxpotComputeHash(const bor_iset_t *set)
+static bor_htable_key_t maxpotComputeHash(const maxpot_t *m)
 {
-    return borCityHash_64(set->s, sizeof(int) * set->size);
+    return borCityHash_64(m->var, sizeof(maxpot_var_t) * m->var_size);
 }
 
 static bor_htable_key_t htableHash(const bor_list_t *key, void *_)
@@ -49,7 +58,9 @@ static int htableEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
 {
     const maxpot_t *m1 = BOR_LIST_ENTRY(key1, maxpot_t, htable);
     const maxpot_t *m2 = BOR_LIST_ENTRY(key2, maxpot_t, htable);
-    return borISetEq(&m1->vars, &m2->vars);
+    if (m1->var_size != m2->var_size)
+        return 0;
+    return memcmp(m1->var, m2->var, sizeof(maxpot_var_t) * m1->var_size) == 0;
 }
 
 static pddl_pot_constr_t *addConstr(pddl_pot_constrs_t *cs)
@@ -71,43 +82,35 @@ static int fdrVar(const pddl_pot_t *pot, int var, int val)
     return pot->fdr_var_offset[var] + val;
 }
 
-static void addMaxpotConstr(pddl_pot_t *pot, int maxpot_var_id, int var_id)
-{
-    pddl_pot_constr_t *c = addConstr(&pot->constr_maxpot);
-    borISetAdd(&c->plus, var_id);
-    borISetAdd(&c->minus, maxpot_var_id);
-    c->rhs = 0;
-}
-
-static void addMaxpotConstrs(pddl_pot_t *pot,
-                             int maxpot_var_id,
-                             const bor_iset_t *maxpot_vars)
-{
-    int var_id;
-    BOR_ISET_FOR_EACH(maxpot_vars, var_id)
-        addMaxpotConstr(pot, maxpot_var_id, var_id);
-}
-
-static int getMaxpot(pddl_pot_t *pot, const bor_iset_t *set)
+static int getMaxpot(pddl_pot_t *pot,
+                     const bor_iset_t *set,
+                     const int *count)
 {
     maxpot_t *m = borSegmArrGet(pot->maxpot, pot->maxpot_size);
-    m->vars = *set;
-    m->hkey = maxpotComputeHash(set);
+
+    m->var_size = borISetSize(set);
+    m->var = BOR_CALLOC_ARR(maxpot_var_t, m->var_size);
+    for (int i = 0; i < m->var_size; ++i){
+        m->var[i].var_id = borISetGet(set, i);
+        if (count != NULL)
+            m->var[i].count = count[m->var[i].var_id];
+    }
+    m->hkey = maxpotComputeHash(m);
     borListInit(&m->htable);
 
     bor_list_t *found;
     found = borHTableInsertUnique(pot->maxpot_htable, &m->htable);
     if (found == NULL){
-        borISetInit(&m->vars);
-        borISetUnion(&m->vars, set);
         m->id = pot->maxpot_size++;
-        m->var_id = pot->var_size++;
-        addMaxpotConstrs(pot, m->var_id, &m->vars);
-        return m->var_id;
+        m->maxpot_id = pot->var_size++;
+        return m->maxpot_id;
 
     }else{
+        if (m->var != NULL)
+            BOR_FREE(m->var);
+
         m = BOR_LIST_ENTRY(found, maxpot_t, htable);
-        return m->var_id;
+        return m->maxpot_id;
     }
 }
 
@@ -118,7 +121,7 @@ static int getFDRMaxpot(pddl_pot_t *pot,
     BOR_ISET(lp_vars);
     for (int val = 0; val < vars->var[var_id].val_size; ++val)
         borISetAdd(&lp_vars, fdrVar(pot, var_id, val));
-    int lp_var_id = getMaxpot(pot, &lp_vars);
+    int lp_var_id = getMaxpot(pot, &lp_vars, NULL);
     borISetFree(&lp_vars);
     return lp_var_id;
 }
@@ -158,6 +161,86 @@ static void addFDRGoal(pddl_pot_t *pot,
     c->rhs = 0;
 }
 
+static void hsetToVarSet(pddl_pot_t *pot,
+                         const bor_hashset_t *hset,
+                         bor_iset_t *var_set)
+{
+    int *count = BOR_CALLOC_ARR(int, pot->var_size);
+    for (int seti = 0; seti < hset->size; ++seti){
+        const bor_iset_t *set = borHashSetGet(hset, seti);
+        int fact_id;
+        BOR_ISET_FOR_EACH(set, fact_id)
+            count[fact_id] += 1;
+    }
+
+    for (int seti = 0; seti < hset->size; ++seti){
+        const bor_iset_t *set = borHashSetGet(hset, seti);
+        if (borISetSize(set) == 1){
+            int fact_id = borISetGet(set, 0);
+            ASSERT(count[fact_id] == 1);
+            borISetAdd(var_set, fact_id);
+        }else{
+            int maxpot_id = getMaxpot(pot, set, count);
+            borISetAdd(var_set, maxpot_id);
+        }
+    }
+
+    if (count != NULL)
+        BOR_FREE(count);
+}
+
+static void addMGStripsOp(pddl_pot_t *pot,
+                          pddl_disambiguate_t *dis,
+                          const pddl_mg_strips_t *mg_strips,
+                          const pddl_strips_op_t *op)
+{
+    bor_hashset_t hset;
+    borHashSetInitISet(&hset);
+
+    if (pddlDisambiguate(dis, &op->pre, &op->add_eff, 0, &hset, NULL) < 0){
+        // Skip unreachable operators
+        fprintf(stderr, "SKIP\n");
+        borHashSetFree(&hset);
+        return;
+    }
+
+    pddl_pot_constr_t *c = addConstr(&pot->constr_op);
+    hsetToVarSet(pot, &hset, &c->plus);
+    borISetUnion(&c->minus, &op->add_eff);
+    c->rhs = op->cost;
+
+    BOR_ISET(inter);
+    borISetIntersect2(&inter, &c->plus, &c->minus);
+    borISetMinus(&c->minus, &inter);
+    borISetMinus(&c->plus, &inter);
+    borISetFree(&inter);
+
+    borHashSetFree(&hset);
+}
+
+static void addMGStripsGoal(pddl_pot_t *pot,
+                            pddl_disambiguate_t *dis,
+                          const pddl_mg_strips_t *mg_strips,
+                            const bor_iset_t *goal)
+{
+    // TODO
+    bor_hashset_t hset;
+    borHashSetInitISet(&hset);
+
+    if (pddlDisambiguate(dis, goal, NULL, 0, &hset, NULL) < 0){
+        // TODO
+        fprintf(stderr, "UNSOLVABLE!!!!\n");
+        borHashSetFree(&hset);
+        return;
+    }
+
+    pddl_pot_constr_t *c = addConstr(&pot->constr_goal);
+    hsetToVarSet(pot, &hset, &c->plus);
+    c->rhs = 0;
+
+    borHashSetFree(&hset);
+}
+
 static void init(pddl_pot_t *pot, int maxpot_segm_size)
 {
     bzero(pot, sizeof(*pot));
@@ -192,6 +275,21 @@ void pddlPotInitMGStrips(pddl_pot_t *pot,
                          const pddl_mg_strips_t *mg_strips,
                          const pddl_mutex_pairs_t *mutex)
 {
+    init(pot, mg_strips->mg.mgroup_size);
+
+    pot->var_size = mg_strips->strips.fact.fact_size;
+
+    pddl_disambiguate_t dis;
+    pddlDisambiguateInit(&dis, mg_strips->strips.fact.fact_size,
+                         mutex, &mg_strips->mg);
+
+    for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id)
+        addMGStripsOp(pot, &dis, mg_strips, mg_strips->strips.op.op[op_id]);
+    addMGStripsGoal(pot, &dis, mg_strips, &mg_strips->strips.goal);
+
+    pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
+
+    pddlDisambiguateFree(&dis);
 }
 
 void pddlPotFree(pddl_pot_t *pot)
@@ -200,10 +298,25 @@ void pddlPotFree(pddl_pot_t *pot)
         borHTableDel(pot->maxpot_htable);
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
         maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
-        borISetFree(&m->vars);
+        if (m->var != NULL)
+            BOR_FREE(m->var);
     }
     if (pot->maxpot != NULL)
         borSegmArrDel(pot->maxpot);
+
+    for (int i = 0; i < pot->constr_op.size; ++i){
+        borISetFree(&pot->constr_op.c[i].plus);
+        borISetFree(&pot->constr_op.c[i].minus);
+    }
+    if (pot->constr_op.c != NULL)
+        BOR_FREE(pot->constr_op.c);
+
+    for (int i = 0; i < pot->constr_goal.size; ++i){
+        borISetFree(&pot->constr_goal.c[i].plus);
+        borISetFree(&pot->constr_goal.c[i].minus);
+    }
+    if (pot->constr_goal.c != NULL)
+        BOR_FREE(pot->constr_goal.c);
 
     if (pot->obj != NULL)
         BOR_FREE(pot->obj);
@@ -233,6 +346,14 @@ void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
     }
 }
 
+void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state)
+{
+    bzero(pot->obj, sizeof(*pot->obj) * pot->var_size);
+    int fact_id;
+    BOR_ISET_FOR_EACH(state, fact_id)
+        pot->obj[fact_id] = 1.;
+}
+
 static void setConstr(bor_lp_t *lp,
                       int row,
                       const pddl_pot_t *pot,
@@ -256,6 +377,30 @@ static void setConstrs(bor_lp_t *lp,
         setConstr(lp, (*row)++, pot, cs->c + ci);
 }
 
+static void setMaxpotConstr(bor_lp_t *lp,
+                            const pddl_pot_t *pot,
+                            const maxpot_t *maxpot,
+                            int *prow)
+{
+    for (int i = 0; i < maxpot->var_size; ++i){
+        double coef = 1.;
+        if (maxpot->var[i].count > 1)
+            coef = 1. / maxpot->var[i].count;
+        int row = (*prow)++;
+        borLPSetCoef(lp, row, maxpot->var[i].var_id, coef);
+        borLPSetCoef(lp, row, maxpot->maxpot_id, -1.);
+        borLPSetRHS(lp, row, 0., 'L');
+    }
+}
+
+static void setMaxpotConstrs(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
+{
+    for (int mi = 0; mi < pot->maxpot_size; ++mi){
+        const maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
+        setMaxpotConstr(lp, pot, m, row);
+    }
+}
+
 int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
 {
     int ret = 0;
@@ -267,7 +412,10 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
 
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
-    rows += pot->constr_maxpot.size;
+    for (int mi = 0; mi < pot->maxpot_size; ++mi){
+        const maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
+        rows += m->var_size;
+    }
     lp = borLPNew(rows, pot->var_size, lp_flags);
 
     for (int i = 0; i < pot->var_size; ++i){
@@ -280,7 +428,7 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     int row = 0;
     setConstrs(lp, pot, &pot->constr_op, &row);
     setConstrs(lp, pot, &pot->constr_goal, &row);
-    setConstrs(lp, pot, &pot->constr_maxpot, &row);
+    setMaxpotConstrs(lp, pot, &row);
 
     double objval, *obj;
     obj = BOR_CALLOC_ARR(double, pot->var_size);
@@ -289,6 +437,10 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     }else{
         bzero(w, sizeof(double) * var_size);
         ret = -1;
+    }
+
+    for (int i = 0; i < pot->var_size; ++i){
+        fprintf(stderr, "w[%d] = %f\n", i, w[i]);
     }
 
     BOR_FREE(obj);
