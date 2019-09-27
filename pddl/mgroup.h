@@ -119,6 +119,11 @@ void pddlMGroupsRemoveSmall(pddl_mgroups_t *mgs, int size);
 void pddlMGroupsRemoveEmpty(pddl_mgroups_t *mgs);
 
 /**
+ * Remove mgroups that are subset of some other mgroup in the set.
+ */
+void pddlMGroupsRemoveSubsets(pddl_mgroups_t *mgs);
+
+/**
  * Returns mutex group cover number, i.e., minimal number of mutex groups
  * needed to cover all facts.
  */

@@ -188,31 +188,7 @@ static void prepareMGroups(pddl_mgroups_t *dst, const pddl_mgroups_t *src,
     for (int mi = 0; mi < dst->mgroup_size; ++mi)
         borISetMinus(&dst->mgroup[mi].mgroup, uncovered_del_effs);
 
-    for (int mi = 0; mi < dst->mgroup_size; ++mi){
-        pddl_mgroup_t *m1 = dst->mgroup + mi;
-        int m1size = borISetSize(&m1->mgroup);
-        if (m1size <= 1)
-            continue;
-
-        for (int mi2 = mi + 1; mi2 < dst->mgroup_size; ++mi2){
-            pddl_mgroup_t *m2 = dst->mgroup + mi2;
-            int m2size = borISetSize(&m1->mgroup);
-            if (m2size <= 1)
-                continue;
-
-            if (m1size == m2size){
-                continue;
-            }else if (m1size < m2size){
-                if (borISetIsSubset(&m1->mgroup, &m2->mgroup)){
-                    borISetEmpty(&m1->mgroup);
-                    break;
-                }
-            }else{
-                if (borISetIsSubset(&m2->mgroup, &m1->mgroup))
-                    borISetEmpty(&m2->mgroup);
-            }
-        }
-    }
+    pddlMGroupsRemoveSubsets(dst);
     pddlMGroupsRemoveSmall(dst, 1);
     pddlMGroupsSortUniq(dst);
     pddlMGroupsSortBySizeDesc(dst);

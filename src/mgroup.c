@@ -627,6 +627,34 @@ void pddlMGroupsRemoveEmpty(pddl_mgroups_t *mgs)
     pddlMGroupsRemoveSmall(mgs, 0);
 }
 
+void pddlMGroupsRemoveSubsets(pddl_mgroups_t *mgs)
+{
+    for (int mi = 0; mi < mgs->mgroup_size; ++mi){
+        pddl_mgroup_t *m1 = mgs->mgroup + mi;
+        int m1size = borISetSize(&m1->mgroup);
+        if (m1size <= 0)
+            continue;
+
+        for (int mi2 = mi + 1; mi2 < mgs->mgroup_size; ++mi2){
+            pddl_mgroup_t *m2 = mgs->mgroup + mi2;
+            int m2size = borISetSize(&m2->mgroup);
+            if (m2size <= 0)
+                continue;
+
+            if (m1size <= m2size){
+                if (borISetIsSubset(&m1->mgroup, &m2->mgroup)){
+                    borISetEmpty(&m1->mgroup);
+                    break;
+                }
+            }else{
+                if (borISetIsSubset(&m2->mgroup, &m1->mgroup))
+                    borISetEmpty(&m2->mgroup);
+            }
+        }
+    }
+    pddlMGroupsRemoveEmpty(mgs);
+}
+
 int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
 {
     if (mgs->mgroup_size == 0)
