@@ -97,6 +97,7 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis);
  * intersection with {set} are selected.
  * If {disamb_sets} is non-NULL, it is filled with the subsets of the selected
  * mutex groups, that are not mutex with {set}.
+ * {disamb_set} must be initialized with borHashSetInitISet().
  * If {can_extend_with} is non-NULL, then it is filled with the facts that can
  * extend {set}, because they are the only possible facts from the
  * corresponding selected mutex groups.
