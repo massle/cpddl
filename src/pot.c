@@ -191,7 +191,6 @@ static void hsetToVarSet(pddl_pot_t *pot,
 
 static void addMGStripsOp(pddl_pot_t *pot,
                           pddl_disambiguate_t *dis,
-                          const pddl_mg_strips_t *mg_strips,
                           const pddl_strips_op_t *op)
 {
     bor_hashset_t hset;
@@ -199,7 +198,6 @@ static void addMGStripsOp(pddl_pot_t *pot,
 
     if (pddlDisambiguate(dis, &op->pre, &op->add_eff, 0, &hset, NULL) < 0){
         // Skip unreachable operators
-        fprintf(stderr, "SKIP\n");
         borHashSetFree(&hset);
         return;
     }
@@ -218,20 +216,16 @@ static void addMGStripsOp(pddl_pot_t *pot,
     borHashSetFree(&hset);
 }
 
-static void addMGStripsGoal(pddl_pot_t *pot,
-                            pddl_disambiguate_t *dis,
-                          const pddl_mg_strips_t *mg_strips,
-                            const bor_iset_t *goal)
+static int addMGStripsGoal(pddl_pot_t *pot,
+                           pddl_disambiguate_t *dis,
+                           const bor_iset_t *goal)
 {
-    // TODO
     bor_hashset_t hset;
     borHashSetInitISet(&hset);
 
     if (pddlDisambiguate(dis, goal, NULL, 0, &hset, NULL) < 0){
-        // TODO
-        fprintf(stderr, "UNSOLVABLE!!!!\n");
         borHashSetFree(&hset);
-        return;
+        return -1;
     }
 
     pddl_pot_constr_t *c = addConstr(&pot->constr_goal);
@@ -239,6 +233,7 @@ static void addMGStripsGoal(pddl_pot_t *pot,
     c->rhs = 0;
 
     borHashSetFree(&hset);
+    return 0;
 }
 
 static void init(pddl_pot_t *pot, int maxpot_segm_size)
@@ -271,9 +266,9 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
     pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
 }
 
-void pddlPotInitMGStrips(pddl_pot_t *pot,
-                         const pddl_mg_strips_t *mg_strips,
-                         const pddl_mutex_pairs_t *mutex)
+int pddlPotInitMGStrips(pddl_pot_t *pot,
+                        const pddl_mg_strips_t *mg_strips,
+                        const pddl_mutex_pairs_t *mutex)
 {
     init(pot, mg_strips->mg.mgroup_size);
 
@@ -284,12 +279,17 @@ void pddlPotInitMGStrips(pddl_pot_t *pot,
                          mutex, &mg_strips->mg);
 
     for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id)
-        addMGStripsOp(pot, &dis, mg_strips, mg_strips->strips.op.op[op_id]);
-    addMGStripsGoal(pot, &dis, mg_strips, &mg_strips->strips.goal);
+        addMGStripsOp(pot, &dis, mg_strips->strips.op.op[op_id]);
+    if (addMGStripsGoal(pot, &dis, &mg_strips->strips.goal) != 0){
+        pddlDisambiguateFree(&dis);
+        pddlPotFree(pot);
+        return -1;
+    }
 
     pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
 
     pddlDisambiguateFree(&dis);
+    return 0;
 }
 
 void pddlPotFree(pddl_pot_t *pot)
@@ -437,10 +437,6 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     }else{
         bzero(w, sizeof(double) * var_size);
         ret = -1;
-    }
-
-    for (int i = 0; i < pot->var_size; ++i){
-        fprintf(stderr, "w[%d] = %f\n", i, w[i]);
     }
 
     BOR_FREE(obj);

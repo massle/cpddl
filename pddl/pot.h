@@ -56,21 +56,51 @@ struct pddl_pot {
 };
 typedef struct pddl_pot pddl_pot_t;
 
+/**
+ * Initialize potential heuristic with FDR planning task.
+ */
 void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr);
-void pddlPotInitMGStrips(pddl_pot_t *pot,
-                         const pddl_mg_strips_t *mg_strips,
-                         const pddl_mutex_pairs_t *mutex);
+
+/**
+ * Initialize potential heuristic with mg-strips task and disambiguation.
+ * If the task is detected to be unsolvable, -1 is returned.
+ * Returns 0 on success.
+ */
+int pddlPotInitMGStrips(pddl_pot_t *pot,
+                        const pddl_mg_strips_t *mg_strips,
+                        const pddl_mutex_pairs_t *mutex);
+
+/**
+ * Free allocated memory.
+ */
 void pddlPotFree(pddl_pot_t *pot);
 
+/**
+ * Set objective function to the given state.
+ * This will work only if {pot} was initialized with *InitFDR()
+ */
 void pddlPotSetObjFDRState(pddl_pot_t *pot,
                            const pddl_fdr_vars_t *vars,
                            const int *state);
+
+/**
+ * Set objective function to all syntactic states.
+ * This will work only if {pot} was initialized with *InitFDR()
+ */
 void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
                                         const pddl_fdr_vars_t *vars);
 
+/**
+ * Set objective function to the given state.
+ * This works only if {pot} was initialized with *InitMGStrips()
+ */
 void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
 
 
+/**
+ * Solve the LP problem and returns potentials via {w}.
+ * Return 0 on success, -1 if solution was not found.
+ */
 int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp);
 
 #ifdef __cplusplus
