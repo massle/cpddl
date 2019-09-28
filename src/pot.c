@@ -77,6 +77,13 @@ static pddl_pot_constr_t *addConstr(pddl_pot_constrs_t *cs)
     return c;
 }
 
+static void putBackLastConstr(pddl_pot_constrs_t *cs)
+{
+    borISetFree(&cs->c[cs->size - 1].plus);
+    borISetFree(&cs->c[cs->size - 1].minus);
+    --cs->size;
+}
+
 static int fdrVar(const pddl_pot_t *pot, int var, int val)
 {
     return pot->fdr_var_offset[var] + val;
@@ -212,6 +219,9 @@ static void addMGStripsOp(pddl_pot_t *pot,
     borISetMinus(&c->minus, &inter);
     borISetMinus(&c->plus, &inter);
     borISetFree(&inter);
+
+    if (borISetSize(&c->plus) == 0 && borISetSize(&c->minus) == 0)
+        putBackLastConstr(&pot->constr_op);
 
     borHashSetFree(&hset);
 }

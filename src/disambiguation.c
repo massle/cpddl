@@ -199,7 +199,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
                      bor_hashset_t *disamb_sets,
                      bor_iset_t *exactly_one)
 {
-    if (dis->mgroup_size == 0 || borISetSize(set) == 0)
+    if (dis->mgroup_size == 0)
         return 0;
 
     int change = 0;
