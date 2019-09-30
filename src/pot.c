@@ -454,3 +454,109 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
 
     return ret;
 }
+
+void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
+                            const pddl_mg_strips_t *mg_strips,
+                            FILE *fout)
+{
+    for (int fid = 0; fid < mg_strips->strips.fact.fact_size; ++fid){
+        fprintf(fout, "\\Fact[%d] = (%s)\n", fid,
+                mg_strips->strips.fact.fact[fid]->name);
+    }
+
+    int fact_id;
+    fprintf(fout, "\\Init:");
+    BOR_ISET_FOR_EACH(&mg_strips->strips.init, fact_id)
+        fprintf(fout, " x%d", fact_id);
+    fprintf(fout, "\n");
+
+    fprintf(fout, "\\Goal:");
+    BOR_ISET_FOR_EACH(&mg_strips->strips.goal, fact_id)
+        fprintf(fout, " x%d", fact_id);
+    fprintf(fout, "\n");
+
+    for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
+        int fact_id;
+        fprintf(fout, "\\MG%d:", mi);
+        BOR_ISET_FOR_EACH(&mg_strips->mg.mgroup[mi].mgroup, fact_id)
+            fprintf(fout, " x%d", fact_id);
+        fprintf(fout, "\n");
+    }
+    fprintf(fout, "Maximize\n");
+    fprintf(fout, "  obj:");
+    int first = 1;
+    for (int i = 0; i < pot->var_size; ++i){
+        if (pot->obj[i] != 0.){
+            if (!first)
+                fprintf(fout, " +");
+            fprintf(fout, " %f x%d", pot->obj[i], i);
+            first = 0;
+        }
+    }
+    fprintf(fout, "\n");
+
+    fprintf(fout, "Subject To\n");
+    fprintf(fout, "\\Ops:\n");
+    for(int ci = 0; ci < pot->constr_op.size; ++ci){
+        const pddl_pot_constr_t *c = pot->constr_op.c + ci;
+        int var;
+
+        int first = 1;
+        BOR_ISET_FOR_EACH(&c->plus, var){
+            if (!first)
+                fprintf(fout, " +");
+            fprintf(fout, " x%d", var);
+            first = 0;
+        }
+        BOR_ISET_FOR_EACH(&c->minus, var)
+            fprintf(fout, " - x%d", var);
+        fprintf(fout, " <= %d\n", c->rhs);
+    }
+
+    fprintf(fout, "\\Goals: (");
+    BOR_ISET_FOR_EACH(&mg_strips->strips.goal, fact_id)
+        fprintf(fout, " x%d", fact_id);
+    fprintf(fout, ")\n");
+    for(int ci = 0; ci < pot->constr_goal.size; ++ci){
+        const pddl_pot_constr_t *c = pot->constr_goal.c + ci;
+        int var;
+
+        int first = 1;
+        BOR_ISET_FOR_EACH(&c->plus, var){
+            if (!first)
+                fprintf(fout, " +");
+            fprintf(fout, " x%d", var);
+            first = 0;
+        }
+        BOR_ISET_FOR_EACH(&c->minus, var)
+            fprintf(fout, " - x%d", var);
+        fprintf(fout, " <= %d\n", c->rhs);
+    }
+
+    fprintf(fout, "\\Maxpots:\n");
+
+    for (int mxi = 0; mxi < pot->maxpot_size; ++mxi){
+        const maxpot_t *m = borSegmArrGet(pot->maxpot, mxi);
+        for (int i = 0; i < m->var_size; ++i){
+            double coef = 1.;
+            if (m->var[i].count > 1)
+                coef = 1. / m->var[i].count;
+            fprintf(fout, "%f x%d - x%d <= 0\n",
+                    coef, m->var[i].var_id, m->maxpot_id);
+        }
+    }
+
+    int mvar = pot->var_size;
+    for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
+        int fact_id;
+        fprintf(fout, "\\M%d:\n", mi);
+        BOR_ISET_FOR_EACH(&mg_strips->mg.mgroup[mi].mgroup, fact_id)
+            fprintf(fout, "x%d - x%d <= 0\n", fact_id, mvar);
+        ++mvar;
+    }
+
+    fprintf(fout, "Bounds\n");
+    for (int i = 0; i < pot->var_size; ++i)
+        fprintf(fout, "-inf <= x%d <= %f\n", i, LPVAR_UPPER);
+    fprintf(fout, "End\n");
+}

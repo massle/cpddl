@@ -45,6 +45,7 @@ typedef struct pddl_pot_constrs pddl_pot_constrs_t;
 struct pddl_pot {
     int var_size; /*!< Number of LP variables */
     double *obj; /*!< Objective function coeficients */
+    // TODO: Deduplicate constraints using hashtable
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
 
@@ -102,6 +103,10 @@ void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
  * Return 0 on success, -1 if solution was not found.
  */
 int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp);
+
+void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
+                            const pddl_mg_strips_t *mg_strips,
+                            FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */
