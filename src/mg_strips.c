@@ -59,16 +59,8 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
             int in_add = !borISetIsDisjunct(&op->add_eff, &facts);
             if (in_del && !in_add)
                 borISetAdd(&op->add_eff, new_fact_id);
-            if (!in_del && in_add){
-#ifdef PDDL_DEBUG
-                BOR_ISET(test);
-                borISetIntersect2(&test, &op->del_eff, &op->pre);
-                borISetIntersect(&test, &mg_in->mgroup);
-                ASSERT(borISetSize(&test) > 0);
-                borISetFree(&test);
-#endif /* PDDL_DEBUG */
+            if (!in_del && in_add)
                 borISetAdd(&op->del_eff, new_fact_id);
-            }
         }
 
         if (borISetIsDisjunct(&mg_strips->strips.init, &facts))
@@ -169,6 +161,34 @@ static void encodeMGroups(pddl_mg_strips_t *mg_strips,
     }
 }
 
+/*
+static void encodeMGroupsNonOverlapLargestFirst(pddl_mg_strips_t *mg_strips,
+                                                pddl_mgroups_t *mgroups)
+{
+    while (mgroups->mgroup_size > 0){
+        pddl_mgroup_t *mg_in = mgroups->mgroup + 0;
+        ASSERT(borISetSize(&mg_in->mgroup) > 1);
+        if (pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &mg_in->mgroup)){
+            // Copy exactly-one mutex groups directly to mg-strips
+            pddlMGroupsAdd(&mg_strips->mg, &mg_in->mgroup);
+
+        }else{
+            // Mutex groups that are not exactly-one need "none-of-those"
+            // fact
+            makeMGroupExactlyOne(mg_strips, mg_in);
+        }
+
+        for (int mi = 1; mi < mgroups->mgroup_size; ++mi)
+            borISetMinus(&mgroups->mgroup[mi].mgroup, &mg_in->mgroup);
+        borISetEmpty(&mg_in->mgroup);
+        pddlMGroupsRemoveSubsets(mgroups);
+        pddlMGroupsRemoveSmall(mgroups, 1);
+        pddlMGroupsSortUniq(mgroups);
+        pddlMGroupsSortBySizeDesc(mgroups);
+    }
+}
+*/
+
 static void findUncoveredDelEffs(bor_iset_t *out, const pddl_strips_t *strips)
 {
     BOR_ISET(tmp);
@@ -215,6 +235,7 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
     pddlMGroupsInitEmpty(&mg_strips->mg);
 
     encodeMGroups(mg_strips, &mgroups);
+    //encodeMGroupsNonOverlapLargestFirst(mg_strips, &mgroups);
     encodeBinaryFacts(mg_strips);
 
     borISetFree(&uncovered_del_effs);
