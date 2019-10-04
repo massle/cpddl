@@ -18,6 +18,7 @@
 
 #include <boruvka/alloc.h>
 #include "pddl/fdr_part_state.h"
+#include "assert.h"
 
 void pddlFDRPartStateInit(pddl_fdr_part_state_t *ps)
 {
@@ -29,6 +30,7 @@ void pddlFDRPartStateInitCopy(pddl_fdr_part_state_t *dst,
 {
     dst->fact_size = src->fact_size;
     dst->fact_alloc = src->fact_alloc;
+    ASSERT(dst->fact_alloc >= dst->fact_size);
     dst->fact = BOR_ALLOC_ARR(pddl_fdr_fact_t, src->fact_alloc);
     memcpy(dst->fact, src->fact, sizeof(*dst->fact) * dst->fact_size);
 }

@@ -98,7 +98,7 @@ int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
                                  int fact, const bor_iset_t *fs);
 
 /**
- * Returns true if fs1 \cup fs2 is a mutex assuming fs1 nor fs2 are
+ * Returns true if fs1 \cup fs2 is a mutex assuming fs1 and fs2 are not
  * mutexes.
  */
 int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
