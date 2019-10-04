@@ -17,6 +17,9 @@
  * See the License for more information.
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include "pddl/mg_strips.h"
 #include "assert.h"
 
@@ -392,4 +395,124 @@ void pddlMGStripsFree(pddl_mg_strips_t *mg_strips)
 {
     pddlStripsFree(&mg_strips->strips);
     pddlMGroupsFree(&mg_strips->mg);
+}
+
+double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
+                                     const pddl_mutex_pairs_t *mutex,
+                                     const char *approxmc_bin,
+                                     int fix_fact)
+{
+    double num = -1.;
+    int fdin[2];
+    int fdout[2];
+
+    if (pipe(fdin) != 0){
+        perror("pipe() filed");
+        return -1.;
+    }
+    if (pipe(fdout) != 0){
+        perror("pipe() filed");
+        return -1.;
+    }
+
+    int pid = fork();
+    if (pid == -1){
+        perror("fork() filed");
+        return -1.;
+
+    }else if (pid == 0){
+        // child
+        close(fdin[1]);
+        close(fdout[0]);
+
+        dup2(fdin[0], STDIN_FILENO);
+        dup2(fdout[1], STDOUT_FILENO);
+        close(fdin[0]);
+        close(fdout[1]);
+        execl(approxmc_bin, approxmc_bin,
+              "--seed", "1234",
+              "--th", "1",
+              "-v", "0",
+              NULL);
+        return -1.;
+
+    }else{
+        // parent
+        close(fdin[0]);
+        close(fdout[1]);
+
+        int num_clauses = 0;
+        num_clauses += mutex->num_mutex_pairs;
+        num_clauses += mg_strips->mg.mgroup_size;
+        if (fix_fact >= 0){
+            num_clauses += 1;
+            dprintf(fdin[1], "c ind %d", fix_fact + 1);
+            for (int f = 0; f < mg_strips->strips.fact.fact_size; ++f){
+                if (f == fix_fact)
+                    continue;
+                if (!pddlMutexPairsIsMutex(mutex, f, fix_fact))
+                    dprintf(fdin[1], " %d", f + 1);
+            }
+            dprintf(fdin[1], " 0\n");
+        }
+
+        dprintf(fdin[1], "p cnf %d %d\n",
+                mg_strips->strips.fact.fact_size,
+                num_clauses);
+        if (fix_fact >= 0)
+            dprintf(fdin[1], "%d 0\n", fix_fact + 1);
+
+        PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2)
+            dprintf(fdin[1], "%d %d 0\n", -(f1 + 1), -(f2 + 1));
+
+        for (int mgi = 0; mgi < mg_strips->mg.mgroup_size; ++mgi){
+            int fact_id;
+            int first = 1;
+            BOR_ISET_FOR_EACH(&mg_strips->mg.mgroup[mgi].mgroup, fact_id){
+                if (!first)
+                    dprintf(fdin[1], " ");
+                dprintf(fdin[1], "%d", fact_id + 1);
+                first = 0;
+            }
+            dprintf(fdin[1], " 0\n");
+        }
+
+        close(fdin[1]);
+
+        FILE *fin = fdopen(fdout[0], "r");
+        ssize_t readsize;
+        size_t size = 0;
+        char *line = NULL;
+
+        while ((readsize = getline(&line, &size, fin)) >= 0){
+            //fprintf(stderr, "L: %s", line);
+            char *found = strstr(line, "Number of solutions is:");
+            if (found != NULL){
+                char *k = found + 24;
+                char *exp;
+                for (exp = k; *exp != '\n' && *exp != ' '; ++exp);
+                ASSERT_RUNTIME(*exp == ' ');
+                *exp = 0x0;
+                ASSERT_RUNTIME(*(++exp) == 'x');
+                ASSERT_RUNTIME(*(++exp) == ' ');
+                ASSERT_RUNTIME(*(++exp) == '2');
+                ASSERT_RUNTIME(*(++exp) == '^');
+                char *end = ++exp;
+                for (; *end >= '0' && *end <= '9'; ++end);
+                *end = 0x0;
+
+                double dk = atof(k);
+                double dexp = atof(exp);
+                num = dk * exp2(dexp);
+                //fprintf(stderr, "F: '%s' x 2^'%s' %f %f : %f\n",
+                //        k, exp, dk, dexp, num);
+            }
+        }
+        if (line != NULL)
+            free(line);
+        fclose(fin);
+
+        wait(NULL);
+        return num;
+    }
 }

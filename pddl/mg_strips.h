@@ -43,6 +43,10 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr);
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
 
 
+double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
+                                     const pddl_mutex_pairs_t *mutex,
+                                     const char *approxmc_bin,
+                                     int fix_fact);
 
 #ifdef __cplusplus
 } /* extern "C" */
