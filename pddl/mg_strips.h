@@ -23,6 +23,7 @@
 #include <pddl/strips.h>
 #include <pddl/mutex_pair.h>
 #include <pddl/mgroup.h>
+#include <pddl/fdr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +39,7 @@ typedef struct pddl_mg_strips pddl_mg_strips_t;
 void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_strips_t *strips,
                       const pddl_mgroups_t *mgroups);
+void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr);
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
 
 

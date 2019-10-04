@@ -258,6 +258,136 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
     }
 }
 
+static void fdrPreToPre(const pddl_fdr_vars_t *vars,
+                        const pddl_fdr_part_state_t *fdr_pre,
+                        bor_iset_t *pre)
+{
+    for (int i = 0; i < fdr_pre->fact_size; ++i){
+        const pddl_fdr_fact_t *f = fdr_pre->fact + i;
+        borISetAdd(pre, vars->var[f->var].val[f->val].global_id);
+    }
+}
+
+static void fdrEffToEff(const pddl_fdr_vars_t *vars,
+                        const pddl_fdr_part_state_t *fdr_pre,
+                        const pddl_fdr_part_state_t *fdr_eff,
+                        bor_iset_t *add_eff,
+                        bor_iset_t *del_eff)
+{
+    int prei = 0;
+    for (int i = 0; i < fdr_eff->fact_size; ++i){
+        const pddl_fdr_fact_t *f = fdr_eff->fact + i;
+        borISetAdd(add_eff, vars->var[f->var].val[f->val].global_id);
+        for (; prei < fdr_pre->fact_size
+                && fdr_pre->fact[prei].var < f->var; ++prei);
+        if (prei < fdr_pre->fact_size && fdr_pre->fact[prei].var == f->var){
+            const pddl_fdr_fact_t *d = fdr_pre->fact + prei;
+            borISetAdd(del_eff, vars->var[d->var].val[d->val].global_id);
+        }else{
+            for (int val = 0; val < vars->var[f->var].val_size; ++val){
+                if (val != f->val)
+                    borISetAdd(del_eff, vars->var[f->var].val[val].global_id);
+            }
+        }
+    }
+}
+
+void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
+{
+    pddlStripsInit(&mg_strips->strips);
+    pddlMGroupsInitEmpty(&mg_strips->mg);
+
+    // Add facts
+    for (int fact_id = 0; fact_id < fdr->var.global_id_size; ++fact_id){
+        const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
+        char name[256];
+        int wsize = snprintf(name, 256, "%s %d", val->name, val->global_id);
+        ASSERT_RUNTIME_M(wsize < 256, "Formatting of the fact name failed"
+                                      " when translating from FDR to STRIPS");
+
+        pddl_fact_t fact;
+        pddlFactInit(&fact);
+        fact.name = name;
+        int id = pddlFactsAdd(&mg_strips->strips.fact, &fact);
+        ASSERT_RUNTIME(id == fact_id);
+        fact.name = NULL;
+        pddlFactFree(&fact);
+    }
+
+    // Set .neg_of for binary variables
+    for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
+        const pddl_fdr_var_t *var = fdr->var.var + var_id;
+        if (var->val_size == 2){
+            int id1 = var->val[0].global_id;
+            int id2 = var->val[1].global_id;
+            mg_strips->strips.fact.fact[id1]->neg_of = id2;
+            mg_strips->strips.fact.fact[id2]->neg_of = id1;
+        }
+    }
+
+    // Add operators
+    int has_cond_eff = 0;
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        const pddl_fdr_op_t *fop = fdr->op.op[op_id];
+        pddl_strips_op_t op;
+        pddlStripsOpInit(&op);
+        op.name = BOR_STRDUP(fop->name);
+        op.cost = fop->cost;
+        fdrPreToPre(&fdr->var, &fop->pre, &op.pre);
+        fdrEffToEff(&fdr->var, &fop->pre, &fop->eff, &op.add_eff, &op.del_eff);
+
+        for (int cei = 0; cei < fop->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *fce = fop->cond_eff + cei;
+            pddl_fdr_part_state_t pre;
+            pddlFDRPartStateInitCopy(&pre, &fop->pre);
+            for (int i = 0; i < fce->pre.fact_size; ++i){
+                pddlFDRPartStateSet(&pre, fce->pre.fact[i].var,
+                                          fce->pre.fact[i].val);
+            }
+
+            pddl_strips_op_t ce;
+            pddlStripsOpInit(&ce);
+            fdrPreToPre(&fdr->var, &fce->pre, &ce.pre);
+            fdrEffToEff(&fdr->var, &pre, &fce->eff, &ce.add_eff, &ce.del_eff);
+            pddlStripsOpAddCondEff(&op, &ce);
+            pddlStripsOpFree(&ce);
+
+            pddlFDRPartStateFree(&pre);
+            has_cond_eff = 1;
+        }
+
+        int id = pddlStripsOpsAdd(&mg_strips->strips.op, &op);
+        ASSERT_RUNTIME(id == op_id);
+        pddlStripsOpFree(&op);
+    }
+    mg_strips->strips.has_cond_eff = has_cond_eff;
+    mg_strips->strips.goal_is_unreachable = fdr->goal_is_unreachable;
+
+    // Set initial state
+    for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
+        int val = fdr->init[var_id];
+        int fact_id = fdr->var.var[var_id].val[val].global_id;
+        borISetAdd(&mg_strips->strips.init, fact_id);
+    }
+
+    // Set goal
+    for (int i = 0; i < fdr->goal.fact_size; ++i){
+        const pddl_fdr_fact_t *f = fdr->goal.fact + i;
+        int fact_id = fdr->var.var[f->var].val[f->val].global_id;
+        borISetAdd(&mg_strips->strips.goal, fact_id);
+    }
+
+    // Convert variables to exactly-one mutex groups
+    for (int var = 0; var < fdr->var.var_size; ++var){
+        BOR_ISET(mg);
+        for (int val = 0; val < fdr->var.var[var].val_size; ++val)
+            borISetAdd(&mg, fdr->var.var[var].val[val].global_id);
+        pddl_mgroup_t *m = pddlMGroupsAdd(&mg_strips->mg, &mg);
+        m->is_exactly_one = 1;
+        borISetFree(&mg);
+    }
+}
+
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips)
 {
     pddlStripsFree(&mg_strips->strips);
