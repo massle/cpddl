@@ -6,6 +6,8 @@
 
 #define POT_INIT_STATE 1
 #define POT_ALL_SYNT_STATES 2
+#define POT_ALL_SYNT_STATES_PLUS_INIT 3
+#define POT_ALL_SYNT_STATES_PLUS_HALF_INIT 4
 
 static int roundOff(double z)
 {
@@ -47,8 +49,33 @@ static int potFDR(const pddl_fdr_t *fdr,
 
     if (pot_type == POT_INIT_STATE){
         pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
+
     }else if (pot_type == POT_ALL_SYNT_STATES){
         pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
+
+    }else if (pot_type == POT_ALL_SYNT_STATES_PLUS_INIT
+                || pot_type == POT_ALL_SYNT_STATES_PLUS_HALF_INIT){
+        pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
+        double *w = BOR_ALLOC_ARR(double, pot.var_size);
+        if (pddlPotSolve(&pot, w, pot.var_size, 0) != 0)
+            BOR_ERR_RET2(err, -1, "Pot failed");
+        int est = potFDRState(&pot, fdr, fdr->init, w);
+        if (w != NULL)
+            BOR_FREE(w);
+
+        pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
+
+        BOR_ISET(vars);
+        for (int var = 0; var < fdr->var.var_size; ++var){
+            int v = fdr->var.var[var].val[fdr->init[var]].global_id;
+            borISetAdd(&vars, v);
+        }
+        double rhs = est;
+        if (pot_type == POT_ALL_SYNT_STATES_PLUS_HALF_INIT)
+            rhs = rhs / 2.;
+        pddlPotSetLowerBoundConstr(&pot, &vars, rhs);
+        borISetFree(&vars);
+
     }else{
         BOR_ERR_RET(err, -1, "Unkown pot-type %d!", pot_type);
     }
@@ -139,8 +166,20 @@ int main(int argc, char *argv[])
         pot_fdr = 1;
         pot_type = POT_ALL_SYNT_STATES;
 
+    }else if (strcmp(argv[1], "fdr-all-synt-states-plus-init") == 0){
+        pot_fdr = 1;
+        pot_type = POT_ALL_SYNT_STATES_PLUS_INIT;
+
+    }else if (strcmp(argv[1], "fdr-all-synt-states-plus-half-init") == 0){
+        pot_fdr = 1;
+        pot_type = POT_ALL_SYNT_STATES_PLUS_HALF_INIT;
+
     }else if (strcmp(argv[1], "init-state") == 0){
         pot_type = POT_INIT_STATE;
+
+    }else{
+        fprintf(stderr, "Error: Unkown type '%s'\n", argv[1]);
+        return -1;
     }
 
     // Determine pddl files

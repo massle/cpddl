@@ -28,6 +28,13 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct pddl_pot_lb_constr {
+    int set;
+    bor_iset_t vars;
+    double rhs;
+};
+typedef struct pddl_pot_lb_constr pddl_pot_lb_constr_t;
+
 struct pddl_pot_constr {
     bor_iset_t plus;
     bor_iset_t minus;
@@ -48,6 +55,7 @@ struct pddl_pot {
     // TODO: Deduplicate constraints using hashtable
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
+    pddl_pot_lb_constr_t constr_lb;
 
     bor_segmarr_t *maxpot;
     int maxpot_size;
@@ -96,6 +104,13 @@ void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
  * This works only if {pot} was initialized with *InitMGStrips()
  */
 void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
+
+/**
+ * Sets lower bound constraint as sum(vars) >= rhs
+ */
+void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
+                                const bor_iset_t *vars,
+                                double rhs);
 
 
 /**

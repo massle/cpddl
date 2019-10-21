@@ -249,6 +249,7 @@ static int addMGStripsGoal(pddl_pot_t *pot,
 static void init(pddl_pot_t *pot, int maxpot_segm_size)
 {
     bzero(pot, sizeof(*pot));
+    pot->constr_lb.set = 0;
 
     int segm_size = BOR_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
     pot->maxpot_size = 0;
@@ -364,6 +365,16 @@ void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state)
         pot->obj[fact_id] = 1.;
 }
 
+void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
+                                const bor_iset_t *vars,
+                                double rhs)
+{
+    pot->constr_lb.set = 1;
+    borISetEmpty(&pot->constr_lb.vars);
+    borISetUnion(&pot->constr_lb.vars, vars);
+    pot->constr_lb.rhs = rhs;
+}
+
 static void setConstr(bor_lp_t *lp,
                       int row,
                       const pddl_pot_t *pot,
@@ -411,6 +422,24 @@ static void setMaxpotConstrs(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
     }
 }
 
+static void setLBConstr(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
+{
+    if (!pot->constr_lb.set)
+        return;
+
+    if (*row == borLPNumRows(lp)){
+        char sense = 'R';
+        borLPAddRows(lp, 1, &pot->constr_lb.rhs, &sense);
+    }else{
+        borLPSetRHS(lp, *row, pot->constr_lb.rhs, 'R');
+    }
+
+    int var;
+    BOR_ISET_FOR_EACH(&pot->constr_lb.vars, var)
+        borLPSetCoef(lp, *row, var, 1.);
+    (*row)++;
+}
+
 int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
 {
     int ret = 0;
@@ -439,6 +468,7 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     setConstrs(lp, pot, &pot->constr_op, &row);
     setConstrs(lp, pot, &pot->constr_goal, &row);
     setMaxpotConstrs(lp, pot, &row);
+    setLBConstr(lp, pot, &row);
 
     double objval, *obj;
     obj = BOR_CALLOC_ARR(double, pot->var_size);
