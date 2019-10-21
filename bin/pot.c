@@ -4,6 +4,9 @@
 
 #define ROUND_EPS 0.001
 
+#define POT_INIT_STATE 1
+#define POT_ALL_SYNT_STATES 2
+
 static int roundOff(double z)
 {
     return ceil(z - ROUND_EPS);
@@ -35,92 +38,121 @@ static int potStripsState(const pddl_pot_t *pot,
     return roundOff(p);
 }
 
-static int potFDR(const pddl_strips_t *strips,
-                  const pddl_mgroups_t *mgroups,
-                  const pddl_mutex_pairs_t *mutex,
+static int potFDR(const pddl_fdr_t *fdr,
+                  int pot_type,
                   bor_err_t *err)
 {
-    unsigned fdr_var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
-    pddl_fdr_t fdr;
-    pddlFDRInitFromStrips(&fdr, strips, mgroups, mutex, fdr_var_flag, err);
-
     pddl_pot_t pot;
-    pddlPotInitFDR(&pot, &fdr);
+    pddlPotInitFDR(&pot, fdr);
+
+    if (pot_type == POT_INIT_STATE){
+        pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
+    }else if (pot_type == POT_ALL_SYNT_STATES){
+        pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
+    }else{
+        BOR_ERR_RET(err, -1, "Unkown pot-type %d!", pot_type);
+    }
 
     double *w = BOR_ALLOC_ARR(double, pot.var_size);
-    pddlPotSetObjFDRState(&pot, &fdr.var, fdr.init);
-    if (pddlPotSolve(&pot, w, pot.var_size, 0) != 0){
-        fprintf(stderr, "Error: Pot failed\n");
-        return -1;
-    }
-    int fdr_init_state = potFDRState(&pot, &fdr, fdr.init, w);
-    fprintf(stdout, "FDR Init state: %d\n", fdr_init_state);
+    if (pddlPotSolve(&pot, w, pot.var_size, 0) != 0)
+        BOR_ERR_RET2(err, -1, "Pot failed");
 
-    int fdr_all_synt_states = potFDRState(&pot, &fdr, fdr.init, w);
-    fprintf(stdout, "FDR All syntactic states: %d\n", fdr_all_synt_states);
+    fprintf(stdout, "1\n");
+    fprintf(stdout, "begin_potentials\n");
+    for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
+        const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
+        fprintf(stdout, "%d %d %.20f\n",
+                fval->var_id, fval->val_id, w[fi]);
+    }
+    fprintf(stdout, "end_potentials\n");
+
+    int pot_init_state = potFDRState(&pot, fdr, fdr->init, w);
+    BOR_INFO(err, "Init state estimate: %d", pot_init_state);
     pddlPotFree(&pot);
     if (w != NULL)
         BOR_FREE(w);
-    pddlFDRFree(&fdr);
     return 0;
 }
-static int potMGStrips(const pddl_strips_t *strips,
-                       const pddl_mgroups_t *mgroups,
-                       const pddl_mutex_pairs_t *mutex_in,
+
+static int potMGStrips(const pddl_fdr_t *fdr,
+                       const pddl_mg_strips_t *mg_strips,
+                       const pddl_mutex_pairs_t *mutex,
+                       int pot_type,
                        bor_err_t *err)
 {
-    pddl_mg_strips_t mg_strips;
-    pddlMGStripsInit(&mg_strips, strips, mgroups);
-
-    pddl_mutex_pairs_t mutex;
-    pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
-    if (pddlH2(&mg_strips.strips, &mutex, NULL, NULL, err) != 0){
-        fprintf(stderr, "Error: ");
-        borErrPrint(err, 1, stderr);
-        return -1;
-    }
+    int ret = 0;
 
     pddl_pot_t pot;
-    if (pddlPotInitMGStrips(&pot, &mg_strips, &mutex) != 0){
-        fprintf(stdout, "MG-Strips: Unsolvable\n");
-    }else{
-        double *w = BOR_ALLOC_ARR(double, pot.var_size);
-        pddlPotSetObjStripsState(&pot, &mg_strips.strips.init);
-        if (pddlPotSolve(&pot, w, pot.var_size, 0) != 0){
-            fprintf(stderr, "Error: Pot failed\n");
-            return -1;
+    if (pddlPotInitMGStrips(&pot, mg_strips, mutex) == 0){
+        if (pot_type == POT_INIT_STATE){
+            pddlPotSetObjStripsState(&pot, &mg_strips->strips.init);
+        }else{
+            BOR_ERR_RET(err, -1, "Unkown pot-type %d!", pot_type);
         }
-        int mgs_init_state = potStripsState(&pot, &mg_strips.strips.init, w);
-        fprintf(stdout, "MG-Strips Init state: %d\n", mgs_init_state);
+
+        double *w = BOR_ALLOC_ARR(double, pot.var_size);
+        if (pddlPotSolve(&pot, w, pot.var_size, 0) != 0)
+            BOR_ERR_RET2(err, -1, "Pot failed");
+
+        fprintf(stdout, "1\n");
+        fprintf(stdout, "begin_potentials\n");
+        for (int fi = 0; fi < mg_strips->strips.fact.fact_size; ++fi){
+            const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
+            fprintf(stdout, "%d %d %.20f\n",
+                    fval->var_id, fval->val_id, w[fi]);
+        }
+        fprintf(stdout, "end_potentials\n");
+        int pot_init_state = potStripsState(&pot, &mg_strips->strips.init, w);
+        BOR_INFO(err, "Init state estimate: %d", pot_init_state);
         if (w != NULL)
             BOR_FREE(w);
+
+    }else{
+        fprintf(stderr, "MG-Strips: Unsolvable\n");
+        ret = -1;
     }
     pddlPotFree(&pot);
-    pddlMGStripsFree(&mg_strips);
-    pddlMutexPairsFree(&mutex);
-    return 0;
+    return ret;
 }
 
 int main(int argc, char *argv[])
 {
+    int pot_type = -1;
+    int pot_fdr = 0;
+
     bor_err_t err = BOR_ERR_INIT;
     borErrWarnEnable(&err, stderr);
     borErrInfoEnable(&err, stderr);
 
+    if (argc < 3 || argc > 4){
+        fprintf(stderr, "Usage: %s pot-type pddl-file(s)\n", argv[0]);
+        return -1;
+    }
+
+    // Determine type of potential heuristic
+    BOR_INFO(&err, "Pot type: '%s'", argv[1]);
+    if (strcmp(argv[1], "fdr-init-state") == 0){
+        pot_fdr = 1;
+        pot_type = POT_INIT_STATE;
+
+    }else if (strcmp(argv[1], "fdr-all-synt-states") == 0){
+        pot_fdr = 1;
+        pot_type = POT_ALL_SYNT_STATES;
+
+    }else if (strcmp(argv[1], "init-state") == 0){
+        pot_type = POT_INIT_STATE;
+    }
+
     // Determine pddl files
     pddl_files_t files;
-    if (argc == 2){
-        BOR_INFO(&err, "Input file: '%s'", argv[1]);
-        if (pddlFiles1(&files, argv[1], &err) != 0)
+    if (argc == 3){
+        BOR_INFO(&err, "Input file: '%s'", argv[2]);
+        if (pddlFiles1(&files, argv[2], &err) != 0)
             BOR_TRACE_RET(&err, -1);
-    }else if (argc == 3){
-        BOR_INFO(&err, "Input files: '%s' and '%s'", argv[1], argv[2]);
-        if (pddlFiles(&files, argv[1], argv[2], &err) != 0)
+    }else if (argc == 4){
+        BOR_INFO(&err, "Input files: '%s' and '%s'", argv[2], argv[3]);
+        if (pddlFiles(&files, argv[2], argv[3], &err) != 0)
             BOR_TRACE_RET(&err, -1);
-    }else{
-        fprintf(stderr, "Usage: %s pddl-file(s)\n", argv[0]);
-        return -1;
     }
     BOR_INFO(&err, "PDDL files: '%s' '%s'\n",
              files.domain_pddl, files.problem_pddl);
@@ -169,7 +201,15 @@ int main(int argc, char *argv[])
     pddlMGroupsSetExactlyOne(&mgroups, &strips);
     pddlMGroupsSetGoal(&mgroups, &strips);
 
-    // TODO: fam-groups
+    /* TODO: fam-groups
+    // Find fam-groups
+    pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
+    if (pddlFAMGroupsInfer(&mgroups, &strips, &fam_cfg, &err) != 0){
+        fprintf(stderr, "Error: ");
+        borErrPrint(&err, 1, stderr);
+        return -1;
+    }
+    */
 
     // Prune strips
     pddl_mutex_pairs_t mutex;
@@ -208,36 +248,50 @@ int main(int argc, char *argv[])
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
-    // Find h^2 mutexes
-    pddlMutexPairsFree(&mutex);
-    pddlMutexPairsInitStrips(&mutex, &strips);
-    if (pddlH2(&strips, &mutex, NULL, NULL, &err) != 0){
-        fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
-        return -1;
+    // Construct FDR
+    pddl_fdr_t fdr;
+    unsigned fdr_var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+
+    pddl_mg_strips_t mg_strips;
+    if (!pot_fdr){
+        // Construct mg-strips from FDR
+        pddlMGStripsInitFDR(&mg_strips, &fdr);
+
+        // Find h^2 mutexes in mg-strips
+        pddlMutexPairsFree(&mutex);
+        pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
+        if (pddlH2(&mg_strips.strips, &mutex, NULL, NULL, &err) != 0){
+            fprintf(stderr, "Error: ");
+            borErrPrint(&err, 1, stderr);
+            return -1;
+        }
     }
 
-    if (potFDR(&strips, &mgroups, &mutex, &err) != 0)
-        return -1;
-    if (potMGStrips(&strips, &mgroups, &mutex, &err) != 0)
-        return -1;
+    // Print out FDR in fast-downward format
+    pddlFDRPrintFD(&fdr, &mgroups, stdout);
 
-    // Find fam-groups
-    pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
-    if (pddlFAMGroupsInfer(&mgroups, &strips, &fam_cfg, &err) != 0){
-        fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
-        return -1;
+    // Compute and print potentials
+    if (pot_fdr){
+        if (potFDR(&fdr, pot_type, &err) != 0){
+            fprintf(stderr, "Error: ");
+            borErrPrint(&err, 1, stderr);
+            return -1;
+        }
+
+    }else{
+        if (potMGStrips(&fdr, &mg_strips, &mutex, pot_type, &err) != 0){
+            fprintf(stderr, "Error: ");
+            borErrPrint(&err, 1, stderr);
+            return -1;
+        }
     }
 
-    fprintf(stdout, "With fam-groups:\n");
-    if (potFDR(&strips, &mgroups, &mutex, &err) != 0)
-        return -1;
-    if (potMGStrips(&strips, &mgroups, &mutex, &err) != 0)
-        return -1;
-
+    if (!pot_fdr)
+        pddlMGStripsFree(&mg_strips);
 
     optsClear();
+    pddlFDRFree(&fdr);
     pddlMutexPairsFree(&mutex);
     pddlMGroupsFree(&mgroups);
     pddlStripsFree(&strips);
