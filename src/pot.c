@@ -203,7 +203,7 @@ static void addMGStripsOp(pddl_pot_t *pot,
     bor_hashset_t hset;
     borHashSetInitISet(&hset);
 
-    if (pddlDisambiguate(dis, &op->pre, &op->add_eff, 0, &hset, NULL) < 0){
+    if (pddlDisambiguate(dis, &op->pre, &op->add_eff, 0, 0, &hset, NULL) < 0){
         // Skip unreachable operators
         borHashSetFree(&hset);
         return;
@@ -233,7 +233,7 @@ static int addMGStripsGoal(pddl_pot_t *pot,
     bor_hashset_t hset;
     borHashSetInitISet(&hset);
 
-    if (pddlDisambiguate(dis, goal, NULL, 0, &hset, NULL) < 0){
+    if (pddlDisambiguate(dis, goal, NULL, 0, 0, &hset, NULL) < 0){
         borHashSetFree(&hset);
         return -1;
     }
