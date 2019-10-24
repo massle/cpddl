@@ -80,6 +80,13 @@ int pddlPotInitMGStrips(pddl_pot_t *pot,
                         const pddl_mutex_pairs_t *mutex);
 
 /**
+ * Same as pddlPotInitMGStrips() but a single-fact disambiguation is used.
+ */
+int pddlPotInitMGStripsSingleFactDisamb(pddl_pot_t *pot,
+                                        const pddl_mg_strips_t *mg_strips,
+                                        const pddl_mutex_pairs_t *mutex);
+
+/**
  * Free allocated memory.
  */
 void pddlPotFree(pddl_pot_t *pot);
