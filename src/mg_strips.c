@@ -304,7 +304,9 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
     for (int fact_id = 0; fact_id < fdr->var.global_id_size; ++fact_id){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
         char name[256];
-        int wsize = snprintf(name, 256, "%s %d", val->name, val->global_id);
+        int wsize = snprintf(name, 256, "%s %d-%d-%d",
+                             val->name, val->var_id, val->val_id,
+                             val->global_id);
         ASSERT_RUNTIME_M(wsize < 256, "Formatting of the fact name failed"
                                       " when translating from FDR to STRIPS");
 
