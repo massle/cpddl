@@ -84,11 +84,6 @@ static void putBackLastConstr(pddl_pot_constrs_t *cs)
     --cs->size;
 }
 
-static int fdrVar(const pddl_pot_t *pot, int var, int val)
-{
-    return pot->fdr_var_offset[var] + val;
-}
-
 static int getMaxpot(pddl_pot_t *pot,
                      const bor_iset_t *set,
                      const int *count)
@@ -127,7 +122,7 @@ static int getFDRMaxpot(pddl_pot_t *pot,
 {
     BOR_ISET(lp_vars);
     for (int val = 0; val < vars->var[var_id].val_size; ++val)
-        borISetAdd(&lp_vars, fdrVar(pot, var_id, val));
+        borISetAdd(&lp_vars, vars->var[var_id].val[val].global_id);
     int lp_var_id = getMaxpot(pot, &lp_vars, NULL);
     borISetFree(&lp_vars);
     return lp_var_id;
@@ -143,11 +138,11 @@ static void addFDROp(pddl_pot_t *pot,
         const pddl_fdr_fact_t *eff = op->eff.fact + effi;
         int pre = pddlFDRPartStateGet(&op->pre, eff->var);
         if (pre >= 0){
-            borISetAdd(&c->plus, fdrVar(pot, eff->var, pre));
+            borISetAdd(&c->plus, vars->var[eff->var].val[pre].global_id);
         }else{
             borISetAdd(&c->plus, getFDRMaxpot(pot, eff->var, vars));
         }
-        borISetAdd(&c->minus, fdrVar(pot, eff->var, eff->val));
+        borISetAdd(&c->minus, vars->var[eff->var].val[eff->val].global_id);
     }
     c->rhs = op->cost;
 }
@@ -160,7 +155,7 @@ static void addFDRGoal(pddl_pot_t *pot,
     for (int var_id = 0; var_id < vars->var_size; ++var_id){
         int eff = pddlFDRPartStateGet(goal, var_id);
         if (eff >= 0){
-            borISetAdd(&c->plus, fdrVar(pot, var_id, eff));
+            borISetAdd(&c->plus, vars->var[var_id].val[eff].global_id);
         }else{
             borISetAdd(&c->plus, getFDRMaxpot(pot, var_id, vars));
         }
@@ -264,14 +259,7 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
 {
     init(pot, fdr->var.var_size);
 
-    pot->fdr_var_offset = BOR_CALLOC_ARR(int, fdr->var.var_size);
-    for (int vi = 1; vi < fdr->var.var_size; ++vi){
-        pot->fdr_var_offset[vi] = pot->fdr_var_offset[vi - 1];
-        pot->fdr_var_offset[vi] += fdr->var.var[vi - 1].val_size;
-    }
-    pot->var_size = pot->fdr_var_offset[fdr->var.var_size - 1];
-    pot->var_size += fdr->var.var[fdr->var.var_size - 1].val_size;
-
+    pot->var_size = fdr->var.global_id_size;
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
         addFDROp(pot, &fdr->var, fdr->op.op[op_id]);
 
@@ -350,11 +338,10 @@ void pddlPotFree(pddl_pot_t *pot)
     if (pot->constr_goal.c != NULL)
         BOR_FREE(pot->constr_goal.c);
 
+    borISetFree(&pot->constr_lb.vars);
+
     if (pot->obj != NULL)
         BOR_FREE(pot->obj);
-
-    if (pot->fdr_var_offset != NULL)
-        BOR_FREE(pot->fdr_var_offset);
 }
 
 void pddlPotSetObjFDRState(pddl_pot_t *pot,
@@ -363,7 +350,7 @@ void pddlPotSetObjFDRState(pddl_pot_t *pot,
 {
     bzero(pot->obj, sizeof(*pot->obj) * pot->var_size);
     for (int var_id = 0; var_id < vars->var_size; ++var_id)
-        pot->obj[fdrVar(pot, var_id, state[var_id])] = 1.;
+        pot->obj[vars->var[var_id].val[state[var_id]].global_id] = 1.;
 }
 
 void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
@@ -373,7 +360,7 @@ void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
     for (int var_id = 0; var_id < vars->var_size; ++var_id){
         double c = 1. / vars->var[var_id].val_size;
         for (int val = 0; val < vars->var[var_id].val_size; ++val){
-            pot->obj[fdrVar(pot, var_id, val)] = c;
+            pot->obj[vars->var[var_id].val[val].global_id] = c;
         }
     }
 }
@@ -394,6 +381,11 @@ void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
     borISetEmpty(&pot->constr_lb.vars);
     borISetUnion(&pot->constr_lb.vars, vars);
     pot->constr_lb.rhs = rhs;
+}
+
+void pddlPotResetLowerBoundConstr(pddl_pot_t *pot)
+{
+    pot->constr_lb.set = 0;
 }
 
 static void setConstr(bor_lp_t *lp,

@@ -60,19 +60,19 @@ struct pddl_pot {
     bor_segmarr_t *maxpot;
     int maxpot_size;
     bor_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
-
-    int *fdr_var_offset; /*!< LP variable ID = .fdr_var_offset[var] + val */
 };
 typedef struct pddl_pot pddl_pot_t;
 
 /**
  * Initialize potential heuristic with FDR planning task.
+ * Global IDs of the facts are the same as IDs of the LP variables.
  */
 void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr);
 
 /**
  * Initialize potential heuristic with mg-strips task and disambiguation.
  * If the task is detected to be unsolvable, -1 is returned.
+ * Fact IDs are the same as IDs of the LP variables.
  * Returns 0 on success.
  */
 int pddlPotInitMGStrips(pddl_pot_t *pot,
@@ -118,6 +118,11 @@ void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
 void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
                                 const bor_iset_t *vars,
                                 double rhs);
+
+/**
+ * Removes the lower bound constraints.
+ */
+void pddlPotResetLowerBoundConstr(pddl_pot_t *pot);
 
 
 /**
