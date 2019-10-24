@@ -48,6 +48,7 @@ OBJS += sym
 OBJS += famgroup
 OBJS += pot
 OBJS += mg_strips
+OBJS += preprocess
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
