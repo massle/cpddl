@@ -22,11 +22,8 @@
 #include "pddl/irrelevance.h"
 #include "pddl/preprocess.h"
 
-int pddlPruneFDR(pddl_fdr_t *fdr, bor_err_t *err)
+static int pddlPruneFDRH2FwBw(pddl_fdr_t *fdr, bor_err_t *err)
 {
-    BOR_INFO(err, "Pruning of FDR. ops: %d, facts: %d, vars: %d",
-             fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
-
     pddl_mg_strips_t mg_strips;
     pddl_mutex_pairs_t mutex;
 
@@ -43,24 +40,6 @@ int pddlPruneFDR(pddl_fdr_t *fdr, bor_err_t *err)
         BOR_TRACE_RET(err, -1);
     }
 
-    BOR_ISET(irr_fact);
-    BOR_ISET(irr_op);
-    BOR_ISET(static_fact);
-    if (fdr->has_cond_eff){
-        BOR_INFO2(err, "Skipping irrelevance analysis, because FDR has"
-                       " conditional effects.");
-
-    }else if (pddlIrrelevanceAnalysis(&mg_strips.strips, &irr_fact, &irr_op,
-                                      &static_fact, err) != 0){
-        BOR_TRACE_RET(err, -1);
-    }
-    borISetUnion(&rm_fact, &irr_fact);
-    borISetUnion(&rm_op, &irr_op);
-
-    borISetFree(&irr_fact);
-    borISetFree(&irr_op);
-    borISetFree(&static_fact);
-
     if (borISetSize(&rm_fact) > 0 || borISetSize(&rm_op) > 0)
         pddlFDRReduce(fdr, &rm_fact, &rm_op);
 
@@ -68,6 +47,45 @@ int pddlPruneFDR(pddl_fdr_t *fdr, bor_err_t *err)
     borISetFree(&rm_fact);
     pddlMutexPairsFree(&mutex);
     pddlMGStripsFree(&mg_strips);
+
+    return 0;
+}
+
+static int pddlPruneFDRIrrelevance(pddl_fdr_t *fdr, bor_err_t *err)
+{
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInitFDR(&mg_strips, fdr);
+
+    BOR_ISET(rm_fact);
+    BOR_ISET(rm_op);
+    if (fdr->has_cond_eff){
+        BOR_INFO2(err, "Skipping irrelevance analysis, because FDR has"
+                       " conditional effects.");
+
+    }else if (pddlIrrelevanceAnalysis(&mg_strips.strips, &rm_fact, &rm_op,
+                                      NULL, err) != 0){
+        BOR_TRACE_RET(err, -1);
+    }
+
+    if (borISetSize(&rm_fact) > 0 || borISetSize(&rm_op) > 0)
+        pddlFDRReduce(fdr, &rm_fact, &rm_op);
+
+    borISetFree(&rm_op);
+    borISetFree(&rm_fact);
+    pddlMGStripsFree(&mg_strips);
+
+    return 0;
+}
+
+int pddlPruneFDR(pddl_fdr_t *fdr, bor_err_t *err)
+{
+    BOR_INFO(err, "Pruning of FDR. ops: %d, facts: %d, vars: %d",
+             fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
+
+    if (pddlPruneFDRH2FwBw(fdr, err) != 0)
+        BOR_TRACE_RET(err, -1);
+    if (pddlPruneFDRIrrelevance(fdr, err) != 0)
+        BOR_TRACE_RET(err, -1);
 
     BOR_INFO(err, "Pruning of FDR DONE. ops: %d, facts: %d, vars: %d",
              fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
