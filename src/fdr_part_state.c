@@ -92,3 +92,20 @@ int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,
         cmp = p1->fact[i].var - p2->fact[i].var;
     return cmp;
 }
+
+void pddlFDRPartStateRemapFacts(pddl_fdr_part_state_t *ps,
+                                const pddl_fdr_vars_remap_t *remap)
+{
+    int ins = 0;
+    for (int i = 0; i < ps->fact_size; ++i){
+        pddl_fdr_fact_t *fact = ps->fact + i;
+        if (remap->remap[fact->var][fact->val] != NULL){
+            const pddl_fdr_val_t *v = remap->remap[fact->var][fact->val];
+            ASSERT(v != NULL);
+            fact->var = v->var_id;
+            fact->val = v->val_id;
+            ps->fact[ins++] = *fact;
+        }
+    }
+    ps->fact_size = ins;
+}

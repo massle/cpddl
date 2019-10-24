@@ -84,6 +84,57 @@ void pddlFDRFree(pddl_fdr_t *fdr)
     pddlFDRVarsFree(&fdr->var);
 }
 
+void pddlFDRReduce(pddl_fdr_t *fdr,
+                   const bor_iset_t *del_facts,
+                   const bor_iset_t *del_ops)
+{
+    if (del_ops != NULL && borISetSize(del_ops) > 0)
+        pddlFDROpsDelSet(&fdr->op, del_ops);
+
+    if (del_facts != NULL && borISetSize(del_facts) > 0){
+        int old_var_size = fdr->var.var_size;
+
+        pddl_fdr_vars_remap_t remap;
+        // Delete facts
+        pddlFDRVarsDelFacts(&fdr->var, del_facts, &remap);
+        // Remap facts in operators
+        pddlFDROpsRemapFacts(&fdr->op, &remap);
+
+        // Remap the initial state
+        for (int v = 0; v < old_var_size; ++v){
+            if (remap.remap[v][fdr->init[v]] != NULL){
+                const pddl_fdr_val_t *val = remap.remap[v][fdr->init[v]];
+                fdr->init[val->var_id] = val->val_id;
+            }
+        }
+
+        // Remap goal
+        pddlFDRPartStateRemapFacts(&fdr->goal, &remap);
+
+        // Remove operators with empty effects
+        BOR_ISET(useless_ops);
+        for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+            const pddl_fdr_op_t *op = fdr->op.op[op_id];
+            if (op->eff.fact_size == 0 && op->cond_eff_size == 0)
+                borISetAdd(&useless_ops, op_id);
+        }
+        if (borISetSize(&useless_ops) > 0)
+            pddlFDROpsDelSet(&fdr->op, &useless_ops);
+        borISetFree(&useless_ops);
+
+        // Set cond-eff flag
+        fdr->has_cond_eff = 0;
+        for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+            if (fdr->op.op[op_id]->cond_eff_size > 0){
+                fdr->has_cond_eff = 1;
+                break;
+            }
+        }
+
+        pddlFDRVarsRemapFree(&remap);
+    }
+}
+
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mg,
                     FILE *fout)

@@ -196,6 +196,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
                      const bor_iset_t *set,
                      const bor_iset_t *mgroup_select,
                      int only_disjunct_mgroups,
+                     int single_fact_disamb,
                      bor_hashset_t *disamb_sets,
                      bor_iset_t *exactly_one)
 {
@@ -258,7 +259,8 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
 
             // Update allowed facts to those that are not mutex with at
             // least one of the facts
-            updateCurAllowedFacts(dis, disamb);
+            if (!single_fact_disamb || borISetSize(disamb) <= 1)
+                updateCurAllowedFacts(dis, disamb);
             local_change = 1;
         }
     }

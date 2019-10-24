@@ -93,6 +93,8 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis);
  * If {only_disjunct_mgroups} is true, then only mutex groups with empty
  * intersection with {set} are considered.
  * selected.
+ * If {single_fact_disamb} is set to true, then the fixpoint disambiguation
+ * uses only the disambiguated sets of size at most one.
  * If {mgroup_select} is NULL, then all mutex groups having empty
  * intersection with {set} are selected.
  * If {disamb_sets} is non-NULL, it is filled with the subsets of the selected
@@ -111,6 +113,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
                      const bor_iset_t *set,
                      const bor_iset_t *mgroup_select,
                      int only_disjunct_mgroups,
+                     int single_fact_disamb,
                      bor_hashset_t *disamb_sets,
                      bor_iset_t *can_extend_with);
 
@@ -122,7 +125,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
  */
 _bor_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set)
 {
-    return pddlDisambiguate(dis, set, NULL, 1, NULL, set);
+    return pddlDisambiguate(dis, set, NULL, 1, 0, NULL, set);
 }
 
 /**

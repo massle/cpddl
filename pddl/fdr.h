@@ -44,6 +44,13 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           bor_err_t *err);
 void pddlFDRFree(pddl_fdr_t *fdr);
 
+/**
+ * Delete the specified facts and operators.
+ */
+void pddlFDRReduce(pddl_fdr_t *fdr,
+                   const bor_iset_t *del_facts,
+                   const bor_iset_t *del_ops);
+
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,
                     FILE *fout);

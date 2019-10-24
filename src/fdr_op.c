@@ -20,6 +20,12 @@
 #include "pddl/fdr_op.h"
 #include "assert.h"
 
+static void condEffFree(pddl_fdr_op_cond_eff_t *ce)
+{
+    pddlFDRPartStateFree(&ce->pre);
+    pddlFDRPartStateFree(&ce->eff);
+}
+
 pddl_fdr_op_t *pddlFDROpNewEmpty(void)
 {
     pddl_fdr_op_t *op = BOR_ALLOC(pddl_fdr_op_t);
@@ -33,11 +39,8 @@ void pddlFDROpDel(pddl_fdr_op_t *op)
         BOR_FREE(op->name);
     pddlFDRPartStateFree(&op->pre);
     pddlFDRPartStateFree(&op->eff);
-    for (int cei = 0; cei < op->cond_eff_size; ++cei){
-        pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
-        pddlFDRPartStateFree(&ce->pre);
-        pddlFDRPartStateFree(&ce->eff);
-    }
+    for (int cei = 0; cei < op->cond_eff_size; ++cei)
+        condEffFree(op->cond_eff + cei);
     if (op->cond_eff != NULL)
         BOR_FREE(op->cond_eff);
     BOR_FREE(op);
@@ -58,6 +61,34 @@ pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op)
     return ce;
 }
 
+void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp)
+{
+    pddlFDRPartStateRemapFacts(&op->pre, rmp);
+    pddlFDRPartStateRemapFacts(&op->eff, rmp);
+
+    int ins = 0;
+    for (int cei = 0; cei < op->cond_eff_size; ++cei){
+        pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+        pddlFDRPartStateRemapFacts(&ce->pre, rmp);
+        pddlFDRPartStateRemapFacts(&ce->eff, rmp);
+        if (ce->pre.fact_size == 0){
+            for (int fi = 0; fi < ce->eff.fact_size; ++fi){
+                const pddl_fdr_fact_t *f = ce->eff.fact + fi;
+                ASSERT_RUNTIME(!pddlFDRPartStateIsSet(&ce->eff, f->var));
+                if (!pddlFDRPartStateIsSet(&ce->pre, f->var)
+                        || pddlFDRPartStateGet(&ce->pre, f->var) != f->val){
+                    pddlFDRPartStateSet(&ce->eff, f->var, f->val);
+                }
+            }
+            condEffFree(ce);
+
+        }else{
+            op->cond_eff[ins++] = *ce;
+        }
+    }
+    op->cond_eff_size = ins;
+}
+
 
 void pddlFDROpsInit(pddl_fdr_ops_t *ops)
 {
@@ -72,6 +103,30 @@ void pddlFDROpsFree(pddl_fdr_ops_t *ops)
     }
     if (ops->op != NULL)
         BOR_FREE(ops->op);
+}
+
+void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const bor_iset_t *set)
+{
+    int size = borISetSize(set);
+    int cur = 0;
+    int ins = 0;
+    for (int op_id = 0; op_id < ops->op_size; ++op_id){
+        if (cur < size && borISetGet(set, cur) == op_id){
+            pddlFDROpDel(ops->op[op_id]);
+            ++cur;
+        }else{
+            ops->op[op_id]->id = ins;
+            ops->op[ins++] = ops->op[op_id];
+        }
+    }
+
+    ops->op_size = ins;
+}
+
+void pddlFDROpsRemapFacts(pddl_fdr_ops_t *ops, const pddl_fdr_vars_remap_t *r)
+{
+    for (int op_id = 0; op_id < ops->op_size; ++op_id)
+        pddlFDROpRemapFacts(ops->op[op_id], r);
 }
 
 void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op)
