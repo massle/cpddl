@@ -88,6 +88,21 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *vars,
  */
 void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src);
 
+struct pddl_fdr_vars_remap {
+    int var_size;
+    const pddl_fdr_val_t ***remap;
+};
+typedef struct pddl_fdr_vars_remap pddl_fdr_vars_remap_t;
+
+void pddlFDRVarsRemapFree(pddl_fdr_vars_remap_t *remap);
+
+/**
+ * Remove specified facts and create the remapping structure.
+ */
+void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
+                         const bor_iset_t *del_facts,
+                         pddl_fdr_vars_remap_t *remap);
+
 /**
  * Free allocated memory.
  */

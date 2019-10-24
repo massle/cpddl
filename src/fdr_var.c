@@ -590,6 +590,83 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
     }
 }
 
+void pddlFDRVarsRemapFree(pddl_fdr_vars_remap_t *remap)
+{
+    for (int v = 0; v < remap->var_size; ++v)
+        BOR_FREE(remap->remap[v]);
+    if (remap->remap != NULL)
+        BOR_FREE(remap->remap);
+}
+
+void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
+                         const bor_iset_t *del_facts,
+                         pddl_fdr_vars_remap_t *remap)
+{
+    bzero(remap, sizeof(*remap));
+    remap->var_size = vars->var_size;
+    remap->remap = BOR_ALLOC_ARR(const pddl_fdr_val_t **, remap->var_size);
+    for (int v = 0; v < remap->var_size; ++v){
+        remap->remap[v] = BOR_CALLOC_ARR(const pddl_fdr_val_t *,
+                                         vars->var[v].val_size);
+    }
+
+    pddl_fdr_val_t delval;
+    int fact_id;
+    BOR_ISET_FOR_EACH(del_facts, fact_id){
+        const pddl_fdr_val_t *val = vars->global_id_to_val[fact_id];
+        remap->remap[val->var_id][val->val_id] = &delval;
+    }
+
+    int global_id = 0;
+    int var_ins = 0;
+    for (int var_id = 0; var_id < vars->var_size; ++var_id){
+        if (var_ins != var_id)
+            vars->var[var_ins] = vars->var[var_id];
+        pddl_fdr_var_t *var = vars->var + var_ins;
+        var->var_id = var_ins;
+
+        int val_ins = 0;
+        for (int val_id = 0; val_id < var->val_size; ++val_id){
+            pddl_fdr_val_t *val = var->val + val_id;
+            if (remap->remap[var_id][val_id] == &delval){
+                pddlFDRValFree(val);
+                if (var->val_none_of_those == val_id)
+                    var->val_none_of_those = -1;
+                remap->remap[var_id][val_id] = NULL;
+
+            }else{
+                if (val_ins != val->val_id)
+                    var->val[val_ins] = *val;
+                val = var->val + val_ins;
+                val->var_id = var_ins;
+                val->val_id = val_ins;
+                remap->remap[var_id][val_id] = val;
+                vars->global_id_to_val[global_id] = val;
+                val->global_id = global_id++;
+                if (var->val_none_of_those == val_id)
+                    var->val_none_of_those = val_ins;
+                ++val_ins;
+            }
+        }
+        if (val_ins <= 1){
+            if (val_ins == 1){
+                bzero(remap->remap[var_id],
+                      sizeof(const pddl_fdr_val_t *) * var->val_size);
+                --global_id;
+            }
+            var->val_size = val_ins;
+            pddlFDRVarFree(var);
+
+        }else{
+            var->val_size = val_ins;
+            ++var_ins;
+        }
+    }
+
+    vars->var_size = var_ins;
+    vars->global_id_size = global_id;
+}
+
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)
 {
     fprintf(fout, "Vars (%d):\n", vars->var_size);

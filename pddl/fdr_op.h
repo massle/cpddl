@@ -69,6 +69,10 @@ void pddlFDROpDel(pddl_fdr_op_t *op);
  */
 pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op);
 
+/**
+ * Remap facts
+ */
+void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp);
 
 /**
  * Initialize empty set of operators.
@@ -79,6 +83,17 @@ void pddlFDROpsInit(pddl_fdr_ops_t *ops);
  * Free allocated memory.
  */
 void pddlFDROpsFree(pddl_fdr_ops_t *ops);
+
+/**
+ * Delete the specified set of operators.
+ * This function may change IDs of operators.
+ */
+void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const bor_iset_t *set);
+
+/**
+ * Remap facts.
+ */
+void pddlFDROpsRemapFacts(pddl_fdr_ops_t *ops, const pddl_fdr_vars_remap_t *r);
 
 /**
  * Adds the given operator to the list of operators.

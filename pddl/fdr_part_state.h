@@ -19,6 +19,8 @@
 #ifndef __PDDL_FDR_PART_STATE_H__
 #define __PDDL_FDR_PART_STATE_H__
 
+#include <pddl/fdr_var.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -72,6 +74,12 @@ int pddlFDRPartStateIsSet(const pddl_fdr_part_state_t *ps, int var);
  */
 int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,
                         const pddl_fdr_part_state_t *p2);
+
+/**
+ * Remap the facts.
+ */
+void pddlFDRPartStateRemapFacts(pddl_fdr_part_state_t *ps,
+                                const pddl_fdr_vars_remap_t *remap);
 
 #ifdef __cplusplus
 } /* extern "C" */
