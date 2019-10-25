@@ -31,6 +31,7 @@ static int readOpts(int *argc,
     int obj_samples_sum = -1;
     int obj_samples_max = -1;
     int obj_samples_mutex = 0;
+    int obj_all_states_mutex = 0;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
@@ -54,6 +55,8 @@ static int readOpts(int *argc,
                 "Optimize for each samples.");
     optsAddDesc("samples-use-mutex", 0x0, OPTS_NONE, &obj_samples_mutex, NULL,
                 "Use mutexes to filter out unreachable states.");
+    optsAddDesc("all-states-mutex", 'M', OPTS_INT, &obj_all_states_mutex, NULL,
+                "Optimize for all syntactic states using mutexes");
 
     optsAddDesc("add-init-constr", 'L', OPTS_DOUBLE, &add_init_constr, NULL,
                 "Add lower bound constraint on the initial state.");
@@ -95,8 +98,9 @@ static int readOpts(int *argc,
     if (obj_init
             + obj_all_states
             + (obj_samples_sum > 0 ? 1 : 0)
-            + (obj_samples_max > 0 ? 1 : 0) != 1){
-        fprintf(stderr, "Error: One of -I/-A/-S/-T must be specified!\n\n");
+            + (obj_samples_max > 0 ? 1 : 0)
+            + (obj_all_states_mutex > 0 ? 1 : 0) != 1){
+        fprintf(stderr, "Error: One of -I/-A/-S/-T/-M must be specified!\n\n");
         usage(argv[0]);
         return -1;
 
@@ -117,6 +121,10 @@ static int readOpts(int *argc,
         pot_cfg->num_samples = obj_samples_max;
         if (obj_samples_mutex)
             pot_cfg->samples_use_mutex = 1;
+
+    }else if (obj_all_states_mutex > 0){
+        pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX;
+        pot_cfg->all_states_mutex_size = obj_all_states_mutex;
     }
 
 

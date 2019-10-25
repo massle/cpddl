@@ -86,6 +86,97 @@ static void genStates(const pddl_fdr_t *fdr,
     borISetFree(&state);
 }
 
+static double countStatesMutex(const pddl_mg_strips_t *s,
+                               const pddl_mutex_pairs_t *mutex,
+                               const bor_iset_t *fixed)
+{
+    if (pddlMutexPairsIsMutexSet(mutex, fixed))
+        return 0.;
+
+    if (fixed == NULL || borISetSize(fixed) == 0){
+        double num = borISetSize(&s->mg.mgroup[0].mgroup);
+        for (int i = 1; i < s->mg.mgroup_size; ++i)
+            num *= borISetSize(&s->mg.mgroup[i].mgroup);
+        return num;
+    }
+
+    double num = 1.;
+    for (int mgi = 0; mgi < s->mg.mgroup_size; ++mgi){
+        int mg_size = 0;
+        int fact;
+        BOR_ISET_FOR_EACH(&s->mg.mgroup[mgi].mgroup, fact){
+            if (!pddlMutexPairsIsMutexFactSet(mutex, fact, fixed))
+                mg_size += 1;
+        }
+        num *= (double)mg_size;
+    }
+    return num;
+}
+
+static void setObjAllStatesMutex1(pddl_pot_t *pot,
+                                  const pddl_mg_strips_t *s,
+                                  const pddl_mutex_pairs_t *mutex)
+{
+    double *coef = BOR_CALLOC_ARR(double, pot->var_size);
+    BOR_ISET(fixed);
+
+    for (int mgi = 0; mgi < s->mg.mgroup_size; ++mgi){
+        const pddl_mgroup_t *mg = s->mg.mgroup + mgi;
+        double sum = 0.;
+        int fixed_fact;
+        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
+            borISetEmpty(&fixed);
+            borISetAdd(&fixed, fixed_fact);
+            coef[fixed_fact] = countStatesMutex(s, mutex, &fixed);
+            sum += coef[fixed_fact];
+        }
+        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact)
+            coef[fixed_fact] /= sum;
+    }
+
+    pddlPotSetObj(pot, coef);
+
+    borISetFree(&fixed);
+    if (coef != NULL)
+        BOR_FREE(coef);
+}
+
+static void setObjAllStatesMutex2(pddl_pot_t *pot,
+                                  const pddl_mg_strips_t *s,
+                                  const pddl_mutex_pairs_t *mutex)
+{
+    double *coef = BOR_CALLOC_ARR(double, pot->var_size);
+    BOR_ISET(fixed);
+
+    for (int mgi = 0; mgi < s->mg.mgroup_size; ++mgi){
+        const pddl_mgroup_t *mg = s->mg.mgroup + mgi;
+        double sum = 0.;
+        int fixed_fact;
+        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
+            coef[fixed_fact] = 0.;
+            for (int f = 0; f < s->strips.fact.fact_size; ++f){
+                if (f == fixed_fact)
+                    continue;
+
+                borISetEmpty(&fixed);
+                borISetAdd(&fixed, fixed_fact);
+                borISetAdd(&fixed, f);
+                ASSERT(borISetSize(&fixed) == 2);
+                coef[fixed_fact] += countStatesMutex(s, mutex, &fixed);
+            }
+            sum += coef[fixed_fact];
+        }
+        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact)
+            coef[fixed_fact] /= sum;
+    }
+
+    pddlPotSetObj(pot, coef);
+
+    borISetFree(&fixed);
+    if (coef != NULL)
+        BOR_FREE(coef);
+}
+
 static void initPot(pddl_hpot_t *hpot,
                     pddl_pot_t *pot,
                     const pddl_fdr_t *fdr,
@@ -229,10 +320,12 @@ int pddlHPotInit(pddl_hpot_t *hpot,
     int need_mutex = 0;
     if (cfg->disambiguation
             || cfg->weak_disambiguation
-            || cfg->samples_use_mutex){
+            || cfg->samples_use_mutex
+            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX){
         need_mutex = 1;
         pddlMGStripsInitFDR(&mg_strips, fdr);
         pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
         pddlH2(&mg_strips.strips, &mutex, NULL, NULL, err);
     }
 
@@ -262,7 +355,23 @@ int pddlHPotInit(pddl_hpot_t *hpot,
             m = &mutex;
         ret = samples(hpot, &pot, fdr, m, cfg, err);
 
+    }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX){
+        if (cfg->all_states_mutex_size == 1){
+            setObjAllStatesMutex1(&pot, &mg_strips, &mutex);
+            ret = solve(hpot, &pot, 0);
+        }else if (cfg->all_states_mutex_size == 2){
+            setObjAllStatesMutex2(&pot, &mg_strips, &mutex);
+            ret = solve(hpot, &pot, 0);
+        }else{
+            BOR_FATAL("all-states-mutex with size %d unsupported!",
+                      cfg->all_states_mutex_size);
+        }
+
     }else{
+        if (need_mutex){
+            pddlMutexPairsFree(&mutex);
+            pddlMGStripsFree(&mg_strips);
+        }
         pddlPotFree(&pot);
         BOR_ERR_RET(err, -1, "Unkown objective function for potential"
                              " heuristic: %d", cfg->obj);
