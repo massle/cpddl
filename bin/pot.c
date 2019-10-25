@@ -4,6 +4,7 @@
 
 struct options {
     int help;
+    int fam_groups;
     char *fdr_out;
     pddl_files_t files;
 } opt;
@@ -37,6 +38,8 @@ static int readOpts(int *argc,
                 "Print this help.");
     optsAddDesc("output", 'o', OPTS_STR, &opt.fdr_out, NULL,
                 "Output filename (default: stdout)");
+    optsAddDesc("fam-groups", 'f', OPTS_NONE, &opt.fam_groups, NULL,
+                "Use LP to infer all maximal fam-groups.");
 
     optsAddDesc("disamb", 'd', OPTS_NONE, &disamb, NULL,
                 "Enable disambiguation.");
@@ -244,15 +247,15 @@ int main(int argc, char *argv[])
         borISetFree(&rm_op);
     }
 
-    /* TODO: fam-groups
     // Find fam-groups
-    pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
-    if (pddlFAMGroupsInfer(&mgroups, &strips, &fam_cfg, &err) != 0){
-        fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
-        return -1;
+    if (opt.fam_groups){
+        pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        if (pddlFAMGroupsInfer(&mgroups, &strips, &fam_cfg, &err) != 0){
+            fprintf(stderr, "Error: ");
+            borErrPrint(&err, 1, stderr);
+            return -1;
+        }
     }
-    */
 
     // Construct FDR
     pddl_fdr_t fdr;
