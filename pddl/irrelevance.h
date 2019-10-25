@@ -21,6 +21,7 @@
 #define __PDDL_IRRELEVANCE_H__
 
 #include <pddl/strips.h>
+#include <pddl/fdr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +40,14 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
                             bor_iset_t *irrelevant_ops,
                             bor_iset_t *static_facts,
                             bor_err_t *err);
+
+/**
+ * Irrelevance analysis working on FDR variables.
+ */
+int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
+                               bor_iset_t *irrelevant_vars,
+                               bor_iset_t *irrelevant_ops,
+                               bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

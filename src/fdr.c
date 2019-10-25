@@ -85,18 +85,31 @@ void pddlFDRFree(pddl_fdr_t *fdr)
 }
 
 void pddlFDRReduce(pddl_fdr_t *fdr,
-                   const bor_iset_t *del_facts,
+                   const bor_iset_t *del_vars,
+                   const bor_iset_t *_del_facts,
                    const bor_iset_t *del_ops)
 {
     if (del_ops != NULL && borISetSize(del_ops) > 0)
         pddlFDROpsDelSet(&fdr->op, del_ops);
 
-    if (del_facts != NULL && borISetSize(del_facts) > 0){
+    BOR_ISET(del_facts);
+    if (_del_facts != NULL && borISetSize(_del_facts) > 0)
+        borISetUnion(&del_facts, _del_facts);
+
+    if (del_vars != NULL && borISetSize(del_vars) > 0){
+        int var;
+        BOR_ISET_FOR_EACH(del_vars, var){
+            for (int val = 0; val < fdr->var.var[var].val_size; ++val)
+                borISetAdd(&del_facts, fdr->var.var[var].val[val].global_id);
+        }
+    }
+
+    if (borISetSize(&del_facts) > 0){
         int old_var_size = fdr->var.var_size;
 
         pddl_fdr_vars_remap_t remap;
         // Delete facts
-        pddlFDRVarsDelFacts(&fdr->var, del_facts, &remap);
+        pddlFDRVarsDelFacts(&fdr->var, &del_facts, &remap);
         // Remap facts in operators
         pddlFDROpsRemapFacts(&fdr->op, &remap);
 
@@ -133,6 +146,7 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
 
         pddlFDRVarsRemapFree(&remap);
     }
+    borISetFree(&del_facts);
 }
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,

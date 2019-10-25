@@ -48,6 +48,7 @@ void pddlFDRFree(pddl_fdr_t *fdr);
  * Delete the specified facts and operators.
  */
 void pddlFDRReduce(pddl_fdr_t *fdr,
+                   const bor_iset_t *del_vars,
                    const bor_iset_t *del_facts,
                    const bor_iset_t *del_ops);
 

@@ -170,3 +170,130 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
 
     return 0;
 }
+
+
+static void backwardIrrelevanceFDREnqueue(const pddl_fdr_t *fdr,
+                                          int op_id,
+                                          int *var_irr,
+                                          int *op_irr,
+                                          int *queue,
+                                          int *queue_size)
+{
+    op_irr[op_id] = -1;
+
+    const pddl_fdr_op_t *op = fdr->op.op[op_id];
+    for (int fi = 0; fi < op->pre.fact_size; ++fi){
+        int var_id = op->pre.fact[fi].var;
+        if (var_irr[var_id] == 0){
+            var_irr[var_id] = -1;
+            queue[(*queue_size)++] = var_id;
+        }
+    }
+}
+
+static void backwardIrrelevanceFDR(const pddl_fdr_t *fdr,
+                                   const bor_iset_t *var_to_op,
+                                   int *var_irr,
+                                   int *op_irr)
+{
+    int queue_size, *queue;
+
+    queue = BOR_CALLOC_ARR(int, fdr->var.var_size);
+
+    // Initialize queue with the goal variables
+    queue_size = 0;
+    for (int fi = 0; fi < fdr->goal.fact_size; ++fi){
+        int var_id = fdr->goal.fact[fi].var;
+        if (var_irr[var_id] == 0){
+            queue[queue_size++] = var_id;
+            var_irr[var_id] = -1;
+        }
+    }
+
+    while (queue_size > 0){
+        int var_id = queue[--queue_size];
+        const bor_iset_t *ops = var_to_op + var_id;
+        int op_id;
+        BOR_ISET_FOR_EACH(ops, op_id){
+            if (op_irr[op_id] == 0){
+                backwardIrrelevanceFDREnqueue(fdr, op_id, var_irr, op_irr,
+                                              queue, &queue_size);
+            }
+        }
+    }
+
+    BOR_FREE(queue);
+}
+
+int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
+                               bor_iset_t *irrelevant_vars,
+                               bor_iset_t *irrelevant_ops,
+                               bor_err_t *err)
+{
+    bor_iset_t *var_to_op;
+    int *var_irr, *op_irr;
+
+    if (fdr->has_cond_eff){
+        BOR_ERR_RET2(err, -1, "Irrelevance analysis does not support"
+                              " conditional effects.");
+    }
+
+    BOR_INFO(err, "Irrelevance analysis on FDR. vars: %d, facts: %d, ops: %d",
+             fdr->var.var_size, fdr->var.global_id_size, fdr->op.op_size);
+
+    var_to_op = BOR_CALLOC_ARR(bor_iset_t, fdr->var.var_size);
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        for (int fi = 0; fi < op->eff.fact_size; ++fi)
+            borISetAdd(var_to_op + op->eff.fact[fi].var, op_id);
+    }
+
+    var_irr = BOR_CALLOC_ARR(int, fdr->var.var_size);
+    op_irr = BOR_CALLOC_ARR(int, fdr->op.op_size);
+
+    if (irrelevant_ops != NULL && borISetSize(irrelevant_ops) > 0){
+        int op_id;
+        BOR_ISET_FOR_EACH(irrelevant_ops, op_id)
+            op_irr[op_id] = 1;
+    }
+
+    if (irrelevant_vars != NULL && borISetSize(irrelevant_vars) > 0){
+        int var_id;
+        BOR_ISET_FOR_EACH(irrelevant_vars, var_id)
+            var_irr[var_id] = 1;
+    }
+
+
+    backwardIrrelevanceFDR(fdr, var_to_op, var_irr, op_irr);
+
+    if (irrelevant_vars != NULL){
+        for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
+            if (var_irr[var_id] >= 0)
+                borISetAdd(irrelevant_vars, var_id);
+        }
+    }
+
+    if (irrelevant_ops != NULL){
+        for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+            if (op_irr[op_id] >= 0)
+                borISetAdd(irrelevant_ops, op_id);
+        }
+    }
+
+    if (var_irr != NULL)
+        BOR_FREE(var_irr);
+    if (op_irr != NULL)
+        BOR_FREE(op_irr);
+
+    for (int var = 0; var < fdr->var.var_size; ++var)
+        borISetFree(var_to_op + var);
+    if (var_to_op != NULL)
+        BOR_FREE(var_to_op);
+
+    BOR_INFO(err, "Irrelevance analysis on FDR DONE: irrelevant vars: %d,"
+                  " irrelevant ops: %d",
+             (irrelevant_vars != NULL ? borISetSize(irrelevant_vars) : -1),
+             (irrelevant_ops != NULL ? borISetSize(irrelevant_ops) : -1));
+
+    return 0;
+}
