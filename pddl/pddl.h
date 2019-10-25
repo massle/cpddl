@@ -57,5 +57,6 @@
 #include <pddl/pot.h>
 #include <pddl/mg_strips.h>
 #include <pddl/preprocess.h>
+#include <pddl/hpot.h>
 
 #endif /* __PDDL_H__ */

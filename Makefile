@@ -47,6 +47,7 @@ OBJS += fdr
 OBJS += sym
 OBJS += famgroup
 OBJS += pot
+OBJS += hpot
 OBJS += mg_strips
 OBJS += preprocess
 
