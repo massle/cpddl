@@ -28,6 +28,9 @@ static int readOpts(int *argc,
     int obj_init = 0;
     int obj_all_states = 0;
     double add_init_constr = -1.;
+    int obj_samples_sum = -1;
+    int obj_samples_max = -1;
+    int obj_samples_mutex = 0;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
@@ -45,6 +48,12 @@ static int readOpts(int *argc,
                 "Optimize for the initial state");
     optsAddDesc("all-states", 'A', OPTS_NONE, &obj_all_states, NULL,
                 "Optimize for all syntactic states");
+    optsAddDesc("samples-sum", 'S', OPTS_INT, &obj_samples_sum, NULL,
+                "Optimize for the sum of samples.");
+    optsAddDesc("samples-max", 'T', OPTS_INT, &obj_samples_max, NULL,
+                "Optimize for each samples.");
+    optsAddDesc("samples-use-mutex", 0x0, OPTS_NONE, &obj_samples_mutex, NULL,
+                "Use mutexes to filter out unreachable states.");
 
     optsAddDesc("add-init-constr", 'L', OPTS_DOUBLE, &add_init_constr, NULL,
                 "Add lower bound constraint on the initial state.");
@@ -82,8 +91,12 @@ static int readOpts(int *argc,
         pot_cfg->weak_disambiguation = 0;
     }
 
-    if (obj_init + obj_all_states != 1){
-        fprintf(stderr, "Error: One of -I/-A must be specified!\n\n");
+    pot_cfg->samples_use_mutex = 0;
+    if (obj_init
+            + obj_all_states
+            + (obj_samples_sum > 0 ? 1 : 0)
+            + (obj_samples_max > 0 ? 1 : 0) != 1){
+        fprintf(stderr, "Error: One of -I/-A/-S/-T must be specified!\n\n");
         usage(argv[0]);
         return -1;
 
@@ -92,7 +105,20 @@ static int readOpts(int *argc,
 
     }else if (obj_all_states){
         pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES;
+
+    }else if (obj_samples_sum > 0){
+        pot_cfg->obj = PDDL_HPOT_OBJ_SAMPLES_SUM;
+        pot_cfg->num_samples = obj_samples_sum;
+        if (obj_samples_mutex)
+            pot_cfg->samples_use_mutex = 1;
+
+    }else if (obj_samples_max > 0){
+        pot_cfg->obj = PDDL_HPOT_OBJ_SAMPLES_MAX;
+        pot_cfg->num_samples = obj_samples_max;
+        if (obj_samples_mutex)
+            pot_cfg->samples_use_mutex = 1;
     }
+
 
     if (add_init_constr < 0.){
         pot_cfg->add_init_constr = 0;

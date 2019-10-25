@@ -92,6 +92,11 @@ int pddlPotInitMGStripsSingleFactDisamb(pddl_pot_t *pot,
 void pddlPotFree(pddl_pot_t *pot);
 
 /**
+ * Set full objective function.
+ */
+void pddlPotSetObj(pddl_pot_t *pot, const double *coef);
+
+/**
  * Set objective function to the given state.
  * This will work only if {pot} was initialized with *InitFDR()
  */

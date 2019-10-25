@@ -344,6 +344,11 @@ void pddlPotFree(pddl_pot_t *pot)
         BOR_FREE(pot->obj);
 }
 
+void pddlPotSetObj(pddl_pot_t *pot, const double *coef)
+{
+    memcpy(pot->obj, coef, sizeof(double) * pot->var_size);
+}
+
 void pddlPotSetObjFDRState(pddl_pot_t *pot,
                            const pddl_fdr_vars_t *vars,
                            const int *state)

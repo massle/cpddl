@@ -34,6 +34,8 @@ typedef struct pddl_hpot pddl_hpot_t;
 
 #define PDDL_HPOT_OBJ_INIT 0x1
 #define PDDL_HPOT_OBJ_ALL_STATES 0x2
+#define PDDL_HPOT_OBJ_SAMPLES_MAX 0x3
+#define PDDL_HPOT_OBJ_SAMPLES_SUM 0x4
 
 struct pddl_hpot_config {
     int disambiguation;
@@ -41,6 +43,8 @@ struct pddl_hpot_config {
     int obj;
     int add_init_constr;
     double init_constr_coef;
+    int num_samples;
+    int samples_use_mutex;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
@@ -50,6 +54,8 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         PDDL_HPOT_OBJ_ALL_STATES, /* .obj */ \
         1, /* .add_init_constr */ \
         1., /* .init_constr_coef */ \
+        1000, /* .num_samples */ \
+        0, /* .samples_use_mutex */ \
     }
 
 int pddlHPotInit(pddl_hpot_t *hpot,
