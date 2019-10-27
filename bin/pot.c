@@ -4,6 +4,7 @@
 
 struct options {
     int help;
+    int fd_fam_groups;
     int fam_groups;
     char *fdr_out;
     pddl_files_t files;
@@ -40,6 +41,8 @@ static int readOpts(int *argc,
                 "Output filename (default: stdout)");
     optsAddDesc("fam-groups", 'f', OPTS_NONE, &opt.fam_groups, NULL,
                 "Use LP to infer all maximal fam-groups.");
+    optsAddDesc("fd", 0x0, OPTS_NONE, &opt.fd_fam_groups, NULL,
+                "Use Fast-Downward fam-groups.");
 
     optsAddDesc("disamb", 'd', OPTS_NONE, &disamb, NULL,
                 "Enable disambiguation.");
@@ -202,8 +205,13 @@ int main(int argc, char *argv[])
                 = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
     pddl_lifted_mgroups_t lifted_mgroups;
     pddlLiftedMGroupsInit(&lifted_mgroups);
-    pddlLiftedMGroupsInferFAMGroups(&pddl, &lifted_mgroups_limits,
-                                    &lifted_mgroups, &err);
+    if (opt.fd_fam_groups){
+        pddlLiftedMGroupsInferMonotonicity(&pddl, &lifted_mgroups_limits,
+                                           NULL, &lifted_mgroups, &err);
+    }else{
+        pddlLiftedMGroupsInferFAMGroups(&pddl, &lifted_mgroups_limits,
+                                        &lifted_mgroups, &err);
+    }
     pddlLiftedMGroupsSetExactlyOne(&pddl, &lifted_mgroups, &err);
     pddlLiftedMGroupsSetStatic(&pddl, &lifted_mgroups, &err);
 
