@@ -383,10 +383,13 @@ int pddlHPotInit(pddl_hpot_t *hpot,
     }
     pddlPotFree(&pot);
 
+    if (ret != 0)
+        BOR_INFO2(err, "Pot: No optimal solution found");
+
     return ret;
 }
 
-int pddlHPotFDRStateEstimate(pddl_hpot_t *hpot,
+int pddlHPotFDRStateEstimate(const pddl_hpot_t *hpot,
                              const pddl_fdr_vars_t *vars,
                              const int *state)
 {

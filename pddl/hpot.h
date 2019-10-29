@@ -68,7 +68,7 @@ int pddlHPotInit(pddl_hpot_t *hpot,
 
 void pddlHPotFree(pddl_hpot_t *hpot);
 
-int pddlHPotFDRStateEstimate(pddl_hpot_t *hpot,
+int pddlHPotFDRStateEstimate(const pddl_hpot_t *hpot,
                              const pddl_fdr_vars_t *vars,
                              const int *state);
 
