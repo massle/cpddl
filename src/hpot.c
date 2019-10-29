@@ -21,9 +21,11 @@
 #include "pddl/hpot.h"
 #include "pddl/pot.h"
 #include "pddl/critical_path.h"
+#include "pddl/random_walk.h"
 #include "assert.h"
 
 #define ROUND_EPS 0.001
+
 
 static void init(pddl_hpot_t *hpot, int pot_size, int var_size)
 {
@@ -65,34 +67,109 @@ static int fdrStateEstimate(const double *pot,
     return roundOff(p);
 }
 
-static void genStates(const pddl_fdr_t *fdr,
-                      const pddl_mutex_pairs_t *mutex,
-                      int num_samples,
-                      bor_hashset_t *states,
-                      bor_err_t *err)
-{
-    bor_rand_t rnd;
-    borRandInit(&rnd);
 
-    unsigned long count = 0UL;
-    BOR_ISET(state);
-    while (states->size < num_samples){
-        borISetEmpty(&state);
-        for (int var = 0; var < fdr->var.var_size; ++var){
-            int val = borRand(&rnd, 0, fdr->var.var[var].val_size);
-            val = BOR_MIN(val, fdr->var.var[var].val_size - 1);
-            int global_id = fdr->var.var[var].val[val].global_id;
-            borISetAdd(&state, global_id);
+#define STATE_SAMPLER_SYNTACTIC 0
+#define STATE_SAMPLER_SYNTACTIC_MUTEX 1
+#define STATE_SAMPLER_RANDOM_WALK 2
+struct state_sampler {
+    int type;
+    const pddl_fdr_t *fdr;
+    const pddl_mutex_pairs_t *mutex;
+    pddl_random_walk_t random_walk;
+    int random_walk_max_steps;
+    bor_rand_mt_t *rnd;
+    int *state;
+};
+typedef struct state_sampler state_sampler_t;
+
+static void stateSamplerInit(state_sampler_t *s,
+                             const pddl_hpot_config_t *cfg,
+                             const pddl_fdr_t *fdr,
+                             const pddl_mutex_pairs_t *mutex,
+                             pddl_hpot_t *hpot,
+                             pddl_pot_t *pot,
+                             bor_err_t *err)
+{
+    bzero(s, sizeof(*s));
+    s->fdr = fdr;
+    s->state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    if (cfg->samples_random_walk){
+        s->type = STATE_SAMPLER_RANDOM_WALK;
+        pddlRandomWalkInit(&s->random_walk, fdr, NULL);
+
+        pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
+        int ret = solve(hpot, pot, 0);
+        if (ret != 0){
+            BOR_INFO2(err, "Pot: No optimal solution for the initial state");
+            s->random_walk_max_steps = 0;
         }
-        if (mutex == NULL || !pddlMutexPairsIsMutexSet(mutex, &state))
-            borHashSetAdd(states, &state);
-        if (++count % 100000UL == 0UL){
-            BOR_INFO(err, "Pot: tried %lu states, generated %d states",
-                     count, states->size);
+
+        int hinit = fdrStateEstimate(hpot->pot[0], &fdr->var, fdr->init);
+        double avg_op_cost = 0.;
+        for (int oi = 0; oi < fdr->op.op_size; ++oi)
+            avg_op_cost += fdr->op.op[oi]->cost;
+        avg_op_cost /= fdr->op.op_size;
+        if (avg_op_cost < 1E-2){
+            s->random_walk_max_steps = 10;
+        }else{
+            s->random_walk_max_steps = (ceil(hinit / avg_op_cost) + .5) * 4;
+        }
+
+    }else{
+        s->rnd = borRandMTNewAuto();
+        if (mutex != NULL){
+            s->mutex = mutex;
+            s->type = STATE_SAMPLER_SYNTACTIC_MUTEX;
+        }else{
+            s->type = STATE_SAMPLER_SYNTACTIC;
         }
     }
-    borISetFree(&state);
 }
+
+static void stateSamplerFree(state_sampler_t *s)
+{
+    if (s->type == STATE_SAMPLER_RANDOM_WALK)
+        pddlRandomWalkFree(&s->random_walk);
+    if (s->state != NULL)
+        BOR_FREE(s->state);
+    if (s->rnd != NULL)
+        borRandMTDel(s->rnd);
+}
+
+static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
+{
+    if (s->type == STATE_SAMPLER_SYNTACTIC){
+        for (int var = 0; var < s->fdr->var.var_size; ++var){
+            int val = borRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
+            val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
+            s->state[var] = val;
+        }
+
+    }else if (s->type == STATE_SAMPLER_SYNTACTIC_MUTEX){
+        ASSERT(s->mutex != NULL);
+        BOR_ISET(state);
+        unsigned long count = 0UL;
+        do {
+            borISetEmpty(&state);
+            for (int var = 0; var < s->fdr->var.var_size; ++var){
+                int val = borRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
+                val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
+                s->state[var] = val;
+                borISetAdd(&state, s->fdr->var.var[var].val[val].global_id);
+            }
+            if (++count % 100000UL == 0UL)
+                BOR_INFO(err, "Pot: tried %lu random states", count);
+        } while (pddlMutexPairsIsMutexSet(s->mutex, &state));
+        borISetFree(&state);
+
+    }else if (s->type == STATE_SAMPLER_RANDOM_WALK){
+        pddlRandomWalkSampleState(&s->random_walk,
+                                  s->fdr->init,
+                                  s->random_walk_max_steps,
+                                  s->state);
+    }
+}
+
 
 static double countStatesMutex(const pddl_mg_strips_t *s,
                                const pddl_mutex_pairs_t *mutex,
@@ -265,37 +342,34 @@ static int samples(pddl_hpot_t *hpot,
                    const pddl_hpot_config_t *cfg,
                    bor_err_t *err)
 {
-    // TODO: Rewrite this: for max, we need to generate samples that are
-    // all solvable!
-    bor_hashset_t states;
-    borHashSetInitISet(&states);
+    BOR_INFO(err, "Pot: generating %d samples (mutex: %d, random-walk: %d)...",
+             cfg->num_samples,
+             (mutex != NULL),
+             cfg->samples_random_walk);
 
-    BOR_INFO(err, "Pot: generating %d samples (mutex: %d)...",
-             cfg->num_samples, (mutex != NULL));
-    genStates(fdr, mutex, cfg->num_samples, &states, err);
-    BOR_INFO(err, "Pot: %d samples generated", cfg->num_samples);
+    state_sampler_t sampler;
+    stateSamplerInit(&sampler, cfg, fdr, mutex, hpot, pot, err);
 
     double *coef = BOR_CALLOC_ARR(double, pot->var_size);
-    for (int si = 0; si < states.size; ++si){
-        const bor_iset_t *fact_state = borHashSetGet(&states, si);
-
+    for (int si = 0; si < cfg->num_samples; ++si){
+        stateSamplerSample(&sampler, err);
         if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX){
             bzero(coef, sizeof(double) * pot->var_size);
-            int fact;
-            BOR_ISET_FOR_EACH(fact_state, fact)
-                coef[fact] = 1.;
+            for (int var = 0; var < fdr->var.var_size; ++var)
+                coef[fdr->var.var[var].val[sampler.state[var]].global_id] = 1.;
 
             pddlPotSetObj(pot, coef);
-            if (solve(hpot, pot, si) != 0)
-                return -1;
-            if ((si + 1) % 100 == 0){
+            // Dead-ends are simply skipped
+            if (solve(hpot, pot, si) != 0){
+                --si;
+            }else if ((si + 1) % 100 == 0){
                 BOR_INFO(err, "Pot: Solved for state: %d/%d",
-                         si + 1, states.size);
+                         si + 1, cfg->num_samples);
             }
+
         }else{
-            int fact;
-            BOR_ISET_FOR_EACH(fact_state, fact)
-                coef[fact] += 1.;
+            for (int var = 0; var < fdr->var.var_size; ++var)
+                coef[fdr->var.var[var].val[sampler.state[var]].global_id] += 1.;
         }
     }
 
@@ -303,12 +377,13 @@ static int samples(pddl_hpot_t *hpot,
         pddlPotSetObj(pot, coef);
         if (solve(hpot, pot, 0) != 0)
             return -1;
-        BOR_INFO(err, "Pot: Solved for a sum of %d states", states.size);
+        BOR_INFO(err, "Pot: Solved for a sum of %d states",
+                 cfg->num_samples);
     }
 
     if (coef != NULL)
         BOR_FREE(coef);
-    borHashSetFree(&states);
+    stateSamplerFree(&sampler);
 
     return 0;
 }

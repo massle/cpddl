@@ -46,6 +46,7 @@ struct pddl_hpot_config {
     double init_constr_coef;
     int num_samples;
     int samples_use_mutex;
+    int samples_random_walk;
     int all_states_mutex_size;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
@@ -58,6 +59,7 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         1., /* .init_constr_coef */ \
         1000, /* .num_samples */ \
         0, /* .samples_use_mutex */ \
+        0, /* .samples_random_walk */ \
         0, /* .all_states_mutex_size */ \
     }
 
