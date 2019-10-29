@@ -26,6 +26,9 @@
 
 #define ROUND_EPS 0.001
 
+static const uint32_t rand_sampler_seed = 524287;
+static const uint32_t rand_diverse_seed = 131071;
+
 
 static void init(pddl_hpot_t *hpot, int var_size)
 {
@@ -194,7 +197,8 @@ static void stateSamplerInit(state_sampler_t *s,
     s->state = BOR_ALLOC_ARR(int, fdr->var.var_size);
     if (cfg->samples_random_walk){
         s->type = STATE_SAMPLER_RANDOM_WALK;
-        pddlRandomWalkInit(&s->random_walk, fdr, NULL);
+        //pddlRandomWalkInit(&s->random_walk, fdr, NULL);
+        pddlRandomWalkInitSeed(&s->random_walk, fdr, NULL, rand_sampler_seed);
 
         pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
         int ret = solve(hpot, pot);
@@ -215,7 +219,8 @@ static void stateSamplerInit(state_sampler_t *s,
         }
 
     }else{
-        s->rnd = borRandMTNewAuto();
+        //s->rnd = borRandMTNewAuto();
+        s->rnd = borRandMTNew(rand_sampler_seed);
         if (mutex != NULL){
             s->mutex = mutex;
             s->type = STATE_SAMPLER_SYNTACTIC_MUTEX;
@@ -459,7 +464,8 @@ static void diverseInit(diverse_pot_t *div,
     div->state_est = BOR_CALLOC_ARR(int, num_samples);
     borHashSetInitISet(&div->states);
     div->active_states = 0;
-    div->rnd = borRandMTNewAuto();
+    //div->rnd = borRandMTNewAuto();
+    div->rnd = borRandMTNew(rand_diverse_seed);
 }
 
 static void diverseFree(diverse_pot_t *div,
