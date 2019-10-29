@@ -68,10 +68,19 @@ int pddlHPotInit(pddl_hpot_t *hpot,
 
 void pddlHPotFree(pddl_hpot_t *hpot);
 
+/**
+ * Returns heuristic estimate for the given FDR state.
+ */
 int pddlHPotFDRStateEstimate(const pddl_hpot_t *hpot,
                              const pddl_fdr_vars_t *vars,
                              const int *state);
 
+/**
+ * Same as pddlHPotFDRStateEstimate() but no rounding is used.
+ */
+double pddlHPotFDRStateEstimateDbl(const pddl_hpot_t *hpot,
+                                   const pddl_fdr_vars_t *vars,
+                                   const int *state);
 
 #ifdef __cplusplus
 } /* extern "C" */

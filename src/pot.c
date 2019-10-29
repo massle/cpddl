@@ -446,10 +446,10 @@ static void setLBConstr(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
         return;
 
     if (*row == borLPNumRows(lp)){
-        char sense = 'R';
+        char sense = 'G';
         borLPAddRows(lp, 1, &pot->constr_lb.rhs, &sense);
     }else{
-        borLPSetRHS(lp, *row, pot->constr_lb.rhs, 'R');
+        borLPSetRHS(lp, *row, pot->constr_lb.rhs, 'G');
     }
 
     int var;

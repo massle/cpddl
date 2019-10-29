@@ -45,15 +45,23 @@ static int roundOff(double z)
     return ceil(z - ROUND_EPS);
 }
 
-static int fdrStateEstimate(const double *pot,
-                            const pddl_fdr_vars_t *vars,
-                            const int *state)
+static double fdrStateEstimateDbl(const double *pot,
+                                  const pddl_fdr_vars_t *vars,
+                                  const int *state)
 {
     double p = 0;
     for (int var = 0; var < vars->var_size; ++var)
         p += pot[vars->var[var].val[state[var]].global_id];
     if (p < 0.)
         return 0;
+    return p;
+}
+
+static int fdrStateEstimate(const double *pot,
+                            const pddl_fdr_vars_t *vars,
+                            const int *state)
+{
+    double p = fdrStateEstimateDbl(pot, vars, state);
     return roundOff(p);
 }
 
@@ -227,10 +235,15 @@ static int addInitConstr(pddl_hpot_t *hpot,
     pddlPotResetLowerBoundConstr(pot);
     pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
     int ret = solve(hpot, pot, 0);
-    if (ret != 0)
+    if (ret != 0){
+        BOR_INFO2(err, "Pot: No optimal solution for the initial state");
         return ret;
+    }
 
-    double rhs = pddlHPotFDRStateEstimate(hpot, &fdr->var, fdr->init);
+    double rhs = fdrStateEstimateDbl(hpot->pot[0], &fdr->var, fdr->init);
+    BOR_INFO(err, "Pot: Solved for the initial state: %.4f", rhs);
+    // make sure it is feasible
+    rhs = floor((rhs - ROUND_EPS) * 100.) / 100.;
     rhs *= cfg->init_constr_coef;
 
     BOR_ISET(vars);
@@ -252,6 +265,8 @@ static int samples(pddl_hpot_t *hpot,
                    const pddl_hpot_config_t *cfg,
                    bor_err_t *err)
 {
+    // TODO: Rewrite this: for max, we need to generate samples that are
+    // all solvable!
     bor_hashset_t states;
     borHashSetInitISet(&states);
 
@@ -387,6 +402,22 @@ int pddlHPotInit(pddl_hpot_t *hpot,
         BOR_INFO2(err, "Pot: No optimal solution found");
 
     return ret;
+}
+
+double pddlHPotFDRStateEstimateDbl(const pddl_hpot_t *hpot,
+                                   const pddl_fdr_vars_t *vars,
+                                   const int *state)
+{
+    if (hpot->pot_size <= 0)
+        return -1;
+
+    double est = fdrStateEstimateDbl(hpot->pot[0], vars, state);
+    for (int p = 1; p < hpot->pot_size; ++p){
+        double e = fdrStateEstimateDbl(hpot->pot[p], vars, state);
+        if (e > est)
+            est = e;
+    }
+    return est;
 }
 
 int pddlHPotFDRStateEstimate(const pddl_hpot_t *hpot,
