@@ -86,7 +86,7 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
     for (int step = 0; step < num_steps; ++step){
         borISetEmpty(&app_ops);
         pddlFDRAppOpFind(rndw->app, resulting_state, &app_ops);
-        if (borISetSize(&app_ops)){
+        if (borISetSize(&app_ops) == 0){
             // No applicable operators -- terminate
             break;
         }else{
@@ -95,6 +95,7 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
             int op_id = borISetGet(&app_ops, which_op);
             const pddl_fdr_op_t *op = rndw->fdr->op.op[op_id];
             pddlFDROpApplyOnState(op, resulting_state);
+            ++num_performed_steps;
         }
     }
     borISetFree(&app_ops);
