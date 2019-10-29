@@ -26,10 +26,10 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_hpot {
-    double **pot; /*!< Potentials */
-    int pot_size;
+    double **pot; /*!< Potential functions */
+    int pot_size; /*!< Number of potential functions */
     int pot_alloc;
-    int var_size;
+    int var_size; /*!< Number of LP variables in the problem */
 };
 typedef struct pddl_hpot pddl_hpot_t;
 
@@ -41,15 +41,18 @@ typedef struct pddl_hpot pddl_hpot_t;
 #define PDDL_HPOT_OBJ_DIVERSE 0x6
 
 struct pddl_hpot_config {
-    int disambiguation;
-    int weak_disambiguation;
-    int obj;
-    int add_init_constr;
-    double init_constr_coef;
-    int num_samples;
-    int samples_use_mutex;
-    int samples_random_walk;
-    int all_states_mutex_size;
+    int disambiguation; /*!< If true, disambiguation is used */
+    int weak_disambiguation; /*!< If true, weak disambiguation is used */
+    int obj; /*!< One of PDDL_HPOT_OBJ_*: specifies optimization method */
+    int add_init_constr; /*!< Add >= constraint on the initial state */
+    double init_constr_coef; /*!< Coeficient used for the initial state
+                                  constraint */
+    int num_samples; /*!< Number of samples used for sampling based methods */
+    int samples_use_mutex; /*!< If true, mutexes are used to filter out
+                                unreachable sample states */
+    int samples_random_walk; /*!< Uses random walk for sampling */
+    int all_states_mutex_size; /*!< Size of sets of facts for
+                                    *_ALL_STATES_MUTEX method */
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
