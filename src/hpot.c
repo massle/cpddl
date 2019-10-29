@@ -30,7 +30,7 @@
 static void init(pddl_hpot_t *hpot, int pot_size, int var_size)
 {
     bzero(hpot, sizeof(*hpot));
-    hpot->pot_size = pot_size;
+    hpot->pot_alloc = hpot->pot_size = pot_size;
     hpot->pot = BOR_ALLOC_ARR(double *, pot_size);
     hpot->var_size = var_size;
     for (int i = 0; i < pot_size; ++i)
@@ -40,6 +40,10 @@ static void init(pddl_hpot_t *hpot, int pot_size, int var_size)
 static int solve(pddl_hpot_t *hpot, pddl_pot_t *pot, int func)
 {
     return pddlPotSolve(pot, hpot->pot[func], hpot->var_size, 0);
+}
+static int solve2(pddl_hpot_t *hpot, pddl_pot_t *pot, double *w)
+{
+    return pddlPotSolve(pot, w, hpot->var_size, 0);
 }
 
 static int roundOff(double z)
@@ -361,6 +365,7 @@ static int samples(pddl_hpot_t *hpot,
             pddlPotSetObj(pot, coef);
             // Dead-ends are simply skipped
             if (solve(hpot, pot, si) != 0){
+                // TODO
                 --si;
             }else if ((si + 1) % 100 == 0){
                 BOR_INFO(err, "Pot: Solved for state: %d/%d",
@@ -388,6 +393,231 @@ static int samples(pddl_hpot_t *hpot,
     return 0;
 }
 
+static void setStateToFDRState(const bor_iset_t *state,
+                               int *fdr_state,
+                               const pddl_fdr_t *fdr)
+{
+    int fact_id;
+    BOR_ISET_FOR_EACH(state, fact_id){
+        const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
+        fdr_state[v->var_id] = v->val_id;
+    }
+}
+
+struct diverse_pot {
+    double *coef;
+    double **func;
+    double *avg_func;
+    int *state_est;
+    bor_hashset_t states;
+    int active_states;
+    bor_rand_mt_t *rnd;
+};
+typedef struct diverse_pot diverse_pot_t;
+
+static void diverseInit(diverse_pot_t *div,
+                        const pddl_pot_t *pot,
+                        const pddl_fdr_t *fdr,
+                        int num_samples)
+{
+    div->coef = BOR_ALLOC_ARR(double, pot->var_size);
+    div->func = BOR_ALLOC_ARR(double *, num_samples);
+    for (int i = 0; i < num_samples; ++i)
+        div->func[i] = BOR_ALLOC_ARR(double, fdr->var.global_id_size);
+    div->avg_func = BOR_ALLOC_ARR(double, fdr->var.global_id_size);
+    div->state_est = BOR_CALLOC_ARR(int, num_samples);
+    borHashSetInitISet(&div->states);
+    div->active_states = 0;
+    div->rnd = borRandMTNewAuto();
+}
+
+static void diverseFree(diverse_pot_t *div,
+                        const pddl_pot_t *pot,
+                        const pddl_fdr_t *fdr,
+                        int num_samples)
+{
+    BOR_FREE(div->coef);
+    for (int i = 0; i < num_samples; ++i)
+        BOR_FREE(div->func[i]);
+    BOR_FREE(div->func);
+    BOR_FREE(div->avg_func);
+    BOR_FREE(div->state_est);
+    borHashSetFree(&div->states);
+    borRandMTDel(div->rnd);
+}
+
+static void diverseGenStates(diverse_pot_t *div,
+                             pddl_hpot_t *hpot,
+                             pddl_pot_t *pot,
+                             const pddl_fdr_t *fdr,
+                             const pddl_hpot_config_t *_cfg,
+                             bor_err_t *err)
+{
+    pddl_hpot_config_t cfg = *_cfg;
+    // force random walk
+    cfg.samples_random_walk = 1;
+    ASSERT_RUNTIME(cfg.num_samples > 0);
+
+    BOR_INFO(err, "Pot: generating %d samples with random walk...",
+             cfg.num_samples);
+    state_sampler_t sampler;
+    stateSamplerInit(&sampler, &cfg, fdr, NULL, hpot, pot, err);
+
+    // Samples states, filter out dead-ends and compute estimate for each
+    // state
+    int num_states = 0;
+    int num_dead_ends = 0;
+    int num_duplicates = 0;
+    BOR_ISET(state);
+    for (int si = 0; si < cfg.num_samples; ++si){
+        stateSamplerSample(&sampler, err);
+
+        borISetEmpty(&state);
+        bzero(div->coef, sizeof(double) * pot->var_size);
+        for (int var = 0; var < fdr->var.var_size; ++var){
+            int id = fdr->var.var[var].val[sampler.state[var]].global_id;
+            div->coef[id] = 1.;
+            borISetAdd(&state, id);
+        }
+
+        if (borHashSetFind(&div->states, &state) >= 0){
+            // Ignore duplicates
+            ++num_duplicates;
+            continue;
+        }
+
+        // Compute heuristic estimate
+        pddlPotSetObj(pot, div->coef);
+        // Dead-ends are simply skipped
+        if (solve2(hpot, pot, div->func[num_states]) == 0){
+            // Add state to the set of states and store heuristic estimate
+            int state_id = borHashSetAdd(&div->states, &state);
+            ASSERT(state_id == num_states);
+            div->state_est[state_id] = fdrStateEstimate(div->func[state_id],
+                                                        &fdr->var,
+                                                        sampler.state);
+            ++num_states;
+
+            if ((si + 1) % 100 == 0){
+                BOR_INFO(err, "Pot: Solved for state: %d/%d",
+                          si + 1, cfg.num_samples);
+            }
+        }else{
+            ++num_dead_ends;
+        }
+    }
+    BOR_INFO(err, "Pot: Detected dead-ends: %d", num_dead_ends);
+    BOR_INFO(err, "Pot: Detected duplicates: %d", num_duplicates);
+    ASSERT(num_states == div->states.size);
+    div->active_states = div->states.size;
+    borISetFree(&state);
+    stateSamplerFree(&sampler);
+}
+
+
+
+static int diverseAvg(diverse_pot_t *div,
+                      pddl_hpot_t *hpot,
+                      pddl_pot_t *pot,
+                      bor_err_t *err)
+{
+    bzero(div->coef, sizeof(double) * pot->var_size);
+    for (int i = 0; i < div->states.size; ++i){
+        if (div->state_est[i] < 0)
+            continue;
+        const bor_iset_t *state = borHashSetGet(&div->states, i);
+        int fact_id;
+        BOR_ISET_FOR_EACH(state, fact_id)
+            div->coef[fact_id] += 1.;
+    }
+    pddlPotSetObj(pot, div->coef);
+    return solve2(hpot, pot, div->avg_func);
+}
+
+static const double *diverseSelectFunc(diverse_pot_t *div,
+                                       pddl_hpot_t *hpot,
+                                       pddl_pot_t *pot,
+                                       const pddl_fdr_t *fdr,
+                                       bor_err_t *err)
+{
+    if (diverseAvg(div, hpot, pot, err) != 0)
+        return NULL;
+
+    int *fdr_state = BOR_ALLOC_ARR(int, hpot->var_size);
+    for (int si = 0; si < div->states.size; ++si){
+        if (div->state_est[si] < 0)
+            continue;
+        const bor_iset_t *state = borHashSetGet(&div->states, si);
+        setStateToFDRState(state, fdr_state, fdr);
+
+        int hest = fdrStateEstimate(div->avg_func, &fdr->var, fdr_state);
+        if (hest == div->state_est[si]){
+            BOR_FREE(fdr_state);
+            return div->avg_func;
+        }
+    }
+
+    int sid = borRandMT(div->rnd, 0, div->active_states);
+    for (int si = 0; si < div->states.size; ++si){
+        if (div->state_est[si] < 0)
+            continue;
+        if (sid-- == 0){
+            BOR_FREE(fdr_state);
+            return div->func[si];
+        }
+    }
+    return NULL;
+}
+
+static void diverseFilterOutStates(diverse_pot_t *div,
+                                   const pddl_fdr_t *fdr,
+                                   const double *func,
+                                   bor_err_t *err)
+{
+    int *fdr_state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    for (int si = 0; si < div->states.size; ++si){
+        if (div->state_est[si] < 0)
+            continue;
+        const bor_iset_t *state = borHashSetGet(&div->states, si);
+        setStateToFDRState(state, fdr_state, fdr);
+        int hest = fdrStateEstimate(func, &fdr->var, fdr_state);
+        if (hest >= div->state_est[si]){
+            div->state_est[si] = -1;
+            --div->active_states;
+        }
+    }
+    BOR_FREE(fdr_state);
+}
+
+static int diverse(pddl_hpot_t *hpot,
+                   pddl_pot_t *pot,
+                   const pddl_fdr_t *fdr,
+                   const pddl_hpot_config_t *cfg,
+                   bor_err_t *err)
+{
+    BOR_INFO(err, "Pot: Diverse potentials with %d samples", cfg->num_samples);
+    ASSERT_RUNTIME(cfg->num_samples > 0);
+    diverse_pot_t div;
+    diverseInit(&div, pot, fdr, cfg->num_samples);
+    diverseGenStates(&div, hpot, pot, fdr, cfg, err);
+    int ins = 0;
+    while (div.active_states > 0){
+        const double *func = diverseSelectFunc(&div, hpot, pot, fdr, err);
+        if (func == NULL){
+            hpot->pot_size = ins;
+            return -1;
+        }
+        memcpy(hpot->pot[ins], func, sizeof(double) * hpot->var_size);
+        ++ins;
+        diverseFilterOutStates(&div, fdr, func, err);
+    }
+    hpot->pot_size = ins;
+    diverseFree(&div, pot, fdr, cfg->num_samples);
+    BOR_INFO(err, "Pot: Computed diverse potentials with %d functions",
+             hpot->pot_size);
+    return 0;
+}
+
 int pddlHPotInit(pddl_hpot_t *hpot,
                  const pddl_fdr_t *fdr,
                  const pddl_hpot_config_t *cfg,
@@ -400,8 +630,10 @@ int pddlHPotInit(pddl_hpot_t *hpot,
     }
 
     int num_funcs = 1;
-    if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX)
+    if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX
+            || cfg->obj == PDDL_HPOT_OBJ_DIVERSE){
         num_funcs = cfg->num_samples;
+    }
     BOR_INFO(err, "Pot: Allocating %d potential functions ...", num_funcs);
     init(hpot, num_funcs, fdr->var.global_id_size);
 
@@ -456,6 +688,9 @@ int pddlHPotInit(pddl_hpot_t *hpot,
             BOR_FATAL("all-states-mutex with size %d unsupported!",
                       cfg->all_states_mutex_size);
         }
+
+    }else if (cfg->obj == PDDL_HPOT_OBJ_DIVERSE){
+        ret = diverse(hpot, &pot, fdr, cfg, err);
 
     }else{
         if (need_mutex){
@@ -513,7 +748,7 @@ int pddlHPotFDRStateEstimate(const pddl_hpot_t *hpot,
 
 void pddlHPotFree(pddl_hpot_t *hpot)
 {
-    for (int i = 0; i < hpot->pot_size; ++i)
+    for (int i = 0; i < hpot->pot_alloc; ++i)
         BOR_FREE(hpot->pot[i]);
     if (hpot->pot != NULL)
         BOR_FREE(hpot->pot);

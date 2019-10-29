@@ -28,6 +28,7 @@ extern "C" {
 struct pddl_hpot {
     double **pot; /*!< Potentials */
     int pot_size;
+    int pot_alloc;
     int var_size;
 };
 typedef struct pddl_hpot pddl_hpot_t;
@@ -37,6 +38,7 @@ typedef struct pddl_hpot pddl_hpot_t;
 #define PDDL_HPOT_OBJ_SAMPLES_MAX 0x3
 #define PDDL_HPOT_OBJ_SAMPLES_SUM 0x4
 #define PDDL_HPOT_OBJ_ALL_STATES_MUTEX 0x5
+#define PDDL_HPOT_OBJ_DIVERSE 0x6
 
 struct pddl_hpot_config {
     int disambiguation;
