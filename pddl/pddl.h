@@ -58,5 +58,7 @@
 #include <pddl/mg_strips.h>
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
+#include <pddl/causal_graph.h>
+#include <pddl/fdr_app_op.h>
 
 #endif /* __PDDL_H__ */

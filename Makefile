@@ -50,6 +50,8 @@ OBJS += pot
 OBJS += hpot
 OBJS += mg_strips
 OBJS += preprocess
+OBJS += causal_graph
+OBJS += fdr_app_op
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
