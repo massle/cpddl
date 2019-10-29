@@ -14,6 +14,8 @@
 
 set -x
 
+module load GCCcore/7.3.0
+
 NCPUS=8
 
 cat >Makefile.local <<EOF
