@@ -30,6 +30,7 @@ struct pddl_hpot {
     int pot_size; /*!< Number of potential functions */
     int pot_alloc;
     int var_size; /*!< Number of LP variables in the problem */
+    double *func; /*!< Auxiliary potential function */
 };
 typedef struct pddl_hpot pddl_hpot_t;
 
