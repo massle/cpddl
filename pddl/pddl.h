@@ -60,5 +60,6 @@
 #include <pddl/hpot.h>
 #include <pddl/causal_graph.h>
 #include <pddl/fdr_app_op.h>
+#include <pddl/random_walk.h>
 
 #endif /* __PDDL_H__ */

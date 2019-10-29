@@ -75,6 +75,15 @@ pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op);
 void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp);
 
 /**
+ * Apply the effects of the operator on the given state.
+ */
+void pddlFDROpApplyOnState(const pddl_fdr_op_t *op, int *state);
+void pddlFDROpApplyOnState2(const pddl_fdr_op_t *op,
+                            int num_vars,
+                            const int *in_state,
+                            int *out_state);
+
+/**
  * Initialize empty set of operators.
  */
 void pddlFDROpsInit(pddl_fdr_ops_t *ops);

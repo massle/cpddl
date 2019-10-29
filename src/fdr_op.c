@@ -89,6 +89,21 @@ void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp)
     op->cond_eff_size = ins;
 }
 
+void pddlFDROpApplyOnState(const pddl_fdr_op_t *op, int *state)
+{
+    for (int fi = 0; fi < op->eff.fact_size; ++fi)
+        state[op->eff.fact[fi].var] = op->eff.fact[fi].val;
+}
+
+void pddlFDROpApplyOnState2(const pddl_fdr_op_t *op,
+                            int num_vars,
+                            const int *in_state,
+                            int *out_state)
+{
+    memcpy(out_state, in_state, sizeof(int) * num_vars);
+    pddlFDROpApplyOnState(op, out_state);
+}
+
 
 void pddlFDROpsInit(pddl_fdr_ops_t *ops)
 {
