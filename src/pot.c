@@ -466,10 +466,6 @@ int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp)
     unsigned lp_flags;
     lp_flags  = BOR_LP_MAX;
     lp_flags |= BOR_LP_NUM_THREADS(1);
-    // Prefer gurobi if available -- it seems to provide more stable
-    // results with lower bound constraints
-    if (borLPSolverAvailable(BOR_LP_GUROBI))
-        lp_flags |= BOR_LP_GUROBI;
 
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
