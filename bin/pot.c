@@ -35,6 +35,7 @@ static int readOpts(int *argc,
     int obj_samples_max = -1;
     int obj_samples_mutex = 0;
     int obj_all_states_mutex = 0;
+    int obj_all_states_mutex_cond = 0;
     int obj_diverse = 0;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
@@ -67,6 +68,9 @@ static int readOpts(int *argc,
                 "Use mutexes to filter out unreachable states.");
     optsAddDesc("all-states-mutex", 'M', OPTS_INT, &obj_all_states_mutex, NULL,
                 "Optimize for all syntactic states using mutexes");
+    optsAddDesc("all-states-mutex-cond", 'C', OPTS_INT,
+                &obj_all_states_mutex_cond, NULL,
+                "Optimize for all syntactic states conditioned on facts.");
     optsAddDesc("diverse", 'D', OPTS_INT, &obj_diverse, NULL,
                 "Diverse potentials");
 
@@ -112,6 +116,7 @@ static int readOpts(int *argc,
             + (obj_samples_sum > 0 ? 1 : 0)
             + (obj_samples_max > 0 ? 1 : 0)
             + (obj_all_states_mutex > 0 ? 1 : 0)
+            + (obj_all_states_mutex_cond > 0 ? 1 : 0)
             + (obj_diverse > 0 ? 1 : 0) != 1){
         fprintf(stderr, "Error: One of -I/-A/-S/-T/-M/-D must be specified!\n\n");
         usage(argv[0]);
@@ -144,6 +149,10 @@ static int readOpts(int *argc,
     }else if (obj_all_states_mutex > 0){
         pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX;
         pot_cfg->all_states_mutex_size = obj_all_states_mutex;
+
+    }else if (obj_all_states_mutex_cond > 0){
+        pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED;
+        pot_cfg->all_states_mutex_size = obj_all_states_mutex_cond;
 
     }else if (obj_diverse > 0){
         pot_cfg->obj = PDDL_HPOT_OBJ_DIVERSE;

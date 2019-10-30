@@ -39,7 +39,8 @@ typedef struct pddl_hpot pddl_hpot_t;
 #define PDDL_HPOT_OBJ_SAMPLES_MAX 0x3
 #define PDDL_HPOT_OBJ_SAMPLES_SUM 0x4
 #define PDDL_HPOT_OBJ_ALL_STATES_MUTEX 0x5
-#define PDDL_HPOT_OBJ_DIVERSE 0x6
+#define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED 0x6
+#define PDDL_HPOT_OBJ_DIVERSE 0x7
 
 struct pddl_hpot_config {
     int disambiguation; /*!< If true, disambiguation is used */
