@@ -328,8 +328,12 @@ int main(int argc, char *argv[])
         borErrPrint(&err, 1, stderr);
         return -1;
     }
-    if (strips.has_cond_eff)
-        pddlStripsCompileAwayCondEff(&strips);
+    //if (strips.has_cond_eff)
+    //    pddlStripsCompileAwayCondEff(&strips);
+    if (strips.has_cond_eff){
+        BOR_INFO2(&err, "Has conditional effects -- terminating...");
+        return -1;
+    }
 
     // Ground mutex groups
     pddl_mgroups_t mgroups;
@@ -386,7 +390,10 @@ int main(int argc, char *argv[])
 
     pddl_hpot_t hpot;
 
-    pddlHPotInit(&hpot, &fdr, &hpot_cfg, &err);
+    if (pddlHPotInit(&hpot, &fdr, &hpot_cfg, &err) != 0){
+        BOR_INFO2(&err, "Cannot find potential heuristic");
+        return -1;
+    }
     int est = pddlHPotFDRStateEstimate(&hpot, &fdr.var, fdr.init);
     BOR_INFO(&err, "Init state estimate: %d", est);
 
