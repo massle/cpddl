@@ -21,6 +21,7 @@
 #define __PDDL_COMMON_H__
 
 #include <stdint.h>
+#include <limits.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +41,9 @@ typedef int pddl_obj_id_t;
  *  It should be always defined as something negative so we can test object
  *  ID with >= 0 and < 0. */
 #define PDDL_OBJ_ID_UNDEF ((pddl_obj_id_t)-1)
+
+/** Dead-end (infinity) cost */
+#define PDDL_COST_DEAD_END (INT_MAX / 2)
 
 #ifdef __cplusplus
 } /* extern "C" */

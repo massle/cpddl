@@ -84,6 +84,8 @@ static double fdrStateEstimateDbl(const double *pot,
         p += pot[vars->var[var].val[state[var]].global_id];
     if (p < 0.)
         return 0;
+    if (p > 1E8)
+        return PDDL_COST_DEAD_END;
     return p;
 }
 
@@ -319,8 +321,11 @@ static void setObjAllStatesMutex1(pddl_pot_t *pot,
             coef[fixed_fact] = countStatesMutex(s, mutex, &fixed);
             sum += coef[fixed_fact];
         }
-        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact)
+        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
             coef[fixed_fact] /= sum;
+            if (coef[fixed_fact] < 1E-6)
+                coef[fixed_fact] = 0.;
+        }
     }
 
     pddlPotSetObj(pot, coef);
@@ -355,8 +360,11 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
             }
             sum += coef[fixed_fact];
         }
-        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact)
+        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
             coef[fixed_fact] /= sum;
+            if (coef[fixed_fact] < 1E-6)
+                coef[fixed_fact] = 0.;
+        }
     }
 
     pddlPotSetObj(pot, coef);
@@ -394,11 +402,14 @@ static int samples(pddl_hpot_t *hpot,
             pddlPotSetObj(pot, coef);
             // Dead-ends are simply skipped
             if (solve(hpot, pot) == 0){
-                addFunc(hpot);
-                ++num_states;
-                if ((si + 1) % 100 == 0){
-                    BOR_INFO(err, "Pot: Solved for state: %d/%d",
-                             num_states, cfg->num_samples);
+                int h = fdrStateEstimate(hpot->func, &fdr->var, sampler.state);
+                if (h != PDDL_COST_DEAD_END){
+                    addFunc(hpot);
+                    ++num_states;
+                    if ((si + 1) % 100 == 0){
+                        BOR_INFO(err, "Pot: Solved for state: %d/%d",
+                                 num_states, cfg->num_samples);
+                    }
                 }
             }
 
@@ -525,21 +536,27 @@ static void diverseGenStates(diverse_pot_t *div,
 
         // Compute heuristic estimate
         pddlPotSetObj(pot, div->coef);
-        // Dead-ends are simply skipped
         if (solve2(hpot, pot, div->func[num_states]) == 0){
-            // Add state to the set of states and store heuristic estimate
-            int state_id = borHashSetAdd(&div->states, &state);
-            ASSERT(state_id == num_states);
-            div->state_est[state_id] = fdrStateEstimate(div->func[state_id],
-                                                        &fdr->var,
-                                                        sampler.state);
-            ++num_states;
+            int h = fdrStateEstimate(div->func[num_states], &fdr->var,
+                                     sampler.state);
+            if (h != PDDL_COST_DEAD_END){
+                // Add state to the set of states and store heuristic estimate
+                int state_id = borHashSetAdd(&div->states, &state);
+                ASSERT(state_id == num_states);
+                div->state_est[state_id] = h;
+                ASSERT_RUNTIME(div->state_est[state_id] >= 0);
+                ++num_states;
 
-            if ((si + 1) % 100 == 0){
-                BOR_INFO(err, "Pot: Solved for state: %d/%d",
-                          si + 1, cfg.num_samples);
+                if ((si + 1) % 100 == 0){
+                    BOR_INFO(err, "Pot: Diverse: %d/%d (dead-ends: %d)",
+                             num_states, cfg.num_samples, num_dead_ends);
+                }
+
+            }else{
+                ++num_dead_ends;
             }
         }else{
+            // Dead-ends are simply skipped
             ++num_dead_ends;
         }
     }
@@ -603,6 +620,7 @@ static const double *diverseSelectFunc(diverse_pot_t *div,
             return div->func[si];
         }
     }
+    ASSERT_RUNTIME_M(0, "The number of active states is invalid!");
     return NULL;
 }
 
