@@ -39,6 +39,9 @@ static int readOpts(int *argc,
     int obj_all_states_mutex_cond_rand[2];
     int obj_diverse = 0;
 
+    obj_all_states_mutex_cond_rand[0] = 0;
+    obj_all_states_mutex_cond_rand[1] = 0;
+
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
     optsAddDesc("output", 'o', OPTS_STR, &opt.fdr_out, NULL,
