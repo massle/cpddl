@@ -265,6 +265,16 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
         }
     }
 
+    if (single_fact_disamb){
+        // If we want only single-fact disambiguations, reset the
+        // disambiguations containing more than one fact to the full
+        // original mutex group
+        for (int mi = 0; mi < dis->mgroup_size; ++mi){
+            if (borISetSize(disamb_set + mi) > 1)
+                borISetUnion(disamb_set + mi, &dis->mgroup[mi].mgroup);
+        }
+    }
+
     for (int i = 0; i < dis->mgroup_size; ++i){
         int set_size = borISetSize(disamb_set + i);
         if (disamb_sets != NULL && set_size > 0){
