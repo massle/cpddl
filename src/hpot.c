@@ -455,6 +455,48 @@ static int allStatesMutexCond(pddl_hpot_t *hpot,
     return -1;
 }
 
+static int allStatesMutexCond2(pddl_hpot_t *hpot,
+                               pddl_pot_t *pot,
+                               const pddl_mg_strips_t *mg_strips,
+                               const pddl_mutex_pairs_t *mutex,
+                               int mutex_size,
+                               int num_samples,
+                               bor_err_t *err)
+{
+    bor_rand_mt_t *rnd = borRandMTNew(rand_sampler_seed);
+    BOR_ISET(cond);
+    int count = 0;
+    int fact_size = mg_strips->strips.fact.fact_size;
+    for (int i = 0; i < num_samples; ++i){
+        int f1 = borRandMT(rnd, 0, fact_size);
+        int f2 = borRandMT(rnd, 0, fact_size);
+        if (pddlMutexPairsIsMutex(mutex, f1, f2))
+            continue;
+        borISetEmpty(&cond);
+        borISetAdd(&cond, f1);
+        borISetAdd(&cond, f2);
+
+        setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
+                                        mutex_size);
+        if (solve(hpot, pot) == 0)
+            addFunc(hpot);
+        if (++count % 10 == 0){
+            BOR_INFO(err, "Computed conditioned func^2 %d and generated %d"
+                          " potential functions",
+                     count, hpot->pot_size);
+        }
+    }
+    BOR_INFO(err, "Computed conditioned func^2 %d and generated %d"
+                  " potential functions",
+             count, hpot->pot_size);
+    borISetFree(&cond);
+    borRandMTDel(rnd);
+
+    if (hpot->pot_size > 0)
+        return 0;
+    return -1;
+}
+
 
 static int samples(pddl_hpot_t *hpot,
                    pddl_pot_t *pot,
@@ -771,7 +813,8 @@ int pddlHPotInit(pddl_hpot_t *hpot,
             || cfg->samples_use_mutex
             || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX
             || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED
-            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND){
+            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND
+            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2){
         need_mutex = 1;
         pddlMGStripsInitFDR(&mg_strips, fdr);
         pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
@@ -838,6 +881,11 @@ int pddlHPotInit(pddl_hpot_t *hpot,
         ret = allStatesMutexCond(hpot, &pot, &mg_strips, &mutex,
                                  cfg->all_states_mutex_size, &facts, err);
         borISetFree(&facts);
+
+    }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2){
+        ret = allStatesMutexCond2(hpot, &pot, &mg_strips, &mutex,
+                                  cfg->all_states_mutex_size,
+                                  cfg->num_samples, err);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_DIVERSE){
         ret = diverse(hpot, &pot, fdr, cfg, err);

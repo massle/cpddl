@@ -37,10 +37,13 @@ static int readOpts(int *argc,
     int obj_all_states_mutex = 0;
     int obj_all_states_mutex_cond = 0;
     int obj_all_states_mutex_cond_rand[2];
+    int obj_all_states_mutex_cond_rand2[2];
     int obj_diverse = 0;
 
     obj_all_states_mutex_cond_rand[0] = 0;
     obj_all_states_mutex_cond_rand[1] = 0;
+    obj_all_states_mutex_cond_rand2[0] = 0;
+    obj_all_states_mutex_cond_rand2[1] = 0;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
@@ -78,6 +81,10 @@ static int readOpts(int *argc,
     optsAddDesc("all-states-mutex-cond-rand", 'R', OPTS_INT_ARR(2),
                 obj_all_states_mutex_cond_rand, NULL,
                 "Optimize for all syntactic states conditioned on facts.");
+    optsAddDesc("all-states-mutex-cond-rand2", 'P', OPTS_INT_ARR(2),
+                obj_all_states_mutex_cond_rand2, NULL,
+                "Optimize for all syntactic states conditioned on"
+                " pair of facts.");
     optsAddDesc("diverse", 'D', OPTS_INT, &obj_diverse, NULL,
                 "Diverse potentials");
 
@@ -125,8 +132,9 @@ static int readOpts(int *argc,
             + (obj_all_states_mutex > 0 ? 1 : 0)
             + (obj_all_states_mutex_cond > 0 ? 1 : 0)
             + (obj_all_states_mutex_cond_rand[1] > 0 ? 1 : 0)
+            + (obj_all_states_mutex_cond_rand2[1] > 0 ? 1 : 0)
             + (obj_diverse > 0 ? 1 : 0) != 1){
-        fprintf(stderr, "Error: One of -I/-A/-S/-T/-M/-D/-C/-R"
+        fprintf(stderr, "Error: One of -I/-A/-S/-T/-M/-D/-C/-R/-P"
                         " must be specified!\n\n");
         usage(argv[0]);
         return -1;
@@ -167,6 +175,11 @@ static int readOpts(int *argc,
         pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND;
         pot_cfg->all_states_mutex_size = obj_all_states_mutex_cond_rand[0];
         pot_cfg->num_samples = obj_all_states_mutex_cond_rand[1];
+
+    }else if (obj_all_states_mutex_cond_rand2[0] > 0){
+        pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2;
+        pot_cfg->all_states_mutex_size = obj_all_states_mutex_cond_rand2[0];
+        pot_cfg->num_samples = obj_all_states_mutex_cond_rand2[1];
 
     }else if (obj_diverse > 0){
         pot_cfg->obj = PDDL_HPOT_OBJ_DIVERSE;
