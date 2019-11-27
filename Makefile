@@ -44,6 +44,7 @@ OBJS += fdr_var
 OBJS += fdr_part_state
 OBJS += fdr_op
 OBJS += fdr
+OBJS += fdr_state_packer
 OBJS += sym
 OBJS += famgroup
 OBJS += pot
