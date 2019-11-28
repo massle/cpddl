@@ -51,6 +51,8 @@ typedef int pddl_obj_id_t;
  */
 typedef unsigned long pddl_state_id_t;
 
+#define PDDL_NO_STATE_ID ((pddl_state_id_t)-1)
+
 
 /**
  * Type of one word in buffer of packed variable values.

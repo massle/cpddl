@@ -80,8 +80,8 @@ void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool)
     pddlFDRStatePackerFree(&state_pool->packer);
 }
 
-pddl_state_id_t pddlFDRStatePoolAdd(pddl_fdr_state_pool_t *state_pool,
-                                    const int *state)
+pddl_state_id_t pddlFDRStatePoolInsert(pddl_fdr_state_pool_t *state_pool,
+                                       const int *state)
 {
     state_node_t *sn = borExtArrGet(state_pool->pool, state_pool->num_states);
     pddlFDRStatePackerPack(&state_pool->packer, state, sn->packed_state);

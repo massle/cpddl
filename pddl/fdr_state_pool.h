@@ -21,7 +21,7 @@
 
 #include <boruvka/extarr.h>
 #include <boruvka/htable.h>
-#include <pddl/fdr.h>
+#include <pddl/fdr_var.h>
 #include <pddl/fdr_state_packer.h>
 
 #ifdef __cplusplus
@@ -44,8 +44,8 @@ void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool);
  * Adds the given state to the pool and returns the assigned ID (or ID of
  * the same state already in the pool).
  */
-pddl_state_id_t pddlFDRStatePoolAdd(pddl_fdr_state_pool_t *state_pool,
-                                    const int *state);
+pddl_state_id_t pddlFDRStatePoolInsert(pddl_fdr_state_pool_t *state_pool,
+                                       const int *state);
 
 /**
  * Fills state with the unpacked state corresponding to the given state_id.
