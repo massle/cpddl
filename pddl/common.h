@@ -47,6 +47,12 @@ typedef int pddl_obj_id_t;
 
 
 /**
+ * Type for storing state ID.
+ */
+typedef unsigned long pddl_state_id_t;
+
+
+/**
  * Type of one word in buffer of packed variable values.
  * Bear in mind that the word's size must be big enough to store the whole
  * range of the biggest variable.
