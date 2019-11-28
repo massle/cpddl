@@ -31,7 +31,6 @@ enum pddl_fdr_state_space_status {
     PDDL_FDR_STATE_SPACE_STATUS_NEW,
     PDDL_FDR_STATE_SPACE_STATUS_OPEN,
     PDDL_FDR_STATE_SPACE_STATUS_CLOSED,
-    PDDL_FDR_STATE_SPACE_STATUS_DEAD_END,
 };
 typedef enum pddl_fdr_state_space_status pddl_fdr_state_space_status_t;
 
@@ -70,6 +69,12 @@ pddl_state_id_t pddlFDRStateSpaceInsert(pddl_fdr_state_space_t *state_space,
 void pddlFDRStateSpaceGet(const pddl_fdr_state_space_t *state_space,
                           pddl_state_id_t state_id,
                           pddl_fdr_state_space_node_t *node);
+
+/**
+ * Copy data from node to the corresponding node in the state space.
+ */
+void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
+                          const pddl_fdr_state_space_node_t *node);
 
 
 void pddlFDRStateSpaceNodeInit(pddl_fdr_state_space_node_t *node,

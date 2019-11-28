@@ -83,6 +83,18 @@ void pddlFDRStateSpaceGet(const pddl_fdr_state_space_t *state_space,
     pddlFDRStatePoolGet(&state_space->state_pool, state_id, node->state);
 }
 
+void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
+                          const pddl_fdr_state_space_node_t *node)
+{
+    ASSERT_RUNTIME(node->id >= 0
+                    && node->id < state_space->state_pool.num_states);
+    state_node_t *sn = borExtArrGet(state_space->node, node->id);
+    sn->parent_id = node->parent_id;
+    sn->op_id = node->op_id;
+    sn->g_value = node->g_value;
+    sn->h_value = node->h_value;
+    sn->status = node->status;
+}
 
 
 void pddlFDRStateSpaceNodeInit(pddl_fdr_state_space_node_t *node,

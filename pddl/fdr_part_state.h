@@ -70,6 +70,12 @@ int pddlFDRPartStateGet(const pddl_fdr_part_state_t *ps, int var);
 int pddlFDRPartStateIsSet(const pddl_fdr_part_state_t *ps, int var);
 
 /**
+ * Returns true if the partial state is consistent with the given state.
+ */
+int pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
+                                          const int *state);
+
+/**
  * Compare function for partial states.
  */
 int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,

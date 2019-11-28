@@ -58,6 +58,7 @@ OBJS += fdr_app_op
 OBJS += random_walk
 OBJS += open_list
 OBJS += open_list_splaytree
+OBJS += search_astar
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
