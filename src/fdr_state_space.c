@@ -69,18 +69,34 @@ pddl_state_id_t pddlFDRStateSpaceInsert(pddl_fdr_state_space_t *state_space,
     return id;
 }
 
-void pddlFDRStateSpaceGet(const pddl_fdr_state_space_t *state_space,
-                          pddl_state_id_t state_id,
-                          pddl_fdr_state_space_node_t *node)
+static void getNoState(const pddl_fdr_state_space_t *state_space,
+                       pddl_state_id_t state_id,
+                       const state_node_t *sn,
+                       pddl_fdr_state_space_node_t *node)
 {
-    const state_node_t *sn = borExtArrGet(state_space->node, state_id);
     node->id = state_id;
     node->parent_id = sn->parent_id;
     node->op_id = sn->op_id;
     node->g_value = sn->g_value;
     node->h_value = sn->h_value;
     node->status = sn->status;
+}
+
+void pddlFDRStateSpaceGet(const pddl_fdr_state_space_t *state_space,
+                          pddl_state_id_t state_id,
+                          pddl_fdr_state_space_node_t *node)
+{
+    const state_node_t *sn = borExtArrGet(state_space->node, state_id);
+    getNoState(state_space, state_id, sn, node);
     pddlFDRStatePoolGet(&state_space->state_pool, state_id, node->state);
+}
+
+void pddlFDRStateSpaceGetNoState(const pddl_fdr_state_space_t *state_space,
+                                 pddl_state_id_t state_id,
+                                 pddl_fdr_state_space_node_t *node)
+{
+    const state_node_t *sn = borExtArrGet(state_space->node, state_id);
+    getNoState(state_space, state_id, sn, node);
 }
 
 void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,

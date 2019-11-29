@@ -71,6 +71,13 @@ void pddlFDRStateSpaceGet(const pddl_fdr_state_space_t *state_space,
                           pddl_fdr_state_space_node_t *node);
 
 /**
+ * Same as *Get() but node->state is not touched.
+ */
+void pddlFDRStateSpaceGetNoState(const pddl_fdr_state_space_t *state_space,
+                                 pddl_state_id_t state_id,
+                                 pddl_fdr_state_space_node_t *node);
+
+/**
  * Copy data from node to the corresponding node in the state space.
  */
 void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
