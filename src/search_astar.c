@@ -71,7 +71,8 @@ int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
     pddl_state_id_t state_id;
     state_id = pddlFDRStateSpaceInsert(&astar->state_space, astar->fdr->init);
     ASSERT_RUNTIME(state_id == 0);
-    pddlFDRStateSpaceGet(&astar->state_space, state_id, &astar->cur_node);
+    pddlFDRStateSpaceGetNoState(&astar->state_space,
+                                state_id, &astar->cur_node);
     astar->cur_node.parent_id = PDDL_NO_STATE_ID;
     astar->cur_node.op_id = -1;
     astar->cur_node.g_value = 0;
@@ -249,8 +250,8 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
         pddl_state_id_t next_state_id;
         next_state_id = pddlFDRStateSpaceInsert(&astar->state_space,
                                                 astar->next_node.state);
-        pddlFDRStateSpaceGet(&astar->state_space, next_state_id,
-                             &astar->next_node);
+        pddlFDRStateSpaceGetNoState(&astar->state_space,
+                                    next_state_id, &astar->next_node);
         // TODO
         //++search->stat.generated;
         insertNextState(astar, op);
