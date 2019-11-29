@@ -53,6 +53,9 @@
 #include <pddl/fdr_part_state.h>
 #include <pddl/fdr_op.h>
 #include <pddl/fdr.h>
+#include <pddl/fdr_state_packer.h>
+#include <pddl/fdr_state_space.h>
+#include <pddl/fdr_state_pool.h>
 #include <pddl/sym.h>
 #include <pddl/pot.h>
 #include <pddl/mg_strips.h>
@@ -61,5 +64,8 @@
 #include <pddl/causal_graph.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
+#include <pddl/open_list.h>
+#include <pddl/search_astar.h>
+#include <pddl/plan.h>
 
 #endif /* __PDDL_H__ */

@@ -33,6 +33,19 @@ extern "C" {
 #define PDDL_SEARCH_UNSOLVABLE 1
 #define PDDL_SEARCH_FOUND 2
 
+struct pddl_search_stat {
+    size_t steps; /*!< Number of calls to *Step() */
+    size_t expanded; /*!< Number of times expansions of states */
+    size_t evaluated; /*!< Number of times heuristic function is evaluated */
+    size_t generated; /*!< Number of different states created so far */
+    size_t open; /*!< Number of states currently in the open list */
+    size_t closed; /*!< Number of closed states so far */
+    size_t reopen; /*!< Number of times a state was re-opened. */
+    size_t dead_end; /*!< Number of states detected as dead-end states */
+    int last_f_value;
+};
+typedef struct pddl_search_stat pddl_search_stat_t;
+
 struct pddl_search_astar {
     const pddl_fdr_t *fdr;
     int pathmax; /*!< Use pathmax correction */
@@ -45,6 +58,7 @@ struct pddl_search_astar {
     bor_iset_t applicable;
     pddl_fdr_state_space_node_t cur_node;
     pddl_fdr_state_space_node_t next_node;
+    pddl_search_stat_t _stat;
 };
 typedef struct pddl_search_astar pddl_search_astar_t;
 
@@ -53,6 +67,9 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
 void pddlSearchAStarDel(pddl_search_astar_t *astar);
 int pddlSearchAStarInitStep(pddl_search_astar_t *astar);
 int pddlSearchAStarStep(pddl_search_astar_t *astar);
+
+void pddlSearchAStarStat(const pddl_search_astar_t *astar,
+                         pddl_search_stat_t *stat);
 
 #ifdef __cplusplus
 } /* extern "C" */

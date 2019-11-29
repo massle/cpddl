@@ -27,6 +27,7 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
     pddl_search_astar_t *astar;
 
     astar = BOR_ALLOC(pddl_search_astar_t);
+    bzero(astar, sizeof(*astar));
     astar->fdr = fdr;
     astar->pathmax = use_pathmax;
 
@@ -60,14 +61,16 @@ static void push(pddl_search_astar_t *astar,
                  pddl_fdr_state_space_node_t *node)
 {
     int cost = node->g_value + node->h_value;
+    if (node->status == PDDL_FDR_STATE_SPACE_STATUS_CLOSED)
+        --astar->_stat.closed;
     node->status = PDDL_FDR_STATE_SPACE_STATUS_OPEN;
     pddlOpenListPush(astar->list, cost, node->id);
-    // TODO
-    //++search->stat.open;
+    ++astar->_stat.open;
 }
 
 int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
 {
+    int ret = PDDL_SEARCH_CONT;
     pddl_state_id_t state_id;
     state_id = pddlFDRStateSpaceInsert(&astar->state_space, astar->fdr->init);
     ASSERT_RUNTIME(state_id == 0);
@@ -79,82 +82,17 @@ int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
 
     // TODO
     astar->cur_node.h_value = 0;
-
-    pddlFDRStateSpaceSet(&astar->state_space, &astar->cur_node);
+    ++astar->_stat.evaluated;
+    if (astar->cur_node.h_value == PDDL_COST_DEAD_END){
+        ++astar->_stat.dead_end;
+        ret = PDDL_SEARCH_UNSOLVABLE;
+    }
 
     ASSERT_RUNTIME(astar->cur_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW);
     push(astar, &astar->cur_node);
-    // TODO
-    //++search->stat.generated;
-    return PDDL_SEARCH_CONT;
+    pddlFDRStateSpaceSet(&astar->state_space, &astar->cur_node);
+    return ret;
 }
-
-#if 0
-static void insertState(pddl_search_astar_t *astar,
-                        const pddl_fdr_op_t *op,
-                        pddl_fdr_state_space_node_t *parent_node)
-{
-    int heur, g_value = 0;
-    pddl_state_id_t parent_state_id = PDDL_NO_STATE_ID;
-    pddl_fdr_state_space_node_t *node = &astar->next_node;
-
-    if (parent_node){
-        g_value += parent_node->g_value;
-        parent_state_id = parent_node->state_id;
-    }
-
-    if (op)
-        g_value += op->cost;
-
-    node->parent_state_id = parent_state_id;
-    node->op              = op;
-    node->cost            = g_value;
-
-    // Force to open the node and compute heuristic if necessary
-    if (planStateSpaceNodeIsNew(node)){
-        ++search->stat.generated;
-        planStateSpaceOpen(&search->state_space, node);
-
-        // Compute heuristic value
-        _pddlSearchNextHeur(search);
-        heur = search->next_heur.heur;
-
-        if (astar->pathmax && op != NULL && parent_node != NULL)
-            heur = BOR_MAX(heur, parent_node->heur - op->cost);
-
-    }else{
-        if (planStateSpaceNodeIsClosed(node)){
-            planStateSpaceReopen(&search->state_space, node);
-            ++search->stat.reopen;
-        }
-
-        // The node was already opened, so we have already computed
-        // heuristic
-        heur = node->heur;
-    }
-
-    // Set heuristic value to the node
-    node->heur = heur;
-
-    // Skip dead-end states
-    if (heur == PLAN_COST_DEAD_END){
-        planStateSpaceClose(&search->state_space, node);
-        ++search->stat.closed;
-        ++search->stat.dead_end;
-        return;
-    }
-
-    // Set up costs for open-list -- ties are broken by heuristic value
-    heur = BOR_MAX(heur, 0);
-    cost[0] = g_value + heur; // f-value: f() = g() + h()
-    cost[1] = heur; // tie-breaking value
-
-    // Insert into open-list
-    planListPush(astar->list, cost, node->state_id);
-    ++search->stat.open;
-    // TODO: stats: pddlSearchStatIncGeneratedStates(&search->stat);
-}
-#endif
 
 static int isGoal(const pddl_search_astar_t *astar)
 {
@@ -177,27 +115,32 @@ static void insertNextState(pddl_search_astar_t *astar,
     astar->next_node.parent_id = astar->cur_node.id;
     astar->next_node.op_id = op->id;
     astar->next_node.g_value = next_g_value;
-    astar->next_node.h_value = 0; // TODO
-    /* TODO
-    if (astar->pathmax)
-        heur = BOR_MAX(heur, parent_node->heur - op->cost);
-    */
+
+    if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW){
+        astar->next_node.h_value = 0; // TODO
+        ++astar->_stat.evaluated;
+        if (astar->next_node.h_value == PDDL_COST_DEAD_END){
+            ++astar->_stat.dead_end;
+        }else if (astar->pathmax){
+            int parent_heur = astar->cur_node.h_value + op->cost;
+            int heur = astar->next_node.h_value;
+            heur = BOR_MAX(heur, parent_heur);
+            astar->next_node.h_value = heur;
+        }
+    }
 
     if (astar->next_node.h_value == PDDL_COST_DEAD_END){
+        if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_OPEN)
+            --astar->_stat.open;
         astar->next_node.status = PDDL_FDR_STATE_SPACE_STATUS_CLOSED;
-        // TODO
-        //if (astar->next_node.status != PDDL_FDR_STATE_SPACE_STATUS_CLOSED){
-        //++search->stat.closed;
-        //++search->stat.dead_end;
-        //}
+        ++astar->_stat.closed;
 
     }else if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW){
         push(astar, &astar->next_node);
 
     }else if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_CLOSED){
         push(astar, &astar->next_node);
-        // TODO
-        //++search->stat.reopen;
+        ++astar->_stat.reopen;
     }
 
     pddlFDRStateSpaceSet(&astar->state_space, &astar->next_node);
@@ -208,11 +151,11 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
     int cur_f_value;
     pddl_state_id_t cur_state_id;
 
+    ++astar->_stat.steps;
+
     // Get next state from open list
     if (pddlOpenListPop(astar->list, &cur_state_id, &cur_f_value) != 0)
         return PDDL_SEARCH_UNSOLVABLE;
-    // TODO
-    //--search->stat.open;
 
     // Load the current state
     pddlFDRStateSpaceGet(&astar->state_space, cur_state_id, &astar->cur_node);
@@ -221,10 +164,11 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
     if (astar->cur_node.status != PDDL_FDR_STATE_SPACE_STATUS_OPEN)
         return PDDL_SEARCH_CONT;
 
-    // Close the current state node
+    // Close the current node
     astar->cur_node.status = PDDL_FDR_STATE_SPACE_STATUS_CLOSED;
-    // TODO
-    //++search->stat.closed;
+    --astar->_stat.open;
+    ++astar->_stat.closed;
+    astar->_stat.last_f_value = cur_f_value;
 
     // Check whether it is a goal
     if (isGoal(astar)){
@@ -235,7 +179,7 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
     // Find all applicable operators
     borISetEmpty(&astar->applicable);
     pddlFDRAppOpFind(&astar->app_op, astar->cur_node.state, &astar->applicable);
-    // TODO: stats: pddlSearchStatIncExpandedStates(&search->stat);
+    ++astar->_stat.expanded;
 
     int op_id;
     BOR_ISET_FOR_EACH(&astar->applicable, op_id){
@@ -252,9 +196,14 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
                                                 astar->next_node.state);
         pddlFDRStateSpaceGetNoState(&astar->state_space,
                                     next_state_id, &astar->next_node);
-        // TODO
-        //++search->stat.generated;
         insertNextState(astar, op);
     }
     return PDDL_SEARCH_CONT;
+}
+
+void pddlSearchAStarStat(const pddl_search_astar_t *astar,
+                         pddl_search_stat_t *stat)
+{
+    *stat = astar->_stat;
+    stat->generated = astar->state_space.state_pool.num_states;
 }

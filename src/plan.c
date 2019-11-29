@@ -67,7 +67,7 @@ static void loadReversedStates(pddl_plan_t *plan,
     plan->state_size = 0;
     while (1){
         addState(plan, node.id);
-        if (node.parent_id >= 0){
+        if (node.parent_id != PDDL_NO_STATE_ID){
             pddlFDRStateSpaceGetNoState(state_space, node.parent_id, &node);
         }else{
             break;
