@@ -24,6 +24,7 @@
 #include <pddl/fdr.h>
 #include <pddl/fdr_state_space.h>
 #include <pddl/fdr_app_op.h>
+#include <pddl/heur.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,7 @@ typedef struct pddl_search_stat pddl_search_stat_t;
 
 struct pddl_search_astar {
     const pddl_fdr_t *fdr;
+    pddl_heur_t *heur;
     int pathmax; /*!< Use pathmax correction */
     pddl_fdr_state_space_t state_space;
     pddl_open_list_t *list;
@@ -63,6 +65,7 @@ struct pddl_search_astar {
 typedef struct pddl_search_astar pddl_search_astar_t;
 
 pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
+                                     pddl_heur_t *heur,
                                      int use_pathmax);
 void pddlSearchAStarDel(pddl_search_astar_t *astar);
 int pddlSearchAStarInitStep(pddl_search_astar_t *astar);

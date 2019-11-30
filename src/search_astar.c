@@ -22,6 +22,7 @@
 
 
 pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
+                                     pddl_heur_t *heur,
                                      int use_pathmax)
 {
     pddl_search_astar_t *astar;
@@ -29,6 +30,7 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
     astar = BOR_ALLOC(pddl_search_astar_t);
     bzero(astar, sizeof(*astar));
     astar->fdr = fdr;
+    astar->heur = heur;
     astar->pathmax = use_pathmax;
 
     pddlFDRStateSpaceInit(&astar->state_space, &fdr->var);
@@ -80,8 +82,9 @@ int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
     astar->cur_node.op_id = -1;
     astar->cur_node.g_value = 0;
 
-    // TODO
-    astar->cur_node.h_value = 0;
+    astar->cur_node.h_value = pddlHeurEstimate(astar->heur,
+                                               &astar->cur_node,
+                                               &astar->state_space);
     ++astar->_stat.evaluated;
     if (astar->cur_node.h_value == PDDL_COST_DEAD_END){
         ++astar->_stat.dead_end;
@@ -117,7 +120,9 @@ static void insertNextState(pddl_search_astar_t *astar,
     astar->next_node.g_value = next_g_value;
 
     if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW){
-        astar->next_node.h_value = 0; // TODO
+        astar->next_node.h_value = pddlHeurEstimate(astar->heur,
+                                                    &astar->cur_node,
+                                                    &astar->state_space);
         ++astar->_stat.evaluated;
         if (astar->next_node.h_value == PDDL_COST_DEAD_END){
             ++astar->_stat.dead_end;

@@ -60,6 +60,8 @@ OBJS += open_list
 OBJS += open_list_splaytree
 OBJS += search_astar
 OBJS += plan
+OBJS += heur
+OBJS += heur_blind
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 

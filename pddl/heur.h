@@ -1,0 +1,52 @@
+/***
+ * cpddl
+ * -------
+ * Copyright (c)2019 Daniel Fiser <danfis@danfis.cz>,
+ * AI Center, Department of Computer Science,
+ * Faculty of Electrical Engineering, Czech Technical University in Prague.
+ * All rights reserved.
+ *
+ * This file is part of cpddl.
+ *
+ * Distributed under the OSI-approved BSD License (the "License");
+ * see accompanying file BDS-LICENSE for details or see
+ * <http://www.opensource.org/licenses/bsd-license.php>.
+ *
+ * This software is distributed WITHOUT ANY WARRANTY; without even the
+ * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the License for more information.
+ */
+
+#ifndef __PDDL_HEUR_H__
+#define __PDDL_HEUR_H__
+
+#include <pddl/fdr_state_space.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+typedef struct pddl_heur pddl_heur_t;
+
+/**
+ * Blind heuristic returning estimate 0 for every state.
+ */
+pddl_heur_t *pddlHeurBlind(void);
+
+/**
+ * Destructor
+ */
+void pddlHeurDel(pddl_heur_t *h);
+
+/**
+ * Computes and returns a heuristic estimate.
+ */
+int pddlHeurEstimate(pddl_heur_t *h,
+                     const pddl_fdr_state_space_node_t *node,
+                     const pddl_fdr_state_space_t *state_space);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
+
+#endif /* __PDDL_HEUR_H__ */

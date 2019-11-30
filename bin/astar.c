@@ -1,6 +1,21 @@
+#include <signal.h>
 #include <stdio.h>
 #include <pddl/pddl.h>
 #include <opts.h>
+
+volatile sig_atomic_t terminate = 0;
+volatile sig_atomic_t search_started = 0;
+
+void sigHandlerTerminate(int signal)
+{
+    fprintf(stderr, "Received %s signal\n", strsignal(signal));
+    fflush(stderr);
+    if (search_started){
+        terminate = 1;
+    }else{
+        exit(-1);
+    }
+}
 
 struct options {
     int help;
@@ -88,6 +103,9 @@ static void printSearchStat(const pddl_search_astar_t *astar, bor_err_t *err)
 int main(int argc, char *argv[])
 {
     pddl_hpot_config_t hpot_cfg = PDDL_HPOT_CONFIG_INIT;
+
+    signal(SIGINT, sigHandlerTerminate);
+    signal(SIGTERM, sigHandlerTerminate);
 
     bor_err_t err = BOR_ERR_INIT;
     borErrWarnEnable(&err, stderr);
@@ -198,14 +216,22 @@ int main(int argc, char *argv[])
     BOR_INFO(&err, "Number of variables: %d", fdr.var.var_size);
     BOR_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
 
-    pddl_search_astar_t *astar;
+    pddl_heur_t *heur = pddlHeurBlind();
 
-    astar = pddlSearchAStar(&fdr, 0);
+    pddl_search_astar_t *astar;
+    astar = pddlSearchAStar(&fdr, heur, 0);
     int ret = pddlSearchAStarInitStep(astar);
+    search_started = 1;
 
     bor_timer_t info_timer;
     borTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
+        if (terminate){
+            printSearchStat(astar, &err);
+            BOR_INFO2(&err, "Search aborted.");
+            exit(-1);
+        }
+
         ret = pddlSearchAStarStep(astar);
         if (step >= 100){
             borTimerStop(&info_timer);
@@ -248,6 +274,7 @@ int main(int argc, char *argv[])
     }
 
     pddlSearchAStarDel(astar);
+    pddlHeurDel(heur);
 
     optsClear();
     pddlFDRFree(&fdr);
