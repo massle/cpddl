@@ -21,6 +21,7 @@
 #define __PDDL_HEUR_H__
 
 #include <pddl/fdr_state_space.h>
+#include <pddl/hpot.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +33,13 @@ typedef struct pddl_heur pddl_heur_t;
  * Blind heuristic returning estimate 0 for every state.
  */
 pddl_heur_t *pddlHeurBlind(void);
+
+/**
+ * Potential heuristic.
+ */
+pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
+                         const pddl_hpot_config_t *cfg,
+                         bor_err_t *err);
 
 /**
  * Destructor

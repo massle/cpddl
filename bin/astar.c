@@ -23,6 +23,7 @@ struct options {
     int fam_groups;
     char *out;
     pddl_files_t files;
+    char *heur_spec;
 } opt;
 
 static void usage(const char *name)
@@ -39,6 +40,8 @@ static int readOpts(int *argc,
                     pddl_hpot_config_t *pot_cfg,
                     bor_err_t *err)
 {
+    opt.heur_spec = NULL;
+
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
     optsAddDesc("output", 'o', OPTS_STR, &opt.out, NULL,
@@ -47,7 +50,8 @@ static int readOpts(int *argc,
                 "Use LP to infer all maximal fam-groups.");
     optsAddDesc("fd", 0x0, OPTS_NONE, &opt.fd_fam_groups, NULL,
                 "Use Fast-Downward fam-groups.");
-
+    optsAddDesc("heur", 'H', OPTS_STR, &opt.heur_spec, NULL,
+                "Specify heuristic.");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 2 && *argc != 3)){
         if (*argc <= 1)
@@ -79,6 +83,13 @@ static int readOpts(int *argc,
     BOR_INFO(err, "PDDL files: '%s' '%s'\n",
              opt.files.domain_pddl, opt.files.problem_pddl);
 
+    if (opt.heur_spec == NULL){
+        fprintf(stderr, "Error: Heuristic (--heur/-H) must be specified.\n\n");
+        usage(argv[0]);
+        exit(-1);
+    }
+    BOR_INFO(err, "Heuristic: '%s'", opt.heur_spec);
+
     return 0;
 }
 
@@ -98,6 +109,21 @@ static void printSearchStat(const pddl_search_astar_t *astar, bor_err_t *err)
                   stat.reopen,
                   stat.dead_end,
                   stat.last_f_value);
+}
+
+static pddl_heur_t *createHeur(const pddl_fdr_t *fdr,
+                               bor_err_t *err)
+{
+    if (strcmp(opt.heur_spec, "blind") == 0){
+        return pddlHeurBlind();
+    }else if (strncmp(opt.heur_spec, "pot", 3) == 0){
+        pddl_hpot_config_t cfg = PDDL_HPOT_CONFIG_INIT;
+        return pddlHeurPot(fdr, &cfg, err);
+
+    }else{
+        fprintf(stderr, "Error: Unkown '%s' heuristic\n", opt.heur_spec);
+        exit(-1);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -216,7 +242,7 @@ int main(int argc, char *argv[])
     BOR_INFO(&err, "Number of variables: %d", fdr.var.var_size);
     BOR_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
 
-    pddl_heur_t *heur = pddlHeurBlind();
+    pddl_heur_t *heur = createHeur(&fdr, &err);
 
     pddl_search_astar_t *astar;
     astar = pddlSearchAStar(&fdr, heur, 0);

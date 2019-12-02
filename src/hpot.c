@@ -22,6 +22,8 @@
 #include "pddl/pot.h"
 #include "pddl/critical_path.h"
 #include "pddl/random_walk.h"
+#include "pddl/heur.h"
+#include "_heur.h"
 #include "assert.h"
 
 #define ROUND_EPS 0.001
@@ -952,4 +954,39 @@ void pddlHPotFree(pddl_hpot_t *hpot)
         BOR_FREE(hpot->pot);
     if (hpot->func != NULL)
         BOR_FREE(hpot->func);
+}
+
+struct pddl_heur_pot {
+    pddl_heur_t heur;
+    pddl_hpot_t hpot;
+    const pddl_fdr_vars_t *vars;
+};
+typedef struct pddl_heur_pot pddl_heur_pot_t;
+
+static void heurDel(pddl_heur_t *_h)
+{
+    pddl_heur_pot_t *h = bor_container_of(_h, pddl_heur_pot_t, heur);
+    _pddlHeurFree(&h->heur);
+    pddlHPotFree(&h->hpot);
+    BOR_FREE(h);
+}
+
+static int heurEstimate(pddl_heur_t *_h,
+                        const pddl_fdr_state_space_node_t *node,
+                        const pddl_fdr_state_space_t *state_space)
+{
+    pddl_heur_pot_t *h = bor_container_of(_h, pddl_heur_pot_t, heur);
+    int est = pddlHPotFDRStateEstimate(&h->hpot, h->vars, node->state);
+    return est;
+}
+
+pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
+                         const pddl_hpot_config_t *cfg,
+                         bor_err_t *err)
+{
+    pddl_heur_pot_t *h = BOR_ALLOC(pddl_heur_pot_t);
+    pddlHPotInit(&h->hpot, fdr, cfg, err);
+    h->vars = &fdr->var;
+    _pddlHeurInit(&h->heur, heurDel, heurEstimate);
+    return &h->heur;
 }
