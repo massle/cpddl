@@ -67,8 +67,6 @@ void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
                                       NULL, NULL);
 
     state_pool->htable = borHTableNew(htableHash, htableEq, state_pool);
-
-    // Insert initial state
 }
 
 void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool)

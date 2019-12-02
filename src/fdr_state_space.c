@@ -49,6 +49,7 @@ void pddlFDRStateSpaceFree(pddl_fdr_state_space_t *state_space)
 {
     if (state_space->node != NULL)
         borExtArrDel(state_space->node);
+    pddlFDRStatePoolFree(&state_space->state_pool);
 }
 
 pddl_state_id_t pddlFDRStateSpaceInsert(pddl_fdr_state_space_t *state_space,
