@@ -273,6 +273,11 @@ int main(int argc, char *argv[])
         BOR_FATAL("Unkown return status: %d", ret);
     }
 
+    if (terminate){
+        BOR_INFO2(&err, "Search aborted.");
+        exit(-1);
+    }
+
     pddlSearchAStarDel(astar);
     pddlHeurDel(heur);
 
@@ -285,6 +290,3 @@ int main(int argc, char *argv[])
     pddlFree(&pddl);
     return 0;
 }
-
-
-
