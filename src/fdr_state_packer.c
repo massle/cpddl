@@ -120,6 +120,7 @@ void pddlFDRStatePackerPack(const pddl_fdr_state_packer_t *p,
                             const int *state,
                             void *buffer)
 {
+    bzero(buffer, p->bufsize);
     for (int i = 0; i < p->num_vars; ++i)
         packerSetVar(p->vars + i, state[i], buffer);
 }
