@@ -76,8 +76,7 @@ int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
     pddl_state_id_t state_id;
     state_id = pddlFDRStateSpaceInsert(&astar->state_space, astar->fdr->init);
     ASSERT_RUNTIME(state_id == 0);
-    pddlFDRStateSpaceGetNoState(&astar->state_space,
-                                state_id, &astar->cur_node);
+    pddlFDRStateSpaceGet(&astar->state_space, state_id, &astar->cur_node);
     astar->cur_node.parent_id = PDDL_NO_STATE_ID;
     astar->cur_node.op_id = -1;
     astar->cur_node.g_value = 0;
@@ -115,13 +114,14 @@ static void insertNextState(pddl_search_astar_t *astar,
         return;
     }
 
+    // TODO: What about heuristics depending on the path to the state?
     astar->next_node.parent_id = astar->cur_node.id;
     astar->next_node.op_id = op->id;
     astar->next_node.g_value = next_g_value;
 
     if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW){
         astar->next_node.h_value = pddlHeurEstimate(astar->heur,
-                                                    &astar->cur_node,
+                                                    &astar->next_node,
                                                     &astar->state_space);
         ++astar->_stat.evaluated;
         if (astar->next_node.h_value == PDDL_COST_DEAD_END){
