@@ -39,7 +39,6 @@ struct pddl_fdr_state_space_node {
     pddl_state_id_t parent_id; /*!< ID of the parent state */
     int op_id; /*!< ID of the operator reaching this state */
     int g_value; /*!< Cost of the path from init to this state */
-    int h_value; /*!< Heuristic value */
     pddl_fdr_state_space_status_t status; /*!< PDDL_FDR_STATE_SPACE_STATUS_* */
     int *state; /*!< Unpacked FDR state */
     int var_size; /*!< Number of variables in a state */
@@ -53,7 +52,8 @@ struct pddl_fdr_state_space {
 typedef struct pddl_fdr_state_space pddl_fdr_state_space_t;
 
 void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
-                           const pddl_fdr_vars_t *vars);
+                           const pddl_fdr_vars_t *vars,
+                           bor_err_t *err);
 void pddlFDRStateSpaceFree(pddl_fdr_state_space_t *state_space);
 
 /**

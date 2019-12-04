@@ -97,9 +97,9 @@ static void printSearchStat(const pddl_search_astar_t *astar, bor_err_t *err)
 {
     pddl_search_stat_t stat;
     pddlSearchAStarStat(astar, &stat);
-    BOR_INFO(err, "Search steps: %lu, expanded: %lu, evaluated: %lu,"
-                  " generated: %lu, open: %lu, closed: %lu,"
-                  " reopen: %lu, dead-end: %lu, f-value: %d",
+    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+                  " gen: %lu, open: %lu, closed: %lu,"
+                  " reopen: %lu, de: %lu, f: %d",
                   stat.steps,
                   stat.expanded,
                   stat.evaluated,
@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
     pddl_heur_t *heur = createHeur(&fdr, &err);
 
     pddl_search_astar_t *astar;
-    astar = pddlSearchAStar(&fdr, heur, 0);
+    astar = pddlSearchAStar(&fdr, heur, &err);
     int ret = pddlSearchAStarInitStep(astar);
     search_started = 1;
 

@@ -22,27 +22,31 @@
 #include "assert.h"
 
 
-#define PAGESIZE_MULTIPLY 256
-#define MIN_STATES_PER_BLOCK 256
+#define PAGESIZE_MULTIPLY 1024
+#define MIN_STATES_PER_BLOCK (1024 * 1024)
 
 
+// TODO: Assert on bitsizes
 struct state_node {
     pddl_state_id_t parent_id; /*!< ID of the parent state */
-    int op_id; /*!< ID of the operator reaching this state */
+    int op_id:30; /*!< ID of the operator reaching this state */
+    pddl_fdr_state_space_status_t status:2;/*!< PDDL_FDR_STATE_SPACE_STATUS_* */
     int g_value; /*!< Cost of the path from init to this state */
-    int h_value; /*!< Heuristic value */
-    pddl_fdr_state_space_status_t status; /*!< PDDL_FDR_STATE_SPACE_STATUS_* */
 } bor_packed;
 typedef struct state_node state_node_t;
 
 void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
-                           const pddl_fdr_vars_t *vars)
+                           const pddl_fdr_vars_t *vars,
+                           bor_err_t *err)
 {
     bzero(state_space, sizeof(*state_space));
-    pddlFDRStatePoolInit(&state_space->state_pool, vars);
+    pddlFDRStatePoolInit(&state_space->state_pool, vars, err);
     state_space->node = borExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
                                       MIN_STATES_PER_BLOCK,
                                       NULL, NULL);
+
+    BOR_INFO(err, "State space created. bytes per state node: %d",
+             (int)sizeof(state_node_t));
 }
 
 void pddlFDRStateSpaceFree(pddl_fdr_state_space_t *state_space)
@@ -64,8 +68,8 @@ pddl_state_id_t pddlFDRStateSpaceInsert(pddl_fdr_state_space_t *state_space,
         state_node_t *sn = borExtArrGet(state_space->node, id);
         sn->parent_id = PDDL_NO_STATE_ID;
         sn->op_id = -1;
-        sn->g_value = sn->h_value = -1;
         sn->status = PDDL_FDR_STATE_SPACE_STATUS_NEW;
+        sn->g_value = -1;
     }
     return id;
 }
@@ -79,7 +83,6 @@ static void getNoState(const pddl_fdr_state_space_t *state_space,
     node->parent_id = sn->parent_id;
     node->op_id = sn->op_id;
     node->g_value = sn->g_value;
-    node->h_value = sn->h_value;
     node->status = sn->status;
 }
 
@@ -109,7 +112,6 @@ void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
     sn->parent_id = node->parent_id;
     sn->op_id = node->op_id;
     sn->g_value = node->g_value;
-    sn->h_value = node->h_value;
     sn->status = node->status;
 }
 

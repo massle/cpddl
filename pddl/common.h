@@ -49,7 +49,7 @@ typedef int pddl_obj_id_t;
 /**
  * Type for storing state ID.
  */
-typedef unsigned long pddl_state_id_t;
+typedef unsigned int pddl_state_id_t;
 
 #define PDDL_NO_STATE_ID ((pddl_state_id_t)-1)
 

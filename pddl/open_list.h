@@ -38,7 +38,7 @@ typedef void (*pddl_open_list_del_fn)(pddl_open_list_t *list);
  * Inserts a state ID with a corresponding cost(s).
  */
 typedef void (*pddl_open_list_push_fn)(pddl_open_list_t *list,
-                                       int cost,
+                                       const int *cost,
                                        pddl_state_id_t state_id);
 
 /**
@@ -75,6 +75,7 @@ struct pddl_open_list {
  * Open list based on splay-tree
  */
 pddl_open_list_t *pddlOpenListSplayTree(void);
+pddl_open_list_t *pddlOpenListSplayTree2(void);
 
 /**
  * Destroys the list.
@@ -85,7 +86,7 @@ _bor_inline void pddlOpenListDel(pddl_open_list_t *l);
  * Inserts an element with the specified cost into the list.
  */
 _bor_inline void pddlOpenListPush(pddl_open_list_t *list,
-                                  int cost,
+                                  const int *cost,
                                   pddl_state_id_t state_id);
 
 /**
@@ -116,7 +117,7 @@ _bor_inline void pddlOpenListDel(pddl_open_list_t *l)
 }
 
 _bor_inline void pddlOpenListPush(pddl_open_list_t *list,
-                                  int cost,
+                                  const int *cost,
                                   pddl_state_id_t state_id)
 {
     list->push_fn(list, cost, state_id);

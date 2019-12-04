@@ -58,6 +58,7 @@ OBJS += fdr_app_op
 OBJS += random_walk
 OBJS += open_list
 OBJS += open_list_splaytree
+OBJS += open_list_splaytree2
 OBJS += search_astar
 OBJS += plan
 OBJS += heur

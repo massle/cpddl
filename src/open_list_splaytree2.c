@@ -32,7 +32,7 @@ struct keynode {
     bor_fifo_t fifo;              /*!< Structure containing all values */
     struct keynode *spe_left;  /*!< Connector to splay-tree */
     struct keynode *spe_right; /*!< Connector to splay-tree */
-    int cost;
+    int cost[2];
 };
 typedef struct keynode keynode_t;
 
@@ -61,21 +61,50 @@ static int pddlOpenListSplayTreeTop(pddl_open_list_t *list,
 static void pddlOpenListSplayTreeClear(pddl_open_list_t *list);
 
 
-static keynode_t *keynodeNew(void);
-static void keynodeDel(keynode_t *kn);
+static keynode_t *keynodeNew(void)
+{
+    keynode_t *kn;
+    kn = BOR_MALLOC(sizeof(keynode_t));
+    borFifoInit(&kn->fifo, sizeof(node_t));
+    return kn;
+}
+
+static void keynodeDel(keynode_t *kn)
+{
+    borFifoFree(&kn->fifo);
+    BOR_FREE(kn);
+}
+
+_bor_inline int keynodeCmp(const int *kn1, const int *kn2, int size)
+{
+    int i, cmp;
+    for (i = 0; i < size && (cmp = kn1[i] - kn2[i]) == 0; ++i);
+    return cmp;
+}
 
 /** Define splay-tree structure */
 #define BOR_SPLAY_TREE_NODE_T keynode_t
 #define BOR_SPLAY_TREE_T pddl_open_list_splaytree_t
-#define BOR_SPLAY_KEY_T int
+#define BOR_SPLAY_KEY_T const int *
 #define BOR_SPLAY_NODE_KEY(node) node->cost
 #define BOR_SPLAY_NODE_SET_KEY(head, node, key) \
-    node->cost = key
+    memcpy(node->cost, key, sizeof(int) * 2)
+/*
+    do { \
+        node->cost[0] = key[0]; \
+        node->cost[1] = key[1]; \
+    } while(0)
+*/
 #define BOR_SPLAY_KEY_CMP(head, key1, key2) \
-    (key1 == key2 ? 0 : (key1 < key2 ? -1 : 1))
+    keynodeCmp(key1, key2, 2)
+/*
+    (key1[0] == key2[0] \
+        ? (key1[1] == key2[1] ? 0 : (key1[1] < key2[1] ? -1 : 1)) \
+        : (key1[0] < key2[0] ? -1 : 1))
+*/
 #include "boruvka/splaytree_def.h"
 
-pddl_open_list_t *pddlOpenListSplayTree(void)
+pddl_open_list_t *pddlOpenListSplayTree2(void)
 {
     pddl_open_list_splaytree_t *list;
 
@@ -114,7 +143,7 @@ static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,
     node_t node;
 
     // Try to insert pre-allocated key-node
-    kn = borSplayInsert(list, *cost, list->pre_keynode);
+    kn = borSplayInsert(list, cost, list->pre_keynode);
 
     if (kn == NULL){
         // Insertion was successful, remember the inserted key-node and
@@ -147,7 +176,8 @@ static int pddlOpenListSplayTreePop(pddl_open_list_t *_list,
     // Pop next node from the key-node.
     n = borFifoFront(&kn->fifo);
     *state_id = n->state_id;
-    *cost = kn->cost;
+    cost[0] = kn->cost[0];
+    cost[1] = kn->cost[1];
     borFifoPop(&kn->fifo);
 
     // If the key-node is empty, remove it from the tree
@@ -176,7 +206,8 @@ static int pddlOpenListSplayTreeTop(pddl_open_list_t *_list,
     // Get the next node from the key-node.
     n = borFifoFront(&kn->fifo);
     *state_id = n->state_id;
-    *cost = kn->cost;
+    cost[0] = kn->cost[0];
+    cost[1] = kn->cost[1];
     return 0;
 }
 
@@ -190,18 +221,4 @@ static void pddlOpenListSplayTreeClear(pddl_open_list_t *_list)
         borSplayRemove(list, list->root);
         keynodeDel(kn);
     }
-}
-
-static keynode_t *keynodeNew(void)
-{
-    keynode_t *kn;
-    kn = BOR_MALLOC(sizeof(keynode_t));
-    borFifoInit(&kn->fifo, sizeof(node_t));
-    return kn;
-}
-
-static void keynodeDel(keynode_t *kn)
-{
-    borFifoFree(&kn->fifo);
-    BOR_FREE(kn);
 }
