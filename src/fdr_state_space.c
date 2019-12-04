@@ -26,7 +26,6 @@
 #define MIN_STATES_PER_BLOCK (1024 * 1024)
 
 
-// TODO: Assert on bitsizes
 struct state_node {
     pddl_state_id_t parent_id; /*!< ID of the parent state */
     int op_id:30; /*!< ID of the operator reaching this state */
@@ -99,6 +98,8 @@ void pddlFDRStateSpaceGetNoState(const pddl_fdr_state_space_t *state_space,
                                  pddl_state_id_t state_id,
                                  pddl_fdr_state_space_node_t *node)
 {
+    ASSERT_RUNTIME(state_id >= 0
+                    && state_id < state_space->state_pool.num_states);
     const state_node_t *sn = borExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
 }
