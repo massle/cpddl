@@ -74,7 +74,7 @@ struct pddl_open_list {
 /**
  * Open list based on splay-tree
  */
-pddl_open_list_t *pddlOpenListSplayTree(void);
+pddl_open_list_t *pddlOpenListSplayTree1(void);
 pddl_open_list_t *pddlOpenListSplayTree2(void);
 
 /**

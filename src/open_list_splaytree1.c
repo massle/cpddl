@@ -75,7 +75,7 @@ static void keynodeDel(keynode_t *kn);
     (key1 == key2 ? 0 : (key1 < key2 ? -1 : 1))
 #include "boruvka/splaytree_def.h"
 
-pddl_open_list_t *pddlOpenListSplayTree(void)
+pddl_open_list_t *pddlOpenListSplayTree1(void)
 {
     pddl_open_list_splaytree_t *list;
 
