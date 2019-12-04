@@ -131,7 +131,8 @@ static void insertNextState(pddl_search_astar_t *astar,
         astar->next_node.status = PDDL_FDR_STATE_SPACE_STATUS_CLOSED;
         ++astar->_stat.closed;
 
-    }else if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW){
+    }else if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_NEW
+                || astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_OPEN){
         push(astar, &astar->next_node, h_value);
 
     }else if (astar->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_CLOSED){
