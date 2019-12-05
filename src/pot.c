@@ -164,19 +164,18 @@ static void addFDRGoal(pddl_pot_t *pot,
 }
 
 static void hsetToVarSet(pddl_pot_t *pot,
-                         const bor_hashset_t *hset,
+                         const pddl_set_iset_t *hset,
                          bor_iset_t *var_set)
 {
     int *count = BOR_CALLOC_ARR(int, pot->var_size);
-    for (int seti = 0; seti < hset->size; ++seti){
-        const bor_iset_t *set = borHashSetGet(hset, seti);
+    const bor_iset_t *set;
+    PDDL_SET_ISET_FOR_EACH(hset, set){
         int fact_id;
         BOR_ISET_FOR_EACH(set, fact_id)
             count[fact_id] += 1;
     }
 
-    for (int seti = 0; seti < hset->size; ++seti){
-        const bor_iset_t *set = borHashSetGet(hset, seti);
+    PDDL_SET_ISET_FOR_EACH(hset, set){
         if (borISetSize(set) == 1){
             int fact_id = borISetGet(set, 0);
             ASSERT(count[fact_id] == 1);
@@ -196,13 +195,13 @@ static void addMGStripsOp(pddl_pot_t *pot,
                           const pddl_strips_op_t *op,
                           int single_fact_dis)
 {
-    bor_hashset_t hset;
-    borHashSetInitISet(&hset);
+    pddl_set_iset_t hset;
+    pddlSetISetInit(&hset);
 
     if (pddlDisambiguate(dis, &op->pre, &op->add_eff, 0,
                          single_fact_dis, &hset, NULL) < 0){
         // Skip unreachable operators
-        borHashSetFree(&hset);
+        pddlSetISetFree(&hset);
         return;
     }
 
@@ -220,7 +219,7 @@ static void addMGStripsOp(pddl_pot_t *pot,
     if (borISetSize(&c->plus) == 0 && borISetSize(&c->minus) == 0)
         putBackLastConstr(&pot->constr_op);
 
-    borHashSetFree(&hset);
+    pddlSetISetFree(&hset);
 }
 
 static int addMGStripsGoal(pddl_pot_t *pot,
@@ -228,11 +227,11 @@ static int addMGStripsGoal(pddl_pot_t *pot,
                            const bor_iset_t *goal,
                            int single_fact_dis)
 {
-    bor_hashset_t hset;
-    borHashSetInitISet(&hset);
+    pddl_set_iset_t hset;
+    pddlSetISetInit(&hset);
 
     if (pddlDisambiguate(dis, goal, NULL, 0, single_fact_dis, &hset, NULL) < 0){
-        borHashSetFree(&hset);
+        pddlSetISetFree(&hset);
         return -1;
     }
 
@@ -240,7 +239,7 @@ static int addMGStripsGoal(pddl_pot_t *pot,
     hsetToVarSet(pot, &hset, &c->plus);
     c->rhs = 0;
 
-    borHashSetFree(&hset);
+    pddlSetISetFree(&hset);
     return 0;
 }
 

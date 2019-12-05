@@ -197,7 +197,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
                      const bor_iset_t *mgroup_select,
                      int only_disjunct_mgroups,
                      int single_fact_disamb,
-                     bor_hashset_t *disamb_sets,
+                     pddl_set_iset_t *disamb_sets,
                      bor_iset_t *exactly_one)
 {
     if (dis->mgroup_size == 0)
@@ -278,7 +278,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
     for (int i = 0; i < dis->mgroup_size; ++i){
         int set_size = borISetSize(disamb_set + i);
         if (disamb_sets != NULL && set_size > 0){
-            borHashSetAdd(disamb_sets, disamb_set + i);
+            pddlSetISetAdd(disamb_sets, disamb_set + i);
             if (set_size != borISetSize(&dis->mgroup[i].mgroup))
                 change = 1;
         }

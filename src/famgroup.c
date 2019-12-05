@@ -20,6 +20,7 @@
 #include <boruvka/alloc.h>
 #include <boruvka/lp.h>
 #include "pddl/famgroup.h"
+#include "pddl/set.h"
 
 struct fam {
     pddl_famgroup_config_t cfg;
@@ -154,18 +155,18 @@ static pddl_mgroup_t *addFAMGroup(pddl_mgroups_t *mgs,
 
 static void genSymmetricFAMGroups(fam_t *fam, const bor_iset_t *mgfacts)
 {
-    bor_hashset_t set_of_mgroups;
+    pddl_set_iset_t set_of_mgroups;
 
-    borHashSetInitISet(&set_of_mgroups);
-    borHashSetAdd(&set_of_mgroups, mgfacts);
+    pddlSetISetInit(&set_of_mgroups);
+    pddlSetISetAdd(&set_of_mgroups, mgfacts);
     pddlStripsSymAllFactSetSymmetries(fam->cfg.sym, &set_of_mgroups);
-    for (int i = 1; i < set_of_mgroups.size; ++i){
-        const bor_iset_t *fset = borHashSetGet(&set_of_mgroups, i);
+    const bor_iset_t *fset;
+    PDDL_SET_ISET_FOR_EACH(&set_of_mgroups, fset){
         if (!fam->cfg.keep_only_asymetric)
             addFAMGroup(fam->mgroups, fset, fam->strips);
         skipMGroup(fam, fset);
     }
-    borHashSetFree(&set_of_mgroups);
+    pddlSetISetFree(&set_of_mgroups);
 }
 
 static void prioritizeUncovered(fam_t *fam)

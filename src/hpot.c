@@ -16,13 +16,13 @@
  * See the License for more information.
  */
 
-#include <boruvka/hashset.h>
 #include <boruvka/rand.h>
 #include "pddl/hpot.h"
 #include "pddl/pot.h"
 #include "pddl/critical_path.h"
 #include "pddl/random_walk.h"
 #include "pddl/heur.h"
+#include "pddl/set.h"
 #include "_heur.h"
 #include "assert.h"
 
@@ -581,7 +581,7 @@ struct diverse_pot {
     double **func;
     double *avg_func;
     int *state_est;
-    bor_hashset_t states;
+    pddl_set_iset_t states;
     int active_states;
     bor_rand_mt_t *rnd;
 };
@@ -598,7 +598,7 @@ static void diverseInit(diverse_pot_t *div,
         div->func[i] = BOR_ALLOC_ARR(double, fdr->var.global_id_size);
     div->avg_func = BOR_ALLOC_ARR(double, fdr->var.global_id_size);
     div->state_est = BOR_CALLOC_ARR(int, num_samples);
-    borHashSetInitISet(&div->states);
+    pddlSetISetInit(&div->states);
     div->active_states = 0;
     //div->rnd = borRandMTNewAuto();
     div->rnd = borRandMTNew(rand_diverse_seed);
@@ -615,7 +615,7 @@ static void diverseFree(diverse_pot_t *div,
     BOR_FREE(div->func);
     BOR_FREE(div->avg_func);
     BOR_FREE(div->state_est);
-    borHashSetFree(&div->states);
+    pddlSetISetFree(&div->states);
     borRandMTDel(div->rnd);
 }
 
@@ -653,7 +653,7 @@ static void diverseGenStates(diverse_pot_t *div,
             borISetAdd(&state, id);
         }
 
-        if (borHashSetFind(&div->states, &state) >= 0){
+        if (pddlSetISetFind(&div->states, &state) >= 0){
             // Ignore duplicates
             ++num_duplicates;
             continue;
@@ -666,7 +666,7 @@ static void diverseGenStates(diverse_pot_t *div,
                                      sampler.state);
             if (h != PDDL_COST_DEAD_END){
                 // Add state to the set of states and store heuristic estimate
-                int state_id = borHashSetAdd(&div->states, &state);
+                int state_id = pddlSetISetAdd(&div->states, &state);
                 ASSERT(state_id == num_states);
                 div->state_est[state_id] = h;
                 ASSERT_RUNTIME(div->state_est[state_id] >= 0);
@@ -687,8 +687,8 @@ static void diverseGenStates(diverse_pot_t *div,
     }
     BOR_INFO(err, "Pot: Detected dead-ends: %d", num_dead_ends);
     BOR_INFO(err, "Pot: Detected duplicates: %d", num_duplicates);
-    ASSERT(num_states == div->states.size);
-    div->active_states = div->states.size;
+    ASSERT(num_states == pddlSetISetSize(&div->states));
+    div->active_states = pddlSetISetSize(&div->states);
     borISetFree(&state);
     stateSamplerFree(&sampler);
 }
@@ -701,10 +701,10 @@ static int diverseAvg(diverse_pot_t *div,
                       bor_err_t *err)
 {
     bzero(div->coef, sizeof(double) * pot->var_size);
-    for (int i = 0; i < div->states.size; ++i){
+    const bor_iset_t *state;
+    PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, i, state){
         if (div->state_est[i] < 0)
             continue;
-        const bor_iset_t *state = borHashSetGet(&div->states, i);
         int fact_id;
         BOR_ISET_FOR_EACH(state, fact_id)
             div->coef[fact_id] += 1.;
@@ -723,10 +723,10 @@ static const double *diverseSelectFunc(diverse_pot_t *div,
         return NULL;
 
     int *fdr_state = BOR_ALLOC_ARR(int, hpot->var_size);
-    for (int si = 0; si < div->states.size; ++si){
+    const bor_iset_t *state;
+    PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, si, state){
         if (div->state_est[si] < 0)
             continue;
-        const bor_iset_t *state = borHashSetGet(&div->states, si);
         setStateToFDRState(state, fdr_state, fdr);
 
         int hest = fdrStateEstimate(div->avg_func, &fdr->var, fdr_state);
@@ -737,7 +737,7 @@ static const double *diverseSelectFunc(diverse_pot_t *div,
     }
 
     int sid = borRandMT(div->rnd, 0, div->active_states);
-    for (int si = 0; si < div->states.size; ++si){
+    PDDL_SET_ISET_FOR_EACH_ID(&div->states, si){
         if (div->state_est[si] < 0)
             continue;
         if (sid-- == 0){
@@ -755,10 +755,10 @@ static void diverseFilterOutStates(diverse_pot_t *div,
                                    bor_err_t *err)
 {
     int *fdr_state = BOR_ALLOC_ARR(int, fdr->var.var_size);
-    for (int si = 0; si < div->states.size; ++si){
+    const bor_iset_t *state;
+    PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, si, state){
         if (div->state_est[si] < 0)
             continue;
-        const bor_iset_t *state = borHashSetGet(&div->states, si);
         setStateToFDRState(state, fdr_state, fdr);
         int hest = fdrStateEstimate(func, &fdr->var, fdr_state);
         if (hest >= div->state_est[si]){

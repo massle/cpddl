@@ -1,0 +1,79 @@
+/***
+ * cpddl
+ * -------
+ * Copyright (c)2019 Daniel Fiser <danfis@danfis.cz>,
+ * AI Center, Department of Computer Science,
+ * Faculty of Electrical Engineering, Czech Technical University in Prague.
+ * All rights reserved.
+ *
+ * This file is part of cpddl.
+ *
+ * Distributed under the OSI-approved BSD License (the "License");
+ * see accompanying file BDS-LICENSE for details or see
+ * <http://www.opensource.org/licenses/bsd-license.php>.
+ *
+ * This software is distributed WITHOUT ANY WARRANTY; without even the
+ * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the License for more information.
+ */
+
+#ifndef __PDDL_SET_H__
+#define __PDDL_SET_H__
+
+#include <boruvka/hashset.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+struct pddl_set_iset {
+    bor_hashset_t set;
+} bor_packed;
+typedef struct pddl_set_iset pddl_set_iset_t;
+
+#define PDDL_SET_ISET_FOR_EACH_ID(SS, ID) \
+    for (int ID = 0; ID < (SS)->set.size; ++ID)
+#define PDDL_SET_ISET_FOR_EACH_ID_SET(SS, ID, SET) \
+    for (int ID = 0; \
+            ID < (SS)->set.size \
+                && ((SET) = pddlSetISetGet((SS), ID)); \
+            ++ID)
+#define PDDL_SET_ISET_FOR_EACH(SS, SET) \
+    PDDL_SET_ISET_FOR_EACH_ID_SET(SS, __set_iset_i, SET)
+
+_bor_inline void pddlSetISetInit(pddl_set_iset_t *ss)
+{
+    borHashSetInitISet(&ss->set);
+}
+
+_bor_inline void pddlSetISetFree(pddl_set_iset_t *ss)
+{
+    borHashSetFree(&ss->set);
+}
+
+_bor_inline int pddlSetISetAdd(pddl_set_iset_t *ss, const bor_iset_t *set)
+{
+    return borHashSetAdd(&ss->set, set);
+}
+
+_bor_inline int pddlSetISetFind(pddl_set_iset_t *ss, const bor_iset_t *set)
+{
+    return borHashSetFind(&ss->set, set);
+}
+
+_bor_inline const bor_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
+{
+    return borHashSetGet(&ss->set, id);
+}
+
+_bor_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
+{
+    return ss->set.size;
+}
+
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
+
+#endif /* __PDDL_SET_H__ */

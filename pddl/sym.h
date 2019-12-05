@@ -19,8 +19,8 @@
 #ifndef __PDDL_SYM_H__
 #define __PDDL_SYM_H__
 
-#include <boruvka/hashset.h>
 #include <pddl/strips.h>
+#include <pddl/set.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,9 +72,9 @@ void pddlStripsSymFree(pddl_strips_sym_t *sym);
  * {sym_set} must be a set of isets (bor_iset_t).
  */
 void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
-                                       bor_hashset_t *sym_set);
+                                       pddl_set_iset_t *sym_set);
 void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
-                                     bor_hashset_t *sym_set);
+                                     pddl_set_iset_t *sym_set);
 
 /**
  * Add to outset symmetric operators to operators in inset according to

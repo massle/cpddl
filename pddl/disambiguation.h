@@ -29,11 +29,11 @@
 #ifndef __PDDL_DISAMBIGUATION_H__
 #define __PDDL_DISAMBIGUATION_H__
 
-#include <boruvka/hashset.h>
 #include <pddl/strips.h>
 #include <pddl/mutex_pair.h>
 #include <pddl/mgroup.h>
 #include <pddl/bitset.h>
+#include <pddl/set.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -114,7 +114,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
                      const bor_iset_t *mgroup_select,
                      int only_disjunct_mgroups,
                      int single_fact_disamb,
-                     bor_hashset_t *disamb_sets,
+                     pddl_set_iset_t *disamb_sets,
                      bor_iset_t *can_extend_with);
 
 /**

@@ -214,7 +214,7 @@ static void applyGenOnOpSet(const pddl_strips_sym_gen_t *gen,
 }
 
 static void allSymmetries(const pddl_strips_sym_t *sym,
-                          bor_hashset_t *sym_set,
+                          pddl_set_iset_t *sym_set,
                           void (*apply)(const pddl_strips_sym_gen_t *,
                                         const bor_iset_t *in,
                                         bor_iset_t *out))
@@ -223,25 +223,25 @@ static void allSymmetries(const pddl_strips_sym_t *sym,
     BOR_ISET(img_set);
 
     // Initialize queue with all sets that are already in sym_set
-    for (int i = 0; i < sym_set->size; ++i)
+    PDDL_SET_ISET_FOR_EACH_ID(sym_set, i)
         borIArrAdd(&queue, i);
     while (borIArrSize(&queue) > 0){
         // Get the next set in queu
         int in_id = queue.arr[--queue.size];
-        const bor_iset_t *in_set = borHashSetGet(sym_set, in_id);
+        const bor_iset_t *in_set = pddlSetISetGet(sym_set, in_id);
 
         for (int i = 0; i < sym->gen_size; ++i){
             const pddl_strips_sym_gen_t *gen = sym->gen + i;
             // Remember the size of set of sets to recognize a brand new
             // symmetric set
-            int sym_set_size = sym_set->size;
+            int sym_set_size = pddlSetISetSize(sym_set);
 
             // Create the symmetric set
             apply(gen, in_set, &img_set);
 
             // Add the symmetric set and if it is a new set, add it to the
             // queue
-            int out_id = borHashSetAdd(sym_set, &img_set);
+            int out_id = pddlSetISetAdd(sym_set, &img_set);
             if (out_id >= sym_set_size)
                 borIArrAdd(&queue, out_id);
         }
@@ -252,13 +252,13 @@ static void allSymmetries(const pddl_strips_sym_t *sym,
 }
 
 void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
-                                       bor_hashset_t *sym_set)
+                                       pddl_set_iset_t *sym_set)
 {
     allSymmetries(sym, sym_set, applyGenOnFactSet);
 }
 
 void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
-                                     bor_hashset_t *sym_set)
+                                     pddl_set_iset_t *sym_set)
 {
     allSymmetries(sym, sym_set, applyGenOnOpSet);
 }
