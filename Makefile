@@ -51,6 +51,7 @@ OBJS += sym
 OBJS += famgroup
 OBJS += pot
 OBJS += hpot
+OBJS += pq
 OBJS += mg_strips
 OBJS += preprocess
 OBJS += causal_graph
