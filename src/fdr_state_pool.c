@@ -141,7 +141,7 @@ _bor_inline size_t nextPrime(size_t hint)
     static size_t primes_size = sizeof(primes) / sizeof(size_t);
 
     for (size_t i = 0; i < primes_size; ++i){
-        if (primes[i] >= hint)
+        if (HTABLE_RESIZE_FACTOR * primes[i] >= hint)
             return primes[i];
     }
     return primes[primes_size - 1];
