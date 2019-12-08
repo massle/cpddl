@@ -16,12 +16,14 @@
  * See the License for more information.
  */
 
+#include <boruvka/extarr.h>
 #include "pddl/lm_cut.h"
 #include "_heur.h"
 
 struct pddl_heur_lmc {
     pddl_heur_t heur;
     pddl_lm_cut_t lmc;
+    bor_extarr_t *cache; // TODO: Refactor and generalize
 };
 typedef struct pddl_heur_lmc pddl_heur_lmc_t;
 
@@ -30,6 +32,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_lmc_t *h = bor_container_of(_h, pddl_heur_lmc_t, heur);
     _pddlHeurFree(&h->heur);
     pddlLMCutFree(&h->lmc);
+    borExtArrDel(h->cache);
     BOR_FREE(h);
 }
 
@@ -38,7 +41,10 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_t *state_space)
 {
     pddl_heur_lmc_t *h = bor_container_of(_h, pddl_heur_lmc_t, heur);
-    return pddlLMCut(&h->lmc, node->state, NULL, NULL);
+    int *hval = borExtArrGet(h->cache, node->id);
+    if (*hval == PDDL_COST_MAX)
+        *hval = pddlLMCut(&h->lmc, node->state, NULL, NULL);
+    return *hval;
 }
 
 pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, bor_err_t *err)
@@ -47,5 +53,7 @@ pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, bor_err_t *err)
     bzero(h, sizeof(*h));
     pddlLMCutInit(&h->lmc, fdr, 0, 0);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
+    int init = PDDL_COST_MAX;
+    h->cache = borExtArrNew2(sizeof(int), 1024, 1024 * 1024, NULL, &init);
     return &h->heur;
 }
