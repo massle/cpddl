@@ -91,6 +91,7 @@ void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp)
 
 void pddlFDROpApplyOnState(const pddl_fdr_op_t *op, int *state)
 {
+    // TODO: Apply conditional effects
     for (int fi = 0; fi < op->eff.fact_size; ++fi)
         state[op->eff.fact[fi].var] = op->eff.fact[fi].val;
 }

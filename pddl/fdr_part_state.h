@@ -87,6 +87,14 @@ int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,
 void pddlFDRPartStateRemapFacts(pddl_fdr_part_state_t *ps,
                                 const pddl_fdr_vars_remap_t *remap);
 
+
+/**
+ * Converts the partial state to the set of global IDs.
+ */
+void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,
+                                 const pddl_fdr_vars_t *vars,
+                                 bor_iset_t *global_ids);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

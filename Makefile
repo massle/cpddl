@@ -64,6 +64,7 @@ OBJS += search_astar
 OBJS += plan
 OBJS += heur
 OBJS += heur_blind
+OBJS += lm_cut
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 

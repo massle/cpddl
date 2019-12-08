@@ -58,6 +58,7 @@
 #include <pddl/fdr_state_pool.h>
 #include <pddl/sym.h>
 #include <pddl/pot.h>
+#include <pddl/lm_cut.h>
 #include <pddl/mg_strips.h>
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
