@@ -122,9 +122,15 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
         BOR_ISET_FOR_EACH(&op->eff, fact_id)
             borISetAdd(&lmc->fact[fact_id].eff_op, op_id);
 
-        pddlFDRPartStateToGlobalIDs(&src->pre, vars, &op->pre);
-        BOR_ISET_FOR_EACH(&op->pre, fact_id)
-            borISetAdd(&lmc->fact[fact_id].pre_op, op_id);
+        if (src->pre.fact_size == 0){
+            borISetAdd(&op->pre, lmc->fact_nopre);
+            borISetAdd(&lmc->fact[lmc->fact_nopre].pre_op, op_id);
+
+        }else{
+            pddlFDRPartStateToGlobalIDs(&src->pre, vars, &op->pre);
+            BOR_ISET_FOR_EACH(&op->pre, fact_id)
+                borISetAdd(&lmc->fact[fact_id].pre_op, op_id);
+        }
 
         op->op_cost = getCost(src, op_unit_cost, op_cost_plus);
     }
@@ -238,6 +244,7 @@ static void hMaxFull(pddl_lm_cut_t *lmc,
         int op_id;
         BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_lm_cut_op_t *op = lmc->op + op_id;
+            ASSERT(op->unsat > 0);
             if (--op->unsat == 0){
                 // Set as supporter the last fact that enabled this
                 // operator (it must be one of those that have maximum
