@@ -165,6 +165,7 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
 
     // Close the current node
     astar->cur_node.status = PDDL_FDR_STATE_SPACE_STATUS_CLOSED;
+    pddlFDRStateSpaceSet(&astar->state_space, &astar->cur_node);
     --astar->_stat.open;
     ++astar->_stat.closed;
     astar->_stat.last_f_value = cur_cost[0];
