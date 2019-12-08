@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#ifndef __PLAN_PLAN_H__
-#define __PLAN_PLAN_H__
+#ifndef __PDDL_PLAN_H__
+#define __PDDL_PLAN_H__
 
 #include <boruvka/iarr.h>
 #include <pddl/fdr_state_space.h>
@@ -74,4 +74,4 @@ void pddlPlanPrint(const pddl_plan_t *plan,
 } /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* __PLAN_PLAN_H__ */
+#endif /* __PDDL_PLAN_H__ */
