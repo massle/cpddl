@@ -42,6 +42,11 @@ pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
                          bor_err_t *err);
 
 /**
+ * LM-Cut heuristic
+ */
+pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, bor_err_t *err);
+
+/**
  * Destructor
  */
 void pddlHeurDel(pddl_heur_t *h);

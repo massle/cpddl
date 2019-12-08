@@ -50,6 +50,7 @@ OBJS += fdr_state_space
 OBJS += sym
 OBJS += famgroup
 OBJS += pot
+OBJS += lm_cut
 OBJS += hpot
 OBJS += pq
 OBJS += mg_strips
@@ -64,7 +65,7 @@ OBJS += search_astar
 OBJS += plan
 OBJS += heur
 OBJS += heur_blind
-OBJS += lm_cut
+OBJS += heur_lm_cut
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 

@@ -31,6 +31,7 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
     bzero(astar, sizeof(*astar));
     astar->fdr = fdr;
     astar->heur = heur;
+    astar->err = err;
 
     pddlFDRStateSpaceInit(&astar->state_space, &fdr->var, err);
     astar->list = pddlOpenListSplayTree2();
@@ -86,6 +87,7 @@ int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
     int h_value = pddlHeurEstimate(astar->heur,
                                    &astar->cur_node,
                                    &astar->state_space);
+    BOR_INFO(astar->err, "Heuristic value for the initial state: %d", h_value);
     ++astar->_stat.evaluated;
     if (h_value == PDDL_COST_DEAD_END){
         ++astar->_stat.dead_end;

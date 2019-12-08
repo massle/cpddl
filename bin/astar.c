@@ -28,7 +28,7 @@ struct options {
 
 static void usage(const char *name)
 {
-    fprintf(stderr, "pddl-pot for computing potential heuristic.\n");
+    fprintf(stderr, "pddl-astar\n");
     fprintf(stderr, "Usage: %s [OPTIONS] [domain.pddl] problem.pddl\n", name);
     fprintf(stderr, "  OPTIONS:\n");
     optsPrint(stderr, "    ");
@@ -116,9 +116,13 @@ static pddl_heur_t *createHeur(const pddl_fdr_t *fdr,
 {
     if (strcmp(opt.heur_spec, "blind") == 0){
         return pddlHeurBlind();
+
     }else if (strncmp(opt.heur_spec, "pot", 3) == 0){
         pddl_hpot_config_t cfg = PDDL_HPOT_CONFIG_INIT;
         return pddlHeurPot(fdr, &cfg, err);
+
+    }else if (strncmp(opt.heur_spec, "lmc", 3) == 0){
+        return pddlHeurLMCut(fdr, err);
 
     }else{
         fprintf(stderr, "Error: Unkown '%s' heuristic\n", opt.heur_spec);
