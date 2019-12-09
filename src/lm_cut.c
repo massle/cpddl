@@ -141,14 +141,10 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
     borISetAdd(&lmc->fact[lmc->fact_goal].eff_op, lmc->op_goal);
     op->op_cost = 0;
 
-    BOR_ISET(goal);
-    pddlFDRPartStateToGlobalIDs(&fdr->goal, vars, &goal);
+    pddlFDRPartStateToGlobalIDs(&fdr->goal, vars, &op->pre);
     int fid;
-    BOR_ISET_FOR_EACH(&goal, fid){
-        borISetAdd(&op->pre, fid);
+    BOR_ISET_FOR_EACH(&op->pre, fid)
         borISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
-    }
-    borISetFree(&goal);
 
     lmc->fact_state = BOR_ALLOC_ARR(int, lmc->fact_size);
     borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
@@ -261,10 +257,6 @@ static void hMaxFull(pddl_lm_cut_t *lmc,
 static void updateSupp(pddl_lm_cut_t *lmc, pddl_lm_cut_op_t *op)
 {
     int fact_id, supp = -1, value = -1;
-    if (op->supp >= 0 && FVALUE_IS_SET(lmc->fact + op->supp)){
-        supp = op->supp;
-        value = FVALUE(lmc->fact + supp);
-    }
 
     BOR_ISET_FOR_EACH(&op->pre, fact_id){
         const pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
@@ -275,7 +267,8 @@ static void updateSupp(pddl_lm_cut_t *lmc, pddl_lm_cut_op_t *op)
     }
 
     ASSERT(supp != -1);
-    SET_OP_SUPP(lmc, op, supp);
+    if (op->supp != supp || op->supp_cost != value)
+        SET_OP_SUPP(lmc, op, supp);
 }
 
 static void enqueueOpEffectsInc(pddl_lm_cut_t *lmc,
@@ -315,17 +308,17 @@ static void hMaxIncUpdateOp(pddl_lm_cut_t *lmc,
 
 static void hMaxInc(pddl_lm_cut_t *lmc, const bor_iset_t *cut)
 {
-    int op_id, fact_value;
-
-    for (op_id = 0; op_id < lmc->op_size; ++op_id)
+    for (int op_id = 0; op_id < lmc->op_size; ++op_id)
         lmc->op[op_id].cut_candidate = 0;
 
+    int op_id;
     BOR_ISET_FOR_EACH(cut, op_id){
         const pddl_lm_cut_op_t *op = lmc->op + op_id;
         enqueueOpEffectsInc(lmc, op, op->supp_cost, &lmc->pq);
     }
 
     while (!pddlPQEmpty(&lmc->pq)){
+        int fact_value;
         const pddl_lm_cut_fact_t *fact = FPOP(&lmc->pq, &fact_value);
         int fact_id = FID(lmc, fact);
 
