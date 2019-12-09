@@ -261,6 +261,10 @@ static void hMaxFull(pddl_lm_cut_t *lmc,
 static void updateSupp(pddl_lm_cut_t *lmc, pddl_lm_cut_op_t *op)
 {
     int fact_id, supp = -1, value = -1;
+    if (op->supp >= 0 && FVALUE_IS_SET(lmc->fact + op->supp)){
+        supp = op->supp;
+        value = FVALUE(lmc->fact + supp);
+    }
 
     BOR_ISET_FOR_EACH(&op->pre, fact_id){
         const pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
