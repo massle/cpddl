@@ -263,12 +263,17 @@ static void updateSupp(pddl_lm_cut_t *lmc, pddl_lm_cut_op_t *op)
         if (FVALUE_IS_SET(fact) && FVALUE(fact) > value){
             value = FVALUE(fact);
             supp = fact_id;
+        }else if (FVALUE_IS_SET(fact) && FVALUE(fact) == value
+                    && supp >= 0
+                    && !F_IS_SUPP(lmc->fact + supp)
+                    && F_IS_SUPP(fact)){
+            value = FVALUE(fact);
+            supp = fact_id;
         }
     }
 
     ASSERT(supp != -1);
-    if (op->supp != supp || op->supp_cost != value)
-        SET_OP_SUPP(lmc, op, supp);
+    SET_OP_SUPP(lmc, op, supp);
 }
 
 static void enqueueOpEffectsInc(pddl_lm_cut_t *lmc,
