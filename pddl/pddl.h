@@ -23,6 +23,7 @@
 #include <pddl/config.h>
 #include <pddl/common.h>
 #include <pddl/pddl_file.h>
+#include <pddl/plan_file.h>
 #include <pddl/lisp.h>
 #include <pddl/require.h>
 #include <pddl/type.h>
