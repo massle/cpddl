@@ -186,9 +186,9 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
         const pddl_fdr_op_t *op = astar->fdr->op.op[op_id];
 
         // Create a new state
-        pddlFDROpApplyOnState2(op, astar->next_node.var_size,
-                               astar->cur_node.state,
-                               astar->next_node.state);
+        pddlFDROpApplyOnState(op, astar->next_node.var_size,
+                              astar->cur_node.state,
+                              astar->next_node.state);
 
         // Insert the new state
         pddl_state_id_t next_state_id;

@@ -94,6 +94,12 @@ int pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
     return 1;
 }
 
+void pddlFDRPartStateApplyToState(const pddl_fdr_part_state_t *ps, int *state)
+{
+    for (int i = 0; i < ps->fact_size; ++i)
+        state[ps->fact[i].var] = ps->fact[i].val;
+}
+
 int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,
                         const pddl_fdr_part_state_t *p2)
 {

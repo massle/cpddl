@@ -94,7 +94,8 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
             ASSERT(which_op >= 0 && which_op < borISetSize(&app_ops));
             int op_id = borISetGet(&app_ops, which_op);
             const pddl_fdr_op_t *op = rndw->fdr->op.op[op_id];
-            pddlFDROpApplyOnState(op, resulting_state);
+            pddlFDROpApplyOnStateInPlace(op, rndw->fdr->var.var_size,
+                                         resulting_state);
             ++num_performed_steps;
         }
     }

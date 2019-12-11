@@ -76,6 +76,11 @@ int pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
                                           const int *state);
 
 /**
+ * Write partial state to the given state.
+ */
+void pddlFDRPartStateApplyToState(const pddl_fdr_part_state_t *ps, int *state);
+
+/**
  * Compare function for partial states.
  */
 int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,

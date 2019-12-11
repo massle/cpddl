@@ -77,11 +77,18 @@ void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp);
 /**
  * Apply the effects of the operator on the given state.
  */
-void pddlFDROpApplyOnState(const pddl_fdr_op_t *op, int *state);
-void pddlFDROpApplyOnState2(const pddl_fdr_op_t *op,
-                            int num_vars,
-                            const int *in_state,
-                            int *out_state);
+void pddlFDROpApplyOnState(const pddl_fdr_op_t *op,
+                           int num_vars,
+                           const int *in_state,
+                           int *out_state);
+void pddlFDROpApplyOnStateInPlace(const pddl_fdr_op_t *op,
+                                  int num_vars,
+                                  int *out_state);
+
+/**
+ * Returns true if the operator is applicable in the state.
+ */
+int pddlFDROpIsApplicable(const pddl_fdr_op_t *op, const int *state);
 
 /**
  * Initialize empty set of operators.

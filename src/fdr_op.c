@@ -89,22 +89,34 @@ void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp)
     op->cond_eff_size = ins;
 }
 
-void pddlFDROpApplyOnState(const pddl_fdr_op_t *op, int *state)
-{
-    // TODO: Apply conditional effects
-    for (int fi = 0; fi < op->eff.fact_size; ++fi)
-        state[op->eff.fact[fi].var] = op->eff.fact[fi].val;
-}
-
-void pddlFDROpApplyOnState2(const pddl_fdr_op_t *op,
-                            int num_vars,
-                            const int *in_state,
-                            int *out_state)
+void pddlFDROpApplyOnState(const pddl_fdr_op_t *op,
+                           int num_vars,
+                           const int *in_state,
+                           int *out_state)
 {
     memcpy(out_state, in_state, sizeof(int) * num_vars);
-    pddlFDROpApplyOnState(op, out_state);
+    pddlFDRPartStateApplyToState(&op->eff, out_state);
+    for (int cei = 0; cei < op->cond_eff_size; ++cei){
+        const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+        if (pddlFDRPartStateIsConsistentWithState(&ce->pre, in_state))
+            pddlFDRPartStateApplyToState(&ce->eff, out_state);
+    }
 }
 
+void pddlFDROpApplyOnStateInPlace(const pddl_fdr_op_t *op,
+                                  int num_vars,
+                                  int *out_state)
+{
+
+    int cur_state[num_vars];
+    memcpy(cur_state, out_state, sizeof(int) * num_vars);
+    pddlFDROpApplyOnState(op, num_vars, cur_state, out_state);
+}
+
+int pddlFDROpIsApplicable(const pddl_fdr_op_t *op, const int *state)
+{
+    return pddlFDRPartStateIsConsistentWithState(&op->pre, state);
+}
 
 void pddlFDROpsInit(pddl_fdr_ops_t *ops)
 {
