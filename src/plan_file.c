@@ -69,6 +69,8 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
         if (*s != ')')
             continue;
         *s = 0x0;
+        for (--s; s > name && *s == ' '; --s)
+            *s = 0x0;
 
         const int *cur_state = p->state[p->state_size - 1];
         int found = 0;
