@@ -25,27 +25,11 @@
 #include <pddl/fdr_state_space.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/heur.h>
+#include <pddl/search.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-#define PDDL_SEARCH_CONT 0
-#define PDDL_SEARCH_UNSOLVABLE 1
-#define PDDL_SEARCH_FOUND 2
-
-struct pddl_search_stat {
-    size_t steps; /*!< Number of calls to *Step() */
-    size_t expanded; /*!< Number of times expansions of states */
-    size_t evaluated; /*!< Number of times heuristic function is evaluated */
-    size_t generated; /*!< Number of different states created so far */
-    size_t open; /*!< Number of states currently in the open list */
-    size_t closed; /*!< Number of closed states so far */
-    size_t reopen; /*!< Number of times a state was re-opened. */
-    size_t dead_end; /*!< Number of states detected as dead-end states */
-    int last_f_value;
-};
-typedef struct pddl_search_stat pddl_search_stat_t;
 
 struct pddl_search_astar {
     const pddl_fdr_t *fdr;

@@ -67,6 +67,7 @@
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
 #include <pddl/open_list.h>
+#include <pddl/search.h>
 #include <pddl/search_astar.h>
 #include <pddl/plan.h>
 #include <pddl/heur.h>

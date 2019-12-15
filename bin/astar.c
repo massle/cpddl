@@ -117,6 +117,9 @@ static pddl_heur_t *createHeur(const pddl_fdr_t *fdr,
     if (strcmp(opt.heur_spec, "blind") == 0){
         return pddlHeurBlind();
 
+    }else if (strncmp(opt.heur_spec, "pot-state", 9) == 0){
+        return pddlHeurPotState(fdr, err);
+
     }else if (strncmp(opt.heur_spec, "pot", 3) == 0){
         pddl_hpot_config_t cfg = PDDL_HPOT_CONFIG_INIT;
         return pddlHeurPot(fdr, &cfg, err);

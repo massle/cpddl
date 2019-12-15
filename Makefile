@@ -67,6 +67,7 @@ OBJS += plan
 OBJS += heur
 OBJS += heur_blind
 OBJS += heur_lm_cut
+OBJS += heur_pot_state
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
