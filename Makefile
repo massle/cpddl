@@ -36,6 +36,7 @@ OBJS += lifted_mgroup_htable
 OBJS += mgroup
 OBJS += mutex_pair
 OBJS += pddl_file
+OBJS += plan_file
 OBJS += irrelevance
 OBJS += h2
 OBJS += disambiguation
