@@ -53,6 +53,7 @@ OBJS += famgroup
 OBJS += pot
 OBJS += lm_cut
 OBJS += hpot
+OBJS += hflow
 OBJS += pq
 OBJS += mg_strips
 OBJS += preprocess
@@ -68,6 +69,7 @@ OBJS += heur
 OBJS += heur_blind
 OBJS += heur_lm_cut
 OBJS += heur_pot_state
+OBJS += heur_flow
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 

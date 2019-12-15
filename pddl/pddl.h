@@ -63,6 +63,7 @@
 #include <pddl/mg_strips.h>
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
+#include <pddl/hflow.h>
 #include <pddl/causal_graph.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
