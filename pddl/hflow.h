@@ -27,6 +27,12 @@
 extern "C" {
 #endif /* __cplusplus */
 
+// TODO: Use ranged constraints instead of two constraints
+// https://www.ibm.com/support/knowledgecenter/en/SSSA5P_12.5.0/ilog.odms.cplex.help/refcallablelibrary/html/functions/CPXnewrows.html
+// TODO: If .cause_incomplete_op is true, use only one constraint
+// TODO: Add option to turn upper bounds off
+// TODO: Reset only the constraints that are necessary instead of going
+// over all constraints every time
 struct pddl_hflow_fact {
     // Precomputed data that does not ever change:
     int var;                /*!< Variable ID */
