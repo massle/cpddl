@@ -55,7 +55,7 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
     ssize_t nread;
     while ((nread = getline(&line, &len, fin)) != -1){
         // Filter out comments
-        for (int i = 0; i < len; ++i){
+        for (int i = 0; i < nread; ++i){
             if (line[i] == ';'){
                 line[i] = 0x0;
                 break;
