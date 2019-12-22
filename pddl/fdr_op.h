@@ -60,6 +60,11 @@ typedef struct pddl_fdr_ops pddl_fdr_ops_t;
 pddl_fdr_op_t *pddlFDROpNewEmpty(void);
 
 /**
+ * Creates a deep copy of op_in.
+ */
+pddl_fdr_op_t *pddlFDROpClone(const pddl_fdr_op_t *op_in);
+
+/**
  * Free allocated memory
  */
 void pddlFDROpDel(pddl_fdr_op_t *op);
@@ -94,6 +99,11 @@ int pddlFDROpIsApplicable(const pddl_fdr_op_t *op, const int *state);
  * Initialize empty set of operators.
  */
 void pddlFDROpsInit(pddl_fdr_ops_t *ops);
+
+/**
+ * Initialize ops as a deep copy of ops_in.
+ */
+void pddlFDROpsInitCopy(pddl_fdr_ops_t *ops, const pddl_fdr_ops_t *ops_in);
 
 /**
  * Free allocated memory.

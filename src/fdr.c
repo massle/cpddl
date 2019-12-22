@@ -75,6 +75,18 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     return 0;
 }
 
+void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
+{
+    bzero(fdr, sizeof(*fdr));
+    pddlFDRVarsInitCopy(&fdr->var, &fdr_in->var);
+    pddlFDROpsInitCopy(&fdr->op, &fdr_in->op);
+    fdr->init = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    memcpy(fdr->init, fdr_in->init, sizeof(int) * fdr->var.var_size);
+    pddlFDRPartStateInitCopy(&fdr->goal, &fdr_in->goal);
+    fdr->goal_is_unreachable = fdr_in->goal_is_unreachable;
+    fdr->has_cond_eff = fdr_in->has_cond_eff;
+}
+
 void pddlFDRFree(pddl_fdr_t *fdr)
 {
     if (fdr->init != NULL)
@@ -349,6 +361,88 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
     }
 
     pddlFDROpsAddSteal(fdr_ops, fdr_op);
+}
+
+static void tnfPreToEff(const pddl_fdr_part_state_t *pre,
+                        pddl_fdr_part_state_t *eff)
+{
+    for (int fi = 0; fi < pre->fact_size; ++fi){
+        int var = pre->fact[fi].var;
+        int val = pre->fact[fi].val;
+        if (!pddlFDRPartStateIsSet(eff, var))
+            pddlFDRPartStateSet(eff, var, val);
+    }
+}
+
+static void tnfEffToPre(pddl_fdr_t *fdr,
+                        pddl_fdr_val_t **u_vals,
+                        const pddl_fdr_part_state_t *eff,
+                        pddl_fdr_part_state_t *pre)
+{
+    for (int fi = 0; fi < eff->fact_size; ++fi){
+        int var = eff->fact[fi].var;
+        if (!pddlFDRPartStateIsSet(pre, var)){
+            if (u_vals[var] == NULL)
+                u_vals[var] = pddlFDRVarsAddVal(&fdr->var, var, "tnf-unkown");
+            pddlFDRPartStateSet(pre, var, u_vals[var]->val_id);
+        }
+    }
+}
+
+void pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
+                                     const pddl_fdr_t *fdr_in,
+                                     const pddl_mgroups_t *mg,
+                                     const pddl_mutex_pairs_t *mutex,
+                                     int prevail_to_eff,
+                                     bor_err_t *err)
+{
+    pddlFDRInitCopy(fdr, fdr_in);
+
+    pddl_fdr_val_t **u_vals = BOR_CALLOC_ARR(pddl_fdr_val_t *,
+                                             fdr->var.var_size);
+
+    for (int opi = 0; opi < fdr->op.op_size; ++opi){
+        pddl_fdr_op_t *op = fdr->op.op[opi];
+        if (prevail_to_eff)
+            tnfPreToEff(&op->pre, &op->eff);
+        tnfEffToPre(fdr, u_vals, &op->eff, &op->pre);
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+            if (prevail_to_eff)
+                tnfPreToEff(&ce->pre, &ce->eff);
+            tnfEffToPre(fdr, u_vals, &ce->eff, &ce->pre);
+        }
+    }
+
+    pddlFDRPartStateInitCopy(&fdr->goal, &fdr_in->goal);
+
+    for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
+        if (!pddlFDRPartStateIsSet(&fdr_in->goal, var_id)){
+            if (u_vals[var_id] == NULL)
+                u_vals[var_id] = pddlFDRVarsAddVal(&fdr->var, var_id,
+                                                   "tnf-unkown");
+            pddlFDRPartStateSet(&fdr->goal, var_id, u_vals[var_id]->val_id);
+        }
+
+        if (u_vals[var_id] == NULL)
+            continue;
+
+        const pddl_fdr_var_t *var = fdr->var.var + var_id;
+        for (int val_id = 0; val_id < var->val_size; ++val_id){
+            if (val_id == u_vals[var_id]->val_id)
+                continue;
+            pddl_fdr_op_t *op = pddlFDROpNewEmpty();
+            op->cost = 0;
+            char name[128];
+            sprintf(name, "tnf-forget-%d-%d", var_id, val_id);
+            op->name = BOR_STRDUP(name);
+            pddlFDRPartStateSet(&op->pre, var_id, val_id);
+            pddlFDRPartStateSet(&op->eff, var_id, u_vals[var_id]->val_id);
+            pddlFDROpsAddSteal(&fdr->op, op);
+        }
+    }
+
+    BOR_FREE(u_vals);
 }
 
 static void printOp(const pddl_fdr_op_t *op, FILE *fout)

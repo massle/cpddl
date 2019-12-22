@@ -108,6 +108,13 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
  */
 void pddlFDRVarsFree(pddl_fdr_vars_t *vars);
 
+/**
+ * Adds a new value with the given name to the specified variable.
+ */
+pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
+                                  int var,
+                                  const char *name);
+
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout);
 
 #ifdef __cplusplus

@@ -584,7 +584,7 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
 
     dst->strips_id_size = src->strips_id_size;
     if (dst->strips_id_size > 0){
-        dst->strips_id_to_val = BOR_ALLOC_ARR(bor_iset_t, dst->strips_id_size);
+        dst->strips_id_to_val = BOR_CALLOC_ARR(bor_iset_t, dst->strips_id_size);
         for (int i = 0; i < src->strips_id_size; ++i)
             borISetUnion(&dst->strips_id_to_val[i], &src->strips_id_to_val[i]);
     }
@@ -665,6 +665,29 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
 
     vars->var_size = var_ins;
     vars->global_id_size = global_id;
+}
+
+pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
+                                  int var_id,
+                                  const char *name)
+{
+    pddl_fdr_var_t *var = vars->var + var_id;
+    ++var->val_size;
+    var->val = BOR_REALLOC_ARR(var->val, pddl_fdr_val_t, var->val_size);
+
+    pddl_fdr_val_t *val = var->val + var->val_size - 1;
+    bzero(val, sizeof(*val));
+    if (name != NULL)
+        val->name = BOR_STRDUP(name);
+    val->var_id = var_id;
+    val->val_id = var->val_size - 1;
+    val->global_id = vars->global_id_size++;
+    vars->global_id_to_val = BOR_REALLOC_ARR(vars->global_id_to_val,
+                                             pddl_fdr_val_t *,
+                                             vars->global_id_size);
+    vars->global_id_to_val[vars->global_id_size - 1] = val;
+    val->strips_id = -1;
+    return val;
 }
 
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)

@@ -33,6 +33,25 @@ pddl_fdr_op_t *pddlFDROpNewEmpty(void)
     return op;
 }
 
+pddl_fdr_op_t *pddlFDROpClone(const pddl_fdr_op_t *op_in)
+{
+    pddl_fdr_op_t *op = pddlFDROpNewEmpty();
+    if (op_in->name != NULL)
+        op->name = BOR_STRDUP(op_in->name);
+    op->cost = op_in->cost;
+    op->id = op_in->id;
+    pddlFDRPartStateInitCopy(&op->pre, &op_in->pre);
+    pddlFDRPartStateInitCopy(&op->eff, &op_in->eff);
+
+    for (int cei = 0; cei < op_in->cond_eff_size; ++cei){
+        const pddl_fdr_op_cond_eff_t *ce_in = op_in->cond_eff + cei;
+        pddl_fdr_op_cond_eff_t *ce = pddlFDROpAddEmptyCondEff(op);
+        pddlFDRPartStateInitCopy(&ce->pre, &ce_in->pre);
+        pddlFDRPartStateInitCopy(&ce->eff, &ce_in->eff);
+    }
+    return op;
+}
+
 void pddlFDROpDel(pddl_fdr_op_t *op)
 {
     if (op->name != NULL)
@@ -121,6 +140,15 @@ int pddlFDROpIsApplicable(const pddl_fdr_op_t *op, const int *state)
 void pddlFDROpsInit(pddl_fdr_ops_t *ops)
 {
     bzero(ops, sizeof(*ops));
+}
+
+void pddlFDROpsInitCopy(pddl_fdr_ops_t *ops, const pddl_fdr_ops_t *ops_in)
+{
+    pddlFDROpsInit(ops);
+    for (int opi = 0; opi < ops_in->op_size; ++opi){
+        pddl_fdr_op_t *op = pddlFDROpClone(ops_in->op[opi]);
+        pddlFDROpsAddSteal(ops, op);
+    }
 }
 
 void pddlFDROpsFree(pddl_fdr_ops_t *ops)
