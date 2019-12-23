@@ -27,6 +27,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct pddl_fdr_vars;
+
 struct pddl_mgroup {
     bor_iset_t mgroup; /*!< Set of facts forming the mutex group */
     int lifted_mgroup_id; /*!< ID refering to the corresponding lifted
@@ -122,6 +124,12 @@ void pddlMGroupsRemoveEmpty(pddl_mgroups_t *mgs);
  * Remove mgroups that are subset of some other mgroup in the set.
  */
 void pddlMGroupsRemoveSubsets(pddl_mgroups_t *mgs);
+
+/**
+ * Add FDR variables as mutex groups.
+ */
+void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs,
+                           const struct pddl_fdr_vars *vars);
 
 /**
  * Returns mutex group cover number, i.e., minimal number of mutex groups

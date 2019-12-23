@@ -23,6 +23,7 @@
 #include "pddl/pddl_struct.h"
 #include "pddl/strips.h"
 #include "pddl/mgroup.h"
+#include "pddl/fdr_var.h"
 #include "assert.h"
 
 typedef struct pred_tnode pred_tnode_t;
@@ -653,6 +654,19 @@ void pddlMGroupsRemoveSubsets(pddl_mgroups_t *mgs)
         }
     }
     pddlMGroupsRemoveEmpty(mgs);
+}
+
+void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs, const pddl_fdr_vars_t *vars)
+{
+    BOR_ISET(mg);
+    for (int var = 0; var < vars->var_size; ++var){
+        borISetEmpty(&mg);
+        for (int val = 0; val < vars->var[var].val_size; ++val)
+            borISetAdd(&mg, val);
+        pddl_mgroup_t *m = pddlMGroupsAdd(mgs, &mg);
+        m->is_exactly_one = 1;
+    }
+    borISetFree(&mg);
 }
 
 int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
