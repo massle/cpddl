@@ -60,6 +60,11 @@ void pddlFDRPartStateFree(pddl_fdr_part_state_t *ps);
 void pddlFDRPartStateSet(pddl_fdr_part_state_t *ps, int var, int val);
 
 /**
+ * Remove assignment to the specified variable.
+ */
+void pddlFDRPartStateUnset(pddl_fdr_part_state_t *ps, int var);
+
+/**
  * Returns value set to the variable var or -1.
  */
 int pddlFDRPartStateGet(const pddl_fdr_part_state_t *ps, int var);

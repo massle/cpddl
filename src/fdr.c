@@ -18,6 +18,7 @@
 
 #include <boruvka/sort.h>
 #include "pddl/fdr.h"
+#include "pddl/disambiguation.h"
 #include "assert.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
@@ -389,15 +390,11 @@ static void tnfEffToPre(pddl_fdr_t *fdr,
     }
 }
 
-void pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
-                                     const pddl_fdr_t *fdr_in,
-                                     const pddl_mgroups_t *mg,
-                                     const pddl_mutex_pairs_t *mutex,
-                                     int prevail_to_eff,
-                                     bor_err_t *err)
+static void tnfFull(pddl_fdr_t *fdr,
+                    const pddl_fdr_t *fdr_in,
+                    int prevail_to_eff,
+                    bor_err_t *err)
 {
-    pddlFDRInitCopy(fdr, fdr_in);
-
     pddl_fdr_val_t **u_vals = BOR_CALLOC_ARR(pddl_fdr_val_t *,
                                              fdr->var.var_size);
 
@@ -414,13 +411,11 @@ void pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         }
     }
 
-    pddlFDRPartStateInitCopy(&fdr->goal, &fdr_in->goal);
-
     for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
         if (!pddlFDRPartStateIsSet(&fdr_in->goal, var_id)){
             if (u_vals[var_id] == NULL)
                 u_vals[var_id] = pddlFDRVarsAddVal(&fdr->var, var_id,
-                                                   "tnf-unkown");
+                                                   "tnf-unknown");
             pddlFDRPartStateSet(&fdr->goal, var_id, u_vals[var_id]->val_id);
         }
 
@@ -443,6 +438,212 @@ void pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     }
 
     BOR_FREE(u_vals);
+}
+
+static int tnfDisambiguate(pddl_fdr_t *fdr,
+                           pddl_disambiguate_t *dis,
+                           int dis_offset,
+                           pddl_set_iset_t *dis_sets,
+                           const bor_iset_t *pre,
+                           const bor_iset_t *eff,
+                           bor_iset_t *extend)
+{
+    pddl_set_iset_t hset;
+    pddlSetISetInit(&hset);
+    int ret = pddlDisambiguate(dis, pre, eff, 1, 0, &hset, extend);
+    int size = pddlSetISetSize(&hset);
+    for (int i = 0; i < size; ++i){
+        const bor_iset_t *set = pddlSetISetGet(&hset, i);
+        // sets containing one fact are already included in {extend}
+        if (borISetSize(set) <= 1)
+            continue;
+
+        int set_id = pddlSetISetAdd(dis_sets, set);
+        ASSERT(set_id + dis_offset <= fdr->var.global_id_size);
+        if (set_id + dis_offset == fdr->var.global_id_size){
+            int fact_id = borISetGet(set, 0);
+            const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
+            // TODO
+            pddlFDRVarsAddVal(&fdr->var, v->var_id, "tnf-unknown");
+        }
+        borISetAdd(extend, set_id + dis_offset);
+    }
+    pddlSetISetFree(&hset);
+    return ret;
+}
+
+static int tnfDisOp(pddl_fdr_t *fdr,
+                    pddl_disambiguate_t *dis,
+                    int dis_offset,
+                    pddl_set_iset_t *dis_sets,
+                    int prevail_to_eff,
+                    pddl_fdr_op_t *op,
+                    bor_err_t *err)
+{
+    if (prevail_to_eff)
+        tnfPreToEff(&op->pre, &op->eff);
+
+    BOR_ISET(pre);
+    BOR_ISET(eff);
+    BOR_ISET(ext);
+
+    pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
+    pddlFDRPartStateToGlobalIDs(&op->eff, &fdr->var, &eff);
+
+    int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, &pre, &eff, &ext);
+    if (ret < 0){
+        borISetFree(&pre);
+        borISetFree(&eff);
+        borISetFree(&ext);
+        return -1;
+    }
+
+    int fact_id;
+    BOR_ISET_FOR_EACH(&ext, fact_id){
+        const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
+        pddlFDRPartStateSet(&op->pre, val->var_id, val->val_id);
+        if (!prevail_to_eff
+                && pddlFDRPartStateGet(&op->eff, val->var_id) == val->val_id){
+            pddlFDRPartStateUnset(&op->eff, val->var_id);
+        }
+    }
+
+    borISetFree(&pre);
+    borISetFree(&eff);
+    borISetFree(&ext);
+    return 0;
+}
+
+static void tnfDisGoal(pddl_fdr_t *fdr,
+                       pddl_disambiguate_t *dis,
+                       int dis_offset,
+                       pddl_set_iset_t *dis_sets,
+                       bor_err_t *err)
+{
+    BOR_ISET(goal);
+    BOR_ISET(ext);
+
+    pddlFDRPartStateToGlobalIDs(&fdr->goal, &fdr->var, &goal);
+
+    int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, &goal, NULL, &ext);
+    if (ret < 0){
+        fdr->goal_is_unreachable = 1;
+        // TODO
+        BOR_FATAL2("Goal is unreachable.");
+    }
+
+    int fact_id;
+    BOR_ISET_FOR_EACH(&ext, fact_id){
+        const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
+        pddlFDRPartStateSet(&fdr->goal, val->var_id, val->val_id);
+    }
+
+    borISetFree(&goal);
+    borISetFree(&ext);
+}
+
+static void tnfDisForgettingOps(pddl_fdr_t *fdr,
+                                int dis_offset,
+                                const pddl_set_iset_t *dis_sets,
+                                bor_err_t *err)
+{
+    int dis_size = pddlSetISetSize(dis_sets);
+    for (int dis_id = 0; dis_id < dis_size; ++dis_id){
+        int fact_id = dis_id + dis_offset;
+        const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
+        int undef_id = val->val_id;
+        int var_id = val->var_id;
+
+        const bor_iset_t *set = pddlSetISetGet(dis_sets, dis_id);
+        int fid;
+        BOR_ISET_FOR_EACH(set, fid){
+            const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fid];
+            int pre_var_id = val->var_id;
+            int pre_val_id = val->val_id;
+
+            pddl_fdr_op_t *op = pddlFDROpNewEmpty();
+            op->cost = 0;
+            char name[128];
+            sprintf(name, "tnf-forget-%d-%d-%d",
+                    dis_id, pre_var_id, pre_val_id);
+            op->name = BOR_STRDUP(name);
+            pddlFDRPartStateSet(&op->pre, pre_var_id, pre_val_id);
+            pddlFDRPartStateSet(&op->eff, var_id, undef_id);
+            pddlFDROpsAddSteal(&fdr->op, op);
+        }
+    }
+}
+
+static void tnfDis(pddl_fdr_t *fdr,
+                   pddl_disambiguate_t *dis,
+                   int prevail_to_eff,
+                   bor_err_t *err)
+{
+    BOR_ISET(unreachable_ops);
+    pddl_set_iset_t dis_sets;
+    pddlSetISetInit(&dis_sets);
+
+    int dis_offset = fdr->var.global_id_size;
+    for (int opi = 0; opi < fdr->op.op_size; ++opi){
+        pddl_fdr_op_t *op = fdr->op.op[opi];
+        if (tnfDisOp(fdr, dis, dis_offset, &dis_sets,
+                     prevail_to_eff, op, err) < 0){
+            borISetAdd(&unreachable_ops, opi);
+        }
+    }
+
+    tnfDisGoal(fdr, dis, dis_offset, &dis_sets, err);
+    tnfDisForgettingOps(fdr, dis_offset, &dis_sets, err);
+
+    if (borISetSize(&unreachable_ops) > 0)
+        pddlFDRReduce(fdr, NULL, NULL, &unreachable_ops);
+
+    pddlSetISetFree(&dis_sets);
+    borISetFree(&unreachable_ops);
+}
+
+int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
+                                    const pddl_fdr_t *fdr_in,
+                                    const pddl_mutex_pairs_t *mutex,
+                                    int prevail_to_eff,
+                                    bor_err_t *err)
+{
+    if (fdr_in->has_cond_eff && mutex != NULL){
+        BOR_ERR_RET2(err, -1, "Disambiguated Transition Normal Form is not"
+                              " supported for conditional effects");
+    }
+
+    BOR_INFO(err, "Creating a Transition Normal Form"
+                  " (vars: %d, facts: %d, ops: %d)",
+                  fdr_in->var.var_size,
+                  fdr_in->var.global_id_size,
+                  fdr_in->op.op_size);
+
+    pddlFDRInitCopy(fdr, fdr_in);
+
+    if (mutex == NULL){
+        tnfFull(fdr, fdr_in, prevail_to_eff, err);
+
+    }else{
+        pddl_mgroups_t mgs;
+        pddlMGroupsInitEmpty(&mgs);
+        pddlMGroupsAddFDRVars(&mgs, &fdr->var);
+
+        pddl_disambiguate_t dis;
+        pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
+
+        tnfDis(fdr, &dis, prevail_to_eff, err);
+
+        pddlDisambiguateFree(&dis);
+        pddlMGroupsFree(&mgs);
+    }
+
+    BOR_INFO(err, "Transition Normal Form created."
+                  " (vars: %d, facts: %d, ops: %d)",
+                  fdr->var.var_size,
+                  fdr->var.global_id_size,
+                  fdr->op.op_size);
+    return 0;
 }
 
 static void printOp(const pddl_fdr_op_t *op, FILE *fout)

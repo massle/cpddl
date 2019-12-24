@@ -70,6 +70,17 @@ void pddlFDRPartStateSet(pddl_fdr_part_state_t *ps, int var, int val)
     }
 }
 
+void pddlFDRPartStateUnset(pddl_fdr_part_state_t *ps, int var)
+{
+    int c;
+    for (c = 0; c < ps->fact_size && ps->fact[c].var < var; ++c);
+    if (c == ps->fact_size || ps->fact[c].var != var)
+        return;
+    for (++c; c < ps->fact_size; ++c)
+        ps->fact[c - 1] = ps->fact[c];
+    --ps->fact_size;
+}
+
 int pddlFDRPartStateGet(const pddl_fdr_part_state_t *ps, int var)
 {
     for (int i = 0; i < ps->fact_size && i <= var; ++i){

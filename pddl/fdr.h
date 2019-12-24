@@ -55,18 +55,18 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
 
 /**
  * Initialize FDR as the Transition Normal Form of fdr_in.
- * If mg and mutex is non-NULL disambiguation is used.
+ * If mutex is non-NULL disambiguation is used.
  * If prevail_to_eff is true, then also prevails are copied to the
  * effects, i.e., the true TNF is constructed, but operators are not well
  * formed.
- * Fact and operator IDs are preserved from fdr_in.
+ * Fact IDs are preserved from fdr_in and operator IDs are preserved unless
+ * there are unreachable operators that are removed.
  */
-void pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
-                                     const pddl_fdr_t *fdr_in,
-                                     const pddl_mgroups_t *mg,
-                                     const pddl_mutex_pairs_t *mutex,
-                                     int prevail_to_eff,
-                                     bor_err_t *err);
+int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
+                                    const pddl_fdr_t *fdr_in,
+                                    const pddl_mutex_pairs_t *mutex,
+                                    int prevail_to_eff,
+                                    bor_err_t *err);
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,

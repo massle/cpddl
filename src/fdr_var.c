@@ -672,6 +672,7 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
                                   const char *name)
 {
     pddl_fdr_var_t *var = vars->var + var_id;
+    pddl_fdr_val_t *orig_ptr = var->val;
     ++var->val_size;
     var->val = BOR_REALLOC_ARR(var->val, pddl_fdr_val_t, var->val_size);
 
@@ -687,6 +688,12 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
                                              vars->global_id_size);
     vars->global_id_to_val[vars->global_id_size - 1] = val;
     val->strips_id = -1;
+
+    // Fix the invalidated pointers
+    if (orig_ptr != var->val){
+        for (int vi = 0; vi < var->val_size; ++vi)
+            vars->global_id_to_val[var->val[vi].global_id] = var->val + vi;
+    }
     return val;
 }
 

@@ -662,7 +662,7 @@ void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs, const pddl_fdr_vars_t *vars)
     for (int var = 0; var < vars->var_size; ++var){
         borISetEmpty(&mg);
         for (int val = 0; val < vars->var[var].val_size; ++val)
-            borISetAdd(&mg, val);
+            borISetAdd(&mg, vars->var[var].val[val].global_id);
         pddl_mgroup_t *m = pddlMGroupsAdd(mgs, &mg);
         m->is_exactly_one = 1;
     }
