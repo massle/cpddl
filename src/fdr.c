@@ -463,8 +463,9 @@ static int tnfDisambiguate(pddl_fdr_t *fdr,
         if (set_id + dis_offset == fdr->var.global_id_size){
             int fact_id = borISetGet(set, 0);
             const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
-            // TODO
-            pddlFDRVarsAddVal(&fdr->var, v->var_id, "tnf-unknown");
+            char name[128];
+            sprintf(name, "tnf-unknown-%d", set_id + dis_offset);
+            pddlFDRVarsAddVal(&fdr->var, v->var_id, name);
         }
         borISetAdd(extend, set_id + dis_offset);
     }
@@ -514,11 +515,11 @@ static int tnfDisOp(pddl_fdr_t *fdr,
     return 0;
 }
 
-static void tnfDisGoal(pddl_fdr_t *fdr,
-                       pddl_disambiguate_t *dis,
-                       int dis_offset,
-                       pddl_set_iset_t *dis_sets,
-                       bor_err_t *err)
+static int tnfDisGoal(pddl_fdr_t *fdr,
+                      pddl_disambiguate_t *dis,
+                      int dis_offset,
+                      pddl_set_iset_t *dis_sets,
+                      bor_err_t *err)
 {
     BOR_ISET(goal);
     BOR_ISET(ext);
@@ -528,8 +529,13 @@ static void tnfDisGoal(pddl_fdr_t *fdr,
     int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, &goal, NULL, &ext);
     if (ret < 0){
         fdr->goal_is_unreachable = 1;
-        // TODO
-        BOR_FATAL2("Goal is unreachable.");
+        // Set the undefined variables in the goal to anything since the
+        // goal is unreachable anyway
+        for (int var = 0; var < fdr->var.var_size; ++var){
+            if (!pddlFDRPartStateIsSet(&fdr->goal, var))
+                pddlFDRPartStateSet(&fdr->goal, var, 0);
+        }
+        return -1;
     }
 
     int fact_id;
@@ -540,6 +546,7 @@ static void tnfDisGoal(pddl_fdr_t *fdr,
 
     borISetFree(&goal);
     borISetFree(&ext);
+    return 0;
 }
 
 static void tnfDisForgettingOps(pddl_fdr_t *fdr,
