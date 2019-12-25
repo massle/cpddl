@@ -392,7 +392,7 @@ static void tnfEffToPre(pddl_fdr_t *fdr,
 
 static void tnfFull(pddl_fdr_t *fdr,
                     const pddl_fdr_t *fdr_in,
-                    int prevail_to_eff,
+                    unsigned flags,
                     bor_err_t *err)
 {
     pddl_fdr_val_t **u_vals = BOR_CALLOC_ARR(pddl_fdr_val_t *,
@@ -400,12 +400,12 @@ static void tnfFull(pddl_fdr_t *fdr,
 
     for (int opi = 0; opi < fdr->op.op_size; ++opi){
         pddl_fdr_op_t *op = fdr->op.op[opi];
-        if (prevail_to_eff)
+        if (flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
             tnfPreToEff(&op->pre, &op->eff);
         tnfEffToPre(fdr, u_vals, &op->eff, &op->pre);
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
-            if (prevail_to_eff)
+            if (flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
                 tnfPreToEff(&ce->pre, &ce->eff);
             tnfEffToPre(fdr, u_vals, &ce->eff, &ce->pre);
         }
@@ -444,13 +444,15 @@ static int tnfDisambiguate(pddl_fdr_t *fdr,
                            pddl_disambiguate_t *dis,
                            int dis_offset,
                            pddl_set_iset_t *dis_sets,
+                           unsigned flags,
                            const bor_iset_t *pre,
                            const bor_iset_t *eff,
                            bor_iset_t *extend)
 {
     pddl_set_iset_t hset;
     pddlSetISetInit(&hset);
-    int ret = pddlDisambiguate(dis, pre, eff, 1, 0, &hset, extend);
+    int sf_flag = ((flags & PDDL_FDR_TNF_WEAK_DISAMBIGUATION) ? 1 : 0);
+    int ret = pddlDisambiguate(dis, pre, eff, 1, sf_flag, &hset, extend);
     int size = pddlSetISetSize(&hset);
     for (int i = 0; i < size; ++i){
         const bor_iset_t *set = pddlSetISetGet(&hset, i);
@@ -477,11 +479,11 @@ static int tnfDisOp(pddl_fdr_t *fdr,
                     pddl_disambiguate_t *dis,
                     int dis_offset,
                     pddl_set_iset_t *dis_sets,
-                    int prevail_to_eff,
+                    unsigned flags,
                     pddl_fdr_op_t *op,
                     bor_err_t *err)
 {
-    if (prevail_to_eff)
+    if (flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
         tnfPreToEff(&op->pre, &op->eff);
 
     BOR_ISET(pre);
@@ -491,7 +493,8 @@ static int tnfDisOp(pddl_fdr_t *fdr,
     pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
     pddlFDRPartStateToGlobalIDs(&op->eff, &fdr->var, &eff);
 
-    int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, &pre, &eff, &ext);
+    int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, flags,
+                              &pre, &eff, &ext);
     if (ret < 0){
         borISetFree(&pre);
         borISetFree(&eff);
@@ -503,7 +506,7 @@ static int tnfDisOp(pddl_fdr_t *fdr,
     BOR_ISET_FOR_EACH(&ext, fact_id){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
         pddlFDRPartStateSet(&op->pre, val->var_id, val->val_id);
-        if (!prevail_to_eff
+        if (!(flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
                 && pddlFDRPartStateGet(&op->eff, val->var_id) == val->val_id){
             pddlFDRPartStateUnset(&op->eff, val->var_id);
         }
@@ -519,6 +522,7 @@ static int tnfDisGoal(pddl_fdr_t *fdr,
                       pddl_disambiguate_t *dis,
                       int dis_offset,
                       pddl_set_iset_t *dis_sets,
+                      unsigned flags,
                       bor_err_t *err)
 {
     BOR_ISET(goal);
@@ -526,7 +530,8 @@ static int tnfDisGoal(pddl_fdr_t *fdr,
 
     pddlFDRPartStateToGlobalIDs(&fdr->goal, &fdr->var, &goal);
 
-    int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, &goal, NULL, &ext);
+    int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, flags,
+                              &goal, NULL, &ext);
     if (ret < 0){
         fdr->goal_is_unreachable = 1;
         // Set the undefined variables in the goal to anything since the
@@ -583,7 +588,7 @@ static void tnfDisForgettingOps(pddl_fdr_t *fdr,
 
 static void tnfDis(pddl_fdr_t *fdr,
                    pddl_disambiguate_t *dis,
-                   int prevail_to_eff,
+                   unsigned flags,
                    bor_err_t *err)
 {
     BOR_ISET(unreachable_ops);
@@ -593,13 +598,11 @@ static void tnfDis(pddl_fdr_t *fdr,
     int dis_offset = fdr->var.global_id_size;
     for (int opi = 0; opi < fdr->op.op_size; ++opi){
         pddl_fdr_op_t *op = fdr->op.op[opi];
-        if (tnfDisOp(fdr, dis, dis_offset, &dis_sets,
-                     prevail_to_eff, op, err) < 0){
+        if (tnfDisOp(fdr, dis, dis_offset, &dis_sets, flags, op, err) < 0)
             borISetAdd(&unreachable_ops, opi);
-        }
     }
 
-    tnfDisGoal(fdr, dis, dis_offset, &dis_sets, err);
+    tnfDisGoal(fdr, dis, dis_offset, &dis_sets, flags, err);
     tnfDisForgettingOps(fdr, dis_offset, &dis_sets, err);
 
     if (borISetSize(&unreachable_ops) > 0)
@@ -612,7 +615,7 @@ static void tnfDis(pddl_fdr_t *fdr,
 int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
-                                    int prevail_to_eff,
+                                    unsigned flags,
                                     bor_err_t *err)
 {
     if (fdr_in->has_cond_eff && mutex != NULL){
@@ -629,7 +632,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     pddlFDRInitCopy(fdr, fdr_in);
 
     if (mutex == NULL){
-        tnfFull(fdr, fdr_in, prevail_to_eff, err);
+        tnfFull(fdr, fdr_in, flags, err);
 
     }else{
         pddl_mgroups_t mgs;
@@ -639,7 +642,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddl_disambiguate_t dis;
         pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
 
-        tnfDis(fdr, &dis, prevail_to_eff, err);
+        tnfDis(fdr, &dis, flags, err);
 
         pddlDisambiguateFree(&dis);
         pddlMGroupsFree(&mgs);

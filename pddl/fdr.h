@@ -53,19 +53,25 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
                    const bor_iset_t *del_facts,
                    const bor_iset_t *del_ops);
 
+
+/** Prevail conditions are copied to effects -- this creates a true TNF,
+ *  but it can produce operators that are not well-formed */
+#define PDDL_FDR_TNF_PREVAIL_TO_EFF 0x1
+/** Takes effect only if mutex argument is non-NULL.
+ *  Use weak type of disambiguation. */
+#define PDDL_FDR_TNF_WEAK_DISAMBIGUATION 0x2
+
 /**
  * Initialize FDR as the Transition Normal Form of fdr_in.
  * If mutex is non-NULL disambiguation is used.
- * If prevail_to_eff is true, then also prevails are copied to the
- * effects, i.e., the true TNF is constructed, but operators are not well
- * formed.
+ * {flags} must be or'ed PDDL_FDR_TNF_* flags.
  * Fact IDs are preserved from fdr_in and operator IDs are preserved unless
  * there are unreachable operators that are removed.
  */
 int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
-                                    int prevail_to_eff,
+                                    unsigned flags,
                                     bor_err_t *err);
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
