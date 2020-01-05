@@ -35,6 +35,7 @@ OBJS += lifted_mgroup_infer
 OBJS += lifted_mgroup_htable
 OBJS += mgroup
 OBJS += mutex_pair
+OBJS += mutex_pair_mgroup
 OBJS += pddl_file
 OBJS += plan_file
 OBJS += irrelevance
