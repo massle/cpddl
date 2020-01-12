@@ -17,47 +17,30 @@
  */
 
 #include <boruvka/alloc.h>
-#include "pddl/mutex_pair.h"
+#include "pddl/clique.h"
 
-struct pddl_mutex_pairs_graph_node {
-    int fact_id;
-    bor_iset_t neighbor;
-};
-typedef struct pddl_mutex_pairs_graph_node pddl_mutex_pairs_graph_node_t;
-
-struct pddl_mutex_pairs_graph {
-    pddl_mutex_pairs_graph_node_t *node;
-    int node_size;
-};
-typedef struct pddl_mutex_pairs_graph pddl_mutex_pairs_graph_t;
-
-static void pddlMutexPairsGraphInit(pddl_mutex_pairs_graph_t *graph,
-                                    const pddl_mutex_pairs_t *mutex)
+void pddlCliqueGraphInit(pddl_clique_graph_t *g, int node_size)
 {
-    bzero(graph, sizeof(*graph));
-    graph->node_size = mutex->fact_size;
-    graph->node = BOR_CALLOC_ARR(pddl_mutex_pairs_graph_node_t,
-                                 graph->node_size);
-    for (int fi = 0; fi < mutex->fact_size; ++fi){
-        pddl_mutex_pairs_graph_node_t *n = graph->node + fi;
-        n->fact_id = fi;
-    }
-    PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
-        if (f1 != f2){
-            borISetAdd(&graph->node[f1].neighbor, f2);
-            borISetAdd(&graph->node[f2].neighbor, f1);
-        }
-    }
+    bzero(g, sizeof(*g));
+    g->node_size = node_size;
+    g->node = BOR_CALLOC_ARR(bor_iset_t, g->node_size);
 }
 
-static void pddlMutexPairsGraphFree(pddl_mutex_pairs_graph_t *graph)
+void pddlCliqueGraphFree(pddl_clique_graph_t *g)
 {
-    for (int i = 0; i < graph->node_size; ++i){
-        borISetFree(&graph->node[i].neighbor);
-    }
-    if (graph->node != NULL)
-        BOR_FREE(graph->node);
+    for (int i = 0; i < g->node_size; ++i)
+        borISetFree(g->node + i);
+    if (g->node != NULL)
+        BOR_FREE(g->node);
 }
+
+void pddlCliqueGraphAddEdge(pddl_clique_graph_t *g, int n1, int n2)
+{
+    borISetAdd(&g->node[n1], n2);
+    borISetAdd(&g->node[n2], n1);
+}
+
+
 
 struct bk_stack_el {
     bor_iset_t clique;
@@ -130,7 +113,7 @@ static void stackPush(bk_stack_t *st,
     st->stack[st->stack_size++] = s;
 }
 
-static int selectPivot(const pddl_mutex_pairs_graph_t *graph,
+static int selectPivot(const pddl_clique_graph_t *graph,
                        const bor_iset_t *P,
                        const bor_iset_t *X)
 {
@@ -138,14 +121,14 @@ static int selectPivot(const pddl_mutex_pairs_graph_t *graph,
     int pivot_size = -1;
     int fact;
     BOR_ISET_FOR_EACH(P, fact){
-        int size = borISetIntersectionSize(P, &graph->node[fact].neighbor);
+        int size = borISetIntersectionSize(P, &graph->node[fact]);
         if (size > pivot_size){
             pivot_size = size;
             pivot = fact;
         }
     }
     BOR_ISET_FOR_EACH(X, fact){
-        int size = borISetIntersectionSize(P, &graph->node[fact].neighbor);
+        int size = borISetIntersectionSize(P, &graph->node[fact]);
         if (size > pivot_size){
             pivot_size = size;
             pivot = fact;
@@ -155,9 +138,10 @@ static int selectPivot(const pddl_mutex_pairs_graph_t *graph,
     return pivot;
 }
 
-static void inferMutexGroups(const pddl_mutex_pairs_graph_t *graph,
-                             bk_stack_t *stack,
-                             pddl_mgroups_t *mgroups)
+static void inferCliques(const pddl_clique_graph_t *graph,
+                         bk_stack_t *stack,
+                         void (*cb)(const bor_iset_t *clique, void *userdata),
+                         void *userdata)
 {
     bk_stack_el_t *s;
 
@@ -169,7 +153,7 @@ static void inferMutexGroups(const pddl_mutex_pairs_graph_t *graph,
         borISetUnion(&P_next, &s->P);
         borISetUnion(&X_next, &s->X);
 
-        const bor_iset_t *pivot_N = &graph->node[pivot].neighbor;
+        const bor_iset_t *pivot_N = &graph->node[pivot];
         int size = borISetSize(&s->P);
         int pivot_size = borISetSize(pivot_N);
         for (int i = 0, pi = 0; i < size; ++i){
@@ -181,7 +165,7 @@ static void inferMutexGroups(const pddl_mutex_pairs_graph_t *graph,
                 continue;
             }
 
-            const bor_iset_t *P_v_N = &graph->node[P_v].neighbor;
+            const bor_iset_t *P_v_N = &graph->node[P_v];
             if (borISetIntersectionSizeAtLeast(&P_next, P_v_N, 1)){
                 stackPush(stack, &s->clique, &P_next, &X_next, P_v, P_v_N);
 
@@ -192,7 +176,7 @@ static void inferMutexGroups(const pddl_mutex_pairs_graph_t *graph,
                 borISetUnion(&mg, &s->clique);
                 borISetAdd(&mg, P_v);
                 if (borISetSize(&mg) > 1)
-                    pddlMGroupsAdd(mgroups, &mg);
+                    cb(&mg, userdata);
                 borISetFree(&mg);
             }
 
@@ -207,23 +191,21 @@ static void inferMutexGroups(const pddl_mutex_pairs_graph_t *graph,
     }
 }
 
-void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
-                                    pddl_mgroups_t *mgroups)
+
+void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
+                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void *userdata)
 {
-    pddl_mutex_pairs_graph_t graph;
-    pddlMutexPairsGraphInit(&graph, mutex);
 
     BOR_ISET(all_facts);
     BOR_ISET(empty);
-    for (int fi = 0; fi < mutex->fact_size; ++fi)
-        borISetAdd(&all_facts, fi);
+    for (int i = 0; i < g->node_size; ++i)
+        borISetAdd(&all_facts, i);
 
     bk_stack_t stack;
     bzero(&stack, sizeof(stack));
     stackPush(&stack, &empty, &all_facts, &empty, -1, NULL);
-    inferMutexGroups(&graph, &stack, mgroups);
+    inferCliques(g, &stack, cb, userdata);
     stackFree(&stack);
     borISetFree(&all_facts);
-    pddlMutexPairsGraphFree(&graph);
 }
-
