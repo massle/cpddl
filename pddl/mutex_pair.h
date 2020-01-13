@@ -130,7 +130,7 @@ void pddlMutexPairsAddMGroups(pddl_mutex_pairs_t *mutex,
 
 
 /**
- * TODO
+ * Infer mutex groups from the given set of mutex pairs.
  */
 void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups);
