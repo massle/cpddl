@@ -19,6 +19,7 @@
 #include <boruvka/alloc.h>
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
+#include "pddl/clique.h"
 
 #define M(m, f1, f2) ((m)->map[(f1) * (size_t)(m)->fact_size + (f2)])
 
@@ -177,3 +178,25 @@ void pddlMutexPairsAddMGroups(pddl_mutex_pairs_t *mutex,
         pddlMutexPairsAddMGroup(mutex, mg);
     }
 }
+
+static void addMGroup(const bor_iset_t *mg, void *_mgroups)
+{
+    pddl_mgroups_t *mgroups = _mgroups;
+    pddlMGroupsAdd(mgroups, mg);
+}
+
+void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
+                                    pddl_mgroups_t *mgroups)
+{
+    pddl_clique_graph_t graph;
+    pddlCliqueGraphInit(&graph, mutex->fact_size);
+
+    PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
+        if (f1 != f2)
+            pddlCliqueGraphAddEdge(&graph, f1, f2);
+    }
+    pddlCliqueFindMaximal(&graph, addMGroup, mgroups);
+
+    pddlCliqueGraphFree(&graph);
+}
+
