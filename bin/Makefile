@@ -23,6 +23,7 @@ TARGETS += pddl-lifted-mgroups
 TARGETS += pddl-fdr
 TARGETS += pddl-pot
 TARGETS += pddl-astar
+TARGETS += pddl-mgroups
 
 all: $(TARGETS)
 
