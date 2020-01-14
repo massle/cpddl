@@ -354,6 +354,9 @@ int main(int argc, char *argv[])
                 borErrPrint(&err, 1, stderr);
                 return -1;
             }
+            if (o.fam_lmg)
+                pddlMGroupsRemoveSubsets(&fam_mgroups);
+
             pddl_mutex_pairs_t mutex;
             pddlMutexPairsInitStrips(&mutex, &strips);
             pddlMutexPairsAddMGroups(&mutex, &fam_mgroups);
