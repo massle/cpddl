@@ -24,6 +24,7 @@ struct options {
     int h2_mgroup;
     int mgroup_cover_num;
     int cmp_mgroup_dominance;
+    int fdr_vars;
 } o;
 
 static void mgroupCoverNumber(const pddl_mgroups_t *mgroups,
@@ -35,6 +36,27 @@ static void mgroupCoverNumber(const pddl_mgroups_t *mgroups,
         int num = pddlMGroupsCoverNumber(mgroups, strips->fact.fact_size);
         BOR_INFO(err, "Mutex group cover number: %d", num);
     }
+}
+
+static void fdrVars(const pddl_strips_t *strips,
+                    const pddl_mgroups_t *mgroups,
+                    bor_err_t *err)
+{
+    if (!o.fdr_vars)
+        return;
+    pddl_mutex_pairs_t mutex;
+    pddlMutexPairsInitStrips(&mutex, strips);
+    pddlMutexPairsAddMGroups(&mutex, mgroups);
+
+    unsigned flags = PDDL_FDR_VARS_LARGEST_FIRST;
+    BOR_INFO2(err, "Creating FDR variables...");
+    pddl_fdr_vars_t vars;
+    pddlFDRVarsInitFromStrips(&vars, strips, mgroups, &mutex, flags);
+    BOR_INFO(err, "Created FDR variables: %d", vars.var_size);
+    pddlFDRVarsPrintDebug(&vars, stderr);
+    pddlFDRVarsFree(&vars);
+
+    pddlMutexPairsFree(&mutex);
 }
 
 static void mgroupDominance(const pddl_mgroups_t *m1,
@@ -134,6 +156,9 @@ int main(int argc, char *argv[])
                 &o.cmp_mgroup_dominance, NULL,
                 "Compute dominance between mutex groups, which method found"
                 " mutex groups not found by the other method. (default: off)");
+    optsAddDesc("fdr-vars", 0x0, OPTS_NONE, &o.fdr_vars, NULL,
+                "Find how many variables are created from the inferred"
+                " mutex groups. (default: off)");
 
     if (opts(&argc, argv) || o.help || (argc != 3 && argc != 2)){
         fprintf(stderr, "Usage: %s [OPTIONS] domain.pddl problem.pddl\n",
@@ -307,6 +332,14 @@ int main(int argc, char *argv[])
             pddlMGroupsRemoveSubsets(&lmg_mgroups);
             BOR_INFO(&err, "Ground maximal mutex groups from lifted mutex"
                             " groups: %d", lmg_mgroups.mgroup_size);
+
+            pddl_mutex_pairs_t mutex;
+            pddlMutexPairsInitStrips(&mutex, &strips);
+            pddlMutexPairsAddMGroups(&mutex, &lmg_mgroups);
+            BOR_INFO(&err, "Lifted mutex groups mutex-pairs: %d",
+                     mutex.num_mutex_pairs);
+            pddlMutexPairsFree(&mutex);
+
             if (o.print){
                 for (int gi = 0; gi < lmg_mgroups.mgroup_size; ++gi){
                     const pddl_mgroup_t *m = lmg_mgroups.mgroup + gi;
@@ -316,6 +349,7 @@ int main(int argc, char *argv[])
                 }
             }
             mgroupCoverNumber(&lmg_mgroups, &strips, &err);
+            fdrVars(&strips, &lmg_mgroups, &err);
         }
 
 
@@ -337,6 +371,7 @@ int main(int argc, char *argv[])
                     }
                 }
                 mgroupCoverNumber(&h2_mgroups, &strips, &err);
+                fdrVars(&strips, &h2_mgroups, &err);
             }
             pddlMutexPairsFree(&mutex);
         }
@@ -372,6 +407,7 @@ int main(int argc, char *argv[])
                 }
             }
             mgroupCoverNumber(&fam_mgroups, &strips, &err);
+            fdrVars(&strips, &fam_mgroups, &err);
         }
 
         pddlStripsFree(&strips);
@@ -398,8 +434,10 @@ int main(int argc, char *argv[])
         pddlMGroupsFree(&h2_mgroups);
     if (o.fam_maximal)
         pddlMGroupsFree(&fam_mgroups);
-    pddlLiftedMGroupsFree(&lifted_mgroups);
-    pddlLiftedMGroupsFree(&monotonicity_invariants);
+    if (o.lmg || o.lmg_fd){
+        pddlLiftedMGroupsFree(&lifted_mgroups);
+        pddlLiftedMGroupsFree(&monotonicity_invariants);
+    }
     pddlFree(&pddl);
 
     BOR_INFO2(&err, "DONE");
