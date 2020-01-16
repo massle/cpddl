@@ -21,6 +21,8 @@
 #include "pddl/fdr_var.h"
 #include "assert.h"
 
+#define PDDL_FDR_VARS_METHOD_MASK 0xfu
+
 struct vars_mgroup {
     bor_iset_t uncovered; /*!< The set of uncovered facts from the mgroup */
     const pddl_mgroup_t *mgroup; /*!< The original mgroup */
@@ -365,7 +367,8 @@ static void allocateLargestMulti(vars_t *vars,
 
 static void allocateUncoveredSingleFacts(vars_t *vars,
                                          const pddl_strips_t *strips,
-                                         const pddl_mutex_pairs_t *mutex)
+                                         const pddl_mutex_pairs_t *mutex,
+                                         unsigned flags)
 {
     BOR_ISET(var_facts);
 
@@ -382,10 +385,12 @@ static void allocateUncoveredSingleFacts(vars_t *vars,
         borISetAdd(&var_facts, fact_id);
         covered[fact_id] = 1;
 
-        int neg_of = strips->fact.fact[fact_id]->neg_of;
-        if (neg_of >= 0 && !covered[neg_of]){
-            borISetAdd(&var_facts, neg_of);
-            covered[neg_of] = 1;
+        if (!(flags & PDDL_FDR_VARS_NO_NEGATED_FACTS)){
+            int neg_of = strips->fact.fact[fact_id]->neg_of;
+            if (neg_of >= 0 && !covered[neg_of]){
+                borISetAdd(&var_facts, neg_of);
+                covered[neg_of] = 1;
+            }
         }
         varsAdd(vars, strips, mutex, &var_facts);
     }
@@ -414,11 +419,12 @@ static int allocateVars(vars_t *vars,
         varsAdd(vars, strips, mutex, &var_facts);
     }
 
-    if (flags == PDDL_FDR_VARS_ESSENTIAL_FIRST){
+    unsigned method = flags & PDDL_FDR_VARS_METHOD_MASK;
+    if (method == PDDL_FDR_VARS_ESSENTIAL_FIRST){
         allocateEssential(vars, strips, mg, mutex);
-    }else if (flags == PDDL_FDR_VARS_LARGEST_FIRST){
+    }else if (method == PDDL_FDR_VARS_LARGEST_FIRST){
         allocateLargest(vars, strips, mg, mutex);
-    }else if (flags == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
+    }else if (method == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
         allocateLargestMulti(vars, strips, mg, mutex);
     }else{
         // TODO
@@ -426,7 +432,7 @@ static int allocateVars(vars_t *vars,
         return -1;
     }
 
-    allocateUncoveredSingleFacts(vars, strips, mutex);
+    allocateUncoveredSingleFacts(vars, strips, mutex, flags);
 
     borISetFree(&var_facts);
     borISetFree(&binary_facts);
@@ -505,10 +511,12 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
     pddl_mutex_pairs_t mutex;
 
     pddlMutexPairsInitCopy(&mutex, _mutex);
-    for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
-        const pddl_fact_t *fact = strips->fact.fact[fact_id];
-        if (fact->neg_of > fact_id)
-            pddlMutexPairsAdd(&mutex, fact_id, fact->neg_of);
+    if (!(flags & PDDL_FDR_VARS_NO_NEGATED_FACTS)){
+        for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
+            const pddl_fact_t *fact = strips->fact.fact[fact_id];
+            if (fact->neg_of > fact_id)
+                pddlMutexPairsAdd(&mutex, fact_id, fact->neg_of);
+        }
     }
 
     bzero(fdr_vars, sizeof(*fdr_vars));

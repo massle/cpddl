@@ -67,11 +67,12 @@ struct pddl_fdr_vars {
 };
 typedef struct pddl_fdr_vars pddl_fdr_vars_t;
 
-#define PDDL_FDR_VARS_ESSENTIAL_FIRST 0u
-#define PDDL_FDR_VARS_LARGEST_FIRST 1u
-#define PDDL_FDR_VARS_LARGEST_FIRST_MULTI 2u
+#define PDDL_FDR_VARS_ESSENTIAL_FIRST 0x00u
+#define PDDL_FDR_VARS_LARGEST_FIRST 0x01u
+#define PDDL_FDR_VARS_LARGEST_FIRST_MULTI 0x02u
 // TODO: Minimazion of bits required for storing the whole state
 #define PDDL_FDR_VARS_MIN_BITS
+#define PDDL_FDR_VARS_NO_NEGATED_FACTS 0x10u
 
 /**
  * Initialize the set of variables from the strips representation given a
