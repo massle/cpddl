@@ -21,8 +21,7 @@ struct options {
     int no_h2;
     int no_irr;
 
-    int fdr_var_largest;
-    int fdr_var_largest_multi;
+    unsigned fdr_var_method;
 
     const char *fdr_out;
     const char *lifted_mgroup_out;
@@ -61,12 +60,29 @@ static void closeFile(FILE *f)
         fclose(f);
 }
 
+static void setFDRVarLargest(const char *ln, const char *sn)
+{
+    opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
+}
+
+static void setFDRVarEssential(const char *ln, const char *sn)
+{
+    opt.fdr_var_method = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+}
+
+static void setFDRVarLargestMulti(const char *ln, const char *sn)
+{
+    opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST_MULTI;
+}
+
 static int readOpts(int *argc, char *argv[])
 {
     bzero(&opt, sizeof(opt));
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
     opt.fdr_out = "-";
+
+    opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
 
     pddl_cfg.force_adl = 1;
 
@@ -127,11 +143,15 @@ static int readOpts(int *argc, char *argv[])
                 "Output filename for the mutex groups found before pruning."
                 " (default: none)");
 
-    optsAddDesc("fdr-var-largest", 0x0, OPTS_NONE, &opt.fdr_var_largest, NULL,
+    optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
+                OPTS_CB(setFDRVarLargest),
                 "Allocate FDR variables with largest-first algorithm"
-                " (instead of essential-first).");
-    optsAddDesc("fdr-var-largest-multi", 0x0, OPTS_NONE,
-                &opt.fdr_var_largest_multi, NULL,
+                " (default).");
+    optsAddDesc("var-essential", 0x0, OPTS_NONE, NULL,
+                OPTS_CB(setFDRVarEssential),
+                "Allocate FDR variables with the essential-first algorithm.");
+    optsAddDesc("var-largest-multi", 0x0, OPTS_NONE, NULL,
+                OPTS_CB(setFDRVarLargestMulti),
                 "Allocate FDR variables with largest-first algorithm and"
                 " encode one strips fact as multiple fdr values if in more"
                 " mutex groups.");
@@ -432,11 +452,7 @@ static int toFDR(void)
     BOR_INFO2(&err, "Translating to FDR ...");
     BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
 
-    fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
-    if (opt.fdr_var_largest)
-        fdr_var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
-    if (opt.fdr_var_largest_multi)
-        fdr_var_flag = PDDL_FDR_VARS_LARGEST_FIRST_MULTI;
+    fdr_var_flag = opt.fdr_var_method;
     FILE *fout = openFile(opt.fdr_out);
     if (fout == NULL){
         fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
