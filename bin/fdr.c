@@ -16,6 +16,10 @@ struct options {
     int no_ground_prune_pre;
     int no_ground_prune_dead_end;
 
+    int fam;
+    int fam_lmg;
+    int h2_mgroup;
+
     int h2fw;
     int no_dead_end_op;
     int no_h2;
@@ -126,6 +130,15 @@ static int readOpts(int *argc, char *argv[])
                 "Do NOT use lifted mutex groups for pruning of dead-end"
                 " operators during grounding.");
 
+    optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
+                "Infer fact-alternating mutex groups with ILP-based"
+                " algorithm. (default: off)");
+    optsAddDesc("fam-lmg", 0x0, OPTS_NONE, &opt.fam_lmg, NULL,
+                "Use grounded lifted mutex groups as initialization for"
+                " fam-group. (default: off)");
+    optsAddDesc("h2mg", 0x0, OPTS_NONE, &opt.h2_mgroup, NULL,
+                "Infer h^2 based mutex groups. (default: off)");
+
     optsAddDesc("h2fw", 0x0, OPTS_NONE, &opt.h2fw, NULL,
                 "Use only forward h^2 for pruning (instead of"
                 " forward/backward).");
@@ -179,6 +192,16 @@ static int readOpts(int *argc, char *argv[])
         return -1;
     }
 
+
+    if (opt.fam && opt.h2_mgroup){
+        fprintf(stderr, "Error: --fam and --h2mg cannot be used together.\n");
+        return -1;
+    }
+
+    if (opt.fam_lmg && !opt.fam){
+        fprintf(stderr, "Error: --fam-lmg has no effect: use --fam.\n");
+        return -1;
+    }
 
     if (opt.no_ground_prune_pre && opt.no_ground_prune_dead_end)
         opt.no_ground_prune = 1;
@@ -339,6 +362,47 @@ static int groundMGroups(void)
     return 0;
 }
 
+static int inferMutexGroups(void)
+{
+    if (!opt.fam && !opt.h2_mgroup)
+        return 0;
+
+    BOR_INFO2(&err, "");
+    BOR_INFO2(&err, "Inference of mutex groups...");
+
+    if (opt.fam){
+        pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        if (!opt.fam_lmg){
+            // Clean mgroups if we want only fam-groups
+            pddlMGroupsFree(&mgroups);
+            pddlMGroupsInitEmpty(&mgroups);
+        }
+        if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+
+    }else if (opt.h2_mgroup){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        if (pddlH2(&strips, &mutex, NULL, NULL, &err) != 0){
+            BOR_INFO2(&err, "h^2 fw failed.");
+            BOR_TRACE_RET(&err, -1);
+        }
+
+        // Clean mgroups if we want only h^2 mutex groups
+        pddlMGroupsFree(&mgroups);
+        pddlMGroupsInitEmpty(&mgroups);
+        BOR_INFO2(&err, "Inference of h^2 mutex groups...");
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+        pddlMutexPairsFree(&mutex);
+    }
+
+    BOR_INFO2(&err, "Inference of mutex groups DONE.");
+
+    return 0;
+}
+
 static int pruneStrips(void)
 {
     BOR_INFO2(&err, "");
@@ -479,6 +543,7 @@ int main(int argc, char *argv[])
             || liftedMGroups() != 0
             || groundStrips() != 0
             || groundMGroups() != 0
+            || inferMutexGroups() != 0
             || pruneStrips() != 0
             || toFDR() != 0){
         if (borErrIsSet(&err)){
