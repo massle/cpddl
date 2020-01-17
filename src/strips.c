@@ -765,6 +765,23 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     return ret;
 }
 
+int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 bor_iset_t *unreachable_ops,
+                                 bor_err_t *err)
+{
+    int num = 0;
+    for (int oi = 0; oi < strips->op.op_size; ++oi){
+        const pddl_strips_op_t *op = strips->op.op[oi];
+        if (pddlMutexPairsIsMutexSet(mutex, &op->pre)){
+            borISetAdd(unreachable_ops, oi);
+            ++num;
+        }
+    }
+    BOR_INFO(err, "Found %d unreachable operators.", num);
+    return 0;
+}
+
 static void printPythonISet(const bor_iset_t *s, FILE *fout)
 {
     int i;

@@ -413,6 +413,14 @@ static int pruneStrips(void)
 
     pddlMutexPairsInitStrips(&mutex, &strips);
     pddlMutexPairsAddMGroups(&mutex, &mgroups);
+
+    if (mutex.num_mutex_pairs > 0){
+        BOR_INFO2(&err, "Unreachable operators with inferred mutex groups...");
+        if (pddlStripsFindUnreachableOps(&strips, &mutex, &rm_op, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+    }
+
     if (opt.no_dead_end_op){
         BOR_INFO2(&err, "Pruning dead-end operators disabled");
 

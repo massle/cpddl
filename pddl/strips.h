@@ -166,6 +166,14 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    bor_err_t *err);
 
 /**
+ * Use mutexes to find unreachable operators.
+ */
+int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 bor_iset_t *unreachable_ops,
+                                 bor_err_t *err);
+
+/**
  * Print STRIPS problem in a format easily usable from python.
  */
 void pddlStripsPrintPython(const pddl_strips_t *strips, FILE *fout);
