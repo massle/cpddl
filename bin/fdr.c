@@ -17,8 +17,10 @@ struct options {
     int no_ground_prune_dead_end;
 
     int fam;
+    int fam_fixpoint;
     int fam_lmg;
     int h2_mgroup;
+    int h2_fixpoint;
 
     int h2fw;
     int no_dead_end_op;
@@ -133,11 +135,18 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
                 " algorithm. (default: off)");
+    optsAddDesc("fam-fixpoint", 0x0, OPTS_NONE, &opt.fam_fixpoint, NULL,
+                "Infer fact-alternating mutex groups with ILP-based"
+                " algorithm and use a fixpoint pruning (--fam-lmg also takes"
+                " effect if used). (default: off)");
     optsAddDesc("fam-lmg", 0x0, OPTS_NONE, &opt.fam_lmg, NULL,
                 "Use grounded lifted mutex groups as initialization for"
                 " fam-group. (default: off)");
     optsAddDesc("h2mg", 0x0, OPTS_NONE, &opt.h2_mgroup, NULL,
                 "Infer h^2 based mutex groups. (default: off)");
+    optsAddDesc("h2-fixpoint", 0x0, OPTS_NONE, &opt.h2_fixpoint, NULL,
+                "Infer h^2 based mutex groups and use a fixpoint pruning."
+                " (default: off)");
 
     optsAddDesc("h2fw", 0x0, OPTS_NONE, &opt.h2fw, NULL,
                 "Use only forward h^2 for pruning (instead of"
@@ -198,8 +207,9 @@ static int readOpts(int *argc, char *argv[])
         return -1;
     }
 
-    if (opt.fam_lmg && !opt.fam){
-        fprintf(stderr, "Error: --fam-lmg has no effect: use --fam.\n");
+    if (opt.fam_lmg && !opt.fam && !opt.fam_fixpoint){
+        fprintf(stderr, "Error: --fam-lmg has no effect: use --fam or"
+                        " --fam-fixpoint.\n");
         return -1;
     }
 
@@ -367,6 +377,12 @@ static int inferMutexGroups(void)
     if (!opt.fam && !opt.h2_mgroup)
         return 0;
 
+    if (strips.has_cond_eff){
+        BOR_INFO2(&err, "fam-groups and h^2 disabled because the problem has"
+                " conditional effects.");
+        return 0;
+    }
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Inference of mutex groups...");
 
@@ -380,6 +396,9 @@ static int inferMutexGroups(void)
         if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
+        if (opt.fam_lmg)
+            pddlMGroupsRemoveSubsets(&mgroups);
+        BOR_INFO(&err, "Found %d fam-groups.", mgroups.mgroup_size);
 
     }else if (opt.h2_mgroup){
         pddl_mutex_pairs_t mutex;
@@ -403,6 +422,164 @@ static int inferMutexGroups(void)
     return 0;
 }
 
+static void reduceStrips(const bor_iset_t *rm_fact, const bor_iset_t *rm_op)
+{
+    if (borISetSize(rm_fact) == 0 && borISetSize(rm_op) == 0)
+        return;
+
+    pddlStripsReduce(&strips, rm_fact, rm_op);
+    if (borISetSize(rm_fact) > 0){
+        pddlMutexPairsReduce(&mutex, rm_fact);
+
+        pddlMGroupsReduce(&mgroups, rm_fact);
+        pddlMGroupsSetExactlyOne(&mgroups, &strips);
+        pddlMGroupsSetGoal(&mgroups, &strips);
+    }
+}
+
+static int pruneStripsFixpointFAMGroups(void)
+{
+    if (strips.has_cond_eff){
+        BOR_INFO2(&err, "fam-groups disabled because the problem has"
+                        " conditional effects.");
+        return 0;
+    }
+
+    BOR_INFO2(&err, "");
+    BOR_INFO2(&err, "Fixpoint pruning using fam-groups...");
+
+    pddl_mgroups_t mgs;
+    BOR_ISET(rm_fact);
+    BOR_ISET(rm_op);
+    int orig_fact_size, orig_op_size;
+    pddlMGroupsInitEmpty(&mgs);
+    pddlMutexPairsInitStrips(&mutex, &strips);
+    do {
+        orig_fact_size = strips.fact.fact_size;
+        orig_op_size = strips.op.op_size;
+
+        borISetEmpty(&rm_fact);
+        borISetEmpty(&rm_op);
+        if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op,
+                                    NULL, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+        reduceStrips(&rm_fact, &rm_op);
+
+        pddlMGroupsFree(&mgs);
+        if (opt.fam_lmg){
+            pddlMGroupsInitCopy(&mgs, &mgroups);
+        }else{
+            pddlMGroupsInitEmpty(&mgs);
+        }
+        pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+        if (opt.fam_lmg)
+            pddlMGroupsRemoveSubsets(&mgs);
+        BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
+
+        pddlMutexPairsFree(&mutex);
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlMutexPairsAddMGroups(&mutex, &mgs);
+
+        borISetEmpty(&rm_fact);
+        borISetEmpty(&rm_op);
+        BOR_INFO2(&err, "Pruning unreachable operators with inferred"
+                        " mutex groups...");
+        if (pddlStripsFindUnreachableOps(&strips, &mutex, &rm_op, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+
+        BOR_INFO2(&err, "Pruning dead-end operators ...");
+        pddlFAMGroupsDeadEndOps(&mgroups, &strips, &rm_op);
+        BOR_INFO(&err, "Pruning dead-end operators done. Dead end ops: %d",
+                 borISetSize(&rm_op));
+
+        reduceStrips(&rm_fact, &rm_op);
+    } while (strips.op.op_size != orig_op_size
+                || strips.fact.fact_size != orig_fact_size);
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
+
+    pddlMGroupsFree(&mgroups);
+    pddlMGroupsInitCopy(&mgroups, &mgs);
+    pddlMGroupsFree(&mgs);
+    BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+    BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+    BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
+    BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+    BOR_INFO(&err, "Mutex pairs after reduction: %d", mutex.num_mutex_pairs);
+    BOR_INFO(&err, "Mutex groups after reduction: %d", mgroups.mgroup_size);
+    BOR_INFO2(&err, "Fixpoint pruning using fam-groups DONE.");
+    fflush(stdout);
+    fflush(stderr);
+    return 0;
+}
+
+static int pruneStripsFixpointH2(void)
+{
+    if (strips.has_cond_eff){
+        BOR_INFO2(&err, "h^2 disabled because the problem has conditional"
+                        " effects.");
+        return 0;
+    }
+
+    BOR_INFO2(&err, "");
+    BOR_INFO2(&err, "Fixpoint pruning using h^2...");
+
+    BOR_ISET(rm_fact);
+    BOR_ISET(rm_op);
+    int orig_fact_size, orig_op_size;
+    pddlMutexPairsInitStrips(&mutex, &strips);
+    do {
+        orig_fact_size = strips.fact.fact_size;
+        orig_op_size = strips.op.op_size;
+
+        borISetEmpty(&rm_fact);
+        borISetEmpty(&rm_op);
+        if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op,
+                                    NULL, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+        reduceStrips(&rm_fact, &rm_op);
+
+        borISetEmpty(&rm_fact);
+        borISetEmpty(&rm_op);
+        pddlMutexPairsFree(&mutex);
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, &err) != 0){
+            BOR_INFO2(&err, "h^2 fw failed.");
+            BOR_TRACE_RET(&err, -1);
+        }
+
+        reduceStrips(&rm_fact, &rm_op);
+    } while (strips.op.op_size != orig_op_size
+                || strips.fact.fact_size != orig_fact_size);
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
+
+    pddlMGroupsFree(&mgroups);
+    pddlMGroupsInitEmpty(&mgroups);
+    BOR_INFO2(&err, "Inference of h^2 mutex groups...");
+    pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+    BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+
+    BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+    BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+    BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
+    BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+    BOR_INFO(&err, "Mutex pairs after reduction: %d", mutex.num_mutex_pairs);
+    BOR_INFO(&err, "Mutex groups after reduction: %d", mgroups.mgroup_size);
+    BOR_INFO2(&err, "Fixpoint pruning using h^2 DONE.");
+    fflush(stdout);
+    fflush(stderr);
+    return 0;
+}
+
 static int pruneStrips(void)
 {
     BOR_INFO2(&err, "");
@@ -415,7 +592,8 @@ static int pruneStrips(void)
     pddlMutexPairsAddMGroups(&mutex, &mgroups);
 
     if (mutex.num_mutex_pairs > 0){
-        BOR_INFO2(&err, "Unreachable operators with inferred mutex groups...");
+        BOR_INFO2(&err, "Pruning unreachable operators with inferred"
+                        " mutex groups...");
         if (pddlStripsFindUnreachableOps(&strips, &mutex, &rm_op, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
@@ -473,16 +651,7 @@ static int pruneStrips(void)
         borISetFree(&static_fact);
     }
 
-    if (borISetSize(&rm_fact) > 0 || borISetSize(&rm_op) > 0){
-        pddlStripsReduce(&strips, &rm_fact, &rm_op);
-        if (borISetSize(&rm_fact) > 0){
-            pddlMutexPairsReduce(&mutex, &rm_fact);
-
-            pddlMGroupsReduce(&mgroups, &rm_fact);
-            pddlMGroupsSetExactlyOne(&mgroups, &strips);
-            pddlMGroupsSetGoal(&mgroups, &strips);
-        }
-    }
+    reduceStrips(&rm_fact, &rm_op);
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
@@ -515,6 +684,20 @@ static int pruneStrips(void)
         closeFile(fout);
     }
 
+    return 0;
+}
+
+static int mgroupsAndPruning(void)
+{
+    if (opt.fam_fixpoint)
+        return pruneStripsFixpointFAMGroups();
+    if (opt.h2_fixpoint)
+        return pruneStripsFixpointH2();
+
+    if (inferMutexGroups() != 0)
+        return -1;
+    if (pruneStrips() != 0)
+        return -1;
     return 0;
 }
 
@@ -551,8 +734,7 @@ int main(int argc, char *argv[])
             || liftedMGroups() != 0
             || groundStrips() != 0
             || groundMGroups() != 0
-            || inferMutexGroups() != 0
-            || pruneStrips() != 0
+            || mgroupsAndPruning() != 0
             || toFDR() != 0){
         if (borErrIsSet(&err)){
             fprintf(stderr, "Error: ");
