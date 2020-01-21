@@ -72,5 +72,9 @@
 #include <pddl/search_astar.h>
 #include <pddl/plan.h>
 #include <pddl/heur.h>
+#include <pddl/ts.h>
+#include <pddl/op_mutex_pair.h>
+#include <pddl/op_mutex_infer.h>
+#include <pddl/op_mutex_sym_redundant.h>
 
 #endif /* __PDDL_H__ */

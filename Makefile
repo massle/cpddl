@@ -71,6 +71,10 @@ OBJS += heur_blind
 OBJS += heur_lm_cut
 OBJS += heur_pot_state
 OBJS += heur_flow
+OBJS += ts
+OBJS += op_mutex_pair
+OBJS += op_mutex_infer
+OBJS += op_mutex_sym_redundant
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
