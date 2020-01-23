@@ -18,6 +18,7 @@ struct options {
 
     int fam;
     int fam_fixpoint;
+    int fam_fixpoint_no_de;
     int fam_lmg;
     int h2_mgroup;
     int h2_fixpoint;
@@ -139,6 +140,10 @@ static int readOpts(int *argc, char *argv[])
                 "Infer fact-alternating mutex groups with ILP-based"
                 " algorithm and use a fixpoint pruning (--fam-lmg also takes"
                 " effect if used). (default: off)");
+    optsAddDesc("fam-fixpoint-no-de", 0x0, OPTS_NONE, &opt.fam_fixpoint_no_de,
+                NULL,
+                "Same as --fam-fixpoint, but dead-end operator detection is"
+                " disabled. (default: off)");
     optsAddDesc("fam-lmg", 0x0, OPTS_NONE, &opt.fam_lmg, NULL,
                 "Use grounded lifted mutex groups as initialization for"
                 " fam-group. (default: off)");
@@ -201,6 +206,9 @@ static int readOpts(int *argc, char *argv[])
         return -1;
     }
 
+
+    if (opt.fam_fixpoint_no_de)
+        opt.fam_fixpoint = 1;
 
     if (opt.fam && opt.h2_mgroup){
         fprintf(stderr, "Error: --fam and --h2mg cannot be used together.\n");
@@ -492,11 +500,15 @@ static int pruneStripsFixpointFAMGroups(void)
             BOR_TRACE_RET(&err, -1);
         }
 
-        BOR_INFO2(&err, "Pruning dead-end operators ...");
-        int unreachable_size = borISetSize(&rm_op);
-        pddlFAMGroupsDeadEndOps(&mgs, &strips, &rm_op);
-        BOR_INFO(&err, "Pruning dead-end operators done. Dead end ops: %d",
-                 borISetSize(&rm_op) - unreachable_size);
+        if (opt.fam_fixpoint_no_de){
+            BOR_INFO2(&err, "Pruning of dead-end operators disabled.");
+        }else{
+            BOR_INFO2(&err, "Pruning dead-end operators ...");
+            int unreachable_size = borISetSize(&rm_op);
+            pddlFAMGroupsDeadEndOps(&mgs, &strips, &rm_op);
+            BOR_INFO(&err, "Pruning dead-end operators done. Dead end ops: %d",
+                     borISetSize(&rm_op) - unreachable_size);
+        }
 
         reduceStrips(&rm_fact, &rm_op);
     } while (strips.op.op_size != orig_op_size
