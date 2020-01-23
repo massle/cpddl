@@ -493,9 +493,10 @@ static int pruneStripsFixpointFAMGroups(void)
         }
 
         BOR_INFO2(&err, "Pruning dead-end operators ...");
-        pddlFAMGroupsDeadEndOps(&mgroups, &strips, &rm_op);
+        int unreachable_size = borISetSize(&rm_op);
+        pddlFAMGroupsDeadEndOps(&mgs, &strips, &rm_op);
         BOR_INFO(&err, "Pruning dead-end operators done. Dead end ops: %d",
-                 borISetSize(&rm_op));
+                 borISetSize(&rm_op) - unreachable_size);
 
         reduceStrips(&rm_fact, &rm_op);
     } while (strips.op.op_size != orig_op_size
