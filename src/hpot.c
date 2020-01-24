@@ -846,6 +846,17 @@ int pddlHPotInit(pddl_hpot_t *hpot,
             addFunc(hpot);
         BOR_INFO(err, "Pot: Solved for all states: %d", ret);
 
+    }else if (cfg->obj == PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES){
+        pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
+        if ((ret = solve(hpot, &pot)) == 0)
+            addFunc(hpot);
+        BOR_INFO(err, "Pot: Solved for the initial state: %d", ret);
+
+        pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
+        if ((ret = solve(hpot, &pot)) == 0)
+            addFunc(hpot);
+        BOR_INFO(err, "Pot: Solved for all states: %d", ret);
+
     }else if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX
                 || cfg->obj == PDDL_HPOT_OBJ_SAMPLES_SUM){
         const pddl_mutex_pairs_t *m = NULL;
