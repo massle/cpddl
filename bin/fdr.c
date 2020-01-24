@@ -514,12 +514,18 @@ static int pruneStripsFixpointFAMGroups(void)
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
-    borISetFree(&rm_fact);
-    borISetFree(&rm_op);
-
     pddlMGroupsFree(&mgroups);
     pddlMGroupsInitCopy(&mgroups, &mgs);
     pddlMGroupsFree(&mgs);
+
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
+    reduceStrips(&rm_fact, &rm_op);
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
     BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
@@ -572,14 +578,19 @@ static int pruneStripsFixpointH2(void)
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
-    borISetFree(&rm_fact);
-    borISetFree(&rm_op);
-
     pddlMGroupsFree(&mgroups);
     pddlMGroupsInitEmpty(&mgroups);
     BOR_INFO2(&err, "Inference of h^2 mutex groups...");
     pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
     BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
+    reduceStrips(&rm_fact, &rm_op);
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -666,6 +677,11 @@ static int pruneStrips(void)
 
     reduceStrips(&rm_fact, &rm_op);
 
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
+    reduceStrips(&rm_fact, &rm_op);
+
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
@@ -711,6 +727,7 @@ static int mgroupsAndPruning(void)
         return -1;
     if (pruneStrips() != 0)
         return -1;
+
     return 0;
 }
 
