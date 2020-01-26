@@ -425,6 +425,9 @@ static int inferMutexGroups(void)
         pddlMutexPairsFree(&mutex);
     }
 
+    pddlMGroupsSetExactlyOne(&mgroups, &strips);
+    pddlMGroupsSetGoal(&mgroups, &strips);
+
     BOR_INFO2(&err, "Inference of mutex groups DONE.");
 
     return 0;
@@ -647,11 +650,14 @@ static int pruneStrips(void)
                 BOR_TRACE_RET(&err, -1);
             }
         }else if (!opt.no_h2){
-            if (pddlH2FwBw(&strips, &mgroups, &mutex,
+            pddl_mg_strips_t mg_strips;
+            pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+            if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
                         &rm_fact, &rm_op, &err) != 0){
                 BOR_INFO2(&err, "h^2 fw/bw failed.");
                 BOR_TRACE_RET(&err, -1);
             }
+            pddlMGStripsFree(&mg_strips);
         }
     }
 
