@@ -526,6 +526,14 @@ static int pruneStripsFixpointFAMGroups(void)
     pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
     reduceStrips(&rm_fact, &rm_op);
 
+    if (opt.h2_mgroup){
+        pddlMGroupsFree(&mgroups);
+        pddlMGroupsInitEmpty(&mgroups);
+        BOR_INFO2(&err, "Inference of h^2 mutex groups...");
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+    }
+
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
