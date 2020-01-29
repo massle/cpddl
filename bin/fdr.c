@@ -425,6 +425,9 @@ static int inferMutexGroups(void)
         pddlMutexPairsFree(&mutex);
     }
 
+    pddlMGroupsSetExactlyOne(&mgroups, &strips);
+    pddlMGroupsSetGoal(&mgroups, &strips);
+
     BOR_INFO2(&err, "Inference of mutex groups DONE.");
 
     return 0;
@@ -514,12 +517,26 @@ static int pruneStripsFixpointFAMGroups(void)
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
-    borISetFree(&rm_fact);
-    borISetFree(&rm_op);
-
     pddlMGroupsFree(&mgroups);
     pddlMGroupsInitCopy(&mgroups, &mgs);
     pddlMGroupsFree(&mgs);
+
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
+    reduceStrips(&rm_fact, &rm_op);
+
+    if (opt.h2_mgroup){
+        pddlMGroupsFree(&mgroups);
+        pddlMGroupsInitEmpty(&mgroups);
+        BOR_INFO2(&err, "Inference of h^2 mutex groups...");
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+    }
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
     BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
@@ -572,14 +589,19 @@ static int pruneStripsFixpointH2(void)
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
-    borISetFree(&rm_fact);
-    borISetFree(&rm_op);
-
     pddlMGroupsFree(&mgroups);
     pddlMGroupsInitEmpty(&mgroups);
     BOR_INFO2(&err, "Inference of h^2 mutex groups...");
     pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
     BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
+    reduceStrips(&rm_fact, &rm_op);
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -636,11 +658,14 @@ static int pruneStrips(void)
                 BOR_TRACE_RET(&err, -1);
             }
         }else if (!opt.no_h2){
-            if (pddlH2FwBw(&strips, &mgroups, &mutex,
+            pddl_mg_strips_t mg_strips;
+            pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+            if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
                         &rm_fact, &rm_op, &err) != 0){
                 BOR_INFO2(&err, "h^2 fw/bw failed.");
                 BOR_TRACE_RET(&err, -1);
             }
+            pddlMGStripsFree(&mg_strips);
         }
     }
 
@@ -664,6 +689,11 @@ static int pruneStrips(void)
         borISetFree(&static_fact);
     }
 
+    reduceStrips(&rm_fact, &rm_op);
+
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
     reduceStrips(&rm_fact, &rm_op);
 
     borISetFree(&rm_fact);
@@ -711,6 +741,7 @@ static int mgroupsAndPruning(void)
         return -1;
     if (pruneStrips() != 0)
         return -1;
+
     return 0;
 }
 

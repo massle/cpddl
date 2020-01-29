@@ -72,5 +72,6 @@
 #include <pddl/search_astar.h>
 #include <pddl/plan.h>
 #include <pddl/heur.h>
+#include <pddl/dtg.h>
 
 #endif /* __PDDL_H__ */
