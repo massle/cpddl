@@ -24,6 +24,7 @@ struct options {
     int h2_fixpoint;
     int famh2_fixpoint;
     int famh2fwbw_fixpoint;
+    int h2fwbw_fixpoint;
 
     int h2fw;
     int no_dead_end_op;
@@ -158,6 +159,9 @@ static int readOpts(int *argc, char *argv[])
                 "--fam-fixpoint with h^2 forward pruning. (default: off)");
     optsAddDesc("famh2fwbw-fixpoint", 0x0, OPTS_NONE, &opt.famh2fwbw_fixpoint, NULL,
                 "--fam-fixpoint with h^2 forward/backward pruning. (default: off)");
+    optsAddDesc("h2fwbw-fixpoint", 0x0, OPTS_NONE, &opt.h2fwbw_fixpoint, NULL,
+                "h^2 forward/backward pruning in a fixpoint compuation."
+                " (default: off)");
 
     optsAddDesc("h2fw", 0x0, OPTS_NONE, &opt.h2fw, NULL,
                 "Use only forward h^2 for pruning (instead of"
@@ -225,10 +229,11 @@ static int readOpts(int *argc, char *argv[])
             && !opt.fam
             && !opt.fam_fixpoint
             && !opt.famh2_fixpoint
-            && !opt.famh2fwbw_fixpoint){
+            && !opt.famh2fwbw_fixpoint
+            && !opt.h2fwbw_fixpoint){
         fprintf(stderr, "Error: --fam-lmg has no effect: use --fam or"
                         " --fam-fixpoint or --famh2-fixpoint"
-                        " or --famh2fwbw-fixpoint.\n");
+                        " or --famh2fwbw-fixpoint or --h2fwbw-fixpoint.\n");
         return -1;
     }
 
@@ -822,6 +827,70 @@ static int pruneStripsFixpointFAMH2FwBw(void)
     return 0;
 }
 
+static int pruneStripsFixpointH2FwBw(void)
+{
+    if (strips.has_cond_eff){
+        BOR_INFO2(&err, "fam-groups disabled because the problem has"
+                        " conditional effects.");
+        return 0;
+    }
+
+    BOR_INFO2(&err, "");
+    BOR_INFO2(&err, "Fixpoint pruning using fam-groups and h^2 fw/bw...");
+
+    BOR_ISET(rm_fact);
+    BOR_ISET(rm_op);
+    int orig_fact_size, orig_op_size;
+    pddlMutexPairsInitStrips(&mutex, &strips);
+    do {
+        orig_fact_size = strips.fact.fact_size;
+        orig_op_size = strips.op.op_size;
+
+        borISetEmpty(&rm_fact);
+        borISetEmpty(&rm_op);
+        if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op,
+                                    NULL, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+        reduceStrips(&rm_fact, &rm_op);
+
+        borISetEmpty(&rm_fact);
+        borISetEmpty(&rm_op);
+        pddl_mg_strips_t mg_strips;
+        pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+        pddlMutexPairsFree(&mutex);
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
+                       &rm_fact, &rm_op, &err) != 0){
+            BOR_INFO2(&err, "h^2 fw/bw failed.");
+            BOR_TRACE_RET(&err, -1);
+        }
+        pddlMGStripsFree(&mg_strips);
+        reduceStrips(&rm_fact, &rm_op);
+
+    } while (strips.op.op_size != orig_op_size
+                || strips.fact.fact_size != orig_fact_size);
+
+    borISetEmpty(&rm_fact);
+    borISetEmpty(&rm_op);
+    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
+    reduceStrips(&rm_fact, &rm_op);
+
+    borISetFree(&rm_fact);
+    borISetFree(&rm_op);
+
+    BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+    BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+    BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
+    BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+    BOR_INFO(&err, "Mutex pairs after reduction: %d", mutex.num_mutex_pairs);
+    BOR_INFO(&err, "Mutex groups after reduction: %d", mgroups.mgroup_size);
+    BOR_INFO2(&err, "Fixpoint pruning using fam-groups and h^2 fw/bw DONE.");
+    fflush(stdout);
+    fflush(stderr);
+    return 0;
+}
+
 static int pruneStrips(void)
 {
     BOR_INFO2(&err, "");
@@ -947,6 +1016,8 @@ static int mgroupsAndPruning(void)
         return pruneStripsFixpointFAMH2();
     if (opt.famh2fwbw_fixpoint)
         return pruneStripsFixpointFAMH2FwBw();
+    if (opt.h2fwbw_fixpoint)
+        return pruneStripsFixpointH2FwBw();
 
     if (inferMutexGroups() != 0)
         return -1;
