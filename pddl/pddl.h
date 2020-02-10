@@ -73,5 +73,6 @@
 #include <pddl/plan.h>
 #include <pddl/heur.h>
 #include <pddl/dtg.h>
+#include <pddl/scc.h>
 
 #endif /* __PDDL_H__ */

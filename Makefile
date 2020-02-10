@@ -72,6 +72,7 @@ OBJS += heur_lm_cut
 OBJS += heur_pot_state
 OBJS += heur_flow
 OBJS += dtg
+OBJS += scc
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 

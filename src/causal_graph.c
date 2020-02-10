@@ -21,20 +21,7 @@
 #include <boruvka/pairheap.h>
 
 #include "pddl/causal_graph.h"
-
-/** One strongly connected component */
-struct scc_comp {
-    int *var;     /*!< Variables in component */
-    int var_size; /*!< Number of variables in component */
-};
-typedef struct scc_comp scc_comp_t;
-
-/** Strongly connected components */
-struct scc {
-    scc_comp_t *comp; /*!< List of components */
-    int comp_size;    /*!< Number of components */
-};
-typedef struct scc scc_t;
+#include "pddl/scc.h"
 
 static void graphInit(pddl_causal_graph_graph_t *g, int var_size);
 static void graphFree(pddl_causal_graph_graph_t *g);
@@ -45,16 +32,13 @@ static void graphCopyImportant(pddl_causal_graph_graph_t *dst,
 /** Removes from graph edges that are not within found strongly connected
  *  components. */
 static void graphPruneBySCC(pddl_causal_graph_graph_t *graph,
-                            const scc_t *scc);
+                            const pddl_scc_t *scc);
 /** Fills .important_var array with 0/1 signaling whether there is
  *  connection between the variable and a goal. */
 static void markImportantVars(pddl_causal_graph_t *cg,
                               const pddl_fdr_part_state_t *goal);
 /** Creates an ordering of variables based on the given graph */
 static void createOrdering(pddl_causal_graph_t *cg);
-/** Determines strongly connected components */
-static scc_t *sccNew(const pddl_causal_graph_graph_t *graph, int var_size);
-static void sccDel(scc_t *);
 
 pddl_causal_graph_t *pddlCausalGraphNew(int var_size)
 {
@@ -146,23 +130,22 @@ static void graphCopyImportant(pddl_causal_graph_graph_t *dst,
 }
 
 static void graphPruneVarBySCC(pddl_causal_graph_graph_t *graph, int var,
-                               const scc_comp_t *comp)
+                               const bor_iset_t *comp)
 {
-    int gi, ci, gv, cv, edge_size, *value, *end_var, ins;
-
-    if (comp->var_size == 1){
+    if (borISetSize(comp) == 1){
         graph->edge_size[var] = 0;
     }
 
-    edge_size = graph->edge_size[var];
-    value = graph->value[var];
-    end_var = graph->end_var[var];
+    int edge_size = graph->edge_size[var];
+    int *value = graph->value[var];
+    int *end_var = graph->end_var[var];
+    int comp_size = borISetSize(comp);
 
     // Both arrays in comp and in end_var are sorted
-    ins = 0;
-    for (gi = ci = 0; gi < edge_size && ci < comp->var_size;){
-        gv = end_var[gi];
-        cv = comp->var[ci];
+    int ins = 0;
+    for (int gi = 0, ci = 0; gi < edge_size && ci < comp_size;){
+        int gv = end_var[gi];
+        int cv = borISetGet(comp, ci);
 
         if (gv == cv){
             // Keep this edge
@@ -185,16 +168,12 @@ static void graphPruneVarBySCC(pddl_causal_graph_graph_t *graph, int var,
 }
 
 static void graphPruneBySCC(pddl_causal_graph_graph_t *graph,
-                            const scc_t *scc)
+                            const pddl_scc_t *scc)
 {
-    int ci, v;
-    const scc_comp_t *comp;
-
-    for (ci = 0; ci < scc->comp_size; ++ci){
-        comp = scc->comp + ci;
-        for (v = 0; v < comp->var_size; ++v){
-            graphPruneVarBySCC(graph, comp->var[v], comp);
-        }
+    for (int ci = 0; ci < scc->comp_size; ++ci){
+        int var;
+        BOR_ISET_FOR_EACH(scc->comp + ci, var)
+            graphPruneVarBySCC(graph, var, scc->comp + ci);
     }
 }
 
@@ -477,24 +456,31 @@ static void reverseVarOrder(int *arr, int size)
 static void createOrdering(pddl_causal_graph_t *cg)
 {
     pddl_causal_graph_graph_t scc_graph;
-    scc_t *scc;
-    order_var_t *var;
-    int i;
+    pddl_scc_t scc;
 
     // Create a copy of successor graph without unimportant variables
     graphInit(&scc_graph, cg->var_size);
     graphCopyImportant(&scc_graph, &cg->successor_graph,
                        cg->important_var);
 
+    // Construct input for pddlSCC
+    pddl_scc_graph_t sgraph;
+    pddlSCCGraphInit(&sgraph, cg->var_size);
+    for (int var = 0; var < scc_graph.var_size; ++var){
+        for (int i = 0; i < scc_graph.edge_size[var]; ++i)
+            pddlSCCGraphAddEdge(&sgraph, var, scc_graph.end_var[var][i]);
+    }
+
     // Compute strongly connected components
-    scc = sccNew(&scc_graph, cg->var_size);
+    pddlSCC(&scc, &sgraph);
+    pddlSCCGraphFree(&sgraph);
 
     // Remove edges outside strongly connected components
-    graphPruneBySCC(&scc_graph, scc);
+    graphPruneBySCC(&scc_graph, &scc);
 
     // Initialize array with variables
-    var = BOR_ALLOC_ARR(order_var_t, cg->var_size);
-    for (i = 0; i < cg->var_size; ++i){
+    order_var_t *var = BOR_ALLOC_ARR(order_var_t, cg->var_size);
+    for (int i = 0; i < cg->var_size; ++i){
         var[i].var = i;
         var[i].w = 0;
         var[i].ins = 0;
@@ -510,122 +496,6 @@ static void createOrdering(pddl_causal_graph_t *cg)
     cg->var_order[cg->var_order_size] = -1;
 
     BOR_FREE(var);
-    sccDel(scc);
+    pddlSCCFree(&scc);
     graphFree(&scc_graph);
-}
-
-
-/** Context for DFS during computing SCC */
-struct scc_dfs {
-    const pddl_causal_graph_graph_t *graph;
-    int cur_index;
-    int *index;
-    int *lowlink;
-    int *in_stack;
-    int *stack;
-    int stack_size;
-};
-typedef struct scc_dfs scc_dfs_t;
-
-static int cmpInt(const void *a, const void *b)
-{
-    return (*(int *)a) - (*(int *)b);
-}
-
-static void sccTarjanStrongconnect(scc_t *scc, scc_dfs_t *dfs, int var)
-{
-    int i, len, *end_var, w;
-    scc_comp_t *comp;
-
-    dfs->index[var] = dfs->lowlink[var] = dfs->cur_index++;
-    dfs->stack[dfs->stack_size++] = var;
-    dfs->in_stack[var] = 1;
-
-    len     = dfs->graph->edge_size[var];
-    end_var = dfs->graph->end_var[var];
-    for (i = 0; i < len; ++i){
-        w = end_var[i];
-        if (dfs->index[w] == -1){
-            sccTarjanStrongconnect(scc, dfs, w);
-            dfs->lowlink[var] = BOR_MIN(dfs->lowlink[var], dfs->lowlink[w]);
-        }else if (dfs->in_stack[w]){
-            dfs->lowlink[var] = BOR_MIN(dfs->lowlink[var], dfs->lowlink[w]);
-        }
-    }
-
-    if (dfs->index[var] == dfs->lowlink[var]){
-        // Find how deep unroll stack
-        for (i = dfs->stack_size - 1; dfs->stack[i] != var; --i)
-            dfs->in_stack[dfs->stack[i]] = 0;
-        dfs->in_stack[dfs->stack[i]] = 0;
-
-        // Create new component
-        ++scc->comp_size;
-        scc->comp = BOR_REALLOC_ARR(scc->comp, scc_comp_t, scc->comp_size);
-        comp = scc->comp + scc->comp_size - 1;
-        comp->var_size = dfs->stack_size - i;
-        comp->var = BOR_ALLOC_ARR(int, comp->var_size);
-
-        // Copy variable IDs from stack to the component
-        memcpy(comp->var, dfs->stack + i, sizeof(int) * comp->var_size);
-        if (comp->var_size > 1)
-            qsort(comp->var, comp->var_size, sizeof(int), cmpInt);
-
-        // Shrink stack
-        dfs->stack_size = i;
-    }
-}
-
-static void sccTarjan(scc_t *scc, const pddl_causal_graph_graph_t *graph,
-                      int var_size)
-{
-    scc_dfs_t dfs;
-    int i, var;
-
-    // Initialize structure for Tarjan's algorithm
-    dfs.graph = graph;
-    dfs.cur_index = 0;
-    dfs.index    = BOR_ALLOC_ARR(int, 4 * var_size);
-    dfs.lowlink  = dfs.index + var_size;
-    dfs.in_stack = dfs.lowlink + var_size;
-    dfs.stack    = dfs.in_stack + var_size;
-    dfs.stack_size = 0;
-    for (i = 0; i < var_size; ++i){
-        dfs.index[i] = dfs.lowlink[i] = -1;
-        dfs.in_stack[i] = 0;
-    }
-
-    for (var = 0; var < var_size; ++var){
-        if (dfs.index[var] == -1)
-            sccTarjanStrongconnect(scc, &dfs, var);
-    }
-
-    BOR_FREE(dfs.index);
-}
-
-static scc_t *sccNew(const pddl_causal_graph_graph_t *graph, int var_size)
-{
-    scc_t *scc;
-
-    scc = BOR_ALLOC(scc_t);
-    scc->comp_size = 0;
-    scc->comp = NULL;
-
-    // Run Tarjan's algorithm for finding strongly connected components.
-    sccTarjan(scc, graph, var_size);
-
-    return scc;
-}
-
-static void sccDel(scc_t *scc)
-{
-    int i;
-
-    for (i = 0; i < scc->comp_size; ++i){
-        if (scc->comp[i].var != NULL)
-            BOR_FREE(scc->comp[i].var);
-    }
-    if (scc->comp)
-        BOR_FREE(scc->comp);
-    BOR_FREE(scc);
 }
