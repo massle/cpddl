@@ -127,6 +127,9 @@ static pddl_heur_t *createHeur(const pddl_fdr_t *fdr,
     }else if (strncmp(opt.heur_spec, "lmc", 3) == 0){
         return pddlHeurLMCut(fdr, err);
 
+    }else if (strncmp(opt.heur_spec, "hmax", 4) == 0){
+        return pddlHeurHMax(fdr, err);
+
     }else if (strncmp(opt.heur_spec, "flow", 4) == 0){
         return pddlHeurFlow(fdr, err);
 
