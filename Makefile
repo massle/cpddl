@@ -2,6 +2,7 @@
 -include Makefile.include
 
 CFLAGS += -I.
+CFLAGS += -Wno-sizeof-pointer-div
 CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 
