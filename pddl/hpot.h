@@ -43,6 +43,7 @@ typedef struct pddl_hpot pddl_hpot_t;
 #define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED 0x7
 #define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND 0x8
 #define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2 0x9
+#define PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES 0xa
 
 struct pddl_hpot_config {
     int disambiguation; /*!< If true, disambiguation is used */
