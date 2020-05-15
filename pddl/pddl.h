@@ -64,7 +64,7 @@
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
 #include <pddl/hflow.h>
-#include <pddl/causal_graph.h>
+#include <pddl/cg.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
 #include <pddl/open_list.h>
