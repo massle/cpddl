@@ -219,30 +219,30 @@ void pddlReversibilityUniformInfer(pddl_reversibility_uniform_t *r,
     borISetFree(&Fneg);
 }
 
-void pddlReversiblePlanUniformPrint(const pddl_reverse_plan_t *p,
-                                    const pddl_strips_ops_t *ops,
-                                    FILE *fout)
+void pddlReversePlanUniformPrint(const pddl_reverse_plan_t *p,
+                                 const pddl_strips_ops_t *ops,
+                                 FILE *fout)
 {
     const pddl_strips_op_t *op = ops->op[p->reversible_op_id];
     //printf("%d:(%s)", p->reversible_op_id, op->name);
-    printf("%d", p->reversible_op_id);
-    printf(" | \\phi:");
+    fprintf(fout, "%d", p->reversible_op_id);
+    fprintf(fout, " | \\phi:");
     int fact;
     BOR_ISET_FOR_EACH(&p->formula.pos, fact){
-        printf(" +%d", fact);
+        fprintf(fout, " +%d", fact);
         if (borISetIn(fact, &op->pre))
-            printf("*");
+            fprintf(fout, "*");
     }
     BOR_ISET_FOR_EACH(&p->formula.neg, fact)
-        printf(" -%d", fact);
+        fprintf(fout, " -%d", fact);
 
-    printf(" | plan:");
+    fprintf(fout, " | plan:");
     int op_id;
     BOR_IARR_FOR_EACH(&p->plan, op_id)
-        printf(" %d", op_id);
+        fprintf(fout, " %d", op_id);
 
-    printf(" | (%s)", op->name);
-    printf("\n");
+    fprintf(fout, " | (%s)", op->name);
+    fprintf(fout, "\n");
 
     /*
     printf("\t%d: pre:", op->id);
@@ -276,5 +276,5 @@ void pddlReversibilityUniformPrint(const pddl_reversibility_uniform_t *r,
                                    FILE *fout)
 {
     for (int i = 0; i < r->plan_size; ++i)
-        pddlReversiblePlanUniformPrint(r->plan + i, ops, fout);
+        pddlReversePlanUniformPrint(r->plan + i, ops, fout);
 }

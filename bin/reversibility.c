@@ -31,7 +31,10 @@ struct options {
     int no_h2;
     int no_irr;
 
+    const char *out;
+
     int use_mutex;
+    int iterative;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -70,11 +73,14 @@ static int readOpts(int *argc, char *argv[])
     bzero(&opt, sizeof(opt));
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
+    opt.out = "-";
 
     pddl_cfg.force_adl = 1;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
+    optsAddDesc("output", 'o', OPTS_STR, &opt.out, NULL,
+                "Output filename (default: stdout)");
 
     optsAddDesc("no-adl", 0x0, OPTS_NONE, &opt.not_force_adl, NULL,
                 "Do NOT force :adl requirement if it is not specified in the"
@@ -145,8 +151,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("no-irrelevance", 0x0, OPTS_NONE, &opt.no_irr, NULL,
                 "Do NOT use irrelevance analysis.");
 
-    optsAddDesc("use-mutex", 0x0, OPTS_NONE, &opt.use_mutex, NULL,
+    optsAddDesc("use-mutex", 'm', OPTS_NONE, &opt.use_mutex, NULL,
                 "Use mutexes in inference of reverse plans.");
+    optsAddDesc("iterivate", 'i', OPTS_NONE, &opt.iterative, NULL,
+                "Iterative variant.");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 4 && *argc != 3)){
         if (*argc <= 1)
@@ -216,6 +224,7 @@ static int readOpts(int *argc, char *argv[])
     }
 
     BOR_INFO(&err, "Use Mutexes: %d", opt.use_mutex);
+    BOR_INFO(&err, "Iterative: %d", opt.iterative);
 
     return 0;
 }
@@ -959,7 +968,44 @@ static int mgroupsAndPruning(void)
     return 0;
 }
 
-static int reversibility(void)
+static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
+{
+    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+        if (skip[op_id])
+            continue;
+
+        const pddl_strips_op_t *op = strips.op.op[op_id];
+
+        pddl_reversibility_uniform_t rev;
+        pddlReversibilityUniformInit(&rev);
+        const pddl_mutex_pairs_t *m = NULL;
+        if (opt.use_mutex)
+            m = &mutex;
+        pddlReversibilityUniformInfer(&rev, &strips.op, op, max_depth, m);
+        pddlReversibilityUniformSort(&rev);
+        for (int i = 0; i < rev.plan_size; ++i){
+            if (rev.plan[i].reversible_op_id == op->id
+                    && borISetSize(&rev.plan[i].formula.pos) == 0
+                    && borISetSize(&rev.plan[i].formula.neg) == 0){
+                skip[op_id] = 1;
+            }
+            if (borIArrSize(&rev.plan[i].plan) == max_depth){
+                pddlReversePlanUniformPrint(rev.plan + i, &strips.op, fout);
+            }
+        }
+        pddlReversibilityUniformFree(&rev);
+    }
+}
+
+static void reversibilityIterative(FILE *fout)
+{
+    int *skip = BOR_CALLOC_ARR(int, strips.op.op_size);
+    for (int depth = 1; depth <= max_depth; ++depth)
+        reversibilityIterativeDepth(skip, depth, fout);
+    BOR_FREE(skip);
+}
+
+static void reversibilitySimple(FILE *fout)
 {
     for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips.op.op[op_id];
@@ -971,9 +1017,23 @@ static int reversibility(void)
             m = &mutex;
         pddlReversibilityUniformInfer(&rev, &strips.op, op, max_depth, m);
         pddlReversibilityUniformSort(&rev);
-        pddlReversibilityUniformPrint(&rev, &strips.op, stdout);
+        pddlReversibilityUniformPrint(&rev, &strips.op, fout);
         pddlReversibilityUniformFree(&rev);
     }
+}
+
+static int reversibility(void)
+{
+    BOR_INFO(&err, "Output file: '%s'", opt.out);
+    FILE *fout = openFile(opt.out);
+    BOR_INFO2(&err, "Computing reverse plans for all operators...");
+    if (opt.iterative){
+        reversibilityIterative(fout);
+    }else{
+        reversibilitySimple(fout);
+    }
+    BOR_INFO2(&err, "Reverse plans computed.");
+    closeFile(fout);
     return 0;
 }
 

@@ -71,9 +71,9 @@ void pddlReversibilityUniformInfer(pddl_reversibility_uniform_t *r,
                                    int max_depth,
                                    const pddl_mutex_pairs_t *mutex);
 
-void pddlReversiblePlanUniformPrint(const pddl_reverse_plan_t *p,
-                                    const pddl_strips_ops_t *ops,
-                                    FILE *fout);
+void pddlReversePlanUniformPrint(const pddl_reverse_plan_t *p,
+                                 const pddl_strips_ops_t *ops,
+                                 FILE *fout);
 void pddlReversibilityUniformPrint(const pddl_reversibility_uniform_t *r,
                                    const pddl_strips_ops_t *ops,
                                    FILE *fout);
