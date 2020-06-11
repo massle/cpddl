@@ -961,28 +961,11 @@ static int mgroupsAndPruning(void)
 
 static int reversibility(void)
 {
-    pddl_reversibility_uniform_t rev;
-
-    //pddlStripsPrintDebug(&strips, stdout);
     for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips.op.op[op_id];
-        /*
-        printf("%d:(%s)", op_id, op->name);
-        int fact;
-        printf(" pre:");
-        BOR_ISET_FOR_EACH(&op->pre, fact)
-            printf(" %d", fact);
-        printf(" del:");
-        BOR_ISET_FOR_EACH(&op->del_eff, fact)
-            printf(" %d", fact);
-        printf(" add:");
-        BOR_ISET_FOR_EACH(&op->add_eff, fact)
-            printf(" %d", fact);
-        printf("\n");
-        */
 
+        pddl_reversibility_uniform_t rev;
         pddlReversibilityUniformInit(&rev);
-        //pddlReversibilityUniformInfer(&rev, &strips.op, op, 2, NULL);
         const pddl_mutex_pairs_t *m = NULL;
         if (opt.use_mutex)
             m = &mutex;
