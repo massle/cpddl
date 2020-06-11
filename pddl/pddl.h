@@ -77,5 +77,6 @@
 #include <pddl/op_mutex_pair.h>
 #include <pddl/op_mutex_infer.h>
 #include <pddl/op_mutex_sym_redundant.h>
+#include <pddl/reversibility.h>
 
 #endif /* __PDDL_H__ */
