@@ -180,11 +180,13 @@ static void h3Init(h3_t *h3,
     h3->meta_fact1 = BOR_CALLOC_ARR(char, h3->fact_size);
     h3->meta_fact2 = BOR_CALLOC_ARR(char, h3->fact_size * h3->fact_size);
 
-    size_t max_mem = excess_mem;
-    max_mem -= h3->fact_size; // h3->meta_fact1
-    max_mem -= h3->fact_size * h3->fact_size; // h3->meta_fact2
-    max_mem -= sizeof(int) * h3->fact_size; // h3->ext
-    max_mem -= sizeof(int) * h3->op_size; // h3->op_applied
+    size_t needed_mem = h3->fact_size; // h3->meta_fact1
+    needed_mem -= h3->fact_size * h3->fact_size; // h3->meta_fact2
+    needed_mem -= sizeof(int) * h3->fact_size; // h3->ext
+    needed_mem -= sizeof(int) * h3->op_size; // h3->op_applied
+    size_t max_mem = 0;
+    if (needed_mem < excess_mem)
+        max_mem = excess_mem - needed_mem;
     size_t used_excess_mem = 0;
 
     size_t meta_fact3_size = h3->fact_size;
@@ -197,7 +199,8 @@ static void h3Init(h3_t *h3,
     }else{
         h3->meta_fact3_set = BOR_CALLOC_ARR(set_range_t,
                                             h3->fact_size * h3->fact_size);
-        max_mem -= h3->fact_size * h3->fact_size;
+        if (max_mem >= h3->fact_size * h3->fact_size)
+            max_mem -= h3->fact_size * h3->fact_size;
     }
 
     size_t op_fact1_size = h3->fact_size;
@@ -559,6 +562,9 @@ int pddlH3(const pddl_strips_t *strips,
            size_t excess_memory,
            bor_err_t *err)
 {
+    if (strips->has_cond_eff)
+        BOR_ERR_RET2(err, -1, "h^3: Conditional effects not supported!");
+
     pddl_time_limit_t time_limit;
     h3_t h3;
     int updated, ret = 0;
