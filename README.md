@@ -9,6 +9,10 @@ is distributed along with source code in BSD-LICENSE file.
 Each file should include license notice, the rest should be considered as
 licensed under 3-clause BSD License.
 
+Some parts of cpddl depend on other libraries such as CPLEX/Gurobi or Bliss.
+So, in case you use these third-party libraries, you need to check their
+respective licenses too.
+
 ## Compile
 
 Easiest way to compile the library and the binaries that come with the
@@ -32,3 +36,13 @@ to configure paths to CPLEX (or Gurobi) solver (see Makefile.local.tpl):
   $ echo "CPLEX_LDFLAGS = -L/path/to/cplex/lib -lcplex" >>Makefile.local
 ```
 And then re-build the whole library.
+
+## References
+The inference of fact-alternating mutex groups is described in
+ - Daniel Fišer, Antonín Komenda.
+Fact-Alternating Mutex Groups for Classical Planning,
+JAIR 61: 475-521 (2018)
+
+Please refer to these papers when documenting work that uses the corresponding
+parts of cpddl.
+
