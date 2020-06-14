@@ -30,7 +30,16 @@ extern "C" {
 struct pddl_strips;
 
 /**
- * TODO
+ * Compute h^1 (i.e., a simple relaxed) reachability.
+ */
+int pddlH1(const pddl_strips_t *strips,
+           bor_iset_t *unreachable_facts,
+           bor_iset_t *unreachable_ops,
+           bor_err_t *err);
+
+/**
+ * Compute h^2 reachability.
+ * unreachable_facts and unreachable_ops can be set to NULL.
  */
 int pddlH2(const pddl_strips_t *strips,
            pddl_mutex_pairs_t *m,
@@ -39,7 +48,11 @@ int pddlH2(const pddl_strips_t *strips,
            bor_err_t *err);
 
 /**
- * TODO
+ * Compute h^2 reachability in forward/backward.
+ * unreachable_facts and unreachable_ops can be set to NULL.
+ *
+ * See Alcázar, V., and Torralba, Á. 2015. A reminder about the importance
+ * of computing and exploiting invariants in planning. In Proc. ICAPS’15, 2–6.
  */
 int pddlH2FwBw(const pddl_strips_t *strips,
                const pddl_mgroups_t *mgroup,
@@ -47,6 +60,19 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                bor_iset_t *unreachable_facts,
                bor_iset_t *unreachable_ops,
                bor_err_t *err);
+
+/**
+ * Compute h^3 reachability in forward/backward.
+ * unreachable_facts and unreachable_ops can be set to NULL.
+ * time_limit is disabled by setting it to <= 0.
+ */
+int pddlH3(const pddl_strips_t *strips,
+           pddl_mutex_pairs_t *m,
+           bor_iset_t *unreachable_facts,
+           bor_iset_t *unreachable_ops,
+           float time_limit,
+           size_t excess_memory,
+           bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */
