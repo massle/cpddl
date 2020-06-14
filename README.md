@@ -50,6 +50,17 @@ The inference of **lifted fact-alternating mutex groups**
 Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical
 Planning Problems, AAAI 2020
 
+**Operator mutexes** (pddl/op\_mutex\*.h) are described in
+ - Daniel Fišer, Álvaro Torralba, Alexander Shleyfman.
+Operator Mutexes and Symmetries for Simplifying Planning Tasks,
+AAAI 2019, 7586-7593
+
+**Multi-fact disambiguations** and potential heuristics strenghtened with
+disambiguations (pddl/{pot.h,hpot.h,disambiguation.h}) are described in
+ - Daniel Fišer, Rostislav Horčík, Antonín Komenda.
+Strengthening Potential Heuristics with Mutexes and Disambiguations,
+ICAPS 2020
+
 Please refer to these papers when documenting work that uses the corresponding
 parts of cpddl.
 
