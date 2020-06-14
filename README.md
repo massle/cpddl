@@ -38,10 +38,17 @@ to configure paths to CPLEX (or Gurobi) solver (see Makefile.local.tpl):
 And then re-build the whole library.
 
 ## References
-The inference of fact-alternating mutex groups is described in
+The inference of **fact-alternating mutex groups** (pddl/famgroup.h) is
+described in
  - Daniel Fišer, Antonín Komenda.
 Fact-Alternating Mutex Groups for Classical Planning,
 JAIR 61: 475-521 (2018)
+
+The inference of **lifted fact-alternating mutex groups**
+(pddl/lifted\_mgroup\*.h) is described in
+- Daniel Fišer.
+Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical
+Planning Problems, AAAI 2020
 
 Please refer to these papers when documenting work that uses the corresponding
 parts of cpddl.
