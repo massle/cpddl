@@ -1,7 +1,6 @@
 # cpddl
 
-**cpddl** is a small library for parsing PDDL files and for the grounding of
-the PDDL files into a STRIPS representation.
+**cpddl** is a library for automated planning.
 
 ## License
 
@@ -14,24 +13,22 @@ licensed under 3-clause BSD License.
 
 Easiest way to compile the library and the binaries that come with the
 library:
-```
-  $ make boruvka opts
-  $ make
-  $ make -C bin
+```sh
+  $ ./script/build.sh
 ```
 
 You can change default configuration by adding Makefile.local file containing
 the new configuration.
 
 You can check the current configuration by calling:
-```
+```sh
   $ make help
 ```
 
 For example, if you want to use your own installation of the library boruvka,
 you can add definitions of *BORUVKA_CFLAGS* and *BORUVKA_LDFLAGS* variables
 to the Makefile.local file:
-```
+```sh
   $ echo "BORUVKA_CFLAGS = -I/path/to/boruvka" >>Makefile.local
   $ echo "BORUVKA_LDFLAGS = -L/path/to/boruvka -lboruvka" >>Makefile.local
 ```
