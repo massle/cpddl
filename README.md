@@ -38,25 +38,25 @@ to configure paths to CPLEX (or Gurobi) solver (see Makefile.local.tpl):
 And then re-build the whole library.
 
 ## References
-The inference of **fact-alternating mutex groups** (pddl/famgroup.h) is
+The inference of **fact-alternating mutex groups** (``pddl/famgroup.h``) is
 described in
  - Daniel Fišer, Antonín Komenda.
 Fact-Alternating Mutex Groups for Classical Planning,
 JAIR 61: 475-521 (2018)
 
 The inference of **lifted fact-alternating mutex groups**
-(pddl/lifted\_mgroup\*.h) is described in
+(``pddl/lifted_mgroup*.h``) is described in
 - Daniel Fišer.
 Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical
 Planning Problems, AAAI 2020
 
-**Operator mutexes** (pddl/op\_mutex\*.h) are described in
+**Operator mutexes** (``pddl/op_mutex*.h``) are described in
  - Daniel Fišer, Álvaro Torralba, Alexander Shleyfman.
 Operator Mutexes and Symmetries for Simplifying Planning Tasks,
 AAAI 2019, 7586-7593
 
 **Multi-fact disambiguations** and potential heuristics strenghtened with
-disambiguations (pddl/{pot.h,hpot.h,disambiguation.h}) are described in
+disambiguations (``pddl/{pot.h,hpot.h,disambiguation.h}``) are described in
  - Daniel Fišer, Rostislav Horčík, Antonín Komenda.
 Strengthening Potential Heuristics with Mutexes and Disambiguations,
 ICAPS 2020
