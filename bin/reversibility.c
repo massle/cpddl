@@ -37,6 +37,8 @@ struct options {
     int max_depth;
     int iterative;
     int list_ops;
+
+    int tmp_op_id;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -50,6 +52,7 @@ pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
 pddl_strips_t strips;
 pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
+bor_iset_t op_ids;
 
 static FILE *openFile(const char *fn)
 {
@@ -69,6 +72,11 @@ static void closeFile(FILE *f)
         fclose(f);
 }
 
+static void addOpId(const char *l, char s, int val)
+{
+    borISetAdd(&op_ids, val);
+}
+
 static int readOpts(int *argc, char *argv[])
 {
     bzero(&opt, sizeof(opt));
@@ -77,6 +85,7 @@ static int readOpts(int *argc, char *argv[])
     opt.out = "-";
     opt.max_depth = -1;
     opt.iterative = -1;
+    borISetInit(&op_ids);
 
     pddl_cfg.force_adl = 1;
 
@@ -162,6 +171,8 @@ static int readOpts(int *argc, char *argv[])
                 "Iterative variant -- max depth.");
     optsAddDesc("list-ops", 'l', OPTS_NONE, &opt.list_ops, NULL,
                 "List all operators.");
+    optsAddDesc("op-id", 0x0, OPTS_INT, &opt.tmp_op_id, OPTS_CB(addOpId),
+                "Reversibility only for the specified operator(s)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1)
@@ -982,7 +993,10 @@ static int mgroupsAndPruning(void)
 
 static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
 {
-    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+    int op_id;
+    BOR_ISET_FOR_EACH(&op_ids, op_id){
+        if (op_id < 0 || op_id >= strips.op.op_size)
+            continue;
         if (skip[op_id])
             continue;
 
@@ -1011,7 +1025,8 @@ static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
 
 static void reversibilityIterative(FILE *fout, int max_depth)
 {
-    BOR_INFO2(&err, "Computing reverse plans for all operators...");
+    BOR_INFO(&err, "Computing reverse plans iteratively. max-depth: %d",
+                   max_depth);
     int *skip = BOR_CALLOC_ARR(int, strips.op.op_size);
     for (int depth = 1; depth <= max_depth; ++depth){
         BOR_INFO(&err, "Computing for max-depth: %d", depth);
@@ -1023,8 +1038,11 @@ static void reversibilityIterative(FILE *fout, int max_depth)
 
 static void reversibilitySimple(FILE *fout, int max_depth)
 {
-    BOR_INFO2(&err, "Computing reverse plans for all operators...");
-    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+    BOR_INFO(&err, "Computing reverse plans. max-depth: %d", max_depth);
+    int op_id;
+    BOR_ISET_FOR_EACH(&op_ids, op_id){
+        if (op_id < 0 || op_id >= strips.op.op_size)
+            continue;
         const pddl_strips_op_t *op = strips.op.op[op_id];
 
         pddl_reversibility_uniform_t rev;
@@ -1053,6 +1071,12 @@ static int reversibility(void)
 {
     BOR_INFO(&err, "Output file: '%s'", opt.out);
     FILE *fout = openFile(opt.out);
+
+    if (borISetSize(&op_ids) == 0){
+        for (int op_id = 0; op_id < strips.op.op_size; ++op_id)
+            borISetAdd(&op_ids, op_id);
+    }
+
     if (opt.list_ops){
         listOps(fout);
     }else if (opt.iterative >= 0){
@@ -1089,6 +1113,7 @@ int main(int argc, char *argv[])
     pddlStripsFree(&strips);
     pddlLiftedMGroupsFree(&lifted_mgroups);
     pddlFree(&pddl);
+    borISetFree(&op_ids);
     return 0;
 }
 
