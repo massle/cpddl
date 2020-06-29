@@ -35,6 +35,7 @@ struct options {
 
     int use_mutex;
     int iterative;
+    int list_ops;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -155,6 +156,8 @@ static int readOpts(int *argc, char *argv[])
                 "Use mutexes in inference of reverse plans.");
     optsAddDesc("iterivate", 'i', OPTS_NONE, &opt.iterative, NULL,
                 "Iterative variant.");
+    optsAddDesc("list-ops", 'l', OPTS_NONE, &opt.list_ops, NULL,
+                "List all operators.");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 4 && *argc != 3)){
         if (*argc <= 1)
@@ -999,14 +1002,17 @@ static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
 
 static void reversibilityIterative(FILE *fout)
 {
+    BOR_INFO2(&err, "Computing reverse plans for all operators...");
     int *skip = BOR_CALLOC_ARR(int, strips.op.op_size);
     for (int depth = 1; depth <= max_depth; ++depth)
         reversibilityIterativeDepth(skip, depth, fout);
     BOR_FREE(skip);
+    BOR_INFO2(&err, "Reverse plans computed.");
 }
 
 static void reversibilitySimple(FILE *fout)
 {
+    BOR_INFO2(&err, "Computing reverse plans for all operators...");
     for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips.op.op[op_id];
 
@@ -1020,19 +1026,29 @@ static void reversibilitySimple(FILE *fout)
         pddlReversibilityUniformPrint(&rev, &strips.op, fout);
         pddlReversibilityUniformFree(&rev);
     }
+    BOR_INFO2(&err, "Reverse plans computed.");
+}
+
+static void listOps(FILE *fout)
+{
+    BOR_INFO2(&err, "Printing operators...");
+    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips.op.op[op_id];
+        fprintf(fout, "%d:'%s'\n", op_id, op->name);
+    }
 }
 
 static int reversibility(void)
 {
     BOR_INFO(&err, "Output file: '%s'", opt.out);
     FILE *fout = openFile(opt.out);
-    BOR_INFO2(&err, "Computing reverse plans for all operators...");
-    if (opt.iterative){
+    if (opt.list_ops){
+        listOps(fout);
+    }else if (opt.iterative){
         reversibilityIterative(fout);
     }else{
         reversibilitySimple(fout);
     }
-    BOR_INFO2(&err, "Reverse plans computed.");
     closeFile(fout);
     return 0;
 }
