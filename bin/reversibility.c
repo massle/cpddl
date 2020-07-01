@@ -34,7 +34,11 @@ struct options {
     const char *out;
 
     int use_mutex;
+    int max_depth;
     int iterative;
+    int list_ops;
+
+    int tmp_op_id;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -48,7 +52,7 @@ pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
 pddl_strips_t strips;
 pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
-int max_depth;
+bor_iset_t op_ids;
 
 static FILE *openFile(const char *fn)
 {
@@ -68,12 +72,20 @@ static void closeFile(FILE *f)
         fclose(f);
 }
 
+static void addOpId(const char *l, char s, int val)
+{
+    borISetAdd(&op_ids, val);
+}
+
 static int readOpts(int *argc, char *argv[])
 {
     bzero(&opt, sizeof(opt));
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
     opt.out = "-";
+    opt.max_depth = -1;
+    opt.iterative = -1;
+    borISetInit(&op_ids);
 
     pddl_cfg.force_adl = 1;
 
@@ -153,16 +165,20 @@ static int readOpts(int *argc, char *argv[])
 
     optsAddDesc("use-mutex", 'm', OPTS_NONE, &opt.use_mutex, NULL,
                 "Use mutexes in inference of reverse plans.");
-    optsAddDesc("iterivate", 'i', OPTS_NONE, &opt.iterative, NULL,
-                "Iterative variant.");
+    optsAddDesc("max-depth", 'd', OPTS_INT, &opt.max_depth, NULL,
+                "Basic variant -- max depth.");
+    optsAddDesc("iterivate", 'i', OPTS_INT, &opt.iterative, NULL,
+                "Iterative variant -- max depth.");
+    optsAddDesc("list-ops", 'l', OPTS_NONE, &opt.list_ops, NULL,
+                "List all operators.");
+    optsAddDesc("op-id", 0x0, OPTS_INT, &opt.tmp_op_id, OPTS_CB(addOpId),
+                "Reversibility only for the specified operator(s)");
 
-    if (opts(argc, argv) != 0 || opt.help || (*argc != 4 && *argc != 3)){
+    if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1)
-            fprintf(stderr, "Error: Missing max-depth and input file(s)\n\n");
-        if (*argc <= 2)
             fprintf(stderr, "Error: Missing input file(s)\n\n");
 
-        if (*argc > 4){
+        if (*argc > 3){
             for (int i = 0; i < *argc; ++i){
                 if (argv[i][0] == '-'){
                     fprintf(stderr, "Error: Unrecognized option '%s'\n",
@@ -171,10 +187,9 @@ static int readOpts(int *argc, char *argv[])
             }
         }
 
-        fprintf(stderr, "pddl-fdr is a program for translating PDDL into"
-                        " FDR.\n");
-        fprintf(stderr, "Usage: %s [OPTIONS] max-depth"
-                        " domain.pddl problem.pddl\n",
+        fprintf(stderr, "pddl-reversibility is a program for computing"
+                        " uniform reversibility.\n");
+        fprintf(stderr, "Usage: %s [OPTIONS] domain.pddl problem.pddl\n",
                 argv[0]);
         fprintf(stderr, "  OPTIONS:\n");
         optsPrint(stderr, "    ");
@@ -206,20 +221,28 @@ static int readOpts(int *argc, char *argv[])
     if (opt.no_ground_prune_pre && opt.no_ground_prune_dead_end)
         opt.no_ground_prune = 1;
 
-    max_depth = atoi(argv[1]);
-    if (max_depth <= 0){
-        fprintf(stderr, "Error: max-depth must be >= 1.\n");
+    if (opt.max_depth >= 0){
+        BOR_INFO(&err, "Max Depth: %d", opt.max_depth);
+    }
+
+    if (opt.iterative >= 0){
+        BOR_INFO(&err, "Iterative Max Depth: %d", opt.iterative);
+    }
+
+    if (opt.max_depth < 0
+            && opt.iterative < 0
+            && !opt.list_ops){
+        fprintf(stderr, "Error: One of -d/-i/-l must be specified.\n");
         return -1;
     }
-    BOR_INFO(&err, "Max Depth: %d", max_depth);
 
-    if (*argc == 3){
+    if (*argc == 2){
         BOR_INFO(&err, "Input file: '%s'", argv[2]);
-        if (pddlFiles1(&files, argv[2], &err) != 0)
+        if (pddlFiles1(&files, argv[1], &err) != 0)
             BOR_TRACE_RET(&err, -1);
-    }else{ // *argc == 4
+    }else{ // *argc == 3
         BOR_INFO(&err, "Input files: '%s' and '%s'", argv[2], argv[3]);
-        if (pddlFiles(&files, argv[2], argv[3], &err) != 0)
+        if (pddlFiles(&files, argv[1], argv[2], &err) != 0)
             BOR_TRACE_RET(&err, -1);
     }
 
@@ -970,7 +993,10 @@ static int mgroupsAndPruning(void)
 
 static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
 {
-    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+    int op_id;
+    BOR_ISET_FOR_EACH(&op_ids, op_id){
+        if (op_id < 0 || op_id >= strips.op.op_size)
+            continue;
         if (skip[op_id])
             continue;
 
@@ -997,17 +1023,26 @@ static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
     }
 }
 
-static void reversibilityIterative(FILE *fout)
+static void reversibilityIterative(FILE *fout, int max_depth)
 {
+    BOR_INFO(&err, "Computing reverse plans iteratively. max-depth: %d",
+                   max_depth);
     int *skip = BOR_CALLOC_ARR(int, strips.op.op_size);
-    for (int depth = 1; depth <= max_depth; ++depth)
+    for (int depth = 1; depth <= max_depth; ++depth){
+        BOR_INFO(&err, "Computing for max-depth: %d", depth);
         reversibilityIterativeDepth(skip, depth, fout);
+    }
     BOR_FREE(skip);
+    BOR_INFO2(&err, "Reverse plans computed.");
 }
 
-static void reversibilitySimple(FILE *fout)
+static void reversibilitySimple(FILE *fout, int max_depth)
 {
-    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+    BOR_INFO(&err, "Computing reverse plans. max-depth: %d", max_depth);
+    int op_id;
+    BOR_ISET_FOR_EACH(&op_ids, op_id){
+        if (op_id < 0 || op_id >= strips.op.op_size)
+            continue;
         const pddl_strips_op_t *op = strips.op.op[op_id];
 
         pddl_reversibility_uniform_t rev;
@@ -1020,19 +1055,35 @@ static void reversibilitySimple(FILE *fout)
         pddlReversibilityUniformPrint(&rev, &strips.op, fout);
         pddlReversibilityUniformFree(&rev);
     }
+    BOR_INFO2(&err, "Reverse plans computed.");
+}
+
+static void listOps(FILE *fout)
+{
+    BOR_INFO2(&err, "Printing operators...");
+    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips.op.op[op_id];
+        fprintf(fout, "%d:'%s'\n", op_id, op->name);
+    }
 }
 
 static int reversibility(void)
 {
     BOR_INFO(&err, "Output file: '%s'", opt.out);
     FILE *fout = openFile(opt.out);
-    BOR_INFO2(&err, "Computing reverse plans for all operators...");
-    if (opt.iterative){
-        reversibilityIterative(fout);
-    }else{
-        reversibilitySimple(fout);
+
+    if (borISetSize(&op_ids) == 0){
+        for (int op_id = 0; op_id < strips.op.op_size; ++op_id)
+            borISetAdd(&op_ids, op_id);
     }
-    BOR_INFO2(&err, "Reverse plans computed.");
+
+    if (opt.list_ops){
+        listOps(fout);
+    }else if (opt.iterative >= 0){
+        reversibilityIterative(fout, opt.iterative);
+    }else if (opt.max_depth >= 0){
+        reversibilitySimple(fout, opt.max_depth);
+    }
     closeFile(fout);
     return 0;
 }
@@ -1062,6 +1113,7 @@ int main(int argc, char *argv[])
     pddlStripsFree(&strips);
     pddlLiftedMGroupsFree(&lifted_mgroups);
     pddlFree(&pddl);
+    borISetFree(&op_ids);
     return 0;
 }
 
