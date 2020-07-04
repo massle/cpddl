@@ -21,29 +21,6 @@
 #include "pddl/config.h"
 #include "pddl/clique.h"
 
-void pddlCliqueGraphInit(pddl_clique_graph_t *g, int node_size)
-{
-    bzero(g, sizeof(*g));
-    g->node_size = node_size;
-    g->node = BOR_CALLOC_ARR(bor_iset_t, g->node_size);
-}
-
-void pddlCliqueGraphFree(pddl_clique_graph_t *g)
-{
-    for (int i = 0; i < g->node_size; ++i)
-        borISetFree(g->node + i);
-    if (g->node != NULL)
-        BOR_FREE(g->node);
-}
-
-void pddlCliqueGraphAddEdge(pddl_clique_graph_t *g, int n1, int n2)
-{
-    borISetAdd(&g->node[n1], n2);
-    borISetAdd(&g->node[n2], n1);
-}
-
-
-
 struct bk_stack_el {
     bor_iset_t clique;
     bor_iset_t P;
@@ -115,7 +92,7 @@ static void stackPush(bk_stack_t *st,
     st->stack[st->stack_size++] = s;
 }
 
-static int selectPivot(const pddl_clique_graph_t *graph,
+static int selectPivot(const pddl_graph_simple_t *graph,
                        const bor_iset_t *P,
                        const bor_iset_t *X)
 {
@@ -140,7 +117,7 @@ static int selectPivot(const pddl_clique_graph_t *graph,
     return pivot;
 }
 
-static void inferCliques(const pddl_clique_graph_t *graph,
+static void inferCliques(const pddl_graph_simple_t *graph,
                          bk_stack_t *stack,
                          void (*cb)(const bor_iset_t *clique, void *userdata),
                          void *userdata)
@@ -195,7 +172,7 @@ static void inferCliques(const pddl_clique_graph_t *graph,
 
 
 // TODO: Add interface to cliquer library
-void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
+void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata)
 {
@@ -231,7 +208,7 @@ static boolean cliquerCB(set_t clq, graph_t *G, clique_options *opts)
     return 1;
 }
 
-void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
+void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata)
 {
@@ -254,7 +231,7 @@ void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
     graph_free(G);
 }
 #else /* PDDL_CLIQUER */
-void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
+void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata)
 {
@@ -292,27 +269,27 @@ static void bicliqueCB(const bor_iset_t *clique, void *ud)
     borISetFree(&right);
 }
 
-void pddlCliqueFindMaximalBicliques(const pddl_clique_graph_t *g,
+void pddlCliqueFindMaximalBicliques(const pddl_graph_simple_t *g,
                                     void (*cb)(const bor_iset_t *left,
                                                const bor_iset_t *right,
                                                void *ud),
                                     void *ud)
 {
-    pddl_clique_graph_t graph;
-    pddlCliqueGraphInit(&graph, g->node_size * 2);
+    pddl_graph_simple_t graph;
+    pddlGraphSimpleInit(&graph, g->node_size * 2);
     for (int i = 0; i < g->node_size; ++i){
         for (int j = i + 1; j < g->node_size; ++j){
-            pddlCliqueGraphAddEdge(&graph, i, j);
-            pddlCliqueGraphAddEdge(&graph, g->node_size + i, g->node_size + j);
+            pddlGraphSimpleAddEdge(&graph, i, j);
+            pddlGraphSimpleAddEdge(&graph, g->node_size + i, g->node_size + j);
         }
         int n;
         BOR_ISET_FOR_EACH(&g->node[i], n){
-            pddlCliqueGraphAddEdge(&graph, i, g->node_size + n);
-            pddlCliqueGraphAddEdge(&graph, g->node_size + i, n);
+            pddlGraphSimpleAddEdge(&graph, i, g->node_size + n);
+            pddlGraphSimpleAddEdge(&graph, g->node_size + i, n);
         }
     }
 
     struct biclique_ud bud = { cb, ud, g->node_size };
     pddlCliqueFindMaximal(&graph, bicliqueCB, (void *)&bud);
-    pddlCliqueGraphFree(&graph);
+    pddlGraphSimpleFree(&graph);
 }

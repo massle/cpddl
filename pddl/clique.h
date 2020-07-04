@@ -20,27 +20,17 @@
 #ifndef __PDDL_CLIQUE_H__
 #define __PDDL_CLIQUE_H__
 
-#include <boruvka/iset.h>
+#include <pddl/graph.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_clique_graph {
-    bor_iset_t *node;
-    int node_size;
-};
-typedef struct pddl_clique_graph pddl_clique_graph_t;
-
-void pddlCliqueGraphInit(pddl_clique_graph_t *g, int node_size);
-void pddlCliqueGraphFree(pddl_clique_graph_t *g);
-void pddlCliqueGraphAddEdge(pddl_clique_graph_t *g, int n1, int n2);
-
 /**
  * Maximal cliques (i.e., maximal induced complete subgraphs) of size at
  * least 2 using Bron-Kerbosch algorithm with pivoting.
  */
-void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
+void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata);
 
@@ -48,7 +38,7 @@ void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
  * Same as above, but it uses cliquer library (if linked)
  * https://users.aalto.fi/~pat/cliquer.html
  */
-void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
+void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata);
 
@@ -60,7 +50,7 @@ void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
  *            \cup {(i,j) | i,j \in U', i \neq j }
  *            \cup {(i,j') | i \in U, j' \in U', (i,j') \in E }
  */
-void pddlCliqueFindMaximalBicliques(const pddl_clique_graph_t *G,
+void pddlCliqueFindMaximalBicliques(const pddl_graph_simple_t *G,
                                     void (*cb)(const bor_iset_t *left,
                                                const bor_iset_t *right,
                                                void *ud),

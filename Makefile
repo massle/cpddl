@@ -64,6 +64,7 @@ OBJS += pq
 OBJS += mg_strips
 OBJS += preprocess
 OBJS += cg
+OBJS += graph
 OBJS += clique
 OBJS += fdr_app_op
 OBJS += random_walk
