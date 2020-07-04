@@ -16,7 +16,9 @@
  * See the License for more information.
  */
 
+#include <stdio.h>
 #include <boruvka/alloc.h>
+#include "pddl/config.h"
 #include "pddl/clique.h"
 
 void pddlCliqueGraphInit(pddl_clique_graph_t *g, int node_size)
@@ -211,6 +213,55 @@ void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
     borISetFree(&all_facts);
 }
 
+#ifdef PDDL_CLIQUER
+# include <cliquer/cliquer.h>
+struct cliquer_data {
+    void (*cb)(const bor_iset_t *clique, void *userdata);
+    void *userdata;
+};
+
+static boolean cliquerCB(set_t clq, graph_t *G, clique_options *opts)
+{
+    struct cliquer_data *d = opts->user_data;
+    BOR_ISET(clique);
+    for (int i = -1; (i = set_return_next(clq, i)) >= 0;)
+        borISetAdd(&clique, i);
+    d->cb(&clique, d->userdata);
+    borISetFree(&clique);
+    return 1;
+}
+
+void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
+                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void *userdata)
+{
+    graph_t *G = graph_new(g->node_size);
+    for (int v = 0; v < g->node_size; ++v){
+        int w;
+        BOR_ISET_FOR_EACH(&g->node[v], w){
+            if (v < w)
+                GRAPH_ADD_EDGE(G, v, w);
+        }
+    }
+
+    struct cliquer_data d = { cb, userdata };
+    clique_options opts = *clique_default_options;
+    opts.user_function = cliquerCB;
+    opts.user_data = &d;
+    opts.time_function = NULL;
+    opts.output = NULL;
+    clique_find_all(G, 2, g->node_size, 1, &opts);
+    graph_free(G);
+}
+#else /* PDDL_CLIQUER */
+void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
+                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void *userdata)
+{
+    fprintf(stderr, "Fatal Error: Cliquer library is not linked!\n");
+    exit(-1);
+}
+#endif /* PDDL_CLIQUER */
 
 struct biclique_ud {
     void (*cb)(const bor_iset_t *left,

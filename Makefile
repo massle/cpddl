@@ -5,6 +5,7 @@ CFLAGS += -I.
 CFLAGS += -Wno-sizeof-pointer-div
 CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
+CFLAGS += $(CLIQUER_CFLAGS)
 
 CPPCHECK_FLAGS += --platform=unix64 --enable=all -I. -Ithird-party/boruvka
 
@@ -98,6 +99,7 @@ pddl/config.h:
 	echo "#define __PDDL_CONFIG_H__" >>$@
 	echo "" >>$@
 	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
+	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
 	echo '#include <boruvka/lp.h>' >__lp.c
 	echo 'int main(int argc, char *arvg[]) { return borLPSolverAvailable(BOR_LP_DEFAULT); }' >>__lp.c
 	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm

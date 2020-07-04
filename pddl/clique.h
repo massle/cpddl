@@ -37,10 +37,18 @@ void pddlCliqueGraphFree(pddl_clique_graph_t *g);
 void pddlCliqueGraphAddEdge(pddl_clique_graph_t *g, int n1, int n2);
 
 /**
- * Maximal cliques (i.e., maximal induced complete subgraphs) using
- * Bron-Kerbosch algorithm with pivoting.
+ * Maximal cliques (i.e., maximal induced complete subgraphs) of size at
+ * least 2 using Bron-Kerbosch algorithm with pivoting.
  */
 void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
+                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void *userdata);
+
+/**
+ * Same as above, but it uses cliquer library (if linked)
+ * https://users.aalto.fi/~pat/cliquer.html
+ */
+void pddlCliqueFindMaximalCliquer(const pddl_clique_graph_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata);
 
