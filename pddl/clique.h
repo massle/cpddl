@@ -36,9 +36,27 @@ void pddlCliqueGraphInit(pddl_clique_graph_t *g, int node_size);
 void pddlCliqueGraphFree(pddl_clique_graph_t *g);
 void pddlCliqueGraphAddEdge(pddl_clique_graph_t *g, int n1, int n2);
 
+/**
+ * Maximal cliques (i.e., maximal induced complete subgraphs) using
+ * Bron-Kerbosch algorithm with pivoting.
+ */
 void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata);
+
+/**
+ * Find maximal bicliques (i.e., maximal non-induced complete bipartite
+ * subgraphs) by looking for cliques in a modified graph G':
+ * Given G = (V, E), G' = (U \cup U', E') where U and U' are both copies of
+ * V and E' = {(i,j) | i,j \in U, i \neq j }
+ *            \cup {(i,j) | i,j \in U', i \neq j }
+ *            \cup {(i,j') | i \in U, j' \in U', (i,j') \in E }
+ */
+void pddlCliqueFindMaximalBicliques(const pddl_clique_graph_t *G,
+                                    void (*cb)(const bor_iset_t *left,
+                                               const bor_iset_t *right,
+                                               void *ud),
+                                    void *ud);
 
 
 #ifdef __cplusplus
