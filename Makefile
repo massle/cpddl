@@ -66,6 +66,7 @@ OBJS += preprocess
 OBJS += cg
 OBJS += graph
 OBJS += clique
+OBJS += biclique
 OBJS += fdr_app_op
 OBJS += random_walk
 OBJS += open_list

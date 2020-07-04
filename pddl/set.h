@@ -21,6 +21,7 @@
 #define __PDDL_SET_H__
 
 #include <boruvka/hashset.h>
+#include <boruvka/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,6 +72,12 @@ _bor_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
     return ss->set.size;
 }
 
+_bor_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
+                                  const pddl_set_iset_t *src)
+{
+    for (int i = 0; i < pddlSetISetSize(src); ++i)
+        pddlSetISetAdd(dst, pddlSetISetGet(src, i));
+}
 
 #ifdef __cplusplus
 } /* extern "C" */

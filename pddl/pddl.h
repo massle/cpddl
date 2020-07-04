@@ -69,6 +69,7 @@
 #include <pddl/random_walk.h>
 #include <pddl/graph.h>
 #include <pddl/clique.h>
+#include <pddl/biclique.h>
 #include <pddl/open_list.h>
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
