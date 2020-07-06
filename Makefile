@@ -87,7 +87,7 @@ OBJS += op_mutex_pair
 OBJS += op_mutex_infer
 OBJS += op_mutex_sym_redundant
 OBJS += reversibility
-OBJS += abstr_cascading_table
+OBJS += cascading_table
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
