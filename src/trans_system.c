@@ -247,6 +247,85 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
     return ts;
 }
 
+static void mergeAddTransitions(pddl_trans_system_t *t,
+                                const pddl_labeled_transitions_t *tr1,
+                                const pddl_labeled_transitions_t *tr2,
+                                const bor_iset_t *label)
+{
+    if (borISetSize(label) == 0)
+        return;
+
+    pddl_labeled_transitions_t *ltr = NULL;
+    for (int tr1i = 0; tr1i < tr1->trans.trans_size; ++tr1i){
+        int f1 = tr1->trans.trans[tr1i].from;
+        int t1 = tr1->trans.trans[tr1i].to;
+        for (int tr2i = 0; tr2i < tr2->trans.trans_size; ++tr2i){
+            int f2 = tr2->trans.trans[tr2i].from;
+            int t2 = tr2->trans.trans[tr2i].to;
+            int from = pddlCascadingTableMergeValue(t->repr, f1, f2);
+            int to = pddlCascadingTableMergeValue(t->repr, t1, t2);
+            ASSERT(from >= 0 && from < t->num_states);
+            ASSERT(to >= 0 && to < t->num_states);
+
+            if (ltr == NULL){
+                pddl_trans_systems_t *tss = t->trans_systems;
+                pddl_trans_system_label_set_t *l;
+                l = pddlTransSystemLabelsAdd(&tss->label, label);
+                int added;
+                ltr = pddlLabeledTransitionsSetAddLabel(&t->trans, l, &added);
+                if (!added){
+                    ASSERT(l->ref > 1);
+                    pddlTransSystemLabelsDecRef(&tss->label, l);
+                }
+            }
+            pddlTransitionsAdd(&ltr->trans, from, to);
+        }
+    }
+}
+
+pddl_trans_system_t *pddlTransSystemNewMerge(pddl_trans_systems_t *tss,
+                                             const pddl_trans_system_t *t1,
+                                             const pddl_trans_system_t *t2,
+                                             const pddl_mutex_pairs_t *mutex)
+{
+    pddl_trans_system_t *ts = BOR_ALLOC(pddl_trans_system_t);
+    bzero(ts, sizeof(*ts));
+    ts->trans_systems = tss;
+    borISetUnion2(&ts->mgroup_ids, &t1->mgroup_ids, &t2->mgroup_ids);
+    ts->num_states = t1->num_states * t2->num_states;
+    ts->repr = pddlCascadingTableMerge(t1->repr, t2->repr);
+    ASSERT(ts->num_states == pddlCascadingTableSize(ts->repr));
+    // TODO: use mutexes to prune unreachable states if possible
+
+    // Construct transitions by iterating over all pairs of transitions
+    // from both t1 and t2
+    pddlLabeledTransitionsSetInit(&ts->trans);
+    BOR_ISET(label);
+    for (int t1i = 0; t1i < t1->trans.trans_size; ++t1i){
+        const pddl_labeled_transitions_t *tr1 = t1->trans.trans + t1i;
+        for (int t2i = 0; t2i < t2->trans.trans_size; ++t2i){
+            const pddl_labeled_transitions_t *tr2 = t2->trans.trans + t2i;
+            borISetIntersect2(&label, &tr1->label->label, &tr2->label->label);
+            mergeAddTransitions(ts, tr1, tr2, &label);
+        }
+    }
+    borISetFree(&label);
+    pddlLabeledTransitionsSetSort(&ts->trans);
+
+    // Set initial state
+    ts->init_state = pddlCascadingTableMergeValue(ts->repr, t1->init_state,
+                                                  t2->init_state);
+    // Find all goal states
+    int g1, g2;
+    BOR_ISET_FOR_EACH(&t1->goal_states, g1){
+        BOR_ISET_FOR_EACH(&t2->goal_states, g2){
+            int g = pddlCascadingTableMergeValue(ts->repr, g1, g2);
+            borISetAdd(&ts->goal_states, g);
+        }
+    }
+    return ts;
+}
+
 static void freeLabeledTransitions(pddl_trans_system_t *ts)
 {
     pddl_trans_systems_t *tss = ts->trans_systems;
@@ -371,6 +450,27 @@ void pddlTransSystemsFree(pddl_trans_systems_t *tss)
         BOR_FREE(tss->fact_to_mgroup);
 }
 
+
+int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
+                          int t1,
+                          int t2,
+                          const pddl_mutex_pairs_t *mutex)
+{
+    pddl_trans_system_t *ts;
+    ts = pddlTransSystemNewMerge(tss, tss->ts[t1], tss->ts[t2], mutex);
+
+    if (tss->ts_size == tss->ts_alloc){
+        if (tss->ts_alloc == 0)
+            tss->ts_alloc = 4;
+        tss->ts_alloc *= 2;
+        tss->ts = BOR_REALLOC_ARR(tss->ts, pddl_trans_system_t *,
+                                  tss->ts_alloc);
+    }
+
+    int ts_id = tss->ts_size++;
+    tss->ts[ts_id] = ts;
+    return ts_id;
+}
 
 void pddlTransSystemsPrintTS(const pddl_trans_systems_t *tss,
                              const pddl_strips_t *strips,

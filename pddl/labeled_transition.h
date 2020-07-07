@@ -51,6 +51,14 @@ void pddlLabeledTransitionsSetInit(pddl_labeled_transitions_set_t *t);
 void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t);
 
 /**
+ * Adds and returns a struct corresponding to the given label.
+ */
+pddl_labeled_transitions_t *
+    pddlLabeledTransitionsSetAddLabel(pddl_labeled_transitions_set_t *t,
+                                      pddl_trans_system_label_set_t *label,
+                                      int *added);
+
+/**
  * Adds transitions (from, to) with the given label.
  * Returns 1 if the label was already there, 0 otherwise.
  */

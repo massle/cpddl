@@ -100,6 +100,16 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
  */
 void pddlTransSystemsFree(pddl_trans_systems_t *tss);
 
+/**
+ * Creates a new transition system that is a synchronized product of TSs t1
+ * and t2 (indexes into tss->ts).
+ * Returns index of the newly added transition system.
+ */
+int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
+                          int t1,
+                          int t2,
+                          const pddl_mutex_pairs_t *mutex);
+
 
 void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
                                  const pddl_strips_t *strips,

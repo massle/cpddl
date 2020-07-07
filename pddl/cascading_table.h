@@ -69,6 +69,18 @@ int pddlCascadingTableValueFromState(pddl_cascading_table_t *t,
  */
 int pddlCascadingTableSize(const pddl_cascading_table_t *t);
 
+/**
+ * Returns value on the given index.
+ */
+int pddlCascadingTableLeafValue(const pddl_cascading_table_t *t, int idx);
+
+/**
+ * Returns value for the given left/right values.
+ */
+int pddlCascadingTableMergeValue(const pddl_cascading_table_t *t,
+                                 int left_value,
+                                 int right_value);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

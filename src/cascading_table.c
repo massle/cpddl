@@ -52,7 +52,12 @@ typedef struct pddl_cascading_table_merge pddl_cascading_table_merge_t;
         bor_container_of((T), pddl_cascading_table_merge_t, \
                          cascading_table)
 
-#define MERGE_IDX(M, LEFT, RIGHT) ((LEFT) * (M)->left->size + (RIGHT))
+#define MERGE_IDX(M, LEFT, RIGHT) ((LEFT) * (M)->right->size + (RIGHT))
+#define MERGE_LR_FROM_IDX(M, IDX, LEFT, RIGHT) \
+    do { \
+        *(RIGHT) = (IDX) % (M)->right->size; \
+        *(LEFT) = (IDX) / (M)->right->size; \
+    } while (0)
 
 static void delLeaf(pddl_cascading_table_t *t);
 static void delMerge(pddl_cascading_table_t *t);
@@ -225,4 +230,21 @@ static void copyTable(pddl_cascading_table_t *t,
     *t = *src;
     t->lookup_table = BOR_CALLOC_ARR(int, t->size);
     memcpy(t->lookup_table, src->lookup_table, sizeof(int) * t->size);
+}
+
+int pddlCascadingTableLeafValue(const pddl_cascading_table_t *t, int idx)
+{
+    if (t->type != PDDL_CASCADING_TABLE_LEAF)
+        return -2;
+    return t->lookup_table[idx];
+}
+
+int pddlCascadingTableMergeValue(const pddl_cascading_table_t *_t,
+                                 int left_value,
+                                 int right_value)
+{
+    if (_t->type != PDDL_CASCADING_TABLE_MERGE)
+        return -2;
+    MERGE(t, _t);
+    return MERGE_IDX(t, left_value, right_value);
 }

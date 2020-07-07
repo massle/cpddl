@@ -36,15 +36,15 @@ void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t)
         BOR_FREE(t->trans);
 }
 
-int pddlLabeledTransitionsSetAdd(pddl_labeled_transitions_set_t *t,
-                                 pddl_trans_system_label_set_t *label,
-                                 int from,
-                                 int to)
+pddl_labeled_transitions_t *
+    pddlLabeledTransitionsSetAddLabel(pddl_labeled_transitions_set_t *t,
+                                      pddl_trans_system_label_set_t *label,
+                                      int *added)
 {
     for (int i = 0; i < t->trans_size; ++i){
         if (t->trans[i].label == label){
-            pddlTransitionsAdd(&t->trans[i].trans, from, to);
-            return 1;
+            *added = 0;
+            return t->trans + i;
         }
     }
 
@@ -58,8 +58,22 @@ int pddlLabeledTransitionsSetAdd(pddl_labeled_transitions_set_t *t,
     pddl_labeled_transitions_t *tr = t->trans + t->trans_size++;
     tr->label = label;
     pddlTransitionsInit(&tr->trans);
+    *added = 1;
+    return tr;
+}
+
+int pddlLabeledTransitionsSetAdd(pddl_labeled_transitions_set_t *t,
+                                 pddl_trans_system_label_set_t *label,
+                                 int from,
+                                 int to)
+{
+    pddl_labeled_transitions_t *tr;
+    int added;
+    tr = pddlLabeledTransitionsSetAddLabel(t, label, &added);
     pddlTransitionsAdd(&tr->trans, from, to);
-    return 0;
+    if (added)
+        return 0;
+    return 1;
 }
 
 static int cmp(const void *a, const void *b, void *arg)
