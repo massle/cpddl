@@ -38,7 +38,7 @@ void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t)
 
 pddl_labeled_transitions_t *
     pddlLabeledTransitionsSetAddLabel(pddl_labeled_transitions_set_t *t,
-                                      pddl_trans_system_label_set_t *label,
+                                      pddl_label_set_t *label,
                                       int *added)
 {
     for (int i = 0; i < t->trans_size; ++i){
@@ -63,7 +63,7 @@ pddl_labeled_transitions_t *
 }
 
 int pddlLabeledTransitionsSetAdd(pddl_labeled_transitions_set_t *t,
-                                 pddl_trans_system_label_set_t *label,
+                                 pddl_label_set_t *label,
                                  int from,
                                  int to)
 {

@@ -84,7 +84,7 @@
 #include <pddl/reversibility.h>
 #include <pddl/cascading_table.h>
 #include <pddl/transition.h>
-#include <pddl/trans_system_label.h>
+#include <pddl/label.h>
 #include <pddl/labeled_transition.h>
 #include <pddl/trans_system.h>
 

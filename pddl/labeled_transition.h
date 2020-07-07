@@ -21,14 +21,14 @@
 #define __PDDL_LABELED_TRANSITION_H__
 
 #include <pddl/transition.h>
-#include <pddl/trans_system_label.h>
+#include <pddl/label.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_labeled_transitions {
-    pddl_trans_system_label_set_t *label;
+    pddl_label_set_t *label;
     pddl_transitions_t trans;
 };
 typedef struct pddl_labeled_transitions pddl_labeled_transitions_t;
@@ -55,7 +55,7 @@ void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t);
  */
 pddl_labeled_transitions_t *
     pddlLabeledTransitionsSetAddLabel(pddl_labeled_transitions_set_t *t,
-                                      pddl_trans_system_label_set_t *label,
+                                      pddl_label_set_t *label,
                                       int *added);
 
 /**
@@ -63,7 +63,7 @@ pddl_labeled_transitions_t *
  * Returns 1 if the label was already there, 0 otherwise.
  */
 int pddlLabeledTransitionsSetAdd(pddl_labeled_transitions_set_t *t,
-                                 pddl_trans_system_label_set_t *label,
+                                 pddl_label_set_t *label,
                                  int from,
                                  int to);
 

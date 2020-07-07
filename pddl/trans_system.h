@@ -23,7 +23,7 @@
 #include <pddl/mg_strips.h>
 #include <pddl/cascading_table.h>
 #include <pddl/transition.h>
-#include <pddl/trans_system_label.h>
+#include <pddl/label.h>
 #include <pddl/labeled_transition.h>
 
 #ifdef __cplusplus
@@ -59,23 +59,16 @@ struct pddl_trans_system {
 };
 typedef struct pddl_trans_system pddl_trans_system_t;
 
-struct pddl_trans_systems_label_op {
-    int op_id;
-    int cost;
-};
-typedef struct pddl_trans_systems_label_op pddl_trans_systems_label_op_t;
-
 struct pddl_trans_systems {
     int fact_size;
     /** Mutex groups covering all facts */
     pddl_mgroups_t mgroup;
     /** A list of labels corresponding to the input operators */
-    pddl_trans_systems_label_op_t *label_op;
-    int label_op_size;
+    pddl_labels_t label;
     /** Mapping from a fact to mgroup and its position with the mgroup */
     pddl_mgroup_idx_pairs_t *fact_to_mgroup;
     /** Set of sets of labels */
-    pddl_trans_system_labels_t label;
+    pddl_label_sets_t label_set;
     /** A set of labels that are either unreachable or they lead to a
      *  dead-end state */
     bor_iset_t dead_labels;

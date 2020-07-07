@@ -89,7 +89,7 @@ OBJS += op_mutex_sym_redundant
 OBJS += reversibility
 OBJS += cascading_table
 OBJS += transition
-OBJS += trans_system_label
+OBJS += label
 OBJS += labeled_transition
 OBJS += trans_system
 
