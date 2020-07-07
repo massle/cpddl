@@ -1,0 +1,114 @@
+/***
+ * cpddl
+ * -------
+ * Copyright (c)2020 Daniel Fiser <danfis@danfis.cz>,
+ * AI Center, Department of Computer Science,
+ * Faculty of Electrical Engineering, Czech Technical University in Prague.
+ * All rights reserved.
+ *
+ * This file is part of cpddl.
+ *
+ * Distributed under the OSI-approved BSD License (the "License");
+ * see accompanying file LICENSE for details or see
+ * <http://www.opensource.org/licenses/bsd-license.php>.
+ *
+ * This software is distributed WITHOUT ANY WARRANTY; without even the
+ * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the License for more information.
+ */
+
+#ifndef __PDDL_TRANS_SYSTEM_H__
+#define __PDDL_TRANS_SYSTEM_H__
+
+#include <pddl/mg_strips.h>
+#include <pddl/cascading_table.h>
+#include <pddl/transition.h>
+#include <pddl/trans_system_label.h>
+#include <pddl/labeled_transition.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+struct pddl_mgroup_idx_pair {
+    int mg_id;
+    int fact_idx;
+};
+typedef struct pddl_mgroup_idx_pair pddl_mgroup_idx_pair_t;
+
+struct pddl_mgroup_idx_pairs {
+    pddl_mgroup_idx_pair_t *mgroup_idx;
+    int mgroup_idx_size;
+    int mgroup_idx_alloc;
+};
+typedef struct pddl_mgroup_idx_pairs pddl_mgroup_idx_pairs_t;
+
+void pddlMGroupIdxPairsFree(pddl_mgroup_idx_pairs_t *p);
+void pddlMGroupIdxPairsAdd(pddl_mgroup_idx_pairs_t *p, int mg_id, int idx);
+
+typedef struct pddl_trans_systems pddl_trans_systems_t;
+struct pddl_trans_system {
+    pddl_trans_systems_t *trans_systems;
+    bor_iset_t mgroup_ids; /*!< IDs of this TS's mutex groups */
+    int num_states;
+    pddl_cascading_table_t *repr; /*!< Representation of states using
+                                       cascading tables */
+    pddl_labeled_transitions_set_t trans; /*!< Labeled transitions */
+    int init_state;
+    bor_iset_t goal_states;
+};
+typedef struct pddl_trans_system pddl_trans_system_t;
+
+struct pddl_trans_systems_label_op {
+    int op_id;
+    int cost;
+};
+typedef struct pddl_trans_systems_label_op pddl_trans_systems_label_op_t;
+
+struct pddl_trans_systems {
+    int fact_size;
+    /** Mutex groups covering all facts */
+    pddl_mgroups_t mgroup;
+    /** A list of labels corresponding to the input operators */
+    pddl_trans_systems_label_op_t *label_op;
+    int label_op_size;
+    /** Mapping from a fact to mgroup and its position with the mgroup */
+    pddl_mgroup_idx_pairs_t *fact_to_mgroup;
+    /** Set of sets of labels */
+    pddl_trans_system_labels_t label;
+    /** A set of labels that are either unreachable or they lead to a
+     *  dead-end state */
+    bor_iset_t dead_labels;
+    /** List of transition systems */
+    pddl_trans_system_t **ts;
+    int ts_size;
+    int ts_alloc;
+};
+
+
+/**
+ * Initialize transition systems as a factored transition system of the
+ * given MG-STRIPS where each transition system is a projection to a
+ * mutex group.
+ */
+void pddlTransSystemsInit(pddl_trans_systems_t *tss,
+                          const pddl_mg_strips_t *mg_strips,
+                          const pddl_mutex_pairs_t *mutex);
+
+/**
+ * Free all allocated memory
+ */
+void pddlTransSystemsFree(pddl_trans_systems_t *tss);
+
+
+void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
+                                 const pddl_strips_t *strips,
+                                 FILE *fout);
+void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss,
+                                 const pddl_strips_t *strips,
+                                 FILE *fout);
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
+
+#endif /* __PDDL_TRANS_SYSTEM_H__ */

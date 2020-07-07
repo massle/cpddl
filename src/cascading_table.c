@@ -90,10 +90,9 @@ struct methods methods[2] = {
 
 void pddlCascadingTableDel(pddl_cascading_table_t *t)
 {
-    methods[t->type].delete(t);
-
     if (t->lookup_table != NULL)
         BOR_FREE(t->lookup_table);
+    methods[t->type].delete(t);
 }
 
 static void delLeaf(pddl_cascading_table_t *_t)
@@ -190,6 +189,11 @@ int pddlCascadingTableValueFromState(pddl_cascading_table_t *t,
                                      const int *state)
 {
     return methods[t->type].value_from_state(t, state);
+}
+
+int pddlCascadingTableSize(const pddl_cascading_table_t *t)
+{
+    return t->size;
 }
 
 static int valueFromStateLeaf(pddl_cascading_table_t *_t, const int *state)

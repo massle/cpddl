@@ -62,7 +62,12 @@ void pddlCascadingTableAbstract(pddl_cascading_table_t *t,
  * Returns value corresponding to the given state.
  */
 int pddlCascadingTableValueFromState(pddl_cascading_table_t *t,
-                                          const int *state);
+                                     const int *state);
+
+/**
+ * Returns the number of states represented in the table.
+ */
+int pddlCascadingTableSize(const pddl_cascading_table_t *t);
 
 #ifdef __cplusplus
 } /* extern "C" */
