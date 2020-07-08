@@ -32,17 +32,6 @@ struct pddl_label {
 };
 typedef struct pddl_label pddl_label_t;
 
-struct pddl_labels {
-    pddl_label_t *label;
-    int label_size;
-    int label_alloc;
-};
-typedef struct pddl_labels pddl_labels_t;
-
-void pddlLabelsInitFromStripsOps(pddl_labels_t *lbs,
-                                 const pddl_strips_ops_t *ops);
-void pddlLabelsFree(pddl_labels_t *lbs);
-
 struct pddl_label_set {
     bor_iset_t label; /*!< Set of labels */
     // TODO: Cost -- minimal cost among labels
@@ -52,32 +41,28 @@ struct pddl_label_set {
 };
 typedef struct pddl_label_set pddl_label_set_t;
 
-struct pddl_label_sets {
+struct pddl_labels {
+    pddl_label_t *label;
+    int label_size;
+    int label_alloc;
     bor_htable_t *label_set;
 };
-typedef struct pddl_label_sets pddl_label_sets_t;
+typedef struct pddl_labels pddl_labels_t;
 
-/**
- * Initialize empty set of sets of labels.
- */
-void pddlLabelSetsInit(pddl_label_sets_t *lbs);
-
-/**
- * Free allocated memory.
- */
-void pddlLabelSetsFree(pddl_label_sets_t *lbs);
+void pddlLabelsInitFromStripsOps(pddl_labels_t *lbs,
+                                 const pddl_strips_ops_t *ops);
+void pddlLabelsFree(pddl_labels_t *lbs);
 
 /**
  * Adds a set of labels if not already there and returns reference to the
  * added set.
  */
-pddl_label_set_t *pddlLabelSetsAdd(pddl_label_sets_t *lbs,
-                                   const bor_iset_t *labels);
+pddl_label_set_t *pddlLabelsAddSet(pddl_labels_t *lbs, const bor_iset_t *lbls);
 
 /**
  * Dereference the given set of labels.
  */
-void pddlLabelSetsDecRef(pddl_label_sets_t *lbs, pddl_label_set_t *set);
+void pddlLabelsSetDecRef(pddl_labels_t *lbs, pddl_label_set_t *set);
 
 #ifdef __cplusplus
 } /* extern "C" */

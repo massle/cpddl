@@ -63,12 +63,10 @@ struct pddl_trans_systems {
     int fact_size;
     /** Mutex groups covering all facts */
     pddl_mgroups_t mgroup;
-    /** A list of labels corresponding to the input operators */
-    pddl_labels_t label;
     /** Mapping from a fact to mgroup and its position with the mgroup */
     pddl_mgroup_idx_pairs_t *fact_to_mgroup;
-    /** Set of sets of labels */
-    pddl_label_sets_t label_set;
+    /** A list of labels corresponding to the input operators */
+    pddl_labels_t label;
     /** A set of labels that are either unreachable or they lead to a
      *  dead-end state */
     bor_iset_t dead_labels;

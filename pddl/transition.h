@@ -58,6 +58,13 @@ void pddlTransitionsEmpty(pddl_transitions_t *ts);
 void pddlTransitionsAdd(pddl_transitions_t *ts, int from, int to);
 
 /**
+ * Add transitions from src at the end of the list ts.
+ */
+void pddlTransitionsUnion(pddl_transitions_t *ts,
+                          const pddl_transitions_t *src);
+
+
+/**
  * Sort the transitions
  */
 void pddlTransitionsSort(pddl_transitions_t *ts);

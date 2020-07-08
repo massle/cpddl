@@ -52,6 +52,13 @@ void pddlTransitionsAdd(pddl_transitions_t *ts, int from, int to)
     t->to = to;
 }
 
+void pddlTransitionsUnion(pddl_transitions_t *ts,
+                          const pddl_transitions_t *src)
+{
+    for (int i = 0; i < src->trans_size; ++i)
+        pddlTransitionsAdd(ts, src->trans[i].from, src->trans[i].to);
+}
+
 static int cmp(const void *a, const void *b, void *arg)
 {
     const pddl_transition_t *t1 = a;

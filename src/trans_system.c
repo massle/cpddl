@@ -76,16 +76,17 @@ static void tssInitSetDeadLabels(pddl_trans_systems_t *tss,
         borISetAdd(&tss->dead_labels, op_id);
 }
 
-static void initAddTrans(pddl_trans_system_t *ts,
-                         const bor_iset_t *label,
-                         int from,
-                         int to,
-                         bor_iset_t *all_used_labels)
+/** Adds transition from->to labeled with the set of labels */
+static void addTrans(pddl_trans_system_t *ts,
+                     const bor_iset_t *label,
+                     int from,
+                     int to,
+                     bor_iset_t *all_used_labels)
 {
     pddl_trans_systems_t *tss = ts->trans_systems;
-    pddl_label_set_t *l = pddlLabelSetsAdd(&tss->label_set, label);
+    pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, label);
     if (pddlLabeledTransitionsSetAdd(&ts->trans, l, from, to) == 1){
-        pddlLabelSetsDecRef(&tss->label_set, l);
+        pddlLabelsSetDecRef(&tss->label, l);
     }else{
         borISetUnion(all_used_labels, &l->label);
     }
@@ -152,14 +153,14 @@ static void constructTransitions(pddl_trans_system_t *ts,
             if (s1 == s2){
                 if (borISetSize(loop + s1) == 0)
                     continue;
-                initAddTrans(ts, loop + s1, s1, s1, &all_used_labels);
+                addTrans(ts, loop + s1, s1, s1, &all_used_labels);
 
             }else{
                 borISetIntersect2(&ops, out_ops + s1, in_ops + s2);
                 if (borISetSize(&ops) == 0)
                     continue;
 
-                initAddTrans(ts, &ops, s1, s2, &all_used_labels);
+                addTrans(ts, &ops, s1, s2, &all_used_labels);
             }
         }
     }
@@ -273,12 +274,12 @@ static void mergeAddTransitions(pddl_trans_system_t *t,
 
             if (ltr == NULL){
                 pddl_trans_systems_t *tss = t->trans_systems;
-                pddl_label_set_t *l = pddlLabelSetsAdd(&tss->label_set, label);
+                pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, label);
                 int added;
                 ltr = pddlLabeledTransitionsSetAddLabel(&t->trans, l, &added);
                 if (!added){
                     ASSERT(l->ref > 1);
-                    pddlLabelSetsDecRef(&tss->label_set, l);
+                    pddlLabelsSetDecRef(&tss->label, l);
                 }
             }
             pddlTransitionsAdd(&ltr->trans, from, to);
@@ -334,7 +335,7 @@ static void freeLabeledTransitions(pddl_trans_system_t *ts)
     pddl_trans_systems_t *tss = ts->trans_systems;
     for (int ti = 0; ti < ts->trans.trans_size; ++ti){
         pddl_labeled_transitions_t *t = ts->trans.trans + ti;
-        pddlLabelSetsDecRef(&tss->label_set, t->label);
+        pddlLabelsSetDecRef(&tss->label, t->label);
     }
     pddlLabeledTransitionsSetFree(&ts->trans);
 }
@@ -365,15 +366,15 @@ static void removeDeadLabels(pddl_trans_systems_t *tss,
             continue;
 
         // Replace the current label with the label set without dead labels
-        pddl_label_set_t *l = pddlLabelSetsAdd(&tss->label_set, &labels);
-        for (int trans_i = 0; trans_i < t->trans.trans_size; ++trans_i){
-            int from = t->trans.trans[trans_i].from;
-            int to = t->trans.trans[trans_i].to;
-            if (pddlLabeledTransitionsSetAdd(&trans, l, from, to) == 1
-                    && trans_i == 0){
-                pddlLabelSetsDecRef(&tss->label_set, l);
-            }
+        pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, &labels);
+        int added;
+        pddl_labeled_transitions_t *ltr;
+        ltr = pddlLabeledTransitionsSetAddLabel(&trans, l, &added);
+        if (!added){
+            ASSERT(l->ref > 1);
+            //pddlLabelsSetDecRef(&tss->label, l);
         }
+        pddlTransitionsUnion(&ltr->trans, &t->trans);
     }
     borISetFree(&labels);
 
@@ -397,9 +398,6 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
     tss->fact_size = mg_strips->strips.fact.fact_size;
     pddlMGroupsInitCopy(&tss->mgroup, &mg_strips->mg);
 
-    pddlLabelsInitFromStripsOps(&tss->label, &mg_strips->strips.op);
-    pddlLabelSetsInit(&tss->label_set);
-
     tss->fact_to_mgroup = BOR_CALLOC_ARR(pddl_mgroup_idx_pairs_t,
                                          tss->fact_size);
     for (int mgi = 0; mgi < mg_strips->mg.mgroup_size; ++mgi){
@@ -410,6 +408,8 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
             pddlMGroupIdxPairsAdd(tss->fact_to_mgroup + fact, mgi, i);
         }
     }
+
+    pddlLabelsInitFromStripsOps(&tss->label, &mg_strips->strips.op);
 
     tss->ts_alloc = 1;
     while (tss->ts_alloc < mg_strips->mg.mgroup_size)
@@ -427,21 +427,19 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
 
 void pddlTransSystemsFree(pddl_trans_systems_t *tss)
 {
-    pddlMGroupsFree(&tss->mgroup);
-    pddlLabelsFree(&tss->label);
-    borISetFree(&tss->dead_labels);
-
     for (int i = 0; i < tss->ts_size; ++i)
         pddlTransSystemDel(tss->ts[i]);
     if (tss->ts != NULL)
         BOR_FREE(tss->ts);
 
-    pddlLabelSetsFree(&tss->label_set);
-
     for (int f = 0; f < tss->fact_size; ++f)
         pddlMGroupIdxPairsFree(tss->fact_to_mgroup + f);
     if (tss->fact_to_mgroup != NULL)
         BOR_FREE(tss->fact_to_mgroup);
+
+    pddlLabelsFree(&tss->label);
+    borISetFree(&tss->dead_labels);
+    pddlMGroupsFree(&tss->mgroup);
 }
 
 
