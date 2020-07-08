@@ -45,6 +45,7 @@ void pddlLabelsFree(pddl_labels_t *lbs);
 
 struct pddl_label_set {
     bor_iset_t label; /*!< Set of labels */
+    // TODO: Cost -- minimal cost among labels
     int ref; /*!< Reference counter */
     bor_htable_key_t key; /*!< Key to hashtable */
     bor_list_t htable; /*!< Connector to the hashtable */

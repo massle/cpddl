@@ -522,7 +522,37 @@ void pddlTransSystemsPrintTS2(const pddl_trans_systems_t *tss,
     fprintf(fout, ", trans:");
     for (int ti = 0; ti < ts->trans.trans_size; ++ti){
         const pddl_labeled_transitions_t *trans = ts->trans.trans + ti;
-        fprintf(fout, " %d:[", borISetSize(&trans->label->label));
+        fprintf(fout, " (");
+        const bor_iset_t *lbs = &trans->label->label;
+        for (int i = 0; i < borISetSize(lbs); ++i){
+            if (i != 0)
+                fprintf(fout, " ");
+            if (i == borISetSize(lbs) - 1){
+                fprintf(fout, "%d", borISetGet(lbs, i));
+            }else{
+                int j;
+                for (j = i + 1; j < borISetSize(lbs)
+                        && borISetGet(lbs, j) == borISetGet(lbs, j - 1) + 1;
+                        ++j);
+                if (j - 1 == i){
+                    fprintf(fout, "%d", borISetGet(lbs, i));
+                }else{
+                    fprintf(fout, "%d-%d",
+                            borISetGet(lbs, i), borISetGet(lbs, j - 1));
+                }
+                i = j - 1;
+            }
+        }
+        /*
+        fprintf(fout, "|");
+        int op;
+        BOR_ISET_FOR_EACH(&trans->label->label, op){
+            fprintf(fout, " ");
+            fprintf(fout, "%d", op);
+        }
+        */
+        fprintf(fout, "):[");
+        //fprintf(fout, " %d:[", borISetSize(&trans->label->label));
         for (int i = 0; i < trans->trans.trans_size; ++i){
             if (i != 0)
                 fprintf(fout, " ");
