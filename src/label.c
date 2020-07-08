@@ -43,6 +43,7 @@ pddl_label_set_t *pddlLabelSetNew(const bor_iset_t *s)
     ls = BOR_ALLOC(pddl_label_set_t);
     bzero(ls, sizeof(*ls));
     borISetUnion(&ls->label, s);
+    ls->cost = 0;
     ls->ref = 1;
     ls->key = borFastHash_64(s->s, sizeof(int) * s->size, 7583);
     borListInit(&ls->htable);
@@ -53,6 +54,19 @@ void pddlLabelSetDel(pddl_label_set_t *s)
 {
     borISetFree(&s->label);
     BOR_FREE(s);
+}
+
+void pddlLabelSetCost(pddl_labels_t *lbs, pddl_label_set_t *s)
+{
+    if (borISetSize(&s->label) == 0){
+        s->cost = 0;
+        return;
+    }
+
+    int l;
+    s->cost = INT_MAX;
+    BOR_ISET_FOR_EACH(&s->label, l)
+        s->cost = BOR_MIN(s->cost, lbs->label[l].cost);
 }
 
 void pddlLabelsInitFromStripsOps(pddl_labels_t *lbs,
@@ -96,6 +110,7 @@ pddl_label_set_t *pddlLabelsAddSet(pddl_labels_t *lbs,
     bor_list_t *found;
     if ((found = borHTableInsertUnique(lbs->label_set, &ls->htable)) == NULL){
         ls->ref = 1;
+        pddlLabelSetCost(lbs, ls);
         return ls;
     }else{
         pddlLabelSetDel(ls);

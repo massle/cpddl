@@ -372,7 +372,7 @@ static void removeDeadLabels(pddl_trans_systems_t *tss,
         ltr = pddlLabeledTransitionsSetAddLabel(&trans, l, &added);
         if (!added){
             ASSERT(l->ref > 1);
-            //pddlLabelsSetDecRef(&tss->label, l);
+            pddlLabelsSetDecRef(&tss->label, l);
         }
         pddlTransitionsUnion(&ltr->trans, &t->trans);
     }

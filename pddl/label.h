@@ -34,7 +34,7 @@ typedef struct pddl_label pddl_label_t;
 
 struct pddl_label_set {
     bor_iset_t label; /*!< Set of labels */
-    // TODO: Cost -- minimal cost among labels
+    int cost; /*!< Cost is the minimum over labels' costs */
     int ref; /*!< Reference counter */
     bor_htable_key_t key; /*!< Key to hashtable */
     bor_list_t htable; /*!< Connector to the hashtable */
