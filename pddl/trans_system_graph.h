@@ -41,7 +41,7 @@ struct pddl_trans_system_graph_edges {
 typedef struct pddl_trans_system_graph_edges pddl_trans_system_graph_edges_t;
 
 struct pddl_trans_system_graph {
-    int num_vertices;
+    int num_states;
     pddl_trans_system_graph_edges_t *fw; /*!< Forward edges */
     pddl_trans_system_graph_edges_t *bw; /*!< Backward edges */
     int init;
@@ -74,6 +74,16 @@ void pddlTransSystemGraphFwSCC(const pddl_trans_system_graph_t *g,
  */
 void pddlTransSystemGraphBwSCC(const pddl_trans_system_graph_t *g,
                                pddl_set_iset_t *comps);
+
+/**
+ * Computes reachability of states in forward direction.
+ * {reachable_from} must be an array of bor_iset_t structs of size
+ * g->num_states and reachable_from[v] will contain all states from which v
+ * is reachable.
+ */
+void pddlTransSystemGraphFwReachability(const pddl_trans_system_graph_t *g,
+                                        bor_iset_t *reachable_from);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

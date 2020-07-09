@@ -59,9 +59,9 @@ void pddlTransSystemGraphInit(pddl_trans_system_graph_t *g,
                               const pddl_trans_system_t *t)
 {
     bzero(g, sizeof(*g));
-    g->num_vertices = t->num_states;
-    g->fw = BOR_CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_vertices);
-    g->bw = BOR_CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_vertices);
+    g->num_states = t->num_states;
+    g->fw = BOR_CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
+    g->bw = BOR_CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
     for (int lti = 0; lti < t->trans.trans_size; ++lti){
         int cost = t->trans.trans[lti].label->cost;
         const pddl_transitions_t *trs = &t->trans.trans[lti].trans;
@@ -72,7 +72,7 @@ void pddlTransSystemGraphInit(pddl_trans_system_graph_t *g,
         }
     }
 
-    for (int v = 0; v < g->num_vertices; ++v){
+    for (int v = 0; v < g->num_states; ++v){
         pddlTransSystemGraphEdgesSort(g->fw + v);
         pddlTransSystemGraphEdgesSort(g->bw + v);
     }
@@ -84,7 +84,7 @@ void pddlTransSystemGraphInit(pddl_trans_system_graph_t *g,
 void pddlTransSystemGraphFree(pddl_trans_system_graph_t *t)
 {
     borISetFree(&t->goal);
-    for (int i = 0; i < t->num_vertices; ++i){
+    for (int i = 0; i < t->num_states; ++i){
         if (t->fw[i].edge != NULL)
             BOR_FREE(t->fw[i].edge);
         if (t->bw[i].edge != NULL)
@@ -96,13 +96,13 @@ void pddlTransSystemGraphFree(pddl_trans_system_graph_t *t)
         BOR_FREE(t->bw);
 }
 
-static void computeDist(int num_vertices,
+static void computeDist(int num_states,
                         const pddl_trans_system_graph_edges_t *edges,
                         const bor_iset_t *init,
                         int *dist)
 {
-    pddl_pq_el_t *els = BOR_CALLOC_ARR(pddl_pq_el_t, num_vertices);
-    for (int v = 0; v < num_vertices; ++v)
+    pddl_pq_el_t *els = BOR_CALLOC_ARR(pddl_pq_el_t, num_states);
+    for (int v = 0; v < num_states; ++v)
         dist[v] = -1;
 
     pddl_pq_t queue;
@@ -118,7 +118,7 @@ static void computeDist(int num_vertices,
         int v_dist;
         pddl_pq_el_t *v_el = pddlPQPop(&queue, &v_dist);
         int v = v_el - els;
-        ASSERT(v >= 0 && v < num_vertices && els + v == v_el);
+        ASSERT(v >= 0 && v < num_states && els + v == v_el);
         ASSERT(v_dist == dist[v]);
 
         for (int ei = 0; ei < edges[v].edge_size; ++ei){
@@ -143,13 +143,13 @@ void pddlTransSystemGraphFwDist(pddl_trans_system_graph_t *g, int *dist)
 {
     BOR_ISET(init);
     borISetAdd(&init, g->init);
-    computeDist(g->num_vertices, g->fw, &init, dist);
+    computeDist(g->num_states, g->fw, &init, dist);
     borISetFree(&init);
 }
 
 void pddlTransSystemGraphBwDist(pddl_trans_system_graph_t *g, int *dist)
 {
-    computeDist(g->num_vertices, g->bw, &g->goal, dist);
+    computeDist(g->num_states, g->bw, &g->goal, dist);
 }
 
 
@@ -217,7 +217,7 @@ static void sccTarjanStrongconnect(scc_t *scc,
     }
 }
 
-static void sccTarjan(int num_vertices,
+static void sccTarjan(int num_states,
                       const pddl_trans_system_graph_edges_t *edges,
                       pddl_set_iset_t *sset)
 {
@@ -228,17 +228,17 @@ static void sccTarjan(int num_vertices,
 
     // Initialize structure for Tarjan's algorithm
     dfs.cur_index = 0;
-    dfs.index    = BOR_ALLOC_ARR(int, 4 * num_vertices);
-    dfs.lowlink  = dfs.index + num_vertices;
-    dfs.in_stack = dfs.lowlink + num_vertices;
-    dfs.stack    = dfs.in_stack + num_vertices;
+    dfs.index    = BOR_ALLOC_ARR(int, 4 * num_states);
+    dfs.lowlink  = dfs.index + num_states;
+    dfs.in_stack = dfs.lowlink + num_states;
+    dfs.stack    = dfs.in_stack + num_states;
     dfs.stack_size = 0;
-    for (int i = 0; i < num_vertices; ++i){
+    for (int i = 0; i < num_states; ++i){
         dfs.index[i] = dfs.lowlink[i] = -1;
         dfs.in_stack[i] = 0;
     }
 
-    for (int node = 0; node < num_vertices; ++node){
+    for (int node = 0; node < num_states; ++node){
         if (dfs.index[node] == -1)
             sccTarjanStrongconnect(&scc, &dfs, edges, node);
     }
@@ -256,11 +256,37 @@ static void sccTarjan(int num_vertices,
 void pddlTransSystemGraphFwSCC(const pddl_trans_system_graph_t *g,
                                pddl_set_iset_t *sset)
 {
-    sccTarjan(g->num_vertices, g->fw, sset);
+    sccTarjan(g->num_states, g->fw, sset);
 }
 
 void pddlTransSystemGraphBwSCC(const pddl_trans_system_graph_t *g,
                                pddl_set_iset_t *sset)
 {
-    sccTarjan(g->num_vertices, g->bw, sset);
+    sccTarjan(g->num_states, g->bw, sset);
+}
+
+void pddlTransSystemGraphFwReachability(const pddl_trans_system_graph_t *g,
+                                        bor_iset_t *reachable_from)
+{
+    for (int s = 0; s < g->num_states; ++s){
+        for (int ei = 0; ei < g->bw[s].edge_size; ++ei){
+            int next_s = g->bw[s].edge[ei].end;
+            borISetAdd(reachable_from + s, next_s);
+        }
+    }
+
+    int changed = 1;
+    while (changed){
+        changed = 0;
+        for (int s = 0; s < g->num_states; ++s){
+            int prev_size = borISetSize(reachable_from + s);
+            for (int ei = 0; ei < g->bw[s].edge_size; ++ei){
+                int next_s = g->bw[s].edge[ei].end;
+                if (next_s != s)
+                    borISetUnion(reachable_from + s, reachable_from + next_s);
+            }
+            if (prev_size != borISetSize(reachable_from + s))
+                changed = 1;
+        }
+    }
 }
