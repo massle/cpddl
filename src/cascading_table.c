@@ -171,19 +171,17 @@ pddl_cascading_table_t *pddlCascadingTableMerge(pddl_cascading_table_t *t1,
     return &m->cascading_table;
 }
 
-void pddlCascadingTableAbstract(pddl_cascading_table_t *t,
-                                const bor_iarr_t *abstraction)
+void pddlCascadingTableAbstract(pddl_cascading_table_t *t, const int *abstr)
 {
     int new_size = 0;
-    int ab_size = borIArrSize(abstraction);
-    for (int i = 0; i < t->size && i < ab_size; ++i){
-        int new_val = borIArrGet(abstraction, i);
+    for (int i = 0; i < t->size; ++i){
+        int new_val = abstr[i];
         if (t->lookup_table[i] != PRUNED){
             if (new_val < 0){
                 t->lookup_table[i] = PRUNED;
             }else{
-                t->lookup_table[i] = borIArrGet(abstraction, i);
-                new_size = BOR_MAX(new_size, t->lookup_table[i]);
+                t->lookup_table[i] = new_val;
+                new_size = BOR_MAX(new_size, t->lookup_table[i] + 1);
             }
         }
     }

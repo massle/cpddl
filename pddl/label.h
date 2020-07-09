@@ -64,6 +64,11 @@ pddl_label_set_t *pddlLabelsAddSet(pddl_labels_t *lbs, const bor_iset_t *lbls);
  */
 void pddlLabelsSetDecRef(pddl_labels_t *lbs, pddl_label_set_t *set);
 
+/**
+ * Increase reference the given set of labels.
+ */
+void pddlLabelsSetIncRef(pddl_labels_t *lbs, pddl_label_set_t *set);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

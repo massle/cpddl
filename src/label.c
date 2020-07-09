@@ -128,3 +128,7 @@ void pddlLabelsSetDecRef(pddl_labels_t *lbs, pddl_label_set_t *set)
     }
 }
 
+void pddlLabelsSetIncRef(pddl_labels_t *lbs, pddl_label_set_t *set)
+{
+    ++set->ref;
+}

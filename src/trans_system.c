@@ -252,6 +252,42 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
     return ts;
 }
 
+static void copyLabeledTransitions(pddl_trans_system_t *ts,
+                                   pddl_labeled_transitions_set_t *dst,
+                                   const pddl_labeled_transitions_set_t *src)
+{
+    pddl_trans_systems_t *tss = ts->trans_systems;
+    for (int ltri = 0; ltri < src->trans_size; ++ltri){
+        const pddl_labeled_transitions_t *ltr = src->trans + ltri;
+        pddl_label_set_t *label = ltr->label;
+        pddlLabelsSetIncRef(&tss->label, label);
+
+        pddl_labeled_transitions_t *new_ltr;
+        int added;
+        new_ltr = pddlLabeledTransitionsSetAddLabel(dst, label, &added);
+        ASSERT_RUNTIME(added);
+        pddlTransitionsUnion(&new_ltr->trans, &ltr->trans);
+    }
+}
+
+pddl_trans_system_t *pddlTransSystemClone(pddl_trans_systems_t *tss,
+                                          const pddl_trans_system_t *ts_in)
+{
+    pddl_trans_system_t *ts = BOR_ALLOC(pddl_trans_system_t);
+    bzero(ts, sizeof(*ts));
+    ts->trans_systems = tss;
+    borISetUnion(&ts->mgroup_ids, &ts_in->mgroup_ids);
+    ts->num_states = ts_in->num_states;
+    ts->repr = pddlCascadingTableClone(ts_in->repr);
+
+    pddlLabeledTransitionsSetInit(&ts->trans);
+    copyLabeledTransitions(ts, &ts->trans, &ts_in->trans);
+
+    ts->init_state = ts_in->init_state;
+    borISetUnion(&ts->goal_states, &ts_in->goal_states);
+    return ts;
+}
+
 static void mergeAddTransitions(pddl_trans_system_t *t,
                                 const pddl_labeled_transitions_t *tr1,
                                 const pddl_labeled_transitions_t *tr2,
@@ -385,6 +421,22 @@ static void removeDeadLabels(pddl_trans_systems_t *tss,
     pddlLabeledTransitionsSetSort(&ts->trans);
 }
 
+static int transSystemsAddTS(pddl_trans_systems_t *tss,
+                             pddl_trans_system_t *ts)
+{
+    if (tss->ts_size == tss->ts_alloc){
+        if (tss->ts_alloc == 0)
+            tss->ts_alloc = 4;
+        tss->ts_alloc *= 2;
+        tss->ts = BOR_REALLOC_ARR(tss->ts, pddl_trans_system_t *,
+                                  tss->ts_alloc);
+    }
+
+    int ts_id = tss->ts_size++;
+    tss->ts[ts_id] = ts;
+    return ts_id;
+}
+
 void pddlTransSystemsInit(pddl_trans_systems_t *tss,
                           const pddl_mg_strips_t *mg_strips,
                           const pddl_mutex_pairs_t *mutex)
@@ -443,6 +495,11 @@ void pddlTransSystemsFree(pddl_trans_systems_t *tss)
     pddlMGroupsFree(&tss->mgroup);
 }
 
+int pddlTransSystemsCloneTransSystem(pddl_trans_systems_t *tss, int tid)
+{
+    pddl_trans_system_t *ts = pddlTransSystemClone(tss, tss->ts[tid]);
+    return transSystemsAddTS(tss, ts);
+}
 
 int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
                           int t1,
@@ -451,18 +508,70 @@ int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
 {
     pddl_trans_system_t *ts;
     ts = pddlTransSystemNewMerge(tss, tss->ts[t1], tss->ts[t2], mutex);
+    return transSystemsAddTS(tss, ts);
+}
 
-    if (tss->ts_size == tss->ts_alloc){
-        if (tss->ts_alloc == 0)
-            tss->ts_alloc = 4;
-        tss->ts_alloc *= 2;
-        tss->ts = BOR_REALLOC_ARR(tss->ts, pddl_trans_system_t *,
-                                  tss->ts_alloc);
+void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
+                              int ts_id,
+                              const pddl_trans_system_abstr_map_t *map)
+{
+    if (map->is_identity)
+        return;
+
+    pddl_trans_system_t *ts = tss->ts[ts_id];
+    ASSERT_RUNTIME(map->num_states == ts->num_states);
+    ASSERT_RUNTIME(map->map_num_states >= 1);
+    pddlCascadingTableAbstract(ts->repr, map->map);
+    ASSERT_RUNTIME(map->map_num_states == pddlCascadingTableSize(ts->repr));
+
+    // Merge labels for the transformed transitions
+    int labels_size = map->map_num_states * map->map_num_states;
+    bor_iset_t *labels = BOR_CALLOC_ARR(bor_iset_t, labels_size);
+    for (int ltri = 0; ltri < ts->trans.trans_size; ++ltri){
+        const pddl_labeled_transitions_t *ltr = ts->trans.trans + ltri;
+        const bor_iset_t *cur_label = &ltr->label->label;
+        for (int tri = 0; tri < ltr->trans.trans_size; ++tri){
+            const pddl_transition_t *tr = ltr->trans.trans + tri;
+            int from = map->map[tr->from];
+            int to = map->map[tr->to];
+            if (from < 0 || to < 0)
+                continue;
+            borISetUnion(labels + from * map->map_num_states + to, cur_label);
+        }
     }
 
-    int ts_id = tss->ts_size++;
-    tss->ts[ts_id] = ts;
-    return ts_id;
+    // Create a new transition table
+    pddl_labeled_transitions_set_t trans;
+    pddlLabeledTransitionsSetInit(&trans);
+    for (int from = 0; from < map->map_num_states; ++from){
+        for (int to = 0; to < map->map_num_states; ++to){
+            int idx = from * map->map_num_states + to;
+            if (borISetSize(labels + idx) == 0)
+                continue;
+
+            pddl_label_set_t *lb = pddlLabelsAddSet(&tss->label, labels + idx);
+            if (pddlLabeledTransitionsSetAdd(&trans, lb, from, to) == 1)
+                pddlLabelsSetDecRef(&tss->label, lb);
+        }
+    }
+    freeLabeledTransitions(ts);
+    ts->trans = trans;
+
+    for (int i = 0; i < labels_size; ++i)
+        borISetFree(labels + i);
+    BOR_FREE(labels);
+
+    ts->init_state = map->map[ts->init_state];
+    BOR_ISET(goal_states);
+    int state;
+    BOR_ISET_FOR_EACH(&ts->goal_states, state){
+        if (map->map[state] >= 0)
+            borISetAdd(&goal_states, map->map[state]);
+    }
+    borISetFree(&ts->goal_states);
+    ts->goal_states = goal_states;
+
+    ts->num_states = map->map_num_states;
 }
 
 void pddlTransSystemsPrintTS(const pddl_trans_systems_t *tss,
@@ -506,7 +615,6 @@ void pddlTransSystemsPrintTS(const pddl_trans_systems_t *tss,
 }
 
 void pddlTransSystemPrintDebug2(const pddl_trans_systems_t *tss,
-                                const pddl_strips_t *strips,
                                 int ts_id,
                                 FILE *fout)
 {
@@ -544,10 +652,8 @@ void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
         pddlTransSystemsPrintTS(tss, strips, i, fout);
 }
 
-void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss,
-                                 const pddl_strips_t *strips,
-                                 FILE *fout)
+void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss, FILE *fout)
 {
     for (int i = 0; i < tss->ts_size; ++i)
-        pddlTransSystemPrintDebug2(tss, strips, i, fout);
+        pddlTransSystemPrintDebug2(tss, i, fout);
 }

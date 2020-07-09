@@ -30,6 +30,7 @@ struct pddl_trans_system_abstr_map {
     int *map;
     int num_states;
     int map_num_states;
+    int is_identity;
 };
 typedef struct pddl_trans_system_abstr_map pddl_trans_system_abstr_map_t;
 

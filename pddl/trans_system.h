@@ -25,6 +25,7 @@
 #include <pddl/transition.h>
 #include <pddl/label.h>
 #include <pddl/labeled_transition.h>
+#include <pddl/trans_system_abstr_map.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,6 +93,12 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
 void pddlTransSystemsFree(pddl_trans_systems_t *tss);
 
 /**
+ * Clones the specified transition system and returns ID of the new
+ * resulting transition system.
+ */
+int pddlTransSystemsCloneTransSystem(pddl_trans_systems_t *tss, int tid);
+
+/**
  * Creates a new transition system that is a synchronized product of TSs t1
  * and t2 (indexes into tss->ts).
  * Returns index of the newly added transition system.
@@ -101,15 +108,18 @@ int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
                           int t2,
                           const pddl_mutex_pairs_t *mutex);
 
+/**
+ * Applies abstraction mapping.
+ */
+void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
+                              int ts_id,
+                              const pddl_trans_system_abstr_map_t *map);
 
 void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
                                  const pddl_strips_t *strips,
                                  FILE *fout);
-void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss,
-                                 const pddl_strips_t *strips,
-                                 FILE *fout);
+void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss, FILE *fout);
 void pddlTransSystemPrintDebug2(const pddl_trans_systems_t *tss,
-                                const pddl_strips_t *strips,
                                 int ts_id,
                                 FILE *fout);
 #ifdef __cplusplus

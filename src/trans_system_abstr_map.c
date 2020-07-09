@@ -30,6 +30,7 @@ void pddlTransSystemAbstrMapInit(pddl_trans_system_abstr_map_t *map,
     for (int i = 0; i < map->num_states; ++i)
         map->map[i] = i;
     map->map_num_states = -1;
+    map->is_identity = 1;
 }
 
 void pddlTransSystemAbstrMapFree(pddl_trans_system_abstr_map_t *map)
@@ -74,6 +75,7 @@ void pddlTransSystemAbstrMapPruneState(pddl_trans_system_abstr_map_t *map,
                    "finalized yet!");
     }
     map->map[state] = -1;
+    map->is_identity = 0;
 }
 
 void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
@@ -83,7 +85,7 @@ void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
         BOR_FATAL2("This function can be called only on mapping that wasn't"
                    "finalized yet!");
     }
-    if (borISetSize(states) == 0)
+    if (borISetSize(states) <= 1)
         return;
 
     int to = borISetGet(states, 0);
@@ -94,4 +96,5 @@ void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
             map->map[state] = to;
         }
     }
+    map->is_identity = 0;
 }

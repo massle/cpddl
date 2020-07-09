@@ -55,8 +55,7 @@ pddl_cascading_table_t *pddlCascadingTableMerge(pddl_cascading_table_t *t1,
  * The array abstractions maps IDs between 0 and t->size - 1 to new IDs from
  * the same range or to negative number if such state should be pruned.
  */
-void pddlCascadingTableAbstract(pddl_cascading_table_t *t,
-                                const bor_iarr_t *abstraction);
+void pddlCascadingTableAbstract(pddl_cascading_table_t *t, const int *abstr);
 
 /**
  * Returns value corresponding to the given state.
