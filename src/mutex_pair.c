@@ -123,6 +123,16 @@ int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
     return 0;
 }
 
+void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
+                                int fact,
+                                bor_iset_t *mutex_with)
+{
+    for (int f = 0; f < m->fact_size; ++f){
+        if (M(m, fact, f))
+            borISetAdd(mutex_with, f);
+    }
+}
+
 void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
                               int new_fact_size,
                               const int *remap)
