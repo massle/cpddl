@@ -57,6 +57,7 @@ struct pddl_trans_system {
     pddl_labeled_transitions_set_t trans; /*!< Labeled transitions */
     int init_state;
     bor_iset_t goal_states;
+    int dead_labels_collected;
 };
 typedef struct pddl_trans_system pddl_trans_system_t;
 
@@ -111,6 +112,21 @@ int pddlTransSystemsMerge(pddl_trans_systems_t *tss, int t1, int t2);
 void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
                               int ts_id,
                               const pddl_trans_system_abstr_map_t *map);
+
+/**
+ * Collect dead labels from the specified transition system -- all labels
+ * that are not used in the specified transition system are added to
+ * tss->dead_labels.
+ * Returns 1 if any new dead labels were found, 0 otherwise.
+ */
+int pddlTransSystemsCollectDeadLabels(pddl_trans_systems_t *tss, int ts_id);
+int pddlTransSystemsCollectDeadLabelsFromAll(pddl_trans_systems_t *tss);
+
+/**
+ * Remove dead labels from the specified transition system.
+ */
+void pddlTransSystemsRemoveDeadLabels(pddl_trans_systems_t *tss, int ts_id);
+void pddlTransSystemsRemoveDeadLabelsFromAll(pddl_trans_systems_t *tss);
 
 void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
                                  const pddl_strips_t *strips,
