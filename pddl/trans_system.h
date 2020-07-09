@@ -103,10 +103,7 @@ int pddlTransSystemsCloneTransSystem(pddl_trans_systems_t *tss, int tid);
  * and t2 (indexes into tss->ts).
  * Returns index of the newly added transition system.
  */
-int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
-                          int t1,
-                          int t2,
-                          const pddl_mutex_pairs_t *mutex);
+int pddlTransSystemsMerge(pddl_trans_systems_t *tss, int t1, int t2);
 
 /**
  * Applies abstraction mapping.

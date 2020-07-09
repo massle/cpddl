@@ -22,6 +22,44 @@
 #include "pddl/trans_system.h"
 #include "assert.h"
 
+/** Returns index of the fact within the mutex groups with mgroup_id */
+static int indexOfFactWithinMGroup(const pddl_trans_systems_t *tss,
+                                   int mgroup_id,
+                                   int fact);
+/** Adds transition from->to labeled with the set of labels */
+static void addTrans(pddl_trans_system_t *ts,
+                     const bor_iset_t *label,
+                     int from,
+                     int to,
+                     bor_iset_t *all_used_labels);
+/** Creates transitions in the projection to the specified mutex group */
+static void createTransitionsInProjection(pddl_trans_system_t *ts,
+                                          const pddl_mg_strips_t *mg_strips,
+                                          const pddl_mutex_pairs_t *mutex,
+                                          const bor_iset_t *mgroup);
+/** Sets the initial state in the projection to the specified mutex group */
+static void setInitState(pddl_trans_system_t *ts,
+                         const bor_iset_t *mgroup,
+                         const pddl_strips_t *strips);
+/** Sets the goal states in the projection to the specified mutex group */
+static void setGoalStates(pddl_trans_system_t *ts,
+                          const bor_iset_t *mgroup,
+                          const pddl_strips_t *strips,
+                          const pddl_mutex_pairs_t *mutex);
+/** Make a deep copy of labeled transitions */
+static void copyLabeledTransitions(pddl_trans_system_t *ts,
+                                   pddl_labeled_transitions_set_t *dst,
+                                   const pddl_labeled_transitions_set_t *src);
+/** Merge transitions from tr1 and tr2 into t */
+static void mergeTransitions(pddl_trans_system_t *t,
+                             const pddl_labeled_transitions_t *tr1,
+                             const pddl_labeled_transitions_t *tr2);
+/** Free labeled transitions and makes sure that labels are dereferenced */
+static void freeLabeledTransitions(pddl_trans_system_t *ts);
+/** Adds a new transition system to tss and returns its ID */
+static int transSystemsAddTS(pddl_trans_systems_t *tss,
+                             pddl_trans_system_t *ts);
+
 
 void pddlMGroupIdxPairsFree(pddl_mgroup_idx_pairs_t *p)
 {
@@ -46,18 +84,8 @@ void pddlMGroupIdxPairsAdd(pddl_mgroup_idx_pairs_t *p, int mg_id, int idx)
     pair->fact_idx = idx;
 }
 
-static int findFactMGroupIdx(const pddl_trans_systems_t *tss,
-                             int mgroup_id,
-                             int fact)
-{
-    const pddl_mgroup_idx_pairs_t *p = tss->fact_to_mgroup + fact;
-    for (int i = 0; i < p->mgroup_idx_size; ++i){
-        if (p->mgroup_idx[i].mg_id == mgroup_id)
-            return p->mgroup_idx[i].fact_idx;
-    }
-    return -1;
-}
 
+// TODO: dead-labels
 static void tssInitSetDeadLabels(pddl_trans_systems_t *tss,
                                  const bor_iset_t *all_used_labels)
 {
@@ -77,154 +105,7 @@ static void tssInitSetDeadLabels(pddl_trans_systems_t *tss,
         borISetAdd(&tss->dead_labels, op_id);
 }
 
-/** Adds transition from->to labeled with the set of labels */
-static void addTrans(pddl_trans_system_t *ts,
-                     const bor_iset_t *label,
-                     int from,
-                     int to,
-                     bor_iset_t *all_used_labels)
-{
-    pddl_trans_systems_t *tss = ts->trans_systems;
-    pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, label);
-    if (pddlLabeledTransitionsSetAdd(&ts->trans, l, from, to) == 1){
-        pddlLabelsSetDecRef(&tss->label, l);
-    }else{
-        borISetUnion(all_used_labels, &l->label);
-    }
-}
 
-static void constructTransitions(pddl_trans_system_t *ts,
-                                 const pddl_mg_strips_t *mg_strips,
-                                 const pddl_mutex_pairs_t *mutex,
-                                 const bor_iset_t *mgroup)
-{
-    // TODO: Split into multiple functions
-    pddl_trans_systems_t *tss = ts->trans_systems;
-    int mgroup_id = borISetGet(&ts->mgroup_ids, 0);
-    int mgroup_size = borISetSize(mgroup);
-    bor_iset_t *in_ops = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
-    bor_iset_t *out_ops = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
-    bor_iset_t *loop = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
-    BOR_ISET(fset);
-    BOR_ISET(eff);
-    BOR_ISET(ops);
-
-    int dead_cur = 0;
-    for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id){
-        // Skip dead labels
-        if (dead_cur < borISetSize(&tss->dead_labels)
-                && borISetGet(&tss->dead_labels, dead_cur) == op_id){
-            ++dead_cur;
-            continue;
-        }
-
-        const pddl_strips_op_t *op = mg_strips->strips.op.op[op_id];
-        borISetIntersect2(&fset, &op->del_eff, mgroup);
-        if (borISetSize(&fset) > 0){
-            ASSERT(borISetSize(&fset) == 1);
-            int fact = borISetGet(&fset, 0);
-            int fact_idx = findFactMGroupIdx(tss, mgroup_id, fact);
-            borISetAdd(out_ops + fact_idx, op_id);
-        }else{
-            borISetMinus2(&eff, &op->pre, &op->del_eff);
-            borISetUnion(&eff, &op->add_eff);
-            for (int idx = 0; idx < mgroup_size; ++idx){
-                int fact = borISetGet(mgroup, idx);
-                if (!pddlMutexPairsIsMutexFactSet(mutex, fact, &op->pre)
-                        && !pddlMutexPairsIsMutexFactSet(mutex, fact, &eff)){
-                    borISetAdd(loop + idx, op_id);
-                }
-            }
-        }
-
-        borISetIntersect2(&fset, &op->add_eff, mgroup);
-        if (borISetSize(&fset) > 0){
-            ASSERT(borISetSize(&fset) == 1);
-            int fact = borISetGet(&fset, 0);
-            int fact_idx = findFactMGroupIdx(tss, mgroup_id, fact);
-            borISetAdd(in_ops + fact_idx, op_id);
-            if (!pddlMutexPairsIsMutexFactSet(mutex, fact, &op->pre))
-                borISetAdd(loop + fact_idx, op_id);
-        }
-    }
-
-    BOR_ISET(all_used_labels);
-    for (int s1 = 0; s1 < mgroup_size; ++s1){
-        for (int s2 = 0; s2 < mgroup_size; ++s2){
-            if (s1 == s2){
-                if (borISetSize(loop + s1) == 0)
-                    continue;
-                addTrans(ts, loop + s1, s1, s1, &all_used_labels);
-
-            }else{
-                borISetIntersect2(&ops, out_ops + s1, in_ops + s2);
-                if (borISetSize(&ops) == 0)
-                    continue;
-
-                addTrans(ts, &ops, s1, s2, &all_used_labels);
-            }
-        }
-    }
-
-    tssInitSetDeadLabels(tss, &all_used_labels);
-    borISetFree(&all_used_labels);
-
-    borISetFree(&ops);
-    borISetFree(&eff);
-    borISetFree(&fset);
-    for (int i = 0; i < mgroup_size; ++i){
-        borISetFree(in_ops + i);
-        borISetFree(out_ops + i);
-        borISetFree(loop + i);
-    }
-    BOR_FREE(in_ops);
-    BOR_FREE(out_ops);
-    BOR_FREE(loop);
-}
-
-static void setInitState(pddl_trans_system_t *ts,
-                         const bor_iset_t *mgroup,
-                         const pddl_strips_t *strips)
-{
-    BOR_ISET(init);
-    borISetIntersect2(&init, mgroup, &strips->init);
-    ASSERT_RUNTIME(borISetSize(&init) == 1);
-    for (int idx = 0; idx < borISetSize(mgroup); ++idx){
-        if (borISetGet(mgroup, idx) == borISetGet(&init, 0)){
-            ts->init_state = idx;
-            break;
-        }
-    }
-    borISetFree(&init);
-}
-
-static void setGoalStates(pddl_trans_system_t *ts,
-                          const bor_iset_t *mgroup,
-                          const pddl_strips_t *strips,
-                          const pddl_mutex_pairs_t *mutex)
-{
-    int mg_size = borISetSize(mgroup);
-    BOR_ISET(goal);
-    borISetIntersect2(&goal, mgroup, &strips->goal);
-    if (borISetSize(&goal) == 0){
-        for (int idx = 0; idx < mg_size; ++idx){
-            int fact = borISetGet(mgroup, idx);
-            if (!pddlMutexPairsIsMutexFactSet(mutex, fact, &strips->goal))
-                borISetAdd(&ts->goal_states, idx);
-        }
-
-    }else{
-        int goal_size = borISetSize(&goal);
-        int goal_id = 0;
-        for (int idx = 0; idx < mg_size && goal_id < goal_size; ++idx){
-            if (borISetGet(mgroup, idx) == borISetGet(&goal, goal_id)){
-                borISetAdd(&ts->goal_states, idx);
-                ++goal_id;
-            }
-        }
-    }
-    borISetFree(&goal);
-}
 
 pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
                                               const pddl_mg_strips_t *mg_strips,
@@ -246,29 +127,12 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
     setInitState(ts, &mg->mgroup, &mg_strips->strips);
     setGoalStates(ts, &mg->mgroup, &mg_strips->strips, mutex);
 
-    constructTransitions(ts, mg_strips, mutex, &mg->mgroup);
+    createTransitionsInProjection(ts, mg_strips, mutex, &mg->mgroup);
     pddlLabeledTransitionsSetSort(&ts->trans);
 
     return ts;
 }
 
-static void copyLabeledTransitions(pddl_trans_system_t *ts,
-                                   pddl_labeled_transitions_set_t *dst,
-                                   const pddl_labeled_transitions_set_t *src)
-{
-    pddl_trans_systems_t *tss = ts->trans_systems;
-    for (int ltri = 0; ltri < src->trans_size; ++ltri){
-        const pddl_labeled_transitions_t *ltr = src->trans + ltri;
-        pddl_label_set_t *label = ltr->label;
-        pddlLabelsSetIncRef(&tss->label, label);
-
-        pddl_labeled_transitions_t *new_ltr;
-        int added;
-        new_ltr = pddlLabeledTransitionsSetAddLabel(dst, label, &added);
-        ASSERT_RUNTIME(added);
-        pddlTransitionsUnion(&new_ltr->trans, &ltr->trans);
-    }
-}
 
 pddl_trans_system_t *pddlTransSystemClone(pddl_trans_systems_t *tss,
                                           const pddl_trans_system_t *ts_in)
@@ -288,46 +152,9 @@ pddl_trans_system_t *pddlTransSystemClone(pddl_trans_systems_t *tss,
     return ts;
 }
 
-static void mergeAddTransitions(pddl_trans_system_t *t,
-                                const pddl_labeled_transitions_t *tr1,
-                                const pddl_labeled_transitions_t *tr2,
-                                const bor_iset_t *label)
-{
-    if (borISetSize(label) == 0)
-        return;
-
-    // TODO: dead labels
-    pddl_labeled_transitions_t *ltr = NULL;
-    for (int tr1i = 0; tr1i < tr1->trans.trans_size; ++tr1i){
-        int f1 = tr1->trans.trans[tr1i].from;
-        int t1 = tr1->trans.trans[tr1i].to;
-        for (int tr2i = 0; tr2i < tr2->trans.trans_size; ++tr2i){
-            int f2 = tr2->trans.trans[tr2i].from;
-            int t2 = tr2->trans.trans[tr2i].to;
-            int from = pddlCascadingTableMergeValue(t->repr, f1, f2);
-            int to = pddlCascadingTableMergeValue(t->repr, t1, t2);
-            ASSERT(from >= 0 && from < t->num_states);
-            ASSERT(to >= 0 && to < t->num_states);
-
-            if (ltr == NULL){
-                pddl_trans_systems_t *tss = t->trans_systems;
-                pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, label);
-                int added;
-                ltr = pddlLabeledTransitionsSetAddLabel(&t->trans, l, &added);
-                if (!added){
-                    ASSERT(l->ref > 1);
-                    pddlLabelsSetDecRef(&tss->label, l);
-                }
-            }
-            pddlTransitionsAdd(&ltr->trans, from, to);
-        }
-    }
-}
-
 pddl_trans_system_t *pddlTransSystemNewMerge(pddl_trans_systems_t *tss,
                                              const pddl_trans_system_t *t1,
-                                             const pddl_trans_system_t *t2,
-                                             const pddl_mutex_pairs_t *mutex)
+                                             const pddl_trans_system_t *t2)
 {
     pddl_trans_system_t *ts = BOR_ALLOC(pddl_trans_system_t);
     bzero(ts, sizeof(*ts));
@@ -336,21 +163,17 @@ pddl_trans_system_t *pddlTransSystemNewMerge(pddl_trans_systems_t *tss,
     ts->num_states = t1->num_states * t2->num_states;
     ts->repr = pddlCascadingTableMerge(t1->repr, t2->repr);
     ASSERT(ts->num_states == pddlCascadingTableSize(ts->repr));
-    // TODO: use mutexes to prune unreachable states if possible
 
     // Construct transitions by iterating over all pairs of transitions
     // from both t1 and t2
     pddlLabeledTransitionsSetInit(&ts->trans);
-    BOR_ISET(label);
     for (int t1i = 0; t1i < t1->trans.trans_size; ++t1i){
         const pddl_labeled_transitions_t *tr1 = t1->trans.trans + t1i;
         for (int t2i = 0; t2i < t2->trans.trans_size; ++t2i){
             const pddl_labeled_transitions_t *tr2 = t2->trans.trans + t2i;
-            borISetIntersect2(&label, &tr1->label->label, &tr2->label->label);
-            mergeAddTransitions(ts, tr1, tr2, &label);
+            mergeTransitions(ts, tr1, tr2);
         }
     }
-    borISetFree(&label);
     pddlLabeledTransitionsSetSort(&ts->trans);
 
     // Set initial state
@@ -367,16 +190,6 @@ pddl_trans_system_t *pddlTransSystemNewMerge(pddl_trans_systems_t *tss,
     return ts;
 }
 
-static void freeLabeledTransitions(pddl_trans_system_t *ts)
-{
-    pddl_trans_systems_t *tss = ts->trans_systems;
-    for (int ti = 0; ti < ts->trans.trans_size; ++ti){
-        pddl_labeled_transitions_t *t = ts->trans.trans + ti;
-        pddlLabelsSetDecRef(&tss->label, t->label);
-    }
-    pddlLabeledTransitionsSetFree(&ts->trans);
-}
-
 void pddlTransSystemDel(pddl_trans_system_t *ts)
 {
     borISetFree(&ts->mgroup_ids);
@@ -386,6 +199,7 @@ void pddlTransSystemDel(pddl_trans_system_t *ts)
     BOR_FREE(ts);
 }
 
+// TODO: dead-labels
 static void removeDeadLabels(pddl_trans_systems_t *tss,
                              pddl_trans_system_t *ts)
 {
@@ -421,21 +235,6 @@ static void removeDeadLabels(pddl_trans_systems_t *tss,
     pddlLabeledTransitionsSetSort(&ts->trans);
 }
 
-static int transSystemsAddTS(pddl_trans_systems_t *tss,
-                             pddl_trans_system_t *ts)
-{
-    if (tss->ts_size == tss->ts_alloc){
-        if (tss->ts_alloc == 0)
-            tss->ts_alloc = 4;
-        tss->ts_alloc *= 2;
-        tss->ts = BOR_REALLOC_ARR(tss->ts, pddl_trans_system_t *,
-                                  tss->ts_alloc);
-    }
-
-    int ts_id = tss->ts_size++;
-    tss->ts[ts_id] = ts;
-    return ts_id;
-}
 
 void pddlTransSystemsInit(pddl_trans_systems_t *tss,
                           const pddl_mg_strips_t *mg_strips,
@@ -501,13 +300,10 @@ int pddlTransSystemsCloneTransSystem(pddl_trans_systems_t *tss, int tid)
     return transSystemsAddTS(tss, ts);
 }
 
-int pddlTransSystemsMerge(pddl_trans_systems_t *tss,
-                          int t1,
-                          int t2,
-                          const pddl_mutex_pairs_t *mutex)
+int pddlTransSystemsMerge(pddl_trans_systems_t *tss, int t1, int t2)
 {
     pddl_trans_system_t *ts;
-    ts = pddlTransSystemNewMerge(tss, tss->ts[t1], tss->ts[t2], mutex);
+    ts = pddlTransSystemNewMerge(tss, tss->ts[t1], tss->ts[t2]);
     return transSystemsAddTS(tss, ts);
 }
 
@@ -656,4 +452,294 @@ void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss, FILE *fout)
 {
     for (int i = 0; i < tss->ts_size; ++i)
         pddlTransSystemPrintDebug2(tss, i, fout);
+}
+
+
+
+static int indexOfFactWithinMGroup(const pddl_trans_systems_t *tss,
+                                   int mgroup_id,
+                                   int fact)
+{
+    const pddl_mgroup_idx_pairs_t *p = tss->fact_to_mgroup + fact;
+    for (int i = 0; i < p->mgroup_idx_size; ++i){
+        if (p->mgroup_idx[i].mg_id == mgroup_id)
+            return p->mgroup_idx[i].fact_idx;
+    }
+    return -1;
+}
+
+static void addTrans(pddl_trans_system_t *ts,
+                     const bor_iset_t *label,
+                     int from,
+                     int to,
+                     bor_iset_t *all_used_labels)
+{
+    pddl_trans_systems_t *tss = ts->trans_systems;
+    pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, label);
+    if (pddlLabeledTransitionsSetAdd(&ts->trans, l, from, to) == 1){
+        pddlLabelsSetDecRef(&tss->label, l);
+    }else{
+        borISetUnion(all_used_labels, &l->label);
+    }
+}
+
+static void _findInOutLoopOps(pddl_trans_systems_t *tss,
+                              pddl_trans_system_t *ts,
+                              const pddl_mg_strips_t *mg_strips,
+                              const pddl_mutex_pairs_t *mutex,
+                              const bor_iset_t *mgroup,
+                              bor_iset_t *in_ops,
+                              bor_iset_t *out_ops,
+                              bor_iset_t *loop)
+{
+    BOR_ISET(fset);
+    BOR_ISET(eff);
+    int mgroup_id = borISetGet(&ts->mgroup_ids, 0);
+    int mgroup_size = borISetSize(mgroup);
+    const bor_iset_t *dead_labels = &tss->dead_labels;
+
+    int dead_size = borISetSize(dead_labels);
+    int dead_cur = 0;
+    for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id){
+        // Skip dead labels
+        if (dead_cur < dead_size && borISetGet(dead_labels, dead_cur) == op_id){
+            ++dead_cur;
+            continue;
+        }
+
+        const pddl_strips_op_t *op = mg_strips->strips.op.op[op_id];
+
+        // First find out if it deletes any fact from the current mutex
+        // group
+        borISetIntersect2(&fset, &op->del_eff, mgroup);
+        if (borISetSize(&fset) > 0){
+            //ASSERT(borISetSize(&fset) == 1);
+            int fact;
+            BOR_ISET_FOR_EACH(&fset, fact){
+                int deleted_idx = indexOfFactWithinMGroup(tss, mgroup_id, fact);
+                // This operator can be outgoing label for the deleted fact
+                borISetAdd(out_ops + deleted_idx, op_id);
+            }
+        }
+
+        if (borISetSize(&fset) == 0 || borISetIsDisjoint(mgroup, &op->pre)){
+            // If no fact from this mutex group is deleted, then this
+            // operator is on the loop of all facts that are not mutex with
+            // the precondition or the effect.
+            // But also, if a fact from this mutex group is deleted, but
+            // this fact is not in the precondition, then we don't know
+            // where the operator will be applied, so it still can be on a
+            // loop of other facts.
+            // Note, that we assume that mutex contains all mutex pairs
+            // from all mutex groups (at least).
+            borISetMinus2(&eff, &op->pre, &op->del_eff);
+            borISetUnion(&eff, &op->add_eff);
+            for (int idx = 0; idx < mgroup_size; ++idx){
+                int fact = borISetGet(mgroup, idx);
+                if (!borISetIn(fact, &fset)
+                        && !pddlMutexPairsIsMutexFactSet(mutex, fact, &op->pre)
+                        && !pddlMutexPairsIsMutexFactSet(mutex, fact, &eff)){
+                    borISetAdd(loop + idx, op_id);
+                }
+            }
+        }
+
+        // Incoming transitions are only those that add some fact from this
+        // mutex group
+        borISetIntersect2(&fset, &op->add_eff, mgroup);
+        if (borISetSize(&fset) > 0){
+            // Skip operators that can produce only unreachable states
+            if (borISetSize(&fset) > 1)
+                continue;
+            //ASSERT(borISetSize(&fset) == 1);
+            int fact = borISetGet(&fset, 0);
+            int fact_idx = indexOfFactWithinMGroup(tss, mgroup_id, fact);
+            borISetAdd(in_ops + fact_idx, op_id);
+            // Add it also on the loop if the operator can be applied on
+            // the state that contains the fact that is in the add effect
+            if (!pddlMutexPairsIsMutexFactSet(mutex, fact, &op->pre))
+                borISetAdd(loop + fact_idx, op_id);
+        }
+    }
+    borISetFree(&fset);
+    borISetFree(&eff);
+}
+
+static void createTransitionsInProjection(pddl_trans_system_t *ts,
+                                          const pddl_mg_strips_t *mg_strips,
+                                          const pddl_mutex_pairs_t *mutex,
+                                          const bor_iset_t *mgroup)
+{
+    pddl_trans_systems_t *tss = ts->trans_systems;
+    int mgroup_size = borISetSize(mgroup);
+    bor_iset_t *in_ops = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
+    bor_iset_t *out_ops = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
+    bor_iset_t *loop = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
+    BOR_ISET(ops);
+
+    // Find outgoing, incoming and loop transitions separately
+    _findInOutLoopOps(tss, ts, mg_strips, mutex, mgroup, in_ops, out_ops, loop);
+
+    // TODO: Remove detection of dead labels and move it to a separate
+    // function
+    BOR_ISET(all_used_labels);
+    for (int s1 = 0; s1 < mgroup_size; ++s1){
+        for (int s2 = 0; s2 < mgroup_size; ++s2){
+            if (s1 == s2){
+                if (borISetSize(loop + s1) == 0)
+                    continue;
+                addTrans(ts, loop + s1, s1, s1, &all_used_labels);
+
+            }else{
+                borISetIntersect2(&ops, out_ops + s1, in_ops + s2);
+                if (borISetSize(&ops) == 0)
+                    continue;
+
+                addTrans(ts, &ops, s1, s2, &all_used_labels);
+            }
+        }
+    }
+
+    tssInitSetDeadLabels(tss, &all_used_labels);
+    borISetFree(&all_used_labels);
+
+    borISetFree(&ops);
+    for (int i = 0; i < mgroup_size; ++i){
+        borISetFree(in_ops + i);
+        borISetFree(out_ops + i);
+        borISetFree(loop + i);
+    }
+    BOR_FREE(in_ops);
+    BOR_FREE(out_ops);
+    BOR_FREE(loop);
+}
+
+static void setInitState(pddl_trans_system_t *ts,
+                         const bor_iset_t *mgroup,
+                         const pddl_strips_t *strips)
+{
+    BOR_ISET(init);
+    borISetIntersect2(&init, mgroup, &strips->init);
+    ASSERT_RUNTIME(borISetSize(&init) == 1);
+    for (int idx = 0; idx < borISetSize(mgroup); ++idx){
+        if (borISetGet(mgroup, idx) == borISetGet(&init, 0)){
+            ts->init_state = idx;
+            break;
+        }
+    }
+    borISetFree(&init);
+}
+
+static void setGoalStates(pddl_trans_system_t *ts,
+                          const bor_iset_t *mgroup,
+                          const pddl_strips_t *strips,
+                          const pddl_mutex_pairs_t *mutex)
+{
+    int mg_size = borISetSize(mgroup);
+    BOR_ISET(goal);
+    borISetIntersect2(&goal, mgroup, &strips->goal);
+    if (borISetSize(&goal) == 0){
+        for (int idx = 0; idx < mg_size; ++idx){
+            int fact = borISetGet(mgroup, idx);
+            if (!pddlMutexPairsIsMutexFactSet(mutex, fact, &strips->goal))
+                borISetAdd(&ts->goal_states, idx);
+        }
+
+    }else{
+        int goal_size = borISetSize(&goal);
+        int goal_id = 0;
+        for (int idx = 0; idx < mg_size && goal_id < goal_size; ++idx){
+            if (borISetGet(mgroup, idx) == borISetGet(&goal, goal_id)){
+                borISetAdd(&ts->goal_states, idx);
+                ++goal_id;
+            }
+        }
+    }
+    borISetFree(&goal);
+}
+
+static void copyLabeledTransitions(pddl_trans_system_t *ts,
+                                   pddl_labeled_transitions_set_t *dst,
+                                   const pddl_labeled_transitions_set_t *src)
+{
+    pddl_trans_systems_t *tss = ts->trans_systems;
+    for (int ltri = 0; ltri < src->trans_size; ++ltri){
+        const pddl_labeled_transitions_t *ltr = src->trans + ltri;
+        pddl_label_set_t *label = ltr->label;
+        pddlLabelsSetIncRef(&tss->label, label);
+
+        pddl_labeled_transitions_t *new_ltr;
+        int added;
+        new_ltr = pddlLabeledTransitionsSetAddLabel(dst, label, &added);
+        ASSERT_RUNTIME(added);
+        pddlTransitionsUnion(&new_ltr->trans, &ltr->trans);
+    }
+}
+
+static void mergeTransitions(pddl_trans_system_t *t,
+                             const pddl_labeled_transitions_t *tr1,
+                             const pddl_labeled_transitions_t *tr2)
+{
+    BOR_ISET(label);
+    borISetIntersect2(&label, &tr1->label->label, &tr2->label->label);
+    // Remove dead labels
+    if (borISetSize(&label) > 0)
+        borISetMinus(&label, &t->trans_systems->dead_labels);
+    if (borISetSize(&label) == 0){
+        borISetFree(&label);
+        return;
+    }
+
+    pddl_labeled_transitions_t *ltr = NULL;
+    for (int tr1i = 0; tr1i < tr1->trans.trans_size; ++tr1i){
+        int f1 = tr1->trans.trans[tr1i].from;
+        int t1 = tr1->trans.trans[tr1i].to;
+        for (int tr2i = 0; tr2i < tr2->trans.trans_size; ++tr2i){
+            int f2 = tr2->trans.trans[tr2i].from;
+            int t2 = tr2->trans.trans[tr2i].to;
+            int from = pddlCascadingTableMergeValue(t->repr, f1, f2);
+            int to = pddlCascadingTableMergeValue(t->repr, t1, t2);
+            ASSERT(from >= 0 && from < t->num_states);
+            ASSERT(to >= 0 && to < t->num_states);
+
+            if (ltr == NULL){
+                pddl_trans_systems_t *tss = t->trans_systems;
+                pddl_label_set_t *l = pddlLabelsAddSet(&tss->label, &label);
+                int added;
+                ltr = pddlLabeledTransitionsSetAddLabel(&t->trans, l, &added);
+                if (!added){
+                    ASSERT(l->ref > 1);
+                    pddlLabelsSetDecRef(&tss->label, l);
+                }
+            }
+            pddlTransitionsAdd(&ltr->trans, from, to);
+        }
+    }
+    borISetFree(&label);
+}
+
+static void freeLabeledTransitions(pddl_trans_system_t *ts)
+{
+    pddl_trans_systems_t *tss = ts->trans_systems;
+    for (int ti = 0; ti < ts->trans.trans_size; ++ti){
+        pddl_labeled_transitions_t *t = ts->trans.trans + ti;
+        pddlLabelsSetDecRef(&tss->label, t->label);
+    }
+    pddlLabeledTransitionsSetFree(&ts->trans);
+}
+
+static int transSystemsAddTS(pddl_trans_systems_t *tss,
+                             pddl_trans_system_t *ts)
+{
+    if (tss->ts_size == tss->ts_alloc){
+        if (tss->ts_alloc == 0)
+            tss->ts_alloc = 4;
+        tss->ts_alloc *= 2;
+        tss->ts = BOR_REALLOC_ARR(tss->ts, pddl_trans_system_t *,
+                                  tss->ts_alloc);
+    }
+
+    int ts_id = tss->ts_size++;
+    tss->ts[ts_id] = ts;
+    return ts_id;
 }
