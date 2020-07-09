@@ -20,6 +20,7 @@
 #ifndef __PDDL_SET_H__
 #define __PDDL_SET_H__
 
+#include <stdio.h>
 #include <boruvka/hashset.h>
 #include <boruvka/iset.h>
 
@@ -78,6 +79,8 @@ _bor_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
     for (int i = 0; i < pddlSetISetSize(src); ++i)
         pddlSetISetAdd(dst, pddlSetISetGet(src, i));
 }
+
+void pddlISetPrintCompressed(const bor_iset_t *set, FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

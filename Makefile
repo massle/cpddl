@@ -45,6 +45,7 @@ OBJS += h2
 OBJS += h3
 OBJS += disambiguation
 OBJS += bitset
+OBJS += set
 OBJS += fdr_var
 OBJS += fdr_part_state
 OBJS += fdr_op
@@ -92,6 +93,7 @@ OBJS += transition
 OBJS += label
 OBJS += labeled_transition
 OBJS += trans_system
+OBJS += trans_system_graph
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 

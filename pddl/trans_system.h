@@ -108,6 +108,10 @@ void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
 void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss,
                                  const pddl_strips_t *strips,
                                  FILE *fout);
+void pddlTransSystemPrintDebug2(const pddl_trans_systems_t *tss,
+                                const pddl_strips_t *strips,
+                                int ts_id,
+                                FILE *fout);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

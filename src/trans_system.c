@@ -18,6 +18,7 @@
  */
 
 #include <boruvka/alloc.h>
+#include "pddl/set.h"
 #include "pddl/trans_system.h"
 #include "assert.h"
 
@@ -504,10 +505,10 @@ void pddlTransSystemsPrintTS(const pddl_trans_systems_t *tss,
     }
 }
 
-void pddlTransSystemsPrintTS2(const pddl_trans_systems_t *tss,
-                              const pddl_strips_t *strips,
-                              int ts_id,
-                              FILE *fout)
+void pddlTransSystemPrintDebug2(const pddl_trans_systems_t *tss,
+                                const pddl_strips_t *strips,
+                                int ts_id,
+                                FILE *fout)
 {
     const pddl_trans_system_t *ts = tss->ts[ts_id];
     fprintf(fout, "TS: id: %d, num-states: %d", ts_id, ts->num_states);
@@ -521,35 +522,8 @@ void pddlTransSystemsPrintTS2(const pddl_trans_systems_t *tss,
     for (int ti = 0; ti < ts->trans.trans_size; ++ti){
         const pddl_labeled_transitions_t *trans = ts->trans.trans + ti;
         fprintf(fout, " (");
-        const bor_iset_t *lbs = &trans->label->label;
-        for (int i = 0; i < borISetSize(lbs); ++i){
-            if (i != 0)
-                fprintf(fout, " ");
-            if (i == borISetSize(lbs) - 1){
-                fprintf(fout, "%d", borISetGet(lbs, i));
-            }else{
-                int j;
-                for (j = i + 1; j < borISetSize(lbs)
-                        && borISetGet(lbs, j) == borISetGet(lbs, j - 1) + 1;
-                        ++j);
-                if (j - 1 == i){
-                    fprintf(fout, "%d", borISetGet(lbs, i));
-                }else{
-                    fprintf(fout, "%d-%d",
-                            borISetGet(lbs, i), borISetGet(lbs, j - 1));
-                }
-                i = j - 1;
-            }
-        }
-        /*
-        fprintf(fout, "|");
-        int op;
-        BOR_ISET_FOR_EACH(&trans->label->label, op){
-            fprintf(fout, " ");
-            fprintf(fout, "%d", op);
-        }
-        */
-        fprintf(fout, "):[");
+        pddlISetPrintCompressed(&trans->label->label, fout);
+        fprintf(fout, ")/%d:[", trans->label->cost);
         //fprintf(fout, " %d:[", borISetSize(&trans->label->label));
         for (int i = 0; i < trans->trans.trans_size; ++i){
             if (i != 0)
@@ -575,5 +549,5 @@ void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss,
                                  FILE *fout)
 {
     for (int i = 0; i < tss->ts_size; ++i)
-        pddlTransSystemsPrintTS2(tss, strips, i, fout);
+        pddlTransSystemPrintDebug2(tss, strips, i, fout);
 }
