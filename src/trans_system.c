@@ -288,6 +288,7 @@ void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
     }
     freeLabeledTransitions(ts);
     ts->trans = trans;
+    pddlLabeledTransitionsSetSort(&ts->trans);
 
     for (int i = 0; i < labels_size; ++i)
         borISetFree(labels + i);
