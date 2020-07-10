@@ -176,6 +176,11 @@ void pddlTransSystemDel(pddl_trans_system_t *ts)
     BOR_FREE(ts);
 }
 
+int pddlTransSystemMGroupState(const pddl_trans_system_t *ts, int *state)
+{
+    return pddlCascadingTableValueFromState(ts->repr, state);
+}
+
 
 void pddlTransSystemsInit(pddl_trans_systems_t *tss,
                           const pddl_mg_strips_t *mg_strips,
@@ -382,10 +387,10 @@ void pddlTransSystemsRemoveDeadLabelsFromAll(pddl_trans_systems_t *tss)
         pddlTransSystemsRemoveDeadLabels(tss, tsi);
 }
 
-void pddlTransSystemsPrintTS(const pddl_trans_systems_t *tss,
-                             const pddl_strips_t *strips,
-                             int ts_id,
-                             FILE *fout)
+void pddlTransSystemPrintDebug1(const pddl_trans_systems_t *tss,
+                                const pddl_strips_t *strips,
+                                int ts_id,
+                                FILE *fout)
 {
     const pddl_trans_system_t *ts = tss->ts[ts_id];
     fprintf(fout, "TS: id: %d, num-states: %d\n", ts_id, ts->num_states);
@@ -457,7 +462,7 @@ void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
                                  FILE *fout)
 {
     for (int i = 0; i < tss->ts_size; ++i)
-        pddlTransSystemsPrintTS(tss, strips, i, fout);
+        pddlTransSystemPrintDebug1(tss, strips, i, fout);
 }
 
 void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss, FILE *fout)
@@ -466,6 +471,32 @@ void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss, FILE *fout)
         pddlTransSystemPrintDebug2(tss, i, fout);
 }
 
+void pddlTransSystemsSetMGroupState(const pddl_trans_systems_t *tss,
+                                    const bor_iset_t *state,
+                                    int *mgroup_state)
+{
+    for (int i = 0; i < tss->mgroup.mgroup_size; ++i)
+        mgroup_state[i] = -1;
+    int fact;
+    BOR_ISET_FOR_EACH(state, fact){
+        const pddl_mgroup_idx_pairs_t *mp = tss->fact_to_mgroup + fact;
+        for (int i = 0; i < mp->mgroup_idx_size; ++i){
+            const pddl_mgroup_idx_pair_t *p = mp->mgroup_idx + i;
+            mgroup_state[p->mg_id] = p->fact_idx;
+        }
+    }
+}
+
+int pddlTransSystemsStripsState(const pddl_trans_systems_t *tss,
+                                int ts_id,
+                                const bor_iset_t *strips_state)
+{
+    int state[tss->mgroup.mgroup_size];
+    pddlTransSystemsSetMGroupState(tss, strips_state, state);
+
+    const pddl_trans_system_t *ts = tss->ts[ts_id];
+    return pddlTransSystemMGroupState(ts, state);
+}
 
 
 static int indexOfFactWithinMGroup(const pddl_trans_systems_t *tss,

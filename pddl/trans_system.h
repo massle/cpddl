@@ -128,9 +128,20 @@ int pddlTransSystemsCollectDeadLabelsFromAll(pddl_trans_systems_t *tss);
 void pddlTransSystemsRemoveDeadLabels(pddl_trans_systems_t *tss, int ts_id);
 void pddlTransSystemsRemoveDeadLabelsFromAll(pddl_trans_systems_t *tss);
 
+/**
+ * Returns ID of the TS's state corresponding to strips_state.
+ */
+int pddlTransSystemsStripsState(const pddl_trans_systems_t *tss,
+                                int ts_id,
+                                const bor_iset_t *strips_state);
+
 void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
                                  const pddl_strips_t *strips,
                                  FILE *fout);
+void pddlTransSystemPrintDebug1(const pddl_trans_systems_t *tss,
+                                const pddl_strips_t *strips,
+                                int ts_id,
+                                FILE *fout);
 void pddlTransSystemsPrintDebug2(const pddl_trans_systems_t *tss, FILE *fout);
 void pddlTransSystemPrintDebug2(const pddl_trans_systems_t *tss,
                                 int ts_id,
