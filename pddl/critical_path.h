@@ -48,6 +48,11 @@ int pddlH2(const pddl_strips_t *strips,
            bor_err_t *err);
 
 /**
+ * Returns true if the given state is detected as a dead-end state with h^2
+ */
+int pddlH2IsDeadEnd(const pddl_strips_t *strips, const bor_iset_t *state);
+
+/**
  * Compute h^2 reachability in forward/backward.
  * unreachable_facts and unreachable_ops can be set to NULL.
  *

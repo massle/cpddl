@@ -367,12 +367,12 @@ static void setOutput(const h2_t *h2,
         outUnreachableOps(h2, unreachable_ops);
 }
 
-
-int pddlH2(const pddl_strips_t *strips,
-           pddl_mutex_pairs_t *m,
-           bor_iset_t *unreachable_facts,
-           bor_iset_t *unreachable_ops,
-           bor_err_t *err)
+static int h2State(const pddl_strips_t *strips,
+                   const bor_iset_t *init_state,
+                   pddl_mutex_pairs_t *m,
+                   bor_iset_t *unreachable_facts,
+                   bor_iset_t *unreachable_ops,
+                   bor_err_t *err)
 {
     if (strips->has_cond_eff)
         BOR_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
@@ -387,7 +387,7 @@ int pddlH2(const pddl_strips_t *strips,
     h2Init(&h2, strips, m, unreachable_facts, unreachable_ops, err);
     h2InitOpFact(&h2, &strips->op, err);
 
-    setFwInit(&h2, &strips->init);
+    setFwInit(&h2, init_state);
     h2Run(&h2, &strips->op, err);
 
     setOutput(&h2, m, unreachable_facts, unreachable_ops);
@@ -400,6 +400,40 @@ int pddlH2(const pddl_strips_t *strips,
 
     h2Free(&h2);
     return 0;
+}
+
+int pddlH2(const pddl_strips_t *strips,
+           pddl_mutex_pairs_t *m,
+           bor_iset_t *unreachable_facts,
+           bor_iset_t *unreachable_ops,
+           bor_err_t *err)
+{
+    return h2State(strips, &strips->init, m, unreachable_facts,
+                   unreachable_ops, err);
+}
+
+int pddlH2IsDeadEnd(const pddl_strips_t *strips, const bor_iset_t *state)
+{
+    pddl_mutex_pairs_t mutex;
+    pddlMutexPairsInitStrips(&mutex, strips);
+    h2State(strips, state, &mutex, NULL, NULL, NULL);
+    int is_dead = 0;
+    for (int i = 0; i < borISetSize(&strips->goal) && !is_dead; ++i){
+        int f1 = borISetGet(&strips->goal, i);
+        if (pddlMutexPairsIsMutex(&mutex, f1, f1)){
+            is_dead = 1;
+            break;
+        }
+        for (int j = i + 1; j < borISetSize(&strips->goal) && !is_dead; ++j){
+            int f2 = borISetGet(&strips->goal, j);
+            if (pddlMutexPairsIsMutex(&mutex, f1, f2)){
+                is_dead = 1;
+                break;
+            }
+        }
+    }
+    pddlMutexPairsFree(&mutex);
+    return is_dead;
 }
 
 static void setBwInit(h2_t *h2, const bor_iset_t *goal_in)
