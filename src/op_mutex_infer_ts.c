@@ -38,89 +38,18 @@ static void setMemLimit(size_t mem_in_mb)
     setrlimit(RLIMIT_AS, &mem_limit);
 }
 
-struct op_mutex {
-    int from;
-    int to;
-    int count_fw;
-    int count_bw;
-    bor_list_t htable;
-} bor_packed;
-typedef struct op_mutex op_mutex_t;
-
-struct op_mutex_infer {
-    int num_states;
-    int num_ops;
-    const pddl_trans_system_t *ts;
-    bor_iset_t *op_start; /*!< Maps states to operators that start there */
-    bor_iset_t *op_end; /*!< Maps states to operators that end there */
-    int *op_count_start; /*!< Maps operators to the number of start states */
-    int *op_count_end; /*!< Maps operators to the number of end states */
+struct op_mutex_infer_op {
+    bor_iset_t start;
+    bor_iset_t end;
 };
-typedef struct op_mutex_infer op_mutex_infer_t;
+typedef struct op_mutex_infer_op op_mutex_infer_op_t;
 
 
-static bor_htable_key_t opMutexHash(const bor_list_t *key, void *ud)
+static op_mutex_infer_op_t *opAlloc(const pddl_trans_system_t *ts, int num_ops)
 {
-    op_mutex_t *om = BOR_LIST_ENTRY(key, op_mutex_t, htable);
-    return borFastHash_64(om, sizeof(int) * 2, 13);
-}
+    op_mutex_infer_op_t *ops;
 
-static int opMutexEq(const bor_list_t *k1, const bor_list_t *k2, void *u)
-{
-    op_mutex_t *o1 = BOR_LIST_ENTRY(k1, op_mutex_t, htable);
-    op_mutex_t *o2 = BOR_LIST_ENTRY(k2, op_mutex_t, htable);
-    return o1->from == o2->from && o1->to == o2->to;
-}
-
-static int _added = 0;
-static void addOpMutexDirect(bor_htable_t *htable, int from, int to)
-{
-    op_mutex_t *opm = BOR_ALLOC(op_mutex_t);
-    if (from < to){
-        opm->from = from;
-        opm->to = to;
-    }else{
-        opm->from = to;
-        opm->to = from;
-    }
-    opm->count_fw = 0;
-    opm->count_bw = 0;
-    borListInit(&opm->htable);
-
-    bor_list_t *found;
-    if ((found = borHTableInsertUnique(htable, &opm->htable)) != NULL){
-        BOR_FREE(opm);
-        opm = BOR_LIST_ENTRY(found, op_mutex_t, htable);
-    }else{
-        ++_added;
-    }
-
-    if (from < to){
-        ++opm->count_fw;
-    }else{
-        ++opm->count_bw;
-    }
-}
-
-static int isOpMutex(const op_mutex_infer_t *opms, const op_mutex_t *opm)
-{
-    return opm->count_fw
-            == opms->op_count_end[opm->from] * opms->op_count_start[opm->to]
-        && opm->count_bw
-            == opms->op_count_end[opm->to] * opms->op_count_start[opm->from];
-}
-
-
-static void opMutexInferInit(op_mutex_infer_t *opms,
-                             const pddl_trans_system_t *ts)
-{
-    bzero(opms, sizeof(*opms));
-    opms->num_states = ts->num_states;
-    opms->num_ops = ts->trans_systems->label.label_size;
-    opms->ts = ts;
-
-    opms->op_start = BOR_CALLOC_ARR(bor_iset_t, opms->num_states);
-    opms->op_end = BOR_CALLOC_ARR(bor_iset_t, opms->num_states);
+    ops = BOR_CALLOC_ARR(op_mutex_infer_op_t, num_ops);
     for (int ltri = 0; ltri < ts->trans.trans_size; ++ltri){
         const pddl_labeled_transitions_t *ltr = ts->trans.trans + ltri;
         pddlISetPrintCompressed(&ltr->label->label, stderr);
@@ -129,139 +58,128 @@ static void opMutexInferInit(op_mutex_infer_t *opms,
             int from = ltr->trans.trans[tri].from;
             int to = ltr->trans.trans[tri].to;
             fprintf(stderr, " %d->%d", from, to);
-            borISetUnion(opms->op_start + from, &ltr->label->label);
-            borISetUnion(opms->op_end + to, &ltr->label->label);
+
+            int op;
+            BOR_ISET_FOR_EACH(&ltr->label->label, op){
+                borISetAdd(&ops[op].start, from);
+                borISetAdd(&ops[op].end, to);
+            }
         }
         fprintf(stderr, "\n");
     }
 
-    opms->op_count_start = BOR_CALLOC_ARR(int, opms->num_ops);
-    opms->op_count_end = BOR_CALLOC_ARR(int, opms->num_ops);
-    for (int s = 0; s < opms->num_states; ++s){
-        int op;
-        BOR_ISET_FOR_EACH(opms->op_start + s, op)
-            opms->op_count_start[op] += 1;
-        BOR_ISET_FOR_EACH(opms->op_end + s, op)
-            opms->op_count_end[op] += 1;
-    }
+    return ops;
 }
 
-static void opMutexInferFree(op_mutex_infer_t *opms)
+static void opFree(op_mutex_infer_op_t *ops, int num_ops)
 {
-    BOR_FREE(opms->op_count_start);
-    BOR_FREE(opms->op_count_end);
-    for (int i = 0; i < opms->num_states; ++i){
-        borISetFree(opms->op_start + i);
-        borISetFree(opms->op_end + i);
+    for (int o = 0; o < num_ops; ++o){
+        borISetFree(&ops[o].start);
+        borISetFree(&ops[o].end);
     }
-    BOR_FREE(opms->op_start);
-    BOR_FREE(opms->op_end);
+    BOR_FREE(ops);
 }
 
-static int opMutexInfer(op_mutex_infer_t *opms,
+static int *reachabilityAlloc(const pddl_trans_system_t *ts)
+{
+    pddl_trans_system_graph_t graph;
+    pddlTransSystemGraphInit(&graph, ts);
+
+    bor_iset_t *reach_state = BOR_CALLOC_ARR(bor_iset_t, ts->num_states);
+    pddlTransSystemGraphFwReachability(&graph, reach_state, 1);
+    int *reach = BOR_CALLOC_ARR(int, ts->num_states * ts->num_states);
+    for (int s = 0; s < ts->num_states; ++s){
+        int from;
+        BOR_ISET_FOR_EACH(reach_state + s, from){
+            reach[from * ts->num_states + s] = 1;
+        }
+    }
+    pddlTransSystemGraphFree(&graph);
+    for (int s = 0; s < ts->num_states; ++s)
+        borISetFree(reach_state + s);
+    BOR_FREE(reach_state);
+
+    return reach;
+}
+
+static void reachabilityFree(int *reach)
+{
+    BOR_FREE(reach);
+}
+
+static int isOpMutex(const op_mutex_infer_op_t *ops,
+                     int num_states,
+                     const int *reach,
+                     int o1,
+                     int o2)
+{
+    int start, end;
+    BOR_ISET_FOR_EACH(&ops[o1].end, end){
+        BOR_ISET_FOR_EACH(&ops[o2].start, start){
+            if (reach[end * num_states + start])
+                return 0;
+        }
+    }
+    BOR_ISET_FOR_EACH(&ops[o2].end, end){
+        BOR_ISET_FOR_EACH(&ops[o1].start, start){
+            if (reach[end * num_states + start])
+                return 0;
+        }
+    }
+    return 1;
+}
+
+static void addOpMutex(int o1, int o2, int fd, pddl_op_mutex_pairs_t *m)
+{
+    if (fd >= 0){
+        int data[2] = { o1, o2 };
+        ssize_t written = write(fd, data, sizeof(int) * 2);
+        while (written != sizeof(int) * 2){
+            void *buf = ((char *)data) + written;
+            written += write(fd, buf, sizeof(int) * 2 - written);
+        }
+    }
+
+    if (m != NULL){
+        pddlOpMutexPairsAdd(m, o1, o2);
+    }
+}
+
+static int opMutexInfer(const pddl_trans_systems_t *tss,
+                        int ts_id,
                         int fd,
                         pddl_op_mutex_pairs_t *m,
                         bor_err_t *err)
 {
-    pddl_trans_system_graph_t graph;
-    pddlTransSystemGraphInit(&graph, opms->ts);
+    const pddl_trans_system_t *ts = tss->ts[ts_id];
+    int num_ops = tss->label.label_size;
+    int dead_size = borISetSize(&tss->dead_labels);
+    const bor_iset_t *dead = &tss->dead_labels;
+    int *reach = reachabilityAlloc(ts);
+    op_mutex_infer_op_t *op = opAlloc(ts, num_ops);
 
-    bor_iset_t *reach_state = BOR_CALLOC_ARR(bor_iset_t, opms->num_states);
-    pddlTransSystemGraphFwReachability(&graph, reach_state, 1);
-
-    _added = 0;
-    bor_timer_t timer;
-    borTimerStart(&timer);
-    bor_htable_t *htable = borHTableNew(opMutexHash, opMutexEq, NULL);
-    for (int start = 0; start < opms->num_states; ++start){
-        /*
-        int end = 0;
-        for (int i = 0; i < borISetSize(reach_state + start); ++end){
-            int r_state = borISetGet(reach_state + start, i);
-            if (r_state == end){
-                ++i;
-            }else{
-                fprintf(stderr, "S %d %d\n",
-                        borISetSize(opms->op_end + end),
-                        borISetSize(opms->op_start + start));
-                int op_from;
-                BOR_ISET_FOR_EACH(opms->op_end + end, op_from){
-                    int op_to;
-                    BOR_ISET_FOR_EACH(opms->op_start + start, op_to){
-                        if (op_from != op_to){
-                            addOpMutexDirect(htable, op_from, op_to);
-                        }
-                    }
-                }
-            }
+    int dead1 = 0;
+    for (int o1 = 0; o1 < num_ops; ++o1){
+        if (dead1 < dead_size && borISetGet(dead, dead1) == o1){
+            ++dead1;
+            continue;
         }
-        for (; end < opms->num_states; ++end){
-            int op_from;
-            BOR_ISET_FOR_EACH(opms->op_end + end, op_from){
-                int op_to;
-                BOR_ISET_FOR_EACH(opms->op_start + start, op_to){
-                    if (op_from != op_to){
-                        addOpMutexDirect(htable, op_from, op_to);
-                    }
-                }
+        int dead2 = dead1;
+        for (int o2 = o1 + 1; o2 < num_ops; ++o2){
+            if (dead2 < dead_size && borISetGet(dead, dead2) == o2){
+                ++dead2;
+                continue;
             }
-        }
-        */
-        for (int end = 0; end < opms->num_states; ++end){
-            // If start is not reachable from end, then iterate overall
-            // operators that are on transitions x->end and start->y and
-            // record that start->y cannot appear after x->end.
-            if (!borISetIn(end, reach_state + start)){
-                int op_from;
-                BOR_ISET_FOR_EACH(opms->op_end + end, op_from){
-                    int op_to;
-                    BOR_ISET_FOR_EACH(opms->op_start + start, op_to){
-                        if (op_from != op_to){
-                            addOpMutexDirect(htable, op_from, op_to);
-                        }
-                    }
-                }
-            }
-            fprintf(stderr, "S-E %d-%d -- %d\n", start, end, _added);
+            if (isOpMutex(op, ts->num_states, reach, o1, o2))
+                addOpMutex(o1, o2, fd, m);
         }
     }
-    borTimerStop(&timer);
-    fprintf(stderr, "T5 %.2f %d %d -- %d\n", borTimerElapsedInSF(&timer),
-            opms->num_states, opms->num_ops, _added);
-    _added = 0;
 
-    bor_list_t list;
-    borListInit(&list);
-    borHTableGather(htable, &list);
-    while (!borListEmpty(&list)){
-        bor_list_t *item = borListNext(&list);
-        borListDel(item);
-        op_mutex_t *opm = BOR_LIST_ENTRY(item, op_mutex_t, htable);
-        if (isOpMutex(opms, opm)){
-            if (fd >= 0){
-                int data[2] = { opm->from, opm->to };
-                ssize_t written = write(fd, data, sizeof(int) * 2);
-                while (written != sizeof(int) * 2){
-                    void *buf = ((char *)data) + written;
-                    written += write(fd, buf, sizeof(int) * 2 - written);
-                }
-            }
-
-            if (m != NULL){
-                pddlOpMutexPairsAdd(m, opm->from, opm->to);
-            }
-        }
-        BOR_FREE(opm);
-    }
-    borHTableDel(htable);
-    borTimerStop(&timer);
-    fprintf(stderr, "T6 %.2f %d %d\n", borTimerElapsedInSF(&timer),
-            opms->num_states, opms->num_ops);
-    for (int s = 0; s < opms->num_states; ++s)
-        borISetFree(reach_state + s);
-    BOR_FREE(reach_state);
+    opFree(op, num_ops);
+    reachabilityFree(reach);
     return 0;
 }
+
 
 static int graphVertOnLine(const pddl_trans_system_graph_t *graph,
                            int vert,
@@ -385,6 +303,8 @@ static int transformTransSystemAndFindOpMutexes(int fd,
         }
     }
 
+    pddlTransSystemPrintDebug2(tss, ts_last, stderr);
+
     pddl_trans_system_abstr_map_t map;
     pddlTransSystemAbstrMapInit(&map, tss->ts[ts_last]->num_states);
 
@@ -416,20 +336,32 @@ static int transformTransSystemAndFindOpMutexes(int fd,
     }
     pddlSetISetFree(&comp);
 
+    for (int i = 0; i < tss->ts[ts_last]->num_states; ++i)
+        fprintf(stderr, " %d->%d", i, map.map[i]);
+    fprintf(stderr, "\n");
     pddlTransSystemAbstrMapFinalize(&map);
+    for (int i = 0; i < tss->ts[ts_last]->num_states; ++i)
+        fprintf(stderr, " %d->%d", i, map.map[i]);
+    fprintf(stderr, "\n");
     pddlTransSystemsAbstract(tss, ts_last, &map);
     pddlTransSystemAbstrMapFree(&map);
     pddlTransSystemGraphFree(&graph);
 
+    pddlTransSystemsCollectDeadLabels(tss, ts_last);
+    int dead_op;
+    BOR_ISET_FOR_EACH(&tss->dead_labels, dead_op){
+        for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
+            if (dead_op != op_id)
+                addOpMutex(dead_op, op_id, fd, m);
+        }
+    }
+
+    fprintf(stderr, "Condensed:\n");
+    pddlTransSystemPrintDebug2(tss, ts_last, stderr);
     //condenseStraightPaths(tss, ts_last);
 
     if (tss->ts[ts_last]->num_states > 1){
-        op_mutex_infer_t opms;
-        opMutexInferInit(&opms, tss->ts[ts_last]);
-    borTimerStop(&timer);
-    fprintf(stderr, "T4 %.2f\n", borTimerElapsedInSF(&timer));
-        opMutexInfer(&opms, fd, m, err);
-        opMutexInferFree(&opms);
+        opMutexInfer(tss, ts_last, fd, m, err);
     }
     fprintf(stderr, "X %d %d\n", ts_last, tss->ts_size);
     if (borISetSize(ts_ids) > 1){
@@ -574,8 +506,10 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
     bor_timer_t timer;
     borTimerStart(&timer);
     pddlTransSystemsInit(&tss, mg_strips, mutex);
+    pddlTransSystemsCollectDeadLabelsFromAll(&tss);
     borTimerStop(&timer);
-    fprintf(stderr, "T %.2f\n", borTimerElapsedInSF(&timer));
+    fprintf(stderr, "T %.2f %d\n", borTimerElapsedInSF(&timer),
+            borISetSize(&tss.dead_labels));
     fflush(stderr);
     borTimerStart(&timer);
     int ret = findOpMutexesRec(m, &tss, max_mem_in_mb, NULL, merge_size, err);
