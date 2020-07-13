@@ -266,9 +266,12 @@ void pddlTransSystemGraphBwSCC(const pddl_trans_system_graph_t *g,
 }
 
 void pddlTransSystemGraphFwReachability(const pddl_trans_system_graph_t *g,
-                                        bor_iset_t *reachable_from)
+                                        bor_iset_t *reachable_from,
+                                        int consider_empty_paths)
 {
     for (int s = 0; s < g->num_states; ++s){
+        if (consider_empty_paths)
+            borISetAdd(reachable_from + s, s);
         for (int ei = 0; ei < g->bw[s].edge_size; ++ei){
             int next_s = g->bw[s].edge[ei].end;
             borISetAdd(reachable_from + s, next_s);

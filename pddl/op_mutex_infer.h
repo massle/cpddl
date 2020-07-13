@@ -21,6 +21,7 @@
 
 #include <pddl/op_mutex_pair.h>
 #include <pddl/mgroup.h>
+#include <pddl/trans_system.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +62,17 @@ int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
                                  const pddl_mutex_pairs_t *mutex,
                                  const bor_iset_t *ops,
                                  bor_err_t *err);
+
+/**
+ * TODO
+ */
+int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
+                                 const pddl_mg_strips_t *mg_strips,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 int merge_size,
+                                 size_t max_mem_in_mb,
+                                 bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

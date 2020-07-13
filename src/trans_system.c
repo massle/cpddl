@@ -241,6 +241,23 @@ int pddlTransSystemsCloneTransSystem(pddl_trans_systems_t *tss, int tid)
     return transSystemsAddTS(tss, ts);
 }
 
+void pddlTransSystemsDelTransSystem(pddl_trans_systems_t *tss, int tid)
+{
+    if (tss->ts[tid] != NULL)
+        pddlTransSystemDel(tss->ts[tid]);
+    tss->ts[tid] = NULL;
+}
+
+void pddlTransSystemsCleanDeletedTransSystems(pddl_trans_systems_t *tss)
+{
+    int inc = 0;
+    for (int i = 0; i < tss->ts_size; ++i){
+        if (tss->ts[i] != NULL)
+            tss->ts[inc++] = tss->ts[i];
+    }
+    tss->ts_size = inc;
+}
+
 int pddlTransSystemsMerge(pddl_trans_systems_t *tss, int t1, int t2)
 {
     pddl_trans_system_t *ts;

@@ -100,6 +100,17 @@ void pddlTransSystemsFree(pddl_trans_systems_t *tss);
 int pddlTransSystemsCloneTransSystem(pddl_trans_systems_t *tss, int tid);
 
 /**
+ * Delete the specified transition system.
+ */
+void pddlTransSystemsDelTransSystem(pddl_trans_systems_t *tss, int tid);
+
+/**
+ * Remove deleted transition systems from tss->ts[] array -- may change IDs
+ * of transition systems.
+ */
+void pddlTransSystemsCleanDeletedTransSystems(pddl_trans_systems_t *tss);
+
+/**
  * Creates a new transition system that is a synchronized product of TSs t1
  * and t2 (indexes into tss->ts).
  * Returns index of the newly added transition system.

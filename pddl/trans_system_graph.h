@@ -80,9 +80,16 @@ void pddlTransSystemGraphBwSCC(const pddl_trans_system_graph_t *g,
  * {reachable_from} must be an array of bor_iset_t structs of size
  * g->num_states and reachable_from[v] will contain all states from which v
  * is reachable.
+ * If consider_empty_paths is true, then a state s will be always considered
+ * reachable from s. Otherwise, s will be considered reachable from s only
+ * if there is a loop edge in s.
  */
 void pddlTransSystemGraphFwReachability(const pddl_trans_system_graph_t *g,
-                                        bor_iset_t *reachable_from);
+                                        bor_iset_t *reachable_from,
+                                        int consider_empty_paths);
+void pddlTransSystemGraphFwReachability2(const pddl_trans_system_graph_t *g,
+                                         char *reachable,
+                                         int consider_empty_paths);
 
 #ifdef __cplusplus
 } /* extern "C" */
