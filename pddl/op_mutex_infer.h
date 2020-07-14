@@ -49,9 +49,6 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
  * fact f_i into its add_eff. Then run h^2 and mutexes {f_i,f_j} correspond
  * to op-mutexes {o_i,o_j}.
  */
-int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
-                                        const pddl_strips_t *strips,
-                                        bor_err_t *err);
 int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
                                         int m,
                                         const pddl_strips_t *strips,
