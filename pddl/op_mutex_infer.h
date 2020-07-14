@@ -58,7 +58,8 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
  * Run h^2 for each operator from everything that is not mutex with the
  * effect of the operator.
  */
-int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
+int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
+                                 int m,
                                  const pddl_strips_t *strips_in,
                                  const pddl_mutex_pairs_t *mutex,
                                  const bor_iset_t *ops,
