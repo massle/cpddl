@@ -39,6 +39,8 @@ int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err);
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
               bor_err_t *err);
 
+int pddlIsFile(const char *);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

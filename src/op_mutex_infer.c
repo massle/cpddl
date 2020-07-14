@@ -69,8 +69,6 @@ static void opMutexesFromCondensedTS(pddl_op_mutex_pairs_t *m,
 {
     int *reach;
 
-    fprintf(stderr, "FAM %d\n", ts->num_states);
-    pddlTSPrintDebug(ts, stderr);
     // First add an op-mutex for every pair of labels that share both start
     // and end state.
     opMutexesFromSingleTransitions(m, ts);
@@ -111,7 +109,6 @@ static void opMutexesFromCondensedTS(pddl_op_mutex_pairs_t *m,
             }
         }
     }
-    fprintf(stderr, "FAM op-mutex: %d\n", m->num_op_mutex_pairs);
 
     if (reach != NULL)
         BOR_FREE(reach);
@@ -131,9 +128,6 @@ int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
         const pddl_mgroup_t *mg = mgroup->mgroup + i;
         if (!mg->is_fam_group)
             continue;
-        fprintf(stderr, "FAM MG %d: ", i);
-        pddlISetPrintCompressed(&mg->mgroup, stderr);
-        fprintf(stderr, "\n");
 
         pddl_ts_t ts, tsc;
         pddlTSInitProjToFAMGroup(&ts, strips, &cr, &mg->mgroup);

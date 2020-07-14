@@ -22,13 +22,9 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <boruvka/alloc.h>
-#include <boruvka/htable.h>
-#include <boruvka/hfunc.h>
-#include <boruvka/timer.h>
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
 #include "pddl/trans_system_graph.h"
-#include "pddl/critical_path.h"
 #include "assert.h"
 
 static void setMemLimit(size_t mem_in_mb)
@@ -52,20 +48,15 @@ static op_mutex_infer_op_t *opAlloc(const pddl_trans_system_t *ts, int num_ops)
     ops = BOR_CALLOC_ARR(op_mutex_infer_op_t, num_ops);
     for (int ltri = 0; ltri < ts->trans.trans_size; ++ltri){
         const pddl_labeled_transitions_t *ltr = ts->trans.trans + ltri;
-        pddlISetPrintCompressed(&ltr->label->label, stderr);
-        fprintf(stderr, ":");
         for (int tri = 0; tri < ltr->trans.trans_size; ++tri){
             int from = ltr->trans.trans[tri].from;
             int to = ltr->trans.trans[tri].to;
-            fprintf(stderr, " %d->%d", from, to);
-
             int op;
             BOR_ISET_FOR_EACH(&ltr->label->label, op){
                 borISetAdd(&ops[op].start, from);
                 borISetAdd(&ops[op].end, to);
             }
         }
-        fprintf(stderr, "\n");
     }
 
     return ops;
@@ -180,106 +171,11 @@ static int opMutexInfer(const pddl_trans_systems_t *tss,
     return 0;
 }
 
-
-static int graphVertOnLine(const pddl_trans_system_graph_t *graph,
-                           int vert,
-                           int *fw,
-                           int *bw)
-{
-    if (graph->fw[vert].edge_size > 2 || graph->bw[vert].edge_size > 2)
-        return 0;
-
-    *fw = *bw = -1;
-    for (int i = 0; i < graph->fw[vert].edge_size; ++i){
-        int end = graph->fw[vert].edge[i].end;
-        if (end != vert){
-            if (*fw != -1)
-                return 0;
-            *fw = end;
-        }
-    }
-    for (int i = 0; i < graph->bw[vert].edge_size; ++i){
-        int end = graph->bw[vert].edge[i].end;
-        if (end != vert){
-            if (*bw != -1)
-                return 0;
-            *bw = end;
-        }
-    }
-    return 1;
-}
-
-static void condenseStraightPaths(pddl_trans_systems_t *tss, int tsi)
-{
-    const pddl_trans_system_t *ts = tss->ts[tsi];
-    if (ts->num_states <= 1)
-        return;
-
-
-    pddl_trans_system_graph_t graph;
-    pddlTransSystemGraphInit(&graph, ts);
-    int *used_states = BOR_CALLOC_ARR(int, graph.num_states);
-
-    pddl_set_iset_t conds;
-    pddlSetISetInit(&conds);
-
-    for (int start = 0; start < graph.num_states; ++start){
-        if (used_states[start])
-            continue;
-        used_states[start] = 1;
-        int fw, bw;
-        if (graphVertOnLine(&graph, start, &fw, &bw)){
-            if (fw < 0 && bw < 0)
-                continue;
-            BOR_ISET(cond);
-            borISetAdd(&cond, start);
-            while (fw >= 0){
-                ASSERT(!used_states[fw]);
-                borISetAdd(&cond, fw);
-                used_states[fw] = 1;
-                int _bw;
-                if (!graphVertOnLine(&graph, fw, &fw, &_bw))
-                    break;
-            }
-
-            while (bw >= 0){
-                ASSERT(!used_states[bw]);
-                borISetAdd(&cond, bw);
-                used_states[bw] = 1;
-                int _fw;
-                if (!graphVertOnLine(&graph, bw, &_fw, &bw))
-                    break;
-            }
-            fprintf(stderr, "Cond %d: ", borISetSize(&cond));
-            pddlISetPrintCompressed(&cond, stderr);
-            fprintf(stderr, "\n");
-            pddlSetISetAdd(&conds, &cond);
-            borISetFree(&cond);
-        }
-    }
-
-    if (pddlSetISetSize(&conds) > 0){
-        pddl_trans_system_abstr_map_t map;
-        pddlTransSystemAbstrMapInit(&map, ts->num_states);
-        for (int ci = 0; ci < pddlSetISetSize(&conds); ++ci){
-            const bor_iset_t *c = pddlSetISetGet(&conds, ci);
-            if (borISetSize(c) > 1)
-                pddlTransSystemAbstrMapCondense(&map, c);
-        }
-
-        pddlTransSystemAbstrMapFinalize(&map);
-        pddlTransSystemsAbstract(tss, tsi, &map);
-        pddlTransSystemAbstrMapFree(&map);
-    }
-    pddlSetISetFree(&conds);
-    BOR_FREE(used_states);
-    pddlTransSystemGraphFree(&graph);
-}
-
 static int transformTransSystemAndFindOpMutexes(int fd,
                                                 pddl_op_mutex_pairs_t *m,
                                                 pddl_trans_systems_t *tss,
                                                 const bor_iset_t *ts_ids,
+                                                int prune_dead_labels,
                                                 bor_err_t *err)
 {
     int ts_last;
@@ -303,8 +199,6 @@ static int transformTransSystemAndFindOpMutexes(int fd,
         }
     }
 
-    pddlTransSystemPrintDebug2(tss, ts_last, stderr);
-
     pddl_trans_system_abstr_map_t map;
     pddlTransSystemAbstrMapInit(&map, tss->ts[ts_last]->num_states);
 
@@ -312,18 +206,20 @@ static int transformTransSystemAndFindOpMutexes(int fd,
     pddlTransSystemGraphInit(&graph, tss->ts[ts_last]);
 
     // Remove unreachable/dead-end states
-    int *dist = BOR_ALLOC_ARR(int, graph.num_states);
-    pddlTransSystemGraphFwDist(&graph, dist);
-    for (int i = 0; i < graph.num_states; ++i){
-        if (dist[i] < 0)
-            pddlTransSystemAbstrMapPruneState(&map, i);
+    if (prune_dead_labels){
+        int *dist = BOR_ALLOC_ARR(int, graph.num_states);
+        pddlTransSystemGraphFwDist(&graph, dist);
+        for (int i = 0; i < graph.num_states; ++i){
+            if (dist[i] < 0)
+                pddlTransSystemAbstrMapPruneState(&map, i);
+        }
+        pddlTransSystemGraphBwDist(&graph, dist);
+        for (int i = 0; i < graph.num_states; ++i){
+            if (dist[i] < 0)
+                pddlTransSystemAbstrMapPruneState(&map, i);
+        }
+        BOR_FREE(dist);
     }
-    pddlTransSystemGraphBwDist(&graph, dist);
-    for (int i = 0; i < graph.num_states; ++i){
-        if (dist[i] < 0)
-            pddlTransSystemAbstrMapPruneState(&map, i);
-    }
-    BOR_FREE(dist);
 
     // Condense strongly connected components
     pddl_set_iset_t comp;
@@ -336,39 +232,31 @@ static int transformTransSystemAndFindOpMutexes(int fd,
     }
     pddlSetISetFree(&comp);
 
-    for (int i = 0; i < tss->ts[ts_last]->num_states; ++i)
-        fprintf(stderr, " %d->%d", i, map.map[i]);
-    fprintf(stderr, "\n");
     pddlTransSystemAbstrMapFinalize(&map);
-    for (int i = 0; i < tss->ts[ts_last]->num_states; ++i)
-        fprintf(stderr, " %d->%d", i, map.map[i]);
-    fprintf(stderr, "\n");
     pddlTransSystemsAbstract(tss, ts_last, &map);
     pddlTransSystemAbstrMapFree(&map);
     pddlTransSystemGraphFree(&graph);
 
-    pddlTransSystemsCollectDeadLabels(tss, ts_last);
-    int dead_op;
-    BOR_ISET_FOR_EACH(&tss->dead_labels, dead_op){
-        for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
-            if (dead_op != op_id)
-                addOpMutex(dead_op, op_id, fd, m);
+    if (prune_dead_labels){
+        pddlTransSystemsCollectDeadLabels(tss, ts_last);
+        int dead_op;
+        BOR_ISET_FOR_EACH(&tss->dead_labels, dead_op){
+            for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
+                if (dead_op != op_id)
+                    addOpMutex(dead_op, op_id, fd, m);
+            }
         }
     }
 
-    fprintf(stderr, "Condensed:\n");
-    pddlTransSystemPrintDebug2(tss, ts_last, stderr);
     //condenseStraightPaths(tss, ts_last);
 
     if (tss->ts[ts_last]->num_states > 1){
         opMutexInfer(tss, ts_last, fd, m, err);
     }
-    fprintf(stderr, "X %d %d\n", ts_last, tss->ts_size);
     if (borISetSize(ts_ids) > 1){
         pddlTransSystemsDelTransSystem(tss, ts_last);
         pddlTransSystemsCleanDeletedTransSystems(tss);
     }
-    fprintf(stderr, "X %d %d\n", ts_last, tss->ts_size);
     return 0;
 }
 
@@ -395,10 +283,9 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
                                      pddl_trans_systems_t *tss,
                                      size_t max_mem_in_mb,
                                      const bor_iset_t *ts_ids,
+                                     int prune_dead_labels,
                                      bor_err_t *err)
 {
-    fprintf(stderr, "mem-limit\n");
-    fflush(stderr);
     int fd[2];
 
     if (pipe(fd) < 0){
@@ -406,6 +293,8 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         return -1;
     }
 
+    fflush(stderr);
+    fflush(stdout);
     int pid = fork();
     if (pid < 0){
         perror("Error: Could not fork:");
@@ -417,13 +306,8 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         // close unused read end
         close(fd[0]);
         int r;
-        bor_timer_t timer;
-        borTimerStart(&timer);
-        r = transformTransSystemAndFindOpMutexes(fd[1], NULL, tss, ts_ids, err);
-        borTimerStop(&timer);
-        fprintf(stderr, "T3 %.2f %d\n", borTimerElapsedInSF(&timer),
-                tss->ts[borISetGet(ts_ids, 0)]->num_states);
-        fflush(stderr);
+        r = transformTransSystemAndFindOpMutexes(fd[1], NULL, tss, ts_ids,
+                                                 prune_dead_labels, err);
         close(fd[1]);
         exit(r);
 
@@ -455,12 +339,16 @@ static int findOpMutexesRec(pddl_op_mutex_pairs_t *m,
                             size_t max_mem_mb,
                             const bor_iset_t *ts_ids,
                             int size,
+                            int prune_dead_labels,
                             bor_err_t *err)
 {
     if (size == 0){
-        if (max_mem_mb > 0)
-            return findOpMutexesWithMemLimit(m, tss, max_mem_mb, ts_ids, err);
-        return transformTransSystemAndFindOpMutexes(-1, m, tss, ts_ids, err);
+        if (max_mem_mb > 0){
+            return findOpMutexesWithMemLimit(m, tss, max_mem_mb, ts_ids,
+                                             prune_dead_labels, err);
+        }
+        return transformTransSystemAndFindOpMutexes(-1, m, tss, ts_ids,
+                                                    prune_dead_labels, err);
     }
 
     int ret = 0;
@@ -478,9 +366,8 @@ static int findOpMutexesRec(pddl_op_mutex_pairs_t *m,
         if (borISetSize(&tss->ts[tsi]->mgroup_ids) != 1)
             continue;
         borISetAdd(&ts_ids_next, tsi);
-        ret = findOpMutexesRec(m, tss, max_mem_mb, &ts_ids_next, size - 1, err);
-        fprintf(stderr, "Ret %d -> %d\n", tsi, ret);
-        fflush(stderr);
+        ret = findOpMutexesRec(m, tss, max_mem_mb, &ts_ids_next, size - 1,
+                               prune_dead_labels, err);
         if (ret != 0)
             break;
         borISetRm(&ts_ids_next, tsi);
@@ -494,29 +381,21 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  const pddl_mutex_pairs_t *mutex,
                                  int merge_size,
                                  size_t max_mem_in_mb,
+                                 int prune_dead_labels,
                                  bor_err_t *err)
 {
     BOR_INFO(err, "Computing op-mutex pairs from abstract transition systems."
                   " merge-size: %d", merge_size);
-    fprintf(stderr, "INFER %d %ld\n",
-            mg_strips->strips.op.op_size,
-            (long)mg_strips->strips.op.op_size *
-            (long)mg_strips->strips.op.op_size);
     pddl_trans_systems_t tss;
-    bor_timer_t timer;
-    borTimerStart(&timer);
     pddlTransSystemsInit(&tss, mg_strips, mutex);
-    pddlTransSystemsCollectDeadLabelsFromAll(&tss);
-    borTimerStop(&timer);
-    fprintf(stderr, "T %.2f %d\n", borTimerElapsedInSF(&timer),
-            borISetSize(&tss.dead_labels));
-    fflush(stderr);
-    borTimerStart(&timer);
-    int ret = findOpMutexesRec(m, &tss, max_mem_in_mb, NULL, merge_size, err);
-    borTimerStop(&timer);
-    fprintf(stderr, "T2 %.2f\n", borTimerElapsedInSF(&timer));
+    BOR_INFO(err, "  Created %d atomic abstractions", tss.ts_size);
+    if (prune_dead_labels)
+        pddlTransSystemsCollectDeadLabelsFromAll(&tss);
+    int ret = findOpMutexesRec(m, &tss, max_mem_in_mb, NULL, merge_size,
+                               prune_dead_labels, err);
     pddlTransSystemsFree(&tss);
     BOR_INFO(err, "Computing op-mutex pairs from abstract transition"
-                  "systems DONE (merge-size: %d)", merge_size);
+                  "systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
+                  merge_size, m->num_op_mutex_pairs);
     return ret;
 }

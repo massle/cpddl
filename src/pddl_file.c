@@ -37,7 +37,7 @@ static int isDir(const char *d)
     return 0;
 }
 
-static int isFile(const char *d)
+int pddlIsFile(const char *d)
 {
     struct stat st;
     if (stat(d, &st) == -1)
@@ -92,7 +92,7 @@ static int findDomainReplace(const char *prob_name,
         if (*s != 0x0)
             sprintf(domain_pddl + strlen(domain_pddl), "%s.pddl", s);
 
-        if (isFile(domain_pddl))
+        if (pddlIsFile(domain_pddl))
             return 0;
     }
 
@@ -110,7 +110,7 @@ static int findDomainToProblem(const char *prob, char *domain_pddl)
 
     domain_pddl[dirlen] = 0x0;
     sprintf(domain_pddl + dirlen, "domain_%s.pddl", prob_name);
-    if (isFile(domain_pddl))
+    if (pddlIsFile(domain_pddl))
         return 0;
 
     if (findDomainReplace(prob_name, "problem", "domain",
@@ -132,17 +132,17 @@ static int findDomainToProblem(const char *prob, char *domain_pddl)
 
     domain_pddl[dirlen] = 0x0;
     sprintf(domain_pddl + dirlen, "domain-%s.pddl", prob_name);
-    if (isFile(domain_pddl))
+    if (pddlIsFile(domain_pddl))
         return 0;
 
     domain_pddl[dirlen] = 0x0;
     sprintf(domain_pddl + dirlen, "%s-domain.pddl", prob_name);
-    if (isFile(domain_pddl))
+    if (pddlIsFile(domain_pddl))
         return 0;
 
     domain_pddl[dirlen] = 0x0;
     strcpy(domain_pddl + dirlen, "domain.pddl");
-    if (isFile(domain_pddl))
+    if (pddlIsFile(domain_pddl))
         return 0;
 
     domain_pddl[dirlen] = 0x0;
@@ -150,7 +150,7 @@ static int findDomainToProblem(const char *prob, char *domain_pddl)
     while (strlen(s) > 1 && (s = strstr(s + 1, "-")) != NULL){
         strncpy(domain_pddl + dirlen, prob_name, s - prob_name);
         strcpy(domain_pddl + dirlen + (s - prob_name), "-domain.pddl");
-        if (isFile(domain_pddl))
+        if (pddlIsFile(domain_pddl))
             return 0;
     }
 
@@ -159,7 +159,7 @@ static int findDomainToProblem(const char *prob, char *domain_pddl)
 
 int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err)
 {
-    if (isFile(s)){
+    if (pddlIsFile(s)){
         if (strlen(s) >= PDDL_FILE_MAX_PATH_LEN - 1){
             BOR_ERR_RET2(err, -1, "Path(s) too long.");
         }
@@ -179,7 +179,7 @@ int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err)
         char prob_pddl[MAX_LEN];
         strcpy(prob_pddl, s);
         strcpy(prob_pddl + strlen(prob_pddl), ".pddl");
-        if (isFile(prob_pddl)){
+        if (pddlIsFile(prob_pddl)){
             return pddlFiles1(files, prob_pddl, err);
 
         }else{
@@ -205,7 +205,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
         return pddlFiles1(files, s1, err);
 
     }else{
-        if (isFile(s1) && isFile(s2)){
+        if (pddlIsFile(s1) && pddlIsFile(s2)){
             if (strlen(s1) >= PDDL_FILE_MAX_PATH_LEN - 1
                     || strlen(s2) >= PDDL_FILE_MAX_PATH_LEN - 1){
                 BOR_ERR_RET2(err, -1, "Path(s) too long.");
