@@ -28,13 +28,15 @@ int pddlHm(int m,
            bor_err_t *err)
 {
     if (m == 1){
-        BOR_INFO2(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
-                       " and memory limit");
+        if (time_limit > 0 || excess_memory > 0 || mutex != NULL)
+            BOR_INFO2(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
+                           " and memory limit");
         return pddlH1(strips, unreachable_facts, unreachable_ops, err);
 
     }else if (m == 2){
-        BOR_INFO2(err, "h^2 using pddlHm() ignores time limit"
-                       " and memory limit");
+        if (time_limit > 0 || excess_memory > 0)
+            BOR_INFO2(err, "h^2 using pddlHm() ignores time limit"
+                           " and memory limit");
         return pddlH2(strips, mutex, unreachable_facts, unreachable_ops, err);
 
     }else if (m == 3){

@@ -26,6 +26,7 @@ TARGETS += pddl-pot
 TARGETS += pddl-astar
 TARGETS += pddl-mgroups
 TARGETS += pddl-reversibility
+TARGETS += pddl-op-mutex
 
 all: $(TARGETS)
 

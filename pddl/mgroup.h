@@ -138,6 +138,11 @@ void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs,
 int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size);
 
 /**
+ * Returns the number of exactly-one mutex groups.
+ */
+int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs);
+
+/**
  * Debug print out
  */
 void pddlMGroupsPrint(const pddl_t *pddl,
