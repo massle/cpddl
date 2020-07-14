@@ -52,6 +52,10 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
 int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
                                         const pddl_strips_t *strips,
                                         bor_err_t *err);
+int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
+                                        int m,
+                                        const pddl_strips_t *strips,
+                                        bor_err_t *err);
 
 /**
  * Run h^2 for each operator from everything that is not mutex with the
@@ -64,7 +68,13 @@ int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
                                  bor_err_t *err);
 
 /**
- * TODO
+ * Infer op-mutexes from all abstractions that are constructed as a
+ * synchronized product of {merge_size} atomic abstractions.
+ * If {max_mem_in_mb} is non-zero, the inference is done in a separate
+ * process where the overall limit on the memory heap is set to the
+ * specified limit.
+ * If prune_dead_labels is set to true dead labels are detected during the
+ * creationg of the abstractions and they are used to generate op-mutexes.
  */
 int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  const pddl_mg_strips_t *mg_strips,

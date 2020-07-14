@@ -189,6 +189,68 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
     return 0;
 }
 
+int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
+                                        int m,
+                                        const pddl_strips_t *strips,
+                                        bor_err_t *err)
+{
+    pddl_strips_op_t *op;
+    pddl_strips_t P2;
+    int op_fact_offset;
+
+    BOR_INFO(err, "Op-mutexes using h^%d compilation:", m);
+
+    pddlStripsInitCopy(&P2, strips);
+
+    // Remember ID of the first op-fact
+    op_fact_offset = P2.fact.fact_size;
+
+    // Create a fact for each operator
+    PDDL_STRIPS_OPS_FOR_EACH(&P2.op, op){
+        pddl_fact_t fact;
+        pddlFactInit(&fact);
+        char name[128];
+        sprintf(name, "o%d", op->id);
+        fact.name = name;
+        int fid = pddlFactsAdd(&P2.fact, &fact);
+
+        // add the fact to the corresponding operator's add effect
+        borISetAdd(&op->add_eff, fid);
+        fact.name = NULL;
+        pddlFactFree(&fact);
+    }
+    BOR_INFO2(err, "  --> Modified problem created.");
+
+    pddl_mutex_pairs_t mutex;
+
+    pddlMutexPairsInitStrips(&mutex, &P2);
+    int o1, o2;
+    PDDL_OP_MUTEX_PAIRS_FOR_EACH(opm, o1, o2)
+        pddlMutexPairsAdd(&mutex, op_fact_offset + o1, op_fact_offset + o2);
+
+    if (pddlHm(m, &P2, &mutex, NULL, NULL, 0, 0, err) == 0){
+        BOR_INFO(err, "  --> h^%d computed with %d mutex pairs.",
+                 m, mutex.num_mutex_pairs);
+        int fact_size = P2.fact.fact_size;
+        for (int i = op_fact_offset; i < fact_size; ++i){
+            for (int j = i + 1; j < fact_size; ++j){
+                if (pddlMutexPairsIsMutex(&mutex, i, j)){
+                    pddlOpMutexPairsAdd(opm, i - op_fact_offset,
+                                             j - op_fact_offset);
+                }
+            }
+        }
+    }else{
+        BOR_ERR(err, "h^%d failed!", m);
+    }
+    pddlMutexPairsFree(&mutex);
+
+    pddlStripsFree(&P2);
+
+    BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(opm));
+    return 0;
+}
+
 int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
                                         const pddl_strips_t *strips,
                                         bor_err_t *err)

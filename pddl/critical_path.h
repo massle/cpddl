@@ -67,12 +67,24 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                bor_err_t *err);
 
 /**
- * Compute h^3 reachability in forward/backward.
+ * Compute h^3 reachability.
  * unreachable_facts and unreachable_ops can be set to NULL.
  * time_limit is disabled by setting it to <= 0.
  */
 int pddlH3(const pddl_strips_t *strips,
            pddl_mutex_pairs_t *m,
+           bor_iset_t *unreachable_facts,
+           bor_iset_t *unreachable_ops,
+           float time_limit,
+           size_t excess_memory,
+           bor_err_t *err);
+
+/**
+ * Computes h^m: This is a wrapper around the functions above.
+ */
+int pddlHm(int m,
+           const pddl_strips_t *strips,
+           pddl_mutex_pairs_t *mutex,
            bor_iset_t *unreachable_facts,
            bor_iset_t *unreachable_ops,
            float time_limit,

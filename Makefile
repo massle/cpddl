@@ -43,6 +43,7 @@ OBJS += irrelevance
 OBJS += h1
 OBJS += h2
 OBJS += h3
+OBJS += hm
 OBJS += disambiguation
 OBJS += bitset
 OBJS += set
