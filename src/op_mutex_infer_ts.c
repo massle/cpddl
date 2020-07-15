@@ -248,8 +248,6 @@ static int transformTransSystemAndFindOpMutexes(int fd,
         }
     }
 
-    //condenseStraightPaths(tss, ts_last);
-
     if (tss->ts[ts_last]->num_states > 1){
         opMutexInfer(tss, ts_last, fd, m, err);
     }
@@ -321,9 +319,17 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         int wstatus;
         waitpid(pid, &wstatus, 0);
         if (WIFEXITED(wstatus)){
-            if (WEXITSTATUS(wstatus) != 0)
+            if (WEXITSTATUS(wstatus) != 0){
+                BOR_ERR2(err, "Inference of op-mutexes failed.");
                 ret = -1;
+            }
+        }else if (WIFSIGNALED(wstatus)){
+            int signum = WTERMSIG(wstatus);
+            BOR_ERR(err, "Inference of op-mutexes failed: received signal"
+                         "'%s'", strsignal(signum));
+            ret = -1;
         }else{
+            BOR_ERR2(err, "Inference of op-mutexes failed for unknown reason");
             // TODO: analyase what happened!
             // TODO: Handle out of memory error printout in child!
             ret = -1;

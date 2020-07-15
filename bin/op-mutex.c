@@ -20,6 +20,10 @@ struct options {
     int fam_lmg;
     int h2_mgroup;
 
+    int hm;
+    float hm_time_limit;
+    int hm_excess_mem;
+
     int op_mutex_ts;
     int op_mutex_op_fact;
     int op_mutex_hm_op;
@@ -64,6 +68,9 @@ static int readOpts(int *argc, char *argv[])
     opt.op_mutex_ts = -1;
     opt.op_mutex_op_fact = -1;
     opt.op_mutex_hm_op = -1;
+    opt.hm = 2;
+    opt.hm_time_limit = 0;
+    opt.hm_excess_mem = 0;
 
     pddl_cfg.force_adl = 1;
 
@@ -113,6 +120,15 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("h2mg", 0x0, OPTS_NONE, &opt.h2_mgroup, NULL,
                 "Infer h^2 based mutex groups. (default: off)");
 
+    optsAddDesc("hm", 0x0, OPTS_INT, &opt.hm, NULL,
+                "Infer mutexes from h^m as input to op-mutex inference"
+                " methods. Values <=1 disable h^m. (default: 2)");
+    optsAddDesc("hm-time-limit", 0x0, OPTS_FLOAT, &opt.hm_time_limit, NULL,
+                "Time limit in seconds for the h^m method."
+                " (default: 0 == disabled)");
+    optsAddDesc("hm-excess-mem", 0x0, OPTS_INT, &opt.hm_excess_mem, NULL,
+                "Excess memory in MB for the h^m method."
+                " (default: 0 == disabled)");
     optsAddDesc("opm-ts", 0x0, OPTS_INT, &opt.op_mutex_ts, NULL,
                 "Infer op-mutexes using abstractions. (default: off)");
     optsAddDesc("opm-op-fact", 0x0, OPTS_INT, &opt.op_mutex_op_fact, NULL,
@@ -336,7 +352,7 @@ static int inferMutexGroups(void)
     }else if (opt.h2_mgroup){
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);
-        if (pddlH2(&strips, &mutex, NULL, NULL, &err) != 0){
+        if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -415,7 +431,7 @@ static int pruneStripsFixpointH2FwBw(void)
         pddlMutexPairsFree(&mutex);
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
-                       &rm_fact, &rm_op, &err) != 0){
+                       &rm_fact, &rm_op, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw/bw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -468,9 +484,14 @@ static int inferOpMutex(void)
 
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
-    if (pddlH2(&mg_strips.strips, &mutex, NULL, NULL, &err) != 0){
-        BOR_INFO2(&err, "h^2 failed.");
-        BOR_TRACE_RET(&err, -1);
+    pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
+    if (opt.hm >= 2){
+        size_t excess_mem = 1024L * 1024L * opt.hm_excess_mem;
+        if (pddlHm(opt.hm, &mg_strips.strips, &mutex, NULL, NULL,
+                   opt.hm_time_limit, excess_mem, &err) != 0){
+            BOR_INFO2(&err, "h^2 failed.");
+            BOR_TRACE_RET(&err, -1);
+        }
     }
 
     pddl_op_mutex_pairs_t opm;

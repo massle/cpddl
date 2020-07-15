@@ -41,3 +41,21 @@ void pddlISetPrintCompressed(const bor_iset_t *set, FILE *fout)
         }
     }
 }
+
+void pddlISetPrint(const bor_iset_t *set, FILE *fout)
+{
+    int not_first = 0;
+    int v;
+    BOR_ISET_FOR_EACH(set, v){
+        if (not_first)
+            fprintf(fout, " ");
+        fprintf(fout, "%d", v);
+        not_first = 1;
+    }
+}
+
+void pddlISetPrintln(const bor_iset_t *set, FILE *fout)
+{
+    pddlISetPrint(set, fout);
+    fprintf(fout, "\n");
+}

@@ -45,6 +45,7 @@ int pddlH2(const pddl_strips_t *strips,
            pddl_mutex_pairs_t *m,
            bor_iset_t *unreachable_facts,
            bor_iset_t *unreachable_ops,
+           float time_limit_in_s,
            bor_err_t *err);
 
 /**
@@ -64,6 +65,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                pddl_mutex_pairs_t *m,
                bor_iset_t *unreachable_facts,
                bor_iset_t *unreachable_ops,
+               float time_limit_in_s,
                bor_err_t *err);
 
 /**

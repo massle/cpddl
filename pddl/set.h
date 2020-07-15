@@ -81,6 +81,8 @@ _bor_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
 }
 
 void pddlISetPrintCompressed(const bor_iset_t *set, FILE *fout);
+void pddlISetPrint(const bor_iset_t *set, FILE *fout);
+void pddlISetPrintln(const bor_iset_t *set, FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

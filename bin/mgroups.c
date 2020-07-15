@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
         if (o.h2_mutex){
             pddl_mutex_pairs_t mutex;
             pddlMutexPairsInitStrips(&mutex, &strips);
-            pddlH2(&strips, &mutex, NULL, NULL, &err);
+            pddlH2(&strips, &mutex, NULL, NULL, 0., &err);
             if (o.h2_mgroup){
                 pddlMGroupsInitEmpty(&h2_mgroups);
                 pddlMutexPairsInferMutexGroups(&mutex, &h2_mgroups);

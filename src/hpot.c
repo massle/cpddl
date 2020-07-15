@@ -821,7 +821,7 @@ int pddlHPotInit(pddl_hpot_t *hpot,
         pddlMGStripsInitFDR(&mg_strips, fdr);
         pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
         pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
-        pddlH2(&mg_strips.strips, &mutex, NULL, NULL, err);
+        pddlH2(&mg_strips.strips, &mutex, NULL, NULL, 0., err);
     }
 
     // Initialize potential heuristic

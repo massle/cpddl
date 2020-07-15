@@ -281,13 +281,6 @@ static void opMutexHmFromOp(pddl_op_mutex_pairs_t *opm,
     }
     borISetFree(&init);
 
-    /*
-    BOR_ISET(op_mutex);
-    pddlOpMutexPairsMutexWith(m, op->id, &op_mutex);
-    pddlStripsDisableOps(&strips, &op_mutex);
-    borISetFree(&op_mutex);
-    */
-
     BOR_ISET(unreach_ops);
     pddlMutexPairsInitCopy(&hm_mutex, mutex);
     if (pddlHm(m, &strips, &hm_mutex, NULL, &unreach_ops, 0, 0, err) != 0){

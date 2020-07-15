@@ -34,10 +34,10 @@ int pddlHm(int m,
         return pddlH1(strips, unreachable_facts, unreachable_ops, err);
 
     }else if (m == 2){
-        if (time_limit > 0 || excess_memory > 0)
-            BOR_INFO2(err, "h^2 using pddlHm() ignores time limit"
-                           " and memory limit");
-        return pddlH2(strips, mutex, unreachable_facts, unreachable_ops, err);
+        if (excess_memory > 0)
+            BOR_INFO2(err, "h^2 using pddlHm() ignores the memory limit");
+        return pddlH2(strips, mutex, unreachable_facts, unreachable_ops,
+                      time_limit, err);
 
     }else if (m == 3){
         return pddlH3(strips, mutex, unreachable_facts, unreachable_ops,
