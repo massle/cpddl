@@ -1027,6 +1027,8 @@ static int mgroupsAndPruning(void)
     return 0;
 }
 
+
+#include <pddl/endomorphism.h>
 static int toFDR(void)
 {
     BOR_INFO2(&err, "");
@@ -1043,6 +1045,7 @@ static int toFDR(void)
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
+    pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
     closeFile(fout);
