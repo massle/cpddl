@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -136,6 +136,11 @@ void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs,
  * needed to cover all facts.
  */
 int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size);
+
+/**
+ * Returns the number of exactly-one mutex groups.
+ */
+int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs);
 
 /**
  * Debug print out

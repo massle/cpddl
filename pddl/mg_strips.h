@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -41,6 +41,10 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_mgroups_t *mgroups);
 void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr);
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
+
+void pddlMGStripsReduce(pddl_mg_strips_t *mg_strips,
+                        const bor_iset_t *del_facts,
+                        const bor_iset_t *del_ops);
 
 
 double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,

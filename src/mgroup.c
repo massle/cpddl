@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -741,6 +741,16 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     borLPDel(lp);
 
     return cover_number;
+}
+
+int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs)
+{
+    int cnt = 0;
+    for (int i = 0; i < mgs->mgroup_size; ++i){
+        if (mgs->mgroup[i].is_exactly_one)
+            ++cnt;
+    }
+    return cnt;
 }
 
 void pddlMGroupsPrint(const pddl_t *pddl,

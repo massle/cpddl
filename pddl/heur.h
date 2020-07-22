@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -55,6 +55,16 @@ pddl_heur_t *pddlHeurFlow(const pddl_fdr_t *fdr, bor_err_t *err);
  * LM-Cut heuristic
  */
 pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, bor_err_t *err);
+
+/**
+ * h^max heuristic
+ */
+pddl_heur_t *pddlHeurHMax(const pddl_fdr_t *fdr, bor_err_t *err);
+
+/**
+ * h^add heuristic
+ */
+pddl_heur_t *pddlHeurHAdd(const pddl_fdr_t *fdr, bor_err_t *err);
 
 /**
  * Destructor

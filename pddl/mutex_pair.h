@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -103,6 +103,13 @@ int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
  */
 int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
                                 const bor_iset_t *fs1, const bor_iset_t *fs2);
+
+/**
+ * Add to {mutex_with} facts that are mutex with {fact}.
+ */
+void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
+                                int fact,
+                                bor_iset_t *mutex_with);
 
 /**
  * Resize the struct and remap fact IDs according to remap.

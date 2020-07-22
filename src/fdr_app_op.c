@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -19,7 +19,7 @@
 #include <boruvka/alloc.h>
 #include <boruvka/sort.h>
 #include "pddl/fdr_app_op.h"
-#include "pddl/causal_graph.h"
+#include "pddl/cg.h"
 #include "assert.h"
 
 /**
@@ -224,26 +224,22 @@ static void treeDel(pddl_fdr_app_op_tree_t *tree)
     BOR_FREE(tree);
 }
 
-static void appOpInit(pddl_fdr_app_op_t *app,
+void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
+                      const pddl_fdr_vars_t *vars,
                       const pddl_fdr_ops_t *ops,
-                      int var_size,
-                      const pddl_causal_graph_t *cg)
+                      const pddl_fdr_part_state_t *goal)
 {
     int *sorted_ops = NULL;
 
     app->ops = ops;
 
-    // Copy var_order to internal storage
-    app->var_size = var_size;
-    app->var_order = BOR_ALLOC_ARR(int, var_size + 1);
-    memcpy(app->var_order, cg->var_order,
-           sizeof(int) * cg->var_order_size);
-    for (int ins = cg->var_order_size, i = 0;
-            ins < var_size && i < var_size; ++i){
-        if (!cg->important_var[i])
-            app->var_order[ins++] = i;
-    }
-    app->var_order[var_size] = -1;
+    app->var_size = vars->var_size;
+    app->var_order = BOR_ALLOC_ARR(int, vars->var_size + 1);
+    pddl_cg_t cg;
+    pddlCGInit(&cg, vars, ops, 0);
+    pddlCGVarOrdering(&cg, goal, app->var_order);
+    pddlCGFree(&cg);
+    app->var_order[vars->var_size] = -1;
 
     if (ops->op_size > 0)
         sorted_ops = sortedOps(app);
@@ -252,19 +248,6 @@ static void appOpInit(pddl_fdr_app_op_t *app,
 
     if (sorted_ops)
         BOR_FREE(sorted_ops);
-}
-
-void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
-                      const pddl_fdr_vars_t *vars,
-                      const pddl_fdr_ops_t *ops,
-                      const pddl_fdr_part_state_t *goal)
-{
-    pddl_causal_graph_t *cg;
-    cg = pddlCausalGraphNew(vars->var_size);
-    pddlCausalGraphBuildFromOps(cg, ops);
-    pddlCausalGraph(cg, goal);
-    appOpInit(app, ops, vars->var_size, cg);
-    pddlCausalGraphDel(cg);
 }
 
 void pddlFDRAppOpFree(pddl_fdr_app_op_t *app)

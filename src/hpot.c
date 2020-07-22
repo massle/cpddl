@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -821,7 +821,7 @@ int pddlHPotInit(pddl_hpot_t *hpot,
         pddlMGStripsInitFDR(&mg_strips, fdr);
         pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
         pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
-        pddlH2(&mg_strips.strips, &mutex, NULL, NULL, err);
+        pddlH2(&mg_strips.strips, &mutex, NULL, NULL, 0., err);
     }
 
     // Initialize potential heuristic
@@ -843,6 +843,17 @@ int pddlHPotInit(pddl_hpot_t *hpot,
         BOR_INFO(err, "Pot: Solved for the initial state: %d", ret);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES){
+        pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
+        if ((ret = solve(hpot, &pot)) == 0)
+            addFunc(hpot);
+        BOR_INFO(err, "Pot: Solved for all states: %d", ret);
+
+    }else if (cfg->obj == PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES){
+        pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
+        if ((ret = solve(hpot, &pot)) == 0)
+            addFunc(hpot);
+        BOR_INFO(err, "Pot: Solved for the initial state: %d", ret);
+
         pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
         if ((ret = solve(hpot, &pot)) == 0)
             addFunc(hpot);

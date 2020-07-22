@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -36,7 +36,7 @@ static int pddlPruneFDRH2FwBw(pddl_fdr_t *fdr, bor_err_t *err)
         BOR_INFO2(err, "Skipping h^2, because FDR has conditional effects.");
 
     }else if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
-                         &rm_fact, &rm_op, err) != 0){
+                         &rm_fact, &rm_op, 0., err) != 0){
         BOR_TRACE_RET(err, -1);
     }
 
