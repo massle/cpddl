@@ -84,6 +84,7 @@ OBJS += op_mutex_pair
 OBJS += op_mutex_infer
 OBJS += op_mutex_sym_redundant
 OBJS += reversibility
+OBJS += endomorphism
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
 
