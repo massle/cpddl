@@ -611,8 +611,18 @@ void pddlPruneWithEndomorphism(const pddl_fdr_t *fdr,
                                bor_err_t *err)
 {
     static const char *tmp_xml_file = "/tmp/prob.xml";
-    static const char *picat_bin = "/home/danfis/dev/csp/Picat/picat";
-    static const char *picat_xcsp = "/home/danfis/dev/csp/Picat/xcsp.pi";
+    static const char *_picat_bin = "/home/danfis/dev/csp/Picat/picat";
+    static const char *_picat_xcsp = "/home/danfis/dev/csp/Picat/xcsp.pi";
+    char picat_bin[128];
+    char picat_xcsp[128];
+    const char *picat_dir = NULL;
+    if ((picat_dir = getenv("PICAT_DIR")) != NULL){
+        sprintf(picat_bin, "%s/picat", picat_dir);
+        sprintf(picat_xcsp, "%s/xcsp.pi", picat_dir);
+    }else{
+        strcpy(picat_bin, _picat_bin);
+        strcpy(picat_xcsp, _picat_xcsp);
+    }
 
     BOR_INFO2(err, "Endomorphisms on FDR ...");
     pddl_endomorphism_fdr_csp_t end;
