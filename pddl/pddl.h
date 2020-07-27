@@ -83,6 +83,7 @@
 #include <pddl/op_mutex_sym_redundant.h>
 #include <pddl/time_limit.h>
 #include <pddl/reversibility.h>
+#include <pddl/invertibility.h>
 #include <pddl/cascading_table.h>
 #include <pddl/transition.h>
 #include <pddl/label.h>
