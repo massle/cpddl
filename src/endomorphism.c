@@ -229,9 +229,9 @@ static void setOpPreConstr(pddl_endomorphism_fdr_csp_t *e,
     int op_cost = op->cost;
     int op_id;
     BOR_ISET_FOR_EACH(group, op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
         if (op->cost > op_cost)
             continue;
-        const pddl_fdr_op_t *op = fdr->op.op[op_id];
         int *val = constrAddVal(c);
         val[0] = op_id;
         for (int fi = 0; fi < op->pre.fact_size; ++fi)
