@@ -323,6 +323,12 @@ void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
     BOR_FREE(remove);
 }
 
+void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops)
+{
+    for (int i = 0; i < ops->op_size; ++i)
+        ops->op[i]->cost = 1;
+}
+
 static int opCmp(const void *a, const void *b, void *_)
 {
     pddl_strips_op_t *o1 = *(pddl_strips_op_t **)a;

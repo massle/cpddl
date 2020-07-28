@@ -213,6 +213,11 @@ void pddlStripsOpsRemoveFacts(pddl_strips_ops_t *ops, const bor_iset_t *facts);
 void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops);
 
 /**
+ * Set costs of all operators to 1
+ */
+void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops);
+
+/**
  * Sort operators by name.
  */
 void pddlStripsOpsSort(pddl_strips_ops_t *ops);
