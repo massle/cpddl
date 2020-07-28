@@ -36,11 +36,14 @@ struct pddl_fdr {
 };
 typedef struct pddl_fdr pddl_fdr_t;
 
+#define PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE 0x1
+
 int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mg,
                           const pddl_mutex_pairs_t *mutex,
                           unsigned fdr_var_flags,
+                          unsigned fdr_flags,
                           bor_err_t *err);
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);

@@ -51,6 +51,7 @@ pddl_strips_t strips;
 pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
 unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+unsigned fdr_flag = 0u;
 
 static FILE *openFile(const char *fn)
 {
@@ -1032,6 +1033,28 @@ static int toFDR(void)
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Translating to FDR ...");
     BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
+    {
+    pddl_invertible_mgroups_t mgs;
+    pddlInvertibleMGroupsFind(&mgs, &strips, &mgroups, &mutex, &err);
+    pddl_mgroups_t mgroups2;
+    pddlMGroupsInitEmpty(&mgroups2);
+    for (int i = 0; i < mgroups.mgroup_size; ++i){
+        BOR_ISET(facts);
+        borISetMinus2(&facts, &mgroups.mgroup[i].mgroup, &mgs.invertible_fact);
+        if (borISetSize(&facts) > 1)
+            pddlMGroupsAdd(&mgroups2, &facts);
+        borISetFree(&facts);
+    }
+    for (int i = 0; i < mgs.mgroup_size; ++i)
+        pddlMGroupsAdd(&mgroups2, &mgs.mgroup[i].mgroup);
+    //pddlMGroupsPrint(&pddl, &mg_strips.strips, &mgroups, stderr);
+    pddlMGroupsSetExactlyOne(&mgroups2, &strips);
+    pddlMGroupsSetGoal(&mgroups2, &strips);
+    pddlMGroupsFree(&mgroups);
+    mgroups = mgroups2;
+    pddlMGroupsPrint(&pddl, &strips, &mgroups, stderr);
+    fdr_flag = PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE;
+    }
 
     fdr_var_flag = opt.fdr_var_method;
     FILE *fout = openFile(opt.fdr_out);
@@ -1041,7 +1064,8 @@ static int toFDR(void)
     }
 
     pddl_fdr_t fdr;
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
+                          fdr_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
     pddlFDRFree(&fdr);
 

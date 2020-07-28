@@ -417,10 +417,12 @@ int main(int argc, char *argv[])
     // Construct FDR
     pddl_fdr_t fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+    unsigned fdr_flag = 0;
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, &strips);
     pddlMutexPairsAddMGroups(&mutex, &mgroups);
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
+                          fdr_flag, &err);
     if (pddlPruneFDR(&fdr, &err) != 0){
         BOR_INFO2(&err, "Pruning failed.");
         fprintf(stderr, "Error: ");
