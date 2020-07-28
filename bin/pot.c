@@ -452,7 +452,7 @@ int main(int argc, char *argv[])
             return -1;
         }
     }
-    pddlFDRPrintFD(&fdr, NULL, fout);
+    pddlFDRPrintFD(&fdr, NULL, 1, fout);
     printPotentials(&fdr, &hpot, fout);
     if (fout != stdout)
         fclose(fout);

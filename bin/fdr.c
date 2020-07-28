@@ -1066,7 +1066,7 @@ static int toFDR(void)
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                           fdr_flag, &err);
-    pddlFDRPrintFD(&fdr, &mgroups, fout);
+    pddlFDRPrintFD(&fdr, &mgroups, 1, fout);
     pddlFDRFree(&fdr);
 
     closeFile(fout);

@@ -79,6 +79,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,
+                    int use_fd_fact_names,
                     FILE *fout);
 
 #ifdef __cplusplus

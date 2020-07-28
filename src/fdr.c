@@ -164,8 +164,34 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
     borISetFree(&del_facts);
 }
 
+static void printFDFactName(const pddl_fdr_var_t *var, int val, FILE *fout)
+{
+    if (val == var->val_none_of_those){
+        fprintf(fout, "<none of those>\n");
+    }else{
+        fprintf(fout, "Atom ");
+        int pred_found = 0;
+        for (const char *nc = var->val[val].name; *nc != 0; ++nc){
+            if (*nc == ' '){
+                if (!pred_found){
+                    fprintf(fout, "(");
+                    pred_found = 1;
+                }else{
+                    fprintf(fout, ", ");
+                }
+            }else{
+                fprintf(fout, "%c", *nc);
+            }
+        }
+        if (!pred_found)
+            fprintf(fout, "(");
+        fprintf(fout, ")\n");
+    }
+}
+
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mg,
+                    int use_fd_fact_names,
                     FILE *fout)
 {
     fprintf(fout, "begin_version\n3\nend_version\n");
@@ -179,8 +205,13 @@ void pddlFDRPrintFD(const pddl_fdr_t *fdr,
         fprintf(fout, "var%d\n", vi);
         fprintf(fout, "-1\n");
         fprintf(fout, "%d\n", var->val_size);
-        for (int vali = 0; vali < var->val_size; ++vali)
-            fprintf(fout, "%s\n", var->val[vali].name);
+        for (int vali = 0; vali < var->val_size; ++vali){
+            if (use_fd_fact_names){
+                printFDFactName(var, vali, fout);
+            }else{
+                fprintf(fout, "%s\n", var->val[vali].name);
+            }
+        }
         fprintf(fout, "end_variable\n");
     }
 
