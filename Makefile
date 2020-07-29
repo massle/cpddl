@@ -6,6 +6,11 @@ CFLAGS += -Wno-sizeof-pointer-div
 CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 
+CPPFLAGS += -Wno-ignored-attributes
+CPPFLAGS += -I.
+CPPFLAGS += $(BORUVKA_CFLAGS)
+CPPFLAGS += $(CPOPTIMIZER_CPPFLAGS)
+
 CPPCHECK_FLAGS += --platform=unix64 --enable=all -I. -Ithird-party/boruvka
 
 TARGETS  = libpddl.a
@@ -86,7 +91,9 @@ OBJS += op_mutex_sym_redundant
 OBJS += reversibility
 OBJS += endomorphism
 
-OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
+OBJS_CPP = endomorphism
+
+OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
 all: $(TARGETS)
 
@@ -111,6 +118,10 @@ pddl/config.h:
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h
+	$(CXX) $(CPPFLAGS) -c -o $@ $<
+.objs/%.cpp.o: src/%.cpp pddl/config.h
+	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
 %.h: pddl/config.h
 %.c: pddl/config.h

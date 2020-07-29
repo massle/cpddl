@@ -1045,7 +1045,8 @@ static int toFDR(void)
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
-    pddlPruneWithEndomorphism(&fdr, NULL, &err);
+    //pddlPruneWithEndomorphism(&fdr, NULL, &err);
+    pddlEndomorphismFindMaximal(&fdr, &err);
     pddlFDRFree(&fdr);
 
     closeFile(fout);

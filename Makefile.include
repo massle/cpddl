@@ -30,6 +30,7 @@ ifeq '$(PROFIL)' 'yes'
 endif
 CFLAGS += -Wall -pedantic --std=gnu99
 CFLAGS += -Wno-missing-braces
+CPPFLAGS += -Wall -pedantic
 
 ifeq '$(WERROR)' 'yes'
   CFLAGS += -Werror
@@ -142,6 +143,8 @@ help:
 	@echo "    LPSOLVE_CFLAGS  = $(LPSOLVE_CFLAGS)"
 	@echo "    LPSOLVE_LDFLAGS = $(LPSOLVE_LDFLAGS)"
 	@echo "    LP_LDFLAGS      = $(LP_LDFLAGS)"
+	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
+	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
 	@echo
 	@echo "Boruvka make variables: $(_BOR_MAKE_DEF)"
 

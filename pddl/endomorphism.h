@@ -29,6 +29,9 @@ void pddlPruneWithEndomorphism(const pddl_fdr_t *fdr,
                                bor_iset_t *prune_op,
                                bor_err_t *err);
 
+void pddlEndomorphismFindMaximal(const pddl_fdr_t *fdr,
+                                 bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
