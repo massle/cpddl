@@ -21,12 +21,15 @@ endif
 
 ifeq '$(DEBUG)' 'yes'
   CFLAGS = -g
+  CPPFLAGS = -g
 else
   # force to use optimizations
   CFLAGS += -O3
+  CPPFLAGS += -O3
 endif
 ifeq '$(PROFIL)' 'yes'
   CFLAGS += -pg -no-pie
+  CPPFLAGS += -pg -no-pie
 endif
 CFLAGS += -Wall -pedantic --std=gnu99
 CFLAGS += -Wno-missing-braces

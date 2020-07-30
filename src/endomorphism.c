@@ -610,7 +610,7 @@ void pddlPruneWithEndomorphism(const pddl_fdr_t *fdr,
                                bor_iset_t *prune_op,
                                bor_err_t *err)
 {
-    static const char *tmp_xml_file = "/tmp/prob.xml";
+    static const char *tmp_xml_file = "tmp.prob.xml";
     static const char *_picat_bin = "/home/danfis/dev/csp/Picat/picat";
     static const char *_picat_xcsp = "/home/danfis/dev/csp/Picat/xcsp.pi";
     char picat_bin[128];

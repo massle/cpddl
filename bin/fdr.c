@@ -1042,11 +1042,16 @@ static int toFDR(void)
         return -1;
     }
 
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    pddlEndomorphismMGStripsRedundantOps(&mg_strips, NULL, &err);
+    pddlMGStripsFree(&mg_strips);
+
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
-    //pddlPruneWithEndomorphism(&fdr, NULL, &err);
-    pddlEndomorphismFindMaximal(&fdr, &err);
+    pddlEndomorphismFDRRedundantOps(&fdr, NULL, &err);
+    pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
     closeFile(fout);

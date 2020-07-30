@@ -20,6 +20,7 @@
 #define __PDDL_ENDOMORPHISM_H__
 
 #include <pddl/fdr.h>
+#include <pddl/mg_strips.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,9 +30,13 @@ void pddlPruneWithEndomorphism(const pddl_fdr_t *fdr,
                                bor_iset_t *prune_op,
                                bor_err_t *err);
 
-void pddlEndomorphismFindMaximal(const pddl_fdr_t *fdr,
-                                 bor_err_t *err);
+void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                     bor_iset_t *redundant_ops,
+                                     bor_err_t *err);
 
+void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                          bor_iset_t *redundant_ops,
+                                          bor_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

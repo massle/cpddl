@@ -111,6 +111,11 @@ pddl/config.h:
 	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm
 	if ! ./__lp; then echo "#define PDDL_LP" >>$@; fi
 	rm -f __lp.c __lp
+	echo '#define IL_STD' >__cpopt.c
+	echo '#include <ilcp/cp.h>' >>__cpopt.c
+	echo 'int main(int argc, char *arvg[]) { IloCP cp(); return 0; }' >>__cpopt.c
+	if $(CXX) $(CPPFLAGS) -o __cpopt __cpopt.c $(CPOPTIMIZER_LDFLAGS) -pthread -lrt -lm 2>/dev/null; then if ./__cpopt; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi; fi
+	rm -f __cpopt.c __cpopt
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
