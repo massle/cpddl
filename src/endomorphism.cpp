@@ -17,6 +17,7 @@
  */
 
 #include "pddl/config.h"
+#include "pddl/endomorphism.h"
 
 #ifdef PDDL_CPOPTIMIZER
 #include <sys/types.h>
@@ -24,20 +25,32 @@
 #include <unistd.h>
 #define IL_STD
 #include <ilcp/cp.h>
+#include <ilcplex/cpxconst.h>
 
 #include <boruvka/alloc.h>
 #include <boruvka/iarr.h>
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
-#include "pddl/endomorphism.h"
 #include "assert.h"
 
+#if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
+# define NO_LOGGER
+#endif
+
+#ifndef NO_LOGGER
 class Logger : public IloCP::Callback {
     bor_err_t *err;
 
   public:
     Logger(bor_err_t *err) : err(err){}
+#if CPX_VERSION_VERSION == 12
+# if CPX_VERSION_RELEASE == 9
+    virtual void invoke(IloCP cp, Callback::Type reason)
+# endif
+# if CPX_VERSION_RELEASE == 10
     virtual void invoke(IloCP cp, Callback::Reason reason)
+# endif
+#endif
     {
         if (reason == Periodic){
             BOR_INFO(err, "    cpoptimizer: mem: %ldMB, solutions: %d",
@@ -64,6 +77,7 @@ class Logger : public IloCP::Callback {
         }
     }
 };
+#endif /* NO_LOGGER */
 
 struct mg_strips_op {
     int cost;
@@ -211,8 +225,10 @@ static int solve(IloModel &model,
     int ret = 0;
     IloCP cp(model);
     //cp.dumpModel("model.cpo");
+#ifndef NO_LOGGER
     Logger *logger = new Logger(err);
     cp.addCallback(logger);
+#endif /* NO_LOGGER */
     cp.setParameter(IloCP::LogVerbosity, IloCP::Quiet);
     cp.setParameter(IloCP::Workers, 1);
     // TODO
@@ -255,7 +271,10 @@ static int solve(IloModel &model,
         }
         ret = -1;
     }
+
+#ifndef NO_LOGGER
     delete logger;
+#endif /* NO_LOGGER */
 
     return ret;
 }
