@@ -434,6 +434,7 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
     BOR_INFO2(err, "  Added objective function min(count-diff())");
+    //std::cerr << model << std::endl;
 
     int *values = BOR_ALLOC_ARR(int, fdr->op.op_size);
     if (solve(model, var_op, values, err) == 0){
@@ -446,7 +447,10 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                         borISetAdd(redundant_ops, op_id);
                     ++num_redundant;
                 }
-                //BOR_INFO(err, "    :: op %d -> %d", op_id, value);
+                BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
+                         op_id, value,
+                         fdr->op.op[op_id]->name,
+                         fdr->op.op[value]->name);
             }
         }
         BOR_INFO(err, "  Found %d redundant operators", num_redundant);
@@ -778,8 +782,8 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
             continue;
         char name[128];
         snprintf(name, 128, "%d:(%s)", fi, mgs.strips->fact.fact[fi]->name);
-        //var_fact[vi++] = IloIntVar(env, 0, mgs.fact_size - 1, name);
-        var_fact[vi++] = IloIntVar(env, 0, mgs.fact_size - 1);
+        var_fact[vi++] = IloIntVar(env, 0, mgs.fact_size - 1, name);
+        //var_fact[vi++] = IloIntVar(env, 0, mgs.fact_size - 1);
     }
 
     // Create operator variables
@@ -789,8 +793,8 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
             continue;
         char name[128];
         snprintf(name, 128, "%d:(%s)", oi, mgs.strips->op.op[oi]->name);
-        //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1, name);
-        var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
+        var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1, name);
+        //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
     }
     BOR_INFO(err, "  Created %d fact and %d operator variables",
              (int)var_fact.getSize(), (int)var_op.getSize());
@@ -819,13 +823,21 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
     BOR_INFO2(err, "  Added non-identity constraint");
     */
 
-    model.add(IloCountDifferent(var_op) < var_op.getSize());
+    int sum = 0;
+    for (int op_id = 0; op_id < mgs.op_size; ++op_id){
+        if (mgs.op_to_cvar[op_id] >= 0)
+            sum += op_id;
+    }
+    model.add(IloSum(var_op) != sum);
+    //model.add(IloCountDifferent(var_op) < var_op.getSize());
     BOR_INFO2(err, "  Added the constraint forcing to remove at least one"
                    " operator");
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
     BOR_INFO2(err, "  Added objective function min(count-diff())");
+
+    //std::cerr << model << std::endl;
 
     int *values = BOR_ALLOC_ARR(int, mgs.cvar_op_size);
     if (solve(model, var_op, values, err) == 0){
