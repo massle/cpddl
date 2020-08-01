@@ -16,6 +16,8 @@
  * See the License for more information.
  */
 
+//#define DEBUG_PRINT_OP_MAPPING
+
 #include "pddl/config.h"
 #include "pddl/endomorphism.h"
 
@@ -383,14 +385,18 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
     for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fi];
         const pddl_fdr_var_t *var = fdr->var.var + val->var_id;
-        var_fact[fi] = IloIntVar(env, 0, var->val_size - 1, val->name);
+        char name[128];
+        snprintf(name, 128, "%d:(%s)", fi, val->name);
+        var_fact[fi] = IloIntVar(env, 0, var->val_size - 1, name);
     }
 
     // Create operator variables
     IloIntVarArray var_op(env, fdr->op.op_size);
     for (int oi = 0; oi < fdr->op.op_size; ++oi){
         const pddl_fdr_op_t *op = fdr->op.op[oi];
-        var_op[oi] = IloIntVar(env, 0, fdr->op.op_size - 1, op->name);
+        char name[128];
+        snprintf(name, 128, "%d:(%s)", oi, op->name);
+        var_op[oi] = IloIntVar(env, 0, fdr->op.op_size - 1, name);
     }
     BOR_INFO(err, "  Created %d fact and %d operator variables",
              fdr->var.global_id_size, fdr->op.op_size);
@@ -428,6 +434,7 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
     BOR_INFO2(err, "  Added objective function min(count-diff())");
+
     //std::cerr << model << std::endl;
 
     int *values = BOR_ALLOC_ARR(int, fdr->op.op_size);
@@ -441,12 +448,12 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                         borISetAdd(redundant_ops, op_id);
                     ++num_redundant;
                 }
-                /*
+#ifdef DEBUG_PRINT_OP_MAPPING
                 BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
                          op_id, value,
                          fdr->op.op[op_id]->name,
                          fdr->op.op[value]->name);
-                */
+#endif /* DEBUG_PRINT_OP_MAPPING */
             }
         }
         BOR_INFO(err, "  Found %d redundant operators", num_redundant);
@@ -831,12 +838,12 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                             borISetAdd(redundant_ops, op_id);
                     ++num_redundant;
                 }
-                /*
+#ifdef DEBUG_PRINT_OP_MAPPING
                 BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
                          op_id, value,
                          mgs.strips->op.op[op_id]->name,
                          mgs.strips->op.op[value]->name);
-                */
+#endif /* DEBUG_PRINT_OP_MAPPING */
             }
         }
         BOR_INFO(err, "  Found %d redundant operators", num_redundant);
