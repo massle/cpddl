@@ -21,12 +21,11 @@
 
 #include <boruvka/iarr.h>
 #include <pddl/fdr.h>
+#include <pddl/strips.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-struct pddl_search;
 
 struct pddl_plan_file_fdr {
     bor_iarr_t op; /*!< Sequence of operators */
@@ -51,6 +50,22 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
  * Free allocated memory.
  */
 void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p);
+
+
+struct pddl_plan_file_strips {
+    bor_iarr_t op; /*!< Sequence of operators */
+    bor_iset_t *state; /*!< Intermediate states */
+    int state_size;
+    int state_alloc;
+    int cost; /*!< Cost of the plan */
+};
+typedef struct pddl_plan_file_strips pddl_plan_file_strips_t;
+
+int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
+                           const pddl_strips_t *strips,
+                           const char *filename,
+                           bor_err_t *err);
+void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p);
 
 #ifdef __cplusplus
 } /* extern "C" */

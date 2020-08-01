@@ -123,6 +123,16 @@ int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
     return 0;
 }
 
+void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
+                                int fact,
+                                bor_iset_t *mutex_with)
+{
+    for (int f = 0; f < m->fact_size; ++f){
+        if (M(m, fact, f))
+            borISetAdd(mutex_with, f);
+    }
+}
+
 void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
                               int new_fact_size,
                               const int *remap)
@@ -188,15 +198,15 @@ static void addMGroup(const bor_iset_t *mg, void *_mgroups)
 void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups)
 {
-    pddl_clique_graph_t graph;
-    pddlCliqueGraphInit(&graph, mutex->fact_size);
+    pddl_graph_simple_t graph;
+    pddlGraphSimpleInit(&graph, mutex->fact_size);
 
     PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
         if (f1 != f2)
-            pddlCliqueGraphAddEdge(&graph, f1, f2);
+            pddlGraphSimpleAddEdge(&graph, f1, f2);
     }
     pddlCliqueFindMaximal(&graph, addMGroup, mgroups);
 
-    pddlCliqueGraphFree(&graph);
+    pddlGraphSimpleFree(&graph);
 }
 

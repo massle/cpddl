@@ -5,6 +5,7 @@ CFLAGS += -I.
 CFLAGS += -Wno-sizeof-pointer-div
 CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
+CFLAGS += $(CLIQUER_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
@@ -47,8 +48,10 @@ OBJS += irrelevance
 OBJS += h1
 OBJS += h2
 OBJS += h3
+OBJS += hm
 OBJS += disambiguation
 OBJS += bitset
+OBJS += set
 OBJS += fdr_var
 OBJS += fdr_part_state
 OBJS += fdr_op
@@ -68,7 +71,9 @@ OBJS += pq
 OBJS += mg_strips
 OBJS += preprocess
 OBJS += cg
+OBJS += graph
 OBJS += clique
+OBJS += biclique
 OBJS += fdr_app_op
 OBJS += random_walk
 OBJS += open_list
@@ -87,9 +92,17 @@ OBJS += dtg
 OBJS += ts
 OBJS += op_mutex_pair
 OBJS += op_mutex_infer
+OBJS += op_mutex_infer_ts
 OBJS += op_mutex_sym_redundant
 OBJS += reversibility
 OBJS += endomorphism
+OBJS += cascading_table
+OBJS += transition
+OBJS += label
+OBJS += labeled_transition
+OBJS += trans_system
+OBJS += trans_system_abstr_map
+OBJS += trans_system_graph
 
 OBJS_CPP = endomorphism
 
@@ -106,6 +119,7 @@ pddl/config.h:
 	echo "#define __PDDL_CONFIG_H__" >>$@
 	echo "" >>$@
 	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
+	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
 	echo '#include <boruvka/lp.h>' >__lp.c
 	echo 'int main(int argc, char *arvg[]) { return borLPSolverAvailable(BOR_LP_DEFAULT); }' >>__lp.c
 	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm

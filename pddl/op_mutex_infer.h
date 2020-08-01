@@ -21,6 +21,7 @@
 
 #include <pddl/op_mutex_pair.h>
 #include <pddl/mgroup.h>
+#include <pddl/trans_system.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,7 +49,8 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
  * fact f_i into its add_eff. Then run h^2 and mutexes {f_i,f_j} correspond
  * to op-mutexes {o_i,o_j}.
  */
-int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
+int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
+                                        int m,
                                         const pddl_strips_t *strips,
                                         bor_err_t *err);
 
@@ -56,11 +58,30 @@ int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
  * Run h^2 for each operator from everything that is not mutex with the
  * effect of the operator.
  */
-int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
+int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
+                                 int m,
                                  const pddl_strips_t *strips_in,
                                  const pddl_mutex_pairs_t *mutex,
                                  const bor_iset_t *ops,
                                  bor_err_t *err);
+
+/**
+ * Infer op-mutexes from all abstractions that are constructed as a
+ * synchronized product of {merge_size} atomic abstractions.
+ * If {max_mem_in_mb} is non-zero, the inference is done in a separate
+ * process where the overall limit on the memory heap is set to the
+ * specified limit.
+ * If prune_dead_labels is set to true dead labels are detected during the
+ * creationg of the abstractions and they are used to generate op-mutexes.
+ */
+int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
+                                 const pddl_mg_strips_t *mg_strips,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 int merge_size,
+                                 size_t max_mem_in_mb,
+                                 int prune_dead_labels,
+                                 bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

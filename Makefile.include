@@ -99,6 +99,20 @@ ifeq '$(USE_LOCAL_BLISS)' 'yes'
 endif
 
 
+CLIQUER_CFLAGS ?=
+CLIQUER_LDFLAGS ?=
+USE_CLIQUER = auto
+ifeq '$(USE_CLIQUER)' 'auto'
+  USE_CLIQUER_SYSTEM_HEADER ?= $(shell if test -f /usr/include/cliquer/cliquer.h; then echo "yes"; else echo "no"; fi;)
+  USE_CLIQUER_SYSTEM_LIB ?= $(shell if test -f /usr/lib/libcliquer.so; then echo "yes"; else echo "no"; fi;)
+  ifeq '$(USE_CLIQUER_SYSTEM_HEADER)$(USE_CLIQUER_SYSTEM_LIB)' 'yesyes'
+    CLIQUER_CFLAGS := -I/usr/include
+    CLIQUER_LDFLAGS := -L/usr/lib -lcliquer
+    USE_CLIQUER := yes
+  endif
+endif
+
+
 LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS)
 
 .DEFAULT_GOAL := all
@@ -138,6 +152,9 @@ help:
 	@echo "    BORUVKA_LDFLAGS   = $(BORUVKA_LDFLAGS)"
 	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
 	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
+	@echo "    USE_CLIQUER       = $(USE_CLIQUER)"
+	@echo "    CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
+	@echo "    CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
 	@echo ""
 	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
 	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"

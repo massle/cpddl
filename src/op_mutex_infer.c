@@ -189,7 +189,8 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
     return 0;
 }
 
-int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
+int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
+                                        int m,
                                         const pddl_strips_t *strips,
                                         bor_err_t *err)
 {
@@ -197,7 +198,7 @@ int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
     pddl_strips_t P2;
     int op_fact_offset;
 
-    BOR_INFO2(err, "Op-mutexes using h^2 compilation:");
+    BOR_INFO(err, "Op-mutexes using h^%d compilation:", m);
 
     pddlStripsInitCopy(&P2, strips);
 
@@ -224,33 +225,35 @@ int pddlOpMutexInferH2OpFactCompilation(pddl_op_mutex_pairs_t *m,
 
     pddlMutexPairsInitStrips(&mutex, &P2);
     int o1, o2;
-    PDDL_OP_MUTEX_PAIRS_FOR_EACH(m, o1, o2)
+    PDDL_OP_MUTEX_PAIRS_FOR_EACH(opm, o1, o2)
         pddlMutexPairsAdd(&mutex, op_fact_offset + o1, op_fact_offset + o2);
 
-    if (pddlH2(&P2, &mutex, NULL, NULL, err) == 0){
-        BOR_INFO(err, "  --> h^2 computed with %d mutex pairs.",
-                 mutex.num_mutex_pairs);
+    if (pddlHm(m, &P2, &mutex, NULL, NULL, 0, 0, err) == 0){
+        BOR_INFO(err, "  --> h^%d computed with %d mutex pairs.",
+                 m, mutex.num_mutex_pairs);
         int fact_size = P2.fact.fact_size;
         for (int i = op_fact_offset; i < fact_size; ++i){
             for (int j = i + 1; j < fact_size; ++j){
                 if (pddlMutexPairsIsMutex(&mutex, i, j)){
-                    pddlOpMutexPairsAdd(m, i - op_fact_offset,
-                                           j - op_fact_offset);
+                    pddlOpMutexPairsAdd(opm, i - op_fact_offset,
+                                             j - op_fact_offset);
                 }
             }
         }
     }else{
-        BOR_ERR2(err, "h^2 failed!");
+        BOR_ERR(err, "h^%d failed!", m);
     }
     pddlMutexPairsFree(&mutex);
 
     pddlStripsFree(&P2);
 
-    BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(m));
+    BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(opm));
     return 0;
 }
 
-static void opMutexH2FromOp(pddl_op_mutex_pairs_t *m,
+
+static void opMutexHmFromOp(pddl_op_mutex_pairs_t *opm,
+                            int m,
                             const pddl_strips_op_t *op,
                             const pddl_strips_t *strips_in,
                             const pddl_mutex_pairs_t *mutex,
@@ -258,7 +261,7 @@ static void opMutexH2FromOp(pddl_op_mutex_pairs_t *m,
                             bor_err_t *err)
 {
     pddl_strips_t strips;
-    pddl_mutex_pairs_t h2_mutex;
+    pddl_mutex_pairs_t hm_mutex;
 
     pddlStripsInitCopy(&strips, strips_in);
 
@@ -278,16 +281,9 @@ static void opMutexH2FromOp(pddl_op_mutex_pairs_t *m,
     }
     borISetFree(&init);
 
-    /*
-    BOR_ISET(op_mutex);
-    pddlOpMutexPairsMutexWith(m, op->id, &op_mutex);
-    pddlStripsDisableOps(&strips, &op_mutex);
-    borISetFree(&op_mutex);
-    */
-
     BOR_ISET(unreach_ops);
-    pddlMutexPairsInitCopy(&h2_mutex, mutex);
-    if (pddlH2(&strips, &h2_mutex, NULL, &unreach_ops, err) != 0){
+    pddlMutexPairsInitCopy(&hm_mutex, mutex);
+    if (pddlHm(m, &strips, &hm_mutex, NULL, &unreach_ops, 0, 0, err) != 0){
         // TODO
         BOR_ERR2(err, "h^2 failed!");
         borErrPrint(err, 1, stderr);
@@ -300,16 +296,17 @@ static void opMutexH2FromOp(pddl_op_mutex_pairs_t *m,
             continue;
         borISetAdd(&unreach_map[op->id], op_unreach_id);
         if (borISetIn(op->id, &unreach_map[op_unreach_id])){
-            pddlOpMutexPairsAdd(m, op->id, op_unreach_id);
+            pddlOpMutexPairsAdd(opm, op->id, op_unreach_id);
         }
     }
     borISetFree(&unreach_ops);
 
-    pddlMutexPairsFree(&h2_mutex);
+    pddlMutexPairsFree(&hm_mutex);
     pddlStripsFree(&strips);
 }
 
-int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
+int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
+                                 int m,
                                  const pddl_strips_t *strips_in,
                                  const pddl_mutex_pairs_t *mutex,
                                  const bor_iset_t *ops,
@@ -317,7 +314,7 @@ int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
 {
     bor_iset_t *unreach_map;
 
-    BOR_INFO2(err, "Op-mutexes using h^2 from each operator:");
+    BOR_INFO(err, "Op-mutexes using h^%d from each operator:", m);
 
     unreach_map = BOR_CALLOC_ARR(bor_iset_t, strips_in->op.op_size);
 
@@ -325,12 +322,12 @@ int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
         int opi;
         BOR_ISET_FOR_EACH(ops, opi){
             const pddl_strips_op_t *op = strips_in->op.op[opi];
-            opMutexH2FromOp(m, op, strips_in, mutex, unreach_map, err);
+            opMutexHmFromOp(opm, m, op, strips_in, mutex, unreach_map, err);
         }
     }else{
         const pddl_strips_op_t *op;
         PDDL_STRIPS_OPS_FOR_EACH(&strips_in->op, op)
-            opMutexH2FromOp(m, op, strips_in, mutex, unreach_map, err);
+            opMutexHmFromOp(opm, m, op, strips_in, mutex, unreach_map, err);
     }
 
     const pddl_strips_op_t *op;
@@ -339,6 +336,6 @@ int pddlOpMutexInferH2FromEachOp(pddl_op_mutex_pairs_t *m,
     if (unreach_map != NULL)
         BOR_FREE(unreach_map);
 
-    BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(m));
+    BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(opm));
     return 0;
 }

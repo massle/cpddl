@@ -86,6 +86,10 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
                    const pddl_fdr_t *fdr,
                    int op_unit_cost,
                    int op_cost_plus);
+void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
+                         const pddl_strips_t *strips,
+                         int op_unit_cost,
+                         int op_cost_plus);
 
 /**
  * Free allocated memory.
@@ -102,6 +106,10 @@ int pddlLMCut(pddl_lm_cut_t *lmc,
               const int *fdr_state,
               const pddl_set_iset_t *ldms_in,
               pddl_set_iset_t *ldms);
+int pddlLMCutStrips(pddl_lm_cut_t *lmc,
+                    const bor_iset_t *fdr_state,
+                    const pddl_set_iset_t *ldms_in,
+                    pddl_set_iset_t *ldms);
 
 
 #ifdef __cplusplus

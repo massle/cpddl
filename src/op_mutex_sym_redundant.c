@@ -21,20 +21,29 @@
 #include "assert.h"
 
 struct reduce_gen {
+    /** ID of the symmetry generator */
     int gen_id;
+    /** True if this symmetry is destroyed */
     int is_destroyed;
+    /** Reference to the symmetry generator */
     const pddl_strips_sym_gen_t *gen;
+    /** Operators that are not identity in this symmetry and that are
+     *  op-mutex with their image. */
     bor_iset_t relevant_op;
+    /** Operator mutexes for relevant operators */
     bor_iset_t *op_mutex_with;
     int op_size;
 
+    /** Selected redundant set */
     bor_iset_t redundant_set;
+    /** Number of symmetries that would be destroyed by removing the
+     *  selected redundant set */
     int num_destroyed_syms;
 
+    /** Operators that need to be pruned in order to preserve this symmetry */
     bor_iset_t to_preserve;
-
-    bor_iset_t tmp_to_preserve; /*!< Operators that need to be pruned in
-                                     order to preserve this symmetry */
+    /** Temporary storage for computing .to_preserve */
+    bor_iset_t tmp_to_preserve;
 };
 typedef struct reduce_gen reduce_gen_t;
 

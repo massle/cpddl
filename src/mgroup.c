@@ -743,6 +743,16 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     return cover_number;
 }
 
+int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs)
+{
+    int cnt = 0;
+    for (int i = 0; i < mgs->mgroup_size; ++i){
+        if (mgs->mgroup[i].is_exactly_one)
+            ++cnt;
+    }
+    return cnt;
+}
+
 void pddlMGroupsPrint(const pddl_t *pddl,
                       const pddl_strips_t *strips,
                       const pddl_mgroups_t *mg,

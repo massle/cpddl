@@ -402,7 +402,7 @@ static int inferMutexGroups(void)
     }else if (opt.h2_mgroup){
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);
-        if (pddlH2(&strips, &mutex, NULL, NULL, &err) != 0){
+        if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -571,7 +571,7 @@ static int pruneStripsFixpointH2(void)
         borISetEmpty(&rm_op);
         pddlMutexPairsFree(&mutex);
         pddlMutexPairsInitStrips(&mutex, &strips);
-        if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, &err) != 0){
+        if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -639,7 +639,7 @@ static int pruneStripsFixpointFAMH2(void)
         borISetEmpty(&rm_op);
         pddlMutexPairsFree(&mutex);
         pddlMutexPairsInitStrips(&mutex, &strips);
-        if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, &err) != 0){
+        if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -754,7 +754,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
         pddlMutexPairsFree(&mutex);
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
-                       &rm_fact, &rm_op, &err) != 0){
+                       &rm_fact, &rm_op, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw/bw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -836,7 +836,7 @@ static int pruneStripsFixpointH2FwBw(void)
         pddlMutexPairsFree(&mutex);
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
-                       &rm_fact, &rm_op, &err) != 0){
+                       &rm_fact, &rm_op, 0., &err) != 0){
             BOR_INFO2(&err, "h^2 fw/bw failed.");
             BOR_TRACE_RET(&err, -1);
         }
@@ -904,7 +904,7 @@ static int pruneStrips(void)
 
     }else{
         if (opt.h2fw){
-            if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, &err) != 0){
+            if (pddlH2(&strips, &mutex, &rm_fact, &rm_op, 0., &err) != 0){
                 BOR_INFO2(&err, "h^2 fw failed.");
                 BOR_TRACE_RET(&err, -1);
             }
@@ -912,7 +912,7 @@ static int pruneStrips(void)
             pddl_mg_strips_t mg_strips;
             pddlMGStripsInit(&mg_strips, &strips, &mgroups);
             if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
-                        &rm_fact, &rm_op, &err) != 0){
+                        &rm_fact, &rm_op, 0., &err) != 0){
                 BOR_INFO2(&err, "h^2 fw/bw failed.");
                 BOR_TRACE_RET(&err, -1);
             }

@@ -1,7 +1,7 @@
 /***
  * cpddl
  * -------
- * Copyright (c)2019 Daniel Fiser <danfis@danfis.cz>,
+ * Copyright (c)2020 Daniel Fiser <danfis@danfis.cz>,
  * AI Center, Department of Computer Science,
  * Faculty of Electrical Engineering, Czech Technical University in Prague.
  * All rights reserved.
@@ -17,32 +17,27 @@
  * See the License for more information.
  */
 
-#ifndef __PDDL_FILE_H__
-#define __PDDL_FILE_H__
+#ifndef __PDDL_GRAPH_H__
+#define __PDDL_GRAPH_H__
 
-#include <boruvka/err.h>
-#include <pddl/config.h>
+#include <boruvka/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-#define PDDL_FILE_MAX_PATH_LEN 512
-
-struct pddl_files {
-    char domain_pddl[PDDL_FILE_MAX_PATH_LEN];
-    char problem_pddl[PDDL_FILE_MAX_PATH_LEN];
+struct pddl_graph_simple {
+    bor_iset_t *node;
+    int node_size;
 };
-typedef struct pddl_files pddl_files_t;
+typedef struct pddl_graph_simple pddl_graph_simple_t;
 
-int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err);
-int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
-              bor_err_t *err);
-
-int pddlIsFile(const char *);
+void pddlGraphSimpleInit(pddl_graph_simple_t *g, int node_size);
+void pddlGraphSimpleFree(pddl_graph_simple_t *g);
+void pddlGraphSimpleAddEdge(pddl_graph_simple_t *g, int n1, int n2);
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* __PDDL_FILE_H__ */
+#endif /* __PDDL_GRAPH_H__ */

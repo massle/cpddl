@@ -21,6 +21,7 @@
 #include "pddl/strips.h"
 #include "pddl/critical_path.h"
 #include "pddl/disambiguation.h"
+#include "pddl/time_limit.h"
 #include "assert.h"
 
 #define REACHED 1
@@ -292,12 +293,18 @@ static int applyOp(const pddl_strips_op_t *op, h2_t *h2)
     return updated;
 }
 
-static int h2Run(h2_t *h2, const pddl_strips_ops_t *ops, bor_err_t *err)
+static int h2Run(h2_t *h2,
+                 const pddl_strips_ops_t *ops,
+                 pddl_time_limit_t *time_limit,
+                 bor_err_t *err)
 {
     int updated;
     int ret = 0;
 
     do {
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -2;
+
         updated = 0;
         for (int op_id = 0; op_id < ops->op_size; ++op_id){
             const pddl_strips_op_t *op = ops->op[op_id];
@@ -367,39 +374,82 @@ static void setOutput(const h2_t *h2,
         outUnreachableOps(h2, unreachable_ops);
 }
 
+static int h2State(const pddl_strips_t *strips,
+                   const bor_iset_t *init_state,
+                   pddl_mutex_pairs_t *m,
+                   bor_iset_t *unreachable_facts,
+                   bor_iset_t *unreachable_ops,
+                   float time_limit_s,
+                   bor_err_t *err)
+{
+    if (strips->has_cond_eff)
+        BOR_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
+
+    BOR_INFO(err, "h^2. facts: %d, ops: %d, mutex pairs: %lu,"
+                  " time-limit: %.2fs",
+             strips->fact.fact_size,
+             strips->op.op_size,
+             (unsigned long)m->num_mutex_pairs,
+             time_limit_s);
+
+    pddl_time_limit_t time_limit;
+    h2_t h2;
+
+    pddlTimeLimitSet(&time_limit, time_limit_s);
+    h2Init(&h2, strips, m, unreachable_facts, unreachable_ops, err);
+    h2InitOpFact(&h2, &strips->op, err);
+
+    setFwInit(&h2, init_state);
+    int ret = h2Run(&h2, &strips->op, &time_limit, err);
+    if (ret >= 0)
+        ret = 0;
+
+    setOutput(&h2, m, unreachable_facts, unreachable_ops);
+
+    BOR_INFO(err, "h^2 DONE. mutex pairs: %lu, unreachable facts: %d,"
+                  " unreachable ops: %d, time-limit reached: %d",
+             (unsigned long)m->num_mutex_pairs,
+             (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
+             (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1),
+             (ret == -2 ? 1 : 0));
+
+    h2Free(&h2);
+    return ret;
+}
 
 int pddlH2(const pddl_strips_t *strips,
            pddl_mutex_pairs_t *m,
            bor_iset_t *unreachable_facts,
            bor_iset_t *unreachable_ops,
+           float time_limit_in_s,
            bor_err_t *err)
 {
-    if (strips->has_cond_eff)
-        BOR_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
+    return h2State(strips, &strips->init, m, unreachable_facts,
+                   unreachable_ops, time_limit_in_s, err);
+}
 
-    BOR_INFO(err, "h^2. facts: %d, ops: %d, mutex pairs: %lu",
-             strips->fact.fact_size,
-             strips->op.op_size,
-             (unsigned long)m->num_mutex_pairs);
-
-    h2_t h2;
-
-    h2Init(&h2, strips, m, unreachable_facts, unreachable_ops, err);
-    h2InitOpFact(&h2, &strips->op, err);
-
-    setFwInit(&h2, &strips->init);
-    h2Run(&h2, &strips->op, err);
-
-    setOutput(&h2, m, unreachable_facts, unreachable_ops);
-
-    BOR_INFO(err, "h^2 DONE. mutex pairs: %lu, unreachable facts: %d,"
-                  " unreachable ops: %d",
-             (unsigned long)m->num_mutex_pairs,
-             (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
-             (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1));
-
-    h2Free(&h2);
-    return 0;
+int pddlH2IsDeadEnd(const pddl_strips_t *strips, const bor_iset_t *state)
+{
+    pddl_mutex_pairs_t mutex;
+    pddlMutexPairsInitStrips(&mutex, strips);
+    h2State(strips, state, &mutex, NULL, NULL, 0, NULL);
+    int is_dead = 0;
+    for (int i = 0; i < borISetSize(&strips->goal) && !is_dead; ++i){
+        int f1 = borISetGet(&strips->goal, i);
+        if (pddlMutexPairsIsMutex(&mutex, f1, f1)){
+            is_dead = 1;
+            break;
+        }
+        for (int j = i + 1; j < borISetSize(&strips->goal) && !is_dead; ++j){
+            int f2 = borISetGet(&strips->goal, j);
+            if (pddlMutexPairsIsMutex(&mutex, f1, f2)){
+                is_dead = 1;
+                break;
+            }
+        }
+    }
+    pddlMutexPairsFree(&mutex);
+    return is_dead;
 }
 
 static void setBwInit(h2_t *h2, const bor_iset_t *goal_in)
@@ -531,15 +581,20 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                pddl_mutex_pairs_t *mutex,
                bor_iset_t *unreachable_facts,
                bor_iset_t *unreachable_ops,
+               float time_limit_in_s,
                bor_err_t *err)
 {
     if (strips->has_cond_eff)
         BOR_ERR_RET2(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
-    BOR_INFO(err, "h^2 fw/bw. facts: %d, ops: %d, mutex pairs: %lu",
+    BOR_INFO(err, "h^2 fw/bw. facts: %d, ops: %d, mutex pairs: %lu,"
+                  " time-limit: %.2fs",
              strips->fact.fact_size,
              strips->op.op_size,
              (unsigned long)mutex->num_mutex_pairs);
+
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitSet(&time_limit, time_limit_in_s);
 
     h2_t h2;
     int update_fw = 1;
@@ -558,22 +613,30 @@ int pddlH2FwBw(const pddl_strips_t *strips,
 
     h2AllocOpFact(&h2, err);
 
+    int ret = 0;
     while (update_fw || update_bw){
-        if (update_fw){
+        if (update_fw < 0
+                || update_bw < 0
+                || pddlTimeLimitCheck(&time_limit) != 0){
+            ret = -2;
+            break;
+        }
+
+        if (update_fw == 1){
             update_fw = 0;
             setFwInit(&h2, &strips->init);
             opsUpdateFw(&ops_fw, &h2);
             h2ResetOpFact(&h2, &ops_fw);
-            update_bw |= h2Run(&h2, &ops_fw, err);
+            update_bw |= h2Run(&h2, &ops_fw, &time_limit, err);
         }
 
-        if (update_bw){
+        if (update_bw == 1){
             update_bw = 0;
             setBwInit(&h2, &strips->goal);
             update_fw |= opsUpdateFw(&ops_fw, &h2);
             opsUpdateBw(&ops_bw, &ops_fw, &h2);
             h2ResetOpFact(&h2, &ops_bw);
-            update_fw |= h2Run(&h2, &ops_bw, err);
+            update_fw |= h2Run(&h2, &ops_bw, &time_limit, err);
         }
     }
 
@@ -585,11 +648,12 @@ int pddlH2FwBw(const pddl_strips_t *strips,
     setOutput(&h2, mutex, unreachable_facts, unreachable_ops);
 
     BOR_INFO(err, "h^2 fw/bw DONE. mutex pairs: %lu, unreachable facts: %d,"
-                  " unreachable ops: %d",
+                  " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)mutex->num_mutex_pairs,
              (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
-             (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1));
+             (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1),
+             (ret == -2 ? 1 : 0));
 
     h2Free(&h2);
-    return 0;
+    return ret;
 }

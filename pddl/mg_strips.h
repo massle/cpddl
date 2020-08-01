@@ -42,6 +42,10 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
 void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr);
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
 
+void pddlMGStripsReduce(pddl_mg_strips_t *mg_strips,
+                        const bor_iset_t *del_facts,
+                        const bor_iset_t *del_ops);
+
 
 double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
                                      const pddl_mutex_pairs_t *mutex,
