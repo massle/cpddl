@@ -1023,4 +1023,12 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
 }
+
+void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                             bor_iset_t *redundant_ops,
+                                             bor_err_t *err)
+{
+    BOR_FATAL2("Missing CPOPTIMIZER");
+}
+
 #endif /* PDDL_CPOPTIMIZER */
