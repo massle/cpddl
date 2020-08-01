@@ -1042,6 +1042,8 @@ static int toFDR(void)
         return -1;
     }
 
+    pddlStripsOpsDeduplicate(&strips.op);
+
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
     pddlEndomorphismMGStripsRedundantOps(&mg_strips, NULL, &err);
@@ -1051,7 +1053,7 @@ static int toFDR(void)
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
     pddlEndomorphismFDRRedundantOps(&fdr, NULL, &err);
-    pddlPruneWithEndomorphism(&fdr, NULL, &err);
+    //pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
     closeFile(fout);

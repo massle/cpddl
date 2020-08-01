@@ -95,11 +95,10 @@ struct mg_strips {
     mg_strips_op_t *op;
 
     int *fact_to_cvar;
-    int *op_to_cvar;
     int *fact_identity;
     int *op_identity;
     int cvar_fact_size;
-    int cvar_op_size;
+    int non_identity_cvar_op_size;
 };
 typedef struct mg_strips mg_strips_t;
 
@@ -232,7 +231,7 @@ static int solve(IloModel &model,
     cp.setParameter(IloCP::LogVerbosity, IloCP::Quiet);
     cp.setParameter(IloCP::Workers, 1);
     // TODO
-    cp.setParameter(IloCP::TimeLimit, 3600);
+    //cp.setParameter(IloCP::TimeLimit, 3600);
     //cp.setParameter(IloCP::TimeLimit, 5);
 
     BOR_INFO2(err, "  Solving model ...");
@@ -279,14 +278,14 @@ static int solve(IloModel &model,
     return ret;
 }
 
-static void fdrOpPreConstr(const pddl_fdr_op_t *op,
-                           const bor_iset_t *group,
-                           const pddl_fdr_t *fdr,
-                           IloEnv &env,
-                           IloModel &model,
-                           IloIntVarArray &fact_var,
-                           IloIntVarArray &op_var,
-                           bor_err_t *err)
+static int fdrOpPreConstr(const pddl_fdr_op_t *op,
+                          const bor_iset_t *group,
+                          const pddl_fdr_t *fdr,
+                          IloEnv &env,
+                          IloModel &model,
+                          IloIntVarArray &fact_var,
+                          IloIntVarArray &op_var,
+                          bor_err_t *err)
 {
     int other_op_id;
 
@@ -312,16 +311,17 @@ static void fdrOpPreConstr(const pddl_fdr_op_t *op,
     }
 
     model.add(IloAllowedAssignments(env, pre_var, pre));
+    return 1;
 }
 
-static void fdrOpEffConstr(const pddl_fdr_op_t *op,
-                           const bor_iset_t *group,
-                           const pddl_fdr_t *fdr,
-                           IloEnv &env,
-                           IloModel &model,
-                           IloIntVarArray &fact_var,
-                           IloIntVarArray &op_var,
-                           bor_err_t *err)
+static int fdrOpEffConstr(const pddl_fdr_op_t *op,
+                          const bor_iset_t *group,
+                          const pddl_fdr_t *fdr,
+                          IloEnv &env,
+                          IloModel &model,
+                          IloIntVarArray &fact_var,
+                          IloIntVarArray &op_var,
+                          bor_err_t *err)
 {
     int other_op_id;
 
@@ -347,20 +347,23 @@ static void fdrOpEffConstr(const pddl_fdr_op_t *op,
     }
 
     model.add(IloAllowedAssignments(env, eff_var, eff));
+    return 1;
 }
 
-static void fdrOpConstr(int op_id,
-                        const bor_iset_t *group,
-                        const pddl_fdr_t *fdr,
-                        IloEnv &env,
-                        IloModel &model,
-                        IloIntVarArray &fact_var,
-                        IloIntVarArray &op_var,
-                        bor_err_t *err)
+static int fdrOpConstr(int op_id,
+                       const bor_iset_t *group,
+                       const pddl_fdr_t *fdr,
+                       IloEnv &env,
+                       IloModel &model,
+                       IloIntVarArray &fact_var,
+                       IloIntVarArray &op_var,
+                       bor_err_t *err)
 {
+    int num = 0;
     const pddl_fdr_op_t *op = fdr->op.op[op_id];
-    fdrOpPreConstr(op, group, fdr, env, model, fact_var, op_var, err);
-    fdrOpEffConstr(op, group, fdr, env, model, fact_var, op_var, err);
+    num += fdrOpPreConstr(op, group, fdr, env, model, fact_var, op_var, err);
+    num += fdrOpEffConstr(op, group, fdr, env, model, fact_var, op_var, err);
+    return num;
 }
 
 void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
@@ -408,28 +411,19 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
     BOR_INFO2(err, "  Added init and goal constraints");
 
     // Set operator constraints
+    int num_op_constr = 0;
     for (int group_id = 0; group_id < opg.group_size; ++group_id){
         int op_id;
         const bor_iset_t *group = &opg.group[group_id];
-        BOR_ISET_FOR_EACH(group, op_id)
-            fdrOpConstr(op_id, group, fdr, env, model, var_fact, var_op, err);
+        BOR_ISET_FOR_EACH(group, op_id){
+            num_op_constr += fdrOpConstr(op_id, group, fdr, env, model,
+                                         var_fact, var_op, err);
+        }
         //BOR_INFO(err, "  Created operator constraints %d",
         //         borISetSize(&opg.group[group_id]));
     }
-    BOR_INFO2(err, "  Added operator constraints");
+    BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
     opGroupsFree(&opg);
-
-    /* TODO
-    IloOr non_identity(env);
-    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
-        non_identity.add(var_op[op_id] != op_id);
-    model.add(non_identity);
-    BOR_INFO2(err, "  Added non-identity constraint");
-    */
-
-    model.add(IloCountDifferent(var_op) < var_op.getSize());
-    BOR_INFO2(err, "  Added the constraint forcing to remove at least one"
-                   " operator");
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
@@ -447,15 +441,18 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                         borISetAdd(redundant_ops, op_id);
                     ++num_redundant;
                 }
+                /*
                 BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
                          op_id, value,
                          fdr->op.op[op_id]->name,
                          fdr->op.op[value]->name);
+                */
             }
         }
         BOR_INFO(err, "  Found %d redundant operators", num_redundant);
     }
     BOR_FREE(values);
+    model.end();
 }
 
 
@@ -508,7 +505,6 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
 
     mgs->fact_to_cvar = BOR_CALLOC_ARR(int, mgs->fact_size);
     mgs->fact_identity = BOR_CALLOC_ARR(int, mgs->fact_size);
-    mgs->op_to_cvar = BOR_CALLOC_ARR(int, mgs->op_size);
     mgs->op_identity = BOR_CALLOC_ARR(int, mgs->op_size);
 }
 
@@ -526,7 +522,6 @@ static void mgStripsFree(mg_strips_t *mgs)
 
     BOR_FREE(mgs->fact_to_cvar);
     BOR_FREE(mgs->fact_identity);
-    BOR_FREE(mgs->op_to_cvar);
     BOR_FREE(mgs->op_identity);
 }
 
@@ -600,25 +595,21 @@ static void mgStripsPrepareCVars(mg_strips_t *mgs)
     }
     mgs->cvar_fact_size = vid;
 
-    vid = 0;
+    mgs->non_identity_cvar_op_size = 0;
     for (int oi = 0; oi < mgs->op_size; ++oi){
-        if (mgs->op_identity[oi]){
-            mgs->op_to_cvar[oi] = -1;
-        }else{
-            mgs->op_to_cvar[oi] = vid++;
-        }
+        if (!mgs->op_identity[oi])
+            mgs->non_identity_cvar_op_size++;
     }
-    mgs->cvar_op_size = vid;
 }
 
-static void mgStripsOpPreConstr(int op_id,
-                                const bor_iset_t *group,
-                                const mg_strips_t *mgs,
-                                IloEnv &env,
-                                IloModel &model,
-                                IloIntVarArray &fact_var,
-                                IloIntVarArray &op_var,
-                                bor_err_t *err)
+static int mgStripsOpPreConstr(int op_id,
+                               const bor_iset_t *group,
+                               const mg_strips_t *mgs,
+                               IloEnv &env,
+                               IloModel &model,
+                               IloIntVarArray &fact_var,
+                               IloIntVarArray &op_var,
+                               bor_err_t *err)
 {
     const mg_strips_op_t *op = mgs->op + op_id;
     int other_op_id;
@@ -657,10 +648,10 @@ static void mgStripsOpPreConstr(int op_id,
     }
 
     if (pre.getCardinality() == 0)
-        return;
+        return 0;
 
     IloIntVarArray pre_var(env, pre_size);
-    pre_var[0] = op_var[mgs->op_to_cvar[op_id]];
+    pre_var[0] = op_var[op_id];
     int idx = 1;
     for (int fi = 0; fi < op->pre.fact_size; ++fi){
         if (!mgs->fact_identity[op->pre.fact[fi].val])
@@ -668,9 +659,10 @@ static void mgStripsOpPreConstr(int op_id,
     }
 
     model.add(IloAllowedAssignments(env, pre_var, pre));
+    return 1;
 }
 
-static void mgStripsOpEffConstr(int op_id,
+static int mgStripsOpEffConstr(int op_id,
                                 const bor_iset_t *group,
                                 const mg_strips_t *mgs,
                                 IloEnv &env,
@@ -716,10 +708,10 @@ static void mgStripsOpEffConstr(int op_id,
     }
 
     if (eff.getCardinality() == 0)
-        return;
+        return 0;
 
     IloIntVarArray eff_var(env, eff_size);
-    eff_var[0] = op_var[mgs->op_to_cvar[op_id]];
+    eff_var[0] = op_var[op_id];
     int idx = 1;
     for (int fi = 0; fi < op->eff.fact_size; ++fi){
         if (!mgs->fact_identity[op->eff.fact[fi].val])
@@ -727,22 +719,30 @@ static void mgStripsOpEffConstr(int op_id,
     }
 
     model.add(IloAllowedAssignments(env, eff_var, eff));
+    return 1;
 }
 
-static void mgStripsOpConstr(int op_id,
-                             const bor_iset_t *group,
-                             const mg_strips_t *mgs,
-                             IloEnv &env,
-                             IloModel &model,
-                             IloIntVarArray &fact_var,
-                             IloIntVarArray &op_var,
-                             bor_err_t *err)
+static int mgStripsOpConstr(int op_id,
+                            const bor_iset_t *group,
+                            const mg_strips_t *mgs,
+                            IloEnv &env,
+                            IloModel &model,
+                            IloIntVarArray &fact_var,
+                            IloIntVarArray &op_var,
+                            bor_err_t *err)
 {
-    if (mgs->op_identity[op_id])
-        return;
+    if (mgs->op_identity[op_id]){
+        model.add(op_var[op_id] == op_id);
+        return 1;
+    }
 
-    mgStripsOpPreConstr(op_id, group, mgs, env, model, fact_var, op_var, err);
-    mgStripsOpEffConstr(op_id, group, mgs, env, model, fact_var, op_var, err);
+    int num = 0;
+    num += mgStripsOpPreConstr(op_id, group, mgs, env, model,
+                               fact_var, op_var, err);
+    num += mgStripsOpEffConstr(op_id, group, mgs, env, model,
+                               fact_var, op_var, err);
+    ASSERT_RUNTIME(num == 0 || num == 2);
+    return num;
 }
 
 void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
@@ -762,15 +762,16 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
              mgStripsNumIdentityFacts(&mgs), mgs.fact_size,
              mgStripsNumIdentityOps(&mgs), mgs.op_size);
     if (mgStripsNumIdentityOps(&mgs) == mgs.op_size){
-        BOR_INFO2(err, "  All operators are identity: Provably No Solution");
+        BOR_INFO2(err, "  All operators are identity");
+        BOR_INFO2(err, "  Found 0 redundant operators");
         opGroupsFree(&opg);
         mgStripsFree(&mgs);
         return;
     }
 
     mgStripsPrepareCVars(&mgs);
-    BOR_INFO(err, "  CSP needs %d fact and %d operator variables",
-             mgs.cvar_fact_size, mgs.cvar_op_size);
+    BOR_INFO(err, "  CSP needs %d fact and %d non-identity operator variables",
+             mgs.cvar_fact_size, mgs.non_identity_cvar_op_size);
 
     IloEnv env;
     IloModel model(env);
@@ -787,51 +788,30 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
     }
 
     // Create operator variables
-    IloIntVarArray var_op(env, mgs.cvar_op_size);
-    for (int oi = 0, vi = 0; oi < mgs.op_size; ++oi){
-        if (mgs.op_to_cvar[oi] < 0)
-            continue;
+    IloIntVarArray var_op(env, mgs.op_size);
+    for (int oi = 0; oi < mgs.op_size; ++oi){
         char name[128];
         snprintf(name, 128, "%d:(%s)", oi, mgs.strips->op.op[oi]->name);
-        var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1, name);
+        var_op[oi] = IloIntVar(env, 0, mgs.op_size - 1, name);
         //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
     }
     BOR_INFO(err, "  Created %d fact and %d operator variables",
              (int)var_fact.getSize(), (int)var_op.getSize());
 
     // Set operator constraints
+    int num_op_constr = 0;
     for (int group_id = 0; group_id < opg.group_size; ++group_id){
         int op_id;
         const bor_iset_t *group = &opg.group[group_id];
         BOR_ISET_FOR_EACH(group, op_id){
-            mgStripsOpConstr(op_id, group, &mgs,
-                             env, model, var_fact, var_op, err);
+            num_op_constr += mgStripsOpConstr(op_id, group, &mgs, env, model,
+                                              var_fact, var_op, err);
         }
         //BOR_INFO(err, "  Created operator constraints %d",
         //         borISetSize(&opg.group[group_id]));
     }
-    BOR_INFO2(err, "  Added operator constraints");
+    BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
     opGroupsFree(&opg);
-
-    /* TODO
-    IloOr non_identity(env);
-    for (int id = 0; id < mgs.op_size; ++id){
-        if (mgs.op_to_cvar[id] >= 0)
-            non_identity.add(var_op[mgs.op_to_cvar[id]] != id);
-    }
-    model.add(non_identity);
-    BOR_INFO2(err, "  Added non-identity constraint");
-    */
-
-    int sum = 0;
-    for (int op_id = 0; op_id < mgs.op_size; ++op_id){
-        if (mgs.op_to_cvar[op_id] >= 0)
-            sum += op_id;
-    }
-    model.add(IloSum(var_op) != sum);
-    //model.add(IloCountDifferent(var_op) < var_op.getSize());
-    BOR_INFO2(err, "  Added the constraint forcing to remove at least one"
-                   " operator");
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
@@ -839,25 +819,24 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
     //std::cerr << model << std::endl;
 
-    int *values = BOR_ALLOC_ARR(int, mgs.cvar_op_size);
+    int *values = BOR_ALLOC_ARR(int, mgs.op_size);
     if (solve(model, var_op, values, err) == 0){
         int num_redundant = 0;
         for (int op_id = 0; op_id < mgs.op_size; ++op_id){
-            if (mgs.op_to_cvar[op_id] < 0)
-                continue;
-            int value = values[mgs.op_to_cvar[op_id]];
+            int value = values[op_id];
             ASSERT(value >= 0 && value < mgs.op_size);
             if (value != op_id){
-                if (mgs.op_to_cvar[value] < 0
-                        || values[mgs.op_to_cvar[value]] == value){
+                if (values[value] == value){
                     if (redundant_ops != NULL)
                             borISetAdd(redundant_ops, op_id);
                     ++num_redundant;
                 }
+                /*
                 BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
                          op_id, value,
                          mgs.strips->op.op[op_id]->name,
                          mgs.strips->op.op[value]->name);
+                */
             }
         }
         BOR_INFO(err, "  Found %d redundant operators", num_redundant);
