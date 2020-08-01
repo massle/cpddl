@@ -22,15 +22,12 @@
 #include "pddl/endomorphism.h"
 
 #ifdef PDDL_CPOPTIMIZER
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <vector>
 #define IL_STD
 #include <ilcp/cp.h>
 #include <ilcplex/cpxconst.h>
 
 #include <boruvka/alloc.h>
-#include <boruvka/iarr.h>
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include "assert.h"
@@ -851,6 +848,165 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
     BOR_FREE(values);
     model.end();
     mgStripsFree(&mgs);
+}
+
+static int transConstraints(const pddl_trans_systems_t *tss,
+                            const pddl_trans_system_t *ts,
+                            int from,
+                            int label,
+                            int to,
+                            IloEnv &env,
+                            IloModel &model,
+                            IloIntVarArray &var_state,
+                            int var_state_offset,
+                            IloIntVarArray &var_op,
+                            bor_err_t *err)
+{
+    IloIntTupleSet val(env, 3);
+    int olabel, ofrom, oto;
+    int from_is_goal = borISetIn(from, &ts->goal_states);
+    int to_is_goal = borISetIn(to, &ts->goal_states);
+    int label_cost = tss->label.label[label].cost;
+    PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, ofrom, olabel, oto){
+        if (tss->label.label[olabel].cost > label_cost)
+            continue;
+        if (from == ts->init_state && ofrom != from)
+            continue;
+        if (to == ts->init_state && oto != to)
+            continue;
+        if (from_is_goal && !borISetIn(ofrom, &ts->goal_states))
+            continue;
+        if (to_is_goal && !borISetIn(oto, &ts->goal_states))
+            continue;
+        val.add(IloIntArray(env, 3, olabel, ofrom, oto));
+    }
+    if (val.getCardinality() == 0){
+        BOR_INFO(err, "Could not find mapping for (%d)->%d->(%d)",
+                 from, label, to);
+        return 0;
+    }
+
+    IloIntVarArray var(env, 3);
+    var[0] = var_op[label];
+    var[1] = var_state[var_state_offset + from];
+    var[2] = var_state[var_state_offset + to];
+
+    model.add(IloAllowedAssignments(env, var, val));
+    return 1;
+}
+
+static int tsConstraints(const pddl_trans_systems_t *tss,
+                         int tsi,
+                         IloEnv &env,
+                         IloModel &model,
+                         IloIntVarArray &var_state,
+                         int var_state_offset,
+                         IloIntVarArray &var_op,
+                         bor_err_t *err)
+{
+    int num_constrs = 0;
+    const pddl_trans_system_t *ts = tss->ts[tsi];
+
+    // Add init constraint
+    ASSERT(ts->init_state >= 0);
+    model.add(var_state[var_state_offset + ts->init_state] == ts->init_state);
+    num_constrs += 1;
+
+    // Goal constraints
+    int goal_state;
+    IloIntArray goal_val(env);
+    BOR_ISET_FOR_EACH(&ts->goal_states, goal_state)
+        goal_val.add(goal_state);
+    BOR_ISET_FOR_EACH(&ts->goal_states, goal_state){
+        IloIntVar &var = var_state[var_state_offset + goal_state];
+        model.add(IloAllowedAssignments(env, var, goal_val));
+        num_constrs += 1;
+    }
+
+    // Transition constraints
+    int label_id, from, to;
+    PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, from, label_id, to){
+        num_constrs += transConstraints(tss, ts, from, label_id, to, env,
+                                        model, var_state, var_state_offset,
+                                        var_op, err);
+    }
+    return num_constrs;
+}
+
+void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                             bor_iset_t *redundant_ops,
+                                             bor_err_t *err)
+{
+    BOR_INFO2(err, "Endomorphism on factored TS ...");
+    IloEnv env;
+    IloModel model(env);
+
+    // Create state variables
+    std::vector<int> var_state_offset(tss->ts_size);
+    int num_states = 0;
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi)
+        num_states += tss->ts[tsi]->num_states;
+
+    IloIntVarArray var_state(env, num_states);
+    for (int tsi = 0, sid = 0; tsi < tss->ts_size; ++tsi){
+        int ts_num_states = tss->ts[tsi]->num_states;
+        var_state_offset[tsi] = sid;
+        for (int i = 0; i < ts_num_states; ++i){
+            char name[128];
+            snprintf(name, 128, "%d:%d:%d", tsi, i, sid);
+            var_state[sid++] = IloIntVar(env, 0, ts_num_states - 1, name);
+        }
+    }
+
+    // Create operator variables
+    IloIntVarArray var_op(env, tss->label.label_size);
+    for (int li = 0; li < tss->label.label_size; ++li){
+        char name[128];
+        snprintf(name, 128, "O%d", li);
+        var_op[li] = IloIntVar(env, 0, tss->label.label_size - 1, name);
+        //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
+    }
+    BOR_INFO(err, "  Created %d state and %d operator variables",
+             (int)var_state.getSize(), (int)var_op.getSize());
+
+    int num_constrs = 0;
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        int num = tsConstraints(tss, tsi, env, model,
+                                var_state, var_state_offset[tsi],
+                                var_op, err);
+        BOR_INFO(err, "  Added %d constraints for TS %d with %d states",
+                 num, tsi, tss->ts[tsi]->num_states);
+        num_constrs += num;
+    }
+    BOR_INFO(err, "  Added %d constraints overall", num_constrs);
+
+    IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
+    model.add(obj);
+    BOR_INFO2(err, "  Added objective function");
+
+    //std::cerr << model << std::endl;
+
+    int *values = BOR_ALLOC_ARR(int, tss->label.label_size);
+    if (solve(model, var_op, values, err) == 0){
+        int num_redundant = 0;
+        for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
+            int value = values[op_id];
+            ASSERT(value >= 0 && value < tss->label.label_size);
+            if (value != op_id){
+                if (values[value] == value){
+                    if (redundant_ops != NULL)
+                            borISetAdd(redundant_ops, op_id);
+                    ++num_redundant;
+                }
+#ifdef DEBUG_PRINT_OP_MAPPING
+                BOR_INFO(err, "    :: op %d -> %d", op_id, value);
+#endif /* DEBUG_PRINT_OP_MAPPING */
+            }
+        }
+        BOR_INFO(err, "  Found %d redundant operators", num_redundant);
+    }
+    BOR_FREE(values);
+    model.end();
 }
 
 #else /* PDDL_CPOPTIMIZER */

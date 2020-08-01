@@ -1047,6 +1047,16 @@ static int toFDR(void)
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
     pddlEndomorphismMGStripsRedundantOps(&mg_strips, NULL, &err);
+
+    pddl_trans_systems_t tss;
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
+    pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
+    pddlEndomorphismTransSystemRedundantOps(&tss, NULL, &err);
+    pddlTransSystemsFree(&tss);
+    pddlMutexPairsFree(&mg_mutex);
+
     pddlMGStripsFree(&mg_strips);
 
     pddl_fdr_t fdr;

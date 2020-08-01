@@ -21,6 +21,7 @@
 
 #include <pddl/fdr.h>
 #include <pddl/mg_strips.h>
+#include <pddl/trans_system.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +38,10 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
 void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                           bor_iset_t *redundant_ops,
                                           bor_err_t *err);
+
+void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                             bor_iset_t *redundant_ops,
+                                             bor_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
