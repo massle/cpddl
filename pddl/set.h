@@ -65,7 +65,7 @@ _bor_inline int pddlSetISetFind(pddl_set_iset_t *ss, const bor_iset_t *set)
 
 _bor_inline const bor_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
 {
-    return borHashSetGet(&ss->set, id);
+    return (const bor_iset_t *)borHashSetGet(&ss->set, id);
 }
 
 _bor_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
