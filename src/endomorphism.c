@@ -46,9 +46,9 @@ typedef struct op_groups op_groups_t;
 
 static bor_htable_key_t preEffComputeHash(const pre_eff_vars_t *v)
 {
-    uint64_t key;
-    ((uint32_t *)&key)[0] = borFastHash_32(v->pre.s, v->pre.size, 13);
-    ((uint32_t *)&key)[1] = borFastHash_32(v->eff.s, v->eff.size, 13);
+    uint64_t key = borFastHash_32(v->pre.s, v->pre.size, 13);
+    key <<= 32;
+    key |= (uint64_t)borFastHash_32(v->eff.s, v->eff.size, 13);
     return key;
 }
 
