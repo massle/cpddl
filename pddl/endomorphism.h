@@ -27,19 +27,35 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct pddl_endomorphism_config {
+    /** Maximal search time in seconds. (default: 1 hour) */
+    float max_search_time;
+    /** Maximal number of worker threads. (default: 1) */
+    int num_threads;
+};
+typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
+
+#define PDDL_ENDOMORPHISM_CONFIG_INIT \
+    { 3600.f, /* .max_search_time */ \
+      1, /* .num_threads */ \
+    }
+
 void pddlPruneWithEndomorphism(const pddl_fdr_t *fdr,
                                bor_iset_t *prune_op,
                                bor_err_t *err);
 
 void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                     const pddl_endomorphism_config_t *cfg,
                                      bor_iset_t *redundant_ops,
                                      bor_err_t *err);
 
 void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                          const pddl_endomorphism_config_t *cfg,
                                           bor_iset_t *redundant_ops,
                                           bor_err_t *err);
 
 void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                             const pddl_endomorphism_config_t *cfg,
                                              bor_iset_t *redundant_ops,
                                              bor_err_t *err);
 #ifdef __cplusplus

@@ -22,6 +22,7 @@
 #include "pddl/endomorphism.h"
 
 #ifdef PDDL_CPOPTIMIZER
+#include <algorithm>
 #include <vector>
 #define IL_STD
 #include <ilcp/cp.h>
@@ -30,6 +31,7 @@
 #include <boruvka/alloc.h>
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
+#include "pddl/set.h"
 #include "assert.h"
 
 #if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
@@ -52,9 +54,11 @@ class Logger : public IloCP::Callback {
 #endif
     {
         if (reason == Periodic){
+            /*
             BOR_INFO(err, "    cpoptimizer: mem: %ldMB, solutions: %d",
                      (long)cp.getInfo(IloCP::MemoryUsage) / (1024L * 1024L),
                      (int)cp.getInfo(IloCP::NumberOfSolutions));
+            */
 
         }else if (reason == Solution){
             BOR_INFO(err, "    cpoptimizer: mem: %ldMB, solutions: %d",
@@ -121,8 +125,9 @@ typedef struct op_groups op_groups_t;
 static bor_htable_key_t preEffComputeHash(const pre_eff_vars_t *v)
 {
     uint64_t key;
-    ((uint32_t *)&key)[0] = borFastHash_32(v->pre.s, v->pre.size, 13);
-    ((uint32_t *)&key)[1] = borFastHash_32(v->eff.s, v->eff.size, 13);
+    key = borFastHash_32(v->pre.s, v->pre.size, 13);
+    key <<= 32;
+    key |= (uint64_t)borFastHash_32(v->eff.s, v->eff.size, 13);
     return key;
 }
 
@@ -215,9 +220,37 @@ static void opGroupsFree(op_groups_t *opg)
     borHTableDel(opg->htable);
 }
 
+static int extractSolution(IloCP &cp,
+                           IloIntVarArray &var_op,
+                           bor_iset_t *redundant_op,
+                           bor_err_t *err)
+{
+    if (redundant_op != NULL)
+        borISetEmpty(redundant_op);
+
+    int num_redundant = 0;
+    for (int i = 0; i < var_op.getSize(); ++i){
+        int value = cp.getValue(var_op[i]);
+        ASSERT(value >= 0 && value < var_op.getSize());
+        if (value != i && cp.getValue(var_op[value]) == value){
+            if (redundant_op != NULL)
+                borISetAdd(redundant_op, i);
+            ++num_redundant;
+        }
+#ifdef DEBUG_PRINT_OP_MAPPING
+        if (value != i)
+            BOR_INFO(err, "    :: op %d -> %d", i, value);
+#endif /* DEBUG_PRINT_OP_MAPPING */
+    }
+    BOR_INFO(err, "  Found a solution with %d redundant operators",
+             num_redundant);
+    return num_redundant;
+}
+
 static int solve(IloModel &model,
                  IloIntVarArray &var_op,
-                 int *values,
+                 const pddl_endomorphism_config_t *cfg,
+                 bor_iset_t *redundant_op,
                  bor_err_t *err)
 {
     int ret = 0;
@@ -228,48 +261,51 @@ static int solve(IloModel &model,
     cp.addCallback(logger);
 #endif /* NO_LOGGER */
     cp.setParameter(IloCP::LogVerbosity, IloCP::Quiet);
-    cp.setParameter(IloCP::Workers, 1);
-    // TODO
-    //cp.setParameter(IloCP::TimeLimit, 3600);
-    //cp.setParameter(IloCP::TimeLimit, 5);
+    cp.setParameter(IloCP::Workers, cfg->num_threads);
+    cp.setParameter(IloCP::TimeLimit, cfg->max_search_time);
 
     BOR_INFO2(err, "  Solving model ...");
-    if (cp.solve()){
-        BOR_INFO2(err, "  Found Optimal Solution");
-        for (int i = 0; i < var_op.getSize(); ++i)
-            values[i] = cp.getValue(var_op[i]);
-        ret = 0;
+    cp.startNewSearch();
+    int num = -1;
+    while (cp.next())
+        num = extractSolution(cp, var_op, redundant_op, err);
 
+    switch (cp.getInfo(IloCP::FailStatus)){
+        case IloCP::SearchHasNotFailed:
+        case IloCP::SearchHasFailedNormally:
+            if (num < 0){
+                BOR_INFO2(err, "  Provably No Solution");
+            }else{
+                BOR_INFO2(err, "  Optimal Solution Found");
+            }
+            break;
+        case IloCP::SearchStoppedByLimit:
+            BOR_INFO2(err, "  Terminated by a time or fail limit");
+            break;
+        case IloCP::SearchStoppedByLabel:
+            BOR_INFO2(err, "  Terminated -- stopped-by-label");
+            break;
+        case IloCP::SearchStoppedByExit:
+            BOR_INFO2(err, "  Terminated by exitSearch()");
+            break;
+        case IloCP::SearchStoppedByAbort:
+            BOR_INFO2(err, "  Aborted");
+            break;
+        case IloCP::UnknownFailureStatus:
+            BOR_INFO2(err, "  Unknown failure");
+            break;
+    }
+
+    if (num >= 0){
+        BOR_INFO(err, "  Found %d redundant operators", num);
+        ret = 0;
     }else{
-        switch (cp.getInfo(IloCP::FailStatus)){
-            case IloCP::SearchHasNotFailed:
-                BOR_INFO2(err, "  Solution not found: search-not-failed");
-                break;
-            case IloCP::SearchHasFailedNormally:
-                BOR_INFO2(err, "  Solution not found: Provably No Solution");
-                break;
-            case IloCP::SearchStoppedByLimit:
-                BOR_INFO2(err, "  Solution not found:"
-                               " Terminated by a time or fail limit");
-                break;
-            case IloCP::SearchStoppedByLabel:
-                BOR_INFO2(err, "  Solution not found:"
-                               " Terminated -- stopped-by-label");
-                break;
-            case IloCP::SearchStoppedByExit:
-                BOR_INFO2(err, "  Solution not found:"
-                               " Terminated by exitSearch()");
-                break;
-            case IloCP::SearchStoppedByAbort:
-                BOR_INFO2(err, "  Solution not found: Aborted");
-                break;
-            case IloCP::UnknownFailureStatus:
-                BOR_INFO2(err, "  Solution not found: unknown failure");
-                break;
-        }
+        BOR_INFO2(err, "  Solution not found");
         ret = -1;
     }
 
+    cp.endSearch();
+    cp.end();
 #ifndef NO_LOGGER
     delete logger;
 #endif /* NO_LOGGER */
@@ -366,6 +402,7 @@ static int fdrOpConstr(int op_id,
 }
 
 void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                     const pddl_endomorphism_config_t *cfg,
                                      bor_iset_t *redundant_ops,
                                      bor_err_t *err)
 {
@@ -434,28 +471,7 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
 
     //std::cerr << model << std::endl;
 
-    int *values = BOR_ALLOC_ARR(int, fdr->op.op_size);
-    if (solve(model, var_op, values, err) == 0){
-        int num_redundant = 0;
-        for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
-            int value = values[op_id];
-            if (value != op_id){
-                if (values[value] == value){
-                    if (redundant_ops != NULL)
-                        borISetAdd(redundant_ops, op_id);
-                    ++num_redundant;
-                }
-#ifdef DEBUG_PRINT_OP_MAPPING
-                BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
-                         op_id, value,
-                         fdr->op.op[op_id]->name,
-                         fdr->op.op[value]->name);
-#endif /* DEBUG_PRINT_OP_MAPPING */
-            }
-        }
-        BOR_INFO(err, "  Found %d redundant operators", num_redundant);
-    }
-    BOR_FREE(values);
+    solve(model, var_op, cfg, redundant_ops, err);
     model.end();
 }
 
@@ -750,6 +766,7 @@ static int mgStripsOpConstr(int op_id,
 }
 
 void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                          const pddl_endomorphism_config_t *cfg,
                                           bor_iset_t *redundant_ops,
                                           bor_err_t *err)
 {
@@ -823,35 +840,239 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
     //std::cerr << model << std::endl;
 
-    int *values = BOR_ALLOC_ARR(int, mgs.op_size);
-    if (solve(model, var_op, values, err) == 0){
-        int num_redundant = 0;
-        for (int op_id = 0; op_id < mgs.op_size; ++op_id){
-            int value = values[op_id];
-            ASSERT(value >= 0 && value < mgs.op_size);
-            if (value != op_id){
-                if (values[value] == value){
-                    if (redundant_ops != NULL)
-                            borISetAdd(redundant_ops, op_id);
-                    ++num_redundant;
-                }
-#ifdef DEBUG_PRINT_OP_MAPPING
-                BOR_INFO(err, "    :: op %d -> %d :: (%s) -> (%s)",
-                         op_id, value,
-                         mgs.strips->op.op[op_id]->name,
-                         mgs.strips->op.op[value]->name);
-#endif /* DEBUG_PRINT_OP_MAPPING */
-            }
-        }
-        BOR_INFO(err, "  Found %d redundant operators", num_redundant);
-    }
-    BOR_FREE(values);
+    solve(model, var_op, cfg, redundant_ops, err);
     model.end();
     mgStripsFree(&mgs);
 }
 
+
+
+struct label_groups {
+    bor_iset_t init_loop;
+    bor_iset_t loop;
+    bor_iset_t init_to;
+    bor_iset_t init_from;
+    bor_iset_t goal_to;
+    bor_iset_t goal_from;
+    bor_iset_t goal;
+};
+typedef struct label_groups label_groups_t;
+
+struct ts_presolve {
+    std::vector<std::vector<bool>> op_allow;
+    std::vector<bool> op_identity;
+    std::vector<std::vector<std::vector<bool>>> state_allow;
+};
+typedef struct ts_presolve ts_presolve_t;
+
+static bool cmpISetSize(const bor_iset_t *a, const bor_iset_t *b)
+{
+    return borISetSize(a) < borISetSize(b);
+}
+
+static void presolveTRStateAllow(bor_iset_t *state_allow,
+                                 const ts_presolve_t *presolve,
+                                 const pddl_trans_systems_t *tss,
+                                 int tsi,
+                                 int from,
+                                 int label,
+                                 int to)
+{
+    const pddl_trans_system_t *ts = tss->ts[tsi];
+    int olabel, ofrom, oto;
+    int from_is_goal = borISetIn(from, &ts->goal_states);
+    int to_is_goal = borISetIn(to, &ts->goal_states);
+    int label_cost = tss->label.label[label].cost;
+    const std::vector<bool> &op_allow = presolve->op_allow[label];
+    BOR_ISET(from_allow);
+    BOR_ISET(to_allow);
+    PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, ofrom, olabel, oto){
+        if (!op_allow[olabel])
+            continue;
+        if (tss->label.label[olabel].cost > label_cost)
+            continue;
+        if (from == ts->init_state && ofrom != from)
+            continue;
+        if (to == ts->init_state && oto != to)
+            continue;
+        if (from == to && ofrom != oto)
+            continue;
+        if (from_is_goal && !borISetIn(ofrom, &ts->goal_states))
+            continue;
+        if (to_is_goal && !borISetIn(oto, &ts->goal_states))
+            continue;
+        if (!borISetIn(ofrom, state_allow + from))
+            continue;
+        if (!borISetIn(oto, state_allow + to))
+            continue;
+        borISetAdd(&from_allow, ofrom);
+        borISetAdd(&to_allow, oto);
+    }
+    borISetIntersect(state_allow + from, &from_allow);
+    borISetIntersect(state_allow + to, &to_allow);
+    borISetFree(&from_allow);
+    borISetFree(&to_allow);
+}
+
+static void presolveStateAllow(ts_presolve_t *presolve,
+                               const pddl_trans_systems_t *tss,
+                               int tsi)
+{
+    const pddl_trans_system_t *ts = tss->ts[tsi];
+
+    bor_iset_t *state_allow = BOR_CALLOC_ARR(bor_iset_t, ts->num_states);
+    for (int si = 0; si < ts->num_states; ++si){
+        if (si == ts->init_state){
+            borISetAdd(state_allow + si, si);
+
+        }else if (borISetIn(si, &ts->goal_states)){
+            int si2;
+            BOR_ISET_FOR_EACH(&ts->goal_states, si2)
+                borISetAdd(state_allow + si, si2);
+
+        }else{
+            for (int si2 = 0; si2 < ts->num_states; ++si2)
+                borISetAdd(state_allow + si, si2);
+        }
+    }
+
+    int label_id, from, to;
+    PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, from, label_id, to){
+        presolveTRStateAllow(state_allow, presolve,
+                             tss, tsi, from, label_id, to);
+    }
+    for (int si = 0; si < ts->num_states; ++si){
+        int state;
+        BOR_ISET_FOR_EACH(state_allow + si, state)
+            presolve->state_allow[tsi][si][state] = true;
+        borISetFree(state_allow + si);
+    }
+    BOR_FREE(state_allow);
+}
+
+static void tsPresolve(ts_presolve_t *presolve,
+                       const pddl_trans_systems_t *tss)
+{
+    presolve->op_identity.resize(tss->label.label_size, false);
+    presolve->op_allow.resize(tss->label.label_size);
+    presolve->state_allow.resize(tss->ts_size);
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        int num_states = tss->ts[tsi]->num_states;
+        presolve->state_allow[tsi].resize(num_states);
+        for (int si = 0; si < tss->ts[tsi]->num_states; ++si)
+            presolve->state_allow[tsi][si].resize(num_states, false);
+    }
+
+    label_groups_t *label_group;
+    label_group = BOR_CALLOC_ARR(label_groups_t, tss->ts_size);
+
+    std::vector<std::vector<bor_iset_t *>> relevant(tss->label.label_size);
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        const pddl_trans_system_t *ts = tss->ts[tsi];
+        int consider_goal = (borISetSize(&ts->goal_states) != ts->num_states);
+        const pddl_label_set_t *labels;
+        int from, to;
+        PDDL_LABELED_TRANSITIONS_SET_FOR_EACH_LABEL_SET(&ts->trans,
+                                                        from, labels, to){
+            if (from == to){
+                if (from == ts->init_state)
+                    borISetUnion(&label_group[tsi].init_loop, &labels->label);
+                borISetUnion(&label_group[tsi].loop, &labels->label);
+            }
+
+            int from_init = (from == ts->init_state);
+            int to_init = (to == ts->init_state);
+            if (from_init)
+                borISetUnion(&label_group[tsi].init_from, &labels->label);
+            if (to_init)
+                borISetUnion(&label_group[tsi].init_to, &labels->label);
+
+            if (consider_goal){
+                int from_goal = borISetIn(from, &ts->goal_states);
+                int to_goal = borISetIn(to, &ts->goal_states);
+                if (from_goal)
+                    borISetUnion(&label_group[tsi].goal_from, &labels->label);
+                if (to_goal)
+                    borISetUnion(&label_group[tsi].goal_to, &labels->label);
+                if (from_goal && to_goal)
+                    borISetUnion(&label_group[tsi].goal, &labels->label);
+            }
+        }
+        int op;
+        BOR_ISET_FOR_EACH(&label_group[tsi].init_loop, op)
+            relevant[op].push_back(&label_group[tsi].init_loop);
+        BOR_ISET_FOR_EACH(&label_group[tsi].loop, op)
+            relevant[op].push_back(&label_group[tsi].loop);
+        BOR_ISET_FOR_EACH(&label_group[tsi].init_to, op)
+            relevant[op].push_back(&label_group[tsi].init_to);
+        BOR_ISET_FOR_EACH(&label_group[tsi].init_from, op)
+            relevant[op].push_back(&label_group[tsi].init_from);
+        BOR_ISET_FOR_EACH(&label_group[tsi].goal_to, op)
+            relevant[op].push_back(&label_group[tsi].goal_to);
+        BOR_ISET_FOR_EACH(&label_group[tsi].goal_from, op)
+            relevant[op].push_back(&label_group[tsi].goal_from);
+        BOR_ISET_FOR_EACH(&label_group[tsi].goal, op)
+            relevant[op].push_back(&label_group[tsi].goal);
+    }
+
+    for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
+        if (relevant[op_id].size() == 0){
+            presolve->op_allow[op_id].resize(tss->label.label_size, true);
+            continue;
+        }
+
+        std::sort(relevant[op_id].begin(), relevant[op_id].end(), cmpISetSize);
+
+        BOR_ISET(allowed);
+        borISetUnion(&allowed, relevant[op_id][0]);
+        for (size_t i = 1; i < relevant[op_id].size(); ++i)
+            borISetIntersect(&allowed, relevant[op_id][i]);
+
+        BOR_ISET(allowed2);
+        int op_cost = tss->label.label[op_id].cost;
+        int other_op;
+        BOR_ISET_FOR_EACH(&allowed, other_op){
+            if (tss->label.label[other_op].cost <= op_cost)
+                borISetAdd(&allowed2, other_op);
+        }
+        borISetFree(&allowed);
+
+        if (borISetSize(&allowed2) <= 1){
+            presolve->op_identity[op_id] = true;
+            presolve->op_allow[op_id].resize(tss->label.label_size, false);
+            presolve->op_allow[op_id][op_id] = true;
+            //fprintf(stderr, "O %d identity\n", op_id);
+        }else{
+            presolve->op_allow[op_id].resize(tss->label.label_size, false);
+            BOR_ISET_FOR_EACH(&allowed2, other_op)
+                presolve->op_allow[op_id][other_op] = true;
+            /*
+            fprintf(stderr, "O %d: ", op_id);
+            pddlISetPrint(&allowed2, stderr);
+            fprintf(stderr, "\n");
+            */
+        }
+        borISetFree(&allowed2);
+    }
+
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        borISetFree(&label_group[tsi].init_loop);
+        borISetFree(&label_group[tsi].loop);
+        borISetFree(&label_group[tsi].init_to);
+        borISetFree(&label_group[tsi].init_from);
+        borISetFree(&label_group[tsi].goal_to);
+        borISetFree(&label_group[tsi].goal_from);
+        borISetFree(&label_group[tsi].goal);
+    }
+    BOR_FREE(label_group);
+
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi)
+        presolveStateAllow(presolve, tss, tsi);
+}
+
 static int transConstraints(const pddl_trans_systems_t *tss,
-                            const pddl_trans_system_t *ts,
+                            int tsi,
+                            const ts_presolve_t *presolve,
                             int from,
                             int label,
                             int to,
@@ -862,22 +1083,32 @@ static int transConstraints(const pddl_trans_systems_t *tss,
                             IloIntVarArray &var_op,
                             bor_err_t *err)
 {
+    const pddl_trans_system_t *ts = tss->ts[tsi];
+
+    IloIntVarArray var(env, 3);
+    var[0] = var_op[label];
+    var[1] = var_state[var_state_offset + from];
+    var[2] = var_state[var_state_offset + to];
+
     IloIntTupleSet val(env, 3);
     int olabel, ofrom, oto;
     int from_is_goal = borISetIn(from, &ts->goal_states);
     int to_is_goal = borISetIn(to, &ts->goal_states);
     int label_cost = tss->label.label[label].cost;
+    const std::vector<bool> &op_allow = presolve->op_allow[label];
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, ofrom, olabel, oto){
-        if (tss->label.label[olabel].cost > label_cost)
+        if (!op_allow[olabel]
+                || !presolve->state_allow[tsi][from][ofrom]
+                || !presolve->state_allow[tsi][to][oto]){
             continue;
-        if (from == ts->init_state && ofrom != from)
+        }
+        if (from == to && ofrom != oto)
             continue;
-        if (to == ts->init_state && oto != to)
-            continue;
-        if (from_is_goal && !borISetIn(ofrom, &ts->goal_states))
-            continue;
-        if (to_is_goal && !borISetIn(oto, &ts->goal_states))
-            continue;
+        ASSERT(tss->label.label[olabel].cost <= label_cost);
+        ASSERT(from != ts->init_state || ofrom == from);
+        ASSERT(to != ts->init_state || oto == to);
+        ASSERT(!from_is_goal || borISetIn(ofrom, &ts->goal_states));
+        ASSERT(!to_is_goal || borISetIn(oto, &ts->goal_states));
         val.add(IloIntArray(env, 3, olabel, ofrom, oto));
     }
     if (val.getCardinality() == 0){
@@ -886,16 +1117,12 @@ static int transConstraints(const pddl_trans_systems_t *tss,
         return 0;
     }
 
-    IloIntVarArray var(env, 3);
-    var[0] = var_op[label];
-    var[1] = var_state[var_state_offset + from];
-    var[2] = var_state[var_state_offset + to];
-
     model.add(IloAllowedAssignments(env, var, val));
     return 1;
 }
 
 static int tsConstraints(const pddl_trans_systems_t *tss,
+                         const ts_presolve_t *presolve,
                          int tsi,
                          IloEnv &env,
                          IloModel &model,
@@ -926,18 +1153,38 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
     // Transition constraints
     int label_id, from, to;
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, from, label_id, to){
-        num_constrs += transConstraints(tss, ts, from, label_id, to, env,
-                                        model, var_state, var_state_offset,
+        num_constrs += transConstraints(tss, tsi, presolve,
+                                        from, label_id, to, env, model,
+                                        var_state, var_state_offset,
                                         var_op, err);
     }
     return num_constrs;
 }
 
 void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                             const pddl_endomorphism_config_t *cfg,
                                              bor_iset_t *redundant_ops,
                                              bor_err_t *err)
 {
-    BOR_INFO2(err, "Endomorphism on factored TS ...");
+    BOR_INFO(err, "Endomorphism on factored TS"
+                  " (num-ts: %d, num-labels: %d) ...",
+             tss->ts_size, tss->label.label_size);
+
+    ts_presolve_t presolve;
+    BOR_INFO2(err, "  Running presolve...");
+    tsPresolve(&presolve, tss);
+    int num_identity = 0;
+    for (size_t i = 0; i < presolve.op_identity.size(); ++i)
+        num_identity += int(presolve.op_identity[i]);
+    BOR_INFO(err, "  Presolve found %d identity operators", num_identity);
+
+    if (num_identity == tss->label.label_size){
+        BOR_INFO2(err, "  All operators are identity");
+        BOR_INFO2(err, "  Found 0 redundant operators");
+        return;
+    }
+    //exit(-1);
+
     IloEnv env;
     IloModel model(env);
 
@@ -969,9 +1216,19 @@ void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
     BOR_INFO(err, "  Created %d state and %d operator variables",
              (int)var_state.getSize(), (int)var_op.getSize());
 
+    // Operator identity constraints
+    int num_ident = 0;
+    for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
+        if (presolve.op_identity[op_id]){
+            var_op[op_id].setBounds(op_id, op_id);
+            ++num_ident;
+        }
+    }
+    BOR_INFO(err, "  Set %d operator-identity bounds", num_ident);
+
     int num_constrs = 0;
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
-        int num = tsConstraints(tss, tsi, env, model,
+        int num = tsConstraints(tss, &presolve, tsi, env, model,
                                 var_state, var_state_offset[tsi],
                                 var_op, err);
         BOR_INFO(err, "  Added %d constraints for TS %d with %d states",
@@ -986,31 +1243,14 @@ void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
 
     //std::cerr << model << std::endl;
 
-    int *values = BOR_ALLOC_ARR(int, tss->label.label_size);
-    if (solve(model, var_op, values, err) == 0){
-        int num_redundant = 0;
-        for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
-            int value = values[op_id];
-            ASSERT(value >= 0 && value < tss->label.label_size);
-            if (value != op_id){
-                if (values[value] == value){
-                    if (redundant_ops != NULL)
-                            borISetAdd(redundant_ops, op_id);
-                    ++num_redundant;
-                }
-#ifdef DEBUG_PRINT_OP_MAPPING
-                BOR_INFO(err, "    :: op %d -> %d", op_id, value);
-#endif /* DEBUG_PRINT_OP_MAPPING */
-            }
-        }
-        BOR_INFO(err, "  Found %d redundant operators", num_redundant);
-    }
-    BOR_FREE(values);
+    solve(model, var_op, cfg, redundant_ops, err);
     model.end();
+    env.end();
 }
 
 #else /* PDDL_CPOPTIMIZER */
 void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                     const pddl_endomorphism_config_t *cfg,
                                      bor_iset_t *redundant_ops,
                                      bor_err_t *err)
 {
@@ -1018,6 +1258,7 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
 }
 
 void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                          const pddl_endomorphism_config_t *cfg,
                                           bor_iset_t *redundant_ops,
                                           bor_err_t *err)
 {
@@ -1025,6 +1266,7 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 }
 
 void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                             const pddl_endomorphism_config_t *cfg,
                                              bor_iset_t *redundant_ops,
                                              bor_err_t *err)
 {
