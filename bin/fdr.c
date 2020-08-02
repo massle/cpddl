@@ -1044,25 +1044,37 @@ static int toFDR(void)
 
     pddlStripsOpsDeduplicate(&strips.op);
 
+    pddl_endomorphism_config_t endcfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+    //endcfg.max_search_time = 30.;
+    BOR_ISET(redundant_op);
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-    pddlEndomorphismMGStripsRedundantOps(&mg_strips, NULL, &err);
+    //pddlEndomorphismMGStripsRedundantOps(&mg_strips, &redundant_op, &err);
+
+    //pddlStripsPrintDebug(&mg_strips.strips, stderr);
 
     pddl_trans_systems_t tss;
     pddl_mutex_pairs_t mg_mutex;
     pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
     pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
     pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
-    pddlEndomorphismTransSystemRedundantOps(&tss, NULL, &err);
+    pddlEndomorphismTransSystemRedundantOps(&tss, &endcfg, &redundant_op, &err);
     pddlTransSystemsFree(&tss);
     pddlMutexPairsFree(&mg_mutex);
 
     pddlMGStripsFree(&mg_strips);
 
+    if (borISetSize(&redundant_op) > 0){
+        pddlStripsReduce(&strips, NULL, &redundant_op);
+        mgroupsAndPruning();
+    }
+    borISetFree(&redundant_op);
+
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
-    pddlEndomorphismFDRRedundantOps(&fdr, NULL, &err);
+    //pddlEndomorphismFDRRedundantOps(&fdr, NULL, &err);
     //pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
