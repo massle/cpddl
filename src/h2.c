@@ -591,7 +591,8 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                   " time-limit: %.2fs",
              strips->fact.fact_size,
              strips->op.op_size,
-             (unsigned long)mutex->num_mutex_pairs);
+             (unsigned long)mutex->num_mutex_pairs,
+             time_limit_in_s);
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitSet(&time_limit, time_limit_in_s);
