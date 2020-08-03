@@ -89,5 +89,6 @@
 #include <pddl/trans_system.h>
 #include <pddl/trans_system_abstr_map.h>
 #include <pddl/trans_system_graph.h>
+#include <pddl/endomorphism.h>
 
 #endif /* __PDDL_H__ */
