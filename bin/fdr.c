@@ -36,6 +36,10 @@ struct options {
 
     unsigned fdr_var_method;
 
+    int endomorphism_fdr;
+    int endomorphism_mg_strips;
+    int endomorphism_ts;
+
     const char *fdr_out;
     const char *lifted_mgroup_out;
     const char *mgroup_out;
@@ -54,6 +58,7 @@ pddl_strips_t strips;
 pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
 unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+pddl_endomorphism_config_t endomorphism_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
 
 static FILE *openFile(const char *fn)
 {
@@ -94,7 +99,6 @@ static int readOpts(int *argc, char *argv[])
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
     opt.fdr_out = "-";
-
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
 
     pddl_cfg.force_adl = 1;
@@ -197,6 +201,20 @@ static int readOpts(int *argc, char *argv[])
                 "Allocate FDR variables with largest-first algorithm and"
                 " encode one strips fact as multiple fdr values if in more"
                 " mutex groups.");
+
+    optsAddDesc("em-fdr", 0x0, OPTS_NONE, &opt.endomorphism_fdr, NULL,
+                "Prune operators with endomorphism on FDR. (default: off)");
+    optsAddDesc("em-mg-strips", 0x0, OPTS_NONE, &opt.endomorphism_mg_strips,
+                NULL,
+                "Prune operators with endomorphism on MG-Strips."
+                " (default: off)");
+    optsAddDesc("em-ts", 0x0, OPTS_NONE, &opt.endomorphism_ts, NULL,
+                "Prune operators with endomorphism on factored transition"
+                " system. (default: off)");
+    optsAddDesc("em-max-search-time", 0x0, OPTS_FLOAT,
+                &endomorphism_cfg.max_search_time, NULL,
+                "Maximum search time in seconds for the endomorphism"
+                " inference. (default: 3600.)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1)
@@ -484,6 +502,74 @@ static void deduplicateOps(void)
              num_ops - strips.op.op_size);
 }
 
+static void pruneEndomorphismFDR(const pddl_endomorphism_config_t *cfg,
+                                 bor_iset_t *redundant_op)
+{
+    BOR_INFO2(&err, "Redundant operators using endomorphism on FDR ...");
+    pddl_fdr_t fdr;
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, &err);
+    pddlFDRFree(&fdr);
+    BOR_INFO2(&err, "Redundant operators using endomorphism on FDR DONE");
+}
+
+static void pruneEndomorphismMGStrips(const pddl_endomorphism_config_t *cfg,
+                                      bor_iset_t *redundant_op)
+{
+    BOR_INFO2(&err, "Redundant operators using endomorphism on MG-Strips ...");
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op, &err);
+    pddlMGStripsFree(&mg_strips);
+    BOR_INFO2(&err, "Redundant operators using endomorphism on MG-Strips DONE");
+}
+
+static void pruneEndomorphismTS(const pddl_endomorphism_config_t *cfg,
+                                bor_iset_t *redundant_op)
+{
+    BOR_INFO2(&err, "Redundant operators using endomorphism on TSs ...");
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+
+    pddl_trans_systems_t tss;
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
+    pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
+    pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op, &err);
+    pddlTransSystemsFree(&tss);
+    pddlMutexPairsFree(&mg_mutex);
+    pddlMGStripsFree(&mg_strips);
+    BOR_INFO2(&err, "Redundant operators using endomorphism on TSs DONE");
+}
+
+static void _pruneEndomorphism(void (*f)(const pddl_endomorphism_config_t *cfg,
+                                         bor_iset_t *redundant_op))
+{
+    BOR_ISET(redundant_op);
+    BOR_ISET(_rm_fact);
+    int num_ops = strips.op.op_size;
+    f(&endomorphism_cfg, &redundant_op);
+    if (borISetSize(&redundant_op) > 0)
+        reduceStrips(&_rm_fact, &redundant_op);
+    int removed = num_ops - strips.op.op_size;
+    BOR_INFO(&err, "Number of Strips Operators: %d (removed: %d)",
+            strips.op.op_size, removed);
+    borISetFree(&redundant_op);
+}
+
+static void pruneEndomorphism(void)
+{
+    if (opt.endomorphism_ts)
+        _pruneEndomorphism(pruneEndomorphismTS);
+    if (opt.endomorphism_fdr)
+        _pruneEndomorphism(pruneEndomorphismFDR);
+    if (opt.endomorphism_mg_strips)
+        _pruneEndomorphism(pruneEndomorphismMGStrips);
+}
+
+
 static int pruneStripsFixpointFAMGroups(void)
 {
     if (strips.has_cond_eff){
@@ -550,6 +636,8 @@ static int pruneStripsFixpointFAMGroups(void)
         }
 
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -624,6 +712,8 @@ static int pruneStripsFixpointH2(void)
         }
 
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -718,6 +808,8 @@ static int pruneStripsFixpointFAMH2(void)
                  borISetSize(&rm_op) - unreachable_size);
 
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -818,6 +910,8 @@ static int pruneStripsFixpointFAMH2FwBw(void)
                  borISetSize(&rm_op) - unreachable_size);
         reduceStrips(&rm_fact, &rm_op);
 
+        pruneEndomorphism();
+
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -895,6 +989,8 @@ static int pruneStripsFixpointH2FwBw(void)
         }
         pddlMGStripsFree(&mg_strips);
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
 
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
@@ -1007,6 +1103,8 @@ static int pruneStrips(void)
 
     deduplicateOps();
 
+    pruneEndomorphism();
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
 
@@ -1060,7 +1158,6 @@ static int mgroupsAndPruning(void)
 }
 
 
-#include <pddl/endomorphism.h>
 static int toFDR(void)
 {
     BOR_INFO2(&err, "");
@@ -1074,38 +1171,9 @@ static int toFDR(void)
         return -1;
     }
 
-    pddl_endomorphism_config_t endcfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
-    //endcfg.max_search_time = 30.;
-    BOR_ISET(redundant_op);
-    pddl_mg_strips_t mg_strips;
-    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-    //pddlEndomorphismMGStripsRedundantOps(&mg_strips, &endcfg, &redundant_op, &err);
-
-    //pddlStripsPrintDebug(&mg_strips.strips, stderr);
-
-    pddl_trans_systems_t tss;
-    pddl_mutex_pairs_t mg_mutex;
-    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
-    pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
-    pddlEndomorphismTransSystemRedundantOps(&tss, &endcfg, &redundant_op, &err);
-    pddlTransSystemsFree(&tss);
-    pddlMutexPairsFree(&mg_mutex);
-
-    pddlMGStripsFree(&mg_strips);
-
-    if (borISetSize(&redundant_op) > 0){
-        pddlStripsReduce(&strips, NULL, &redundant_op);
-        mgroupsAndPruning();
-    }
-    borISetFree(&redundant_op);
-
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
-    pddlEndomorphismFDRRedundantOps(&fdr, &endcfg, NULL, &err);
-    //pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
     closeFile(fout);
