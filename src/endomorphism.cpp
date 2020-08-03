@@ -225,25 +225,28 @@ static int extractSolution(IloCP &cp,
                            bor_iset_t *redundant_op,
                            bor_err_t *err)
 {
-    if (redundant_op != NULL)
-        borISetEmpty(redundant_op);
-
-    int num_redundant = 0;
+    BOR_ISET(redundant);
     for (int i = 0; i < var_op.getSize(); ++i){
         int value = cp.getValue(var_op[i]);
         ASSERT(value >= 0 && value < var_op.getSize());
         if (value != i && cp.getValue(var_op[value]) == value){
-            if (redundant_op != NULL)
-                borISetAdd(redundant_op, i);
-            ++num_redundant;
+            borISetAdd(&redundant, i);
         }
 #ifdef DEBUG_PRINT_OP_MAPPING
         if (value != i)
             BOR_INFO(err, "    :: op %d -> %d", i, value);
 #endif /* DEBUG_PRINT_OP_MAPPING */
     }
+    int num_redundant = borISetSize(&redundant);
     BOR_INFO(err, "  Found a solution with %d redundant operators",
              num_redundant);
+
+    if (redundant_op != NULL
+            && borISetSize(&redundant) > borISetSize(redundant_op)){
+        borISetEmpty(redundant_op);
+        borISetUnion(redundant_op, &redundant);
+    }
+    borISetFree(&redundant);
     return num_redundant;
 }
 
@@ -474,7 +477,8 @@ int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     bor_err_t *err)
 {
     int ret = 0;
-    BOR_INFO2(err, "Endomorphism on FDR ...");
+    BOR_INFO(err, "Endomorphism on FDR (facts: %d, ops: %d) ...",
+             fdr->var.global_id_size, fdr->op.op_size);
     op_groups_t opg;
     opGroupsInitFDR(&opg, fdr);
     BOR_INFO(err, "  Operators grouped into %d groups", opg.group_size);
@@ -845,7 +849,9 @@ int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                          bor_err_t *err)
 {
     int ret = 0;
-    BOR_INFO2(err, "Endomorphism on MG-Strips ...");
+    BOR_INFO(err, "Endomorphism on MG-Strips (facts: %d, ops: %d)...",
+             mg_strips->strips.fact.fact_size,
+             mg_strips->strips.op.op_size);
     mg_strips_t mgs;
     mgStripsInit(&mgs, mg_strips);
 
