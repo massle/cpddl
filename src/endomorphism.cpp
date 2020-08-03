@@ -401,19 +401,14 @@ static int fdrOpConstr(int op_id,
     return num;
 }
 
-void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
-                                     const pddl_endomorphism_config_t *cfg,
-                                     bor_iset_t *redundant_ops,
-                                     bor_err_t *err)
+void fdrInference(const pddl_fdr_t *fdr,
+                  const pddl_endomorphism_config_t *cfg,
+                  const op_groups_t *opg,
+                  IloEnv &env,
+                  IloModel &model,
+                  bor_iset_t *redundant_ops,
+                  bor_err_t *err)
 {
-    BOR_INFO2(err, "Endomorphism on FDR ...");
-    op_groups_t opg;
-    opGroupsInitFDR(&opg, fdr);
-    BOR_INFO(err, "  Operators grouped into %d groups", opg.group_size);
-
-    IloEnv env;
-    IloModel model(env);
-
     // Create fact variables
     IloIntVarArray var_fact(env, fdr->var.global_id_size);
     for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
@@ -452,9 +447,9 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
 
     // Set operator constraints
     int num_op_constr = 0;
-    for (int group_id = 0; group_id < opg.group_size; ++group_id){
+    for (int group_id = 0; group_id < opg->group_size; ++group_id){
         int op_id;
-        const bor_iset_t *group = &opg.group[group_id];
+        const bor_iset_t *group = &opg->group[group_id];
         BOR_ISET_FOR_EACH(group, op_id){
             num_op_constr += fdrOpConstr(op_id, group, fdr, env, model,
                                          var_fact, var_op, err);
@@ -463,7 +458,6 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
         //         borISetSize(&opg.group[group_id]));
     }
     BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
-    opGroupsFree(&opg);
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
@@ -472,7 +466,33 @@ void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
     //std::cerr << model << std::endl;
 
     solve(model, var_op, cfg, redundant_ops, err);
-    model.end();
+}
+
+int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                    const pddl_endomorphism_config_t *cfg,
+                                    bor_iset_t *redundant_ops,
+                                    bor_err_t *err)
+{
+    int ret = 0;
+    BOR_INFO2(err, "Endomorphism on FDR ...");
+    op_groups_t opg;
+    opGroupsInitFDR(&opg, fdr);
+    BOR_INFO(err, "  Operators grouped into %d groups", opg.group_size);
+
+    IloEnv env;
+    IloModel model(env);
+
+    try {
+        fdrInference(fdr, cfg, &opg, env, model, redundant_ops, err);
+    } catch(IloMemoryException &e){
+        BOR_INFO2(err, "  Not Enough Memory");
+        BOR_INFO2(err, "  Terminating inference of endomorphism");
+        ret = -1;
+    }
+
+    env.end();
+    opGroupsFree(&opg);
+    return ret;
 }
 
 
@@ -765,11 +785,66 @@ static int mgStripsOpConstr(int op_id,
     return num;
 }
 
-void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
-                                          const pddl_endomorphism_config_t *cfg,
-                                          bor_iset_t *redundant_ops,
-                                          bor_err_t *err)
+void mgStripsInference(const pddl_mg_strips_t *mg_strips,
+                       const pddl_endomorphism_config_t *cfg,
+                       const mg_strips_t *mgs,
+                       const op_groups_t *opg,
+                       IloEnv &env,
+                       IloModel &model,
+                       bor_iset_t *redundant_ops,
+                       bor_err_t *err)
 {
+    // Create fact variables
+    IloIntVarArray var_fact(env, mgs->cvar_fact_size);
+    for (int fi = 0, vi = 0; fi < mgs->fact_size; ++fi){
+        if (mgs->fact_to_cvar[fi] < 0)
+            continue;
+        char name[128];
+        snprintf(name, 128, "%d:(%s)", fi, mgs->strips->fact.fact[fi]->name);
+        var_fact[vi++] = IloIntVar(env, 0, mgs->fact_size - 1, name);
+        //var_fact[vi++] = IloIntVar(env, 0, mgs->fact_size - 1);
+    }
+
+    // Create operator variables
+    IloIntVarArray var_op(env, mgs->op_size);
+    for (int oi = 0; oi < mgs->op_size; ++oi){
+        char name[128];
+        snprintf(name, 128, "%d:(%s)", oi, mgs->strips->op.op[oi]->name);
+        var_op[oi] = IloIntVar(env, 0, mgs->op_size - 1, name);
+        //var_op[vi++] = IloIntVar(env, 0, mgs->op_size - 1);
+    }
+    BOR_INFO(err, "  Created %d fact and %d operator variables",
+             (int)var_fact.getSize(), (int)var_op.getSize());
+
+    // Set operator constraints
+    int num_op_constr = 0;
+    for (int group_id = 0; group_id < opg->group_size; ++group_id){
+        int op_id;
+        const bor_iset_t *group = &opg->group[group_id];
+        BOR_ISET_FOR_EACH(group, op_id){
+            num_op_constr += mgStripsOpConstr(op_id, group, mgs, env, model,
+                                              var_fact, var_op, err);
+        }
+        //BOR_INFO(err, "  Created operator constraints %d",
+        //         borISetSize(&opg.group[group_id]));
+    }
+    BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
+
+    IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
+    model.add(obj);
+    BOR_INFO2(err, "  Added objective function min(count-diff())");
+
+    //std::cerr << model << std::endl;
+
+    solve(model, var_op, cfg, redundant_ops, err);
+}
+
+int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                         const pddl_endomorphism_config_t *cfg,
+                                         bor_iset_t *redundant_ops,
+                                         bor_err_t *err)
+{
+    int ret = 0;
     BOR_INFO2(err, "Endomorphism on MG-Strips ...");
     mg_strips_t mgs;
     mgStripsInit(&mgs, mg_strips);
@@ -787,7 +862,7 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
         BOR_INFO2(err, "  Found 0 redundant operators");
         opGroupsFree(&opg);
         mgStripsFree(&mgs);
-        return;
+        return 0;
     }
 
     mgStripsPrepareCVars(&mgs);
@@ -797,52 +872,19 @@ void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
     IloEnv env;
     IloModel model(env);
 
-    // Create fact variables
-    IloIntVarArray var_fact(env, mgs.cvar_fact_size);
-    for (int fi = 0, vi = 0; fi < mgs.fact_size; ++fi){
-        if (mgs.fact_to_cvar[fi] < 0)
-            continue;
-        char name[128];
-        snprintf(name, 128, "%d:(%s)", fi, mgs.strips->fact.fact[fi]->name);
-        var_fact[vi++] = IloIntVar(env, 0, mgs.fact_size - 1, name);
-        //var_fact[vi++] = IloIntVar(env, 0, mgs.fact_size - 1);
+    try {
+        mgStripsInference(mg_strips, cfg, &mgs, &opg, env, model,
+                          redundant_ops, err);
+    } catch(IloMemoryException &e){
+        BOR_INFO2(err, "  Not Enough Memory");
+        BOR_INFO2(err, "  Terminating inference of endomorphism");
+        ret = -1;
     }
 
-    // Create operator variables
-    IloIntVarArray var_op(env, mgs.op_size);
-    for (int oi = 0; oi < mgs.op_size; ++oi){
-        char name[128];
-        snprintf(name, 128, "%d:(%s)", oi, mgs.strips->op.op[oi]->name);
-        var_op[oi] = IloIntVar(env, 0, mgs.op_size - 1, name);
-        //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
-    }
-    BOR_INFO(err, "  Created %d fact and %d operator variables",
-             (int)var_fact.getSize(), (int)var_op.getSize());
-
-    // Set operator constraints
-    int num_op_constr = 0;
-    for (int group_id = 0; group_id < opg.group_size; ++group_id){
-        int op_id;
-        const bor_iset_t *group = &opg.group[group_id];
-        BOR_ISET_FOR_EACH(group, op_id){
-            num_op_constr += mgStripsOpConstr(op_id, group, &mgs, env, model,
-                                              var_fact, var_op, err);
-        }
-        //BOR_INFO(err, "  Created operator constraints %d",
-        //         borISetSize(&opg.group[group_id]));
-    }
-    BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
+    env.end();
     opGroupsFree(&opg);
-
-    IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
-    model.add(obj);
-    BOR_INFO2(err, "  Added objective function min(count-diff())");
-
-    //std::cerr << model << std::endl;
-
-    solve(model, var_op, cfg, redundant_ops, err);
-    model.end();
     mgStripsFree(&mgs);
+    return ret;
 }
 
 
@@ -1161,33 +1203,14 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
     return num_constrs;
 }
 
-void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
-                                             const pddl_endomorphism_config_t *cfg,
-                                             bor_iset_t *redundant_ops,
-                                             bor_err_t *err)
+void tsInference(const pddl_trans_systems_t *tss,
+                 const pddl_endomorphism_config_t *cfg,
+                 const ts_presolve_t *presolve,
+                 IloEnv &env,
+                 IloModel &model,
+                 bor_iset_t *redundant_ops,
+                 bor_err_t *err)
 {
-    BOR_INFO(err, "Endomorphism on factored TS"
-                  " (num-ts: %d, num-labels: %d) ...",
-             tss->ts_size, tss->label.label_size);
-
-    ts_presolve_t presolve;
-    BOR_INFO2(err, "  Running presolve...");
-    tsPresolve(&presolve, tss);
-    int num_identity = 0;
-    for (size_t i = 0; i < presolve.op_identity.size(); ++i)
-        num_identity += int(presolve.op_identity[i]);
-    BOR_INFO(err, "  Presolve found %d identity operators", num_identity);
-
-    if (num_identity == tss->label.label_size){
-        BOR_INFO2(err, "  All operators are identity");
-        BOR_INFO2(err, "  Found 0 redundant operators");
-        return;
-    }
-    //exit(-1);
-
-    IloEnv env;
-    IloModel model(env);
-
     // Create state variables
     std::vector<int> var_state_offset(tss->ts_size);
     int num_states = 0;
@@ -1219,7 +1242,7 @@ void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
     // Operator identity constraints
     int num_ident = 0;
     for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
-        if (presolve.op_identity[op_id]){
+        if (presolve->op_identity[op_id]){
             var_op[op_id].setBounds(op_id, op_id);
             ++num_ident;
         }
@@ -1228,7 +1251,7 @@ void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
 
     int num_constrs = 0;
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
-        int num = tsConstraints(tss, &presolve, tsi, env, model,
+        int num = tsConstraints(tss, presolve, tsi, env, model,
                                 var_state, var_state_offset[tsi],
                                 var_op, err);
         BOR_INFO(err, "  Added %d constraints for TS %d with %d states",
@@ -1244,33 +1267,73 @@ void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
     //std::cerr << model << std::endl;
 
     solve(model, var_op, cfg, redundant_ops, err);
-    model.end();
+}
+
+int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                            const pddl_endomorphism_config_t *cfg,
+                                            bor_iset_t *redundant_ops,
+                                            bor_err_t *err)
+{
+    int ret = 0;
+    BOR_INFO(err, "Endomorphism on factored TS"
+                  " (num-ts: %d, num-labels: %d) ...",
+             tss->ts_size, tss->label.label_size);
+
+    ts_presolve_t presolve;
+    BOR_INFO2(err, "  Running presolve...");
+    tsPresolve(&presolve, tss);
+    int num_identity = 0;
+    for (size_t i = 0; i < presolve.op_identity.size(); ++i)
+        num_identity += int(presolve.op_identity[i]);
+    BOR_INFO(err, "  Presolve found %d identity operators", num_identity);
+
+    if (num_identity == tss->label.label_size){
+        BOR_INFO2(err, "  All operators are identity");
+        BOR_INFO2(err, "  Found 0 redundant operators");
+        return 0;
+    }
+
+    IloEnv env;
+    IloModel model(env);
+
+    try {
+        tsInference(tss, cfg, &presolve, env, model, redundant_ops, err);
+    }catch (IloMemoryException &e){
+        BOR_INFO2(err, "  Not Enough Memory");
+        BOR_INFO2(err, "  Terminating inference of endomorphism");
+        ret = -1;
+    }
+
     env.end();
+    return ret;
 }
 
 #else /* PDDL_CPOPTIMIZER */
-void pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
-                                     const pddl_endomorphism_config_t *cfg,
-                                     bor_iset_t *redundant_ops,
-                                     bor_err_t *err)
+int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                    const pddl_endomorphism_config_t *cfg,
+                                    bor_iset_t *redundant_ops,
+                                    bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
+    return -1;
 }
 
-void pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
-                                          const pddl_endomorphism_config_t *cfg,
-                                          bor_iset_t *redundant_ops,
-                                          bor_err_t *err)
+int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                         const pddl_endomorphism_config_t *cfg,
+                                         bor_iset_t *redundant_ops,
+                                         bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
+    return -1;
 }
 
-void pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
-                                             const pddl_endomorphism_config_t *cfg,
-                                             bor_iset_t *redundant_ops,
-                                             bor_err_t *err)
+int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                            const pddl_endomorphism_config_t *cfg,
+                                            bor_iset_t *redundant_ops,
+                                            bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
+    return -1;
 }
 
 #endif /* PDDL_CPOPTIMIZER */
