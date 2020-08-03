@@ -476,6 +476,14 @@ static void reduceStrips(const bor_iset_t *rm_fact, const bor_iset_t *rm_op)
     }
 }
 
+static void deduplicateOps(void)
+{
+    int num_ops = strips.op.op_size;
+    pddlStripsOpsDeduplicate(&strips.op);
+    BOR_INFO(&err, "Deduplication of operators removed %d operators",
+             num_ops - strips.op.op_size);
+}
+
 static int pruneStripsFixpointFAMGroups(void)
 {
     if (strips.has_cond_eff){
@@ -565,6 +573,8 @@ static int pruneStripsFixpointFAMGroups(void)
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
+    deduplicateOps();
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
     BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
@@ -630,6 +640,8 @@ static int pruneStripsFixpointH2(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -729,6 +741,8 @@ static int pruneStripsFixpointFAMH2(void)
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
+    deduplicateOps();
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
     BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
@@ -827,6 +841,8 @@ static int pruneStripsFixpointFAMH2FwBw(void)
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
+    deduplicateOps();
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
     BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
@@ -890,6 +906,8 @@ static int pruneStripsFixpointH2FwBw(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -987,6 +1005,8 @@ static int pruneStrips(void)
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
+    deduplicateOps();
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
 
@@ -1054,8 +1074,6 @@ static int toFDR(void)
         return -1;
     }
 
-    pddlStripsOpsDeduplicate(&strips.op);
-
     pddl_endomorphism_config_t endcfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
     //endcfg.max_search_time = 30.;
     BOR_ISET(redundant_op);
@@ -1086,7 +1104,7 @@ static int toFDR(void)
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
-    //pddlEndomorphismFDRRedundantOps(&fdr, &endcfg, NULL, &err);
+    pddlEndomorphismFDRRedundantOps(&fdr, &endcfg, NULL, &err);
     //pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
