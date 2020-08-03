@@ -80,7 +80,7 @@ struct methods {
     int (*value_from_state)(pddl_cascading_table_t *, const int *);
 };
 
-struct methods methods[2] = {
+static struct methods methods[2] = {
     {
         delLeaf, /* .delete */
         cloneLeaf, /* .clone */
