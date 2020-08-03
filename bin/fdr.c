@@ -1,9 +1,12 @@
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <stdio.h>
 #include <pddl/pddl.h>
 #include <opts.h>
 
 struct options {
     int help;
+    int max_mem;
     int not_force_adl;
     int compile_away_cond_eff;
     int compile_away_cond_eff_pddl;
@@ -98,6 +101,8 @@ static int readOpts(int *argc, char *argv[])
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
+    optsAddDesc("max-mem", 'm', OPTS_INT, &opt.max_mem, NULL,
+                "Maximum memory in MB (default: 0, i.e., no limit)");
     optsAddDesc("output", 'o', OPTS_STR, &opt.fdr_out, NULL,
                 "Output filename (default: stdout)");
 
@@ -248,6 +253,13 @@ static int readOpts(int *argc, char *argv[])
         BOR_INFO(&err, "Input files: '%s' and '%s'", argv[1], argv[2]);
         if (pddlFiles(&files, argv[1], argv[2], &err) != 0)
             BOR_TRACE_RET(&err, -1);
+    }
+
+    if (opt.max_mem > 0){
+        struct rlimit mem_limit;
+        mem_limit.rlim_cur
+            = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
+        setrlimit(RLIMIT_AS, &mem_limit);
     }
 
     return 0;
@@ -1049,7 +1061,7 @@ static int toFDR(void)
     BOR_ISET(redundant_op);
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-    //pddlEndomorphismMGStripsRedundantOps(&mg_strips, &redundant_op, &err);
+    //pddlEndomorphismMGStripsRedundantOps(&mg_strips, &endcfg, &redundant_op, &err);
 
     //pddlStripsPrintDebug(&mg_strips.strips, stderr);
 
@@ -1074,7 +1086,7 @@ static int toFDR(void)
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
-    //pddlEndomorphismFDRRedundantOps(&fdr, NULL, &err);
+    //pddlEndomorphismFDRRedundantOps(&fdr, &endcfg, NULL, &err);
     //pddlPruneWithEndomorphism(&fdr, NULL, &err);
     pddlFDRFree(&fdr);
 
