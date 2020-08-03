@@ -999,7 +999,8 @@ static void presolveStateAllow(ts_presolve_t *presolve,
 }
 
 static void tsPresolve(ts_presolve_t *presolve,
-                       const pddl_trans_systems_t *tss)
+                       const pddl_trans_systems_t *tss,
+                       bor_err_t *err)
 {
     presolve->op_identity.resize(tss->label.label_size, false);
     presolve->op_allow.resize(tss->label.label_size);
@@ -1113,9 +1114,11 @@ static void tsPresolve(ts_presolve_t *presolve,
         borISetFree(&label_group[tsi].goal);
     }
     BOR_FREE(label_group);
+    BOR_INFO2(err, "    presolve restriction of operator domains done");
 
     for (int tsi = 0; tsi < tss->ts_size; ++tsi)
         presolveStateAllow(presolve, tss, tsi);
+    BOR_INFO2(err, "    presolve restriction of state domains done");
 }
 
 static int transConstraints(const pddl_trans_systems_t *tss,
@@ -1140,9 +1143,6 @@ static int transConstraints(const pddl_trans_systems_t *tss,
 
     IloIntTupleSet val(env, 3);
     int olabel, ofrom, oto;
-    int from_is_goal = borISetIn(from, &ts->goal_states);
-    int to_is_goal = borISetIn(to, &ts->goal_states);
-    int label_cost = tss->label.label[label].cost;
     const std::vector<bool> &op_allow = presolve->op_allow[label];
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, ofrom, olabel, oto){
         if (!op_allow[olabel]
@@ -1287,7 +1287,7 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
 
     ts_presolve_t presolve;
     BOR_INFO2(err, "  Running presolve...");
-    tsPresolve(&presolve, tss);
+    tsPresolve(&presolve, tss, err);
     int num_identity = 0;
     for (size_t i = 0; i < presolve.op_identity.size(); ++i)
         num_identity += int(presolve.op_identity[i]);
