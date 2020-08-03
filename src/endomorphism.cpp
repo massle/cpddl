@@ -401,13 +401,13 @@ static int fdrOpConstr(int op_id,
     return num;
 }
 
-void fdrInference(const pddl_fdr_t *fdr,
-                  const pddl_endomorphism_config_t *cfg,
-                  const op_groups_t *opg,
-                  IloEnv &env,
-                  IloModel &model,
-                  bor_iset_t *redundant_ops,
-                  bor_err_t *err)
+static void fdrInference(const pddl_fdr_t *fdr,
+                         const pddl_endomorphism_config_t *cfg,
+                         const op_groups_t *opg,
+                         IloEnv &env,
+                         IloModel &model,
+                         bor_iset_t *redundant_ops,
+                         bor_err_t *err)
 {
     // Create fact variables
     IloIntVarArray var_fact(env, fdr->var.global_id_size);
@@ -785,14 +785,14 @@ static int mgStripsOpConstr(int op_id,
     return num;
 }
 
-void mgStripsInference(const pddl_mg_strips_t *mg_strips,
-                       const pddl_endomorphism_config_t *cfg,
-                       const mg_strips_t *mgs,
-                       const op_groups_t *opg,
-                       IloEnv &env,
-                       IloModel &model,
-                       bor_iset_t *redundant_ops,
-                       bor_err_t *err)
+static void mgStripsInference(const pddl_mg_strips_t *mg_strips,
+                              const pddl_endomorphism_config_t *cfg,
+                              const mg_strips_t *mgs,
+                              const op_groups_t *opg,
+                              IloEnv &env,
+                              IloModel &model,
+                              bor_iset_t *redundant_ops,
+                              bor_err_t *err)
 {
     // Create fact variables
     IloIntVarArray var_fact(env, mgs->cvar_fact_size);
@@ -1203,13 +1203,13 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
     return num_constrs;
 }
 
-void tsInference(const pddl_trans_systems_t *tss,
-                 const pddl_endomorphism_config_t *cfg,
-                 const ts_presolve_t *presolve,
-                 IloEnv &env,
-                 IloModel &model,
-                 bor_iset_t *redundant_ops,
-                 bor_err_t *err)
+static void tsInference(const pddl_trans_systems_t *tss,
+                        const pddl_endomorphism_config_t *cfg,
+                        const ts_presolve_t *presolve,
+                        IloEnv &env,
+                        IloModel &model,
+                        bor_iset_t *redundant_ops,
+                        bor_err_t *err)
 {
     // Create state variables
     std::vector<int> var_state_offset(tss->ts_size);
