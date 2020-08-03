@@ -95,7 +95,6 @@ OBJS += op_mutex_infer
 OBJS += op_mutex_infer_ts
 OBJS += op_mutex_sym_redundant
 OBJS += reversibility
-OBJS += endomorphism
 OBJS += cascading_table
 OBJS += transition
 OBJS += label

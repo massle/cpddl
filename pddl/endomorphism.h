@@ -40,10 +40,6 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
       1, /* .num_threads */ \
     }
 
-void pddlPruneWithEndomorphism(const pddl_fdr_t *fdr,
-                               bor_iset_t *prune_op,
-                               bor_err_t *err);
-
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
                                     bor_iset_t *redundant_ops,
