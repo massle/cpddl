@@ -177,6 +177,19 @@ doc:
 analyze: clean
 	$(SCAN_BUILD) $(MAKE)
 
+list-global-symbols: libpddl.a
+	readelf -s libpddl.a \
+        | grep GLOBAL \
+        | awk '{print $$8}' \
+        | sort \
+        | uniq \
+        | grep -v '^pddl' \
+        | grep -v '^bor' \
+        | grep -v '^_bor' \
+        | grep -v '^__bor' \
+        | grep -v '^_Z.*Ilo' \
+        | less
+
 third-party: boruvka opts bliss
 third-party-clean: boruvka-clean opts-clean bliss-clean
 
