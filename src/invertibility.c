@@ -23,7 +23,8 @@
 struct op {
     int op_id;
     const bor_iset_t *pre;
-    bor_iset_t eff;
+    bor_iset_t eff; /*! op applied on pre */
+    bor_iset_t eff_pre; /*! op applied on pre \cup pre */
 };
 typedef struct op op_t;
 
@@ -41,12 +42,11 @@ static int factIsInvertible(const fact_t *fact, const op_t *op, bor_err_t *err)
             || borISetSize(&fact->op_add) == 0)
         return 0;
 
-    int del_op;
+    int add_op, del_op;
     BOR_ISET_FOR_EACH(&fact->op_del, del_op){
         int found = 0;
-        int add_op;
         BOR_ISET_FOR_EACH(&fact->op_add, add_op){
-            if (borISetIsSubset(op[add_op].pre, &op[del_op].eff)){
+            if (borISetIsSubset(op[add_op].pre, &op[del_op].eff_pre)){
                 found = 1;
                 break;
             }
@@ -54,6 +54,19 @@ static int factIsInvertible(const fact_t *fact, const op_t *op, bor_err_t *err)
         if (!found)
             return 0;
     }
+
+    BOR_ISET_FOR_EACH(&fact->op_add, add_op){
+        int found = 0;
+        BOR_ISET_FOR_EACH(&fact->op_del, del_op){
+            if (borISetIsSubset(op[del_op].pre, &op[add_op].eff_pre)){
+                found = 1;
+                break;
+            }
+        }
+        if (!found)
+            return 0;
+    }
+
     return 1;
 }
 
@@ -130,6 +143,7 @@ int pddlInvertibleMGroupsFind(pddl_invertible_mgroups_t *invmgs,
         borISetMinus(&op[op_id].eff, &sop->del_eff);
         //borISetMinus2(&op[op_id].eff, &sop->pre, &sop->del_eff);
         borISetUnion(&op[op_id].eff, &sop->add_eff);
+        borISetUnion2(&op[op_id].eff_pre, &op[op_id].eff, &sop->pre);
 
         int fid;
         BOR_ISET_FOR_EACH(&sop->add_eff, fid)
