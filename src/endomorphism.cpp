@@ -22,6 +22,10 @@
 #include "pddl/endomorphism.h"
 
 #ifdef PDDL_CPOPTIMIZER
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #include <algorithm>
 #include <vector>
 #define IL_STD
@@ -32,6 +36,7 @@
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include "pddl/set.h"
+#include "pddl/time_limit.h"
 #include "assert.h"
 
 #if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
@@ -253,6 +258,7 @@ static int extractSolution(IloCP &cp,
 static int solve(IloModel &model,
                  IloIntVarArray &var_op,
                  const pddl_endomorphism_config_t *cfg,
+                 float max_search_time,
                  bor_iset_t *redundant_op,
                  bor_err_t *err)
 {
@@ -265,7 +271,7 @@ static int solve(IloModel &model,
 #endif /* NO_LOGGER */
     cp.setParameter(IloCP::LogVerbosity, IloCP::Quiet);
     cp.setParameter(IloCP::Workers, cfg->num_threads);
-    cp.setParameter(IloCP::TimeLimit, cfg->max_search_time);
+    cp.setParameter(IloCP::TimeLimit, max_search_time);
 
     BOR_INFO2(err, "  Solving model ...");
     cp.startNewSearch();
@@ -404,13 +410,14 @@ static int fdrOpConstr(int op_id,
     return num;
 }
 
-static void fdrInference(const pddl_fdr_t *fdr,
-                         const pddl_endomorphism_config_t *cfg,
-                         const op_groups_t *opg,
-                         IloEnv &env,
-                         IloModel &model,
-                         bor_iset_t *redundant_ops,
-                         bor_err_t *err)
+static int fdrInference(const pddl_fdr_t *fdr,
+                        const pddl_endomorphism_config_t *cfg,
+                        const op_groups_t *opg,
+                        IloEnv &env,
+                        IloModel &model,
+                        bor_iset_t *redundant_ops,
+                        pddl_time_limit_t *time_limit,
+                        bor_err_t *err)
 {
     // Create fact variables
     IloIntVarArray var_fact(env, fdr->var.global_id_size);
@@ -433,6 +440,9 @@ static void fdrInference(const pddl_fdr_t *fdr,
     BOR_INFO(err, "  Created %d fact and %d operator variables",
              fdr->var.global_id_size, fdr->op.op_size);
 
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
     // Set init constraint
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         int fact_id = fdr->var.var[vi].val[fdr->init[vi]].global_id;
@@ -448,9 +458,15 @@ static void fdrInference(const pddl_fdr_t *fdr,
     }
     BOR_INFO2(err, "  Added init and goal constraints");
 
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
     // Set operator constraints
     int num_op_constr = 0;
     for (int group_id = 0; group_id < opg->group_size; ++group_id){
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -1;
+
         int op_id;
         const bor_iset_t *group = &opg->group[group_id];
         BOR_ISET_FOR_EACH(group, op_id){
@@ -468,14 +484,22 @@ static void fdrInference(const pddl_fdr_t *fdr,
 
     //std::cerr << model << std::endl;
 
-    solve(model, var_op, cfg, redundant_ops, err);
+    float max_search_time = pddlTimeLimitRemain(time_limit);
+    max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    return 0;
 }
 
-int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
-                                    const pddl_endomorphism_config_t *cfg,
-                                    bor_iset_t *redundant_ops,
-                                    bor_err_t *err)
+static int fdrRedundantOps(const pddl_fdr_t *fdr,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_ops,
+                           bor_err_t *err)
 {
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitInit(&time_limit);
+    if (cfg->max_time > 0.)
+        pddlTimeLimitSet(&time_limit, cfg->max_time);
+
     int ret = 0;
     BOR_INFO(err, "Endomorphism on FDR (facts: %d, ops: %d) ...",
              fdr->var.global_id_size, fdr->op.op_size);
@@ -487,7 +511,14 @@ int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
     IloModel model(env);
 
     try {
-        fdrInference(fdr, cfg, &opg, env, model, redundant_ops, err);
+        int rinf = fdrInference(fdr, cfg, &opg, env, model, redundant_ops,
+                                &time_limit, err);
+        if (rinf < 0){
+            BOR_INFO2(err, "  Time limit reached");
+            BOR_INFO2(err, "  Terminating inference of endomorphism");
+            BOR_INFO2(err, "  Terminated by a time limit");
+            ret = -1;
+        }
     } catch(IloMemoryException &e){
         BOR_INFO2(err, "  Not Enough Memory");
         BOR_INFO2(err, "  Terminating inference of endomorphism");
@@ -789,14 +820,15 @@ static int mgStripsOpConstr(int op_id,
     return num;
 }
 
-static void mgStripsInference(const pddl_mg_strips_t *mg_strips,
-                              const pddl_endomorphism_config_t *cfg,
-                              const mg_strips_t *mgs,
-                              const op_groups_t *opg,
-                              IloEnv &env,
-                              IloModel &model,
-                              bor_iset_t *redundant_ops,
-                              bor_err_t *err)
+static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
+                             const pddl_endomorphism_config_t *cfg,
+                             const mg_strips_t *mgs,
+                             const op_groups_t *opg,
+                             IloEnv &env,
+                             IloModel &model,
+                             bor_iset_t *redundant_ops,
+                             pddl_time_limit_t *time_limit,
+                             bor_err_t *err)
 {
     // Create fact variables
     IloIntVarArray var_fact(env, mgs->cvar_fact_size);
@@ -820,9 +852,15 @@ static void mgStripsInference(const pddl_mg_strips_t *mg_strips,
     BOR_INFO(err, "  Created %d fact and %d operator variables",
              (int)var_fact.getSize(), (int)var_op.getSize());
 
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
     // Set operator constraints
     int num_op_constr = 0;
     for (int group_id = 0; group_id < opg->group_size; ++group_id){
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -1;
+
         int op_id;
         const bor_iset_t *group = &opg->group[group_id];
         BOR_ISET_FOR_EACH(group, op_id){
@@ -840,14 +878,22 @@ static void mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
     //std::cerr << model << std::endl;
 
-    solve(model, var_op, cfg, redundant_ops, err);
+    float max_search_time = pddlTimeLimitRemain(time_limit);
+    max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    return 0;
 }
 
-int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
-                                         const pddl_endomorphism_config_t *cfg,
-                                         bor_iset_t *redundant_ops,
-                                         bor_err_t *err)
+static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                const pddl_endomorphism_config_t *cfg,
+                                bor_iset_t *redundant_ops,
+                                bor_err_t *err)
 {
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitInit(&time_limit);
+    if (cfg->max_time > 0.)
+        pddlTimeLimitSet(&time_limit, cfg->max_time);
+
     int ret = 0;
     BOR_INFO(err, "Endomorphism on MG-Strips (facts: %d, ops: %d)...",
              mg_strips->strips.fact.fact_size,
@@ -879,8 +925,14 @@ int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
     IloModel model(env);
 
     try {
-        mgStripsInference(mg_strips, cfg, &mgs, &opg, env, model,
-                          redundant_ops, err);
+        int rinf = mgStripsInference(mg_strips, cfg, &mgs, &opg, env, model,
+                                     redundant_ops, &time_limit, err);
+        if (rinf < 0){
+            BOR_INFO2(err, "  Time limit reached");
+            BOR_INFO2(err, "  Terminating inference of endomorphism");
+            BOR_INFO2(err, "  Terminated by a time limit");
+            ret = -1;
+        }
     } catch(IloMemoryException &e){
         BOR_INFO2(err, "  Not Enough Memory");
         BOR_INFO2(err, "  Terminating inference of endomorphism");
@@ -962,14 +1014,27 @@ static void presolveTRStateAllow(bor_iset_t *state_allow,
     borISetFree(&to_allow);
 }
 
-static void presolveStateAllow(ts_presolve_t *presolve,
+static void stateAllowFree(bor_iset_t *state_allow, int num_states)
+{
+    for (int si = 0; si < num_states; ++si)
+        borISetFree(state_allow + si);
+    BOR_FREE(state_allow);
+}
+
+static int presolveStateAllow(ts_presolve_t *presolve,
                                const pddl_trans_systems_t *tss,
-                               int tsi)
+                               int tsi,
+                               pddl_time_limit_t *time_limit)
 {
     const pddl_trans_system_t *ts = tss->ts[tsi];
 
     bor_iset_t *state_allow = BOR_CALLOC_ARR(bor_iset_t, ts->num_states);
     for (int si = 0; si < ts->num_states; ++si){
+        if (pddlTimeLimitCheck(time_limit) != 0){
+            stateAllowFree(state_allow, ts->num_states);
+            return -1;
+        }
+
         if (si == ts->init_state){
             borISetAdd(state_allow + si, si);
 
@@ -993,19 +1058,37 @@ static void presolveStateAllow(ts_presolve_t *presolve,
         int state;
         BOR_ISET_FOR_EACH(state_allow + si, state)
             presolve->state_allow[tsi][si][state] = true;
-        borISetFree(state_allow + si);
     }
-    BOR_FREE(state_allow);
+    stateAllowFree(state_allow, ts->num_states);
+    return 0;
 }
 
-static void tsPresolve(ts_presolve_t *presolve,
-                       const pddl_trans_systems_t *tss,
-                       bor_err_t *err)
+static void labelGroupsFree(const pddl_trans_systems_t *tss,
+                            label_groups_t *label_group)
+{
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        borISetFree(&label_group[tsi].init_loop);
+        borISetFree(&label_group[tsi].loop);
+        borISetFree(&label_group[tsi].init_to);
+        borISetFree(&label_group[tsi].init_from);
+        borISetFree(&label_group[tsi].goal_to);
+        borISetFree(&label_group[tsi].goal_from);
+        borISetFree(&label_group[tsi].goal);
+    }
+    BOR_FREE(label_group);
+}
+
+static int tsPresolve(ts_presolve_t *presolve,
+                      const pddl_trans_systems_t *tss,
+                      pddl_time_limit_t *time_limit,
+                      bor_err_t *err)
 {
     presolve->op_identity.resize(tss->label.label_size, false);
     presolve->op_allow.resize(tss->label.label_size);
     presolve->state_allow.resize(tss->ts_size);
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -1;
         int num_states = tss->ts[tsi]->num_states;
         presolve->state_allow[tsi].resize(num_states);
         for (int si = 0; si < tss->ts[tsi]->num_states; ++si)
@@ -1017,6 +1100,10 @@ static void tsPresolve(ts_presolve_t *presolve,
 
     std::vector<std::vector<bor_iset_t *>> relevant(tss->label.label_size);
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        if (pddlTimeLimitCheck(time_limit) != 0){
+            labelGroupsFree(tss, label_group);
+            return -1;
+        }
         const pddl_trans_system_t *ts = tss->ts[tsi];
         int consider_goal = (borISetSize(&ts->goal_states) != ts->num_states);
         const pddl_label_set_t *labels;
@@ -1065,6 +1152,11 @@ static void tsPresolve(ts_presolve_t *presolve,
     }
 
     for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
+        if (pddlTimeLimitCheck(time_limit) != 0){
+            labelGroupsFree(tss, label_group);
+            return -1;
+        }
+
         if (relevant[op_id].size() == 0){
             presolve->op_allow[op_id].resize(tss->label.label_size, true);
             continue;
@@ -1104,21 +1196,16 @@ static void tsPresolve(ts_presolve_t *presolve,
         borISetFree(&allowed2);
     }
 
-    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
-        borISetFree(&label_group[tsi].init_loop);
-        borISetFree(&label_group[tsi].loop);
-        borISetFree(&label_group[tsi].init_to);
-        borISetFree(&label_group[tsi].init_from);
-        borISetFree(&label_group[tsi].goal_to);
-        borISetFree(&label_group[tsi].goal_from);
-        borISetFree(&label_group[tsi].goal);
-    }
-    BOR_FREE(label_group);
+    labelGroupsFree(tss, label_group);
     BOR_INFO2(err, "    presolve restriction of operator domains done");
 
-    for (int tsi = 0; tsi < tss->ts_size; ++tsi)
-        presolveStateAllow(presolve, tss, tsi);
+    for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        if (presolveStateAllow(presolve, tss, tsi, time_limit) != 0)
+            return -1;
+    }
     BOR_INFO2(err, "    presolve restriction of state domains done");
+
+    return 0;
 }
 
 static int transConstraints(const pddl_trans_systems_t *tss,
@@ -1177,6 +1264,7 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
                          IloIntVarArray &var_state,
                          int var_state_offset,
                          IloIntVarArray &var_op,
+                         pddl_time_limit_t *time_limit,
                          bor_err_t *err)
 {
     int num_constrs = 0;
@@ -1201,6 +1289,8 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
     // Transition constraints
     int label_id, from, to;
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, from, label_id, to){
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -1;
         num_constrs += transConstraints(tss, tsi, presolve,
                                         from, label_id, to, env, model,
                                         var_state, var_state_offset,
@@ -1209,13 +1299,14 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
     return num_constrs;
 }
 
-static void tsInference(const pddl_trans_systems_t *tss,
-                        const pddl_endomorphism_config_t *cfg,
-                        const ts_presolve_t *presolve,
-                        IloEnv &env,
-                        IloModel &model,
-                        bor_iset_t *redundant_ops,
-                        bor_err_t *err)
+static int tsInference(const pddl_trans_systems_t *tss,
+                       const pddl_endomorphism_config_t *cfg,
+                       const ts_presolve_t *presolve,
+                       IloEnv &env,
+                       IloModel &model,
+                       bor_iset_t *redundant_ops,
+                       pddl_time_limit_t *time_limit,
+                       bor_err_t *err)
 {
     // Create state variables
     std::vector<int> var_state_offset(tss->ts_size);
@@ -1245,6 +1336,9 @@ static void tsInference(const pddl_trans_systems_t *tss,
     BOR_INFO(err, "  Created %d state and %d operator variables",
              (int)var_state.getSize(), (int)var_op.getSize());
 
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
     // Operator identity constraints
     int num_ident = 0;
     for (int op_id = 0; op_id < tss->label.label_size; ++op_id){
@@ -1255,11 +1349,19 @@ static void tsInference(const pddl_trans_systems_t *tss,
     }
     BOR_INFO(err, "  Set %d operator-identity bounds", num_ident);
 
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
     int num_constrs = 0;
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -1;
+
         int num = tsConstraints(tss, presolve, tsi, env, model,
                                 var_state, var_state_offset[tsi],
-                                var_op, err);
+                                var_op, time_limit, err);
+        if (num < 0)
+            return -1;
         BOR_INFO(err, "  Added %d constraints for TS %d with %d states",
                  num, tsi, tss->ts[tsi]->num_states);
         num_constrs += num;
@@ -1272,14 +1374,25 @@ static void tsInference(const pddl_trans_systems_t *tss,
 
     //std::cerr << model << std::endl;
 
-    solve(model, var_op, cfg, redundant_ops, err);
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
+    float max_search_time = pddlTimeLimitRemain(time_limit);
+    max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    return 0;
 }
 
-int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
-                                            const pddl_endomorphism_config_t *cfg,
-                                            bor_iset_t *redundant_ops,
-                                            bor_err_t *err)
+static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                   const pddl_endomorphism_config_t *cfg,
+                                   bor_iset_t *redundant_ops,
+                                   bor_err_t *err)
 {
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitInit(&time_limit);
+    if (cfg->max_time > 0.)
+        pddlTimeLimitSet(&time_limit, cfg->max_time);
+
     int ret = 0;
     BOR_INFO(err, "Endomorphism on factored TS"
                   " (num-ts: %d, num-labels: %d) ...",
@@ -1287,7 +1400,14 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
 
     ts_presolve_t presolve;
     BOR_INFO2(err, "  Running presolve...");
-    tsPresolve(&presolve, tss, err);
+    if (tsPresolve(&presolve, tss, &time_limit, err) != 0){
+        BOR_INFO2(err, "  Time limit reached");
+        BOR_INFO2(err, "  Terminating presolve phase");
+        BOR_INFO2(err, "  Terminating inference of endomorphism");
+        BOR_INFO2(err, "  Terminated by a time limit");
+        return -1;
+    }
+
     int num_identity = 0;
     for (size_t i = 0; i < presolve.op_identity.size(); ++i)
         num_identity += int(presolve.op_identity[i]);
@@ -1303,7 +1423,14 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
     IloModel model(env);
 
     try {
-        tsInference(tss, cfg, &presolve, env, model, redundant_ops, err);
+        int rinf = tsInference(tss, cfg, &presolve, env, model, redundant_ops,
+                               &time_limit, err);
+        if (rinf < 0){
+            BOR_INFO2(err, "  Time limit reached");
+            BOR_INFO2(err, "  Terminating inference of endomorphism");
+            BOR_INFO2(err, "  Terminated by a time limit");
+            ret = -1;
+        }
     }catch (IloMemoryException &e){
         BOR_INFO2(err, "  Not Enough Memory");
         BOR_INFO2(err, "  Terminating inference of endomorphism");
@@ -1312,6 +1439,115 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
 
     env.end();
     return ret;
+}
+
+static int runInSubprocess(const pddl_fdr_t *fdr,
+                           const pddl_mg_strips_t *mg_strips,
+                           const pddl_trans_systems_t *tss,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_ops,
+                           bor_err_t *err)
+{
+    BOR_INFO2(err, "Endomorphism in a subprocess ...");
+    fflush(stdout);
+    fflush(stderr);
+    fflush(err->warn_out);
+    fflush(err->info_out);
+
+    int op_size = 0;
+    if (fdr != NULL){
+        op_size = fdr->op.op_size;
+    }else if (mg_strips != NULL){
+        op_size = mg_strips->strips.op.op_size;
+    }else if (tss != NULL){
+        op_size = tss->label.label_size;
+    }
+
+    size_t shared_size = sizeof(int) + (sizeof(char) * op_size);
+    void *shared = mmap(NULL, shared_size, PROT_WRITE | PROT_READ,
+                        MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared == MAP_FAILED){
+        //perror("mmap() failed");
+        BOR_INFO(err, "Could not allocate shared memory of size %ld using"
+                      " mmap: %s",
+                 (long)shared_size, strerror(errno));
+        return -1;
+    }
+    bzero(shared, shared_size);
+    int *shared_ret = (int *)shared;
+    char *shared_ops = (char *)(shared_ret + 1);
+    *shared_ret = -1;
+    BOR_INFO(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
+
+    int pid = fork();
+    if (pid == -1){
+        perror("fork() failed");
+        return -1;
+
+    }else if (pid == 0){
+        int ret = 0;
+        if (fdr != NULL){
+            ret = fdrRedundantOps(fdr, cfg, redundant_ops, err);
+        }else if (mg_strips != NULL){
+            ret = mgStripsRedundantOps(mg_strips, cfg, redundant_ops, err);
+        }else if (tss != NULL){
+            ret = transSystemRedundantOps(tss, cfg, redundant_ops, err);
+        }
+
+        *shared_ret = ret;
+        if (ret == 0){
+            int op;
+            BOR_ISET_FOR_EACH(redundant_ops, op)
+                shared_ops[op] = 1;
+        }
+        exit(ret);
+
+    }else{
+        wait(NULL);
+        int ret = *shared_ret;
+        if (ret == 0){
+            for (int op_id = 0; op_id < op_size; ++op_id){
+                if (shared_ops[op_id])
+                    borISetAdd(redundant_ops, op_id);
+            }
+        }
+        munmap(shared, shared_size);
+        BOR_INFO(err, "Endomorphism in a subprocess: ret: %d,"
+                      " redundant ops: %d",
+                 ret, borISetSize(redundant_ops));
+        BOR_INFO2(err, "Endomorphism in a subprocess DONE");
+        return ret;
+    }
+}
+
+int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                    const pddl_endomorphism_config_t *cfg,
+                                    bor_iset_t *redundant_ops,
+                                    bor_err_t *err)
+{
+    if (cfg->run_in_subprocess)
+        return runInSubprocess(fdr, NULL, NULL, cfg, redundant_ops, err);
+    return fdrRedundantOps(fdr, cfg, redundant_ops, err);
+}
+
+int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
+                                         const pddl_endomorphism_config_t *cfg,
+                                         bor_iset_t *redundant_ops,
+                                         bor_err_t *err)
+{
+    if (cfg->run_in_subprocess)
+        return runInSubprocess(NULL, mg_strips, NULL, cfg, redundant_ops, err);
+    return mgStripsRedundantOps(mg_strips, cfg, redundant_ops, err);
+}
+
+int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                            const pddl_endomorphism_config_t *cfg,
+                                            bor_iset_t *redundant_ops,
+                                            bor_err_t *err)
+{
+    if (cfg->run_in_subprocess)
+        return runInSubprocess(NULL, NULL, tss, cfg, redundant_ops, err);
+    return transSystemRedundantOps(tss, cfg, redundant_ops, err);
 }
 
 #else /* PDDL_CPOPTIMIZER */

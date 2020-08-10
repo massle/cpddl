@@ -68,6 +68,21 @@ _bor_inline int pddlTimeLimitCheck(pddl_time_limit_t *tm)
     return 0;
 }
 
+/**
+ * Returns the remaining time from the time limit.
+ */
+_bor_inline bor_real_t pddlTimeLimitRemain(pddl_time_limit_t *tm)
+{
+    if (tm->limit >= 1E100)
+        return 1E100;
+
+    borTimerStop(&tm->timer);
+    bor_real_t elapsed = borTimerElapsedInSF(&tm->timer);
+    if (elapsed > tm->limit)
+        return 0.;
+    return tm->limit - elapsed;
+}
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

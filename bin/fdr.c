@@ -102,6 +102,8 @@ static int readOpts(int *argc, char *argv[])
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
 
     pddl_cfg.force_adl = 1;
+    endomorphism_cfg.num_threads = 1;
+    endomorphism_cfg.run_in_subprocess = 1;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
@@ -211,6 +213,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("em-ts", 0x0, OPTS_NONE, &opt.endomorphism_ts, NULL,
                 "Prune operators with endomorphism on factored transition"
                 " system. (default: off)");
+    optsAddDesc("em-max-time", 0x0, OPTS_FLOAT,
+                &endomorphism_cfg.max_time, NULL,
+                "Maximum overall time in seconds for the endomorphism"
+                " inference. (default: 3600.)");
     optsAddDesc("em-max-search-time", 0x0, OPTS_FLOAT,
                 &endomorphism_cfg.max_search_time, NULL,
                 "Maximum search time in seconds for the endomorphism"

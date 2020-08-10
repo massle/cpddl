@@ -28,16 +28,23 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_endomorphism_config {
+    /** Maximal overall time in seconds. (default: 1 hour) */
+    float max_time;
     /** Maximal search time in seconds. (default: 1 hour) */
     float max_search_time;
     /** Maximal number of worker threads. (default: 1) */
     int num_threads;
+    /** If set to true, the inference will run in a separate sub-process.
+     *  (default: true) */
+    int run_in_subprocess;
 };
 typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
 
 #define PDDL_ENDOMORPHISM_CONFIG_INIT \
-    { 3600.f, /* .max_search_time */ \
+    { 3600.f, /* .max_time */ \
+      3600.f, /* .max_search_time */ \
       1, /* .num_threads */ \
+      1, /* .run_in_subprocess */ \
     }
 
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
