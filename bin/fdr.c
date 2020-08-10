@@ -20,6 +20,7 @@ struct options {
     int no_ground_prune_dead_end;
 
     int fam;
+    float fam_max_time;
     int fam_fixpoint;
     int fam_fixpoint_no_de;
     int fam_lmg;
@@ -101,6 +102,7 @@ static int readOpts(int *argc, char *argv[])
     opt.lifted_mgroup_max_mgroups = 10000;
     opt.fdr_out = "-";
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
+    opt.fam_max_time = -1.;
 
     pddl_cfg.force_adl = 1;
     endomorphism_cfg.num_threads = 1;
@@ -151,6 +153,8 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
                 " algorithm. (default: off)");
+    optsAddDesc("fam-max-time", 0x0, OPTS_FLOAT, &opt.fam_max_time, NULL,
+                "Maximum time for inference of fam-groups. (default: off)");
     optsAddDesc("fam-fixpoint", 0x0, OPTS_NONE, &opt.fam_fixpoint, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
                 " algorithm and use a fixpoint pruning (--fam-lmg also takes"
@@ -454,6 +458,7 @@ static int inferMutexGroups(void)
 
     if (opt.fam){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (!opt.fam_lmg){
             // Clean mgroups if we want only fam-groups
             pddlMGroupsFree(&mgroups);
@@ -654,6 +659,7 @@ static int pruneStripsFixpointFAMGroups(void)
             pddlMGroupsInitEmpty(&mgs);
         }
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
@@ -840,6 +846,7 @@ static int pruneStripsFixpointFAMH2(void)
             pddlMGroupsInitEmpty(&mgs);
         }
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
@@ -931,6 +938,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
             pddlMGroupsInitEmpty(&mgs);
         }
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
