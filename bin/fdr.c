@@ -39,6 +39,7 @@ struct options {
     int endomorphism_fdr;
     int endomorphism_mg_strips;
     int endomorphism_ts;
+    int endomorphism_fdr_ts;
 
     const char *fdr_out;
     const char *lifted_mgroup_out;
@@ -213,6 +214,11 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("em-ts", 0x0, OPTS_NONE, &opt.endomorphism_ts, NULL,
                 "Prune operators with endomorphism on factored transition"
                 " system. (default: off)");
+    optsAddDesc("em-fdr-ts", 0x0, OPTS_NONE, &opt.endomorphism_fdr_ts, NULL,
+                "Endomorphism first on FDR and then on factored transition"
+                " system. If the inference on FDR fails (because of memory"
+                " or time limit) the inference of TS is skipped."
+                " (default: off)");
     optsAddDesc("em-max-time", 0x0, OPTS_FLOAT,
                 &endomorphism_cfg.max_time, NULL,
                 "Maximum overall time in seconds for the endomorphism"
@@ -508,31 +514,37 @@ static void deduplicateOps(void)
              num_ops - strips.op.op_size);
 }
 
-static void pruneEndomorphismFDR(const pddl_endomorphism_config_t *cfg,
-                                 bor_iset_t *redundant_op)
+static int pruneEndomorphismFDR(const pddl_endomorphism_config_t *cfg,
+                                bor_iset_t *redundant_op)
 {
+    int ret = 0;
     BOR_INFO2(&err, "Redundant operators using endomorphism on FDR ...");
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
-    pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, &err);
+    ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, &err);
     pddlFDRFree(&fdr);
     BOR_INFO2(&err, "Redundant operators using endomorphism on FDR DONE");
+    return ret;
 }
 
-static void pruneEndomorphismMGStrips(const pddl_endomorphism_config_t *cfg,
-                                      bor_iset_t *redundant_op)
+static int pruneEndomorphismMGStrips(const pddl_endomorphism_config_t *cfg,
+                                     bor_iset_t *redundant_op)
 {
+    int ret = 0;
     BOR_INFO2(&err, "Redundant operators using endomorphism on MG-Strips ...");
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-    pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op, &err);
+    ret = pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op,
+                                               &err);
     pddlMGStripsFree(&mg_strips);
     BOR_INFO2(&err, "Redundant operators using endomorphism on MG-Strips DONE");
+    return ret;
 }
 
-static void pruneEndomorphismTS(const pddl_endomorphism_config_t *cfg,
-                                bor_iset_t *redundant_op)
+static int pruneEndomorphismTS(const pddl_endomorphism_config_t *cfg,
+                               bor_iset_t *redundant_op)
 {
+    int ret = 0;
     BOR_INFO2(&err, "Redundant operators using endomorphism on TSs ...");
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
@@ -543,15 +555,39 @@ static void pruneEndomorphismTS(const pddl_endomorphism_config_t *cfg,
     pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
     pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
     pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
-    pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op, &err);
+    ret = pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op,
+                                                  &err);
     pddlTransSystemsFree(&tss);
     pddlMutexPairsFree(&mg_mutex);
     pddlMGStripsFree(&mg_strips);
     BOR_INFO2(&err, "Redundant operators using endomorphism on TSs DONE");
+    return ret;
 }
 
-static void _pruneEndomorphism(void (*f)(const pddl_endomorphism_config_t *cfg,
-                                         bor_iset_t *redundant_op))
+static int pruneEndomorphismFDRTS(const pddl_endomorphism_config_t *cfg,
+                                  bor_iset_t *redundant_op)
+{
+    int ret = pruneEndomorphismFDR(cfg, redundant_op);
+
+    if (ret == 0){
+        BOR_ISET(redundant2);
+        int ret2 = pruneEndomorphismTS(cfg, &redundant2);
+        if (ret2 == 0
+                && borISetSize(&redundant2) > borISetSize(redundant_op)){
+            borISetEmpty(redundant_op);
+            borISetUnion(redundant_op, &redundant2);
+        }
+        borISetFree(&redundant2);
+    }else{
+        BOR_INFO2(&err, "Endomorphism on factored TS skipped, because"
+                        " endomorphism on FDR failed");
+    }
+
+    return ret;
+}
+
+static void _pruneEndomorphism(int (*f)(const pddl_endomorphism_config_t *cfg,
+                                        bor_iset_t *redundant_op))
 {
     BOR_ISET(redundant_op);
     BOR_ISET(_rm_fact);
@@ -560,19 +596,25 @@ static void _pruneEndomorphism(void (*f)(const pddl_endomorphism_config_t *cfg,
     if (borISetSize(&redundant_op) > 0)
         reduceStrips(&_rm_fact, &redundant_op);
     int removed = num_ops - strips.op.op_size;
-    BOR_INFO(&err, "Number of Strips Operators: %d (removed: %d)",
-            strips.op.op_size, removed);
+    BOR_INFO(&err, "Removed %d endomorphism redundant operators, remain %d"
+                   " operators",
+             removed, strips.op.op_size);
     borISetFree(&redundant_op);
 }
 
 static void pruneEndomorphism(void)
 {
+    if (strips.op.op_size == 0)
+        return;
+
     if (opt.endomorphism_ts)
         _pruneEndomorphism(pruneEndomorphismTS);
     if (opt.endomorphism_fdr)
         _pruneEndomorphism(pruneEndomorphismFDR);
     if (opt.endomorphism_mg_strips)
         _pruneEndomorphism(pruneEndomorphismMGStrips);
+    if (opt.endomorphism_fdr_ts)
+        _pruneEndomorphism(pruneEndomorphismFDRTS);
 }
 
 

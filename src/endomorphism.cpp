@@ -470,6 +470,9 @@ static int fdrInference(const pddl_fdr_t *fdr,
         int op_id;
         const bor_iset_t *group = &opg->group[group_id];
         BOR_ISET_FOR_EACH(group, op_id){
+            if (pddlTimeLimitCheck(time_limit) != 0)
+                return -1;
+
             num_op_constr += fdrOpConstr(op_id, group, fdr, env, model,
                                          var_fact, var_op, err);
         }
