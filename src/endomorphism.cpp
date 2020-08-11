@@ -230,17 +230,19 @@ static int extractSolution(IloCP &cp,
                            bor_iset_t *redundant_op,
                            bor_err_t *err)
 {
+    std::vector<char> mapped_to(var_op.getSize(), 0);
+
     BOR_ISET(redundant);
+    for (int i = 0; i < var_op.getSize(); ++i)
+        mapped_to[cp.getValue(var_op[i])] = 1;
+
     for (int i = 0; i < var_op.getSize(); ++i){
-        int value = cp.getValue(var_op[i]);
-        ASSERT(value >= 0 && value < var_op.getSize());
-        if (value != i && cp.getValue(var_op[value]) == value){
+        if (!mapped_to[i]){
             borISetAdd(&redundant, i);
-        }
 #ifdef DEBUG_PRINT_OP_MAPPING
-        if (value != i)
-            BOR_INFO(err, "    :: op %d -> %d", i, value);
+            BOR_INFO(err, "    :: op %d -> %d", i, cp.getValue(var_op[i]));
 #endif /* DEBUG_PRINT_OP_MAPPING */
+        }
     }
     int num_redundant = borISetSize(&redundant);
     BOR_INFO(err, "  Found a solution with %d redundant operators",
