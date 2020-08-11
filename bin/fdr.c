@@ -48,6 +48,12 @@ struct options {
     const char *lifted_mgroup_out;
     const char *mgroup_out;
     const char *mgroup_pre_out;
+
+    int op_mutex_ts;
+    int op_mutex_op_fact;
+    int op_mutex_hm_op;
+    int op_mutex_prune;
+    const char *op_mutex_out;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -105,6 +111,9 @@ static int readOpts(int *argc, char *argv[])
     opt.fdr_out = "-";
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
     opt.fam_max_time = -1.;
+    opt.op_mutex_ts = -1;
+    opt.op_mutex_op_fact = -1;
+    opt.op_mutex_hm_op = -1;
 
     pddl_cfg.force_adl = 1;
     endomorphism_cfg.num_threads = 1;
@@ -237,6 +246,18 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
                 " (default: off)");
+
+    optsAddDesc("opm-ts", 0x0, OPTS_INT, &opt.op_mutex_ts, NULL,
+                "Infer op-mutexes using abstractions. (default: off)");
+    optsAddDesc("opm-op-fact", 0x0, OPTS_INT, &opt.op_mutex_op_fact, NULL,
+                "Infer op-mutexes using op-fact compilation. (default: off)");
+    optsAddDesc("opm-hm-op", 0x0, OPTS_INT, &opt.op_mutex_hm_op, NULL,
+                "Infer op-mutexes using h^m from each operator. (default: off)");
+    optsAddDesc("opm-prune", 0x0, OPTS_NONE, &opt.op_mutex_prune, NULL,
+                "Enable pruning using inferred op-mutexes and symmetries."
+                " (default: off)");
+    optsAddDesc("opm-out", 0x0, OPTS_STR, &opt.op_mutex_out, NULL,
+                "Output filename for op-mutexes (default: no output)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1)
@@ -1219,6 +1240,104 @@ static int mgroupsAndPruning(void)
     return 0;
 }
 
+static int opMutex(void)
+{
+    if (opt.op_mutex_ts < 0
+            && opt.op_mutex_op_fact < 1
+            && opt.op_mutex_hm_op < 1){
+        return 0;
+    }
+
+    BOR_INFO2(&err, "");
+    BOR_INFO(&err, "Operator Mutexes [ts: %d, op-fact: %d, hm-op: %d,"
+                   " prune: %d, output: '%s']",
+             opt.op_mutex_ts,
+             opt.op_mutex_op_fact,
+             opt.op_mutex_hm_op,
+             opt.op_mutex_prune,
+             (opt.op_mutex_out == NULL ? "" : opt.op_mutex_out));
+
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    BOR_INFO(&err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
+                   " input mgroups: %d",
+             mg_strips.strips.fact.fact_size,
+             mg_strips.strips.op.op_size,
+             mg_strips.mg.mgroup_size,
+             mgroups.mgroup_size);
+
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
+
+    pddl_op_mutex_pairs_t opm;
+    pddlOpMutexPairsInit(&opm, &mg_strips.strips);
+    int ret;
+    size_t max_mem = 0;
+    if (opt.op_mutex_ts > 0){
+        ret = pddlOpMutexInferTransSystems(&opm, &mg_strips, &mg_mutex,
+                                           opt.op_mutex_ts, max_mem, 1, &err);
+        if (ret < 0)
+            BOR_TRACE_RET(&err, ret);
+    }
+
+    if (opt.op_mutex_op_fact > 1){
+        ret = pddlOpMutexInferHmOpFactCompilation(&opm, opt.op_mutex_op_fact,
+                                                  &mg_strips.strips, &err);
+        if (ret < 0)
+            BOR_TRACE_RET(&err, ret);
+    }
+
+    if (opt.op_mutex_hm_op > 1){
+        ret = pddlOpMutexInferHmFromEachOp(&opm, opt.op_mutex_hm_op,
+                                           &mg_strips.strips, &mg_mutex,
+                                           NULL, &err);
+        if (ret < 0)
+            BOR_TRACE_RET(&err, ret);
+    }
+
+    if (opt.op_mutex_out != NULL){
+        FILE *fout = openFile(opt.op_mutex_out);
+        if (fout == NULL){
+            pddlOpMutexPairsFree(&opm);
+            pddlMGStripsFree(&mg_strips);
+            BOR_ERR_RET(&err, -1, "Could not open file '%s'\n",
+                        opt.op_mutex_out);
+        }
+        int o1, o2;
+        PDDL_OP_MUTEX_PAIRS_FOR_EACH(&opm, o1, o2)
+            fprintf(fout, "%d %d\n", o1, o2);
+        closeFile(fout);
+    }
+
+    if (opm.num_op_mutex_pairs > 0
+            && opt.op_mutex_prune){
+        BOR_INFO2(&err, "Computing symmetries on PDG");
+        pddl_strips_sym_t sym;
+        pddlStripsSymInitPDG(&sym, &strips);
+        BOR_INFO(&err, "  Symmetry generators: %d", sym.gen_size);
+        BOR_ISET(redundant);
+        pddlOpMutexSymRedundantFixpoint(&redundant, &mg_strips.strips,
+                                        &sym, &opm, &err);
+        if (borISetSize(&redundant) > 0){
+            pddlStripsReduce(&strips, NULL, &redundant);
+            BOR_INFO(&err, "Number of Strips Operators: %d",
+                     strips.op.op_size);
+            pruneStrips();
+        }
+        borISetFree(&redundant);
+        pddlStripsSymFree(&sym);
+    }
+
+    pddlOpMutexPairsFree(&opm);
+    pddlMutexPairsFree(&mg_mutex);
+    pddlMGStripsFree(&mg_strips);
+    BOR_INFO2(&err, "Operator Mutexes DONE");
+    BOR_INFO2(&err, "");
+    return 0;
+}
+
 
 static int toFDR(void)
 {
@@ -1261,6 +1380,7 @@ int main(int argc, char *argv[])
             || groundStrips() != 0
             || groundMGroups() != 0
             || mgroupsAndPruning() != 0
+            || opMutex() != 0
             || toFDR() != 0){
         if (borErrIsSet(&err)){
             fprintf(stderr, "Error: ");
