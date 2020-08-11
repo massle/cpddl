@@ -390,6 +390,7 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  int prune_dead_labels,
                                  bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "OPM ");
     BOR_INFO(err, "Computing op-mutex pairs from abstract transition systems."
                   " merge-size: %d", merge_size);
     pddl_trans_systems_t tss;
@@ -401,7 +402,8 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                prune_dead_labels, err);
     pddlTransSystemsFree(&tss);
     BOR_INFO(err, "Computing op-mutex pairs from abstract transition"
-                  "systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
+                  " systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
                   merge_size, m->num_op_mutex_pairs);
+    BOR_INFO_PREFIX_POP(err);
     return ret;
 }
