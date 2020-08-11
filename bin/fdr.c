@@ -42,6 +42,8 @@ struct options {
     int endomorphism_ts;
     int endomorphism_fdr_ts;
 
+    int num_sym_gen;
+
     const char *fdr_out;
     const char *lifted_mgroup_out;
     const char *mgroup_out;
@@ -231,6 +233,10 @@ static int readOpts(int *argc, char *argv[])
                 &endomorphism_cfg.max_search_time, NULL,
                 "Maximum search time in seconds for the endomorphism"
                 " inference. (default: 3600.)");
+
+    optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
+                "Print number of symmetry generators inferred on PDG."
+                " (default: off)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1)
@@ -1216,6 +1222,13 @@ static int mgroupsAndPruning(void)
 
 static int toFDR(void)
 {
+    if (opt.num_sym_gen){
+        pddl_strips_sym_t sym;
+        pddlStripsSymInitPDG(&sym, &strips);
+        BOR_INFO(&err, "Symmetry generators: %d", sym.gen_size);
+        pddlStripsSymFree(&sym);
+    }
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Translating to FDR ...");
     BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
