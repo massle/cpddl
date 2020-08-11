@@ -1324,7 +1324,6 @@ static int opMutex(void)
             pddlStripsReduce(&strips, NULL, &redundant);
             BOR_INFO(&err, "Number of Strips Operators: %d",
                      strips.op.op_size);
-            pruneStrips();
         }
         borISetFree(&redundant);
         pddlStripsSymFree(&sym);
