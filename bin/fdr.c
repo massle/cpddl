@@ -54,6 +54,8 @@ struct options {
     int op_mutex_hm_op;
     int op_mutex_prune;
     const char *op_mutex_out;
+
+    int pot;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -69,6 +71,7 @@ pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
 unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
 pddl_endomorphism_config_t endomorphism_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
 
 static FILE *openFile(const char *fn)
 {
@@ -88,6 +91,16 @@ static void closeFile(FILE *f)
         fclose(f);
 }
 
+static void usage(const char *bin)
+{
+    fprintf(stderr, "pddl-fdr is a program for translating PDDL into"
+            " FDR.\n");
+    fprintf(stderr, "Usage: %s [OPTIONS] domain.pddl problem.pddl\n", bin);
+    fprintf(stderr, "  OPTIONS:\n");
+    optsPrint(stderr, "    ");
+    fprintf(stderr, "\n");
+}
+
 static void setFDRVarLargest(const char *ln, const char *sn)
 {
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
@@ -103,8 +116,96 @@ static void setFDRVarLargestMulti(const char *ln, const char *sn)
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST_MULTI;
 }
 
+static int setPot(const char *_spec)
+{
+    // TODO
+    char *spec = BOR_STRDUP(_spec);
+    if (spec == NULL)
+        return -1;
+    const char *end = spec + strlen(spec);
+    char *o = spec;
+    while (o <= end){
+        char *e;
+        for (e = o; *e != 0x0 && *e != ':'; ++e);
+        *e = 0x0;
+
+        if (strcmp(o, "disamb") == 0){
+            pot_cfg.disambiguation = 1;
+            pot_cfg.weak_disambiguation = 0;
+
+        }else if (strcmp(o, "weak-disamb") == 0){
+            pot_cfg.disambiguation = 0;
+            pot_cfg.weak_disambiguation = 1;
+
+        }else if (strcmp(o, "no-disamb") == 0){
+            pot_cfg.disambiguation = 0;
+            pot_cfg.weak_disambiguation = 0;
+
+        }else if (strcmp(o, "init") == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_INIT;
+            pot_cfg.add_init_constr = 0;
+            pot_cfg.init_constr_coef = 0;
+
+        }else if (strcmp(o, "all") == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES;
+
+        }else if (strcmp(o, "Max(init,all)") == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
+
+        }else if (strcmp(o, "+init") == 0){
+            pot_cfg.add_init_constr = 1;
+            pot_cfg.init_constr_coef = 1;
+
+        }else if (strcmp(o, "-init") == 0){
+            pot_cfg.add_init_constr = 0;
+            pot_cfg.init_constr_coef = 0;
+
+        }else{
+            fprintf(stderr, "Error: Unknown pot specification: '%s'\n", o);
+            fprintf(stderr, "\n");
+            return -1;
+        }
+
+        o = e + 1;
+    }
+
+    if (spec != NULL)
+        BOR_FREE(spec);
+
+    opt.pot = 1;
+    return 0;
+}
+
+static const char *potObjName(int obj)
+{
+    switch(obj){
+        case PDDL_HPOT_OBJ_INIT:
+            return "init";
+        case PDDL_HPOT_OBJ_ALL_STATES:
+            return "all";
+        case PDDL_HPOT_OBJ_SAMPLES_MAX:
+            return "samples-max";
+        case PDDL_HPOT_OBJ_SAMPLES_SUM:
+            return "samples-sum";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX:
+            return "all-states-mutex";
+        case PDDL_HPOT_OBJ_DIVERSE:
+            return "diverse";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED:
+            return "all-states-mutex-cond";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND:
+            return "all-states-mutex-cond-rand";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2:
+            return "all-states-mutex-cond-rand2";
+        case PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES:
+            return "Max(init,all)";
+    }
+    return "unknown";
+}
+
 static int readOpts(int *argc, char *argv[])
 {
+    const char *pot_spec = NULL;
     bzero(&opt, sizeof(opt));
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
@@ -259,26 +360,33 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("opm-out", 0x0, OPTS_STR, &opt.op_mutex_out, NULL,
                 "Output filename for op-mutexes (default: no output)");
 
+    optsAddDesc("pot", 0x0, OPTS_NONE, &opt.pot, NULL,
+                "Shorthand for --pot-spec 'disamb:all:+init'");
+    optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
+                "Generate potentials according to the specification."
+                " TODO");
+
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
-        if (*argc <= 1)
+        if (*argc <= 1){
             fprintf(stderr, "Error: Missing input file(s)\n\n");
+            fprintf(stderr, "\n");
+        }
 
         if (*argc > 3){
             for (int i = 0; i < *argc; ++i){
                 if (argv[i][0] == '-'){
                     fprintf(stderr, "Error: Unrecognized option '%s'\n",
                             argv[i]);
+                    fprintf(stderr, "\n");
                 }
             }
         }
+        usage(argv[0]);
+        return -1;
+    }
 
-        fprintf(stderr, "pddl-fdr is a program for translating PDDL into"
-                        " FDR.\n");
-        fprintf(stderr, "Usage: %s [OPTIONS] domain.pddl problem.pddl\n",
-                argv[0]);
-        fprintf(stderr, "  OPTIONS:\n");
-        optsPrint(stderr, "    ");
-        fprintf(stderr, "\n");
+    if (pot_spec != NULL && setPot(pot_spec) != 0){
+        usage(argv[0]);
         return -1;
     }
 
@@ -288,6 +396,7 @@ static int readOpts(int *argc, char *argv[])
 
     if (opt.fam && opt.h2_mgroup){
         fprintf(stderr, "Error: --fam and --h2mg cannot be used together.\n");
+        fprintf(stderr, "\n");
         return -1;
     }
 
@@ -300,6 +409,7 @@ static int readOpts(int *argc, char *argv[])
         fprintf(stderr, "Error: --fam-lmg has no effect: use --fam or"
                         " --fam-fixpoint or --famh2-fixpoint"
                         " or --famh2fwbw-fixpoint or --h2fwbw-fixpoint.\n");
+        fprintf(stderr, "\n");
         return -1;
     }
 
@@ -1337,6 +1447,22 @@ static int opMutex(void)
     return 0;
 }
 
+static void printPotentials(const pddl_fdr_t *fdr,
+                            const pddl_hpot_t *hpot,
+                            FILE *fout)
+{
+    fprintf(fout, "%d\n", hpot->pot_size);
+    for (int pi = 0; pi < hpot->pot_size; ++pi){
+        const double *w = hpot->pot[pi];
+        fprintf(fout, "begin_potentials\n");
+        for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
+            const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
+            fprintf(fout, "%d %d %.20f\n",
+                    fval->var_id, fval->val_id, w[fi]);
+        }
+        fprintf(fout, "end_potentials\n");
+    }
+}
 
 static int toFDR(void)
 {
@@ -1361,6 +1487,37 @@ static int toFDR(void)
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, fout);
+
+    if (opt.pot){
+        BOR_INFO2(&err, "");
+        BOR_INFO(&err, "Potential heuristics [disamb: %d, weak-diamb: %d,"
+                       " obj: %s(%x), add-init-constr: %d,"
+                       " init-constr-coef: %.2f, num-samples: %d,"
+                       " samples-use-mutex: %d, samples-random-walk: %d,"
+                       " all-states-mutex-size: %d]",
+                 pot_cfg.disambiguation,
+                 pot_cfg.weak_disambiguation,
+                 potObjName(pot_cfg.obj),
+                 pot_cfg.obj,
+                 pot_cfg.add_init_constr,
+                 pot_cfg.init_constr_coef,
+                 pot_cfg.num_samples,
+                 pot_cfg.samples_use_mutex,
+                 pot_cfg.samples_random_walk,
+                 pot_cfg.all_states_mutex_size);
+        BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
+        pddl_hpot_t hpot;
+        if (pddlHPotInit(&hpot, &fdr, &pot_cfg, &err) != 0){
+            BOR_INFO2(&err, "Cannot find potential heuristic");
+            BOR_INFO_PREFIX_POP(&err);
+            return -1;
+        }
+        int est = pddlHPotFDRStateEstimate(&hpot, &fdr.var, fdr.init);
+        BOR_INFO(&err, "Init state estimate: %d", est);
+        printPotentials(&fdr, &hpot, fout);
+        pddlHPotFree(&hpot);
+        BOR_INFO_PREFIX_POP(&err);
+    }
     pddlFDRFree(&fdr);
 
     closeFile(fout);
