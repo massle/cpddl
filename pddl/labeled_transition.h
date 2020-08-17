@@ -40,6 +40,26 @@ struct pddl_labeled_transitions_set {
 };
 typedef struct pddl_labeled_transitions_set pddl_labeled_transitions_set_t;
 
+#define PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(TR, FROM, LABEL, TO) \
+    for (int ___ti = 0; ___ti < (TR)->trans_size; ++___ti) \
+        for (int ___tri = 0; \
+                ___tri < (TR)->trans[___ti].trans.trans_size && \
+                    ((FROM) = (TR)->trans[___ti].trans.trans[___tri].from, \
+                    (TO) = (TR)->trans[___ti].trans.trans[___tri].to, 1); \
+                ++___tri) \
+            BOR_ISET_FOR_EACH(&(TR)->trans[___ti].label->label, LABEL)
+
+#define PDDL_LABELED_TRANSITIONS_SET_FOR_EACH_LABEL_SET(TR, FROM, \
+                                                        LABEL_SET_PTR, TO) \
+    for (int ___ti = 0; ___ti < (TR)->trans_size; ++___ti) \
+        for (int ___tri = 0; \
+                ___tri < (TR)->trans[___ti].trans.trans_size && \
+                    ((FROM) = (TR)->trans[___ti].trans.trans[___tri].from, \
+                    (TO) = (TR)->trans[___ti].trans.trans[___tri].to, \
+                    (LABEL_SET_PTR) = (TR)->trans[___ti].label, 1); \
+                ++___tri)
+
+
 /**
  * Initializes empty set of labeled transitions
  */

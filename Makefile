@@ -7,6 +7,11 @@ CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
 
+CPPFLAGS += -Wno-ignored-attributes
+CPPFLAGS += -I.
+CPPFLAGS += $(BORUVKA_CFLAGS)
+CPPFLAGS += $(CPOPTIMIZER_CPPFLAGS)
+
 CPPCHECK_FLAGS += --platform=unix64 --enable=all -I. -Ithird-party/boruvka
 
 TARGETS  = libpddl.a
@@ -100,7 +105,9 @@ OBJS += trans_system
 OBJS += trans_system_abstr_map
 OBJS += trans_system_graph
 
-OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o)
+OBJS_CPP = endomorphism
+
+OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
 all: $(TARGETS)
 
@@ -119,6 +126,12 @@ pddl/config.h:
 	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm
 	if ! ./__lp; then echo "#define PDDL_LP" >>$@; fi
 	rm -f __lp.c __lp
+	echo '#define IL_STD' >__cpopt.c
+	echo '#include <ilcp/cp.h>' >>__cpopt.c
+	echo '#include <ilcplex/cpxconst.h>' >>__cpopt.c
+	echo 'int main(int argc, char *arvg[]) { IloCP cp(); return 0; }' >>__cpopt.c
+	if $(CXX) $(CPPFLAGS) -o __cpopt __cpopt.c $(CPOPTIMIZER_LDFLAGS) -pthread -lrt -lm 2>/dev/null; then if ./__cpopt; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi; fi
+	rm -f __cpopt.c __cpopt
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
@@ -126,6 +139,10 @@ pddl/config.h:
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h
+	$(CXX) $(CPPFLAGS) -c -o $@ $<
+.objs/%.cpp.o: src/%.cpp pddl/config.h
+	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
 %.h: pddl/config.h
 %.c: pddl/config.h
@@ -161,6 +178,19 @@ doc:
 
 analyze: clean
 	$(SCAN_BUILD) $(MAKE)
+
+list-global-symbols: libpddl.a
+	readelf -s libpddl.a \
+        | grep GLOBAL \
+        | awk '{print $$8}' \
+        | sort \
+        | uniq \
+        | grep -v '^pddl' \
+        | grep -v '^bor' \
+        | grep -v '^_bor' \
+        | grep -v '^__bor' \
+        | grep -v '^_Z.*Ilo' \
+        | less
 
 third-party: boruvka opts bliss
 third-party-clean: boruvka-clean opts-clean bliss-clean

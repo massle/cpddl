@@ -1,9 +1,12 @@
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <stdio.h>
 #include <pddl/pddl.h>
 #include <opts.h>
 
 struct options {
     int help;
+    int max_mem;
     int not_force_adl;
     int compile_away_cond_eff;
     int compile_away_cond_eff_pddl;
@@ -17,6 +20,7 @@ struct options {
     int no_ground_prune_dead_end;
 
     int fam;
+    float fam_max_time;
     int fam_fixpoint;
     int fam_fixpoint_no_de;
     int fam_lmg;
@@ -33,10 +37,25 @@ struct options {
 
     unsigned fdr_var_method;
 
+    int endomorphism_fdr;
+    int endomorphism_mg_strips;
+    int endomorphism_ts;
+    int endomorphism_fdr_ts;
+
+    int num_sym_gen;
+
     const char *fdr_out;
     const char *lifted_mgroup_out;
     const char *mgroup_out;
     const char *mgroup_pre_out;
+
+    int op_mutex_ts;
+    int op_mutex_op_fact;
+    int op_mutex_hm_op;
+    int op_mutex_prune;
+    const char *op_mutex_out;
+
+    int pot;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -52,6 +71,8 @@ pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
 unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
 unsigned fdr_flag = 0u;
+pddl_endomorphism_config_t endomorphism_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
 
 static FILE *openFile(const char *fn)
 {
@@ -71,6 +92,16 @@ static void closeFile(FILE *f)
         fclose(f);
 }
 
+static void usage(const char *bin)
+{
+    fprintf(stderr, "pddl-fdr is a program for translating PDDL into"
+            " FDR.\n");
+    fprintf(stderr, "Usage: %s [OPTIONS] domain.pddl problem.pddl\n", bin);
+    fprintf(stderr, "  OPTIONS:\n");
+    optsPrint(stderr, "    ");
+    fprintf(stderr, "\n");
+}
+
 static void setFDRVarLargest(const char *ln, const char *sn)
 {
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
@@ -86,19 +117,114 @@ static void setFDRVarLargestMulti(const char *ln, const char *sn)
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST_MULTI;
 }
 
+static int setPot(const char *_spec)
+{
+    // TODO
+    char *spec = BOR_STRDUP(_spec);
+    if (spec == NULL)
+        return -1;
+    const char *end = spec + strlen(spec);
+    char *o = spec;
+    while (o <= end){
+        char *e;
+        for (e = o; *e != 0x0 && *e != ':'; ++e);
+        *e = 0x0;
+
+        if (strcmp(o, "disamb") == 0){
+            pot_cfg.disambiguation = 1;
+            pot_cfg.weak_disambiguation = 0;
+
+        }else if (strcmp(o, "weak-disamb") == 0){
+            pot_cfg.disambiguation = 0;
+            pot_cfg.weak_disambiguation = 1;
+
+        }else if (strcmp(o, "no-disamb") == 0){
+            pot_cfg.disambiguation = 0;
+            pot_cfg.weak_disambiguation = 0;
+
+        }else if (strcmp(o, "init") == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_INIT;
+            pot_cfg.add_init_constr = 0;
+            pot_cfg.init_constr_coef = 0;
+
+        }else if (strcmp(o, "all") == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES;
+
+        }else if (strcmp(o, "Max(init,all)") == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
+
+        }else if (strcmp(o, "+init") == 0){
+            pot_cfg.add_init_constr = 1;
+            pot_cfg.init_constr_coef = 1;
+
+        }else if (strcmp(o, "-init") == 0){
+            pot_cfg.add_init_constr = 0;
+            pot_cfg.init_constr_coef = 0;
+
+        }else{
+            fprintf(stderr, "Error: Unknown pot specification: '%s'\n", o);
+            fprintf(stderr, "\n");
+            return -1;
+        }
+
+        o = e + 1;
+    }
+
+    if (spec != NULL)
+        BOR_FREE(spec);
+
+    opt.pot = 1;
+    return 0;
+}
+
+static const char *potObjName(int obj)
+{
+    switch(obj){
+        case PDDL_HPOT_OBJ_INIT:
+            return "init";
+        case PDDL_HPOT_OBJ_ALL_STATES:
+            return "all";
+        case PDDL_HPOT_OBJ_SAMPLES_MAX:
+            return "samples-max";
+        case PDDL_HPOT_OBJ_SAMPLES_SUM:
+            return "samples-sum";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX:
+            return "all-states-mutex";
+        case PDDL_HPOT_OBJ_DIVERSE:
+            return "diverse";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED:
+            return "all-states-mutex-cond";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND:
+            return "all-states-mutex-cond-rand";
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2:
+            return "all-states-mutex-cond-rand2";
+        case PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES:
+            return "Max(init,all)";
+    }
+    return "unknown";
+}
+
 static int readOpts(int *argc, char *argv[])
 {
+    const char *pot_spec = NULL;
     bzero(&opt, sizeof(opt));
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
     opt.fdr_out = "-";
-
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST;
+    opt.fam_max_time = -1.;
+    opt.op_mutex_ts = -1;
+    opt.op_mutex_op_fact = -1;
+    opt.op_mutex_hm_op = -1;
 
     pddl_cfg.force_adl = 1;
+    endomorphism_cfg.num_threads = 1;
+    endomorphism_cfg.run_in_subprocess = 1;
 
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
+    optsAddDesc("max-mem", 'm', OPTS_INT, &opt.max_mem, NULL,
+                "Maximum memory in MB (default: 0, i.e., no limit)");
     optsAddDesc("output", 'o', OPTS_STR, &opt.fdr_out, NULL,
                 "Output filename (default: stdout)");
 
@@ -140,6 +266,8 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
                 " algorithm. (default: off)");
+    optsAddDesc("fam-max-time", 0x0, OPTS_FLOAT, &opt.fam_max_time, NULL,
+                "Maximum time for inference of fam-groups. (default: off)");
     optsAddDesc("fam-fixpoint", 0x0, OPTS_NONE, &opt.fam_fixpoint, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
                 " algorithm and use a fixpoint pruning (--fam-lmg also takes"
@@ -194,26 +322,72 @@ static int readOpts(int *argc, char *argv[])
                 " encode one strips fact as multiple fdr values if in more"
                 " mutex groups.");
 
+    optsAddDesc("em-fdr", 0x0, OPTS_NONE, &opt.endomorphism_fdr, NULL,
+                "Prune operators with endomorphism on FDR. (default: off)");
+    optsAddDesc("em-mg-strips", 0x0, OPTS_NONE, &opt.endomorphism_mg_strips,
+                NULL,
+                "Prune operators with endomorphism on MG-Strips."
+                " (default: off)");
+    optsAddDesc("em-ts", 0x0, OPTS_NONE, &opt.endomorphism_ts, NULL,
+                "Prune operators with endomorphism on factored transition"
+                " system. (default: off)");
+    optsAddDesc("em-fdr-ts", 0x0, OPTS_NONE, &opt.endomorphism_fdr_ts, NULL,
+                "Endomorphism first on FDR and then on factored transition"
+                " system. If the inference on FDR fails (because of memory"
+                " or time limit) the inference of TS is skipped."
+                " (default: off)");
+    optsAddDesc("em-max-time", 0x0, OPTS_FLOAT,
+                &endomorphism_cfg.max_time, NULL,
+                "Maximum overall time in seconds for the endomorphism"
+                " inference. (default: 3600.)");
+    optsAddDesc("em-max-search-time", 0x0, OPTS_FLOAT,
+                &endomorphism_cfg.max_search_time, NULL,
+                "Maximum search time in seconds for the endomorphism"
+                " inference. (default: 3600.)");
+
+    optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
+                "Print number of symmetry generators inferred on PDG."
+                " (default: off)");
+
+    optsAddDesc("opm-ts", 0x0, OPTS_INT, &opt.op_mutex_ts, NULL,
+                "Infer op-mutexes using abstractions. (default: off)");
+    optsAddDesc("opm-op-fact", 0x0, OPTS_INT, &opt.op_mutex_op_fact, NULL,
+                "Infer op-mutexes using op-fact compilation. (default: off)");
+    optsAddDesc("opm-hm-op", 0x0, OPTS_INT, &opt.op_mutex_hm_op, NULL,
+                "Infer op-mutexes using h^m from each operator. (default: off)");
+    optsAddDesc("opm-prune", 0x0, OPTS_NONE, &opt.op_mutex_prune, NULL,
+                "Enable pruning using inferred op-mutexes and symmetries."
+                " (default: off)");
+    optsAddDesc("opm-out", 0x0, OPTS_STR, &opt.op_mutex_out, NULL,
+                "Output filename for op-mutexes (default: no output)");
+
+    optsAddDesc("pot", 0x0, OPTS_NONE, &opt.pot, NULL,
+                "Shorthand for --pot-spec 'disamb:all:+init'");
+    optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
+                "Generate potentials according to the specification."
+                " TODO");
+
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
-        if (*argc <= 1)
+        if (*argc <= 1){
             fprintf(stderr, "Error: Missing input file(s)\n\n");
+            fprintf(stderr, "\n");
+        }
 
         if (*argc > 3){
             for (int i = 0; i < *argc; ++i){
                 if (argv[i][0] == '-'){
                     fprintf(stderr, "Error: Unrecognized option '%s'\n",
                             argv[i]);
+                    fprintf(stderr, "\n");
                 }
             }
         }
+        usage(argv[0]);
+        return -1;
+    }
 
-        fprintf(stderr, "pddl-fdr is a program for translating PDDL into"
-                        " FDR.\n");
-        fprintf(stderr, "Usage: %s [OPTIONS] domain.pddl problem.pddl\n",
-                argv[0]);
-        fprintf(stderr, "  OPTIONS:\n");
-        optsPrint(stderr, "    ");
-        fprintf(stderr, "\n");
+    if (pot_spec != NULL && setPot(pot_spec) != 0){
+        usage(argv[0]);
         return -1;
     }
 
@@ -223,6 +397,7 @@ static int readOpts(int *argc, char *argv[])
 
     if (opt.fam && opt.h2_mgroup){
         fprintf(stderr, "Error: --fam and --h2mg cannot be used together.\n");
+        fprintf(stderr, "\n");
         return -1;
     }
 
@@ -235,6 +410,7 @@ static int readOpts(int *argc, char *argv[])
         fprintf(stderr, "Error: --fam-lmg has no effect: use --fam or"
                         " --fam-fixpoint or --famh2-fixpoint"
                         " or --famh2fwbw-fixpoint or --h2fwbw-fixpoint.\n");
+        fprintf(stderr, "\n");
         return -1;
     }
 
@@ -249,6 +425,13 @@ static int readOpts(int *argc, char *argv[])
         BOR_INFO(&err, "Input files: '%s' and '%s'", argv[1], argv[2]);
         if (pddlFiles(&files, argv[1], argv[2], &err) != 0)
             BOR_TRACE_RET(&err, -1);
+    }
+
+    if (opt.max_mem > 0){
+        struct rlimit mem_limit;
+        mem_limit.rlim_cur
+            = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
+        setrlimit(RLIMIT_AS, &mem_limit);
     }
 
     return 0;
@@ -413,6 +596,7 @@ static int inferMutexGroups(void)
 
     if (opt.fam){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (!opt.fam_lmg){
             // Clean mgroups if we want only fam-groups
             pddlMGroupsFree(&mgroups);
@@ -465,6 +649,119 @@ static void reduceStrips(const bor_iset_t *rm_fact, const bor_iset_t *rm_op)
     }
 }
 
+static void deduplicateOps(void)
+{
+    int num_ops = strips.op.op_size;
+    pddlStripsOpsDeduplicate(&strips.op);
+    BOR_INFO(&err, "Deduplication of operators removed %d operators",
+             num_ops - strips.op.op_size);
+}
+
+static int pruneEndomorphismFDR(const pddl_endomorphism_config_t *cfg,
+                                bor_iset_t *redundant_op)
+{
+    int ret = 0;
+    BOR_INFO2(&err, "Redundant operators using endomorphism on FDR ...");
+    pddl_fdr_t fdr;
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
+                          fdr_var_flag, 0, &err);
+    ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, &err);
+    pddlFDRFree(&fdr);
+    BOR_INFO2(&err, "Redundant operators using endomorphism on FDR DONE");
+    return ret;
+}
+
+static int pruneEndomorphismMGStrips(const pddl_endomorphism_config_t *cfg,
+                                     bor_iset_t *redundant_op)
+{
+    int ret = 0;
+    BOR_INFO2(&err, "Redundant operators using endomorphism on MG-Strips ...");
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    ret = pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op,
+                                               &err);
+    pddlMGStripsFree(&mg_strips);
+    BOR_INFO2(&err, "Redundant operators using endomorphism on MG-Strips DONE");
+    return ret;
+}
+
+static int pruneEndomorphismTS(const pddl_endomorphism_config_t *cfg,
+                               bor_iset_t *redundant_op)
+{
+    int ret = 0;
+    BOR_INFO2(&err, "Redundant operators using endomorphism on TSs ...");
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+
+    pddl_trans_systems_t tss;
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
+    pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
+    ret = pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op,
+                                                  &err);
+    pddlTransSystemsFree(&tss);
+    pddlMutexPairsFree(&mg_mutex);
+    pddlMGStripsFree(&mg_strips);
+    BOR_INFO2(&err, "Redundant operators using endomorphism on TSs DONE");
+    return ret;
+}
+
+static int pruneEndomorphismFDRTS(const pddl_endomorphism_config_t *cfg,
+                                  bor_iset_t *redundant_op)
+{
+    int ret = pruneEndomorphismFDR(cfg, redundant_op);
+
+    if (ret == 0){
+        BOR_ISET(redundant2);
+        int ret2 = pruneEndomorphismTS(cfg, &redundant2);
+        if (ret2 == 0
+                && borISetSize(&redundant2) > borISetSize(redundant_op)){
+            borISetEmpty(redundant_op);
+            borISetUnion(redundant_op, &redundant2);
+        }
+        borISetFree(&redundant2);
+    }else{
+        BOR_INFO2(&err, "Endomorphism on factored TS skipped, because"
+                        " endomorphism on FDR failed");
+    }
+
+    return ret;
+}
+
+static void _pruneEndomorphism(int (*f)(const pddl_endomorphism_config_t *cfg,
+                                        bor_iset_t *redundant_op))
+{
+    BOR_ISET(redundant_op);
+    BOR_ISET(_rm_fact);
+    int num_ops = strips.op.op_size;
+    f(&endomorphism_cfg, &redundant_op);
+    if (borISetSize(&redundant_op) > 0)
+        reduceStrips(&_rm_fact, &redundant_op);
+    int removed = num_ops - strips.op.op_size;
+    BOR_INFO(&err, "Removed %d endomorphism redundant operators, remain %d"
+                   " operators",
+             removed, strips.op.op_size);
+    borISetFree(&redundant_op);
+}
+
+static void pruneEndomorphism(void)
+{
+    if (strips.op.op_size == 0)
+        return;
+
+    if (opt.endomorphism_ts)
+        _pruneEndomorphism(pruneEndomorphismTS);
+    if (opt.endomorphism_fdr)
+        _pruneEndomorphism(pruneEndomorphismFDR);
+    if (opt.endomorphism_mg_strips)
+        _pruneEndomorphism(pruneEndomorphismMGStrips);
+    if (opt.endomorphism_fdr_ts)
+        _pruneEndomorphism(pruneEndomorphismFDRTS);
+}
+
+
 static int pruneStripsFixpointFAMGroups(void)
 {
     if (strips.has_cond_eff){
@@ -501,6 +798,7 @@ static int pruneStripsFixpointFAMGroups(void)
             pddlMGroupsInitEmpty(&mgs);
         }
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
@@ -531,6 +829,8 @@ static int pruneStripsFixpointFAMGroups(void)
         }
 
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -553,6 +853,8 @@ static int pruneStripsFixpointFAMGroups(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -603,6 +905,8 @@ static int pruneStripsFixpointH2(void)
         }
 
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -619,6 +923,8 @@ static int pruneStripsFixpointH2(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -679,6 +985,7 @@ static int pruneStripsFixpointFAMH2(void)
             pddlMGroupsInitEmpty(&mgs);
         }
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
@@ -695,6 +1002,8 @@ static int pruneStripsFixpointFAMH2(void)
                  borISetSize(&rm_op) - unreachable_size);
 
         reduceStrips(&rm_fact, &rm_op);
+
+        pruneEndomorphism();
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -717,6 +1026,8 @@ static int pruneStripsFixpointFAMH2(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -766,6 +1077,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
             pddlMGroupsInitEmpty(&mgs);
         }
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.time_limit = opt.fam_max_time;
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
@@ -793,6 +1105,8 @@ static int pruneStripsFixpointFAMH2FwBw(void)
                  borISetSize(&rm_op) - unreachable_size);
         reduceStrips(&rm_fact, &rm_op);
 
+        pruneEndomorphism();
+
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -815,6 +1129,8 @@ static int pruneStripsFixpointFAMH2FwBw(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -869,6 +1185,8 @@ static int pruneStripsFixpointH2FwBw(void)
         pddlMGStripsFree(&mg_strips);
         reduceStrips(&rm_fact, &rm_op);
 
+        pruneEndomorphism();
+
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
@@ -879,6 +1197,8 @@ static int pruneStripsFixpointH2FwBw(void)
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
+
+    deduplicateOps();
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
@@ -976,6 +1296,10 @@ static int pruneStrips(void)
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
 
+    deduplicateOps();
+
+    pruneEndomorphism();
+
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
 
@@ -1028,8 +1352,129 @@ static int mgroupsAndPruning(void)
     return 0;
 }
 
+static int opMutex(void)
+{
+    if (opt.op_mutex_ts < 0
+            && opt.op_mutex_op_fact < 1
+            && opt.op_mutex_hm_op < 1){
+        return 0;
+    }
+
+    BOR_INFO2(&err, "");
+    BOR_INFO(&err, "Operator Mutexes [ts: %d, op-fact: %d, hm-op: %d,"
+                   " prune: %d, output: '%s']",
+             opt.op_mutex_ts,
+             opt.op_mutex_op_fact,
+             opt.op_mutex_hm_op,
+             opt.op_mutex_prune,
+             (opt.op_mutex_out == NULL ? "" : opt.op_mutex_out));
+
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    BOR_INFO(&err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
+                   " input mgroups: %d",
+             mg_strips.strips.fact.fact_size,
+             mg_strips.strips.op.op_size,
+             mg_strips.mg.mgroup_size,
+             mgroups.mgroup_size);
+
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., &err);
+
+    pddl_op_mutex_pairs_t opm;
+    pddlOpMutexPairsInit(&opm, &mg_strips.strips);
+    int ret;
+    size_t max_mem = 0;
+    if (opt.op_mutex_ts > 0){
+        ret = pddlOpMutexInferTransSystems(&opm, &mg_strips, &mg_mutex,
+                                           opt.op_mutex_ts, max_mem, 1, &err);
+        if (ret < 0)
+            BOR_TRACE_RET(&err, ret);
+    }
+
+    if (opt.op_mutex_op_fact > 1){
+        ret = pddlOpMutexInferHmOpFactCompilation(&opm, opt.op_mutex_op_fact,
+                                                  &mg_strips.strips, &err);
+        if (ret < 0)
+            BOR_TRACE_RET(&err, ret);
+    }
+
+    if (opt.op_mutex_hm_op > 1){
+        ret = pddlOpMutexInferHmFromEachOp(&opm, opt.op_mutex_hm_op,
+                                           &mg_strips.strips, &mg_mutex,
+                                           NULL, &err);
+        if (ret < 0)
+            BOR_TRACE_RET(&err, ret);
+    }
+
+    if (opt.op_mutex_out != NULL){
+        FILE *fout = openFile(opt.op_mutex_out);
+        if (fout == NULL){
+            pddlOpMutexPairsFree(&opm);
+            pddlMGStripsFree(&mg_strips);
+            BOR_ERR_RET(&err, -1, "Could not open file '%s'\n",
+                        opt.op_mutex_out);
+        }
+        int o1, o2;
+        PDDL_OP_MUTEX_PAIRS_FOR_EACH(&opm, o1, o2)
+            fprintf(fout, "%d %d\n", o1, o2);
+        closeFile(fout);
+    }
+
+    if (opm.num_op_mutex_pairs > 0
+            && opt.op_mutex_prune){
+        BOR_INFO2(&err, "Computing symmetries on PDG");
+        pddl_strips_sym_t sym;
+        pddlStripsSymInitPDG(&sym, &strips);
+        BOR_INFO(&err, "  Symmetry generators: %d", sym.gen_size);
+        BOR_ISET(redundant);
+        pddlOpMutexSymRedundantFixpoint(&redundant, &mg_strips.strips,
+                                        &sym, &opm, &err);
+        if (borISetSize(&redundant) > 0){
+            pddlStripsReduce(&strips, NULL, &redundant);
+            BOR_INFO(&err, "Number of Strips Operators: %d",
+                     strips.op.op_size);
+        }
+        borISetFree(&redundant);
+        pddlStripsSymFree(&sym);
+    }
+
+    pddlOpMutexPairsFree(&opm);
+    pddlMutexPairsFree(&mg_mutex);
+    pddlMGStripsFree(&mg_strips);
+    BOR_INFO2(&err, "Operator Mutexes DONE");
+    BOR_INFO2(&err, "");
+    return 0;
+}
+
+static void printPotentials(const pddl_fdr_t *fdr,
+                            const pddl_hpot_t *hpot,
+                            FILE *fout)
+{
+    fprintf(fout, "%d\n", hpot->pot_size);
+    for (int pi = 0; pi < hpot->pot_size; ++pi){
+        const double *w = hpot->pot[pi];
+        fprintf(fout, "begin_potentials\n");
+        for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
+            const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
+            fprintf(fout, "%d %d %.20f\n",
+                    fval->var_id, fval->val_id, w[fi]);
+        }
+        fprintf(fout, "end_potentials\n");
+    }
+}
+
 static int toFDR(void)
 {
+    if (opt.num_sym_gen){
+        pddl_strips_sym_t sym;
+        pddlStripsSymInitPDG(&sym, &strips);
+        BOR_INFO(&err, "Symmetry generators: %d", sym.gen_size);
+        pddlStripsSymFree(&sym);
+    }
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Translating to FDR ...");
     BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
@@ -1067,6 +1512,38 @@ static int toFDR(void)
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                           fdr_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, 1, fout);
+
+    if (opt.pot){
+        BOR_INFO2(&err, "");
+        BOR_INFO(&err, "Potential heuristics [disamb: %d, weak-diamb: %d,"
+                       " obj: %s(%x), add-init-constr: %d,"
+                       " init-constr-coef: %.2f, num-samples: %d,"
+                       " samples-use-mutex: %d, samples-random-walk: %d,"
+                       " all-states-mutex-size: %d]",
+                 pot_cfg.disambiguation,
+                 pot_cfg.weak_disambiguation,
+                 potObjName(pot_cfg.obj),
+                 pot_cfg.obj,
+                 pot_cfg.add_init_constr,
+                 pot_cfg.init_constr_coef,
+                 pot_cfg.num_samples,
+                 pot_cfg.samples_use_mutex,
+                 pot_cfg.samples_random_walk,
+                 pot_cfg.all_states_mutex_size);
+        BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
+        pddl_hpot_t hpot;
+        if (pddlHPotInit(&hpot, &fdr, &pot_cfg, &err) != 0){
+            BOR_INFO2(&err, "Cannot find potential heuristic");
+            BOR_INFO_PREFIX_POP(&err);
+            return -1;
+        }
+        int est = pddlHPotFDRStateEstimate(&hpot, &fdr.var, fdr.init);
+        BOR_INFO(&err, "Init state estimate: %d", est);
+        printPotentials(&fdr, &hpot, fout);
+        pddlHPotFree(&hpot);
+        BOR_INFO_PREFIX_POP(&err);
+    }
+
     pddlFDRFree(&fdr);
 
     closeFile(fout);
@@ -1085,6 +1562,7 @@ int main(int argc, char *argv[])
             || groundStrips() != 0
             || groundMGroups() != 0
             || mgroupsAndPruning() != 0
+            || opMutex() != 0
             || toFDR() != 0){
         if (borErrIsSet(&err)){
             fprintf(stderr, "Error: ");
