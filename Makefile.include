@@ -147,7 +147,7 @@ ifeq '$(USE_CUDD)' 'auto'
     CUDD_LDFLAGS := -L$(BASEPATH_)/third-party/cudd -lcudd
   endif
   ifneq '$(CUDD_CFLAGS)$(CUDD_LDFLAGS)' ''
-    USE_CUDD := 'yes'
+    USE_CUDD := yes
   endif
 endif
 
