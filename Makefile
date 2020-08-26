@@ -6,6 +6,7 @@ CFLAGS += -Wno-sizeof-pointer-div
 CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
+CFLAGS += $(CUDD_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
@@ -119,6 +120,7 @@ pddl/config.h:
 	echo "" >>$@
 	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
 	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
+	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
 	echo '#include <boruvka/lp.h>' >__lp.c
 	echo 'int main(int argc, char *arvg[]) { return borLPSolverAvailable(BOR_LP_DEFAULT); }' >>__lp.c
 	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm
@@ -156,7 +158,7 @@ clean:
 	if [ -d test ]; then $(MAKE) -C test clean; fi;
 	if [ -d doc ]; then $(MAKE) -C doc clean; fi;
 
-mrproper: clean boruvka-clean opts-clean bliss-clean lpsolve-clean
+mrproper: clean boruvka-clean opts-clean bliss-clean lpsolve-clean cudd-clean
 
 check:
 	$(MAKE) -C test check
@@ -190,8 +192,8 @@ list-global-symbols: libpddl.a
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: boruvka opts bliss
-third-party-clean: boruvka-clean opts-clean bliss-clean
+third-party: boruvka opts bliss cudd
+third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean
 
 boruvka: third-party/boruvka/Makefile
 	$(MAKE) $(_BOR_MAKE_DEF) -C third-party/boruvka all
@@ -224,6 +226,17 @@ lpsolve-clean:
 	$(MAKE) -C third-party/lpsolve clean
 third-party/lpsolve/liblpsolve.a:
 	$(MAKE) -C third-party/lpsolve
+
+cudd: third-party/cudd/libcudd.a
+cudd-clean:
+	$(MAKE) -C third-party/cudd clean
+	rm -f third-party/cudd/lib*.a
+	rm -f third-party/cudd/cudd.h
+third-party/cudd/libcudd.a:
+	cd third-party/cudd && ./configure --disable-shared
+	$(MAKE) -C third-party/cudd
+	cp third-party/cudd/cudd/.libs/libcudd.a $@
+	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
 
 .PHONY: all clean check check-ci check-valgrind help doc install analyze \
   examples mrproper \

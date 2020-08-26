@@ -137,6 +137,20 @@ ifeq '$(USE_CLIQUER)' 'auto'
   endif
 endif
 
+CUDD_CFLAGS ?=
+CUDD_LDFLAGS ?=
+USE_CUDD = auto
+ifeq '$(USE_CUDD)' 'auto'
+  USE_LOCAL_CUDD ?= $(shell if test -f $(BASEPATH_)/third-party/cudd/libcudd.a; then echo "yes"; else echo "no"; fi;)
+  ifeq '$(USE_LOCAL_CUDD)' 'yes'
+    CUDD_CFLAGS := -I$(BASEPATH_)/third-party/cudd
+    CUDD_LDFLAGS := -L$(BASEPATH_)/third-party/cudd -lcudd
+  endif
+  ifneq '$(CUDD_CFLAGS)$(CUDD_LDFLAGS)' ''
+    USE_CUDD := 'yes'
+  endif
+endif
+
 
 LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS)
 
@@ -180,6 +194,9 @@ help:
 	@echo "    USE_CLIQUER       = $(USE_CLIQUER)"
 	@echo "    CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
 	@echo "    CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
+	@echo "    CUDD_CFLAGS       = $(CUDD_CFLAGS)"
+	@echo "    CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
+	@echo "    USE_CUDD          = $(USE_CUDD)"
 	@echo ""
 	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
 	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"
