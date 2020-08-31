@@ -1244,11 +1244,8 @@ static int transConstraints(const pddl_trans_systems_t *tss,
         }
         if (from == to && ofrom != oto)
             continue;
-        ASSERT(tss->label.label[olabel].cost <= label_cost);
         ASSERT(from != ts->init_state || ofrom == from);
         ASSERT(to != ts->init_state || oto == to);
-        ASSERT(!from_is_goal || borISetIn(ofrom, &ts->goal_states));
-        ASSERT(!to_is_goal || borISetIn(oto, &ts->goal_states));
         val.add(IloIntArray(env, 3, olabel, ofrom, oto));
     }
     if (val.getCardinality() == 0){
