@@ -52,7 +52,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
 
-int pddlSymbolicTaskFwStep(pddl_symbolic_task_t *ss);
+int pddlSymbolicTaskFwStep(pddl_symbolic_task_t *ss, bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */
