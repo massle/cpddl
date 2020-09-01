@@ -26,6 +26,7 @@
 #include <boruvka/alloc.h>
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
+#include <boruvka/pairheap.h>
 
 #include "pddl/symbolic_task.h"
 #include "pddl/time_limit.h"
@@ -67,9 +68,18 @@ struct pddl_symbolic_state {
 };
 typedef struct pddl_symbolic_state pddl_symbolic_state_t;
 
+struct pddl_symbolic_state_open {
+    int state_id;
+    int cost;
+    int zero_cost;
+    bor_pairheap_node_t heap;
+};
+typedef struct pddl_symbolic_state_open pddl_symbolic_state_open_t;
+
 struct pddl_symbolic_states {
     bor_extarr_t *pool; /*!< Data pool */
     int num_states;
+    bor_pairheap_t *open;
     DdNode *all_closed;
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
@@ -516,6 +526,20 @@ static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
     Cudd_RecursiveDeref(ss->ddm, state->bdd);
 }
 
+
+static int openLT(const bor_pairheap_node_t *n1,
+                  const bor_pairheap_node_t *n2,
+                  void *data)
+{
+    const pddl_symbolic_state_open_t *o1, *o2;
+    o1 = bor_container_of(n1, pddl_symbolic_state_open_t, heap);
+    o2 = bor_container_of(n2, pddl_symbolic_state_open_t, heap);
+    int cmp = o1->cost - o2->cost;
+    if (cmp == 0)
+        cmp = o1->zero_cost - o2->zero_cost;
+    return cmp <= 0;
+}
+
 static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 {
     bzero(states, sizeof(*states));
@@ -527,15 +551,28 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->pool = borExtArrNew(el_size, NULL, &el_init);
     states->num_states = 0;
 
+    states->open = borPairHeapNew(openLT, states);
+
     states->all_closed = Cudd_ReadLogicZero(ss->ddm);
     Cudd_Ref(states->all_closed);
 }
 
 static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 {
+    while (!borPairHeapEmpty(states->open)){
+        bor_pairheap_node_t *hstate = borPairHeapExtractMin(states->open);
+        pddl_symbolic_state_open_t *o;
+        o = bor_container_of(hstate, pddl_symbolic_state_open_t, heap);
+        BOR_FREE(o);
+    }
+    borPairHeapDel(states->open);
+
+    Cudd_RecursiveDeref(ss->ddm, states->all_closed);
+
     for (int si = 0; si < states->num_states; ++si)
         stateFree(ss, borExtArrGet(states->pool, si));
     borExtArrDel(states->pool);
+
 }
 
 static pddl_symbolic_state_t *statesGet(pddl_symbolic_states_t *states, int id)
@@ -556,7 +593,25 @@ static void statesOpenState(pddl_symbolic_task_t *ss,
                             pddl_symbolic_states_t *states,
                             pddl_symbolic_state_t *state)
 {
-    // TODO
+    ASSERT(!state->is_closed);
+    pddl_symbolic_state_open_t *o = BOR_ALLOC(pddl_symbolic_state_open_t);
+    o->state_id = state->id;
+    o->cost = state->cost;
+    o->zero_cost = state->zero_cost;
+    borPairHeapAdd(states->open, &o->heap);
+}
+
+static pddl_symbolic_state_t *statesNextOpen(pddl_symbolic_states_t *states)
+{
+    if (borPairHeapEmpty(states->open))
+        return NULL;
+
+    bor_pairheap_node_t *hstate = borPairHeapExtractMin(states->open);
+    pddl_symbolic_state_open_t *o;
+    o = bor_container_of(hstate, pddl_symbolic_state_open_t, heap);
+    pddl_symbolic_state_t *state = borExtArrGet(states->pool, o->state_id);
+    BOR_FREE(o);
+    return state;
 }
 
 static pddl_symbolic_state_t *statesAddBDD(pddl_symbolic_task_t *ss,
@@ -607,6 +662,8 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
     for (int tri = 0; tri < ss->trans.trans_size; ++tri){
         int tr_cost = ss->trans.trans[tri].cost;
         DdNode *bdd = apply(ss, ss->trans.trans + tri, bdd_in);
+        CUDD_AND(ss->ddm, bdd, Cudd_Not(states->all_closed));
+
         if (bdd != Cudd_ReadLogicZero(ss->ddm)){
             pddl_symbolic_state_t *state = statesAddBDD(ss, states, bdd);
             state->parent_id = state_in->id;
@@ -683,37 +740,17 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
     ASSERT(Cudd_DebugCheck(ss->ddm) == 0);
 
-    pddl_symbolic_state_t *state = statesGet(&ss->fw_state, 0);
-    statesApplyOps(ss, &ss->fw_state, state, transSetImage);
-    statesCloseState(ss, &ss->fw_state, state);
+    for (int i = 0; i < 50; ++i)
+        pddlSymbolicTaskFwStep(ss);
 
     for (int si = 0; si < ss->fw_state.num_states; ++si){
         pddl_symbolic_state_t *state = statesGet(&ss->fw_state, si);
-        fprintf(stdout, "State %d, parent: %d, cost: %d, zero_cost: %d\n",
+        fprintf(stdout, "State %d, parent: %d, cost: %d, zero_cost: %d,"
+                        " is_closed: %d\n",
                 state->id, state->parent_id, state->cost,
-                state->zero_cost);
+                state->zero_cost, state->is_closed);
         Cudd_PrintDebug(ss->ddm, state->bdd, 20, 4);
     }
-
-    printf("trans_size: %d\n", ss->trans.trans_size);
-    DdNode *init = createState(ss, &strips->init);
-    Cudd_Ref(init);
-    DdNode *next = transImage(ss, ss->trans.trans[0].trans + 0, init);
-    Cudd_Ref(next);
-    DdNode *prev = transPreImage(ss, ss->trans.trans[0].trans + 0, next);
-    Cudd_Ref(prev);
-    Cudd_PrintDebug(ss->ddm, init, 20, 4);
-    Cudd_PrintDebug(ss->ddm, next, 20, 4);
-    Cudd_PrintDebug(ss->ddm, prev, 20, 4);
-
-    DdNode *next2 = transSetImage(ss, ss->trans.trans + 0, init);
-    Cudd_Ref(next2);
-    Cudd_PrintDebug(ss->ddm, next2, 20, 4);
-
-    DdNode *prev2 = transSetPreImage(ss, ss->trans.trans + 0, next2);
-    Cudd_Ref(prev2);
-    CUDD_AND(ss->ddm, prev2, init);
-    Cudd_PrintDebug(ss->ddm, prev2, 20, 4);
 
     BOR_INFO(err, "symbolic: Symbolic task created."
                   " mem in use: %.2fMB, node count: %ld,"
@@ -750,6 +787,23 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
     if (ss->ddm != NULL)
         Cudd_Quit(ss->ddm);
     BOR_FREE(ss);
+}
+
+int pddlSymbolicTaskFwStep(pddl_symbolic_task_t *ss)
+{
+    pddl_symbolic_state_t *state = statesNextOpen(&ss->fw_state);
+    if (state == NULL){
+        // TODO
+        return -1;
+    }
+    fprintf(stdout, "Next State %d, parent: %d, cost: %d, zero_cost: %d,"
+                    " is_closed: %d\n",
+            state->id, state->parent_id, state->cost,
+            state->zero_cost, state->is_closed);
+    statesApplyOps(ss, &ss->fw_state, state, transSetImage);
+    statesCloseState(ss, &ss->fw_state, state);
+    // TODO: UpdatePlan
+    return 0;
 }
 
 #else /* PDDL_CUDD */
