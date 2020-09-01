@@ -28,6 +28,11 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define PDDL_SYMBOLIC_CONT 0
+#define PDDL_SYMBOLIC_PLAN_FOUND 1
+#define PDDL_SYMBOLIC_PLAN_NOT_EXIST 2
+#define PDDL_SYMBOLIC_FAIL -1
+
 struct pddl_symbolic_task_config {
     int max_mem_in_mb;
     size_t trans_merge_max_nodes;
@@ -52,7 +57,9 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
 
-int pddlSymbolicTaskFwStep(pddl_symbolic_task_t *ss, bor_err_t *err);
+int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss, bor_err_t *err);
+int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss, bor_err_t *err);
+int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss, bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

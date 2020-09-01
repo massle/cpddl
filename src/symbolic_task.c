@@ -80,11 +80,28 @@ typedef struct pddl_symbolic_state_open pddl_symbolic_state_open_t;
 
 struct pddl_symbolic_states {
     bor_extarr_t *pool; /*!< Data pool */
-    int num_states;
-    bor_pairheap_t *open;
-    DdNode *all_closed;
+    int num_states; /*!< Number of states stored in .pool */
+    bor_pairheap_t *open; /*!< Open list */
+    bor_extarr_t *closed; /*!< Closed states stored with increasing cost */
+    int num_closed; /*!< Number of closed states */
+    DdNode *all_closed; /*!< BDD representing all closed states */
+    int last_closed_cost;
+    int last_closed_zero_cost;
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
+
+typedef DdNode *(*trans_set_image_fn)(pddl_symbolic_task_t *ss,
+                                      pddl_symbolic_trans_set_t *trset,
+                                      DdNode *state);
+struct pddl_symbolic_search {
+    int fw;
+    trans_set_image_fn image;
+    trans_set_image_fn pre_image;
+    pddl_symbolic_states_t state;
+    DdNode *goal;
+    bor_iarr_t plan;
+};
+typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
 struct pddl_symbolic_task {
     DdManager *ddm; /*!< Cudd manager */
@@ -98,9 +115,10 @@ struct pddl_symbolic_task {
     pddl_symbolic_trans_sets_t trans;
     int zero_cost_trans;
 
-    DdNode *init;
-    DdNode *goal;
-    pddl_symbolic_states_t fw_state;
+    DdNode *init; /*!< Initial state */
+    DdNode *goal; /*!< Goal states */
+    pddl_symbolic_search_t fw_search;
+    pddl_symbolic_search_t bw_search;
 };
 
 // X = X and Y
@@ -561,6 +579,11 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 
     states->open = borPairHeapNew(openLT, states);
 
+    el_size = sizeof(int);
+    int closed_el = -1;
+    states->closed = borExtArrNew(el_size, NULL, &closed_el);
+    states->num_closed = 0;
+
     states->all_closed = Cudd_ReadLogicZero(ss->ddm);
     Cudd_Ref(states->all_closed);
 }
@@ -581,6 +604,7 @@ static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
         stateFree(ss, borExtArrGet(states->pool, si));
     borExtArrDel(states->pool);
 
+    borExtArrDel(states->closed);
 }
 
 static pddl_symbolic_state_t *statesGet(pddl_symbolic_states_t *states, int id)
@@ -595,6 +619,11 @@ static void statesCloseState(pddl_symbolic_task_t *ss,
     ASSERT(!state->is_closed);
     state->is_closed = 1;
     CUDD_OR(ss->ddm, states->all_closed, state->bdd);
+    int *dst = borExtArrGet(states->closed, states->num_closed);
+    *dst = state->id;
+    ++states->num_closed;
+    states->last_closed_cost = state->cost;
+    states->last_closed_zero_cost = state->zero_cost;
 }
 
 static void statesOpenState(pddl_symbolic_task_t *ss,
@@ -691,6 +720,269 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
     Cudd_RecursiveDeref(ss->ddm, bdd_in);
 }
 
+static void searchInit(pddl_symbolic_task_t *ss,
+                       pddl_symbolic_search_t *search,
+                       int fw,
+                       trans_set_image_fn image,
+                       trans_set_image_fn pre_image,
+                       DdNode *init,
+                       DdNode *goal)
+{
+    bzero(search, sizeof(*search));
+    search->fw = fw;
+    search->image = image;
+    search->pre_image = pre_image;
+    statesInit(ss, &search->state);
+    search->goal = goal;
+    if (search->goal != NULL)
+        Cudd_Ref(search->goal);
+
+    statesAddInit(ss, &search->state, init);
+}
+
+static void searchFree(pddl_symbolic_task_t *ss,
+                       pddl_symbolic_search_t *search)
+{
+    statesFree(ss, &search->state);
+    if (search->goal != NULL)
+        Cudd_RecursiveDeref(ss->ddm, search->goal);
+}
+
+static DdNode *bddStateSelectOne(pddl_symbolic_task_t *ss,
+                                 DdNode *bdd,
+                                 bor_iset_t *state)
+{
+    borISetEmpty(state);
+    char *cube = BOR_ALLOC_ARR(char, ss->num_vars);
+    Cudd_bddPickOneCube(ss->ddm, bdd, cube);
+    for (int fi = 0; fi < ss->fact_size; ++fi){
+        if (cube[ss->pre_fact_to_var[fi]] == 1)
+            borISetAdd(state, fi);
+    }
+    BOR_FREE(cube);
+    return createState(ss, state);
+}
+
+struct plan {
+    int plan_len;
+    bor_iset_t *state;
+    bor_iset_t **tr_op;
+};
+typedef struct plan plan_t;
+
+static void planInit(pddl_symbolic_task_t *ss,
+                     pddl_symbolic_search_t *search,
+                     plan_t *plan,
+                     const pddl_symbolic_state_t *goal_state,
+                     DdNode *reached_goal)
+{
+    bzero(plan, sizeof(*plan));
+
+    // Find out the length of the plan
+    const pddl_symbolic_state_t *state = goal_state;
+    plan->plan_len = 0;
+    while (state->parent_id >= 0){
+        ++plan->plan_len;
+        state = statesGet(&search->state, state->parent_id);
+    }
+
+    plan->state = BOR_CALLOC_ARR(bor_iset_t, plan->plan_len + 1);
+    plan->tr_op = BOR_CALLOC_ARR(bor_iset_t *, plan->plan_len);
+
+    // Backtrack from the goal_state and extract one particular state at
+    // each step.
+    // Select one specific state -- it doesn't matter which one
+    DdNode *bdd = bddStateSelectOne(ss, reached_goal,
+                                    plan->state + plan->plan_len);
+    state = goal_state;
+    for (int si = plan->plan_len - 1; state->parent_id >= 0; --si){
+        plan->tr_op[si] = &ss->trans.trans[state->trans_id].op;
+        const pddl_symbolic_state_t *prev_state;
+        prev_state = statesGet(&search->state, state->parent_id);
+
+        // This step of the plan goes from prev_state to state.
+        // So, compute the conjuction of the preimage of state and
+        // state_prev.
+        pddl_symbolic_trans_set_t *trset = ss->trans.trans + state->trans_id;
+        DdNode *preimg = search->pre_image(ss, trset, bdd);
+        ASSERT_RUNTIME(!CUDD_IS_FALSE(ss->ddm, preimg));
+        CUDD_AND(ss->ddm, preimg, prev_state->bdd);
+
+        // Select one of the states -- again, it doesn't matter which one
+        Cudd_RecursiveDeref(ss->ddm, bdd);
+        bdd = bddStateSelectOne(ss, preimg, plan->state + si);
+        Cudd_RecursiveDeref(ss->ddm, preimg);
+        state = prev_state;
+    }
+    Cudd_RecursiveDeref(ss->ddm, bdd);
+}
+
+static void planFree(plan_t *plan)
+{
+    for (int i = 0; i < plan->plan_len + 1; ++i)
+        borISetFree(plan->state + i);
+    BOR_FREE(plan->state);
+    BOR_FREE(plan->tr_op);
+}
+
+static void planReverse(plan_t *plan)
+{
+    bor_iset_t state_tmp;
+    int len = (plan->plan_len + 1) / 2;
+    for (int i = 0; i < len; ++i){
+        BOR_SWAP(plan->state[i],
+                 plan->state[plan->plan_len - i],
+                 state_tmp);
+    }
+
+    bor_iset_t *tr_tmp;
+    len = plan->plan_len / 2;
+    for (int i = 0; i < len; ++i){
+        BOR_SWAP(plan->tr_op[i],
+                 plan->tr_op[plan->plan_len - i - 1],
+                 tr_tmp);
+    }
+}
+
+static void planExtractFw(plan_t *plan,
+                          const pddl_strips_t *strips,
+                          bor_iarr_t *out)
+{
+    // Extract plan from the intermediate states
+    BOR_ISET(res_state);
+    for (int si = 0; si < plan->plan_len; ++si){
+        const bor_iset_t *from = plan->state + si;
+        const bor_iset_t *to = plan->state + si + 1;
+
+        int op_id;
+        int found = 0;
+        BOR_ISET_FOR_EACH(plan->tr_op[si], op_id){
+            const pddl_strips_op_t *op = strips->op.op[op_id];
+            if (borISetIsSubset(&op->pre, from)){
+                borISetMinus2(&res_state, from, &op->del_eff);
+                borISetUnion(&res_state, &op->add_eff);
+                if (borISetEq(&res_state, to)){
+                    borIArrAdd(out, op_id);
+                    found = 1;
+                    break;
+                }
+            }
+        }
+        ASSERT_RUNTIME(found);
+    }
+    borISetFree(&res_state);
+}
+
+static int checkGoal(pddl_symbolic_task_t *ss,
+                     pddl_symbolic_search_t *search,
+                     const pddl_symbolic_state_t *state,
+                     bor_err_t *err)
+{
+    DdNode *goal = Cudd_bddAnd(ss->ddm, state->bdd, search->goal);
+    Cudd_Ref(goal);
+    if (!CUDD_IS_FALSE(ss->ddm, goal)){
+        plan_t plan;
+        planInit(ss, search, &plan, state, goal);
+        if (!search->fw)
+            planReverse(&plan);
+        planExtractFw(&plan, ss->strips, &search->plan);
+        planFree(&plan);
+
+        int op_id;
+        BOR_IARR_FOR_EACH(&search->plan, op_id){
+            printf("(%s) ;; id=%d\n", ss->strips->op.op[op_id]->name, op_id);
+        }
+
+        Cudd_RecursiveDeref(ss->ddm, goal);
+        return 1;
+    }
+    Cudd_RecursiveDeref(ss->ddm, goal);
+    return 0;
+}
+
+static int checkGoal2(pddl_symbolic_task_t *ss,
+                      pddl_symbolic_search_t *search,
+                      pddl_symbolic_search_t *other_search,
+                      const pddl_symbolic_state_t *state,
+                      bor_err_t *err)
+{
+    DdNode *goal = Cudd_bddAnd(ss->ddm, state->bdd,
+                               other_search->state.all_closed);
+    Cudd_Ref(goal);
+    if (!CUDD_IS_FALSE(ss->ddm, goal)){
+        // TODO
+        /*
+        plan_t plan;
+        planInit(ss, search, &plan, state, goal);
+        if (!search->fw)
+            planReverse(&plan);
+        planExtractFw(&plan, ss->strips, &search->plan);
+        planFree(&plan);
+
+        int op_id;
+        BOR_IARR_FOR_EACH(&search->plan, op_id){
+            printf("(%s) ;; id=%d\n", ss->strips->op.op[op_id]->name, op_id);
+        }
+
+        Cudd_RecursiveDeref(ss->ddm, goal);
+        return 1;
+        */
+    }
+    Cudd_RecursiveDeref(ss->ddm, goal);
+    return 0;
+}
+
+static int searchStep(pddl_symbolic_task_t *ss,
+                      pddl_symbolic_search_t *search,
+                      pddl_symbolic_search_t *other_search,
+                      bor_err_t *err)
+{
+    pddl_symbolic_state_t *state = statesNextOpen(&search->state);
+    if (state == NULL){
+        BOR_INFO(err, "symbolic search %s: Plan does not exist",
+                 (search->fw ? "fw" : "bw"));
+        return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
+    }
+
+    /*
+    BOR_INFO(err, "symbolic search %s: Next State %d, parent: %d, cost: %d,"
+                  " zero_cost: %d, is_closed: %d",
+             (search->fw ? "fw" : "bw"),
+             state->id, state->parent_id, state->cost,
+             state->zero_cost, state->is_closed);
+    */
+    BOR_INFO(err, "symbolic search %s: step cost: %d, zero cost: %d,"
+                  " states: %d, closed states: %d,"
+                  " cudd mem: %.2fMB, live nodes: %d, gc: %d",
+             (search->fw ? "fw" : "bw"),
+             state->cost,
+             state->zero_cost,
+             search->state.num_states,
+             search->state.num_closed,
+             Cudd_ReadMemoryInUse(ss->ddm) / (1024. * 1024.),
+             Cudd_ReadPeakLiveNodeCount(ss->ddm),
+             Cudd_ReadGarbageCollections(ss->ddm));
+
+    int found_plan = 0;
+    if (other_search != NULL){
+        found_plan = checkGoal2(ss, search, other_search, state, err);
+    }else{ // search->goal != NULL
+        found_plan = checkGoal(ss, search, state, err);
+    }
+    if (found_plan){
+        BOR_INFO(err, "symbolic: Found plan, cost: %d, zero cost: %d,"
+                      " length: %d",
+                 state->cost,
+                 state->zero_cost,
+                 borIArrSize(&search->plan));
+        return PDDL_SYMBOLIC_PLAN_FOUND;
+    }
+
+    statesApplyOps(ss, &search->state, state, search->image);
+    statesCloseState(ss, &search->state, state);
+    return PDDL_SYMBOLIC_CONT;
+}
+
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_mgroups_t *mgroups,
                                           const pddl_mutex_pairs_t *mutex,
@@ -745,15 +1037,15 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
     ss->init = createState(ss, &strips->init);
     ss->goal = createPartialState(ss, &strips->goal);
-    statesInit(ss, &ss->fw_state);
-    statesAddInit(ss, &ss->fw_state, ss->init);
+    searchInit(ss, &ss->fw_search, 1, transSetImage, transSetPreImage,
+               ss->init, ss->goal);
+    searchInit(ss, &ss->bw_search, 0, transSetPreImage, transSetImage,
+               ss->goal, ss->init);
 
 
     ASSERT(Cudd_DebugCheck(ss->ddm) == 0);
 
-    for (int i = 0; i < 350; ++i)
-        pddlSymbolicTaskFwStep(ss, err);
-
+    /*
     for (int si = 0; si < ss->fw_state.num_states; ++si){
         pddl_symbolic_state_t *state = statesGet(&ss->fw_state, si);
         fprintf(stdout, "State %d, parent: %d, cost: %d, zero_cost: %d,"
@@ -762,6 +1054,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                 state->zero_cost, state->is_closed);
         Cudd_PrintDebug(ss->ddm, state->bdd, 20, 2);
     }
+    */
 
     BOR_INFO(err, "symbolic: Symbolic task created."
                   " mem in use: %.2fMB, node count: %ld,"
@@ -781,7 +1074,8 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
-    statesFree(ss, &ss->fw_state);
+    searchFree(ss, &ss->fw_search);
+    searchFree(ss, &ss->bw_search);
     transSetsFree(ss, &ss->trans);
     if (ss->ordered_facts != NULL)
         BOR_FREE(ss->ordered_facts);
@@ -801,140 +1095,31 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
     BOR_FREE(ss);
 }
 
-static DdNode *bddStateSelectOne(pddl_symbolic_task_t *ss,
-                                 DdNode *bdd,
-                                 bor_iset_t *state)
+
+static int searchOneDir(pddl_symbolic_task_t *ss,
+                        pddl_symbolic_search_t *search,
+                        bor_err_t *err)
 {
-    borISetEmpty(state);
-    char *cube = BOR_ALLOC_ARR(char, ss->num_vars);
-    Cudd_bddPickOneCube(ss->ddm, bdd, cube);
-    for (int fi = 0; fi < ss->fact_size; ++fi){
-        if (cube[ss->pre_fact_to_var[fi]] == 1)
-            borISetAdd(state, fi);
+    int res = PDDL_SYMBOLIC_CONT;
+    while (res == PDDL_SYMBOLIC_CONT){
+        res = searchStep(ss, search, NULL, err);
     }
-    BOR_FREE(cube);
-    return createState(ss, state);
+    return res;
 }
 
-static int extractPlan(pddl_symbolic_task_t *ss,
-                       const pddl_symbolic_state_t *goal_state,
-                       DdNode *reached_goal,
-                       DdNode *(*preImage)(pddl_symbolic_task_t *ss,
-                                           pddl_symbolic_trans_set_t *trset,
-                                           DdNode *state),
-                       bor_iarr_t *plan)
+
+int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss, bor_err_t *err)
 {
-    // Find out the length of the plan
-    const pddl_symbolic_state_t *state = goal_state;
-    int path_len = 0;
-    while (state->parent_id >= 0){
-        ++path_len;
-        state = statesGet(&ss->fw_state, state->parent_id);
-    }
-
-    // Allocate space for the intermediate states
-    bor_iset_t *path_state = BOR_CALLOC_ARR(bor_iset_t, path_len + 1);
-    const pddl_symbolic_state_t **path_sstate;
-    path_sstate = BOR_ALLOC_ARR(const pddl_symbolic_state_t *, path_len + 1);
-
-    // Backtrack from the goal_state and extract one particular state at
-    // each step.
-    // Select one specific state -- it doesn't matter which one
-    DdNode *bdd = bddStateSelectOne(ss, reached_goal, path_state + path_len);
-    state = goal_state;
-    path_sstate[path_len] = state;
-    for (int si = path_len - 1; state->parent_id >= 0; --si){
-        const pddl_symbolic_state_t *prev_state;
-        prev_state = statesGet(&ss->fw_state, state->parent_id);
-
-        // This step of the plan goes from prev_state to state.
-        // So, compute the conjuction of the preimage of state and
-        // state_prev.
-        pddl_symbolic_trans_set_t *trset = ss->trans.trans + state->trans_id;
-        DdNode *preimg = preImage(ss, trset, bdd);
-        ASSERT_RUNTIME(!CUDD_IS_FALSE(ss->ddm, preimg));
-        CUDD_AND(ss->ddm, preimg, prev_state->bdd);
-
-        // Select one of the states -- again, it doesn't matter which one
-        Cudd_RecursiveDeref(ss->ddm, bdd);
-        bdd = bddStateSelectOne(ss, preimg, path_state + si);
-        Cudd_RecursiveDeref(ss->ddm, preimg);
-        state = prev_state;
-        path_sstate[si] = state;
-    }
-    Cudd_RecursiveDeref(ss->ddm, bdd);
-
-    // TODO: Needs change for backward search
-    ASSERT(borISetEq(&ss->strips->init, path_state + 0));
-    ASSERT(borISetIsSubset(&ss->strips->goal, path_state + path_len));
-
-    // Extract plan from the intermediate states
-    BOR_ISET(res_state);
-    for (int si = 0; si < path_len; ++si){
-        const pddl_symbolic_state_t *sstate = path_sstate[si + 1];
-        const bor_iset_t *from = path_state + si;
-        const bor_iset_t *to = path_state + si + 1;
-
-        int op_id;
-        int found = 0;
-        BOR_ISET_FOR_EACH(&ss->trans.trans[sstate->trans_id].op, op_id){
-            const pddl_strips_op_t *op = ss->strips->op.op[op_id];
-            // TODO: Needs change for backward search
-            if (borISetIsSubset(&op->pre, from)){
-                borISetMinus2(&res_state, from, &op->del_eff);
-                borISetUnion(&res_state, &op->add_eff);
-                if (borISetEq(&res_state, to)){
-                    borIArrAdd(plan, op_id);
-                    found = 1;
-                    break;
-                }
-            }
-        }
-        ASSERT_RUNTIME(found);
-    }
-    borISetFree(&res_state);
-
-
-    for (int si = 0; si < path_len + 1; ++si)
-        borISetFree(path_state + si);
-    BOR_FREE(path_state);
-    BOR_FREE(path_sstate);
-
-    return 0;
+    return searchOneDir(ss, &ss->fw_search, err);
 }
 
-int pddlSymbolicTaskFwStep(pddl_symbolic_task_t *ss, bor_err_t *err)
+int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss, bor_err_t *err)
 {
-    pddl_symbolic_state_t *state = statesNextOpen(&ss->fw_state);
-    if (state == NULL){
-        // TODO
-        return -1;
-    }
+    return searchOneDir(ss, &ss->bw_search, err);
+}
 
-    DdNode *goal = Cudd_bddAnd(ss->ddm, state->bdd, ss->goal);
-    Cudd_Ref(goal);
-    if (!CUDD_IS_FALSE(ss->ddm, goal)){
-        Cudd_PrintDebug(ss->ddm, state->bdd, 20, 2);
-        Cudd_PrintDebug(ss->ddm, goal, 20, 2);
-        fprintf(stdout, "GOAL!\n");
-        BOR_IARR(plan);
-        extractPlan(ss, state, goal, transSetPreImage, &plan);
-        int op_id;
-        BOR_IARR_FOR_EACH(&plan, op_id){
-            printf("(%s) ;; id=%d\n", ss->strips->op.op[op_id]->name, op_id);
-        }
-        borIArrFree(&plan);
-    }
-    Cudd_RecursiveDeref(ss->ddm, goal);
-
-    BOR_INFO(err, "Next State %d, parent: %d, cost: %d, zero_cost: %d,"
-                 " is_closed: %d",
-             state->id, state->parent_id, state->cost,
-             state->zero_cost, state->is_closed);
-    fflush(stdout);
-    statesApplyOps(ss, &ss->fw_state, state, transSetImage);
-    statesCloseState(ss, &ss->fw_state, state);
-    // TODO: UpdatePlan
+int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss, bor_err_t *err)
+{
     return 0;
 }
 
