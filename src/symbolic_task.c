@@ -25,6 +25,7 @@
 #include <cudd/cudd.h>
 #include <boruvka/alloc.h>
 #include <boruvka/sort.h>
+#include <boruvka/extarr.h>
 
 #include "pddl/symbolic_task.h"
 #include "pddl/time_limit.h"
@@ -56,6 +57,23 @@ struct pddl_symbolic_trans_sets {
 };
 typedef struct pddl_symbolic_trans_sets pddl_symbolic_trans_sets_t;
 
+struct pddl_symbolic_state {
+    int id;
+    int parent_id;
+    int cost; /*!< g value */
+    int zero_cost; /*!< Number of zero cost operators on the path */
+    DdNode *bdd;
+    int is_closed;
+};
+typedef struct pddl_symbolic_state pddl_symbolic_state_t;
+
+struct pddl_symbolic_states {
+    bor_extarr_t *pool; /*!< Data pool */
+    int num_states;
+    DdNode *all_closed;
+};
+typedef struct pddl_symbolic_states pddl_symbolic_states_t;
+
 struct pddl_symbolic_task {
     DdManager *ddm; /*!< Cudd manager */
     int fact_size;
@@ -65,9 +83,13 @@ struct pddl_symbolic_task {
     int *eff_fact_to_var;
     int num_vars;
     pddl_symbolic_trans_sets_t trans;
+    int zero_cost_trans;
 
     DdNode *init;
     DdNode *goal;
+    pddl_symbolic_states_t fw_state;
+
+    pddl_symbolic_states_t states;
 };
 
 // X = X and Y
@@ -182,7 +204,6 @@ static void transInitEffVars(pddl_symbolic_task_t *ss,
     tr->var_pre = BOR_CALLOC_ARR(DdNode *, tr->var_size);
     tr->var_eff = BOR_CALLOC_ARR(DdNode *, tr->var_size);
     int ins = 0;
-    fprintf(stderr, "----\n");
     int fact_id;
     BOR_ISET_FOR_EACH(&tr->eff_facts, fact_id){
         int var_pre = ss->pre_fact_to_var[fact_id];
@@ -190,14 +211,20 @@ static void transInitEffVars(pddl_symbolic_task_t *ss,
         DdNode *vpre = Cudd_bddIthVar(ss->ddm, var_pre);
         Cudd_Ref(vpre);
         DdNode *veff = Cudd_bddIthVar(ss->ddm, var_eff);
-        fprintf(stderr, "vpre: %d:%lx, veff: %d:%lx\n", var_pre,
-                (long)vpre, var_eff, (long)veff);
         Cudd_Ref(veff);
         tr->var_pre[ins] = vpre;
         tr->var_eff[ins] = veff;
         ++ins;
     }
 
+    tr->exist_pre = Cudd_bddComputeCube(ss->ddm, tr->var_pre,
+                                        NULL, tr->var_size);
+    Cudd_Ref(tr->exist_pre);
+    tr->exist_eff = Cudd_bddComputeCube(ss->ddm, tr->var_eff,
+                                        NULL, tr->var_size);
+    Cudd_Ref(tr->exist_eff);
+
+    /*
     tr->exist_pre = Cudd_ReadOne(ss->ddm);
     Cudd_Ref(tr->exist_pre);
     tr->exist_eff = Cudd_ReadOne(ss->ddm);
@@ -206,6 +233,7 @@ static void transInitEffVars(pddl_symbolic_task_t *ss,
         CUDD_AND(ss->ddm, tr->exist_pre, tr->var_pre[i]);
         CUDD_AND(ss->ddm, tr->exist_eff, tr->var_eff[i]);
     }
+    */
 }
 
 static void transInit(pddl_symbolic_task_t *ss,
@@ -253,38 +281,23 @@ static int transMerge(pddl_symbolic_task_t *ss,
     int e2 = 0, esize2 = borISetSize(&tr2->eff_facts);
     int fact_id;
     BOR_ISET_FOR_EACH(&dst->eff_facts, fact_id){
-        fprintf(stderr, "E %d\n", fact_id);
-        fflush(stderr);
         if (e1 < esize1 && borISetGet(&tr1->eff_facts, e1) == fact_id){
-            fprintf(stderr, "  ->1 %d\n", fact_id);
-            fflush(stderr);
             ++e1;
         }else{
-            fprintf(stderr, "  V1 %d\n", fact_id);
-            fflush(stderr);
             DdNode *biimp = createBiimpFact(ss, fact_id);
-            Cudd_Ref(biimp);
             CUDD_AND(ss->ddm, bdd1, biimp);
-            //Cudd_RecursiveDeref(ss->ddm, biimp);
-            fprintf(stderr, "  V1done %d\n", fact_id);
-            fflush(stderr);
+            Cudd_RecursiveDeref(ss->ddm, biimp);
         }
 
         if (e2 < esize2 && borISetGet(&tr2->eff_facts, e2) == fact_id){
-            fprintf(stderr, "  ->2 %d\n", fact_id);
-            fflush(stderr);
             ++e2;
         }else{
-            fprintf(stderr, "  V2 %d\n", fact_id);
-            fflush(stderr);
             DdNode *biimp = createBiimpFact(ss, fact_id);
             CUDD_AND(ss->ddm, bdd2, biimp);
             Cudd_RecursiveDeref(ss->ddm, biimp);
         }
     }
 
-        fprintf(stderr, "A\n");
-        fflush(stderr);
     if (max_nodes > 0){
         dst->bdd = Cudd_bddOrLimit(ss->ddm, bdd1, bdd2, max_nodes);
         if (dst->bdd != NULL)
@@ -302,8 +315,6 @@ static int transMerge(pddl_symbolic_task_t *ss,
 
     transInitEffVars(ss, dst);
 
-        fprintf(stderr, "W\n");
-        fflush(stderr);
     return 0;
 }
 
@@ -319,7 +330,6 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     for (int i = 0; i < op_ids_size; ++i)
         borISetAdd(&trset->op, op_ids[i]);
     trset->cost = strips->op.op[op_ids[0]]->cost;
-    fprintf(stderr, "add-range: %d, cost: %d\n", op_ids_size, trset->cost);
 
     int T_size = borISetSize(&trset->op);
     pddl_symbolic_trans_t *T = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
@@ -334,43 +344,27 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     while (T_size > 1){
         if (pddlTimeLimitCheck(&time_limit) < 0)
             break;
-        // TODO: max-time
-        fprintf(stderr, "T_size: %d, Tres_size: %d\n", T_size, Tres_size);
-        fflush(stderr);
 
         int ins = 0;
         for (int i = 0; i < T_size; i = i + 2){
             if (i + 1 >= T_size){
-                fprintf(stderr, "odd %d -> %d\n", i, ins);
                 T[ins] = T[i];
 
             }else{
                 if (T[i].bdd == NULL && T[i + 1].bdd == NULL){
-                    fprintf(stderr, "both are null\n");
-                    fflush(stderr);
                     bzero(T + ins, sizeof(*T));
 
                 }else if (T[i].bdd == NULL){
-                    fprintf(stderr, "i is null\n");
-                    fflush(stderr);
                     T[ins] = T[i + 1];
 
                 }else if (T[i + 1].bdd == NULL){
-                    fprintf(stderr, "i + 1 is null\n");
-                    fflush(stderr);
                     T[ins] = T[i];
 
                 }else{
-                    fprintf(stderr, "Z\n");
-                    fflush(stderr);
                     pddl_symbolic_trans_t restr;
                     int res = transMerge(ss, &restr, T + i, T + i + 1,
                                          cfg->trans_merge_max_nodes);
-                    fprintf(stderr, "ZZ %d\n", res);
-                    fflush(stderr);
                     if (res < 0){
-                        fprintf(stderr, "XXX res < 0\n");
-                        fflush(stderr);
                         Tres[Tres_size++] = T[i];
                         Tres[Tres_size++] = T[i + 1];
                         bzero(T + ins, sizeof(*T));
@@ -389,7 +383,6 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
 
     for (int i = 0; i < T_size; ++i)
         Tres[Tres_size++] = T[i];
-    fprintf(stderr, "T_size: %d, Tres_size: %d\n", T_size, Tres_size);
 
     trset->trans_size = Tres_size;
     trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
@@ -518,6 +511,119 @@ static DdNode *transSetPreImage(pddl_symbolic_task_t *ss,
     return transSetApply(ss, trset, state, transPreImage);
 }
 
+static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
+{
+    Cudd_RecursiveDeref(ss->ddm, state->bdd);
+}
+
+static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
+{
+    bzero(states, sizeof(*states));
+    size_t el_size = sizeof(pddl_symbolic_state_t);
+    pddl_symbolic_state_t el_init;
+    bzero(&el_init, sizeof(el_init));
+    el_init.id = -1;
+
+    states->pool = borExtArrNew(el_size, NULL, &el_init);
+    states->num_states = 0;
+
+    states->all_closed = Cudd_ReadLogicZero(ss->ddm);
+    Cudd_Ref(states->all_closed);
+}
+
+static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
+{
+    for (int si = 0; si < states->num_states; ++si)
+        stateFree(ss, borExtArrGet(states->pool, si));
+    borExtArrDel(states->pool);
+}
+
+static pddl_symbolic_state_t *statesGet(pddl_symbolic_states_t *states, int id)
+{
+    return borExtArrGet(states->pool, id);
+}
+
+static void statesCloseState(pddl_symbolic_task_t *ss,
+                             pddl_symbolic_states_t *states,
+                             pddl_symbolic_state_t *state)
+{
+    ASSERT(!state->is_closed);
+    state->is_closed = 1;
+    CUDD_OR(ss->ddm, states->all_closed, state->bdd);
+}
+
+static void statesOpenState(pddl_symbolic_task_t *ss,
+                            pddl_symbolic_states_t *states,
+                            pddl_symbolic_state_t *state)
+{
+    // TODO
+}
+
+static pddl_symbolic_state_t *statesAddBDD(pddl_symbolic_task_t *ss,
+                                           pddl_symbolic_states_t *states,
+                                           DdNode *bdd)
+{
+    pddl_symbolic_state_t *state;
+    state = borExtArrGet(states->pool, states->num_states);
+    state->id = states->num_states;
+    state->parent_id = -1;
+    state->cost = 0;
+    state->zero_cost = 0;
+    state->bdd = bdd;
+    Cudd_Ref(state->bdd);
+    state->is_closed = 0;
+
+    states->num_states++;
+    return state;
+}
+
+static void statesAddInit(pddl_symbolic_task_t *ss,
+                          pddl_symbolic_states_t *states,
+                          DdNode *bdd)
+{
+    pddl_symbolic_state_t *state;
+    state = statesAddBDD(ss, states, bdd);
+    state->cost = 0;
+    state->zero_cost = 0;
+    statesOpenState(ss, states, state);
+}
+
+static void statesApplyOps(pddl_symbolic_task_t *ss,
+                           pddl_symbolic_states_t *states,
+                           pddl_symbolic_state_t *state_in,
+                           DdNode *(*apply)(pddl_symbolic_task_t *ss,
+                                            pddl_symbolic_trans_set_t *trset,
+                                            DdNode *state))
+{
+    DdNode *bdd_in = state_in->bdd;
+    Cudd_Ref(bdd_in);
+    CUDD_AND(ss->ddm, bdd_in, Cudd_Not(states->all_closed));
+
+    if (bdd_in == Cudd_ReadLogicZero(ss->ddm)){
+        Cudd_RecursiveDeref(ss->ddm, bdd_in);
+        return;
+    }
+
+    for (int tri = 0; tri < ss->trans.trans_size; ++tri){
+        int tr_cost = ss->trans.trans[tri].cost;
+        DdNode *bdd = apply(ss, ss->trans.trans + tri, bdd_in);
+        if (bdd != Cudd_ReadLogicZero(ss->ddm)){
+            pddl_symbolic_state_t *state = statesAddBDD(ss, states, bdd);
+            state->parent_id = state_in->id;
+            state->cost += state_in->cost + tr_cost;
+            state->zero_cost = state_in->zero_cost;
+            if (tr_cost == 0)
+                state->zero_cost += 1;
+
+            statesOpenState(ss, states, state);
+        }
+
+        Cudd_RecursiveDeref(ss->ddm, bdd);
+    }
+
+    Cudd_RecursiveDeref(ss->ddm, bdd_in);
+}
+
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_mgroups_t *mgroups,
                                           const pddl_mutex_pairs_t *mutex,
@@ -565,12 +671,29 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     }
 
     transSetsInit(ss, cfg, strips, &ss->trans, err);
+    ss->zero_cost_trans = -1;
+    if (ss->trans.trans[0].cost == 0)
+        ss->zero_cost_trans = 0;
 
     ss->init = createState(ss, &strips->init);
     ss->goal = createPartialState(ss, &strips->goal);
+    statesInit(ss, &ss->fw_state);
+    statesAddInit(ss, &ss->fw_state, ss->init);
 
 
     ASSERT(Cudd_DebugCheck(ss->ddm) == 0);
+
+    pddl_symbolic_state_t *state = statesGet(&ss->fw_state, 0);
+    statesApplyOps(ss, &ss->fw_state, state, transSetImage);
+    statesCloseState(ss, &ss->fw_state, state);
+
+    for (int si = 0; si < ss->fw_state.num_states; ++si){
+        pddl_symbolic_state_t *state = statesGet(&ss->fw_state, si);
+        fprintf(stdout, "State %d, parent: %d, cost: %d, zero_cost: %d\n",
+                state->id, state->parent_id, state->cost,
+                state->zero_cost);
+        Cudd_PrintDebug(ss->ddm, state->bdd, 20, 4);
+    }
 
     printf("trans_size: %d\n", ss->trans.trans_size);
     DdNode *init = createState(ss, &strips->init);
@@ -593,10 +716,14 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     Cudd_PrintDebug(ss->ddm, prev2, 20, 4);
 
     BOR_INFO(err, "symbolic: Symbolic task created."
-                  " mem in use: %.2fMB, peak node count: %d,"
+                  " mem in use: %.2fMB, node count: %ld,"
+                  " bdd variables: %d,"
+                  " peak node count: %d,"
                   " peak live node count: %d,"
                   " garbage collections: %d",
              Cudd_ReadMemoryInUse(ss->ddm) / (1024. * 1024.),
+             Cudd_ReadNodeCount(ss->ddm),
+             Cudd_ReadSize(ss->ddm),
              Cudd_ReadPeakNodeCount(ss->ddm),
              Cudd_ReadPeakLiveNodeCount(ss->ddm),
              Cudd_ReadGarbageCollections(ss->ddm));
@@ -606,6 +733,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
+    statesFree(ss, &ss->fw_state);
     transSetsFree(ss, &ss->trans);
     if (ss->ordered_facts != NULL)
         BOR_FREE(ss->ordered_facts);
