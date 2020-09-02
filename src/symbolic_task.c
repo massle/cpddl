@@ -84,6 +84,16 @@ static int pddlCostCmpSum(const pddl_cost_t *c1,
     return cmp;
 }
 
+static int pddlCostCmpSumOp(const pddl_cost_t *c1,
+                            int op_cost,
+                            const pddl_cost_t *cs)
+{
+    int cmp = (c1->cost + op_cost) - cs->cost;
+    if (cmp == 0)
+        cmp = (c1->zero_cost + (op_cost == 0 ? 1 : 0)) - cs->zero_cost;
+    return cmp;
+}
+
 struct pddl_symbolic_trans {
     DdNode *bdd; /*!< BDD representing the transition(s) */
     bor_iset_t eff_facts; /*!< Facts appearing in the effect(s) */
@@ -123,7 +133,9 @@ typedef struct pddl_symbolic_state pddl_symbolic_state_t;
 struct pddl_symbolic_state_open {
     int state_id;
     pddl_cost_t cost;
+    // TODO: Add heuristic estimate
     bor_pairheap_node_t heap;
+    bor_pairheap_node_t heap_cost;
 };
 typedef struct pddl_symbolic_state_open pddl_symbolic_state_open_t;
 
@@ -131,9 +143,11 @@ struct pddl_symbolic_states {
     bor_extarr_t *pool; /*!< Data pool */
     int num_states; /*!< Number of states stored in .pool */
     bor_pairheap_t *open; /*!< Open list */
+    bor_pairheap_t *open_cost; /*!< Costs of states in the open list */
     bor_extarr_t *closed; /*!< Closed states stored with increasing cost */
     int num_closed; /*!< Number of closed states */
     DdNode *all_closed; /*!< BDD representing all closed states */
+    pddl_cost_t bound; /*!< Bound for the cost of the plan */
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
 
@@ -147,9 +161,8 @@ struct pddl_symbolic_search {
     pddl_symbolic_states_t state; /*!< State space */
     DdNode *goal; /*!< BDD describing the goal states */
     bor_iarr_t plan; /*!< Extracted plan */
-    pddl_cost_t plan_best_cost;
-    int plan_best_state_id;
-    int plan_best_other_state_id;
+    int plan_state_id; /*!< This search's state where plan was reached */
+    int plan_other_state_id; /*!< Other search's state where plan was reached*/
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -612,6 +625,16 @@ static int openLT(const bor_pairheap_node_t *n1,
     return pddlCostCmp(&o1->cost, &o2->cost) <= 0;
 }
 
+static int openCostLT(const bor_pairheap_node_t *n1,
+                      const bor_pairheap_node_t *n2,
+                      void *data)
+{
+    const pddl_symbolic_state_open_t *o1, *o2;
+    o1 = bor_container_of(n1, pddl_symbolic_state_open_t, heap);
+    o2 = bor_container_of(n2, pddl_symbolic_state_open_t, heap);
+    return pddlCostCmp(&o1->cost, &o2->cost) <= 0;
+}
+
 static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 {
     bzero(states, sizeof(*states));
@@ -624,6 +647,7 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->num_states = 0;
 
     states->open = borPairHeapNew(openLT, states);
+    states->open_cost = borPairHeapNew(openCostLT, states);
 
     el_size = sizeof(int);
     int closed_el = -1;
@@ -632,10 +656,13 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 
     states->all_closed = Cudd_ReadLogicZero(ss->ddm);
     Cudd_Ref(states->all_closed);
+
+    pddlCostSetInf(&states->bound);
 }
 
 static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 {
+    borPairHeapDel(states->open_cost);
     while (!borPairHeapEmpty(states->open)){
         bor_pairheap_node_t *hstate = borPairHeapExtractMin(states->open);
         pddl_symbolic_state_open_t *o;
@@ -686,6 +713,7 @@ static void statesOpenState(pddl_symbolic_task_t *ss,
     o->state_id = state->id;
     o->cost = state->cost;
     borPairHeapAdd(states->open, &o->heap);
+    borPairHeapAdd(states->open_cost, &o->heap_cost);
 }
 
 static pddl_symbolic_state_t *statesNextOpen(pddl_symbolic_states_t *states)
@@ -697,8 +725,21 @@ static pddl_symbolic_state_t *statesNextOpen(pddl_symbolic_states_t *states)
     pddl_symbolic_state_open_t *o;
     o = bor_container_of(hstate, pddl_symbolic_state_open_t, heap);
     pddl_symbolic_state_t *state = borExtArrGet(states->pool, o->state_id);
+    borPairHeapRemove(states->open_cost, &o->heap_cost);
     BOR_FREE(o);
     return state;
+}
+
+static const pddl_cost_t *
+    statesMinOpenCost(const pddl_symbolic_states_t *states)
+{
+    if (borPairHeapEmpty(states->open_cost))
+        return NULL;
+
+    bor_pairheap_node_t *hstate = borPairHeapMin(states->open_cost);
+    pddl_symbolic_state_open_t *o;
+    o = bor_container_of(hstate, pddl_symbolic_state_open_t, heap_cost);
+    return &o->cost;
 }
 
 static pddl_symbolic_state_t *statesAddBDD(pddl_symbolic_task_t *ss,
@@ -745,6 +786,9 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
 
     for (int tri = 0; tri < ss->trans.trans_size; ++tri){
         int tr_cost = ss->trans.trans[tri].cost;
+        if (pddlCostCmpSumOp(&state_in->cost, tr_cost, &states->bound) >= 0)
+            continue;
+
         DdNode *bdd = apply(ss, ss->trans.trans + tri, bdd_in);
         BDD_AND(ss->ddm, bdd, Cudd_Not(states->all_closed));
 
@@ -783,9 +827,8 @@ static void searchInit(pddl_symbolic_task_t *ss,
 
     statesAddInit(ss, &search->state, init);
 
-    pddlCostSetInf(&search->plan_best_cost);
-    search->plan_best_state_id = -1;
-    search->plan_best_other_state_id = -1;
+    search->plan_state_id = -1;
+    search->plan_other_state_id = -1;
 }
 
 static void searchFree(pddl_symbolic_task_t *ss,
@@ -953,17 +996,17 @@ static int costStatesIsBetter(const pddl_symbolic_search_t *search,
                               const pddl_symbolic_state_t *s1,
                               const pddl_symbolic_state_t *s2)
 {
-    return pddlCostCmpSum(&s1->cost, &s2->cost, &search->plan_best_cost) < 0;
+    return pddlCostCmpSum(&s1->cost, &s2->cost, &search->state.bound) < 0;
 }
 
 static void searchSetBestPlan(pddl_symbolic_search_t *search,
                               const pddl_symbolic_state_t *s1,
                               const pddl_symbolic_state_t *s2)
 {
-    search->plan_best_cost = s1->cost;
-    pddlCostAdd(&search->plan_best_cost, &s2->cost);
-    search->plan_best_state_id = s1->id;
-    search->plan_best_other_state_id = s2->id;
+    search->state.bound = s1->cost;
+    pddlCostAdd(&search->state.bound, &s2->cost);
+    search->plan_state_id = s1->id;
+    search->plan_other_state_id = s2->id;
 }
 
 static int checkGoal2(pddl_symbolic_task_t *ss,
@@ -991,8 +1034,8 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
                 BOR_INFO(err, "symbolic search %s: Found best plan so far:"
                               " cost: %d:%d",
                          (search->fw ? "fw" : "bw"),
-                         search->plan_best_cost.cost,
-                         search->plan_best_cost.zero_cost);
+                         search->state.bound.cost,
+                         search->state.bound.zero_cost);
                 res = 1;
             }
             DEREF(ss->ddm, goal);
@@ -1200,18 +1243,27 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss, bor_err_t *err)
     searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
                ss->goal, ss->init);
 
-    searchStep(ss, &fw_search, &bw_search, err);
-    searchStep(ss, &bw_search, &fw_search, err);
-    searchStep(ss, &fw_search, &bw_search, err);
-    searchStep(ss, &bw_search, &fw_search, err);
-    searchStep(ss, &fw_search, &bw_search, err);
-    searchStep(ss, &bw_search, &fw_search, err);
-    searchStep(ss, &fw_search, &bw_search, err);
-    searchStep(ss, &bw_search, &fw_search, err);
-    searchStep(ss, &fw_search, &bw_search, err);
-    searchStep(ss, &bw_search, &fw_search, err);
-    searchStep(ss, &fw_search, &bw_search, err);
-    searchStep(ss, &bw_search, &fw_search, err);
+    while (!borPairHeapEmpty(fw_search.state.open)
+            && !borPairHeapEmpty(bw_search.state.open)){
+        const pddl_cost_t *min_fw_cost = statesMinOpenCost(&fw_search.state);
+        const pddl_cost_t *min_bw_cost = statesMinOpenCost(&bw_search.state);
+        const pddl_cost_t *bound = &fw_search.state.bound;
+        ASSERT(min_fw_cost != NULL);
+        ASSERT(min_bw_cost != NULL);
+        ASSERT(pddlCostCmp(bound, &bw_search.state.bound) == 0);
+        if (pddlCostCmpSum(min_fw_cost, min_bw_cost, bound) >= 0)
+            break;
+
+        // TODO: Select one direction
+        searchStep(ss, &fw_search, &bw_search, err);
+        searchStep(ss, &bw_search, &fw_search, err);
+    }
+    ASSERT(pddlCostCmp(&fw_search.state.bound, &bw_search.state.bound) == 0);
+    ASSERT(fw_search.plan_state_id == bw_search.plan_other_state_id);
+    ASSERT(fw_search.plan_other_state_id == bw_search.plan_state_id);
+
+
+    // TODO: Extract plan
     return 0;
 }
 
