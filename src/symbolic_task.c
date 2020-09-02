@@ -93,6 +93,13 @@ static int pddlCostCmpSumOp(const pddl_cost_t *c1,
     return cmp;
 }
 
+struct pddl_symbolic_bdds {
+    DdNode **bdd;
+    int bdd_size;
+    int bdd_alloc;
+};
+typedef struct pddl_symbolic_bdds pddl_symbolic_bdds_t;
+
 struct pddl_symbolic_trans {
     DdNode *bdd; /*!< BDD representing the transition(s) */
     bor_iset_t eff_facts; /*!< Facts appearing in the effect(s) */
@@ -177,6 +184,7 @@ struct pddl_symbolic_task {
     int *eff_fact_to_var; /*!< Mapping from fact to eff BDD variable */
     int num_vars; /*!< Number of BDD variables */
     pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
+    pddl_symbolic_bdds_t constr; /*!< Constraint BDDs */
     DdNode *init; /*!< Initial state */
     DdNode *goal; /*!< Goal states */
 };
@@ -251,6 +259,139 @@ static DdNode *createBiimpFact(pddl_symbolic_task_t *ss, int fact_id)
 {
     return createBiimp(ss, ss->pre_fact_to_var[fact_id],
                            ss->eff_fact_to_var[fact_id]);
+}
+
+static void bddsInit(pddl_symbolic_bdds_t *bdds)
+{
+    bzero(bdds, sizeof(*bdds));
+}
+
+static void bddsFree(pddl_symbolic_task_t *ss,
+                     pddl_symbolic_bdds_t *bdds)
+{
+    for (int i = 0; i < bdds->bdd_size; ++i)
+        DEREF(ss->ddm, bdds->bdd[i]);
+    if (bdds->bdd != NULL)
+        BOR_FREE(bdds->bdd);
+}
+
+static void bddsAdd(pddl_symbolic_task_t *ss,
+                    pddl_symbolic_bdds_t *bdds,
+                    DdNode *bdd)
+{
+    if (bdds->bdd_size == bdds->bdd_alloc){
+        if (bdds->bdd_alloc == 0)
+            bdds->bdd_alloc = 8;
+        bdds->bdd_alloc *= 2;
+        bdds->bdd = BOR_REALLOC_ARR(bdds->bdd, DdNode *, bdds->bdd_alloc);
+    }
+    bdds->bdd[bdds->bdd_size++] = bdd;
+    Cudd_Ref(bdds->bdd[bdds->bdd_size - 1]);
+}
+
+static void bddsAddMutex(pddl_symbolic_task_t *ss,
+                         pddl_symbolic_bdds_t *bdds,
+                         int fact1,
+                         int fact2)
+{
+    DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact1]);
+    Cudd_Ref(var1);
+    DdNode *var2 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact2]);
+    Cudd_Ref(var2);
+    DdNode *bdd = Cudd_bddOr(ss->ddm, Cudd_Not(var1), Cudd_Not(var2));
+    bddsAdd(ss, bdds, bdd);
+    DEREF(ss->ddm, var1);
+    DEREF(ss->ddm, var2);
+}
+
+static void bddsAddExactlyOneMGroup(pddl_symbolic_task_t *ss,
+                                    pddl_symbolic_bdds_t *bdds,
+                                    const bor_iset_t *mgroup)
+{
+    DdNode *bdd = Cudd_ReadOne(ss->ddm);
+    Cudd_Ref(bdd);
+    int fact_id;
+    BOR_ISET_FOR_EACH(mgroup, fact_id){
+        DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact_id]);
+        BDD_OR(ss->ddm, bdd, var1);
+    }
+    bddsAdd(ss, bdds, bdd);
+    DEREF(ss->ddm, bdd);
+}
+
+static void bddsMergeAnd(pddl_symbolic_task_t *ss,
+                         pddl_symbolic_bdds_t *bdds,
+                         int max_nodes,
+                         float max_time)
+{
+    if (bdds->bdd_size == 0)
+        return;
+
+    DdNode **bdd = BOR_CALLOC_ARR(DdNode *, bdds->bdd_size);
+    int bdd_size = bdds->bdd_size;
+    memcpy(bdd, bdds->bdd, sizeof(DdNode *) * bdd_size);
+    bdds->bdd_size = 0;
+
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitInit(&time_limit);
+    pddlTimeLimitSet(&time_limit, max_time);
+    while (bdd_size > 1){
+        if (pddlTimeLimitCheck(&time_limit) < 0)
+            break;
+
+        int ins = 0;
+        for (int i = 0; i < bdd_size; i = i + 2){
+            if (i + 1 >= bdd_size){
+                bdd[ins++] = bdd[i];
+                continue;
+            }
+
+            DdNode *bdd1 = bdd[i];
+            DdNode *bdd2 = bdd[i + 1];
+            if (bdd1 == NULL && bdd2 == NULL){
+                bdd[ins] = NULL;
+
+            }else if (bdd1 == NULL){
+                bdd[ins] = bdd2;
+
+            }else if (bdd2 == NULL){
+                bdd[ins] = bdd1;
+
+            }else{
+                DdNode *res = Cudd_bddAndLimit(ss->ddm, bdd1, bdd2, max_nodes);
+                if (res != NULL){
+                    Cudd_Ref(res);
+                    bdd[ins] = res;
+                }else{
+                    bddsAdd(ss, bdds, bdd1);
+                    bddsAdd(ss, bdds, bdd2);
+                    bdd[ins] = NULL;
+                }
+                DEREF(ss->ddm, bdd1);
+                DEREF(ss->ddm, bdd2);
+            }
+            ++ins;
+        }
+        bdd_size = ins;
+    }
+
+    for (int i = 0; i < bdd_size; ++i){
+        if (bdd[i] != NULL){
+            bddsAdd(ss, bdds, bdd[i]);
+            DEREF(ss->ddm, bdd[i]);
+        }
+    }
+
+    BOR_FREE(bdd);
+}
+
+static DdNode *bddsAnd(pddl_symbolic_task_t *ss,
+                       pddl_symbolic_bdds_t *bdds,
+                       DdNode *bdd)
+{
+    for (int i = 0; i < bdds->bdd_size; ++i)
+        BDD_AND(ss->ddm, bdd, bdds->bdd[i]);
+    return bdd;
 }
 
 static void transFree(pddl_symbolic_task_t *ss,
@@ -806,6 +947,7 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
 
         DdNode *bdd = apply(ss, ss->trans.trans + tri, bdd_in);
         BDD_AND(ss->ddm, bdd, Cudd_Not(states->all_closed));
+        bdd = bddsAnd(ss, &ss->constr, bdd);
 
         if (!IS_FALSE(ss->ddm, bdd)){
             pddl_symbolic_state_t *state = statesAddBDD(ss, states, bdd);
@@ -821,6 +963,55 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
     }
 
     DEREF(ss->ddm, bdd_in);
+}
+
+static void constrInit(pddl_symbolic_task_t *ss,
+                       const pddl_symbolic_task_config_t *cfg,
+                       pddl_symbolic_bdds_t *bdds,
+                       const pddl_mutex_pairs_t *mutex,
+                       const pddl_mgroups_t *mgroup,
+                       bor_err_t *err)
+{
+    bddsInit(bdds);
+
+    if (!cfg->use_constr)
+        return;
+
+    int num_mutexes = 0;
+    for (int fact1 = 0; fact1 < ss->fact_size; ++fact1){
+        for (int fact2 = fact1 + 1; fact2 < ss->fact_size; ++fact2){
+            if (pddlMutexPairsIsMutex(mutex, fact1, fact2)){
+                bddsAddMutex(ss, bdds, fact1, fact2);
+                ++num_mutexes;
+            }
+        }
+    }
+
+    int num_mgroups1 = 0;
+    int num_fam = 0;
+    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
+        const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
+        if (mg->is_exactly_one || (mg->is_fam_group && mg->is_goal)){
+            bddsAddExactlyOneMGroup(ss, bdds, &mg->mgroup);
+            ++num_mgroups1;
+            if (mg->is_fam_group && mg->is_goal)
+                ++num_fam;
+        }
+    }
+
+    BOR_INFO(err, "symbolic: Prepared constraint BDD from %d mutexes"
+                  " and %d mgroups (%d goal-aware fam groups)",
+             num_mutexes,
+             num_mgroups1,
+             num_fam);
+
+    bddsMergeAnd(ss, bdds, cfg->constr_max_nodes, cfg->constr_max_time);
+    BOR_INFO(err, "symbolic: Created %d constraint BDDs from %d mutexes"
+                  " and %d mgroups (%d goal-aware fam groups)",
+             bdds->bdd_size,
+             num_mutexes,
+             num_mgroups1,
+             num_fam);
 }
 
 static void searchInit(pddl_symbolic_task_t *ss,
@@ -1188,6 +1379,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
              num_slots, cache_size, mem);
 
     transSetsInit(ss, cfg, strips, &ss->trans, err);
+    constrInit(ss, cfg, &ss->constr, mutex, mgroups, err);
     ss->init = createState(ss, &strips->init);
     ss->goal = createPartialState(ss, &strips->goal);
 
@@ -1222,6 +1414,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
+    bddsFree(ss, &ss->constr);
     transSetsFree(ss, &ss->trans);
     if (ss->ordered_facts != NULL)
         BOR_FREE(ss->ordered_facts);
@@ -1377,6 +1570,8 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
 
         float est_fw = searchEstimateTimeOfNextStep(&fw_search);
         float est_bw = searchEstimateTimeOfNextStep(&bw_search);
+        BOR_INFO(err, "symbolic search fw+bw: time estimations:"
+                      " fw: %.2f, bw: %.2f", est_fw, est_bw);
         if (est_fw <= est_bw){
             searchStep(ss, &fw_search, &bw_search, err);
         }else{
