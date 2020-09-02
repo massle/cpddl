@@ -114,7 +114,7 @@ struct pddl_symbolic_state {
     int id; /*!< ID of this state */
     int parent_id; /*!< Parent state ID */
     int trans_id; /*!< ID of the transitions that achieved this state */
-    pddl_cost_t cost;
+    pddl_cost_t cost; /*!< Cost of the state: g value + zero cost g value */
     DdNode *bdd; /*!< BDD representing the state */
     int is_closed; /*!< True if the state is closed */
 };
@@ -134,7 +134,6 @@ struct pddl_symbolic_states {
     bor_extarr_t *closed; /*!< Closed states stored with increasing cost */
     int num_closed; /*!< Number of closed states */
     DdNode *all_closed; /*!< BDD representing all closed states */
-    pddl_cost_t last_closed_cost;
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
 
@@ -142,12 +141,12 @@ typedef DdNode *(*trans_set_image_fn)(pddl_symbolic_task_t *ss,
                                       pddl_symbolic_trans_set_t *trset,
                                       DdNode *state);
 struct pddl_symbolic_search {
-    int fw;
-    trans_set_image_fn image;
-    trans_set_image_fn pre_image;
-    pddl_symbolic_states_t state;
-    DdNode *goal;
-    bor_iarr_t plan;
+    int fw; /*!< True if this is forward search */
+    trans_set_image_fn image; /*!< Function constructing image */
+    trans_set_image_fn pre_image; /*!< Function constructing pre-image */
+    pddl_symbolic_states_t state; /*!< State space */
+    DdNode *goal; /*!< BDD describing the goal states */
+    bor_iarr_t plan; /*!< Extracted plan */
     pddl_cost_t plan_best_cost;
     int plan_best_state_id;
     int plan_best_other_state_id;
@@ -156,14 +155,14 @@ typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
 struct pddl_symbolic_task {
     DdManager *ddm; /*!< Cudd manager */
-    const pddl_strips_t *strips;
-    int fact_size;
-    int *ordered_facts;
-    int *fact_to_order;
-    int *pre_fact_to_var;
-    int *eff_fact_to_var;
-    int num_vars;
-    pddl_symbolic_trans_sets_t trans;
+    const pddl_strips_t *strips; /*!< TODO */
+    int fact_size; /*!< Number of facts in the problem */
+    int *ordered_facts; /*!< Ordered facts */
+    int *fact_to_order; /*!< Mapping from fact to its order index */
+    int *pre_fact_to_var; /*!< Mapping from fact to pre BDD variable */
+    int *eff_fact_to_var; /*!< Mapping from fact to eff BDD variable */
+    int num_vars; /*!< Number of BDD variables */
+    pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
     DdNode *init; /*!< Initial state */
     DdNode *goal; /*!< Goal states */
 };
@@ -577,7 +576,6 @@ static DdNode *transSetApply(pddl_symbolic_task_t *ss,
     DdNode *bdd = f(ss, trset->trans + 0, state);
     for (int i = 1; i < trset->trans_size; ++i){
         DdNode *bdd2 = f(ss, trset->trans + i, state);
-        // TODO: bdd2 = bdd2 and not all_closed
         BDD_OR(ss->ddm, bdd, bdd2);
         DEREF(ss->ddm, bdd2);
     }
@@ -677,7 +675,6 @@ static void statesCloseState(pddl_symbolic_task_t *ss,
     int *dst = borExtArrGet(states->closed, states->num_closed);
     *dst = state->id;
     ++states->num_closed;
-    states->last_closed_cost = state->cost;
 }
 
 static void statesOpenState(pddl_symbolic_task_t *ss,
@@ -735,9 +732,7 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
 static void statesApplyOps(pddl_symbolic_task_t *ss,
                            pddl_symbolic_states_t *states,
                            pddl_symbolic_state_t *state_in,
-                           DdNode *(*apply)(pddl_symbolic_task_t *ss,
-                                            pddl_symbolic_trans_set_t *trset,
-                                            DdNode *state))
+                           trans_set_image_fn apply)
 {
     DdNode *bdd_in = state_in->bdd;
     Cudd_Ref(bdd_in);
@@ -1066,6 +1061,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_symbolic_task_config_t *cfg,
                                           bor_err_t *err)
 {
+    // TODO: Check conditional effects
     pddl_symbolic_task_t *ss;
     BOR_INFO(err, "symbolic: Constructing symbolic task."
                   " max mem: %dMB,"
