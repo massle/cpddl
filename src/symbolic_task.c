@@ -1072,18 +1072,17 @@ static int searchStep(pddl_symbolic_task_t *ss,
              Cudd_ReadPeakLiveNodeCount(ss->ddm),
              Cudd_ReadGarbageCollections(ss->ddm));
 
-    int found_plan = 0;
     if (other_search != NULL){
         checkGoal2(ss, search, other_search, state, err);
+
     }else{ // search->goal != NULL
-        found_plan = checkGoal(ss, search, state, err);
-    }
-    if (found_plan){
-        BOR_INFO(err, "symbolic: Found plan, cost: %d:%d, length: %d",
-                 state->cost.cost,
-                 state->cost.zero_cost,
-                 borIArrSize(&search->plan));
-        return PDDL_SYMBOLIC_PLAN_FOUND;
+        if (checkGoal(ss, search, state, err)){
+            BOR_INFO(err, "symbolic: Found plan, cost: %d:%d, length: %d",
+                     state->cost.cost,
+                     state->cost.zero_cost,
+                     borIArrSize(&search->plan));
+            return PDDL_SYMBOLIC_PLAN_FOUND;
+        }
     }
 
     statesApplyOps(ss, &search->state, state, search->image);
@@ -1326,6 +1325,10 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     }else{
         res = PDDL_SYMBOLIC_PLAN_FOUND;
         fwbwExtractPlan(ss, &fw_search, &bw_search, plan, err);
+        BOR_INFO(err, "symbolic: Found plan, cost: %d:%d, length: %d",
+                 fw_search.state.bound.cost,
+                 fw_search.state.bound.zero_cost,
+                 borIArrSize(plan));
     }
 
     searchFree(ss, &fw_search);
