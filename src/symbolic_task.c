@@ -162,6 +162,8 @@ struct pddl_symbolic_search {
     bor_iarr_t plan; /*!< Extracted plan */
     int plan_goal_id; /*!< This search's state where plan was reached */
     int plan_other_goal_id; /*!< Other search's state where plan was reached*/
+    float last_step_time; /*!< Amount of time spent in the last step */
+    int last_step_state_size; /*!< Size of the state processed in last step */
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -729,6 +731,18 @@ static pddl_symbolic_state_t *statesNextOpen(pddl_symbolic_states_t *states)
     return state;
 }
 
+static int statesNextOpenSize(const pddl_symbolic_states_t *states)
+{
+    if (borPairHeapEmpty(states->open))
+        return 0;
+
+    bor_pairheap_node_t *hstate = borPairHeapMin(states->open);
+    pddl_symbolic_state_open_t *o;
+    o = bor_container_of(hstate, pddl_symbolic_state_open_t, heap);
+    pddl_symbolic_state_t *state = borExtArrGet(states->pool, o->state_id);
+    return Cudd_DagSize(state->bdd);
+}
+
 static const pddl_cost_t *
     statesMinOpenCost(const pddl_symbolic_states_t *states)
 {
@@ -1046,12 +1060,19 @@ static int searchStep(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *other_search,
                       bor_err_t *err)
 {
+    bor_timer_t timer;
+    borTimerStart(&timer);
     pddl_symbolic_state_t *state = statesNextOpen(&search->state);
     if (state == NULL){
         BOR_INFO(err, "symbolic search %s: Plan does not exist",
                  (search->fw ? "fw" : "bw"));
+        borTimerStop(&timer);
+        search->last_step_time = borTimerElapsedInSF(&timer);
+        search->last_step_state_size = 0;
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
+
+    search->last_step_state_size = Cudd_DagSize(state->bdd);
 
     /*
     BOR_INFO(err, "symbolic search %s: Next State %d, parent: %d, cost: %d,"
@@ -1081,13 +1102,31 @@ static int searchStep(pddl_symbolic_task_t *ss,
                      state->cost.cost,
                      state->cost.zero_cost,
                      borIArrSize(&search->plan));
+
+            borTimerStop(&timer);
+            search->last_step_time = borTimerElapsedInSF(&timer);
             return PDDL_SYMBOLIC_PLAN_FOUND;
         }
     }
 
     statesApplyOps(ss, &search->state, state, search->image);
     statesCloseState(ss, &search->state, state);
+    borTimerStop(&timer);
+    search->last_step_time = borTimerElapsedInSF(&timer);
     return PDDL_SYMBOLIC_CONT;
+}
+
+static float searchEstimateTimeOfNextStep(const pddl_symbolic_search_t *search)
+{
+    if (search->last_step_state_size == 0)
+        return 0.f;
+
+    if (search->last_step_time < 1.)
+        return search->last_step_time;
+    int next_size = statesNextOpenSize(&search->state);
+    float est = (float)next_size / (float)search->last_step_state_size;
+    est *= search->last_step_time;
+    return est;
 }
 
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
@@ -1301,6 +1340,9 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
                ss->goal, ss->init);
 
+    searchStep(ss, &fw_search, &bw_search, err);
+    searchStep(ss, &bw_search, &fw_search, err);
+
     while (!borPairHeapEmpty(fw_search.state.open)
             && !borPairHeapEmpty(bw_search.state.open)){
         const pddl_cost_t *min_fw_cost = statesMinOpenCost(&fw_search.state);
@@ -1312,9 +1354,13 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         if (pddlCostCmpSum(min_fw_cost, min_bw_cost, bound) >= 0)
             break;
 
-        // TODO: Select one direction
-        searchStep(ss, &fw_search, &bw_search, err);
-        searchStep(ss, &bw_search, &fw_search, err);
+        float est_fw = searchEstimateTimeOfNextStep(&fw_search);
+        float est_bw = searchEstimateTimeOfNextStep(&bw_search);
+        if (est_fw <= est_bw){
+            searchStep(ss, &fw_search, &bw_search, err);
+        }else{
+            searchStep(ss, &bw_search, &fw_search, err);
+        }
     }
     ASSERT(pddlCostCmp(&fw_search.state.bound, &bw_search.state.bound) == 0);
     ASSERT(fw_search.plan_goal_id == bw_search.plan_other_goal_id);
