@@ -1303,23 +1303,34 @@ static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
     DdNode *fw_goal_bdd = fw_goal_state->bdd;
     DdNode *bw_goal_bdd = bw_goal_state->bdd;
 
-    DdNode *goal = Cudd_bddAnd(ss->ddm, fw_goal_bdd, bw_goal_bdd);
-    Cudd_Ref(goal);
-    ASSERT_RUNTIME(!IS_FALSE(ss->ddm, goal));
+    // Compute cut between forward and backward search frontier
+    DdNode *cut = Cudd_bddAnd(ss->ddm, fw_goal_bdd, bw_goal_bdd);
+    Cudd_Ref(cut);
+    ASSERT_RUNTIME(!IS_FALSE(ss->ddm, cut));
 
+    // We need to choose one particular state before extracting plans from
+    // fw and bw searches
+    BOR_ISET(cut_fact_state);
+    DdNode *cut_state = bddStateSelectOne(ss, cut, &cut_fact_state);
+    borISetFree(&cut_fact_state);
+    DEREF(ss->ddm, cut);
+
+    // Extract forward plan from init to cut_state
     plan_t fw_plan;
-    planInit(ss, fw_search, &fw_plan, fw_goal_state, goal);
+    planInit(ss, fw_search, &fw_plan, fw_goal_state, cut_state);
     planExtractFw(&fw_plan, ss->strips, &fw_search->plan);
     planFree(&fw_plan);
 
+    // Extract backward plan from cut_state to goal
     plan_t bw_plan;
-    planInit(ss, bw_search, &bw_plan, bw_goal_state, goal);
+    planInit(ss, bw_search, &bw_plan, bw_goal_state, cut_state);
     planReverse(&bw_plan);
     planExtractFw(&bw_plan, ss->strips, &bw_search->plan);
     planFree(&bw_plan);
 
-    DEREF(ss->ddm, goal);
+    DEREF(ss->ddm, cut_state);
 
+    // Join fw and bw plans
     int op_id;
     BOR_IARR_FOR_EACH(&fw_search->plan, op_id)
         borIArrAdd(plan, op_id);
