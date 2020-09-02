@@ -27,7 +27,6 @@
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
-#include <boruvka/iarr.h>
 
 #include "pddl/symbolic_task.h"
 #include "pddl/time_limit.h"
@@ -161,8 +160,8 @@ struct pddl_symbolic_search {
     pddl_symbolic_states_t state; /*!< State space */
     DdNode *goal; /*!< BDD describing the goal states */
     bor_iarr_t plan; /*!< Extracted plan */
-    int plan_state_id; /*!< This search's state where plan was reached */
-    int plan_other_state_id; /*!< Other search's state where plan was reached*/
+    int plan_goal_id; /*!< This search's state where plan was reached */
+    int plan_other_goal_id; /*!< Other search's state where plan was reached*/
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -827,8 +826,8 @@ static void searchInit(pddl_symbolic_task_t *ss,
 
     statesAddInit(ss, &search->state, init);
 
-    search->plan_state_id = -1;
-    search->plan_other_state_id = -1;
+    search->plan_goal_id = -1;
+    search->plan_other_goal_id = -1;
 }
 
 static void searchFree(pddl_symbolic_task_t *ss,
@@ -837,6 +836,7 @@ static void searchFree(pddl_symbolic_task_t *ss,
     statesFree(ss, &search->state);
     if (search->goal != NULL)
         DEREF(ss->ddm, search->goal);
+    borIArrFree(&search->plan);
 }
 
 static DdNode *bddStateSelectOne(pddl_symbolic_task_t *ss,
@@ -978,13 +978,6 @@ static int checkGoal(pddl_symbolic_task_t *ss,
             planReverse(&plan);
         planExtractFw(&plan, ss->strips, &search->plan);
         planFree(&plan);
-
-        // TODO: Remove
-        int op_id;
-        BOR_IARR_FOR_EACH(&search->plan, op_id){
-            printf("(%s) ;; id=%d\n", ss->strips->op.op[op_id]->name, op_id);
-        }
-
         DEREF(ss->ddm, goal);
         return 1;
     }
@@ -1005,8 +998,8 @@ static void searchSetBestPlan(pddl_symbolic_search_t *search,
 {
     search->state.bound = s1->cost;
     pddlCostAdd(&search->state.bound, &s2->cost);
-    search->plan_state_id = s1->id;
-    search->plan_other_state_id = s2->id;
+    search->plan_goal_id = s1->id;
+    search->plan_other_goal_id = s2->id;
 }
 
 static int checkGoal2(pddl_symbolic_task_t *ss,
@@ -1081,7 +1074,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     int found_plan = 0;
     if (other_search != NULL){
-        found_plan = checkGoal2(ss, search, other_search, state, err);
+        checkGoal2(ss, search, other_search, state, err);
     }else{ // search->goal != NULL
         found_plan = checkGoal(ss, search, state, err);
     }
@@ -1213,28 +1206,94 @@ static int searchOneDir(pddl_symbolic_task_t *ss,
 }
 
 
-int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss, bor_err_t *err)
+int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
+                             bor_iarr_t *plan,
+                             bor_err_t *err)
 {
     pddl_symbolic_search_t fw_search;
     searchInit(ss, &fw_search, 1, transSetImage, transSetPreImage,
                ss->init, ss->goal);
     int res = searchOneDir(ss, &fw_search, err);
+    borIArrAppendArr(plan, &fw_search.plan);
     searchFree(ss, &fw_search);
+
+#ifdef PDDL_DEBUG
+    int op_id;
+    BOR_IARR_FOR_EACH(plan, op_id){
+        BOR_INFO(err, "symbolic: plan: (%s) ;; id=%d, cost %d",
+                 ss->strips->op.op[op_id]->name,
+                 op_id,
+                 ss->strips->op.op[op_id]->cost);
+    }
+#endif /* PDDL_DEBUG */
     return res;
 }
 
-int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss, bor_err_t *err)
+int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
+                             bor_iarr_t *plan,
+                             bor_err_t *err)
 {
     pddl_symbolic_search_t bw_search;
     searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
                ss->goal, ss->init);
     int res = searchOneDir(ss, &bw_search, err);
+    borIArrAppendArr(plan, &bw_search.plan);
     searchFree(ss, &bw_search);
+
+#ifdef PDDL_DEBUG
+    int op_id;
+    BOR_IARR_FOR_EACH(plan, op_id){
+        BOR_INFO(err, "symbolic: plan: (%s) ;; id=%d, cost %d",
+                 ss->strips->op.op[op_id]->name,
+                 op_id,
+                 ss->strips->op.op[op_id]->cost);
+    }
+#endif /* PDDL_DEBUG */
     return res;
 }
 
-int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss, bor_err_t *err)
+static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
+                            pddl_symbolic_search_t *fw_search,
+                            pddl_symbolic_search_t *bw_search,
+                            bor_iarr_t *plan,
+                            bor_err_t *err)
 {
+    const pddl_symbolic_state_t *fw_goal_state, *bw_goal_state;
+    fw_goal_state = statesGet(&fw_search->state, fw_search->plan_goal_id);
+    bw_goal_state = statesGet(&bw_search->state, bw_search->plan_goal_id);
+
+    DdNode *fw_goal_bdd = fw_goal_state->bdd;
+    DdNode *bw_goal_bdd = bw_goal_state->bdd;
+
+    DdNode *goal = Cudd_bddAnd(ss->ddm, fw_goal_bdd, bw_goal_bdd);
+    Cudd_Ref(goal);
+    ASSERT_RUNTIME(!IS_FALSE(ss->ddm, goal));
+
+    plan_t fw_plan;
+    planInit(ss, fw_search, &fw_plan, fw_goal_state, goal);
+    planExtractFw(&fw_plan, ss->strips, &fw_search->plan);
+    planFree(&fw_plan);
+
+    plan_t bw_plan;
+    planInit(ss, bw_search, &bw_plan, bw_goal_state, goal);
+    planReverse(&bw_plan);
+    planExtractFw(&bw_plan, ss->strips, &bw_search->plan);
+    planFree(&bw_plan);
+
+    DEREF(ss->ddm, goal);
+
+    int op_id;
+    BOR_IARR_FOR_EACH(&fw_search->plan, op_id)
+        borIArrAdd(plan, op_id);
+    BOR_IARR_FOR_EACH(&bw_search->plan, op_id)
+        borIArrAdd(plan, op_id);
+}
+
+int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
+                               bor_iarr_t *plan,
+                               bor_err_t *err)
+{
+    int res = -1;
     pddl_symbolic_search_t fw_search;
     searchInit(ss, &fw_search, 1, transSetImage, transSetPreImage,
                ss->init, ss->goal);
@@ -1259,12 +1318,30 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss, bor_err_t *err)
         searchStep(ss, &bw_search, &fw_search, err);
     }
     ASSERT(pddlCostCmp(&fw_search.state.bound, &bw_search.state.bound) == 0);
-    ASSERT(fw_search.plan_state_id == bw_search.plan_other_state_id);
-    ASSERT(fw_search.plan_other_state_id == bw_search.plan_state_id);
+    ASSERT(fw_search.plan_goal_id == bw_search.plan_other_goal_id);
+    ASSERT(fw_search.plan_other_goal_id == bw_search.plan_goal_id);
 
+    if (fw_search.plan_goal_id == -1){
+        res = PDDL_SYMBOLIC_PLAN_NOT_EXIST;
+    }else{
+        res = PDDL_SYMBOLIC_PLAN_FOUND;
+        fwbwExtractPlan(ss, &fw_search, &bw_search, plan, err);
+    }
 
-    // TODO: Extract plan
-    return 0;
+    searchFree(ss, &fw_search);
+    searchFree(ss, &bw_search);
+
+#ifdef PDDL_DEBUG
+    int op_id;
+    BOR_IARR_FOR_EACH(plan, op_id){
+        BOR_INFO(err, "symbolic: plan: (%s) ;; id=%d, cost %d",
+                 ss->strips->op.op[op_id]->name,
+                 op_id,
+                 ss->strips->op.op[op_id]->cost);
+    }
+#endif /* PDDL_DEBUG */
+
+    return res;
 }
 
 #else /* PDDL_CUDD */

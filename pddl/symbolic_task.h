@@ -20,6 +20,7 @@
 #ifndef __PDDL_SYMBOLIC_TASK_H__
 #define __PDDL_SYMBOLIC_TASK_H__
 
+#include <boruvka/iarr.h>
 #include <pddl/strips.h>
 #include <pddl/mgroup.h>
 #include <pddl/mutex_pair.h>
@@ -57,9 +58,15 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
 
-int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss, bor_err_t *err);
-int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss, bor_err_t *err);
-int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss, bor_err_t *err);
+int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
+                             bor_iarr_t *plan,
+                             bor_err_t *err);
+int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
+                             bor_iarr_t *plan,
+                             bor_err_t *err);
+int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
+                               bor_iarr_t *plan,
+                               bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */
