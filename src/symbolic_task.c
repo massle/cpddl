@@ -476,8 +476,10 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
         T_size = ins;
     }
 
-    for (int i = 0; i < T_size; ++i)
-        Tres[Tres_size++] = T[i];
+    for (int i = 0; i < T_size; ++i){
+        if (T[i].bdd != NULL)
+            Tres[Tres_size++] = T[i];
+    }
 
     trset->trans_size = Tres_size;
     trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
@@ -1098,7 +1100,9 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     }else{ // search->goal != NULL
         if (checkGoal(ss, search, state, err)){
-            BOR_INFO(err, "symbolic: Found plan, cost: %d:%d, length: %d",
+            BOR_INFO(err, "symbolic search %s: Found plan, cost: %d:%d,"
+                          " length: %d",
+                     (search->fw ? "fw" : "bw"),
                      state->cost.cost,
                      state->cost.zero_cost,
                      borIArrSize(&search->plan));
@@ -1166,6 +1170,9 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     }
     ss->num_vars = 2 * ss->fact_size;
 
+    BOR_INFO(err, "symbolic: Prepared %d BDD variables covering %d facts",
+             ss->num_vars, ss->fact_size);
+
     unsigned int num_slots = CUDD_UNIQUE_SLOTS;
     unsigned int cache_size = CUDD_CACHE_SLOTS;
     size_t mem = 0;
@@ -1176,6 +1183,9 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
         pddlSymbolicTaskDel(ss);
         BOR_ERR_RET2(err, NULL, "Initialization of CUDD failed.");
     }
+    BOR_INFO(err, "symbolic: CUDD initialized with slots: %u, cache size: %u,"
+                  " mem: %lu",
+             num_slots, cache_size, mem);
 
     transSetsInit(ss, cfg, strips, &ss->trans, err);
     ss->init = createState(ss, &strips->init);
@@ -1382,7 +1392,8 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     }else{
         res = PDDL_SYMBOLIC_PLAN_FOUND;
         fwbwExtractPlan(ss, &fw_search, &bw_search, plan, err);
-        BOR_INFO(err, "symbolic: Found plan, cost: %d:%d, length: %d",
+        BOR_INFO(err, "symbolic search fw+bw: Found plan, cost: %d:%d,"
+                      " length: %d",
                  fw_search.state.bound.cost,
                  fw_search.state.bound.zero_cost,
                  borIArrSize(plan));
@@ -1394,7 +1405,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
 #ifdef PDDL_DEBUG
     int op_id;
     BOR_IARR_FOR_EACH(plan, op_id){
-        BOR_INFO(err, "symbolic: plan: (%s) ;; id=%d, cost %d",
+        BOR_INFO(err, "symbolic search fw+bw: plan: (%s) ;; id=%d, cost %d",
                  ss->strips->op.op[op_id]->name,
                  op_id,
                  ss->strips->op.op[op_id]->cost);
