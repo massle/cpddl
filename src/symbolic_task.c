@@ -100,6 +100,18 @@ struct pddl_symbolic_bdds {
 };
 typedef struct pddl_symbolic_bdds pddl_symbolic_bdds_t;
 
+struct pddl_symbolic_constr {
+    pddl_symbolic_bdds_t fw_mutex;
+    pddl_symbolic_bdds_t bw_mutex;
+    pddl_symbolic_bdds_t mgroup;
+};
+typedef struct pddl_symbolic_constr pddl_symbolic_constr_t;
+
+typedef DdNode *(*constr_apply_fn)(pddl_symbolic_task_t *ss,
+                                   pddl_symbolic_constr_t *constr,
+                                   DdNode *bdd);
+
+
 struct pddl_symbolic_trans {
     DdNode *bdd; /*!< BDD representing the transition(s) */
     bor_iset_t eff_facts; /*!< Facts appearing in the effect(s) */
@@ -164,6 +176,7 @@ struct pddl_symbolic_search {
     int fw; /*!< True if this is forward search */
     trans_set_image_fn image; /*!< Function constructing image */
     trans_set_image_fn pre_image; /*!< Function constructing pre-image */
+    constr_apply_fn constr_apply; /*!< Function for applying constraints */
     pddl_symbolic_states_t state; /*!< State space */
     DdNode *goal; /*!< BDD describing the goal states */
     bor_iarr_t plan; /*!< Extracted plan */
@@ -175,6 +188,7 @@ struct pddl_symbolic_search {
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
 struct pddl_symbolic_task {
+    pddl_symbolic_task_config_t cfg; /*!< Configuration */
     DdManager *ddm; /*!< Cudd manager */
     const pddl_strips_t *strips; /*!< TODO */
     int fact_size; /*!< Number of facts in the problem */
@@ -184,7 +198,7 @@ struct pddl_symbolic_task {
     int *eff_fact_to_var; /*!< Mapping from fact to eff BDD variable */
     int num_vars; /*!< Number of BDD variables */
     pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
-    pddl_symbolic_bdds_t constr; /*!< Constraint BDDs */
+    pddl_symbolic_constr_t constr; /*!< Constraints */
     DdNode *init; /*!< Initial state */
     DdNode *goal; /*!< Goal states */
 };
@@ -413,6 +427,106 @@ static void transFree(pddl_symbolic_task_t *ss,
     borISetFree(&tr->eff_facts);
     bzero(tr, sizeof(*tr));
 }
+
+static int constrConstructMutex(pddl_symbolic_task_t *ss,
+                                pddl_symbolic_bdds_t *bdds,
+                                const pddl_mutex_pairs_t *mutex)
+{
+    int num_mutexes = 0;
+    for (int fact1 = 0; fact1 < ss->fact_size; ++fact1){
+        for (int fact2 = fact1 + 1; fact2 < ss->fact_size; ++fact2){
+            if (pddlMutexPairsIsMutex(mutex, fact1, fact2)){
+                bddsAddMutex(ss, bdds, fact1, fact2);
+                ++num_mutexes;
+            }
+        }
+    }
+
+    bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
+    return num_mutexes;
+}
+
+static int constrConstructMGroup(pddl_symbolic_task_t *ss,
+                                 pddl_symbolic_bdds_t *bdds,
+                                 const pddl_mgroups_t *mgroup,
+                                 int *num_fam)
+{
+    int num_mgroups1 = 0;
+    *num_fam = 0;
+    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
+        const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
+        if (mg->is_exactly_one || (mg->is_fam_group && mg->is_goal)){
+            bddsAddExactlyOneMGroup(ss, bdds, &mg->mgroup);
+            ++num_mgroups1;
+            if (mg->is_fam_group && mg->is_goal)
+                ++(*num_fam);
+        }
+    }
+
+    bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
+    return num_mgroups1;
+}
+
+static void constrInit(pddl_symbolic_task_t *ss,
+                       pddl_symbolic_constr_t *constr,
+                       const pddl_mutex_pairs_t *fw_mutex,
+                       const pddl_mutex_pairs_t *bw_mutex,
+                       const pddl_mgroups_t *mgroup,
+                       bor_err_t *err)
+{
+    bddsInit(&constr->fw_mutex);
+    bddsInit(&constr->bw_mutex);
+    bddsInit(&constr->mgroup);
+
+    if (!ss->cfg.use_constr)
+        return;
+
+    BOR_INFO2(err, "symbolic: Constructing constraint BDDs ...");
+
+    if (fw_mutex != NULL){
+        int num = constrConstructMutex(ss, &constr->fw_mutex, fw_mutex);
+        BOR_INFO(err, "symbolic: Created %d fw-mutex BDDs from %d mutexes",
+                 constr->fw_mutex.bdd_size, num);
+    }
+
+    if (bw_mutex != NULL){
+        int num = constrConstructMutex(ss, &constr->bw_mutex, bw_mutex);
+        BOR_INFO(err, "symbolic: Created %d bw-mutex BDDs from %d mutexes",
+                 constr->bw_mutex.bdd_size, num);
+    }
+
+    if (mgroup != NULL){
+        int num_fam;
+        int num = constrConstructMGroup(ss, &constr->mgroup, mgroup, &num_fam);
+        BOR_INFO(err, "symbolic: Created %d mgroup BDDs from"
+                  " %d mgroups (%d goal-aware fam groups)",
+                 constr->mgroup.bdd_size, num, num_fam);
+    }
+}
+
+static void constrFree(pddl_symbolic_task_t *ss,
+                       pddl_symbolic_constr_t *constr)
+{
+    bddsFree(ss, &constr->fw_mutex);
+    bddsFree(ss, &constr->bw_mutex);
+    bddsFree(ss, &constr->mgroup);
+}
+
+static DdNode *constrApplyFw(pddl_symbolic_task_t *ss,
+                             pddl_symbolic_constr_t *constr,
+                             DdNode *bdd)
+{
+    return bddsAnd(ss, &constr->fw_mutex, bdd);
+}
+
+static DdNode *constrApplyBw(pddl_symbolic_task_t *ss,
+                             pddl_symbolic_constr_t *constr,
+                             DdNode *bdd)
+{
+    bdd = bddsAnd(ss, &constr->bw_mutex, bdd);
+    return bddsAnd(ss, &constr->mgroup, bdd);
+}
+
 
 static void transSetFree(pddl_symbolic_task_t *ss,
                          pddl_symbolic_trans_set_t *trset)
@@ -929,7 +1043,8 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
 static void statesApplyOps(pddl_symbolic_task_t *ss,
                            pddl_symbolic_states_t *states,
                            pddl_symbolic_state_t *state_in,
-                           trans_set_image_fn apply)
+                           trans_set_image_fn apply,
+                           constr_apply_fn constr_apply)
 {
     DdNode *bdd_in = state_in->bdd;
     Cudd_Ref(bdd_in);
@@ -947,7 +1062,7 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
 
         DdNode *bdd = apply(ss, ss->trans.trans + tri, bdd_in);
         BDD_AND(ss->ddm, bdd, Cudd_Not(states->all_closed));
-        bdd = bddsAnd(ss, &ss->constr, bdd);
+        bdd = constr_apply(ss, &ss->constr, bdd);
 
         if (!IS_FALSE(ss->ddm, bdd)){
             pddl_symbolic_state_t *state = statesAddBDD(ss, states, bdd);
@@ -965,60 +1080,13 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
     DEREF(ss->ddm, bdd_in);
 }
 
-static void constrInit(pddl_symbolic_task_t *ss,
-                       const pddl_symbolic_task_config_t *cfg,
-                       pddl_symbolic_bdds_t *bdds,
-                       const pddl_mutex_pairs_t *mutex,
-                       const pddl_mgroups_t *mgroup,
-                       bor_err_t *err)
-{
-    bddsInit(bdds);
-
-    if (!cfg->use_constr)
-        return;
-
-    int num_mutexes = 0;
-    for (int fact1 = 0; fact1 < ss->fact_size; ++fact1){
-        for (int fact2 = fact1 + 1; fact2 < ss->fact_size; ++fact2){
-            if (pddlMutexPairsIsMutex(mutex, fact1, fact2)){
-                bddsAddMutex(ss, bdds, fact1, fact2);
-                ++num_mutexes;
-            }
-        }
-    }
-
-    int num_mgroups1 = 0;
-    int num_fam = 0;
-    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
-        const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
-        if (mg->is_exactly_one || (mg->is_fam_group && mg->is_goal)){
-            bddsAddExactlyOneMGroup(ss, bdds, &mg->mgroup);
-            ++num_mgroups1;
-            if (mg->is_fam_group && mg->is_goal)
-                ++num_fam;
-        }
-    }
-
-    BOR_INFO(err, "symbolic: Prepared constraint BDD from %d mutexes"
-                  " and %d mgroups (%d goal-aware fam groups)",
-             num_mutexes,
-             num_mgroups1,
-             num_fam);
-
-    bddsMergeAnd(ss, bdds, cfg->constr_max_nodes, cfg->constr_max_time);
-    BOR_INFO(err, "symbolic: Created %d constraint BDDs from %d mutexes"
-                  " and %d mgroups (%d goal-aware fam groups)",
-             bdds->bdd_size,
-             num_mutexes,
-             num_mgroups1,
-             num_fam);
-}
 
 static void searchInit(pddl_symbolic_task_t *ss,
                        pddl_symbolic_search_t *search,
                        int fw,
                        trans_set_image_fn image,
                        trans_set_image_fn pre_image,
+                       constr_apply_fn constr_apply,
                        DdNode *init,
                        DdNode *goal)
 {
@@ -1026,6 +1094,7 @@ static void searchInit(pddl_symbolic_task_t *ss,
     search->fw = fw;
     search->image = image;
     search->pre_image = pre_image;
+    search->constr_apply = constr_apply;
     statesInit(ss, &search->state);
     search->goal = goal;
     if (search->goal != NULL)
@@ -1304,7 +1373,8 @@ static int searchStep(pddl_symbolic_task_t *ss,
         }
     }
 
-    statesApplyOps(ss, &search->state, state, search->image);
+    statesApplyOps(ss, &search->state, state, search->image,
+                   search->constr_apply);
     statesCloseState(ss, &search->state, state);
     borTimerStop(&timer);
     search->last_step_time = borTimerElapsedInSF(&timer);
@@ -1342,6 +1412,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
     ss = BOR_ALLOC(pddl_symbolic_task_t);
     bzero(ss, sizeof(*ss));
+    ss->cfg = *cfg;
 
     ss->strips = strips;
     ss->fact_size = strips->fact.fact_size;
@@ -1378,23 +1449,15 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                   " mem: %lu",
              num_slots, cache_size, mem);
 
+    // TODO
     transSetsInit(ss, cfg, strips, &ss->trans, err);
-    constrInit(ss, cfg, &ss->constr, mutex, mgroups, err);
+    // TODO: Split mutex for forward and backward mutexes
+    constrInit(ss, &ss->constr, mutex, mutex, mgroups, err);
     ss->init = createState(ss, &strips->init);
     ss->goal = createPartialState(ss, &strips->goal);
+    ss->goal = constrApplyBw(ss, &ss->constr, ss->goal);
 
     ASSERT(Cudd_DebugCheck(ss->ddm) == 0);
-
-    /*
-    for (int si = 0; si < ss->fw_state.num_states; ++si){
-        pddl_symbolic_state_t *state = statesGet(&ss->fw_state, si);
-        fprintf(stdout, "State %d, parent: %d, cost: %d, zero_cost: %d,"
-                        " is_closed: %d\n",
-                state->id, state->parent_id, state->cost,
-                state->zero_cost, state->is_closed);
-        Cudd_PrintDebug(ss->ddm, state->bdd, 20, 2);
-    }
-    */
 
     BOR_INFO(err, "symbolic: Symbolic task created."
                   " mem in use: %.2fMB, node count: %ld,"
@@ -1414,7 +1477,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
-    bddsFree(ss, &ss->constr);
+    constrFree(ss, &ss->constr);
     transSetsFree(ss, &ss->trans);
     if (ss->ordered_facts != NULL)
         BOR_FREE(ss->ordered_facts);
@@ -1453,7 +1516,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 {
     pddl_symbolic_search_t fw_search;
     searchInit(ss, &fw_search, 1, transSetImage, transSetPreImage,
-               ss->init, ss->goal);
+               constrApplyFw, ss->init, ss->goal);
     int res = searchOneDir(ss, &fw_search, err);
     borIArrAppendArr(plan, &fw_search.plan);
     searchFree(ss, &fw_search);
@@ -1476,7 +1539,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 {
     pddl_symbolic_search_t bw_search;
     searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
-               ss->goal, ss->init);
+               constrApplyBw, ss->goal, ss->init);
     int res = searchOneDir(ss, &bw_search, err);
     borIArrAppendArr(plan, &bw_search.plan);
     searchFree(ss, &bw_search);
@@ -1548,11 +1611,11 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     int res = -1;
     pddl_symbolic_search_t fw_search;
     searchInit(ss, &fw_search, 1, transSetImage, transSetPreImage,
-               ss->init, ss->goal);
+               constrApplyFw, ss->init, ss->goal);
 
     pddl_symbolic_search_t bw_search;
     searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
-               ss->goal, ss->init);
+               constrApplyBw, ss->goal, ss->init);
 
     searchStep(ss, &fw_search, &bw_search, err);
     searchStep(ss, &bw_search, &fw_search, err);
