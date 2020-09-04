@@ -1367,6 +1367,154 @@ static float searchEstimateTimeOfNextStep(const pddl_symbolic_search_t *search)
     return est;
 }
 
+
+struct graph {
+    bor_iset_t *out;
+    bor_iset_t *in;
+    int node_size;
+};
+typedef struct graph graph_t;
+
+static void setCGEdgesPreEff(const pddl_strips_op_t *op, graph_t *graph)
+{
+    int pfact;
+    BOR_ISET_FOR_EACH(&op->pre, pfact){
+        int efact;
+        BOR_ISET_FOR_EACH(&op->add_eff, efact){
+            borISetAdd(&graph->in[efact], pfact);
+            borISetAdd(&graph->out[pfact], efact);
+        }
+        BOR_ISET_FOR_EACH(&op->del_eff, efact){
+            borISetAdd(&graph->in[efact], pfact);
+            borISetAdd(&graph->out[pfact], efact);
+        }
+    }
+}
+
+static void setCGEdgesEffEff(const pddl_strips_op_t *op, graph_t *graph)
+{
+    int add_eff_size = borISetSize(&op->add_eff);
+    int del_eff_size = borISetSize(&op->del_eff);
+    for (int i = 0; i < add_eff_size; ++i){
+        int f1 = borISetGet(&op->add_eff, i);
+        for (int j = i + 1; j < add_eff_size; ++j){
+            int f2 = borISetGet(&op->add_eff, j);
+            borISetAdd(&graph->in[f1], f2);
+            borISetAdd(&graph->out[f2], f1);
+            borISetAdd(&graph->in[f2], f1);
+            borISetAdd(&graph->out[f1], f2);
+        }
+
+        for (int j = 0; j < del_eff_size; ++j){
+            int f2 = borISetGet(&op->del_eff, j);
+            borISetAdd(&graph->in[f1], f2);
+            borISetAdd(&graph->out[f2], f1);
+            borISetAdd(&graph->in[f2], f1);
+            borISetAdd(&graph->out[f1], f2);
+        }
+    }
+    for (int i = 0; i < del_eff_size; ++i){
+        int f1 = borISetGet(&op->del_eff, i);
+        for (int j = i + 1; j < del_eff_size; ++j){
+            int f2 = borISetGet(&op->del_eff, j);
+            borISetAdd(&graph->in[f1], f2);
+            borISetAdd(&graph->out[f2], f1);
+            borISetAdd(&graph->in[f2], f1);
+            borISetAdd(&graph->out[f1], f2);
+        }
+    }
+}
+
+static void graphInit(graph_t *graph,
+                      const pddl_strips_t *strips,
+                      const pddl_mgroups_t *mgroup)
+{
+    int fact_size = strips->fact.fact_size;
+    graph->in = BOR_CALLOC_ARR(bor_iset_t, fact_size);
+    graph->out = BOR_CALLOC_ARR(bor_iset_t, fact_size);
+    graph->node_size = fact_size;
+
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->op.op[op_id];
+        setCGEdgesPreEff(op, graph);
+        setCGEdgesEffEff(op, graph);
+    }
+}
+
+static void freeISetArr(bor_iset_t *set, int size)
+{
+    for (int i = 0; i < size; ++i)
+        borISetFree(set + i);
+    if (set != NULL)
+        BOR_FREE(set);
+}
+
+static void graphFree(graph_t *graph)
+{
+    freeISetArr(graph->in, graph->node_size);
+    freeISetArr(graph->out, graph->node_size);
+}
+
+static int minDegreeNode(const int *indegree, const graph_t *graph)
+{
+    int min_degree = graph->node_size + 1;
+    int min_degree_node = -1;
+    for (int ni = 0; ni < graph->node_size; ++ni){
+        if (indegree[ni] > 0 && indegree[ni] < min_degree){
+            min_degree = indegree[ni];
+            min_degree_node = ni;
+        }
+    }
+    return min_degree_node;
+}
+
+static void topologicalOrder(const graph_t *graph, int *order)
+{
+    int *indegree = BOR_CALLOC_ARR(int, graph->node_size);
+    BOR_IARR(zero_indegree);
+    for (int ni = 0; ni < graph->node_size; ++ni){
+        indegree[ni] = borISetSize(&graph->in[ni]);
+        if (indegree[ni] == 0)
+            borIArrAdd(&zero_indegree, ni);
+    }
+
+    if (borIArrSize(&zero_indegree) == 0){
+        int min_node = minDegreeNode(indegree, graph);
+        indegree[min_node] = 0;
+        borIArrAdd(&zero_indegree, min_node);
+    }
+
+
+    int ins = 0;
+    while (ins != graph->node_size){
+        int node = borIArrPopLast(&zero_indegree);
+        order[ins++] = node;
+        int node2;
+        BOR_ISET_FOR_EACH(&graph->out[node], node2){
+            if (--indegree[node2] == 0)
+                borIArrAdd(&zero_indegree, node2);
+        }
+
+        if (borIArrSize(&zero_indegree) == 0 && ins != graph->node_size){
+            int min_node = minDegreeNode(indegree, graph);
+            indegree[min_node] = 0;
+            borIArrAdd(&zero_indegree, min_node);
+        }
+    }
+    borIArrFree(&zero_indegree);
+    BOR_FREE(indegree);
+}
+
+static void determineFactOrdering(const pddl_strips_t *strips,
+                                  const pddl_mgroups_t *mgroup,
+                                  int *ordering)
+{
+    graph_t graph;
+    graphInit(&graph, strips, mgroup);
+    topologicalOrder(&graph, ordering);
+    graphFree(&graph);
+}
+
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_mgroups_t *mgroups,
                                           const pddl_mutex_pairs_t *mutex,
@@ -1390,11 +1538,10 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     ss->strips = strips;
     ss->fact_size = strips->fact.fact_size;
     ss->ordered_facts = BOR_ALLOC_ARR(int, ss->fact_size);
+    determineFactOrdering(strips, mgroups, ss->ordered_facts);
     ss->fact_to_order = BOR_ALLOC_ARR(int, ss->fact_size);
-    for (int fact_id = 0; fact_id < ss->fact_size; ++fact_id){
-        ss->ordered_facts[fact_id] = fact_id;
-        ss->fact_to_order[fact_id] = fact_id;
-    }
+    for (int i = 0; i < ss->fact_size; ++i)
+        ss->fact_to_order[ss->ordered_facts[i]] = i;
 
     ss->pre_fact_to_var = BOR_CALLOC_ARR(int, ss->fact_size);
     ss->eff_fact_to_var = BOR_CALLOC_ARR(int, ss->fact_size);
