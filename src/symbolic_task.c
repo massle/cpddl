@@ -663,7 +663,6 @@ static int transMerge(pddl_symbolic_task_t *ss,
 }
 
 static void transSetsAddRange(pddl_symbolic_task_t *ss,
-                              const pddl_symbolic_task_config_t *cfg,
                               const pddl_strips_t *strips,
                               pddl_symbolic_trans_set_t *trset,
                               const int *op_ids,
@@ -684,7 +683,7 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
-    pddlTimeLimitSet(&time_limit, cfg->trans_merge_max_time);
+    pddlTimeLimitSet(&time_limit, ss->cfg.trans_merge_max_time);
     while (T_size > 1){
         if (pddlTimeLimitCheck(&time_limit) < 0)
             break;
@@ -707,7 +706,7 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
                 }else{
                     pddl_symbolic_trans_t restr;
                     int res = transMerge(ss, &restr, T + i, T + i + 1,
-                                         cfg->trans_merge_max_nodes);
+                                         ss->cfg.trans_merge_max_nodes);
                     if (res < 0){
                         Tres[Tres_size++] = T[i];
                         Tres[Tres_size++] = T[i + 1];
@@ -755,7 +754,6 @@ static int opIdCostCmp(const void *a, const void *b, void *_strips)
 }
 
 static void transSetsInit(pddl_symbolic_task_t *ss,
-                          const pddl_symbolic_task_config_t *cfg,
                           const pddl_strips_t *strips,
                           pddl_symbolic_trans_sets_t *trset,
                           bor_err_t *err)
@@ -783,14 +781,14 @@ static void transSetsInit(pddl_symbolic_task_t *ss,
         if (cost_start != cost_end){
             ASSERT(end > start);
             ASSERT(tr_id < trset->trans_size);
-            transSetsAddRange(ss, cfg, strips, trset->trans + tr_id,
+            transSetsAddRange(ss, strips, trset->trans + tr_id,
                               op_ids + start, end - start, err);
             ++tr_id;
             start = end;
         }
     }
     if (end > start){
-        transSetsAddRange(ss, cfg, strips, trset->trans + tr_id,
+        transSetsAddRange(ss, strips, trset->trans + tr_id,
                           op_ids + start, end - start, err);
         ++tr_id;
     }
@@ -1425,7 +1423,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
              num_slots, cache_size, mem);
 
     // TODO
-    transSetsInit(ss, cfg, strips, &ss->trans, err);
+    transSetsInit(ss, strips, &ss->trans, err);
     // TODO: Split mutex for forward and backward mutexes
     constrInit(ss, &ss->constr, mutex, mutex, mgroups, err);
     ss->init = createState(ss, &strips->init);
