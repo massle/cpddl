@@ -19,115 +19,10 @@
 
 #include <boruvka/pairheap.h>
 #include "pddl/cg.h"
+#include "pddl/scc.h"
 #include "assert.h"
 
 #define GOAL_BONUS 100000
-
-/** Strongly connected components */
-struct scc {
-    bor_iset_t *comp; /*!< List of components */
-    int comp_size; /*!< Number of components */
-    int comp_alloc;
-};
-typedef struct scc scc_t;
-
-/** Context for DFS during computing SCC */
-struct scc_dfs {
-    int cur_index;
-    int *index;
-    int *lowlink;
-    int *in_stack;
-    int *stack;
-    int stack_size;
-};
-typedef struct scc_dfs scc_dfs_t;
-
-static void sccTarjanStrongconnect(scc_t *scc,
-                                   scc_dfs_t *dfs,
-                                   const pddl_cg_t *cg,
-                                   int node)
-{
-    dfs->index[node] = dfs->lowlink[node] = dfs->cur_index++;
-    dfs->stack[dfs->stack_size++] = node;
-    dfs->in_stack[node] = 1;
-
-    int len = cg->node[node].fw_size;
-    const pddl_cg_edge_t *e = cg->node[node].fw;
-    int i;
-    for (i = 0; i < len; ++i){
-        int w = e[i].end;
-        if (dfs->index[w] == -1){
-            sccTarjanStrongconnect(scc, dfs, cg, w);
-            dfs->lowlink[node] = BOR_MIN(dfs->lowlink[node], dfs->lowlink[w]);
-        }else if (dfs->in_stack[w]){
-            dfs->lowlink[node] = BOR_MIN(dfs->lowlink[node], dfs->lowlink[w]);
-        }
-    }
-
-    if (dfs->index[node] == dfs->lowlink[node]){
-        // Find how deep unroll stack
-        for (i = dfs->stack_size - 1; dfs->stack[i] != node; --i)
-            dfs->in_stack[dfs->stack[i]] = 0;
-        dfs->in_stack[dfs->stack[i]] = 0;
-
-        // Create new component if necessary
-        if (scc->comp_size == scc->comp_alloc){
-            if (scc->comp_alloc == 0)
-                scc->comp_alloc = 2;
-            scc->comp_alloc *= 2;
-            scc->comp = BOR_REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
-        }
-        bor_iset_t *comp = scc->comp + scc->comp_size++;
-
-        // Copy node IDs from the stack to the component
-        borISetInit(comp);
-        for (int j = i; j < dfs->stack_size; ++j)
-            borISetAdd(comp, dfs->stack[j]);
-
-        // Shrink stack
-        dfs->stack_size = i;
-    }
-}
-
-static void sccTarjan(scc_t *scc, const pddl_cg_t *cg)
-{
-    scc_dfs_t dfs;
-
-    // Initialize structure for Tarjan's algorithm
-    dfs.cur_index = 0;
-    dfs.index    = BOR_ALLOC_ARR(int, 4 * cg->node_size);
-    dfs.lowlink  = dfs.index + cg->node_size;
-    dfs.in_stack = dfs.lowlink + cg->node_size;
-    dfs.stack    = dfs.in_stack + cg->node_size;
-    dfs.stack_size = 0;
-    for (int i = 0; i < cg->node_size; ++i){
-        dfs.index[i] = dfs.lowlink[i] = -1;
-        dfs.in_stack[i] = 0;
-    }
-
-    for (int node = 0; node < cg->node_size; ++node){
-        if (dfs.index[node] == -1)
-            sccTarjanStrongconnect(scc, &dfs, cg, node);
-    }
-
-    BOR_FREE(dfs.index);
-}
-
-static void sccInit(scc_t *scc, const pddl_cg_t *cg)
-{
-    bzero(scc, sizeof(*scc));
-
-    // Run Tarjan's algorithm for finding strongly connected components.
-    sccTarjan(scc, cg);
-}
-
-static void sccFree(scc_t *scc)
-{
-    for (int i = 0; i < scc->comp_size; ++i)
-        borISetFree(scc->comp + i);
-    if (scc->comp != NULL)
-        BOR_FREE(scc->comp);
-}
 
 static void collectEdges(const bor_iset_t *pre,
                          const bor_iset_t *eff,
@@ -316,14 +211,23 @@ static void orderVarInit(order_var_t *order_var,
 
     // Compute strongly connected components and mark variables with IDs of
     // the found components
-    scc_t scc;
-    sccInit(&scc, cg);
+    pddl_scc_graph_t scc_graph;
+    pddlSCCGraphInit(&scc_graph, cg->node_size);
+    for (int v = 0; v < cg->node_size; ++v){
+        for (int ei = 0; ei < cg->node[v].fw_size; ++ei)
+            pddlSCCGraphAddEdge(&scc_graph, v, cg->node[v].fw[ei].end);
+    }
+
+    pddl_scc_t scc;
+    pddlSCC(&scc, &scc_graph);
     for (int ci = 0; ci < scc.comp_size; ++ci){
         int var_id;
         BOR_ISET_FOR_EACH(scc.comp + ci, var_id)
             order_var[var_id].scc_id = ci;
     }
-    sccFree(&scc);
+
+    pddlSCCFree(&scc);
+    pddlSCCGraphFree(&scc_graph);
 
     // Set weights of variables by summing costs of incoming edges within
     // each components

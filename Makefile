@@ -90,6 +90,7 @@ OBJS += heur_hadd
 OBJS += heur_pot_state
 OBJS += heur_flow
 OBJS += dtg
+OBJS += scc
 OBJS += ts
 OBJS += op_mutex_pair
 OBJS += op_mutex_infer
