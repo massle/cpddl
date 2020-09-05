@@ -30,6 +30,7 @@
 
 #include "pddl/symbolic_task.h"
 #include "pddl/time_limit.h"
+#include "pddl/disambiguation.h"
 #include "assert.h"
 
 struct pddl_cost {
@@ -185,6 +186,7 @@ struct pddl_symbolic_task {
     pddl_symbolic_task_config_t cfg; /*!< Configuration */
     DdManager *ddm; /*!< Cudd manager */
     const pddl_strips_t *strips; /*!< TODO */
+    pddl_disambiguate_t *disambiguate;
     int fact_size; /*!< Number of facts in the problem */
     int *ordered_facts; /*!< Ordered facts */
     int *fact_to_order; /*!< Mapping from fact to its order index */
@@ -581,30 +583,75 @@ static void transInitEffVars(pddl_symbolic_task_t *ss,
 }
 
 static void transInit(pddl_symbolic_task_t *ss,
-                      const pddl_strips_op_t *op,
-                      pddl_symbolic_trans_t *tr)
+                      const pddl_strips_op_t *_op,
+                      const pddl_mutex_pairs_t *mutex,
+                      pddl_symbolic_trans_t *tr,
+                      bor_err_t *err)
 {
+    pddl_strips_op_t op;
+    pddlStripsOpInit(&op);
+    pddlStripsOpCopy(&op, _op);
+
+    // TODO: Configure
+    if (ss->disambiguate != NULL){
+        // Disambiguate preconditions
+        if (pddlDisambiguate(ss->disambiguate, &op.pre, NULL,
+                             1, 0, NULL, &op.pre) < 0){
+            BOR_INFO(err, "symbolic: Operator %d:(%s) skipped, because it"
+                          " is unreachable", op.id, op.name);
+            // Skip unreachable operators
+            pddlStripsOpFree(&op);
+            return;
+        }
+        borISetMinus(&op.add_eff, &op.pre);
+    }
+
+    // TODO: Speed-up looking for mutexes
+    // TODO: Configure
+    // Find negative preconditions
+    BOR_ISET(neg_pre);
+    for (int fact = 0; fact < ss->fact_size; ++fact){
+        if (pddlMutexPairsIsMutexFactSet(mutex, fact, &op.pre))
+            borISetAdd(&neg_pre, fact);
+    }
+    borISetMinus(&op.del_eff, &neg_pre);
+
+    // TODO: Configure
+    // E-delete facts that are mutex with the add effect
+    for (int fact = 0; fact < ss->fact_size; ++fact){
+        if (pddlMutexPairsIsMutexFactSet(mutex, fact, &op.add_eff))
+            borISetAdd(&op.del_eff, fact);
+    }
+
     tr->bdd = Cudd_ReadOne(ss->ddm);
     Cudd_Ref(tr->bdd);
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&op->pre, fact_id){
+    BOR_ISET_FOR_EACH(&op.pre, fact_id){
         int var_id = ss->pre_fact_to_var[fact_id];
         BDD_AND(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
     }
 
-    BOR_ISET_FOR_EACH(&op->del_eff, fact_id){
+    BOR_ISET_FOR_EACH(&neg_pre, fact_id){
+        int var_id = ss->pre_fact_to_var[fact_id];
+        BDD_AND(ss->ddm, tr->bdd, Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
+    }
+
+    BOR_ISET_FOR_EACH(&op.del_eff, fact_id){
         int var_id = ss->eff_fact_to_var[fact_id];
         BDD_AND(ss->ddm, tr->bdd, Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
     }
 
-    BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
+    BOR_ISET_FOR_EACH(&op.add_eff, fact_id){
         int var_id = ss->eff_fact_to_var[fact_id];
         BDD_AND(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
     }
 
-    borISetUnion2(&tr->eff_facts, &op->add_eff, &op->del_eff);
+    borISetUnion2(&tr->eff_facts, &op.add_eff, &op.del_eff);
     transInitEffVars(ss, tr);
+
+    borISetFree(&neg_pre);
+    pddlStripsOpFree(&op);
 }
 
 static int transMerge(pddl_symbolic_task_t *ss,
@@ -664,6 +711,7 @@ static int transMerge(pddl_symbolic_task_t *ss,
 
 static void transSetsAddRange(pddl_symbolic_task_t *ss,
                               const pddl_strips_t *strips,
+                              const pddl_mutex_pairs_t *mutex,
                               pddl_symbolic_trans_set_t *trset,
                               const int *op_ids,
                               int op_ids_size,
@@ -679,7 +727,7 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     int Tres_size = 0;
     pddl_symbolic_trans_t *Tres = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
     for (int i = 0; i < T_size; ++i)
-        transInit(ss, strips->op.op[op_ids[i]], T + i);
+        transInit(ss, strips->op.op[op_ids[i]], mutex, T + i, err); // TODO
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -755,6 +803,7 @@ static int opIdCostCmp(const void *a, const void *b, void *_strips)
 
 static void transSetsInit(pddl_symbolic_task_t *ss,
                           const pddl_strips_t *strips,
+                          const pddl_mutex_pairs_t *mutex,
                           pddl_symbolic_trans_sets_t *trset,
                           bor_err_t *err)
 {
@@ -781,14 +830,14 @@ static void transSetsInit(pddl_symbolic_task_t *ss,
         if (cost_start != cost_end){
             ASSERT(end > start);
             ASSERT(tr_id < trset->trans_size);
-            transSetsAddRange(ss, strips, trset->trans + tr_id,
+            transSetsAddRange(ss, strips, mutex, trset->trans + tr_id,
                               op_ids + start, end - start, err);
             ++tr_id;
             start = end;
         }
     }
     if (end > start){
-        transSetsAddRange(ss, strips, trset->trans + tr_id,
+        transSetsAddRange(ss, strips, mutex, trset->trans + tr_id,
                           op_ids + start, end - start, err);
         ++tr_id;
     }
@@ -1042,6 +1091,7 @@ static void statesApplyOps(pddl_symbolic_task_t *ss,
 
         DdNode *bdd = apply(ss, ss->trans.trans + tri, bdd_in);
         BDD_AND(ss->ddm, bdd, Cudd_Not(states->all_closed));
+        // TODO: Apply after the state is poped from the open list
         bdd = constr_apply(ss, &ss->constr, bdd);
 
         if (!IS_FALSE(ss->ddm, bdd)){
@@ -1555,6 +1605,17 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     BOR_INFO(err, "symbolic: Prepared %d BDD variables covering %d facts",
              ss->num_vars, ss->fact_size);
 
+    // TODO
+    ss->disambiguate = BOR_ALLOC(pddl_disambiguate_t);
+    if (pddlDisambiguateInit(ss->disambiguate, ss->fact_size,
+                             mutex, mgroups) != 0){
+        BOR_INFO2(err, "symbolic: Disambiguation failed because there are"
+                       " no exactly-1mutex groups");
+        BOR_FREE(ss->disambiguate);
+        ss->disambiguate = NULL;
+    }
+    BOR_INFO2(err, "symbolic: Disambiguation created.");
+
     unsigned int num_slots = CUDD_UNIQUE_SLOTS;
     unsigned int cache_size = CUDD_CACHE_SLOTS;
     size_t mem = 0;
@@ -1570,7 +1631,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
              num_slots, cache_size, mem);
 
     // TODO
-    transSetsInit(ss, strips, &ss->trans, err);
+    transSetsInit(ss, strips, mutex, &ss->trans, err);
     // TODO: Split mutex for forward and backward mutexes
     constrInit(ss, &ss->constr, mutex, mutex, mgroups, err);
     ss->init = createState(ss, &strips->init);
@@ -1597,6 +1658,10 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
+    if (ss->disambiguate != NULL){
+        pddlDisambiguateFree(ss->disambiguate);
+        BOR_FREE(ss->disambiguate);
+    }
     constrFree(ss, &ss->constr);
     transSetsFree(ss, &ss->trans);
     if (ss->ordered_facts != NULL)
