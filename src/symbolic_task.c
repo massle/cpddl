@@ -177,8 +177,7 @@ struct pddl_symbolic_search {
     bor_iarr_t plan; /*!< Extracted plan */
     int plan_goal_id; /*!< This search's state where plan was reached */
     int plan_other_goal_id; /*!< Other search's state where plan was reached*/
-    float last_step_time; /*!< Amount of time spent in the last step */
-    int last_step_state_size; /*!< Size of the state processed in last step */
+    float next_step_estimate; /*!< Estimate of the duration of next step */
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -1381,6 +1380,24 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
     return res;
 }
 
+static void searchSetNextStepEstimate(pddl_symbolic_task_t *ss,
+                                      pddl_symbolic_search_t *search,
+                                      pddl_symbolic_state_t *state,
+                                      float cur_time)
+{
+    DdNode *state_bdd = searchStateBDD(ss, search, state);
+    long bdd_size = Cudd_DagSize(state_bdd);
+    if (bdd_size == 0){
+        search->next_step_estimate = 0.f;
+    }else if (cur_time < 1.){
+        search->next_step_estimate = cur_time;
+    }else{
+        int next_size = searchNextOpenSize(ss, search);
+        float est = ((float)next_size / (float)bdd_size) * cur_time;
+        search->next_step_estimate = est;
+    }
+}
+
 static int searchStep(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
                       pddl_symbolic_search_t *other_search,
@@ -1393,8 +1410,6 @@ static int searchStep(pddl_symbolic_task_t *ss,
         BOR_INFO(err, "symbolic search %s: Plan does not exist",
                  (search->fw ? "fw" : "bw"));
         borTimerStop(&timer);
-        search->last_step_time = borTimerElapsedInSF(&timer);
-        search->last_step_state_size = 0;
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
@@ -1412,12 +1427,10 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     DdNode *state_bdd = searchStateBDD(ss, search, state);
     if (IS_FALSE(ss->ddm, state_bdd)){
-        BOR_INFO(err, "symbolic %s: State is empty",
+        BOR_INFO(err, "symbolic search %s: State is empty",
                  (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
     }
-
-    search->last_step_state_size = Cudd_DagSize(state_bdd);
 
     if (other_search != NULL){
         checkGoal2(ss, search, other_search, state, err);
@@ -1432,7 +1445,8 @@ static int searchStep(pddl_symbolic_task_t *ss,
                      borIArrSize(&search->plan));
 
             borTimerStop(&timer);
-            search->last_step_time = borTimerElapsedInSF(&timer);
+            searchSetNextStepEstimate(ss, search, state,
+                                      borTimerElapsedInSF(&timer));
             return PDDL_SYMBOLIC_PLAN_FOUND;
         }
     }
@@ -1440,22 +1454,8 @@ static int searchStep(pddl_symbolic_task_t *ss,
     searchExpandState(ss, search, state);
     statesCloseState(ss, &search->state, state);
     borTimerStop(&timer);
-    search->last_step_time = borTimerElapsedInSF(&timer);
+    searchSetNextStepEstimate(ss, search, state, borTimerElapsedInSF(&timer));
     return PDDL_SYMBOLIC_CONT;
-}
-
-static float searchEstimateTimeOfNextStep(pddl_symbolic_task_t *ss,
-                                          pddl_symbolic_search_t *search)
-{
-    if (search->last_step_state_size == 0)
-        return 0.f;
-
-    if (search->last_step_time < 1.)
-        return search->last_step_time;
-    int next_size = searchNextOpenSize(ss, search);
-    float est = (float)next_size / (float)search->last_step_state_size;
-    est *= search->last_step_time;
-    return est;
 }
 
 
@@ -1859,11 +1859,11 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         if (pddlCostCmpSum(min_fw_cost, min_bw_cost, bound) >= 0)
             break;
 
-        float est_fw = searchEstimateTimeOfNextStep(ss, &fw_search);
-        float est_bw = searchEstimateTimeOfNextStep(ss, &bw_search);
         BOR_INFO(err, "symbolic search fw+bw: time estimations:"
-                      " fw: %.2f, bw: %.2f", est_fw, est_bw);
-        if (est_fw <= est_bw){
+                      " fw: %.2f, bw: %.2f",
+                 fw_search.next_step_estimate,
+                 bw_search.next_step_estimate);
+        if (fw_search.next_step_estimate <= bw_search.next_step_estimate){
             searchStep(ss, &fw_search, &bw_search, err);
         }else{
             searchStep(ss, &bw_search, &fw_search, err);
