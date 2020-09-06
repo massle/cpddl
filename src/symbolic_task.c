@@ -1651,7 +1651,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     if (pddlDisambiguateInit(ss->disambiguate, ss->fact_size,
                              mutex, mgroups) != 0){
         BOR_INFO2(err, "symbolic: Disambiguation failed because there are"
-                       " no exactly-1mutex groups");
+                       " no exactly-1 mutex groups");
         BOR_FREE(ss->disambiguate);
         ss->disambiguate = NULL;
     }
