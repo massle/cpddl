@@ -1654,7 +1654,11 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_symbolic_task_config_t *cfg,
                                           bor_err_t *err)
 {
-    // TODO: Check conditional effects
+    if (strips->has_cond_eff){
+        BOR_ERR_RET2(err, NULL, "Symbolic tasks does not support conditional"
+                                " effects yet.");
+    }
+
     pddl_symbolic_task_t *ss;
     BOR_INFO(err, "symbolic: Constructing symbolic task."
                   " max mem: %dMB,"
