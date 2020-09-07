@@ -143,6 +143,7 @@ typedef struct pddl_symbolic_trans_sets pddl_symbolic_trans_sets_t;
 struct pddl_symbolic_state {
     int id; /*!< ID of this state */
     int parent_id; /*!< Parent state ID */
+    bor_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
     int trans_id; /*!< ID of the transitions that achieved this state */
     pddl_cost_t cost; /*!< Cost of the state: g value + zero cost g value */
     // TODO: Add heuristic estimate
@@ -956,6 +957,7 @@ static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
 {
     if (state->bdd != NULL)
         DEREF(ss->ddm, state->bdd);
+    borISetFree(&state->parent_ids);
 }
 
 
@@ -1183,6 +1185,30 @@ struct plan {
 };
 typedef struct plan plan_t;
 
+static const pddl_symbolic_state_t *
+        planNextState(pddl_symbolic_task_t *ss,
+                      pddl_symbolic_search_t *search,
+                      const pddl_symbolic_state_t *state,
+                      DdNode *bdd)
+{
+    if (borISetSize(&state->parent_ids) == 0)
+        return state;
+
+    int state_id;
+    BOR_ISET_FOR_EACH(&state->parent_ids, state_id){
+        const pddl_symbolic_state_t *state;
+        state = statesGet(&search->state, state_id);
+        ASSERT(state->trans_id >= 0);
+        // The state BDD must be already constructed
+        ASSERT_RUNTIME(state->bdd != NULL);
+        DdNode *conj = Cudd_bddAnd(ss->ddm, bdd, state->bdd);
+        if (!IS_FALSE(ss->ddm, conj))
+            return state;
+    }
+    ASSERT_RUNTIME(0);
+    return state;
+}
+
 static void planInit(pddl_symbolic_task_t *ss,
                      pddl_symbolic_search_t *search,
                      plan_t *plan,
@@ -1191,25 +1217,32 @@ static void planInit(pddl_symbolic_task_t *ss,
 {
     bzero(plan, sizeof(*plan));
 
-    // Find out the length of the plan
-    const pddl_symbolic_state_t *state = goal_state;
-    plan->plan_len = 0;
-    while (state->parent_id >= 0){
-        ++plan->plan_len;
-        state = statesGet(&search->state, state->parent_id);
-    }
-
-    plan->state = BOR_CALLOC_ARR(bor_iset_t, plan->plan_len + 1);
-    plan->tr_op = BOR_CALLOC_ARR(bor_iset_t *, plan->plan_len);
+    int alloc = 2;
+    plan->state = BOR_CALLOC_ARR(bor_iset_t, alloc + 1);
+    plan->tr_op = BOR_CALLOC_ARR(bor_iset_t *, alloc);
 
     // Backtrack from the goal_state and extract one particular state at
     // each step.
     // Select one specific state -- it doesn't matter which one
-    DdNode *bdd = bddStateSelectOne(ss, reached_goal,
-                                    plan->state + plan->plan_len);
-    state = goal_state;
-    for (int si = plan->plan_len - 1; state->parent_id >= 0; --si){
-        plan->tr_op[si] = &ss->trans.trans[state->trans_id].op;
+    DdNode *bdd = bddStateSelectOne(ss, reached_goal, plan->state + 0);
+    const pddl_symbolic_state_t *state;
+    state = planNextState(ss, search, goal_state, bdd);
+    while (state->parent_id >= 0){
+        ASSERT(borISetSize(&state->parent_ids) == 0);
+        ASSERT(state->trans_id >= 0);
+        ASSERT(state->parent_id >= 0);
+
+        int idx = plan->plan_len++;
+        if (idx == alloc){
+            int old_alloc = alloc;
+            alloc *= 2;
+            plan->state = BOR_REALLOC_ARR(plan->state, bor_iset_t, alloc + 1);
+            bzero(plan->state + old_alloc + 1,
+                  sizeof(bor_iset_t) * (alloc - old_alloc));
+            plan->tr_op = BOR_REALLOC_ARR(plan->tr_op, bor_iset_t *, alloc);
+        }
+
+        plan->tr_op[idx] = &ss->trans.trans[state->trans_id].op;
         const pddl_symbolic_state_t *prev_state;
         prev_state = statesGet(&search->state, state->parent_id);
 
@@ -1223,11 +1256,22 @@ static void planInit(pddl_symbolic_task_t *ss,
 
         // Select one of the states -- again, it doesn't matter which one
         DEREF(ss->ddm, bdd);
-        bdd = bddStateSelectOne(ss, preimg, plan->state + si);
+        bdd = bddStateSelectOne(ss, preimg, plan->state + idx + 1);
         DEREF(ss->ddm, preimg);
         state = prev_state;
+        state = planNextState(ss, search, prev_state, bdd);
     }
     DEREF(ss->ddm, bdd);
+
+    // Reverse the order of states and transitions
+    for (int i = 0; i < (plan->plan_len + 1) / 2; ++i){
+        bor_iset_t tmp;
+        BOR_SWAP(plan->state[i], plan->state[plan->plan_len - i], tmp);
+    }
+    for (int i = 0; i < plan->plan_len / 2; ++i){
+        bor_iset_t *tmp;
+        BOR_SWAP(plan->tr_op[i], plan->tr_op[plan->plan_len - i - 1], tmp);
+    }
 }
 
 static void planFree(plan_t *plan)
@@ -1441,6 +1485,58 @@ static void searchSetNextStepEstimate(pddl_symbolic_task_t *ss,
     }
 }
 
+static pddl_symbolic_state_t *searchMergeBucket(pddl_symbolic_task_t *ss,
+                                                pddl_symbolic_search_t *search,
+                                                pddl_symbolic_state_t *state,
+                                                bor_err_t *err)
+{
+    pddl_symbolic_state_t *next = statesOpenPeek(&search->state);
+    if (next == NULL || pddlCostCmp(&state->cost, &next->cost) != 0)
+        return state;
+
+    BOR_ISET(parents);
+    borISetAdd(&parents, state->id);
+    DdNode *bdd = searchStateBDD(ss, search, state);
+    Cudd_Ref(bdd);
+    while (next != NULL && pddlCostCmp(&state->cost, &next->cost) == 0){
+        next = statesNextOpen(&search->state);
+        ASSERT(next != NULL);
+        ASSERT(pddlCostCmp(&state->cost, &next->cost) == 0);
+        DdNode *bdd_next = searchStateBDD(ss, search, next);
+        if (IS_FALSE(ss->ddm, bdd_next)){
+            BOR_INFO(err, "symbolic search %s: State is empty",
+                     (search->fw ? "fw" : "bw"));
+
+        }else{
+            BDD_OR(ss->ddm, bdd, bdd_next);
+            borISetAdd(&parents, next->id);
+        }
+
+        next = statesOpenPeek(&search->state);
+    }
+
+    pddl_symbolic_state_t *res;
+    if (borISetSize(&parents) > 1){
+        res = statesAddBDD(ss, &search->state, bdd);
+        res->parent_id = -2;
+        res->trans_id = -1;
+        res->cost = state->cost;
+        borISetUnion(&res->parent_ids, &parents);
+
+        BOR_INFO(err, "symbolic search %s: Merged %d states",
+                 (search->fw ? "fw" : "bw"),
+                 borISetSize(&parents));
+    }else{
+        res = state;
+    }
+
+    borISetFree(&parents);
+    DEREF(ss->ddm, bdd);
+
+    return res;
+}
+
+
 static int searchStep(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
                       pddl_symbolic_search_t *other_search,
@@ -1474,6 +1570,9 @@ static int searchStep(pddl_symbolic_task_t *ss,
                  (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
     }
+
+    // Merge states with the same cost
+    state = searchMergeBucket(ss, search, state, err);
 
     if (other_search != NULL){
         checkGoal2(ss, search, other_search, state, err);
