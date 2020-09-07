@@ -21,6 +21,9 @@
 #include "pddl/strips.h"
 #include "pddl/clique.h"
 
+#define FW_MUTEX 0x2
+#define BW_MUTEX 0x4
+
 #define M(m, f1, f2) ((m)->map[(f1) * (size_t)(m)->fact_size + (f2)])
 
 void pddlMutexPairsInit(pddl_mutex_pairs_t *m, int fact_size)
@@ -60,6 +63,26 @@ void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size)
     }
 }
 
+static int setMutexFlag(pddl_mutex_pairs_t *m, int f1, int f2, char flag)
+{
+    if (f1 >= m->fact_size || f2 >= m->fact_size)
+        return -1;
+    if (f1 == f2){
+        for (int i = 0; i < m->fact_size; ++i){
+            if (M(m, f1, i)){
+                M(m, f1, i) |= flag;
+                M(m, i, f1) |= flag;
+            }
+        }
+    }else{
+        if (M(m, f1, f2)){
+            M(m, f1, f2) |= flag;
+            M(m, f2, f1) |= flag;
+        }
+    }
+    return 0;
+}
+
 int pddlMutexPairsAdd(pddl_mutex_pairs_t *m, int f1, int f2)
 {
     if (f1 >= m->fact_size || f2 >= m->fact_size)
@@ -78,9 +101,29 @@ int pddlMutexPairsAdd(pddl_mutex_pairs_t *m, int f1, int f2)
     return 0;
 }
 
+int pddlMutexPairsSetFwMutex(pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return setMutexFlag(m, f1, f2, FW_MUTEX);
+}
+
+int pddlMutexPairsSetBwMutex(pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return setMutexFlag(m, f1, f2, BW_MUTEX);
+}
+
 int pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
 {
     return M(m, f1, f2);
+}
+
+int pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return M(m, f1, f2) & FW_MUTEX;
+}
+
+int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return M(m, f1, f2) & BW_MUTEX;
 }
 
 
@@ -146,8 +189,14 @@ void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
         for (int j = i + 1; j < old.fact_size; ++j){
             if (remap[j] < 0)
                 continue;
-            if (pddlMutexPairsIsMutex(&old, i, j))
+            if (pddlMutexPairsIsMutex(&old, i, j)){
                 pddlMutexPairsAdd(m, remap[i], remap[j]);
+                if (pddlMutexPairsIsFwMutex(&old, i, j)){
+                    pddlMutexPairsSetFwMutex(m, remap[i], remap[j]);
+                }else if (pddlMutexPairsIsBwMutex(&old, i, j)){
+                    pddlMutexPairsSetBwMutex(m, remap[i], remap[j]);
+                }
+            }
         }
     }
 
@@ -173,9 +222,11 @@ void pddlMutexPairsAddMGroup(pddl_mutex_pairs_t *mutex,
     int size = borISetSize(facts);
 
     for (int i = 0; i < size; ++i){
+        int f1 = borISetGet(facts, i);
         for (int j = i + 1; j < size; ++j){
-            pddlMutexPairsAdd(mutex, borISetGet(facts, i),
-                                     borISetGet(facts, j));
+            int f2 = borISetGet(facts, j);
+            pddlMutexPairsAdd(mutex, f1, f2);
+            setMutexFlag(mutex, f1, f2, FW_MUTEX);
         }
     }
 }

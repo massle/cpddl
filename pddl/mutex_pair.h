@@ -80,9 +80,29 @@ void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size);
 int pddlMutexPairsAdd(pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
+ * Set mutex as forward mutex, {f1, f2} must be already mutex.
+ */
+int pddlMutexPairsSetFwMutex(pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
+ * Set mutex as backward mutex, {f1, f2} must be already mutex.
+ */
+int pddlMutexPairsSetBwMutex(pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
  * Returns true if (f1, f2) is a mutex.
  */
 int pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
+ * Returns true if {f1, f2} is forward mutex.
+ */
+int pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
+ * Returns true if {f1, f2} is backward mutex.
+ */
+int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
  * Returns true if the set is mutex, i.e., it contains some mutex pair or
