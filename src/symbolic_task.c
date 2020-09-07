@@ -657,7 +657,7 @@ static void transInit(pddl_symbolic_task_t *ss,
         if (pddlMutexPairsIsMutexFactSet(mutex, fact, &op.pre))
             borISetAdd(&neg_pre, fact);
     }
-    borISetMinus(&op.del_eff, &neg_pre);
+    borISetMinus(&neg_pre, &op.add_eff);
 
     // TODO: Configure
     // E-delete facts that are mutex with the add effect
@@ -665,6 +665,7 @@ static void transInit(pddl_symbolic_task_t *ss,
         if (pddlMutexPairsIsMutexFactSet(mutex, fact, &op.add_eff))
             borISetAdd(&op.del_eff, fact);
     }
+    borISetMinus(&op.del_eff, &neg_pre);
 
     tr->bdd = Cudd_ReadOne(ss->ddm);
     Cudd_Ref(tr->bdd);
