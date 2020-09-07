@@ -103,8 +103,9 @@ typedef struct pddl_symbolic_bdds pddl_symbolic_bdds_t;
 
 struct pddl_symbolic_constr {
     pddl_symbolic_bdds_t fw_mutex;
+    pddl_symbolic_bdds_t fw_mgroup;
     pddl_symbolic_bdds_t bw_mutex;
-    pddl_symbolic_bdds_t mgroup;
+    pddl_symbolic_bdds_t bw_mgroup;
 };
 typedef struct pddl_symbolic_constr pddl_symbolic_constr_t;
 
@@ -222,6 +223,23 @@ struct pddl_symbolic_task {
 #define DEREF(DDM, BDD) \
     Cudd_RecursiveDeref((DDM), (BDD))
 
+static void separateFwBwMutex(const pddl_mutex_pairs_t *mutex,
+                              pddl_mutex_pairs_t *fw_mutex,
+                              pddl_mutex_pairs_t *bw_mutex)
+{
+    PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
+        if (pddlMutexPairsIsMutex(mutex, f1, f2)){
+            if (pddlMutexPairsIsBwMutex(mutex, f1, f2)){
+                pddlMutexPairsAdd(bw_mutex, f1, f2);
+            }else if (pddlMutexPairsIsFwMutex(mutex, f1, f2)){
+                pddlMutexPairsAdd(fw_mutex, f1, f2);
+            }else{
+                pddlMutexPairsAdd(bw_mutex, f1, f2);
+                pddlMutexPairsAdd(fw_mutex, f1, f2);
+            }
+        }
+    }
+}
 
 static DdNode *createState(pddl_symbolic_task_t *ss, const bor_iset_t *state)
 {
@@ -403,25 +421,6 @@ static DdNode *bddsAnd(pddl_symbolic_task_t *ss,
     return bdd;
 }
 
-static void transFree(pddl_symbolic_task_t *ss,
-                      pddl_symbolic_trans_t *tr)
-{
-    //if (tr->bdd == NULL)
-    //    return;
-    DEREF(ss->ddm, tr->bdd);
-    for (int i = 0; i < tr->var_size; ++i){
-        DEREF(ss->ddm, tr->var_pre[i]);
-        DEREF(ss->ddm, tr->var_eff[i]);
-    }
-    if (tr->var_pre != NULL)
-        BOR_FREE(tr->var_pre);
-    if (tr->var_eff != NULL)
-        BOR_FREE(tr->var_eff);
-    DEREF(ss->ddm, tr->exist_pre);
-    DEREF(ss->ddm, tr->exist_eff);
-    borISetFree(&tr->eff_facts);
-    bzero(tr, sizeof(*tr));
-}
 
 static int constrConstructMutex(pddl_symbolic_task_t *ss,
                                 pddl_symbolic_bdds_t *bdds,
@@ -441,70 +440,94 @@ static int constrConstructMutex(pddl_symbolic_task_t *ss,
     return num_mutexes;
 }
 
-static int constrConstructMGroup(pddl_symbolic_task_t *ss,
-                                 pddl_symbolic_bdds_t *bdds,
-                                 const pddl_mgroups_t *mgroup,
-                                 int *num_fam)
+static int constrConstructFwMGroup(pddl_symbolic_task_t *ss,
+                                   pddl_symbolic_bdds_t *bdds,
+                                   const pddl_mgroups_t *mgroup)
 {
-    int num_mgroups1 = 0;
-    *num_fam = 0;
+    int num_mgroups = 0;
     for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
-        if (mg->is_exactly_one || (mg->is_fam_group && mg->is_goal)){
+        if (mg->is_fam_group && mg->is_goal){
             bddsAddExactlyOneMGroup(ss, bdds, &mg->mgroup);
-            ++num_mgroups1;
-            if (mg->is_fam_group && mg->is_goal)
-                ++(*num_fam);
+            ++num_mgroups;
         }
     }
 
     bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
-    return num_mgroups1;
+    return num_mgroups;
+}
+
+static int constrConstructBwMGroup(pddl_symbolic_task_t *ss,
+                                   pddl_symbolic_bdds_t *bdds,
+                                   const pddl_mgroups_t *mgroup)
+{
+    int num_mgroups = 0;
+    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
+        const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
+        if (mg->is_exactly_one){
+            bddsAddExactlyOneMGroup(ss, bdds, &mg->mgroup);
+            ++num_mgroups;
+        }
+    }
+
+    bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
+    return num_mgroups;
 }
 
 static void constrInit(pddl_symbolic_task_t *ss,
                        pddl_symbolic_constr_t *constr,
-                       const pddl_mutex_pairs_t *fw_mutex,
-                       const pddl_mutex_pairs_t *bw_mutex,
+                       const pddl_mutex_pairs_t *mutex,
                        const pddl_mgroups_t *mgroup,
                        bor_err_t *err)
 {
     bddsInit(&constr->fw_mutex);
+    bddsInit(&constr->fw_mgroup);
     bddsInit(&constr->bw_mutex);
-    bddsInit(&constr->mgroup);
+    bddsInit(&constr->bw_mgroup);
 
     if (!ss->cfg.use_constr)
         return;
 
+    pddl_mutex_pairs_t fw_mutex;
+    pddl_mutex_pairs_t bw_mutex;
+    pddlMutexPairsInit(&fw_mutex, ss->fact_size);
+    pddlMutexPairsInit(&bw_mutex, ss->fact_size);
+    separateFwBwMutex(mutex, &fw_mutex, &bw_mutex);
+
     BOR_INFO2(err, "symbolic: Constructing constraint BDDs ...");
 
-    if (fw_mutex != NULL){
-        int num = constrConstructMutex(ss, &constr->fw_mutex, fw_mutex);
+    if (bw_mutex.num_mutex_pairs > 0){
+        int num = constrConstructMutex(ss, &constr->fw_mutex, &bw_mutex);
         BOR_INFO(err, "symbolic: Created %d fw-mutex BDDs from %d mutexes",
                  constr->fw_mutex.bdd_size, num);
     }
 
-    if (bw_mutex != NULL){
-        int num = constrConstructMutex(ss, &constr->bw_mutex, bw_mutex);
+    if (fw_mutex.num_mutex_pairs > 0){
+        int num = constrConstructMutex(ss, &constr->bw_mutex, &fw_mutex);
         BOR_INFO(err, "symbolic: Created %d bw-mutex BDDs from %d mutexes",
                  constr->bw_mutex.bdd_size, num);
     }
 
     if (mgroup != NULL){
-        int num_fam;
-        int num = constrConstructMGroup(ss, &constr->mgroup, mgroup, &num_fam);
-        BOR_INFO(err, "symbolic: Created %d mgroup BDDs from"
-                  " %d mgroups (%d goal-aware fam groups)",
-                 constr->mgroup.bdd_size, num, num_fam);
+        int num_fw = constrConstructFwMGroup(ss, &constr->fw_mgroup, mgroup);
+        BOR_INFO(err, "symbolic: Created %d fw-mgroup BDDs from %d mgroups",
+                 constr->fw_mgroup.bdd_size, num_fw);
+        int num_bw = constrConstructBwMGroup(ss, &constr->bw_mgroup, mgroup);
+        BOR_INFO(err, "symbolic: Created %d bw-mgroup BDDs from %d mgroups",
+                 constr->bw_mgroup.bdd_size, num_bw);
     }
+
+    pddlMutexPairsFree(&fw_mutex);
+    pddlMutexPairsFree(&bw_mutex);
 }
 
 static void constrFree(pddl_symbolic_task_t *ss,
                        pddl_symbolic_constr_t *constr)
 {
     bddsFree(ss, &constr->fw_mutex);
+    bddsFree(ss, &constr->fw_mgroup);
     bddsFree(ss, &constr->bw_mutex);
-    bddsFree(ss, &constr->mgroup);
+    bddsFree(ss, &constr->bw_mgroup);
 }
 
 static DdNode *constrApplyFw(pddl_symbolic_task_t *ss,
@@ -512,8 +535,7 @@ static DdNode *constrApplyFw(pddl_symbolic_task_t *ss,
                              DdNode *bdd)
 {
     bdd = bddsAnd(ss, &constr->fw_mutex, bdd);
-    // TODO: fw_mgroup -> fam-groups with non-empty intersection with goal
-    return bddsAnd(ss, &constr->mgroup, bdd);
+    return bddsAnd(ss, &constr->fw_mgroup, bdd);
 }
 
 static DdNode *constrApplyBw(pddl_symbolic_task_t *ss,
@@ -521,9 +543,29 @@ static DdNode *constrApplyBw(pddl_symbolic_task_t *ss,
                              DdNode *bdd)
 {
     bdd = bddsAnd(ss, &constr->bw_mutex, bdd);
-    return bddsAnd(ss, &constr->mgroup, bdd);
+    return bddsAnd(ss, &constr->bw_mgroup, bdd);
 }
 
+
+static void transFree(pddl_symbolic_task_t *ss,
+                      pddl_symbolic_trans_t *tr)
+{
+    //if (tr->bdd == NULL)
+    //    return;
+    DEREF(ss->ddm, tr->bdd);
+    for (int i = 0; i < tr->var_size; ++i){
+        DEREF(ss->ddm, tr->var_pre[i]);
+        DEREF(ss->ddm, tr->var_eff[i]);
+    }
+    if (tr->var_pre != NULL)
+        BOR_FREE(tr->var_pre);
+    if (tr->var_eff != NULL)
+        BOR_FREE(tr->var_eff);
+    DEREF(ss->ddm, tr->exist_pre);
+    DEREF(ss->ddm, tr->exist_eff);
+    borISetFree(&tr->eff_facts);
+    bzero(tr, sizeof(*tr));
+}
 
 static void transSetFree(pddl_symbolic_task_t *ss,
                          pddl_symbolic_trans_set_t *trset)
@@ -1673,8 +1715,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
     // TODO
     transSetsInit(ss, strips, mutex, &ss->trans, err);
-    // TODO: Split mutex for forward and backward mutexes
-    constrInit(ss, &ss->constr, mutex, mutex, mgroups, err);
+    constrInit(ss, &ss->constr, mutex, mgroups, err);
     ss->init = createState(ss, &strips->init);
     ss->goal = createPartialState(ss, &strips->goal);
     ss->goal = constrApplyBw(ss, &ss->constr, ss->goal);
