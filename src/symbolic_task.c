@@ -1063,7 +1063,7 @@ static pddl_symbolic_state_t *statesNextOpen(pddl_symbolic_states_t *states)
     return state;
 }
 
-static pddl_symbolic_state_t *statesOpenPeak(pddl_symbolic_states_t *states)
+static pddl_symbolic_state_t *statesOpenPeek(pddl_symbolic_states_t *states)
 {
     if (borPairHeapEmpty(states->open))
         return NULL;
@@ -1304,7 +1304,7 @@ static DdNode *searchStateBDD(pddl_symbolic_task_t *ss,
 static int searchNextOpenSize(pddl_symbolic_task_t *ss,
                               pddl_symbolic_search_t *search)
 {
-    pddl_symbolic_state_t *state = statesOpenPeak(&search->state);
+    pddl_symbolic_state_t *state = statesOpenPeek(&search->state);
     if (state == NULL)
         return 0;
     DdNode *bdd = searchStateBDD(ss, search, state);
