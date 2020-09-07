@@ -973,8 +973,8 @@ static int openCostLT(const bor_pairheap_node_t *n1,
                       void *data)
 {
     const pddl_symbolic_state_t *o1, *o2;
-    o1 = bor_container_of(n1, pddl_symbolic_state_t, heap);
-    o2 = bor_container_of(n2, pddl_symbolic_state_t, heap);
+    o1 = bor_container_of(n1, pddl_symbolic_state_t, heap_cost);
+    o2 = bor_container_of(n2, pddl_symbolic_state_t, heap_cost);
     return pddlCostCmp(&o1->cost, &o2->cost) <= 0;
 }
 
