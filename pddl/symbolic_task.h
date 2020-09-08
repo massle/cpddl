@@ -75,17 +75,13 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
                                bor_err_t *err);
 
 int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
-                                 const bor_iset_t *state);
-int pddlSymbolicTaskCheckApplyFw2(pddl_symbolic_task_t *ss,
-                                  const bor_iset_t *state,
-                                  const bor_iset_t *res_state,
-                                  int op_id);
+                                 const bor_iset_t *state,
+                                 const bor_iset_t *res_state,
+                                 int op_id);
 int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
-                                 const bor_iset_t *state);
-int pddlSymbolicTaskCheckApplyBw2(pddl_symbolic_task_t *ss,
-                                  const bor_iset_t *state,
-                                  const bor_iset_t *res_state,
-                                  int op_id);
+                                 const bor_iset_t *state,
+                                 const bor_iset_t *res_state,
+                                 int op_id);
 int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
                               const bor_iset_t *states,
                               const bor_iarr_t *op,
