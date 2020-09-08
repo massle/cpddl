@@ -587,6 +587,32 @@ static void transSetsFree(pddl_symbolic_task_t *ss,
         BOR_FREE(trset->trans);
 }
 
+struct trans_mutex {
+    bor_iset_t *fact_mutex;
+    int fact_size;
+};
+typedef struct trans_mutex trans_mutex_t;
+
+static void transMutexInit(trans_mutex_t *tm,
+                           int fact_size,
+                           const pddl_mutex_pairs_t *mutex,
+                           const pddl_mgroups_t *mgroup)
+{
+    tm->fact_mutex = BOR_CALLOC_ARR(bor_iset_t, fact_size);
+    tm->fact_size = fact_size;
+    PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
+        borISetAdd(tm->fact_mutex + f1, f2);
+        borISetAdd(tm->fact_mutex + f2, f1);
+    }
+}
+
+static void transMutexFree(trans_mutex_t *tm)
+{
+    for (int i = 0; i < tm->fact_size; ++i)
+        borISetFree(tm->fact_mutex + i);
+    BOR_FREE(tm->fact_mutex);
+}
+
 static void transInitEffVars(pddl_symbolic_task_t *ss,
                              pddl_symbolic_trans_t *tr)
 {
@@ -628,7 +654,7 @@ static void transInitEffVars(pddl_symbolic_task_t *ss,
 
 static void transInit(pddl_symbolic_task_t *ss,
                       const pddl_strips_op_t *_op,
-                      const pddl_mutex_pairs_t *mutex,
+                      const trans_mutex_t *mutex,
                       pddl_symbolic_trans_t *tr,
                       bor_err_t *err)
 {
@@ -654,18 +680,15 @@ static void transInit(pddl_symbolic_task_t *ss,
     // TODO: Configure
     // Find negative preconditions
     BOR_ISET(neg_pre);
-    for (int fact = 0; fact < ss->fact_size; ++fact){
-        if (pddlMutexPairsIsMutexFactSet(mutex, fact, &op.pre))
-            borISetAdd(&neg_pre, fact);
-    }
+    int fact;
+    BOR_ISET_FOR_EACH(&op.pre, fact)
+        borISetUnion(&neg_pre, &mutex->fact_mutex[fact]);
     borISetMinus(&neg_pre, &op.add_eff);
 
     // TODO: Configure
     // E-delete facts that are mutex with the add effect
-    for (int fact = 0; fact < ss->fact_size; ++fact){
-        if (pddlMutexPairsIsMutexFactSet(mutex, fact, &op.add_eff))
-            borISetAdd(&op.del_eff, fact);
-    }
+    BOR_ISET_FOR_EACH(&op.add_eff, fact)
+        borISetUnion(&op.del_eff, &mutex->fact_mutex[fact]);
     borISetMinus(&op.del_eff, &neg_pre);
 
     tr->bdd = Cudd_ReadOne(ss->ddm);
@@ -756,7 +779,7 @@ static int transMerge(pddl_symbolic_task_t *ss,
 
 static void transSetsAddRange(pddl_symbolic_task_t *ss,
                               const pddl_strips_t *strips,
-                              const pddl_mutex_pairs_t *mutex,
+                              const trans_mutex_t *mutex,
                               pddl_symbolic_trans_set_t *trset,
                               const int *op_ids,
                               int op_ids_size,
@@ -849,10 +872,14 @@ static int opIdCostCmp(const void *a, const void *b, void *_strips)
 static void transSetsInit(pddl_symbolic_task_t *ss,
                           const pddl_strips_t *strips,
                           const pddl_mutex_pairs_t *mutex,
+                          const pddl_mgroups_t *mgroup,
                           pddl_symbolic_trans_sets_t *trset,
                           bor_err_t *err)
 {
     bzero(trset, sizeof(*trset));
+
+    trans_mutex_t trans_mutex;
+    transMutexInit(&trans_mutex, strips->fact.fact_size, mutex, mgroup);
 
     BOR_ISET(costs);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
@@ -875,20 +902,21 @@ static void transSetsInit(pddl_symbolic_task_t *ss,
         if (cost_start != cost_end){
             ASSERT(end > start);
             ASSERT(tr_id < trset->trans_size);
-            transSetsAddRange(ss, strips, mutex, trset->trans + tr_id,
+            transSetsAddRange(ss, strips, &trans_mutex, trset->trans + tr_id,
                               op_ids + start, end - start, err);
             ++tr_id;
             start = end;
         }
     }
     if (end > start){
-        transSetsAddRange(ss, strips, mutex, trset->trans + tr_id,
+        transSetsAddRange(ss, strips, &trans_mutex, trset->trans + tr_id,
                           op_ids + start, end - start, err);
         ++tr_id;
     }
     ASSERT(trset->trans_size == tr_id);
 
     BOR_FREE(op_ids);
+    transMutexFree(&trans_mutex);
 }
 
 
@@ -1823,8 +1851,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                   " mem: %lu",
              num_slots, cache_size, mem);
 
-    // TODO
-    transSetsInit(ss, strips, mutex, &ss->trans, err);
+    transSetsInit(ss, strips, mutex, mgroups, &ss->trans, err);
     constrInit(ss, &ss->constr, mutex, mgroups, err);
     ss->init = createState(ss, &strips->init);
     ss->goal = createPartialState(ss, &strips->goal);
