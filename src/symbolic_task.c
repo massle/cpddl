@@ -1356,37 +1356,6 @@ static int searchNextOpenSize(pddl_symbolic_task_t *ss,
     return Cudd_DagSize(bdd);
 }
 
-static void searchExpandState(pddl_symbolic_task_t *ss,
-                              pddl_symbolic_search_t *search,
-                              pddl_symbolic_state_t *state_in)
-{
-    pddl_symbolic_states_t *states = &search->state;
-    DdNode *bdd_in = state_in->bdd;
-    Cudd_Ref(bdd_in);
-    ASSERT(bdd_in != NULL);
-    BDD_AND(ss->ddm, bdd_in, Cudd_Not(states->all_closed));
-
-    if (IS_FALSE(ss->ddm, bdd_in)){
-        DEREF(ss->ddm, bdd_in);
-        return;
-    }
-
-    for (int tri = 0; tri < ss->trans.trans_size; ++tri){
-        int tr_cost = ss->trans.trans[tri].cost;
-        if (pddlCostCmpSumOp(&state_in->cost, tr_cost, &states->bound) >= 0)
-            continue;
-
-        pddl_symbolic_state_t *state = statesAdd(ss, states);
-        state->parent_id = state_in->id;
-        state->trans_id = tri;
-        state->cost = state_in->cost;
-        pddlCostAddOp(&state->cost, tr_cost);
-
-        statesOpenState(ss, states, state);
-    }
-
-    DEREF(ss->ddm, bdd_in);
-}
 
 
 
@@ -1431,11 +1400,12 @@ static void searchSetBestPlan(pddl_symbolic_search_t *search,
 static int checkGoal2(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
                       pddl_symbolic_search_t *other_search,
-                      const pddl_symbolic_state_t *state,
+                      pddl_symbolic_state_t *state,
                       bor_err_t *err)
 {
     int res = 0;
-    DdNode *goal = Cudd_bddAnd(ss->ddm, state->bdd,
+    DdNode *state_bdd = searchStateBDD(ss, search, state);
+    DdNode *goal = Cudd_bddAnd(ss->ddm, state_bdd,
                                other_search->state.all_closed);
     Cudd_Ref(goal);
     if (!IS_FALSE(ss->ddm, goal)){
@@ -1445,7 +1415,7 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
             if (!costStatesIsBetter(search, state, closed_state))
                 break;
 
-            DdNode *goal = Cudd_bddAnd(ss->ddm, state->bdd, closed_state->bdd);
+            DdNode *goal = Cudd_bddAnd(ss->ddm, state_bdd, closed_state->bdd);
             Cudd_Ref(goal);
             if (!IS_FALSE(ss->ddm, goal)){
                 searchSetBestPlan(search, state, closed_state);
@@ -1483,6 +1453,42 @@ static void searchSetNextStepEstimate(pddl_symbolic_task_t *ss,
         float est = ((float)next_size / (float)bdd_size) * cur_time;
         search->next_step_estimate = est;
     }
+}
+
+static void searchExpandState(pddl_symbolic_task_t *ss,
+                              pddl_symbolic_search_t *search,
+                              pddl_symbolic_search_t *other_search,
+                              pddl_symbolic_state_t *state_in,
+                              bor_err_t *err)
+{
+    pddl_symbolic_states_t *states = &search->state;
+    DdNode *bdd_in = state_in->bdd;
+    Cudd_Ref(bdd_in);
+    ASSERT(bdd_in != NULL);
+    BDD_AND(ss->ddm, bdd_in, Cudd_Not(states->all_closed));
+
+    if (IS_FALSE(ss->ddm, bdd_in)){
+        DEREF(ss->ddm, bdd_in);
+        return;
+    }
+
+    for (int tri = 0; tri < ss->trans.trans_size; ++tri){
+        int tr_cost = ss->trans.trans[tri].cost;
+        if (pddlCostCmpSumOp(&state_in->cost, tr_cost, &states->bound) >= 0)
+            continue;
+
+        pddl_symbolic_state_t *state = statesAdd(ss, states);
+        state->parent_id = state_in->id;
+        state->trans_id = tri;
+        state->cost = state_in->cost;
+        pddlCostAddOp(&state->cost, tr_cost);
+
+        statesOpenState(ss, states, state);
+        if (other_search != NULL)
+            checkGoal2(ss, search, other_search, state, err);
+    }
+
+    DEREF(ss->ddm, bdd_in);
 }
 
 static pddl_symbolic_state_t *searchMergeBucket(pddl_symbolic_task_t *ss,
@@ -1593,7 +1599,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
         }
     }
 
-    searchExpandState(ss, search, state);
+    searchExpandState(ss, search, other_search, state, err);
     statesCloseState(ss, &search->state, state);
     borTimerStop(&timer);
     searchSetNextStepEstimate(ss, search, state, borTimerElapsedInSF(&timer));
