@@ -200,29 +200,31 @@ struct pddl_symbolic_task {
     DdNode *goal; /*!< Goal states */
 };
 
-// X = X and Y
-#define BDD_AND(DDM, X, Y) \
-    do { \
-        DdNode *___res = Cudd_bddAnd((DDM), (X), (Y)); \
-        Cudd_Ref(___res); \
-        Cudd_RecursiveDeref((DDM), (X)); \
-        (X) = ___res; \
-    } while (0)
-
-// X = X or Y
-#define BDD_OR(DDM, X, Y) \
-    do { \
-        DdNode *___res = Cudd_bddOr((DDM), (X), (Y)); \
-        Cudd_Ref(___res); \
-        Cudd_RecursiveDeref((DDM), (X)); \
-        (X) = ___res; \
-    } while (0)
-
 #define IS_FALSE(DDM, BDD) \
     ((BDD) == Cudd_ReadLogicZero(DDM))
 
 #define DEREF(DDM, BDD) \
     Cudd_RecursiveDeref((DDM), (BDD))
+
+static DdNode *bddAnd(DdManager *dd, DdNode *dst, DdNode *src)
+{
+    DdNode *res = Cudd_bddAnd(dd, dst, src);
+    if (res == NULL)
+        return NULL;
+    Cudd_Ref(res);
+    Cudd_RecursiveDeref(dd, dst);
+    return res;
+}
+
+static DdNode *bddOr(DdManager *dd, DdNode *dst, DdNode *src)
+{
+    DdNode *res = Cudd_bddOr(dd, dst, src);
+    if (res == NULL)
+        return NULL;
+    Cudd_Ref(res);
+    Cudd_RecursiveDeref(dd, dst);
+    return res;
+}
 
 static void separateFwBwMutex(const pddl_mutex_pairs_t *mutex,
                               pddl_mutex_pairs_t *fw_mutex,
@@ -252,7 +254,7 @@ static DdNode *createState(pddl_symbolic_task_t *ss, const bor_iset_t *state)
         DdNode *var = Cudd_bddIthVar(ss->ddm, var_id);
         if (!borISetIn(fact_id, state))
             var = Cudd_Not(var);
-        BDD_AND(ss->ddm, bdd, var);
+        bdd = bddAnd(ss->ddm, bdd, var);
     }
     return bdd;
 }
@@ -269,7 +271,7 @@ static DdNode *createPartialState(pddl_symbolic_task_t *ss,
 
         int var_id = ss->pre_fact_to_var[fact_id];
         DdNode *var = Cudd_bddIthVar(ss->ddm, var_id);
-        BDD_AND(ss->ddm, bdd, var);
+        bdd = bddAnd(ss->ddm, bdd, var);
     }
     return bdd;
 }
@@ -341,7 +343,7 @@ static void bddsAddExactlyOneMGroup(pddl_symbolic_task_t *ss,
     int fact_id;
     BOR_ISET_FOR_EACH(mgroup, fact_id){
         DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact_id]);
-        BDD_OR(ss->ddm, bdd, var1);
+        bdd = bddOr(ss->ddm, bdd, var1);
     }
     bddsAdd(ss, bdds, bdd);
     DEREF(ss->ddm, bdd);
@@ -418,7 +420,7 @@ static DdNode *bddsAnd(pddl_symbolic_task_t *ss,
                        DdNode *bdd)
 {
     for (int i = 0; i < bdds->bdd_size; ++i)
-        BDD_AND(ss->ddm, bdd, bdds->bdd[i]);
+        bdd = bddAnd(ss->ddm, bdd, bdds->bdd[i]);
     return bdd;
 }
 
@@ -695,22 +697,24 @@ static void transInit(pddl_symbolic_task_t *ss,
     int fact_id;
     BOR_ISET_FOR_EACH(&op.pre, fact_id){
         int var_id = ss->pre_fact_to_var[fact_id];
-        BDD_AND(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
+        tr->bdd = bddAnd(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
     }
 
     BOR_ISET_FOR_EACH(&neg_pre, fact_id){
         int var_id = ss->pre_fact_to_var[fact_id];
-        BDD_AND(ss->ddm, tr->bdd, Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
+        tr->bdd = bddAnd(ss->ddm, tr->bdd,
+                         Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
     }
 
     BOR_ISET_FOR_EACH(&op.del_eff, fact_id){
         int var_id = ss->eff_fact_to_var[fact_id];
-        BDD_AND(ss->ddm, tr->bdd, Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
+        tr->bdd = bddAnd(ss->ddm, tr->bdd,
+                         Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
     }
 
     BOR_ISET_FOR_EACH(&op.add_eff, fact_id){
         int var_id = ss->eff_fact_to_var[fact_id];
-        BDD_AND(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
+        tr->bdd = bddAnd(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
     }
 
     borISetUnion2(&tr->eff_facts, &op.add_eff, &op.del_eff);
@@ -742,7 +746,7 @@ static int transMerge(pddl_symbolic_task_t *ss,
             ++e1;
         }else{
             DdNode *biimp = createBiimpFact(ss, fact_id);
-            BDD_AND(ss->ddm, bdd1, biimp);
+            bdd1 = bddAnd(ss->ddm, bdd1, biimp);
             DEREF(ss->ddm, biimp);
         }
 
@@ -750,7 +754,7 @@ static int transMerge(pddl_symbolic_task_t *ss,
             ++e2;
         }else{
             DdNode *biimp = createBiimpFact(ss, fact_id);
-            BDD_AND(ss->ddm, bdd2, biimp);
+            bdd2 = bddAnd(ss->ddm, bdd2, biimp);
             DEREF(ss->ddm, biimp);
         }
     }
@@ -959,7 +963,7 @@ static DdNode *transSetApply(pddl_symbolic_task_t *ss,
     DdNode *bdd = f(ss, trset->trans + 0, state);
     for (int i = 1; i < trset->trans_size; ++i){
         DdNode *bdd2 = f(ss, trset->trans + i, state);
-        BDD_OR(ss->ddm, bdd, bdd2);
+        bdd = bddOr(ss->ddm, bdd, bdd2);
         DEREF(ss->ddm, bdd2);
     }
     return bdd;
@@ -1065,7 +1069,7 @@ static void statesCloseState(pddl_symbolic_task_t *ss,
     ASSERT(!state->is_closed);
     state->is_closed = 1;
     ASSERT(state->bdd != NULL);
-    BDD_OR(ss->ddm, states->all_closed, state->bdd);
+    states->all_closed = bddOr(ss->ddm, states->all_closed, state->bdd);
     int *dst = borExtArrGet(states->closed, states->num_closed);
     *dst = state->id;
     ++states->num_closed;
@@ -1278,7 +1282,7 @@ static void planInit(pddl_symbolic_task_t *ss,
         pddl_symbolic_trans_set_t *trset = ss->trans.trans + state->trans_id;
         DdNode *preimg = search->pre_image(ss, trset, bdd);
         ASSERT_RUNTIME(!IS_FALSE(ss->ddm, preimg));
-        BDD_AND(ss->ddm, preimg, prev_state->bdd);
+        preimg = bddAnd(ss->ddm, preimg, prev_state->bdd);
 
         // Select one of the states -- again, it doesn't matter which one
         DEREF(ss->ddm, bdd);
@@ -1366,7 +1370,8 @@ static DdNode *searchStateBDD(pddl_symbolic_task_t *ss,
         prev_state = statesGet(&search->state, state->parent_id);
         state->bdd = search->image(ss, ss->trans.trans + state->trans_id,
                                    prev_state->bdd);
-        BDD_AND(ss->ddm, state->bdd, Cudd_Not(search->state.all_closed));
+        state->bdd = bddAnd(ss->ddm, state->bdd,
+                            Cudd_Not(search->state.all_closed));
         state->bdd = search->constr_apply(ss, &ss->constr, state->bdd);
     }
     return state->bdd;
@@ -1491,7 +1496,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
     DdNode *bdd_in = state_in->bdd;
     Cudd_Ref(bdd_in);
     ASSERT(bdd_in != NULL);
-    BDD_AND(ss->ddm, bdd_in, Cudd_Not(states->all_closed));
+    bdd_in = bddAnd(ss->ddm, bdd_in, Cudd_Not(states->all_closed));
 
     if (IS_FALSE(ss->ddm, bdd_in)){
         DEREF(ss->ddm, bdd_in);
@@ -1540,7 +1545,7 @@ static pddl_symbolic_state_t *searchMergeBucket(pddl_symbolic_task_t *ss,
                      (search->fw ? "fw" : "bw"));
 
         }else{
-            BDD_OR(ss->ddm, bdd, bdd_next);
+            bdd = bddOr(ss->ddm, bdd, bdd_next);
             borISetAdd(&parents, next->id);
         }
 
@@ -2157,8 +2162,9 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             fw_node[fi + 1] = transSetImage(ss, trs, fw_node[fi]);
             fw_node[fi + 1] = constrApplyFw(ss, &ss->constr, fw_node[fi + 1]);
 
-            BDD_AND(ss->ddm, fw_node[fi + 1], Cudd_Not(fw_closed));
-            BDD_OR(ss->ddm, fw_closed, fw_node[fi + 1]);
+            fw_node[fi + 1] = bddAnd(ss->ddm, fw_node[fi + 1],
+                                     Cudd_Not(fw_closed));
+            fw_closed = bddOr(ss->ddm, fw_closed, fw_node[fi + 1]);
         }
 
         int bw_op_id = borIArrGet(op, plan_size - fi - 1);
@@ -2169,8 +2175,9 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             int fi2 = plan_size - fi;
             bw_node[fi2 - 1] = transSetPreImage(ss, trs, bw_node[fi2]);
             bw_node[fi2 - 1] = constrApplyBw(ss, &ss->constr, bw_node[fi2 - 1]);
-            BDD_AND(ss->ddm, bw_node[fi2 - 1], Cudd_Not(bw_closed));
-            BDD_OR(ss->ddm, bw_closed, bw_node[fi2 - 1]);
+            bw_node[fi2 - 1] = bddAnd(ss->ddm, bw_node[fi2 - 1],
+                                      Cudd_Not(bw_closed));
+            bw_closed = bddOr(ss->ddm, bw_closed, bw_node[fi2 - 1]);
         }
     }
 
