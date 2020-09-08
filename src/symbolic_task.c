@@ -2046,6 +2046,200 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     return res;
 }
 
+int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
+                                 const bor_iset_t *state)
+{
+    int res = 1;
+    DdNode *bdd_state = createState(ss, state);
+    for (int tri = 0; res && tri < ss->trans.trans_size; ++tri){
+        pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
+        DdNode *next_states = transSetImage(ss, trs, bdd_state);
+        next_states = constrApplyFw(ss, &ss->constr, next_states);
+
+        BOR_ISET(next_state);
+        int op_id;
+        BOR_ISET_FOR_EACH(&trs->op, op_id){
+            const pddl_strips_op_t *op = ss->strips->op.op[op_id];
+            if (!borISetIsSubset(&op->pre, state))
+                continue;
+
+            borISetMinus2(&next_state, state, &op->del_eff);
+            borISetUnion(&next_state, &op->add_eff);
+            DdNode *bdd_next = createState(ss, &next_state);
+            DdNode *conj = Cudd_bddAnd(ss->ddm, next_states, bdd_next);
+            if (IS_FALSE(ss->ddm, conj)){
+                fprintf(stderr, "FAIL %d:(%s)\n", op_id, op->name);
+                res = 0;
+            }
+            DEREF(ss->ddm, bdd_next);
+
+            if (!res)
+                break;
+        }
+        borISetFree(&next_state);
+        DEREF(ss->ddm, next_states);
+    }
+    DEREF(ss->ddm, bdd_state);
+
+    return res;
+}
+
+int pddlSymbolicTaskCheckApplyFw2(pddl_symbolic_task_t *ss,
+                                  const bor_iset_t *state,
+                                  const bor_iset_t *res_state,
+                                  int op_id)
+{
+    int res = 1;
+    DdNode *bdd_state = createState(ss, state);
+    DdNode *bdd_res_state = createState(ss, res_state);
+    for (int tri = 0; res && tri < ss->trans.trans_size; ++tri){
+        pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
+        if (!borISetIn(op_id, &trs->op))
+            continue;
+
+        DdNode *next_states = transSetImage(ss, trs, bdd_state);
+        next_states = constrApplyFw(ss, &ss->constr, next_states);
+        DdNode *conj = Cudd_bddAnd(ss->ddm, next_states, bdd_res_state);
+        if (IS_FALSE(ss->ddm, conj)){
+            res = 0;
+        }
+        DEREF(ss->ddm, next_states);
+    }
+    DEREF(ss->ddm, bdd_state);
+    DEREF(ss->ddm, bdd_res_state);
+
+    return res;
+}
+
+int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
+                                 const bor_iset_t *state)
+{
+    int res = 1;
+    DdNode *bdd_state = createState(ss, state);
+    for (int tri = 0; res && tri < ss->trans.trans_size; ++tri){
+        pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
+        DdNode *next_states = transSetPreImage(ss, trs, bdd_state);
+        next_states = constrApplyBw(ss, &ss->constr, next_states);
+
+        BOR_ISET(next_state);
+        int op_id;
+        BOR_ISET_FOR_EACH(&trs->op, op_id){
+            const pddl_strips_op_t *op = ss->strips->op.op[op_id];
+            BOR_ISET(prevail);
+            borISetMinus2(&prevail, &op->pre, &op->del_eff);
+            if (!borISetIsDisjoint(&op->del_eff, state)
+                    || !borISetIsSubset(&op->add_eff, state)
+                    || !borISetIsSubset(&prevail, state)){
+                continue;
+            }
+            borISetFree(&prevail);
+
+            borISetMinus2(&next_state, state, &op->add_eff);
+            borISetUnion(&next_state, &op->pre);
+            DdNode *bdd_next = createState(ss, &next_state);
+            DdNode *conj = Cudd_bddAnd(ss->ddm, next_states, bdd_next);
+            if (IS_FALSE(ss->ddm, conj))
+                res = 0;
+            DEREF(ss->ddm, bdd_next);
+
+            if (!res)
+                break;
+        }
+        borISetFree(&next_state);
+        DEREF(ss->ddm, next_states);
+    }
+    DEREF(ss->ddm, bdd_state);
+
+    return res;
+}
+
+int pddlSymbolicTaskCheckApplyBw2(pddl_symbolic_task_t *ss,
+                                  const bor_iset_t *state,
+                                  const bor_iset_t *res_state,
+                                  int op_id)
+{
+    int res = 1;
+    DdNode *bdd_state = createState(ss, state);
+    DdNode *bdd_res_state = createState(ss, res_state);
+    for (int tri = 0; res && tri < ss->trans.trans_size; ++tri){
+        pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
+        if (!borISetIn(op_id, &trs->op))
+            continue;
+
+        DdNode *next_states = transSetPreImage(ss, trs, bdd_state);
+        next_states = constrApplyBw(ss, &ss->constr, next_states);
+        DdNode *conj = Cudd_bddAnd(ss->ddm, next_states, bdd_res_state);
+        if (IS_FALSE(ss->ddm, conj)){
+            res = 0;
+        }
+        DEREF(ss->ddm, next_states);
+    }
+    DEREF(ss->ddm, bdd_state);
+    DEREF(ss->ddm, bdd_res_state);
+
+    return res;
+}
+
+int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
+                              const bor_iset_t *states,
+                              const bor_iarr_t *op,
+                              int plan_size)
+{
+    int res = 1;
+    DdNode **fw_node = BOR_ALLOC_ARR(DdNode *, plan_size + 1);
+    DdNode **bw_node = BOR_ALLOC_ARR(DdNode *, plan_size + 1);
+    fw_node[0] = ss->init;
+    Cudd_Ref(fw_node[0]);
+    bw_node[plan_size] = ss->goal;
+    Cudd_Ref(bw_node[plan_size]);
+    DdNode *bw_closed = bw_node[plan_size];
+    Cudd_Ref(bw_closed);
+    for (int fi = 0; fi < plan_size; ++fi){
+        int fw_op_id = borIArrGet(op, fi);
+        for (int tri = 0; tri < ss->trans.trans_size; ++tri){
+            pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
+            if (!borISetIn(fw_op_id, &trs->op))
+                continue;
+            fw_node[fi + 1] = transSetImage(ss, trs, fw_node[fi]);
+            fw_node[fi + 1] = constrApplyFw(ss, &ss->constr, fw_node[fi + 1]);
+        }
+
+        int bw_op_id = borIArrGet(op, plan_size - fi - 1);
+        for (int tri = 0; tri < ss->trans.trans_size; ++tri){
+            pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
+            if (!borISetIn(bw_op_id, &trs->op))
+                continue;
+            int fi2 = plan_size - fi;
+            bw_node[fi2 - 1] = transSetPreImage(ss, trs, bw_node[fi2]);
+            bw_node[fi2 - 1] = constrApplyBw(ss, &ss->constr, bw_node[fi2 - 1]);
+            BDD_AND(ss->ddm, bw_node[fi2 - 1], Cudd_Not(bw_closed));
+            BDD_OR(ss->ddm, bw_closed, bw_node[fi2 - 1]);
+        }
+    }
+
+    for (int fi = 0; fi < plan_size + 1; ++fi){
+        DdNode *conj = Cudd_bddAnd(ss->ddm, fw_node[fi], bw_node[fi]);
+        Cudd_Ref(conj);
+        if (IS_FALSE(ss->ddm, conj))
+            res = 0;
+        DEREF(ss->ddm, conj);
+
+        conj = Cudd_bddAnd(ss->ddm, fw_node[fi], bw_closed);
+        Cudd_Ref(conj);
+        if (IS_FALSE(ss->ddm, conj))
+            res = 0;
+        DEREF(ss->ddm, conj);
+    }
+
+    DEREF(ss->ddm, bw_closed);
+    for (int fi = 0; fi < plan_size + 1; ++fi){
+        DEREF(ss->ddm, fw_node[fi]);
+        DEREF(ss->ddm, bw_node[fi]);
+    }
+
+    return res;
+}
+
 #else /* PDDL_CUDD */
 
 #endif /* PDDL_CUDD */
