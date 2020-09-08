@@ -553,8 +553,6 @@ static DdNode *constrApplyBw(pddl_symbolic_task_t *ss,
 static void transFree(pddl_symbolic_task_t *ss,
                       pddl_symbolic_trans_t *tr)
 {
-    //if (tr->bdd == NULL)
-    //    return;
     DEREF(ss->ddm, tr->bdd);
     for (int i = 0; i < tr->var_size; ++i){
         DEREF(ss->ddm, tr->var_pre[i]);
@@ -641,17 +639,6 @@ static void transInitEffVars(pddl_symbolic_task_t *ss,
     tr->exist_eff = Cudd_bddComputeCube(ss->ddm, tr->var_eff,
                                         NULL, tr->var_size);
     Cudd_Ref(tr->exist_eff);
-
-    /*
-    tr->exist_pre = Cudd_ReadOne(ss->ddm);
-    Cudd_Ref(tr->exist_pre);
-    tr->exist_eff = Cudd_ReadOne(ss->ddm);
-    Cudd_Ref(tr->exist_eff);
-    for (int i = 0; i < tr->var_size; ++i){
-        BDD_AND(ss->ddm, tr->exist_pre, tr->var_pre[i]);
-        BDD_AND(ss->ddm, tr->exist_eff, tr->var_eff[i]);
-    }
-    */
 }
 
 static void transInit(pddl_symbolic_task_t *ss,
@@ -797,7 +784,7 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     int Tres_size = 0;
     pddl_symbolic_trans_t *Tres = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
     for (int i = 0; i < T_size; ++i)
-        transInit(ss, strips->op.op[op_ids[i]], mutex, T + i, err); // TODO
+        transInit(ss, strips->op.op[op_ids[i]], mutex, T + i, err);
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -2207,6 +2194,8 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
         DEREF(ss->ddm, fw_node[fi]);
         DEREF(ss->ddm, bw_node[fi]);
     }
+    BOR_FREE(fw_node);
+    BOR_FREE(bw_node);
 
     return res;
 }
