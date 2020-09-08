@@ -683,13 +683,11 @@ static void transInit(pddl_symbolic_task_t *ss,
     int fact;
     BOR_ISET_FOR_EACH(&op.pre, fact)
         borISetUnion(&neg_pre, &mutex->fact_mutex[fact]);
-    borISetMinus(&neg_pre, &op.add_eff);
 
     // TODO: Configure
     // E-delete facts that are mutex with the add effect
     BOR_ISET_FOR_EACH(&op.add_eff, fact)
         borISetUnion(&op.del_eff, &mutex->fact_mutex[fact]);
-    borISetMinus(&op.del_eff, &neg_pre);
 
     tr->bdd = Cudd_ReadOne(ss->ddm);
     Cudd_Ref(tr->bdd);
