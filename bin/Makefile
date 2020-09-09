@@ -29,6 +29,7 @@ TARGETS += pddl-astar
 TARGETS += pddl-mgroups
 TARGETS += pddl-reversibility
 TARGETS += pddl-op-mutex
+TARGETS += pddl-symba
 
 all: $(TARGETS)
 
