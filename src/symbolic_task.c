@@ -2330,4 +2330,72 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
 
 #else /* PDDL_CUDD */
 
+#include "pddl/symbolic_task.h"
+
+pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
+                                          const pddl_mgroups_t *mgroups,
+                                          const pddl_mutex_pairs_t *mutex,
+                                          const pddl_symbolic_task_config_t *c,
+                                          bor_err_t *err)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return NULL;
+}
+
+void pddlSymbolicTaskDel(pddl_symbolic_task_t *states)
+{
+    BOR_FATAL2("Requires CUDD library");
+}
+
+int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
+                             bor_iarr_t *plan,
+                             bor_err_t *err)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
+}
+
+int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
+                             bor_iarr_t *plan,
+                             bor_err_t *err)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
+}
+
+int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
+                               bor_iarr_t *plan,
+                               bor_err_t *err)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
+}
+
+int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
+                                 const bor_iset_t *state,
+                                 const bor_iset_t *res_state,
+                                 int op_id)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
+}
+
+int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
+                                 const bor_iset_t *state,
+                                 const bor_iset_t *res_state,
+                                 int op_id)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
+}
+
+int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
+                              const bor_iset_t *states,
+                              const bor_iarr_t *op,
+                              int plan_size)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
+}
+
 #endif /* PDDL_CUDD */
