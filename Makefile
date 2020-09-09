@@ -105,6 +105,7 @@ OBJS += trans_system
 OBJS += trans_system_abstr_map
 OBJS += trans_system_graph
 OBJS += symbolic_task
+OBJS += cost
 
 OBJS_CPP = endomorphism
 

@@ -33,6 +33,9 @@ struct pddl_cost {
 };
 typedef struct pddl_cost pddl_cost_t;
 
+extern pddl_cost_t pddl_cost_zero;
+extern pddl_cost_t pddl_cost_max;
+
 _bor_inline void pddlCostSetZero(pddl_cost_t *c1)
 {
     c1->cost = 0;
