@@ -29,70 +29,11 @@
 #include <boruvka/pairheap.h>
 
 #include "pddl/symbolic_task.h"
+#include "pddl/cost.h"
 #include "pddl/time_limit.h"
 #include "pddl/disambiguation.h"
 #include "assert.h"
 
-struct pddl_cost {
-    int cost;
-    int zero_cost;
-};
-typedef struct pddl_cost pddl_cost_t;
-
-static void pddlCostAdd(pddl_cost_t *c1, const pddl_cost_t *c2)
-{
-    c1->cost += c2->cost;
-    c1->zero_cost += c2->zero_cost;
-}
-
-static void pddlCostAddOp(pddl_cost_t *c1, int op_cost)
-{
-    if (op_cost == 0){
-        c1->zero_cost += 1;
-    }else{
-        c1->cost += op_cost;
-    }
-}
-
-static void pddlCostSetZero(pddl_cost_t *c1)
-{
-    c1->cost = 0;
-    c1->zero_cost = 0;
-}
-
-static void pddlCostSetInf(pddl_cost_t *c1)
-{
-    c1->cost = INT_MAX / 4;
-    c1->zero_cost = INT_MAX / 4;
-}
-
-static int pddlCostCmp(const pddl_cost_t *c1, const pddl_cost_t *c2)
-{
-    int cmp = c1->cost - c2->cost;
-    if (cmp == 0)
-        cmp = c1->zero_cost - c2->zero_cost;
-    return cmp;
-}
-
-static int pddlCostCmpSum(const pddl_cost_t *c1,
-                          const pddl_cost_t *c2,
-                          const pddl_cost_t *cs)
-{
-    int cmp = (c1->cost + c2->cost) - cs->cost;
-    if (cmp == 0)
-        cmp = (c1->zero_cost + c2->zero_cost) - cs->zero_cost;
-    return cmp;
-}
-
-static int pddlCostCmpSumOp(const pddl_cost_t *c1,
-                            int op_cost,
-                            const pddl_cost_t *cs)
-{
-    int cmp = (c1->cost + op_cost) - cs->cost;
-    if (cmp == 0)
-        cmp = (c1->zero_cost + (op_cost == 0 ? 1 : 0)) - cs->zero_cost;
-    return cmp;
-}
 
 struct pddl_symbolic_bdds {
     DdNode **bdd;
@@ -130,7 +71,7 @@ struct pddl_symbolic_trans_set {
     int trans_size;
 
     bor_iset_t op; /*!< List of covered operators */
-    int cost; /*!< Cost of the covered operatros */
+    pddl_cost_t cost; /*!< Cost of the covered operatros */
 };
 typedef struct pddl_symbolic_trans_set pddl_symbolic_trans_set_t;
 
@@ -728,7 +669,7 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     bzero(trset, sizeof(*trset));
     for (int i = 0; i < op_ids_size; ++i)
         borISetAdd(&trset->op, op_ids[i]);
-    trset->cost = ss->strips.strips.op.op[op_ids[0]]->cost;
+    pddlCostSetOp(&trset->cost, ss->strips.strips.op.op[op_ids[0]]->cost);
 
     int T_size = borISetSize(&trset->op);
     pddl_symbolic_trans_t *T = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
@@ -967,7 +908,7 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->all_closed = Cudd_ReadLogicZero(ss->ddm);
     Cudd_Ref(states->all_closed);
 
-    pddlCostSetInf(&states->bound);
+    pddlCostSetMax(&states->bound);
 }
 
 static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
@@ -1357,7 +1298,7 @@ static void searchSetBestPlan(pddl_symbolic_search_t *search,
                               const pddl_symbolic_state_t *s2)
 {
     search->state.bound = s1->cost;
-    pddlCostAdd(&search->state.bound, &s2->cost);
+    pddlCostSum(&search->state.bound, &s2->cost);
     search->plan_goal_id = s1->id;
     search->plan_other_goal_id = s2->id;
 }
@@ -1438,15 +1379,15 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
     }
 
     for (int tri = 0; tri < ss->trans.trans_size; ++tri){
-        int tr_cost = ss->trans.trans[tri].cost;
-        if (pddlCostCmpSumOp(&state_in->cost, tr_cost, &states->bound) >= 0)
+        const pddl_cost_t *tr_cost = &ss->trans.trans[tri].cost;
+        if (pddlCostCmpSum(&state_in->cost, tr_cost, &states->bound) >= 0)
             continue;
 
         pddl_symbolic_state_t *state = statesAdd(ss, states);
         state->parent_id = state_in->id;
         state->trans_id = tri;
         state->cost = state_in->cost;
-        pddlCostAddOp(&state->cost, tr_cost);
+        pddlCostSum(&state->cost, tr_cost);
 
         statesOpenState(ss, states, state);
         if (other_search != NULL)
