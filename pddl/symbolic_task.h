@@ -41,6 +41,11 @@ struct pddl_symbolic_task_config {
     int use_constr;
     size_t constr_max_nodes;
     float constr_max_time;
+    int use_disambiguation;
+    int use_neg_pre;
+    int use_edeletion;
+    int reorder_after_init;
+    float reorder_after_init_time_limit;
 };
 typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 
@@ -52,6 +57,11 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         1, /* .use_constr */ \
         100000ul, /* .constr_max_nodes */ \
         -1.f, /* .constr_max_time */ \
+        1, /* .use_disambiguation */ \
+        1, /* .use_neg_pre */ \
+        1, /* .use_edeletion */ \
+        1, /* .reorder_after_init */ \
+        20., /* .reorder_after_init_time_limit */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;

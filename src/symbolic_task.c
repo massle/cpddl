@@ -1588,17 +1588,12 @@ static void setCGEdgesPreEff(const pddl_strips_op_t *op, graph_t *graph)
             borISetAdd(&graph->in[efact], pfact);
             borISetAdd(&graph->out[pfact], efact);
         }
-        BOR_ISET_FOR_EACH(&op->del_eff, efact){
-            borISetAdd(&graph->in[efact], pfact);
-            borISetAdd(&graph->out[pfact], efact);
-        }
     }
 }
 
 static void setCGEdgesEffEff(const pddl_strips_op_t *op, graph_t *graph)
 {
     int add_eff_size = borISetSize(&op->add_eff);
-    int del_eff_size = borISetSize(&op->del_eff);
     for (int i = 0; i < add_eff_size; ++i){
         int f1 = borISetGet(&op->add_eff, i);
         for (int j = i + 1; j < add_eff_size; ++j){
@@ -1608,38 +1603,20 @@ static void setCGEdgesEffEff(const pddl_strips_op_t *op, graph_t *graph)
             borISetAdd(&graph->in[f2], f1);
             borISetAdd(&graph->out[f1], f2);
         }
-
-        for (int j = 0; j < del_eff_size; ++j){
-            int f2 = borISetGet(&op->del_eff, j);
-            borISetAdd(&graph->in[f1], f2);
-            borISetAdd(&graph->out[f2], f1);
-            borISetAdd(&graph->in[f2], f1);
-            borISetAdd(&graph->out[f1], f2);
-        }
-    }
-    for (int i = 0; i < del_eff_size; ++i){
-        int f1 = borISetGet(&op->del_eff, i);
-        for (int j = i + 1; j < del_eff_size; ++j){
-            int f2 = borISetGet(&op->del_eff, j);
-            borISetAdd(&graph->in[f1], f2);
-            borISetAdd(&graph->out[f2], f1);
-            borISetAdd(&graph->in[f2], f1);
-            borISetAdd(&graph->out[f1], f2);
-        }
     }
 }
 
 static void graphInit(graph_t *graph,
-                      const pddl_strips_t *strips,
+                      const pddl_symbolic_strips_t *strips,
                       const pddl_mgroups_t *mgroup)
 {
-    int fact_size = strips->fact.fact_size;
+    int fact_size = strips->strips.fact.fact_size;
     graph->in = BOR_CALLOC_ARR(bor_iset_t, fact_size);
     graph->out = BOR_CALLOC_ARR(bor_iset_t, fact_size);
     graph->node_size = fact_size;
 
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
-        const pddl_strips_op_t *op = strips->op.op[op_id];
+    for (int op_id = 0; op_id < strips->strips.op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->strips.op.op[op_id];
         setCGEdgesPreEff(op, graph);
         setCGEdgesEffEff(op, graph);
     }
@@ -1709,13 +1686,82 @@ static void topologicalOrder(const graph_t *graph, int *order)
     BOR_FREE(indegree);
 }
 
-static void determineFactOrdering(const pddl_strips_t *strips,
+static int selectMGroup(const pddl_mgroups_t *mgroup,
+                        const bor_iset_t *mg_ids)
+{
+    int select = -1;
+    int size = -1;
+    int mgi;
+    BOR_ISET_FOR_EACH(mg_ids, mgi){
+        if (borISetSize(&mgroup->mgroup[mgi].mgroup) > size){
+            size = borISetSize(&mgroup->mgroup[mgi].mgroup);
+            select = mgi;
+        }
+    }
+    return select;
+}
+
+static void groupMGroups(const pddl_symbolic_strips_t *strips,
+                         const pddl_mgroups_t *mgroup,
+                         int *ordering)
+{
+    int fact_size = strips->strips.fact.fact_size;
+    bor_iset_t *fact_to_mgroup = BOR_CALLOC_ARR(bor_iset_t, fact_size);
+    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
+        const bor_iset_t *mg = &mgroup->mgroup[mgi].mgroup;
+        int fact;
+        BOR_ISET_FOR_EACH(mg, fact)
+            borISetAdd(fact_to_mgroup + fact, mgi);
+    }
+
+    int *in = BOR_ALLOC_ARR(int, fact_size);
+    memcpy(in, ordering, sizeof(int) * fact_size);
+
+    int start = 0;
+    int ins = 0;
+    while (start < fact_size){
+        int fact = in[start];
+        in[start] = -1;
+        ordering[ins++] = fact;
+        const bor_iset_t *mgs = fact_to_mgroup + fact;
+        if (borISetSize(mgs) > 0){
+            int select_mg = selectMGroup(mgroup, mgs);
+            const bor_iset_t *mg = &mgroup->mgroup[select_mg].mgroup;
+            for (int i = start + 1; i < fact_size; ++i){
+                if (in[i] >= 0 && borISetIn(in[i], mg)){
+                    ordering[ins++] = in[i];
+                    in[i] = -1;
+                }
+            }
+        }
+
+        for (; in[start] < 0; ++start);
+    }
+
+#ifdef PDDL_DEBUG
+    BOR_ISET(facts);
+    for (int i = 0; i < fact_size; ++i)
+        borISetAdd(&facts, ordering[i]);
+    ASSERT(borISetSize(&facts) == fact_size);
+    ASSERT(borISetGet(&facts, 0) == 0);
+    ASSERT(borISetGet(&facts, fact_size - 1) == fact_size - 1);
+    borISetFree(&facts);
+#endif
+
+    BOR_FREE(in);
+    for (int i = 0; i < fact_size; ++i)
+        borISetFree(fact_to_mgroup + i);
+    BOR_FREE(fact_to_mgroup);
+}
+
+static void determineFactOrdering(const pddl_symbolic_strips_t *strips,
                                   const pddl_mgroups_t *mgroup,
                                   int *ordering)
 {
     graph_t graph;
     graphInit(&graph, strips, mgroup);
     topologicalOrder(&graph, ordering);
+    groupMGroups(strips, mgroup, ordering);
     graphFree(&graph);
 }
 
@@ -1726,8 +1772,7 @@ static void stripsInitOp(pddl_symbolic_strips_t *strips,
 {
     pddl_strips_op_t *op = strips->strips.op.op[op_id];
 
-    // TODO: Configure
-    if (strips->disambiguate != NULL){
+    if (cfg->use_disambiguation && strips->disambiguate != NULL){
         // Disambiguate preconditions
         if (pddlDisambiguate(strips->disambiguate, &op->pre, NULL,
                              1, 0, NULL, &op->pre) < 0){
@@ -1739,17 +1784,21 @@ static void stripsInitOp(pddl_symbolic_strips_t *strips,
         borISetMinus(&op->add_eff, &op->pre);
     }
 
-    // TODO: Speed-up looking for mutexes
-    // TODO: Configure
     // Find negative preconditions
-    int fact;
-    BOR_ISET_FOR_EACH(&op->pre, fact)
-        borISetUnion(strips->op_neg_pre + op_id, strips->fact_mutex + fact);
+    if (cfg->use_neg_pre){
+        int fact;
+        BOR_ISET_FOR_EACH(&op->pre, fact){
+            borISetUnion(strips->op_neg_pre + op_id,
+                         strips->fact_mutex + fact);
+        }
+    }
 
-    // TODO: Configure
     // E-delete facts that are mutex with the add effect
-    BOR_ISET_FOR_EACH(&op->add_eff, fact)
-        borISetUnion(&op->del_eff, strips->fact_mutex + fact);
+    if (cfg->use_edeletion){
+        int fact;
+        BOR_ISET_FOR_EACH(&op->add_eff, fact)
+            borISetUnion(&op->del_eff, strips->fact_mutex + fact);
+    }
 }
 
 static void stripsInit(pddl_symbolic_strips_t *strips,
@@ -1771,16 +1820,17 @@ static void stripsInit(pddl_symbolic_strips_t *strips,
         borISetAdd(strips->fact_mutex + f2, f1);
     }
 
-    // TODO: Configure
-    strips->disambiguate = BOR_ALLOC(pddl_disambiguate_t);
-    if (pddlDisambiguateInit(strips->disambiguate, fact_size,
-                             mutex, mgroups) != 0){
-        BOR_INFO2(err, "symbolic: Disambiguation failed because there are"
-                       " no exactly-1 mutex groups");
-        BOR_FREE(strips->disambiguate);
-        strips->disambiguate = NULL;
+    if (cfg->use_disambiguation){
+        strips->disambiguate = BOR_ALLOC(pddl_disambiguate_t);
+        if (pddlDisambiguateInit(strips->disambiguate, fact_size,
+                                 mutex, mgroups) != 0){
+            BOR_INFO2(err, "symbolic: Disambiguation failed because there are"
+                           " no exactly-1 mutex groups");
+            BOR_FREE(strips->disambiguate);
+            strips->disambiguate = NULL;
+        }
+        BOR_INFO2(err, "symbolic: Disambiguation created.");
     }
-    BOR_INFO2(err, "symbolic: Disambiguation created.");
 
     for (int op_id = 0; op_id < strips->strips.op.op_size; ++op_id)
         stripsInitOp(strips, op_id, cfg, err);
@@ -1835,7 +1885,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     ss->fact_size = strips->fact.fact_size;
 
     ss->ordered_facts = BOR_ALLOC_ARR(int, ss->fact_size);
-    determineFactOrdering(strips, mgroups, ss->ordered_facts);
+    determineFactOrdering(&ss->strips, mgroups, ss->ordered_facts);
     ss->fact_to_order = BOR_ALLOC_ARR(int, ss->fact_size);
     for (int i = 0; i < ss->fact_size; ++i)
         ss->fact_to_order[ss->ordered_facts[i]] = i;
@@ -1891,6 +1941,24 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
              Cudd_ReadPeakLiveNodeCount(ss->ddm),
              Cudd_ReadGarbageCollections(ss->ddm));
     //Cudd_PrintInfo(ss->ddm, stderr);
+
+    if (cfg->reorder_after_init){
+        BOR_INFO(err, "symbolic: Reordering of BDD variables. nodes: %ld",
+                 Cudd_ReadNodeCount(ss->ddm));
+        if (cfg->reorder_after_init_time_limit > 0.f){
+            unsigned long time_limit;
+            time_limit = 1000ul * cfg->reorder_after_init_time_limit;
+            Cudd_SetTimeLimit(ss->ddm, time_limit);
+            BOR_INFO(err, "symbolic: Reordering time limit: %lums",
+                     time_limit);
+        }
+        Cudd_ReduceHeap(ss->ddm, CUDD_REORDER_WINDOW4_CONV, 0);
+        //Cudd_ReduceHeap(ss->ddm, CUDD_REORDER_SIFT_CONVERGE, 0);
+        Cudd_UnsetTimeLimit(ss->ddm);
+        BOR_INFO(err, "symbolic: Reordering of BDD variables DONE. nodes: %ld",
+                 Cudd_ReadNodeCount(ss->ddm));
+    }
+
     return ss;
 }
 
