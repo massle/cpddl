@@ -161,7 +161,7 @@ static DdNode *bddAnd(DdManager *dd, DdNode *dst, DdNode *src)
     if (res == NULL)
         return NULL;
     Cudd_Ref(res);
-    Cudd_RecursiveDeref(dd, dst);
+    DEREF(dd, dst);
     return res;
 }
 
@@ -171,7 +171,7 @@ static DdNode *bddOr(DdManager *dd, DdNode *dst, DdNode *src)
     if (res == NULL)
         return NULL;
     Cudd_Ref(res);
-    Cudd_RecursiveDeref(dd, dst);
+    DEREF(dd, dst);
     return res;
 }
 
@@ -201,9 +201,11 @@ static DdNode *createState(pddl_symbolic_task_t *ss, const bor_iset_t *state)
         int fact_id = ss->ordered_facts[i];
         int var_id = ss->pre_fact_to_var[fact_id];
         DdNode *var = Cudd_bddIthVar(ss->ddm, var_id);
+        Cudd_Ref(var);
         if (!borISetIn(fact_id, state))
             var = Cudd_Not(var);
         bdd = bddAnd(ss->ddm, bdd, var);
+        DEREF(ss->ddm, var);
     }
     return bdd;
 }
@@ -220,17 +222,23 @@ static DdNode *createPartialState(pddl_symbolic_task_t *ss,
 
         int var_id = ss->pre_fact_to_var[fact_id];
         DdNode *var = Cudd_bddIthVar(ss->ddm, var_id);
+        Cudd_Ref(var);
         bdd = bddAnd(ss->ddm, bdd, var);
+        DEREF(ss->ddm, var);
     }
     return bdd;
 }
 
 static DdNode *createBiimp(pddl_symbolic_task_t *ss, int var1, int var2)
 {
-    DdNode *bdd = Cudd_bddXnor(ss->ddm,
-                               Cudd_bddIthVar(ss->ddm, var1),
-                               Cudd_bddIthVar(ss->ddm, var2));
+    DdNode *bvar1 = Cudd_bddIthVar(ss->ddm, var1);
+    Cudd_Ref(bvar1);
+    DdNode *bvar2 = Cudd_bddIthVar(ss->ddm, var2);
+    Cudd_Ref(bvar2);
+    DdNode *bdd = Cudd_bddXnor(ss->ddm, bvar1, bvar2);
     Cudd_Ref(bdd);
+    DEREF(ss->ddm, bvar1);
+    DEREF(ss->ddm, bvar2);
     return bdd;
 }
 
@@ -292,7 +300,9 @@ static void bddsAddExactlyOneMGroup(pddl_symbolic_task_t *ss,
     int fact_id;
     BOR_ISET_FOR_EACH(mgroup, fact_id){
         DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact_id]);
+        Cudd_Ref(var1);
         bdd = bddOr(ss->ddm, bdd, var1);
+        DEREF(ss->ddm, var1);
     }
     bddsAdd(ss, bdds, bdd);
     DEREF(ss->ddm, bdd);
