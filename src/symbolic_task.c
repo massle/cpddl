@@ -678,6 +678,10 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     for (int i = 0; i < T_size; ++i)
         transInit(ss, op_ids[i], T + i, err);
 
+    BOR_INFO(err, "symbolic: Initialized individual trans BDDs: "
+                  "cost: %d, ops: %d",
+             trset->cost, borISetSize(&trset->op));
+
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
     pddlTimeLimitSet(&time_limit, ss->cfg.trans_merge_max_time);
@@ -1346,7 +1350,8 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
 static void searchSetNextStepEstimate(pddl_symbolic_task_t *ss,
                                       pddl_symbolic_search_t *search,
                                       pddl_symbolic_state_t *state,
-                                      float cur_time)
+                                      float cur_time,
+                                      bor_err_t *err)
 {
     DdNode *state_bdd = searchStateBDD(ss, search, state);
     long bdd_size = Cudd_DagSize(state_bdd);
@@ -1397,57 +1402,70 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
     DEREF(ss->ddm, bdd_in);
 }
 
-static pddl_symbolic_state_t *searchMergeBucket(pddl_symbolic_task_t *ss,
-                                                pddl_symbolic_search_t *search,
-                                                pddl_symbolic_state_t *state,
-                                                bor_err_t *err)
+static pddl_symbolic_state_t *searchNextNonEmpty(pddl_symbolic_task_t *ss,
+                                                 pddl_symbolic_search_t *search,
+                                                 bor_err_t *err)
 {
-    pddl_symbolic_state_t *next = statesOpenPeek(&search->state);
-    if (next == NULL || pddlCostCmp(&state->cost, &next->cost) != 0)
-        return state;
+    pddl_symbolic_state_t *state;
+    do {
+        state = statesNextOpen(&search->state);
+        if (state != NULL){
+            searchStateBDD(ss, search, state);
+            state->bdd = bddAnd(ss->ddm, state->bdd,
+                                Cudd_Not(search->state.all_closed));
+        }
+    } while (state != NULL && IS_FALSE(ss->ddm, state->bdd));
+
+    return state;
+}
+
+static void searchPrepareNext(pddl_symbolic_task_t *ss,
+                              pddl_symbolic_search_t *search,
+                              bor_err_t *err)
+{
+    pddl_symbolic_state_t *state = searchNextNonEmpty(ss, search, err);
+    if (state == NULL)
+        return;
 
     BOR_ISET(parents);
     borISetAdd(&parents, state->id);
     DdNode *bdd = searchStateBDD(ss, search, state);
     Cudd_Ref(bdd);
+
+    pddl_symbolic_state_t *next = statesOpenPeek(&search->state);
     while (next != NULL && pddlCostCmp(&state->cost, &next->cost) == 0){
         next = statesNextOpen(&search->state);
-        ASSERT(next != NULL);
-        ASSERT(pddlCostCmp(&state->cost, &next->cost) == 0);
-        DdNode *bdd_next = searchStateBDD(ss, search, next);
-        if (IS_FALSE(ss->ddm, bdd_next)){
-            BOR_INFO(err, "symbolic search %s: State is empty",
-                     (search->fw ? "fw" : "bw"));
-
-        }else{
-            bdd = bddOr(ss->ddm, bdd, bdd_next);
+        searchStateBDD(ss, search, next);
+        next->bdd = bddAnd(ss->ddm, next->bdd,
+                           Cudd_Not(search->state.all_closed));
+        if (!IS_FALSE(ss->ddm, next->bdd)){
+            bdd = bddOr(ss->ddm, bdd, next->bdd);
             borISetAdd(&parents, next->id);
         }
 
         next = statesOpenPeek(&search->state);
     }
 
-    pddl_symbolic_state_t *res;
     if (borISetSize(&parents) > 1){
-        res = statesAddBDD(ss, &search->state, bdd);
-        res->parent_id = -2;
-        res->trans_id = -1;
-        res->cost = state->cost;
-        borISetUnion(&res->parent_ids, &parents);
+        pddl_symbolic_state_t *merged;
+        merged = statesAddBDD(ss, &search->state, bdd);
+        merged->parent_id = -2;
+        merged->trans_id = -1;
+        merged->cost = state->cost;
+        borISetUnion(&merged->parent_ids, &parents);
+        statesOpenState(ss, &search->state, merged);
 
-        BOR_INFO(err, "symbolic search %s: Merged %d states",
+        BOR_INFO(err, "symbolic search %s: Merged %d states when preparing"
+                      " next state",
                  (search->fw ? "fw" : "bw"),
                  borISetSize(&parents));
     }else{
-        res = state;
+        statesOpenState(ss, &search->state, state);
     }
 
     borISetFree(&parents);
     DEREF(ss->ddm, bdd);
-
-    return res;
 }
-
 
 static int searchStep(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
@@ -1466,14 +1484,13 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     BOR_INFO(err, "symbolic search %s: step cost: %d:%d,"
                   " states: %d, closed states: %d,"
-                  " cudd mem: %.2fMB, live nodes: %d, gc: %d",
+                  " cudd mem: %.2fMB, gc: %d",
              (search->fw ? "fw" : "bw"),
              state->cost.cost,
              state->cost.zero_cost,
              search->state.num_states,
              search->state.num_closed,
              Cudd_ReadMemoryInUse(ss->ddm) / (1024. * 1024.),
-             Cudd_ReadPeakLiveNodeCount(ss->ddm),
              Cudd_ReadGarbageCollections(ss->ddm));
 
     DdNode *state_bdd = searchStateBDD(ss, search, state);
@@ -1482,9 +1499,6 @@ static int searchStep(pddl_symbolic_task_t *ss,
                  (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
     }
-
-    // Merge states with the same cost
-    state = searchMergeBucket(ss, search, state, err);
 
     if (other_search != NULL){
         checkGoal2(ss, search, other_search, state, err);
@@ -1500,7 +1514,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
             borTimerStop(&timer);
             searchSetNextStepEstimate(ss, search, state,
-                                      borTimerElapsedInSF(&timer));
+                                      borTimerElapsedInSF(&timer), err);
             return PDDL_SYMBOLIC_PLAN_FOUND;
         }
     }
@@ -1508,7 +1522,9 @@ static int searchStep(pddl_symbolic_task_t *ss,
     searchExpandState(ss, search, other_search, state, err);
     statesCloseState(ss, &search->state, state);
     borTimerStop(&timer);
-    searchSetNextStepEstimate(ss, search, state, borTimerElapsedInSF(&timer));
+    searchPrepareNext(ss, search, err);
+    searchSetNextStepEstimate(ss, search, state,
+                              borTimerElapsedInSF(&timer), err);
     return PDDL_SYMBOLIC_CONT;
 }
 
@@ -1883,7 +1899,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
              Cudd_ReadGarbageCollections(ss->ddm));
     //Cudd_PrintInfo(ss->ddm, stderr);
 
-    if (cfg->reorder_after_init){
+    if (0 && cfg->reorder_after_init){
         BOR_INFO(err, "symbolic: Reordering of BDD variables. nodes: %ld",
                  Cudd_ReadNodeCount(ss->ddm));
         if (cfg->reorder_after_init_time_limit > 0.f){
@@ -2080,8 +2096,11 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             fw_step = 1;
 
         BOR_INFO(err, "symbolic search fw+bw:"
-                      " fw est: %.2f, bw est: %.2f, bound: %d:%d, fw/bw: %d",
+                      " fw est: %.2f, bw est: %.2f, fw open: %d:%d,"
+                      " bw open: %d:%d, bound: %d:%d, use fw: %d",
                  fw_est, bw_est,
+                 min_fw_cost->cost, min_fw_cost->zero_cost,
+                 min_bw_cost->cost, min_bw_cost->zero_cost,
                  fw_search.state.bound.cost, fw_search.state.bound.zero_cost,
                  fw_step);
         if (fw_step){
