@@ -1121,8 +1121,12 @@ static const pddl_symbolic_state_t *
         // The state BDD must be already constructed
         ASSERT_RUNTIME(state->bdd != NULL);
         DdNode *conj = Cudd_bddAnd(ss->ddm, bdd, state->bdd);
-        if (!IS_FALSE(ss->ddm, conj))
+        Cudd_Ref(conj);
+        if (!IS_FALSE(ss->ddm, conj)){
+            DEREF(ss->ddm, conj);
             return state;
+        }
+        DEREF(ss->ddm, conj);
     }
     ASSERT_RUNTIME(0);
     return state;
@@ -2184,9 +2188,11 @@ int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
         DdNode *next_states = transSetImage(ss, trs, bdd_state);
         next_states = constrApplyFw(ss, &ss->constr, next_states);
         DdNode *conj = Cudd_bddAnd(ss->ddm, next_states, bdd_res_state);
+        Cudd_Ref(conj);
         if (IS_FALSE(ss->ddm, conj)){
             res = 0;
         }
+        DEREF(ss->ddm, conj);
         DEREF(ss->ddm, next_states);
     }
     DEREF(ss->ddm, bdd_state);
@@ -2211,9 +2217,11 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
         DdNode *next_states = transSetPreImage(ss, trs, bdd_state);
         next_states = constrApplyBw(ss, &ss->constr, next_states);
         DdNode *conj = Cudd_bddAnd(ss->ddm, next_states, bdd_res_state);
+        Cudd_Ref(conj);
         if (IS_FALSE(ss->ddm, conj)){
             res = 0;
         }
+        DEREF(ss->ddm, conj);
         DEREF(ss->ddm, next_states);
     }
     DEREF(ss->ddm, bdd_state);
