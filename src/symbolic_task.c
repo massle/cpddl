@@ -1702,7 +1702,7 @@ static void groupMGroups(const pddl_symbolic_strips_t *strips,
             }
         }
 
-        for (; in[start] < 0; ++start);
+        for (; start < fact_size && in[start] < 0; ++start);
     }
 
 #ifdef PDDL_DEBUG
