@@ -232,10 +232,13 @@ third-party/lpsolve/liblpsolve.a:
 
 cudd: third-party/cudd/libcudd.a
 cudd-clean:
-	$(MAKE) -C third-party/cudd clean
+	git clean -fdx third-party/cudd
 	rm -f third-party/cudd/lib*.a
 	rm -f third-party/cudd/cudd.h
 third-party/cudd/libcudd.a:
+	cd third-party/cudd && aclocal
+	cd third-party/cudd && autoconf
+	cd third-party/cudd && automake
 	cd third-party/cudd && ./configure --disable-shared
 	$(MAKE) -C third-party/cudd
 	cp third-party/cudd/cudd/.libs/libcudd.a $@

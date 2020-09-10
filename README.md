@@ -18,7 +18,7 @@ respective licenses too.
 Easiest way to compile the library and the binaries that come with the
 library:
 ```sh
-  $ ./script/build.sh
+  $ ./scripts/build.sh
 ```
 
 You can change default configuration by adding Makefile.local file containing
