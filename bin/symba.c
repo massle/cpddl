@@ -1448,7 +1448,6 @@ static int symba(void)
     pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
-    symb_cfg.reorder_after_init = 0;
     // TODO: Print configuration
 
     pddl_symbolic_task_t *task;
