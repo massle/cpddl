@@ -602,35 +602,52 @@ static void transInit(pddl_symbolic_task_t *ss,
                       pddl_symbolic_trans_t *tr,
                       bor_err_t *err)
 {
-    if (op->is_dead)
-        return;
+    ASSERT(!op->is_dead);
 
-    // TODO: Build the BDD from bottom up
     tr->bdd = Cudd_ReadOne(ss->ddm);
     Cudd_Ref(tr->bdd);
+
+    // Build the BDD from bottom up by first filling the array bdds and
+    // then going over it from last to the first item
+    DdNode **bdds = BOR_CALLOC_ARR(DdNode *, ss->num_vars);
 
     int fact_id;
     BOR_ISET_FOR_EACH(&op->pre, fact_id){
         int var_id = ss->pre_fact_to_var[fact_id];
-        tr->bdd = bddAnd(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
+        ASSERT(bdds[var_id] == NULL);
+        bdds[var_id] = Cudd_bddIthVar(ss->ddm, var_id);
+        Cudd_Ref(bdds[var_id]);
     }
 
     BOR_ISET_FOR_EACH(&op->neg_pre, fact_id){
         int var_id = ss->pre_fact_to_var[fact_id];
-        tr->bdd = bddAnd(ss->ddm, tr->bdd,
-                         Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
+        ASSERT(!borISetIn(fact_id, &op->pre));
+        ASSERT(bdds[var_id] == NULL);
+        bdds[var_id] = Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id));
+        Cudd_Ref(bdds[var_id]);
     }
 
     BOR_ISET_FOR_EACH(&op->del_eff, fact_id){
         int var_id = ss->eff_fact_to_var[fact_id];
-        tr->bdd = bddAnd(ss->ddm, tr->bdd,
-                         Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id)));
+        ASSERT(bdds[var_id] == NULL);
+        bdds[var_id] = Cudd_Not(Cudd_bddIthVar(ss->ddm, var_id));
+        Cudd_Ref(bdds[var_id]);
     }
 
     BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
         int var_id = ss->eff_fact_to_var[fact_id];
-        tr->bdd = bddAnd(ss->ddm, tr->bdd, Cudd_bddIthVar(ss->ddm, var_id));
+        ASSERT(bdds[var_id] == NULL);
+        bdds[var_id] = Cudd_bddIthVar(ss->ddm, var_id);
+        Cudd_Ref(bdds[var_id]);
     }
+
+    for (int i = ss->num_vars - 1; i >= 0; --i){
+        if (bdds[i] != NULL){
+            tr->bdd = bddAnd(ss->ddm, tr->bdd, bdds[i]);
+            DEREF(ss->ddm, bdds[i]);
+        }
+    }
+    BOR_FREE(bdds);
 
 
     if (ss->cfg.use_op_constr){
@@ -719,6 +736,7 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     bzero(trset, sizeof(*trset));
     for (int i = 0; i < op_ids_size; ++i)
         borISetAdd(&trset->op, op_ids[i]);
+    ASSERT(borISetSize(&trset->op) > 0);
     trset->cost = ss->strips.op[op_ids[0]].cost;
 
     int T_size = borISetSize(&trset->op);
@@ -814,21 +832,27 @@ static void transSetsInit(pddl_symbolic_task_t *ss,
     bzero(trset, sizeof(*trset));
 
     BOR_ISET(costs);
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
-        borISetAdd(&costs, strips->op.op[op_id]->cost);
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        if (!ss->strips.op[op_id].is_dead)
+            borISetAdd(&costs, strips->op.op[op_id]->cost);
+    }
 
     trset->trans_size = borISetSize(&costs);
     trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_size);
     borISetFree(&costs);
 
-    int *op_ids = BOR_ALLOC_ARR(int, strips->op.op_size);
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
-        op_ids[op_id] = op_id;
-    borSort(op_ids, strips->op.op_size, sizeof(int),
-            opIdCostCmp, (void *)strips);
+    int op_ids_size = strips->op.op_size;
+    int *op_ids = BOR_ALLOC_ARR(int, op_ids_size);
+    int ins = 0;
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        if (!ss->strips.op[op_id].is_dead)
+            op_ids[ins++] = op_id;
+    }
+    op_ids_size = ins;
+    borSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)strips);
 
     int start = 0, end = 1, tr_id = 0;
-    for (end = 1; end < strips->op.op_size; ++end){
+    for (end = 1; end < op_ids_size; ++end){
         int cost_start = strips->op.op[op_ids[start]]->cost;
         int cost_end = strips->op.op[op_ids[end]]->cost;
         if (cost_start != cost_end){
@@ -1803,7 +1827,7 @@ static void stripsInitOp(pddl_symbolic_strips_t *strips,
         if (pddlDisambiguate(strips->disambiguate, &op->pre, NULL,
                              1, 0, NULL, &op->pre) < 0){
             BOR_INFO(err, "symbolic: Operator %d:(%s) skipped, because it"
-                          " is unreachable", op->id, op->name);
+                          " is unreachable or dead-end", op->id, op->name);
             op->is_dead = 1;
             return;
         }
@@ -1824,6 +1848,13 @@ static void stripsInitOp(pddl_symbolic_strips_t *strips,
     borISetUnion2(&op->uncovered_eff, &op->add_eff, &op->del_eff);
     borISetMinus(&op->uncovered_eff, &op->pre);
     borISetMinus(&op->uncovered_eff, &op->neg_pre);
+
+    if (!borISetIsDisjoint(&op->neg_pre, &op->pre)
+            || !borISetIsDisjoint(&op->del_eff, &op->add_eff)){
+        BOR_INFO(err, "symbolic: Operator %d:(%s) skipped, because it"
+                      " is unreachable or dead-end", op->id, op->name);
+        op->is_dead = 1;
+    }
 }
 
 static void stripsFreeOp(pddl_symbolic_strips_op_t *op)
@@ -1925,6 +1956,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
     ss->ordered_facts = BOR_ALLOC_ARR(int, ss->fact_size);
     determineFactOrdering(&ss->strips, mgroups, ss->ordered_facts);
+
     ss->fact_to_order = BOR_ALLOC_ARR(int, ss->fact_size);
     for (int i = 0; i < ss->fact_size; ++i)
         ss->fact_to_order[ss->ordered_facts[i]] = i;
