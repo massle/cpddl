@@ -51,6 +51,9 @@ typedef struct pddl_scc pddl_scc_t;
 
 /**
  * Initializes scc and fills it with strongly connected components.
+ * The components are found by Tarjan's algorithm so the resulting
+ * components are ordered in a reverse topological order of the DAG of
+ * those components.
  */
 void pddlSCC(pddl_scc_t *scc, const pddl_scc_graph_t *graph);
 
