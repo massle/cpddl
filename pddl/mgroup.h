@@ -111,6 +111,12 @@ void pddlMGroupsGatherExactlyOneFacts(const pddl_mgroups_t *mgs,
 void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts);
 
 /**
+ * Remove specified facts from all mutex groups.
+ * Note that all flags are kept untouched.
+ */
+void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const bor_iset_t *rm);
+
+/**
  * Removes all mutex groups containing at most size facts.
  */
 void pddlMGroupsRemoveSmall(pddl_mgroups_t *mgs, int size);
@@ -141,6 +147,27 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size);
  * Returns the number of exactly-one mutex groups.
  */
 int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs);
+
+/**
+ * Find facts that are part of only one mutex group.
+ */
+void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess);
+
+/**
+ * Fill cover_set with mutex groups from mgs such that all facts from mgs
+ * are covered and no mutex groups overlap.
+ * Largest mutex groups are prioritized.
+ */
+void pddlMGroupsExtractCoverLargest(const pddl_mgroups_t *mgs,
+                                    pddl_mgroups_t *cover_set);
+
+/**
+ * Fill cover_set with mutex groups from mgs such that all facts from mgs
+ * are covered and no mutex groups overlap.
+ * Essential facts are prioritized.
+ */
+void pddlMGroupsExtractCoverEssential(const pddl_mgroups_t *mgs,
+                                      pddl_mgroups_t *cover_set);
 
 /**
  * Debug print out
