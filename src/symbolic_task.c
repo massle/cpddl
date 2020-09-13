@@ -469,9 +469,6 @@ static void constrInit(pddl_symbolic_task_t *ss,
     bddsInit(&constr->bw_mutex);
     bddsInit(&constr->bw_mgroup);
 
-    if (!ss->cfg.use_constr)
-        return;
-
     pddl_mutex_pairs_t fw_mutex;
     pddl_mutex_pairs_t bw_mutex;
     pddlMutexPairsInit(&fw_mutex, ss->fact_size);
@@ -1125,7 +1122,8 @@ static void searchInit(pddl_symbolic_task_t *ss,
     search->fw = fw;
     search->image = image;
     search->pre_image = pre_image;
-    search->constr_apply = constr_apply;
+    if (ss->cfg.use_constr)
+        search->constr_apply = constr_apply;
     statesInit(ss, &search->state);
     search->goal = goal;
     if (search->goal != NULL)
@@ -1329,7 +1327,8 @@ static DdNode *searchStateBDD(pddl_symbolic_task_t *ss,
                                    prev_state->bdd);
         state->bdd = bddAnd(ss->ddm, state->bdd,
                             Cudd_Not(search->state.all_closed));
-        state->bdd = search->constr_apply(ss, &ss->constr, state->bdd);
+        if (search->constr_apply)
+            state->bdd = search->constr_apply(ss, &ss->constr, state->bdd);
     }
     return state->bdd;
 }
