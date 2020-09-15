@@ -292,12 +292,11 @@ static void bddsAdd(pddl_symbolic_task_t *ss,
 
 static DdNode *createMutex(pddl_symbolic_task_t *ss, int fact1, int fact2)
 {
-    // TODO: Try not(v1 and v2) instead
     DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact1]);
     Cudd_Ref(var1);
     DdNode *var2 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact2]);
     Cudd_Ref(var2);
-    DdNode *bdd = Cudd_bddOr(ss->ddm, Cudd_Not(var1), Cudd_Not(var2));
+    DdNode *bdd = Cudd_Not(Cudd_bddAnd(ss->ddm, var1, var2));
     Cudd_Ref(bdd);
     DEREF(ss->ddm, var1);
     DEREF(ss->ddm, var2);
