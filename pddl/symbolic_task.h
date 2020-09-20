@@ -36,6 +36,8 @@ extern "C" {
 
 struct pddl_symbolic_task_config {
     int max_mem_in_mb;
+    int num_slots;
+    int cache_size;
     size_t trans_merge_max_nodes;
     float trans_merge_max_time;
     int use_constr;
@@ -49,6 +51,8 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 #define PDDL_SYMBOLIC_TASK_CONFIG_INIT \
     { \
         -1, /* .max_mem_in_mb */ \
+        16000000, /* .num_slots */ \
+        16000000, /* .cache_size */ \
         100000ul, /* .trans_merge_max_nodes */ \
         -1.f, /* .trans_merge_max_time */ \
         0, /* .use_constr */ \

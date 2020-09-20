@@ -2073,6 +2073,10 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     size_t mem = 0;
     if (cfg->max_mem_in_mb > 0)
         mem = cfg->max_mem_in_mb * 1024UL * 1024UL;
+    if (cfg->num_slots > 0)
+        num_slots = cfg->num_slots / ss->num_vars;
+    if (cfg->cache_size > 0)
+        cache_size = cfg->cache_size;
     ss->ddm = Cudd_Init(ss->num_vars, 0, num_slots, cache_size, mem);
     if (ss->ddm == NULL){
         pddlSymbolicTaskDel(ss);
