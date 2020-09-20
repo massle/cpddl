@@ -290,6 +290,14 @@ static void bddsAdd(pddl_symbolic_task_t *ss,
     Cudd_Ref(bdds->bdd[bdds->bdd_size - 1]);
 }
 
+static long bddsNodes(const pddl_symbolic_bdds_t *bdds)
+{
+    long nodes = 0;
+    for (int i = 0; i < bdds->bdd_size; ++i)
+        nodes += Cudd_DagSize(bdds->bdd[i]);
+    return nodes;
+}
+
 static DdNode *createMutex(pddl_symbolic_task_t *ss, int fact1, int fact2)
 {
     DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact1]);
@@ -369,7 +377,12 @@ static void bddsMergeAnd(pddl_symbolic_task_t *ss,
                 bdd[ins] = bdd1;
 
             }else{
-                DdNode *res = Cudd_bddAndLimit(ss->ddm, bdd1, bdd2, max_nodes);
+                DdNode *res = NULL;
+                if (Cudd_DagSize(bdd1) < max_nodes
+                       && Cudd_DagSize(bdd2) < max_nodes){
+                    res = Cudd_bddAndLimit(ss->ddm, bdd1, bdd2, max_nodes);
+                }
+
                 if (res != NULL){
                     Cudd_Ref(res);
                     bdd[ins] = res;
@@ -464,6 +477,8 @@ static void constrInit(pddl_symbolic_task_t *ss,
                        const pddl_mgroups_t *mgroup,
                        bor_err_t *err)
 {
+    BOR_INFO2(err, "Constructing constraint BDDs ...");
+
     bddsInit(&constr->fw_mutex);
     bddsInit(&constr->fw_mgroup);
     bddsInit(&constr->bw_mutex);
@@ -475,27 +490,38 @@ static void constrInit(pddl_symbolic_task_t *ss,
     pddlMutexPairsInit(&bw_mutex, ss->fact_size);
     separateFwBwMutex(mutex, &fw_mutex, &bw_mutex);
 
-    BOR_INFO2(err, "Constructing constraint BDDs ...");
+    BOR_INFO(err, "fw-mutex pairs: %d, bw-mutex pairs: %d",
+             fw_mutex.num_mutex_pairs,
+             bw_mutex.num_mutex_pairs);
 
     if (bw_mutex.num_mutex_pairs > 0){
         int num = constrConstructMutex(ss, &constr->fw_mutex, &bw_mutex);
-        BOR_INFO(err, "Created %d fw-mutex BDDs from %d mutexes",
-                 constr->fw_mutex.bdd_size, num);
+        BOR_INFO(err, "Created %d fw-mutex BDDs from %d mutexes."
+                      " nodes: %lu",
+                 constr->fw_mutex.bdd_size, num,
+                 bddsNodes(&constr->fw_mutex));
     }
 
     if (fw_mutex.num_mutex_pairs > 0){
         int num = constrConstructMutex(ss, &constr->bw_mutex, &fw_mutex);
-        BOR_INFO(err, "Created %d bw-mutex BDDs from %d mutexes",
-                 constr->bw_mutex.bdd_size, num);
+        BOR_INFO(err, "Created %d bw-mutex BDDs from %d mutexes"
+                      " nodes: %lu",
+                 constr->bw_mutex.bdd_size, num,
+                 bddsNodes(&constr->bw_mutex));
     }
 
     if (mgroup != NULL){
         int num_fw = constrConstructFwMGroup(ss, &constr->fw_mgroup, mgroup);
-        BOR_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups",
-                 constr->fw_mgroup.bdd_size, num_fw);
+        BOR_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups"
+                      " nodes: %lu",
+                 constr->fw_mgroup.bdd_size, num_fw,
+                 bddsNodes(&constr->fw_mgroup));
+
         int num_bw = constrConstructBwMGroup(ss, &constr->bw_mgroup, mgroup);
-        BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups",
-                 constr->bw_mgroup.bdd_size, num_bw);
+        BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups"
+                      " nodes: %lu",
+                 constr->bw_mgroup.bdd_size, num_bw,
+                 bddsNodes(&constr->bw_mgroup));
     }
 
     pddlMutexPairsFree(&fw_mutex);
@@ -677,6 +703,11 @@ static int transMerge(pddl_symbolic_task_t *ss,
 {
     bzero(dst, sizeof(*dst));
 
+    if (Cudd_DagSize(tr1->bdd) >= max_nodes
+            || Cudd_DagSize(tr2->bdd) >= max_nodes){
+        return -1;
+    }
+
     DdNode *bdd1 = tr1->bdd;
     Cudd_Ref(bdd1);
     DdNode *bdd2 = tr2->bdd;
@@ -801,9 +832,13 @@ static void transSetsAddRange(pddl_symbolic_task_t *ss,
     BOR_FREE(T);
     BOR_FREE(Tres);
 
-    BOR_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d %s",
+    long nodes = 0;
+    for (int i = 0; i < trset->trans_size; ++i)
+        nodes += Cudd_DagSize(trset->trans[i].bdd);
+    BOR_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
+                  " nodes: %lu, %s",
              trset->cost, borISetSize(&trset->op), trset->trans_size,
-             (T_size > 1 ? "(time limit reached)" : ""));
+             nodes, (T_size > 1 ? "(time limit reached)" : ""));
 }
 
 static int opIdCostCmp(const void *a, const void *b, void *_strips)
@@ -2047,7 +2082,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
              num_slots, cache_size, mem);
 
     transSetsInit(ss, strips, mutex, mgroups, &ss->trans, err);
-    BOR_INFO2(err, "ransitions created.");
+    BOR_INFO2(err, "Transitions created.");
     constrInit(ss, &ss->constr, mutex, mgroups, err);
     BOR_INFO2(err, "Constraints created.");
     ss->init = createState(ss, &strips->init);
