@@ -424,8 +424,10 @@ static int constrConstructMutex(pddl_symbolic_task_t *ss,
                                 const pddl_mutex_pairs_t *mutex)
 {
     int num_mutexes = 0;
-    for (int fact1 = 0; fact1 < ss->fact_size; ++fact1){
-        for (int fact2 = fact1 + 1; fact2 < ss->fact_size; ++fact2){
+    for (int f1 = 0; f1 < ss->fact_size; ++f1){
+        int fact1 = ss->ordered_facts[f1];
+        for (int f2 = f1 + 1; f2 < ss->fact_size; ++f2){
+            int fact2 = ss->ordered_facts[f2];
             if (pddlMutexPairsIsMutex(mutex, fact1, fact2)){
                 bddsAddMutex(ss, bdds, fact1, fact2);
                 ++num_mutexes;
