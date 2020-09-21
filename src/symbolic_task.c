@@ -143,6 +143,8 @@ struct pddl_symbolic_strips {
     pddl_symbolic_strips_op_t *op;
     int op_size;
     bor_iset_t *fact_mutex;
+    bor_iset_t *fact_mutex_fw;
+    bor_iset_t *fact_mutex_bw;
     pddl_disambiguate_t *disambiguate;
 };
 typedef struct pddl_symbolic_strips pddl_symbolic_strips_t;
@@ -678,7 +680,7 @@ static void transInit(pddl_symbolic_task_t *ss,
     if (ss->cfg.use_op_constr){
         BOR_ISET(mutex);
         BOR_ISET_FOR_EACH(&op->uncovered_eff, fact_id){
-            borISetMinus2(&mutex, ss->strips.fact_mutex + fact_id,
+            borISetMinus2(&mutex, ss->strips.fact_mutex_fw + fact_id,
                           &op->add_eff);
             borISetMinus(&mutex, &op->pre);
             borISetMinus(&mutex, &op->neg_pre);
@@ -1855,46 +1857,6 @@ static void determineFactOrdering(const pddl_symbolic_strips_t *strips,
     pddlMGroupsFree(&mgs);
     BOR_FREE(fact_comp);
     pddlSCCGraphFree(&graph);
-
-    /*
-    pddl_cg_t cg;
-    pddlCGInitMGroups(&cg, strips->fact_size, &strips2->op, &mgs, 1);
-    int *mg_order = BOR_ALLOC_ARR(int, mgs.mgroup_size);
-    BOR_ISET(goal);
-    for (int mgi = 0; mgi < mgs.mgroup_size; ++mgi){
-        if (!borISetIsDisjoint(&mgs.mgroup[mgi].mgroup, &strips2->goal))
-            borISetAdd(&goal, mgi);
-    }
-    pddlCGVarOrdering(&cg, &goal, mg_order);
-    printf("MG ORDER:");
-    for (int mgi = 0; mgi < mgs.mgroup_size; ++mgi)
-        printf(" %d", mg_order[mgi]);
-    printf("\n");
-
-    int ins = 0;
-    for (int mgi = 0; mgi < mgs.mgroup_size; ++mgi){
-        const bor_iset_t *mg = &mgs.mgroup[mg_order[mgi]].mgroup;
-        int fact;
-        BOR_ISET_FOR_EACH(mg, fact)
-            ordering[ins++] = fact;
-    }
-
-    borISetFree(&goal);
-    BOR_FREE(mg_order);
-    pddlCGFree(&cg);
-    */
-
-    /*
-    for (int i = 0; i < strips->fact_size / 2; ++i){
-        int tmp;
-        BOR_SWAP(ordering[i], ordering[strips->fact_size - i - 1], tmp);
-    }
-    */
-
-    printf("ORDER:");
-    for (int f = 0; f < strips->fact_size; ++f)
-        printf(" %d", ordering[f]);
-    printf("\n");
 }
 
 static void stripsInitOp(pddl_symbolic_strips_t *strips,
@@ -1927,11 +1889,11 @@ static void stripsInitOp(pddl_symbolic_strips_t *strips,
         // Find negative preconditions
         int fact;
         BOR_ISET_FOR_EACH(&op->pre, fact)
-            borISetUnion(&op->neg_pre, strips->fact_mutex + fact);
+            borISetUnion(&op->neg_pre, strips->fact_mutex_fw + fact);
 
         // E-delete facts that are mutex with the add effect
         BOR_ISET_FOR_EACH(&op->add_eff, fact)
-            borISetUnion(&op->del_eff, strips->fact_mutex + fact);
+            borISetUnion(&op->del_eff, strips->fact_mutex_bw + fact);
     }
 
     borISetUnion2(&op->uncovered_eff, &op->add_eff, &op->del_eff);
@@ -1969,9 +1931,19 @@ static void stripsInit(pddl_symbolic_strips_t *strips,
     strips->fact_size = fact_size;
 
     strips->fact_mutex = BOR_CALLOC_ARR(bor_iset_t, fact_size);
+    strips->fact_mutex_fw = BOR_CALLOC_ARR(bor_iset_t, fact_size);
+    strips->fact_mutex_bw = BOR_CALLOC_ARR(bor_iset_t, fact_size);
     PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
         borISetAdd(strips->fact_mutex + f1, f2);
         borISetAdd(strips->fact_mutex + f2, f1);
+        if (pddlMutexPairsIsFwMutex(mutex, f1, f2)){
+            borISetAdd(strips->fact_mutex_fw + f1, f2);
+            borISetAdd(strips->fact_mutex_fw + f2, f1);
+        }
+        if (pddlMutexPairsIsBwMutex(mutex, f1, f2)){
+            borISetAdd(strips->fact_mutex_bw + f1, f2);
+            borISetAdd(strips->fact_mutex_bw + f2, f1);
+        }
     }
 
     if (cfg->use_disambiguation){
@@ -2002,9 +1974,14 @@ static void stripsFree(pddl_symbolic_strips_t *strips)
         stripsFreeOp(strips->op + i);
     BOR_FREE(strips->op);
 
-    for (int i = 0; i < strips->fact_size; ++i)
+    for (int i = 0; i < strips->fact_size; ++i){
         borISetFree(strips->fact_mutex + i);
+        borISetFree(strips->fact_mutex_fw + i);
+        borISetFree(strips->fact_mutex_bw + i);
+    }
     BOR_FREE(strips->fact_mutex);
+    BOR_FREE(strips->fact_mutex_fw);
+    BOR_FREE(strips->fact_mutex_bw);
 
     if (strips->disambiguate != NULL){
         pddlDisambiguateFree(strips->disambiguate);

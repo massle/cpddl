@@ -1438,8 +1438,19 @@ static void planPrint(const pddl_strips_t *strips,
 
 static int symba(void)
 {
+    pddl_mgroups_t mgs;
+    pddlMGroupsInitEmpty(&mgs);
+    pddlMGroupsExtractCoverEssential(&mgroups, &mgs);
+
+    pddl_fdr_t fdr;
+    unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
+                         fdr_var_flag, &err);
+
     pddl_mg_strips_t mg_strips;
-    pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    //pddlMGStripsInit(&mg_strips, &strips, &mgroups);
+    pddlMGStripsInit(&mg_strips, &strips, &mgs);
+    //pddlMGStripsInitFDR(&mg_strips, &fdr);
 
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
