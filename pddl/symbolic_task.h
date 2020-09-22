@@ -45,6 +45,7 @@ struct pddl_symbolic_task_config {
     float constr_max_time;
     int use_disambiguation;
     int use_op_constr;
+    float goal_constr_max_time;
 };
 typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 
@@ -60,6 +61,7 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         -1.f, /* .constr_max_time */ \
         1, /* .use_disambiguation */ \
         1, /* .use_op_constr */ \
+        30., /* .goal_constr_max_time */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;
@@ -71,6 +73,11 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           bor_err_t *err);
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
+
+/**
+ * Returns true if applying constraints on the goal failed.
+ */
+int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task);
 
 int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
                              bor_iarr_t *plan,

@@ -164,6 +164,8 @@ struct pddl_symbolic_task {
     pddl_symbolic_constr_t constr; /*!< Constraints */
     DdNode *init; /*!< Initial state */
     DdNode *goal; /*!< Goal states */
+    int goal_constr_failed; /*!< True if applying constraints on the goal
+                                 failed */
 };
 
 #define IS_FALSE(DDM, BDD) \
@@ -556,6 +558,52 @@ static DdNode *constrApplyBw(pddl_symbolic_task_t *ss,
 {
     bdd = bddsAnd(ss, &constr->bw_mutex, bdd);
     return bddsAnd(ss, &constr->bw_mgroup, bdd);
+}
+
+static int constrApplyBwLimit(pddl_symbolic_task_t *ss,
+                              pddl_symbolic_constr_t *constr,
+                              DdNode **out,
+                              float max_time)
+{
+    if (max_time > 0.){
+        Cudd_SetTimeLimit(ss->ddm, max_time * 1000);
+        Cudd_ResetStartTime(ss->ddm);
+    }
+    DdNode *bdd = *out;
+    Cudd_Ref(bdd);
+
+    for (int i = 0; i < constr->bw_mutex.bdd_size; ++i){
+        DdNode *res = Cudd_bddAnd(ss->ddm, bdd, constr->bw_mutex.bdd[i]);
+        if (res == NULL){
+            DEREF(ss->ddm, bdd);
+            if (max_time > 0.)
+                Cudd_UnsetTimeLimit(ss->ddm);
+            return -1;
+        }
+        Cudd_Ref(res);
+        DEREF(ss->ddm, bdd);
+        bdd = res;
+    }
+
+    for (int i = 0; i < constr->bw_mgroup.bdd_size; ++i){
+        DdNode *res = Cudd_bddAnd(ss->ddm, bdd, constr->bw_mgroup.bdd[i]);
+        if (res == NULL){
+            DEREF(ss->ddm, bdd);
+            if (max_time > 0.)
+                Cudd_UnsetTimeLimit(ss->ddm);
+            return -1;
+        }
+        Cudd_Ref(res);
+        DEREF(ss->ddm, bdd);
+        bdd = res;
+    }
+
+    if (max_time > 0.)
+        Cudd_UnsetTimeLimit(ss->ddm);
+
+    DEREF(ss->ddm, *out);
+    *out = bdd;
+    return 0;
 }
 
 
@@ -2089,8 +2137,16 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     ss->init = createState(ss, &strips->init);
     BOR_INFO2(err, "Initial state created.");
     ss->goal = createPartialState(ss, &strips->goal);
-    ss->goal = constrApplyBw(ss, &ss->constr, ss->goal);
     BOR_INFO2(err, "Goal state created.");
+
+    BOR_INFO2(err, "Applying constraints on the goal ...");
+    if (constrApplyBwLimit(ss, &ss->constr, &ss->goal,
+                           ss->cfg.goal_constr_max_time) == 0){
+        BOR_INFO2(err, "Goal updated with constraints");
+    }else{
+        BOR_INFO2(err, "Applying constraints on the goal failed.");
+        ss->goal_constr_failed = 1;
+    }
 
     ASSERT(Cudd_DebugCheck(ss->ddm) == 0);
 
@@ -2137,6 +2193,10 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
     BOR_FREE(ss);
 }
 
+int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task)
+{
+    return task->goal_constr_failed;
+}
 
 static int searchOneDir(pddl_symbolic_task_t *ss,
                         pddl_symbolic_search_t *search,
@@ -2530,6 +2590,12 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states)
 {
     BOR_FATAL2("Requires CUDD library");
+}
+
+int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task)
+{
+    BOR_FATAL2("Requires CUDD library");
+    return 0;
 }
 
 int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,

@@ -1466,7 +1466,15 @@ static int symba(void)
                                &mutex, &symb_cfg, &err);
 
     BOR_IARR(plan);
-    int res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+    int res;
+    if (pddlSymbolicTaskGoalConstrFailed(task)){
+        BOR_INFO2(&err, "Switching to fw-only search.");
+        res = pddlSymbolicTaskSearchFw(task, &plan, &err);
+        //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+    }else{
+        res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+    }
+
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){
         int cost = 0;
         int op;
