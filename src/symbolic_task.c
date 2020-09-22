@@ -21,6 +21,7 @@
 
 #ifdef PDDL_CUDD
 
+#include <sys/resource.h>
 #include <stdio.h>
 #include <cudd/cudd.h>
 #include <boruvka/alloc.h>
@@ -1848,10 +1849,6 @@ static void determineFactOrdering(const pddl_symbolic_strips_t *strips,
     pddl_mgroups_t mgs;
     pddlMGroupsInitEmpty(&mgs);
     pddlMGroupsExtractCoverEssential(mgroup, &mgs);
-    for (int mgi = 0; mgi < mgs.mgroup_size; ++mgi){
-        pddlISetPrint(&mgs.mgroup[mgi].mgroup, stdout);
-        fprintf(stdout, "\n");
-    }
     groupMGroups(strips, &mgs, ordering);
 
     pddlMGroupsFree(&mgs);
@@ -1989,6 +1986,26 @@ static void stripsFree(pddl_symbolic_strips_t *strips)
     }
 }
 
+static void outOfMemory(size_t mem_size)
+{
+    fflush(stdout);
+    fprintf(stderr, "Error: CUDD: Memory allocation failed"
+                    " when requested %lu bytes.\n",
+            (unsigned long)mem_size);
+    fflush(stderr);
+
+    struct rusage usg;
+    unsigned long peak_mem = 0L;
+    if (getrusage(RUSAGE_SELF, &usg) == 0)
+        peak_mem = usg.ru_maxrss / 1024UL;
+    fprintf(stderr, "Error: Memory allocation failed"
+                    " (peak memory: %luMB).\n",
+            peak_mem);
+    fflush(stderr);
+
+    exit(-1);
+}
+
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_mgroups_t *mgroups,
                                           const pddl_mutex_pairs_t *mutex,
@@ -2061,6 +2078,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
         pddlSymbolicTaskDel(ss);
         BOR_ERR_RET2(err, NULL, "Initialization of CUDD failed.");
     }
+    Cudd_RegisterOutOfMemoryCallback(ss->ddm, outOfMemory);
     BOR_INFO(err, "CUDD initialized with slots: %u, cache size: %u, mem: %lu",
              num_slots, cache_size, mem);
 
