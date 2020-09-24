@@ -143,6 +143,7 @@ struct pddl_symbolic_strips {
     int fact_size;
     pddl_symbolic_strips_op_t *op;
     int op_size;
+    pddl_mgroups_t mgroup;
     bor_iset_t *fact_mutex;
     bor_iset_t *fact_mutex_fw;
     bor_iset_t *fact_mutex_bw;
@@ -316,6 +317,34 @@ static DdNode *createMutex(pddl_symbolic_task_t *ss, int fact1, int fact2)
     return bdd;
 }
 
+static DdNode *_createExactlyOneMGroup(pddl_symbolic_task_t *ss,
+                                       const bor_iset_t *mgroup,
+                                       const int *var)
+{
+    DdNode *bdd = Cudd_ReadLogicZero(ss->ddm);
+    Cudd_Ref(bdd);
+    int fact_id;
+    BOR_ISET_FOR_EACH(mgroup, fact_id){
+        DdNode *var1 = Cudd_bddIthVar(ss->ddm, var[fact_id]);
+        Cudd_Ref(var1);
+        bdd = bddOr(ss->ddm, bdd, var1);
+        DEREF(ss->ddm, var1);
+    }
+    return bdd;
+}
+
+static DdNode *createExactlyOneMGroupPre(pddl_symbolic_task_t *ss,
+                                         const bor_iset_t *mgroup)
+{
+    return _createExactlyOneMGroup(ss, mgroup, ss->pre_fact_to_var);
+}
+
+static DdNode *createExactlyOneMGroupEff(pddl_symbolic_task_t *ss,
+                                         const bor_iset_t *mgroup)
+{
+    return _createExactlyOneMGroup(ss, mgroup, ss->eff_fact_to_var);
+}
+
 static void bddsAddMutex(pddl_symbolic_task_t *ss,
                          pddl_symbolic_bdds_t *bdds,
                          int fact1,
@@ -330,15 +359,7 @@ static void bddsAddExactlyOneMGroup(pddl_symbolic_task_t *ss,
                                     pddl_symbolic_bdds_t *bdds,
                                     const bor_iset_t *mgroup)
 {
-    DdNode *bdd = Cudd_ReadOne(ss->ddm);
-    Cudd_Ref(bdd);
-    int fact_id;
-    BOR_ISET_FOR_EACH(mgroup, fact_id){
-        DdNode *var1 = Cudd_bddIthVar(ss->ddm, ss->pre_fact_to_var[fact_id]);
-        Cudd_Ref(var1);
-        bdd = bddOr(ss->ddm, bdd, var1);
-        DEREF(ss->ddm, var1);
-    }
+    DdNode *bdd = createExactlyOneMGroupPre(ss, mgroup);
     bddsAdd(ss, bdds, bdd);
     DEREF(ss->ddm, bdd);
 }
@@ -444,23 +465,6 @@ static int constrConstructMutex(pddl_symbolic_task_t *ss,
     return num_mutexes;
 }
 
-static int constrConstructFwMGroup(pddl_symbolic_task_t *ss,
-                                   pddl_symbolic_bdds_t *bdds,
-                                   const pddl_mgroups_t *mgroup)
-{
-    int num_mgroups = 0;
-    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
-        const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
-        if (mg->is_fam_group && mg->is_goal){
-            bddsAddExactlyOneMGroup(ss, bdds, &mg->mgroup);
-            ++num_mgroups;
-        }
-    }
-
-    bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
-    return num_mgroups;
-}
-
 static int constrConstructBwMGroup(pddl_symbolic_task_t *ss,
                                    pddl_symbolic_bdds_t *bdds,
                                    const pddl_mgroups_t *mgroup)
@@ -518,12 +522,6 @@ static void constrInit(pddl_symbolic_task_t *ss,
     }
 
     if (mgroup != NULL){
-        int num_fw = constrConstructFwMGroup(ss, &constr->fw_mgroup, mgroup);
-        BOR_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups"
-                      " nodes: %lu",
-                 constr->fw_mgroup.bdd_size, num_fw,
-                 bddsNodes(&constr->fw_mgroup));
-
         int num_bw = constrConstructBwMGroup(ss, &constr->bw_mgroup, mgroup);
         BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups"
                       " nodes: %lu",
@@ -742,6 +740,19 @@ static void transInit(pddl_symbolic_task_t *ss,
             }
         }
         borISetFree(&mutex);
+
+        for (int mgi = 0; mgi < ss->strips.mgroup.mgroup_size; ++mgi){
+            const pddl_mgroup_t *mg = ss->strips.mgroup.mgroup + mgi;
+            if (!mg->is_exactly_one)
+                continue;
+            if (borISetIsDisjoint(&mg->mgroup, &op->add_eff)
+                    && borISetIsDisjoint(&mg->mgroup, &op->del_eff)){
+                continue;
+            }
+            DdNode *bdd = createExactlyOneMGroupPre(ss, &mg->mgroup);
+            tr->bdd = bddAnd(ss->ddm, tr->bdd, bdd);
+            DEREF(ss->ddm, bdd);
+        }
     }
 
     borISetUnion2(&tr->eff_facts, &op->add_eff, &op->del_eff);
@@ -1975,6 +1986,7 @@ static void stripsInit(pddl_symbolic_strips_t *strips,
     bzero(strips, sizeof(*strips));
     strips->fact_size = fact_size;
 
+    pddlMGroupsInitCopy(&strips->mgroup, mgroups);
     strips->fact_mutex = BOR_CALLOC_ARR(bor_iset_t, fact_size);
     strips->fact_mutex_fw = BOR_CALLOC_ARR(bor_iset_t, fact_size);
     strips->fact_mutex_bw = BOR_CALLOC_ARR(bor_iset_t, fact_size);
@@ -2027,6 +2039,8 @@ static void stripsFree(pddl_symbolic_strips_t *strips)
     BOR_FREE(strips->fact_mutex);
     BOR_FREE(strips->fact_mutex_fw);
     BOR_FREE(strips->fact_mutex_bw);
+
+    pddlMGroupsFree(&strips->mgroup);
 
     if (strips->disambiguate != NULL){
         pddlDisambiguateFree(strips->disambiguate);
@@ -2500,6 +2514,18 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
                 DdNode *tmp = fw_node[fi + 1];
                 Cudd_Ref(tmp);
                 tmp = constrApplyFw(ss, &ss->constr, tmp);
+
+                DdNode *diff;
+                diff = Cudd_bddAnd(ss->ddm, tmp, Cudd_Not(fw_node[fi + 1]));
+                Cudd_Ref(diff);
+                ASSERT(IS_FALSE(ss->ddm, diff));
+                DEREF(ss->ddm, diff);
+
+                diff = Cudd_bddAnd(ss->ddm, Cudd_Not(tmp), fw_node[fi + 1]);
+                Cudd_Ref(diff);
+                ASSERT(IS_FALSE(ss->ddm, diff));
+                DEREF(ss->ddm, diff);
+
                 if (tmp != fw_node[fi + 1])
                     res = 0;
                 ASSERT(tmp == fw_node[fi + 1]);
