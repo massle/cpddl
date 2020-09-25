@@ -24,6 +24,7 @@
 #include <pddl/strips.h>
 #include <pddl/mgroup.h>
 #include <pddl/mutex_pair.h>
+#include <pddl/bdd.h>
 
 #ifdef __cplusplus
 extern "C" {

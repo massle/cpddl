@@ -139,7 +139,7 @@ endif
 
 CUDD_CFLAGS ?=
 CUDD_LDFLAGS ?=
-USE_CUDD = auto
+USE_CUDD ?= auto
 ifeq '$(USE_CUDD)' 'auto'
   USE_LOCAL_CUDD ?= $(shell if test -f $(BASEPATH_)/third-party/cudd/libcudd.a; then echo "yes"; else echo "no"; fi;)
   ifeq '$(USE_LOCAL_CUDD)' 'yes'
