@@ -19,11 +19,6 @@
 
 #include "pddl/config.h"
 
-#ifdef PDDL_CUDD
-
-#include <sys/resource.h>
-#include <stdio.h>
-#include <cudd/cudd.h>
 #include <boruvka/alloc.h>
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
@@ -71,24 +66,17 @@ struct pddl_symbolic_bdd_vars {
 };
 typedef struct pddl_symbolic_bdd_vars pddl_symbolic_bdd_vars_t;
 
-struct pddl_symbolic_bdds {
-    pddl_bdd_t **bdd;
-    int bdd_size;
-    int bdd_alloc;
-};
-typedef struct pddl_symbolic_bdds pddl_symbolic_bdds_t;
-
 struct pddl_symbolic_constr {
-    pddl_symbolic_bdds_t fw_mutex;
-    pddl_symbolic_bdds_t fw_mgroup;
-    pddl_symbolic_bdds_t bw_mutex;
-    pddl_symbolic_bdds_t bw_mgroup;
+    pddl_bdds_t fw_mutex;
+    pddl_bdds_t fw_mgroup;
+    pddl_bdds_t bw_mutex;
+    pddl_bdds_t bw_mgroup;
 };
 typedef struct pddl_symbolic_constr pddl_symbolic_constr_t;
 
-typedef pddl_bdd_t *(*constr_apply_fn)(pddl_symbolic_task_t *ss,
-                                   pddl_symbolic_constr_t *constr,
-                                   pddl_bdd_t *bdd);
+typedef void (*constr_apply_fn)(pddl_symbolic_task_t *ss,
+                                pddl_symbolic_constr_t *constr,
+                                pddl_bdd_t **bdd);
 
 
 struct pddl_symbolic_trans {
@@ -428,40 +416,6 @@ static pddl_bdd_t *createBiimpGroup(pddl_symbolic_task_t *ss, int gid)
     return res;
 }
 
-static void bddsInit(pddl_symbolic_bdds_t *bdds)
-{
-    bzero(bdds, sizeof(*bdds));
-}
-
-static void bddsFree(pddl_symbolic_task_t *ss,
-                     pddl_symbolic_bdds_t *bdds)
-{
-    for (int i = 0; i < bdds->bdd_size; ++i)
-        pddlBDDDel(ss->ddm, bdds->bdd[i]);
-    if (bdds->bdd != NULL)
-        BOR_FREE(bdds->bdd);
-}
-
-static void bddsAdd(pddl_symbolic_task_t *ss,
-                    pddl_symbolic_bdds_t *bdds,
-                    pddl_bdd_t *bdd)
-{
-    if (bdds->bdd_size == bdds->bdd_alloc){
-        if (bdds->bdd_alloc == 0)
-            bdds->bdd_alloc = 8;
-        bdds->bdd_alloc *= 2;
-        bdds->bdd = BOR_REALLOC_ARR(bdds->bdd, pddl_bdd_t *, bdds->bdd_alloc);
-    }
-    bdds->bdd[bdds->bdd_size++] = pddlBDDClone(ss->ddm, bdd);
-}
-
-static long bddsNodes(const pddl_symbolic_bdds_t *bdds)
-{
-    long nodes = 0;
-    for (int i = 0; i < bdds->bdd_size; ++i)
-        nodes += pddlBDDSize(bdds->bdd[i]);
-    return nodes;
-}
 
 static pddl_bdd_t *_createMutex(pddl_symbolic_task_t *ss,
                             pddl_bdd_t **bdds,
@@ -516,107 +470,28 @@ static pddl_bdd_t *createExactlyOneMGroupEff(pddl_symbolic_task_t *ss,
 }
 
 static void bddsAddMutex(pddl_symbolic_task_t *ss,
-                         pddl_symbolic_bdds_t *bdds,
+                         pddl_bdds_t *bdds,
                          int fact1,
                          int fact2)
 {
     pddl_bdd_t *mutex = createMutexPre(ss, fact1, fact2);
-    bddsAdd(ss, bdds, mutex);
+    pddlBDDsAdd(ss->ddm, bdds, mutex);
     pddlBDDDel(ss->ddm, mutex);
 }
 
 static void bddsAddExactlyOneMGroup(pddl_symbolic_task_t *ss,
-                                    pddl_symbolic_bdds_t *bdds,
+                                    pddl_bdds_t *bdds,
                                     const bor_iset_t *mgroup)
 {
     pddl_bdd_t *bdd = createExactlyOneMGroupPre(ss, mgroup);
-    bddsAdd(ss, bdds, bdd);
+    pddlBDDsAdd(ss->ddm, bdds, bdd);
     pddlBDDDel(ss->ddm, bdd);
 }
 
-static void bddsMergeAnd(pddl_symbolic_task_t *ss,
-                         pddl_symbolic_bdds_t *bdds,
-                         int max_nodes,
-                         float max_time)
-{
-    if (bdds->bdd_size == 0)
-        return;
-
-    pddl_bdd_t **bdd = BOR_CALLOC_ARR(pddl_bdd_t *, bdds->bdd_size);
-    int bdd_size = bdds->bdd_size;
-    memcpy(bdd, bdds->bdd, sizeof(pddl_bdd_t *) * bdd_size);
-    bdds->bdd_size = 0;
-
-    pddl_time_limit_t time_limit;
-    pddlTimeLimitInit(&time_limit);
-    pddlTimeLimitSet(&time_limit, max_time);
-    while (bdd_size > 1){
-        if (pddlTimeLimitCheck(&time_limit) < 0)
-            break;
-
-        int ins = 0;
-        for (int i = 0; i < bdd_size; i = i + 2){
-            if (i + 1 >= bdd_size){
-                bdd[ins++] = bdd[i];
-                continue;
-            }
-
-            pddl_bdd_t *bdd1 = bdd[i];
-            pddl_bdd_t *bdd2 = bdd[i + 1];
-            if (bdd1 == NULL && bdd2 == NULL){
-                bdd[ins] = NULL;
-
-            }else if (bdd1 == NULL){
-                bdd[ins] = bdd2;
-
-            }else if (bdd2 == NULL){
-                bdd[ins] = bdd1;
-
-            }else{
-                pddl_bdd_t *res = NULL;
-                if (pddlBDDSize(bdd1) < max_nodes
-                       && pddlBDDSize(bdd2) < max_nodes){
-                    res = pddlBDDAndLimit(ss->ddm, bdd1, bdd2, max_nodes,
-                                          &time_limit);
-                }
-
-                if (res != NULL){
-                    bdd[ins] = res;
-                }else{
-                    bddsAdd(ss, bdds, bdd1);
-                    bddsAdd(ss, bdds, bdd2);
-                    bdd[ins] = NULL;
-                }
-                pddlBDDDel(ss->ddm, bdd1);
-                pddlBDDDel(ss->ddm, bdd2);
-            }
-            ++ins;
-        }
-        bdd_size = ins;
-    }
-
-    for (int i = 0; i < bdd_size; ++i){
-        if (bdd[i] != NULL){
-            bddsAdd(ss, bdds, bdd[i]);
-            pddlBDDDel(ss->ddm, bdd[i]);
-        }
-    }
-
-    BOR_FREE(bdd);
-}
-
-static pddl_bdd_t *bddsAnd(pddl_symbolic_task_t *ss,
-                       pddl_symbolic_bdds_t *bdds,
-                       pddl_bdd_t *bdd)
-{
-    for (int i = 0; i < bdds->bdd_size; ++i)
-        pddlBDDAndUpdate(ss->ddm, &bdd, bdds->bdd[i]);
-    return bdd;
-}
 
 
 static int constrConstructMutex(pddl_symbolic_task_t *ss,
-                                pddl_symbolic_bdds_t *bdds,
+                                pddl_bdds_t *bdds,
                                 const pddl_mutex_pairs_t *mutex)
 {
     int num_mutexes = 0;
@@ -631,12 +506,13 @@ static int constrConstructMutex(pddl_symbolic_task_t *ss,
         }
     }
 
-    bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
+    pddlBDDsMergeAnd(ss->ddm, bdds, ss->cfg.constr_max_nodes,
+                     ss->cfg.constr_max_time);
     return num_mutexes;
 }
 
 static int constrConstructBwMGroup(pddl_symbolic_task_t *ss,
-                                   pddl_symbolic_bdds_t *bdds,
+                                   pddl_bdds_t *bdds,
                                    const pddl_mgroups_t *mgroup)
 {
     int num_mgroups = 0;
@@ -648,7 +524,8 @@ static int constrConstructBwMGroup(pddl_symbolic_task_t *ss,
         }
     }
 
-    bddsMergeAnd(ss, bdds, ss->cfg.constr_max_nodes, ss->cfg.constr_max_time);
+    pddlBDDsMergeAnd(ss->ddm, bdds, ss->cfg.constr_max_nodes,
+                     ss->cfg.constr_max_time);
     return num_mgroups;
 }
 
@@ -660,10 +537,10 @@ static void constrInit(pddl_symbolic_task_t *ss,
 {
     BOR_INFO2(err, "Constructing constraint BDDs ...");
 
-    bddsInit(&constr->fw_mutex);
-    bddsInit(&constr->fw_mgroup);
-    bddsInit(&constr->bw_mutex);
-    bddsInit(&constr->bw_mgroup);
+    pddlBDDsInit(&constr->fw_mutex);
+    pddlBDDsInit(&constr->fw_mgroup);
+    pddlBDDsInit(&constr->bw_mutex);
+    pddlBDDsInit(&constr->bw_mgroup);
 
     pddl_mutex_pairs_t fw_mutex;
     pddl_mutex_pairs_t bw_mutex;
@@ -680,7 +557,7 @@ static void constrInit(pddl_symbolic_task_t *ss,
         BOR_INFO(err, "Created %d fw-mutex BDDs from %d mutexes."
                       " nodes: %lu",
                  constr->fw_mutex.bdd_size, num,
-                 bddsNodes(&constr->fw_mutex));
+                 pddlBDDsSize(&constr->fw_mutex));
     }
 
     if (fw_mutex.num_mutex_pairs > 0){
@@ -688,7 +565,7 @@ static void constrInit(pddl_symbolic_task_t *ss,
         BOR_INFO(err, "Created %d bw-mutex BDDs from %d mutexes"
                       " nodes: %lu",
                  constr->bw_mutex.bdd_size, num,
-                 bddsNodes(&constr->bw_mutex));
+                 pddlBDDsSize(&constr->bw_mutex));
     }
 
     if (mgroup != NULL){
@@ -696,7 +573,7 @@ static void constrInit(pddl_symbolic_task_t *ss,
         BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups"
                       " nodes: %lu",
                  constr->bw_mgroup.bdd_size, num_bw,
-                 bddsNodes(&constr->bw_mgroup));
+                 pddlBDDsSize(&constr->bw_mgroup));
     }
 
     pddlMutexPairsFree(&fw_mutex);
@@ -706,26 +583,26 @@ static void constrInit(pddl_symbolic_task_t *ss,
 static void constrFree(pddl_symbolic_task_t *ss,
                        pddl_symbolic_constr_t *constr)
 {
-    bddsFree(ss, &constr->fw_mutex);
-    bddsFree(ss, &constr->fw_mgroup);
-    bddsFree(ss, &constr->bw_mutex);
-    bddsFree(ss, &constr->bw_mgroup);
+    pddlBDDsFree(ss->ddm, &constr->fw_mutex);
+    pddlBDDsFree(ss->ddm, &constr->fw_mgroup);
+    pddlBDDsFree(ss->ddm, &constr->bw_mutex);
+    pddlBDDsFree(ss->ddm, &constr->bw_mgroup);
 }
 
-static pddl_bdd_t *constrApplyFw(pddl_symbolic_task_t *ss,
-                             pddl_symbolic_constr_t *constr,
-                             pddl_bdd_t *bdd)
+static void constrApplyFw(pddl_symbolic_task_t *ss,
+                          pddl_symbolic_constr_t *constr,
+                           pddl_bdd_t **bdd)
 {
-    bdd = bddsAnd(ss, &constr->fw_mutex, bdd);
-    return bddsAnd(ss, &constr->fw_mgroup, bdd);
+    pddlBDDsAndUpdate(ss->ddm, &constr->fw_mutex, bdd);
+    pddlBDDsAndUpdate(ss->ddm, &constr->fw_mgroup, bdd);
 }
 
-static pddl_bdd_t *constrApplyBw(pddl_symbolic_task_t *ss,
-                             pddl_symbolic_constr_t *constr,
-                             pddl_bdd_t *bdd)
+static void constrApplyBw(pddl_symbolic_task_t *ss,
+                          pddl_symbolic_constr_t *constr,
+                          pddl_bdd_t **bdd)
 {
-    bdd = bddsAnd(ss, &constr->bw_mutex, bdd);
-    return bddsAnd(ss, &constr->bw_mgroup, bdd);
+    pddlBDDsAndUpdate(ss->ddm, &constr->bw_mutex, bdd);
+    pddlBDDsAndUpdate(ss->ddm, &constr->bw_mgroup, bdd);
 }
 
 static int constrApplyBwLimit(pddl_symbolic_task_t *ss,
@@ -1653,7 +1530,7 @@ static pddl_bdd_t *searchStateBDD(pddl_symbolic_task_t *ss,
         pddlBDDAndUpdate(ss->ddm, &state->bdd, nall);
         pddlBDDDel(ss->ddm, nall);
         if (search->constr_apply)
-            state->bdd = search->constr_apply(ss, &ss->constr, state->bdd);
+            search->constr_apply(ss, &ss->constr, &state->bdd);
     }
     return state->bdd;
 }
@@ -2676,7 +2553,7 @@ int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
             continue;
 
         pddl_bdd_t *next_states = transSetImage(ss, trs, bdd_state);
-        next_states = constrApplyFw(ss, &ss->constr, next_states);
+        constrApplyFw(ss, &ss->constr, &next_states);
         pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, next_states, bdd_res_state);
         if (pddlBDDIsFalse(ss->ddm, conj)){
             res = 0;
@@ -2704,7 +2581,7 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
             continue;
 
         pddl_bdd_t *next_states = transSetPreImage(ss, trs, bdd_state);
-        next_states = constrApplyBw(ss, &ss->constr, next_states);
+        constrApplyBw(ss, &ss->constr, &next_states);
         pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, next_states, bdd_res_state);
         if (pddlBDDIsFalse(ss->ddm, conj)){
             res = 0;
@@ -2739,7 +2616,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             fw_node[fi + 1] = transSetImage(ss, trs, fw_node[fi]);
             if (ss->cfg.use_op_constr){
                 pddl_bdd_t *tmp = pddlBDDClone(ss->ddm, fw_node[fi + 1]);
-                tmp = constrApplyFw(ss, &ss->constr, tmp);
+                constrApplyFw(ss, &ss->constr, &tmp);
 
                 pddl_bdd_t *fwnot = pddlBDDNot(ss->ddm, fw_node[fi + 1]);
                 pddl_bdd_t *diff;
@@ -2760,8 +2637,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
                 pddlBDDDel(ss->ddm, tmp);
 
             }else if (ss->cfg.use_constr){
-                fw_node[fi + 1] = constrApplyFw(ss, &ss->constr,
-                                                fw_node[fi + 1]);
+                constrApplyFw(ss, &ss->constr, &fw_node[fi + 1]);
             }
 
             pddl_bdd_t *nclosed = pddlBDDNot(ss->ddm, fw_closed);
@@ -2779,15 +2655,14 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             bw_node[fi2 - 1] = transSetPreImage(ss, trs, bw_node[fi2]);
             if (ss->cfg.use_op_constr){
                 pddl_bdd_t *tmp = pddlBDDClone(ss->ddm, bw_node[fi2 - 1]);
-                tmp = constrApplyBw(ss, &ss->constr, tmp);
+                constrApplyBw(ss, &ss->constr, &tmp);
                 //if (tmp != bw_node[fi2 - 1])
                 //    res = 0;
                 //ASSERT(tmp == bw_node[fi2 - 1]);
                 pddlBDDDel(ss->ddm, tmp);
 
             }else if (ss->cfg.use_constr){
-                bw_node[fi2 - 1] = constrApplyBw(ss, &ss->constr,
-                                                 bw_node[fi2 - 1]);
+                constrApplyBw(ss, &ss->constr, &bw_node[fi2 - 1]);
             }
             pddl_bdd_t *nclosed = pddlBDDNot(ss->ddm, bw_closed);
             pddlBDDAndUpdate(ss->ddm, &bw_node[fi2 - 1], nclosed);
@@ -2834,81 +2709,3 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
 
     return res;
 }
-
-#else /* PDDL_CUDD */
-
-#include "pddl/symbolic_task.h"
-
-pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
-                                          const pddl_mgroups_t *mgroups,
-                                          const pddl_mutex_pairs_t *mutex,
-                                          const pddl_symbolic_task_config_t *c,
-                                          bor_err_t *err)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return NULL;
-}
-
-void pddlSymbolicTaskDel(pddl_symbolic_task_t *states)
-{
-    BOR_FATAL2("Requires CUDD library");
-}
-
-int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
-                             bor_iarr_t *plan,
-                             bor_err_t *err)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
-                             bor_iarr_t *plan,
-                             bor_err_t *err)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
-                               bor_iarr_t *plan,
-                               bor_err_t *err)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
-                                 const bor_iset_t *state,
-                                 const bor_iset_t *res_state,
-                                 int op_id)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
-                                 const bor_iset_t *state,
-                                 const bor_iset_t *res_state,
-                                 int op_id)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
-                              const bor_iset_t *states,
-                              const bor_iarr_t *op,
-                              int plan_size)
-{
-    BOR_FATAL2("Requires CUDD library");
-    return 0;
-}
-
-#endif /* PDDL_CUDD */

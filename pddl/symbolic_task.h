@@ -25,6 +25,7 @@
 #include <pddl/mgroup.h>
 #include <pddl/mutex_pair.h>
 #include <pddl/bdd.h>
+#include <pddl/bdds.h>
 
 #ifdef __cplusplus
 extern "C" {
