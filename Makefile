@@ -106,6 +106,7 @@ OBJS += trans_system_abstr_map
 OBJS += trans_system_graph
 OBJS += bdd
 OBJS += bdds
+OBJS += symbolic_vars
 OBJS += symbolic_task
 OBJS += cost
 

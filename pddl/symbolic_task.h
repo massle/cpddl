@@ -26,6 +26,7 @@
 #include <pddl/mutex_pair.h>
 #include <pddl/bdd.h>
 #include <pddl/bdds.h>
+#include <pddl/symbolic_vars.h>
 
 #ifdef __cplusplus
 extern "C" {
