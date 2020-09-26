@@ -27,6 +27,7 @@
 #include <pddl/bdd.h>
 #include <pddl/bdds.h>
 #include <pddl/symbolic_vars.h>
+#include <pddl/symbolic_constr.h>
 
 #ifdef __cplusplus
 extern "C" {

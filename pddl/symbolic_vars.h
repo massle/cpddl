@@ -48,6 +48,7 @@ struct pddl_symbolic_vars {
     pddl_bdd_manager_t *mgr;
     pddl_bdd_t *valid_states;
     int bdd_var_size;
+    int *ordered_facts;
 };
 typedef struct pddl_symbolic_vars pddl_symbolic_vars_t;
 

@@ -38,6 +38,9 @@ void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,
         fact->val = -1;
     }
 
+    vars->ordered_facts = BOR_ALLOC_ARR(int, fact_size);
+
+    int fact_ins = 0;
     int var_id = 0;
     vars->bdd_var_size = 0;
     for (int mgi = 0; mgi < vars->group_size; ++mgi){
@@ -60,6 +63,7 @@ void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,
             ASSERT(fact->val < 0);
             fact->group_id = group->id;
             fact->val = val++;
+            vars->ordered_facts[fact_ins++] = fact_id;
         }
     }
 }
@@ -143,6 +147,9 @@ void pddlSymbolicVarsFree(pddl_symbolic_vars_t *vars)
     
     if (vars->valid_states != NULL)
         pddlBDDDel(vars->mgr, vars->valid_states);
+
+    if (vars->ordered_facts != NULL)
+        BOR_FREE(vars->ordered_facts);
 }
 
 pddl_bdd_t *pddlSymbolicVarsCreateState(pddl_symbolic_vars_t *vars,
