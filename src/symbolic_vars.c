@@ -239,3 +239,32 @@ int pddlSymbolicVarsFactFromBDDCube(const pddl_symbolic_vars_t *vars,
 
     return -1;
 }
+
+void pddlSymbolicVarsGroupsBDDVars(pddl_symbolic_vars_t *vars,
+                                   const bor_iset_t *groups,
+                                   pddl_bdd_t ***var_pre,
+                                   pddl_bdd_t ***var_eff,
+                                   int *var_size)
+{
+    int group_id;
+
+    *var_size = 0;
+    BOR_ISET_FOR_EACH(groups, group_id)
+        *var_size += borISetSize(&vars->group[group_id].pre_var);
+
+    *var_pre = BOR_CALLOC_ARR(pddl_bdd_t *, *var_size);
+    *var_eff = BOR_CALLOC_ARR(pddl_bdd_t *, *var_size);
+    int ins = 0;
+    BOR_ISET_FOR_EACH(groups, group_id){
+        const bor_iset_t *pre_var = &vars->group[group_id].pre_var;
+        const bor_iset_t *eff_var = &vars->group[group_id].eff_var;
+        for (int j = 0; j < borISetSize(pre_var); ++j){
+            pddl_bdd_t *vpre = pddlBDDVar(vars->mgr, borISetGet(pre_var, j));
+            pddl_bdd_t *veff = pddlBDDVar(vars->mgr, borISetGet(eff_var, j));
+            (*var_pre)[ins] = vpre;
+            (*var_eff)[ins] = veff;
+            ++ins;
+        }
+    }
+    ASSERT(ins == *var_size);
+}

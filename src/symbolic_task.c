@@ -413,29 +413,8 @@ static void transSetsFree(pddl_symbolic_task_t *ss,
 static void transInitEffVars(pddl_symbolic_task_t *ss,
                              pddl_symbolic_trans_t *tr)
 {
-    int group_id;
-
-    tr->var_size = 0;
-    BOR_ISET_FOR_EACH(&tr->eff_groups, group_id)
-        tr->var_size += borISetSize(&ss->vars.group[group_id].pre_var);
-
-    tr->var_pre = BOR_CALLOC_ARR(pddl_bdd_t *, tr->var_size);
-    tr->var_eff = BOR_CALLOC_ARR(pddl_bdd_t *, tr->var_size);
-    int ins = 0;
-    BOR_ISET_FOR_EACH(&tr->eff_groups, group_id){
-        const bor_iset_t *pre_var = &ss->vars.group[group_id].pre_var;
-        const bor_iset_t *eff_var = &ss->vars.group[group_id].eff_var;
-        for (int j = 0; j < borISetSize(pre_var); ++j){
-            int var_pre = borISetGet(pre_var, j);
-            int var_eff = borISetGet(eff_var, j);
-            pddl_bdd_t *vpre = pddlBDDVar(ss->ddm, var_pre);
-            pddl_bdd_t *veff = pddlBDDVar(ss->ddm, var_eff);
-            tr->var_pre[ins] = vpre;
-            tr->var_eff[ins] = veff;
-            ++ins;
-        }
-    }
-
+    pddlSymbolicVarsGroupsBDDVars(&ss->vars, &tr->eff_groups,
+                                  &tr->var_pre, &tr->var_eff, &tr->var_size);
     tr->exist_pre = pddlBDDCube(ss->ddm, tr->var_pre, tr->var_size);
     tr->exist_eff = pddlBDDCube(ss->ddm, tr->var_eff, tr->var_size);
 }
@@ -447,72 +426,55 @@ static void transInit(pddl_symbolic_task_t *ss,
 {
     ASSERT(!op->is_dead);
 
-    tr->bdd = pddlBDDOne(ss->ddm);
-
     // Build the BDD from bottom up by first filling the array bdds and
     // then going over it from last to the first item
-    pddl_bdd_t **bdds = BOR_CALLOC_ARR(pddl_bdd_t *, ss->vars.bdd_var_size);
+    pddl_bdd_t **bdds = BOR_CALLOC_ARR(pddl_bdd_t *, 2 * ss->vars.group_size);
     int *pre_set = BOR_CALLOC_ARR(int, ss->vars.group_size);
     int *eff_set = BOR_CALLOC_ARR(int, ss->vars.group_size);
 
     int fact_id;
     BOR_ISET_FOR_EACH(&op->pre, fact_id){
-        int group_id = ss->vars.fact[fact_id].group_id;
+        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
         pre_set[group_id] = 1;
-        int var_id = borISetGet(&ss->vars.group[group_id].pre_var, 0);
-        ASSERT(bdds[var_id] == NULL);
-        bdds[var_id] = pddlBDDClone(ss->ddm, ss->vars.fact[fact_id].pre_bdd);
+        ASSERT(bdds[2 * group_id] == NULL);
+        bdds[2 * group_id] = pddlSymbolicVarsFactPreBDD(&ss->vars, fact_id);
     }
 
     BOR_ISET_FOR_EACH(&op->neg_pre, fact_id){
         ASSERT(!borISetIn(fact_id, &op->pre));
-        int group_id = ss->vars.fact[fact_id].group_id;
-        //if (pre_set[group_id])
-        //    continue;
-
-        int var_id = borISetGet(&ss->vars.group[group_id].pre_var, 0);
-        pddl_bdd_t *bdd = pddlBDDNot(ss->ddm, ss->vars.fact[fact_id].pre_bdd);
-        if (bdds[var_id] == NULL){
-            bdds[var_id] = bdd;
+        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
+        pddl_bdd_t *bdd = pddlSymbolicVarsFactPreBDDNeg(&ss->vars, fact_id);
+        if (bdds[2 * group_id] == NULL){
+            bdds[2 * group_id] = bdd;
         }else{
-            pddlBDDAndUpdate(ss->ddm, &bdds[var_id], bdd);
+            pddlBDDAndUpdate(ss->ddm, &bdds[2 * group_id], bdd);
             pddlBDDDel(ss->ddm, bdd);
         }
-
-        //pre_set[group_id] = 1;
     }
 
     BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
-        int group_id = ss->vars.fact[fact_id].group_id;
+        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
         eff_set[group_id] = 1;
-        int var_id = borISetGet(&ss->vars.group[group_id].eff_var, 0);
-        ASSERT(bdds[var_id] == NULL);
-        bdds[var_id] = pddlBDDClone(ss->ddm, ss->vars.fact[fact_id].eff_bdd);
-        fprintf(stderr, " %d", fact_id);
+        ASSERT(bdds[2 * group_id + 1] == NULL);
+        bdds[2 * group_id + 1]
+                = pddlSymbolicVarsFactEffBDD(&ss->vars, fact_id);
     }
-    fprintf(stderr, ", del:");
 
     BOR_ISET_FOR_EACH(&op->del_eff, fact_id){
-        fprintf(stderr, " %d", fact_id);
         ASSERT(!borISetIn(fact_id, &op->add_eff));
-        int group_id = ss->vars.fact[fact_id].group_id;
-        //if (eff_set[group_id])
-        //    continue;
-
-        fprintf(stderr, "X");
-        int var_id = borISetGet(&ss->vars.group[group_id].eff_var, 0);
-        pddl_bdd_t *bdd = pddlBDDNot(ss->ddm, ss->vars.fact[fact_id].eff_bdd);
-        if (bdds[var_id] == NULL){
-            bdds[var_id] = bdd;
+        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
+        pddl_bdd_t *bdd = pddlSymbolicVarsFactEffBDDNeg(&ss->vars, fact_id);
+        if (bdds[2 * group_id + 1] == NULL){
+            bdds[2 * group_id + 1] = bdd;
         }else{
-            pddlBDDAndUpdate(ss->ddm, &bdds[var_id], bdd);
+            pddlBDDAndUpdate(ss->ddm, &bdds[2 * group_id + 1], bdd);
             pddlBDDDel(ss->ddm, bdd);
         }
 
     }
-    fprintf(stderr, "\n");
 
-    for (int i = ss->vars.bdd_var_size - 1; i >= 0; --i){
+    tr->bdd = pddlBDDOne(ss->ddm);
+    for (int i = 2 * ss->vars.group_size - 1; i >= 0; --i){
         if (bdds[i] != NULL){
             pddlBDDAndUpdate(ss->ddm, &tr->bdd, bdds[i]);
             pddlBDDDel(ss->ddm, bdds[i]);
@@ -525,21 +487,10 @@ static void transInit(pddl_symbolic_task_t *ss,
         int fact_id;
 
 
-        //for (int fact_id = 0; fact_id < ss->vars.fact_size; ++fact_id){
         BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
             int group_id = ss->vars.fact[fact_id].group_id;
-            if (pre_set[group_id]){
-                /*
-                int fact_id2;
-                BOR_ISET_FOR_EACH(ss->strips.fact_mutex + fact_id, fact_id2){
-                    pddl_bdd_t *mutex;
-                    mutex = createMutexPre(ss, fact_id, fact_id2);
-                    tr->bdd = bddAnd(ss->ddm, tr->bdd, mutex);
-                    pddlBDDDel(ss->ddm, mutex);
-                }
-                */
-
-            }else{
+            if (!pre_set[group_id]){
+                // TODO: pre-compute
                 int fid;
                 BOR_ISET_FOR_EACH(&ss->vars.group[group_id].fact, fid){
                     int fact_id2;
@@ -553,41 +504,13 @@ static void transInit(pddl_symbolic_task_t *ss,
                 }
             }
 
-#if 0
-            int fact_id2;
-            BOR_ISET_FOR_EACH(ss->strips.fact_mutex_fw + fact_id, fact_id2){
-                if (borISetIn(fact_id2, &neg_pre))
-                    continue;
-                if (borISetIn(fact_id2, &op->pre))
-                    continue;
-                if (borISetIn(fact_id2, &op->add_eff))
-                    continue;
-                /*
-                pddl_bdd_t *mutex;
-                mutex = createMutexEff(ss, fact_id, fact_id2);
-                tr->bdd = bddAnd(ss->ddm, tr->bdd, mutex);
-                pddlBDDDel(ss->ddm, mutex);
-                */
-                tr->bdd = bddAnd(ss->ddm, tr->bdd,
-                                 Cudd_Not(ss->vars.fact_eff_bdd[fact_id2]));
-            }
-#endif
 
             pddl_bdd_t *mg;
-            // TODO
+            // TODO: pre-compute, use all mutex groups
             mg = pddlSymbolicVarsCreateExactlyOneMGroupPre(
                         &ss->vars, &ss->vars.group[group_id].fact);
             pddlBDDAndUpdate(ss->ddm, &tr->bdd, mg);
             pddlBDDDel(ss->ddm, mg);
-
-            /*
-            BOR_ISET_FOR_EACH(ss->strips.fact_mutex_bw + fact_id, fact_id2){
-                pddl_bdd_t *mutex;
-                mutex = createMutexEff(ss, fact_id, fact_id2);
-                tr->bdd = bddAnd(ss->ddm, tr->bdd, mutex);
-                pddlBDDDel(ss->ddm, mutex);
-            }
-            */
         }
     }
 
