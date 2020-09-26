@@ -107,6 +107,7 @@ OBJS += trans_system_graph
 OBJS += bdd
 OBJS += bdds
 OBJS += symbolic_vars
+OBJS += symbolic_constr
 OBJS += symbolic_task
 OBJS += cost
 
