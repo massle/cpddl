@@ -71,35 +71,10 @@ struct pddl_symbolic_search {
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
-struct pddl_symbolic_strips_op {
-    int id;
-    bor_iset_t pre;
-    bor_iset_t neg_pre;
-    bor_iset_t add_eff;
-    bor_iset_t del_eff;
-    bor_iset_t uncovered_eff;
-    pddl_cost_t cost;
-    char *name;
-    int is_dead;
-};
-typedef struct pddl_symbolic_strips_op pddl_symbolic_strips_op_t;
-
-struct pddl_symbolic_strips {
-    int fact_size;
-    pddl_symbolic_strips_op_t *op;
-    int op_size;
-    pddl_mgroups_t mgroup;
-    bor_iset_t *fact_mutex;
-    bor_iset_t *fact_mutex_fw;
-    bor_iset_t *fact_mutex_bw;
-    pddl_disambiguate_t *disambiguate;
-};
-typedef struct pddl_symbolic_strips pddl_symbolic_strips_t;
-
 struct pddl_symbolic_task {
     pddl_symbolic_task_config_t cfg; /*!< Configuration */
-    pddl_bdd_manager_t *ddm; /*!< Cudd manager */
-    pddl_symbolic_strips_t strips; /*!< Prepared strips problem */
+    const pddl_strips_t *strips;
+    pddl_bdd_manager_t *mgr; /*!< Cudd manager */
     pddl_symbolic_vars_t vars; /*!< TODO */
     int fact_size; /*!< Number of facts in the problem */
     int *ordered_facts; /*!< Ordered facts */
@@ -117,7 +92,7 @@ struct pddl_symbolic_task {
 static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
 {
     if (state->bdd != NULL)
-        pddlBDDDel(ss->ddm, state->bdd);
+        pddlBDDDel(ss->mgr, state->bdd);
     borISetFree(&state->parent_ids);
 }
 
@@ -161,7 +136,7 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->closed = borExtArrNew(el_size, NULL, &closed_el);
     states->num_closed = 0;
 
-    states->all_closed = pddlBDDZero(ss->ddm);
+    states->all_closed = pddlBDDZero(ss->mgr);
 
     pddlCostSetMax(&states->bound);
 }
@@ -171,7 +146,7 @@ static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     borPairHeapDel(states->open_cost);
     borPairHeapDel(states->open);
 
-    pddlBDDDel(ss->ddm, states->all_closed);
+    pddlBDDDel(ss->mgr, states->all_closed);
 
     for (int si = 0; si < states->num_states; ++si)
         stateFree(ss, borExtArrGet(states->pool, si));
@@ -199,7 +174,7 @@ static void statesCloseState(pddl_symbolic_task_t *ss,
     ASSERT(!state->is_closed);
     state->is_closed = 1;
     ASSERT(state->bdd != NULL);
-    pddlBDDOrUpdate(ss->ddm, &states->all_closed, state->bdd);
+    pddlBDDOrUpdate(ss->mgr, &states->all_closed, state->bdd);
     int *dst = borExtArrGet(states->closed, states->num_closed);
     *dst = state->id;
     ++states->num_closed;
@@ -271,7 +246,7 @@ static pddl_symbolic_state_t *statesAddBDD(pddl_symbolic_task_t *ss,
 {
     pddl_symbolic_state_t *state = statesAdd(ss, states);
     if (bdd != NULL)
-        state->bdd = pddlBDDClone(ss->ddm, bdd);
+        state->bdd = pddlBDDClone(ss->mgr, bdd);
     return state;
 }
 
@@ -305,7 +280,7 @@ static void searchInit(pddl_symbolic_task_t *ss,
     statesInit(ss, &search->state);
     search->goal = goal;
     if (search->goal != NULL)
-        search->goal = pddlBDDClone(ss->ddm, search->goal);
+        search->goal = pddlBDDClone(ss->mgr, search->goal);
 
     statesAddInit(ss, &search->state, init);
 
@@ -318,7 +293,7 @@ static void searchFree(pddl_symbolic_task_t *ss,
 {
     statesFree(ss, &search->state);
     if (search->goal != NULL)
-        pddlBDDDel(ss->ddm, search->goal);
+        pddlBDDDel(ss->mgr, search->goal);
     borIArrFree(&search->plan);
 }
 
@@ -328,7 +303,7 @@ static pddl_bdd_t *bddStateSelectOne(pddl_symbolic_task_t *ss,
 {
     borISetEmpty(state);
     char *cube = BOR_ALLOC_ARR(char, ss->vars.bdd_var_size);
-    pddlBDDPickOneCube(ss->ddm, bdd, cube);
+    pddlBDDPickOneCube(ss->mgr, bdd, cube);
     for (int gi = 0; gi < ss->vars.group_size; ++gi){
         int fact_id = pddlSymbolicVarsFactFromBDDCube(&ss->vars, gi, cube);
         ASSERT(fact_id >= 0);
@@ -361,12 +336,12 @@ static const pddl_symbolic_state_t *
         ASSERT(state->trans_id >= 0);
         // The state BDD must be already constructed
         ASSERT_RUNTIME(state->bdd != NULL);
-        pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, bdd, state->bdd);
-        if (!pddlBDDIsFalse(ss->ddm, conj)){
-            pddlBDDDel(ss->ddm, conj);
+        pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, bdd, state->bdd);
+        if (!pddlBDDIsFalse(ss->mgr, conj)){
+            pddlBDDDel(ss->mgr, conj);
             return state;
         }
-        pddlBDDDel(ss->ddm, conj);
+        pddlBDDDel(ss->mgr, conj);
     }
     ASSERT_RUNTIME(0);
     return state;
@@ -414,17 +389,17 @@ static void planInit(pddl_symbolic_task_t *ss,
         // state_prev.
         pddl_symbolic_trans_set_t *trset = ss->trans.trans + state->trans_id;
         pddl_bdd_t *preimg = search->pre_image(trset, bdd);
-        ASSERT_RUNTIME(!pddlBDDIsFalse(ss->ddm, preimg));
-        pddlBDDAndUpdate(ss->ddm, &preimg, prev_state->bdd);
+        ASSERT_RUNTIME(!pddlBDDIsFalse(ss->mgr, preimg));
+        pddlBDDAndUpdate(ss->mgr, &preimg, prev_state->bdd);
 
         // Select one of the states -- again, it doesn't matter which one
-        pddlBDDDel(ss->ddm, bdd);
+        pddlBDDDel(ss->mgr, bdd);
         bdd = bddStateSelectOne(ss, preimg, plan->state + idx + 1);
-        pddlBDDDel(ss->ddm, preimg);
+        pddlBDDDel(ss->mgr, preimg);
         state = prev_state;
         state = planNextState(ss, search, prev_state, bdd);
     }
-    pddlBDDDel(ss->ddm, bdd);
+    pddlBDDDel(ss->mgr, bdd);
 
     // Reverse the order of states and transitions
     for (int i = 0; i < (plan->plan_len + 1) / 2; ++i){
@@ -465,7 +440,7 @@ static void planReverse(plan_t *plan)
 }
 
 static void planExtractFw(plan_t *plan,
-                          const pddl_symbolic_strips_t *strips,
+                          const pddl_strips_t *strips,
                           bor_iarr_t *out)
 {
     // Extract plan from the intermediate states
@@ -477,7 +452,7 @@ static void planExtractFw(plan_t *plan,
         int op_id;
         int found = 0;
         BOR_ISET_FOR_EACH(plan->tr_op[si], op_id){
-            const pddl_symbolic_strips_op_t *op = strips->op + op_id;
+            const pddl_strips_op_t *op = strips->op.op[op_id];
             if (borISetIsSubset(&op->pre, from)){
                 borISetMinus2(&res_state, from, &op->del_eff);
                 borISetUnion(&res_state, &op->add_eff);
@@ -503,9 +478,9 @@ static pddl_bdd_t *searchStateBDD(pddl_symbolic_task_t *ss,
         prev_state = statesGet(&search->state, state->parent_id);
         state->bdd = search->image(ss->trans.trans + state->trans_id,
                                    prev_state->bdd);
-        pddl_bdd_t *nall = pddlBDDNot(ss->ddm, search->state.all_closed);
-        pddlBDDAndUpdate(ss->ddm, &state->bdd, nall);
-        pddlBDDDel(ss->ddm, nall);
+        pddl_bdd_t *nall = pddlBDDNot(ss->mgr, search->state.all_closed);
+        pddlBDDAndUpdate(ss->mgr, &state->bdd, nall);
+        pddlBDDDel(ss->mgr, nall);
         if (search->constr_apply)
             search->constr_apply(&ss->constr, &state->bdd);
     }
@@ -530,18 +505,18 @@ static int checkGoal(pddl_symbolic_task_t *ss,
                      const pddl_symbolic_state_t *state,
                      bor_err_t *err)
 {
-    pddl_bdd_t *goal = pddlBDDAnd(ss->ddm, state->bdd, search->goal);
-    if (!pddlBDDIsFalse(ss->ddm, goal)){
+    pddl_bdd_t *goal = pddlBDDAnd(ss->mgr, state->bdd, search->goal);
+    if (!pddlBDDIsFalse(ss->mgr, goal)){
         plan_t plan;
         planInit(ss, search, &plan, state, goal);
         if (!search->fw)
             planReverse(&plan);
-        planExtractFw(&plan, &ss->strips, &search->plan);
+        planExtractFw(&plan, ss->strips, &search->plan);
         planFree(&plan);
-        pddlBDDDel(ss->ddm, goal);
+        pddlBDDDel(ss->mgr, goal);
         return 1;
     }
-    pddlBDDDel(ss->ddm, goal);
+    pddlBDDDel(ss->mgr, goal);
     return 0;
 }
 
@@ -570,17 +545,17 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
 {
     int res = 0;
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
-    pddl_bdd_t *goal = pddlBDDAnd(ss->ddm, state_bdd,
+    pddl_bdd_t *goal = pddlBDDAnd(ss->mgr, state_bdd,
                                   other_search->state.all_closed);
-    if (!pddlBDDIsFalse(ss->ddm, goal)){
+    if (!pddlBDDIsFalse(ss->mgr, goal)){
         for (int si = 0; si < other_search->state.num_closed; ++si){
             const pddl_symbolic_state_t *closed_state;
             closed_state = statesGetClosed(&other_search->state, si);
             if (!costStatesIsBetter(search, state, closed_state))
                 break;
 
-            pddl_bdd_t *goal = pddlBDDAnd(ss->ddm, state_bdd, closed_state->bdd);
-            if (!pddlBDDIsFalse(ss->ddm, goal)){
+            pddl_bdd_t *goal = pddlBDDAnd(ss->mgr, state_bdd, closed_state->bdd);
+            if (!pddlBDDIsFalse(ss->mgr, goal)){
                 searchSetBestPlan(search, state, closed_state);
                 searchSetBestPlan(other_search, closed_state, state);
                 BOR_INFO(err, "%s: Found best plan so far: cost: %d:%d",
@@ -589,13 +564,13 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
                          search->state.bound.zero_cost);
                 res = 1;
             }
-            pddlBDDDel(ss->ddm, goal);
+            pddlBDDDel(ss->mgr, goal);
 
             if (res)
                 break;
         }
     }
-    pddlBDDDel(ss->ddm, goal);
+    pddlBDDDel(ss->mgr, goal);
     return res;
 }
 
@@ -625,14 +600,14 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
                               bor_err_t *err)
 {
     pddl_symbolic_states_t *states = &search->state;
-    pddl_bdd_t *bdd_in = pddlBDDClone(ss->ddm, state_in->bdd);
+    pddl_bdd_t *bdd_in = pddlBDDClone(ss->mgr, state_in->bdd);
     ASSERT(bdd_in != NULL);
-    pddl_bdd_t *nall = pddlBDDNot(ss->ddm, states->all_closed);
-    pddlBDDAndUpdate(ss->ddm, &bdd_in, nall);
-    pddlBDDDel(ss->ddm, nall);
+    pddl_bdd_t *nall = pddlBDDNot(ss->mgr, states->all_closed);
+    pddlBDDAndUpdate(ss->mgr, &bdd_in, nall);
+    pddlBDDDel(ss->mgr, nall);
 
-    if (pddlBDDIsFalse(ss->ddm, bdd_in)){
-        pddlBDDDel(ss->ddm, bdd_in);
+    if (pddlBDDIsFalse(ss->mgr, bdd_in)){
+        pddlBDDDel(ss->mgr, bdd_in);
         return;
     }
 
@@ -652,7 +627,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
             checkGoal2(ss, search, other_search, state, err);
     }
 
-    pddlBDDDel(ss->ddm, bdd_in);
+    pddlBDDDel(ss->mgr, bdd_in);
 }
 
 static pddl_symbolic_state_t *searchNextNonEmpty(pddl_symbolic_task_t *ss,
@@ -664,11 +639,11 @@ static pddl_symbolic_state_t *searchNextNonEmpty(pddl_symbolic_task_t *ss,
         state = statesNextOpen(&search->state);
         if (state != NULL){
             searchStateBDD(ss, search, state);
-            pddl_bdd_t *nall = pddlBDDNot(ss->ddm, search->state.all_closed);
-            pddlBDDAndUpdate(ss->ddm, &state->bdd, nall);
-            pddlBDDDel(ss->ddm, nall);
+            pddl_bdd_t *nall = pddlBDDNot(ss->mgr, search->state.all_closed);
+            pddlBDDAndUpdate(ss->mgr, &state->bdd, nall);
+            pddlBDDDel(ss->mgr, nall);
         }
-    } while (state != NULL && pddlBDDIsFalse(ss->ddm, state->bdd));
+    } while (state != NULL && pddlBDDIsFalse(ss->mgr, state->bdd));
 
     return state;
 }
@@ -684,7 +659,7 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
     BOR_ISET(parents);
     borISetAdd(&parents, state->id);
     pddl_bdd_t *bdd = searchStateBDD(ss, search, state);
-    bdd = pddlBDDClone(ss->ddm, bdd);
+    bdd = pddlBDDClone(ss->mgr, bdd);
 
     pddl_symbolic_state_t *next = statesOpenPeek(&search->state);
     while (next != NULL && pddlCostCmp(&state->cost, &next->cost) == 0){
@@ -693,11 +668,11 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
 
         next = statesNextOpen(&search->state);
         searchStateBDD(ss, search, next);
-        pddl_bdd_t *nall = pddlBDDNot(ss->ddm, search->state.all_closed);
-        pddlBDDAndUpdate(ss->ddm, &next->bdd, nall);
-        pddlBDDDel(ss->ddm, nall);
-        if (!pddlBDDIsFalse(ss->ddm, next->bdd)){
-            pddlBDDOrUpdate(ss->ddm, &bdd, next->bdd);
+        pddl_bdd_t *nall = pddlBDDNot(ss->mgr, search->state.all_closed);
+        pddlBDDAndUpdate(ss->mgr, &next->bdd, nall);
+        pddlBDDDel(ss->mgr, nall);
+        if (!pddlBDDIsFalse(ss->mgr, next->bdd)){
+            pddlBDDOrUpdate(ss->mgr, &bdd, next->bdd);
             borISetAdd(&parents, next->id);
         }
 
@@ -723,7 +698,7 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
     }
 
     borISetFree(&parents);
-    pddlBDDDel(ss->ddm, bdd);
+    pddlBDDDel(ss->mgr, bdd);
 }
 
 static int searchStep(pddl_symbolic_task_t *ss,
@@ -749,11 +724,11 @@ static int searchStep(pddl_symbolic_task_t *ss,
              state->cost.zero_cost,
              search->state.num_states,
              search->state.num_closed,
-             pddlBDDMem(ss->ddm),
-             pddlBDDGCUsed(ss->ddm));
+             pddlBDDMem(ss->mgr),
+             pddlBDDGCUsed(ss->mgr));
 
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
-    if (pddlBDDIsFalse(ss->ddm, state_bdd)){
+    if (pddlBDDIsFalse(ss->mgr, state_bdd)){
         BOR_INFO(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
     }
@@ -802,11 +777,11 @@ static int selectMGroup(const pddl_mgroups_t *mgroup,
     return select;
 }
 
-static void groupMGroups(const pddl_symbolic_strips_t *strips,
+static void groupMGroups(const pddl_strips_t *strips,
                          const pddl_mgroups_t *mgroup,
                          int *ordering)
 {
-    int fact_size = strips->fact_size;
+    int fact_size = strips->fact.fact_size;
     bor_iset_t *fact_to_mgroup = BOR_CALLOC_ARR(bor_iset_t, fact_size);
     for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
         const bor_iset_t *mg = &mgroup->mgroup[mgi].mgroup;
@@ -855,12 +830,9 @@ static void groupMGroups(const pddl_symbolic_strips_t *strips,
     BOR_FREE(fact_to_mgroup);
 }
 
-static void setCGEdgesPreEff(const pddl_symbolic_strips_op_t *op,
+static void setCGEdgesPreEff(const pddl_strips_op_t *op,
                              pddl_scc_graph_t *graph)
 {
-    if (op->is_dead)
-        return;
-
     int pfact;
     BOR_ISET_FOR_EACH(&op->pre, pfact){
         int efact;
@@ -869,12 +841,9 @@ static void setCGEdgesPreEff(const pddl_symbolic_strips_op_t *op,
     }
 }
 
-static void setCGEdgesEffEff(const pddl_symbolic_strips_op_t *op,
+static void setCGEdgesEffEff(const pddl_strips_op_t *op,
                              pddl_scc_graph_t *graph)
 {
-    if (op->is_dead)
-        return;
-
     int add_eff_size = borISetSize(&op->add_eff);
     for (int i = 0; i < add_eff_size; ++i){
         int f1 = borISetGet(&op->add_eff, i);
@@ -887,12 +856,12 @@ static void setCGEdgesEffEff(const pddl_symbolic_strips_op_t *op,
 }
 
 static void graphInit(pddl_scc_graph_t *graph,
-                      const pddl_symbolic_strips_t *strips)
+                      const pddl_strips_t *strips)
 {
-    pddlSCCGraphInit(graph, strips->fact_size);
+    pddlSCCGraphInit(graph, strips->fact.fact_size);
 
-    for (int op_id = 0; op_id < strips->op_size; ++op_id){
-        const pddl_symbolic_strips_op_t *op = strips->op + op_id;
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->op.op[op_id];
         setCGEdgesPreEff(op, graph);
         setCGEdgesEffEff(op, graph);
     }
@@ -974,7 +943,7 @@ static void topologicalPseudoOrder(const pddl_scc_graph_t *graph,
     BOR_FREE(indegree);
 }
 
-static void determineFactOrdering(const pddl_symbolic_strips_t *strips,
+static void determineFactOrdering(const pddl_strips_t *strips,
                                   const pddl_mgroups_t *mgroup,
                                   int *ordering,
                                   bor_err_t *err,
@@ -983,7 +952,7 @@ static void determineFactOrdering(const pddl_symbolic_strips_t *strips,
     pddl_scc_graph_t graph;
     graphInit(&graph, strips);
 
-    int *fact_comp = BOR_CALLOC_ARR(int, strips->fact_size);
+    int *fact_comp = BOR_CALLOC_ARR(int, strips->fact.fact_size);
     graphSCC(&graph, fact_comp);
 
     topologicalPseudoOrder(&graph, fact_comp, ordering);
@@ -997,155 +966,12 @@ static void determineFactOrdering(const pddl_symbolic_strips_t *strips,
     BOR_FREE(fact_comp);
     pddlSCCGraphFree(&graph);
 
-    for (int i = 0; i < strips->fact_size; ++i){
+    for (int i = 0; i < strips->fact.fact_size; ++i){
         fprintf(stderr, "%d:(%s)\n", ordering[i],
                 s->fact.fact[ordering[i]]->name);
     }
 }
 
-static void stripsInitOp(pddl_symbolic_strips_t *strips,
-                         const pddl_strips_op_t *op_in,
-                         pddl_symbolic_strips_op_t *op,
-                         const pddl_symbolic_task_config_t *cfg,
-                         bor_err_t *err)
-{
-    op->id = op_in->id;
-    borISetUnion(&op->pre, &op_in->pre);
-    borISetUnion(&op->add_eff, &op_in->add_eff);
-    borISetUnion(&op->del_eff, &op_in->del_eff);
-    pddlCostSetOp(&op->cost, op_in->cost);
-    if (op_in->name != NULL)
-        op->name = BOR_STRDUP(op_in->name);
-
-    if (cfg->use_disambiguation && strips->disambiguate != NULL){
-        // Disambiguate preconditions
-        if (pddlDisambiguate(strips->disambiguate, &op->pre, NULL,
-                             1, 0, NULL, &op->pre) < 0){
-            BOR_INFO(err, "Operator %d:(%s) skipped, because it"
-                          " is unreachable or dead-end", op->id, op->name);
-            op->is_dead = 1;
-            return;
-        }
-        borISetMinus(&op->add_eff, &op->pre);
-
-        int fact_id;
-        BOR_ISET_FOR_EACH(&op->pre, fact_id)
-            borISetMinus(&op->del_eff, strips->fact_mutex + fact_id);
-    }
-
-    if (cfg->use_op_constr){
-        int fact;
-
-        BOR_ISET(fw_neg_pre);
-        // Find negative preconditions
-        BOR_ISET_FOR_EACH(&op->pre, fact){
-            borISetUnion(&op->neg_pre, strips->fact_mutex_bw + fact);
-            borISetUnion(&fw_neg_pre, strips->fact_mutex_fw + fact);
-        }
-
-        // E-delete facts that are mutex with the add effect
-        BOR_ISET_FOR_EACH(&op->add_eff, fact)
-            borISetUnion(&op->del_eff, strips->fact_mutex_fw + fact);
-        borISetMinus(&op->del_eff, &fw_neg_pre);
-        borISetMinus(&op->del_eff, &op->neg_pre);
-        borISetFree(&fw_neg_pre);
-    }
-
-    borISetUnion2(&op->uncovered_eff, &op->add_eff, &op->del_eff);
-    borISetMinus(&op->uncovered_eff, &op->pre);
-    borISetMinus(&op->uncovered_eff, &op->neg_pre);
-
-    if (!borISetIsDisjoint(&op->neg_pre, &op->pre)
-            || !borISetIsDisjoint(&op->del_eff, &op->add_eff)){
-        BOR_INFO(err, "Operator %d:(%s) skipped, because it"
-                      " is unreachable or dead-end", op->id, op->name);
-        op->is_dead = 1;
-    }
-}
-
-static void stripsFreeOp(pddl_symbolic_strips_op_t *op)
-{
-    borISetFree(&op->pre);
-    borISetFree(&op->neg_pre);
-    borISetFree(&op->add_eff);
-    borISetFree(&op->del_eff);
-    borISetFree(&op->uncovered_eff);
-    if (op->name != NULL)
-        BOR_FREE(op->name);
-}
-
-static void stripsInit(pddl_symbolic_strips_t *strips,
-                       const pddl_strips_t *strips_in,
-                       const pddl_mgroups_t *mgroups,
-                       const pddl_mutex_pairs_t *mutex,
-                       const pddl_symbolic_task_config_t *cfg,
-                       bor_err_t *err)
-{
-    int fact_size = strips_in->fact.fact_size;
-    bzero(strips, sizeof(*strips));
-    strips->fact_size = fact_size;
-
-    pddlMGroupsInitCopy(&strips->mgroup, mgroups);
-    strips->fact_mutex = BOR_CALLOC_ARR(bor_iset_t, fact_size);
-    strips->fact_mutex_fw = BOR_CALLOC_ARR(bor_iset_t, fact_size);
-    strips->fact_mutex_bw = BOR_CALLOC_ARR(bor_iset_t, fact_size);
-    PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
-        borISetAdd(strips->fact_mutex + f1, f2);
-        borISetAdd(strips->fact_mutex + f2, f1);
-        if (pddlMutexPairsIsFwMutex(mutex, f1, f2)){
-            borISetAdd(strips->fact_mutex_fw + f1, f2);
-            borISetAdd(strips->fact_mutex_fw + f2, f1);
-        }
-        if (pddlMutexPairsIsBwMutex(mutex, f1, f2)){
-            borISetAdd(strips->fact_mutex_bw + f1, f2);
-            borISetAdd(strips->fact_mutex_bw + f2, f1);
-        }
-    }
-
-    if (cfg->use_disambiguation){
-        strips->disambiguate = BOR_ALLOC(pddl_disambiguate_t);
-        if (pddlDisambiguateInit(strips->disambiguate, fact_size,
-                                 mutex, mgroups) != 0){
-            BOR_INFO2(err, "Disambiguation failed because there are"
-                           " no exactly-1 mutex groups");
-            BOR_FREE(strips->disambiguate);
-            strips->disambiguate = NULL;
-        }
-        BOR_INFO2(err, "Disambiguation created.");
-    }
-
-    strips->op_size = strips_in->op.op_size;
-    strips->op = BOR_CALLOC_ARR(pddl_symbolic_strips_op_t, strips->op_size);
-    for (int op_id = 0; op_id < strips->op_size; ++op_id){
-        stripsInitOp(strips, strips_in->op.op[op_id], strips->op + op_id,
-                     cfg, err);
-    }
-
-    BOR_INFO2(err, "Operators prepared.");
-}
-
-static void stripsFree(pddl_symbolic_strips_t *strips)
-{
-    for (int i = 0; i < strips->op_size; ++i)
-        stripsFreeOp(strips->op + i);
-    BOR_FREE(strips->op);
-
-    for (int i = 0; i < strips->fact_size; ++i){
-        borISetFree(strips->fact_mutex + i);
-        borISetFree(strips->fact_mutex_fw + i);
-        borISetFree(strips->fact_mutex_bw + i);
-    }
-    BOR_FREE(strips->fact_mutex);
-    BOR_FREE(strips->fact_mutex_fw);
-    BOR_FREE(strips->fact_mutex_bw);
-
-    pddlMGroupsFree(&strips->mgroup);
-
-    if (strips->disambiguate != NULL){
-        pddlDisambiguateFree(strips->disambiguate);
-        BOR_FREE(strips->disambiguate);
-    }
-}
 
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                                           const pddl_mgroups_t *mgroups,
@@ -1176,12 +1002,12 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
         ss->cfg.use_disambiguation = 1;
     }
 
-    stripsInit(&ss->strips, strips, mgroups, mutex, cfg, err);
+    ss->strips = strips;
     ss->fact_size = strips->fact.fact_size;
 
 
     ss->ordered_facts = BOR_ALLOC_ARR(int, ss->fact_size);
-    determineFactOrdering(&ss->strips, mgroups, ss->ordered_facts, err, strips);
+    determineFactOrdering(strips, mgroups, ss->ordered_facts, err, strips);
 
     ss->fact_to_order = BOR_ALLOC_ARR(int, ss->fact_size);
     for (int i = 0; i < ss->fact_size; ++i)
@@ -1225,15 +1051,15 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     BOR_INFO(err, "Prepared %d BDD variables covering %d facts",
              ss->vars.bdd_var_size, ss->fact_size);
 
-    ss->ddm = pddlBDDManagerNew(ss->vars.bdd_var_size, cfg->cache_size);
-    if (ss->ddm == NULL){
+    ss->mgr = pddlBDDManagerNew(ss->vars.bdd_var_size, cfg->cache_size);
+    if (ss->mgr == NULL){
         pddlSymbolicTaskDel(ss);
         BOR_ERR_RET2(err, NULL, "Initialization of CUDD failed.");
     }
     //BOR_INFO(err, "CUDD initialized with slots: %u, cache size: %u, mem: %lu",
     //         num_slots, cache_size, mem);
 
-    pddlSymbolicVarsInitBDD(ss->ddm, &ss->vars);
+    pddlSymbolicVarsInitBDD(ss->mgr, &ss->vars);
 
     pddlSymbolicConstrInit(&ss->constr, &ss->vars, mutex, mgroups,
                            ss->cfg.constr_max_nodes,
@@ -1263,7 +1089,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
     }
 
     // TODO
-    //ASSERT(Cudd_DebugCheck(ss->ddm) == 0);
+    //ASSERT(Cudd_DebugCheck(ss->mgr) == 0);
     /*
     BOR_INFO(err, "Symbolic task created."
                   " mem in use: %.2fMB, node count: %ld,"
@@ -1271,14 +1097,14 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
                   " peak node count: %d,"
                   " peak live node count: %d,"
                   " garbage collections: %d",
-             Cudd_ReadMemoryInUse(ss->ddm) / (1024. * 1024.),
-             Cudd_ReadNodeCount(ss->ddm),
-             Cudd_ReadSize(ss->ddm),
-             Cudd_ReadPeakNodeCount(ss->ddm),
-             Cudd_ReadPeakLiveNodeCount(ss->ddm),
-             Cudd_ReadGarbageCollections(ss->ddm));
+             Cudd_ReadMemoryInUse(ss->mgr) / (1024. * 1024.),
+             Cudd_ReadNodeCount(ss->mgr),
+             Cudd_ReadSize(ss->mgr),
+             Cudd_ReadPeakNodeCount(ss->mgr),
+             Cudd_ReadPeakLiveNodeCount(ss->mgr),
+             Cudd_ReadGarbageCollections(ss->mgr));
     */
-    //Cudd_PrintInfo(ss->ddm, stderr);
+    //Cudd_PrintInfo(ss->mgr, stderr);
 
     BOR_INFO_PREFIX_POP(err);
     return ss;
@@ -1286,7 +1112,6 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
-    stripsFree(&ss->strips);
     pddlSymbolicConstrFree(&ss->constr);
     pddlSymbolicTransSetsFree(&ss->trans);
     if (ss->ordered_facts != NULL)
@@ -1294,13 +1119,13 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
     if (ss->fact_to_order != NULL)
         BOR_FREE(ss->fact_to_order);
     if (ss->init != NULL)
-        pddlBDDDel(ss->ddm, ss->init);
+        pddlBDDDel(ss->mgr, ss->init);
     if (ss->goal != NULL)
-        pddlBDDDel(ss->ddm, ss->goal);
-    //Cudd_PrintInfo(ss->ddm, stderr);
+        pddlBDDDel(ss->mgr, ss->goal);
+    //Cudd_PrintInfo(ss->mgr, stderr);
     pddlSymbolicVarsFree(&ss->vars);
-    if (ss->ddm != NULL)
-        pddlBDDManagerDel(ss->ddm);
+    if (ss->mgr != NULL)
+        pddlBDDManagerDel(ss->mgr);
     BOR_FREE(ss);
 }
 
@@ -1338,9 +1163,9 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
     int op_id;
     BOR_IARR_FOR_EACH(plan, op_id){
         BOR_INFO(err, "plan: (%s) ;; id=%d, cost %d",
-                 ss->strips.op[op_id].name,
+                 ss->strips->op.op[op_id]->name,
                  op_id,
-                 ss->strips.op[op_id].cost);
+                 ss->strips->op.op[op_id]->cost);
     }
 #endif /* PDDL_DEBUG */
     BOR_INFO_PREFIX_POP(err);
@@ -1364,9 +1189,9 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
     int op_id;
     BOR_IARR_FOR_EACH(plan, op_id){
         BOR_INFO(err, "plan: (%s) ;; id=%d, cost %d",
-                 ss->strips.op[op_id].name,
+                 ss->strips->op.op[op_id]->name,
                  op_id,
-                 ss->strips.op[op_id].cost);
+                 ss->strips->op.op[op_id]->cost);
     }
 #endif /* PDDL_DEBUG */
     BOR_INFO_PREFIX_POP(err);
@@ -1387,30 +1212,30 @@ static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
     pddl_bdd_t *bw_goal_bdd = bw_goal_state->bdd;
 
     // Compute cut between forward and backward search frontier
-    pddl_bdd_t *cut = pddlBDDAnd(ss->ddm, fw_goal_bdd, bw_goal_bdd);
-    ASSERT_RUNTIME(!pddlBDDIsFalse(ss->ddm, cut));
+    pddl_bdd_t *cut = pddlBDDAnd(ss->mgr, fw_goal_bdd, bw_goal_bdd);
+    ASSERT_RUNTIME(!pddlBDDIsFalse(ss->mgr, cut));
 
     // We need to choose one particular state before extracting plans from
     // fw and bw searches
     BOR_ISET(cut_fact_state);
     pddl_bdd_t *cut_state = bddStateSelectOne(ss, cut, &cut_fact_state);
     borISetFree(&cut_fact_state);
-    pddlBDDDel(ss->ddm, cut);
+    pddlBDDDel(ss->mgr, cut);
 
     // Extract forward plan from init to cut_state
     plan_t fw_plan;
     planInit(ss, fw_search, &fw_plan, fw_goal_state, cut_state);
-    planExtractFw(&fw_plan, &ss->strips, &fw_search->plan);
+    planExtractFw(&fw_plan, ss->strips, &fw_search->plan);
     planFree(&fw_plan);
 
     // Extract backward plan from cut_state to goal
     plan_t bw_plan;
     planInit(ss, bw_search, &bw_plan, bw_goal_state, cut_state);
     planReverse(&bw_plan);
-    planExtractFw(&bw_plan, &ss->strips, &bw_search->plan);
+    planExtractFw(&bw_plan, ss->strips, &bw_search->plan);
     planFree(&bw_plan);
 
-    pddlBDDDel(ss->ddm, cut_state);
+    pddlBDDDel(ss->mgr, cut_state);
 
     // Join fw and bw plans
     int op_id;
@@ -1502,9 +1327,9 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     int op_id;
     BOR_IARR_FOR_EACH(plan, op_id){
         BOR_INFO(err, "plan: (%s) ;; id=%d, cost %d",
-                 ss->strips.op[op_id].name,
+                 ss->strips->op.op[op_id]->name,
                  op_id,
-                 ss->strips.op[op_id].cost);
+                 ss->strips->op.op[op_id]->cost);
     }
 #endif /* PDDL_DEBUG */
 
@@ -1546,15 +1371,15 @@ int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
 
         pddl_bdd_t *next_states = pddlSymbolicTransSetImage(trs, bdd_state);
         pddlSymbolicConstrApplyFw(&ss->constr, &next_states);
-        pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, next_states, bdd_res_state);
-        if (pddlBDDIsFalse(ss->ddm, conj)){
+        pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, next_states, bdd_res_state);
+        if (pddlBDDIsFalse(ss->mgr, conj)){
             res = 0;
         }
-        pddlBDDDel(ss->ddm, conj);
-        pddlBDDDel(ss->ddm, next_states);
+        pddlBDDDel(ss->mgr, conj);
+        pddlBDDDel(ss->mgr, next_states);
     }
-    pddlBDDDel(ss->ddm, bdd_state);
-    pddlBDDDel(ss->ddm, bdd_res_state);
+    pddlBDDDel(ss->mgr, bdd_state);
+    pddlBDDDel(ss->mgr, bdd_res_state);
 
     return res;
 }
@@ -1576,15 +1401,15 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
 
         pddl_bdd_t *next_states = pddlSymbolicTransSetPreImage(trs, bdd_state);
         pddlSymbolicConstrApplyBw(&ss->constr, &next_states);
-        pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, next_states, bdd_res_state);
-        if (pddlBDDIsFalse(ss->ddm, conj)){
+        pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, next_states, bdd_res_state);
+        if (pddlBDDIsFalse(ss->mgr, conj)){
             res = 0;
         }
-        pddlBDDDel(ss->ddm, conj);
-        pddlBDDDel(ss->ddm, next_states);
+        pddlBDDDel(ss->mgr, conj);
+        pddlBDDDel(ss->mgr, next_states);
     }
-    pddlBDDDel(ss->ddm, bdd_state);
-    pddlBDDDel(ss->ddm, bdd_res_state);
+    pddlBDDDel(ss->mgr, bdd_state);
+    pddlBDDDel(ss->mgr, bdd_res_state);
 
     return res;
 }
@@ -1597,10 +1422,10 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
     int res = 1;
     pddl_bdd_t **fw_node = BOR_ALLOC_ARR(pddl_bdd_t *, plan_size + 1);
     pddl_bdd_t **bw_node = BOR_ALLOC_ARR(pddl_bdd_t *, plan_size + 1);
-    fw_node[0] = pddlBDDClone(ss->ddm, ss->init);
-    bw_node[plan_size] = pddlBDDClone(ss->ddm, ss->goal);
-    pddl_bdd_t *fw_closed = pddlBDDClone(ss->ddm, fw_node[0]);
-    pddl_bdd_t *bw_closed = pddlBDDClone(ss->ddm, bw_node[plan_size]);
+    fw_node[0] = pddlBDDClone(ss->mgr, ss->init);
+    bw_node[plan_size] = pddlBDDClone(ss->mgr, ss->goal);
+    pddl_bdd_t *fw_closed = pddlBDDClone(ss->mgr, fw_node[0]);
+    pddl_bdd_t *bw_closed = pddlBDDClone(ss->mgr, bw_node[plan_size]);
     for (int fi = 0; fi < plan_size; ++fi){
         int fw_op_id = borIArrGet(op, fi);
         for (int tri = 0; tri < ss->trans.trans_size; ++tri){
@@ -1609,35 +1434,35 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
                 continue;
             fw_node[fi + 1] = pddlSymbolicTransSetImage(trs, fw_node[fi]);
             if (ss->cfg.use_op_constr){
-                pddl_bdd_t *tmp = pddlBDDClone(ss->ddm, fw_node[fi + 1]);
+                pddl_bdd_t *tmp = pddlBDDClone(ss->mgr, fw_node[fi + 1]);
                 pddlSymbolicConstrApplyFw(&ss->constr, &tmp);
 
-                pddl_bdd_t *fwnot = pddlBDDNot(ss->ddm, fw_node[fi + 1]);
+                pddl_bdd_t *fwnot = pddlBDDNot(ss->mgr, fw_node[fi + 1]);
                 pddl_bdd_t *diff;
-                diff = pddlBDDAnd(ss->ddm, tmp, fwnot);
-                //ASSERT(IS_FALSE(ss->ddm, diff));
-                pddlBDDDel(ss->ddm, diff);
-                pddlBDDDel(ss->ddm, fwnot);
+                diff = pddlBDDAnd(ss->mgr, tmp, fwnot);
+                //ASSERT(IS_FALSE(ss->mgr, diff));
+                pddlBDDDel(ss->mgr, diff);
+                pddlBDDDel(ss->mgr, fwnot);
 
-                pddl_bdd_t *tmpnot = pddlBDDNot(ss->ddm, tmp);
-                diff = pddlBDDAnd(ss->ddm, tmpnot, fw_node[fi + 1]);
-                //ASSERT(IS_FALSE(ss->ddm, diff));
-                pddlBDDDel(ss->ddm, diff);
-                pddlBDDDel(ss->ddm, tmpnot);
+                pddl_bdd_t *tmpnot = pddlBDDNot(ss->mgr, tmp);
+                diff = pddlBDDAnd(ss->mgr, tmpnot, fw_node[fi + 1]);
+                //ASSERT(IS_FALSE(ss->mgr, diff));
+                pddlBDDDel(ss->mgr, diff);
+                pddlBDDDel(ss->mgr, tmpnot);
 
                 //if (tmp != fw_node[fi + 1])
                 //    res = 0;
                 //ASSERT(tmp == fw_node[fi + 1]);
-                pddlBDDDel(ss->ddm, tmp);
+                pddlBDDDel(ss->mgr, tmp);
 
             }else if (ss->cfg.use_constr){
                 pddlSymbolicConstrApplyFw(&ss->constr, &fw_node[fi + 1]);
             }
 
-            pddl_bdd_t *nclosed = pddlBDDNot(ss->ddm, fw_closed);
-            pddlBDDAndUpdate(ss->ddm, &fw_node[fi + 1], nclosed);
-            pddlBDDDel(ss->ddm, nclosed);
-            pddlBDDOrUpdate(ss->ddm, &fw_closed, fw_node[fi + 1]);
+            pddl_bdd_t *nclosed = pddlBDDNot(ss->mgr, fw_closed);
+            pddlBDDAndUpdate(ss->mgr, &fw_node[fi + 1], nclosed);
+            pddlBDDDel(ss->mgr, nclosed);
+            pddlBDDOrUpdate(ss->mgr, &fw_closed, fw_node[fi + 1]);
         }
 
         int bw_op_id = borIArrGet(op, plan_size - fi - 1);
@@ -1648,55 +1473,55 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             int fi2 = plan_size - fi;
             bw_node[fi2 - 1] = pddlSymbolicTransSetPreImage(trs, bw_node[fi2]);
             if (ss->cfg.use_op_constr){
-                pddl_bdd_t *tmp = pddlBDDClone(ss->ddm, bw_node[fi2 - 1]);
+                pddl_bdd_t *tmp = pddlBDDClone(ss->mgr, bw_node[fi2 - 1]);
                 pddlSymbolicConstrApplyBw(&ss->constr, &tmp);
                 //if (tmp != bw_node[fi2 - 1])
                 //    res = 0;
                 //ASSERT(tmp == bw_node[fi2 - 1]);
-                pddlBDDDel(ss->ddm, tmp);
+                pddlBDDDel(ss->mgr, tmp);
 
             }else if (ss->cfg.use_constr){
                 pddlSymbolicConstrApplyBw(&ss->constr, &bw_node[fi2 - 1]);
             }
-            pddl_bdd_t *nclosed = pddlBDDNot(ss->ddm, bw_closed);
-            pddlBDDAndUpdate(ss->ddm, &bw_node[fi2 - 1], nclosed);
-            pddlBDDDel(ss->ddm, nclosed);
-            pddlBDDOrUpdate(ss->ddm, &bw_closed, bw_node[fi2 - 1]);
+            pddl_bdd_t *nclosed = pddlBDDNot(ss->mgr, bw_closed);
+            pddlBDDAndUpdate(ss->mgr, &bw_node[fi2 - 1], nclosed);
+            pddlBDDDel(ss->mgr, nclosed);
+            pddlBDDOrUpdate(ss->mgr, &bw_closed, bw_node[fi2 - 1]);
         }
     }
 
     for (int fi = 0; fi < plan_size + 1; ++fi){
         fprintf(stderr, "F %d\n", fi);
-        pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, fw_node[fi], bw_node[fi]);
-        if (pddlBDDIsFalse(ss->ddm, conj)){
+        pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, fw_node[fi], bw_node[fi]);
+        if (pddlBDDIsFalse(ss->mgr, conj)){
             fprintf(stderr, "A %d\n", fi);
             fflush(stderr);
             res = 0;
         }
-        pddlBDDDel(ss->ddm, conj);
+        pddlBDDDel(ss->mgr, conj);
 
-        conj = pddlBDDAnd(ss->ddm, bw_node[fi], fw_closed);
-        if (pddlBDDIsFalse(ss->ddm, conj)){
+        conj = pddlBDDAnd(ss->mgr, bw_node[fi], fw_closed);
+        if (pddlBDDIsFalse(ss->mgr, conj)){
             fprintf(stderr, "B %d\n", fi);
             fflush(stderr);
             res = 0;
         }
-        pddlBDDDel(ss->ddm, conj);
+        pddlBDDDel(ss->mgr, conj);
 
-        conj = pddlBDDAnd(ss->ddm, fw_node[fi], bw_closed);
-        if (pddlBDDIsFalse(ss->ddm, conj)){
+        conj = pddlBDDAnd(ss->mgr, fw_node[fi], bw_closed);
+        if (pddlBDDIsFalse(ss->mgr, conj)){
             fprintf(stderr, "C %d\n", fi);
             fflush(stderr);
             res = 0;
         }
-        pddlBDDDel(ss->ddm, conj);
+        pddlBDDDel(ss->mgr, conj);
     }
 
-    pddlBDDDel(ss->ddm, fw_closed);
-    pddlBDDDel(ss->ddm, bw_closed);
+    pddlBDDDel(ss->mgr, fw_closed);
+    pddlBDDDel(ss->mgr, bw_closed);
     for (int fi = 0; fi < plan_size + 1; ++fi){
-        pddlBDDDel(ss->ddm, fw_node[fi]);
-        pddlBDDDel(ss->ddm, bw_node[fi]);
+        pddlBDDDel(ss->mgr, fw_node[fi]);
+        pddlBDDDel(ss->mgr, bw_node[fi]);
     }
     BOR_FREE(fw_node);
     BOR_FREE(bw_node);
