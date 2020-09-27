@@ -20,7 +20,9 @@
 #ifndef __PDDL_SYMBOLIC_TRANS_H__
 #define __PDDL_SYMBOLIC_TRANS_H__
 
+#include <pddl/cost.h>
 #include <pddl/symbolic_vars.h>
+#include <pddl/symbolic_constr.h>
 
 struct pddl_symbolic_trans {
     pddl_bdd_t *bdd; /*!< BDD representing the transition(s) */
@@ -34,6 +36,7 @@ struct pddl_symbolic_trans {
 typedef struct pddl_symbolic_trans pddl_symbolic_trans_t;
 
 struct pddl_symbolic_trans_set {
+    pddl_symbolic_vars_t *vars;
     pddl_symbolic_trans_t *trans;
     int trans_size;
 
@@ -43,6 +46,7 @@ struct pddl_symbolic_trans_set {
 typedef struct pddl_symbolic_trans_set pddl_symbolic_trans_set_t;
 
 struct pddl_symbolic_trans_sets {
+    pddl_symbolic_vars_t *vars;
     pddl_symbolic_trans_set_t *trans;
     int trans_size;
 };
@@ -50,10 +54,22 @@ typedef struct pddl_symbolic_trans_sets pddl_symbolic_trans_sets_t;
 
 void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *tr,
                                pddl_symbolic_vars_t *vars,
+                               pddl_symbolic_constr_t *constr,
                                const pddl_strips_t *strips,
                                const pddl_mgroups_t *mgroup,
+                               int use_op_constr,
+                               int max_nodes,
+                               float max_time,
                                bor_err_t *err);
 void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *tr);
 
+typedef pddl_bdd_t *(*pddl_symbolic_trans_set_image_fn)(
+        pddl_symbolic_trans_set_t *trset,
+        pddl_bdd_t *state);
+
+pddl_bdd_t *pddlSymbolicTransSetImage(pddl_symbolic_trans_set_t *trset,
+                                      pddl_bdd_t *state);
+pddl_bdd_t *pddlSymbolicTransSetPreImage(pddl_symbolic_trans_set_t *trset,
+                                         pddl_bdd_t *state);
 
 #endif /* __PDDL_SYMBOLIC_TRANS_H__ */

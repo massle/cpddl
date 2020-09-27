@@ -31,32 +31,6 @@
 #include "pddl/scc.h"
 #include "assert.h"
 
-struct pddl_symbolic_trans {
-    pddl_bdd_t *bdd; /*!< BDD representing the transition(s) */
-    bor_iset_t eff_groups; /*!< Groups appearing in the effect(s) */
-    pddl_bdd_t **var_pre; /*!< List of pre variables */
-    pddl_bdd_t **var_eff; /*!< List of eff variables */
-    int var_size; /*!< Size of .var_pre and .var_eff */
-    pddl_bdd_t *exist_pre; /*!< Cube from .var_pre */
-    pddl_bdd_t *exist_eff; /*!< Cube from .var_eff */
-};
-typedef struct pddl_symbolic_trans pddl_symbolic_trans_t;
-
-struct pddl_symbolic_trans_set {
-    pddl_symbolic_trans_t *trans;
-    int trans_size;
-
-    bor_iset_t op; /*!< List of covered operators */
-    pddl_cost_t cost; /*!< Cost of the covered operatros */
-};
-typedef struct pddl_symbolic_trans_set pddl_symbolic_trans_set_t;
-
-struct pddl_symbolic_trans_sets {
-    pddl_symbolic_trans_set_t *trans;
-    int trans_size;
-};
-typedef struct pddl_symbolic_trans_sets pddl_symbolic_trans_sets_t;
-
 struct pddl_symbolic_state {
     int id; /*!< ID of this state */
     int parent_id; /*!< Parent state ID */
@@ -83,13 +57,10 @@ struct pddl_symbolic_states {
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
 
-typedef pddl_bdd_t *(*trans_set_image_fn)(pddl_symbolic_task_t *ss,
-                                          pddl_symbolic_trans_set_t *trset,
-                                          pddl_bdd_t *state);
 struct pddl_symbolic_search {
     int fw; /*!< True if this is forward search */
-    trans_set_image_fn image; /*!< Function constructing image */
-    trans_set_image_fn pre_image; /*!< Function constructing pre-image */
+    pddl_symbolic_trans_set_image_fn image; /*!< Function constructing image */
+    pddl_symbolic_trans_set_image_fn pre_image; /*!< Function constructing pre-image */
     pddl_symbolic_constr_apply_fn constr_apply; /*!< Function for applying constraints */
     pddl_symbolic_states_t state; /*!< State space */
     pddl_bdd_t *goal; /*!< BDD describing the goal states */
@@ -142,419 +113,6 @@ struct pddl_symbolic_task {
 };
 
 
-
-static void transFree(pddl_symbolic_task_t *ss,
-                      pddl_symbolic_trans_t *tr)
-{
-    pddlBDDDel(ss->ddm, tr->bdd);
-    for (int i = 0; i < tr->var_size; ++i){
-        pddlBDDDel(ss->ddm, tr->var_pre[i]);
-        pddlBDDDel(ss->ddm, tr->var_eff[i]);
-    }
-    if (tr->var_pre != NULL)
-        BOR_FREE(tr->var_pre);
-    if (tr->var_eff != NULL)
-        BOR_FREE(tr->var_eff);
-    pddlBDDDel(ss->ddm, tr->exist_pre);
-    pddlBDDDel(ss->ddm, tr->exist_eff);
-    borISetFree(&tr->eff_groups);
-    bzero(tr, sizeof(*tr));
-}
-
-static void transSetFree(pddl_symbolic_task_t *ss,
-                         pddl_symbolic_trans_set_t *trset)
-{
-    for (int i = 0; i < trset->trans_size; ++i)
-        transFree(ss, trset->trans + i);
-    if (trset->trans != NULL)
-        BOR_FREE(trset->trans);
-    borISetFree(&trset->op);
-}
-
-static void transSetsFree(pddl_symbolic_task_t *ss,
-                          pddl_symbolic_trans_sets_t *trset)
-{
-    for (int i = 0; i < trset->trans_size; ++i)
-        transSetFree(ss, trset->trans + i);
-    if (trset->trans != NULL)
-        BOR_FREE(trset->trans);
-}
-
-
-static void transInitEffVars(pddl_symbolic_task_t *ss,
-                             pddl_symbolic_trans_t *tr)
-{
-    pddlSymbolicVarsGroupsBDDVars(&ss->vars, &tr->eff_groups,
-                                  &tr->var_pre, &tr->var_eff, &tr->var_size);
-    tr->exist_pre = pddlBDDCube(ss->ddm, tr->var_pre, tr->var_size);
-    tr->exist_eff = pddlBDDCube(ss->ddm, tr->var_eff, tr->var_size);
-}
-
-static void transInit(pddl_symbolic_task_t *ss,
-                      const pddl_symbolic_strips_op_t *op,
-                      pddl_symbolic_trans_t *tr,
-                      bor_err_t *err)
-{
-    ASSERT(!op->is_dead);
-
-    // Build the BDD from bottom up by first filling the array bdds and
-    // then going over it from last to the first item
-    pddl_bdd_t **bdds = BOR_CALLOC_ARR(pddl_bdd_t *, 2 * ss->vars.group_size);
-    int *pre_set = BOR_CALLOC_ARR(int, ss->vars.group_size);
-    int *eff_set = BOR_CALLOC_ARR(int, ss->vars.group_size);
-
-    int fact_id;
-    BOR_ISET_FOR_EACH(&op->pre, fact_id){
-        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
-        pre_set[group_id] = 1;
-        ASSERT(bdds[2 * group_id] == NULL);
-        bdds[2 * group_id] = pddlSymbolicVarsFactPreBDD(&ss->vars, fact_id);
-    }
-
-    BOR_ISET_FOR_EACH(&op->neg_pre, fact_id){
-        ASSERT(!borISetIn(fact_id, &op->pre));
-        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
-        pddl_bdd_t *bdd = pddlSymbolicVarsFactPreBDDNeg(&ss->vars, fact_id);
-        if (bdds[2 * group_id] == NULL){
-            bdds[2 * group_id] = bdd;
-        }else{
-            pddlBDDAndUpdate(ss->ddm, &bdds[2 * group_id], bdd);
-            pddlBDDDel(ss->ddm, bdd);
-        }
-    }
-
-    BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
-        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
-        eff_set[group_id] = 1;
-        ASSERT(bdds[2 * group_id + 1] == NULL);
-        bdds[2 * group_id + 1]
-                = pddlSymbolicVarsFactEffBDD(&ss->vars, fact_id);
-    }
-
-    BOR_ISET_FOR_EACH(&op->del_eff, fact_id){
-        ASSERT(!borISetIn(fact_id, &op->add_eff));
-        int group_id = pddlSymbolicVarsFactGroup(&ss->vars, fact_id);
-        pddl_bdd_t *bdd = pddlSymbolicVarsFactEffBDDNeg(&ss->vars, fact_id);
-        if (bdds[2 * group_id + 1] == NULL){
-            bdds[2 * group_id + 1] = bdd;
-        }else{
-            pddlBDDAndUpdate(ss->ddm, &bdds[2 * group_id + 1], bdd);
-            pddlBDDDel(ss->ddm, bdd);
-        }
-
-    }
-
-    tr->bdd = pddlBDDOne(ss->ddm);
-    for (int i = 2 * ss->vars.group_size - 1; i >= 0; --i){
-        if (bdds[i] != NULL){
-            pddlBDDAndUpdate(ss->ddm, &tr->bdd, bdds[i]);
-            pddlBDDDel(ss->ddm, bdds[i]);
-        }
-    }
-    BOR_FREE(bdds);
-
-
-    if (ss->cfg.use_op_constr){
-        int fact_id;
-
-
-        BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
-            int group_id = ss->vars.fact[fact_id].group_id;
-            if (!pre_set[group_id]){
-                // TODO: pre-compute
-                int fid;
-                BOR_ISET_FOR_EACH(&ss->vars.group[group_id].fact, fid){
-                    int fact_id2;
-                    BOR_ISET_FOR_EACH(ss->strips.fact_mutex_bw + fid, fact_id2){
-                        pddl_bdd_t *mutex;
-                        mutex = pddlSymbolicVarsCreateMutexPre(&ss->vars,
-                                                               fid, fact_id2);
-                        pddlBDDAndUpdate(ss->ddm, &tr->bdd, mutex);
-                        pddlBDDDel(ss->ddm, mutex);
-                    }
-                }
-            }
-
-
-            pddl_bdd_t *mg;
-            // TODO: pre-compute, use all mutex groups
-            mg = pddlSymbolicVarsCreateExactlyOneMGroupPre(
-                        &ss->vars, &ss->vars.group[group_id].fact);
-            pddlBDDAndUpdate(ss->ddm, &tr->bdd, mg);
-            pddlBDDDel(ss->ddm, mg);
-        }
-    }
-
-    for (int i = 0; i < ss->vars.group_size; ++i){
-        if (eff_set[i])
-            borISetAdd(&tr->eff_groups, i);
-    }
-    transInitEffVars(ss, tr);
-}
-
-static int transMerge(pddl_symbolic_task_t *ss,
-                      pddl_symbolic_trans_t *dst,
-                      pddl_symbolic_trans_t *tr1,
-                      pddl_symbolic_trans_t *tr2,
-                      size_t max_nodes)
-{
-    bzero(dst, sizeof(*dst));
-
-    if (pddlBDDSize(tr1->bdd) >= max_nodes
-            || pddlBDDSize(tr2->bdd) >= max_nodes){
-        return -1;
-    }
-
-    pddl_bdd_t *bdd1 = pddlBDDClone(ss->ddm, tr1->bdd);
-    pddl_bdd_t *bdd2 = pddlBDDClone(ss->ddm, tr2->bdd);
-
-    borISetUnion2(&dst->eff_groups, &tr1->eff_groups, &tr2->eff_groups);
-    int e1 = 0, esize1 = borISetSize(&tr1->eff_groups);
-    int e2 = 0, esize2 = borISetSize(&tr2->eff_groups);
-    int group_id;
-    BOR_ISET_FOR_EACH(&dst->eff_groups, group_id){
-        if (e1 < esize1 && borISetGet(&tr1->eff_groups, e1) == group_id){
-            ++e1;
-        }else{
-            pddl_bdd_t *biimp;
-            biimp = pddlSymbolicVarsCreateBiimp(&ss->vars, group_id);
-            pddlBDDAndUpdate(ss->ddm, &bdd1, biimp);
-            pddlBDDDel(ss->ddm, biimp);
-        }
-
-        if (e2 < esize2 && borISetGet(&tr2->eff_groups, e2) == group_id){
-            ++e2;
-        }else{
-            pddl_bdd_t *biimp;
-            biimp = pddlSymbolicVarsCreateBiimp(&ss->vars, group_id);
-            pddlBDDAndUpdate(ss->ddm, &bdd2, biimp);
-            pddlBDDDel(ss->ddm, biimp);
-        }
-    }
-
-    if (max_nodes > 0){
-        dst->bdd = pddlBDDOrLimit(ss->ddm, bdd1, bdd2, max_nodes, NULL);
-    }else{
-        dst->bdd = pddlBDDOr(ss->ddm, bdd1, bdd2);
-    }
-    pddlBDDDel(ss->ddm, bdd1);
-    pddlBDDDel(ss->ddm, bdd2);
-    if (dst->bdd == NULL){
-        borISetFree(&dst->eff_groups);
-        return -1;
-    }
-
-    transInitEffVars(ss, dst);
-
-    return 0;
-}
-
-static void transSetsAddRange(pddl_symbolic_task_t *ss,
-                              pddl_symbolic_trans_set_t *trset,
-                              const int *op_ids,
-                              int op_ids_size,
-                              bor_err_t *err)
-{
-    bzero(trset, sizeof(*trset));
-    for (int i = 0; i < op_ids_size; ++i)
-        borISetAdd(&trset->op, op_ids[i]);
-    ASSERT(borISetSize(&trset->op) > 0);
-    trset->cost = ss->strips.op[op_ids[0]].cost;
-
-    int T_size = borISetSize(&trset->op);
-    pddl_symbolic_trans_t *T = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
-    int Tres_size = 0;
-    pddl_symbolic_trans_t *Tres = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
-    for (int i = 0; i < T_size; ++i)
-        transInit(ss, ss->strips.op + op_ids[i], T + i, err);
-
-    BOR_INFO(err, "Initialized individual trans BDDs: cost: %d, ops: %d",
-             trset->cost, borISetSize(&trset->op));
-
-    pddl_time_limit_t time_limit;
-    pddlTimeLimitInit(&time_limit);
-    pddlTimeLimitSet(&time_limit, ss->cfg.trans_merge_max_time);
-    while (T_size > 1){
-        if (pddlTimeLimitCheck(&time_limit) < 0)
-            break;
-
-        int ins = 0;
-        for (int i = 0; i < T_size; i = i + 2){
-            if (i + 1 >= T_size){
-                T[ins] = T[i];
-
-            }else{
-                if (T[i].bdd == NULL && T[i + 1].bdd == NULL){
-                    bzero(T + ins, sizeof(*T));
-
-                }else if (T[i].bdd == NULL){
-                    T[ins] = T[i + 1];
-
-                }else if (T[i + 1].bdd == NULL){
-                    T[ins] = T[i];
-
-                }else{
-                    pddl_symbolic_trans_t restr;
-                    int res = transMerge(ss, &restr, T + i, T + i + 1,
-                                         ss->cfg.trans_merge_max_nodes);
-                    if (res < 0){
-                        Tres[Tres_size++] = T[i];
-                        Tres[Tres_size++] = T[i + 1];
-                        bzero(T + ins, sizeof(*T));
-
-                    }else{
-                        transFree(ss, T + i);
-                        transFree(ss, T + i + 1);
-                        T[ins] = restr;
-                    }
-                }
-            }
-            ++ins;
-        }
-        T_size = ins;
-    }
-
-    for (int i = 0; i < T_size; ++i){
-        if (T[i].bdd != NULL)
-            Tres[Tres_size++] = T[i];
-    }
-
-    trset->trans_size = Tres_size;
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
-    memcpy(trset->trans, Tres, sizeof(pddl_symbolic_trans_t) * Tres_size);
-
-    BOR_FREE(T);
-    BOR_FREE(Tres);
-
-    long nodes = 0;
-    for (int i = 0; i < trset->trans_size; ++i)
-        nodes += pddlBDDSize(trset->trans[i].bdd);
-    BOR_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
-                  " nodes: %lu, %s",
-             trset->cost, borISetSize(&trset->op), trset->trans_size,
-             nodes, (T_size > 1 ? "(time limit reached)" : ""));
-}
-
-static int opIdCostCmp(const void *a, const void *b, void *_strips)
-{
-    const int id1 = *(const int *)a;
-    const int id2 = *(const int *)b;
-    const pddl_strips_t *strips = _strips;
-    int cmp = strips->op.op[id1]->cost - strips->op.op[id2]->cost;
-    if (cmp == 0)
-        return id1 - id2;
-    return cmp;
-}
-
-static void transSetsInit(pddl_symbolic_task_t *ss,
-                          const pddl_strips_t *strips,
-                          const pddl_mutex_pairs_t *mutex,
-                          const pddl_mgroups_t *mgroup,
-                          pddl_symbolic_trans_sets_t *trset,
-                          bor_err_t *err)
-{
-    bzero(trset, sizeof(*trset));
-
-    BOR_ISET(costs);
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
-        if (!ss->strips.op[op_id].is_dead)
-            borISetAdd(&costs, strips->op.op[op_id]->cost);
-    }
-
-    trset->trans_size = borISetSize(&costs);
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_size);
-    borISetFree(&costs);
-
-    int op_ids_size = strips->op.op_size;
-    int *op_ids = BOR_ALLOC_ARR(int, op_ids_size);
-    int ins = 0;
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
-        if (!ss->strips.op[op_id].is_dead)
-            op_ids[ins++] = op_id;
-    }
-    op_ids_size = ins;
-    borSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)strips);
-
-    int start = 0, end = 1, tr_id = 0;
-    for (end = 1; end < op_ids_size; ++end){
-        int cost_start = strips->op.op[op_ids[start]]->cost;
-        int cost_end = strips->op.op[op_ids[end]]->cost;
-        if (cost_start != cost_end){
-            ASSERT(end > start);
-            ASSERT(tr_id < trset->trans_size);
-            transSetsAddRange(ss, trset->trans + tr_id,
-                              op_ids + start, end - start, err);
-            ++tr_id;
-            start = end;
-        }
-    }
-    if (end > start){
-        transSetsAddRange(ss, trset->trans + tr_id,
-                          op_ids + start, end - start, err);
-        ++tr_id;
-    }
-    ASSERT(trset->trans_size == tr_id);
-
-    BOR_FREE(op_ids);
-}
-
-
-static pddl_bdd_t *transImage(pddl_symbolic_task_t *ss,
-                          pddl_symbolic_trans_t *tr,
-                          pddl_bdd_t *state)
-{
-    pddl_bdd_t *bdd1, *bdd;
-    bdd1 = pddlBDDAndAbstract(ss->ddm, state, tr->bdd, tr->exist_pre);
-    bdd = pddlBDDSwapVars(ss->ddm, bdd1, tr->var_pre, tr->var_eff,
-                          tr->var_size);
-    pddlBDDDel(ss->ddm, bdd1);
-    return bdd;
-}
-
-static pddl_bdd_t *transPreImage(pddl_symbolic_task_t *ss,
-                          pddl_symbolic_trans_t *tr,
-                          pddl_bdd_t *state)
-{
-    pddl_bdd_t *bdd1, *bdd;
-    bdd1 = pddlBDDSwapVars(ss->ddm, state, tr->var_eff, tr->var_pre,
-                           tr->var_size);
-    bdd = pddlBDDAndAbstract(ss->ddm, bdd1, tr->bdd, tr->exist_eff);
-    pddlBDDDel(ss->ddm, bdd1);
-    return bdd;
-}
-
-static pddl_bdd_t *transSetApply(pddl_symbolic_task_t *ss,
-                             pddl_symbolic_trans_set_t *trset,
-                             pddl_bdd_t *state,
-                             pddl_bdd_t *(*f)(pddl_symbolic_task_t *ss,
-                                          pddl_symbolic_trans_t *tr,
-                                          pddl_bdd_t *state))
-{
-    if (trset->trans_size == 0)
-        return NULL;
-
-    pddl_bdd_t *bdd = f(ss, trset->trans + 0, state);
-    for (int i = 1; i < trset->trans_size; ++i){
-        pddl_bdd_t *bdd2 = f(ss, trset->trans + i, state);
-        pddlBDDOrUpdate(ss->ddm, &bdd, bdd2);
-        pddlBDDDel(ss->ddm, bdd2);
-    }
-    return bdd;
-}
-
-static pddl_bdd_t *transSetImage(pddl_symbolic_task_t *ss,
-                             pddl_symbolic_trans_set_t *trset,
-                             pddl_bdd_t *state)
-{
-    return transSetApply(ss, trset, state, transImage);
-}
-
-static pddl_bdd_t *transSetPreImage(pddl_symbolic_task_t *ss,
-                                pddl_symbolic_trans_set_t *trset,
-                                pddl_bdd_t *state)
-{
-    return transSetApply(ss, trset, state, transPreImage);
-}
 
 static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
 {
@@ -732,8 +290,8 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
 static void searchInit(pddl_symbolic_task_t *ss,
                        pddl_symbolic_search_t *search,
                        int fw,
-                       trans_set_image_fn image,
-                       trans_set_image_fn pre_image,
+                       pddl_symbolic_trans_set_image_fn image,
+                       pddl_symbolic_trans_set_image_fn pre_image,
                        pddl_symbolic_constr_apply_fn constr_apply,
                        pddl_bdd_t *init,
                        pddl_bdd_t *goal)
@@ -855,7 +413,7 @@ static void planInit(pddl_symbolic_task_t *ss,
         // So, compute the conjuction of the preimage of state and
         // state_prev.
         pddl_symbolic_trans_set_t *trset = ss->trans.trans + state->trans_id;
-        pddl_bdd_t *preimg = search->pre_image(ss, trset, bdd);
+        pddl_bdd_t *preimg = search->pre_image(trset, bdd);
         ASSERT_RUNTIME(!pddlBDDIsFalse(ss->ddm, preimg));
         pddlBDDAndUpdate(ss->ddm, &preimg, prev_state->bdd);
 
@@ -943,7 +501,7 @@ static pddl_bdd_t *searchStateBDD(pddl_symbolic_task_t *ss,
     if (state->bdd == NULL){
         const pddl_symbolic_state_t *prev_state;
         prev_state = statesGet(&search->state, state->parent_id);
-        state->bdd = search->image(ss, ss->trans.trans + state->trans_id,
+        state->bdd = search->image(ss->trans.trans + state->trans_id,
                                    prev_state->bdd);
         pddl_bdd_t *nall = pddlBDDNot(ss->ddm, search->state.all_closed);
         pddlBDDAndUpdate(ss->ddm, &state->bdd, nall);
@@ -1677,13 +1235,19 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
 
     pddlSymbolicVarsInitBDD(ss->ddm, &ss->vars);
 
-    transSetsInit(ss, strips, mutex, mgroups, &ss->trans, err);
-    BOR_INFO2(err, "Transitions created.");
     pddlSymbolicConstrInit(&ss->constr, &ss->vars, mutex, mgroups,
                            ss->cfg.constr_max_nodes,
                            ss->cfg.constr_max_time,
                            err);
     BOR_INFO2(err, "Constraints created.");
+
+    pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
+                              strips, mgroups,
+                              cfg->use_op_constr,
+                              cfg->trans_merge_max_nodes,
+                              cfg->trans_merge_max_time, err);
+    BOR_INFO2(err, "Transitions created.");
+
     ss->init = pddlSymbolicVarsCreateState(&ss->vars, &strips->init);
     BOR_INFO2(err, "Initial state created.");
     ss->goal = pddlSymbolicVarsCreatePartialState(&ss->vars, &strips->goal);
@@ -1724,7 +1288,7 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
     stripsFree(&ss->strips);
     pddlSymbolicConstrFree(&ss->constr);
-    transSetsFree(ss, &ss->trans);
+    pddlSymbolicTransSetsFree(&ss->trans);
     if (ss->ordered_facts != NULL)
         BOR_FREE(ss->ordered_facts);
     if (ss->fact_to_order != NULL)
@@ -1763,7 +1327,8 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 {
     BOR_INFO_PREFIX_PUSH(err, "symbolic search fw: ");
     pddl_symbolic_search_t fw_search;
-    searchInit(ss, &fw_search, 1, transSetImage, transSetPreImage,
+    searchInit(ss, &fw_search, 1,
+               pddlSymbolicTransSetImage, pddlSymbolicTransSetPreImage,
                pddlSymbolicConstrApplyFw, ss->init, ss->goal);
     int res = searchOneDir(ss, &fw_search, err);
     borIArrAppendArr(plan, &fw_search.plan);
@@ -1788,7 +1353,8 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 {
     BOR_INFO_PREFIX_PUSH(err, "symbolic search bw: ");
     pddl_symbolic_search_t bw_search;
-    searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
+    searchInit(ss, &bw_search, 0,
+               pddlSymbolicTransSetPreImage, pddlSymbolicTransSetImage,
                pddlSymbolicConstrApplyBw, ss->goal, ss->init);
     int res = searchOneDir(ss, &bw_search, err);
     borIArrAppendArr(plan, &bw_search.plan);
@@ -1862,12 +1428,14 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     BOR_INFO2(err, "start");
     int res = PDDL_SYMBOLIC_FAIL;
     pddl_symbolic_search_t fw_search;
-    searchInit(ss, &fw_search, 1, transSetImage, transSetPreImage,
+    searchInit(ss, &fw_search, 1,
+               pddlSymbolicTransSetImage, pddlSymbolicTransSetPreImage,
                pddlSymbolicConstrApplyFw, ss->init, ss->goal);
     BOR_INFO2(err, "fw-search created.");
 
     pddl_symbolic_search_t bw_search;
-    searchInit(ss, &bw_search, 0, transSetPreImage, transSetImage,
+    searchInit(ss, &bw_search, 0,
+               pddlSymbolicTransSetPreImage, pddlSymbolicTransSetImage,
                pddlSymbolicConstrApplyBw, ss->goal, ss->init);
     BOR_INFO2(err, "bw-search created.");
 
@@ -1976,7 +1544,7 @@ int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
         if (!borISetIn(op_id, &trs->op))
             continue;
 
-        pddl_bdd_t *next_states = transSetImage(ss, trs, bdd_state);
+        pddl_bdd_t *next_states = pddlSymbolicTransSetImage(trs, bdd_state);
         pddlSymbolicConstrApplyFw(&ss->constr, &next_states);
         pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, next_states, bdd_res_state);
         if (pddlBDDIsFalse(ss->ddm, conj)){
@@ -2006,7 +1574,7 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
         if (!borISetIn(op_id, &trs->op))
             continue;
 
-        pddl_bdd_t *next_states = transSetPreImage(ss, trs, bdd_state);
+        pddl_bdd_t *next_states = pddlSymbolicTransSetPreImage(trs, bdd_state);
         pddlSymbolicConstrApplyBw(&ss->constr, &next_states);
         pddl_bdd_t *conj = pddlBDDAnd(ss->ddm, next_states, bdd_res_state);
         if (pddlBDDIsFalse(ss->ddm, conj)){
@@ -2039,7 +1607,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             pddl_symbolic_trans_set_t *trs = ss->trans.trans + tri;
             if (!borISetIn(fw_op_id, &trs->op))
                 continue;
-            fw_node[fi + 1] = transSetImage(ss, trs, fw_node[fi]);
+            fw_node[fi + 1] = pddlSymbolicTransSetImage(trs, fw_node[fi]);
             if (ss->cfg.use_op_constr){
                 pddl_bdd_t *tmp = pddlBDDClone(ss->ddm, fw_node[fi + 1]);
                 pddlSymbolicConstrApplyFw(&ss->constr, &tmp);
@@ -2078,7 +1646,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             if (!borISetIn(bw_op_id, &trs->op))
                 continue;
             int fi2 = plan_size - fi;
-            bw_node[fi2 - 1] = transSetPreImage(ss, trs, bw_node[fi2]);
+            bw_node[fi2 - 1] = pddlSymbolicTransSetPreImage(trs, bw_node[fi2]);
             if (ss->cfg.use_op_constr){
                 pddl_bdd_t *tmp = pddlBDDClone(ss->ddm, bw_node[fi2 - 1]);
                 pddlSymbolicConstrApplyBw(&ss->constr, &tmp);
