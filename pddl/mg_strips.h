@@ -46,6 +46,8 @@ void pddlMGStripsReduce(pddl_mg_strips_t *mg_strips,
                         const bor_iset_t *del_facts,
                         const bor_iset_t *del_ops);
 
+void pddlMGStripsReorderMGroups(pddl_mg_strips_t *mg_strips,
+                                const int *reorder);
 
 double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
                                      const pddl_mutex_pairs_t *mutex,

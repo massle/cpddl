@@ -526,3 +526,19 @@ void pddlMGStripsReduce(pddl_mg_strips_t *mg_strips,
     pddlStripsReduce(&mg_strips->strips, del_facts, del_ops);
     pddlMGroupsReduce(&mg_strips->mg, del_facts);
 }
+
+void pddlMGStripsReorderMGroups(pddl_mg_strips_t *mg_strips,
+                                const int *reorder)
+{
+    pddl_mgroups_t mgs;
+    pddlMGroupsInitEmpty(&mgs);
+    for (int i = 0; i < mg_strips->mg.mgroup_size; ++i){
+        const pddl_mgroup_t *mgin = mg_strips->mg.mgroup + i;
+        pddl_mgroup_t *mg = pddlMGroupsAdd(&mgs, &mgin->mgroup);
+        mg->is_exactly_one = mgin->is_exactly_one;
+        mg->is_fam_group = mgin->is_fam_group;
+        mg->is_goal = mgin->is_goal;
+    }
+    pddlMGroupsFree(&mg_strips->mg);
+    mg_strips->mg = mgs;
+}

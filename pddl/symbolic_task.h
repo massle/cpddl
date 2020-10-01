@@ -41,14 +41,12 @@ extern "C" {
 
 struct pddl_symbolic_task_config {
     int max_mem_in_mb;
-    int num_slots;
     int cache_size;
     size_t trans_merge_max_nodes;
     float trans_merge_max_time;
     int use_constr;
     size_t constr_max_nodes;
     float constr_max_time;
-    int use_disambiguation;
     int use_op_constr;
     float goal_constr_max_time;
 };
@@ -57,23 +55,19 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 #define PDDL_SYMBOLIC_TASK_CONFIG_INIT \
     { \
         -1, /* .max_mem_in_mb */ \
-        16000000, /* .num_slots */ \
         16000000, /* .cache_size */ \
         100000ul, /* .trans_merge_max_nodes */ \
         -1.f, /* .trans_merge_max_time */ \
         0, /* .use_constr */ \
         100000ul, /* .constr_max_nodes */ \
         -1.f, /* .constr_max_time */ \
-        1, /* .use_disambiguation */ \
         1, /* .use_op_constr */ \
         30., /* .goal_constr_max_time */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;
 
-pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_strips_t *strips,
-                                          const pddl_mgroups_t *mgroups,
-                                          const pddl_mutex_pairs_t *mutex,
+pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                           const pddl_symbolic_task_config_t *c,
                                           bor_err_t *err);
 
@@ -95,15 +89,14 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
                                bor_err_t *err);
 
 int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
-                                 const bor_iset_t *state,
-                                 const bor_iset_t *res_state,
+                                 const int *state,
+                                 const int *res_state,
                                  int op_id);
 int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
-                                 const bor_iset_t *state,
-                                 const bor_iset_t *res_state,
+                                 const int *state,
+                                 const int *res_state,
                                  int op_id);
 int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
-                              const bor_iset_t *states,
                               const bor_iarr_t *op,
                               int plan_size);
 #ifdef __cplusplus

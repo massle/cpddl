@@ -127,6 +127,13 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
             borISetAdd(constr->fact_mutex_bw + f1, f2);
             borISetAdd(constr->fact_mutex_bw + f2, f1);
         }
+        if (!pddlMutexPairsIsFwMutex(mutex, f1, f2)
+                && !pddlMutexPairsIsBwMutex(mutex, f1, f2)){
+            borISetAdd(constr->fact_mutex_fw + f1, f2);
+            borISetAdd(constr->fact_mutex_fw + f2, f1);
+            borISetAdd(constr->fact_mutex_bw + f1, f2);
+            borISetAdd(constr->fact_mutex_bw + f2, f1);
+        }
     }
     BOR_INFO2(err, "Mutex maps created.");
 

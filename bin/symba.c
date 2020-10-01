@@ -1422,7 +1422,7 @@ static int opMutex(void)
     return 0;
 }
 
-static void planPrint(const pddl_strips_t *strips,
+static void planPrint(const pddl_fdr_t *fdr,
                       const bor_iarr_t *plan,
                       int cost,
                       FILE *fout)
@@ -1431,39 +1431,25 @@ static void planPrint(const pddl_strips_t *strips,
     fprintf(fout, ";; Length: %d\n", borIArrSize(plan));
     int op_id;
     BOR_IARR_FOR_EACH(plan, op_id){
-        const pddl_strips_op_t *op = strips->op.op[op_id];
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
         fprintf(fout, "(%s) ;; cost: %ld\n", op->name, (long)op->cost);
     }
 }
 
 static int symba(void)
 {
-    pddl_mgroups_t mgs;
-    pddlMGroupsInitEmpty(&mgs);
-    pddlMGroupsExtractCoverEssential(&mgroups, &mgs);
-
     pddl_fdr_t fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
                          fdr_var_flag, &err);
 
-    pddl_mg_strips_t mg_strips;
-    //pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-    pddlMGStripsInit(&mg_strips, &strips, &mgs);
-    //pddlMGStripsInitFDR(&mg_strips, &fdr);
-
-    pddl_mutex_pairs_t mutex;
-    pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
-    //pddlH2(&mg_strips.strips, &mutex, NULL, NULL, 0., &err);
-    pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex, NULL, NULL, 0., &err);
-    pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
-
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
+    //symb_cfg.use_constr = 1;
+    //symb_cfg.use_op_constr = 0;
     // TODO: Print configuration
 
     pddl_symbolic_task_t *task;
-    task = pddlSymbolicTaskNew(&mg_strips.strips, &mg_strips.mg,
-                               &mutex, &symb_cfg, &err);
+    task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err);
 
     BOR_IARR(plan);
     int res;
@@ -1479,15 +1465,15 @@ static int symba(void)
         int cost = 0;
         int op;
         BOR_IARR_FOR_EACH(&plan, op)
-            cost += mg_strips.strips.op.op[op]->cost;
+            cost += fdr.op.op[op]->cost;
         BOR_INFO(&err, "Plan Cost: %d", cost);
         BOR_INFO(&err, "Plan Length: %d", borIArrSize(&plan));
         if (opt.out == NULL || strcmp(opt.out, "-") == 0){
-            planPrint(&mg_strips.strips, &plan, cost, stdout);
+            planPrint(&fdr, &plan, cost, stdout);
         }else{
             FILE *fout;
             if ((fout = fopen(opt.out, "w")) != NULL){
-                planPrint(&mg_strips.strips, &plan, cost, fout);
+                planPrint(&fdr, &plan, cost, fout);
                 fclose(fout);
             }else{
                 BOR_ERR(&err, "Could not open file '%s'", opt.out);
@@ -1499,9 +1485,8 @@ static int symba(void)
     }
 
     borIArrFree(&plan);
+    pddlFDRFree(&fdr);
     pddlSymbolicTaskDel(task);
-    pddlMutexPairsFree(&mutex);
-    pddlMGStripsFree(&mg_strips);
     return 0;
 }
 
