@@ -81,6 +81,25 @@ static int constrConstructMutex(pddl_symbolic_vars_t *vars,
     return num_mutexes;
 }
 
+static int constrConstructFwMGroup(pddl_symbolic_vars_t *vars,
+                                   pddl_bdds_t *bdds,
+                                   const pddl_mgroups_t *mgroup,
+                                   int max_nodes,
+                                   float max_time)
+{
+    int num_mgroups = 0;
+    for (int mgi = 0; mgi < mgroup->mgroup_size; ++mgi){
+        const pddl_mgroup_t *mg = mgroup->mgroup + mgi;
+        if (mg->is_fam_group && mg->is_goal && !mg->is_exactly_one){
+            bddsAddExactlyOneMGroup(vars, bdds, &mg->mgroup);
+            ++num_mgroups;
+        }
+    }
+
+    pddlBDDsMergeAnd(vars->mgr, bdds, max_nodes, max_time);
+    return num_mgroups;
+}
+
 static int constrConstructBwMGroup(pddl_symbolic_vars_t *vars,
                                    pddl_bdds_t *bdds,
                                    const pddl_mgroups_t *mgroup,
@@ -98,6 +117,23 @@ static int constrConstructBwMGroup(pddl_symbolic_vars_t *vars,
 
     pddlBDDsMergeAnd(vars->mgr, bdds, max_nodes, max_time);
     return num_mgroups;
+}
+
+static pddl_bdd_t *constructGroupMutex(pddl_symbolic_constr_t *constr,
+                                       int group_id)
+{
+    pddl_bdd_t *bdd = pddlBDDOne(constr->vars->mgr);
+    int fid;
+    BOR_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
+        int fact_id2;
+        BOR_ISET_FOR_EACH(constr->fact_mutex_bw + fid, fact_id2){
+            pddl_bdd_t *mutex;
+            mutex = pddlSymbolicVarsCreateMutexPre(constr->vars, fid, fact_id2);
+            pddlBDDAndUpdate(constr->vars->mgr, &bdd, mutex);
+            pddlBDDDel(constr->vars->mgr, mutex);
+        }
+    }
+    return bdd;
 }
 
 void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
@@ -176,6 +212,12 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     }
 
     if (mgroup != NULL){
+        int num_fw = constrConstructFwMGroup(vars, &constr->fw_mgroup, mgroup,
+                                             max_nodes, max_time);
+        BOR_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups nodes: %lu",
+                 constr->fw_mgroup.bdd_size, num_fw,
+                 pddlBDDsSize(&constr->fw_mgroup));
+
         int num_bw = constrConstructBwMGroup(vars, &constr->bw_mgroup, mgroup,
                                              max_nodes, max_time);
         BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups nodes: %lu",
@@ -185,10 +227,18 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
 
     pddlMutexPairsFree(&fw_mutex);
     pddlMutexPairsFree(&bw_mutex);
+
+    constr->group_mutex = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
+    for (int i = 0; i < constr->vars->group_size; ++i)
+        constr->group_mutex[i] = constructGroupMutex(constr, i);
 }
 
 void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
 {
+    for (int i = 0; i < constr->vars->group_size; ++i)
+        pddlBDDDel(constr->vars->mgr, constr->group_mutex[i]);
+    BOR_FREE(constr->group_mutex);
+
     pddlMGroupsFree(&constr->mgroup);
 
     for (int i = 0; i < constr->vars->fact_size; ++i){

@@ -220,18 +220,8 @@ static void transInit(pddl_symbolic_vars_t *vars,
         BOR_ISET_FOR_EACH(&op->eff, fact_id){
             int group_id = vars->fact[fact_id].group_id;
             if (pre_set[group_id]){
-                // TODO: pre-compute
-                int fid;
-                BOR_ISET_FOR_EACH(&vars->group[group_id].fact, fid){
-                    int fact_id2;
-                    BOR_ISET_FOR_EACH(constr->fact_mutex_bw + fid, fact_id2){
-                        pddl_bdd_t *mutex;
-                        mutex = pddlSymbolicVarsCreateMutexPre(vars,
-                                                               fid, fact_id2);
-                        pddlBDDAndUpdate(vars->mgr, &tr->bdd, mutex);
-                        pddlBDDDel(vars->mgr, mutex);
-                    }
-                }
+                pddlBDDAndUpdate(vars->mgr, &tr->bdd,
+                                 constr->group_mutex[group_id]);
             }
 
 
@@ -249,6 +239,9 @@ static void transInit(pddl_symbolic_vars_t *vars,
             borISetAdd(&tr->eff_groups, i);
     }
     transInitEffVars(vars, tr);
+
+    BOR_FREE(pre_set);
+    BOR_FREE(eff_set);
 }
 
 static int transMerge(pddl_symbolic_vars_t *vars,
