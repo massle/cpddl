@@ -33,6 +33,7 @@
 #include "pddl/time_limit.h"
 #include "pddl/disambiguation.h"
 #include "pddl/scc.h"
+#include "pddl/famgroup.h"
 #include "assert.h"
 
 struct pddl_symbolic_state {
@@ -800,6 +801,43 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     BOR_FREE(var_order);
 }
 
+static void initConstr(pddl_symbolic_task_t *ss,
+                       const pddl_symbolic_task_config_t *cfg,
+                       bor_err_t *err)
+{
+    pddl_mgroups_t mgs;
+    pddlMGroupsInitEmpty(&mgs);
+    for (int i = 0; i < ss->mg_strips.mg.mgroup_size; ++i){
+        const pddl_mgroup_t *mgin = ss->mg_strips.mg.mgroup + i;
+        pddl_mgroup_t *mg = pddlMGroupsAdd(&mgs, &mgin->mgroup);
+        mg->is_exactly_one = mgin->is_exactly_one;
+        mg->is_fam_group = mgin->is_fam_group;
+        mg->is_goal = mgin->is_goal;
+    }
+    pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
+    fam_cfg.maximal = 0;
+    fam_cfg.goal = 1;
+    pddlFAMGroupsInfer(&mgs, &ss->mg_strips.strips, &fam_cfg, err);
+    pddlMGroupsRemoveSubsets(&mgs);
+    pddlMGroupsRemoveSmall(&mgs, 1);
+    pddlMGroupsSetExactlyOne(&mgs, &ss->mg_strips.strips);
+    pddlMGroupsSetGoal(&mgs, &ss->mg_strips.strips);
+
+    pddl_mutex_pairs_t mutex;
+    pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
+    pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex,
+               NULL, NULL, 0., err);
+    pddlMutexPairsAddMGroups(&mutex, &mgs);
+
+    pddlSymbolicConstrInit(&ss->constr, &ss->vars, &mutex, &mgs,
+                           ss->cfg.constr_max_nodes,
+                           ss->cfg.constr_max_time,
+                           err);
+    pddlMGroupsFree(&mgs);
+    pddlMutexPairsFree(&mutex);
+
+}
+
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                           const pddl_symbolic_task_config_t *cfg,
                                           bor_err_t *err)
@@ -827,7 +865,6 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
 
     prepareTask(ss, fdr, cfg, err);
 
-
     pddlSymbolicVarsInit(&ss->vars,
                          ss->mg_strips.strips.fact.fact_size,
                          &ss->mg_strips.mg);
@@ -843,33 +880,11 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
 
     pddlSymbolicVarsInitBDD(ss->mgr, &ss->vars);
 
-    pddl_mgroups_t mgs;
-    pddlMGroupsInitEmpty(&mgs);
-    for (int i = 0; i < ss->mg_strips.mg.mgroup_size; ++i){
-        const pddl_mgroup_t *mgin = ss->mg_strips.mg.mgroup + i;
-        pddl_mgroup_t *mg = pddlMGroupsAdd(&mgs, &mgin->mgroup);
-        mg->is_exactly_one = mgin->is_exactly_one;
-        mg->is_fam_group = mgin->is_fam_group;
-        mg->is_goal = mgin->is_goal;
-    }
-    pddlMGroupsRemoveSubsets(&mgs);
-    pddlMGroupsRemoveSmall(&mgs, 1);
-    pddlMGroupsSetExactlyOne(&mgs, &ss->mg_strips.strips);
-    pddlMGroupsSetGoal(&mgs, &ss->mg_strips.strips);
-
-    pddl_mutex_pairs_t mutex;
-    pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
-    pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex, NULL, NULL, 0., err);
-    pddlMutexPairsAddMGroups(&mutex, &mgs);
-
-    pddlSymbolicConstrInit(&ss->constr, &ss->vars, &mutex, &mgs,
-                           ss->cfg.constr_max_nodes,
-                           ss->cfg.constr_max_time,
-                           err);
+    initConstr(ss, cfg, err);
     BOR_INFO2(err, "Constraints created.");
 
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
-                              &ss->mg_strips.strips, &mgs,
+                              &ss->mg_strips.strips,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time, err);
@@ -908,9 +923,6 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
              Cudd_ReadGarbageCollections(ss->mgr));
     */
     //Cudd_PrintInfo(ss->mgr, stderr);
-
-    pddlMGroupsFree(&mgs);
-    pddlMutexPairsFree(&mutex);
 
     BOR_INFO_PREFIX_POP(err);
     return ss;

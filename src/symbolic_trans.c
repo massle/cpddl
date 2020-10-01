@@ -224,13 +224,8 @@ static void transInit(pddl_symbolic_vars_t *vars,
                                  constr->group_mutex[group_id]);
             }
 
-
-            pddl_bdd_t *mg;
-            // TODO: pre-compute, use all mutex groups
-            mg = pddlSymbolicVarsCreateExactlyOneMGroupPre(
-                        vars, &vars->group[group_id].fact);
-            pddlBDDAndUpdate(vars->mgr, &tr->bdd, mg);
-            pddlBDDDel(vars->mgr, mg);
+            pddlBDDAndUpdate(vars->mgr, &tr->bdd,
+                             constr->group_mgroup[group_id]);
         }
     }
 
@@ -408,7 +403,6 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                pddl_symbolic_vars_t *vars,
                                pddl_symbolic_constr_t *constr,
                                const pddl_strips_t *strips,
-                               const pddl_mgroups_t *mgroup,
                                int use_op_constr,
                                int max_nodes,
                                float max_time,

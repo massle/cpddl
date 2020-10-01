@@ -73,6 +73,8 @@ pddl_bdd_t *pddlSymbolicVarsCreateMutexPre(pddl_symbolic_vars_t *vars,
 
 pddl_bdd_t *pddlSymbolicVarsCreateExactlyOneMGroupPre(pddl_symbolic_vars_t *vars,
                                                       const bor_iset_t *mgroup);
+pddl_bdd_t *pddlSymbolicVarsCreateExactlyOneMGroupEff(pddl_symbolic_vars_t *vars,
+                                                      const bor_iset_t *mgroup);
 
 int pddlSymbolicVarsFactFromBDDCube(const pddl_symbolic_vars_t *vars,
                                     int group_id,

@@ -136,6 +136,47 @@ static pddl_bdd_t *constructGroupMutex(pddl_symbolic_constr_t *constr,
     return bdd;
 }
 
+static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
+                                       int group_id)
+{
+    pddl_bdd_t *bdd = pddlBDDOne(constr->vars->mgr);
+    BOR_ISET(mgroups);
+    BOR_ISET(mgroups_bw);
+    int fid;
+    BOR_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
+        for (int mgi = 0; mgi < constr->mgroup.mgroup_size; ++mgi){
+            const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
+            if (!borISetIn(fid, &mg->mgroup))
+                continue;
+            if (mg->is_exactly_one)
+                borISetAdd(&mgroups, mgi);
+            if (mg->is_fam_group && mg->is_goal && !mg->is_exactly_one)
+                borISetAdd(&mgroups_bw, mgi);
+        }
+    }
+
+    int mgi;
+    BOR_ISET_FOR_EACH(&mgroups, mgi){
+        const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
+        pddl_bdd_t *mgbdd;
+        mgbdd = pddlSymbolicVarsCreateExactlyOneMGroupPre(constr->vars,
+                                                          &mg->mgroup);
+        pddlBDDAndUpdate(constr->vars->mgr, &bdd, mgbdd);
+        pddlBDDDel(constr->vars->mgr, mgbdd);
+    }
+    BOR_ISET_FOR_EACH(&mgroups_bw, mgi){
+        const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
+        pddl_bdd_t *mgbdd;
+        mgbdd = pddlSymbolicVarsCreateExactlyOneMGroupEff(constr->vars,
+                                                          &mg->mgroup);
+        pddlBDDAndUpdate(constr->vars->mgr, &bdd, mgbdd);
+        pddlBDDDel(constr->vars->mgr, mgbdd);
+    }
+    borISetFree(&mgroups);
+    borISetFree(&mgroups_bw);
+    return bdd;
+}
+
 void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
                             pddl_symbolic_vars_t *vars,
                             const pddl_mutex_pairs_t *mutex,
@@ -229,15 +270,21 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     pddlMutexPairsFree(&bw_mutex);
 
     constr->group_mutex = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
-    for (int i = 0; i < constr->vars->group_size; ++i)
+    constr->group_mgroup = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
+    for (int i = 0; i < constr->vars->group_size; ++i){
         constr->group_mutex[i] = constructGroupMutex(constr, i);
+        constr->group_mgroup[i] = constructGroupMGroup(constr, i);
+    }
 }
 
 void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
 {
-    for (int i = 0; i < constr->vars->group_size; ++i)
+    for (int i = 0; i < constr->vars->group_size; ++i){
         pddlBDDDel(constr->vars->mgr, constr->group_mutex[i]);
+        pddlBDDDel(constr->vars->mgr, constr->group_mgroup[i]);
+    }
     BOR_FREE(constr->group_mutex);
+    BOR_FREE(constr->group_mgroup);
 
     pddlMGroupsFree(&constr->mgroup);
 

@@ -40,6 +40,7 @@ struct pddl_symbolic_constr {
     pddl_bdds_t bw_mutex;
     pddl_bdds_t bw_mgroup;
     pddl_bdd_t **group_mutex;
+    pddl_bdd_t **group_mgroup;
 };
 typedef struct pddl_symbolic_constr pddl_symbolic_constr_t;
 

@@ -223,6 +223,19 @@ pddl_bdd_t *pddlSymbolicVarsCreateExactlyOneMGroupPre(pddl_symbolic_vars_t *vars
     return bdd;
 }
 
+pddl_bdd_t *pddlSymbolicVarsCreateExactlyOneMGroupEff(pddl_symbolic_vars_t *vars,
+                                                      const bor_iset_t *mgroup)
+{
+    pddl_bdd_t *bdd = pddlBDDZero(vars->mgr);
+    int fact_id;
+    BOR_ISET_FOR_EACH(mgroup, fact_id){
+        pddl_bdd_t *var1 = pddlBDDClone(vars->mgr, vars->fact[fact_id].eff_bdd);
+        pddlBDDOrUpdate(vars->mgr, &bdd, var1);
+        pddlBDDDel(vars->mgr, var1);
+    }
+    return bdd;
+}
+
 
 int pddlSymbolicVarsFactFromBDDCube(const pddl_symbolic_vars_t *vars,
                                     int group_id,
