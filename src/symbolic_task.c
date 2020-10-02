@@ -34,7 +34,10 @@
 #include "pddl/disambiguation.h"
 #include "pddl/scc.h"
 #include "pddl/famgroup.h"
+#include "pddl/hpot.h"
 #include "assert.h"
+
+#define ROUND_EPS 0.001
 
 struct pddl_symbolic_state {
     int id; /*!< ID of this state */
@@ -42,6 +45,8 @@ struct pddl_symbolic_state {
     bor_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
     int trans_id; /*!< ID of the transitions that achieved this state */
     pddl_cost_t cost; /*!< Cost of the state: g value + zero cost g value */
+    double heur;
+    pddl_cost_t f_value;
     // TODO: Add heuristic estimate
     pddl_bdd_t *bdd; /*!< BDD representing the state */
     int is_closed; /*!< True if the state is closed */
@@ -89,10 +94,15 @@ struct pddl_symbolic_task {
     pddl_symbolic_constr_t constr; /*!< Constraints */
     pddl_bdd_t *init; /*!< Initial state */
     pddl_bdd_t *goal; /*!< Goal states */
+    double heur_init;
     int goal_constr_failed; /*!< True if applying constraints on the goal
                                  failed */
 };
 
+static int roundOff(double z)
+{
+    return ceil(z - ROUND_EPS);
+}
 
 
 static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
@@ -110,7 +120,15 @@ static int openLT(const bor_pairheap_node_t *n1,
     const pddl_symbolic_state_t *o1, *o2;
     o1 = bor_container_of(n1, pddl_symbolic_state_t, heap);
     o2 = bor_container_of(n2, pddl_symbolic_state_t, heap);
-    return pddlCostCmp(&o1->cost, &o2->cost) <= 0;
+    int cmp = pddlCostCmp(&o1->f_value, &o2->f_value);
+    if (cmp == 0){
+        if (o1->heur < o2->heur){
+            cmp = -1;
+        }else if (o1->heur > o2->heur){
+            cmp = 1;
+        }
+    }
+    return cmp <= 0;
 }
 
 static int openCostLT(const bor_pairheap_node_t *n1,
@@ -239,6 +257,8 @@ static pddl_symbolic_state_t *statesAdd(pddl_symbolic_task_t *ss,
     state->parent_id = -1;
     state->trans_id = -1;
     pddlCostSetZero(&state->cost);
+    pddlCostSetZero(&state->f_value);
+    state->heur = 0.;
     state->bdd = NULL;
     state->is_closed = 0;
 
@@ -263,6 +283,9 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
     pddl_symbolic_state_t *state;
     state = statesAddBDD(ss, states, bdd);
     pddlCostSetZero(&state->cost);
+    state->heur = ss->heur_init;
+    state->f_value = state->cost;
+    state->f_value.cost += roundOff(state->heur);
     statesOpenState(ss, states, state);
 }
 
@@ -628,6 +651,10 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
         state->cost = state_in->cost;
         pddlCostSum(&state->cost, tr_cost);
 
+        state->heur = state_in->heur + ss->trans.trans[tri].heur_change;
+        state->f_value = state->cost;
+        state->f_value.cost += roundOff(state->heur);
+
         statesOpenState(ss, states, state);
         if (other_search != NULL)
             checkGoal2(ss, search, other_search, state, err);
@@ -668,7 +695,9 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
     bdd = pddlBDDClone(ss->mgr, bdd);
 
     pddl_symbolic_state_t *next = statesOpenPeek(&search->state);
-    while (next != NULL && pddlCostCmp(&state->cost, &next->cost) == 0){
+    while (next != NULL
+            && pddlCostCmp(&state->f_value, &next->f_value) == 0
+            && fabs(state->heur - next->heur) < 1E-4){
         ASSERT(borISetSize(&next->parent_ids) == 0);
         ASSERT(next->parent_id >= 0);
 
@@ -691,6 +720,8 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
         merged->parent_id = -2;
         merged->trans_id = -1;
         merged->cost = state->cost;
+        merged->f_value = state->f_value;
+        merged->heur = state->heur;
         borISetUnion(&merged->parent_ids, &parents);
         statesOpenState(ss, &search->state, merged);
 
@@ -722,12 +753,15 @@ static int searchStep(pddl_symbolic_task_t *ss,
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
-    BOR_INFO(err, "%s: step cost: %d:%d,"
+    BOR_INFO(err, "%s: step cost: %d:%d, f: %d:%d / %.2f"
                   " states: %d, closed states: %d,"
                   " cudd mem: %.2fMB, gc: %d",
              (search->fw ? "fw" : "bw"),
              state->cost.cost,
              state->cost.zero_cost,
+             state->f_value.cost,
+             state->f_value.zero_cost,
+             state->heur,
              search->state.num_states,
              search->state.num_closed,
              pddlBDDMem(ss->mgr),
@@ -883,11 +917,19 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     initConstr(ss, cfg, err);
     BOR_INFO2(err, "Constraints created.");
 
+    // TODO
+    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_t hpot;
+    pddlHPotInit(&hpot, fdr, &pot_cfg, err);
+    ss->heur_init = pddlHPotFDRStateEstimateDbl(&hpot, &fdr->var, fdr->init);
+
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
-                              cfg->trans_merge_max_time, err);
+                              cfg->trans_merge_max_time,
+                              hpot.pot[0],
+                              err);
     BOR_INFO2(err, "Transitions created.");
 
     ss->init = pddlSymbolicVarsCreateState(&ss->vars,

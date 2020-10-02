@@ -30,6 +30,7 @@ struct op {
     bor_iset_t eff;
     bor_iset_t neg_eff;
     pddl_cost_t cost;
+    double heur_change;
     int is_dead;
 };
 typedef struct op op_t;
@@ -39,6 +40,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    int use_op_constr,
                    int op_id,
                    op_t *op,
+                   double *pot,
                    bor_err_t *err)
 {
     bzero(op, sizeof(*op));
@@ -88,6 +90,18 @@ static void opInit(pddl_symbolic_constr_t *constr,
                       " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
     }
+
+    if (pot != NULL){
+        double heur = 0.;
+        int fact;
+        BOR_ISET_FOR_EACH(&op->eff, fact)
+            heur += pot[fact];
+        BOR_ISET_FOR_EACH(&op->neg_eff, fact)
+            heur -= pot[fact];
+        op->heur_change = heur;
+        BOR_INFO(err, "%d:(%s) --> %.3f / %d", op->op_id, op->name, heur,
+                op->cost);
+    }
 }
 
 static void opFree(op_t *op)
@@ -104,11 +118,12 @@ static void opsInit(pddl_symbolic_constr_t *constr,
                     const pddl_strips_t *strips,
                     int use_op_constr,
                     op_t *ops,
+                    double *pot,
                     bor_err_t *err)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         opInit(constr, strips->op.op[op_id], use_op_constr,
-               op_id, ops + op_id, err);
+               op_id, ops + op_id, pot, err);
     }
 }
 
@@ -313,6 +328,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
         borISetAdd(&trset->op, op_ids[i]);
     ASSERT(borISetSize(&trset->op) > 0);
     trset->cost = ops[op_ids[0]].cost;
+    trset->heur_change = ops[op_ids[0]].heur_change;
 
     int T_size = borISetSize(&trset->op);
     pddl_symbolic_trans_t *T = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
@@ -321,8 +337,12 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     for (int i = 0; i < T_size; ++i)
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
-    BOR_INFO(err, "Initialized individual trans BDDs: cost: %d, ops: %d",
-             trset->cost, borISetSize(&trset->op));
+    BOR_INFO(err, "Initialized individual trans BDDs: cost: %d:%d,"
+                  " heur change: %.2f ops: %d",
+             trset->cost.cost,
+             trset->cost.zero_cost,
+             trset->heur_change,
+             borISetSize(&trset->op));
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -388,15 +408,34 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
              nodes, (T_size > 1 ? "(time limit reached)" : ""));
 }
 
-static int opIdCostCmp(const void *a, const void *b, void *_strips)
+static int opIdCostCmp(const void *a, const void *b, void *_ops)
 {
     const int id1 = *(const int *)a;
     const int id2 = *(const int *)b;
-    const pddl_strips_t *strips = _strips;
-    int cmp = strips->op.op[id1]->cost - strips->op.op[id2]->cost;
+    const op_t *ops = _ops;
+    int cmp = pddlCostCmp(&ops[id1].cost, &ops[id2].cost);
+    if (cmp == 0){
+        if (ops[id1].heur_change < ops[id2].heur_change){
+            cmp = -1;
+        }else if (ops[id1].heur_change > ops[id2].heur_change){
+            cmp = 1;
+        }
+    }
     if (cmp == 0)
         return id1 - id2;
     return cmp;
+}
+
+static int add(pddl_symbolic_trans_sets_t *trset)
+{
+    if (trset->trans_size == trset->trans_alloc){
+        trset->trans_alloc *= 2;
+        trset->trans = BOR_REALLOC_ARR(trset->trans,
+                                       pddl_symbolic_trans_set_t,
+                                       trset->trans_alloc);
+    }
+    bzero(trset->trans + trset->trans_size, sizeof(*trset->trans));
+    return trset->trans_size++;
 }
 
 void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
@@ -406,23 +445,18 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                int use_op_constr,
                                int max_nodes,
                                float max_time,
+                               double *potentials,
                                bor_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
 
     op_t *ops = BOR_CALLOC_ARR(op_t, strips->op.op_size);
-    opsInit(constr, strips, use_op_constr, ops, err);
+    opsInit(constr, strips, use_op_constr, ops, potentials, err);
 
-    BOR_ISET(costs);
-    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
-        if (!ops[op_id].is_dead)
-            borISetAdd(&costs, strips->op.op[op_id]->cost);
-    }
-
-    trset->trans_size = borISetSize(&costs);
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_size);
-    borISetFree(&costs);
+    trset->trans_size = 0;
+    trset->trans_alloc = 2;
+    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_alloc);
 
     int op_ids_size = strips->op.op_size;
     int *op_ids = BOR_ALLOC_ARR(int, op_ids_size);
@@ -432,29 +466,31 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
             op_ids[ins++] = op_id;
     }
     op_ids_size = ins;
-    borSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)strips);
+    borSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)ops);
 
-    int start = 0, end = 1, tr_id = 0;
+    int start = 0, end = 1;
     for (end = 1; end < op_ids_size; ++end){
-        int cost_start = strips->op.op[op_ids[start]]->cost;
-        int cost_end = strips->op.op[op_ids[end]]->cost;
-        if (cost_start != cost_end){
+        pddl_cost_t cost_start = ops[op_ids[start]].cost;
+        double heur_change_start = ops[op_ids[start]].heur_change;
+        pddl_cost_t cost_end = ops[op_ids[end]].cost;
+        double heur_change_end = ops[op_ids[end]].heur_change;
+        if (pddlCostCmp(&cost_start, &cost_end) != 0
+                || heur_change_start != heur_change_end){
             ASSERT(end > start);
+            int tr_id = add(trset);
             ASSERT(tr_id < trset->trans_size);
             transSetsAddRange(vars, constr, trset->trans + tr_id, ops,
                               op_ids + start, end - start,
                               use_op_constr, max_nodes, max_time, err);
-            ++tr_id;
             start = end;
         }
     }
     if (end > start){
+        int tr_id = add(trset);
         transSetsAddRange(vars, constr, trset->trans + tr_id, ops,
                           op_ids + start, end - start,
                           use_op_constr, max_nodes, max_time, err);
-        ++tr_id;
     }
-    ASSERT(trset->trans_size == tr_id);
 
     BOR_FREE(op_ids);
 
