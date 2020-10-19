@@ -23,6 +23,7 @@
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
+#include <boruvka/rand.h>
 
 #include "pddl/fdr.h"
 #include "pddl/mg_strips.h"
@@ -766,6 +767,124 @@ static int searchStep(pddl_symbolic_task_t *ss,
     return PDDL_SYMBOLIC_CONT;
 }
 
+static double orderComputeCost(const int *order,
+                               const int *influence,
+                               int size)
+{
+    double cost = 0.;
+    for (int i = 0; i < size; ++i){
+        for (int j = i + 1; j < size; ++j){
+            if (influence[order[i] * size + order[j]])
+                cost += (j - i) * (j - i);
+        }
+    }
+    return cost;
+}
+
+static void orderSwap(int *order,
+                      const int *influence,
+                      int size,
+                      double *cost,
+                      bor_rand_t *rnd)
+{
+    int swap_idx1 = borRand(rnd, 0, size);
+    int swap_idx2 = borRand(rnd, 0, size);
+    if (swap_idx1 == swap_idx2)
+        return;
+
+    double new_cost = *cost;
+    for (int i = 0; i < size; ++i){
+        if (i == swap_idx1 || i == swap_idx2)
+            continue;
+
+        if (influence[order[i] * size + order[swap_idx1]]){
+            new_cost += (-1 * (i - swap_idx1) * (i - swap_idx1)
+                            + (i - swap_idx2) * (i - swap_idx2));
+        }
+
+        if (influence[order[i] * size + order[swap_idx2]]){
+            new_cost += (-1 * (i - swap_idx2) * (i - swap_idx2)
+                            + (i - swap_idx1) * (i - swap_idx1));
+        }
+    }
+
+    if (new_cost < *cost){
+        int tmp;
+        BOR_SWAP(order[swap_idx1], order[swap_idx2], tmp);
+        *cost = new_cost;
+    }
+}
+
+static double orderOptimize(int iterations,
+                            int *order,
+                            const int *influence,
+                            int size,
+                            bor_rand_t *rnd)
+{
+    double cost = orderComputeCost(order, influence, size);
+    for (int i = 0; i < iterations; ++i)
+        orderSwap(order, influence, size, &cost, rnd);
+    return cost;
+}
+
+static void orderRandomize(int *order, int size, bor_rand_t *rnd)
+{
+    int *order2 = BOR_ALLOC_ARR(int, size);
+    for (int i = 0; i < size; ++i)
+        order2[i] = -1;
+    for (int num = 0; num < size; ++num){
+        while (1){
+            int pos = borRand(rnd, 0, size);
+            if (order2[pos] == -1){
+                order2[pos] = num;
+                break;
+            }
+        }
+    }
+    memcpy(order, order2, sizeof(int) * size);
+    BOR_FREE(order2);
+}
+
+static void orderCompute(int *order,
+                         int size,
+                         const pddl_cg_t *cg,
+                         bor_err_t *err)
+{
+    bor_rand_t rnd;
+    borRandInitSeed(&rnd, 13);
+
+    ASSERT_RUNTIME(cg->node_size == size);
+
+    int *influence = BOR_CALLOC_ARR(int, size * size);
+    for (int f = 0; f < size; ++f){
+        const pddl_cg_node_t *node = cg->node + f;
+        for (int i = 0; i < node->fw_size; ++i){
+            if (node->fw[i].end == f)
+                continue;
+            influence[f * size + node->fw[i].end] = 1;
+            influence[node->fw[i].end * size + f] = 1;
+        }
+    }
+
+    int *order2 = BOR_ALLOC_ARR(int, size);
+    memcpy(order2, order, sizeof(int) * size);
+    double cost = orderOptimize(50000, order2, influence, size, &rnd);
+    memcpy(order, order2, sizeof(int) * size);
+    BOR_INFO(err, "Init order cost: %.2f", cost);
+
+    for (int i = 0; i < 20; ++i){
+        memcpy(order2, order, sizeof(int) * size);
+        orderRandomize(order2, size, &rnd);
+        double new_cost = orderOptimize(50000, order2, influence, size, &rnd);
+        if (new_cost < cost){
+            memcpy(order, order2, sizeof(int) * size);
+            cost = new_cost;
+            BOR_INFO(err, "New order cost: %.2f", cost);
+        }
+    }
+    BOR_FREE(order2);
+    BOR_FREE(influence);
+}
 
 static void prepareTask(pddl_symbolic_task_t *ss,
                         const pddl_fdr_t *fdr,
@@ -779,15 +898,12 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     pddl_cg_t cg;
     pddlCGInit(&cg, &fdr->var, &fdr->op, 0);
     pddlCGVarOrdering(&cg, &fdr->goal, var_order);
+    orderCompute(var_order, fdr->var.var_size, &cg, err);
     pddlCGFree(&cg);
-
-    for (int i = 0; i < fdr->var.var_size / 2; ++i){
-        int tmp;
-        BOR_SWAP(var_order[i], var_order[fdr->var.var_size - i - 1], tmp);
-    }
 
     ASSERT_RUNTIME(ss->mg_strips.mg.mgroup_size == fdr->var.var_size);
     pddlMGStripsReorderMGroups(&ss->mg_strips, var_order);
+    BOR_INFO2(err, "Order computed and applied");
 
 #ifdef PDDL_DEBUG
     for (int i = 0; i < ss->mg_strips.mg.mgroup_size; ++i){
