@@ -83,7 +83,6 @@ struct pddl_symbolic_task {
     pddl_mg_strips_t mg_strips;
     pddl_bdd_manager_t *mgr; /*!< Cudd manager */
     pddl_symbolic_vars_t vars; /*!< TODO */
-    int fact_size; /*!< Number of facts in the problem */
     int *ordered_facts; /*!< Ordered facts */
     int *fact_to_order; /*!< Mapping from fact to its order index */
     pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
@@ -93,8 +92,6 @@ struct pddl_symbolic_task {
     int goal_constr_failed; /*!< True if applying constraints on the goal
                                  failed */
 };
-
-
 
 static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
 {
@@ -739,6 +736,9 @@ static int searchStep(pddl_symbolic_task_t *ss,
         BOR_INFO(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
     }
+    DBG(err, "Num states: %.2f",
+        pddlBDDCountMinterm(ss->mgr, state_bdd, ss->vars.bdd_var_size / 2));
+    DBG(err, "BDD Size: %d", pddlBDDSize(state_bdd));
 
     if (other_search != NULL){
         checkGoal2(ss, search, other_search, state, err);
@@ -757,8 +757,10 @@ static int searchStep(pddl_symbolic_task_t *ss,
             return PDDL_SYMBOLIC_PLAN_FOUND;
         }
     }
+    DBG2(err, "Goal checked");
 
     searchExpandState(ss, search, other_search, state, err);
+    DBG2(err, "Expanded");
     statesCloseState(ss, &search->state, state);
     borTimerStop(&timer);
     searchPrepareNext(ss, search, err);
@@ -851,7 +853,7 @@ static void orderCompute(int *order,
                          bor_err_t *err)
 {
     bor_rand_t rnd;
-    borRandInitSeed(&rnd, 13);
+    borRandInitSeed(&rnd, 1371);
 
     ASSERT_RUNTIME(cg->node_size == size);
 
@@ -896,7 +898,7 @@ static void prepareTask(pddl_symbolic_task_t *ss,
 
     int *var_order = BOR_ALLOC_ARR(int, fdr->var.var_size + 1);
     pddl_cg_t cg;
-    pddlCGInit(&cg, &fdr->var, &fdr->op, 0);
+    pddlCGInit(&cg, &fdr->var, &fdr->op, 1);
     pddlCGVarOrdering(&cg, &fdr->goal, var_order);
     orderCompute(var_order, fdr->var.var_size, &cg, err);
     pddlCGFree(&cg);
@@ -984,8 +986,10 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     pddlSymbolicVarsInit(&ss->vars,
                          ss->mg_strips.strips.fact.fact_size,
                          &ss->mg_strips.mg);
-    BOR_INFO(err, "Prepared %d BDD variables covering %d facts",
-             ss->vars.bdd_var_size, ss->fact_size);
+    BOR_INFO(err, "Prepared %d BDD variables covering %d facts and %d mgroups",
+             ss->vars.bdd_var_size,
+             ss->mg_strips.strips.fact.fact_size,
+             ss->mg_strips.mg.mgroup_size);
 
     ss->mgr = pddlBDDManagerNew(ss->vars.bdd_var_size, cfg->cache_size);
     if (ss->mgr == NULL){
@@ -1229,12 +1233,15 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             fw_step = 1;
 
         BOR_INFO(err, "fw est: %.2f, bw est: %.2f, fw open: %d:%d,"
-                      " bw open: %d:%d, bound: %d:%d, use fw: %d",
+                      " bw open: %d:%d, bound: %d:%d, use fw: %d"
+                      " fw-closed size: %d, bw-closed size: %d",
                  fw_est, bw_est,
                  min_fw_cost->cost, min_fw_cost->zero_cost,
                  min_bw_cost->cost, min_bw_cost->zero_cost,
                  fw_search.state.bound.cost, fw_search.state.bound.zero_cost,
-                 fw_step);
+                 fw_step,
+                 pddlBDDSize(fw_search.state.all_closed),
+                 pddlBDDSize(bw_search.state.all_closed));
         if (fw_step){
             fw_cont = searchStep(ss, &fw_search, &bw_search, err);
         }else{

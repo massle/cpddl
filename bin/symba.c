@@ -1440,6 +1440,7 @@ static int symba(void)
 {
     pddl_fdr_t fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+    pddlStripsOpsSort(&strips.op);
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
                          fdr_var_flag, &err);
 
