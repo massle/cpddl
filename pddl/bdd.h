@@ -84,6 +84,7 @@ pddl_bdd_t *pddlBDDXnor(pddl_bdd_manager_t *mgr,
                         pddl_bdd_t *bdd1,
                         pddl_bdd_t *bdd2);
 int pddlBDDSize(pddl_bdd_t *bdd);
+double pddlBDDCountMinterm(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd, int n);
 pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n);
 
 #endif /* __PDDL_BDD_H__ */

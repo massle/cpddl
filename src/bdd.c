@@ -263,6 +263,11 @@ int pddlBDDSize(pddl_bdd_t *bdd)
     return Cudd_DagSize(B(bdd));
 }
 
+double pddlBDDCountMinterm(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd, int n)
+{
+    return Cudd_CountMinterm(M(mgr), B(bdd), n);
+}
+
 pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
 {
     DdNode *b = Cudd_bddComputeCube(M(mgr), (DdNode **)bdd, NULL, n);

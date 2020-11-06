@@ -533,7 +533,7 @@ void pddlMGStripsReorderMGroups(pddl_mg_strips_t *mg_strips,
     pddl_mgroups_t mgs;
     pddlMGroupsInitEmpty(&mgs);
     for (int i = 0; i < mg_strips->mg.mgroup_size; ++i){
-        const pddl_mgroup_t *mgin = mg_strips->mg.mgroup + i;
+        const pddl_mgroup_t *mgin = mg_strips->mg.mgroup + reorder[i];
         pddl_mgroup_t *mg = pddlMGroupsAdd(&mgs, &mgin->mgroup);
         mg->is_exactly_one = mgin->is_exactly_one;
         mg->is_fam_group = mgin->is_fam_group;
