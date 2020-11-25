@@ -25,26 +25,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_invertible_mgroup {
-    bor_iset_t mgroup; /*!< Mutex group formed by invertible facts */
-    int mgroup_id; /*!< ID of the corresponding mutex group */
-};
-typedef struct pddl_invertible_mgroup pddl_invertible_mgroup_t;
-
-struct pddl_invertible_mgroups {
-    pddl_invertible_mgroup_t *mgroup;
-    int mgroup_size;
-    int mgroup_alloc;
-    bor_iset_t invertible_fact; /*!< All invertible facts */
-};
-typedef struct pddl_invertible_mgroups pddl_invertible_mgroups_t;
-
-int pddlInvertibleMGroupsFind(pddl_invertible_mgroups_t *invmgs,
-                              const pddl_strips_t *strips,
-                              const pddl_mgroups_t *mgroups,
-                              const pddl_mutex_pairs_t *mutex,
-                              bor_err_t *err);
-
 int pddlRSEInvertibleFacts(const pddl_strips_t *strips,
                            const pddl_mgroups_t *fam_groups,
                            bor_iset_t *invertible_facts,
