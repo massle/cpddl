@@ -56,6 +56,8 @@ struct options {
     const char *op_mutex_out;
 
     int pot;
+
+    int mgroups_split_invertible;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -366,6 +368,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
+
+    optsAddDesc("mgroups-split-invertible", 0x0, OPTS_NONE,
+                &opt.mgroups_split_invertible, NULL,
+                "Split mutex groups using invertible facts. (default: off)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1473,6 +1479,39 @@ static int toFDR(void)
         pddlStripsSymInitPDG(&sym, &strips);
         BOR_INFO(&err, "Symmetry generators: %d", sym.gen_size);
         pddlStripsSymFree(&sym);
+    }
+
+    if (opt.mgroups_split_invertible){
+        BOR_INFO2(&err, "Splitting mutex groups using invertible facts...");
+        BOR_INFO_PREFIX_PUSH(&err, "Split mgroups: ");
+        pddlMGroupsRemoveSmall(&mgroups, 1);
+        BOR_INFO(&err, "Number of mutex groups >1 before splitting: %d"
+                       " covering %d facts",
+                 mgroups.mgroup_size,
+                 pddlMGroupsNumCoveredFacts(&mgroups));
+        BOR_ISET(unreachable_ops);
+        pddlStripsFindUnreachableOps(&strips, &mutex, &unreachable_ops, &err);
+        pddlStripsReduce(&strips, NULL, &unreachable_ops);
+        pddlStripsRemoveUselessDelEffs(&strips, &mutex, NULL, &err);
+        borISetFree(&unreachable_ops);
+
+        BOR_ISET(invertible_facts);
+        pddlRSEInvertibleFacts(&strips, &mgroups, &invertible_facts, &err);
+        BOR_INFO(&err, "Found %d invertible facts",
+                 borISetSize(&invertible_facts));
+        if (borISetSize(&invertible_facts) > 0){
+            pddl_mgroups_t mgs;
+            pddlMGroupsSplitByIntersection(&mgs, &mgroups, &invertible_facts);
+            pddlMGroupsFree(&mgroups);
+            mgroups = mgs;
+            pddlMGroupsRemoveSmall(&mgroups, 1);
+            BOR_INFO(&err, "Number of mutex groups >1 after splitting: %d"
+                           " covering %d facts",
+                     mgroups.mgroup_size,
+                     pddlMGroupsNumCoveredFacts(&mgroups));
+        }
+        borISetFree(&invertible_facts);
+        BOR_INFO_PREFIX_POP(&err);
     }
 
     BOR_INFO2(&err, "");

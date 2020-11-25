@@ -753,6 +753,39 @@ int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs)
     return cnt;
 }
 
+int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs)
+{
+    int num = 0;
+    BOR_ISET(facts);
+    for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi)
+        borISetUnion(&facts, &mgs->mgroup[mgi].mgroup);
+    num = borISetSize(&facts);
+    borISetFree(&facts);
+    return num;
+}
+
+void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
+                                    const pddl_mgroups_t *src,
+                                    const bor_iset_t *fset)
+{
+    BOR_ISET(mg1);
+    BOR_ISET(mg2);
+    for (int mgi = 0; mgi < src->mgroup_size; ++mgi){
+        const bor_iset_t *mg = &src->mgroup[mgi].mgroup;
+        borISetIntersect2(&mg1, mg, fset);
+        if (borISetSize(&mg1) > 0)
+            pddlMGroupsAdd(dst, &mg1);
+
+        borISetMinus2(&mg2, mg, fset);
+        if (borISetSize(&mg2) > 0)
+            pddlMGroupsAdd(dst, &mg2);
+    }
+    borISetFree(&mg1);
+    borISetFree(&mg2);
+
+    pddlMGroupsSortUniq(dst);
+}
+
 void pddlMGroupsPrint(const pddl_t *pddl,
                       const pddl_strips_t *strips,
                       const pddl_mgroups_t *mg,

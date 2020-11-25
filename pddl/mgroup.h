@@ -143,6 +143,21 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size);
 int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs);
 
 /**
+ * Returns number of facts covered by the mutex groups.
+ */
+int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs);
+
+/**
+ * Split the mutex groups by intersection with the given set of facts:
+ * for every mgroup M in src:
+ *     add M \cap fset to dst if non-empty
+ *     add M \setminus fset to dst if non-empty
+ */
+void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
+                                    const pddl_mgroups_t *src,
+                                    const bor_iset_t *fset);
+
+/**
  * Debug print out
  */
 void pddlMGroupsPrint(const pddl_t *pddl,

@@ -95,6 +95,5 @@ int pddlRSEInvertibleFacts(const pddl_strips_t *strips,
 
     BOR_FREE(fam_fact);
     pddlStripsFactCrossRefFree(&cref);
-    BOR_INFO2(err, "Invertible facts");
     return 0;
 }
