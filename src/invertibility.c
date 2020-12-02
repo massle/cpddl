@@ -86,8 +86,10 @@ int pddlRSEInvertibleFacts(const pddl_strips_t *strips,
 
     for (int fact = 0; fact < fact_size; ++fact){
         const pddl_strips_fact_cross_ref_fact_t *cref_fact = &cref.fact[fact];
-        if (factDelIsInvertible(strips, cref_fact)
-                && (!fam_fact[fact]
+        if (borISetSize(&cref_fact->op_del) > 0
+                && borISetSize(&cref_fact->op_add) > 0
+                && factDelIsInvertible(strips, cref_fact)
+                && (fam_fact[fact]
                         || factAddIsInvertible(strips, cref_fact))){
             borISetAdd(invertible_facts, fact);
         }
