@@ -73,6 +73,15 @@ struct pddl_graph_simple_cycles {
 };
 typedef struct pddl_graph_simple_cycles pddl_graph_simple_cycles_t;
 
+/** TODO */
+#define PDDL_GRAPH_SIMPLE_CYCLE_CONT 0
+#define PDDL_GRAPH_SIMPLE_CYCLE_STOP 1
+typedef int (*pddl_graph_simple_cycle_fn)(const bor_iarr_t *cycle,
+                                          void *userdata);
+
+void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
+                             pddl_graph_simple_cycle_fn fn,
+                             void *userdata);
 void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
                            const pddl_scc_graph_t *graph);
 void pddlGraphSimpleCyclesFree(pddl_graph_simple_cycles_t *cycles);

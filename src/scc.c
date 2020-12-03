@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include <stdio.h>
 #include <boruvka/alloc.h>
 #include "pddl/scc.h"
 
@@ -178,11 +179,13 @@ static void cycleUnblock(int node, bor_iset_t *B, int *blocked)
 static int circuit(int node,
                    int start_node,
                    const pddl_scc_graph_t *component,
-                   pddl_graph_simple_cycles_t *cycles,
                    bor_iarr_t *path,
                    bor_iset_t *B,
-                   int *blocked)
+                   int *blocked,
+                   pddl_graph_simple_cycle_fn fn,
+                   void *userdata)
 {
+    int ret = 0;
     int closed = 0;
     borIArrAdd(path, node);
     blocked[node] = 1;
@@ -190,15 +193,23 @@ static int circuit(int node,
     int next_node;
     BOR_ISET_FOR_EACH(component->node + node, next_node){
         if (next_node == start_node){
-            cycleAdd(cycles, path);
             closed = 1;
+            if (fn(path, userdata) != PDDL_GRAPH_SIMPLE_CYCLE_CONT){
+                ret = -1;
+                break;
+            }
         }else if (!blocked[next_node]){
-            if (circuit(next_node, start_node, component,
-                        cycles, path, B, blocked)){
+            int r = circuit(next_node, start_node, component, path, B, blocked,
+                            fn, userdata);
+            if (r == 1){
                 closed = 1;
+            }else if (r == -1){
+                ret = -1;
+                break;
             }
         }
     }
+    ret = -1;
     if (closed){
         cycleUnblock(node, B, blocked);
     }else{
@@ -210,13 +221,15 @@ static int circuit(int node,
     }
 
     borIArrRmLast(path);
-    return closed;
+    if (ret == 0)
+        ret = closed;
+    return ret;
 }
 
-void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
-                           const pddl_scc_graph_t *graph)
+void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
+                             pddl_graph_simple_cycle_fn fn,
+                             void *userdata)
 {
-    bzero(cycles, sizeof(*cycles));
     int *blocked = BOR_CALLOC_ARR(int, graph->node_size);
     bor_iset_t *B = BOR_CALLOC_ARR(bor_iset_t, graph->node_size);
 
@@ -224,7 +237,8 @@ void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
     for (int i = 0; i < graph->node_size; ++i)
         borISetAdd(&active_nodes, i);
 
-    for (int node = graph->node_size - 1; node >= 0; --node){
+    int cont = 0;
+    for (int node = graph->node_size - 1; node >= 0 && cont != -1; --node){
         pddl_scc_graph_t subgraph;
         pddlSCCGraphInitInduced(&subgraph, graph, &active_nodes);
 
@@ -246,7 +260,8 @@ void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
                 borISetEmpty(B + n);
             }
             BOR_IARR(path);
-            circuit(node, node, &component, cycles, &path, B, blocked);
+            cont = circuit(node, node, &component, &path, B, blocked,
+                           fn, userdata);
             borIArrFree(&path);
             pddlSCCGraphFree(&component);
         }
@@ -261,6 +276,20 @@ void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
         borISetFree(B + i);
     BOR_FREE(B);
     BOR_FREE(blocked);
+}
+
+static int fnAddCycle(const bor_iarr_t *path, void *ud)
+{
+    pddl_graph_simple_cycles_t *cycles = ud;
+    cycleAdd(cycles, path);
+    return PDDL_GRAPH_SIMPLE_CYCLE_CONT;
+}
+
+void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
+                           const pddl_scc_graph_t *graph)
+{
+    bzero(cycles, sizeof(*cycles));
+    pddlGraphSimpleCyclesFn(graph, fnAddCycle, cycles);
 }
 
 void pddlGraphSimpleCyclesFree(pddl_graph_simple_cycles_t *cycles)

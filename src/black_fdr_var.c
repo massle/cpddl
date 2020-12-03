@@ -251,7 +251,7 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
             }
         }
     }
-    BOR_INFO(err, "Added %d 2-cycles", num);
+    BOR_INFO(err, "Added %d 3-cycles", num);
 }
 
 static int compIsSingleMGroup(const black_vars_t *bv, const bor_iset_t *comp)
@@ -277,10 +277,35 @@ static int findMultiMGroupComponent(const black_vars_t *bv,
             borISetEmpty(comp);
             borISetUnion(comp, &scc.comp[i]);
             found = 1;
+            break;
         }
     }
     pddlSCCFree(&scc);
     return found;
+}
+
+struct update_lp {
+    bor_lp_t *lp;
+    const black_vars_t *bv;
+};
+
+static int updateLPWithCycleFn(const bor_iarr_t *cycle, void *ud)
+{
+    int ret = PDDL_GRAPH_SIMPLE_CYCLE_CONT;
+    struct update_lp *update = ud;
+    BOR_ISET(mg);
+    int vert_id;
+    BOR_IARR_FOR_EACH(cycle, vert_id){
+        borISetAdd(&mg, update->bv->fact_vertex[vert_id].mgroup);
+        if (borISetSize(&mg) > 1)
+            break;
+    }
+    if (borISetSize(&mg) > 1){
+        addCycle(update->lp, cycle);
+        ret = PDDL_GRAPH_SIMPLE_CYCLE_STOP;
+    }
+    borISetFree(&mg);
+    return ret;
 }
 
 static void updateLPWithCycle(bor_lp_t *lp,
@@ -288,14 +313,10 @@ static void updateLPWithCycle(bor_lp_t *lp,
                               const pddl_scc_graph_t *black_graph,
                               const bor_iset_t *comp)
 {
+    struct update_lp update = { lp, bv };
     pddl_scc_graph_t graph;
     pddlSCCGraphInitInduced(&graph, black_graph, comp);
-    pddl_graph_simple_cycles_t cycles;
-    pddlGraphSimpleCycles(&cycles, &graph);
-    for (int i = 0; i < cycles.cycle_size; ++i){
-        addCycle(lp, &cycles.cycle[i]);
-    }
-    pddlGraphSimpleCyclesFree(&cycles);
+    pddlGraphSimpleCyclesFn(&graph, updateLPWithCycleFn, &update);
     pddlSCCGraphFree(&graph);
 }
 
@@ -333,6 +354,20 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
         BOR_INFO(err, "Solved. Candidate set size: %d",
                  borISetSize(&black_vars));
 
+        pddl_scc_graph_t black_graph;
+        pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
+        if (findMultiMGroupComponent(bv, &black_graph, &comp)){
+            BOR_INFO2(err, "The solution has a cycle."
+                           " Updating LP by adding more cycles...");
+            updateLPWithCycle(lp, bv, &black_graph, &comp);
+            BOR_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
+        }else{
+            break;
+        }
+        pddlSCCGraphFree(&black_graph);
+    }
+    if (ret == 0){
+        BOR_INFO(err, "Found %d black facts", borISetSize(&black_vars));
 #ifdef PDDL_DEBUG
         int v;
         BOR_ISET_FOR_EACH(&black_vars, v){
@@ -342,17 +377,6 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
                      bv->fact_vertex[v].mgroup);
         }
 #endif /* PDDL_DEBUG */
-        pddl_scc_graph_t black_graph;
-        pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
-        if (findMultiMGroupComponent(bv, &black_graph, &comp)){
-            updateLPWithCycle(lp, bv, &black_graph, &comp);
-        }else{
-            break;
-        }
-        pddlSCCGraphFree(&black_graph);
-    }
-    if (ret == 0){
-        BOR_INFO(err, "Found %d black facts", borISetSize(&black_vars));
     }
     borISetFree(&black_vars);
     borISetFree(&comp);
@@ -370,7 +394,7 @@ void pddlBlackVars(const pddl_strips_t *strips,
     blackVarsInit(&bv, strips, mgroups, err);
     bor_lp_t *lp = createLP(&bv);
     addCycles2(lp, &bv, err);
-    addCycles3(lp, &bv, err);
+    //addCycles3(lp, &bv, err);
     findBlackVarsUsingLP(lp, &bv, strips, err);
     borLPDel(lp);
     blackVarsFree(&bv);
