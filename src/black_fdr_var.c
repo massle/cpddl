@@ -126,7 +126,6 @@ static void blackVarsInit(black_vars_t *bv,
 {
     bzero(bv, sizeof(*bv));
     bv->fact_size = strips->fact.fact_size;
-    // TODO: mgroups should be only fam-groups
     pddlRSEInvertibleFacts(strips, mgroups, &bv->invertible_facts, err);
     BOR_INFO(err, "Invertible facts: %d/%d",
             borISetSize(&bv->invertible_facts), bv->fact_size);
@@ -342,9 +341,76 @@ static int solveLP(bor_lp_t *lp,
     return 0;
 }
 
+static pddl_black_mgroup_t *blackMGroupsAdd(pddl_black_mgroups_t *bmgroups,
+                                            const bor_iset_t *m)
+{
+    if (bmgroups->mgroup_size == bmgroups->mgroup_alloc){
+        if (bmgroups->mgroup_alloc == 0)
+            bmgroups->mgroup_alloc = 2;
+        bmgroups->mgroup_alloc *= 2;
+        bmgroups->mgroup = BOR_REALLOC_ARR(bmgroups->mgroup,
+                                           pddl_black_mgroup_t,
+                                           bmgroups->mgroup_alloc);
+    }
+    pddl_black_mgroup_t *mg = bmgroups->mgroup + bmgroups->mgroup_size++;
+    borISetInit(&mg->mgroup);
+    borISetUnion(&mg->mgroup, m);
+    pddlMGroupsInitEmpty(&mg->fam_groups);
+    return mg;
+}
+
+static pddl_black_mgroup_t *blackMGroupsAddSingle(pddl_black_mgroups_t *bmgroups,
+                                                  int fact)
+{
+    pddl_black_mgroup_t *mg;
+
+    BOR_ISET(m);
+    borISetAdd(&m, fact);
+    mg = blackMGroupsAdd(bmgroups, &m);
+    borISetFree(&m);
+
+    return mg;
+}
+
+static void blackFactsToBlackMGroups(const black_vars_t *bv,
+                                     const bor_iset_t *black_vars,
+                                     const pddl_mgroups_t *mgroups,
+                                     pddl_black_mgroups_t *bmgroups,
+                                     bor_err_t *err)
+{
+    bor_iset_t *mgs = BOR_CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    int vert_id;
+    BOR_ISET_FOR_EACH(black_vars, vert_id){
+        int fact = bv->fact_vertex[vert_id].fact;
+        int mgi = bv->fact_vertex[vert_id].mgroup;
+        if (mgi >= 0){
+            borISetAdd(mgs + mgi, fact);
+        }else{
+            blackMGroupsAddSingle(bmgroups, fact);
+        }
+    }
+
+    for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+        if (borISetSize(mgs + mgi) == 0)
+            continue;
+
+        pddl_black_mgroup_t *mg = blackMGroupsAdd(bmgroups, mgs + mgi);
+        pddl_mgroup_t *fam;
+        fam = pddlMGroupsAdd(&mg->fam_groups, &mgroups->mgroup[mgi].mgroup);
+        fam->is_fam_group = 1;
+    }
+
+    for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi)
+        borISetFree(mgs + mgi);
+    if (mgs != NULL)
+        BOR_FREE(mgs);
+}
+
 static int findBlackVarsUsingLP(bor_lp_t *lp,
                                 const black_vars_t *bv,
                                 const pddl_strips_t *strips,
+                                const pddl_mgroups_t *mgroups,
+                                pddl_black_mgroups_t *bmgroups,
                                 bor_err_t *err)
 {
     int ret = 0;
@@ -368,6 +434,8 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
     }
     if (ret == 0){
         BOR_INFO(err, "Found %d black facts", borISetSize(&black_vars));
+        blackFactsToBlackMGroups(bv, &black_vars, mgroups, bmgroups, err);
+        BOR_INFO(err, "Found %d black mgroups", bmgroups->mgroup_size);
 #ifdef PDDL_DEBUG
         int v;
         BOR_ISET_FOR_EACH(&black_vars, v){
@@ -383,21 +451,70 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
     return ret;
 }
 
-
-
-void pddlBlackVars(const pddl_strips_t *strips,
-                   const pddl_mgroups_t *mgroups,
-                   bor_err_t *err)
+void pddlBlackMGroups(pddl_black_mgroups_t *bmgroups,
+                      const pddl_strips_t *strips,
+                      const pddl_mgroups_t *mgroups_in,
+                      const pddl_black_mgroups_config_t *cfg,
+                      bor_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Black-vars-LP: ");
+    BOR_INFO_PREFIX_PUSH(err, "Black-mg-LP: ");
+    bzero(bmgroups, sizeof(*bmgroups));
+
+    pddl_mgroups_t mgroups;
+    pddlMGroupsInitEmpty(&mgroups);
+    for (int mgi = 0; mgi < mgroups_in->mgroup_size; ++mgi){
+        if (!mgroups_in->mgroup[mgi].is_fam_group)
+            continue;
+
+        pddl_mgroup_t *mg;
+        mg = pddlMGroupsAdd(&mgroups, &mgroups_in->mgroup[mgi].mgroup);
+        mg->is_fam_group = 1;
+    }
+
     black_vars_t bv;
-    blackVarsInit(&bv, strips, mgroups, err);
+    blackVarsInit(&bv, strips, &mgroups, err);
     bor_lp_t *lp = createLP(&bv);
-    addCycles2(lp, &bv, err);
-    //addCycles3(lp, &bv, err);
-    findBlackVarsUsingLP(lp, &bv, strips, err);
+    if (cfg->lp_add_2cycles)
+        addCycles2(lp, &bv, err);
+    if (cfg->lp_add_3cycles)
+        addCycles3(lp, &bv, err);
+    findBlackVarsUsingLP(lp, &bv, strips, &mgroups, bmgroups, err);
     borLPDel(lp);
     blackVarsFree(&bv);
+    pddlMGroupsFree(&mgroups);
     BOR_INFO_PREFIX_POP(err);
 }
 
+void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups)
+{
+    for (int i = 0; i < bmgroups->mgroup_size; ++i){
+        borISetFree(&bmgroups->mgroup[i].mgroup);
+        pddlMGroupsFree(&bmgroups->mgroup[i].fam_groups);
+    }
+}
+
+void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
+                           const pddl_black_mgroups_t *bmgroups,
+                           FILE *fout)
+{
+    for (int mgi = 0; mgi < bmgroups->mgroup_size; ++mgi){
+        const pddl_black_mgroup_t *bmg = bmgroups->mgroup + mgi;
+        int fact;
+        fprintf(fout, "black-mgroup:");
+        BOR_ISET_FOR_EACH(&bmg->mgroup, fact)
+            fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
+        fprintf(fout, "\n");
+
+        for (int fmgi = 0; fmgi < bmg->fam_groups.mgroup_size; ++fmgi){
+            const bor_iset_t *m = &bmg->fam_groups.mgroup[fmgi].mgroup;
+            BOR_ISET(diff);
+            borISetMinus2(&diff, m, &bmg->mgroup);
+            int fact;
+            fprintf(fout, "    fam-diff:");
+            BOR_ISET_FOR_EACH(&diff, fact)
+                fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
+            fprintf(fout, "\n");
+            borISetFree(&diff);
+        }
+    }
+}
