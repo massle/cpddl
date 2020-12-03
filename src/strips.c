@@ -787,6 +787,7 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
             ++num;
         }
     }
+    borISetFree(&part_state);
     BOR_INFO(err, "Found %d unreachable operators.", num);
     return 0;
 }

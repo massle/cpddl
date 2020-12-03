@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#ifndef __PDDL_BLACK_FDR_VAR_H__
-#define __PDDL_BLACK_FDR_VAR_H__
+#ifndef __PDDL_BLACK_MGROUP_H__
+#define __PDDL_BLACK_MGROUP_H__
 
 #include <pddl/strips.h>
 #include <pddl/mgroup.h>
@@ -67,4 +67,4 @@ void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
 } /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* __PDDL_BLACK_FDR_VAR_H__ */
+#endif /* __PDDL_BLACK_MGROUP_H__ */

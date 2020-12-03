@@ -20,7 +20,7 @@
 #include "pddl/config.h"
 #include "pddl/invertibility.h"
 #include "pddl/scc.h"
-#include "pddl/black_fdr_var.h"
+#include "pddl/black_mgroup.h"
 
 struct fact_vertex {
     int fact;
@@ -428,6 +428,7 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
             updateLPWithCycle(lp, bv, &black_graph, &comp);
             BOR_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
         }else{
+            pddlSCCGraphFree(&black_graph);
             break;
         }
         pddlSCCGraphFree(&black_graph);
@@ -436,15 +437,6 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
         BOR_INFO(err, "Found %d black facts", borISetSize(&black_vars));
         blackFactsToBlackMGroups(bv, &black_vars, mgroups, bmgroups, err);
         BOR_INFO(err, "Found %d black mgroups", bmgroups->mgroup_size);
-#ifdef PDDL_DEBUG
-        int v;
-        BOR_ISET_FOR_EACH(&black_vars, v){
-            BOR_INFO(err, "Black fact %d(%s), mgroup: %d",
-                     bv->fact_vertex[v].fact,
-                     strips->fact.fact[bv->fact_vertex[v].fact]->name,
-                     bv->fact_vertex[v].mgroup);
-        }
-#endif /* PDDL_DEBUG */
     }
     borISetFree(&black_vars);
     borISetFree(&comp);
@@ -491,6 +483,8 @@ void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups)
         borISetFree(&bmgroups->mgroup[i].mgroup);
         pddlMGroupsFree(&bmgroups->mgroup[i].fam_groups);
     }
+    if (bmgroups->mgroup != NULL)
+        BOR_FREE(bmgroups->mgroup);
 }
 
 void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
