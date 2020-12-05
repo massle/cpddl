@@ -119,6 +119,18 @@ static void blackVarsCGInit(black_vars_t *bv,
     BOR_FREE(to);
 }
 
+static void uncoveredDelEffs(const pddl_strips_t *strips, bor_iset_t *facts)
+{
+    BOR_ISET(deleff);
+    borISetEmpty(facts);
+    for (int opi = 0; opi < strips->op.op_size; ++opi){
+        const pddl_strips_op_t *op = strips->op.op[opi];
+        borISetMinus2(&deleff, &op->del_eff, &op->pre);
+        borISetUnion(facts, &deleff);
+    }
+    borISetFree(&deleff);
+}
+
 static void blackVarsInit(black_vars_t *bv,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mgroups,
@@ -158,6 +170,17 @@ static void blackVarsInit(black_vars_t *bv,
             ++vert_id;
         }
     }
+
+    // Delete effects that are uncovered by preconditions must be encoded
+    // as a single-fact variables
+    BOR_ISET(uncovered_del_effs);
+    uncoveredDelEffs(strips, &uncovered_del_effs);
+    BOR_ISET_FOR_EACH(&uncovered_del_effs, fact){
+        int vert_id;
+        BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
+            bv->fact_vertex[vert_id].mgroup = -1;
+    }
+    borISetFree(&uncovered_del_effs);
 
     blackVarsCGInit(bv, &bv->cg, strips, mgroups);
 }
@@ -395,9 +418,16 @@ static void blackFactsToBlackMGroups(const black_vars_t *bv,
             continue;
 
         pddl_black_mgroup_t *mg = blackMGroupsAdd(bmgroups, mgs + mgi);
-        pddl_mgroup_t *fam;
-        fam = pddlMGroupsAdd(&mg->fam_groups, &mgroups->mgroup[mgi].mgroup);
-        fam->is_fam_group = 1;
+        if (borISetSize(mgs + mgi) > 1){
+            for (int mgi2 = 0; mgi2 < mgroups->mgroup_size; ++mgi2){
+                const bor_iset_t *famgroup = &mgroups->mgroup[mgi2].mgroup;
+                if (borISetIsSubset(&mg->mgroup, famgroup)){
+                    pddl_mgroup_t *fam;
+                    fam = pddlMGroupsAdd(&mg->fam_groups, famgroup);
+                    fam->is_fam_group = 1;
+                }
+            }
+        }
     }
 
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi)

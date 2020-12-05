@@ -168,6 +168,10 @@ void pddlMGroupPrint(const pddl_t *pddl,
                      const pddl_strips_t *strips,
                      const pddl_mgroup_t *mg,
                      FILE *fout);
+void pddlMGroupsLogTable(const pddl_t *pddl,
+                         const pddl_strips_t *strips,
+                         const pddl_mgroups_t *mg,
+                         bor_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

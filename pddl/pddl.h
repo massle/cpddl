@@ -93,5 +93,6 @@
 #include <pddl/trans_system_graph.h>
 #include <pddl/endomorphism.h>
 #include <pddl/black_mgroup.h>
+#include <pddl/black_fdr.h>
 
 #endif /* __PDDL_H__ */

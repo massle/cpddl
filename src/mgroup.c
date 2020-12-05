@@ -840,3 +840,186 @@ void pddlMGroupPrint(const pddl_t *pddl,
     }
     fprintf(fout, "\n");
 }
+
+struct box {
+    char **line;
+    int line_size;
+    int line_alloc;
+    int max_line_len;
+};
+typedef struct box box_t;
+
+struct boxes {
+    box_t *box;
+    int box_size;
+    int box_alloc;
+};
+typedef struct boxes boxes_t;
+
+static void boxesInit(boxes_t *b)
+{
+    bzero(b, sizeof(*b));
+}
+
+static void boxesFree(boxes_t *b)
+{
+    for (int i = 0; i < b->box_size; ++i){
+        for (int l = 0; l < b->box[i].line_size; ++l)
+            BOR_FREE(b->box[i].line[l]);
+        if (b->box[i].line != NULL)
+            BOR_FREE(b->box[i].line);
+    }
+    if (b->box != NULL)
+        BOR_FREE(b->box);
+}
+
+static box_t *boxesAdd(boxes_t *b)
+{
+    if (b->box_size == b->box_alloc){
+        if (b->box_alloc == 0)
+            b->box_alloc = 2;
+        b->box_alloc *= 2;
+        b->box = BOR_REALLOC_ARR(b->box, box_t, b->box_alloc);
+    }
+    box_t *box = b->box + b->box_size++;
+    bzero(box, sizeof(*box));
+    return box;
+}
+
+static void boxAddLine(box_t *box, const char *line)
+{
+    if (box->line_size == box->line_alloc){
+        if (box->line_alloc == 0)
+            box->line_alloc = 2;
+        box->line_alloc *= 2;
+        box->line = BOR_REALLOC_ARR(box->line, char *, box->line_alloc);
+    }
+
+    int len = strlen(line);
+    box->line[box->line_size] = BOR_ALLOC_ARR(char, len + 1);
+    strcpy(box->line[box->line_size], line);
+    box->line[box->line_size][len] = 0x0;
+    ++box->line_size;
+    box->max_line_len = BOR_MAX(box->max_line_len, len);
+}
+
+static void boxesMerge(boxes_t *dst, const boxes_t *src, int max_len)
+{
+    char line[max_len + 1];
+    int start = 0;
+    while (start < src->box_size){
+        int len = src->box[start].max_line_len;
+        int end = start + 1;
+        for (; end < src->box_size; ++end){
+            if (len + 3 + src->box[end].max_line_len < max_len){
+                len += 3 + src->box[end].max_line_len;
+            }else{
+                break;
+            }
+        }
+
+        int max_line_size = 0;
+        for (int i = start; i < end; ++i)
+            max_line_size = BOR_MAX(max_line_size, src->box[i].line_size);
+
+        box_t *box = boxesAdd(dst);
+        for (int line_i = 0; line_i < max_line_size; ++line_i){
+            int used = 0;
+            for (int bi = start; bi < end; ++bi){
+                if (bi != start)
+                    used += sprintf(line + used, " | ");
+                if (line_i < src->box[bi].line_size){
+                    used += sprintf(line + used, "%s",
+                                    src->box[bi].line[line_i]);
+                    int remain = strlen(src->box[bi].line[line_i]);
+                    remain = src->box[bi].max_line_len - remain;
+                    for (int i = 0; i < remain; ++i)
+                        line[used++] = ' ';
+                }else{
+                    for (int i = 0; i < src->box[bi].max_line_len; ++i)
+                        line[used++] = ' ';
+                }
+            }
+            line[len] = 0x0;
+            boxAddLine(box, line);
+        }
+
+        start = end;
+    }
+}
+
+static void boxesLog(const boxes_t *b, bor_err_t *err)
+{
+    int line_len = 0;
+    for (int i = 0; i < b->box_size; ++i)
+        line_len = BOR_MAX(line_len, b->box[i].max_line_len);
+    line_len += 4;
+
+    char *line = BOR_ALLOC_ARR(char, line_len + 1);
+    line[line_len] = 0x0;
+    for (int i = 0; i < line_len; ++i)
+        line[i] = '-';
+    BOR_INFO(err, "%s", line);
+    for (int bi = 0; bi < b->box_size; ++bi){
+        const box_t *box = b->box + bi;
+        for (int li = 0; li < box->line_size; ++li){
+            line[0] = '|';
+            line[1] = ' ';
+            int used = sprintf(line + 2, "%s", box->line[li]);
+            for (int i = 0; i < line_len - 4 - used; ++i)
+                line[i + 2 + used] = ' ';
+            line[line_len - 1] = '|';
+            line[line_len - 2] = ' ';
+            BOR_INFO(err, "%s", line);
+        }
+        for (int i = 0; i < line_len; ++i)
+            line[i] = '-';
+        BOR_INFO(err, "%s", line);
+    }
+    BOR_FREE(line);
+}
+
+#define LINE_LEN 80
+void pddlMGroupsLogTable(const pddl_t *pddl,
+                         const pddl_strips_t *strips,
+                         const pddl_mgroups_t *mg,
+                         bor_err_t *err)
+{
+    if (mg->mgroup_size == 0){
+        BOR_INFO2(err, "No Mutex Groups");
+        return;
+    }
+    char line[128];
+    boxes_t boxes;
+    boxesInit(&boxes);
+    for (int mgi = 0; mgi < mg->mgroup_size; ++mgi){
+        const pddl_mgroup_t *m = mg->mgroup + mgi;
+        box_t *box = boxesAdd(&boxes);
+        int used = snprintf(line, 128, "ID: %d", mgi);
+        if (m->lifted_mgroup_id >= 0){
+            used += snprintf(line + used, 128 - used, " LID: %d",
+                             m->lifted_mgroup_id);
+        }
+        if (m->is_exactly_one)
+            used += snprintf(line + used, 128 - used, " e1");
+        if (m->is_fam_group)
+            used += snprintf(line + used, 128 - used, " fam");
+        if (m->is_goal)
+            used += snprintf(line + used, 128 - used, " G");
+        boxAddLine(box, line);
+
+        int fact;
+        BOR_ISET_FOR_EACH(&m->mgroup, fact){
+            snprintf(line, 128, "%d:(%s)", fact, strips->fact.fact[fact]->name);
+            boxAddLine(box, line);
+        }
+    }
+
+    boxes_t merged;
+    boxesInit(&merged);
+    boxesMerge(&merged, &boxes, 100);
+    boxesLog(&merged, err);
+    boxesFree(&merged);
+
+    boxesFree(&boxes);
+}
