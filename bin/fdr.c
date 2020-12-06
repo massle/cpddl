@@ -58,6 +58,7 @@ struct options {
     int pot;
 
     int mgroups_split_invertible;
+    int black_vars;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -372,6 +373,9 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("mgroups-split-invertible", 0x0, OPTS_NONE,
                 &opt.mgroups_split_invertible, NULL,
                 "Split mutex groups using invertible facts. (default: off)");
+    optsAddDesc("black-vars", 0x0, OPTS_NONE, &opt.black_vars, NULL,
+                "Find black variables and output red-black FDR."
+                " (default: off)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1518,7 +1522,6 @@ static int toFDR(void)
     BOR_INFO2(&err, "Translating to FDR ...");
     BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
 
-    fdr_var_flag = opt.fdr_var_method;
     FILE *fout = openFile(opt.fdr_out);
     if (fout == NULL){
         fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
@@ -1526,12 +1529,17 @@ static int toFDR(void)
     }
 
     pddl_fdr_t fdr;
-    pddl_black_mgroups_config_t black_mg_cfg = PDDL_BLACK_MGROUPS_CONFIG_INIT;
-    pddlBlackFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
-                               &black_mg_cfg, &err);
-    /* TODO */
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
-                          fdr_flag, &err);
+    if (opt.black_vars){
+        pddl_black_mgroups_config_t black_mg_cfg
+                = PDDL_BLACK_MGROUPS_CONFIG_INIT;
+        pddlBlackFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
+                                   &black_mg_cfg, &err);
+    }else{
+        fdr_var_flag = opt.fdr_var_method;
+        pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
+                              fdr_flag, &err);
+    }
+    //pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
     pddlFDRPrintFD(&fdr, &mgroups, 1, fout);
 
     if (opt.pot){

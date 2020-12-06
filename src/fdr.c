@@ -43,38 +43,48 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           unsigned fdr_flags,
                           bor_err_t *err)
 {
-    bzero(fdr, sizeof(*fdr));
+    BOR_INFO_PREFIX_PUSH(err, "FDR: ");
+    bor_timer_t timer;
+    borTimerStart(&timer);
 
-    BOR_INFO2(err, "Translation to FDR...");
+    bzero(fdr, sizeof(*fdr));
 
     // variables
     if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
                                   fdr_var_flags) != 0){
+        BOR_INFO_PREFIX_POP(err);
         return -1;
     }
-    BOR_INFO(err, "  Created %d variables.", fdr->var.var_size);
+    BOR_INFO(err, "Created %d variables.", fdr->var.var_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
             ++num_none_of_those;
     }
-    BOR_INFO(err, "  Created %d none-of-those values.", num_none_of_those);
+    BOR_INFO(err, "Created %d none-of-those values.", num_none_of_those);
 
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
 
     // Initial state
     fdr->init = BOR_ALLOC_ARR(int, fdr->var.var_size);
     stripsToFDRState(&fdr->var, &strips->init, fdr->init);
+    BOR_INFO2(err, "Created initial state.");
 
     // Goal
     pddlFDRPartStateInit(&fdr->goal);
     stripsToFDRPartState(&fdr->var, &strips->goal, &fdr->goal);
+    BOR_INFO2(err, "Created goal specification.");
 
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
+    BOR_INFO(err, "Created %d operators", fdr->op.op_size);
 
+    borTimerStop(&timer);
+    BOR_INFO(err, "Translation took %.2f seconds",
+             borTimerElapsedInSF(&timer));
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -202,7 +212,11 @@ void pddlFDRPrintFD(const pddl_fdr_t *fdr,
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         const pddl_fdr_var_t *var = fdr->var.var + vi;
         fprintf(fout, "begin_variable\n");
-        fprintf(fout, "var%d\n", vi);
+        if (var->is_black){
+            fprintf(fout, "black-var%d\n", vi);
+        }else{
+            fprintf(fout, "var%d\n", vi);
+        }
         fprintf(fout, "-1\n");
         fprintf(fout, "%d\n", var->val_size);
         for (int vali = 0; vali < var->val_size; ++vali){

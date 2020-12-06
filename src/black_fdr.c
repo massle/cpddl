@@ -27,6 +27,8 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                const pddl_black_mgroups_config_t *black_cfg,
                                bor_err_t *err)
 {
+    bor_timer_t timer;
+    borTimerStart(&timer);
     BOR_INFO_PREFIX_PUSH(err, "Black-FDR: ");
     BOR_INFO2(err, "Construction of FDR with black variables...");
 
@@ -70,7 +72,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
             pddlMGroupsAdd(&mgroups, &m);
         borISetFree(&m);
     }
-    //pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
+    pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
 
 
     // Construct FDR
@@ -80,7 +82,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                     fdr_var_flags, fdr_flags, err);
     ASSERT_RUNTIME(fdr->op.op_size == strips.op.op_size);
 
-    // Find black variables with none-of-those values
+    // Find black variables and remember which of them has none-of-those value
     int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups.mgroup_size);
     for (int mgi = 0; mgi < black_mgroups.mgroup_size; ++mgi){
         none_of_those[mgi] = -1;
@@ -90,6 +92,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
         int var_id = fdr->var.global_id_to_val[val_id]->var_id;
         if (fdr->var.var[var_id].val_none_of_those >= 0)
             none_of_those[mgi] = var_id;
+        fdr->var.var[var_id].is_black = 1;
     }
 
     // Set none-of-those in preconditions of operators
@@ -129,6 +132,28 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     borISetFree(&black_facts);
     pddlStripsFree(&strips);
     pddlMutexPairsFree(&mutex);
+
+    int num_black_vars = 0;
+    int num_black_facts = 0;
+    int num_black_facts_with_none_of_those = 0;
+    for (int vari = 0; vari < fdr->var.var_size; ++vari){
+        const pddl_fdr_var_t *var = fdr->var.var + vari;
+        if (!var->is_black)
+            continue;
+        ++num_black_vars;
+        num_black_facts += var->val_size;
+        if (var->val_none_of_those >= 0)
+            --num_black_facts;
+        num_black_facts_with_none_of_those += var->val_size;
+    }
+    BOR_INFO(err, "Num black variables: %d", num_black_vars);
+    BOR_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
+    BOR_INFO(err, "Num black FDR facts: %d",
+             num_black_facts_with_none_of_those);
+
+    borTimerStop(&timer);
+    BOR_INFO(err, "Translation took %.2f seconds",
+             borTimerElapsedInSF(&timer));
     BOR_INFO_PREFIX_POP(err);
     return ret;
 }

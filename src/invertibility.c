@@ -77,25 +77,16 @@ int pddlRSEInvertibleFacts(const pddl_strips_t *strips,
     pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 0, 1, 1);
 
     int fact_size = strips->fact.fact_size;
-    int *fam_fact = BOR_CALLOC_ARR(int, fact_size);
-    for (int mgi = 0; mgi < fam_groups->mgroup_size; ++mgi){
-        int fact;
-        BOR_ISET_FOR_EACH(&fam_groups->mgroup[mgi].mgroup, fact)
-            fam_fact[fact] = 1;
-    }
-
     for (int fact = 0; fact < fact_size; ++fact){
         const pddl_strips_fact_cross_ref_fact_t *cref_fact = &cref.fact[fact];
         if (borISetSize(&cref_fact->op_del) > 0
                 && borISetSize(&cref_fact->op_add) > 0
                 && factDelIsInvertible(strips, cref_fact)
-                && (fam_fact[fact]
-                        || factAddIsInvertible(strips, cref_fact))){
+                && factAddIsInvertible(strips, cref_fact)){
             borISetAdd(invertible_facts, fact);
         }
     }
 
-    BOR_FREE(fam_fact);
     pddlStripsFactCrossRefFree(&cref);
     return 0;
 }
