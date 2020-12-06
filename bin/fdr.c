@@ -1526,6 +1526,10 @@ static int toFDR(void)
     }
 
     pddl_fdr_t fdr;
+    pddl_black_mgroups_config_t black_mg_cfg = PDDL_BLACK_MGROUPS_CONFIG_INIT;
+    pddlBlackFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
+                               &black_mg_cfg, &err);
+    /* TODO */
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                           fdr_flag, &err);
     pddlFDRPrintFD(&fdr, &mgroups, 1, fout);

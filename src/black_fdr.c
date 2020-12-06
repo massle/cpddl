@@ -46,7 +46,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlStripsRemoveUselessDelEffs(&strips, &mutex, NULL, err);
     borISetFree(&unreachable_ops);
     BOR_INFO_PREFIX_POP(err);
-    //pddlMGroupsLogTable(NULL, &strips, mgroups_in, err);
+    //pddlMGroupsPrintTable(NULL, &strips, mgroups_in, NULL, err);
 
     pddl_black_mgroups_t black_mgroups;
     pddlBlackMGroups(&black_mgroups, &strips, mgroups_in, black_cfg, err);
@@ -70,7 +70,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
             pddlMGroupsAdd(&mgroups, &m);
         borISetFree(&m);
     }
-    //pddlMGroupsLogTable(NULL, &strips, &mgroups, err);
+    //pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
 
 
     // Construct FDR
@@ -80,7 +80,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                     fdr_var_flags, fdr_flags, err);
     ASSERT_RUNTIME(fdr->op.op_size == strips.op.op_size);
 
-    // Set none-of-those in preconditions
+    // Find black variables with none-of-those values
     int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups.mgroup_size);
     for (int mgi = 0; mgi < black_mgroups.mgroup_size; ++mgi){
         none_of_those[mgi] = -1;
@@ -92,6 +92,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
             none_of_those[mgi] = var_id;
     }
 
+    // Set none-of-those in preconditions of operators
     // TODO: refactor
     int num_set = 0;
     pddl_strips_fact_cross_ref_t cref;
@@ -102,25 +103,20 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
             continue;
 
         int set_val = fdr->var.var[set_var].val_none_of_those;
+        ASSERT(set_val >= 0);
         const pddl_black_mgroup_t *bmg = black_mgroups.mgroup + mgi;
-        for (int fami = 0; fami < bmg->fam_groups.mgroup_size; ++fami){
-            const bor_iset_t *famg = &bmg->fam_groups.mgroup[fami].mgroup;
-            BOR_ISET(pre_facts);
-            borISetMinus2(&pre_facts, famg, &bmg->mgroup);
-            int fact;
-            BOR_ISET_FOR_EACH(&pre_facts, fact){
-                int opi;
-                BOR_ISET_FOR_EACH(&cref.fact[fact].op_pre, opi){
-                    pddl_fdr_op_t *op = fdr->op.op[opi];
-                    ASSERT(!pddlFDRPartStateIsSet(&op->pre, set_var)
-                          || pddlFDRPartStateGet(&op->pre, set_var) == set_val);
-                    if (!pddlFDRPartStateIsSet(&op->pre, set_var)){
-                        pddlFDRPartStateSet(&op->pre, set_var, set_val);
-                        ++num_set;
-                    }
+        int mutex_fact;
+        BOR_ISET_FOR_EACH(&bmg->mutex_facts, mutex_fact){
+            int opi;
+            BOR_ISET_FOR_EACH(&cref.fact[mutex_fact].op_pre, opi){
+                pddl_fdr_op_t *op = fdr->op.op[opi];
+                ASSERT(!pddlFDRPartStateIsSet(&op->pre, set_var)
+                        || pddlFDRPartStateGet(&op->pre, set_var) == set_val);
+                if (!pddlFDRPartStateIsSet(&op->pre, set_var)){
+                    pddlFDRPartStateSet(&op->pre, set_var, set_val);
+                    ++num_set;
                 }
             }
-            borISetFree(&pre_facts);
         }
     }
     BOR_INFO(err, "Set %d additional none-of-those preconditions", num_set);

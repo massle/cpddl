@@ -40,7 +40,7 @@ typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
 
 struct pddl_black_mgroup {
     bor_iset_t mgroup;
-    pddl_mgroups_t fam_groups;
+    bor_iset_t mutex_facts;
 };
 typedef struct pddl_black_mgroup pddl_black_mgroup_t;
 

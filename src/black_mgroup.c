@@ -378,7 +378,7 @@ static pddl_black_mgroup_t *blackMGroupsAdd(pddl_black_mgroups_t *bmgroups,
     pddl_black_mgroup_t *mg = bmgroups->mgroup + bmgroups->mgroup_size++;
     borISetInit(&mg->mgroup);
     borISetUnion(&mg->mgroup, m);
-    pddlMGroupsInitEmpty(&mg->fam_groups);
+    borISetInit(&mg->mutex_facts);
     return mg;
 }
 
@@ -416,16 +416,25 @@ static void blackFactsToBlackMGroups(const black_vars_t *bv,
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
         if (borISetSize(mgs + mgi) == 0)
             continue;
+        blackMGroupsAdd(bmgroups, mgs + mgi);
+    }
 
-        pddl_black_mgroup_t *mg = blackMGroupsAdd(bmgroups, mgs + mgi);
-        if (borISetSize(mgs + mgi) > 1){
-            for (int mgi2 = 0; mgi2 < mgroups->mgroup_size; ++mgi2){
-                const bor_iset_t *famgroup = &mgroups->mgroup[mgi2].mgroup;
-                if (borISetIsSubset(&mg->mgroup, famgroup)){
-                    pddl_mgroup_t *fam;
-                    fam = pddlMGroupsAdd(&mg->fam_groups, famgroup);
-                    fam->is_fam_group = 1;
-                }
+    for (int bmgi = 0; bmgi < bmgroups->mgroup_size; ++bmgi){
+        pddl_black_mgroup_t *mg = bmgroups->mgroup + bmgi;
+        if (borISetSize(&mg->mgroup) <= 1)
+            continue;
+        for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+            const bor_iset_t *famgroup = &mgroups->mgroup[mgi].mgroup;
+            // Consider only fam-groups that were used to create black
+            // mutex groups of size at least 2
+            if (borISetSize(mgs + mgi) <= 1)
+                continue;
+
+            if (borISetIsSubset(&mg->mgroup, famgroup)){
+                BOR_ISET(facts);
+                borISetMinus2(&facts, famgroup, &mg->mgroup);
+                borISetUnion(&mg->mutex_facts, &facts);
+                borISetFree(&facts);
             }
         }
     }
@@ -511,7 +520,7 @@ void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups)
 {
     for (int i = 0; i < bmgroups->mgroup_size; ++i){
         borISetFree(&bmgroups->mgroup[i].mgroup);
-        pddlMGroupsFree(&bmgroups->mgroup[i].fam_groups);
+        borISetFree(&bmgroups->mgroup[i].mutex_facts);
     }
     if (bmgroups->mgroup != NULL)
         BOR_FREE(bmgroups->mgroup);
@@ -528,17 +537,9 @@ void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
         BOR_ISET_FOR_EACH(&bmg->mgroup, fact)
             fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
         fprintf(fout, "\n");
-
-        for (int fmgi = 0; fmgi < bmg->fam_groups.mgroup_size; ++fmgi){
-            const bor_iset_t *m = &bmg->fam_groups.mgroup[fmgi].mgroup;
-            BOR_ISET(diff);
-            borISetMinus2(&diff, m, &bmg->mgroup);
-            int fact;
-            fprintf(fout, "    fam-diff:");
-            BOR_ISET_FOR_EACH(&diff, fact)
-                fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
-            fprintf(fout, "\n");
-            borISetFree(&diff);
-        }
+        fprintf(fout, "  mutex-facts:");
+        BOR_ISET_FOR_EACH(&bmg->mutex_facts, fact)
+            fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
+        fprintf(fout, "\n");
     }
 }
