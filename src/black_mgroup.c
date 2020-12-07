@@ -20,6 +20,7 @@
 #include "pddl/config.h"
 #include "pddl/invertibility.h"
 #include "pddl/scc.h"
+#include "pddl/strips_fact_cross_ref.h"
 #include "pddl/black_mgroup.h"
 
 struct fact_vertex {
@@ -276,6 +277,19 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
     BOR_INFO(err, "Added %d 3-cycles", num);
 }
 
+static void addMGroup(bor_lp_t *lp, const bor_iset_t *mg)
+{
+    int row = borLPNumRows(lp);
+    double rhs = borISetSize(mg) - 1;
+    char sense = 'L';
+    //double rhs = 0;
+    //char sense = 'L';
+    borLPAddRows(lp, 1, &rhs, &sense);
+    int var;
+    BOR_ISET_FOR_EACH(mg, var)
+        borLPSetCoef(lp, row, var, 1.);
+}
+
 static int compIsSingleMGroup(const black_vars_t *bv, const bor_iset_t *comp)
 {
     int mgi = bv->fact_vertex[borISetGet(comp, 0)].mgroup;
@@ -350,7 +364,7 @@ static int solveLP(bor_lp_t *lp,
     double val;
     if (borLPSolve(lp, &val, obj) != 0){
         // TODO;
-        fprintf(stderr, "Err\n");
+        fprintf(stderr, "Error: Could not solve the ILP\n");
         BOR_FREE(obj);
         return -1;
     }
@@ -445,6 +459,81 @@ static void blackFactsToBlackMGroups(const black_vars_t *bv,
         BOR_FREE(mgs);
 }
 
+static int mgroupIsLeaf(const bor_iset_t *mgroup,
+                        const pddl_strips_t *strips,
+                        const bor_iset_t *fact_op)
+{
+    int fact;
+    BOR_ISET_FOR_EACH(mgroup, fact){
+        int opi;
+        BOR_ISET_FOR_EACH(fact_op + fact, opi){
+            const pddl_strips_op_t *op = strips->op.op[opi];
+            if (!borISetIsSubset(&op->add_eff, mgroup))
+                return 0;
+            if (!borISetIsSubset(&op->del_eff, mgroup))
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int findAndUpdateLeafs(bor_lp_t *lp,
+                              const black_vars_t *bv,
+                              const pddl_strips_t *strips,
+                              const bor_iset_t *black_vars,
+                              int num_mgroups,
+                              bor_err_t *err)
+{
+    int updated = 0;
+    pddl_strips_fact_cross_ref_t cref;
+    pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 1, 1, 1);
+
+    bor_iset_t *fact_op = BOR_CALLOC_ARR(bor_iset_t, strips->fact.fact_size);
+    for (int fact = 0; fact < strips->fact.fact_size; ++fact){
+        borISetUnion(fact_op + fact, &cref.fact[fact].op_pre);
+        borISetUnion(fact_op + fact, &cref.fact[fact].op_add);
+        borISetUnion(fact_op + fact, &cref.fact[fact].op_del);
+    }
+
+    bor_iset_t *bmgroups = BOR_CALLOC_ARR(bor_iset_t, num_mgroups);
+    bor_iset_t *bmgroups_vert = BOR_CALLOC_ARR(bor_iset_t, num_mgroups);
+    int vert_id;
+    BOR_ISET_FOR_EACH(black_vars, vert_id){
+        if (bv->fact_vertex[vert_id].mgroup >= 0){
+            borISetAdd(bmgroups + bv->fact_vertex[vert_id].mgroup,
+                       bv->fact_vertex[vert_id].fact);
+            borISetAdd(bmgroups_vert + bv->fact_vertex[vert_id].mgroup,
+                       vert_id);
+        }
+    }
+
+    for (int mgi = 0; mgi < num_mgroups; ++mgi){
+        if (borISetSize(bmgroups + mgi) == 0)
+            continue;
+
+        const bor_iset_t *mg = bmgroups + mgi;
+        if (mgroupIsLeaf(mg, strips, fact_op)){
+            addMGroup(lp, bmgroups_vert + mgi);
+            ++updated;
+        }
+    }
+
+    for (int i = 0; i < strips->fact.fact_size; ++i)
+        borISetFree(fact_op + i);
+    BOR_FREE(fact_op);
+    for (int i = 0; i < num_mgroups; ++i){
+        borISetFree(bmgroups + i);
+        borISetFree(bmgroups_vert + i);
+    }
+    BOR_FREE(bmgroups);
+    BOR_FREE(bmgroups_vert);
+    pddlStripsFactCrossRefFree(&cref);
+
+    BOR_INFO(err, "Found %d leaf mgroups", updated);
+    return updated > 0;
+}
+
 static int findBlackVarsUsingLP(bor_lp_t *lp,
                                 const black_vars_t *bv,
                                 const pddl_strips_t *strips,
@@ -466,7 +555,9 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
                            " Updating LP by adding more cycles...");
             updateLPWithCycle(lp, bv, &black_graph, &comp);
             BOR_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
-        }else{
+
+        }else if (findAndUpdateLeafs(lp, bv, strips, &black_vars,
+                                     mgroups->mgroup_size, err) == 0){
             pddlSCCGraphFree(&black_graph);
             break;
         }
