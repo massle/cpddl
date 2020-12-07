@@ -59,6 +59,8 @@ struct options {
 
     int mgroups_split_invertible;
     int black_vars;
+
+    int pretty_print_vars;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -375,6 +377,11 @@ static int readOpts(int *argc, char *argv[])
                 "Split mutex groups using invertible facts. (default: off)");
     optsAddDesc("black-vars", 0x0, OPTS_NONE, &opt.black_vars, NULL,
                 "Find black variables and output red-black FDR."
+                " (default: off)");
+
+    optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
+                &opt.pretty_print_vars, NULL,
+                "Print created FDR variables in a human readable form"
                 " (default: off)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
@@ -1539,7 +1546,8 @@ static int toFDR(void)
         pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                               fdr_flag, &err);
     }
-    //pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
+    if (opt.pretty_print_vars)
+        pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
     pddlFDRPrintFD(&fdr, &mgroups, 1, fout);
 
     if (opt.pot){
