@@ -37,6 +37,7 @@
 #include <boruvka/hfunc.h>
 #include "pddl/set.h"
 #include "pddl/time_limit.h"
+#include "pddl/pddl_struct.h"
 #include "assert.h"
 
 #if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
@@ -245,8 +246,6 @@ static int extractSolution(IloCP &cp,
         }
     }
     int num_redundant = borISetSize(&redundant);
-    BOR_INFO(err, "  Found a solution with %d redundant operators",
-             num_redundant);
 
     if (redundant_op != NULL
             && borISetSize(&redundant) > borISetSize(redundant_op)){
@@ -262,6 +261,7 @@ static int solve(IloModel &model,
                  const pddl_endomorphism_config_t *cfg,
                  float max_search_time,
                  bor_iset_t *redundant_op,
+                 const char *name,
                  bor_err_t *err)
 {
     int ret = 0;
@@ -278,8 +278,12 @@ static int solve(IloModel &model,
     BOR_INFO2(err, "  Solving model ...");
     cp.startNewSearch();
     int num = -1;
-    while (cp.next())
+    int max_num = -1;
+    while (cp.next()){
         num = extractSolution(cp, var_op, redundant_op, err);
+        max_num = BOR_MAX(max_num, num);
+        BOR_INFO(err, "  Found a solution with %d redundant %s", num, name);
+    }
 
     switch (cp.getInfo(IloCP::FailStatus)){
         case IloCP::SearchHasNotFailed:
@@ -308,7 +312,7 @@ static int solve(IloModel &model,
     }
 
     if (num >= 0){
-        BOR_INFO(err, "  Found %d redundant operators", num);
+        BOR_INFO(err, "  Found %d redundant %s", max_num, name);
         ret = 0;
     }else{
         BOR_INFO2(err, "  Solution not found");
@@ -491,7 +495,8 @@ static int fdrInference(const pddl_fdr_t *fdr,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    solve(model, var_op, cfg, max_search_time, redundant_ops,
+          "operators", err);
     return 0;
 }
 
@@ -885,7 +890,8 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    solve(model, var_op, cfg, max_search_time, redundant_ops,
+          "operators", err);
     return 0;
 }
 
@@ -1381,7 +1387,8 @@ static int tsInference(const pddl_trans_systems_t *tss,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    solve(model, var_op, cfg, max_search_time, redundant_ops,
+          "operators", err);
     return 0;
 }
 
@@ -1550,6 +1557,280 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
     if (cfg->run_in_subprocess)
         return runInSubprocess(NULL, NULL, tss, cfg, redundant_ops, err);
     return transSystemRedundantOps(tss, cfg, redundant_ops, err);
+}
+
+
+struct lifted_endomorphism {
+    int obj_size;
+    int *obj_is_fixed;
+};
+typedef struct lifted_endomorphism lifted_endomorphism_t;
+
+static int _liftedEndomorphismFixGoal(pddl_cond_t *c, void *u)
+{
+    lifted_endomorphism_t *end = (lifted_endomorphism_t *)u;
+    if (c->type == PDDL_COND_ATOM){
+        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        for (int i = 0; i < atom->arg_size; ++i){
+            ASSERT(atom->arg[i].obj >= 0);
+            end->obj_is_fixed[atom->arg[i].obj] = 1;
+        }
+    }
+    return 0;
+}
+
+static void liftedEndomorphismInit(lifted_endomorphism_t *end,
+                                   const pddl_t *pddl,
+                                   const pddl_lifted_mgroups_t *lifted_mgroups,
+                                   const pddl_endomorphism_config_t *cfg,
+                                   bor_err_t *err)
+{
+    bzero(end, sizeof(*end));
+    end->obj_size = pddl->obj.obj_size;
+    end->obj_is_fixed = BOR_CALLOC_ARR(int, end->obj_size);
+
+    // Set objects in the goal as fixed
+    pddlCondTraverse((pddl_cond_t *)pddl->goal, NULL,
+                     _liftedEndomorphismFixGoal, end);
+}
+
+static void liftedEndomorphismFree(lifted_endomorphism_t *end)
+{
+    if (end->obj_is_fixed != NULL)
+        BOR_FREE(end->obj_is_fixed);
+}
+
+struct pred_obj_tuple {
+    int pred;
+    int size;
+    int tuple_size;
+    int tuple_alloc;
+    int **tuple;
+};
+typedef struct pred_obj_tuple pred_obj_tuple_t;
+
+struct pred_obj_tuples {
+    int pred_size;
+    pred_obj_tuple_t *tuple;
+};
+typedef struct pred_obj_tuples pred_obj_tuples_t;
+
+static void predObjTupleFree(pred_obj_tuple_t *tup)
+{
+    for (int i = 0; i < tup->tuple_size; ++i)
+        BOR_FREE(tup->tuple[i]);
+    if (tup->tuple != NULL)
+        BOR_FREE(tup->tuple);
+}
+
+static int *predObjTupleAdd(pred_obj_tuple_t *tup)
+{
+    if (tup->tuple_size == tup->tuple_alloc){
+        if (tup->tuple_alloc == 0)
+            tup->tuple_alloc = 1;
+        tup->tuple_alloc *= 2;
+        tup->tuple = BOR_REALLOC_ARR(tup->tuple, int *, tup->tuple_alloc);
+    }
+    tup->tuple[tup->tuple_size] = BOR_ALLOC_ARR(int, tup->size);
+    return tup->tuple[tup->tuple_size++];
+}
+
+static void predObjTuplesInit(pred_obj_tuples_t *tup, const pddl_t *pddl)
+{
+    tup->pred_size = pddl->pred.pred_size;
+    tup->tuple = BOR_CALLOC_ARR(pred_obj_tuple_t, tup->pred_size);
+    for (int i = 0; i < tup->pred_size; ++i){
+        tup->tuple[i].pred = i;
+        tup->tuple[i].size = pddl->pred.pred[i].param_size;
+    }
+}
+
+static void predObjTuplesFree(pred_obj_tuples_t *tup)
+{
+    for (int i = 0; i < tup->pred_size; ++i)
+        predObjTupleFree(tup->tuple + i);
+    if (tup->tuple != NULL)
+        BOR_FREE(tup->tuple);
+}
+
+static int _predObjTuplesInitFromCond(pddl_cond_t *c, void *u)
+{
+    pred_obj_tuples_t *tup = (pred_obj_tuples_t *)u;
+    if (c->type == PDDL_COND_ATOM){
+        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        int pred_id = atom->pred;
+        pred_obj_tuple_t *tuple = tup->tuple + pred_id;
+        ASSERT(atom->arg_size == tuple->size);
+        int *t = predObjTupleAdd(tuple);
+        for (int i = 0; i < atom->arg_size; ++i){
+            ASSERT(atom->arg[i].obj >= 0);
+            t[i] = atom->arg[i].obj;
+        }
+    }
+    return 0;
+}
+
+static void predObjTuplesInitFromCond(pred_obj_tuples_t *tup,
+                                      const pddl_t *pddl,
+                                      const pddl_cond_t *cond)
+{
+    predObjTuplesInit(tup, pddl);
+    pddlCondTraverse((pddl_cond_t *)cond, NULL,
+                     _predObjTuplesInitFromCond, tup);
+}
+
+static void liftedAddDomains(IloEnv &env,
+                             IloModel &model,
+                             const pddl_t *pddl,
+                             const lifted_endomorphism_t *end,
+                             IloIntVarArray &csp_var)
+{
+    ASSERT(pddl->type.type[0].parent < 0);
+    // Skip type "object"
+    for (int type = 1; type < pddl->type.type_size; ++type){
+        int num_objs = pddl->type.type[type].obj.obj_size;
+        IloIntTupleSet obj_values(env, 1);
+        for (int i = 0; i < num_objs; ++i){
+            int obj = pddl->type.type[type].obj.obj[i];
+            if (!end->obj_is_fixed[obj]){
+                IloIntArray vals(env, 1);
+                vals[0] = obj;
+                obj_values.add(vals);
+            }
+        }
+
+        for (int i = 0; i < num_objs; ++i){
+            int obj = pddl->type.type[type].obj.obj[i];
+            IloIntVarArray vars(env, 1);
+            vars[0] = csp_var[obj];
+
+            if (end->obj_is_fixed[obj]){
+                IloIntTupleSet single_value(env, 1);
+                IloIntArray vals(env, 1);
+                vals[0] = obj;
+                single_value.add(vals);
+                model.add(IloAllowedAssignments(env, vars, single_value));
+
+            }else{
+                model.add(IloAllowedAssignments(env, vars, obj_values));
+            }
+
+        }
+    }
+}
+
+static void liftedAddInitConstr(IloEnv &env,
+                                IloModel &model,
+                                const pddl_t *pddl,
+                                const lifted_endomorphism_t *end,
+                                IloIntVarArray &csp_var)
+{
+    pred_obj_tuples_t tuples;
+    predObjTuplesInitFromCond(&tuples, pddl, &pddl->init->cls);
+    for (int pred = 0; pred < pddl->pred.pred_size; ++pred){
+        if (tuples.tuple[pred].tuple_size == 0)
+            continue;
+        const pred_obj_tuple_t *tup = tuples.tuple + pred;
+
+        IloIntTupleSet obj_values(env, tup->size);
+        for (int ti = 0; ti < tup->tuple_size; ++ti){
+            IloIntArray vals(env, tup->size);
+            for(int i = 0; i < tup->size; ++i)
+                vals[i] = tup->tuple[ti][i];
+            obj_values.add(vals);
+        }
+
+        for (int ti = 0; ti < tup->tuple_size; ++ti){
+            IloIntVarArray vars(env, tup->size);
+            for(int i = 0; i < tup->size; ++i)
+                vars[i] = csp_var[tup->tuple[ti][i]];
+            model.add(IloAllowedAssignments(env, vars, obj_values));
+        }
+    }
+    predObjTuplesFree(&tuples);
+}
+
+static void liftedAddGoalConstr(IloEnv &env,
+                                IloModel &model,
+                                const pddl_t *pddl,
+                                const lifted_endomorphism_t *end,
+                                IloIntVarArray &csp_var)
+{
+    pred_obj_tuples_t tuples;
+    predObjTuplesInitFromCond(&tuples, pddl, pddl->goal);
+    for (int pred = 0; pred < pddl->pred.pred_size; ++pred){
+        if (tuples.tuple[pred].tuple_size == 0)
+            continue;
+        const pred_obj_tuple_t *tup = tuples.tuple + pred;
+
+        for (int ti = 0; ti < tup->tuple_size; ++ti){
+            IloIntTupleSet obj_values(env, tup->size);
+            IloIntArray vals(env, tup->size);
+            IloIntVarArray vars(env, tup->size);
+            for(int i = 0; i < tup->size; ++i){
+                vals[i] = tup->tuple[ti][i];
+                vars[i] = csp_var[tup->tuple[ti][i]];
+            }
+            obj_values.add(vals);
+            model.add(IloAllowedAssignments(env, vars, obj_values));
+        }
+    }
+    predObjTuplesFree(&tuples);
+}
+
+static int liftedSolve(const pddl_t *pddl,
+                       const lifted_endomorphism_t *end,
+                       const pddl_endomorphism_config_t *cfg,
+                       float max_search_time,
+                       bor_iset_t *redundant_objs,
+                       bor_err_t *err)
+{
+    int ret = 0;
+    int obj_size = pddl->obj.obj_size;
+    IloEnv env;
+    IloModel model(env);
+
+    // Create variables
+    IloIntVarArray csp_vars(env, obj_size);
+    for (int obj = 0; obj < obj_size; ++obj){
+        csp_vars[obj] = IloIntVar(env, 0, obj_size - 1,
+                                  pddl->obj.obj[obj].name);
+    }
+
+    // Set domains
+    liftedAddDomains(env, model, pddl, end, csp_vars);
+
+    // Add constraints on the initial state and the goal
+    liftedAddInitConstr(env, model, pddl, end, csp_vars);
+    // TODO: remove goal constr -- we don't need it because we fix these
+    // objects anyway
+    liftedAddGoalConstr(env, model, pddl, end, csp_vars);
+
+    IloObjective obj = IloMinimize(env, IloCountDifferent(csp_vars));
+    model.add(obj);
+    BOR_INFO2(err, "  Added objective function min(count-diff())");
+
+    //float max_search_time = pddlTimeLimitRemain(time_limit);
+    //max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    solve(model, csp_vars, cfg, max_search_time, redundant_objs,
+          "objects", err);
+
+    env.end();
+    return ret;
+}
+
+
+int pddlEndomorphismLifted(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_t *lifted_mgroups,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_objects,
+                           bor_err_t *err)
+{
+    lifted_endomorphism_t end;
+    liftedEndomorphismInit(&end, pddl, lifted_mgroups, cfg, err);
+    liftedSolve(pddl, &end, cfg, 1800., redundant_objects, err);
+    liftedEndomorphismFree(&end);
+    return -1;
 }
 
 #else /* PDDL_CPOPTIMIZER */

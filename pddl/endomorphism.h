@@ -61,6 +61,13 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             const pddl_endomorphism_config_t *c,
                                             bor_iset_t *redundant_ops,
                                             bor_err_t *err);
+
+int pddlEndomorphismLifted(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_t *lifted_mgroups,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_objects,
+                           bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
