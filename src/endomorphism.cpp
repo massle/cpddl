@@ -267,7 +267,7 @@ static int solve(IloModel &model,
 {
     int ret = 0;
     IloCP cp(model);
-    //cp.dumpModel("model.cpo");
+    cp.dumpModel("model.cpo");
 #ifndef NO_LOGGER
     Logger *logger = new Logger(err);
     cp.addCallback(logger);
@@ -1745,6 +1745,31 @@ static void coverAtomWithMGroups(lifted_endomorphism_t *end,
     BOR_FREE(counted);
 }
 
+static void analyzeActionAtom(
+                lifted_endomorphism_t *end,
+                const pddl_t *pddl,
+                const pddl_params_t *act_param,
+                const pddl_cond_t *act_pre,
+                const pddl_cond_atom_t *eff_atom,
+                const pddl_lifted_mgroups_t *lifted_mgroups,
+                const pddl_endomorphism_config_t *cfg,
+                bor_err_t *err)
+{
+    if (!eff_atom->neg)
+        return;
+
+    pddl_cond_t *pos_c = pddlCondClone(&eff_atom->cls);
+    pddl_cond_atom_t *pos_a = PDDL_COND_CAST(pos_c, atom);
+    pos_a->neg = 0;
+    if (hasAtom(act_pre, pos_a)){
+        coverAtomWithMGroups(end, pddl, act_param, eff_atom, lifted_mgroups);
+
+    }else{
+        setAtomTypesFixed(end, pddl, act_param, eff_atom);
+    }
+    pddlCondDel(pos_c);
+}
+
 static void liftedEndomorphismAnalyzeAction(
                 lifted_endomorphism_t *end,
                 const pddl_t *pddl,
@@ -1755,6 +1780,13 @@ static void liftedEndomorphismAnalyzeAction(
                 const pddl_endomorphism_config_t *cfg,
                 bor_err_t *err)
 {
+    if (act_eff->type == PDDL_COND_ATOM){
+        const pddl_cond_atom_t *a = PDDL_COND_CAST(act_eff, atom);
+        analyzeActionAtom(end, pddl, act_param, act_pre, a,
+                          lifted_mgroups, cfg, err);
+        return;
+    }
+
     ASSERT_RUNTIME(act_eff->type == PDDL_COND_AND);
     const pddl_cond_part_t *cand = PDDL_COND_CAST(act_eff, part);
     bor_list_t *item;
@@ -1762,18 +1794,8 @@ static void liftedEndomorphismAnalyzeAction(
         const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
-            if (!a->neg)
-                continue;
-            pddl_cond_t *pos_c = pddlCondClone(&a->cls);
-            pddl_cond_atom_t *pos_a = PDDL_COND_CAST(pos_c, atom);
-            pos_a->neg = 0;
-            if (hasAtom(act_pre, pos_a)){
-                coverAtomWithMGroups(end, pddl, act_param, a, lifted_mgroups);
-
-            }else{
-                setAtomTypesFixed(end, pddl, act_param, a);
-            }
-            pddlCondDel(pos_c);
+            analyzeActionAtom(end, pddl, act_param, act_pre, a,
+                              lifted_mgroups, cfg, err);
 
         }else if (c->type == PDDL_COND_INCREASE){
             // We can ignore this, because it is already handled in
@@ -1827,10 +1849,12 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
                                         lifted_mgroups, cfg, err);
     }
 
+#ifdef PDDL_DEBUG
     for (int i = 0; i < end->obj_size; ++i){
         BOR_INFO(err, "Obj-fixed %d:(%s): %d",
                  i, pddl->obj.obj[i].name, end->obj_is_fixed[i]);
     }
+#endif /* PDDL_DEBUG */
 }
 
 static void liftedEndomorphismFree(lifted_endomorphism_t *end)
@@ -1973,8 +1997,22 @@ static void liftedAddDomains(IloEnv &env,
                              IloIntVarArray &csp_var)
 {
     ASSERT(pddl->type.type[0].parent < 0);
-    // Skip type "object"
-    for (int type = 1; type < pddl->type.type_size; ++type){
+
+    // First deal with fixed objects
+    for (int obj = 0; obj < pddl->obj.obj_size; ++obj){
+        if (!end->obj_is_fixed[obj])
+            continue;
+        IloIntTupleSet single_value(env, 1);
+        IloIntArray vals(env, 1);
+        vals[0] = obj;
+        single_value.add(vals);
+        IloIntVarArray vars(env, 1);
+        vars[0] = csp_var[obj];
+        model.add(IloAllowedAssignments(env, vars, single_value));
+    }
+
+    // And then with unfixed ones
+    for (int type = 0; type < pddl->type.type_size; ++type){
         int num_objs = pddl->type.type[type].obj.obj_size;
         IloIntTupleSet obj_values(env, 1);
         for (int i = 0; i < num_objs; ++i){
@@ -1988,17 +2026,9 @@ static void liftedAddDomains(IloEnv &env,
 
         for (int i = 0; i < num_objs; ++i){
             int obj = pddl->type.type[type].obj.obj[i];
-            IloIntVarArray vars(env, 1);
-            vars[0] = csp_var[obj];
-
-            if (end->obj_is_fixed[obj]){
-                IloIntTupleSet single_value(env, 1);
-                IloIntArray vals(env, 1);
-                vals[0] = obj;
-                single_value.add(vals);
-                model.add(IloAllowedAssignments(env, vars, single_value));
-
-            }else{
+            if (!end->obj_is_fixed[obj]){
+                IloIntVarArray vars(env, 1);
+                vars[0] = csp_var[obj];
                 model.add(IloAllowedAssignments(env, vars, obj_values));
             }
 
