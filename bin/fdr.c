@@ -503,6 +503,10 @@ static int liftedMGroups(void)
         closeFile(fout);
     }
 
+    pddlEndomorphismLifted(&pddl, &lifted_mgroups, &endomorphism_cfg,
+                           NULL, &err);
+    exit(-1);
+
     return 0;
 }
 
