@@ -98,6 +98,9 @@ int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg);
 void pddlLiftedMGroupPrint(const pddl_t *pddl,
                            const pddl_lifted_mgroup_t *mgroup,
                            FILE *fout);
+void pddlLiftedMGroupLog(const pddl_t *pddl,
+                         const pddl_lifted_mgroup_t *mgroup,
+                         bor_err_t *err);
 
 
 

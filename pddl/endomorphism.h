@@ -37,6 +37,8 @@ struct pddl_endomorphism_config {
     /** If set to true, the inference will run in a separate sub-process.
      *  (default: true) */
     int run_in_subprocess;
+    /** If set to true, costs of operators are ignored (default: false) */
+    int ignore_costs;
 };
 typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
 
@@ -45,6 +47,7 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
       3600.f, /* .max_search_time */ \
       1, /* .num_threads */ \
       1, /* .run_in_subprocess */ \
+      0, /* .ignore_costs */ \
     }
 
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
