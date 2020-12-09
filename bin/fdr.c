@@ -61,6 +61,7 @@ struct options {
     int black_vars;
 
     int pretty_print_vars;
+    int pretty_print_cg;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -383,6 +384,9 @@ static int readOpts(int *argc, char *argv[])
                 &opt.pretty_print_vars, NULL,
                 "Print created FDR variables in a human readable form"
                 " (default: off)");
+    optsAddDesc("pretty-print-cg", 0x0, OPTS_NONE,
+                &opt.pretty_print_cg, NULL,
+                "Print causal graph in ascii art (default: off)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1548,7 +1552,14 @@ static int toFDR(void)
     }
     if (opt.pretty_print_vars)
         pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
+    if (opt.pretty_print_cg){
+        pddl_cg_t cg;
+        pddlCGInit(&cg, &fdr.var, &fdr.op, 0);
+        pddlCGPrintAsciiGraph(&cg, NULL, &err);
+        pddlCGFree(&cg);
+    }
     pddlFDRPrintFD(&fdr, &mgroups, 1, fout);
+
 
     if (opt.pot){
         BOR_INFO2(&err, "");

@@ -71,6 +71,10 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
                        const pddl_fdr_part_state_t *goal,
                        int *var_ordering);
 
+char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size);
+
+void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err);
+
 
 #ifdef __cplusplus
 } /* extern "C" */

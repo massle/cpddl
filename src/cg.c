@@ -17,6 +17,10 @@
  * See the License for more information.
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include <boruvka/pairheap.h>
 #include "pddl/cg.h"
 #include "pddl/scc.h"
@@ -331,4 +335,132 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
 
     borPairHeapDel(heap);
     BOR_FREE(order_var);
+}
+
+char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size)
+{
+    *buf_size = 1024 * 1024;
+    char *buf = BOR_ALLOC_ARR(char, *buf_size);
+    int cur = 0;
+
+    cur += sprintf(buf + cur, "digraph {\n");
+    //cur += sprintf(buf + cur, "  rankdir=LR;\n");
+    for (int node_i = 0; node_i < cg->node_size; ++node_i){
+        const pddl_cg_node_t *node = cg->node + node_i;
+        for (int edge_i = 0; edge_i < node->fw_size; ++edge_i){
+            const pddl_cg_edge_t *edge = node->fw + edge_i;
+            cur += sprintf(buf + cur, "  v%d -> v%d[label=\"%d\"];\n",
+                           node_i, edge->end, edge->value);
+        }
+    }
+    cur += sprintf(buf + cur, "}\n");
+    buf[cur] = 0x0;
+
+    *buf_size = cur + 1;
+    buf = BOR_REALLOC_ARR(buf, char, *buf_size);
+    return buf;
+}
+
+static char *pddlGraphEasy(const char *graph_easy_bin,
+                           const char *input,
+                           size_t *buflen)
+{
+    *buflen = 0;
+    if (graph_easy_bin == NULL)
+        graph_easy_bin = "/usr/bin/graph-easy";
+
+    int pipein[2];
+    int pipeout[2];
+    if (pipe(pipein) != 0){
+        perror("Pipe failed:");
+        return NULL;
+    }
+    if (pipe(pipeout) != 0){
+        perror("Pipe failed:");
+        return NULL;
+    }
+
+    int pid = fork();
+    if (pid == -1){
+        perror("fork() failed");
+        return NULL;
+
+    }else if (pid == 0){
+        // child process
+        fflush(stdout);
+        fflush(stderr);
+        close(pipein[1]);
+        dup2(pipein[0], STDIN_FILENO);
+        close(pipein[0]);
+        close(pipeout[0]);
+        dup2(pipeout[1], STDOUT_FILENO);
+        close(pipeout[1]);
+        dup2(STDOUT_FILENO, STDERR_FILENO);
+        exit(execl(graph_easy_bin, graph_easy_bin, "--from", "graphviz",
+                   "--as", "boxart", NULL));
+
+    }else{
+        // parent process
+        close(pipein[0]);
+        close(pipeout[1]);
+
+        // Write input to graph-easy
+        size_t len = strlen(input);
+        write(pipein[1], input, sizeof(char) * len);
+        close(pipein[1]);
+
+        // Read output
+        *buflen = 1024 * 1024;
+        char *buf = BOR_ALLOC_ARR(char, *buflen);
+        int cur = 0;
+        while (1){
+            if (*buflen - 1 - cur < 1024){
+                *buflen *= 2;
+                buf = BOR_REALLOC_ARR(buf, char, *buflen);
+            }
+
+            ssize_t ret = read(pipeout[0], buf + cur, *buflen - 1 - cur);
+            if (ret <= 0)
+                break;
+            cur += ret;
+            buf[cur] = 0x0;
+        }
+        close(pipeout[0]);
+        *buflen = cur + 1;
+        buf = BOR_REALLOC_ARR(buf, char, *buflen);
+
+        waitpid(pid, NULL, 0);
+        return buf;
+    }
+
+    return NULL;
+}
+
+void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err)
+{
+    size_t buf_size;
+    char *buf = pddlCGAsDot(cg, &buf_size);
+    if (buf == NULL){
+        BOR_INFO2(err, "Could not print out causal graph");
+        return;
+    }
+
+    size_t graph_size;
+    char *graph = pddlGraphEasy(NULL, buf, &graph_size);
+
+    size_t cur = 0;
+    while (cur < graph_size){
+        size_t from = cur;
+        for (; cur < graph_size && graph[cur] != '\n'; ++cur);
+        graph[cur++] = 0x0;
+        if (err != NULL)
+            BOR_INFO(err, "CG: %s", graph + from);
+        if (out != NULL)
+            fprintf(out, "CG: %s\n", graph + from);
+    }
+
+    if (buf != NULL)
+        BOR_FREE(buf);
+    if (graph != NULL)
+        BOR_FREE(graph);
 }
