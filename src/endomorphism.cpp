@@ -1688,8 +1688,8 @@ static int coverAtomWithMGroup(int *counted,
                 int a_obj_size;
                 a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
 
-#ifdef PDDL_DEBUG
                 int m_parami = ma->arg[argi].param;
+#ifdef PDDL_DEBUG
                 int m_type = mgroup->param.param[m_parami].type;
 #endif /* PDDL_DEBUG */
                 int is_counted = mgroup->param.param[m_parami].is_counted_var;
