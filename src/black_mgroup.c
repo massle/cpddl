@@ -282,13 +282,11 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
     BOR_INFO(err, "Added %d 3-cycles", num);
 }
 
-static void addMGroup(bor_lp_t *lp, const bor_iset_t *mg)
+static void addLeafMGroup(bor_lp_t *lp, const bor_iset_t *mg)
 {
     int row = borLPNumRows(lp);
-    double rhs = borISetSize(mg) - 1;
+    double rhs = 0;
     char sense = 'L';
-    //double rhs = 0;
-    //char sense = 'L';
     borLPAddRows(lp, 1, &rhs, &sense);
     int var;
     BOR_ISET_FOR_EACH(mg, var)
@@ -519,7 +517,7 @@ static int findAndUpdateLeafs(bor_lp_t *lp,
 
         const bor_iset_t *mg = bmgroups + mgi;
         if (mgroupIsLeaf(mg, strips, fact_op)){
-            addMGroup(lp, bmgroups_vert + mgi);
+            addLeafMGroup(lp, bmgroups_vert + mgi);
             ++updated;
         }
     }
@@ -561,8 +559,8 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
             updateLPWithCycle(lp, bv, &black_graph, &comp);
             BOR_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
 
-        }else if (findAndUpdateLeafs(lp, bv, strips, &black_vars,
-                                     mgroups->mgroup_size, err) == 0){
+        }else if (!findAndUpdateLeafs(lp, bv, strips, &black_vars,
+                                      mgroups->mgroup_size, err)){
             pddlSCCGraphFree(&black_graph);
             break;
         }
