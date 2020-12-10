@@ -229,8 +229,11 @@ static void addCycles2(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
         int v2;
         BOR_ISET_FOR_EACH(&bv->cg.node[v1], v2){
             // Skip cycles with the same mutex group
-            if (bv->fact_vertex[v1].mgroup == bv->fact_vertex[v2].mgroup)
+            if (bv->fact_vertex[v1].mgroup == bv->fact_vertex[v2].mgroup
+                    && bv->fact_vertex[v1].mgroup >= 0){
                 continue;
+            }
+
             if (borISetIn(v1, &bv->cg.node[v2])){
                 BOR_IARR(path);
                 borIArrAdd(&path, v1);
@@ -259,8 +262,10 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
             BOR_ISET_FOR_EACH(&bv->cg.node[v2], v3){
                 int v3mgroup = bv->fact_vertex[v3].mgroup;
                 // Skip cycles with the same mutex group
-                if (v1mgroup == v2mgroup && v2mgroup == v3mgroup)
+                if (v1mgroup == v2mgroup && v2mgroup == v3mgroup
+                        && v1mgroup >= 0){
                     continue;
+                }
 
                 if (borISetIn(v1, &bv->cg.node[v3])){
                     BOR_IARR(path);
