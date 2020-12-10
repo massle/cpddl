@@ -59,6 +59,7 @@ struct options {
 
     int mgroups_split_invertible;
     int black_vars;
+    int black_vars_num;
 
     int pretty_print_vars;
     int pretty_print_cg;
@@ -222,6 +223,7 @@ static int readOpts(int *argc, char *argv[])
     opt.op_mutex_ts = -1;
     opt.op_mutex_op_fact = -1;
     opt.op_mutex_hm_op = -1;
+    opt.black_vars_num = 1;
 
     pddl_cfg.force_adl = 1;
     endomorphism_cfg.num_threads = 1;
@@ -378,6 +380,9 @@ static int readOpts(int *argc, char *argv[])
                 "Split mutex groups using invertible facts. (default: off)");
     optsAddDesc("black-vars", 0x0, OPTS_NONE, &opt.black_vars, NULL,
                 "Find black variables and output red-black FDR."
+                " (default: off)");
+    optsAddDesc("black-vars-num", 0x0, OPTS_INT, &opt.black_vars_num, NULL,
+                "Maximal number of red-black FDRs that should be created"
                 " (default: off)");
 
     optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
@@ -1487,6 +1492,60 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
+static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
+{
+    BOR_INFO(&err, "Output file: '%s'", fnout);
+    FILE *fout = openFile(fnout);
+    if (fout == NULL){
+        fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
+        return -1;
+    }
+
+    if (opt.pretty_print_vars)
+        pddlFDRVarsPrintTable(&fdr->var, 150, NULL, &err);
+    if (opt.pretty_print_cg){
+        pddl_cg_t cg;
+        pddlCGInit(&cg, &fdr->var, &fdr->op, 0);
+        pddlCGPrintAsciiGraph(&cg, NULL, &err);
+        pddlCGFree(&cg);
+    }
+    pddlFDRPrintFD(fdr, &mgroups, 1, fout);
+
+
+    if (opt.pot){
+        BOR_INFO2(&err, "");
+        BOR_INFO(&err, "Potential heuristics [disamb: %d, weak-diamb: %d,"
+                       " obj: %s(%x), add-init-constr: %d,"
+                       " init-constr-coef: %.2f, num-samples: %d,"
+                       " samples-use-mutex: %d, samples-random-walk: %d,"
+                       " all-states-mutex-size: %d]",
+                 pot_cfg.disambiguation,
+                 pot_cfg.weak_disambiguation,
+                 potObjName(pot_cfg.obj),
+                 pot_cfg.obj,
+                 pot_cfg.add_init_constr,
+                 pot_cfg.init_constr_coef,
+                 pot_cfg.num_samples,
+                 pot_cfg.samples_use_mutex,
+                 pot_cfg.samples_random_walk,
+                 pot_cfg.all_states_mutex_size);
+        BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
+        pddl_hpot_t hpot;
+        if (pddlHPotInit(&hpot, fdr, &pot_cfg, &err) != 0){
+            BOR_INFO2(&err, "Cannot find potential heuristic");
+            BOR_INFO_PREFIX_POP(&err);
+            return -1;
+        }
+        int est = pddlHPotFDRStateEstimate(&hpot, &fdr->var, fdr->init);
+        BOR_INFO(&err, "Init state estimate: %d", est);
+        printPotentials(fdr, &hpot, fout);
+        pddlHPotFree(&hpot);
+        BOR_INFO_PREFIX_POP(&err);
+    }
+    closeFile(fout);
+    return 0;
+}
+
 static int toFDR(void)
 {
     if (opt.num_sym_gen){
@@ -1531,70 +1590,38 @@ static int toFDR(void)
 
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Translating to FDR ...");
-    BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
 
-    FILE *fout = openFile(opt.fdr_out);
-    if (fout == NULL){
-        fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
-        return -1;
-    }
-
-    pddl_fdr_t fdr;
     if (opt.black_vars){
         pddl_black_mgroups_config_t black_mg_cfg
                 = PDDL_BLACK_MGROUPS_CONFIG_INIT;
-        pddlBlackFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
-                                   &black_mg_cfg, &err);
+        black_mg_cfg.num_solutions = opt.black_vars_num;
+        pddl_fdr_t fdr[opt.black_vars_num];
+        int num = pddlBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
+                                             &black_mg_cfg, &err);
+
+        int fnout_size = strlen(opt.fdr_out);
+        char fnout[fnout_size + 5];
+        for (int i = 0; i < num; ++i){
+            if (i == 0){
+                sprintf(fnout, "%s", opt.fdr_out);
+            }else{
+                sprintf(fnout, "%s.%d", opt.fdr_out, i + 1);
+            }
+
+            if (fdrOut(fdr + i, fnout) != 0)
+                return -1;
+            pddlFDRFree(fdr + i);
+        }
     }else{
         fdr_var_flag = opt.fdr_var_method;
+        pddl_fdr_t fdr;
         pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                               fdr_flag, &err);
-    }
-    if (opt.pretty_print_vars)
-        pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
-    if (opt.pretty_print_cg){
-        pddl_cg_t cg;
-        pddlCGInit(&cg, &fdr.var, &fdr.op, 0);
-        pddlCGPrintAsciiGraph(&cg, NULL, &err);
-        pddlCGFree(&cg);
-    }
-    pddlFDRPrintFD(&fdr, &mgroups, 1, fout);
-
-
-    if (opt.pot){
-        BOR_INFO2(&err, "");
-        BOR_INFO(&err, "Potential heuristics [disamb: %d, weak-diamb: %d,"
-                       " obj: %s(%x), add-init-constr: %d,"
-                       " init-constr-coef: %.2f, num-samples: %d,"
-                       " samples-use-mutex: %d, samples-random-walk: %d,"
-                       " all-states-mutex-size: %d]",
-                 pot_cfg.disambiguation,
-                 pot_cfg.weak_disambiguation,
-                 potObjName(pot_cfg.obj),
-                 pot_cfg.obj,
-                 pot_cfg.add_init_constr,
-                 pot_cfg.init_constr_coef,
-                 pot_cfg.num_samples,
-                 pot_cfg.samples_use_mutex,
-                 pot_cfg.samples_random_walk,
-                 pot_cfg.all_states_mutex_size);
-        BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
-        pddl_hpot_t hpot;
-        if (pddlHPotInit(&hpot, &fdr, &pot_cfg, &err) != 0){
-            BOR_INFO2(&err, "Cannot find potential heuristic");
-            BOR_INFO_PREFIX_POP(&err);
+        if (fdrOut(&fdr, opt.fdr_out) != 0)
             return -1;
-        }
-        int est = pddlHPotFDRStateEstimate(&hpot, &fdr.var, fdr.init);
-        BOR_INFO(&err, "Init state estimate: %d", est);
-        printPotentials(&fdr, &hpot, fout);
-        pddlHPotFree(&hpot);
-        BOR_INFO_PREFIX_POP(&err);
+        pddlFDRFree(&fdr);
+
     }
-
-    pddlFDRFree(&fdr);
-
-    closeFile(fout);
 
     return 0;
 }

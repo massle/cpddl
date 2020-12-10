@@ -293,6 +293,31 @@ static void addLeafMGroup(bor_lp_t *lp, const bor_iset_t *mg)
         borLPSetCoef(lp, row, var, 1.);
 }
 
+static void addRedFacts(bor_lp_t *lp,
+                        const black_vars_t *bv,
+                        const bor_iset_t *black_vars)
+{
+    int row = borLPNumRows(lp);
+    double rhs = 1;
+    char sense = 'G';
+    borLPAddRows(lp, 1, &rhs, &sense);
+
+    int *black = BOR_CALLOC_ARR(int, bv->fact_vertex_size);
+    int var;
+    BOR_ISET_FOR_EACH(black_vars, var){
+        int fact = bv->fact_vertex[var].fact;
+        int var2;
+        BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, var2)
+            black[var2] = 1;
+
+    }
+    for (int var = 0; var < bv->fact_vertex_size; ++var){
+        if (!black[var])
+            borLPSetCoef(lp, row, var, 1.);
+    }
+    BOR_FREE(black);
+}
+
 static int compIsSingleMGroup(const black_vars_t *bv, const bor_iset_t *comp)
 {
     int mgi = bv->fact_vertex[borISetGet(comp, 0)].mgroup;
@@ -366,8 +391,6 @@ static int solveLP(bor_lp_t *lp,
     double *obj = BOR_CALLOC_ARR(double, bv->fact_vertex_size);
     double val;
     if (borLPSolve(lp, &val, obj) != 0){
-        // TODO;
-        fprintf(stderr, "Error: Could not solve the ILP\n");
         BOR_FREE(obj);
         return -1;
     }
@@ -541,18 +564,21 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
                                 const black_vars_t *bv,
                                 const pddl_strips_t *strips,
                                 const pddl_mgroups_t *mgroups,
+                                const pddl_black_mgroups_config_t *cfg,
                                 pddl_black_mgroups_t *bmgroups,
                                 bor_err_t *err)
 {
     int ret = 0;
-    BOR_ISET(comp);
     BOR_ISET(black_vars);
-    while ((ret = solveLP(lp, bv, &black_vars)) == 0){
+    int cont = 1;
+    int solution = 0;
+    while (cont && (ret = solveLP(lp, bv, &black_vars)) == 0){
         BOR_INFO(err, "Solved. Candidate set size: %d",
                  borISetSize(&black_vars));
 
         pddl_scc_graph_t black_graph;
         pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
+        BOR_ISET(comp);
         if (findMultiMGroupComponent(bv, &black_graph, &comp)){
             BOR_INFO2(err, "The solution has a cycle."
                            " Updating LP by adding more cycles...");
@@ -561,29 +587,47 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
 
         }else if (!findAndUpdateLeafs(lp, bv, strips, &black_vars,
                                       mgroups->mgroup_size, err)){
-            pddlSCCGraphFree(&black_graph);
-            break;
+            if (borISetSize(&black_vars) > 0){
+                blackFactsToBlackMGroups(bv, &black_vars, mgroups,
+                                         bmgroups + solution, err);
+                BOR_INFO(err, "Found non-empty solution %d with"
+                              " %d black facts and %d black mgroups",
+                         solution, borISetSize(&black_vars),
+                         bmgroups->mgroup_size);
+                ++solution;
+                if (solution >= cfg->num_solutions){
+                    cont = 0;
+                }else{
+                    BOR_INFO2(err, "Trying next solution");
+                    addRedFacts(lp, bv, &black_vars);
+                }
+            }else{
+                cont = 0;
+            }
         }
+        borISetFree(&comp);
         pddlSCCGraphFree(&black_graph);
+        borISetEmpty(&black_vars);
     }
-    if (ret == 0){
-        BOR_INFO(err, "Found %d black facts", borISetSize(&black_vars));
-        blackFactsToBlackMGroups(bv, &black_vars, mgroups, bmgroups, err);
-        BOR_INFO(err, "Found %d black mgroups", bmgroups->mgroup_size);
-    }
+    if (ret != 0)
+        BOR_INFO2(err, "No solution exists.");
     borISetFree(&black_vars);
-    borISetFree(&comp);
-    return ret;
+
+    if (bmgroups->mgroup_size > 0 || ret == 0)
+        return 0;
+    return -1;
 }
 
-void pddlBlackMGroups(pddl_black_mgroups_t *bmgroups,
-                      const pddl_strips_t *strips,
-                      const pddl_mgroups_t *mgroups_in,
-                      const pddl_black_mgroups_config_t *cfg,
-                      bor_err_t *err)
+
+void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
+                           const pddl_strips_t *strips,
+                           const pddl_mgroups_t *mgroups_in,
+                           const pddl_black_mgroups_config_t *cfg,
+                           bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Black-mg-LP: ");
-    bzero(bmgroups, sizeof(*bmgroups));
+    for (int i = 0; i < cfg->num_solutions; ++i)
+        bzero(bmgroups + i, sizeof(*bmgroups));
 
     pddl_mgroups_t mgroups;
     pddlMGroupsInitEmpty(&mgroups);
@@ -603,7 +647,7 @@ void pddlBlackMGroups(pddl_black_mgroups_t *bmgroups,
         addCycles2(lp, &bv, err);
     if (cfg->lp_add_3cycles)
         addCycles3(lp, &bv, err);
-    findBlackVarsUsingLP(lp, &bv, strips, &mgroups, bmgroups, err);
+    findBlackVarsUsingLP(lp, &bv, strips, &mgroups, cfg, bmgroups, err);
     borLPDel(lp);
     blackVarsFree(&bv);
     pddlMGroupsFree(&mgroups);
@@ -619,6 +663,7 @@ void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups)
     if (bmgroups->mgroup != NULL)
         BOR_FREE(bmgroups->mgroup);
 }
+
 
 void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
                            const pddl_black_mgroups_t *bmgroups,

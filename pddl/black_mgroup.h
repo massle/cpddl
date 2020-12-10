@@ -29,6 +29,8 @@ extern "C" {
 struct pddl_black_mgroups_config {
     int lp_add_2cycles; /*!< Add all 2-cycles into LP (default: true) */
     int lp_add_3cycles; /*!< Add all 3-cycles into LP (default: false) */
+    int num_solutions; /*!< Max number of solutions that should be inferred
+                            (default: 1)*/
 };
 typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
 
@@ -36,6 +38,7 @@ typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
     { \
         1, /* .lp_add_2cycles */ \
         0, /* .lp_add_2cycles */ \
+        1, /* .num_solutions */ \
     }
 
 struct pddl_black_mgroup {
@@ -51,18 +54,17 @@ struct pddl_black_mgroups {
 };
 typedef struct pddl_black_mgroups pddl_black_mgroups_t;
 
-void pddlBlackMGroups(pddl_black_mgroups_t *bmgroups,
-                      const pddl_strips_t *strips,
-                      const pddl_mgroups_t *mgroups,
-                      const pddl_black_mgroups_config_t *cfg,
-                      bor_err_t *err);
+void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
+                           const pddl_strips_t *strips,
+                           const pddl_mgroups_t *mgroups,
+                           const pddl_black_mgroups_config_t *cfg,
+                           bor_err_t *err);
 
 void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups);
+
 void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
                            const pddl_black_mgroups_t *bmgroups,
                            FILE *fout);
-
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -129,6 +129,60 @@ static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
     pddlStripsFactCrossRefFree(&cref);
 }
 
+static void fdrStat(const pddl_fdr_t *fdr, bor_err_t *err)
+{
+    int num_black_vars = 0;
+    int num_black_facts = 0;
+    int num_black_facts_with_none_of_those = 0;
+    for (int vari = 0; vari < fdr->var.var_size; ++vari){
+        const pddl_fdr_var_t *var = fdr->var.var + vari;
+        if (!var->is_black)
+            continue;
+        ++num_black_vars;
+        num_black_facts += var->val_size;
+        if (var->val_none_of_those >= 0)
+            --num_black_facts;
+        num_black_facts_with_none_of_those += var->val_size;
+    }
+    BOR_INFO(err, "Num black variables: %d", num_black_vars);
+    BOR_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
+    BOR_INFO(err, "Num black FDR facts: %d",
+             num_black_facts_with_none_of_those);
+}
+
+static int constructFDR(pddl_fdr_t *fdr,
+                        const pddl_strips_t *strips,
+                        const pddl_mgroups_t *mgroups_in,
+                        const pddl_mutex_pairs_t *mutex,
+                        const pddl_black_mgroups_t *black_mgroups,
+                        bor_err_t *err)
+{
+    // Re-create the set of mutex groups
+    pddl_mgroups_t mgroups;
+    prepareMGroups(&mgroups, black_mgroups, mgroups_in, err);
+
+    // Construct FDR
+    unsigned fdr_var_flags = PDDL_FDR_VARS_LARGEST_FIRST;
+    unsigned fdr_flags = 0;
+    int ret = pddlFDRInitFromStrips(fdr, strips, &mgroups, mutex,
+                                    fdr_var_flags, fdr_flags, err);
+    ASSERT_RUNTIME(fdr->op.op_size == strips->op.op_size);
+
+    // Find black variables and remember which of them has none-of-those value
+    int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups->mgroup_size);
+    setBlackVars(fdr, black_mgroups, none_of_those, err);
+
+    // Set none-of-those in preconditions of operators
+    setNoneOfThoseInPre(fdr, strips, black_mgroups, none_of_those, err);
+
+    BOR_FREE(none_of_those);
+    pddlMGroupsFree(&mgroups);
+
+    fdrStat(fdr, err);
+
+    return ret;
+}
+
 int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                const pddl_strips_t *strips_in,
                                const pddl_mgroups_t *mgroups_in,
@@ -150,54 +204,35 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     prepareStrips(&strips, strips_in, &mutex, err);
 
     // Find black mutex groups
-    pddl_black_mgroups_t black_mgroups;
-    pddlBlackMGroups(&black_mgroups, &strips, mgroups_in, black_cfg, err);
-
-    // Re-create the set of mutex groups
-    pddl_mgroups_t mgroups;
-    prepareMGroups(&mgroups, &black_mgroups, mgroups_in, err);
+    pddl_black_mgroups_t black_mgroups[black_cfg->num_solutions];
+    pddlBlackMGroupsInfer(black_mgroups, &strips, mgroups_in, black_cfg, err);
 
     // Construct FDR
-    unsigned fdr_var_flags = PDDL_FDR_VARS_LARGEST_FIRST;
-    unsigned fdr_flags = 0;
-    int ret = pddlFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
-                                    fdr_var_flags, fdr_flags, err);
-    ASSERT_RUNTIME(fdr->op.op_size == strips.op.op_size);
+    int num_created = 0;
+    for (int i = 0; i < black_cfg->num_solutions; ++i){
+        if (black_mgroups[i].mgroup_size == 0)
+            break;
 
-    // Find black variables and remember which of them has none-of-those value
-    int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups.mgroup_size);
-    setBlackVars(fdr, &black_mgroups, none_of_those, err);
+        if (constructFDR(fdr + i, &strips, mgroups_in, &mutex,
+                         black_mgroups + i, err) != 0){
+            for (int i = 0; i < black_cfg->num_solutions; ++i)
+                pddlBlackMGroupsFree(black_mgroups + i);
+            pddlStripsFree(&strips);
+            pddlMutexPairsFree(&mutex);
+            BOR_INFO_PREFIX_POP(err);
+            BOR_TRACE_RET(err, -1);
+        }
+        num_created += 1;
+    }
 
-    // Set none-of-those in preconditions of operators
-    setNoneOfThoseInPre(fdr, &strips, &black_mgroups, none_of_those, err);
-
-    BOR_FREE(none_of_those);
-    pddlMGroupsFree(&mgroups);
-    pddlBlackMGroupsFree(&black_mgroups);
+    for (int i = 0; i < black_cfg->num_solutions; ++i)
+        pddlBlackMGroupsFree(black_mgroups + i);
     pddlStripsFree(&strips);
     pddlMutexPairsFree(&mutex);
-
-    int num_black_vars = 0;
-    int num_black_facts = 0;
-    int num_black_facts_with_none_of_those = 0;
-    for (int vari = 0; vari < fdr->var.var_size; ++vari){
-        const pddl_fdr_var_t *var = fdr->var.var + vari;
-        if (!var->is_black)
-            continue;
-        ++num_black_vars;
-        num_black_facts += var->val_size;
-        if (var->val_none_of_those >= 0)
-            --num_black_facts;
-        num_black_facts_with_none_of_those += var->val_size;
-    }
-    BOR_INFO(err, "Num black variables: %d", num_black_vars);
-    BOR_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
-    BOR_INFO(err, "Num black FDR facts: %d",
-             num_black_facts_with_none_of_those);
 
     borTimerStop(&timer);
     BOR_INFO(err, "Translation took %.2f seconds",
              borTimerElapsedInSF(&timer));
     BOR_INFO_PREFIX_POP(err);
-    return ret;
+    return num_created;
 }
