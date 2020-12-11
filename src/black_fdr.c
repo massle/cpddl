@@ -210,7 +210,7 @@ int pddlBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     // Construct FDR
     int num_created = 0;
     for (int i = 0; i < black_cfg->num_solutions; ++i){
-        if (black_mgroups[i].mgroup_size == 0)
+        if (black_mgroups[i].mgroup_size == 0 && i > 0)
             break;
 
         if (constructFDR(fdr + i, &strips, mgroups_in, &mutex,
