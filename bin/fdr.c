@@ -41,6 +41,7 @@ struct options {
     int endomorphism_mg_strips;
     int endomorphism_ts;
     int endomorphism_fdr_ts;
+    int lifted_endomorphism;
 
     int num_sym_gen;
 
@@ -343,6 +344,8 @@ static int readOpts(int *argc, char *argv[])
                 &endomorphism_cfg.max_search_time, NULL,
                 "Maximum search time in seconds for the endomorphism"
                 " inference. (default: 3600.)");
+    optsAddDesc("lem", 0x0, OPTS_NONE, &opt.lifted_endomorphism, NULL,
+                "Prune operators with lifted endomorphism. (default: off)");
 
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
@@ -503,10 +506,19 @@ static int liftedMGroups(void)
         closeFile(fout);
     }
 
-    pddlEndomorphismLifted(&pddl, &lifted_mgroups, &endomorphism_cfg,
-                           NULL, &err);
-    exit(-1);
+    return 0;
+}
 
+static int prunePDDL(void)
+{
+    if (opt.lifted_endomorphism){
+        BOR_ISET(redundant_objs);
+        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &endomorphism_cfg,
+                &redundant_objs, &err);
+        if (borISetSize(&redundant_objs) > 0)
+            pddlRemoveObjs(&pddl, &redundant_objs, &err);
+        borISetFree(&redundant_objs);
+    }
     return 0;
 }
 
@@ -1537,6 +1549,7 @@ int main(int argc, char *argv[])
     if (readOpts(&argc, argv) != 0
             || readPDDL() != 0
             || liftedMGroups() != 0
+            || prunePDDL() != 0
             || groundStrips() != 0
             || groundMGroups() != 0
             || mgroupsAndPruning() != 0

@@ -75,6 +75,11 @@ pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name);
 pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name);
 
 /**
+ * Remap object IDs and remove those where remap[id] == -1
+ */
+void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap);
+
+/**
  * Print formated objects.
  */
 void pddlObjsPrint(const pddl_objs_t *objs, FILE *fout);

@@ -1783,6 +1783,32 @@ static void analyzeActionAtom(
     pddlCondDel(pos_c);
 }
 
+static void fixAtomConstants(pddl_cond_atom_t *a, lifted_endomorphism_t *end)
+{
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].obj >= 0)
+            end->obj_is_fixed[a->arg[i].obj] = 1;
+    }
+}
+
+static int fixConstants(pddl_cond_t *c, void *_end)
+{
+    lifted_endomorphism_t *end = (lifted_endomorphism_t *)_end;
+    if (c->type == PDDL_COND_ATOM){
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        fixAtomConstants(a, end);
+
+    }else if (c->type == PDDL_COND_ASSIGN){
+        pddl_cond_func_op_t *a = PDDL_COND_CAST(c, func_op);
+        if (a->lvalue != NULL)
+            fixAtomConstants(a->lvalue, end);
+        if (a->fvalue != NULL)
+            fixAtomConstants(a->fvalue, end);
+    }
+
+    return 0;
+}
+
 static void liftedEndomorphismAnalyzeAction(
                 lifted_endomorphism_t *end,
                 const pddl_t *pddl,
@@ -1793,6 +1819,8 @@ static void liftedEndomorphismAnalyzeAction(
                 const pddl_endomorphism_config_t *cfg,
                 bor_err_t *err)
 {
+    pddlCondTraverse((pddl_cond_t *)act_pre, NULL, fixConstants, end);
+    pddlCondTraverse((pddl_cond_t *)act_eff, NULL, fixConstants, end);
     if (act_eff->type == PDDL_COND_ATOM){
         const pddl_cond_atom_t *a = PDDL_COND_CAST(act_eff, atom);
         analyzeActionAtom(end, pddl, act_param, act_pre, a,
@@ -2281,6 +2309,7 @@ static int selectMGroups(select_mgroups_t *select,
         select->tried_all = 1;
         return 0;
     }
+    //return -1;
 
     int num_used = 0;
     int start_i;

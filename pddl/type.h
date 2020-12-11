@@ -141,6 +141,11 @@ int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
 int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
 
 /**
+ * Remap objects
+ */
+void pddlTypesRemapObjs(pddl_types_t *ts, const pddl_obj_id_t *remap);
+
+/**
  * Print requirements in PDDL format.
  */
 void pddlTypesPrintPDDL(const pddl_types_t *ts, FILE *fout);

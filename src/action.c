@@ -358,6 +358,18 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     }
 }
 
+void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap)
+{
+    pddlCondRemapObjs(a->pre, remap);
+    pddlCondRemapObjs(a->eff, remap);
+}
+
+void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap)
+{
+    for (int i = 0; i < as->action_size; ++i)
+        pddlActionRemapObjs(as->action + i, remap);
+}
+
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
 {
     fprintf(fout, "    %s: ", a->name);

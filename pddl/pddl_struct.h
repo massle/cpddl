@@ -117,6 +117,11 @@ void pddlCheckSizeTypes(const pddl_t *pddl);
 void pddlAddObjectTypes(pddl_t *pddl);
 
 /**
+ * Remove specified objects from the planning task.
+ */
+void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
+
+/**
  * Prints PDDL domain file.
  */
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout);

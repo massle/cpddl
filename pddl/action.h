@@ -104,6 +104,12 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl);
  */
 void pddlActionAssertPreConjuction(pddl_action_t *a);
 
+/**
+ * Remap object IDs.
+ */
+void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap);
+void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap);
+
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout);
 void pddlActionsPrint(const pddl_t *pddl,
                       const pddl_actions_t *actions,

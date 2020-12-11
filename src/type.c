@@ -371,6 +371,27 @@ int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2)
     return !pddlTypesIsParent(ts, t1, t2) && !pddlTypesIsParent(ts, t2, t1);
 }
 
+void pddlTypesRemapObjs(pddl_types_t *ts,
+                        const pddl_obj_id_t *remap)
+{
+    int num_objs = 0;
+    for (int ti = 0; ti < ts->type_size; ++ti){
+        pddl_type_t *t = ts->type + ti;
+        int ins = 0;
+        for (int oi = 0; oi < t->obj.obj_size; ++oi){
+            if (remap[t->obj.obj[oi]] >= 0){
+                t->obj.obj[ins++] = remap[t->obj.obj[oi]];
+                num_objs = BOR_MAX(num_objs, t->obj.obj[ins - 1] + 1);
+            }
+        }
+        ASSERT_RUNTIME(t->obj.obj_size == 0 || ins > 0);
+        t->obj.obj_size = ins;
+    }
+
+    if (ts->obj_type_map != NULL)
+        pddlTypesBuildObjTypeMap(ts, num_objs);
+}
+
 void pddlTypesPrintPDDL(const pddl_types_t *ts, FILE *fout)
 {
     int q[ts->type_size];
