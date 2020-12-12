@@ -267,7 +267,7 @@ static int solve(IloModel &model,
 {
     int ret = 0;
     IloCP cp(model);
-    cp.dumpModel("model.cpo");
+    //cp.dumpModel("model.cpo");
 #ifndef NO_LOGGER
     Logger *logger = new Logger(err);
     cp.addCallback(logger);
