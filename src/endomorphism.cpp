@@ -2299,7 +2299,8 @@ static int selectMGroupsAdd(select_mgroups_t *select,
 
 static int selectMGroups(select_mgroups_t *select,
                          const pddl_t *pddl,
-                         const pddl_lifted_mgroups_t *lifted_mgroups)
+                         const pddl_lifted_mgroups_t *lifted_mgroups,
+                         const pddl_endomorphism_config_t *cfg)
 {
     bzero(select->obj_st, sizeof(int) * select->obj_size);
 
@@ -2309,7 +2310,9 @@ static int selectMGroups(select_mgroups_t *select,
         select->tried_all = 1;
         return 0;
     }
-    //return -1;
+
+    if (!cfg->lifted_use_combinations)
+        return -1;
 
     int num_used = 0;
     int start_i;
@@ -2380,7 +2383,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
     select_mgroups_t select;
     selectMGroupsInit(&select, pddl, &lifted_mgroups);
-    while (selectMGroups(&select, pddl, &lifted_mgroups) == 0){
+    while (selectMGroups(&select, pddl, &lifted_mgroups, cfg) == 0){
         BOR_INFO_PREFIX_PUSH(err, "Selected mgroup: ");
         for (int i = 0; i < select.lifted_mgroups.mgroup_size; ++i)
             pddlLiftedMGroupLog(pddl, &select.lifted_mgroups.mgroup[i], err);

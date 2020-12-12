@@ -39,6 +39,9 @@ struct pddl_endomorphism_config {
     int run_in_subprocess;
     /** If set to true, costs of operators are ignored (default: false) */
     int ignore_costs;
+    /** True if sub-combinations of lifted mutex groups should be used.
+     *  (default: false) */
+    int lifted_use_combinations;
 };
 typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
 
@@ -48,6 +51,7 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
       1, /* .num_threads */ \
       1, /* .run_in_subprocess */ \
       0, /* .ignore_costs */ \
+      0, /* .lifted_use_combinations */ \
     }
 
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
