@@ -2363,6 +2363,9 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     if (cfg->run_in_subprocess)
         BOR_INFO2(err, "run_in_subprocess is ignored");
 
+    if (cfg->ignore_costs)
+        BOR_INFO2(err, "Ignoring operator costs");
+
     // Filter out mutex groups without counted variables
     pddl_lifted_mgroups_t lifted_mgroups;
     pddlLiftedMGroupsInit(&lifted_mgroups);

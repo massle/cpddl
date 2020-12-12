@@ -42,6 +42,7 @@ struct options {
     int endomorphism_ts;
     int endomorphism_fdr_ts;
     int lifted_endomorphism;
+    int lifted_endomorphism_ignore_costs;
 
     int num_sym_gen;
 
@@ -346,6 +347,10 @@ static int readOpts(int *argc, char *argv[])
                 " inference. (default: 3600.)");
     optsAddDesc("lem", 0x0, OPTS_NONE, &opt.lifted_endomorphism, NULL,
                 "Prune operators with lifted endomorphism. (default: off)");
+    optsAddDesc("lem-ignore-costs", 0x0, OPTS_NONE,
+                &opt.lifted_endomorphism_ignore_costs, NULL,
+                "Ignore operator costs when computing lifted endomorphism."
+                " (default: off)");
 
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
@@ -512,9 +517,12 @@ static int liftedMGroups(void)
 static int prunePDDL(void)
 {
     if (opt.lifted_endomorphism){
+        pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+        if (opt.lifted_endomorphism_ignore_costs)
+            cfg.ignore_costs = 1;
         BOR_ISET(redundant_objs);
-        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &endomorphism_cfg,
-                &redundant_objs, &err);
+        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+                               &redundant_objs, &err);
         if (borISetSize(&redundant_objs) > 0)
             pddlRemoveObjs(&pddl, &redundant_objs, &err);
         borISetFree(&redundant_objs);
