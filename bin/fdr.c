@@ -523,8 +523,12 @@ static int prunePDDL(void)
         BOR_ISET(redundant_objs);
         pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
                                &redundant_objs, &err);
-        if (borISetSize(&redundant_objs) > 0)
+        if (borISetSize(&redundant_objs) > 0){
             pddlRemoveObjs(&pddl, &redundant_objs, &err);
+            // If we removed anything, we need to infer mutex groups again
+            pddlLiftedMGroupsFree(&lifted_mgroups);
+            liftedMGroups();
+        }
         borISetFree(&redundant_objs);
     }
     return 0;
