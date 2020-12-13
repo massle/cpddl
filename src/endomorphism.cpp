@@ -2068,11 +2068,9 @@ static void liftedAddDomains(IloEnv &env,
         IloIntTupleSet obj_values(env, 1);
         for (int i = 0; i < num_objs; ++i){
             int obj = pddl->type.type[type].obj.obj[i];
-            if (!end->obj_is_fixed[obj]){
-                IloIntArray vals(env, 1);
-                vals[0] = obj;
-                obj_values.add(vals);
-            }
+            IloIntArray vals(env, 1);
+            vals[0] = obj;
+            obj_values.add(vals);
         }
 
         for (int i = 0; i < num_objs; ++i){
