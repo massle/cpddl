@@ -2373,6 +2373,12 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
             pddlLiftedMGroupsAdd(&lifted_mgroups, mg);
     }
 
+    // Remove atoms without counted variables
+    for (int mgi = 0; mgi < lifted_mgroups.mgroup_size; ++mgi){
+        pddl_lifted_mgroup_t *mg = lifted_mgroups.mgroup + mgi;
+        pddlLiftedMGroupRemoveFixedAtoms(mg);
+    }
+
     if (lifted_mgroups.mgroup_size == 0){
         BOR_INFO2(err, "No mutex groups so lifted endomorphisms cannot be"
                        " inferred");

@@ -103,6 +103,11 @@ int pddlParamsParseAgent(pddl_params_t *params,
                          pddl_types_t *types,
                          bor_err_t *err);
 
+/**
+ * Remap parameters.
+ */
+void pddlParamsRemap(pddl_params_t *params, const int *remap);
+
 void pddlParamsPrint(const pddl_params_t *params, FILE *fout);
 
 /**

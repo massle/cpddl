@@ -167,6 +167,26 @@ int pddlParamsParseAgent(pddl_params_t *params,
     return to;
 }
 
+void pddlParamsRemap(pddl_params_t *params, const int *remap)
+{
+    for (int i = 0; i < params->param_size; ++i){
+        if (remap[i] == -1){
+            if (params->param[i].name != NULL)
+                BOR_FREE(params->param[i].name);
+            params->param[i].name = NULL;
+        }
+    }
+
+    int max_id = -1;
+    for (int i = 0; i < params->param_size; ++i){
+        if (remap[i] != -1){
+            params->param[remap[i]] = params->param[i];
+            max_id = BOR_MAX(max_id, remap[i]);
+        }
+    }
+    params->param_size = max_id + 1;
+}
+
 void pddlParamsPrint(const pddl_params_t *params, FILE *fout)
 {
     int i;

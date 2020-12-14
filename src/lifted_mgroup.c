@@ -209,6 +209,73 @@ int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg)
     return mg->param.param_size - pddlLiftedMGroupNumCountedVars(mg);
 }
 
+void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
+{
+    int *remap_param = BOR_CALLOC_ARR(int, mg->param.param_size);
+
+    int num_del = 0;
+    for (int ci = 0; ci < mg->cond.size; ++ci){
+        pddl_cond_t *c = (pddl_cond_t *)mg->cond.cond[ci];
+        ASSERT(c->type == PDDL_COND_ATOM);
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        int has_counted = 0;
+        for (int argi = 0; argi < a->arg_size; ++argi){
+            if (a->arg[argi].param >= 0
+                    && mg->param.param[a->arg[argi].param].is_counted_var){
+                has_counted = 1;
+                break;
+            }
+        }
+
+        if (!has_counted){
+            pddlCondDel(c);
+            mg->cond.cond[ci] = NULL;
+            ++num_del;
+        }else{
+            for (int argi = 0; argi < a->arg_size; ++argi){
+                if (a->arg[argi].param >= 0){
+                    remap_param[a->arg[argi].param] = 1;
+                }
+            }
+        }
+    }
+
+    if (num_del == 0)
+        return;
+
+    int ins = 0;
+    for (int ci = 0; ci < mg->cond.size; ++ci){
+        if (mg->cond.cond[ci] != NULL)
+            mg->cond.cond[ins++] = mg->cond.cond[ci];
+    }
+    mg->cond.size = ins;
+
+    ins = 0;
+    for (int i = 0; i < mg->param.param_size; ++i){
+        if (remap_param[i] == 0){
+            remap_param[i] = -1;
+        }else{
+            remap_param[i] = ins++;
+        }
+    }
+
+    pddlParamsRemap(&mg->param, remap_param);
+    for (int ci = 0; ci < mg->cond.size; ++ci){
+        pddl_cond_t *c = (pddl_cond_t *)mg->cond.cond[ci];
+        ASSERT(c->type == PDDL_COND_ATOM);
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        for (int argi = 0; argi < a->arg_size; ++argi){
+            if (a->arg[argi].param >= 0){
+                ASSERT(remap_param[a->arg[argi].param] >= 0);
+                a->arg[argi].param = remap_param[a->arg[argi].param];
+            }
+        }
+    }
+
+    if (remap_param != NULL)
+        BOR_FREE(remap_param);
+}
+
 
 void printMGroup(const pddl_t *pddl,
                  const pddl_lifted_mgroup_t *mgroup,
