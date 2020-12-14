@@ -57,6 +57,13 @@ void pddlCGInit(pddl_cg_t *cg,
                 int add_eff_eff_edges);
 void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in);
 
+void pddlCGInitProjectToVars(pddl_cg_t *dst,
+                             const pddl_cg_t *src,
+                             const bor_iset_t *vars);
+void pddlCGInitProjectToBlackVars(pddl_cg_t *dst,
+                                  const pddl_cg_t *src,
+                                  const pddl_fdr_vars_t *vars);
+
 void pddlCGFree(pddl_cg_t *cg);
 
 /**
@@ -70,6 +77,11 @@ void pddlCGMarkBackwardReachableVars(const pddl_cg_t *cg,
 void pddlCGVarOrdering(const pddl_cg_t *cg,
                        const pddl_fdr_part_state_t *goal,
                        int *var_ordering);
+
+int pddlCGIsAcyclic(const pddl_cg_t *cg);
+
+
+void pddlCGPrintDebug(const pddl_cg_t *cg, FILE *fout);
 
 char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size);
 

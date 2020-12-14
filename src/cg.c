@@ -131,6 +131,63 @@ void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in)
     }
 }
 
+void pddlCGInitProjectToVars(pddl_cg_t *dst,
+                             const pddl_cg_t *src,
+                             const bor_iset_t *vars_set)
+{
+    pddlCGInitCopy(dst, src);
+
+    int *vars = BOR_CALLOC_ARR(int, src->node_size);
+    int var;
+    BOR_ISET_FOR_EACH(vars_set, var)
+        vars[var] = 1;
+
+    for (int ni = 0; ni < dst->node_size; ++ni){
+        pddl_cg_node_t *node = dst->node + ni;
+        if (!vars[ni]){
+            if (node->fw != NULL)
+                BOR_FREE(node->fw);
+            if (node->bw != NULL)
+                BOR_FREE(node->bw);
+            node->fw_size = 0;
+            node->fw = NULL;
+            node->bw_size = 0;
+            node->bw = NULL;
+            continue;
+        }
+
+        int ins = 0;
+        for (int ei = 0; ei < node->fw_size; ++ei){
+            if (vars[node->fw[ei].end])
+                node->fw[ins++] = node->fw[ei];
+        }
+        node->fw_size = ins;
+
+        ins = 0;
+        for (int ei = 0; ei < node->bw_size; ++ei){
+            if (vars[node->bw[ei].end])
+                node->bw[ins++] = node->bw[ei];
+        }
+        node->bw_size = ins;
+    }
+
+    if (vars != NULL)
+        BOR_FREE(vars);
+}
+
+void pddlCGInitProjectToBlackVars(pddl_cg_t *dst,
+                                  const pddl_cg_t *src,
+                                  const pddl_fdr_vars_t *vars)
+{
+    BOR_ISET(rm_vars);
+    for (int i = 0; i < vars->var_size; ++i){
+        if (vars->var[i].is_black)
+            borISetAdd(&rm_vars, i);
+    }
+    pddlCGInitProjectToVars(dst, src, &rm_vars);
+    borISetFree(&rm_vars);
+}
+
 void pddlCGFree(pddl_cg_t *cg)
 {
     for (int n = 0; n < cg->node_size; ++n){
@@ -335,6 +392,39 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
 
     borPairHeapDel(heap);
     BOR_FREE(order_var);
+}
+
+int pddlCGIsAcyclic(const pddl_cg_t *cg)
+{
+    int is_acyclic = 0;
+
+    pddl_scc_graph_t scc_graph;
+    pddlSCCGraphInit(&scc_graph, cg->node_size);
+    for (int v = 0; v < cg->node_size; ++v){
+        for (int ei = 0; ei < cg->node[v].fw_size; ++ei)
+            pddlSCCGraphAddEdge(&scc_graph, v, cg->node[v].fw[ei].end);
+    }
+
+    pddl_scc_t scc;
+    pddlSCC(&scc, &scc_graph);
+    is_acyclic = scc.comp_size == cg->node_size;
+    pddlSCCFree(&scc);
+    pddlSCCGraphFree(&scc_graph);
+
+    return is_acyclic;
+}
+
+void pddlCGPrintDebug(const pddl_cg_t *cg, FILE *fout)
+{
+    for (int ni = 0; ni < cg->node_size; ++ni){
+        if (cg->node[ni].fw_size == 0)
+            continue;
+        fprintf(fout, "%d ->", ni);
+        for (int ei = 0; ei < cg->node[ni].fw_size; ++ei){
+            fprintf(fout, " %d", cg->node[ni].fw[ei].end);
+        }
+        fprintf(fout, "\n");
+    }
 }
 
 char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size)
