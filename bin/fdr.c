@@ -866,8 +866,11 @@ static int pruneStripsFixpointFAMGroups(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     if (opt.h2_mgroup){
         pddlMGroupsFree(&mgroups);
@@ -944,8 +947,11 @@ static int pruneStripsFixpointH2(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
@@ -1039,8 +1045,11 @@ static int pruneStripsFixpointFAMH2(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     if (opt.h2_mgroup){
         pddlMGroupsFree(&mgroups);
@@ -1142,8 +1151,11 @@ static int pruneStripsFixpointFAMH2FwBw(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     if (opt.h2_mgroup){
         pddlMGroupsFree(&mgroups);
@@ -1218,8 +1230,11 @@ static int pruneStripsFixpointH2FwBw(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
@@ -1316,8 +1331,11 @@ static int pruneStrips(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);

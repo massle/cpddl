@@ -2364,6 +2364,13 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     if (cfg->ignore_costs)
         BOR_INFO2(err, "Ignoring operator costs");
 
+    if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
+        BOR_INFO2(err, "Non-strict type partitioning"
+                       " -- abstaining from the inference");
+        BOR_INFO_PREFIX_POP(err);
+        return 0;
+    }
+
     // Filter out mutex groups without counted variables
     pddl_lifted_mgroups_t lifted_mgroups;
     pddlLiftedMGroupsInit(&lifted_mgroups);
