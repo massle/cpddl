@@ -43,6 +43,7 @@ struct options {
     int endomorphism_fdr_ts;
     int lifted_endomorphism;
     int lifted_endomorphism_ignore_costs;
+    int lifted_endomorphism_costs_then_wo_costs;
 
     int num_sym_gen;
 
@@ -351,6 +352,10 @@ static int readOpts(int *argc, char *argv[])
                 &opt.lifted_endomorphism_ignore_costs, NULL,
                 "Ignore operator costs when computing lifted endomorphism."
                 " (default: off)");
+    optsAddDesc("lem-costs-then-wo-costs", 0x0, OPTS_NONE,
+                &opt.lifted_endomorphism_costs_then_wo_costs, NULL,
+                "First prune with costs then without costs"
+                " (default: off)");
 
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
@@ -528,6 +533,18 @@ static int prunePDDL(void)
             // If we removed anything, we need to infer mutex groups again
             pddlLiftedMGroupsFree(&lifted_mgroups);
             liftedMGroups();
+        }
+        if (opt.lifted_endomorphism_costs_then_wo_costs){
+            cfg.ignore_costs = 1;
+            borISetEmpty(&redundant_objs);
+            pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+                    &redundant_objs, &err);
+            if (borISetSize(&redundant_objs) > 0){
+                pddlRemoveObjs(&pddl, &redundant_objs, &err);
+                // If we removed anything, we need to infer mutex groups again
+                pddlLiftedMGroupsFree(&lifted_mgroups);
+                liftedMGroups();
+            }
         }
         borISetFree(&redundant_objs);
     }
