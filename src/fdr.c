@@ -174,6 +174,74 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
     borISetFree(&del_facts);
 }
 
+static int relaxedPreHold(const pddl_fdr_t *fdr,
+                          const int *reached,
+                          const pddl_fdr_part_state_t *pre)
+{
+    for (int fi = 0; fi < pre->fact_size; ++fi){
+        int var = pre->fact[fi].var;
+        int val = pre->fact[fi].val;
+        int fact = fdr->var.var[var].val[val].global_id;
+        if (!reached[fact])
+            return 0;
+    }
+    return 1;
+}
+
+static void relaxedReachFacts(const pddl_fdr_t *fdr,
+                              int *reached,
+                              const pddl_fdr_part_state_t *eff)
+{
+    for (int fi = 0; fi < eff->fact_size; ++fi){
+        int var = eff->fact[fi].var;
+        int val = eff->fact[fi].val;
+        int fact = fdr->var.var[var].val[val].global_id;
+        reached[fact] = 1;
+    }
+}
+
+int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
+                         const int *fdr_state,
+                         const bor_iarr_t *plan,
+                         bor_err_t *err)
+{
+    int *reached = BOR_CALLOC_ARR(int, fdr->var.global_id_size);
+    for (int var = 0; var < fdr->var.var_size; ++var)
+        reached[fdr->var.var[var].val[fdr_state[var]].global_id] = 1;
+
+    int op_id;
+    BOR_IARR_FOR_EACH(plan, op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        if (!relaxedPreHold(fdr, reached, &op->pre)){
+            BOR_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
+                     op_id, op->name);
+            BOR_FREE(reached);
+            return 0;
+        }
+        relaxedReachFacts(fdr, reached, &op->eff);
+
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+            if (relaxedPreHold(fdr, reached, &ce->pre))
+                relaxedReachFacts(fdr, reached, &ce->eff);
+        }
+    }
+
+    int found_goal = 1;
+    for (int fi = 0; fi < fdr->goal.fact_size; ++fi){
+        int var = fdr->goal.fact[fi].var;
+        int val = fdr->goal.fact[fi].val;
+        int fact = fdr->var.var[var].val[val].global_id;
+        if (!reached[fact]){
+            found_goal = 0;
+            break;
+        }
+    }
+
+    BOR_FREE(reached);
+    return found_goal;
+}
+
 static void printFDFactName(const pddl_fdr_var_t *var, int val, FILE *fout)
 {
     if (val == var->val_none_of_those){

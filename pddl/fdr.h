@@ -19,6 +19,7 @@
 #ifndef __PDDL_FDR_H__
 #define __PDDL_FDR_H__
 
+#include <boruvka/iarr.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_op.h>
 
@@ -55,6 +56,14 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
                    const bor_iset_t *del_vars,
                    const bor_iset_t *del_facts,
                    const bor_iset_t *del_ops);
+
+/**
+ * Returns true if the plan is a relaxed plan of the problem.
+ */
+int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
+                         const int *fdr_state,
+                         const bor_iarr_t *plan,
+                         bor_err_t *err);
 
 
 /** Prevail conditions are copied to effects -- this creates a true TNF,

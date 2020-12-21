@@ -67,6 +67,7 @@ OBJS += hpot
 OBJS += hflow
 OBJS += hmax
 OBJS += hadd
+OBJS += hff
 OBJS += pq
 OBJS += mg_strips
 OBJS += preprocess

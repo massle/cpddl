@@ -64,6 +64,9 @@
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
 #include <pddl/hflow.h>
+#include <pddl/hadd.h>
+#include <pddl/hmax.h>
+#include <pddl/hff.h>
 #include <pddl/cg.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
