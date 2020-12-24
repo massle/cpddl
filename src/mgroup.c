@@ -800,7 +800,7 @@ void pddlMGroupsPrint(const pddl_t *pddl,
 
     int lmgid;
     BOR_ISET_FOR_EACH(&lmgs, lmgid){
-        if (lmgid >= 0){
+        if (lmgid >= 0 && pddl != NULL){
             pddlLiftedMGroupPrint(pddl, mg->lifted_mgroup.mgroup + lmgid, fout);
         }
 

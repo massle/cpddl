@@ -1592,12 +1592,12 @@ static int toFDR(void)
     BOR_INFO2(&err, "Translating to FDR ...");
 
     if (opt.black_vars){
-        pddl_black_mgroups_config_t black_mg_cfg
-                = PDDL_BLACK_MGROUPS_CONFIG_INIT;
-        black_mg_cfg.num_solutions = opt.black_vars_num;
+        pddl_red_black_fdr_config_t cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
+        cfg.mgroup.num_solutions = opt.black_vars_num;
+        cfg.relax_red_vars = 1;
         pddl_fdr_t fdr[opt.black_vars_num];
-        int num = pddlBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
-                                             &black_mg_cfg, &err);
+        int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
+                                                &cfg, &err);
 
         int fnout_size = strlen(opt.fdr_out);
         char fnout[fnout_size + 5];

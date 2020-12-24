@@ -106,7 +106,7 @@ OBJS += trans_system
 OBJS += trans_system_abstr_map
 OBJS += trans_system_graph
 OBJS += black_mgroup
-OBJS += black_fdr
+OBJS += red_black_fdr
 OBJS += outbox
 
 OBJS_CPP = endomorphism
