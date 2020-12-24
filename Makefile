@@ -81,6 +81,7 @@ OBJS += open_list
 OBJS += open_list_splaytree1
 OBJS += open_list_splaytree2
 OBJS += search_astar
+OBJS += search_lazy
 OBJS += plan
 OBJS += heur
 OBJS += heur_blind

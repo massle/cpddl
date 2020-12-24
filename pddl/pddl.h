@@ -76,6 +76,7 @@
 #include <pddl/open_list.h>
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
+#include <pddl/search_lazy.h>
 #include <pddl/plan.h>
 #include <pddl/heur.h>
 #include <pddl/dtg.h>
