@@ -1594,7 +1594,7 @@ static int toFDR(void)
     if (opt.black_vars){
         pddl_red_black_fdr_config_t cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
         cfg.mgroup.num_solutions = opt.black_vars_num;
-        cfg.relax_red_vars = 1;
+        //cfg.relax_red_vars = 1;
         pddl_fdr_t fdr[opt.black_vars_num];
         int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                                                 &cfg, &err);
