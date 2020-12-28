@@ -2447,4 +2447,14 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
     return -1;
 }
 
+int pddlEndomorphismLifted(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_t *lifted_mgroups_in,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_objects,
+                           bor_err_t *err)
+{
+    BOR_FATAL2("Missing CPOPTIMIZER");
+    return -1;
+}
+
 #endif /* PDDL_CPOPTIMIZER */
