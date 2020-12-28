@@ -71,14 +71,14 @@ stages:
 build-debian-gcc:
   extends: .build-debian
   variables:
-    DEBIAN_PKGS: gcc g++ unzip patch
+    DEBIAN_PKGS: gcc g++ unzip patch automake
     CC: gcc
     CXX: g++
 
 build-debian-clang:
   extends: .build-debian
   variables:
-    DEBIAN_PKGS: clang unzip patch
+    DEBIAN_PKGS: clang unzip patch automake
     CC: clang
     CXX: clang++
 
@@ -87,14 +87,14 @@ build-debian-clang:
 check-debian-gcc:
   extends: .check-debian
   variables:
-    DEBIAN_PKGS: gcc g++ unzip patch
+    DEBIAN_PKGS: gcc g++ unzip patch automake
     CC: gcc
     CXX: g++
 
 check-debian-clang:
   extends: .check-debian
   variables:
-    DEBIAN_PKGS: clang unzip patch
+    DEBIAN_PKGS: clang unzip patch automake
     CC: clang
     CXX: clang++
 
