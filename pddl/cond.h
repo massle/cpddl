@@ -335,6 +335,12 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
                            const pddl_cond_atom_t *a2,
                            const pddl_t *pddl);
 
+/**
+ * Remap objects.
+ * It is assumed no object from {c} is deleted.
+ */
+void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap);
+
 void pddlCondPrint(const pddl_t *pddl,
                    const pddl_cond_t *cond,
                    const pddl_params_t *params,

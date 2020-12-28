@@ -20,6 +20,7 @@
 #include <boruvka/alloc.h>
 #include "pddl/pddl.h"
 #include "pddl/type.h"
+#include "pddl/obj.h"
 #include "lisp_err.h"
 #include "assert.h"
 
@@ -369,6 +370,77 @@ int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent)
 int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2)
 {
     return !pddlTypesIsParent(ts, t1, t2) && !pddlTypesIsParent(ts, t2, t1);
+}
+
+int pddlTypesIsSubset(const pddl_types_t *ts, int t1id, int t2id)
+{
+    const pddl_type_t *t1 = ts->type + t1id;
+    const pddl_type_t *t2 = ts->type + t2id;
+    for (int oi = 0; oi < t1->obj.obj_size; ++oi){
+        int found = 0;
+        for (int oi2 = 0; oi2 < t2->obj.obj_size; ++oi2){
+            if (t1->obj.obj[oi] == t2->obj.obj[oi2]){
+                found = 1;
+                break;
+            }
+        }
+        if (!found)
+            return 0;
+    }
+    return 1;
+}
+
+int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
+                                   const pddl_objs_t *obj)
+{
+    int is_strict = 0;
+
+    for (int t1 = 0; t1 < ts->type_size; ++t1){
+        if (borISetSize(&ts->type[t1].either) > 0)
+            return 0;
+        for (int t2 = 0; t2 < ts->type_size; ++t2){
+            if (t1 == t2)
+                continue;
+            if (!pddlTypesAreDisjunct(ts, t1, t2)
+                    && !pddlTypesIsSubset(ts, t1, t2)
+                    && !pddlTypesIsSubset(ts, t2, t1))
+                return 0;
+        }
+    }
+
+    BOR_ISET(all);
+    for (int ti = 0; ti < ts->type_size; ++ti){
+        if (borISetSize(&ts->type[ti].child) == 0
+                && borISetSize(&ts->type[ti].either) == 0){
+            for (int oi = 0; oi < ts->type[ti].obj.obj_size; ++oi)
+                borISetAdd(&all, ts->type[ti].obj.obj[oi]);
+        }
+    }
+    if (borISetSize(&all) == obj->obj_size)
+        is_strict = 1;
+    borISetFree(&all);
+    return is_strict;
+}
+
+void pddlTypesRemapObjs(pddl_types_t *ts,
+                        const pddl_obj_id_t *remap)
+{
+    int num_objs = 0;
+    for (int ti = 0; ti < ts->type_size; ++ti){
+        pddl_type_t *t = ts->type + ti;
+        int ins = 0;
+        for (int oi = 0; oi < t->obj.obj_size; ++oi){
+            if (remap[t->obj.obj[oi]] >= 0){
+                t->obj.obj[ins++] = remap[t->obj.obj[oi]];
+                num_objs = BOR_MAX(num_objs, t->obj.obj[ins - 1] + 1);
+            }
+        }
+        ASSERT_RUNTIME(t->obj.obj_size == 0 || ins > 0);
+        t->obj.obj_size = ins;
+    }
+
+    if (ts->obj_type_map != NULL)
+        pddlTypesBuildObjTypeMap(ts, num_objs);
 }
 
 void pddlTypesPrintPDDL(const pddl_types_t *ts, FILE *fout)

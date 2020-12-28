@@ -37,6 +37,11 @@ struct pddl_endomorphism_config {
     /** If set to true, the inference will run in a separate sub-process.
      *  (default: true) */
     int run_in_subprocess;
+    /** If set to true, costs of operators are ignored (default: false) */
+    int ignore_costs;
+    /** True if sub-combinations of lifted mutex groups should be used.
+     *  (default: false) */
+    int lifted_use_combinations;
 };
 typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
 
@@ -45,6 +50,8 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
       3600.f, /* .max_search_time */ \
       1, /* .num_threads */ \
       1, /* .run_in_subprocess */ \
+      0, /* .ignore_costs */ \
+      0, /* .lifted_use_combinations */ \
     }
 
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
@@ -61,6 +68,13 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             const pddl_endomorphism_config_t *c,
                                             bor_iset_t *redundant_ops,
                                             bor_err_t *err);
+
+int pddlEndomorphismLifted(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_t *lifted_mgroups,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_objects,
+                           bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

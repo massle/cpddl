@@ -41,6 +41,9 @@ struct options {
     int endomorphism_mg_strips;
     int endomorphism_ts;
     int endomorphism_fdr_ts;
+    int lifted_endomorphism;
+    int lifted_endomorphism_ignore_costs;
+    int lifted_endomorphism_costs_then_wo_costs;
 
     int num_sym_gen;
 
@@ -343,6 +346,16 @@ static int readOpts(int *argc, char *argv[])
                 &endomorphism_cfg.max_search_time, NULL,
                 "Maximum search time in seconds for the endomorphism"
                 " inference. (default: 3600.)");
+    optsAddDesc("lem", 0x0, OPTS_NONE, &opt.lifted_endomorphism, NULL,
+                "Prune operators with lifted endomorphism. (default: off)");
+    optsAddDesc("lem-ignore-costs", 0x0, OPTS_NONE,
+                &opt.lifted_endomorphism_ignore_costs, NULL,
+                "Ignore operator costs when computing lifted endomorphism."
+                " (default: off)");
+    optsAddDesc("lem-costs-then-wo-costs", 0x0, OPTS_NONE,
+                &opt.lifted_endomorphism_costs_then_wo_costs, NULL,
+                "First prune with costs then without costs"
+                " (default: off)");
 
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
@@ -503,6 +516,38 @@ static int liftedMGroups(void)
         closeFile(fout);
     }
 
+    return 0;
+}
+
+static int prunePDDL(void)
+{
+    if (opt.lifted_endomorphism){
+        pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+        if (opt.lifted_endomorphism_ignore_costs)
+            cfg.ignore_costs = 1;
+        BOR_ISET(redundant_objs);
+        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+                               &redundant_objs, &err);
+        if (borISetSize(&redundant_objs) > 0){
+            pddlRemoveObjs(&pddl, &redundant_objs, &err);
+            // If we removed anything, we need to infer mutex groups again
+            pddlLiftedMGroupsFree(&lifted_mgroups);
+            liftedMGroups();
+        }
+        if (opt.lifted_endomorphism_costs_then_wo_costs){
+            cfg.ignore_costs = 1;
+            borISetEmpty(&redundant_objs);
+            pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+                    &redundant_objs, &err);
+            if (borISetSize(&redundant_objs) > 0){
+                pddlRemoveObjs(&pddl, &redundant_objs, &err);
+                // If we removed anything, we need to infer mutex groups again
+                pddlLiftedMGroupsFree(&lifted_mgroups);
+                liftedMGroups();
+            }
+        }
+        borISetFree(&redundant_objs);
+    }
     return 0;
 }
 
@@ -838,8 +883,11 @@ static int pruneStripsFixpointFAMGroups(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     if (opt.h2_mgroup){
         pddlMGroupsFree(&mgroups);
@@ -916,8 +964,11 @@ static int pruneStripsFixpointH2(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
@@ -1011,8 +1062,11 @@ static int pruneStripsFixpointFAMH2(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     if (opt.h2_mgroup){
         pddlMGroupsFree(&mgroups);
@@ -1114,8 +1168,11 @@ static int pruneStripsFixpointFAMH2FwBw(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     if (opt.h2_mgroup){
         pddlMGroupsFree(&mgroups);
@@ -1190,8 +1247,11 @@ static int pruneStripsFixpointH2FwBw(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
@@ -1288,8 +1348,11 @@ static int pruneStrips(void)
 
     borISetEmpty(&rm_fact);
     borISetEmpty(&rm_op);
-    pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
-    reduceStrips(&rm_fact, &rm_op);
+    if (!strips.has_cond_eff){
+        pddlUnreachableInMGroupsDTGs(&strips, &mgroups,
+                                     &rm_fact, &rm_op, &err);
+        reduceStrips(&rm_fact, &rm_op);
+    }
 
     borISetFree(&rm_fact);
     borISetFree(&rm_op);
@@ -1533,6 +1596,7 @@ int main(int argc, char *argv[])
     if (readOpts(&argc, argv) != 0
             || readPDDL() != 0
             || liftedMGroups() != 0
+            || prunePDDL() != 0
             || groundStrips() != 0
             || groundMGroups() != 0
             || mgroupsAndPruning() != 0

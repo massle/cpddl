@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-//#define DEBUG_PRINT_OP_MAPPING
+#define DEBUG_PRINT_OP_MAPPING
 
 #include "pddl/config.h"
 #include "pddl/endomorphism.h"
@@ -35,8 +35,10 @@
 #include <boruvka/alloc.h>
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
+#include <boruvka/sort.h>
 #include "pddl/set.h"
 #include "pddl/time_limit.h"
+#include "pddl/pddl_struct.h"
 #include "assert.h"
 
 #if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
@@ -245,8 +247,6 @@ static int extractSolution(IloCP &cp,
         }
     }
     int num_redundant = borISetSize(&redundant);
-    BOR_INFO(err, "  Found a solution with %d redundant operators",
-             num_redundant);
 
     if (redundant_op != NULL
             && borISetSize(&redundant) > borISetSize(redundant_op)){
@@ -262,6 +262,7 @@ static int solve(IloModel &model,
                  const pddl_endomorphism_config_t *cfg,
                  float max_search_time,
                  bor_iset_t *redundant_op,
+                 const char *name,
                  bor_err_t *err)
 {
     int ret = 0;
@@ -278,8 +279,12 @@ static int solve(IloModel &model,
     BOR_INFO2(err, "  Solving model ...");
     cp.startNewSearch();
     int num = -1;
-    while (cp.next())
+    int max_num = -1;
+    while (cp.next()){
         num = extractSolution(cp, var_op, redundant_op, err);
+        max_num = BOR_MAX(max_num, num);
+        BOR_INFO(err, "  Found a solution with %d redundant %s", num, name);
+    }
 
     switch (cp.getInfo(IloCP::FailStatus)){
         case IloCP::SearchHasNotFailed:
@@ -308,7 +313,7 @@ static int solve(IloModel &model,
     }
 
     if (num >= 0){
-        BOR_INFO(err, "  Found %d redundant operators", num);
+        BOR_INFO(err, "  Found %d redundant %s", max_num, name);
         ret = 0;
     }else{
         BOR_INFO2(err, "  Solution not found");
@@ -491,7 +496,8 @@ static int fdrInference(const pddl_fdr_t *fdr,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    solve(model, var_op, cfg, max_search_time, redundant_ops,
+          "operators", err);
     return 0;
 }
 
@@ -885,7 +891,8 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    solve(model, var_op, cfg, max_search_time, redundant_ops,
+          "operators", err);
     return 0;
 }
 
@@ -1381,7 +1388,8 @@ static int tsInference(const pddl_trans_systems_t *tss,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, err);
+    solve(model, var_op, cfg, max_search_time, redundant_ops,
+          "operators", err);
     return 0;
 }
 
@@ -1527,6 +1535,8 @@ int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     bor_iset_t *redundant_ops,
                                     bor_err_t *err)
 {
+    if (cfg->ignore_costs)
+        BOR_ERR_RET2(err, -1, "ignore_cost option is not supported");
     if (cfg->run_in_subprocess)
         return runInSubprocess(fdr, NULL, NULL, cfg, redundant_ops, err);
     return fdrRedundantOps(fdr, cfg, redundant_ops, err);
@@ -1537,6 +1547,8 @@ int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                          bor_iset_t *redundant_ops,
                                          bor_err_t *err)
 {
+    if (cfg->ignore_costs)
+        BOR_ERR_RET2(err, -1, "ignore_cost option is not supported");
     if (cfg->run_in_subprocess)
         return runInSubprocess(NULL, mg_strips, NULL, cfg, redundant_ops, err);
     return mgStripsRedundantOps(mg_strips, cfg, redundant_ops, err);
@@ -1547,9 +1559,864 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             bor_iset_t *redundant_ops,
                                             bor_err_t *err)
 {
+    if (cfg->ignore_costs)
+        BOR_ERR_RET2(err, -1, "ignore_cost option is not supported");
     if (cfg->run_in_subprocess)
         return runInSubprocess(NULL, NULL, tss, cfg, redundant_ops, err);
     return transSystemRedundantOps(tss, cfg, redundant_ops, err);
+}
+
+
+
+
+struct lifted_endomorphism {
+    int obj_size;
+    int *obj_is_fixed;
+};
+typedef struct lifted_endomorphism lifted_endomorphism_t;
+
+static void setAtomTypeFixed(lifted_endomorphism_t *end,
+                             const pddl_t *pddl,
+                             const pddl_params_t *params,
+                             const pddl_cond_atom_t *atom,
+                             int parami)
+{
+    if (atom->arg[parami].param >= 0){
+        int param = atom->arg[parami].param;
+        int type_id = params->param[param].type;
+        const pddl_type_t *type = pddl->type.type + type_id;
+        for (int i = 0; i < type->obj.obj_size; ++i)
+            end->obj_is_fixed[type->obj.obj[i]] = 1;
+
+    }else{
+        end->obj_is_fixed[atom->arg[parami].obj] = 1;
+    }
+}
+
+static void setAtomTypesFixed(lifted_endomorphism_t *end,
+                              const pddl_t *pddl,
+                              const pddl_params_t *params,
+                              const pddl_cond_atom_t *atom)
+{
+    for (int i = 0; i < atom->arg_size; ++i)
+        setAtomTypeFixed(end, pddl, params, atom, i);
+}
+
+static int hasAtom(const pddl_cond_t *cond,
+                   const pddl_cond_atom_t *atom)
+{
+    if (cond->type == PDDL_COND_ATOM){
+        return pddlCondEq(cond, &atom->cls);
+    }else{
+        ASSERT_RUNTIME(cond->type == PDDL_COND_AND);
+        const pddl_cond_part_t *cand = PDDL_COND_CAST(cond, part);
+        bor_list_t *item;
+        BOR_LIST_FOR_EACH(&cand->part, item){
+            const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            ASSERT_RUNTIME(c->type == PDDL_COND_ATOM);
+            if (pddlCondEq(c, &atom->cls))
+                return 1;
+        }
+    }
+    return 0;
+}
+
+static int isCovered(const pddl_t *pddl,
+                     const pddl_params_t *atom_param,
+                     const pddl_cond_atom_t *atom,
+                     const pddl_params_t *ma_param,
+                     const pddl_cond_atom_t *ma)
+{
+    for (int argi = 0; argi < atom->arg_size; ++argi){
+        if (ma->arg[argi].param >= 0 && atom->arg[argi].param >= 0){
+            int a_parami = atom->arg[argi].param;
+            int a_type = atom_param->param[a_parami].type;
+            int m_parami = ma->arg[argi].param;
+            int m_type = ma_param->param[m_parami].type;
+            //if (pddlTypesAreDisjunct(&pddl->type, m_type, a_type))
+            if (!pddlTypesIsParent(&pddl->type, a_type, m_type))
+                return 0;
+
+        }else if (ma->arg[argi].param >= 0){
+            int a_obj = atom->arg[argi].obj;
+            int m_parami = ma->arg[argi].param;
+            int m_type = ma_param->param[m_parami].type;
+            if (!pddlTypesObjHasType(&pddl->type, m_type, a_obj))
+                return 0;
+
+        }else if (atom->arg[argi].param >= 0){
+            int m_obj = ma->arg[argi].obj;
+            int a_parami = atom->arg[argi].param;
+            int a_type = atom_param->param[a_parami].type;
+            if (!pddlTypesObjHasType(&pddl->type, a_type, m_obj)
+                    || pddlTypeNumObjs(&pddl->type, a_type) > 1){
+                return 0;
+            }
+
+        }else{
+            if (atom->arg[argi].obj != ma->arg[argi].obj)
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int coverAtomWithMGroup(int *counted,
+                               const pddl_t *pddl,
+                               const pddl_params_t *act_param,
+                               const pddl_cond_atom_t *atom,
+                               const pddl_lifted_mgroup_t *mgroup)
+{
+    int covered = 0;
+
+    for (int ci = 0; ci < mgroup->cond.size; ++ci){
+        const pddl_cond_t *mc = mgroup->cond.cond[ci];
+        const pddl_cond_atom_t *ma = PDDL_COND_CAST(mc, atom);
+        if (ma->pred != atom->pred)
+            continue;
+
+        if (!isCovered(pddl, act_param, atom, &mgroup->param, ma))
+            continue;
+
+        covered = 1;
+        for (int argi = 0; argi < atom->arg_size; ++argi){
+            if (ma->arg[argi].param >= 0 && atom->arg[argi].param >= 0){
+                int a_parami = atom->arg[argi].param;
+                int a_type = act_param->param[a_parami].type;
+                const pddl_obj_id_t *a_obj;
+                int a_obj_size;
+                a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
+
+                int m_parami = ma->arg[argi].param;
+#ifdef PDDL_DEBUG
+                int m_type = mgroup->param.param[m_parami].type;
+#endif /* PDDL_DEBUG */
+                int is_counted = mgroup->param.param[m_parami].is_counted_var;
+
+                for (int i = 0; i < a_obj_size; ++i){
+                    ASSERT(pddlTypesObjHasType(&pddl->type, m_type, a_obj[i]));
+                    if (!is_counted){
+                        counted[a_obj[i]] = -1;
+                    }else if (counted[a_obj[i]] == 0){
+                        counted[a_obj[i]] = 1;
+                    }
+                }
+
+            }else if (ma->arg[argi].param >= 0){
+                counted[atom->arg[argi].obj] = -1;
+
+            }else if (atom->arg[argi].param >= 0){
+                counted[ma->arg[argi].obj] = -1;
+
+            }else{
+                counted[atom->arg[argi].obj] = -1;
+            }
+        }
+    }
+
+    return covered;
+}
+
+static void coverAtomWithMGroups(lifted_endomorphism_t *end,
+                                 const pddl_t *pddl,
+                                 const pddl_params_t *act_param,
+                                 const pddl_cond_atom_t *atom,
+                                 const pddl_lifted_mgroups_t *mgroups)
+{
+    int *counted = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int covered = 0;
+    for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+        covered |= coverAtomWithMGroup(counted, pddl, act_param, atom,
+                                       mgroups->mgroup + mgi);
+    }
+
+    if (!covered){
+        setAtomTypesFixed(end, pddl, act_param, atom);
+        BOR_FREE(counted);
+        return;
+    }
+
+    for (int argi = 0; argi < atom->arg_size; ++argi){
+        if (atom->arg[argi].param >= 0){
+            int a_parami = atom->arg[argi].param;
+            int a_type = act_param->param[a_parami].type;
+            const pddl_obj_id_t *a_obj;
+            int a_obj_size;
+            a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
+            for (int i = 0; i < a_obj_size; ++i){
+                if (counted[a_obj[i]] < 0)
+                    end->obj_is_fixed[a_obj[i]] = 1;
+            }
+
+        }else{
+            if (counted[atom->arg[argi].obj] < 0)
+                end->obj_is_fixed[atom->arg[argi].obj] = 1;
+        }
+    }
+
+    BOR_FREE(counted);
+}
+
+static void analyzeActionAtom(
+                lifted_endomorphism_t *end,
+                const pddl_t *pddl,
+                const pddl_params_t *act_param,
+                const pddl_cond_t *act_pre,
+                const pddl_cond_atom_t *eff_atom,
+                const pddl_lifted_mgroups_t *lifted_mgroups,
+                const pddl_endomorphism_config_t *cfg,
+                bor_err_t *err)
+{
+    if (!eff_atom->neg)
+        return;
+
+    pddl_cond_t *pos_c = pddlCondClone(&eff_atom->cls);
+    pddl_cond_atom_t *pos_a = PDDL_COND_CAST(pos_c, atom);
+    pos_a->neg = 0;
+    if (hasAtom(act_pre, pos_a)){
+        coverAtomWithMGroups(end, pddl, act_param, eff_atom, lifted_mgroups);
+
+    }else{
+        setAtomTypesFixed(end, pddl, act_param, eff_atom);
+    }
+    pddlCondDel(pos_c);
+}
+
+static void fixAtomConstants(pddl_cond_atom_t *a, lifted_endomorphism_t *end)
+{
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].obj >= 0)
+            end->obj_is_fixed[a->arg[i].obj] = 1;
+    }
+}
+
+static int fixConstants(pddl_cond_t *c, void *_end)
+{
+    lifted_endomorphism_t *end = (lifted_endomorphism_t *)_end;
+    if (c->type == PDDL_COND_ATOM){
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        fixAtomConstants(a, end);
+
+    }else if (c->type == PDDL_COND_ASSIGN){
+        pddl_cond_func_op_t *a = PDDL_COND_CAST(c, func_op);
+        if (a->lvalue != NULL)
+            fixAtomConstants(a->lvalue, end);
+        if (a->fvalue != NULL)
+            fixAtomConstants(a->fvalue, end);
+    }
+
+    return 0;
+}
+
+static void liftedEndomorphismAnalyzeAction(
+                lifted_endomorphism_t *end,
+                const pddl_t *pddl,
+                const pddl_params_t *act_param,
+                const pddl_cond_t *act_pre,
+                const pddl_cond_t *act_eff,
+                const pddl_lifted_mgroups_t *lifted_mgroups,
+                const pddl_endomorphism_config_t *cfg,
+                bor_err_t *err)
+{
+    pddlCondTraverse((pddl_cond_t *)act_pre, NULL, fixConstants, end);
+    pddlCondTraverse((pddl_cond_t *)act_eff, NULL, fixConstants, end);
+    if (act_eff->type == PDDL_COND_ATOM){
+        const pddl_cond_atom_t *a = PDDL_COND_CAST(act_eff, atom);
+        analyzeActionAtom(end, pddl, act_param, act_pre, a,
+                          lifted_mgroups, cfg, err);
+        return;
+    }
+
+    ASSERT_RUNTIME(act_eff->type == PDDL_COND_AND);
+    const pddl_cond_part_t *cand = PDDL_COND_CAST(act_eff, part);
+    bor_list_t *item;
+    BOR_LIST_FOR_EACH(&cand->part, item){
+        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        if (c->type == PDDL_COND_ATOM){
+            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+            analyzeActionAtom(end, pddl, act_param, act_pre, a,
+                              lifted_mgroups, cfg, err);
+
+        }else if (c->type == PDDL_COND_INCREASE){
+            // We can ignore this, because it is already handled in
+            // the initial state
+
+        }else if (c->type == PDDL_COND_WHEN){
+            const pddl_cond_when_t *w = PDDL_COND_CAST(c, when);
+            liftedEndomorphismAnalyzeAction(end, pddl, act_param,
+                                            w->pre, w->eff, lifted_mgroups,
+                                            cfg, err);
+
+        }else{
+            BOR_FATAL("Unexpected atom of type %d:%s\n",
+                      c->type, pddlCondTypeName(c->type));
+        }
+    }
+}
+
+static int _liftedEndomorphismFixGoal(pddl_cond_t *c, void *u)
+{
+    lifted_endomorphism_t *end = (lifted_endomorphism_t *)u;
+    if (c->type == PDDL_COND_ATOM){
+        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        for (int i = 0; i < atom->arg_size; ++i){
+            ASSERT(atom->arg[i].obj >= 0);
+            end->obj_is_fixed[atom->arg[i].obj] = 1;
+        }
+    }
+    return 0;
+}
+
+static void liftedEndomorphismInit(lifted_endomorphism_t *end,
+                                   const pddl_t *pddl,
+                                   const pddl_lifted_mgroups_t *lifted_mgroups,
+                                   const pddl_endomorphism_config_t *cfg,
+                                   bor_err_t *err)
+{
+    bzero(end, sizeof(*end));
+    end->obj_size = pddl->obj.obj_size;
+    end->obj_is_fixed = BOR_CALLOC_ARR(int, end->obj_size);
+
+    // Set objects in the goal as fixed
+    pddlCondTraverse((pddl_cond_t *)pddl->goal, NULL,
+                     _liftedEndomorphismFixGoal, end);
+
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
+        const pddl_action_t *action = pddl->action.action + ai;
+        BOR_INFO(err, "Analyzing action (%s) ...", action->name);
+        liftedEndomorphismAnalyzeAction(end, pddl, &action->param,
+                                        action->pre, action->eff,
+                                        lifted_mgroups, cfg, err);
+    }
+
+#ifdef PDDL_DEBUG
+    for (int i = 0; i < end->obj_size; ++i){
+        BOR_INFO(err, "Obj-fixed %d:(%s): %d",
+                 i, pddl->obj.obj[i].name, end->obj_is_fixed[i]);
+    }
+#endif /* PDDL_DEBUG */
+}
+
+static void liftedEndomorphismFree(lifted_endomorphism_t *end)
+{
+    if (end->obj_is_fixed != NULL)
+        BOR_FREE(end->obj_is_fixed);
+}
+
+static int liftedEndomorphismNumUnfixed(const lifted_endomorphism_t *end)
+{
+    int num = 0;
+    for (int i = 0; i < end->obj_size; ++i){
+        if (!end->obj_is_fixed[i])
+            ++num;
+    }
+    return num;
+}
+
+struct obj_tuple {
+    int *tuple;
+    int value;
+};
+typedef struct obj_tuple obj_tuple_t;
+
+struct pred_obj_tuple {
+    int pred;
+    int size;
+    int tuple_size;
+    int tuple_alloc;
+    obj_tuple_t *tuple;
+};
+typedef struct pred_obj_tuple pred_obj_tuple_t;
+
+struct pred_obj_tuples {
+    int pred_size;
+    int func_offset;
+    pred_obj_tuple_t *tuple;
+};
+typedef struct pred_obj_tuples pred_obj_tuples_t;
+
+static void predObjTupleFree(pred_obj_tuple_t *tup)
+{
+    for (int i = 0; i < tup->tuple_size; ++i)
+        BOR_FREE(tup->tuple[i].tuple);
+    if (tup->tuple != NULL)
+        BOR_FREE(tup->tuple);
+}
+
+static obj_tuple_t *predObjTupleAdd(pred_obj_tuple_t *tup)
+{
+    if (tup->tuple_size == tup->tuple_alloc){
+        if (tup->tuple_alloc == 0)
+            tup->tuple_alloc = 1;
+        tup->tuple_alloc *= 2;
+        tup->tuple = BOR_REALLOC_ARR(tup->tuple, obj_tuple_t,
+                                     tup->tuple_alloc);
+    }
+    tup->tuple[tup->tuple_size].tuple = BOR_ALLOC_ARR(int, tup->size);
+    tup->tuple[tup->tuple_size].value = 0;
+    return tup->tuple + tup->tuple_size++;
+}
+
+static int cmpTuple(const void *a, const void *b, void *u)
+{
+    const obj_tuple_t *o1 = (const obj_tuple_t *)a;
+    const obj_tuple_t *o2 = (const obj_tuple_t *)b;
+    return o2->value - o1->value;
+}
+
+static void predObjTupleSort(pred_obj_tuple_t *tup)
+{
+    borSort(tup->tuple, tup->tuple_size, sizeof(obj_tuple_t),
+            cmpTuple, NULL);
+}
+
+static void predObjTuplesInit(pred_obj_tuples_t *tup, const pddl_t *pddl)
+{
+    tup->pred_size = pddl->pred.pred_size + pddl->func.pred_size;
+    tup->func_offset = pddl->pred.pred_size;
+    tup->tuple = BOR_CALLOC_ARR(pred_obj_tuple_t, tup->pred_size);
+    int i;
+    for (i = 0; i < pddl->pred.pred_size; ++i){
+        tup->tuple[i].pred = i;
+        tup->tuple[i].size = pddl->pred.pred[i].param_size;
+    }
+    for (; i < tup->pred_size; ++i){
+        int fi = i - pddl->pred.pred_size;
+        tup->tuple[i].pred = i;
+        tup->tuple[i].size = pddl->func.pred[fi].param_size;
+    }
+}
+
+static void predObjTuplesFree(pred_obj_tuples_t *tup)
+{
+    for (int i = 0; i < tup->pred_size; ++i)
+        predObjTupleFree(tup->tuple + i);
+    if (tup->tuple != NULL)
+        BOR_FREE(tup->tuple);
+}
+
+static int _predObjTuplesInitFromCond(pddl_cond_t *c, void *u)
+{
+    pred_obj_tuples_t *tup = (pred_obj_tuples_t *)u;
+    if (c->type == PDDL_COND_ATOM){
+        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        int pred_id = atom->pred;
+        pred_obj_tuple_t *tuple = tup->tuple + pred_id;
+        ASSERT(atom->arg_size == tuple->size);
+        obj_tuple_t *t = predObjTupleAdd(tuple);
+        for (int i = 0; i < atom->arg_size; ++i){
+            ASSERT(atom->arg[i].obj >= 0);
+            t->tuple[i] = atom->arg[i].obj;
+        }
+
+    }else if (c->type != PDDL_COND_AND){
+        const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+        ASSERT(ass->fvalue == NULL);
+        ASSERT(ass->lvalue != NULL);
+        ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+        int pred_id = ass->lvalue->pred + tup->func_offset;
+        pred_obj_tuple_t *tuple = tup->tuple + pred_id;
+        ASSERT(ass->lvalue->arg_size == tuple->size);
+        obj_tuple_t *t = predObjTupleAdd(tuple);
+        t->value = ass->value;
+        for (int i = 0; i < ass->lvalue->arg_size; ++i){
+            ASSERT(ass->lvalue->arg[i].obj >= 0);
+            t->tuple[i] = ass->lvalue->arg[i].obj;
+        }
+
+    }else if (c->type != PDDL_COND_AND){
+        BOR_FATAL("Unexpected atom of type %d:%s\n",
+                  c->type, pddlCondTypeName(c->type));
+    }
+    return 0;
+}
+
+static void predObjTuplesInitFromCond(pred_obj_tuples_t *tup,
+                                      const pddl_t *pddl,
+                                      const pddl_cond_t *cond)
+{
+    predObjTuplesInit(tup, pddl);
+    pddlCondTraverse((pddl_cond_t *)cond, NULL,
+                     _predObjTuplesInitFromCond, tup);
+}
+
+static void liftedAddDomains(IloEnv &env,
+                             IloModel &model,
+                             const pddl_t *pddl,
+                             const lifted_endomorphism_t *end,
+                             IloIntVarArray &csp_var)
+{
+    ASSERT(pddl->type.type[0].parent < 0);
+
+    // First deal with fixed objects
+    for (int obj = 0; obj < pddl->obj.obj_size; ++obj){
+        if (!end->obj_is_fixed[obj])
+            continue;
+        IloIntTupleSet single_value(env, 1);
+        IloIntArray vals(env, 1);
+        vals[0] = obj;
+        single_value.add(vals);
+        IloIntVarArray vars(env, 1);
+        vars[0] = csp_var[obj];
+        model.add(IloAllowedAssignments(env, vars, single_value));
+    }
+
+    // And then with unfixed ones
+    for (int type = 0; type < pddl->type.type_size; ++type){
+        int num_objs = pddl->type.type[type].obj.obj_size;
+        IloIntTupleSet obj_values(env, 1);
+        for (int i = 0; i < num_objs; ++i){
+            int obj = pddl->type.type[type].obj.obj[i];
+            IloIntArray vals(env, 1);
+            vals[0] = obj;
+            obj_values.add(vals);
+        }
+
+        for (int i = 0; i < num_objs; ++i){
+            int obj = pddl->type.type[type].obj.obj[i];
+            if (!end->obj_is_fixed[obj]){
+                IloIntVarArray vars(env, 1);
+                vars[0] = csp_var[obj];
+                model.add(IloAllowedAssignments(env, vars, obj_values));
+            }
+
+        }
+    }
+}
+
+static void liftedAddTupleConstr(IloEnv &env,
+                                 IloModel &model,
+                                 const pred_obj_tuple_t *tup,
+                                 int from,
+                                 int to,
+                                 IloIntVarArray &csp_var)
+{
+    IloIntTupleSet obj_values(env, tup->size);
+    for (int ti = from; ti < tup->tuple_size; ++ti){
+        IloIntArray vals(env, tup->size);
+        for(int i = 0; i < tup->size; ++i)
+            vals[i] = tup->tuple[ti].tuple[i];
+        obj_values.add(vals);
+    }
+
+    for (int ti = from; ti < to; ++ti){
+        IloIntVarArray vars(env, tup->size);
+        for(int i = 0; i < tup->size; ++i)
+            vars[i] = csp_var[tup->tuple[ti].tuple[i]];
+        model.add(IloAllowedAssignments(env, vars, obj_values));
+    }
+}
+
+static void liftedAddInitConstr(IloEnv &env,
+                                IloModel &model,
+                                const pddl_t *pddl,
+                                const lifted_endomorphism_t *end,
+                                const pddl_endomorphism_config_t *cfg,
+                                IloIntVarArray &csp_var)
+{
+    pred_obj_tuples_t tuples;
+    predObjTuplesInitFromCond(&tuples, pddl, &pddl->init->cls);
+
+    if (cfg->ignore_costs){
+        for (int pred = 0; pred < tuples.pred_size; ++pred){
+            pred_obj_tuple_t *tup = tuples.tuple + pred;
+            for (int i = 0; i < tup->tuple_size; ++i)
+                tup->tuple[i].value = 0;
+        }
+    }
+
+    for (int pred = 0; pred < tuples.pred_size; ++pred){
+        pred_obj_tuple_t *tup = tuples.tuple + pred;
+        if (tup->tuple_size == 0 || tup->size == 0)
+            continue;
+        predObjTupleSort(tup);
+
+        int from = 0;
+        int to = 1;
+        for (; to < tup->tuple_size; ++to){
+            if (tup->tuple[from].value != tup->tuple[to].value){
+                liftedAddTupleConstr(env, model, tup, from, to, csp_var);
+                from = to;
+            }
+        }
+        if (from != to)
+            liftedAddTupleConstr(env, model, tup, from, to, csp_var);
+    }
+    predObjTuplesFree(&tuples);
+}
+
+/*
+static void liftedAddGoalConstr(IloEnv &env,
+                                IloModel &model,
+                                const pddl_t *pddl,
+                                const lifted_endomorphism_t *end,
+                                IloIntVarArray &csp_var)
+{
+    pred_obj_tuples_t tuples;
+    predObjTuplesInitFromCond(&tuples, pddl, pddl->goal);
+    for (int pred = 0; pred < pddl->pred.pred_size; ++pred){
+        if (tuples.tuple[pred].tuple_size == 0)
+            continue;
+        const pred_obj_tuple_t *tup = tuples.tuple + pred;
+
+        for (int ti = 0; ti < tup->tuple_size; ++ti){
+            IloIntTupleSet obj_values(env, tup->size);
+            IloIntArray vals(env, tup->size);
+            IloIntVarArray vars(env, tup->size);
+            for(int i = 0; i < tup->size; ++i){
+                vals[i] = tup->tuple[ti].tuple[i];
+                vars[i] = csp_var[tup->tuple[ti].tuple[i]];
+            }
+            obj_values.add(vals);
+            model.add(IloAllowedAssignments(env, vars, obj_values));
+        }
+    }
+    predObjTuplesFree(&tuples);
+}
+*/
+
+static int liftedSolve(const pddl_t *pddl,
+                       const lifted_endomorphism_t *end,
+                       const pddl_endomorphism_config_t *cfg,
+                       float max_search_time,
+                       bor_iset_t *redundant_objs,
+                       bor_err_t *err)
+{
+    int ret = 0;
+    int obj_size = pddl->obj.obj_size;
+    IloEnv env;
+    IloModel model(env);
+
+    // Create variables
+    IloIntVarArray csp_vars(env, obj_size);
+    for (int obj = 0; obj < obj_size; ++obj){
+        csp_vars[obj] = IloIntVar(env, 0, obj_size - 1,
+                                  pddl->obj.obj[obj].name);
+    }
+
+    // Set domains
+    liftedAddDomains(env, model, pddl, end, csp_vars);
+
+    // Add constraints on the initial state and the goal
+    liftedAddInitConstr(env, model, pddl, end, cfg, csp_vars);
+    // Goal constraint is handled by .obj_is_fixed array
+    //liftedAddGoalConstr(env, model, pddl, end, csp_vars);
+
+    IloObjective obj = IloMinimize(env, IloCountDifferent(csp_vars));
+    model.add(obj);
+    BOR_INFO2(err, "  Added objective function min(count-diff())");
+
+    //float max_search_time = pddlTimeLimitRemain(time_limit);
+    //max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    solve(model, csp_vars, cfg, max_search_time, redundant_objs,
+          "objects", err);
+
+    env.end();
+    return ret;
+}
+
+struct select_mgroups {
+    int mgroup_size;
+    int *mgroup_used;
+    int obj_size;
+    int *obj_st;
+    pddl_lifted_mgroups_t lifted_mgroups;
+    int tried_all;
+};
+typedef struct select_mgroups select_mgroups_t;
+
+static void selectMGroupsInit(select_mgroups_t *select,
+                              const pddl_t *pddl,
+                              const pddl_lifted_mgroups_t *lifted_mgroups)
+{
+    select->mgroup_size = lifted_mgroups->mgroup_size;
+    select->mgroup_used = BOR_CALLOC_ARR(int, select->mgroup_size);
+    select->obj_size = pddl->obj.obj_size;
+    select->obj_st = BOR_CALLOC_ARR(int, select->obj_size);
+    pddlLiftedMGroupsInit(&select->lifted_mgroups);
+    select->tried_all = 0;
+}
+
+static void selectMGroupsFree(select_mgroups_t *select)
+{
+    BOR_FREE(select->mgroup_used);
+    BOR_FREE(select->obj_st);
+    pddlLiftedMGroupsFree(&select->lifted_mgroups);
+}
+
+static int selectMGroupsAdd(select_mgroups_t *select,
+                            const pddl_t *pddl,
+                            int mgi,
+                            const pddl_lifted_mgroup_t *mgroup)
+{
+    int *obj_st = BOR_ALLOC_ARR(int, select->obj_size);
+    memcpy(obj_st, select->obj_st, sizeof(int) * select->obj_size);
+
+    for (int condi = 0; condi < mgroup->cond.size; ++condi){
+        const pddl_cond_t *c = mgroup->cond.cond[condi];
+        const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        for (int argi = 0; argi < a->arg_size; ++argi){
+            if (a->arg[argi].obj >= 0){
+                if (obj_st[a->arg[argi].obj] > 0){
+                    BOR_FREE(obj_st);
+                    return -1;
+                }
+                obj_st[a->arg[argi].obj] = -1;
+            }
+        }
+    }
+
+    for (int parami = 0; parami < mgroup->param.param_size; ++parami){
+        const pddl_param_t *param = mgroup->param.param + parami;
+        int type_id = param->type;
+        int obj_size;
+        const int *objs = pddlTypesObjsByType(&pddl->type, type_id, &obj_size);
+        for (int obji = 0; obji < obj_size; ++obji){
+            int obj = objs[obji];
+            if (param->is_counted_var){
+                if (obj_st[obj] < 0){
+                    BOR_FREE(obj_st);
+                    return -1;
+                }
+                obj_st[obj] = 1;
+            }else{
+                if (obj_st[obj] > 0){
+                    BOR_FREE(obj_st);
+                    return -1;
+                }
+                obj_st[obj] = -1;
+            }
+        }
+    }
+    pddlLiftedMGroupsAdd(&select->lifted_mgroups, mgroup);
+    memcpy(select->obj_st, obj_st, sizeof(int) * select->obj_size);
+    BOR_FREE(obj_st);
+    return 0;
+}
+
+static int selectMGroups(select_mgroups_t *select,
+                         const pddl_t *pddl,
+                         const pddl_lifted_mgroups_t *lifted_mgroups,
+                         const pddl_endomorphism_config_t *cfg)
+{
+    bzero(select->obj_st, sizeof(int) * select->obj_size);
+
+    if (!select->tried_all){
+        pddlLiftedMGroupsFree(&select->lifted_mgroups);
+        pddlLiftedMGroupsInitCopy(&select->lifted_mgroups, lifted_mgroups);
+        select->tried_all = 1;
+        return 0;
+    }
+
+    if (!cfg->lifted_use_combinations)
+        return -1;
+
+    int num_used = 0;
+    int start_i;
+    do {
+        for (start_i = 0;
+                start_i < select->mgroup_size && select->mgroup_used[start_i];
+                ++start_i);
+        if (start_i == select->mgroup_size)
+            return -1;
+
+        select->mgroup_used[start_i] = 1;
+        num_used = 1;
+        pddlLiftedMGroupsFree(&select->lifted_mgroups);
+        pddlLiftedMGroupsInit(&select->lifted_mgroups);
+        if (selectMGroupsAdd(select, pddl, start_i,
+                             &lifted_mgroups->mgroup[start_i]) != 0){
+            start_i = -1;
+        }
+    } while (start_i < 0);
+
+    for (int i = (start_i + 1) % select->mgroup_size; i != start_i;
+            i = (i + 1) % select->mgroup_size){
+        if (selectMGroupsAdd(select, pddl, i,
+                             &lifted_mgroups->mgroup[i]) == 0){
+            select->mgroup_used[i] = 1;
+            num_used += 1;
+        }
+    }
+
+    // We skip this because we always make sure that the variant with all
+    // selected mutex groups is returned as a first choice
+    if (num_used == select->mgroup_size)
+        return -1;
+    return 0;
+}
+
+
+int pddlEndomorphismLifted(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_t *lifted_mgroups_in,
+                           const pddl_endomorphism_config_t *cfg,
+                           bor_iset_t *redundant_objects,
+                           bor_err_t *err)
+{
+    if (!pddl->normalized)
+        BOR_ERR_RET2(err, -1, "PDDL needs to be normalized!");
+
+    BOR_INFO_PREFIX_PUSH(err, "Lifted endomorphism: ");
+    if (cfg->run_in_subprocess)
+        BOR_INFO2(err, "run_in_subprocess is ignored");
+
+    if (cfg->ignore_costs)
+        BOR_INFO2(err, "Ignoring operator costs");
+
+    if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
+        BOR_INFO2(err, "Non-strict type partitioning"
+                       " -- abstaining from the inference");
+        BOR_INFO_PREFIX_POP(err);
+        return 0;
+    }
+
+    // Filter out mutex groups without counted variables
+    pddl_lifted_mgroups_t lifted_mgroups;
+    pddlLiftedMGroupsInit(&lifted_mgroups);
+    for (int mgi = 0; mgi < lifted_mgroups_in->mgroup_size; ++mgi){
+        const pddl_lifted_mgroup_t *mg = lifted_mgroups_in->mgroup + mgi;
+        if (pddlLiftedMGroupNumCountedVars(mg) > 0)
+            pddlLiftedMGroupsAdd(&lifted_mgroups, mg);
+    }
+
+    // Remove atoms without counted variables
+    for (int mgi = 0; mgi < lifted_mgroups.mgroup_size; ++mgi){
+        pddl_lifted_mgroup_t *mg = lifted_mgroups.mgroup + mgi;
+        pddlLiftedMGroupRemoveFixedAtoms(mg);
+    }
+
+    if (lifted_mgroups.mgroup_size == 0){
+        BOR_INFO2(err, "No mutex groups so lifted endomorphisms cannot be"
+                       " inferred");
+        BOR_INFO_PREFIX_POP(err);
+        pddlLiftedMGroupsFree(&lifted_mgroups);
+        return 0;
+    }
+
+
+    select_mgroups_t select;
+    selectMGroupsInit(&select, pddl, &lifted_mgroups);
+    while (selectMGroups(&select, pddl, &lifted_mgroups, cfg) == 0){
+        BOR_INFO_PREFIX_PUSH(err, "Selected mgroup: ");
+        for (int i = 0; i < select.lifted_mgroups.mgroup_size; ++i)
+            pddlLiftedMGroupLog(pddl, &select.lifted_mgroups.mgroup[i], err);
+        BOR_INFO_PREFIX_POP(err);
+
+        lifted_endomorphism_t end;
+        liftedEndomorphismInit(&end, pddl, &select.lifted_mgroups, cfg, err);
+        if (liftedEndomorphismNumUnfixed(&end) > 1){
+            liftedSolve(pddl, &end, cfg, 1800., redundant_objects, err);
+        }else{
+            BOR_INFO2(err, "Not enough unfixed objects to try to find"
+                           " endomorphisms");
+        }
+        liftedEndomorphismFree(&end);
+    }
+    selectMGroupsFree(&select);
+    pddlLiftedMGroupsFree(&lifted_mgroups);
+    BOR_INFO_PREFIX_POP(err);
+    return 0;
 }
 
 #else /* PDDL_CPOPTIMIZER */

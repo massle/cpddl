@@ -209,18 +209,90 @@ int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg)
     return mg->param.param_size - pddlLiftedMGroupNumCountedVars(mg);
 }
 
-void pddlLiftedMGroupPrint(const pddl_t *pddl,
-                           const pddl_lifted_mgroup_t *mgroup,
-                           FILE *fout)
+void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 {
-    fprintf(fout, "{");
+    int *remap_param = BOR_CALLOC_ARR(int, mg->param.param_size);
+
+    int num_del = 0;
+    for (int ci = 0; ci < mg->cond.size; ++ci){
+        pddl_cond_t *c = (pddl_cond_t *)mg->cond.cond[ci];
+        ASSERT(c->type == PDDL_COND_ATOM);
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        int has_counted = 0;
+        for (int argi = 0; argi < a->arg_size; ++argi){
+            if (a->arg[argi].param >= 0
+                    && mg->param.param[a->arg[argi].param].is_counted_var){
+                has_counted = 1;
+                break;
+            }
+        }
+
+        if (!has_counted){
+            pddlCondDel(c);
+            mg->cond.cond[ci] = NULL;
+            ++num_del;
+        }else{
+            for (int argi = 0; argi < a->arg_size; ++argi){
+                if (a->arg[argi].param >= 0){
+                    remap_param[a->arg[argi].param] = 1;
+                }
+            }
+        }
+    }
+
+    if (num_del == 0)
+        return;
+
+    int ins = 0;
+    for (int ci = 0; ci < mg->cond.size; ++ci){
+        if (mg->cond.cond[ci] != NULL)
+            mg->cond.cond[ins++] = mg->cond.cond[ci];
+    }
+    mg->cond.size = ins;
+
+    ins = 0;
+    for (int i = 0; i < mg->param.param_size; ++i){
+        if (remap_param[i] == 0){
+            remap_param[i] = -1;
+        }else{
+            remap_param[i] = ins++;
+        }
+    }
+
+    pddlParamsRemap(&mg->param, remap_param);
+    for (int ci = 0; ci < mg->cond.size; ++ci){
+        pddl_cond_t *c = (pddl_cond_t *)mg->cond.cond[ci];
+        ASSERT(c->type == PDDL_COND_ATOM);
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        for (int argi = 0; argi < a->arg_size; ++argi){
+            if (a->arg[argi].param >= 0){
+                ASSERT(remap_param[a->arg[argi].param] >= 0);
+                a->arg[argi].param = remap_param[a->arg[argi].param];
+            }
+        }
+    }
+
+    if (remap_param != NULL)
+        BOR_FREE(remap_param);
+}
+
+
+void printMGroup(const pddl_t *pddl,
+                 const pddl_lifted_mgroup_t *mgroup,
+                 FILE *fout,
+                 bor_err_t *err)
+{
+    char line[256];
+    int used = 0;
+    used += snprintf(line, 256 - used, "{");
 
     for (int i = 0; i < mgroup->cond.size; ++i){
         if (i > 0)
-            fprintf(fout, ", ");
+            used += snprintf(line + used, 256 - used, ", ");
 
         pddl_cond_atom_t *atom = PDDL_COND_CAST(mgroup->cond.cond[i], atom);
-        fprintf(fout, "%s", pddl->pred.pred[atom->pred].name);
+        used += snprintf(line + used, 256 - used,
+                         "%s", pddl->pred.pred[atom->pred].name);
         for (int j = 0; j < atom->arg_size; ++j){
             if (atom->arg[j].param >= 0){
                 int param_id = atom->arg[j].param;
@@ -228,24 +300,43 @@ void pddlLiftedMGroupPrint(const pddl_t *pddl,
                 ASSERT(!pddlTypesAreDisjunct(&pddl->type, p->type,
                             pddl->pred.pred[atom->pred].param[j]));
                 if (p->is_counted_var){
-                    fprintf(fout, " C%d:%s",
-                            param_id, pddl->type.type[p->type].name);
+                    used += snprintf(line + used, 256 - used, " C%d:%s",
+                                     param_id, pddl->type.type[p->type].name);
                 }else{
-                    fprintf(fout, " V%d:%s",
-                            param_id, pddl->type.type[p->type].name);
+                    used += snprintf(line + used, 256 - used, " V%d:%s",
+                                     param_id, pddl->type.type[p->type].name);
                 }
             }else{
-                fprintf(fout, " %s", pddl->obj.obj[atom->arg[j].obj].name);
+                used += snprintf(line + used, 256 - used, " %s",
+                                 pddl->obj.obj[atom->arg[j].obj].name);
             }
         }
     }
 
-    fprintf(fout, "}");
+    used += snprintf(line + used, 256 - used, "}");
     if (mgroup->is_exactly_one)
-        fprintf(fout, ":=1");
+        used += snprintf(line + used, 256 - used, ":=1");
     if (mgroup->is_static)
-        fprintf(fout, ":S");
-    fprintf(fout, "\n");
+        used += snprintf(line + used, 256 - used, ":S");
+
+    if (fout != NULL)
+        fprintf(fout, "%s\n", line);
+    if (err != NULL)
+        BOR_INFO(err, "%s", line);
+}
+
+void pddlLiftedMGroupPrint(const pddl_t *pddl,
+                           const pddl_lifted_mgroup_t *mgroup,
+                           FILE *fout)
+{
+    printMGroup(pddl, mgroup, fout, NULL);
+}
+
+void pddlLiftedMGroupLog(const pddl_t *pddl,
+                         const pddl_lifted_mgroup_t *mgroup,
+                         bor_err_t *err)
+{
+    printMGroup(pddl, mgroup, NULL, err);
 }
 
 
