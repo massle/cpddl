@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -770,14 +770,24 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  bor_iset_t *unreachable_ops,
                                  bor_err_t *err)
 {
+    BOR_ISET(part_state);
     int num = 0;
     for (int oi = 0; oi < strips->op.op_size; ++oi){
         const pddl_strips_op_t *op = strips->op.op[oi];
         if (pddlMutexPairsIsMutexSet(mutex, &op->pre)){
             borISetAdd(unreachable_ops, oi);
             ++num;
+            continue;
+        }
+
+        borISetMinus2(&part_state, &op->pre, &op->del_eff);
+        borISetUnion(&part_state, &op->add_eff);
+        if (pddlMutexPairsIsMutexSet(mutex, &part_state)){
+            borISetAdd(unreachable_ops, oi);
+            ++num;
         }
     }
+    borISetFree(&part_state);
     BOR_INFO(err, "Found %d unreachable operators.", num);
     return 0;
 }

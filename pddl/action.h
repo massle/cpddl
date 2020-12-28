@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -103,6 +103,12 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl);
  * Check that all actions has only a flat conjuction as its precondition.
  */
 void pddlActionAssertPreConjuction(pddl_action_t *a);
+
+/**
+ * Remap object IDs.
+ */
+void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap);
+void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap);
 
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout);
 void pddlActionsPrint(const pddl_t *pddl,

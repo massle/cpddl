@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -92,12 +92,20 @@ int pddlLiftedMGroupNumCountedVars(const pddl_lifted_mgroup_t *mg);
 int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg);
 
 /**
+ * Remove atoms that does not contain any counted variable.
+ */
+void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg);
+
+/**
  * Prints a formatted lifted mutex group (or a candidate if there are some
  * counted variables).
  */
 void pddlLiftedMGroupPrint(const pddl_t *pddl,
                            const pddl_lifted_mgroup_t *mgroup,
                            FILE *fout);
+void pddlLiftedMGroupLog(const pddl_t *pddl,
+                         const pddl_lifted_mgroup_t *mgroup,
+                         bor_err_t *err);
 
 
 

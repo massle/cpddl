@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -20,7 +20,9 @@
 #ifndef __PDDL_SET_H__
 #define __PDDL_SET_H__
 
+#include <stdio.h>
 #include <boruvka/hashset.h>
+#include <boruvka/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,7 +65,7 @@ _bor_inline int pddlSetISetFind(pddl_set_iset_t *ss, const bor_iset_t *set)
 
 _bor_inline const bor_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
 {
-    return borHashSetGet(&ss->set, id);
+    return (const bor_iset_t *)borHashSetGet(&ss->set, id);
 }
 
 _bor_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
@@ -71,6 +73,16 @@ _bor_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
     return ss->set.size;
 }
 
+_bor_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
+                                  const pddl_set_iset_t *src)
+{
+    for (int i = 0; i < pddlSetISetSize(src); ++i)
+        pddlSetISetAdd(dst, pddlSetISetGet(src, i));
+}
+
+void pddlISetPrintCompressed(const bor_iset_t *set, FILE *fout);
+void pddlISetPrint(const bor_iset_t *set, FILE *fout);
+void pddlISetPrintln(const bor_iset_t *set, FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -334,6 +334,12 @@ int pddlCondAtomCmpNoNeg(const pddl_cond_atom_t *a1,
 int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
                            const pddl_cond_atom_t *a2,
                            const pddl_t *pddl);
+
+/**
+ * Remap objects.
+ * It is assumed no object from {c} is deleted.
+ */
+void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap);
 
 void pddlCondPrint(const pddl_t *pddl,
                    const pddl_cond_t *cond,

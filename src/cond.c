@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -3002,6 +3002,39 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
         return cmpAtomArgs(a1, a2) == 0;
     }
     return 0;
+}
+
+static void condAtomRemapObjs(pddl_cond_atom_t *a, const pddl_obj_id_t *remap)
+{
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].obj >= 0){
+            a->arg[i].obj = remap[a->arg[i].obj];
+            ASSERT(a->arg[i].obj >= 0);
+        }
+    }
+}
+
+static int condRemapObjs(pddl_cond_t *c, void *_remap)
+{
+    const pddl_obj_id_t *remap = _remap;
+    if (c->type == PDDL_COND_ATOM){
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        condAtomRemapObjs(a, remap);
+
+    }else if (c->type == PDDL_COND_ASSIGN){
+        pddl_cond_func_op_t *a = PDDL_COND_CAST(c, func_op);
+        if (a->lvalue != NULL)
+            condAtomRemapObjs(a->lvalue, remap);
+        if (a->fvalue != NULL)
+            condAtomRemapObjs(a->fvalue, remap);
+    }
+
+    return 0;
+}
+
+void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap)
+{
+    pddlCondTraverse(c, NULL, condRemapObjs, (void *)remap);
 }
 
 

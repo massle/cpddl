@@ -30,6 +30,7 @@ static int readOpts(int *argc,
     int no_disamb = 0;
     int obj_init = 0;
     int obj_all_states = 0;
+    int obj_max_init_all_states = 0;
     double add_init_constr = -1.;
     int obj_samples_sum = -1;
     int obj_samples_max = -1;
@@ -67,6 +68,9 @@ static int readOpts(int *argc,
                 "Optimize for the initial state");
     optsAddDesc("all-states", 'A', OPTS_NONE, &obj_all_states, NULL,
                 "Optimize for all syntactic states");
+    optsAddDesc("max-init-all-states", 'X', OPTS_NONE,
+                &obj_max_init_all_states, NULL,
+                "Maximum of -I and -A");
     optsAddDesc("samples-sum", 'S', OPTS_INT, &obj_samples_sum, NULL,
                 "Optimize for the sum of samples.");
     optsAddDesc("samples-max", 'T', OPTS_INT, &obj_samples_max, NULL,
@@ -127,6 +131,7 @@ static int readOpts(int *argc,
     pot_cfg->samples_use_mutex = 0;
     if (obj_init
             + obj_all_states
+            + obj_max_init_all_states
             + (obj_samples_sum > 0 ? 1 : 0)
             + (obj_samples_max > 0 ? 1 : 0)
             + (obj_all_states_mutex > 0 ? 1 : 0)
@@ -134,7 +139,7 @@ static int readOpts(int *argc,
             + (obj_all_states_mutex_cond_rand[1] > 0 ? 1 : 0)
             + (obj_all_states_mutex_cond_rand2[1] > 0 ? 1 : 0)
             + (obj_diverse > 0 ? 1 : 0) != 1){
-        fprintf(stderr, "Error: One of -I/-A/-S/-T/-M/-D/-C/-R/-P"
+        fprintf(stderr, "Error: One of -I/-A/-X/-S/-T/-M/-D/-C/-R/-P"
                         " must be specified!\n\n");
         usage(argv[0]);
         return -1;
@@ -144,6 +149,9 @@ static int readOpts(int *argc,
 
     }else if (obj_all_states){
         pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES;
+
+    }else if (obj_max_init_all_states){
+        pot_cfg->obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
 
     }else if (obj_samples_sum > 0){
         pot_cfg->obj = PDDL_HPOT_OBJ_SAMPLES_SUM;
@@ -409,10 +417,12 @@ int main(int argc, char *argv[])
     // Construct FDR
     pddl_fdr_t fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+    unsigned fdr_flag = 0;
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, &strips);
     pddlMutexPairsAddMGroups(&mutex, &mgroups);
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
+                          fdr_flag, &err);
     if (pddlPruneFDR(&fdr, &err) != 0){
         BOR_INFO2(&err, "Pruning failed.");
         fprintf(stderr, "Error: ");
@@ -442,7 +452,7 @@ int main(int argc, char *argv[])
             return -1;
         }
     }
-    pddlFDRPrintFD(&fdr, NULL, fout);
+    pddlFDRPrintFD(&fdr, NULL, 1, fout);
     printPotentials(&fdr, &hpot, fout);
     if (fout != stdout)
         fclose(fout);

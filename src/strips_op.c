@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -321,6 +321,12 @@ void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
         pddlStripsOpsDelOps(ops, remove);
     BOR_FREE(dedup);
     BOR_FREE(remove);
+}
+
+void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops)
+{
+    for (int i = 0; i < ops->op_size; ++i)
+        ops->op[i]->cost = 1;
 }
 
 static int opCmp(const void *a, const void *b, void *_)

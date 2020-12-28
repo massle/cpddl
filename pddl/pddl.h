@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -22,6 +22,7 @@
 
 #include <pddl/config.h>
 #include <pddl/common.h>
+#include <pddl/cost.h>
 #include <pddl/pddl_file.h>
 #include <pddl/plan_file.h>
 #include <pddl/lisp.h>
@@ -64,14 +65,40 @@
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
 #include <pddl/hflow.h>
-#include <pddl/causal_graph.h>
+#include <pddl/hadd.h>
+#include <pddl/hmax.h>
+#include <pddl/hff.h>
+#include <pddl/cg.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
+#include <pddl/graph.h>
+#include <pddl/clique.h>
+#include <pddl/biclique.h>
 #include <pddl/open_list.h>
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
+#include <pddl/search_lazy.h>
 #include <pddl/plan.h>
 #include <pddl/heur.h>
 #include <pddl/dtg.h>
+#include <pddl/scc.h>
+#include <pddl/ts.h>
+#include <pddl/op_mutex_pair.h>
+#include <pddl/op_mutex_infer.h>
+#include <pddl/op_mutex_sym_redundant.h>
+#include <pddl/time_limit.h>
+#include <pddl/reversibility.h>
+#include <pddl/invertibility.h>
+#include <pddl/cascading_table.h>
+#include <pddl/transition.h>
+#include <pddl/label.h>
+#include <pddl/labeled_transition.h>
+#include <pddl/trans_system.h>
+#include <pddl/trans_system_abstr_map.h>
+#include <pddl/trans_system_graph.h>
+#include <pddl/endomorphism.h>
+#include <pddl/symbolic_task.h>
+#include <pddl/black_mgroup.h>
+#include <pddl/red_black_fdr.h>
 
 #endif /* __PDDL_H__ */

@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -80,9 +80,29 @@ void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size);
 int pddlMutexPairsAdd(pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
+ * Set mutex as forward mutex, {f1, f2} must be already mutex.
+ */
+int pddlMutexPairsSetFwMutex(pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
+ * Set mutex as backward mutex, {f1, f2} must be already mutex.
+ */
+int pddlMutexPairsSetBwMutex(pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
  * Returns true if (f1, f2) is a mutex.
  */
 int pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
+ * Returns true if {f1, f2} is forward mutex.
+ */
+int pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+
+/**
+ * Returns true if {f1, f2} is backward mutex.
+ */
+int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
  * Returns true if the set is mutex, i.e., it contains some mutex pair or
@@ -103,6 +123,13 @@ int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
  */
 int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
                                 const bor_iset_t *fs1, const bor_iset_t *fs2);
+
+/**
+ * Add to {mutex_with} facts that are mutex with {fact}.
+ */
+void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
+                                int fact,
+                                bor_iset_t *mutex_with);
 
 /**
  * Resize the struct and remap fact IDs according to remap.

@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -18,6 +18,7 @@
 
 #include <boruvka/alloc.h>
 #include <boruvka/sort.h>
+#include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
 #include "assert.h"
 
@@ -717,4 +718,38 @@ void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)
                     val->global_id);
         }
     }
+}
+
+void pddlFDRVarsPrintTable(const pddl_fdr_vars_t *vars,
+                           int linesize,
+                           FILE *fout,
+                           bor_err_t *err)
+{
+    char line[256];
+    pddl_outboxes_t boxes;
+    pddlOutBoxesInit(&boxes);
+    for (int vari = 0; vari < vars->var_size; ++vari){
+        const pddl_fdr_var_t *var = vars->var + vari;
+        pddl_outbox_t *box = pddlOutBoxesAdd(&boxes);
+        snprintf(line, 256, "ID: %d, size: %d, none-of-those: %d,"
+                            " is-black: %d",
+                 var->var_id, var->val_size, var->val_none_of_those,
+                 var->is_black);
+        pddlOutBoxAddLine(box, line);
+        for (int vali = 0; vali < var->val_size; ++vali){
+            const pddl_fdr_val_t *val = var->val + vali;
+            snprintf(line, 256, "%d:(%s), global-id: %d, strips-id: %d",
+                     val->val_id, (val->name != NULL ? val->name : "NULL"),
+                     val->global_id, val->strips_id);
+            pddlOutBoxAddLine(box, line);
+        }
+    }
+
+    pddl_outboxes_t merged;
+    pddlOutBoxesInit(&merged);
+    pddlOutBoxesMerge(&merged, &boxes, linesize);
+    pddlOutBoxesPrint(&merged, fout, err);
+    pddlOutBoxesFree(&merged);
+
+    pddlOutBoxesFree(&boxes);
 }

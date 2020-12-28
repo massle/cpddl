@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -27,6 +27,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+/** Forward declaration */
+struct pddl_objs;
 
 struct pddl_objset {
     pddl_obj_id_t *obj;
@@ -139,6 +142,26 @@ int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
  * object of both types at the same time.
  */
 int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
+
+/**
+ * Returns true if D(t1) \subseteq D(t2)
+ */
+int pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
+
+/**
+ * Returns true if:
+ * 1. for every pair of types t1,t2 it holds that D(t1) \subseteq D(t2) or
+ *    D(t2) \subseteq D(t1) or D(t1) \cap D(t2) = \emptyset; and
+ * 2. union of minimal types (i.e., without subtypes) equals the whole set
+ *    of objects.
+ */
+int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
+                                   const struct pddl_objs *obj);
+
+/**
+ * Remap objects
+ */
+void pddlTypesRemapObjs(pddl_types_t *ts, const pddl_obj_id_t *remap);
 
 /**
  * Print requirements in PDDL format.

@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -23,6 +23,13 @@
 #include "pddl/obj.h"
 #include "pddl/require.h"
 #include "lisp_err.h"
+
+void pddlObjFree(pddl_obj_t *obj)
+{
+    if (obj->name != NULL)
+        BOR_FREE(obj->name);
+    obj->name = NULL;
+}
 
 struct obj_key {
     pddl_obj_id_t obj_id;
@@ -242,10 +249,8 @@ void pddlObjsFree(pddl_objs_t *objs)
     bor_list_t *item;
     obj_key_t *key;
 
-    for (int i = 0; i < objs->obj_size; ++i){
-        if (objs->obj[i].name != NULL)
-            BOR_FREE(objs->obj[i].name);
-    }
+    for (int i = 0; i < objs->obj_size; ++i)
+        pddlObjFree(objs->obj + i);
     if (objs->obj != NULL)
         BOR_FREE(objs->obj);
 
@@ -262,7 +267,7 @@ void pddlObjsFree(pddl_objs_t *objs)
     }
 }
 
-pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name)
+static obj_key_t *findByName(const pddl_objs_t *objs, const char *name)
 {
     bor_list_t *item;
     obj_key_t *key, keyin;
@@ -271,9 +276,17 @@ pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name)
     keyin.hash = borHashSDBM(name);
     item = borHTableFind(objs->htable, &keyin.htable);
     if (item == NULL)
-        return PDDL_OBJ_ID_UNDEF;
+        return NULL;
 
     key = BOR_LIST_ENTRY(item, obj_key_t, htable);
+    return key;
+}
+
+pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name)
+{
+    obj_key_t *key = findByName(objs, name);
+    if (key == NULL)
+        return PDDL_OBJ_ID_UNDEF;
     return key->obj_id;
 }
 
@@ -307,6 +320,31 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     borHTableInsert(objs->htable, &key->htable);
 
     return o;
+}
+
+void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
+{
+    int new_size = 0;
+    for (int i = 0; i < objs->obj_size; ++i){
+        if (remap[i] == -1){
+            if (objs->obj[i].name != NULL){
+                obj_key_t *key = findByName(objs, objs->obj[i].name);
+                if (key != NULL){
+                    borHTableErase(objs->htable, &key->htable);
+                    BOR_FREE(key);
+                }
+            }
+            pddlObjFree(objs->obj + i);
+        }else{
+            ++new_size;
+        }
+    }
+
+    for (int i = 0; i < objs->obj_size; ++i){
+        if (remap[i] >= 0)
+            objs->obj[remap[i]] = objs->obj[i];
+    }
+    objs->obj_size = new_size;
 }
 
 void pddlObjsPrint(const pddl_objs_t *objs, FILE *fout)

@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -115,6 +115,11 @@ void pddlCheckSizeTypes(const pddl_t *pddl);
  * Adds one new type per object if necessary.
  */
 void pddlAddObjectTypes(pddl_t *pddl);
+
+/**
+ * Remove specified objects from the planning task.
+ */
+void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
 
 /**
  * Prints PDDL domain file.

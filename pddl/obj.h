@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -73,6 +73,11 @@ pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name);
  * Adds a new obj at the end of the array.
  */
 pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name);
+
+/**
+ * Remap object IDs and remove those where remap[id] == -1
+ */
+void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap);
 
 /**
  * Print formated objects.

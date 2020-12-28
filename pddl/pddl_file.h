@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -38,6 +38,8 @@ typedef struct pddl_files pddl_files_t;
 int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err);
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
               bor_err_t *err);
+
+int pddlIsFile(const char *);
 
 #ifdef __cplusplus
 } /* extern "C" */

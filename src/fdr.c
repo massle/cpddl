@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -31,6 +31,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
                   const pddl_fdr_vars_t *fdr_var,
                   const pddl_strips_t *strips,
                   const pddl_mutex_pairs_t *mutex,
+                  unsigned fdr_flags,
                   int op_id);
 static void printOp(const pddl_fdr_op_t *op, FILE *fout);
 
@@ -39,40 +40,51 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_mgroups_t *mg,
                           const pddl_mutex_pairs_t *mutex,
                           unsigned fdr_var_flags,
+                          unsigned fdr_flags,
                           bor_err_t *err)
 {
-    bzero(fdr, sizeof(*fdr));
+    BOR_INFO_PREFIX_PUSH(err, "FDR: ");
+    bor_timer_t timer;
+    borTimerStart(&timer);
 
-    BOR_INFO2(err, "Translation to FDR...");
+    bzero(fdr, sizeof(*fdr));
 
     // variables
     if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
                                   fdr_var_flags) != 0){
+        BOR_INFO_PREFIX_POP(err);
         return -1;
     }
-    BOR_INFO(err, "  Created %d variables.", fdr->var.var_size);
+    BOR_INFO(err, "Created %d variables.", fdr->var.var_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
             ++num_none_of_those;
     }
-    BOR_INFO(err, "  Created %d none-of-those values.", num_none_of_those);
+    BOR_INFO(err, "Created %d none-of-those values.", num_none_of_those);
 
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
 
     // Initial state
     fdr->init = BOR_ALLOC_ARR(int, fdr->var.var_size);
     stripsToFDRState(&fdr->var, &strips->init, fdr->init);
+    BOR_INFO2(err, "Created initial state.");
 
     // Goal
     pddlFDRPartStateInit(&fdr->goal);
     stripsToFDRPartState(&fdr->var, &strips->goal, &fdr->goal);
+    BOR_INFO2(err, "Created goal specification.");
 
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
-        addOp(&fdr->op, &fdr->var, strips, mutex, op_id);
+        addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
+    BOR_INFO(err, "Created %d operators", fdr->op.op_size);
 
+    borTimerStop(&timer);
+    BOR_INFO(err, "Translation took %.2f seconds",
+             borTimerElapsedInSF(&timer));
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -162,8 +174,102 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
     borISetFree(&del_facts);
 }
 
+static int relaxedPreHold(const pddl_fdr_t *fdr,
+                          const int *reached,
+                          const pddl_fdr_part_state_t *pre)
+{
+    for (int fi = 0; fi < pre->fact_size; ++fi){
+        int var = pre->fact[fi].var;
+        int val = pre->fact[fi].val;
+        int fact = fdr->var.var[var].val[val].global_id;
+        if (!reached[fact])
+            return 0;
+    }
+    return 1;
+}
+
+static void relaxedReachFacts(const pddl_fdr_t *fdr,
+                              int *reached,
+                              const pddl_fdr_part_state_t *eff)
+{
+    for (int fi = 0; fi < eff->fact_size; ++fi){
+        int var = eff->fact[fi].var;
+        int val = eff->fact[fi].val;
+        int fact = fdr->var.var[var].val[val].global_id;
+        reached[fact] = 1;
+    }
+}
+
+int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
+                         const int *fdr_state,
+                         const bor_iarr_t *plan,
+                         bor_err_t *err)
+{
+    int *reached = BOR_CALLOC_ARR(int, fdr->var.global_id_size);
+    for (int var = 0; var < fdr->var.var_size; ++var)
+        reached[fdr->var.var[var].val[fdr_state[var]].global_id] = 1;
+
+    int op_id;
+    BOR_IARR_FOR_EACH(plan, op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        if (!relaxedPreHold(fdr, reached, &op->pre)){
+            BOR_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
+                     op_id, op->name);
+            BOR_FREE(reached);
+            return 0;
+        }
+        relaxedReachFacts(fdr, reached, &op->eff);
+
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+            if (relaxedPreHold(fdr, reached, &ce->pre))
+                relaxedReachFacts(fdr, reached, &ce->eff);
+        }
+    }
+
+    int found_goal = 1;
+    for (int fi = 0; fi < fdr->goal.fact_size; ++fi){
+        int var = fdr->goal.fact[fi].var;
+        int val = fdr->goal.fact[fi].val;
+        int fact = fdr->var.var[var].val[val].global_id;
+        if (!reached[fact]){
+            found_goal = 0;
+            break;
+        }
+    }
+
+    BOR_FREE(reached);
+    return found_goal;
+}
+
+static void printFDFactName(const pddl_fdr_var_t *var, int val, FILE *fout)
+{
+    if (val == var->val_none_of_those){
+        fprintf(fout, "<none of those>\n");
+    }else{
+        fprintf(fout, "Atom ");
+        int pred_found = 0;
+        for (const char *nc = var->val[val].name; *nc != 0; ++nc){
+            if (*nc == ' '){
+                if (!pred_found){
+                    fprintf(fout, "(");
+                    pred_found = 1;
+                }else{
+                    fprintf(fout, ", ");
+                }
+            }else{
+                fprintf(fout, "%c", *nc);
+            }
+        }
+        if (!pred_found)
+            fprintf(fout, "(");
+        fprintf(fout, ")\n");
+    }
+}
+
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mg,
+                    int use_fd_fact_names,
                     FILE *fout)
 {
     fprintf(fout, "begin_version\n3\nend_version\n");
@@ -174,11 +280,20 @@ void pddlFDRPrintFD(const pddl_fdr_t *fdr,
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         const pddl_fdr_var_t *var = fdr->var.var + vi;
         fprintf(fout, "begin_variable\n");
-        fprintf(fout, "var%d\n", vi);
+        if (var->is_black){
+            fprintf(fout, "black-var%d\n", vi);
+        }else{
+            fprintf(fout, "var%d\n", vi);
+        }
         fprintf(fout, "-1\n");
         fprintf(fout, "%d\n", var->val_size);
-        for (int vali = 0; vali < var->val_size; ++vali)
-            fprintf(fout, "%s\n", var->val[vali].name);
+        for (int vali = 0; vali < var->val_size; ++vali){
+            if (use_fd_fact_names){
+                printFDFactName(var, vali, fout);
+            }else{
+                fprintf(fout, "%s\n", var->val[vali].name);
+            }
+        }
         fprintf(fout, "end_variable\n");
     }
 
@@ -303,6 +418,75 @@ static int stripsToFDRPartState(const pddl_fdr_vars_t *fdr_var,
     return ret;
 }
 
+static int isAllButNoneOfThoseMutex(const pddl_fdr_vars_t *vars,
+                                    const pddl_mutex_pairs_t *mutex,
+                                    const pddl_fdr_part_state_t *ps,
+                                    const pddl_fdr_var_t *var)
+{
+    if (var->val_none_of_those < 0)
+        return 0;
+
+    for (int psi = 0; psi < ps->fact_size; ++psi){
+        const pddl_fdr_fact_t *fdr_fact = ps->fact + psi;
+        int strips_fact = vars->var[fdr_fact->var].val[fdr_fact->val].strips_id;
+        if (strips_fact < 0)
+            continue;
+
+        int is_mutex = 1;
+        for (int val = 0; val < var->val_size && is_mutex; ++val){
+            if (val == var->val_none_of_those)
+                continue;
+            int strips_fact2 = var->val[val].strips_id;
+            if (strips_fact2 < 0)
+                return 0;
+            is_mutex |= pddlMutexPairsIsMutex(mutex, strips_fact, strips_fact2);
+        }
+        if (is_mutex)
+            return 1;
+    }
+    return 0;
+}
+                                    
+static int setNoneOfThoseInPre(const pddl_fdr_vars_t *fdr_var,
+                               const pddl_mutex_pairs_t *mutex,
+                               const pddl_fdr_part_state_t *fdr_eff,
+                               pddl_fdr_part_state_t *fdr_pre)
+{
+    BOR_ISET(extend_by);
+    int prei = 0, effi = 0;
+    for (; prei < fdr_pre->fact_size && effi < fdr_eff->fact_size;){
+        const pddl_fdr_fact_t *pre_fact = fdr_pre->fact + prei;
+        const pddl_fdr_fact_t *eff_fact = fdr_eff->fact + effi;
+        if (pre_fact->var == eff_fact->var){
+            ++prei;
+            ++effi;
+        }else if (pre_fact->var < eff_fact->var){
+            ++prei;
+        }else{ // eff_fact->var < pre_fact->var
+            const pddl_fdr_var_t *var = fdr_var->var + eff_fact->var;
+            if (isAllButNoneOfThoseMutex(fdr_var, mutex, fdr_pre, var))
+                borISetAdd(&extend_by, eff_fact->var);
+            ++effi;
+        }
+    }
+    for (; effi < fdr_eff->fact_size; ++effi){
+        const pddl_fdr_fact_t *eff_fact = fdr_eff->fact + effi;
+        const pddl_fdr_var_t *var = fdr_var->var + eff_fact->var;
+        if (isAllButNoneOfThoseMutex(fdr_var, mutex, fdr_pre, var))
+            borISetAdd(&extend_by, eff_fact->var);
+    }
+
+    int var_id;
+    BOR_ISET_FOR_EACH(&extend_by, var_id){
+        pddlFDRPartStateSet(fdr_pre, var_id,
+                            fdr_var->var[var_id].val_none_of_those);
+    }
+
+    int ret = borISetSize(&extend_by);
+    borISetFree(&extend_by);
+    return ret;
+}
+
 static int cmpCondEff(const void *a, const void *b, void *_)
 {
     const pddl_fdr_op_cond_eff_t *ce1 = a;
@@ -314,6 +498,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
                   const pddl_fdr_vars_t *fdr_var,
                   const pddl_strips_t *strips,
                   const pddl_mutex_pairs_t *mutex,
+                  unsigned fdr_flags,
                   int op_id)
 {
     const pddl_strips_op_t *op = strips->op.op[op_id];
@@ -334,10 +519,11 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
     }
     pddlFDRPartStateFree(&pre);
 
-    stripsToFDRPartState(fdr_var, &op->pre, &fdr_op->pre);
     stripsToFDRDelEff(fdr_var, &op->del_eff, &fdr_op->eff,
                       mutex, &op->pre, NULL);
     stripsToFDRPartState(fdr_var, &op->add_eff, &fdr_op->eff);
+    if (fdr_flags & PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE)
+        setNoneOfThoseInPre(fdr_var, mutex, &fdr_op->eff, &fdr_op->pre);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         const pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
@@ -354,6 +540,8 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
         stripsToFDRDelEff(fdr_var, &ce->del_eff, &fdr_ce->eff,
                           mutex, &op->pre, &ce->pre);
         stripsToFDRPartState(fdr_var, &ce->add_eff, &fdr_ce->eff);
+        if (fdr_flags & PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE)
+            setNoneOfThoseInPre(fdr_var, mutex, &fdr_ce->eff, &fdr_ce->pre);
     }
 
     if (fdr_op->cond_eff_size > 1){

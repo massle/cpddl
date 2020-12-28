@@ -8,7 +8,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -20,6 +20,9 @@
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
 #include "pddl/clique.h"
+
+#define FW_MUTEX 0x2
+#define BW_MUTEX 0x4
 
 #define M(m, f1, f2) ((m)->map[(f1) * (size_t)(m)->fact_size + (f2)])
 
@@ -60,6 +63,26 @@ void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size)
     }
 }
 
+static int setMutexFlag(pddl_mutex_pairs_t *m, int f1, int f2, char flag)
+{
+    if (f1 >= m->fact_size || f2 >= m->fact_size)
+        return -1;
+    if (f1 == f2){
+        for (int i = 0; i < m->fact_size; ++i){
+            if (M(m, f1, i)){
+                M(m, f1, i) |= flag;
+                M(m, i, f1) |= flag;
+            }
+        }
+    }else{
+        if (M(m, f1, f2)){
+            M(m, f1, f2) |= flag;
+            M(m, f2, f1) |= flag;
+        }
+    }
+    return 0;
+}
+
 int pddlMutexPairsAdd(pddl_mutex_pairs_t *m, int f1, int f2)
 {
     if (f1 >= m->fact_size || f2 >= m->fact_size)
@@ -78,9 +101,29 @@ int pddlMutexPairsAdd(pddl_mutex_pairs_t *m, int f1, int f2)
     return 0;
 }
 
+int pddlMutexPairsSetFwMutex(pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return setMutexFlag(m, f1, f2, FW_MUTEX);
+}
+
+int pddlMutexPairsSetBwMutex(pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return setMutexFlag(m, f1, f2, BW_MUTEX);
+}
+
 int pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
 {
     return M(m, f1, f2);
+}
+
+int pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return M(m, f1, f2) & FW_MUTEX;
+}
+
+int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+{
+    return M(m, f1, f2) & BW_MUTEX;
 }
 
 
@@ -123,6 +166,16 @@ int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
     return 0;
 }
 
+void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
+                                int fact,
+                                bor_iset_t *mutex_with)
+{
+    for (int f = 0; f < m->fact_size; ++f){
+        if (M(m, fact, f))
+            borISetAdd(mutex_with, f);
+    }
+}
+
 void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
                               int new_fact_size,
                               const int *remap)
@@ -136,8 +189,14 @@ void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
         for (int j = i + 1; j < old.fact_size; ++j){
             if (remap[j] < 0)
                 continue;
-            if (pddlMutexPairsIsMutex(&old, i, j))
+            if (pddlMutexPairsIsMutex(&old, i, j)){
                 pddlMutexPairsAdd(m, remap[i], remap[j]);
+                if (pddlMutexPairsIsFwMutex(&old, i, j)){
+                    pddlMutexPairsSetFwMutex(m, remap[i], remap[j]);
+                }else if (pddlMutexPairsIsBwMutex(&old, i, j)){
+                    pddlMutexPairsSetBwMutex(m, remap[i], remap[j]);
+                }
+            }
         }
     }
 
@@ -163,9 +222,11 @@ void pddlMutexPairsAddMGroup(pddl_mutex_pairs_t *mutex,
     int size = borISetSize(facts);
 
     for (int i = 0; i < size; ++i){
+        int f1 = borISetGet(facts, i);
         for (int j = i + 1; j < size; ++j){
-            pddlMutexPairsAdd(mutex, borISetGet(facts, i),
-                                     borISetGet(facts, j));
+            int f2 = borISetGet(facts, j);
+            pddlMutexPairsAdd(mutex, f1, f2);
+            setMutexFlag(mutex, f1, f2, FW_MUTEX);
         }
     }
 }
@@ -188,15 +249,15 @@ static void addMGroup(const bor_iset_t *mg, void *_mgroups)
 void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups)
 {
-    pddl_clique_graph_t graph;
-    pddlCliqueGraphInit(&graph, mutex->fact_size);
+    pddl_graph_simple_t graph;
+    pddlGraphSimpleInit(&graph, mutex->fact_size);
 
     PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
         if (f1 != f2)
-            pddlCliqueGraphAddEdge(&graph, f1, f2);
+            pddlGraphSimpleAddEdge(&graph, f1, f2);
     }
     pddlCliqueFindMaximal(&graph, addMGroup, mgroups);
 
-    pddlCliqueGraphFree(&graph);
+    pddlGraphSimpleFree(&graph);
 }
 

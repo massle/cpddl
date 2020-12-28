@@ -7,8 +7,11 @@ CFLAGS += $(OPTS_CFLAGS)
 LDFLAGS += -L../ -lpddl
 LDFLAGS += $(BORUVKA_LDFLAGS)
 LDFLAGS += $(OPTS_LDFLAGS)
+LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
 LDFLAGS += $(LP_LDFLAGS)
 LDFLAGS += $(BLISS_LDFLAGS)
+LDFLAGS += $(CLIQUER_LDFLAGS)
+LDFLAGS += $(CUDD_LDFLAGS)
 LDFLAGS += -pthread -lrt -lm
 
 ifeq '$(BIN_STATIC)' 'yes'
@@ -24,6 +27,9 @@ TARGETS += pddl-fdr
 TARGETS += pddl-pot
 TARGETS += pddl-astar
 TARGETS += pddl-mgroups
+TARGETS += pddl-reversibility
+TARGETS += pddl-op-mutex
+TARGETS += pddl-symba
 
 all: $(TARGETS)
 

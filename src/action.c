@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -356,6 +356,18 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
             exit(-1);
         }
     }
+}
+
+void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap)
+{
+    pddlCondRemapObjs(a->pre, remap);
+    pddlCondRemapObjs(a->eff, remap);
+}
+
+void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap)
+{
+    for (int i = 0; i < as->action_size; ++i)
+        pddlActionRemapObjs(as->action + i, remap);
 }
 
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)

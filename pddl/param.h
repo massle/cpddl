@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -102,6 +102,11 @@ int pddlParamsParseAgent(pddl_params_t *params,
                          int agent_node_index,
                          pddl_types_t *types,
                          bor_err_t *err);
+
+/**
+ * Remap parameters.
+ */
+void pddlParamsRemap(pddl_params_t *params, const int *remap);
 
 void pddlParamsPrint(const pddl_params_t *params, FILE *fout);
 

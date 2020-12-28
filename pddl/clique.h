@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -20,25 +20,41 @@
 #ifndef __PDDL_CLIQUE_H__
 #define __PDDL_CLIQUE_H__
 
-#include <boruvka/iset.h>
+#include <pddl/graph.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_clique_graph {
-    bor_iset_t *node;
-    int node_size;
-};
-typedef struct pddl_clique_graph pddl_clique_graph_t;
-
-void pddlCliqueGraphInit(pddl_clique_graph_t *g, int node_size);
-void pddlCliqueGraphFree(pddl_clique_graph_t *g);
-void pddlCliqueGraphAddEdge(pddl_clique_graph_t *g, int n1, int n2);
-
-void pddlCliqueFindMaximal(const pddl_clique_graph_t *g,
+/**
+ * Maximal cliques (i.e., maximal induced complete subgraphs) of size at
+ * least 2 using Bron-Kerbosch algorithm with pivoting.
+ */
+void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
                            void (*cb)(const bor_iset_t *clique, void *userdata),
                            void *userdata);
+
+/**
+ * Same as above, but it uses cliquer library (if linked)
+ * https://users.aalto.fi/~pat/cliquer.html
+ */
+void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
+                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void *userdata);
+
+/**
+ * Find maximal bicliques (i.e., maximal non-induced complete bipartite
+ * subgraphs) by looking for cliques in a modified graph G':
+ * Given G = (V, E), G' = (U \cup U', E') where U and U' are both copies of
+ * V and E' = {(i,j) | i,j \in U, i \neq j }
+ *            \cup {(i,j) | i,j \in U', i \neq j }
+ *            \cup {(i,j') | i \in U, j' \in U', (i,j') \in E }
+ */
+void pddlCliqueFindMaximalBicliques(const pddl_graph_simple_t *G,
+                                    void (*cb)(const bor_iset_t *left,
+                                               const bor_iset_t *right,
+                                               void *ud),
+                                    void *ud);
 
 
 #ifdef __cplusplus

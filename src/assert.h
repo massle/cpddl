@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -26,7 +26,11 @@
 #include <assert.h>
 # define ASSERT(x) assert(x)
 # define ASSERT_RUNTIME(x) assert(x)
+# define DBG(E, format, ...) BOR_INFO((E), "DEBUG: " format, __VA_ARGS__)
+# define DBG2(E, msg) BOR_INFO2((E), "DEBUG: " msg)
+
 #else /* PDDL_DEBUG */
+
 # define NDEBUG
 # define ASSERT(x)
 # define ASSERT_RUNTIME(x) \
@@ -37,6 +41,8 @@
         exit(-1); \
     } \
     } while (0)
+# define DBG(E, format, ...)
+# define DBG2(E, msg)
 #endif /* PDDL_DEBUG */
 
 # define ASSERT_RUNTIME_M(X, M) \

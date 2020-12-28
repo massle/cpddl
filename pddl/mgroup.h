@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -111,6 +111,12 @@ void pddlMGroupsGatherExactlyOneFacts(const pddl_mgroups_t *mgs,
 void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts);
 
 /**
+ * Remove specified facts from all mutex groups.
+ * Note that all flags are kept untouched.
+ */
+void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const bor_iset_t *rm);
+
+/**
  * Removes all mutex groups containing at most size facts.
  */
 void pddlMGroupsRemoveSmall(pddl_mgroups_t *mgs, int size);
@@ -138,6 +144,46 @@ void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs,
 int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size);
 
 /**
+ * Returns the number of exactly-one mutex groups.
+ */
+int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs);
+
+/**
+ * Find facts that are part of only one mutex group.
+ */
+void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess);
+
+/**
+ * Fill cover_set with mutex groups from mgs such that all facts from mgs
+ * are covered and no mutex groups overlap.
+ * Largest mutex groups are prioritized.
+ */
+void pddlMGroupsExtractCoverLargest(const pddl_mgroups_t *mgs,
+                                    pddl_mgroups_t *cover_set);
+
+/**
+ * Fill cover_set with mutex groups from mgs such that all facts from mgs
+ * are covered and no mutex groups overlap.
+ * Essential facts are prioritized.
+ */
+void pddlMGroupsExtractCoverEssential(const pddl_mgroups_t *mgs,
+                                      pddl_mgroups_t *cover_set);
+/**
+ * Returns number of facts covered by the mutex groups.
+ */
+int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs);
+
+/**
+ * Split the mutex groups by intersection with the given set of facts:
+ * for every mgroup M in src:
+ *     add M \cap fset to dst if non-empty
+ *     add M \setminus fset to dst if non-empty
+ */
+void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
+                                    const pddl_mgroups_t *src,
+                                    const bor_iset_t *fset);
+
+/**
  * Debug print out
  */
 void pddlMGroupsPrint(const pddl_t *pddl,
@@ -148,6 +194,11 @@ void pddlMGroupPrint(const pddl_t *pddl,
                      const pddl_strips_t *strips,
                      const pddl_mgroup_t *mg,
                      FILE *fout);
+void pddlMGroupsPrintTable(const pddl_t *pddl,
+                           const pddl_strips_t *strips,
+                           const pddl_mgroups_t *mg,
+                           FILE *fout,
+                           bor_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

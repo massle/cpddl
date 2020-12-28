@@ -9,7 +9,7 @@
  * This file is part of cpddl.
  *
  * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file BDS-LICENSE for details or see
+ * see accompanying file LICENSE for details or see
  * <http://www.opensource.org/licenses/bsd-license.php>.
  *
  * This software is distributed WITHOUT ANY WARRANTY; without even the
@@ -211,6 +211,11 @@ void pddlStripsOpsRemoveFacts(pddl_strips_ops_t *ops, const bor_iset_t *facts);
  * Removes duplicate operators, keeps the ones with the lowest cost.
  */
 void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops);
+
+/**
+ * Set costs of all operators to 1
+ */
+void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops);
 
 /**
  * Sort operators by name.
