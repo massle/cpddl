@@ -19,6 +19,7 @@
 #ifndef __PDDL_FDR_H__
 #define __PDDL_FDR_H__
 
+#include <boruvka/iarr.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_op.h>
 
@@ -36,11 +37,14 @@ struct pddl_fdr {
 };
 typedef struct pddl_fdr pddl_fdr_t;
 
+#define PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE 0x1
+
 int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mg,
                           const pddl_mutex_pairs_t *mutex,
                           unsigned fdr_var_flags,
+                          unsigned fdr_flags,
                           bor_err_t *err);
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);
@@ -52,6 +56,14 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
                    const bor_iset_t *del_vars,
                    const bor_iset_t *del_facts,
                    const bor_iset_t *del_ops);
+
+/**
+ * Returns true if the plan is a relaxed plan of the problem.
+ */
+int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
+                         const int *fdr_state,
+                         const bor_iarr_t *plan,
+                         bor_err_t *err);
 
 
 /** Prevail conditions are copied to effects -- this creates a true TNF,
@@ -76,6 +88,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,
+                    int use_fd_fact_names,
                     FILE *fout);
 
 #ifdef __cplusplus

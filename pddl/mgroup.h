@@ -168,6 +168,20 @@ void pddlMGroupsExtractCoverLargest(const pddl_mgroups_t *mgs,
  */
 void pddlMGroupsExtractCoverEssential(const pddl_mgroups_t *mgs,
                                       pddl_mgroups_t *cover_set);
+/**
+ * Returns number of facts covered by the mutex groups.
+ */
+int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs);
+
+/**
+ * Split the mutex groups by intersection with the given set of facts:
+ * for every mgroup M in src:
+ *     add M \cap fset to dst if non-empty
+ *     add M \setminus fset to dst if non-empty
+ */
+void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
+                                    const pddl_mgroups_t *src,
+                                    const bor_iset_t *fset);
 
 /**
  * Debug print out
@@ -180,6 +194,11 @@ void pddlMGroupPrint(const pddl_t *pddl,
                      const pddl_strips_t *strips,
                      const pddl_mgroup_t *mg,
                      FILE *fout);
+void pddlMGroupsPrintTable(const pddl_t *pddl,
+                           const pddl_strips_t *strips,
+                           const pddl_mgroups_t *mg,
+                           FILE *fout,
+                           bor_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

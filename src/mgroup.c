@@ -24,6 +24,7 @@
 #include "pddl/strips.h"
 #include "pddl/mgroup.h"
 #include "pddl/fdr_var.h"
+#include "pddl/outbox.h"
 #include "assert.h"
 
 typedef struct pred_tnode pred_tnode_t;
@@ -862,6 +863,39 @@ void pddlMGroupsExtractCoverEssential(const pddl_mgroups_t *_mgs,
     pddlMGroupsFree(&mgs);
 }
 
+int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs)
+{
+    int num = 0;
+    BOR_ISET(facts);
+    for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi)
+        borISetUnion(&facts, &mgs->mgroup[mgi].mgroup);
+    num = borISetSize(&facts);
+    borISetFree(&facts);
+    return num;
+}
+
+void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
+                                    const pddl_mgroups_t *src,
+                                    const bor_iset_t *fset)
+{
+    BOR_ISET(mg1);
+    BOR_ISET(mg2);
+    for (int mgi = 0; mgi < src->mgroup_size; ++mgi){
+        const bor_iset_t *mg = &src->mgroup[mgi].mgroup;
+        borISetIntersect2(&mg1, mg, fset);
+        if (borISetSize(&mg1) > 0)
+            pddlMGroupsAdd(dst, &mg1);
+
+        borISetMinus2(&mg2, mg, fset);
+        if (borISetSize(&mg2) > 0)
+            pddlMGroupsAdd(dst, &mg2);
+    }
+    borISetFree(&mg1);
+    borISetFree(&mg2);
+
+    pddlMGroupsSortUniq(dst);
+}
+
 void pddlMGroupsPrint(const pddl_t *pddl,
                       const pddl_strips_t *strips,
                       const pddl_mgroups_t *mg,
@@ -875,7 +909,7 @@ void pddlMGroupsPrint(const pddl_t *pddl,
 
     int lmgid;
     BOR_ISET_FOR_EACH(&lmgs, lmgid){
-        if (lmgid >= 0){
+        if (lmgid >= 0 && pddl != NULL){
             pddlLiftedMGroupPrint(pddl, mg->lifted_mgroup.mgroup + lmgid, fout);
         }
 
@@ -915,4 +949,50 @@ void pddlMGroupPrint(const pddl_t *pddl,
         init = 1;
     }
     fprintf(fout, "\n");
+}
+
+
+void pddlMGroupsPrintTable(const pddl_t *pddl,
+                           const pddl_strips_t *strips,
+                           const pddl_mgroups_t *mg,
+                           FILE *fout,
+                           bor_err_t *err)
+{
+    if (mg->mgroup_size == 0){
+        BOR_INFO2(err, "No Mutex Groups");
+        return;
+    }
+    char line[128];
+    pddl_outboxes_t boxes;
+    pddlOutBoxesInit(&boxes);
+    for (int mgi = 0; mgi < mg->mgroup_size; ++mgi){
+        const pddl_mgroup_t *m = mg->mgroup + mgi;
+        pddl_outbox_t *box = pddlOutBoxesAdd(&boxes);
+        int used = snprintf(line, 128, "ID: %d", mgi);
+        if (m->lifted_mgroup_id >= 0){
+            used += snprintf(line + used, 128 - used, " LID: %d",
+                             m->lifted_mgroup_id);
+        }
+        if (m->is_exactly_one)
+            used += snprintf(line + used, 128 - used, " e1");
+        if (m->is_fam_group)
+            used += snprintf(line + used, 128 - used, " fam");
+        if (m->is_goal)
+            used += snprintf(line + used, 128 - used, " G");
+        pddlOutBoxAddLine(box, line);
+
+        int fact;
+        BOR_ISET_FOR_EACH(&m->mgroup, fact){
+            snprintf(line, 128, "%d:(%s)", fact, strips->fact.fact[fact]->name);
+            pddlOutBoxAddLine(box, line);
+        }
+    }
+
+    pddl_outboxes_t merged;
+    pddlOutBoxesInit(&merged);
+    pddlOutBoxesMerge(&merged, &boxes, 100);
+    pddlOutBoxesPrint(&merged, fout, err);
+    pddlOutBoxesFree(&merged);
+
+    pddlOutBoxesFree(&boxes);
 }

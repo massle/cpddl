@@ -47,6 +47,8 @@ struct pddl_fdr_var {
     int val_none_of_those; /*!< ID of the "none of those" value or -1 --
                                 this value is created during translation from
                                 STRIPS */
+    int is_black; /*!< True if the variable is painted black in a red-black
+                       problem */
 };
 typedef struct pddl_fdr_var pddl_fdr_var_t;
 
@@ -117,6 +119,10 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
                                   const char *name);
 
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout);
+void pddlFDRVarsPrintTable(const pddl_fdr_vars_t *vars,
+                           int linesize,
+                           FILE *fout,
+                           bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

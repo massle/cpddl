@@ -65,6 +65,9 @@
 #include <pddl/preprocess.h>
 #include <pddl/hpot.h>
 #include <pddl/hflow.h>
+#include <pddl/hadd.h>
+#include <pddl/hmax.h>
+#include <pddl/hff.h>
 #include <pddl/cg.h>
 #include <pddl/fdr_app_op.h>
 #include <pddl/random_walk.h>
@@ -74,6 +77,7 @@
 #include <pddl/open_list.h>
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
+#include <pddl/search_lazy.h>
 #include <pddl/plan.h>
 #include <pddl/heur.h>
 #include <pddl/dtg.h>
@@ -84,6 +88,7 @@
 #include <pddl/op_mutex_sym_redundant.h>
 #include <pddl/time_limit.h>
 #include <pddl/reversibility.h>
+#include <pddl/invertibility.h>
 #include <pddl/cascading_table.h>
 #include <pddl/transition.h>
 #include <pddl/label.h>
@@ -93,5 +98,7 @@
 #include <pddl/trans_system_graph.h>
 #include <pddl/endomorphism.h>
 #include <pddl/symbolic_task.h>
+#include <pddl/black_mgroup.h>
+#include <pddl/red_black_fdr.h>
 
 #endif /* __PDDL_H__ */

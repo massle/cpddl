@@ -67,6 +67,11 @@ pddl_heur_t *pddlHeurHMax(const pddl_fdr_t *fdr, bor_err_t *err);
 pddl_heur_t *pddlHeurHAdd(const pddl_fdr_t *fdr, bor_err_t *err);
 
 /**
+ * h^ff heuristic
+ */
+pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, bor_err_t *err);
+
+/**
  * Destructor
  */
 void pddlHeurDel(pddl_heur_t *h);

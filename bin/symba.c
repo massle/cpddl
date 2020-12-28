@@ -637,7 +637,8 @@ static int pruneEndomorphismFDR(const pddl_endomorphism_config_t *cfg,
     int ret = 0;
     BOR_INFO2(&err, "Redundant operators using endomorphism on FDR ...");
     pddl_fdr_t fdr;
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
+                          0, &err);
     ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, &err);
     pddlFDRFree(&fdr);
     BOR_INFO2(&err, "Redundant operators using endomorphism on FDR DONE");
@@ -1442,7 +1443,7 @@ static int symba(void)
     unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     pddlStripsOpsSort(&strips.op);
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
-                         fdr_var_flag, &err);
+                          fdr_var_flag, 0, &err);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
     //symb_cfg.use_constr = 1;

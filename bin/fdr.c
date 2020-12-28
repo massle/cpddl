@@ -59,6 +59,13 @@ struct options {
     const char *op_mutex_out;
 
     int pot;
+
+    int mgroups_split_invertible;
+    int black_vars;
+    int black_vars_num;
+
+    int pretty_print_vars;
+    int pretty_print_cg;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -73,6 +80,7 @@ pddl_strips_t strips;
 pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
 unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+unsigned fdr_flag = 0u;
 pddl_endomorphism_config_t endomorphism_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
 pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
 
@@ -218,6 +226,7 @@ static int readOpts(int *argc, char *argv[])
     opt.op_mutex_ts = -1;
     opt.op_mutex_op_fact = -1;
     opt.op_mutex_hm_op = -1;
+    opt.black_vars_num = 1;
 
     pddl_cfg.force_adl = 1;
     endomorphism_cfg.num_threads = 1;
@@ -378,6 +387,24 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
+
+    optsAddDesc("mgroups-split-invertible", 0x0, OPTS_NONE,
+                &opt.mgroups_split_invertible, NULL,
+                "Split mutex groups using invertible facts. (default: off)");
+    optsAddDesc("black-vars", 0x0, OPTS_NONE, &opt.black_vars, NULL,
+                "Find black variables and output red-black FDR."
+                " (default: off)");
+    optsAddDesc("black-vars-num", 0x0, OPTS_INT, &opt.black_vars_num, NULL,
+                "Maximal number of red-black FDRs that should be created"
+                " (default: off)");
+
+    optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
+                &opt.pretty_print_vars, NULL,
+                "Print created FDR variables in a human readable form"
+                " (default: off)");
+    optsAddDesc("pretty-print-cg", 0x0, OPTS_NONE,
+                &opt.pretty_print_cg, NULL,
+                "Print causal graph in ascii art (default: off)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -707,7 +734,8 @@ static int pruneEndomorphismFDR(const pddl_endomorphism_config_t *cfg,
     int ret = 0;
     BOR_INFO2(&err, "Redundant operators using endomorphism on FDR ...");
     pddl_fdr_t fdr;
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
+                          fdr_var_flag, 0, &err);
     ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, &err);
     pddlFDRFree(&fdr);
     BOR_INFO2(&err, "Redundant operators using endomorphism on FDR DONE");
@@ -1527,29 +1555,25 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
-static int toFDR(void)
+static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
 {
-    if (opt.num_sym_gen){
-        pddl_strips_sym_t sym;
-        pddlStripsSymInitPDG(&sym, &strips);
-        BOR_INFO(&err, "Symmetry generators: %d", sym.gen_size);
-        pddlStripsSymFree(&sym);
-    }
-
-    BOR_INFO2(&err, "");
-    BOR_INFO2(&err, "Translating to FDR ...");
-    BOR_INFO(&err, "Output file: '%s'", opt.fdr_out);
-
-    fdr_var_flag = opt.fdr_var_method;
-    FILE *fout = openFile(opt.fdr_out);
+    BOR_INFO(&err, "Output file: '%s'", fnout);
+    FILE *fout = openFile(fnout);
     if (fout == NULL){
         fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
         return -1;
     }
 
-    pddl_fdr_t fdr;
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag, &err);
-    pddlFDRPrintFD(&fdr, &mgroups, fout);
+    if (opt.pretty_print_vars)
+        pddlFDRVarsPrintTable(&fdr->var, 150, NULL, &err);
+    if (opt.pretty_print_cg){
+        pddl_cg_t cg;
+        pddlCGInit(&cg, &fdr->var, &fdr->op, 0);
+        pddlCGPrintAsciiGraph(&cg, NULL, &err);
+        pddlCGFree(&cg);
+    }
+    pddlFDRPrintFD(fdr, &mgroups, 1, fout);
+
 
     if (opt.pot){
         BOR_INFO2(&err, "");
@@ -1570,20 +1594,97 @@ static int toFDR(void)
                  pot_cfg.all_states_mutex_size);
         BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
         pddl_hpot_t hpot;
-        if (pddlHPotInit(&hpot, &fdr, &pot_cfg, &err) != 0){
+        if (pddlHPotInit(&hpot, fdr, &pot_cfg, &err) != 0){
             BOR_INFO2(&err, "Cannot find potential heuristic");
             BOR_INFO_PREFIX_POP(&err);
             return -1;
         }
-        int est = pddlHPotFDRStateEstimate(&hpot, &fdr.var, fdr.init);
+        int est = pddlHPotFDRStateEstimate(&hpot, &fdr->var, fdr->init);
         BOR_INFO(&err, "Init state estimate: %d", est);
-        printPotentials(&fdr, &hpot, fout);
+        printPotentials(fdr, &hpot, fout);
         pddlHPotFree(&hpot);
         BOR_INFO_PREFIX_POP(&err);
     }
-    pddlFDRFree(&fdr);
-
     closeFile(fout);
+    return 0;
+}
+
+static int toFDR(void)
+{
+    if (opt.num_sym_gen){
+        pddl_strips_sym_t sym;
+        pddlStripsSymInitPDG(&sym, &strips);
+        BOR_INFO(&err, "Symmetry generators: %d", sym.gen_size);
+        pddlStripsSymFree(&sym);
+    }
+
+    if (opt.mgroups_split_invertible){
+        BOR_INFO2(&err, "Splitting mutex groups using invertible facts...");
+        BOR_INFO_PREFIX_PUSH(&err, "Split mgroups: ");
+        pddlMGroupsRemoveSmall(&mgroups, 1);
+        BOR_INFO(&err, "Number of mutex groups >1 before splitting: %d"
+                       " covering %d facts",
+                 mgroups.mgroup_size,
+                 pddlMGroupsNumCoveredFacts(&mgroups));
+        BOR_ISET(unreachable_ops);
+        pddlStripsFindUnreachableOps(&strips, &mutex, &unreachable_ops, &err);
+        pddlStripsReduce(&strips, NULL, &unreachable_ops);
+        pddlStripsRemoveUselessDelEffs(&strips, &mutex, NULL, &err);
+        borISetFree(&unreachable_ops);
+
+        BOR_ISET(invertible_facts);
+        pddlRSEInvertibleFacts(&strips, &mgroups, &invertible_facts, &err);
+        BOR_INFO(&err, "Found %d invertible facts",
+                 borISetSize(&invertible_facts));
+        if (borISetSize(&invertible_facts) > 0){
+            pddl_mgroups_t mgs;
+            pddlMGroupsSplitByIntersection(&mgs, &mgroups, &invertible_facts);
+            pddlMGroupsFree(&mgroups);
+            mgroups = mgs;
+            pddlMGroupsRemoveSmall(&mgroups, 1);
+            BOR_INFO(&err, "Number of mutex groups >1 after splitting: %d"
+                           " covering %d facts",
+                     mgroups.mgroup_size,
+                     pddlMGroupsNumCoveredFacts(&mgroups));
+        }
+        borISetFree(&invertible_facts);
+        BOR_INFO_PREFIX_POP(&err);
+    }
+
+    BOR_INFO2(&err, "");
+    BOR_INFO2(&err, "Translating to FDR ...");
+
+    if (opt.black_vars){
+        pddl_red_black_fdr_config_t cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
+        cfg.mgroup.num_solutions = opt.black_vars_num;
+        //cfg.relax_red_vars = 1;
+        pddl_fdr_t fdr[opt.black_vars_num];
+        int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
+                                                &cfg, &err);
+
+        int fnout_size = strlen(opt.fdr_out);
+        char fnout[fnout_size + 5];
+        for (int i = 0; i < num; ++i){
+            if (i == 0){
+                sprintf(fnout, "%s", opt.fdr_out);
+            }else{
+                sprintf(fnout, "%s.%d", opt.fdr_out, i + 1);
+            }
+
+            if (fdrOut(fdr + i, fnout) != 0)
+                return -1;
+            pddlFDRFree(fdr + i);
+        }
+    }else{
+        fdr_var_flag = opt.fdr_var_method;
+        pddl_fdr_t fdr;
+        pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
+                              fdr_flag, &err);
+        if (fdrOut(&fdr, opt.fdr_out) != 0)
+            return -1;
+        pddlFDRFree(&fdr);
+
+    }
 
     return 0;
 }

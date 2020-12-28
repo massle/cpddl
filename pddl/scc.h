@@ -21,10 +21,13 @@
 #define __PDDL_SCC_H__
 
 #include <boruvka/iset.h>
+#include <boruvka/iarr.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+// TODO: Generalize to graph algorithms
 
 /**
  * Directed graph for SCC algorithm.
@@ -36,6 +39,9 @@ struct pddl_scc_graph {
 typedef struct pddl_scc_graph pddl_scc_graph_t;
 
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size);
+void pddlSCCGraphInitInduced(pddl_scc_graph_t *g,
+                             const pddl_scc_graph_t *src,
+                             const bor_iset_t *ind);
 void pddlSCCGraphFree(pddl_scc_graph_t *g);
 void pddlSCCGraphAddEdge(pddl_scc_graph_t *g, int from, int to);
 
@@ -62,6 +68,26 @@ void pddlSCC(pddl_scc_t *scc, const pddl_scc_graph_t *graph);
  */
 void pddlSCCFree(pddl_scc_t *scc);
 
+
+struct pddl_graph_simple_cycles {
+    bor_iarr_t *cycle;
+    int cycle_size;
+    int cycle_alloc;
+};
+typedef struct pddl_graph_simple_cycles pddl_graph_simple_cycles_t;
+
+/** TODO */
+#define PDDL_GRAPH_SIMPLE_CYCLE_CONT 0
+#define PDDL_GRAPH_SIMPLE_CYCLE_STOP 1
+typedef int (*pddl_graph_simple_cycle_fn)(const bor_iarr_t *cycle,
+                                          void *userdata);
+
+void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
+                             pddl_graph_simple_cycle_fn fn,
+                             void *userdata);
+void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
+                           const pddl_scc_graph_t *graph);
+void pddlGraphSimpleCyclesFree(pddl_graph_simple_cycles_t *cycles);
 
 #ifdef __cplusplus
 } /* extern "C" */
