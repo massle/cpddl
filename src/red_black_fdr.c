@@ -86,8 +86,6 @@ static void setBlackVars(pddl_fdr_t *fdr,
         int first_fact = borISetGet(&bmg->mgroup, 0);
         int val_id = borISetGet(&fdr->var.strips_id_to_val[first_fact], 0);
         int var_id = fdr->var.global_id_to_val[val_id]->var_id;
-        fprintf(stderr, "F: %d, var_id: %d, val_id: %d\n", first_fact,
-                var_id, val_id);
         if (fdr->var.var[var_id].val_none_of_those >= 0){
             none_of_those[mgi] = var_id;
             ++num_none_of_those;
@@ -122,9 +120,6 @@ static void compileAwayRedDelEffs(pddl_strips_t *strips,
             pddlMGroupsAdd(mgroups, &mg->mgroup);
         }
     }
-    pddlMGroupsPrint(NULL, strips_in, mgroups, stderr);
-    fprintf(stderr, "----\n");
-    pddlMGroupsPrint(NULL, strips_in, mgroups_in, stderr);
 
     borISetFree(&black_facts);
 }
@@ -217,7 +212,6 @@ static int constructFDR(pddl_fdr_t *fdr,
     // Find black variables and remember which of them has none-of-those value
     int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups->mgroup_size);
     setBlackVars(fdr, black_mgroups, none_of_those, err);
-    pddlBlackMGroupsPrint(strips, black_mgroups, stderr);
 
     // Set none-of-those in preconditions of operators
     setNoneOfThoseInPre(fdr, strips, black_mgroups, none_of_those, err);
