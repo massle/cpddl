@@ -18,6 +18,7 @@
 
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/red_black_fdr.h"
+#include "pddl/cg.h"
 #include "assert.h"
 
 static void prepareMutex(pddl_mutex_pairs_t *mutex,
@@ -280,4 +281,21 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
              borTimerElapsedInSF(&timer));
     BOR_INFO_PREFIX_POP(err);
     return num_created;
+}
+
+int pddlRedBlackCheck(const pddl_fdr_t *fdr, bor_err_t *err)
+{
+    pddl_cg_t cg;
+    pddlCGInit(&cg, &fdr->var, &fdr->op, 1);
+
+    pddl_cg_t black_cg;
+    pddlCGInitProjectToBlackVars(&black_cg, &cg, &fdr->var);
+    int is_acyclic = pddlCGIsAcyclic(&black_cg);
+    if (!is_acyclic)
+        BOR_FATAL2("Black causal graph is not acyclic!");
+
+    pddlCGFree(&black_cg);
+    pddlCGFree(&cg);
+
+    return is_acyclic;
 }
