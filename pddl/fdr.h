@@ -52,7 +52,7 @@ void pddlFDRFree(pddl_fdr_t *fdr);
 /**
  * Reorder variables using causal graph
  */
-void pddlFDRReorderVarsCG(pddl_fdr_t *fdr, bor_err_t *err);
+void pddlFDRReorderVarsCG(pddl_fdr_t *fdr);
 
 /**
  * Delete the specified facts and operators.

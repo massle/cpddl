@@ -60,6 +60,7 @@ struct options {
 
     int pot;
 
+    int order_vars_cg;
     int mgroups_split_invertible;
     int black_vars;
     int black_vars_num;
@@ -388,6 +389,9 @@ static int readOpts(int *argc, char *argv[])
                 "Generate potentials according to the specification."
                 " TODO");
 
+    optsAddDesc("order-vars-cg", 0x0, OPTS_NONE,
+                &opt.order_vars_cg, NULL,
+                "Reorder variables using causal graph. (default: off)");
     optsAddDesc("mgroups-split-invertible", 0x0, OPTS_NONE,
                 &opt.mgroups_split_invertible, NULL,
                 "Split mutex groups using invertible facts. (default: off)");
@@ -1555,8 +1559,24 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
-static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
+static int processFDR(pddl_fdr_t *fdr, int fdr_id)
 {
+    int fnout_size = strlen(opt.fdr_out);
+    char fnout[fnout_size + 5];
+    if (fdr_id == 0){
+        sprintf(fnout, "%s", opt.fdr_out);
+    }else{
+        sprintf(fnout, "%s.%d", opt.fdr_out, fdr_id + 1);
+    }
+
+    if (opt.order_vars_cg){
+        pddlFDRReorderVarsCG(fdr);
+        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
+    }
+
+    // TODO
+    //pddlRedBlackCheck(fdr, &err);
+
     BOR_INFO(&err, "Output file: '%s'", fnout);
     FILE *fout = openFile(fnout);
     if (fout == NULL){
@@ -1661,17 +1681,8 @@ static int toFDR(void)
         pddl_fdr_t fdr[opt.black_vars_num];
         int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                                                 &cfg, &err);
-
-        int fnout_size = strlen(opt.fdr_out);
-        char fnout[fnout_size + 5];
         for (int i = 0; i < num; ++i){
-            if (i == 0){
-                sprintf(fnout, "%s", opt.fdr_out);
-            }else{
-                sprintf(fnout, "%s.%d", opt.fdr_out, i + 1);
-            }
-
-            if (fdrOut(fdr + i, fnout) != 0)
+            if (processFDR(fdr + i, i) != 0)
                 return -1;
             pddlFDRFree(fdr + i);
         }
@@ -1680,7 +1691,7 @@ static int toFDR(void)
         pddl_fdr_t fdr;
         pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                               fdr_flag, &err);
-        if (fdrOut(&fdr, opt.fdr_out) != 0)
+        if (processFDR(&fdr, 0) != 0)
             return -1;
         pddlFDRFree(&fdr);
 

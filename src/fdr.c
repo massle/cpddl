@@ -110,7 +110,7 @@ void pddlFDRFree(pddl_fdr_t *fdr)
     pddlFDRVarsFree(&fdr->var);
 }
 
-void pddlFDRReorderVarsCG(pddl_fdr_t *fdr, bor_err_t *err)
+void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
 {
     int *ordering = BOR_CALLOC_ARR(int, fdr->var.var_size + 1);
     pddl_cg_t cg;
