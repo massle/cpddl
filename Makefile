@@ -42,6 +42,7 @@ OBJS += lifted_mgroup
 OBJS += lifted_mgroup_infer
 OBJS += lifted_mgroup_htable
 OBJS += mgroup
+OBJS += mgroup_projection
 OBJS += mutex_pair
 OBJS += pddl_file
 OBJS += plan_file
