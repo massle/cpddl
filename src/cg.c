@@ -249,7 +249,7 @@ static int heapLT(const bor_pairheap_node_t *a,
             return v1->var < v2->var;
         return v1->w < v2->w;
     }
-    return v1->scc_id < v2->scc_id;
+    return v1->scc_id > v2->scc_id;
 }
 
 static void orderVarInit(order_var_t *order_var,

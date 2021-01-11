@@ -706,6 +706,20 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
     return val;
 }
 
+void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap)
+{
+    pddl_fdr_var_t *var_tmp = BOR_ALLOC_ARR(pddl_fdr_var_t, vars->var_size);
+    memcpy(var_tmp, vars->var, sizeof(pddl_fdr_var_t) * vars->var_size);
+    for (int var_id = 0; var_id < vars->var_size; ++var_id){
+        vars->var[remap[var_id]] = var_tmp[var_id];
+        pddl_fdr_var_t *var = vars->var + remap[var_id];
+        var->var_id = remap[var_id];
+        for (int val_id = 0; val_id < var->val_size; ++val_id)
+            var->val[val_id].var_id = remap[var_id];
+    }
+    BOR_FREE(var_tmp);
+}
+
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)
 {
     fprintf(fout, "Vars (%d):\n", vars->var_size);

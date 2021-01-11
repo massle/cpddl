@@ -50,6 +50,11 @@ void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);
 
 /**
+ * Reorder variables using causal graph
+ */
+void pddlFDRReorderVarsCG(pddl_fdr_t *fdr, bor_err_t *err);
+
+/**
  * Delete the specified facts and operators.
  */
 void pddlFDRReduce(pddl_fdr_t *fdr,

@@ -118,6 +118,11 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
                                   int var,
                                   const char *name);
 
+/**
+ * TODO
+ */
+void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap);
+
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout);
 void pddlFDRVarsPrintTable(const pddl_fdr_vars_t *vars,
                            int linesize,
