@@ -40,7 +40,7 @@ typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
     { \
         1, /* .lp_add_2cycles */ \
         0, /* .lp_add_2cycles */ \
-        1, /* .weight_facts_with_relaxed_plan */ \
+        0, /* .weight_facts_with_relaxed_plan */ \
         1, /* .num_solutions */ \
     }
 

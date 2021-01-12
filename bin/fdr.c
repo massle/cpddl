@@ -65,6 +65,7 @@ struct options {
     int mgroups_split_invertible;
     int black_vars;
     int black_vars_num;
+    int black_vars_use_relaxed_plan;
 
     int pretty_print_vars;
     int pretty_print_cg;
@@ -404,6 +405,10 @@ static int readOpts(int *argc, char *argv[])
                 " (default: off)");
     optsAddDesc("black-vars-num", 0x0, OPTS_INT, &opt.black_vars_num, NULL,
                 "Maximal number of red-black FDRs that should be created"
+                " (default: off)");
+    optsAddDesc("black-vars-use-relaxed-plan", 0x0, OPTS_NONE,
+                &opt.black_vars_use_relaxed_plan, NULL,
+                "Use relaxed plan to prioritize among black facts"
                 " (default: off)");
 
     optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
@@ -1681,7 +1686,7 @@ static int toFDR(void)
     if (opt.black_vars){
         pddl_red_black_fdr_config_t cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
         cfg.mgroup.num_solutions = opt.black_vars_num;
-        //cfg.relax_red_vars = 1;
+        cfg.mgroup.weight_facts_with_relaxed_plan = 1;
         pddl_fdr_t fdr[opt.black_vars_num];
         int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                                                 &cfg, &err);
