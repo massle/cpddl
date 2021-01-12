@@ -251,7 +251,8 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
 
     // Find black mutex groups
     pddl_black_mgroups_t black_mgroups[cfg->mgroup.num_solutions];
-    pddlBlackMGroupsInfer(black_mgroups, &strips, mgroups_in, &cfg->mgroup, err);
+    pddlBlackMGroupsInfer(black_mgroups, &strips, mgroups_in, &mutex,
+                          &cfg->mgroup, err);
 
     // Construct FDR
     int num_created = 0;

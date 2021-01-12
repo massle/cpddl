@@ -115,6 +115,27 @@ void pddlMGroupProjectionFree(pddl_mgroup_projection_t *p)
         BOR_FREE(p->tr);
 }
 
+static int outdegree(const pddl_mgroup_projection_t *p, int state)
+{
+    int outdegree = 0;
+    for (int i = 0; i < p->num_states; ++i){
+        if (i != state && borISetSize(p->tr + state * p->num_states + i) > 0)
+            outdegree += borISetSize(p->tr + state * p->num_states + i);
+            //outdegree += 1;
+    }
+    return outdegree;
+}
+
+int pddlMGroupProjectionMaxOutdegree(const pddl_mgroup_projection_t *p)
+{
+    int max = -1;
+    for (int state = 0; state < p->num_states; ++state){
+        int deg = outdegree(p, state);
+        max = BOR_MAX(max, deg);
+    }
+    return max;
+}
+
 void pddlMGroupProjectionPruneUnreachable(pddl_mgroup_projection_t *p,
                                           const bor_iset_t *states,
                                           int backward)

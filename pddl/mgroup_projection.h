@@ -55,6 +55,12 @@ void pddlMGroupProjectionInitCopy(pddl_mgroup_projection_t *p,
  */
 void pddlMGroupProjectionFree(pddl_mgroup_projection_t *p);
 
+
+/**
+ * Returns maximal out-degree over all vertices.
+ */
+int pddlMGroupProjectionMaxOutdegree(const pddl_mgroup_projection_t *p);
+
 /**
  * TODO
  */

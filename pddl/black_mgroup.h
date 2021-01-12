@@ -29,6 +29,8 @@ extern "C" {
 struct pddl_black_mgroups_config {
     int lp_add_2cycles; /*!< Add all 2-cycles into LP (default: true) */
     int lp_add_3cycles; /*!< Add all 3-cycles into LP (default: false) */
+    int weight_facts_with_relaxed_plan; /*!< Use projections to a relaxed
+                                             plan to weight facts */
     int num_solutions; /*!< Max number of solutions that should be inferred
                             (default: 1)*/
 };
@@ -38,6 +40,7 @@ typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
     { \
         1, /* .lp_add_2cycles */ \
         0, /* .lp_add_2cycles */ \
+        1, /* .weight_facts_with_relaxed_plan */ \
         1, /* .num_solutions */ \
     }
 
@@ -57,6 +60,7 @@ typedef struct pddl_black_mgroups pddl_black_mgroups_t;
 void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
                            const pddl_strips_t *strips,
                            const pddl_mgroups_t *mgroups,
+                           const pddl_mutex_pairs_t *mutex,
                            const pddl_black_mgroups_config_t *cfg,
                            bor_err_t *err);
 

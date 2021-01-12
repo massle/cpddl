@@ -22,10 +22,13 @@
 #include "pddl/scc.h"
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/black_mgroup.h"
+#include "pddl/mgroup_projection.h"
+#include "pddl/hff.h"
 
 struct fact_vertex {
     int fact;
     int mgroup;
+    int weight;
 };
 typedef struct fact_vertex fact_vertex_t;
 
@@ -112,6 +115,18 @@ static void blackVarsCGInit(black_vars_t *bv,
         }
     }
 
+    for (int fact = 0; fact < strips->fact.fact_size; ++fact){
+        const bor_iset_t *vert_set = bv->fact_to_fact_vertex + fact;
+        for (int i = 0; i < borISetSize(vert_set); ++i){
+            int vert1 = borISetGet(vert_set, i);
+            for (int j = i + 1; j < borISetSize(vert_set); ++j){
+                int vert2 = borISetGet(vert_set, j);
+                pddlSCCGraphAddEdge(cg, vert1, vert2);
+                pddlSCCGraphAddEdge(cg, vert2, vert1);
+            }
+        }
+    }
+
     for (int f = 0; f < bv->fact_vertex_size; ++f){
         borISetFree(from + f);
         borISetFree(to + f);
@@ -132,9 +147,91 @@ static void uncoveredDelEffs(const pddl_strips_t *strips, bor_iset_t *facts)
     borISetFree(&deleff);
 }
 
+static void findRelaxedPlan(const pddl_strips_t *strips, bor_iset_t *plan_set)
+{
+    BOR_IARR(plan);
+    pddl_hff_t hff;
+    pddlHFFInitStrips(&hff, strips);
+    pddlHFFStripsPlan(&hff, &strips->init, &plan);
+    pddlHFFFree(&hff);
+    int op;
+    BOR_IARR_FOR_EACH(&plan, op)
+        borISetAdd(plan_set, op);
+    borIArrFree(&plan);
+}
+
+static int maxOutdegreeInProjectionToRelaxedPlan(
+                const pddl_strips_t *strips,
+                const pddl_mutex_pairs_t *mutex,
+                const pddl_strips_fact_cross_ref_t *cref,
+                const bor_iset_t *mgroup,
+                const bor_iset_t *relaxed_plan)
+{
+    pddl_mgroup_projection_t proj;
+    pddlMGroupProjectionInit(&proj, strips, mgroup, mutex, cref);
+    pddlMGroupProjectionRestrictOps(&proj, relaxed_plan);
+    int max_outdegree = pddlMGroupProjectionMaxOutdegree(&proj);
+    pddlMGroupProjectionFree(&proj);
+    return max_outdegree;
+}
+
+static void setWeightWithProjectionsToRelaxedPlan(
+                black_vars_t *bv,
+                const pddl_strips_t *strips,
+                const pddl_mgroups_t *mgroups,
+                const pddl_mutex_pairs_t *mutex,
+                bor_err_t *err)
+{
+    BOR_INFO2(err, "Setting weights using projections to a relax plan ...");
+    if (mgroups->mgroup_size == 0)
+        return;
+
+    bor_iset_t *mgs = BOR_CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    bor_iset_t *mgs_vert = BOR_CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
+        const fact_vertex_t *vert = bv->fact_vertex + vert_id;
+        if (vert->mgroup >= 0){
+            borISetAdd(mgs + vert->mgroup, vert->fact);
+            borISetAdd(mgs_vert + vert->mgroup, vert_id);
+        }
+    }
+
+    BOR_ISET(plan_set);
+    findRelaxedPlan(strips, &plan_set);
+
+    pddl_strips_fact_cross_ref_t cref;
+    pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 1, 1, 1);
+    for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+        if (borISetSize(mgs + mgi) <= 1)
+            continue;
+        int deg = maxOutdegreeInProjectionToRelaxedPlan(strips, mutex, &cref,
+                                                        mgs + mgi, &plan_set);
+        if (deg > 1)
+            deg *= strips->fact.fact_size;
+        int vert_id;
+        BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
+            bv->fact_vertex[vert_id].weight = BOR_MAX(1, deg);
+        if (deg > 1)
+            BOR_INFO(err, "Change weight of mutex group (%s), ... to %d",
+                     strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
+                     bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight);
+    }
+    pddlStripsFactCrossRefFree(&cref);
+    borISetFree(&plan_set);
+
+    for (int i = 0; i < mgroups->mgroup_size; ++i){
+        borISetFree(mgs + i);
+        borISetFree(mgs_vert + i);
+    }
+    BOR_FREE(mgs);
+    BOR_FREE(mgs_vert);
+}
+
 static void blackVarsInit(black_vars_t *bv,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mgroups,
+                          const pddl_mutex_pairs_t *mutex,
+                          const pddl_black_mgroups_config_t *cfg,
                           bor_err_t *err)
 {
     bzero(bv, sizeof(*bv));
@@ -147,6 +244,13 @@ static void blackVarsInit(black_vars_t *bv,
     bv->fact_vertex_size = numFactVertices(mgroups, &bv->invertible_facts);
     BOR_INFO(err, "Fact-mgroup pairs: %d", bv->fact_vertex_size);
     bv->fact_vertex = BOR_CALLOC_ARR(fact_vertex_t, bv->fact_vertex_size);
+    for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
+        fact_vertex_t *vert = bv->fact_vertex + vert_id;
+        vert->fact = -1;
+        vert->mgroup = -1;
+        vert->weight = 1;
+    }
+
     BOR_ISET(facts);
     int vert_id = 0;
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
@@ -184,6 +288,9 @@ static void blackVarsInit(black_vars_t *bv,
     borISetFree(&uncovered_del_effs);
 
     blackVarsCGInit(bv, &bv->cg, strips, mgroups);
+
+    if (cfg->weight_facts_with_relaxed_plan)
+        setWeightWithProjectionsToRelaxedPlan(bv, strips, mgroups, mutex, err);
 }
 
 static void blackVarsFree(black_vars_t *bv)
@@ -204,7 +311,7 @@ static bor_lp_t *createLP(const black_vars_t *bv)
     lp_flags |= BOR_LP_MAX;
     bor_lp_t *lp = borLPNew(0, bv->fact_vertex_size, lp_flags);
     for (int vi = 0; vi < bv->fact_vertex_size; ++vi){
-        borLPSetObj(lp, vi, 1.);
+        borLPSetObj(lp, vi, bv->fact_vertex[vi].weight);
         borLPSetVarBinary(lp, vi);
     }
 
@@ -456,27 +563,9 @@ static void blackFactsToBlackMGroups(const black_vars_t *bv,
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
         if (borISetSize(mgs + mgi) == 0)
             continue;
-        blackMGroupsAdd(bmgroups, mgs + mgi);
-    }
-
-    for (int bmgi = 0; bmgi < bmgroups->mgroup_size; ++bmgi){
-        pddl_black_mgroup_t *mg = bmgroups->mgroup + bmgi;
-        if (borISetSize(&mg->mgroup) <= 1)
-            continue;
-        for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-            const bor_iset_t *famgroup = &mgroups->mgroup[mgi].mgroup;
-            // Consider only fam-groups that were used to create black
-            // mutex groups of size at least 2
-            if (borISetSize(mgs + mgi) <= 1)
-                continue;
-
-            if (borISetIsSubset(&mg->mgroup, famgroup)){
-                BOR_ISET(facts);
-                borISetMinus2(&facts, famgroup, &mg->mgroup);
-                borISetUnion(&mg->mutex_facts, &facts);
-                borISetFree(&facts);
-            }
-        }
+        pddl_black_mgroup_t *mg = blackMGroupsAdd(bmgroups, mgs + mgi);
+        borISetUnion(&mg->mutex_facts, &mgroups->mgroup[mgi].mgroup);
+        borISetMinus(&mg->mutex_facts, &mg->mgroup);
     }
 
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi)
@@ -622,6 +711,7 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
 void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
                            const pddl_strips_t *strips,
                            const pddl_mgroups_t *mgroups_in,
+                           const pddl_mutex_pairs_t *mutex,
                            const pddl_black_mgroups_config_t *cfg,
                            bor_err_t *err)
 {
@@ -641,7 +731,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
     }
 
     black_vars_t bv;
-    blackVarsInit(&bv, strips, &mgroups, err);
+    blackVarsInit(&bv, strips, &mgroups, mutex, cfg, err);
     bor_lp_t *lp = createLP(&bv);
     if (cfg->lp_add_2cycles)
         addCycles2(lp, &bv, err);

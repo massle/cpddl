@@ -24,6 +24,7 @@ struct options {
     int fam_fixpoint;
     int fam_fixpoint_no_de;
     int fam_lmg;
+    int fam_lmg_keep;
     int h2_mgroup;
     int h2_fixpoint;
     int famh2_fixpoint;
@@ -291,6 +292,9 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("fam-lmg", 0x0, OPTS_NONE, &opt.fam_lmg, NULL,
                 "Use grounded lifted mutex groups as initialization for"
                 " fam-group. (default: off)");
+    optsAddDesc("fam-lmg-keep", 0x0, OPTS_NONE, &opt.fam_lmg_keep, NULL,
+                "If --fam-lmg is used, keep lifted mutex groups instead of"
+                " removing all subsets. (default: off)");
     optsAddDesc("h2mg", 0x0, OPTS_NONE, &opt.h2_mgroup, NULL,
                 "Infer h^2 based mutex groups. (default: off)");
     optsAddDesc("h2-fixpoint", 0x0, OPTS_NONE, &opt.h2_fixpoint, NULL,
@@ -680,7 +684,7 @@ static int inferMutexGroups(void)
         if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgroups);
         BOR_INFO(&err, "Found %d fam-groups.", mgroups.mgroup_size);
 
@@ -877,7 +881,7 @@ static int pruneStripsFixpointFAMGroups(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1070,7 +1074,7 @@ static int pruneStripsFixpointFAMH2(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1165,7 +1169,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
