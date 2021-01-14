@@ -28,7 +28,7 @@
 struct fact_vertex {
     int fact;
     int mgroup;
-    int weight;
+    float weight;
 };
 typedef struct fact_vertex fact_vertex_t;
 
@@ -204,15 +204,15 @@ static void setWeightWithProjectionsToRelaxedPlan(
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
         if (borISetSize(mgs + mgi) <= 1)
             continue;
-        int deg = maxOutdegreeInProjectionToRelaxedPlan(strips, mutex, &cref,
-                                                        mgs + mgi, &plan_set);
+        float deg = maxOutdegreeInProjectionToRelaxedPlan(strips, mutex, &cref,
+                                                          mgs + mgi, &plan_set);
         if (deg > 1)
             deg *= strips->fact.fact_size;
         int vert_id;
         BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
             bv->fact_vertex[vert_id].weight = BOR_MAX(1, deg);
         if (deg > 1)
-            BOR_INFO(err, "Change weight of mutex group (%s), ... to %d",
+            BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
                      strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
                      bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight);
     }
@@ -248,7 +248,7 @@ static void blackVarsInit(black_vars_t *bv,
         fact_vertex_t *vert = bv->fact_vertex + vert_id;
         vert->fact = -1;
         vert->mgroup = -1;
-        vert->weight = 1;
+        vert->weight = 1.;
     }
 
     BOR_ISET(facts);
