@@ -1667,6 +1667,7 @@ static int toFDR(void)
                  borISetSize(&invertible_facts));
         if (borISetSize(&invertible_facts) > 0){
             pddl_mgroups_t mgs;
+            pddlMGroupsInitEmpty(&mgs);
             pddlMGroupsSplitByIntersection(&mgs, &mgroups, &invertible_facts);
             pddlMGroupsFree(&mgroups);
             mgroups = mgs;
