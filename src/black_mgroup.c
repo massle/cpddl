@@ -318,11 +318,15 @@ static void setWeightWithConflictsInRelaxedPlan(
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
             if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)
                 continue;
+            if (borISetSize(mgs_vert + mgi) == 0)
+                continue;
             float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
             max_weight = BOR_MAX(max_weight, w);
         }
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
             if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)
+                continue;
+            if (borISetSize(mgs_vert + mgi) == 0)
                 continue;
             float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
             if (w < max_weight){
