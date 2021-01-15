@@ -85,6 +85,7 @@ OBJS += open_list_splaytree2
 OBJS += search_astar
 OBJS += search_lazy
 OBJS += plan
+OBJS += relaxed_plan
 OBJS += heur
 OBJS += heur_blind
 OBJS += heur_lm_cut
