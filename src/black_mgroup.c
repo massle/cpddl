@@ -793,6 +793,7 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
     BOR_ISET(black_vars);
     int cont = 1;
     int solution = 0;
+    int num_updates = 0;
     while (cont && (ret = solveLP(lp, bv, &black_vars)) == 0){
         BOR_INFO(err, "Solved. Candidate set size: %d",
                  borISetSize(&black_vars));
@@ -803,8 +804,13 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
         if (findMultiMGroupComponent(bv, &black_graph, &comp)){
             BOR_INFO2(err, "The solution has a cycle."
                            " Updating LP by adding more cycles...");
-            updateLPWithCycle(lp, bv, &black_graph, &comp);
-            BOR_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
+            if (num_updates == 5){
+                addCycles3(lp, bv, err);
+            }else{
+                updateLPWithCycle(lp, bv, &black_graph, &comp);
+                BOR_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
+            }
+            ++num_updates;
 
         }else if (!findAndUpdateLeafs(lp, bv, strips, &black_vars,
                                       mgroups->mgroup_size, err)){
