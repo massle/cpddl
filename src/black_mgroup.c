@@ -24,6 +24,7 @@
 #include "pddl/black_mgroup.h"
 #include "pddl/mgroup_projection.h"
 #include "pddl/hff.h"
+#include "pddl/relaxed_plan.h"
 
 struct fact_vertex {
     int fact;
@@ -147,16 +148,36 @@ static void uncoveredDelEffs(const pddl_strips_t *strips, bor_iset_t *facts)
     borISetFree(&deleff);
 }
 
-static void findRelaxedPlan(const pddl_strips_t *strips, bor_iset_t *plan_set)
+static void findRelaxedPlan(const black_vars_t *bv,
+                            const pddl_strips_t *strips,
+                            bor_iset_t *plan_set,
+                            int *conflicts,
+                            bor_err_t *err)
 {
     BOR_IARR(plan);
     pddl_hff_t hff;
     pddlHFFInitStrips(&hff, strips);
     pddlHFFStripsPlan(&hff, &strips->init, &plan);
     pddlHFFFree(&hff);
-    int op;
-    BOR_IARR_FOR_EACH(&plan, op)
-        borISetAdd(plan_set, op);
+
+    if (conflicts != NULL){
+        pddlRelaxedPlanCountConflictsStrips(&plan, &strips->init, &strips->goal,
+                                            &strips->op, 1, conflicts);
+        for (int i = 0; i < strips->fact.fact_size; ++i){
+            if (conflicts[i] > 0
+                    && borISetSize(&bv->fact_to_fact_vertex[i]) > 0){
+                BOR_INFO(err, "Conflict count: %d:(%s) = %d",
+                         i, strips->fact.fact[i]->name, conflicts[i]);
+            }
+        }
+    }
+
+    if (plan_set != NULL){
+        int op;
+        BOR_IARR_FOR_EACH(&plan, op)
+            borISetAdd(plan_set, op);
+    }
+
     borIArrFree(&plan);
 }
 
@@ -182,7 +203,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 bor_err_t *err)
 {
-    BOR_INFO2(err, "Setting weights using projections to a relax plan ...");
+    BOR_INFO2(err, "Setting weights using projections to a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -197,7 +218,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
     }
 
     BOR_ISET(plan_set);
-    findRelaxedPlan(strips, &plan_set);
+    findRelaxedPlan(bv, strips, &plan_set, NULL, err);
 
     pddl_strips_fact_cross_ref_t cref;
     pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 1, 1, 1);
@@ -207,7 +228,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
         float deg = maxOutdegreeInProjectionToRelaxedPlan(strips, mutex, &cref,
                                                           mgs + mgi, &plan_set);
         if (deg > 1)
-            deg *= strips->fact.fact_size;
+            deg *= bv->fact_vertex_size;
         int vert_id;
         BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
             bv->fact_vertex[vert_id].weight = BOR_MAX(1, deg);
@@ -227,6 +248,106 @@ static void setWeightWithProjectionsToRelaxedPlan(
     BOR_FREE(mgs_vert);
 }
 
+static void setWeightWithConflictsInRelaxedPlan(
+                black_vars_t *bv,
+                const pddl_strips_t *strips,
+                const pddl_mgroups_t *mgroups,
+                const pddl_mutex_pairs_t *mutex,
+                bor_err_t *err)
+{
+    BOR_INFO2(err, "Setting weights using conflicts in a relaxed plan ...");
+    if (mgroups->mgroup_size == 0)
+        return;
+
+    // TODO: refactor
+    bor_iset_t *mgs = BOR_CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    bor_iset_t *mgs_vert = BOR_CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
+        const fact_vertex_t *vert = bv->fact_vertex + vert_id;
+        if (vert->mgroup >= 0){
+            borISetAdd(mgs + vert->mgroup, vert->fact);
+            borISetAdd(mgs_vert + vert->mgroup, vert_id);
+        }
+    }
+
+    int *conflicts = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+    findRelaxedPlan(bv, strips, NULL, conflicts, err);
+
+    for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+        if (borISetSize(mgs + mgi) <= 0)
+            continue;
+        float weight = 0.;
+        int fact_id;
+        BOR_ISET_FOR_EACH(mgs + mgi, fact_id)
+            weight += conflicts[fact_id];
+        weight = weight * bv->fact_vertex_size;
+        weight /= borISetSize(mgs_vert + mgi);
+
+        int vert_id;
+        BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
+            bv->fact_vertex[vert_id].weight = BOR_MAX(1, weight);
+        if (weight > 0.)
+            BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
+                     strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
+                     bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight);
+    }
+
+    for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
+        int mgroup = bv->fact_vertex[vert_id].mgroup;
+        int fact = bv->fact_vertex[vert_id].fact;
+        if (mgroup == -1 && conflicts[fact] > 0){
+            float weight = conflicts[fact] * bv->fact_vertex_size;
+            bv->fact_vertex[vert_id].weight = weight;
+            BOR_INFO(err, "Change weight of fact (%s) to %.2f",
+                     strips->fact.fact[fact]->name,
+                     bv->fact_vertex[vert_id].weight);
+        }
+    }
+
+    // Distribute weights to mutex groups from the same lifted mutex group
+    BOR_ISET(lifted_ids);
+    for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+        if (borISetSize(mgs + mgi) <= 0)
+            continue;
+        if (mgroups->mgroup[mgi].lifted_mgroup_id >= 0)
+            borISetAdd(&lifted_ids, mgroups->mgroup[mgi].lifted_mgroup_id);
+    }
+    int lifted_id;
+    BOR_ISET_FOR_EACH(&lifted_ids, lifted_id){
+        float max_weight = 1.;
+        for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+            if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)
+                continue;
+            float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
+            max_weight = BOR_MAX(max_weight, w);
+        }
+        for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
+            if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)
+                continue;
+            float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
+            if (w < max_weight){
+                BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
+                         strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
+                         max_weight);
+                int vert_id;
+                BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
+                    bv->fact_vertex[vert_id].weight = max_weight;
+            }
+        }
+    }
+    borISetFree(&lifted_ids);
+
+    if (conflicts != NULL)
+        BOR_FREE(conflicts);
+
+    for (int i = 0; i < mgroups->mgroup_size; ++i){
+        borISetFree(mgs + i);
+        borISetFree(mgs_vert + i);
+    }
+    BOR_FREE(mgs);
+    BOR_FREE(mgs_vert);
+}
+
 static void blackVarsInit(black_vars_t *bv,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mgroups,
@@ -236,10 +357,13 @@ static void blackVarsInit(black_vars_t *bv,
 {
     bzero(bv, sizeof(*bv));
     bv->fact_size = strips->fact.fact_size;
+
+    // Find invertible facts
     pddlRSEInvertibleFacts(strips, mgroups, &bv->invertible_facts, err);
     BOR_INFO(err, "Invertible facts: %d/%d",
             borISetSize(&bv->invertible_facts), bv->fact_size);
 
+    // Prepare vertices
     bv->fact_to_fact_vertex = BOR_CALLOC_ARR(bor_iset_t, bv->fact_size);
     bv->fact_vertex_size = numFactVertices(mgroups, &bv->invertible_facts);
     BOR_INFO(err, "Fact-mgroup pairs: %d", bv->fact_vertex_size);
@@ -251,6 +375,7 @@ static void blackVarsInit(black_vars_t *bv,
         vert->weight = 1.;
     }
 
+    // Assign facts and mgroups to vertices
     BOR_ISET(facts);
     int vert_id = 0;
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
@@ -266,6 +391,7 @@ static void blackVarsInit(black_vars_t *bv,
     }
     borISetFree(&facts);
 
+    // Assign the rest of the facts not belonging to any mgroup
     int fact;
     BOR_ISET_FOR_EACH(&bv->invertible_facts, fact){
         if (borISetSize(bv->fact_to_fact_vertex + fact) == 0){
@@ -291,6 +417,8 @@ static void blackVarsInit(black_vars_t *bv,
 
     if (cfg->weight_facts_with_relaxed_plan)
         setWeightWithProjectionsToRelaxedPlan(bv, strips, mgroups, mutex, err);
+    if (cfg->weight_facts_with_conflicts)
+        setWeightWithConflictsInRelaxedPlan(bv, strips, mgroups, mutex, err);
 }
 
 static void blackVarsFree(black_vars_t *bv)
@@ -728,10 +856,12 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
         pddl_mgroup_t *mg;
         mg = pddlMGroupsAdd(&mgroups, &mgroups_in->mgroup[mgi].mgroup);
         mg->is_fam_group = 1;
+        mg->lifted_mgroup_id = mgroups_in->mgroup[mgi].lifted_mgroup_id;
     }
 
     black_vars_t bv;
     blackVarsInit(&bv, strips, &mgroups, mutex, cfg, err);
+
     bor_lp_t *lp = createLP(&bv);
     if (cfg->lp_add_2cycles)
         addCycles2(lp, &bv, err);

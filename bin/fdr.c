@@ -66,6 +66,7 @@ struct options {
     int black_vars;
     int black_vars_num;
     int black_vars_use_relaxed_plan;
+    int black_vars_use_conflicts;
 
     int pretty_print_vars;
     int pretty_print_cg;
@@ -409,6 +410,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("black-vars-use-relaxed-plan", 0x0, OPTS_NONE,
                 &opt.black_vars_use_relaxed_plan, NULL,
                 "Use relaxed plan to prioritize among black facts"
+                " (default: off)");
+    optsAddDesc("black-vars-use-conflicts", 0x0, OPTS_NONE,
+                &opt.black_vars_use_conflicts, NULL,
+                "Use conflicts in relaxed plan to prioritize among black facts"
                 " (default: off)");
 
     optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
@@ -1689,6 +1694,8 @@ static int toFDR(void)
         cfg.mgroup.num_solutions = opt.black_vars_num;
         if (opt.black_vars_use_relaxed_plan)
             cfg.mgroup.weight_facts_with_relaxed_plan = 1;
+        if (opt.black_vars_use_conflicts)
+            cfg.mgroup.weight_facts_with_conflicts = 1;
         pddl_fdr_t fdr[opt.black_vars_num];
         int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                                                 &cfg, &err);

@@ -31,6 +31,7 @@ struct pddl_black_mgroups_config {
     int lp_add_3cycles; /*!< Add all 3-cycles into LP (default: false) */
     int weight_facts_with_relaxed_plan; /*!< Use projections to a relaxed
                                              plan to weight facts */
+    int weight_facts_with_conflicts;
     int num_solutions; /*!< Max number of solutions that should be inferred
                             (default: 1)*/
 };
@@ -41,6 +42,7 @@ typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
         1, /* .lp_add_2cycles */ \
         0, /* .lp_add_2cycles */ \
         0, /* .weight_facts_with_relaxed_plan */ \
+        0, /* .weight_facts_with_conflicts */ \
         1, /* .num_solutions */ \
     }
 
