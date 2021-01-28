@@ -7,6 +7,7 @@ CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
 CFLAGS += $(CUDD_CFLAGS)
+CFLAGS += $(SQLITE_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
@@ -207,8 +208,8 @@ list-global-symbols: libpddl.a
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: boruvka opts bliss cudd
-third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean
+third-party: boruvka opts bliss cudd sqlite
+third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean sqlite-clean
 
 boruvka: third-party/boruvka/Makefile
 	$(MAKE) $(_BOR_MAKE_DEF) -C third-party/boruvka all
@@ -256,10 +257,20 @@ third-party/cudd/libcudd.a:
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
 
+sqlite: third-party/sqlite/libsqlite.a
+sqlite-clean:
+	rm -f third-party/sqlite/*.a
+	rm -f third-party/sqlite/*.o
+third-party/sqlite/libsqlite.a:
+	cd third-party/sqlite && $(CC) $(CFLAGS) -c -o sqlite3.o sqlite3.c
+	cd third-party/sqlite && ar cr libsqlite.a sqlite3.o
+	cd third-party/sqlite && ranlib libsqlite.a
+
 .PHONY: all clean check check-ci check-valgrind help doc install analyze \
   examples mrproper \
   third-party third-party-clean \
   boruvka boruvka-clean \
   opts opts-clean \
   bliss bliss-clean \
-  lpsolve lpsolve-clean
+  lpsolve lpsolve-clean \
+  sqlite sqlite-clean
