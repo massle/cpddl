@@ -35,6 +35,7 @@ OBJS += strips_op
 OBJS += strips_fact_cross_ref
 OBJS += strips_ground_tree
 OBJS += strips_ground
+OBJS += strips_ground_sql
 OBJS += action_args
 OBJS += ground_atom
 OBJS += profile
@@ -262,7 +263,7 @@ sqlite-clean:
 	rm -f third-party/sqlite/*.a
 	rm -f third-party/sqlite/*.o
 third-party/sqlite/libsqlite.a:
-	cd third-party/sqlite && $(CC) $(CFLAGS) -c -o sqlite3.o sqlite3.c
+	cd third-party/sqlite && $(CC) $(SQLITE_BUILD_CFLAGS) -c -o sqlite3.o sqlite3.c
 	cd third-party/sqlite && ar cr libsqlite.a sqlite3.o
 	cd third-party/sqlite && ranlib libsqlite.a
 
