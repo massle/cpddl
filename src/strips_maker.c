@@ -598,6 +598,9 @@ static int createOps(pddl_strips_maker_t *sm,
         }
     }
 
+    pddlStripsOpsSort(&strips->op);
+    BOR_INFO2(err, "Operators sorted.");
+
     BOR_INFO(err, "Created %d operators", strips->op.op_size);
 
     return 0;
