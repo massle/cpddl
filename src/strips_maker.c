@@ -345,6 +345,7 @@ static int createGoal(pddl_strips_maker_t *sm,
 struct action_ctx {
     pddl_strips_maker_t *sm;
     const pddl_t *pddl;
+    const pddl_action_t *action;
     const pddl_obj_id_t *args;
     const int *ground_atom_to_fact;
     bor_err_t *err;
@@ -359,6 +360,25 @@ typedef struct action_ctx action_ctx_t;
 static int actionCondEff(action_ctx_t *ctx_in,
                          const pddl_cond_t *pre,
                          const pddl_cond_t *eff);
+
+static char *groundOpName(const pddl_t *pddl,
+                          const pddl_action_t *action,
+                          const pddl_obj_id_t *args)
+{
+    int i, slen;
+    char *name, *cur;
+
+    slen = strlen(action->name) + 2 + 1;
+    for (i = 0; i < action->param.param_size; ++i)
+        slen += 1 + strlen(pddl->obj.obj[args[i]].name);
+
+    cur = name = BOR_ALLOC_ARR(char, slen);
+    cur += sprintf(cur, "%s", action->name);
+    for (i = 0; i < action->param.param_size; ++i)
+        cur += sprintf(cur, " %s", pddl->obj.obj[args[i]].name);
+
+    return name;
+}
 
 static int actionPre(pddl_cond_t *c, void *ud)
 {
@@ -421,12 +441,27 @@ static int actionEff(pddl_cond_t *c, void *ud)
         if (!ctx->pddl->metric)
             return 0;
 
+        if (ctx->cond_eff){
+            ctx->cond_eff_failed = 1;
+            ctx->failed = 1;
+            BOR_ERR_RET2(ctx->err, -2,
+                        "Costs in conditional effects are not supported.");
+        }
+
         pddl_cond_func_op_t *inc = PDDL_COND_CAST(c, func_op);
         if (inc->fvalue != NULL){
             pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_func,
                                          inc->fvalue, ctx->args);
-            ASSERT(ga != NULL);
+            if (ga == NULL){
+                ctx->cond_eff_failed = 1;
+                ctx->failed = 1;
+                char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
+                BOR_ERR(ctx->err, "Missing cost for action (%s)", name);
+                if (name != NULL)
+                    BOR_FREE(name);
+                return -2;
+            }
             ctx->op->cost += ga->func_val;
         }else{
             ctx->op->cost += inc->value;
@@ -478,25 +513,6 @@ static int actionCondEff(action_ctx_t *ctx_in,
     return 0;
 }
 
-static char *groundOpName(const pddl_t *pddl,
-                          const pddl_action_t *action,
-                          const pddl_obj_id_t *args)
-{
-    int i, slen;
-    char *name, *cur;
-
-    slen = strlen(action->name) + 2 + 1;
-    for (i = 0; i < action->param.param_size; ++i)
-        slen += 1 + strlen(pddl->obj.obj[args[i]].name);
-
-    cur = name = BOR_ALLOC_ARR(char, slen);
-    cur += sprintf(cur, "%s", action->name);
-    for (i = 0; i < action->param.param_size; ++i)
-        cur += sprintf(cur, " %s", pddl->obj.obj[args[i]].name);
-
-    return name;
-}
-
 static int createOp(pddl_strips_maker_t *sm,
                     const pddl_t *pddl,
                     const int *ground_atom_to_fact_id,
@@ -508,6 +524,7 @@ static int createOp(pddl_strips_maker_t *sm,
     action_ctx_t ctx;
     ctx.sm = sm;
     ctx.pddl = pddl;
+    ctx.action = a;
     ctx.args = args;
     ctx.ground_atom_to_fact = ground_atom_to_fact_id;
     ctx.err = err;
