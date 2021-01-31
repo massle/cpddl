@@ -380,13 +380,55 @@ static char *groundOpName(const pddl_t *pddl,
     return name;
 }
 
+static int atomArg(const pddl_cond_atom_t *a, int i, const pddl_obj_id_t *args)
+{
+    if (a->arg[i].obj >= 0)
+        return a->arg[i].obj;
+    return args[a->arg[i].param];
+}
+
 static int actionPre(pddl_cond_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
 
     if (c->type == PDDL_COND_ATOM){
         pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
-        if (a->pred != ctx->pddl->pred.eq_pred && !a->neg){
+        if (a->pred == ctx->pddl->pred.eq_pred){
+            int p1 = atomArg(a, 0, ctx->args);
+            int p2 = atomArg(a, 1, ctx->args);
+            int sat = 0;
+            if (a->neg){
+                sat = (p1 != p2);
+            }else{
+                sat = (p1 == p2);
+            }
+            if (!sat){
+                if (ctx->cond_eff){
+                    ctx->cond_eff_failed = 1;
+                    return -2;
+                }
+                BOR_FATAL2("Unsatisfied (in)equality precondition."
+                           " This is definitely a bug!\n");
+            }
+
+        }else if (a->neg){
+            pddl_ground_atom_t *ga;
+#ifdef PDDL_DEBUG
+            ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_atom, a, ctx->args);
+            ASSERT(ga == NULL);
+#endif /* PDDL_DEBUG */
+            ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_atom_static,
+                                         a, ctx->args);
+            if (ga != NULL){
+                if (ctx->cond_eff){
+                    ctx->cond_eff_failed = 1;
+                    return -2;
+                }
+                BOR_FATAL2("Unsatisfied negative precondition."
+                           " This is definitely a bug!\n");
+            }
+
+        }else{
             int is_static = 0;
             pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_atom, a, ctx->args);
@@ -399,7 +441,11 @@ static int actionPre(pddl_cond_t *c, void *ud)
                 ctx->cond_eff_failed = 1;
                 return -2;
             }
-            ASSERT(ga != NULL);
+
+            if (ga == NULL){
+                BOR_FATAL2("Unsatisfied positive precondition."
+                           " This is definitely a bug!\n");
+            }
             if (!is_static)
                 borISetAdd(&ctx->op->pre, ctx->ground_atom_to_fact[ga->id]);
         }
@@ -507,8 +553,11 @@ static int actionCondEff(action_ctx_t *ctx_in,
             BOR_TRACE_RET(ctx_in->err, -1);
     }
 
-    if (!ctx.cond_eff_failed)
+    if (!ctx.cond_eff_failed
+            && (borISetSize(&op.add_eff) > 0
+                    || borISetSize(&op.del_eff) > 0)){
         pddlStripsOpAddCondEff(ctx_in->op, &op);
+    }
     pddlStripsOpFree(&op);
     return 0;
 }
@@ -562,7 +611,13 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
     if (ret == 0){
         char *name = groundOpName(pddl, action, ga->arg);
         pddlStripsOpFinalize(&op, name);
-        pddlStripsOpsAdd(&strips->op, &op);
+        if (borISetSize(&op.add_eff) > 0
+                || borISetSize(&op.del_eff) > 0
+                || op.cond_eff_size > 0){
+            pddlStripsOpsAdd(&strips->op, &op);
+            if (op.cond_eff_size > 0)
+                strips->has_cond_eff = 1;
+        }
     }
 
     pddlStripsOpFree(&op);
@@ -657,7 +712,6 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         if (strips->op.op[i]->cond_eff_size > 0)
             ++count;
     }
-    strips->has_cond_eff = (count > 0);
     BOR_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
              count);
     BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);

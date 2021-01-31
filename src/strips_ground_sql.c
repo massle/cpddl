@@ -65,6 +65,29 @@ typedef struct sql_ground sql_ground_t;
     } while (0)
 
 
+static void createTypeTable(sqlite3 *db, const pddl_t *pddl, int type)
+{
+    char query[QUERY_SIZE];
+    sprintf(query, "CREATE TABLE type_%d (t int);", type);
+    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+    CHECK_SQL_ERR(db, ret);
+
+    int obj_size;
+    const pddl_obj_id_t *objs;
+    objs = pddlTypesObjsByType(&pddl->type, type, &obj_size);
+    for (int i = 0; i < obj_size; ++i){
+        sprintf(query, "INSERT INTO type_%d values(%d);", type, objs[i]);
+        int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+        CHECK_SQL_ERR(db, ret);
+    }
+}
+
+static void createTypeTables(sqlite3 *db, const pddl_t *pddl)
+{
+    for (int type = 0; type < pddl->type.type_size; ++type)
+        createTypeTable(db, pddl, type);
+}
+
 static void createPredTable(sqlite3 *db,
                             const char *table_name,
                             int param_size,
@@ -86,7 +109,7 @@ static void createPredTable(sqlite3 *db,
     shift += sprintf(query + shift, "));");
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
-    BOR_INFO(err, "Predicate table: %s", query);
+    //BOR_INFO(err, "Predicate table: %s", query);
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -140,8 +163,7 @@ static void sqlPredInit(sql_pred_t *qpred,
         shift += sprintf(query + shift, " x0 = 1");
     shift += sprintf(query + shift, ";");
 
-    int ret = sqlite3_prepare_v2(db, query, strlen(query),
-                                 &qpred->stmt_atom, NULL);
+    int ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_atom, NULL);
     CHECK_SQL_ERR(db, ret);
 }
 
@@ -157,7 +179,7 @@ static void sqlPredFree(sql_pred_t *qpred, sqlite3 *db)
 
 static int sqlPredHasAtomArg(sql_pred_t *qpred,
                              sqlite3 *db,
-                             const int *arg)
+                             const pddl_obj_id_t *arg)
 {
     ASSERT(qpred->stmt_atom != NULL);
     for (int i = 0; i < qpred->arity; ++i){
@@ -177,7 +199,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
                           sqlite3 *db,
                           const pddl_cond_atom_t *atom)
 {
-    int arg[qpred->arity];
+    pddl_obj_id_t arg[qpred->arity];
     for (int i = 0; i < qpred->arity; ++i){
         ASSERT(atom->arg[i].obj >= 0);
         arg[i] = atom->arg[i].obj;
@@ -208,8 +230,6 @@ static int sqlPredInsertAtomArg(sql_pred_t *qpred,
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     if (ret != SQLITE_OK && ret != SQLITE_CONSTRAINT)
         CHECK_SQL_ERR(db, ret);
-    //sqlite3_int64 id = sqlite3_last_insert_rowid(db);
-    //fprintf(stderr, "ROW ID: %ld %d\n", (long)id, ret == SQLITE_OK);
     return ret == SQLITE_OK;
 }
 
@@ -228,7 +248,8 @@ static int sqlPredInsertAtom(sql_pred_t *qpred,
 
 
 static void sqlActionConstructColumns(char *query,
-                                      const pddl_prep_action_t *prep_action)
+                                      const pddl_prep_action_t *prep_action,
+                                      bor_iset_t *type_tables)
 {
     query[0] = 0x0;
     int shift = 0;
@@ -253,17 +274,9 @@ static void sqlActionConstructColumns(char *query,
         }
         if (!found){
             int type = prep_action->param_type[pi];
-            int obj_size;
-            const pddl_obj_id_t *objs;
-            objs = pddlTypesObjsByType(prep_action->type, type, &obj_size);
-            if (obj_size > 0){
-                shift += sprintf(query + shift, "(values");
-                for (int i = 0; i < obj_size; ++i){
-                    if (i != 0)
-                        shift += sprintf(query + shift, ",");
-                    shift += sprintf(query + shift, "(%d)", objs[i]);
-                }
-                shift += sprintf(query + shift, ") as arg%d", pi);
+            if (pddlTypeNumObjs(prep_action->type, type) > 0){
+                shift += sprintf(query + shift, "tb_type%d.t as arg%d", pi, pi);
+                borISetAdd(type_tables, pi);
             }else{
                 shift += sprintf(query + shift, "-1");
             }
@@ -274,7 +287,8 @@ static void sqlActionConstructColumns(char *query,
 
 static void sqlActionConstructTables(char *query,
                                      const sql_pred_t *preds,
-                                     const pddl_prep_action_t *prep_action)
+                                     const pddl_prep_action_t *prep_action,
+                                     const bor_iset_t *type_tables)
 {
     query[0] = 0x0;
     int shift = 0;
@@ -285,6 +299,13 @@ static void sqlActionConstructTables(char *query,
             shift += sprintf(query + shift, ", ");
         shift += sprintf(query + shift, "%s as tb%d",
                          preds[atom->pred].table_name, ci);
+    }
+    int idx;
+    BOR_ISET_FOR_EACH(type_tables, idx){
+        if (shift != 0)
+            shift += sprintf(query + shift, ", ");
+        int type = prep_action->param_type[idx];
+        shift += sprintf(query + shift, "type_%d as tb_type%d", type, idx);
     }
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 }
@@ -498,14 +519,16 @@ static void sqlActionInit(sql_action_t *action,
     if (action->param_size == 0)
         return;
 
+    BOR_ISET(type_tables);
     char qcols[QUERY_SIZE];
-    sqlActionConstructColumns(qcols, prep_action);
+    sqlActionConstructColumns(qcols, prep_action, &type_tables);
     char qtables[QUERY_SIZE];
-    sqlActionConstructTables(qtables, preds, prep_action);
+    sqlActionConstructTables(qtables, preds, prep_action, &type_tables);
     char qjoincond[QUERY_SIZE];
     sqlActionConstructJoinCond(qjoincond, preds, prep_action);
     char qwhere[QUERY_SIZE];
     sqlActionConstructWhereCond(qwhere, preds, prep_action);
+    borISetFree(&type_tables);
 
     char query[QUERY_SELECT_SIZE];
     // TODO: distinct
@@ -513,9 +536,9 @@ static void sqlActionInit(sql_action_t *action,
                        qcols, qtables, qjoincond, qwhere);
     ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
 
-    BOR_INFO(err, "Action query %s: %s", prep_action->action->name, query);
+    //BOR_INFO(err, "Action query %s: %s", prep_action->action->name, query);
 
-    int ret = sqlite3_prepare_v2(db, query, strlen(query), &action->stmt, NULL);
+    int ret = sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
     CHECK_SQL_ERR(db, ret);
 }
 
@@ -525,7 +548,6 @@ static void sqlActionFree(sql_action_t *action, sqlite3 *db)
         int ret = sqlite3_finalize(action->stmt);
         CHECK_SQL_ERR(db, ret);
     }
-    // TODO
 }
 
 static int sqlGroundInit(sql_ground_t *g,
@@ -537,6 +559,8 @@ static int sqlGroundInit(sql_ground_t *g,
     g->pddl = pddl;
     pddlPrepActionsInit(g->pddl, &g->prep_action, err);
 
+    // TODO
+    //pddlPrintDebug(pddl, stderr);
     // Create a database
     int flags = SQLITE_OPEN_READWRITE
                     | SQLITE_OPEN_CREATE
@@ -545,6 +569,10 @@ static int sqlGroundInit(sql_ground_t *g,
     int ret = sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
     BOR_INFO2(err, "Sqlite database created");
+    ASSERT_RUNTIME(sqlite3_get_autocommit(g->db));
+
+    // Create type tables
+    createTypeTables(g->db, g->pddl);
 
     // Create sql predicates
     g->pred = BOR_CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
@@ -616,7 +644,7 @@ static int actionCheckNegPreStatic(sql_ground_t *g,
             if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
                 return 0;
         }else{
-            int arg[atom->arg_size];
+            pddl_obj_id_t arg[atom->arg_size];
             for (int ai = 0; ai < atom->arg_size; ++ai){
                 if (atom->arg[ai].obj >= 0){
                     arg[ai] = atom->arg[ai].obj;
@@ -639,8 +667,6 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
 {
     int updated = 0;
 
-    // TODO
-    //BOR_INFO(err, "G %d %d %d", action_id, pos, action->param_size);
     // Ground add effects
     const pddl_prep_action_t *paction = g->prep_action.action + action_id;
     if (!actionCheckNegPreStatic(g, paction, row))
@@ -671,13 +697,6 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
                                             ga->arg, err);
         }
     }
-
-    fprintf(stdout, "Action %s", paction->action->name);
-    for (int i = 0; i < paction->param_size; ++i){
-        fprintf(stdout, " %s", g->pddl->obj.obj[row[i]].name);
-        //fprintf(stdout, " %d", row[i]);
-    }
-    fprintf(stdout, "\n");
 
     return updated;
 }
@@ -736,9 +755,14 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
                 }
             }
             action->applied0 = 1;
+            int parent_id = action_id;
+            if (paction->parent_action >= 0)
+                parent_id = paction->parent_action;
+            pddlStripsMakerAddAction(&g->strips_maker,
+                                     parent_id,
+                                     (parent_id == action_id ? 0 : action_id),
+                                     NULL, NULL);
             BOR_INFO(err, "Applied empty-param action %s", paction->action->name);
-            fprintf(stdout, "Action %s", paction->action->name);
-            fprintf(stdout, "\n");
             return updated;
         }
     }
@@ -748,9 +772,9 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
 
     pddl_obj_id_t row[action->param_size];
     int ret;
+    ret = sqlite3_reset(action->stmt);
+    CHECK_SQL_ERR(g->db, ret);
     while ((ret = sqlite3_step(action->stmt)) == SQLITE_ROW){
-        // TODO
-        //BOR_INFO(err, "G %d", action_id);
         int invalid = 0;
         for (int i = 0; i < action->param_size; ++i){
             row[i] = sqlite3_column_int(action->stmt, i);
@@ -763,18 +787,10 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
             BOR_INFO2(err, "Invalid row");
             continue;
         }
-        /* TODO
-        for (int i = 0; i < action->param_size; ++i)
-            fprintf(stderr, " %d", row[i]);
-        fprintf(stderr, "\n");
-        */
 
         updated |= sqlGroundStepActionRow(g, action_id, row, err);
     }
     ASSERT_RUNTIME(ret == SQLITE_DONE);
-
-    ret = sqlite3_reset(action->stmt);
-    CHECK_SQL_ERR(g->db, ret);
 
     return updated;
 }
