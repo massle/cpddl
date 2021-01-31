@@ -619,8 +619,8 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         pddlStripsRemoveStaticFacts(strips, err);
 
     pddlStripsMergeCondEffIfPossible(strips);
+    BOR_INFO2(err, "Merged conditional effects where possible.");
 
-    // TODO: Parametrize
     pddlStripsOpsDeduplicate(&strips->op);
     BOR_INFO(err, "Operators deduplicated. Num operators: %d",
              strips->op.op_size);
@@ -629,6 +629,20 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         BOR_INFO2(err, "Strips problem marked as unsolvable");
         pddlStripsMakeUnsolvable(strips);
     }
+
+    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
+    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    int count = 0;
+    for (int i = 0; i < strips->op.op_size; ++i){
+        if (strips->op.op[i]->cond_eff_size > 0)
+            ++count;
+    }
+    strips->has_cond_eff = (count > 0);
+    BOR_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
+             count);
+    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+
 
     BOR_INFO2(err, "PDDL grounded to STRIPS.");
     BOR_INFO_PREFIX_POP(err);

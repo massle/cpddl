@@ -799,7 +799,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     sqlGroundInit(&ground, pddl, cfg, err);
     for (int step = 0; 1; ++step){
         BOR_INFO(err, "Grounding step %d"
-                      " (%d actions and %d facts grounded so far) ...",
+                      " (%d (split) actions and %d facts grounded so far) ...",
                  step, ground.strips_maker.num_action_args,
                  ground.strips_maker.ground_atom.atom_size);
         if (!sqlGroundStep(&ground, err))
@@ -812,16 +812,14 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
              ground.strips_maker.ground_atom_static.atom_size,
              ground.strips_maker.ground_func.atom_size);
 
-    /* TODO
-    if (createStripsFacts(g, strips) != 0
-            || groundActions(g, strips) != 0
-            || groundInitState(g, strips) != 0
-            || groundGoal(g, strips) != 0){
-    */
-    pddlStripsMakerMakeStrips(&ground.strips_maker, ground.pddl, cfg,
-                              strips, err);
+    int ret = pddlStripsMakerMakeStrips(&ground.strips_maker, ground.pddl, cfg,
+                                        strips, err);
 
     sqlGroundFree(&ground);
+    if (ret != 0){
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, ret);
+    }
 
     BOR_INFO2(err, "Grounding finished.");
     BOR_INFO_PREFIX_POP(err);
