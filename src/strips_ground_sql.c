@@ -19,8 +19,13 @@
 
 #include <sqlite3.h>
 #include <boruvka/alloc.h>
+#include <boruvka/htable.h>
+#include <boruvka/hfunc.h>
+#include <boruvka/sort.h>
 #include "pddl/strips_ground_sql.h"
 #include "pddl/prep_action.h"
+#include "pddl/ground_atom.h"
+#include "pddl/strips_maker.h"
 #include "assert.h"
 
 #define QUERY_SIZE 4096
@@ -47,6 +52,7 @@ struct sql_ground {
     sqlite3 *db;
     sql_pred_t *pred;
     sql_action_t *action;
+    pddl_strips_maker_t strips_maker;
 };
 typedef struct sql_ground sql_ground_t;
 
@@ -57,6 +63,7 @@ typedef struct sql_ground sql_ground_t;
                   sqlite3_errstr(code), sqlite3_errmsg(db)); \
     } \
     } while (0)
+
 
 static void createPredTable(sqlite3 *db,
                             const char *table_name,
@@ -180,7 +187,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
 
 static int sqlPredInsertAtomArg(sql_pred_t *qpred,
                                 sqlite3 *db,
-                                const int *arg,
+                                const pddl_obj_id_t *arg,
                                 bor_err_t *err)
 {
     // TODO: Use prepared statement and sqlite3_bind()
@@ -211,7 +218,7 @@ static int sqlPredInsertAtom(sql_pred_t *qpred,
                              const pddl_cond_atom_t *atom,
                              bor_err_t *err)
 {
-    int arg[qpred->arity];
+    pddl_obj_id_t arg[qpred->arity];
     for (int i = 0; i < atom->arg_size; ++i){
         ASSERT(atom->arg[i].obj >= 0);
         arg[i] = atom->arg[i].obj;
@@ -523,7 +530,7 @@ static void sqlActionFree(sql_action_t *action, sqlite3 *db)
 
 static int sqlGroundInit(sql_ground_t *g,
                          const pddl_t *pddl,
-                         const pddl_strips_ground_sql_config_t *cfg,
+                         const pddl_ground_config_t *cfg,
                          bor_err_t *err)
 {
     bzero(g, sizeof(*g));
@@ -553,16 +560,27 @@ static int sqlGroundInit(sql_ground_t *g,
     }
     BOR_INFO2(err, "Sqlite action sql queries prepared.");
 
+    pddlStripsMakerInit(&g->strips_maker, g->pddl);
+
     // Insert initial state
     bor_list_t *item;
     BOR_LIST_FOR_EACH(&g->pddl->init->part, item){
         const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+            if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
+                pddlStripsMakerAddStaticAtom(&g->strips_maker, a, NULL, NULL);
+            }else{
+                pddlStripsMakerAddAtom(&g->strips_maker, a, NULL, NULL);
+            }
             sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
 
         }else if (c->type == PDDL_COND_ASSIGN){
-            // TODO
+            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+            ASSERT(ass->fvalue == NULL);
+            ASSERT(ass->lvalue != NULL);
+            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            pddlStripsMakerAddFunc(&g->strips_maker, ass, NULL, NULL);
         }
     }
     BOR_INFO2(err, "Initial state inserted.");
@@ -573,17 +591,23 @@ static void sqlGroundFree(sql_ground_t *g)
 {
     for (int pi = 0; pi < g->pddl->pred.pred_size; ++pi)
         sqlPredFree(g->pred + pi, g->db);
+    if (g->pred != NULL)
+        BOR_FREE(g->pred);
     for (int ai = 0; ai < g->prep_action.action_size; ++ai)
         sqlActionFree(g->action + ai, g->db);
+    if (g->action != NULL)
+        BOR_FREE(g->action);
 
     pddlPrepActionsFree(&g->prep_action);
     int ret = sqlite3_close_v2(g->db);
     CHECK_SQL_ERR(g->db, ret);
+
+    pddlStripsMakerFree(&g->strips_maker);
 }
 
 static int actionCheckNegPreStatic(sql_ground_t *g,
                                    const pddl_prep_action_t *paction,
-                                   const int *row)
+                                   const pddl_obj_id_t *row)
 {
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
         const pddl_cond_atom_t *atom;
@@ -610,7 +634,7 @@ static int actionCheckNegPreStatic(sql_ground_t *g,
 
 static int sqlGroundStepActionRow(sql_ground_t *g,
                                   int action_id,
-                                  int *row,
+                                  pddl_obj_id_t *row,
                                   bor_err_t *err)
 {
     int updated = 0;
@@ -622,18 +646,30 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
     if (!actionCheckNegPreStatic(g, paction, row))
         return 0;
 
+    int is_new = 0;
+    int parent_id = action_id;
+    if (paction->parent_action >= 0)
+        parent_id = paction->parent_action;
+    pddlStripsMakerAddAction(&g->strips_maker,
+                             parent_id,
+                             (parent_id == action_id ? 0 : action_id),
+                             row,
+                             &is_new);
+    if (!is_new)
+        return 0;
+
     for (int i = 0; i < paction->add_eff.size; ++i){
         const pddl_cond_atom_t *atom;
         atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
-        int arg[atom->arg_size];
-        for (int argi = 0; argi < atom->arg_size; ++argi){
-            if (atom->arg[argi].obj >= 0){
-                arg[argi] = atom->arg[argi].obj;
-            }else{
-                arg[argi] = row[atom->arg[argi].param];
-            }
+
+        ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
+        int is_new = 0;
+        pddl_ground_atom_t *ga;
+        ga = pddlStripsMakerAddAtom(&g->strips_maker, atom, row, &is_new);
+        if (is_new){
+            updated |= sqlPredInsertAtomArg(g->pred + atom->pred, g->db,
+                                            ga->arg, err);
         }
-        updated |= sqlPredInsertAtomArg(g->pred + atom->pred, g->db, arg, err);
     }
 
     fprintf(stdout, "Action %s", paction->action->name);
@@ -685,22 +721,32 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
     if (action->param_size == 0 && !action->applied0){
         const pddl_prep_action_t *paction = g->prep_action.action + action_id;
         if (actionCheckGroundPre(g, paction)){
+            int updated = 0;
             for (int i = 0; i < paction->add_eff.size; ++i){
                 const pddl_cond_atom_t *atom;
                 atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
-                sqlPredInsertAtom(g->pred + atom->pred, g->db, atom, err);
+                ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
+                int is_new = 0;
+                pddl_ground_atom_t *ga;
+                ga = pddlStripsMakerAddAtom(&g->strips_maker, atom, NULL,
+                                            &is_new);
+                if (is_new){
+                    updated |= sqlPredInsertAtomArg(g->pred + atom->pred, g->db,
+                                                    ga->arg, err);
+                }
             }
             action->applied0 = 1;
             BOR_INFO(err, "Applied empty-param action %s", paction->action->name);
             fprintf(stdout, "Action %s", paction->action->name);
             fprintf(stdout, "\n");
+            return updated;
         }
     }
 
     if (action->stmt == NULL)
         return 0;
 
-    int row[action->param_size];
+    pddl_obj_id_t row[action->param_size];
     int ret;
     while ((ret = sqlite3_step(action->stmt)) == SQLITE_ROW){
         // TODO
@@ -741,23 +787,40 @@ static int sqlGroundStep(sql_ground_t *g, bor_err_t *err)
     return updated;
 }
 
-
 int pddlStripsGroundSql(pddl_strips_t *strips,
                         const pddl_t *pddl,
-                        const pddl_strips_ground_sql_config_t *cfg,
+                        const pddl_ground_config_t *cfg,
                         bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Ground SQL: ");
     BOR_INFO2(err, "Grounding using sqlite ...");
 
-    pddlPrintPDDLDomain(pddl, stderr);
     sql_ground_t ground;
     sqlGroundInit(&ground, pddl, cfg, err);
     for (int step = 0; 1; ++step){
-        BOR_INFO(err, "Grounding step %d ...", step);
+        BOR_INFO(err, "Grounding step %d"
+                      " (%d actions and %d facts grounded so far) ...",
+                 step, ground.strips_maker.num_action_args,
+                 ground.strips_maker.ground_atom.atom_size);
         if (!sqlGroundStep(&ground, err))
             break;
     }
+    BOR_INFO(err, "Grounding of finished: %d (split) actions, %d facts,"
+                  " %d static facts, %d functions",
+             ground.strips_maker.num_action_args,
+             ground.strips_maker.ground_atom.atom_size,
+             ground.strips_maker.ground_atom_static.atom_size,
+             ground.strips_maker.ground_func.atom_size);
+
+    /* TODO
+    if (createStripsFacts(g, strips) != 0
+            || groundActions(g, strips) != 0
+            || groundInitState(g, strips) != 0
+            || groundGoal(g, strips) != 0){
+    */
+    pddlStripsMakerMakeStrips(&ground.strips_maker, ground.pddl, cfg,
+                              strips, err);
+
     sqlGroundFree(&ground);
 
     BOR_INFO2(err, "Grounding finished.");

@@ -28,17 +28,12 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_strips_ground_sql_config {
-    int dummy;
-};
-typedef struct pddl_strips_ground_sql_config pddl_strips_ground_sql_config_t;
-
 /**
  * Ground PDDL into STRIPS.
  */
 int pddlStripsGroundSql(pddl_strips_t *strips,
                         const pddl_t *pddl,
-                        const pddl_strips_ground_sql_config_t *cfg,
+                        const pddl_ground_config_t *cfg,
                         bor_err_t *err);
 
 #ifdef __cplusplus
