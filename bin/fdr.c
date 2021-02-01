@@ -14,6 +14,7 @@ struct options {
     int lifted_mgroup_max_candidates;
     int lifted_mgroup_max_mgroups;
     int lifted_mgroup_fd;
+    int no_lifted_mgroup;
 
     int no_ground_prune;
     int no_ground_prune_pre;
@@ -262,6 +263,8 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("lmg-out", 0x0, OPTS_STR, &opt.lifted_mgroup_out, NULL,
                 "Output filename for infered lifted mutex groups."
                 " (default: none)");
+    optsAddDesc("no-lmg", 0x0, OPTS_NONE, &opt.no_lifted_mgroup, NULL,
+                "Turn off inference of lifted mutex groups. (default: off)");
 
     optsAddDesc("no-ground-prune", 0x0, OPTS_NONE, &opt.no_ground_prune, NULL,
                 "Do NOT use lifted mutex groups for pruning during grounding."
@@ -511,6 +514,12 @@ static int readPDDL(void)
 
 static int liftedMGroups(void)
 {
+    if (opt.no_lifted_mgroup){
+        pddlLiftedMGroupsInit(&lifted_mgroups);
+        BOR_INFO2(&err, "Inference of lifted mutex groups turned off");
+        return 0;
+    }
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Inference of lifted mutex groups ...");
     BOR_INFO(&err, "Lifted mutex groups option lmg-fd: %d",
