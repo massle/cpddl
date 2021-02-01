@@ -196,14 +196,10 @@ static void sqlPredFree(sql_pred_t *qpred, sqlite3 *db)
 {
     if (qpred->table_name != NULL)
         BOR_FREE(qpred->table_name);
-    if (qpred->stmt_atom != NULL){
-        int ret = sqlite3_finalize(qpred->stmt_atom);
-        CHECK_SQL_ERR(db, ret);
-    }
-    if (qpred->stmt_insert != NULL){
-        int ret = sqlite3_finalize(qpred->stmt_insert);
-        CHECK_SQL_ERR(db, ret);
-    }
+    if (qpred->stmt_atom != NULL)
+        sqlite3_finalize(qpred->stmt_atom);
+    if (qpred->stmt_insert != NULL)
+        sqlite3_finalize(qpred->stmt_insert);
 }
 
 static int sqlPredHasAtomArg(sql_pred_t *qpred,
@@ -524,10 +520,8 @@ static void sqlActionInit(sql_action_t *action,
 
 static void sqlActionFree(sql_action_t *action, sqlite3 *db)
 {
-    if (action->stmt != NULL){
-        int ret = sqlite3_finalize(action->stmt);
-        CHECK_SQL_ERR(db, ret);
-    }
+    if (action->stmt != NULL)
+        sqlite3_finalize(action->stmt);
 }
 
 static int sqlGroundInit(sql_ground_t *g,
