@@ -69,7 +69,7 @@ typedef struct sql_ground sql_ground_t;
 static void createTypeTable(sqlite3 *db, const pddl_t *pddl, int type)
 {
     char query[QUERY_SIZE];
-    sprintf(query, "CREATE TABLE type_%d (t int, UNIQUE(t));", type);
+    sprintf(query, "CREATE TABLE type_%d (t int);", type);
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -101,25 +101,30 @@ static void createPredTable(sqlite3 *db,
             shift += sprintf(query + shift, ",");
         shift += sprintf(query + shift, "x%d int", i);
     }
+    /* TODO: Disabled indexes
     shift += sprintf(query + shift, ", UNIQUE(");
     for (int i = 0; i < param_size; ++i){
         if (i != 0)
             shift += sprintf(query + shift, ",");
         shift += sprintf(query + shift, "x%d", i);
     }
-    shift += sprintf(query + shift, "));");
+    shift += sprintf(query + shift, ")");
+    */
+    shift += sprintf(query + shift, ");");
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
     //BOR_INFO(err, "Predicate table: %s", query);
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
+    /* TODO: Disabled indexes
     for (int i = 0; i < param_size; ++i){
         sprintf(query, "CREATE INDEX index_%s_%d ON %s (x%d);",
                 table_name, i, table_name, i);
         int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
         CHECK_SQL_ERR(db, ret);
     }
+    */
 }
 
 static void sqlPredInit(sql_pred_t *qpred,
