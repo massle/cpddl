@@ -158,7 +158,7 @@ ifeq '$(USE_SQLITE)' 'auto'
   USE_LOCAL_SQLITE ?= $(shell if test -f $(BASEPATH_)/third-party/sqlite/libsqlite.a; then echo "yes"; else echo "no"; fi;)
   ifeq '$(USE_LOCAL_SQLITE)' 'yes'
     SQLITE_CFLAGS := -I$(BASEPATH_)/third-party/sqlite
-    SQLITE_LDFLAGS := -L$(BASEPATH_)/third-party/sqlite -lsqlite
+    SQLITE_LDFLAGS := -L$(BASEPATH_)/third-party/sqlite -lsqlite -ldl
   endif
   ifneq '$(SQLITE_CFLAGS)$(SQLITE_LDFLAGS)' ''
     USE_SQLITE := yes
