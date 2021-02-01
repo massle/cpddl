@@ -374,86 +374,48 @@ static int objsConsecutive(const pddl_obj_id_t *objs, int obj_size)
     }
     return 1;
 }
+
+static int addEqCond(char *query,
+                     int shift,
+                     const pddl_cond_atom_t *atom,
+                     const char *cmp,
+                     const char *prefix)
+{
+    if (atom->arg[0].param >= 0 && atom->arg[1].param >= 0){
+        shift += sprintf(query + shift, "%s arg%d %s arg%d",
+                         prefix, atom->arg[0].param, cmp, atom->arg[1].param);
+
+    }else if (atom->arg[0].param >= 0){
+        shift += sprintf(query + shift, "%s arg%d %s %d",
+                         prefix, atom->arg[0].param, cmp, atom->arg[1].obj);
+
+    }else if (atom->arg[1].param >= 0){
+        shift += sprintf(query + shift, "%s arg%d %s %d",
+                         prefix, atom->arg[1].param, cmp, atom->arg[0].obj);
+
+    }else{
+        shift += sprintf(query + shift, "%s %d %s %d",
+                         prefix, atom->arg[1].obj, cmp, atom->arg[0].obj);
+    }
+    return shift;
+}
+
 static void sqlActionConstructWhereCond(char *query,
                                         const sql_pred_t *preds,
                                         const pddl_prep_action_t *prep_action)
 {
-    // TODO: refactor
+    static const char *prefix[2] = {" WHERE", " AND"};
+    static const char *cmp[2] = {"=", "!="};
     query[0] = 0x0;
     int ins = 0;
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre_eq.size; ++ci){
         const pddl_cond_t *c = prep_action->pre_eq.cond[ci];
         const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
-        if (atom->neg){
-            if (atom->arg[0].param >= 0 && atom->arg[1].param >= 0){
-                if (ins != 0){
-                    shift += sprintf(query + shift, " AND ");
-                }else{
-                    shift += sprintf(query + shift, "WHERE ");
-                }
-                shift += sprintf(query + shift, "arg%d != arg%d",
-                                 atom->arg[0].param, atom->arg[1].param);
-                ++ins;
-
-            }else if (atom->arg[0].param >= 0){
-                if (ins != 0){
-                    shift += sprintf(query + shift, " AND ");
-                }else{
-                    shift += sprintf(query + shift, "WHERE ");
-                }
-                shift += sprintf(query + shift, "arg%d != %d",
-                                 atom->arg[0].param, atom->arg[1].obj);
-                ++ins;
-
-            }else if (atom->arg[1].param >= 0){
-                if (ins != 0){
-                    shift += sprintf(query + shift, " AND ");
-                }else{
-                    shift += sprintf(query + shift, "WHERE ");
-                }
-                shift += sprintf(query + shift, "arg%d != %d",
-                                 atom->arg[1].param, atom->arg[0].obj);
-                ++ins;
-
-            }else{
-                // TODO
-            }
-        }else{
-            if (atom->arg[0].param >= 0 && atom->arg[1].param >= 0){
-                if (ins != 0){
-                    shift += sprintf(query + shift, " AND ");
-                }else{
-                    shift += sprintf(query + shift, "WHERE ");
-                }
-                shift += sprintf(query + shift, "arg%d = arg%d",
-                                 atom->arg[0].param, atom->arg[1].param);
-                ++ins;
-
-            }else if (atom->arg[0].param >= 0){
-                if (ins != 0){
-                    shift += sprintf(query + shift, " AND ");
-                }else{
-                    shift += sprintf(query + shift, "WHERE ");
-                }
-                shift += sprintf(query + shift, "arg%d = %d",
-                                 atom->arg[0].param, atom->arg[1].obj);
-                ++ins;
-
-            }else if (atom->arg[1].param >= 0){
-                if (ins != 0){
-                    shift += sprintf(query + shift, " AND ");
-                }else{
-                    shift += sprintf(query + shift, "WHERE ");
-                }
-                shift += sprintf(query + shift, "arg%d = %d",
-                                 atom->arg[1].param, atom->arg[0].obj);
-                ++ins;
-
-            }else{
-                // TODO
-            }
-        }
+        shift = addEqCond(query, shift, atom,
+                          cmp[(atom->neg ? 1 : 0)],
+                          prefix[(ins == 0 ? 0 : 1)]);
+        ++ins;
     }
 
     int used_param[prep_action->param_size];
@@ -505,8 +467,9 @@ static void sqlActionConstructWhereCond(char *query,
             shift += sprintf(query + shift, "WHERE ");
         }
         if (obj_size == 0){
-            // This action is not groundable, so add some dummy value
-            shift += sprintf(query + shift, "arg%d = -10000", pi);
+            // This action is not groundable, so add some dummy condition
+            //shift += sprintf(query + shift, "arg%d = -10000", pi);
+            shift += sprintf(query + shift, "1 = 2");
         } else if (obj_size == 1){
             shift += sprintf(query + shift, "arg%d = %d", pi, objs[0]);
         }else if (objsConsecutive(objs, obj_size)){
@@ -550,13 +513,11 @@ static void sqlActionInit(sql_action_t *action,
     borISetFree(&type_tables);
 
     char query[QUERY_SELECT_SIZE];
-    // TODO: distinct?
     int used = sprintf(query, "SELECT %s FROM %s %s %s;",
                        qcols, qtables, qjoincond, qwhere);
     ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
 
     //BOR_INFO(err, "Action query %s: %s", prep_action->action->name, query);
-
     int ret = sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -655,6 +616,36 @@ static void sqlGroundFree(sql_ground_t *g)
     pddlStripsMakerFree(&g->strips_maker);
 }
 
+static int addGroundAction(sql_ground_t *g,
+                           int action_id,
+                           const pddl_obj_id_t *row)
+{
+    const pddl_prep_action_t *paction = g->prep_action.action + action_id;
+    int is_new = 0;
+    int parent_id = action_id;
+    if (paction->parent_action >= 0)
+        parent_id = paction->parent_action;
+    pddlStripsMakerAddAction(&g->strips_maker,
+                             parent_id,
+                             (parent_id == action_id ? 0 : action_id),
+                             row,
+                             &is_new);
+    return is_new;
+}
+
+static int addGroundAtom(sql_ground_t *g,
+                         const pddl_cond_atom_t *atom,
+                         const pddl_obj_id_t *row,
+                         bor_err_t *err)
+{
+    int is_new = 0;
+    pddl_ground_atom_t *ga;
+    ga = pddlStripsMakerAddAtom(&g->strips_maker, atom, row, &is_new);
+    if (is_new)
+        return sqlPredInsertAtomArg(g->pred + atom->pred, g->db, ga->arg, err);
+    return 0;
+}
+
 static int actionCheckNegPreStatic(sql_ground_t *g,
                                    const pddl_prep_action_t *paction,
                                    const pddl_obj_id_t *row)
@@ -694,16 +685,8 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
     if (!actionCheckNegPreStatic(g, paction, row))
         return 0;
 
-    int is_new = 0;
-    int parent_id = action_id;
-    if (paction->parent_action >= 0)
-        parent_id = paction->parent_action;
-    pddlStripsMakerAddAction(&g->strips_maker,
-                             parent_id,
-                             (parent_id == action_id ? 0 : action_id),
-                             row,
-                             &is_new);
-    if (!is_new)
+    // Try to add a new ground action
+    if (!addGroundAction(g, action_id, row))
         return 0;
 
     for (int i = 0; i < paction->add_eff.size; ++i){
@@ -711,13 +694,7 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
         atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
 
         ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
-        int is_new = 0;
-        pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerAddAtom(&g->strips_maker, atom, row, &is_new);
-        if (is_new){
-            updated |= sqlPredInsertAtomArg(g->pred + atom->pred, g->db,
-                                            ga->arg, err);
-        }
+        updated |= addGroundAtom(g, atom, row, err);
     }
 
     return updated;
@@ -767,23 +744,10 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
                 const pddl_cond_atom_t *atom;
                 atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
                 ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
-                int is_new = 0;
-                pddl_ground_atom_t *ga;
-                ga = pddlStripsMakerAddAtom(&g->strips_maker, atom, NULL,
-                                            &is_new);
-                if (is_new){
-                    updated |= sqlPredInsertAtomArg(g->pred + atom->pred, g->db,
-                                                    ga->arg, err);
-                }
+                updated |= addGroundAtom(g, atom, NULL, err);
             }
             action->applied0 = 1;
-            int parent_id = action_id;
-            if (paction->parent_action >= 0)
-                parent_id = paction->parent_action;
-            pddlStripsMakerAddAction(&g->strips_maker,
-                                     parent_id,
-                                     (parent_id == action_id ? 0 : action_id),
-                                     NULL, NULL);
+            addGroundAction(g, action_id, NULL);
             BOR_INFO(err, "Applied empty-param action %s", paction->action->name);
             return updated;
         }
