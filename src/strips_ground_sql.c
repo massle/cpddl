@@ -36,6 +36,7 @@ struct sql_pred {
     int arity;
     char *table_name;
     sqlite3_stmt *stmt_atom;
+    sqlite3_stmt *stmt_insert;
 };
 typedef struct sql_pred sql_pred_t;
 
@@ -68,7 +69,7 @@ typedef struct sql_ground sql_ground_t;
 static void createTypeTable(sqlite3 *db, const pddl_t *pddl, int type)
 {
     char query[QUERY_SIZE];
-    sprintf(query, "CREATE TABLE type_%d (t int);", type);
+    sprintf(query, "CREATE TABLE type_%d (t int, UNIQUE(t));", type);
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -112,6 +113,13 @@ static void createPredTable(sqlite3 *db,
     //BOR_INFO(err, "Predicate table: %s", query);
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
+
+    for (int i = 0; i < param_size; ++i){
+        sprintf(query, "CREATE INDEX index_%s_%d ON %s (x%d);",
+                table_name, i, table_name, i);
+        int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+        CHECK_SQL_ERR(db, ret);
+    }
 }
 
 static void sqlPredInit(sql_pred_t *qpred,
@@ -125,7 +133,9 @@ static void sqlPredInit(sql_pred_t *qpred,
     qpred->pred = pred->id;
     qpred->arity = pred->param_size;
 
-    // TODO Handle (=) predicate
+    if (pred_id == preds->eq_pred)
+        return;
+
     qpred->table_name = BOR_ALLOC_ARR(char, 2 + strlen(pred->name) + 1);
     sprintf(qpred->table_name, "t_%s", pred->name);
     int len = strlen(qpred->table_name);
@@ -165,6 +175,21 @@ static void sqlPredInit(sql_pred_t *qpred,
 
     int ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_atom, NULL);
     CHECK_SQL_ERR(db, ret);
+
+    shift = sprintf(query, "INSERT INTO %s values(", qpred->table_name);
+    for (int i = 0; i < qpred->arity; ++i){
+        if (i != 0)
+            shift += sprintf(query + shift, ",");
+        shift += sprintf(query + shift, "?");
+    }
+    if (qpred->arity == 0)
+        shift += sprintf(query + shift, "1");
+    sprintf(query + shift, ");");
+    ASSERT_RUNTIME(shift < QUERY_SIZE);
+
+    //BOR_INFO(err, "Insert atom query: %s", query);
+    ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
+    CHECK_SQL_ERR(db, ret);
 }
 
 static void sqlPredFree(sql_pred_t *qpred, sqlite3 *db)
@@ -173,6 +198,10 @@ static void sqlPredFree(sql_pred_t *qpred, sqlite3 *db)
         BOR_FREE(qpred->table_name);
     if (qpred->stmt_atom != NULL){
         int ret = sqlite3_finalize(qpred->stmt_atom);
+        CHECK_SQL_ERR(db, ret);
+    }
+    if (qpred->stmt_insert != NULL){
+        int ret = sqlite3_finalize(qpred->stmt_insert);
         CHECK_SQL_ERR(db, ret);
     }
 }
@@ -212,25 +241,17 @@ static int sqlPredInsertAtomArg(sql_pred_t *qpred,
                                 const pddl_obj_id_t *arg,
                                 bor_err_t *err)
 {
-    // TODO: Use prepared statement and sqlite3_bind()
-    char query[QUERY_SIZE];
-    int shift = sprintf(query, "INSERT INTO %s values(", qpred->table_name);
+    int ret = sqlite3_reset(qpred->stmt_insert);
+    CHECK_SQL_ERR(db, ret);
     for (int i = 0; i < qpred->arity; ++i){
         ASSERT(arg[i] >= 0);
-        if (i != 0)
-            shift += sprintf(query + shift, ",");
-        shift += sprintf(query + shift, "%d", arg[i]);
-    }
-    if (qpred->arity == 0)
-        shift += sprintf(query + shift, "1");
-    sprintf(query + shift, ");");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
-
-    //BOR_INFO(err, "Insert atom query: %s", query);
-    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
-    if (ret != SQLITE_OK && ret != SQLITE_CONSTRAINT)
+        int ret = sqlite3_bind_int(qpred->stmt_insert, i + 1, arg[i]);
         CHECK_SQL_ERR(db, ret);
-    return ret == SQLITE_OK;
+    }
+    ret = sqlite3_step(qpred->stmt_insert);
+    if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT)
+        CHECK_SQL_ERR(db, ret);
+    return ret == SQLITE_DONE;
 }
 
 static int sqlPredInsertAtom(sql_pred_t *qpred,
@@ -531,7 +552,7 @@ static void sqlActionInit(sql_action_t *action,
     borISetFree(&type_tables);
 
     char query[QUERY_SELECT_SIZE];
-    // TODO: distinct
+    // TODO: distinct?
     int used = sprintf(query, "SELECT %s FROM %s %s %s;",
                        qcols, qtables, qjoincond, qwhere);
     ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
@@ -559,8 +580,6 @@ static int sqlGroundInit(sql_ground_t *g,
     g->pddl = pddl;
     pddlPrepActionsInit(g->pddl, &g->prep_action, err);
 
-    // TODO
-    //pddlPrintDebug(pddl, stderr);
     // Create a database
     int flags = SQLITE_OPEN_READWRITE
                     | SQLITE_OPEN_CREATE
@@ -578,7 +597,7 @@ static int sqlGroundInit(sql_ground_t *g,
     g->pred = BOR_CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
     for (int pi = 0; pi < pddl->pred.pred_size; ++pi)
         sqlPredInit(g->pred + pi, g->db, &g->pddl->pred, pi, err);
-    BOR_INFO2(err, "Sqlite predicate tables created.");
+    BOR_INFO(err, "%d predicate tables created.", pddl->pred.pred_size);
 
     // Create sql actions
     g->action = BOR_CALLOC_ARR(sql_action_t, g->prep_action.action_size);
@@ -586,7 +605,8 @@ static int sqlGroundInit(sql_ground_t *g,
         sqlActionInit(g->action + ai, g->db, g->pred,
                       g->prep_action.action + ai, err);
     }
-    BOR_INFO2(err, "Sqlite action sql queries prepared.");
+    BOR_INFO(err, "%d action sql queries prepared.",
+             g->prep_action.action_size);
 
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
@@ -611,7 +631,11 @@ static int sqlGroundInit(sql_ground_t *g,
             pddlStripsMakerAddFunc(&g->strips_maker, ass, NULL, NULL);
         }
     }
-    BOR_INFO2(err, "Initial state inserted.");
+    BOR_INFO(err, "Initial state inserted."
+                  " %d atoms, %d static atoms, %d functions",
+             g->strips_maker.ground_atom.atom_size,
+             g->strips_maker.ground_atom_static.atom_size,
+             g->strips_maker.ground_func.atom_size);
     return 0;
 }
 
