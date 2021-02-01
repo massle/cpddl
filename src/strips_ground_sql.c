@@ -211,6 +211,7 @@ static int sqlPredHasAtomArg(sql_pred_t *qpred,
                              const pddl_obj_id_t *arg)
 {
     ASSERT(qpred->stmt_atom != NULL);
+    sqlite3_reset(qpred->stmt_atom);
     for (int i = 0; i < qpred->arity; ++i){
         int ret = sqlite3_bind_int(qpred->stmt_atom, i + 1, arg[i]);
         CHECK_SQL_ERR(db, ret);
@@ -219,8 +220,6 @@ static int sqlPredHasAtomArg(sql_pred_t *qpred,
     int found = (ret = sqlite3_step(qpred->stmt_atom)) == SQLITE_ROW;
     if (ret != SQLITE_ROW && ret != SQLITE_DONE)
         CHECK_SQL_ERR(db, ret);
-    ret = sqlite3_reset(qpred->stmt_atom);
-    CHECK_SQL_ERR(db, ret);
     return found;
 }
 
@@ -241,14 +240,13 @@ static int sqlPredInsertAtomArg(sql_pred_t *qpred,
                                 const pddl_obj_id_t *arg,
                                 bor_err_t *err)
 {
-    int ret = sqlite3_reset(qpred->stmt_insert);
-    CHECK_SQL_ERR(db, ret);
+    sqlite3_reset(qpred->stmt_insert);
     for (int i = 0; i < qpred->arity; ++i){
         ASSERT(arg[i] >= 0);
         int ret = sqlite3_bind_int(qpred->stmt_insert, i + 1, arg[i]);
         CHECK_SQL_ERR(db, ret);
     }
-    ret = sqlite3_step(qpred->stmt_insert);
+    int ret = sqlite3_step(qpred->stmt_insert);
     if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT)
         CHECK_SQL_ERR(db, ret);
     return ret == SQLITE_DONE;
@@ -796,8 +794,7 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
 
     pddl_obj_id_t row[action->param_size];
     int ret;
-    ret = sqlite3_reset(action->stmt);
-    CHECK_SQL_ERR(g->db, ret);
+    sqlite3_reset(action->stmt);
     while ((ret = sqlite3_step(action->stmt)) == SQLITE_ROW){
         int invalid = 0;
         for (int i = 0; i < action->param_size; ++i){
