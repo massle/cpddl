@@ -35,5 +35,6 @@ make -j$NCPUS boruvka
 make -j$NCPUS opts
 make -j$NCPUS bliss
 make -j$NCPUS cudd
+make -j$NCPUS sqlite
 make -j$NCPUS
 make -j$NCPUS -C bin
