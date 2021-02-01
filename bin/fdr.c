@@ -18,6 +18,7 @@ struct options {
     int no_ground_prune;
     int no_ground_prune_pre;
     int no_ground_prune_dead_end;
+    int ground_sql;
 
     int fam;
     float fam_max_time;
@@ -273,6 +274,8 @@ static int readOpts(int *argc, char *argv[])
                 &opt.no_ground_prune_dead_end, NULL,
                 "Do NOT use lifted mutex groups for pruning of dead-end"
                 " operators during grounding.");
+    optsAddDesc("ground-sql", 0x0, OPTS_NONE, &opt.ground_sql, NULL,
+                "Ground using sqlite.");
 
     optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
@@ -600,7 +603,13 @@ static int groundStrips(void)
     if (opt.no_ground_prune_dead_end)
         ground_cfg.prune_op_dead_end = 0;
 
-    if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
+    int ret;
+    if (opt.ground_sql){
+        ret = pddlStripsGroundSql(&strips, &pddl, &ground_cfg, &err);
+    }else{
+        ret = pddlStripsGround(&strips, &pddl, &ground_cfg, &err);
+    }
+    if (ret != 0){
         BOR_INFO2(&err, "Grounding failed.");
         BOR_TRACE_RET(&err, -1);
     }
