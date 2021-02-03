@@ -23,6 +23,8 @@
 #include "pddl/lifted_mgroup.h"
 #include "assert.h"
 
+#define LINESIZE 1024
+
 
 static int cmpLiftedMGroups(const void *a, const void *b, void *_)
 {
@@ -282,16 +284,16 @@ void printMGroup(const pddl_t *pddl,
                  FILE *fout,
                  bor_err_t *err)
 {
-    char line[256];
+    char line[LINESIZE];
     int used = 0;
-    used += snprintf(line, 256 - used, "{");
+    used += snprintf(line, LINESIZE - used, "{");
 
     for (int i = 0; i < mgroup->cond.size; ++i){
         if (i > 0)
-            used += snprintf(line + used, 256 - used, ", ");
+            used += snprintf(line + used, LINESIZE - used, ", ");
 
         pddl_cond_atom_t *atom = PDDL_COND_CAST(mgroup->cond.cond[i], atom);
-        used += snprintf(line + used, 256 - used,
+        used += snprintf(line + used, LINESIZE - used,
                          "%s", pddl->pred.pred[atom->pred].name);
         for (int j = 0; j < atom->arg_size; ++j){
             if (atom->arg[j].param >= 0){
@@ -300,24 +302,24 @@ void printMGroup(const pddl_t *pddl,
                 ASSERT(!pddlTypesAreDisjunct(&pddl->type, p->type,
                             pddl->pred.pred[atom->pred].param[j]));
                 if (p->is_counted_var){
-                    used += snprintf(line + used, 256 - used, " C%d:%s",
+                    used += snprintf(line + used, LINESIZE - used, " C%d:%s",
                                      param_id, pddl->type.type[p->type].name);
                 }else{
-                    used += snprintf(line + used, 256 - used, " V%d:%s",
+                    used += snprintf(line + used, LINESIZE - used, " V%d:%s",
                                      param_id, pddl->type.type[p->type].name);
                 }
             }else{
-                used += snprintf(line + used, 256 - used, " %s",
+                used += snprintf(line + used, LINESIZE - used, " %s",
                                  pddl->obj.obj[atom->arg[j].obj].name);
             }
         }
     }
 
-    used += snprintf(line + used, 256 - used, "}");
+    used += snprintf(line + used, LINESIZE - used, "}");
     if (mgroup->is_exactly_one)
-        used += snprintf(line + used, 256 - used, ":=1");
+        used += snprintf(line + used, LINESIZE - used, ":=1");
     if (mgroup->is_static)
-        used += snprintf(line + used, 256 - used, ":S");
+        used += snprintf(line + used, LINESIZE - used, ":S");
 
     if (fout != NULL)
         fprintf(fout, "%s\n", line);
