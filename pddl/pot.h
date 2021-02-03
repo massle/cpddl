@@ -39,6 +39,7 @@ struct pddl_pot_constr {
     bor_iset_t plus;
     bor_iset_t minus;
     int rhs;
+    int op_id;
 };
 typedef struct pddl_pot_constr pddl_pot_constr_t;
 
@@ -51,6 +52,7 @@ typedef struct pddl_pot_constrs pddl_pot_constrs_t;
 
 struct pddl_pot {
     int var_size; /*!< Number of LP variables */
+    int op_var_size;
     double *obj; /*!< Objective function coeficients */
     // TODO: Deduplicate constraints using hashtable
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
@@ -131,10 +133,28 @@ void pddlPotResetLowerBoundConstr(pddl_pot_t *pot);
 
 
 /**
- * Solve the LP problem and returns potentials via {w}.
+ * Solve the LP problem and returns:
+ * - first var_size potentials via w
+ * - objective value via objval if non-NULL
+ * - change of heuristic value induced by each operator (via
+ *   op_change if non-NULL).
  * Return 0 on success, -1 if solution was not found.
  */
-int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp);
+int pddlPotSolve(const pddl_pot_t *pot,
+                 double *w,
+                 int var_size,
+                 double *objval,
+                 double *op_change,
+                 int use_ilp);
+
+int pddlPotFDRState(const pddl_fdr_t *fdr,
+                    const int *state,
+                    const double *w);
+double pddlPotFDRStateFlt(const pddl_fdr_t *fdr,
+                          const int *state,
+                          const double *w);
+int pddlPotStripsState(const bor_iset_t *state, const double *w);
+double pddlPotStripsStateFlt(const bor_iset_t *state, const double *w);
 
 void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
                             const pddl_mg_strips_t *mg_strips,

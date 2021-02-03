@@ -39,7 +39,7 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
     pddlPotInitFDR(&pot, fdr);
     pddlPotSetObjFDRState(&pot, &fdr->var, state);
     double *pfunc = BOR_ALLOC_ARR(double, pot.var_size);
-    pddlPotSolve(&pot, pfunc, pot.var_size, 0);
+    pddlPotSolve(&pot, pfunc, pot.var_size, NULL, NULL, 0);
     memcpy(f->pot, pfunc, sizeof(double) * fdr->var.global_id_size);
     pddlPotFree(&pot);
 

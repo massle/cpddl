@@ -63,7 +63,7 @@ static void addFunc(pddl_hpot_t *hpot)
 
 static int solve2(pddl_hpot_t *hpot, pddl_pot_t *pot, double *w)
 {
-    return pddlPotSolve(pot, w, hpot->var_size, 0);
+    return pddlPotSolve(pot, w, hpot->var_size, NULL, NULL, 0);
 }
 
 static int solve(pddl_hpot_t *hpot, pddl_pot_t *pot)
