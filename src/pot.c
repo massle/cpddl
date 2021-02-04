@@ -131,7 +131,6 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
         s->pot = BOR_ALLOC_ARR(double, s->pot_size);
         memcpy(s->pot, sol->pot, sizeof(double) * s->pot_size);
     }
-    s->fill_op_change = sol->fill_op_change;
     s->op_change_size = sol->op_change_size;
     if (s->op_change_size > 0){
         s->op_change = BOR_ALLOC_ARR(double, s->op_change_size);
@@ -610,9 +609,7 @@ static void setLBConstr(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
     (*row)++;
 }
 
-int pddlPotSolve(const pddl_pot_t *pot,
-                 pddl_pot_solution_t *sol,
-                 int use_ilp)
+int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
 {
     int ret = 0;
     bor_lp_t *lp;
@@ -630,7 +627,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
     lp = borLPNew(rows, pot->var_size, lp_flags);
 
     for (int i = 0; i < pot->var_size; ++i){
-        if (use_ilp)
+        if (pot->use_ilp)
             borLPSetVarInt(lp, i);
         borLPSetVarRange(lp, i, LPVAR_LOWER, LPVAR_UPPER);
         borLPSetObj(lp, i, pot->obj[i]);
@@ -649,7 +646,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
         sol->pot_size = pot->var_size;
         sol->pot = BOR_ALLOC_ARR(double, sol->pot_size);
         memcpy(sol->pot, obj, sizeof(double) * sol->pot_size);
-        if (sol->fill_op_change){
+        if (pot->store_op_heur_change){
             sol->op_change_size = pot->constr_op.size;
             sol->op_change = BOR_CALLOC_ARR(double, pot->constr_op.size);
             for (int ci = 0; ci < pot->constr_op.size; ++ci){

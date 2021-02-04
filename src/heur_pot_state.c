@@ -39,7 +39,7 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
     pddlPotInitFDR(&pot, fdr);
     pddlPotSetObjFDRState(&pot, &fdr->var, state);
 
-    pddlPotSolve(&pot, &f->sol, 0);
+    pddlPotSolve(&pot, &f->sol);
     pddlPotFree(&pot);
 
     memcpy(f->state, state, sizeof(int) * fdr->var.var_size);

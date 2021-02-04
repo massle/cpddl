@@ -35,7 +35,7 @@ static int solveAndAdd(pddl_pot_t *pot, pddl_pot_solutions_t *sols)
 {
     pddl_pot_solution_t sol;
     pddlPotSolutionInit(&sol);
-    int ret = pddlPotSolve(pot, &sol, 0);
+    int ret = pddlPotSolve(pot, &sol);
     if (ret == 0)
         pddlPotSolutionsAdd(sols, &sol);
     pddlPotSolutionFree(&sol);
@@ -151,7 +151,7 @@ static int addInitConstr(pddl_pot_t *pot,
     pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
     pddl_pot_solution_t sol;
     pddlPotSolutionInit(&sol);
-    int ret = pddlPotSolve(pot, &sol, 0);
+    int ret = pddlPotSolve(pot, &sol);
     if (ret != 0){
         BOR_INFO2(err, "Pot: No optimal solution for the initial state");
         return ret;
@@ -212,7 +212,7 @@ static void stateSamplerInit(state_sampler_t *s,
         pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
         pddl_pot_solution_t sol;
         pddlPotSolutionInit(&sol);
-        int ret = pddlPotSolve(pot, &sol, 0);
+        int ret = pddlPotSolve(pot, &sol);
         if (ret != 0){
             BOR_INFO2(err, "Pot: No optimal solution for the initial state");
             s->random_walk_max_steps = 0;
@@ -535,7 +535,7 @@ static int samples(pddl_pot_solutions_t *sols,
             // Dead-ends are simply skipped
             pddl_pot_solution_t sol;
             pddlPotSolutionInit(&sol);
-            if (pddlPotSolve(pot, &sol, 0) == 0){
+            if (pddlPotSolve(pot, &sol) == 0){
                 int h;
                 h = pddlPotSolutionEvalFDRState(&sol, &fdr->var, sampler.state);
                 if (h != PDDL_COST_DEAD_END){
@@ -668,7 +668,7 @@ static void diverseGenStates(diverse_pot_t *div,
         pddlPotSetObj(pot, div->coef);
         pddl_pot_solution_t sol;
         pddlPotSolutionInit(&sol);
-        if (pddlPotSolve(pot, &sol, 0) == 0){
+        if (pddlPotSolve(pot, &sol) == 0){
             int h = pddlPotSolutionEvalFDRState(&sol, &fdr->var, sampler.state);
             if (h != PDDL_COST_DEAD_END){
                 // Add state to the set of states and store heuristic estimate
@@ -717,7 +717,7 @@ static int diverseAvg(diverse_pot_t *div,
             div->coef[fact_id] += 1.;
     }
     pddlPotSetObj(pot, div->coef);
-    return pddlPotSolve(pot, &div->avg_func, 0);
+    return pddlPotSolve(pot, &div->avg_func);
 }
 
 static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,

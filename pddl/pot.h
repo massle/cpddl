@@ -32,7 +32,6 @@ struct pddl_pot_solution {
     double *pot; /*!< Potentials for all facts */
     int pot_size;
     double objval; /*!< Objective value */
-    int fill_op_change; /*!< If set to true, .op_change is filled */
     double *op_change; /*!< Change of heuristic value for each operator */
     int op_change_size;
 };
@@ -91,6 +90,9 @@ typedef struct pddl_pot_constrs pddl_pot_constrs_t;
 struct pddl_pot {
     int var_size; /*!< Number of LP variables */
     int fact_var_size;
+    int use_ilp; /*!< ILP solver instead of LP */
+    int store_op_heur_change; /*!< Store changes of heuristic value induced
+                                   by operators in the output */
     double *obj; /*!< Objective function coeficients */
     // TODO: Deduplicate constraints using hashtable
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
@@ -169,14 +171,27 @@ void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
  */
 void pddlPotResetLowerBoundConstr(pddl_pot_t *pot);
 
+/**
+ * Turns on/off integer linear program.
+ */
+_bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
+{
+    pot->use_ilp = enable;
+}
+
+/**
+ * Turns on/off storing of heuristic changes induced by operators.
+ */
+_bor_inline void pddlPotStoreOpHeurChange(pddl_pot_t *pot, int enable)
+{
+    pot->store_op_heur_change = enable;
+}
 
 /**
  * Solve the LP problem and returns the solution via sol.
  * Return 0 on success, -1 if solution was not found.
  */
-int pddlPotSolve(const pddl_pot_t *pot,
-                 pddl_pot_solution_t *sol,
-                 int use_ilp);
+int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol);
 
 void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
                             const pddl_mg_strips_t *mg_strips,
