@@ -1040,17 +1040,19 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     BOR_INFO2(err, "Constraints created.");
 
     // TODO
+    /*
     pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
     pddl_hpot_t hpot;
     pddlHPotInit(&hpot, fdr, &pot_cfg, err);
     ss->heur_init = pddlHPotFDRStateEstimateDbl(&hpot, &fdr->var, fdr->init);
+    */
 
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time,
-                              hpot.pot[0],
+                              NULL,
                               err);
     BOR_INFO2(err, "Transitions created.");
 

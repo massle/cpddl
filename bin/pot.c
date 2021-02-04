@@ -7,7 +7,6 @@ struct options {
     int fd_fam_groups;
     int fam_groups;
     char *fdr_out;
-    char *eval_plan;
     pddl_files_t files;
 } opt;
 
@@ -50,8 +49,6 @@ static int readOpts(int *argc,
                 "Print this help.");
     optsAddDesc("output", 'o', OPTS_STR, &opt.fdr_out, NULL,
                 "Output filename (default: stdout)");
-    optsAddDesc("eval-plan", 0x0, OPTS_STR, &opt.eval_plan, NULL,
-                "Evaluate given plan");
     optsAddDesc("fam-groups", 'f', OPTS_NONE, &opt.fam_groups, NULL,
                 "Use LP to infer all maximal fam-groups.");
     optsAddDesc("fd", 0x0, OPTS_NONE, &opt.fd_fam_groups, NULL,
@@ -219,12 +216,12 @@ static int readOpts(int *argc,
 }
 
 static void printPotentials(const pddl_fdr_t *fdr,
-                            const pddl_hpot_t *hpot,
+                            const pddl_pot_solutions_t *pot,
                             FILE *fout)
 {
-    fprintf(fout, "%d\n", hpot->pot_size);
-    for (int pi = 0; pi < hpot->pot_size; ++pi){
-        const double *w = hpot->pot[pi];
+    fprintf(fout, "%d\n", pot->sol_size);
+    for (int pi = 0; pi < pot->sol_size; ++pi){
+        const double *w = pot->sol[pi].pot;
         fprintf(fout, "begin_potentials\n");
         for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
             const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
@@ -233,90 +230,6 @@ static void printPotentials(const pddl_fdr_t *fdr,
         }
         fprintf(fout, "end_potentials\n");
     }
-}
-
-static void evalPlan(const pddl_fdr_t *fdr,
-                     const pddl_hpot_t *hpot)
-{
-    FILE *fin = fopen(opt.eval_plan, "r");
-    if (fin == NULL){
-        fprintf(stderr, "Error: Could not open '%s'\n", opt.eval_plan);
-        exit(-1);
-    }
-
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t nread;
-
-    int *state = BOR_CALLOC_ARR(int, fdr->var.var_size);
-    memcpy(state, fdr->init, sizeof(int) * fdr->var.var_size);
-    int est = pddlHPotFDRStateEstimate(hpot, &fdr->var, state);
-    double est2 = 0.;
-    for (int v = 0; v < fdr->var.var_size; ++v){
-        const pddl_fdr_val_t *val = fdr->var.var[v].val + state[v];
-        est2 += hpot->pot[0][val->global_id];
-    }
-    printf("S: %d | %f", est, est2);
-    /*
-    for (int v = 0; v < fdr->var.var_size; ++v)
-        printf(" %d", state[v]);
-    */
-    printf("\n");
-    double last_est = est2;
-
-    while ((nread = getline(&line, &len, fin)) != -1) {
-        if (nread == 0)
-            continue;
-        if (line[0] != '(' || line[nread - 2] != ')')
-            continue;
-        line[nread - 2] = 0x0;
-        const char *op_name = line + 1;
-        int op_id = -1;
-        for (int oi = 0; oi < fdr->op.op_size; ++oi){
-            if (strcmp(fdr->op.op[oi]->name, op_name) == 0){
-                if (op_id >= 0){
-                    fprintf(stderr, "Two operators with the same name!\n");
-                    exit(-1);
-                }
-                op_id = oi;
-            }
-        }
-
-        const pddl_fdr_op_t *op = fdr->op.op[op_id];
-        printf("O: (%s) %d, cost: %d | pre:", op->name, op_id, op->cost);
-        for (int i = 0; i < op->pre.fact_size; ++i){
-            const pddl_fdr_fact_t *f = op->pre.fact + i;
-            if (state[f->var] != f->val){
-                printf("Operator not applicable!\n");
-                exit(-1);
-            }
-            printf(" %d:%d", f->var, f->val);
-        }
-        printf(" | eff:");
-
-        for (int i = 0; i < op->eff.fact_size; ++i){
-            const pddl_fdr_fact_t *f = op->eff.fact + i;
-            state[f->var] = f->val;
-            printf(" %d:%d", f->var, f->val);
-        }
-        printf("\n");
-
-        int est = pddlHPotFDRStateEstimate(hpot, &fdr->var, state);
-        double est2 = 0.;
-        for (int v = 0; v < fdr->var.var_size; ++v){
-            const pddl_fdr_val_t *val = fdr->var.var[v].val + state[v];
-            est2 += hpot->pot[0][val->global_id];
-        }
-        if (last_est > est2 + op->cost)
-            printf("********\n");
-        printf("S: %d | %f", est, est2);
-        for (int v = 0; v < fdr->var.var_size; ++v)
-            printf(" %d:%d", v, state[v]);
-        printf("\n");
-        last_est = est2;
-    }
-
-    BOR_FREE(state);
 }
 
 int main(int argc, char *argv[])
@@ -434,13 +347,12 @@ int main(int argc, char *argv[])
     BOR_INFO(&err, "Number of variables: %d", fdr.var.var_size);
     BOR_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
 
-    pddl_hpot_t hpot;
-
-    if (pddlHPotInit(&hpot, &fdr, &hpot_cfg, &err) != 0){
+    pddl_pot_solutions_t pot;
+    if (pddlHPot(&pot, &fdr, &hpot_cfg, &err) != 0){
         BOR_INFO2(&err, "Cannot find potential heuristic");
         return -1;
     }
-    int est = pddlHPotFDRStateEstimate(&hpot, &fdr.var, fdr.init);
+    int est = pddlPotSolutionsEvalMaxFDRState(&pot, &fdr.var, fdr.init);
     BOR_INFO(&err, "Init state estimate: %d", est);
 
     // Print out FDR in fast-downward format and potentials
@@ -453,14 +365,10 @@ int main(int argc, char *argv[])
         }
     }
     pddlFDRPrintFD(&fdr, NULL, 1, fout);
-    printPotentials(&fdr, &hpot, fout);
+    printPotentials(&fdr, &pot, fout);
+    pddlPotSolutionsFree(&pot);
     if (fout != stdout)
         fclose(fout);
-
-    if (opt.eval_plan != NULL)
-        evalPlan(&fdr, &hpot);
-
-    pddlHPotFree(&hpot);
 
     optsClear();
     pddlFDRFree(&fdr);

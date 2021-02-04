@@ -1539,12 +1539,12 @@ static int opMutex(void)
 }
 
 static void printPotentials(const pddl_fdr_t *fdr,
-                            const pddl_hpot_t *hpot,
+                            const pddl_pot_solutions_t *pot,
                             FILE *fout)
 {
-    fprintf(fout, "%d\n", hpot->pot_size);
-    for (int pi = 0; pi < hpot->pot_size; ++pi){
-        const double *w = hpot->pot[pi];
+    fprintf(fout, "%d\n", pot->sol_size);
+    for (int pi = 0; pi < pot->sol_size; ++pi){
+        const double *w = pot->sol[pi].pot;
         fprintf(fout, "begin_potentials\n");
         for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
             const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
@@ -1593,16 +1593,16 @@ static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
                  pot_cfg.samples_random_walk,
                  pot_cfg.all_states_mutex_size);
         BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
-        pddl_hpot_t hpot;
-        if (pddlHPotInit(&hpot, fdr, &pot_cfg, &err) != 0){
+        pddl_pot_solutions_t pot;
+        if (pddlHPot(&pot, fdr, &pot_cfg, &err) != 0){
             BOR_INFO2(&err, "Cannot find potential heuristic");
             BOR_INFO_PREFIX_POP(&err);
             return -1;
         }
-        int est = pddlHPotFDRStateEstimate(&hpot, &fdr->var, fdr->init);
+        int est = pddlPotSolutionsEvalMaxFDRState(&pot, &fdr->var, fdr->init);
         BOR_INFO(&err, "Init state estimate: %d", est);
-        printPotentials(fdr, &hpot, fout);
-        pddlHPotFree(&hpot);
+        printPotentials(fdr, &pot, fout);
+        pddlPotSolutionsFree(&pot);
         BOR_INFO_PREFIX_POP(&err);
     }
     closeFile(fout);
