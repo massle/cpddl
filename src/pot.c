@@ -412,6 +412,7 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
     pot->fact_var_size = pot->var_size;
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
         addFDROp(pot, &fdr->var, fdr->op.op[op_id]);
+    pot->op_size = fdr->op.op_size;
 
     addFDRGoal(pot, &fdr->var, &fdr->goal);
 
@@ -436,6 +437,7 @@ static int initMGStrips(pddl_pot_t *pot,
         addMGStripsOp(pot, &dis, mg_strips->strips.op.op[op_id],
                       single_fact_disamb);
     }
+    pot->op_size = mg_strips->strips.op.op_size;
     if (addMGStripsGoal(pot, &dis, &mg_strips->strips.goal,
                         single_fact_disamb) != 0){
         pddlDisambiguateFree(&dis);
@@ -648,7 +650,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         memcpy(sol->pot, obj, sizeof(double) * sol->pot_size);
         if (pot->store_op_heur_change){
             sol->op_change_size = pot->constr_op.size;
-            sol->op_change = BOR_CALLOC_ARR(double, pot->constr_op.size);
+            sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
             for (int ci = 0; ci < pot->constr_op.size; ++ci){
                 const pddl_pot_constr_t *c = pot->constr_op.c + ci;
                 if (c->op_id >= 0)

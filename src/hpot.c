@@ -140,6 +140,9 @@ static void initPot(pddl_pot_t *pot,
                       pot->constr_goal.size,
                       pot->maxpot_size);
     }
+
+    if (cfg->store_op_heur_change)
+        pddlPotStoreOpHeurChange(pot, 1);
 }
 
 static int addInitConstr(pddl_pot_t *pot,

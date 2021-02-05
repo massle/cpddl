@@ -49,6 +49,8 @@ struct pddl_hpot_config {
     int samples_random_walk; /*!< Uses random walk for sampling */
     int all_states_mutex_size; /*!< Size of sets of facts for
                                     *_ALL_STATES_MUTEX method */
+
+    int store_op_heur_change;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
@@ -62,6 +64,7 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         0, /* .samples_use_mutex */ \
         0, /* .samples_random_walk */ \
         0, /* .all_states_mutex_size */ \
+        0, /* .store_op_heur_change */ \
     }
 
 int pddlHPot(pddl_pot_solutions_t *sols,

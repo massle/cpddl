@@ -93,6 +93,7 @@ struct pddl_pot {
     int use_ilp; /*!< ILP solver instead of LP */
     int store_op_heur_change; /*!< Store changes of heuristic value induced
                                    by operators in the output */
+    int op_size; /*!< Number of processed operators */
     double *obj; /*!< Objective function coeficients */
     // TODO: Deduplicate constraints using hashtable
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
