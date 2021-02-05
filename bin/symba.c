@@ -50,6 +50,10 @@ struct options {
     const char *mgroup_out;
     const char *mgroup_pre_out;
 
+    int fw;
+    int bw;
+    int fwbw;
+
     int op_mutex_ts;
     int op_mutex_op_fact;
     int op_mutex_hm_op;
@@ -282,6 +286,13 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("mg-pre-out", 0x0, OPTS_STR, &opt.mgroup_pre_out, NULL,
                 "Output filename for the mutex groups found before pruning."
                 " (default: none)");
+
+    optsAddDesc("fw", 0x0, OPTS_NONE, &opt.fw, NULL,
+                "Forward symbolic search.");
+    optsAddDesc("bw", 0x0, OPTS_NONE, &opt.bw, NULL,
+                "Backward symbolic search.");
+    optsAddDesc("fwbw", 0x0, OPTS_NONE, &opt.fwbw, NULL,
+                "Forward/Backward symbolic search.");
 
     optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
                 OPTS_CB(setFDRVarLargest),
@@ -1446,6 +1457,10 @@ static int symba(void)
                           fdr_var_flag, 0, &err);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
+    if (opt.pot){
+        symb_cfg.use_pot_heur = 1;
+        symb_cfg.pot_heur_config = pot_cfg;
+    }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
     // TODO: Print configuration
@@ -1455,12 +1470,26 @@ static int symba(void)
 
     BOR_IARR(plan);
     int res;
-    if (pddlSymbolicTaskGoalConstrFailed(task)){
-        BOR_INFO2(&err, "Switching to fw-only search.");
+    if (opt.fw){
+        BOR_INFO2(&err, "Forward Search");
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
-        //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-    }else{
+
+    }else if (opt.bw){
+        BOR_INFO2(&err, "Backward Search");
+        res = pddlSymbolicTaskSearchBw(task, &plan, &err);
+
+    }else if (opt.fwbw){
+        BOR_INFO2(&err, "Forward/Backward Search");
         res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+
+    }else{
+        if (pddlSymbolicTaskGoalConstrFailed(task)){
+            BOR_INFO2(&err, "Switching to fw-only search.");
+            res = pddlSymbolicTaskSearchFw(task, &plan, &err);
+            //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+        }else{
+            res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+        }
     }
 
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){

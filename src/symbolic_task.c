@@ -46,9 +46,8 @@ struct pddl_symbolic_state {
     bor_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
     int trans_id; /*!< ID of the transitions that achieved this state */
     pddl_cost_t cost; /*!< Cost of the state: g value + zero cost g value */
-    double heur;
-    pddl_cost_t f_value;
-    // TODO: Add heuristic estimate
+    pddl_cost_t heur; /*!< Heuristic estimate */
+    pddl_cost_t f_value; /*!< .cost + .heur */
     pddl_bdd_t *bdd; /*!< BDD representing the state */
     int is_closed; /*!< True if the state is closed */
     bor_pairheap_node_t heap;
@@ -94,16 +93,10 @@ struct pddl_symbolic_task {
     pddl_symbolic_constr_t constr; /*!< Constraints */
     pddl_bdd_t *init; /*!< Initial state */
     pddl_bdd_t *goal; /*!< Goal states */
-    double heur_init;
+    pddl_cost_t heur_init;
     int goal_constr_failed; /*!< True if applying constraints on the goal
                                  failed */
 };
-
-static int roundOff(double z)
-{
-    return ceil(z - ROUND_EPS);
-}
-
 
 static void stateFree(pddl_symbolic_task_t *ss, pddl_symbolic_state_t *state)
 {
@@ -121,13 +114,8 @@ static int openLT(const bor_pairheap_node_t *n1,
     o1 = bor_container_of(n1, pddl_symbolic_state_t, heap);
     o2 = bor_container_of(n2, pddl_symbolic_state_t, heap);
     int cmp = pddlCostCmp(&o1->f_value, &o2->f_value);
-    if (cmp == 0){
-        if (o1->heur < o2->heur){
-            cmp = -1;
-        }else if (o1->heur > o2->heur){
-            cmp = 1;
-        }
-    }
+    if (cmp == 0)
+        cmp = pddlCostCmp(&o1->heur, &o2->heur);
     return cmp <= 0;
 }
 
@@ -257,8 +245,8 @@ static pddl_symbolic_state_t *statesAdd(pddl_symbolic_task_t *ss,
     state->parent_id = -1;
     state->trans_id = -1;
     pddlCostSetZero(&state->cost);
+    pddlCostSetZero(&state->heur);
     pddlCostSetZero(&state->f_value);
-    state->heur = 0.;
     state->bdd = NULL;
     state->is_closed = 0;
 
@@ -277,15 +265,23 @@ static pddl_symbolic_state_t *statesAddBDD(pddl_symbolic_task_t *ss,
 }
 
 static void statesAddInit(pddl_symbolic_task_t *ss,
+                          pddl_symbolic_search_t *search,
                           pddl_symbolic_states_t *states,
                           pddl_bdd_t *bdd)
 {
     pddl_symbolic_state_t *state;
     state = statesAddBDD(ss, states, bdd);
     pddlCostSetZero(&state->cost);
-    state->heur = ss->heur_init;
-    state->f_value = state->cost;
-    state->f_value.cost += roundOff(state->heur);
+
+    pddlCostSetZero(&state->heur);
+    if (search->fw)
+        state->heur = ss->heur_init;
+
+    pddlCostSetZero(&state->f_value);
+    pddlCostSum(&state->f_value, &state->cost);
+    pddlCostSum(&state->f_value, &state->heur);
+    if (pddlCostCmp(&state->f_value, &pddl_cost_zero) < 0)
+        pddlCostSetZero(&state->f_value);
     statesOpenState(ss, states, state);
 }
 
@@ -311,7 +307,7 @@ static void searchInit(pddl_symbolic_task_t *ss,
     if (search->goal != NULL)
         search->goal = pddlBDDClone(ss->mgr, search->goal);
 
-    statesAddInit(ss, &search->state, init);
+    statesAddInit(ss, search, &search->state, init);
 
     search->plan_goal_id = -1;
     search->plan_other_goal_id = -1;
@@ -651,9 +647,31 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
         state->cost = state_in->cost;
         pddlCostSum(&state->cost, tr_cost);
 
-        state->heur = state_in->heur + ss->trans.trans[tri].heur_change;
-        state->f_value = state->cost;
-        state->f_value.cost += roundOff(state->heur);
+        // Increase heuristic estimate by the change incurred by this
+        // transition
+        state->heur = state_in->heur;
+        pddlCostSum(&state->heur, &ss->trans.trans[tri].heur_change);
+        // TODO
+        if (!search->fw)
+            pddlCostSetZero(&state->heur);
+
+        // Set f-value = cost + heur, but only for the forward search and
+        // consider heur < 0 as zero
+        pddlCostSetZero(&state->f_value);
+        pddlCostSum(&state->f_value, &state->cost);
+        if (search->fw && pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
+            pddlCostSum(&state->f_value, &state->heur);
+        BOR_INFO(err, "TR cost: %d:%d, heur %d:%d, f %d:%d",
+                 state->cost.cost, state->cost.zero_cost,
+                 state->heur.cost, state->heur.zero_cost,
+                 state->f_value.cost, state->f_value.zero_cost);
+
+        // Deal with blown-up f-values
+        if (pddlCostCmp(&state->f_value, &pddl_cost_zero) < 0
+                || pddlCostCmp(&state->f_value, &pddl_cost_max) > 0){
+            BOR_INFO2(err, "MAX f-value HIT");
+            state->f_value = pddl_cost_max;
+        }
 
         statesOpenState(ss, states, state);
         if (other_search != NULL)
@@ -696,8 +714,8 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
 
     pddl_symbolic_state_t *next = statesOpenPeek(&search->state);
     while (next != NULL
-            && pddlCostCmp(&state->f_value, &next->f_value) == 0
-            && fabs(state->heur - next->heur) < 1E-4){
+            && pddlCostCmp(&state->cost, &next->cost) == 0
+            && pddlCostCmp(&state->heur, &next->heur) == 0){
         ASSERT(borISetSize(&next->parent_ids) == 0);
         ASSERT(next->parent_id >= 0);
 
@@ -753,15 +771,16 @@ static int searchStep(pddl_symbolic_task_t *ss,
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
-    BOR_INFO(err, "%s: step cost: %d:%d, f: %d:%d / %.2f"
+    BOR_INFO(err, "%s: step cost: %d:%d, heur: %d:%d, f: %d:%d"
                   " states: %d, closed states: %d,"
                   " cudd mem: %.2fMB, gc: %d",
              (search->fw ? "fw" : "bw"),
              state->cost.cost,
              state->cost.zero_cost,
+             state->heur.cost,
+             state->heur.zero_cost,
              state->f_value.cost,
              state->f_value.zero_cost,
-             state->heur,
              search->state.num_states,
              search->state.num_closed,
              pddlBDDMem(ss->mgr),
@@ -955,6 +974,46 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     BOR_FREE(var_order);
 }
 
+static int preparePotHeur(const pddl_fdr_t *fdr,
+                          const pddl_symbolic_task_config_t *cfg,
+                          pddl_cost_t **op_heur_change,
+                          pddl_cost_t *init_h_value,
+                          bor_err_t *err)
+{
+    *op_heur_change = NULL;
+    pddlCostSetZero(init_h_value);
+    if (!cfg->use_pot_heur)
+        return 0;
+
+    pddl_pot_solutions_t pot;
+    pddlPotSolutionsInit(&pot);
+    pddl_hpot_config_t pot_cfg = cfg->pot_heur_config;
+    pot_cfg.store_op_heur_change = 1;
+    if (pddlHPot(&pot, fdr, &pot_cfg, err) != 0){
+        BOR_ERR_RET2(err, -1, "Could not find a potential function.");
+    }
+    if (pot.sol_size != 1){
+        BOR_ERR_RET(err, -1, "Symbolic search supports only a single"
+                             " potential function, got %d",
+                    pot.sol_size);
+    }
+
+    const pddl_pot_solution_t *sol = pot.sol + 0;
+    init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
+    // TODO: Parametrize
+    init_h_value->cost *= 128;
+    *op_heur_change = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
+    for (int i = 0; i < sol->op_change_size && i < fdr->op.op_size; ++i){
+        double change = sol->op_change[i];
+        // TODO: Parametrize
+        change *= 128.;
+        change = floor(change);
+        (*op_heur_change)[i].cost = change;
+    }
+    pddlPotSolutionsFree(&pot);
+    return 0;
+}
+
 static void initConstr(pddl_symbolic_task_t *ss,
                        const pddl_symbolic_task_config_t *cfg,
                        bor_err_t *err)
@@ -1000,8 +1059,18 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
         BOR_ERR_RET2(err, NULL, "Symbolic tasks does not support conditional"
                                 " effects yet.");
     }
-
     BOR_INFO_PREFIX_PUSH(err, "symbolic: ");
+
+    pddl_cost_t *pot_op_heur_change;
+    pddl_cost_t pot_init_h_value;
+    if (preparePotHeur(fdr, cfg, &pot_op_heur_change,
+                       &pot_init_h_value, err) == 0){
+        BOR_INFO(err, "Potential heuristic for the initial state: %d:%d",
+                 pot_init_h_value.cost, pot_init_h_value.zero_cost);
+    }else{
+        BOR_TRACE_RET(err, NULL);
+    }
+
     pddl_symbolic_task_t *ss;
     BOR_INFO(err, "Constructing symbolic task."
                   " max mem: %dMB,"
@@ -1039,20 +1108,13 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     initConstr(ss, cfg, err);
     BOR_INFO2(err, "Constraints created.");
 
-    // TODO
-    /*
-    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
-    pddl_hpot_t hpot;
-    pddlHPotInit(&hpot, fdr, &pot_cfg, err);
-    ss->heur_init = pddlHPotFDRStateEstimateDbl(&hpot, &fdr->var, fdr->init);
-    */
-
+    ss->heur_init = pot_init_h_value;
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time,
-                              NULL,
+                              pot_op_heur_change,
                               err);
     BOR_INFO2(err, "Transitions created.");
 
@@ -1091,6 +1153,8 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     //Cudd_PrintInfo(ss->mgr, stderr);
 
     BOR_INFO_PREFIX_POP(err);
+    if (pot_op_heur_change != NULL)
+        BOR_FREE(pot_op_heur_change);
     return ss;
 }
 

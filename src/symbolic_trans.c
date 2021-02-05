@@ -30,7 +30,7 @@ struct op {
     bor_iset_t eff;
     bor_iset_t neg_eff;
     pddl_cost_t cost;
-    double heur_change;
+    pddl_cost_t heur_change;
     int is_dead;
 };
 typedef struct op op_t;
@@ -40,7 +40,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    int use_op_constr,
                    int op_id,
                    op_t *op,
-                   double *pot,
+                   pddl_cost_t *op_heur_change,
                    bor_err_t *err)
 {
     bzero(op, sizeof(*op));
@@ -49,6 +49,9 @@ static void opInit(pddl_symbolic_constr_t *constr,
     borISetUnion(&op->eff, &op_in->add_eff);
     borISetUnion(&op->neg_eff, &op_in->del_eff);
     pddlCostSetOp(&op->cost, op_in->cost);
+    // TODO: Parametrize
+    if (op_heur_change != NULL)
+        op->cost.cost *= 128;
     if (op_in->name != NULL)
         op->name = BOR_STRDUP(op_in->name);
 
@@ -91,16 +94,10 @@ static void opInit(pddl_symbolic_constr_t *constr,
         op->is_dead = 1;
     }
 
-    if (pot != NULL){
-        double heur = 0.;
-        int fact;
-        BOR_ISET_FOR_EACH(&op->eff, fact)
-            heur += pot[fact];
-        BOR_ISET_FOR_EACH(&op->neg_eff, fact)
-            heur -= pot[fact];
-        op->heur_change = heur;
-        BOR_INFO(err, "%d:(%s) --> %.3f / %d", op->op_id, op->name, heur,
-                op->cost);
+    if (op_heur_change != NULL){
+        op->heur_change = op_heur_change[op_id];
+        BOR_INFO(err, "%d:(%s) --> %d:%d / %d", op->op_id, op->name,
+                 op->heur_change.cost, op->heur_change.zero_cost, op->cost);
     }
 }
 
@@ -118,12 +115,12 @@ static void opsInit(pddl_symbolic_constr_t *constr,
                     const pddl_strips_t *strips,
                     int use_op_constr,
                     op_t *ops,
-                    double *pot,
+                    pddl_cost_t *op_heur_change,
                     bor_err_t *err)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         opInit(constr, strips->op.op[op_id], use_op_constr,
-               op_id, ops + op_id, pot, err);
+               op_id, ops + op_id, op_heur_change, err);
     }
 }
 
@@ -338,10 +335,11 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
     BOR_INFO(err, "Initialized individual trans BDDs: cost: %d:%d,"
-                  " heur change: %.2f ops: %d",
+                  " heur change: %d:%d ops: %d",
              trset->cost.cost,
              trset->cost.zero_cost,
-             trset->heur_change,
+             trset->heur_change.cost,
+             trset->heur_change.zero_cost,
              borISetSize(&trset->op));
 
     pddl_time_limit_t time_limit;
@@ -414,13 +412,8 @@ static int opIdCostCmp(const void *a, const void *b, void *_ops)
     const int id2 = *(const int *)b;
     const op_t *ops = _ops;
     int cmp = pddlCostCmp(&ops[id1].cost, &ops[id2].cost);
-    if (cmp == 0){
-        if (ops[id1].heur_change < ops[id2].heur_change){
-            cmp = -1;
-        }else if (ops[id1].heur_change > ops[id2].heur_change){
-            cmp = 1;
-        }
-    }
+    if (cmp == 0)
+        cmp = pddlCostCmp(&ops[id1].heur_change, &ops[id2].heur_change);
     if (cmp == 0)
         return id1 - id2;
     return cmp;
@@ -445,14 +438,14 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                int use_op_constr,
                                int max_nodes,
                                float max_time,
-                               double *potentials,
+                               pddl_cost_t *op_heur_change,
                                bor_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
 
     op_t *ops = BOR_CALLOC_ARR(op_t, strips->op.op_size);
-    opsInit(constr, strips, use_op_constr, ops, potentials, err);
+    opsInit(constr, strips, use_op_constr, ops, op_heur_change, err);
 
     trset->trans_size = 0;
     trset->trans_alloc = 2;
@@ -471,11 +464,11 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
     int start = 0, end = 1;
     for (end = 1; end < op_ids_size; ++end){
         pddl_cost_t cost_start = ops[op_ids[start]].cost;
-        double heur_change_start = ops[op_ids[start]].heur_change;
+        pddl_cost_t heur_change_start = ops[op_ids[start]].heur_change;
         pddl_cost_t cost_end = ops[op_ids[end]].cost;
-        double heur_change_end = ops[op_ids[end]].heur_change;
+        pddl_cost_t heur_change_end = ops[op_ids[end]].heur_change;
         if (pddlCostCmp(&cost_start, &cost_end) != 0
-                || heur_change_start != heur_change_end){
+                || pddlCostCmp(&heur_change_start, &heur_change_end) != 0){
             ASSERT(end > start);
             int tr_id = add(trset);
             ASSERT(tr_id < trset->trans_size);
