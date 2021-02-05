@@ -661,7 +661,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
         pddlCostSum(&state->f_value, &state->cost);
         if (search->fw && pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
             pddlCostSum(&state->f_value, &state->heur);
-        BOR_INFO(err, "TR cost: %d:%d, heur %d:%d, f %d:%d",
+        DBG(err, "TR cost: %d:%d, heur %d:%d, f %d:%d",
                  state->cost.cost, state->cost.zero_cost,
                  state->heur.cost, state->heur.zero_cost,
                  state->f_value.cost, state->f_value.zero_cost);
