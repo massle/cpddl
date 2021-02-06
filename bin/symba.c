@@ -1458,6 +1458,8 @@ static int symba(void)
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
     if (opt.pot){
+        // TODO: parametrize
+        symb_cfg.multiply_costs = 100;
         symb_cfg.use_pot_heur = 1;
         symb_cfg.pot_heur_config = pot_cfg;
     }

@@ -274,6 +274,7 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
     pddlCostSetZero(&state->cost);
 
     pddlCostSetZero(&state->heur);
+    // TODO
     if (search->fw)
         state->heur = ss->heur_init;
 
@@ -657,6 +658,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
 
         // Set f-value = cost + heur, but only for the forward search and
         // consider heur < 0 as zero
+        // TODO
         pddlCostSetZero(&state->f_value);
         pddlCostSum(&state->f_value, &state->cost);
         if (search->fw && pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
@@ -1000,13 +1002,11 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 
     const pddl_pot_solution_t *sol = pot.sol + 0;
     init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
-    // TODO: Parametrize
-    init_h_value->cost *= 128;
+    init_h_value->cost *= cfg->multiply_costs;
     *op_heur_change = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
     for (int i = 0; i < sol->op_change_size && i < fdr->op.op_size; ++i){
         double change = sol->op_change[i];
-        // TODO: Parametrize
-        change *= 128.;
+        change *= cfg->multiply_costs;
         change = floor(change);
         (*op_heur_change)[i].cost = change;
     }
@@ -1114,6 +1114,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time,
+                              cfg->multiply_costs,
                               pot_op_heur_change,
                               err);
     BOR_INFO2(err, "Transitions created.");
