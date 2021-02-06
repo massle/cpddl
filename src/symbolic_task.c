@@ -1030,6 +1030,8 @@ static void initConstr(pddl_symbolic_task_t *ss,
     pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
     fam_cfg.maximal = 0;
     fam_cfg.goal = 1;
+    // TODO: Parametrize
+    fam_cfg.limit = 100;
     pddlFAMGroupsInfer(&mgs, &ss->mg_strips.strips, &fam_cfg, err);
     pddlMGroupsRemoveSubsets(&mgs);
     pddlMGroupsRemoveSmall(&mgs, 1);
