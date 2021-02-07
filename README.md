@@ -61,7 +61,7 @@ disambiguations (``pddl/{pot.h,hpot.h,disambiguation.h}``) are described in
 Strengthening Potential Heuristics with Mutexes and Disambiguations,
 ICAPS 2020
 
-**Endomorphisms** (``pddl/endomorphism.h'') are described in
+**Endomorphisms** (``pddl/endomorphism.h``) are described in
  - Rostislav Horčík, Daniel Fišer.
 Endomorphisms of Classical Planning Tasks,
 AAAI 2021
