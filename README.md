@@ -62,7 +62,7 @@ Strengthening Potential Heuristics with Mutexes and Disambiguations,
 ICAPS 2020
 
 **Endomorphisms** (``pddl/endomorphism.h'') are described in
- - Rostislav Horčík, Daniel Fišer
+ - Rostislav Horčík, Daniel Fišer.
 Endomorphisms of Classical Planning Tasks,
 AAAI 2021
 
