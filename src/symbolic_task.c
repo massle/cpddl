@@ -78,6 +78,7 @@ struct pddl_symbolic_search {
     int plan_goal_id; /*!< This search's state where plan was reached */
     int plan_other_goal_id; /*!< Other search's state where plan was reached*/
     float next_step_estimate; /*!< Estimate of the duration of next step */
+    int use_heur; /*!< True if heuristics should be used */
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -274,8 +275,7 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
     pddlCostSetZero(&state->cost);
 
     pddlCostSetZero(&state->heur);
-    // TODO
-    if (search->fw)
+    if (search->use_heur)
         state->heur = ss->heur_init;
 
     pddlCostSetZero(&state->f_value);
@@ -299,6 +299,11 @@ static void searchInit(pddl_symbolic_task_t *ss,
 {
     bzero(search, sizeof(*search));
     search->fw = fw;
+    if (ss->cfg.use_heur_fw && fw)
+        search->use_heur = 1;
+    if (ss->cfg.use_heur_bw && !fw)
+        search->use_heur = 1;
+
     search->image = image;
     search->pre_image = pre_image;
     if (ss->cfg.use_constr)
@@ -651,17 +656,14 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
         // Increase heuristic estimate by the change incurred by this
         // transition
         state->heur = state_in->heur;
-        pddlCostSum(&state->heur, &ss->trans.trans[tri].heur_change);
-        // TODO
-        if (!search->fw)
-            pddlCostSetZero(&state->heur);
+        if (search->use_heur){
+            pddlCostSum(&state->heur, &ss->trans.trans[tri].heur_change);
+        }
 
-        // Set f-value = cost + heur, but only for the forward search and
-        // consider heur < 0 as zero
-        // TODO
+        // Set f-value = cost + heur, but consider heur < 0 as zero
         pddlCostSetZero(&state->f_value);
         pddlCostSum(&state->f_value, &state->cost);
-        if (search->fw && pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
+        if (search->use_heur && pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
             pddlCostSum(&state->f_value, &state->heur);
         DBG(err, "TR cost: %d:%d, heur %d:%d, f %d:%d",
                  state->cost.cost, state->cost.zero_cost,
@@ -1027,16 +1029,20 @@ static void initConstr(pddl_symbolic_task_t *ss,
         mg->is_fam_group = mgin->is_fam_group;
         mg->is_goal = mgin->is_goal;
     }
-    pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
-    fam_cfg.maximal = 0;
-    fam_cfg.goal = 1;
-    // TODO: Parametrize
-    fam_cfg.limit = 100;
-    pddlFAMGroupsInfer(&mgs, &ss->mg_strips.strips, &fam_cfg, err);
+    if (cfg->fam_groups > 0){
+        BOR_INFO(err, "Inferring fam-groups: %d exactly-1 mutex groups in"
+                      " the input", mgs.mgroup_size);
+        pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        fam_cfg.maximal = 0;
+        fam_cfg.goal = 1;
+        fam_cfg.limit = cfg->fam_groups;
+        pddlFAMGroupsInfer(&mgs, &ss->mg_strips.strips, &fam_cfg, err);
+    }
     pddlMGroupsRemoveSubsets(&mgs);
     pddlMGroupsRemoveSmall(&mgs, 1);
     pddlMGroupsSetExactlyOne(&mgs, &ss->mg_strips.strips);
     pddlMGroupsSetGoal(&mgs, &ss->mg_strips.strips);
+    BOR_INFO(err, "%d exactly-1 mutex groups overall", mgs.mgroup_size);
 
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
@@ -1110,6 +1116,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     initConstr(ss, cfg, err);
     BOR_INFO2(err, "Constraints created.");
 
+    BOR_INFO2(err, "Creating transitions...");
     ss->heur_init = pot_init_h_value;
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,

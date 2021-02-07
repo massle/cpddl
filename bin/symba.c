@@ -61,6 +61,8 @@ struct options {
     const char *op_mutex_out;
 
     int pot;
+
+    int symba_fam;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -351,6 +353,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
+
+    optsAddDesc("symba-fam", 0x0, OPTS_INT, &opt.symba_fam, NULL,
+                "Maximal number of additional exactly-1 fam-groups use for"
+                " constraints in SymbA* (default: 0)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1457,6 +1463,8 @@ static int symba(void)
                           fdr_var_flag, 0, &err);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
+    if (opt.symba_fam > 0)
+        symb_cfg.fam_groups = opt.symba_fam;
     if (opt.pot){
         // TODO: parametrize
         symb_cfg.multiply_costs = 100;
@@ -1466,6 +1474,9 @@ static int symba(void)
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
     // TODO: Print configuration
+    if (!opt.fw && !opt.bw && !opt.fwbw){
+        symb_cfg.goal_constr_max_time = 30.f;
+    }
 
     pddl_symbolic_task_t *task;
     task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err);
