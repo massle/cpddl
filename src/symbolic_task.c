@@ -24,6 +24,7 @@
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
 #include <boruvka/rand.h>
+#include <boruvka/timer.h>
 
 #include "pddl/fdr.h"
 #include "pddl/mg_strips.h"
@@ -79,6 +80,8 @@ struct pddl_symbolic_search {
     int plan_other_goal_id; /*!< Other search's state where plan was reached*/
     float next_step_estimate; /*!< Estimate of the duration of next step */
     int use_heur; /*!< True if heuristics should be used */
+    size_t steps; /*!< Number of steps so far */
+    bor_timer_t steps_time; /*!< For measuring time between steps */
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -765,30 +768,39 @@ static int searchStep(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *other_search,
                       bor_err_t *err)
 {
+    ++search->steps;
     bor_timer_t timer;
     borTimerStart(&timer);
     pddl_symbolic_state_t *state = statesNextOpen(&search->state);
     if (state == NULL){
-        BOR_INFO(err, "%s: Plan does not exist",
-                 (search->fw ? "fw" : "bw"));
+        BOR_INFO(err, "%s: Plan does not exist, steps: %lu",
+                 (search->fw ? "fw" : "bw"), (unsigned long)search->steps);
         borTimerStop(&timer);
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
-    BOR_INFO(err, "%s: step cost: %d:%d, heur: %d:%d, f: %d:%d"
-                  " states: %d, closed states: %d,"
-                  " cudd mem: %.2fMB, gc: %d",
-             (search->fw ? "fw" : "bw"),
-             state->cost.cost,
-             state->cost.zero_cost,
-             state->heur.cost,
-             state->heur.zero_cost,
-             state->f_value.cost,
-             state->f_value.zero_cost,
-             search->state.num_states,
-             search->state.num_closed,
-             pddlBDDMem(ss->mgr),
-             pddlBDDGCUsed(ss->mgr));
+    borTimerStop(&search->steps_time);
+    if (search->steps == 1
+            || search->steps % 1000ul == 0
+            || borTimerElapsedInSF(&search->steps_time) > 1.){
+        BOR_INFO(err, "%s: step %lu, cost: %d:%d, heur: %d:%d, f: %d:%d"
+                      " states: %d, closed states: %d,"
+                      " cudd mem: %.2fMB, gc: %d",
+                 (search->fw ? "fw" : "bw"),
+                 (unsigned long)search->steps,
+                 state->cost.cost,
+                 state->cost.zero_cost,
+                 state->heur.cost,
+                 state->heur.zero_cost,
+                 state->f_value.cost,
+                 state->f_value.zero_cost,
+                 search->state.num_states,
+                 search->state.num_closed,
+                 pddlBDDMem(ss->mgr),
+                 pddlBDDGCUsed(ss->mgr));
+        borTimerStart(&search->steps_time);
+    }
+
 
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
     if (pddlBDDIsFalse(ss->mgr, state_bdd)){
@@ -804,8 +816,10 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     }else{ // search->goal != NULL
         if (checkGoal(ss, search, state, err)){
-            BOR_INFO(err, "%s: Found plan, cost: %d:%d, length: %d",
+            BOR_INFO(err, "%s: Found plan, steps: %lu, cost: %d:%d,"
+                          " length: %d",
                      (search->fw ? "fw" : "bw"),
+                     (unsigned long)search->steps,
                      state->cost.cost,
                      state->cost.zero_cost,
                      borIArrSize(&search->plan));
@@ -1352,9 +1366,9 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         if (fw_cont == PDDL_SYMBOLIC_CONT && fw_est <= bw_est)
             fw_step = 1;
 
-        BOR_INFO(err, "fw est: %.2f, bw est: %.2f, fw open: %d:%d,"
-                      " bw open: %d:%d, bound: %d:%d, use fw: %d"
-                      " fw-closed size: %d, bw-closed size: %d",
+        DBG(err, "fw est: %.2f, bw est: %.2f, fw open: %d:%d,"
+                 " bw open: %d:%d, bound: %d:%d, use fw: %d"
+                 " fw-closed size: %d, bw-closed size: %d",
                  fw_est, bw_est,
                  min_fw_cost->cost, min_fw_cost->zero_cost,
                  min_bw_cost->cost, min_bw_cost->zero_cost,
