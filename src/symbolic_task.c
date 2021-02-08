@@ -119,7 +119,7 @@ static int openLT(const bor_pairheap_node_t *n1,
     o2 = bor_container_of(n2, pddl_symbolic_state_t, heap);
     int cmp = pddlCostCmp(&o1->f_value, &o2->f_value);
     if (cmp == 0)
-        cmp = pddlCostCmp(&o1->heur, &o2->heur);
+        cmp = pddlCostCmp(&o1->cost, &o2->cost);
     return cmp <= 0;
 }
 
