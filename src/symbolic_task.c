@@ -285,9 +285,8 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
 
     pddlCostSetZero(&state->f_value);
     pddlCostSum(&state->f_value, &state->cost);
-    pddlCostSum(&state->f_value, &state->heur);
-    if (pddlCostCmp(&state->f_value, &pddl_cost_zero) < 0)
-        pddlCostSetZero(&state->f_value);
+    if (pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
+        pddlCostSumSat(&state->f_value, &state->heur);
     statesOpenState(ss, states, state);
 }
 
@@ -649,33 +648,40 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
 
     for (int tri = 0; tri < ss->trans.trans_size; ++tri){
         const pddl_cost_t *tr_cost = &ss->trans.trans[tri].cost;
-        if (pddlCostCmpSum(&state_in->cost, tr_cost, &states->bound) >= 0)
+
+        pddl_cost_t cost = state_in->cost;
+        pddlCostSum(&cost, tr_cost);
+        if (pddlCostCmpSum(&cost, tr_cost, &states->bound) >= 0)
+            continue;
+
+        // Increase heuristic estimate by the change incurred by this
+        // transition
+        pddl_cost_t heur = state_in->heur;
+        if (search->use_heur)
+            pddlCostSumSat(&heur, &ss->trans.trans[tri].heur_change);
+        if (pddlCostIsDeadEnd(&heur))
+            continue;
+
+        // Set f-value = cost + heur, but consider heur < 0 as zero
+        pddl_cost_t f_value = cost;
+        if (search->use_heur && pddlCostCmp(&heur, &pddl_cost_zero) > 0)
+            pddlCostSumSat(&f_value, &heur);
+        if (pddlCostCmp(&f_value, &states->bound) >= 0)
             continue;
 
         pddl_symbolic_state_t *state = statesAdd(ss, states);
         state->parent_id = state_in->id;
         state->trans_id = tri;
-        state->cost = state_in->cost;
-        pddlCostSum(&state->cost, tr_cost);
-
-        // Increase heuristic estimate by the change incurred by this
-        // transition
-        state->heur = state_in->heur;
-        if (search->use_heur){
-            pddlCostSum(&state->heur, &ss->trans.trans[tri].heur_change);
-        }
-
-        // Set f-value = cost + heur, but consider heur < 0 as zero
-        pddlCostSetZero(&state->f_value);
-        pddlCostSum(&state->f_value, &state->cost);
-        if (search->use_heur && pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
-            pddlCostSum(&state->f_value, &state->heur);
+        state->cost = cost;
+        state->heur = heur;
+        state->f_value = f_value;
         DBG(err, "TR cost: %d:%d, heur %d:%d, f %d:%d",
-                 state->cost.cost, state->cost.zero_cost,
-                 state->heur.cost, state->heur.zero_cost,
-                 state->f_value.cost, state->f_value.zero_cost);
+            state->cost.cost, state->cost.zero_cost,
+            state->heur.cost, state->heur.zero_cost,
+            state->f_value.cost, state->f_value.zero_cost);
 
         // Deal with blown-up f-values
+        // TODO
         if (pddlCostCmp(&state->f_value, &pddl_cost_zero) < 0
                 || pddlCostCmp(&state->f_value, &pddl_cost_max) > 0){
             BOR_INFO2(err, "MAX f-value HIT");
@@ -752,17 +758,48 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
         borISetUnion(&merged->parent_ids, &parents);
         statesOpenState(ss, &search->state, merged);
 
-        BOR_INFO(err, "%s: Merged %d states when preparing"
-                      " next state (nodes: %d)",
-                 (search->fw ? "fw" : "bw"),
-                 borISetSize(&parents),
-                 pddlBDDSize(bdd));
+        DBG(err, "%s: Merged %d states when preparing next state (nodes: %d)",
+            (search->fw ? "fw" : "bw"),
+            borISetSize(&parents),
+            pddlBDDSize(bdd));
     }else{
         statesOpenState(ss, &search->state, state);
     }
 
     borISetFree(&parents);
     pddlBDDDel(ss->mgr, bdd);
+}
+
+static void printStepLog(const pddl_symbolic_task_t *ss,
+                         pddl_symbolic_search_t *search,
+                         const pddl_symbolic_state_t *state,
+                         bor_err_t *err)
+{
+    borTimerStop(&search->steps_time);
+#ifdef PDDL_DEBUG
+    if (1){
+#else /* PDDL_DEBUG */
+    if (search->steps == 1
+            || search->steps % 1000ul == 0
+            || borTimerElapsedInSF(&search->steps_time) > 1.){
+#endif /* PDDL_DEBUG */
+        BOR_INFO(err, "%s: step %lu, cost: %d:%d, heur: %d:%d, f: %d:%d"
+                      " states: %d, closed states: %d,"
+                      " cudd mem: %.2fMB, gc: %d",
+                 (search->fw ? "fw" : "bw"),
+                 (unsigned long)search->steps,
+                 state->cost.cost,
+                 state->cost.zero_cost,
+                 state->heur.cost,
+                 state->heur.zero_cost,
+                 state->f_value.cost,
+                 state->f_value.zero_cost,
+                 search->state.num_states,
+                 search->state.num_closed,
+                 pddlBDDMem(ss->mgr),
+                 pddlBDDGCUsed(ss->mgr));
+        borTimerStart(&search->steps_time);
+    }
 }
 
 static int searchStep(pddl_symbolic_task_t *ss,
@@ -781,27 +818,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
-    borTimerStop(&search->steps_time);
-    if (search->steps == 1
-            || search->steps % 1000ul == 0
-            || borTimerElapsedInSF(&search->steps_time) > 1.){
-        BOR_INFO(err, "%s: step %lu, cost: %d:%d, heur: %d:%d, f: %d:%d"
-                      " states: %d, closed states: %d,"
-                      " cudd mem: %.2fMB, gc: %d",
-                 (search->fw ? "fw" : "bw"),
-                 (unsigned long)search->steps,
-                 state->cost.cost,
-                 state->cost.zero_cost,
-                 state->heur.cost,
-                 state->heur.zero_cost,
-                 state->f_value.cost,
-                 state->f_value.zero_cost,
-                 search->state.num_states,
-                 search->state.num_closed,
-                 pddlBDDMem(ss->mgr),
-                 pddlBDDGCUsed(ss->mgr));
-        borTimerStart(&search->steps_time);
-    }
+    printStepLog(ss, search, state, err);
 
 
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
@@ -1026,7 +1043,16 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
         double change = sol->op_change[i];
         change *= cfg->multiply_costs;
         change = floor(change);
-        (*op_heur_change)[i].cost = change;
+
+        if (change >= PDDL_COST_DEAD_END){
+            (*op_heur_change)[i].cost = PDDL_COST_DEAD_END;
+        }else if (change <= PDDL_COST_MIN){
+            (*op_heur_change)[i].cost = PDDL_COST_MIN;
+        }else if (change >= PDDL_COST_MAX){
+            (*op_heur_change)[i].cost = PDDL_COST_MAX;
+        }else{
+            (*op_heur_change)[i].cost = change;
+        }
     }
     pddlPotSolutionsFree(&pot);
     return 0;

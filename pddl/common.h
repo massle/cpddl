@@ -46,6 +46,8 @@ typedef int pddl_obj_id_t;
 #define PDDL_COST_DEAD_END (INT_MAX / 2)
 /** Maximum cost that can be assigned */
 #define PDDL_COST_MAX ((INT_MAX / 2) - 1)
+/** Minimum cost */
+#define PDDL_COST_MIN ((INT_MIN / 2) + 1)
 
 
 /**
