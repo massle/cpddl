@@ -283,8 +283,7 @@ static void statesAddInit(pddl_symbolic_task_t *ss,
     if (search->use_heur)
         state->heur = ss->heur_init;
 
-    pddlCostSetZero(&state->f_value);
-    pddlCostSum(&state->f_value, &state->cost);
+    state->f_value = state->cost;
     if (pddlCostCmp(&state->heur, &pddl_cost_zero) > 0)
         pddlCostSumSat(&state->f_value, &state->heur);
     statesOpenState(ss, states, state);
@@ -651,7 +650,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
 
         pddl_cost_t cost = state_in->cost;
         pddlCostSum(&cost, tr_cost);
-        if (pddlCostCmpSum(&cost, tr_cost, &states->bound) >= 0)
+        if (pddlCostCmp(&cost, &states->bound) >= 0)
             continue;
 
         // Increase heuristic estimate by the change incurred by this
