@@ -76,7 +76,7 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         0, /* .use_pot_heur */ \
         PDDL_HPOT_CONFIG_INIT, \
         1, /* .use_heur_fw */ \
-        1, /* .use_heur_bw */ \
+        0, /* .use_heur_bw */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;
