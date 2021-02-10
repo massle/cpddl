@@ -23,6 +23,7 @@
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
+#include <boruvka/rbtree.h>
 #include <boruvka/rand.h>
 #include <boruvka/timer.h>
 
@@ -53,6 +54,7 @@ struct pddl_symbolic_state {
     int is_closed; /*!< True if the state is closed */
     bor_pairheap_node_t heap;
     bor_pairheap_node_t heap_cost;
+    bor_rbtree_node_t rbtree;
 };
 typedef struct pddl_symbolic_state pddl_symbolic_state_t;
 
@@ -61,7 +63,7 @@ struct pddl_symbolic_states {
     int num_states; /*!< Number of states stored in .pool */
     bor_pairheap_t *open; /*!< Open list */
     bor_pairheap_t *open_cost; /*!< Costs of states in the open list */
-    bor_extarr_t *closed; /*!< Closed states stored with increasing cost */
+    bor_rbtree_t *closed; /*!< Closed states stored with increasing cost */
     int num_closed; /*!< Number of closed states */
     pddl_bdd_t *all_closed; /*!< BDD representing all closed states */
     pddl_cost_t bound; /*!< Bound for the cost of the plan */
@@ -135,6 +137,21 @@ static int openCostLT(const bor_pairheap_node_t *n1,
     return pddlCostCmp(&o1->cost, &o2->cost) <= 0;
 }
 
+static int rbtreeCostCmp(const bor_rbtree_node_t *n1,
+                         const bor_rbtree_node_t *n2,
+                         void *data)
+{
+    const pddl_symbolic_state_t *s1, *s2;
+    s1 = bor_container_of(n1, pddl_symbolic_state_t, rbtree);
+    s2 = bor_container_of(n2, pddl_symbolic_state_t, rbtree);
+    int cmp = pddlCostCmp(&s1->cost, &s2->cost);
+    if (cmp == 0)
+        cmp = pddlCostCmp(&s1->heur, &s2->heur);
+    if (cmp == 0)
+        cmp = s1->id - s2->id;
+    return cmp;
+}
+
 static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
 {
     bzero(states, sizeof(*states));
@@ -149,9 +166,7 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->open = borPairHeapNew(openLT, states);
     states->open_cost = borPairHeapNew(openCostLT, states);
 
-    el_size = sizeof(int);
-    int closed_el = -1;
-    states->closed = borExtArrNew(el_size, NULL, &closed_el);
+    states->closed = borRBTreeNew(rbtreeCostCmp, NULL);
     states->num_closed = 0;
 
     states->all_closed = pddlBDDZero(ss->mgr);
@@ -170,19 +185,12 @@ static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
         stateFree(ss, borExtArrGet(states->pool, si));
     borExtArrDel(states->pool);
 
-    borExtArrDel(states->closed);
+    borRBTreeDel(states->closed);
 }
 
 static pddl_symbolic_state_t *statesGet(pddl_symbolic_states_t *states, int id)
 {
     return borExtArrGet(states->pool, id);
-}
-
-static pddl_symbolic_state_t *statesGetClosed(pddl_symbolic_states_t *states,
-                                              int idx)
-{
-    const int *state_id = borExtArrGet(states->closed, idx);
-    return statesGet(states, *state_id);
 }
 
 static void statesCloseState(pddl_symbolic_task_t *ss,
@@ -193,8 +201,7 @@ static void statesCloseState(pddl_symbolic_task_t *ss,
     state->is_closed = 1;
     ASSERT(state->bdd != NULL);
     pddlBDDOrUpdate(ss->mgr, &states->all_closed, state->bdd);
-    int *dst = borExtArrGet(states->closed, states->num_closed);
-    *dst = state->id;
+    borRBTreeInsert(states->closed, &state->rbtree);
     ++states->num_closed;
 }
 
@@ -582,9 +589,13 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
     pddl_bdd_t *goal = pddlBDDAnd(ss->mgr, state_bdd,
                                   other_search->state.all_closed);
     if (!pddlBDDIsFalse(ss->mgr, goal)){
-        for (int si = 0; si < other_search->state.num_closed; ++si){
+        //fprintf(stderr, "----\n");
+        bor_rbtree_node_t *rbs;
+        BOR_RBTREE_FOR_EACH(other_search->state.closed, rbs){
             const pddl_symbolic_state_t *closed_state;
-            closed_state = statesGetClosed(&other_search->state, si);
+            closed_state = bor_container_of(rbs, pddl_symbolic_state_t, rbtree);
+            //fprintf(stderr, "%d:%d\n", closed_state->cost.cost,
+            //        closed_state->cost.zero_cost);
             if (!costStatesIsBetter(search, state, closed_state))
                 break;
 
