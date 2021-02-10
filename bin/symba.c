@@ -61,6 +61,7 @@ struct options {
     const char *op_mutex_out;
 
     int pot;
+    int use_heur_bw;
 
     int symba_fam;
 } opt;
@@ -353,6 +354,9 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
+    optsAddDesc("use-heur-bw", 0x0, OPTS_NONE, &opt.use_heur_bw, NULL,
+                "Use heuristic also for backward part of bidirectional"
+                " search");
 
     optsAddDesc("symba-fam", 0x0, OPTS_INT, &opt.symba_fam, NULL,
                 "Maximal number of additional exactly-1 fam-groups use for"
@@ -1470,6 +1474,8 @@ static int symba(void)
         symb_cfg.multiply_costs = 100;
         symb_cfg.use_pot_heur = 1;
         symb_cfg.pot_heur_config = pot_cfg;
+        if (opt.use_heur_bw)
+            symb_cfg.use_heur_bw = 1;
     }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
