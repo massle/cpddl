@@ -64,6 +64,8 @@ struct options {
     int use_heur_bw;
 
     int symba_fam;
+    float trans_merge_max_time;
+    float goal_constr_max_time;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -197,6 +199,8 @@ static int readOpts(int *argc, char *argv[])
     opt.op_mutex_ts = -1;
     opt.op_mutex_op_fact = -1;
     opt.op_mutex_hm_op = -1;
+    opt.trans_merge_max_time = -1.;
+    opt.goal_constr_max_time = -1.;
 
     pddl_cfg.force_adl = 1;
     endomorphism_cfg.num_threads = 1;
@@ -361,6 +365,14 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("symba-fam", 0x0, OPTS_INT, &opt.symba_fam, NULL,
                 "Maximal number of additional exactly-1 fam-groups use for"
                 " constraints in SymbA* (default: 0)");
+
+    optsAddDesc("trans-merge-max-time", 0x0, OPTS_FLOAT,
+                &opt.trans_merge_max_time, NULL,
+                "Maximum time spent in merging transitions (default: -1.)");
+    optsAddDesc("goal-constr-max-time", 0x0, OPTS_FLOAT,
+                &opt.goal_constr_max_time, NULL,
+                "Maximum time spent in applying constraints on the goal"
+                " (default: -1.)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1483,6 +1495,10 @@ static int symba(void)
     if (!opt.fw && !opt.bw && !opt.fwbw){
         symb_cfg.goal_constr_max_time = 30.f;
     }
+    if (opt.trans_merge_max_time > 0.)
+        symb_cfg.trans_merge_max_time = opt.trans_merge_max_time;
+    if (opt.goal_constr_max_time > 0.)
+        symb_cfg.goal_constr_max_time = opt.goal_constr_max_time;
 
     pddl_symbolic_task_t *task;
     task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err);
