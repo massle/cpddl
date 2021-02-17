@@ -95,8 +95,8 @@ static void opInit(pddl_symbolic_constr_t *constr,
 
     if (op_heur_change != NULL){
         op->heur_change = op_heur_change[op_id];
-        BOR_INFO(err, "%d:(%s) --> %d:%d / %d", op->op_id, op->name,
-                 op->heur_change.cost, op->heur_change.zero_cost, op->cost);
+        DBG(err, "%d:(%s) --> %d:%d / %d", op->op_id, op->name,
+            op->heur_change.cost, op->heur_change.zero_cost, op->cost);
     }
 }
 

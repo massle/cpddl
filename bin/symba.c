@@ -62,6 +62,7 @@ struct options {
 
     int pot;
     int use_heur_bw;
+    int no_heur_fw;
 
     int symba_fam;
     float trans_merge_max_time;
@@ -128,6 +129,9 @@ static void setFDRVarLargestMulti(const char *ln, const char *sn)
 
 static int setPot(const char *_spec)
 {
+    bzero(&pot_cfg, sizeof(pot_cfg));
+    pot_cfg.disambiguation = 1;
+
     // TODO
     char *spec = BOR_STRDUP(_spec);
     if (spec == NULL)
@@ -158,6 +162,20 @@ static int setPot(const char *_spec)
 
         }else if (strcmp(o, "all") == 0){
             pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES;
+
+        }else if (strncmp(o, "all-mutex=", 10) == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX;
+            pot_cfg.all_states_mutex_size = atoi(o + 10);
+            if (pot_cfg.all_states_mutex_size <= 0){
+                fprintf(stderr, "Error: Invalid argument for all-mutex\n");
+                fprintf(stderr, "\n");
+                return -1;
+            }
+
+        }else if (strncmp(o, "samples-sum=", 12) == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_SAMPLES_SUM;
+            pot_cfg.num_samples = atoi(o + 12);
+            pot_cfg.samples_random_walk = 1;
 
         }else if (strcmp(o, "Max(init,all)") == 0){
             pot_cfg.obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
@@ -361,6 +379,8 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("use-heur-bw", 0x0, OPTS_NONE, &opt.use_heur_bw, NULL,
                 "Use heuristic also for backward part of bidirectional"
                 " search");
+    optsAddDesc("no-heur-fw", 0x0, OPTS_NONE, &opt.no_heur_fw, NULL,
+                "Don't use heuristic in the forward direction.");
 
     optsAddDesc("symba-fam", 0x0, OPTS_INT, &opt.symba_fam, NULL,
                 "Maximal number of additional exactly-1 fam-groups use for"
@@ -1488,6 +1508,8 @@ static int symba(void)
         symb_cfg.pot_heur_config = pot_cfg;
         if (opt.use_heur_bw)
             symb_cfg.use_heur_bw = 1;
+        if (opt.no_heur_fw)
+            symb_cfg.use_heur_fw = 0;
     }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
