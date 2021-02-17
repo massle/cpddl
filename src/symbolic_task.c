@@ -84,6 +84,9 @@ struct pddl_symbolic_search {
     int use_heur; /*!< True if heuristics should be used */
     size_t steps; /*!< Number of steps so far */
     bor_timer_t steps_time; /*!< For measuring time between steps */
+    unsigned long num_expanded_bdd_nodes;
+    unsigned long num_expanded_states;
+    float avg_expanded_bdd_nodes;
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
 
@@ -702,6 +705,17 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
         if (other_search != NULL)
             checkGoal2(ss, search, other_search, state, err);
     }
+    search->num_expanded_bdd_nodes += pddlBDDSize(bdd_in);
+    if (search->num_expanded_states == 0){
+        search->avg_expanded_bdd_nodes = pddlBDDSize(bdd_in);
+    }else{
+        float avg = search->avg_expanded_bdd_nodes;
+        avg *= search->num_expanded_states;
+        avg += pddlBDDSize(bdd_in);
+        avg /= search->num_expanded_states + 1;
+        search->avg_expanded_bdd_nodes = avg;
+    }
+    ++search->num_expanded_states;
 
     pddlBDDDel(ss->mgr, bdd_in);
 }
@@ -793,9 +807,9 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
             || search->steps % 1000ul == 0
             || borTimerElapsedInSF(&search->steps_time) > 1.){
 #endif /* PDDL_DEBUG */
-        BOR_INFO(err, "%s: step %lu, cost: %d:%d, heur: %d:%d, f: %d:%d"
+        BOR_INFO(err, "%s: step %lu, g: %d:%d, h: %d:%d, f: %d:%d"
                       " states: %d, closed states: %d,"
-                      " cudd mem: %.2fMB, gc: %d",
+                      " cudd mem: %.2fMB, gc: %d, expanded BDD nodes: %lu",
                  (search->fw ? "fw" : "bw"),
                  (unsigned long)search->steps,
                  state->cost.cost,
@@ -807,7 +821,8 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
                  search->state.num_states,
                  search->state.num_closed,
                  pddlBDDMem(ss->mgr),
-                 pddlBDDGCUsed(ss->mgr));
+                 pddlBDDGCUsed(ss->mgr),
+                 search->num_expanded_bdd_nodes);
         borTimerStart(&search->steps_time);
     }
 }
@@ -1254,6 +1269,10 @@ static int searchOneDir(pddl_symbolic_task_t *ss,
     while (res == PDDL_SYMBOLIC_CONT){
         res = searchStep(ss, search, NULL, err);
     }
+    BOR_INFO(err, "Expanded BDD Nodes: %lu", search->num_expanded_bdd_nodes);
+    BOR_INFO(err, "Expanded States: %lu", search->num_expanded_states);
+    BOR_INFO(err, "Avg. Expanded BDD Nodes: %.2f",
+             search->avg_expanded_bdd_nodes);
     return res;
 }
 
@@ -1437,6 +1456,32 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
 
     searchFree(ss, &fw_search);
     searchFree(ss, &bw_search);
+
+    BOR_INFO(err, "Fw Expanded BDD Nodes: %lu",
+             fw_search.num_expanded_bdd_nodes);
+    BOR_INFO(err, "Fw Expanded States: %lu",
+             fw_search.num_expanded_states);
+    BOR_INFO(err, "Fw Avg. Expanded BDD Nodes: %.2f",
+             fw_search.avg_expanded_bdd_nodes);
+
+    BOR_INFO(err, "Bw Expanded BDD Nodes: %lu",
+             bw_search.num_expanded_bdd_nodes);
+    BOR_INFO(err, "Bw Expanded States: %lu",
+             bw_search.num_expanded_states);
+    BOR_INFO(err, "Bw Avg. Expanded BDD Nodes: %.2f",
+             bw_search.avg_expanded_bdd_nodes);
+
+    BOR_INFO(err, "Expanded BDD Nodes: %lu",
+             fw_search.num_expanded_bdd_nodes
+                + bw_search.num_expanded_bdd_nodes);
+    BOR_INFO(err, "Expanded States: %lu",
+             fw_search.num_expanded_states + bw_search.num_expanded_states);
+    float avg = fw_search.avg_expanded_bdd_nodes
+                    * fw_search.num_expanded_states;
+    avg += bw_search.avg_expanded_bdd_nodes
+                * bw_search.num_expanded_states;
+    avg /= fw_search.num_expanded_states + bw_search.num_expanded_states;
+    BOR_INFO(err, "Avg. Expanded BDD Nodes: %.2f", avg);
 
 #ifdef PDDL_DEBUG
     int op_id;
