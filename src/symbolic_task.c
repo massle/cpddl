@@ -137,7 +137,12 @@ static int openCostLT(const bor_pairheap_node_t *n1,
     const pddl_symbolic_state_t *o1, *o2;
     o1 = bor_container_of(n1, pddl_symbolic_state_t, heap_cost);
     o2 = bor_container_of(n2, pddl_symbolic_state_t, heap_cost);
-    return pddlCostCmp(&o1->cost, &o2->cost) <= 0;
+    int cmp = pddlCostCmp(&o1->cost, &o2->cost);
+    if (cmp == 0)
+        cmp = pddlCostCmp(&o1->f_value, &o2->f_value);
+    if (cmp == 0)
+        cmp = pddlCostCmp(&o1->heur, &o2->heur);
+    return cmp < 0;
 }
 
 static int rbtreeCostCmp(const bor_rbtree_node_t *n1,
@@ -166,7 +171,11 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->pool = borExtArrNew(el_size, NULL, &el_init);
     states->num_states = 0;
 
-    states->open = borPairHeapNew(openLT, states);
+    if (ss->cfg.test_partitioning){
+        states->open = borPairHeapNew(openCostLT, states);
+    }else{
+        states->open = borPairHeapNew(openLT, states);
+    }
     states->open_cost = borPairHeapNew(openCostLT, states);
 
     states->closed = borRBTreeNew(rbtreeCostCmp, NULL);
@@ -848,7 +857,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
     if (pddlBDDIsFalse(ss->mgr, state_bdd)){
-        BOR_INFO(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
+        DBG(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
     }
     DBG(err, "Num states: %.2f",

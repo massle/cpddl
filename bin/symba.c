@@ -67,6 +67,7 @@ struct options {
     int symba_fam;
     float trans_merge_max_time;
     float goal_constr_max_time;
+    int test_partitioning;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -393,6 +394,8 @@ static int readOpts(int *argc, char *argv[])
                 &opt.goal_constr_max_time, NULL,
                 "Maximum time spent in applying constraints on the goal"
                 " (default: -1.)");
+    optsAddDesc("test-part", 0x0, OPTS_NONE, &opt.test_partitioning, NULL,
+                "Test partitioning using heuristic without using heuristic.");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1510,6 +1513,8 @@ static int symba(void)
             symb_cfg.use_heur_bw = 1;
         if (opt.no_heur_fw)
             symb_cfg.use_heur_fw = 0;
+        if (opt.test_partitioning)
+            symb_cfg.test_partitioning = 1;
     }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;

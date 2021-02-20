@@ -57,6 +57,7 @@ struct pddl_symbolic_task_config {
     pddl_hpot_config_t pot_heur_config;
     int use_heur_fw;
     int use_heur_bw;
+    int test_partitioning;
 };
 typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 
@@ -77,6 +78,7 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         PDDL_HPOT_CONFIG_INIT, \
         1, /* .use_heur_fw */ \
         0, /* .use_heur_bw */ \
+        0, /* .test_partitioning */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;
