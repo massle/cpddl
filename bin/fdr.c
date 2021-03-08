@@ -44,6 +44,7 @@ struct options {
     int lifted_endomorphism;
     int lifted_endomorphism_ignore_costs;
     int lifted_endomorphism_costs_then_wo_costs;
+    int only_pddl;
 
     int num_sym_gen;
 
@@ -51,6 +52,8 @@ struct options {
     const char *lifted_mgroup_out;
     const char *mgroup_out;
     const char *mgroup_pre_out;
+    const char *pddl_domain_out;
+    const char *pddl_problem_out;
 
     int op_mutex_ts;
     int op_mutex_op_fact;
@@ -319,6 +322,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("mg-pre-out", 0x0, OPTS_STR, &opt.mgroup_pre_out, NULL,
                 "Output filename for the mutex groups found before pruning."
                 " (default: none)");
+    optsAddDesc("pddl-domain-out", 0x0, OPTS_STR, &opt.pddl_domain_out, NULL,
+                "Output filename for the PDDL domain file.");
+    optsAddDesc("pddl-problem-out", 0x0, OPTS_STR, &opt.pddl_problem_out, NULL,
+                "Output filename for the PDDL problem file.");
 
     optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
                 OPTS_CB(setFDRVarLargest),
@@ -365,6 +372,8 @@ static int readOpts(int *argc, char *argv[])
                 &opt.lifted_endomorphism_costs_then_wo_costs, NULL,
                 "First prune with costs then without costs"
                 " (default: off)");
+    optsAddDesc("only-pddl", 0x0, OPTS_NONE, &opt.only_pddl, NULL,
+                "If true, the program stops at processing PDDL.");
 
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
@@ -575,12 +584,36 @@ static int prunePDDL(void)
         }
         borISetFree(&redundant_objs);
     }
+
+    if (opt.pddl_domain_out != NULL){
+        FILE *fout = fopen(opt.pddl_domain_out, "w");
+        if (fout != NULL){
+            pddlPrintPDDLDomain(&pddl, fout);
+            fclose(fout);
+        }else{
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_domain_out);
+        }
+    }
+
+    if (opt.pddl_problem_out != NULL){
+        FILE *fout = fopen(opt.pddl_problem_out, "w");
+        if (fout != NULL){
+            pddlPrintPDDLProblem(&pddl, fout);
+            fclose(fout);
+        }else{
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_problem_out);
+        }
+    }
+
     return 0;
 }
 
 
 static int groundStrips(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Grounding of STRIPS ...");
     BOR_INFO(&err, "Grounding of STRIPS option no-ground-prune: %d",
@@ -629,6 +662,9 @@ static int groundStrips(void)
 
 static int groundMGroups(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Grounding mutex groups ...");
 
@@ -1422,6 +1458,9 @@ static int pruneStrips(void)
 
 static int mgroupsAndPruning(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     if (opt.fam_fixpoint)
         return pruneStripsFixpointFAMGroups();
     if (opt.h2_fixpoint)
@@ -1443,6 +1482,9 @@ static int mgroupsAndPruning(void)
 
 static int opMutex(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     if (opt.op_mutex_ts < 0
             && opt.op_mutex_op_fact < 1
             && opt.op_mutex_hm_op < 1){
@@ -1611,6 +1653,9 @@ static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
 
 static int toFDR(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     if (opt.num_sym_gen){
         pddl_strips_sym_t sym;
         pddlStripsSymInitPDG(&sym, &strips);
@@ -1711,9 +1756,11 @@ int main(int argc, char *argv[])
     }
 
     optsClear();
-    pddlMutexPairsFree(&mutex);
-    pddlMGroupsFree(&mgroups);
-    pddlStripsFree(&strips);
+    if (!opt.only_pddl){
+        pddlMutexPairsFree(&mutex);
+        pddlMGroupsFree(&mgroups);
+        pddlStripsFree(&strips);
+    }
     pddlLiftedMGroupsFree(&lifted_mgroups);
     pddlFree(&pddl);
     return 0;
