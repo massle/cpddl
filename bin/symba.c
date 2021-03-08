@@ -1509,7 +1509,7 @@ static int symba(void)
         symb_cfg.multiply_costs = 100;
         symb_cfg.use_pot_heur = 1;
         symb_cfg.pot_heur_config = pot_cfg;
-        if (opt.use_heur_bw)
+        if (opt.use_heur_bw || opt.bw)
             symb_cfg.use_heur_bw = 1;
         if (opt.no_heur_fw)
             symb_cfg.use_heur_fw = 0;
