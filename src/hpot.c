@@ -102,33 +102,41 @@ static int fdrStateEstimate(const double *pot,
 }
 #endif
 
-static void initPot(pddl_pot_t *pot,
-                    const pddl_fdr_t *fdr,
-                    const pddl_mg_strips_t *mg_strips,
-                    const pddl_mutex_pairs_t *mutex,
-                    const pddl_hpot_config_t *cfg,
-                    bor_err_t *err)
+static int initPot(pddl_pot_t *pot,
+                   const pddl_fdr_t *fdr,
+                   const pddl_mg_strips_t *mg_strips,
+                   const pddl_mutex_pairs_t *mutex,
+                   const pddl_hpot_config_t *cfg,
+                   bor_err_t *err)
 {
 
     if (cfg->weak_disambiguation){
-        pddlPotInitMGStripsSingleFactDisamb(pot, mg_strips, mutex);
-        BOR_INFO(err, "Pot: Initialized with weak-disambiguation."
-                      " vars: %d, op-constr: %d,"
-                      " goal-constr: %d, maxpots: %d",
-                      pot->var_size,
-                      pot->constr_op.size,
-                      pot->constr_goal.size,
-                      pot->maxpot_size);
+        if (pddlPotInitMGStripsSingleFactDisamb(pot, mg_strips, mutex) == 0){
+            BOR_INFO(err, "Pot: Initialized with weak-disambiguation."
+                          " vars: %d, op-constr: %d,"
+                          " goal-constr: %d, maxpots: %d",
+                          pot->var_size,
+                          pot->constr_op.size,
+                          pot->constr_goal.size,
+                          pot->maxpot_size);
+        }else{
+            BOR_INFO2(err, "Pot: Disambiguation proved the task unsolvable.");
+            return -1;
+        }
 
     }else if (cfg->disambiguation){
-        pddlPotInitMGStrips(pot, mg_strips, mutex);
-        BOR_INFO(err, "Pot: Initialized with disambiguation."
-                      " vars: %d, op-constr: %d,"
-                      " goal-constr: %d, maxpots: %d",
-                      pot->var_size,
-                      pot->constr_op.size,
-                      pot->constr_goal.size,
-                      pot->maxpot_size);
+        if (pddlPotInitMGStrips(pot, mg_strips, mutex) == 0){
+            BOR_INFO(err, "Pot: Initialized with disambiguation."
+                          " vars: %d, op-constr: %d,"
+                          " goal-constr: %d, maxpots: %d",
+                          pot->var_size,
+                          pot->constr_op.size,
+                          pot->constr_goal.size,
+                          pot->maxpot_size);
+        }else{
+            BOR_INFO2(err, "Pot: Disambiguation proved the task unsolvable.");
+            return -1;
+        }
 
     }else{
         pddlPotInitFDR(pot, fdr);
@@ -143,6 +151,8 @@ static void initPot(pddl_pot_t *pot,
 
     if (cfg->store_op_heur_change)
         pddlPotStoreOpHeurChange(pot, 1);
+
+    return 0;
 }
 
 static int addInitConstr(pddl_pot_t *pot,
@@ -836,7 +846,8 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 
     // Initialize potential heuristic
     pddl_pot_t pot;
-    initPot(&pot, fdr, &mg_strips, &mutex, cfg, err);
+    if (initPot(&pot, fdr, &mg_strips, &mutex, cfg, err) != 0)
+        return -1;
 
     if (cfg->add_init_constr){
         // Add constraint on the initial state
