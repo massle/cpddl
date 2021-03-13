@@ -72,6 +72,8 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
 /** Takes effect only if mutex argument is non-NULL.
  *  Use weak type of disambiguation. */
 #define PDDL_FDR_TNF_WEAK_DISAMBIGUATION 0x2
+/** Multiply operators instead of creating forgetting operators */
+#define PDDL_FDR_TNF_MULTIPLY_OPS 0x4
 
 /**
  * Initialize FDR as the Transition Normal Form of fdr_in.

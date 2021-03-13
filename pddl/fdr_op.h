@@ -126,6 +126,11 @@ void pddlFDROpsRemapFacts(pddl_fdr_ops_t *ops, const pddl_fdr_vars_remap_t *r);
  */
 void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op);
 
+/**
+ * Sort operators by name.
+ */
+void pddlFDROpsSort(pddl_fdr_ops_t *ops);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

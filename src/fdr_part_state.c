@@ -146,3 +146,16 @@ void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,
         borISetAdd(global_ids, vars->var[f->var].val[f->val].global_id);
     }
 }
+
+void pddlFDRPartStateMinus(pddl_fdr_part_state_t *a,
+                           const pddl_fdr_part_state_t *b)
+{
+    // TODO: Can be implemented in a linear time, not quadratic
+    int ins = 0;
+    for (int i = 0; i < a->fact_size; ++i){
+        int val = pddlFDRPartStateGet(b, a->fact[i].var);
+        if (val != a->fact[i].val)
+            a->fact[ins++] = a->fact[i];
+    }
+    a->fact_size = ins;
+}

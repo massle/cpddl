@@ -105,6 +105,12 @@ void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,
                                  const pddl_fdr_vars_t *vars,
                                  bor_iset_t *global_ids);
 
+/**
+ * a = a \setminus b
+ */
+void pddlFDRPartStateMinus(pddl_fdr_part_state_t *a,
+                           const pddl_fdr_part_state_t *b);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
