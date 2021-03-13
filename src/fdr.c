@@ -809,7 +809,11 @@ static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
     if (set_id >= pddlSetISetSize(hset)){
         pddl_fdr_op_t *new_op = pddlFDROpClone(op);
         pddlFDRPartStateMinus(&new_op->eff, &new_op->pre);
-        pddlFDROpsAddSteal(&fdr->op, new_op);
+        if (new_op->eff.fact_size > 0){
+            pddlFDROpsAddSteal(&fdr->op, new_op);
+        }else{
+            pddlFDROpDel(new_op);
+        }
         return;
     }
 
@@ -822,13 +826,14 @@ static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
         const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
         int var_id = v->var_id;
 
-        pddl_fdr_op_t *new_op = pddlFDROpClone(op);
         BOR_ISET_FOR_EACH(set, fact_id){
             const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
+            pddl_fdr_op_t *new_op = pddlFDROpClone(op);
+            ASSERT(!pddlFDRPartStateIsSet(&new_op->pre, var_id));
             pddlFDRPartStateSet(&new_op->pre, var_id, v->val_id);
             tnfMultiplyOpSet(fdr, hset, set_id + 1, new_op, err);
+            pddlFDROpDel(new_op);
         }
-        pddlFDROpDel(new_op);
     }
 }
 
@@ -857,6 +862,7 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
     int fact_id;
     BOR_ISET_FOR_EACH(&extend, fact_id){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
+        ASSERT(!pddlFDRPartStateIsSet(&op->pre, val->var_id));
         pddlFDRPartStateSet(&op->pre, val->var_id, val->val_id);
         if (!(flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
                 && pddlFDRPartStateGet(&op->eff, val->var_id) == val->val_id){
