@@ -828,6 +828,7 @@ static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
 
         BOR_ISET_FOR_EACH(set, fact_id){
             const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
+            ASSERT(v->var_id == var_id);
             pddl_fdr_op_t *new_op = pddlFDROpClone(op);
             ASSERT(!pddlFDRPartStateIsSet(&new_op->pre, var_id));
             pddlFDRPartStateSet(&new_op->pre, var_id, v->val_id);
@@ -870,7 +871,7 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
         }
     }
 
-    if (pddlSetISetSize(&hset) > 0){
+    if (disret == 0 && pddlSetISetSize(&hset) > 0){
         ret = -1;
         tnfMultiplyOpSet(fdr, &hset, 0, op, err);
     }
