@@ -1495,11 +1495,27 @@ static void planPrint(const pddl_fdr_t *fdr,
 
 static int symba(void)
 {
-    pddl_fdr_t fdr;
+    pddl_fdr_t fdr, _fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     pddlStripsOpsSort(&strips.op);
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
+    pddlFDRInitFromStrips(&_fdr, &strips, &mgroups, &mutex,
                           fdr_var_flag, 0, &err);
+
+    // TODO
+    pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t fdr_mutex;
+    pddlMGStripsInitFDR(&mg_strips, &_fdr);
+    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+    unsigned flags = PDDL_FDR_TNF_MULTIPLY_OPS;
+    int r = pddlFDRInitTransitionNormalForm(&fdr, &_fdr, &fdr_mutex, flags, &err);
+    if (r != 0)
+        return -1;
+    //pddlFDRPrintFD(&fdr, NULL, 0, stderr);
+    pddlMutexPairsFree(&fdr_mutex);
+    pddlMGStripsFree(&mg_strips);
+    pddlFDRFree(&_fdr);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
     if (opt.symba_fam > 0)
@@ -1528,7 +1544,8 @@ static int symba(void)
         symb_cfg.goal_constr_max_time = opt.goal_constr_max_time;
 
     pddl_symbolic_task_t *task;
-    task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err);
+    if ((task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err)) == NULL)
+        BOR_TRACE_RET(&err, -1);
 
     BOR_IARR(plan);
     int res;
