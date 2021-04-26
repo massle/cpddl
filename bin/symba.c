@@ -1522,7 +1522,8 @@ static int symba(void)
         symb_cfg.fam_groups = opt.symba_fam;
     if (opt.pot){
         // TODO: parametrize
-        symb_cfg.multiply_costs = 100;
+        //symb_cfg.multiply_costs = 100;
+        symb_cfg.multiply_costs = 1;
         symb_cfg.use_pot_heur = 1;
         symb_cfg.pot_heur_config = pot_cfg;
         if (opt.use_heur_bw || opt.bw)

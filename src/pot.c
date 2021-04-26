@@ -641,8 +641,30 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     setMaxpotConstrs(lp, pot, &row);
     setLBConstr(lp, pot, &row);
 
+    int var_size = pot->var_size;
+    if (pot->store_op_heur_change){
+        ASSERT(borLPNumCols(lp) == pot->var_size);
+        borLPAddCols(lp, pot->constr_op.size);
+        for (int i = 0; i < pot->constr_op.size; ++i){
+            int var = pot->var_size + i;
+            borLPSetVarInt(lp, var);
+            borLPSetVarRange(lp, var, LPVAR_LOWER, LPVAR_UPPER);
+            borLPSetObj(lp, var, 0);
+        }
+
+        for (int i = 0; i < pot->constr_op.size; ++i){
+            double rhs = 0;
+            char sense = 'E';
+            borLPAddRows(lp, 1, &rhs, &sense);
+            setConstr(lp, row, pot, pot->constr_op.c + i);
+            borLPSetCoef(lp, row, pot->var_size + i, 1);
+            ++row;
+        }
+        var_size += pot->constr_op.size;
+    }
+
     double objval, *obj;
-    obj = BOR_CALLOC_ARR(double, pot->var_size);
+    obj = BOR_CALLOC_ARR(double, var_size);
     if (borLPSolve(lp, &objval, obj) == 0){
         sol->objval = objval;
         sol->pot_size = pot->var_size;
@@ -653,8 +675,11 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
             sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
             for (int ci = 0; ci < pot->constr_op.size; ++ci){
                 const pddl_pot_constr_t *c = pot->constr_op.c + ci;
+                sol->op_change[c->op_id] = obj[pot->var_size + ci];
+                /*
                 if (c->op_id >= 0)
                     sol->op_change[c->op_id] = -constrLHS(pot, c, obj);
+                */
             }
         }
 
