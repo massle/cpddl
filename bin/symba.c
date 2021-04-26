@@ -1509,7 +1509,12 @@ static int symba(void)
     pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
     pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
     unsigned flags = PDDL_FDR_TNF_MULTIPLY_OPS;
+    // TODO
     int r = pddlFDRInitTransitionNormalForm(&fdr, &_fdr, &fdr_mutex, flags, &err);
+    int mcost = 100;
+    for (int oi = 0; oi < fdr.op.op_size; ++oi){
+        fdr.op.op[oi]->cost *= mcost;
+    }
     if (r != 0)
         return -1;
     //pddlFDRPrintFD(&fdr, NULL, 0, stderr);
@@ -1570,6 +1575,9 @@ static int symba(void)
         }else{
             res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
         }
+    }
+    for (int oi = 0; oi < fdr.op.op_size; ++oi){
+        fdr.op.op[oi]->cost /= mcost;
     }
 
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){

@@ -657,6 +657,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
             char sense = 'E';
             borLPAddRows(lp, 1, &rhs, &sense);
             setConstr(lp, row, pot, pot->constr_op.c + i);
+            borLPSetRHS(lp, row, rhs, sense);
             borLPSetCoef(lp, row, pot->var_size + i, 1);
             ++row;
         }
@@ -675,11 +676,11 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
             sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
             for (int ci = 0; ci < pot->constr_op.size; ++ci){
                 const pddl_pot_constr_t *c = pot->constr_op.c + ci;
-                sol->op_change[c->op_id] = obj[pot->var_size + ci];
-                /*
-                if (c->op_id >= 0)
-                    sol->op_change[c->op_id] = -constrLHS(pot, c, obj);
-                */
+                if (c->op_id >= 0){
+                    sol->op_change[c->op_id] = obj[pot->var_size + ci];
+                    //sol->op_change[c->op_id] = -constrLHS(pot, c, obj);
+                    //fprintf(stderr, "C: %d\n", (int)obj[pot->var_size + ci]);
+                }
             }
         }
 
