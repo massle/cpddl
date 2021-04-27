@@ -569,7 +569,7 @@ static int samples(pddl_pot_solutions_t *sols,
     }
 
     int ret = 0;
-    if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_SUM){
+    if (num_states > 0 && cfg->obj == PDDL_HPOT_OBJ_SAMPLES_SUM){
         pddlPotSetObj(pot, coef);
         if (solveAndAdd(pot, sols) == 0){
             BOR_INFO(err, "Pot: Solved for a sum of %d/%d states",
@@ -585,6 +585,10 @@ static int samples(pddl_pot_solutions_t *sols,
         BOR_FREE(coef);
     stateSamplerFree(&sampler);
 
+    if (num_states == 0){
+        BOR_INFO2(err, "Pot: No viable samples found.");
+        return -1;
+    }
     return ret;
 }
 
