@@ -565,6 +565,7 @@ static int samples(pddl_pot_solutions_t *sols,
         }else{
             for (int var = 0; var < fdr->var.var_size; ++var)
                 coef[fdr->var.var[var].val[sampler.state[var]].global_id] += 1.;
+            ++num_states;
         }
     }
 
