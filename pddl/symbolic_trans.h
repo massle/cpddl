@@ -61,7 +61,6 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *tr,
                                int use_op_constr,
                                int max_nodes,
                                float max_time,
-                               int multiply_costs,
                                pddl_cost_t *op_heur_change,
                                bor_err_t *err);
 void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *tr);

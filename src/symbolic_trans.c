@@ -40,7 +40,6 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    int use_op_constr,
                    int op_id,
                    op_t *op,
-                   int multiply_costs,
                    pddl_cost_t *op_heur_change,
                    bor_err_t *err)
 {
@@ -50,7 +49,6 @@ static void opInit(pddl_symbolic_constr_t *constr,
     borISetUnion(&op->eff, &op_in->add_eff);
     borISetUnion(&op->neg_eff, &op_in->del_eff);
     pddlCostSetOp(&op->cost, op_in->cost);
-    op->cost.cost *= multiply_costs;
     if (op_in->name != NULL)
         op->name = BOR_STRDUP(op_in->name);
 
@@ -114,13 +112,12 @@ static void opsInit(pddl_symbolic_constr_t *constr,
                     const pddl_strips_t *strips,
                     int use_op_constr,
                     op_t *ops,
-                    int multiply_costs,
                     pddl_cost_t *op_heur_change,
                     bor_err_t *err)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         opInit(constr, strips->op.op[op_id], use_op_constr,
-               op_id, ops + op_id, multiply_costs, op_heur_change, err);
+               op_id, ops + op_id, op_heur_change, err);
     }
 }
 
@@ -438,7 +435,6 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                int use_op_constr,
                                int max_nodes,
                                float max_time,
-                               int multiply_costs,
                                pddl_cost_t *op_heur_change,
                                bor_err_t *err)
 {
@@ -446,8 +442,7 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
     trset->vars = vars;
 
     op_t *ops = BOR_CALLOC_ARR(op_t, strips->op.op_size);
-    opsInit(constr, strips, use_op_constr, ops,
-            multiply_costs, op_heur_change, err);
+    opsInit(constr, strips, use_op_constr, ops, op_heur_change, err);
 
     trset->trans_size = 0;
     trset->trans_alloc = 2;

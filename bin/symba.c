@@ -1511,6 +1511,8 @@ static int symba(void)
     unsigned flags = PDDL_FDR_TNF_MULTIPLY_OPS;
     // TODO
     int r = pddlFDRInitTransitionNormalForm(&fdr, &_fdr, &fdr_mutex, flags, &err);
+
+    // TODO: parametrize
     int mcost = 100;
     for (int oi = 0; oi < fdr.op.op_size; ++oi){
         fdr.op.op[oi]->cost *= mcost;
@@ -1526,9 +1528,6 @@ static int symba(void)
     if (opt.symba_fam > 0)
         symb_cfg.fam_groups = opt.symba_fam;
     if (opt.pot){
-        // TODO: parametrize
-        //symb_cfg.multiply_costs = 100;
-        symb_cfg.multiply_costs = 1;
         symb_cfg.use_pot_heur = 1;
         symb_cfg.pot_heur_config = pot_cfg;
         if (opt.use_heur_bw || opt.bw)

@@ -52,7 +52,6 @@ struct pddl_symbolic_task_config {
     float goal_constr_max_time;
     int fam_groups;
 
-    int multiply_costs;
     int use_pot_heur;
     pddl_hpot_config_t pot_heur_config;
     int use_heur_fw;
@@ -73,7 +72,6 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         1, /* .use_op_constr */ \
         -1., /* .goal_constr_max_time */ \
         0, /* .fam_groups */ \
-        1, /* .multiply_costs */ \
         0, /* .use_pot_heur */ \
         PDDL_HPOT_CONFIG_INIT, \
         1, /* .use_heur_fw */ \

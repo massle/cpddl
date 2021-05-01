@@ -1071,11 +1071,9 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 
     const pddl_pot_solution_t *sol = pot.sol + 0;
     init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
-    init_h_value->cost *= cfg->multiply_costs;
     *op_heur_change = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
     for (int i = 0; i < sol->op_change_size && i < fdr->op.op_size; ++i){
         double change = sol->op_change[i];
-        change *= cfg->multiply_costs;
         change = floor(change);
 
         if (change >= PDDL_COST_DEAD_END){
@@ -1199,7 +1197,6 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time,
-                              cfg->multiply_costs,
                               pot_op_heur_change,
                               err);
     BOR_INFO2(err, "Transitions created.");
