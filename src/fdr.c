@@ -871,7 +871,10 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
         }
     }
 
-    if (disret == 0 && pddlSetISetSize(&hset) > 0){
+    // TODO: We can improve this by disambiguating for each partial
+    //       assignment separately, i.e., to recurse on this function
+    //       instead of tnfMultiplyOpSet()
+    if (disret >= 0 && pddlSetISetSize(&hset) > 0){
         ret = -1;
         tnfMultiplyOpSet(fdr, &hset, 0, op, err);
     }
