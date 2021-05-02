@@ -652,6 +652,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
             borLPSetObj(lp, var, 0);
         }
 
+        ASSERT(borLPNumRows(lp) == row);
         for (int i = 0; i < pot->constr_op.size; ++i){
             double rhs = 0;
             char sense = 'E';
@@ -662,6 +663,8 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
             ++row;
         }
         var_size += pot->constr_op.size;
+        ASSERT(borLPNumCols(lp) == var_size);
+        ASSERT(borLPNumRows(lp) == row);
     }
 
     double objval, *obj;
@@ -674,6 +677,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         if (pot->store_op_heur_change){
             sol->op_change_size = pot->constr_op.size;
             sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
+            ASSERT(pot->op_size == pot->constr_op.size);
             for (int ci = 0; ci < pot->constr_op.size; ++ci){
                 const pddl_pot_constr_t *c = pot->constr_op.c + ci;
                 if (c->op_id >= 0){
