@@ -68,6 +68,7 @@ struct options {
     float trans_merge_max_time;
     float goal_constr_max_time;
     int test_partitioning;
+    int multiply_op_cost;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -396,6 +397,8 @@ static int readOpts(int *argc, char *argv[])
                 " (default: -1.)");
     optsAddDesc("test-part", 0x0, OPTS_NONE, &opt.test_partitioning, NULL,
                 "Test partitioning using heuristic without using heuristic.");
+    optsAddDesc("multiply-op-cost", 'M', OPTS_INT, &opt.multiply_op_cost, NULL,
+                "Multiply operator costs by this value.");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -463,6 +466,10 @@ static int readOpts(int *argc, char *argv[])
             = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
         setrlimit(RLIMIT_AS, &mem_limit);
     }
+
+    if (opt.multiply_op_cost <= 1)
+        opt.multiply_op_cost = 1;
+    BOR_INFO(&err, "Option multiply-op-cost: %d", opt.multiply_op_cost);
 
     return 0;
 }
@@ -1493,9 +1500,9 @@ static void planPrint(const pddl_fdr_t *fdr,
     }
 }
 
-static int symba(void)
+static int toFDR(pddl_fdr_t *fdr)
 {
-    pddl_fdr_t fdr, _fdr;
+    pddl_fdr_t _fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     pddlStripsOpsSort(&strips.op);
     pddlFDRInitFromStrips(&_fdr, &strips, &mgroups, &mutex,
@@ -1510,19 +1517,28 @@ static int symba(void)
     pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
     unsigned flags = PDDL_FDR_TNF_MULTIPLY_OPS;
     // TODO
-    int r = pddlFDRInitTransitionNormalForm(&fdr, &_fdr, &fdr_mutex, flags, &err);
-
-    // TODO: parametrize
-    int mcost = 100;
-    for (int oi = 0; oi < fdr.op.op_size; ++oi){
-        fdr.op.op[oi]->cost *= mcost;
+    if (pddlFDRInitTransitionNormalForm(fdr, &_fdr, &fdr_mutex,
+                                        flags, &err) != 0){
+        BOR_TRACE_RET(&err, -1);
     }
-    if (r != 0)
-        return -1;
+
+    if (opt.multiply_op_cost > 1){
+        for (int oi = 0; oi < fdr->op.op_size; ++oi)
+            fdr->op.op[oi]->cost *= opt.multiply_op_cost;
+    }
     //pddlFDRPrintFD(&fdr, NULL, 0, stderr);
     pddlMutexPairsFree(&fdr_mutex);
     pddlMGStripsFree(&mg_strips);
     pddlFDRFree(&_fdr);
+
+    return 0;
+}
+
+static int symba(void)
+{
+    pddl_fdr_t fdr;
+    if (toFDR(&fdr) != 0)
+        BOR_TRACE_RET(&err, -1);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
     if (opt.symba_fam > 0)
@@ -1575,8 +1591,10 @@ static int symba(void)
             res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
         }
     }
-    for (int oi = 0; oi < fdr.op.op_size; ++oi){
-        fdr.op.op[oi]->cost /= mcost;
+
+    if (opt.multiply_op_cost > 1){
+        for (int oi = 0; oi < fdr.op.op_size; ++oi)
+            fdr.op.op[oi]->cost /= opt.multiply_op_cost;
     }
 
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){
