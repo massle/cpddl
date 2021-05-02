@@ -30,7 +30,7 @@ extern "C" {
 
 struct pddl_set_iset {
     bor_hashset_t set;
-} bor_packed;
+};
 typedef struct pddl_set_iset pddl_set_iset_t;
 
 #define PDDL_SET_ISET_FOR_EACH_ID(SS, ID) \
