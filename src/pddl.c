@@ -165,22 +165,33 @@ static int parseGoal(pddl_t *pddl, bor_err_t *err)
 int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
              const pddl_config_t *cfg, bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "PDDL: ");
+    BOR_INFO(err, "Config force-adl: %d", cfg->force_adl);
+    BOR_INFO(err, "Config normalize: %d", cfg->normalize);
+    BOR_INFO(err, "Config compile-away-cond-eff: %d",
+             cfg->compile_away_cond_eff);
+
     bzero(pddl, sizeof(*pddl));
     pddl->cfg = *cfg;
 
-    BOR_INFO(err, "Translation of %s and %s.", domain_fn, problem_fn);
+    BOR_INFO(err, "Processing %s and %s.", domain_fn, problem_fn);
 
-    if (!checkConfig(cfg))
+    if (!checkConfig(cfg)){
+        BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, -1);
+    }
 
     BOR_INFO2(err, "Parsing domain lisp file...");
     pddl->domain_lisp = pddlLispParse(domain_fn, err);
-    if (pddl->domain_lisp == NULL)
+    if (pddl->domain_lisp == NULL){
+        BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, -1);
+    }
 
     BOR_INFO2(err, "Parsing problem lisp file...");
     pddl->problem_lisp = pddlLispParse(problem_fn, err);
     if (pddl->problem_lisp == NULL){
+        BOR_INFO_PREFIX_POP(err);
         if (pddl->domain_lisp)
             pddlLispDel(pddl->domain_lisp);
         BOR_TRACE_RET(err, -1);
@@ -209,11 +220,32 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         goto pddl_fail;
     }
     pddlTypesBuildObjTypeMap(&pddl->type, pddl->obj.obj_size);
-    BOR_INFO2(err, "PDDL content parsed.");
+    BOR_INFO2(err, "PDDL files processed.");
 
+    if (cfg->normalize){
+        pddlNormalize(pddl);
+        BOR_INFO2(err, "PDDL task normalized.");
+    }
+
+    if (cfg->compile_away_cond_eff){
+        BOR_INFO2(err, "Compiling away conditional effects...");
+        pddlCompileAwayCondEff(pddl);
+        BOR_INFO2(err, "Conditional effects compiled away.");
+    }
+
+    pddlCheckSizeTypes(pddl);
+    BOR_INFO(err, "Number of PDDL Types: %d", pddl->type.type_size);
+    BOR_INFO(err, "Number of PDDL Objects: %d", pddl->obj.obj_size);
+    BOR_INFO(err, "Number of PDDL Predicates: %d", pddl->pred.pred_size);
+    BOR_INFO(err, "Number of PDDL Functions: %d", pddl->func.pred_size);
+    BOR_INFO(err, "Number of PDDL Actions: %d", pddl->action.action_size);
+    BOR_INFO(err, "PDDL Metric: %d", pddl->metric);
+
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 
 pddl_fail:
+    BOR_INFO_PREFIX_POP(err);
     if (pddl != NULL)
         pddlFree(pddl);
     BOR_TRACE_RET(err, -1);
