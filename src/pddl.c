@@ -469,6 +469,7 @@ static void addNotPredsToInitRec(pddl_t *pddl, int pos, int neg,
         if (!initHasFact(pddl, pos, arg_size, arg)){
             a = pddlCondCreateFactAtom(neg, arg_size, arg);
             pddlCondPartAdd(pddl->init, &a->cls);
+            pddl->pred.pred[a->pred].in_init = 1;
         }
 
         return;
