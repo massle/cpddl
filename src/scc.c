@@ -209,7 +209,7 @@ static int circuit(int node,
             }
         }
     }
-    ret = -1;
+
     if (closed){
         cycleUnblock(node, B, blocked);
     }else{
@@ -234,11 +234,14 @@ void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
     bor_iset_t *B = BOR_CALLOC_ARR(bor_iset_t, graph->node_size);
 
     BOR_ISET(active_nodes);
-    for (int i = 0; i < graph->node_size; ++i)
-        borISetAdd(&active_nodes, i);
+    for (int i = 0; i < graph->node_size; ++i){
+        if (borISetSize(&graph->node[i]) > 0)
+            borISetAdd(&active_nodes, i);
+    }
 
     int cont = 0;
-    for (int node = graph->node_size - 1; node >= 0 && cont != -1; --node){
+    while (cont != -1 && borISetSize(&active_nodes) > 0){
+        int node = borISetGet(&active_nodes, borISetSize(&active_nodes) - 1);
         pddl_scc_graph_t subgraph;
         pddlSCCGraphInitInduced(&subgraph, graph, &active_nodes);
 

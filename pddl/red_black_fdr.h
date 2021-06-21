@@ -45,6 +45,8 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                   const pddl_red_black_fdr_config_t *cfg,
                                   bor_err_t *err);
 
+int pddlRedBlackCheck(const pddl_fdr_t *fdr, bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

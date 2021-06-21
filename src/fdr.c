@@ -19,6 +19,7 @@
 #include <boruvka/sort.h>
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
+#include "pddl/cg.h"
 #include "assert.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
@@ -107,6 +108,36 @@ void pddlFDRFree(pddl_fdr_t *fdr)
     pddlFDRPartStateFree(&fdr->goal);
     pddlFDROpsFree(&fdr->op);
     pddlFDRVarsFree(&fdr->var);
+}
+
+void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
+{
+    int *ordering = BOR_CALLOC_ARR(int, fdr->var.var_size + 1);
+    pddl_cg_t cg;
+    pddlCGInit(&cg, &fdr->var, &fdr->op, 0);
+    pddlCGVarOrdering(&cg, &fdr->goal, ordering);
+    pddlCGFree(&cg);
+
+    int *remap = BOR_CALLOC_ARR(int, fdr->var.var_size);
+    for (int vi = 0; vi < fdr->var.var_size; ++vi){
+        ASSERT(ordering[vi] >= 0);
+        ASSERT(remap[ordering[vi]] == 0);
+        remap[ordering[vi]] = vi;
+    }
+
+    pddlFDRVarsRemap(&fdr->var, remap);
+    pddlFDROpsRemapVars(&fdr->op, remap);
+    pddlFDRPartStateRemapVars(&fdr->goal, remap);
+
+    int *init = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    memcpy(init, fdr->init, sizeof(int) * fdr->var.var_size);
+    for (int vi = 0; vi < fdr->var.var_size; ++vi)
+        fdr->init[remap[vi]] = init[vi];
+    BOR_FREE(init);
+
+
+    BOR_FREE(remap);
+    BOR_FREE(ordering);
 }
 
 void pddlFDRReduce(pddl_fdr_t *fdr,

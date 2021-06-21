@@ -47,6 +47,7 @@
 #include <pddl/lifted_mgroup_infer.h>
 #include <pddl/lifted_mgroup_htable.h>
 #include <pddl/mgroup.h>
+#include <pddl/mgroup_projection.h>
 #include <pddl/famgroup.h>
 #include <pddl/irrelevance.h>
 #include <pddl/critical_path.h>
@@ -80,6 +81,7 @@
 #include <pddl/search_astar.h>
 #include <pddl/search_lazy.h>
 #include <pddl/plan.h>
+#include <pddl/relaxed_plan.h>
 #include <pddl/heur.h>
 #include <pddl/dtg.h>
 #include <pddl/scc.h>

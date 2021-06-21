@@ -17,8 +17,26 @@
  */
 
 #include <boruvka/alloc.h>
+#include <boruvka/sort.h>
 #include "pddl/fdr_part_state.h"
 #include "assert.h"
+int borSort(void *base, size_t nmemb, size_t size,
+            bor_sort_cmp cmp, void *carg);
+
+static int factsCmp(const void *a, const void *b, void *_)
+{
+    const pddl_fdr_fact_t *f1 = a;
+    const pddl_fdr_fact_t *f2 = b;
+    int cmp = f1->var - f2->var;
+    if (cmp == 0)
+        cmp = f1->val - f2->val;
+    return cmp;
+}
+
+static void sortFacts(pddl_fdr_part_state_t *ps)
+{
+    borSort(ps->fact, ps->fact_size, sizeof(pddl_fdr_fact_t), factsCmp, NULL);
+}
 
 void pddlFDRPartStateInit(pddl_fdr_part_state_t *ps)
 {
@@ -135,6 +153,13 @@ void pddlFDRPartStateRemapFacts(pddl_fdr_part_state_t *ps,
         }
     }
     ps->fact_size = ins;
+}
+
+void pddlFDRPartStateRemapVars(pddl_fdr_part_state_t *ps, const int *remap)
+{
+    for (int i = 0; i < ps->fact_size; ++i)
+        ps->fact[i].var = remap[ps->fact[i].var];
+    sortFacts(ps);
 }
 
 void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,

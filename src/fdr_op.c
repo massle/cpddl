@@ -108,6 +108,17 @@ void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp)
     op->cond_eff_size = ins;
 }
 
+void pddlFDROpRemapVars(pddl_fdr_op_t *op, const int *remap)
+{
+    pddlFDRPartStateRemapVars(&op->pre, remap);
+    pddlFDRPartStateRemapVars(&op->eff, remap);
+    for (int cei = 0; cei < op->cond_eff_size; ++cei){
+        pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+        pddlFDRPartStateRemapVars(&ce->pre, remap);
+        pddlFDRPartStateRemapVars(&ce->eff, remap);
+    }
+}
+
 void pddlFDROpApplyOnState(const pddl_fdr_op_t *op,
                            int num_vars,
                            const int *in_state,
@@ -183,6 +194,12 @@ void pddlFDROpsRemapFacts(pddl_fdr_ops_t *ops, const pddl_fdr_vars_remap_t *r)
 {
     for (int op_id = 0; op_id < ops->op_size; ++op_id)
         pddlFDROpRemapFacts(ops->op[op_id], r);
+}
+
+void pddlFDROpsRemapVars(pddl_fdr_ops_t *ops, const int *remap)
+{
+    for (int op_id = 0; op_id < ops->op_size; ++op_id)
+        pddlFDROpRemapVars(ops->op[op_id], remap);
 }
 
 void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op)

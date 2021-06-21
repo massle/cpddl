@@ -26,6 +26,7 @@ struct options {
     int fam_fixpoint;
     int fam_fixpoint_no_de;
     int fam_lmg;
+    int fam_lmg_keep;
     int h2_mgroup;
     int h2_fixpoint;
     int famh2_fixpoint;
@@ -65,9 +66,12 @@ struct options {
 
     int pot;
 
+    int order_vars_cg;
     int mgroups_split_invertible;
     int black_vars;
     int black_vars_num;
+    int black_vars_use_relaxed_plan;
+    int black_vars_use_conflicts;
 
     int pretty_print_vars;
     int pretty_print_cg;
@@ -299,6 +303,9 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("fam-lmg", 0x0, OPTS_NONE, &opt.fam_lmg, NULL,
                 "Use grounded lifted mutex groups as initialization for"
                 " fam-group. (default: off)");
+    optsAddDesc("fam-lmg-keep", 0x0, OPTS_NONE, &opt.fam_lmg_keep, NULL,
+                "If --fam-lmg is used, keep lifted mutex groups instead of"
+                " removing all subsets. (default: off)");
     optsAddDesc("h2mg", 0x0, OPTS_NONE, &opt.h2_mgroup, NULL,
                 "Infer h^2 based mutex groups. (default: off)");
     optsAddDesc("h2-fixpoint", 0x0, OPTS_NONE, &opt.h2_fixpoint, NULL,
@@ -403,6 +410,9 @@ static int readOpts(int *argc, char *argv[])
                 "Generate potentials according to the specification."
                 " TODO");
 
+    optsAddDesc("order-vars-cg", 0x0, OPTS_NONE,
+                &opt.order_vars_cg, NULL,
+                "Reorder variables using causal graph. (default: off)");
     optsAddDesc("mgroups-split-invertible", 0x0, OPTS_NONE,
                 &opt.mgroups_split_invertible, NULL,
                 "Split mutex groups using invertible facts. (default: off)");
@@ -411,6 +421,14 @@ static int readOpts(int *argc, char *argv[])
                 " (default: off)");
     optsAddDesc("black-vars-num", 0x0, OPTS_INT, &opt.black_vars_num, NULL,
                 "Maximal number of red-black FDRs that should be created"
+                " (default: off)");
+    optsAddDesc("black-vars-use-relaxed-plan", 0x0, OPTS_NONE,
+                &opt.black_vars_use_relaxed_plan, NULL,
+                "Use relaxed plan to prioritize among black facts"
+                " (default: off)");
+    optsAddDesc("black-vars-use-conflicts", 0x0, OPTS_NONE,
+                &opt.black_vars_use_conflicts, NULL,
+                "Use conflicts in relaxed plan to prioritize among black facts"
                 " (default: off)");
 
     optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
@@ -730,7 +748,7 @@ static int inferMutexGroups(void)
         if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgroups);
         BOR_INFO(&err, "Found %d fam-groups.", mgroups.mgroup_size);
 
@@ -927,7 +945,7 @@ static int pruneStripsFixpointFAMGroups(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1120,7 +1138,7 @@ static int pruneStripsFixpointFAMH2(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1215,7 +1233,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1615,8 +1633,24 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
-static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
+static int processFDR(pddl_fdr_t *fdr, int fdr_id)
 {
+    int fnout_size = strlen(opt.fdr_out);
+    char fnout[fnout_size + 5];
+    if (fdr_id == 0){
+        sprintf(fnout, "%s", opt.fdr_out);
+    }else{
+        sprintf(fnout, "%s.%d", opt.fdr_out, fdr_id + 1);
+    }
+
+    if (opt.order_vars_cg){
+        pddlFDRReorderVarsCG(fdr);
+        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
+    }
+
+    // TODO
+    //pddlRedBlackCheck(fdr, &err);
+
     BOR_INFO(&err, "Output file: '%s'", fnout);
     FILE *fout = openFile(fnout);
     if (fout == NULL){
@@ -1701,6 +1735,7 @@ static int toFDR(void)
                  borISetSize(&invertible_facts));
         if (borISetSize(&invertible_facts) > 0){
             pddl_mgroups_t mgs;
+            pddlMGroupsInitEmpty(&mgs);
             pddlMGroupsSplitByIntersection(&mgs, &mgroups, &invertible_facts);
             pddlMGroupsFree(&mgroups);
             mgroups = mgs;
@@ -1720,21 +1755,15 @@ static int toFDR(void)
     if (opt.black_vars){
         pddl_red_black_fdr_config_t cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
         cfg.mgroup.num_solutions = opt.black_vars_num;
-        //cfg.relax_red_vars = 1;
+        if (opt.black_vars_use_relaxed_plan)
+            cfg.mgroup.weight_facts_with_relaxed_plan = 1;
+        if (opt.black_vars_use_conflicts)
+            cfg.mgroup.weight_facts_with_conflicts = 1;
         pddl_fdr_t fdr[opt.black_vars_num];
         int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                                                 &cfg, &err);
-
-        int fnout_size = strlen(opt.fdr_out);
-        char fnout[fnout_size + 5];
         for (int i = 0; i < num; ++i){
-            if (i == 0){
-                sprintf(fnout, "%s", opt.fdr_out);
-            }else{
-                sprintf(fnout, "%s.%d", opt.fdr_out, i + 1);
-            }
-
-            if (fdrOut(fdr + i, fnout) != 0)
+            if (processFDR(fdr + i, i) != 0)
                 return -1;
             pddlFDRFree(fdr + i);
         }
@@ -1743,7 +1772,7 @@ static int toFDR(void)
         pddl_fdr_t fdr;
         pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                               fdr_flag, &err);
-        if (fdrOut(&fdr, opt.fdr_out) != 0)
+        if (processFDR(&fdr, 0) != 0)
             return -1;
         pddlFDRFree(&fdr);
 
