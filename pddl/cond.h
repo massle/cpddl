@@ -219,6 +219,11 @@ pddl_cond_t *pddlCondNewEmptyAnd(void);
 pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args);
 
 /**
+ * Creates a new boolean value;
+ */
+pddl_cond_t *pddlCondNewBool(int value);
+
+/**
  * Returns true if the conditional contains any atom.
  */
 int pddlCondHasAtom(const pddl_cond_t *c);
@@ -291,7 +296,7 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
 /**
  * Remove atom node duplicates.
  */
-pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl);
+pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl);
 
 /**
  * If conflicting literals are found

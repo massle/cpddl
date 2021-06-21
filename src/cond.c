@@ -395,7 +395,8 @@ static int condPartRebuild(pddl_cond_part_t **p,
         c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
         if (condRebuild(&c, pre, post, u) != 0)
             return -1;
-        borListAppend(&(*p)->part, &c->conn);
+        if (c != NULL)
+            borListAppend(&(*p)->part, &c->conn);
     } while (item != last);
 
     return 0;
@@ -1183,6 +1184,12 @@ pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args)
     }
 
     return atom;
+}
+
+pddl_cond_t *pddlCondNewBool(int value)
+{
+    pddl_cond_bool_t *b = condBoolNew(value);
+    return &b->cls;
 }
 
 static int hasAtom(pddl_cond_t *c, void *_ret)
@@ -2751,31 +2758,35 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
     pddlCondRebuild(&c, NULL, flatten, NULL);
     pddlCondRebuild(&c, NULL, moveDisjunctionsUp, NULL);
     pddlCondRebuild(&c, NULL, flatten, NULL);
-    c = pddlCondDeduplicate(c, pddl);
+    c = pddlCondDeduplicateAtoms(c, pddl);
     return c;
 }
 
 static void _deduplicate(pddl_cond_part_t *p)
 {
-    bor_list_t *item, *item2;
-    pddl_cond_t *c1, *c2;
-
-    BOR_LIST_FOR_EACH(&p->part, item){
-        c1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c1->type != PDDL_COND_ATOM)
+    bor_list_t *item = borListNext(&p->part);
+    while (item != &p->part){
+        pddl_cond_t *c1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        if (c1->type != PDDL_COND_ATOM){
+            item = borListNext(item);
             continue;
+        }
 
-        item2 = borListNext(item);
-        for (; item2 != &p->part; item2 = borListNext(item2)){
-            c2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
-            if (c2->type != PDDL_COND_ATOM)
-                continue;
-            if (pddlCondAtomCmp(OBJ(c1, atom), OBJ(c2, atom)) == 0){
-                borListDel(item2);
+        bor_list_t *item2 = borListNext(item);
+        for (; item2 != &p->part;){
+            pddl_cond_t *c2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
+            if (c2->type == PDDL_COND_ATOM
+                    && pddlCondAtomCmp(OBJ(c1, atom), OBJ(c2, atom)) == 0){
+                bor_list_t *item_del = item2;
+                item2 = borListNext(item2);
+                borListDel(item_del);
                 pddlCondDel(c2);
-                break;
+
+            }else{
+                item2 = borListNext(item2);
             }
         }
+        item = borListNext(item);
     }
 }
 
@@ -2786,7 +2797,7 @@ static int deduplicate(pddl_cond_t **c, void *data)
     return 0;
 }
 
-pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl)
+pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl)
 {
     pddl_cond_t *c = cond;
     pddlCondRebuild(&c, NULL, deduplicate, NULL);
