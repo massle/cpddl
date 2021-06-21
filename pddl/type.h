@@ -149,6 +149,11 @@ int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
 int pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
 
 /**
+ * Returns true if {type} is a minimal type, i.e., it has no sub-types.
+ */
+int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
+
+/**
  * Returns true if:
  * 1. for every pair of types t1,t2 it holds that D(t1) \subseteq D(t2) or
  *    D(t2) \subseteq D(t1) or D(t1) \cap D(t2) = \emptyset; and

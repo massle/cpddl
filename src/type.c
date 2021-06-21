@@ -390,6 +390,11 @@ int pddlTypesIsSubset(const pddl_types_t *ts, int t1id, int t2id)
     return 1;
 }
 
+int pddlTypesIsMinimal(const pddl_types_t *ts, int type)
+{
+    return borISetSize(&ts->type[type].child) == 0;
+}
+
 int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
                                    const pddl_objs_t *obj)
 {
