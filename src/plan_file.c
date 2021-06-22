@@ -152,6 +152,7 @@ static int parseStrips(struct parse *parse,
             borIArrAdd(&p->op, op_id);
             p->cost += op->cost;
             found = 1;
+            break;
         }
     }
 
