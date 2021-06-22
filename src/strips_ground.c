@@ -504,7 +504,8 @@ static char *groundOpName(const pddl_t *pddl,
 
 static int groundIncrease(pddl_strips_ground_t *g,
                           const pddl_obj_id_t *arg,
-                          const pddl_cond_arr_t *atoms)
+                          const pddl_cond_arr_t *atoms,
+                          const pddl_action_t *action)
 {
     const pddl_cond_func_op_t *inc;
     const pddl_ground_atom_t *ga;
@@ -515,8 +516,13 @@ static int groundIncrease(pddl_strips_ground_t *g,
         inc = PDDL_COND_CAST(atoms->cond[i], func_op);
         if (inc->fvalue != NULL){
             ga = pddlGroundAtomsFindAtom(&g->funcs, inc->fvalue, arg);
-            ASSERT_RUNTIME(ga != NULL);
-            cost += ga->func_val;
+            if (ga != NULL){
+                cost += ga->func_val;
+            }else{
+                char *name = groundOpName(g->pddl, action, arg);
+                BOR_WARN(g->err, "Undefined cost for action (%s).", name);
+                BOR_FREE(name);
+            }
         }else{
             cost += inc->value;
         }
@@ -559,9 +565,8 @@ static int setUpOp(pddl_strips_ground_t *g, pddl_strips_op_t *op,
     groundAtoms(g, a->max_arg_size, ga->arg, &a->add_eff, &op->add_eff);
     groundAtoms(g, a->max_arg_size, ga->arg, &a->del_eff, &op->del_eff);
     op->cost = 1;
-    if (g->pddl->metric){
-        op->cost = groundIncrease(g, ga->arg, &a->increase);
-    }
+    if (g->pddl->metric)
+        op->cost = groundIncrease(g, ga->arg, &a->increase, a->action);
     name = groundOpName(g->pddl, a->action, ga->arg);
 
     // Make the operator well-formed
