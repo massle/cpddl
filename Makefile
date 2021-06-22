@@ -123,6 +123,7 @@ OBJS += cost
 OBJS += black_mgroup
 OBJS += red_black_fdr
 OBJS += outbox
+OBJS += homomorphism
 
 OBJS_CPP = endomorphism
 
