@@ -582,9 +582,9 @@ static int condWhenTraverse(pddl_cond_when_t *w,
                             int (*post)(pddl_cond_t *, void *),
                             void *u)
 {
-    if (condTraverse(w->pre, pre, post, u) != 0)
+    if (w->pre != NULL && condTraverse(w->pre, pre, post, u) != 0)
         return -1;
-    if (condTraverse(w->eff, pre, post, u) != 0)
+    if (w->eff != NULL && condTraverse(w->eff, pre, post, u) != 0)
         return -1;
     return 0;
 }
