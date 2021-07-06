@@ -88,7 +88,7 @@ pddl_state_id_t pddlStripsStateSpaceInsert(
 {
     state_node_t *sn = borExtArrGet(state_space->node, state_space->num_states);
     bzero(sn, sizeof(*sn));
-    borISetUnion(&sn->state, state);
+    borISetSet(&sn->state, state);
     sn->hash = stateHash(state);
 
     bor_list_t *snl = borHTableInsertUnique(state_space->htable, &sn->htable);
@@ -123,8 +123,7 @@ void pddlStripsStateSpaceGet(const pddl_strips_state_space_t *state_space,
 {
     const state_node_t *sn = borExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
-    borISetEmpty(&node->state);
-    borISetUnion(&node->state, &sn->state);
+    borISetSet(&node->state, &sn->state);
 }
 
 void pddlStripsStateSpaceGetNoState(const pddl_strips_state_space_t *state_space,
