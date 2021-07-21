@@ -76,10 +76,10 @@ void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space)
         state_node_t *sn = borExtArrGet(state_space->node, id);
         borISetFree(&sn->state);
     }
-    if (state_space->node != NULL)
-        borExtArrDel(state_space->node);
     if (state_space->htable != NULL)
         borHTableDel(state_space->htable);
+    if (state_space->node != NULL)
+        borExtArrDel(state_space->node);
 }
 
 pddl_state_id_t pddlStripsStateSpaceInsert(

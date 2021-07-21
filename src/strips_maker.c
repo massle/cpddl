@@ -74,7 +74,8 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 
     sm->action_args = borHTableNew(htActionHash, htActionEq,
                                    sm->action_arg_size);
-    borListInit(&sm->list_action_args);
+    pddl_ground_action_args_t *pa = NULL;
+    sm->action_args_arr = borExtArrNew(sizeof(pa), NULL, &pa);
 }
 
 void pddlStripsMakerFree(pddl_strips_maker_t *sm)
@@ -82,17 +83,16 @@ void pddlStripsMakerFree(pddl_strips_maker_t *sm)
     if (sm->action_arg_size != NULL)
         BOR_FREE(sm->action_arg_size);
 
-    bor_list_t *item;
-    while (!borListEmpty(&sm->list_action_args)){
-        item = borListNext(&sm->list_action_args);
-        borListDel(item);
-        pddl_ground_action_args_t *ga;
-        ga = BOR_LIST_ENTRY(item, pddl_ground_action_args_t, list);
+    for (int i = 0; i < sm->num_action_args; ++i){
+        pddl_ground_action_args_t **ppa;
+        ppa = borExtArrGet(sm->action_args_arr, i);
+        pddl_ground_action_args_t *ga = *ppa;
         borListDel(&ga->htable);
         BOR_FREE(ga);
     }
 
     borHTableDel(sm->action_args);
+    borExtArrDel(sm->action_args_arr);
     pddlGroundAtomsFree(&sm->ground_atom);
     pddlGroundAtomsFree(&sm->ground_atom_static);
     pddlGroundAtomsFree(&sm->ground_func);
@@ -165,15 +165,18 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
     ga->action_id2 = action_id2;
     memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
     ga->hash = actionComputeHash(ga, arg_size);
-    borListInit(&ga->list);
+    ga->id = -1;
     borListInit(&ga->htable);
 
     bor_list_t *ins = borHTableInsertUnique(sm->action_args, &ga->htable);
     if (ins == NULL){
-        ++sm->num_action_args;
+        ga->id = sm->num_action_args++;
         if (is_new != NULL)
             *is_new = 1;
-        borListAppend(&sm->list_action_args, &ga->list);
+
+        pddl_ground_action_args_t **pa;
+        pa = borExtArrGet(sm->action_args_arr, ga->id);
+        *pa = ga;
         return ga;
     }
 
@@ -196,7 +199,7 @@ pddl_ground_action_args_t *pddlStripsMakerFindAction(pddl_strips_maker_t *sm,
     ga->action_id2 = action_id2;
     memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
     ga->hash = actionComputeHash(ga, arg_size);
-    borListInit(&ga->list);
+    ga->id = -1;
     borListInit(&ga->htable);
 
     bor_list_t *found = borHTableFind(sm->action_args, &ga->htable);
@@ -632,10 +635,9 @@ static int createOps(pddl_strips_maker_t *sm,
                      const int *ground_atom_to_fact_id,
                      bor_err_t *err)
 {
-    bor_list_t *item;
-    BOR_LIST_FOR_EACH(&sm->list_action_args, item){
-        pddl_ground_action_args_t *ga;
-        ga = BOR_LIST_ENTRY(item, pddl_ground_action_args_t, list);
+    for (int i = 0; i < sm->num_action_args; ++i){
+        pddl_ground_action_args_t **ppa = borExtArrGet(sm->action_args_arr, i);
+        pddl_ground_action_args_t *ga = *ppa;
 
         if (ga->action_id2 != 0){
             pddl_ground_action_args_t *ga2;
@@ -721,4 +723,16 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
     BOR_INFO2(err, "PDDL grounded to STRIPS.");
     BOR_INFO_PREFIX_POP(err);
     return 0;
+}
+
+pddl_ground_action_args_t *pddlStripsMakerActionArgs(pddl_strips_maker_t *sm,
+                                                     int id)
+{
+    pddl_ground_action_args_t **ppa = borExtArrGet(sm->action_args_arr, id);
+    return *ppa;
+}
+
+pddl_ground_atom_t *pddlStripsMakerGroundAtom(pddl_strips_maker_t *sm, int id)
+{
+    return sm->ground_atom.atom[id];
 }

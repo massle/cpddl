@@ -39,6 +39,7 @@
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>
 #include <pddl/strips.h>
+#include <pddl/sql_grounder.h>
 #include <pddl/strips_op.h>
 #include <pddl/strips_fact_cross_ref.h>
 #include <pddl/strips_ground.h>
@@ -80,6 +81,7 @@
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
 #include <pddl/search_lazy.h>
+#include <pddl/search_lifted_astar.h>
 #include <pddl/plan.h>
 #include <pddl/relaxed_plan.h>
 #include <pddl/heur.h>

@@ -27,6 +27,7 @@ TARGETS += pddl-lifted-mgroups
 TARGETS += pddl-fdr
 TARGETS += pddl-pot
 TARGETS += pddl-astar
+TARGETS += pddl-lifted-astar
 TARGETS += pddl-mgroups
 TARGETS += pddl-reversibility
 TARGETS += pddl-op-mutex
