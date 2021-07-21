@@ -20,7 +20,6 @@
 #include <sqlite3.h>
 #include <boruvka/alloc.h>
 #include "pddl/sql_grounder.h"
-#include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "assert.h"
@@ -652,6 +651,18 @@ void pddlSqlGrounderDel(pddl_sql_grounder_t *g)
     pddlPrepActionsFree(&g->prep_action);
     int ret = sqlite3_close_v2(g->db);
     CHECK_SQL_ERR(g->db, ret);
+    BOR_FREE(g);
+}
+
+int pddlSqlGrounderPrepActionSize(const pddl_sql_grounder_t *g)
+{
+    return g->prep_action.action_size;
+}
+
+const pddl_prep_action_t *pddlSqlGrounderPrepAction(
+                const pddl_sql_grounder_t *g, int action_id)
+{
+    return g->prep_action.action + action_id;
 }
 
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,

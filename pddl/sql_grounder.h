@@ -23,6 +23,7 @@
 #include <pddl/common.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/ground_atom.h>
+#include <pddl/prep_action.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,9 +31,30 @@ extern "C" {
 
 typedef struct pddl_sql_grounder pddl_sql_grounder_t;
 
+/**
+ * Create a new grounder.
+ */
 pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err);
+
+/**
+ * Free all allocated memory
+ */
 void pddlSqlGrounderDel(pddl_sql_grounder_t *g);
 
+/**
+ * Returns the number of prep-actions
+ */
+int pddlSqlGrounderPrepActionSize(const pddl_sql_grounder_t *g);
+
+/**
+ * Returns specified prep-action object.
+ */
+const pddl_prep_action_t *pddlSqlGrounderPrepAction(
+                const pddl_sql_grounder_t *g, int action_id);
+
+/**
+ * Insert ground atom
+ */
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
                                   int pred_id,
                                   const pddl_obj_id_t *args,
@@ -44,11 +66,25 @@ int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
                               const pddl_cond_atom_t *a,
                               bor_err_t *err);
 
+/**
+ * Remove all atoms from non-static predicates.
+ */
 int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, bor_err_t *err);
 
+/**
+ * Start grounding the specified action.
+ * Returns 0 on success.
+ */
 int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
                                int action_id,
                                bor_err_t *err);
+
+/**
+ * Fetch next grounded action.
+ * Returns 1 on success, 0 if there is nothing more to ground, and -1 on
+ * error.
+ * This function can be called only after *ActionStart().
+ */
 int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
                               pddl_obj_id_t *args,
                               bor_err_t *err);

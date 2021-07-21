@@ -30,7 +30,6 @@
 struct sql_ground {
     pddl_sql_grounder_t *grounder;
     const pddl_t *pddl;
-    pddl_prep_actions_t prep_action;
     pddl_strips_maker_t strips_maker;
 };
 typedef struct sql_ground sql_ground_t;
@@ -44,8 +43,6 @@ static int sqlGroundInit(sql_ground_t *g,
     bzero(g, sizeof(*g));
     g->pddl = pddl;
     g->grounder = pddlSqlGrounderNew(pddl, err);
-    pddlPrepActionsInit(g->pddl, &g->prep_action, err);
-
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     // Insert initial state
@@ -80,7 +77,6 @@ static int sqlGroundInit(sql_ground_t *g,
 static void sqlGroundFree(sql_ground_t *g)
 {
     pddlSqlGrounderDel(g->grounder);
-    pddlPrepActionsFree(&g->prep_action);
     pddlStripsMakerFree(&g->strips_maker);
 }
 
@@ -88,7 +84,8 @@ static int addGroundAction(sql_ground_t *g,
                            int action_id,
                            const pddl_obj_id_t *row)
 {
-    const pddl_prep_action_t *paction = g->prep_action.action + action_id;
+    const pddl_prep_action_t *paction;
+    paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
     int is_new = 0;
     int parent_id = action_id;
     if (paction->parent_action >= 0)
@@ -125,7 +122,8 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
     if (!addGroundAction(g, action_id, row))
         return 0;
 
-    const pddl_prep_action_t *paction = g->prep_action.action + action_id;
+    const pddl_prep_action_t *paction;
+    paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
     for (int i = 0; i < paction->add_eff.size; ++i){
         const pddl_cond_atom_t *atom;
         atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
@@ -140,10 +138,11 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
 
 static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
 {
-    const pddl_prep_action_t *paction = g->prep_action.action + action_id;
-
     if (pddlSqlGrounderActionStart(g->grounder, action_id, err) != 0)
         return 0;
+
+    const pddl_prep_action_t *paction;
+    paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
 
     pddl_obj_id_t row[paction->param_size];
     int updated = 0;
@@ -154,8 +153,9 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
 
 static int sqlGroundStep(sql_ground_t *g, bor_err_t *err)
 {
+    int action_size = pddlSqlGrounderPrepActionSize(g->grounder);
     int updated = 0;
-    for (int ai = 0; ai < g->prep_action.action_size; ++ai)
+    for (int ai = 0; ai < action_size; ++ai)
         updated |= sqlGroundStepAction(g, ai, err);
     return updated;
 }
