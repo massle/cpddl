@@ -103,6 +103,7 @@
 #include <pddl/trans_system_graph.h>
 #include <pddl/endomorphism.h>
 #include <pddl/homomorphism.h>
+#include <pddl/homomorphism_heur.h>
 #include <pddl/symbolic_task.h>
 #include <pddl/black_mgroup.h>
 #include <pddl/red_black_fdr.h>

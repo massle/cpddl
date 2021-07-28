@@ -75,6 +75,56 @@ static int readOpts(int *argc,
     return 0;
 }
 
+static pddl_homomorphism_heur_t *_heurCollapseAllExceptOneType(
+                                            const pddl_t *pddl,
+                                            int except,
+                                            bor_err_t *err)
+{
+    pddl_homomorphism_config_t homo_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
+    for (int type = 0; type < pddl->type.type_size; ++type){
+        if (type == except)
+            continue;
+        if (pddlTypesIsMinimal(&pddl->type, type))
+            borISetAdd(&homo_cfg.collapse_types, type);
+    }
+    pddl_homomorphism_heur_t *heur;
+    if ((heur = pddlHomomorphismHeurLMCut(pddl, &homo_cfg, err)) == NULL){
+        fprintf(stderr, "Error: ");
+        borErrPrint(err, 1, stderr);
+        return NULL;
+    }
+    return heur;
+}
+
+static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl,
+                                                              bor_err_t *err)
+{
+    pddl_homomorphism_heur_t *heur = NULL;
+    int best_hval = -1;
+    for (int type = 0; type < pddl->type.type_size; ++type){
+        if (pddlTypesIsMinimal(&pddl->type, type)
+                && pddlTypeNumObjs(&pddl->type, type) > 1){
+            pddl_homomorphism_heur_t *h;
+            h = _heurCollapseAllExceptOneType(pddl, type, err);
+            if (h == NULL)
+                continue;
+
+            int hval = pddlHomomorphismHeurEvalGroundInit(h);
+            BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
+                     hval);
+            if (hval > best_hval && hval != PDDL_COST_DEAD_END){
+                if (heur != NULL)
+                    pddlHomomorphismHeurDel(heur);
+                heur = h;
+                best_hval = hval;
+            }else{
+                pddlHomomorphismHeurDel(h);
+            }
+        }
+    }
+    return heur;
+}
+
 static void printSearchStat(const pddl_search_lifted_astar_t *astar,
                             bor_err_t *err)
 {
@@ -131,9 +181,16 @@ int main(int argc, char *argv[])
     }
     pddlNormalize(&pddl);
     pddlCheckSizeTypes(&pddl);
+    //pddlPrintDebug(&pddl, stderr);
+
+
+    pddl_homomorphism_heur_t *heur;
+    heur = heurCollapseAllExceptOneType(&pddl, &err);
+    if (heur == NULL)
+        return -1;
 
     pddl_search_lifted_astar_t *astar;
-    astar = pddlSearchLiftedAStar(&pddl, &err);
+    astar = pddlSearchLiftedAStar(&pddl, heur, &err);
     int ret = pddlSearchLiftedAStarInitStep(astar);
     search_started = 1;
 

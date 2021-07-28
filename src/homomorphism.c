@@ -86,7 +86,11 @@ static void fixActions(pddl_t *pddl,
     BOR_FREE(affected_types);
 }
 
-static int collapseObjs(pddl_t *pddl, int *collapse_map, bor_err_t *err)
+static int collapseObjs(pddl_t *pddl,
+                        int *collapse_map,
+                        pddl_obj_id_t *obj_map,
+                        int obj_size,
+                        bor_err_t *err)
 {
     int repr = -1;
     for (int i = 0; i < pddl->obj.obj_size; ++i){
@@ -105,6 +109,11 @@ static int collapseObjs(pddl_t *pddl, int *collapse_map, bor_err_t *err)
         }
     }
 
+    if (obj_map != NULL){
+        for (int i = 0; i < obj_size; ++i)
+            obj_map[i] = remap[obj_map[i]];
+    }
+
     pddlCondRemapObjs(&pddl->init->cls, remap);
     pddlCondRemapObjs(pddl->goal, remap);
     fixActions(pddl, repr, collapse_map, err);
@@ -121,7 +130,11 @@ static int collapseObjs(pddl_t *pddl, int *collapse_map, bor_err_t *err)
     return 0;
 }
 
-static int collapseType(pddl_t *pddl, int type, bor_err_t *err)
+static int collapseType(pddl_t *pddl,
+                        int type,
+                        pddl_obj_id_t *obj_map,
+                        int obj_size,
+                        bor_err_t *err)
 {
     pddl_types_t *types = &pddl->type;
     if (!pddlTypesIsMinimal(types, type)){
@@ -141,7 +154,7 @@ static int collapseType(pddl_t *pddl, int type, bor_err_t *err)
     const pddl_obj_id_t *objs = pddlTypesObjsByType(types, type, &objs_size);
     for (int i = 0; i < objs_size; ++i)
         collapse_map[objs[i]] = 1;
-    int ret = collapseObjs(pddl, collapse_map, err);
+    int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
     BOR_FREE(collapse_map);
 
     if (ret == 0){
@@ -220,6 +233,7 @@ static void deduplicate(pddl_t *pddl)
 int pddlHomomorphism(pddl_t *pddl,
                      const pddl_t *src,
                      const pddl_homomorphism_config_t *cfg,
+                     pddl_obj_id_t *obj_map,
                      bor_err_t *err)
 {
     if (borISetSize(&cfg->collapse_types) == 0){
@@ -228,10 +242,15 @@ int pddlHomomorphism(pddl_t *pddl,
 
     BOR_INFO_PREFIX_PUSH(err, "Homomorphism: ");
     BOR_INFO2(err, "Computing homomorphism.");
+    if (obj_map != NULL){
+        for (int i = 0; i < src->obj.obj_size; ++i)
+            obj_map[i] = i;
+    }
+
     pddlInitCopy(pddl, src);
     int type;
     BOR_ISET_FOR_EACH(&cfg->collapse_types, type){
-        if (collapseType(pddl, type, err) != 0)
+        if (collapseType(pddl, type, obj_map, src->obj.obj_size, err) != 0)
             BOR_TRACE_RET(err, -1);
     }
     deduplicate(pddl);

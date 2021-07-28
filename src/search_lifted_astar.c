@@ -21,8 +21,10 @@
 #include "assert.h"
 
 
-pddl_search_lifted_astar_t *pddlSearchLiftedAStar(const pddl_t *pddl,
-                                                  bor_err_t *err)
+pddl_search_lifted_astar_t *pddlSearchLiftedAStar(
+                                const pddl_t *pddl,
+                                pddl_homomorphism_heur_t *heur,
+                                bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Lifted A*: ");
     pddl_search_lifted_astar_t *astar;
@@ -31,8 +33,7 @@ pddl_search_lifted_astar_t *pddlSearchLiftedAStar(const pddl_t *pddl,
     bzero(astar, sizeof(*astar));
     astar->pddl = pddl;
     // TODO: Check for conditional effects
-    // TODO
-    //astar->heur = heur;
+    astar->heur = heur;
     astar->err = err;
 
     astar->grounder = pddlSqlGrounderNew(pddl, err);
@@ -186,12 +187,9 @@ int pddlSearchLiftedAStarInitStep(pddl_search_lifted_astar_t *astar)
     astar->cur_node.op_id = -1;
     astar->cur_node.g_value = 0;
 
-    /* TODO
-    int h_value = pddlHeurEstimate(astar->heur,
-                                   &astar->cur_node,
-                                   &astar->state_space);
-    */
-    int h_value = 0;
+    int h_value = pddlHomomorphismHeurEval(astar->heur,
+                                           &astar->cur_node.state,
+                                           &astar->strips.ground_atom);
     BOR_INFO(astar->err, "Heuristic value for the initial state: %d", h_value);
     ++astar->_stat.evaluated;
     if (h_value == PDDL_COST_DEAD_END){
@@ -211,7 +209,6 @@ static int isGoal(const pddl_search_lifted_astar_t *astar)
     return borISetIsSubset(&astar->goal, &astar->cur_node.state);
 }
 
-// TODO
 static void insertNextState(pddl_search_lifted_astar_t *astar,
                             int args_id,
                             int op_cost)
@@ -229,11 +226,9 @@ static void insertNextState(pddl_search_lifted_astar_t *astar,
     astar->next_node.op_id = args_id;
     astar->next_node.g_value = next_g_value;
 
-    /* TODO
-    int h_value = pddlHeurEstimate(astar->heur, &astar->next_node,
-                                   &astar->state_space);
-    */
-    int h_value = 0;
+    int h_value = pddlHomomorphismHeurEval(astar->heur,
+                                           &astar->next_node.state,
+                                           &astar->strips.ground_atom);
     ++astar->_stat.evaluated;
 
     if (h_value == PDDL_COST_DEAD_END){

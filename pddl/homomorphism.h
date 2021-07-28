@@ -39,6 +39,7 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 int pddlHomomorphism(pddl_t *homo_image,
                      const pddl_t *src,
                      const pddl_homomorphism_config_t *cfg,
+                     pddl_obj_id_t *obj_map,
                      bor_err_t *err);
 
 #ifdef __cplusplus

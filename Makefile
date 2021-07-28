@@ -127,6 +127,7 @@ OBJS += black_mgroup
 OBJS += red_black_fdr
 OBJS += outbox
 OBJS += homomorphism
+OBJS += homomorphism_heur
 
 OBJS_CPP = endomorphism
 

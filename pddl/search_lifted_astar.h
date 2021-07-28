@@ -27,6 +27,7 @@
 #include <pddl/fdr_app_op.h>
 #include <pddl/heur.h>
 #include <pddl/search.h>
+#include <pddl/homomorphism_heur.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,13 +43,12 @@ typedef struct pddl_lifted_plan pddl_lifted_plan_t;
 
 struct pddl_search_lifted_astar {
     const pddl_t *pddl;
-    //pddl_heur_t *heur;
+    pddl_homomorphism_heur_t *heur;
     bor_err_t *err;
     pddl_sql_grounder_t *grounder;
     pddl_strips_maker_t strips;
     pddl_strips_state_space_t state_space;
     pddl_open_list_t *list;
-    //pddl_fdr_app_op_t app_op;
 
     bor_iset_t applicable;
     pddl_strips_state_space_node_t cur_node;
@@ -61,8 +61,10 @@ struct pddl_search_lifted_astar {
 };
 typedef struct pddl_search_lifted_astar pddl_search_lifted_astar_t;
 
-pddl_search_lifted_astar_t *pddlSearchLiftedAStar(const pddl_t *pddl,
-                                                  bor_err_t *err);
+pddl_search_lifted_astar_t *pddlSearchLiftedAStar(
+                                const pddl_t *pddl,
+                                pddl_homomorphism_heur_t *heur,
+                                bor_err_t *err);
 void pddlSearchLiftedAStarDel(pddl_search_lifted_astar_t *astar);
 int pddlSearchLiftedAStarInitStep(pddl_search_lifted_astar_t *astar);
 int pddlSearchLiftedAStarStep(pddl_search_lifted_astar_t *astar);
