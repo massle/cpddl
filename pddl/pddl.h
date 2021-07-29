@@ -81,7 +81,7 @@
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
 #include <pddl/search_lazy.h>
-#include <pddl/search_lifted_astar.h>
+#include <pddl/search_lifted.h>
 #include <pddl/plan.h>
 #include <pddl/relaxed_plan.h>
 #include <pddl/heur.h>

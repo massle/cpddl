@@ -125,11 +125,10 @@ static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl
     return heur;
 }
 
-static void printSearchStat(const pddl_search_lifted_astar_t *astar,
-                            bor_err_t *err)
+static void printSearchStat(const pddl_search_lifted_t *astar, bor_err_t *err)
 {
     pddl_search_stat_t stat;
-    pddlSearchLiftedAStarStat(astar, &stat);
+    pddlSearchLiftedStat(astar, &stat);
     BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
                   " gen: %lu, open: %lu, closed: %lu,"
                   " reopen: %lu, de: %lu, f: %d",
@@ -189,9 +188,9 @@ int main(int argc, char *argv[])
     if (heur == NULL)
         return -1;
 
-    pddl_search_lifted_astar_t *astar;
+    pddl_search_lifted_t *astar;
     astar = pddlSearchLiftedAStar(&pddl, heur, &err);
-    int ret = pddlSearchLiftedAStarInitStep(astar);
+    int ret = pddlSearchLiftedInitStep(astar);
     search_started = 1;
 
     bor_timer_t info_timer;
@@ -203,7 +202,7 @@ int main(int argc, char *argv[])
             exit(-1);
         }
 
-        ret = pddlSearchLiftedAStarStep(astar);
+        ret = pddlSearchLiftedStep(astar);
         if (step >= 100){
             borTimerStop(&info_timer);
             if (borTimerElapsedInSF(&info_timer) >= 1.){
@@ -220,14 +219,15 @@ int main(int argc, char *argv[])
 
     }else if (ret == PDDL_SEARCH_FOUND){
         BOR_INFO2(&err, "Plan found.");
-        BOR_INFO(&err, "Plan Cost: %d", astar->plan.plan_cost);
-        BOR_INFO(&err, "Plan Length: %d", astar->plan.plan_len);
+        const pddl_lifted_plan_t *plan = pddlSearchLiftedPlan(astar);
+        BOR_INFO(&err, "Plan Cost: %d", plan->plan_cost);
+        BOR_INFO(&err, "Plan Length: %d", plan->plan_len);
         if (opt.out == NULL || strcmp(opt.out, "-") == 0){
-            printPlan(&astar->plan, stdout);
+            printPlan(plan, stdout);
         }else{
             FILE *fout;
             if ((fout = fopen(opt.out, "w")) != NULL){
-                printPlan(&astar->plan, fout);
+                printPlan(plan, fout);
                 fclose(fout);
             }else{
                 BOR_ERR(&err, "Could not open file '%s'", opt.out);
@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    pddlSearchLiftedAStarDel(astar);
+    pddlSearchLiftedDel(astar);
 
     optsClear();
     //pddlLiftedMGroupsFree(&lifted_mgroups);
