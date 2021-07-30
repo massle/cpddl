@@ -6,6 +6,14 @@
 volatile sig_atomic_t terminate = 0;
 volatile sig_atomic_t search_started = 0;
 
+
+pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
+                                     const pddl_homomorphism_config_t *cfg,
+                                     bor_err_t *err) = NULL;
+pddl_search_lifted_t *(*search_fn)(const pddl_t *pddl,
+                                   pddl_homomorphism_heur_t *heur,
+                                   bor_err_t *err) = pddlSearchLiftedAStar;
+
 void sigHandlerTerminate(int signal)
 {
     fprintf(stderr, "Received %s signal\n", strsignal(signal));
@@ -20,6 +28,7 @@ void sigHandlerTerminate(int signal)
 struct options {
     int help;
     char *out;
+    char *heur;
     pddl_files_t files;
 } opt;
 
@@ -34,13 +43,14 @@ static void usage(const char *name)
 
 static int readOpts(int *argc,
                     char *argv[],
-                    pddl_hpot_config_t *pot_cfg,
                     bor_err_t *err)
 {
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
     optsAddDesc("output", 'o', OPTS_STR, &opt.out, NULL,
                 "Output filename (default: stdout)");
+    optsAddDesc("heur", 'H', OPTS_STR, &opt.heur, NULL,
+                "Heuristic: blind, lmc, hff (default: blind)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 2 && *argc != 3)){
         if (*argc <= 1)
@@ -55,6 +65,20 @@ static int readOpts(int *argc,
             }
         }
 
+        usage(argv[0]);
+        return -1;
+    }
+
+    if (opt.heur == NULL)
+        opt.heur = "blind";
+    if (strcmp(opt.heur, "blind") == 0){
+        heur_fn = NULL;
+    }else if (strcmp(opt.heur, "lmc") == 0){
+        heur_fn = pddlHomomorphismHeurLMCut;
+    }else if (strcmp(opt.heur, "hff") == 0){
+        heur_fn = pddlHomomorphismHeurHFF;
+    }else{
+        fprintf(stderr, "Error: Unkown heuristic '%s'\n", opt.heur);
         usage(argv[0]);
         return -1;
     }
@@ -88,7 +112,7 @@ static pddl_homomorphism_heur_t *_heurCollapseAllExceptOneType(
             borISetAdd(&homo_cfg.collapse_types, type);
     }
     pddl_homomorphism_heur_t *heur;
-    if ((heur = pddlHomomorphismHeurLMCut(pddl, &homo_cfg, err)) == NULL){
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
         borErrPrint(err, 1, stderr);
         return NULL;
@@ -125,6 +149,52 @@ static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl
     return heur;
 }
 
+static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
+                                                    float ratio,
+                                                    int seed,
+                                                    bor_err_t *err)
+{
+    pddl_homomorphism_config_t homo_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
+    homo_cfg.random_rm_ratio = ratio;
+    homo_cfg.random_seed = seed;
+    if (seed == -1)
+        homo_cfg.random_seed = 234;
+    pddl_homomorphism_heur_t *heur;
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
+        fprintf(stderr, "Error: ");
+        borErrPrint(err, 1, stderr);
+        return NULL;
+    }
+    return heur;
+}
+
+static pddl_homomorphism_heur_t *heurCollapseRandom2(const pddl_t *pddl,
+                                                     float ratio,
+                                                     int tries,
+                                                     bor_err_t *err)
+{
+    int seed = 234;
+    pddl_homomorphism_heur_t *heur = NULL;
+    int best_hval = -1;
+    for (int i = 0; i < tries; ++i){
+        pddl_homomorphism_heur_t *h;
+        h = heurCollapseRandom(pddl, ratio, seed, err);
+        int hval = pddlHomomorphismHeurEvalGroundInit(h);
+        BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
+                hval);
+        if (hval > best_hval && hval != PDDL_COST_DEAD_END){
+            if (heur != NULL)
+                pddlHomomorphismHeurDel(heur);
+            heur = h;
+            best_hval = hval;
+        }else{
+            pddlHomomorphismHeurDel(h);
+        }
+        ++seed;
+    }
+    return heur;
+}
+
 static void printSearchStat(const pddl_search_lifted_t *astar, bor_err_t *err)
 {
     pddl_search_stat_t stat;
@@ -154,7 +224,10 @@ static void printPlan(const pddl_lifted_plan_t *plan, FILE *fout)
 
 int main(int argc, char *argv[])
 {
-    pddl_hpot_config_t hpot_cfg = PDDL_HPOT_CONFIG_INIT;
+    if (strcmp(argv[0] + strlen(argv[0]) - 4, "gbfs") == 0){
+        heur_fn = pddlHomomorphismHeurHFF;
+        search_fn = pddlSearchLiftedGBFS;
+    }
 
     signal(SIGINT, sigHandlerTerminate);
     signal(SIGTERM, sigHandlerTerminate);
@@ -163,7 +236,7 @@ int main(int argc, char *argv[])
     borErrWarnEnable(&err, stderr);
     borErrInfoEnable(&err, stderr);
 
-    if (readOpts(&argc, argv, &hpot_cfg, &err) != 0){
+    if (readOpts(&argc, argv, &err) != 0){
         borErrPrint(&err, 1, stderr);
         return -1;
     }
@@ -183,13 +256,16 @@ int main(int argc, char *argv[])
     //pddlPrintDebug(&pddl, stderr);
 
 
-    pddl_homomorphism_heur_t *heur;
-    heur = heurCollapseAllExceptOneType(&pddl, &err);
-    if (heur == NULL)
-        return -1;
+    pddl_homomorphism_heur_t *heur = NULL;
+    if (heur_fn != NULL){
+        //heur = heurCollapseAllExceptOneType(&pddl, &err);
+        heur = heurCollapseRandom2(&pddl, .65, 5, &err);
+        if (heur == NULL)
+            return -1;
+    }
 
     pddl_search_lifted_t *astar;
-    astar = pddlSearchLiftedAStar(&pddl, heur, &err);
+    astar = search_fn(&pddl, heur, &err);
     int ret = pddlSearchLiftedInitStep(astar);
     search_started = 1;
 

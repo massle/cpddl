@@ -28,6 +28,8 @@ extern "C" {
 struct pddl_homomorphism_config {
     bor_iset_t collapse_types; /*!< Set of types to collapse each to a
                                     single object */
+    float random_rm_ratio;
+    uint32_t random_seed;
 };
 typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 

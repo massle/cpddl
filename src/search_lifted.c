@@ -47,6 +47,8 @@ struct pddl_search_lifted {
     search_del_fn del_fn;
     search_init_step_fn init_step_fn;
     search_step_fn step_fn;
+
+    const char *err_prefix;
 };
 
 struct pddl_search_lifted_bfs {
@@ -73,6 +75,7 @@ static int searchInit(pddl_search_lifted_t *s,
                       search_del_fn del_fn,
                       search_init_step_fn init_step_fn,
                       search_step_fn step_fn,
+                      const char *err_prefix,
                       bor_err_t *err)
 {
     s->pddl = pddl;
@@ -88,6 +91,7 @@ static int searchInit(pddl_search_lifted_t *s,
     s->del_fn = del_fn;
     s->init_step_fn = init_step_fn;
     s->step_fn = step_fn;
+    s->err_prefix = err_prefix;
     return 0;
 }
 
@@ -114,14 +118,16 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
                                     pddl_homomorphism_heur_t *heur,
                                     int g_weight,
                                     int h_weight,
+                                    const char *err_prefix,
                                     bor_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Lifted BFS: ");
+    BOR_INFO_PREFIX_PUSH(err, err_prefix);
     pddl_search_lifted_bfs_t *bfs;
 
     bfs = BOR_ALLOC(pddl_search_lifted_bfs_t);
     bzero(bfs, sizeof(*bfs));
-    searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep, err);
+    searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep,
+               err_prefix, err);
     // TODO: Check for conditional effects
     bfs->heur = heur;
     bfs->g_weight = g_weight;
@@ -135,7 +141,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
 static void bfsDel(pddl_search_lifted_t *s)
 {
     bor_err_t *err = s->err;
-    BOR_INFO_PREFIX_PUSH(err, "Lifted BFS: ");
+    BOR_INFO_PREFIX_PUSH(err, s->err_prefix);
     searchFree(s);
 
     pddl_search_lifted_bfs_t *bfs = BFS(s);
@@ -163,7 +169,7 @@ static void bfsPush(pddl_search_lifted_bfs_t *bfs,
 static int bfsInitStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    BOR_INFO_PREFIX_PUSH(s->err, "Lifted A*: ");
+    BOR_INFO_PREFIX_PUSH(s->err, s->err_prefix);
     int ret = PDDL_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
@@ -178,9 +184,13 @@ static int bfsInitStep(pddl_search_lifted_t *s)
     s->cur_node.op_id = -1;
     s->cur_node.g_value = 0;
 
-    int h_value = pddlHomomorphismHeurEval(bfs->heur,
+    int h_value = 0;
+    if (bfs->heur != NULL){
+        h_value = pddlHomomorphismHeurEval(bfs->heur,
                                            &s->cur_node.state,
                                            &s->strips.ground_atom);
+    }
+
     BOR_INFO(s->err, "Heuristic value for the initial state: %d", h_value);
     ++s->_stat.evaluated;
     if (h_value == PDDL_COST_DEAD_END){
@@ -212,10 +222,13 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
     s->next_node.parent_id = s->cur_node.id;
     s->next_node.op_id = args_id;
     s->next_node.g_value = next_g_value;
-
-    int h_value = pddlHomomorphismHeurEval(bfs->heur,
+ 
+    int h_value = 0;
+    if (bfs->heur != NULL){
+        h_value = pddlHomomorphismHeurEval(bfs->heur,
                                            &s->next_node.state,
                                            &s->strips.ground_atom);
+    }
     ++s->_stat.evaluated;
 
     if (h_value == PDDL_COST_DEAD_END){
@@ -240,7 +253,7 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
 static int bfsStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    BOR_INFO_PREFIX_PUSH(s->err, "Lifted A*: ");
+    BOR_INFO_PREFIX_PUSH(s->err, s->err_prefix);
 
     ++s->_stat.steps;
 
@@ -559,14 +572,14 @@ pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
                                             pddl_homomorphism_heur_t *heur,
                                             bor_err_t *err)
 {
-    return bfsNew(pddl, heur, 1, 1, err);
+    return bfsNew(pddl, heur, 1, 1, "Lifted A*: ", err);
 }
 
 pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
                                            pddl_homomorphism_heur_t *heur,
                                            bor_err_t *err)
 {
-    return bfsNew(pddl, heur, 0, 1, err);
+    return bfsNew(pddl, heur, 0, 1, "Lifted GBFS: ", err);
 }
 
 const pddl_lifted_plan_t *pddlSearchLiftedPlan(const pddl_search_lifted_t *s)

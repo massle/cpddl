@@ -17,6 +17,7 @@
  */
 
 #include <boruvka/err.h>
+#include <boruvka/rand-mt.h>
 #include "pddl/homomorphism.h"
 #include "assert.h"
 
@@ -130,6 +131,41 @@ static int collapseObjs(pddl_t *pddl,
     return 0;
 }
 
+static int collapseRandomPair(pddl_t *pddl,
+                              bor_rand_mt_t *rnd,
+                              pddl_obj_id_t *obj_map,
+                              int obj_size,
+                              bor_err_t *err)
+{
+    int choose_types[pddl->type.type_size];
+    int type_size = 0;
+    for (int type = 0; type < pddl->type.type_size; ++type){
+        if (pddlTypesIsMinimal(&pddl->type, type)
+                && pddlTypeNumObjs(&pddl->type, type) > 1){
+            choose_types[type_size++] = type;
+        }
+    }
+
+    if (type_size == 0)
+        return -1;
+
+    int choice = borRandMT(rnd, 0, type_size);
+    int type = choose_types[choice];
+    int num_objs;
+    const pddl_obj_id_t *objs;
+    objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
+    int obj1 = objs[(int)borRandMT(rnd, 0, num_objs)];
+    int obj2 = obj1;
+    while (obj1 == obj2)
+        obj2 = objs[(int)borRandMT(rnd, 0, num_objs)];
+
+    int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    collapse_map[obj1] = collapse_map[obj2] = 1;
+    int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
+    BOR_FREE(collapse_map);
+    return ret;
+}
+
 static int collapseType(pddl_t *pddl,
                         int type,
                         pddl_obj_id_t *obj_map,
@@ -236,25 +272,44 @@ int pddlHomomorphism(pddl_t *pddl,
                      pddl_obj_id_t *obj_map,
                      bor_err_t *err)
 {
-    if (borISetSize(&cfg->collapse_types) == 0){
+    if (borISetSize(&cfg->collapse_types) == 0
+            && cfg->random_rm_ratio <= 0.f){
         BOR_ERR_RET2(err, -1, "Nothing to do!");
+    }
+    if (borISetSize(&cfg->collapse_types) > 0
+            && cfg->random_rm_ratio > 0.f){
+        BOR_ERR_RET2(err, -1, "Can't combine more methods!");
     }
 
     BOR_INFO_PREFIX_PUSH(err, "Homomorphism: ");
-    BOR_INFO2(err, "Computing homomorphism.");
+    BOR_INFO(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);
     if (obj_map != NULL){
         for (int i = 0; i < src->obj.obj_size; ++i)
             obj_map[i] = i;
     }
 
     pddlInitCopy(pddl, src);
-    int type;
-    BOR_ISET_FOR_EACH(&cfg->collapse_types, type){
-        if (collapseType(pddl, type, obj_map, src->obj.obj_size, err) != 0)
-            BOR_TRACE_RET(err, -1);
+    if (borISetSize(&cfg->collapse_types) > 0){
+        int type;
+        BOR_ISET_FOR_EACH(&cfg->collapse_types, type){
+            if (collapseType(pddl, type, obj_map, src->obj.obj_size, err) != 0)
+                BOR_TRACE_RET(err, -1);
+        }
+    }else if (cfg->random_rm_ratio > 0.f){
+        int obj_size = src->obj.obj_size;
+        bor_rand_mt_t *rnd = borRandMTNew(cfg->random_seed);
+        int target = pddl->obj.obj_size * (1.f - cfg->random_rm_ratio);
+        while (pddl->obj.obj_size >= 1
+                && pddl->obj.obj_size != target
+                && collapseRandomPair(pddl, rnd, obj_map, obj_size, err) == 0);
+        borRandMTDel(rnd);
     }
+
     deduplicate(pddl);
     pddlNormalize(pddl);
+    BOR_INFO(err, "Homomorphism computed (objs: %d, from objs: %d).",
+             pddl->obj.obj_size,
+             src->obj.obj_size);
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }

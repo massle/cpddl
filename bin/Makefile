@@ -28,6 +28,7 @@ TARGETS += pddl-fdr
 TARGETS += pddl-pot
 TARGETS += pddl-astar
 TARGETS += pddl-lifted-astar
+TARGETS += pddl-lifted-gbfs
 TARGETS += pddl-mgroups
 TARGETS += pddl-reversibility
 TARGETS += pddl-op-mutex
@@ -35,6 +36,8 @@ TARGETS += pddl-symba
 
 all: $(TARGETS)
 
+pddl-lifted-gbfs: pddl-lifted-astar
+	ln -f $< $@
 pddl-%: %.c ../libpddl.a
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
