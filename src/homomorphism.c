@@ -131,11 +131,11 @@ static int collapseObjs(pddl_t *pddl,
     return 0;
 }
 
-static int collapseRandomPair(pddl_t *pddl,
-                              bor_rand_mt_t *rnd,
-                              pddl_obj_id_t *obj_map,
-                              int obj_size,
-                              bor_err_t *err)
+static int collapseRandomPairTypeObj(pddl_t *pddl,
+                                     bor_rand_mt_t *rnd,
+                                     pddl_obj_id_t *obj_map,
+                                     int obj_size,
+                                     bor_err_t *err)
 {
     int choose_types[pddl->type.type_size];
     int type_size = 0;
@@ -163,6 +163,53 @@ static int collapseRandomPair(pddl_t *pddl,
     collapse_map[obj1] = collapse_map[obj2] = 1;
     int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
     BOR_FREE(collapse_map);
+    return ret;
+}
+
+static int collapseRandomPairObj(pddl_t *pddl,
+                                 bor_rand_mt_t *rnd,
+                                 pddl_obj_id_t *obj_map,
+                                 int obj_size,
+                                 bor_err_t *err)
+{
+    int *choose_types = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *choose_objs = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int objs_size = 0;
+    for (int type = 0; type < pddl->type.type_size; ++type){
+        if (pddlTypesIsMinimal(&pddl->type, type)
+                && pddlTypeNumObjs(&pddl->type, type) > 1){
+            int num_objs;
+            const pddl_obj_id_t *objs;
+            objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
+            for (int i = 0; i < num_objs; ++i){
+                choose_objs[objs_size] = objs[i];
+                choose_types[objs_size++] = type;
+            }
+        }
+    }
+
+    if (objs_size == 0){
+        BOR_FREE(choose_types);
+        BOR_FREE(choose_objs);
+        return -1;
+    }
+
+    int choice = borRandMT(rnd, 0, objs_size);
+    int obj1 = choose_objs[choice];
+    int type = choose_types[choice];
+    int num_objs;
+    const pddl_obj_id_t *objs;
+    objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
+    int obj2 = obj1;
+    while (obj1 == obj2)
+        obj2 = objs[(int)borRandMT(rnd, 0, num_objs)];
+
+    int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    collapse_map[obj1] = collapse_map[obj2] = 1;
+    int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
+    BOR_FREE(collapse_map);
+    BOR_FREE(choose_types);
+    BOR_FREE(choose_objs);
     return ret;
 }
 
@@ -273,12 +320,9 @@ int pddlHomomorphism(pddl_t *pddl,
                      bor_err_t *err)
 {
     if (borISetSize(&cfg->collapse_types) == 0
-            && cfg->random_rm_ratio <= 0.f){
+            && !cfg->random_objs
+            && !cfg->random_type_objs){
         BOR_ERR_RET2(err, -1, "Nothing to do!");
-    }
-    if (borISetSize(&cfg->collapse_types) > 0
-            && cfg->random_rm_ratio > 0.f){
-        BOR_ERR_RET2(err, -1, "Can't combine more methods!");
     }
 
     BOR_INFO_PREFIX_PUSH(err, "Homomorphism: ");
@@ -295,13 +339,20 @@ int pddlHomomorphism(pddl_t *pddl,
             if (collapseType(pddl, type, obj_map, src->obj.obj_size, err) != 0)
                 BOR_TRACE_RET(err, -1);
         }
-    }else if (cfg->random_rm_ratio > 0.f){
+    }else if (cfg->random_objs || cfg->random_type_objs){
+        int (*fn)(pddl_t *pddl,
+                  bor_rand_mt_t *rnd,
+                  pddl_obj_id_t *obj_map,
+                  int obj_size,
+                  bor_err_t *err) = collapseRandomPairObj;
+        if (cfg->random_type_objs)
+            fn = collapseRandomPairTypeObj;
         int obj_size = src->obj.obj_size;
         bor_rand_mt_t *rnd = borRandMTNew(cfg->random_seed);
-        int target = pddl->obj.obj_size * (1.f - cfg->random_rm_ratio);
+        int target = pddl->obj.obj_size * (1.f - cfg->rm_ratio);
         while (pddl->obj.obj_size >= 1
                 && pddl->obj.obj_size != target
-                && collapseRandomPair(pddl, rnd, obj_map, obj_size, err) == 0);
+                && fn(pddl, rnd, obj_map, obj_size, err) == 0);
         borRandMTDel(rnd);
     }
 

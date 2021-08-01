@@ -29,8 +29,12 @@ struct options {
     int help;
     char *out;
     char *heur;
+    char *homomorph;
     pddl_files_t files;
 } opt;
+
+pddl_homomorphism_config_t homo_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
+int homo_tries = 1;
 
 static void usage(const char *name)
 {
@@ -41,16 +45,47 @@ static void usage(const char *name)
     fprintf(stderr, "\n");
 }
 
+static int homomorphParseRatioTries(char *s)
+{
+    if (*s == 0)
+        return 0;
+    if (*s != ':')
+        return -1;
+    int cont = 1;
+    char *end = s + 1;
+    for (; *end != 0 && *end != ':'; ++end);
+    if (*end == 0){
+        cont = 0;
+    }else if (*end != ':'){
+        fprintf(stderr, "y");
+        return -1;
+    }
+    *end = 0;
+    homo_cfg.rm_ratio = atof(s + 1);
+    if (!cont)
+        return 0;
+
+    s = end + 1;
+    for (end = s; *end != 0 && *end != ':'; ++end);
+    homo_tries = atoi(s);
+    return 0;
+}
+
 static int readOpts(int *argc,
                     char *argv[],
                     bor_err_t *err)
 {
+    opt.homomorph = "type";
+
     optsAddDesc("help", 'h', OPTS_NONE, &opt.help, NULL,
                 "Print this help.");
     optsAddDesc("output", 'o', OPTS_STR, &opt.out, NULL,
                 "Output filename (default: stdout)");
     optsAddDesc("heur", 'H', OPTS_STR, &opt.heur, NULL,
                 "Heuristic: blind, lmc, hff (default: blind)");
+    optsAddDesc("homomorph", 'M', OPTS_STR, &opt.homomorph, NULL,
+                "Configuration of homomorphism: type, rnd-type:rm-ratio:tries,"
+                " rnd:rm-ratio:tries. (default: type)");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 2 && *argc != 3)){
         if (*argc <= 1)
@@ -79,6 +114,31 @@ static int readOpts(int *argc,
         heur_fn = pddlHomomorphismHeurHFF;
     }else{
         fprintf(stderr, "Error: Unkown heuristic '%s'\n", opt.heur);
+        usage(argv[0]);
+        return -1;
+    }
+
+    if (strcmp(opt.homomorph, "type") == 0){
+        // Do nothing -- this is default
+    }else if (strncmp(opt.homomorph, "rnd-type", 8) == 0){
+        homo_cfg.random_type_objs = 1;
+        if (homomorphParseRatioTries(opt.homomorph + 8) != 0){
+            fprintf(stderr, "Error: Unkown homomorphism method '%s'\n",
+                    opt.homomorph);
+            usage(argv[0]);
+            return -1;
+        }
+    }else if (strncmp(opt.homomorph, "rnd", 3) == 0){
+        homo_cfg.random_objs = 1;
+        if (homomorphParseRatioTries(opt.homomorph + 3) != 0){
+            fprintf(stderr, "Error: Unkown homomorphism method '%s'\n",
+                    opt.homomorph);
+            usage(argv[0]);
+            return -1;
+        }
+    }else{
+        fprintf(stderr, "Error: Unkown homomorphism method '%s'\n",
+                opt.homomorph);
         usage(argv[0]);
         return -1;
     }
@@ -149,16 +209,11 @@ static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl
     return heur;
 }
 
-static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
-                                                    float ratio,
-                                                    int seed,
-                                                    bor_err_t *err)
+static pddl_homomorphism_heur_t *_heurCollapseRandom(const pddl_t *pddl,
+                                                     int seed,
+                                                     bor_err_t *err)
 {
-    pddl_homomorphism_config_t homo_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
-    homo_cfg.random_rm_ratio = ratio;
     homo_cfg.random_seed = seed;
-    if (seed == -1)
-        homo_cfg.random_seed = 234;
     pddl_homomorphism_heur_t *heur;
     if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
@@ -168,17 +223,15 @@ static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
     return heur;
 }
 
-static pddl_homomorphism_heur_t *heurCollapseRandom2(const pddl_t *pddl,
-                                                     float ratio,
-                                                     int tries,
-                                                     bor_err_t *err)
+static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
+                                                    bor_err_t *err)
 {
-    int seed = 234;
+    int seed = 6899;
     pddl_homomorphism_heur_t *heur = NULL;
     int best_hval = -1;
-    for (int i = 0; i < tries; ++i){
+    for (int i = 0; i < homo_tries; ++i){
         pddl_homomorphism_heur_t *h;
-        h = heurCollapseRandom(pddl, ratio, seed, err);
+        h = _heurCollapseRandom(pddl, seed, err);
         int hval = pddlHomomorphismHeurEvalGroundInit(h);
         BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
                 hval);
@@ -258,8 +311,21 @@ int main(int argc, char *argv[])
 
     pddl_homomorphism_heur_t *heur = NULL;
     if (heur_fn != NULL){
-        //heur = heurCollapseAllExceptOneType(&pddl, &err);
-        heur = heurCollapseRandom2(&pddl, .65, 5, &err);
+        if (homo_cfg.random_objs || homo_cfg.random_type_objs){
+            if (homo_cfg.random_objs){
+                BOR_INFO(&err, "Homomorph: Random objects. rm-ratio: %.2f,"
+                               " tries: %d",
+                         homo_cfg.rm_ratio, homo_tries);
+            }else{
+                BOR_INFO(&err, "Homomorph: Random types-objects."
+                               " rm-ratio: %.2f, tries: %d",
+                         homo_cfg.rm_ratio, homo_tries);
+            }
+            heur = heurCollapseRandom(&pddl, &err);
+        }else{
+            BOR_INFO2(&err, "Homomorph: Collapse all types except one");
+            heur = heurCollapseAllExceptOneType(&pddl, &err);
+        }
         if (heur == NULL)
             return -1;
     }
@@ -322,6 +388,8 @@ int main(int argc, char *argv[])
     }
 
     pddlSearchLiftedDel(astar);
+    if (heur != NULL)
+        pddlHomomorphismHeurDel(heur);
 
     optsClear();
     //pddlLiftedMGroupsFree(&lifted_mgroups);

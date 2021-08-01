@@ -28,12 +28,20 @@ extern "C" {
 struct pddl_homomorphism_config {
     bor_iset_t collapse_types; /*!< Set of types to collapse each to a
                                     single object */
-    float random_rm_ratio;
+    int random_objs;
+    int random_type_objs;
+    float rm_ratio;
     uint32_t random_seed;
 };
 typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
-#define PDDL_HOMOMORPHISM_CONFIG_INIT { 0 }
+#define PDDL_HOMOMORPHISM_CONFIG_INIT { \
+        BOR_ISET_INIT, /*. collapse_types */ \
+        0, /* .random_objs */ \
+        0, /* .random_type_objs */ \
+        0.5, /* .rm_ratio */ \
+        6899, /* .random_seed */ \
+    }
 
 /**
  * Computes a homomorphism image of src according to the given config.
