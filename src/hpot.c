@@ -160,6 +160,7 @@ static int addInitConstr(pddl_pot_t *pot,
                          const pddl_hpot_config_t *cfg,
                          bor_err_t *err)
 {
+    pddlPotStoreOpHeurChange(pot, 1);
     pddlPotResetLowerBoundConstr(pot);
     pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
     pddl_pot_solution_t sol;
@@ -173,7 +174,7 @@ static int addInitConstr(pddl_pot_t *pot,
     double rhs = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr->init);
     BOR_INFO(err, "Pot: Solved for the initial state: %.4f", rhs);
     // make sure it is feasible
-    rhs = floor((rhs - ROUND_EPS) * 100.) / 100.;
+    rhs = scalbln(scalbln(rhs - ROUND_EPS, 10), -10);
     rhs *= cfg->init_constr_coef;
 
     BOR_ISET(vars);
@@ -182,7 +183,7 @@ static int addInitConstr(pddl_pot_t *pot,
         borISetAdd(&vars, v);
     }
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
-    BOR_INFO(err, "Pot: added lower bound constraint with rhs: %.2f", rhs);
+    BOR_INFO(err, "Pot: added lower bound constraint with rhs: %.4f", rhs);
     borISetFree(&vars);
     pddlPotSolutionFree(&sol);
 
