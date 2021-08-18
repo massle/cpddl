@@ -58,6 +58,13 @@ struct pddl_symbolic_state {
 };
 typedef struct pddl_symbolic_state pddl_symbolic_state_t;
 
+struct pddl_symbolic_all_closed {
+    pddl_bdd_t *closed;
+    pddl_cost_t g_value;
+    bor_rbtree_node_t rbtree;
+};
+typedef struct pddl_symbolic_all_closed pddl_symbolic_all_closed_t;
+
 struct pddl_symbolic_states {
     bor_extarr_t *pool; /*!< Data pool */
     int num_states; /*!< Number of states stored in .pool */
@@ -66,6 +73,7 @@ struct pddl_symbolic_states {
     bor_rbtree_t *closed; /*!< Closed states stored with increasing cost */
     int num_closed; /*!< Number of closed states */
     pddl_bdd_t *all_closed; /*!< BDD representing all closed states */
+    bor_rbtree_t *all_closed_g; /*!< All closed states for each g-value */
     pddl_cost_t bound; /*!< Bound for the cost of the plan */
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
@@ -160,7 +168,19 @@ static int rbtreeCostCmp(const bor_rbtree_node_t *n1,
     return cmp;
 }
 
-static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
+static int rbtreeAllClosedCmp(const bor_rbtree_node_t *n1,
+                              const bor_rbtree_node_t *n2,
+                              void *data)
+{
+    const pddl_symbolic_all_closed_t *c1, *c2;
+    c1 = bor_container_of(n1, pddl_symbolic_all_closed_t, rbtree);
+    c2 = bor_container_of(n2, pddl_symbolic_all_closed_t, rbtree);
+    return pddlCostCmp(&c1->g_value, &c2->g_value);
+}
+
+static void statesInit(pddl_symbolic_task_t *ss,
+                       pddl_symbolic_states_t *states,
+                       bor_err_t *err)
 {
     bzero(states, sizeof(*states));
     size_t el_size = sizeof(pddl_symbolic_state_t);
@@ -182,6 +202,10 @@ static void statesInit(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     states->num_closed = 0;
 
     states->all_closed = pddlBDDZero(ss->mgr);
+    if (ss->cfg.use_pot_heur_inconsistent){
+        states->all_closed_g = borRBTreeNew(rbtreeAllClosedCmp, NULL);
+        BOR_INFO2(err, "Created mapping from g-value to close-states BDDs");
+    }
 
     pddlCostSetMax(&states->bound);
 }
@@ -192,6 +216,17 @@ static void statesFree(pddl_symbolic_task_t *ss, pddl_symbolic_states_t *states)
     borPairHeapDel(states->open);
 
     pddlBDDDel(ss->mgr, states->all_closed);
+
+    if (states->all_closed_g != NULL){
+        bor_rbtree_node_t *tn;
+        while ((tn = borRBTreeExtractMin(states->all_closed_g)) != NULL){
+            pddl_symbolic_all_closed_t *c;
+            c = bor_container_of(tn, pddl_symbolic_all_closed_t, rbtree);
+            pddlBDDDel(ss->mgr, c->closed);
+            BOR_FREE(c);
+        }
+        borRBTreeDel(states->all_closed_g);
+    }
 
     for (int si = 0; si < states->num_states; ++si)
         stateFree(ss, borExtArrGet(states->pool, si));
@@ -205,6 +240,31 @@ static pddl_symbolic_state_t *statesGet(pddl_symbolic_states_t *states, int id)
     return borExtArrGet(states->pool, id);
 }
 
+static void statesRemoveClosedStates(pddl_symbolic_task_t *ss,
+                                     pddl_symbolic_states_t *states,
+                                     pddl_bdd_t **bdd,
+                                     const pddl_cost_t *cost)
+{
+    if (states->all_closed_g != NULL){
+        bor_rbtree_node_t *node;
+        BOR_RBTREE_FOR_EACH(states->all_closed_g, node){
+            pddl_symbolic_all_closed_t *c;
+            c = bor_container_of(node, pddl_symbolic_all_closed_t, rbtree);
+            if (pddlCostCmp(&c->g_value, cost) > 0)
+                break;
+
+            pddl_bdd_t *nall = pddlBDDNot(ss->mgr, c->closed);
+            pddlBDDAndUpdate(ss->mgr, bdd, nall);
+            pddlBDDDel(ss->mgr, nall);
+        }
+
+    }else{
+        pddl_bdd_t *nall = pddlBDDNot(ss->mgr, states->all_closed);
+        pddlBDDAndUpdate(ss->mgr, bdd, nall);
+        pddlBDDDel(ss->mgr, nall);
+    }
+}
+
 static void statesCloseState(pddl_symbolic_task_t *ss,
                              pddl_symbolic_states_t *states,
                              pddl_symbolic_state_t *state)
@@ -212,7 +272,29 @@ static void statesCloseState(pddl_symbolic_task_t *ss,
     ASSERT(!state->is_closed);
     state->is_closed = 1;
     ASSERT(state->bdd != NULL);
+
+    // Add state to the set of all closed states
     pddlBDDOrUpdate(ss->mgr, &states->all_closed, state->bdd);
+
+    if (states->all_closed_g != NULL){
+        // Add state to the set of all closed states with the same g-value
+        pddl_symbolic_all_closed_t ctest;
+        ctest.g_value = state->cost;
+
+        pddl_symbolic_all_closed_t *c;
+        bor_rbtree_node_t *node;
+        if ((node = borRBTreeFind(states->all_closed_g, &ctest.rbtree)) == NULL){
+            c = BOR_ALLOC(pddl_symbolic_all_closed_t);
+            c->g_value = state->cost;
+            c->closed = pddlBDDZero(ss->mgr);
+            borRBTreeInsert(states->all_closed_g, &c->rbtree);
+
+        }else{
+            c = bor_container_of(node, pddl_symbolic_all_closed_t, rbtree);
+        }
+        pddlBDDOrUpdate(ss->mgr, &c->closed, state->bdd);
+    }
+
     borRBTreeInsert(states->closed, &state->rbtree);
     ++states->num_closed;
 }
@@ -317,7 +399,8 @@ static void searchInit(pddl_symbolic_task_t *ss,
                        pddl_symbolic_trans_set_image_fn pre_image,
                        pddl_symbolic_constr_apply_fn constr_apply,
                        pddl_bdd_t *init,
-                       pddl_bdd_t *goal)
+                       pddl_bdd_t *goal,
+                       bor_err_t *err)
 {
     bzero(search, sizeof(*search));
     search->fw = fw;
@@ -330,7 +413,7 @@ static void searchInit(pddl_symbolic_task_t *ss,
     search->pre_image = pre_image;
     if (ss->cfg.use_constr)
         search->constr_apply = constr_apply;
-    statesInit(ss, &search->state);
+    statesInit(ss, &search->state, err);
     search->goal = goal;
     if (search->goal != NULL)
         search->goal = pddlBDDClone(ss->mgr, search->goal);
@@ -531,9 +614,7 @@ static pddl_bdd_t *searchStateBDD(pddl_symbolic_task_t *ss,
         prev_state = statesGet(&search->state, state->parent_id);
         state->bdd = search->image(ss->trans.trans + state->trans_id,
                                    prev_state->bdd);
-        pddl_bdd_t *nall = pddlBDDNot(ss->mgr, search->state.all_closed);
-        pddlBDDAndUpdate(ss->mgr, &state->bdd, nall);
-        pddlBDDDel(ss->mgr, nall);
+        statesRemoveClosedStates(ss, &search->state, &state->bdd, &state->cost);
         if (search->constr_apply)
             search->constr_apply(&ss->constr, &state->bdd);
     }
@@ -659,9 +740,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
     pddl_symbolic_states_t *states = &search->state;
     pddl_bdd_t *bdd_in = pddlBDDClone(ss->mgr, state_in->bdd);
     ASSERT(bdd_in != NULL);
-    pddl_bdd_t *nall = pddlBDDNot(ss->mgr, states->all_closed);
-    pddlBDDAndUpdate(ss->mgr, &bdd_in, nall);
-    pddlBDDDel(ss->mgr, nall);
+    statesRemoveClosedStates(ss, &search->state, &bdd_in, &state_in->cost);
 
     if (pddlBDDIsFalse(ss->mgr, bdd_in)){
         pddlBDDDel(ss->mgr, bdd_in);
@@ -738,9 +817,7 @@ static pddl_symbolic_state_t *searchNextNonEmpty(pddl_symbolic_task_t *ss,
         state = statesNextOpen(&search->state);
         if (state != NULL){
             searchStateBDD(ss, search, state);
-            pddl_bdd_t *nall = pddlBDDNot(ss->mgr, search->state.all_closed);
-            pddlBDDAndUpdate(ss->mgr, &state->bdd, nall);
-            pddlBDDDel(ss->mgr, nall);
+            statesRemoveClosedStates(ss, &search->state, &state->bdd, &state->cost);
         }
     } while (state != NULL && pddlBDDIsFalse(ss->mgr, state->bdd));
 
@@ -769,9 +846,7 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
 
         next = statesNextOpen(&search->state);
         searchStateBDD(ss, search, next);
-        pddl_bdd_t *nall = pddlBDDNot(ss->mgr, search->state.all_closed);
-        pddlBDDAndUpdate(ss->mgr, &next->bdd, nall);
-        pddlBDDDel(ss->mgr, nall);
+        statesRemoveClosedStates(ss, &search->state, &next->bdd, &next->cost);
         if (!pddlBDDIsFalse(ss->mgr, next->bdd)){
             pddlBDDOrUpdate(ss->mgr, &bdd, next->bdd);
             borISetAdd(&parents, next->id);
@@ -1053,7 +1128,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 {
     *op_heur_change = NULL;
     pddlCostSetZero(init_h_value);
-    if (!cfg->use_pot_heur)
+    if (!cfg->use_pot_heur && !cfg->use_pot_heur_inconsistent)
         return 0;
 
     pddl_pot_solutions_t pot;
@@ -1291,7 +1366,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
     pddl_symbolic_search_t fw_search;
     searchInit(ss, &fw_search, 1,
                pddlSymbolicTransSetImage, pddlSymbolicTransSetPreImage,
-               pddlSymbolicConstrApplyFw, ss->init, ss->goal);
+               pddlSymbolicConstrApplyFw, ss->init, ss->goal, err);
     int res = searchOneDir(ss, &fw_search, err);
     borIArrAppendArr(plan, &fw_search.plan);
     searchFree(ss, &fw_search);
@@ -1317,7 +1392,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
     pddl_symbolic_search_t bw_search;
     searchInit(ss, &bw_search, 0,
                pddlSymbolicTransSetPreImage, pddlSymbolicTransSetImage,
-               pddlSymbolicConstrApplyBw, ss->goal, ss->init);
+               pddlSymbolicConstrApplyBw, ss->goal, ss->init, err);
     int res = searchOneDir(ss, &bw_search, err);
     borIArrAppendArr(plan, &bw_search.plan);
     searchFree(ss, &bw_search);
@@ -1392,13 +1467,13 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     pddl_symbolic_search_t fw_search;
     searchInit(ss, &fw_search, 1,
                pddlSymbolicTransSetImage, pddlSymbolicTransSetPreImage,
-               pddlSymbolicConstrApplyFw, ss->init, ss->goal);
+               pddlSymbolicConstrApplyFw, ss->init, ss->goal, err);
     BOR_INFO2(err, "fw-search created.");
 
     pddl_symbolic_search_t bw_search;
     searchInit(ss, &bw_search, 0,
                pddlSymbolicTransSetPreImage, pddlSymbolicTransSetImage,
-               pddlSymbolicConstrApplyBw, ss->goal, ss->init);
+               pddlSymbolicConstrApplyBw, ss->goal, ss->init, err);
     BOR_INFO2(err, "bw-search created.");
 
     pddl_cost_t zero_cost;

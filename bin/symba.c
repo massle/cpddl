@@ -69,6 +69,8 @@ struct options {
     float goal_constr_max_time;
     int test_partitioning;
     int multiply_op_cost;
+    int tnf;
+    int tnf_multiply;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -399,6 +401,12 @@ static int readOpts(int *argc, char *argv[])
                 "Test partitioning using heuristic without using heuristic.");
     optsAddDesc("multiply-op-cost", 'M', OPTS_INT, &opt.multiply_op_cost, NULL,
                 "Multiply operator costs by this value.");
+    optsAddDesc("tnf", 0x0, OPTS_NONE, &opt.tnf, NULL,
+                "FDR is transformed to Transition Normal Form (default: off)");
+    optsAddDesc("tnf-multiply", 0x0, OPTS_NONE, &opt.tnf_multiply, NULL,
+                "As --tnf but multiplication of preconditions is used (default: off)");
+    optsAddDesc("tnfm", 0x0, OPTS_NONE, &opt.tnf_multiply, NULL,
+                "Alias for --tnf-multiply");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1502,24 +1510,44 @@ static void planPrint(const pddl_fdr_t *fdr,
 
 static int toFDR(pddl_fdr_t *fdr)
 {
-    pddl_fdr_t _fdr;
     unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     pddlStripsOpsSort(&strips.op);
-    pddlFDRInitFromStrips(&_fdr, &strips, &mgroups, &mutex,
+    pddlFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                           fdr_var_flag, 0, &err);
 
-    // TODO
-    pddl_mg_strips_t mg_strips;
-    pddl_mutex_pairs_t fdr_mutex;
-    pddlMGStripsInitFDR(&mg_strips, &_fdr);
-    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
-    unsigned flags = PDDL_FDR_TNF_MULTIPLY_OPS;
-    // TODO
-    if (pddlFDRInitTransitionNormalForm(fdr, &_fdr, &fdr_mutex,
-                                        flags, &err) != 0){
-        BOR_TRACE_RET(&err, -1);
+    if (opt.tnf || opt.tnf_multiply){
+        if (opt.tnf){
+            BOR_INFO(&err, "Constructing TNF (ops: %d)", fdr->op.op_size);
+        }else if (opt.tnf_multiply){
+            BOR_INFO(&err, "Constructing TNF-multiply (ops: %d)", fdr->op.op_size);
+        }
+
+        pddl_mg_strips_t mg_strips;
+        pddl_mutex_pairs_t fdr_mutex;
+        pddlMGStripsInitFDR(&mg_strips, fdr);
+        pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+        pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+
+        pddl_fdr_t fdr_old = *fdr;
+        unsigned flags = 0;
+        if (opt.tnf_multiply)
+            flags = PDDL_FDR_TNF_MULTIPLY_OPS;
+        if (pddlFDRInitTransitionNormalForm(fdr, &fdr_old, &fdr_mutex, flags, &err) != 0){
+            pddlMutexPairsFree(&fdr_mutex);
+            pddlMGStripsFree(&mg_strips);
+            BOR_TRACE_RET(&err, -1);
+        }
+        if (opt.tnf){
+            BOR_INFO(&err, "Constructed TNF, ops: %d", fdr->op.op_size);
+        }else if (opt.tnf_multiply){
+            BOR_INFO(&err, "Constructed TNF-multiply, ops: %d", fdr->op.op_size);
+        }
+
+
+        pddlMutexPairsFree(&fdr_mutex);
+        pddlMGStripsFree(&mg_strips);
+        pddlFDRFree(&fdr_old);
     }
 
     if (opt.multiply_op_cost > 1){
@@ -1527,11 +1555,28 @@ static int toFDR(pddl_fdr_t *fdr)
             fdr->op.op[oi]->cost *= opt.multiply_op_cost;
     }
     //pddlFDRPrintFD(&fdr, NULL, 0, stderr);
-    pddlMutexPairsFree(&fdr_mutex);
-    pddlMGStripsFree(&mg_strips);
-    pddlFDRFree(&_fdr);
 
     return 0;
+}
+
+static int fdrHasTNFOps(const pddl_fdr_t *fdr)
+{
+    for (int oi = 0; oi < fdr->op.op_size; ++oi){
+        const pddl_fdr_op_t *op = fdr->op.op[oi];
+        for (int i = 0; i < op->eff.fact_size; ++i){
+            if (!pddlFDRPartStateIsSet(&op->pre, op->eff.fact[i].var))
+                return 0;
+        }
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+            for (int i = 0; i < ce->eff.fact_size; ++i){
+                if (!pddlFDRPartStateIsSet(&ce->pre, ce->eff.fact[i].var))
+                    return 0;
+            }
+        }
+    }
+
+    return 1;
 }
 
 static int symba(void)
@@ -1544,7 +1589,13 @@ static int symba(void)
     if (opt.symba_fam > 0)
         symb_cfg.fam_groups = opt.symba_fam;
     if (opt.pot){
-        symb_cfg.use_pot_heur = 1;
+        if (fdrHasTNFOps(&fdr)){
+            symb_cfg.use_pot_heur = 1;
+            BOR_INFO2(&err, "symba: Using consistent potential heuristic");
+        }else{
+            symb_cfg.use_pot_heur_inconsistent = 1;
+            BOR_INFO2(&err, "symba: Using inconsistent potential heuristic");
+        }
         symb_cfg.pot_heur_config = pot_cfg;
         if (opt.use_heur_bw || opt.bw)
             symb_cfg.use_heur_bw = 1;
