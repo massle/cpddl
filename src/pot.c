@@ -23,7 +23,7 @@
 #include "pddl/disambiguation.h"
 #include "assert.h"
 
-#define LPVAR_UPPER 1E9
+#define LPVAR_UPPER 1E8
 #define LPVAR_LOWER -1E20
 #define ROUND_EPS 0.001
 
@@ -546,6 +546,20 @@ void pddlPotResetLowerBoundConstr(pddl_pot_t *pot)
     pot->constr_lb.set = 0;
 }
 
+double pddlPotSetLowerBoundConstrRHS(const pddl_pot_t *pot)
+{
+    if (!pot->constr_lb.set)
+        return 0.;
+    return pot->constr_lb.rhs;
+}
+
+void pddlPotDecreaseLowerBoundConstrRHS(pddl_pot_t *pot, double decrease)
+{
+    if (!pot->constr_lb.set)
+        return;
+    pot->constr_lb.rhs -= decrease;
+}
+
 static void setConstr(bor_lp_t *lp,
                       int row,
                       const pddl_pot_t *pot,
@@ -639,7 +653,6 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     setConstrs(lp, pot, &pot->constr_op, &row);
     setConstrs(lp, pot, &pot->constr_goal, &row);
     setMaxpotConstrs(lp, pot, &row);
-    setLBConstr(lp, pot, &row);
 
     int var_size = pot->var_size;
     if (pot->store_op_heur_change){
@@ -666,6 +679,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         ASSERT(borLPNumCols(lp) == var_size);
         ASSERT(borLPNumRows(lp) == row);
     }
+    setLBConstr(lp, pot, &row);
 
     double objval, *obj;
     obj = BOR_CALLOC_ARR(double, var_size);

@@ -173,6 +173,16 @@ void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
 void pddlPotResetLowerBoundConstr(pddl_pot_t *pot);
 
 /**
+ * Returns RHS of the lower bound constraint
+ */
+double pddlPotSetLowerBoundConstrRHS(const pddl_pot_t *pot);
+
+/**
+ * Decrease the RHS of the previously set lower bound constraint.
+ */
+void pddlPotDecreaseLowerBoundConstrRHS(pddl_pot_t *pot, double decrease);
+
+/**
  * Turns on/off integer linear program.
  */
 _bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)

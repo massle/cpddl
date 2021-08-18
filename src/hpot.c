@@ -27,15 +27,31 @@
 #include "assert.h"
 
 #define ROUND_EPS 0.001
+// TODO
+//#define INIT_STATE_RHS_DECREASE_STEP 0.25
+//#define INIT_STATE_RHS_DECREASE_STEP 0.0625
+#define INIT_STATE_RHS_DECREASE_STEP 0.125
+#define INIT_STATE_RHS_DECREASE_MAX_STEPS 8
 
 static const uint32_t rand_sampler_seed = 524287;
 static const uint32_t rand_diverse_seed = 131071;
 
-static int solveAndAdd(pddl_pot_t *pot, pddl_pot_solutions_t *sols)
+static int solveAndAdd(pddl_pot_t *pot,
+                       pddl_pot_solutions_t *sols,
+                       const pddl_hpot_config_t *cfg,
+                       bor_err_t *err)
 {
     pddl_pot_solution_t sol;
     pddlPotSolutionInit(&sol);
     int ret = pddlPotSolve(pot, &sol);
+    for (int i = 0; cfg->add_init_constr && ret != 0
+                        && i < INIT_STATE_RHS_DECREASE_MAX_STEPS; ++i){
+        pddlPotDecreaseLowerBoundConstrRHS(pot, INIT_STATE_RHS_DECREASE_STEP);
+        double rhs = pddlPotSetLowerBoundConstrRHS(pot);
+        BOR_INFO(err, "Solution not found. Setting lower bound constraint to "
+                      "%.4f (%a)", rhs, rhs);
+        ret = pddlPotSolve(pot, &sol);
+    }
     if (ret == 0)
         pddlPotSolutionsAdd(sols, &sol);
     pddlPotSolutionFree(&sol);
@@ -112,7 +128,7 @@ static int initPot(pddl_pot_t *pot,
 
     if (cfg->weak_disambiguation){
         if (pddlPotInitMGStripsSingleFactDisamb(pot, mg_strips, mutex) == 0){
-            BOR_INFO(err, "Pot: Initialized with weak-disambiguation."
+            BOR_INFO(err, "Initialized with weak-disambiguation."
                           " vars: %d, op-constr: %d,"
                           " goal-constr: %d, maxpots: %d",
                           pot->var_size,
@@ -120,13 +136,13 @@ static int initPot(pddl_pot_t *pot,
                           pot->constr_goal.size,
                           pot->maxpot_size);
         }else{
-            BOR_INFO2(err, "Pot: Disambiguation proved the task unsolvable.");
+            BOR_INFO2(err, "Disambiguation proved the task unsolvable.");
             return -1;
         }
 
     }else if (cfg->disambiguation){
         if (pddlPotInitMGStrips(pot, mg_strips, mutex) == 0){
-            BOR_INFO(err, "Pot: Initialized with disambiguation."
+            BOR_INFO(err, "Initialized with disambiguation."
                           " vars: %d, op-constr: %d,"
                           " goal-constr: %d, maxpots: %d",
                           pot->var_size,
@@ -134,13 +150,13 @@ static int initPot(pddl_pot_t *pot,
                           pot->constr_goal.size,
                           pot->maxpot_size);
         }else{
-            BOR_INFO2(err, "Pot: Disambiguation proved the task unsolvable.");
+            BOR_INFO2(err, "Disambiguation proved the task unsolvable.");
             return -1;
         }
 
     }else{
         pddlPotInitFDR(pot, fdr);
-        BOR_INFO(err, "Pot: Initialized without disambiguation."
+        BOR_INFO(err, "Initialized without disambiguation."
                       " vars: %d, op-constr: %d,"
                       " goal-constr: %d, maxpots: %d",
                       pot->var_size,
@@ -167,14 +183,14 @@ static int addInitConstr(pddl_pot_t *pot,
     pddlPotSolutionInit(&sol);
     int ret = pddlPotSolve(pot, &sol);
     if (ret != 0){
-        BOR_INFO2(err, "Pot: No optimal solution for the initial state");
+        BOR_INFO2(err, "No optimal solution for the initial state");
         return ret;
     }
 
-    double rhs = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr->init);
-    BOR_INFO(err, "Pot: Solved for the initial state: %.4f", rhs);
-    // make sure it is feasible
-    rhs = scalbln(scalbln(rhs - ROUND_EPS, 10), -10);
+    double sum = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr->init);
+    BOR_INFO(err, "Solved for the initial state: sum: %.4f (%a),"
+                  " objval: %.4f (%a)", sum, sum, sol.objval, sol.objval);
+    double rhs = sol.objval;
     rhs *= cfg->init_constr_coef;
 
     BOR_ISET(vars);
@@ -183,7 +199,8 @@ static int addInitConstr(pddl_pot_t *pot,
         borISetAdd(&vars, v);
     }
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
-    BOR_INFO(err, "Pot: added lower bound constraint with rhs: %.4f", rhs);
+    BOR_INFO(err, "added lower bound constraint with rhs: %.4f (%a)",
+             rhs, rhs);
     borISetFree(&vars);
     pddlPotSolutionFree(&sol);
 
@@ -228,7 +245,7 @@ static void stateSamplerInit(state_sampler_t *s,
         pddlPotSolutionInit(&sol);
         int ret = pddlPotSolve(pot, &sol);
         if (ret != 0){
-            BOR_INFO2(err, "Pot: No optimal solution for the initial state");
+            BOR_INFO2(err, "No optimal solution for the initial state");
             s->random_walk_max_steps = 0;
         }
 
@@ -289,7 +306,7 @@ static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
                 borISetAdd(&state, s->fdr->var.var[var].val[val].global_id);
             }
             if (++count % 100000UL == 0UL)
-                BOR_INFO(err, "Pot: tried %lu random states", count);
+                BOR_INFO(err, "tried %lu random states", count);
         } while (pddlMutexPairsIsMutexSet(s->mutex, &state));
         borISetFree(&state);
 
@@ -450,10 +467,11 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
                               pddl_pot_t *pot,
                               const pddl_mg_strips_t *mg_strips,
                               const pddl_mutex_pairs_t *mutex,
-                              int mutex_size,
+                              const pddl_hpot_config_t *cfg,
                               const bor_iset_t *facts,
                               bor_err_t *err)
 {
+    int mutex_size = cfg->all_states_mutex_size;
     BOR_ISET(cond);
     int fact_id;
     int count = 0;
@@ -462,7 +480,7 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
         borISetAdd(&cond, fact_id);
         setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
                                         mutex_size);
-        solveAndAdd(pot, sols);
+        solveAndAdd(pot, sols, cfg, err);
         if (++count % 10 == 0){
             BOR_INFO(err, "Computed conditioned func %d/%d and generated %d"
                           " potential functions",
@@ -483,10 +501,11 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
                                pddl_pot_t *pot,
                                const pddl_mg_strips_t *mg_strips,
                                const pddl_mutex_pairs_t *mutex,
-                               int mutex_size,
+                               const pddl_hpot_config_t *cfg,
                                int num_samples,
                                bor_err_t *err)
 {
+    int mutex_size = cfg->all_states_mutex_size;
     bor_rand_mt_t *rnd = borRandMTNew(rand_sampler_seed);
     BOR_ISET(cond);
     int count = 0;
@@ -502,7 +521,7 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
 
         setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
                                         mutex_size);
-        solveAndAdd(pot, sols);
+        solveAndAdd(pot, sols, cfg, err);
         if (++count % 10 == 0){
             BOR_INFO(err, "Computed conditioned func^2 %d and generated %d"
                           " potential functions",
@@ -528,7 +547,7 @@ static int samples(pddl_pot_solutions_t *sols,
                    const pddl_hpot_config_t *cfg,
                    bor_err_t *err)
 {
-    BOR_INFO(err, "Pot: generating %d samples (mutex: %d, random-walk: %d)...",
+    BOR_INFO(err, "generating %d samples (mutex: %d, random-walk: %d)...",
              cfg->num_samples,
              (mutex != NULL),
              cfg->samples_random_walk);
@@ -556,7 +575,7 @@ static int samples(pddl_pot_solutions_t *sols,
                     pddlPotSolutionsAdd(sols, &sol);
                     ++num_states;
                     if ((si + 1) % 100 == 0){
-                        BOR_INFO(err, "Pot: Solved for state: %d/%d",
+                        BOR_INFO(err, "Solved for state: %d/%d",
                                  num_states, cfg->num_samples);
                     }
                 }
@@ -573,11 +592,11 @@ static int samples(pddl_pot_solutions_t *sols,
     int ret = 0;
     if (num_states > 0 && cfg->obj == PDDL_HPOT_OBJ_SAMPLES_SUM){
         pddlPotSetObj(pot, coef);
-        if (solveAndAdd(pot, sols) == 0){
-            BOR_INFO(err, "Pot: Solved for a sum of %d/%d states",
+        if (solveAndAdd(pot, sols, cfg, err) == 0){
+            BOR_INFO(err, "Solved for a sum of %d/%d states",
                      num_states, cfg->num_samples);
         }else{
-            BOR_INFO(err, "Pot: No solution for sum of %d/%d states",
+            BOR_INFO(err, "No solution for sum of %d/%d states",
                      num_states, cfg->num_samples);
             ret = -1;
         }
@@ -588,7 +607,7 @@ static int samples(pddl_pot_solutions_t *sols,
     stateSamplerFree(&sampler);
 
     if (num_states == 0){
-        BOR_INFO2(err, "Pot: No viable samples found.");
+        BOR_INFO2(err, "No viable samples found.");
         return -1;
     }
     return ret;
@@ -655,7 +674,7 @@ static void diverseGenStates(diverse_pot_t *div,
     cfg.samples_random_walk = 1;
     ASSERT_RUNTIME(cfg.num_samples > 0);
 
-    BOR_INFO(err, "Pot: generating %d samples with random walk and"
+    BOR_INFO(err, "generating %d samples with random walk and"
                   " computing potentials...", cfg.num_samples);
     state_sampler_t sampler;
     stateSamplerInit(&sampler, &cfg, fdr, NULL, pot, err);
@@ -699,7 +718,7 @@ static void diverseGenStates(diverse_pot_t *div,
                 ++num_states;
 
                 if ((si + 1) % 100 == 0){
-                    BOR_INFO(err, "Pot: Diverse: %d/%d (dead-ends: %d)",
+                    BOR_INFO(err, "Diverse: %d/%d (dead-ends: %d)",
                              num_states, cfg.num_samples, num_dead_ends);
                 }
 
@@ -712,8 +731,8 @@ static void diverseGenStates(diverse_pot_t *div,
         }
         pddlPotSolutionFree(&sol);
     }
-    BOR_INFO(err, "Pot: Detected dead-ends: %d", num_dead_ends);
-    BOR_INFO(err, "Pot: Detected duplicates: %d", num_duplicates);
+    BOR_INFO(err, "Detected dead-ends: %d", num_dead_ends);
+    BOR_INFO(err, "Detected duplicates: %d", num_duplicates);
     ASSERT(num_states == pddlSetISetSize(&div->states));
     div->active_states = pddlSetISetSize(&div->states);
     borISetFree(&state);
@@ -801,7 +820,7 @@ static int diverse(pddl_pot_solutions_t *sols,
                    const pddl_hpot_config_t *cfg,
                    bor_err_t *err)
 {
-    BOR_INFO(err, "Pot: Diverse potentials with %d samples", cfg->num_samples);
+    BOR_INFO(err, "Diverse potentials with %d samples", cfg->num_samples);
     ASSERT_RUNTIME(cfg->num_samples > 0);
     diverse_pot_t div;
     diverseInit(&div, pot, fdr, cfg->num_samples);
@@ -814,7 +833,7 @@ static int diverse(pddl_pot_solutions_t *sols,
         diverseFilterOutStates(&div, fdr, func, err);
     }
     diverseFree(&div, pot, fdr, cfg->num_samples);
-    BOR_INFO(err, "Pot: Computed diverse potentials with %d functions",
+    BOR_INFO(err, "Computed diverse potentials with %d functions",
              sols->sol_size);
     return 0;
 }
@@ -828,10 +847,11 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 
     int ret = 0;
     if (fdr->has_cond_eff){
-        BOR_INFO2(err, "Pot: Conditional effects are not supported");
+        BOR_INFO2(err, "Conditional effects are not supported");
         return -1;
     }
 
+    BOR_INFO_PREFIX_PUSH(err, "Pot: ");
     // Construct MG-Strips and compute h^2 mutexes if necessary
     pddl_mg_strips_t mg_strips;
     pddl_mutex_pairs_t mutex;
@@ -852,36 +872,39 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 
     // Initialize potential heuristic
     pddl_pot_t pot;
-    if (initPot(&pot, fdr, &mg_strips, &mutex, cfg, err) != 0)
+    if (initPot(&pot, fdr, &mg_strips, &mutex, cfg, err) != 0){
+        BOR_INFO_PREFIX_POP(err);
         return -1;
+    }
 
     if (cfg->add_init_constr){
         // Add constraint on the initial state
         if (addInitConstr(&pot, fdr, cfg, err) != 0){
             pddlPotFree(&pot);
+            BOR_INFO_PREFIX_POP(err);
             return -1;
         }
     }
 
     if (cfg->obj == PDDL_HPOT_OBJ_INIT){
         pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
-        ret = solveAndAdd(&pot, sols);
-        BOR_INFO(err, "Pot: Solved for the initial state: %d", ret);
+        ret = solveAndAdd(&pot, sols, cfg, err);
+        BOR_INFO(err, "Solved for the initial state: %d", ret);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES){
         pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
-        ret = solveAndAdd(&pot, sols);
-        BOR_INFO(err, "Pot: Solved for all states: %d", ret);
+        ret = solveAndAdd(&pot, sols, cfg, err);
+        BOR_INFO(err, "Solved for all states: %d", ret);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES){
         pddlPotSetObjFDRState(&pot, &fdr->var, fdr->init);
-        ret = solveAndAdd(&pot, sols);
-        BOR_INFO(err, "Pot: Solved for the initial state: %d", ret);
+        ret = solveAndAdd(&pot, sols, cfg, err);
+        BOR_INFO(err, "Solved for the initial state: %d", ret);
 
         if (ret == 0){
             pddlPotSetObjFDRAllSyntacticStates(&pot, &fdr->var);
-            ret = solveAndAdd(&pot, sols);
-            BOR_INFO(err, "Pot: Solved for all states: %d", ret);
+            ret = solveAndAdd(&pot, sols, cfg, err);
+            BOR_INFO(err, "Solved for all states: %d", ret);
         }
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX
@@ -898,14 +921,14 @@ int pddlHPot(pddl_pot_solutions_t *sols,
             BOR_FATAL("all-states-mutex with size %d unsupported!",
                       cfg->all_states_mutex_size);
         }
-        ret = solveAndAdd(&pot, sols);
+        ret = solveAndAdd(&pot, sols, cfg, err);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED){
         BOR_ISET(facts);
         for (int f = 0; f < mg_strips.strips.fact.fact_size; ++f)
             borISetAdd(&facts, f);
-        ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex,
-                                 cfg->all_states_mutex_size, &facts, err);
+        ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex, cfg,
+                                 &facts, err);
         borISetFree(&facts);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND){
@@ -915,13 +938,12 @@ int pddlHPot(pddl_pot_solutions_t *sols,
         for (int i = 0; i < cfg->num_samples; ++i)
             borISetAdd(&facts, borRandMT(rnd, 0, fact_size));
 
-        ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex,
-                                 cfg->all_states_mutex_size, &facts, err);
+        ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex, cfg,
+                                 &facts, err);
         borISetFree(&facts);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2){
-        ret = allStatesMutexCond2(sols, &pot, &mg_strips, &mutex,
-                                  cfg->all_states_mutex_size,
+        ret = allStatesMutexCond2(sols, &pot, &mg_strips, &mutex, cfg,
                                   cfg->num_samples, err);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_DIVERSE){
@@ -944,8 +966,9 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     pddlPotFree(&pot);
 
     if (ret != 0)
-        BOR_INFO2(err, "Pot: No optimal solution found");
+        BOR_INFO2(err, "No optimal solution found");
 
+    BOR_INFO_PREFIX_POP(err);
     return ret;
 }
 
