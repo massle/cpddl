@@ -41,6 +41,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    int op_id,
                    op_t *op,
                    pddl_cost_t *op_heur_change,
+                   int sum_op_heur_change_to_cost,
                    bor_err_t *err)
 {
     bzero(op, sizeof(*op));
@@ -92,9 +93,15 @@ static void opInit(pddl_symbolic_constr_t *constr,
     }
 
     if (op_heur_change != NULL){
-        op->heur_change = op_heur_change[op_id];
-        DBG(err, "%d:(%s) --> %d:%d / %d", op->op_id, op->name,
-            op->heur_change.cost, op->heur_change.zero_cost, op->cost);
+        if (sum_op_heur_change_to_cost){
+            pddlCostSum(&op->cost, op_heur_change + op_id);
+            if (op->cost.cost == 0 && op->cost.zero_cost == 0)
+                op->cost.zero_cost = 1;
+        }else{
+            op->heur_change = op_heur_change[op_id];
+            DBG(err, "%d:(%s) --> %d:%d / %d", op->op_id, op->name,
+                op->heur_change.cost, op->heur_change.zero_cost, op->cost);
+        }
     }
 }
 
@@ -113,11 +120,12 @@ static void opsInit(pddl_symbolic_constr_t *constr,
                     int use_op_constr,
                     op_t *ops,
                     pddl_cost_t *op_heur_change,
+                    int sum_op_heur_change_to_cost,
                     bor_err_t *err)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         opInit(constr, strips->op.op[op_id], use_op_constr,
-               op_id, ops + op_id, op_heur_change, err);
+               op_id, ops + op_id, op_heur_change, sum_op_heur_change_to_cost, err);
     }
 }
 
@@ -436,13 +444,15 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                int max_nodes,
                                float max_time,
                                pddl_cost_t *op_heur_change,
+                               int sum_op_heur_change_to_cost,
                                bor_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
 
     op_t *ops = BOR_CALLOC_ARR(op_t, strips->op.op_size);
-    opsInit(constr, strips, use_op_constr, ops, op_heur_change, err);
+    opsInit(constr, strips, use_op_constr, ops,
+            op_heur_change, sum_op_heur_change_to_cost, err);
 
     trset->trans_size = 0;
     trset->trans_alloc = 2;

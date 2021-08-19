@@ -54,6 +54,7 @@ struct pddl_symbolic_task_config {
 
     int use_pot_heur;
     int use_pot_heur_inconsistent;
+    int use_pot_heur_sum_op_cost;
     pddl_hpot_config_t pot_heur_config;
     int use_heur_fw;
     int use_heur_bw;
@@ -75,6 +76,7 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         0, /* .fam_groups */ \
         0, /* .use_pot_heur */ \
         0, /* .use_pot_heur_inconsistent */ \
+        0, /* .use_pot_heur_sum_op_cost */ \
         PDDL_HPOT_CONFIG_INIT, \
         1, /* .use_heur_fw */ \
         0, /* .use_heur_bw */ \

@@ -61,6 +61,7 @@ struct options {
     const char *op_mutex_out;
 
     int pot;
+    int pot_sum_op_cost;
     int use_heur_bw;
     int no_heur_fw;
 
@@ -380,6 +381,8 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
+    optsAddDesc("pot-sum-op-cost", 0x0, OPTS_NONE, &opt.pot_sum_op_cost, NULL,
+                "Sum operator potentials to operator costs.");
     optsAddDesc("use-heur-bw", 0x0, OPTS_NONE, &opt.use_heur_bw, NULL,
                 "Use heuristic also for backward part of bidirectional"
                 " search");
@@ -1595,6 +1598,10 @@ static int symba(void)
         }else{
             symb_cfg.use_pot_heur_inconsistent = 1;
             BOR_INFO2(&err, "symba: Using inconsistent potential heuristic");
+        }
+        if (opt.pot_sum_op_cost){
+            symb_cfg.use_pot_heur_sum_op_cost = 1;
+            BOR_INFO2(&err, "symba: Operator potentials are added to operator costs.");
         }
         symb_cfg.pot_heur_config = pot_cfg;
         if (opt.use_heur_bw || opt.bw)

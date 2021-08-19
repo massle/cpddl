@@ -1266,13 +1266,18 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     BOR_INFO2(err, "Constraints created.");
 
     BOR_INFO2(err, "Creating transitions...");
-    ss->heur_init = pot_init_h_value;
+    if (cfg->use_pot_heur_sum_op_cost){
+        pddlCostSetZero(&ss->heur_init);
+    }else{
+        ss->heur_init = pot_init_h_value;
+    }
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time,
                               pot_op_heur_change,
+                              cfg->use_pot_heur_sum_op_cost,
                               err);
     BOR_INFO2(err, "Transitions created.");
 
