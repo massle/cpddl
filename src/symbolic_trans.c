@@ -21,6 +21,7 @@
 #include <boruvka/sort.h>
 #include "pddl/symbolic_trans.h"
 #include "assert.h"
+#include "fmt.h"
 
 struct op {
     int op_id;
@@ -99,8 +100,8 @@ static void opInit(pddl_symbolic_constr_t *constr,
                 op->cost.zero_cost = 1;
         }else{
             op->heur_change = op_heur_change[op_id];
-            DBG(err, "%d:(%s) --> %d:%d / %d", op->op_id, op->name,
-                op->heur_change.cost, op->heur_change.zero_cost, op->cost);
+            DBG(err, "%d:(%s) --> %s / %d", op->op_id, op->name,
+                F_COST(&op->heur_change), op->cost);
         }
     }
 }
@@ -339,12 +340,10 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     for (int i = 0; i < T_size; ++i)
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
-    BOR_INFO(err, "Initialized individual trans BDDs: cost: %d:%d,"
-                  " heur change: %d:%d ops: %d",
-             trset->cost.cost,
-             trset->cost.zero_cost,
-             trset->heur_change.cost,
-             trset->heur_change.zero_cost,
+    BOR_INFO(err, "Initialized individual trans BDDs: cost: %s,"
+                  " heur change: %s ops: %d",
+             F_COST(&trset->cost),
+             F_COST(&trset->heur_change),
              borISetSize(&trset->op));
 
     pddl_time_limit_t time_limit;

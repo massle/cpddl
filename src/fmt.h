@@ -1,7 +1,7 @@
 /***
  * cpddl
  * -------
- * Copyright (c)2020 Daniel Fiser <danfis@danfis.cz>,
+ * Copyright (c)2021 Daniel Fiser <danfis@danfis.cz>,
  * AI Center, Department of Computer Science,
  * Faculty of Electrical Engineering, Czech Technical University in Prague.
  * All rights reserved.
@@ -17,13 +17,11 @@
  * See the License for more information.
  */
 
+#ifndef __PDDL_FMT_H__
+#define __PDDL_FMT_H__
+
 #include "pddl/cost.h"
 
-pddl_cost_t pddl_cost_zero = { 0, 0 };
-pddl_cost_t pddl_cost_max = { PDDL_COST_MAX, PDDL_COST_MAX };
+#define F_COST(C) pddlCostFmt((C), ((char [22]){""}), 22)
 
-const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size)
-{
-    snprintf(s, s_size, "%d:%d", c->cost, c->zero_cost);
-    return s;
-}
+#endif /* __PDDL_FMT_H__ */

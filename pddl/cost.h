@@ -20,6 +20,7 @@
 #ifndef __PDDL_COST_H__
 #define __PDDL_COST_H__
 
+#include <stdio.h>
 #include <boruvka/compiler.h>
 #include <pddl/common.h>
 
@@ -115,6 +116,7 @@ _bor_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
     return 0;
 }
 
+const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size);
 
 #ifdef __cplusplus
 } /* extern "C" */
