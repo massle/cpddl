@@ -1145,7 +1145,9 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     }
 
     const pddl_pot_solution_t *sol = pot.sol + 0;
-    init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
+    BOR_INFO(err, "Sum of potentials for the initial state: %.4f",
+             pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
+    init_h_value->cost = round(pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
     *op_heur_change = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
     for (int i = 0; i < sol->op_change_size && i < fdr->op.op_size; ++i){
         double change = sol->op_change[i];
@@ -1161,6 +1163,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
             (*op_heur_change)[i].cost = change;
         }
     }
+
     pddlPotSolutionsFree(&pot);
     return 0;
 }
@@ -1220,13 +1223,8 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
 
     pddl_cost_t *pot_op_heur_change;
     pddl_cost_t pot_init_h_value;
-    if (preparePotHeur(fdr, cfg, &pot_op_heur_change,
-                       &pot_init_h_value, err) == 0){
-        BOR_INFO(err, "Potential heuristic for the initial state: %d:%d",
-                 pot_init_h_value.cost, pot_init_h_value.zero_cost);
-    }else{
+    if (preparePotHeur(fdr, cfg, &pot_op_heur_change, &pot_init_h_value, err) != 0)
         BOR_TRACE_RET(err, NULL);
-    }
 
     pddl_symbolic_task_t *ss;
     BOR_INFO(err, "Constructing symbolic task."
@@ -1266,11 +1264,9 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     BOR_INFO2(err, "Constraints created.");
 
     BOR_INFO2(err, "Creating transitions...");
-    if (cfg->use_pot_heur_sum_op_cost){
-        pddlCostSetZero(&ss->heur_init);
-    }else{
-        ss->heur_init = pot_init_h_value;
-    }
+    ss->heur_init = pot_init_h_value;
+    BOR_INFO(err, "Heuristic value for the initial state: %d:%d",
+             ss->heur_init.cost, ss->heur_init.zero_cost);
     pddlSymbolicTransSetsInit(&ss->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               cfg->use_op_constr,
