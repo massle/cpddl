@@ -99,6 +99,7 @@ struct pddl_pot {
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
     pddl_pot_lb_constr_t constr_lb;
+    bor_iset_t init;
 
     bor_segmarr_t *maxpot;
     int maxpot_size;

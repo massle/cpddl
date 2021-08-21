@@ -23,7 +23,7 @@
 #include "pddl/disambiguation.h"
 #include "assert.h"
 
-#define LPVAR_UPPER 1E8
+#define LPVAR_UPPER 1E7
 #define LPVAR_LOWER -1E20
 #define ROUND_EPS 0.001
 
@@ -203,29 +203,6 @@ static pddl_pot_constr_t *addConstr(pddl_pot_constrs_t *cs, int op_id)
     return c;
 }
 
-static double constrLHS(const pddl_pot_t *pot,
-                        const pddl_pot_constr_t *c,
-                        const double *w)
-{
-    // Use kahan summation
-    double sum = 0.;
-    double comp = 0.;
-    int var;
-    BOR_ISET_FOR_EACH(&c->plus, var){
-        double y = w[var] - comp;
-        double t = sum + y;
-        comp = (t - sum) - y;
-        sum = t;
-    }
-    BOR_ISET_FOR_EACH(&c->minus, var){
-        double y = -w[var] - comp;
-        double t = sum + y;
-        comp = (t - sum) - y;
-        sum = t;
-    }
-
-    return sum;
-}
 
 static void putBackLastConstr(pddl_pot_constrs_t *cs)
 {
@@ -311,6 +288,12 @@ static void addFDRGoal(pddl_pot_t *pot,
         }
     }
     c->rhs = 0;
+}
+
+static void addFDRInit(pddl_pot_t *pot, const pddl_fdr_vars_t *vars, const int *init)
+{
+    for (int var = 0; var < vars->var_size; ++var)
+        borISetAdd(&pot->init, vars->var[var].val[init[var]].global_id);
 }
 
 static void hsetToVarSet(pddl_pot_t *pot,
@@ -415,6 +398,7 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
     pot->op_size = fdr->op.op_size;
 
     addFDRGoal(pot, &fdr->var, &fdr->goal);
+    addFDRInit(pot, &fdr->var, fdr->init);
 
     pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
 }
@@ -444,6 +428,7 @@ static int initMGStrips(pddl_pot_t *pot,
         pddlPotFree(pot);
         return -1;
     }
+    borISetUnion(&pot->init, &mg_strips->strips.init);
 
     pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
 
@@ -495,6 +480,8 @@ void pddlPotFree(pddl_pot_t *pot)
 
     if (pot->obj != NULL)
         BOR_FREE(pot->obj);
+
+    borISetFree(&pot->init);
 }
 
 void pddlPotSetObj(pddl_pot_t *pot, const double *coef)
@@ -625,6 +612,68 @@ static void setLBConstr(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
     (*row)++;
 }
 
+static void enforceIntInit(bor_lp_t *lp, const pddl_pot_t *pot)
+{
+    int var = borLPNumCols(lp);
+    borLPAddCols(lp, 1);
+    borLPSetVarRange(lp, var, -1E20, 1E20);
+    borLPSetVarInt(lp, var);
+    borLPSetObj(lp, var, 0);
+
+    double rhs = 0;
+    char sense = 'E';
+    int row = borLPNumRows(lp);
+    borLPAddRows(lp, 1, &rhs, &sense);
+    int fact;
+    BOR_ISET_FOR_EACH(&pot->init, fact)
+        borLPSetCoef(lp, row, fact, 1);
+    borLPSetCoef(lp, row, var, 1);
+}
+
+static int addOpHeurChangeConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
+{
+    int var_size = borLPNumCols(lp);
+    borLPAddCols(lp, pot->constr_op.size);
+    for (int i = 0; i < pot->constr_op.size; ++i){
+        int var = var_size + i;
+        //borLPSetVarRange(lp, var, LPVAR_LOWER, 10. * LPVAR_UPPER);
+        borLPSetVarRange(lp, var, -1E20, 1E20);
+        borLPSetVarInt(lp, var);
+        borLPSetObj(lp, var, 0);
+    }
+
+    int row = borLPNumRows(lp);
+    for (int i = 0; i < pot->constr_op.size; ++i){
+        double rhs = 0;
+        char sense = 'E';
+        borLPAddRows(lp, 1, &rhs, &sense);
+        setConstr(lp, row, pot, pot->constr_op.c + i);
+        borLPSetRHS(lp, row, rhs, sense);
+        borLPSetCoef(lp, row, var_size + i, 1);
+        ++row;
+    }
+
+    return var_size;
+}
+
+static void storeOpHeurChange(bor_lp_t *lp,
+                              const double *obj,
+                              int var_offset,
+                              const pddl_pot_t *pot,
+                              pddl_pot_solution_t *sol)
+{
+    sol->op_change_size = pot->constr_op.size;
+    sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
+    ASSERT_RUNTIME(pot->op_size == pot->constr_op.size);
+    for (int ci = 0; ci < pot->constr_op.size; ++ci){
+        const pddl_pot_constr_t *c = pot->constr_op.c + ci;
+        if (c->op_id >= 0){
+            double oval = obj[var_offset + ci];
+            sol->op_change[c->op_id] = (int)round(oval);
+        }
+    }
+}
+
 int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
 {
     int ret = 0;
@@ -653,34 +702,15 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     setConstrs(lp, pot, &pot->constr_op, &row);
     setConstrs(lp, pot, &pot->constr_goal, &row);
     setMaxpotConstrs(lp, pot, &row);
-
-    int var_size = pot->var_size;
-    if (pot->store_op_heur_change){
-        ASSERT(borLPNumCols(lp) == pot->var_size);
-        borLPAddCols(lp, pot->constr_op.size);
-        for (int i = 0; i < pot->constr_op.size; ++i){
-            int var = pot->var_size + i;
-            borLPSetVarInt(lp, var);
-            borLPSetVarRange(lp, var, LPVAR_LOWER, LPVAR_UPPER);
-            borLPSetObj(lp, var, 0);
-        }
-
-        ASSERT(borLPNumRows(lp) == row);
-        for (int i = 0; i < pot->constr_op.size; ++i){
-            double rhs = 0;
-            char sense = 'E';
-            borLPAddRows(lp, 1, &rhs, &sense);
-            setConstr(lp, row, pot, pot->constr_op.c + i);
-            borLPSetRHS(lp, row, rhs, sense);
-            borLPSetCoef(lp, row, pot->var_size + i, 1);
-            ++row;
-        }
-        var_size += pot->constr_op.size;
-        ASSERT(borLPNumCols(lp) == var_size);
-        ASSERT(borLPNumRows(lp) == row);
-    }
     setLBConstr(lp, pot, &row);
 
+    int op_heur_change_var_offset = 0;
+    if (pot->store_op_heur_change){
+        op_heur_change_var_offset = addOpHeurChangeConstrs(lp, pot);
+        enforceIntInit(lp, pot);
+    }
+
+    int var_size = borLPNumCols(lp);
     double objval, *obj;
     obj = BOR_CALLOC_ARR(double, var_size);
     if (borLPSolve(lp, &objval, obj) == 0){
@@ -688,20 +718,9 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         sol->pot_size = pot->var_size;
         sol->pot = BOR_ALLOC_ARR(double, sol->pot_size);
         memcpy(sol->pot, obj, sizeof(double) * sol->pot_size);
-        if (pot->store_op_heur_change){
-            sol->op_change_size = pot->constr_op.size;
-            sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
-            ASSERT(pot->op_size == pot->constr_op.size);
-            for (int ci = 0; ci < pot->constr_op.size; ++ci){
-                const pddl_pot_constr_t *c = pot->constr_op.c + ci;
-                if (c->op_id >= 0){
-                    double oval = obj[pot->var_size + ci];
-                    sol->op_change[c->op_id] = (int)round(oval);
-                    //sol->op_change[c->op_id] = -constrLHS(pot, c, obj);
-                    //fprintf(stderr, "C: %d\n", (int)obj[pot->var_size + ci]);
-                }
-            }
-        }
+
+        if (pot->store_op_heur_change)
+            storeOpHeurChange(lp, obj, op_heur_change_var_offset, pot, sol);
 
     }else{
         bzero(sol, sizeof(*sol));
