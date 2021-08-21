@@ -80,6 +80,11 @@ pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op);
 void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp);
 
 /**
+ * Remap variable IDs.
+ */
+void pddlFDROpRemapVars(pddl_fdr_op_t *op, const int *remap);
+
+/**
  * Apply the effects of the operator on the given state.
  */
 void pddlFDROpApplyOnState(const pddl_fdr_op_t *op,
@@ -120,6 +125,11 @@ void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const bor_iset_t *set);
  * Remap facts.
  */
 void pddlFDROpsRemapFacts(pddl_fdr_ops_t *ops, const pddl_fdr_vars_remap_t *r);
+
+/**
+ * Remap variable IDs.
+ */
+void pddlFDROpsRemapVars(pddl_fdr_ops_t *ops, const int *remap);
 
 /**
  * Adds the given operator to the list of operators.

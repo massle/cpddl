@@ -75,7 +75,9 @@ typedef struct pddl_hff pddl_hff_t;
 /**
  * Initialize h^ff
  */
+// TODO: Rename to pddlHFFInitFDR
 void pddlHFFInit(pddl_hff_t *hff, const pddl_fdr_t *fdr);
+void pddlHFFInitStrips(pddl_hff_t *hff, const pddl_strips_t *strips);
 
 /**
  * Free allocated memory.
@@ -85,6 +87,7 @@ void pddlHFFFree(pddl_hff_t *hff);
 /**
  * Returns h^ff estimate for the given state.
  */
+// TODO: Rename to *FDR
 int pddlHFF(pddl_hff_t *hff,
             const int *fdr_state,
             const pddl_fdr_vars_t *vars);
@@ -92,6 +95,11 @@ int pddlHFFPlan(pddl_hff_t *hff,
                 const int *fdr_state,
                 const pddl_fdr_vars_t *vars,
                 bor_iarr_t *plan);
+
+int pddlHFFStrips(pddl_hff_t *hff, const bor_iset_t *state);
+int pddlHFFStripsPlan(pddl_hff_t *hff,
+                      const bor_iset_t *state,
+                      bor_iarr_t *plan);
 
 #ifdef __cplusplus
 } /* extern "C" */

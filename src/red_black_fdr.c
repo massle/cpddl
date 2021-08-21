@@ -18,6 +18,7 @@
 
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/red_black_fdr.h"
+#include "pddl/cg.h"
 #include "assert.h"
 
 static void prepareMutex(pddl_mutex_pairs_t *mutex,
@@ -86,8 +87,6 @@ static void setBlackVars(pddl_fdr_t *fdr,
         int first_fact = borISetGet(&bmg->mgroup, 0);
         int val_id = borISetGet(&fdr->var.strips_id_to_val[first_fact], 0);
         int var_id = fdr->var.global_id_to_val[val_id]->var_id;
-        fprintf(stderr, "F: %d, var_id: %d, val_id: %d\n", first_fact,
-                var_id, val_id);
         if (fdr->var.var[var_id].val_none_of_those >= 0){
             none_of_those[mgi] = var_id;
             ++num_none_of_those;
@@ -122,9 +121,6 @@ static void compileAwayRedDelEffs(pddl_strips_t *strips,
             pddlMGroupsAdd(mgroups, &mg->mgroup);
         }
     }
-    pddlMGroupsPrint(NULL, strips_in, mgroups, stderr);
-    fprintf(stderr, "----\n");
-    pddlMGroupsPrint(NULL, strips_in, mgroups_in, stderr);
 
     borISetFree(&black_facts);
 }
@@ -217,7 +213,6 @@ static int constructFDR(pddl_fdr_t *fdr,
     // Find black variables and remember which of them has none-of-those value
     int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups->mgroup_size);
     setBlackVars(fdr, black_mgroups, none_of_those, err);
-    pddlBlackMGroupsPrint(strips, black_mgroups, stderr);
 
     // Set none-of-those in preconditions of operators
     setNoneOfThoseInPre(fdr, strips, black_mgroups, none_of_those, err);
@@ -256,7 +251,8 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
 
     // Find black mutex groups
     pddl_black_mgroups_t black_mgroups[cfg->mgroup.num_solutions];
-    pddlBlackMGroupsInfer(black_mgroups, &strips, mgroups_in, &cfg->mgroup, err);
+    pddlBlackMGroupsInfer(black_mgroups, &strips, mgroups_in, &mutex,
+                          &cfg->mgroup, err);
 
     // Construct FDR
     int num_created = 0;
@@ -286,4 +282,21 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
              borTimerElapsedInSF(&timer));
     BOR_INFO_PREFIX_POP(err);
     return num_created;
+}
+
+int pddlRedBlackCheck(const pddl_fdr_t *fdr, bor_err_t *err)
+{
+    pddl_cg_t cg;
+    pddlCGInit(&cg, &fdr->var, &fdr->op, 1);
+
+    pddl_cg_t black_cg;
+    pddlCGInitProjectToBlackVars(&black_cg, &cg, &fdr->var);
+    int is_acyclic = pddlCGIsAcyclic(&black_cg);
+    if (!is_acyclic)
+        BOR_FATAL2("Black causal graph is not acyclic!");
+
+    pddlCGFree(&black_cg);
+    pddlCGFree(&cg);
+
+    return is_acyclic;
 }

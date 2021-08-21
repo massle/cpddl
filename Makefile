@@ -7,6 +7,7 @@ CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
 CFLAGS += $(CUDD_CFLAGS)
+CFLAGS += $(SQLITE_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
@@ -32,8 +33,10 @@ OBJS += cond_arr
 OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
+OBJS += strips_maker
 OBJS += strips_ground_tree
 OBJS += strips_ground
+OBJS += strips_ground_sql
 OBJS += action_args
 OBJS += ground_atom
 OBJS += profile
@@ -42,6 +45,7 @@ OBJS += lifted_mgroup
 OBJS += lifted_mgroup_infer
 OBJS += lifted_mgroup_htable
 OBJS += mgroup
+OBJS += mgroup_projection
 OBJS += mutex_pair
 OBJS += pddl_file
 OBJS += plan_file
@@ -84,6 +88,7 @@ OBJS += open_list_splaytree2
 OBJS += search_astar
 OBJS += search_lazy
 OBJS += plan
+OBJS += relaxed_plan
 OBJS += heur
 OBJS += heur_blind
 OBJS += heur_lm_cut
@@ -207,8 +212,8 @@ list-global-symbols: libpddl.a
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: boruvka opts bliss cudd
-third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean
+third-party: boruvka opts bliss cudd sqlite
+third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean sqlite-clean
 
 boruvka: third-party/boruvka/Makefile
 	$(MAKE) $(_BOR_MAKE_DEF) -C third-party/boruvka all
@@ -256,10 +261,20 @@ third-party/cudd/libcudd.a:
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
 
+sqlite: third-party/sqlite/libsqlite.a
+sqlite-clean:
+	rm -f third-party/sqlite/*.a
+	rm -f third-party/sqlite/*.o
+third-party/sqlite/libsqlite.a:
+	cd third-party/sqlite && $(CC) $(SQLITE_BUILD_CFLAGS) -c -o sqlite3.o sqlite3.c
+	cd third-party/sqlite && ar cr libsqlite.a sqlite3.o
+	cd third-party/sqlite && ranlib libsqlite.a
+
 .PHONY: all clean check check-ci check-valgrind help doc install analyze \
   examples mrproper \
   third-party third-party-clean \
   boruvka boruvka-clean \
   opts opts-clean \
   bliss bliss-clean \
-  lpsolve lpsolve-clean
+  lpsolve lpsolve-clean \
+  sqlite sqlite-clean

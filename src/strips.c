@@ -550,6 +550,24 @@ int pddlStripsMergeCondEffIfPossible(pddl_strips_t *strips)
     int change = 0;
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         pddl_strips_op_t *op = strips->op.op[op_id];
+        int ins = 0;
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            if (borISetIsSubset(&op->cond_eff[cei].pre, &op->pre)){
+                borISetUnion(&op->add_eff, &op->cond_eff[cei].add_eff);
+                borISetUnion(&op->del_eff, &op->cond_eff[cei].del_eff);
+                borISetFree(&op->cond_eff[cei].pre);
+                borISetFree(&op->cond_eff[cei].add_eff);
+                borISetFree(&op->cond_eff[cei].del_eff);
+                change = 1;
+            }else{
+                op->cond_eff[ins++] = op->cond_eff[cei];
+            }
+        }
+        op->cond_eff_size = ins;
+    }
+
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        pddl_strips_op_t *op = strips->op.op[op_id];
         if (op->cond_eff_size == 0)
             continue;
         if (borISetSize(&op->add_eff) > 0 || borISetSize(&op->del_eff) > 0)

@@ -14,16 +14,19 @@ struct options {
     int lifted_mgroup_max_candidates;
     int lifted_mgroup_max_mgroups;
     int lifted_mgroup_fd;
+    int no_lifted_mgroup;
 
     int no_ground_prune;
     int no_ground_prune_pre;
     int no_ground_prune_dead_end;
+    int ground_sql;
 
     int fam;
     float fam_max_time;
     int fam_fixpoint;
     int fam_fixpoint_no_de;
     int fam_lmg;
+    int fam_lmg_keep;
     int h2_mgroup;
     int h2_fixpoint;
     int famh2_fixpoint;
@@ -44,6 +47,7 @@ struct options {
     int lifted_endomorphism;
     int lifted_endomorphism_ignore_costs;
     int lifted_endomorphism_costs_then_wo_costs;
+    int only_pddl;
 
     int num_sym_gen;
 
@@ -51,6 +55,8 @@ struct options {
     const char *lifted_mgroup_out;
     const char *mgroup_out;
     const char *mgroup_pre_out;
+    const char *pddl_domain_out;
+    const char *pddl_problem_out;
 
     int op_mutex_ts;
     int op_mutex_op_fact;
@@ -60,9 +66,12 @@ struct options {
 
     int pot;
 
+    int order_vars_cg;
     int mgroups_split_invertible;
     int black_vars;
     int black_vars_num;
+    int black_vars_use_relaxed_plan;
+    int black_vars_use_conflicts;
 
     int pretty_print_vars;
     int pretty_print_cg;
@@ -261,6 +270,8 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("lmg-out", 0x0, OPTS_STR, &opt.lifted_mgroup_out, NULL,
                 "Output filename for infered lifted mutex groups."
                 " (default: none)");
+    optsAddDesc("no-lmg", 0x0, OPTS_NONE, &opt.no_lifted_mgroup, NULL,
+                "Turn off inference of lifted mutex groups. (default: off)");
 
     optsAddDesc("no-ground-prune", 0x0, OPTS_NONE, &opt.no_ground_prune, NULL,
                 "Do NOT use lifted mutex groups for pruning during grounding."
@@ -273,6 +284,8 @@ static int readOpts(int *argc, char *argv[])
                 &opt.no_ground_prune_dead_end, NULL,
                 "Do NOT use lifted mutex groups for pruning of dead-end"
                 " operators during grounding.");
+    optsAddDesc("ground-sql", 0x0, OPTS_NONE, &opt.ground_sql, NULL,
+                "Ground using sqlite.");
 
     optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
@@ -290,6 +303,9 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("fam-lmg", 0x0, OPTS_NONE, &opt.fam_lmg, NULL,
                 "Use grounded lifted mutex groups as initialization for"
                 " fam-group. (default: off)");
+    optsAddDesc("fam-lmg-keep", 0x0, OPTS_NONE, &opt.fam_lmg_keep, NULL,
+                "If --fam-lmg is used, keep lifted mutex groups instead of"
+                " removing all subsets. (default: off)");
     optsAddDesc("h2mg", 0x0, OPTS_NONE, &opt.h2_mgroup, NULL,
                 "Infer h^2 based mutex groups. (default: off)");
     optsAddDesc("h2-fixpoint", 0x0, OPTS_NONE, &opt.h2_fixpoint, NULL,
@@ -319,6 +335,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("mg-pre-out", 0x0, OPTS_STR, &opt.mgroup_pre_out, NULL,
                 "Output filename for the mutex groups found before pruning."
                 " (default: none)");
+    optsAddDesc("pddl-domain-out", 0x0, OPTS_STR, &opt.pddl_domain_out, NULL,
+                "Output filename for the PDDL domain file.");
+    optsAddDesc("pddl-problem-out", 0x0, OPTS_STR, &opt.pddl_problem_out, NULL,
+                "Output filename for the PDDL problem file.");
 
     optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
                 OPTS_CB(setFDRVarLargest),
@@ -365,6 +385,8 @@ static int readOpts(int *argc, char *argv[])
                 &opt.lifted_endomorphism_costs_then_wo_costs, NULL,
                 "First prune with costs then without costs"
                 " (default: off)");
+    optsAddDesc("only-pddl", 0x0, OPTS_NONE, &opt.only_pddl, NULL,
+                "If true, the program stops at processing PDDL.");
 
     optsAddDesc("num-sym-gen", 0x0, OPTS_NONE, &opt.num_sym_gen, NULL,
                 "Print number of symmetry generators inferred on PDG."
@@ -388,6 +410,9 @@ static int readOpts(int *argc, char *argv[])
                 "Generate potentials according to the specification."
                 " TODO");
 
+    optsAddDesc("order-vars-cg", 0x0, OPTS_NONE,
+                &opt.order_vars_cg, NULL,
+                "Reorder variables using causal graph. (default: off)");
     optsAddDesc("mgroups-split-invertible", 0x0, OPTS_NONE,
                 &opt.mgroups_split_invertible, NULL,
                 "Split mutex groups using invertible facts. (default: off)");
@@ -396,6 +421,14 @@ static int readOpts(int *argc, char *argv[])
                 " (default: off)");
     optsAddDesc("black-vars-num", 0x0, OPTS_INT, &opt.black_vars_num, NULL,
                 "Maximal number of red-black FDRs that should be created"
+                " (default: off)");
+    optsAddDesc("black-vars-use-relaxed-plan", 0x0, OPTS_NONE,
+                &opt.black_vars_use_relaxed_plan, NULL,
+                "Use relaxed plan to prioritize among black facts"
+                " (default: off)");
+    optsAddDesc("black-vars-use-conflicts", 0x0, OPTS_NONE,
+                &opt.black_vars_use_conflicts, NULL,
+                "Use conflicts in relaxed plan to prioritize among black facts"
                 " (default: off)");
 
     optsAddDesc("pretty-print-vars", 0x0, OPTS_NONE,
@@ -508,6 +541,12 @@ static int readPDDL(void)
 
 static int liftedMGroups(void)
 {
+    if (opt.no_lifted_mgroup){
+        pddlLiftedMGroupsInit(&lifted_mgroups);
+        BOR_INFO2(&err, "Inference of lifted mutex groups turned off");
+        return 0;
+    }
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Inference of lifted mutex groups ...");
     BOR_INFO(&err, "Lifted mutex groups option lmg-fd: %d",
@@ -575,12 +614,36 @@ static int prunePDDL(void)
         }
         borISetFree(&redundant_objs);
     }
+
+    if (opt.pddl_domain_out != NULL){
+        FILE *fout = fopen(opt.pddl_domain_out, "w");
+        if (fout != NULL){
+            pddlPrintPDDLDomain(&pddl, fout);
+            fclose(fout);
+        }else{
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_domain_out);
+        }
+    }
+
+    if (opt.pddl_problem_out != NULL){
+        FILE *fout = fopen(opt.pddl_problem_out, "w");
+        if (fout != NULL){
+            pddlPrintPDDLProblem(&pddl, fout);
+            fclose(fout);
+        }else{
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_problem_out);
+        }
+    }
+
     return 0;
 }
 
 
 static int groundStrips(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Grounding of STRIPS ...");
     BOR_INFO(&err, "Grounding of STRIPS option no-ground-prune: %d",
@@ -600,7 +663,13 @@ static int groundStrips(void)
     if (opt.no_ground_prune_dead_end)
         ground_cfg.prune_op_dead_end = 0;
 
-    if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
+    int ret;
+    if (opt.ground_sql){
+        ret = pddlStripsGroundSql(&strips, &pddl, &ground_cfg, &err);
+    }else{
+        ret = pddlStripsGround(&strips, &pddl, &ground_cfg, &err);
+    }
+    if (ret != 0){
         BOR_INFO2(&err, "Grounding failed.");
         BOR_TRACE_RET(&err, -1);
     }
@@ -629,6 +698,9 @@ static int groundStrips(void)
 
 static int groundMGroups(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Grounding mutex groups ...");
 
@@ -676,7 +748,7 @@ static int inferMutexGroups(void)
         if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgroups);
         BOR_INFO(&err, "Found %d fam-groups.", mgroups.mgroup_size);
 
@@ -873,7 +945,7 @@ static int pruneStripsFixpointFAMGroups(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1066,7 +1138,7 @@ static int pruneStripsFixpointFAMH2(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1161,7 +1233,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
         if (pddlFAMGroupsInfer(&mgs, &strips, &cfg, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
-        if (opt.fam_lmg)
+        if (opt.fam_lmg && !opt.fam_lmg_keep)
             pddlMGroupsRemoveSubsets(&mgs);
         BOR_INFO(&err, "Found %d fam-groups.", mgs.mgroup_size);
 
@@ -1422,6 +1494,9 @@ static int pruneStrips(void)
 
 static int mgroupsAndPruning(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     if (opt.fam_fixpoint)
         return pruneStripsFixpointFAMGroups();
     if (opt.h2_fixpoint)
@@ -1443,6 +1518,9 @@ static int mgroupsAndPruning(void)
 
 static int opMutex(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     if (opt.op_mutex_ts < 0
             && opt.op_mutex_op_fact < 1
             && opt.op_mutex_hm_op < 1){
@@ -1555,8 +1633,24 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
-static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
+static int processFDR(pddl_fdr_t *fdr, int fdr_id)
 {
+    int fnout_size = strlen(opt.fdr_out);
+    char fnout[fnout_size + 5];
+    if (fdr_id == 0){
+        sprintf(fnout, "%s", opt.fdr_out);
+    }else{
+        sprintf(fnout, "%s.%d", opt.fdr_out, fdr_id + 1);
+    }
+
+    if (opt.order_vars_cg){
+        pddlFDRReorderVarsCG(fdr);
+        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
+    }
+
+    // TODO
+    //pddlRedBlackCheck(fdr, &err);
+
     BOR_INFO(&err, "Output file: '%s'", fnout);
     FILE *fout = openFile(fnout);
     if (fout == NULL){
@@ -1611,6 +1705,9 @@ static int fdrOut(const pddl_fdr_t *fdr, const char *fnout)
 
 static int toFDR(void)
 {
+    if (opt.only_pddl)
+        return 0;
+
     if (opt.num_sym_gen){
         pddl_strips_sym_t sym;
         pddlStripsSymInitPDG(&sym, &strips);
@@ -1638,6 +1735,7 @@ static int toFDR(void)
                  borISetSize(&invertible_facts));
         if (borISetSize(&invertible_facts) > 0){
             pddl_mgroups_t mgs;
+            pddlMGroupsInitEmpty(&mgs);
             pddlMGroupsSplitByIntersection(&mgs, &mgroups, &invertible_facts);
             pddlMGroupsFree(&mgroups);
             mgroups = mgs;
@@ -1657,21 +1755,15 @@ static int toFDR(void)
     if (opt.black_vars){
         pddl_red_black_fdr_config_t cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
         cfg.mgroup.num_solutions = opt.black_vars_num;
-        //cfg.relax_red_vars = 1;
+        if (opt.black_vars_use_relaxed_plan)
+            cfg.mgroup.weight_facts_with_relaxed_plan = 1;
+        if (opt.black_vars_use_conflicts)
+            cfg.mgroup.weight_facts_with_conflicts = 1;
         pddl_fdr_t fdr[opt.black_vars_num];
         int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
                                                 &cfg, &err);
-
-        int fnout_size = strlen(opt.fdr_out);
-        char fnout[fnout_size + 5];
         for (int i = 0; i < num; ++i){
-            if (i == 0){
-                sprintf(fnout, "%s", opt.fdr_out);
-            }else{
-                sprintf(fnout, "%s.%d", opt.fdr_out, i + 1);
-            }
-
-            if (fdrOut(fdr + i, fnout) != 0)
+            if (processFDR(fdr + i, i) != 0)
                 return -1;
             pddlFDRFree(fdr + i);
         }
@@ -1680,7 +1772,7 @@ static int toFDR(void)
         pddl_fdr_t fdr;
         pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                               fdr_flag, &err);
-        if (fdrOut(&fdr, opt.fdr_out) != 0)
+        if (processFDR(&fdr, 0) != 0)
             return -1;
         pddlFDRFree(&fdr);
 
@@ -1711,9 +1803,11 @@ int main(int argc, char *argv[])
     }
 
     optsClear();
-    pddlMutexPairsFree(&mutex);
-    pddlMGroupsFree(&mgroups);
-    pddlStripsFree(&strips);
+    if (!opt.only_pddl){
+        pddlMutexPairsFree(&mutex);
+        pddlMGroupsFree(&mgroups);
+        pddlStripsFree(&strips);
+    }
     pddlLiftedMGroupsFree(&lifted_mgroups);
     pddlFree(&pddl);
     return 0;

@@ -2271,7 +2271,8 @@ static int selectMGroupsAdd(select_mgroups_t *select,
         const pddl_param_t *param = mgroup->param.param + parami;
         int type_id = param->type;
         int obj_size;
-        const int *objs = pddlTypesObjsByType(&pddl->type, type_id, &obj_size);
+        const pddl_obj_id_t *objs;
+        objs = pddlTypesObjsByType(&pddl->type, type_id, &obj_size);
         for (int obji = 0; obji < obj_size; ++obji){
             int obj = objs[obji];
             if (param->is_counted_var){

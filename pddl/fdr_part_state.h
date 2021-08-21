@@ -99,6 +99,11 @@ void pddlFDRPartStateRemapFacts(pddl_fdr_part_state_t *ps,
 
 
 /**
+ * Remap variable IDs
+ */
+void pddlFDRPartStateRemapVars(pddl_fdr_part_state_t *ps, const int *remap);
+
+/**
  * Converts the partial state to the set of global IDs.
  */
 void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,

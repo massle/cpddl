@@ -176,9 +176,9 @@ int pddlCondEq(const pddl_cond_t *c1, const pddl_cond_t *c2);
  * If post returns non-zero value the whole traversing is terminated.
  */
 void pddlCondTraverse(pddl_cond_t *c,
-                     int (*pre)(pddl_cond_t *, void *),
-                     int (*post)(pddl_cond_t *, void *),
-                     void *u);
+                      int (*pre)(pddl_cond_t *, void *),
+                      int (*post)(pddl_cond_t *, void *),
+                      void *u);
 
 /**
  * Same as pddlCondTraverse() but pddl_cond_t structures are passed so that
