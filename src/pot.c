@@ -664,7 +664,6 @@ static void storeOpHeurChange(bor_lp_t *lp,
 {
     sol->op_change_size = pot->constr_op.size;
     sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
-    ASSERT_RUNTIME(pot->op_size == pot->constr_op.size);
     for (int ci = 0; ci < pot->constr_op.size; ++ci){
         const pddl_pot_constr_t *c = pot->constr_op.c + ci;
         if (c->op_id >= 0){
