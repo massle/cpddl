@@ -31,12 +31,13 @@ int pddlH1(const pddl_strips_t *strips,
         BOR_ERR_RET2(err, -1, "pddlH1: Conditional effects are not supported!");
     }
 
+    BOR_INFO_PREFIX_PUSH(err, "h^1: ");
     int *facts = BOR_CALLOC_ARR(int, strips->fact.fact_size);
     int *ops = BOR_CALLOC_ARR(int, strips->op.op_size);
     bor_iset_t *fact_to_op = BOR_CALLOC_ARR(bor_iset_t, strips->fact.fact_size);
     BOR_IARR(queue);
 
-    BOR_INFO(err, "h^1. facts: %d, ops: %d",
+    BOR_INFO(err, "facts: %d, ops: %d",
              strips->fact.fact_size,
              strips->op.op_size);
 
@@ -102,9 +103,10 @@ int pddlH1(const pddl_strips_t *strips,
     if (ops != NULL)
         BOR_FREE(ops);
 
-    BOR_INFO(err, "h^1 DONE. unreachable facts: %d, unreachable ops: %d",
+    BOR_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
              (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
              (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1));
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
