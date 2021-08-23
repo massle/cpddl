@@ -938,6 +938,29 @@ static void tnfMultiply(pddl_fdr_t *fdr,
     borISetFree(&rm_ops);
 }
 
+static void removeUnreachableOps(pddl_fdr_t *fdr,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 bor_err_t *err)
+{
+    BOR_ISET(rm_ops);
+
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        BOR_ISET(pre);
+        pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
+        if (pddlMutexPairsIsMutexSet(mutex, &pre))
+            borISetAdd(&rm_ops, op_id);
+        borISetFree(&pre);
+    }
+
+    if (borISetSize(&rm_ops) > 0){
+        pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
+        pddlFDROpsSort(&fdr->op);
+        BOR_INFO(err, "Removed %d unreachable operators", borISetSize(&rm_ops));
+    }
+    borISetFree(&rm_ops);
+}
+
 int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
@@ -955,6 +978,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                               "with PDDL_FDR_TNF_MULTIPLY_OPS");
     }
 
+    BOR_INFO_PREFIX_PUSH(err, "TNF: ");
     BOR_INFO(err, "Creating a Transition Normal Form"
                   " (vars: %d, facts: %d, ops: %d)",
                   fdr_in->var.var_size,
@@ -964,6 +988,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     pddlFDRInitCopy(fdr, fdr_in);
 
     if (mutex == NULL){
+        BOR_INFO2(err, "Constructing full TNF");
         tnfFull(fdr, fdr_in, flags, err);
 
     }else{
@@ -975,8 +1000,10 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
 
         if (flags & PDDL_FDR_TNF_MULTIPLY_OPS){
+            BOR_INFO2(err, "Multiply operators with disambiguation");
             tnfMultiply(fdr, &dis, flags, err);
         }else{
+            BOR_INFO2(err, "Using disambiguation");
             tnfDis(fdr, &dis, flags, err);
         }
 
@@ -984,11 +1011,15 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlMGroupsFree(&mgs);
     }
 
+    if (mutex != NULL)
+        removeUnreachableOps(fdr, mutex, err);
+
     BOR_INFO(err, "Transition Normal Form created."
                   " (vars: %d, facts: %d, ops: %d)",
                   fdr->var.var_size,
                   fdr->var.global_id_size,
                   fdr->op.op_size);
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
