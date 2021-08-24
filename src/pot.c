@@ -708,6 +708,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     if (pot->enforce_int_init)
         enforceIntInit(lp, pot);
 
+    row = borLPNumRows(lp);
     setLBConstr(lp, pot, &row);
 
     int var_size = borLPNumCols(lp);
