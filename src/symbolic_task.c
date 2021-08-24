@@ -1138,7 +1138,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     const pddl_pot_solution_t *sol = pot.sol + 0;
     BOR_INFO(err, "Sum of potentials for the initial state: %.4f",
              pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
-    init_h_value->cost = round(pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
+    init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
     *op_heur_change = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
     for (int i = 0; i < sol->op_change_size && i < fdr->op.op_size; ++i){
         double change = sol->op_change[i];

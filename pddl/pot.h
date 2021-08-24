@@ -104,6 +104,7 @@ struct pddl_pot {
     bor_segmarr_t *maxpot;
     int maxpot_size;
     bor_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
+    int enforce_int_init; /*!< Enforce integer value for the initial state */
 };
 typedef struct pddl_pot pddl_pot_t;
 
@@ -197,6 +198,14 @@ _bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
 _bor_inline void pddlPotStoreOpHeurChange(pddl_pot_t *pot, int enable)
 {
     pot->store_op_heur_change = enable;
+}
+
+/**
+ * Turns on/off enforcing of the integer value for the initial state
+ */
+_bor_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
+{
+    pot->enforce_int_init = enable;
 }
 
 /**
