@@ -701,13 +701,14 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     setConstrs(lp, pot, &pot->constr_op, &row);
     setConstrs(lp, pot, &pot->constr_goal, &row);
     setMaxpotConstrs(lp, pot, &row);
-    setLBConstr(lp, pot, &row);
 
     int op_heur_change_var_offset = 0;
     if (pot->store_op_heur_change)
         op_heur_change_var_offset = addOpHeurChangeConstrs(lp, pot);
     if (pot->enforce_int_init)
         enforceIntInit(lp, pot);
+
+    setLBConstr(lp, pot, &row);
 
     int var_size = borLPNumCols(lp);
     double objval, *obj;

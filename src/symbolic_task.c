@@ -1049,6 +1049,11 @@ static void orderCompute(int *order,
 
     ASSERT_RUNTIME(cg->node_size == size);
 
+    for (int i = 0; i < size / 2; ++i){
+        int tmp;
+        BOR_SWAP(order[i], order[size - i - 1], tmp);
+    }
+
     int *influence = BOR_CALLOC_ARR(int, size * size);
     for (int f = 0; f < size; ++f){
         const pddl_cg_node_t *node = cg->node + f;
