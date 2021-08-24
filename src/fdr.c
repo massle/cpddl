@@ -1002,6 +1002,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         if (flags & PDDL_FDR_TNF_MULTIPLY_OPS){
             BOR_INFO2(err, "Multiply operators with disambiguation");
             tnfMultiply(fdr, &dis, flags, err);
+            removeUnreachableOps(fdr, mutex, err);
         }else{
             BOR_INFO2(err, "Using disambiguation");
             tnfDis(fdr, &dis, flags, err);
@@ -1010,9 +1011,6 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlDisambiguateFree(&dis);
         pddlMGroupsFree(&mgs);
     }
-
-    if (mutex != NULL)
-        removeUnreachableOps(fdr, mutex, err);
 
     BOR_INFO(err, "Transition Normal Form created."
                   " (vars: %d, facts: %d, ops: %d)",
