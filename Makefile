@@ -128,6 +128,7 @@ OBJS += red_black_fdr
 OBJS += outbox
 OBJS += homomorphism
 OBJS += homomorphism_heur
+OBJS += prune_strips
 
 OBJS_CPP = endomorphism
 

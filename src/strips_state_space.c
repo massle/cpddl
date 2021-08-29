@@ -36,7 +36,7 @@ struct state_node {
 
     bor_list_t htable;
     bor_htable_key_t hash;
-} bor_packed;
+};
 typedef struct state_node state_node_t;
 
 static bor_htable_key_t stateHash(const bor_iset_t *state)

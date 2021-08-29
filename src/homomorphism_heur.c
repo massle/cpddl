@@ -20,6 +20,7 @@
 #include "pddl/lm_cut.h"
 #include "pddl/hff.h"
 #include "pddl/strips_ground_sql.h"
+#include "pddl/prune_strips.h"
 #include "assert.h"
 
 #define LM_CUT_TYPE 1
@@ -56,6 +57,13 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
         pddlFree(&h->homo);
         BOR_TRACE_RET(err, -1);
     }
+
+    pddl_prune_strips_t prune;
+    pddlPruneStripsInit(&prune);
+    pddlPruneStripsAddIrrelevance(&prune);
+    pddlPruneStripsAddH2(&prune, -1);
+    pddlPruneStripsExecute(&prune, &h->strips, NULL, err);
+    pddlPruneStripsFree(&prune);
     //pddlStripsPrintDebug(&h->strips, stderr);
     return 0;
 }

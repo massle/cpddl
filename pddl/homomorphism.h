@@ -32,6 +32,7 @@ struct pddl_homomorphism_config {
     int random_type_objs;
     float rm_ratio;
     uint32_t random_seed;
+    int keep_goal_objs;
 };
 typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
@@ -41,6 +42,7 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
         0, /* .random_type_objs */ \
         0.5, /* .rm_ratio */ \
         6899, /* .random_seed */ \
+        1, /* .keep_goal_objs */ \
     }
 
 /**
