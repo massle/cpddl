@@ -57,7 +57,6 @@ static int homomorphParseRatioTries(char *s)
     if (*end == 0){
         cont = 0;
     }else if (*end != ':'){
-        fprintf(stderr, "y");
         return -1;
     }
     *end = 0;

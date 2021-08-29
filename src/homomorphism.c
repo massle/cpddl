@@ -362,7 +362,6 @@ int pddlHomomorphism(pddl_t *pddl,
                 BOR_TRACE_RET(err, -1);
         }
     }else if (cfg->random_objs || cfg->random_type_objs){
-        // TODO: parametrize
         BOR_ISET(goal_objs);
         collectGoalObjs(pddl, &goal_objs);
         int obj_id;
