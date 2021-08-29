@@ -185,7 +185,7 @@ static void h2AllocOpFact(h2_t *h2, bor_err_t *err)
     size_t op_fact_size = (size_t)h2->fact_size * h2->op_size;
     h2->op_fact = calloc(op_fact_size, 1);
     if (h2->op_fact != NULL){
-        BOR_INFO(err, "  h^2 uses additional memory of %.2f MB",
+        BOR_INFO(err, "uses additional memory of %.2f MB",
                 op_fact_size / (1024. * 1024.));
     }
 }
@@ -412,8 +412,7 @@ static int h2StateFw(const pddl_strips_t *strips,
     if (strips->has_cond_eff)
         BOR_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
 
-    BOR_INFO(err, "h^2. facts: %d, ops: %d, mutex pairs: %lu,"
-                  " time-limit: %.2fs",
+    BOR_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
              strips->fact.fact_size,
              strips->op.op_size,
              (unsigned long)m->num_mutex_pairs,
@@ -433,7 +432,7 @@ static int h2StateFw(const pddl_strips_t *strips,
 
     setOutput(&h2, m, unreachable_facts, unreachable_ops);
 
-    BOR_INFO(err, "h^2 DONE. mutex pairs: %lu, unreachable facts: %d,"
+    BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)m->num_mutex_pairs,
              (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
@@ -451,8 +450,11 @@ int pddlH2(const pddl_strips_t *strips,
            float time_limit_in_s,
            bor_err_t *err)
 {
-    return h2StateFw(strips, &strips->init, m, unreachable_facts,
-                     unreachable_ops, time_limit_in_s, err);
+    BOR_INFO_PREFIX_PUSH(err, "h^2 fw: ");
+    int ret = h2StateFw(strips, &strips->init, m, unreachable_facts,
+                        unreachable_ops, time_limit_in_s, err);
+    BOR_INFO_PREFIX_POP(err);
+    return ret;
 }
 
 int pddlH2IsDeadEnd(const pddl_strips_t *strips, const bor_iset_t *state)
@@ -615,8 +617,8 @@ int pddlH2FwBw(const pddl_strips_t *strips,
     if (strips->has_cond_eff)
         BOR_ERR_RET2(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
-    BOR_INFO(err, "h^2 fw/bw. facts: %d, ops: %d, mutex pairs: %lu,"
-                  " time-limit: %.2fs",
+    BOR_INFO_PREFIX_PUSH(err, "h^2 fw/bw: ");
+    BOR_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
              strips->fact.fact_size,
              strips->op.op_size,
              (unsigned long)mutex->num_mutex_pairs,
@@ -676,7 +678,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
 
     setOutput(&h2, mutex, unreachable_facts, unreachable_ops);
 
-    BOR_INFO(err, "h^2 fw/bw DONE. mutex pairs: %lu, unreachable facts: %d,"
+    BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)mutex->num_mutex_pairs,
              (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
@@ -684,5 +686,6 @@ int pddlH2FwBw(const pddl_strips_t *strips,
              (ret == -2 ? 1 : 0));
 
     h2Free(&h2);
+    BOR_INFO_PREFIX_POP(err);
     return ret;
 }

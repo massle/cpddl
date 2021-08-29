@@ -230,7 +230,7 @@ static void h3Init(h3_t *h3,
     }
 
     if (h3->meta_fact3 != NULL || h3->op_fact1 != NULL || h3->op_fact2 != NULL){
-        BOR_INFO(err, "  h^3 uses additional memory of %.2f MB"
+        BOR_INFO(err, "uses additional memory of %.2f MB"
                       "(meta-fact3: %d, op-fact1: %d, op-fact2: %d",
                  used_excess_mem / (1024. * 1024.),
                  (h3->meta_fact3 != NULL ? 1 : 0),
@@ -569,7 +569,8 @@ int pddlH3(const pddl_strips_t *strips,
     h3_t h3;
     int updated, ret = 0;
 
-    BOR_INFO(err, "h^3. facts: %d, ops: %d, mutex pairs: %lu,"
+    BOR_INFO_PREFIX_PUSH(err, "h^3 fw: ");
+    BOR_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
                   " time-limit: %.2f, excess-memory: %lu",
              strips->fact.fact_size,
              strips->op.op_size,
@@ -616,12 +617,13 @@ int pddlH3(const pddl_strips_t *strips,
 mutex_h3_end:
     h3Free(&h3);
 
-    BOR_INFO(err, "h^3 DONE. mutex pairs: %lu, unreachable facts: %d,"
+    BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)ms->num_mutex_pairs,
              (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
              (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1),
              (ret == -2 ? 1 : 0));
+    BOR_INFO_PREFIX_POP(err);
 
     return ret;
 }

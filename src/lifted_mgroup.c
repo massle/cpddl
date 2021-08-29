@@ -23,6 +23,8 @@
 #include "pddl/lifted_mgroup.h"
 #include "assert.h"
 
+#define LINESIZE 1024
+
 
 static int cmpLiftedMGroups(const void *a, const void *b, void *_)
 {

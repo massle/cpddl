@@ -17,6 +17,7 @@
  */
 
 #include <boruvka/alloc.h>
+#include <boruvka/sort.h>
 #include "pddl/fdr_op.h"
 #include "assert.h"
 
@@ -213,4 +214,23 @@ void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op)
 
     op->id = ops->op_size;
     ops->op[ops->op_size++] = op;
+}
+
+static int opCmpName(const void *a, const void *b, void *_)
+{
+    pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
+    pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
+    int cmp = strcmp(o1->name, o2->name);
+    if (cmp == 0)
+        cmp = pddlFDRPartStateCmp(&o1->pre, &o2->pre);
+    if (cmp == 0)
+        cmp = pddlFDRPartStateCmp(&o1->eff, &o2->eff);
+    return cmp;
+}
+
+void pddlFDROpsSort(pddl_fdr_ops_t *ops)
+{
+    borSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpName, NULL);
+    for (int i = 0; i < ops->op_size; ++i)
+        ops->op[i]->id = i;
 }

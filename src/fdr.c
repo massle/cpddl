@@ -831,6 +831,136 @@ static void tnfDis(pddl_fdr_t *fdr,
     borISetFree(&unreachable_ops);
 }
 
+static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
+                             pddl_set_iset_t *hset,
+                             int set_id,
+                             pddl_fdr_op_t *op,
+                             bor_err_t *err)
+{
+    if (set_id >= pddlSetISetSize(hset)){
+        pddl_fdr_op_t *new_op = pddlFDROpClone(op);
+        pddlFDRPartStateMinus(&new_op->eff, &new_op->pre);
+        if (new_op->eff.fact_size > 0){
+            pddlFDROpsAddSteal(&fdr->op, new_op);
+        }else{
+            pddlFDROpDel(new_op);
+        }
+        return;
+    }
+
+    const bor_iset_t *set = pddlSetISetGet(hset, set_id);
+    if (borISetSize(set) <= 1){
+        tnfMultiplyOpSet(fdr, hset, set_id + 1, op, err);
+
+    }else{
+        int fact_id = borISetGet(set, 0);
+        const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
+        int var_id = v->var_id;
+
+        BOR_ISET_FOR_EACH(set, fact_id){
+            const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
+            ASSERT(v->var_id == var_id);
+            pddl_fdr_op_t *new_op = pddlFDROpClone(op);
+            ASSERT(!pddlFDRPartStateIsSet(&new_op->pre, var_id));
+            pddlFDRPartStateSet(&new_op->pre, var_id, v->val_id);
+            tnfMultiplyOpSet(fdr, hset, set_id + 1, new_op, err);
+            pddlFDROpDel(new_op);
+        }
+    }
+}
+
+static int tnfMultiplyOp(pddl_fdr_t *fdr,
+                         pddl_disambiguate_t *dis,
+                         unsigned flags,
+                         pddl_fdr_op_t *op,
+                         bor_err_t *err)
+{
+    pddl_set_iset_t hset;
+    pddlSetISetInit(&hset);
+    BOR_ISET(pre);
+    BOR_ISET(eff);
+    BOR_ISET(extend);
+    int ret = 0;
+    int sf_flag = ((flags & PDDL_FDR_TNF_WEAK_DISAMBIGUATION) ? 1 : 0);
+
+    pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
+    pddlFDRPartStateToGlobalIDs(&op->eff, &fdr->var, &eff);
+
+    ASSERT_RUNTIME(dis != NULL);
+    int disret = pddlDisambiguate(dis, &pre, &eff, 1, sf_flag, &hset, &extend);
+    if (disret < 0)
+        ret = -1;
+
+    int fact_id;
+    BOR_ISET_FOR_EACH(&extend, fact_id){
+        const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
+        ASSERT(!pddlFDRPartStateIsSet(&op->pre, val->var_id));
+        pddlFDRPartStateSet(&op->pre, val->var_id, val->val_id);
+        if (!(flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
+                && pddlFDRPartStateGet(&op->eff, val->var_id) == val->val_id){
+            pddlFDRPartStateUnset(&op->eff, val->var_id);
+        }
+    }
+
+    // TODO: We can improve this by disambiguating for each partial
+    //       assignment separately, i.e., to recurse on this function
+    //       instead of tnfMultiplyOpSet()
+    if (disret >= 0 && pddlSetISetSize(&hset) > 0){
+        ret = -1;
+        tnfMultiplyOpSet(fdr, &hset, 0, op, err);
+    }
+
+    pddlSetISetFree(&hset);
+    borISetFree(&pre);
+    borISetFree(&eff);
+    borISetFree(&extend);
+    return ret;
+}
+
+static void tnfMultiply(pddl_fdr_t *fdr,
+                        pddl_disambiguate_t *dis,
+                        unsigned flags,
+                        bor_err_t *err)
+{
+    BOR_ISET(rm_ops);
+
+    int op_size = fdr->op.op_size;
+    for (int opi = 0; opi < op_size; ++opi){
+        pddl_fdr_op_t *op = fdr->op.op[opi];
+        if (tnfMultiplyOp(fdr, dis, flags, op, err) < 0)
+            borISetAdd(&rm_ops, opi);
+    }
+
+    if (borISetSize(&rm_ops) > 0){
+        pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
+        pddlFDROpsSort(&fdr->op);
+    }
+    borISetFree(&rm_ops);
+}
+
+static void removeUnreachableOps(pddl_fdr_t *fdr,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 bor_err_t *err)
+{
+    BOR_ISET(rm_ops);
+
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        BOR_ISET(pre);
+        pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
+        if (pddlMutexPairsIsMutexSet(mutex, &pre))
+            borISetAdd(&rm_ops, op_id);
+        borISetFree(&pre);
+    }
+
+    if (borISetSize(&rm_ops) > 0){
+        pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
+        pddlFDROpsSort(&fdr->op);
+        BOR_INFO(err, "Removed %d unreachable operators", borISetSize(&rm_ops));
+    }
+    borISetFree(&rm_ops);
+}
+
 int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
@@ -842,6 +972,13 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                               " supported for conditional effects");
     }
 
+    if ((flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
+            && (flags & PDDL_FDR_TNF_MULTIPLY_OPS)){
+        BOR_ERR_RET2(err, -1, "PDDL_FDR_TNF_PREVAIL_TO_EFF cannot be combined"
+                              "with PDDL_FDR_TNF_MULTIPLY_OPS");
+    }
+
+    BOR_INFO_PREFIX_PUSH(err, "TNF: ");
     BOR_INFO(err, "Creating a Transition Normal Form"
                   " (vars: %d, facts: %d, ops: %d)",
                   fdr_in->var.var_size,
@@ -851,6 +988,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     pddlFDRInitCopy(fdr, fdr_in);
 
     if (mutex == NULL){
+        BOR_INFO2(err, "Constructing full TNF");
         tnfFull(fdr, fdr_in, flags, err);
 
     }else{
@@ -861,7 +999,14 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddl_disambiguate_t dis;
         pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
 
-        tnfDis(fdr, &dis, flags, err);
+        if (flags & PDDL_FDR_TNF_MULTIPLY_OPS){
+            BOR_INFO2(err, "Multiply operators with disambiguation");
+            tnfMultiply(fdr, &dis, flags, err);
+            removeUnreachableOps(fdr, mutex, err);
+        }else{
+            BOR_INFO2(err, "Using disambiguation");
+            tnfDis(fdr, &dis, flags, err);
+        }
 
         pddlDisambiguateFree(&dis);
         pddlMGroupsFree(&mgs);
@@ -872,6 +1017,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                   fdr->var.var_size,
                   fdr->var.global_id_size,
                   fdr->op.op_size);
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 

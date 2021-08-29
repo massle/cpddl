@@ -50,6 +50,10 @@ struct options {
     const char *mgroup_out;
     const char *mgroup_pre_out;
 
+    int fw;
+    int bw;
+    int fwbw;
+
     int op_mutex_ts;
     int op_mutex_op_fact;
     int op_mutex_hm_op;
@@ -57,6 +61,17 @@ struct options {
     const char *op_mutex_out;
 
     int pot;
+    int pot_sum_op_cost;
+    int use_heur_bw;
+    int no_heur_fw;
+
+    int symba_fam;
+    float trans_merge_max_time;
+    float goal_constr_max_time;
+    int test_partitioning;
+    int multiply_op_cost;
+    int tnf;
+    int tnf_multiply;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -119,6 +134,9 @@ static void setFDRVarLargestMulti(const char *ln, const char *sn)
 
 static int setPot(const char *_spec)
 {
+    bzero(&pot_cfg, sizeof(pot_cfg));
+    pot_cfg.disambiguation = 1;
+
     // TODO
     char *spec = BOR_STRDUP(_spec);
     if (spec == NULL)
@@ -149,6 +167,20 @@ static int setPot(const char *_spec)
 
         }else if (strcmp(o, "all") == 0){
             pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES;
+
+        }else if (strncmp(o, "all-mutex=", 10) == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX;
+            pot_cfg.all_states_mutex_size = atoi(o + 10);
+            if (pot_cfg.all_states_mutex_size <= 0){
+                fprintf(stderr, "Error: Invalid argument for all-mutex\n");
+                fprintf(stderr, "\n");
+                return -1;
+            }
+
+        }else if (strncmp(o, "samples-sum=", 12) == 0){
+            pot_cfg.obj = PDDL_HPOT_OBJ_SAMPLES_SUM;
+            pot_cfg.num_samples = atoi(o + 12);
+            pot_cfg.samples_random_walk = 1;
 
         }else if (strcmp(o, "Max(init,all)") == 0){
             pot_cfg.obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
@@ -190,6 +222,8 @@ static int readOpts(int *argc, char *argv[])
     opt.op_mutex_ts = -1;
     opt.op_mutex_op_fact = -1;
     opt.op_mutex_hm_op = -1;
+    opt.trans_merge_max_time = -1.;
+    opt.goal_constr_max_time = -1.;
 
     pddl_cfg.force_adl = 1;
     endomorphism_cfg.num_threads = 1;
@@ -283,6 +317,13 @@ static int readOpts(int *argc, char *argv[])
                 "Output filename for the mutex groups found before pruning."
                 " (default: none)");
 
+    optsAddDesc("fw", 0x0, OPTS_NONE, &opt.fw, NULL,
+                "Forward symbolic search.");
+    optsAddDesc("bw", 0x0, OPTS_NONE, &opt.bw, NULL,
+                "Backward symbolic search.");
+    optsAddDesc("fwbw", 0x0, OPTS_NONE, &opt.fwbw, NULL,
+                "Forward/Backward symbolic search.");
+
     optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
                 OPTS_CB(setFDRVarLargest),
                 "Allocate FDR variables with largest-first algorithm"
@@ -340,6 +381,35 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
+    optsAddDesc("pot-sum-op-cost", 0x0, OPTS_NONE, &opt.pot_sum_op_cost, NULL,
+                "Sum operator potentials to operator costs.");
+    optsAddDesc("use-heur-bw", 0x0, OPTS_NONE, &opt.use_heur_bw, NULL,
+                "Use heuristic also for backward part of bidirectional"
+                " search");
+    optsAddDesc("no-heur-fw", 0x0, OPTS_NONE, &opt.no_heur_fw, NULL,
+                "Don't use heuristic in the forward direction.");
+
+    optsAddDesc("symba-fam", 0x0, OPTS_INT, &opt.symba_fam, NULL,
+                "Maximal number of additional exactly-1 fam-groups use for"
+                " constraints in SymbA* (default: 0)");
+
+    optsAddDesc("trans-merge-max-time", 0x0, OPTS_FLOAT,
+                &opt.trans_merge_max_time, NULL,
+                "Maximum time spent in merging transitions (default: -1.)");
+    optsAddDesc("goal-constr-max-time", 0x0, OPTS_FLOAT,
+                &opt.goal_constr_max_time, NULL,
+                "Maximum time spent in applying constraints on the goal"
+                " (default: -1.)");
+    optsAddDesc("test-part", 0x0, OPTS_NONE, &opt.test_partitioning, NULL,
+                "Test partitioning using heuristic without using heuristic.");
+    optsAddDesc("multiply-op-cost", 'M', OPTS_INT, &opt.multiply_op_cost, NULL,
+                "Multiply operator costs by this value.");
+    optsAddDesc("tnf", 0x0, OPTS_NONE, &opt.tnf, NULL,
+                "FDR is transformed to Transition Normal Form (default: off)");
+    optsAddDesc("tnf-multiply", 0x0, OPTS_NONE, &opt.tnf_multiply, NULL,
+                "As --tnf but multiplication of preconditions is used (default: off)");
+    optsAddDesc("tnfm", 0x0, OPTS_NONE, &opt.tnf_multiply, NULL,
+                "Alias for --tnf-multiply");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -407,6 +477,10 @@ static int readOpts(int *argc, char *argv[])
             = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
         setrlimit(RLIMIT_AS, &mem_limit);
     }
+
+    if (opt.multiply_op_cost <= 1)
+        opt.multiply_op_cost = 1;
+    BOR_INFO(&err, "Option multiply-op-cost: %d", opt.multiply_op_cost);
 
     return 0;
 }
@@ -1437,30 +1511,148 @@ static void planPrint(const pddl_fdr_t *fdr,
     }
 }
 
+static int toFDR(pddl_fdr_t *fdr)
+{
+    unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+    pddlStripsOpsSort(&strips.op);
+    pddlFDRInitFromStrips(fdr, &strips, &mgroups, &mutex,
+                          fdr_var_flag, 0, &err);
+
+    if (opt.tnf || opt.tnf_multiply){
+        if (opt.tnf){
+            BOR_INFO(&err, "Constructing TNF (ops: %d)", fdr->op.op_size);
+        }else if (opt.tnf_multiply){
+            BOR_INFO(&err, "Constructing TNF-multiply (ops: %d)", fdr->op.op_size);
+        }
+
+        pddl_mg_strips_t mg_strips;
+        pddl_mutex_pairs_t fdr_mutex;
+        pddlMGStripsInitFDR(&mg_strips, fdr);
+        pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+        pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+
+        pddl_fdr_t fdr_old = *fdr;
+        unsigned flags = 0;
+        if (opt.tnf_multiply)
+            flags = PDDL_FDR_TNF_MULTIPLY_OPS;
+        if (pddlFDRInitTransitionNormalForm(fdr, &fdr_old, &fdr_mutex, flags, &err) != 0){
+            pddlMutexPairsFree(&fdr_mutex);
+            pddlMGStripsFree(&mg_strips);
+            BOR_TRACE_RET(&err, -1);
+        }
+        if (opt.tnf){
+            BOR_INFO(&err, "Constructed TNF, ops: %d", fdr->op.op_size);
+        }else if (opt.tnf_multiply){
+            BOR_INFO(&err, "Constructed TNF-multiply, ops: %d", fdr->op.op_size);
+        }
+
+
+        pddlMutexPairsFree(&fdr_mutex);
+        pddlMGStripsFree(&mg_strips);
+        pddlFDRFree(&fdr_old);
+    }
+
+    if (opt.multiply_op_cost > 1){
+        for (int oi = 0; oi < fdr->op.op_size; ++oi)
+            fdr->op.op[oi]->cost *= opt.multiply_op_cost;
+    }
+    //pddlFDRPrintFD(&fdr, NULL, 0, stderr);
+
+    return 0;
+}
+
+static int fdrHasTNFOps(const pddl_fdr_t *fdr)
+{
+    for (int oi = 0; oi < fdr->op.op_size; ++oi){
+        const pddl_fdr_op_t *op = fdr->op.op[oi];
+        for (int i = 0; i < op->eff.fact_size; ++i){
+            if (!pddlFDRPartStateIsSet(&op->pre, op->eff.fact[i].var))
+                return 0;
+        }
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+            for (int i = 0; i < ce->eff.fact_size; ++i){
+                if (!pddlFDRPartStateIsSet(&ce->pre, ce->eff.fact[i].var))
+                    return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 static int symba(void)
 {
     pddl_fdr_t fdr;
-    unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
-    pddlStripsOpsSort(&strips.op);
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex,
-                          fdr_var_flag, 0, &err);
+    if (toFDR(&fdr) != 0)
+        BOR_TRACE_RET(&err, -1);
 
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
+    if (opt.symba_fam > 0)
+        symb_cfg.fam_groups = opt.symba_fam;
+    if (opt.pot){
+        if (fdrHasTNFOps(&fdr)){
+            symb_cfg.use_pot_heur = 1;
+            BOR_INFO2(&err, "symba: Using consistent potential heuristic");
+        }else{
+            symb_cfg.use_pot_heur_inconsistent = 1;
+            BOR_INFO2(&err, "symba: Using inconsistent potential heuristic");
+        }
+        if (opt.pot_sum_op_cost){
+            symb_cfg.use_pot_heur_sum_op_cost = 1;
+            BOR_INFO2(&err, "symba: Operator potentials are added to operator costs.");
+        }
+        symb_cfg.pot_heur_config = pot_cfg;
+        if (opt.use_heur_bw || opt.bw)
+            symb_cfg.use_heur_bw = 1;
+        if (opt.no_heur_fw)
+            symb_cfg.use_heur_fw = 0;
+        if (opt.test_partitioning)
+            symb_cfg.test_partitioning = 1;
+    }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
     // TODO: Print configuration
+    if (!opt.fw && !opt.bw && !opt.fwbw){
+        symb_cfg.goal_constr_max_time = 30.f;
+    }
+    if (opt.trans_merge_max_time > 0.)
+        symb_cfg.trans_merge_max_time = opt.trans_merge_max_time;
+    if (opt.goal_constr_max_time > 0.)
+        symb_cfg.goal_constr_max_time = opt.goal_constr_max_time;
 
     pddl_symbolic_task_t *task;
-    task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err);
+    if ((task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err)) == NULL)
+        BOR_TRACE_RET(&err, -1);
 
     BOR_IARR(plan);
     int res;
-    if (pddlSymbolicTaskGoalConstrFailed(task)){
-        BOR_INFO2(&err, "Switching to fw-only search.");
+    if (opt.fw){
+        BOR_INFO2(&err, "Forward Search");
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
-        //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-    }else{
+
+    }else if (opt.bw){
+        BOR_INFO2(&err, "Backward Search");
+        res = pddlSymbolicTaskSearchBw(task, &plan, &err);
+
+    }else if (opt.fwbw){
+        BOR_INFO2(&err, "Forward/Backward Search");
         res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+
+    }else{
+        if (pddlSymbolicTaskGoalConstrFailed(task)){
+            BOR_INFO2(&err, "Switching to fw-only search.");
+            res = pddlSymbolicTaskSearchFw(task, &plan, &err);
+            //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+        }else{
+            res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
+        }
+    }
+
+    if (opt.multiply_op_cost > 1){
+        for (int oi = 0; oi < fdr.op.op_size; ++oi)
+            fdr.op.op[oi]->cost /= opt.multiply_op_cost;
     }
 
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){

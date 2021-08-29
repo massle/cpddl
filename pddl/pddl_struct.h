@@ -35,13 +35,16 @@ extern "C" {
 
 struct pddl_config {
     int force_adl; /*!< Force ADL to requirements */
-    // TODO: info output, err output
+    int normalize; /*!< Normalize the task right after parsing */
+    int compile_away_cond_eff; /*!< Compile away conditional effects */
 };
 typedef struct pddl_config pddl_config_t;
 
 #define PDDL_CONFIG_INIT_EMPTY { 0 }
 #define PDDL_CONFIG_INIT \
-    { 0, /* force_adl */ \
+    { 1, /* .force_adl */ \
+      1, /* .normalize */ \
+      0, /* .compile_away_cond_eff */ \
     }
 
 struct pddl {

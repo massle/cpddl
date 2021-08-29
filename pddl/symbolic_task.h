@@ -24,6 +24,7 @@
 #include <pddl/strips.h>
 #include <pddl/mgroup.h>
 #include <pddl/mutex_pair.h>
+#include <pddl/hpot.h>
 #include <pddl/bdd.h>
 #include <pddl/bdds.h>
 #include <pddl/symbolic_vars.h>
@@ -49,6 +50,15 @@ struct pddl_symbolic_task_config {
     float constr_max_time;
     int use_op_constr;
     float goal_constr_max_time;
+    int fam_groups;
+
+    int use_pot_heur;
+    int use_pot_heur_inconsistent;
+    int use_pot_heur_sum_op_cost;
+    pddl_hpot_config_t pot_heur_config;
+    int use_heur_fw;
+    int use_heur_bw;
+    int test_partitioning;
 };
 typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 
@@ -62,7 +72,15 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         100000ul, /* .constr_max_nodes */ \
         -1.f, /* .constr_max_time */ \
         1, /* .use_op_constr */ \
-        30., /* .goal_constr_max_time */ \
+        -1., /* .goal_constr_max_time */ \
+        0, /* .fam_groups */ \
+        0, /* .use_pot_heur */ \
+        0, /* .use_pot_heur_inconsistent */ \
+        0, /* .use_pot_heur_sum_op_cost */ \
+        PDDL_HPOT_CONFIG_INIT, \
+        1, /* .use_heur_fw */ \
+        0, /* .use_heur_bw */ \
+        0, /* .test_partitioning */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;

@@ -20,6 +20,7 @@
 #ifndef __PDDL_COST_H__
 #define __PDDL_COST_H__
 
+#include <stdio.h>
 #include <boruvka/compiler.h>
 #include <pddl/common.h>
 
@@ -66,6 +67,23 @@ _bor_inline void pddlCostSum(pddl_cost_t *c1, const pddl_cost_t *c2)
     c1->zero_cost += c2->zero_cost;
 }
 
+/**
+ * Saturated sum
+ */
+_bor_inline void pddlCostSumSat(pddl_cost_t *c1, const pddl_cost_t *c2)
+{
+    if (c1->cost >= PDDL_COST_MAX || c1->cost <= PDDL_COST_MIN)
+        return;
+
+    if (c2->cost >= PDDL_COST_MAX || c2->cost <= PDDL_COST_MIN){
+        c1->cost = c2->cost;
+    }else{
+        c1->cost += c2->cost;
+    }
+
+    c1->zero_cost += c2->zero_cost;
+}
+
 
 /**
  * Compare c1 and c2
@@ -91,6 +109,14 @@ _bor_inline int pddlCostCmpSum(const pddl_cost_t *c1,
     return cmp;
 }
 
+_bor_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
+{
+    if (c->cost >= PDDL_COST_DEAD_END)
+        return 1;
+    return 0;
+}
+
+const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -20,7 +20,7 @@
 #include "_heur.h"
 
 struct pot_func {
-    double *pot; /*!< Potential function */
+    pddl_pot_solution_t sol;
     int *state; /*!< State for which potential heuristic was computed */
     bor_list_t conn; /*!< Connector to the list of potential functions */
 };
@@ -31,16 +31,15 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
                               bor_list_t *list)
 {
     pot_func_t *f = BOR_ALLOC(pot_func_t);
-    f->pot = BOR_ALLOC_ARR(double, fdr->var.global_id_size);
+    pddlPotSolutionInit(&f->sol);
     f->state = BOR_ALLOC_ARR(int, fdr->var.var_size);
     borListInit(&f->conn);
 
     pddl_pot_t pot;
     pddlPotInitFDR(&pot, fdr);
     pddlPotSetObjFDRState(&pot, &fdr->var, state);
-    double *pfunc = BOR_ALLOC_ARR(double, pot.var_size);
-    pddlPotSolve(&pot, pfunc, pot.var_size, 0);
-    memcpy(f->pot, pfunc, sizeof(double) * fdr->var.global_id_size);
+
+    pddlPotSolve(&pot, &f->sol);
     pddlPotFree(&pot);
 
     memcpy(f->state, state, sizeof(int) * fdr->var.var_size);
@@ -51,31 +50,19 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
 
 static void potFuncDel(pot_func_t *f)
 {
-    BOR_FREE(f->pot);
+    pddlPotSolutionFree(&f->sol);
     BOR_FREE(f->state);
     borListDel(&f->conn);
     BOR_FREE(f);
 }
 
 // TODO: Refactor with hpot
-#define ROUND_EPS 0.001
-static int roundOff(double z)
-{
-    return ceil(z - ROUND_EPS);
-}
 
 static int potFuncHeur(const pot_func_t *f,
                        const int *state,
                        const pddl_fdr_vars_t *vars)
 {
-    double p = 0;
-    for (int var = 0; var < vars->var_size; ++var)
-        p += f->pot[vars->var[var].val[state[var]].global_id];
-    if (p < 0.)
-        return 0;
-    if (p > 1E8)
-        return PDDL_COST_DEAD_END;
-    return roundOff(p);
+    return pddlPotSolutionEvalFDRState(&f->sol, vars, state);
 }
 
 

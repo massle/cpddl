@@ -25,15 +25,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_hpot {
-    double **pot; /*!< Potential functions */
-    int pot_size; /*!< Number of potential functions */
-    int pot_alloc;
-    int var_size; /*!< Number of LP variables in the problem */
-    double *func; /*!< Auxiliary potential function */
-};
-typedef struct pddl_hpot pddl_hpot_t;
-
 #define PDDL_HPOT_OBJ_INIT 0x1
 #define PDDL_HPOT_OBJ_ALL_STATES 0x2
 #define PDDL_HPOT_OBJ_SAMPLES_MAX 0x3
@@ -58,6 +49,8 @@ struct pddl_hpot_config {
     int samples_random_walk; /*!< Uses random walk for sampling */
     int all_states_mutex_size; /*!< Size of sets of facts for
                                     *_ALL_STATES_MUTEX method */
+
+    int store_op_heur_change;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
@@ -71,28 +64,13 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         0, /* .samples_use_mutex */ \
         0, /* .samples_random_walk */ \
         0, /* .all_states_mutex_size */ \
+        0, /* .store_op_heur_change */ \
     }
 
-int pddlHPotInit(pddl_hpot_t *hpot,
-                 const pddl_fdr_t *fdr,
-                 const pddl_hpot_config_t *cfg,
-                 bor_err_t *err);
-
-void pddlHPotFree(pddl_hpot_t *hpot);
-
-/**
- * Returns heuristic estimate for the given FDR state.
- */
-int pddlHPotFDRStateEstimate(const pddl_hpot_t *hpot,
-                             const pddl_fdr_vars_t *vars,
-                             const int *state);
-
-/**
- * Same as pddlHPotFDRStateEstimate() but no rounding is used.
- */
-double pddlHPotFDRStateEstimateDbl(const pddl_hpot_t *hpot,
-                                   const pddl_fdr_vars_t *vars,
-                                   const int *state);
+int pddlHPot(pddl_pot_solutions_t *sols,
+             const pddl_fdr_t *fdr,
+             const pddl_hpot_config_t *cfg,
+             bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

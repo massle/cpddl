@@ -28,6 +28,43 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct pddl_pot_solution {
+    double *pot; /*!< Potentials for all facts */
+    int pot_size;
+    double objval; /*!< Objective value */
+    double *op_change; /*!< Change of heuristic value for each operator */
+    int op_change_size;
+};
+typedef struct pddl_pot_solution pddl_pot_solution_t;
+
+void pddlPotSolutionInit(pddl_pot_solution_t *sol);
+void pddlPotSolutionFree(pddl_pot_solution_t *sol);
+double pddlPotSolutionEvalFDRStateFlt(const pddl_pot_solution_t *sol,
+                                      const pddl_fdr_vars_t *vars,
+                                      const int *state);
+int pddlPotSolutionEvalFDRState(const pddl_pot_solution_t *sol,
+                                const pddl_fdr_vars_t *vars,
+                                const int *state);
+double pddlPotSolutionEvalStripsStateFlt(const pddl_pot_solution_t *sol,
+                                         const bor_iset_t *state);
+int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,
+                                   const bor_iset_t *state);
+
+struct pddl_pot_solutions {
+    pddl_pot_solution_t *sol;
+    int sol_size;
+    int sol_alloc;
+};
+typedef struct pddl_pot_solutions pddl_pot_solutions_t;
+
+void pddlPotSolutionsInit(pddl_pot_solutions_t *sols);
+void pddlPotSolutionsFree(pddl_pot_solutions_t *sols);
+void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
+                         const pddl_pot_solution_t *sol);
+int pddlPotSolutionsEvalMaxFDRState(const pddl_pot_solutions_t *sols,
+                                    const pddl_fdr_vars_t *vars,
+                                    const int *fdr_state);
+
 struct pddl_pot_lb_constr {
     int set;
     bor_iset_t vars;
@@ -39,6 +76,7 @@ struct pddl_pot_constr {
     bor_iset_t plus;
     bor_iset_t minus;
     int rhs;
+    int op_id;
 };
 typedef struct pddl_pot_constr pddl_pot_constr_t;
 
@@ -51,15 +89,22 @@ typedef struct pddl_pot_constrs pddl_pot_constrs_t;
 
 struct pddl_pot {
     int var_size; /*!< Number of LP variables */
+    int fact_var_size;
+    int use_ilp; /*!< ILP solver instead of LP */
+    int store_op_heur_change; /*!< Store changes of heuristic value induced
+                                   by operators in the output */
+    int op_size; /*!< Number of processed operators */
     double *obj; /*!< Objective function coeficients */
     // TODO: Deduplicate constraints using hashtable
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
     pddl_pot_lb_constr_t constr_lb;
+    bor_iset_t init;
 
     bor_segmarr_t *maxpot;
     int maxpot_size;
     bor_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
+    int enforce_int_init; /*!< Enforce integer value for the initial state */
 };
 typedef struct pddl_pot pddl_pot_t;
 
@@ -129,12 +174,45 @@ void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
  */
 void pddlPotResetLowerBoundConstr(pddl_pot_t *pot);
 
+/**
+ * Returns RHS of the lower bound constraint
+ */
+double pddlPotSetLowerBoundConstrRHS(const pddl_pot_t *pot);
 
 /**
- * Solve the LP problem and returns potentials via {w}.
+ * Decrease the RHS of the previously set lower bound constraint.
+ */
+void pddlPotDecreaseLowerBoundConstrRHS(pddl_pot_t *pot, double decrease);
+
+/**
+ * Turns on/off integer linear program.
+ */
+_bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
+{
+    pot->use_ilp = enable;
+}
+
+/**
+ * Turns on/off storing of heuristic changes induced by operators.
+ */
+_bor_inline void pddlPotStoreOpHeurChange(pddl_pot_t *pot, int enable)
+{
+    pot->store_op_heur_change = enable;
+}
+
+/**
+ * Turns on/off enforcing of the integer value for the initial state
+ */
+_bor_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
+{
+    pot->enforce_int_init = enable;
+}
+
+/**
+ * Solve the LP problem and returns the solution via sol.
  * Return 0 on success, -1 if solution was not found.
  */
-int pddlPotSolve(const pddl_pot_t *pot, double *w, int var_size, int use_ilp);
+int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol);
 
 void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
                             const pddl_mg_strips_t *mg_strips,

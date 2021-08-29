@@ -971,13 +971,35 @@ int pddlStripsGround(pddl_strips_t *strips,
                      const pddl_ground_config_t *cfg,
                      bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "Ground: ");
+    BOR_INFO(err, "Config lifted-mgroups.size: %d",
+             (cfg->lifted_mgroups != NULL ?
+                cfg->lifted_mgroups->mgroup_size : 0));
+    BOR_INFO(err, "Config prune-op-pre-mutex: %d", cfg->prune_op_pre_mutex);
+    BOR_INFO(err, "Config prune-op-dead-end: %d", cfg->prune_op_dead_end);
+    BOR_INFO(err, "Config remove-static-facts: %d", cfg->remove_static_facts);
     pddl_strips_ground_t g;
 
     if (pddlStripsGroundStart(&g, pddl, cfg, err, NULL, NULL) != 0
             || pddlStripsGroundUnifyStep(&g) != 0
             || pddlStripsGroundFinalize(&g, strips) != 0){
+        BOR_INFO2(err, "Grounding failed.");
+        BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, -1);
     }
 
+    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
+    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    int count = 0;
+    for (int i = 0; i < strips->op.op_size; ++i){
+        if (strips->op.op[i]->cond_eff_size > 0)
+            ++count;
+    }
+    BOR_INFO(err, "Number of Strips Operators"
+             " with Conditional Effects: %d", count);
+
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }

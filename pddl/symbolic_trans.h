@@ -42,7 +42,7 @@ struct pddl_symbolic_trans_set {
 
     bor_iset_t op; /*!< List of covered operators */
     pddl_cost_t cost; /*!< Cost of the covered operatros */
-    double heur_change;
+    pddl_cost_t heur_change; /*!< Change of heuristic value induced by transitions */
 };
 typedef struct pddl_symbolic_trans_set pddl_symbolic_trans_set_t;
 
@@ -61,7 +61,8 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *tr,
                                int use_op_constr,
                                int max_nodes,
                                float max_time,
-                               double *potentials,
+                               pddl_cost_t *op_heur_change,
+                               int sum_op_heur_change_to_cost,
                                bor_err_t *err);
 void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *tr);
 
