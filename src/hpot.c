@@ -176,7 +176,6 @@ static int addInitConstr(pddl_pot_t *pot,
                          const pddl_hpot_config_t *cfg,
                          bor_err_t *err)
 {
-    pddlPotStoreOpHeurChange(pot, 1);
     pddlPotResetLowerBoundConstr(pot);
     pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
     pddl_pot_solution_t sol;
@@ -198,6 +197,7 @@ static int addInitConstr(pddl_pot_t *pot,
         int v = fdr->var.var[var].val[fdr->init[var]].global_id;
         borISetAdd(&vars, v);
     }
+    rhs -= INIT_STATE_RHS_DECREASE_STEP;
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
     BOR_INFO(err, "added lower bound constraint with rhs: %.4f (%a)",
              rhs, rhs);
