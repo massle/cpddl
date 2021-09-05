@@ -72,6 +72,7 @@ struct options {
     int multiply_op_cost;
     int tnf;
     int tnf_multiply;
+    int op_pot_real;
 } opt;
 
 bor_err_t err = BOR_ERR_INIT;
@@ -410,6 +411,9 @@ static int readOpts(int *argc, char *argv[])
                 "As --tnf but multiplication of preconditions is used (default: off)");
     optsAddDesc("tnfm", 0x0, OPTS_NONE, &opt.tnf_multiply, NULL,
                 "Alias for --tnf-multiply");
+
+    optsAddDesc("op-pot-real", 0x0, OPTS_NONE, &opt.op_pot_real, NULL,
+                "Use real-valued operator potentials.");
 
     if (opts(argc, argv) != 0 || opt.help || (*argc != 3 && *argc != 2)){
         if (*argc <= 1){
@@ -1603,6 +1607,8 @@ static int symba(void)
             symb_cfg.use_pot_heur_sum_op_cost = 1;
             BOR_INFO2(&err, "symba: Operator potentials are added to operator costs.");
         }
+        if (opt.op_pot_real)
+            symb_cfg.use_pot_heur_real = 1;
         symb_cfg.pot_heur_config = pot_cfg;
         if (opt.use_heur_bw || opt.bw)
             symb_cfg.use_heur_bw = 1;

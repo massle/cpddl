@@ -165,8 +165,8 @@ static int initPot(pddl_pot_t *pot,
                       pot->maxpot_size);
     }
 
-    if (cfg->store_op_heur_change)
-        pddlPotStoreOpHeurChange(pot, 1);
+    if (cfg->op_pot)
+        pddlPotEnableOpPot(pot, 1, cfg->op_pot_real);
 
     return 0;
 }

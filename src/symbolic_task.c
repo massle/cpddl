@@ -1118,11 +1118,11 @@ static void prepareTask(pddl_symbolic_task_t *ss,
 
 static int preparePotHeur(const pddl_fdr_t *fdr,
                           const pddl_symbolic_task_config_t *cfg,
-                          pddl_cost_t **op_heur_change,
+                          pddl_cost_t **op_pot,
                           pddl_cost_t *init_h_value,
                           bor_err_t *err)
 {
-    *op_heur_change = NULL;
+    *op_pot = NULL;
     pddlCostSetZero(init_h_value);
     if (!cfg->use_pot_heur && !cfg->use_pot_heur_inconsistent)
         return 0;
@@ -1130,7 +1130,9 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     pddl_pot_solutions_t pot;
     pddlPotSolutionsInit(&pot);
     pddl_hpot_config_t pot_cfg = cfg->pot_heur_config;
-    pot_cfg.store_op_heur_change = 1;
+    pot_cfg.op_pot = 1;
+    if (cfg->use_pot_heur_real)
+        pot_cfg.op_pot_real = 1;
     if (pddlHPot(&pot, fdr, &pot_cfg, err) != 0){
         BOR_ERR_RET2(err, -1, "Could not find a potential function.");
     }
@@ -1144,19 +1146,19 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     BOR_INFO(err, "Sum of potentials for the initial state: %.4f",
              pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
     init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
-    *op_heur_change = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
-    for (int i = 0; i < sol->op_change_size && i < fdr->op.op_size; ++i){
-        double change = sol->op_change[i];
+    *op_pot = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
+    for (int i = 0; i < sol->op_pot_size && i < fdr->op.op_size; ++i){
+        double change = sol->op_pot[i];
         change = floor(change);
 
         if (change >= PDDL_COST_DEAD_END){
-            (*op_heur_change)[i].cost = PDDL_COST_DEAD_END;
+            (*op_pot)[i].cost = PDDL_COST_DEAD_END;
         }else if (change <= PDDL_COST_MIN){
-            (*op_heur_change)[i].cost = PDDL_COST_MIN;
+            (*op_pot)[i].cost = PDDL_COST_MIN;
         }else if (change >= PDDL_COST_MAX){
-            (*op_heur_change)[i].cost = PDDL_COST_MAX;
+            (*op_pot)[i].cost = PDDL_COST_MAX;
         }else{
-            (*op_heur_change)[i].cost = change;
+            (*op_pot)[i].cost = change;
         }
     }
 
@@ -1217,9 +1219,9 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     }
     BOR_INFO_PREFIX_PUSH(err, "symbolic: ");
 
-    pddl_cost_t *pot_op_heur_change;
+    pddl_cost_t *op_pot;
     pddl_cost_t pot_init_h_value;
-    if (preparePotHeur(fdr, cfg, &pot_op_heur_change, &pot_init_h_value, err) != 0)
+    if (preparePotHeur(fdr, cfg, &op_pot, &pot_init_h_value, err) != 0)
         BOR_TRACE_RET(err, NULL);
 
     pddl_symbolic_task_t *ss;
@@ -1267,7 +1269,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                               cfg->use_op_constr,
                               cfg->trans_merge_max_nodes,
                               cfg->trans_merge_max_time,
-                              pot_op_heur_change,
+                              op_pot,
                               cfg->use_pot_heur_sum_op_cost,
                               err);
     BOR_INFO2(err, "Transitions created.");
@@ -1307,8 +1309,8 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     //Cudd_PrintInfo(ss->mgr, stderr);
 
     BOR_INFO_PREFIX_POP(err);
-    if (pot_op_heur_change != NULL)
-        BOR_FREE(pot_op_heur_change);
+    if (op_pot != NULL)
+        BOR_FREE(op_pot);
     return ss;
 }
 
