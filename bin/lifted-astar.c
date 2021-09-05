@@ -290,12 +290,14 @@ int main(int argc, char *argv[])
         if (homo_cfg.random_objs || homo_cfg.random_type_objs){
             if (homo_cfg.random_objs){
                 BOR_INFO(&err, "Homomorph: Random objects. rm-ratio: %.2f,"
-                               " tries: %d",
-                         homo_cfg.rm_ratio, opt.homo_samples);
+                               " tries: %d, keep-goals: %d",
+                         homo_cfg.rm_ratio, opt.homo_samples,
+                         homo_cfg.keep_goal_objs);
             }else{
                 BOR_INFO(&err, "Homomorph: Random types-objects."
-                               " rm-ratio: %.2f, tries: %d",
-                         homo_cfg.rm_ratio, opt.homo_samples);
+                               " rm-ratio: %.2f, tries: %d, keep-goals: %d",
+                         homo_cfg.rm_ratio, opt.homo_samples,
+                         homo_cfg.keep_goal_objs);
             }
             heur = heurCollapseRandom(&pddl, &err);
         }else{
