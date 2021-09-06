@@ -104,11 +104,11 @@ static int readOpts(int *argc,
 
     if (strcmp(opt.homo_type, "type") == 0){
         // Do nothing -- this is default
-    }else if (strncmp(opt.homo_type, "rnd-type", 8) == 0){
+    }else if (strcmp(opt.homo_type, "rnd-type") == 0){
         homo_cfg.random_type_objs = 1;
         homo_cfg.rm_ratio = opt.homo_rm_ratio;
         homo_cfg.keep_goal_objs = !opt.homo_allow_goal;
-    }else if (strncmp(opt.homo_type, "rnd", 3) == 0){
+    }else if (strcmp(opt.homo_type, "rnd") == 0){
         homo_cfg.random_objs = 1;
         homo_cfg.rm_ratio = opt.homo_rm_ratio;
         homo_cfg.keep_goal_objs = !opt.homo_allow_goal;

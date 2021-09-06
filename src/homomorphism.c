@@ -150,6 +150,7 @@ static int collapseObjs(pddl_t *pddl,
 }
 
 static int collapseRandomPairTypeObj(pddl_t *pddl,
+                                     const pddl_homomorphism_config_t *cfg,
                                      bor_rand_mt_t *rnd,
                                      pddl_obj_id_t *obj_map,
                                      int obj_size,
@@ -185,13 +186,17 @@ static int collapseRandomPairTypeObj(pddl_t *pddl,
 }
 
 static int collapseRandomPairObj(pddl_t *pddl,
+                                 const pddl_homomorphism_config_t *cfg,
                                  bor_rand_mt_t *rnd,
                                  pddl_obj_id_t *obj_map,
                                  int obj_size,
                                  bor_err_t *err)
 {
     BOR_ISET(goal_objs);
-    collectGoalObjs(pddl, &goal_objs);
+    if (cfg->keep_goal_objs){
+        collectGoalObjs(pddl, &goal_objs);
+        //BOR_INFO(err, "Collected %d goal objects", borISetSize(&goal_objs));
+    }
 
     int *choose_types = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
     int *choose_objs = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
@@ -366,6 +371,7 @@ int pddlHomomorphism(pddl_t *pddl,
         }
     }else if (cfg->random_objs || cfg->random_type_objs){
         int (*fn)(pddl_t *pddl,
+                  const pddl_homomorphism_config_t *cfg,
                   bor_rand_mt_t *rnd,
                   pddl_obj_id_t *obj_map,
                   int obj_size,
@@ -377,7 +383,7 @@ int pddlHomomorphism(pddl_t *pddl,
         int target = pddl->obj.obj_size * (1.f - cfg->rm_ratio);
         while (pddl->obj.obj_size >= 1
                 && pddl->obj.obj_size != target
-                && fn(pddl, rnd, obj_map, obj_size, err) == 0);
+                && fn(pddl, cfg, rnd, obj_map, obj_size, err) == 0);
         borRandMTDel(rnd);
     }
 
