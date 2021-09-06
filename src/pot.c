@@ -637,8 +637,7 @@ static int addOpPotConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
         int var = var_size + i;
         //borLPSetVarRange(lp, var, LPVAR_LOWER, 10. * LPVAR_UPPER);
         borLPSetVarRange(lp, var, -1E20, 1E20);
-        if (!pot->op_pot_real)
-            borLPSetVarInt(lp, var);
+        borLPSetVarInt(lp, var);
         borLPSetObj(lp, var, 0);
     }
 
@@ -656,6 +655,31 @@ static int addOpPotConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
     return var_size;
 }
 
+static double constrLHS(const pddl_pot_t *pot,
+                        const pddl_pot_constr_t *c,
+                        const double *w)
+{
+    // Use kahan summation
+    double sum = 0.;
+    double comp = 0.;
+    int var;
+    BOR_ISET_FOR_EACH(&c->plus, var){
+        double y = w[var] - comp;
+        double t = sum + y;
+        comp = (t - sum) - y;
+        sum = t;
+    }
+    BOR_ISET_FOR_EACH(&c->minus, var){
+        double y = -w[var] - comp;
+        double t = sum + y;
+        comp = (t - sum) - y;
+        sum = t;
+    }
+
+    return sum;
+}
+
+
 static void storeOpPot(bor_lp_t *lp,
                        const double *obj,
                        int var_offset,
@@ -667,10 +691,10 @@ static void storeOpPot(bor_lp_t *lp,
     for (int ci = 0; ci < pot->constr_op.size; ++ci){
         const pddl_pot_constr_t *c = pot->constr_op.c + ci;
         if (c->op_id >= 0){
-            double oval = obj[var_offset + ci];
             if (pot->op_pot_real){
-                sol->op_pot[c->op_id] = oval;
+                sol->op_pot[c->op_id] = -constrLHS(pot, c, obj);
             }else{
+                double oval = obj[var_offset + ci];
                 sol->op_pot[c->op_id] = (int)round(oval);
             }
         }
@@ -707,7 +731,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     setMaxpotConstrs(lp, pot, &row);
 
     int op_pot_var_offset = 0;
-    if (pot->op_pot)
+    if (pot->op_pot && !pot->op_pot_real)
         op_pot_var_offset = addOpPotConstrs(lp, pot);
     if (pot->enforce_int_init)
         enforceIntInit(lp, pot);
