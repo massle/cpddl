@@ -61,21 +61,26 @@ void pddlDatalogDel(pddl_datalog_t *dl);
 
 /**
  * Adds constant to the datalog program.
+ * TODO: user-id
  */
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
 
 /**
  * Adds predicate to the datalog program.
+ * TODO: types
  */
 unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name);
 
 /**
  * Adds variable to the datalog program.
+ * TODO: user-id
  */
 unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name);
 
 /**
  * Adds rule to the datalog.
+ * TODO: neq
+ * TODO: types
  */
 int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl);
 
