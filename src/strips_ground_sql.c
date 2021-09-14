@@ -253,20 +253,6 @@ static int sqlPredInsertAtomArg(sql_pred_t *qpred,
     return ret == SQLITE_DONE;
 }
 
-static int sqlPredInsertAtom(sql_pred_t *qpred,
-                             sqlite3 *db,
-                             const pddl_cond_atom_t *atom,
-                             bor_err_t *err)
-{
-    pddl_obj_id_t arg[qpred->arity];
-    for (int i = 0; i < atom->arg_size; ++i){
-        ASSERT(atom->arg[i].obj >= 0);
-        arg[i] = atom->arg[i].obj;
-    }
-    return sqlPredInsertAtomArg(qpred, db, arg, err);
-}
-
-
 static void sqlActionConstructColumns(char *query,
                                       const pddl_prep_action_t *prep_action,
                                       bor_iset_t *type_tables)
@@ -569,25 +555,14 @@ static int sqlGroundInit(sql_ground_t *g,
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     // Insert initial state
-    bor_list_t *item;
-    BOR_LIST_FOR_EACH(&g->pddl->init->part, item){
-        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
-            if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
-                pddlStripsMakerAddStaticAtom(&g->strips_maker, a, NULL, NULL);
-            }else{
-                pddlStripsMakerAddAtom(&g->strips_maker, a, NULL, NULL);
-            }
-            sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
-
-        }else if (c->type == PDDL_COND_ASSIGN){
-            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
-            ASSERT(ass->fvalue == NULL);
-            ASSERT(ass->lvalue != NULL);
-            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
-            pddlStripsMakerAddFunc(&g->strips_maker, ass, NULL, NULL);
-        }
+    pddlStripsMakerAddInit(&g->strips_maker, g->pddl);
+    for (int i = 0; i < g->strips_maker.ground_atom_static.atom_size; ++i){
+        const pddl_ground_atom_t *a = g->strips_maker.ground_atom_static.atom[i];
+        sqlPredInsertAtomArg(g->pred + a->pred, g->db, a->arg, err);
+    }
+    for (int i = 0; i < g->strips_maker.ground_atom.atom_size; ++i){
+        const pddl_ground_atom_t *a = g->strips_maker.ground_atom.atom[i];
+        sqlPredInsertAtomArg(g->pred + a->pred, g->db, a->arg, err);
     }
     BOR_INFO(err, "Initial state inserted."
                   " %d atoms, %d static atoms, %d functions",

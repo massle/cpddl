@@ -92,6 +92,11 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
 /**
  * TODO
  */
+int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl);
+
+/**
+ * TODO
+ */
 int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
                               const pddl_t *pddl,
                               const pddl_ground_config_t *cfg,

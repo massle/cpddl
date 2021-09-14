@@ -205,6 +205,32 @@ pddl_ground_action_args_t *pddlStripsMakerFindAction(pddl_strips_maker_t *sm,
     return BOR_LIST_ENTRY(found, pddl_ground_action_args_t, htable);
 }
 
+int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
+{
+    bor_list_t *item;
+    BOR_LIST_FOR_EACH(&pddl->init->part, item){
+        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        if (c->type == PDDL_COND_ATOM){
+            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+            if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
+                pddlStripsMakerAddStaticAtom(sm, a, NULL, NULL);
+            }else{
+                pddlStripsMakerAddAtom(sm, a, NULL, NULL);
+            }
+            // TODO
+            //sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
+
+        }else if (c->type == PDDL_COND_ASSIGN){
+            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+            ASSERT(ass->fvalue == NULL);
+            ASSERT(ass->lvalue != NULL);
+            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            pddlStripsMakerAddFunc(sm, ass, NULL, NULL);
+        }
+    }
+    return 0;
+}
+
 static int createStripsFacts(pddl_strips_maker_t *sm,
                              pddl_strips_t *strips,
                              const pddl_t *pddl,
