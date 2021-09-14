@@ -103,5 +103,6 @@
 #include <pddl/symbolic_task.h>
 #include <pddl/black_mgroup.h>
 #include <pddl/red_black_fdr.h>
+#include <pddl/datalog.h>
 
 #endif /* __PDDL_H__ */
