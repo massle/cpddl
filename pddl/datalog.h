@@ -21,6 +21,7 @@
 #define __PDDL_DATALOG_H__
 
 #include <stdio.h>
+#include <boruvka/iset.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus
@@ -28,18 +29,23 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_datalog_atom {
-    unsigned pred;
+    int pred;
     unsigned *arg;
+
+    int var_size;
+    bor_iset_t var_set;
 };
 typedef struct pddl_datalog_atom pddl_datalog_atom_t;
 
-struct pddl_datalog_clause {
+struct pddl_datalog_rule {
     pddl_datalog_atom_t head;
     pddl_datalog_atom_t *body;
     int body_size;
     int body_alloc;
+
+    int head_has_all_vars_from_body;
 };
-typedef struct pddl_datalog_clause pddl_datalog_clause_t;
+typedef struct pddl_datalog_rule pddl_datalog_rule_t;
 
 typedef struct pddl_datalog pddl_datalog_t;
 
@@ -69,9 +75,15 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name);
 unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name);
 
 /**
- * Adds clause to the datalog.
+ * Adds rule to the datalog.
  */
-int pddlDatalogAddClause(pddl_datalog_t *dl, const pddl_datalog_clause_t *cl);
+int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl);
+
+/**
+ * Returns true if the program is safe, i.e., all variables from head are
+ * in body.
+ */
+int pddlDatalogIsSafe(const pddl_datalog_t *dl);
 
 /**
  * Transforms the datalog to the normal form according to
@@ -116,35 +128,49 @@ void pddlDatalogAtomSetArg(pddl_datalog_t *dl,
                            unsigned term);
 
 /**
- * Initializes empty clause.
+ * Initializes empty rule.
  */
-void pddlDatalogClauseInit(pddl_datalog_t *dl, pddl_datalog_clause_t *clause);
+void pddlDatalogRuleInit(pddl_datalog_t *dl, pddl_datalog_rule_t *rule);
 
 /**
- * Deep copy of the clause.
+ * Deep copy of the rule.
  */
-void pddlDatalogClauseCopy(pddl_datalog_t *dl,
-                           pddl_datalog_clause_t *dst,
-                           const pddl_datalog_clause_t *src);
+void pddlDatalogRuleCopy(pddl_datalog_t *dl,
+                         pddl_datalog_rule_t *dst,
+                         const pddl_datalog_rule_t *src);
 
 /**
- * Free clause structure.
+ * Free rule structure.
  */
-void pddlDatalogClauseFree(pddl_datalog_t *dl, pddl_datalog_clause_t *clause);
+void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule);
 
 /**
- * Set head of the clause.
+ * Set head of the rule.
  */
-void pddlDatalogClauseSetHead(pddl_datalog_t *dl,
-                              pddl_datalog_clause_t *clause,
-                              const pddl_datalog_atom_t *head);
+void pddlDatalogRuleSetHead(pddl_datalog_t *dl,
+                            pddl_datalog_rule_t *rule,
+                            const pddl_datalog_atom_t *head);
 
 /**
- * Adds a body atom to the clause.
+ * Adds a body atom to the rule.
  */
-void pddlDatalogClauseAddBody(pddl_datalog_t *dl,
-                              pddl_datalog_clause_t *clause,
-                              const pddl_datalog_atom_t *atom);
+void pddlDatalogRuleAddBody(pddl_datalog_t *dl,
+                            pddl_datalog_rule_t *rule,
+                            const pddl_datalog_atom_t *atom);
+
+/**
+ * Removes i'th atom from the body
+ */
+void pddlDatalogRuleRmBody(pddl_datalog_t *dl,
+                           pddl_datalog_rule_t *rule,
+                           int i);
+
+/**
+ * Returns true if the program is safe, i.e., all variables from head are
+ * in body.
+ */
+int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
+                          const pddl_datalog_rule_t *rule);
 
 
 void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout);
