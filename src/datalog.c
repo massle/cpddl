@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include <unistd.h>
 #include <sqlite3.h>
 #include <boruvka/alloc.h>
 #include "pddl/datalog.h"
@@ -98,7 +99,7 @@ struct pddl_datalog {
 
 #define QUERY_SIZE 4096
 
-static void sqlFactTableInit(pddl_datalog_t *dl)
+static void sqlCreateFactTable(pddl_datalog_t *dl)
 {
     char query[QUERY_SIZE];
     int off = 0;
@@ -111,7 +112,7 @@ static void sqlFactTableInit(pddl_datalog_t *dl)
     CHECK_SQL_ERR(dl->db, ret);
 }
 
-static void sqlQueryInsertFactInit(pddl_datalog_t *dl)
+static void sqlPrepareQueryInsertFact(pddl_datalog_t *dl)
 {
     char query[QUERY_SIZE];
     int off = 0;
@@ -125,7 +126,7 @@ static void sqlQueryInsertFactInit(pddl_datalog_t *dl)
     CHECK_SQL_ERR(dl->db, ret);
 }
 
-static void sqlQueryFindFactInit(pddl_datalog_t *dl)
+static void sqlPrepareQueryFindFact(pddl_datalog_t *dl)
 {
     dl->q_find_fact_size = dl->max_pred_arity + 1;
     dl->q_find_fact = BOR_ALLOC_ARR(sqlite3_stmt *, dl->q_find_fact_size);
@@ -144,7 +145,7 @@ static void sqlQueryFindFactInit(pddl_datalog_t *dl)
     }
 }
 
-static void sqlQueryGetFactInit(pddl_datalog_t *dl)
+static void sqlPrepareQueryGetFact(pddl_datalog_t *dl)
 {
     char query[QUERY_SIZE];
     int off = 0;
@@ -226,7 +227,7 @@ static void sqlInsertFact(pddl_datalog_t *dl, int pred, const int *arg)
         ++dl->fact_size;
 }
 
-static void sqlBodyTableInit(pddl_datalog_t *dl, int bid)
+static void sqlCreateBodyTable(pddl_datalog_t *dl, int bid)
 {
     char query[QUERY_SIZE];
     int off = 0;
@@ -248,7 +249,7 @@ static void sqlBodyTableInit(pddl_datalog_t *dl, int bid)
     CHECK_SQL_ERR(dl->db, ret);
 }
 
-static void sqlQueryInsertBodyInit(pddl_datalog_t *dl, int bid)
+static void sqlPrepareQueryInsertBody(pddl_datalog_t *dl, int bid)
 {
     char query[QUERY_SIZE];
     int off = 0;
@@ -263,6 +264,32 @@ static void sqlQueryInsertBodyInit(pddl_datalog_t *dl, int bid)
     int ret = sqlite3_prepare_v2(dl->db, query, -1,
                                  &dl->q_insert_body[bid], NULL);
     CHECK_SQL_ERR(dl->db, ret);
+}
+
+static void sqlPrepareQuerySearchBody(pddl_datalog_t *dl, int bid)
+{
+    dl->q_search_body_size = dl->max_pred_arity + 1;
+    dl->q_search_body[bid] = BOR_ALLOC_ARR(sqlite3_stmt *,
+                                           dl->q_search_body_size);
+    for (int arity = 0; arity < dl->q_search_body_size; ++arity){
+        char query[QUERY_SIZE];
+        int off = 0;
+        off += sprintf(query, "SELECT ");
+        for (int i = 0; i < dl->max_pred_arity; ++i){
+            if (i > 0)
+                off += sprintf(query + off, ",");
+            off += sprintf(query + off, "val_arg%d", i);
+        }
+        off += sprintf(query + off, " FROM body%d WHERE key_rule = ?", bid);
+        for (int i = 0; i < arity; ++i)
+            off += sprintf(query + off, " AND key_arg%d = ?", i);
+        off += sprintf(query + off, ";");
+
+        fprintf(stderr, "sql-query search-body[%d][%d]: %s\n", bid, arity, query);
+        int ret = sqlite3_prepare_v2(dl->db, query, -1,
+                                     &dl->q_search_body[bid][arity], NULL);
+        CHECK_SQL_ERR(dl->db, ret);
+    }
 }
 
 static void sqlInsertBody(pddl_datalog_t *dl,
@@ -309,32 +336,6 @@ static void sqlInsertBody(pddl_datalog_t *dl,
     ret = sqlite3_step(dl->q_insert_body[bid]);
     if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT)
         CHECK_SQL_ERR(dl->db, ret);
-}
-
-static void sqlQuerySearchBodyInit(pddl_datalog_t *dl, int bid)
-{
-    dl->q_search_body_size = dl->max_pred_arity + 1;
-    dl->q_search_body[bid] = BOR_ALLOC_ARR(sqlite3_stmt *,
-                                           dl->q_search_body_size);
-    for (int arity = 0; arity < dl->q_search_body_size; ++arity){
-        char query[QUERY_SIZE];
-        int off = 0;
-        off += sprintf(query, "SELECT ");
-        for (int i = 0; i < dl->max_pred_arity; ++i){
-            if (i > 0)
-                off += sprintf(query + off, ",");
-            off += sprintf(query + off, "val_arg%d", i);
-        }
-        off += sprintf(query + off, " FROM body%d WHERE key_rule = ?", bid);
-        for (int i = 0; i < arity; ++i)
-            off += sprintf(query + off, " AND key_arg%d = ?", i);
-        off += sprintf(query + off, ";");
-
-        fprintf(stderr, "sql-query search-body[%d][%d]: %s\n", bid, arity, query);
-        int ret = sqlite3_prepare_v2(dl->db, query, -1,
-                                     &dl->q_search_body[bid][arity], NULL);
-        CHECK_SQL_ERR(dl->db, ret);
-    }
 }
 
 static void sqlSearchBodyPrepare(pddl_datalog_t *dl,
@@ -411,25 +412,28 @@ static void sqlDBInit(pddl_datalog_t *dl, bor_err_t *err)
                     | SQLITE_OPEN_CREATE
                     //| SQLITE_OPEN_MEMORY
                     | SQLITE_OPEN_PRIVATECACHE;
+    unlink("datalog.db");
     int ret = sqlite3_open_v2("datalog.db", &dl->db, flags, NULL);
     CHECK_SQL_ERR(dl->db, ret);
     BOR_INFO2(err, "Sqlite database created");
     ASSERT_RUNTIME(sqlite3_get_autocommit(dl->db));
 
-    sqlFactTableInit(dl);
-    sqlBodyTableInit(dl, 0);
-    sqlBodyTableInit(dl, 1);
-    sqlQueryInsertFactInit(dl);
-    sqlQueryFindFactInit(dl);
-    sqlQueryGetFactInit(dl);
-    sqlQueryInsertBodyInit(dl, 0);
-    sqlQueryInsertBodyInit(dl, 1);
-    sqlQuerySearchBodyInit(dl, 0);
-    sqlQuerySearchBodyInit(dl, 1);
+    sqlCreateFactTable(dl);
+    sqlCreateBodyTable(dl, 0);
+    sqlCreateBodyTable(dl, 1);
+    BOR_INFO2(err, "Sqlite database: created 3 tables");
+    sqlPrepareQueryInsertFact(dl);
+    sqlPrepareQueryFindFact(dl);
+    sqlPrepareQueryGetFact(dl);
+    sqlPrepareQueryInsertBody(dl, 0);
+    sqlPrepareQueryInsertBody(dl, 1);
+    sqlPrepareQuerySearchBody(dl, 0);
+    sqlPrepareQuerySearchBody(dl, 1);
+    BOR_INFO(err, "Sqlite database: prepared %d queries",
+             1 + dl->q_find_fact_size + 1 + 2 + 2 * dl->q_search_body_size);
 }
 
-static void atomSetUp(pddl_datalog_t *dl,
-                      pddl_datalog_atom_t *atom)
+static void atomSetUp(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
 {
     atom->var_size = 0;
     borISetEmpty(&atom->var_set);
@@ -459,9 +463,8 @@ static void ruleSetUp(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
 
         borISetUnion(&body_vars, &rule->body[i].var_set);
     }
-    // TODO: this is wrong
-    rule->head_has_all_vars_from_body
-            = borISetIsSubset(&rule->head.var_set, &body_vars);
+    rule->is_safe = borISetIsSubset(&rule->head.var_set, &body_vars);
+    rule->same_head_body_vars = borISetEq(&body_vars, &rule->head.var_set);
     borISetFree(&body_vars);
 }
 
@@ -479,6 +482,21 @@ static void predsSetUp(pddl_datalog_t *dl)
             ASSERT(pred < dl->pred_size);
             borISetAdd(&dl->pred[pred].relevant_rules, r);
         }
+    }
+}
+
+static void setUp(pddl_datalog_t *dl, int db, bor_err_t *err)
+{
+    if (dl->dirty){
+        for (int r = 0; r < dl->rule_size; ++r)
+            ruleSetUp(dl, &dl->rule[r]);
+        predsSetUp(dl);
+        dl->dirty = 0;
+        if (db)
+            sqlDBInit(dl, err);
+
+    }else if (db && dl->db == NULL){
+        sqlDBInit(dl, err);
     }
 }
 
@@ -592,7 +610,6 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
     pddl_datalog_rule_t *rule = dl->rule + dl->rule_size++;
     pddlDatalogRuleInit(dl, rule);
     pddlDatalogRuleCopy(dl, rule, cl);
-    ruleSetUp(dl, rule);
     dl->dirty = 1;
     return 0;
 }
@@ -605,7 +622,7 @@ static void joinVars(const pddl_datalog_rule_t *rule,
     borISetEmpty(vars);
     borISetUnion2(vars, &a1->var_set, &a2->var_set);
 
-    if (rule->head_has_all_vars_from_body){
+    if (rule->same_head_body_vars){
         borISetIntersect(vars, &rule->head.var_set);
 
     }else{
@@ -724,17 +741,28 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl)
     return 1;
 }
 
-int pddlDatalogToNormalForm(pddl_datalog_t *dl)
+int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err)
 {
-    if (!pddlDatalogIsSafe(dl))
-        return -1;
+    BOR_INFO_PREFIX_PUSH(err, "DL: ");
+    BOR_INFO(err, "Normal form of the datalog program start"
+                  " (consts: %d, vars: %d, predicates: %d, rules: %d)",
+             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    setUp(dl, 0, err);
+    if (!pddlDatalogIsSafe(dl)){
+        BOR_ERR_RET2(err, -1, "Cannot create normal form because the"
+                              "datalog program is not safe");
+    }
 
     int rule_size = dl->rule_size;
     for (int ci = 0; ci < rule_size; ++ci){
         while (dl->rule[ci].body_size > 2)
             toNormalFormStep(dl, ci);
     }
+    BOR_INFO(err, "Normal form of the datalog program DONE"
+                  " (consts: %d, vars: %d, predicates: %d, rules: %d)",
+             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     dl->dirty = 1;
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -807,16 +835,6 @@ static int unify(pddl_datalog_t *dl,
     return 0;
 }
 
-static void argToVarMap(const pddl_datalog_atom_t *atom,
-                        const int *arg,
-                        int *var_map)
-{
-    int i = 0;
-    int var;
-    BOR_ISET_FOR_EACH(&atom->var_set, var)
-        var_map[var] = arg[i++];
-}
-
 static void headToFact(pddl_datalog_t *dl,
                        const pddl_datalog_atom_t *head,
                        const int *var_map)
@@ -878,12 +896,14 @@ static void applyFactOnRule(pddl_datalog_t *dl,
 
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
 {
-    if (dl->db == NULL || dl->dirty)
-        sqlDBInit(dl, err);
-    if (dl->dirty)
-        predsSetUp(dl);
+    BOR_INFO_PREFIX_PUSH(err, "DL: ");
+    BOR_INFO_PREFIX_PUSH(err, "Canonical model: ");
+    BOR_INFO(err, "start (consts: %d, vars: %d, predicates: %d, rules: %d)",
+             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    setUp(dl, 1, err);
 
     insertInitialFacts(dl, err);
+    BOR_INFO(err, "Added initial facts: %d", dl->fact_size);
 
     int cur_id = 0;
     int cur_pred;
@@ -894,7 +914,12 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
         BOR_ISET_FOR_EACH(&dl->pred[cur_pred].relevant_rules, rule_id)
             applyFactOnRule(dl, cur_pred, cur_arg, rule_id, err);
         ++cur_id;
+        if (cur_id % 1000 == 0)
+            BOR_INFO(err, "progress (facts: %d)", dl->fact_size);
     }
+    BOR_INFO(err, "DONE (facts: %d)", dl->fact_size);
+    BOR_INFO_PREFIX_POP(err);
+    BOR_INFO_PREFIX_POP(err);
 }
 
 void pddlDatalogAtomInit(pddl_datalog_t *dl,
@@ -1030,7 +1055,7 @@ static void printEl(const pddl_datalog_t *dl, unsigned id, FILE *fout)
         if (dl->var[idx].name != NULL){
             fprintf(fout, "%s", dl->var[idx].name);
         }else{
-            fprintf(fout, "_V%d", idx);
+            fprintf(fout, "_X%d", idx);
         }
 
     }else if (IS_PRED(id)){

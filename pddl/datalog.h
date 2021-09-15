@@ -44,7 +44,8 @@ struct pddl_datalog_rule {
     int body_size;
     int body_alloc;
 
-    int head_has_all_vars_from_body;
+    int is_safe;
+    int same_head_body_vars;
     bor_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
@@ -103,7 +104,7 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl);
  *
  * Return 0 on success, -1 if the normal form could not be created.
  */
-int pddlDatalogToNormalForm(pddl_datalog_t *dl);
+int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err);
 
 /**
  * TODO
