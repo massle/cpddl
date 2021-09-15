@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <boruvka/iset.h>
+#include <boruvka/err.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus
@@ -44,6 +45,7 @@ struct pddl_datalog_rule {
     int body_alloc;
 
     int head_has_all_vars_from_body;
+    bor_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
 
@@ -102,6 +104,11 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl);
  * Return 0 on success, -1 if the normal form could not be created.
  */
 int pddlDatalogToNormalForm(pddl_datalog_t *dl);
+
+/**
+ * TODO
+ */
+void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err);
 
 /**
  * Initializes atom of the given predicate previously created with
