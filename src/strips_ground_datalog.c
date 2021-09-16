@@ -371,6 +371,8 @@ static void groundFree(ground_t *g)
     BOR_FREE(g->type_to_dlpred);
     BOR_FREE(g->pred_to_dlpred);
     BOR_FREE(g->obj_to_dlconst);
+    BOR_FREE(g->action);
+    BOR_FREE(g->dlvar);
 }
 
 static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
@@ -406,7 +408,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
     pddlDatalogToNormalForm(ground.dl, err);
-    pddlDatalogPrint(ground.dl, stderr);
+    //pddlDatalogPrint(ground.dl, stderr);
     pddlDatalogCanonicalModel(ground.dl, err);
     pddlStripsMakerAddInit(&ground.strips_maker, ground.pddl);
     for (int p = 0; p < ground.pddl->pred.pred_size; ++p){
