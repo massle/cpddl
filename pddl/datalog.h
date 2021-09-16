@@ -43,7 +43,11 @@ struct pddl_datalog_rule {
     pddl_datalog_atom_t *body;
     int body_size;
     int body_alloc;
+    pddl_datalog_atom_t *neg_body;
+    int neg_body_size;
+    int neg_body_alloc;
 
+    bor_iset_t var_set;
     int is_safe;
     int same_head_body_vars;
     bor_iset_t common_body_var_set;
@@ -187,6 +191,14 @@ void pddlDatalogRuleSetHead(pddl_datalog_t *dl,
 void pddlDatalogRuleAddBody(pddl_datalog_t *dl,
                             pddl_datalog_rule_t *rule,
                             const pddl_datalog_atom_t *atom);
+
+/**
+ * Adds a negative atom to the body assuming this atom is static, i.e.,
+ * it's not in any rule's head.
+ */
+void pddlDatalogRuleAddNegStaticBody(pddl_datalog_t *dl,
+                                     pddl_datalog_rule_t *rule,
+                                     const pddl_datalog_atom_t *atom);
 
 /**
  * Removes i'th atom from the body

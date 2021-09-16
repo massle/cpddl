@@ -146,9 +146,6 @@ static void addActionRules(ground_t *g, int action_id)
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(action->pre, &it, catom){
-        // TODO: negative preconditions
-        ASSERT_RUNTIME(!catom->neg);
-
         pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
         for (int i = 0; i < catom->arg_size; ++i){
             if (catom->arg[i].obj >= 0){
@@ -160,7 +157,11 @@ static void addActionRules(ground_t *g, int action_id)
                 borISetAdd(&used_param, param);
             }
         }
-        pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+        if (catom->neg){
+            pddlDatalogRuleAddNegStaticBody(g->dl, &rule, &atom);
+        }else{
+            pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+        }
         pddlDatalogAtomFree(g->dl, &atom);
     }
     for (int i = 0; i < action->param.param_size; ++i){

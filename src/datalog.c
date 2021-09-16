@@ -462,8 +462,7 @@ static void sqlDBInit(pddl_datalog_t *dl, bor_err_t *err)
                     | SQLITE_OPEN_CREATE
                     //| SQLITE_OPEN_MEMORY
                     | SQLITE_OPEN_PRIVATECACHE;
-    unlink("datalog.db");
-    int ret = sqlite3_open_v2("datalog.db", &dl->db, flags, NULL);
+    int ret = sqlite3_open_v2("", &dl->db, flags, NULL);
     CHECK_SQL_ERR(dl->db, ret);
     BOR_INFO2(err, "Sqlite database created");
     ASSERT_RUNTIME(sqlite3_get_autocommit(dl->db));
@@ -516,7 +515,13 @@ static void ruleSetUp(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
     }
     rule->is_safe = borISetIsSubset(&rule->head.var_set, &body_vars);
     rule->same_head_body_vars = borISetEq(&body_vars, &rule->head.var_set);
+    borISetUnion2(&rule->var_set, &body_vars, &rule->head.var_set);
     borISetFree(&body_vars);
+
+    // TODO: Check that the neg_body atom has only variables from
+    // rule->var_set
+    for (int i = 0; i < rule->neg_body_size; ++i)
+        atomSetUp(dl, rule->neg_body + i);
 }
 
 static void predsSetUp(pddl_datalog_t *dl)
@@ -746,6 +751,47 @@ static void selectBodyAtoms(const pddl_datalog_t *dl,
     borISetFree(&join_vars);
 }
 
+static void collectVarsFromAtom(const pddl_datalog_t *dl,
+                                const pddl_datalog_atom_t *a,
+                                bor_iset_t *var)
+{
+    int arity = dl->pred[a->pred].arity;
+    for (int i = 0; i < arity; ++i){
+        if (IS_VAR(a->arg[i]))
+            borISetAdd(var, TO_IDX(a->arg[i]));
+    }
+}
+
+static void collectVarsFromRule(const pddl_datalog_t *dl,
+                                const pddl_datalog_rule_t *r,
+                                bor_iset_t *var)
+{
+    collectVarsFromAtom(dl, &r->head, var);
+    for (int i = 0; i < r->body_size; ++i)
+        collectVarsFromAtom(dl, &r->body[i], var);
+}
+
+static void transferNegBody(pddl_datalog_t *dl,
+                            pddl_datalog_rule_t *src,
+                            pddl_datalog_rule_t *dst)
+{
+    BOR_ISET(vars);
+    collectVarsFromRule(dl, dst, &vars);
+    int ins = 0;
+    for (int i = 0; i < src->neg_body_size; ++i){
+        pddl_datalog_atom_t *a = src->neg_body + i;
+        if (borISetIsSubset(&a->var_set, &vars)){
+            pddlDatalogRuleAddNegStaticBody(dl, dst, a);
+            pddlDatalogAtomFree(dl, a);
+        }else{
+            src->neg_body[ins++] = *a;
+        }
+    }
+    src->neg_body_size = ins;
+    borISetFree(&vars);
+    // TODO
+}
+
 static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
 {
     pddl_datalog_rule_t *rule = dl->rule + rule_id;
@@ -779,6 +825,7 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     pddlDatalogRuleSetHead(dl, &newrule, &head);
     pddlDatalogRuleAddBody(dl, &newrule, a1);
     pddlDatalogRuleAddBody(dl, &newrule, a2);
+    transferNegBody(dl, rule, &newrule);
     pddlDatalogAddRule(dl, &newrule);
     pddlDatalogRuleFree(dl, &newrule);
 
@@ -895,10 +942,35 @@ static int unify(pddl_datalog_t *dl,
     return 0;
 }
 
-static void headToFact(pddl_datalog_t *dl,
-                       const pddl_datalog_atom_t *head,
+static int ruleNegBodySatisfied(pddl_datalog_t *dl,
+                                const pddl_datalog_rule_t *rule,
+                                const int *var_map)
+{
+    for (int i = 0; i < rule->neg_body_size; ++i){
+        const pddl_datalog_atom_t *a = rule->neg_body + i;
+        int arity = dl->pred[a->pred].arity;
+        int arg[arity];
+        for (int ai = 0; ai < arity; ++ai){
+            if (IS_CONST(a->arg[ai])){
+                arg[ai] = TO_IDX(a->arg[ai]);
+            }else{
+                arg[ai] = var_map[TO_IDX(a->arg[ai])];
+            }
+        }
+        if (sqlHasFact(dl, a->pred, arg))
+            return 0;
+    }
+    return 1;
+}
+
+static void ruleToFact(pddl_datalog_t *dl,
+                       const pddl_datalog_rule_t *rule,
                        const int *var_map)
 {
+    if (!ruleNegBodySatisfied(dl, rule, var_map))
+        return;
+
+    const pddl_datalog_atom_t *head = &rule->head;
     int arity = dl->pred[head->pred].arity;
     int arg[arity];
     for (int i = 0; i < arity; ++i){
@@ -929,7 +1001,7 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
     sqlite3_stmt *stmt;
     sqlSearchBodyPrepare(dl, other_atom_idx, rule_id, key_var, var_map, &stmt);
     while (sqlSearchBodyNext(dl, stmt, &b1->var_set, var_map) == 0)
-        headToFact(dl, &rule->head, var_map);
+        ruleToFact(dl, rule, var_map);
 }
 
 static void applyFactOnRule(pddl_datalog_t *dl,
@@ -942,7 +1014,7 @@ static void applyFactOnRule(pddl_datalog_t *dl,
     int var_map[dl->var_size];
     if (rule->body_size == 1
             && unify(dl, fact_pred, fact_arg, &rule->body[0], var_map) == 0){
-        headToFact(dl, &rule->head, var_map);
+        ruleToFact(dl, rule, var_map);
     }
 
     if (rule->body_size == 2
@@ -1061,6 +1133,12 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
     dst->body = BOR_ALLOC_ARR(pddl_datalog_atom_t, dst->body_alloc);
     for (int i = 0; i < dst->body_size; ++i)
         pddlDatalogAtomCopy(dl, dst->body + i, src->body + i);
+
+    dst->neg_body_alloc = src->neg_body_alloc;
+    dst->neg_body_size = src->neg_body_size;
+    dst->neg_body = BOR_ALLOC_ARR(pddl_datalog_atom_t, dst->neg_body_alloc);
+    for (int i = 0; i < dst->neg_body_size; ++i)
+        pddlDatalogAtomCopy(dl, dst->neg_body + i, src->neg_body + i);
 }
 
 void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
@@ -1070,6 +1148,10 @@ void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
         pddlDatalogAtomFree(dl, &rule->body[i]);
     if (rule->body != NULL)
         BOR_FREE(rule->body);
+    for (int i = 0; i < rule->neg_body_size; ++i)
+        pddlDatalogAtomFree(dl, &rule->neg_body[i]);
+    if (rule->neg_body != NULL)
+        BOR_FREE(rule->neg_body);
 }
 
 void pddlDatalogRuleSetHead(pddl_datalog_t *dl,
@@ -1089,9 +1171,24 @@ void pddlDatalogRuleAddBody(pddl_datalog_t *dl,
             rule->body_alloc = 1;
         rule->body_alloc *= 2;
         rule->body = BOR_REALLOC_ARR(rule->body, pddl_datalog_atom_t,
-                                       rule->body_alloc);
+                                     rule->body_alloc);
     }
     pddl_datalog_atom_t *a = rule->body + rule->body_size++;
+    pddlDatalogAtomCopy(dl, a, atom);
+}
+
+void pddlDatalogRuleAddNegStaticBody(pddl_datalog_t *dl,
+                                     pddl_datalog_rule_t *rule,
+                                     const pddl_datalog_atom_t *atom)
+{
+    if (rule->neg_body_size == rule->neg_body_alloc){
+        if (rule->neg_body_alloc == 0)
+            rule->neg_body_alloc = 1;
+        rule->neg_body_alloc *= 2;
+        rule->neg_body = BOR_REALLOC_ARR(rule->neg_body, pddl_datalog_atom_t,
+                                         rule->neg_body_alloc);
+    }
+    pddl_datalog_atom_t *a = rule->neg_body + rule->neg_body_size++;
     pddlDatalogAtomCopy(dl, a, atom);
 }
 
@@ -1174,12 +1271,23 @@ void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout)
     for (int ci = 0; ci < dl->rule_size; ++ci){
         const pddl_datalog_rule_t *c = dl->rule + ci;
         printAtom(dl, &c->head, fout);
-        if (c->body_size > 0){
+        if (c->body_size > 0 || c->neg_body_size > 0)
             fprintf(fout, " :- ");
+        if (c->body_size > 0){
             printAtom(dl, c->body + 0, fout);
             for (int i = 1; i < c->body_size; ++i){
                 fprintf(fout, ", ");
                 printAtom(dl, c->body + i, fout);
+            }
+        }
+        if (c->neg_body_size > 0){
+            if (c->body_size > 0)
+                fprintf(fout, ", ");
+            fprintf(fout, "!");
+            printAtom(dl, c->neg_body + 0, fout);
+            for (int i = 1; i < c->neg_body_size; ++i){
+                fprintf(fout, ", !");
+                printAtom(dl, c->neg_body + i, fout);
             }
         }
         fprintf(fout, ".\n");
