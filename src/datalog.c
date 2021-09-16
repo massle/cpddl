@@ -124,7 +124,6 @@ static void sqlPrepareQueryInsertFact(pddl_datalog_t *dl)
         off += sprintf(query + off, ",?");
     off += sprintf(query + off, ");");
 
-    fprintf(stderr, "sql-query insert-fact: %s\n", query);
     int ret = sqlite3_prepare_v2(dl->db, query, -1, &dl->q_insert_fact, NULL);
     CHECK_SQL_ERR(dl->db, ret);
 }
@@ -141,7 +140,6 @@ static void sqlPrepareQueryFindFact(pddl_datalog_t *dl)
             off += sprintf(query + off, " AND arg%d = ?", i);
         off += sprintf(query + off, ";");
 
-        fprintf(stderr, "sql-query find-fact[%d]: %s\n", arity, query);
         int ret = sqlite3_prepare_v2(dl->db, query, -1,
                                      &dl->q_find_fact[arity], NULL);
         CHECK_SQL_ERR(dl->db, ret);
@@ -158,7 +156,6 @@ static void sqlPrepareQueryListFact(pddl_datalog_t *dl)
     off += sprintf(query + off, " FROM fact WHERE pred = ?");
     off += sprintf(query + off, ";");
 
-    fprintf(stderr, "sql-query list-fact: %s\n", query);
     int ret = sqlite3_prepare_v2(dl->db, query, -1, &dl->q_list_fact, NULL);
     CHECK_SQL_ERR(dl->db, ret);
 }
@@ -171,7 +168,6 @@ static void sqlPrepareQueryGetFact(pddl_datalog_t *dl)
     for (int i = 0; i < dl->max_pred_arity; ++i)
         off += sprintf(query + off, ", arg%d", i);
     off += sprintf(query + off," FROM fact WHERE ID = ?;");
-    fprintf(stderr, "sql-query get-fact: %s\n", query);
     int ret = sqlite3_prepare_v2(dl->db, query, -1, &dl->q_get_fact, NULL);
     CHECK_SQL_ERR(dl->db, ret);
 }
@@ -249,11 +245,6 @@ static int sqlListFactsNext(pddl_datalog_t *dl,
 
 static void sqlInsertFact(pddl_datalog_t *dl, int pred, const int *arg)
 {
-    fprintf(stderr, "insert fact: %d (%d):", pred, dl->pred[pred].arity);
-    for (int i = 0; i < dl->pred[pred].arity; ++i)
-        fprintf(stderr, " %d", arg[i]);
-    fprintf(stderr, "\n");
-
     ASSERT(dl->q_insert_fact != NULL);
     sqlite3_reset(dl->q_insert_fact);
     sqlite3_clear_bindings(dl->q_insert_fact);
@@ -309,7 +300,6 @@ static void sqlPrepareQueryInsertBody(pddl_datalog_t *dl, int bid)
         off += sprintf(query + off, ",?");
     off += sprintf(query + off, ");");
 
-    fprintf(stderr, "sql-query insert-body[%d]: %s\n", bid, query);
     int ret = sqlite3_prepare_v2(dl->db, query, -1,
                                  &dl->q_insert_body[bid], NULL);
     CHECK_SQL_ERR(dl->db, ret);
@@ -334,7 +324,6 @@ static void sqlPrepareQuerySearchBody(pddl_datalog_t *dl, int bid)
             off += sprintf(query + off, " AND key_arg%d = ?", i);
         off += sprintf(query + off, ";");
 
-        fprintf(stderr, "sql-query search-body[%d][%d]: %s\n", bid, arity, query);
         int ret = sqlite3_prepare_v2(dl->db, query, -1,
                                      &dl->q_search_body[bid][arity], NULL);
         CHECK_SQL_ERR(dl->db, ret);
@@ -348,17 +337,6 @@ static void sqlInsertBody(pddl_datalog_t *dl,
                           const bor_iset_t *val_vars,
                           const int *var_map)
 {
-    {
-    fprintf(stderr, "insert body: %d:", rule);
-    int var;
-    BOR_ISET_FOR_EACH(key_vars, var)
-        fprintf(stderr, " %d:%d", var, var_map[var]);
-    fprintf(stderr, " ->");
-    BOR_ISET_FOR_EACH(val_vars, var)
-        fprintf(stderr, " %d:%d", var, var_map[var]);
-    fprintf(stderr, "\n");
-    }
-
     ASSERT(dl->q_insert_body[bid] != NULL);
     sqlite3_reset(dl->q_insert_body[bid]);
     sqlite3_clear_bindings(dl->q_insert_body[bid]);
@@ -460,7 +438,7 @@ static void sqlDBInit(pddl_datalog_t *dl, bor_err_t *err)
     sqlDBFree(dl, err);
     int flags = SQLITE_OPEN_READWRITE
                     | SQLITE_OPEN_CREATE
-                    //| SQLITE_OPEN_MEMORY
+                    | SQLITE_OPEN_MEMORY
                     | SQLITE_OPEN_PRIVATECACHE;
     int ret = sqlite3_open_v2("", &dl->db, flags, NULL);
     CHECK_SQL_ERR(dl->db, ret);
@@ -930,15 +908,6 @@ static int unify(pddl_datalog_t *dl,
         }
     }
 
-    fprintf(stderr, "unified %d:%s(", fact_pred, dl->pred[fact_pred].name);
-    for (int i = 0; i < arity; ++i)
-        fprintf(stderr, " %d", fact_arg[i]);
-    fprintf(stderr, "):");
-    BOR_ISET_FOR_EACH(&atom->var_set, var){
-        fprintf(stderr, " %d->%d", var, var_map[var]);
-    }
-    fprintf(stderr, "\n");
-
     return 0;
 }
 
@@ -980,8 +949,6 @@ static void ruleToFact(pddl_datalog_t *dl,
             arg[i] = TO_IDX(head->arg[i]);
         }
     }
-    fprintf(stderr, "new fact %d:%s\n", head->pred,
-            dl->pred[head->pred].name);
     if (!sqlHasFact(dl, head->pred, arg))
         sqlInsertFact(dl, head->pred, arg);
 }
@@ -1073,7 +1040,6 @@ void pddlDatalogFactsFromCanonicalModel(
     int p;
     int arg[arity];
     while (sqlListFactsNext(dl, stmt, &p, arg) == 0){
-        fprintf(stderr, "next %d\n", TO_IDX(pred));
         p = dl->pred[p].user_id;
         for (int i = 0; i < arity; ++i)
             arg[i] = dl->c[arg[i]].user_id;

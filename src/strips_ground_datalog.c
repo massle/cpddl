@@ -122,6 +122,7 @@ static void addEqFacts(ground_t *g)
 
 static void addActionRules(ground_t *g, int action_id)
 {
+    // TODO: refactor
     pddl_datalog_atom_t atom;
     pddl_datalog_rule_t rule;
     const pddl_action_t *action = g->pddl->action.action + action_id;
@@ -154,7 +155,8 @@ static void addActionRules(ground_t *g, int action_id)
             }else{
                 int param = catom->arg[i].param;
                 pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[param]);
-                borISetAdd(&used_param, param);
+                if (!catom->neg)
+                    borISetAdd(&used_param, param);
             }
         }
         if (catom->neg){
@@ -228,6 +230,83 @@ static void addActionRules(ground_t *g, int action_id)
         pddlDatalogAddRule(g->dl, &rule);
         pddlDatalogRuleFree(g->dl, &rule);
     }
+
+    // add-effect :- trig-action
+    pddl_cond_const_it_when_t wit;
+    const pddl_cond_when_t *when;
+    int wi = 0;
+    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
+        char name[128];
+        snprintf(name, 128, "app-%s-ce-%d", action->name, wi);
+        int app_dlpred = pddlDatalogAddPred(g->dl, action_arity, name);
+
+        pddlDatalogRuleInit(g->dl, &rule);
+        pddlDatalogAtomInit(g->dl, &atom, app_dlpred);
+        for (int i = 0; i < action_arity; ++i)
+            pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
+        pddlDatalogRuleSetHead(g->dl, &rule, &atom);
+        pddlDatalogAtomFree(g->dl, &atom);
+
+        pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
+        for (int i = 0; i < action_arity; ++i)
+            pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
+        pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+        pddlDatalogAtomFree(g->dl, &atom);
+
+        const pddl_cond_atom_t *catom;
+        pddl_cond_const_it_atom_t it;
+        PDDL_COND_FOR_EACH_ATOM(when->pre, &it, catom){
+            pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
+            for (int i = 0; i < catom->arg_size; ++i){
+                if (catom->arg[i].obj >= 0){
+                    pddlDatalogAtomSetArg(g->dl, &atom, i,
+                            g->obj_to_dlconst[catom->arg[i].obj]);
+                }else{
+                    int param = catom->arg[i].param;
+                    pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[param]);
+                }
+            }
+            if (catom->neg){
+                pddlDatalogRuleAddNegStaticBody(g->dl, &rule, &atom);
+            }else{
+                pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+            }
+            pddlDatalogAtomFree(g->dl, &atom);
+        }
+
+        pddlDatalogAddRule(g->dl, &rule);
+        pddlDatalogRuleFree(g->dl, &rule);
+
+        PDDL_COND_FOR_EACH_ATOM(when->eff, &it, catom){
+            if (catom->neg)
+                continue;
+
+            pddlDatalogRuleInit(g->dl, &rule);
+            pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
+            for (int i = 0; i < catom->arg_size; ++i){
+                if (catom->arg[i].obj >= 0){
+                    pddlDatalogAtomSetArg(g->dl, &atom, i,
+                            g->obj_to_dlconst[catom->arg[i].obj]);
+                }else{
+                    pddlDatalogAtomSetArg(g->dl, &atom, i,
+                            g->dlvar[catom->arg[i].param]);
+                }
+            }
+            pddlDatalogRuleSetHead(g->dl, &rule, &atom);
+            pddlDatalogAtomFree(g->dl, &atom);
+
+            pddlDatalogAtomInit(g->dl, &atom, app_dlpred);
+            for (int i = 0; i < action_arity; ++i)
+                pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
+            pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+            pddlDatalogAtomFree(g->dl, &atom);
+
+            pddlDatalogAddRule(g->dl, &rule);
+            pddlDatalogRuleFree(g->dl, &rule);
+        }
+
+        ++wi;
+    }
 }
 
 static void addActionsRules(ground_t *g)
@@ -298,11 +377,6 @@ static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
 {
     ground_t *g = ud;
 
-    fprintf(stderr, "insertAtom: pred %d:%s", pred,
-            g->pddl->pred.pred[pred].name);
-    for (int i = 0; i < arity; ++i)
-        fprintf(stderr, " %d:%s", arg[i], g->pddl->obj.obj[arg[i]].name);
-    fprintf(stderr, "\n");
     if (pddlPredIsStatic(&g->pddl->pred.pred[pred])){
         pddlStripsMakerAddStaticAtomPred(&g->strips_maker,
                                          pred, arg, arity, NULL);
@@ -334,6 +408,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
     pddlDatalogToNormalForm(ground.dl, err);
     pddlDatalogPrint(ground.dl, stderr);
     pddlDatalogCanonicalModel(ground.dl, err);
+    pddlStripsMakerAddInit(&ground.strips_maker, ground.pddl);
     for (int p = 0; p < ground.pddl->pred.pred_size; ++p){
         if (p == ground.pddl->pred.eq_pred)
             continue;
@@ -342,8 +417,6 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                                            insertAtom,
                                            &ground);
     }
-    fprintf(stderr, "----\n");
-    // TODO: Add func
     for (int a = 0; a < ground.pddl->action.action_size; ++a){
         pddlDatalogFactsFromCanonicalModel(ground.dl,
                                            ground.action[a].trig_dlpred,
@@ -366,6 +439,18 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
         BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, ret);
     }
+
+    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
+    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    int count = 0;
+    for (int i = 0; i < strips->op.op_size; ++i){
+        if (strips->op.op[i]->cond_eff_size > 0)
+            ++count;
+    }
+    BOR_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
+             count);
 
     BOR_INFO2(err, "Grounding finished.");
     BOR_INFO_PREFIX_POP(err);

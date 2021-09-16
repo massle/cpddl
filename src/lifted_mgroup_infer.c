@@ -741,7 +741,7 @@ static int initHeaviness(const pddl_t *pddl,
             unified = 1;
 
             it2 = it1;
-            PDDL_COND_FOR_EACH_CONT(&it2, a2){
+            PDDL_COND_FOR_EACH_ATOM_CONT(&it2, a2){
                 if (a2->neg)
                     continue;
                 FOR_EACH_ATOM(cand->mgroup, cand2){

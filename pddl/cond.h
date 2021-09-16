@@ -353,12 +353,13 @@ void pddlCondPrintPDDL(const pddl_cond_t *cond,
 
 
 
-struct pddl_cond_const_it_atom {
+struct pddl_cond_const_it {
     const bor_list_t *list;
     const bor_list_t *cur;
 };
-typedef struct pddl_cond_const_it_atom pddl_cond_const_it_atom_t;
-
+typedef struct pddl_cond_const_it pddl_cond_const_it_t;
+typedef pddl_cond_const_it_t pddl_cond_const_it_atom_t;
+typedef pddl_cond_const_it_t pddl_cond_const_it_when_t;
 
 const pddl_cond_atom_t *pddlCondConstItAtomInit(pddl_cond_const_it_atom_t *it,
                                                 const pddl_cond_t *cond);
@@ -369,10 +370,24 @@ const pddl_cond_atom_t *pddlCondConstItAtomNext(pddl_cond_const_it_atom_t *it);
             (ATOM) != NULL; \
             (ATOM) = pddlCondConstItAtomNext((IT)))
 
-#define PDDL_COND_FOR_EACH_CONT(IT, ATOM) \
+#define PDDL_COND_FOR_EACH_ATOM_CONT(IT, ATOM) \
     for ((ATOM) = pddlCondConstItAtomNext((IT)); \
             (ATOM) != NULL; \
             (ATOM) = pddlCondConstItAtomNext((IT)))
+
+const pddl_cond_when_t *pddlCondConstItWhenInit(pddl_cond_const_it_when_t *it,
+                                                const pddl_cond_t *cond);
+const pddl_cond_when_t *pddlCondConstItWhenNext(pddl_cond_const_it_when_t *it);
+
+#define PDDL_COND_FOR_EACH_WHEN(COND, IT, WHEN) \
+    for ((WHEN) = pddlCondConstItWhenInit((IT), (COND)); \
+            (WHEN) != NULL; \
+            (WHEN) = pddlCondConstItWhenNext((IT)))
+
+#define PDDL_COND_FOR_EACH_WHEN_CONT(IT, WHEN) \
+    for ((WHEN) = pddlCondConstItWhenNext((IT)); \
+            (WHEN) != NULL; \
+            (WHEN) = pddlCondConstItWhenNext((IT)))
 
 struct pddl_cond_const_it_eff {
     const bor_list_t *list;
