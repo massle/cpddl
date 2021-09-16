@@ -113,6 +113,23 @@ static pddl_ground_atom_t *addAtom(pddl_strips_maker_t *sm,
     return gatom;
 }
 
+static pddl_ground_atom_t *addAtomPred(pddl_strips_maker_t *sm,
+                                       pddl_ground_atoms_t *gas,
+                                       int pred,
+                                       const pddl_obj_id_t *args,
+                                       int arg_size,
+                                       int *is_new)
+{
+    if (is_new != NULL)
+        *is_new = 0;
+    int atom_size = gas->atom_size;
+    pddl_ground_atom_t *gatom;
+    gatom = pddlGroundAtomsAddPred(gas, pred, args, arg_size);
+    if (atom_size != gas->atom_size && is_new != NULL)
+        *is_new = 1;
+    return gatom;
+}
+
 pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
                                            const pddl_cond_atom_t *atom,
                                            const pddl_obj_id_t *args,
@@ -121,12 +138,31 @@ pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
     return addAtom(sm, &sm->ground_atom, atom, args, is_new);
 }
 
+pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
+                                               int pred,
+                                               const pddl_obj_id_t *args,
+                                               int args_size,
+                                               int *is_new)
+{
+    return addAtomPred(sm, &sm->ground_atom, pred, args, args_size, is_new);
+}
+
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
                                                  const pddl_cond_atom_t *atom,
                                                  const pddl_obj_id_t *args,
                                                  int *is_new)
 {
     return addAtom(sm, &sm->ground_atom_static, atom, args, is_new);
+}
+
+pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
+                                                     int pred,
+                                                     const pddl_obj_id_t *args,
+                                                     int args_size,
+                                                     int *is_new)
+{
+    return addAtomPred(sm, &sm->ground_atom_static,
+                       pred, args, args_size, is_new);
 }
 
 pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,

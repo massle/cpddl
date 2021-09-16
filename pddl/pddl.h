@@ -43,6 +43,7 @@
 #include <pddl/strips_fact_cross_ref.h>
 #include <pddl/strips_ground.h>
 #include <pddl/strips_ground_sql.h>
+#include <pddl/strips_ground_datalog.h>
 #include <pddl/lifted_mgroup.h>
 #include <pddl/lifted_mgroup_infer.h>
 #include <pddl/lifted_mgroup_htable.h>

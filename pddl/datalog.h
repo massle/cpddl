@@ -81,6 +81,11 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name);
 unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name);
 
 /**
+ * Set user-id to const/pred element.
+ */
+void pddlDatalogSetUserId(pddl_datalog_t *dl, unsigned element, int user_id);
+
+/**
  * Adds rule to the datalog.
  * TODO: neq
  * TODO: types
@@ -110,6 +115,18 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err);
  * TODO
  */
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err);
+
+/**
+ * TODO
+ */
+void pddlDatalogFactsFromCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       void *user_data),
+            void *user_data);
 
 /**
  * Initializes atom of the given predicate previously created with

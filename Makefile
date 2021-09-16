@@ -37,6 +37,7 @@ OBJS += strips_maker
 OBJS += strips_ground_tree
 OBJS += strips_ground
 OBJS += strips_ground_sql
+OBJS += strips_ground_datalog
 OBJS += action_args
 OBJS += ground_atom
 OBJS += profile

@@ -27,6 +27,7 @@ struct pddl_datalog_const {
     unsigned id;
     int idx;
     char *name;
+    pddl_obj_id_t user_id;
 };
 typedef struct pddl_datalog_const pddl_datalog_const_t;
 
@@ -42,6 +43,7 @@ struct pddl_datalog_pred {
     int idx;
     int arity;
     char *name;
+    int user_id;
     bor_iset_t relevant_rules;
 };
 typedef struct pddl_datalog_pred pddl_datalog_pred_t;
@@ -69,6 +71,7 @@ struct pddl_datalog {
     sqlite3_stmt *q_insert_fact;
     sqlite3_stmt **q_find_fact;
     int q_find_fact_size;
+    sqlite3_stmt *q_list_fact;
     sqlite3_stmt *q_get_fact;
     sqlite3_stmt *q_insert_body[2];
     sqlite3_stmt **q_search_body[2];
@@ -145,6 +148,21 @@ static void sqlPrepareQueryFindFact(pddl_datalog_t *dl)
     }
 }
 
+static void sqlPrepareQueryListFact(pddl_datalog_t *dl)
+{
+    char query[QUERY_SIZE];
+    int off = 0;
+    off += sprintf(query, "SELECT pred");
+    for (int i = 0; i < dl->max_pred_arity; ++i)
+        off += sprintf(query + off, ", arg%d", i);
+    off += sprintf(query + off, " FROM fact WHERE pred = ?");
+    off += sprintf(query + off, ";");
+
+    fprintf(stderr, "sql-query list-fact: %s\n", query);
+    int ret = sqlite3_prepare_v2(dl->db, query, -1, &dl->q_list_fact, NULL);
+    CHECK_SQL_ERR(dl->db, ret);
+}
+
 static void sqlPrepareQueryGetFact(pddl_datalog_t *dl)
 {
     char query[QUERY_SIZE];
@@ -161,7 +179,7 @@ static void sqlPrepareQueryGetFact(pddl_datalog_t *dl)
 static int sqlHasFact(pddl_datalog_t *dl, int pred, const int *arg)
 {
     int arity = dl->pred[pred].arity;
-    ASSERT(dl->q_find_fact != NULL);
+    ASSERT(dl->q_find_fact[arity] != NULL);
     sqlite3_reset(dl->q_find_fact[arity]);
     sqlite3_clear_bindings(dl->q_find_fact[arity]);
 
@@ -196,6 +214,37 @@ static int sqlGetFact(pddl_datalog_t *dl, int id, int *pred, int *arg)
             arg[i] = sqlite3_column_int(dl->q_get_fact, i + 1);
     }
     return found;
+}
+
+static void sqlListFactsPrepare(pddl_datalog_t *dl,
+                                int pred,
+                                sqlite3_stmt **stmt)
+{
+    *stmt = dl->q_list_fact;
+    ASSERT(*stmt != NULL);
+    sqlite3_reset(*stmt);
+    sqlite3_clear_bindings(*stmt);
+
+    int ret = sqlite3_bind_int(*stmt, 1, pred);
+    CHECK_SQL_ERR(dl->db, ret);
+}
+
+static int sqlListFactsNext(pddl_datalog_t *dl,
+                            sqlite3_stmt *stmt,
+                            int *pred,
+                            int *arg)
+{
+    int ret = sqlite3_step(stmt);
+    if (ret != SQLITE_ROW && ret != SQLITE_DONE)
+        CHECK_SQL_ERR(dl->db, ret);
+    if (ret == SQLITE_ROW){
+        *pred = sqlite3_column_int(stmt, 0);
+        int arity = dl->pred[*pred].arity;
+        for (int i = 0; i < arity; ++i)
+            arg[i] = sqlite3_column_int(stmt, i + 1);
+        return 0;
+    }
+    return -1;
 }
 
 static void sqlInsertFact(pddl_datalog_t *dl, int pred, const int *arg)
@@ -391,6 +440,7 @@ static void sqlDBFree(pddl_datalog_t *dl, bor_err_t *err)
         for (int i = 0; i < dl->q_find_fact_size; ++i)
             sqlite3_finalize(dl->q_find_fact[i]);
         BOR_FREE(dl->q_find_fact);
+        sqlite3_finalize(dl->q_list_fact);
         sqlite3_finalize(dl->q_insert_body[0]);
         sqlite3_finalize(dl->q_insert_body[1]);
         for (int i = 0; i < dl->q_search_body_size; ++i){
@@ -425,6 +475,7 @@ static void sqlDBInit(pddl_datalog_t *dl, bor_err_t *err)
     sqlPrepareQueryInsertFact(dl);
     sqlPrepareQueryFindFact(dl);
     sqlPrepareQueryGetFact(dl);
+    sqlPrepareQueryListFact(dl);
     sqlPrepareQueryInsertBody(dl, 0);
     sqlPrepareQueryInsertBody(dl, 1);
     sqlPrepareQuerySearchBody(dl, 0);
@@ -553,6 +604,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
     c->name = NULL;
     if (name != NULL)
         c->name = BOR_STRDUP(name);
+    c->user_id = -1;
     dl->dirty = 1;
     return c->id;
 }
@@ -574,6 +626,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
     p->name = NULL;
     if (name != NULL)
         p->name = BOR_STRDUP(name);
+    p->user_id = -1;
     dl->max_pred_arity = BOR_MAX(dl->max_pred_arity, arity);
     dl->dirty = 1;
     return p->id;
@@ -596,6 +649,15 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
         v->name = BOR_STRDUP(name);
     dl->dirty = 1;
     return v->id;
+}
+
+void pddlDatalogSetUserId(pddl_datalog_t *dl, unsigned element, int user_id)
+{
+    if (IS_PRED(element)){
+        dl->pred[TO_IDX(element)].user_id = user_id;
+    }else if (IS_CONST(element)){
+        dl->c[TO_IDX(element)].user_id = user_id;
+    }
 }
 
 int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
@@ -662,7 +724,7 @@ static void selectBodyAtoms(const pddl_datalog_t *dl,
     for (int a1i = 0; a1i < rule->body_size; ++a1i){
         const pddl_datalog_atom_t *atom1 = rule->body + a1i;
         for (int a2i = a1i + 1; a2i < rule->body_size; ++a2i){
-            const pddl_datalog_atom_t *atom2 = rule->body + a1i;
+            const pddl_datalog_atom_t *atom2 = rule->body + a2i;
             int *cost = join_cost + 3 * (a1i * rule->body_size + a2i);
             joinCost(rule, atom1, atom2, &join_vars, cost);
         }
@@ -788,8 +850,6 @@ static void insertInitialFacts(pddl_datalog_t *dl, bor_err_t *err)
             continue;
         if (!sqlHasFact(dl, atom->pred, args))
             sqlInsertFact(dl, atom->pred, args);
-        if (!sqlHasFact(dl, atom->pred, args))
-            sqlInsertFact(dl, atom->pred, args);
     }
 }
 
@@ -823,7 +883,7 @@ static int unify(pddl_datalog_t *dl,
         }
     }
 
-    fprintf(stderr, "unified %d(", fact_pred);
+    fprintf(stderr, "unified %d:%s(", fact_pred, dl->pred[fact_pred].name);
     for (int i = 0; i < arity; ++i)
         fprintf(stderr, " %d", fact_arg[i]);
     fprintf(stderr, "):");
@@ -848,6 +908,8 @@ static void headToFact(pddl_datalog_t *dl,
             arg[i] = TO_IDX(head->arg[i]);
         }
     }
+    fprintf(stderr, "new fact %d:%s\n", head->pred,
+            dl->pred[head->pred].name);
     if (!sqlHasFact(dl, head->pred, arg))
         sqlInsertFact(dl, head->pred, arg);
 }
@@ -915,11 +977,36 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
             applyFactOnRule(dl, cur_pred, cur_arg, rule_id, err);
         ++cur_id;
         if (cur_id % 1000 == 0)
-            BOR_INFO(err, "progress (facts: %d)", dl->fact_size);
+            BOR_INFO(err, "progress (facts processed: %d, overall: %d)",
+                     cur_id, dl->fact_size);
     }
     BOR_INFO(err, "DONE (facts: %d)", dl->fact_size);
     BOR_INFO_PREFIX_POP(err);
     BOR_INFO_PREFIX_POP(err);
+}
+
+void pddlDatalogFactsFromCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       void *user_data),
+            void *user_data)
+{
+    sqlite3_stmt *stmt;
+    sqlListFactsPrepare(dl, TO_IDX(pred), &stmt);
+
+    int arity = dl->pred[TO_IDX(pred)].arity;
+    int p;
+    int arg[arity];
+    while (sqlListFactsNext(dl, stmt, &p, arg) == 0){
+        fprintf(stderr, "next %d\n", TO_IDX(pred));
+        p = dl->pred[p].user_id;
+        for (int i = 0; i < arity; ++i)
+            arg[i] = dl->c[arg[i]].user_id;
+        fn(p, arity, arg, user_data);
+    }
 }
 
 void pddlDatalogAtomInit(pddl_datalog_t *dl,
