@@ -777,7 +777,7 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     pddl_datalog_atom_t head;
 
     // Select two atoms from the body
-    int a1i, a2i;
+    int a1i = 0, a2i = 0;
     selectBodyAtoms(dl, rule, &a1i, &a2i);
     ASSERT(a1i < a2i);
     const pddl_datalog_atom_t *a1 = rule->body + a1i;
@@ -1007,7 +1007,7 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
     BOR_INFO(err, "Added initial facts: %d", dl->fact_size);
 
     int cur_id = 0;
-    int cur_pred;
+    int cur_pred = 0;
     int cur_arg[dl->max_pred_arity];
     while (cur_id < dl->fact_size){
         sqlGetFact(dl, cur_id, &cur_pred, cur_arg);
