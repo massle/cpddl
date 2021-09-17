@@ -161,7 +161,9 @@ static bor_htable_key_t relevantFactHash(const bor_list_t *key, void *_)
     return BOR_LIST_ENTRY(key, pddl_datalog_relevant_fact_t, htable)->hash;
 }
 
-static int relevantFactEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
+static int relevantFactEq(const bor_list_t *key1,
+                          const bor_list_t *key2,
+                          void *_)
 {
     const pddl_datalog_relevant_fact_t *f1, *f2;
     f1 = BOR_LIST_ENTRY(key1, pddl_datalog_relevant_fact_t, htable);
@@ -171,7 +173,6 @@ static int relevantFactEq(const bor_list_t *key1, const bor_list_t *key2, void *
 }
 
 
-static pddl_datalog_fact_t *dbFact(pddl_datalog_db_t *db, int id);
 static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db);
 static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
 {
@@ -182,12 +183,19 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     db->hrelevant_fact[1] = borHTableNew(relevantFactHash,
                                          relevantFactEq, NULL);
 
-    pddl_datalog_fact_t *f = NULL;
-    db->fact = borExtArrNew(sizeof(f), NULL, &f);
+    size_t size = sizeof(pddl_datalog_fact_t);
+    size += dl->max_pred_arity * sizeof(int);
+    void *init = alloca(size);
+    bzero(init, size);
+    db->fact = borExtArrNew(size, NULL, init);
     db->pred_to_fact = BOR_CALLOC_ARR(bor_iset_t, dl->pred_size);
-    pddl_datalog_relevant_fact_t *r = NULL;
-    db->relevant_fact[0] = borExtArrNew(sizeof(r), NULL, &r);
-    db->relevant_fact[1] = borExtArrNew(sizeof(r), NULL, &r);
+
+    size = sizeof(pddl_datalog_relevant_fact_t);
+    size += dl->max_pred_arity * 2 * sizeof(int);
+    init = alloca(size);
+    bzero(init, size);
+    db->relevant_fact[0] = borExtArrNew(size, NULL, init);
+    db->relevant_fact[1] = borExtArrNew(size, NULL, init);
 }
 
 static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
@@ -197,16 +205,12 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     borHTableDel(db->hfact);
     borHTableDel(db->hrelevant_fact[0]);
     borHTableDel(db->hrelevant_fact[1]);
-    for (int i = 0; i < db->fact_size; ++i)
-        BOR_FREE(dbFact(db, i));
     borExtArrDel(db->fact);
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < db->relevant_fact_size[i]; ++j){
             void *x = borExtArrGet(db->relevant_fact[i], j);
-            pddl_datalog_relevant_fact_t *f;
-            f = *(pddl_datalog_relevant_fact_t **)x;
+            pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)x;
             borISetFree(&f->fact);
-            BOR_FREE(f);
         }
         borExtArrDel(db->relevant_fact[i]);
     }
@@ -219,8 +223,7 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
 
 static pddl_datalog_fact_t *dbFact(pddl_datalog_db_t *db, int id)
 {
-    void *f = borExtArrGet(db->fact, id);
-    return *(pddl_datalog_fact_t **)f;
+    return (pddl_datalog_fact_t *)borExtArrGet(db->fact, id);
 }
 
 static int dbHasFact(pddl_datalog_t *dl,
@@ -251,25 +254,20 @@ static int dbAddFact(pddl_datalog_t *dl,
                      int pred,
                      const int *arg)
 {
-    int arity = dl->pred[pred].arity;
-    size_t size = sizeof(pddl_datalog_fact_t) + arity * sizeof(int);
-    pddl_datalog_fact_t *f = BOR_MALLOC(size);
+    pddl_datalog_fact_t *f;
+    f = (pddl_datalog_fact_t *)borExtArrGet(db->fact, db->fact_size);
 
-    f->arity = arity;
+    f->arity = dl->pred[pred].arity;
     f->pred = pred;
-    memcpy(f->arg, arg, sizeof(int) * arity);
+    memcpy(f->arg, arg, sizeof(int) * f->arity);
     f->hash = factComputeHash(f);
     borListInit(&f->htable);
     bor_list_t *ret = borHTableInsertUnique(db->hfact, &f->htable);
     if (ret == NULL){
         f->id = db->fact_size++;
-        pddl_datalog_fact_t **ins;
-        ins = (pddl_datalog_fact_t **)borExtArrGet(db->fact, f->id);
-        *ins = f;
         borISetAdd(&db->pred_to_fact[f->pred], f->id);
 
     }else{
-        BOR_FREE(f);
         f = BOR_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
     }
     return f->id;
@@ -283,15 +281,14 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
                               const int *var_map,
                               int fact_id)
 {
-    int key_size = borISetSize(key_vars);
-    size_t size = sizeof(pddl_datalog_relevant_fact_t);
-    size += key_size * 2 * sizeof(int);
-    pddl_datalog_relevant_fact_t *f = BOR_MALLOC(size);
+    void *xf = borExtArrGet(db->relevant_fact[bid],
+                            db->relevant_fact_size[bid]);
+    pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)xf;
 
     borISetInit(&f->fact);
-    f->key_size = key_size;
+    f->key_size = borISetSize(key_vars);
     f->rule = rule;
-    for (int i = 0; i < key_size; ++i){
+    for (int i = 0; i < f->key_size; ++i){
         f->key[2 * i] = borISetGet(key_vars, i);
         f->key[2 * i + 1] = var_map[f->key[2 * i]];
     }
@@ -302,13 +299,8 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
     ret = borHTableInsertUnique(db->hrelevant_fact[bid], &f->htable);
     if (ret == NULL){
         f->id = db->relevant_fact_size[bid]++;
-        void *d = borExtArrGet(db->relevant_fact[bid], f->id);
-        pddl_datalog_relevant_fact_t **ins;
-        ins = (pddl_datalog_relevant_fact_t **)d;
-        *ins = f;
 
     }else{
-        BOR_FREE(f);
         f = BOR_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
     }
     borISetAdd(&f->fact, fact_id);
@@ -651,7 +643,6 @@ static void transferNegBody(pddl_datalog_t *dl,
     }
     src->neg_body_size = ins;
     borISetFree(&vars);
-    // TODO
 }
 
 static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
@@ -909,7 +900,7 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
         BOR_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
             applyFactOnRule(dl, f, rule_id, err);
         ++cur_id;
-        if (cur_id % 1000 == 0)
+        if (cur_id % 100000 == 0)
             BOR_INFO(err, "progress (facts processed: %d, overall: %d)",
                      cur_id, dl->db.fact_size);
     }
