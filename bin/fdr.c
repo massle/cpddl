@@ -20,6 +20,7 @@ struct options {
     int no_ground_prune_pre;
     int no_ground_prune_dead_end;
     int ground_sql;
+    int ground_dl;
 
     int fam;
     float fam_max_time;
@@ -286,6 +287,8 @@ static int readOpts(int *argc, char *argv[])
                 " operators during grounding.");
     optsAddDesc("ground-sql", 0x0, OPTS_NONE, &opt.ground_sql, NULL,
                 "Ground using sqlite.");
+    optsAddDesc("ground-dl", 0x0, OPTS_NONE, &opt.ground_dl, NULL,
+                "Ground using datalog.");
 
     optsAddDesc("fam", 'f', OPTS_NONE, &opt.fam, NULL,
                 "Infer fact-alternating mutex groups with ILP-based"
@@ -666,6 +669,8 @@ static int groundStrips(void)
     int ret;
     if (opt.ground_sql){
         ret = pddlStripsGroundSql(&strips, &pddl, &ground_cfg, &err);
+    }else if (opt.ground_dl){
+        ret = pddlStripsGroundDatalog(&strips, &pddl, &ground_cfg, &err);
     }else{
         ret = pddlStripsGround(&strips, &pddl, &ground_cfg, &err);
     }
