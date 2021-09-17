@@ -51,6 +51,7 @@ typedef struct pddl_datalog_relevant_fact pddl_datalog_relevant_fact_t;
 struct pddl_datalog_db {
     bor_htable_t *hfact;
     bor_htable_t *hrelevant_fact[2];
+    size_t used_mem;
     bor_extarr_t *fact;
     int fact_size;
     bor_iset_t *pred_to_fact;
@@ -221,6 +222,11 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     bzero(db, sizeof(*db));
 }
 
+static size_t dbUseddMem(const pddl_datalog_db_t *db)
+{
+    return db->used_mem;
+}
+
 static pddl_datalog_fact_t *dbFact(pddl_datalog_db_t *db, int id)
 {
     return (pddl_datalog_fact_t *)borExtArrGet(db->fact, id);
@@ -265,7 +271,9 @@ static int dbAddFact(pddl_datalog_t *dl,
     bor_list_t *ret = borHTableInsertUnique(db->hfact, &f->htable);
     if (ret == NULL){
         f->id = db->fact_size++;
+        db->used_mem += db->fact->arr->el_size;
         borISetAdd(&db->pred_to_fact[f->pred], f->id);
+        db->used_mem += sizeof(int);
 
     }else{
         f = BOR_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
@@ -299,11 +307,13 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
     ret = borHTableInsertUnique(db->hrelevant_fact[bid], &f->htable);
     if (ret == NULL){
         f->id = db->relevant_fact_size[bid]++;
+        db->used_mem += db->relevant_fact[bid]->arr->el_size;
 
     }else{
         f = BOR_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
     }
     borISetAdd(&f->fact, fact_id);
+    db->used_mem += sizeof(int);
 }
 
 static pddl_datalog_relevant_fact_t *dbFindRelevantFact(
@@ -900,11 +910,15 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
         BOR_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
             applyFactOnRule(dl, f, rule_id, err);
         ++cur_id;
-        if (cur_id % 100000 == 0)
-            BOR_INFO(err, "progress (facts processed: %d, overall: %d)",
-                     cur_id, dl->db.fact_size);
+        if (cur_id % 100000 == 0){
+            BOR_INFO(err, "progress (facts processed: %d, overall: %d,"
+                          " db-mem: %luMB)",
+                     cur_id, dl->db.fact_size,
+                     dbUseddMem(&dl->db) / (1024lu * 1024lu));
+        }
     }
-    BOR_INFO(err, "DONE (facts: %d)", dl->db.fact_size);
+    BOR_INFO(err, "DONE (facts: %d, db-mem: %luMB)",
+             dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
     BOR_INFO_PREFIX_POP(err);
     BOR_INFO_PREFIX_POP(err);
 }
