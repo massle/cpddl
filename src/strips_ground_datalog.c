@@ -32,7 +32,6 @@
 struct action {
     int id;
     unsigned app_dlpred;
-    unsigned trig_dlpred;
 };
 typedef struct action action_t;
 
@@ -135,6 +134,7 @@ static void addActionRules(ground_t *g, int action_id)
     char name[128];
     snprintf(name, 128, "app-%s", action->name);
     a->app_dlpred = pddlDatalogAddPred(g->dl, action_arity, name);
+    pddlDatalogSetUserId(g->dl, a->app_dlpred, action_id);
     pddlDatalogRuleInit(g->dl, &rule);
     pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
     for (int i = 0; i < action_arity; ++i)
@@ -181,28 +181,7 @@ static void addActionRules(ground_t *g, int action_id)
     pddlDatalogRuleFree(g->dl, &rule);
 
 
-    // trig-action :- app-action
-    snprintf(name, 128, "trig-%s", action->name);
-    a->trig_dlpred = pddlDatalogAddPred(g->dl, action_arity, name);
-    pddlDatalogSetUserId(g->dl, a->trig_dlpred, action_id);
-    pddlDatalogRuleInit(g->dl, &rule);
-    pddlDatalogAtomInit(g->dl, &atom, a->trig_dlpred);
-    for (int i = 0; i < action_arity; ++i)
-        pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
-    pddlDatalogRuleSetHead(g->dl, &rule, &atom);
-    pddlDatalogAtomFree(g->dl, &atom);
-
-    pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
-    for (int i = 0; i < action_arity; ++i)
-        pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
-    pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-    pddlDatalogAtomFree(g->dl, &atom);
-
-    pddlDatalogAddRule(g->dl, &rule);
-    pddlDatalogRuleFree(g->dl, &rule);
-
-
-    // add-effect :- trig-action
+    // add-effect :- app-action
     PDDL_COND_FOR_EACH_ATOM(action->eff, &it, catom){
         if (catom->neg)
             continue;
@@ -221,7 +200,7 @@ static void addActionRules(ground_t *g, int action_id)
         pddlDatalogRuleSetHead(g->dl, &rule, &atom);
         pddlDatalogAtomFree(g->dl, &atom);
 
-        pddlDatalogAtomInit(g->dl, &atom, a->trig_dlpred);
+        pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
         for (int i = 0; i < action_arity; ++i)
             pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
         pddlDatalogRuleAddBody(g->dl, &rule, &atom);
@@ -231,7 +210,7 @@ static void addActionRules(ground_t *g, int action_id)
         pddlDatalogRuleFree(g->dl, &rule);
     }
 
-    // add-effect :- trig-action
+    // Conditional effects
     pddl_cond_const_it_when_t wit;
     const pddl_cond_when_t *when;
     int wi = 0;
@@ -421,12 +400,12 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
     }
     for (int a = 0; a < ground.pddl->action.action_size; ++a){
         pddlDatalogFactsFromCanonicalModel(ground.dl,
-                                           ground.action[a].trig_dlpred,
+                                           ground.action[a].app_dlpred,
                                            insertAction,
                                            &ground);
     }
 
-    BOR_INFO(err, "Grounding finished: %d (split) actions, %d facts,"
+    BOR_INFO(err, "Grounding finished: %d actions, %d facts,"
                   " %d static facts, %d functions",
              ground.strips_maker.num_action_args,
              ground.strips_maker.ground_atom.atom_size,
