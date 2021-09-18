@@ -119,46 +119,73 @@ static void addEqFacts(ground_t *g)
     }
 }
 
-static void addActionRules(ground_t *g, int action_id)
+static void atomToDLAtom(const ground_t *g,
+                         const pddl_cond_atom_t *atom,
+                         pddl_datalog_atom_t *dlatom,
+                         bor_iset_t *used_param)
 {
-    // TODO: refactor
+    pddlDatalogAtomInit(g->dl, dlatom, g->pred_to_dlpred[atom->pred]);
+    for (int i = 0; i < atom->arg_size; ++i){
+        if (atom->arg[i].obj >= 0){
+            pddlDatalogAtomSetArg(g->dl, dlatom, i,
+                                  g->obj_to_dlconst[atom->arg[i].obj]);
+        }else{
+            int param = atom->arg[i].param;
+            pddlDatalogAtomSetArg(g->dl, dlatom, i, g->dlvar[param]);
+            if (!atom->neg && used_param != NULL)
+                borISetAdd(used_param, param);
+        }
+    }
+}
+
+static void actionToDLAtom(const ground_t *g,
+                           unsigned dlpred,
+                           int action_arity,
+                           pddl_datalog_atom_t *dlatom)
+{
+    pddlDatalogAtomInit(g->dl, dlatom, dlpred);
+    for (int i = 0; i < action_arity; ++i)
+        pddlDatalogAtomSetArg(g->dl, dlatom, i, g->dlvar[i]);
+}
+
+static unsigned addActionRule(ground_t *g,
+                              int action_id,
+                              const pddl_cond_t *pre,
+                              const pddl_cond_t *eff,
+                              unsigned app_parent_dlpred,
+                              int cei)
+{
     pddl_datalog_atom_t atom;
     pddl_datalog_rule_t rule;
     const pddl_action_t *action = g->pddl->action.action + action_id;
     int action_arity = action->param.param_size;
 
-    action_t *a = g->action + action_id;
-    a->id = action_id;
-
-    // app-action :- pres
     char name[128];
-    snprintf(name, 128, "app-%s", action->name);
-    a->app_dlpred = pddlDatalogAddPred(g->dl, action_arity, name);
-    pddlDatalogSetUserId(g->dl, a->app_dlpred, action_id);
+    if (cei == -1){
+        snprintf(name, 128, "app-%s", action->name);
+    }else{
+        snprintf(name, 128, "app-%s-ce-%d", action->name, cei);
+    }
+    unsigned app_dlpred = pddlDatalogAddPred(g->dl, action_arity, name);
+    if (cei < 0)
+        pddlDatalogSetUserId(g->dl, app_dlpred, action_id);
+
     pddlDatalogRuleInit(g->dl, &rule);
-    pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
-    for (int i = 0; i < action_arity; ++i)
-        pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
+    actionToDLAtom(g, app_dlpred, action_arity, &atom);
     pddlDatalogRuleSetHead(g->dl, &rule, &atom);
     pddlDatalogAtomFree(g->dl, &atom);
 
-    // TODO: conditional effects
+    if (cei >= 0){
+        actionToDLAtom(g, app_parent_dlpred, action_arity, &atom);
+        pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+        pddlDatalogAtomFree(g->dl, &atom);
+    }
+
     BOR_ISET(used_param);
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(action->pre, &it, catom){
-        pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
-        for (int i = 0; i < catom->arg_size; ++i){
-            if (catom->arg[i].obj >= 0){
-                pddlDatalogAtomSetArg(g->dl, &atom, i,
-                                      g->obj_to_dlconst[catom->arg[i].obj]);
-            }else{
-                int param = catom->arg[i].param;
-                pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[param]);
-                if (!catom->neg)
-                    borISetAdd(&used_param, param);
-            }
-        }
+    PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
+        atomToDLAtom(g, catom, &atom, &used_param);
         if (catom->neg){
             pddlDatalogRuleAddNegStaticBody(g->dl, &rule, &atom);
         }else{
@@ -166,13 +193,15 @@ static void addActionRules(ground_t *g, int action_id)
         }
         pddlDatalogAtomFree(g->dl, &atom);
     }
-    for (int i = 0; i < action->param.param_size; ++i){
-        int type = action->param.param[i].type;
-        if (type != 0 || !borISetIn(i, &used_param)){
-            pddlDatalogAtomInit(g->dl, &atom, g->type_to_dlpred[type]);
-            pddlDatalogAtomSetArg(g->dl, &atom, 0, g->dlvar[i]);
-            pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-            pddlDatalogAtomFree(g->dl, &atom);
+    if (cei < 0){
+        for (int i = 0; i < action->param.param_size; ++i){
+            int type = action->param.param[i].type;
+            if (type != 0 || !borISetIn(i, &used_param)){
+                pddlDatalogAtomInit(g->dl, &atom, g->type_to_dlpred[type]);
+                pddlDatalogAtomSetArg(g->dl, &atom, 0, g->dlvar[i]);
+                pddlDatalogRuleAddBody(g->dl, &rule, &atom);
+                pddlDatalogAtomFree(g->dl, &atom);
+            }
         }
     }
     borISetFree(&used_param);
@@ -182,27 +211,16 @@ static void addActionRules(ground_t *g, int action_id)
 
 
     // add-effect :- app-action
-    PDDL_COND_FOR_EACH_ATOM(action->eff, &it, catom){
+    PDDL_COND_FOR_EACH_ATOM(eff, &it, catom){
         if (catom->neg)
             continue;
 
         pddlDatalogRuleInit(g->dl, &rule);
-        pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
-        for (int i = 0; i < catom->arg_size; ++i){
-            if (catom->arg[i].obj >= 0){
-                pddlDatalogAtomSetArg(g->dl, &atom, i,
-                                      g->obj_to_dlconst[catom->arg[i].obj]);
-            }else{
-                pddlDatalogAtomSetArg(g->dl, &atom, i,
-                                      g->dlvar[catom->arg[i].param]);
-            }
-        }
+        atomToDLAtom(g, catom, &atom, NULL);
         pddlDatalogRuleSetHead(g->dl, &rule, &atom);
         pddlDatalogAtomFree(g->dl, &atom);
 
-        pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
-        for (int i = 0; i < action_arity; ++i)
-            pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
+        actionToDLAtom(g, app_dlpred, action_arity, &atom);
         pddlDatalogRuleAddBody(g->dl, &rule, &atom);
         pddlDatalogAtomFree(g->dl, &atom);
 
@@ -210,80 +228,23 @@ static void addActionRules(ground_t *g, int action_id)
         pddlDatalogRuleFree(g->dl, &rule);
     }
 
+    return app_dlpred;
+}
+
+static void addActionRules(ground_t *g, int action_id)
+{
+    const pddl_action_t *action = g->pddl->action.action + action_id;
+
+    action_t *a = g->action + action_id;
+    a->id = action_id;
+    a->app_dlpred = addActionRule(g, action_id, action->pre, action->eff, 0, -1);
+
     // Conditional effects
     pddl_cond_const_it_when_t wit;
     const pddl_cond_when_t *when;
     int wi = 0;
     PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
-        char name[128];
-        snprintf(name, 128, "app-%s-ce-%d", action->name, wi);
-        int app_dlpred = pddlDatalogAddPred(g->dl, action_arity, name);
-
-        pddlDatalogRuleInit(g->dl, &rule);
-        pddlDatalogAtomInit(g->dl, &atom, app_dlpred);
-        for (int i = 0; i < action_arity; ++i)
-            pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
-        pddlDatalogRuleSetHead(g->dl, &rule, &atom);
-        pddlDatalogAtomFree(g->dl, &atom);
-
-        pddlDatalogAtomInit(g->dl, &atom, a->app_dlpred);
-        for (int i = 0; i < action_arity; ++i)
-            pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
-        pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-        pddlDatalogAtomFree(g->dl, &atom);
-
-        const pddl_cond_atom_t *catom;
-        pddl_cond_const_it_atom_t it;
-        PDDL_COND_FOR_EACH_ATOM(when->pre, &it, catom){
-            pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
-            for (int i = 0; i < catom->arg_size; ++i){
-                if (catom->arg[i].obj >= 0){
-                    pddlDatalogAtomSetArg(g->dl, &atom, i,
-                            g->obj_to_dlconst[catom->arg[i].obj]);
-                }else{
-                    int param = catom->arg[i].param;
-                    pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[param]);
-                }
-            }
-            if (catom->neg){
-                pddlDatalogRuleAddNegStaticBody(g->dl, &rule, &atom);
-            }else{
-                pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-            }
-            pddlDatalogAtomFree(g->dl, &atom);
-        }
-
-        pddlDatalogAddRule(g->dl, &rule);
-        pddlDatalogRuleFree(g->dl, &rule);
-
-        PDDL_COND_FOR_EACH_ATOM(when->eff, &it, catom){
-            if (catom->neg)
-                continue;
-
-            pddlDatalogRuleInit(g->dl, &rule);
-            pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[catom->pred]);
-            for (int i = 0; i < catom->arg_size; ++i){
-                if (catom->arg[i].obj >= 0){
-                    pddlDatalogAtomSetArg(g->dl, &atom, i,
-                            g->obj_to_dlconst[catom->arg[i].obj]);
-                }else{
-                    pddlDatalogAtomSetArg(g->dl, &atom, i,
-                            g->dlvar[catom->arg[i].param]);
-                }
-            }
-            pddlDatalogRuleSetHead(g->dl, &rule, &atom);
-            pddlDatalogAtomFree(g->dl, &atom);
-
-            pddlDatalogAtomInit(g->dl, &atom, app_dlpred);
-            for (int i = 0; i < action_arity; ++i)
-                pddlDatalogAtomSetArg(g->dl, &atom, i, g->dlvar[i]);
-            pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-            pddlDatalogAtomFree(g->dl, &atom);
-
-            pddlDatalogAddRule(g->dl, &rule);
-            pddlDatalogRuleFree(g->dl, &rule);
-        }
-
+        addActionRule(g, action_id, when->pre, when->eff, a->app_dlpred, wi);
         ++wi;
     }
 }
