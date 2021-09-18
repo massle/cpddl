@@ -68,19 +68,17 @@ void pddlDatalogDel(pddl_datalog_t *dl);
 
 /**
  * Adds constant to the datalog program.
- * TODO: user-id
  */
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
 
 /**
  * Adds predicate to the datalog program.
- * TODO: types
+ * TODO: Native support for types
  */
 unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name);
 
 /**
  * Adds variable to the datalog program.
- * TODO: user-id
  */
 unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name);
 
@@ -91,8 +89,7 @@ void pddlDatalogSetUserId(pddl_datalog_t *dl, unsigned element, int user_id);
 
 /**
  * Adds rule to the datalog.
- * TODO: neq
- * TODO: types
+ * TODO: Native support for types
  */
 int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl);
 
@@ -116,12 +113,17 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl);
 int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err);
 
 /**
- * TODO
+ * Computes and stores the canonical model [1] of the datalog.
+ * [1] Helmert, M. (2009). Concise finite-domain representations for PDDL
+ * planning tasks. Artificial Intelligence, 173, 503–535.
  */
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err);
 
 /**
- * TODO
+ * Can be called only after pddlDatalogCanonicalModel() function.
+ * Iterates over facts of the given predicate from the canonical model, the
+ * returned values pred_user_id and arg_user_id are ids previously set by
+ * pddlDatalogSetUserId().
  */
 void pddlDatalogFactsFromCanonicalModel(
             pddl_datalog_t *dl,
