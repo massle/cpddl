@@ -28,6 +28,7 @@
 #include <pddl/pred.h>
 #include <pddl/fact.h>
 #include <pddl/action.h>
+#include <pddl/lifted_mgroup.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -123,6 +124,13 @@ void pddlAddObjectTypes(pddl_t *pddl);
  * Remove specified objects from the planning task.
  */
 void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
+
+/**
+ * TODO
+ */
+void pddlCompileInLiftedMGroups(pddl_t *pddl,
+                                const pddl_lifted_mgroups_t *mgroups,
+                                bor_err_t *err);
 
 /**
  * Prints PDDL domain file.

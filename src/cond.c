@@ -1169,6 +1169,12 @@ pddl_cond_t *pddlCondNewEmptyAnd(void)
     return &p->cls;
 }
 
+pddl_cond_t *pddlCondNewEmptyOr(void)
+{
+    pddl_cond_part_t *p = condPartNew(PDDL_COND_OR);
+    return &p->cls;
+}
+
 pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args)
 {
     pddl_cond_atom_t *atom = condAtomNew();
@@ -1183,6 +1189,11 @@ pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args)
     }
 
     return atom;
+}
+
+pddl_cond_bool_t *pddlCondNewBool(int is_true)
+{
+    return condBoolNew(is_true);
 }
 
 static int hasAtom(pddl_cond_t *c, void *_ret)
@@ -1764,6 +1775,11 @@ void pddlCondPartAdd(pddl_cond_part_t *part, pddl_cond_t *c)
 void pddlCondPartRm(pddl_cond_part_t *part, pddl_cond_t *c)
 {
     borListDel(&c->conn);
+}
+
+int pddlCondPartIsEmpty(const pddl_cond_part_t *part)
+{
+    return borListEmpty(&part->part);
 }
 
 

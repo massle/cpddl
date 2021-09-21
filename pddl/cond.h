@@ -211,12 +211,18 @@ pddl_cond_t *pddlCondNewAnd2(pddl_cond_t *a, pddl_cond_t *b);
  * Creates a new empty (and ) node.
  */
 pddl_cond_t *pddlCondNewEmptyAnd(void);
+pddl_cond_t *pddlCondNewEmptyOr(void);
 
 /**
  * Creates a new empty atom with the specified number of arguments all set
  * as "undefined".
  */
 pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args);
+
+/**
+ * Creates false/true constants.
+ */
+pddl_cond_bool_t *pddlCondNewBool(int is_true);
 
 /**
  * Returns true if the conditional contains any atom.
@@ -258,6 +264,11 @@ void pddlCondPartAdd(pddl_cond_part_t *part, pddl_cond_t *c);
  * Removes {c} from the and/or condition
  */
 void pddlCondPartRm(pddl_cond_part_t *part, pddl_cond_t *c);
+
+/**
+ * Returns true if the and/or is empty
+ */
+int pddlCondPartIsEmpty(const pddl_cond_part_t *part);
 
 /**
  * Returns 0 if cond is a correct precondition, -1 otherwise.
