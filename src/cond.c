@@ -3245,6 +3245,22 @@ void pddlCondPrint(const struct pddl *pddl,
     }
 }
 
+char *pddlCondFormatIntoStr(const pddl_t *pddl,
+                            const pddl_cond_t *cond,
+                            const pddl_params_t *params,
+                            int *strlen)
+{
+    char *str;
+    size_t slen;
+    FILE *fout = open_memstream(&str, &slen);
+    pddlCondPrint(pddl, cond, params, fout);
+    fflush(fout);
+    fclose(fout);
+    if (strlen != NULL)
+        *strlen = slen;
+    return str;
+}
+
 void pddlCondPrintPDDL(const pddl_cond_t *cond,
                        const pddl_t *pddl,
                        const pddl_params_t *params,

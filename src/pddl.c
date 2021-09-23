@@ -997,7 +997,42 @@ static void mapSetObj(unify_subst_t *map, int size, int from, pddl_obj_id_t to)
     }
 }
 
+static int checkIneq(const pddl_t *pddl,
+                     const pddl_cond_t *pre,
+                     const unify_subst_t *map)
+{
+    if (pre == NULL)
+        return 1;
+
+    pddl_cond_const_it_atom_t it;
+    const pddl_cond_atom_t *ineq;
+    PDDL_COND_FOR_EACH_ATOM(pre, &it, ineq){
+        if (ineq->neg && ineq->pred == pddl->pred.eq_pred){
+            int param0 = ineq->arg[0].param;
+            int param1 = ineq->arg[1].param;
+            if (param0 >= 0 && param1 >= 0){
+                if (map[param0].var != map[param1].var
+                        || map[param0].obj != map[param1].obj)
+                    return 0;
+
+            }else if (param0 >= 0){
+                if (map[param0].var < 0
+                       && map[param0].obj != ineq->arg[1].obj)
+                    return 0;
+
+            }else if (param1 >= 0){
+                if (map[param1].var < 0
+                       && map[param1].obj != ineq->arg[1].obj)
+                    return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 static int unifyAtoms(const pddl_t *pddl,
+                      const pddl_cond_t *pre,
+                      const pddl_cond_t *pre2,
                       const pddl_params_t *pre_params,
                       const pddl_params_t *mgroup_params,
                       const pddl_cond_atom_t *a_pre,
@@ -1090,7 +1125,7 @@ static int unifyAtoms(const pddl_t *pddl,
         }
     }
 
-    return 1;
+    return checkIneq(pddl, pre, map) && checkIneq(pddl, pre2, map);
 }
 
 static int preAtomsAreEqual(const pddl_params_t *pre_param,
@@ -1226,10 +1261,10 @@ static pddl_cond_t *condCompileMutex(const pddl_t *pddl,
                                      const unify_subst_t *map)
 {
     int eq_pred = pddl->pred.eq_pred;
-    int found1[pre1->arg_size];
-    int found2[pre2->arg_size];
-    bzero(found1, sizeof(int) * pre1->arg_size);
-    bzero(found2, sizeof(int) * pre2->arg_size);
+    int found1[pre_param->param_size];
+    int found2[pre_param->param_size];
+    bzero(found1, sizeof(int) * pre_param->param_size);
+    bzero(found2, sizeof(int) * pre_param->param_size);
 
     pddl_cond_t *_and = pddlCondNewEmptyAnd();
     pddl_cond_part_t *and = PDDL_COND_CAST(_and, part);
@@ -1276,31 +1311,55 @@ static pddl_cond_t *condCompileMutex(const pddl_t *pddl,
         return &(pddlCondNewBool(0)->cls);
     }
 
-    pddl_cond_t *ret = _and;
-    ret = pddlCondNormalize(ret, pddl, pre_param);
-    ret = pddlCondNegate(ret, pddl);
+    _and = pddlCondNormalize(_and, pddl, pre_param);
+    pddl_cond_t *ret = pddlCondNegate(_and, pddl);
     ret = pddlCondNormalize(ret, pddl, pre_param);
     ret = pddlCondDeduplicate(ret, pddl);
+    pddlCondDel(_and);
     return ret;
 }
 
-static void preCompileInLiftedMGroups(pddl_t *pddl,
-                                      const pddl_params_t *pre_param,
-                                      const pddl_cond_t *pre,
-                                      const pddl_lifted_mgroup_t *mgroup,
-                                      bor_err_t *err)
+static void prePairMutexLiftedMGroup(const pddl_t *pddl,
+                                     const pddl_params_t *pre_param,
+                                     const pddl_cond_t *pre,
+                                     const pddl_cond_t *pre2,
+                                     const pddl_lifted_mgroup_t *mgroup,
+                                     const pddl_cond_atom_t *p1,
+                                     const pddl_cond_atom_t *p2,
+                                     const pddl_cond_atom_t *m2,
+                                     const unify_subst_t *map,
+                                     int map_size,
+                                     pddl_cond_part_t *and)
+{
+    unify_subst_t *map2 = BOR_ALLOC_ARR(unify_subst_t, map_size);
+    if (map2 != NULL)
+        memcpy(map2, map, sizeof(unify_subst_t) * map_size);
+    if (unifyAtoms(pddl, pre, pre2, pre_param, &mgroup->param, p2, m2, map2, 0)
+            && !preAtomsAreEqual(pre_param, p1, p2, map2)){
+        pddl_cond_t *c;
+        c = condCompileMutex(pddl, pre_param, p1, p2, map2);
+        pddlCondPartAdd(and, c);
+    }
+    if (map2 != NULL)
+        BOR_FREE(map2);
+}
+
+static pddl_cond_t *preMutexLiftedMGroups(const pddl_t *pddl,
+                                          const pddl_params_t *pre_param,
+                                          const pddl_cond_t *pre,
+                                          const pddl_cond_t *pre2,
+                                          const pddl_lifted_mgroup_t *mgroup)
 {
     pddl_cond_const_it_atom_t it1, it2;
     const pddl_cond_atom_t *a1, *a2;
     int map_size = mgroup->param.param_size + pre_param->param_size;
     unify_subst_t *map = BOR_ALLOC_ARR(unify_subst_t, map_size);
 
-    pddl_cond_arr_t carr = PDDL_COND_ARR_INIT;
+    pddl_cond_part_t *and = pddlCondToAnd(pddlCondNewEmptyAnd());
 
     PDDL_COND_FOR_EACH_ATOM(pre, &it1, a1){
         if (a1->neg)
             continue;
-        // TODO: (in)equality preconditions
 
         for (int mi1 = 0; mi1 < mgroup->cond.size; ++mi1){
             const pddl_cond_atom_t *ma1;
@@ -1308,44 +1367,52 @@ static void preCompileInLiftedMGroups(pddl_t *pddl,
             if (ma1->pred != a1->pred)
                 continue;
 
-            if (!unifyAtoms(pddl, pre_param, &mgroup->param, a1, ma1, map, 1))
+            if (!unifyAtoms(pddl, pre, pre2, pre_param, &mgroup->param,
+                            a1, ma1, map, 1)){
                 continue;
+            }
 
-            it2 = it1;
-            PDDL_COND_FOR_EACH_ATOM_CONT(&it2, a2){
-                if (a2->neg)
-                    continue;
-                for (int mi2 = 0; mi2 < mgroup->cond.size; ++mi2){
-                    const pddl_cond_atom_t *ma2;
-                    ma2 = PDDL_COND_CAST(mgroup->cond.cond[mi2], atom);
-                    if (ma2->pred != a2->pred)
+            if (pre2 == NULL){
+                it2 = it1;
+                PDDL_COND_FOR_EACH_ATOM_CONT(&it2, a2){
+                    if (a2->neg)
                         continue;
-                    unify_subst_t *map2 = BOR_ALLOC_ARR(unify_subst_t, map_size);
-                    if (map2 != NULL)
-                        memcpy(map2, map, sizeof(unify_subst_t) * map_size);
-                    if (unifyAtoms(pddl, pre_param, &mgroup->param, a2, ma2, map2, 0)
-                            && !preAtomsAreEqual(pre_param, a1, a2, map2)){
-                        pddl_cond_t *c;
-                        c = condCompileMutex(pddl, pre_param, a1, a2, map2);
-                        pddlCondArrAdd(&carr, c);
+                    for (int mi2 = 0; mi2 < mgroup->cond.size; ++mi2){
+                        const pddl_cond_atom_t *ma2;
+                        ma2 = PDDL_COND_CAST(mgroup->cond.cond[mi2], atom);
+                        if (ma2->pred != a2->pred)
+                            continue;
+                        prePairMutexLiftedMGroup(pddl, pre_param, pre, pre2,
+                                                 mgroup, a1, a2, ma2,
+                                                 map, map_size, and);
                     }
-                    if (map2 != NULL)
-                        BOR_FREE(map2);
+                }
+            }else{
+                PDDL_COND_FOR_EACH_ATOM(pre2, &it2, a2){
+                    if (a2->neg)
+                        continue;
+                    for (int mi2 = 0; mi2 < mgroup->cond.size; ++mi2){
+                        const pddl_cond_atom_t *ma2;
+                        ma2 = PDDL_COND_CAST(mgroup->cond.cond[mi2], atom);
+                        if (ma2->pred != a2->pred)
+                            continue;
+                        prePairMutexLiftedMGroup(pddl, pre_param, pre, pre2,
+                                                 mgroup, a1, a2, ma2,
+                                                 map, map_size, and);
+                    }
                 }
             }
         }
     }
 
-    for (int i = 0; i < carr.size; ++i){
-        fprintf(stderr, "COND[%d]: ", i);
-        pddlCondPrint(pddl, carr.cond[i], pre_param, stderr);
-        fprintf(stderr, "\n");
-        pddlCondDel((pddl_cond_t *)carr.cond[i]);
-    }
-
-    pddlCondArrFree(&carr);
     if (map != NULL)
         BOR_FREE(map);
+
+    if (pddlCondPartIsEmpty(and)){
+        pddlCondDel(&and->cls);
+        return NULL;
+    }
+    return &and->cls;
 }
 
 static void actionCompileInLiftedMGroups(pddl_t *pddl,
@@ -1353,24 +1420,86 @@ static void actionCompileInLiftedMGroups(pddl_t *pddl,
                                          const pddl_lifted_mgroups_t *mgroups,
                                          bor_err_t *err)
 {
+    pddl_cond_arr_t ce = PDDL_COND_ARR_INIT;
+    pddl_cond_const_it_when_t wit;
+    const pddl_cond_when_t *when;
+    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when)
+        pddlCondArrAdd(&ce, &when->cls);
+
+    pddl_cond_t **ce_ext = NULL;
+    if (ce.size > 0)
+        ce_ext = BOR_CALLOC_ARR(pddl_cond_t *, ce.size);
+    pddl_cond_t *ext = NULL;
+
     for (int mi = 0; mi < mgroups->mgroup_size; ++mi){
         const pddl_lifted_mgroup_t *mg = mgroups->mgroup + mi;
-        fprintf(stderr, "lm:");
-        pddlLiftedMGroupPrint(pddl, mg, stderr);
-        preCompileInLiftedMGroups(pddl, &action->param, action->pre, mg, err);
+        pddl_cond_t *e;
+        e = preMutexLiftedMGroups(pddl, &action->param, action->pre, NULL, mg);
+        if (e != NULL){
+            if (ext == NULL)
+                ext = pddlCondNewEmptyAnd();
+            pddlCondPartAdd(PDDL_COND_CAST(ext, part), e);
+        }
+
+        // Conditional effects
+        for (int wi = 0; wi < ce.size; ++wi){
+            const pddl_cond_when_t *when = PDDL_COND_CAST(ce.cond[wi], when);
+            pddl_cond_t *c;
+            c = preMutexLiftedMGroups(pddl, &action->param, when->pre, NULL, mg);
+            if (c != NULL){
+                if (ce_ext[wi] == NULL)
+                    ce_ext[wi] = pddlCondNewEmptyAnd();
+                pddlCondPartAdd(PDDL_COND_CAST(ce_ext[wi], part), c);
+            }
+            c = preMutexLiftedMGroups(pddl, &action->param,
+                                      action->pre, when->pre, mg);
+            if (c != NULL){
+                if (ce_ext[wi] == NULL)
+                    ce_ext[wi] = pddlCondNewEmptyAnd();
+                pddlCondPartAdd(PDDL_COND_CAST(ce_ext[wi], part), c);
+            }
+        }
     }
+
+    if (ext != NULL){
+        ext = pddlCondNormalize(ext, pddl, &action->param);
+        action->pre = pddlCondNewAnd2(action->pre, ext);
+        char *spre = pddlCondFormatIntoStr(pddl, ext, &action->param, NULL);
+        BOR_INFO(err, "Updated pre of action %s by '%s'", action->name, spre);
+        free(spre);
+    }
+
+    for (int wi = 0; wi < ce.size; ++wi){
+        if (ce_ext[wi] != NULL){
+            pddl_cond_when_t *w = (pddl_cond_when_t *)ce.cond[wi];
+            ce_ext[wi] = pddlCondNormalize(ce_ext[wi], pddl, &action->param);
+            w->pre = pddlCondNewAnd2(w->pre, ce_ext[wi]);
+            char *spre = pddlCondFormatIntoStr(pddl, ce_ext[wi], &action->param, NULL);
+            BOR_INFO(err, "Updated pre of a conditional effect of action %s"
+                          " by '%s'", action->name, spre);
+            free(spre);
+        }
+    }
+
+    pddlCondArrFree(&ce);
+    if (ce_ext != NULL)
+        BOR_FREE(ce_ext);
 }
 
 void pddlCompileInLiftedMGroups(pddl_t *pddl,
                                 const pddl_lifted_mgroups_t *mgroups,
                                 bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "Compile-in LMG: ");
+    BOR_INFO2(err, "start");
     for (int i = 0; i < pddl->action.action_size; ++i){
-        fprintf(stderr, "a: %s\n", pddl->action.action[i].name);
-
         actionCompileInLiftedMGroups(pddl, pddl->action.action + i,
                                      mgroups, err);
     }
+    BOR_INFO2(err, "Normalizing ...");
+    pddlNormalize(pddl);
+    BOR_INFO2(err, "DONE");
+    BOR_INFO_PREFIX_POP(err);
 }
 
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)
