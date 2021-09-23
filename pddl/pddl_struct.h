@@ -37,6 +37,7 @@ extern "C" {
 struct pddl_config {
     int force_adl; /*!< Force ADL to requirements */
     int normalize; /*!< Normalize the task right after parsing */
+    int remove_empty_types; /*!< Remove types without any objects */
     int compile_away_cond_eff; /*!< Compile away conditional effects */
 };
 typedef struct pddl_config pddl_config_t;
@@ -45,6 +46,7 @@ typedef struct pddl_config pddl_config_t;
 #define PDDL_CONFIG_INIT \
     { 1, /* .force_adl */ \
       1, /* .normalize */ \
+      1, /* .remove_empty_types */ \
       0, /* .compile_away_cond_eff */ \
     }
 
@@ -124,6 +126,11 @@ void pddlAddObjectTypes(pddl_t *pddl);
  * Remove specified objects from the planning task.
  */
 void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
+
+/**
+ * Remove empty types and all related predicates and actions from the task
+ */
+void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err);
 
 /**
  * TODO

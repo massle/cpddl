@@ -370,6 +370,41 @@ void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap)
         pddlActionRemapObjs(as->action + i, remap);
 }
 
+int pddlActionRemapTypesAndPreds(pddl_action_t *a,
+                                 const int *type_remap,
+                                 const int *pred_remap,
+                                 const int *func_remap)
+{
+    for (int i = 0; i < a->param.param_size; ++i){
+        if (type_remap[a->param.param[i].type] < 0)
+            return -1;
+        a->param.param[i].type = type_remap[a->param.param[i].type];
+    }
+    if (pddlCondRemapPreds(a->pre, pred_remap, func_remap) != 0)
+        return -1;
+    if (pddlCondRemapPreds(a->eff, pred_remap, func_remap) != 0)
+        return -1;
+
+    return 0;
+}
+
+void pddlActionsRemapTypesAndPreds(pddl_actions_t *as,
+                                   const int *type_remap,
+                                   const int *pred_remap,
+                                   const int *func_remap)
+{
+    int ins = 0;
+    for (int i = 0; i < as->action_size; ++i){
+        if (pddlActionRemapTypesAndPreds(as->action + i, type_remap,
+                                         pred_remap, func_remap) == 0){
+            as->action[ins++] = as->action[i];
+        }else{
+            pddlActionFree(as->action + i);
+        }
+    }
+    as->action_size = ins;
+}
+
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
 {
     fprintf(fout, "    %s: ", a->name);

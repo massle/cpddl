@@ -25,7 +25,6 @@
 #include <pddl/common.h>
 #include <pddl/lisp.h>
 #include <pddl/require.h>
-#include <pddl/type.h>
 #include <pddl/param.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
@@ -351,6 +350,13 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
  * It is assumed no object from {c} is deleted.
  */
 void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap);
+
+/**
+ * Remap predicates
+ */
+int pddlCondRemapPreds(pddl_cond_t *c,
+                       const int *pred_remap,
+                       const int *func_remap);
 
 void pddlCondPrint(const pddl_t *pddl,
                    const pddl_cond_t *cond,

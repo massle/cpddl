@@ -3053,6 +3053,49 @@ void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap)
     pddlCondTraverse(c, NULL, condRemapObjs, (void *)remap);
 }
 
+struct pred_remap {
+    const int *pred_remap;
+    const int *func_remap;
+    int fail;
+};
+
+static int condRemapPreds(pddl_cond_t *c, void *_remap)
+{
+    struct pred_remap *remap = _remap;
+    if (c->type == PDDL_COND_ATOM){
+        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        if (remap->pred_remap[a->pred] < 0)
+            remap->fail = 1;
+        a->pred = remap->pred_remap[a->pred];
+
+    }else if (c->type == PDDL_COND_ASSIGN){
+        pddl_cond_func_op_t *a = PDDL_COND_CAST(c, func_op);
+        if (a->lvalue != NULL){
+            if (remap->func_remap[a->lvalue->pred] < 0)
+                remap->fail = 1;
+            a->lvalue->pred = remap->func_remap[a->lvalue->pred];
+        }
+        if (a->fvalue != NULL){
+            if (remap->func_remap[a->fvalue->pred] < 0)
+                remap->fail = 1;
+            a->fvalue->pred = remap->func_remap[a->fvalue->pred];
+        }
+    }
+
+    return 0;
+}
+
+int pddlCondRemapPreds(pddl_cond_t *c,
+                        const int *pred_remap,
+                        const int *func_remap)
+{
+    struct pred_remap remap = { pred_remap, func_remap, 0};
+    pddlCondTraverse(c, NULL, condRemapPreds, (void *)&remap);
+    if (remap.fail)
+        return -1;
+    return 0;
+}
+
 
 /*** PRINT ***/
 static void condPartPrint(const pddl_t *pddl,

@@ -347,6 +347,12 @@ void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
     objs->obj_size = new_size;
 }
 
+void pddlObjsRemapTypes(pddl_objs_t *objs, const int *remap_type)
+{
+    for (int i = 0; i < objs->obj_size; ++i)
+        objs->obj[i].type = remap_type[objs->obj[i].type];
+}
+
 void pddlObjsPrint(const pddl_objs_t *objs, FILE *fout)
 {
     fprintf(fout, "Obj[%d]:\n", objs->obj_size);

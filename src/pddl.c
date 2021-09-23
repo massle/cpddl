@@ -227,6 +227,14 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         BOR_INFO2(err, "PDDL task normalized.");
     }
 
+    if (cfg->remove_empty_types){
+        pddlRemoveEmptyTypes(pddl, err);
+        if (cfg->normalize){
+            pddlNormalize(pddl);
+            BOR_INFO2(err, "PDDL task normalized again.");
+        }
+    }
+
     if (cfg->compile_away_cond_eff){
         BOR_INFO2(err, "Compiling away conditional effects...");
         pddlCompileAwayCondEff(pddl);
@@ -902,6 +910,61 @@ void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
     pddlActionsRemapObjs(&pddl->action, remap);
 
     BOR_FREE(remap);
+    BOR_INFO_PREFIX_POP(err);
+}
+
+void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err)
+{
+    BOR_INFO_PREFIX_PUSH(err, "Rm empty-types: ");
+    int *type_remap = BOR_CALLOC_ARR(int, pddl->type.type_size);
+    int *pred_remap = BOR_CALLOC_ARR(int, pddl->pred.pred_size);
+    int *func_remap = BOR_CALLOC_ARR(int, pddl->func.pred_size);
+    int type_size = pddl->type.type_size;
+    int pred_size = pddl->pred.pred_size;
+    int func_size = pddl->func.pred_size;
+    int action_size = pddl->action.action_size;
+
+    pddlTypesRemoveEmpty(&pddl->type, pddl->obj.obj_size, type_remap);
+    BOR_INFO(err, "Removed %d empty types", type_size - pddl->type.type_size);
+    if (type_size != pddl->type.type_size){
+        pddlObjsRemapTypes(&pddl->obj, type_remap);
+        pddlPredsRemapTypes(&pddl->pred, type_remap, pred_remap);
+        BOR_INFO(err, "Removed %d predicates", pred_size - pddl->pred.pred_size);
+        pddlPredsRemapTypes(&pddl->func, type_remap, func_remap);
+        BOR_INFO(err, "Removed %d functions", func_size - pddl->func.pred_size);
+        pddlActionsRemapTypesAndPreds(&pddl->action, type_remap,
+                                      pred_remap, func_remap);
+        BOR_INFO(err, "Removed %d actions",
+                 action_size - pddl->action.action_size);
+
+        if (pred_size != pddl->pred.pred_size
+                || func_size != pddl->func.pred_size){
+
+            if (pddlCondRemapPreds(&pddl->init->cls,
+                                   pred_remap, func_remap) != 0){
+                BOR_INFO2(err, "The task is unsolvable, because the initial"
+                               " state is false");
+                pddlCondDel(&pddl->init->cls);
+                pddl_cond_t *c = pddlCondNewEmptyAnd();
+                pddl->init = PDDL_COND_CAST(c, part);
+                pddl_cond_bool_t *b = pddlCondNewBool(0);
+                pddlCondPartAdd(pddl->init, &b->cls);
+            }
+
+            if (pddlCondRemapPreds(pddl->goal, pred_remap, func_remap) != 0){
+                BOR_INFO2(err, "The task is unsolvable, because the goal"
+                               " is false");
+                pddlCondDel(pddl->goal);
+                pddl_cond_bool_t *b = pddlCondNewBool(0);
+                pddl->goal = &b->cls;
+            }
+        }
+    }
+
+
+    BOR_FREE(type_remap);
+    BOR_FREE(pred_remap);
+    BOR_FREE(func_remap);
     BOR_INFO_PREFIX_POP(err);
 }
 
