@@ -470,6 +470,41 @@ static pddl_cond_t *preMutexLiftedMGroups(const pddl_t *pddl,
     return &and->cls;
 }
 
+static void actionCompileInLiftedMGroup(pddl_t *pddl,
+                                        pddl_action_t *action,
+                                        pddl_cond_arr_t *ce,
+                                        const pddl_lifted_mgroup_t *mg,
+                                        pddl_cond_t **ext,
+                                        pddl_cond_t **ce_ext)
+{
+    pddl_cond_t *e;
+    e = preMutexLiftedMGroups(pddl, &action->param, action->pre, NULL, mg);
+    if (e != NULL){
+        if (*ext == NULL)
+            *ext = pddlCondNewEmptyAnd();
+        pddlCondPartAdd(PDDL_COND_CAST(*ext, part), e);
+    }
+
+    // Conditional effects
+    for (int wi = 0; wi < ce->size; ++wi){
+        const pddl_cond_when_t *when = PDDL_COND_CAST(ce->cond[wi], when);
+        pddl_cond_t *c;
+        c = preMutexLiftedMGroups(pddl, &action->param, when->pre, NULL, mg);
+        if (c != NULL){
+            if (ce_ext[wi] == NULL)
+                ce_ext[wi] = pddlCondNewEmptyAnd();
+            pddlCondPartAdd(PDDL_COND_CAST(ce_ext[wi], part), c);
+        }
+        c = preMutexLiftedMGroups(pddl, &action->param,
+                action->pre, when->pre, mg);
+        if (c != NULL){
+            if (ce_ext[wi] == NULL)
+                ce_ext[wi] = pddlCondNewEmptyAnd();
+            pddlCondPartAdd(PDDL_COND_CAST(ce_ext[wi], part), c);
+        }
+    }
+}
+
 static void actionCompileInLiftedMGroups(pddl_t *pddl,
                                          pddl_action_t *action,
                                          const pddl_lifted_mgroups_t *mgroups,
@@ -488,32 +523,7 @@ static void actionCompileInLiftedMGroups(pddl_t *pddl,
 
     for (int mi = 0; mi < mgroups->mgroup_size; ++mi){
         const pddl_lifted_mgroup_t *mg = mgroups->mgroup + mi;
-        pddl_cond_t *e;
-        e = preMutexLiftedMGroups(pddl, &action->param, action->pre, NULL, mg);
-        if (e != NULL){
-            if (ext == NULL)
-                ext = pddlCondNewEmptyAnd();
-            pddlCondPartAdd(PDDL_COND_CAST(ext, part), e);
-        }
-
-        // Conditional effects
-        for (int wi = 0; wi < ce.size; ++wi){
-            const pddl_cond_when_t *when = PDDL_COND_CAST(ce.cond[wi], when);
-            pddl_cond_t *c;
-            c = preMutexLiftedMGroups(pddl, &action->param, when->pre, NULL, mg);
-            if (c != NULL){
-                if (ce_ext[wi] == NULL)
-                    ce_ext[wi] = pddlCondNewEmptyAnd();
-                pddlCondPartAdd(PDDL_COND_CAST(ce_ext[wi], part), c);
-            }
-            c = preMutexLiftedMGroups(pddl, &action->param,
-                                      action->pre, when->pre, mg);
-            if (c != NULL){
-                if (ce_ext[wi] == NULL)
-                    ce_ext[wi] = pddlCondNewEmptyAnd();
-                pddlCondPartAdd(PDDL_COND_CAST(ce_ext[wi], part), c);
-            }
-        }
+        actionCompileInLiftedMGroup(pddl, action, &ce, mg, &ext, ce_ext);
     }
 
     if (ext != NULL){
