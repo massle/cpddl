@@ -121,18 +121,18 @@ static int unifyAtoms(const pddl_t *pddl,
         int pre_param = a_pre->arg[argi].param;
         int pre_type = -1;
         if (pre_param >= 0){
-            pre_param = map[pre_param].var;
             pre_type = map[pre_param].var_type;
             pre_obj = map[pre_param].obj;
+            pre_param = map[pre_param].var;
         }
         pddl_obj_id_t mg_obj = a_mgroup->arg[argi].obj;
         int mg_param = a_mgroup->arg[argi].param;
         int mg_type = -1;
         if (mg_param >= 0){
             mg_param += pre_params->param_size;
-            mg_param = map[mg_param].var;
             mg_type = map[mg_param].var_type;
             mg_obj = map[mg_param].obj;
+            mg_param = map[mg_param].var;
         }
 
         if (pre_param >= 0 && mg_param >= 0){
@@ -470,6 +470,147 @@ static pddl_cond_t *preMutexLiftedMGroups(const pddl_t *pddl,
     return &and->cls;
 }
 
+static int checkPreDel(const pddl_cond_atom_t *apre,
+                       const pddl_cond_atom_t *adel,
+                       const unify_subst_t *map)
+{
+    ASSERT(apre->pred == adel->pred);
+    for (int ai = 0; ai < apre->arg_size; ++ai){
+        if (apre->arg[ai].param == adel->arg[ai].param
+                && apre->arg[ai].obj == adel->arg[ai].obj)
+            continue;
+        pddl_obj_id_t pre_obj = apre->arg[ai].obj;
+        pddl_obj_id_t del_obj = adel->arg[ai].obj;
+        int pre_param = apre->arg[ai].param;
+        int is_fixed = 0;
+        if (pre_param >= 0){
+            pre_param = map[pre_param].var;
+            is_fixed = map[pre_param].is_fixed;
+            pre_obj = map[pre_param].obj;
+        }
+        int del_param = adel->arg[ai].param;
+        if (del_param >= 0){
+            del_param = map[del_param].var;
+            del_obj = map[del_param].obj;
+        }
+        if (pre_param != del_param || pre_obj != del_obj)
+            return 0;
+        if (pre_param >= 0 && !is_fixed)
+            return 0;
+    }
+    return 1;
+}
+
+static pddl_cond_t *findDeadEndCondAdd(const pddl_t *pddl,
+                                       const pddl_params_t *param,
+                                       const pddl_cond_t *eff,
+                                       const pddl_cond_t *pre,
+                                       const pddl_lifted_mgroup_t *mgroup,
+                                       const unify_subst_t *_map)
+{
+    int map_size = mgroup->param.param_size + param->param_size;
+    unify_subst_t *map = BOR_ALLOC_ARR(unify_subst_t, map_size);
+
+    pddl_cond_const_it_atom_t itadd;
+    const pddl_cond_atom_t *aadd;
+    PDDL_COND_FOR_EACH_ATOM(eff, &itadd, aadd){
+        if (aadd->neg)
+            continue;
+
+        for (int mi = 0; mi < mgroup->cond.size; ++mi){
+            const pddl_cond_atom_t *ma;
+            ma = PDDL_COND_CAST(mgroup->cond.cond[mi], atom);
+            if (ma->pred != aadd->pred)
+                continue;
+            memcpy(map, _map, sizeof(unify_subst_t) * map_size);
+            if (unifyAtoms(pddl, pre, NULL, param, &mgroup->param,
+                           aadd, ma, map, 0)){
+                fprintf(stderr, "U %d\n", memcmp(map, _map,
+                            sizeof(unify_subst_t) * map_size));
+                if (map != NULL)
+                    BOR_FREE(map);
+                return NULL;
+            }
+        }
+    }
+    fprintf(stderr, "FOUND\n");
+
+    if (map != NULL)
+        BOR_FREE(map);
+
+    return NULL;
+}
+
+static pddl_cond_t *findDeadEndCondPre(const pddl_t *pddl,
+                                       const pddl_params_t *param,
+                                       const pddl_cond_t *eff,
+                                       const pddl_cond_t *pre,
+                                       const pddl_lifted_mgroup_t *mgroup,
+                                       const pddl_cond_atom_t *adel,
+                                       const pddl_cond_atom_t *amg,
+                                       const unify_subst_t *_map)
+{
+    int map_size = mgroup->param.param_size + param->param_size;
+    unify_subst_t *map = BOR_ALLOC_ARR(unify_subst_t, map_size);
+
+    pddl_cond_const_it_atom_t itpre;
+    const pddl_cond_atom_t *apre;
+    PDDL_COND_FOR_EACH_ATOM(pre, &itpre, apre){
+        if (apre->neg || apre->pred != adel->pred)
+            continue;
+        memcpy(map, _map, sizeof(unify_subst_t) * map_size);
+        if (!unifyAtoms(pddl, pre, NULL, param, &mgroup->param,
+                        apre, amg, map, 0)){
+            continue;
+        }
+        if (!checkPreDel(apre, adel, map))
+            continue;
+
+        // TODO
+        findDeadEndCondAdd(pddl, param, eff, pre, mgroup, map);
+    }
+
+    if (map != NULL)
+        BOR_FREE(map);
+
+    return NULL;
+}
+
+static pddl_cond_t *findDeadEndCond(const pddl_t *pddl,
+                                    const pddl_params_t *param,
+                                    const pddl_cond_t *eff,
+                                    const pddl_cond_t *pre,
+                                    const pddl_lifted_mgroup_t *mgroup)
+{
+    int map_size = mgroup->param.param_size + param->param_size;
+    unify_subst_t *map = BOR_ALLOC_ARR(unify_subst_t, map_size);
+
+    pddl_cond_const_it_atom_t itdel;
+    const pddl_cond_atom_t *adel;
+    PDDL_COND_FOR_EACH_ATOM(eff, &itdel, adel){
+        if (!adel->neg)
+            continue;
+
+        for (int mi = 0; mi < mgroup->cond.size; ++mi){
+            const pddl_cond_atom_t *ma;
+            ma = PDDL_COND_CAST(mgroup->cond.cond[mi], atom);
+            if (ma->pred != adel->pred)
+                continue;
+
+            if (!unifyAtoms(pddl, pre, NULL, param, &mgroup->param,
+                            adel, ma, map, 1)){
+                continue;
+            }
+
+            // TODO
+            findDeadEndCondPre(pddl, param, eff, pre, mgroup, adel, ma, map);
+        }
+    }
+    if (map != NULL)
+        BOR_FREE(map);
+    return NULL;
+}
+
 static void actionCompileInLiftedMGroup(pddl_t *pddl,
                                         pddl_action_t *action,
                                         pddl_cond_arr_t *ce,
@@ -484,6 +625,7 @@ static void actionCompileInLiftedMGroup(pddl_t *pddl,
             *ext = pddlCondNewEmptyAnd();
         pddlCondPartAdd(PDDL_COND_CAST(*ext, part), e);
     }
+    findDeadEndCond(pddl, &action->param, action->eff, action->pre, mg);
 
     // Conditional effects
     for (int wi = 0; wi < ce->size; ++wi){
