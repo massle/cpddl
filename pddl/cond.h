@@ -383,15 +383,23 @@ void pddlCondPrint(const pddl_t *pddl,
                    const pddl_params_t *params,
                    FILE *fout);
 
-char *pddlCondFormatIntoStr(const pddl_t *pddl,
-                            const pddl_cond_t *cond,
-                            const pddl_params_t *params,
-                            int *strlen);
+
+const char *pddlCondFmt(const pddl_cond_t *cond,
+                        const pddl_t *pddl,
+                        const pddl_params_t *params,
+                        char *s,
+                        size_t s_size);
 
 void pddlCondPrintPDDL(const pddl_cond_t *cond,
                        const pddl_t *pddl,
                        const pddl_params_t *params,
                        FILE *fout);
+
+const char *pddlCondPDDLFmt(const pddl_cond_t *cond,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            char *s,
+                            size_t s_size);
 
 
 

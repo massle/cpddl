@@ -3245,20 +3245,23 @@ void pddlCondPrint(const struct pddl *pddl,
     }
 }
 
-char *pddlCondFormatIntoStr(const pddl_t *pddl,
-                            const pddl_cond_t *cond,
-                            const pddl_params_t *params,
-                            int *strlen)
+const char *pddlCondFmt(const pddl_cond_t *cond,
+                        const pddl_t *pddl,
+                        const pddl_params_t *params,
+                        char *s,
+                        size_t s_size)
 {
-    char *str;
-    size_t slen;
-    FILE *fout = open_memstream(&str, &slen);
+    FILE *fout = fmemopen(s, s_size - 1, "w");
     pddlCondPrint(pddl, cond, params, fout);
     fflush(fout);
+    if (ferror(fout) != 0 && s_size >= 4){
+        s[s_size - 4] = '.';
+        s[s_size - 3] = '.';
+        s[s_size - 2] = '.';
+    }
     fclose(fout);
-    if (strlen != NULL)
-        *strlen = slen;
-    return str;
+    s[s_size - 1] = 0x0;
+    return s;
 }
 
 void pddlCondPrintPDDL(const pddl_cond_t *cond,
@@ -3267,6 +3270,25 @@ void pddlCondPrintPDDL(const pddl_cond_t *cond,
                        FILE *fout)
 {
     cond_cls[cond->type].print_pddl(cond, pddl, params, fout);
+}
+
+const char *pddlCondPDDLFmt(const pddl_cond_t *cond,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            char *s,
+                            size_t s_size)
+{
+    FILE *fout = fmemopen(s, s_size - 1, "w");
+    pddlCondPrintPDDL(cond, pddl, params, fout);
+    fflush(fout);
+    if (ferror(fout) != 0 && s_size >= 4){
+        s[s_size - 4] = '.';
+        s[s_size - 3] = '.';
+        s[s_size - 2] = '.';
+    }
+    fclose(fout);
+    s[s_size - 1] = 0x0;
+    return s;
 }
 
 
