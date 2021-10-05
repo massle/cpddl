@@ -341,9 +341,8 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     pddl_cond_t *c;
 
     if (a->pre->type != PDDL_COND_AND){
-        fprintf(stderr, "Fatal Error: Precondition of the action `%s' is"
+        BOR_FATAL("Fatal Error: Precondition of the action `%s' is"
                         " not a conjuction.\n", a->name);
-        exit(-1);
     }
 
     pre = bor_container_of(a->pre, pddl_cond_part_t, cls);

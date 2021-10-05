@@ -172,6 +172,21 @@ _bor_inline pddl_cond_atom_t *pddlCondToAtom(pddl_cond_t *c)
 void pddlCondDel(pddl_cond_t *cond);
 
 /**
+ * Returns true if c is FALSE constant
+ */
+int pddlCondIsFalse(const pddl_cond_t *c);
+
+/**
+ * Returns true if c is TRUE constant
+ */
+int pddlCondIsTrue(const pddl_cond_t *c);
+
+/**
+ * Returns true if c is an atom
+ */
+int pddlCondIsAtom(const pddl_cond_t *c);
+
+/**
  * Creates an exact copy of the condition.
  */
 pddl_cond_t *pddlCondClone(const pddl_cond_t *cond);
@@ -325,21 +340,19 @@ pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl);
 
 /**
  * If conflicting literals are found
- *   1) in the and node, then the and node is replaced by false
- *   2) in the or node, the literals are removed (as if they were replaced
- *      by true are simplified).
- */
-pddl_cond_t *pddlCondDeconflictPre(pddl_cond_t *cond, const pddl_t *pddl,
-                                   const pddl_params_t *params);
-
-/**
- * If conflicting literals are found
  *   1) in the and node, then the positive literal is kept (following the
  *      rule "first delete then add".
  *   2) in the or node, the error is reported.
  */
 pddl_cond_t *pddlCondDeconflictEff(pddl_cond_t *cond, const pddl_t *pddl,
                                    const pddl_params_t *params);
+
+/**
+ * TODO
+ */
+pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
+                              const pddl_t *pddl,
+                              const pddl_params_t *params);
 
 /**
  * Returns true if the atom is a grounded fact.

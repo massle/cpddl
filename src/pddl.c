@@ -559,11 +559,27 @@ static int isFalsePre(const pddl_cond_t *c)
     return 0;
 }
 
+static pddl_cond_t *simplifyPre(pddl_cond_t *pre,
+                                const pddl_t *pddl,
+                                const pddl_params_t *param)
+{
+    pddl_cond_t *c = pddlCondSimplify(pre, pddl, param);
+    if (pddlCondIsTrue(c)){
+        pddlCondDel(c);
+        c = pddlCondNewEmptyAnd();
+    }else if (pddlCondIsAtom(c)){
+        pddl_cond_t *a = pddlCondNewEmptyAnd();
+        pddlCondPartAdd(PDDL_COND_CAST(a, part), c);
+        c = a;
+    }
+    return c;
+}
+
 static void removeIrrelevantActions(pddl_t *pddl)
 {
     for (int ai = 0; ai < pddl->action.action_size;){
         pddl_action_t *a = pddl->action.action + ai;
-        a->pre = pddlCondDeconflictPre(a->pre, pddl, &a->param);
+        a->pre = simplifyPre(a->pre, pddl, &a->param);
         a->eff = pddlCondDeconflictEff(a->eff, pddl, &a->param);
 
         if (isFalsePre(a->pre) || !pddlCondHasAtom(a->eff)){
@@ -653,7 +669,7 @@ static int removeUnreachableActions(pddl_t *pddl)
     int ret = 0;
     for (int ai = 0; ai < pddl->action.action_size;){
         pddl_action_t *a = pddl->action.action + ai;
-        a->pre = pddlCondDeconflictPre(a->pre, pddl, &a->param);
+        a->pre = simplifyPre(a->pre, pddl, &a->param);
         a->eff = pddlCondDeconflictEff(a->eff, pddl, &a->param);
 
         if (isStaticPreUnreachable(pddl, a->pre)
