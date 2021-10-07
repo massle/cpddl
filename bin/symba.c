@@ -68,7 +68,6 @@ struct options {
     int symba_fam;
     float trans_merge_max_time;
     float goal_constr_max_time;
-    int test_partitioning;
     int multiply_op_cost;
     int tnf;
     int tnf_multiply;
@@ -401,8 +400,6 @@ static int readOpts(int *argc, char *argv[])
                 &opt.goal_constr_max_time, NULL,
                 "Maximum time spent in applying constraints on the goal"
                 " (default: -1.)");
-    optsAddDesc("test-part", 0x0, OPTS_NONE, &opt.test_partitioning, NULL,
-                "Test partitioning using heuristic without using heuristic.");
     optsAddDesc("multiply-op-cost", 'M', OPTS_INT, &opt.multiply_op_cost, NULL,
                 "Multiply operator costs by this value.");
     optsAddDesc("tnf", 0x0, OPTS_NONE, &opt.tnf, NULL,
@@ -1597,25 +1594,26 @@ static int symba(void)
         symb_cfg.fam_groups = opt.symba_fam;
     if (opt.pot){
         if (fdrHasTNFOps(&fdr)){
-            symb_cfg.use_pot_heur = 1;
+            symb_cfg.fw.use_pot_heur = 1;
+            // TODO
+            //symb_cfg.bw.use_pot_heur = 1;
             BOR_INFO2(&err, "symba: Using consistent potential heuristic");
         }else{
-            symb_cfg.use_pot_heur_inconsistent = 1;
+            symb_cfg.fw.use_pot_heur_inconsistent = 1;
+            //symb_cfg.bw.use_pot_heur_inconsistent = 1;
             BOR_INFO2(&err, "symba: Using inconsistent potential heuristic");
         }
         if (opt.pot_sum_op_cost){
-            symb_cfg.use_pot_heur_sum_op_cost = 1;
+            symb_cfg.fw.use_pot_heur_sum_op_cost = 1;
+            //symb_cfg.bw.use_pot_heur_sum_op_cost = 1;
             BOR_INFO2(&err, "symba: Operator potentials are added to operator costs.");
         }
-        if (opt.op_pot_real)
-            symb_cfg.use_pot_heur_real = 1;
-        symb_cfg.pot_heur_config = pot_cfg;
-        if (opt.use_heur_bw || opt.bw)
-            symb_cfg.use_heur_bw = 1;
-        if (opt.no_heur_fw)
-            symb_cfg.use_heur_fw = 0;
-        if (opt.test_partitioning)
-            symb_cfg.test_partitioning = 1;
+        if (opt.op_pot_real){
+            symb_cfg.fw.use_pot_heur_real = 1;
+            //symb_cfg.bw.use_pot_heur_real = 1;
+        }
+        symb_cfg.fw.pot_heur_config = pot_cfg;
+        symb_cfg.bw.pot_heur_config = pot_cfg;
     }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
@@ -1623,10 +1621,22 @@ static int symba(void)
     if (!opt.fw && !opt.bw && !opt.fwbw){
         symb_cfg.goal_constr_max_time = 30.f;
     }
-    if (opt.trans_merge_max_time > 0.)
-        symb_cfg.trans_merge_max_time = opt.trans_merge_max_time;
+    if (opt.trans_merge_max_time > 0.){
+        symb_cfg.fw.trans_merge_max_time = opt.trans_merge_max_time;
+        symb_cfg.bw.trans_merge_max_time = opt.trans_merge_max_time;
+    }
     if (opt.goal_constr_max_time > 0.)
         symb_cfg.goal_constr_max_time = opt.goal_constr_max_time;
+    if (opt.fw){
+        symb_cfg.fw.enabled = 1;
+        symb_cfg.bw.enabled = 0;
+    }else if (opt.bw){
+        symb_cfg.fw.enabled = 0;
+        symb_cfg.bw.enabled = 1;
+    }else{
+        symb_cfg.fw.enabled = 1;
+        symb_cfg.bw.enabled = 1;
+    }
 
     pddl_symbolic_task_t *task;
     if ((task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err)) == NULL)

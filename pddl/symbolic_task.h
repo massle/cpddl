@@ -37,47 +37,55 @@ extern "C" {
 #define PDDL_SYMBOLIC_PLAN_NOT_EXIST 2
 #define PDDL_SYMBOLIC_FAIL -1
 
-struct pddl_symbolic_task_config {
-    int max_mem_in_mb;
-    int cache_size;
+struct pddl_symbolic_search_config {
+    int enabled;
     size_t trans_merge_max_nodes;
     float trans_merge_max_time;
     int use_constr;
-    size_t constr_max_nodes;
-    float constr_max_time;
     int use_op_constr;
-    float goal_constr_max_time;
-    int fam_groups;
-
     int use_pot_heur;
     int use_pot_heur_real;
     int use_pot_heur_inconsistent;
     int use_pot_heur_sum_op_cost;
     pddl_hpot_config_t pot_heur_config;
-    int use_heur_fw;
-    int use_heur_bw;
 };
-typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
+typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
 
-#define PDDL_SYMBOLIC_TASK_CONFIG_INIT \
+#define __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(Enabled) \
     { \
-        -1, /* .max_mem_in_mb */ \
-        16000000, /* .cache_size */ \
+        (Enabled), /* .enabled */ \
         100000ul, /* .trans_merge_max_nodes */ \
         -1.f, /* .trans_merge_max_time */ \
         0, /* .use_constr */ \
-        100000ul, /* .constr_max_nodes */ \
-        -1.f, /* .constr_max_time */ \
         1, /* .use_op_constr */ \
-        -1., /* .goal_constr_max_time */ \
-        0, /* .fam_groups */ \
         0, /* .use_pot_heur */ \
         0, /* .use_pot_heur_real */ \
         0, /* .use_pot_heur_inconsistent */ \
         0, /* .use_pot_heur_sum_op_cost */ \
         PDDL_HPOT_CONFIG_INIT, \
-        1, /* .use_heur_fw */ \
-        0, /* .use_heur_bw */ \
+    }
+
+struct pddl_symbolic_task_config {
+    int cache_size;
+    size_t constr_max_nodes;
+    float constr_max_time;
+    float goal_constr_max_time;
+    int fam_groups;
+
+    pddl_symbolic_search_config_t fw;
+    pddl_symbolic_search_config_t bw;
+};
+typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
+
+#define PDDL_SYMBOLIC_TASK_CONFIG_INIT \
+    { \
+        16000000, /* .cache_size */ \
+        100000ul, /* .constr_max_nodes */ \
+        -1.f, /* .constr_max_time */ \
+        -1., /* .goal_constr_max_time */ \
+        0, /* .fam_groups */ \
+        __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(1), /* .fw */ \
+        __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(0), /* .bw */ \
     }
 
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;
