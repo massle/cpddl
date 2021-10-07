@@ -90,8 +90,6 @@ struct pddl_symbolic_task {
     pddl_mg_strips_t mg_strips;
     pddl_bdd_manager_t *mgr; /*!< Cudd manager */
     pddl_symbolic_vars_t vars; /*!< TODO */
-    int *ordered_facts; /*!< Ordered facts */
-    int *fact_to_order; /*!< Mapping from fact to its order index */
     pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
     pddl_symbolic_constr_t constr; /*!< Constraints */
     pddl_bdd_t *init; /*!< Initial state */

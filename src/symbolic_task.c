@@ -999,10 +999,6 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
     pddlMGStripsFree(&ss->mg_strips);
     pddlSymbolicConstrFree(&ss->constr);
     pddlSymbolicTransSetsFree(&ss->trans);
-    if (ss->ordered_facts != NULL)
-        BOR_FREE(ss->ordered_facts);
-    if (ss->fact_to_order != NULL)
-        BOR_FREE(ss->fact_to_order);
     if (ss->init != NULL)
         pddlBDDDel(ss->mgr, ss->init);
     if (ss->goal != NULL)
