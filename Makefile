@@ -119,6 +119,7 @@ OBJS += bdds
 OBJS += symbolic_vars
 OBJS += symbolic_constr
 OBJS += symbolic_trans
+OBJS += symbolic_state
 OBJS += symbolic_task
 OBJS += cost
 OBJS += black_mgroup

@@ -30,6 +30,7 @@
 #include <pddl/symbolic_vars.h>
 #include <pddl/symbolic_constr.h>
 #include <pddl/symbolic_trans.h>
+#include <pddl/symbolic_state.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,7 +60,6 @@ struct pddl_symbolic_task_config {
     pddl_hpot_config_t pot_heur_config;
     int use_heur_fw;
     int use_heur_bw;
-    int test_partitioning;
 };
 typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
 
@@ -82,9 +82,24 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         PDDL_HPOT_CONFIG_INIT, \
         1, /* .use_heur_fw */ \
         0, /* .use_heur_bw */ \
-        0, /* .test_partitioning */ \
     }
 
+struct pddl_symbolic_task {
+    pddl_symbolic_task_config_t cfg; /*!< Configuration */
+    pddl_fdr_t fdr;
+    pddl_mg_strips_t mg_strips;
+    pddl_bdd_manager_t *mgr; /*!< Cudd manager */
+    pddl_symbolic_vars_t vars; /*!< TODO */
+    int *ordered_facts; /*!< Ordered facts */
+    int *fact_to_order; /*!< Mapping from fact to its order index */
+    pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
+    pddl_symbolic_constr_t constr; /*!< Constraints */
+    pddl_bdd_t *init; /*!< Initial state */
+    pddl_bdd_t *goal; /*!< Goal states */
+    pddl_cost_t heur_init;
+    int goal_constr_failed; /*!< True if applying constraints on the goal
+                                 failed */
+};
 typedef struct pddl_symbolic_task pddl_symbolic_task_t;
 
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
