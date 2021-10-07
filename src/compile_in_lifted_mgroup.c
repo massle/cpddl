@@ -151,9 +151,81 @@ static void addEqParam(const pddl_t *pddl,
                  0, c);
 }
 
-
-static void unifyMapReinit(unify_map_t *map)
+static void addTypeRestrict(const pddl_t *pddl,
+                            int param,
+                            int type,
+                            pddl_cond_t *c)
 {
+    int size;
+    const pddl_obj_id_t *objs;
+    objs = pddlTypesObjsByType(&pddl->type, type, &size);
+
+    pddl_cond_part_t *p = PDDL_COND_CAST(c, part);
+    if (size == 0){
+        pddl_cond_bool_t *b = pddlCondNewBool(0);
+        pddlCondPartAdd(p, &b->cls);
+
+    }else if (size == 1){
+        pddl_cond_atom_t *eq = pddlCondNewEmptyAtom(2);
+        eq->pred = pddl->pred.eq_pred;
+        eq->arg[0].param = param;
+        eq->arg[1].obj = objs[0];
+        pddlCondPartAdd(p, &eq->cls);
+
+    }else{
+        pddl_cond_t *or = pddlCondNewEmptyOr();
+        for (int i = 0; i < size; ++i){
+            pddl_cond_atom_t *eq = pddlCondNewEmptyAtom(2);
+            eq->pred = pddl->pred.eq_pred;
+            eq->arg[0].param = param;
+            eq->arg[1].obj = objs[i];
+            pddlCondPartAdd(PDDL_COND_CAST(or, part), &eq->cls);
+        }
+        pddlCondPartAdd(p, or);
+    }
+}
+
+static void unifyMapReinitCounted(unify_map_t *map)
+{
+    int resolved[map->mg_param->param_size];
+    bzero(resolved, sizeof(int) * map->mg_param->param_size);
+    for (int i = 0; i < map->action_param->param_size; ++i){
+        if (map->map[i].var >= map->mg_offset){
+            int from = map->map[i].var;
+            int mg_var = from - map->mg_offset;
+            if (!resolved[mg_var]
+                    && map->mg_param->param[mg_var].is_counted_var){
+                int to = i;
+                resolved[mg_var] = 1;
+                for (int j = i; j < map->action_param->param_size; ++j){
+                    if (map->map[i].var == from)
+                        map->map[i].var = to;
+                }
+            }
+        }
+    }
+
+    int off = map->mg_offset;
+    for (int i = 0; i < map->mg_param->param_size; ++i){
+        if (map->mg_param->param[i].is_counted_var){
+            map->map[off + i].var = off + i;
+            map->map[off + i].var_type = map->mg_param->param[i].type;
+            map->map[off + i].obj = PDDL_OBJ_ID_UNDEF;
+            map->map[off + i].is_fixed = 0;
+        }
+    }
+}
+
+static void unifyMapInit(unify_map_t *map,
+                         const pddl_params_t *action_param,
+                         const pddl_params_t *mg_param)
+{
+    map->action_param = action_param;
+    map->mg_param = mg_param;
+    map->map_size = action_param->param_size + mg_param->param_size;
+    map->map = BOR_CALLOC_ARR(unify_subst_t, map->map_size);
+    map->mg_offset = action_param->param_size;
+
     for (int i = 0; i < map->action_param->param_size; ++i){
         map->map[i].var = i;
         map->map[i].var_type = map->action_param->param[i].type;
@@ -168,18 +240,6 @@ static void unifyMapReinit(unify_map_t *map)
         map->map[off + i].obj = PDDL_OBJ_ID_UNDEF;
         map->map[off + i].is_fixed = !map->mg_param->param[i].is_counted_var;
     }
-}
-
-static void unifyMapInit(unify_map_t *map,
-                         const pddl_params_t *action_param,
-                         const pddl_params_t *mg_param)
-{
-    map->action_param = action_param;
-    map->mg_param = mg_param;
-    map->map_size = action_param->param_size + mg_param->param_size;
-    map->map = BOR_CALLOC_ARR(unify_subst_t, map->map_size);
-    map->mg_offset = action_param->param_size;
-    unifyMapReinit(map);
 }
 
 static void unifyMapCopy(unify_map_t *map, const unify_map_t *src)
@@ -201,13 +261,13 @@ static void unifyMapFree(unify_map_t *map)
         BOR_FREE(map->map);
 }
 
-static void unifyMapSet(unify_map_t *map, int from, int to)
+static void unifyMapSet(unify_map_t *map, int from, int to, int to_type)
 {
     int is_fixed = 0;
     for (int i = 0; i < map->map_size; ++i){
         if (map->map[i].var == from){
             map->map[i].var = to;
-            map->map[i].var_type = map->map[to].var_type;
+            map->map[i].var_type = to_type;
         }
         if (map->map[i].var == to && map->map[i].is_fixed)
             is_fixed = 1;
@@ -302,13 +362,51 @@ static int unify(unify_t *u,
     if (a->pred != a2->pred)
         return 0;
 
+    fprintf(stderr, "Unify (%s", u->pddl->pred.pred[a->pred].name);
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].param >= 0){
+            fprintf(stderr, " %d/t:%d", a->arg[i].param,
+                    u->map.action_param->param[a->arg[i].param].type);
+        }else{
+            fprintf(stderr, " %d/%s", a->arg[i].obj, u->pddl->obj.obj[a->arg[i].obj].name);
+        }
+    }
+    fprintf(stderr, ") : (%s", u->pddl->pred.pred[a2->pred].name);
+    for (int i = 0; i < a2->arg_size; ++i){
+        if (a2->arg[i].param >= 0){
+            fprintf(stderr, " %s%d/t:%d",
+                    (u->map.mg_param->param[a2->arg[i].param].is_counted_var ?
+                        "c" : "v"),
+                    a2->arg[i].param,
+                    u->map.mg_param->param[a2->arg[i].param].type);
+        }else{
+            fprintf(stderr, " %s", u->pddl->obj.obj[a2->arg[i].obj].name);
+        }
+    }
+    fprintf(stderr, ")\n");
+    for (int i = 0; i < u->map.map_size; ++i){
+        fprintf(stderr, "  %s%d -> v: %d, t: %d, o: %d, f: %d\n",
+                (i >= u->map.mg_offset ? "M" : " "),
+                i, u->map.map[i].var, u->map.map[i].var_type,
+                (int)u->map.map[i].obj, u->map.map[i].is_fixed);
+    }
     for (int argi = 0; argi < a->arg_size; ++argi){
+        fprintf(stderr, "argi: %d\n", argi);
         pddl_obj_id_t obj1 = a->arg[argi].obj;
         int param1 = a->arg[argi].param;
         int type1 = -1;
         if (param1 >= 0){
-            type1 = u->map.map[param1].var_type;
+            fprintf(stderr, "a: %d -> %d (t: %d/%d, o: %d/%d)\n",
+                    param1, u->map.map[param1].var,
+                    u->map.map[param1].var_type,
+                    (u->map.map[param1].var >= 0 ?
+                        u->map.map[u->map.map[param1].var].var_type : -1),
+                    (int)(u->map.map[param1].obj),
+                    (u->map.map[param1].var >= 0 ?
+                        (int)u->map.map[u->map.map[param1].var].obj : -1)
+                    );
             obj1 = u->map.map[param1].obj;
+            type1 = u->map.map[param1].var_type;
             param1 = u->map.map[param1].var;
         }
         pddl_obj_id_t obj2 = a2->arg[argi].obj;
@@ -316,26 +414,33 @@ static int unify(unify_t *u,
         int type2 = -1;
         if (param2 >= 0){
             param2 += u->map.mg_offset;
+            fprintf(stderr, "ma: %d -> %d (t: %d/%d, o: %d/%d)\n",
+                    param2, u->map.map[param2].var,
+                    u->map.map[param2].var_type,
+                    (u->map.map[param2].var >= 0 ?
+                        u->map.map[u->map.map[param2].var].var_type : -1),
+                    (int)(u->map.map[param2].obj),
+                    (u->map.map[param2].var >= 0 ?
+                        (int)(u->map.map[u->map.map[param2].var].obj) : -1)
+                    );
             type2 = u->map.map[param2].var_type;
             obj2 = u->map.map[param2].obj;
             param2 = u->map.map[param2].var;
         }
 
         if (param1 >= 0 && param2 >= 0){
-            int from = -1, to = -1, to_type = -1;
+            int to_type = -1;
             if (pddlTypesIsSubset(&u->pddl->type, type2, type1)){
-                from = param1;
-                to = param2;
+                to_type = type2;
             }else if (pddlTypesIsSubset(&u->pddl->type, type1, type2)){
-                from = param2;
-                to = param1;
+                to_type = type1;
             }else{
                 return 0;
             }
             // Variables with empty types are actually not unifiable
             if (pddlTypeNumObjs(&u->pddl->type, to_type) == 0)
                 return 0;
-            unifyMapSet(&u->map, from, to);
+            unifyMapSet(&u->map, param1, param2, to_type);
 
         }else if (param1 >= 0){
             if (!pddlTypesObjHasType(&u->pddl->type, type1, obj2))
@@ -351,6 +456,15 @@ static int unify(unify_t *u,
             if (obj1 != obj2)
                 return 0;
         }
+    }
+
+    unifyMapReinitCounted(&u->map);
+    fprintf(stderr, "Result:\n");
+    for (int i = 0; i < u->map.map_size; ++i){
+        fprintf(stderr, "  %s%d -> v: %d, t: %d, o: %d, f: %d\n",
+                (i >= u->map.mg_offset ? "M" : " "),
+                i, u->map.map[i].var, u->map.map[i].var_type,
+                (int)u->map.map[i].obj, u->map.map[i].is_fixed);
     }
 
     return checkIneq(u->pddl, u->ineq, u->map.map)
@@ -442,7 +556,9 @@ static pddl_cond_t *unifyDiffToCond(const unify_t *u, const unify_t *ubase)
         }
 
         if (map[pi].var >= 0 && map[pi].var_type != param->param[pi].type){
-            BOR_FATAL2("Different types (2) are not supported yet!");
+            ASSERT(pddlTypesIsSubset(&u->pddl->type, map[pi].var_type,
+                                     param->param[pi].type));
+            addTypeRestrict(u->pddl, pi, map[pi].var_type, cand);
         }
     }
 
@@ -666,19 +782,25 @@ static void findDeadEnd(const pddl_t *pddl,
                 c = atomsEqCond(pddl, action_param, adel, apre);
                 pddlCondPartAdd(and, c);
 
+                fprintf(stderr, "MG: %s\n", F_LIFTED_MGROUP(pddl, mgroup));
+                fprintf(stderr, "C: %s\n", F_COND_PDDL(c, pddl, action_param));
                 FOR_EACH_POS(eff, itadd, aadd, maadd){
                     unify_t u3;
                     unifyInitCopy(&u3, &u2);
                     if (unify(&u3, aadd, maadd)){
                         if (unifyEq(&u2, &u3)){
+                            fprintf(stderr, "Is-false\n");
                             pddlCondPartAdd(and, &pddlCondNewBool(0)->cls);
                             is_false = 1;
                             break;
                         }else{
                             pddl_cond_t *c = unifyDiffToCond(&u3, &u2);
                             pddl_cond_t *n = pddlCondNegate(c, pddl);
+                            fprintf(stderr, "N: %s\n", F_COND_PDDL(n, pddl, action_param));
                             pddlCondDel(c);
                             pddlCondPartAdd(and, n);
+                            is_false = 1;
+                            break;
                         }
                     }
                     unifyFree(&u3);
@@ -687,7 +809,9 @@ static void findDeadEnd(const pddl_t *pddl,
                 if (is_false){
                     pddlCondDel(_and);
                 }else{
+                    fprintf(stderr, "X %s\n", F_COND_PDDL(c, pddl, action_param));
                     pddl_cond_t *c = pddlCondSimplify(_and, pddl, action_param);
+                    fprintf(stderr, "DONE %s\n", F_COND_PDDL(c, pddl, action_param));
                     if (!pddlCondIsFalse(c))
                         condArrAddUnique(carr, c);
                 }
