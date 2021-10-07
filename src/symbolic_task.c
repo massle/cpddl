@@ -31,6 +31,10 @@
 #include "pddl/mg_strips.h"
 #include "pddl/cg.h"
 #include "pddl/critical_path.h"
+#include "pddl/symbolic_vars.h"
+#include "pddl/symbolic_constr.h"
+#include "pddl/symbolic_trans.h"
+#include "pddl/symbolic_state.h"
 #include "pddl/symbolic_task.h"
 #include "pddl/cost.h"
 #include "pddl/time_limit.h"
@@ -62,6 +66,21 @@ struct pddl_symbolic_search {
     float avg_expanded_bdd_nodes;
 };
 typedef struct pddl_symbolic_search pddl_symbolic_search_t;
+
+struct pddl_symbolic_task {
+    pddl_symbolic_task_config_t cfg; /*!< Configuration */
+    pddl_fdr_t fdr;
+    pddl_mg_strips_t mg_strips;
+    pddl_bdd_manager_t *mgr; /*!< Cudd manager */
+    pddl_symbolic_vars_t vars; /*!< TODO */
+    pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
+    pddl_symbolic_constr_t constr; /*!< Constraints */
+    pddl_bdd_t *init; /*!< Initial state */
+    pddl_bdd_t *goal; /*!< Goal states */
+    pddl_cost_t heur_init;
+    int goal_constr_failed; /*!< True if applying constraints on the goal
+                                 failed */
+};
 
 
 static void searchInit(pddl_symbolic_task_t *ss,
