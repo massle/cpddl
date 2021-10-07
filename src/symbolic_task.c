@@ -89,6 +89,36 @@ struct pddl_symbolic_task {
     pddl_symbolic_search_t search_bw;
 };
 
+#define LOG_SEARCH_CFG(N, T, F) \
+    BOR_INFO(err, "cfg.%s." #N " = " F, dir, (T)cfg->N)
+#define LOG_SEARCH_CFG_I(N) LOG_SEARCH_CFG(N, int, "%d")
+static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
+                            const char *dir,
+                            bor_err_t *err)
+{
+    LOG_SEARCH_CFG_I(enabled);
+    LOG_SEARCH_CFG(trans_merge_max_nodes, unsigned long, "%lu");
+    LOG_SEARCH_CFG(trans_merge_max_time, float, "%.2f");
+    LOG_SEARCH_CFG_I(use_constr);
+    LOG_SEARCH_CFG_I(use_op_constr);
+    LOG_SEARCH_CFG_I(use_pot_heur);
+    LOG_SEARCH_CFG_I(use_pot_heur_real);
+    LOG_SEARCH_CFG_I(use_pot_heur_inconsistent);
+    LOG_SEARCH_CFG_I(use_pot_heur_sum_op_cost);
+}
+
+static void logConfig(const pddl_symbolic_task_config_t *cfg, bor_err_t *err)
+{
+    BOR_INFO(err, "cfg.cache_size = %d", cfg->cache_size);
+    BOR_INFO(err, "cfg.constr_max_nodes = %lu",
+             (unsigned long)cfg->constr_max_nodes);
+    BOR_INFO(err, "cfg.constr_max_time = %.2f", cfg->constr_max_time);
+    BOR_INFO(err, "cfg.goal_constr_max_time = %.2f", cfg->goal_constr_max_time);
+    BOR_INFO(err, "cfg.fam_groups = %d", cfg->fam_groups);
+    logSearchConfig(&cfg->fw, "fw", err);
+    logSearchConfig(&cfg->bw, "bw", err);
+}
+
 
 static int preparePotHeur(const pddl_fdr_t *fdr,
                           const pddl_symbolic_search_config_t *cfg,
@@ -1027,6 +1057,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     bzero(ss, sizeof(*ss));
     ss->cfg = *cfg;
     fixConfig(&ss->cfg);
+    logConfig(&ss->cfg, err);
 
     prepareTask(ss, fdr, &ss->cfg, err);
 
