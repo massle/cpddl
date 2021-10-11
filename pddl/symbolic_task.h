@@ -44,7 +44,6 @@ struct pddl_symbolic_search_config {
     int use_constr;
     int use_op_constr;
     int use_pot_heur;
-    int use_pot_heur_real;
     int use_pot_heur_inconsistent;
     int use_pot_heur_sum_op_cost;
     pddl_hpot_config_t pot_heur_config;
@@ -59,7 +58,6 @@ typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
         0, /* .use_constr */ \
         1, /* .use_op_constr */ \
         0, /* .use_pot_heur */ \
-        0, /* .use_pot_heur_real */ \
         0, /* .use_pot_heur_inconsistent */ \
         0, /* .use_pot_heur_sum_op_cost */ \
         PDDL_HPOT_CONFIG_INIT, \
@@ -110,6 +108,9 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
                                bor_iarr_t *plan,
                                bor_err_t *err);
+int pddlSymbolicTaskSearch(pddl_symbolic_task_t *ss,
+                           bor_iarr_t *plan,
+                           bor_err_t *err);
 
 int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
                                  const int *state,

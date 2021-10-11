@@ -102,7 +102,6 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_SEARCH_CFG_I(use_constr);
     LOG_SEARCH_CFG_I(use_op_constr);
     LOG_SEARCH_CFG_I(use_pot_heur);
-    LOG_SEARCH_CFG_I(use_pot_heur_real);
     LOG_SEARCH_CFG_I(use_pot_heur_inconsistent);
     LOG_SEARCH_CFG_I(use_pot_heur_sum_op_cost);
 }
@@ -135,8 +134,6 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     pddlPotSolutionsInit(&pot);
     pddl_hpot_config_t pot_cfg = cfg->pot_heur_config;
     pot_cfg.op_pot = 1;
-    if (cfg->use_pot_heur_real)
-        pot_cfg.op_pot_real = 1;
     if (pddlHPot(&pot, fdr, &pot_cfg, err) != 0){
         BOR_ERR_RET2(err, -1, "Could not find a potential function.");
     }
@@ -1028,7 +1025,6 @@ static void fixSearchConfig(pddl_symbolic_search_config_t *cfg)
     if (cfg->use_op_constr)
         cfg->use_constr = 0;
     if (cfg->use_pot_heur
-            || cfg->use_pot_heur_real
             || cfg->use_pot_heur_inconsistent
             || cfg->use_pot_heur_sum_op_cost)
         cfg->use_pot_heur = 1;
@@ -1386,6 +1382,21 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     BOR_INFO(err, "DONE: %s", res_str);
     BOR_INFO_PREFIX_POP(err);
     return res;
+}
+
+int pddlSymbolicTaskSearch(pddl_symbolic_task_t *ss,
+                           bor_iarr_t *plan,
+                           bor_err_t *err)
+{
+    if (ss->cfg.fw.enabled && ss->cfg.bw.enabled){
+        return pddlSymbolicTaskSearchFwBw(ss, plan, err);
+    }else if (ss->cfg.fw.enabled){
+        return pddlSymbolicTaskSearchFw(ss, plan, err);
+    }else if (ss->cfg.bw.enabled){
+        return pddlSymbolicTaskSearchBw(ss, plan, err);
+    }else{
+        BOR_ERR_RET2(err, -1, "Neither of search directions was initialized");
+    }
 }
 
 static pddl_bdd_t *createFDRState(pddl_symbolic_task_t *ss, const int *state)

@@ -1608,12 +1608,12 @@ static int symba(void)
             //symb_cfg.bw.use_pot_heur_sum_op_cost = 1;
             BOR_INFO2(&err, "symba: Operator potentials are added to operator costs.");
         }
-        if (opt.op_pot_real){
-            symb_cfg.fw.use_pot_heur_real = 1;
-            //symb_cfg.bw.use_pot_heur_real = 1;
-        }
         symb_cfg.fw.pot_heur_config = pot_cfg;
         symb_cfg.bw.pot_heur_config = pot_cfg;
+        if (opt.op_pot_real){
+            symb_cfg.fw.pot_heur_config.op_pot_real = 1;
+            symb_cfg.bw.pot_heur_config.op_pot_real = 1;
+        }
     }
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
@@ -1644,26 +1644,11 @@ static int symba(void)
 
     BOR_IARR(plan);
     int res;
-    if (opt.fw){
-        BOR_INFO2(&err, "Forward Search");
+    if (opt.fwbw && pddlSymbolicTaskGoalConstrFailed(task)){
+        BOR_INFO2(&err, "Switching to fw-only search.");
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
-
-    }else if (opt.bw){
-        BOR_INFO2(&err, "Backward Search");
-        res = pddlSymbolicTaskSearchBw(task, &plan, &err);
-
-    }else if (opt.fwbw){
-        BOR_INFO2(&err, "Forward/Backward Search");
-        res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-
     }else{
-        if (pddlSymbolicTaskGoalConstrFailed(task)){
-            BOR_INFO2(&err, "Switching to fw-only search.");
-            res = pddlSymbolicTaskSearchFw(task, &plan, &err);
-            //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-        }else{
-            res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-        }
+        res = pddlSymbolicTaskSearch(task, &plan, &err);
     }
 
     if (opt.multiply_op_cost > 1){
