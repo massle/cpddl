@@ -207,8 +207,7 @@ static void famInit(fam_t *fam,
         fam->cfg.limit = INT_MAX;
 
     if (!borLPSolverAvailable(BOR_LP_DEFAULT)){
-        fprintf(stderr, "Missing LP solver! Exiting...\n");
-        exit(-1);
+        BOR_FATAL2("Missing LP solver! Exiting...");
     }
 
     lp_flags  = BOR_LP_DEFAULT;

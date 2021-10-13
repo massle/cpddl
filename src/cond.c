@@ -566,8 +566,7 @@ static pddl_cond_when_t *condWhenClone(const pddl_cond_when_t *w)
 static pddl_cond_when_t *condWhenNegate(const pddl_cond_when_t *w,
                                         const pddl_t *pddl)
 {
-    fprintf(stderr, "Fatal Error: Cannot negate (when ...)\n");
-    exit(-1);
+    BOR_FATAL2("Cannot negate (when ...)");
 }
 
 static int condWhenEq(const pddl_cond_when_t *w1,
@@ -757,8 +756,7 @@ static pddl_cond_func_op_t *condFuncOpClone(const pddl_cond_func_op_t *op)
 static pddl_cond_func_op_t *condFuncOpNegate(const pddl_cond_func_op_t *op,
                                              const pddl_t *pddl)
 {
-    fprintf(stderr, "Fatal Error: Cannot negate function!\n");
-    exit(-1);
+    BOR_FATAL2("Cannot negate function!");
 }
 
 static int condFuncOpEq(const pddl_cond_func_op_t *f1,
@@ -3181,8 +3179,7 @@ void pddlCondPrint(const struct pddl *pddl,
         condImplyPrint(OBJ(cond, imply), pddl, params, fout);
 
     }else{
-        fprintf(stderr, "Fatal Error: Unknown type!\n");
-        exit(-1);
+        BOR_FATAL2("Unknown type!");
     }
 }
 

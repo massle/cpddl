@@ -428,9 +428,7 @@ static int allocateVars(vars_t *vars,
     }else if (method == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
         allocateLargestMulti(vars, strips, mg, mutex);
     }else{
-        // TODO
-        fprintf(stderr, "Error: Unspecified method for variable allocation.\n");
-        return -1;
+        BOR_FATAL2("Unspecified method for variable allocation.");
     }
 
     allocateUncoveredSingleFacts(vars, strips, mutex, flags);
