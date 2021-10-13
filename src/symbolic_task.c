@@ -104,6 +104,10 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_SEARCH_CFG_I(use_pot_heur);
     LOG_SEARCH_CFG_I(use_pot_heur_inconsistent);
     LOG_SEARCH_CFG_I(use_pot_heur_sum_op_cost);
+
+    char prefix[128];
+    sprintf(prefix, "cfg.%s.pot_heur_config.", dir);
+    pddlHPotConfigLog(&cfg->pot_heur_config, prefix, err);
 }
 
 static void logConfig(const pddl_symbolic_task_config_t *cfg, bor_err_t *err)
@@ -175,7 +179,9 @@ static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_bdd_t *goal,
                       bor_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Search create: ");
+    char prefix[129];
+    sprintf(prefix, "Search create %s: ", (fw ? "fw" : "bw"));
+    BOR_INFO_PREFIX_PUSH(err, prefix);
     BOR_INFO(err, "Creating %s direction", (fw ? "fw" : "bw"));
     bzero(search, sizeof(*search));
     search->cfg = *_cfg;
@@ -1044,6 +1050,20 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
         BOR_ERR_RET2(err, NULL, "Symbolic tasks does not support conditional"
                                 " effects yet.");
     }
+
+    if (((cfg->fw.use_pot_heur
+            || cfg->fw.use_pot_heur_inconsistent
+            || cfg->fw.use_pot_heur_sum_op_cost)
+                && pddlHPotConfigIsEnsemble(&cfg->fw.pot_heur_config))
+        ||
+        ((cfg->bw.use_pot_heur
+            || cfg->bw.use_pot_heur_inconsistent
+            || cfg->bw.use_pot_heur_sum_op_cost)
+                && pddlHPotConfigIsEnsemble(&cfg->bw.pot_heur_config))){
+        BOR_ERR_RET2(err, NULL, "Symbolic tasks can use only a single"
+                                " potential heuristic.");
+    }
+
     BOR_INFO_PREFIX_PUSH(err, "symbolic: ");
 
     pddl_symbolic_task_t *ss;
