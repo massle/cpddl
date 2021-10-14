@@ -22,6 +22,14 @@
 #include "pddl/pddl_struct.h"
 #include "err.h"
 #include "assert.h"
+#include "log.h"
+
+void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err)
+{
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, force_adl, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, normalize, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, compile_away_cond_eff, err);
+}
 
 static int checkDerivedPredicates(const pddl_t *pddl, bor_err_t *err)
 {
@@ -166,10 +174,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
              const pddl_config_t *cfg, bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "PDDL: ");
-    BOR_INFO(err, "Config force-adl: %d", cfg->force_adl);
-    BOR_INFO(err, "Config normalize: %d", cfg->normalize);
-    BOR_INFO(err, "Config compile-away-cond-eff: %d",
-             cfg->compile_away_cond_eff);
+    pddlConfigLog(cfg, "cfg.", err);
 
     bzero(pddl, sizeof(*pddl));
     pddl->cfg = *cfg;

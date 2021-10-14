@@ -1985,10 +1985,13 @@ void pddlLiftedMGroupsInferFAMGroups(
                             pddl_lifted_mgroups_t *mgroups,
                             bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
+    BOR_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
+    BOR_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
     BOR_INFO2(err, "Inference of lifted fam-groups ...");
 
     refineInit(&refine, pddl, limit, err);
@@ -2006,7 +2009,7 @@ void pddlLiftedMGroupsInferFAMGroups(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            BOR_INFO(err, "  Tested candidates: %d, Num candidates: %d,"
+            BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
                           " Proved: %d",
                      tested_candidates,
                      refine.cand_size,
@@ -2016,7 +2019,7 @@ void pddlLiftedMGroupsInferFAMGroups(
     }
 
     if (steps != 0){
-        BOR_INFO(err, "  Tested candidates: %d, Num candidates: %d,"
+        BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
                       " Proved: %d",
                  tested_candidates,
                  refine.cand_size,
@@ -2029,6 +2032,7 @@ void pddlLiftedMGroupsInferFAMGroups(
     BOR_INFO(err, "Inference of lifted fam-groups done."
                   " Found mutex groups: %d",
              mgroups->mgroup_size);
+    BOR_INFO_PREFIX_POP(err);
 }
 
 
@@ -2039,10 +2043,13 @@ void pddlLiftedMGroupsInferMonotonicity(
                             pddl_lifted_mgroups_t *mgroups,
                             bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
+    BOR_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
+    BOR_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
     BOR_INFO2(err, "Inference of FD lifted mgroups ...");
 
     refineInitMonotonicity(&refine, pddl, limit, err);
@@ -2068,7 +2075,7 @@ void pddlLiftedMGroupsInferMonotonicity(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            BOR_INFO(err, "  Tested candidates: %d, Num candidates: %d,"
+            BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
                           " Proved monotonicity invariants: %d,"
                           " mutex groups: %d",
                      tested_candidates,
@@ -2080,7 +2087,7 @@ void pddlLiftedMGroupsInferMonotonicity(
     }
 
     if (steps != 0){
-        BOR_INFO(err, "  Tested candidates: %d, Num candidates: %d,"
+        BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
                       " Proved monotonicity invariants: %d, mutex groups: %d",
                  tested_candidates,
                  refine.cand_size,
@@ -2098,6 +2105,7 @@ void pddlLiftedMGroupsInferMonotonicity(
                   " Found monotonicity invariants: %d, mutex groups: %d",
              (inv != NULL ? inv->mgroup_size : -1),
              (mgroups != NULL ? mgroups->mgroup_size : -1));
+    BOR_INFO_PREFIX_POP(err);
 }
 
 
@@ -2177,11 +2185,18 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_lifted_mgroups_t *lm,
                                    bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
+    BOR_INFO2(err, "Looking for exactly-one lifted mgroups ...");
+    int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
-        if (isMGroupSetExactlyOne(pddl, lmg, err))
+        if (isMGroupSetExactlyOne(pddl, lmg, err)){
             lmg->is_exactly_one = 1;
+            ++num;
+        }
     }
+    BOR_INFO(err, "Found %d exactly-one lifted mgroups.", num);
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -2219,10 +2234,17 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_lifted_mgroups_t *lm,
                                bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
+    BOR_INFO2(err, "Looking for static lifted mgroups ...");
+    int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
-        if (isMGroupStatic(pddl, lmg, err))
+        if (isMGroupStatic(pddl, lmg, err)){
             lmg->is_static = 1;
+            ++num;
+        }
     }
+    BOR_INFO(err, "Found %d static lifted mgroups.", num);
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }

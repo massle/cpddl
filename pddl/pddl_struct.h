@@ -47,6 +47,8 @@ typedef struct pddl_config pddl_config_t;
       0, /* .compile_away_cond_eff */ \
     }
 
+void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err);
+
 struct pddl {
     pddl_config_t cfg;
     pddl_lisp_t *domain_lisp;

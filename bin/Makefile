@@ -3,10 +3,8 @@
 
 CFLAGS += -I../
 CFLAGS += $(BORUVKA_CFLAGS)
-CFLAGS += $(OPTS_CFLAGS)
 LDFLAGS += -L../ -lpddl
 LDFLAGS += $(BORUVKA_LDFLAGS)
-LDFLAGS += $(OPTS_LDFLAGS)
 LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
 LDFLAGS += $(LP_LDFLAGS)
 LDFLAGS += $(BLISS_LDFLAGS)
@@ -31,11 +29,17 @@ TARGETS += pddl-mgroups
 TARGETS += pddl-reversibility
 TARGETS += pddl-op-mutex
 TARGETS += pddl-symba
+TARGETS += pddl
+
+OBJS = opts.o
 
 all: $(TARGETS)
 
+pddl: main.c ../libpddl.a $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LDFLAGS)
+
 pddl-%: %.c ../libpddl.a
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) $(OPTS_CFLAGS) -o $@ $< $(LDFLAGS) $(OPTS_LDFLAGS)
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<

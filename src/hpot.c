@@ -25,6 +25,7 @@
 #include "pddl/set.h"
 #include "_heur.h"
 #include "assert.h"
+#include "log.h"
 
 #define ROUND_EPS 0.001
 // TODO
@@ -35,13 +36,6 @@
 
 static const uint32_t rand_sampler_seed = 524287;
 static const uint32_t rand_diverse_seed = 131071;
-
-#define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \
-    BOR_INFO((ERR), "%s" #NAME " = %d", (PREFIX), (C)->NAME)
-#define PDDL_LOG_CONFIG_DBL(C, PREFIX, NAME, ERR) \
-    BOR_INFO((ERR), "%s" #NAME " = %.4f", (PREFIX), (C)->NAME)
-#define PDDL_LOG_CONFIG_BOOL(C, PREFIX, NAME, ERR) \
-    BOR_INFO((ERR), "%s" #NAME " = %s", (PREFIX), ((C)->NAME ? "true" : "false"))
 
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
                        const char *prefix,
