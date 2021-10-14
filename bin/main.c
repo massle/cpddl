@@ -20,11 +20,11 @@ struct options {
         int enable;
         char *out;
         char *fd_monotonicity_out;
+        int stop;
     } lmg;
 
     struct {
-        int use_sql;
-        int use_dl;
+        char *method;
         char *prune;
     } ground;
 
@@ -42,6 +42,28 @@ pddl_files_t files;
 pddl_t pddl;
 pddl_lifted_mgroups_t lifted_mgroups;
 pddl_lifted_mgroups_t monotonicity_invariants;
+pddl_strips_t strips;
+
+
+int (*ground_method)(pddl_strips_t *,
+                     const pddl_t *,
+                     const pddl_ground_config_t *,
+                     bor_err_t *) = pddlStripsGround;
+pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
+
+static int selectGroundMethod(const char *method)
+{
+    if (strcmp(method, "default") == 0){
+        ground_method = pddlStripsGround;
+    }else if (strcmp(method, "sql") == 0){
+        ground_method = pddlStripsGroundSql;
+    }else if (strcmp(method, "dl") == 0){
+        ground_method = pddlStripsGroundDatalog;
+    }else{
+        return -1;
+    }
+    return 0;
+}
 
 static int setOpts(int argc, char *argv[])
 {
@@ -71,12 +93,15 @@ static int setOpts(int argc, char *argv[])
                 "Output filename for infered lifted mutex groups.");
     optsAddStr("lmg-fd-mono-out", 0x0, &opt.lmg.fd_monotonicity_out, NULL,
                 "Output filename for infered monotonicity invariants.");
+    optsAddFlag("lmg-stop", 0x0, &opt.lmg.stop, 0,
+                "Stop after inferring lifted mutex groups.");
 
     optsStartGroup("Grounding:");
-    optsAddFlag("ground-sql", 0x0, &opt.ground.use_sql, 0,
-                "Ground using sqlite.");
-    optsAddFlag("ground-dl", 0x0, &opt.ground.use_dl, 0,
-                "Ground using datalog.");
+    optsAddStr("ground", 'G', &opt.ground.method, "default",
+                "Grounding method, one of:\n"
+                "  default - default method\n"
+                "  sql - sqlite-based method\n"
+                "  dl - datalog-based method\n");
     optsAddStr("ground-prune", 0x0, &opt.ground.prune, "all",
                 "Use lifted mutex groups for pruning during grounding. "
                 "Possible options:\n"
@@ -106,6 +131,12 @@ static int setOpts(int argc, char *argv[])
     if (opt.lmg.fd_monotonicity)
         opt.lmg.fd = 1;
 
+    if (selectGroundMethod(opt.ground.method) != 0){
+        fprintf(stderr, "Error: Unknown grounding method %s\n",
+                opt.ground.method);
+        return -1;
+    }
+
     if (argc != 3 && argc != 2){
         for (int i = 1; i < argc; ++i){
             fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
@@ -133,8 +164,7 @@ static int setOpts(int argc, char *argv[])
 
 static FILE *openFile(const char *fn)
 {
-    if (fn == NULL
-            || strcmp(fn, "-") == 0
+    if (strcmp(fn, "-") == 0
             || strcmp(fn, "stdout") == 0)
         return stdout;
     if (strcmp(fn, "stderr") == 0)
@@ -148,6 +178,21 @@ static void closeFile(FILE *f)
     if (f != NULL && f != stdout && f != stderr)
         fclose(f);
 }
+
+#define PRINT_TO_FILE(OUT, S, CMD) \
+    do { \
+    if ((OUT) != NULL){ \
+        FILE *fout = openFile((OUT)); \
+        if (fout != NULL){ \
+            BOR_INFO(&err, "Printing %s to %s ...", (S), (OUT)); \
+            CMD; \
+            closeFile(fout); \
+        }else{ \
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", (OUT)); \
+        } \
+    } \
+    } while (0) 
+
 
 static int stepPDDL(void)
 {
@@ -193,29 +238,85 @@ static int stepLiftedMGroups(void)
     pddlLiftedMGroupsSetExactlyOne(&pddl, &lifted_mgroups, &err);
     pddlLiftedMGroupsSetStatic(&pddl, &lifted_mgroups, &err);
 
-    if (opt.lmg.out != NULL){
-        FILE *fout = openFile(opt.lmg.out);
-        if (fout == NULL){
-            fprintf(stderr, "Error: Could not open '%s'\n", opt.lmg.out);
-            return -1;
+    PRINT_TO_FILE(opt.lmg.out, "lifted mutex groups",
+                  pddlLiftedMGroupsPrint(&pddl, &lifted_mgroups, fout));
+    PRINT_TO_FILE(opt.lmg.fd_monotonicity_out, "monotonicity invariants",
+                  pddlLiftedMGroupsPrint(&pddl, &monotonicity_invariants, fout));
+
+    return opt.lmg.stop;
+}
+
+/* TODO
+static int prunePDDL(void)
+{
+    if (opt.lifted_endomorphism){
+        pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+        if (opt.lifted_endomorphism_ignore_costs)
+            cfg.ignore_costs = 1;
+        BOR_ISET(redundant_objs);
+        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+                               &redundant_objs, &err);
+        if (borISetSize(&redundant_objs) > 0){
+            pddlRemoveObjs(&pddl, &redundant_objs, &err);
+            // If we removed anything, we need to infer mutex groups again
+            pddlLiftedMGroupsFree(&lifted_mgroups);
+            liftedMGroups();
         }
-        BOR_INFO(&err, "Printing lifted mutex groups to '%s'", opt.lmg.out);
-        pddlLiftedMGroupsPrint(&pddl, &lifted_mgroups, fout);
-        closeFile(fout);
+        if (opt.lifted_endomorphism_costs_then_wo_costs){
+            cfg.ignore_costs = 1;
+            borISetEmpty(&redundant_objs);
+            pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+                    &redundant_objs, &err);
+            if (borISetSize(&redundant_objs) > 0){
+                pddlRemoveObjs(&pddl, &redundant_objs, &err);
+                // If we removed anything, we need to infer mutex groups again
+                pddlLiftedMGroupsFree(&lifted_mgroups);
+                liftedMGroups();
+            }
+        }
+        borISetFree(&redundant_objs);
     }
 
-    if (opt.lmg.fd_monotonicity_out != NULL){
-        FILE *fout = openFile(opt.lmg.fd_monotonicity_out);
-        if (fout == NULL){
-            fprintf(stderr, "Error: Could not open '%s'\n",
-                    opt.lmg.fd_monotonicity_out);
-            return -1;
+    if (opt.pddl_domain_out != NULL){
+        FILE *fout = fopen(opt.pddl_domain_out, "w");
+        if (fout != NULL){
+            pddlPrintPDDLDomain(&pddl, fout);
+            fclose(fout);
+        }else{
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_domain_out);
         }
-        BOR_INFO(&err, "Printing monotonicity invariants to '%s'",
-                 opt.lmg.fd_monotonicity_out);
-        pddlLiftedMGroupsPrint(&pddl, &monotonicity_invariants, fout);
-        closeFile(fout);
     }
+
+    if (opt.pddl_problem_out != NULL){
+        FILE *fout = fopen(opt.pddl_problem_out, "w");
+        if (fout != NULL){
+            pddlPrintPDDLProblem(&pddl, fout);
+            fclose(fout);
+        }else{
+            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_problem_out);
+        }
+    }
+
+    return 0;
+}
+*/
+
+static int stepGround(void)
+{
+    ground_cfg.lifted_mgroups = &lifted_mgroups;
+    ground_cfg.prune_op_pre_mutex = 1;
+    ground_cfg.prune_op_dead_end = 1;
+    // TODO; Config
+
+    if (ground_method(&strips, &pddl, &ground_cfg, &err) != 0){
+        BOR_INFO2(&err, "Grounding failed.");
+        BOR_TRACE_RET(&err, -1);
+    }
+
+    /*
+    if (opt.compile_away_cond_eff)
+        pddlStripsCompileAwayCondEff(&strips);
+    */
 
     return 0;
 }
@@ -224,14 +325,20 @@ int main(int argc, char *argv[])
 {
     borErrWarnEnable(&err, stderr);
     borErrInfoEnable(&err, stderr);
-    if (setOpts(argc, argv) != 0
-            || stepPDDL() != 0
-            || stepLiftedMGroups() != 0){
-        if (borErrIsSet(&err)){
-            fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+    int ret = 0;
+    if ((ret = setOpts(argc, argv)) != 0
+            || (ret = stepPDDL()) != 0
+            || (ret = stepLiftedMGroups()) != 0
+            || (ret = stepGround()) != 0){
+        if (ret < 0){
+            if (borErrIsSet(&err)){
+                fprintf(stderr, "Error: ");
+                borErrPrint(&err, 1, stderr);
+            }
+            return -1;
         }
-        return -1;
     }
+
+    optsFree();
     return 0;
 }

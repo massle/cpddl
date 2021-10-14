@@ -19,7 +19,9 @@ struct opt_opt {
     int group;
     char *long_name;
     char short_name;
-    void *default_value;
+    int idefault;
+    float fdefault;
+    char *sdefault;
     void *set;
     char *desc;
 };
@@ -51,6 +53,8 @@ void optsFree(void)
     for (int i = 0; i < o.opt_size; ++i){
         if (o.opt[i].long_name != NULL)
             BOR_FREE(o.opt[i].long_name);
+        if (o.opt[i].sdefault != NULL)
+            BOR_FREE(o.opt[i].sdefault);
         if (o.opt[i].desc != NULL)
             BOR_FREE(o.opt[i].desc);
     }
@@ -72,13 +76,11 @@ void optsStartGroup(const char *header)
     g->header = BOR_STRDUP(header);
 }
 
-static void optsAdd(int type,
-                    const char *long_name,
-                    char short_name,
-                    void *set,
-                    void *default_value,
-                    int default_value_size,
-                    const char *desc)
+static opt_opt_t *optsAdd(int type,
+                          const char *long_name,
+                          char short_name,
+                          void *set,
+                          const char *desc)
 {
     if (o.opt_size == o.opt_alloc){
         if (o.opt_alloc == 0)
@@ -95,13 +97,9 @@ static void optsAdd(int type,
         opt->long_name = BOR_STRDUP(long_name);
     opt->short_name = short_name;
     opt->set = set;
-    if (default_value != NULL){
-        opt->default_value = BOR_ALLOC_ARR(char, default_value_size);
-        memcpy(opt->default_value, default_value, sizeof(char) * default_value_size);
-        memcpy(opt->set, opt->default_value, sizeof(char) * default_value_size);
-    }
     if (desc != NULL)
         opt->desc = BOR_STRDUP(desc);
+    return opt;
 }
 
 void optsAddFlag(const char *long_name,
@@ -110,7 +108,9 @@ void optsAddFlag(const char *long_name,
                  int default_value,
                  const char *desc)
 {
-    optsAdd(FLAG, long_name, short_name, set, &default_value, sizeof(int), desc);
+    opt_opt_t *opt = optsAdd(FLAG, long_name, short_name, set, desc);
+    opt->idefault = default_value;
+    *(int *)set = default_value;
 }
 
 void optsAddInt(const char *long_name,
@@ -119,7 +119,9 @@ void optsAddInt(const char *long_name,
                 int default_value,
                 const char *desc)
 {
-    optsAdd(INT, long_name, short_name, set, &default_value, sizeof(int), desc);
+    opt_opt_t *opt = optsAdd(INT, long_name, short_name, set, desc);
+    opt->idefault = default_value;
+    *(int *)set = default_value;
 }
 
 void optsAddFlt(const char *long_name,
@@ -128,7 +130,9 @@ void optsAddFlt(const char *long_name,
                 float default_value,
                 const char *desc)
 {
-    optsAdd(FLT, long_name, short_name, set, &default_value, sizeof(float), desc);
+    opt_opt_t *opt = optsAdd(FLT, long_name, short_name, set, desc);
+    opt->fdefault = default_value;
+    *(float *)set = default_value;
 }
 
 void optsAddStr(const char *long_name,
@@ -137,11 +141,11 @@ void optsAddStr(const char *long_name,
                 const char *default_value,
                 const char *desc)
 {
-    int len = 0;
-    if (default_value != NULL)
-        len = strlen(default_value) + 1;
-    optsAdd(STR, long_name, short_name, set,
-            (void *)default_value, sizeof(char) * len, desc);
+    opt_opt_t *opt = optsAdd(STR, long_name, short_name, set, desc);
+    if (default_value != NULL){
+        opt->sdefault = BOR_STRDUP(default_value);
+        *(char **)set = opt->sdefault;
+    }
 }
 
 static opt_opt_t *findOptLong(const char *name)
@@ -315,27 +319,24 @@ static int maxLen(int group)
 static void optsPrintDefault(const opt_opt_t *opt, FILE *fout)
 {
     fprintf(fout, " (default: ");
-    if (opt->default_value == NULL){
-        fprintf(fout, "nil");
-    }else{
-        if (opt->type == FLAG){
-            int v = *(int *)opt->default_value;
-            if (v){
-                fprintf(fout, "enabled");
-            }else{
-                fprintf(fout, "disabled");
-            }
+    if (opt->type == FLAG){
+        if (opt->idefault){
+            fprintf(fout, "enabled");
+        }else{
+            fprintf(fout, "disabled");
+        }
 
-        }else if (opt->type == INT){
-            int v = *(int *)opt->default_value;
-            fprintf(fout, "%d", v);
+    }else if (opt->type == INT){
+        fprintf(fout, "%d", opt->idefault);
 
-        }else if (opt->type == FLT){
-            float v = *(float *)opt->default_value;
-            fprintf(fout, "%.4f", v);
+    }else if (opt->type == FLT){
+        fprintf(fout, "%.4f", opt->fdefault);
 
-        }else if (opt->type == STR){
-            fprintf(fout, "%s", (char *)opt->default_value);
+    }else if (opt->type == STR){
+        if (opt->sdefault == NULL){
+            fprintf(fout, "nil");
+        }else{
+            fprintf(fout, "%s", opt->sdefault);
         }
     }
     fprintf(fout, ")");
