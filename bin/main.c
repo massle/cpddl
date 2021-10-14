@@ -51,6 +51,8 @@ pddl_lifted_mgroups_t monotonicity_invariants;
 int monotonicity_invariants_free = 0;
 pddl_strips_t strips;
 int strips_free = 0;
+pddl_mgroups_t mgroups;
+int mgroups_free = 0;
 
 pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
 
@@ -372,6 +374,7 @@ static void stripsCompileAwayCondEff(void)
     pddlStripsLogInfo(&strips, &err);
     BOR_INFO_PREFIX_POP(&err);
 }
+
 static int stepGround(void)
 {
     if (opt.ground.method_fn(&strips, &pddl, &ground_cfg, &err) != 0){
@@ -385,8 +388,38 @@ static int stepGround(void)
     return 0;
 }
 
+static int stepGroundMGroups(void)
+{
+    BOR_INFO_PREFIX_PUSH(&err, "Ground LMG: ");
+    BOR_INFO2(&err, "Grounding mutex groups ...");
+    pddlMGroupsGround(&mgroups, &pddl, &lifted_mgroups, &strips);
+    pddlMGroupsRemoveSubsets(&mgroups);
+    mgroups_free = 1;
+    pddlMGroupsSetExactlyOne(&mgroups, &strips);
+    pddlMGroupsSetGoal(&mgroups, &strips);
+    BOR_INFO(&err, "Found %d mutex groups", mgroups.mgroup_size);
+    BOR_INFO_PREFIX_POP(&err);
+
+    /* TODO
+    if (opt.mgroup_pre_out != NULL){
+        FILE *fout = openFile(opt.mgroup_pre_out);
+        if (fout == NULL){
+            fprintf(stderr, "Error: Could not open '%s'\n", opt.mgroup_pre_out);
+            return -1;
+        }
+        BOR_INFO(&err, "Printing mutex groups to '%s'", opt.mgroup_pre_out);
+        pddlMGroupsPrint(&pddl, &strips, &mgroups, fout);
+        closeFile(fout);
+    }
+    */
+
+    return 0;
+}
+
 void freeData(void)
 {
+    if (mgroups_free)
+        pddlMGroupsFree(&mgroups);
     if (strips_free)
         pddlStripsFree(&strips);
     if (monotonicity_invariants_free)
@@ -406,7 +439,8 @@ int main(int argc, char *argv[])
     if ((ret = setOpts(argc, argv)) != 0
             || (ret = stepPDDL()) != 0
             || (ret = stepLiftedMGroups()) != 0
-            || (ret = stepGround()) != 0){
+            || (ret = stepGround()) != 0
+            || (ret = stepGroundMGroups()) != 0){
         if (ret < 0){
             if (borErrIsSet(&err)){
                 fprintf(stderr, "Error: ");
