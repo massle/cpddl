@@ -419,3 +419,32 @@ void optsPrint(FILE *fout)
     }
     fprintf(fout, "\n");
 }
+
+int optsProcessTags(const char *_s, int (*fn)(const char *t))
+{
+    if (_s == NULL)
+        return 0;
+    if (*_s == 0x0)
+        return 0;
+
+    char *s = BOR_STRDUP(_s);
+    char *cur = s;
+    char *next = s + 1;
+    do {
+        for (; *next != 0x0 && *next != ':'; ++next);
+        int shift = *next != 0x0;
+        *next = 0x0;
+        if (fn(cur) != 0){
+            BOR_FREE(s);
+            return -1;
+        }
+
+        if (shift)
+            ++next;
+        cur = next;
+    } while (*next != 0x0);
+    BOR_FREE(s);
+
+    return 0;
+}
+

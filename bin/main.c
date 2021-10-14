@@ -52,8 +52,8 @@ int monotonicity_invariants_free = 0;
 pddl_strips_t strips;
 int strips_free = 0;
 
-
 pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
+
 
 static int optSelectGroundMethod(const char *method)
 {
@@ -66,6 +66,49 @@ static int optSelectGroundMethod(const char *method)
     }else{
         return -1;
     }
+    return 0;
+}
+
+static int _optSetGroundCfg(const char *tag)
+{
+    if (strcmp(tag, "0") == 0
+            || strcmp(tag, "n") == 0
+            || strcmp(tag, "no") == 0
+            || strcmp(tag, "none") == 0){
+        ground_cfg.lifted_mgroups = NULL;
+        ground_cfg.prune_op_pre_mutex = 0;
+        ground_cfg.prune_op_dead_end = 0;
+
+    }else if (strcmp(tag, "pre") == 0){
+        ground_cfg.lifted_mgroups = &lifted_mgroups;
+        ground_cfg.prune_op_pre_mutex = 1;
+
+    }else if (strcmp(tag, "dead-end") == 0){
+        ground_cfg.lifted_mgroups = &lifted_mgroups;
+        ground_cfg.prune_op_dead_end = 1;
+
+    }else if (strcmp(tag, "1") == 0
+                || strcmp(tag, "y") == 0
+                || strcmp(tag, "yes") == 0
+                || strcmp(tag, "all") == 0){
+        ground_cfg.lifted_mgroups = &lifted_mgroups;
+        ground_cfg.prune_op_pre_mutex = 1;
+        ground_cfg.prune_op_dead_end = 1;
+
+    }else{
+        fprintf(stderr, "Error: Unkown value '%s'\n", tag);
+        return -1;
+    }
+    return 0;
+}
+
+static int optSetGroundCfg(void)
+{
+    ground_cfg.lifted_mgroups = NULL;
+    ground_cfg.prune_op_pre_mutex = 0;
+    ground_cfg.prune_op_dead_end = 0;
+    if (optsProcessTags(opt.ground.prune, _optSetGroundCfg) != 0)
+        return -1;
     return 0;
 }
 
@@ -140,6 +183,8 @@ static int setOpts(int argc, char *argv[])
                 opt.ground.method);
         return -1;
     }
+    if (optSetGroundCfg() != 0)
+        return -1;
 
     if (argc != 3 && argc != 2){
         for (int i = 1; i < argc; ++i){
@@ -329,11 +374,6 @@ static void stripsCompileAwayCondEff(void)
 }
 static int stepGround(void)
 {
-    ground_cfg.lifted_mgroups = &lifted_mgroups;
-    ground_cfg.prune_op_pre_mutex = 1;
-    ground_cfg.prune_op_dead_end = 1;
-    // TODO; Config
-
     if (opt.ground.method_fn(&strips, &pddl, &ground_cfg, &err) != 0){
         BOR_INFO2(&err, "Grounding failed.");
         BOR_TRACE_RET(&err, -1);

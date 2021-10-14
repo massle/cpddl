@@ -31,4 +31,7 @@ void optsAddStr(const char *long_name,
 
 int opts(int *argc, char **argv);
 void optsPrint(FILE *fout);
+
+int optsProcessTags(const char *_s, int (*fn)(const char *t));
+
 #endif /* OPTS_H */
