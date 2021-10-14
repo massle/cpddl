@@ -24,6 +24,7 @@ struct opt_opt {
     char *sdefault;
     void *set;
     char *desc;
+    char **allowed_values;
 };
 typedef struct opt_opt opt_opt_t;
 

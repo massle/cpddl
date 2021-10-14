@@ -28,6 +28,7 @@ void optsAddStr(const char *long_name,
                 const char *default_value,
                 const char *desc);
 
+
 int opts(int *argc, char **argv);
 void optsPrint(FILE *fout);
 #endif /* OPTS_H */

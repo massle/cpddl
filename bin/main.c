@@ -25,6 +25,10 @@ struct options {
 
     struct {
         char *method;
+        int (*method_fn)(pddl_strips_t *,
+                         const pddl_t *,
+                         const pddl_ground_config_t *,
+                         bor_err_t *);
         char *prune;
     } ground;
 
@@ -40,25 +44,25 @@ struct options {
 bor_err_t err = BOR_ERR_INIT;
 pddl_files_t files;
 pddl_t pddl;
+int pddl_free = 0;
 pddl_lifted_mgroups_t lifted_mgroups;
+int lifted_mgroups_free = 0;
 pddl_lifted_mgroups_t monotonicity_invariants;
+int monotonicity_invariants_free = 0;
 pddl_strips_t strips;
+int strips_free = 0;
 
 
-int (*ground_method)(pddl_strips_t *,
-                     const pddl_t *,
-                     const pddl_ground_config_t *,
-                     bor_err_t *) = pddlStripsGround;
 pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
 
-static int selectGroundMethod(const char *method)
+static int optSelectGroundMethod(const char *method)
 {
     if (strcmp(method, "default") == 0){
-        ground_method = pddlStripsGround;
+        opt.ground.method_fn = pddlStripsGround;
     }else if (strcmp(method, "sql") == 0){
-        ground_method = pddlStripsGroundSql;
+        opt.ground.method_fn = pddlStripsGroundSql;
     }else if (strcmp(method, "dl") == 0){
-        ground_method = pddlStripsGroundDatalog;
+        opt.ground.method_fn = pddlStripsGroundDatalog;
     }else{
         return -1;
     }
@@ -98,10 +102,10 @@ static int setOpts(int argc, char *argv[])
 
     optsStartGroup("Grounding:");
     optsAddStr("ground", 'G', &opt.ground.method, "default",
-                "Grounding method, one of:\n"
-                "  default - default method\n"
-                "  sql - sqlite-based method\n"
-                "  dl - datalog-based method\n");
+               "Grounding method, one of:\n"
+               "  default - default method\n"
+               "  sql - sqlite-based method\n"
+               "  dl - datalog-based method\n");
     optsAddStr("ground-prune", 0x0, &opt.ground.prune, "all",
                 "Use lifted mutex groups for pruning during grounding. "
                 "Possible options:\n"
@@ -113,7 +117,7 @@ static int setOpts(int argc, char *argv[])
     optsStartGroup("STRIPS:");
     optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,
                 "Compile away conditional effects on the STRIPS level"
-                " (recommended instead of --ce-pddl).");
+                " (recommended instead of --pddl-ce).");
 
     optsStartGroup("Finite Domain Representation:");
     optsAddStr("fdr-out", 'o', &opt.fdr.out, NULL,
@@ -131,7 +135,7 @@ static int setOpts(int argc, char *argv[])
     if (opt.lmg.fd_monotonicity)
         opt.lmg.fd = 1;
 
-    if (selectGroundMethod(opt.ground.method) != 0){
+    if (optSelectGroundMethod(opt.ground.method) != 0){
         fprintf(stderr, "Error: Unknown grounding method %s\n",
                 opt.ground.method);
         return -1;
@@ -205,6 +209,7 @@ static int stepPDDL(void)
                  &pddl_cfg, &err) != 0){
         BOR_TRACE_RET(&err, -1);
     }
+    pddl_free = 1;
     pddlCheckSizeTypes(&pddl);
 
     return 0;
@@ -213,7 +218,9 @@ static int stepPDDL(void)
 static int stepLiftedMGroups(void)
 {
     pddlLiftedMGroupsInit(&lifted_mgroups);
+    lifted_mgroups_free = 1;
     pddlLiftedMGroupsInit(&monotonicity_invariants);
+    monotonicity_invariants_free = 1;
 
     if (!opt.lmg.enable){
         BOR_INFO2(&err, "Inference of lifted mutex groups turned off");
@@ -301,6 +308,25 @@ static int prunePDDL(void)
 }
 */
 
+static void stripsCompileAwayCondEff(void)
+{
+    if (!opt.strips.compile_away_cond_eff)
+        return;
+
+
+    BOR_INFO_PREFIX_PUSH(&err, "STRIPS CE: ");
+    if (!strips.has_cond_eff){
+        BOR_INFO2(&err, "The task has no conditional effects.");
+        BOR_INFO_PREFIX_POP(&err);
+        return;
+    }
+
+    BOR_INFO2(&err, "Compiling away conditional effects ...");
+    pddlStripsCompileAwayCondEff(&strips);
+    BOR_INFO2(&err, "Conditional effects compiled away.");
+    pddlStripsLogInfo(&strips, &err);
+    BOR_INFO_PREFIX_POP(&err);
+}
 static int stepGround(void)
 {
     ground_cfg.lifted_mgroups = &lifted_mgroups;
@@ -308,17 +334,28 @@ static int stepGround(void)
     ground_cfg.prune_op_dead_end = 1;
     // TODO; Config
 
-    if (ground_method(&strips, &pddl, &ground_cfg, &err) != 0){
+    if (opt.ground.method_fn(&strips, &pddl, &ground_cfg, &err) != 0){
         BOR_INFO2(&err, "Grounding failed.");
         BOR_TRACE_RET(&err, -1);
     }
+    strips_free = 1;
 
-    /*
-    if (opt.compile_away_cond_eff)
-        pddlStripsCompileAwayCondEff(&strips);
-    */
+    stripsCompileAwayCondEff();
 
     return 0;
+}
+
+void freeData(void)
+{
+    if (strips_free)
+        pddlStripsFree(&strips);
+    if (monotonicity_invariants_free)
+        pddlLiftedMGroupsFree(&monotonicity_invariants);
+    if (lifted_mgroups_free)
+        pddlLiftedMGroupsFree(&lifted_mgroups);
+    if (pddl_free)
+        pddlFree(&pddl);
+    optsFree();
 }
 
 int main(int argc, char *argv[])
@@ -335,10 +372,11 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Error: ");
                 borErrPrint(&err, 1, stderr);
             }
+            freeData();
             return -1;
         }
     }
 
-    optsFree();
+    freeData();
     return 0;
 }

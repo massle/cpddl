@@ -52,6 +52,10 @@ typedef struct pddl_ground_config pddl_ground_config_t;
         1, /* .remove_static_facts */ \
     }
 
+void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
+                         const char *prefix,
+                         bor_err_t *err);
+
 struct pddl_strips {
     pddl_ground_config_t cfg;
     char *domain_name;
@@ -190,6 +194,8 @@ void pddlStripsPrintPDDLProblem(const pddl_strips_t *strips, FILE *fout);
 
 
 void pddlStripsPrintDebug(const pddl_strips_t *strips, FILE *fout);
+
+void pddlStripsLogInfo(const pddl_strips_t *strips, bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -768,6 +768,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
                         bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Ground SQL: ");
+    pddlGroundConfigLog(cfg, "cfg.", err);
     BOR_INFO2(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
@@ -797,6 +798,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     }
 
     BOR_INFO2(err, "Grounding finished.");
+    pddlStripsLogInfo(strips, err);
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }

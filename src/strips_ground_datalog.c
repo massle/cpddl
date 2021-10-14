@@ -342,8 +342,8 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                             bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Ground DL: ");
+    pddlGroundConfigLog(cfg, "cfg.", err);
     BOR_INFO2(err, "Grounding using datalog ...");
-
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
@@ -382,19 +382,8 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
         BOR_TRACE_RET(err, ret);
     }
 
-    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
-    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
-    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
-    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
-    int count = 0;
-    for (int i = 0; i < strips->op.op_size; ++i){
-        if (strips->op.op[i]->cond_eff_size > 0)
-            ++count;
-    }
-    BOR_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
-             count);
-
     BOR_INFO2(err, "Grounding finished.");
+    pddlStripsLogInfo(strips, err);
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }
