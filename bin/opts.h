@@ -28,6 +28,12 @@ void optsAddStr(const char *long_name,
                 const char *default_value,
                 const char *desc);
 
+void optsAddTags(const char *long_name,
+                 char short_name,
+                 const char *default_value,
+                 int (*fn)(const char *tag),
+                 const char *desc);
+
 
 int opts(int *argc, char **argv);
 void optsPrint(FILE *fout);

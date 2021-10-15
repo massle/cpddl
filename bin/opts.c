@@ -4,9 +4,10 @@
 #include "opts.h"
 
 #define FLAG 1
-#define INT  2
-#define FLT  3
-#define STR  4
+#define INT 2
+#define FLT 3
+#define STR 4
+#define STR_TAGS 5
 
 
 struct opt_group {
@@ -24,7 +25,8 @@ struct opt_opt {
     char *sdefault;
     void *set;
     char *desc;
-    char **allowed_values;
+    char *tags;
+    int (*parse_tags)(const char *tag);
 };
 typedef struct opt_opt opt_opt_t;
 
@@ -58,6 +60,8 @@ void optsFree(void)
             BOR_FREE(o.opt[i].sdefault);
         if (o.opt[i].desc != NULL)
             BOR_FREE(o.opt[i].desc);
+        if (o.opt[i].tags != NULL)
+            BOR_FREE(o.opt[i].tags);
     }
     if (o.opt != NULL)
         BOR_FREE(o.opt);
@@ -149,6 +153,20 @@ void optsAddStr(const char *long_name,
     }
 }
 
+void optsAddTags(const char *long_name,
+                 char short_name,
+                 const char *default_value,
+                 int (*fn)(const char *tag),
+                 const char *desc)
+{
+    opt_opt_t *opt = optsAdd(STR_TAGS, long_name, short_name, NULL, desc);
+    if (default_value != NULL){
+        opt->sdefault = BOR_STRDUP(default_value);
+        opt->tags = BOR_STRDUP(default_value);
+    }
+    opt->parse_tags = fn;
+}
+
 static opt_opt_t *findOptLong(const char *name)
 {
     for (int i = 0; i < o.opt_size; i++){
@@ -199,6 +217,11 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
     }else if (opt->type == STR){
         if (opt->set)
             *(char **)opt->set = (char *)val;
+
+    }else if (opt->type == STR_TAGS){
+        if (opt->tags != NULL)
+            BOR_FREE(opt->tags);
+        opt->tags = BOR_STRDUP(val);
     }
 
     return 0;
@@ -289,6 +312,13 @@ int opts(int *argc, char **argv)
     }
 
     *argc = args_remaining;
+
+    for (int i = 0; i < o.opt_size; ++i){
+        if (o.opt[i].parse_tags != NULL){
+            if (optsProcessTags(o.opt[i].tags, o.opt[i].parse_tags) != 0)
+                return -1;
+        }
+    }
     return 0;
 }
 
@@ -333,7 +363,7 @@ static void optsPrintDefault(const opt_opt_t *opt, FILE *fout)
     }else if (opt->type == FLT){
         fprintf(fout, "%.4f", opt->fdefault);
 
-    }else if (opt->type == STR){
+    }else if (opt->type == STR || opt->type == STR_TAGS){
         if (opt->sdefault == NULL){
             fprintf(fout, "nil");
         }else{
@@ -381,13 +411,15 @@ static void optsPrintOpts(int group, FILE *fout)
         prefixlen += 2;
 
         if (opt->type == FLAG){
-            fprintf(fout, "   ");
+            fprintf(fout, "    ");
         }else if (opt->type == INT){
-            fprintf(fout, "int");
+            fprintf(fout, "int ");
         }else if (opt->type == FLT){
-            fprintf(fout, "flt");
+            fprintf(fout, "flt ");
         }else if (opt->type == STR){
-            fprintf(fout, "str");
+            fprintf(fout, "str ");
+        }else if (opt->type == STR_TAGS){
+            fprintf(fout, "tags");
         }
         prefixlen += 3;
 

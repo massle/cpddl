@@ -24,17 +24,30 @@ struct options {
     } lmg;
 
     struct {
-        char *method;
         int (*method_fn)(pddl_strips_t *,
                          const pddl_t *,
                          const pddl_ground_config_t *,
                          bor_err_t *);
-        char *prune;
+
+        int mgroup;
+        int mgroup_remove_subsets;
+        char *mgroup_out;
     } ground;
 
     struct {
         int compile_away_cond_eff;
     } strips;
+
+    struct {
+        int fam;
+        int h2;
+        int fam_lmg;
+        int fam_maximal;
+        float fam_time_limit;
+        int fam_limit;
+        int remove_subsets;
+        char *out;
+    } mg;
 
     struct {
         char *out;
@@ -57,65 +70,67 @@ int mgroups_free = 0;
 pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
 
 
-static int optSelectGroundMethod(const char *method)
+static int optSetGround(const char *tag)
 {
-    if (strcmp(method, "default") == 0){
+    if (strcmp(tag, "default") == 0){
         opt.ground.method_fn = pddlStripsGround;
-    }else if (strcmp(method, "sql") == 0){
+
+    }else if (strcmp(tag, "sql") == 0){
         opt.ground.method_fn = pddlStripsGroundSql;
-    }else if (strcmp(method, "dl") == 0){
+
+    }else if (strcmp(tag, "dl") == 0){
         opt.ground.method_fn = pddlStripsGroundDatalog;
+
+    }else if (strcmp(tag, "prune-pre") == 0){
+        ground_cfg.lifted_mgroups = &lifted_mgroups;
+        ground_cfg.prune_op_pre_mutex = 1;
+
+    }else if (strcmp(tag, "prune-dead-end") == 0){
+        ground_cfg.lifted_mgroups = &lifted_mgroups;
+        ground_cfg.prune_op_dead_end = 1;
+
+    }else if (strcmp(tag, "prune-all") == 0){
+        ground_cfg.lifted_mgroups = &lifted_mgroups;
+        ground_cfg.prune_op_pre_mutex = 1;
+        ground_cfg.prune_op_dead_end = 1;
+
     }else{
+        fprintf(stderr, "Error: Unknown ground config tag '%s'\n", tag);
         return -1;
     }
     return 0;
 }
 
-static int _optSetGroundCfg(const char *tag)
+static int optSetMGroup(const char *tag)
 {
     if (strcmp(tag, "0") == 0
             || strcmp(tag, "n") == 0
-            || strcmp(tag, "no") == 0
             || strcmp(tag, "none") == 0){
-        ground_cfg.lifted_mgroups = NULL;
-        ground_cfg.prune_op_pre_mutex = 0;
-        ground_cfg.prune_op_dead_end = 0;
+        opt.mg.fam = 0;
+        opt.mg.h2 = 0;
 
-    }else if (strcmp(tag, "pre") == 0){
-        ground_cfg.lifted_mgroups = &lifted_mgroups;
-        ground_cfg.prune_op_pre_mutex = 1;
+    }else if (strcmp(tag, "fam") == 0){
+        opt.mg.fam = 1;
+        opt.mg.h2 = 0;
 
-    }else if (strcmp(tag, "dead-end") == 0){
-        ground_cfg.lifted_mgroups = &lifted_mgroups;
-        ground_cfg.prune_op_dead_end = 1;
-
-    }else if (strcmp(tag, "1") == 0
-                || strcmp(tag, "y") == 0
-                || strcmp(tag, "yes") == 0
-                || strcmp(tag, "all") == 0){
-        ground_cfg.lifted_mgroups = &lifted_mgroups;
-        ground_cfg.prune_op_pre_mutex = 1;
-        ground_cfg.prune_op_dead_end = 1;
+    }else if (strcmp(tag, "h2") == 0){
+        opt.mg.fam = 0;
+        opt.mg.h2 = 1;
 
     }else{
-        fprintf(stderr, "Error: Unkown value '%s'\n", tag);
+        fprintf(stderr, "Error: Unknown mgroup config tag '%s'\n", tag);
         return -1;
     }
-    return 0;
-}
-
-static int optSetGroundCfg(void)
-{
-    ground_cfg.lifted_mgroups = NULL;
-    ground_cfg.prune_op_pre_mutex = 0;
-    ground_cfg.prune_op_dead_end = 0;
-    if (optsProcessTags(opt.ground.prune, _optSetGroundCfg) != 0)
-        return -1;
     return 0;
 }
 
 static int setOpts(int argc, char *argv[])
 {
+    ground_cfg.lifted_mgroups = NULL;
+    ground_cfg.prune_op_pre_mutex = 0;
+    ground_cfg.prune_op_dead_end = 0;
+    ground_cfg.remove_static_facts = 1;
+
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
     optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
                "Maximum memory in MB if >0.");
@@ -146,23 +161,49 @@ static int setOpts(int argc, char *argv[])
                 "Stop after inferring lifted mutex groups.");
 
     optsStartGroup("Grounding:");
-    optsAddStr("ground", 'G', &opt.ground.method, "default",
-               "Grounding method, one of:\n"
-               "  default - default method\n"
-               "  sql - sqlite-based method\n"
-               "  dl - datalog-based method\n");
-    optsAddStr("ground-prune", 0x0, &opt.ground.prune, "all",
-                "Use lifted mutex groups for pruning during grounding. "
-                "Possible options:\n"
-                "  0/n/no/none - disable this step\n"
-                "  pre - check only preconditions\n"
-                "  dead-end - check only dead-ends\n"
-                "  1/all/pre:dead-end - use all\n");
+    optsAddTags("ground", 'G', "default:prune-all",
+                optSetGround,
+                "Grounding method, combination (delimited by ':') of:\n"
+                "  default - default grounding method\n"
+                "  sql - sqlite-based grounding method\n"
+                "  dl - datalog-based grounding method\n"
+                "  prune-pre - prune by checking only preconditions\n"
+                "  prune-dead-end - prune by checking only dead-ends\n"
+                "  prune-all - alias for prune-pre:prune-dead-end\n");
+    optsAddFlag("ground-lmg", 0x0, &opt.ground.mgroup, 1,
+                "Ground lifted mutex groups.");
+    optsAddFlag("ground-lmg-remove-subsets", 0x0,
+                &opt.ground.mgroup_remove_subsets, 1,
+                "After grounding lifted mutex groups, remove subsets.");
+    optsAddStr("ground-mg-out", 0x0, &opt.ground.mgroup_out, NULL,
+                "Output filename for grounded mutex groups.");
 
     optsStartGroup("STRIPS:");
     optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,
                 "Compile away conditional effects on the STRIPS level"
                 " (recommended instead of --pddl-ce).");
+
+    optsStartGroup("Mutex Groups:");
+    optsAddTags("mg", 0x0, "none", optSetMGroup,
+                "Method for inference of mutex groups, one of:\n"
+                "  0/n/none - no mutex groups will be inferred on STRIPS level\n"
+                "  fam - fact-alternating mutex groups\n"
+                "  h2 - mutex groups from h^2 mutexes\n");
+    optsAddStr("mg-out", 0x0, &opt.mg.out, NULL,
+                "Output filename for infered mutex groups.");
+    optsAddFlag("mg-remove-subsets", 0x0, &opt.mg.remove_subsets, 1,
+                "Remove subsets of the inferred mutex groups.");
+    optsAddFlag("fam-lmg", 0x0, &opt.mg.fam_lmg, 1,
+                "Use lifted mutex groups as initial set for inference of"
+                " fam-groups.");
+    optsAddFlag("fam-maximal", 0x0, &opt.mg.fam_maximal, 1,
+                "Infer only maximal fam-groups"
+                " (see also --no-mg-remove-subsets).");
+    optsAddFlt("fam-time-limit", 0x0, &opt.mg.fam_time_limit, -1.,
+                "Set time limit in seconds for the inference of fam-groups.");
+    optsAddInt("fam-limit", 0x0, &opt.mg.fam_limit, -1,
+                "Set limit on the number of inferred fam-groups.");
+
 
     optsStartGroup("Finite Domain Representation:");
     optsAddStr("fdr-out", 'o', &opt.fdr.out, NULL,
@@ -179,14 +220,6 @@ static int setOpts(int argc, char *argv[])
     // implications
     if (opt.lmg.fd_monotonicity)
         opt.lmg.fd = 1;
-
-    if (optSelectGroundMethod(opt.ground.method) != 0){
-        fprintf(stderr, "Error: Unknown grounding method %s\n",
-                opt.ground.method);
-        return -1;
-    }
-    if (optSetGroundCfg() != 0)
-        return -1;
 
     if (argc != 3 && argc != 2){
         for (int i = 1; i < argc; ++i){
@@ -390,28 +423,82 @@ static int stepGround(void)
 
 static int stepGroundMGroups(void)
 {
+    if (!opt.ground.mgroup){
+        BOR_INFO2(&err, "Grounding of lifted mutex groups disabled.");
+        return 0;
+    }
+
     BOR_INFO_PREFIX_PUSH(&err, "Ground LMG: ");
-    BOR_INFO2(&err, "Grounding mutex groups ...");
+    BOR_INFO2(&err, "Grounding of lifted mutex groups ...");
     pddlMGroupsGround(&mgroups, &pddl, &lifted_mgroups, &strips);
-    pddlMGroupsRemoveSubsets(&mgroups);
     mgroups_free = 1;
+    if (opt.ground.mgroup_remove_subsets)
+        pddlMGroupsRemoveSubsets(&mgroups);
     pddlMGroupsSetExactlyOne(&mgroups, &strips);
     pddlMGroupsSetGoal(&mgroups, &strips);
     BOR_INFO(&err, "Found %d mutex groups", mgroups.mgroup_size);
     BOR_INFO_PREFIX_POP(&err);
 
-    /* TODO
-    if (opt.mgroup_pre_out != NULL){
-        FILE *fout = openFile(opt.mgroup_pre_out);
-        if (fout == NULL){
-            fprintf(stderr, "Error: Could not open '%s'\n", opt.mgroup_pre_out);
-            return -1;
-        }
-        BOR_INFO(&err, "Printing mutex groups to '%s'", opt.mgroup_pre_out);
-        pddlMGroupsPrint(&pddl, &strips, &mgroups, fout);
-        closeFile(fout);
+    PRINT_TO_FILE(opt.ground.mgroup_out, "grounded mutex groups",
+                  pddlMGroupsPrint(&pddl, &strips, &mgroups, fout));
+
+    return 0;
+}
+
+static int stepInferMGroups(void)
+{
+    if (!opt.mg.fam && !opt.mg.h2){
+        BOR_INFO2(&err, "Inference of mutex groups disabled.");
+        return 0;
     }
-    */
+
+    BOR_INFO_PREFIX_PUSH(&err, "MG: ");
+    if (opt.mg.fam){
+        pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
+        cfg.maximal = opt.mg.fam_maximal;
+        cfg.limit = opt.mg.fam_limit;
+        cfg.time_limit = opt.mg.fam_time_limit;
+        if (!opt.mg.fam_lmg){
+            pddlMGroupsFree(&mgroups);
+            mgroups_free = 0;
+        }
+        if (!mgroups_free){
+            pddlMGroupsInitEmpty(&mgroups);
+            mgroups_free = 1;
+        }
+        BOR_INFO(&err, "Inference of fam-groups starting with %d fam-groups",
+                 mgroups.mgroup_size);
+        if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
+            BOR_TRACE_RET(&err, -1);
+        }
+        if (opt.mg.remove_subsets)
+            pddlMGroupsRemoveSubsets(&mgroups);
+
+    }else if (opt.mg.h2){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){
+            BOR_INFO2(&err, "h^2 fw failed.");
+            BOR_TRACE_RET(&err, -1);
+        }
+
+        if (mgroups_free)
+            pddlMGroupsFree(&mgroups);
+        pddlMGroupsInitEmpty(&mgroups);
+        mgroups_free = 1;
+
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
+        pddlMutexPairsFree(&mutex);
+    }
+
+    BOR_INFO(&err, "Found %d mutex groups", mgroups.mgroup_size);
+
+    pddlMGroupsSetExactlyOne(&mgroups, &strips);
+    pddlMGroupsSetGoal(&mgroups, &strips);
+    BOR_INFO_PREFIX_POP(&err);
+
+    PRINT_TO_FILE(opt.mg.out, "mutex groups",
+                  pddlMGroupsPrint(&pddl, &strips, &mgroups, fout));
 
     return 0;
 }
@@ -440,7 +527,8 @@ int main(int argc, char *argv[])
             || (ret = stepPDDL()) != 0
             || (ret = stepLiftedMGroups()) != 0
             || (ret = stepGround()) != 0
-            || (ret = stepGroundMGroups()) != 0){
+            || (ret = stepGroundMGroups()) != 0
+            || (ret = stepInferMGroups()) != 0){
         if (ret < 0){
             if (borErrIsSet(&err)){
                 fprintf(stderr, "Error: ");

@@ -247,8 +247,11 @@ static void addMGroup(const bor_iset_t *mg, void *_mgroups)
 }
 
 void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
-                                    pddl_mgroups_t *mgroups)
+                                    pddl_mgroups_t *mgroups,
+                                    bor_err_t *err)
 {
+    BOR_INFO_PREFIX_PUSH(err, "MG-h2: ");
+    BOR_INFO2(err, "Inference of h^2 mutex groups...");
     pddl_graph_simple_t graph;
     pddlGraphSimpleInit(&graph, mutex->fact_size);
 
@@ -259,5 +262,7 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
     pddlCliqueFindMaximal(&graph, addMGroup, mgroups);
 
     pddlGraphSimpleFree(&graph);
+    BOR_INFO(err, "Found %d h^2 mutex groups.", mgroups->mgroup_size);
+    BOR_INFO_PREFIX_POP(err);
 }
 

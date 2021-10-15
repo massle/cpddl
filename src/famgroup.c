@@ -290,6 +290,7 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
     if (strips->has_cond_eff)
         BOR_FATAL2("fam-groups does not support conditional effects");
 
+    BOR_INFO_PREFIX_PUSH(err, "MG-fam: ");
     fam_t fam;
     int start_num = mgs->mgroup_size;
     BOR_INFO(err, "Inference of fam-groups ["
@@ -310,6 +311,7 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
 
     BOR_INFO(err, "Inference of fam-groups DONE: %d fam-groups found.",
              mgs->mgroup_size - start_num);
+    BOR_INFO_PREFIX_POP(err);
     return 0;
 }
 
