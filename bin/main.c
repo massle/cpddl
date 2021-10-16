@@ -615,6 +615,24 @@ static int stepProcessStrips(void)
     return pddlProcessStripsExecute(&process_strips, &strips, &mgroup, &mutex, &err);
 }
 
+static int stepFDR(void)
+{
+    // TODO
+    return 0;
+}
+
+static int stepAStar(void)
+{
+    // TODO
+    return 0;
+}
+
+static int stepSymba(void)
+{
+    // TODO
+    return 0;
+}
+
 void freeData(void)
 {
     if (strips_set){
@@ -642,7 +660,10 @@ int main(int argc, char *argv[])
             || (ret = stepGround()) != 0
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
-            || (ret = stepProcessStrips()) != 0){
+            || (ret = stepProcessStrips()) != 0
+            || (ret = stepFDR()) != 0
+            || (ret = stepAStar()) != 0
+            || (ret = stepSymba()) != 0){
         if (ret < 0){
             if (borErrIsSet(&err)){
                 fprintf(stderr, "Error: ");
