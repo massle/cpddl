@@ -8,6 +8,7 @@
 #define FLT 3
 #define STR 4
 #define STR_TAGS 5
+#define FLAG_FN 6
 
 
 struct opt_group {
@@ -25,8 +26,8 @@ struct opt_opt {
     char *sdefault;
     void *set;
     char *desc;
-    char *tags;
     int (*parse_tags)(const char *tag);
+    int (*flag_fn)(int);
 };
 typedef struct opt_opt opt_opt_t;
 
@@ -60,8 +61,6 @@ void optsFree(void)
             BOR_FREE(o.opt[i].sdefault);
         if (o.opt[i].desc != NULL)
             BOR_FREE(o.opt[i].desc);
-        if (o.opt[i].tags != NULL)
-            BOR_FREE(o.opt[i].tags);
     }
     if (o.opt != NULL)
         BOR_FREE(o.opt);
@@ -118,6 +117,15 @@ void optsAddFlag(const char *long_name,
     *(int *)set = default_value;
 }
 
+void optsAddFlagFn(const char *long_name,
+                   char short_name,
+                   int (*fn)(int),
+                   const char *desc)
+{
+    opt_opt_t *opt = optsAdd(FLAG_FN, long_name, short_name, NULL, desc);
+    opt->flag_fn = fn;
+}
+
 void optsAddInt(const char *long_name,
                 char short_name,
                 int *set,
@@ -162,7 +170,6 @@ void optsAddTags(const char *long_name,
     opt_opt_t *opt = optsAdd(STR_TAGS, long_name, short_name, NULL, desc);
     if (default_value != NULL){
         opt->sdefault = BOR_STRDUP(default_value);
-        opt->tags = BOR_STRDUP(default_value);
     }
     opt->parse_tags = fn;
 }
@@ -219,9 +226,8 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
             *(char **)opt->set = (char *)val;
 
     }else if (opt->type == STR_TAGS){
-        if (opt->tags != NULL)
-            BOR_FREE(opt->tags);
-        opt->tags = BOR_STRDUP(val);
+        if (optsProcessTags(val, opt->parse_tags) != 0)
+            return -1;
     }
 
     return 0;
@@ -254,6 +260,9 @@ static opt_opt_t *findOpt(char *_arg)
                     return opt;
                 }else if (opt->type == FLAG){
                     optSetFlag(opt);
+                }else if (opt->type == FLAG_FN){
+                    if (opt->flag_fn(1))
+                        return NULL;
                 }else{
                     fprintf(stderr, "Error: Unknown option %s.\n", _arg);
                     return NULL;
@@ -279,6 +288,9 @@ int opts(int *argc, char **argv)
         if (opt){
             if (opt->type == FLAG){
                 optSetFlag(opt);
+            }else if (opt->type == FLAG_FN){
+                if (opt->flag_fn(1) != 0)
+                    return -1;
             }else{
                 if (i + 1 < *argc){
                     ++i;
@@ -298,6 +310,10 @@ int opts(int *argc, char **argv)
                 if (opt != NULL && opt->type == FLAG){
                     optSetNoFlag(opt);
                     found = 1;
+                }else if (opt != NULL && opt->type == FLAG_FN){
+                    if (opt->flag_fn(0) != 0)
+                        return -1;
+                    found = 1;
                 }
             }
 
@@ -312,13 +328,6 @@ int opts(int *argc, char **argv)
     }
 
     *argc = args_remaining;
-
-    for (int i = 0; i < o.opt_size; ++i){
-        if (o.opt[i].parse_tags != NULL){
-            if (optsProcessTags(o.opt[i].tags, o.opt[i].parse_tags) != 0)
-                return -1;
-        }
-    }
     return 0;
 }
 
@@ -356,6 +365,9 @@ static void optsPrintDefault(const opt_opt_t *opt, FILE *fout)
         }else{
             fprintf(fout, "disabled");
         }
+
+    }else if (opt->type == FLAG_FN){
+        fprintf(fout, "disabled");
 
     }else if (opt->type == INT){
         fprintf(fout, "%d", opt->idefault);
@@ -412,6 +424,8 @@ static void optsPrintOpts(int group, FILE *fout)
 
         if (opt->type == FLAG){
             fprintf(fout, "    ");
+        }else if (opt->type == FLAG_FN){
+            fprintf(fout, "    ");
         }else if (opt->type == INT){
             fprintf(fout, "int ");
         }else if (opt->type == FLT){
@@ -460,21 +474,14 @@ int optsProcessTags(const char *_s, int (*fn)(const char *t))
         return 0;
 
     char *s = BOR_STRDUP(_s);
-    char *cur = s;
-    char *next = s + 1;
-    do {
-        for (; *next != 0x0 && *next != ':'; ++next);
-        int shift = *next != 0x0;
-        *next = 0x0;
+    char *next = s;
+    char *cur;
+    while ((cur = strsep(&next, ":")) != NULL){
         if (fn(cur) != 0){
             BOR_FREE(s);
             return -1;
         }
-
-        if (shift)
-            ++next;
-        cur = next;
-    } while (*next != 0x0);
+    }
     BOR_FREE(s);
 
     return 0;

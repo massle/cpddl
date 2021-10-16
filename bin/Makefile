@@ -31,7 +31,7 @@ TARGETS += pddl-op-mutex
 TARGETS += pddl-symba
 TARGETS += pddl
 
-OBJS = opts.o
+OBJS = opts.o process_strips.o
 
 all: $(TARGETS)
 

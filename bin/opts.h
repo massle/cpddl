@@ -10,6 +10,11 @@ void optsAddFlag(const char *long_name,
                  int default_value,
                  const char *desc);
 
+void optsAddFlagFn(const char *long_name,
+                   char short_name,
+                   int (*fn)(int enabled),
+                   const char *desc);
+
 void optsAddInt(const char *long_name,
                 char short_name,
                 int *set,
