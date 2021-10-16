@@ -31,7 +31,9 @@ TARGETS += pddl-op-mutex
 TARGETS += pddl-symba
 TARGETS += pddl
 
-OBJS = opts.o process_strips.o
+OBJS  = opts.o
+OBJS += process_strips.o
+OBJS += report_lifted_mgroups.o
 
 all: $(TARGETS)
 
@@ -41,6 +43,8 @@ pddl: main.c ../libpddl.a $(OBJS)
 pddl-%: %.c ../libpddl.a
 	$(CC) $(CFLAGS) $(OPTS_CFLAGS) -o $@ $< $(LDFLAGS) $(OPTS_LDFLAGS)
 
+report_%.o: report_%.c report.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 %.o: %.c

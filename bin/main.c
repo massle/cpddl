@@ -3,6 +3,7 @@
 #include "pddl/pddl.h"
 #include "opts.h"
 #include "process_strips.h"
+#include "report.h"
 
 struct options {
     int help;
@@ -53,6 +54,10 @@ struct options {
     struct {
         char *out;
     } fdr;
+
+    struct {
+        int lmg;
+    } report;
 } opt = { 0 };
 
 bor_err_t err = BOR_ERR_INIT;
@@ -315,6 +320,10 @@ static int setOpts(int argc, char *argv[])
     optsAddStr("fdr-out", 'o', &opt.fdr.out, NULL,
                "Output filename for FDR encoding of the task.");
 
+    optsStartGroup("Reports:");
+    optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
+                "Create report of lifted mutex groups.");
+
     if (opts(&argc, argv) != 0)
         return -1;
 
@@ -399,6 +408,14 @@ static int stepPDDL(void)
     pddlCheckSizeTypes(&pddl);
 
     return 0;
+}
+
+static int stepReportLiftedMGroups(void)
+{
+    if (!opt.report.lmg)
+        return 0;
+    reportLiftedMGroups(&pddl, &err);
+    return 1;
 }
 
 static int stepLiftedMGroups(void)
@@ -656,6 +673,7 @@ int main(int argc, char *argv[])
     int ret = 0;
     if ((ret = setOpts(argc, argv)) != 0
             || (ret = stepPDDL()) != 0
+            || (ret = stepReportLiftedMGroups()) != 0
             || (ret = stepLiftedMGroups()) != 0
             || (ret = stepGround()) != 0
             || (ret = stepGroundMGroups()) != 0
