@@ -40,6 +40,7 @@ void pddlProcessStripsAddH2FwBw(pddl_process_strips_t *prune,
 void pddlProcessStripsAddH3Fw(pddl_process_strips_t *prune,
                               float time_limit_in_s,
                               size_t excess_memory);
+void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune);
 
 #ifdef __cplusplus
 } /* extern "C" */

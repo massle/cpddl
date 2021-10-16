@@ -211,6 +211,7 @@ void pddlStripsOpsRemoveFacts(pddl_strips_ops_t *ops, const bor_iset_t *facts);
  * Removes duplicate operators, keeps the ones with the lowest cost.
  */
 void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops);
+void pddlStripsOpsDeduplicateSet(pddl_strips_ops_t *ops, bor_iset_t *rm_op);
 
 /**
  * Set costs of all operators to 1

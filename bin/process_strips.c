@@ -289,3 +289,18 @@ void pddlProcessStripsAddH3Fw(pddl_process_strips_t *prune,
     step->time_limit = time_limit_in_s;
     step->excess_memory = excess_memory;
 }
+
+static int deduplicateOps(pddl_process_strips_t *prune,
+                          pddl_process_strips_step_t *step,
+                          bor_err_t *err)
+{
+    pddlStripsOpsDeduplicateSet(&prune->strips->op, &prune->rm_op);
+    return 0;
+}
+
+void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("deduplicate ops: ", prune, deduplicateOps, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+}

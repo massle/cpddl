@@ -289,13 +289,11 @@ static int deduplicateRange(const pddl_strips_ops_t *ops,
     return change;
 }
 
-void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
+static int deduplicate(pddl_strips_ops_t *ops, int *remove)
 {
     deduplicate_t *dedup;
-    int *remove;
     int change = 0;
 
-    remove = BOR_CALLOC_ARR(int, ops->op_size);
     dedup = BOR_CALLOC_ARR(deduplicate_t, ops->op_size);
     for (int op_id = 0; op_id < ops->op_size; ++op_id){
         dedup[op_id].id = op_id;
@@ -317,10 +315,30 @@ void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
     if (start < cur - 1)
         change |= deduplicateRange(ops, dedup, start, cur, remove);
 
-    if (change)
-        pddlStripsOpsDelOps(ops, remove);
     BOR_FREE(dedup);
-    BOR_FREE(remove);
+    return change;
+}
+
+void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
+{
+    int *remove = BOR_CALLOC_ARR(int, ops->op_size);
+    if (deduplicate(ops, remove))
+        pddlStripsOpsDelOps(ops, remove);
+    if (remove != NULL)
+        BOR_FREE(remove);
+}
+
+void pddlStripsOpsDeduplicateSet(pddl_strips_ops_t *ops, bor_iset_t *rm_op)
+{
+    int *remove = BOR_CALLOC_ARR(int, ops->op_size);
+    if (deduplicate(ops, remove)){
+        for (int oi = 0; oi < ops->op_size; ++oi){
+            if (remove[oi])
+                borISetAdd(rm_op, oi);
+        }
+    }
+    if (remove != NULL)
+        BOR_FREE(remove);
 }
 
 void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops)

@@ -146,6 +146,21 @@ static int optProcessStrips(const char *tag)
                 return -1;
             }
 
+        }else if (strcmp(cur, "dedup") == 0){
+            pddlProcessStripsAddDeduplicateOps(&process_strips);
+            if (next != NULL){
+                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
+                return -1;
+            }
+
+        }else if (strcmp(cur, "endo") == 0
+                    || strcmp(cur, "endomorph") == 0
+                    || strcmp(cur, "endomorphism") == 0){
+            // TODO
+
+        }else if (strcmp(cur, "opm") == 0 || strcmp(cur, "op-mutex") == 0){
+            // TODO
+
         }else if (strcmp(cur, "h2fw") == 0){
             float time_limit = 0.f;
             while ((cur = strsep(&next, ",")) != NULL){
@@ -196,7 +211,7 @@ static int optProcessStrips(const char *tag)
 
 static int optProcessStripsH2(int enabled)
 {
-    return optsProcessTags("irr:fam-dead-end:h2fwbw:irr", optProcessStrips);
+    return optsProcessTags("irr:fam-dead-end:h2fwbw:irr:dedup", optProcessStrips);
 }
 
 static int setOpts(int argc, char *argv[])
@@ -284,9 +299,16 @@ static int setOpts(int argc, char *argv[])
 
     optsStartGroup("Process STRIPS:");
     optsAddTags("process-strips", 'P', NULL, optProcessStrips,
-                "TODO");
+"(Post-)Process STRIPS. Each option adds a post-processing step:\n"
+"  irr/irrelevance - irrelevance analysis\n"
+"  fam-dead-end - use fam-groups to remove dead-end operators\n"
+"  h2fw - h^2 in forward direction, time=x sets time limit to x seconds\n"
+"  h2fwbw - h^2 in forward and backward direction, time=x sets time limit to x seconds\n"
+"  h3fw - h^3 in forward direction, time=x sets time limit to x seconds,"
+" and excess-mem=x sets excess memory to x MB\n"
+);
     optsAddFlagFn("h2", 0x0, optProcessStripsH2,
-                  "Alias for -P irr:fam-dead-end:h2fwbw:irr");
+                  "Alias for -P irr:fam-dead-end:h2fwbw:irr:dedup");
 
 
     optsStartGroup("Finite Domain Representation:");
@@ -523,7 +545,10 @@ static int stepGroundMGroups(void)
     pddlMGroupsSetExactlyOne(&mgroup, &strips);
     pddlMGroupsSetGoal(&mgroup, &strips);
     BOR_INFO(&err, "Found %d mutex groups", mgroup.mgroup_size);
+    pddlMutexPairsAddMGroups(&mutex, &mgroup);
+    BOR_INFO(&err, "Found %d mutex pairs", mutex.num_mutex_pairs);
     BOR_INFO_PREFIX_POP(&err);
+
 
     PRINT_TO_FILE(opt.ground.mgroup_out, "grounded mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
@@ -574,6 +599,9 @@ static int stepInferMGroups(void)
 
     pddlMGroupsSetExactlyOne(&mgroup, &strips);
     pddlMGroupsSetGoal(&mgroup, &strips);
+
+    pddlMutexPairsAddMGroups(&mutex, &mgroup);
+    BOR_INFO(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
     BOR_INFO_PREFIX_POP(&err);
 
     PRINT_TO_FILE(opt.mg.out, "mutex groups",
