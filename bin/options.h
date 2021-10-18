@@ -54,6 +54,12 @@ struct options {
     } mg;
 
     struct {
+        int enable;
+        pddl_red_black_fdr_config_t cfg;
+        char *out;
+    } rb_fdr;
+
+    struct {
         unsigned flag;
         unsigned var_flag;
         int order_vars_cg;

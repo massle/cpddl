@@ -159,14 +159,18 @@ static int optFDREssentialFirst(int enabled)
 int setOptions(int argc, char *argv[], bor_err_t *err)
 {
     pddlProcessStripsInit(&opt.strips.process);
+
     opt.ground.cfg.lifted_mgroups = NULL;
     opt.ground.cfg.prune_op_pre_mutex = 0;
     opt.ground.cfg.prune_op_dead_end = 0;
     opt.ground.cfg.remove_static_facts = 1;
-
     opt.ground.method_fn = pddlStripsGround;
 
+    pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
+    opt.rb_fdr.cfg = _rb_cfg;
+
     opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+
 
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
     optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
@@ -270,6 +274,20 @@ int setOptions(int argc, char *argv[], bor_err_t *err)
                 "Log FDR variables.");
     optsAddFlag("fdr-pretty-print-cg", 0x0, &opt.fdr.pretty_print_cg, 0,
                 "Log FDR causal graph.");
+
+    optsStartGroup("Red-Black FDR:");
+    optsAddFlag("rb-fdr", 0x0, &opt.rb_fdr.enable, 0,
+                "Compute red-black FDR encoding of the task.");
+    optsAddInt("rb-fdr-size", 0x0, &opt.rb_fdr.cfg.mgroup.num_solutions, 1,
+               "Number of different encodings to compute.");
+    optsAddFlag("rb-fdr-relaxed-plan", 0x0,
+                &opt.rb_fdr.cfg.mgroup.weight_facts_with_relaxed_plan, 0,
+                "Weight facts using relaxed plan.");
+    optsAddFlag("rb-fdr-conflicts", 0x0,
+                &opt.rb_fdr.cfg.mgroup.weight_facts_with_conflicts, 0,
+                "Weight facts with conflicts in relaxed plan.");
+    optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
+               "Output filename for the red-black FDR task.");
 
     optsStartGroup("Reports:");
     optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,

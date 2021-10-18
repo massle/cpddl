@@ -300,74 +300,34 @@ static int stepProcessStrips(void)
     return ret;
 }
 
-static int processFDR(pddl_fdr_t *fdr, int fdr_id)
+static int stepRedBlackFDR(void)
 {
-    int fnout_size = strlen(opt.fdr.out);
-    char fnout[fnout_size + 5];
-    if (fdr_id == 0){
-        sprintf(fnout, "%s", opt.fdr.out);
-    }else{
-        sprintf(fnout, "%s.%d", opt.fdr.out, fdr_id + 1);
-    }
-
-    /* TODO
-    if (opt.order_vars_cg){
-        pddlFDRReorderVarsCG(fdr);
-        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
-    }
-    */
-
-    // TODO
-    //pddlRedBlackCheck(fdr, &err);
-
-    /*
-    BOR_INFO(&err, "Output file: '%s'", fnout);
-    FILE *fout = openFile(fnout);
-    if (fout == NULL){
-        fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
-        return -1;
-    }
-
-    */
-
-
-    if (opt.fdr.out != NULL)
-        PRINT_TO_FILE(fnout, "FDR", pddlFDRPrintFD(fdr, &mgroup, 1, fout));
-
-
-    /* TODO
-    if (opt.pot){
-        BOR_INFO2(&err, "");
-        BOR_INFO(&err, "Potential heuristics [disamb: %d, weak-diamb: %d,"
-                       " obj: %s(%x), add-init-constr: %d,"
-                       " init-constr-coef: %.2f, num-samples: %d,"
-                       " samples-use-mutex: %d, samples-random-walk: %d,"
-                       " all-states-mutex-size: %d]",
-                 pot_cfg.disambiguation,
-                 pot_cfg.weak_disambiguation,
-                 potObjName(pot_cfg.obj),
-                 pot_cfg.obj,
-                 pot_cfg.add_init_constr,
-                 pot_cfg.init_constr_coef,
-                 pot_cfg.num_samples,
-                 pot_cfg.samples_use_mutex,
-                 pot_cfg.samples_random_walk,
-                 pot_cfg.all_states_mutex_size);
-        BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
-        pddl_pot_solutions_t pot;
-        if (pddlHPot(&pot, fdr, &pot_cfg, &err) != 0){
-            BOR_INFO2(&err, "Cannot find potential heuristic");
-            BOR_INFO_PREFIX_POP(&err);
-            return -1;
+    if (!opt.rb_fdr.enable)
+        return 0;
+    pddl_fdr_t fdr[opt.rb_fdr.cfg.mgroup.num_solutions];
+    int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroup, &mutex,
+                                            &opt.rb_fdr.cfg, &err);
+    for (int i = 0; i < num; ++i){
+        if (opt.fdr.order_vars_cg){
+            pddlFDRReorderVarsCG(fdr + i);
+            BOR_INFO(&err, "FDR[%d]: variables reordered using causal graph.", i);
         }
-        int est = pddlPotSolutionsEvalMaxFDRState(&pot, &fdr->var, fdr->init);
-        BOR_INFO(&err, "Init state estimate: %d", est);
-        printPotentials(fdr, &pot, fout);
-        pddlPotSolutionsFree(&pot);
-        BOR_INFO_PREFIX_POP(&err);
     }
-    */
-    return 0;
+
+    for (int i = 0; i < num && opt.rb_fdr.out != NULL; ++i){
+        if (i > 0){
+            char fn[1024];
+            sprintf(fn, "%s.%d", opt.rb_fdr.out, i);
+            PRINT_TO_FILE(fn, "FDR", pddlFDRPrintFD(fdr + i, &mgroup, 1, fout));
+        }else{
+            PRINT_TO_FILE(opt.rb_fdr.out, "FDR",
+                          pddlFDRPrintFD(fdr, &mgroup, 1, fout));
+        }
+    }
+
+    for (int i = 0; i < num; ++i)
+        pddlFDRFree(fdr + i);
+    return 1;
 }
 
 static int stepFDR(void)
@@ -436,6 +396,7 @@ int main(int argc, char *argv[])
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
+            || (ret = stepRedBlackFDR()) != 0
             || (ret = stepFDR()) != 0
             || (ret = stepAStar()) != 0
             || (ret = stepSymba()) != 0){
