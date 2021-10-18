@@ -1,48 +1,74 @@
-/***
- * cpddl
- * -------
- * Copyright (c)2017 Daniel Fiser <danfis@danfis.cz>,
- * AI Center, Department of Computer Science,
- * Faculty of Electrical Engineering, Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
- */
-
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
 #include <pddl/pddl.h>
+#include "process_strips.h"
 
-#define OUTPUT_FD 0
-#define OUTPUT_STRIPS 1
-#define OUTPUT_PY 2
-
-struct _options_t {
+struct options {
     int help;
-    int quiet;
-    char *domain_pddl;
-    char *problem_pddl;
-    char *output;
-    int output_type;
-    char *output_pddl_domain;
-    char *output_pddl_problem;
-    char *output_strips_pddl_domain;
-    char *output_strips_pddl_problem;
+    int max_mem;
+    pddl_files_t files;
 
-    pddl_config_t cfg;
+    struct {
+        int force_adl;
+        int compile_away_cond_eff;
+    } pddl;
+
+    struct {
+        int max_candidates;
+        int max_mgroups;
+        int fd;
+        int fd_monotonicity;
+        int enable;
+        char *out;
+        char *fd_monotonicity_out;
+        int stop;
+    } lmg;
+
+    struct {
+        pddl_ground_config_t cfg;
+        int (*method_fn)(pddl_strips_t *,
+                         const pddl_t *,
+                         const pddl_ground_config_t *,
+                         bor_err_t *);
+
+        int mgroup;
+        int mgroup_remove_subsets;
+        char *mgroup_out;
+    } ground;
+
+    struct {
+        int compile_away_cond_eff;
+        pddl_process_strips_t process;
+    } strips;
+
+    struct {
+        int fam;
+        int h2;
+        int fam_lmg;
+        int fam_maximal;
+        float fam_time_limit;
+        int fam_limit;
+        int remove_subsets;
+        char *out;
+    } mg;
+
+    struct {
+        unsigned flag;
+        unsigned var_flag;
+        int order_vars_cg;
+        char *out;
+        int pretty_print_vars;
+        int pretty_print_cg;
+    } fdr;
+
+    struct {
+        int lmg;
+    } report;
 };
-typedef struct _options_t options_t;
+typedef struct options options_t;
+extern options_t opt;
 
-options_t *options(int argc, char *argv[]);
-void optionsFree(void);
+int setOptions(int argc, char *argv[], bor_err_t *err);
 
 #endif /* OPTIONS_H */

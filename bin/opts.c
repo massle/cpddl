@@ -342,7 +342,7 @@ static int maxLen(int group)
         int len = 0;
         if (opt->long_name != NULL){
             len = 2 + strlen(opt->long_name);
-            if (opt->type == FLAG){
+            if (opt->type == FLAG || opt->type == FLAG_FN){
                 len += 5;
             }
             if (opt->short_name != 0x0){
@@ -398,7 +398,7 @@ static void optsPrintOpts(int group, FILE *fout)
 
         int len = 0;
         if (opt->long_name != NULL){
-            if (opt->type == FLAG){
+            if (opt->type == FLAG || opt->type == FLAG_FN){
                 fprintf(fout, "--(no-)%s", opt->long_name);
                 len += 7 + strlen(opt->long_name);
             }else{

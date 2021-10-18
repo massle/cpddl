@@ -1,118 +1,313 @@
-/***
- * maplan
- * -------
- * Copyright (c)2015 Daniel Fiser <danfis@danfis.cz>,
- * Agent Technology Center, Department of Computer Science,
- * Faculty of Electrical Engineering, Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of maplan.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
- */
-
-#include <strings.h>
-#include <string.h>
-#include <boruvka/alloc.h>
-#include <opts.h>
-
+#include <sys/time.h>
+#include <sys/resource.h>
 #include "options.h"
+#include "opts.h"
 
-static options_t _opts = {
-    0,
-    0,
-    NULL,
-    NULL,
-    NULL,
-    OUTPUT_FD,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    PDDL_CONFIG_INIT,
-};
+options_t opt = { 0 };
 
-static void outputFD(const char *l, char s)
+static int optSetGround(const char *tag)
 {
-    _opts.output_type = OUTPUT_FD;
-}
+    if (strcmp(tag, "default") == 0){
+        opt.ground.method_fn = pddlStripsGround;
 
-static void outputStrips(const char *l, char s)
-{
-    _opts.output_type = OUTPUT_STRIPS;
-}
+    }else if (strcmp(tag, "sql") == 0){
+        opt.ground.method_fn = pddlStripsGroundSql;
 
-static void outputPy(const char *l, char s)
-{
-    _opts.output_type = OUTPUT_PY;
-}
+    }else if (strcmp(tag, "dl") == 0){
+        opt.ground.method_fn = pddlStripsGroundDatalog;
 
-static int readOpts(int argc, char *argv[])
-{
-    options_t *o = &_opts;
+    }else if (strcmp(tag, "prune-pre") == 0){
+        opt.ground.cfg.prune_op_pre_mutex = 1;
 
-    optsAddDesc("help", 'h', OPTS_NONE, &o->help, NULL,
-                "Print this help.");
-    optsAddDesc("quiet", 'q', OPTS_NONE, &o->quiet, NULL,
-                "Disable logging output.");
-    optsAddDesc("output", 'o', OPTS_STR, &o->output, NULL,
-                "Output file.");
-    optsAddDesc("fd", 0x0, OPTS_NONE, NULL, OPTS_CB(outputFD),
-                "Output fast-downward format.");
-    optsAddDesc("strips", 0x0, OPTS_NONE, NULL, OPTS_CB(outputStrips),
-                "Output STRIPS text format.");
-    optsAddDesc("py", 0x0, OPTS_NONE, NULL, OPTS_CB(outputPy),
-                "Output python format.");
-    optsAddDesc("output-pddl-domain", 0x0, OPTS_STR, &o->output_pddl_domain,
-                NULL, "Output file for PDDL domain.");
-    optsAddDesc("output-pddl-problem", 0x0, OPTS_STR, &o->output_pddl_problem,
-                NULL, "Output file for PDDL problem.");
-    optsAddDesc("output-strips-pddl-domain", 0x0, OPTS_STR,
-                &o->output_strips_pddl_domain, NULL,
-                "Output file for PDDL domain.");
-    optsAddDesc("output-strips-pddl-problem", 0x0, OPTS_STR,
-                &o->output_strips_pddl_problem, NULL,
-                "Output file for PDDL problem.");
+    }else if (strcmp(tag, "prune-dead-end") == 0){
+        opt.ground.cfg.prune_op_dead_end = 1;
 
-    if (opts(&argc, argv) != 0){
+    }else if (strcmp(tag, "prune-all") == 0){
+        opt.ground.cfg.prune_op_pre_mutex = 1;
+        opt.ground.cfg.prune_op_dead_end = 1;
+
+    }else{
+        fprintf(stderr, "Error: Unknown ground config tag '%s'\n", tag);
         return -1;
     }
-    if (argc != 3)
-        return -1;
-
-    o->domain_pddl = argv[1];
-    o->problem_pddl = argv[2];
-
     return 0;
 }
 
-static void usage(const char *progname)
+static int optSetMGroup(const char *tag)
 {
-    fprintf(stderr, "Usage: %s [OPTIONS]\n", progname);
-    fprintf(stderr, "  OPTIONS:\n");
-    optsPrint(stderr, "    ");
-    fprintf(stderr, "\n");
+    if (strcmp(tag, "0") == 0
+            || strcmp(tag, "n") == 0
+            || strcmp(tag, "none") == 0){
+        opt.mg.fam = 0;
+        opt.mg.h2 = 0;
+
+    }else if (strcmp(tag, "fam") == 0){
+        opt.mg.fam = 1;
+        opt.mg.h2 = 0;
+
+    }else if (strcmp(tag, "h2") == 0){
+        opt.mg.fam = 0;
+        opt.mg.h2 = 1;
+
+    }else{
+        fprintf(stderr, "Error: Unknown mgroup config tag '%s'\n", tag);
+        return -1;
+    }
+    return 0;
 }
 
-options_t *options(int argc, char *argv[])
+static int optProcessStrips(const char *tag)
 {
-    options_t *o = &_opts;
+    char *s = BOR_STRDUP(tag);
+    char *next = s;
+    char *cur;
+    if ((cur = strsep(&next, ",")) != NULL){
+        if (strcmp(cur, "irr") == 0 || strcmp(cur, "irrelevance") == 0){
+            pddlProcessStripsAddIrrelevance(&opt.strips.process);
+            if (next != NULL){
+                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
+                return -1;
+            }
 
-    if (readOpts(argc, argv) != 0 || o->help){
-        usage(argv[0]);
-        return NULL;
+        }else if (strcmp(cur, "fam-dead-end") == 0){
+            pddlProcessStripsAddFAMGroupsDeadEndOps(&opt.strips.process);
+            if (next != NULL){
+                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
+                return -1;
+            }
+
+        }else if (strcmp(cur, "dedup") == 0){
+            pddlProcessStripsAddDeduplicateOps(&opt.strips.process);
+            if (next != NULL){
+                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
+                return -1;
+            }
+
+        }else if (strcmp(cur, "endo") == 0
+                    || strcmp(cur, "endomorph") == 0
+                    || strcmp(cur, "endomorphism") == 0){
+            // TODO
+
+        }else if (strcmp(cur, "opm") == 0 || strcmp(cur, "op-mutex") == 0){
+            // TODO
+
+        }else if (strcmp(cur, "h2fw") == 0){
+            float time_limit = 0.f;
+            while ((cur = strsep(&next, ",")) != NULL){
+                if (strncmp(cur, "time=", 5) == 0){
+                    time_limit = strtof(cur + 5, NULL);
+                }else{
+                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
+                    return -1;
+                }
+            }
+            pddlProcessStripsAddH2Fw(&opt.strips.process, time_limit);
+
+        }else if (strcmp(cur, "h2fwbw") == 0){
+            float time_limit = 0.f;
+            while ((cur = strsep(&next, ",")) != NULL){
+                if (strncmp(cur, "time=", 5) == 0){
+                    time_limit = strtof(cur + 5, NULL);
+                }else{
+                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
+                    return -1;
+                }
+            }
+            pddlProcessStripsAddH2FwBw(&opt.strips.process, time_limit);
+
+        }else if (strcmp(cur, "h3fw") == 0){
+            float time_limit = 0.f;
+            size_t excess_mem = 0;
+            while ((cur = strsep(&next, ",")) != NULL){
+                if (strncmp(cur, "time=", 5) == 0){
+                    time_limit = strtof(cur + 5, NULL);
+                }else if (strncmp(cur, "excess-mem=", 11) == 0){
+                    excess_mem = strtol(cur + 11, NULL, 10);
+                }else{
+                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
+                    return -1;
+                }
+            }
+            pddlProcessStripsAddH3Fw(&opt.strips.process, time_limit, excess_mem);
+
+        }else{
+            fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
+            return -1;
+        }
+    }
+    BOR_FREE(s);
+    return 0;
+}
+
+static int optProcessStripsH2(int enabled)
+{
+    return optsProcessTags("irr:fam-dead-end:h2fwbw:irr:dedup", optProcessStrips);
+}
+
+static int optFDRLargestFirst(int enabled)
+{
+    opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+    return 0;
+}
+
+static int optFDREssentialFirst(int enabled)
+{
+    opt.fdr.var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+    return 0;
+}
+
+int setOptions(int argc, char *argv[], bor_err_t *err)
+{
+    pddlProcessStripsInit(&opt.strips.process);
+    opt.ground.cfg.lifted_mgroups = NULL;
+    opt.ground.cfg.prune_op_pre_mutex = 0;
+    opt.ground.cfg.prune_op_dead_end = 0;
+    opt.ground.cfg.remove_static_facts = 1;
+
+    opt.ground.method_fn = pddlStripsGround;
+
+    opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+
+    optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
+    optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
+               "Maximum memory in MB if >0.");
+
+    optsStartGroup("PDDL:");
+    optsAddFlag("force-adl", 0x0, &opt.pddl.force_adl, 1,
+                "Force :adl requirement if it is not specified in the"
+                " domain file.");
+    optsAddFlag("pddl-ce", 0x0, &opt.pddl.compile_away_cond_eff, 0,
+                "Compile away conditional effects on the PDDL level.");
+
+    optsStartGroup("Lifted Mutex Groups:");
+    optsAddFlag("lmg", 0x0, &opt.lmg.enable, 1,
+                "Enabled inference of lifted mutex groups.");
+    optsAddInt("lmg-max-candidates", 0x0, &opt.lmg.max_candidates, 10000,
+               "Maximum number of lifted mutex group candidates.");
+    optsAddInt("lmg-max-mgroups", 0x0, &opt.lmg.max_mgroups, 10000,
+               "Maximum number of lifted mutex group.");
+    optsAddFlag("lmg-fd", 0x0, &opt.lmg.fd, 0,
+                "Find Fast-Downward type of lifted mutex groups.");
+    optsAddFlag("lmg-fd-mono", 0x0, &opt.lmg.fd_monotonicity, 0,
+                "Find Fast-Downward monotonicit invariants; implies --lmg-fd.");
+    optsAddStr("lmg-out", 0x0, &opt.lmg.out, NULL,
+                "Output filename for infered lifted mutex groups.");
+    optsAddStr("lmg-fd-mono-out", 0x0, &opt.lmg.fd_monotonicity_out, NULL,
+                "Output filename for infered monotonicity invariants.");
+    optsAddFlag("lmg-stop", 0x0, &opt.lmg.stop, 0,
+                "Stop after inferring lifted mutex groups.");
+
+    optsStartGroup("Grounding:");
+    optsAddTags("ground", 'G', "default:prune-all",
+                optSetGround,
+                "Grounding method, combination (delimited by ':') of:\n"
+                "  default - default grounding method\n"
+                "  sql - sqlite-based grounding method\n"
+                "  dl - datalog-based grounding method\n"
+                "  prune-pre - prune by checking only preconditions\n"
+                "  prune-dead-end - prune by checking only dead-ends\n"
+                "  prune-all - alias for prune-pre:prune-dead-end\n");
+    optsAddFlag("ground-lmg", 0x0, &opt.ground.mgroup, 1,
+                "Ground lifted mutex groups.");
+    optsAddFlag("ground-lmg-remove-subsets", 0x0,
+                &opt.ground.mgroup_remove_subsets, 1,
+                "After grounding lifted mutex groups, remove subsets.");
+    optsAddStr("ground-mg-out", 0x0, &opt.ground.mgroup_out, NULL,
+                "Output filename for grounded mutex groups.");
+
+    optsStartGroup("STRIPS:");
+    optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,
+                "Compile away conditional effects on the STRIPS level"
+                " (recommended instead of --pddl-ce).");
+
+    optsStartGroup("Mutex Groups:");
+    optsAddTags("mg", 0x0, "none", optSetMGroup,
+                "Method for inference of mutex groups, one of:\n"
+                "  0/n/none - no mutex groups will be inferred on STRIPS level\n"
+                "  fam - fact-alternating mutex groups\n"
+                "  h2 - mutex groups from h^2 mutexes\n");
+    optsAddStr("mg-out", 0x0, &opt.mg.out, NULL,
+                "Output filename for infered mutex groups.");
+    optsAddFlag("mg-remove-subsets", 0x0, &opt.mg.remove_subsets, 1,
+                "Remove subsets of the inferred mutex groups.");
+    optsAddFlag("fam-lmg", 0x0, &opt.mg.fam_lmg, 1,
+                "Use lifted mutex groups as initial set for inference of"
+                " fam-groups.");
+    optsAddFlag("fam-maximal", 0x0, &opt.mg.fam_maximal, 1,
+                "Infer only maximal fam-groups"
+                " (see also --no-mg-remove-subsets).");
+    optsAddFlt("fam-time-limit", 0x0, &opt.mg.fam_time_limit, -1.,
+                "Set time limit in seconds for the inference of fam-groups.");
+    optsAddInt("fam-limit", 0x0, &opt.mg.fam_limit, -1,
+                "Set limit on the number of inferred fam-groups.");
+
+    optsStartGroup("Process STRIPS:");
+    optsAddTags("process-strips", 'P', NULL, optProcessStrips,
+"(Post-)Process STRIPS. Each option adds a post-processing step:\n"
+"  irr/irrelevance - irrelevance analysis\n"
+"  fam-dead-end - use fam-groups to remove dead-end operators\n"
+"  h2fw - h^2 in forward direction, time=x sets time limit to x seconds\n"
+"  h2fwbw - h^2 in forward and backward direction, time=x sets time limit to x seconds\n"
+"  h3fw - h^3 in forward direction, time=x sets time limit to x seconds,"
+" and excess-mem=x sets excess memory to x MB\n"
+);
+    optsAddFlagFn("h2", 0x0, optProcessStripsH2,
+                  "Alias for -P irr:fam-dead-end:h2fwbw:irr:dedup");
+
+
+    optsStartGroup("Finite Domain Representation:");
+    optsAddFlagFn("fdr-largest", 0x0, optFDRLargestFirst,
+                  "Sort FDR variables with largest first.");
+    optsAddFlagFn("fdr-essential", 0x0, optFDREssentialFirst,
+                  "Sort FDR variables with essential first.");
+    optsAddFlagFn("fdr-ess", 0x0, optFDREssentialFirst,
+                  "Alias for --fdr-essential.");
+    optsAddFlag("fdr-order-vars-cg", 0x0, &opt.fdr.order_vars_cg, 1,
+                "Order FDR variables using causal graph.");
+    optsAddStr("fdr-out", 'o', &opt.fdr.out, NULL,
+               "Output filename for FDR encoding of the task.");
+    optsAddFlag("fdr-pretty-print-vars", 0x0, &opt.fdr.pretty_print_vars, 0,
+                "Log FDR variables.");
+    optsAddFlag("fdr-pretty-print-cg", 0x0, &opt.fdr.pretty_print_cg, 0,
+                "Log FDR causal graph.");
+
+    optsStartGroup("Reports:");
+    optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
+                "Create report of lifted mutex groups.");
+
+    if (opts(&argc, argv) != 0)
+        return -1;
+
+    if (opt.help){
+        optsPrint(stderr);
+        return -1;
     }
 
-    return o;
-}
+    // implications
+    if (opt.lmg.fd_monotonicity)
+        opt.lmg.fd = 1;
 
-void optionsFree(void)
-{
-    optsClear();
+    if (argc != 3 && argc != 2){
+        for (int i = 1; i < argc; ++i){
+            fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
+        }
+        optsPrint(stderr);
+        return -1;
+    }
+
+    if (argc == 2){
+        if (pddlFiles1(&opt.files, argv[1], err) != 0)
+            BOR_TRACE_RET(err, -1);
+    }else{ // argc == 3
+        if (pddlFiles(&opt.files, argv[1], argv[2], err) != 0)
+            BOR_TRACE_RET(err, -1);
+    }
+
+    if (opt.max_mem > 0){
+        struct rlimit mem_limit;
+        mem_limit.rlim_cur
+            = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
+        setrlimit(RLIMIT_AS, &mem_limit);
+    }
+    return 0;
 }

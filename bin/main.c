@@ -1,67 +1,11 @@
-#include <sys/time.h>
-#include <sys/resource.h>
 #include "pddl/pddl.h"
 #include "opts.h"
+#include "options.h"
 #include "process_strips.h"
 #include "report.h"
 
-struct options {
-    int help;
-    int max_mem;
-
-    struct {
-        int force_adl;
-        int compile_away_cond_eff;
-    } pddl;
-
-    struct {
-        int max_candidates;
-        int max_mgroups;
-        int fd;
-        int fd_monotonicity;
-        int enable;
-        char *out;
-        char *fd_monotonicity_out;
-        int stop;
-    } lmg;
-
-    struct {
-        int (*method_fn)(pddl_strips_t *,
-                         const pddl_t *,
-                         const pddl_ground_config_t *,
-                         bor_err_t *);
-
-        int mgroup;
-        int mgroup_remove_subsets;
-        char *mgroup_out;
-    } ground;
-
-    struct {
-        int compile_away_cond_eff;
-    } strips;
-
-    struct {
-        int fam;
-        int h2;
-        int fam_lmg;
-        int fam_maximal;
-        float fam_time_limit;
-        int fam_limit;
-        int remove_subsets;
-        char *out;
-    } mg;
-
-    struct {
-        char *out;
-    } fdr;
-
-    struct {
-        int lmg;
-    } report;
-} opt = { 0 };
 
 bor_err_t err = BOR_ERR_INIT;
-pddl_files_t files;
 pddl_t pddl;
 int pddl_set = 0;
 pddl_lifted_mgroups_t lifted_mgroups;
@@ -70,296 +14,11 @@ pddl_lifted_mgroups_t monotonicity_invariants;
 int monotonicity_invariants_set = 0;
 pddl_strips_t strips;
 int strips_set = 0;
+pddl_fdr_t fdr;
+int fdr_set = 0;
 pddl_mgroups_t mgroup;
 pddl_mutex_pairs_t mutex;
 
-pddl_process_strips_t process_strips;
-pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
-
-
-static int optSetGround(const char *tag)
-{
-    if (strcmp(tag, "default") == 0){
-        opt.ground.method_fn = pddlStripsGround;
-
-    }else if (strcmp(tag, "sql") == 0){
-        opt.ground.method_fn = pddlStripsGroundSql;
-
-    }else if (strcmp(tag, "dl") == 0){
-        opt.ground.method_fn = pddlStripsGroundDatalog;
-
-    }else if (strcmp(tag, "prune-pre") == 0){
-        ground_cfg.lifted_mgroups = &lifted_mgroups;
-        ground_cfg.prune_op_pre_mutex = 1;
-
-    }else if (strcmp(tag, "prune-dead-end") == 0){
-        ground_cfg.lifted_mgroups = &lifted_mgroups;
-        ground_cfg.prune_op_dead_end = 1;
-
-    }else if (strcmp(tag, "prune-all") == 0){
-        ground_cfg.lifted_mgroups = &lifted_mgroups;
-        ground_cfg.prune_op_pre_mutex = 1;
-        ground_cfg.prune_op_dead_end = 1;
-
-    }else{
-        fprintf(stderr, "Error: Unknown ground config tag '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
-
-static int optSetMGroup(const char *tag)
-{
-    if (strcmp(tag, "0") == 0
-            || strcmp(tag, "n") == 0
-            || strcmp(tag, "none") == 0){
-        opt.mg.fam = 0;
-        opt.mg.h2 = 0;
-
-    }else if (strcmp(tag, "fam") == 0){
-        opt.mg.fam = 1;
-        opt.mg.h2 = 0;
-
-    }else if (strcmp(tag, "h2") == 0){
-        opt.mg.fam = 0;
-        opt.mg.h2 = 1;
-
-    }else{
-        fprintf(stderr, "Error: Unknown mgroup config tag '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
-
-static int optProcessStrips(const char *tag)
-{
-    char *s = BOR_STRDUP(tag);
-    char *next = s;
-    char *cur;
-    if ((cur = strsep(&next, ",")) != NULL){
-        if (strcmp(cur, "irr") == 0 || strcmp(cur, "irrelevance") == 0){
-            pddlProcessStripsAddIrrelevance(&process_strips);
-            if (next != NULL){
-                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
-                return -1;
-            }
-
-        }else if (strcmp(cur, "fam-dead-end") == 0){
-            pddlProcessStripsAddFAMGroupsDeadEndOps(&process_strips);
-            if (next != NULL){
-                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
-                return -1;
-            }
-
-        }else if (strcmp(cur, "dedup") == 0){
-            pddlProcessStripsAddDeduplicateOps(&process_strips);
-            if (next != NULL){
-                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
-                return -1;
-            }
-
-        }else if (strcmp(cur, "endo") == 0
-                    || strcmp(cur, "endomorph") == 0
-                    || strcmp(cur, "endomorphism") == 0){
-            // TODO
-
-        }else if (strcmp(cur, "opm") == 0 || strcmp(cur, "op-mutex") == 0){
-            // TODO
-
-        }else if (strcmp(cur, "h2fw") == 0){
-            float time_limit = 0.f;
-            while ((cur = strsep(&next, ",")) != NULL){
-                if (strncmp(cur, "time=", 5) == 0){
-                    time_limit = strtof(cur + 5, NULL);
-                }else{
-                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-                    return -1;
-                }
-            }
-            pddlProcessStripsAddH2Fw(&process_strips, time_limit);
-
-        }else if (strcmp(cur, "h2fwbw") == 0){
-            float time_limit = 0.f;
-            while ((cur = strsep(&next, ",")) != NULL){
-                if (strncmp(cur, "time=", 5) == 0){
-                    time_limit = strtof(cur + 5, NULL);
-                }else{
-                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-                    return -1;
-                }
-            }
-            pddlProcessStripsAddH2FwBw(&process_strips, time_limit);
-
-        }else if (strcmp(cur, "h3fw") == 0){
-            float time_limit = 0.f;
-            size_t excess_mem = 0;
-            while ((cur = strsep(&next, ",")) != NULL){
-                if (strncmp(cur, "time=", 5) == 0){
-                    time_limit = strtof(cur + 5, NULL);
-                }else if (strncmp(cur, "excess-mem=", 11) == 0){
-                    excess_mem = strtol(cur + 11, NULL, 10);
-                }else{
-                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-                    return -1;
-                }
-            }
-            pddlProcessStripsAddH3Fw(&process_strips, time_limit, excess_mem);
-
-        }else{
-            fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-            return -1;
-        }
-    }
-    BOR_FREE(s);
-    return 0;
-}
-
-static int optProcessStripsH2(int enabled)
-{
-    return optsProcessTags("irr:fam-dead-end:h2fwbw:irr:dedup", optProcessStrips);
-}
-
-static int setOpts(int argc, char *argv[])
-{
-    pddlProcessStripsInit(&process_strips);
-    ground_cfg.lifted_mgroups = NULL;
-    ground_cfg.prune_op_pre_mutex = 0;
-    ground_cfg.prune_op_dead_end = 0;
-    ground_cfg.remove_static_facts = 1;
-
-    opt.ground.method_fn = pddlStripsGround;
-
-    optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
-    optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
-               "Maximum memory in MB if >0.");
-
-    optsStartGroup("PDDL:");
-    optsAddFlag("force-adl", 0x0, &opt.pddl.force_adl, 1,
-                "Force :adl requirement if it is not specified in the"
-                " domain file.");
-    optsAddFlag("pddl-ce", 0x0, &opt.pddl.compile_away_cond_eff, 0,
-                "Compile away conditional effects on the PDDL level.");
-
-    optsStartGroup("Lifted Mutex Groups:");
-    optsAddFlag("lmg", 0x0, &opt.lmg.enable, 1,
-                "Enabled inference of lifted mutex groups.");
-    optsAddInt("lmg-max-candidates", 0x0, &opt.lmg.max_candidates, 10000,
-               "Maximum number of lifted mutex group candidates.");
-    optsAddInt("lmg-max-mgroups", 0x0, &opt.lmg.max_mgroups, 10000,
-               "Maximum number of lifted mutex group.");
-    optsAddFlag("lmg-fd", 0x0, &opt.lmg.fd, 0,
-                "Find Fast-Downward type of lifted mutex groups.");
-    optsAddFlag("lmg-fd-mono", 0x0, &opt.lmg.fd_monotonicity, 0,
-                "Find Fast-Downward monotonicit invariants; implies --lmg-fd.");
-    optsAddStr("lmg-out", 0x0, &opt.lmg.out, NULL,
-                "Output filename for infered lifted mutex groups.");
-    optsAddStr("lmg-fd-mono-out", 0x0, &opt.lmg.fd_monotonicity_out, NULL,
-                "Output filename for infered monotonicity invariants.");
-    optsAddFlag("lmg-stop", 0x0, &opt.lmg.stop, 0,
-                "Stop after inferring lifted mutex groups.");
-
-    optsStartGroup("Grounding:");
-    optsAddTags("ground", 'G', "default:prune-all",
-                optSetGround,
-                "Grounding method, combination (delimited by ':') of:\n"
-                "  default - default grounding method\n"
-                "  sql - sqlite-based grounding method\n"
-                "  dl - datalog-based grounding method\n"
-                "  prune-pre - prune by checking only preconditions\n"
-                "  prune-dead-end - prune by checking only dead-ends\n"
-                "  prune-all - alias for prune-pre:prune-dead-end\n");
-    optsAddFlag("ground-lmg", 0x0, &opt.ground.mgroup, 1,
-                "Ground lifted mutex groups.");
-    optsAddFlag("ground-lmg-remove-subsets", 0x0,
-                &opt.ground.mgroup_remove_subsets, 1,
-                "After grounding lifted mutex groups, remove subsets.");
-    optsAddStr("ground-mg-out", 0x0, &opt.ground.mgroup_out, NULL,
-                "Output filename for grounded mutex groups.");
-
-    optsStartGroup("STRIPS:");
-    optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,
-                "Compile away conditional effects on the STRIPS level"
-                " (recommended instead of --pddl-ce).");
-
-    optsStartGroup("Mutex Groups:");
-    optsAddTags("mg", 0x0, "none", optSetMGroup,
-                "Method for inference of mutex groups, one of:\n"
-                "  0/n/none - no mutex groups will be inferred on STRIPS level\n"
-                "  fam - fact-alternating mutex groups\n"
-                "  h2 - mutex groups from h^2 mutexes\n");
-    optsAddStr("mg-out", 0x0, &opt.mg.out, NULL,
-                "Output filename for infered mutex groups.");
-    optsAddFlag("mg-remove-subsets", 0x0, &opt.mg.remove_subsets, 1,
-                "Remove subsets of the inferred mutex groups.");
-    optsAddFlag("fam-lmg", 0x0, &opt.mg.fam_lmg, 1,
-                "Use lifted mutex groups as initial set for inference of"
-                " fam-groups.");
-    optsAddFlag("fam-maximal", 0x0, &opt.mg.fam_maximal, 1,
-                "Infer only maximal fam-groups"
-                " (see also --no-mg-remove-subsets).");
-    optsAddFlt("fam-time-limit", 0x0, &opt.mg.fam_time_limit, -1.,
-                "Set time limit in seconds for the inference of fam-groups.");
-    optsAddInt("fam-limit", 0x0, &opt.mg.fam_limit, -1,
-                "Set limit on the number of inferred fam-groups.");
-
-    optsStartGroup("Process STRIPS:");
-    optsAddTags("process-strips", 'P', NULL, optProcessStrips,
-"(Post-)Process STRIPS. Each option adds a post-processing step:\n"
-"  irr/irrelevance - irrelevance analysis\n"
-"  fam-dead-end - use fam-groups to remove dead-end operators\n"
-"  h2fw - h^2 in forward direction, time=x sets time limit to x seconds\n"
-"  h2fwbw - h^2 in forward and backward direction, time=x sets time limit to x seconds\n"
-"  h3fw - h^3 in forward direction, time=x sets time limit to x seconds,"
-" and excess-mem=x sets excess memory to x MB\n"
-);
-    optsAddFlagFn("h2", 0x0, optProcessStripsH2,
-                  "Alias for -P irr:fam-dead-end:h2fwbw:irr:dedup");
-
-
-    optsStartGroup("Finite Domain Representation:");
-    optsAddStr("fdr-out", 'o', &opt.fdr.out, NULL,
-               "Output filename for FDR encoding of the task.");
-
-    optsStartGroup("Reports:");
-    optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
-                "Create report of lifted mutex groups.");
-
-    if (opts(&argc, argv) != 0)
-        return -1;
-
-    if (opt.help){
-        optsPrint(stderr);
-        return -1;
-    }
-
-    // implications
-    if (opt.lmg.fd_monotonicity)
-        opt.lmg.fd = 1;
-
-    if (argc != 3 && argc != 2){
-        for (int i = 1; i < argc; ++i){
-            fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
-        }
-        optsPrint(stderr);
-        return -1;
-    }
-
-    if (argc == 2){
-        if (pddlFiles1(&files, argv[1], &err) != 0)
-            BOR_TRACE_RET(&err, -1);
-    }else{ // argc == 3
-        if (pddlFiles(&files, argv[1], argv[2], &err) != 0)
-            BOR_TRACE_RET(&err, -1);
-    }
-
-    if (opt.max_mem > 0){
-        struct rlimit mem_limit;
-        mem_limit.rlim_cur
-            = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
-        setrlimit(RLIMIT_AS, &mem_limit);
-    }
-    return 0;
-}
 
 static FILE *openFile(const char *fn)
 {
@@ -400,7 +59,7 @@ static int stepPDDL(void)
     pddl_cfg.normalize = 1;
     pddl_cfg.compile_away_cond_eff = opt.pddl.compile_away_cond_eff;
 
-    if (pddlInit(&pddl, files.domain_pddl, files.problem_pddl,
+    if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
         BOR_TRACE_RET(&err, -1);
     }
@@ -533,7 +192,13 @@ static void stripsCompileAwayCondEff(void)
 
 static int stepGround(void)
 {
-    if (opt.ground.method_fn(&strips, &pddl, &ground_cfg, &err) != 0){
+    if (lifted_mgroups_set
+            && (opt.ground.cfg.prune_op_dead_end
+                    || opt.ground.cfg.prune_op_pre_mutex)){
+        opt.ground.cfg.lifted_mgroups = &lifted_mgroups;
+    }
+
+    if (opt.ground.method_fn(&strips, &pddl, &opt.ground.cfg, &err) != 0){
         BOR_INFO2(&err, "Grounding failed.");
         BOR_TRACE_RET(&err, -1);
     }
@@ -629,12 +294,102 @@ static int stepInferMGroups(void)
 
 static int stepProcessStrips(void)
 {
-    return pddlProcessStripsExecute(&process_strips, &strips, &mgroup, &mutex, &err);
+    int ret =  pddlProcessStripsExecute(&opt.strips.process, &strips,
+                                        &mgroup, &mutex, &err);
+    pddlProcessStripsFree(&opt.strips.process);
+    return ret;
+}
+
+static int processFDR(pddl_fdr_t *fdr, int fdr_id)
+{
+    int fnout_size = strlen(opt.fdr.out);
+    char fnout[fnout_size + 5];
+    if (fdr_id == 0){
+        sprintf(fnout, "%s", opt.fdr.out);
+    }else{
+        sprintf(fnout, "%s.%d", opt.fdr.out, fdr_id + 1);
+    }
+
+    /* TODO
+    if (opt.order_vars_cg){
+        pddlFDRReorderVarsCG(fdr);
+        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
+    }
+    */
+
+    // TODO
+    //pddlRedBlackCheck(fdr, &err);
+
+    /*
+    BOR_INFO(&err, "Output file: '%s'", fnout);
+    FILE *fout = openFile(fnout);
+    if (fout == NULL){
+        fprintf(stderr, "Error: Could not open file '%s'\n", opt.fdr_out);
+        return -1;
+    }
+
+    */
+
+
+    if (opt.fdr.out != NULL)
+        PRINT_TO_FILE(fnout, "FDR", pddlFDRPrintFD(fdr, &mgroup, 1, fout));
+
+
+    /* TODO
+    if (opt.pot){
+        BOR_INFO2(&err, "");
+        BOR_INFO(&err, "Potential heuristics [disamb: %d, weak-diamb: %d,"
+                       " obj: %s(%x), add-init-constr: %d,"
+                       " init-constr-coef: %.2f, num-samples: %d,"
+                       " samples-use-mutex: %d, samples-random-walk: %d,"
+                       " all-states-mutex-size: %d]",
+                 pot_cfg.disambiguation,
+                 pot_cfg.weak_disambiguation,
+                 potObjName(pot_cfg.obj),
+                 pot_cfg.obj,
+                 pot_cfg.add_init_constr,
+                 pot_cfg.init_constr_coef,
+                 pot_cfg.num_samples,
+                 pot_cfg.samples_use_mutex,
+                 pot_cfg.samples_random_walk,
+                 pot_cfg.all_states_mutex_size);
+        BOR_INFO_PREFIX_PUSH(&err, "Pot: ");
+        pddl_pot_solutions_t pot;
+        if (pddlHPot(&pot, fdr, &pot_cfg, &err) != 0){
+            BOR_INFO2(&err, "Cannot find potential heuristic");
+            BOR_INFO_PREFIX_POP(&err);
+            return -1;
+        }
+        int est = pddlPotSolutionsEvalMaxFDRState(&pot, &fdr->var, fdr->init);
+        BOR_INFO(&err, "Init state estimate: %d", est);
+        printPotentials(fdr, &pot, fout);
+        pddlPotSolutionsFree(&pot);
+        BOR_INFO_PREFIX_POP(&err);
+    }
+    */
+    return 0;
 }
 
 static int stepFDR(void)
 {
-    // TODO
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex,
+                          opt.fdr.var_flag, opt.fdr.flag, &err);
+    fdr_set = 1;
+
+    if (opt.fdr.order_vars_cg){
+        pddlFDRReorderVarsCG(&fdr);
+        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
+    }
+    PRINT_TO_FILE(opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
+
+    if (opt.fdr.pretty_print_vars)
+        pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
+    if (opt.fdr.pretty_print_cg){
+        pddl_cg_t cg;
+        pddlCGInit(&cg, &fdr.var, &fdr.op, 0);
+        pddlCGPrintAsciiGraph(&cg, NULL, &err);
+        pddlCGFree(&cg);
+    }
     return 0;
 }
 
@@ -652,6 +407,8 @@ static int stepSymba(void)
 
 void freeData(void)
 {
+    if (fdr_set)
+        pddlFDRFree(&fdr);
     if (strips_set){
         pddlStripsFree(&strips);
         pddlMGroupsFree(&mgroup);
@@ -671,7 +428,7 @@ int main(int argc, char *argv[])
     borErrWarnEnable(&err, stderr);
     borErrInfoEnable(&err, stderr);
     int ret = 0;
-    if ((ret = setOpts(argc, argv)) != 0
+    if ((ret = setOptions(argc, argv, &err)) != 0
             || (ret = stepPDDL()) != 0
             || (ret = stepReportLiftedMGroups()) != 0
             || (ret = stepLiftedMGroups()) != 0
@@ -692,7 +449,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    pddlProcessStripsFree(&process_strips);
     freeData();
     return 0;
 }
