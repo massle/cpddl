@@ -230,6 +230,7 @@ static void opGroupsFree(op_groups_t *opg)
 static int extractSolution(IloCP &cp,
                            IloIntVarArray &var_op,
                            bor_iset_t *redundant_op,
+                           int *map,
                            bor_err_t *err)
 {
     std::vector<char> mapped_to(var_op.getSize(), 0);
@@ -240,10 +241,17 @@ static int extractSolution(IloCP &cp,
 
     for (int i = 0; i < var_op.getSize(); ++i){
         if (!mapped_to[i]){
+            if (map != NULL)
+                map[i] = cp.getValue(var_op[i]);
+
             borISetAdd(&redundant, i);
 #ifdef DEBUG_PRINT_OP_MAPPING
             BOR_INFO(err, "    :: op %d -> %d", i, cp.getValue(var_op[i]));
 #endif /* DEBUG_PRINT_OP_MAPPING */
+
+        }else if (map != NULL){
+            // Set identity everywhere else to get rid of symmetries
+            map[i] = i;
         }
     }
     int num_redundant = borISetSize(&redundant);
@@ -262,6 +270,7 @@ static int solve(IloModel &model,
                  const pddl_endomorphism_config_t *cfg,
                  float max_search_time,
                  bor_iset_t *redundant_op,
+                 int *map,
                  const char *name,
                  bor_err_t *err)
 {
@@ -281,7 +290,7 @@ static int solve(IloModel &model,
     int num = -1;
     int max_num = -1;
     while (cp.next()){
-        num = extractSolution(cp, var_op, redundant_op, err);
+        num = extractSolution(cp, var_op, redundant_op, map, err);
         max_num = BOR_MAX(max_num, num);
         BOR_INFO(err, "  Found a solution with %d redundant %s", num, name);
     }
@@ -496,7 +505,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops,
+    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
 }
@@ -891,7 +900,7 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops,
+    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
 }
@@ -1388,7 +1397,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops,
+    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
 }
@@ -2181,6 +2190,7 @@ static int liftedSolve(const pddl_t *pddl,
                        const pddl_endomorphism_config_t *cfg,
                        float max_search_time,
                        bor_iset_t *redundant_objs,
+                       int *map,
                        bor_err_t *err)
 {
     int ret = 0;
@@ -2209,7 +2219,7 @@ static int liftedSolve(const pddl_t *pddl,
 
     //float max_search_time = pddlTimeLimitRemain(time_limit);
     //max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, csp_vars, cfg, max_search_time, redundant_objs,
+    solve(model, csp_vars, cfg, max_search_time, redundant_objs, map,
           "objects", err);
 
     env.end();
@@ -2353,6 +2363,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            bor_iset_t *redundant_objects,
+                           int *map,
                            bor_err_t *err)
 {
     if (!pddl->normalized)
@@ -2364,6 +2375,9 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
     if (cfg->ignore_costs)
         BOR_INFO2(err, "Ignoring operator costs");
+
+    for (int i = 0; map != NULL && i < pddl->obj.obj_size; ++i)
+        map[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
         BOR_INFO2(err, "Non-strict type partitioning"
@@ -2407,7 +2421,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
         lifted_endomorphism_t end;
         liftedEndomorphismInit(&end, pddl, &select.lifted_mgroups, cfg, err);
         if (liftedEndomorphismNumUnfixed(&end) > 1){
-            liftedSolve(pddl, &end, cfg, 1800., redundant_objects, err);
+            liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
         }else{
             BOR_INFO2(err, "Not enough unfixed objects to try to find"
                            " endomorphisms");
@@ -2452,6 +2466,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            bor_iset_t *redundant_objects,
+                           int *map,
                            bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");

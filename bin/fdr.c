@@ -593,7 +593,7 @@ static int prunePDDL(void)
             cfg.ignore_costs = 1;
         BOR_ISET(redundant_objs);
         pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
-                               &redundant_objs, &err);
+                               &redundant_objs, NULL, &err);
         if (borISetSize(&redundant_objs) > 0){
             pddlRemoveObjs(&pddl, &redundant_objs, &err);
             // If we removed anything, we need to infer mutex groups again
@@ -604,7 +604,7 @@ static int prunePDDL(void)
             cfg.ignore_costs = 1;
             borISetEmpty(&redundant_objs);
             pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
-                    &redundant_objs, &err);
+                                   &redundant_objs, NULL, &err);
             if (borISetSize(&redundant_objs) > 0){
                 pddlRemoveObjs(&pddl, &redundant_objs, &err);
                 // If we removed anything, we need to infer mutex groups again
