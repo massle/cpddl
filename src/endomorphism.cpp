@@ -2363,7 +2363,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            bor_iset_t *redundant_objects,
-                           int *map,
+                           pddl_obj_id_t *omap,
                            bor_err_t *err)
 {
     if (!pddl->normalized)
@@ -2376,8 +2376,8 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     if (cfg->ignore_costs)
         BOR_INFO2(err, "Ignoring operator costs");
 
-    for (int i = 0; map != NULL && i < pddl->obj.obj_size; ++i)
-        map[i] = i;
+    for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
+        omap[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
         BOR_INFO2(err, "Non-strict type partitioning"
@@ -2421,7 +2421,15 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
         lifted_endomorphism_t end;
         liftedEndomorphismInit(&end, pddl, &select.lifted_mgroups, cfg, err);
         if (liftedEndomorphismNumUnfixed(&end) > 1){
+            int *map = NULL;
+            if (omap != NULL)
+                map = BOR_ALLOC_ARR(int, pddl->obj.obj_size);
             liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
+            if (map != NULL){
+                for (int i = 0; i < pddl->obj.obj_size; ++i)
+                    omap[i] = map[i];
+                BOR_FREE(map);
+            }
         }else{
             BOR_INFO2(err, "Not enough unfixed objects to try to find"
                            " endomorphisms");
