@@ -242,8 +242,11 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
         }
     }
 
-    if (num_del == 0)
+    if (num_del == 0){
+        if (remap_param != NULL)
+            BOR_FREE(remap_param);
         return;
+    }
 
     int ins = 0;
     for (int ci = 0; ci < mg->cond.size; ++ci){
