@@ -3018,10 +3018,8 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
 static void condAtomRemapObjs(pddl_cond_atom_t *a, const pddl_obj_id_t *remap)
 {
     for (int i = 0; i < a->arg_size; ++i){
-        if (a->arg[i].obj >= 0){
+        if (a->arg[i].obj >= 0)
             a->arg[i].obj = remap[a->arg[i].obj];
-            ASSERT(a->arg[i].obj >= 0);
-        }
     }
 }
 
@@ -3046,6 +3044,44 @@ static int condRemapObjs(pddl_cond_t *c, void *_remap)
 void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap)
 {
     pddlCondTraverse(c, NULL, condRemapObjs, (void *)remap);
+}
+
+static int atomIsInvalid(const pddl_cond_atom_t *a)
+{
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].param < 0 && a->arg[i].obj < 0)
+            return 1;
+    }
+    return 0;
+}
+
+static int condRemoveInvalidAtoms(pddl_cond_t **c, void *_)
+{
+    if ((*c)->type == PDDL_COND_ATOM){
+        if (atomIsInvalid(OBJ(*c, atom))){
+            pddlCondDel(*c);
+            *c = NULL;
+            return 0;
+        }
+    }else if ((*c)->type == PDDL_COND_ASSIGN
+                || (*c)->type == PDDL_COND_INCREASE){
+        pddl_cond_func_op_t *f = OBJ(*c, func_op);
+        if (f->lvalue == NULL
+                || atomIsInvalid(f->lvalue)
+                || (f->fvalue != NULL && atomIsInvalid(f->fvalue))
+                || (f->fvalue == NULL && f->value < 0)){
+            pddlCondDel(*c);
+            *c = NULL;
+            return 0;
+        }
+    }
+    return 0;
+}
+
+pddl_cond_t *pddlCondRemoveInvalidAtoms(pddl_cond_t *c)
+{
+    pddlCondRebuild(&c, NULL, condRemoveInvalidAtoms, NULL);
+    return c;
 }
 
 

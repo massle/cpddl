@@ -129,10 +129,14 @@ OBJS += outbox
 OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
+OBJS += objset
 
 OBJS_CPP = endomorphism
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
+
+GEN  = pddl/objset.h
+GEN += src/objset.c
 
 all: $(TARGETS)
 
@@ -161,13 +165,18 @@ pddl/config.h:
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
-.objs/%.o: src/%.c pddl/%.h pddl/config.h
+pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+
+.objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
-.objs/%.o: src/%.c pddl/config.h
+.objs/%.o: src/%.c pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
-.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h
+.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
-.objs/%.cpp.o: src/%.cpp pddl/config.h
+.objs/%.cpp.o: src/%.cpp pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
 %.h: pddl/config.h

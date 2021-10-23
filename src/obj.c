@@ -325,8 +325,22 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
 void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
 {
     int new_size = 0;
+    for (int i = 0; i < objs->obj_size; ++i)
+        new_size = BOR_MAX(new_size, remap[i] + 1);
+
+    int *isset = BOR_CALLOC_ARR(int, new_size);
+    pddl_obj_t *nobjs = BOR_CALLOC_ARR(pddl_obj_t, new_size);
     for (int i = 0; i < objs->obj_size; ++i){
-        if (remap[i] == -1){
+        if (remap[i] >= 0 && !isset[remap[i]]){
+            nobjs[remap[i]] = objs->obj[i];
+            isset[remap[i]] = 1;
+            if (nobjs[remap[i]].name != NULL){
+                obj_key_t *key = findByName(objs, nobjs[remap[i]].name);
+                if (key != NULL)
+                    key->obj_id = remap[i];
+            }
+
+        }else{
             if (objs->obj[i].name != NULL){
                 obj_key_t *key = findByName(objs, objs->obj[i].name);
                 if (key != NULL){
@@ -335,15 +349,12 @@ void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
                 }
             }
             pddlObjFree(objs->obj + i);
-        }else{
-            ++new_size;
         }
     }
 
-    for (int i = 0; i < objs->obj_size; ++i){
-        if (remap[i] >= 0)
-            objs->obj[remap[i]] = objs->obj[i];
-    }
+    BOR_FREE(objs->obj);
+    objs->obj = nobjs;
+    BOR_FREE(isset);
     objs->obj_size = new_size;
 }
 

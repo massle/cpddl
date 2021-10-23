@@ -346,6 +346,8 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
  */
 void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap);
 
+pddl_cond_t *pddlCondRemoveInvalidAtoms(pddl_cond_t *c);
+
 void pddlCondPrint(const pddl_t *pddl,
                    const pddl_cond_t *cond,
                    const pddl_params_t *params,

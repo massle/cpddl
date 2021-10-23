@@ -22,6 +22,7 @@
 
 #include <boruvka/iset.h>
 #include <pddl/common.h>
+#include <pddl/objset.h>
 #include <pddl/lisp.h>
 
 #ifdef __cplusplus
@@ -30,13 +31,6 @@ extern "C" {
 
 /** Forward declaration */
 struct pddl_objs;
-
-struct pddl_objset {
-    pddl_obj_id_t *obj;
-    int obj_size;
-    int obj_alloc;
-};
-typedef struct pddl_objset pddl_objset_t;
 
 struct pddl_type {
     char *name;        /*!< Name of the type */

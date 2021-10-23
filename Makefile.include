@@ -1,6 +1,7 @@
 BASEPATH_ := $(dir $(realpath $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 #BASEPATH_ := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
+BASH ?= bash
 CC ?= gcc
 CXX ?= g++
 SCAN_BUILD ?= scan-build

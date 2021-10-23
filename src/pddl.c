@@ -837,7 +837,7 @@ static void removeObjsFromInit(pddl_t *pddl,
         if (c->type == PDDL_COND_ATOM){
             pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
             for (int i = 0; i < a->arg_size; ++i){
-                if (a->arg[i].obj >= 0 && remap[a->arg[i].obj] == -1){
+                if (a->arg[i].obj >= 0 && remap[a->arg[i].obj] < 0){
                     pddlCondDel(c);
                     c = NULL;
                     ++rm_atom;
@@ -854,7 +854,7 @@ static void removeObjsFromInit(pddl_t *pddl,
             if (ass->lvalue != NULL){
                 pddl_cond_atom_t *a = ass->lvalue;
                 for (int i = 0; i < a->arg_size; ++i){
-                    if (a->arg[i].obj >= 0 && remap[a->arg[i].obj] == -1){
+                    if (a->arg[i].obj >= 0 && remap[a->arg[i].obj] < 0){
                         pddlCondDel(c);
                         c = NULL;
                         ++rm_ass;
@@ -882,28 +882,49 @@ void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
 {
     if (borISetSize(rm_obj) == 0)
         return;
+    pddl_obj_id_t *remap = BOR_ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    pddlRemoveObjsGetRemap(pddl, rm_obj, remap, err);
+    BOR_FREE(remap);
+}
+
+void pddlRemoveObjsGetRemap(pddl_t *pddl,
+                            const bor_iset_t *rm_obj,
+                            pddl_obj_id_t *remap,
+                            bor_err_t *err)
+{
+    if (borISetSize(rm_obj) == 0)
+        return;
     BOR_INFO_PREFIX_PUSH(err, "PDDL rm objs: ");
     BOR_INFO(err, "Removing %d objects", borISetSize(rm_obj));
 
-    int obj_size = pddl->obj.obj_size;
-    pddl_obj_id_t *remap = BOR_ALLOC_ARR(pddl_obj_id_t, obj_size);
-    for (int i = 0, idx = 0, id = 0; i < obj_size; ++i){
+    for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
         if (idx < borISetSize(rm_obj) && borISetGet(rm_obj, idx) == i){
-            remap[i] = -1;
+            remap[i] = PDDL_OBJ_ID_UNDEF;
             ++idx;
         }else{
             remap[i] = id++;
         }
     }
 
-    removeObjsFromInit(pddl, remap, err);
-    pddlCondRemapObjs(pddl->goal, remap);
-    pddlObjsRemap(&pddl->obj, remap);
-    pddlTypesRemapObjs(&pddl->type, remap);
-    pddlActionsRemapObjs(&pddl->action, remap);
-
-    BOR_FREE(remap);
+    pddlRemapObjs(pddl, remap);
     BOR_INFO_PREFIX_POP(err);
+}
+
+void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
+{
+    pddlCondRemapObjs(&pddl->init->cls, remap);
+    pddl_cond_t *c = pddlCondRemoveInvalidAtoms(&pddl->init->cls);
+    ASSERT_RUNTIME(c->type == PDDL_COND_AND);
+    pddl->init = PDDL_COND_CAST(c, part);
+
+    pddlCondRemapObjs(pddl->goal, remap);
+    pddl->goal = pddlCondRemoveInvalidAtoms(pddl->goal);
+    if (pddl->goal == NULL)
+        pddl->goal = pddlCondNewBool(1);
+
+    pddlActionsRemapObjs(&pddl->action, remap);
+    pddlTypesRemapObjs(&pddl->type, remap);
+    pddlObjsRemap(&pddl->obj, remap);
 }
 
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)

@@ -125,6 +125,19 @@ void pddlAddObjectTypes(pddl_t *pddl);
 void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
 
 /**
+ * Same as pddlRemoveObjs() except a remap array must be provided.
+ */
+void pddlRemoveObjsGetRemap(pddl_t *pddl,
+                            const bor_iset_t *rm_obj,
+                            pddl_obj_id_t *remap,
+                            bor_err_t *err);
+
+/**
+ * Remap object IDs.
+ */
+void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
+
+/**
  * Prints PDDL domain file.
  */
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout);
