@@ -19,6 +19,7 @@
 #include <boruvka/err.h>
 #include <boruvka/rand-mt.h>
 #include "pddl/homomorphism.h"
+#include "pddl/endomorphism.h"
 #include "assert.h"
 
 struct fix_action {
@@ -119,7 +120,7 @@ static int collapseObjs(pddl_t *pddl,
         }
     }
 
-    pddl_obj_id_t *remap = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     for (int i = 0, idx = 0; i < pddl->obj.obj_size; ++i){
         if (collapse_map[i] && i != repr){
             remap[i] = repr;
@@ -144,9 +145,55 @@ static int collapseObjs(pddl_t *pddl,
     }
     pddlTypesRemapObjs(&pddl->type, remap);
     pddlObjsRemap(&pddl->obj, remap);
+    // TODO
+    //pddlNormalize(pddl);
 
     BOR_FREE(remap);
     return 0;
+}
+
+static int collapseEndomorphism(pddl_t *pddl,
+                                const pddl_homomorphism_config_t *cfg,
+                                bor_rand_mt_t *rnd,
+                                pddl_obj_id_t *obj_map,
+                                int obj_size,
+                                bor_err_t *err)
+{
+    BOR_INFO2(err, "Collapse with endomorphisms");
+    // TODO
+    pddl_endomorphism_config_t ecfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+    BOR_ISET(redundant);
+    pddl_obj_id_t *map = BOR_ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    int ret = pddlEndomorphismRelaxedLifted(pddl, &ecfg, &redundant, map, err);
+    if (ret == 0 && borISetSize(&redundant) > 0){
+        pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+        int oid;
+        BOR_ISET_FOR_EACH(&redundant, oid)
+            remap[oid] = PDDL_OBJ_ID_UNDEF;
+        for (int i = 0, idx = 0; i < pddl->obj.obj_size; ++i){
+            if (remap[i] != PDDL_OBJ_ID_UNDEF)
+                remap[i] = idx++;
+        }
+        BOR_ISET_FOR_EACH(&redundant, oid){
+            remap[oid] = remap[map[oid]];
+            ASSERT_RUNTIME(remap[oid] >= 0);
+        }
+        pddlRemapObjs(pddl, remap);
+        pddlNormalize(pddl);
+
+        if (obj_map != NULL){
+            for (int i = 0; i < obj_size; ++i)
+                obj_map[i] = remap[obj_map[i]];
+        }
+
+        if (remap != NULL)
+            BOR_FREE(remap);
+    }
+    borISetFree(&redundant);
+    if (map != NULL)
+        BOR_FREE(map);
+    BOR_INFO(err, "Collapse with endomorphisms. DONE. ret: %d", ret);
+    return ret;
 }
 
 static int collapseRandomPairTypeObj(pddl_t *pddl,
@@ -280,6 +327,7 @@ static int collapseType(pddl_t *pddl,
     }
 }
 
+
 static void _deduplicateCostsPart(pddl_cond_part_t *p)
 {
     bor_list_t *item = borListNext(&p->part);
@@ -349,9 +397,12 @@ int pddlHomomorphism(pddl_t *pddl,
                      pddl_obj_id_t *obj_map,
                      bor_err_t *err)
 {
-    if (borISetSize(&cfg->collapse_types) == 0
-            && !cfg->random_objs
-            && !cfg->random_type_objs){
+    unsigned base_type = (cfg->type & 0x0fu);
+    unsigned use_endomorph = (cfg->type & PDDL_HOMOMORPHISM_ENDOMORPHISM);
+
+    ASSERT_RUNTIME_M(cfg->type != 0u, "Invalid configuration");
+    if (base_type == PDDL_HOMOMORPHISM_TYPES
+            && borISetSize(&cfg->collapse_types) == 0){
         BOR_ERR_RET2(err, -1, "Nothing to do!");
     }
 
@@ -363,27 +414,47 @@ int pddlHomomorphism(pddl_t *pddl,
     }
 
     pddlInitCopy(pddl, src);
-    if (borISetSize(&cfg->collapse_types) > 0){
+    if (base_type == PDDL_HOMOMORPHISM_TYPES){
         int type;
         BOR_ISET_FOR_EACH(&cfg->collapse_types, type){
             if (collapseType(pddl, type, obj_map, src->obj.obj_size, err) != 0)
                 BOR_TRACE_RET(err, -1);
         }
-    }else if (cfg->random_objs || cfg->random_type_objs){
-        int (*fn)(pddl_t *pddl,
+
+    }else if (base_type == PDDL_HOMOMORPHISM_RAND_OBJS
+                || base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
+        int (*fn[2])(pddl_t *pddl,
                   const pddl_homomorphism_config_t *cfg,
                   bor_rand_mt_t *rnd,
                   pddl_obj_id_t *obj_map,
                   int obj_size,
-                  bor_err_t *err) = collapseRandomPairObj;
-        if (cfg->random_type_objs)
-            fn = collapseRandomPairTypeObj;
+                  bor_err_t *err) = { NULL, NULL };
+        if (base_type == PDDL_HOMOMORPHISM_RAND_OBJS)
+            fn[0] = fn[1] = collapseRandomPairObj;
+        if (base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS)
+            fn[0] = fn[1] = collapseRandomPairTypeObj;
+        ASSERT_RUNTIME(fn[0] != NULL && fn[1] != NULL);
         int obj_size = src->obj.obj_size;
         bor_rand_mt_t *rnd = borRandMTNew(cfg->random_seed);
         int target = pddl->obj.obj_size * (1.f - cfg->rm_ratio);
+        BOR_INFO(err, "Target number of objects: %d", target);
+
+        if (use_endomorph)
+            fn[0] = collapseEndomorphism;
+
+        int fni = 0;
         while (pddl->obj.obj_size >= 1
-                && pddl->obj.obj_size != target
-                && fn(pddl, cfg, rnd, obj_map, obj_size, err) == 0);
+                && pddl->obj.obj_size > target){
+            if (fn[fni](pddl, cfg, rnd, obj_map, obj_size, err) != 0){
+                if (fn[fni] == collapseEndomorphism){
+                    BOR_INFO2(err, "Endomorphism failed -- disabling...");
+                    fn[fni] = fn[(fni + 1) % 2];
+                }else{
+                    break;
+                }
+            }
+            fni = (fni + 1) % 2;
+        }
         borRandMTDel(rnd);
     }
 

@@ -25,21 +25,24 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define PDDL_HOMOMORPHISM_TYPES          0x01u
+#define PDDL_HOMOMORPHISM_RAND_OBJS      0x02u
+#define PDDL_HOMOMORPHISM_RAND_TYPE_OBJS 0x03u
+#define PDDL_HOMOMORPHISM_ENDOMORPHISM   0x10u
 struct pddl_homomorphism_config {
+    unsigned type;
     bor_iset_t collapse_types; /*!< Set of types to collapse each to a
                                     single object */
-    int random_objs;
-    int random_type_objs;
-    float rm_ratio;
+    float rm_ratio; /*!< Ratio of objects that should be removed
+                         -- for *_RAND_* types */
     uint32_t random_seed;
     int keep_goal_objs;
 };
 typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
 #define PDDL_HOMOMORPHISM_CONFIG_INIT { \
+        PDDL_HOMOMORPHISM_RAND_OBJS, /* .type */ \
         BOR_ISET_INIT, /*. collapse_types */ \
-        0, /* .random_objs */ \
-        0, /* .random_type_objs */ \
         0.5, /* .rm_ratio */ \
         6899, /* .random_seed */ \
         1, /* .keep_goal_objs */ \

@@ -1593,9 +1593,11 @@ static void setAtomTypeFixed(lifted_endomorphism_t *end,
     if (atom->arg[parami].param >= 0){
         int param = atom->arg[parami].param;
         int type_id = params->param[param].type;
-        const pddl_type_t *type = pddl->type.type + type_id;
-        for (int i = 0; i < type->obj.obj_size; ++i)
-            end->obj_is_fixed[type->obj.obj[i]] = 1;
+        int objs_size;
+        const pddl_obj_id_t *objs;
+        objs = pddlTypesObjsByType(&pddl->type, type_id, &objs_size);
+        for (int i = 0; i < objs_size; ++i)
+            end->obj_is_fixed[objs[i]] = 1;
 
     }else{
         end->obj_is_fixed[atom->arg[parami].obj] = 1;
@@ -2075,17 +2077,17 @@ static void liftedAddDomains(IloEnv &env,
 
     // And then with unfixed ones
     for (int type = 0; type < pddl->type.type_size; ++type){
-        int num_objs = pddl->type.type[type].obj.obj_size;
+        int num_objs = pddlTypeNumObjs(&pddl->type, type);
         IloIntTupleSet obj_values(env, 1);
         for (int i = 0; i < num_objs; ++i){
-            int obj = pddl->type.type[type].obj.obj[i];
+            int obj = pddlTypeGetObj(&pddl->type, type, i);
             IloIntArray vals(env, 1);
             vals[0] = obj;
             obj_values.add(vals);
         }
 
         for (int i = 0; i < num_objs; ++i){
-            int obj = pddl->type.type[type].obj.obj[i];
+            int obj = pddlTypeGetObj(&pddl->type, type, i);
             if (!end->obj_is_fixed[obj]){
                 IloIntVarArray vars(env, 1);
                 vars[0] = csp_var[obj];

@@ -503,6 +503,13 @@ static int actionEff(pddl_cond_t *c, void *ud)
             ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_func,
                                          inc->fvalue, ctx->args);
             if (ga == NULL){
+                ctx->op->cost += 0;
+                char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
+                BOR_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
+                         name);
+                if (name != NULL)
+                    BOR_FREE(name);
+                /* TODO
                 ctx->cond_eff_failed = 1;
                 ctx->failed = 1;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
@@ -510,8 +517,10 @@ static int actionEff(pddl_cond_t *c, void *ud)
                 if (name != NULL)
                     BOR_FREE(name);
                 return -2;
+                */
+            }else{
+                ctx->op->cost += ga->func_val;
             }
-            ctx->op->cost += ga->func_val;
         }else{
             ctx->op->cost += inc->value;
         }

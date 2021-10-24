@@ -37,6 +37,7 @@ struct options {
 } opt;
 
 pddl_homomorphism_config_t homo_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
+int homo_cfg_rand = 0;
 
 static void usage(const char *name)
 {
@@ -103,15 +104,21 @@ static int readOpts(int *argc,
     }
 
     if (strcmp(opt.homo_type, "type") == 0){
-        // Do nothing -- this is default
+        homo_cfg.type = PDDL_HOMOMORPHISM_TYPES;
+        homo_cfg_rand = 0;
+
     }else if (strcmp(opt.homo_type, "rnd-type") == 0){
-        homo_cfg.random_type_objs = 1;
+        homo_cfg.type = PDDL_HOMOMORPHISM_RAND_TYPE_OBJS;
         homo_cfg.rm_ratio = opt.homo_rm_ratio;
         homo_cfg.keep_goal_objs = !opt.homo_allow_goal;
+        homo_cfg_rand = 1;
+
     }else if (strcmp(opt.homo_type, "rnd") == 0){
-        homo_cfg.random_objs = 1;
+        homo_cfg.type = PDDL_HOMOMORPHISM_RAND_OBJS;
         homo_cfg.rm_ratio = opt.homo_rm_ratio;
         homo_cfg.keep_goal_objs = !opt.homo_allow_goal;
+        homo_cfg_rand = 1;
+
     }else{
         fprintf(stderr, "Error: Unkown homomorphism method '%s'\n",
                 opt.homo_type);
@@ -287,18 +294,8 @@ int main(int argc, char *argv[])
 
     pddl_homomorphism_heur_t *heur = NULL;
     if (heur_fn != NULL){
-        if (homo_cfg.random_objs || homo_cfg.random_type_objs){
-            if (homo_cfg.random_objs){
-                BOR_INFO(&err, "Homomorph: Random objects. rm-ratio: %.2f,"
-                               " tries: %d, keep-goals: %d",
-                         homo_cfg.rm_ratio, opt.homo_samples,
-                         homo_cfg.keep_goal_objs);
-            }else{
-                BOR_INFO(&err, "Homomorph: Random types-objects."
-                               " rm-ratio: %.2f, tries: %d, keep-goals: %d",
-                         homo_cfg.rm_ratio, opt.homo_samples,
-                         homo_cfg.keep_goal_objs);
-            }
+        homo_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+        if (homo_cfg_rand){
             heur = heurCollapseRandom(&pddl, &err);
         }else{
             BOR_INFO2(&err, "Homomorph: Collapse all types except one");

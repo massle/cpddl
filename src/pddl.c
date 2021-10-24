@@ -677,6 +677,10 @@ static void pddlResetPredReadWrite(pddl_t *pddl)
 
 void pddlNormalize(pddl_t *pddl)
 {
+    pddl_cond_t *c = pddlCondDeduplicateAtoms(&pddl->init->cls, pddl);
+    ASSERT_RUNTIME(c->type == PDDL_COND_AND);
+    pddl->init = PDDL_COND_CAST(c, part);
+
     removeActionsWithUnsatisfiableArgs(pddl);
 
     for (int i = 0; i < pddl->action.action_size; ++i)
