@@ -34,7 +34,6 @@ struct sql_ground {
 };
 typedef struct sql_ground sql_ground_t;
 
-
 static int sqlGroundInit(sql_ground_t *g,
                          const pddl_t *pddl,
                          const pddl_ground_config_t *cfg,

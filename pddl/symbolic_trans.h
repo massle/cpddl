@@ -24,6 +24,10 @@
 #include <pddl/symbolic_vars.h>
 #include <pddl/symbolic_constr.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 struct pddl_symbolic_trans {
     pddl_bdd_t *bdd; /*!< BDD representing the transition(s) */
     bor_iset_t eff_groups; /*!< Groups appearing in the effect(s) */
@@ -74,5 +78,9 @@ pddl_bdd_t *pddlSymbolicTransSetImage(pddl_symbolic_trans_set_t *trset,
                                       pddl_bdd_t *state);
 pddl_bdd_t *pddlSymbolicTransSetPreImage(pddl_symbolic_trans_set_t *trset,
                                          pddl_bdd_t *state);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
 
 #endif /* __PDDL_SYMBOLIC_TRANS_H__ */

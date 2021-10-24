@@ -113,6 +113,23 @@ static pddl_ground_atom_t *addAtom(pddl_strips_maker_t *sm,
     return gatom;
 }
 
+static pddl_ground_atom_t *addAtomPred(pddl_strips_maker_t *sm,
+                                       pddl_ground_atoms_t *gas,
+                                       int pred,
+                                       const pddl_obj_id_t *args,
+                                       int arg_size,
+                                       int *is_new)
+{
+    if (is_new != NULL)
+        *is_new = 0;
+    int atom_size = gas->atom_size;
+    pddl_ground_atom_t *gatom;
+    gatom = pddlGroundAtomsAddPred(gas, pred, args, arg_size);
+    if (atom_size != gas->atom_size && is_new != NULL)
+        *is_new = 1;
+    return gatom;
+}
+
 pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
                                            const pddl_cond_atom_t *atom,
                                            const pddl_obj_id_t *args,
@@ -121,12 +138,31 @@ pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
     return addAtom(sm, &sm->ground_atom, atom, args, is_new);
 }
 
+pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
+                                               int pred,
+                                               const pddl_obj_id_t *args,
+                                               int args_size,
+                                               int *is_new)
+{
+    return addAtomPred(sm, &sm->ground_atom, pred, args, args_size, is_new);
+}
+
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
                                                  const pddl_cond_atom_t *atom,
                                                  const pddl_obj_id_t *args,
                                                  int *is_new)
 {
     return addAtom(sm, &sm->ground_atom_static, atom, args, is_new);
+}
+
+pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
+                                                     int pred,
+                                                     const pddl_obj_id_t *args,
+                                                     int args_size,
+                                                     int *is_new)
+{
+    return addAtomPred(sm, &sm->ground_atom_static,
+                       pred, args, args_size, is_new);
 }
 
 pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,
@@ -206,6 +242,32 @@ pddl_ground_action_args_t *pddlStripsMakerFindAction(pddl_strips_maker_t *sm,
     if (found == NULL)
         return NULL;
     return BOR_LIST_ENTRY(found, pddl_ground_action_args_t, htable);
+}
+
+int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
+{
+    bor_list_t *item;
+    BOR_LIST_FOR_EACH(&pddl->init->part, item){
+        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        if (c->type == PDDL_COND_ATOM){
+            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+            if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
+                pddlStripsMakerAddStaticAtom(sm, a, NULL, NULL);
+            }else{
+                pddlStripsMakerAddAtom(sm, a, NULL, NULL);
+            }
+            // TODO
+            //sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
+
+        }else if (c->type == PDDL_COND_ASSIGN){
+            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+            ASSERT(ass->fvalue == NULL);
+            ASSERT(ass->lvalue != NULL);
+            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            pddlStripsMakerAddFunc(sm, ass, NULL, NULL);
+        }
+    }
+    return 0;
 }
 
 static int createStripsFacts(pddl_strips_maker_t *sm,

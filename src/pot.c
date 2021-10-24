@@ -51,8 +51,8 @@ void pddlPotSolutionFree(pddl_pot_solution_t *sol)
 {
     if (sol->pot != NULL)
         BOR_FREE(sol->pot);
-    if (sol->op_change != NULL)
-        BOR_FREE(sol->op_change);
+    if (sol->op_pot != NULL)
+        BOR_FREE(sol->op_pot);
 }
 
 double pddlPotSolutionEvalFDRStateFlt(const pddl_pot_solution_t *sol,
@@ -131,11 +131,10 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
         s->pot = BOR_ALLOC_ARR(double, s->pot_size);
         memcpy(s->pot, sol->pot, sizeof(double) * s->pot_size);
     }
-    s->op_change_size = sol->op_change_size;
-    if (s->op_change_size > 0){
-        s->op_change = BOR_ALLOC_ARR(double, s->op_change_size);
-        memcpy(s->op_change, sol->op_change,
-               sizeof(double) * s->op_change_size);
+    s->op_pot_size = sol->op_pot_size;
+    if (s->op_pot_size > 0){
+        s->op_pot = BOR_ALLOC_ARR(double, s->op_pot_size);
+        memcpy(s->op_pot, sol->op_pot, sizeof(double) * s->op_pot_size);
     }
 }
 
@@ -630,7 +629,7 @@ static void enforceIntInit(bor_lp_t *lp, const pddl_pot_t *pot)
     borLPSetCoef(lp, row, var, 1);
 }
 
-static int addOpHeurChangeConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
+static int addOpPotConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
 {
     int var_size = borLPNumCols(lp);
     borLPAddCols(lp, pot->constr_op.size);
@@ -656,19 +655,48 @@ static int addOpHeurChangeConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
     return var_size;
 }
 
-static void storeOpHeurChange(bor_lp_t *lp,
-                              const double *obj,
-                              int var_offset,
-                              const pddl_pot_t *pot,
-                              pddl_pot_solution_t *sol)
+static double constrLHS(const pddl_pot_t *pot,
+                        const pddl_pot_constr_t *c,
+                        const double *w)
 {
-    sol->op_change_size = pot->constr_op.size;
-    sol->op_change = BOR_CALLOC_ARR(double, pot->op_size);
+    // Use kahan summation
+    double sum = 0.;
+    double comp = 0.;
+    int var;
+    BOR_ISET_FOR_EACH(&c->plus, var){
+        double y = w[var] - comp;
+        double t = sum + y;
+        comp = (t - sum) - y;
+        sum = t;
+    }
+    BOR_ISET_FOR_EACH(&c->minus, var){
+        double y = -w[var] - comp;
+        double t = sum + y;
+        comp = (t - sum) - y;
+        sum = t;
+    }
+
+    return sum;
+}
+
+
+static void storeOpPot(bor_lp_t *lp,
+                       const double *obj,
+                       int var_offset,
+                       const pddl_pot_t *pot,
+                       pddl_pot_solution_t *sol)
+{
+    sol->op_pot_size = pot->constr_op.size;
+    sol->op_pot = BOR_CALLOC_ARR(double, pot->op_size);
     for (int ci = 0; ci < pot->constr_op.size; ++ci){
         const pddl_pot_constr_t *c = pot->constr_op.c + ci;
         if (c->op_id >= 0){
-            double oval = obj[var_offset + ci];
-            sol->op_change[c->op_id] = (int)round(oval);
+            if (pot->op_pot_real){
+                sol->op_pot[c->op_id] = -constrLHS(pot, c, obj);
+            }else{
+                double oval = obj[var_offset + ci];
+                sol->op_pot[c->op_id] = (int)round(oval);
+            }
         }
     }
 }
@@ -702,9 +730,9 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     setConstrs(lp, pot, &pot->constr_goal, &row);
     setMaxpotConstrs(lp, pot, &row);
 
-    int op_heur_change_var_offset = 0;
-    if (pot->store_op_heur_change)
-        op_heur_change_var_offset = addOpHeurChangeConstrs(lp, pot);
+    int op_pot_var_offset = 0;
+    if (pot->op_pot && !pot->op_pot_real)
+        op_pot_var_offset = addOpPotConstrs(lp, pot);
     if (pot->enforce_int_init)
         enforceIntInit(lp, pot);
 
@@ -720,8 +748,8 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         sol->pot = BOR_ALLOC_ARR(double, sol->pot_size);
         memcpy(sol->pot, obj, sizeof(double) * sol->pot_size);
 
-        if (pot->store_op_heur_change)
-            storeOpHeurChange(lp, obj, op_heur_change_var_offset, pot, sol);
+        if (pot->op_pot)
+            storeOpPot(lp, obj, op_pot_var_offset, pot, sol);
 
     }else{
         bzero(sol, sizeof(*sol));

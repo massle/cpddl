@@ -32,8 +32,8 @@ struct pddl_pot_solution {
     double *pot; /*!< Potentials for all facts */
     int pot_size;
     double objval; /*!< Objective value */
-    double *op_change; /*!< Change of heuristic value for each operator */
-    int op_change_size;
+    double *op_pot; /*!< Change of heuristic value for each operator */
+    int op_pot_size;
 };
 typedef struct pddl_pot_solution pddl_pot_solution_t;
 
@@ -91,8 +91,8 @@ struct pddl_pot {
     int var_size; /*!< Number of LP variables */
     int fact_var_size;
     int use_ilp; /*!< ILP solver instead of LP */
-    int store_op_heur_change; /*!< Store changes of heuristic value induced
-                                   by operators in the output */
+    int op_pot; /*!< Infer integer operator-potentials */
+    int op_pot_real; /*!< Infer real-valued operator-potentials */
     int op_size; /*!< Number of processed operators */
     double *obj; /*!< Objective function coeficients */
     // TODO: Deduplicate constraints using hashtable
@@ -195,9 +195,14 @@ _bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
 /**
  * Turns on/off storing of heuristic changes induced by operators.
  */
-_bor_inline void pddlPotStoreOpHeurChange(pddl_pot_t *pot, int enable)
+_bor_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued)
 {
-    pot->store_op_heur_change = enable;
+    if (enable){
+        pot->op_pot = 1;
+        pot->op_pot_real = real_valued;
+    }else{
+        pot->op_pot = pot->op_pot_real = 0;
+    }
 }
 
 /**

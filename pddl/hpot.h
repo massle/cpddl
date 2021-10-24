@@ -50,7 +50,8 @@ struct pddl_hpot_config {
     int all_states_mutex_size; /*!< Size of sets of facts for
                                     *_ALL_STATES_MUTEX method */
 
-    int store_op_heur_change;
+    int op_pot;
+    int op_pot_real;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
@@ -64,8 +65,19 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         0, /* .samples_use_mutex */ \
         0, /* .samples_random_walk */ \
         0, /* .all_states_mutex_size */ \
-        0, /* .store_op_heur_change */ \
+        0, /* .op_pot */ \
+        0, /* .op_pot_real */ \
     }
+
+void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
+                       const char *prefix,
+                       bor_err_t *err);
+
+/**
+ * Returns true if the config can produce an ensamble of potential
+ * heuristics.
+ */
+int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg);
 
 int pddlHPot(pddl_pot_solutions_t *sols,
              const pddl_fdr_t *fdr,

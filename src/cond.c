@@ -567,8 +567,7 @@ static pddl_cond_when_t *condWhenClone(const pddl_cond_when_t *w)
 static pddl_cond_when_t *condWhenNegate(const pddl_cond_when_t *w,
                                         const pddl_t *pddl)
 {
-    fprintf(stderr, "Fatal Error: Cannot negate (when ...)\n");
-    exit(-1);
+    BOR_FATAL2("Cannot negate (when ...)");
 }
 
 static int condWhenEq(const pddl_cond_when_t *w1,
@@ -758,8 +757,7 @@ static pddl_cond_func_op_t *condFuncOpClone(const pddl_cond_func_op_t *op)
 static pddl_cond_func_op_t *condFuncOpNegate(const pddl_cond_func_op_t *op,
                                              const pddl_t *pddl)
 {
-    fprintf(stderr, "Fatal Error: Cannot negate function!\n");
-    exit(-1);
+    BOR_FATAL2("Cannot negate function!");
 }
 
 static int condFuncOpEq(const pddl_cond_func_op_t *f1,
@@ -3228,8 +3226,7 @@ void pddlCondPrint(const struct pddl *pddl,
         condImplyPrint(OBJ(cond, imply), pddl, params, fout);
 
     }else{
-        fprintf(stderr, "Fatal Error: Unknown type!\n");
-        exit(-1);
+        BOR_FATAL2("Unknown type!");
     }
 }
 
@@ -3242,16 +3239,17 @@ void pddlCondPrintPDDL(const pddl_cond_t *cond,
 }
 
 
-const pddl_cond_atom_t *pddlCondConstItAtomInit(pddl_cond_const_it_atom_t *it,
-                                                const pddl_cond_t *cond)
+const pddl_cond_t *pddlCondConstItInit(pddl_cond_const_it_t *it,
+                                       const pddl_cond_t *cond,
+                                       int type)
 {
     bzero(it, sizeof(*it));
 
     if (cond == NULL)
         return NULL;
 
-    if (cond->type == PDDL_COND_ATOM)
-        return PDDL_COND_CAST(cond, atom);
+    if (cond->type == type)
+        return cond;
 
     if (cond->type == PDDL_COND_AND || cond->type == PDDL_COND_OR){
         const pddl_cond_part_t *p = PDDL_COND_CAST(cond, part);
@@ -3260,8 +3258,8 @@ const pddl_cond_atom_t *pddlCondConstItAtomInit(pddl_cond_const_it_atom_t *it,
                 it->cur != it->list;
                 it->cur = borListNext((bor_list_t *)it->cur)){
             const pddl_cond_t *c = BOR_LIST_ENTRY(it->cur, pddl_cond_t, conn);
-            if (c->type == PDDL_COND_ATOM)
-                return PDDL_COND_CAST(c, atom);
+            if (c->type == type)
+                return c;
         }
         return NULL;
     }
@@ -3269,7 +3267,7 @@ const pddl_cond_atom_t *pddlCondConstItAtomInit(pddl_cond_const_it_atom_t *it,
     return NULL;
 }
 
-const pddl_cond_atom_t *pddlCondConstItAtomNext(pddl_cond_const_it_atom_t *it)
+const pddl_cond_t *pddlCondConstItNext(pddl_cond_const_it_t *it, int type)
 {
     if (it->cur == it->list)
         return NULL;
@@ -3278,11 +3276,45 @@ const pddl_cond_atom_t *pddlCondConstItAtomNext(pddl_cond_const_it_atom_t *it)
             it->cur != it->list;
             it->cur = borListNext((bor_list_t *)it->cur)){
         const pddl_cond_t *c = BOR_LIST_ENTRY(it->cur, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM)
-            return PDDL_COND_CAST(c, atom);
+        if (c->type == type)
+            return c;
     }
 
     return NULL;
+}
+
+const pddl_cond_atom_t *pddlCondConstItAtomInit(pddl_cond_const_it_atom_t *it,
+                                                const pddl_cond_t *cond)
+{
+    const pddl_cond_t *c;
+    if ((c = pddlCondConstItInit(it, cond, PDDL_COND_ATOM)) == NULL)
+        return NULL;
+    return PDDL_COND_CAST(c, atom);
+}
+
+const pddl_cond_atom_t *pddlCondConstItAtomNext(pddl_cond_const_it_atom_t *it)
+{
+    const pddl_cond_t *c;
+    if ((c = pddlCondConstItNext(it, PDDL_COND_ATOM)) == NULL)
+        return NULL;
+    return PDDL_COND_CAST(c, atom);
+}
+
+const pddl_cond_when_t *pddlCondConstItWhenInit(pddl_cond_const_it_when_t *it,
+                                                const pddl_cond_t *cond)
+{
+    const pddl_cond_t *c;
+    if ((c = pddlCondConstItInit(it, cond, PDDL_COND_WHEN)) == NULL)
+        return NULL;
+    return PDDL_COND_CAST(c, when);
+}
+
+const pddl_cond_when_t *pddlCondConstItWhenNext(pddl_cond_const_it_when_t *it)
+{
+    const pddl_cond_t *c;
+    if ((c = pddlCondConstItNext(it, PDDL_COND_WHEN)) == NULL)
+        return NULL;
+    return PDDL_COND_CAST(c, when);
 }
 
 

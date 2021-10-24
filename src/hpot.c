@@ -36,6 +36,72 @@
 static const uint32_t rand_sampler_seed = 524287;
 static const uint32_t rand_diverse_seed = 131071;
 
+#define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \
+    BOR_INFO((ERR), "%s" #NAME " = %d", (PREFIX), (C)->NAME)
+#define PDDL_LOG_CONFIG_DBL(C, PREFIX, NAME, ERR) \
+    BOR_INFO((ERR), "%s" #NAME " = %.4f", (PREFIX), (C)->NAME)
+#define PDDL_LOG_CONFIG_BOOL(C, PREFIX, NAME, ERR) \
+    BOR_INFO((ERR), "%s" #NAME " = %s", (PREFIX), ((C)->NAME ? "true" : "false"))
+
+void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
+                       const char *prefix,
+                       bor_err_t *err)
+{
+    PDDL_LOG_CONFIG_INT(cfg, prefix, disambiguation, err);
+    PDDL_LOG_CONFIG_INT(cfg, prefix, weak_disambiguation, err);
+    const char *obj = "";
+    switch (cfg->obj){
+        case PDDL_HPOT_OBJ_INIT:
+            obj = "init";
+            break;
+        case PDDL_HPOT_OBJ_ALL_STATES:
+            obj = "all";
+            break;
+        case PDDL_HPOT_OBJ_SAMPLES_MAX:
+            obj = "samples-max";
+            break;
+        case PDDL_HPOT_OBJ_SAMPLES_SUM:
+            obj = "samples-sum";
+            break;
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX:
+            obj = "mutex";
+            break;
+        case PDDL_HPOT_OBJ_DIVERSE:
+            obj = "diverse";
+            break;
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED:
+            obj = "mutex-cond";
+            break;
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND:
+            obj = "mutex-cond-rand";
+            break;
+        case PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2:
+            obj = "mutex-cond-rand2";
+            break;
+        case PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES:
+            obj = "max(init,all)";
+            break;
+    }
+    BOR_INFO(err, "%sobj = %s", prefix, obj);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, add_init_constr, err);
+    PDDL_LOG_CONFIG_DBL(cfg, prefix, init_constr_coef, err);
+    PDDL_LOG_CONFIG_INT(cfg, prefix, num_samples, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, samples_use_mutex, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, samples_random_walk, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, op_pot, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, op_pot_real, err);
+}
+
+int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
+{
+    return cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX
+            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED
+            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND
+            || cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2
+            || cfg->obj == PDDL_HPOT_OBJ_DIVERSE
+            || cfg->obj == PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
+}
+
 static int solveAndAdd(pddl_pot_t *pot,
                        pddl_pot_solutions_t *sols,
                        const pddl_hpot_config_t *cfg,
@@ -165,8 +231,8 @@ static int initPot(pddl_pot_t *pot,
                       pot->maxpot_size);
     }
 
-    if (cfg->store_op_heur_change)
-        pddlPotStoreOpHeurChange(pot, 1);
+    if (cfg->op_pot)
+        pddlPotEnableOpPot(pot, 1, cfg->op_pot_real);
 
     return 0;
 }
@@ -176,7 +242,6 @@ static int addInitConstr(pddl_pot_t *pot,
                          const pddl_hpot_config_t *cfg,
                          bor_err_t *err)
 {
-    pddlPotStoreOpHeurChange(pot, 1);
     pddlPotResetLowerBoundConstr(pot);
     pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
     pddl_pot_solution_t sol;
@@ -198,6 +263,7 @@ static int addInitConstr(pddl_pot_t *pot,
         int v = fdr->var.var[var].val[fdr->init[var]].global_id;
         borISetAdd(&vars, v);
     }
+    rhs -= INIT_STATE_RHS_DECREASE_STEP;
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
     BOR_INFO(err, "added lower bound constraint with rhs: %.4f (%a)",
              rhs, rhs);

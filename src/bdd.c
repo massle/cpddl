@@ -44,12 +44,7 @@ static void outOfMemory(size_t mem_size)
     unsigned long peak_mem = 0L;
     if (getrusage(RUSAGE_SELF, &usg) == 0)
         peak_mem = usg.ru_maxrss / 1024UL;
-    fprintf(stderr, "Error: Memory allocation failed"
-                    " (peak memory: %luMB).\n",
-            peak_mem);
-    fflush(stderr);
-
-    exit(-1);
+    BOR_FATAL("Memory allocation failed (peak memory: %luMB).", peak_mem);
 }
 
 pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,

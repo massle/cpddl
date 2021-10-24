@@ -64,6 +64,11 @@ pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
                                            const pddl_cond_atom_t *atom,
                                            const pddl_obj_id_t *args,
                                            int *is_new);
+pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
+                                               int pred,
+                                               const pddl_obj_id_t *args,
+                                               int args_size,
+                                               int *is_new);
 
 /**
  * Same pddlStripsMakerAddAtom() but adds static atom
@@ -72,6 +77,11 @@ pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
                                                  const pddl_cond_atom_t *atom,
                                                  const pddl_obj_id_t *args,
                                                  int *is_new);
+pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
+                                                     int pred,
+                                                     const pddl_obj_id_t *args,
+                                                     int args_size,
+                                                     int *is_new);
 
 /**
  * Same pddlStripsMakerAddAtom() but adds fuction
@@ -89,6 +99,11 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
                                                     int action_id2,
                                                     const pddl_obj_id_t *args,
                                                     int *is_new);
+
+/**
+ * TODO
+ */
+int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl);
 
 /**
  * TODO
