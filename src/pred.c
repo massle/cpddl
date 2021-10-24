@@ -32,6 +32,14 @@ typedef struct _set_t set_t;
 
 static const char *eq_name = "=";
 
+void pddlPredFree(pddl_pred_t *pred)
+{
+    if (pred->param != NULL)
+        BOR_FREE(pred->param);
+    if (pred->name != NULL)
+        BOR_FREE(pred->name);
+}
+
 static int setCB(const pddl_lisp_node_t *root,
                  int child_from, int child_to, int child_type, void *ud,
                  bor_err_t *err)
@@ -268,12 +276,8 @@ int pddlFuncsParse(pddl_t *pddl, bor_err_t *err)
 
 void pddlPredsFree(pddl_preds_t *ps)
 {
-    for (int i = 0; i < ps->pred_size; ++i){
-        if (ps->pred[i].param != NULL)
-            BOR_FREE(ps->pred[i].param);
-        if (ps->pred[i].name != NULL)
-            BOR_FREE(ps->pred[i].name);
-    }
+    for (int i = 0; i < ps->pred_size; ++i)
+        pddlPredFree(ps->pred + i);
     if (ps->pred != NULL)
         BOR_FREE(ps->pred);
 }
@@ -338,6 +342,36 @@ void pddlPredsRemoveLast(pddl_preds_t *ps)
         BOR_FREE(p->param);
     if (p->name != NULL)
         BOR_FREE(p->name);
+}
+
+void pddlPredsRemapTypes(pddl_preds_t *ps,
+                         const int *type_remap,
+                         int *pred_remap)
+{
+    int ins = 0;
+    for (int p = 0; p < ps->pred_size; ++p){
+        pddl_pred_t *pred = ps->pred + p;
+        int fail = 0;
+        for (int parami = 0; parami < pred->param_size; ++parami){
+            if (type_remap[pred->param[parami]] == -1){
+                fail = 1;
+                break;
+            }else{
+                pred->param[parami] = type_remap[pred->param[parami]];
+            }
+        }
+        if (fail){
+            pred_remap[p] = -1;
+            pddlPredFree(pred);
+        }else{
+            ps->pred[ins] = *pred;
+            ps->pred[ins].id = ins;
+            if (ps->pred[ins].neg_of >= 0)
+                ps->pred[ins].neg_of = pred_remap[ps->pred[ins].neg_of];
+            pred_remap[p] = ins++;
+        }
+    }
+    ps->pred_size = ins;
 }
 
 void pddlPredsPrint(const pddl_preds_t *ps,

@@ -48,7 +48,7 @@ static int _removeAffectedNegativeAtoms(pddl_cond_t **c, void *_data)
     }else if ((*c)->type == PDDL_COND_WHEN){
         pddl_cond_when_t *w = PDDL_COND_CAST(*c, when);
         if (w->pre == NULL)
-            w->pre = pddlCondNewBool(1);
+            w->pre = &pddlCondNewBool(1)->cls;
         if (w->eff == NULL){
             pddlCondDel(*c);
             *c = NULL;
@@ -69,7 +69,7 @@ static void fixAction(pddl_t *pddl,
     pddlCondRebuild(&action->pre, NULL, _removeAffectedNegativeAtoms, &data);
     pddlCondRebuild(&action->eff, NULL, _removeAffectedNegativeAtoms, &data);
     if (action->pre == NULL)
-        action->pre = pddlCondNewBool(1);
+        action->pre = &pddlCondNewBool(1)->cls;
 }
 
 static void fixActions(pddl_t *pddl,

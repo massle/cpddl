@@ -328,7 +328,7 @@ void printMGroup(const pddl_t *pddl,
         used += snprintf(line + used, MAX_LINE_SIZE - used, ":S");
 
     if (fout != NULL)
-        fprintf(fout, "%s\n", line);
+        fprintf(fout, "%s", line);
     if (err != NULL)
         BOR_INFO(err, "%s", line);
 }
@@ -338,6 +338,7 @@ void pddlLiftedMGroupPrint(const pddl_t *pddl,
                            FILE *fout)
 {
     printMGroup(pddl, mgroup, fout, NULL);
+    fprintf(fout, "\n");
 }
 
 void pddlLiftedMGroupLog(const pddl_t *pddl,
@@ -345,6 +346,24 @@ void pddlLiftedMGroupLog(const pddl_t *pddl,
                          bor_err_t *err)
 {
     printMGroup(pddl, mgroup, NULL, err);
+}
+
+const char *pddlLiftedMGroupFmt(const pddl_t *pddl,
+                                const pddl_lifted_mgroup_t *mgroup,
+                                char *s,
+                                size_t s_size)
+{
+    FILE *fout = fmemopen(s, s_size - 1, "w");
+    printMGroup(pddl, mgroup, fout, NULL);
+    fflush(fout);
+    if (ferror(fout) != 0 && s_size >= 4){
+        s[s_size - 4] = '.';
+        s[s_size - 3] = '.';
+        s[s_size - 2] = '.';
+    }
+    fclose(fout);
+    s[s_size - 1] = 0x0;
+    return s;
 }
 
 

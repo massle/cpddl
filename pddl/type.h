@@ -163,6 +163,19 @@ int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
 void pddlTypesRemapObjs(pddl_types_t *ts, const pddl_obj_id_t *remap);
 
 /**
+ * Returns a type ID that is complement of t with respect to p, or -1 if
+ * there is no such type.
+ * That is, x is complement of t with respect to p if p is a parent of t
+ * and D(x) = D(p) \setminus D(t).
+ */
+int pddlTypesComplement(const pddl_types_t *ts, int t, int p);
+
+/**
+ * Remove empty types, but always keep the top type "object"
+ */
+void pddlTypesRemoveEmpty(pddl_types_t *ts, int obj_size, int *type_remap);
+
+/**
  * Print requirements in PDDL format.
  */
 void pddlTypesPrintPDDL(const pddl_types_t *ts, FILE *fout);

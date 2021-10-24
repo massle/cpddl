@@ -25,7 +25,6 @@
 #include <pddl/common.h>
 #include <pddl/lisp.h>
 #include <pddl/require.h>
-#include <pddl/type.h>
 #include <pddl/param.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
@@ -147,10 +146,45 @@ struct pddl_cond_imply {
 typedef struct pddl_cond_imply pddl_cond_imply_t;
 
 
+_bor_inline pddl_cond_part_t *pddlCondToAnd(pddl_cond_t *c)
+{
+    return PDDL_COND_CAST(c, part);
+}
+
+_bor_inline pddl_cond_part_t *pddlCondToOr(pddl_cond_t *c)
+{
+    return PDDL_COND_CAST(c, part);
+}
+
+_bor_inline pddl_cond_bool_t *pddlCondToBool(pddl_cond_t *c)
+{
+    return PDDL_COND_CAST(c, bool);
+}
+
+_bor_inline pddl_cond_atom_t *pddlCondToAtom(pddl_cond_t *c)
+{
+    return PDDL_COND_CAST(c, atom);
+}
+
 /**
  * Free memory.
  */
 void pddlCondDel(pddl_cond_t *cond);
+
+/**
+ * Returns true if c is FALSE constant
+ */
+int pddlCondIsFalse(const pddl_cond_t *c);
+
+/**
+ * Returns true if c is TRUE constant
+ */
+int pddlCondIsTrue(const pddl_cond_t *c);
+
+/**
+ * Returns true if c is an atom
+ */
+int pddlCondIsAtom(const pddl_cond_t *c);
 
 /**
  * Creates an exact copy of the condition.
@@ -211,6 +245,7 @@ pddl_cond_t *pddlCondNewAnd2(pddl_cond_t *a, pddl_cond_t *b);
  * Creates a new empty (and ) node.
  */
 pddl_cond_t *pddlCondNewEmptyAnd(void);
+pddl_cond_t *pddlCondNewEmptyOr(void);
 
 /**
  * Creates a new empty atom with the specified number of arguments all set
@@ -219,9 +254,9 @@ pddl_cond_t *pddlCondNewEmptyAnd(void);
 pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args);
 
 /**
- * Creates a new boolean value;
+ * Creates false/true constants.
  */
-pddl_cond_t *pddlCondNewBool(int value);
+pddl_cond_bool_t *pddlCondNewBool(int is_true);
 
 /**
  * Returns true if the conditional contains any atom.
@@ -265,6 +300,11 @@ void pddlCondPartAdd(pddl_cond_part_t *part, pddl_cond_t *c);
 void pddlCondPartRm(pddl_cond_part_t *part, pddl_cond_t *c);
 
 /**
+ * Returns true if the and/or is empty
+ */
+int pddlCondPartIsEmpty(const pddl_cond_part_t *part);
+
+/**
  * Returns 0 if cond is a correct precondition, -1 otherwise.
  */
 int pddlCondCheckPre(const pddl_cond_t *cond, int require, bor_err_t *err);
@@ -300,21 +340,19 @@ pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl);
 
 /**
  * If conflicting literals are found
- *   1) in the and node, then the and node is replaced by false
- *   2) in the or node, the literals are removed (as if they were replaced
- *      by true are simplified).
- */
-pddl_cond_t *pddlCondDeconflictPre(pddl_cond_t *cond, const pddl_t *pddl,
-                                   const pddl_params_t *params);
-
-/**
- * If conflicting literals are found
  *   1) in the and node, then the positive literal is kept (following the
  *      rule "first delete then add".
  *   2) in the or node, the error is reported.
  */
 pddl_cond_t *pddlCondDeconflictEff(pddl_cond_t *cond, const pddl_t *pddl,
                                    const pddl_params_t *params);
+
+/**
+ * TODO
+ */
+pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
+                              const pddl_t *pddl,
+                              const pddl_params_t *params);
 
 /**
  * Returns true if the atom is a grounded fact.
@@ -348,15 +386,36 @@ void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap);
 
 pddl_cond_t *pddlCondRemoveInvalidAtoms(pddl_cond_t *c);
 
+/**
+ * Remap predicates
+ */
+int pddlCondRemapPreds(pddl_cond_t *c,
+                       const int *pred_remap,
+                       const int *func_remap);
+
+
 void pddlCondPrint(const pddl_t *pddl,
                    const pddl_cond_t *cond,
                    const pddl_params_t *params,
                    FILE *fout);
 
+
+const char *pddlCondFmt(const pddl_cond_t *cond,
+                        const pddl_t *pddl,
+                        const pddl_params_t *params,
+                        char *s,
+                        size_t s_size);
+
 void pddlCondPrintPDDL(const pddl_cond_t *cond,
                        const pddl_t *pddl,
                        const pddl_params_t *params,
                        FILE *fout);
+
+const char *pddlCondPDDLFmt(const pddl_cond_t *cond,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            char *s,
+                            size_t s_size);
 
 
 

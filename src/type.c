@@ -419,6 +419,57 @@ void pddlTypesRemapObjs(pddl_types_t *ts,
         pddlTypesBuildObjTypeMap(ts, num_objs);
 }
 
+int pddlTypesComplement(const pddl_types_t *ts, int t, int p)
+{
+    int t_size = pddlTypeNumObjs(ts, t);
+    int p_size = pddlTypeNumObjs(ts, p);
+
+    for (int c = 0; c < ts->type_size; ++c){
+        if (pddlTypesAreDisjunct(ts, t, c)
+                && pddlTypesIsSubset(ts, c, p)
+                && pddlTypeNumObjs(ts, c) == p_size - t_size)
+            return c;
+    }
+    return -1;
+}
+
+void pddlTypesRemoveEmpty(pddl_types_t *ts, int obj_size, int *type_remap)
+{
+    BOR_ISET(rm);
+    int type_size = 1;
+    type_remap[0] = 0;
+    for (int t = 1; t < ts->type_size; ++t){
+        if (pddlTypeNumObjs(ts, t) == 0){
+            type_remap[t] = -1;
+            borISetAdd(&rm, t);
+        }else{
+            type_remap[t] = type_size++;
+        }
+    }
+    if (type_size == ts->type_size)
+        return;
+
+    for (int t = 0; t < ts->type_size; ++t){
+        pddl_type_t *type = ts->type + t;
+        if (type_remap[t] >= 0){
+            if (type->parent >= 0)
+                type->parent = type_remap[type->parent];
+            borISetMinus(&type->child, &rm);
+            borISetRemap(&type->child, type_remap);
+            borISetMinus(&type->either, &rm);
+            borISetRemap(&type->either, type_remap);
+            ts->type[type_remap[t]] = *type;
+        }else{
+            pddlTypeFree(type);
+        }
+    }
+    borISetFree(&rm);
+    ts->type_size = type_size;
+
+    if (ts->obj_type_map != NULL)
+        pddlTypesBuildObjTypeMap(ts, obj_size);
+}
+
 void pddlTypesPrintPDDL(const pddl_types_t *ts, FILE *fout)
 {
     int q[ts->type_size];

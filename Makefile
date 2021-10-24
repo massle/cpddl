@@ -28,6 +28,7 @@ OBJS += fact
 OBJS += action
 OBJS += prep_action
 OBJS += pddl
+OBJS += compile_in_lifted_mgroup
 OBJS += cond
 OBJS += cond_arr
 OBJS += strips
