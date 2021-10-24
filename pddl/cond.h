@@ -116,7 +116,7 @@ typedef struct pddl_cond_atom pddl_cond_atom_t;
 
 
 /**
- * Assign
+ * Assign/Increase
  * TODO: For now only (increase (total-cost) (...)) is supported
  */
 struct pddl_cond_func_op {

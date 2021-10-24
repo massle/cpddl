@@ -3030,7 +3030,7 @@ static int condRemapObjs(pddl_cond_t *c, void *_remap)
         pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
         condAtomRemapObjs(a, remap);
 
-    }else if (c->type == PDDL_COND_ASSIGN){
+    }else if (c->type == PDDL_COND_ASSIGN || c->type == PDDL_COND_INCREASE){
         pddl_cond_func_op_t *a = PDDL_COND_CAST(c, func_op);
         if (a->lvalue != NULL)
             condAtomRemapObjs(a->lvalue, remap);
