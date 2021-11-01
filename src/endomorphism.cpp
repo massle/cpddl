@@ -2507,6 +2507,10 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
         return -1;
 
     }else if (pid == 0){
+        *shared_ret = -1;
+        for (int i = 0; i < pddl->obj.obj_size; ++i)
+            shared_map[i] = i;
+
         BOR_ISET(red);
         int ret = relaxedLifted(pddl, cfg, &red, shared_map, err);
         borISetFree(&red);
