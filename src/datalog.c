@@ -120,16 +120,6 @@ struct pddl_datalog {
 #define IDX_TO_VAR(v) (((v)<<MASK_LEN) | VAR_MASK)
 #define IS_VAR(v) (((v) & MASK) == VAR_MASK)
 
-#define CHECK_SQL_ERR(db, code) \
-    do { \
-    if ((code) != SQLITE_OK){ \
-        BOR_FATAL("Sqlite Error: %s: %s\n", \
-                  sqlite3_errstr(code), sqlite3_errmsg(db)); \
-    } \
-    } while (0)
-
-#define QUERY_SIZE 4096
-
 static bor_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
 {
     size_t size = sizeof(int) + fact->arity * sizeof(int);

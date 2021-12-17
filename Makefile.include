@@ -117,10 +117,12 @@ _BOR_MAKE_DEF := $(foreach V,$(_BOR_MAKE_VARS),$(V:BOR_%=%)="$($(V))") DEBUG=no
 BLISS_VERSION = 0.73
 BLISS_CFLAGS ?=
 BLISS_LDFLAGS ?=
+USE_BLISS = auto
 USE_LOCAL_BLISS ?= $(shell if test -f $(BASEPATH_)/third-party/bliss/libbliss.a; then echo "yes"; else echo "no"; fi;)
 ifeq '$(USE_LOCAL_BLISS)' 'yes'
   BLISS_CFLAGS := -I$(BASEPATH_)/third-party
   BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss -lstdc++
+  USE_BLISS := yes
 endif
 
 
@@ -211,6 +213,7 @@ help:
 	@echo "    USE_LOCAL_BORUVKA = $(USE_LOCAL_BORUVKA)"
 	@echo "    BORUVKA_CFLAGS    = $(BORUVKA_CFLAGS)"
 	@echo "    BORUVKA_LDFLAGS   = $(BORUVKA_LDFLAGS)"
+	@echo "    USE_BLISS         = $(USE_BLISS)"
 	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
 	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
 	@echo "    USE_CLIQUER       = $(USE_CLIQUER)"

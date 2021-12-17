@@ -17,6 +17,9 @@
  * See the License for more information.
  */
 
+#include "pddl/config.h"
+#ifdef PDDL_SQLITE
+
 #include <sqlite3.h>
 #include <boruvka/alloc.h>
 #include <boruvka/htable.h>
@@ -800,3 +803,15 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }
+
+#else /* PDDL_SQLITE */
+#include "pddl/strips_ground_sql.h"
+#define ERROR BOR_FATAL2("strips_ground_sql module requires sqlite")
+int pddlStripsGroundSql(pddl_strips_t *strips,
+                        const pddl_t *pddl,
+                        const pddl_ground_config_t *cfg,
+                        bor_err_t *err)
+{
+    ERROR;
+}
+#endif /* PDDL_SQLITE */
