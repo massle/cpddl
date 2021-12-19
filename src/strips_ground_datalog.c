@@ -17,7 +17,6 @@
  * See the License for more information.
  */
 
-#include <sqlite3.h>
 #include <boruvka/alloc.h>
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>

@@ -17,6 +17,9 @@
  * See the License for more information.
  */
 
+#include "pddl/config.h"
+#ifdef PDDL_CUDD
+
 #include <sys/resource.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,7 +28,6 @@
 #include "pddl/bdd.h"
 #include "assert.h"
 
-#ifdef PDDL_CUDD
 
 #define M(P) ((DdManager *)(P))
 #define PM(P) ((pddl_bdd_manager_t *)(P))
@@ -272,7 +274,10 @@ pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
 
 #else /* PDDL_CUDD */
 
-#define ERROR BOR_FATAL2("Requires CUDD library")
+#include <boruvka/err.h>
+#include "pddl/bdd.h"
+
+#define ERROR BOR_FATAL2("bdd module requires CUDD library")
 
 pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,
                                       unsigned int cache_size)
