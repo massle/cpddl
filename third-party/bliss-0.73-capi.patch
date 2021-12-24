@@ -1,0 +1,77 @@
+diff --git a/bliss_C.cc b/bliss_C.cc
+index 3f665dd..6060e9a 100644
+--- a/bliss_C.cc
++++ b/bliss_C.cc
+@@ -26,7 +26,7 @@ extern "C" {
+ */
+ 
+ struct bliss_graph_struct {
+-  bliss::Graph* g;
++  bliss::AbstractGraph* g;
+ };
+ 
+ extern "C"
+@@ -39,6 +39,16 @@ BlissGraph *bliss_new(const unsigned int n)
+   return graph;
+ }
+ 
++extern "C"
++BlissGraph *bliss_new_digraph(const unsigned int n)
++{
++  BlissGraph *graph = new bliss_graph_struct;
++  assert(graph);
++  graph->g = new bliss::Digraph(n);
++  assert(graph->g);
++  return graph;
++}
++
+ extern "C"
+ BlissGraph *bliss_read_dimacs(FILE *fp)
+ {
+@@ -100,16 +110,6 @@ void bliss_add_edge(BlissGraph *graph, unsigned int v1, unsigned int v2)
+   graph->g->add_edge(v1, v2);
+ }
+ 
+-extern "C"
+-int bliss_cmp(BlissGraph *graph1, BlissGraph *graph2)
+-{
+-  assert(graph1);
+-  assert(graph1->g);
+-  assert(graph2);
+-  assert(graph2->g);
+-  return (*graph1->g).cmp(*graph2->g);
+-}
+-
+ extern "C"
+ unsigned int bliss_hash(BlissGraph *graph)
+ {
+diff --git a/bliss_C.h b/bliss_C.h
+index 6066d98..0955aa5 100644
+--- a/bliss_C.h
++++ b/bliss_C.h
+@@ -72,6 +72,7 @@ typedef struct bliss_stats_struct
+  * to add new vertices on-the-fly.
+  */
+ BlissGraph *bliss_new(const unsigned int N);
++BlissGraph *bliss_new_digraph(const unsigned int N);
+ 
+ 
+ /**
+@@ -133,17 +134,6 @@ unsigned int bliss_add_vertex(BlissGraph *graph, unsigned int c);
+ void bliss_add_edge(BlissGraph *graph, unsigned int v1, unsigned int v2);
+ 
+ 
+-/**
+- * Compare two graphs according to a total order.
+- * Return -1, 0, or 1 if the first graph was smaller than, equal to,
+- * or greater than, resp., the other graph.
+- * If 0 is returned, then the graphs have the same number vertices,
+- * the vertices in them are colored in the same way, and they contain
+- * the same edges; that is, the graphs are equal.
+- */
+-int bliss_cmp(BlissGraph *graph1, BlissGraph *graph2);
+-
+-
+ /**
+  * Get a hash value for the graph.
+  */
