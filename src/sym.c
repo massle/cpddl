@@ -63,15 +63,15 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
 static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
 {
     BlissGraph *pdg;
-    int color_init = 1;
-    int color_goal = 2;
-    int color_op = 4;
+    int color_init = 2;
+    int color_goal = 4;
+    int color_op = 8;
 
-    pdg = bliss_new(0);
+    pdg = bliss_new_digraph(0);
     for (int i = 0; i < strips->fact.fact_size; ++i)
         bliss_add_vertex(pdg, 0); // fact vertex
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
-        int color = 0;
+        int color = 1;
         if (borISetIn(fact_id, &strips->init))
             color |= color_init;
         if (borISetIn(fact_id, &strips->goal))
