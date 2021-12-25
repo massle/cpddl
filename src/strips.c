@@ -62,25 +62,38 @@ void pddlStripsInit(pddl_strips_t *strips)
 
 void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
 {
-    // Remove all operators, empty the initial state and make sure that the
-    // goal is non-empty.
+    pddlStripsFree(strips);
+    pddlStripsInit(strips);
 
-    pddlStripsOpsFree(&strips->op);
-    pddlStripsOpsInit(&strips->op);
-    borISetEmpty(&strips->init);
-    if (strips->fact.fact_size == 0){
-        // TODO
-        BOR_FATAL2("STRIPS problem does not contain any fact."
-                   " Making unsolvable problem for this case is not yet"
-                   " implemented.");
-    }
-    borISetEmpty(&strips->goal);
-    borISetAdd(&strips->goal, 0);
+    int f_init, f_goal, f_aux;
+    pddl_fact_t fact;
+    pddlFactInit(&fact);
+    fact.name = BOR_STRDUP("I");
+    f_init = pddlFactsAdd(&strips->fact, &fact);
+    pddlFactFree(&fact);
 
-    ASSERT_RUNTIME(strips->fact.fact_size > 0);
-    for (int i = strips->fact.fact_size - 1; i >= 1; --i)
-        pddlFactsDelFact(&strips->fact, i);
-    strips->fact.fact_size = 1;
+    pddlFactInit(&fact);
+    fact.name = BOR_STRDUP("G");
+    f_goal = pddlFactsAdd(&strips->fact, &fact);
+    pddlFactFree(&fact);
+
+    pddlFactInit(&fact);
+    fact.name = BOR_STRDUP("P");
+    f_aux = pddlFactsAdd(&strips->fact, &fact);
+    pddlFactFree(&fact);
+
+    borISetAdd(&strips->init, f_init);
+    borISetAdd(&strips->goal, f_goal);
+
+    pddl_strips_op_t op;
+    pddlStripsOpInit(&op);
+    borISetAdd(&op.pre, f_aux);
+    borISetAdd(&op.add_eff, f_goal);
+    pddlStripsOpFinalize(&op, BOR_STRDUP("unreachable-op"));
+    pddlStripsOpsAdd(&strips->op, &op);
+    pddlStripsOpFree(&op);
+
+    strips->goal_is_unreachable = 1;
 }
 
 void pddlStripsFree(pddl_strips_t *strips)
