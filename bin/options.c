@@ -180,6 +180,8 @@ int setOptions(int argc, char *argv[], bor_err_t *err)
     optsAddFlag("force-adl", 0x0, &opt.pddl.force_adl, 1,
                 "Force :adl requirement if it is not specified in the"
                 " domain file.");
+    optsAddFlag("remove-empty-types", 0x0, &opt.pddl.remove_empty_types, 1,
+                "Remove empty types");
     optsAddFlag("pddl-ce", 0x0, &opt.pddl.compile_away_cond_eff, 0,
                 "Compile away conditional effects on the PDDL level.");
 

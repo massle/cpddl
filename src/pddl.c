@@ -28,6 +28,7 @@ void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err)
 {
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, force_adl, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, normalize, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, remove_empty_types, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, compile_away_cond_eff, err);
 }
 

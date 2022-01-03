@@ -11,6 +11,7 @@ struct options {
 
     struct {
         int force_adl;
+        int remove_empty_types;
         int compile_away_cond_eff;
     } pddl;
 
