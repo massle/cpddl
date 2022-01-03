@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#define DEBUG_PRINT_OP_MAPPING
+//#define DEBUG_PRINT_OP_MAPPING
 
 #include "pddl/config.h"
 #include "pddl/endomorphism.h"
@@ -230,6 +230,7 @@ static void opGroupsFree(op_groups_t *opg)
 static int extractSolution(IloCP &cp,
                            IloIntVarArray &var_op,
                            bor_iset_t *redundant_op,
+                           int *map,
                            bor_err_t *err)
 {
     std::vector<char> mapped_to(var_op.getSize(), 0);
@@ -240,10 +241,17 @@ static int extractSolution(IloCP &cp,
 
     for (int i = 0; i < var_op.getSize(); ++i){
         if (!mapped_to[i]){
+            if (map != NULL)
+                map[i] = cp.getValue(var_op[i]);
+
             borISetAdd(&redundant, i);
 #ifdef DEBUG_PRINT_OP_MAPPING
             BOR_INFO(err, "    :: op %d -> %d", i, cp.getValue(var_op[i]));
 #endif /* DEBUG_PRINT_OP_MAPPING */
+
+        }else if (map != NULL){
+            // Set identity everywhere else to get rid of symmetries
+            map[i] = i;
         }
     }
     int num_redundant = borISetSize(&redundant);
@@ -262,6 +270,7 @@ static int solve(IloModel &model,
                  const pddl_endomorphism_config_t *cfg,
                  float max_search_time,
                  bor_iset_t *redundant_op,
+                 int *map,
                  const char *name,
                  bor_err_t *err)
 {
@@ -281,7 +290,7 @@ static int solve(IloModel &model,
     int num = -1;
     int max_num = -1;
     while (cp.next()){
-        num = extractSolution(cp, var_op, redundant_op, err);
+        num = extractSolution(cp, var_op, redundant_op, map, err);
         max_num = BOR_MAX(max_num, num);
         BOR_INFO(err, "  Found a solution with %d redundant %s", num, name);
     }
@@ -496,7 +505,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops,
+    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
 }
@@ -891,7 +900,7 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops,
+    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
 }
@@ -1388,7 +1397,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops,
+    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
 }
@@ -1584,9 +1593,11 @@ static void setAtomTypeFixed(lifted_endomorphism_t *end,
     if (atom->arg[parami].param >= 0){
         int param = atom->arg[parami].param;
         int type_id = params->param[param].type;
-        const pddl_type_t *type = pddl->type.type + type_id;
-        for (int i = 0; i < type->obj.obj_size; ++i)
-            end->obj_is_fixed[type->obj.obj[i]] = 1;
+        int objs_size;
+        const pddl_obj_id_t *objs;
+        objs = pddlTypesObjsByType(&pddl->type, type_id, &objs_size);
+        for (int i = 0; i < objs_size; ++i)
+            end->obj_is_fixed[objs[i]] = 1;
 
     }else{
         end->obj_is_fixed[atom->arg[parami].obj] = 1;
@@ -1882,12 +1893,14 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
     pddlCondTraverse((pddl_cond_t *)pddl->goal, NULL,
                      _liftedEndomorphismFixGoal, end);
 
-    for (int ai = 0; ai < pddl->action.action_size; ++ai){
-        const pddl_action_t *action = pddl->action.action + ai;
-        BOR_INFO(err, "Analyzing action (%s) ...", action->name);
-        liftedEndomorphismAnalyzeAction(end, pddl, &action->param,
-                                        action->pre, action->eff,
-                                        lifted_mgroups, cfg, err);
+    if (lifted_mgroups != NULL){
+        for (int ai = 0; ai < pddl->action.action_size; ++ai){
+            const pddl_action_t *action = pddl->action.action + ai;
+            BOR_INFO(err, "Analyzing action (%s) ...", action->name);
+            liftedEndomorphismAnalyzeAction(end, pddl, &action->param,
+                                            action->pre, action->eff,
+                                            lifted_mgroups, cfg, err);
+        }
     }
 
 #ifdef PDDL_DEBUG
@@ -2064,17 +2077,17 @@ static void liftedAddDomains(IloEnv &env,
 
     // And then with unfixed ones
     for (int type = 0; type < pddl->type.type_size; ++type){
-        int num_objs = pddl->type.type[type].obj.obj_size;
+        int num_objs = pddlTypeNumObjs(&pddl->type, type);
         IloIntTupleSet obj_values(env, 1);
         for (int i = 0; i < num_objs; ++i){
-            int obj = pddl->type.type[type].obj.obj[i];
+            int obj = pddlTypeGetObj(&pddl->type, type, i);
             IloIntArray vals(env, 1);
             vals[0] = obj;
             obj_values.add(vals);
         }
 
         for (int i = 0; i < num_objs; ++i){
-            int obj = pddl->type.type[type].obj.obj[i];
+            int obj = pddlTypeGetObj(&pddl->type, type, i);
             if (!end->obj_is_fixed[obj]){
                 IloIntVarArray vars(env, 1);
                 vars[0] = csp_var[obj];
@@ -2181,6 +2194,7 @@ static int liftedSolve(const pddl_t *pddl,
                        const pddl_endomorphism_config_t *cfg,
                        float max_search_time,
                        bor_iset_t *redundant_objs,
+                       int *map,
                        bor_err_t *err)
 {
     int ret = 0;
@@ -2209,7 +2223,7 @@ static int liftedSolve(const pddl_t *pddl,
 
     //float max_search_time = pddlTimeLimitRemain(time_limit);
     //max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
-    solve(model, csp_vars, cfg, max_search_time, redundant_objs,
+    solve(model, csp_vars, cfg, max_search_time, redundant_objs, map,
           "objects", err);
 
     env.end();
@@ -2353,6 +2367,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            bor_iset_t *redundant_objects,
+                           pddl_obj_id_t *omap,
                            bor_err_t *err)
 {
     if (!pddl->normalized)
@@ -2364,6 +2379,9 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
     if (cfg->ignore_costs)
         BOR_INFO2(err, "Ignoring operator costs");
+
+    for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
+        omap[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
         BOR_INFO2(err, "Non-strict type partitioning"
@@ -2407,7 +2425,15 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
         lifted_endomorphism_t end;
         liftedEndomorphismInit(&end, pddl, &select.lifted_mgroups, cfg, err);
         if (liftedEndomorphismNumUnfixed(&end) > 1){
-            liftedSolve(pddl, &end, cfg, 1800., redundant_objects, err);
+            int *map = NULL;
+            if (omap != NULL)
+                map = BOR_ALLOC_ARR(int, pddl->obj.obj_size);
+            liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
+            if (map != NULL){
+                for (int i = 0; i < pddl->obj.obj_size; ++i)
+                    omap[i] = map[i];
+                BOR_FREE(map);
+            }
         }else{
             BOR_INFO2(err, "Not enough unfixed objects to try to find"
                            " endomorphisms");
@@ -2418,6 +2444,131 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     pddlLiftedMGroupsFree(&lifted_mgroups);
     BOR_INFO_PREFIX_POP(err);
     return 0;
+}
+
+static int relaxedLifted(const pddl_t *pddl,
+                         const pddl_endomorphism_config_t *cfg,
+                         bor_iset_t *redundant_objects,
+                         pddl_obj_id_t *omap,
+                         bor_err_t *err)
+{
+    lifted_endomorphism_t end;
+    liftedEndomorphismInit(&end, pddl, NULL, cfg, err);
+    if (liftedEndomorphismNumUnfixed(&end) > 1){
+        int *map = NULL;
+        if (omap != NULL)
+            map = BOR_ALLOC_ARR(int, pddl->obj.obj_size);
+        liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
+        if (map != NULL){
+            for (int i = 0; i < pddl->obj.obj_size; ++i)
+                omap[i] = map[i];
+            BOR_FREE(map);
+        }
+    }else{
+        BOR_INFO2(err, "Not enough unfixed objects to try to find"
+                       " endomorphisms");
+    }
+    liftedEndomorphismFree(&end);
+    return 0;
+}
+
+static int relaxedLiftedInSubprocess(const pddl_t *pddl,
+                                     const pddl_endomorphism_config_t *cfg,
+                                     bor_iset_t *redundant_objects,
+                                     pddl_obj_id_t *omap,
+                                     bor_err_t *err)
+{
+    BOR_INFO2(err, "Lifted Relaxed Endomorphism in a subprocess ...");
+    fflush(stdout);
+    fflush(stderr);
+    fflush(err->warn_out);
+    fflush(err->info_out);
+
+    int obj_size = pddl->obj.obj_size;
+    size_t shared_size = sizeof(int) + (sizeof(pddl_obj_id_t) * obj_size);
+    void *shared = mmap(NULL, shared_size, PROT_WRITE | PROT_READ,
+                        MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared == MAP_FAILED){
+        //perror("mmap() failed");
+        BOR_INFO(err, "Could not allocate shared memory of size %ld using"
+                      " mmap: %s",
+                 (long)shared_size, strerror(errno));
+        return -1;
+    }
+    bzero(shared, shared_size);
+    int *shared_ret = (int *)shared;
+    pddl_obj_id_t *shared_map = (pddl_obj_id_t *)(shared_ret + 1);
+    *shared_ret = -1;
+    BOR_INFO(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
+
+    int pid = fork();
+    if (pid == -1){
+        perror("fork() failed");
+        return -1;
+
+    }else if (pid == 0){
+        *shared_ret = -1;
+        for (int i = 0; i < pddl->obj.obj_size; ++i)
+            shared_map[i] = i;
+
+        BOR_ISET(red);
+        int ret = relaxedLifted(pddl, cfg, &red, shared_map, err);
+        borISetFree(&red);
+        *shared_ret = ret;
+        exit(ret);
+
+    }else{
+        waitpid(pid, NULL, 0);
+        int ret = *shared_ret;
+        if (ret == 0){
+            if (omap != NULL)
+                memcpy(omap, shared_map, sizeof(pddl_obj_id_t) * obj_size);
+
+            for (int i = 0; i < pddl->obj.obj_size; ++i){
+                if (shared_map[i] != i)
+                    borISetAdd(redundant_objects, i);
+            }
+        }
+        munmap(shared, shared_size);
+        BOR_INFO(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
+                      " redundant ops: %d",
+                 ret, borISetSize(redundant_objects));
+        BOR_INFO2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
+        return ret;
+    }
+}
+
+int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
+                                  const pddl_endomorphism_config_t *cfg,
+                                  bor_iset_t *redundant_objects,
+                                  pddl_obj_id_t *omap,
+                                  bor_err_t *err)
+{
+    if (!pddl->normalized)
+        BOR_ERR_RET2(err, -1, "PDDL needs to be normalized!");
+
+    BOR_INFO_PREFIX_PUSH(err, "Relaxed lifted endomorphism: ");
+    if (cfg->ignore_costs)
+        BOR_INFO2(err, "Ignoring operator costs");
+
+    for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
+        omap[i] = i;
+
+    if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
+        BOR_INFO2(err, "Non-strict type partitioning"
+                       " -- abstaining from the inference");
+        BOR_INFO_PREFIX_POP(err);
+        return 0;
+    }
+
+    int ret = 0;
+    if (cfg->run_in_subprocess){
+        ret = relaxedLiftedInSubprocess(pddl, cfg, redundant_objects, omap, err);
+    }else{
+        ret = relaxedLifted(pddl, cfg, redundant_objects, omap, err);
+    }
+    BOR_INFO_PREFIX_POP(err);
+    return ret;
 }
 
 #else /* PDDL_CPOPTIMIZER */
@@ -2452,7 +2603,18 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            bor_iset_t *redundant_objects,
+                           pddl_obj_id_t *map,
                            bor_err_t *err)
+{
+    BOR_FATAL2("Missing CPOPTIMIZER");
+    return -1;
+}
+
+int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
+                                  const pddl_endomorphism_config_t *cfg,
+                                  bor_iset_t *redundant_objects,
+                                  pddl_obj_id_t *map,
+                                  bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
     return -1;

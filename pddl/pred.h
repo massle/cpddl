@@ -96,6 +96,13 @@ pddl_pred_t *pddlPredsAddCopy(pddl_preds_t *ps, int src_id);
  */
 void pddlPredsRemoveLast(pddl_preds_t *ps);
 
+/**
+ * Remap type IDs and remove predicates with removed types.
+ */
+void pddlPredsRemapTypes(pddl_preds_t *ps,
+                         const int *type_remap,
+                         int *pred_remap);
+
 void pddlPredsPrint(const pddl_preds_t *ps,
                     const char *title, FILE *fout);
 

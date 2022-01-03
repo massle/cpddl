@@ -80,6 +80,11 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name);
 void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap);
 
 /**
+ * Remap type IDs assuming all object types are preserved.
+ */
+void pddlObjsRemapTypes(pddl_objs_t *objs, const int *remap_type);
+
+/**
  * Print formated objects.
  */
 void pddlObjsPrint(const pddl_objs_t *objs, FILE *fout);

@@ -21,7 +21,14 @@
 #define __PDDL_FMT_H__
 
 #include "pddl/cost.h"
+#include "pddl/cond.h"
 
 #define F_COST(C) pddlCostFmt((C), ((char [22]){""}), 22)
+#define F_COND(C, PDDL, PARAMS) \
+    pddlCondFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)
+#define F_COND_PDDL(C, PDDL, PARAMS) \
+    pddlCondPDDLFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)
+#define F_LIFTED_MGROUP(PDDL, MG) \
+    pddlLiftedMGroupFmt((PDDL), (MG), ((char [2048]){""}), 2048)
 
 #endif /* __PDDL_FMT_H__ */

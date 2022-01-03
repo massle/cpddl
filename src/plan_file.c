@@ -152,6 +152,7 @@ static int parseStrips(struct parse *parse,
             borIArrAdd(&p->op, op_id);
             p->cost += op->cost;
             found = 1;
+            break;
         }
     }
 
@@ -215,4 +216,33 @@ void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p)
         borISetFree(&p->state[i]);
     if (p->state != NULL)
         BOR_FREE(p->state);
+}
+
+int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err)
+{
+    FILE *fin;
+
+    if ((fin = fopen(filename, "r")) == NULL)
+        BOR_ERR_RET(err, -1, "Could not open file '%s'", filename);
+
+    size_t len = 0;
+    char *line = NULL;
+    ssize_t nread;
+    while ((nread = getline(&line, &len, fin)) != -1){
+        if (line[0] != ';')
+            continue;
+        char *s = strstr(line, "Optimal cost:");
+        if (s == NULL)
+            s = strstr(line, "Optimal Cost:");
+
+        if (s != NULL){
+            s += 13;
+            int cost = atoi(s);
+            return cost;
+        }
+    }
+    if (line != NULL)
+        free(line);
+    fclose(fin);
+    return -1;
 }

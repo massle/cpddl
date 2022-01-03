@@ -67,6 +67,9 @@ int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
                            bor_err_t *err);
 void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p);
 
+
+int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -53,6 +53,7 @@ struct options {
     int fw;
     int bw;
     int fwbw;
+    int bw_off_if_constr_failed;
 
     int op_mutex_ts;
     int op_mutex_op_fact;
@@ -326,6 +327,10 @@ static int readOpts(int *argc, char *argv[])
                 "Backward symbolic search.");
     optsAddDesc("fwbw", 0x0, OPTS_NONE, &opt.fwbw, NULL,
                 "Forward/Backward symbolic search.");
+    optsAddDesc("bw-off-if-constr-failed", 0x0, OPTS_NONE,
+                &opt.bw_off_if_constr_failed, NULL,
+                "In case --fwbw is used, turn off bw if applying constraint"
+                " on the goal condition fails.");
 
     optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
                 OPTS_CB(setFDRVarLargest),
@@ -1635,6 +1640,7 @@ static int symba(void)
     // TODO: Print configuration
     if (!opt.fw && !opt.bw && !opt.fwbw){
         symb_cfg.goal_constr_max_time = 30.f;
+        opt.fwbw = 1;
     }
     if (opt.trans_merge_max_time > 0.){
         symb_cfg.fw.trans_merge_max_time = opt.trans_merge_max_time;
@@ -1659,7 +1665,9 @@ static int symba(void)
 
     BOR_IARR(plan);
     int res;
-    if (opt.fwbw && pddlSymbolicTaskGoalConstrFailed(task)){
+    if (opt.fwbw
+            && opt.bw_off_if_constr_failed
+            && pddlSymbolicTaskGoalConstrFailed(task)){
         BOR_INFO2(&err, "Switching to fw-only search.");
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
     }else{

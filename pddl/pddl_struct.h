@@ -28,6 +28,7 @@
 #include <pddl/pred.h>
 #include <pddl/fact.h>
 #include <pddl/action.h>
+#include <pddl/lifted_mgroup.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,6 +37,7 @@ extern "C" {
 struct pddl_config {
     int force_adl; /*!< Force ADL to requirements */
     int normalize; /*!< Normalize the task right after parsing */
+    int remove_empty_types; /*!< Remove types without any objects */
     int compile_away_cond_eff; /*!< Compile away conditional effects */
 };
 typedef struct pddl_config pddl_config_t;
@@ -44,6 +46,7 @@ typedef struct pddl_config pddl_config_t;
 #define PDDL_CONFIG_INIT \
     { 1, /* .force_adl */ \
       1, /* .normalize */ \
+      1, /* .remove_empty_types */ \
       0, /* .compile_away_cond_eff */ \
     }
 
@@ -125,6 +128,31 @@ void pddlAddObjectTypes(pddl_t *pddl);
  * Remove specified objects from the planning task.
  */
 void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
+
+/**
+ * Same as pddlRemoveObjs() except a remap array must be provided.
+ */
+void pddlRemoveObjsGetRemap(pddl_t *pddl,
+                            const bor_iset_t *rm_obj,
+                            pddl_obj_id_t *remap,
+                            bor_err_t *err);
+
+/**
+ * Remap object IDs.
+ */
+void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
+
+/**
+ * Remove empty types and all related predicates and actions from the task
+ */
+void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err);
+
+/**
+ * TODO
+ */
+void pddlCompileInLiftedMGroups(pddl_t *pddl,
+                                const pddl_lifted_mgroups_t *mgroups,
+                                bor_err_t *err);
 
 /**
  * Prints PDDL domain file.

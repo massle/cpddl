@@ -28,12 +28,14 @@ OBJS += fact
 OBJS += action
 OBJS += prep_action
 OBJS += pddl
+OBJS += compile_in_lifted_mgroup
 OBJS += cond
 OBJS += cond_arr
 OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
 OBJS += strips_maker
+OBJS += sql_grounder
 OBJS += strips_ground_tree
 OBJS += strips_ground
 OBJS += strips_ground_sql
@@ -65,6 +67,7 @@ OBJS += fdr
 OBJS += fdr_state_packer
 OBJS += fdr_state_pool
 OBJS += fdr_state_space
+OBJS += strips_state_space
 OBJS += sym
 OBJS += famgroup
 OBJS += pot
@@ -88,6 +91,7 @@ OBJS += open_list_splaytree1
 OBJS += open_list_splaytree2
 OBJS += search_astar
 OBJS += search_lazy
+OBJS += search_lifted
 OBJS += plan
 OBJS += relaxed_plan
 OBJS += heur
@@ -126,10 +130,17 @@ OBJS += black_mgroup
 OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
+OBJS += homomorphism
+OBJS += homomorphism_heur
+OBJS += prune_strips
+OBJS += objset
 
 OBJS_CPP = endomorphism
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
+
+GEN  = pddl/objset.h
+GEN += src/objset.c
 
 all: $(TARGETS)
 
@@ -160,13 +171,18 @@ pddl/config.h:
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
-.objs/%.o: src/%.c pddl/%.h pddl/config.h
+pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+
+.objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
-.objs/%.o: src/%.c pddl/config.h
+.objs/%.o: src/%.c pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
-.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h
+.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
-.objs/%.cpp.o: src/%.cpp pddl/config.h
+.objs/%.cpp.o: src/%.cpp pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
 %.h: pddl/config.h

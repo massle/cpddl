@@ -22,6 +22,7 @@
 
 #include <boruvka/iset.h>
 #include <pddl/common.h>
+#include <pddl/objset.h>
 #include <pddl/lisp.h>
 
 #ifdef __cplusplus
@@ -30,13 +31,6 @@ extern "C" {
 
 /** Forward declaration */
 struct pddl_objs;
-
-struct pddl_objset {
-    pddl_obj_id_t *obj;
-    int obj_size;
-    int obj_alloc;
-};
-typedef struct pddl_objset pddl_objset_t;
 
 struct pddl_type {
     char *name;        /*!< Name of the type */
@@ -149,6 +143,11 @@ int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
 int pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
 
 /**
+ * Returns true if {type} is a minimal type, i.e., it has no sub-types.
+ */
+int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
+
+/**
  * Returns true if:
  * 1. for every pair of types t1,t2 it holds that D(t1) \subseteq D(t2) or
  *    D(t2) \subseteq D(t1) or D(t1) \cap D(t2) = \emptyset; and
@@ -162,6 +161,19 @@ int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
  * Remap objects
  */
 void pddlTypesRemapObjs(pddl_types_t *ts, const pddl_obj_id_t *remap);
+
+/**
+ * Returns a type ID that is complement of t with respect to p, or -1 if
+ * there is no such type.
+ * That is, x is complement of t with respect to p if p is a parent of t
+ * and D(x) = D(p) \setminus D(t).
+ */
+int pddlTypesComplement(const pddl_types_t *ts, int t, int p);
+
+/**
+ * Remove empty types, but always keep the top type "object"
+ */
+void pddlTypesRemoveEmpty(pddl_types_t *ts, int obj_size, int *type_remap);
 
 /**
  * Print requirements in PDDL format.
