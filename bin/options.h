@@ -71,6 +71,11 @@ struct options {
     struct {
         int lmg;
     } report;
+
+    struct {
+        int enable;
+        char *plan_out;
+    } astar;
 };
 typedef struct options options_t;
 extern options_t opt;

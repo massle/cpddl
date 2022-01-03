@@ -18,6 +18,8 @@ pddl_fdr_t fdr;
 int fdr_set = 0;
 pddl_mgroups_t mgroup;
 pddl_mutex_pairs_t mutex;
+int astar_search_started = 0;
+int astar_terminate = 0;
 
 
 static FILE *openFile(const char *fn)
@@ -353,9 +355,89 @@ static int stepFDR(void)
     return 0;
 }
 
+static void printAStarStat(const pddl_search_astar_t *astar, bor_err_t *err)
+{
+    pddl_search_stat_t stat;
+    pddlSearchAStarStat(astar, &stat);
+    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+                  " gen: %lu, open: %lu, closed: %lu,"
+                  " reopen: %lu, de: %lu, f: %d",
+                  stat.steps,
+                  stat.expanded,
+                  stat.evaluated,
+                  stat.generated,
+                  stat.open,
+                  stat.closed,
+                  stat.reopen,
+                  stat.dead_end,
+                  stat.last_f_value);
+}
+
 static int stepAStar(void)
 {
+    if (!opt.astar.enable)
+        return 0;
+
+    BOR_INFO_PREFIX_PUSH(&err, "A*: ");
     // TODO
+    pddl_heur_t *heur = pddlHeurBlind();
+    pddl_search_astar_t *astar;
+    astar = pddlSearchAStar(&fdr, heur, &err);
+    int ret = pddlSearchAStarInitStep(astar);
+    astar_search_started = 1;
+
+    bor_timer_t info_timer;
+    borTimerStart(&info_timer);
+    for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
+        if (astar_terminate){
+            printAStarStat(astar, &err);
+            BOR_INFO2(&err, "Search aborted.");
+            pddlSearchAStarDel(astar);
+            pddlHeurDel(heur);
+            BOR_INFO_PREFIX_POP(&err);
+            return -1;
+        }
+
+        ret = pddlSearchAStarStep(astar);
+        // TODO: parametrize
+        if (step >= 100){
+            borTimerStop(&info_timer);
+            if (borTimerElapsedInSF(&info_timer) >= 1.){
+                printAStarStat(astar, &err);
+                borTimerStart(&info_timer);
+            }
+            step = 0;
+        }
+    }
+    printAStarStat(astar, &err);
+
+    if (ret == PDDL_SEARCH_UNSOLVABLE){
+        BOR_INFO2(&err, "Problem is unsolvable.");
+
+    }else if (ret == PDDL_SEARCH_FOUND){
+        BOR_INFO2(&err, "Plan found.");
+        pddl_plan_t plan;
+        pddlPlanInit(&plan);
+        pddlPlanLoadBacktrack(&plan, astar->goal_state_id, &astar->state_space);
+        BOR_INFO(&err, "Plan Cost: %d", plan.cost);
+        BOR_INFO(&err, "Plan Length: %d", plan.length);
+        PRINT_TO_FILE(opt.astar.plan_out, "plan",
+                      pddlPlanPrint(&plan, &fdr.op, fout));
+        pddlPlanFree(&plan);
+    }else{
+        BOR_FATAL("Unkown return status: %d", ret);
+    }
+
+    if (astar_terminate){
+        BOR_INFO2(&err, "Search aborted.");
+        pddlSearchAStarDel(astar);
+        pddlHeurDel(heur);
+        BOR_INFO_PREFIX_POP(&err);
+        return -1;
+    }
+
+    pddlSearchAStarDel(astar);
+    pddlHeurDel(heur);
     return 0;
 }
 

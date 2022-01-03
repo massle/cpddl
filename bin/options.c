@@ -289,6 +289,14 @@ int setOptions(int argc, char *argv[], bor_err_t *err)
     optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
                "Output filename for the red-black FDR task.");
 
+    optsStartGroup("A Star:");
+    optsAddFlag("astar", 0x0, &opt.astar.enable, 0,
+                "Run A* algorithm");
+    optsAddStr("astar-out", 0x0, &opt.astar.plan_out, NULL,
+               "Output filename for the found plan.");
+    optsAddStr("astar-o", 0x0, &opt.astar.plan_out, NULL,
+               "Alias for --astar-out");
+
     optsStartGroup("Reports:");
     optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
                 "Create report of lifted mutex groups.");
