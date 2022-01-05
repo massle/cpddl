@@ -27,22 +27,18 @@ void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
                                const char *prefix,
                                bor_err_t *err)
 {
-    if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_TYPES){
+    if (cfg->type == PDDL_HOMOMORPHISM_TYPES){
         BOR_INFO(err, "%stype = types", prefix);
-    }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_RAND_OBJS){
+    }else if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS){
         BOR_INFO(err, "%stype = rand-objs", prefix);
-    }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
+    }else if (cfg->type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
         BOR_INFO(err, "%stype = rand-type-objs", prefix);
-    }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_GAIFMAN){
+    }else if (cfg->type == PDDL_HOMOMORPHISM_GAIFMAN){
         BOR_INFO(err, "%stype = gaifman", prefix);
     }else{
-        BOR_INFO(err, "%stype = unknown-type", prefix);
+        BOR_INFO(err, "%stype = unknown", prefix);
     }
-    if (cfg->type & PDDL_HOMOMORPHISM_ENDOMORPHISM){
-        BOR_INFO(err, "%suse_endomorphism = true", prefix);
-    }else{
-        BOR_INFO(err, "%suse_endomorphism = false", prefix);
-    }
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, use_endomorphism, err);
     PDDL_LOG_CONFIG_DBL(cfg, prefix, rm_ratio, err);
     PDDL_LOG_CONFIG_INT(cfg, prefix, random_seed, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, keep_goal_objs, err);
@@ -597,11 +593,8 @@ int pddlHomomorphism(pddl_t *pddl,
                      pddl_obj_id_t *obj_map,
                      bor_err_t *err)
 {
-    unsigned base_type = (cfg->type & 0x0fu);
-    unsigned use_endomorph = (cfg->type & PDDL_HOMOMORPHISM_ENDOMORPHISM);
-
     ASSERT_RUNTIME_M(cfg->type != 0u, "Invalid configuration");
-    if (base_type == PDDL_HOMOMORPHISM_TYPES
+    if (cfg->type == PDDL_HOMOMORPHISM_TYPES
             && borISetSize(&cfg->collapse_types) == 0){
         BOR_ERR_RET2(err, -1, "Nothing to do!");
     }
@@ -615,27 +608,27 @@ int pddlHomomorphism(pddl_t *pddl,
     }
 
     pddlInitCopy(pddl, src);
-    if (base_type == PDDL_HOMOMORPHISM_TYPES){
+    if (cfg->type == PDDL_HOMOMORPHISM_TYPES){
         int type;
         BOR_ISET_FOR_EACH(&cfg->collapse_types, type){
             if (collapseType(pddl, type, obj_map, src->obj.obj_size, err) != 0)
                 BOR_TRACE_RET(err, -1);
         }
 
-    }else if (base_type == PDDL_HOMOMORPHISM_RAND_OBJS
-                || base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS
-                || base_type == PDDL_HOMOMORPHISM_GAIFMAN){
+    }else if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS
+                || cfg->type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS
+                || cfg->type == PDDL_HOMOMORPHISM_GAIFMAN){
         int (*fn[2])(pddl_t *pddl,
                   const pddl_homomorphism_config_t *cfg,
                   bor_rand_mt_t *rnd,
                   pddl_obj_id_t *obj_map,
                   int obj_size,
                   bor_err_t *err) = { NULL, NULL };
-        if (base_type == PDDL_HOMOMORPHISM_RAND_OBJS)
+        if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS)
             fn[0] = fn[1] = collapseRandomPairObj;
-        if (base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS)
+        if (cfg->type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS)
             fn[0] = fn[1] = collapseRandomPairTypeObj;
-        if (base_type == PDDL_HOMOMORPHISM_GAIFMAN)
+        if (cfg->type == PDDL_HOMOMORPHISM_GAIFMAN)
             fn[0] = fn[1] = collapseGaifman;
         ASSERT_RUNTIME(fn[0] != NULL && fn[1] != NULL);
         int obj_size = src->obj.obj_size;
@@ -643,7 +636,7 @@ int pddlHomomorphism(pddl_t *pddl,
         int target = pddl->obj.obj_size * (1.f - cfg->rm_ratio);
         BOR_INFO(err, "Target number of objects: %d", target);
 
-        if (use_endomorph)
+        if (cfg->use_endomorphism)
             fn[0] = collapseEndomorphism;
 
         int fni = 0;
@@ -662,7 +655,7 @@ int pddlHomomorphism(pddl_t *pddl,
         borRandMTDel(rnd);
 
     }else{
-        BOR_FATAL("Homomorphism: Unkown type %d", base_type);
+        BOR_FATAL("Homomorphism: Unkown type %d", cfg->type);
     }
 
     deduplicate(pddl);

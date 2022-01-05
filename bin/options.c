@@ -183,22 +183,15 @@ static int optLiftedPlannerHeur(const char *tag)
 
     }else if (strcmp(tag, "types") == 0){
         opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_TYPES;
-        if (opt.lifted_planner.homomorph_endomorph)
-            opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
 
     }else if (strcmp(tag, "rnd-objs") == 0){
         opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_RAND_OBJS;
-        if (opt.lifted_planner.homomorph_endomorph)
-            opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
 
     }else if (strcmp(tag, "gaif") == 0 || strcmp(tag, "gaifman") == 0){
         opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_GAIFMAN;
-        if (opt.lifted_planner.homomorph_endomorph)
-            opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
 
     }else if (strcmp(tag, "endomorph") == 0){
-        opt.lifted_planner.homomorph_endomorph = 1;
-        opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+        opt.lifted_planner.homomorph_cfg.use_endomorphism = 1;
 
     }else if (strncmp(tag, "rm-ratio=", 9) == 0){
         opt.lifted_planner.homomorph_cfg.rm_ratio = atof(tag + 9);

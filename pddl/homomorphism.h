@@ -25,13 +25,14 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define PDDL_HOMOMORPHISM_TYPES          0x01u
-#define PDDL_HOMOMORPHISM_RAND_OBJS      0x02u
-#define PDDL_HOMOMORPHISM_RAND_TYPE_OBJS 0x03u
-#define PDDL_HOMOMORPHISM_GAIFMAN        0x04u
-#define PDDL_HOMOMORPHISM_ENDOMORPHISM   0x10u
+#define PDDL_HOMOMORPHISM_TYPES          1
+#define PDDL_HOMOMORPHISM_RAND_OBJS      2
+#define PDDL_HOMOMORPHISM_RAND_TYPE_OBJS 3
+#define PDDL_HOMOMORPHISM_GAIFMAN        4
 struct pddl_homomorphism_config {
-    unsigned type;
+    int type;
+    int use_endomorphism; /*!< If true, interleave collapsing with lifted
+                               endomorphisms */
     bor_iset_t collapse_types; /*!< Set of types to collapse each to a
                                     single object */
     float rm_ratio; /*!< Ratio of objects that should be removed
@@ -43,6 +44,7 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
 #define PDDL_HOMOMORPHISM_CONFIG_INIT { \
         PDDL_HOMOMORPHISM_RAND_OBJS, /* .type */ \
+        0, /* .use_endomorphism */ \
         BOR_ISET_INIT, /*. collapse_types */ \
         0.5, /* .rm_ratio */ \
         6899, /* .random_seed */ \

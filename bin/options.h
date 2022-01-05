@@ -40,7 +40,6 @@ struct options {
                                              const pddl_homomorphism_config_t *cfg,
                                              bor_err_t *err);
         pddl_homomorphism_config_t homomorph_cfg;
-        int homomorph_endomorph;
         int homomorph_samples;
         char *plan_out;
     } lifted_planner;
