@@ -203,6 +203,12 @@ int setOptions(int argc, char *argv[], bor_err_t *err)
     optsAddFlag("lmg-stop", 0x0, &opt.lmg.stop, 0,
                 "Stop after inferring lifted mutex groups.");
 
+    optsStartGroup("Lifted Endomorphisms:");
+    optsAddFlag("lendo", 0x0, &opt.lifted_endomorph.enable, 0,
+                "Enable pruning od PDDL using lifted endomorphisms.");
+    optsAddFlag("lendo-ignore-costs", 0x0, &opt.lifted_endomorph.ignore_costs, 0,
+                "Ignore costs of actions when inferring lifted endomorphisms.");
+
     optsStartGroup("Grounding:");
     optsAddTags("ground", 'G', "default:prune-all",
                 optSetGround,

@@ -82,6 +82,10 @@ static int stepReportLiftedMGroups(void)
 
 static int stepLiftedMGroups(void)
 {
+    if (lifted_mgroups_set)
+        pddlLiftedMGroupsFree(&lifted_mgroups);
+    if (monotonicity_invariants_set)
+        pddlLiftedMGroupsFree(&monotonicity_invariants);
     pddlLiftedMGroupsInit(&lifted_mgroups);
     lifted_mgroups_set = 1;
     pddlLiftedMGroupsInit(&monotonicity_invariants);
@@ -118,60 +122,30 @@ static int stepLiftedMGroups(void)
     return opt.lmg.stop;
 }
 
-/* TODO
-static int prunePDDL(void)
+static int stepLiftedEndomorph(void)
 {
-    if (opt.lifted_endomorphism){
-        pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
-        if (opt.lifted_endomorphism_ignore_costs)
-            cfg.ignore_costs = 1;
-        BOR_ISET(redundant_objs);
-        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
-                               &redundant_objs, &err);
-        if (borISetSize(&redundant_objs) > 0){
-            pddlRemoveObjs(&pddl, &redundant_objs, &err);
-            // If we removed anything, we need to infer mutex groups again
-            pddlLiftedMGroupsFree(&lifted_mgroups);
-            liftedMGroups();
-        }
-        if (opt.lifted_endomorphism_costs_then_wo_costs){
-            cfg.ignore_costs = 1;
-            borISetEmpty(&redundant_objs);
-            pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
-                    &redundant_objs, &err);
-            if (borISetSize(&redundant_objs) > 0){
-                pddlRemoveObjs(&pddl, &redundant_objs, &err);
-                // If we removed anything, we need to infer mutex groups again
-                pddlLiftedMGroupsFree(&lifted_mgroups);
-                liftedMGroups();
-            }
-        }
-        borISetFree(&redundant_objs);
+    if (!opt.lifted_endomorph.enable){
+        BOR_INFO2(&err, "Inference of lifted endomorphisms turned off");
+        return 0;
     }
 
-    if (opt.pddl_domain_out != NULL){
-        FILE *fout = fopen(opt.pddl_domain_out, "w");
-        if (fout != NULL){
-            pddlPrintPDDLDomain(&pddl, fout);
-            fclose(fout);
-        }else{
-            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_domain_out);
-        }
+    BOR_INFO_PREFIX_PUSH(&err, "LENDO: ");
+    int ret = 0;
+    pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+    cfg.ignore_costs = opt.lifted_endomorph.ignore_costs;
+    BOR_ISET(redundant_objs);
+    pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+            &redundant_objs, NULL, &err);
+    if (borISetSize(&redundant_objs) > 0){
+        pddlRemoveObjs(&pddl, &redundant_objs, &err);
+        if (opt.lmg.enable)
+            ret = stepLiftedMGroups();
     }
+    borISetFree(&redundant_objs);
 
-    if (opt.pddl_problem_out != NULL){
-        FILE *fout = fopen(opt.pddl_problem_out, "w");
-        if (fout != NULL){
-            pddlPrintPDDLProblem(&pddl, fout);
-            fclose(fout);
-        }else{
-            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_problem_out);
-        }
-    }
-
-    return 0;
+    BOR_INFO_PREFIX_POP(&err);
+    return ret;
 }
-*/
 
 static void stripsCompileAwayCondEff(void)
 {
@@ -475,6 +449,7 @@ int main(int argc, char *argv[])
             || (ret = stepPDDL()) != 0
             || (ret = stepReportLiftedMGroups()) != 0
             || (ret = stepLiftedMGroups()) != 0
+            || (ret = stepLiftedEndomorph()) != 0
             || (ret = stepGround()) != 0
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0

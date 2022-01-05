@@ -27,6 +27,11 @@ struct options {
     } lmg;
 
     struct {
+        int enable;
+        int ignore_costs;
+    } lifted_endomorph;
+
+    struct {
         pddl_ground_config_t cfg;
         int (*method_fn)(pddl_strips_t *,
                          const pddl_t *,
