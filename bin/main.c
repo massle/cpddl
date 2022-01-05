@@ -4,6 +4,8 @@
 #include "options.h"
 #include "process_strips.h"
 #include "report.h"
+#include "lifted_planner.h"
+#include "print_to_file.h"
 
 
 bor_err_t err = BOR_ERR_INIT;
@@ -21,40 +23,6 @@ pddl_mgroups_t mgroup;
 pddl_mutex_pairs_t mutex;
 int astar_search_started = 0;
 int astar_terminate = 0;
-int lifted_search_started = 0;
-int lifted_terminate = 0;
-
-
-static FILE *openFile(const char *fn)
-{
-    if (strcmp(fn, "-") == 0
-            || strcmp(fn, "stdout") == 0)
-        return stdout;
-    if (strcmp(fn, "stderr") == 0)
-        return stderr;
-    FILE *fout = fopen(fn, "w");
-    return fout;
-}
-
-static void closeFile(FILE *f)
-{
-    if (f != NULL && f != stdout && f != stderr)
-        fclose(f);
-}
-
-#define PRINT_TO_FILE(OUT, S, CMD) \
-    do { \
-    if ((OUT) != NULL){ \
-        FILE *fout = openFile((OUT)); \
-        if (fout != NULL){ \
-            BOR_INFO(&err, "Printing %s to %s ...", (S), (OUT)); \
-            CMD; \
-            closeFile(fout); \
-        }else{ \
-            BOR_ERR_RET(&err, -1, "Could not open '%s'", (OUT)); \
-        } \
-    } \
-    } while (0) 
 
 
 static int stepPDDL(void)
@@ -117,9 +85,9 @@ static int stepLiftedMGroups(void)
     pddlLiftedMGroupsSetExactlyOne(&pddl, &lifted_mgroups, &err);
     pddlLiftedMGroupsSetStatic(&pddl, &lifted_mgroups, &err);
 
-    PRINT_TO_FILE(opt.lmg.out, "lifted mutex groups",
+    PRINT_TO_FILE(&err, opt.lmg.out, "lifted mutex groups",
                   pddlLiftedMGroupsPrint(&pddl, &lifted_mgroups, fout));
-    PRINT_TO_FILE(opt.lmg.fd_monotonicity_out, "monotonicity invariants",
+    PRINT_TO_FILE(&err, opt.lmg.fd_monotonicity_out, "monotonicity invariants",
                   pddlLiftedMGroupsPrint(&pddl, &monotonicity_invariants, fout));
 
     return opt.lmg.stop;
@@ -150,191 +118,11 @@ static int stepLiftedEndomorph(void)
     return ret;
 }
 
-static void liftedPlannerSigHandlerTerminate(int signal)
-{
-    if (lifted_search_started && lifted_terminate){
-        fprintf(stderr, "Received second %s signal\n", strsignal(signal));
-        fprintf(stderr, "Forced Exit\n");
-        fflush(stderr);
-        exit(-1);
-    }
-
-    fprintf(stderr, "Received %s signal\n", strsignal(signal));
-    fflush(stderr);
-    if (lifted_search_started){
-        lifted_terminate = 1;
-    }else{
-        exit(-1);
-    }
-}
-
-static pddl_homomorphism_heur_t *
-    _liftedPlannerHeurCollapseAllExceptOneType(const pddl_t *pddl, int except)
-{
-    pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
-    for (int type = 0; type < pddl->type.type_size; ++type){
-        if (type == except)
-            continue;
-        if (pddlTypesIsMinimal(&pddl->type, type))
-            borISetAdd(&homo_cfg.collapse_types, type);
-    }
-    pddl_homomorphism_heur_t *heur;
-    if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, &err)) == NULL){
-        fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
-        return NULL;
-    }
-    return heur;
-}
-
-static pddl_homomorphism_heur_t *
-    liftedPlannerHeurCollapseAllExceptOneType(const pddl_t *pddl)
-{
-    pddl_homomorphism_heur_t *heur = NULL;
-    int best_hval = -1;
-    for (int type = 0; type < pddl->type.type_size; ++type){
-        if (pddlTypesIsMinimal(&pddl->type, type)
-                && pddlTypeNumObjs(&pddl->type, type) > 1){
-            pddl_homomorphism_heur_t *h;
-            h = _liftedPlannerHeurCollapseAllExceptOneType(pddl, type);
-            if (h == NULL)
-                continue;
-
-            int hval = pddlHomomorphismHeurEvalGroundInit(h);
-            BOR_INFO(&err, "Homomorph heur: Heuristic value for the init: %d", hval);
-            if (hval > best_hval && hval != PDDL_COST_DEAD_END){
-                if (heur != NULL)
-                    pddlHomomorphismHeurDel(heur);
-                heur = h;
-                best_hval = hval;
-            }else{
-                pddlHomomorphismHeurDel(h);
-            }
-        }
-    }
-    return heur;
-}
-
-static pddl_homomorphism_heur_t *
-    _liftedPlannerHeurCollapseRandom(const pddl_t *pddl, int seed)
-{
-    pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
-    homo_cfg.random_seed = seed;
-    pddl_homomorphism_heur_t *heur;
-    if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, &err)) == NULL){
-        fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
-        return NULL;
-    }
-    return heur;
-}
-
-static pddl_homomorphism_heur_t *
-    liftedPlannerHeurCollapseRandom(const pddl_t *pddl)
-{
-    int seed = opt.lifted_planner.homomorph_cfg.random_seed;
-    pddl_homomorphism_heur_t *heur = NULL;
-    int best_hval = -1;
-    for (int i = 0; i < opt.lifted_planner.homomorph_samples; ++i){
-        pddl_homomorphism_heur_t *h;
-        h = _liftedPlannerHeurCollapseRandom(pddl, seed);
-        int hval = pddlHomomorphismHeurEvalGroundInit(h);
-        BOR_INFO(&err, "Homomorph heur: Heuristic value for the init: %d", hval);
-        if (hval > best_hval && hval != PDDL_COST_DEAD_END){
-            if (heur != NULL)
-                pddlHomomorphismHeurDel(heur);
-            heur = h;
-            best_hval = hval;
-        }else{
-            pddlHomomorphismHeurDel(h);
-        }
-        ++seed;
-    }
-    return heur;
-}
-
 static int stepLiftedPlanner(void)
 {
     if (!opt.lifted_planner.enable)
         return 0;
-
-    void (*old_sigint)(int);
-    void (*old_sigterm)(int);
-    old_sigint = signal(SIGINT, liftedPlannerSigHandlerTerminate);
-    old_sigterm = signal(SIGTERM, liftedPlannerSigHandlerTerminate);
-
-    BOR_INFO_PREFIX_PUSH(&err, "LPLAN: ");
-    pddl_homomorphism_heur_t *heur = NULL;
-    if (opt.lifted_planner.heur_fn != NULL){
-        if (opt.lifted_planner.heur_fn == pddlHomomorphismHeurLMCut){
-            BOR_INFO2(&err, "cfg.heur = lmc");
-        }else if (opt.lifted_planner.heur_fn == pddlHomomorphismHeurHFF){
-            BOR_INFO2(&err, "cfg.heur = ff");
-        }else{
-            BOR_INFO2(&err, "cfg.heur = unkown !!");
-        }
-        pddlHomomorphismConfigLog(&opt.lifted_planner.homomorph_cfg,
-                                  "cfg.heur.homomorph.", &err);
-        BOR_INFO(&err, "cfg.heur.homomorph_samples = %d",
-                 opt.lifted_planner.homomorph_samples);
-
-        if ((opt.lifted_planner.homomorph_cfg.type & 0xfu)
-                    == PDDL_HOMOMORPHISM_TYPES){
-            heur = liftedPlannerHeurCollapseAllExceptOneType(&pddl);
-        }else{
-            heur = liftedPlannerHeurCollapseRandom(&pddl);
-        }
-    }
-    pddl_search_lifted_t *search;
-    search = opt.lifted_planner.search_fn(&pddl, heur, &err);
-    int ret = pddlSearchLiftedInitStep(search);
-    lifted_search_started = 1;
-
-    bor_timer_t info_timer;
-    borTimerStart(&info_timer);
-    for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
-        if (lifted_terminate){
-            ret = PDDL_SEARCH_ABORT;
-            break;
-        }
-
-        ret = pddlSearchLiftedStep(search);
-        if (step >= 100){
-            borTimerStop(&info_timer);
-            if (borTimerElapsedInSF(&info_timer) >= 1.){
-                pddlSearchLiftedStatLog(search, &err);
-                borTimerStart(&info_timer);
-            }
-            step = 0;
-        }
-    }
-    pddlSearchLiftedStatLog(search, &err);
-
-    if (ret == PDDL_SEARCH_UNSOLVABLE){
-        BOR_INFO2(&err, "Problem is unsolvable.");
-
-    }else if (ret == PDDL_SEARCH_FOUND){
-        BOR_INFO2(&err, "Plan found.");
-        const pddl_lifted_plan_t *plan = pddlSearchLiftedPlan(search);
-        BOR_INFO(&err, "Plan Cost: %d", plan->plan_cost);
-        BOR_INFO(&err, "Plan Length: %d", plan->plan_len);
-        PRINT_TO_FILE(opt.lifted_planner.plan_out, "plan",
-                      pddlSearchLiftedPlanPrint(search, fout));
-
-    }else if (ret == PDDL_SEARCH_ABORT){
-        BOR_INFO2(&err, "Search aborted.");
-
-    }else{
-        BOR_FATAL("Unkown return status: %d", ret);
-    }
-
-    pddlSearchLiftedDel(search);
-    if (heur != NULL)
-        pddlHomomorphismHeurDel(heur);
-    BOR_INFO_PREFIX_POP(&err);
-    signal(SIGINT, old_sigint);
-    signal(SIGTERM, old_sigterm);
-    return 1;
+    return liftedPlanner(&pddl, &err);
 }
 
 static void stripsCompileAwayCondEff(void)
@@ -399,7 +187,7 @@ static int stepGroundMGroups(void)
     BOR_INFO_PREFIX_POP(&err);
 
 
-    PRINT_TO_FILE(opt.ground.mgroup_out, "grounded mutex groups",
+    PRINT_TO_FILE(&err, opt.ground.mgroup_out, "grounded mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
 
     return 0;
@@ -453,7 +241,7 @@ static int stepInferMGroups(void)
     BOR_INFO(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
     BOR_INFO_PREFIX_POP(&err);
 
-    PRINT_TO_FILE(opt.mg.out, "mutex groups",
+    PRINT_TO_FILE(&err, opt.mg.out, "mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
 
     return 0;
@@ -485,9 +273,9 @@ static int stepRedBlackFDR(void)
         if (i > 0){
             char fn[1024];
             sprintf(fn, "%s.%d", opt.rb_fdr.out, i);
-            PRINT_TO_FILE(fn, "FDR", pddlFDRPrintFD(fdr + i, &mgroup, 1, fout));
+            PRINT_TO_FILE(&err, fn, "FDR", pddlFDRPrintFD(fdr + i, &mgroup, 1, fout));
         }else{
-            PRINT_TO_FILE(opt.rb_fdr.out, "FDR",
+            PRINT_TO_FILE(&err, opt.rb_fdr.out, "FDR",
                           pddlFDRPrintFD(fdr, &mgroup, 1, fout));
         }
     }
@@ -507,7 +295,7 @@ static int stepFDR(void)
         pddlFDRReorderVarsCG(&fdr);
         BOR_INFO2(&err, "FDR variables reordered using causal graph.");
     }
-    PRINT_TO_FILE(opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
+    PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
 
     if (opt.fdr.pretty_print_vars)
         pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
@@ -586,7 +374,7 @@ static int stepAStar(void)
         pddlPlanLoadBacktrack(&plan, astar->goal_state_id, &astar->state_space);
         BOR_INFO(&err, "Plan Cost: %d", plan.cost);
         BOR_INFO(&err, "Plan Length: %d", plan.length);
-        PRINT_TO_FILE(opt.astar.plan_out, "plan",
+        PRINT_TO_FILE(&err, opt.astar.plan_out, "plan",
                       pddlPlanPrint(&plan, &fdr.op, fout));
         pddlPlanFree(&plan);
     }else{
