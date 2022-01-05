@@ -28,6 +28,7 @@ extern "C" {
 #define PDDL_HOMOMORPHISM_TYPES          0x01u
 #define PDDL_HOMOMORPHISM_RAND_OBJS      0x02u
 #define PDDL_HOMOMORPHISM_RAND_TYPE_OBJS 0x03u
+#define PDDL_HOMOMORPHISM_GAIFMAN        0x04u
 #define PDDL_HOMOMORPHISM_ENDOMORPHISM   0x10u
 struct pddl_homomorphism_config {
     unsigned type;

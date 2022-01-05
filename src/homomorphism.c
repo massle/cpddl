@@ -33,6 +33,10 @@ void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
         BOR_INFO(err, "%stype = rand-objs", prefix);
     }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
         BOR_INFO(err, "%stype = rand-type-objs", prefix);
+    }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_GAIFMAN){
+        BOR_INFO(err, "%stype = gaifman", prefix);
+    }else{
+        BOR_INFO(err, "%stype = unknown-type", prefix);
     }
     if (cfg->type & PDDL_HOMOMORPHISM_ENDOMORPHISM){
         BOR_INFO(err, "%suse_endomorphism = true", prefix);
@@ -349,6 +353,180 @@ static int collapseType(pddl_t *pddl,
     }
 }
 
+struct gaifman {
+    int obj_size;
+    int *obj_is_static;
+    int num_static_objs;
+    int num_static_nongoal_objs;
+    bor_iset_t *obj_relate_to;
+    bor_iset_t goal_objs;
+};
+typedef struct gaifman gaifman_t;
+
+static void gaifmanInit(gaifman_t *g, const pddl_t *pddl)
+{
+    bzero(g, sizeof(*g));
+    g->obj_size = pddl->obj.obj_size;
+    g->obj_is_static = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    g->obj_relate_to = BOR_CALLOC_ARR(bor_iset_t, pddl->obj.obj_size);
+    collectGoalObjs(pddl, &g->goal_objs);
+
+    pddl_cond_const_it_atom_t it;
+    const pddl_cond_atom_t *atom;
+    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+        if (pddlPredIsStatic(pddl->pred.pred + atom->pred)){
+            for (int i = 0; i < atom->arg_size; ++i){
+                ASSERT(atom->arg[i].obj >= 0);
+                g->obj_is_static[atom->arg[i].obj] = 1;
+            }
+            for (int i = 0; i < atom->arg_size; ++i){
+                int o1 = atom->arg[i].obj;
+                for (int j = i + 1; j < atom->arg_size; ++j){
+                    int o2 = atom->arg[j].obj;
+                    if (o1 != o2){
+                        borISetAdd(g->obj_relate_to + o1, o2);
+                        borISetAdd(g->obj_relate_to + o2, o1);
+                        /*
+                        fprintf(stderr, "%d(%s) -- %d(%s)\n",
+                                o1, pddl->obj.obj[o1].name,
+                                o2, pddl->obj.obj[o2].name);
+                        */
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < pddl->obj.obj_size; ++i){
+        g->num_static_objs += g->obj_is_static[i];
+        if (!borISetIn(i, &g->goal_objs))
+            g->num_static_nongoal_objs += g->obj_is_static[i];
+    }
+}
+
+static void gaifmanFree(gaifman_t *g)
+{
+    if (g->obj_is_static != NULL)
+        BOR_FREE(g->obj_is_static);
+    for (int i = 0; i < g->obj_size; ++i)
+        borISetFree(&g->obj_relate_to[i]);
+    if (g->obj_relate_to != NULL)
+        BOR_FREE(g->obj_relate_to);
+    borISetFree(&g->goal_objs);
+}
+
+static int gaifmanFindPairDepth(gaifman_t *g,
+                                const pddl_t *pddl,
+                                int keep_goals,
+                                int depth,
+                                pddl_obj_id_t *o1,
+                                pddl_obj_id_t *o2)
+{
+    int found = 0;
+    int found_candidate = 0;
+    int degree = INT_MAX;
+    BOR_ISET(neigh);
+    BOR_IARR(queue);
+    int *visited = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+
+    for (int x = 0; x < g->obj_size; ++x){
+        if (!g->obj_is_static[x] || borISetSize(&g->obj_relate_to[x]) == 0)
+            continue;
+        if (keep_goals && borISetIn(x, &g->goal_objs))
+            continue;
+        int xtype = pddl->obj.obj[x].type;
+        bzero(visited, sizeof(int) * pddl->obj.obj_size);
+        visited[x] = 1;
+        borIArrEmpty(&queue);
+        borIArrAdd(&queue, x);
+        for (int i = 0; i < borIArrSize(&queue); ++i){
+            int o = borIArrGet(&queue, i);
+
+            int y;
+            BOR_ISET_FOR_EACH(&g->obj_relate_to[o], y){
+                if (visited[y])
+                    continue;
+
+                if (visited[o] == depth){
+                    found_candidate = 1;
+                    if (xtype == pddl->obj.obj[y].type
+                            && (!keep_goals || !borISetIn(y, &g->goal_objs))){
+                        borISetUnion2(&neigh, &g->obj_relate_to[x],
+                                              &g->obj_relate_to[y]);
+                        if (!found || borISetSize(&neigh) < degree){
+                            found = 1;
+                            *o1 = x;
+                            *o2 = y;
+                            degree = borISetSize(&neigh);
+                        }
+                    }
+                }else{
+                    borIArrAdd(&queue, y);
+                }
+                visited[y] = visited[o] + 1;
+            }
+        }
+    }
+
+    if (visited != NULL)
+        BOR_FREE(visited);
+    borIArrFree(&queue);
+    borISetFree(&neigh);
+
+    if (!found_candidate)
+        return -1;
+    return found;
+}
+
+static int gaifmanFindPair(gaifman_t *g,
+                           const pddl_t *pddl,
+                           int keep_goals,
+                           pddl_obj_id_t *o1,
+                           pddl_obj_id_t *o2)
+{
+    for (int depth = 1; 1; ++depth){
+        int ret;
+        if ((ret = gaifmanFindPairDepth(g, pddl, keep_goals, depth, o1, o2)) > 0)
+            return 1;
+        if (ret < 0)
+            return 0;
+    }
+    return 0;
+}
+
+static int collapseGaifman(pddl_t *pddl,
+                           const pddl_homomorphism_config_t *cfg,
+                           bor_rand_mt_t *rnd,
+                           pddl_obj_id_t *obj_map,
+                           int obj_size,
+                           bor_err_t *err)
+{
+    int ret = 0;
+    gaifman_t gaif;
+    gaifmanInit(&gaif, pddl);
+    BOR_INFO(err, "Static objects: %d/%d",
+             gaif.num_static_objs, pddl->obj.obj_size);
+    BOR_INFO(err, "Non-goal static objects: %d/%d",
+             gaif.num_static_nongoal_objs, pddl->obj.obj_size);
+    pddl_obj_id_t o1, o2;
+    if (gaifmanFindPair(&gaif, pddl, cfg->keep_goal_objs, &o1, &o2)){
+        BOR_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
+                 o1, pddl->obj.obj[o1].name,
+                 o2, pddl->obj.obj[o2].name);
+        int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+        collapse_map[o1] = collapse_map[o2] = 1;
+        ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
+        if (collapse_map != NULL)
+            BOR_FREE(collapse_map);
+    }else{
+        BOR_INFO2(err, "Nothing to collapse.");
+        ret = 1;
+    }
+
+    gaifmanFree(&gaif);
+    return ret;
+}
+
 
 static void _deduplicateCostsPart(pddl_cond_part_t *p)
 {
@@ -429,6 +607,7 @@ int pddlHomomorphism(pddl_t *pddl,
     }
 
     BOR_INFO_PREFIX_PUSH(err, "Homomorphism: ");
+    pddlHomomorphismConfigLog(cfg, "cfg.", err);
     BOR_INFO(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);
     if (obj_map != NULL){
         for (int i = 0; i < src->obj.obj_size; ++i)
@@ -444,7 +623,8 @@ int pddlHomomorphism(pddl_t *pddl,
         }
 
     }else if (base_type == PDDL_HOMOMORPHISM_RAND_OBJS
-                || base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
+                || base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS
+                || base_type == PDDL_HOMOMORPHISM_GAIFMAN){
         int (*fn[2])(pddl_t *pddl,
                   const pddl_homomorphism_config_t *cfg,
                   bor_rand_mt_t *rnd,
@@ -455,6 +635,8 @@ int pddlHomomorphism(pddl_t *pddl,
             fn[0] = fn[1] = collapseRandomPairObj;
         if (base_type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS)
             fn[0] = fn[1] = collapseRandomPairTypeObj;
+        if (base_type == PDDL_HOMOMORPHISM_GAIFMAN)
+            fn[0] = fn[1] = collapseGaifman;
         ASSERT_RUNTIME(fn[0] != NULL && fn[1] != NULL);
         int obj_size = src->obj.obj_size;
         bor_rand_mt_t *rnd = borRandMTNew(cfg->random_seed);
@@ -478,6 +660,9 @@ int pddlHomomorphism(pddl_t *pddl,
             fni = (fni + 1) % 2;
         }
         borRandMTDel(rnd);
+
+    }else{
+        BOR_FATAL("Homomorphism: Unkown type %d", base_type);
     }
 
     deduplicate(pddl);

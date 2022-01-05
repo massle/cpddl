@@ -191,6 +191,11 @@ static int optLiftedPlannerHeur(const char *tag)
         if (opt.lifted_planner.homomorph_endomorph)
             opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
 
+    }else if (strcmp(tag, "gaif") == 0 || strcmp(tag, "gaifman") == 0){
+        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_GAIFMAN;
+        if (opt.lifted_planner.homomorph_endomorph)
+            opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+
     }else if (strcmp(tag, "endomorph") == 0){
         opt.lifted_planner.homomorph_endomorph = 1;
         opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
