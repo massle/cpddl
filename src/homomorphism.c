@@ -21,6 +21,28 @@
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
 #include "assert.h"
+#include "log.h"
+
+void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
+                               const char *prefix,
+                               bor_err_t *err)
+{
+    if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_TYPES){
+        BOR_INFO(err, "%stype = types", prefix);
+    }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_RAND_OBJS){
+        BOR_INFO(err, "%stype = rand-objs", prefix);
+    }else if ((cfg->type & 0xfu) == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
+        BOR_INFO(err, "%stype = rand-type-objs", prefix);
+    }
+    if (cfg->type & PDDL_HOMOMORPHISM_ENDOMORPHISM){
+        BOR_INFO(err, "%suse_endomorphism = true", prefix);
+    }else{
+        BOR_INFO(err, "%suse_endomorphism = false", prefix);
+    }
+    PDDL_LOG_CONFIG_DBL(cfg, prefix, rm_ratio, err);
+    PDDL_LOG_CONFIG_INT(cfg, prefix, random_seed, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, keep_goal_objs, err);
+}
 
 struct fix_action {
     pddl_t *pddl;

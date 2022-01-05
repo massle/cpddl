@@ -27,6 +27,7 @@ extern "C" {
 #define PDDL_SEARCH_CONT 0
 #define PDDL_SEARCH_UNSOLVABLE 1
 #define PDDL_SEARCH_FOUND 2
+#define PDDL_SEARCH_ABORT 3
 
 struct pddl_search_stat {
     size_t steps; /*!< Number of calls to *Step() */

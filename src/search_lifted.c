@@ -335,6 +335,24 @@ void pddlSearchLiftedStat(const pddl_search_lifted_t *s,
     stat->generated = s->state_space.num_states;
 }
 
+void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, bor_err_t *err)
+{
+    pddl_search_stat_t stat;
+    pddlSearchLiftedStat(s, &stat);
+    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+                  " gen: %lu, open: %lu, closed: %lu,"
+                  " reopen: %lu, de: %lu, f: %d",
+                  stat.steps,
+                  stat.expanded,
+                  stat.evaluated,
+                  stat.generated,
+                  stat.open,
+                  stat.closed,
+                  stat.reopen,
+                  stat.dead_end,
+                  stat.last_f_value);
+}
+
 
 
 
@@ -585,4 +603,14 @@ pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
 const pddl_lifted_plan_t *pddlSearchLiftedPlan(const pddl_search_lifted_t *s)
 {
     return &s->plan;
+}
+
+void pddlSearchLiftedPlanPrint(const pddl_search_lifted_t *s, FILE *fout)
+{
+    const pddl_lifted_plan_t *plan = &s->plan;
+    fprintf(fout, ";; Cost: %d\n", plan->plan_cost);
+    fprintf(fout, ";; Length: %d\n", plan->plan_len);
+    for (int i = 0; i < plan->plan_len; ++i){
+        fprintf(fout, "(%s)\n", plan->plan[i]);
+    }
 }

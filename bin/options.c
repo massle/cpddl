@@ -156,8 +156,72 @@ static int optFDREssentialFirst(int enabled)
     return 0;
 }
 
+static int optLiftedPlanner(const char *tag)
+{
+    if (strcmp(tag, "astar") == 0){
+        opt.lifted_planner.enable = 1;
+        opt.lifted_planner.search_fn = pddlSearchLiftedAStar;
+
+    }else if (strcmp(tag, "gbfs") == 0){
+        opt.lifted_planner.enable = 1;
+        opt.lifted_planner.search_fn = pddlSearchLiftedGBFS;
+
+    }else{
+        fprintf(stderr, "Error: Unknown --lplan option '%s'\n", tag);
+        return -1;
+    }
+    return 0;
+}
+
+static int optLiftedPlannerHeur(const char *tag)
+{
+    if (strcmp(tag, "lmc") == 0){
+        opt.lifted_planner.heur_fn = pddlHomomorphismHeurLMCut;
+
+    }else if (strcmp(tag, "ff") == 0){
+        opt.lifted_planner.heur_fn = pddlHomomorphismHeurHFF;
+
+    }else if (strcmp(tag, "types") == 0){
+        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_TYPES;
+        if (opt.lifted_planner.homomorph_endomorph)
+            opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+
+    }else if (strcmp(tag, "rnd-objs") == 0){
+        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_RAND_OBJS;
+        if (opt.lifted_planner.homomorph_endomorph)
+            opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+
+    }else if (strcmp(tag, "endomorph") == 0){
+        opt.lifted_planner.homomorph_endomorph = 1;
+        opt.lifted_planner.homomorph_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+
+    }else if (strncmp(tag, "rm-ratio=", 9) == 0){
+        opt.lifted_planner.homomorph_cfg.rm_ratio = atof(tag + 9);
+
+    }else if (strncmp(tag, "seed=", 5) == 0){
+        opt.lifted_planner.homomorph_cfg.random_seed = atoi(tag + 5);
+
+    }else if (strcmp(tag, "no-goal") == 0){
+        opt.lifted_planner.homomorph_cfg.keep_goal_objs = 0;
+
+    }else if (strncmp(tag, "samples=", 8) == 0){
+        opt.lifted_planner.homomorph_samples = atoi(tag + 8);
+
+    }else{
+        fprintf(stderr, "Error: Unknown --lplan-heur option '%s'\n", tag);
+        return -1;
+    }
+    return 0;
+}
+
 int setOptions(int argc, char *argv[], bor_err_t *err)
 {
+    opt.lifted_planner.search_fn = NULL;
+    opt.lifted_planner.heur_fn = NULL;
+    pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
+    opt.lifted_planner.homomorph_cfg = _homomorph_cfg;
+    opt.lifted_planner.homomorph_samples = 1;
+
     pddlProcessStripsInit(&opt.strips.process);
 
     opt.ground.cfg.lifted_mgroups = NULL;
@@ -208,6 +272,17 @@ int setOptions(int argc, char *argv[], bor_err_t *err)
                 "Enable pruning od PDDL using lifted endomorphisms.");
     optsAddFlag("lendo-ignore-costs", 0x0, &opt.lifted_endomorph.ignore_costs, 0,
                 "Ignore costs of actions when inferring lifted endomorphisms.");
+
+    optsStartGroup("Lifted Planner:");
+    optsAddTags("lplan", 0x0, NULL, optLiftedPlanner,
+                "Enables lifted planner. Possible values: astar, gbfs");
+    optsAddTags("lplan-heur", 0x0, NULL, optLiftedPlannerHeur,
+                "Sets up heuristics for lifted planner.\n"
+                " TODO");
+    optsAddStr("lplan-out", 0x0, &opt.lifted_planner.plan_out, NULL,
+               "Output filename for the found plan.");
+    optsAddStr("lplan-o", 0x0, &opt.lifted_planner.plan_out, NULL,
+               "Alias for --lplan-out");
 
     optsStartGroup("Grounding:");
     optsAddTags("ground", 'G', "default:prune-all",

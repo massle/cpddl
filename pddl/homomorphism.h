@@ -48,6 +48,10 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
         1, /* .keep_goal_objs */ \
     }
 
+void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
+                               const char *prefix,
+                               bor_err_t *err);
+
 /**
  * Computes a homomorphism image of src according to the given config.
  */
