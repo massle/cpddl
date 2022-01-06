@@ -241,6 +241,12 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         }
     }
 
+    if (cfg->enforce_unit_cost){
+        BOR_INFO2(err, "Enforcing unit-cost...");
+        pddlEnforceUnitCost(pddl, err);
+        BOR_INFO2(err, "Enforcing unit-cost DONE.");
+    }
+
     if (cfg->compile_away_cond_eff){
         BOR_INFO2(err, "Compiling away conditional effects...");
         pddlCompileAwayCondEff(pddl);
@@ -957,6 +963,33 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err)
     BOR_FREE(type_remap);
     BOR_FREE(pred_remap);
     BOR_FREE(func_remap);
+    BOR_INFO_PREFIX_POP(err);
+}
+
+static int _removeAssignIncrease(pddl_cond_t **c, void *_)
+{
+    if ((*c)->type == PDDL_COND_ASSIGN || (*c)->type == PDDL_COND_INCREASE){
+        pddlCondDel(*c);
+        *c = NULL;
+    }
+    return 0;
+}
+
+void pddlEnforceUnitCost(pddl_t *pddl, bor_err_t *err)
+{
+    BOR_INFO_PREFIX_PUSH(err, "Enforce unit-cost: ");
+    // Remove (= ...) from the initial state
+    pddl_cond_t *init = &pddl->init->cls;
+    pddlCondRebuild(&init, NULL, _removeAssignIncrease, NULL);
+    ASSERT_RUNTIME(init->type == PDDL_COND_AND);
+    pddl->init = PDDL_COND_CAST(init, part);
+
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
+        pddl_action_t *a = pddl->action.action + ai;
+        pddlCondRebuild(&a->eff, NULL, _removeAssignIncrease, NULL);
+    }
+
+    pddl->metric = 0;
     BOR_INFO_PREFIX_POP(err);
 }
 
