@@ -49,6 +49,7 @@ typedef struct pddl_config pddl_config_t;
       1, /* .normalize */ \
       1, /* .remove_empty_types */ \
       0, /* .compile_away_cond_eff */ \
+      0, /* .enforce_unit_cost */ \
     }
 
 void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err);
