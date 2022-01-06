@@ -36,6 +36,14 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
                         const pddl_ground_config_t *cfg,
                         bor_err_t *err);
 
+int pddlStripsGroundSqlLayered(const pddl_t *pddl,
+                               const pddl_ground_config_t *cfg,
+                               int max_layers,
+                               int max_atoms,
+                               pddl_strips_t *strips,
+                               pddl_ground_atoms_t *ground_atoms,
+                               bor_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
