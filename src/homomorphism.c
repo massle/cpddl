@@ -370,7 +370,8 @@ static void gaifmanInit(gaifman_t *g, const pddl_t *pddl)
     pddl_cond_const_it_atom_t it;
     const pddl_cond_atom_t *atom;
     PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
-        if (pddlPredIsStatic(pddl->pred.pred + atom->pred)){
+        if (pddlPredIsStatic(pddl->pred.pred + atom->pred)
+                && pddl->pred.pred[atom->pred].param_size > 1){
             for (int i = 0; i < atom->arg_size; ++i){
                 ASSERT(atom->arg[i].obj >= 0);
                 g->obj_is_static[atom->arg[i].obj] = 1;
@@ -504,7 +505,7 @@ static int collapseGaifman(pddl_t *pddl,
              gaif.num_static_objs, pddl->obj.obj_size);
     BOR_INFO(err, "Non-goal static objects: %d/%d",
              gaif.num_static_nongoal_objs, pddl->obj.obj_size);
-    pddl_obj_id_t o1, o2;
+    pddl_obj_id_t o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, pddl, cfg->keep_goal_objs, &o1, &o2)){
         BOR_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
                  o1, pddl->obj.obj[o1].name,
