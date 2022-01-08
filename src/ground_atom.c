@@ -213,6 +213,38 @@ pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
     return NULL;
 }
 
+pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
+                                            int pred,
+                                            const pddl_obj_id_t *arg,
+                                            int arg_size)
+{
+    bor_list_t *found;
+    pddl_ground_atom_t *out;
+    PDDL_GROUND_ATOM_STACK(loc, arg_size);
+
+    loc.func_val = 0;
+    loc.pred = pred;
+    memcpy(loc.arg, arg, sizeof(pddl_obj_id_t) * arg_size);
+    loc.arg_size = arg_size;
+    loc.layer = 0;
+
+    loc.hash = pddlGroundAtomHash(&loc);
+    if ((found = borHTableFind(ga->htable, &loc.htable)) != NULL){
+        out = BOR_LIST_ENTRY(found, pddl_ground_atom_t, htable);
+        return out;
+    }
+    return NULL;
+}
+
+void pddlGroundAtomsAddInit(pddl_ground_atoms_t *ga, const pddl_t *pddl)
+{
+    pddl_cond_const_it_atom_t it;
+    const pddl_cond_atom_t *atom;
+    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+        pddlGroundAtomsAddAtom(ga, atom, NULL);
+    }
+}
+
 void pddlGroundAtomsPrint(const pddl_ground_atoms_t *ga,
                           const pddl_t *pddl,
                           FILE *fout)

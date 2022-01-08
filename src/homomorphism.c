@@ -20,6 +20,7 @@
 #include <boruvka/rand-mt.h>
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
+#include "pddl/strips_ground_sql.h"
 #include "assert.h"
 #include "log.h"
 
@@ -35,6 +36,8 @@ void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
         BOR_INFO(err, "%stype = rand-type-objs", prefix);
     }else if (cfg->type == PDDL_HOMOMORPHISM_GAIFMAN){
         BOR_INFO(err, "%stype = gaifman", prefix);
+    }else if (cfg->type == PDDL_HOMOMORPHISM_RPG){
+        BOR_INFO(err, "%stype = rpg", prefix);
     }else{
         BOR_INFO(err, "%stype = unknown", prefix);
     }
@@ -42,6 +45,7 @@ void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
     PDDL_LOG_CONFIG_DBL(cfg, prefix, rm_ratio, err);
     PDDL_LOG_CONFIG_INT(cfg, prefix, random_seed, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, keep_goal_objs, err);
+    PDDL_LOG_CONFIG_INT(cfg, prefix, rpg_max_depth, err);
 }
 
 struct fix_action {
@@ -524,6 +528,112 @@ static int collapseGaifman(pddl_t *pddl,
     return ret;
 }
 
+static int atomHasObj(const pddl_cond_atom_t *atom, pddl_obj_id_t o)
+{
+    for (int i = 0; i < atom->arg_size; ++i){
+        if (atom->arg[i].obj == o)
+            return 1;
+    }
+    return 0;
+}
+
+
+static int rpgTestPair(const pddl_t *pddl,
+                       const pddl_ground_atoms_t *ga,
+                       pddl_obj_id_t o1,
+                       pddl_obj_id_t o2,
+                       bor_err_t *err)
+{
+    pddl_cond_const_it_atom_t it;
+    const pddl_cond_atom_t *atom;
+    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+        if (atomHasObj(atom, o2)){
+            pddl_obj_id_t args[atom->arg_size];
+            for (int i = 0; i < atom->arg_size; ++i){
+                if (atom->arg[i].obj == o2){
+                    args[i] = o1;
+                }else{
+                    args[i] = atom->arg[i].obj;
+                }
+            }
+            if (pddlGroundAtomsFindPred(ga, atom->pred, args, atom->arg_size) != NULL){
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+static int rpgFindPair(const pddl_t *pddl,
+                       int max_depth,
+                       const bor_iset_t *goal_objs,
+                       pddl_obj_id_t *o1,
+                       pddl_obj_id_t *o2,
+                       bor_err_t *err)
+{
+    pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
+    pddl_ground_atoms_t ga;
+    pddlGroundAtomsInit(&ga);
+    pddlStripsGroundSqlLayered(pddl, &ground_cfg, max_depth, INT_MAX, NULL, &ga, err);
+
+    for (int type_id = 0; type_id < pddl->type.type_size; ++type_id){
+        const pddl_type_t *type = pddl->type.type + type_id;
+        if (borISetSize(&type->child) == 0){
+            int p1, p2;
+            PDDL_OBJSET_FOR_EACH(&type->obj, p1){
+                PDDL_OBJSET_FOR_EACH(&type->obj, p2){
+                    if (p1 == p2 || borISetIn(p2, goal_objs))
+                        continue;
+                    if (rpgTestPair(pddl, &ga, p1, p2, err)){
+                        *o1 = p1;
+                        *o2 = p2;
+                        pddlGroundAtomsFree(&ga);
+                        return 1;
+                    }
+                }
+            }
+        }
+    }
+
+    pddlGroundAtomsFree(&ga);
+    return 0;
+}
+
+static int collapseRPG(pddl_t *pddl,
+                       const pddl_homomorphism_config_t *cfg,
+                       bor_rand_mt_t *rnd,
+                       pddl_obj_id_t *obj_map,
+                       int obj_size,
+                       bor_err_t *err)
+{
+    int ret = 1;
+    BOR_ISET(goal_objs);
+    if (cfg->keep_goal_objs)
+        collectGoalObjs(pddl, &goal_objs);
+
+    int max_depth = cfg->rpg_max_depth;
+    for (int depth = 1; depth <= max_depth; ++depth){
+        pddl_obj_id_t o1, o2;
+        if (rpgFindPair(pddl, depth, &goal_objs, &o1, &o2, err)){
+            BOR_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
+                     o1, pddl->obj.obj[o1].name,
+                     o2, pddl->obj.obj[o2].name, depth);
+            int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+            collapse_map[o1] = collapse_map[o2] = 1;
+            ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
+            if (collapse_map != NULL)
+                BOR_FREE(collapse_map);
+            break;
+        }
+        if (ret == 1)
+            BOR_INFO(err, "No pair found in depth %d", depth);
+    }
+
+
+    borISetFree(&goal_objs);
+    return ret;
+}
+
 
 static void _deduplicateCostsPart(pddl_cond_part_t *p)
 {
@@ -618,7 +728,8 @@ int pddlHomomorphism(pddl_t *pddl,
 
     }else if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS
                 || cfg->type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS
-                || cfg->type == PDDL_HOMOMORPHISM_GAIFMAN){
+                || cfg->type == PDDL_HOMOMORPHISM_GAIFMAN
+                || cfg->type == PDDL_HOMOMORPHISM_RPG){
         int (*fn[2])(pddl_t *pddl,
                   const pddl_homomorphism_config_t *cfg,
                   bor_rand_mt_t *rnd,
@@ -631,6 +742,8 @@ int pddlHomomorphism(pddl_t *pddl,
             fn[0] = fn[1] = collapseRandomPairTypeObj;
         if (cfg->type == PDDL_HOMOMORPHISM_GAIFMAN)
             fn[0] = fn[1] = collapseGaifman;
+        if (cfg->type == PDDL_HOMOMORPHISM_RPG)
+            fn[0] = fn[1] = collapseRPG;
         ASSERT_RUNTIME(fn[0] != NULL && fn[1] != NULL);
         int obj_size = src->obj.obj_size;
         bor_rand_mt_t *rnd = borRandMTNew(cfg->random_seed);

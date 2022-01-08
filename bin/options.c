@@ -189,6 +189,8 @@ static int optLiftedPlannerHeur(const char *tag)
 
     }else if (strcmp(tag, "gaif") == 0 || strcmp(tag, "gaifman") == 0){
         opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_GAIFMAN;
+    }else if (strcmp(tag, "rpg") == 0){
+        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_RPG;
 
     }else if (strcmp(tag, "endomorph") == 0){
         opt.lifted_planner.homomorph_cfg.use_endomorphism = 1;
@@ -204,6 +206,9 @@ static int optLiftedPlannerHeur(const char *tag)
 
     }else if (strncmp(tag, "samples=", 8) == 0){
         opt.lifted_planner.homomorph_samples = atoi(tag + 8);
+
+    }else if (strncmp(tag, "rpg-max-depth=", 14) == 0){
+        opt.lifted_planner.homomorph_cfg.rpg_max_depth = atoi(tag + 14);
 
     }else{
         fprintf(stderr, "Error: Unknown --lplan-heur option '%s'\n", tag);

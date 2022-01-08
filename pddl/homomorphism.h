@@ -29,6 +29,7 @@ extern "C" {
 #define PDDL_HOMOMORPHISM_RAND_OBJS      2
 #define PDDL_HOMOMORPHISM_RAND_TYPE_OBJS 3
 #define PDDL_HOMOMORPHISM_GAIFMAN        4
+#define PDDL_HOMOMORPHISM_RPG            5
 struct pddl_homomorphism_config {
     int type;
     int use_endomorphism; /*!< If true, interleave collapsing with lifted
@@ -39,6 +40,7 @@ struct pddl_homomorphism_config {
                          -- for *_RAND_* types */
     uint32_t random_seed;
     int keep_goal_objs;
+    int rpg_max_depth;
 };
 typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
@@ -49,6 +51,7 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
         0.5, /* .rm_ratio */ \
         6899, /* .random_seed */ \
         1, /* .keep_goal_objs */ \
+        2, /* .rpg_max_depth */ \
     }
 
 void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
