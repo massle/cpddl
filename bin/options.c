@@ -166,6 +166,10 @@ static int optLiftedPlanner(const char *tag)
         opt.lifted_planner.enable = 1;
         opt.lifted_planner.search_fn = pddlSearchLiftedGBFS;
 
+    }else if (strcmp(tag, "lazy") == 0){
+        opt.lifted_planner.enable = 1;
+        opt.lifted_planner.search_fn = pddlSearchLiftedLazy;
+
     }else{
         fprintf(stderr, "Error: Unknown --lplan option '%s'\n", tag);
         return -1;

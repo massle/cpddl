@@ -43,6 +43,9 @@ pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
 pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
                                            pddl_homomorphism_heur_t *heur,
                                            bor_err_t *err);
+pddl_search_lifted_t *pddlSearchLiftedLazy(const pddl_t *pddl,
+                                           pddl_homomorphism_heur_t *heur,
+                                           bor_err_t *err);
 
 void pddlSearchLiftedDel(pddl_search_lifted_t *s);
 int pddlSearchLiftedInitStep(pddl_search_lifted_t *s);
