@@ -182,7 +182,7 @@ static int optLiftedPlannerHeur(const char *tag)
     if (strcmp(tag, "lmc") == 0){
         opt.lifted_planner.heur_fn = pddlHomomorphismHeurLMCut;
 
-    }else if (strcmp(tag, "ff") == 0){
+    }else if (strcmp(tag, "ff") == 0 || strcmp(tag, "hff") == 0){
         opt.lifted_planner.heur_fn = pddlHomomorphismHeurHFF;
 
     }else if (strcmp(tag, "types") == 0){
@@ -198,6 +198,9 @@ static int optLiftedPlannerHeur(const char *tag)
 
     }else if (strcmp(tag, "endomorph") == 0){
         opt.lifted_planner.homomorph_cfg.use_endomorphism = 1;
+
+    }else if (strcmp(tag, "endomorph-ignore-costs") == 0){
+        opt.lifted_planner.homomorph_cfg.endomorphism_cfg.ignore_costs = 1;
 
     }else if (strncmp(tag, "rm-ratio=", 9) == 0){
         opt.lifted_planner.homomorph_cfg.rm_ratio = atof(tag + 9);

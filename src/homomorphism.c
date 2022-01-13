@@ -187,7 +187,7 @@ static int collapseEndomorphism(pddl_t *pddl,
 {
     BOR_INFO2(err, "Collapse with endomorphisms");
     // TODO
-    pddl_endomorphism_config_t ecfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+    pddl_endomorphism_config_t ecfg = cfg->endomorphism_cfg;
     BOR_ISET(redundant);
     pddl_obj_id_t *map = BOR_ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(pddl, &ecfg, &redundant, map, err);
