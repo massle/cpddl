@@ -178,6 +178,63 @@ static int collapseObjs(pddl_t *pddl,
     return 0;
 }
 
+
+static int _collapseObjs(pddl_homomorphic_task_t *h,
+                        int *collapse_map,
+                        bor_err_t *err)
+{
+    int repr = -1;
+    for (int i = 0; i < h->task.obj.obj_size; ++i){
+        if (collapse_map[i]){
+            repr = i;
+            break;
+        }
+    }
+
+    pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+    for (int i = 0, idx = 0; i < h->task.obj.obj_size; ++i){
+        if (collapse_map[i] && i != repr){
+            remap[i] = repr;
+        }else{
+            remap[i] = idx++;
+        }
+    }
+
+    if (h->obj_map != NULL){
+        for (int i = 0; i < h->input_obj_size; ++i)
+            h->obj_map[i] = remap[h->obj_map[i]];
+    }
+
+    pddlCondRemapObjs(&h->task.init->cls, remap);
+    pddlCondRemapObjs(h->task.goal, remap);
+    fixActions(&h->task, repr, collapse_map, err);
+    pddlActionsRemapObjs(&h->task.action, remap);
+
+    for (int i = 0; i < h->task.obj.obj_size; ++i){
+        if (collapse_map[i] && i != repr)
+            remap[i] = -1;
+    }
+    pddlTypesRemapObjs(&h->task.type, remap);
+    pddlObjsRemap(&h->task.obj, remap);
+    // TODO
+    //pddlNormalize(pddl);
+
+    BOR_FREE(remap);
+    return 0;
+}
+
+static int collapsePair(pddl_homomorphic_task_t *h,
+                        pddl_obj_id_t o1,
+                        pddl_obj_id_t o2,
+                        bor_err_t *err)
+{
+    int *collapse_map = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    collapse_map[o1] = collapse_map[o2] = 1;
+    int ret = _collapseObjs(h, collapse_map, err);
+    BOR_FREE(collapse_map);
+    return ret;
+}
+
 static int collapseEndomorphism(pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
                                 bor_rand_mt_t *rnd,
@@ -363,13 +420,14 @@ struct gaifman {
 };
 typedef struct gaifman gaifman_t;
 
-static void gaifmanInit(gaifman_t *g, const pddl_t *pddl)
+static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
 {
     bzero(g, sizeof(*g));
     g->obj_size = pddl->obj.obj_size;
     g->obj_is_static = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
     g->obj_relate_to = BOR_CALLOC_ARR(bor_iset_t, pddl->obj.obj_size);
-    collectGoalObjs(pddl, &g->goal_objs);
+    if (preserve_goals)
+        collectGoalObjs(pddl, &g->goal_objs);
 
     pddl_cond_const_it_atom_t it;
     const pddl_cond_atom_t *atom;
@@ -418,7 +476,6 @@ static void gaifmanFree(gaifman_t *g)
 
 static int gaifmanFindPairDepth(gaifman_t *g,
                                 const pddl_t *pddl,
-                                int keep_goals,
                                 int depth,
                                 pddl_obj_id_t *o1,
                                 pddl_obj_id_t *o2)
@@ -433,7 +490,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
     for (int x = 0; x < g->obj_size; ++x){
         if (!g->obj_is_static[x] || borISetSize(&g->obj_relate_to[x]) == 0)
             continue;
-        if (keep_goals && borISetIn(x, &g->goal_objs))
+        if (borISetIn(x, &g->goal_objs))
             continue;
         int xtype = pddl->obj.obj[x].type;
         bzero(visited, sizeof(int) * pddl->obj.obj_size);
@@ -451,7 +508,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
                 if (visited[o] == depth){
                     found_candidate = 1;
                     if (xtype == pddl->obj.obj[y].type
-                            && (!keep_goals || !borISetIn(y, &g->goal_objs))){
+                            && !borISetIn(y, &g->goal_objs)){
                         borISetUnion2(&neigh, &g->obj_relate_to[x],
                                               &g->obj_relate_to[y]);
                         if (!found || borISetSize(&neigh) < degree){
@@ -481,13 +538,12 @@ static int gaifmanFindPairDepth(gaifman_t *g,
 
 static int gaifmanFindPair(gaifman_t *g,
                            const pddl_t *pddl,
-                           int keep_goals,
                            pddl_obj_id_t *o1,
                            pddl_obj_id_t *o2)
 {
     for (int depth = 1; 1; ++depth){
         int ret;
-        if ((ret = gaifmanFindPairDepth(g, pddl, keep_goals, depth, o1, o2)) > 0)
+        if ((ret = gaifmanFindPairDepth(g, pddl, depth, o1, o2)) > 0)
             return 1;
         if (ret < 0)
             return 0;
@@ -504,13 +560,13 @@ static int collapseGaifman(pddl_t *pddl,
 {
     int ret = 0;
     gaifman_t gaif;
-    gaifmanInit(&gaif, pddl);
+    gaifmanInit(&gaif, pddl, cfg->keep_goal_objs);
     BOR_INFO(err, "Static objects: %d/%d",
              gaif.num_static_objs, pddl->obj.obj_size);
     BOR_INFO(err, "Non-goal static objects: %d/%d",
              gaif.num_static_nongoal_objs, pddl->obj.obj_size);
     pddl_obj_id_t o1 = 0, o2 = 0;
-    if (gaifmanFindPair(&gaif, pddl, cfg->keep_goal_objs, &o1, &o2)){
+    if (gaifmanFindPair(&gaif, pddl, &o1, &o2)){
         BOR_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
                  o1, pddl->obj.obj[o1].name,
                  o2, pddl->obj.obj[o2].name);
@@ -779,4 +835,213 @@ int pddlHomomorphism(pddl_t *pddl,
              src->obj.obj_size);
     BOR_INFO_PREFIX_POP(err);
     return 0;
+}
+
+
+
+void pddlHomomorphicTaskInit(pddl_homomorphic_task_t *h, const pddl_t *in)
+{
+    bzero(h, sizeof(*h));
+    h->input_obj_size = in->obj.obj_size;
+    pddlInitCopy(&h->task, in);
+    if (h->input_obj_size > 0){
+        h->obj_map = BOR_CALLOC_ARR(pddl_obj_id_t, h->input_obj_size);
+        for (int i = 0; i < h->input_obj_size; ++i)
+            h->obj_map[i] = i;
+    }
+    h->rnd = borRandMTNewAuto();
+}
+
+void pddlHomomorphicTaskFree(pddl_homomorphic_task_t *h)
+{
+    pddlFree(&h->task);
+    if (h->obj_map != NULL)
+        BOR_FREE(h->obj_map);
+    if (h->rnd != NULL)
+        borRandMTDel(h->rnd);
+}
+
+void pddlHomomorphicTaskSeed(pddl_homomorphic_task_t *h, uint32_t seed)
+{
+    borRandMTReseed(h->rnd, seed);
+}
+
+int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
+                                    int type,
+                                    bor_err_t *err)
+{
+    pddl_types_t *types = &h->task.type;
+    if (!pddlTypesIsMinimal(types, type)){
+        BOR_ERR_RET(err, -1, "Type %d (%s) is not minimal!",
+                    type, types->type[type].name);
+    }
+    if (pddlTypeNumObjs(types, type) <= 1){
+        BOR_INFO(err, "Type %d (%s) has no more than one object:"
+                      " nothing to collapse",
+                 type, types->type[type].name);
+        return 0;
+    }
+
+    int init_num_objs = h->task.obj.obj_size;
+    int *collapse_map = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    int objs_size;
+    const pddl_obj_id_t *objs = pddlTypesObjsByType(types, type, &objs_size);
+    for (int i = 0; i < objs_size; ++i)
+        collapse_map[objs[i]] = 1;
+    int ret = _collapseObjs(h, collapse_map, err);
+    BOR_FREE(collapse_map);
+
+    if (ret == 0){
+        BOR_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
+                      type, types->type[type].name,
+                      init_num_objs, h->task.obj.obj_size);
+        return 0;
+    }else{
+        BOR_TRACE_RET(err, -1);
+    }
+}
+
+int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
+                                          int preserve_goals,
+                                          bor_err_t *err)
+{
+    BOR_ISET(goal_objs);
+    if (preserve_goals){
+        collectGoalObjs(&h->task, &goal_objs);
+        //BOR_INFO(err, "Collected %d goal objects", borISetSize(&goal_objs));
+    }
+
+    int *choose_types = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    int *choose_objs = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    int objs_size = 0;
+    for (int type = 0; type < h->task.type.type_size; ++type){
+        if (pddlTypesIsMinimal(&h->task.type, type)
+                && pddlTypeNumObjs(&h->task.type, type) > 1){
+            int num_objs;
+            const pddl_obj_id_t *objs;
+            objs = pddlTypesObjsByType(&h->task.type, type, &num_objs);
+            for (int i = 0; i < num_objs; ++i){
+                if (!borISetIn(objs[i], &goal_objs)){
+                    choose_objs[objs_size] = objs[i];
+                    choose_types[objs_size++] = type;
+                }
+            }
+        }
+    }
+
+    if (objs_size == 0){
+        BOR_FREE(choose_types);
+        BOR_FREE(choose_objs);
+        borISetFree(&goal_objs);
+        return -1;
+    }
+
+    int choice = borRandMT(h->rnd, 0, objs_size);
+    int obj1 = choose_objs[choice];
+    int type = choose_types[choice];
+    int num_objs;
+    const pddl_obj_id_t *objs;
+    objs = pddlTypesObjsByType(&h->task.type, type, &num_objs);
+    int obj2 = obj1;
+    while (obj1 == obj2)
+        obj2 = objs[(int)borRandMT(h->rnd, 0, num_objs)];
+
+    int ret = collapsePair(h, obj1, obj2, err);
+    BOR_FREE(choose_types);
+    BOR_FREE(choose_objs);
+    borISetFree(&goal_objs);
+    return ret;
+}
+
+int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
+                                       int preserve_goals,
+                                       bor_err_t *err)
+{
+    int ret = 0;
+    gaifman_t gaif;
+    gaifmanInit(&gaif, &h->task, preserve_goals);
+    BOR_INFO(err, "Static objects: %d/%d",
+             gaif.num_static_objs, h->task.obj.obj_size);
+    BOR_INFO(err, "Non-goal static objects: %d/%d",
+             gaif.num_static_nongoal_objs, h->task.obj.obj_size);
+    pddl_obj_id_t o1 = 0, o2 = 0;
+    if (gaifmanFindPair(&gaif, &h->task, &o1, &o2)){
+        BOR_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
+                 o1, h->task.obj.obj[o1].name,
+                 o2, h->task.obj.obj[o2].name);
+        ret = collapsePair(h, o1, o2, err);
+    }else{
+        BOR_INFO2(err, "Nothing to collapse.");
+        ret = 1;
+    }
+
+    gaifmanFree(&gaif);
+    return ret;
+}
+
+int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
+                                   int preserve_goals,
+                                   int max_depth,
+                                   bor_err_t *err)
+{
+    int ret = 1;
+    BOR_ISET(goal_objs);
+    if (preserve_goals)
+        collectGoalObjs(&h->task, &goal_objs);
+
+    for (int depth = 1; depth <= max_depth; ++depth){
+        pddl_obj_id_t o1, o2;
+        if (rpgFindPair(&h->task, depth, &goal_objs, &o1, &o2, err)){
+            BOR_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
+                     o1, h->task.obj.obj[o1].name,
+                     o2, h->task.obj.obj[o2].name, depth);
+            ret = collapsePair(h, o1, o2, err);
+            break;
+        }
+        if (ret == 1)
+            BOR_INFO(err, "No pair found in depth %d", depth);
+    }
+
+
+    borISetFree(&goal_objs);
+    return ret;
+
+}
+
+int pddlHomomorphicTaskApplyRelaxedEndomorphism(
+            pddl_homomorphic_task_t *h,
+            const pddl_endomorphism_config_t *cfg,
+            bor_err_t *err)
+{
+    BOR_INFO2(err, "Relaxed endomorphisms");
+    BOR_ISET(redundant);
+    pddl_obj_id_t *map = BOR_ALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+    int ret = pddlEndomorphismRelaxedLifted(&h->task, cfg, &redundant, map, err);
+    if (ret == 0 && borISetSize(&redundant) > 0){
+        pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+        int oid;
+        BOR_ISET_FOR_EACH(&redundant, oid)
+            remap[oid] = PDDL_OBJ_ID_UNDEF;
+        for (int i = 0, idx = 0; i < h->task.obj.obj_size; ++i){
+            if (remap[i] != PDDL_OBJ_ID_UNDEF)
+                remap[i] = idx++;
+        }
+        BOR_ISET_FOR_EACH(&redundant, oid){
+            remap[oid] = remap[map[oid]];
+            ASSERT_RUNTIME(remap[oid] >= 0);
+        }
+        pddlRemapObjs(&h->task, remap);
+        pddlNormalize(&h->task);
+
+        for (int i = 0; i < h->input_obj_size; ++i)
+            h->obj_map[i] = remap[h->obj_map[i]];
+
+        if (remap != NULL)
+            BOR_FREE(remap);
+    }
+    borISetFree(&redundant);
+    if (map != NULL)
+        BOR_FREE(map);
+    BOR_INFO(err, "Relaxed endomorphism. DONE. ret: %d", ret);
+    return ret;
 }

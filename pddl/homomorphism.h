@@ -61,6 +61,7 @@ void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
                                const char *prefix,
                                bor_err_t *err);
 
+
 /**
  * Computes a homomorphism image of src according to the given config.
  */
@@ -69,6 +70,73 @@ int pddlHomomorphism(pddl_t *homo_image,
                      const pddl_homomorphism_config_t *cfg,
                      pddl_obj_id_t *obj_map,
                      bor_err_t *err);
+
+
+struct pddl_homomorphic_task {
+    pddl_t task; /*!< Homomorphic image of the input task */
+    int input_obj_size; /*!< Number of objects in the input task */
+    pddl_obj_id_t *obj_map; /*!< Mapping from object IDs of the input task to
+                                 object IDs of .task */
+    bor_rand_mt_t *rnd; /*!< Random number generator */
+};
+typedef struct pddl_homomorphic_task pddl_homomorphic_task_t;
+
+/**
+ * Creates an identity of in
+ */
+void pddlHomomorphicTaskInit(pddl_homomorphic_task_t *h, const pddl_t *in);
+
+/**
+ * Free allocated memory.
+ */
+void pddlHomomorphicTaskFree(pddl_homomorphic_task_t *h);
+
+/**
+ * (Re-)seed the internal random number generator.
+ */
+void pddlHomomorphicTaskSeed(pddl_homomorphic_task_t *h, uint32_t seed);
+
+
+/**
+ * Collapse all objects from the given type into a single object.
+ */
+int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
+                                    int type,
+                                    bor_err_t *err);
+
+/**
+ * Collapse random pair of objects from the same minimal type.
+ * If preserve_goals is set to true, all objects appearing in the goal are
+ * mapped to identity.
+ */
+int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
+                                          int preserve_goals,
+                                          bor_err_t *err);
+
+/**
+ * Collapse a pair of objects that are closest to each other in the
+ * Gaifman graph of static atoms.
+ */
+int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
+                                       int preserve_goals,
+                                       bor_err_t *err);
+
+/**
+ * Collapse pair of objects so that the image of init is within {max_depth}
+ * layers of relaxed planning graph.
+ */
+int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
+                                   int preserve_goals,
+                                   int max_depth,
+                                   bor_err_t *err);
+
+/**
+ * Apply relaxed endomorphism on the task.
+ */
+int pddlHomomorphicTaskApplyRelaxedEndomorphism(
+            pddl_homomorphic_task_t *h,
+            const pddl_endomorphism_config_t *cfg,
+            bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */
