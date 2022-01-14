@@ -19,6 +19,7 @@
 #ifndef __PDDL_HOMOMORPHISM_H__
 #define __PDDL_HOMOMORPHISM_H__
 
+#include <boruvka/rand-mt.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/endomorphism.h>
 
