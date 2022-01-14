@@ -24,6 +24,12 @@
 #include "assert.h"
 #include "log.h"
 
+#define METHOD_TYPE 1
+#define METHOD_RANDOM_PAIR 2
+#define METHOD_GAIFMAN 3
+#define METHOD_RPG 4
+#define METHOD_ENDOMORPHISM 5
+
 void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
                                const char *prefix,
                                bor_err_t *err)
@@ -1044,4 +1050,119 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
         BOR_FREE(map);
     BOR_INFO(err, "Relaxed endomorphism. DONE. ret: %d", ret);
     return ret;
+}
+
+void pddlHomomorphicTaskReduceInit(pddl_homomorphic_task_reduce_t *r,
+                                   int target_obj_size)
+{
+    bzero(r, sizeof(*r));
+    r->target_obj_size = target_obj_size;
+    borListInit(&r->method);
+}
+
+void pddlHomomorphicTaskReduceFree(pddl_homomorphic_task_reduce_t *r)
+{
+    bor_list_t *item;
+    while (!borListEmpty(&r->method)){
+        item = borListNext(&r->method);
+        borListDel(item);
+        pddl_homomorphic_task_method_t *m;
+        m = BOR_LIST_ENTRY(item, pddl_homomorphic_task_method_t, conn);
+        BOR_FREE(m);
+    }
+}
+
+static pddl_homomorphic_task_method_t *methodNew(int method)
+{
+    pddl_homomorphic_task_method_t *m;
+    m = BOR_ALLOC(pddl_homomorphic_task_method_t);
+    bzero(m, sizeof(*m));
+    m->method = method;
+    borListInit(&m->conn);
+    return m;
+}
+
+static int methodRun(const pddl_homomorphic_task_method_t *m,
+                     pddl_homomorphic_task_t *h,
+                     bor_err_t *err)
+{
+    switch (m->method){
+        case METHOD_TYPE:
+            return pddlHomomorphicTaskCollapseType(h, m->arg_type, err);
+        case METHOD_RANDOM_PAIR:
+            return pddlHomomorphicTaskCollapseRandomPair(h, m->arg_preserve_goals, err);
+        case METHOD_GAIFMAN:
+            return pddlHomomorphicTaskCollapseGaifman(h, m->arg_preserve_goals, err);
+        case METHOD_RPG:
+            return pddlHomomorphicTaskCollapseRPG(h, m->arg_preserve_goals,
+                                                  m->arg_max_depth, err);
+        case METHOD_ENDOMORPHISM:
+            return pddlHomomorphicTaskApplyRelaxedEndomorphism(
+                        h, &m->arg_endomorphism_cfg, err);
+        default:
+            BOR_ERR_RET(err, -1, "Uknown method %d", m->method);
+    }
+    BOR_ERR_RET(err, -1, "Uknown method %d", m->method);
+}
+
+void pddlHomomorphicTaskReduceAddType(pddl_homomorphic_task_reduce_t *r,
+                                      int type)
+{
+    pddl_homomorphic_task_method_t *m = methodNew(METHOD_TYPE);
+    m->arg_type = type;
+    borListAppend(&r->method, &m->conn);
+}
+
+void pddlHomomorphicTaskReduceAddRandomPair(pddl_homomorphic_task_reduce_t *r,
+                                            int preserve_goals)
+{
+    pddl_homomorphic_task_method_t *m = methodNew(METHOD_RANDOM_PAIR);
+    m->arg_preserve_goals = preserve_goals;
+    borListAppend(&r->method, &m->conn);
+}
+
+void pddlHomomorphicTaskReduceAddGaifman(pddl_homomorphic_task_reduce_t *r,
+                                         int preserve_goals)
+{
+    pddl_homomorphic_task_method_t *m = methodNew(METHOD_GAIFMAN);
+    m->arg_preserve_goals = preserve_goals;
+    borListAppend(&r->method, &m->conn);
+}
+
+void pddlHomomorphicTaskReduceAddRPG(pddl_homomorphic_task_reduce_t *r,
+                                     int preserve_goals,
+                                     int max_depth)
+{
+    pddl_homomorphic_task_method_t *m = methodNew(METHOD_RPG);
+    m->arg_preserve_goals = preserve_goals;
+    m->arg_max_depth = max_depth;
+    borListAppend(&r->method, &m->conn);
+}
+
+void pddlHomomorphicTaskReduceAddRelaxedEndomorphism(
+            pddl_homomorphic_task_reduce_t *r,
+            const pddl_endomorphism_config_t *cfg)
+{
+    pddl_homomorphic_task_method_t *m = methodNew(METHOD_ENDOMORPHISM);
+    m->arg_endomorphism_cfg = *cfg;
+    borListAppend(&r->method, &m->conn);
+}
+
+int pddlHomomorphicTaskReduce(pddl_homomorphic_task_reduce_t *r,
+                              pddl_homomorphic_task_t *h,
+                              bor_err_t *err)
+{
+    while (1){
+        int init_obj_size = h->task.obj.obj_size;
+        pddl_homomorphic_task_method_t *m;
+        BOR_LIST_FOR_EACH_ENTRY(&r->method, pddl_homomorphic_task_method_t, m, conn){
+            int ret = methodRun(m, h, err);
+            if (ret < 0)
+                BOR_TRACE_RET(err, ret);
+        }
+
+        if (h->task.obj.obj_size == init_obj_size)
+            return 0;
+    }
+    return 0;
 }

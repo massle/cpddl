@@ -71,7 +71,6 @@ int pddlHomomorphism(pddl_t *homo_image,
                      pddl_obj_id_t *obj_map,
                      bor_err_t *err);
 
-
 struct pddl_homomorphic_task {
     pddl_t task; /*!< Homomorphic image of the input task */
     int input_obj_size; /*!< Number of objects in the input task */
@@ -137,6 +136,42 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
             pddl_homomorphic_task_t *h,
             const pddl_endomorphism_config_t *cfg,
             bor_err_t *err);
+
+
+struct pddl_homomorphic_task_method {
+    int method;
+    int arg_type;
+    int arg_preserve_goals;
+    int arg_max_depth;
+    pddl_endomorphism_config_t arg_endomorphism_cfg;
+    bor_list_t conn;
+};
+typedef struct pddl_homomorphic_task_method pddl_homomorphic_task_method_t;
+
+struct pddl_homomorphic_task_reduce {
+    int target_obj_size;
+    bor_list_t method;
+};
+typedef struct pddl_homomorphic_task_reduce pddl_homomorphic_task_reduce_t;
+
+void pddlHomomorphicTaskReduceInit(pddl_homomorphic_task_reduce_t *r,
+                                   int target_obj_size);
+void pddlHomomorphicTaskReduceFree(pddl_homomorphic_task_reduce_t *r);
+void pddlHomomorphicTaskReduceAddType(pddl_homomorphic_task_reduce_t *r,
+                                      int type);
+void pddlHomomorphicTaskReduceAddRandomPair(pddl_homomorphic_task_reduce_t *r,
+                                            int preserve_goals);
+void pddlHomomorphicTaskReduceAddGaifman(pddl_homomorphic_task_reduce_t *r,
+                                         int preserve_goals);
+void pddlHomomorphicTaskReduceAddRPG(pddl_homomorphic_task_reduce_t *r,
+                                     int preserve_goals,
+                                     int max_depth);
+void pddlHomomorphicTaskReduceAddRelaxedEndomorphism(
+            pddl_homomorphic_task_reduce_t *r,
+            const pddl_endomorphism_config_t *cfg);
+int pddlHomomorphicTaskReduce(pddl_homomorphic_task_reduce_t *r,
+                              pddl_homomorphic_task_t *h,
+                              bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */
