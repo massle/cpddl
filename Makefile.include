@@ -115,7 +115,7 @@ _BOR_MAKE_VARS := $(filter BOR_%, $(.VARIABLES))
 _BOR_MAKE_DEF := $(foreach V,$(_BOR_MAKE_VARS),$(V:BOR_%=%)="$($(V))") DEBUG=no
 
 
-BLISS_VERSION = 0.73
+BLISS_VERSION = 0.77
 BLISS_CFLAGS ?=
 BLISS_LDFLAGS ?=
 USE_BLISS = auto
