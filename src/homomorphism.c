@@ -1152,10 +1152,12 @@ int pddlHomomorphicTaskReduce(pddl_homomorphic_task_reduce_t *r,
                               pddl_homomorphic_task_t *h,
                               bor_err_t *err)
 {
-    while (1){
+    while (h->task.obj.obj_size > r->target_obj_size){
         int init_obj_size = h->task.obj.obj_size;
         pddl_homomorphic_task_method_t *m;
         BOR_LIST_FOR_EACH_ENTRY(&r->method, pddl_homomorphic_task_method_t, m, conn){
+            if (h->task.obj.obj_size <= r->target_obj_size)
+                return 0;
             int ret = methodRun(m, h, err);
             if (ret < 0)
                 BOR_TRACE_RET(err, ret);
