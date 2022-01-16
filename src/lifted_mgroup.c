@@ -283,10 +283,10 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
 
 #define MAX_LINE_SIZE 1024
-void printMGroup(const pddl_t *pddl,
-                 const pddl_lifted_mgroup_t *mgroup,
-                 FILE *fout,
-                 bor_err_t *err)
+static void printMGroup(const pddl_t *pddl,
+                        const pddl_lifted_mgroup_t *mgroup,
+                        FILE *fout,
+                        bor_err_t *err)
 {
     char line[MAX_LINE_SIZE];
     int used = 0;
