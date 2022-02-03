@@ -484,7 +484,7 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
             start = end;
         }
     }
-    if (end > start){
+    if (end > start && op_ids_size > 0){
         int tr_id = add(trset);
         transSetsAddRange(vars, constr, trset->trans + tr_id, ops,
                           op_ids + start, end - start,

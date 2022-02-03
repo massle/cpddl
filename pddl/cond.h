@@ -115,7 +115,7 @@ typedef struct pddl_cond_atom pddl_cond_atom_t;
 
 
 /**
- * Assign
+ * Assign/Increase
  * TODO: For now only (increase (total-cost) (...)) is supported
  */
 struct pddl_cond_func_op {
@@ -336,7 +336,7 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
 /**
  * Remove atom node duplicates.
  */
-pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl);
+pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl);
 
 /**
  * If conflicting literals are found
@@ -384,12 +384,15 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
  */
 void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap);
 
+pddl_cond_t *pddlCondRemoveInvalidAtoms(pddl_cond_t *c);
+
 /**
  * Remap predicates
  */
 int pddlCondRemapPreds(pddl_cond_t *c,
                        const int *pred_remap,
                        const int *func_remap);
+
 
 void pddlCondPrint(const pddl_t *pddl,
                    const pddl_cond_t *cond,

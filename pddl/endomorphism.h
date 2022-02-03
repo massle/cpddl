@@ -73,7 +73,14 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups,
                            const pddl_endomorphism_config_t *cfg,
                            bor_iset_t *redundant_objects,
+                           pddl_obj_id_t *map,
                            bor_err_t *err);
+
+int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
+                                  const pddl_endomorphism_config_t *cfg,
+                                  bor_iset_t *redundant_objects,
+                                  pddl_obj_id_t *map,
+                                  bor_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

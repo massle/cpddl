@@ -39,6 +39,7 @@
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>
 #include <pddl/strips.h>
+#include <pddl/sql_grounder.h>
 #include <pddl/strips_op.h>
 #include <pddl/strips_fact_cross_ref.h>
 #include <pddl/strips_ground.h>
@@ -81,6 +82,7 @@
 #include <pddl/search.h>
 #include <pddl/search_astar.h>
 #include <pddl/search_lazy.h>
+#include <pddl/search_lifted.h>
 #include <pddl/plan.h>
 #include <pddl/relaxed_plan.h>
 #include <pddl/heur.h>
@@ -101,9 +103,12 @@
 #include <pddl/trans_system_abstr_map.h>
 #include <pddl/trans_system_graph.h>
 #include <pddl/endomorphism.h>
+#include <pddl/homomorphism.h>
+#include <pddl/homomorphism_heur.h>
 #include <pddl/symbolic_task.h>
 #include <pddl/black_mgroup.h>
 #include <pddl/red_black_fdr.h>
 #include <pddl/datalog.h>
+#include <pddl/prune_strips.h>
 
 #endif /* __PDDL_H__ */

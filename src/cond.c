@@ -396,7 +396,8 @@ static int condPartRebuild(pddl_cond_part_t **p,
         c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
         if (condRebuild(&c, pre, post, u) != 0)
             return -1;
-        borListAppend(&(*p)->part, &c->conn);
+        if (c != NULL)
+            borListAppend(&(*p)->part, &c->conn);
     } while (item != last);
 
     return 0;
@@ -567,8 +568,7 @@ static pddl_cond_when_t *condWhenClone(const pddl_cond_when_t *w)
 static pddl_cond_when_t *condWhenNegate(const pddl_cond_when_t *w,
                                         const pddl_t *pddl)
 {
-    fprintf(stderr, "Fatal Error: Cannot negate (when ...)\n");
-    exit(-1);
+    BOR_FATAL2("Cannot negate (when ...)");
 }
 
 static int condWhenEq(const pddl_cond_when_t *w1,
@@ -582,9 +582,9 @@ static int condWhenTraverse(pddl_cond_when_t *w,
                             int (*post)(pddl_cond_t *, void *),
                             void *u)
 {
-    if (condTraverse(w->pre, pre, post, u) != 0)
+    if (w->pre != NULL && condTraverse(w->pre, pre, post, u) != 0)
         return -1;
-    if (condTraverse(w->eff, pre, post, u) != 0)
+    if (w->eff != NULL && condTraverse(w->eff, pre, post, u) != 0)
         return -1;
     return 0;
 }
@@ -758,8 +758,7 @@ static pddl_cond_func_op_t *condFuncOpClone(const pddl_cond_func_op_t *op)
 static pddl_cond_func_op_t *condFuncOpNegate(const pddl_cond_func_op_t *op,
                                              const pddl_t *pddl)
 {
-    fprintf(stderr, "Fatal Error: Cannot negate function!\n");
-    exit(-1);
+    BOR_FATAL2("Cannot negate function!");
 }
 
 static int condFuncOpEq(const pddl_cond_func_op_t *f1,
@@ -2802,31 +2801,35 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
     pddlCondRebuild(&c, NULL, flatten, NULL);
     pddlCondRebuild(&c, NULL, moveDisjunctionsUp, NULL);
     pddlCondRebuild(&c, NULL, flatten, NULL);
-    c = pddlCondDeduplicate(c, pddl);
+    c = pddlCondDeduplicateAtoms(c, pddl);
     return c;
 }
 
 static void _deduplicate(pddl_cond_part_t *p)
 {
-    bor_list_t *item, *item2;
-    pddl_cond_t *c1, *c2;
-
-    BOR_LIST_FOR_EACH(&p->part, item){
-        c1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c1->type != PDDL_COND_ATOM)
+    bor_list_t *item = borListNext(&p->part);
+    while (item != &p->part){
+        pddl_cond_t *c1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        if (c1->type != PDDL_COND_ATOM){
+            item = borListNext(item);
             continue;
+        }
 
-        item2 = borListNext(item);
-        for (; item2 != &p->part; item2 = borListNext(item2)){
-            c2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
-            if (c2->type != PDDL_COND_ATOM)
-                continue;
-            if (pddlCondAtomCmp(OBJ(c1, atom), OBJ(c2, atom)) == 0){
-                borListDel(item2);
+        bor_list_t *item2 = borListNext(item);
+        for (; item2 != &p->part;){
+            pddl_cond_t *c2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
+            if (c2->type == PDDL_COND_ATOM
+                    && pddlCondAtomCmp(OBJ(c1, atom), OBJ(c2, atom)) == 0){
+                bor_list_t *item_del = item2;
+                item2 = borListNext(item2);
+                borListDel(item_del);
                 pddlCondDel(c2);
-                break;
+
+            }else{
+                item2 = borListNext(item2);
             }
         }
+        item = borListNext(item);
     }
 }
 
@@ -2837,7 +2840,7 @@ static int deduplicate(pddl_cond_t **c, void *data)
     return 0;
 }
 
-pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl)
+pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl)
 {
     pddl_cond_t *c = cond;
     pddlCondRebuild(&c, NULL, deduplicate, NULL);
@@ -3238,7 +3241,7 @@ pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
         pddlCondRebuild(&c, NULL, simplifyConflictAtoms, &d);
         pddlCondRebuild(&c, NULL, simplifyConflictEqAtoms, &d);
         //pddlCondRebuild(&c, NULL, simplifyEqTypeRestrict, &d);
-        c = pddlCondDeduplicate(c, pddl);
+        c = pddlCondDeduplicateAtoms(c, pddl);
     } while (d.change);
     return c;
 }
@@ -3318,10 +3321,8 @@ int pddlCondAtomInConflict(const pddl_cond_atom_t *a1,
 static void condAtomRemapObjs(pddl_cond_atom_t *a, const pddl_obj_id_t *remap)
 {
     for (int i = 0; i < a->arg_size; ++i){
-        if (a->arg[i].obj >= 0){
+        if (a->arg[i].obj >= 0)
             a->arg[i].obj = remap[a->arg[i].obj];
-            ASSERT(a->arg[i].obj >= 0);
-        }
     }
 }
 
@@ -3332,7 +3333,7 @@ static int condRemapObjs(pddl_cond_t *c, void *_remap)
         pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
         condAtomRemapObjs(a, remap);
 
-    }else if (c->type == PDDL_COND_ASSIGN){
+    }else if (c->type == PDDL_COND_ASSIGN || c->type == PDDL_COND_INCREASE){
         pddl_cond_func_op_t *a = PDDL_COND_CAST(c, func_op);
         if (a->lvalue != NULL)
             condAtomRemapObjs(a->lvalue, remap);
@@ -3346,6 +3347,44 @@ static int condRemapObjs(pddl_cond_t *c, void *_remap)
 void pddlCondRemapObjs(pddl_cond_t *c, const pddl_obj_id_t *remap)
 {
     pddlCondTraverse(c, NULL, condRemapObjs, (void *)remap);
+}
+
+static int atomIsInvalid(const pddl_cond_atom_t *a)
+{
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].param < 0 && a->arg[i].obj < 0)
+            return 1;
+    }
+    return 0;
+}
+
+static int condRemoveInvalidAtoms(pddl_cond_t **c, void *_)
+{
+    if ((*c)->type == PDDL_COND_ATOM){
+        if (atomIsInvalid(OBJ(*c, atom))){
+            pddlCondDel(*c);
+            *c = NULL;
+            return 0;
+        }
+    }else if ((*c)->type == PDDL_COND_ASSIGN
+                || (*c)->type == PDDL_COND_INCREASE){
+        pddl_cond_func_op_t *f = OBJ(*c, func_op);
+        if (f->lvalue == NULL
+                || atomIsInvalid(f->lvalue)
+                || (f->fvalue != NULL && atomIsInvalid(f->fvalue))
+                || (f->fvalue == NULL && f->value < 0)){
+            pddlCondDel(*c);
+            *c = NULL;
+            return 0;
+        }
+    }
+    return 0;
+}
+
+pddl_cond_t *pddlCondRemoveInvalidAtoms(pddl_cond_t *c)
+{
+    pddlCondRebuild(&c, NULL, condRemoveInvalidAtoms, NULL);
+    return c;
 }
 
 struct pred_remap {
@@ -3535,8 +3574,7 @@ void pddlCondPrint(const struct pddl *pddl,
         condImplyPrint(OBJ(cond, imply), pddl, params, fout);
 
     }else{
-        fprintf(stderr, "Fatal Error: Unknown type!\n");
-        exit(-1);
+        BOR_FATAL2("Unknown type!");
     }
 }
 

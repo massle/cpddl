@@ -35,6 +35,7 @@ OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
 OBJS += strips_maker
+OBJS += sql_grounder
 OBJS += strips_ground_tree
 OBJS += strips_ground
 OBJS += strips_ground_sql
@@ -66,6 +67,7 @@ OBJS += fdr
 OBJS += fdr_state_packer
 OBJS += fdr_state_pool
 OBJS += fdr_state_space
+OBJS += strips_state_space
 OBJS += sym
 OBJS += famgroup
 OBJS += pot
@@ -89,6 +91,7 @@ OBJS += open_list_splaytree1
 OBJS += open_list_splaytree2
 OBJS += search_astar
 OBJS += search_lazy
+OBJS += search_lifted
 OBJS += plan
 OBJS += relaxed_plan
 OBJS += heur
@@ -120,16 +123,24 @@ OBJS += bdds
 OBJS += symbolic_vars
 OBJS += symbolic_constr
 OBJS += symbolic_trans
+OBJS += symbolic_state
 OBJS += symbolic_task
 OBJS += cost
 OBJS += black_mgroup
 OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
+OBJS += homomorphism
+OBJS += homomorphism_heur
+OBJS += prune_strips
+OBJS += objset
 
 OBJS_CPP = endomorphism
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
+
+GEN  = pddl/objset.h
+GEN += src/objset.c
 
 all: $(TARGETS)
 
@@ -144,6 +155,8 @@ pddl/config.h:
 	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
 	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
 	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
+	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
+	if [ "$(USE_SQLITE)" = "yes" ]; then echo "#define PDDL_SQLITE" >>$@; fi
 	echo '#include <boruvka/lp.h>' >__lp.c
 	echo 'int main(int argc, char *arvg[]) { return borLPSolverAvailable(BOR_LP_DEFAULT); }' >>__lp.c
 	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm
@@ -158,13 +171,18 @@ pddl/config.h:
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
-.objs/%.o: src/%.c pddl/%.h pddl/config.h
+pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+
+.objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
-.objs/%.o: src/%.c pddl/config.h
+.objs/%.o: src/%.c pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
-.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h
+.objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
-.objs/%.cpp.o: src/%.cpp pddl/config.h
+.objs/%.cpp.o: src/%.cpp pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
 %.h: pddl/config.h
@@ -242,6 +260,7 @@ third-party/bliss/libbliss.a:
 	cd third-party && unzip bliss-$(BLISS_VERSION).zip
 	mv third-party/bliss-$(BLISS_VERSION) third-party/bliss
 	cd third-party/bliss && patch -p1 <../bliss-0.73-memleak.patch
+	cd third-party/bliss && patch -p1 <../bliss-0.73-capi.patch
 	$(MAKE) CC=$(CXX) -C third-party/bliss
 
 lpsolve: third-party/lpsolve/liblpsolve.a

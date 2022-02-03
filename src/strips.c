@@ -23,6 +23,21 @@
 #include "helper.h"
 #include "err.h"
 #include "assert.h"
+#include "log.h"
+
+void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
+                         const char *prefix,
+                         bor_err_t *err)
+{
+    if (cfg->lifted_mgroups == NULL){
+        BOR_INFO(err, "%slifted_mgroups->mgroup_size = 0", prefix);
+    }else{
+        PDDL_LOG_CONFIG_INT(cfg, prefix, lifted_mgroups->mgroup_size, err);
+    }
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, prune_op_pre_mutex, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, prune_op_dead_end, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, remove_static_facts, err);
+}
 
 static void copyBasicInfo(pddl_strips_t *dst, const pddl_strips_t *src)
 {
@@ -47,25 +62,38 @@ void pddlStripsInit(pddl_strips_t *strips)
 
 void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
 {
-    // Remove all operators, empty the initial state and make sure that the
-    // goal is non-empty.
+    pddlStripsFree(strips);
+    pddlStripsInit(strips);
 
-    pddlStripsOpsFree(&strips->op);
-    pddlStripsOpsInit(&strips->op);
-    borISetEmpty(&strips->init);
-    if (strips->fact.fact_size == 0){
-        // TODO
-        BOR_FATAL2("STRIPS problem does not contain any fact."
-                   " Making unsolvable problem for this case is not yet"
-                   " implemented.");
-    }
-    borISetEmpty(&strips->goal);
-    borISetAdd(&strips->goal, 0);
+    int f_init, f_goal, f_aux;
+    pddl_fact_t fact;
+    pddlFactInit(&fact);
+    fact.name = BOR_STRDUP("I");
+    f_init = pddlFactsAdd(&strips->fact, &fact);
+    pddlFactFree(&fact);
 
-    ASSERT_RUNTIME(strips->fact.fact_size > 0);
-    for (int i = strips->fact.fact_size - 1; i >= 1; --i)
-        pddlFactsDelFact(&strips->fact, i);
-    strips->fact.fact_size = 1;
+    pddlFactInit(&fact);
+    fact.name = BOR_STRDUP("G");
+    f_goal = pddlFactsAdd(&strips->fact, &fact);
+    pddlFactFree(&fact);
+
+    pddlFactInit(&fact);
+    fact.name = BOR_STRDUP("P");
+    f_aux = pddlFactsAdd(&strips->fact, &fact);
+    pddlFactFree(&fact);
+
+    borISetAdd(&strips->init, f_init);
+    borISetAdd(&strips->goal, f_goal);
+
+    pddl_strips_op_t op;
+    pddlStripsOpInit(&op);
+    borISetAdd(&op.pre, f_aux);
+    borISetAdd(&op.add_eff, f_goal);
+    pddlStripsOpFinalize(&op, BOR_STRDUP("unreachable-op"));
+    pddlStripsOpsAdd(&strips->op, &op);
+    pddlStripsOpFree(&op);
+
+    strips->goal_is_unreachable = 1;
 }
 
 void pddlStripsFree(pddl_strips_t *strips)
@@ -981,4 +1009,19 @@ void pddlStripsPrintDebug(const pddl_strips_t *strips, FILE *fout)
         fprintf(fout, "Goal is unreachable\n");
     if (strips->has_cond_eff)
         fprintf(fout, "Has conditional effects\n");
+}
+
+void pddlStripsLogInfo(const pddl_strips_t *strips, bor_err_t *err)
+{
+    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
+    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    int count = 0;
+    for (int i = 0; i < strips->op.op_size; ++i){
+        if (strips->op.op[i]->cond_eff_size > 0)
+            ++count;
+    }
+    BOR_INFO(err, "Number of Strips Operators"
+             " with Conditional Effects: %d", count);
 }

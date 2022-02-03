@@ -107,7 +107,7 @@ int pddlLMCut(pddl_lm_cut_t *lmc,
               const pddl_set_iset_t *ldms_in,
               pddl_set_iset_t *ldms);
 int pddlLMCutStrips(pddl_lm_cut_t *lmc,
-                    const bor_iset_t *fdr_state,
+                    const bor_iset_t *state,
                     const pddl_set_iset_t *ldms_in,
                     pddl_set_iset_t *ldms);
 

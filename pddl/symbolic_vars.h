@@ -23,51 +23,87 @@
 #include <pddl/bdd.h>
 #include <pddl/mgroup.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+/**
+ * A mutex group and the corresponding BDD variables
+ */
 struct pddl_symbolic_fact_group {
     int id;
-    bor_iset_t fact;
-    bor_iset_t pre_var;
-    bor_iset_t eff_var;
+    bor_iset_t fact; /*!< Facts forming this mutex group */
+    bor_iset_t pre_var; /*!< Corresponding precondition BDD variables */
+    bor_iset_t eff_var; /*!< Corresponding effect BDD variables */
 };
 typedef struct pddl_symbolic_fact_group pddl_symbolic_fact_group_t;
 
+/**
+ * A strips fact and the corresponding BDD encoding
+ */
 struct pddl_symbolic_fact {
-    int id;
-    int group_id;
-    int val;
-    pddl_bdd_t *pre_bdd;
-    pddl_bdd_t *eff_bdd;
+    int id; /*!< ID of the fact */
+    int group_id; /*!< ID of the mutex group it belongs to */
+    int val; /*!< Value of the fact within the mutex group, i.e,, value, if we
+                  consider the mutex group to be variable */
+    pddl_bdd_t *pre_bdd; /*!< Encoding of the fact in precondition BDD vars */
+    pddl_bdd_t *eff_bdd; /*!< Encoding of the fact in effect BDD vars */
 };
 typedef struct pddl_symbolic_fact pddl_symbolic_fact_t;
 
 struct pddl_symbolic_vars {
-    int group_size;
-    pddl_symbolic_fact_group_t *group;
-    int fact_size;
-    pddl_symbolic_fact_t *fact;
-    pddl_bdd_manager_t *mgr;
-    pddl_bdd_t *valid_states;
-    int bdd_var_size;
-    int *ordered_facts;
+    int group_size; /*!< Number of mutex groups that encode the task */
+    pddl_symbolic_fact_group_t *group; /*!< Array of mutex groups */
+    int fact_size; /*!< Number of strips facts */
+    pddl_symbolic_fact_t *fact; /*!< Facts and their corresponding BDD encoding */
+    pddl_bdd_manager_t *mgr; /*!< Corresponding BDD manager */
+    pddl_bdd_t *valid_states; /*!< BDD encoding all valid states */
+    int bdd_var_size; /*!< Number of BDD variables (both pre and eff) */
+    int *ordered_facts; /*!< Facts as they are ordered in BDDs */
 };
 typedef struct pddl_symbolic_vars pddl_symbolic_vars_t;
 
+/**
+ * Initialize mapping from facts to BDD variables without constructing any
+ * BDDs.
+ */
 void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,
                           int fact_size,
                           const pddl_mgroups_t *mgroups);
+
+/**
+ * Initialize BDD nodes -- needs to be run *after* *Init()
+ */
 void pddlSymbolicVarsInitBDD(pddl_bdd_manager_t *mgr,
                              pddl_symbolic_vars_t *vars);
+
+/**
+ * Free allocated memory.
+ */
 void pddlSymbolicVarsFree(pddl_symbolic_vars_t *vars);
 
+/**
+ * Construct BDD representing the given STRIPS state
+ */
 pddl_bdd_t *pddlSymbolicVarsCreateState(pddl_symbolic_vars_t *vars,
                                         const bor_iset_t *state);
 
+/**
+ * Construct BDD partial state
+ */
 pddl_bdd_t *pddlSymbolicVarsCreatePartialState(pddl_symbolic_vars_t *vars,
                                                const bor_iset_t *part_state);
 
+/**
+ * Construct bi-implication of the corresponding mutex group
+ */
 pddl_bdd_t *pddlSymbolicVarsCreateBiimp(pddl_symbolic_vars_t *vars,
                                         int group_id);
 
+/**
+ * Create a mutex formed by the given facts as BDD of precondition
+ * variables.
+ */
 pddl_bdd_t *pddlSymbolicVarsCreateMutexPre(pddl_symbolic_vars_t *vars,
                                            int fact1, int fact2);
 
@@ -115,5 +151,9 @@ _bor_inline pddl_bdd_t *pddlSymbolicVarsFactEffBDDNeg(pddl_symbolic_vars_t *vars
 {
     return pddlBDDNot(vars->mgr, vars->fact[fact].eff_bdd);
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
 
 #endif /* __PDDL_SYMBOLIC_VARS_H__ */

@@ -22,6 +22,15 @@
 #include "pddl/pddl_struct.h"
 #include "err.h"
 #include "assert.h"
+#include "log.h"
+
+void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err)
+{
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, force_adl, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, normalize, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, remove_empty_types, err);
+    PDDL_LOG_CONFIG_BOOL(cfg, prefix, compile_away_cond_eff, err);
+}
 
 static int checkDerivedPredicates(const pddl_t *pddl, bor_err_t *err)
 {
@@ -166,10 +175,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
              const pddl_config_t *cfg, bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "PDDL: ");
-    BOR_INFO(err, "Config force-adl: %d", cfg->force_adl);
-    BOR_INFO(err, "Config normalize: %d", cfg->normalize);
-    BOR_INFO(err, "Config compile-away-cond-eff: %d",
-             cfg->compile_away_cond_eff);
+    pddlConfigLog(cfg, "cfg.", err);
 
     bzero(pddl, sizeof(*pddl));
     pddl->cfg = *cfg;
@@ -509,6 +515,7 @@ static void addNotPredsToInitRec(pddl_t *pddl, int pos, int neg,
         if (!initHasFact(pddl, pos, arg_size, arg)){
             a = pddlCondCreateFactAtom(neg, arg_size, arg);
             pddlCondPartAdd(pddl->init, &a->cls);
+            pddl->pred.pred[a->pred].in_init = 1;
         }
 
         return;
@@ -700,6 +707,10 @@ static void pddlResetPredReadWrite(pddl_t *pddl)
 
 void pddlNormalize(pddl_t *pddl)
 {
+    pddl_cond_t *c = pddlCondDeduplicateAtoms(&pddl->init->cls, pddl);
+    ASSERT_RUNTIME(c->type == PDDL_COND_AND);
+    pddl->init = PDDL_COND_CAST(c, part);
+
     removeActionsWithUnsatisfiableArgs(pddl);
 
     for (int i = 0; i < pddl->action.action_size; ++i)
@@ -845,88 +856,53 @@ void pddlAddObjectTypes(pddl_t *pddl)
 }
 
 
-static void removeObjsFromInit(pddl_t *pddl,
-                               const pddl_obj_id_t *remap,
-                               bor_err_t *err)
+void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
 {
-    pddl_cond_t *c = pddlCondNewEmptyAnd();
-    pddl_cond_part_t *init = PDDL_COND_CAST(c, part);
-    int rm_atom = 0;
-    int rm_ass = 0;
-    while (!borListEmpty(&pddl->init->part)){
-        bor_list_t *item = borListNext(&pddl->init->part);
-        borListDel(item);
-        pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
-            for (int i = 0; i < a->arg_size; ++i){
-                if (a->arg[i].obj >= 0 && remap[a->arg[i].obj] == -1){
-                    pddlCondDel(c);
-                    c = NULL;
-                    ++rm_atom;
-                    break;
-
-                }else if (a->arg[i].obj >= 0){
-                    a->arg[i].obj = remap[a->arg[i].obj];
-                }
-            }
-
-        }else if (c->type == PDDL_COND_ASSIGN){
-            pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
-            ASSERT(ass->fvalue == NULL);
-            if (ass->lvalue != NULL){
-                pddl_cond_atom_t *a = ass->lvalue;
-                for (int i = 0; i < a->arg_size; ++i){
-                    if (a->arg[i].obj >= 0 && remap[a->arg[i].obj] == -1){
-                        pddlCondDel(c);
-                        c = NULL;
-                        ++rm_ass;
-                        break;
-
-                    }else if (a->arg[i].obj >= 0){
-                        a->arg[i].obj = remap[a->arg[i].obj];
-                    }
-                }
-            }
-        }
-
-        if (c != NULL)
-            borListAppend(&init->part, &c->conn);
-    }
-
-    pddlCondDel(&pddl->init->cls);
-    pddl->init = init;
-
-    BOR_INFO(err, "Removed %d atoms and %d assignments from the initial state",
-             rm_atom, rm_ass);
+    if (borISetSize(rm_obj) == 0)
+        return;
+    pddl_obj_id_t *remap = BOR_ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    pddlRemoveObjsGetRemap(pddl, rm_obj, remap, err);
+    BOR_FREE(remap);
 }
 
-void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
+void pddlRemoveObjsGetRemap(pddl_t *pddl,
+                            const bor_iset_t *rm_obj,
+                            pddl_obj_id_t *remap,
+                            bor_err_t *err)
 {
     if (borISetSize(rm_obj) == 0)
         return;
     BOR_INFO_PREFIX_PUSH(err, "PDDL rm objs: ");
     BOR_INFO(err, "Removing %d objects", borISetSize(rm_obj));
 
-    int obj_size = pddl->obj.obj_size;
-    pddl_obj_id_t *remap = BOR_ALLOC_ARR(pddl_obj_id_t, obj_size);
-    for (int i = 0, idx = 0, id = 0; i < obj_size; ++i){
+    for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
         if (idx < borISetSize(rm_obj) && borISetGet(rm_obj, idx) == i){
-            remap[i] = -1;
+            remap[i] = PDDL_OBJ_ID_UNDEF;
             ++idx;
         }else{
             remap[i] = id++;
         }
     }
 
-    removeObjsFromInit(pddl, remap, err);
-    pddlCondRemapObjs(pddl->goal, remap);
-    pddlObjsRemap(&pddl->obj, remap);
-    pddlTypesRemapObjs(&pddl->type, remap);
-    pddlActionsRemapObjs(&pddl->action, remap);
-
-    BOR_FREE(remap);
+    pddlRemapObjs(pddl, remap);
     BOR_INFO_PREFIX_POP(err);
+}
+
+void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
+{
+    pddlCondRemapObjs(&pddl->init->cls, remap);
+    pddl_cond_t *c = pddlCondRemoveInvalidAtoms(&pddl->init->cls);
+    ASSERT_RUNTIME(c->type == PDDL_COND_AND);
+    pddl->init = PDDL_COND_CAST(c, part);
+
+    pddlCondRemapObjs(pddl->goal, remap);
+    pddl->goal = pddlCondRemoveInvalidAtoms(pddl->goal);
+    if (pddl->goal == NULL)
+        pddl->goal = &pddlCondNewBool(1)->cls;
+
+    pddlActionsRemapObjs(&pddl->action, remap);
+    pddlTypesRemapObjs(&pddl->type, remap);
+    pddlObjsRemap(&pddl->obj, remap);
 }
 
 void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err)

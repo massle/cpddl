@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
             pddlH2(&strips, &mutex, NULL, NULL, 0., &err);
             if (o.h2_mgroup){
                 pddlMGroupsInitEmpty(&h2_mgroups);
-                pddlMutexPairsInferMutexGroups(&mutex, &h2_mgroups);
+                pddlMutexPairsInferMutexGroups(&mutex, &h2_mgroups, &err);
                 BOR_INFO(&err, "Found %d h2 mutex groups.",
                          h2_mgroups.mgroup_size);
 

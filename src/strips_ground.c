@@ -504,7 +504,8 @@ static char *groundOpName(const pddl_t *pddl,
 
 static int groundIncrease(pddl_strips_ground_t *g,
                           const pddl_obj_id_t *arg,
-                          const pddl_cond_arr_t *atoms)
+                          const pddl_cond_arr_t *atoms,
+                          const pddl_action_t *action)
 {
     const pddl_cond_func_op_t *inc;
     const pddl_ground_atom_t *ga;
@@ -515,8 +516,13 @@ static int groundIncrease(pddl_strips_ground_t *g,
         inc = PDDL_COND_CAST(atoms->cond[i], func_op);
         if (inc->fvalue != NULL){
             ga = pddlGroundAtomsFindAtom(&g->funcs, inc->fvalue, arg);
-            ASSERT_RUNTIME(ga != NULL);
-            cost += ga->func_val;
+            if (ga != NULL){
+                cost += ga->func_val;
+            }else{
+                char *name = groundOpName(g->pddl, action, arg);
+                BOR_WARN(g->err, "Undefined cost for action (%s).", name);
+                BOR_FREE(name);
+            }
         }else{
             cost += inc->value;
         }
@@ -559,9 +565,8 @@ static int setUpOp(pddl_strips_ground_t *g, pddl_strips_op_t *op,
     groundAtoms(g, a->max_arg_size, ga->arg, &a->add_eff, &op->add_eff);
     groundAtoms(g, a->max_arg_size, ga->arg, &a->del_eff, &op->del_eff);
     op->cost = 1;
-    if (g->pddl->metric){
-        op->cost = groundIncrease(g, ga->arg, &a->increase);
-    }
+    if (g->pddl->metric)
+        op->cost = groundIncrease(g, ga->arg, &a->increase, a->action);
     name = groundOpName(g->pddl, a->action, ga->arg);
 
     // Make the operator well-formed
@@ -967,12 +972,7 @@ int pddlStripsGround(pddl_strips_t *strips,
                      bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Ground: ");
-    BOR_INFO(err, "Config lifted-mgroups.size: %d",
-             (cfg->lifted_mgroups != NULL ?
-                cfg->lifted_mgroups->mgroup_size : 0));
-    BOR_INFO(err, "Config prune-op-pre-mutex: %d", cfg->prune_op_pre_mutex);
-    BOR_INFO(err, "Config prune-op-dead-end: %d", cfg->prune_op_dead_end);
-    BOR_INFO(err, "Config remove-static-facts: %d", cfg->remove_static_facts);
+    pddlGroundConfigLog(cfg, "cfg.", err);
     pddl_strips_ground_t g;
 
     if (pddlStripsGroundStart(&g, pddl, cfg, err, NULL, NULL) != 0
@@ -983,18 +983,7 @@ int pddlStripsGround(pddl_strips_t *strips,
         BOR_TRACE_RET(err, -1);
     }
 
-    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
-    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
-    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
-    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
-    int count = 0;
-    for (int i = 0; i < strips->op.op_size; ++i){
-        if (strips->op.op[i]->cond_eff_size > 0)
-            ++count;
-    }
-    BOR_INFO(err, "Number of Strips Operators"
-             " with Conditional Effects: %d", count);
-
+    pddlStripsLogInfo(strips, err);
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }

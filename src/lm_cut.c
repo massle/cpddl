@@ -493,11 +493,9 @@ static int findCut(pddl_lm_cut_t *lmc)
     */
 
     if (lmc->cut.size == 0){
-        fprintf(stderr, "ERROR: Empty cut!\n");
-        exit(-1);
+        BOR_FATAL2("Empty cut!");
     }else if (min_cost <= 0){
-        fprintf(stderr, "ERROR: Invalid cut cost: %d!\n", min_cost);
-        exit(-1);
+        BOR_FATAL("Invalid cut cost: %d!", min_cost);
     }
 
     return min_cost;

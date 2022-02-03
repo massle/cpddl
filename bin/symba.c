@@ -53,6 +53,7 @@ struct options {
     int fw;
     int bw;
     int fwbw;
+    int bw_off_if_constr_failed;
 
     int op_mutex_ts;
     int op_mutex_op_fact;
@@ -60,7 +61,8 @@ struct options {
     int op_mutex_prune;
     const char *op_mutex_out;
 
-    int pot;
+    int pot_fw;
+    int pot_bw;
     int pot_sum_op_cost;
     int use_heur_bw;
     int no_heur_fw;
@@ -68,7 +70,6 @@ struct options {
     int symba_fam;
     float trans_merge_max_time;
     float goal_constr_max_time;
-    int test_partitioning;
     int multiply_op_cost;
     int tnf;
     int tnf_multiply;
@@ -88,7 +89,8 @@ pddl_mgroups_t mgroups;
 pddl_mutex_pairs_t mutex;
 unsigned fdr_var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
 pddl_endomorphism_config_t endomorphism_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
-pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
+pddl_hpot_config_t pot_cfg_fw = PDDL_HPOT_CONFIG_INIT;
+pddl_hpot_config_t pot_cfg_bw = PDDL_HPOT_CONFIG_INIT;
 
 static FILE *openFile(const char *fn)
 {
@@ -133,10 +135,10 @@ static void setFDRVarLargestMulti(const char *ln, const char *sn)
     opt.fdr_var_method = PDDL_FDR_VARS_LARGEST_FIRST_MULTI;
 }
 
-static int setPot(const char *_spec)
+static int setPot(const char *_spec, pddl_hpot_config_t *pot_cfg, int *pot_flag)
 {
-    bzero(&pot_cfg, sizeof(pot_cfg));
-    pot_cfg.disambiguation = 1;
+    bzero(pot_cfg, sizeof(*pot_cfg));
+    pot_cfg->disambiguation = 1;
 
     // TODO
     char *spec = BOR_STRDUP(_spec);
@@ -150,49 +152,49 @@ static int setPot(const char *_spec)
         *e = 0x0;
 
         if (strcmp(o, "disamb") == 0){
-            pot_cfg.disambiguation = 1;
-            pot_cfg.weak_disambiguation = 0;
+            pot_cfg->disambiguation = 1;
+            pot_cfg->weak_disambiguation = 0;
 
         }else if (strcmp(o, "weak-disamb") == 0){
-            pot_cfg.disambiguation = 0;
-            pot_cfg.weak_disambiguation = 1;
+            pot_cfg->disambiguation = 0;
+            pot_cfg->weak_disambiguation = 1;
 
         }else if (strcmp(o, "no-disamb") == 0){
-            pot_cfg.disambiguation = 0;
-            pot_cfg.weak_disambiguation = 0;
+            pot_cfg->disambiguation = 0;
+            pot_cfg->weak_disambiguation = 0;
 
         }else if (strcmp(o, "init") == 0){
-            pot_cfg.obj = PDDL_HPOT_OBJ_INIT;
-            pot_cfg.add_init_constr = 0;
-            pot_cfg.init_constr_coef = 0;
+            pot_cfg->obj = PDDL_HPOT_OBJ_INIT;
+            pot_cfg->add_init_constr = 0;
+            pot_cfg->init_constr_coef = 0;
 
         }else if (strcmp(o, "all") == 0){
-            pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES;
+            pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES;
 
         }else if (strncmp(o, "all-mutex=", 10) == 0){
-            pot_cfg.obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX;
-            pot_cfg.all_states_mutex_size = atoi(o + 10);
-            if (pot_cfg.all_states_mutex_size <= 0){
+            pot_cfg->obj = PDDL_HPOT_OBJ_ALL_STATES_MUTEX;
+            pot_cfg->all_states_mutex_size = atoi(o + 10);
+            if (pot_cfg->all_states_mutex_size <= 0){
                 fprintf(stderr, "Error: Invalid argument for all-mutex\n");
                 fprintf(stderr, "\n");
                 return -1;
             }
 
         }else if (strncmp(o, "samples-sum=", 12) == 0){
-            pot_cfg.obj = PDDL_HPOT_OBJ_SAMPLES_SUM;
-            pot_cfg.num_samples = atoi(o + 12);
-            pot_cfg.samples_random_walk = 1;
+            pot_cfg->obj = PDDL_HPOT_OBJ_SAMPLES_SUM;
+            pot_cfg->num_samples = atoi(o + 12);
+            pot_cfg->samples_random_walk = 1;
 
         }else if (strcmp(o, "Max(init,all)") == 0){
-            pot_cfg.obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
+            pot_cfg->obj = PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES;
 
         }else if (strcmp(o, "+init") == 0){
-            pot_cfg.add_init_constr = 1;
-            pot_cfg.init_constr_coef = 1;
+            pot_cfg->add_init_constr = 1;
+            pot_cfg->init_constr_coef = 1;
 
         }else if (strcmp(o, "-init") == 0){
-            pot_cfg.add_init_constr = 0;
-            pot_cfg.init_constr_coef = 0;
+            pot_cfg->add_init_constr = 0;
+            pot_cfg->init_constr_coef = 0;
 
         }else{
             fprintf(stderr, "Error: Unknown pot specification: '%s'\n", o);
@@ -206,13 +208,14 @@ static int setPot(const char *_spec)
     if (spec != NULL)
         BOR_FREE(spec);
 
-    opt.pot = 1;
+    *pot_flag = 1;
     return 0;
 }
 
 static int readOpts(int *argc, char *argv[])
 {
-    const char *pot_spec = NULL;
+    const char *pot_spec_fw = NULL;
+    const char *pot_spec_bw = NULL;
     bzero(&opt, sizeof(opt));
     opt.lifted_mgroup_max_candidates = 10000;
     opt.lifted_mgroup_max_mgroups = 10000;
@@ -324,6 +327,10 @@ static int readOpts(int *argc, char *argv[])
                 "Backward symbolic search.");
     optsAddDesc("fwbw", 0x0, OPTS_NONE, &opt.fwbw, NULL,
                 "Forward/Backward symbolic search.");
+    optsAddDesc("bw-off-if-constr-failed", 0x0, OPTS_NONE,
+                &opt.bw_off_if_constr_failed, NULL,
+                "In case --fwbw is used, turn off bw if applying constraint"
+                " on the goal condition fails.");
 
     optsAddDesc("var-largest", 0x0, OPTS_NONE, NULL,
                 OPTS_CB(setFDRVarLargest),
@@ -377,9 +384,10 @@ static int readOpts(int *argc, char *argv[])
     optsAddDesc("opm-out", 0x0, OPTS_STR, &opt.op_mutex_out, NULL,
                 "Output filename for op-mutexes (default: no output)");
 
-    optsAddDesc("pot", 0x0, OPTS_NONE, &opt.pot, NULL,
-                "Shorthand for --pot-spec 'disamb:all:+init'");
-    optsAddDesc("pot-spec", 0x0, OPTS_STR, &pot_spec, NULL,
+    optsAddDesc("fw-pot", 0x0, OPTS_STR, &pot_spec_fw, NULL,
+                "Generate potentials according to the specification."
+                " TODO");
+    optsAddDesc("bw-pot", 0x0, OPTS_STR, &pot_spec_bw, NULL,
                 "Generate potentials according to the specification."
                 " TODO");
     optsAddDesc("pot-sum-op-cost", 0x0, OPTS_NONE, &opt.pot_sum_op_cost, NULL,
@@ -401,8 +409,6 @@ static int readOpts(int *argc, char *argv[])
                 &opt.goal_constr_max_time, NULL,
                 "Maximum time spent in applying constraints on the goal"
                 " (default: -1.)");
-    optsAddDesc("test-part", 0x0, OPTS_NONE, &opt.test_partitioning, NULL,
-                "Test partitioning using heuristic without using heuristic.");
     optsAddDesc("multiply-op-cost", 'M', OPTS_INT, &opt.multiply_op_cost, NULL,
                 "Multiply operator costs by this value.");
     optsAddDesc("tnf", 0x0, OPTS_NONE, &opt.tnf, NULL,
@@ -434,7 +440,11 @@ static int readOpts(int *argc, char *argv[])
         return -1;
     }
 
-    if (pot_spec != NULL && setPot(pot_spec) != 0){
+    if (pot_spec_fw != NULL && setPot(pot_spec_fw, &pot_cfg_fw, &opt.pot_fw) != 0){
+        usage(argv[0]);
+        return -1;
+    }
+    if (pot_spec_bw != NULL && setPot(pot_spec_bw, &pot_cfg_bw, &opt.pot_bw) != 0){
         usage(argv[0]);
         return -1;
     }
@@ -673,7 +683,7 @@ static int inferMutexGroups(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
         pddlMutexPairsFree(&mutex);
     }
@@ -899,7 +909,7 @@ static int pruneStripsFixpointFAMGroups(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
     }
 
@@ -965,7 +975,7 @@ static int pruneStripsFixpointH2(void)
     pddlMGroupsFree(&mgroups);
     pddlMGroupsInitEmpty(&mgroups);
     BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-    pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+    pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
     BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
 
     borISetEmpty(&rm_fact);
@@ -1072,7 +1082,7 @@ static int pruneStripsFixpointFAMH2(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
     }
 
@@ -1175,7 +1185,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
     }
 
@@ -1595,38 +1605,59 @@ static int symba(void)
     pddl_symbolic_task_config_t symb_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
     if (opt.symba_fam > 0)
         symb_cfg.fam_groups = opt.symba_fam;
-    if (opt.pot){
+
+    if (opt.pot_fw){
         if (fdrHasTNFOps(&fdr)){
-            symb_cfg.use_pot_heur = 1;
-            BOR_INFO2(&err, "symba: Using consistent potential heuristic");
+            symb_cfg.fw.use_pot_heur = 1;
+            BOR_INFO2(&err, "symba: fw: Using consistent potential heuristic");
         }else{
-            symb_cfg.use_pot_heur_inconsistent = 1;
-            BOR_INFO2(&err, "symba: Using inconsistent potential heuristic");
+            symb_cfg.fw.use_pot_heur_inconsistent = 1;
+            BOR_INFO2(&err, "symba: fw: Using inconsistent potential heuristic");
         }
         if (opt.pot_sum_op_cost){
-            symb_cfg.use_pot_heur_sum_op_cost = 1;
-            BOR_INFO2(&err, "symba: Operator potentials are added to operator costs.");
+            symb_cfg.fw.use_pot_heur_sum_op_cost = 1;
+            BOR_INFO2(&err, "symba: fw: Operator potentials are added to operator costs.");
         }
+        symb_cfg.fw.pot_heur_config = pot_cfg_fw;
         if (opt.op_pot_real)
-            symb_cfg.use_pot_heur_real = 1;
-        symb_cfg.pot_heur_config = pot_cfg;
-        if (opt.use_heur_bw || opt.bw)
-            symb_cfg.use_heur_bw = 1;
-        if (opt.no_heur_fw)
-            symb_cfg.use_heur_fw = 0;
-        if (opt.test_partitioning)
-            symb_cfg.test_partitioning = 1;
+            symb_cfg.fw.pot_heur_config.op_pot_real = 1;
     }
+
+    if (opt.pot_bw){
+        symb_cfg.bw.use_pot_heur_inconsistent = 1;
+        BOR_INFO2(&err, "symba: bw: Using inconsistent potential heuristic");
+        if (opt.pot_sum_op_cost){
+            symb_cfg.bw.use_pot_heur_sum_op_cost = 1;
+            BOR_INFO2(&err, "symba: bw: Operator potentials are added to operator costs.");
+        }
+        symb_cfg.bw.pot_heur_config = pot_cfg_bw;
+        if (opt.op_pot_real)
+            symb_cfg.bw.pot_heur_config.op_pot_real = 1;
+    }
+
     //symb_cfg.use_constr = 1;
     //symb_cfg.use_op_constr = 0;
     // TODO: Print configuration
     if (!opt.fw && !opt.bw && !opt.fwbw){
         symb_cfg.goal_constr_max_time = 30.f;
+        opt.fwbw = 1;
     }
-    if (opt.trans_merge_max_time > 0.)
-        symb_cfg.trans_merge_max_time = opt.trans_merge_max_time;
+    if (opt.trans_merge_max_time > 0.){
+        symb_cfg.fw.trans_merge_max_time = opt.trans_merge_max_time;
+        symb_cfg.bw.trans_merge_max_time = opt.trans_merge_max_time;
+    }
     if (opt.goal_constr_max_time > 0.)
         symb_cfg.goal_constr_max_time = opt.goal_constr_max_time;
+    if (opt.fw){
+        symb_cfg.fw.enabled = 1;
+        symb_cfg.bw.enabled = 0;
+    }else if (opt.bw){
+        symb_cfg.fw.enabled = 0;
+        symb_cfg.bw.enabled = 1;
+    }else{
+        symb_cfg.fw.enabled = 1;
+        symb_cfg.bw.enabled = 1;
+    }
 
     pddl_symbolic_task_t *task;
     if ((task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err)) == NULL)
@@ -1634,26 +1665,13 @@ static int symba(void)
 
     BOR_IARR(plan);
     int res;
-    if (opt.fw){
-        BOR_INFO2(&err, "Forward Search");
+    if (opt.fwbw
+            && opt.bw_off_if_constr_failed
+            && pddlSymbolicTaskGoalConstrFailed(task)){
+        BOR_INFO2(&err, "Switching to fw-only search.");
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
-
-    }else if (opt.bw){
-        BOR_INFO2(&err, "Backward Search");
-        res = pddlSymbolicTaskSearchBw(task, &plan, &err);
-
-    }else if (opt.fwbw){
-        BOR_INFO2(&err, "Forward/Backward Search");
-        res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-
     }else{
-        if (pddlSymbolicTaskGoalConstrFailed(task)){
-            BOR_INFO2(&err, "Switching to fw-only search.");
-            res = pddlSymbolicTaskSearchFw(task, &plan, &err);
-            //res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-        }else{
-            res = pddlSymbolicTaskSearchFwBw(task, &plan, &err);
-        }
+        res = pddlSymbolicTaskSearch(task, &plan, &err);
     }
 
     if (opt.multiply_op_cost > 1){

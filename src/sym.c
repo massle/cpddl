@@ -16,6 +16,9 @@
  * See the License for more information.
  */
 
+#include "pddl/config.h"
+#ifdef PDDL_BLISS
+
 #include <bliss/bliss_C.h>
 #include <boruvka/alloc.h>
 #include <boruvka/iarr.h>
@@ -60,15 +63,15 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
 static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
 {
     BlissGraph *pdg;
-    int color_init = 1;
-    int color_goal = 2;
-    int color_op = 4;
+    int color_init = 2;
+    int color_goal = 4;
+    int color_op = 8;
 
-    pdg = bliss_new(0);
+    pdg = bliss_new_digraph(0);
     for (int i = 0; i < strips->fact.fact_size; ++i)
         bliss_add_vertex(pdg, 0); // fact vertex
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
-        int color = 0;
+        int color = 1;
         if (borISetIn(fact_id, &strips->init))
             color |= color_init;
         if (borISetIn(fact_id, &strips->goal))
@@ -319,3 +322,45 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
     if (fact_used != NULL)
         BOR_FREE(fact_used);
 }
+
+#else /* PDDL_BLISS */
+
+#include "pddl/sym.h"
+
+#define ERROR BOR_FATAL2("sym module requires bliss library")
+
+void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
+{
+    ERROR;
+}
+
+void pddlStripsSymFree(pddl_strips_sym_t *sym)
+{
+    ERROR;
+}
+
+void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
+                                       pddl_set_iset_t *sym_set)
+{
+    ERROR;
+}
+
+void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
+                                     pddl_set_iset_t *sym_set)
+{
+    ERROR;
+}
+
+void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
+                        int gen_id,
+                        const bor_iset_t *inset,
+                        bor_iset_t *outset)
+{
+    ERROR;
+}
+
+void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
+{
+    ERROR;
+}
+#endif /* PDDL_BLISS */

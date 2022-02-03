@@ -50,6 +50,8 @@ typedef struct pddl_config pddl_config_t;
       0, /* .compile_away_cond_eff */ \
     }
 
+void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err);
+
 struct pddl {
     pddl_config_t cfg;
     pddl_lisp_t *domain_lisp;
@@ -126,6 +128,19 @@ void pddlAddObjectTypes(pddl_t *pddl);
  * Remove specified objects from the planning task.
  */
 void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
+
+/**
+ * Same as pddlRemoveObjs() except a remap array must be provided.
+ */
+void pddlRemoveObjsGetRemap(pddl_t *pddl,
+                            const bor_iset_t *rm_obj,
+                            pddl_obj_id_t *remap,
+                            bor_err_t *err);
+
+/**
+ * Remap object IDs.
+ */
+void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
 
 /**
  * Remove empty types and all related predicates and actions from the task

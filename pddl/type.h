@@ -22,6 +22,7 @@
 
 #include <boruvka/iset.h>
 #include <pddl/common.h>
+#include <pddl/objset.h>
 #include <pddl/lisp.h>
 
 #ifdef __cplusplus
@@ -30,13 +31,6 @@ extern "C" {
 
 /** Forward declaration */
 struct pddl_objs;
-
-struct pddl_objset {
-    pddl_obj_id_t *obj;
-    int obj_size;
-    int obj_alloc;
-};
-typedef struct pddl_objset pddl_objset_t;
 
 struct pddl_type {
     char *name;        /*!< Name of the type */
@@ -147,6 +141,11 @@ int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
  * Returns true if D(t1) \subseteq D(t2)
  */
 int pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
+
+/**
+ * Returns true if {type} is a minimal type, i.e., it has no sub-types.
+ */
+int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
 
 /**
  * Returns true if:

@@ -411,7 +411,7 @@ static int inferMutexGroups(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
         pddlMutexPairsFree(&mutex);
     }
@@ -521,7 +521,7 @@ static int pruneStripsFixpointFAMGroups(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
     }
 
@@ -583,7 +583,7 @@ static int pruneStripsFixpointH2(void)
     pddlMGroupsFree(&mgroups);
     pddlMGroupsInitEmpty(&mgroups);
     BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-    pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+    pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
     BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
 
     borISetEmpty(&rm_fact);
@@ -685,7 +685,7 @@ static int pruneStripsFixpointFAMH2(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
     }
 
@@ -783,7 +783,7 @@ static int pruneStripsFixpointFAMH2FwBw(void)
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
         BOR_INFO2(&err, "Inference of h^2 mutex groups...");
-        pddlMutexPairsInferMutexGroups(&mutex, &mgroups);
+        pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
         BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
     }
 

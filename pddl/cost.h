@@ -118,6 +118,20 @@ _bor_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
 
 const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size);
 
+_bor_inline int pddlSumSat(int c1, int c2)
+{
+    if (c1 >= PDDL_COST_MAX || c2 >= PDDL_COST_MAX)
+        return PDDL_COST_MAX;
+    if (c1 <= PDDL_COST_MIN || c2 <= PDDL_COST_MIN)
+        return PDDL_COST_MIN;
+    int s = c1 + c2;
+    if (s >= PDDL_COST_MAX)
+        return PDDL_COST_MAX;
+    if (s <= PDDL_COST_MIN)
+        return PDDL_COST_MIN;
+    return s;
+}
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -341,18 +341,16 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     pddl_cond_t *c;
 
     if (a->pre->type != PDDL_COND_AND){
-        BOR_FATAL("Fatal Error: Precondition of the action `%s' is"
-                        " not a conjuction.\n", a->name);
+        BOR_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
     pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
     BOR_LIST_FOR_EACH(&pre->part, item){
         c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM){
-            fprintf(stderr, "Fatal Error: Precondition of the action `%s' is"
-                            " not a flatten conjuction (conjuction contains"
-                            " something else besides atoms).\n", a->name);
-            exit(-1);
+            BOR_FATAL("Precondition of the action `%s' is"
+                      " not a flatten conjuction (conjuction contains"
+                      " something else besides atoms).", a->name);
         }
     }
 }

@@ -19,6 +19,7 @@
 
 #include <boruvka/alloc.h>
 #include <boruvka/sort.h>
+#include "pddl/cost.h"
 #include "pddl/hff.h"
 #include "assert.h"
 
@@ -229,7 +230,7 @@ static int hadd(pddl_hff_t *h, const bor_iset_t *state)
         int op_id;
         BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_hff_op_t *op = h->op + op_id;
-            op->value += value;
+            op->value = pddlSumSat(op->value, value);
             if (--op->unsat == 0){
                 op->order = order++;
                 enqueueOpEffects(h, op_id, op, &pq);
@@ -313,7 +314,7 @@ static int hff(pddl_hff_t *h, const bor_iset_t *state)
     int heur = 0;
     for (int i = 0; i < h->op_size; ++i){
         if (h->op[i].marked)
-            heur += h->op[i].cost;
+            heur = pddlSumSat(heur, h->op[i].cost);
     }
     return heur;
 }

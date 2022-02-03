@@ -18,6 +18,7 @@
  */
 
 #include <boruvka/alloc.h>
+#include "pddl/cost.h"
 #include "pddl/hadd.h"
 
 #define FID(heur, f) ((f) - (heur)->fact)
@@ -165,7 +166,7 @@ int pddlHAdd(pddl_hadd_t *h,
         int op_id;
         BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_hadd_op_t *op = h->op + op_id;
-            op->value += value;
+            op->value = pddlSumSat(op->value, value);
             if (--op->unsat == 0)
                 enqueueOpEffects(h, op, &pq);
         }
