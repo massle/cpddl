@@ -61,8 +61,9 @@ static int actionInitPre(pddl_cond_t *c, void *ud)
     }else if (c->type == PDDL_COND_AND){
         return 0;
     }else{
-        BOR_ERR2(ctx->err, "Precondition is not a simple conjuction."
-                 " It seems it was not normalized.");
+        BOR_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
+                " (found %s). It seems it was not normalized.",
+                pddlCondTypeName(c->type));
         ctx->failed = 1;
         return -2;
     }

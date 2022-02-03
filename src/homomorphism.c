@@ -636,7 +636,11 @@ static int rpgFindPair(const pddl_t *pddl,
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
     pddl_ground_atoms_t ga;
     pddlGroundAtomsInit(&ga);
-    pddlStripsGroundSqlLayered(pddl, &ground_cfg, max_depth, INT_MAX, NULL, &ga, err);
+    if (pddlStripsGroundSqlLayered(pddl, &ground_cfg, max_depth,
+                                   INT_MAX, NULL, &ga, err) != 0){
+        pddlGroundAtomsFree(&ga);
+        BOR_TRACE_RET(err, -1);
+    }
 
     for (int type_id = 0; type_id < pddl->type.type_size; ++type_id){
         const pddl_type_t *type = pddl->type.type + type_id;
@@ -676,7 +680,11 @@ static int collapseRPG(pddl_t *pddl,
     int max_depth = cfg->rpg_max_depth;
     for (int depth = 1; depth <= max_depth; ++depth){
         pddl_obj_id_t o1, o2;
-        if (rpgFindPair(pddl, depth, &goal_objs, &o1, &o2, err)){
+        int found = rpgFindPair(pddl, depth, &goal_objs, &o1, &o2, err);
+        if (found < 0){
+            borISetFree(&goal_objs);
+            BOR_TRACE_RET(err, -1);
+        }else if (found > 0){
             BOR_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
                      o1, pddl->obj.obj[o1].name,
                      o2, pddl->obj.obj[o2].name, depth);
@@ -997,7 +1005,12 @@ int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
 
     for (int depth = 1; depth <= max_depth; ++depth){
         pddl_obj_id_t o1, o2;
-        if (rpgFindPair(&h->task, depth, &goal_objs, &o1, &o2, err)){
+        int found = rpgFindPair(&h->task, depth, &goal_objs, &o1, &o2, err);
+        if (found < 0){
+            pddlPrintDebug(&h->task, stderr);
+            borISetFree(&goal_objs);
+            BOR_TRACE_RET(err, -1);
+        }else if (found > 0){
             BOR_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
                      o1, h->task.obj.obj[o1].name,
                      o2, h->task.obj.obj[o2].name, depth);
@@ -1007,7 +1020,6 @@ int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
         if (ret == 1)
             BOR_INFO(err, "No pair found in depth %d", depth);
     }
-
 
     borISetFree(&goal_objs);
     return ret;

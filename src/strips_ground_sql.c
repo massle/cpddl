@@ -45,6 +45,8 @@ static int sqlGroundInit(sql_ground_t *g,
     bzero(g, sizeof(*g));
     g->pddl = pddl;
     g->grounder = pddlSqlGrounderNew(pddl, err);
+    if (g->grounder == NULL)
+        BOR_TRACE_RET(err, -1);
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     // Insert initial state
@@ -196,7 +198,11 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     BOR_INFO2(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
-    sqlGroundInit(&ground, pddl, cfg, err);
+    if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, -1);
+    }
+
     for (int step = 0; 1; ++step){
         BOR_INFO(err, "Grounding step %d"
                       " (%d (split) actions and %d facts grounded so far) ...",
@@ -243,7 +249,10 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
     BOR_INFO2(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
-    sqlGroundInit(&ground, pddl, cfg, err);
+    if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, -1);
+    }
     for (int step = 0; step < max_layers; ++step){
         BOR_INFO(err, "Grounding layer %d"
                       " (%d (split) actions and %d facts grounded so far) ...",
