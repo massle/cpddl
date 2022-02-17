@@ -259,9 +259,10 @@ third-party/bliss/libbliss.a:
 	rm -rf third-party/bliss
 	cd third-party && unzip bliss-$(BLISS_VERSION).zip
 	mv third-party/bliss-$(BLISS_VERSION) third-party/bliss
-	cd third-party/bliss && patch -p1 <../bliss-0.73-memleak.patch
-	cd third-party/bliss && patch -p1 <../bliss-0.73-capi.patch
-	$(MAKE) CC=$(CXX) -C third-party/bliss
+	cd third-party/bliss && patch -p1 <../bliss-$(BLISS_VERSION)-capi.patch
+	$(MAKE) CC=$(CXX) -C third-party/bliss -f Makefile-manual lib_static
+	cp third-party/bliss/src/bliss_C.h third-party/bliss/
+	mv third-party/bliss/libbliss_static.a $@
 
 lpsolve: third-party/lpsolve/liblpsolve.a
 lpsolve-clean:

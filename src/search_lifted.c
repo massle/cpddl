@@ -56,6 +56,7 @@ struct pddl_search_lifted_bfs {
     pddl_homomorphism_heur_t *heur;
     int g_weight;
     int h_weight;
+    int is_lazy;
     pddl_open_list_t *list;
 };
 typedef struct pddl_search_lifted_bfs pddl_search_lifted_bfs_t;
@@ -118,6 +119,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
                                     pddl_homomorphism_heur_t *heur,
                                     int g_weight,
                                     int h_weight,
+                                    int is_lazy,
                                     const char *err_prefix,
                                     bor_err_t *err)
 {
@@ -132,6 +134,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     bfs->heur = heur;
     bfs->g_weight = g_weight;
     bfs->h_weight = h_weight;
+    bfs->is_lazy = is_lazy;
     bfs->list = pddlOpenListSplayTree2();
 
     BOR_INFO_PREFIX_POP(err);
@@ -185,14 +188,14 @@ static int bfsInitStep(pddl_search_lifted_t *s)
     s->cur_node.g_value = 0;
 
     int h_value = 0;
-    if (bfs->heur != NULL){
+    if (bfs->heur != NULL && !bfs->is_lazy){
         h_value = pddlHomomorphismHeurEval(bfs->heur,
                                            &s->cur_node.state,
                                            &s->strips.ground_atom);
+        ++s->_stat.evaluated;
     }
 
     BOR_INFO(s->err, "Heuristic value for the initial state: %d", h_value);
-    ++s->_stat.evaluated;
     if (h_value == PDDL_COST_DEAD_END){
         ++s->_stat.dead_end;
         ret = PDDL_SEARCH_UNSOLVABLE;
@@ -207,7 +210,8 @@ static int bfsInitStep(pddl_search_lifted_t *s)
 
 static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
                                int args_id,
-                               int op_cost)
+                               int op_cost,
+                               int in_h_value)
 {
     pddl_search_lifted_t *s = &bfs->search;
     // Compute its g() value
@@ -224,12 +228,14 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
     s->next_node.g_value = next_g_value;
  
     int h_value = 0;
-    if (bfs->heur != NULL){
+    if (in_h_value >= 0){
+        h_value = in_h_value;
+    }else if (bfs->heur != NULL){
         h_value = pddlHomomorphismHeurEval(bfs->heur,
                                            &s->next_node.state,
                                            &s->strips.ground_atom);
+        ++s->_stat.evaluated;
     }
-    ++s->_stat.evaluated;
 
     if (h_value == PDDL_COST_DEAD_END){
         ++s->_stat.dead_end;
@@ -293,6 +299,17 @@ static int bfsStep(pddl_search_lifted_t *s)
     findApplicableOps(s, &s->applicable);
     ++s->_stat.expanded;
 
+    int h_value = -1;
+    if (borISetSize(&s->applicable) > 0 && bfs->is_lazy){
+        h_value = 0;
+        if (bfs->heur != NULL){
+            h_value = pddlHomomorphismHeurEval(bfs->heur,
+                                               &s->cur_node.state,
+                                               &s->strips.ground_atom);
+            ++s->_stat.evaluated;
+        }
+    }
+
     int args_id;
     BOR_ISET_FOR_EACH(&s->applicable, args_id){
         int cost;
@@ -304,7 +321,7 @@ static int bfsStep(pddl_search_lifted_t *s)
                                                    &s->next_node.state);
         pddlStripsStateSpaceGetNoState(&s->state_space,
                                        next_state_id, &s->next_node);
-        bfsInsertNextState(bfs, args_id, cost);
+        bfsInsertNextState(bfs, args_id, cost, h_value);
     }
     BOR_INFO_PREFIX_POP(s->err);
     return PDDL_SEARCH_CONT;
@@ -333,6 +350,24 @@ void pddlSearchLiftedStat(const pddl_search_lifted_t *s,
 {
     *stat = s->_stat;
     stat->generated = s->state_space.num_states;
+}
+
+void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, bor_err_t *err)
+{
+    pddl_search_stat_t stat;
+    pddlSearchLiftedStat(s, &stat);
+    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+                  " gen: %lu, open: %lu, closed: %lu,"
+                  " reopen: %lu, de: %lu, f: %d",
+                  stat.steps,
+                  stat.expanded,
+                  stat.evaluated,
+                  stat.generated,
+                  stat.open,
+                  stat.closed,
+                  stat.reopen,
+                  stat.dead_end,
+                  stat.last_f_value);
 }
 
 
@@ -572,17 +607,34 @@ pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
                                             pddl_homomorphism_heur_t *heur,
                                             bor_err_t *err)
 {
-    return bfsNew(pddl, heur, 1, 1, "Lifted A*: ", err);
+    return bfsNew(pddl, heur, 1, 1, 0, "Lifted A*: ", err);
 }
 
 pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
                                            pddl_homomorphism_heur_t *heur,
                                            bor_err_t *err)
 {
-    return bfsNew(pddl, heur, 0, 1, "Lifted GBFS: ", err);
+    return bfsNew(pddl, heur, 0, 1, 0, "Lifted GBFS: ", err);
+}
+
+pddl_search_lifted_t *pddlSearchLiftedLazy(const pddl_t *pddl,
+                                           pddl_homomorphism_heur_t *heur,
+                                           bor_err_t *err)
+{
+    return bfsNew(pddl, heur, 0, 1, 1, "Lifted Lazy: ", err);
 }
 
 const pddl_lifted_plan_t *pddlSearchLiftedPlan(const pddl_search_lifted_t *s)
 {
     return &s->plan;
+}
+
+void pddlSearchLiftedPlanPrint(const pddl_search_lifted_t *s, FILE *fout)
+{
+    const pddl_lifted_plan_t *plan = &s->plan;
+    fprintf(fout, ";; Cost: %d\n", plan->plan_cost);
+    fprintf(fout, ";; Length: %d\n", plan->plan_len);
+    for (int i = 0; i < plan->plan_len; ++i){
+        fprintf(fout, "(%s)\n", plan->plan[i]);
+    }
 }

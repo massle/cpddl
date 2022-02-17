@@ -603,7 +603,11 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
     bzero(g, sizeof(*g));
 
     g->pddl = pddl;
-    pddlPrepActionsInit(g->pddl, &g->prep_action, err);
+    if (pddlPrepActionsInit(g->pddl, &g->prep_action, err) != 0){
+        BOR_FREE(g);
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, NULL);
+    }
 
     // Create a database
     int flags = SQLITE_OPEN_READWRITE

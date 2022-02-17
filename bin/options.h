@@ -27,6 +27,24 @@ struct options {
     } lmg;
 
     struct {
+        int enable;
+        int ignore_costs;
+    } lifted_endomorph;
+
+    struct {
+        int enable;
+        pddl_search_lifted_t *(*search_fn)(const pddl_t *pddl,
+                                           pddl_homomorphism_heur_t *heur,
+                                           bor_err_t *err);
+        pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
+                                             const pddl_homomorphism_config_t *cfg,
+                                             bor_err_t *err);
+        pddl_homomorphism_config_t homomorph_cfg;
+        int homomorph_samples;
+        char *plan_out;
+    } lifted_planner;
+
+    struct {
         pddl_ground_config_t cfg;
         int (*method_fn)(pddl_strips_t *,
                          const pddl_t *,

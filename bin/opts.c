@@ -256,7 +256,9 @@ static opt_opt_t *findOpt(char *_arg)
 
             for (++arg; *arg != 0x0; ++arg){
                 opt = findOptShort(*arg);
-                if (arg[1] == 0x0){
+                if (opt == NULL){
+                    return NULL;
+                }else if (arg[1] == 0x0){
                     return opt;
                 }else if (opt->type == FLAG){
                     optSetFlag(opt);

@@ -45,6 +45,8 @@ static int sqlGroundInit(sql_ground_t *g,
     bzero(g, sizeof(*g));
     g->pddl = pddl;
     g->grounder = pddlSqlGrounderNew(pddl, err);
+    if (g->grounder == NULL)
+        BOR_TRACE_RET(err, -1);
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     // Insert initial state
@@ -82,6 +84,20 @@ static void sqlGroundFree(sql_ground_t *g)
     pddlStripsMakerFree(&g->strips_maker);
 }
 
+static int addLayerToGrounder(sql_ground_t *g, int layer, bor_err_t *err)
+{
+    int updated = 0;
+    for (int i = 0; i < g->strips_maker.ground_atom.atom_size; ++i){
+        pddl_ground_atom_t *ga;
+        ga = g->strips_maker.ground_atom.atom[i];
+        if (ga->layer == layer){
+            updated = 1;
+            pddlSqlGrounderInsertAtomArgs(g->grounder, ga->pred, ga->arg, err);
+        }
+    }
+    return updated || layer == 0;
+}
+
 static int addGroundAction(sql_ground_t *g,
                            int action_id,
                            const pddl_obj_id_t *row)
@@ -101,6 +117,7 @@ static int addGroundAction(sql_ground_t *g,
 }
 
 static int addGroundAtom(sql_ground_t *g,
+                         int layer,
                          const pddl_cond_atom_t *atom,
                          const pddl_obj_id_t *row,
                          bor_err_t *err)
@@ -108,12 +125,18 @@ static int addGroundAtom(sql_ground_t *g,
     int is_new = 0;
     pddl_ground_atom_t *ga;
     ga = pddlStripsMakerAddAtom(&g->strips_maker, atom, row, &is_new);
-    if (is_new)
+    if (is_new && layer >= 0)
+        ga->layer = layer;
+    if (is_new && layer < 0){
         return pddlSqlGrounderInsertAtomArgs(g->grounder, atom->pred, ga->arg, err);
+    }else if (is_new){
+        return 1;
+    }
     return 0;
 }
 
 static int sqlGroundStepActionRow(sql_ground_t *g,
+                                  int layer,
                                   int action_id,
                                   pddl_obj_id_t *row,
                                   bor_err_t *err)
@@ -131,14 +154,17 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
         atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
 
         ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
-        updated |= addGroundAtom(g, atom, row, err);
+        updated |= addGroundAtom(g, layer, atom, row, err);
     }
 
     return updated;
 }
 
 
-static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
+static int sqlGroundStepAction(sql_ground_t *g,
+                               int layer,
+                               int action_id,
+                               bor_err_t *err)
 {
     if (pddlSqlGrounderActionStart(g->grounder, action_id, err) != 0)
         return 0;
@@ -149,16 +175,16 @@ static int sqlGroundStepAction(sql_ground_t *g, int action_id, bor_err_t *err)
     pddl_obj_id_t row[paction->param_size];
     int updated = 0;
     while (pddlSqlGrounderActionNext(g->grounder, row, err))
-        updated |= sqlGroundStepActionRow(g, action_id, row, err);
+        updated |= sqlGroundStepActionRow(g, layer, action_id, row, err);
     return updated;
 }
 
-static int sqlGroundStep(sql_ground_t *g, bor_err_t *err)
+static int sqlGroundStep(sql_ground_t *g, int layer, bor_err_t *err)
 {
     int action_size = pddlSqlGrounderPrepActionSize(g->grounder);
     int updated = 0;
     for (int ai = 0; ai < action_size; ++ai)
-        updated |= sqlGroundStepAction(g, ai, err);
+        updated |= sqlGroundStepAction(g, layer, ai, err);
     return updated;
 }
 
@@ -172,13 +198,17 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     BOR_INFO2(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
-    sqlGroundInit(&ground, pddl, cfg, err);
+    if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, -1);
+    }
+
     for (int step = 0; 1; ++step){
         BOR_INFO(err, "Grounding step %d"
                       " (%d (split) actions and %d facts grounded so far) ...",
                  step, ground.strips_maker.num_action_args,
                  ground.strips_maker.ground_atom.atom_size);
-        if (!sqlGroundStep(&ground, err))
+        if (!sqlGroundStep(&ground, -1, err))
             break;
     }
     BOR_INFO(err, "Grounding finished: %d (split) actions, %d facts,"
@@ -203,6 +233,76 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     return 0;
 }
 
+int pddlStripsGroundSqlLayered(const pddl_t *pddl,
+                               const pddl_ground_config_t *cfg,
+                               int max_layers,
+                               int max_atoms,
+                               pddl_strips_t *strips,
+                               pddl_ground_atoms_t *ground_atoms,
+                               bor_err_t *err)
+{
+    // TODO: max_atoms
+    BOR_INFO_PREFIX_PUSH(err, "Ground SQL Layer: ");
+    pddlGroundConfigLog(cfg, "cfg.", err);
+    BOR_INFO(err, "cfg.max_layers = %d", max_layers);
+    BOR_INFO(err, "cfg.max_atoms = %d", max_atoms);
+    BOR_INFO2(err, "Grounding using sqlite ...");
+
+    sql_ground_t ground;
+    if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, -1);
+    }
+    for (int step = 0; step < max_layers; ++step){
+        BOR_INFO(err, "Grounding layer %d"
+                      " (%d (split) actions and %d facts grounded so far) ...",
+                 step, ground.strips_maker.num_action_args,
+                 ground.strips_maker.ground_atom.atom_size);
+        if (!addLayerToGrounder(&ground, step, err))
+            break;
+        sqlGroundStep(&ground, step + 1, err);
+    }
+    BOR_INFO(err, "Grounding finished: %d (split) actions, %d facts,"
+                  " %d static facts, %d functions",
+             ground.strips_maker.num_action_args,
+             ground.strips_maker.ground_atom.atom_size,
+             ground.strips_maker.ground_atom_static.atom_size,
+             ground.strips_maker.ground_func.atom_size);
+
+    int ret = 0;
+    if (strips != NULL){
+        ret = pddlStripsMakerMakeStrips(&ground.strips_maker, ground.pddl, cfg,
+                                        strips, err);
+    }
+
+    if (ground_atoms != NULL){
+        for (int i = 0; i < ground.strips_maker.ground_atom.atom_size; ++i){
+            pddl_ground_atom_t *ga = ground.strips_maker.ground_atom.atom[i];
+            pddl_ground_atom_t *n;
+            n = pddlGroundAtomsAddPred(ground_atoms, ga->pred, ga->arg, ga->arg_size);
+            n->layer = ga->layer;
+        }
+        for (int i = 0; i < ground.strips_maker.ground_atom_static.atom_size; ++i){
+            pddl_ground_atom_t *ga = ground.strips_maker.ground_atom_static.atom[i];
+            pddl_ground_atom_t *n;
+            n = pddlGroundAtomsAddPred(ground_atoms, ga->pred, ga->arg, ga->arg_size);
+            n->layer = ga->layer;
+        }
+    }
+
+    sqlGroundFree(&ground);
+    if (ret != 0){
+        BOR_INFO_PREFIX_POP(err);
+        BOR_TRACE_RET(err, ret);
+    }
+
+    BOR_INFO2(err, "Grounding finished.");
+    if (strips != NULL)
+        pddlStripsLogInfo(strips, err);
+    BOR_INFO_PREFIX_POP(err);
+    return 0;
+}
+
 #else /* PDDL_SQLITE */
 #include "pddl/strips_ground_sql.h"
 #define ERROR BOR_FATAL2("strips_ground_sql module requires sqlite")
@@ -210,6 +310,17 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
                         const pddl_t *pddl,
                         const pddl_ground_config_t *cfg,
                         bor_err_t *err)
+{
+    ERROR;
+}
+
+int pddlStripsGroundSqlLayered(const pddl_t *pddl,
+                               const pddl_ground_config_t *cfg,
+                               int max_layers,
+                               int max_atoms,
+                               pddl_strips_t *strips,
+                               pddl_ground_atoms_t *ground_atoms,
+                               bor_err_t *err)
 {
     ERROR;
 }

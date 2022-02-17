@@ -1,8 +1,11 @@
+#include <signal.h>
 #include "pddl/pddl.h"
 #include "opts.h"
 #include "options.h"
 #include "process_strips.h"
 #include "report.h"
+#include "lifted_planner.h"
+#include "print_to_file.h"
 
 
 bor_err_t err = BOR_ERR_INIT;
@@ -20,38 +23,6 @@ pddl_mgroups_t mgroup;
 pddl_mutex_pairs_t mutex;
 int astar_search_started = 0;
 int astar_terminate = 0;
-
-
-static FILE *openFile(const char *fn)
-{
-    if (strcmp(fn, "-") == 0
-            || strcmp(fn, "stdout") == 0)
-        return stdout;
-    if (strcmp(fn, "stderr") == 0)
-        return stderr;
-    FILE *fout = fopen(fn, "w");
-    return fout;
-}
-
-static void closeFile(FILE *f)
-{
-    if (f != NULL && f != stdout && f != stderr)
-        fclose(f);
-}
-
-#define PRINT_TO_FILE(OUT, S, CMD) \
-    do { \
-    if ((OUT) != NULL){ \
-        FILE *fout = openFile((OUT)); \
-        if (fout != NULL){ \
-            BOR_INFO(&err, "Printing %s to %s ...", (S), (OUT)); \
-            CMD; \
-            closeFile(fout); \
-        }else{ \
-            BOR_ERR_RET(&err, -1, "Could not open '%s'", (OUT)); \
-        } \
-    } \
-    } while (0) 
 
 
 static int stepPDDL(void)
@@ -82,6 +53,10 @@ static int stepReportLiftedMGroups(void)
 
 static int stepLiftedMGroups(void)
 {
+    if (lifted_mgroups_set)
+        pddlLiftedMGroupsFree(&lifted_mgroups);
+    if (monotonicity_invariants_set)
+        pddlLiftedMGroupsFree(&monotonicity_invariants);
     pddlLiftedMGroupsInit(&lifted_mgroups);
     lifted_mgroups_set = 1;
     pddlLiftedMGroupsInit(&monotonicity_invariants);
@@ -110,68 +85,45 @@ static int stepLiftedMGroups(void)
     pddlLiftedMGroupsSetExactlyOne(&pddl, &lifted_mgroups, &err);
     pddlLiftedMGroupsSetStatic(&pddl, &lifted_mgroups, &err);
 
-    PRINT_TO_FILE(opt.lmg.out, "lifted mutex groups",
+    PRINT_TO_FILE(&err, opt.lmg.out, "lifted mutex groups",
                   pddlLiftedMGroupsPrint(&pddl, &lifted_mgroups, fout));
-    PRINT_TO_FILE(opt.lmg.fd_monotonicity_out, "monotonicity invariants",
+    PRINT_TO_FILE(&err, opt.lmg.fd_monotonicity_out, "monotonicity invariants",
                   pddlLiftedMGroupsPrint(&pddl, &monotonicity_invariants, fout));
 
     return opt.lmg.stop;
 }
 
-/* TODO
-static int prunePDDL(void)
+static int stepLiftedEndomorph(void)
 {
-    if (opt.lifted_endomorphism){
-        pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
-        if (opt.lifted_endomorphism_ignore_costs)
-            cfg.ignore_costs = 1;
-        BOR_ISET(redundant_objs);
-        pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
-                               &redundant_objs, &err);
-        if (borISetSize(&redundant_objs) > 0){
-            pddlRemoveObjs(&pddl, &redundant_objs, &err);
-            // If we removed anything, we need to infer mutex groups again
-            pddlLiftedMGroupsFree(&lifted_mgroups);
-            liftedMGroups();
-        }
-        if (opt.lifted_endomorphism_costs_then_wo_costs){
-            cfg.ignore_costs = 1;
-            borISetEmpty(&redundant_objs);
-            pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
-                    &redundant_objs, &err);
-            if (borISetSize(&redundant_objs) > 0){
-                pddlRemoveObjs(&pddl, &redundant_objs, &err);
-                // If we removed anything, we need to infer mutex groups again
-                pddlLiftedMGroupsFree(&lifted_mgroups);
-                liftedMGroups();
-            }
-        }
-        borISetFree(&redundant_objs);
+    if (!opt.lifted_endomorph.enable){
+        BOR_INFO2(&err, "Inference of lifted endomorphisms turned off");
+        return 0;
     }
 
-    if (opt.pddl_domain_out != NULL){
-        FILE *fout = fopen(opt.pddl_domain_out, "w");
-        if (fout != NULL){
-            pddlPrintPDDLDomain(&pddl, fout);
-            fclose(fout);
-        }else{
-            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_domain_out);
-        }
+    BOR_INFO_PREFIX_PUSH(&err, "LENDO: ");
+    int ret = 0;
+    pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+    cfg.ignore_costs = opt.lifted_endomorph.ignore_costs;
+    BOR_ISET(redundant_objs);
+    pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
+            &redundant_objs, NULL, &err);
+    if (borISetSize(&redundant_objs) > 0){
+        pddlRemoveObjs(&pddl, &redundant_objs, &err);
+        if (opt.lmg.enable)
+            ret = stepLiftedMGroups();
     }
+    borISetFree(&redundant_objs);
 
-    if (opt.pddl_problem_out != NULL){
-        FILE *fout = fopen(opt.pddl_problem_out, "w");
-        if (fout != NULL){
-            pddlPrintPDDLProblem(&pddl, fout);
-            fclose(fout);
-        }else{
-            BOR_ERR_RET(&err, -1, "Could not open '%s'", opt.pddl_problem_out);
-        }
-    }
-
-    return 0;
+    BOR_INFO_PREFIX_POP(&err);
+    return ret;
 }
-*/
+
+static int stepLiftedPlanner(void)
+{
+    if (!opt.lifted_planner.enable)
+        return 0;
+    return liftedPlanner(&pddl, &err);
+}
 
 static void stripsCompileAwayCondEff(void)
 {
@@ -235,7 +187,7 @@ static int stepGroundMGroups(void)
     BOR_INFO_PREFIX_POP(&err);
 
 
-    PRINT_TO_FILE(opt.ground.mgroup_out, "grounded mutex groups",
+    PRINT_TO_FILE(&err, opt.ground.mgroup_out, "grounded mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
 
     return 0;
@@ -289,7 +241,7 @@ static int stepInferMGroups(void)
     BOR_INFO(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
     BOR_INFO_PREFIX_POP(&err);
 
-    PRINT_TO_FILE(opt.mg.out, "mutex groups",
+    PRINT_TO_FILE(&err, opt.mg.out, "mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
 
     return 0;
@@ -321,9 +273,9 @@ static int stepRedBlackFDR(void)
         if (i > 0){
             char fn[1024];
             sprintf(fn, "%s.%d", opt.rb_fdr.out, i);
-            PRINT_TO_FILE(fn, "FDR", pddlFDRPrintFD(fdr + i, &mgroup, 1, fout));
+            PRINT_TO_FILE(&err, fn, "FDR", pddlFDRPrintFD(fdr + i, &mgroup, 1, fout));
         }else{
-            PRINT_TO_FILE(opt.rb_fdr.out, "FDR",
+            PRINT_TO_FILE(&err, opt.rb_fdr.out, "FDR",
                           pddlFDRPrintFD(fdr, &mgroup, 1, fout));
         }
     }
@@ -343,7 +295,7 @@ static int stepFDR(void)
         pddlFDRReorderVarsCG(&fdr);
         BOR_INFO2(&err, "FDR variables reordered using causal graph.");
     }
-    PRINT_TO_FILE(opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
+    PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
 
     if (opt.fdr.pretty_print_vars)
         pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
@@ -422,7 +374,7 @@ static int stepAStar(void)
         pddlPlanLoadBacktrack(&plan, astar->goal_state_id, &astar->state_space);
         BOR_INFO(&err, "Plan Cost: %d", plan.cost);
         BOR_INFO(&err, "Plan Length: %d", plan.length);
-        PRINT_TO_FILE(opt.astar.plan_out, "plan",
+        PRINT_TO_FILE(&err, opt.astar.plan_out, "plan",
                       pddlPlanPrint(&plan, &fdr.op, fout));
         pddlPlanFree(&plan);
     }else{
@@ -475,6 +427,8 @@ int main(int argc, char *argv[])
             || (ret = stepPDDL()) != 0
             || (ret = stepReportLiftedMGroups()) != 0
             || (ret = stepLiftedMGroups()) != 0
+            || (ret = stepLiftedEndomorph()) != 0
+            || (ret = stepLiftedPlanner()) != 0
             || (ret = stepGround()) != 0
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0

@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 
     pddl_homomorphism_heur_t *heur = NULL;
     if (heur_fn != NULL){
-        homo_cfg.type |= PDDL_HOMOMORPHISM_ENDOMORPHISM;
+        homo_cfg.use_endomorphism = 1;
         if (homo_cfg_rand){
             heur = heurCollapseRandom(&pddl, &err);
         }else{

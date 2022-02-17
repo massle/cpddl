@@ -54,11 +54,11 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         BOR_INFO2(err, "cfg.set_none_of_those_in_pre = 0");
     }
 
-    if ((fdr_var_flags & 0x1u) == PDDL_FDR_VARS_ESSENTIAL_FIRST){
+    if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_ESSENTIAL_FIRST){
         BOR_INFO2(err, "cfg.vars_selection_order = essential");
-    }else if ((fdr_var_flags & 0x1u) == PDDL_FDR_VARS_LARGEST_FIRST){
+    }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST){
         BOR_INFO2(err, "cfg.vars_selection_order = largest");
-    }else if ((fdr_var_flags & 0x1u) == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
+    }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
         BOR_INFO2(err, "cfg.vars_selection_order = largest-multi");
     }
 

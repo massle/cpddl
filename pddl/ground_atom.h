@@ -45,6 +45,8 @@ struct pddl_ground_atom {
     int pred;     /*!< Predicate ID */
     int arg_size; /*!< Number of arguments */
     pddl_obj_id_t *arg; /*!< Object IDs are arguments */
+
+    int layer; /*!< Layer in RPG */
 };
 typedef struct pddl_ground_atom pddl_ground_atom_t;
 
@@ -100,6 +102,19 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
 pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
                                             const pddl_cond_atom_t *c,
                                             const pddl_obj_id_t *arg);
+pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
+                                            int pred,
+                                            const pddl_obj_id_t *arg,
+                                            int arg_size);
+
+/**
+ * Add all atoms from the initial state.
+ */
+void pddlGroundAtomsAddInit(pddl_ground_atoms_t *ga, const pddl_t *pddl);
+
+void pddlGroundAtomsPrint(const pddl_ground_atoms_t *ga,
+                          const pddl_t *pddl,
+                          FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

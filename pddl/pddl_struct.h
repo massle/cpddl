@@ -39,6 +39,7 @@ struct pddl_config {
     int normalize; /*!< Normalize the task right after parsing */
     int remove_empty_types; /*!< Remove types without any objects */
     int compile_away_cond_eff; /*!< Compile away conditional effects */
+    int enforce_unit_cost; /*!< Enforce the task to have unit-cost actions */
 };
 typedef struct pddl_config pddl_config_t;
 
@@ -48,6 +49,7 @@ typedef struct pddl_config pddl_config_t;
       1, /* .normalize */ \
       1, /* .remove_empty_types */ \
       0, /* .compile_away_cond_eff */ \
+      0, /* .enforce_unit_cost */ \
     }
 
 void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err);
@@ -146,6 +148,11 @@ void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
  * Remove empty types and all related predicates and actions from the task
  */
 void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err);
+
+/**
+ * Remove assign and increase atoms to enforce the task to be unit cost
+ */
+void pddlEnforceUnitCost(pddl_t *pddl, bor_err_t *err);
 
 /**
  * TODO
