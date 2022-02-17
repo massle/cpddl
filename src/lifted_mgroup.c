@@ -281,6 +281,49 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
         BOR_FREE(remap_param);
 }
 
+static int atomHasCountedVar(const pddl_cond_atom_t *a,
+                             const pddl_params_t *param)
+{
+    for (int i = 0; i < a->arg_size; ++i){
+        if (a->arg[i].param >= 0
+                && param->param[a->arg[i].param].is_counted_var)
+            return 1;
+    }
+    return 0;
+}
+
+void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg)
+{
+    int map[mg->param.param_size];
+    for (int i = 0; i < mg->param.param_size; ++i)
+        map[i] = i;
+
+    int old_param_size = mg->param.param_size;
+    for (int pi = 0; pi < old_param_size; ++pi){
+        if (!mg->param.param[pi].is_counted_var)
+            continue;
+        pddl_param_t *p = pddlParamsAdd(&mg->param);
+        p->type = mg->param.param[pi].type;
+        p->is_counted_var = 1;
+        map[pi] = mg->param.param_size - 1;
+    }
+
+    int old_cond_size = mg->cond.size;
+    for (int ci = 0; ci < old_cond_size; ++ci){
+        const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ci], atom);
+        if (!atomHasCountedVar(a, &mg->param))
+            continue;
+        pddl_cond_t *newc = pddlCondClone(&a->cls);
+        pddl_cond_atom_t *newa = PDDL_COND_CAST(newc, atom);
+        for (int ai = 0; ai < newa->arg_size; ++ai){
+            int pi = newa->arg[ai].param;
+            if (pi >= 0)
+                newa->arg[ai].param = map[pi];
+        }
+        pddlCondArrAdd(&mg->cond, &newa->cls);
+    }
+}
+
 
 #define MAX_LINE_SIZE 1024
 static void printMGroup(const pddl_t *pddl,
@@ -460,6 +503,12 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm)
         }
     }
     lm->mgroup_size = ins;
+}
+
+void pddlLiftedMGroupsDoubleCounted(pddl_lifted_mgroups_t *mgs)
+{
+    for (int i = 0; i < mgs->mgroup_size; ++i)
+        pddlLiftedMGroupDoubleCounted(mgs->mgroup + i);
 }
 
 void pddlLiftedMGroupsPrint(const pddl_t *pddl,

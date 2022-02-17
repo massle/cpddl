@@ -97,6 +97,11 @@ int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg);
 void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg);
 
 /**
+ * Extend mg with a copy of itself but with fresh counted variables.
+ */
+void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg);
+
+/**
  * Prints a formatted lifted mutex group (or a candidate if there are some
  * counted variables).
  */
@@ -147,6 +152,12 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
  * Sort mgroups according to size and predicates and removes duplicates.
  */
 void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm);
+
+/**
+ * Extend each mutex group with a copy of itself but with fresh counted
+ * variables.
+ */
+void pddlLiftedMGroupsDoubleCounted(pddl_lifted_mgroups_t *mgs);
 
 void pddlLiftedMGroupsPrint(const pddl_t *pddl,
                             const pddl_lifted_mgroups_t *lm,
