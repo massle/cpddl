@@ -157,9 +157,9 @@ void pddlEnforceUnitCost(pddl_t *pddl, bor_err_t *err);
 /**
  * TODO
  */
-void pddlCompileInLiftedMGroups(pddl_t *pddl,
-                                const pddl_lifted_mgroups_t *mgroups,
-                                bor_err_t *err);
+int pddlCompileInLiftedMGroups(pddl_t *pddl,
+                               const pddl_lifted_mgroups_t *mgroups,
+                               bor_err_t *err);
 
 /**
  * Prints PDDL domain file.

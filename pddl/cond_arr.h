@@ -40,6 +40,12 @@ void pddlCondArrFree(pddl_cond_arr_t *ca);
 void pddlCondArrAdd(pddl_cond_arr_t *ca, const pddl_cond_t *c);
 void pddlCondArrInitCopy(pddl_cond_arr_t *dst, const pddl_cond_arr_t *src);
 
+#define PDDL_COND_ARR_FOR_EACH_ATOM(COND_ARR, ATOM) \
+    for (int ___cai = 0; ___cai < (COND_ARR)->size; ++___cai) \
+        if (pddlCondIsAtom((COND_ARR)->cond[___cai]) \
+                && ((ATOM) = PDDL_COND_CAST((COND_ARR)->cond[___cai], atom)))
+
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

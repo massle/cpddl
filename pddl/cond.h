@@ -203,6 +203,15 @@ pddl_cond_t *pddlCondNegate(const pddl_cond_t *cond,
 int pddlCondEq(const pddl_cond_t *c1, const pddl_cond_t *c2);
 
 /**
+ * Returns true if s is implied by c
+ */
+int pddlCondIsImplied(const pddl_cond_t *s,
+                      const pddl_cond_t *c,
+                      const pddl_t *pddl,
+                      const pddl_params_t *param);
+#define pddlCondIsEntailed pddlCondIsImplied
+
+/**
  * Traverse all conditionals in a tree and call in pre/post order callbacks
  * if non-NULL.
  * If pre returns -1 the element is skipped (it is not traversed deeper).
@@ -337,6 +346,11 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
  * Remove atom node duplicates.
  */
 pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl);
+
+/**
+ * Remove duplicate formulas
+ */
+pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl);
 
 /**
  * If conflicting literals are found

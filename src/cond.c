@@ -708,7 +708,15 @@ static void atomPrintPDDL(const pddl_cond_atom_t *a,
     for (int i = 0; i < a->arg_size; ++i){
         pddl_cond_atom_arg_t *arg = a->arg + i;
         if (arg->param >= 0){
-            fprintf(fout, " %s", params->param[arg->param].name);
+            if (params->param[arg->param].name != NULL){
+                fprintf(fout, " %s", params->param[arg->param].name);
+            }else{
+                if (params->param[arg->param].is_counted_var){
+                    fprintf(fout, " c%d", arg->param);
+                }else{
+                    fprintf(fout, " x%d", arg->param);
+                }
+            }
         }else{
             fprintf(fout, " %s", pddl->obj.obj[arg->obj].name);
         }
@@ -1035,6 +1043,114 @@ static int condEq(const pddl_cond_t *c1, const pddl_cond_t *c2)
 int pddlCondEq(const pddl_cond_t *c1, const pddl_cond_t *c2)
 {
     return condEq(c1, c2);
+}
+
+int pddlCondIsImplied(const pddl_cond_t *s,
+                      const pddl_cond_t *c,
+                      const pddl_t *pddl,
+                      const pddl_params_t *param)
+{
+    ASSERT_RUNTIME(s->type == PDDL_COND_BOOL
+                    || s->type == PDDL_COND_ATOM
+                    || s->type == PDDL_COND_AND
+                    || s->type == PDDL_COND_OR);
+    ASSERT_RUNTIME(c->type == PDDL_COND_BOOL
+                    || c->type == PDDL_COND_ATOM
+                    || c->type == PDDL_COND_AND
+                    || c->type == PDDL_COND_OR);
+
+    if (s->type == PDDL_COND_BOOL && c->type == PDDL_COND_BOOL){
+        if (pddlCondEq(s, c))
+            return 1;
+
+        if (pddl == NULL || param == NULL)
+            return 0;
+        pddl_cond_atom_t *sa = PDDL_COND_CAST(s, atom);
+        pddl_cond_atom_t *ca = PDDL_COND_CAST(c, atom);
+        if (sa->pred != ca->pred)
+            return 0;
+        for (int argi = 0; argi < sa->arg_size; ++argi){
+            if (sa->arg[argi].param >= 0 && ca->arg[argi].param >= 0){
+                int stype = param->param[sa->arg[argi].param].type;
+                int ctype = param->param[ca->arg[argi].param].type;
+                if (!pddlTypesIsSubset(&pddl->type, stype, ctype))
+                    return 0;
+
+            }else if (sa->arg[argi].param >= 0){
+                int type = param->param[sa->arg[argi].param].type;
+                pddl_obj_id_t cobj = ca->arg[argi].obj;
+                if (pddlTypeNumObjs(&pddl->type, type) != 1
+                        || pddlTypeGetObj(&pddl->type, type, 0) != cobj){
+                    return 0;
+                }
+
+            }else if (ca->arg[argi].param >= 0){
+                int type = param->param[ca->arg[argi].param].type;
+                if (!pddlTypesObjHasType(&pddl->type, type, sa->arg[argi].obj))
+                    return 0;
+
+            }else{
+                if (sa->arg[argi].obj != ca->arg[argi].obj)
+                    return 0;
+            }
+        }
+        return 1;
+
+    }else if (s->type == PDDL_COND_BOOL){
+        if (pddlCondIsTrue(s))
+            return 1;
+        return 0;
+
+    }else if (c->type == PDDL_COND_BOOL){
+        if (pddlCondIsFalse(c))
+            return 1;
+        return 0;
+
+    }else if (s->type == PDDL_COND_ATOM && c->type == PDDL_COND_ATOM){
+        return pddlCondEq(s, c);
+
+    }else if (s->type == PDDL_COND_OR){
+        pddl_cond_part_t *p = OBJ(s, part);
+        bor_list_t *item;
+        BOR_LIST_FOR_EACH(&p->part, item){
+            pddl_cond_t *e = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (pddlCondIsImplied(e, c, pddl, param))
+                return 1;
+        }
+        return 0;
+
+    }else if (s->type == PDDL_COND_AND){
+        pddl_cond_part_t *p = OBJ(s, part);
+        bor_list_t *item;
+        BOR_LIST_FOR_EACH(&p->part, item){
+            pddl_cond_t *e = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (!pddlCondIsImplied(e, c, pddl, param))
+                return 0;
+        }
+        return 1;
+
+    }else if (s->type == PDDL_COND_ATOM && c->type == PDDL_COND_AND){
+        pddl_cond_part_t *p = OBJ(c, part);
+        bor_list_t *item;
+        BOR_LIST_FOR_EACH(&p->part, item){
+            pddl_cond_t *e = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (pddlCondIsImplied(s, e, pddl, param))
+                return 1;
+        }
+        return 0;
+
+    }else if (s->type == PDDL_COND_ATOM && c->type == PDDL_COND_OR){
+        pddl_cond_part_t *p = OBJ(c, part);
+        bor_list_t *item;
+        BOR_LIST_FOR_EACH(&p->part, item){
+            pddl_cond_t *e = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (!pddlCondIsImplied(s, e, pddl, param))
+                return 0;
+        }
+        return 1;
+    }
+
+    return 0;
 }
 
 static int condTraverse(pddl_cond_t *c,
@@ -2801,11 +2917,11 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
     pddlCondRebuild(&c, NULL, flatten, NULL);
     pddlCondRebuild(&c, NULL, moveDisjunctionsUp, NULL);
     pddlCondRebuild(&c, NULL, flatten, NULL);
-    c = pddlCondDeduplicateAtoms(c, pddl);
+    c = pddlCondDeduplicate(c, pddl);
     return c;
 }
 
-static void _deduplicate(pddl_cond_part_t *p)
+static void _deduplicateAtoms(pddl_cond_part_t *p)
 {
     bor_list_t *item = borListNext(&p->part);
     while (item != &p->part){
@@ -2833,6 +2949,43 @@ static void _deduplicate(pddl_cond_part_t *p)
     }
 }
 
+static int deduplicateAtoms(pddl_cond_t **c, void *data)
+{
+    if ((*c)->type == PDDL_COND_AND || (*c)->type == PDDL_COND_OR)
+        _deduplicateAtoms(OBJ(*c, part));
+    return 0;
+}
+
+pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl)
+{
+    pddl_cond_t *c = cond;
+    pddlCondRebuild(&c, NULL, deduplicateAtoms, NULL);
+    return c;
+}
+
+static void _deduplicate(pddl_cond_part_t *p)
+{
+    bor_list_t *item = borListNext(&p->part);
+    while (item != &p->part){
+        pddl_cond_t *c1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+
+        bor_list_t *item2 = borListNext(item);
+        for (; item2 != &p->part;){
+            pddl_cond_t *c2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
+            if (pddlCondEq(c1, c2)){
+                bor_list_t *item_del = item2;
+                item2 = borListNext(item2);
+                borListDel(item_del);
+                pddlCondDel(c2);
+
+            }else{
+                item2 = borListNext(item2);
+            }
+        }
+        item = borListNext(item);
+    }
+}
+
 static int deduplicate(pddl_cond_t **c, void *data)
 {
     if ((*c)->type == PDDL_COND_AND || (*c)->type == PDDL_COND_OR)
@@ -2840,7 +2993,7 @@ static int deduplicate(pddl_cond_t **c, void *data)
     return 0;
 }
 
-pddl_cond_t *pddlCondDeduplicateAtoms(pddl_cond_t *cond, const pddl_t *pddl)
+pddl_cond_t *pddlCondDeduplicate(pddl_cond_t *cond, const pddl_t *pddl)
 {
     pddl_cond_t *c = cond;
     pddlCondRebuild(&c, NULL, deduplicate, NULL);
@@ -3220,6 +3373,60 @@ static int simplifyEqTypeRestrict(pddl_cond_t **c, void *data)
     return 0;
 }
 
+static int entailsAny(const pddl_cond_t *c,
+                      const pddl_cond_part_t *p,
+                      const pddl_t *pddl,
+                      const pddl_params_t *param)
+{
+        bor_list_t *item;
+        BOR_LIST_FOR_EACH(&p->part, item){
+            const pddl_cond_t *s = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (s == c)
+                continue;
+            if (pddlCondIsEntailed(s, c, pddl, param))
+                return 1;
+        }
+        return 0;
+}
+
+static int simplifyByEntailement(pddl_cond_t **c, void *data)
+{
+    struct simplify *d = data;
+    if ((*c)->type == PDDL_COND_AND){
+        pddl_cond_part_t *p = OBJ(*c, part);
+        bor_list_t *item = borListNext(&p->part);
+        while (item != &p->part){
+            pddl_cond_t *s = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+
+            bor_list_t *item2, *tmp;
+            BOR_LIST_FOR_EACH_SAFE(&p->part, item2, tmp){
+                if (item2 == item)
+                    continue;
+                pddl_cond_t *x = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
+                if (pddlCondIsEntailed(x, s, d->pddl, d->params)){
+                    borListDel(&x->conn);
+                    pddlCondDel(x);
+                    d->change = 1;
+                }
+            }
+
+            item = borListNext(item);
+        }
+
+    }else if ((*c)->type == PDDL_COND_OR){
+        pddl_cond_part_t *p = OBJ(*c, part);
+        bor_list_t *item, *tmp;
+        BOR_LIST_FOR_EACH_SAFE(&p->part, item, tmp){
+            pddl_cond_t *x = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (entailsAny(x, p, d->pddl, d->params)){
+                borListDel(&x->conn);
+                pddlCondDel(x);
+                d->change = 1;
+            }
+        }
+    }
+    return 0;
+}
 
 pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
                               const pddl_t *pddl,
@@ -3240,8 +3447,9 @@ pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
         pddlCondRebuild(&c, NULL, simplifyNestedPart, &d);
         pddlCondRebuild(&c, NULL, simplifyConflictAtoms, &d);
         pddlCondRebuild(&c, NULL, simplifyConflictEqAtoms, &d);
+        pddlCondRebuild(&c, NULL, simplifyByEntailement, &d);
         //pddlCondRebuild(&c, NULL, simplifyEqTypeRestrict, &d);
-        c = pddlCondDeduplicateAtoms(c, pddl);
+        c = pddlCondDeduplicate(c, pddl);
     } while (d.change);
     return c;
 }
@@ -3505,7 +3713,11 @@ static void condAtomPrint(const pddl_t *pddl,
     for (i = 0; i < atom->arg_size; ++i){
         fprintf(fout, " ");
         if (atom->arg[i].param >= 0){
-            fprintf(fout, "%s", params->param[atom->arg[i].param].name);
+            if (params->param[atom->arg[i].param].name != NULL){
+                fprintf(fout, "%s", params->param[atom->arg[i].param].name);
+            }else{
+                fprintf(fout, "x%d", atom->arg[i].param);
+            }
         }else{
             fprintf(fout, "%s", pddl->obj.obj[atom->arg[i].obj].name);
         }
