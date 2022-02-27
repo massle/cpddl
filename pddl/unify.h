@@ -85,11 +85,19 @@ int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
                          const pddl_cond_atom_t *a2);
 
 /**
+ * Returns true if u is equal to u2
+ */
+int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2);
+
+/**
  * TODO
  */
 pddl_cond_t *pddlUnifyToCond(const pddl_unify_t *u,
                              int eq_pred,
                              const pddl_params_t *param);
+
+void pddlUnifyResetCountedVars(const pddl_unify_t *u);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

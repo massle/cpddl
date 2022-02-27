@@ -676,6 +676,21 @@ static int condAtomEq(const pddl_cond_atom_t *a1,
     return 1;
 }
 
+static int condAtomEqNoNeg(const pddl_cond_atom_t *a1,
+                           const pddl_cond_atom_t *a2)
+{
+    if (a1->pred != a2->pred
+            || a1->arg_size != a2->arg_size)
+        return 0;
+    for (int i = 0; i < a1->arg_size; ++i){
+        if (a1->arg[i].param != a2->arg[i].param
+                || a1->arg[i].obj != a2->arg[i].obj){
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static int condAtomTraverse(pddl_cond_atom_t *a,
                             int (*pre)(pddl_cond_t *, void *),
                             int (*post)(pddl_cond_t *, void *),
@@ -1058,10 +1073,25 @@ int pddlCondIsImplied(const pddl_cond_t *s,
                     || c->type == PDDL_COND_ATOM
                     || c->type == PDDL_COND_AND
                     || c->type == PDDL_COND_OR);
+    if (pddlCondEq(s, c))
+        return 1;
 
     if (s->type == PDDL_COND_BOOL && c->type == PDDL_COND_BOOL){
         if (pddlCondEq(s, c))
             return 1;
+
+    }else if (s->type == PDDL_COND_BOOL){
+        if (pddlCondIsTrue(s))
+            return 1;
+        return 0;
+
+    }else if (c->type == PDDL_COND_BOOL){
+        if (pddlCondIsFalse(c))
+            return 1;
+        return 0;
+
+    }else if (s->type == PDDL_COND_ATOM && c->type == PDDL_COND_ATOM){
+        return pddlCondEq(s, c);
 
         if (pddl == NULL || param == NULL)
             return 0;
@@ -1095,19 +1125,6 @@ int pddlCondIsImplied(const pddl_cond_t *s,
             }
         }
         return 1;
-
-    }else if (s->type == PDDL_COND_BOOL){
-        if (pddlCondIsTrue(s))
-            return 1;
-        return 0;
-
-    }else if (c->type == PDDL_COND_BOOL){
-        if (pddlCondIsFalse(c))
-            return 1;
-        return 0;
-
-    }else if (s->type == PDDL_COND_ATOM && c->type == PDDL_COND_ATOM){
-        return pddlCondEq(s, c);
 
     }else if (s->type == PDDL_COND_OR){
         pddl_cond_part_t *p = OBJ(s, part);
@@ -2917,7 +2934,7 @@ pddl_cond_t *pddlCondNormalize(pddl_cond_t *cond, const pddl_t *pddl,
     pddlCondRebuild(&c, NULL, flatten, NULL);
     pddlCondRebuild(&c, NULL, moveDisjunctionsUp, NULL);
     pddlCondRebuild(&c, NULL, flatten, NULL);
-    c = pddlCondDeduplicate(c, pddl);
+    c = pddlCondDeduplicateAtoms(c, pddl);
     return c;
 }
 
@@ -3282,97 +3299,6 @@ static int simplifyConflictEqAtoms(pddl_cond_t **c, void *data)
     return 0;
 }
 
-static int simplifyEqTypeRestrict(pddl_cond_t **c, void *data)
-{
-    if ((*c)->type != PDDL_COND_AND)
-        return 0;
-
-    // Here, we assume that the arguments are already sorted with
-    // reorderEqPredicates
-    struct simplify *d = data;
-    int eq_pred = d->pddl->pred.eq_pred;
-    pddl_cond_part_t *p = OBJ(*c, part);
-    bor_list_t *item;
-
-    int checked[d->params->param_size];
-    bzero(checked, sizeof(int) * d->params->param_size);
-
-    BOR_LIST_FOR_EACH(&p->part, item){
-        pddl_cond_t *ca = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (ca->type != PDDL_COND_ATOM)
-            continue;
-        pddl_cond_atom_t *a = OBJ(ca, atom);
-        if (a->pred != eq_pred
-                || !a->neg
-                || a->arg[0].param < 0
-                || a->arg[1].param >= 0){
-            continue;
-        }
-        // Now a := (not (= p o))
-        if (checked[a->arg[0].param])
-            continue;
-
-        int check = a->arg[0].param;
-        checked[check] = 1;
-
-        pddl_cond_arr_t carr = PDDL_COND_ARR_INIT;
-        BOR_ISET(objs);
-        for (bor_list_t *item2 = item;
-                item2 != &p->part; item2 = borListNext(item2)){
-            pddl_cond_t *ca = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
-            if (ca->type != PDDL_COND_ATOM)
-                continue;
-            pddl_cond_atom_t *a2 = OBJ(ca, atom);
-            if (a2->pred == eq_pred
-                    && a2->neg
-                    && a2->arg[0].param == check
-                    && a2->arg[1].param < 0){
-                borISetAdd(&objs, a2->arg[1].obj);
-                pddlCondArrAdd(&carr, ca);
-            }
-        }
-
-        int type = d->params->param[check].type;
-        int type_size = pddlTypeNumObjs(&d->pddl->type, type);
-        if (borISetSize(&objs) == type_size){
-            borISetFree(&objs);
-            pddlCondArrFree(&carr);
-            pddlCondDel(*c);
-            *c = &pddlCondNewBool(0)->cls;
-            d->change = 1;
-            return 0;
-
-        }else if (borISetSize(&objs) == type_size - 1){
-            for (int i = 0; i < carr.size; ++i){
-                pddl_cond_t *r = (pddl_cond_t *)carr.cond[i];
-                borListDel(&r->conn);
-                pddlCondDel(r);
-            }
-
-            pddl_cond_atom_t *add = pddlCondNewEmptyAtom(2);
-            add->pred = eq_pred;
-            add->arg[0].param = check;
-
-            int type_objs_size;
-            const pddl_obj_id_t *type_objs;
-            type_objs = pddlTypesObjsByType(&d->pddl->type, type, &type_objs_size);
-            for (int i = 0; i < type_objs_size; ++i){
-                if (!borISetIn(type_objs[i], &objs)){
-                    add->arg[1].obj = type_objs[i];
-                    break;
-                }
-            }
-            pddlCondPartAdd(p, &add->cls);
-            d->change = 1;
-            return 0;
-        }
-        pddlCondArrFree(&carr);
-        borISetFree(&objs);
-    }
-
-    return 0;
-}
-
 static int entailsAny(const pddl_cond_t *c,
                       const pddl_cond_part_t *p,
                       const pddl_t *pddl,
@@ -3389,6 +3315,8 @@ static int entailsAny(const pddl_cond_t *c,
         return 0;
 }
 
+/** ((A or B) and (A => B)) -> B
+ *  ((A and B) and (A => B)) -> A */
 static int simplifyByEntailement(pddl_cond_t **c, void *data)
 {
     struct simplify *d = data;
@@ -3428,6 +3356,71 @@ static int simplifyByEntailement(pddl_cond_t **c, void *data)
     return 0;
 }
 
+static int atomHasNegationInDisjunction(const pddl_cond_atom_t *atom,
+                                        const pddl_cond_part_t *disj,
+                                        pddl_cond_atom_t **witness)
+{
+    *witness = NULL;
+    pddl_cond_const_it_atom_t it;
+    const pddl_cond_atom_t *datom;
+    PDDL_COND_FOR_EACH_ATOM(&disj->cls, &it, datom){
+        if (condAtomEqNoNeg(atom, datom) && atom->neg == !datom->neg){
+            *witness = (pddl_cond_atom_t *)datom;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/** ((A or not B) and B) -> A and B
+ *  ((A and not B) or B) -> A or B */
+static int simplifyByNegationDistribution(pddl_cond_t **c, void *data)
+{
+    struct simplify *d = data;
+    if ((*c)->type == PDDL_COND_AND || (*c)->type == PDDL_COND_OR){
+        int other_type = PDDL_COND_OR;
+        if ((*c)->type == PDDL_COND_OR)
+            other_type = PDDL_COND_AND;
+
+        pddl_cond_part_t *p = OBJ(*c, part);
+        bor_list_t *item = borListNext(&p->part);
+        while (item != &p->part){
+            pddl_cond_t *s1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+            if (s1->type != other_type && s1->type != PDDL_COND_ATOM)
+                continue;
+
+            bor_list_t *item2 = borListNext(item);
+            while (item2 != &p->part){
+                pddl_cond_t *s2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
+                pddl_cond_atom_t *atom = NULL;
+                pddl_cond_part_t *part = NULL;
+                if (s1->type == other_type && s2->type == PDDL_COND_ATOM){
+                    atom = OBJ(s2, atom);
+                    part = OBJ(s1, part);
+
+                }else if (s2->type == other_type && s1->type == PDDL_COND_ATOM){
+                    atom = OBJ(s1, atom);
+                    part = OBJ(s2, part);
+                }
+
+                if (atom != NULL && part != NULL){
+                    pddl_cond_atom_t *witness;
+                    if (atomHasNegationInDisjunction(atom, part, &witness)){
+                        pddlCondPartRm(part, &witness->cls);
+                        d->change = 1;
+                        return 0;
+                    }
+                }
+
+                item2 = borListNext(item2);
+            }
+
+            item = borListNext(item);
+        }
+    }
+    return 0;
+}
+
 pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
                               const pddl_t *pddl,
                               const pddl_params_t *params)
@@ -3448,7 +3441,7 @@ pddl_cond_t *pddlCondSimplify(pddl_cond_t *cond,
         pddlCondRebuild(&c, NULL, simplifyConflictAtoms, &d);
         pddlCondRebuild(&c, NULL, simplifyConflictEqAtoms, &d);
         pddlCondRebuild(&c, NULL, simplifyByEntailement, &d);
-        //pddlCondRebuild(&c, NULL, simplifyEqTypeRestrict, &d);
+        pddlCondRebuild(&c, NULL, simplifyByNegationDistribution, &d);
         c = pddlCondDeduplicate(c, pddl);
     } while (d.change);
     return c;
