@@ -155,7 +155,8 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err);
 void pddlEnforceUnitCost(pddl_t *pddl, bor_err_t *err);
 
 /**
- * TODO
+ * Returns -1 on error, 0 if pddl wasn't changed, and 1 if the pddl was
+ * enriched with additional conditions pruning mutexes and dead-ends.
  */
 int pddlCompileInLiftedMGroups(pddl_t *pddl,
                                const pddl_lifted_mgroups_t *mgroups,
