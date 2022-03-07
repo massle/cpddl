@@ -126,6 +126,7 @@ OBJS += symbolic_constr
 OBJS += symbolic_trans
 OBJS += symbolic_state
 OBJS += symbolic_task
+OBJS += symbolic_split_goal
 OBJS += cost
 OBJS += black_mgroup
 OBJS += red_black_fdr

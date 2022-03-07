@@ -35,6 +35,7 @@
 #include "pddl/symbolic_constr.h"
 #include "pddl/symbolic_trans.h"
 #include "pddl/symbolic_state.h"
+#include "pddl/symbolic_split_goal.h"
 #include "pddl/symbolic_task.h"
 #include "pddl/cost.h"
 #include "pddl/time_limit.h"
@@ -125,10 +126,12 @@ static void logConfig(const pddl_symbolic_task_config_t *cfg, bor_err_t *err)
 
 static int preparePotHeur(const pddl_fdr_t *fdr,
                           const pddl_symbolic_search_config_t *cfg,
+                          double **fpot,
                           pddl_cost_t **op_pot,
                           pddl_cost_t *init_h_value,
                           bor_err_t *err)
 {
+    *fpot = NULL;
     *op_pot = NULL;
     pddlCostSetZero(init_h_value);
     if (!cfg->use_pot_heur && !cfg->use_pot_heur_inconsistent)
@@ -167,6 +170,10 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
         }
     }
 
+    *fpot = BOR_CALLOC_ARR(double, fdr->var.global_id_size);
+    for (int i = 0; i < fdr->var.global_id_size; ++i)
+        (*fpot)[i] = sol->pot[i];
+
     pddlPotSolutionsFree(&pot);
     return 0;
 }
@@ -201,10 +208,11 @@ static int searchInit(pddl_symbolic_task_t *ss,
     }
 
 
+    double *pot;
     pddl_cost_t *op_pot;
     pddl_cost_t pot_init_h_value;
     if (preparePotHeur(&ss->fdr, &search->cfg,
-                       &op_pot, &pot_init_h_value, err) != 0){
+                       &pot, &op_pot, &pot_init_h_value, err) != 0){
         BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, -1);
     }
@@ -214,6 +222,29 @@ static int searchInit(pddl_symbolic_task_t *ss,
     search->init = init;
     if (search->init != NULL)
         search->init = pddlBDDClone(ss->mgr, search->init);
+
+    if (pot != NULL && !fw){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
+        pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex,
+                   NULL, NULL, 0., err);
+
+        ASSERT(ss->mg_strips.strips.fact.fact_size == ss->fdr.var.global_id_size);
+        pddl_bdds_t bdds;
+        pddlBDDsInit(&bdds);
+        pddlSymbolicSplitGoalByPot(&ss->mg_strips.strips.goal,
+                &ss->mg_strips.mg,
+                &mutex,
+                pot,
+                &ss->vars,
+                ss->mgr,
+                &bdds,
+                err);
+        pddlBDDsFree(ss->mgr, &bdds);
+
+        pddlMutexPairsFree(&mutex);
+        exit(0);
+    }
 
     search->goal = goal;
     if (search->goal != NULL)
@@ -237,6 +268,8 @@ static int searchInit(pddl_symbolic_task_t *ss,
     BOR_INFO2(err, "Transitions created.");
     if (op_pot != NULL)
         BOR_FREE(op_pot);
+    if (pot != NULL)
+        BOR_FREE(pot);
 
     pddlSymbolicStatesInit(&search->state, ss->mgr,
                            search->cfg.use_pot_heur_inconsistent, err);
@@ -1021,6 +1054,7 @@ static void initConstr(pddl_symbolic_task_t *ss,
                            ss->cfg.constr_max_nodes,
                            ss->cfg.constr_max_time,
                            err);
+
     pddlMGroupsFree(&mgs);
     pddlMutexPairsFree(&mutex);
 
