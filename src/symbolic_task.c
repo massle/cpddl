@@ -23,7 +23,7 @@
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
-#include <boruvka/rbtree.h>
+#include <pddl/rbtree.h>
 #include <boruvka/rand.h>
 #include <pddl/timer.h>
 
@@ -548,8 +548,8 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
                                   other_search->state.all_closed);
     if (!pddlBDDIsFalse(ss->mgr, goal)){
         //fprintf(stderr, "----\n");
-        bor_rbtree_node_t *rbs;
-        BOR_RBTREE_FOR_EACH(other_search->state.closed, rbs){
+        pddl_rbtree_node_t *rbs;
+        PDDL_RBTREE_FOR_EACH(other_search->state.closed, rbs){
             const pddl_symbolic_state_t *closed_state;
             closed_state = bor_container_of(rbs, pddl_symbolic_state_t, rbtree);
             if (!costStatesIsBetter(search, state, closed_state))

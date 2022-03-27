@@ -19,6 +19,7 @@ CPPCHECK_FLAGS += --platform=unix64 --enable=all -I. -Ithird-party/boruvka
 TARGETS  = libpddl.a
 
 OBJS  = timer
+OBJS += rbtree
 OBJS += lisp
 OBJS += require
 OBJS += type
