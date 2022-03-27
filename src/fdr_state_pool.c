@@ -129,7 +129,7 @@ static void htableDel(htable_t *ht)
     FREE(ht);
 }
 
-_bor_inline size_t nextPrime(size_t hint)
+_pddl_inline size_t nextPrime(size_t hint)
 {
     static size_t primes[] = {
         5ul,         53ul,         97ul,         193ul,       389ul,

@@ -34,7 +34,7 @@ typedef struct pddl_time_limit pddl_time_limit_t;
 /**
  * Initializes time limit as "unlimited".
  */
-_bor_inline void pddlTimeLimitInit(pddl_time_limit_t *tm)
+_pddl_inline void pddlTimeLimitInit(pddl_time_limit_t *tm)
 {
     pddlTimerStart(&tm->timer);
     tm->limit = 1E100;
@@ -43,7 +43,7 @@ _bor_inline void pddlTimeLimitInit(pddl_time_limit_t *tm)
 /**
  * Sets the time limit in seconds and starts counting.
  */
-_bor_inline void pddlTimeLimitSet(pddl_time_limit_t *tm, double limit)
+_pddl_inline void pddlTimeLimitSet(pddl_time_limit_t *tm, double limit)
 {
     pddlTimerStart(&tm->timer);
     if (limit > 0.){
@@ -57,7 +57,7 @@ _bor_inline void pddlTimeLimitSet(pddl_time_limit_t *tm, double limit)
  * Checks the time limit.
  * Returns 0 if we are still withing time limit, -1 otherwise.
  */
-_bor_inline int pddlTimeLimitCheck(pddl_time_limit_t *tm)
+_pddl_inline int pddlTimeLimitCheck(pddl_time_limit_t *tm)
 {
     if (tm->limit >= 1E100)
         return 0;
@@ -71,7 +71,7 @@ _bor_inline int pddlTimeLimitCheck(pddl_time_limit_t *tm)
 /**
  * Returns the remaining time from the time limit.
  */
-_bor_inline double pddlTimeLimitRemain(pddl_time_limit_t *tm)
+_pddl_inline double pddlTimeLimitRemain(pddl_time_limit_t *tm)
 {
     if (tm->limit >= 1E100)
         return 1E100;

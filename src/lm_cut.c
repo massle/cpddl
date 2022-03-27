@@ -38,7 +38,7 @@
     } \
     } while (0)
 
-_bor_inline pddl_lm_cut_fact_t *FPOP(pddl_pq_t *pq, int *value)
+_pddl_inline pddl_lm_cut_fact_t *FPOP(pddl_pq_t *pq, int *value)
 {
     pddl_pq_el_t *el = pddlPQPop(pq, value);
     pddl_lm_cut_fact_t *fact = bor_container_of(el, pddl_lm_cut_fact_t, heap);

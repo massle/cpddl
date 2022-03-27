@@ -101,13 +101,13 @@ void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state);
  * Returns transition leading from abstract state from to abstract state
  * to.
  */
-_bor_inline const bor_iset_t *pddlTSTransition(const pddl_ts_t *ts,
+_pddl_inline const bor_iset_t *pddlTSTransition(const pddl_ts_t *ts,
                                                int from, int to)
 {
     return ts->tr + from * ts->num_states + to;
 }
 
-_bor_inline bor_iset_t *pddlTSTransitionW(pddl_ts_t *ts, int from, int to)
+_pddl_inline bor_iset_t *pddlTSTransitionW(pddl_ts_t *ts, int from, int to)
 {
     return ts->tr + from * ts->num_states + to;
 }

@@ -41,7 +41,7 @@ struct h2 {
 };
 typedef struct h2 h2_t;
 
-_bor_inline int setReached(h2_t *h2, int f1, int f2)
+_pddl_inline int setReached(h2_t *h2, int f1, int f2)
 {
     if (_FACT(h2, f1, f2) == 0){
         _FACT(h2, f1, f2) = _FACT(h2, f2, f1) = REACHED;
@@ -50,7 +50,7 @@ _bor_inline int setReached(h2_t *h2, int f1, int f2)
     return 0;
 }
 
-_bor_inline void setMutex(h2_t *h2, int f1, int f2, int is_bw)
+_pddl_inline void setMutex(h2_t *h2, int f1, int f2, int is_bw)
 {
     if (is_bw){
         _FACT(h2, f1, f2) = _FACT(h2, f2, f1) = BW_MUTEX;
@@ -59,64 +59,64 @@ _bor_inline void setMutex(h2_t *h2, int f1, int f2, int is_bw)
     }
 }
 
-_bor_inline void reset(h2_t *h2, int f1, int f2)
+_pddl_inline void reset(h2_t *h2, int f1, int f2)
 {
     _FACT(h2, f1, f2) = _FACT(h2, f2, f1) = 0;
 }
 
-_bor_inline int isNotReached(const h2_t *h2, int f1, int f2)
+_pddl_inline int isNotReached(const h2_t *h2, int f1, int f2)
 {
     return _FACT(h2, f1, f2) == 0;
 }
 
-_bor_inline int isReached(const h2_t *h2, int f1, int f2)
+_pddl_inline int isReached(const h2_t *h2, int f1, int f2)
 {
     return _FACT(h2, f1, f2) == REACHED;
 }
 
-_bor_inline int isMutex(const h2_t *h2, int f1, int f2)
+_pddl_inline int isMutex(const h2_t *h2, int f1, int f2)
 {
     return IS_MUTEX(_FACT(h2, f1, f2));
 }
 
-_bor_inline int isFwMutex(const h2_t *h2, int f1, int f2)
+_pddl_inline int isFwMutex(const h2_t *h2, int f1, int f2)
 {
     return _FACT(h2, f1, f2) == FW_MUTEX;
 }
 
-_bor_inline int isBwMutex(const h2_t *h2, int f1, int f2)
+_pddl_inline int isBwMutex(const h2_t *h2, int f1, int f2)
 {
     return _FACT(h2, f1, f2) == BW_MUTEX;
 }
 
 
-_bor_inline void setOpReached(h2_t *h2, int op_id)
+_pddl_inline void setOpReached(h2_t *h2, int op_id)
 {
     ASSERT(h2->op[op_id] == 0);
     h2->op[op_id] = REACHED;
 }
 
-_bor_inline void setOpPruned(h2_t *h2, int op_id)
+_pddl_inline void setOpPruned(h2_t *h2, int op_id)
 {
     h2->op[op_id] = PRUNED;
 }
 
-_bor_inline void resetOp(h2_t *h2, int op_id)
+_pddl_inline void resetOp(h2_t *h2, int op_id)
 {
     h2->op[op_id] = 0;
 }
 
-_bor_inline int isOpNotReached(const h2_t *h2, int op_id)
+_pddl_inline int isOpNotReached(const h2_t *h2, int op_id)
 {
     return h2->op[op_id] == 0;
 }
 
-_bor_inline int isOpReached(const h2_t *h2, int op_id)
+_pddl_inline int isOpReached(const h2_t *h2, int op_id)
 {
     return h2->op[op_id] == REACHED;
 }
 
-_bor_inline int isOpPruned(const h2_t *h2, int op_id)
+_pddl_inline int isOpPruned(const h2_t *h2, int op_id)
 {
     return h2->op[op_id] == PRUNED;
 }

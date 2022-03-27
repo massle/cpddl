@@ -78,7 +78,7 @@ static void keynodeDel(keynode_t *kn)
     FREE(kn);
 }
 
-_bor_inline int keynodeCmp(const int *kn1, const int *kn2)
+_pddl_inline int keynodeCmp(const int *kn1, const int *kn2)
 {
     int cmp;
     for (int i = 0; i < COST_SIZE && (cmp = kn1[i] - kn2[i]) == 0; ++i);

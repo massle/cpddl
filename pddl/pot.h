@@ -187,7 +187,7 @@ void pddlPotDecreaseLowerBoundConstrRHS(pddl_pot_t *pot, double decrease);
 /**
  * Turns on/off integer linear program.
  */
-_bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
+_pddl_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
 {
     pot->use_ilp = enable;
 }
@@ -195,7 +195,7 @@ _bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
 /**
  * Turns on/off storing of heuristic changes induced by operators.
  */
-_bor_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued)
+_pddl_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued)
 {
     if (enable){
         pot->op_pot = 1;
@@ -208,7 +208,7 @@ _bor_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued
 /**
  * Turns on/off enforcing of the integer value for the initial state
  */
-_bor_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
+_pddl_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
 {
     pot->enforce_int_init = enable;
 }

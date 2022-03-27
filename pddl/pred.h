@@ -43,7 +43,7 @@ struct pddl_pred {
 };
 typedef struct pddl_pred pddl_pred_t;
 
-_bor_inline int pddlPredIsStatic(const pddl_pred_t *pred);
+_pddl_inline int pddlPredIsStatic(const pddl_pred_t *pred);
 
 
 struct pddl_preds {
@@ -118,7 +118,7 @@ void pddlFuncsPrintPDDL(const pddl_preds_t *ps,
 
 
 /**** INLINES: ****/
-_bor_inline int pddlPredIsStatic(const pddl_pred_t *pred)
+_pddl_inline int pddlPredIsStatic(const pddl_pred_t *pred)
 {
     return !pred->write;
 }

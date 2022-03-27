@@ -18,7 +18,7 @@
 #define __BOR_SET_H__
 
 #include <string.h>
-#include <boruvka/compiler.h>
+#include <pddl/core.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus
@@ -69,19 +69,19 @@ void borSetFree(bor_set_t *s);
 /**
  * Returns ith element from the set.
  */
-_bor_inline TYPE borSetGet(const bor_set_t *s, int i);
+_pddl_inline TYPE borSetGet(const bor_set_t *s, int i);
 
 /**
  * Returns size of the set.
  */
-_bor_inline int borSetSize(const bor_set_t *s);
+_pddl_inline int borSetSize(const bor_set_t *s);
 
 
 /**
  * Returns true if val \in s
  */
 int borSetHas(const bor_set_t *s, TYPE val);
-_bor_inline int borSetIn(TYPE val, const bor_set_t *s);
+_pddl_inline int borSetIn(TYPE val, const bor_set_t *s);
 
 /**
  * Return true if s1 \subset s2
@@ -110,13 +110,13 @@ int borSetIntersectionSizeAtLeast3(const bor_set_t *s1,
 /**
  * Returns true if the sets are disjoint.
  */
-_bor_inline int borSetIsDisjunct(const bor_set_t *s1, const bor_set_t *s2);
-_bor_inline int borSetIsDisjoint(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int borSetIsDisjunct(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int borSetIsDisjoint(const bor_set_t *s1, const bor_set_t *s2);
 
 /**
  * s = \emptyset
  */
-_bor_inline void borSetEmpty(bor_set_t *s);
+_pddl_inline void borSetEmpty(bor_set_t *s);
 
 /**
  * d = s
@@ -168,12 +168,12 @@ void borSetMinus2(bor_set_t *d, const bor_set_t *s1, const bor_set_t *s2);
 /**
  * Returns true if the sets are equal.
  */
-_bor_inline int borSetEq(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int borSetEq(const bor_set_t *s1, const bor_set_t *s2);
 
 /**
  * Compares sets, return values are the same as by memcmp().
  */
-_bor_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2);
 
 /**
  * Remaps the elements of the set using remap array containing maping from
@@ -185,43 +185,43 @@ void borSetRemap(bor_set_t *s, const TYPE *remap);
 
 
 /**** INLINES: ****/
-_bor_inline TYPE borSetGet(const bor_set_t *s, int i)
+_pddl_inline TYPE borSetGet(const bor_set_t *s, int i)
 {
     return s->s[i];
 }
 
-_bor_inline int borSetSize(const bor_set_t *s)
+_pddl_inline int borSetSize(const bor_set_t *s)
 {
     return s->size;
 }
 
-_bor_inline int borSetIn(TYPE val, const bor_set_t *s)
+_pddl_inline int borSetIn(TYPE val, const bor_set_t *s)
 {
     return borSetHas(s, val);
 }
 
-_bor_inline int borSetIsDisjunct(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int borSetIsDisjunct(const bor_set_t *s1, const bor_set_t *s2)
 {
     return borSetIsDisjoint(s1, s2);
 }
 
-_bor_inline int borSetIsDisjoint(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int borSetIsDisjoint(const bor_set_t *s1, const bor_set_t *s2)
 {
     return !borSetIntersectionSizeAtLeast(s1, s2, 1);
 }
 
-_bor_inline void borSetEmpty(bor_set_t *s)
+_pddl_inline void borSetEmpty(bor_set_t *s)
 {
     s->size = 0;
 }
 
-_bor_inline int borSetEq(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int borSetEq(const bor_set_t *s1, const bor_set_t *s2)
 {
     return s1->size == s2->size
             && memcmp(s1->s, s2->s, sizeof(TYPE) * s1->size) == 0;
 }
 
-_bor_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2)
 {
     int cmp;
     cmp = memcmp(s1->s, s2->s,

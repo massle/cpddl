@@ -59,7 +59,7 @@ void pddlFDRStatePackerFree(pddl_fdr_state_packer_t *p);
 /**
  * Returns size of the buffer in bytes required for storing packed state.
  */
-_bor_inline int pddlFDRStatePackerBufSize(const pddl_fdr_state_packer_t *p);
+_pddl_inline int pddlFDRStatePackerBufSize(const pddl_fdr_state_packer_t *p);
 
 /**
  * Pack the given state into provided buffer that must be at least
@@ -78,7 +78,7 @@ void pddlFDRStatePackerUnpack(const pddl_fdr_state_packer_t *p,
 
 
 /**** INLINES ****/
-_bor_inline int pddlFDRStatePackerBufSize(const pddl_fdr_state_packer_t *p)
+_pddl_inline int pddlFDRStatePackerBufSize(const pddl_fdr_state_packer_t *p)
 {
     return p->bufsize;
 }

@@ -146,22 +146,22 @@ struct pddl_cond_imply {
 typedef struct pddl_cond_imply pddl_cond_imply_t;
 
 
-_bor_inline pddl_cond_part_t *pddlCondToAnd(pddl_cond_t *c)
+_pddl_inline pddl_cond_part_t *pddlCondToAnd(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, part);
 }
 
-_bor_inline pddl_cond_part_t *pddlCondToOr(pddl_cond_t *c)
+_pddl_inline pddl_cond_part_t *pddlCondToOr(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, part);
 }
 
-_bor_inline pddl_cond_bool_t *pddlCondToBool(pddl_cond_t *c)
+_pddl_inline pddl_cond_bool_t *pddlCondToBool(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, bool);
 }
 
-_bor_inline pddl_cond_atom_t *pddlCondToAtom(pddl_cond_t *c)
+_pddl_inline pddl_cond_atom_t *pddlCondToAtom(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, atom);
 }

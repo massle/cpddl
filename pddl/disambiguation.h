@@ -123,7 +123,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
  *        1 if some facts were added
  *        -1 if the set was detected to be mutex
  */
-_bor_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set)
+_pddl_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set)
 {
     return pddlDisambiguate(dis, set, NULL, 1, 0, NULL, set);
 }

@@ -20,6 +20,7 @@
 #ifndef __PDDL_PQ_H__
 #define __PDDL_PQ_H__
 
+#include <pddl/core.h>
 #include <boruvka/pairheap.h>
 
 #ifdef __cplusplus
@@ -122,22 +123,22 @@ void pddlPQUpdate(pddl_pq_t *q, int new_key, pddl_pq_el_t *el);
 /**
  * Returns true if the queue is empty.
  */
-_bor_inline int pddlPQEmpty(const pddl_pq_t *q);
+_pddl_inline int pddlPQEmpty(const pddl_pq_t *q);
 
 
 
 /**** INLINES ****/
-_bor_inline int pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
+_pddl_inline int pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
 {
     return q->size == 0;
 }
 
-_bor_inline int pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
+_pddl_inline int pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
 {
     return borPairHeapEmpty(q->heap);
 }
 
-_bor_inline int pddlPQEmpty(const pddl_pq_t *q)
+_pddl_inline int pddlPQEmpty(const pddl_pq_t *q)
 {
     if (q->bucket){
         return pddlPQBucketQueueEmpty(&q->bucket_queue);

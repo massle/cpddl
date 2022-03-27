@@ -46,7 +46,7 @@ void pddlFDRStatePoolHTableFree(pddl_fdr_state_pool_htable_t *ht);
  * Returns the equal element if already on hash table or NULL the given
  * element was inserted.
  */
-_bor_inline pddl_state_id_t pddlFDRStatePoolHTableInsertUnique(
+_pddl_inline pddl_state_id_t pddlFDRStatePoolHTableInsertUnique(
                                     pddl_fdr_state_pool_htable_t *ht,
                                     pddl_state_id_t state_id)
 {
@@ -62,7 +62,7 @@ _bor_inline pddl_state_id_t pddlFDRStatePoolHTableInsertUnique(
     return item;
 }
 
-_bor_inline bor_list_t *borHTableFindBucket(const bor_htable_t *m,
+_pddl_inline bor_list_t *borHTableFindBucket(const bor_htable_t *m,
                                             size_t bucket,
                                             const bor_list_t *key1)
 {
@@ -76,7 +76,7 @@ _bor_inline bor_list_t *borHTableFindBucket(const bor_htable_t *m,
     return NULL;
 }
 
-_bor_inline void borHTableInsertBucket(bor_htable_t *m, size_t bucket,
+_pddl_inline void borHTableInsertBucket(bor_htable_t *m, size_t bucket,
                                        bor_list_t *key1)
 {
     size_t size;
@@ -96,7 +96,7 @@ _bor_inline void borHTableInsertBucket(bor_htable_t *m, size_t bucket,
     borHTableInsertBucketNoResize(m, bucket, key1);
 }
 
-_bor_inline void borHTableInsertBucketNoResize(bor_htable_t *m,
+_pddl_inline void borHTableInsertBucketNoResize(bor_htable_t *m,
                                                size_t bucket,
                                                bor_list_t *key1)
 {
@@ -104,12 +104,12 @@ _bor_inline void borHTableInsertBucketNoResize(bor_htable_t *m,
     ++m->num_elements;
 }
 
-_bor_inline size_t borHTableBucket(const bor_htable_t *m,
+_pddl_inline size_t borHTableBucket(const bor_htable_t *m,
                                    const bor_list_t *key1)
 {
     return m->hash(key1, m->data) % (bor_htable_key_t)m->size;
 }
-_bor_inline size_t _pddlFDRStatePoolHTableNextPrime(size_t hint)
+_pddl_inline size_t _pddlFDRStatePoolHTableNextPrime(size_t hint)
 {
     static size_t primes[] = {
         5ul,         53ul,         97ul,         193ul,       389ul,

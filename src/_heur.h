@@ -35,7 +35,7 @@ struct pddl_heur {
     pddl_heur_estimate_fn estimate_fn;
 };
 
-_bor_inline void _pddlHeurInit(pddl_heur_t *h,
+_pddl_inline void _pddlHeurInit(pddl_heur_t *h,
                                pddl_heur_del_fn del_fn,
                                pddl_heur_estimate_fn estimate_fn)
 {
@@ -44,7 +44,7 @@ _bor_inline void _pddlHeurInit(pddl_heur_t *h,
     h->estimate_fn = estimate_fn;
 }
 
-_bor_inline void _pddlHeurFree(pddl_heur_t *h)
+_pddl_inline void _pddlHeurFree(pddl_heur_t *h)
 {
 }
 

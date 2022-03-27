@@ -38,7 +38,7 @@ struct set_range {
 } bor_packed;
 typedef struct set_range set_range_t;
 
-_bor_inline int setRangeIsSet(const set_range_t *s, int v)
+_pddl_inline int setRangeIsSet(const set_range_t *s, int v)
 {
     int left = 0, right = s->size - 1;
     int idx = (left + right) / 2;
@@ -56,7 +56,7 @@ _bor_inline int setRangeIsSet(const set_range_t *s, int v)
     return 0;
 }
 
-_bor_inline void setRangeAlloc(set_range_t *s)
+_pddl_inline void setRangeAlloc(set_range_t *s)
 {
     if (s->size == s->alloc){
         if (s->alloc == 0)
@@ -66,7 +66,7 @@ _bor_inline void setRangeAlloc(set_range_t *s)
     }
 }
 
-_bor_inline void setRangeSet(set_range_t *s, int v)
+_pddl_inline void setRangeSet(set_range_t *s, int v)
 {
     for (int i = 0; i < s->size; ++i){
         if (s->v[i].from >= v && v >= s->v[i].to){
@@ -123,7 +123,7 @@ struct h3 {
 typedef struct h3 h3_t;
 
 // Assumes f1 < f2 < f3
-_bor_inline int metaFactIsSet3(const h3_t *h3, int f1, int f2, int f3)
+_pddl_inline int metaFactIsSet3(const h3_t *h3, int f1, int f2, int f3)
 {
     if (h3->meta_fact3 != NULL){
         int idx = (f1 * h3->fact_size + f2) * h3->fact_size + f3;
@@ -135,18 +135,18 @@ _bor_inline int metaFactIsSet3(const h3_t *h3, int f1, int f2, int f3)
 }
 
 // Assumes f1 <= f2
-_bor_inline int metaFactIsSet2(const h3_t *h3, int f1, int f2)
+_pddl_inline int metaFactIsSet2(const h3_t *h3, int f1, int f2)
 {
     return h3->meta_fact2[f1 * h3->fact_size + f2];
 }
 
-_bor_inline int metaFactIsSet1(const h3_t *h3, int fid)
+_pddl_inline int metaFactIsSet1(const h3_t *h3, int fid)
 {
     return h3->meta_fact1[fid];
 }
 
 // Assumes f1 <= f2 <= f3
-_bor_inline void metaFactSet3(h3_t *h3, int f1, int f2, int f3)
+_pddl_inline void metaFactSet3(h3_t *h3, int f1, int f2, int f3)
 {
     if (h3->meta_fact3 != NULL){
         int idx = (f1 * h3->fact_size + f2) * h3->fact_size + f3;
@@ -158,13 +158,13 @@ _bor_inline void metaFactSet3(h3_t *h3, int f1, int f2, int f3)
 }
 
 // Assumes f1 <= f2
-_bor_inline void metaFactSet2(h3_t *h3, int f1, int f2)
+_pddl_inline void metaFactSet2(h3_t *h3, int f1, int f2)
 {
     h3->meta_fact2[f1 * h3->fact_size + f2] = 1;
     h3->meta_fact2[f2 * h3->fact_size + f1] = 1;
 }
 
-_bor_inline void metaFactSet1(h3_t *h3, int fid)
+_pddl_inline void metaFactSet1(h3_t *h3, int fid)
 {
     h3->meta_fact1[fid] = 1;
 }

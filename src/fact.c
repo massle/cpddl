@@ -17,7 +17,6 @@
  * See the License for more information.
  */
 
-#include <boruvka/compiler.h>
 #include "alloc.h"
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
