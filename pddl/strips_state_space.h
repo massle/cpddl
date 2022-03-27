@@ -20,7 +20,6 @@
 #define __PDDL_STRIPS_STATE_SPACE_H__
 
 #include <boruvka/extarr.h>
-#include <boruvka/htable.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_state_pool.h>
 
@@ -46,7 +45,7 @@ struct pddl_strips_state_space_node {
 typedef struct pddl_strips_state_space_node pddl_strips_state_space_node_t;
 
 struct pddl_strips_state_space {
-    bor_htable_t *htable;
+    pddl_htable_t *htable;
     bor_extarr_t *node; /*!< Array of state nodes */
     int num_states;
 };

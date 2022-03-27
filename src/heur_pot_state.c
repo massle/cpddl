@@ -23,18 +23,18 @@
 struct pot_func {
     pddl_pot_solution_t sol;
     int *state; /*!< State for which potential heuristic was computed */
-    bor_list_t conn; /*!< Connector to the list of potential functions */
+    pddl_list_t conn; /*!< Connector to the list of potential functions */
 };
 typedef struct pot_func pot_func_t;
 
 static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
                               const int *state,
-                              bor_list_t *list)
+                              pddl_list_t *list)
 {
     pot_func_t *f = ALLOC(pot_func_t);
     pddlPotSolutionInit(&f->sol);
     f->state = ALLOC_ARR(int, fdr->var.var_size);
-    borListInit(&f->conn);
+    pddlListInit(&f->conn);
 
     pddl_pot_t pot;
     pddlPotInitFDR(&pot, fdr);
@@ -44,7 +44,7 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
     pddlPotFree(&pot);
 
     memcpy(f->state, state, sizeof(int) * fdr->var.var_size);
-    borListAppend(list, &f->conn);
+    pddlListAppend(list, &f->conn);
 
     return f;
 }
@@ -53,7 +53,7 @@ static void potFuncDel(pot_func_t *f)
 {
     pddlPotSolutionFree(&f->sol);
     FREE(f->state);
-    borListDel(&f->conn);
+    pddlListDel(&f->conn);
     FREE(f);
 }
 
@@ -72,7 +72,7 @@ struct heur {
     const pddl_fdr_t *fdr;
     bor_err_t *err;
     bor_extarr_t *func_state;
-    bor_list_t func_list;
+    pddl_list_t func_list;
 };
 typedef struct heur heur_t;
 #define HEUR(H) bor_container_of((H), heur_t, heur)
@@ -82,9 +82,9 @@ static void heurDel(pddl_heur_t *_h)
     heur_t *h = HEUR(_h);
     _pddlHeurFree(&h->heur);
     borExtArrDel(h->func_state);
-    while (!borListEmpty(&h->func_list)){
-        bor_list_t *l = borListNext(&h->func_list);
-        pot_func_t *f = BOR_LIST_ENTRY(l, pot_func_t, conn);
+    while (!pddlListEmpty(&h->func_list)){
+        pddl_list_t *l = pddlListNext(&h->func_list);
+        pot_func_t *f = PDDL_LIST_ENTRY(l, pot_func_t, conn);
         potFuncDel(f);
     }
     FREE(h);
@@ -138,7 +138,7 @@ pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, bor_err_t *err)
     pot_func_t *f_init = NULL;
     h->func_state = borExtArrNew2(sizeof(pot_func_t *),
                                   1024, 1024 * 1024, NULL, &f_init);
-    borListInit(&h->func_list);
+    pddlListInit(&h->func_list);
     return &h->heur;
 }
 

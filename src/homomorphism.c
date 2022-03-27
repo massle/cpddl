@@ -708,11 +708,11 @@ static int collapseRPG(pddl_t *pddl,
 
 static void _deduplicateCostsPart(pddl_cond_part_t *p)
 {
-    bor_list_t *item = borListNext(&p->part);
+    pddl_list_t *item = pddlListNext(&p->part);
     while (item != &p->part){
-        pddl_cond_t *c1 = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        pddl_cond_t *c1 = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c1->type != PDDL_COND_ASSIGN){
-            item = borListNext(item);
+            item = pddlListNext(item);
             continue;
         }
         pddl_cond_func_op_t *ass1 = PDDL_COND_CAST(c1, func_op);
@@ -720,31 +720,31 @@ static void _deduplicateCostsPart(pddl_cond_part_t *p)
         ASSERT_RUNTIME(ass1->fvalue == NULL);
         int min_value = ass1->value;
 
-        bor_list_t *item2 = borListNext(item);
+        pddl_list_t *item2 = pddlListNext(item);
         while (item2 != &p->part){
-            pddl_cond_t *c2 = BOR_LIST_ENTRY(item2, pddl_cond_t, conn);
+            pddl_cond_t *c2 = PDDL_LIST_ENTRY(item2, pddl_cond_t, conn);
             if (c2->type == PDDL_COND_ASSIGN){
                 pddl_cond_func_op_t *ass2 = PDDL_COND_CAST(c2, func_op);
                 ASSERT_RUNTIME(ass2->lvalue != NULL);
                 ASSERT_RUNTIME(ass2->fvalue == NULL);
                 if (pddlCondAtomCmp(ass1->lvalue, ass2->lvalue) == 0){
                     min_value = BOR_MIN(min_value, ass2->value);
-                    bor_list_t *item_del = item2;
-                    item2 = borListNext(item2);
-                    borListDel(item_del);
+                    pddl_list_t *item_del = item2;
+                    item2 = pddlListNext(item2);
+                    pddlListDel(item_del);
                     pddlCondDel(c2);
 
                 }else{
-                    item2 = borListNext(item2);
+                    item2 = pddlListNext(item2);
                 }
 
             }else{
-                item2 = borListNext(item2);
+                item2 = pddlListNext(item2);
             }
         }
 
         ass1->value = min_value;
-        item = borListNext(item);
+        item = pddlListNext(item);
     }
 }
 
@@ -1070,17 +1070,17 @@ void pddlHomomorphicTaskReduceInit(pddl_homomorphic_task_reduce_t *r,
 {
     bzero(r, sizeof(*r));
     r->target_obj_size = target_obj_size;
-    borListInit(&r->method);
+    pddlListInit(&r->method);
 }
 
 void pddlHomomorphicTaskReduceFree(pddl_homomorphic_task_reduce_t *r)
 {
-    bor_list_t *item;
-    while (!borListEmpty(&r->method)){
-        item = borListNext(&r->method);
-        borListDel(item);
+    pddl_list_t *item;
+    while (!pddlListEmpty(&r->method)){
+        item = pddlListNext(&r->method);
+        pddlListDel(item);
         pddl_homomorphic_task_method_t *m;
-        m = BOR_LIST_ENTRY(item, pddl_homomorphic_task_method_t, conn);
+        m = PDDL_LIST_ENTRY(item, pddl_homomorphic_task_method_t, conn);
         FREE(m);
     }
 }
@@ -1091,7 +1091,7 @@ static pddl_homomorphic_task_method_t *methodNew(int method)
     m = ALLOC(pddl_homomorphic_task_method_t);
     bzero(m, sizeof(*m));
     m->method = method;
-    borListInit(&m->conn);
+    pddlListInit(&m->conn);
     return m;
 }
 
@@ -1123,7 +1123,7 @@ void pddlHomomorphicTaskReduceAddType(pddl_homomorphic_task_reduce_t *r,
 {
     pddl_homomorphic_task_method_t *m = methodNew(METHOD_TYPE);
     m->arg_type = type;
-    borListAppend(&r->method, &m->conn);
+    pddlListAppend(&r->method, &m->conn);
 }
 
 void pddlHomomorphicTaskReduceAddRandomPair(pddl_homomorphic_task_reduce_t *r,
@@ -1131,7 +1131,7 @@ void pddlHomomorphicTaskReduceAddRandomPair(pddl_homomorphic_task_reduce_t *r,
 {
     pddl_homomorphic_task_method_t *m = methodNew(METHOD_RANDOM_PAIR);
     m->arg_preserve_goals = preserve_goals;
-    borListAppend(&r->method, &m->conn);
+    pddlListAppend(&r->method, &m->conn);
 }
 
 void pddlHomomorphicTaskReduceAddGaifman(pddl_homomorphic_task_reduce_t *r,
@@ -1139,7 +1139,7 @@ void pddlHomomorphicTaskReduceAddGaifman(pddl_homomorphic_task_reduce_t *r,
 {
     pddl_homomorphic_task_method_t *m = methodNew(METHOD_GAIFMAN);
     m->arg_preserve_goals = preserve_goals;
-    borListAppend(&r->method, &m->conn);
+    pddlListAppend(&r->method, &m->conn);
 }
 
 void pddlHomomorphicTaskReduceAddRPG(pddl_homomorphic_task_reduce_t *r,
@@ -1149,7 +1149,7 @@ void pddlHomomorphicTaskReduceAddRPG(pddl_homomorphic_task_reduce_t *r,
     pddl_homomorphic_task_method_t *m = methodNew(METHOD_RPG);
     m->arg_preserve_goals = preserve_goals;
     m->arg_max_depth = max_depth;
-    borListAppend(&r->method, &m->conn);
+    pddlListAppend(&r->method, &m->conn);
 }
 
 void pddlHomomorphicTaskReduceAddRelaxedEndomorphism(
@@ -1158,7 +1158,7 @@ void pddlHomomorphicTaskReduceAddRelaxedEndomorphism(
 {
     pddl_homomorphic_task_method_t *m = methodNew(METHOD_ENDOMORPHISM);
     m->arg_endomorphism_cfg = *cfg;
-    borListAppend(&r->method, &m->conn);
+    pddlListAppend(&r->method, &m->conn);
 }
 
 int pddlHomomorphicTaskReduce(pddl_homomorphic_task_reduce_t *r,
@@ -1168,7 +1168,7 @@ int pddlHomomorphicTaskReduce(pddl_homomorphic_task_reduce_t *r,
     while (h->task.obj.obj_size > r->target_obj_size){
         int init_obj_size = h->task.obj.obj_size;
         pddl_homomorphic_task_method_t *m;
-        BOR_LIST_FOR_EACH_ENTRY(&r->method, pddl_homomorphic_task_method_t, m, conn){
+        PDDL_LIST_FOR_EACH_ENTRY(&r->method, pddl_homomorphic_task_method_t, m, conn){
             if (h->task.obj.obj_size <= r->target_obj_size)
                 return 0;
             int ret = methodRun(m, h, err);

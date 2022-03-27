@@ -485,13 +485,13 @@ static void compileOutNegPre(pddl_t *pddl, int pos, int neg)
 static int initHasFact(const pddl_t *pddl, int pred,
                        int arg_size, const pddl_obj_id_t *arg)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     const pddl_cond_t *c;
     const pddl_cond_atom_t *a;
     int i;
 
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, const pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, const pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM)
             continue;
         a = PDDL_COND_CAST(c, atom);
@@ -1006,7 +1006,7 @@ void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)
 
 void pddlPrintPDDLProblem(const pddl_t *pddl, FILE *fout)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     pddl_cond_t *c;
     pddl_params_t params;
 
@@ -1015,8 +1015,8 @@ void pddlPrintPDDLProblem(const pddl_t *pddl, FILE *fout)
 
     pddlParamsInit(&params);
     fprintf(fout, "(:init\n");
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         fprintf(fout, " ");
         pddlCondPrintPDDL(c, pddl, &params, fout);
     }
@@ -1035,12 +1035,12 @@ void pddlPrintPDDLProblem(const pddl_t *pddl, FILE *fout)
 
 static int initCondSize(const pddl_t *pddl, int type)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     const pddl_cond_t *c;
     int size = 0;
 
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == type)
             ++size;
     }
@@ -1050,7 +1050,7 @@ static int initCondSize(const pddl_t *pddl, int type)
 // TODO: Rename to pddlPrintDebug
 void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     pddl_cond_t *c;
     pddl_cond_atom_t *a;
     pddl_params_t params;
@@ -1066,8 +1066,8 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
 
     pddlParamsInit(&params);
     fprintf(fout, "Init[%d]:\n", initCondSize(pddl, PDDL_COND_ATOM));
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM)
             continue;
         a = PDDL_COND_CAST(c, atom);
@@ -1079,8 +1079,8 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
     }
 
     fprintf(fout, "Init[%d]:\n", initCondSize(pddl, PDDL_COND_ASSIGN));
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ASSIGN)
             continue;
         fprintf(fout, "  ");

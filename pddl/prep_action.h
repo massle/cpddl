@@ -20,8 +20,6 @@
 #ifndef __PDDL_PREP_ACTION_H__
 #define __PDDL_PREP_ACTION_H__
 
-#include <boruvka/htable.h>
-
 #include <pddl/common.h>
 #include <pddl/action.h>
 #include <pddl/cond_arr.h>

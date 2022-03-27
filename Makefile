@@ -21,6 +21,7 @@ TARGETS  = libpddl.a
 OBJS  = alloc
 OBJS += timer
 OBJS += rbtree
+OBJS += htable
 OBJS += lisp
 OBJS += require
 OBJS += type

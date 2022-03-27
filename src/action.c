@@ -305,25 +305,25 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     pddl_action_t *newa;
     pddl_cond_part_t *pre;
     pddl_cond_t *first_cond, *cond;
-    bor_list_t *item;
+    pddl_list_t *item;
     int aidx;
 
     if (a->pre->type != PDDL_COND_OR)
         return;
 
     pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
-    if (borListEmpty(&pre->part))
+    if (pddlListEmpty(&pre->part))
         return;
 
-    item = borListNext(&pre->part);
-    borListDel(item);
-    first_cond = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    item = pddlListNext(&pre->part);
+    pddlListDel(item);
+    first_cond = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
     a->pre = NULL;
     aidx = a - as->action;
-    while (!borListEmpty(&pre->part)){
-        item = borListNext(&pre->part);
-        borListDel(item);
-        cond = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    while (!pddlListEmpty(&pre->part)){
+        item = pddlListNext(&pre->part);
+        pddlListDel(item);
+        cond = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         newa = pddlActionsAddCopy(as, aidx);
         newa->pre = cond;
         pddlActionNormalize(newa, pddl);
@@ -336,7 +336,7 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
 
 void pddlActionAssertPreConjuction(pddl_action_t *a)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     pddl_cond_part_t *pre;
     pddl_cond_t *c;
 
@@ -345,8 +345,8 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     }
 
     pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
-    BOR_LIST_FOR_EACH(&pre->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pre->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM){
             BOR_FATAL("Precondition of the action `%s' is"
                       " not a flatten conjuction (conjuction contains"

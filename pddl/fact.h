@@ -20,8 +20,6 @@
 #ifndef __PDDL_FACT_H__
 #define __PDDL_FACT_H__
 
-#include <boruvka/htable.h>
-
 #include <pddl/common.h>
 #include <pddl/lisp.h>
 #include <pddl/obj.h>
@@ -37,8 +35,8 @@ extern "C" {
 
 struct pddl_fact {
     int id;
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 
     char *name; /*!< Name of the fact */
     int is_private; /*!< True if the fact is private */
@@ -76,7 +74,7 @@ struct pddl_facts {
     pddl_fact_t **fact;
     int fact_size;
     int fact_alloc;
-    bor_htable_t *htable;
+    pddl_htable_t *htable;
 };
 typedef struct pddl_facts pddl_facts_t;
 

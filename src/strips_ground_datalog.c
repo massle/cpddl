@@ -18,7 +18,6 @@
  */
 
 #include "alloc.h"
-#include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
 #include "pddl/strips_ground_datalog.h"

@@ -50,9 +50,9 @@ static int sqlGroundInit(sql_ground_t *g,
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     // Insert initial state
-    bor_list_t *item;
-    BOR_LIST_FOR_EACH(&g->pddl->init->part, item){
-        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    pddl_list_t *item;
+    PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
+        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){

@@ -693,13 +693,13 @@ static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
 
 static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     const pddl_cond_t *c;
     const pddl_cond_atom_t *a;
     const pddl_ground_atom_t *ga;
 
-    BOR_LIST_FOR_EACH(&g->pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             a = PDDL_COND_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&g->facts, a, NULL);
@@ -779,14 +779,14 @@ static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
 
 static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     const pddl_cond_t *c;
     const pddl_cond_atom_t *a;
     const pddl_cond_func_op_t *ass;
     pddl_ground_atom_t *ga;
 
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             a = PDDL_COND_CAST(c, atom);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){

@@ -20,7 +20,7 @@
 #ifndef __PDDL_COND_H__
 #define __PDDL_COND_H__
 
-#include <boruvka/list.h>
+#include <pddl/list.h>
 
 #include <pddl/common.h>
 #include <pddl/lisp.h>
@@ -58,7 +58,7 @@ const char *pddlCondTypeName(int type);
  */
 struct pddl_cond {
     unsigned type;   /*!< Type of the condition */
-    bor_list_t conn; /*!< Connection to the parent cond */
+    pddl_list_t conn; /*!< Connection to the parent cond */
 };
 typedef struct pddl_cond pddl_cond_t;
 
@@ -67,7 +67,7 @@ typedef struct pddl_cond pddl_cond_t;
  */
 struct pddl_cond_part {
     pddl_cond_t cls;
-    bor_list_t part; /*!< List of parts */
+    pddl_list_t part; /*!< List of parts */
 };
 typedef struct pddl_cond_part pddl_cond_part_t;
 
@@ -434,8 +434,8 @@ const char *pddlCondPDDLFmt(const pddl_cond_t *cond,
 
 
 struct pddl_cond_const_it {
-    const bor_list_t *list;
-    const bor_list_t *cur;
+    const pddl_list_t *list;
+    const pddl_list_t *cur;
 };
 typedef struct pddl_cond_const_it pddl_cond_const_it_t;
 typedef pddl_cond_const_it_t pddl_cond_const_it_atom_t;
@@ -470,11 +470,11 @@ const pddl_cond_when_t *pddlCondConstItWhenNext(pddl_cond_const_it_when_t *it);
             (WHEN) = pddlCondConstItWhenNext((IT)))
 
 struct pddl_cond_const_it_eff {
-    const bor_list_t *list;
-    const bor_list_t *cur;
+    const pddl_list_t *list;
+    const pddl_list_t *cur;
     const pddl_cond_t *when_pre;
-    const bor_list_t *when_list;
-    const bor_list_t *when_cur;
+    const pddl_list_t *when_list;
+    const pddl_list_t *when_cur;
 };
 typedef struct pddl_cond_const_it_eff pddl_cond_const_it_eff_t;
 

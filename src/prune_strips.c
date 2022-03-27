@@ -41,7 +41,7 @@ struct prune_strips {
     int (*prune)(struct prune_strips *p, ctx_t *ctx);
     float time_limit_in_s;
     size_t excess_mem;
-    bor_list_t conn;
+    pddl_list_t conn;
 };
 typedef struct prune_strips prune_strips_t;
 
@@ -74,8 +74,8 @@ static prune_strips_t *addPruneStrips(pddl_prune_strips_t *p,
 {
     prune_strips_t *prune = ALLOC(prune_strips_t);
     prune->prune = fn;
-    borListInit(&prune->conn);
-    borListAppend(&p->prune, &prune->conn);
+    pddlListInit(&prune->conn);
+    pddlListAppend(&p->prune, &prune->conn);
     return prune;
 }
 
@@ -83,16 +83,16 @@ static prune_strips_t *addPruneStrips(pddl_prune_strips_t *p,
 void pddlPruneStripsInit(pddl_prune_strips_t *prune)
 {
     bzero(prune, sizeof(*prune));
-    borListInit(&prune->prune);
-    borListInit(&prune->conn);
+    pddlListInit(&prune->prune);
+    pddlListInit(&prune->conn);
 }
 
 void pddlPruneStripsFree(pddl_prune_strips_t *prune)
 {
-    while (!borListEmpty(&prune->prune)){
-        bor_list_t *item = borListNext(&prune->prune);
-        borListDel(item);
-        prune_strips_t *p = BOR_LIST_ENTRY(item, prune_strips_t, conn);
+    while (!pddlListEmpty(&prune->prune)){
+        pddl_list_t *item = pddlListNext(&prune->prune);
+        pddlListDel(item);
+        prune_strips_t *p = PDDL_LIST_ENTRY(item, prune_strips_t, conn);
         FREE(p);
     }
 
@@ -124,9 +124,9 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
 
     ctx.err = err;
 
-    bor_list_t *item;
-    BOR_LIST_FOR_EACH(&prune->prune, item){
-        prune_strips_t *p = BOR_LIST_ENTRY(item, prune_strips_t, conn);
+    pddl_list_t *item;
+    PDDL_LIST_FOR_EACH(&prune->prune, item){
+        prune_strips_t *p = PDDL_LIST_ENTRY(item, prune_strips_t, conn);
         if (p->prune(p, &ctx) != 0){
             borISetFree(&ctx.rm_fact);
             borISetFree(&ctx.rm_op);

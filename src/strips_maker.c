@@ -22,7 +22,7 @@
 #include "pddl/strips_maker.h"
 #include "assert.h"
 
-static bor_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
+static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
                                           int arg_size)
 {
     uint64_t hash;
@@ -32,10 +32,10 @@ static bor_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
     return hash;
 }
 
-static bor_htable_key_t htActionHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t htActionHash(const pddl_list_t *key, void *_)
 {
     const pddl_ground_action_args_t *ga;
-    ga = BOR_LIST_ENTRY(key, pddl_ground_action_args_t, htable);
+    ga = PDDL_LIST_ENTRY(key, pddl_ground_action_args_t, htable);
     return ga->hash;
 }
 
@@ -51,13 +51,13 @@ static int actionCmp(const pddl_ground_action_args_t *ga1,
     return cmp;
 }
 
-static int htActionEq(const bor_list_t *k1, const bor_list_t *k2, void *ud)
+static int htActionEq(const pddl_list_t *k1, const pddl_list_t *k2, void *ud)
 {
     const int *arg_size = ud;
     const pddl_ground_action_args_t *ga1;
-    ga1 = BOR_LIST_ENTRY(k1, pddl_ground_action_args_t, htable);
+    ga1 = PDDL_LIST_ENTRY(k1, pddl_ground_action_args_t, htable);
     const pddl_ground_action_args_t *ga2;
-    ga2 = BOR_LIST_ENTRY(k2, pddl_ground_action_args_t, htable);
+    ga2 = PDDL_LIST_ENTRY(k2, pddl_ground_action_args_t, htable);
     return actionCmp(ga1, ga2, arg_size[ga1->action_id]) == 0;
 }
 
@@ -72,7 +72,7 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
     pddlGroundAtomsInit(&sm->ground_atom_static);
     pddlGroundAtomsInit(&sm->ground_func);
 
-    sm->action_args = borHTableNew(htActionHash, htActionEq,
+    sm->action_args = pddlHTableNew(htActionHash, htActionEq,
                                    sm->action_arg_size);
     pddl_ground_action_args_t *pa = NULL;
     sm->action_args_arr = borExtArrNew(sizeof(pa), NULL, &pa);
@@ -87,11 +87,11 @@ void pddlStripsMakerFree(pddl_strips_maker_t *sm)
         pddl_ground_action_args_t **ppa;
         ppa = borExtArrGet(sm->action_args_arr, i);
         pddl_ground_action_args_t *ga = *ppa;
-        borListDel(&ga->htable);
+        pddlListDel(&ga->htable);
         FREE(ga);
     }
 
-    borHTableDel(sm->action_args);
+    pddlHTableDel(sm->action_args);
     borExtArrDel(sm->action_args_arr);
     pddlGroundAtomsFree(&sm->ground_atom);
     pddlGroundAtomsFree(&sm->ground_atom_static);
@@ -202,9 +202,9 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
     memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
     ga->hash = actionComputeHash(ga, arg_size);
     ga->id = -1;
-    borListInit(&ga->htable);
+    pddlListInit(&ga->htable);
 
-    bor_list_t *ins = borHTableInsertUnique(sm->action_args, &ga->htable);
+    pddl_list_t *ins = pddlHTableInsertUnique(sm->action_args, &ga->htable);
     if (ins == NULL){
         ga->id = sm->num_action_args++;
         if (is_new != NULL)
@@ -217,7 +217,7 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
     }
 
     FREE(ga);
-    ga = BOR_LIST_ENTRY(ins, pddl_ground_action_args_t, htable);
+    ga = PDDL_LIST_ENTRY(ins, pddl_ground_action_args_t, htable);
     return ga;
 }
 
@@ -236,19 +236,19 @@ pddl_ground_action_args_t *pddlStripsMakerFindAction(pddl_strips_maker_t *sm,
     memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
     ga->hash = actionComputeHash(ga, arg_size);
     ga->id = -1;
-    borListInit(&ga->htable);
+    pddlListInit(&ga->htable);
 
-    bor_list_t *found = borHTableFind(sm->action_args, &ga->htable);
+    pddl_list_t *found = pddlHTableFind(sm->action_args, &ga->htable);
     if (found == NULL)
         return NULL;
-    return BOR_LIST_ENTRY(found, pddl_ground_action_args_t, htable);
+    return PDDL_LIST_ENTRY(found, pddl_ground_action_args_t, htable);
 }
 
 int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 {
-    bor_list_t *item;
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    pddl_list_t *item;
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
@@ -311,13 +311,13 @@ static int createInitState(pddl_strips_maker_t *sm,
                            const int *ground_atom_to_fact_id,
                            bor_err_t *err)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     const pddl_cond_t *c;
     const pddl_cond_atom_t *a;
     const pddl_ground_atom_t *ga;
 
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             a = PDDL_COND_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&sm->ground_atom, a, NULL);

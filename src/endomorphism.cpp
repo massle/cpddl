@@ -33,7 +33,6 @@
 #include <ilcplex/cpxconst.h>
 
 #include "alloc.h"
-#include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
 #include "pddl/set.h"
@@ -116,8 +115,8 @@ struct pre_eff_vars {
     int group_id;
     bor_iset_t pre;
     bor_iset_t eff;
-    bor_htable_key_t key;
-    bor_list_t htable;
+    pddl_htable_key_t key;
+    pddl_list_t htable;
 };
 typedef struct pre_eff_vars pre_eff_vars_t;
 
@@ -125,11 +124,11 @@ struct op_groups {
     bor_iset_t *group;
     int group_size;
     int group_alloc;
-    bor_htable_t *htable;
+    pddl_htable_t *htable;
 };
 typedef struct op_groups op_groups_t;
 
-static bor_htable_key_t preEffComputeHash(const pre_eff_vars_t *v)
+static pddl_htable_key_t preEffComputeHash(const pre_eff_vars_t *v)
 {
     uint64_t key;
     key = borFastHash_32(v->pre.s, v->pre.size, 13);
@@ -138,16 +137,16 @@ static bor_htable_key_t preEffComputeHash(const pre_eff_vars_t *v)
     return key;
 }
 
-static bor_htable_key_t preEffHash(const bor_list_t *l, void *_)
+static pddl_htable_key_t preEffHash(const pddl_list_t *l, void *_)
 {
-    const pre_eff_vars_t *v = BOR_LIST_ENTRY(l, pre_eff_vars_t, htable);
+    const pre_eff_vars_t *v = PDDL_LIST_ENTRY(l, pre_eff_vars_t, htable);
     return v->key;
 }
 
-static int preEffEq(const bor_list_t *l1, const bor_list_t *l2, void *_)
+static int preEffEq(const pddl_list_t *l1, const pddl_list_t *l2, void *_)
 {
-    const pre_eff_vars_t *v1 = BOR_LIST_ENTRY(l1, pre_eff_vars_t, htable);
-    const pre_eff_vars_t *v2 = BOR_LIST_ENTRY(l2, pre_eff_vars_t, htable);
+    const pre_eff_vars_t *v1 = PDDL_LIST_ENTRY(l1, pre_eff_vars_t, htable);
+    const pre_eff_vars_t *v2 = PDDL_LIST_ENTRY(l2, pre_eff_vars_t, htable);
     return borISetEq(&v1->pre, &v2->pre) && borISetEq(&v1->eff, &v2->eff);
 }
 
@@ -163,10 +162,10 @@ static void assignOpToGroup(op_groups_t *opgs,
     for (int fi = 0; fi < eff->fact_size; ++fi)
         borISetAdd(&pev->eff, eff->fact[fi].var);
     pev->key = preEffComputeHash(pev);
-    borListInit(&pev->htable);
+    pddlListInit(&pev->htable);
 
-    bor_list_t *found;
-    if ((found = borHTableInsertUnique(opgs->htable, &pev->htable)) == NULL){
+    pddl_list_t *found;
+    if ((found = pddlHTableInsertUnique(opgs->htable, &pev->htable)) == NULL){
         if (opgs->group_size == opgs->group_alloc){
             if (opgs->group_alloc == 0)
                 opgs->group_alloc = 2;
@@ -181,7 +180,7 @@ static void assignOpToGroup(op_groups_t *opgs,
         borISetAdd(g, op_id);
 
     }else{
-        pev = BOR_LIST_ENTRY(found, pre_eff_vars_t, htable);
+        pev = PDDL_LIST_ENTRY(found, pre_eff_vars_t, htable);
         borISetAdd(opgs->group + pev->group_id, op_id);
     }
 }
@@ -189,7 +188,7 @@ static void assignOpToGroup(op_groups_t *opgs,
 static void opGroupsInitFDR(op_groups_t *opg, const pddl_fdr_t *fdr)
 {
     bzero(opg, sizeof(*opg));
-    opg->htable = borHTableNew(preEffHash, preEffEq, NULL);
+    opg->htable = pddlHTableNew(preEffHash, preEffEq, NULL);
     for (int oi = 0; oi < fdr->op.op_size; ++oi){
         const pddl_fdr_op_t *op = fdr->op.op[oi];
         assignOpToGroup(opg, op->id, &op->pre, &op->eff);
@@ -199,7 +198,7 @@ static void opGroupsInitFDR(op_groups_t *opg, const pddl_fdr_t *fdr)
 static void opGroupsInitMGStrips(op_groups_t *opg, const mg_strips_t *mgs)
 {
     bzero(opg, sizeof(*opg));
-    opg->htable = borHTableNew(preEffHash, preEffEq, NULL);
+    opg->htable = pddlHTableNew(preEffHash, preEffEq, NULL);
     for (int oi = 0; oi < mgs->op_size; ++oi){
         const mg_strips_op_t *op = mgs->op + oi;
         assignOpToGroup(opg, oi, &op->pre, &op->eff);
@@ -213,18 +212,18 @@ static void opGroupsFree(op_groups_t *opg)
     if (opg->group != NULL)
         FREE(opg->group);
 
-    bor_list_t list;
-    borListInit(&list);
-    borHTableGather(opg->htable, &list);
-    while (!borListEmpty(&list)){
-        bor_list_t *item = borListNext(&list);
-        borListDel(item);
-        pre_eff_vars_t *v = BOR_LIST_ENTRY(item, pre_eff_vars_t, htable);
+    pddl_list_t list;
+    pddlListInit(&list);
+    pddlHTableGather(opg->htable, &list);
+    while (!pddlListEmpty(&list)){
+        pddl_list_t *item = pddlListNext(&list);
+        pddlListDel(item);
+        pre_eff_vars_t *v = PDDL_LIST_ENTRY(item, pre_eff_vars_t, htable);
         borISetFree(&v->pre);
         borISetFree(&v->eff);
         FREE(v);
     }
-    borHTableDel(opg->htable);
+    pddlHTableDel(opg->htable);
 }
 
 static int extractSolution(IloCP &cp,
@@ -1621,9 +1620,9 @@ static int hasAtom(const pddl_cond_t *cond,
     }else{
         ASSERT_RUNTIME(cond->type == PDDL_COND_AND);
         const pddl_cond_part_t *cand = PDDL_COND_CAST(cond, part);
-        bor_list_t *item;
-        BOR_LIST_FOR_EACH(&cand->part, item){
-            const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+        pddl_list_t *item;
+        PDDL_LIST_FOR_EACH(&cand->part, item){
+            const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
             ASSERT_RUNTIME(c->type == PDDL_COND_ATOM);
             if (pddlCondEq(c, &atom->cls))
                 return 1;
@@ -1841,9 +1840,9 @@ static void liftedEndomorphismAnalyzeAction(
 
     ASSERT_RUNTIME(act_eff->type == PDDL_COND_AND);
     const pddl_cond_part_t *cand = PDDL_COND_CAST(act_eff, part);
-    bor_list_t *item;
-    BOR_LIST_FOR_EACH(&cand->part, item){
-        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    pddl_list_t *item;
+    PDDL_LIST_FOR_EACH(&cand->part, item){
+        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
             analyzeActionAtom(end, pddl, act_param, act_pre, a,

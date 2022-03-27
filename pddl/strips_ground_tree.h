@@ -19,7 +19,6 @@
 #ifndef __PDDL_STRIPS_GROUND_TREE_H__
 #define __PDDL_STRIPS_GROUND_TREE_H__
 
-#include <boruvka/htable.h>
 #include <boruvka/iset.h>
 
 #include <pddl/common.h>

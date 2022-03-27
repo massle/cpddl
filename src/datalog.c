@@ -19,15 +19,15 @@
 
 #include <unistd.h>
 #include "alloc.h"
-#include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include <boruvka/extarr.h>
+#include "pddl/htable.h"
 #include "pddl/datalog.h"
 #include "assert.h"
 
 struct pddl_datalog_fact {
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 
     int id;
     int arity;
@@ -37,8 +37,8 @@ struct pddl_datalog_fact {
 typedef struct pddl_datalog_fact pddl_datalog_fact_t;
 
 struct pddl_datalog_relevant_fact {
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 
     int id;
     bor_iset_t fact;
@@ -49,8 +49,8 @@ struct pddl_datalog_relevant_fact {
 typedef struct pddl_datalog_relevant_fact pddl_datalog_relevant_fact_t;
 
 struct pddl_datalog_db {
-    bor_htable_t *hfact;
-    bor_htable_t *hrelevant_fact[2];
+    pddl_htable_t *hfact;
+    pddl_htable_t *hrelevant_fact[2];
     size_t used_mem;
     bor_extarr_t *fact;
     int fact_size;
@@ -120,45 +120,45 @@ struct pddl_datalog {
 #define IDX_TO_VAR(v) (((v)<<MASK_LEN) | VAR_MASK)
 #define IS_VAR(v) (((v) & MASK) == VAR_MASK)
 
-static bor_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
+static pddl_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
 {
     size_t size = sizeof(int) + fact->arity * sizeof(int);
     return borCityHash_64(&fact->pred, size);
 }
 
-static bor_htable_key_t factHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t factHash(const pddl_list_t *key, void *_)
 {
-    return BOR_LIST_ENTRY(key, pddl_datalog_fact_t, htable)->hash;
+    return PDDL_LIST_ENTRY(key, pddl_datalog_fact_t, htable)->hash;
 }
 
-static int factEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
+static int factEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
 {
     const pddl_datalog_fact_t *f1, *f2;
-    f1 = BOR_LIST_ENTRY(key1, pddl_datalog_fact_t, htable);
-    f2 = BOR_LIST_ENTRY(key2, pddl_datalog_fact_t, htable);
+    f1 = PDDL_LIST_ENTRY(key1, pddl_datalog_fact_t, htable);
+    f2 = PDDL_LIST_ENTRY(key2, pddl_datalog_fact_t, htable);
     size_t size = sizeof(int) + f1->arity * sizeof(int);
     return f1->arity == f2->arity && memcmp(&f1->pred, &f2->pred, size) == 0;
 }
 
-static bor_htable_key_t relevantFactComputeHash(
+static pddl_htable_key_t relevantFactComputeHash(
                 const pddl_datalog_relevant_fact_t *f)
 {
     size_t size = f->key_size * 2 * sizeof(int);
     return borCityHash_64(f->key, size);
 }
 
-static bor_htable_key_t relevantFactHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t relevantFactHash(const pddl_list_t *key, void *_)
 {
-    return BOR_LIST_ENTRY(key, pddl_datalog_relevant_fact_t, htable)->hash;
+    return PDDL_LIST_ENTRY(key, pddl_datalog_relevant_fact_t, htable)->hash;
 }
 
-static int relevantFactEq(const bor_list_t *key1,
-                          const bor_list_t *key2,
+static int relevantFactEq(const pddl_list_t *key1,
+                          const pddl_list_t *key2,
                           void *_)
 {
     const pddl_datalog_relevant_fact_t *f1, *f2;
-    f1 = BOR_LIST_ENTRY(key1, pddl_datalog_relevant_fact_t, htable);
-    f2 = BOR_LIST_ENTRY(key2, pddl_datalog_relevant_fact_t, htable);
+    f1 = PDDL_LIST_ENTRY(key1, pddl_datalog_relevant_fact_t, htable);
+    f2 = PDDL_LIST_ENTRY(key2, pddl_datalog_relevant_fact_t, htable);
     size_t size = sizeof(int) + f1->key_size * 2 * sizeof(int);
     return f1->rule == f2->rule && memcmp(&f1->rule, &f2->rule, size) == 0;
 }
@@ -168,10 +168,10 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db);
 static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
 {
     dbFree(dl, db);
-    db->hfact = borHTableNew(factHash, factEq, NULL);
-    db->hrelevant_fact[0] = borHTableNew(relevantFactHash,
+    db->hfact = pddlHTableNew(factHash, factEq, NULL);
+    db->hrelevant_fact[0] = pddlHTableNew(relevantFactHash,
                                          relevantFactEq, NULL);
-    db->hrelevant_fact[1] = borHTableNew(relevantFactHash,
+    db->hrelevant_fact[1] = pddlHTableNew(relevantFactHash,
                                          relevantFactEq, NULL);
 
     size_t size = sizeof(pddl_datalog_fact_t);
@@ -193,9 +193,9 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
 {
     if (db->hfact == NULL)
         return;
-    borHTableDel(db->hfact);
-    borHTableDel(db->hrelevant_fact[0]);
-    borHTableDel(db->hrelevant_fact[1]);
+    pddlHTableDel(db->hfact);
+    pddlHTableDel(db->hrelevant_fact[0]);
+    pddlHTableDel(db->hrelevant_fact[1]);
     borExtArrDel(db->fact);
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < db->relevant_fact_size[i]; ++j){
@@ -235,12 +235,12 @@ static int dbHasFact(pddl_datalog_t *dl,
     f->pred = pred;
     memcpy(f->arg, arg, sizeof(int) * arity);
     f->hash = factComputeHash(f);
-    bor_list_t *ret = borHTableFind(db->hfact, &f->htable);
+    pddl_list_t *ret = pddlHTableFind(db->hfact, &f->htable);
     if (ret == NULL){
         return 0;
 
     }else{
-        f = BOR_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
+        f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
         return f->id;
     }
 }
@@ -257,8 +257,8 @@ static int dbAddFact(pddl_datalog_t *dl,
     f->pred = pred;
     memcpy(f->arg, arg, sizeof(int) * f->arity);
     f->hash = factComputeHash(f);
-    borListInit(&f->htable);
-    bor_list_t *ret = borHTableInsertUnique(db->hfact, &f->htable);
+    pddlListInit(&f->htable);
+    pddl_list_t *ret = pddlHTableInsertUnique(db->hfact, &f->htable);
     if (ret == NULL){
         f->id = db->fact_size++;
         db->used_mem += db->fact->arr->el_size;
@@ -266,7 +266,7 @@ static int dbAddFact(pddl_datalog_t *dl,
         db->used_mem += sizeof(int);
 
     }else{
-        f = BOR_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
+        f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
     }
     return f->id;
 }
@@ -291,16 +291,16 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
         f->key[2 * i + 1] = var_map[f->key[2 * i]];
     }
     f->hash = relevantFactComputeHash(f);
-    borListInit(&f->htable);
+    pddlListInit(&f->htable);
 
-    bor_list_t *ret;
-    ret = borHTableInsertUnique(db->hrelevant_fact[bid], &f->htable);
+    pddl_list_t *ret;
+    ret = pddlHTableInsertUnique(db->hrelevant_fact[bid], &f->htable);
     if (ret == NULL){
         f->id = db->relevant_fact_size[bid]++;
         db->used_mem += db->relevant_fact[bid]->arr->el_size;
 
     }else{
-        f = BOR_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
+        f = PDDL_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
     }
     borISetAdd(&f->fact, fact_id);
     db->used_mem += sizeof(int);
@@ -327,12 +327,12 @@ static pddl_datalog_relevant_fact_t *dbFindRelevantFact(
     }
     f->hash = relevantFactComputeHash(f);
 
-    bor_list_t *ret;
-    ret = borHTableFind(db->hrelevant_fact[bid], &f->htable);
+    pddl_list_t *ret;
+    ret = pddlHTableFind(db->hrelevant_fact[bid], &f->htable);
     if (ret == NULL){
         return NULL;
     }else{
-        return BOR_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
+        return PDDL_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
     }
 }
 

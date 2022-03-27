@@ -32,8 +32,8 @@ extern "C" {
 struct pddl_prune_strips {
     pddl_mgroups_t mgroup;
     pddl_mutex_pairs_t mutex;
-    bor_list_t prune;
-    bor_list_t conn;
+    pddl_list_t prune;
+    pddl_list_t conn;
 };
 typedef struct pddl_prune_strips pddl_prune_strips_t;
 

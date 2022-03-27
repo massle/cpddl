@@ -162,26 +162,26 @@ struct maxpot {
     int maxpot_id;
     int id;
 
-    bor_htable_key_t hkey;
-    bor_list_t htable;
+    pddl_htable_key_t hkey;
+    pddl_list_t htable;
 };
 typedef struct maxpot maxpot_t;
 
-static bor_htable_key_t maxpotComputeHash(const maxpot_t *m)
+static pddl_htable_key_t maxpotComputeHash(const maxpot_t *m)
 {
     return borCityHash_64(m->var, sizeof(maxpot_var_t) * m->var_size);
 }
 
-static bor_htable_key_t htableHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t htableHash(const pddl_list_t *key, void *_)
 {
-    const maxpot_t *m = BOR_LIST_ENTRY(key, maxpot_t, htable);
+    const maxpot_t *m = PDDL_LIST_ENTRY(key, maxpot_t, htable);
     return m->hkey;
 }
 
-static int htableEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
+static int htableEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
 {
-    const maxpot_t *m1 = BOR_LIST_ENTRY(key1, maxpot_t, htable);
-    const maxpot_t *m2 = BOR_LIST_ENTRY(key2, maxpot_t, htable);
+    const maxpot_t *m1 = PDDL_LIST_ENTRY(key1, maxpot_t, htable);
+    const maxpot_t *m2 = PDDL_LIST_ENTRY(key2, maxpot_t, htable);
     if (m1->var_size != m2->var_size)
         return 0;
     return memcmp(m1->var, m2->var, sizeof(maxpot_var_t) * m1->var_size) == 0;
@@ -224,10 +224,10 @@ static int getMaxpot(pddl_pot_t *pot,
             m->var[i].count = count[m->var[i].var_id];
     }
     m->hkey = maxpotComputeHash(m);
-    borListInit(&m->htable);
+    pddlListInit(&m->htable);
 
-    bor_list_t *found;
-    found = borHTableInsertUnique(pot->maxpot_htable, &m->htable);
+    pddl_list_t *found;
+    found = pddlHTableInsertUnique(pot->maxpot_htable, &m->htable);
     if (found == NULL){
         m->id = pot->maxpot_size++;
         m->maxpot_id = pot->var_size++;
@@ -237,7 +237,7 @@ static int getMaxpot(pddl_pot_t *pot,
         if (m->var != NULL)
             FREE(m->var);
 
-        m = BOR_LIST_ENTRY(found, maxpot_t, htable);
+        m = PDDL_LIST_ENTRY(found, maxpot_t, htable);
         return m->maxpot_id;
     }
 }
@@ -383,7 +383,7 @@ static void init(pddl_pot_t *pot, int maxpot_segm_size)
     int segm_size = BOR_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
     pot->maxpot_size = 0;
     pot->maxpot = borSegmArrNew(sizeof(maxpot_t), segm_size);
-    pot->maxpot_htable = borHTableNew(htableHash, htableEq, NULL);
+    pot->maxpot_htable = pddlHTableNew(htableHash, htableEq, NULL);
 }
 
 void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
@@ -452,7 +452,7 @@ int pddlPotInitMGStripsSingleFactDisamb(pddl_pot_t *pot,
 void pddlPotFree(pddl_pot_t *pot)
 {
     if (pot->maxpot_htable != NULL)
-        borHTableDel(pot->maxpot_htable);
+        pddlHTableDel(pot->maxpot_htable);
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
         maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
         if (m->var != NULL)

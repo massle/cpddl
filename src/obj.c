@@ -35,17 +35,17 @@ struct obj_key {
     pddl_obj_id_t obj_id;
     const char *name;
     uint32_t hash;
-    bor_list_t htable;
+    pddl_list_t htable;
 };
 typedef struct obj_key obj_key_t;
 
-static bor_htable_key_t objHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t objHash(const pddl_list_t *key, void *_)
 {
     const obj_key_t *obj = bor_container_of(key, obj_key_t, htable);
     return obj->hash;
 }
 
-static int objEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
+static int objEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
 {
     const obj_key_t *obj1 = bor_container_of(key1, obj_key_t, htable);
     const obj_key_t *obj2 = bor_container_of(key2, obj_key_t, htable);
@@ -200,7 +200,7 @@ int pddlObjsParse(pddl_t *pddl, bor_err_t *err)
     int i;
 
     bzero(&pddl->obj, sizeof(pddl->obj));
-    pddl->obj.htable = borHTableNew(objHash, objEq, NULL);
+    pddl->obj.htable = pddlHTableNew(objHash, objEq, NULL);
 
     if (parse(pddl, dom_lisp, PDDL_KW_CONSTANTS, 1, err) != 0
             || parse(pddl, prob_lisp, PDDL_KW_OBJECTS, 0, err) != 0)
@@ -224,7 +224,7 @@ void pddlObjsInitCopy(pddl_objs_t *dst, const pddl_objs_t *src)
 {
     bzero(dst, sizeof(*dst));
 
-    dst->htable = borHTableNew(objHash, objEq, NULL);
+    dst->htable = pddlHTableNew(objHash, objEq, NULL);
 
     dst->obj_size = dst->obj_alloc = src->obj_size;
     dst->obj = CALLOC_ARR(pddl_obj_t, src->obj_size);
@@ -238,15 +238,15 @@ void pddlObjsInitCopy(pddl_objs_t *dst, const pddl_objs_t *src)
         key->obj_id = i;
         key->name = dst->obj[i].name;
         key->hash = borHashSDBM(dst->obj[i].name);
-        borListInit(&key->htable);
-        borHTableInsert(dst->htable, &key->htable);
+        pddlListInit(&key->htable);
+        pddlHTableInsert(dst->htable, &key->htable);
     }
 }
 
 void pddlObjsFree(pddl_objs_t *objs)
 {
-    bor_list_t list;
-    bor_list_t *item;
+    pddl_list_t list;
+    pddl_list_t *item;
     obj_key_t *key;
 
     for (int i = 0; i < objs->obj_size; ++i)
@@ -254,31 +254,31 @@ void pddlObjsFree(pddl_objs_t *objs)
     if (objs->obj != NULL)
         FREE(objs->obj);
 
-    borListInit(&list);
+    pddlListInit(&list);
     if (objs->htable != NULL){
-        borHTableGather(objs->htable, &list);
-        while (!borListEmpty(&list)){
-            item = borListNext(&list);
-            borListDel(item);
-            key = BOR_LIST_ENTRY(item, obj_key_t, htable);
+        pddlHTableGather(objs->htable, &list);
+        while (!pddlListEmpty(&list)){
+            item = pddlListNext(&list);
+            pddlListDel(item);
+            key = PDDL_LIST_ENTRY(item, obj_key_t, htable);
             FREE(key);
         }
-        borHTableDel(objs->htable);
+        pddlHTableDel(objs->htable);
     }
 }
 
 static obj_key_t *findByName(const pddl_objs_t *objs, const char *name)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     obj_key_t *key, keyin;
 
     keyin.name = name;
     keyin.hash = borHashSDBM(name);
-    item = borHTableFind(objs->htable, &keyin.htable);
+    item = pddlHTableFind(objs->htable, &keyin.htable);
     if (item == NULL)
         return NULL;
 
-    key = BOR_LIST_ENTRY(item, obj_key_t, htable);
+    key = PDDL_LIST_ENTRY(item, obj_key_t, htable);
     return key;
 }
 
@@ -316,8 +316,8 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     key->obj_id = objs->obj_size - 1;
     key->name = name;
     key->hash = borHashSDBM(name);
-    borListInit(&key->htable);
-    borHTableInsert(objs->htable, &key->htable);
+    pddlListInit(&key->htable);
+    pddlHTableInsert(objs->htable, &key->htable);
 
     return o;
 }
@@ -344,7 +344,7 @@ void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
             if (objs->obj[i].name != NULL){
                 obj_key_t *key = findByName(objs, objs->obj[i].name);
                 if (key != NULL){
-                    borHTableErase(objs->htable, &key->htable);
+                    pddlHTableErase(objs->htable, &key->htable);
                     FREE(key);
                 }
             }

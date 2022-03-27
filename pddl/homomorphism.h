@@ -145,13 +145,13 @@ struct pddl_homomorphic_task_method {
     int arg_preserve_goals;
     int arg_max_depth;
     pddl_endomorphism_config_t arg_endomorphism_cfg;
-    bor_list_t conn;
+    pddl_list_t conn;
 };
 typedef struct pddl_homomorphic_task_method pddl_homomorphic_task_method_t;
 
 struct pddl_homomorphic_task_reduce {
     int target_obj_size;
-    bor_list_t method;
+    pddl_list_t method;
 };
 typedef struct pddl_homomorphic_task_reduce pddl_homomorphic_task_reduce_t;
 

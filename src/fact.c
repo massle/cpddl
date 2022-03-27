@@ -30,21 +30,21 @@ static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src);
 /** Returns true if facts are equal.  */
 static int pddlFactEq(const pddl_fact_t *f1, const pddl_fact_t *f2);
 
-static bor_htable_key_t htableKey(const bor_list_t *key, void *_)
+static pddl_htable_key_t htableKey(const pddl_list_t *key, void *_)
 {
-    pddl_fact_t *f = BOR_LIST_ENTRY(key, pddl_fact_t, htable);
+    pddl_fact_t *f = PDDL_LIST_ENTRY(key, pddl_fact_t, htable);
     return f->hash;
 }
 
-static int htableEq(const bor_list_t *k1,
-                    const bor_list_t *k2, void *_)
+static int htableEq(const pddl_list_t *k1,
+                    const pddl_list_t *k2, void *_)
 {
-    pddl_fact_t *f1 = BOR_LIST_ENTRY(k1, pddl_fact_t, htable);
-    pddl_fact_t *f2 = BOR_LIST_ENTRY(k2, pddl_fact_t, htable);
+    pddl_fact_t *f1 = PDDL_LIST_ENTRY(k1, pddl_fact_t, htable);
+    pddl_fact_t *f2 = PDDL_LIST_ENTRY(k2, pddl_fact_t, htable);
     return pddlFactEq(f1, f2);
 }
 
-static bor_htable_key_t pddlFactHash(const pddl_fact_t *f)
+static pddl_htable_key_t pddlFactHash(const pddl_fact_t *f)
 {
     return borHashSDBM(f->name);
 }
@@ -163,14 +163,14 @@ static void makeSpace(pddl_facts_t *fs)
 void pddlFactsInit(pddl_facts_t *fs)
 {
     bzero(fs, sizeof(*fs));
-    fs->htable = borHTableNew(htableKey, htableEq, fs);
+    fs->htable = pddlHTableNew(htableKey, htableEq, fs);
 }
 
 void pddlFactsFree(pddl_facts_t *fs)
 {
     pddl_fact_t *fact;
 
-    borHTableDel(fs->htable);
+    pddlHTableDel(fs->htable);
     PDDL_FACTS_FOR_EACH(fs, fact)
         pddlFactDel(fact);
     if (fs->fact != NULL)
@@ -183,18 +183,18 @@ static int addFact(pddl_facts_t *fs, pddl_fact_t *fact)
     fact->id = fs->fact_size;
     fs->fact[fs->fact_size] = fact;
     ++fs->fact_size;
-    borHTableInsert(fs->htable, &fact->htable);
+    pddlHTableInsert(fs->htable, &fact->htable);
 
     return fact->id;
 }
 
 int pddlFactsAdd(pddl_facts_t *fs, const pddl_fact_t *f)
 {
-    bor_list_t *hfound;
+    pddl_list_t *hfound;
     pddl_fact_t *fact;
 
-    if ((hfound = borHTableFind(fs->htable, &f->htable)) != NULL)
-        return (BOR_LIST_ENTRY(hfound, pddl_fact_t, htable))->id;
+    if ((hfound = pddlHTableFind(fs->htable, &f->htable)) != NULL)
+        return (PDDL_LIST_ENTRY(hfound, pddl_fact_t, htable))->id;
 
     fact = pddlFactNew();
     pddlFactCopy(fact, f);
@@ -204,13 +204,13 @@ int pddlFactsAdd(pddl_facts_t *fs, const pddl_fact_t *f)
 int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
                            const pddl_t *pddl)
 {
-    bor_list_t *hfound;
+    pddl_list_t *hfound;
     pddl_fact_t *fact;
 
     fact = factFromGroundAtom(ga, pddl);
-    if ((hfound = borHTableFind(fs->htable, &fact->htable)) != NULL){
+    if ((hfound = pddlHTableFind(fs->htable, &fact->htable)) != NULL){
         pddlFactDel(fact);
-        fact = BOR_LIST_ENTRY(hfound, pddl_fact_t, htable);
+        fact = PDDL_LIST_ENTRY(hfound, pddl_fact_t, htable);
         return fact->id;
     }
 
@@ -276,7 +276,7 @@ void pddlFactsDelFact(pddl_facts_t *fs, int fact_id)
     f = fs->fact[fact_id];
     if (f->neg_of >= 0)
         fs->fact[f->neg_of]->neg_of = -1;
-    borHTableErase(fs->htable, &f->htable);
+    pddlHTableErase(fs->htable, &f->htable);
     pddlFactDel(f);
     fs->fact[fact_id] = NULL;
 }

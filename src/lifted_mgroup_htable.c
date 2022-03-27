@@ -25,12 +25,12 @@
 struct el {
     int id;
     pddl_lifted_mgroup_t mgroup;
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 };
 typedef struct el el_t;
 
-static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
+static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
 {
     int *buf;
     int bufsize;
@@ -62,22 +62,22 @@ static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
     }
 
     ASSERT(ins == bufsize);
-    bor_htable_key_t hash = borCityHash_64(buf, bufsize * sizeof(int));
+    pddl_htable_key_t hash = borCityHash_64(buf, bufsize * sizeof(int));
 
     FREE(buf);
     return hash;
 }
 
-static bor_htable_key_t htableHash(const bor_list_t *k, void *_)
+static pddl_htable_key_t htableHash(const pddl_list_t *k, void *_)
 {
-    el_t *m = BOR_LIST_ENTRY(k, el_t, htable);
+    el_t *m = PDDL_LIST_ENTRY(k, el_t, htable);
     return m->hash;
 }
 
-static int htableEq(const bor_list_t *k1, const bor_list_t *k2, void *_)
+static int htableEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 {
-    el_t *m1 = BOR_LIST_ENTRY(k1, el_t, htable);
-    el_t *m2 = BOR_LIST_ENTRY(k2, el_t, htable);
+    el_t *m1 = PDDL_LIST_ENTRY(k1, el_t, htable);
+    el_t *m2 = PDDL_LIST_ENTRY(k2, el_t, htable);
     return pddlLiftedMGroupEq(&m1->mgroup, &m2->mgroup);
 }
 
@@ -87,7 +87,7 @@ void pddlLiftedMGroupHTableInit(pddl_lifted_mgroup_htable_t *h)
     el_t el;
 
     bzero(h, sizeof(*h));
-    h->htable = borHTableNew(htableHash, htableEq, h);
+    h->htable = pddlHTableNew(htableHash, htableEq, h);
 
     bzero(&el, sizeof(el));
     h->mgroup = borExtArrNew(sizeof(el), NULL, &el);
@@ -101,7 +101,7 @@ void pddlLiftedMGroupHTableFree(pddl_lifted_mgroup_htable_t *h)
         pddlLiftedMGroupFree(&m->mgroup);
     }
 
-    borHTableDel(h->htable);
+    pddlHTableDel(h->htable);
     borExtArrDel(h->mgroup);
 }
 
@@ -112,7 +112,7 @@ int pddlLiftedMGroupHTableAdd(pddl_lifted_mgroup_htable_t *h,
     el->mgroup = *mg;
     el->hash = mgroupHash(mg);
 
-    bor_list_t *ins = borHTableInsertUnique(h->htable, &el->htable);
+    pddl_list_t *ins = pddlHTableInsertUnique(h->htable, &el->htable);
     if (ins == NULL){
         pddlLiftedMGroupInitCopy(&el->mgroup, mg);
         el->id = h->mgroup_size;
@@ -120,7 +120,7 @@ int pddlLiftedMGroupHTableAdd(pddl_lifted_mgroup_htable_t *h,
         return el->id;
 
     }else{
-        el = BOR_LIST_ENTRY(ins, el_t, htable);
+        el = PDDL_LIST_ENTRY(ins, el_t, htable);
         return el->id;
     }
 }

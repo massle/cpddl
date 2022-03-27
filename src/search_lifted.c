@@ -429,10 +429,10 @@ static void setGoal(pddl_search_lifted_t *s)
 static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
 {
     const pddl_t *pddl = s->pddl;
-    bor_list_t *item;
+    pddl_list_t *item;
     BOR_ISET(init);
-    BOR_LIST_FOR_EACH(&pddl->init->part, item){
-        const pddl_cond_t *c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type == PDDL_COND_ATOM){
             const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
             const pddl_ground_atom_t *ga;

@@ -20,7 +20,6 @@
 #ifndef __PDDL_STRIPS_H__
 #define __PDDL_STRIPS_H__
 
-#include <boruvka/htable.h>
 #include <boruvka/iset.h>
 
 #include <pddl/common.h>
