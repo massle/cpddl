@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/disambiguation.h"
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/invertibility.h"

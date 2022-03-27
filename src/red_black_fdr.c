@@ -20,6 +20,7 @@
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/red_black_fdr.h"
 #include "pddl/cg.h"
+#include "alloc.h"
 #include "assert.h"
 
 static void prepareMutex(pddl_mutex_pairs_t *mutex,
@@ -212,13 +213,13 @@ static int constructFDR(pddl_fdr_t *fdr,
     ASSERT_RUNTIME(fdr->op.op_size == strips->op.op_size);
 
     // Find black variables and remember which of them has none-of-those value
-    int *none_of_those = BOR_CALLOC_ARR(int, black_mgroups->mgroup_size);
+    int *none_of_those = CALLOC_ARR(int, black_mgroups->mgroup_size);
     setBlackVars(fdr, black_mgroups, none_of_those, err);
 
     // Set none-of-those in preconditions of operators
     setNoneOfThoseInPre(fdr, strips, black_mgroups, none_of_those, err);
 
-    BOR_FREE(none_of_those);
+    FREE(none_of_those);
     pddlMGroupsFree(&mgroups1);
     if (cfg->relax_red_vars){
         pddlStripsFree(&strips2);

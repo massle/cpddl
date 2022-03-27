@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/iarr.h>
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
@@ -62,7 +62,7 @@ _bor_inline void setRangeAlloc(set_range_t *s)
         if (s->alloc == 0)
             s->alloc = 1;
         s->alloc *= 2;
-        s->v = BOR_REALLOC_ARR(s->v, set_range_pair_t, s->alloc);
+        s->v = REALLOC_ARR(s->v, set_range_pair_t, s->alloc);
     }
 }
 
@@ -177,8 +177,8 @@ static void h3Init(h3_t *h3,
     bzero(h3, sizeof(*h3));
     h3->fact_size = strips->fact.fact_size;
     h3->op_size = strips->op.op_size;
-    h3->meta_fact1 = BOR_CALLOC_ARR(char, h3->fact_size);
-    h3->meta_fact2 = BOR_CALLOC_ARR(char, h3->fact_size * h3->fact_size);
+    h3->meta_fact1 = CALLOC_ARR(char, h3->fact_size);
+    h3->meta_fact2 = CALLOC_ARR(char, h3->fact_size * h3->fact_size);
 
     size_t needed_mem = h3->fact_size; // h3->meta_fact1
     needed_mem -= h3->fact_size * h3->fact_size; // h3->meta_fact2
@@ -193,11 +193,11 @@ static void h3Init(h3_t *h3,
     meta_fact3_size *= h3->fact_size;
     meta_fact3_size *= h3->fact_size;
     if (meta_fact3_size <= max_mem){
-        h3->meta_fact3 = BOR_CALLOC_ARR(char, meta_fact3_size);
+        h3->meta_fact3 = CALLOC_ARR(char, meta_fact3_size);
         max_mem -= meta_fact3_size;
         used_excess_mem += meta_fact3_size;
     }else{
-        h3->meta_fact3_set = BOR_CALLOC_ARR(set_range_t,
+        h3->meta_fact3_set = CALLOC_ARR(set_range_t,
                                             h3->fact_size * h3->fact_size);
         if (max_mem >= h3->fact_size * h3->fact_size)
             max_mem -= h3->fact_size * h3->fact_size;
@@ -206,7 +206,7 @@ static void h3Init(h3_t *h3,
     size_t op_fact1_size = h3->fact_size;
     op_fact1_size *= h3->op_size;
     if (op_fact1_size <= max_mem){
-        h3->op_fact1 = BOR_CALLOC_ARR(char, op_fact1_size);
+        h3->op_fact1 = CALLOC_ARR(char, op_fact1_size);
         for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
             const pddl_strips_op_t *op = strips->op.op[op_id];
             char *dst = h3->op_fact1 + op->id * h3->fact_size;
@@ -224,7 +224,7 @@ static void h3Init(h3_t *h3,
     op_fact2_size *= h3->fact_size;
     op_fact2_size *= h3->op_size;
     if (op_fact2_size <= max_mem){
-        h3->op_fact2 = BOR_CALLOC_ARR(char, op_fact2_size);
+        h3->op_fact2 = CALLOC_ARR(char, op_fact2_size);
         max_mem -= op_fact2_size;
         used_excess_mem += op_fact2_size;
     }
@@ -238,8 +238,8 @@ static void h3Init(h3_t *h3,
                  (h3->op_fact2 != NULL ? 1 : 0));
     }
 
-    h3->ext = BOR_ALLOC_ARR(int, h3->fact_size);
-    h3->op_applied = BOR_CALLOC_ARR(int, h3->op_size);
+    h3->ext = ALLOC_ARR(int, h3->fact_size);
+    h3->op_applied = CALLOC_ARR(int, h3->op_size);
 
     for (int i = 0; i < borISetSize(&strips->init); ++i){
         int f1 = borISetGet(&strips->init, i);
@@ -258,29 +258,29 @@ static void h3Init(h3_t *h3,
 static void h3Free(h3_t *h3)
 {
     if (h3->meta_fact1 != NULL)
-        BOR_FREE(h3->meta_fact1);
+        FREE(h3->meta_fact1);
     if (h3->meta_fact2 != NULL)
-        BOR_FREE(h3->meta_fact2);
+        FREE(h3->meta_fact2);
     if (h3->meta_fact3 != NULL)
-        BOR_FREE(h3->meta_fact3);
+        FREE(h3->meta_fact3);
     if (h3->meta_fact3_set != NULL){
         for (int i = 0; i < h3->fact_size; ++i){
             for (int j = i + 1; j < h3->fact_size; ++j){
                 if (h3->meta_fact3_set[i * h3->fact_size + j].v != NULL)
-                    BOR_FREE(h3->meta_fact3_set[i * h3->fact_size + j].v);
+                    FREE(h3->meta_fact3_set[i * h3->fact_size + j].v);
             }
         }
-        BOR_FREE(h3->meta_fact3_set);
+        FREE(h3->meta_fact3_set);
     }
     if (h3->op_fact1 != NULL)
-        BOR_FREE(h3->op_fact1);
+        FREE(h3->op_fact1);
     if (h3->op_fact2 != NULL)
-        BOR_FREE(h3->op_fact2);
+        FREE(h3->op_fact2);
     if (h3->ext != NULL)
-        BOR_FREE(h3->ext);
+        FREE(h3->ext);
 
     if (h3->op_applied != NULL)
-        BOR_FREE(h3->op_applied);
+        FREE(h3->op_applied);
 }
 
 static int testSet(const h3_t *h3, const bor_iset_t *set)

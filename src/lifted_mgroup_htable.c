@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include "pddl/lifted_mgroup_htable.h"
 #include "assert.h"
@@ -41,7 +41,7 @@ static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
         bufsize += 1 + a->arg_size;
     }
 
-    buf = BOR_ALLOC_ARR(int, bufsize);
+    buf = ALLOC_ARR(int, bufsize);
 
     for (int i = 0; i < m->param.param_size; ++i){
         buf[2 * i] = m->param.param[i].type;
@@ -64,7 +64,7 @@ static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
     ASSERT(ins == bufsize);
     bor_htable_key_t hash = borCityHash_64(buf, bufsize * sizeof(int));
 
-    BOR_FREE(buf);
+    FREE(buf);
     return hash;
 }
 

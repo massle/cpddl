@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/symbolic_trans.h"
 #include "assert.h"
@@ -52,7 +52,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
     borISetUnion(&op->neg_eff, &op_in->del_eff);
     pddlCostSetOp(&op->cost, op_in->cost);
     if (op_in->name != NULL)
-        op->name = BOR_STRDUP(op_in->name);
+        op->name = STRDUP(op_in->name);
 
     // Disambiguate preconditions
     if (pddlDisambiguate(&constr->disambiguate, &op->pre, NULL,
@@ -109,7 +109,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
 static void opFree(op_t *op)
 {
     if (op->name != NULL)
-        BOR_FREE(op->name);
+        FREE(op->name);
     borISetFree(&op->pre);
     borISetFree(&op->neg_pre);
     borISetFree(&op->eff);
@@ -138,9 +138,9 @@ static void transFree(pddl_bdd_manager_t *mgr, pddl_symbolic_trans_t *tr)
         pddlBDDDel(mgr, tr->var_eff[i]);
     }
     if (tr->var_pre != NULL)
-        BOR_FREE(tr->var_pre);
+        FREE(tr->var_pre);
     if (tr->var_eff != NULL)
-        BOR_FREE(tr->var_eff);
+        FREE(tr->var_eff);
     pddlBDDDel(mgr, tr->exist_pre);
     pddlBDDDel(mgr, tr->exist_eff);
     borISetFree(&tr->eff_groups);
@@ -153,7 +153,7 @@ static void transSetFree(pddl_bdd_manager_t *mgr,
     for (int i = 0; i < trset->trans_size; ++i)
         transFree(mgr, trset->trans + i);
     if (trset->trans != NULL)
-        BOR_FREE(trset->trans);
+        FREE(trset->trans);
     borISetFree(&trset->op);
 }
 
@@ -177,9 +177,9 @@ static void transInit(pddl_symbolic_vars_t *vars,
 
     // Build the BDD from bottom up by first filling the array bdds and
     // then going over it from last to the first item
-    pddl_bdd_t **bdds = BOR_CALLOC_ARR(pddl_bdd_t *, 2 * vars->group_size);
-    int *pre_set = BOR_CALLOC_ARR(int, vars->group_size);
-    int *eff_set = BOR_CALLOC_ARR(int, vars->group_size);
+    pddl_bdd_t **bdds = CALLOC_ARR(pddl_bdd_t *, 2 * vars->group_size);
+    int *pre_set = CALLOC_ARR(int, vars->group_size);
+    int *eff_set = CALLOC_ARR(int, vars->group_size);
 
     int fact_id;
     BOR_ISET_FOR_EACH(&op->pre, fact_id){
@@ -228,7 +228,7 @@ static void transInit(pddl_symbolic_vars_t *vars,
             pddlBDDDel(vars->mgr, bdds[i]);
         }
     }
-    BOR_FREE(bdds);
+    FREE(bdds);
 
 
     if (use_op_constr){
@@ -253,8 +253,8 @@ static void transInit(pddl_symbolic_vars_t *vars,
     }
     transInitEffVars(vars, tr);
 
-    BOR_FREE(pre_set);
-    BOR_FREE(eff_set);
+    FREE(pre_set);
+    FREE(eff_set);
 }
 
 static int transMerge(pddl_symbolic_vars_t *vars,
@@ -334,9 +334,9 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     trset->heur_change = ops[op_ids[0]].heur_change;
 
     int T_size = borISetSize(&trset->op);
-    pddl_symbolic_trans_t *T = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
+    pddl_symbolic_trans_t *T = CALLOC_ARR(pddl_symbolic_trans_t, T_size);
     int Tres_size = 0;
-    pddl_symbolic_trans_t *Tres = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
+    pddl_symbolic_trans_t *Tres = CALLOC_ARR(pddl_symbolic_trans_t, T_size);
     for (int i = 0; i < T_size; ++i)
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
@@ -395,11 +395,11 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     }
 
     trset->trans_size = Tres_size;
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
+    trset->trans = CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
     memcpy(trset->trans, Tres, sizeof(pddl_symbolic_trans_t) * Tres_size);
 
-    BOR_FREE(T);
-    BOR_FREE(Tres);
+    FREE(T);
+    FREE(Tres);
 
     long nodes = 0;
     for (int i = 0; i < trset->trans_size; ++i)
@@ -427,7 +427,7 @@ static int add(pddl_symbolic_trans_sets_t *trset)
 {
     if (trset->trans_size == trset->trans_alloc){
         trset->trans_alloc *= 2;
-        trset->trans = BOR_REALLOC_ARR(trset->trans,
+        trset->trans = REALLOC_ARR(trset->trans,
                                        pddl_symbolic_trans_set_t,
                                        trset->trans_alloc);
     }
@@ -449,16 +449,16 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
 
-    op_t *ops = BOR_CALLOC_ARR(op_t, strips->op.op_size);
+    op_t *ops = CALLOC_ARR(op_t, strips->op.op_size);
     opsInit(constr, strips, use_op_constr, ops,
             op_heur_change, sum_op_heur_change_to_cost, err);
 
     trset->trans_size = 0;
     trset->trans_alloc = 2;
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_alloc);
+    trset->trans = CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_alloc);
 
     int op_ids_size = strips->op.op_size;
-    int *op_ids = BOR_ALLOC_ARR(int, op_ids_size);
+    int *op_ids = ALLOC_ARR(int, op_ids_size);
     int ins = 0;
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         if (!ops[op_id].is_dead)
@@ -491,11 +491,11 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                           use_op_constr, max_nodes, max_time, err);
     }
 
-    BOR_FREE(op_ids);
+    FREE(op_ids);
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         opFree(ops + op_id);
-    BOR_FREE(ops);
+    FREE(ops);
 }
 
 void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *trset)
@@ -503,7 +503,7 @@ void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *trset)
     for (int i = 0; i < trset->trans_size; ++i)
         transSetFree(trset->vars->mgr, trset->trans + i);
     if (trset->trans != NULL)
-        BOR_FREE(trset->trans);
+        FREE(trset->trans);
 }
 
 

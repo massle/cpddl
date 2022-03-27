@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/fdr_part_state.h"
 #include "assert.h"
@@ -49,14 +49,14 @@ void pddlFDRPartStateInitCopy(pddl_fdr_part_state_t *dst,
     dst->fact_size = src->fact_size;
     dst->fact_alloc = src->fact_alloc;
     ASSERT(dst->fact_alloc >= dst->fact_size);
-    dst->fact = BOR_ALLOC_ARR(pddl_fdr_fact_t, src->fact_alloc);
+    dst->fact = ALLOC_ARR(pddl_fdr_fact_t, src->fact_alloc);
     memcpy(dst->fact, src->fact, sizeof(*dst->fact) * dst->fact_size);
 }
 
 void pddlFDRPartStateFree(pddl_fdr_part_state_t *ps)
 {
     if (ps->fact != NULL)
-        BOR_FREE(ps->fact);
+        FREE(ps->fact);
 }
 
 void pddlFDRPartStateSet(pddl_fdr_part_state_t *ps, int var, int val)
@@ -72,7 +72,7 @@ void pddlFDRPartStateSet(pddl_fdr_part_state_t *ps, int var, int val)
         if (ps->fact_alloc == 0)
             ps->fact_alloc = 1;
         ps->fact_alloc *= 2;
-        ps->fact = BOR_REALLOC_ARR(ps->fact, pddl_fdr_fact_t, ps->fact_alloc);
+        ps->fact = REALLOC_ARR(ps->fact, pddl_fdr_fact_t, ps->fact_alloc);
     }
 
     ps->fact[ps->fact_size].var = var;

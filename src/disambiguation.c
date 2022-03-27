@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <pddl/disambiguation.h>
 #include "assert.h"
 
@@ -54,7 +54,7 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
     dis->fact_size = fact_size;
     dis->mgroup_size = mgroup.mgroup_size;
 
-    dis->fact = BOR_CALLOC_ARR(pddl_disambiguate_fact_t, dis->fact_size);
+    dis->fact = CALLOC_ARR(pddl_disambiguate_fact_t, dis->fact_size);
     for (int fact_id = 0; fact_id < fact_size; ++fact_id){
         pddl_disambiguate_fact_t *f = dis->fact + fact_id;
         pddlBitsetInit(&f->mgroup, dis->mgroup_size);
@@ -63,7 +63,7 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
     }
 
     // Set .mgroup to mgroups the fact belongs
-    dis->mgroup = BOR_CALLOC_ARR(pddl_disambiguate_mgroup_t, dis->mgroup_size);
+    dis->mgroup = CALLOC_ARR(pddl_disambiguate_mgroup_t, dis->mgroup_size);
     for (int mi = 0; mi < mgroup.mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mgroup.mgroup + mi;
         pddl_disambiguate_mgroup_t *dm = dis->mgroup + mi;
@@ -130,14 +130,14 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis)
         pddlBitsetFree(&dis->fact[i].not_mutex_fact);
     }
     if (dis->fact != NULL)
-        BOR_FREE(dis->fact);
+        FREE(dis->fact);
 
     for (int i = 0; i < dis->mgroup_size; ++i){
         pddlBitsetFree(&dis->mgroup[i].fact);
         borISetFree(&dis->mgroup[i].mgroup);
     }
     if (dis->mgroup != NULL)
-        BOR_FREE(dis->mgroup);
+        FREE(dis->mgroup);
 
     pddlBitsetFree(&dis->all_mgroups);
     pddlBitsetFree(&dis->all_facts);
@@ -211,7 +211,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
     if (pddlBitsetCnt(&dis->cur_mgroup) == 0)
         return 0;
 
-    disamb_set = BOR_CALLOC_ARR(bor_iset_t, dis->mgroup_size);
+    disamb_set = CALLOC_ARR(bor_iset_t, dis->mgroup_size);
     pddlBitsetCopy(&dis->cur_mgroup_it, &dis->cur_mgroup);
     pddlBitsetItStart(&dis->cur_mgroup_it);
     while ((mgroup_id = pddlBitsetItNext(&dis->cur_mgroup_it)) >= 0)
@@ -235,7 +235,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
             if (fact_size == 0){
                 for (int i = 0; i < dis->mgroup_size; ++i)
                     borISetFree(disamb_set + i);
-                BOR_FREE(disamb_set);
+                FREE(disamb_set);
                 return -1;
             }
 
@@ -290,7 +290,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
 
         borISetFree(disamb_set + i);
     }
-    BOR_FREE(disamb_set);
+    FREE(disamb_set);
 
     return change;
 }

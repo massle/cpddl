@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/op_mutex_sym_redundant.h"
 #include "assert.h"
 
@@ -77,7 +77,7 @@ static void reduceGenInit(reduce_gen_t *rgen,
     }
 
     rgen->op_size = strips->op.op_size;
-    rgen->op_mutex_with = BOR_CALLOC_ARR(bor_iset_t, rgen->op_size);
+    rgen->op_mutex_with = CALLOC_ARR(bor_iset_t, rgen->op_size);
 
     int op_id;
     BOR_ISET_FOR_EACH(&rgen->relevant_op, op_id){
@@ -97,7 +97,7 @@ static void reduceGenFree(reduce_gen_t *rgen)
         borISetFree(rgen->op_mutex_with + i);
     }
     if (rgen->op_mutex_with != NULL)
-        BOR_FREE(rgen->op_mutex_with);
+        FREE(rgen->op_mutex_with);
 }
 
 static void reduceInit(reduce_t *red,
@@ -107,7 +107,7 @@ static void reduceInit(reduce_t *red,
 {
     bzero(red, sizeof(*red));
     red->op_size = strips->op.op_size;
-    red->op_mutex_with = BOR_CALLOC_ARR(bor_iset_t, red->op_size);
+    red->op_mutex_with = CALLOC_ARR(bor_iset_t, red->op_size);
     const pddl_strips_op_t *op;
     PDDL_STRIPS_OPS_FOR_EACH(&strips->op, op){
         pddlOpMutexPairsMutexWith(op_mutex, op->id,
@@ -115,7 +115,7 @@ static void reduceInit(reduce_t *red,
     }
 
     red->gen_size = sym->gen_size;
-    red->gen = BOR_CALLOC_ARR(reduce_gen_t, sym->gen_size);
+    red->gen = CALLOC_ARR(reduce_gen_t, sym->gen_size);
     for (int i = 0; i < sym->gen_size; ++i){
         reduceGenInit(red->gen + i, i, red,
                       sym->gen + i, sym, strips, op_mutex);
@@ -127,7 +127,7 @@ static void reduceFree(reduce_t *red)
     for (int i = 0; i < red->gen_size; ++i)
         reduceGenFree(red->gen + i);
     if (red->gen != NULL)
-        BOR_FREE(red->gen);
+        FREE(red->gen);
 }
 
 /*

@@ -18,6 +18,7 @@
 
 #include <boruvka/extarr.h>
 #include "pddl/lm_cut.h"
+#include "alloc.h"
 #include "_heur.h"
 
 struct pddl_heur_lmc {
@@ -33,7 +34,7 @@ static void heurDel(pddl_heur_t *_h)
     _pddlHeurFree(&h->heur);
     pddlLMCutFree(&h->lmc);
     borExtArrDel(h->cache);
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int heurEstimate(pddl_heur_t *_h,
@@ -49,7 +50,7 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, bor_err_t *err)
 {
-    pddl_heur_lmc_t *h = BOR_ALLOC(pddl_heur_lmc_t);
+    pddl_heur_lmc_t *h = ALLOC(pddl_heur_lmc_t);
     bzero(h, sizeof(*h));
     pddlLMCutInit(&h->lmc, fdr, 0, 0);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);

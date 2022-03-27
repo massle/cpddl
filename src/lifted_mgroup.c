@@ -21,6 +21,7 @@
 #include <boruvka/hfunc.h>
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
+#include "alloc.h"
 #include "assert.h"
 
 #define LINESIZE 1024
@@ -131,8 +132,8 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     if (m->param.param_size <= 1)
         return;
 
-    int *remap_param = BOR_ALLOC_ARR(int, m->param.param_size);
-    int *remap_param_inv = BOR_ALLOC_ARR(int, m->param.param_size);
+    int *remap_param = ALLOC_ARR(int, m->param.param_size);
+    int *remap_param_inv = ALLOC_ARR(int, m->param.param_size);
     for (int i = 0; i < m->param.param_size; ++i){
         remap_param[i] = -1;
         remap_param_inv[i] = -1;
@@ -192,8 +193,8 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
         }
     }
 
-    BOR_FREE(remap_param);
-    BOR_FREE(remap_param_inv);
+    FREE(remap_param);
+    FREE(remap_param_inv);
 }
 
 int pddlLiftedMGroupNumCountedVars(const pddl_lifted_mgroup_t *mg)
@@ -213,7 +214,7 @@ int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg)
 
 void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 {
-    int *remap_param = BOR_CALLOC_ARR(int, mg->param.param_size);
+    int *remap_param = CALLOC_ARR(int, mg->param.param_size);
 
     int num_del = 0;
     for (int ci = 0; ci < mg->cond.size; ++ci){
@@ -244,7 +245,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
     if (num_del == 0){
         if (remap_param != NULL)
-            BOR_FREE(remap_param);
+            FREE(remap_param);
         return;
     }
 
@@ -278,7 +279,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
     }
 
     if (remap_param != NULL)
-        BOR_FREE(remap_param);
+        FREE(remap_param);
 }
 
 static int atomHasCountedVar(const pddl_cond_atom_t *a,
@@ -428,7 +429,7 @@ void pddlLiftedMGroupsFree(pddl_lifted_mgroups_t *lm)
     for (int i = 0; i < lm->mgroup_size; ++i)
         pddlLiftedMGroupFree(lm->mgroup + i);
     if (lm->mgroup != NULL)
-        BOR_FREE(lm->mgroup);
+        FREE(lm->mgroup);
 }
 
 void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
@@ -438,7 +439,7 @@ void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
         if (lm->mgroup_alloc == 0)
             lm->mgroup_alloc = 2;
         lm->mgroup_alloc *= 2;
-        lm->mgroup = BOR_REALLOC_ARR(lm->mgroup, pddl_lifted_mgroup_t,
+        lm->mgroup = REALLOC_ARR(lm->mgroup, pddl_lifted_mgroup_t,
                                      lm->mgroup_alloc);
     }
 

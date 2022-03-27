@@ -32,7 +32,7 @@
 #include <ilcp/cp.h>
 #include <ilcplex/cpxconst.h>
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
@@ -156,7 +156,7 @@ static void assignOpToGroup(op_groups_t *opgs,
                             const pddl_fdr_part_state_t *pre,
                             const pddl_fdr_part_state_t *eff)
 {
-    pre_eff_vars_t *pev = BOR_ALLOC(pre_eff_vars_t);
+    pre_eff_vars_t *pev = ALLOC(pre_eff_vars_t);
     bzero(pev, sizeof(*pev));
     for (int fi = 0; fi < pre->fact_size; ++fi)
         borISetAdd(&pev->pre, pre->fact[fi].var);
@@ -171,7 +171,7 @@ static void assignOpToGroup(op_groups_t *opgs,
             if (opgs->group_alloc == 0)
                 opgs->group_alloc = 2;
             opgs->group_alloc *= 2;
-            opgs->group = BOR_REALLOC_ARR(opgs->group, bor_iset_t,
+            opgs->group = REALLOC_ARR(opgs->group, bor_iset_t,
                                           opgs->group_alloc);
         }
         int group_id = opgs->group_size++;
@@ -211,7 +211,7 @@ static void opGroupsFree(op_groups_t *opg)
     for (int i = 0; i < opg->group_size; ++i)
         borISetFree(opg->group + i);
     if (opg->group != NULL)
-        BOR_FREE(opg->group);
+        FREE(opg->group);
 
     bor_list_t list;
     borListInit(&list);
@@ -222,7 +222,7 @@ static void opGroupsFree(op_groups_t *opg)
         pre_eff_vars_t *v = BOR_LIST_ENTRY(item, pre_eff_vars_t, htable);
         borISetFree(&v->pre);
         borISetFree(&v->eff);
-        BOR_FREE(v);
+        FREE(v);
     }
     borHTableDel(opg->htable);
 }
@@ -559,7 +559,7 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
     mgs->mgroup = &mg_strips->mg;
 
     mgs->fact_size = mgs->strips->fact.fact_size;
-    mgs->fact_to_mgroup = BOR_CALLOC_ARR(bor_iset_t, mgs->fact_size);
+    mgs->fact_to_mgroup = CALLOC_ARR(bor_iset_t, mgs->fact_size);
     for (int mgi = 0; mgi < mgs->mgroup->mgroup_size; ++mgi){
         int fact_id;
         BOR_ISET_FOR_EACH(&mgs->mgroup->mgroup[mgi].mgroup, fact_id)
@@ -567,7 +567,7 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
     }
 
     mgs->op_size = mgs->strips->op.op_size;
-    mgs->op = BOR_CALLOC_ARR(mg_strips_op_t, mgs->op_size);
+    mgs->op = CALLOC_ARR(mg_strips_op_t, mgs->op_size);
     for (int op_id = 0; op_id < mgs->strips->op.op_size; ++op_id){
         const pddl_strips_op_t *sop = mgs->strips->op.op[op_id];
         mg_strips_op_t *op = mgs->op + op_id;
@@ -598,26 +598,26 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
 #endif /* PDDL_DEBUG */
     }
 
-    mgs->fact_to_cvar = BOR_CALLOC_ARR(int, mgs->fact_size);
-    mgs->fact_identity = BOR_CALLOC_ARR(int, mgs->fact_size);
-    mgs->op_identity = BOR_CALLOC_ARR(int, mgs->op_size);
+    mgs->fact_to_cvar = CALLOC_ARR(int, mgs->fact_size);
+    mgs->fact_identity = CALLOC_ARR(int, mgs->fact_size);
+    mgs->op_identity = CALLOC_ARR(int, mgs->op_size);
 }
 
 static void mgStripsFree(mg_strips_t *mgs)
 {
     for (int fi = 0; fi < mgs->fact_size; ++fi)
         borISetFree(mgs->fact_to_mgroup + fi);
-    BOR_FREE(mgs->fact_to_mgroup);
+    FREE(mgs->fact_to_mgroup);
 
     for (int op_id = 0; op_id < mgs->op_size; ++op_id){
         pddlFDRPartStateFree(&mgs->op[op_id].pre);
         pddlFDRPartStateFree(&mgs->op[op_id].eff);
     }
-    BOR_FREE(mgs->op);
+    FREE(mgs->op);
 
-    BOR_FREE(mgs->fact_to_cvar);
-    BOR_FREE(mgs->fact_identity);
-    BOR_FREE(mgs->op_identity);
+    FREE(mgs->fact_to_cvar);
+    FREE(mgs->fact_identity);
+    FREE(mgs->op_identity);
 }
 
 static int mgStripsPartStateIsIdentity(const mg_strips_t *mgs,
@@ -1039,7 +1039,7 @@ static void stateAllowFree(bor_iset_t *state_allow, int num_states)
 {
     for (int si = 0; si < num_states; ++si)
         borISetFree(state_allow + si);
-    BOR_FREE(state_allow);
+    FREE(state_allow);
 }
 
 static int presolveStateAllow(ts_presolve_t *presolve,
@@ -1049,7 +1049,7 @@ static int presolveStateAllow(ts_presolve_t *presolve,
 {
     const pddl_trans_system_t *ts = tss->ts[tsi];
 
-    bor_iset_t *state_allow = BOR_CALLOC_ARR(bor_iset_t, ts->num_states);
+    bor_iset_t *state_allow = CALLOC_ARR(bor_iset_t, ts->num_states);
     for (int si = 0; si < ts->num_states; ++si){
         if (pddlTimeLimitCheck(time_limit) != 0){
             stateAllowFree(state_allow, ts->num_states);
@@ -1096,7 +1096,7 @@ static void labelGroupsFree(const pddl_trans_systems_t *tss,
         borISetFree(&label_group[tsi].goal_from);
         borISetFree(&label_group[tsi].goal);
     }
-    BOR_FREE(label_group);
+    FREE(label_group);
 }
 
 static int tsPresolve(ts_presolve_t *presolve,
@@ -1117,7 +1117,7 @@ static int tsPresolve(ts_presolve_t *presolve,
     }
 
     label_groups_t *label_group;
-    label_group = BOR_CALLOC_ARR(label_groups_t, tss->ts_size);
+    label_group = CALLOC_ARR(label_groups_t, tss->ts_size);
 
     std::vector<std::vector<bor_iset_t *>> relevant(tss->label.label_size);
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
@@ -1735,7 +1735,7 @@ static void coverAtomWithMGroups(lifted_endomorphism_t *end,
                                  const pddl_cond_atom_t *atom,
                                  const pddl_lifted_mgroups_t *mgroups)
 {
-    int *counted = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *counted = CALLOC_ARR(int, pddl->obj.obj_size);
     int covered = 0;
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
         covered |= coverAtomWithMGroup(counted, pddl, act_param, atom,
@@ -1744,7 +1744,7 @@ static void coverAtomWithMGroups(lifted_endomorphism_t *end,
 
     if (!covered){
         setAtomTypesFixed(end, pddl, act_param, atom);
-        BOR_FREE(counted);
+        FREE(counted);
         return;
     }
 
@@ -1766,7 +1766,7 @@ static void coverAtomWithMGroups(lifted_endomorphism_t *end,
         }
     }
 
-    BOR_FREE(counted);
+    FREE(counted);
 }
 
 static void analyzeActionAtom(
@@ -1887,7 +1887,7 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
 {
     bzero(end, sizeof(*end));
     end->obj_size = pddl->obj.obj_size;
-    end->obj_is_fixed = BOR_CALLOC_ARR(int, end->obj_size);
+    end->obj_is_fixed = CALLOC_ARR(int, end->obj_size);
 
     // Set objects in the goal as fixed
     pddlCondTraverse((pddl_cond_t *)pddl->goal, NULL,
@@ -1914,7 +1914,7 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
 static void liftedEndomorphismFree(lifted_endomorphism_t *end)
 {
     if (end->obj_is_fixed != NULL)
-        BOR_FREE(end->obj_is_fixed);
+        FREE(end->obj_is_fixed);
 }
 
 static int liftedEndomorphismNumUnfixed(const lifted_endomorphism_t *end)
@@ -1952,9 +1952,9 @@ typedef struct pred_obj_tuples pred_obj_tuples_t;
 static void predObjTupleFree(pred_obj_tuple_t *tup)
 {
     for (int i = 0; i < tup->tuple_size; ++i)
-        BOR_FREE(tup->tuple[i].tuple);
+        FREE(tup->tuple[i].tuple);
     if (tup->tuple != NULL)
-        BOR_FREE(tup->tuple);
+        FREE(tup->tuple);
 }
 
 static obj_tuple_t *predObjTupleAdd(pred_obj_tuple_t *tup)
@@ -1963,10 +1963,10 @@ static obj_tuple_t *predObjTupleAdd(pred_obj_tuple_t *tup)
         if (tup->tuple_alloc == 0)
             tup->tuple_alloc = 1;
         tup->tuple_alloc *= 2;
-        tup->tuple = BOR_REALLOC_ARR(tup->tuple, obj_tuple_t,
+        tup->tuple = REALLOC_ARR(tup->tuple, obj_tuple_t,
                                      tup->tuple_alloc);
     }
-    tup->tuple[tup->tuple_size].tuple = BOR_ALLOC_ARR(int, tup->size);
+    tup->tuple[tup->tuple_size].tuple = ALLOC_ARR(int, tup->size);
     tup->tuple[tup->tuple_size].value = 0;
     return tup->tuple + tup->tuple_size++;
 }
@@ -1988,7 +1988,7 @@ static void predObjTuplesInit(pred_obj_tuples_t *tup, const pddl_t *pddl)
 {
     tup->pred_size = pddl->pred.pred_size + pddl->func.pred_size;
     tup->func_offset = pddl->pred.pred_size;
-    tup->tuple = BOR_CALLOC_ARR(pred_obj_tuple_t, tup->pred_size);
+    tup->tuple = CALLOC_ARR(pred_obj_tuple_t, tup->pred_size);
     int i;
     for (i = 0; i < pddl->pred.pred_size; ++i){
         tup->tuple[i].pred = i;
@@ -2006,7 +2006,7 @@ static void predObjTuplesFree(pred_obj_tuples_t *tup)
     for (int i = 0; i < tup->pred_size; ++i)
         predObjTupleFree(tup->tuple + i);
     if (tup->tuple != NULL)
-        BOR_FREE(tup->tuple);
+        FREE(tup->tuple);
 }
 
 static int _predObjTuplesInitFromCond(pddl_cond_t *c, void *u)
@@ -2245,17 +2245,17 @@ static void selectMGroupsInit(select_mgroups_t *select,
                               const pddl_lifted_mgroups_t *lifted_mgroups)
 {
     select->mgroup_size = lifted_mgroups->mgroup_size;
-    select->mgroup_used = BOR_CALLOC_ARR(int, select->mgroup_size);
+    select->mgroup_used = CALLOC_ARR(int, select->mgroup_size);
     select->obj_size = pddl->obj.obj_size;
-    select->obj_st = BOR_CALLOC_ARR(int, select->obj_size);
+    select->obj_st = CALLOC_ARR(int, select->obj_size);
     pddlLiftedMGroupsInit(&select->lifted_mgroups);
     select->tried_all = 0;
 }
 
 static void selectMGroupsFree(select_mgroups_t *select)
 {
-    BOR_FREE(select->mgroup_used);
-    BOR_FREE(select->obj_st);
+    FREE(select->mgroup_used);
+    FREE(select->obj_st);
     pddlLiftedMGroupsFree(&select->lifted_mgroups);
 }
 
@@ -2264,7 +2264,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
                             int mgi,
                             const pddl_lifted_mgroup_t *mgroup)
 {
-    int *obj_st = BOR_ALLOC_ARR(int, select->obj_size);
+    int *obj_st = ALLOC_ARR(int, select->obj_size);
     memcpy(obj_st, select->obj_st, sizeof(int) * select->obj_size);
 
     for (int condi = 0; condi < mgroup->cond.size; ++condi){
@@ -2273,7 +2273,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].obj >= 0){
                 if (obj_st[a->arg[argi].obj] > 0){
-                    BOR_FREE(obj_st);
+                    FREE(obj_st);
                     return -1;
                 }
                 obj_st[a->arg[argi].obj] = -1;
@@ -2291,13 +2291,13 @@ static int selectMGroupsAdd(select_mgroups_t *select,
             int obj = objs[obji];
             if (param->is_counted_var){
                 if (obj_st[obj] < 0){
-                    BOR_FREE(obj_st);
+                    FREE(obj_st);
                     return -1;
                 }
                 obj_st[obj] = 1;
             }else{
                 if (obj_st[obj] > 0){
-                    BOR_FREE(obj_st);
+                    FREE(obj_st);
                     return -1;
                 }
                 obj_st[obj] = -1;
@@ -2306,7 +2306,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
     }
     pddlLiftedMGroupsAdd(&select->lifted_mgroups, mgroup);
     memcpy(select->obj_st, obj_st, sizeof(int) * select->obj_size);
-    BOR_FREE(obj_st);
+    FREE(obj_st);
     return 0;
 }
 
@@ -2427,12 +2427,12 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
         if (liftedEndomorphismNumUnfixed(&end) > 1){
             int *map = NULL;
             if (omap != NULL)
-                map = BOR_ALLOC_ARR(int, pddl->obj.obj_size);
+                map = ALLOC_ARR(int, pddl->obj.obj_size);
             liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
             if (map != NULL){
                 for (int i = 0; i < pddl->obj.obj_size; ++i)
                     omap[i] = map[i];
-                BOR_FREE(map);
+                FREE(map);
             }
         }else{
             BOR_INFO2(err, "Not enough unfixed objects to try to find"
@@ -2457,12 +2457,12 @@ static int relaxedLifted(const pddl_t *pddl,
     if (liftedEndomorphismNumUnfixed(&end) > 1){
         int *map = NULL;
         if (omap != NULL)
-            map = BOR_ALLOC_ARR(int, pddl->obj.obj_size);
+            map = ALLOC_ARR(int, pddl->obj.obj_size);
         liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
         if (map != NULL){
             for (int i = 0; i < pddl->obj.obj_size; ++i)
                 omap[i] = map[i];
-            BOR_FREE(map);
+            FREE(map);
         }
     }else{
         BOR_INFO2(err, "Not enough unfixed objects to try to find"

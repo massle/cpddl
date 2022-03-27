@@ -21,6 +21,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "pddl/mg_strips.h"
+#include "alloc.h"
 #include "assert.h"
 
 static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
@@ -42,7 +43,7 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
             name_size += strlen(mg_strips->strips.fact.fact[fact_id]->name);
             name_size += 1;
         }
-        none_of_those.name = BOR_ALLOC_ARR(char, name_size);
+        none_of_those.name = ALLOC_ARR(char, name_size);
         char *cur = none_of_those.name;
         cur += sprintf(cur, "NOT:");
         BOR_ISET_FOR_EACH(&facts, fact_id){
@@ -86,7 +87,7 @@ static void encodeBinaryFact(pddl_mg_strips_t *mg_strips, int fact_id,
         pddl_fact_t not;
         pddlFactInit(&not);
         int name_size = strlen(mg_strips->strips.fact.fact[fact_id]->name) + 5;
-        not.name = BOR_ALLOC_ARR(char, name_size);
+        not.name = ALLOC_ARR(char, name_size);
         sprintf(not.name, "NOT:%s", mg_strips->strips.fact.fact[fact_id]->name);
         not_id = pddlFactsAdd(&mg_strips->strips.fact, &not);
         ASSERT(not_id == mg_strips->strips.fact.fact_size - 1);
@@ -128,7 +129,7 @@ static void encodeBinaryFacts(pddl_mg_strips_t *mg_strips)
     int fact_size = mg_strips->strips.fact.fact_size;
     int *covered;
 
-    covered = BOR_CALLOC_ARR(int, fact_size);
+    covered = CALLOC_ARR(int, fact_size);
     for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mi;
         int fact_id;
@@ -141,7 +142,7 @@ static void encodeBinaryFacts(pddl_mg_strips_t *mg_strips)
             encodeBinaryFact(mg_strips, fact_id, covered);
     }
 
-    BOR_FREE(covered);
+    FREE(covered);
 }
 
 static void encodeMGroups(pddl_mg_strips_t *mg_strips,
@@ -336,7 +337,7 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
         const pddl_fdr_op_t *fop = fdr->op.op[op_id];
         pddl_strips_op_t op;
         pddlStripsOpInit(&op);
-        op.name = BOR_STRDUP(fop->name);
+        op.name = STRDUP(fop->name);
         op.cost = fop->cost;
         fdrPreToPre(&fdr->var, &fop->pre, &op.pre);
         fdrEffToEff(&fdr->var, &fop->pre, &fop->eff, &op.add_eff, &op.del_eff);

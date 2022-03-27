@@ -18,7 +18,7 @@
  */
 
 #include <boruvka/compiler.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
 #include "pddl/pddl.h"
@@ -62,7 +62,7 @@ static char *makeName(const pddl_ground_atom_t *ga, const pddl_t *pddl)
                            " %s", pddl->obj.obj[ga->arg[i]].name);
     }
     name[PDDL_FACT_MAX_NAME_SIZE - 1] = 0x0;
-    return BOR_STRDUP(name);
+    return STRDUP(name);
 }
 
 static int isPrivate(const pddl_ground_atom_t *ga, const pddl_t *pddl)
@@ -97,7 +97,7 @@ void pddlFactInit(pddl_fact_t *f)
 
 pddl_fact_t *pddlFactNew(void)
 {
-    pddl_fact_t *f = BOR_ALLOC(pddl_fact_t);
+    pddl_fact_t *f = ALLOC(pddl_fact_t);
     pddlFactInit(f);
     return f;
 }
@@ -105,7 +105,7 @@ pddl_fact_t *pddlFactNew(void)
 void pddlFactFree(pddl_fact_t *f)
 {
     if (f->name != NULL)
-        BOR_FREE(f->name);
+        FREE(f->name);
     if (f->ground_atom != NULL)
         pddlGroundAtomDel(f->ground_atom);
 }
@@ -113,14 +113,14 @@ void pddlFactFree(pddl_fact_t *f)
 void pddlFactDel(pddl_fact_t *f)
 {
     pddlFactFree(f);
-    BOR_FREE(f);
+    FREE(f);
 }
 
 static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src)
 {
     pddlFactFree(dst);
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
     if (src->ground_atom != NULL)
         dst->ground_atom = pddlGroundAtomClone(src->ground_atom);
     dst->hash = pddlFactHash(dst);
@@ -157,7 +157,7 @@ static void makeSpace(pddl_facts_t *fs)
         }else{
             fs->fact_alloc *= 2;
         }
-        fs->fact = BOR_REALLOC_ARR(fs->fact, pddl_fact_t *, fs->fact_alloc);
+        fs->fact = REALLOC_ARR(fs->fact, pddl_fact_t *, fs->fact_alloc);
     }
 }
 
@@ -175,7 +175,7 @@ void pddlFactsFree(pddl_facts_t *fs)
     PDDL_FACTS_FOR_EACH(fs, fact)
         pddlFactDel(fact);
     if (fs->fact != NULL)
-        BOR_FREE(fs->fact);
+        FREE(fs->fact);
 }
 
 static int addFact(pddl_facts_t *fs, pddl_fact_t *fact)

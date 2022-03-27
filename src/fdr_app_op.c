@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/fdr_app_op.h"
 #include "pddl/cg.h"
@@ -84,7 +84,7 @@ static int *sortedOps(const pddl_fdr_app_op_t *app)
 {
     int *op_ids;
 
-    op_ids = BOR_ALLOC_ARR(int, app->ops->op_size);
+    op_ids = ALLOC_ARR(int, app->ops->op_size);
     for (int i = 0; i < app->ops->op_size; ++i)
         op_ids[i] = i;
 
@@ -122,7 +122,7 @@ static void treeBuildPrepareVal(pddl_fdr_app_op_tree_t *tree, int val)
     int i;
 
     tree->val_size = val + 1;
-    tree->val = BOR_ALLOC_ARR(pddl_fdr_app_op_tree_t *, tree->val_size);
+    tree->val = ALLOC_ARR(pddl_fdr_app_op_tree_t *, tree->val_size);
 
     for (i = 0; i < tree->val_size; ++i)
         tree->val[i] = NULL;
@@ -158,7 +158,7 @@ static pddl_fdr_app_op_tree_t *treeNew(const int *op_ids, int len,
     const pddl_fdr_part_state_t *first_pre = &first_op->pre;
     int start;
 
-    tree = BOR_ALLOC(pddl_fdr_app_op_tree_t);
+    tree = ALLOC(pddl_fdr_app_op_tree_t);
     tree->var = -1;
     borISetInit(&tree->ops);
     tree->val = NULL;
@@ -215,13 +215,13 @@ static void treeDel(pddl_fdr_app_op_tree_t *tree)
         for (i = 0; i < tree->val_size; ++i)
             if (tree->val[i])
                 treeDel(tree->val[i]);
-        BOR_FREE(tree->val);
+        FREE(tree->val);
     }
 
     if (tree->def)
         treeDel(tree->def);
 
-    BOR_FREE(tree);
+    FREE(tree);
 }
 
 void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
@@ -234,7 +234,7 @@ void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
     app->ops = ops;
 
     app->var_size = vars->var_size;
-    app->var_order = BOR_ALLOC_ARR(int, vars->var_size + 1);
+    app->var_order = ALLOC_ARR(int, vars->var_size + 1);
     pddl_cg_t cg;
     pddlCGInit(&cg, vars, ops, 0);
     pddlCGVarOrdering(&cg, goal, app->var_order);
@@ -247,7 +247,7 @@ void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
     app->root = treeNew(sorted_ops, ops->op_size, app->var_order, ops);
 
     if (sorted_ops)
-        BOR_FREE(sorted_ops);
+        FREE(sorted_ops);
 }
 
 void pddlFDRAppOpFree(pddl_fdr_app_op_t *app)
@@ -255,7 +255,7 @@ void pddlFDRAppOpFree(pddl_fdr_app_op_t *app)
     if (app->root)
         treeDel(app->root);
     if (app->var_order != NULL)
-        BOR_FREE(app->var_order);
+        FREE(app->var_order);
 }
 
 static int treeFind(const pddl_fdr_app_op_tree_t *tree,

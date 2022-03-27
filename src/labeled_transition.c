@@ -18,7 +18,7 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/labeled_transition.h"
 
@@ -33,7 +33,7 @@ void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t)
         pddlTransitionsFree(&t->trans[i].trans);
     }
     if (t->trans != NULL)
-        BOR_FREE(t->trans);
+        FREE(t->trans);
 }
 
 pddl_labeled_transitions_t *
@@ -52,7 +52,7 @@ pddl_labeled_transitions_t *
         if (t->trans_alloc == 0)
             t->trans_alloc = 1;
         t->trans_alloc *= 2;
-        t->trans = BOR_REALLOC_ARR(t->trans, pddl_labeled_transitions_t,
+        t->trans = REALLOC_ARR(t->trans, pddl_labeled_transitions_t,
                                    t->trans_alloc);
     }
     pddl_labeled_transitions_t *tr = t->trans + t->trans_size++;

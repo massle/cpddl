@@ -18,7 +18,7 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include "pddl/label.h"
 
@@ -40,7 +40,7 @@ pddl_label_set_t *pddlLabelSetNew(const bor_iset_t *s)
 {
     pddl_label_set_t *ls;
 
-    ls = BOR_ALLOC(pddl_label_set_t);
+    ls = ALLOC(pddl_label_set_t);
     bzero(ls, sizeof(*ls));
     borISetUnion(&ls->label, s);
     ls->cost = 0;
@@ -53,7 +53,7 @@ pddl_label_set_t *pddlLabelSetNew(const bor_iset_t *s)
 void pddlLabelSetDel(pddl_label_set_t *s)
 {
     borISetFree(&s->label);
-    BOR_FREE(s);
+    FREE(s);
 }
 
 void pddlLabelSetCost(pddl_labels_t *lbs, pddl_label_set_t *s)
@@ -73,7 +73,7 @@ void pddlLabelsInitFromStripsOps(pddl_labels_t *lbs,
                                  const pddl_strips_ops_t *ops)
 {
     lbs->label_size = lbs->label_alloc = ops->op_size;
-    lbs->label = BOR_ALLOC_ARR(pddl_label_t, lbs->label_alloc);
+    lbs->label = ALLOC_ARR(pddl_label_t, lbs->label_alloc);
     for (int op_id = 0; op_id < ops->op_size; ++op_id){
         lbs->label[op_id].op_id = op_id;
         lbs->label[op_id].cost = ops->op[op_id]->cost;
@@ -85,7 +85,7 @@ void pddlLabelsInitFromStripsOps(pddl_labels_t *lbs,
 void pddlLabelsFree(pddl_labels_t *lbs)
 {
     if (lbs->label != NULL)
-        BOR_FREE(lbs->label);
+        FREE(lbs->label);
 
     bor_list_t list, *item;
     borListInit(&list);

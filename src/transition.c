@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/transition.h"
 
@@ -29,7 +29,7 @@ void pddlTransitionsInit(pddl_transitions_t *ts)
 void pddlTransitionsFree(pddl_transitions_t *ts)
 {
     if (ts->trans != NULL)
-        BOR_FREE(ts->trans);
+        FREE(ts->trans);
 }
 
 void pddlTransitionsEmpty(pddl_transitions_t *ts)
@@ -43,7 +43,7 @@ void pddlTransitionsAdd(pddl_transitions_t *ts, int from, int to)
         if (ts->trans_alloc == 0)
             ts->trans_alloc = 1;
         ts->trans_alloc *= 2;
-        ts->trans = BOR_REALLOC_ARR(ts->trans, pddl_transition_t,
+        ts->trans = REALLOC_ARR(ts->trans, pddl_transition_t,
                                     ts->trans_alloc);
     }
 

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/symbolic_vars.h"
 #include "assert.h"
 
@@ -28,9 +28,9 @@ void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,
 {
     bzero(vars, sizeof(*vars));
     vars->group_size = mgroups->mgroup_size;
-    vars->group = BOR_CALLOC_ARR(pddl_symbolic_fact_group_t, vars->group_size);
+    vars->group = CALLOC_ARR(pddl_symbolic_fact_group_t, vars->group_size);
     vars->fact_size = fact_size;
-    vars->fact = BOR_CALLOC_ARR(pddl_symbolic_fact_t, vars->fact_size);
+    vars->fact = CALLOC_ARR(pddl_symbolic_fact_t, vars->fact_size);
     for (int fact_id = 0; fact_id < fact_size; ++fact_id){
         pddl_symbolic_fact_t *fact = vars->fact + fact_id;
         fact->id = fact_id;
@@ -38,7 +38,7 @@ void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,
         fact->val = -1;
     }
 
-    vars->ordered_facts = BOR_ALLOC_ARR(int, fact_size);
+    vars->ordered_facts = ALLOC_ARR(int, fact_size);
 
     int fact_ins = 0;
     int var_id = 0;
@@ -133,7 +133,7 @@ void pddlSymbolicVarsFree(pddl_symbolic_vars_t *vars)
         borISetFree(&group->eff_var);
     }
     if (vars->group != NULL)
-        BOR_FREE(vars->group);
+        FREE(vars->group);
 
     for (int fact_id = 0; fact_id < vars->fact_size; ++fact_id){
         pddl_symbolic_fact_t *fact = vars->fact + fact_id;
@@ -143,13 +143,13 @@ void pddlSymbolicVarsFree(pddl_symbolic_vars_t *vars)
             pddlBDDDel(vars->mgr, fact->eff_bdd);
     }
     if (vars->fact != NULL)
-        BOR_FREE(vars->fact);
+        FREE(vars->fact);
     
     if (vars->valid_states != NULL)
         pddlBDDDel(vars->mgr, vars->valid_states);
 
     if (vars->ordered_facts != NULL)
-        BOR_FREE(vars->ordered_facts);
+        FREE(vars->ordered_facts);
 }
 
 pddl_bdd_t *pddlSymbolicVarsCreateState(pddl_symbolic_vars_t *vars,
@@ -272,8 +272,8 @@ void pddlSymbolicVarsGroupsBDDVars(pddl_symbolic_vars_t *vars,
     BOR_ISET_FOR_EACH(groups, group_id)
         *var_size += borISetSize(&vars->group[group_id].pre_var);
 
-    *var_pre = BOR_CALLOC_ARR(pddl_bdd_t *, *var_size);
-    *var_eff = BOR_CALLOC_ARR(pddl_bdd_t *, *var_size);
+    *var_pre = CALLOC_ARR(pddl_bdd_t *, *var_size);
+    *var_eff = CALLOC_ARR(pddl_bdd_t *, *var_size);
     int ins = 0;
     BOR_ISET_FOR_EACH(groups, group_id){
         const bor_iset_t *pre_var = &vars->group[group_id].pre_var;

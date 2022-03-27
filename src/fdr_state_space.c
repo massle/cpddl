@@ -19,6 +19,7 @@
 
 #include <boruvka/hfunc.h>
 #include "pddl/fdr_state_space.h"
+#include "alloc.h"
 #include "assert.h"
 
 
@@ -122,11 +123,11 @@ void pddlFDRStateSpaceNodeInit(pddl_fdr_state_space_node_t *node,
 {
     bzero(node, sizeof(*node));
     node->var_size = state_space->state_pool.packer.num_vars;
-    node->state = BOR_CALLOC_ARR(int, node->var_size);
+    node->state = CALLOC_ARR(int, node->var_size);
 }
 
 void pddlFDRStateSpaceNodeFree(pddl_fdr_state_space_node_t *node)
 {
     if (node->state != NULL)
-        BOR_FREE(node->state);
+        FREE(node->state);
 }

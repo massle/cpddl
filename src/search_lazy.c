@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/search_lazy.h"
 #include "assert.h"
 
@@ -27,7 +27,7 @@ pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
 {
     pddl_search_lazy_t *lazy;
 
-    lazy = BOR_ALLOC(pddl_search_lazy_t);
+    lazy = ALLOC(pddl_search_lazy_t);
     bzero(lazy, sizeof(*lazy));
     lazy->fdr = fdr;
     lazy->heur = heur;
@@ -56,7 +56,7 @@ void pddlSearchLazyDel(pddl_search_lazy_t *lazy)
     pddlFDRStateSpaceNodeFree(&lazy->next_node);
     pddlFDRStateSpaceFree(&lazy->state_space);
     borISetFree(&lazy->applicable);
-    BOR_FREE(lazy);
+    FREE(lazy);
 }
 
 static void push(pddl_search_lazy_t *lazy,

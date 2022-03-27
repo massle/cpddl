@@ -18,6 +18,7 @@
  */
 
 #include "pddl/strips_fact_cross_ref.h"
+#include "alloc.h"
 
 void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
                                 const pddl_strips_t *strips,
@@ -37,7 +38,7 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
     bzero(cref, sizeof(*cref));
 
     cref->fact_size = strips->fact.fact_size;
-    cref->fact = BOR_CALLOC_ARR(pddl_strips_fact_cross_ref_fact_t,
+    cref->fact = CALLOC_ARR(pddl_strips_fact_cross_ref_fact_t,
                                 cref->fact_size);
 
     if (init){
@@ -78,5 +79,5 @@ void pddlStripsFactCrossRefFree(pddl_strips_fact_cross_ref_t *cref)
         borISetFree(&cref->fact[i].op_del);
     }
     if (cref->fact != NULL)
-        BOR_FREE(cref->fact);
+        FREE(cref->fact);
 }

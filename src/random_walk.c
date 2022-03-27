@@ -17,6 +17,7 @@
  */
 
 #include "pddl/random_walk.h"
+#include "alloc.h"
 #include "assert.h"
 
 static void init(pddl_random_walk_t *rndw,
@@ -26,7 +27,7 @@ static void init(pddl_random_walk_t *rndw,
     bzero(rndw, sizeof(*rndw));
     rndw->fdr = fdr;
     if (app_op == NULL){
-        pddl_fdr_app_op_t *app = BOR_ALLOC(pddl_fdr_app_op_t);
+        pddl_fdr_app_op_t *app = ALLOC(pddl_fdr_app_op_t);
         pddlFDRAppOpInit(app, &fdr->var, &fdr->op, &fdr->goal);
         rndw->app = app;
         rndw->owns_app_op = 1;
@@ -58,7 +59,7 @@ void pddlRandomWalkFree(pddl_random_walk_t *rndw)
     if (rndw->owns_app_op && rndw->app != NULL){
         pddl_fdr_app_op_t *app = (pddl_fdr_app_op_t *)rndw->app;
         pddlFDRAppOpFree(app);
-        BOR_FREE(app);
+        FREE(app);
     }
 
     if (rndw->rnd != NULL)

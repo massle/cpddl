@@ -18,14 +18,14 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/scc.h"
 
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size)
 {
     bzero(g, sizeof(*g));
     g->node_size = node_size;
-    g->node = BOR_CALLOC_ARR(bor_iset_t, g->node_size);
+    g->node = CALLOC_ARR(bor_iset_t, g->node_size);
 }
 
 void pddlSCCGraphInitInduced(pddl_scc_graph_t *g,
@@ -33,7 +33,7 @@ void pddlSCCGraphInitInduced(pddl_scc_graph_t *g,
                              const bor_iset_t *ind)
 {
     g->node_size = src->node_size;
-    g->node = BOR_CALLOC_ARR(bor_iset_t, g->node_size);
+    g->node = CALLOC_ARR(bor_iset_t, g->node_size);
     for (int i = 0; i < g->node_size; ++i)
         borISetIntersect2(&g->node[i], &src->node[i], ind);
 }
@@ -43,7 +43,7 @@ void pddlSCCGraphFree(pddl_scc_graph_t *g)
     for (int i = 0; i < g->node_size; ++i)
         borISetFree(g->node + i);
     if (g->node != NULL)
-        BOR_FREE(g->node);
+        FREE(g->node);
 }
 
 void pddlSCCGraphAddEdge(pddl_scc_graph_t *g, int from, int to)
@@ -87,7 +87,7 @@ static void sccTarjanStrongconnect(pddl_scc_t *scc, scc_dfs_t *dfs, int vert)
             if (scc->comp_alloc == 0)
                 scc->comp_alloc = 2;
             scc->comp_alloc *= 2;
-            scc->comp = BOR_REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
+            scc->comp = REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
         }
         bor_iset_t *comp = scc->comp + scc->comp_size++;
         borISetInit(comp);
@@ -113,7 +113,7 @@ static void sccTarjan(pddl_scc_t *scc, const pddl_scc_graph_t *graph)
     // Initialize structure for Tarjan's algorithm
     dfs.graph = graph;
     dfs.cur_index = 0;
-    dfs.index    = BOR_ALLOC_ARR(int, 4 * graph->node_size);
+    dfs.index    = ALLOC_ARR(int, 4 * graph->node_size);
     dfs.lowlink  = dfs.index + graph->node_size;
     dfs.in_stack = dfs.lowlink + graph->node_size;
     dfs.stack    = dfs.in_stack + graph->node_size;
@@ -128,7 +128,7 @@ static void sccTarjan(pddl_scc_t *scc, const pddl_scc_graph_t *graph)
             sccTarjanStrongconnect(scc, &dfs, node);
     }
 
-    BOR_FREE(dfs.index);
+    FREE(dfs.index);
 }
 
 void pddlSCC(pddl_scc_t *scc, const pddl_scc_graph_t *graph)
@@ -142,7 +142,7 @@ void pddlSCCFree(pddl_scc_t *scc)
     for (int i = 0; i < scc->comp_size; ++i)
         borISetFree(scc->comp + i);
     if (scc->comp != NULL)
-        BOR_FREE(scc->comp);
+        FREE(scc->comp);
 }
 
 
@@ -154,7 +154,7 @@ static void cycleAdd(pddl_graph_simple_cycles_t *cycles,
         if (cycles->cycle_alloc == 0)
             cycles->cycle_alloc = 2;
         cycles->cycle_alloc *= 2;
-        cycles->cycle = BOR_REALLOC_ARR(cycles->cycle, bor_iarr_t,
+        cycles->cycle = REALLOC_ARR(cycles->cycle, bor_iarr_t,
                                         cycles->cycle_alloc);
     }
     bor_iarr_t *dst = cycles->cycle + cycles->cycle_size++;
@@ -230,8 +230,8 @@ void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
                              pddl_graph_simple_cycle_fn fn,
                              void *userdata)
 {
-    int *blocked = BOR_CALLOC_ARR(int, graph->node_size);
-    bor_iset_t *B = BOR_CALLOC_ARR(bor_iset_t, graph->node_size);
+    int *blocked = CALLOC_ARR(int, graph->node_size);
+    bor_iset_t *B = CALLOC_ARR(bor_iset_t, graph->node_size);
 
     BOR_ISET(active_nodes);
     for (int i = 0; i < graph->node_size; ++i){
@@ -277,8 +277,8 @@ void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
     borISetFree(&active_nodes);
     for (int i = 0; i < graph->node_size; ++i)
         borISetFree(B + i);
-    BOR_FREE(B);
-    BOR_FREE(blocked);
+    FREE(B);
+    FREE(blocked);
 }
 
 static int fnAddCycle(const bor_iarr_t *path, void *ud)
@@ -300,5 +300,5 @@ void pddlGraphSimpleCyclesFree(pddl_graph_simple_cycles_t *cycles)
     for (int i = 0; i < cycles->cycle_size; ++i)
         borIArrFree(cycles->cycle + i);
     if (cycles->cycle != NULL)
-        BOR_FREE(cycles->cycle);
+        FREE(cycles->cycle);
 }

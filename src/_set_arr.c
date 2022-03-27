@@ -14,7 +14,7 @@
  *  See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "boruvka/set.h"
 
 void borSetInit(bor_set_t *s)
@@ -25,7 +25,7 @@ void borSetInit(bor_set_t *s)
 void borSetFree(bor_set_t *s)
 {
     if (s->s)
-        BOR_FREE(s->s);
+        FREE(s->s);
 }
 
 int borSetHas(const bor_set_t *s, TYPE v)
@@ -140,7 +140,7 @@ void borSetSet(bor_set_t *d, const bor_set_t *s)
             d->alloc = 1;
         while (d->alloc < s->size)
             d->alloc *= 2;
-        d->s = BOR_REALLOC_ARR(d->s, TYPE, d->alloc);
+        d->s = REALLOC_ARR(d->s, TYPE, d->alloc);
     }
     memcpy(d->s, s->s, sizeof(TYPE) * s->size);
     d->size = s->size;
@@ -152,7 +152,7 @@ void borSetAdd(bor_set_t *s, TYPE v)
         if (s->alloc == 0)
             s->alloc = 1;
         s->alloc *= 2;
-        s->s = BOR_REALLOC_ARR(s->s, TYPE, s->alloc);
+        s->s = REALLOC_ARR(s->s, TYPE, s->alloc);
     }
     s->s[s->size++] = v;
 

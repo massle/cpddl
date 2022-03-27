@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/err.h>
 #include "pddl/trans_system_abstr_map.h"
 #include "assert.h"
@@ -26,7 +26,7 @@ void pddlTransSystemAbstrMapInit(pddl_trans_system_abstr_map_t *map,
                                  int num_states)
 {
     map->num_states = num_states;
-    map->map = BOR_ALLOC_ARR(int, map->num_states);
+    map->map = ALLOC_ARR(int, map->num_states);
     for (int i = 0; i < map->num_states; ++i)
         map->map[i] = i;
     map->map_num_states = -1;
@@ -36,7 +36,7 @@ void pddlTransSystemAbstrMapInit(pddl_trans_system_abstr_map_t *map,
 void pddlTransSystemAbstrMapFree(pddl_trans_system_abstr_map_t *map)
 {
     if (map->map != NULL)
-        BOR_FREE(map->map);
+        FREE(map->map);
 }
 
 void pddlTransSystemAbstrMapFinalize(pddl_trans_system_abstr_map_t *map)
@@ -46,7 +46,7 @@ void pddlTransSystemAbstrMapFinalize(pddl_trans_system_abstr_map_t *map)
                    "finalized yet!");
     }
 
-    int *ids = BOR_CALLOC_ARR(int, map->num_states);
+    int *ids = CALLOC_ARR(int, map->num_states);
 
     for (int state = 0; state < map->num_states; ++state){
         if (map->map[state] >= 0 && ids[map->map[state]] == 0)
@@ -64,7 +64,7 @@ void pddlTransSystemAbstrMapFinalize(pddl_trans_system_abstr_map_t *map)
         if (map->map[state] >= 0)
             map->map[state] = ids[map->map[state]];
     }
-    BOR_FREE(ids);
+    FREE(ids);
 }
 
 void pddlTransSystemAbstrMapPruneState(pddl_trans_system_abstr_map_t *map,

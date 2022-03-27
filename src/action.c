@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/config.h"
 #include "pddl/pddl.h"
 #include "pddl/action.h"
@@ -45,7 +45,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     }
 
     a = pddlActionsAddEmpty(&pddl->action);
-    a->name = BOR_STRDUP(root->child[1].value);
+    a->name = STRDUP(root->child[1].value);
     for (i = 2; i < root->child_size; i += 2){
         n = root->child + i + 1;
         if (root->child[i].kw == PDDL_KW_AGENT){
@@ -138,7 +138,7 @@ void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src)
 {
     bzero(dst, sizeof(*dst));
     dst->action_size = dst->action_alloc = src->action_size;
-    dst->action = BOR_CALLOC_ARR(pddl_action_t, src->action_size);
+    dst->action = CALLOC_ARR(pddl_action_t, src->action_size);
     for (int i = 0; i < src->action_size; ++i)
         pddlActionInitCopy(dst->action + i, src->action + i);
 }
@@ -152,7 +152,7 @@ void pddlActionInit(pddl_action_t *a)
 void pddlActionFree(pddl_action_t *a)
 {
     if (a->name != NULL)
-        BOR_FREE(a->name);
+        FREE(a->name);
     pddlParamsFree(&a->param);
     if (a->pre != NULL)
         pddlCondDel(a->pre);
@@ -164,7 +164,7 @@ void pddlActionInitCopy(pddl_action_t *dst, const pddl_action_t *src)
 {
     pddlActionInit(dst);
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
     pddlParamsInitCopy(&dst->param, &src->param);
     if (src->pre != NULL)
         dst->pre = pddlCondClone(src->pre);
@@ -272,7 +272,7 @@ pddl_action_t *pddlActionsAddCopy(pddl_actions_t *as, int copy_id)
         if (as->action_alloc == 0)
             as->action_alloc = PDDL_ACTIONS_ALLOC_INIT;
         as->action_alloc *= 2;
-        as->action = BOR_REALLOC_ARR(as->action, pddl_action_t,
+        as->action = REALLOC_ARR(as->action, pddl_action_t,
                                      as->action_alloc);
     }
 
@@ -296,7 +296,7 @@ void pddlActionsFree(pddl_actions_t *actions)
         pddlActionFree(a);
     }
     if (actions->action != NULL)
-        BOR_FREE(actions->action);
+        FREE(actions->action);
 }
 
 void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)

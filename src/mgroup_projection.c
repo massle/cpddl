@@ -20,6 +20,7 @@
 
 #include <boruvka/iarr.h>
 #include "pddl/mgroup_projection.h"
+#include "alloc.h"
 #include "assert.h"
 
 void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
@@ -31,7 +32,7 @@ void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
     bzero(p, sizeof(*p));
     p->num_states = borISetSize(mgroup) + 1;
     borISetUnion(&p->mgroup, mgroup);
-    p->tr = BOR_CALLOC_ARR(bor_iset_t, p->num_states * p->num_states);
+    p->tr = CALLOC_ARR(bor_iset_t, p->num_states * p->num_states);
 
     BOR_ISET(ops_add);
     BOR_ISET(ops_del);
@@ -94,7 +95,7 @@ void pddlMGroupProjectionInitCopy(pddl_mgroup_projection_t *p,
     bzero(p, sizeof(*p));
     p->num_states = src->num_states;
     borISetUnion(&p->mgroup, &src->mgroup);
-    p->tr = BOR_CALLOC_ARR(bor_iset_t, p->num_states * p->num_states);
+    p->tr = CALLOC_ARR(bor_iset_t, p->num_states * p->num_states);
     for (int i = 0; i < p->num_states; ++i){
         for (int j = 0; j < p->num_states; ++j){
             borISetUnion(p->tr + i * p->num_states + j,
@@ -112,7 +113,7 @@ void pddlMGroupProjectionFree(pddl_mgroup_projection_t *p)
         }
     }
     if (p->tr != NULL)
-        BOR_FREE(p->tr);
+        FREE(p->tr);
 }
 
 static int outdegree(const pddl_mgroup_projection_t *p, int state)
@@ -140,7 +141,7 @@ void pddlMGroupProjectionPruneUnreachable(pddl_mgroup_projection_t *p,
                                           const bor_iset_t *states,
                                           int backward)
 {
-    int *visited = BOR_CALLOC_ARR(int, p->num_states);
+    int *visited = CALLOC_ARR(int, p->num_states);
     BOR_IARR(queue);
     int state;
     BOR_ISET_FOR_EACH(states, state){
@@ -174,7 +175,7 @@ void pddlMGroupProjectionPruneUnreachable(pddl_mgroup_projection_t *p,
             borISetEmpty(p->tr + to * p->num_states + state);
         }
     }
-    BOR_FREE(visited);
+    FREE(visited);
 }
 
 void pddlMGroupProjectionPruneUnreachableFromInit(pddl_mgroup_projection_t *p,

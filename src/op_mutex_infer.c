@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/iarr.h>
 #include "pddl/ts.h"
 #include "pddl/famgroup.h"
@@ -40,7 +40,7 @@ static void tsReachabilityState(const pddl_ts_t *ts, int state, int *reach)
 /** Computes reachability of abstract states. */
 static int *tsReachability(const pddl_ts_t *ts)
 {
-    int *reach = BOR_CALLOC_ARR(int, ts->num_states * ts->num_states);
+    int *reach = CALLOC_ARR(int, ts->num_states * ts->num_states);
 
     for (int state = 0; state < ts->num_states; ++state){
         int *rline = reach + state * ts->num_states;
@@ -111,7 +111,7 @@ static void opMutexesFromCondensedTS(pddl_op_mutex_pairs_t *m,
     }
 
     if (reach != NULL)
-        BOR_FREE(reach);
+        FREE(reach);
 }
 
 int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
@@ -321,7 +321,7 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
     BOR_INFO_PREFIX_PUSH(err, "OPM ");
     BOR_INFO(err, "Op-mutexes using h^%d from each operator:", m);
 
-    unreach_map = BOR_CALLOC_ARR(bor_iset_t, strips_in->op.op_size);
+    unreach_map = CALLOC_ARR(bor_iset_t, strips_in->op.op_size);
 
     if (ops != NULL){
         int opi;
@@ -339,7 +339,7 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
     PDDL_STRIPS_OPS_FOR_EACH(&strips_in->op, op)
         borISetFree(unreach_map + op->id);
     if (unreach_map != NULL)
-        BOR_FREE(unreach_map);
+        FREE(unreach_map);
 
     BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(opm));
     BOR_INFO_PREFIX_POP(err);

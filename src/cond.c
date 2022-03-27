@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 
 #include "pddl/pddl.h"
@@ -268,7 +268,7 @@ static pddl_cond_t *_condNew(int size, unsigned type)
 {
     pddl_cond_t *c;
 
-    c = BOR_MALLOC(size);
+    c = MALLOC(size);
     bzero(c, size);
     c->type = type;
     borListInit(&c->conn);
@@ -295,7 +295,7 @@ static void condPartDel(pddl_cond_part_t *p)
         pddlCondDel(cond);
     }
 
-    BOR_FREE(p);
+    FREE(p);
 }
 
 static pddl_cond_part_t *condPartClone(const pddl_cond_part_t *p)
@@ -452,7 +452,7 @@ static void condQuantDel(pddl_cond_quant_t *q)
     pddlParamsFree(&q->param);
     if (q->cond != NULL)
         pddlCondDel(q->cond);
-    BOR_FREE(q);
+    FREE(q);
 }
 
 static pddl_cond_quant_t *condQuantClone(const pddl_cond_quant_t *q)
@@ -550,7 +550,7 @@ static void condWhenDel(pddl_cond_when_t *w)
         pddlCondDel(w->pre);
     if (w->eff)
         pddlCondDel(w->eff);
-    BOR_FREE(w);
+    FREE(w);
 }
 
 static pddl_cond_when_t *condWhenClone(const pddl_cond_when_t *w)
@@ -628,8 +628,8 @@ static pddl_cond_atom_t *condAtomNew(void)
 static void condAtomDel(pddl_cond_atom_t *a)
 {
     if (a->arg != NULL)
-        BOR_FREE(a->arg);
-    BOR_FREE(a);
+        FREE(a->arg);
+    FREE(a);
 }
 
 static pddl_cond_atom_t *condAtomClone(const pddl_cond_atom_t *a)
@@ -639,7 +639,7 @@ static pddl_cond_atom_t *condAtomClone(const pddl_cond_atom_t *a)
     n = condAtomNew();
     n->pred = a->pred;
     n->arg_size = a->arg_size;
-    n->arg = BOR_ALLOC_ARR(pddl_cond_atom_arg_t, n->arg_size);
+    n->arg = ALLOC_ARR(pddl_cond_atom_arg_t, n->arg_size);
     memcpy(n->arg, a->arg, sizeof(pddl_cond_atom_arg_t) * n->arg_size);
     n->neg = a->neg;
 
@@ -763,7 +763,7 @@ static void condFuncOpDel(pddl_cond_func_op_t *op)
         condAtomDel(op->lvalue);
     if (op->fvalue)
         condAtomDel(op->fvalue);
-    BOR_FREE(op);
+    FREE(op);
 }
 
 static pddl_cond_func_op_t *condFuncOpClone(const pddl_cond_func_op_t *op)
@@ -852,7 +852,7 @@ static pddl_cond_bool_t *condBoolNew(int val)
 
 static void condBoolDel(pddl_cond_bool_t *a)
 {
-    BOR_FREE(a);
+    FREE(a);
 }
 
 static pddl_cond_bool_t *condBoolClone(const pddl_cond_bool_t *a)
@@ -916,7 +916,7 @@ static void condImplyDel(pddl_cond_imply_t *a)
         pddlCondDel(a->left);
     if (a->right != NULL)
         pddlCondDel(a->right);
-    BOR_FREE(a);
+    FREE(a);
 }
 
 static pddl_cond_imply_t *condImplyClone(const pddl_cond_imply_t *a)
@@ -1337,7 +1337,7 @@ pddl_cond_atom_t *pddlCondNewEmptyAtom(int num_args)
 
     if (num_args > 0){
         atom->arg_size = num_args;
-        atom->arg = BOR_ALLOC_ARR(pddl_cond_atom_arg_t, atom->arg_size);
+        atom->arg = ALLOC_ARR(pddl_cond_atom_arg_t, atom->arg_size);
         for (int i = 0; i < atom->arg_size; ++i){
             atom->arg[i].param = -1;
             atom->arg[i].obj = PDDL_OBJ_ID_UNDEF;
@@ -1443,7 +1443,7 @@ static pddl_cond_t *parseAtom(const pddl_lisp_node_t *root,
     atom = condAtomNew();
     atom->pred = pred;
     atom->arg_size = root->child_size - 1;
-    atom->arg = BOR_ALLOC_ARR(pddl_cond_atom_arg_t, atom->arg_size);
+    atom->arg = ALLOC_ARR(pddl_cond_atom_arg_t, atom->arg_size);
     for (int i = 0; i < atom->arg_size; ++i){
         if (parseAtomArg(atom->arg + i, root->child + i + 1, ctx) != 0){
             condAtomDel(atom);
@@ -1915,7 +1915,7 @@ pddl_cond_atom_t *pddlCondCreateFactAtom(int pred, int arg_size,
     a = condAtomNew();
     a->pred = pred;
     a->arg_size = arg_size;
-    a->arg = BOR_ALLOC_ARR(pddl_cond_atom_arg_t, arg_size);
+    a->arg = ALLOC_ARR(pddl_cond_atom_arg_t, arg_size);
     for (int i = 0; i < arg_size; ++i){
         a->arg[i].param = -1;
         a->arg[i].obj = arg[i];
@@ -2853,7 +2853,7 @@ static pddl_cond_t *instantiate(pddl_cond_t *cond,
         eq = condAtomNew();
         eq->pred = eq_pred;
         eq->arg_size = 2;
-        eq->arg = BOR_ALLOC_ARR(pddl_cond_atom_arg_t, 2);
+        eq->arg = ALLOC_ARR(pddl_cond_atom_arg_t, 2);
         eq->arg[0].param = param;
         eq->arg[0].obj = PDDL_OBJ_ID_UNDEF;
         eq->arg[1].param = -1;
@@ -2910,10 +2910,10 @@ static int removeStaticImply(pddl_cond_t **cond, const pddl_t *pddl,
 
     pddlCondTraverse(*cond, NULL, implyParams, &imply_params);
     if (borISetSize(&imply_params) > 0){
-        obj = BOR_ALLOC_ARR(pddl_obj_id_t, borISetSize(&imply_params));
+        obj = ALLOC_ARR(pddl_obj_id_t, borISetSize(&imply_params));
         or = condPartNew(PDDL_COND_OR);
         removeStaticImplyRec(or, *cond, pddl, params, &imply_params, 0, obj);
-        BOR_FREE(obj);
+        FREE(obj);
         pddlCondDel(*cond);
         *cond = &or->cls;
     }

@@ -18,7 +18,7 @@
  */
 
 #include <boruvka/compiler.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
 #include "pddl/ground_atom.h"
@@ -66,17 +66,17 @@ static uint64_t pddlGroundAtomHash(const pddl_ground_atom_t *a)
 void pddlGroundAtomDel(pddl_ground_atom_t *a)
 {
     if (a->arg != NULL)
-        BOR_FREE(a->arg);
-    BOR_FREE(a);
+        FREE(a->arg);
+    FREE(a);
 }
 
 
 pddl_ground_atom_t *pddlGroundAtomClone(const pddl_ground_atom_t *a)
 {
-    pddl_ground_atom_t *c = BOR_ALLOC(pddl_ground_atom_t);
+    pddl_ground_atom_t *c = ALLOC(pddl_ground_atom_t);
     *c = *a;
     if (a->arg != NULL){
-        c->arg = BOR_ALLOC_ARR(pddl_obj_id_t, c->arg_size);
+        c->arg = ALLOC_ARR(pddl_obj_id_t, c->arg_size);
         memcpy(c->arg, a->arg, sizeof(pddl_obj_id_t) * c->arg_size);
     }
     return c;
@@ -102,7 +102,7 @@ static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
         }else{
             ga->atom_alloc *= 2;
         }
-        ga->atom = BOR_REALLOC_ARR(ga->atom,
+        ga->atom = REALLOC_ARR(ga->atom,
                                    pddl_ground_atom_t *, ga->atom_alloc);
     }
 
@@ -127,7 +127,7 @@ void pddlGroundAtomsFree(pddl_ground_atoms_t *ga)
             pddlGroundAtomDel(ga->atom[i]);
     }
     if (ga->atom != NULL)
-        BOR_FREE(ga->atom);
+        FREE(ga->atom);
 }
 
 static void groundAtom(pddl_ground_atom_t *a,

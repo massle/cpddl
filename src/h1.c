@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/iarr.h>
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
@@ -32,9 +32,9 @@ int pddlH1(const pddl_strips_t *strips,
     }
 
     BOR_INFO_PREFIX_PUSH(err, "h^1: ");
-    int *facts = BOR_CALLOC_ARR(int, strips->fact.fact_size);
-    int *ops = BOR_CALLOC_ARR(int, strips->op.op_size);
-    bor_iset_t *fact_to_op = BOR_CALLOC_ARR(bor_iset_t, strips->fact.fact_size);
+    int *facts = CALLOC_ARR(int, strips->fact.fact_size);
+    int *ops = CALLOC_ARR(int, strips->op.op_size);
+    bor_iset_t *fact_to_op = CALLOC_ARR(bor_iset_t, strips->fact.fact_size);
     BOR_IARR(queue);
 
     BOR_INFO(err, "facts: %d, ops: %d",
@@ -97,11 +97,11 @@ int pddlH1(const pddl_strips_t *strips,
     for (int fid = 0; fid < strips->fact.fact_size; ++fid)
         borISetFree(fact_to_op + fid);
     if (fact_to_op != NULL)
-        BOR_FREE(fact_to_op);
+        FREE(fact_to_op);
     if (facts != NULL)
-        BOR_FREE(facts);
+        FREE(facts);
     if (ops != NULL)
-        BOR_FREE(ops);
+        FREE(ops);
 
     BOR_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
              (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),

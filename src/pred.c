@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/pred.h"
 #include "lisp_err.h"
@@ -35,9 +35,9 @@ static const char *eq_name = "=";
 void pddlPredFree(pddl_pred_t *pred)
 {
     if (pred->param != NULL)
-        BOR_FREE(pred->param);
+        FREE(pred->param);
     if (pred->name != NULL)
-        BOR_FREE(pred->name);
+        FREE(pred->name);
 }
 
 static int setCB(const pddl_lisp_node_t *root,
@@ -58,7 +58,7 @@ static int setCB(const pddl_lisp_node_t *root,
 
     j = pred->param_size;
     pred->param_size += child_to - child_from;
-    pred->param = BOR_REALLOC_ARR(pred->param, int, pred->param_size);
+    pred->param = REALLOC_ARR(pred->param, int, pred->param_size);
     for (i = child_from; i < child_to; ++i, ++j){
         pred->param[j] = tid;
         if (owner_var != NULL && strcmp(owner_var, root->child[i].value) == 0){
@@ -105,7 +105,7 @@ static int parsePred(pddl_t *pddl,
         BOR_TRACE_PREPEND_RET(err, -1, "%s `%s': ", errname, n->child[0].value);
     }
 
-    p->name = BOR_STRDUP(n->child[0].value);
+    p->name = STRDUP(n->child[0].value);
     return 0;
 }
 
@@ -164,9 +164,9 @@ static void addEqPredicate(pddl_preds_t *ps)
     pddl_pred_t *p;
 
     p = pddlPredsAdd(ps);
-    p->name = BOR_STRDUP(eq_name);
+    p->name = STRDUP(eq_name);
     p->param_size = 2;
-    p->param = BOR_CALLOC_ARR(int, 2);
+    p->param = CALLOC_ARR(int, 2);
     ps->eq_pred = ps->pred_size - 1;
 }
 
@@ -229,14 +229,14 @@ void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src)
     bzero(dst, sizeof(*dst));
     dst->eq_pred = src->eq_pred;
     dst->pred_size = dst->pred_alloc = src->pred_size;
-    dst->pred = BOR_CALLOC_ARR(pddl_pred_t, src->pred_size);
+    dst->pred = CALLOC_ARR(pddl_pred_t, src->pred_size);
     for (int i = 0; i < src->pred_size; ++i){
         dst->pred[i] = src->pred[i];
         if (dst->pred[i].name != NULL)
-            dst->pred[i].name = BOR_STRDUP(src->pred[i].name);
+            dst->pred[i].name = STRDUP(src->pred[i].name);
         if (dst->pred[i].param != NULL){
             dst->pred[i].param_size = src->pred[i].param_size;
-            dst->pred[i].param = BOR_CALLOC_ARR(int, src->pred[i].param_size);
+            dst->pred[i].param = CALLOC_ARR(int, src->pred[i].param_size);
             memcpy(dst->pred[i].param, src->pred[i].param,
                    sizeof(int) * src->pred[i].param_size);
         }
@@ -279,7 +279,7 @@ void pddlPredsFree(pddl_preds_t *ps)
     for (int i = 0; i < ps->pred_size; ++i)
         pddlPredFree(ps->pred + i);
     if (ps->pred != NULL)
-        BOR_FREE(ps->pred);
+        FREE(ps->pred);
 }
 
 int pddlPredsGet(const pddl_preds_t *ps, const char *name)
@@ -301,7 +301,7 @@ pddl_pred_t *pddlPredsAdd(pddl_preds_t *ps)
         }else{
             ps->pred_alloc *= 2;
         }
-        ps->pred = BOR_REALLOC_ARR(ps->pred, pddl_pred_t,
+        ps->pred = REALLOC_ARR(ps->pred, pddl_pred_t,
                                    ps->pred_alloc);
     }
 
@@ -323,12 +323,12 @@ pddl_pred_t *pddlPredsAddCopy(pddl_preds_t *ps, int src_id)
     dst->id = dst_id;
 
     if (src->param != NULL){
-        dst->param = BOR_ALLOC_ARR(int, src->param_size);
+        dst->param = ALLOC_ARR(int, src->param_size);
         memcpy(dst->param, src->param, sizeof(int) * src->param_size);
     }
 
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
 
     return dst;
 }
@@ -339,9 +339,9 @@ void pddlPredsRemoveLast(pddl_preds_t *ps)
 
     p = ps->pred + --ps->pred_size;
     if (p->param != NULL)
-        BOR_FREE(p->param);
+        FREE(p->param);
     if (p->name != NULL)
-        BOR_FREE(p->name);
+        FREE(p->name);
 }
 
 void pddlPredsRemapTypes(pddl_preds_t *ps,

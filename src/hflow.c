@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/hflow.h"
 
 
@@ -94,7 +94,7 @@ void pddlHFlowInit(pddl_hflow_t *h,
     h->vars = &fdr->var;
     h->use_ilp = use_ilp;
 
-    h->facts = BOR_CALLOC_ARR(pddl_hflow_fact_t, h->vars->global_id_size);
+    h->facts = CALLOC_ARR(pddl_hflow_fact_t, h->vars->global_id_size);
     factsInit(h->facts, &fdr->var, &fdr->goal, &fdr->op);
 
     h->lp = lpInit(h->facts, h->vars->global_id_size, &fdr->op, use_ilp, 1);
@@ -104,12 +104,12 @@ void pddlHFlowFree(pddl_hflow_t *h)
 {
     for (int i = 0; i < h->vars->global_id_size; ++i){
         if (h->facts[i].constr_idx != NULL)
-            BOR_FREE(h->facts[i].constr_idx);
+            FREE(h->facts[i].constr_idx);
         if (h->facts[i].constr_coef != NULL)
-            BOR_FREE(h->facts[i].constr_coef);
+            FREE(h->facts[i].constr_coef);
     }
     if (h->facts != NULL)
-        BOR_FREE(h->facts);
+        FREE(h->facts);
     borLPDel(h->lp);
 }
 
@@ -176,9 +176,9 @@ static void factsInitGoal(pddl_hflow_fact_t *facts,
 static void factAddConstr(pddl_hflow_fact_t *fact, int op_id, double coef)
 {
     ++fact->constr_len;
-    fact->constr_idx = BOR_REALLOC_ARR(fact->constr_idx, int,
+    fact->constr_idx = REALLOC_ARR(fact->constr_idx, int,
                                        fact->constr_len);
-    fact->constr_coef = BOR_REALLOC_ARR(fact->constr_coef, double,
+    fact->constr_coef = REALLOC_ARR(fact->constr_coef, double,
                                         fact->constr_len);
     fact->constr_idx[fact->constr_len - 1] = op_id;
     fact->constr_coef[fact->constr_len - 1] = coef;
@@ -260,7 +260,7 @@ static void factsInitOps(pddl_hflow_fact_t *facts,
 {
     int *cause_incomplete_op;
 
-    cause_incomplete_op = BOR_CALLOC_ARR(int, vars->var_size);
+    cause_incomplete_op = CALLOC_ARR(int, vars->var_size);
     for (int opi = 0; opi < ops->op_size; ++opi)
         factsInitOp(facts, vars, ops->op[opi], opi, cause_incomplete_op);
 
@@ -268,7 +268,7 @@ static void factsInitOps(pddl_hflow_fact_t *facts,
         if (cause_incomplete_op[facts[i].var])
             facts[i].cause_incomplete_op = 1;
     }
-    BOR_FREE(cause_incomplete_op);
+    FREE(cause_incomplete_op);
 }
 
 static void factsInit(pddl_hflow_fact_t *facts,
@@ -329,8 +329,8 @@ static void lpAddLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)
 
     int ldm_size = pddlSetISetSize(ldms);
     int row_id = borLPNumRows(lp);
-    double *rhs = BOR_ALLOC_ARR(double, ldm_size);
-    char *sense = BOR_ALLOC_ARR(char, ldm_size);
+    double *rhs = ALLOC_ARR(double, ldm_size);
+    char *sense = ALLOC_ARR(char, ldm_size);
     for (int i = 0; i < ldm_size; ++i){
         rhs[i] = 1.;
         sense[i] = 'G';
@@ -345,8 +345,8 @@ static void lpAddLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)
         ++row_id;
     }
 
-    BOR_FREE(rhs);
-    BOR_FREE(sense);
+    FREE(rhs);
+    FREE(sense);
 }
 
 static void lpDelLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)

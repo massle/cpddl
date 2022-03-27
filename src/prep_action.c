@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include "pddl/pddl.h"
 #include "pddl/prep_action.h"
@@ -125,7 +125,7 @@ static int actionInit2(pddl_prep_action_t *a,
     a->action = action;
     a->parent_action = -1;
     a->param_size = action->param.param_size;
-    a->param_type = BOR_ALLOC_ARR(int, a->param_size);
+    a->param_type = ALLOC_ARR(int, a->param_size);
     for (int i = 0; i < a->param_size; ++i)
         a->param_type[i] = action->param.param[i].type;
     a->type = &pddl->type;
@@ -169,14 +169,14 @@ static void actionFree(pddl_prep_action_t *a)
     pddlCondArrFree(&a->del_eff);
     pddlCondArrFree(&a->increase);
     if (a->param_type != NULL)
-        BOR_FREE(a->param_type);
+        FREE(a->param_type);
 }
 
 static void actionsReserve(pddl_prep_actions_t *as)
 {
     if (as->action_size >= as->action_alloc){
         as->action_alloc *= 2;
-        as->action = BOR_REALLOC_ARR(as->action, pddl_prep_action_t,
+        as->action = REALLOC_ARR(as->action, pddl_prep_action_t,
                                      as->action_alloc);
     }
 }
@@ -253,7 +253,7 @@ int pddlPrepActionsInit(const pddl_t *pddl, pddl_prep_actions_t *as,
 
     bzero(as, sizeof(*as));
     as->action_alloc = 4;
-    as->action = BOR_ALLOC_ARR(pddl_prep_action_t, as->action_alloc);
+    as->action = ALLOC_ARR(pddl_prep_action_t, as->action_alloc);
 
     for (int i = 0; i < pddl->action.action_size; ++i){
         actionsReserve(as);
@@ -282,7 +282,7 @@ void pddlPrepActionsFree(pddl_prep_actions_t *as)
     for (int i = 0; i < as->action_size; ++i)
         actionFree(as->action + i);
     if (as->action)
-        BOR_FREE(as->action);
+        FREE(as->action);
 }
 
 

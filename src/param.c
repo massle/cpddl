@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 
 #include "pddl/param.h"
 #include "lisp_err.h"
@@ -33,7 +33,7 @@ void pddlParamInitCopy(pddl_param_t *dst, const pddl_param_t *src)
 {
     *dst = *src;
     if (dst->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
 }
 
 void pddlParamsInit(pddl_params_t *params)
@@ -45,10 +45,10 @@ void pddlParamsFree(pddl_params_t *params)
 {
     for (int i = 0; i < params->param_size; ++i){
         if (params->param[i].name != NULL)
-            BOR_FREE(params->param[i].name);
+            FREE(params->param[i].name);
     }
     if (params->param != NULL)
-        BOR_FREE(params->param);
+        FREE(params->param);
 }
 
 pddl_param_t *pddlParamsAdd(pddl_params_t *params)
@@ -59,7 +59,7 @@ pddl_param_t *pddlParamsAdd(pddl_params_t *params)
         if (params->param_alloc == 0)
             params->param_alloc = 1;
         params->param_alloc *= 2;
-        params->param = BOR_REALLOC_ARR(params->param, pddl_param_t,
+        params->param = REALLOC_ARR(params->param, pddl_param_t,
                                         params->param_alloc);
     }
 
@@ -71,7 +71,7 @@ pddl_param_t *pddlParamsAdd(pddl_params_t *params)
 void pddlParamsInitCopy(pddl_params_t *dst, const pddl_params_t *src)
 {
     dst->param_size = dst->param_alloc = src->param_size;
-    dst->param = BOR_ALLOC_ARR(pddl_param_t, dst->param_alloc);
+    dst->param = ALLOC_ARR(pddl_param_t, dst->param_alloc);
     for (int i = 0; i < dst->param_size; ++i)
         pddlParamInitCopy(dst->param + i, src->param + i);
 }
@@ -119,7 +119,7 @@ static int setParams(const pddl_lisp_node_t *root,
         }
 
         param = pddlParamsAdd(params);
-        param->name = BOR_STRDUP(root->child[i].value);
+        param->name = STRDUP(root->child[i].value);
         param->type = tid;
         param->is_agent = 0;
     }
@@ -172,7 +172,7 @@ void pddlParamsRemap(pddl_params_t *params, const int *remap)
     for (int i = 0; i < params->param_size; ++i){
         if (remap[i] == -1){
             if (params->param[i].name != NULL)
-                BOR_FREE(params->param[i].name);
+                FREE(params->param[i].name);
             params->param[i].name = NULL;
         }
     }

@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include <boruvka/lp.h>
 #include "pddl/pot.h"
@@ -50,9 +50,9 @@ void pddlPotSolutionInit(pddl_pot_solution_t *sol)
 void pddlPotSolutionFree(pddl_pot_solution_t *sol)
 {
     if (sol->pot != NULL)
-        BOR_FREE(sol->pot);
+        FREE(sol->pot);
     if (sol->op_pot != NULL)
-        BOR_FREE(sol->op_pot);
+        FREE(sol->op_pot);
 }
 
 double pddlPotSolutionEvalFDRStateFlt(const pddl_pot_solution_t *sol,
@@ -120,7 +120,7 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
         if (sols->sol_alloc == 0)
             sols->sol_alloc = 1;
         sols->sol_alloc *= 2;
-        sols->sol = BOR_REALLOC_ARR(sols->sol, pddl_pot_solution_t,
+        sols->sol = REALLOC_ARR(sols->sol, pddl_pot_solution_t,
                                     sols->sol_alloc);
     }
 
@@ -128,12 +128,12 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
     pddlPotSolutionInit(s);
     s->pot_size = sol->pot_size;
     if (s->pot_size > 0){
-        s->pot = BOR_ALLOC_ARR(double, s->pot_size);
+        s->pot = ALLOC_ARR(double, s->pot_size);
         memcpy(s->pot, sol->pot, sizeof(double) * s->pot_size);
     }
     s->op_pot_size = sol->op_pot_size;
     if (s->op_pot_size > 0){
-        s->op_pot = BOR_ALLOC_ARR(double, s->op_pot_size);
+        s->op_pot = ALLOC_ARR(double, s->op_pot_size);
         memcpy(s->op_pot, sol->op_pot, sizeof(double) * s->op_pot_size);
     }
 }
@@ -193,7 +193,7 @@ static pddl_pot_constr_t *addConstr(pddl_pot_constrs_t *cs, int op_id)
         if (cs->alloc == 0)
             cs->alloc = 4;
         cs->alloc *= 2;
-        cs->c = BOR_REALLOC_ARR(cs->c, pddl_pot_constr_t, cs->alloc);
+        cs->c = REALLOC_ARR(cs->c, pddl_pot_constr_t, cs->alloc);
     }
 
     pddl_pot_constr_t *c = cs->c + cs->size++;
@@ -217,7 +217,7 @@ static int getMaxpot(pddl_pot_t *pot,
     maxpot_t *m = borSegmArrGet(pot->maxpot, pot->maxpot_size);
 
     m->var_size = borISetSize(set);
-    m->var = BOR_CALLOC_ARR(maxpot_var_t, m->var_size);
+    m->var = CALLOC_ARR(maxpot_var_t, m->var_size);
     for (int i = 0; i < m->var_size; ++i){
         m->var[i].var_id = borISetGet(set, i);
         if (count != NULL)
@@ -235,7 +235,7 @@ static int getMaxpot(pddl_pot_t *pot,
 
     }else{
         if (m->var != NULL)
-            BOR_FREE(m->var);
+            FREE(m->var);
 
         m = BOR_LIST_ENTRY(found, maxpot_t, htable);
         return m->maxpot_id;
@@ -299,7 +299,7 @@ static void hsetToVarSet(pddl_pot_t *pot,
                          const pddl_set_iset_t *hset,
                          bor_iset_t *var_set)
 {
-    int *count = BOR_CALLOC_ARR(int, pot->var_size);
+    int *count = CALLOC_ARR(int, pot->var_size);
     const bor_iset_t *set;
     PDDL_SET_ISET_FOR_EACH(hset, set){
         int fact_id;
@@ -319,7 +319,7 @@ static void hsetToVarSet(pddl_pot_t *pot,
     }
 
     if (count != NULL)
-        BOR_FREE(count);
+        FREE(count);
 }
 
 static void addMGStripsOp(pddl_pot_t *pot,
@@ -399,7 +399,7 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
     addFDRGoal(pot, &fdr->var, &fdr->goal);
     addFDRInit(pot, &fdr->var, fdr->init);
 
-    pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
+    pot->obj = CALLOC_ARR(double, pot->var_size);
 }
 
 static int initMGStrips(pddl_pot_t *pot,
@@ -429,7 +429,7 @@ static int initMGStrips(pddl_pot_t *pot,
     }
     borISetUnion(&pot->init, &mg_strips->strips.init);
 
-    pot->obj = BOR_CALLOC_ARR(double, pot->var_size);
+    pot->obj = CALLOC_ARR(double, pot->var_size);
 
     pddlDisambiguateFree(&dis);
     return 0;
@@ -456,7 +456,7 @@ void pddlPotFree(pddl_pot_t *pot)
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
         maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
         if (m->var != NULL)
-            BOR_FREE(m->var);
+            FREE(m->var);
     }
     if (pot->maxpot != NULL)
         borSegmArrDel(pot->maxpot);
@@ -466,19 +466,19 @@ void pddlPotFree(pddl_pot_t *pot)
         borISetFree(&pot->constr_op.c[i].minus);
     }
     if (pot->constr_op.c != NULL)
-        BOR_FREE(pot->constr_op.c);
+        FREE(pot->constr_op.c);
 
     for (int i = 0; i < pot->constr_goal.size; ++i){
         borISetFree(&pot->constr_goal.c[i].plus);
         borISetFree(&pot->constr_goal.c[i].minus);
     }
     if (pot->constr_goal.c != NULL)
-        BOR_FREE(pot->constr_goal.c);
+        FREE(pot->constr_goal.c);
 
     borISetFree(&pot->constr_lb.vars);
 
     if (pot->obj != NULL)
-        BOR_FREE(pot->obj);
+        FREE(pot->obj);
 
     borISetFree(&pot->init);
 }
@@ -687,7 +687,7 @@ static void storeOpPot(bor_lp_t *lp,
                        pddl_pot_solution_t *sol)
 {
     sol->op_pot_size = pot->constr_op.size;
-    sol->op_pot = BOR_CALLOC_ARR(double, pot->op_size);
+    sol->op_pot = CALLOC_ARR(double, pot->op_size);
     for (int ci = 0; ci < pot->constr_op.size; ++ci){
         const pddl_pot_constr_t *c = pot->constr_op.c + ci;
         if (c->op_id >= 0){
@@ -741,11 +741,11 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
 
     int var_size = borLPNumCols(lp);
     double objval, *obj;
-    obj = BOR_CALLOC_ARR(double, var_size);
+    obj = CALLOC_ARR(double, var_size);
     if (borLPSolve(lp, &objval, obj) == 0){
         sol->objval = objval;
         sol->pot_size = pot->var_size;
-        sol->pot = BOR_ALLOC_ARR(double, sol->pot_size);
+        sol->pot = ALLOC_ARR(double, sol->pot_size);
         memcpy(sol->pot, obj, sizeof(double) * sol->pot_size);
 
         if (pot->op_pot)
@@ -756,7 +756,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         ret = -1;
     }
 
-    BOR_FREE(obj);
+    FREE(obj);
     borLPDel(lp);
 
     return ret;

@@ -18,7 +18,7 @@
  */
 
 #include <unistd.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include <boruvka/extarr.h>
@@ -179,7 +179,7 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     void *init = alloca(size);
     bzero(init, size);
     db->fact = borExtArrNew(size, NULL, init);
-    db->pred_to_fact = BOR_CALLOC_ARR(bor_iset_t, dl->pred_size);
+    db->pred_to_fact = CALLOC_ARR(bor_iset_t, dl->pred_size);
 
     size = sizeof(pddl_datalog_relevant_fact_t);
     size += dl->max_pred_arity * 2 * sizeof(int);
@@ -207,7 +207,7 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     }
     for (int i = 0; i < dl->pred_size; ++i)
         borISetFree(db->pred_to_fact + i);
-    BOR_FREE(db->pred_to_fact);
+    FREE(db->pred_to_fact);
 
     bzero(db, sizeof(*db));
 }
@@ -411,7 +411,7 @@ static void setUp(pddl_datalog_t *dl, int db, bor_err_t *err)
 
 pddl_datalog_t *pddlDatalogNew(void)
 {
-    pddl_datalog_t *dl = BOR_ALLOC(pddl_datalog_t);
+    pddl_datalog_t *dl = ALLOC(pddl_datalog_t);
     bzero(dl, sizeof(*dl));
     return dl;
 }
@@ -421,31 +421,31 @@ void pddlDatalogDel(pddl_datalog_t *dl)
     for (int i = 0; i < dl->rule_size; ++i)
         pddlDatalogRuleFree(dl, dl->rule + i);
     if (dl->rule != NULL)
-        BOR_FREE(dl->rule);
+        FREE(dl->rule);
 
     for (int i = 0; i < dl->c_size; ++i){
         if (dl->c[i].name != NULL)
-            BOR_FREE(dl->c[i].name);
+            FREE(dl->c[i].name);
     }
     if (dl->c != NULL)
-        BOR_FREE(dl->c);
+        FREE(dl->c);
 
     for (int i = 0; i < dl->var_size; ++i){
         if (dl->var[i].name != NULL)
-            BOR_FREE(dl->var[i].name);
+            FREE(dl->var[i].name);
     }
     if (dl->var != NULL)
-        BOR_FREE(dl->var);
+        FREE(dl->var);
 
     for (int i = 0; i < dl->pred_size; ++i){
         if (dl->pred[i].name != NULL)
-            BOR_FREE(dl->pred[i].name);
+            FREE(dl->pred[i].name);
         borISetFree(&dl->pred[i].relevant_rules);
     }
     if (dl->pred != NULL)
-        BOR_FREE(dl->pred);
+        FREE(dl->pred);
     dbFree(dl, &dl->db);
-    BOR_FREE(dl);
+    FREE(dl);
 }
 
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
@@ -454,7 +454,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
         if (dl->c_alloc == 0)
             dl->c_alloc = 1;
         dl->c_alloc *= 2;
-        dl->c = BOR_REALLOC_ARR(dl->c, pddl_datalog_const_t, dl->c_alloc);
+        dl->c = REALLOC_ARR(dl->c, pddl_datalog_const_t, dl->c_alloc);
     }
     pddl_datalog_const_t *c = dl->c + dl->c_size;
     bzero(c, sizeof(*c));
@@ -462,7 +462,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
     c->id = IDX_TO_CONST(c->idx);
     c->name = NULL;
     if (name != NULL)
-        c->name = BOR_STRDUP(name);
+        c->name = STRDUP(name);
     c->user_id = -1;
     dl->dirty = 1;
     return c->id;
@@ -474,7 +474,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
         if (dl->pred_alloc == 0)
             dl->pred_alloc = 1;
         dl->pred_alloc *= 2;
-        dl->pred = BOR_REALLOC_ARR(dl->pred, pddl_datalog_pred_t,
+        dl->pred = REALLOC_ARR(dl->pred, pddl_datalog_pred_t,
                                    dl->pred_alloc);
     }
     pddl_datalog_pred_t *p = dl->pred + dl->pred_size;
@@ -484,7 +484,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
     p->arity = arity;
     p->name = NULL;
     if (name != NULL)
-        p->name = BOR_STRDUP(name);
+        p->name = STRDUP(name);
     p->user_id = -1;
     dl->max_pred_arity = BOR_MAX(dl->max_pred_arity, arity);
     dl->dirty = 1;
@@ -497,7 +497,7 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
         if (dl->var_alloc == 0)
             dl->var_alloc = 1;
         dl->var_alloc *= 2;
-        dl->var = BOR_REALLOC_ARR(dl->var, pddl_datalog_var_t, dl->var_alloc);
+        dl->var = REALLOC_ARR(dl->var, pddl_datalog_var_t, dl->var_alloc);
     }
     pddl_datalog_var_t *v = dl->var + dl->var_size;
     bzero(v, sizeof(*v));
@@ -505,7 +505,7 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
     v->id = IDX_TO_VAR(v->idx);
     v->name = NULL;
     if (name != NULL)
-        v->name = BOR_STRDUP(name);
+        v->name = STRDUP(name);
     dl->dirty = 1;
     return v->id;
 }
@@ -525,7 +525,7 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
         if (dl->rule_alloc == 0)
             dl->rule_alloc = 1;
         dl->rule_alloc *= 2;
-        dl->rule = BOR_REALLOC_ARR(dl->rule, pddl_datalog_rule_t,
+        dl->rule = REALLOC_ARR(dl->rule, pddl_datalog_rule_t,
                                      dl->rule_alloc);
     }
     pddl_datalog_rule_t *rule = dl->rule + dl->rule_size++;
@@ -579,7 +579,7 @@ static void selectBodyAtoms(const pddl_datalog_t *dl,
 {
     BOR_ISET(join_vars);
     int join_cost_size = 3 * rule->body_size * rule->body_size;
-    int *join_cost = BOR_ALLOC_ARR(int, join_cost_size);
+    int *join_cost = ALLOC_ARR(int, join_cost_size);
     for (int a1i = 0; a1i < rule->body_size; ++a1i){
         const pddl_datalog_atom_t *atom1 = rule->body + a1i;
         for (int a2i = a1i + 1; a2i < rule->body_size; ++a2i){
@@ -601,7 +601,7 @@ static void selectBodyAtoms(const pddl_datalog_t *dl,
         }
     }
 
-    BOR_FREE(join_cost);
+    FREE(join_cost);
     borISetFree(&join_vars);
 }
 
@@ -941,7 +941,7 @@ void pddlDatalogAtomInit(pddl_datalog_t *dl,
     bzero(atom, sizeof(*atom));
     int p = TO_IDX(pred);
     atom->pred = p;
-    atom->arg = BOR_CALLOC_ARR(unsigned, dl->pred[p].arity);
+    atom->arg = CALLOC_ARR(unsigned, dl->pred[p].arity);
 }
 
 void pddlDatalogAtomCopy(pddl_datalog_t *dl,
@@ -950,14 +950,14 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
 {
     bzero(dst, sizeof(*dst));
     dst->pred = src->pred;
-    dst->arg = BOR_CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
+    dst->arg = CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
     memcpy(dst->arg, src->arg, sizeof(unsigned) * dl->pred[dst->pred].arity);
 }
 
 void pddlDatalogAtomFree(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
 {
     if (atom->arg != NULL)
-        BOR_FREE(atom->arg);
+        FREE(atom->arg);
     borISetFree(&atom->var_set);
 }
 
@@ -983,13 +983,13 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
     pddlDatalogAtomCopy(dl, &dst->head, &src->head);
     dst->body_alloc = src->body_alloc;
     dst->body_size = src->body_size;
-    dst->body = BOR_ALLOC_ARR(pddl_datalog_atom_t, dst->body_alloc);
+    dst->body = ALLOC_ARR(pddl_datalog_atom_t, dst->body_alloc);
     for (int i = 0; i < dst->body_size; ++i)
         pddlDatalogAtomCopy(dl, dst->body + i, src->body + i);
 
     dst->neg_body_alloc = src->neg_body_alloc;
     dst->neg_body_size = src->neg_body_size;
-    dst->neg_body = BOR_ALLOC_ARR(pddl_datalog_atom_t, dst->neg_body_alloc);
+    dst->neg_body = ALLOC_ARR(pddl_datalog_atom_t, dst->neg_body_alloc);
     for (int i = 0; i < dst->neg_body_size; ++i)
         pddlDatalogAtomCopy(dl, dst->neg_body + i, src->neg_body + i);
 }
@@ -1000,11 +1000,11 @@ void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
     for (int i = 0; i < rule->body_size; ++i)
         pddlDatalogAtomFree(dl, &rule->body[i]);
     if (rule->body != NULL)
-        BOR_FREE(rule->body);
+        FREE(rule->body);
     for (int i = 0; i < rule->neg_body_size; ++i)
         pddlDatalogAtomFree(dl, &rule->neg_body[i]);
     if (rule->neg_body != NULL)
-        BOR_FREE(rule->neg_body);
+        FREE(rule->neg_body);
     borISetFree(&rule->var_set);
     borISetFree(&rule->common_body_var_set);
 }
@@ -1025,7 +1025,7 @@ void pddlDatalogRuleAddBody(pddl_datalog_t *dl,
         if (rule->body_alloc == 0)
             rule->body_alloc = 1;
         rule->body_alloc *= 2;
-        rule->body = BOR_REALLOC_ARR(rule->body, pddl_datalog_atom_t,
+        rule->body = REALLOC_ARR(rule->body, pddl_datalog_atom_t,
                                      rule->body_alloc);
     }
     pddl_datalog_atom_t *a = rule->body + rule->body_size++;
@@ -1040,7 +1040,7 @@ void pddlDatalogRuleAddNegStaticBody(pddl_datalog_t *dl,
         if (rule->neg_body_alloc == 0)
             rule->neg_body_alloc = 1;
         rule->neg_body_alloc *= 2;
-        rule->neg_body = BOR_REALLOC_ARR(rule->neg_body, pddl_datalog_atom_t,
+        rule->neg_body = REALLOC_ARR(rule->neg_body, pddl_datalog_atom_t,
                                          rule->neg_body_alloc);
     }
     pddl_datalog_atom_t *a = rule->neg_body + rule->neg_body_size++;

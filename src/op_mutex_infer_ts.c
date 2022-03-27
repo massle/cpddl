@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <unistd.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/timer.h"
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
@@ -46,7 +46,7 @@ static op_mutex_infer_op_t *opAlloc(const pddl_trans_system_t *ts, int num_ops)
 {
     op_mutex_infer_op_t *ops;
 
-    ops = BOR_CALLOC_ARR(op_mutex_infer_op_t, num_ops);
+    ops = CALLOC_ARR(op_mutex_infer_op_t, num_ops);
     for (int ltri = 0; ltri < ts->trans.trans_size; ++ltri){
         const pddl_labeled_transitions_t *ltr = ts->trans.trans + ltri;
         for (int tri = 0; tri < ltr->trans.trans_size; ++tri){
@@ -69,7 +69,7 @@ static void opFree(op_mutex_infer_op_t *ops, int num_ops)
         borISetFree(&ops[o].start);
         borISetFree(&ops[o].end);
     }
-    BOR_FREE(ops);
+    FREE(ops);
 }
 
 static int *reachabilityAlloc(const pddl_trans_system_t *ts)
@@ -77,9 +77,9 @@ static int *reachabilityAlloc(const pddl_trans_system_t *ts)
     pddl_trans_system_graph_t graph;
     pddlTransSystemGraphInit(&graph, ts);
 
-    bor_iset_t *reach_state = BOR_CALLOC_ARR(bor_iset_t, ts->num_states);
+    bor_iset_t *reach_state = CALLOC_ARR(bor_iset_t, ts->num_states);
     pddlTransSystemGraphFwReachability(&graph, reach_state, 1);
-    int *reach = BOR_CALLOC_ARR(int, ts->num_states * ts->num_states);
+    int *reach = CALLOC_ARR(int, ts->num_states * ts->num_states);
     for (int s = 0; s < ts->num_states; ++s){
         int from;
         BOR_ISET_FOR_EACH(reach_state + s, from){
@@ -89,14 +89,14 @@ static int *reachabilityAlloc(const pddl_trans_system_t *ts)
     pddlTransSystemGraphFree(&graph);
     for (int s = 0; s < ts->num_states; ++s)
         borISetFree(reach_state + s);
-    BOR_FREE(reach_state);
+    FREE(reach_state);
 
     return reach;
 }
 
 static void reachabilityFree(int *reach)
 {
-    BOR_FREE(reach);
+    FREE(reach);
 }
 
 static int isOpMutex(const op_mutex_infer_op_t *ops,
@@ -208,7 +208,7 @@ static int transformTransSystemAndFindOpMutexes(int fd,
 
     // Remove unreachable/dead-end states
     if (prune_dead_labels){
-        int *dist = BOR_ALLOC_ARR(int, graph.num_states);
+        int *dist = ALLOC_ARR(int, graph.num_states);
         pddlTransSystemGraphFwDist(&graph, dist);
         for (int i = 0; i < graph.num_states; ++i){
             if (dist[i] < 0)
@@ -219,7 +219,7 @@ static int transformTransSystemAndFindOpMutexes(int fd,
             if (dist[i] < 0)
                 pddlTransSystemAbstrMapPruneState(&map, i);
         }
-        BOR_FREE(dist);
+        FREE(dist);
     }
 
     // Condense strongly connected components

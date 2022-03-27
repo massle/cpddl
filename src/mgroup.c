@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include <boruvka/lp.h>
 #include "pddl/pddl_struct.h"
@@ -75,7 +75,7 @@ static void predTNodeFree(pred_tnode_t *tnode)
     for (int i = 0; i < tnode->child_size; ++i)
         predTNodeFree(tnode->child + i);
     if (tnode->child != NULL)
-        BOR_FREE(tnode->child);
+        FREE(tnode->child);
     borISetFree(&tnode->fact);
 }
 
@@ -136,7 +136,7 @@ static void predTreeInit(pred_tree_t *tree,
 {
     bzero(tree, sizeof(*tree));
     tree->arg_size = atom->arg_size;
-    tree->arg = BOR_ALLOC_ARR(int, atom->arg_size);
+    tree->arg = ALLOC_ARR(int, atom->arg_size);
 
     for (int i = 0; i < tree->arg_size; ++i)
         tree->arg[i] = i;
@@ -153,7 +153,7 @@ static void predTreeInit(pred_tree_t *tree,
     }
     tree->arg_size = arg_size;
 
-    tree->param = BOR_ALLOC_ARR(int, tree->arg_size);
+    tree->param = ALLOC_ARR(int, tree->arg_size);
     for (int i = 0; i < tree->arg_size; ++i){
         tree->param[i] = atom->arg[tree->arg[i]].param;
     }
@@ -164,9 +164,9 @@ static void predTreeInit(pred_tree_t *tree,
 static void predTreeFree(pred_tree_t *tree)
 {
     if (tree->arg != NULL)
-        BOR_FREE(tree->arg);
+        FREE(tree->arg);
     if (tree->param != NULL)
-        BOR_FREE(tree->param);
+        FREE(tree->param);
     predTNodeFree(&tree->root);
 }
 
@@ -191,7 +191,7 @@ static void _predTreeAdd(pred_tree_t *tree,
             if (tnode->child_alloc == 0)
                 tnode->child_alloc = 2;
             tnode->child_alloc *= 2;
-            tnode->child = BOR_REALLOC_ARR(tnode->child, pred_tnode_t,
+            tnode->child = REALLOC_ARR(tnode->child, pred_tnode_t,
                                            tnode->child_alloc);
         }
 
@@ -433,7 +433,7 @@ void pddlMGroupsFree(pddl_mgroups_t *mg)
         pddlMGroupFree(m);
     }
     if (mg->mgroup != NULL)
-        BOR_FREE(mg->mgroup);
+        FREE(mg->mgroup);
 }
 
 
@@ -443,7 +443,7 @@ pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const bor_iset_t *fact)
         if (mg->mgroup_alloc == 0)
             mg->mgroup_alloc = 2;
         mg->mgroup_alloc *= 2;
-        mg->mgroup = BOR_REALLOC_ARR(mg->mgroup, pddl_mgroup_t,
+        mg->mgroup = REALLOC_ARR(mg->mgroup, pddl_mgroup_t,
                                      mg->mgroup_alloc);
     }
 
@@ -617,7 +617,7 @@ void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts)
         }
     }
 
-    int *remap = BOR_CALLOC_ARR(int, max_fact_id + 1);
+    int *remap = CALLOC_ARR(int, max_fact_id + 1);
     pddlFactsDelFactsGenRemap(max_fact_id + 1, rm_facts, remap);
 
     int ins = 0;
@@ -634,7 +634,7 @@ void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts)
     pddlMGroupsSortUniq(mgs);
 
     if (remap != NULL)
-        BOR_FREE(remap);
+        FREE(remap);
 }
 
 void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const bor_iset_t *rm)
@@ -760,7 +760,7 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     borISetFree(&covered_facts);
 
     double val, *obj;
-    obj = BOR_ALLOC_ARR(double, cols);
+    obj = ALLOC_ARR(double, cols);
     if (borLPSolve(lp, &val, obj) == 0){
         for (int i = fact_size; i < cols; ++i){
             if (obj[i] > 0.5)
@@ -771,7 +771,7 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
         return -1;
     }
 
-    BOR_FREE(obj);
+    FREE(obj);
     borLPDel(lp);
 
     return cover_number;
@@ -793,7 +793,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
     int fact_alloc = 128;
     int *fact_mgroups;
 
-    fact_mgroups = BOR_CALLOC_ARR(int, fact_alloc);
+    fact_mgroups = CALLOC_ARR(int, fact_alloc);
     for (int i = 0; i < mgroup->mgroup_size; ++i){
         int fact;
         BOR_ISET_FOR_EACH(&mgroup->mgroup[i].mgroup, fact){
@@ -801,7 +801,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
                 int orig_alloc = fact_alloc;
                 while (fact >= fact_alloc)
                     fact_alloc *= 2;
-                fact_mgroups = BOR_REALLOC_ARR(fact_mgroups, int, fact_alloc);
+                fact_mgroups = REALLOC_ARR(fact_mgroups, int, fact_alloc);
                 bzero(fact_mgroups + orig_alloc,
                       sizeof(int) * (fact_alloc - orig_alloc));
             }
@@ -816,7 +816,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
             borISetAdd(ess, fact_id);
     }
 
-    BOR_FREE(fact_mgroups);
+    FREE(fact_mgroups);
 }
 
 void pddlMGroupsExtractCoverLargest(const pddl_mgroups_t *_mgs,

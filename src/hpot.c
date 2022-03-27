@@ -24,6 +24,7 @@
 #include "pddl/heur.h"
 #include "pddl/set.h"
 #include "_heur.h"
+#include "alloc.h"
 #include "assert.h"
 #include "log.h"
 
@@ -127,9 +128,9 @@ static void addFunc2(pddl_hpot_t *hpot, const double *p)
         if (hpot->pot_alloc == 0)
             hpot->pot_alloc = 2;
         hpot->pot_alloc *= 2;
-        hpot->pot = BOR_REALLOC_ARR(hpot->pot, double *, hpot->pot_alloc);
+        hpot->pot = REALLOC_ARR(hpot->pot, double *, hpot->pot_alloc);
         for (int i = old_size; i < hpot->pot_alloc; ++i)
-            hpot->pot[i] = BOR_ALLOC_ARR(double, hpot->var_size);
+            hpot->pot[i] = ALLOC_ARR(double, hpot->var_size);
     }
     double *dst = hpot->pot[hpot->pot_size++];
     memcpy(dst, p, sizeof(double) * hpot->var_size);
@@ -294,7 +295,7 @@ static void stateSamplerInit(state_sampler_t *s,
 {
     bzero(s, sizeof(*s));
     s->fdr = fdr;
-    s->state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    s->state = ALLOC_ARR(int, fdr->var.var_size);
     if (cfg->samples_random_walk){
         s->type = STATE_SAMPLER_RANDOM_WALK;
         //pddlRandomWalkInit(&s->random_walk, fdr, NULL);
@@ -339,7 +340,7 @@ static void stateSamplerFree(state_sampler_t *s)
     if (s->type == STATE_SAMPLER_RANDOM_WALK)
         pddlRandomWalkFree(&s->random_walk);
     if (s->state != NULL)
-        BOR_FREE(s->state);
+        FREE(s->state);
     if (s->rnd != NULL)
         borRandMTDel(s->rnd);
 }
@@ -410,7 +411,7 @@ static void setObjAllStatesMutex1(pddl_pot_t *pot,
                                   const pddl_mgroups_t *mgs,
                                   const pddl_mutex_pairs_t *mutex)
 {
-    double *coef = BOR_CALLOC_ARR(double, pot->var_size);
+    double *coef = CALLOC_ARR(double, pot->var_size);
     BOR_ISET(fixed);
 
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi){
@@ -434,7 +435,7 @@ static void setObjAllStatesMutex1(pddl_pot_t *pot,
 
     borISetFree(&fixed);
     if (coef != NULL)
-        BOR_FREE(coef);
+        FREE(coef);
 }
 
 static void setObjAllStatesMutex2(pddl_pot_t *pot,
@@ -442,7 +443,7 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
                                   int fact_size,
                                   const pddl_mutex_pairs_t *mutex)
 {
-    double *coef = BOR_CALLOC_ARR(double, pot->var_size);
+    double *coef = CALLOC_ARR(double, pot->var_size);
     BOR_ISET(fixed);
 
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi){
@@ -474,7 +475,7 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
 
     borISetFree(&fixed);
     if (coef != NULL)
-        BOR_FREE(coef);
+        FREE(coef);
 }
 
 
@@ -616,7 +617,7 @@ static int samples(pddl_pot_solutions_t *sols,
     stateSamplerInit(&sampler, cfg, fdr, mutex, pot, err);
 
     int num_states = 0;
-    double *coef = BOR_CALLOC_ARR(double, pot->var_size);
+    double *coef = CALLOC_ARR(double, pot->var_size);
     for (int si = 0; si < cfg->num_samples; ++si){
         stateSamplerSample(&sampler, err);
         if (cfg->obj == PDDL_HPOT_OBJ_SAMPLES_MAX){
@@ -663,7 +664,7 @@ static int samples(pddl_pot_solutions_t *sols,
     }
 
     if (coef != NULL)
-        BOR_FREE(coef);
+        FREE(coef);
     stateSamplerFree(&sampler);
 
     if (num_states == 0){
@@ -700,10 +701,10 @@ static void diverseInit(diverse_pot_t *div,
                         const pddl_fdr_t *fdr,
                         int num_samples)
 {
-    div->coef = BOR_ALLOC_ARR(double, pot->var_size);
+    div->coef = ALLOC_ARR(double, pot->var_size);
     pddlPotSolutionsInit(&div->func);
     pddlPotSolutionInit(&div->avg_func);
-    div->state_est = BOR_CALLOC_ARR(int, num_samples);
+    div->state_est = CALLOC_ARR(int, num_samples);
     pddlSetISetInit(&div->states);
     div->active_states = 0;
     //div->rnd = borRandMTNewAuto();
@@ -715,10 +716,10 @@ static void diverseFree(diverse_pot_t *div,
                         const pddl_fdr_t *fdr,
                         int num_samples)
 {
-    BOR_FREE(div->coef);
+    FREE(div->coef);
     pddlPotSolutionsFree(&div->func);
     pddlPotSolutionFree(&div->avg_func);
-    BOR_FREE(div->state_est);
+    FREE(div->state_est);
     pddlSetISetFree(&div->states);
     borRandMTDel(div->rnd);
 }
@@ -826,7 +827,7 @@ static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,
     if (diverseAvg(div, pot, err) != 0)
         return NULL;
 
-    int *fdr_state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    int *fdr_state = ALLOC_ARR(int, fdr->var.var_size);
     const bor_iset_t *state;
     PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, si, state){
         if (div->state_est[si] < 0)
@@ -836,7 +837,7 @@ static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,
         int hest;
         hest = pddlPotSolutionEvalFDRState(&div->avg_func, &fdr->var, fdr_state);
         if (hest == div->state_est[si]){
-            BOR_FREE(fdr_state);
+            FREE(fdr_state);
             return &div->avg_func;
         }
     }
@@ -846,7 +847,7 @@ static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,
         if (div->state_est[si] < 0)
             continue;
         if (sid-- == 0){
-            BOR_FREE(fdr_state);
+            FREE(fdr_state);
             return div->func.sol + si;
         }
     }
@@ -859,7 +860,7 @@ static void diverseFilterOutStates(diverse_pot_t *div,
                                    const pddl_pot_solution_t *func,
                                    bor_err_t *err)
 {
-    int *fdr_state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    int *fdr_state = ALLOC_ARR(int, fdr->var.var_size);
     const bor_iset_t *state;
     PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, si, state){
         if (div->state_est[si] < 0)
@@ -871,7 +872,7 @@ static void diverseFilterOutStates(diverse_pot_t *div,
             --div->active_states;
         }
     }
-    BOR_FREE(fdr_state);
+    FREE(fdr_state);
 }
 
 static int diverse(pddl_pot_solutions_t *sols,
@@ -1045,7 +1046,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_pot_t *h = bor_container_of(_h, pddl_heur_pot_t, heur);
     _pddlHeurFree(&h->heur);
     pddlPotSolutionsFree(&h->sols);
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int heurEstimate(pddl_heur_t *_h,
@@ -1061,7 +1062,7 @@ pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
                          const pddl_hpot_config_t *cfg,
                          bor_err_t *err)
 {
-    pddl_heur_pot_t *h = BOR_ALLOC(pddl_heur_pot_t);
+    pddl_heur_pot_t *h = ALLOC(pddl_heur_pot_t);
     pddlPotSolutionsInit(&h->sols);
     h->vars = &fdr->var;
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);

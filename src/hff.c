@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/cost.h"
 #include "pddl/hff.h"
@@ -47,13 +47,13 @@ void pddlHFFInit(pddl_hff_t *h, const pddl_fdr_t *fdr)
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     h->fact_size = fdr->var.global_id_size + 2;
-    h->fact = BOR_CALLOC_ARR(pddl_hff_fact_t, h->fact_size);
+    h->fact = CALLOC_ARR(pddl_hff_fact_t, h->fact_size);
     h->fact_goal = h->fact_size - 2;
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     h->op_size = fdr->op.op_size + 1;
-    h->op = BOR_CALLOC_ARR(pddl_hff_op_t, h->op_size);
+    h->op = CALLOC_ARR(pddl_hff_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
@@ -101,13 +101,13 @@ void pddlHFFInitStrips(pddl_hff_t *h, const pddl_strips_t *strips)
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     h->fact_size = strips->fact.fact_size + 2;
-    h->fact = BOR_CALLOC_ARR(pddl_hff_fact_t, h->fact_size);
+    h->fact = CALLOC_ARR(pddl_hff_fact_t, h->fact_size);
     h->fact_goal = h->fact_size - 2;
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     h->op_size = strips->op.op_size + 1;
-    h->op = BOR_CALLOC_ARR(pddl_hff_op_t, h->op_size);
+    h->op = CALLOC_ARR(pddl_hff_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -153,14 +153,14 @@ void pddlHFFFree(pddl_hff_t *hff)
         borISetFree(&hff->fact[i].eff_op);
     }
     if (hff->fact != NULL)
-        BOR_FREE(hff->fact);
+        FREE(hff->fact);
 
     for (int i = 0; i < hff->op_size; ++i){
         borISetFree(&hff->op[i].pre);
         borISetFree(&hff->op[i].eff);
     }
     if (hff->op != NULL)
-        BOR_FREE(hff->op);
+        FREE(hff->op);
 }
 
 static void initFacts(pddl_hff_t *h)
@@ -292,7 +292,7 @@ static int cmpExtractPlan(const void *a, const void *b, void *u)
 
 static void extractPlan(const pddl_hff_t *h, bor_iarr_t *plan)
 {
-    int *ops = BOR_ALLOC_ARR(int, h->op_size);
+    int *ops = ALLOC_ARR(int, h->op_size);
     for (int i = 0; i < h->op_size; ++i)
         ops[i] = i;
     borSort(ops, h->op_size, sizeof(int), cmpExtractPlan, (void *)h);
@@ -302,7 +302,7 @@ static void extractPlan(const pddl_hff_t *h, bor_iarr_t *plan)
         if (ops[i] != h->op_goal)
             borIArrAdd(plan, ops[i]);
     }
-    BOR_FREE(ops);
+    FREE(ops);
 }
 
 static int hff(pddl_hff_t *h, const bor_iset_t *state)

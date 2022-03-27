@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/type.h"
 #include "pddl/obj.h"
@@ -34,7 +34,7 @@ static void pddlTypeInit(pddl_type_t *t)
 static void pddlTypeFree(pddl_type_t *t)
 {
     if (t->name != NULL)
-        BOR_FREE(t->name);
+        FREE(t->name);
     borISetFree(&t->child);
     borISetFree(&t->either);
     pddlObjSetFree(&t->obj);
@@ -43,7 +43,7 @@ static void pddlTypeFree(pddl_type_t *t)
 static void pddlTypeInitCopy(pddl_type_t *dst, const pddl_type_t *src)
 {
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
     dst->parent = src->parent;
     borISetUnion(&dst->child, &src->child);
     borISetUnion(&dst->either, &src->either);
@@ -73,14 +73,14 @@ int pddlTypesAdd(pddl_types_t *t, const char *name, int parent)
         if (t->type_alloc == 0)
             t->type_alloc = 2;
         t->type_alloc *= 2;
-        t->type = BOR_REALLOC_ARR(t->type, pddl_type_t, t->type_alloc);
+        t->type = REALLOC_ARR(t->type, pddl_type_t, t->type_alloc);
     }
 
     id = t->type_size++;
     pddl_type_t *type = t->type + id;
     pddlTypeInit(type);
     if (name != NULL)
-        type->name = BOR_STRDUP(name);
+        type->name = STRDUP(name);
     type->parent = parent;
     if (parent >= 0)
         borISetAdd(&t->type[parent].child, id);
@@ -141,13 +141,13 @@ void pddlTypesInitCopy(pddl_types_t *dst, const pddl_types_t *src)
     bzero(dst, sizeof(*dst));
     dst->type_size = src->type_size;
     dst->type_alloc = src->type_alloc;
-    dst->type = BOR_CALLOC_ARR(pddl_type_t, dst->type_alloc);
+    dst->type = CALLOC_ARR(pddl_type_t, dst->type_alloc);
     for (int i = 0; i < dst->type_size; ++i)
         pddlTypeInitCopy(dst->type + i, src->type + i);
 
     if (src->obj_type_map != NULL){
         dst->obj_type_map_memsize = src->obj_type_map_memsize;
-        dst->obj_type_map = BOR_ALLOC_ARR(char, dst->obj_type_map_memsize);
+        dst->obj_type_map = ALLOC_ARR(char, dst->obj_type_map_memsize);
         memcpy(dst->obj_type_map, src->obj_type_map, dst->obj_type_map_memsize);
     }
 }
@@ -157,10 +157,10 @@ void pddlTypesFree(pddl_types_t *types)
     for (int i = 0; i < types->type_size; ++i)
         pddlTypeFree(types->type + i);
     if (types->type != NULL)
-        BOR_FREE(types->type);
+        FREE(types->type);
 
     if (types->obj_type_map != NULL)
-        BOR_FREE(types->obj_type_map);
+        FREE(types->obj_type_map);
 }
 
 void pddlTypesPrint(const pddl_types_t *t, FILE *fout)
@@ -198,8 +198,8 @@ void pddlTypesAddObj(pddl_types_t *ts, pddl_obj_id_t obj_id, int type_id)
 void pddlTypesBuildObjTypeMap(pddl_types_t *ts, int obj_size)
 {
     if (ts->obj_type_map != NULL)
-        BOR_FREE(ts->obj_type_map);
-    ts->obj_type_map = BOR_CALLOC_ARR(char, obj_size * ts->type_size);
+        FREE(ts->obj_type_map);
+    ts->obj_type_map = CALLOC_ARR(char, obj_size * ts->type_size);
     ts->obj_type_map_memsize = obj_size * ts->type_size;
     for (int type_id = 0; type_id < ts->type_size; ++type_id){
         const pddl_objset_t *tobj = &ts->type[type_id].obj;
@@ -266,7 +266,7 @@ static int pddlTypesEither(pddl_types_t *ts, const bor_iset_t *either)
     BOR_ISET_FOR_EACH(either, eid)
         slen += 1 + strlen(ts->type[eid].name);
     slen += 2 + 6 + 1;
-    name = cur = BOR_ALLOC_ARR(char, slen);
+    name = cur = ALLOC_ARR(char, slen);
     cur += sprintf(cur, "(either");
     BOR_ISET_FOR_EACH(either, eid)
         cur += sprintf(cur, " %s", ts->type[eid].name);
@@ -274,7 +274,7 @@ static int pddlTypesEither(pddl_types_t *ts, const bor_iset_t *either)
 
     tid = pddlTypesAdd(ts, name, -1);
     if (name != NULL)
-        BOR_FREE(name);
+        FREE(name);
     pddl_type_t *type = ts->type + tid;
     borISetUnion(&type->child, either);
     borISetUnion(&type->either, either);

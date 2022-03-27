@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <pddl/timer.h>
 #include "pddl/strips.h"
 #include "pddl/critical_path.h"
@@ -151,8 +151,8 @@ static void h2Init(h2_t *h2,
     bzero(h2, sizeof(*h2));
     h2->fact_size = strips->fact.fact_size;
     h2->op_size = strips->op.op_size;
-    h2->fact = BOR_CALLOC_ARR(char, (size_t)h2->fact_size * h2->fact_size);
-    h2->op = BOR_CALLOC_ARR(char, h2->op_size);
+    h2->fact = CALLOC_ARR(char, (size_t)h2->fact_size * h2->fact_size);
+    h2->op = CALLOC_ARR(char, h2->op_size);
 
     // Copy mutexes into the table
     PDDL_MUTEX_PAIRS_FOR_EACH(mutexes, f1, f2){
@@ -225,9 +225,9 @@ static void h2ResetOpFact(h2_t *h2, const pddl_strips_ops_t *ops)
 static void h2Free(h2_t *h2)
 {
     if (h2->fact != NULL)
-        BOR_FREE(h2->fact);
+        FREE(h2->fact);
     if (h2->op != NULL)
-        BOR_FREE(h2->op);
+        FREE(h2->op);
     if (h2->op_fact != NULL)
         free(h2->op_fact);
 }

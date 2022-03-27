@@ -23,6 +23,7 @@
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"
 #include "pddl/mg_strips.h"
+#include "alloc.h"
 
 #define IRRELEVANCE 1
 
@@ -71,7 +72,7 @@ static void applyPruneStrips(ctx_t *c)
 static prune_strips_t *addPruneStrips(pddl_prune_strips_t *p,
                                       int (*fn)(prune_strips_t *p, ctx_t *ctx))
 {
-    prune_strips_t *prune = BOR_ALLOC(prune_strips_t);
+    prune_strips_t *prune = ALLOC(prune_strips_t);
     prune->prune = fn;
     borListInit(&prune->conn);
     borListAppend(&p->prune, &prune->conn);
@@ -92,7 +93,7 @@ void pddlPruneStripsFree(pddl_prune_strips_t *prune)
         bor_list_t *item = borListNext(&prune->prune);
         borListDel(item);
         prune_strips_t *p = BOR_LIST_ENTRY(item, prune_strips_t, conn);
-        BOR_FREE(p);
+        FREE(p);
     }
 
     pddlMGroupsFree(&prune->mgroup);

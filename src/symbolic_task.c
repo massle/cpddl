@@ -19,7 +19,7 @@
 
 #include "pddl/config.h"
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
@@ -151,7 +151,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     BOR_INFO(err, "Sum of potentials for the initial state: %.4f",
              pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
     init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
-    *op_pot = BOR_CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
+    *op_pot = CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
     for (int i = 0; i < sol->op_pot_size && i < fdr->op.op_size; ++i){
         double change = sol->op_pot[i];
         change = floor(change);
@@ -236,7 +236,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
                               err);
     BOR_INFO2(err, "Transitions created.");
     if (op_pot != NULL)
-        BOR_FREE(op_pot);
+        FREE(op_pot);
 
     pddlSymbolicStatesInit(&search->state, ss->mgr,
                            search->cfg.use_pot_heur_inconsistent, err);
@@ -302,14 +302,14 @@ static pddl_bdd_t *bddStateSelectOne(pddl_symbolic_task_t *ss,
                                  bor_iset_t *state)
 {
     borISetEmpty(state);
-    char *cube = BOR_ALLOC_ARR(char, ss->vars.bdd_var_size);
+    char *cube = ALLOC_ARR(char, ss->vars.bdd_var_size);
     pddlBDDPickOneCube(ss->mgr, bdd, cube);
     for (int gi = 0; gi < ss->vars.group_size; ++gi){
         int fact_id = pddlSymbolicVarsFactFromBDDCube(&ss->vars, gi, cube);
         ASSERT(fact_id >= 0);
         borISetAdd(state, fact_id);
     }
-    BOR_FREE(cube);
+    FREE(cube);
     return pddlSymbolicVarsCreateState(&ss->vars, state);
 }
 
@@ -356,8 +356,8 @@ static void planInit(pddl_symbolic_task_t *ss,
     bzero(plan, sizeof(*plan));
 
     int alloc = 2;
-    plan->state = BOR_CALLOC_ARR(bor_iset_t, alloc + 1);
-    plan->tr_op = BOR_CALLOC_ARR(bor_iset_t *, alloc);
+    plan->state = CALLOC_ARR(bor_iset_t, alloc + 1);
+    plan->tr_op = CALLOC_ARR(bor_iset_t *, alloc);
 
     // Backtrack from the goal_state and extract one particular state at
     // each step.
@@ -374,10 +374,10 @@ static void planInit(pddl_symbolic_task_t *ss,
         if (idx == alloc){
             int old_alloc = alloc;
             alloc *= 2;
-            plan->state = BOR_REALLOC_ARR(plan->state, bor_iset_t, alloc + 1);
+            plan->state = REALLOC_ARR(plan->state, bor_iset_t, alloc + 1);
             bzero(plan->state + old_alloc + 1,
                   sizeof(bor_iset_t) * (alloc - old_alloc));
-            plan->tr_op = BOR_REALLOC_ARR(plan->tr_op, bor_iset_t *, alloc);
+            plan->tr_op = REALLOC_ARR(plan->tr_op, bor_iset_t *, alloc);
         }
 
         plan->tr_op[idx] = &search->trans.trans[state->trans_id].op;
@@ -416,8 +416,8 @@ static void planFree(plan_t *plan)
 {
     for (int i = 0; i < plan->plan_len + 1; ++i)
         borISetFree(plan->state + i);
-    BOR_FREE(plan->state);
-    BOR_FREE(plan->tr_op);
+    FREE(plan->state);
+    FREE(plan->tr_op);
 }
 
 static void planReverse(plan_t *plan)
@@ -890,7 +890,7 @@ static double orderOptimize(int iterations,
 
 static void orderRandomize(int *order, int size, bor_rand_t *rnd)
 {
-    int *order2 = BOR_ALLOC_ARR(int, size);
+    int *order2 = ALLOC_ARR(int, size);
     for (int i = 0; i < size; ++i)
         order2[i] = -1;
     for (int num = 0; num < size; ++num){
@@ -903,7 +903,7 @@ static void orderRandomize(int *order, int size, bor_rand_t *rnd)
         }
     }
     memcpy(order, order2, sizeof(int) * size);
-    BOR_FREE(order2);
+    FREE(order2);
 }
 
 static void orderCompute(int *order,
@@ -921,7 +921,7 @@ static void orderCompute(int *order,
         BOR_SWAP(order[i], order[size - i - 1], tmp);
     }
 
-    int *influence = BOR_CALLOC_ARR(int, size * size);
+    int *influence = CALLOC_ARR(int, size * size);
     for (int f = 0; f < size; ++f){
         const pddl_cg_node_t *node = cg->node + f;
         for (int i = 0; i < node->fw_size; ++i){
@@ -932,7 +932,7 @@ static void orderCompute(int *order,
         }
     }
 
-    int *order2 = BOR_ALLOC_ARR(int, size);
+    int *order2 = ALLOC_ARR(int, size);
     memcpy(order2, order, sizeof(int) * size);
     double cost = orderOptimize(50000, order2, influence, size, &rnd);
     memcpy(order, order2, sizeof(int) * size);
@@ -948,8 +948,8 @@ static void orderCompute(int *order,
             BOR_INFO(err, "New order cost: %.2f", cost);
         }
     }
-    BOR_FREE(order2);
-    BOR_FREE(influence);
+    FREE(order2);
+    FREE(influence);
 }
 
 static void prepareTask(pddl_symbolic_task_t *ss,
@@ -960,7 +960,7 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     pddlFDRInitCopy(&ss->fdr, fdr);
     pddlMGStripsInitFDR(&ss->mg_strips, fdr);
 
-    int *var_order = BOR_ALLOC_ARR(int, fdr->var.var_size + 1);
+    int *var_order = ALLOC_ARR(int, fdr->var.var_size + 1);
     pddl_cg_t cg;
     pddlCGInit(&cg, &fdr->var, &fdr->op, 1);
     pddlCGVarOrdering(&cg, &fdr->goal, var_order);
@@ -980,7 +980,7 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     }
 #endif /* PDDL_DEBUG */
 
-    BOR_FREE(var_order);
+    FREE(var_order);
 }
 
 static void initConstr(pddl_symbolic_task_t *ss,
@@ -1069,7 +1069,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     pddl_symbolic_task_t *ss;
     BOR_INFO2(err, "Constructing symbolic task.");
 
-    ss = BOR_ALLOC(pddl_symbolic_task_t);
+    ss = ALLOC(pddl_symbolic_task_t);
     bzero(ss, sizeof(*ss));
     ss->cfg = *cfg;
     fixConfig(&ss->cfg);
@@ -1158,7 +1158,7 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
         searchFree(ss, &ss->search_bw);
     if (ss->mgr != NULL)
         pddlBDDManagerDel(ss->mgr);
-    BOR_FREE(ss);
+    FREE(ss);
 }
 
 int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task)
@@ -1490,8 +1490,8 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
                               int plan_size)
 {
     int res = 1;
-    pddl_bdd_t **fw_node = BOR_ALLOC_ARR(pddl_bdd_t *, plan_size + 1);
-    pddl_bdd_t **bw_node = BOR_ALLOC_ARR(pddl_bdd_t *, plan_size + 1);
+    pddl_bdd_t **fw_node = ALLOC_ARR(pddl_bdd_t *, plan_size + 1);
+    pddl_bdd_t **bw_node = ALLOC_ARR(pddl_bdd_t *, plan_size + 1);
     fw_node[0] = pddlBDDClone(ss->mgr, ss->init);
     bw_node[plan_size] = pddlBDDClone(ss->mgr, ss->goal);
     pddl_bdd_t *fw_closed = pddlBDDClone(ss->mgr, fw_node[0]);
@@ -1592,8 +1592,8 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
         pddlBDDDel(ss->mgr, fw_node[fi]);
         pddlBDDDel(ss->mgr, bw_node[fi]);
     }
-    BOR_FREE(fw_node);
-    BOR_FREE(bw_node);
+    FREE(fw_node);
+    FREE(bw_node);
 
     return res;
 }

@@ -18,6 +18,7 @@
 
 #include "pddl/pddl.h"
 #include "pddl/strips_ground_tree.h"
+#include "alloc.h"
 #include "assert.h"
 
 #define TNODE_FOR_EACH_CHILD(TN, CH) \
@@ -31,7 +32,7 @@ static pddl_strips_ground_tnode_t *tnodeNew(pddl_strips_ground_tree_t *t,
 {
     pddl_strips_ground_tnode_t *n;
 
-    n = BOR_ALLOC(pddl_strips_ground_tnode_t);
+    n = ALLOC(pddl_strips_ground_tnode_t);
     bzero(n, sizeof(*n));
     n->param = param;
     n->obj_id = obj_id;
@@ -46,8 +47,8 @@ static void tnodeDel(pddl_strips_ground_tnode_t *t)
     TNODE_FOR_EACH_CHILD(t, ch)
         tnodeDel(ch);
     if (t->child != NULL)
-        BOR_FREE(t->child);
-    BOR_FREE(t);
+        FREE(t->child);
+    FREE(t);
 }
 
 static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
@@ -57,7 +58,7 @@ static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
         if (n->child_alloc == 0)
             n->child_alloc = 1;
         n->child_alloc *= 2;
-        n->child = BOR_REALLOC_ARR(n->child, pddl_strips_ground_tnode_t *,
+        n->child = REALLOC_ARR(n->child, pddl_strips_ground_tnode_t *,
                                    n->child_alloc);
     }
 }
@@ -381,7 +382,7 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
     tr->action = a;
     borISetUnion(&tr->param, params);
 
-    tr->pred_to_pre = BOR_CALLOC_ARR(bor_iset_t, pddl->pred.pred_size);
+    tr->pred_to_pre = CALLOC_ARR(bor_iset_t, pddl->pred.pred_size);
     for (int i = 0; i < a->pre.size; ++i){
         const pddl_cond_atom_t *atom;
         atom = PDDL_COND_CAST(tr->action->pre.cond[i], atom);
@@ -414,7 +415,7 @@ void pddlStripsGroundTreeFree(pddl_strips_ground_tree_t *tr)
         tnodeDel(tr->root);
     pddlActionArgsFree(&tr->args);
     if (tr->pred_to_pre != NULL)
-        BOR_FREE(tr->pred_to_pre);
+        FREE(tr->pred_to_pre);
 }
 
 void pddlStripsGroundTreeUnifyFact(pddl_strips_ground_tree_t *tr,

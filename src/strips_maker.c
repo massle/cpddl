@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include "pddl/strips_maker.h"
 #include "assert.h"
@@ -64,7 +64,7 @@ static int htActionEq(const bor_list_t *k1, const bor_list_t *k2, void *ud)
 void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 {
     sm->action_size = pddl->action.action_size;
-    sm->action_arg_size = BOR_CALLOC_ARR(int, sm->action_size);
+    sm->action_arg_size = CALLOC_ARR(int, sm->action_size);
     for (int ai = 0; ai < sm->action_size; ++ai)
         sm->action_arg_size[ai] = pddl->action.action[ai].param.param_size;
 
@@ -81,14 +81,14 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 void pddlStripsMakerFree(pddl_strips_maker_t *sm)
 {
     if (sm->action_arg_size != NULL)
-        BOR_FREE(sm->action_arg_size);
+        FREE(sm->action_arg_size);
 
     for (int i = 0; i < sm->num_action_args; ++i){
         pddl_ground_action_args_t **ppa;
         ppa = borExtArrGet(sm->action_args_arr, i);
         pddl_ground_action_args_t *ga = *ppa;
         borListDel(&ga->htable);
-        BOR_FREE(ga);
+        FREE(ga);
     }
 
     borHTableDel(sm->action_args);
@@ -196,7 +196,7 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
     int arg_size = sm->action_arg_size[action_id];
     size_t size = sizeof(pddl_ground_action_args_t);
     size += sizeof(pddl_obj_id_t) * arg_size;
-    pddl_ground_action_args_t *ga = BOR_MALLOC(size);
+    pddl_ground_action_args_t *ga = MALLOC(size);
     ga->action_id = action_id;
     ga->action_id2 = action_id2;
     memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
@@ -216,7 +216,7 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
         return ga;
     }
 
-    BOR_FREE(ga);
+    FREE(ga);
     ga = BOR_LIST_ENTRY(ins, pddl_ground_action_args_t, htable);
     return ga;
 }
@@ -289,7 +289,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
         }
     }
 
-    int *ground_atom_to_fact_id = BOR_ALLOC_ARR(int, strips->fact.fact_size);
+    int *ground_atom_to_fact_id = ALLOC_ARR(int, strips->fact.fact_size);
     pddlFactsSort(&strips->fact, ground_atom_to_fact_id);
 #ifdef PDDL_DEBUG
     for (int i = 0; i < sm->ground_atom.atom_size; ++i){
@@ -437,7 +437,7 @@ static char *groundOpName(const pddl_t *pddl,
     for (i = 0; i < action->param.param_size; ++i)
         slen += 1 + strlen(pddl->obj.obj[args[i]].name);
 
-    cur = name = BOR_ALLOC_ARR(char, slen);
+    cur = name = ALLOC_ARR(char, slen);
     cur += sprintf(cur, "%s", action->name);
     for (i = 0; i < action->param.param_size; ++i)
         cur += sprintf(cur, " %s", pddl->obj.obj[args[i]].name);
@@ -570,14 +570,14 @@ static int actionEff(pddl_cond_t *c, void *ud)
                 BOR_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
                          name);
                 if (name != NULL)
-                    BOR_FREE(name);
+                    FREE(name);
                 /* TODO
                 ctx->cond_eff_failed = 1;
                 ctx->failed = 1;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
                 BOR_ERR(ctx->err, "Missing cost for action (%s)", name);
                 if (name != NULL)
-                    BOR_FREE(name);
+                    FREE(name);
                 return -2;
                 */
             }else{
@@ -744,13 +744,13 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
     pddlStripsInit(strips);
     strips->cfg = *cfg;
     if (pddl->domain_name)
-        strips->domain_name = BOR_STRDUP(pddl->domain_name);
+        strips->domain_name = STRDUP(pddl->domain_name);
     if (pddl->problem_name)
-        strips->problem_name = BOR_STRDUP(pddl->problem_name);
+        strips->problem_name = STRDUP(pddl->problem_name);
     if (pddl->domain_lisp->filename)
-        strips->domain_file = BOR_STRDUP(pddl->domain_lisp->filename);
+        strips->domain_file = STRDUP(pddl->domain_lisp->filename);
     if (pddl->problem_lisp->filename)
-        strips->problem_file = BOR_STRDUP(pddl->problem_lisp->filename);
+        strips->problem_file = STRDUP(pddl->problem_lisp->filename);
 
     int *ground_atom_to_fact = NULL;
     if (createStripsFacts(sm, strips, pddl, &ground_atom_to_fact, err) != 0
@@ -761,7 +761,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         BOR_TRACE_RET(err, -1);
     }
     if (ground_atom_to_fact != NULL)
-        BOR_FREE(ground_atom_to_fact);
+        FREE(ground_atom_to_fact);
 
     if (cfg->remove_static_facts)
         pddlStripsRemoveStaticFacts(strips, err);

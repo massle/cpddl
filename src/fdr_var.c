@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
@@ -44,7 +44,7 @@ static void varsMGroupsInit(vars_mgroups_t *vmgs, const pddl_mgroups_t *mgs)
     vmgs->mgroups = mgs;
     vmgs->has_uncovered = 0;
     vmgs->mgroup_size = mgs->mgroup_size;
-    vmgs->mgroup = BOR_CALLOC_ARR(vars_mgroup_t, vmgs->mgroup_size);
+    vmgs->mgroup = CALLOC_ARR(vars_mgroup_t, vmgs->mgroup_size);
     for (int i = 0; i < vmgs->mgroup_size; ++i){
         vmgs->mgroup[i].mgroup = mgs->mgroup + i;
         borISetUnion(&vmgs->mgroup[i].uncovered, &mgs->mgroup[i].mgroup);
@@ -58,7 +58,7 @@ static void varsMGroupsFree(vars_mgroups_t *vmgs)
     for (int i = 0; i < vmgs->mgroup_size; ++i)
         borISetFree(&vmgs->mgroup[i].uncovered);
     if (vmgs->mgroup != NULL)
-        BOR_FREE(vmgs->mgroup);
+        FREE(vmgs->mgroup);
 }
 
 /** Cover the given facts */
@@ -125,7 +125,7 @@ void pddlFDRValInit(pddl_fdr_val_t *val)
 void pddlFDRValFree(pddl_fdr_val_t *val)
 {
     if (val->name != NULL)
-        BOR_FREE(val->name);
+        FREE(val->name);
 }
 
 void pddlFDRVarInit(pddl_fdr_var_t *var)
@@ -138,7 +138,7 @@ void pddlFDRVarFree(pddl_fdr_var_t *var)
     for (int i = 0; i < var->val_size; ++i)
         pddlFDRValFree(var->val + i);
     if (var->val != NULL)
-        BOR_FREE(var->val);
+        FREE(var->val);
 }
 
 /** Find facts that must be encoded as binary because they appear as delete
@@ -163,7 +163,7 @@ static void factsRequiringBinaryEncoding(const pddl_strips_t *strips,
     const pddl_strips_op_t *op;
     int fact_id;
 
-    int *mg_facts = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+    int *mg_facts = CALLOC_ARR(int, strips->fact.fact_size);
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         int fact_id;
         BOR_ISET_FOR_EACH(&mgs->mgroup[mi].mgroup, fact_id)
@@ -192,7 +192,7 @@ static void factsRequiringBinaryEncoding(const pddl_strips_t *strips,
     }
 
     if (mg_facts != NULL)
-        BOR_FREE(mg_facts);
+        FREE(mg_facts);
 }
 
 static int needNoneOfThoseOp(const bor_iset_t *group,
@@ -257,7 +257,7 @@ static void varsInit(vars_t *vars, const pddl_mgroups_t *mgroups)
 {
     bzero(vars, sizeof(*vars));
     vars->var_alloc = 8;
-    vars->var = BOR_CALLOC_ARR(var_t, vars->var_alloc);
+    vars->var = CALLOC_ARR(var_t, vars->var_alloc);
     varsMGroupsInit(&vars->mgroups, mgroups);
 }
 
@@ -266,7 +266,7 @@ static void varsFree(vars_t *vars)
     for (int i = 0; i < vars->var_size; ++i)
         borISetFree(&vars->var[i].fact);
     if (vars->var != NULL)
-        BOR_FREE(vars->var);
+        FREE(vars->var);
     borISetFree(&vars->covered);
     varsMGroupsFree(&vars->mgroups);
 }
@@ -280,7 +280,7 @@ static void varsAdd(vars_t *vars,
 
     if (vars->var_size == vars->var_alloc){
         vars->var_alloc *= 2;
-        vars->var = BOR_REALLOC_ARR(vars->var, var_t, vars->var_alloc);
+        vars->var = REALLOC_ARR(vars->var, var_t, vars->var_alloc);
     }
 
     var = vars->var + vars->var_size++;
@@ -298,7 +298,7 @@ static void findEssentialFacts(const pddl_strips_t *strips,
 {
     int *fact_mgroups;
 
-    fact_mgroups = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+    fact_mgroups = CALLOC_ARR(int, strips->fact.fact_size);
     for (int i = 0; i < mgroup->mgroup_size; ++i){
         int fact;
         BOR_ISET_FOR_EACH(&mgroup->mgroup[i].mgroup, fact)
@@ -310,7 +310,7 @@ static void findEssentialFacts(const pddl_strips_t *strips,
             borISetAdd(essential, fact_id);
     }
 
-    BOR_FREE(fact_mgroups);
+    FREE(fact_mgroups);
 }
 
 static void allocateEssential(vars_t *vars,
@@ -373,7 +373,7 @@ static void allocateUncoveredSingleFacts(vars_t *vars,
 {
     BOR_ISET(var_facts);
 
-    int *covered = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+    int *covered = CALLOC_ARR(int, strips->fact.fact_size);
     int fact_id;
     BOR_ISET_FOR_EACH(&vars->covered, fact_id)
         covered[fact_id] = 1;
@@ -397,7 +397,7 @@ static void allocateUncoveredSingleFacts(vars_t *vars,
     }
 
     if (covered != NULL)
-        BOR_FREE(covered);
+        FREE(covered);
     borISetFree(&var_facts);
 }
 
@@ -443,10 +443,10 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
                        const pddl_strips_t *strips)
 {
     fdr_vars->strips_id_size = strips->fact.fact_size;
-    fdr_vars->strips_id_to_val = BOR_CALLOC_ARR(bor_iset_t,
+    fdr_vars->strips_id_to_val = CALLOC_ARR(bor_iset_t,
                                                 strips->fact.fact_size);
     fdr_vars->var_size = vars->var_size;
-    fdr_vars->var = BOR_CALLOC_ARR(pddl_fdr_var_t, vars->var_size);
+    fdr_vars->var = CALLOC_ARR(pddl_fdr_var_t, vars->var_size);
 
     // Determine number of global IDs
     fdr_vars->global_id_size = 0;
@@ -454,7 +454,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
         fdr_vars->global_id_size += borISetSize(&vars->var[i].fact);
         fdr_vars->global_id_size += (vars->var[i].none_of_those ? 1 : 0);
     }
-    fdr_vars->global_id_to_val = BOR_CALLOC_ARR(pddl_fdr_val_t *,
+    fdr_vars->global_id_to_val = CALLOC_ARR(pddl_fdr_val_t *,
                                                 fdr_vars->global_id_size);
 
     int global_id = 0;
@@ -465,7 +465,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
 
         // Compute number of values in the variable's domain
         var->val_size = borISetSize(&v->fact) + (v->none_of_those ? 1 : 0);
-        var->val = BOR_CALLOC_ARR(pddl_fdr_val_t, var->val_size);
+        var->val = CALLOC_ARR(pddl_fdr_val_t, var->val_size);
 
         // Set variable, value, and global ID of the values and set up
         // mapping from global ID to the variable value.
@@ -484,7 +484,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
             int fact = borISetGet(&v->fact, val_id);
             pddl_fdr_val_t *val = var->val + val_id;
             if (strips->fact.fact[fact]->name != NULL)
-                val->name = BOR_STRDUP(strips->fact.fact[fact]->name);
+                val->name = STRDUP(strips->fact.fact[fact]->name);
             val->strips_id = fact;
             borISetAdd(&fdr_vars->strips_id_to_val[fact], val->global_id);
         }
@@ -494,7 +494,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
         if (v->none_of_those){
             var->val_none_of_those = var->val_size - 1;
             pddl_fdr_val_t *val = var->val + var->val_none_of_those;
-            val->name = BOR_STRDUP("none-of-those");
+            val->name = STRDUP("none-of-those");
             val->strips_id = -1;
         }
     }
@@ -537,22 +537,22 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
 void pddlFDRVarsFree(pddl_fdr_vars_t *vars)
 {
     if (vars->global_id_to_val != NULL)
-        BOR_FREE(vars->global_id_to_val);
+        FREE(vars->global_id_to_val);
     for (int i = 0; i < vars->strips_id_size; ++i)
         borISetFree(vars->strips_id_to_val + i);
     if (vars->strips_id_to_val != NULL)
-        BOR_FREE(vars->strips_id_to_val);
+        FREE(vars->strips_id_to_val);
     for (int i = 0; i < vars->var_size; ++i)
         pddlFDRVarFree(vars->var + i);
     if (vars->var != NULL)
-        BOR_FREE(vars->var);
+        FREE(vars->var);
 }
 
 static void pddlFDRValCopy(pddl_fdr_val_t *dst, const pddl_fdr_val_t *src)
 {
     bzero(dst, sizeof(*dst));
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
     dst->var_id = src->var_id;
     dst->val_id = src->val_id;
     dst->global_id = src->global_id;
@@ -564,7 +564,7 @@ static void pddlFDRVarCopy(pddl_fdr_var_t *dst, const pddl_fdr_var_t *src)
     bzero(dst, sizeof(*dst));
     dst->var_id = src->var_id;
     dst->val_size = src->val_size;
-    dst->val = BOR_CALLOC_ARR(pddl_fdr_val_t, dst->val_size);
+    dst->val = CALLOC_ARR(pddl_fdr_val_t, dst->val_size);
     for (int i = 0; i < dst->val_size; ++i)
         pddlFDRValCopy(dst->val + i, src->val + i);
     dst->val_none_of_those = src->val_none_of_those;
@@ -574,13 +574,13 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
 {
     bzero(dst, sizeof(*dst));
     dst->var_size = src->var_size;
-    dst->var = BOR_CALLOC_ARR(pddl_fdr_var_t, dst->var_size);
+    dst->var = CALLOC_ARR(pddl_fdr_var_t, dst->var_size);
     for (int i = 0; i < dst->var_size; ++i)
         pddlFDRVarCopy(dst->var + i, src->var + i);
 
     dst->global_id_size = src->global_id_size;
     if (dst->global_id_size > 0){
-        dst->global_id_to_val = BOR_ALLOC_ARR(pddl_fdr_val_t *,
+        dst->global_id_to_val = ALLOC_ARR(pddl_fdr_val_t *,
                                               dst->global_id_size);
         for (int i = 0; i < src->global_id_size; ++i){
             const pddl_fdr_val_t *sval = src->global_id_to_val[i];
@@ -591,7 +591,7 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
 
     dst->strips_id_size = src->strips_id_size;
     if (dst->strips_id_size > 0){
-        dst->strips_id_to_val = BOR_CALLOC_ARR(bor_iset_t, dst->strips_id_size);
+        dst->strips_id_to_val = CALLOC_ARR(bor_iset_t, dst->strips_id_size);
         for (int i = 0; i < src->strips_id_size; ++i)
             borISetUnion(&dst->strips_id_to_val[i], &src->strips_id_to_val[i]);
     }
@@ -600,9 +600,9 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
 void pddlFDRVarsRemapFree(pddl_fdr_vars_remap_t *remap)
 {
     for (int v = 0; v < remap->var_size; ++v)
-        BOR_FREE(remap->remap[v]);
+        FREE(remap->remap[v]);
     if (remap->remap != NULL)
-        BOR_FREE(remap->remap);
+        FREE(remap->remap);
 }
 
 void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
@@ -611,9 +611,9 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
 {
     bzero(remap, sizeof(*remap));
     remap->var_size = vars->var_size;
-    remap->remap = BOR_ALLOC_ARR(const pddl_fdr_val_t **, remap->var_size);
+    remap->remap = ALLOC_ARR(const pddl_fdr_val_t **, remap->var_size);
     for (int v = 0; v < remap->var_size; ++v){
-        remap->remap[v] = BOR_CALLOC_ARR(const pddl_fdr_val_t *,
+        remap->remap[v] = CALLOC_ARR(const pddl_fdr_val_t *,
                                          vars->var[v].val_size);
     }
 
@@ -681,16 +681,16 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
     pddl_fdr_var_t *var = vars->var + var_id;
     pddl_fdr_val_t *orig_ptr = var->val;
     ++var->val_size;
-    var->val = BOR_REALLOC_ARR(var->val, pddl_fdr_val_t, var->val_size);
+    var->val = REALLOC_ARR(var->val, pddl_fdr_val_t, var->val_size);
 
     pddl_fdr_val_t *val = var->val + var->val_size - 1;
     bzero(val, sizeof(*val));
     if (name != NULL)
-        val->name = BOR_STRDUP(name);
+        val->name = STRDUP(name);
     val->var_id = var_id;
     val->val_id = var->val_size - 1;
     val->global_id = vars->global_id_size++;
-    vars->global_id_to_val = BOR_REALLOC_ARR(vars->global_id_to_val,
+    vars->global_id_to_val = REALLOC_ARR(vars->global_id_to_val,
                                              pddl_fdr_val_t *,
                                              vars->global_id_size);
     vars->global_id_to_val[vars->global_id_size - 1] = val;
@@ -706,7 +706,7 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
 
 void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap)
 {
-    pddl_fdr_var_t *var_tmp = BOR_ALLOC_ARR(pddl_fdr_var_t, vars->var_size);
+    pddl_fdr_var_t *var_tmp = ALLOC_ARR(pddl_fdr_var_t, vars->var_size);
     memcpy(var_tmp, vars->var, sizeof(pddl_fdr_var_t) * vars->var_size);
     for (int var_id = 0; var_id < vars->var_size; ++var_id){
         vars->var[remap[var_id]] = var_tmp[var_id];
@@ -715,7 +715,7 @@ void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap)
         for (int val_id = 0; val_id < var->val_size; ++val_id)
             var->val[val_id].var_id = remap[var_id];
     }
-    BOR_FREE(var_tmp);
+    FREE(var_tmp);
 }
 
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)

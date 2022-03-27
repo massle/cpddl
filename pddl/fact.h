@@ -20,7 +20,6 @@
 #ifndef __PDDL_FACT_H__
 #define __PDDL_FACT_H__
 
-#include <boruvka/alloc.h>
 #include <boruvka/htable.h>
 
 #include <pddl/common.h>

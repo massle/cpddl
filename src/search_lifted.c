@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/open_list.h"
 #include "pddl/strips_state_space.h"
 #include "pddl/strips_maker.h"
@@ -106,9 +106,9 @@ static void searchFree(pddl_search_lifted_t *s)
     pddlSqlGrounderDel(s->grounder);
     borISetFree(&s->goal);
     for (int i = 0; i < s->plan.plan_len; ++i)
-        BOR_FREE(s->plan.plan[i]);
+        FREE(s->plan.plan[i]);
     if (s->plan.plan != NULL)
-        BOR_FREE(s->plan.plan);
+        FREE(s->plan.plan);
 }
 
 static void bfsDel(pddl_search_lifted_t *bfs);
@@ -126,7 +126,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     BOR_INFO_PREFIX_PUSH(err, err_prefix);
     pddl_search_lifted_bfs_t *bfs;
 
-    bfs = BOR_ALLOC(pddl_search_lifted_bfs_t);
+    bfs = ALLOC(pddl_search_lifted_bfs_t);
     bzero(bfs, sizeof(*bfs));
     searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep,
                err_prefix, err);
@@ -150,7 +150,7 @@ static void bfsDel(pddl_search_lifted_t *s)
     pddl_search_lifted_bfs_t *bfs = BFS(s);
     if (bfs->list)
         pddlOpenListDel(bfs->list);
-    BOR_FREE(bfs);
+    FREE(bfs);
     BOR_INFO_PREFIX_POP(err);
 }
 
@@ -560,7 +560,7 @@ static void addPlanOp(pddl_search_lifted_t *s, int op_id)
         if (plan->plan_alloc == 0)
             plan->plan_alloc = 2;
         plan->plan_alloc *= 2;
-        plan->plan = BOR_REALLOC_ARR(plan->plan, char *, plan->plan_alloc);
+        plan->plan = REALLOC_ARR(plan->plan, char *, plan->plan_alloc);
     }
 
     const pddl_ground_action_args_t *aargs;
@@ -577,7 +577,7 @@ static void addPlanOp(pddl_search_lifted_t *s, int op_id)
                         s->pddl->obj.obj[aargs->arg[i]].name);
     }
     name[maxlen] = 0;
-    plan->plan[plan->plan_len++] = BOR_STRDUP(name);
+    plan->plan[plan->plan_len++] = STRDUP(name);
 }
 
 static void extractPlan(pddl_search_lifted_t *s,

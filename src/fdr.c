@@ -21,6 +21,7 @@
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
 #include "pddl/cg.h"
+#include "alloc.h"
 #include "assert.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
@@ -83,7 +84,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
 
     // Initial state
-    fdr->init = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    fdr->init = ALLOC_ARR(int, fdr->var.var_size);
     stripsToFDRState(&fdr->var, &strips->init, fdr->init);
     BOR_INFO2(err, "Created initial state.");
 
@@ -110,7 +111,7 @@ void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
     bzero(fdr, sizeof(*fdr));
     pddlFDRVarsInitCopy(&fdr->var, &fdr_in->var);
     pddlFDROpsInitCopy(&fdr->op, &fdr_in->op);
-    fdr->init = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    fdr->init = ALLOC_ARR(int, fdr->var.var_size);
     memcpy(fdr->init, fdr_in->init, sizeof(int) * fdr->var.var_size);
     pddlFDRPartStateInitCopy(&fdr->goal, &fdr_in->goal);
     fdr->goal_is_unreachable = fdr_in->goal_is_unreachable;
@@ -120,7 +121,7 @@ void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
 void pddlFDRFree(pddl_fdr_t *fdr)
 {
     if (fdr->init != NULL)
-        BOR_FREE(fdr->init);
+        FREE(fdr->init);
     pddlFDRPartStateFree(&fdr->goal);
     pddlFDROpsFree(&fdr->op);
     pddlFDRVarsFree(&fdr->var);
@@ -128,13 +129,13 @@ void pddlFDRFree(pddl_fdr_t *fdr)
 
 void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
 {
-    int *ordering = BOR_CALLOC_ARR(int, fdr->var.var_size + 1);
+    int *ordering = CALLOC_ARR(int, fdr->var.var_size + 1);
     pddl_cg_t cg;
     pddlCGInit(&cg, &fdr->var, &fdr->op, 0);
     pddlCGVarOrdering(&cg, &fdr->goal, ordering);
     pddlCGFree(&cg);
 
-    int *remap = BOR_CALLOC_ARR(int, fdr->var.var_size);
+    int *remap = CALLOC_ARR(int, fdr->var.var_size);
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         ASSERT(ordering[vi] >= 0);
         ASSERT(remap[ordering[vi]] == 0);
@@ -145,15 +146,15 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
     pddlFDROpsRemapVars(&fdr->op, remap);
     pddlFDRPartStateRemapVars(&fdr->goal, remap);
 
-    int *init = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    int *init = ALLOC_ARR(int, fdr->var.var_size);
     memcpy(init, fdr->init, sizeof(int) * fdr->var.var_size);
     for (int vi = 0; vi < fdr->var.var_size; ++vi)
         fdr->init[remap[vi]] = init[vi];
-    BOR_FREE(init);
+    FREE(init);
 
 
-    BOR_FREE(remap);
-    BOR_FREE(ordering);
+    FREE(remap);
+    FREE(ordering);
 }
 
 void pddlFDRReduce(pddl_fdr_t *fdr,
@@ -252,7 +253,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
                          const bor_iarr_t *plan,
                          bor_err_t *err)
 {
-    int *reached = BOR_CALLOC_ARR(int, fdr->var.global_id_size);
+    int *reached = CALLOC_ARR(int, fdr->var.global_id_size);
     for (int var = 0; var < fdr->var.var_size; ++var)
         reached[fdr->var.var[var].val[fdr_state[var]].global_id] = 1;
 
@@ -262,7 +263,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
         if (!relaxedPreHold(fdr, reached, &op->pre)){
             BOR_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
                      op_id, op->name);
-            BOR_FREE(reached);
+            FREE(reached);
             return 0;
         }
         relaxedReachFacts(fdr, reached, &op->eff);
@@ -285,7 +286,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
         }
     }
 
-    BOR_FREE(reached);
+    FREE(reached);
     return found_goal;
 }
 
@@ -553,7 +554,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
     pddl_fdr_part_state_t pre;
 
     if (op->name != NULL)
-        fdr_op->name = BOR_STRDUP(op->name);
+        fdr_op->name = STRDUP(op->name);
     fdr_op->cost = op->cost;
 
     pddlFDRPartStateInit(&pre);
@@ -630,7 +631,7 @@ static void tnfFull(pddl_fdr_t *fdr,
                     unsigned flags,
                     bor_err_t *err)
 {
-    pddl_fdr_val_t **u_vals = BOR_CALLOC_ARR(pddl_fdr_val_t *,
+    pddl_fdr_val_t **u_vals = CALLOC_ARR(pddl_fdr_val_t *,
                                              fdr->var.var_size);
 
     for (int opi = 0; opi < fdr->op.op_size; ++opi){
@@ -665,14 +666,14 @@ static void tnfFull(pddl_fdr_t *fdr,
             op->cost = 0;
             char name[128];
             sprintf(name, "tnf-forget-%d-%d", var_id, val_id);
-            op->name = BOR_STRDUP(name);
+            op->name = STRDUP(name);
             pddlFDRPartStateSet(&op->pre, var_id, val_id);
             pddlFDRPartStateSet(&op->eff, var_id, u_vals[var_id]->val_id);
             pddlFDROpsAddSteal(&fdr->op, op);
         }
     }
 
-    BOR_FREE(u_vals);
+    FREE(u_vals);
 }
 
 static int tnfDisambiguate(pddl_fdr_t *fdr,
@@ -813,7 +814,7 @@ static void tnfDisForgettingOps(pddl_fdr_t *fdr,
             char name[128];
             sprintf(name, "tnf-forget-%d-%d-%d",
                     dis_id, pre_var_id, pre_val_id);
-            op->name = BOR_STRDUP(name);
+            op->name = STRDUP(name);
             pddlFDRPartStateSet(&op->pre, pre_var_id, pre_val_id);
             pddlFDRPartStateSet(&op->eff, var_id, undef_id);
             pddlFDROpsAddSteal(&fdr->op, op);

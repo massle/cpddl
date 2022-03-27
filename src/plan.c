@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/plan.h"
 
 void pddlPlanInit(pddl_plan_t *plan)
@@ -27,7 +27,7 @@ void pddlPlanInit(pddl_plan_t *plan)
 void pddlPlanFree(pddl_plan_t *plan)
 {
     if (plan->state != NULL)
-        BOR_FREE(plan->state);
+        FREE(plan->state);
     borIArrFree(&plan->op);
 }
 
@@ -35,7 +35,7 @@ void pddlPlanCopy(pddl_plan_t *dst, const pddl_plan_t *src)
 {
     bzero(dst, sizeof(*dst));
     *dst = *src;
-    dst->state = BOR_ALLOC_ARR(pddl_state_id_t, dst->state_alloc);
+    dst->state = ALLOC_ARR(pddl_state_id_t, dst->state_alloc);
     memcpy(dst->state, src->state, sizeof(pddl_state_id_t) * dst->state_size);
 
     int op;
@@ -49,7 +49,7 @@ static void addState(pddl_plan_t *plan, pddl_state_id_t state_id)
         if (plan->state_alloc == 0)
             plan->state_alloc = 64;
         plan->state_alloc *= 2;
-        plan->state = BOR_REALLOC_ARR(plan->state,
+        plan->state = REALLOC_ARR(plan->state,
                                       pddl_state_id_t, plan->state_alloc);
     }
 

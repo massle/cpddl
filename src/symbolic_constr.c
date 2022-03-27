@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/symbolic_constr.h"
 
 static void separateFwBwMutex(const pddl_mutex_pairs_t *mutex,
@@ -190,9 +190,9 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     constr->vars = vars;
 
     pddlMGroupsInitCopy(&constr->mgroup, mgroup);
-    constr->fact_mutex = BOR_CALLOC_ARR(bor_iset_t, vars->fact_size);
-    constr->fact_mutex_fw = BOR_CALLOC_ARR(bor_iset_t, vars->fact_size);
-    constr->fact_mutex_bw = BOR_CALLOC_ARR(bor_iset_t, vars->fact_size);
+    constr->fact_mutex = CALLOC_ARR(bor_iset_t, vars->fact_size);
+    constr->fact_mutex_fw = CALLOC_ARR(bor_iset_t, vars->fact_size);
+    constr->fact_mutex_bw = CALLOC_ARR(bor_iset_t, vars->fact_size);
     PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
         borISetAdd(constr->fact_mutex + f1, f2);
         borISetAdd(constr->fact_mutex + f2, f1);
@@ -269,8 +269,8 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     pddlMutexPairsFree(&fw_mutex);
     pddlMutexPairsFree(&bw_mutex);
 
-    constr->group_mutex = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
-    constr->group_mgroup = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
+    constr->group_mutex = CALLOC_ARR(pddl_bdd_t *, vars->group_size);
+    constr->group_mgroup = CALLOC_ARR(pddl_bdd_t *, vars->group_size);
     for (int i = 0; i < constr->vars->group_size; ++i){
         constr->group_mutex[i] = constructGroupMutex(constr, i);
         constr->group_mgroup[i] = constructGroupMGroup(constr, i);
@@ -283,8 +283,8 @@ void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
         pddlBDDDel(constr->vars->mgr, constr->group_mutex[i]);
         pddlBDDDel(constr->vars->mgr, constr->group_mgroup[i]);
     }
-    BOR_FREE(constr->group_mutex);
-    BOR_FREE(constr->group_mgroup);
+    FREE(constr->group_mutex);
+    FREE(constr->group_mgroup);
 
     pddlMGroupsFree(&constr->mgroup);
 
@@ -293,9 +293,9 @@ void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
         borISetFree(constr->fact_mutex_fw + i);
         borISetFree(constr->fact_mutex_bw + i);
     }
-    BOR_FREE(constr->fact_mutex);
-    BOR_FREE(constr->fact_mutex_fw);
-    BOR_FREE(constr->fact_mutex_bw);
+    FREE(constr->fact_mutex);
+    FREE(constr->fact_mutex_fw);
+    FREE(constr->fact_mutex_bw);
 
     pddlBDDsFree(constr->vars->mgr, &constr->fw_mutex);
     pddlBDDsFree(constr->vars->mgr, &constr->fw_mgroup);

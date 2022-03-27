@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 #include "pddl/pq.h"
 #include "pddl/trans_system_graph.h"
@@ -31,7 +31,7 @@ static void pddlTransSystemGraphEdgesAdd(pddl_trans_system_graph_edges_t *e,
         if (e->edge_alloc == 0)
             e->edge_alloc = 2;
         e->edge_alloc *= 2;
-        e->edge = BOR_REALLOC_ARR(e->edge, pddl_trans_system_graph_edge_t,
+        e->edge = REALLOC_ARR(e->edge, pddl_trans_system_graph_edge_t,
                                   e->edge_alloc);
     }
     pddl_trans_system_graph_edge_t *edge = e->edge + e->edge_size++;
@@ -60,8 +60,8 @@ void pddlTransSystemGraphInit(pddl_trans_system_graph_t *g,
 {
     bzero(g, sizeof(*g));
     g->num_states = t->num_states;
-    g->fw = BOR_CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
-    g->bw = BOR_CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
+    g->fw = CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
+    g->bw = CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
     for (int lti = 0; lti < t->trans.trans_size; ++lti){
         int cost = t->trans.trans[lti].label->cost;
         const pddl_transitions_t *trs = &t->trans.trans[lti].trans;
@@ -86,14 +86,14 @@ void pddlTransSystemGraphFree(pddl_trans_system_graph_t *t)
     borISetFree(&t->goal);
     for (int i = 0; i < t->num_states; ++i){
         if (t->fw[i].edge != NULL)
-            BOR_FREE(t->fw[i].edge);
+            FREE(t->fw[i].edge);
         if (t->bw[i].edge != NULL)
-            BOR_FREE(t->bw[i].edge);
+            FREE(t->bw[i].edge);
     }
     if (t->fw != NULL)
-        BOR_FREE(t->fw);
+        FREE(t->fw);
     if (t->bw != NULL)
-        BOR_FREE(t->bw);
+        FREE(t->bw);
 }
 
 static void computeDist(int num_states,
@@ -101,7 +101,7 @@ static void computeDist(int num_states,
                         const bor_iset_t *init,
                         int *dist)
 {
-    pddl_pq_el_t *els = BOR_CALLOC_ARR(pddl_pq_el_t, num_states);
+    pddl_pq_el_t *els = CALLOC_ARR(pddl_pq_el_t, num_states);
     for (int v = 0; v < num_states; ++v)
         dist[v] = -1;
 
@@ -136,7 +136,7 @@ static void computeDist(int num_states,
     }
 
     pddlPQFree(&queue);
-    BOR_FREE(els);
+    FREE(els);
 }
 
 void pddlTransSystemGraphFwDist(pddl_trans_system_graph_t *g, int *dist)
@@ -203,7 +203,7 @@ static void sccTarjanStrongconnect(scc_t *scc,
             if (scc->comp_alloc == 0)
                 scc->comp_alloc = 2;
             scc->comp_alloc *= 2;
-            scc->comp = BOR_REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
+            scc->comp = REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
         }
         bor_iset_t *comp = scc->comp + scc->comp_size++;
 
@@ -228,7 +228,7 @@ static void sccTarjan(int num_states,
 
     // Initialize structure for Tarjan's algorithm
     dfs.cur_index = 0;
-    dfs.index    = BOR_ALLOC_ARR(int, 4 * num_states);
+    dfs.index    = ALLOC_ARR(int, 4 * num_states);
     dfs.lowlink  = dfs.index + num_states;
     dfs.in_stack = dfs.lowlink + num_states;
     dfs.stack    = dfs.in_stack + num_states;
@@ -243,14 +243,14 @@ static void sccTarjan(int num_states,
             sccTarjanStrongconnect(&scc, &dfs, edges, node);
     }
 
-    BOR_FREE(dfs.index);
+    FREE(dfs.index);
 
     for (int i = 0; i < scc.comp_size; ++i){
         pddlSetISetAdd(sset, scc.comp + i);
         borISetFree(scc.comp + i);
     }
     if (scc.comp != NULL)
-        BOR_FREE(scc.comp);
+        FREE(scc.comp);
 }
 
 void pddlTransSystemGraphFwSCC(const pddl_trans_system_graph_t *g,

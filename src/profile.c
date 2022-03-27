@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <pddl/timer.h>
 #include "profile.h"
 
@@ -44,7 +44,7 @@ void pddlProfileStart(int slot)
             profile.slot_alloc = 2;
         while (slot >= profile.slot_alloc)
             profile.slot_alloc *= 2;
-        profile.slot = BOR_REALLOC_ARR(profile.slot, pddl_profile_slot_t,
+        profile.slot = REALLOC_ARR(profile.slot, pddl_profile_slot_t,
                                        profile.slot_alloc);
         for (int i = profile.slot_size; i < profile.slot_alloc; ++i){
             profile.slot[i].counter = 0;

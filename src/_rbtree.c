@@ -72,7 +72,7 @@ _pddl_inline void rbSet(RB_NODE *elm, RB_NODE *parent)
 
 void RB_DEL(RB_TREE *rbtree)
 {
-    BOR_FREE(rbtree);
+    FREE(rbtree);
 }
 
 static void rbInsertColor(RB_TREE *rbtree,

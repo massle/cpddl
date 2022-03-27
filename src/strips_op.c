@@ -23,6 +23,7 @@
 #include <boruvka/hfunc.h>
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"
+#include "alloc.h"
 #include "helper.h"
 #include "assert.h"
 
@@ -41,14 +42,14 @@ static void condEffFree(pddl_strips_op_cond_eff_t *ce)
 void pddlStripsOpFree(pddl_strips_op_t *op)
 {
     if (op->name)
-        BOR_FREE(op->name);
+        FREE(op->name);
     borISetFree(&op->pre);
     borISetFree(&op->del_eff);
     borISetFree(&op->add_eff);
     for (int i = 0; i < op->cond_eff_size; ++i)
         condEffFree(&op->cond_eff[i]);
     if (op->cond_eff != NULL)
-        BOR_FREE(op->cond_eff);
+        FREE(op->cond_eff);
 }
 
 void pddlStripsOpFreeAllCondEffs(pddl_strips_op_t *op)
@@ -61,7 +62,7 @@ void pddlStripsOpFreeAllCondEffs(pddl_strips_op_t *op)
 pddl_strips_op_t *pddlStripsOpNew(void)
 {
     pddl_strips_op_t *op;
-    op = BOR_ALLOC(pddl_strips_op_t);
+    op = ALLOC(pddl_strips_op_t);
     pddlStripsOpInit(op);
     return op;
 }
@@ -69,7 +70,7 @@ pddl_strips_op_t *pddlStripsOpNew(void)
 void pddlStripsOpDel(pddl_strips_op_t *op)
 {
     pddlStripsOpFree(op);
-    BOR_FREE(op);
+    FREE(op);
 }
 
 static pddl_strips_op_cond_eff_t *addCondEff(pddl_strips_op_t *op)
@@ -80,7 +81,7 @@ static pddl_strips_op_cond_eff_t *addCondEff(pddl_strips_op_t *op)
         if (op->cond_eff_alloc == 0)
             op->cond_eff_alloc = 1;
         op->cond_eff_alloc *= 2;
-        op->cond_eff = BOR_REALLOC_ARR(op->cond_eff,
+        op->cond_eff = REALLOC_ARR(op->cond_eff,
                                        pddl_strips_op_cond_eff_t,
                                        op->cond_eff_alloc);
     }
@@ -140,7 +141,7 @@ void pddlStripsOpCopy(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
 void pddlStripsOpCopyWithoutCondEff(pddl_strips_op_t *dst,
                                     const pddl_strips_op_t *src)
 {
-    dst->name = BOR_STRDUP(src->name);
+    dst->name = STRDUP(src->name);
     dst->cost = src->cost;
     borISetUnion(&dst->pre, &src->pre);
     borISetUnion(&dst->add_eff, &src->add_eff);
@@ -151,7 +152,7 @@ void pddlStripsOpCopyDual(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
 {
     pddl_strips_op_cond_eff_t *ce;
 
-    dst->name = BOR_STRDUP(src->name);
+    dst->name = STRDUP(src->name);
     dst->cost = src->cost;
     borISetUnion(&dst->pre, &src->del_eff);
     borISetUnion(&dst->add_eff, &src->add_eff);
@@ -294,7 +295,7 @@ static int deduplicate(pddl_strips_ops_t *ops, int *remove)
     deduplicate_t *dedup;
     int change = 0;
 
-    dedup = BOR_CALLOC_ARR(deduplicate_t, ops->op_size);
+    dedup = CALLOC_ARR(deduplicate_t, ops->op_size);
     for (int op_id = 0; op_id < ops->op_size; ++op_id){
         dedup[op_id].id = op_id;
         dedup[op_id].cost = ops->op[op_id]->cost;
@@ -315,22 +316,22 @@ static int deduplicate(pddl_strips_ops_t *ops, int *remove)
     if (start < cur - 1)
         change |= deduplicateRange(ops, dedup, start, cur, remove);
 
-    BOR_FREE(dedup);
+    FREE(dedup);
     return change;
 }
 
 void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
 {
-    int *remove = BOR_CALLOC_ARR(int, ops->op_size);
+    int *remove = CALLOC_ARR(int, ops->op_size);
     if (deduplicate(ops, remove))
         pddlStripsOpsDelOps(ops, remove);
     if (remove != NULL)
-        BOR_FREE(remove);
+        FREE(remove);
 }
 
 void pddlStripsOpsDeduplicateSet(pddl_strips_ops_t *ops, bor_iset_t *rm_op)
 {
-    int *remove = BOR_CALLOC_ARR(int, ops->op_size);
+    int *remove = CALLOC_ARR(int, ops->op_size);
     if (deduplicate(ops, remove)){
         for (int oi = 0; oi < ops->op_size; ++oi){
             if (remove[oi])
@@ -338,7 +339,7 @@ void pddlStripsOpsDeduplicateSet(pddl_strips_ops_t *ops, bor_iset_t *rm_op)
         }
     }
     if (remove != NULL)
-        BOR_FREE(remove);
+        FREE(remove);
 }
 
 void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops)
@@ -436,7 +437,7 @@ void pddlStripsOpsInit(pddl_strips_ops_t *ops)
 {
     bzero(ops, sizeof(*ops));
     ops->op_alloc = 4;
-    ops->op = BOR_ALLOC_ARR(pddl_strips_op_t *, ops->op_alloc);
+    ops->op = ALLOC_ARR(pddl_strips_op_t *, ops->op_alloc);
 }
 
 void pddlStripsOpsFree(pddl_strips_ops_t *ops)
@@ -446,7 +447,7 @@ void pddlStripsOpsFree(pddl_strips_ops_t *ops)
             pddlStripsOpDel(ops->op[i]);
     }
     if (ops->op != NULL)
-        BOR_FREE(ops->op);
+        FREE(ops->op);
 }
 
 void pddlStripsOpsCopy(pddl_strips_ops_t *dst, const pddl_strips_ops_t *src)
@@ -461,7 +462,7 @@ static pddl_strips_op_t *nextNewOp(pddl_strips_ops_t *ops)
 
     if (ops->op_size >= ops->op_alloc){
         ops->op_alloc *= 2;
-        ops->op = BOR_REALLOC_ARR(ops->op, pddl_strips_op_t *, ops->op_alloc);
+        ops->op = REALLOC_ARR(ops->op, pddl_strips_op_t *, ops->op_alloc);
     }
 
     op = pddlStripsOpNew();

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips.h"
 #include "helper.h"
@@ -42,13 +42,13 @@ void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
 static void copyBasicInfo(pddl_strips_t *dst, const pddl_strips_t *src)
 {
     if (src->domain_name)
-        dst->domain_name = BOR_STRDUP(src->domain_name);
+        dst->domain_name = STRDUP(src->domain_name);
     if (src->problem_name)
-        dst->problem_name = BOR_STRDUP(src->problem_name);
+        dst->problem_name = STRDUP(src->problem_name);
     if (src->domain_file)
-        dst->domain_file = BOR_STRDUP(src->domain_file);
+        dst->domain_file = STRDUP(src->domain_file);
     if (src->problem_file)
-        dst->problem_file = BOR_STRDUP(src->problem_file);
+        dst->problem_file = STRDUP(src->problem_file);
 }
 
 void pddlStripsInit(pddl_strips_t *strips)
@@ -68,17 +68,17 @@ void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
     int f_init, f_goal, f_aux;
     pddl_fact_t fact;
     pddlFactInit(&fact);
-    fact.name = BOR_STRDUP("I");
+    fact.name = STRDUP("I");
     f_init = pddlFactsAdd(&strips->fact, &fact);
     pddlFactFree(&fact);
 
     pddlFactInit(&fact);
-    fact.name = BOR_STRDUP("G");
+    fact.name = STRDUP("G");
     f_goal = pddlFactsAdd(&strips->fact, &fact);
     pddlFactFree(&fact);
 
     pddlFactInit(&fact);
-    fact.name = BOR_STRDUP("P");
+    fact.name = STRDUP("P");
     f_aux = pddlFactsAdd(&strips->fact, &fact);
     pddlFactFree(&fact);
 
@@ -89,7 +89,7 @@ void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
     pddlStripsOpInit(&op);
     borISetAdd(&op.pre, f_aux);
     borISetAdd(&op.add_eff, f_goal);
-    pddlStripsOpFinalize(&op, BOR_STRDUP("unreachable-op"));
+    pddlStripsOpFinalize(&op, STRDUP("unreachable-op"));
     pddlStripsOpsAdd(&strips->op, &op);
     pddlStripsOpFree(&op);
 
@@ -99,13 +99,13 @@ void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
 void pddlStripsFree(pddl_strips_t *strips)
 {
     if (strips->domain_name)
-        BOR_FREE(strips->domain_name);
+        FREE(strips->domain_name);
     if (strips->problem_name)
-        BOR_FREE(strips->problem_name);
+        FREE(strips->problem_name);
     if (strips->domain_file)
-        BOR_FREE(strips->domain_file);
+        FREE(strips->domain_file);
     if (strips->problem_file)
-        BOR_FREE(strips->problem_file);
+        FREE(strips->problem_file);
     pddlFactsFree(&strips->fact);
     pddlStripsOpsFree(&strips->op);
     borISetFree(&strips->init);
@@ -137,7 +137,7 @@ static int addNegFact(pddl_strips_t *strips, int fact_id)
     char name[512];
     snprintf(name, 512, "NOT-%s", fact->name);
     pddlFactInit(&neg);
-    neg.name = BOR_STRDUP(name);
+    neg.name = STRDUP(name);
     int neg_id = pddlFactsAdd(&strips->fact, &neg);
     pddlFactFree(&neg);
 
@@ -303,12 +303,12 @@ static void compileAwayCondEffCreateNegFacts(pddl_strips_t *strips)
     if (strips->fact.fact_size != fact_size){
         // Sort facts if any was added
         int *fact_remap;
-        fact_remap = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+        fact_remap = CALLOC_ARR(int, strips->fact.fact_size);
         pddlFactsSort(&strips->fact, fact_remap);
         pddlISetRemap(&strips->init, fact_remap);
         pddlISetRemap(&strips->goal, fact_remap);
         pddlStripsOpsRemapFacts(&strips->op, fact_remap);
-        BOR_FREE(fact_remap);
+        FREE(fact_remap);
     }
 }
 
@@ -329,13 +329,13 @@ void pddlStripsCompileAwayCondEff(pddl_strips_t *strips)
 
     // Remove operators with conditional effects
     int *op_map;
-    op_map = BOR_CALLOC_ARR(int, strips->op.op_size);
+    op_map = CALLOC_ARR(int, strips->op.op_size);
     for (int opi = 0; opi < strips->op.op_size; ++opi){
         if (strips->op.op[opi]->cond_eff_size > 0)
             op_map[opi] = 1;
     }
     pddlStripsOpsDelOps(&strips->op, op_map);
-    BOR_FREE(op_map);
+    FREE(op_map);
 
     // Remove duplicate operators
     pddlStripsOpsDeduplicate(&strips->op);
@@ -639,7 +639,7 @@ void pddlStripsReduce(pddl_strips_t *strips,
     if (del_facts != NULL && borISetSize(del_facts) > 0){
         pddlStripsOpsRemoveFacts(&strips->op, del_facts);
 
-        int *remap_fact = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+        int *remap_fact = CALLOC_ARR(int, strips->fact.fact_size);
         pddlFactsDelFacts(&strips->fact, del_facts, remap_fact);
         pddlStripsOpsRemapFacts(&strips->op, remap_fact);
 
@@ -649,7 +649,7 @@ void pddlStripsReduce(pddl_strips_t *strips,
         borISetRemap(&strips->goal, remap_fact);
 
         if (remap_fact != NULL)
-            BOR_FREE(remap_fact);
+            FREE(remap_fact);
 
         BOR_ISET(useless_ops);
         for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -672,7 +672,7 @@ void pddlStripsReduce(pddl_strips_t *strips,
 int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err)
 {
     int num = 0;
-    int *nonstatic_facts = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+    int *nonstatic_facts = CALLOC_ARR(int, strips->fact.fact_size);
 
     int fact;
     BOR_ISET_FOR_EACH(&strips->init, fact)
@@ -714,7 +714,7 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err)
 
     borISetFree(&del_facts);
     if (nonstatic_facts != NULL)
-        BOR_FREE(nonstatic_facts);
+        FREE(nonstatic_facts);
 
     return num;
 }
@@ -931,7 +931,7 @@ void pddlStripsPrintPDDLDomain(const pddl_strips_t *strips, FILE *fout)
 
     for (int i = 0; i < strips->op.op_size; ++i){
         const pddl_strips_op_t *op = strips->op.op[i];
-        char *name = BOR_STRDUP(op->name);
+        char *name = STRDUP(op->name);
         for (char *c = name; *c != 0x0; ++c){
             if (*c == ' ' || *c == '(' || *c == ')')
                 *c = '_';
@@ -964,7 +964,7 @@ void pddlStripsPrintPDDLDomain(const pddl_strips_t *strips, FILE *fout)
         fprintf(fout, ")\n");
 
         fprintf(fout, ")\n");
-        BOR_FREE(name);
+        FREE(name);
     }
 
     fprintf(fout, ")\n");

@@ -18,11 +18,12 @@
  */
 
 #include "_heur.h"
+#include "alloc.h"
 
 static void heurDel(pddl_heur_t *h)
 {
     _pddlHeurFree(h);
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int heurEstimate(pddl_heur_t *h,
@@ -34,7 +35,7 @@ static int heurEstimate(pddl_heur_t *h,
 
 pddl_heur_t *pddlHeurBlind(void)
 {
-    pddl_heur_t *h = BOR_ALLOC(pddl_heur_t);
+    pddl_heur_t *h = ALLOC(pddl_heur_t);
     _pddlHeurInit(h, heurDel, heurEstimate);
     return h;
 

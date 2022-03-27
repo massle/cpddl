@@ -21,6 +21,7 @@
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
 #include "pddl/strips_ground_sql.h"
+#include "alloc.h"
 #include "assert.h"
 #include "log.h"
 
@@ -110,14 +111,14 @@ static void fixActions(pddl_t *pddl,
                        bor_err_t *err)
 {
     ASSERT(repr >= 0);
-    int *affected_types = BOR_CALLOC_ARR(int, pddl->type.type_size);
+    int *affected_types = CALLOC_ARR(int, pddl->type.type_size);
     for (int ti = 0; ti < pddl->type.type_size; ++ti){
         if (pddlTypesObjHasType(&pddl->type, ti, repr))
             affected_types[ti] = 1;
     }
     for (int ai = 0; ai < pddl->action.action_size; ++ai)
         fixAction(pddl, pddl->action.action + ai, affected_types, err);
-    BOR_FREE(affected_types);
+    FREE(affected_types);
 }
 
 static int _collectGoalObjs(pddl_cond_t *c, void *_goal_objs)
@@ -152,7 +153,7 @@ static int collapseObjs(pddl_t *pddl,
         }
     }
 
-    pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     for (int i = 0, idx = 0; i < pddl->obj.obj_size; ++i){
         if (collapse_map[i] && i != repr){
             remap[i] = repr;
@@ -180,7 +181,7 @@ static int collapseObjs(pddl_t *pddl,
     // TODO
     //pddlNormalize(pddl);
 
-    BOR_FREE(remap);
+    FREE(remap);
     return 0;
 }
 
@@ -197,7 +198,7 @@ static int _collapseObjs(pddl_homomorphic_task_t *h,
         }
     }
 
-    pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+    pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
     for (int i = 0, idx = 0; i < h->task.obj.obj_size; ++i){
         if (collapse_map[i] && i != repr){
             remap[i] = repr;
@@ -225,7 +226,7 @@ static int _collapseObjs(pddl_homomorphic_task_t *h,
     // TODO
     //pddlNormalize(pddl);
 
-    BOR_FREE(remap);
+    FREE(remap);
     return 0;
 }
 
@@ -234,10 +235,10 @@ static int collapsePair(pddl_homomorphic_task_t *h,
                         pddl_obj_id_t o2,
                         bor_err_t *err)
 {
-    int *collapse_map = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    int *collapse_map = CALLOC_ARR(int, h->task.obj.obj_size);
     collapse_map[o1] = collapse_map[o2] = 1;
     int ret = _collapseObjs(h, collapse_map, err);
-    BOR_FREE(collapse_map);
+    FREE(collapse_map);
     return ret;
 }
 
@@ -252,10 +253,10 @@ static int collapseEndomorphism(pddl_t *pddl,
     // TODO
     pddl_endomorphism_config_t ecfg = cfg->endomorphism_cfg;
     BOR_ISET(redundant);
-    pddl_obj_id_t *map = BOR_ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    pddl_obj_id_t *map = ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(pddl, &ecfg, &redundant, map, err);
     if (ret == 0 && borISetSize(&redundant) > 0){
-        pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+        pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
         int oid;
         BOR_ISET_FOR_EACH(&redundant, oid)
             remap[oid] = PDDL_OBJ_ID_UNDEF;
@@ -276,11 +277,11 @@ static int collapseEndomorphism(pddl_t *pddl,
         }
 
         if (remap != NULL)
-            BOR_FREE(remap);
+            FREE(remap);
     }
     borISetFree(&redundant);
     if (map != NULL)
-        BOR_FREE(map);
+        FREE(map);
     BOR_INFO(err, "Collapse with endomorphisms. DONE. ret: %d", ret);
     return ret;
 }
@@ -314,10 +315,10 @@ static int collapseRandomPairTypeObj(pddl_t *pddl,
     while (obj1 == obj2)
         obj2 = objs[(int)borRandMT(rnd, 0, num_objs)];
 
-    int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
     collapse_map[obj1] = collapse_map[obj2] = 1;
     int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
-    BOR_FREE(collapse_map);
+    FREE(collapse_map);
     return ret;
 }
 
@@ -334,8 +335,8 @@ static int collapseRandomPairObj(pddl_t *pddl,
         //BOR_INFO(err, "Collected %d goal objects", borISetSize(&goal_objs));
     }
 
-    int *choose_types = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
-    int *choose_objs = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *choose_types = CALLOC_ARR(int, pddl->obj.obj_size);
+    int *choose_objs = CALLOC_ARR(int, pddl->obj.obj_size);
     int objs_size = 0;
     for (int type = 0; type < pddl->type.type_size; ++type){
         if (pddlTypesIsMinimal(&pddl->type, type)
@@ -353,8 +354,8 @@ static int collapseRandomPairObj(pddl_t *pddl,
     }
 
     if (objs_size == 0){
-        BOR_FREE(choose_types);
-        BOR_FREE(choose_objs);
+        FREE(choose_types);
+        FREE(choose_objs);
         borISetFree(&goal_objs);
         return -1;
     }
@@ -369,12 +370,12 @@ static int collapseRandomPairObj(pddl_t *pddl,
     while (obj1 == obj2)
         obj2 = objs[(int)borRandMT(rnd, 0, num_objs)];
 
-    int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
     collapse_map[obj1] = collapse_map[obj2] = 1;
     int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
-    BOR_FREE(collapse_map);
-    BOR_FREE(choose_types);
-    BOR_FREE(choose_objs);
+    FREE(collapse_map);
+    FREE(choose_types);
+    FREE(choose_objs);
     borISetFree(&goal_objs);
     return ret;
 }
@@ -398,13 +399,13 @@ static int collapseType(pddl_t *pddl,
     }
 
     int init_num_objs = pddl->obj.obj_size;
-    int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
     int objs_size;
     const pddl_obj_id_t *objs = pddlTypesObjsByType(types, type, &objs_size);
     for (int i = 0; i < objs_size; ++i)
         collapse_map[objs[i]] = 1;
     int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
-    BOR_FREE(collapse_map);
+    FREE(collapse_map);
 
     if (ret == 0){
         BOR_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
@@ -430,8 +431,8 @@ static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
 {
     bzero(g, sizeof(*g));
     g->obj_size = pddl->obj.obj_size;
-    g->obj_is_static = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
-    g->obj_relate_to = BOR_CALLOC_ARR(bor_iset_t, pddl->obj.obj_size);
+    g->obj_is_static = CALLOC_ARR(int, pddl->obj.obj_size);
+    g->obj_relate_to = CALLOC_ARR(bor_iset_t, pddl->obj.obj_size);
     if (preserve_goals)
         collectGoalObjs(pddl, &g->goal_objs);
 
@@ -472,11 +473,11 @@ static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
 static void gaifmanFree(gaifman_t *g)
 {
     if (g->obj_is_static != NULL)
-        BOR_FREE(g->obj_is_static);
+        FREE(g->obj_is_static);
     for (int i = 0; i < g->obj_size; ++i)
         borISetFree(&g->obj_relate_to[i]);
     if (g->obj_relate_to != NULL)
-        BOR_FREE(g->obj_relate_to);
+        FREE(g->obj_relate_to);
     borISetFree(&g->goal_objs);
 }
 
@@ -491,7 +492,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
     int degree = INT_MAX;
     BOR_ISET(neigh);
     BOR_IARR(queue);
-    int *visited = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+    int *visited = CALLOC_ARR(int, pddl->obj.obj_size);
 
     for (int x = 0; x < g->obj_size; ++x){
         if (!g->obj_is_static[x] || borISetSize(&g->obj_relate_to[x]) == 0)
@@ -533,7 +534,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
     }
 
     if (visited != NULL)
-        BOR_FREE(visited);
+        FREE(visited);
     borIArrFree(&queue);
     borISetFree(&neigh);
 
@@ -576,11 +577,11 @@ static int collapseGaifman(pddl_t *pddl,
         BOR_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
                  o1, pddl->obj.obj[o1].name,
                  o2, pddl->obj.obj[o2].name);
-        int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+        int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
         collapse_map[o1] = collapse_map[o2] = 1;
         ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
         if (collapse_map != NULL)
-            BOR_FREE(collapse_map);
+            FREE(collapse_map);
     }else{
         BOR_INFO2(err, "Nothing to collapse.");
         ret = 1;
@@ -688,11 +689,11 @@ static int collapseRPG(pddl_t *pddl,
             BOR_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
                      o1, pddl->obj.obj[o1].name,
                      o2, pddl->obj.obj[o2].name, depth);
-            int *collapse_map = BOR_CALLOC_ARR(int, pddl->obj.obj_size);
+            int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
             collapse_map[o1] = collapse_map[o2] = 1;
             ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
             if (collapse_map != NULL)
-                BOR_FREE(collapse_map);
+                FREE(collapse_map);
             break;
         }
         if (ret == 1)
@@ -859,7 +860,7 @@ void pddlHomomorphicTaskInit(pddl_homomorphic_task_t *h, const pddl_t *in)
     h->input_obj_size = in->obj.obj_size;
     pddlInitCopy(&h->task, in);
     if (h->input_obj_size > 0){
-        h->obj_map = BOR_CALLOC_ARR(pddl_obj_id_t, h->input_obj_size);
+        h->obj_map = CALLOC_ARR(pddl_obj_id_t, h->input_obj_size);
         for (int i = 0; i < h->input_obj_size; ++i)
             h->obj_map[i] = i;
     }
@@ -870,7 +871,7 @@ void pddlHomomorphicTaskFree(pddl_homomorphic_task_t *h)
 {
     pddlFree(&h->task);
     if (h->obj_map != NULL)
-        BOR_FREE(h->obj_map);
+        FREE(h->obj_map);
     if (h->rnd != NULL)
         borRandMTDel(h->rnd);
 }
@@ -897,13 +898,13 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
     }
 
     int init_num_objs = h->task.obj.obj_size;
-    int *collapse_map = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    int *collapse_map = CALLOC_ARR(int, h->task.obj.obj_size);
     int objs_size;
     const pddl_obj_id_t *objs = pddlTypesObjsByType(types, type, &objs_size);
     for (int i = 0; i < objs_size; ++i)
         collapse_map[objs[i]] = 1;
     int ret = _collapseObjs(h, collapse_map, err);
-    BOR_FREE(collapse_map);
+    FREE(collapse_map);
 
     if (ret == 0){
         BOR_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
@@ -925,8 +926,8 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
         //BOR_INFO(err, "Collected %d goal objects", borISetSize(&goal_objs));
     }
 
-    int *choose_types = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
-    int *choose_objs = BOR_CALLOC_ARR(int, h->task.obj.obj_size);
+    int *choose_types = CALLOC_ARR(int, h->task.obj.obj_size);
+    int *choose_objs = CALLOC_ARR(int, h->task.obj.obj_size);
     int objs_size = 0;
     for (int type = 0; type < h->task.type.type_size; ++type){
         if (pddlTypesIsMinimal(&h->task.type, type)
@@ -944,8 +945,8 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
     }
 
     if (objs_size == 0){
-        BOR_FREE(choose_types);
-        BOR_FREE(choose_objs);
+        FREE(choose_types);
+        FREE(choose_objs);
         borISetFree(&goal_objs);
         return -1;
     }
@@ -961,8 +962,8 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
         obj2 = objs[(int)borRandMT(h->rnd, 0, num_objs)];
 
     int ret = collapsePair(h, obj1, obj2, err);
-    BOR_FREE(choose_types);
-    BOR_FREE(choose_objs);
+    FREE(choose_types);
+    FREE(choose_objs);
     borISetFree(&goal_objs);
     return ret;
 }
@@ -1033,10 +1034,10 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
 {
     BOR_INFO2(err, "Relaxed endomorphisms");
     BOR_ISET(redundant);
-    pddl_obj_id_t *map = BOR_ALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+    pddl_obj_id_t *map = ALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(&h->task, cfg, &redundant, map, err);
     if (ret == 0 && borISetSize(&redundant) > 0){
-        pddl_obj_id_t *remap = BOR_CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+        pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
         int oid;
         BOR_ISET_FOR_EACH(&redundant, oid)
             remap[oid] = PDDL_OBJ_ID_UNDEF;
@@ -1055,11 +1056,11 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
             h->obj_map[i] = remap[h->obj_map[i]];
 
         if (remap != NULL)
-            BOR_FREE(remap);
+            FREE(remap);
     }
     borISetFree(&redundant);
     if (map != NULL)
-        BOR_FREE(map);
+        FREE(map);
     BOR_INFO(err, "Relaxed endomorphism. DONE. ret: %d", ret);
     return ret;
 }
@@ -1080,14 +1081,14 @@ void pddlHomomorphicTaskReduceFree(pddl_homomorphic_task_reduce_t *r)
         borListDel(item);
         pddl_homomorphic_task_method_t *m;
         m = BOR_LIST_ENTRY(item, pddl_homomorphic_task_method_t, conn);
-        BOR_FREE(m);
+        FREE(m);
     }
 }
 
 static pddl_homomorphic_task_method_t *methodNew(int method)
 {
     pddl_homomorphic_task_method_t *m;
-    m = BOR_ALLOC(pddl_homomorphic_task_method_t);
+    m = ALLOC(pddl_homomorphic_task_method_t);
     bzero(m, sizeof(*m));
     m->method = method;
     borListInit(&m->conn);

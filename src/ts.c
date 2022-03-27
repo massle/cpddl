@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/iarr.h>
 #include "pddl/ts.h"
 #include "assert.h"
@@ -25,7 +25,7 @@ void pddlTSInit(pddl_ts_t *ts, int num_states)
 {
     bzero(ts, sizeof(*ts));
     ts->num_states = num_states;
-    ts->tr = BOR_CALLOC_ARR(bor_iset_t, num_states * num_states);
+    ts->tr = CALLOC_ARR(bor_iset_t, num_states * num_states);
     ts->init_state = -1;
 }
 
@@ -36,7 +36,7 @@ void pddlTSFree(pddl_ts_t *ts)
     PDDL_TS_FOR_EACH_TRANSITION(ts, s1, s2, tr)
         borISetFree(tr);
     if (ts->tr != NULL)
-        BOR_FREE(ts->tr);
+        FREE(ts->tr);
 }
 
 void pddlTSAddTransition(pddl_ts_t *ts, int s1, int s2, int l)
@@ -78,7 +78,7 @@ void pddlTSInitProjToFAMGroup(pddl_ts_t *ts,
 
     pddlTSInit(ts, borISetSize(famgroup) + 1);
 
-    fact_to_state = BOR_CALLOC_ARR(int, strips->fact.fact_size);
+    fact_to_state = CALLOC_ARR(int, strips->fact.fact_size);
     for (int state = 0; state < borISetSize(famgroup); ++state){
         int fact = borISetGet(famgroup, state);
         fact_to_state[fact] = state;
@@ -124,7 +124,7 @@ void pddlTSInitProjToFAMGroup(pddl_ts_t *ts,
     checkProjToFAMGroup(ts);
 
     if (fact_to_state != NULL)
-        BOR_FREE(fact_to_state);
+        FREE(fact_to_state);
     borISetFree(&fset);
     borISetFree(&predel);
 }
@@ -178,7 +178,7 @@ static void sccTarjanStrongconnect(cond_scc_t *scc, cond_scc_dfs_t *dfs,
             if (scc->comp_alloc == 0)
                 scc->comp_alloc = 1;
             scc->comp_alloc *= 2;
-            scc->comp = BOR_REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
+            scc->comp = REALLOC_ARR(scc->comp, bor_iset_t, scc->comp_alloc);
         }
         bor_iset_t *comp = scc->comp + scc->comp_size++;
         borISetInit(comp);
@@ -196,7 +196,7 @@ static void sccTarjan(cond_scc_t *scc, const pddl_ts_t *ts)
 
     // Initialize structure for Tarjan's algorithm
     dfs.cur_index = 0;
-    dfs.index    = BOR_ALLOC_ARR(int, 4 * ts->num_states);
+    dfs.index    = ALLOC_ARR(int, 4 * ts->num_states);
     dfs.lowlink  = dfs.index + ts->num_states;
     dfs.in_stack = dfs.lowlink + ts->num_states;
     dfs.stack    = dfs.in_stack + ts->num_states;
@@ -211,7 +211,7 @@ static void sccTarjan(cond_scc_t *scc, const pddl_ts_t *ts)
             sccTarjanStrongconnect(scc, &dfs, ts, s);
     }
 
-    BOR_FREE(dfs.index);
+    FREE(dfs.index);
 }
 
 static void condCreateLoop(pddl_ts_t *cond,
@@ -258,7 +258,7 @@ void pddlTSCondensate(pddl_ts_t *cond, const pddl_ts_t *ts)
     for (int i = 0; i < scc.comp_size; ++i)
         borISetFree(&scc.comp[i]);
     if (scc.comp != NULL)
-        BOR_FREE(scc.comp);
+        FREE(scc.comp);
 }
 
 void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state)
@@ -266,7 +266,7 @@ void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state)
     BOR_IARR(queue);
     int *reach;
 
-    reach = BOR_CALLOC_ARR(int, ts->num_states);
+    reach = CALLOC_ARR(int, ts->num_states);
     reach[state] = 1;
     borIArrAdd(&queue, state);
     while (borIArrSize(&queue) > 0){
@@ -289,7 +289,7 @@ void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state)
         }
     }
     if (states == ts->num_states){
-        BOR_FREE(reach);
+        FREE(reach);
         return;
     }
 
@@ -311,7 +311,7 @@ void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state)
     pddlTSFree(ts);
     *ts = newts;
 
-    BOR_FREE(reach);
+    FREE(reach);
 }
 
 void pddlTSPrintDebug(const pddl_ts_t *ts, FILE *fout)

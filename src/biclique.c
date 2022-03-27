@@ -17,7 +17,7 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/set.h"
 #include "pddl/biclique.h"
 #include "assert.h"

@@ -21,6 +21,7 @@
 #include <boruvka/iarr.h>
 #include <pddl/timer.h>
 #include "pddl/fdr_state_pool.h"
+#include "alloc.h"
 #include "assert.h"
 
 #define PAGESIZE_MULTIPLY 1024
@@ -52,13 +53,13 @@ static void stateIDArrAdd(state_id_arr_t *arr, pddl_state_id_t id)
             memcpy(tmp, arr->el_arr.el,
                     sizeof(pddl_state_id_t) * STATE_ID_ARR_FIXED_ARR_SIZE);
             arr->alloc = 2 * STATE_ID_ARR_FIXED_ARR_SIZE;
-            arr->el_arr.arr = BOR_ALLOC_ARR(pddl_state_id_t, arr->alloc);
+            arr->el_arr.arr = ALLOC_ARR(pddl_state_id_t, arr->alloc);
             memcpy(arr->el_arr.arr, tmp,
                     sizeof(pddl_state_id_t) * STATE_ID_ARR_FIXED_ARR_SIZE);
 
         }else if (arr->size == arr->alloc){
             arr->alloc *= 2;
-            arr->el_arr.arr = BOR_REALLOC_ARR(arr->el_arr.arr, pddl_state_id_t,
+            arr->el_arr.arr = REALLOC_ARR(arr->el_arr.arr, pddl_state_id_t,
                                               arr->alloc);
         }
 
@@ -84,7 +85,7 @@ static pddl_state_id_t stateIDArrGet(const state_id_arr_t *arr, int i)
 static void stateIDArrFree(state_id_arr_t *arr)
 {
     if (arr->size > STATE_ID_ARR_FIXED_ARR_SIZE)
-        BOR_FREE(arr->el_arr.arr);
+        FREE(arr->el_arr.arr);
 }
 
 struct htable {
@@ -102,7 +103,7 @@ static void htableInit(htable_t *ht,
 {
     bzero(ht, sizeof(*ht));
     ht->size = size;
-    ht->table = BOR_CALLOC_ARR(state_id_arr_t, ht->size);
+    ht->table = CALLOC_ARR(state_id_arr_t, ht->size);
     ht->bufsize = pddlFDRStatePackerBufSize(&state_pool->packer);
     ht->state_pool = state_pool;
 }
@@ -112,12 +113,12 @@ static void htableFree(htable_t *ht)
     for (size_t i = 0; i < ht->size; ++i)
         stateIDArrFree(ht->table + i);
     if (ht->table != NULL)
-        BOR_FREE(ht->table);
+        FREE(ht->table);
 }
 
 static htable_t *htableNew(const pddl_fdr_state_pool_t *state_pool)
 {
-    htable_t *ht = BOR_ALLOC(htable_t);
+    htable_t *ht = ALLOC(htable_t);
     htableInit(ht, state_pool, HTABLE_INIT_SIZE);
     return ht;
 }
@@ -125,7 +126,7 @@ static htable_t *htableNew(const pddl_fdr_state_pool_t *state_pool)
 static void htableDel(htable_t *ht)
 {
     htableFree(ht);
-    BOR_FREE(ht);
+    FREE(ht);
 }
 
 _bor_inline size_t nextPrime(size_t hint)

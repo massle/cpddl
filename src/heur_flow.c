@@ -18,6 +18,7 @@
 
 #include <boruvka/extarr.h>
 #include "pddl/hflow.h"
+#include "alloc.h"
 #include "_heur.h"
 
 struct pddl_heur_flow {
@@ -33,7 +34,7 @@ static void heurDel(pddl_heur_t *_h)
     _pddlHeurFree(&h->heur);
     pddlHFlowFree(&h->flow);
     borExtArrDel(h->cache);
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int heurEstimate(pddl_heur_t *_h,
@@ -49,7 +50,7 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurFlow(const pddl_fdr_t *fdr, bor_err_t *err)
 {
-    pddl_heur_flow_t *h = BOR_ALLOC(pddl_heur_flow_t);
+    pddl_heur_flow_t *h = ALLOC(pddl_heur_flow_t);
     bzero(h, sizeof(*h));
     pddlHFlowInit(&h->flow, fdr, 0);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);

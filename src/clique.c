@@ -17,7 +17,7 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/err.h>
 #include "pddl/config.h"
 #include "pddl/clique.h"
@@ -41,7 +41,7 @@ static void stackElDel(bk_stack_el_t *e)
     borISetFree(&e->clique);
     borISetFree(&e->P);
     borISetFree(&e->X);
-    BOR_FREE(e);
+    FREE(e);
 }
 
 static void stackFree(bk_stack_t *st)
@@ -49,7 +49,7 @@ static void stackFree(bk_stack_t *st)
     for (int i = 0; i < st->stack_size; ++i)
         stackElDel(st->stack[i]);
     if (st->stack != NULL)
-        BOR_FREE(st->stack);
+        FREE(st->stack);
 }
 
 static bk_stack_el_t *stackPop(bk_stack_t *st)
@@ -70,10 +70,10 @@ static void stackPush(bk_stack_t *st,
         if (st->stack_alloc == 0)
             st->stack_alloc = 2;
         st->stack_alloc *= 2;
-        st->stack = BOR_REALLOC_ARR(st->stack, bk_stack_el_t *,
+        st->stack = REALLOC_ARR(st->stack, bk_stack_el_t *,
                                     st->stack_alloc);
     }
-    bk_stack_el_t *s = BOR_ALLOC(bk_stack_el_t);
+    bk_stack_el_t *s = ALLOC(bk_stack_el_t);
     borISetInit(&s->clique);
     borISetInit(&s->P);
     borISetInit(&s->X);

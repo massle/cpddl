@@ -17,7 +17,7 @@
  */
 
 #include <limits.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/lp.h>
 #include "pddl/timer.h"
 #include "pddl/famgroup.h"
@@ -254,7 +254,7 @@ static void famInfer(fam_t *fam)
 
     pddlTimerStart(&timer);
 
-    obj = BOR_ALLOC_ARR(double, borLPNumCols(fam->lp));
+    obj = ALLOC_ARR(double, borLPNumCols(fam->lp));
     for (int i = 0;
             borLPSolve(fam->lp, &val, obj) == 0
                 && val > 0.5 && i < fam->cfg.limit;
@@ -279,7 +279,7 @@ static void famInfer(fam_t *fam)
         if (fam->cfg.time_limit > 0. && elapsed > fam->cfg.time_limit)
             break;
     }
-    BOR_FREE(obj);
+    FREE(obj);
     borISetFree(&famgroup);
 }
 

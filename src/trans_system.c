@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/set.h"
 #include "pddl/trans_system.h"
 #include "assert.h"
@@ -63,7 +63,7 @@ static int transSystemsAddTS(pddl_trans_systems_t *tss,
 void pddlMGroupIdxPairsFree(pddl_mgroup_idx_pairs_t *p)
 {
     if (p->mgroup_idx != NULL)
-        BOR_FREE(p->mgroup_idx);
+        FREE(p->mgroup_idx);
 }
 
 void pddlMGroupIdxPairsAdd(pddl_mgroup_idx_pairs_t *p, int mg_id, int idx)
@@ -74,7 +74,7 @@ void pddlMGroupIdxPairsAdd(pddl_mgroup_idx_pairs_t *p, int mg_id, int idx)
         }else{
             p->mgroup_idx_alloc *= 2;
         }
-        p->mgroup_idx = BOR_REALLOC_ARR(p->mgroup_idx,
+        p->mgroup_idx = REALLOC_ARR(p->mgroup_idx,
                                         pddl_mgroup_idx_pair_t,
                                         p->mgroup_idx_alloc);
     }
@@ -92,7 +92,7 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
     const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mg_id;
     ASSERT_RUNTIME(mg->is_exactly_one);
 
-    pddl_trans_system_t *ts = BOR_ALLOC(pddl_trans_system_t);
+    pddl_trans_system_t *ts = ALLOC(pddl_trans_system_t);
     bzero(ts, sizeof(*ts));
     ts->trans_systems = tss;
     borISetAdd(&ts->mgroup_ids, mg_id);
@@ -114,7 +114,7 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
 pddl_trans_system_t *pddlTransSystemClone(pddl_trans_systems_t *tss,
                                           const pddl_trans_system_t *ts_in)
 {
-    pddl_trans_system_t *ts = BOR_ALLOC(pddl_trans_system_t);
+    pddl_trans_system_t *ts = ALLOC(pddl_trans_system_t);
     bzero(ts, sizeof(*ts));
     ts->trans_systems = tss;
     borISetUnion(&ts->mgroup_ids, &ts_in->mgroup_ids);
@@ -133,7 +133,7 @@ pddl_trans_system_t *pddlTransSystemNewMerge(pddl_trans_systems_t *tss,
                                              const pddl_trans_system_t *t1,
                                              const pddl_trans_system_t *t2)
 {
-    pddl_trans_system_t *ts = BOR_ALLOC(pddl_trans_system_t);
+    pddl_trans_system_t *ts = ALLOC(pddl_trans_system_t);
     bzero(ts, sizeof(*ts));
     ts->trans_systems = tss;
     borISetUnion2(&ts->mgroup_ids, &t1->mgroup_ids, &t2->mgroup_ids);
@@ -173,7 +173,7 @@ void pddlTransSystemDel(pddl_trans_system_t *ts)
     pddlCascadingTableDel(ts->repr);
     freeLabeledTransitions(ts);
     borISetFree(&ts->goal_states);
-    BOR_FREE(ts);
+    FREE(ts);
 }
 
 int pddlTransSystemMGroupState(const pddl_trans_system_t *ts, int *state)
@@ -194,7 +194,7 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
     tss->fact_size = mg_strips->strips.fact.fact_size;
     pddlMGroupsInitCopy(&tss->mgroup, &mg_strips->mg);
 
-    tss->fact_to_mgroup = BOR_CALLOC_ARR(pddl_mgroup_idx_pairs_t,
+    tss->fact_to_mgroup = CALLOC_ARR(pddl_mgroup_idx_pairs_t,
                                          tss->fact_size);
     for (int mgi = 0; mgi < mg_strips->mg.mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mgi;
@@ -211,7 +211,7 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
     while (tss->ts_alloc < mg_strips->mg.mgroup_size)
         tss->ts_alloc *= 2;
     tss->ts_size = mg_strips->mg.mgroup_size;
-    tss->ts = BOR_ALLOC_ARR(pddl_trans_system_t *, tss->ts_alloc);
+    tss->ts = ALLOC_ARR(pddl_trans_system_t *, tss->ts_alloc);
     for (int i = 0; i < mg_strips->mg.mgroup_size; ++i)
         tss->ts[i] = pddlTransSystemNewMGroup(tss, mg_strips, mutex, i);
 }
@@ -221,12 +221,12 @@ void pddlTransSystemsFree(pddl_trans_systems_t *tss)
     for (int i = 0; i < tss->ts_size; ++i)
         pddlTransSystemDel(tss->ts[i]);
     if (tss->ts != NULL)
-        BOR_FREE(tss->ts);
+        FREE(tss->ts);
 
     for (int f = 0; f < tss->fact_size; ++f)
         pddlMGroupIdxPairsFree(tss->fact_to_mgroup + f);
     if (tss->fact_to_mgroup != NULL)
-        BOR_FREE(tss->fact_to_mgroup);
+        FREE(tss->fact_to_mgroup);
 
     pddlLabelsFree(&tss->label);
     borISetFree(&tss->dead_labels);
@@ -278,7 +278,7 @@ void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
 
     // Merge labels for the transformed transitions
     int labels_size = map->map_num_states * map->map_num_states;
-    bor_iset_t *labels = BOR_CALLOC_ARR(bor_iset_t, labels_size);
+    bor_iset_t *labels = CALLOC_ARR(bor_iset_t, labels_size);
     for (int ltri = 0; ltri < ts->trans.trans_size; ++ltri){
         const pddl_labeled_transitions_t *ltr = ts->trans.trans + ltri;
         const bor_iset_t *cur_label = &ltr->label->label;
@@ -312,7 +312,7 @@ void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
 
     for (int i = 0; i < labels_size; ++i)
         borISetFree(labels + i);
-    BOR_FREE(labels);
+    FREE(labels);
 
     ts->init_state = map->map[ts->init_state];
     BOR_ISET(goal_states);
@@ -335,7 +335,7 @@ int pddlTransSystemsCollectDeadLabels(pddl_trans_systems_t *tss, int ts_id)
         return 0;
     ts->dead_labels_collected = 1;
 
-    int *label = BOR_CALLOC_ARR(int, tss->label.label_size);
+    int *label = CALLOC_ARR(int, tss->label.label_size);
     for (int ltri = 0; ltri < ts->trans.trans_size; ++ltri){
         const pddl_labeled_transitions_t *ltr = ts->trans.trans + ltri;
         int lbl;
@@ -348,7 +348,7 @@ int pddlTransSystemsCollectDeadLabels(pddl_trans_systems_t *tss, int ts_id)
         if (!label[i])
             borISetAdd(&tss->dead_labels, i);
     }
-    BOR_FREE(label);
+    FREE(label);
 
     return num_dead_labels > borISetSize(&tss->dead_labels);
 }
@@ -626,9 +626,9 @@ static void createTransitionsInProjection(pddl_trans_system_t *ts,
 {
     pddl_trans_systems_t *tss = ts->trans_systems;
     int mgroup_size = borISetSize(mgroup);
-    bor_iset_t *in_ops = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
-    bor_iset_t *out_ops = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
-    bor_iset_t *loop = BOR_CALLOC_ARR(bor_iset_t, mgroup_size);
+    bor_iset_t *in_ops = CALLOC_ARR(bor_iset_t, mgroup_size);
+    bor_iset_t *out_ops = CALLOC_ARR(bor_iset_t, mgroup_size);
+    bor_iset_t *loop = CALLOC_ARR(bor_iset_t, mgroup_size);
     BOR_ISET(ops);
 
     // Find outgoing, incoming and loop transitions separately
@@ -657,9 +657,9 @@ static void createTransitionsInProjection(pddl_trans_system_t *ts,
         borISetFree(out_ops + i);
         borISetFree(loop + i);
     }
-    BOR_FREE(in_ops);
-    BOR_FREE(out_ops);
-    BOR_FREE(loop);
+    FREE(in_ops);
+    FREE(out_ops);
+    FREE(loop);
 }
 
 static void setInitState(pddl_trans_system_t *ts,
@@ -783,7 +783,7 @@ static int transSystemsAddTS(pddl_trans_systems_t *tss,
         if (tss->ts_alloc == 0)
             tss->ts_alloc = 4;
         tss->ts_alloc *= 2;
-        tss->ts = BOR_REALLOC_ARR(tss->ts, pddl_trans_system_t *,
+        tss->ts = REALLOC_ARR(tss->ts, pddl_trans_system_t *,
                                   tss->ts_alloc);
     }
 

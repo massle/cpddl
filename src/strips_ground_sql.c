@@ -21,7 +21,7 @@
 #ifdef PDDL_SQLITE
 
 #include <sqlite3.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/strips_ground_sql.h"
 #include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"

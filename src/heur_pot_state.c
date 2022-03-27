@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "alloc.h"
 #include "_heur.h"
 
 struct pot_func {
@@ -30,9 +31,9 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
                               const int *state,
                               bor_list_t *list)
 {
-    pot_func_t *f = BOR_ALLOC(pot_func_t);
+    pot_func_t *f = ALLOC(pot_func_t);
     pddlPotSolutionInit(&f->sol);
-    f->state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    f->state = ALLOC_ARR(int, fdr->var.var_size);
     borListInit(&f->conn);
 
     pddl_pot_t pot;
@@ -51,9 +52,9 @@ static pot_func_t *potFuncNew(const pddl_fdr_t *fdr,
 static void potFuncDel(pot_func_t *f)
 {
     pddlPotSolutionFree(&f->sol);
-    BOR_FREE(f->state);
+    FREE(f->state);
     borListDel(&f->conn);
-    BOR_FREE(f);
+    FREE(f);
 }
 
 // TODO: Refactor with hpot
@@ -86,7 +87,7 @@ static void heurDel(pddl_heur_t *_h)
         pot_func_t *f = BOR_LIST_ENTRY(l, pot_func_t, conn);
         potFuncDel(f);
     }
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int recompute(const heur_t *h,
@@ -129,7 +130,7 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, bor_err_t *err)
 {
-    heur_t *h = BOR_ALLOC(heur_t);
+    heur_t *h = ALLOC(heur_t);
     bzero(h, sizeof(*h));
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
     h->fdr = fdr;

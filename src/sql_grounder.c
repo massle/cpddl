@@ -18,7 +18,7 @@
  */
 
 #include <sqlite3.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/sql_grounder.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
@@ -142,7 +142,7 @@ static void sqlPredInit(sql_pred_t *qpred,
         return;
     }
 
-    qpred->table_name = BOR_ALLOC_ARR(char, 2 + strlen(pred->name) + 1);
+    qpred->table_name = ALLOC_ARR(char, 2 + strlen(pred->name) + 1);
     sprintf(qpred->table_name, "t_%s", pred->name);
     int len = strlen(qpred->table_name);
     for (int i = 0; i < len; ++i){
@@ -206,7 +206,7 @@ static void sqlPredInit(sql_pred_t *qpred,
 static void sqlPredFree(sql_pred_t *qpred, sqlite3 *db)
 {
     if (qpred->table_name != NULL)
-        BOR_FREE(qpred->table_name);
+        FREE(qpred->table_name);
     if (qpred->stmt_atom != NULL)
         sqlite3_finalize(qpred->stmt_atom);
     if (qpred->stmt_insert != NULL)
@@ -599,12 +599,12 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "SQL Grounder: ");
-    pddl_sql_grounder_t *g = BOR_ALLOC(pddl_sql_grounder_t);
+    pddl_sql_grounder_t *g = ALLOC(pddl_sql_grounder_t);
     bzero(g, sizeof(*g));
 
     g->pddl = pddl;
     if (pddlPrepActionsInit(g->pddl, &g->prep_action, err) != 0){
-        BOR_FREE(g);
+        FREE(g);
         BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, NULL);
     }
@@ -623,13 +623,13 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
     createTypeTables(g->db, g->pddl);
 
     // Create sql predicates
-    g->pred = BOR_CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
+    g->pred = CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
     for (int pi = 0; pi < pddl->pred.pred_size; ++pi)
         sqlPredInit(g->pred + pi, g->db, &g->pddl->pred, pi, err);
     BOR_INFO(err, "%d predicate tables created.", pddl->pred.pred_size);
 
     // Create sql actions
-    g->action = BOR_CALLOC_ARR(sql_action_t, g->prep_action.action_size);
+    g->action = CALLOC_ARR(sql_action_t, g->prep_action.action_size);
     for (int ai = 0; ai < g->prep_action.action_size; ++ai){
         sqlActionInit(g->action + ai, g->db, g->pred,
                       g->prep_action.action + ai, err);
@@ -646,16 +646,16 @@ void pddlSqlGrounderDel(pddl_sql_grounder_t *g)
     for (int pi = 0; pi < g->pddl->pred.pred_size; ++pi)
         sqlPredFree(g->pred + pi, g->db);
     if (g->pred != NULL)
-        BOR_FREE(g->pred);
+        FREE(g->pred);
     for (int ai = 0; ai < g->prep_action.action_size; ++ai)
         sqlActionFree(g->action + ai, g->db);
     if (g->action != NULL)
-        BOR_FREE(g->action);
+        FREE(g->action);
 
     pddlPrepActionsFree(&g->prep_action);
     int ret = sqlite3_close_v2(g->db);
     CHECK_SQL_ERR(g->db, ret);
-    BOR_FREE(g);
+    FREE(g);
 }
 
 int pddlSqlGrounderPrepActionSize(const pddl_sql_grounder_t *g)

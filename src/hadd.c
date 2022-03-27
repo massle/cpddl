@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/cost.h"
 #include "pddl/hadd.h"
 
@@ -43,13 +43,13 @@ void pddlHAddInit(pddl_hadd_t *h, const pddl_fdr_t *fdr)
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     h->fact_size = fdr->var.global_id_size + 2;
-    h->fact = BOR_CALLOC_ARR(pddl_hadd_fact_t, h->fact_size);
+    h->fact = CALLOC_ARR(pddl_hadd_fact_t, h->fact_size);
     h->fact_goal = h->fact_size - 2;
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     h->op_size = fdr->op.op_size + 1;
-    h->op = BOR_CALLOC_ARR(pddl_hadd_op_t, h->op_size);
+    h->op = CALLOC_ARR(pddl_hadd_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
     BOR_ISET(pre);
@@ -94,12 +94,12 @@ void pddlHAddFree(pddl_hadd_t *hadd)
     for (int i = 0; i < hadd->fact_size; ++i)
         borISetFree(&hadd->fact[i].pre_op);
     if (hadd->fact != NULL)
-        BOR_FREE(hadd->fact);
+        FREE(hadd->fact);
 
     for (int i = 0; i < hadd->op_size; ++i)
         borISetFree(&hadd->op[i].eff);
     if (hadd->op != NULL)
-        BOR_FREE(hadd->op);
+        FREE(hadd->op);
 }
 
 static void initFacts(pddl_hadd_t *h)

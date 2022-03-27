@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/lm_cut.h"
 #include "assert.h"
 
@@ -101,13 +101,13 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     lmc->fact_size = vars->global_id_size + 2;
-    lmc->fact = BOR_CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
+    lmc->fact = CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
     lmc->fact_goal = lmc->fact_size - 2;
     lmc->fact_nopre = lmc->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     lmc->op_size = fdr->op.op_size + 1;
-    lmc->op = BOR_CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
+    lmc->op = CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
     lmc->op_goal = lmc->op_size - 1;
 
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
@@ -145,7 +145,7 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
     BOR_ISET_FOR_EACH(&op->pre, fid)
         borISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
 
-    lmc->fact_state = BOR_ALLOC_ARR(int, lmc->fact_size);
+    lmc->fact_state = ALLOC_ARR(int, lmc->fact_size);
     borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
     pddlPQInit(&lmc->pq);
 }
@@ -160,13 +160,13 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     lmc->fact_size = strips->fact.fact_size + 2;
-    lmc->fact = BOR_CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
+    lmc->fact = CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
     lmc->fact_goal = lmc->fact_size - 2;
     lmc->fact_nopre = lmc->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     lmc->op_size = strips->op.op_size + 1;
-    lmc->op = BOR_CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
+    lmc->op = CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
     lmc->op_goal = lmc->op_size - 1;
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -204,7 +204,7 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
     BOR_ISET_FOR_EACH(&op->pre, fid)
         borISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
 
-    lmc->fact_state = BOR_ALLOC_ARR(int, lmc->fact_size);
+    lmc->fact_state = ALLOC_ARR(int, lmc->fact_size);
     borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
     pddlPQInit(&lmc->pq);
 }
@@ -214,15 +214,15 @@ void pddlLMCutFree(pddl_lm_cut_t *lmc)
     for (int i = 0; i < lmc->fact_size; ++i)
         factFree(lmc->fact + i);
     if (lmc->fact != NULL)
-        BOR_FREE(lmc->fact);
+        FREE(lmc->fact);
 
     for (int i = 0; i < lmc->op_size; ++i)
         opFree(lmc->op + i);
     if (lmc->op != NULL)
-        BOR_FREE(lmc->op);
+        FREE(lmc->op);
 
     if (lmc->fact_state)
-        BOR_FREE(lmc->fact_state);
+        FREE(lmc->fact_state);
     borIArrFree(&lmc->queue);
     pddlPQFree(&lmc->pq);
     borISetFree(&lmc->cut);

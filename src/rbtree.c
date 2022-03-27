@@ -13,8 +13,8 @@
  * See the License for more information.
  */
 
-#include "boruvka/alloc.h"
 #include "pddl/rbtree.h"
+#include "alloc.h"
 
 
 #define RB_NODE pddl_rbtree_node_t
@@ -46,7 +46,7 @@ RB_TREE *pddlRBTreeNew(pddl_rbtree_cmp cmp, void *data)
 {
     RB_TREE *rb;
 
-    rb = BOR_ALLOC(RB_TREE);
+    rb = ALLOC(RB_TREE);
     pddlRBTreeInit(rb, cmp, data);
 
     return rb;

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/symbolic_state.h"
 #include "assert.h"
 
@@ -128,7 +128,7 @@ void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
             pddl_symbolic_all_closed_t *c;
             c = bor_container_of(tn, pddl_symbolic_all_closed_t, rbtree);
             pddlBDDDel(mgr, c->closed);
-            BOR_FREE(c);
+            FREE(c);
         }
         pddlRBTreeDel(states->all_closed_g);
     }
@@ -190,7 +190,7 @@ void pddlSymbolicStatesCloseState(pddl_symbolic_states_t *states,
         pddl_symbolic_all_closed_t *c;
         pddl_rbtree_node_t *node;
         if ((node = pddlRBTreeFind(states->all_closed_g, &ctest.rbtree)) == NULL){
-            c = BOR_ALLOC(pddl_symbolic_all_closed_t);
+            c = ALLOC(pddl_symbolic_all_closed_t);
             c->g_value = state->cost;
             c->closed = pddlBDDZero(mgr);
             pddlRBTreeInsert(states->all_closed_g, &c->rbtree);

@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/plan_file.h"
 
 struct parse {
@@ -37,10 +37,10 @@ static void planFileFDRAddState(pddl_plan_file_fdr_t *p,
         if (p->state_alloc == 0)
             p->state_alloc = 4;
         p->state_alloc *= 2;
-        p->state = BOR_REALLOC_ARR(p->state, int *, p->state_alloc);
+        p->state = REALLOC_ARR(p->state, int *, p->state_alloc);
     }
 
-    p->state[p->state_size] = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    p->state[p->state_size] = ALLOC_ARR(int, fdr->var.var_size);
     memcpy(p->state[p->state_size], state, sizeof(int) * fdr->var.var_size);
     ++p->state_size;
 }
@@ -53,7 +53,7 @@ static void planFileStripsAddState(pddl_plan_file_strips_t *p,
         if (p->state_alloc == 0)
             p->state_alloc = 4;
         p->state_alloc *= 2;
-        p->state = BOR_REALLOC_ARR(p->state, bor_iset_t, p->state_alloc);
+        p->state = REALLOC_ARR(p->state, bor_iset_t, p->state_alloc);
     }
 
     bor_iset_t *s = p->state + p->state_size;
@@ -173,10 +173,10 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
 
     struct parse parse;
     parse.pfdr = p;
-    parse.fdr_state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    parse.fdr_state = ALLOC_ARR(int, fdr->var.var_size);
     parse.fdr = fdr;
     int ret = readFile(&parse, filename, err, parseFDR);
-    BOR_FREE(parse.fdr_state);
+    FREE(parse.fdr_state);
 
     return ret;
 }
@@ -186,9 +186,9 @@ void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p)
 {
     borIArrFree(&p->op);
     for (int i = 0; i < p->state_size; ++i)
-        BOR_FREE(p->state[i]);
+        FREE(p->state[i]);
     if (p->state != NULL)
-        BOR_FREE(p->state);
+        FREE(p->state);
 }
 
 int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
@@ -215,7 +215,7 @@ void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p)
     for (int i = 0; i < p->state_size; ++i)
         borISetFree(&p->state[i]);
     if (p->state != NULL)
-        BOR_FREE(p->state);
+        FREE(p->state);
 }
 
 int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err)

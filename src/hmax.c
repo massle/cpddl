@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/hmax.h"
 
 #define FID(heur, f) ((f) - (heur)->fact)
@@ -42,13 +42,13 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     h->fact_size = fdr->var.global_id_size + 2;
-    h->fact = BOR_CALLOC_ARR(pddl_hmax_fact_t, h->fact_size);
+    h->fact = CALLOC_ARR(pddl_hmax_fact_t, h->fact_size);
     h->fact_goal = h->fact_size - 2;
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     h->op_size = fdr->op.op_size + 1;
-    h->op = BOR_CALLOC_ARR(pddl_hmax_op_t, h->op_size);
+    h->op = CALLOC_ARR(pddl_hmax_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
     BOR_ISET(pre);
@@ -93,12 +93,12 @@ void pddlHMaxFree(pddl_hmax_t *hmax)
     for (int i = 0; i < hmax->fact_size; ++i)
         borISetFree(&hmax->fact[i].pre_op);
     if (hmax->fact != NULL)
-        BOR_FREE(hmax->fact);
+        FREE(hmax->fact);
 
     for (int i = 0; i < hmax->op_size; ++i)
         borISetFree(&hmax->op[i].eff);
     if (hmax->op != NULL)
-        BOR_FREE(hmax->op);
+        FREE(hmax->op);
 }
 
 static void initFacts(pddl_hmax_t *h)

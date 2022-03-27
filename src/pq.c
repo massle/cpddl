@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
 #include <boruvka/err.h>
 #include <pddl/pq.h>
+#include "alloc.h"
 
 static void pddlPQBucketQueueInit(pddl_pq_bucket_queue_t *q);
 static void pddlPQBucketQueueFree(pddl_pq_bucket_queue_t *q);
@@ -93,7 +93,7 @@ void pddlPQUpdate(pddl_pq_t *q, int key, pddl_pq_el_t *el)
 static void pddlPQBucketQueueInit(pddl_pq_bucket_queue_t *q)
 {
     q->bucket_size = PDDL_PQ_BUCKET_SIZE;
-    q->bucket = BOR_CALLOC_ARR(pddl_pq_bucket_t, q->bucket_size);
+    q->bucket = CALLOC_ARR(pddl_pq_bucket_t, q->bucket_size);
     q->lowest_key = q->bucket_size;
     q->size = 0;
 }
@@ -104,9 +104,9 @@ static void pddlPQBucketQueueFree(pddl_pq_bucket_queue_t *q)
 
     for (i = 0; i < q->bucket_size; ++i){
         if (q->bucket[i].el)
-            BOR_FREE(q->bucket[i].el);
+            FREE(q->bucket[i].el);
     }
-    BOR_FREE(q->bucket);
+    FREE(q->bucket);
 }
 
 static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
@@ -127,7 +127,7 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
         }else{
             bucket->alloc *= PDDL_PQ_BUCKET_EXPANSION_FACTOR;
         }
-        bucket->el = BOR_REALLOC_ARR(bucket->el, pddl_pq_el_t *,
+        bucket->el = REALLOC_ARR(bucket->el, pddl_pq_el_t *,
                                      bucket->alloc);
 
     }
@@ -187,7 +187,7 @@ static void pddlPQBucketQueueToHeapQueue(pddl_pq_bucket_queue_t *b,
             pddlPQHeapQueuePush(h, i, bucket->el[j]);
         }
         if (bucket->el != NULL)
-            BOR_FREE(bucket->el);
+            FREE(bucket->el);
         bucket->el = NULL;
         bucket->size = bucket->alloc = 0;
     }

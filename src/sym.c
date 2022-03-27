@@ -20,7 +20,7 @@
 #ifdef PDDL_BLISS
 
 #include <bliss/bliss_C.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/iarr.h>
 #include "pddl/sym.h"
 
@@ -31,7 +31,7 @@ struct pdg_sym {
 
 static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
 {
-    int *op_used = BOR_CALLOC_ARR(int, op_size);
+    int *op_used = CALLOC_ARR(int, op_size);
     for (int i = 0; i < op_size; ++i){
         if (op_used[i] || gen->op[i] == i)
             continue;
@@ -40,7 +40,7 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
             if (gen->op_cycle_alloc == 0)
                 gen->op_cycle_alloc = 2;
             gen->op_cycle_alloc *= 2;
-            gen->op_cycle = BOR_REALLOC_ARR(gen->op_cycle, bor_iset_t,
+            gen->op_cycle = REALLOC_ARR(gen->op_cycle, bor_iset_t,
                                             gen->op_cycle_alloc);
         }
         bor_iset_t *cycle = gen->op_cycle + gen->op_cycle_size++;
@@ -57,7 +57,7 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
     }
 
     if (op_used != NULL)
-        BOR_FREE(op_used);
+        FREE(op_used);
 }
 
 static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
@@ -125,19 +125,19 @@ static void pdgAutomorphismHook(void *ud, unsigned int n,
         if (sym->gen_alloc == 0)
             sym->gen_alloc = 2;
         sym->gen_alloc *= 2;
-        sym->gen = BOR_REALLOC_ARR(sym->gen, pddl_strips_sym_gen_t, sym->gen_alloc);
+        sym->gen = REALLOC_ARR(sym->gen, pddl_strips_sym_gen_t, sym->gen_alloc);
     }
     pddl_strips_sym_gen_t *gen = sym->gen + sym->gen_size++;
     bzero(gen, sizeof(*gen));
 
-    gen->fact = BOR_CALLOC_ARR(int, fact_size);
-    gen->fact_inv = BOR_CALLOC_ARR(int, fact_size);
+    gen->fact = CALLOC_ARR(int, fact_size);
+    gen->fact_inv = CALLOC_ARR(int, fact_size);
     for (int i = 0; i < fact_size; ++i){
         gen->fact[i] = i;
         gen->fact_inv[i] = i;
     }
-    gen->op = BOR_CALLOC_ARR(int, op_size);
-    gen->op_inv = BOR_CALLOC_ARR(int, op_size);
+    gen->op = CALLOC_ARR(int, op_size);
+    gen->op_inv = CALLOC_ARR(int, op_size);
     for (int i = 0; i < op_size; ++i){
         gen->op[i] = i;
         gen->op_inv[i] = i;
@@ -181,20 +181,20 @@ void pddlStripsSymFree(pddl_strips_sym_t *sym)
         pddl_strips_sym_gen_t *gen = sym->gen + i;
 
         if (gen->fact != NULL)
-            BOR_FREE(gen->fact);
+            FREE(gen->fact);
         if (gen->fact_inv != NULL)
-            BOR_FREE(gen->fact_inv);
+            FREE(gen->fact_inv);
         if (gen->op != NULL)
-            BOR_FREE(gen->op);
+            FREE(gen->op);
         if (gen->op_inv != NULL)
-            BOR_FREE(gen->op_inv);
+            FREE(gen->op_inv);
         for (int j = 0; j < gen->op_cycle_size; ++j)
             borISetFree(gen->op_cycle + j);
         if (gen->op_cycle != NULL)
-            BOR_FREE(gen->op_cycle);
+            FREE(gen->op_cycle);
     }
     if (sym->gen != NULL)
-        BOR_FREE(sym->gen);
+        FREE(sym->gen);
 }
 
 static void applyGenOnFactSet(const pddl_strips_sym_gen_t *gen, const bor_iset_t *in,
@@ -282,7 +282,7 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 {
     int *fact_used;
 
-    fact_used = BOR_CALLOC_ARR(int, sym->fact_size);
+    fact_used = CALLOC_ARR(int, sym->fact_size);
 
     for (int gi = 0; gi < sym->gen_size; ++gi){
         const pddl_strips_sym_gen_t *gen = sym->gen + gi;
@@ -320,7 +320,7 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
     }
 
     if (fact_used != NULL)
-        BOR_FREE(fact_used);
+        FREE(fact_used);
 }
 
 #else /* PDDL_BLISS */

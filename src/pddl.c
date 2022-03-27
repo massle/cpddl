@@ -18,7 +18,7 @@
  */
 
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/pddl_struct.h"
 #include "assert.h"
 #include "log.h"
@@ -73,7 +73,7 @@ static char *parseDomainName(pddl_lisp_t *lisp, bor_err_t *err)
 {
     const char *name = parseName(lisp, PDDL_KW_DOMAIN, "domain", err);
     if (name != NULL)
-        return BOR_STRDUP(name);
+        return STRDUP(name);
     return NULL;
 }
 
@@ -81,7 +81,7 @@ static char *parseProblemName(pddl_lisp_t *lisp, bor_err_t *err)
 {
     const char *name = parseName(lisp, PDDL_KW_PROBLEM, "problem", err);
     if (name != NULL)
-        return BOR_STRDUP(name);
+        return STRDUP(name);
     return NULL;
 }
 
@@ -277,9 +277,9 @@ void pddlInitCopy(pddl_t *dst, const pddl_t *src)
     dst->domain_lisp = pddlLispClone(src->domain_lisp);
     dst->problem_lisp = pddlLispClone(src->problem_lisp);
     if (src->domain_name != NULL)
-        dst->domain_name = BOR_STRDUP(src->domain_name);
+        dst->domain_name = STRDUP(src->domain_name);
     if (src->problem_name != NULL)
-        dst->problem_name = BOR_STRDUP(src->problem_name);
+        dst->problem_name = STRDUP(src->problem_name);
     dst->require = src->require;
     pddlTypesInitCopy(&dst->type, &src->type);
     pddlObjsInitCopy(&dst->obj, &src->obj);
@@ -297,10 +297,10 @@ void pddlInitCopy(pddl_t *dst, const pddl_t *src)
 pddl_t *pddlNew(const char *domain_fn, const char *problem_fn,
                 const pddl_config_t *cfg, bor_err_t *err)
 {
-    pddl_t *pddl = BOR_ALLOC(pddl_t);
+    pddl_t *pddl = ALLOC(pddl_t);
 
     if (pddlInit(pddl, domain_fn, problem_fn, cfg, err) != 0){
-        BOR_FREE(pddl);
+        FREE(pddl);
         return NULL;
     }
 
@@ -310,7 +310,7 @@ pddl_t *pddlNew(const char *domain_fn, const char *problem_fn,
 void pddlDel(pddl_t *pddl)
 {
     pddlFree(pddl);
-    BOR_FREE(pddl);
+    FREE(pddl);
 }
 
 void pddlFree(pddl_t *pddl)
@@ -320,9 +320,9 @@ void pddlFree(pddl_t *pddl)
     if (pddl->problem_lisp)
         pddlLispDel(pddl->problem_lisp);
     if (pddl->domain_name != NULL)
-        BOR_FREE(pddl->domain_name);
+        FREE(pddl->domain_name);
     if (pddl->problem_name != NULL)
-        BOR_FREE(pddl->problem_name);
+        FREE(pddl->problem_name);
     pddlTypesFree(&pddl->type);
     pddlObjsFree(&pddl->obj);
     pddlPredsFree(&pddl->pred);
@@ -390,13 +390,13 @@ static int createNewNotPred(pddl_t *pddl, int pred_id)
     char *name;
 
     name_size = strlen(pos->name) + 4;
-    name = BOR_ALLOC_ARR(char, name_size + 1);
+    name = ALLOC_ARR(char, name_size + 1);
     strcpy(name, "NOT-");
     strcpy(name + 4, pos->name);
 
     neg = pddlPredsAddCopy(&pddl->pred, pred_id);
     if (neg->name != NULL)
-        BOR_FREE(neg->name);
+        FREE(neg->name);
     neg->name = name;
     neg->neg_of = pred_id;
     pddl->pred.pred[pred_id].neg_of = neg->id;
@@ -549,7 +549,7 @@ static void compileOutNonStaticNegPre(pddl_t *pddl)
     int size, *negpred;
 
     size = pddl->pred.pred_size;
-    negpred = BOR_ALLOC_ARR(int, size);
+    negpred = ALLOC_ARR(int, size);
     findNonStaticPredInNegPre(pddl, negpred);
 
     for (int i = 0; i < size; ++i){
@@ -559,7 +559,7 @@ static void compileOutNonStaticNegPre(pddl_t *pddl)
             addNotPredsToInit(pddl, i, not);
         }
     }
-    BOR_FREE(negpred);
+    FREE(negpred);
 }
 
 static int isFalsePre(const pddl_cond_t *c)
@@ -849,13 +849,13 @@ void pddlAddObjectTypes(pddl_t *pddl)
         if (pddlTypeNumObjs(&pddl->type, obj->type) <= 1)
             continue;
 
-        char *name = BOR_ALLOC_ARR(char, strlen(obj->name) + 8 + 1);
+        char *name = ALLOC_ARR(char, strlen(obj->name) + 8 + 1);
         sprintf(name, "%s-OBJTYPE", obj->name);
         int type_id = pddlTypesAdd(&pddl->type, name, obj->type);
         ASSERT(type_id == pddl->type.type_size - 1);
         pddlTypesAddObj(&pddl->type, obj_id, type_id);
         obj->type = type_id;
-        BOR_FREE(name);
+        FREE(name);
     }
     pddlTypesBuildObjTypeMap(&pddl->type, pddl->obj.obj_size);
 }
@@ -865,9 +865,9 @@ void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
 {
     if (borISetSize(rm_obj) == 0)
         return;
-    pddl_obj_id_t *remap = BOR_ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    pddl_obj_id_t *remap = ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     pddlRemoveObjsGetRemap(pddl, rm_obj, remap, err);
-    BOR_FREE(remap);
+    FREE(remap);
 }
 
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
@@ -913,9 +913,9 @@ void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
 void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "Rm empty-types: ");
-    int *type_remap = BOR_CALLOC_ARR(int, pddl->type.type_size);
-    int *pred_remap = BOR_CALLOC_ARR(int, pddl->pred.pred_size);
-    int *func_remap = BOR_CALLOC_ARR(int, pddl->func.pred_size);
+    int *type_remap = CALLOC_ARR(int, pddl->type.type_size);
+    int *pred_remap = CALLOC_ARR(int, pddl->pred.pred_size);
+    int *func_remap = CALLOC_ARR(int, pddl->func.pred_size);
     int type_size = pddl->type.type_size;
     int pred_size = pddl->pred.pred_size;
     int func_size = pddl->func.pred_size;
@@ -959,9 +959,9 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err)
     }
 
 
-    BOR_FREE(type_remap);
-    BOR_FREE(pred_remap);
-    BOR_FREE(func_remap);
+    FREE(type_remap);
+    FREE(pred_remap);
+    FREE(func_remap);
     BOR_INFO_PREFIX_POP(err);
 }
 

@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/op_mutex_pair.h"
 
 void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
@@ -24,7 +24,7 @@ void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
     bzero(m, sizeof(*m));
 
     m->op_size = s->op.op_size;
-    m->op_id_to_id = BOR_ALLOC_ARR(int, m->op_size);
+    m->op_id_to_id = ALLOC_ARR(int, m->op_size);
     for (int i = 0; i < m->op_size; ++i)
         m->op_id_to_id[i] = -1;
 }
@@ -35,13 +35,13 @@ void pddlOpMutexPairsInitCopy(pddl_op_mutex_pairs_t *dst,
     bzero(dst, sizeof(*dst));
 
     dst->op_size = src->op_size;
-    dst->op_id_to_id = BOR_ALLOC_ARR(int, dst->op_size);
+    dst->op_id_to_id = ALLOC_ARR(int, dst->op_size);
     memcpy(dst->op_id_to_id, src->op_id_to_id, sizeof(int) * dst->op_size);
-    dst->id_to_op_id = BOR_ALLOC_ARR(int, src->alloc);
+    dst->id_to_op_id = ALLOC_ARR(int, src->alloc);
     memcpy(dst->id_to_op_id, src->id_to_op_id, sizeof(int) * src->alloc);
     dst->size = src->size;
     dst->alloc = src->alloc;
-    dst->op_mutex = BOR_CALLOC_ARR(bor_iset_t, dst->alloc);
+    dst->op_mutex = CALLOC_ARR(bor_iset_t, dst->alloc);
     for (int i = 0; i < src->size; ++i)
         borISetUnion(dst->op_mutex + i, src->op_mutex + i);
     dst->num_op_mutex_pairs = src->num_op_mutex_pairs;
@@ -50,13 +50,13 @@ void pddlOpMutexPairsInitCopy(pddl_op_mutex_pairs_t *dst,
 void pddlOpMutexPairsFree(pddl_op_mutex_pairs_t *m)
 {
     if (m->op_id_to_id != NULL)
-        BOR_FREE(m->op_id_to_id);
+        FREE(m->op_id_to_id);
     if (m->id_to_op_id != NULL)
-        BOR_FREE(m->id_to_op_id);
+        FREE(m->id_to_op_id);
     for (int i = 0; i < m->size; ++i)
         borISetFree(m->op_mutex + i);
     if (m->op_mutex != NULL)
-        BOR_FREE(m->op_mutex);
+        FREE(m->op_mutex);
 }
 
 int pddlOpMutexPairsSize(const pddl_op_mutex_pairs_t *m)
@@ -81,8 +81,8 @@ static void registerNewOp(pddl_op_mutex_pairs_t *m, int op_id)
         if (m->alloc == 0)
             m->alloc = 32;
         m->alloc *= 2;
-        m->op_mutex = BOR_REALLOC_ARR(m->op_mutex, bor_iset_t, m->alloc);
-        m->id_to_op_id = BOR_REALLOC_ARR(m->id_to_op_id, int, m->alloc);
+        m->op_mutex = REALLOC_ARR(m->op_mutex, bor_iset_t, m->alloc);
+        m->id_to_op_id = REALLOC_ARR(m->id_to_op_id, int, m->alloc);
     }
 
     int id = m->size++;

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/hfunc.h>
 #include "pddl/pddl.h"
 #include "pddl/obj.h"
@@ -27,7 +27,7 @@
 void pddlObjFree(pddl_obj_t *obj)
 {
     if (obj->name != NULL)
-        BOR_FREE(obj->name);
+        FREE(obj->name);
     obj->name = NULL;
 }
 
@@ -227,14 +227,14 @@ void pddlObjsInitCopy(pddl_objs_t *dst, const pddl_objs_t *src)
     dst->htable = borHTableNew(objHash, objEq, NULL);
 
     dst->obj_size = dst->obj_alloc = src->obj_size;
-    dst->obj = BOR_CALLOC_ARR(pddl_obj_t, src->obj_size);
+    dst->obj = CALLOC_ARR(pddl_obj_t, src->obj_size);
     for (int i = 0; i < src->obj_size; ++i){
         dst->obj[i] = src->obj[i];
         if (dst->obj[i].name != NULL)
-            dst->obj[i].name = BOR_STRDUP(src->obj[i].name);
+            dst->obj[i].name = STRDUP(src->obj[i].name);
 
         obj_key_t *key;
-        key = BOR_ALLOC(obj_key_t);
+        key = ALLOC(obj_key_t);
         key->obj_id = i;
         key->name = dst->obj[i].name;
         key->hash = borHashSDBM(dst->obj[i].name);
@@ -252,7 +252,7 @@ void pddlObjsFree(pddl_objs_t *objs)
     for (int i = 0; i < objs->obj_size; ++i)
         pddlObjFree(objs->obj + i);
     if (objs->obj != NULL)
-        BOR_FREE(objs->obj);
+        FREE(objs->obj);
 
     borListInit(&list);
     if (objs->htable != NULL){
@@ -261,7 +261,7 @@ void pddlObjsFree(pddl_objs_t *objs)
             item = borListNext(&list);
             borListDel(item);
             key = BOR_LIST_ENTRY(item, obj_key_t, htable);
-            BOR_FREE(key);
+            FREE(key);
         }
         borHTableDel(objs->htable);
     }
@@ -304,15 +304,15 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
         }else{
             objs->obj_alloc *= 2;
         }
-        objs->obj = BOR_REALLOC_ARR(objs->obj, pddl_obj_t, objs->obj_alloc);
+        objs->obj = REALLOC_ARR(objs->obj, pddl_obj_t, objs->obj_alloc);
     }
 
     o = objs->obj + objs->obj_size++;
     bzero(o, sizeof(*o));
-    o->name = BOR_STRDUP(name);
+    o->name = STRDUP(name);
     o->owner = PDDL_OBJ_ID_UNDEF;
 
-    key = BOR_ALLOC(obj_key_t);
+    key = ALLOC(obj_key_t);
     key->obj_id = objs->obj_size - 1;
     key->name = name;
     key->hash = borHashSDBM(name);
@@ -328,8 +328,8 @@ void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
     for (int i = 0; i < objs->obj_size; ++i)
         new_size = BOR_MAX(new_size, remap[i] + 1);
 
-    int *isset = BOR_CALLOC_ARR(int, new_size);
-    pddl_obj_t *nobjs = BOR_CALLOC_ARR(pddl_obj_t, new_size);
+    int *isset = CALLOC_ARR(int, new_size);
+    pddl_obj_t *nobjs = CALLOC_ARR(pddl_obj_t, new_size);
     for (int i = 0; i < objs->obj_size; ++i){
         if (remap[i] >= 0 && !isset[remap[i]]){
             nobjs[remap[i]] = objs->obj[i];
@@ -345,16 +345,16 @@ void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
                 obj_key_t *key = findByName(objs, objs->obj[i].name);
                 if (key != NULL){
                     borHTableErase(objs->htable, &key->htable);
-                    BOR_FREE(key);
+                    FREE(key);
                 }
             }
             pddlObjFree(objs->obj + i);
         }
     }
 
-    BOR_FREE(objs->obj);
+    FREE(objs->obj);
     objs->obj = nobjs;
-    BOR_FREE(isset);
+    FREE(isset);
     objs->obj_size = new_size;
 }
 

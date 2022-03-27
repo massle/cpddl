@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/search_astar.h"
 #include "assert.h"
 
@@ -27,7 +27,7 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
 {
     pddl_search_astar_t *astar;
 
-    astar = BOR_ALLOC(pddl_search_astar_t);
+    astar = ALLOC(pddl_search_astar_t);
     bzero(astar, sizeof(*astar));
     astar->fdr = fdr;
     astar->heur = heur;
@@ -56,7 +56,7 @@ void pddlSearchAStarDel(pddl_search_astar_t *astar)
     pddlFDRStateSpaceNodeFree(&astar->next_node);
     pddlFDRStateSpaceFree(&astar->state_space);
     borISetFree(&astar->applicable);
-    BOR_FREE(astar);
+    FREE(astar);
 }
 
 static void push(pddl_search_astar_t *astar,

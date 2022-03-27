@@ -18,6 +18,7 @@
  */
 
 #include "pddl/bitset.h"
+#include "alloc.h"
 
 void pddlBitsetInit(pddl_bitset_t *b, int bitsize)
 {
@@ -37,13 +38,13 @@ void pddlBitsetInit(pddl_bitset_t *b, int bitsize)
         b->last_word_mask = ~((pddl_bitset_word_t)0);
     }
 
-    //b->bitset = BOR_ALLOC_ALIGN_ARR(pddl_bitset_word_t, b->wordsize, 0x100);
-    b->bitset = BOR_CALLOC_ARR(pddl_bitset_word_t, b->wordsize);
+    //b->bitset = ALLOC_ALIGN_ARR(pddl_bitset_word_t, b->wordsize, 0x100);
+    b->bitset = CALLOC_ARR(pddl_bitset_word_t, b->wordsize);
     bzero(b->bitset, sizeof(pddl_bitset_word_t) * b->wordsize);
 }
 
 void pddlBitsetFree(pddl_bitset_t *b)
 {
     if (b->bitset != NULL)
-        BOR_FREE(b->bitset);
+        FREE(b->bitset);
 }

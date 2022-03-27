@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/unify.h"
 #include "assert.h"
 
@@ -32,8 +32,8 @@ void pddlUnifyInit(pddl_unify_t *u,
     u->type = type;
     u->param[0] = param1;
     u->param[1] = param2;
-    u->map[0] = BOR_ALLOC_ARR(pddl_unify_val_t, u->param[0]->param_size);
-    u->map[1] = BOR_ALLOC_ARR(pddl_unify_val_t, u->param[1]->param_size);
+    u->map[0] = ALLOC_ARR(pddl_unify_val_t, u->param[0]->param_size);
+    u->map[1] = ALLOC_ARR(pddl_unify_val_t, u->param[1]->param_size);
 
     int var = 0;
     for (int i = 0; i < u->param[0]->param_size; ++i){
@@ -53,8 +53,8 @@ void pddlUnifyInit(pddl_unify_t *u,
 void pddlUnifyInitCopy(pddl_unify_t *u, const pddl_unify_t *u2)
 {
     *u = *u2;
-    u->map[0] = BOR_ALLOC_ARR(pddl_unify_val_t, u->param[0]->param_size);
-    u->map[1] = BOR_ALLOC_ARR(pddl_unify_val_t, u->param[1]->param_size);
+    u->map[0] = ALLOC_ARR(pddl_unify_val_t, u->param[0]->param_size);
+    u->map[1] = ALLOC_ARR(pddl_unify_val_t, u->param[1]->param_size);
     memcpy(u->map[0], u2->map[0],
            sizeof(pddl_unify_val_t) * u->param[0]->param_size);
     memcpy(u->map[1], u2->map[1],
@@ -64,9 +64,9 @@ void pddlUnifyInitCopy(pddl_unify_t *u, const pddl_unify_t *u2)
 void pddlUnifyFree(pddl_unify_t *u)
 {
     if (u->map[0] != NULL)
-        BOR_FREE(u->map[0]);
+        FREE(u->map[0]);
     if (u->map[1] != NULL)
-        BOR_FREE(u->map[1]);
+        FREE(u->map[1]);
 }
 
 static void initVal(pddl_unify_val_t *v,

@@ -17,6 +17,7 @@
  */
 
 #include "pddl/hadd.h"
+#include "alloc.h"
 #include "_heur.h"
 
 struct pddl_heur_hadd {
@@ -31,7 +32,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_hadd_t *h = bor_container_of(_h, pddl_heur_hadd_t, heur);
     _pddlHeurFree(&h->heur);
     pddlHAddFree(&h->hadd);
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int heurEstimate(pddl_heur_t *_h,
@@ -44,7 +45,7 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurHAdd(const pddl_fdr_t *fdr, bor_err_t *err)
 {
-    pddl_heur_hadd_t *h = BOR_ALLOC(pddl_heur_hadd_t);
+    pddl_heur_hadd_t *h = ALLOC(pddl_heur_hadd_t);
     bzero(h, sizeof(*h));
     pddlHAddInit(&h->hadd, fdr);
     h->fdr = fdr;

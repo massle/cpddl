@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
 #include "pddl/clique.h"
@@ -30,7 +30,7 @@ void pddlMutexPairsInit(pddl_mutex_pairs_t *m, int fact_size)
 {
     bzero(m, sizeof(*m));
     m->fact_size = fact_size;
-    m->map = BOR_CALLOC_ARR(char, (size_t)fact_size * fact_size);
+    m->map = CALLOC_ARR(char, (size_t)fact_size * fact_size);
 }
 
 void pddlMutexPairsInitStrips(pddl_mutex_pairs_t *m, const pddl_strips_t *s)
@@ -50,7 +50,7 @@ void pddlMutexPairsInitCopy(pddl_mutex_pairs_t *dst,
 void pddlMutexPairsFree(pddl_mutex_pairs_t *m)
 {
     if (m->map != NULL)
-        BOR_FREE(m->map);
+        FREE(m->map);
 }
 
 void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size)
@@ -208,11 +208,11 @@ void pddlMutexPairsReduce(pddl_mutex_pairs_t *m, const bor_iset_t *rm_facts)
     if (borISetSize(rm_facts) == 0)
         return;
 
-    int *remap = BOR_CALLOC_ARR(int, m->fact_size);
+    int *remap = CALLOC_ARR(int, m->fact_size);
     int new_size = pddlFactsDelFactsGenRemap(m->fact_size, rm_facts, remap);
     pddlMutexPairsRemapFacts(m, new_size, remap);
     if (remap != NULL)
-        BOR_FREE(remap);
+        FREE(remap);
 }
 
 void pddlMutexPairsAddMGroup(pddl_mutex_pairs_t *mutex,

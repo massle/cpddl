@@ -18,7 +18,7 @@
  */
 
 #include <limits.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/sort.h>
 
 #include "pddl/pddl.h"
@@ -155,7 +155,7 @@ static void atreeInit(pddl_strips_ground_atree_t *atr,
     borISetFree(&param_used);
 
     if (atr->tree_size > 0){
-        atr->tree = BOR_CALLOC_ARR(pddl_strips_ground_tree_t, atr->tree_size);
+        atr->tree = CALLOC_ARR(pddl_strips_ground_tree_t, atr->tree_size);
         for (int i = 0; i < atr->tree_size; ++i)
             pddlStripsGroundTreeInit(atr->tree + i, pddl, a, params + i);
         for (int i = 0; i < atr->tree_size; ++i)
@@ -163,7 +163,7 @@ static void atreeInit(pddl_strips_ground_atree_t *atr,
 
     }else{
         atr->tree_size = 1;
-        atr->tree = BOR_ALLOC(pddl_strips_ground_tree_t);
+        atr->tree = ALLOC(pddl_strips_ground_tree_t);
 
         BOR_ISET(params);
         pddlStripsGroundTreeInit(atr->tree, pddl, a, &params);
@@ -176,7 +176,7 @@ static void atreeFree(pddl_strips_ground_atree_t *ga)
     for (int i = 0; i < ga->tree_size; ++i)
         pddlStripsGroundTreeFree(ga->tree + i);
     if (ga->tree != NULL)
-        BOR_FREE(ga->tree);
+        FREE(ga->tree);
 }
 
 static void atreeBlockStatic(pddl_strips_ground_atree_t *atr)
@@ -263,10 +263,10 @@ static void groundArgsFree(pddl_strips_ground_args_arr_t *ga)
 {
     for (int i = 0; i < ga->size; ++i){
         if (ga->arg[i].arg != NULL)
-            BOR_FREE(ga->arg[i].arg);
+            FREE(ga->arg[i].arg);
     }
     if (ga->arg != NULL)
-        BOR_FREE(ga->arg);
+        FREE(ga->arg);
 }
 
 static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
@@ -279,12 +279,12 @@ static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
         if (ga->alloc == 0)
             ga->alloc = 4;
         ga->alloc *= 2;
-        ga->arg = BOR_REALLOC_ARR(ga->arg, pddl_strips_ground_args_t,
+        ga->arg = REALLOC_ARR(ga->arg, pddl_strips_ground_args_t,
                                   ga->alloc);
     }
 
     garg = ga->arg + ga->size++;
-    garg->arg = BOR_ALLOC_ARR(pddl_obj_id_t, action->param_size);
+    garg->arg = ALLOC_ARR(pddl_obj_id_t, action->param_size);
     memcpy(garg->arg, arg, sizeof(pddl_obj_id_t) * action->param_size);
     garg->action_id = action_id;
     garg->action = action;
@@ -337,7 +337,7 @@ static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
             BOR_WARN2(err, "Duplicate grounded action"
                            " -- this should not happen!");
             if (ga->arg[i].arg != NULL)
-                BOR_FREE(ga->arg[i].arg);
+                FREE(ga->arg[i].arg);
         }else{
             ga->arg[++ins] = ga->arg[i];
         }
@@ -494,7 +494,7 @@ static char *groundOpName(const pddl_t *pddl,
     for (i = 0; i < action->param.param_size; ++i)
         slen += 1 + strlen(pddl->obj.obj[args[i]].name);
 
-    cur = name = BOR_ALLOC_ARR(char, slen);
+    cur = name = ALLOC_ARR(char, slen);
     cur += sprintf(cur, "%s", action->name);
     for (i = 0; i < action->param.param_size; ++i)
         cur += sprintf(cur, " %s", pddl->obj.obj[args[i]].name);
@@ -521,7 +521,7 @@ static int groundIncrease(pddl_strips_ground_t *g,
             }else{
                 char *name = groundOpName(g->pddl, action, arg);
                 BOR_WARN(g->err, "Undefined cost for action (%s).", name);
-                BOR_FREE(name);
+                FREE(name);
             }
         }else{
             cost += inc->value;
@@ -678,7 +678,7 @@ static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
         }
     }
 
-    g->ground_atom_to_fact_id = BOR_ALLOC_ARR(int, strips->fact.fact_size);
+    g->ground_atom_to_fact_id = ALLOC_ARR(int, strips->fact.fact_size);
     pddlFactsSort(&strips->fact, g->ground_atom_to_fact_id);
 #ifdef DEBUG
     for (int i = 0; i < g->facts.atom_size; ++i){
@@ -842,7 +842,7 @@ static int groundInit(pddl_strips_ground_t *g, const pddl_t *pddl,
     groundInitFact(g, pddl);
     g->unify_start_idx = 0;
 
-    g->atree = BOR_ALLOC_ARR(pddl_strips_ground_atree_t,
+    g->atree = ALLOC_ARR(pddl_strips_ground_atree_t,
                              g->action.action_size);
     for (int i = 0; i < g->action.action_size; ++i){
         const pddl_prep_action_t *a = g->action.action + i;
@@ -857,11 +857,11 @@ static void groundFree(pddl_strips_ground_t *g)
     for (int i = 0; i < g->action.action_size; ++i)
         atreeFree(g->atree + i);
     if (g->atree != NULL)
-        BOR_FREE(g->atree);
+        FREE(g->atree);
     pddlGroundAtomsFree(&g->static_facts);
     pddlGroundAtomsFree(&g->facts);
     if (g->ground_atom_to_fact_id != NULL)
-        BOR_FREE(g->ground_atom_to_fact_id);
+        FREE(g->ground_atom_to_fact_id);
     pddlGroundAtomsFree(&g->funcs);
     pddlPrepActionsFree(&g->action);
     pddlLiftedMGroupsFree(&g->goal_mgroup);
@@ -932,13 +932,13 @@ int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
     strips->cfg = g->cfg;
 
     if (g->pddl->domain_name)
-        strips->domain_name = BOR_STRDUP(g->pddl->domain_name);
+        strips->domain_name = STRDUP(g->pddl->domain_name);
     if (g->pddl->problem_name)
-        strips->problem_name = BOR_STRDUP(g->pddl->problem_name);
+        strips->problem_name = STRDUP(g->pddl->problem_name);
     if (g->pddl->domain_lisp->filename)
-        strips->domain_file = BOR_STRDUP(g->pddl->domain_lisp->filename);
+        strips->domain_file = STRDUP(g->pddl->domain_lisp->filename);
     if (g->pddl->problem_lisp->filename)
-        strips->problem_file = BOR_STRDUP(g->pddl->problem_lisp->filename);
+        strips->problem_file = STRDUP(g->pddl->problem_lisp->filename);
 
     if (createStripsFacts(g, strips) != 0
             || groundActions(g, strips) != 0

@@ -20,9 +20,9 @@
 # error "COST_SIZE must be set!"
 #endif
 
-#include <boruvka/alloc.h>
 #include <boruvka/fifo.h>
 #include "pddl/open_list.h"
+#include "alloc.h"
 
 /** A structure containing a stored value */
 struct node {
@@ -67,7 +67,7 @@ static void pddlOpenListSplayTreeClear(pddl_open_list_t *list);
 static keynode_t *keynodeNew(void)
 {
     keynode_t *kn;
-    kn = BOR_MALLOC(sizeof(keynode_t));
+    kn = MALLOC(sizeof(keynode_t));
     borFifoInit(&kn->fifo, sizeof(node_t));
     return kn;
 }
@@ -75,7 +75,7 @@ static keynode_t *keynodeNew(void)
 static void keynodeDel(keynode_t *kn)
 {
     borFifoFree(&kn->fifo);
-    BOR_FREE(kn);
+    FREE(kn);
 }
 
 _bor_inline int keynodeCmp(const int *kn1, const int *kn2)
@@ -100,7 +100,7 @@ pddl_open_list_t *MAIN_FN_NAME(void)
 {
     pddl_open_list_splaytree_t *list;
 
-    list = BOR_ALLOC(pddl_open_list_splaytree_t);
+    list = ALLOC(pddl_open_list_splaytree_t);
     _pddlOpenListInit(&list->list,
                   pddlOpenListSplayTreeDel,
                   pddlOpenListSplayTreePush,
@@ -123,7 +123,7 @@ static void pddlOpenListSplayTreeDel(pddl_open_list_t *_list)
         keynodeDel(list->pre_keynode);
     borSplayFree(list);
     _pddlOpenListFree(&list->list);
-    BOR_FREE(list);
+    FREE(list);
 }
 
 static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,

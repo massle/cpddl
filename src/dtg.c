@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/iarr.h>
 #include "pddl/dtg.h"
 
@@ -36,9 +36,9 @@ void pddlUnreachableInMGroupDTG(int init_fact,
 
     int size = borISetSize(&mgroup->mgroup);
     int max_fact = borISetGet(&mgroup->mgroup, size - 1);
-    bor_iset_t *reaches = BOR_CALLOC_ARR(bor_iset_t, size);
+    bor_iset_t *reaches = CALLOC_ARR(bor_iset_t, size);
 
-    int *fact_to_id = BOR_CALLOC_ARR(int, max_fact + 1);
+    int *fact_to_id = CALLOC_ARR(int, max_fact + 1);
     for (int mi = 0; mi < size; ++mi){
         int fact = borISetGet(&mgroup->mgroup, mi);
         fact_to_id[fact] = mi;
@@ -67,7 +67,7 @@ void pddlUnreachableInMGroupDTG(int init_fact,
     borISetFree(&pre);
 
     BOR_IARR(queue);
-    int *reached = BOR_CALLOC_ARR(int, size);
+    int *reached = CALLOC_ARR(int, size);
     borIArrAdd(&queue, fact_to_id[init_fact]);
     reached[fact_to_id[init_fact]] = 1;
     while (borIArrSize(&queue) > 0){
@@ -92,12 +92,12 @@ void pddlUnreachableInMGroupDTG(int init_fact,
         }
     }
 
-    BOR_FREE(reached);
+    FREE(reached);
     borIArrFree(&queue);
     for (int mi = 0; mi < size; ++mi)
         borISetFree(reaches + mi);
-    BOR_FREE(fact_to_id);
-    BOR_FREE(reaches);
+    FREE(fact_to_id);
+    FREE(reaches);
 }
 
 void pddlUnreachableInMGroupsDTGs(const pddl_strips_t *strips,

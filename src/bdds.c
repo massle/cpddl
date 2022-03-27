@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/bdds.h"
 
 void pddlBDDsInit(pddl_bdds_t *bdds)
@@ -30,7 +30,7 @@ void pddlBDDsFree(pddl_bdd_manager_t *mgr, pddl_bdds_t *bdds)
     for (int i = 0; i < bdds->bdd_size; ++i)
         pddlBDDDel(mgr, bdds->bdd[i]);
     if (bdds->bdd != NULL)
-        BOR_FREE(bdds->bdd);
+        FREE(bdds->bdd);
 }
 
 void pddlBDDsAdd(pddl_bdd_manager_t *mgr, pddl_bdds_t *bdds, pddl_bdd_t *bdd)
@@ -39,7 +39,7 @@ void pddlBDDsAdd(pddl_bdd_manager_t *mgr, pddl_bdds_t *bdds, pddl_bdd_t *bdd)
         if (bdds->bdd_alloc == 0)
             bdds->bdd_alloc = 8;
         bdds->bdd_alloc *= 2;
-        bdds->bdd = BOR_REALLOC_ARR(bdds->bdd, pddl_bdd_t *, bdds->bdd_alloc);
+        bdds->bdd = REALLOC_ARR(bdds->bdd, pddl_bdd_t *, bdds->bdd_alloc);
     }
     bdds->bdd[bdds->bdd_size++] = pddlBDDClone(mgr, bdd);
 }
@@ -68,7 +68,7 @@ void pddlBDDsMergeAnd(pddl_bdd_manager_t *mgr,
     if (bdds->bdd_size == 0)
         return;
 
-    pddl_bdd_t **bdd = BOR_CALLOC_ARR(pddl_bdd_t *, bdds->bdd_size);
+    pddl_bdd_t **bdd = CALLOC_ARR(pddl_bdd_t *, bdds->bdd_size);
     int bdd_size = bdds->bdd_size;
     memcpy(bdd, bdds->bdd, sizeof(pddl_bdd_t *) * bdd_size);
     bdds->bdd_size = 0;
@@ -128,5 +128,5 @@ void pddlBDDsMergeAnd(pddl_bdd_manager_t *mgr,
         }
     }
 
-    BOR_FREE(bdd);
+    FREE(bdd);
 }

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <boruvka/htable.h>
 #include <boruvka/hfunc.h>
 #include <boruvka/sort.h>
@@ -266,13 +266,13 @@ static int groundInit(ground_t *g,
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     g->dl = pddlDatalogNew();
-    g->type_to_dlpred = BOR_ALLOC_ARR(unsigned, g->pddl->type.type_size);
-    g->pred_to_dlpred = BOR_ALLOC_ARR(unsigned, g->pddl->pred.pred_size);
-    g->obj_to_dlconst = BOR_ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
-    g->action = BOR_CALLOC_ARR(action_t, g->pddl->action.action_size);
+    g->type_to_dlpred = ALLOC_ARR(unsigned, g->pddl->type.type_size);
+    g->pred_to_dlpred = ALLOC_ARR(unsigned, g->pddl->pred.pred_size);
+    g->obj_to_dlconst = ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
+    g->action = CALLOC_ARR(action_t, g->pddl->action.action_size);
 
     g->dlvar_size = maxVarSize(pddl, &g->prep_action);
-    g->dlvar = BOR_ALLOC_ARR(unsigned, g->dlvar_size);
+    g->dlvar = ALLOC_ARR(unsigned, g->dlvar_size);
     for (int i = 0; i < g->dlvar_size; ++i)
         g->dlvar[i] = pddlDatalogAddVar(g->dl, NULL);
 
@@ -307,11 +307,11 @@ static void groundFree(ground_t *g)
     pddlPrepActionsFree(&g->prep_action);
     pddlStripsMakerFree(&g->strips_maker);
     pddlDatalogDel(g->dl);
-    BOR_FREE(g->type_to_dlpred);
-    BOR_FREE(g->pred_to_dlpred);
-    BOR_FREE(g->obj_to_dlconst);
-    BOR_FREE(g->action);
-    BOR_FREE(g->dlvar);
+    FREE(g->type_to_dlpred);
+    FREE(g->pred_to_dlpred);
+    FREE(g->obj_to_dlconst);
+    FREE(g->action);
+    FREE(g->dlvar);
 }
 
 static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)

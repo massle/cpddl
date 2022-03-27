@@ -18,6 +18,7 @@
 
 #include <boruvka/sort.h>
 #include "pddl/reversibility.h"
+#include "alloc.h"
 
 static void pddlConjFactFormulaFree(pddl_conj_fact_formula_t *f)
 {
@@ -42,7 +43,7 @@ void pddlReversibilityUniformFree(pddl_reversibility_uniform_t *r)
         pddlReversePlanFree(r->plan + i);
     }
     if (r->plan != NULL)
-        BOR_FREE(r->plan);
+        FREE(r->plan);
 }
 
 static int revPlanCmp(const void *a, const void *b, void *ud)
@@ -108,7 +109,7 @@ static pddl_reverse_plan_t *addEmptyPlan(pddl_reversibility_uniform_t *r)
         if (r->plan_alloc == 0)
             r->plan_alloc = 2;
         r->plan_alloc *= 2;
-        r->plan = BOR_REALLOC_ARR(r->plan, pddl_reverse_plan_t, r->plan_alloc);
+        r->plan = REALLOC_ARR(r->plan, pddl_reverse_plan_t, r->plan_alloc);
     }
     pddl_reverse_plan_t *plan = r->plan + r->plan_size++;
     bzero(plan, sizeof(*plan));

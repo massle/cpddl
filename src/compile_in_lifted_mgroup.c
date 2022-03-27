@@ -18,7 +18,7 @@
  */
 
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/pddl_struct.h"
 #include "pddl/unify.h"
 #include "fmt.h"
@@ -51,7 +51,7 @@ static void actionCondsFree(action_conds_t *acs)
         pddlCondArrFree(&acs->cond[i].cond);
     }
     if (acs->cond != NULL)
-        BOR_FREE(acs->cond);
+        FREE(acs->cond);
 }
 
 static pddl_cond_arr_t *actionConds(action_conds_t *acs,
@@ -66,7 +66,7 @@ static pddl_cond_arr_t *actionConds(action_conds_t *acs,
         if (acs->cond_alloc == 0)
             acs->cond_alloc = 2;
         acs->cond_alloc *= 2;
-        acs->cond = BOR_REALLOC_ARR(acs->cond, action_cond_t, acs->cond_alloc);
+        acs->cond = REALLOC_ARR(acs->cond, action_cond_t, acs->cond_alloc);
     }
     acs->cond[acs->cond_size].pre = pre;
     pddlCondArrInit(&acs->cond[acs->cond_size].cond);
