@@ -25,7 +25,7 @@
 #include <boruvka/pairheap.h>
 #include <boruvka/rbtree.h>
 #include <boruvka/rand.h>
-#include <boruvka/timer.h>
+#include <pddl/timer.h>
 
 #include "pddl/fdr.h"
 #include "pddl/mg_strips.h"
@@ -65,7 +65,7 @@ struct pddl_symbolic_search {
     int plan_other_goal_id; /*!< Other search's state where plan was reached*/
     float next_step_estimate; /*!< Estimate of the duration of next step */
     size_t steps; /*!< Number of steps so far */
-    bor_timer_t steps_time; /*!< For measuring time between steps */
+    pddl_timer_t steps_time; /*!< For measuring time between steps */
     unsigned long num_expanded_bdd_nodes;
     unsigned long num_expanded_states;
     float avg_expanded_bdd_nodes;
@@ -745,13 +745,13 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
                          const pddl_symbolic_state_t *state,
                          bor_err_t *err)
 {
-    borTimerStop(&search->steps_time);
+    pddlTimerStop(&search->steps_time);
 #ifdef PDDL_DEBUG
     if (1){
 #else /* PDDL_DEBUG */
     if (search->steps == 1
             || search->steps % 1000ul == 0
-            || borTimerElapsedInSF(&search->steps_time) > 1.){
+            || pddlTimerElapsedInSF(&search->steps_time) > 1.){
 #endif /* PDDL_DEBUG */
         BOR_INFO(err, "%s: step %lu, g: %s, h: %s, f: %s"
                       " states: %d, closed states: %d,"
@@ -766,7 +766,7 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
                  pddlBDDMem(ss->mgr),
                  pddlBDDGCUsed(ss->mgr),
                  search->num_expanded_bdd_nodes);
-        borTimerStart(&search->steps_time);
+        pddlTimerStart(&search->steps_time);
     }
 }
 
@@ -776,13 +776,13 @@ static int searchStep(pddl_symbolic_task_t *ss,
                       bor_err_t *err)
 {
     ++search->steps;
-    bor_timer_t timer;
-    borTimerStart(&timer);
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
     pddl_symbolic_state_t *state = pddlSymbolicStatesNextOpen(&search->state);
     if (state == NULL){
         BOR_INFO(err, "%s: Plan does not exist, steps: %lu",
                  (search->fw ? "fw" : "bw"), (unsigned long)search->steps);
-        borTimerStop(&timer);
+        pddlTimerStop(&timer);
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
@@ -810,9 +810,9 @@ static int searchStep(pddl_symbolic_task_t *ss,
                      F_COST(&state->cost),
                      borIArrSize(&search->plan));
 
-            borTimerStop(&timer);
+            pddlTimerStop(&timer);
             searchSetNextStepEstimate(ss, search, state,
-                                      borTimerElapsedInSF(&timer), err);
+                                      pddlTimerElapsedInSF(&timer), err);
             return PDDL_SYMBOLIC_PLAN_FOUND;
         }
     }
@@ -821,10 +821,10 @@ static int searchStep(pddl_symbolic_task_t *ss,
     searchExpandState(ss, search, other_search, state, err);
     DBG2(err, "Expanded");
     pddlSymbolicStatesCloseState(&search->state, ss->mgr, state);
-    borTimerStop(&timer);
+    pddlTimerStop(&timer);
     searchPrepareNext(ss, search, err);
     searchSetNextStepEstimate(ss, search, state,
-                              borTimerElapsedInSF(&timer), err);
+                              pddlTimerElapsedInSF(&timer), err);
     return PDDL_SYMBOLIC_CONT;
 }
 

@@ -18,11 +18,11 @@
  */
 
 #include <boruvka/alloc.h>
-#include <boruvka/timer.h>
+#include <pddl/timer.h>
 #include "profile.h"
 
 struct pddl_profile_slot {
-    bor_timer_t timer;
+    pddl_timer_t timer;
     int counter;
     bor_real_t elapsed;
 };
@@ -52,15 +52,15 @@ void pddlProfileStart(int slot)
         }
     }
     profile.slot_size = BOR_MAX(profile.slot_size, slot + 1);
-    borTimerStart(&profile.slot[slot].timer);
+    pddlTimerStart(&profile.slot[slot].timer);
 }
 
 void pddlProfileStop(int slot)
 {
     pddl_profile_slot_t *s = profile.slot + slot;
-    borTimerStop(&s->timer);
+    pddlTimerStop(&s->timer);
     ++s->counter;
-    s->elapsed += borTimerElapsedInSF(&s->timer);
+    s->elapsed += pddlTimerElapsedInSF(&s->timer);
 }
 
 void pddlProfilePrint(void)

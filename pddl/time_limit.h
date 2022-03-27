@@ -19,15 +19,15 @@
 #ifndef __PLAN_TIME_LIMIT_H__
 #define __PLAN_TIME_LIMIT_H__
 
-#include <boruvka/timer.h>
+#include <pddl/timer.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_time_limit {
-    bor_timer_t timer;
-    bor_real_t limit;
+    pddl_timer_t timer;
+    double limit;
 };
 typedef struct pddl_time_limit pddl_time_limit_t;
 
@@ -36,16 +36,16 @@ typedef struct pddl_time_limit pddl_time_limit_t;
  */
 _bor_inline void pddlTimeLimitInit(pddl_time_limit_t *tm)
 {
-    borTimerStart(&tm->timer);
+    pddlTimerStart(&tm->timer);
     tm->limit = 1E100;
 }
 
 /**
  * Sets the time limit in seconds and starts counting.
  */
-_bor_inline void pddlTimeLimitSet(pddl_time_limit_t *tm, bor_real_t limit)
+_bor_inline void pddlTimeLimitSet(pddl_time_limit_t *tm, double limit)
 {
-    borTimerStart(&tm->timer);
+    pddlTimerStart(&tm->timer);
     if (limit > 0.){
         tm->limit = limit;
     }else{
@@ -62,8 +62,8 @@ _bor_inline int pddlTimeLimitCheck(pddl_time_limit_t *tm)
     if (tm->limit >= 1E100)
         return 0;
 
-    borTimerStop(&tm->timer);
-    if (borTimerElapsedInSF(&tm->timer) > tm->limit)
+    pddlTimerStop(&tm->timer);
+    if (pddlTimerElapsedInSF(&tm->timer) > tm->limit)
         return -1;
     return 0;
 }
@@ -71,13 +71,13 @@ _bor_inline int pddlTimeLimitCheck(pddl_time_limit_t *tm)
 /**
  * Returns the remaining time from the time limit.
  */
-_bor_inline bor_real_t pddlTimeLimitRemain(pddl_time_limit_t *tm)
+_bor_inline double pddlTimeLimitRemain(pddl_time_limit_t *tm)
 {
     if (tm->limit >= 1E100)
         return 1E100;
 
-    borTimerStop(&tm->timer);
-    bor_real_t elapsed = borTimerElapsedInSF(&tm->timer);
+    pddlTimerStop(&tm->timer);
+    double elapsed = pddlTimerElapsedInSF(&tm->timer);
     if (elapsed > tm->limit)
         return 0.;
     return tm->limit - elapsed;

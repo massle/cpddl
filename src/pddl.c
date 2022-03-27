@@ -20,7 +20,6 @@
 
 #include <boruvka/alloc.h>
 #include "pddl/pddl_struct.h"
-#include "err.h"
 #include "assert.h"
 #include "log.h"
 

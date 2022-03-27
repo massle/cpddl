@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <boruvka/alloc.h>
 #include <boruvka/lp.h>
+#include "pddl/timer.h"
 #include "pddl/famgroup.h"
 #include "pddl/set.h"
 
@@ -248,10 +249,10 @@ static void famInfer(fam_t *fam)
     BOR_ISET(famgroup);
     double val, *obj;
     pddl_mgroup_t *mg;
-    bor_timer_t timer;
+    pddl_timer_t timer;
     int last_info = 0;
 
-    borTimerStart(&timer);
+    pddlTimerStart(&timer);
 
     obj = BOR_ALLOC_ARR(double, borLPNumCols(fam->lp));
     for (int i = 0;
@@ -267,8 +268,8 @@ static void famInfer(fam_t *fam)
         if (fam->cfg.prioritize_uncovered)
             prioritizeUncovered(fam);
 
-        borTimerStop(&timer);
-        float elapsed = borTimerElapsedInSF(&timer);
+        pddlTimerStop(&timer);
+        float elapsed = pddlTimerElapsedInSF(&timer);
         if ((int)elapsed > last_info){
             BOR_INFO(fam->err, "  Inference of fam-groups: fam-groups: %d",
                      i + 1);

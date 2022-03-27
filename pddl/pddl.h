@@ -21,6 +21,8 @@
 #define __PDDL_H__
 
 #include <pddl/config.h>
+#include <pddl/core.h>
+#include <pddl/timer.h>
 #include <pddl/common.h>
 #include <pddl/cost.h>
 #include <pddl/pddl_file.h>

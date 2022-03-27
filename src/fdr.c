@@ -17,6 +17,7 @@
  */
 
 #include <boruvka/sort.h>
+#include "pddl/timer.h"
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
 #include "pddl/cg.h"
@@ -45,8 +46,8 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           bor_err_t *err)
 {
     BOR_INFO_PREFIX_PUSH(err, "FDR: ");
-    bor_timer_t timer;
-    borTimerStart(&timer);
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
 
     if (fdr_flags == PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE){
         BOR_INFO2(err, "cfg.set_none_of_those_in_pre = 1");
@@ -97,9 +98,9 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
     BOR_INFO(err, "Created %d operators", fdr->op.op_size);
 
-    borTimerStop(&timer);
+    pddlTimerStop(&timer);
     BOR_INFO(err, "Translation took %.2f seconds",
-             borTimerElapsedInSF(&timer));
+             pddlTimerElapsedInSF(&timer));
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }

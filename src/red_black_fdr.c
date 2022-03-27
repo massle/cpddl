@@ -16,6 +16,7 @@
  * See the License for more information.
  */
 
+#include "pddl/timer.h"
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/red_black_fdr.h"
 #include "pddl/cg.h"
@@ -236,8 +237,8 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                const pddl_red_black_fdr_config_t *cfg,
                                bor_err_t *err)
 {
-    bor_timer_t timer;
-    borTimerStart(&timer);
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
     BOR_INFO_PREFIX_PUSH(err, "Black-FDR: ");
     BOR_INFO2(err, "Construction of FDR with black variables...");
 
@@ -277,9 +278,9 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlStripsFree(&strips);
     pddlMutexPairsFree(&mutex);
 
-    borTimerStop(&timer);
+    pddlTimerStop(&timer);
     BOR_INFO(err, "Translation took %.2f seconds",
-             borTimerElapsedInSF(&timer));
+             pddlTimerElapsedInSF(&timer));
     BOR_INFO_PREFIX_POP(err);
     return num_created;
 }

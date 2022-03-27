@@ -22,6 +22,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <boruvka/alloc.h>
+#include "pddl/timer.h"
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
 #include "pddl/trans_system_graph.h"
@@ -180,8 +181,8 @@ static int transformTransSystemAndFindOpMutexes(int fd,
 {
     int ts_last;
 
-    bor_timer_t timer;
-    borTimerStart(&timer);
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
     if (borISetSize(ts_ids) == 1){
         ts_last = borISetGet(ts_ids, 0);
 
