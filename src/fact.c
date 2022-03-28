@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include <boruvka/sort.h>
 #include "pddl/pddl.h"
 #include "pddl/fact.h"
@@ -46,7 +46,7 @@ static int htableEq(const pddl_list_t *k1,
 
 static pddl_htable_key_t pddlFactHash(const pddl_fact_t *f)
 {
-    return borHashSDBM(f->name);
+    return pddlHashSDBM(f->name);
 }
 
 static char *makeName(const pddl_ground_atom_t *ga, const pddl_t *pddl)

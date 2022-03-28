@@ -18,7 +18,7 @@
  */
 
 #include <boruvka/sort.h>
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
 #include "alloc.h"

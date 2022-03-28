@@ -20,7 +20,7 @@
 #include <limits.h>
 #include <boruvka/sort.h>
 #include <boruvka/iarr.h>
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"
 #include "alloc.h"
@@ -211,7 +211,7 @@ static uint64_t opHash(const pddl_strips_op_t *op)
         borIArrAdd(&buf, delim);
     }
 
-    hash = borCityHash_64(buf.arr, buf.size);
+    hash = pddlCityHash_64(buf.arr, buf.size);
     borIArrFree(&buf);
 
     return hash;

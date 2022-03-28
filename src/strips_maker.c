@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/strips_maker.h"
 #include "assert.h"
 
@@ -26,9 +26,9 @@ static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
                                           int arg_size)
 {
     uint64_t hash;
-    hash = borCityHash_64(&ga->action_id, sizeof(ga->action_id));
-    hash += borCityHash_64(&ga->action_id, sizeof(ga->action_id2));
-    hash += borCityHash_64(ga->arg, sizeof(pddl_obj_id_t) * arg_size);
+    hash = pddlCityHash_64(&ga->action_id, sizeof(ga->action_id));
+    hash += pddlCityHash_64(&ga->action_id, sizeof(ga->action_id2));
+    hash += pddlCityHash_64(ga->arg, sizeof(pddl_obj_id_t) * arg_size);
     return hash;
 }
 

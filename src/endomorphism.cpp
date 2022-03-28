@@ -33,7 +33,7 @@
 #include <ilcplex/cpxconst.h>
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include <boruvka/sort.h>
 #include "pddl/set.h"
 #include "pddl/time_limit.h"
@@ -131,9 +131,9 @@ typedef struct op_groups op_groups_t;
 static pddl_htable_key_t preEffComputeHash(const pre_eff_vars_t *v)
 {
     uint64_t key;
-    key = borFastHash_32(v->pre.s, v->pre.size, 13);
+    key = pddlFastHash_32(v->pre.s, v->pre.size, 13);
     key <<= 32;
-    key |= (uint64_t)borFastHash_32(v->eff.s, v->eff.size, 13);
+    key |= (uint64_t)pddlFastHash_32(v->eff.s, v->eff.size, 13);
     return key;
 }
 

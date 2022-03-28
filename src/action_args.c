@@ -17,7 +17,7 @@
  */
 
 #include <stdio.h>
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/action_args.h"
 
 struct el {
@@ -30,7 +30,7 @@ typedef struct el el_t;
 
 static pddl_htable_key_t hash(const pddl_obj_id_t *args, int size)
 {
-    return borCityHash_64(args, sizeof(pddl_obj_id_t) * size);
+    return pddlCityHash_64(args, sizeof(pddl_obj_id_t) * size);
 }
 
 static pddl_htable_key_t htableHash(const pddl_list_t *key, void *_)

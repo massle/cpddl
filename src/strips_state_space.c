@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/strips_state_space.h"
 #include "assert.h"
 
@@ -41,7 +41,7 @@ typedef struct state_node state_node_t;
 
 static pddl_htable_key_t stateHash(const bor_iset_t *state)
 {
-    return borCityHash_64(state->s, sizeof(int) * state->size);
+    return pddlCityHash_64(state->s, sizeof(int) * state->size);
 }
 
 static pddl_htable_key_t htableHash(const pddl_list_t *k, void *_)

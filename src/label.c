@@ -19,7 +19,7 @@
 
 #include <stdio.h>
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/label.h"
 
 static pddl_htable_key_t htableHash(const pddl_list_t *key, void *ud)
@@ -45,7 +45,7 @@ pddl_label_set_t *pddlLabelSetNew(const bor_iset_t *s)
     borISetUnion(&ls->label, s);
     ls->cost = 0;
     ls->ref = 1;
-    ls->key = borFastHash_64(s->s, sizeof(int) * s->size, 7583);
+    ls->key = pddlFastHash_64(s->s, sizeof(int) * s->size, 7583);
     pddlListInit(&ls->htable);
     return ls;
 }

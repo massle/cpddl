@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include <boruvka/iarr.h>
 #include <pddl/timer.h>
 #include "pddl/fdr_state_pool.h"
@@ -161,8 +161,8 @@ static pddl_state_id_t htableInsert(htable_t *ht,
             htableResize(ht, size);
     }
 
-    //size_t hash = borFastHash_64(sn->packed_state, ht->bufsize, 7583);
-    size_t hash = borCityHash_64(packed_state, ht->bufsize);
+    //size_t hash = pddlFastHash_64(sn->packed_state, ht->bufsize, 7583);
+    size_t hash = pddlCityHash_64(packed_state, ht->bufsize);
     //size_t hash = borFnv1a_64(sn->packed_state, ht->bufsize);
     //size_t hash = borMurmur3_32(sn->packed_state, ht->bufsize);
     size_t bucket_id = hash % ht->size;

@@ -19,7 +19,7 @@
 
 #include <unistd.h>
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include <boruvka/extarr.h>
 #include "pddl/htable.h"
 #include "pddl/datalog.h"
@@ -123,7 +123,7 @@ struct pddl_datalog {
 static pddl_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
 {
     size_t size = sizeof(int) + fact->arity * sizeof(int);
-    return borCityHash_64(&fact->pred, size);
+    return pddlCityHash_64(&fact->pred, size);
 }
 
 static pddl_htable_key_t factHash(const pddl_list_t *key, void *_)
@@ -144,7 +144,7 @@ static pddl_htable_key_t relevantFactComputeHash(
                 const pddl_datalog_relevant_fact_t *f)
 {
     size_t size = f->key_size * 2 * sizeof(int);
-    return borCityHash_64(f->key, size);
+    return pddlCityHash_64(f->key, size);
 }
 
 static pddl_htable_key_t relevantFactHash(const pddl_list_t *key, void *_)

@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/obj.h"
 #include "pddl/require.h"
@@ -237,7 +237,7 @@ void pddlObjsInitCopy(pddl_objs_t *dst, const pddl_objs_t *src)
         key = ALLOC(obj_key_t);
         key->obj_id = i;
         key->name = dst->obj[i].name;
-        key->hash = borHashSDBM(dst->obj[i].name);
+        key->hash = pddlHashSDBM(dst->obj[i].name);
         pddlListInit(&key->htable);
         pddlHTableInsert(dst->htable, &key->htable);
     }
@@ -273,7 +273,7 @@ static obj_key_t *findByName(const pddl_objs_t *objs, const char *name)
     obj_key_t *key, keyin;
 
     keyin.name = name;
-    keyin.hash = borHashSDBM(name);
+    keyin.hash = pddlHashSDBM(name);
     item = pddlHTableFind(objs->htable, &keyin.htable);
     if (item == NULL)
         return NULL;
@@ -315,7 +315,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     key = ALLOC(obj_key_t);
     key->obj_id = objs->obj_size - 1;
     key->name = name;
-    key->hash = borHashSDBM(name);
+    key->hash = pddlHashSDBM(name);
     pddlListInit(&key->htable);
     pddlHTableInsert(objs->htable, &key->htable);
 

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include <boruvka/sort.h>
 #include "pddl/ground_atom.h"
 #include "pddl/pddl_struct.h"
@@ -55,10 +55,10 @@ static uint64_t pddlGroundAtomHash(const pddl_ground_atom_t *a)
 {
     uint64_t hash;
 
-    hash = borCityHash_32(&a->pred, sizeof(int));
+    hash = pddlCityHash_32(&a->pred, sizeof(int));
     hash <<= 32u;
     hash |= 0xffffffffu \
-                & borCityHash_32(a->arg, sizeof(pddl_obj_id_t) * a->arg_size);
+                & pddlCityHash_32(a->arg, sizeof(pddl_obj_id_t) * a->arg_size);
     return hash;
 }
 

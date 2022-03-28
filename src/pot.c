@@ -17,7 +17,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include <boruvka/lp.h>
 #include "pddl/pot.h"
 #include "pddl/disambiguation.h"
@@ -169,7 +169,7 @@ typedef struct maxpot maxpot_t;
 
 static pddl_htable_key_t maxpotComputeHash(const maxpot_t *m)
 {
-    return borCityHash_64(m->var, sizeof(maxpot_var_t) * m->var_size);
+    return pddlCityHash_64(m->var, sizeof(maxpot_var_t) * m->var_size);
 }
 
 static pddl_htable_key_t htableHash(const pddl_list_t *key, void *_)

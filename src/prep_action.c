@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/prep_action.h"
 #include "err.h"

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/fdr_state_space.h"
 #include "alloc.h"
 #include "assert.h"

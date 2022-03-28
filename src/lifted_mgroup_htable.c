@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/lifted_mgroup_htable.h"
 #include "assert.h"
 
@@ -62,7 +62,7 @@ static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
     }
 
     ASSERT(ins == bufsize);
-    pddl_htable_key_t hash = borCityHash_64(buf, bufsize * sizeof(int));
+    pddl_htable_key_t hash = pddlCityHash_64(buf, bufsize * sizeof(int));
 
     FREE(buf);
     return hash;

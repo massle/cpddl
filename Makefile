@@ -20,6 +20,8 @@ TARGETS  = libpddl.a
 
 OBJS  = alloc
 OBJS += timer
+OBJS += hfunc
+OBJS += google-city-hash
 OBJS += rbtree
 OBJS += htable
 OBJS += fifo
