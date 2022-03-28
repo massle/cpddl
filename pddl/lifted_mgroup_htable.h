@@ -20,7 +20,7 @@
 #ifndef __PDDL_LIFTED_MGROUP_HTABLE_H__
 #define __PDDL_LIFTED_MGROUP_HTABLE_H__
 
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include <pddl/lifted_mgroup.h>
 
 #ifdef __cplusplus
@@ -29,7 +29,7 @@ extern "C" {
 
 struct pddl_lifted_mgroup_htable {
     pddl_htable_t *htable; /*!< Hash table of all lifted mgroups */
-    bor_extarr_t *mgroup; /*!< Extensible array holding htable's elements */
+    pddl_extarr_t *mgroup; /*!< Extensible array holding htable's elements */
     int mgroup_size; /*!< Number of stored mgroups */
 };
 typedef struct pddl_lifted_mgroup_htable pddl_lifted_mgroup_htable_t;

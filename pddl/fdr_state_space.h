@@ -19,7 +19,7 @@
 #ifndef __PDDL_FDR_STATE_SPACE_H__
 #define __PDDL_FDR_STATE_SPACE_H__
 
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_state_pool.h>
 
@@ -47,7 +47,7 @@ typedef struct pddl_fdr_state_space_node pddl_fdr_state_space_node_t;
 
 struct pddl_fdr_state_space {
     pddl_fdr_state_pool_t state_pool; /*!< Pool of states */
-    bor_extarr_t *node; /*!< Array of state nodes */
+    pddl_extarr_t *node; /*!< Array of state nodes */
 };
 typedef struct pddl_fdr_state_space pddl_fdr_state_space_t;
 

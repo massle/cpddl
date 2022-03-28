@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include "alloc.h"
 #include "pddl/hfunc.h"
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include "pddl/htable.h"
 #include "pddl/datalog.h"
 #include "assert.h"
@@ -52,10 +52,10 @@ struct pddl_datalog_db {
     pddl_htable_t *hfact;
     pddl_htable_t *hrelevant_fact[2];
     size_t used_mem;
-    bor_extarr_t *fact;
+    pddl_extarr_t *fact;
     int fact_size;
     bor_iset_t *pred_to_fact;
-    bor_extarr_t *relevant_fact[2];
+    pddl_extarr_t *relevant_fact[2];
     int relevant_fact_size[2];
 };
 typedef struct pddl_datalog_db pddl_datalog_db_t;
@@ -178,15 +178,15 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     size += dl->max_pred_arity * sizeof(int);
     void *init = alloca(size);
     bzero(init, size);
-    db->fact = borExtArrNew(size, NULL, init);
+    db->fact = pddlExtArrNew(size, NULL, init);
     db->pred_to_fact = CALLOC_ARR(bor_iset_t, dl->pred_size);
 
     size = sizeof(pddl_datalog_relevant_fact_t);
     size += dl->max_pred_arity * 2 * sizeof(int);
     init = alloca(size);
     bzero(init, size);
-    db->relevant_fact[0] = borExtArrNew(size, NULL, init);
-    db->relevant_fact[1] = borExtArrNew(size, NULL, init);
+    db->relevant_fact[0] = pddlExtArrNew(size, NULL, init);
+    db->relevant_fact[1] = pddlExtArrNew(size, NULL, init);
 }
 
 static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
@@ -196,14 +196,14 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     pddlHTableDel(db->hfact);
     pddlHTableDel(db->hrelevant_fact[0]);
     pddlHTableDel(db->hrelevant_fact[1]);
-    borExtArrDel(db->fact);
+    pddlExtArrDel(db->fact);
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < db->relevant_fact_size[i]; ++j){
-            void *x = borExtArrGet(db->relevant_fact[i], j);
+            void *x = pddlExtArrGet(db->relevant_fact[i], j);
             pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)x;
             borISetFree(&f->fact);
         }
-        borExtArrDel(db->relevant_fact[i]);
+        pddlExtArrDel(db->relevant_fact[i]);
     }
     for (int i = 0; i < dl->pred_size; ++i)
         borISetFree(db->pred_to_fact + i);
@@ -219,7 +219,7 @@ static size_t dbUseddMem(const pddl_datalog_db_t *db)
 
 static pddl_datalog_fact_t *dbFact(pddl_datalog_db_t *db, int id)
 {
-    return (pddl_datalog_fact_t *)borExtArrGet(db->fact, id);
+    return (pddl_datalog_fact_t *)pddlExtArrGet(db->fact, id);
 }
 
 static int dbHasFact(pddl_datalog_t *dl,
@@ -251,7 +251,7 @@ static int dbAddFact(pddl_datalog_t *dl,
                      const int *arg)
 {
     pddl_datalog_fact_t *f;
-    f = (pddl_datalog_fact_t *)borExtArrGet(db->fact, db->fact_size);
+    f = (pddl_datalog_fact_t *)pddlExtArrGet(db->fact, db->fact_size);
 
     f->arity = dl->pred[pred].arity;
     f->pred = pred;
@@ -279,7 +279,7 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
                               const int *var_map,
                               int fact_id)
 {
-    void *xf = borExtArrGet(db->relevant_fact[bid],
+    void *xf = pddlExtArrGet(db->relevant_fact[bid],
                             db->relevant_fact_size[bid]);
     pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)xf;
 

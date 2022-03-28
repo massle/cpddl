@@ -20,7 +20,7 @@
 #ifndef __PDDL_SYMBOLIC_STATE_H__
 #define __PDDL_SYMBOLIC_STATE_H__
 
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include <boruvka/pairheap.h>
 #include <pddl/rbtree.h>
 #include <boruvka/iset.h>
@@ -56,7 +56,7 @@ struct pddl_symbolic_all_closed {
 typedef struct pddl_symbolic_all_closed pddl_symbolic_all_closed_t;
 
 struct pddl_symbolic_states {
-    bor_extarr_t *pool; /*!< Data pool */
+    pddl_extarr_t *pool; /*!< Data pool */
     int num_states; /*!< Number of states stored in .pool */
     bor_pairheap_t *open; /*!< Open list */
     bor_pairheap_t *open_cost; /*!< Costs of states in the open list */

@@ -169,7 +169,7 @@ static pddl_state_id_t htableInsert(htable_t *ht,
     state_id_arr_t *bucket = ht->table + bucket_id;
     for (int i = 0; i < bucket->size; ++i){
         pddl_state_id_t id = stateIDArrGet(bucket, i);
-        void *packed_state2 = borExtArrGet(ht->state_pool->pool, id);
+        void *packed_state2 = pddlExtArrGet(ht->state_pool->pool, id);
         if (memcmp(packed_state, packed_state2, ht->bufsize) == 0)
             return id;
     }
@@ -215,7 +215,7 @@ static void htableResize(htable_t *ht, size_t size)
     htableFree(ht);
     htableInit(ht, state_pool, size);
     for (pddl_state_id_t id = 0; id < ht->state_pool->num_states; ++id){
-        const void *packed_state = borExtArrGet(ht->state_pool->pool, id);
+        const void *packed_state = pddlExtArrGet(ht->state_pool->pool, id);
         htableInsert(ht, id, packed_state);
     }
 
@@ -232,7 +232,7 @@ void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
     state_pool->num_states = 0;
 
     size_t node_size = pddlFDRStatePackerBufSize(&state_pool->packer);
-    state_pool->pool = borExtArrNew2(node_size, PAGESIZE_MULTIPLY,
+    state_pool->pool = pddlExtArrNew2(node_size, PAGESIZE_MULTIPLY,
                                       MIN_STATES_PER_BLOCK,
                                       NULL, NULL);
 
@@ -245,7 +245,7 @@ void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool)
     if (state_pool->htable != NULL)
         htableDel(state_pool->htable);
     if (state_pool->pool != NULL)
-        borExtArrDel(state_pool->pool);
+        pddlExtArrDel(state_pool->pool);
     pddlFDRStatePackerFree(&state_pool->packer);
 }
 
@@ -253,7 +253,7 @@ pddl_state_id_t pddlFDRStatePoolInsert(pddl_fdr_state_pool_t *state_pool,
                                        const int *state)
 {
     pddl_state_id_t ins_id = state_pool->num_states;
-    void *packed_state = borExtArrGet(state_pool->pool, ins_id);
+    void *packed_state = pddlExtArrGet(state_pool->pool, ins_id);
     pddlFDRStatePackerPack(&state_pool->packer, state, packed_state);
     pddl_state_id_t id;
     if ((id = htableInsert(state_pool->htable, ins_id, packed_state)) == ins_id)
@@ -266,6 +266,6 @@ void pddlFDRStatePoolGet(const pddl_fdr_state_pool_t *state_pool,
                          int *state)
 {
     ASSERT(state_id < state_pool->num_states);
-    const void *packed_state = borExtArrGet(state_pool->pool, state_id);
+    const void *packed_state = pddlExtArrGet(state_pool->pool, state_id);
     pddlFDRStatePackerUnpack(&state_pool->packer, packed_state, state);
 }

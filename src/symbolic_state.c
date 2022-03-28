@@ -96,7 +96,7 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
     bzero(&el_init, sizeof(el_init));
     el_init.id = -1;
 
-    states->pool = borExtArrNew(el_size, NULL, &el_init);
+    states->pool = pddlExtArrNew(el_size, NULL, &el_init);
     states->num_states = 0;
 
     states->open = borPairHeapNew(openLT, states);
@@ -134,8 +134,8 @@ void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
     }
 
     for (int si = 0; si < states->num_states; ++si)
-        stateFree(borExtArrGet(states->pool, si), mgr);
-    borExtArrDel(states->pool);
+        stateFree(pddlExtArrGet(states->pool, si), mgr);
+    pddlExtArrDel(states->pool);
 
     pddlRBTreeDel(states->closed);
 }
@@ -143,7 +143,7 @@ void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
 pddl_symbolic_state_t *pddlSymbolicStatesGet(pddl_symbolic_states_t *states,
                                              int id)
 {
-    return borExtArrGet(states->pool, id);
+    return pddlExtArrGet(states->pool, id);
 }
 
 void pddlSymbolicStatesRemoveClosedStates(pddl_symbolic_states_t *states,
@@ -253,7 +253,7 @@ const pddl_cost_t *
 pddl_symbolic_state_t *pddlSymbolicStatesAdd(pddl_symbolic_states_t *states)
 {
     pddl_symbolic_state_t *state;
-    state = borExtArrGet(states->pool, states->num_states);
+    state = pddlExtArrGet(states->pool, states->num_states);
     state->id = states->num_states;
     state->parent_id = -1;
     state->trans_id = -1;

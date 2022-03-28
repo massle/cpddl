@@ -23,6 +23,15 @@
 #include <pddl/config.h>
 #include <pddl/core.h>
 #include <pddl/timer.h>
+#include <pddl/hfunc.h>
+#include <pddl/rand.h>
+#include <pddl/rand-mt.h>
+#include <pddl/segmarr.h>
+#include <pddl/extarr.h>
+#include <pddl/rbtree.h>
+#include <pddl/htable.h>
+#include <pddl/fifo.h>
+
 #include <pddl/common.h>
 #include <pddl/cost.h>
 #include <pddl/pddl_file.h>

@@ -19,7 +19,7 @@
 #ifndef __PDDL_POT_H__
 #define __PDDL_POT_H__
 
-#include <boruvka/segmarr.h>
+#include <pddl/segmarr.h>
 #include <pddl/fdr.h>
 #include <pddl/mg_strips.h>
 
@@ -100,7 +100,7 @@ struct pddl_pot {
     pddl_pot_lb_constr_t constr_lb;
     bor_iset_t init;
 
-    bor_segmarr_t *maxpot;
+    pddl_segmarr_t *maxpot;
     int maxpot_size;
     pddl_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
     int enforce_int_init; /*!< Enforce integer value for the initial state */

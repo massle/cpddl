@@ -90,25 +90,25 @@ void pddlLiftedMGroupHTableInit(pddl_lifted_mgroup_htable_t *h)
     h->htable = pddlHTableNew(htableHash, htableEq, h);
 
     bzero(&el, sizeof(el));
-    h->mgroup = borExtArrNew(sizeof(el), NULL, &el);
+    h->mgroup = pddlExtArrNew(sizeof(el), NULL, &el);
     h->mgroup_size = 0;
 }
 
 void pddlLiftedMGroupHTableFree(pddl_lifted_mgroup_htable_t *h)
 {
     for (int i = 0; i < h->mgroup_size; ++i){
-        el_t *m = borExtArrGet(h->mgroup, i);
+        el_t *m = pddlExtArrGet(h->mgroup, i);
         pddlLiftedMGroupFree(&m->mgroup);
     }
 
     pddlHTableDel(h->htable);
-    borExtArrDel(h->mgroup);
+    pddlExtArrDel(h->mgroup);
 }
 
 int pddlLiftedMGroupHTableAdd(pddl_lifted_mgroup_htable_t *h,
                               const pddl_lifted_mgroup_t *mg)
 {
-    el_t *el = borExtArrGet(h->mgroup, h->mgroup_size);
+    el_t *el = pddlExtArrGet(h->mgroup, h->mgroup_size);
     el->mgroup = *mg;
     el->hash = mgroupHash(mg);
 
@@ -130,6 +130,6 @@ const pddl_lifted_mgroup_t *pddlLiftedMGroupHTableGet(
 {
     if (id < 0 || id >= h->mgroup_size)
         return NULL;
-    const el_t *e = borExtArrGet(h->mgroup, id);
+    const el_t *e = pddlExtArrGet(h->mgroup, id);
     return &e->mgroup;
 }

@@ -54,7 +54,7 @@ void pddlActionArgsInit(pddl_action_args_t *args, int num_args)
 
     bzero(args, sizeof(*args));
     args->num_args = num_args;
-    args->arg_pool = borExtArrNew(size, NULL, NULL);
+    args->arg_pool = pddlExtArrNew(size, NULL, NULL);
     args->htable = pddlHTableNew(htableHash, htableEq, args);
     args->args_size = 0;
 }
@@ -62,12 +62,12 @@ void pddlActionArgsInit(pddl_action_args_t *args, int num_args)
 void pddlActionArgsFree(pddl_action_args_t *args)
 {
     pddlHTableDel(args->htable);
-    borExtArrDel(args->arg_pool);
+    pddlExtArrDel(args->arg_pool);
 }
 
 int pddlActionArgsAdd(pddl_action_args_t *args, const pddl_obj_id_t *a)
 {
-    el_t *el = borExtArrGet(args->arg_pool, args->args_size);
+    el_t *el = pddlExtArrGet(args->arg_pool, args->args_size);
     el->id = args->args_size;
     el->key = hash(a, args->num_args);
     memcpy(el->args, a, sizeof(pddl_obj_id_t) * args->num_args);
@@ -87,7 +87,7 @@ const pddl_obj_id_t *pddlActionArgsGet(const pddl_action_args_t *args, int id)
 {
     if (id >= args->args_size)
         return NULL;
-    const el_t *el = borExtArrGet(args->arg_pool, id);
+    const el_t *el = pddlExtArrGet(args->arg_pool, id);
     return el->args;
 }
 

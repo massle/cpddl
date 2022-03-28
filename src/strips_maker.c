@@ -75,7 +75,7 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
     sm->action_args = pddlHTableNew(htActionHash, htActionEq,
                                    sm->action_arg_size);
     pddl_ground_action_args_t *pa = NULL;
-    sm->action_args_arr = borExtArrNew(sizeof(pa), NULL, &pa);
+    sm->action_args_arr = pddlExtArrNew(sizeof(pa), NULL, &pa);
 }
 
 void pddlStripsMakerFree(pddl_strips_maker_t *sm)
@@ -85,14 +85,14 @@ void pddlStripsMakerFree(pddl_strips_maker_t *sm)
 
     for (int i = 0; i < sm->num_action_args; ++i){
         pddl_ground_action_args_t **ppa;
-        ppa = borExtArrGet(sm->action_args_arr, i);
+        ppa = pddlExtArrGet(sm->action_args_arr, i);
         pddl_ground_action_args_t *ga = *ppa;
         pddlListDel(&ga->htable);
         FREE(ga);
     }
 
     pddlHTableDel(sm->action_args);
-    borExtArrDel(sm->action_args_arr);
+    pddlExtArrDel(sm->action_args_arr);
     pddlGroundAtomsFree(&sm->ground_atom);
     pddlGroundAtomsFree(&sm->ground_atom_static);
     pddlGroundAtomsFree(&sm->ground_func);
@@ -211,7 +211,7 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
             *is_new = 1;
 
         pddl_ground_action_args_t **pa;
-        pa = borExtArrGet(sm->action_args_arr, ga->id);
+        pa = pddlExtArrGet(sm->action_args_arr, ga->id);
         *pa = ga;
         return ga;
     }
@@ -707,7 +707,7 @@ static int createOps(pddl_strips_maker_t *sm,
                      bor_err_t *err)
 {
     for (int i = 0; i < sm->num_action_args; ++i){
-        pddl_ground_action_args_t **ppa = borExtArrGet(sm->action_args_arr, i);
+        pddl_ground_action_args_t **ppa = pddlExtArrGet(sm->action_args_arr, i);
         pddl_ground_action_args_t *ga = *ppa;
 
         if (ga->action_id2 != 0){
@@ -799,7 +799,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
 pddl_ground_action_args_t *pddlStripsMakerActionArgs(pddl_strips_maker_t *sm,
                                                      int id)
 {
-    pddl_ground_action_args_t **ppa = borExtArrGet(sm->action_args_arr, id);
+    pddl_ground_action_args_t **ppa = pddlExtArrGet(sm->action_args_arr, id);
     return *ppa;
 }
 

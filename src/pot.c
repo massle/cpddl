@@ -214,7 +214,7 @@ static int getMaxpot(pddl_pot_t *pot,
                      const bor_iset_t *set,
                      const int *count)
 {
-    maxpot_t *m = borSegmArrGet(pot->maxpot, pot->maxpot_size);
+    maxpot_t *m = pddlSegmArrGet(pot->maxpot, pot->maxpot_size);
 
     m->var_size = borISetSize(set);
     m->var = CALLOC_ARR(maxpot_var_t, m->var_size);
@@ -382,7 +382,7 @@ static void init(pddl_pot_t *pot, int maxpot_segm_size)
 
     int segm_size = PDDL_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
     pot->maxpot_size = 0;
-    pot->maxpot = borSegmArrNew(sizeof(maxpot_t), segm_size);
+    pot->maxpot = pddlSegmArrNew(sizeof(maxpot_t), segm_size);
     pot->maxpot_htable = pddlHTableNew(htableHash, htableEq, NULL);
 }
 
@@ -454,12 +454,12 @@ void pddlPotFree(pddl_pot_t *pot)
     if (pot->maxpot_htable != NULL)
         pddlHTableDel(pot->maxpot_htable);
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
-        maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
+        maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         if (m->var != NULL)
             FREE(m->var);
     }
     if (pot->maxpot != NULL)
-        borSegmArrDel(pot->maxpot);
+        pddlSegmArrDel(pot->maxpot);
 
     for (int i = 0; i < pot->constr_op.size; ++i){
         borISetFree(&pot->constr_op.c[i].plus);
@@ -588,7 +588,7 @@ static void setMaxpotConstr(bor_lp_t *lp,
 static void setMaxpotConstrs(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
 {
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
-        const maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
+        const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         setMaxpotConstr(lp, pot, m, row);
     }
 }
@@ -713,7 +713,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
-        const maxpot_t *m = borSegmArrGet(pot->maxpot, mi);
+        const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         rows += m->var_size;
     }
     lp = borLPNew(rows, pot->var_size, lp_flags);
@@ -890,7 +890,7 @@ void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
     fprintf(fout, "\\Maxpots:\n");
 
     for (int mxi = 0; mxi < pot->maxpot_size; ++mxi){
-        const maxpot_t *m = borSegmArrGet(pot->maxpot, mxi);
+        const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mxi);
         for (int i = 0; i < m->var_size; ++i){
             double coef = 1.;
             if (m->var[i].count > 1)

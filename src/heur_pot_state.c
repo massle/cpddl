@@ -71,7 +71,7 @@ struct heur {
     pddl_heur_t heur;
     const pddl_fdr_t *fdr;
     bor_err_t *err;
-    bor_extarr_t *func_state;
+    pddl_extarr_t *func_state;
     pddl_list_t func_list;
 };
 typedef struct heur heur_t;
@@ -81,7 +81,7 @@ static void heurDel(pddl_heur_t *_h)
 {
     heur_t *h = HEUR(_h);
     _pddlHeurFree(&h->heur);
-    borExtArrDel(h->func_state);
+    pddlExtArrDel(h->func_state);
     while (!pddlListEmpty(&h->func_list)){
         pddl_list_t *l = pddlListNext(&h->func_list);
         pot_func_t *f = PDDL_LIST_ENTRY(l, pot_func_t, conn);
@@ -97,7 +97,7 @@ static int recompute(const heur_t *h,
     if (node->parent_id == PDDL_NO_STATE_ID)
         return 1;
 
-    const pot_func_t **prev_p = borExtArrGet(h->func_state, node->parent_id);
+    const pot_func_t **prev_p = pddlExtArrGet(h->func_state, node->parent_id);
     int diff = 0;
     for (int var = 0; var < h->fdr->var.var_size; ++var){
         if (node->state[var] != (*prev_p)->state[var])
@@ -113,13 +113,13 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_t *state_space)
 {
     heur_t *h = HEUR(_h);
-    pot_func_t **pf = borExtArrGet(h->func_state, node->id);
+    pot_func_t **pf = pddlExtArrGet(h->func_state, node->id);
     pot_func_t *f = *pf;
     if (f == NULL){
         if (recompute(h, node, state_space)){
             f = potFuncNew(h->fdr, node->state, &h->func_list);
         }else{
-            pot_func_t **prev = borExtArrGet(h->func_state, node->parent_id);
+            pot_func_t **prev = pddlExtArrGet(h->func_state, node->parent_id);
             f = *prev;
         }
     }
@@ -136,7 +136,7 @@ pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, bor_err_t *err)
     h->fdr = fdr;
     h->err = err;
     pot_func_t *f_init = NULL;
-    h->func_state = borExtArrNew2(sizeof(pot_func_t *),
+    h->func_state = pddlExtArrNew2(sizeof(pot_func_t *),
                                   1024, 1024 * 1024, NULL, &f_init);
     pddlListInit(&h->func_list);
     return &h->heur;

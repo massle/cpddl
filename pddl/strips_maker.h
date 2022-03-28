@@ -20,7 +20,7 @@
 #ifndef __PDDL_STRIPS_MAKER_H__
 #define __PDDL_STRIPS_MAKER_H__
 
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include <pddl/common.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/strips.h>
@@ -49,7 +49,7 @@ struct pddl_strips_maker {
     pddl_ground_atoms_t ground_func;
     pddl_htable_t *action_args;
     int num_action_args;
-    bor_extarr_t *action_args_arr;
+    pddl_extarr_t *action_args_arr;
 };
 typedef struct pddl_strips_maker pddl_strips_maker_t;
 

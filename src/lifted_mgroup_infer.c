@@ -63,7 +63,7 @@ struct refine {
     bor_err_t *err;
 
     pddl_lifted_mgroup_htable_t mgroup;
-    bor_extarr_t *cand;
+    pddl_extarr_t *cand;
     int cand_size;
 
     pddl_fifo_t queue1;
@@ -1095,7 +1095,7 @@ static void refineInit(refine_t *r,
 
     cand_t c;
     bzero(&c, sizeof(c));
-    r->cand = borExtArrNew(sizeof(c), NULL, &c);
+    r->cand = pddlExtArrNew(sizeof(c), NULL, &c);
     r->cand_size = 0;
 
     pddlFifoInit(&r->queue1, sizeof(int));
@@ -1116,7 +1116,7 @@ static void refineInitMonotonicity(
 static void refineFree(refine_t *r)
 {
     pddlLiftedMGroupHTableFree(&r->mgroup);
-    borExtArrDel(r->cand);
+    pddlExtArrDel(r->cand);
     pddlFifoFree(&r->queue1);
     pddlFifoFree(&r->queue2);
 }
@@ -1140,7 +1140,7 @@ static cand_t *refineNextCand(refine_t *r)
     }else{
         return NULL;
     }
-    return borExtArrGet(r->cand, next);
+    return pddlExtArrGet(r->cand, next);
 }
 
 static int eachPredOnlyOnce(const pddl_lifted_mgroup_t *m)
@@ -1166,7 +1166,7 @@ static cand_t *_refineAddCand(refine_t *r,
     int id = pddlLiftedMGroupHTableAdd(&r->mgroup, m);
     if (id >= r->cand_size){
         r->cand_size = id + 1;
-        cand_t *cand = borExtArrGet(r->cand, id);
+        cand_t *cand = pddlExtArrGet(r->cand, id);
         bzero(cand, sizeof(*cand));
         cand->id = id;
         cand->mgroup = pddlLiftedMGroupHTableGet(&r->mgroup, id);
@@ -1182,7 +1182,7 @@ static cand_t *_refineAddCand(refine_t *r,
 
         return cand;
     }else{
-        ASSERT(((cand_t *)borExtArrGet(r->cand, id))->id == id);
+        ASSERT(((cand_t *)pddlExtArrGet(r->cand, id))->id == id);
         return NULL;
     }
 }

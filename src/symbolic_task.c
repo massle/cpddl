@@ -21,7 +21,7 @@
 
 #include "alloc.h"
 #include <boruvka/sort.h>
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include <boruvka/pairheap.h>
 #include <pddl/rbtree.h>
 #include <pddl/rand.h>

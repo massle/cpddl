@@ -1,5 +1,8 @@
 #ifndef OPTS_H
 #define OPTS_H
+
+#include <pddl/pddl.h>
+
 void optsFree(void);
 
 void optsStartGroup(const char *header);

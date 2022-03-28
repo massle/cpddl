@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include "pddl/hflow.h"
 #include "alloc.h"
 #include "_heur.h"
@@ -24,7 +24,7 @@
 struct pddl_heur_flow {
     pddl_heur_t heur;
     pddl_hflow_t flow;
-    bor_extarr_t *cache; // TODO: Refactor and generalize
+    pddl_extarr_t *cache; // TODO: Refactor and generalize
 };
 typedef struct pddl_heur_flow pddl_heur_flow_t;
 
@@ -33,7 +33,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_flow_t *h = bor_container_of(_h, pddl_heur_flow_t, heur);
     _pddlHeurFree(&h->heur);
     pddlHFlowFree(&h->flow);
-    borExtArrDel(h->cache);
+    pddlExtArrDel(h->cache);
     FREE(h);
 }
 
@@ -42,7 +42,7 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_t *state_space)
 {
     pddl_heur_flow_t *h = bor_container_of(_h, pddl_heur_flow_t, heur);
-    int *hval = borExtArrGet(h->cache, node->id);
+    int *hval = pddlExtArrGet(h->cache, node->id);
     if (*hval == PDDL_COST_MAX)
         *hval = pddlHFlow(&h->flow, node->state, NULL);
     return *hval;
@@ -55,7 +55,7 @@ pddl_heur_t *pddlHeurFlow(const pddl_fdr_t *fdr, bor_err_t *err)
     pddlHFlowInit(&h->flow, fdr, 0);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
     int init = PDDL_COST_MAX;
-    h->cache = borExtArrNew2(sizeof(int), 1024, 1024 * 1024, NULL, &init);
+    h->cache = pddlExtArrNew2(sizeof(int), 1024, 1024 * 1024, NULL, &init);
     return &h->heur;
 }
 
