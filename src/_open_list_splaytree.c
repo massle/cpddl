@@ -48,7 +48,7 @@ struct pddl_open_list_splaytree {
 typedef struct pddl_open_list_splaytree pddl_open_list_splaytree_t;
 
 #define LIST_FROM_PARENT(parent) \
-    bor_container_of(parent, pddl_open_list_splaytree_t, list)
+    pddl_container_of(parent, pddl_open_list_splaytree_t, list)
 
 
 static void pddlOpenListSplayTreeDel(pddl_open_list_t *list);

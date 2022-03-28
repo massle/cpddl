@@ -20,7 +20,7 @@
 #ifndef __PDDL_RELAXED_PLAN_H__
 #define __PDDL_RELAXED_PLAN_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/strips.h>
 
 #ifdef __cplusplus
@@ -36,7 +36,7 @@ extern "C" {
  * The array fact_conflicts must have at least number-of-facts elemts and
  * it must be zeroized by the caller.
  */
-void pddlRelaxedPlanCountConflictsStrips(const bor_iarr_t *plan,
+void pddlRelaxedPlanCountConflictsStrips(const pddl_iarr_t *plan,
                                          const pddl_iset_t *init,
                                          const pddl_iset_t *goal,
                                          const pddl_strips_ops_t *ops,

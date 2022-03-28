@@ -20,7 +20,7 @@
 #include "pddl/relaxed_plan.h"
 #include "assert.h"
 
-void pddlRelaxedPlanCountConflictsStrips(const bor_iarr_t *plan,
+void pddlRelaxedPlanCountConflictsStrips(const pddl_iarr_t *plan,
                                          const pddl_iset_t *init,
                                          const pddl_iset_t *goal,
                                          const pddl_strips_ops_t *ops,
@@ -31,7 +31,7 @@ void pddlRelaxedPlanCountConflictsStrips(const bor_iarr_t *plan,
     PDDL_ISET(state);
     pddlISetUnion(&state, init);
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         const pddl_strips_op_t *op = ops->op[op_id];
         // TODO: Conditional effects not supported yet
         ASSERT_RUNTIME(op->cond_eff_size == 0);

@@ -19,7 +19,7 @@
 #ifndef __PDDL_HFF_H__
 #define __PDDL_HFF_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/iset.h>
 #include <pddl/fdr.h>
 #include <pddl/pq.h>
@@ -94,12 +94,12 @@ int pddlHFF(pddl_hff_t *hff,
 int pddlHFFPlan(pddl_hff_t *hff,
                 const int *fdr_state,
                 const pddl_fdr_vars_t *vars,
-                bor_iarr_t *plan);
+                pddl_iarr_t *plan);
 
 int pddlHFFStrips(pddl_hff_t *hff, const pddl_iset_t *state);
 int pddlHFFStripsPlan(pddl_hff_t *hff,
                       const pddl_iset_t *state,
-                      bor_iarr_t *plan);
+                      pddl_iarr_t *plan);
 
 #ifdef __cplusplus
 } /* extern "C" */

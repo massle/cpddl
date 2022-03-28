@@ -21,7 +21,7 @@
 #define __PDDL_SET_H__
 
 #include <stdio.h>
-#include <boruvka/hashset.h>
+#include <pddl/hashset.h>
 #include <pddl/iset.h>
 #include <pddl/core.h>
 
@@ -30,7 +30,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_set_iset {
-    bor_hashset_t set;
+    pddl_hashset_t set;
 };
 typedef struct pddl_set_iset pddl_set_iset_t;
 
@@ -46,27 +46,27 @@ typedef struct pddl_set_iset pddl_set_iset_t;
 
 _pddl_inline void pddlSetISetInit(pddl_set_iset_t *ss)
 {
-    borHashSetInitISet(&ss->set);
+    pddlHashSetInitISet(&ss->set);
 }
 
 _pddl_inline void pddlSetISetFree(pddl_set_iset_t *ss)
 {
-    borHashSetFree(&ss->set);
+    pddlHashSetFree(&ss->set);
 }
 
 _pddl_inline int pddlSetISetAdd(pddl_set_iset_t *ss, const pddl_iset_t *set)
 {
-    return borHashSetAdd(&ss->set, set);
+    return pddlHashSetAdd(&ss->set, set);
 }
 
 _pddl_inline int pddlSetISetFind(pddl_set_iset_t *ss, const pddl_iset_t *set)
 {
-    return borHashSetFind(&ss->set, set);
+    return pddlHashSetFind(&ss->set, set);
 }
 
 _pddl_inline const pddl_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
 {
-    return (const pddl_iset_t *)borHashSetGet(&ss->set, id);
+    return (const pddl_iset_t *)pddlHashSetGet(&ss->set, id);
 }
 
 _pddl_inline int pddlSetISetSize(const pddl_set_iset_t *ss)

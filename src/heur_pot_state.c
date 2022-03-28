@@ -75,7 +75,7 @@ struct heur {
     pddl_list_t func_list;
 };
 typedef struct heur heur_t;
-#define HEUR(H) bor_container_of((H), heur_t, heur)
+#define HEUR(H) pddl_container_of((H), heur_t, heur)
 
 static void heurDel(pddl_heur_t *_h)
 {

@@ -250,7 +250,7 @@ static void relaxedReachFacts(const pddl_fdr_t *fdr,
 
 int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
                          const int *fdr_state,
-                         const bor_iarr_t *plan,
+                         const pddl_iarr_t *plan,
                          bor_err_t *err)
 {
     int *reached = CALLOC_ARR(int, fdr->var.global_id_size);
@@ -258,7 +258,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
         reached[fdr->var.var[var].val[fdr_state[var]].global_id] = 1;
 
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         if (!relaxedPreHold(fdr, reached, &op->pre)){
             BOR_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",

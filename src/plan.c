@@ -28,7 +28,7 @@ void pddlPlanFree(pddl_plan_t *plan)
 {
     if (plan->state != NULL)
         FREE(plan->state);
-    borIArrFree(&plan->op);
+    pddlIArrFree(&plan->op);
 }
 
 void pddlPlanCopy(pddl_plan_t *dst, const pddl_plan_t *src)
@@ -39,8 +39,8 @@ void pddlPlanCopy(pddl_plan_t *dst, const pddl_plan_t *src)
     memcpy(dst->state, src->state, sizeof(pddl_state_id_t) * dst->state_size);
 
     int op;
-    BOR_IARR_FOR_EACH(&src->op, op)
-        borIArrAdd(&dst->op, op);
+    PDDL_IARR_FOR_EACH(&src->op, op)
+        pddlIArrAdd(&dst->op, op);
 }
 
 static void addState(pddl_plan_t *plan, pddl_state_id_t state_id)
@@ -95,7 +95,7 @@ void pddlPlanLoadBacktrack(pddl_plan_t *plan,
     loadReversedStates(plan, goal_state_id, state_space);
     reverseStates(plan);
 
-    borIArrEmpty(&plan->op);
+    pddlIArrEmpty(&plan->op);
     plan->length = 0;
     plan->cost = 0;
     if (plan->state_size == 0)
@@ -106,10 +106,10 @@ void pddlPlanLoadBacktrack(pddl_plan_t *plan,
 
     for (int i = 1; i < plan->state_size; ++i){
         pddlFDRStateSpaceGetNoState(state_space, plan->state[i], &node);
-        borIArrAdd(&plan->op, node.op_id);
+        pddlIArrAdd(&plan->op, node.op_id);
     }
     plan->cost = node.g_value;
-    plan->length = borIArrSize(&plan->op);
+    plan->length = pddlIArrSize(&plan->op);
 
     pddlFDRStateSpaceNodeFree(&node);
 }
@@ -121,7 +121,7 @@ void pddlPlanPrint(const pddl_plan_t *plan,
     fprintf(fout, ";; Cost: %ld\n", (long)plan->cost);
     fprintf(fout, ";; Length: %ld\n", (long)plan->length);
     int op_id;
-    BOR_IARR_FOR_EACH(&plan->op, op_id){
+    PDDL_IARR_FOR_EACH(&plan->op, op_id){
         const pddl_fdr_op_t *op = ops->op[op_id];
         fprintf(fout, "(%s) ;; cost: %ld\n", op->name, (long)op->cost);
     }

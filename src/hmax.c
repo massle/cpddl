@@ -159,7 +159,7 @@ int pddlHMax(pddl_hmax_t *h,
     while (!pddlPQEmpty(&pq)){
         int value;
         pddl_pq_el_t *el = pddlPQPop(&pq, &value);
-        pddl_hmax_fact_t *fact = bor_container_of(el, pddl_hmax_fact_t, heap);
+        pddl_hmax_fact_t *fact = pddl_container_of(el, pddl_hmax_fact_t, heap);
 
         int fact_id = FID(h, fact);
         if (fact_id == h->fact_goal)

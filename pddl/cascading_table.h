@@ -21,7 +21,7 @@
 #define __PDDL_CASCADING_TABLE_H__
 
 #include <pddl/iset.h>
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 
 #ifdef __cplusplus
 extern "C" {

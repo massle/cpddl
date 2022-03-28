@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/dtg.h"
 
 void pddlUnreachableInMGroupDTG(int init_fact,
@@ -66,16 +66,16 @@ void pddlUnreachableInMGroupDTG(int init_fact,
     }
     pddlISetFree(&pre);
 
-    BOR_IARR(queue);
+    PDDL_IARR(queue);
     int *reached = CALLOC_ARR(int, size);
-    borIArrAdd(&queue, fact_to_id[init_fact]);
+    pddlIArrAdd(&queue, fact_to_id[init_fact]);
     reached[fact_to_id[init_fact]] = 1;
-    while (borIArrSize(&queue) > 0){
+    while (pddlIArrSize(&queue) > 0){
         int fid = queue.arr[--queue.size];
         int to;
         PDDL_ISET_FOR_EACH(reaches + fid, to){
             if (!reached[to]){
-                borIArrAdd(&queue, to);
+                pddlIArrAdd(&queue, to);
                 reached[to] = 1;
             }
         }
@@ -93,7 +93,7 @@ void pddlUnreachableInMGroupDTG(int init_fact,
     }
 
     FREE(reached);
-    borIArrFree(&queue);
+    pddlIArrFree(&queue);
     for (int mi = 0; mi < size; ++mi)
         pddlISetFree(reaches + mi);
     FREE(fact_to_id);

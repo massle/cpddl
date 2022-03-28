@@ -570,7 +570,7 @@ static void joinCost(const pddl_datalog_rule_t *rule,
     int a2size = pddlISetSize(&a2->var_set);
     join_cost[2] = pddlISetSize(join_vars);
     join_cost[0] = join_cost[2] - PDDL_MAX(a1size, a2size);
-    join_cost[1] = join_cost[2] - BOR_MIN(a1size, a2size);
+    join_cost[1] = join_cost[2] - PDDL_MIN(a1size, a2size);
 }
 
 static void selectBodyAtoms(const pddl_datalog_t *dl,

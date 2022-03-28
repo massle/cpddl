@@ -198,8 +198,8 @@ static void pddlPQBucketQueueToHeapQueue(pddl_pq_bucket_queue_t *b,
 static int heapLT(const bor_pairheap_node_t *_n1,
                   const bor_pairheap_node_t *_n2, void *_)
 {
-    pddl_pq_el_t *e1 = bor_container_of(_n1, pddl_pq_el_t, conn.heap);
-    pddl_pq_el_t *e2 = bor_container_of(_n2, pddl_pq_el_t, conn.heap);
+    pddl_pq_el_t *e1 = pddl_container_of(_n1, pddl_pq_el_t, conn.heap);
+    pddl_pq_el_t *e2 = pddl_container_of(_n2, pddl_pq_el_t, conn.heap);
     return e1->key <= e2->key;
 }
 
@@ -226,7 +226,7 @@ static pddl_pq_el_t *pddlPQHeapQueuePop(pddl_pq_heap_queue_t *q, int *key)
     pddl_pq_el_t *el;
 
     hn = borPairHeapExtractMin(q->heap);
-    el = bor_container_of(hn, pddl_pq_el_t, conn.heap);
+    el = pddl_container_of(hn, pddl_pq_el_t, conn.heap);
     if (key)
         *key = el->key;
     return el;

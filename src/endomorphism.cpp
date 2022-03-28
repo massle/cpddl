@@ -503,7 +503,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
     //std::cerr << model << std::endl;
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
-    max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
     solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
@@ -898,7 +898,7 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
     //std::cerr << model << std::endl;
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
-    max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
     solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
@@ -1395,7 +1395,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
         return -1;
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
-    max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
     solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
           "operators", err);
     return 0;
@@ -2221,7 +2221,7 @@ static int liftedSolve(const pddl_t *pddl,
     BOR_INFO2(err, "  Added objective function min(count-diff())");
 
     //float max_search_time = pddlTimeLimitRemain(time_limit);
-    //max_search_time = BOR_MIN(max_search_time, cfg->max_search_time);
+    //max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
     solve(model, csp_vars, cfg, max_search_time, redundant_objs, map,
           "objects", err);
 

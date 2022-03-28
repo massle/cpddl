@@ -221,7 +221,7 @@ static int hadd(pddl_hff_t *h, const pddl_iset_t *state)
     while (!pddlPQEmpty(&pq)){
         int value;
         pddl_pq_el_t *el = pddlPQPop(&pq, &value);
-        pddl_hff_fact_t *fact = bor_container_of(el, pddl_hff_fact_t, heap);
+        pddl_hff_fact_t *fact = pddl_container_of(el, pddl_hff_fact_t, heap);
 
         int fact_id = FID(h, fact);
         if (fact_id == h->fact_goal)
@@ -290,7 +290,7 @@ static int cmpExtractPlan(const void *a, const void *b, void *u)
     return cmp;
 }
 
-static void extractPlan(const pddl_hff_t *h, bor_iarr_t *plan)
+static void extractPlan(const pddl_hff_t *h, pddl_iarr_t *plan)
 {
     int *ops = ALLOC_ARR(int, h->op_size);
     for (int i = 0; i < h->op_size; ++i)
@@ -300,7 +300,7 @@ static void extractPlan(const pddl_hff_t *h, bor_iarr_t *plan)
         if (!h->op[ops[i]].marked)
             break;
         if (ops[i] != h->op_goal)
-            borIArrAdd(plan, ops[i]);
+            pddlIArrAdd(plan, ops[i]);
     }
     FREE(ops);
 }
@@ -338,7 +338,7 @@ int pddlHFF(pddl_hff_t *h,
 int pddlHFFPlan(pddl_hff_t *h,
                 const int *fdr_state,
                 const pddl_fdr_vars_t *vars,
-                bor_iarr_t *plan)
+                pddl_iarr_t *plan)
 {
     int heur = pddlHFF(h, fdr_state, vars);
     if (heur == PDDL_COST_DEAD_END)
@@ -354,7 +354,7 @@ int pddlHFFStrips(pddl_hff_t *h, const pddl_iset_t *state)
 
 int pddlHFFStripsPlan(pddl_hff_t *h,
                       const pddl_iset_t *state,
-                      bor_iarr_t *plan)
+                      pddl_iarr_t *plan)
 {
     int heur = pddlHFFStrips(h, state);
     if (heur == PDDL_COST_DEAD_END)

@@ -186,9 +186,9 @@ static void sccTarjanStrongconnect(scc_t *scc,
         int w = edges[vert].edge[i].end;
         if (dfs->index[w] == -1){
             sccTarjanStrongconnect(scc, dfs, edges, w);
-            dfs->lowlink[vert] = BOR_MIN(dfs->lowlink[vert], dfs->lowlink[w]);
+            dfs->lowlink[vert] = PDDL_MIN(dfs->lowlink[vert], dfs->lowlink[w]);
         }else if (dfs->in_stack[w]){
-            dfs->lowlink[vert] = BOR_MIN(dfs->lowlink[vert], dfs->lowlink[w]);
+            dfs->lowlink[vert] = PDDL_MIN(dfs->lowlink[vert], dfs->lowlink[w]);
         }
     }
 

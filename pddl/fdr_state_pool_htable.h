@@ -19,7 +19,7 @@
 #ifndef __PDDL_FDR_STATE_POOL_HTABLE_H__
 #define __PDDL_FDR_STATE_POOL_HTABLE_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +29,7 @@ struct pddl_fdr_state_pool;
 
 typedef size_t pddl_fdr_state_pool_htable_key_t;
 struct pddl_fdr_state_pool_htable {
-    bor_iarr_t *table;
+    pddl_iarr_t *table;
     size_t size;
     size_t num_elements;
     const struct pddl_fdr_state_pool *state_pool;

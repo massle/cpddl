@@ -66,7 +66,7 @@ void pddlLabelSetCost(pddl_labels_t *lbs, pddl_label_set_t *s)
     int l;
     s->cost = INT_MAX;
     PDDL_ISET_FOR_EACH(&s->label, l)
-        s->cost = BOR_MIN(s->cost, lbs->label[l].cost);
+        s->cost = PDDL_MIN(s->cost, lbs->label[l].cost);
 }
 
 void pddlLabelsInitFromStripsOps(pddl_labels_t *lbs,

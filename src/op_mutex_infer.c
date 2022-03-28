@@ -17,7 +17,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/ts.h"
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"

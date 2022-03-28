@@ -1015,7 +1015,7 @@ static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
                     && pddlISetSize(&rev.plan[i].formula.neg) == 0){
                 skip[op_id] = 1;
             }
-            if (borIArrSize(&rev.plan[i].plan) == max_depth){
+            if (pddlIArrSize(&rev.plan[i].plan) == max_depth){
                 pddlReversePlanUniformPrint(rev.plan + i, &strips.op, fout);
             }
         }

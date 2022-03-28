@@ -141,7 +141,7 @@ static int setPot(const char *_spec, pddl_hpot_config_t *pot_cfg, int *pot_flag)
     pot_cfg->disambiguation = 1;
 
     // TODO
-    char *spec = BOR_STRDUP(_spec);
+    char *spec = PDDL_STRDUP(_spec);
     if (spec == NULL)
         return -1;
     const char *end = spec + strlen(spec);
@@ -1512,14 +1512,14 @@ static int opMutex(void)
 }
 
 static void planPrint(const pddl_fdr_t *fdr,
-                      const bor_iarr_t *plan,
+                      const pddl_iarr_t *plan,
                       int cost,
                       FILE *fout)
 {
     fprintf(fout, ";; Cost: %d\n", cost);
-    fprintf(fout, ";; Length: %d\n", borIArrSize(plan));
+    fprintf(fout, ";; Length: %d\n", pddlIArrSize(plan));
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         fprintf(fout, "(%s) ;; cost: %ld\n", op->name, (long)op->cost);
     }
@@ -1663,7 +1663,7 @@ static int symba(void)
     if ((task = pddlSymbolicTaskNew(&fdr, &symb_cfg, &err)) == NULL)
         BOR_TRACE_RET(&err, -1);
 
-    BOR_IARR(plan);
+    PDDL_IARR(plan);
     int res;
     if (opt.fwbw
             && opt.bw_off_if_constr_failed
@@ -1682,10 +1682,10 @@ static int symba(void)
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){
         int cost = 0;
         int op;
-        BOR_IARR_FOR_EACH(&plan, op)
+        PDDL_IARR_FOR_EACH(&plan, op)
             cost += fdr.op.op[op]->cost;
         BOR_INFO(&err, "Plan Cost: %d", cost);
-        BOR_INFO(&err, "Plan Length: %d", borIArrSize(&plan));
+        BOR_INFO(&err, "Plan Length: %d", pddlIArrSize(&plan));
         if (opt.out == NULL || strcmp(opt.out, "-") == 0){
             planPrint(&fdr, &plan, cost, stdout);
         }else{
@@ -1702,7 +1702,7 @@ static int symba(void)
         }
     }
 
-    borIArrFree(&plan);
+    pddlIArrFree(&plan);
     pddlFDRFree(&fdr);
     pddlSymbolicTaskDel(task);
     return 0;

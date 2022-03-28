@@ -29,7 +29,7 @@ static void pddlConjFactFormulaFree(pddl_conj_fact_formula_t *f)
 static void pddlReversePlanFree(pddl_reverse_plan_t *r)
 {
     pddlConjFactFormulaFree(&r->formula);
-    borIArrFree(&r->plan);
+    pddlIArrFree(&r->plan);
 }
 
 void pddlReversibilityUniformInit(pddl_reversibility_uniform_t *r)
@@ -56,9 +56,9 @@ static int revPlanCmp(const void *a, const void *b, void *ud)
     if (cmp == 0)
         cmp = pddlISetCmp(&p1->formula.neg, &p2->formula.neg);
     if (cmp == 0)
-        cmp = borIArrSize(&p1->plan) - borIArrSize(&p2->plan);
+        cmp = pddlIArrSize(&p1->plan) - pddlIArrSize(&p2->plan);
     if (cmp == 0)
-        cmp = borIArrCmp(&p1->plan, &p2->plan);
+        cmp = pddlIArrCmp(&p1->plan, &p2->plan);
     return cmp;
 }
 
@@ -122,7 +122,7 @@ static void addPlan(pddl_reversibility_uniform_t *r,
                     const pddl_iset_t *F0,
                     const pddl_iset_t *Fpos,
                     const pddl_iset_t *Fneg,
-                    const bor_iarr_t *plan,
+                    const pddl_iarr_t *plan,
                     const pddl_mutex_pairs_t *mutex)
 {
     PDDL_ISET(pos);
@@ -146,7 +146,7 @@ static void addPlan(pddl_reversibility_uniform_t *r,
             && pddlISetIsSubset(&rplan->formula.pos, &a->pre)){
         pddlISetEmpty(&rplan->formula.pos);
     }
-    borIArrAppendArr(&rplan->plan, plan);
+    pddlIArrAppendArr(&rplan->plan, plan);
         pddlISetFree(&pos);
 }
 
@@ -156,7 +156,7 @@ static void reversibleRec(pddl_reversibility_uniform_t *r,
                           const pddl_iset_t *F0,
                           const pddl_iset_t *Fpos,
                           const pddl_iset_t *Fneg,
-                          bor_iarr_t *plan,
+                          pddl_iarr_t *plan,
                           int depth,
                           const pddl_mutex_pairs_t *mutex)
 {
@@ -185,10 +185,10 @@ static void reversibleRec(pddl_reversibility_uniform_t *r,
             pddlISetSet(&Fneg_next, Fneg);
 
             applyOp(&F0_next, &Fpos_next, &Fneg_next, op);
-            borIArrAdd(plan, op_id);
+            pddlIArrAdd(plan, op_id);
             reversibleRec(r, ops, a, &F0_next, &Fpos_next, &Fneg_next,
                           plan, depth - 1, mutex);
-            borIArrRmLast(plan);
+            pddlIArrRmLast(plan);
         }
     }
     pddlISetFree(&F0pos);
@@ -206,7 +206,7 @@ void pddlReversibilityUniformInfer(pddl_reversibility_uniform_t *r,
     PDDL_ISET(F0);
     PDDL_ISET(Fpos);
     PDDL_ISET(Fneg);
-    BOR_IARR(plan);
+    PDDL_IARR(plan);
 
     pddlISetMinus2(&Fpos, &rev_op->pre, &rev_op->del_eff);
     pddlISetUnion(&Fpos, &rev_op->add_eff);
@@ -214,7 +214,7 @@ void pddlReversibilityUniformInfer(pddl_reversibility_uniform_t *r,
 
     reversibleRec(r, ops, rev_op, &F0, &Fpos, &Fneg, &plan, max_depth, mutex);
 
-    borIArrFree(&plan);
+    pddlIArrFree(&plan);
     pddlISetFree(&F0);
     pddlISetFree(&Fpos);
     pddlISetFree(&Fneg);
@@ -239,7 +239,7 @@ void pddlReversePlanUniformPrint(const pddl_reverse_plan_t *p,
 
     fprintf(fout, " | plan:");
     int op_id;
-    BOR_IARR_FOR_EACH(&p->plan, op_id)
+    PDDL_IARR_FOR_EACH(&p->plan, op_id)
         fprintf(fout, " %d", op_id);
 
     fprintf(fout, " | (%s)", op->name);
@@ -256,7 +256,7 @@ void pddlReversePlanUniformPrint(const pddl_reverse_plan_t *p,
     PDDL_ISET_FOR_EACH(&op->add_eff, fact)
         printf(" %d", fact);
     printf("\n");
-    BOR_IARR_FOR_EACH(&p->plan, op_id){
+    PDDL_IARR_FOR_EACH(&p->plan, op_id){
         const pddl_strips_op_t *op = ops->op[op_id];
         printf("\t%d: pre:", op->id);
         PDDL_ISET_FOR_EACH(&op->pre, fact)

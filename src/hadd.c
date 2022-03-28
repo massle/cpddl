@@ -157,7 +157,7 @@ int pddlHAdd(pddl_hadd_t *h,
     while (!pddlPQEmpty(&pq)){
         int value;
         pddl_pq_el_t *el = pddlPQPop(&pq, &value);
-        pddl_hadd_fact_t *fact = bor_container_of(el, pddl_hadd_fact_t, heap);
+        pddl_hadd_fact_t *fact = pddl_container_of(el, pddl_hadd_fact_t, heap);
 
         int fact_id = FID(h, fact);
         if (fact_id == h->fact_goal)

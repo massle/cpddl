@@ -19,7 +19,7 @@
 
 #include <limits.h>
 #include <boruvka/sort.h>
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"
@@ -181,38 +181,38 @@ void pddlStripsOpRemapFacts(pddl_strips_op_t *op, const int *remap)
     }
 }
 
-static void iarrAppendISet(bor_iarr_t *arr, const pddl_iset_t *set)
+static void iarrAppendISet(pddl_iarr_t *arr, const pddl_iset_t *set)
 {
     int fact;
     PDDL_ISET_FOR_EACH(set, fact)
-        borIArrAdd(arr, fact);
+        pddlIArrAdd(arr, fact);
 }
 
 static uint64_t opHash(const pddl_strips_op_t *op)
 {
     const int delim = INT_MAX;
-    BOR_IARR(buf);
+    PDDL_IARR(buf);
     uint64_t hash;
 
     iarrAppendISet(&buf, &op->pre);
-    borIArrAdd(&buf, delim);
+    pddlIArrAdd(&buf, delim);
     iarrAppendISet(&buf, &op->add_eff);
-    borIArrAdd(&buf, delim);
+    pddlIArrAdd(&buf, delim);
     iarrAppendISet(&buf, &op->del_eff);
-    borIArrAdd(&buf, delim);
+    pddlIArrAdd(&buf, delim);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         const pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
         iarrAppendISet(&buf, &ce->pre);
-        borIArrAdd(&buf, delim);
+        pddlIArrAdd(&buf, delim);
         iarrAppendISet(&buf, &ce->add_eff);
-        borIArrAdd(&buf, delim);
+        pddlIArrAdd(&buf, delim);
         iarrAppendISet(&buf, &ce->del_eff);
-        borIArrAdd(&buf, delim);
+        pddlIArrAdd(&buf, delim);
     }
 
     hash = pddlCityHash_64(buf.arr, buf.size);
-    borIArrFree(&buf);
+    pddlIArrFree(&buf);
 
     return hash;
 }

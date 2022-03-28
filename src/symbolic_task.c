@@ -60,7 +60,7 @@ struct pddl_symbolic_search {
     pddl_bdd_t *goal; /*!< BDD describing the goal states */
     pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
     pddl_symbolic_states_t state; /*!< State space */
-    bor_iarr_t plan; /*!< Extracted plan */
+    pddl_iarr_t plan; /*!< Extracted plan */
     int plan_goal_id; /*!< This search's state where plan was reached */
     int plan_other_goal_id; /*!< Other search's state where plan was reached*/
     float next_step_estimate; /*!< Estimate of the duration of next step */
@@ -264,8 +264,8 @@ static void searchReinit(pddl_symbolic_task_t *ss,
                            search->cfg.use_pot_heur_inconsistent, err);
     pddlSymbolicStatesAddInit(&search->state, ss->mgr, search->init,
                               (search->use_heur ? &search->heur_init : NULL));
-    borIArrFree(&search->plan);
-    borIArrInit(&search->plan);
+    pddlIArrFree(&search->plan);
+    pddlIArrInit(&search->plan);
     search->plan_goal_id = -1;
     search->plan_other_goal_id = -1;
     search->next_step_estimate = 0.f;
@@ -294,7 +294,7 @@ static void searchFree(pddl_symbolic_task_t *ss,
         pddlBDDDel(ss->mgr, search->init);
     if (search->goal != NULL)
         pddlBDDDel(ss->mgr, search->goal);
-    borIArrFree(&search->plan);
+    pddlIArrFree(&search->plan);
 }
 
 static pddl_bdd_t *bddStateSelectOne(pddl_symbolic_task_t *ss,
@@ -441,7 +441,7 @@ static void planReverse(plan_t *plan)
 
 static void planExtractFw(plan_t *plan,
                           const pddl_strips_t *strips,
-                          bor_iarr_t *out)
+                          pddl_iarr_t *out)
 {
     // Extract plan from the intermediate states
     PDDL_ISET(res_state);
@@ -457,7 +457,7 @@ static void planExtractFw(plan_t *plan,
                 pddlISetMinus2(&res_state, from, &op->del_eff);
                 pddlISetUnion(&res_state, &op->add_eff);
                 if (pddlISetEq(&res_state, to)){
-                    borIArrAdd(out, op_id);
+                    pddlIArrAdd(out, op_id);
                     found = 1;
                     break;
                 }
@@ -551,7 +551,7 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
         pddl_rbtree_node_t *rbs;
         PDDL_RBTREE_FOR_EACH(other_search->state.closed, rbs){
             const pddl_symbolic_state_t *closed_state;
-            closed_state = bor_container_of(rbs, pddl_symbolic_state_t, rbtree);
+            closed_state = pddl_container_of(rbs, pddl_symbolic_state_t, rbtree);
             if (!costStatesIsBetter(search, state, closed_state))
                 break;
 
@@ -808,7 +808,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
                      (search->fw ? "fw" : "bw"),
                      (unsigned long)search->steps,
                      F_COST(&state->cost),
-                     borIArrSize(&search->plan));
+                     pddlIArrSize(&search->plan));
 
             pddlTimerStop(&timer);
             searchSetNextStepEstimate(ss, search, state,
@@ -1183,7 +1183,7 @@ static int searchOneDir(pddl_symbolic_task_t *ss,
 
 
 int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
-                             bor_iarr_t *plan,
+                             pddl_iarr_t *plan,
                              bor_err_t *err)
 {
     if (!ss->search_fw.enabled)
@@ -1191,11 +1191,11 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
     BOR_INFO_PREFIX_PUSH(err, "symbolic search fw: ");
     searchStart(ss, &ss->search_fw, err);
     int res = searchOneDir(ss, &ss->search_fw, err);
-    borIArrAppendArr(plan, &ss->search_fw.plan);
+    pddlIArrAppendArr(plan, &ss->search_fw.plan);
 
 #ifdef PDDL_DEBUG
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         BOR_INFO(err, "plan: (%s) ;; id=%d, cost %d",
                  ss->mg_strips.strips.op.op[op_id]->name,
                  op_id,
@@ -1207,7 +1207,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 }
 
 int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
-                             bor_iarr_t *plan,
+                             pddl_iarr_t *plan,
                              bor_err_t *err)
 {
     if (!ss->search_bw.enabled)
@@ -1215,11 +1215,11 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
     BOR_INFO_PREFIX_PUSH(err, "symbolic search bw: ");
     searchStart(ss, &ss->search_bw, err);
     int res = searchOneDir(ss, &ss->search_bw, err);
-    borIArrAppendArr(plan, &ss->search_bw.plan);
+    pddlIArrAppendArr(plan, &ss->search_bw.plan);
 
 #ifdef PDDL_DEBUG
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         BOR_INFO(err, "plan: (%s) ;; id=%d, cost %d",
                  ss->mg_strips.strips.op.op[op_id]->name,
                  op_id,
@@ -1233,7 +1233,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
                             pddl_symbolic_search_t *fw_search,
                             pddl_symbolic_search_t *bw_search,
-                            bor_iarr_t *plan,
+                            pddl_iarr_t *plan,
                             bor_err_t *err)
 {
     const pddl_symbolic_state_t *fw_goal_state, *bw_goal_state;
@@ -1271,14 +1271,14 @@ static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
 
     // Join fw and bw plans
     int op_id;
-    BOR_IARR_FOR_EACH(&fw_search->plan, op_id)
-        borIArrAdd(plan, op_id);
-    BOR_IARR_FOR_EACH(&bw_search->plan, op_id)
-        borIArrAdd(plan, op_id);
+    PDDL_IARR_FOR_EACH(&fw_search->plan, op_id)
+        pddlIArrAdd(plan, op_id);
+    PDDL_IARR_FOR_EACH(&bw_search->plan, op_id)
+        pddlIArrAdd(plan, op_id);
 }
 
 int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
-                               bor_iarr_t *plan,
+                               pddl_iarr_t *plan,
                                bor_err_t *err)
 {
     if (!ss->search_fw.enabled)
@@ -1345,7 +1345,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         res = PDDL_SYMBOLIC_PLAN_FOUND;
         fwbwExtractPlan(ss, &ss->search_fw, &ss->search_bw, plan, err);
         BOR_INFO(err, "Found plan, cost: %s, length: %d",
-                 F_COST(&ss->search_fw.state.bound), borIArrSize(plan));
+                 F_COST(&ss->search_fw.state.bound), pddlIArrSize(plan));
     }
 
     BOR_INFO(err, "Fw Expanded BDD Nodes: %lu",
@@ -1376,7 +1376,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
 
 #ifdef PDDL_DEBUG
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         BOR_INFO(err, "plan: (%s) ;; id=%d, cost %d",
                  ss->mg_strips.strips.op.op[op_id]->name,
                  op_id,
@@ -1405,7 +1405,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
 }
 
 int pddlSymbolicTaskSearch(pddl_symbolic_task_t *ss,
-                           bor_iarr_t *plan,
+                           pddl_iarr_t *plan,
                            bor_err_t *err)
 {
     if (ss->cfg.fw.enabled && ss->cfg.bw.enabled){
@@ -1486,7 +1486,7 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
 }
 
 int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
-                              const bor_iarr_t *op,
+                              const pddl_iarr_t *op,
                               int plan_size)
 {
     int res = 1;
@@ -1497,7 +1497,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
     pddl_bdd_t *fw_closed = pddlBDDClone(ss->mgr, fw_node[0]);
     pddl_bdd_t *bw_closed = pddlBDDClone(ss->mgr, bw_node[plan_size]);
     for (int fi = 0; fi < plan_size; ++fi){
-        int fw_op_id = borIArrGet(op, fi);
+        int fw_op_id = pddlIArrGet(op, fi);
         for (int tri = 0; tri < ss->search_fw.trans.trans_size; ++tri){
             pddl_symbolic_trans_set_t *trs = ss->search_fw.trans.trans + tri;
             if (!pddlISetIn(fw_op_id, &trs->op))
@@ -1535,7 +1535,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             pddlBDDOrUpdate(ss->mgr, &fw_closed, fw_node[fi + 1]);
         }
 
-        int bw_op_id = borIArrGet(op, plan_size - fi - 1);
+        int bw_op_id = pddlIArrGet(op, plan_size - fi - 1);
         for (int tri = 0; tri < ss->search_bw.trans.trans_size; ++tri){
             pddl_symbolic_trans_set_t *trs = ss->search_bw.trans.trans + tri;
             if (!pddlISetIn(bw_op_id, &trs->op))

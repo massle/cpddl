@@ -17,7 +17,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/ts.h"
 #include "assert.h"
 
@@ -160,9 +160,9 @@ static void sccTarjanStrongconnect(cond_scc_t *scc, cond_scc_dfs_t *dfs,
             continue;
         if (dfs->index[w] == -1){
             sccTarjanStrongconnect(scc, dfs, ts, w);
-            dfs->lowlink[state] = BOR_MIN(dfs->lowlink[state], dfs->lowlink[w]);
+            dfs->lowlink[state] = PDDL_MIN(dfs->lowlink[state], dfs->lowlink[w]);
         }else if (dfs->in_stack[w]){
-            dfs->lowlink[state] = BOR_MIN(dfs->lowlink[state], dfs->lowlink[w]);
+            dfs->lowlink[state] = PDDL_MIN(dfs->lowlink[state], dfs->lowlink[w]);
         }
     }
 
@@ -263,19 +263,19 @@ void pddlTSCondensate(pddl_ts_t *cond, const pddl_ts_t *ts)
 
 void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state)
 {
-    BOR_IARR(queue);
+    PDDL_IARR(queue);
     int *reach;
 
     reach = CALLOC_ARR(int, ts->num_states);
     reach[state] = 1;
-    borIArrAdd(&queue, state);
-    while (borIArrSize(&queue) > 0){
+    pddlIArrAdd(&queue, state);
+    while (pddlIArrSize(&queue) > 0){
         int cur_state = queue.arr[--queue.size];
         for (int s = 0; s < ts->num_states; ++s){
             const pddl_iset_t *tr = pddlTSTransition(ts, cur_state, s);
             if (pddlISetSize(tr) > 0 && !reach[s]){
                 reach[s] = 1;
-                borIArrAdd(&queue, s);
+                pddlIArrAdd(&queue, s);
             }
         }
     }

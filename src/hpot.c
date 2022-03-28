@@ -350,7 +350,7 @@ static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
     if (s->type == STATE_SAMPLER_SYNTACTIC){
         for (int var = 0; var < s->fdr->var.var_size; ++var){
             int val = pddlRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
-            val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
+            val = PDDL_MIN(val, s->fdr->var.var[var].val_size - 1);
             s->state[var] = val;
         }
 
@@ -362,7 +362,7 @@ static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
             pddlISetEmpty(&state);
             for (int var = 0; var < s->fdr->var.var_size; ++var){
                 int val = pddlRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
-                val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
+                val = PDDL_MIN(val, s->fdr->var.var[var].val_size - 1);
                 s->state[var] = val;
                 pddlISetAdd(&state, s->fdr->var.var[var].val[val].global_id);
             }
@@ -1043,7 +1043,7 @@ typedef struct pddl_heur_pot pddl_heur_pot_t;
 
 static void heurDel(pddl_heur_t *_h)
 {
-    pddl_heur_pot_t *h = bor_container_of(_h, pddl_heur_pot_t, heur);
+    pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
     _pddlHeurFree(&h->heur);
     pddlPotSolutionsFree(&h->sols);
     FREE(h);
@@ -1053,7 +1053,7 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_node_t *node,
                         const pddl_fdr_state_space_t *state_space)
 {
-    pddl_heur_pot_t *h = bor_container_of(_h, pddl_heur_pot_t, heur);
+    pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
     int est = pddlPotSolutionsEvalMaxFDRState(&h->sols, h->vars, node->state);
     return est;
 }

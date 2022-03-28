@@ -35,8 +35,8 @@ static int openLT(const bor_pairheap_node_t *n1,
                   void *data)
 {
     const pddl_symbolic_state_t *o1, *o2;
-    o1 = bor_container_of(n1, pddl_symbolic_state_t, heap);
-    o2 = bor_container_of(n2, pddl_symbolic_state_t, heap);
+    o1 = pddl_container_of(n1, pddl_symbolic_state_t, heap);
+    o2 = pddl_container_of(n2, pddl_symbolic_state_t, heap);
     int cmp = pddlCostCmp(&o1->f_value, &o2->f_value);
     if (cmp == 0)
         cmp = pddlCostCmp(&o1->cost, &o2->cost);
@@ -50,8 +50,8 @@ static int openCostLT(const bor_pairheap_node_t *n1,
                       void *data)
 {
     const pddl_symbolic_state_t *o1, *o2;
-    o1 = bor_container_of(n1, pddl_symbolic_state_t, heap_cost);
-    o2 = bor_container_of(n2, pddl_symbolic_state_t, heap_cost);
+    o1 = pddl_container_of(n1, pddl_symbolic_state_t, heap_cost);
+    o2 = pddl_container_of(n2, pddl_symbolic_state_t, heap_cost);
     int cmp = pddlCostCmp(&o1->cost, &o2->cost);
     if (cmp == 0)
         cmp = pddlCostCmp(&o1->f_value, &o2->f_value);
@@ -65,8 +65,8 @@ static int rbtreeCostCmp(const pddl_rbtree_node_t *n1,
                          void *data)
 {
     const pddl_symbolic_state_t *s1, *s2;
-    s1 = bor_container_of(n1, pddl_symbolic_state_t, rbtree);
-    s2 = bor_container_of(n2, pddl_symbolic_state_t, rbtree);
+    s1 = pddl_container_of(n1, pddl_symbolic_state_t, rbtree);
+    s2 = pddl_container_of(n2, pddl_symbolic_state_t, rbtree);
     int cmp = pddlCostCmp(&s1->cost, &s2->cost);
     if (cmp == 0)
         cmp = pddlCostCmp(&s1->heur, &s2->heur);
@@ -80,8 +80,8 @@ static int rbtreeAllClosedCmp(const pddl_rbtree_node_t *n1,
                               void *data)
 {
     const pddl_symbolic_all_closed_t *c1, *c2;
-    c1 = bor_container_of(n1, pddl_symbolic_all_closed_t, rbtree);
-    c2 = bor_container_of(n2, pddl_symbolic_all_closed_t, rbtree);
+    c1 = pddl_container_of(n1, pddl_symbolic_all_closed_t, rbtree);
+    c2 = pddl_container_of(n2, pddl_symbolic_all_closed_t, rbtree);
     return pddlCostCmp(&c1->g_value, &c2->g_value);
 }
 
@@ -126,7 +126,7 @@ void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
         pddl_rbtree_node_t *tn;
         while ((tn = pddlRBTreeExtractMin(states->all_closed_g)) != NULL){
             pddl_symbolic_all_closed_t *c;
-            c = bor_container_of(tn, pddl_symbolic_all_closed_t, rbtree);
+            c = pddl_container_of(tn, pddl_symbolic_all_closed_t, rbtree);
             pddlBDDDel(mgr, c->closed);
             FREE(c);
         }
@@ -155,7 +155,7 @@ void pddlSymbolicStatesRemoveClosedStates(pddl_symbolic_states_t *states,
         pddl_rbtree_node_t *node;
         PDDL_RBTREE_FOR_EACH(states->all_closed_g, node){
             pddl_symbolic_all_closed_t *c;
-            c = bor_container_of(node, pddl_symbolic_all_closed_t, rbtree);
+            c = pddl_container_of(node, pddl_symbolic_all_closed_t, rbtree);
             if (pddlCostCmp(&c->g_value, cost) > 0)
                 break;
 
@@ -196,7 +196,7 @@ void pddlSymbolicStatesCloseState(pddl_symbolic_states_t *states,
             pddlRBTreeInsert(states->all_closed_g, &c->rbtree);
 
         }else{
-            c = bor_container_of(node, pddl_symbolic_all_closed_t, rbtree);
+            c = pddl_container_of(node, pddl_symbolic_all_closed_t, rbtree);
         }
         pddlBDDOrUpdate(mgr, &c->closed, state->bdd);
     }
@@ -221,7 +221,7 @@ pddl_symbolic_state_t *
 
     bor_pairheap_node_t *hstate = borPairHeapExtractMin(states->open);
     pddl_symbolic_state_t *state;
-    state = bor_container_of(hstate, pddl_symbolic_state_t, heap);
+    state = pddl_container_of(hstate, pddl_symbolic_state_t, heap);
     borPairHeapRemove(states->open_cost, &state->heap_cost);
     return state;
 }
@@ -234,7 +234,7 @@ pddl_symbolic_state_t *
 
     bor_pairheap_node_t *hstate = borPairHeapMin(states->open);
     pddl_symbolic_state_t *state;
-    state = bor_container_of(hstate, pddl_symbolic_state_t, heap);
+    state = pddl_container_of(hstate, pddl_symbolic_state_t, heap);
     return state;
 }
 
@@ -246,7 +246,7 @@ const pddl_cost_t *
 
     bor_pairheap_node_t *hstate = borPairHeapMin(states->open_cost);
     pddl_symbolic_state_t *state;
-    state = bor_container_of(hstate, pddl_symbolic_state_t, heap_cost);
+    state = pddl_container_of(hstate, pddl_symbolic_state_t, heap_cost);
     return &state->cost;
 }
 

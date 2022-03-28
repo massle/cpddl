@@ -311,7 +311,7 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     if (a->pre->type != PDDL_COND_OR)
         return;
 
-    pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
+    pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
     if (pddlListEmpty(&pre->part))
         return;
 
@@ -344,7 +344,7 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
         BOR_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
-    pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
+    pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
     PDDL_LIST_FOR_EACH(&pre->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM){

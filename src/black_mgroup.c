@@ -155,7 +155,7 @@ static void findRelaxedPlan(const black_vars_t *bv,
                             int *conflicts,
                             bor_err_t *err)
 {
-    BOR_IARR(plan);
+    PDDL_IARR(plan);
     pddl_hff_t hff;
     pddlHFFInitStrips(&hff, strips);
     pddlHFFStripsPlan(&hff, &strips->init, &plan);
@@ -175,11 +175,11 @@ static void findRelaxedPlan(const black_vars_t *bv,
 
     if (plan_set != NULL){
         int op;
-        BOR_IARR_FOR_EACH(&plan, op)
+        PDDL_IARR_FOR_EACH(&plan, op)
             pddlISetAdd(plan_set, op);
     }
 
-    borIArrFree(&plan);
+    pddlIArrFree(&plan);
 }
 
 static int maxOutdegreeInProjectionToRelaxedPlan(
@@ -451,14 +451,14 @@ static bor_lp_t *createLP(const black_vars_t *bv)
     return lp;
 }
 
-static void addCycle(bor_lp_t *lp, const bor_iarr_t *cycle)
+static void addCycle(bor_lp_t *lp, const pddl_iarr_t *cycle)
 {
     int row = borLPNumRows(lp);
-    double rhs = borIArrSize(cycle) - 1;
+    double rhs = pddlIArrSize(cycle) - 1;
     char sense = 'L';
     borLPAddRows(lp, 1, &rhs, &sense);
     int var;
-    BOR_IARR_FOR_EACH(cycle, var)
+    PDDL_IARR_FOR_EACH(cycle, var)
         borLPSetCoef(lp, row, var, 1.);
 }
 
@@ -475,11 +475,11 @@ static void addCycles2(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
             }
 
             if (pddlISetIn(v1, &bv->cg.node[v2])){
-                BOR_IARR(path);
-                borIArrAdd(&path, v1);
-                borIArrAdd(&path, v2);
+                PDDL_IARR(path);
+                pddlIArrAdd(&path, v1);
+                pddlIArrAdd(&path, v2);
                 addCycle(lp, &path);
-                borIArrFree(&path);
+                pddlIArrFree(&path);
                 ++num;
             }
         }
@@ -508,12 +508,12 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
                 }
 
                 if (pddlISetIn(v1, &bv->cg.node[v3])){
-                    BOR_IARR(path);
-                    borIArrAdd(&path, v1);
-                    borIArrAdd(&path, v2);
-                    borIArrAdd(&path, v3);
+                    PDDL_IARR(path);
+                    pddlIArrAdd(&path, v1);
+                    pddlIArrAdd(&path, v2);
+                    pddlIArrAdd(&path, v3);
                     addCycle(lp, &path);
-                    borIArrFree(&path);
+                    pddlIArrFree(&path);
                     ++num;
                 }
             }
@@ -593,13 +593,13 @@ struct update_lp {
     const black_vars_t *bv;
 };
 
-static int updateLPWithCycleFn(const bor_iarr_t *cycle, void *ud)
+static int updateLPWithCycleFn(const pddl_iarr_t *cycle, void *ud)
 {
     int ret = PDDL_GRAPH_SIMPLE_CYCLE_CONT;
     struct update_lp *update = ud;
     PDDL_ISET(mg);
     int vert_id;
-    BOR_IARR_FOR_EACH(cycle, vert_id){
+    PDDL_IARR_FOR_EACH(cycle, vert_id){
         pddlISetAdd(&mg, update->bv->fact_vertex[vert_id].mgroup);
         if (pddlISetSize(&mg) > 1)
             break;

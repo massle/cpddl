@@ -73,10 +73,10 @@ static void sccTarjanStrongconnect(pddl_scc_t *scc, scc_dfs_t *dfs, int vert)
     PDDL_ISET_FOR_EACH(&dfs->graph->node[vert], end_vert){
         if (dfs->index[end_vert] == -1){
             sccTarjanStrongconnect(scc, dfs, end_vert);
-            dfs->lowlink[vert] = BOR_MIN(dfs->lowlink[vert],
+            dfs->lowlink[vert] = PDDL_MIN(dfs->lowlink[vert],
                                          dfs->lowlink[end_vert]);
         }else if (dfs->in_stack[end_vert]){
-            dfs->lowlink[vert] = BOR_MIN(dfs->lowlink[vert],
+            dfs->lowlink[vert] = PDDL_MIN(dfs->lowlink[vert],
                                          dfs->lowlink[end_vert]);
         }
     }
@@ -148,21 +148,21 @@ void pddlSCCFree(pddl_scc_t *scc)
 
 
 static void cycleAdd(pddl_graph_simple_cycles_t *cycles,
-                     const bor_iarr_t *cycle)
+                     const pddl_iarr_t *cycle)
 {
     if (cycles->cycle_size == cycles->cycle_alloc){
         if (cycles->cycle_alloc == 0)
             cycles->cycle_alloc = 2;
         cycles->cycle_alloc *= 2;
-        cycles->cycle = REALLOC_ARR(cycles->cycle, bor_iarr_t,
+        cycles->cycle = REALLOC_ARR(cycles->cycle, pddl_iarr_t,
                                         cycles->cycle_alloc);
     }
-    bor_iarr_t *dst = cycles->cycle + cycles->cycle_size++;
+    pddl_iarr_t *dst = cycles->cycle + cycles->cycle_size++;
 
-    borIArrInit(dst);
+    pddlIArrInit(dst);
     int n;
-    BOR_IARR_FOR_EACH(cycle, n)
-        borIArrAdd(dst, n);
+    PDDL_IARR_FOR_EACH(cycle, n)
+        pddlIArrAdd(dst, n);
 }
 
 static void cycleUnblock(int node, pddl_iset_t *B, int *blocked)
@@ -179,7 +179,7 @@ static void cycleUnblock(int node, pddl_iset_t *B, int *blocked)
 static int circuit(int node,
                    int start_node,
                    const pddl_scc_graph_t *component,
-                   bor_iarr_t *path,
+                   pddl_iarr_t *path,
                    pddl_iset_t *B,
                    int *blocked,
                    pddl_graph_simple_cycle_fn fn,
@@ -187,7 +187,7 @@ static int circuit(int node,
 {
     int ret = 0;
     int closed = 0;
-    borIArrAdd(path, node);
+    pddlIArrAdd(path, node);
     blocked[node] = 1;
 
     int next_node;
@@ -220,7 +220,7 @@ static int circuit(int node,
         }
     }
 
-    borIArrRmLast(path);
+    pddlIArrRmLast(path);
     if (ret == 0)
         ret = closed;
     return ret;
@@ -262,10 +262,10 @@ void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
                 blocked[n] = 0;
                 pddlISetEmpty(B + n);
             }
-            BOR_IARR(path);
+            PDDL_IARR(path);
             cont = circuit(node, node, &component, &path, B, blocked,
                            fn, userdata);
-            borIArrFree(&path);
+            pddlIArrFree(&path);
             pddlSCCGraphFree(&component);
         }
 
@@ -281,7 +281,7 @@ void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,
     FREE(blocked);
 }
 
-static int fnAddCycle(const bor_iarr_t *path, void *ud)
+static int fnAddCycle(const pddl_iarr_t *path, void *ud)
 {
     pddl_graph_simple_cycles_t *cycles = ud;
     cycleAdd(cycles, path);
@@ -298,7 +298,7 @@ void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
 void pddlGraphSimpleCyclesFree(pddl_graph_simple_cycles_t *cycles)
 {
     for (int i = 0; i < cycles->cycle_size; ++i)
-        borIArrFree(cycles->cycle + i);
+        pddlIArrFree(cycles->cycle + i);
     if (cycles->cycle != NULL)
         FREE(cycles->cycle);
 }

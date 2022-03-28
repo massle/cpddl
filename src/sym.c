@@ -21,7 +21,7 @@
 
 #include <bliss/bliss_C.h>
 #include "alloc.h"
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/sym.h"
 
 struct pdg_sym {
@@ -222,13 +222,13 @@ static void allSymmetries(const pddl_strips_sym_t *sym,
                                         const pddl_iset_t *in,
                                         pddl_iset_t *out))
 {
-    BOR_IARR(queue);
+    PDDL_IARR(queue);
     PDDL_ISET(img_set);
 
     // Initialize queue with all sets that are already in sym_set
     PDDL_SET_ISET_FOR_EACH_ID(sym_set, i)
-        borIArrAdd(&queue, i);
-    while (borIArrSize(&queue) > 0){
+        pddlIArrAdd(&queue, i);
+    while (pddlIArrSize(&queue) > 0){
         // Get the next set in queu
         int in_id = queue.arr[--queue.size];
         const pddl_iset_t *in_set = pddlSetISetGet(sym_set, in_id);
@@ -246,12 +246,12 @@ static void allSymmetries(const pddl_strips_sym_t *sym,
             // queue
             int out_id = pddlSetISetAdd(sym_set, &img_set);
             if (out_id >= sym_set_size)
-                borIArrAdd(&queue, out_id);
+                pddlIArrAdd(&queue, out_id);
         }
     }
 
     pddlISetFree(&img_set);
-    borIArrFree(&queue);
+    pddlIArrFree(&queue);
 }
 
 void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,

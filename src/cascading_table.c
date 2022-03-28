@@ -47,12 +47,10 @@ typedef struct pddl_cascading_table_merge pddl_cascading_table_merge_t;
 
 #define LEAF(X, T) \
     pddl_cascading_table_leaf_t *X = \
-        bor_container_of((T), pddl_cascading_table_leaf_t, \
-                         cascading_table)
+        pddl_container_of((T), pddl_cascading_table_leaf_t, cascading_table)
 #define MERGE(X, T) \
     pddl_cascading_table_merge_t *X = \
-        bor_container_of((T), pddl_cascading_table_merge_t, \
-                         cascading_table)
+        pddl_container_of((T), pddl_cascading_table_merge_t, cascading_table)
 
 #define MERGE_IDX(M, LEFT, RIGHT) ((LEFT) * (M)->right->size + (RIGHT))
 #define MERGE_LR_FROM_IDX(M, IDX, LEFT, RIGHT) \

@@ -243,8 +243,8 @@ typedef struct order_var order_var_t;
 static int heapLT(const bor_pairheap_node_t *a,
                   const bor_pairheap_node_t *b, void *_)
 {
-    order_var_t *v1 = bor_container_of(a, order_var_t, heap);
-    order_var_t *v2 = bor_container_of(b, order_var_t, heap);
+    order_var_t *v1 = pddl_container_of(a, order_var_t, heap);
+    order_var_t *v2 = pddl_container_of(b, order_var_t, heap);
     if (v1->scc_id == v2->scc_id){
         if (v1->w == v2->w)
             return v1->var < v2->var;
@@ -382,7 +382,7 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
     int ins = 0;
     for (; !borPairHeapEmpty(heap); ++ins){
         bor_pairheap_node_t *hnode = borPairHeapExtractMin(heap);
-        order_var_t *minvar = bor_container_of(hnode, order_var_t, heap);
+        order_var_t *minvar = pddl_container_of(hnode, order_var_t, heap);
         minvar->ordered = 1;
         var_ordering[ins] = minvar->var;
         removeVar(order_var, minvar->var, heap, cg);

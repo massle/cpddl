@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
 
@@ -35,7 +35,7 @@ int pddlH1(const pddl_strips_t *strips,
     int *facts = CALLOC_ARR(int, strips->fact.fact_size);
     int *ops = CALLOC_ARR(int, strips->op.op_size);
     pddl_iset_t *fact_to_op = CALLOC_ARR(pddl_iset_t, strips->fact.fact_size);
-    BOR_IARR(queue);
+    PDDL_IARR(queue);
 
     BOR_INFO(err, "facts: %d, ops: %d",
              strips->fact.fact_size,
@@ -44,7 +44,7 @@ int pddlH1(const pddl_strips_t *strips,
     int fact;
     PDDL_ISET_FOR_EACH(&strips->init, fact){
         facts[fact] = 1;
-        borIArrAdd(&queue, fact);
+        pddlIArrAdd(&queue, fact);
     }
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -58,15 +58,15 @@ int pddlH1(const pddl_strips_t *strips,
             PDDL_ISET_FOR_EACH(&op->add_eff, fact){
                 if (facts[fact] == 0){
                     facts[fact] = 1;
-                    borIArrAdd(&queue, fact);
+                    pddlIArrAdd(&queue, fact);
                 }
             }
         }
     }
 
-    while (borIArrSize(&queue) > 0){
-        int cur = borIArrGet(&queue, borIArrSize(&queue) - 1);
-        borIArrRmLast(&queue);
+    while (pddlIArrSize(&queue) > 0){
+        int cur = pddlIArrGet(&queue, pddlIArrSize(&queue) - 1);
+        pddlIArrRmLast(&queue);
         int op_id;
         PDDL_ISET_FOR_EACH(fact_to_op + cur, op_id){
             if (--ops[op_id] == 0){
@@ -75,7 +75,7 @@ int pddlH1(const pddl_strips_t *strips,
                 PDDL_ISET_FOR_EACH(&op->add_eff, fact){
                     if (facts[fact] == 0){
                         facts[fact] = 1;
-                        borIArrAdd(&queue, fact);
+                        pddlIArrAdd(&queue, fact);
                     }
                 }
             }
@@ -93,7 +93,7 @@ int pddlH1(const pddl_strips_t *strips,
             pddlISetAdd(unreachable_ops, op_id);
     }
 
-    borIArrFree(&queue);
+    pddlIArrFree(&queue);
     for (int fid = 0; fid < strips->fact.fact_size; ++fid)
         pddlISetFree(fact_to_op + fid);
     if (fact_to_op != NULL)

@@ -140,7 +140,7 @@ static void setFDRVarLargestMulti(const char *ln, const char *sn)
 static int setPot(const char *_spec)
 {
     // TODO
-    char *spec = BOR_STRDUP(_spec);
+    char *spec = PDDL_STRDUP(_spec);
     if (spec == NULL)
         return -1;
     const char *end = spec + strlen(spec);

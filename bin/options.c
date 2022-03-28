@@ -58,7 +58,7 @@ static int optSetMGroup(const char *tag)
 
 static int optProcessStrips(const char *tag)
 {
-    char *s = BOR_STRDUP(tag);
+    char *s = PDDL_STRDUP(tag);
     char *next = s;
     char *cur;
     if ((cur = strsep(&next, ",")) != NULL){

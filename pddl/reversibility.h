@@ -19,7 +19,7 @@
 #ifndef __PDDL_REVERSIBILITY_H__
 #define __PDDL_REVERSIBILITY_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/strips.h>
 #include <pddl/mutex_pair.h>
 
@@ -39,7 +39,7 @@ typedef struct pddl_conj_fact_formula pddl_conj_fact_formula_t;
 struct pddl_reverse_plan {
     int reversible_op_id; /*!< ID of the reversible operator */
     pddl_conj_fact_formula_t formula; /*!< \phi formula */
-    bor_iarr_t plan; /*!< Reverse plan -- a sequence of operators' IDs */
+    pddl_iarr_t plan; /*!< Reverse plan -- a sequence of operators' IDs */
 };
 typedef struct pddl_reverse_plan pddl_reverse_plan_t;
 

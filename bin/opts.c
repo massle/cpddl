@@ -77,7 +77,7 @@ void optsStartGroup(const char *header)
 
     cur_group = o.group_size;
     opt_group_t *g = o.group + o.group_size++;
-    g->header = BOR_STRDUP(header);
+    g->header = PDDL_STRDUP(header);
 }
 
 static opt_opt_t *optsAdd(int type,
@@ -98,11 +98,11 @@ static opt_opt_t *optsAdd(int type,
     opt->group = cur_group;
     opt->type = type;
     if (long_name != NULL)
-        opt->long_name = BOR_STRDUP(long_name);
+        opt->long_name = PDDL_STRDUP(long_name);
     opt->short_name = short_name;
     opt->set = set;
     if (desc != NULL)
-        opt->desc = BOR_STRDUP(desc);
+        opt->desc = PDDL_STRDUP(desc);
     return opt;
 }
 
@@ -156,7 +156,7 @@ void optsAddStr(const char *long_name,
 {
     opt_opt_t *opt = optsAdd(STR, long_name, short_name, set, desc);
     if (default_value != NULL){
-        opt->sdefault = BOR_STRDUP(default_value);
+        opt->sdefault = PDDL_STRDUP(default_value);
         *(char **)set = opt->sdefault;
     }
 }
@@ -169,7 +169,7 @@ void optsAddTags(const char *long_name,
 {
     opt_opt_t *opt = optsAdd(STR_TAGS, long_name, short_name, NULL, desc);
     if (default_value != NULL){
-        opt->sdefault = BOR_STRDUP(default_value);
+        opt->sdefault = PDDL_STRDUP(default_value);
     }
     opt->parse_tags = fn;
 }
@@ -475,7 +475,7 @@ int optsProcessTags(const char *_s, int (*fn)(const char *t))
     if (*_s == 0x0)
         return 0;
 
-    char *s = BOR_STRDUP(_s);
+    char *s = PDDL_STRDUP(_s);
     char *next = s;
     char *cur;
     while ((cur = strsep(&next, ":")) != NULL){

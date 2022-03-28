@@ -21,7 +21,7 @@
 #define __PDDL_SCC_H__
 
 #include <pddl/iset.h>
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,7 +70,7 @@ void pddlSCCFree(pddl_scc_t *scc);
 
 
 struct pddl_graph_simple_cycles {
-    bor_iarr_t *cycle;
+    pddl_iarr_t *cycle;
     int cycle_size;
     int cycle_alloc;
 };
@@ -79,7 +79,7 @@ typedef struct pddl_graph_simple_cycles pddl_graph_simple_cycles_t;
 /** TODO */
 #define PDDL_GRAPH_SIMPLE_CYCLE_CONT 0
 #define PDDL_GRAPH_SIMPLE_CYCLE_STOP 1
-typedef int (*pddl_graph_simple_cycle_fn)(const bor_iarr_t *cycle,
+typedef int (*pddl_graph_simple_cycle_fn)(const pddl_iarr_t *cycle,
                                           void *userdata);
 
 void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,

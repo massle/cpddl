@@ -146,7 +146,7 @@ static void stepInit(const char *name,
                      pddl_process_strips_free_fn free)
 {
     bzero(step, sizeof(*step));
-    step->name = BOR_STRDUP(name);
+    step->name = PDDL_STRDUP(name);
     borListInit(&step->conn);
     step->execute = execute;
     step->free = free;
@@ -218,7 +218,7 @@ static int h2fw(pddl_process_strips_t *prune,
                 bor_err_t *err)
 {
     pddl_process_strips_step_hm_t *step;
-    step = bor_container_of(_step, pddl_process_strips_step_hm_t, step);
+    step = pddl_container_of(_step, pddl_process_strips_step_hm_t, step);
     return pddlH2(prune->strips,
                   prune->mutex,
                   &prune->rm_fact,
@@ -241,7 +241,7 @@ static int h2fwbw(pddl_process_strips_t *prune,
                   bor_err_t *err)
 {
     pddl_process_strips_step_hm_t *step;
-    step = bor_container_of(_step, pddl_process_strips_step_hm_t, step);
+    step = pddl_container_of(_step, pddl_process_strips_step_hm_t, step);
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
     int ret = pddlH2FwBw(&mg_strips.strips,
@@ -269,7 +269,7 @@ static int h3fw(pddl_process_strips_t *prune,
                 bor_err_t *err)
 {
     pddl_process_strips_step_hm_t *step;
-    step = bor_container_of(_step, pddl_process_strips_step_hm_t, step);
+    step = pddl_container_of(_step, pddl_process_strips_step_hm_t, step);
     return pddlH3(prune->strips,
                   prune->mutex,
                   &prune->rm_fact,

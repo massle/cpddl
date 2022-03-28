@@ -41,7 +41,7 @@
 _pddl_inline pddl_lm_cut_fact_t *FPOP(pddl_pq_t *pq, int *value)
 {
     pddl_pq_el_t *el = pddlPQPop(pq, value);
-    pddl_lm_cut_fact_t *fact = bor_container_of(el, pddl_lm_cut_fact_t, heap);
+    pddl_lm_cut_fact_t *fact = pddl_container_of(el, pddl_lm_cut_fact_t, heap);
     fact->heap.key = INT_MAX;
     return fact;
 }
@@ -146,7 +146,7 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
         pddlISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
 
     lmc->fact_state = ALLOC_ARR(int, lmc->fact_size);
-    borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
+    pddlIArrRealloc(&lmc->queue, lmc->fact_size / 2);
     pddlPQInit(&lmc->pq);
 }
 
@@ -205,7 +205,7 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
         pddlISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
 
     lmc->fact_state = ALLOC_ARR(int, lmc->fact_size);
-    borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
+    pddlIArrRealloc(&lmc->queue, lmc->fact_size / 2);
     pddlPQInit(&lmc->pq);
 }
 
@@ -223,7 +223,7 @@ void pddlLMCutFree(pddl_lm_cut_t *lmc)
 
     if (lmc->fact_state)
         FREE(lmc->fact_state);
-    borIArrFree(&lmc->queue);
+    pddlIArrFree(&lmc->queue);
     pddlPQFree(&lmc->pq);
     pddlISetFree(&lmc->cut);
     pddlISetFree(&lmc->state);
@@ -412,8 +412,8 @@ static void hMaxInc(pddl_lm_cut_t *lmc, const pddl_iset_t *cut)
 /** Mark facts connected with the goal with zero cost paths */
 static void markGoalZone(pddl_lm_cut_t *lmc)
 {
-    borIArrEmpty(&lmc->queue);
-    borIArrAdd(&lmc->queue, lmc->fact_goal);
+    pddlIArrEmpty(&lmc->queue);
+    pddlIArrAdd(&lmc->queue, lmc->fact_goal);
     lmc->fact_state[lmc->fact_goal] = CUT_GOAL;
     while (lmc->queue.size > 0){
         int fact_id = lmc->queue.arr[--lmc->queue.size];
@@ -424,7 +424,7 @@ static void markGoalZone(pddl_lm_cut_t *lmc)
             pddl_lm_cut_op_t *op = lmc->op + op_id;
             if (op->supp >= 0 && lmc->fact_state[op->supp] == CUT_UNDEF){
                 if (op->cost == 0){
-                    borIArrAdd(&lmc->queue, op->supp);
+                    pddlIArrAdd(&lmc->queue, op->supp);
                     lmc->fact_state[op->supp] = CUT_GOAL;
                 }else{
                     op->cut_candidate = 1;
@@ -449,11 +449,11 @@ static int findCut(pddl_lm_cut_t *lmc)
 {
     int min_cost = INT_MAX;
 
-    borIArrEmpty(&lmc->queue);
+    pddlIArrEmpty(&lmc->queue);
     int fact_id;
     PDDL_ISET_FOR_EACH(&lmc->state, fact_id){
         if (lmc->fact_state[fact_id] == CUT_UNDEF){
-            borIArrAdd(&lmc->queue, fact_id);
+            pddlIArrAdd(&lmc->queue, fact_id);
             lmc->fact_state[fact_id] = CUT_INIT;
         }
     }
@@ -469,7 +469,7 @@ static int findCut(pddl_lm_cut_t *lmc)
                 continue;
             if (op->cut_candidate){
                 pddlISetAdd(&lmc->cut, op_id);
-                min_cost = BOR_MIN(min_cost, op->cost);
+                min_cost = PDDL_MIN(min_cost, op->cost);
                 continue;
             }
 
@@ -478,7 +478,7 @@ static int findCut(pddl_lm_cut_t *lmc)
                 if (lmc->fact_state[next] == CUT_UNDEF){
                     if (F_IS_SUPP(lmc->fact + next)){
                         lmc->fact_state[next] = CUT_INIT;
-                        borIArrAdd(&lmc->queue, next);
+                        pddlIArrAdd(&lmc->queue, next);
                     }
                 }
             }
@@ -528,7 +528,7 @@ static int landmarkCost(const pddl_lm_cut_t *lmc,
     int op_id;
 
     PDDL_ISET_FOR_EACH(ldm, op_id)
-        cost = BOR_MIN(cost, lmc->op[op_id].cost);
+        cost = PDDL_MIN(cost, lmc->op[op_id].cost);
 
     return cost;
 }

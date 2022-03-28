@@ -19,7 +19,7 @@
 #ifndef __PDDL_PLAN_H__
 #define __PDDL_PLAN_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/fdr_state_space.h>
 #include <pddl/fdr_op.h>
 
@@ -34,7 +34,7 @@ struct pddl_plan {
     int state_size;
     int state_alloc;
 
-    bor_iarr_t op;
+    pddl_iarr_t op;
     int cost;
     int length;
 };

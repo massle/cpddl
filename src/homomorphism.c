@@ -491,7 +491,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
     int found_candidate = 0;
     int degree = INT_MAX;
     PDDL_ISET(neigh);
-    BOR_IARR(queue);
+    PDDL_IARR(queue);
     int *visited = CALLOC_ARR(int, pddl->obj.obj_size);
 
     for (int x = 0; x < g->obj_size; ++x){
@@ -502,10 +502,10 @@ static int gaifmanFindPairDepth(gaifman_t *g,
         int xtype = pddl->obj.obj[x].type;
         bzero(visited, sizeof(int) * pddl->obj.obj_size);
         visited[x] = 1;
-        borIArrEmpty(&queue);
-        borIArrAdd(&queue, x);
-        for (int i = 0; i < borIArrSize(&queue); ++i){
-            int o = borIArrGet(&queue, i);
+        pddlIArrEmpty(&queue);
+        pddlIArrAdd(&queue, x);
+        for (int i = 0; i < pddlIArrSize(&queue); ++i){
+            int o = pddlIArrGet(&queue, i);
 
             int y;
             PDDL_ISET_FOR_EACH(&g->obj_relate_to[o], y){
@@ -526,7 +526,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
                         }
                     }
                 }else{
-                    borIArrAdd(&queue, y);
+                    pddlIArrAdd(&queue, y);
                 }
                 visited[y] = visited[o] + 1;
             }
@@ -535,7 +535,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
 
     if (visited != NULL)
         FREE(visited);
-    borIArrFree(&queue);
+    pddlIArrFree(&queue);
     pddlISetFree(&neigh);
 
     if (!found_candidate)
@@ -728,7 +728,7 @@ static void _deduplicateCostsPart(pddl_cond_part_t *p)
                 ASSERT_RUNTIME(ass2->lvalue != NULL);
                 ASSERT_RUNTIME(ass2->fvalue == NULL);
                 if (pddlCondAtomCmp(ass1->lvalue, ass2->lvalue) == 0){
-                    min_value = BOR_MIN(min_value, ass2->value);
+                    min_value = PDDL_MIN(min_value, ass2->value);
                     pddl_list_t *item_del = item2;
                     item2 = pddlListNext(item2);
                     pddlListDel(item_del);

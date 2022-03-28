@@ -3500,7 +3500,7 @@ static int atomNegPred(const pddl_cond_atom_t *a, const pddl_t *pddl)
 {
     int pred = a->pred;
     if (pddl->pred.pred[a->pred].neg_of >= 0)
-        pred = BOR_MIN(pred, pddl->pred.pred[a->pred].neg_of);
+        pred = PDDL_MIN(pred, pddl->pred.pred[a->pred].neg_of);
     return pred;
 }
 

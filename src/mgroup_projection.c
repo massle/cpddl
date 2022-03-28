@@ -18,7 +18,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include "pddl/mgroup_projection.h"
 #include "alloc.h"
 #include "assert.h"
@@ -142,14 +142,14 @@ void pddlMGroupProjectionPruneUnreachable(pddl_mgroup_projection_t *p,
                                           int backward)
 {
     int *visited = CALLOC_ARR(int, p->num_states);
-    BOR_IARR(queue);
+    PDDL_IARR(queue);
     int state;
     PDDL_ISET_FOR_EACH(states, state){
-        borIArrAdd(&queue, state);
+        pddlIArrAdd(&queue, state);
         visited[state] = 1;
     }
-    for (int cur = 0; cur < borIArrSize(&queue); ++cur){
-        int state = borIArrGet(&queue, cur);
+    for (int cur = 0; cur < pddlIArrSize(&queue); ++cur){
+        int state = pddlIArrGet(&queue, cur);
         for (int to = 0; to < p->num_states; ++to){
             if (visited[to])
                 continue;
@@ -160,12 +160,12 @@ void pddlMGroupProjectionPruneUnreachable(pddl_mgroup_projection_t *p,
                 tr = p->tr + state * p->num_states + to;
             }
             if (pddlISetSize(tr) > 0){
-                borIArrAdd(&queue, to);
+                pddlIArrAdd(&queue, to);
                 visited[to] = 1;
             }
         }
     }
-    borIArrFree(&queue);
+    pddlIArrFree(&queue);
 
     for (int state = 0; state < p->num_states; ++state){
         if (visited[state])

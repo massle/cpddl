@@ -149,6 +149,7 @@ OBJS += objset
 OBJS += iset
 OBJS += lset
 OBJS += cset
+OBJS += iarr
 
 OBJS_CPP = endomorphism
 
@@ -162,6 +163,8 @@ GEN += pddl/lset.h
 GEN += src/lset.c
 GEN += pddl/cset.h
 GEN += src/cset.c
+GEN += pddl/iarr.h
+GEN += src/iarr.c
 
 all: $(TARGETS)
 
@@ -208,6 +211,10 @@ pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
 src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
 	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
+src/iarr.c: src/_arr.c scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<

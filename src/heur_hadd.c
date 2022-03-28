@@ -29,7 +29,7 @@ typedef struct pddl_heur_hadd pddl_heur_hadd_t;
 
 static void heurDel(pddl_heur_t *_h)
 {
-    pddl_heur_hadd_t *h = bor_container_of(_h, pddl_heur_hadd_t, heur);
+    pddl_heur_hadd_t *h = pddl_container_of(_h, pddl_heur_hadd_t, heur);
     _pddlHeurFree(&h->heur);
     pddlHAddFree(&h->hadd);
     FREE(h);
@@ -39,7 +39,7 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_node_t *node,
                         const pddl_fdr_state_space_t *state_space)
 {
-    pddl_heur_hadd_t *h = bor_container_of(_h, pddl_heur_hadd_t, heur);
+    pddl_heur_hadd_t *h = pddl_container_of(_h, pddl_heur_hadd_t, heur);
     return pddlHAdd(&h->hadd, node->state, &h->fdr->var);
 }
 

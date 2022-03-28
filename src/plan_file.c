@@ -119,7 +119,7 @@ static int parseFDR(struct parse *parse,
                 && pddlFDROpIsApplicable(op, cur_state)){
             pddlFDROpApplyOnState(op, fdr->var.var_size, cur_state, state);
             planFileFDRAddState(p, fdr, state);
-            borIArrAdd(&p->op, op_id);
+            pddlIArrAdd(&p->op, op_id);
             p->cost += op->cost;
             found = 1;
         }
@@ -149,7 +149,7 @@ static int parseStrips(struct parse *parse,
             pddlISetMinus2(state, cur_state, &op->del_eff);
             pddlISetUnion(state, &op->add_eff);
             planFileStripsAddState(p, strips, state);
-            borIArrAdd(&p->op, op_id);
+            pddlIArrAdd(&p->op, op_id);
             p->cost += op->cost;
             found = 1;
             break;
@@ -184,7 +184,7 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
 
 void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p)
 {
-    borIArrFree(&p->op);
+    pddlIArrFree(&p->op);
     for (int i = 0; i < p->state_size; ++i)
         FREE(p->state[i]);
     if (p->state != NULL)
@@ -211,7 +211,7 @@ int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
 
 void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p)
 {
-    borIArrFree(&p->op);
+    pddlIArrFree(&p->op);
     for (int i = 0; i < p->state_size; ++i)
         pddlISetFree(&p->state[i]);
     if (p->state != NULL)

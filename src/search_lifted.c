@@ -61,7 +61,7 @@ struct pddl_search_lifted_bfs {
 };
 typedef struct pddl_search_lifted_bfs pddl_search_lifted_bfs_t;
 
-#define BFS(S) bor_container_of((S), pddl_search_lifted_bfs_t, search)
+#define BFS(S) pddl_container_of((S), pddl_search_lifted_bfs_t, search)
 
 static void setGoal(pddl_search_lifted_t *s);
 static pddl_state_id_t insertInitState(pddl_search_lifted_t *s);

@@ -41,14 +41,14 @@ typedef struct obj_key obj_key_t;
 
 static pddl_htable_key_t objHash(const pddl_list_t *key, void *_)
 {
-    const obj_key_t *obj = bor_container_of(key, obj_key_t, htable);
+    const obj_key_t *obj = pddl_container_of(key, obj_key_t, htable);
     return obj->hash;
 }
 
 static int objEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
 {
-    const obj_key_t *obj1 = bor_container_of(key1, obj_key_t, htable);
-    const obj_key_t *obj2 = bor_container_of(key2, obj_key_t, htable);
+    const obj_key_t *obj1 = pddl_container_of(key1, obj_key_t, htable);
+    const obj_key_t *obj2 = pddl_container_of(key2, obj_key_t, htable);
     return strcmp(obj1->name, obj2->name) == 0;
 }
 

@@ -51,7 +51,7 @@ extern "C" {
 const char *pddlCondTypeName(int type);
 
 #define PDDL_COND_CAST(C, T) \
-    (bor_container_of((C), pddl_cond_##T##_t, cls))
+    (pddl_container_of((C), pddl_cond_##T##_t, cls))
 
 /**
  * General condition

@@ -122,12 +122,12 @@ void pddlHomomorphismHeurDel(pddl_homomorphism_heur_t *h)
         FREE(h->ground_atom_to_strips_fact);
 
     if (h->_type == LM_CUT_TYPE){
-        lmcut_t *lmc = bor_container_of(h, lmcut_t, homo);
+        lmcut_t *lmc = pddl_container_of(h, lmcut_t, homo);
         pddlLMCutFree(&lmc->lmc);
         FREE(lmc);
 
     }else if (h->_type == HFF_TYPE){
-        hff_t *hff = bor_container_of(h, hff_t, homo);
+        hff_t *hff = pddl_container_of(h, hff_t, homo);
         pddlHFFFree(&hff->hff);
         FREE(hff);
     }
@@ -181,10 +181,10 @@ int pddlHomomorphismHeurEvalGroundInit(pddl_homomorphism_heur_t *h)
 
     int hval = 0;
     if (h->_type == LM_CUT_TYPE){
-        lmcut_t *lmc = bor_container_of(h, lmcut_t, homo);
+        lmcut_t *lmc = pddl_container_of(h, lmcut_t, homo);
         hval = pddlLMCutStrips(&lmc->lmc, &h->strips.init, NULL, NULL);
     }else if (h->_type == HFF_TYPE){
-        hff_t *hff = bor_container_of(h, hff_t, homo);
+        hff_t *hff = pddl_container_of(h, hff_t, homo);
         hval = pddlHFFStrips(&hff->hff, &h->strips.init);
     }
     return hval;
@@ -214,10 +214,10 @@ int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
 
     int hval = 0;
     if (h->_type == LM_CUT_TYPE){
-        lmcut_t *lmc = bor_container_of(h, lmcut_t, homo);
+        lmcut_t *lmc = pddl_container_of(h, lmcut_t, homo);
         hval = pddlLMCutStrips(&lmc->lmc, &strips_state, NULL, NULL);
     }else if (h->_type == HFF_TYPE){
-        hff_t *hff = bor_container_of(h, hff_t, homo);
+        hff_t *hff = pddl_container_of(h, hff_t, homo);
         hval = pddlHFFStrips(&hff->hff, &strips_state);
     }
     pddlISetFree(&strips_state);

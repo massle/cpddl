@@ -19,7 +19,7 @@
 #ifndef __PDDL_FDR_H__
 #define __PDDL_FDR_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_op.h>
 
@@ -67,7 +67,7 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
  */
 int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
                          const int *fdr_state,
-                         const bor_iarr_t *plan,
+                         const pddl_iarr_t *plan,
                          bor_err_t *err);
 
 

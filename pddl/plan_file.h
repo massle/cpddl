@@ -19,7 +19,7 @@
 #ifndef __PDDL_PLAN_FILE_H__
 #define __PDDL_PLAN_FILE_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/fdr.h>
 #include <pddl/strips.h>
 
@@ -28,7 +28,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_plan_file_fdr {
-    bor_iarr_t op; /*!< Sequence of operators */
+    pddl_iarr_t op; /*!< Sequence of operators */
     int **state; /*!< Intermediate states */
     int state_size;
     int state_alloc;
@@ -53,7 +53,7 @@ void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p);
 
 
 struct pddl_plan_file_strips {
-    bor_iarr_t op; /*!< Sequence of operators */
+    pddl_iarr_t op; /*!< Sequence of operators */
     pddl_iset_t *state; /*!< Intermediate states */
     int state_size;
     int state_alloc;

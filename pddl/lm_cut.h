@@ -20,7 +20,7 @@
 #define __PDDL_LM_CUT_H__
 
 #include <pddl/iset.h>
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/fdr.h>
 #include <pddl/pq.h>
 #include <pddl/set.h>
@@ -69,7 +69,7 @@ struct pddl_lm_cut {
 
     /** Auxiliary structures to avoid re-allocation */
     int *fact_state;
-    bor_iarr_t queue;
+    pddl_iarr_t queue;
     pddl_pq_t pq;
 };
 typedef struct pddl_lm_cut pddl_lm_cut_t;
