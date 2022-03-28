@@ -34,7 +34,7 @@ struct pddl_op_mutex_pairs {
     int *id_to_op_id; /*!< Mapping froom the internal to operator id */
     int size; /*!< Number of operators registered here */
     int alloc;
-    bor_iset_t *op_mutex;
+    pddl_iset_t *op_mutex;
     int num_op_mutex_pairs;
 };
 typedef struct pddl_op_mutex_pairs pddl_op_mutex_pairs_t;
@@ -42,14 +42,14 @@ typedef struct pddl_op_mutex_pairs pddl_op_mutex_pairs_t;
 #define PDDL_OP_MUTEX_PAIRS_FOR_EACH(M, O1, O2) \
     for (int ___i = 0; ___i < (M)->size \
             && ((O1) = (M)->id_to_op_id[___i], 1); ++___i) \
-        BOR_ISET_FOR_EACH((M)->op_mutex + ___i, O2)
+        PDDL_ISET_FOR_EACH((M)->op_mutex + ___i, O2)
 
 #define PDDL_OP_MUTEX_PAIRS_FOR_EACH_SORTED(M, O1, O2) \
     for (int ___i = 0, ___id = 0; ___i < (M)->op_size; ++___i) \
         if ((M)->op_id_to_id[___i] >= 0 \
                 && ((O1) = ___i, 1) \
                 && (___id = (M)->op_id_to_id[___i])) \
-            BOR_ISET_FOR_EACH((M)->op_mutex + ___id, O2)
+            PDDL_ISET_FOR_EACH((M)->op_mutex + ___id, O2)
 
 /**
  * Returns empty set of op-mutex pairs
@@ -76,7 +76,7 @@ int pddlOpMutexPairsSize(const pddl_op_mutex_pairs_t *m);
  * Returns set of operators that are mutex with the specified operator.
  */
 void pddlOpMutexPairsMutexWith(const pddl_op_mutex_pairs_t *m, int op_id,
-                               bor_iset_t *out);
+                               pddl_iset_t *out);
 
 /**
  * Adds another op-mutex
@@ -86,7 +86,7 @@ void pddlOpMutexPairsAdd(pddl_op_mutex_pairs_t *m, int o1, int o2);
 /**
  * Adds mutex pairs from the given operator mutex group.
  */
-void pddlOpMutexPairsAddGroup(pddl_op_mutex_pairs_t *m, const bor_iset_t *g);
+void pddlOpMutexPairsAddGroup(pddl_op_mutex_pairs_t *m, const pddl_iset_t *g);
 
 /**
  * Removes an op-mutex

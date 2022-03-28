@@ -176,7 +176,7 @@ static int findStripsFact(const pddl_homomorphism_heur_t *h,
 
 int pddlHomomorphismHeurEvalGroundInit(pddl_homomorphism_heur_t *h)
 {
-    if (borISetIsSubset(&h->strips.goal, &h->strips.init))
+    if (pddlISetIsSubset(&h->strips.goal, &h->strips.init))
         return 0;
 
     int hval = 0;
@@ -191,15 +191,15 @@ int pddlHomomorphismHeurEvalGroundInit(pddl_homomorphism_heur_t *h)
 }
 
 int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
-                             const bor_iset_t *state,
+                             const pddl_iset_t *state,
                              const pddl_ground_atoms_t *gatoms)
 {
-    if (borISetIsSubset(&h->strips.goal, &h->strips.init))
+    if (pddlISetIsSubset(&h->strips.goal, &h->strips.init))
         return 0;
 
-    BOR_ISET(strips_state);
+    PDDL_ISET(strips_state);
     int state_fact;
-    BOR_ISET_FOR_EACH(state, state_fact){
+    PDDL_ISET_FOR_EACH(state, state_fact){
         if (state_fact >= h->ground_atom_to_strips_fact_size)
             allocateGroundAtomToStripsFact(h, state_fact);
         int strips_fact = h->ground_atom_to_strips_fact[state_fact];
@@ -209,7 +209,7 @@ int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
             h->ground_atom_to_strips_fact[state_fact] = strips_fact;
         }
         if (strips_fact >= 0)
-            borISetAdd(&strips_state, strips_fact);
+            pddlISetAdd(&strips_state, strips_fact);
     }
 
     int hval = 0;
@@ -220,6 +220,6 @@ int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
         hff_t *hff = bor_container_of(h, hff_t, homo);
         hval = pddlHFFStrips(&hff->hff, &strips_state);
     }
-    borISetFree(&strips_state);
+    pddlISetFree(&strips_state);
     return hval;
 }

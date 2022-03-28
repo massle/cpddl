@@ -45,9 +45,9 @@ int pddlPotSolutionEvalFDRState(const pddl_pot_solution_t *sol,
                                 const pddl_fdr_vars_t *vars,
                                 const int *state);
 double pddlPotSolutionEvalStripsStateFlt(const pddl_pot_solution_t *sol,
-                                         const bor_iset_t *state);
+                                         const pddl_iset_t *state);
 int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,
-                                   const bor_iset_t *state);
+                                   const pddl_iset_t *state);
 
 struct pddl_pot_solutions {
     pddl_pot_solution_t *sol;
@@ -66,14 +66,14 @@ int pddlPotSolutionsEvalMaxFDRState(const pddl_pot_solutions_t *sols,
 
 struct pddl_pot_lb_constr {
     int set;
-    bor_iset_t vars;
+    pddl_iset_t vars;
     double rhs;
 };
 typedef struct pddl_pot_lb_constr pddl_pot_lb_constr_t;
 
 struct pddl_pot_constr {
-    bor_iset_t plus;
-    bor_iset_t minus;
+    pddl_iset_t plus;
+    pddl_iset_t minus;
     int rhs;
     int op_id;
 };
@@ -98,7 +98,7 @@ struct pddl_pot {
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
     pddl_pot_lb_constr_t constr_lb;
-    bor_iset_t init;
+    pddl_iset_t init;
 
     pddl_segmarr_t *maxpot;
     int maxpot_size;
@@ -159,13 +159,13 @@ void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
  * Set objective function to the given state.
  * This works only if {pot} was initialized with *InitMGStrips()
  */
-void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
+void pddlPotSetObjStripsState(pddl_pot_t *pot, const pddl_iset_t *state);
 
 /**
  * Sets lower bound constraint as sum(vars) >= rhs
  */
 void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
-                                const bor_iset_t *vars,
+                                const pddl_iset_t *vars,
                                 double rhs);
 
 /**

@@ -35,8 +35,8 @@ static void pddlTypeFree(pddl_type_t *t)
 {
     if (t->name != NULL)
         FREE(t->name);
-    borISetFree(&t->child);
-    borISetFree(&t->either);
+    pddlISetFree(&t->child);
+    pddlISetFree(&t->either);
     pddlObjSetFree(&t->obj);
 }
 
@@ -45,8 +45,8 @@ static void pddlTypeInitCopy(pddl_type_t *dst, const pddl_type_t *src)
     if (src->name != NULL)
         dst->name = STRDUP(src->name);
     dst->parent = src->parent;
-    borISetUnion(&dst->child, &src->child);
-    borISetUnion(&dst->either, &src->either);
+    pddlISetUnion(&dst->child, &src->child);
+    pddlISetUnion(&dst->either, &src->either);
     pddlObjSetInit(&dst->obj);
     pddlObjSetUnion(&dst->obj, &src->obj);
 }
@@ -83,7 +83,7 @@ int pddlTypesAdd(pddl_types_t *t, const char *name, int parent)
         type->name = STRDUP(name);
     type->parent = parent;
     if (parent >= 0)
-        borISetAdd(&t->type[parent].child, id);
+        pddlISetAdd(&t->type[parent].child, id);
     return id;
 }
 
@@ -184,7 +184,7 @@ void pddlTypesPrint(const pddl_types_t *t, FILE *fout)
 
 int pddlTypesIsEither(const pddl_types_t *ts, int tid)
 {
-    return borISetSize(&ts->type[tid].either) > 0;
+    return pddlISetSize(&ts->type[tid].either) > 0;
 }
 
 void pddlTypesAddObj(pddl_types_t *ts, pddl_obj_id_t obj_id, int type_id)
@@ -247,14 +247,14 @@ int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj)
 }
 
 
-static int pddlTypesEither(pddl_types_t *ts, const bor_iset_t *either)
+static int pddlTypesEither(pddl_types_t *ts, const pddl_iset_t *either)
 {
     int tid;
 
     // Try to find already created (either ...) type
     for (int i = 0; i < ts->type_size; ++i){
         if (pddlTypesIsEither(ts, i)
-                && borISetEq(&ts->type[i].either, either)){
+                && pddlISetEq(&ts->type[i].either, either)){
             return i;
         }
     }
@@ -263,12 +263,12 @@ static int pddlTypesEither(pddl_types_t *ts, const bor_iset_t *either)
     char *name, *cur;
     int eid;
     int slen = 0;
-    BOR_ISET_FOR_EACH(either, eid)
+    PDDL_ISET_FOR_EACH(either, eid)
         slen += 1 + strlen(ts->type[eid].name);
     slen += 2 + 6 + 1;
     name = cur = ALLOC_ARR(char, slen);
     cur += sprintf(cur, "(either");
-    BOR_ISET_FOR_EACH(either, eid)
+    PDDL_ISET_FOR_EACH(either, eid)
         cur += sprintf(cur, " %s", ts->type[eid].name);
     sprintf(cur, ")");
 
@@ -276,12 +276,12 @@ static int pddlTypesEither(pddl_types_t *ts, const bor_iset_t *either)
     if (name != NULL)
         FREE(name);
     pddl_type_t *type = ts->type + tid;
-    borISetUnion(&type->child, either);
-    borISetUnion(&type->either, either);
+    pddlISetUnion(&type->child, either);
+    pddlISetUnion(&type->either, either);
 
     // Merge obj IDs from all simple types from which this (either ...)
     // type consists of.
-    BOR_ISET_FOR_EACH(either, eid){
+    PDDL_ISET_FOR_EACH(either, eid){
         const pddl_type_t *et = ts->type + eid;
         pddl_obj_id_t obj;
         PDDL_OBJSET_FOR_EACH(&et->obj, obj)
@@ -310,7 +310,7 @@ int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
     if (node->child_size == 2 && node->child[1].value != NULL)
         return pddlTypeFromLispNode(ts, node->child + 1, err);
 
-    BOR_ISET(either);
+    PDDL_ISET(either);
     for (int i = 1; i < node->child_size; ++i){
         if (node->child[i].value == NULL){
             ERR_LISP_RET2(err, -1, node->child + i,
@@ -322,11 +322,11 @@ int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
                          node->child[i].value);
         }
 
-        borISetAdd(&either, tid);
+        pddlISetAdd(&either, tid);
     }
 
     tid = pddlTypesEither(ts, &either);
-    borISetFree(&either);
+    pddlISetFree(&either);
     return tid;
 }
 
@@ -338,7 +338,7 @@ int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent)
     for (int cur_type = child; cur_type >= 0;){
         if (cur_type == parent)
             return 1;
-        BOR_ISET_FOR_EACH(&tparent->either, eid){
+        PDDL_ISET_FOR_EACH(&tparent->either, eid){
             if (cur_type == eid)
                 return 1;
         }
@@ -362,7 +362,7 @@ int pddlTypesIsSubset(const pddl_types_t *ts, int t1id, int t2id)
 
 int pddlTypesIsMinimal(const pddl_types_t *ts, int type)
 {
-    return borISetSize(&ts->type[type].child) == 0;
+    return pddlISetSize(&ts->type[type].child) == 0;
 }
 
 int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
@@ -371,7 +371,7 @@ int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
     int is_strict = 0;
 
     for (int t1 = 0; t1 < ts->type_size; ++t1){
-        if (borISetSize(&ts->type[t1].either) > 0)
+        if (pddlISetSize(&ts->type[t1].either) > 0)
             return 0;
         for (int t2 = 0; t2 < ts->type_size; ++t2){
             if (t1 == t2)
@@ -385,8 +385,8 @@ int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
 
     PDDL_OBJSET(all);
     for (int ti = 0; ti < ts->type_size; ++ti){
-        if (borISetSize(&ts->type[ti].child) == 0
-                && borISetSize(&ts->type[ti].either) == 0){
+        if (pddlISetSize(&ts->type[ti].child) == 0
+                && pddlISetSize(&ts->type[ti].either) == 0){
             pddlObjSetUnion(&all, &ts->type[ti].obj);
         }
     }
@@ -435,13 +435,13 @@ int pddlTypesComplement(const pddl_types_t *ts, int t, int p)
 
 void pddlTypesRemoveEmpty(pddl_types_t *ts, int obj_size, int *type_remap)
 {
-    BOR_ISET(rm);
+    PDDL_ISET(rm);
     int type_size = 1;
     type_remap[0] = 0;
     for (int t = 1; t < ts->type_size; ++t){
         if (pddlTypeNumObjs(ts, t) == 0){
             type_remap[t] = -1;
-            borISetAdd(&rm, t);
+            pddlISetAdd(&rm, t);
         }else{
             type_remap[t] = type_size++;
         }
@@ -454,16 +454,16 @@ void pddlTypesRemoveEmpty(pddl_types_t *ts, int obj_size, int *type_remap)
         if (type_remap[t] >= 0){
             if (type->parent >= 0)
                 type->parent = type_remap[type->parent];
-            borISetMinus(&type->child, &rm);
-            borISetRemap(&type->child, type_remap);
-            borISetMinus(&type->either, &rm);
-            borISetRemap(&type->either, type_remap);
+            pddlISetMinus(&type->child, &rm);
+            pddlISetRemap(&type->child, type_remap);
+            pddlISetMinus(&type->either, &rm);
+            pddlISetRemap(&type->either, type_remap);
             ts->type[type_remap[t]] = *type;
         }else{
             pddlTypeFree(type);
         }
     }
-    borISetFree(&rm);
+    pddlISetFree(&rm);
     ts->type_size = type_size;
 
     if (ts->obj_type_map != NULL)

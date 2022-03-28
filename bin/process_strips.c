@@ -52,34 +52,34 @@ void pddlProcessStripsInit(pddl_process_strips_t *prune)
 void pddlProcessStripsFree(pddl_process_strips_t *prune)
 {
     bor_list_t *item, *tmp;
-    BOR_LIST_FOR_EACH_SAFE(&prune->steps, item, tmp){
+    PDDL_LIST_FOR_EACH_SAFE(&prune->steps, item, tmp){
         pddl_process_strips_step_t *step;
-        step = BOR_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
+        step = PDDL_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
         borListDel(&step->conn);
         step->free(step);
         if (step->name != NULL)
             BOR_FREE(step->name);
         BOR_FREE(step);
     }
-    borISetFree(&prune->rm_op);
-    borISetFree(&prune->rm_fact);
+    pddlISetFree(&prune->rm_op);
+    pddlISetFree(&prune->rm_fact);
 }
 
 static int apply(pddl_process_strips_t *prune, bor_err_t *err)
 {
-    if (borISetSize(&prune->rm_fact) > 0 || borISetSize(&prune->rm_op) > 0){
+    if (pddlISetSize(&prune->rm_fact) > 0 || pddlISetSize(&prune->rm_op) > 0){
         BOR_INFO(err, "Removing %d facts, %d operators",
-                 borISetSize(&prune->rm_fact),
-                 borISetSize(&prune->rm_op));
+                 pddlISetSize(&prune->rm_fact),
+                 pddlISetSize(&prune->rm_op));
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
-        if (prune->mgroups != NULL && borISetSize(&prune->rm_fact) > 0)
+        if (prune->mgroups != NULL && pddlISetSize(&prune->rm_fact) > 0)
             pddlMGroupsReduce(prune->mgroups, &prune->rm_fact);
-        if (prune->mutex != NULL && borISetSize(&prune->rm_fact) > 0)
+        if (prune->mutex != NULL && pddlISetSize(&prune->rm_fact) > 0)
             pddlMutexPairsReduce(prune->mutex, &prune->rm_fact);
-        prune->removed_op += borISetSize(&prune->rm_op);
-        prune->removed_fact += borISetSize(&prune->rm_fact);
-        borISetEmpty(&prune->rm_op);
-        borISetEmpty(&prune->rm_fact);
+        prune->removed_op += pddlISetSize(&prune->rm_op);
+        prune->removed_fact += pddlISetSize(&prune->rm_fact);
+        pddlISetEmpty(&prune->rm_op);
+        pddlISetEmpty(&prune->rm_fact);
     }
     return 0;
 }
@@ -92,18 +92,18 @@ static int step(pddl_process_strips_t *prune,
         apply(prune, err);
 
     BOR_INFO_PREFIX_PUSH(err, step->name);
-    int rm_fact = borISetSize(&prune->rm_fact);
-    int rm_op = borISetSize(&prune->rm_op);
+    int rm_fact = pddlISetSize(&prune->rm_fact);
+    int rm_op = pddlISetSize(&prune->rm_op);
     if (step->execute(prune, step, err) != 0){
         BOR_INFO_PREFIX_POP(err);
         BOR_TRACE_RET(err, -1);
     }
     BOR_INFO(err, "Found new redundant: %d facts, %d operators",
-             borISetSize(&prune->rm_fact) - rm_fact,
-             borISetSize(&prune->rm_op) - rm_op);
+             pddlISetSize(&prune->rm_fact) - rm_fact,
+             pddlISetSize(&prune->rm_op) - rm_op);
     BOR_INFO(err, "Found redundant so far: %d facts, %d operators",
-             prune->removed_fact + borISetSize(&prune->rm_fact),
-             prune->removed_op + borISetSize(&prune->rm_op));
+             prune->removed_fact + pddlISetSize(&prune->rm_fact),
+             prune->removed_op + pddlISetSize(&prune->rm_op));
     BOR_INFO_PREFIX_POP(err);
     return 0;
 }
@@ -121,9 +121,9 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
 
     // TODO: Configure fixpoint
     bor_list_t *item;
-    BOR_LIST_FOR_EACH(&prune->steps, item){
+    PDDL_LIST_FOR_EACH(&prune->steps, item){
         pddl_process_strips_step_t *s;
-        s = BOR_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
+        s = PDDL_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
         if (step(prune, s, err) != 0){
             BOR_INFO_PREFIX_POP(err);
             BOR_TRACE_RET(err, -1);

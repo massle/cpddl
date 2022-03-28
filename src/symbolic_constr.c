@@ -51,7 +51,7 @@ static void bddsAddMutex(pddl_symbolic_vars_t *vars,
 
 static void bddsAddExactlyOneMGroup(pddl_symbolic_vars_t *vars,
                                     pddl_bdds_t *bdds,
-                                    const bor_iset_t *mg)
+                                    const pddl_iset_t *mg)
 {
     pddl_bdd_t *bdd;
     bdd = pddlSymbolicVarsCreateExactlyOneMGroupPre(vars, mg);
@@ -124,9 +124,9 @@ static pddl_bdd_t *constructGroupMutex(pddl_symbolic_constr_t *constr,
 {
     pddl_bdd_t *bdd = pddlBDDOne(constr->vars->mgr);
     int fid;
-    BOR_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
+    PDDL_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
         int fact_id2;
-        BOR_ISET_FOR_EACH(constr->fact_mutex_bw + fid, fact_id2){
+        PDDL_ISET_FOR_EACH(constr->fact_mutex_bw + fid, fact_id2){
             pddl_bdd_t *mutex;
             mutex = pddlSymbolicVarsCreateMutexPre(constr->vars, fid, fact_id2);
             pddlBDDAndUpdate(constr->vars->mgr, &bdd, mutex);
@@ -140,23 +140,23 @@ static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
                                        int group_id)
 {
     pddl_bdd_t *bdd = pddlBDDOne(constr->vars->mgr);
-    BOR_ISET(mgroups);
-    BOR_ISET(mgroups_bw);
+    PDDL_ISET(mgroups);
+    PDDL_ISET(mgroups_bw);
     int fid;
-    BOR_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
+    PDDL_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
         for (int mgi = 0; mgi < constr->mgroup.mgroup_size; ++mgi){
             const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
-            if (!borISetIn(fid, &mg->mgroup))
+            if (!pddlISetIn(fid, &mg->mgroup))
                 continue;
             if (mg->is_exactly_one)
-                borISetAdd(&mgroups, mgi);
+                pddlISetAdd(&mgroups, mgi);
             if (mg->is_fam_group && mg->is_goal && !mg->is_exactly_one)
-                borISetAdd(&mgroups_bw, mgi);
+                pddlISetAdd(&mgroups_bw, mgi);
         }
     }
 
     int mgi;
-    BOR_ISET_FOR_EACH(&mgroups, mgi){
+    PDDL_ISET_FOR_EACH(&mgroups, mgi){
         const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
         pddl_bdd_t *mgbdd;
         mgbdd = pddlSymbolicVarsCreateExactlyOneMGroupPre(constr->vars,
@@ -164,7 +164,7 @@ static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
         pddlBDDAndUpdate(constr->vars->mgr, &bdd, mgbdd);
         pddlBDDDel(constr->vars->mgr, mgbdd);
     }
-    BOR_ISET_FOR_EACH(&mgroups_bw, mgi){
+    PDDL_ISET_FOR_EACH(&mgroups_bw, mgi){
         const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
         pddl_bdd_t *mgbdd;
         mgbdd = pddlSymbolicVarsCreateExactlyOneMGroupEff(constr->vars,
@@ -172,8 +172,8 @@ static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
         pddlBDDAndUpdate(constr->vars->mgr, &bdd, mgbdd);
         pddlBDDDel(constr->vars->mgr, mgbdd);
     }
-    borISetFree(&mgroups);
-    borISetFree(&mgroups_bw);
+    pddlISetFree(&mgroups);
+    pddlISetFree(&mgroups_bw);
     return bdd;
 }
 
@@ -190,26 +190,26 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     constr->vars = vars;
 
     pddlMGroupsInitCopy(&constr->mgroup, mgroup);
-    constr->fact_mutex = CALLOC_ARR(bor_iset_t, vars->fact_size);
-    constr->fact_mutex_fw = CALLOC_ARR(bor_iset_t, vars->fact_size);
-    constr->fact_mutex_bw = CALLOC_ARR(bor_iset_t, vars->fact_size);
+    constr->fact_mutex = CALLOC_ARR(pddl_iset_t, vars->fact_size);
+    constr->fact_mutex_fw = CALLOC_ARR(pddl_iset_t, vars->fact_size);
+    constr->fact_mutex_bw = CALLOC_ARR(pddl_iset_t, vars->fact_size);
     PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
-        borISetAdd(constr->fact_mutex + f1, f2);
-        borISetAdd(constr->fact_mutex + f2, f1);
+        pddlISetAdd(constr->fact_mutex + f1, f2);
+        pddlISetAdd(constr->fact_mutex + f2, f1);
         if (pddlMutexPairsIsFwMutex(mutex, f1, f2)){
-            borISetAdd(constr->fact_mutex_fw + f1, f2);
-            borISetAdd(constr->fact_mutex_fw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_fw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_fw + f2, f1);
         }
         if (pddlMutexPairsIsBwMutex(mutex, f1, f2)){
-            borISetAdd(constr->fact_mutex_bw + f1, f2);
-            borISetAdd(constr->fact_mutex_bw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_bw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_bw + f2, f1);
         }
         if (!pddlMutexPairsIsFwMutex(mutex, f1, f2)
                 && !pddlMutexPairsIsBwMutex(mutex, f1, f2)){
-            borISetAdd(constr->fact_mutex_fw + f1, f2);
-            borISetAdd(constr->fact_mutex_fw + f2, f1);
-            borISetAdd(constr->fact_mutex_bw + f1, f2);
-            borISetAdd(constr->fact_mutex_bw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_fw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_fw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_bw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_bw + f2, f1);
         }
     }
     BOR_INFO2(err, "Mutex maps created.");
@@ -289,9 +289,9 @@ void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
     pddlMGroupsFree(&constr->mgroup);
 
     for (int i = 0; i < constr->vars->fact_size; ++i){
-        borISetFree(constr->fact_mutex + i);
-        borISetFree(constr->fact_mutex_fw + i);
-        borISetFree(constr->fact_mutex_bw + i);
+        pddlISetFree(constr->fact_mutex + i);
+        pddlISetFree(constr->fact_mutex_fw + i);
+        pddlISetFree(constr->fact_mutex_bw + i);
     }
     FREE(constr->fact_mutex);
     FREE(constr->fact_mutex_fw);

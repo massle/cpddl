@@ -25,10 +25,10 @@
 #include "assert.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
-                             const bor_iset_t *state,
+                             const pddl_iset_t *state,
                              int *fdr_state);
 static int stripsToFDRPartState(const pddl_fdr_vars_t *fdr_var,
-                                const bor_iset_t *part_state,
+                                const pddl_iset_t *part_state,
                                 pddl_fdr_part_state_t *fdr_ps);
 static void addOp(pddl_fdr_ops_t *fdr_ops,
                   const pddl_fdr_vars_t *fdr_var,
@@ -158,26 +158,26 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
 }
 
 void pddlFDRReduce(pddl_fdr_t *fdr,
-                   const bor_iset_t *del_vars,
-                   const bor_iset_t *_del_facts,
-                   const bor_iset_t *del_ops)
+                   const pddl_iset_t *del_vars,
+                   const pddl_iset_t *_del_facts,
+                   const pddl_iset_t *del_ops)
 {
-    if (del_ops != NULL && borISetSize(del_ops) > 0)
+    if (del_ops != NULL && pddlISetSize(del_ops) > 0)
         pddlFDROpsDelSet(&fdr->op, del_ops);
 
-    BOR_ISET(del_facts);
-    if (_del_facts != NULL && borISetSize(_del_facts) > 0)
-        borISetUnion(&del_facts, _del_facts);
+    PDDL_ISET(del_facts);
+    if (_del_facts != NULL && pddlISetSize(_del_facts) > 0)
+        pddlISetUnion(&del_facts, _del_facts);
 
-    if (del_vars != NULL && borISetSize(del_vars) > 0){
+    if (del_vars != NULL && pddlISetSize(del_vars) > 0){
         int var;
-        BOR_ISET_FOR_EACH(del_vars, var){
+        PDDL_ISET_FOR_EACH(del_vars, var){
             for (int val = 0; val < fdr->var.var[var].val_size; ++val)
-                borISetAdd(&del_facts, fdr->var.var[var].val[val].global_id);
+                pddlISetAdd(&del_facts, fdr->var.var[var].val[val].global_id);
         }
     }
 
-    if (borISetSize(&del_facts) > 0){
+    if (pddlISetSize(&del_facts) > 0){
         int old_var_size = fdr->var.var_size;
 
         pddl_fdr_vars_remap_t remap;
@@ -198,15 +198,15 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
         pddlFDRPartStateRemapFacts(&fdr->goal, &remap);
 
         // Remove operators with empty effects
-        BOR_ISET(useless_ops);
+        PDDL_ISET(useless_ops);
         for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
             const pddl_fdr_op_t *op = fdr->op.op[op_id];
             if (op->eff.fact_size == 0 && op->cond_eff_size == 0)
-                borISetAdd(&useless_ops, op_id);
+                pddlISetAdd(&useless_ops, op_id);
         }
-        if (borISetSize(&useless_ops) > 0)
+        if (pddlISetSize(&useless_ops) > 0)
             pddlFDROpsDelSet(&fdr->op, &useless_ops);
-        borISetFree(&useless_ops);
+        pddlISetFree(&useless_ops);
 
         // Set cond-eff flag
         fdr->has_cond_eff = 0;
@@ -219,7 +219,7 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
 
         pddlFDRVarsRemapFree(&remap);
     }
-    borISetFree(&del_facts);
+    pddlISetFree(&del_facts);
 }
 
 static int relaxedPreHold(const pddl_fdr_t *fdr,
@@ -353,11 +353,11 @@ void pddlFDRPrintFD(const pddl_fdr_t *fdr,
         for (int mi = 0; mi < mg->mgroup_size; ++mi){
             const pddl_mgroup_t *m = mg->mgroup + mi;
             fprintf(fout, "begin_mutex_group\n");
-            fprintf(fout, "%d\n", borISetSize(&m->mgroup));
+            fprintf(fout, "%d\n", pddlISetSize(&m->mgroup));
             int fact_id;
-            BOR_ISET_FOR_EACH(&m->mgroup, fact_id){
+            PDDL_ISET_FOR_EACH(&m->mgroup, fact_id){
                 // TODO
-                int val_id = borISetGet(&fdr->var.strips_id_to_val[fact_id], 0);
+                int val_id = pddlISetGet(&fdr->var.strips_id_to_val[fact_id], 0);
                 const pddl_fdr_val_t *v = fdr->var.global_id_to_val[val_id];
                 fprintf(fout, "%d %d\n", v->var_id, v->val_id);
             }
@@ -390,16 +390,16 @@ void pddlFDRPrintFD(const pddl_fdr_t *fdr,
 }
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
-                             const bor_iset_t *state,
+                             const pddl_iset_t *state,
                              int *fdr_state)
 {
     for (int vi = 0; vi < fdr_var->var_size; ++vi)
         fdr_state[vi] = -1;
 
     int fact_id;
-    BOR_ISET_FOR_EACH(state, fact_id){
+    PDDL_ISET_FOR_EACH(state, fact_id){
         int val_id;
-        BOR_ISET_FOR_EACH(&fdr_var->strips_id_to_val[fact_id], val_id){
+        PDDL_ISET_FOR_EACH(&fdr_var->strips_id_to_val[fact_id], val_id){
             const pddl_fdr_val_t *v = fdr_var->global_id_to_val[val_id];
             fdr_state[v->var_id] = v->val_id;
         }
@@ -415,8 +415,8 @@ static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
 
 static void setDelEffFact(const pddl_mutex_pairs_t *mutex,
                           const pddl_fdr_vars_t *fdr_var,
-                          const bor_iset_t *pre,
-                          const bor_iset_t *ce_pre,
+                          const pddl_iset_t *pre,
+                          const pddl_iset_t *ce_pre,
                           pddl_fdr_part_state_t *eff,
                           int fact_id,
                           const pddl_fdr_val_t *v)
@@ -431,16 +431,16 @@ static void setDelEffFact(const pddl_mutex_pairs_t *mutex,
 }
 
 static void stripsToFDRDelEff(const pddl_fdr_vars_t *fdr_var,
-                              const bor_iset_t *eff,
+                              const pddl_iset_t *eff,
                               pddl_fdr_part_state_t *fdr_eff,
                               const pddl_mutex_pairs_t *mutex,
-                              const bor_iset_t *pre,
-                              const bor_iset_t *ce_pre)
+                              const pddl_iset_t *pre,
+                              const pddl_iset_t *ce_pre)
 {
     int fact_id;
-    BOR_ISET_FOR_EACH(eff, fact_id){
+    PDDL_ISET_FOR_EACH(eff, fact_id){
         int val_id;
-        BOR_ISET_FOR_EACH(&fdr_var->strips_id_to_val[fact_id], val_id){
+        PDDL_ISET_FOR_EACH(&fdr_var->strips_id_to_val[fact_id], val_id){
             const pddl_fdr_val_t *v = fdr_var->global_id_to_val[val_id];
             setDelEffFact(mutex, fdr_var, pre, ce_pre, fdr_eff, fact_id, v);
         }
@@ -448,14 +448,14 @@ static void stripsToFDRDelEff(const pddl_fdr_vars_t *fdr_var,
 }
 
 static int stripsToFDRPartState(const pddl_fdr_vars_t *fdr_var,
-                                const bor_iset_t *part_state,
+                                const pddl_iset_t *part_state,
                                 pddl_fdr_part_state_t *fdr_ps)
 {
     int ret = 0;
     int fact_id;
-    BOR_ISET_FOR_EACH(part_state, fact_id){
+    PDDL_ISET_FOR_EACH(part_state, fact_id){
         int val_id;
-        BOR_ISET_FOR_EACH(&fdr_var->strips_id_to_val[fact_id], val_id){
+        PDDL_ISET_FOR_EACH(&fdr_var->strips_id_to_val[fact_id], val_id){
             const pddl_fdr_val_t *v = fdr_var->global_id_to_val[val_id];
             if (pddlFDRPartStateIsSet(fdr_ps, v->var_id))
                 ret = -1;
@@ -500,7 +500,7 @@ static int setNoneOfThoseInPre(const pddl_fdr_vars_t *fdr_var,
                                const pddl_fdr_part_state_t *fdr_eff,
                                pddl_fdr_part_state_t *fdr_pre)
 {
-    BOR_ISET(extend_by);
+    PDDL_ISET(extend_by);
     int prei = 0, effi = 0;
     for (; prei < fdr_pre->fact_size && effi < fdr_eff->fact_size;){
         const pddl_fdr_fact_t *pre_fact = fdr_pre->fact + prei;
@@ -513,7 +513,7 @@ static int setNoneOfThoseInPre(const pddl_fdr_vars_t *fdr_var,
         }else{ // eff_fact->var < pre_fact->var
             const pddl_fdr_var_t *var = fdr_var->var + eff_fact->var;
             if (isAllButNoneOfThoseMutex(fdr_var, mutex, fdr_pre, var))
-                borISetAdd(&extend_by, eff_fact->var);
+                pddlISetAdd(&extend_by, eff_fact->var);
             ++effi;
         }
     }
@@ -521,17 +521,17 @@ static int setNoneOfThoseInPre(const pddl_fdr_vars_t *fdr_var,
         const pddl_fdr_fact_t *eff_fact = fdr_eff->fact + effi;
         const pddl_fdr_var_t *var = fdr_var->var + eff_fact->var;
         if (isAllButNoneOfThoseMutex(fdr_var, mutex, fdr_pre, var))
-            borISetAdd(&extend_by, eff_fact->var);
+            pddlISetAdd(&extend_by, eff_fact->var);
     }
 
     int var_id;
-    BOR_ISET_FOR_EACH(&extend_by, var_id){
+    PDDL_ISET_FOR_EACH(&extend_by, var_id){
         pddlFDRPartStateSet(fdr_pre, var_id,
                             fdr_var->var[var_id].val_none_of_those);
     }
 
-    int ret = borISetSize(&extend_by);
-    borISetFree(&extend_by);
+    int ret = pddlISetSize(&extend_by);
+    pddlISetFree(&extend_by);
     return ret;
 }
 
@@ -681,9 +681,9 @@ static int tnfDisambiguate(pddl_fdr_t *fdr,
                            int dis_offset,
                            pddl_set_iset_t *dis_sets,
                            unsigned flags,
-                           const bor_iset_t *pre,
-                           const bor_iset_t *eff,
-                           bor_iset_t *extend)
+                           const pddl_iset_t *pre,
+                           const pddl_iset_t *eff,
+                           pddl_iset_t *extend)
 {
     pddl_set_iset_t hset;
     pddlSetISetInit(&hset);
@@ -691,21 +691,21 @@ static int tnfDisambiguate(pddl_fdr_t *fdr,
     int ret = pddlDisambiguate(dis, pre, eff, 1, sf_flag, &hset, extend);
     int size = pddlSetISetSize(&hset);
     for (int i = 0; i < size; ++i){
-        const bor_iset_t *set = pddlSetISetGet(&hset, i);
+        const pddl_iset_t *set = pddlSetISetGet(&hset, i);
         // sets containing one fact are already included in {extend}
-        if (borISetSize(set) <= 1)
+        if (pddlISetSize(set) <= 1)
             continue;
 
         int set_id = pddlSetISetAdd(dis_sets, set);
         ASSERT(set_id + dis_offset <= fdr->var.global_id_size);
         if (set_id + dis_offset == fdr->var.global_id_size){
-            int fact_id = borISetGet(set, 0);
+            int fact_id = pddlISetGet(set, 0);
             const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
             char name[128];
             sprintf(name, "tnf-unknown-%d", set_id + dis_offset);
             pddlFDRVarsAddVal(&fdr->var, v->var_id, name);
         }
-        borISetAdd(extend, set_id + dis_offset);
+        pddlISetAdd(extend, set_id + dis_offset);
     }
     pddlSetISetFree(&hset);
     return ret;
@@ -722,9 +722,9 @@ static int tnfDisOp(pddl_fdr_t *fdr,
     if (flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
         tnfPreToEff(&op->pre, &op->eff);
 
-    BOR_ISET(pre);
-    BOR_ISET(eff);
-    BOR_ISET(ext);
+    PDDL_ISET(pre);
+    PDDL_ISET(eff);
+    PDDL_ISET(ext);
 
     pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
     pddlFDRPartStateToGlobalIDs(&op->eff, &fdr->var, &eff);
@@ -732,14 +732,14 @@ static int tnfDisOp(pddl_fdr_t *fdr,
     int ret = tnfDisambiguate(fdr, dis, dis_offset, dis_sets, flags,
                               &pre, &eff, &ext);
     if (ret < 0){
-        borISetFree(&pre);
-        borISetFree(&eff);
-        borISetFree(&ext);
+        pddlISetFree(&pre);
+        pddlISetFree(&eff);
+        pddlISetFree(&ext);
         return -1;
     }
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&ext, fact_id){
+    PDDL_ISET_FOR_EACH(&ext, fact_id){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
         pddlFDRPartStateSet(&op->pre, val->var_id, val->val_id);
         if (!(flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
@@ -748,9 +748,9 @@ static int tnfDisOp(pddl_fdr_t *fdr,
         }
     }
 
-    borISetFree(&pre);
-    borISetFree(&eff);
-    borISetFree(&ext);
+    pddlISetFree(&pre);
+    pddlISetFree(&eff);
+    pddlISetFree(&ext);
     return 0;
 }
 
@@ -761,8 +761,8 @@ static int tnfDisGoal(pddl_fdr_t *fdr,
                       unsigned flags,
                       bor_err_t *err)
 {
-    BOR_ISET(goal);
-    BOR_ISET(ext);
+    PDDL_ISET(goal);
+    PDDL_ISET(ext);
 
     pddlFDRPartStateToGlobalIDs(&fdr->goal, &fdr->var, &goal);
 
@@ -780,13 +780,13 @@ static int tnfDisGoal(pddl_fdr_t *fdr,
     }
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&ext, fact_id){
+    PDDL_ISET_FOR_EACH(&ext, fact_id){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
         pddlFDRPartStateSet(&fdr->goal, val->var_id, val->val_id);
     }
 
-    borISetFree(&goal);
-    borISetFree(&ext);
+    pddlISetFree(&goal);
+    pddlISetFree(&ext);
     return 0;
 }
 
@@ -802,9 +802,9 @@ static void tnfDisForgettingOps(pddl_fdr_t *fdr,
         int undef_id = val->val_id;
         int var_id = val->var_id;
 
-        const bor_iset_t *set = pddlSetISetGet(dis_sets, dis_id);
+        const pddl_iset_t *set = pddlSetISetGet(dis_sets, dis_id);
         int fid;
-        BOR_ISET_FOR_EACH(set, fid){
+        PDDL_ISET_FOR_EACH(set, fid){
             const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fid];
             int pre_var_id = val->var_id;
             int pre_val_id = val->val_id;
@@ -827,7 +827,7 @@ static void tnfDis(pddl_fdr_t *fdr,
                    unsigned flags,
                    bor_err_t *err)
 {
-    BOR_ISET(unreachable_ops);
+    PDDL_ISET(unreachable_ops);
     pddl_set_iset_t dis_sets;
     pddlSetISetInit(&dis_sets);
 
@@ -835,17 +835,17 @@ static void tnfDis(pddl_fdr_t *fdr,
     for (int opi = 0; opi < fdr->op.op_size; ++opi){
         pddl_fdr_op_t *op = fdr->op.op[opi];
         if (tnfDisOp(fdr, dis, dis_offset, &dis_sets, flags, op, err) < 0)
-            borISetAdd(&unreachable_ops, opi);
+            pddlISetAdd(&unreachable_ops, opi);
     }
 
     tnfDisGoal(fdr, dis, dis_offset, &dis_sets, flags, err);
     tnfDisForgettingOps(fdr, dis_offset, &dis_sets, err);
 
-    if (borISetSize(&unreachable_ops) > 0)
+    if (pddlISetSize(&unreachable_ops) > 0)
         pddlFDRReduce(fdr, NULL, NULL, &unreachable_ops);
 
     pddlSetISetFree(&dis_sets);
-    borISetFree(&unreachable_ops);
+    pddlISetFree(&unreachable_ops);
 }
 
 static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
@@ -865,16 +865,16 @@ static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
         return;
     }
 
-    const bor_iset_t *set = pddlSetISetGet(hset, set_id);
-    if (borISetSize(set) <= 1){
+    const pddl_iset_t *set = pddlSetISetGet(hset, set_id);
+    if (pddlISetSize(set) <= 1){
         tnfMultiplyOpSet(fdr, hset, set_id + 1, op, err);
 
     }else{
-        int fact_id = borISetGet(set, 0);
+        int fact_id = pddlISetGet(set, 0);
         const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
         int var_id = v->var_id;
 
-        BOR_ISET_FOR_EACH(set, fact_id){
+        PDDL_ISET_FOR_EACH(set, fact_id){
             const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
             ASSERT(v->var_id == var_id);
             pddl_fdr_op_t *new_op = pddlFDROpClone(op);
@@ -894,9 +894,9 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
 {
     pddl_set_iset_t hset;
     pddlSetISetInit(&hset);
-    BOR_ISET(pre);
-    BOR_ISET(eff);
-    BOR_ISET(extend);
+    PDDL_ISET(pre);
+    PDDL_ISET(eff);
+    PDDL_ISET(extend);
     int ret = 0;
     int sf_flag = ((flags & PDDL_FDR_TNF_WEAK_DISAMBIGUATION) ? 1 : 0);
 
@@ -909,7 +909,7 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
         ret = -1;
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&extend, fact_id){
+    PDDL_ISET_FOR_EACH(&extend, fact_id){
         const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fact_id];
         ASSERT(!pddlFDRPartStateIsSet(&op->pre, val->var_id));
         pddlFDRPartStateSet(&op->pre, val->var_id, val->val_id);
@@ -928,9 +928,9 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
     }
 
     pddlSetISetFree(&hset);
-    borISetFree(&pre);
-    borISetFree(&eff);
-    borISetFree(&extend);
+    pddlISetFree(&pre);
+    pddlISetFree(&eff);
+    pddlISetFree(&extend);
     return ret;
 }
 
@@ -939,43 +939,43 @@ static void tnfMultiply(pddl_fdr_t *fdr,
                         unsigned flags,
                         bor_err_t *err)
 {
-    BOR_ISET(rm_ops);
+    PDDL_ISET(rm_ops);
 
     int op_size = fdr->op.op_size;
     for (int opi = 0; opi < op_size; ++opi){
         pddl_fdr_op_t *op = fdr->op.op[opi];
         if (tnfMultiplyOp(fdr, dis, flags, op, err) < 0)
-            borISetAdd(&rm_ops, opi);
+            pddlISetAdd(&rm_ops, opi);
     }
 
-    if (borISetSize(&rm_ops) > 0){
+    if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
         pddlFDROpsSort(&fdr->op);
     }
-    borISetFree(&rm_ops);
+    pddlISetFree(&rm_ops);
 }
 
 static void removeUnreachableOps(pddl_fdr_t *fdr,
                                  const pddl_mutex_pairs_t *mutex,
                                  bor_err_t *err)
 {
-    BOR_ISET(rm_ops);
+    PDDL_ISET(rm_ops);
 
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
-        BOR_ISET(pre);
+        PDDL_ISET(pre);
         pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
         if (pddlMutexPairsIsMutexSet(mutex, &pre))
-            borISetAdd(&rm_ops, op_id);
-        borISetFree(&pre);
+            pddlISetAdd(&rm_ops, op_id);
+        pddlISetFree(&pre);
     }
 
-    if (borISetSize(&rm_ops) > 0){
+    if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
         pddlFDROpsSort(&fdr->op);
-        BOR_INFO(err, "Removed %d unreachable operators", borISetSize(&rm_ops));
+        BOR_INFO(err, "Removed %d unreachable operators", pddlISetSize(&rm_ops));
     }
-    borISetFree(&rm_ops);
+    pddlISetFree(&rm_ops);
 }
 
 int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
@@ -1045,19 +1045,19 @@ static void printOp(const pddl_fdr_op_t *op, FILE *fout)
     fprintf(fout, "begin_operator\n");
     fprintf(fout, "%s\n", op->name);
 
-    BOR_ISET(eff_var);
+    PDDL_ISET(eff_var);
     for (int i = 0; i < op->eff.fact_size; ++i)
-        borISetAdd(&eff_var, op->eff.fact[i].var);
+        pddlISetAdd(&eff_var, op->eff.fact[i].var);
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
         for (int i = 0; i < ce->eff.fact_size; ++i)
-            borISetAdd(&eff_var, ce->eff.fact[i].var);
+            pddlISetAdd(&eff_var, ce->eff.fact[i].var);
     }
 
     pddlFDRPartStateInit(&prevail);
     for (int pi = 0; pi < op->pre.fact_size; ++pi){
         const pddl_fdr_fact_t *f = op->pre.fact + pi;
-        if (!borISetIn(f->var, &eff_var))
+        if (!pddlISetIn(f->var, &eff_var))
             pddlFDRPartStateSet(&prevail, f->var, f->val);
     }
 
@@ -1065,7 +1065,7 @@ static void printOp(const pddl_fdr_op_t *op, FILE *fout)
     for (int i = 0; i < prevail.fact_size; ++i)
         fprintf(fout, "%d %d\n", prevail.fact[i].var, prevail.fact[i].val);
     pddlFDRPartStateFree(&prevail);
-    borISetFree(&eff_var);
+    pddlISetFree(&eff_var);
 
     int num_effs = op->eff.fact_size;
     for (int cei = 0; cei < op->cond_eff_size; ++cei)

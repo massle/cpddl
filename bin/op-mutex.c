@@ -374,13 +374,13 @@ static int inferMutexGroups(void)
     return 0;
 }
 
-static void reduceStrips(const bor_iset_t *rm_fact, const bor_iset_t *rm_op)
+static void reduceStrips(const pddl_iset_t *rm_fact, const pddl_iset_t *rm_op)
 {
-    if (borISetSize(rm_fact) == 0 && borISetSize(rm_op) == 0)
+    if (pddlISetSize(rm_fact) == 0 && pddlISetSize(rm_op) == 0)
         return;
 
     pddlStripsReduce(&strips, rm_fact, rm_op);
-    if (borISetSize(rm_fact) > 0){
+    if (pddlISetSize(rm_fact) > 0){
         pddlMutexPairsReduce(&mutex, rm_fact);
 
         pddlMGroupsReduce(&mgroups, rm_fact);
@@ -403,24 +403,24 @@ static int pruneStripsFixpointH2FwBw(void)
     BOR_INFO2(&err, "");
     BOR_INFO2(&err, "Fixpoint pruning using h^2 fw/bw...");
 
-    BOR_ISET(rm_fact);
-    BOR_ISET(rm_op);
+    PDDL_ISET(rm_fact);
+    PDDL_ISET(rm_op);
     int orig_fact_size, orig_op_size;
     pddlMutexPairsInitStrips(&mutex, &strips);
     do {
         orig_fact_size = strips.fact.fact_size;
         orig_op_size = strips.op.op_size;
 
-        borISetEmpty(&rm_fact);
-        borISetEmpty(&rm_op);
+        pddlISetEmpty(&rm_fact);
+        pddlISetEmpty(&rm_op);
         if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op,
                                     NULL, &err) != 0){
             BOR_TRACE_RET(&err, -1);
         }
         reduceStrips(&rm_fact, &rm_op);
 
-        borISetEmpty(&rm_fact);
-        borISetEmpty(&rm_op);
+        pddlISetEmpty(&rm_fact);
+        pddlISetEmpty(&rm_op);
         pddl_mg_strips_t mg_strips;
         pddlMGStripsInit(&mg_strips, &strips, &mgroups);
         BOR_INFO(&err, "  MG-Strips created for h^2 fw/bw with %d facts,"
@@ -441,13 +441,13 @@ static int pruneStripsFixpointH2FwBw(void)
     } while (strips.op.op_size != orig_op_size
                 || strips.fact.fact_size != orig_fact_size);
 
-    borISetEmpty(&rm_fact);
-    borISetEmpty(&rm_op);
+    pddlISetEmpty(&rm_fact);
+    pddlISetEmpty(&rm_op);
     pddlUnreachableInMGroupsDTGs(&strips, &mgroups, &rm_fact, &rm_op, &err);
     reduceStrips(&rm_fact, &rm_op);
 
-    borISetFree(&rm_fact);
-    borISetFree(&rm_op);
+    pddlISetFree(&rm_fact);
+    pddlISetFree(&rm_op);
 
     BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
     BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);

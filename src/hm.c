@@ -21,8 +21,8 @@
 int pddlHm(int m,
            const pddl_strips_t *strips,
            pddl_mutex_pairs_t *mutex,
-           bor_iset_t *unreachable_facts,
-           bor_iset_t *unreachable_ops,
+           pddl_iset_t *unreachable_facts,
+           pddl_iset_t *unreachable_ops,
            float time_limit,
            size_t excess_memory,
            bor_err_t *err)

@@ -211,9 +211,9 @@ static void h3Init(h3_t *h3,
             const pddl_strips_op_t *op = strips->op.op[op_id];
             char *dst = h3->op_fact1 + op->id * h3->fact_size;
             int f;
-            BOR_ISET_FOR_EACH(&op->add_eff, f)
+            PDDL_ISET_FOR_EACH(&op->add_eff, f)
                 dst[f] = -1;
-            BOR_ISET_FOR_EACH(&op->del_eff, f)
+            PDDL_ISET_FOR_EACH(&op->del_eff, f)
                 dst[f] = -1;
         }
         max_mem -= op_fact1_size;
@@ -241,14 +241,14 @@ static void h3Init(h3_t *h3,
     h3->ext = ALLOC_ARR(int, h3->fact_size);
     h3->op_applied = CALLOC_ARR(int, h3->op_size);
 
-    for (int i = 0; i < borISetSize(&strips->init); ++i){
-        int f1 = borISetGet(&strips->init, i);
+    for (int i = 0; i < pddlISetSize(&strips->init); ++i){
+        int f1 = pddlISetGet(&strips->init, i);
         metaFactSet1(h3, f1);
-        for (int j = i + 1; j < borISetSize(&strips->init); ++j){
-            int f2 = borISetGet(&strips->init, j);
+        for (int j = i + 1; j < pddlISetSize(&strips->init); ++j){
+            int f2 = pddlISetGet(&strips->init, j);
             metaFactSet2(h3, f1, f2);
-            for (int k = j + 1; k < borISetSize(&strips->init); ++k){
-                int f3 = borISetGet(&strips->init, k);
+            for (int k = j + 1; k < pddlISetSize(&strips->init); ++k){
+                int f3 = pddlISetGet(&strips->init, k);
                 metaFactSet3(h3, f1, f2, f3);
             }
         }
@@ -283,18 +283,18 @@ static void h3Free(h3_t *h3)
         FREE(h3->op_applied);
 }
 
-static int testSet(const h3_t *h3, const bor_iset_t *set)
+static int testSet(const h3_t *h3, const pddl_iset_t *set)
 {
-    for (int i = 0; i < borISetSize(set); ++i){
-        int f1 = borISetGet(set, i);
+    for (int i = 0; i < pddlISetSize(set); ++i){
+        int f1 = pddlISetGet(set, i);
         if (!metaFactIsSet1(h3, f1))
             return 0;
-        for (int j = i + 1; j < borISetSize(set); ++j){
-            int f2 = borISetGet(set, j);
+        for (int j = i + 1; j < pddlISetSize(set); ++j){
+            int f2 = pddlISetGet(set, j);
             if (!metaFactIsSet2(h3, f1, f2))
                 return 0;
-            for (int k = j + 1; k < borISetSize(set); ++k){
-                int f3 = borISetGet(set, k);
+            for (int k = j + 1; k < pddlISetSize(set); ++k){
+                int f3 = pddlISetGet(set, k);
                 if (!metaFactIsSet3(h3, f1, f2, f3))
                     return 0;
             }
@@ -304,14 +304,14 @@ static int testSet(const h3_t *h3, const bor_iset_t *set)
     return 1;
 }
 
-static int testSet2(const h3_t *h3, const bor_iset_t *set, int f)
+static int testSet2(const h3_t *h3, const pddl_iset_t *set, int f)
 {
-    if (borISetIn(f, set))
+    if (pddlISetIn(f, set))
         return 1;
 
-    for (int i = 0; i < borISetSize(set); ++i){
+    for (int i = 0; i < pddlISetSize(set); ++i){
         int f1 = f;
-        int f2 = borISetGet(set, i);
+        int f2 = pddlISetGet(set, i);
         if (f > f2){
             f1 = f2;
             f2 = f;
@@ -320,8 +320,8 @@ static int testSet2(const h3_t *h3, const bor_iset_t *set, int f)
         if (!metaFactIsSet2(h3, f1, f2))
             return 0;
 
-        for (int j = i + 1; j < borISetSize(set); ++j){
-            int t = borISetGet(set, j);
+        for (int j = i + 1; j < pddlISetSize(set); ++j){
+            int t = pddlISetGet(set, j);
             int t1 = f1, t2 = f2, t3 = t;
             if (t < t2){
                 t3 = t2;
@@ -340,14 +340,14 @@ static int testSet2(const h3_t *h3, const bor_iset_t *set, int f)
     return 1;
 }
 
-static int testSet3(const h3_t *h3, const bor_iset_t *set, int f1, int f2)
+static int testSet3(const h3_t *h3, const pddl_iset_t *set, int f1, int f2)
 {
     int f;
 
-    if (borISetIn(f1, set) || borISetIn(f2, set))
+    if (pddlISetIn(f1, set) || pddlISetIn(f2, set))
         return 1;
 
-    BOR_ISET_FOR_EACH(set, f){
+    PDDL_ISET_FOR_EACH(set, f){
         if (f < f2){
             if (f < f1){
                 if (!metaFactIsSet3(h3, f, f1, f2))
@@ -363,24 +363,24 @@ static int testSet3(const h3_t *h3, const bor_iset_t *set, int f1, int f2)
     return 1;
 }
 
-static int addSet(h3_t *h3, const bor_iset_t *set)
+static int addSet(h3_t *h3, const pddl_iset_t *set)
 {
     int updated = 0;
 
-    for (int i = 0; i < borISetSize(set); ++i){
-        int f1 = borISetGet(set, i);
+    for (int i = 0; i < pddlISetSize(set); ++i){
+        int f1 = pddlISetGet(set, i);
         if (!metaFactIsSet1(h3, f1)){
             metaFactSet1(h3, f1);
             updated = 1;
         }
-        for (int j = i + 1; j < borISetSize(set); ++j){
-            int f2 = borISetGet(set, j);
+        for (int j = i + 1; j < pddlISetSize(set); ++j){
+            int f2 = pddlISetGet(set, j);
             if (!metaFactIsSet2(h3, f1, f2)){
                 metaFactSet2(h3, f1, f2);
                 updated = 1;
             }
-            for (int k = j + 1; k < borISetSize(set); ++k){
-                int f3 = borISetGet(set, k);
+            for (int k = j + 1; k < pddlISetSize(set); ++k){
+                int f3 = pddlISetGet(set, k);
                 if (!metaFactIsSet3(h3, f1, f2, f3)){
                     metaFactSet3(h3, f1, f2, f3);
                     updated = 1;
@@ -392,13 +392,13 @@ static int addSet(h3_t *h3, const bor_iset_t *set)
     return updated;
 }
 
-static int addSet2(h3_t *h3, const bor_iset_t *set, int f)
+static int addSet2(h3_t *h3, const pddl_iset_t *set, int f)
 {
     int updated = 0;
 
-    for (int i = 0; i < borISetSize(set); ++i){
+    for (int i = 0; i < pddlISetSize(set); ++i){
         int f1 = f;
-        int f2 = borISetGet(set, i);
+        int f2 = pddlISetGet(set, i);
         if (f2 < f){
             f1 = f2;
             f2 = f;
@@ -407,8 +407,8 @@ static int addSet2(h3_t *h3, const bor_iset_t *set, int f)
             metaFactSet2(h3, f1, f2);
             updated = 1;
         }
-        for (int j = i + 1; j < borISetSize(set); ++j){
-            int t = borISetGet(set, j);
+        for (int j = i + 1; j < pddlISetSize(set); ++j){
+            int t = pddlISetGet(set, j);
             int t1 = f1, t2 = f2, t3 = t;
             if (t < t2){
                 t3 = t2;
@@ -428,12 +428,12 @@ static int addSet2(h3_t *h3, const bor_iset_t *set, int f)
     return updated;
 }
 
-static int addSet3(h3_t *h3, const bor_iset_t *set, int f1, int f2)
+static int addSet3(h3_t *h3, const pddl_iset_t *set, int f1, int f2)
 {
     int f;
     int updated = 0;
 
-    BOR_ISET_FOR_EACH(set, f){
+    PDDL_ISET_FOR_EACH(set, f){
         if (f < f2){
             if (f < f1){
                 if (!metaFactIsSet3(h3, f, f1, f2)){
@@ -529,8 +529,8 @@ static int applyOp(const pddl_strips_op_t *op, h3_t *h3)
     }else{
         bzero(h3->ext, sizeof(int) * h3->fact_size);
         for (int f1 = 0; f1 < h3->fact_size; ++f1){
-            if (borISetIn(f1, &op->add_eff)
-                    || borISetIn(f1, &op->del_eff)
+            if (pddlISetIn(f1, &op->add_eff)
+                    || pddlISetIn(f1, &op->del_eff)
                     || !metaFactIsSet1(h3, f1)
                     || !testSet2(h3, &op->pre, f1))
                 continue;
@@ -556,8 +556,8 @@ static int applyOp(const pddl_strips_op_t *op, h3_t *h3)
 
 int pddlH3(const pddl_strips_t *strips,
            pddl_mutex_pairs_t *ms,
-           bor_iset_t *unreachable_facts,
-           bor_iset_t *unreachable_ops,
+           pddl_iset_t *unreachable_facts,
+           pddl_iset_t *unreachable_ops,
            float time_limit_s,
            size_t excess_memory,
            bor_err_t *err)
@@ -598,7 +598,7 @@ int pddlH3(const pddl_strips_t *strips,
         if (!metaFactIsSet1(&h3, f1)){
             pddlMutexPairsAdd(ms, f1, f1);
             if (unreachable_facts != NULL)
-                borISetAdd(unreachable_facts, f1);
+                pddlISetAdd(unreachable_facts, f1);
             continue;
         }
 
@@ -611,7 +611,7 @@ int pddlH3(const pddl_strips_t *strips,
     for (int op_id = 0;
             unreachable_ops != NULL && op_id < strips->op.op_size; ++op_id){
         if (!h3.op_applied[op_id])
-            borISetAdd(unreachable_ops, op_id);
+            pddlISetAdd(unreachable_ops, op_id);
     }
 
 mutex_h3_end:
@@ -620,8 +620,8 @@ mutex_h3_end:
     BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)ms->num_mutex_pairs,
-             (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
-             (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1),
+             (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
+             (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1),
              (ret == -2 ? 1 : 0));
     BOR_INFO_PREFIX_POP(err);
 

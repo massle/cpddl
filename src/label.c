@@ -32,17 +32,17 @@ static int htableEq(const pddl_list_t *key1, const pddl_list_t *key2, void *ud)
 {
     pddl_label_set_t *s1 = PDDL_LIST_ENTRY(key1, pddl_label_set_t, htable);
     pddl_label_set_t *s2 = PDDL_LIST_ENTRY(key2, pddl_label_set_t, htable);
-    return borISetEq(&s1->label, &s2->label);
+    return pddlISetEq(&s1->label, &s2->label);
 }
 
 
-pddl_label_set_t *pddlLabelSetNew(const bor_iset_t *s)
+pddl_label_set_t *pddlLabelSetNew(const pddl_iset_t *s)
 {
     pddl_label_set_t *ls;
 
     ls = ALLOC(pddl_label_set_t);
     bzero(ls, sizeof(*ls));
-    borISetUnion(&ls->label, s);
+    pddlISetUnion(&ls->label, s);
     ls->cost = 0;
     ls->ref = 1;
     ls->key = pddlFastHash_64(s->s, sizeof(int) * s->size, 7583);
@@ -52,20 +52,20 @@ pddl_label_set_t *pddlLabelSetNew(const bor_iset_t *s)
 
 void pddlLabelSetDel(pddl_label_set_t *s)
 {
-    borISetFree(&s->label);
+    pddlISetFree(&s->label);
     FREE(s);
 }
 
 void pddlLabelSetCost(pddl_labels_t *lbs, pddl_label_set_t *s)
 {
-    if (borISetSize(&s->label) == 0){
+    if (pddlISetSize(&s->label) == 0){
         s->cost = 0;
         return;
     }
 
     int l;
     s->cost = INT_MAX;
-    BOR_ISET_FOR_EACH(&s->label, l)
+    PDDL_ISET_FOR_EACH(&s->label, l)
         s->cost = BOR_MIN(s->cost, lbs->label[l].cost);
 }
 
@@ -102,7 +102,7 @@ void pddlLabelsFree(pddl_labels_t *lbs)
 }
 
 pddl_label_set_t *pddlLabelsAddSet(pddl_labels_t *lbs,
-                                   const bor_iset_t *labels)
+                                   const pddl_iset_t *labels)
 {
     pddl_label_set_t *ls;
     ls = pddlLabelSetNew(labels);

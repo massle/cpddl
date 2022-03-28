@@ -63,7 +63,7 @@ struct pddl_fdr_vars {
     pddl_fdr_val_t **global_id_to_val; /*!< Mapping from global ID to FDR
                                             value */
     int strips_id_size;
-    bor_iset_t *strips_id_to_val; /*!< If the variables were created from
+    pddl_iset_t *strips_id_to_val; /*!< If the variables were created from
                                        STRIPS, this maps STRIPS IDs to
                                        global IDs of variable values */
 };
@@ -103,7 +103,7 @@ void pddlFDRVarsRemapFree(pddl_fdr_vars_remap_t *remap);
  * Remove specified facts and create the remapping structure.
  */
 void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
-                         const bor_iset_t *del_facts,
+                         const pddl_iset_t *del_facts,
                          pddl_fdr_vars_remap_t *remap);
 
 /**

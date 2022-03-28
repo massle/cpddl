@@ -164,11 +164,11 @@ void pddlFDRPartStateRemapVars(pddl_fdr_part_state_t *ps, const int *remap)
 
 void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,
                                  const pddl_fdr_vars_t *vars,
-                                 bor_iset_t *global_ids)
+                                 pddl_iset_t *global_ids)
 {
     for (int i = 0; i < ps->fact_size; ++i){
         const pddl_fdr_fact_t *f = ps->fact + i;
-        borISetAdd(global_ids, vars->var[f->var].val[f->val].global_id);
+        pddlISetAdd(global_ids, vars->var[f->var].val[f->val].global_id);
     }
 }
 

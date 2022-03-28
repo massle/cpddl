@@ -20,13 +20,13 @@
 #ifndef __PDDL_HELPER_H__
 #define __PDDL_HELPER_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-void pddlISetRemap(bor_iset_t *dst, const int *remap);
+//void pddlISetRemap(pddl_iset_t *dst, const int *remap);
 
 #ifdef __cplusplus
 } /* extern "C" */

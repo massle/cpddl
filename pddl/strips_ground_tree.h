@@ -19,7 +19,7 @@
 #ifndef __PDDL_STRIPS_GROUND_TREE_H__
 #define __PDDL_STRIPS_GROUND_TREE_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #include <pddl/common.h>
 #include <pddl/ground_atom.h>
@@ -48,10 +48,10 @@ typedef struct pddl_strips_ground_tnode pddl_strips_ground_tnode_t;
 struct pddl_strips_ground_tree {
     const pddl_t *pddl;
     const pddl_prep_action_t *action;
-    bor_iset_t param; /*!< Set of parameters that are considered */
+    pddl_iset_t param; /*!< Set of parameters that are considered */
     int pre_size; /*!< Number of considered preconditions */
     int pre_static_size; /*!< Number of considered static preconditions */
-    bor_iset_t *pred_to_pre; /*!< Mapping from predicate ID to
+    pddl_iset_t *pred_to_pre; /*!< Mapping from predicate ID to
                                   corresponding preconditions */
     pddl_strips_ground_tnode_t *root; /*!< Root of the tree */
     pddl_action_args_t args; /*!< Pool of grounded action arguments */
@@ -64,7 +64,7 @@ typedef struct pddl_strips_ground_tree pddl_strips_ground_tree_t;
 void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
                               const pddl_t *pddl,
                               const pddl_prep_action_t *a,
-                              const bor_iset_t *params);
+                              const pddl_iset_t *params);
 
 /**
  * Free allocated memory

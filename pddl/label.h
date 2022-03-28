@@ -33,7 +33,7 @@ struct pddl_label {
 typedef struct pddl_label pddl_label_t;
 
 struct pddl_label_set {
-    bor_iset_t label; /*!< Set of labels */
+    pddl_iset_t label; /*!< Set of labels */
     int cost; /*!< Cost is the minimum over labels' costs */
     int ref; /*!< Reference counter */
     pddl_htable_key_t key; /*!< Key to hashtable */
@@ -57,7 +57,7 @@ void pddlLabelsFree(pddl_labels_t *lbs);
  * Adds a set of labels if not already there and returns reference to the
  * added set.
  */
-pddl_label_set_t *pddlLabelsAddSet(pddl_labels_t *lbs, const bor_iset_t *lbls);
+pddl_label_set_t *pddlLabelsAddSet(pddl_labels_t *lbs, const pddl_iset_t *lbls);
 
 /**
  * Dereference the given set of labels.

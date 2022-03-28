@@ -38,16 +38,16 @@ void pddlUnreachableInMGroupDTG(int init_fact,
                                 const pddl_mgroup_t *mgroup,
                                 const pddl_strips_ops_t *ops,
                                 const pddl_strips_fact_cross_ref_t *cref,
-                                bor_iset_t *unreachable_facts,
-                                bor_iset_t *unreachable_ops);
+                                pddl_iset_t *unreachable_facts,
+                                pddl_iset_t *unreachable_ops);
 
 /**
  * Calls pddlUnreachableInMGroupsDTG() for each mutex group.
  */
 void pddlUnreachableInMGroupsDTGs(const pddl_strips_t *strips,
                                   const pddl_mgroups_t *mgroups,
-                                  bor_iset_t *unreachable_facts,
-                                  bor_iset_t *unreachable_ops,
+                                  pddl_iset_t *unreachable_facts,
+                                  pddl_iset_t *unreachable_ops,
                                   bor_err_t *err);
 
 #ifdef __cplusplus

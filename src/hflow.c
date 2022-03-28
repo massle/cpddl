@@ -339,8 +339,8 @@ static void lpAddLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)
 
     for (int i = 0; i < ldm_size; ++i){
         int op_id;
-        const bor_iset_t *ldm = pddlSetISetGet(ldms, i);
-        BOR_ISET_FOR_EACH(ldm, op_id)
+        const pddl_iset_t *ldm = pddlSetISetGet(ldms, i);
+        PDDL_ISET_FOR_EACH(ldm, op_id)
             borLPSetCoef(lp, row_id, op_id, 1.);
         ++row_id;
     }

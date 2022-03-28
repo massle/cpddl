@@ -71,16 +71,16 @@ static char *groundOpName(const pddl_t *pddl,
 
 
 /*** atree_t ***/
-static int atomHasParam(const pddl_cond_atom_t *a, const bor_iset_t *param)
+static int atomHasParam(const pddl_cond_atom_t *a, const pddl_iset_t *param)
 {
     for (int i = 0; i < a->arg_size; ++i){
-        if (a->arg[i].param >= 0 && borISetIn(a->arg[i].param, param))
+        if (a->arg[i].param >= 0 && pddlISetIn(a->arg[i].param, param))
             return 1;
     }
     return 0;
 }
 
-static int preHasParam(const pddl_prep_action_t *a, const bor_iset_t *param)
+static int preHasParam(const pddl_prep_action_t *a, const pddl_iset_t *param)
 {
     for (int i = 0; i < a->pre.size; ++i){
         const pddl_cond_atom_t *atom = PDDL_COND_CAST(a->pre.cond[i], atom);
@@ -90,27 +90,27 @@ static int preHasParam(const pddl_prep_action_t *a, const bor_iset_t *param)
     return 0;
 }
 
-static void atomAddParam(const pddl_cond_atom_t *a, bor_iset_t *param)
+static void atomAddParam(const pddl_cond_atom_t *a, pddl_iset_t *param)
 {
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
-           borISetAdd(param, a->arg[i].param);
+           pddlISetAdd(param, a->arg[i].param);
     }
 }
 
 static void atreeFindConnectedPreParams(const pddl_prep_action_t *a,
-                                        bor_iset_t *param,
-                                        const bor_iset_t *used_param)
+                                        pddl_iset_t *param,
+                                        const pddl_iset_t *used_param)
 {
-    borISetEmpty(param);
+    pddlISetEmpty(param);
     int first_param;
     for (first_param = 0;
-            first_param < a->param_size && borISetIn(first_param, used_param);
+            first_param < a->param_size && pddlISetIn(first_param, used_param);
             ++first_param);
     if (first_param == a->param_size)
         return;
 
-    borISetAdd(param, first_param);
+    pddlISetAdd(param, first_param);
 
     int used_cond[a->pre.size];
     bzero(used_cond, sizeof(int) * a->pre.size);
@@ -139,35 +139,35 @@ static void atreeInit(pddl_strips_ground_atree_t *atr,
     bzero(atr, sizeof(*atr));
     atr->action = a;
 
-    BOR_ISET(param_used);
-    bor_iset_t params[a->param_size];
-    while (borISetSize(&param_used) < a->param_size){
-        borISetInit(params + atr->tree_size);
+    PDDL_ISET(param_used);
+    pddl_iset_t params[a->param_size];
+    while (pddlISetSize(&param_used) < a->param_size){
+        pddlISetInit(params + atr->tree_size);
         atreeFindConnectedPreParams(a, params + atr->tree_size, &param_used);
-        borISetUnion(&param_used, params + atr->tree_size);
+        pddlISetUnion(&param_used, params + atr->tree_size);
 
         if (preHasParam(a, params + atr->tree_size)){
             ++atr->tree_size;
         }else{
-            borISetFree(params + atr->tree_size);
+            pddlISetFree(params + atr->tree_size);
         }
     }
-    borISetFree(&param_used);
+    pddlISetFree(&param_used);
 
     if (atr->tree_size > 0){
         atr->tree = CALLOC_ARR(pddl_strips_ground_tree_t, atr->tree_size);
         for (int i = 0; i < atr->tree_size; ++i)
             pddlStripsGroundTreeInit(atr->tree + i, pddl, a, params + i);
         for (int i = 0; i < atr->tree_size; ++i)
-            borISetFree(params + i);
+            pddlISetFree(params + i);
 
     }else{
         atr->tree_size = 1;
         atr->tree = ALLOC(pddl_strips_ground_tree_t);
 
-        BOR_ISET(params);
+        PDDL_ISET(params);
         pddlStripsGroundTreeInit(atr->tree, pddl, a, &params);
-        borISetFree(&params);
+        pddlISetFree(&params);
     }
 }
 
@@ -535,7 +535,7 @@ static void groundAtoms(pddl_strips_ground_t *g,
                         int atom_max_arg_size,
                         const pddl_obj_id_t *arg,
                         const pddl_cond_arr_t *atoms,
-                        bor_iset_t *out)
+                        pddl_iset_t *out)
 {
     const pddl_cond_atom_t *atom;
     const pddl_ground_atom_t *ga;
@@ -544,7 +544,7 @@ static void groundAtoms(pddl_strips_ground_t *g,
         atom = PDDL_COND_CAST(atoms->cond[i], atom);
         ga = pddlGroundAtomsFindAtom(&g->facts, atom, arg);
         if (ga != NULL)
-            borISetAdd(out, g->ground_atom_to_fact_id[ga->id]);
+            pddlISetAdd(out, g->ground_atom_to_fact_id[ga->id]);
     }
 }
 
@@ -600,7 +600,7 @@ static void groundCondEff(pddl_strips_ground_t *g, pddl_strips_t *strips,
 
     // Find out preconditions that belong only to the conditional
     // effect.
-    borISetMinus(&op->pre, &parent->pre);
+    pddlISetMinus(&op->pre, &parent->pre);
     if (op->pre.size > 0){
         // Create conditional effect if necessary
         pddlStripsOpAddCondEff(parent, op);
@@ -704,7 +704,7 @@ static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
             a = PDDL_COND_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&g->facts, a, NULL);
             if (ga != NULL)
-                borISetAdd(&strips->init, g->ground_atom_to_fact_id[ga->id]);
+                pddlISetAdd(&strips->init, g->ground_atom_to_fact_id[ga->id]);
         }
     }
     return 0;
@@ -733,7 +733,7 @@ static int _groundGoal(pddl_cond_t *c, void *_g)
         ga = pddlGroundAtomsFindAtom(&g->facts, atom, NULL);
         if (ga != NULL){
             // Add the fact to the goal specification
-            borISetAdd(&strips->goal, g->ground_atom_to_fact_id[ga->id]);
+            pddlISetAdd(&strips->goal, g->ground_atom_to_fact_id[ga->id]);
         }else{
             // The goal can be static fact in which case we simply skip
             // this fact

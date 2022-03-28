@@ -20,7 +20,7 @@
 #ifndef __PDDL_TRANS_SYSTEM_ABSTR_MAPPING_H__
 #define __PDDL_TRANS_SYSTEM_ABSTR_MAPPING_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,7 +61,7 @@ void pddlTransSystemAbstrMapPruneState(pddl_trans_system_abstr_map_t *map,
  * Condense the specified states into one state
  */
 void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
-                                     const bor_iset_t *states);
+                                     const pddl_iset_t *states);
 
 #ifdef __cplusplus
 } /* extern "C" */

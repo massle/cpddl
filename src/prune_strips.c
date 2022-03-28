@@ -31,8 +31,8 @@ struct ctx {
     pddl_strips_t *strips;
     pddl_mgroups_t *mgroup;
     pddl_mutex_pairs_t *mutex;
-    bor_iset_t rm_op;
-    bor_iset_t rm_fact;
+    pddl_iset_t rm_op;
+    pddl_iset_t rm_fact;
     bor_err_t *err;
 };
 typedef struct ctx ctx_t;
@@ -49,12 +49,12 @@ typedef struct prune_strips prune_strips_t;
 
 static void applyPruneStrips(ctx_t *c)
 {
-    if (borISetSize(&c->rm_fact) == 0 && borISetSize(&c->rm_op) == 0)
+    if (pddlISetSize(&c->rm_fact) == 0 && pddlISetSize(&c->rm_op) == 0)
         return;
 
     pddlStripsReduce(c->strips, &c->rm_fact, &c->rm_op);
 
-    if (borISetSize(&c->rm_fact) > 0){
+    if (pddlISetSize(&c->rm_fact) > 0){
         if (c->mutex != NULL)
             pddlMutexPairsReduce(c->mutex, &c->rm_fact);
 
@@ -65,8 +65,8 @@ static void applyPruneStrips(ctx_t *c)
         }
     }
 
-    borISetEmpty(&c->rm_fact);
-    borISetEmpty(&c->rm_op);
+    pddlISetEmpty(&c->rm_fact);
+    pddlISetEmpty(&c->rm_op);
 }
 
 static prune_strips_t *addPruneStrips(pddl_prune_strips_t *p,
@@ -128,8 +128,8 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
     PDDL_LIST_FOR_EACH(&prune->prune, item){
         prune_strips_t *p = PDDL_LIST_ENTRY(item, prune_strips_t, conn);
         if (p->prune(p, &ctx) != 0){
-            borISetFree(&ctx.rm_fact);
-            borISetFree(&ctx.rm_op);
+            pddlISetFree(&ctx.rm_fact);
+            pddlISetFree(&ctx.rm_op);
             BOR_INFO_PREFIX_POP(err);
             BOR_TRACE_RET(err, -1);
         }
@@ -137,8 +137,8 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
 
     applyPruneStrips(&ctx);
 
-    borISetFree(&ctx.rm_fact);
-    borISetFree(&ctx.rm_op);
+    pddlISetFree(&ctx.rm_fact);
+    pddlISetFree(&ctx.rm_op);
     BOR_INFO(err, "DONE. facts: %d, ops: %d",
              strips->fact.fact_size, strips->op.op_size);
     BOR_INFO_PREFIX_POP(err);
@@ -154,17 +154,17 @@ static int pruneIrrelevance(prune_strips_t *p, ctx_t *c)
         return 0;
     }
 
-    BOR_ISET(irr_fact);
-    BOR_ISET(irr_op);
-    BOR_ISET(static_fact);
+    PDDL_ISET(irr_fact);
+    PDDL_ISET(irr_op);
+    PDDL_ISET(static_fact);
     if (pddlIrrelevanceAnalysis(c->strips, &irr_fact, &irr_op, &static_fact, c->err) != 0)
         BOR_TRACE_RET(c->err, -1);
-    borISetUnion(&c->rm_fact, &irr_fact);
-    borISetUnion(&c->rm_op, &irr_op);
+    pddlISetUnion(&c->rm_fact, &irr_fact);
+    pddlISetUnion(&c->rm_op, &irr_op);
 
-    borISetFree(&irr_fact);
-    borISetFree(&irr_op);
-    borISetFree(&static_fact);
+    pddlISetFree(&irr_fact);
+    pddlISetFree(&irr_op);
+    pddlISetFree(&static_fact);
     return 0;
 }
 
@@ -199,11 +199,11 @@ static int pruneFAMGroupDeadEnd(prune_strips_t *p, ctx_t *c)
 {
     if (c->mgroup != NULL && c->mgroup->mgroup_size == 0)
         return 0;
-    int old_size = borISetSize(&c->rm_op);
+    int old_size = pddlISetSize(&c->rm_op);
     BOR_INFO2(c->err, "Pruning dead-end operators ...");
     pddlFAMGroupsDeadEndOps(c->mgroup, c->strips, &c->rm_op);
     BOR_INFO(c->err, "Pruning dead-end operators done. Dead end ops: %d",
-             borISetSize(&c->rm_op) - old_size);
+             pddlISetSize(&c->rm_op) - old_size);
     return 0;
 }
 

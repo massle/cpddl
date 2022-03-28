@@ -62,7 +62,7 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
                                  int m,
                                  const pddl_strips_t *strips_in,
                                  const pddl_mutex_pairs_t *mutex,
-                                 const bor_iset_t *ops,
+                                 const pddl_iset_t *ops,
                                  bor_err_t *err);
 
 /**

@@ -11,8 +11,8 @@ extern "C" {
 
 struct pddl_process_strips {
     bor_list_t steps;
-    bor_iset_t rm_op;
-    bor_iset_t rm_fact;
+    pddl_iset_t rm_op;
+    pddl_iset_t rm_fact;
     int removed_op;
     int removed_fact;
 

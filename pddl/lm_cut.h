@@ -19,7 +19,7 @@
 #ifndef __PDDL_LM_CUT_H__
 #define __PDDL_LM_CUT_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <boruvka/iarr.h>
 #include <pddl/fdr.h>
 #include <pddl/pq.h>
@@ -31,8 +31,8 @@ extern "C" {
 
 struct pddl_lm_cut_op {
     int op_id;
-    bor_iset_t eff; /*!< Facts in its effect */
-    bor_iset_t pre; /*!< Facts in its preconditions */
+    pddl_iset_t eff; /*!< Facts in its effect */
+    pddl_iset_t pre; /*!< Facts in its preconditions */
     int op_cost; /*!< Original operator's cost */
 
     int cost; /*!< Current cost of the operator */
@@ -44,8 +44,8 @@ struct pddl_lm_cut_op {
 typedef struct pddl_lm_cut_op pddl_lm_cut_op_t;
 
 struct pddl_lm_cut_fact {
-    bor_iset_t pre_op; /*!< Operators having this fact as its precond */
-    bor_iset_t eff_op; /*!< Operators having this fact as its effect */
+    pddl_iset_t pre_op; /*!< Operators having this fact as its precond */
+    pddl_iset_t eff_op; /*!< Operators having this fact as its effect */
     int value;
     pddl_pq_el_t heap; /*!< Connection to priority heap */
     int supp_cnt; /*!< Number of operators that have this fact as a supporter */
@@ -64,8 +64,8 @@ struct pddl_lm_cut {
     int op_size;
     int op_goal;
 
-    bor_iset_t state; /*!< Current state from which heur is computed */
-    bor_iset_t cut;   /*!< Current cut */
+    pddl_iset_t state; /*!< Current state from which heur is computed */
+    pddl_iset_t cut;   /*!< Current cut */
 
     /** Auxiliary structures to avoid re-allocation */
     int *fact_state;
@@ -107,7 +107,7 @@ int pddlLMCut(pddl_lm_cut_t *lmc,
               const pddl_set_iset_t *ldms_in,
               pddl_set_iset_t *ldms);
 int pddlLMCutStrips(pddl_lm_cut_t *lmc,
-                    const bor_iset_t *state,
+                    const pddl_iset_t *state,
                     const pddl_set_iset_t *ldms_in,
                     pddl_set_iset_t *ldms);
 

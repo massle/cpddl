@@ -59,7 +59,7 @@ void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in);
 
 void pddlCGInitProjectToVars(pddl_cg_t *dst,
                              const pddl_cg_t *src,
-                             const bor_iset_t *vars);
+                             const pddl_iset_t *vars);
 void pddlCGInitProjectToBlackVars(pddl_cg_t *dst,
                                   const pddl_cg_t *src,
                                   const pddl_fdr_vars_t *vars);

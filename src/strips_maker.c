@@ -322,11 +322,11 @@ static int createInitState(pddl_strips_maker_t *sm,
             a = PDDL_COND_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&sm->ground_atom, a, NULL);
             if (ga != NULL)
-                borISetAdd(&strips->init, ground_atom_to_fact_id[ga->id]);
+                pddlISetAdd(&strips->init, ground_atom_to_fact_id[ga->id]);
         }
     }
     BOR_INFO(err, "Created init state consisting of %d facts",
-             borISetSize(&strips->init));
+             pddlISetSize(&strips->init));
     return 0;
 }
 
@@ -357,7 +357,7 @@ static int _createGoal(pddl_cond_t *c, void *_g)
         ga = pddlGroundAtomsFindAtom(&sm->ground_atom, atom, NULL);
         if (ga != NULL){
             // Add the fact to the goal specification
-            borISetAdd(&strips->goal, ground_atom_to_fact_id[ga->id]);
+            pddlISetAdd(&strips->goal, ground_atom_to_fact_id[ga->id]);
         }else{
             // The goal can be static fact in which case we simply skip
             // this fact
@@ -403,7 +403,7 @@ static int createGoal(pddl_strips_maker_t *sm,
     if (ggoal.fail)
         BOR_TRACE_RET(err, -1);
     BOR_INFO(err, "Goal created consisting of %d facts",
-             borISetSize(&strips->goal));
+             pddlISetSize(&strips->goal));
     return 0;
 }
 
@@ -512,7 +512,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                            " This is definitely a bug!\n");
             }
             if (!is_static)
-                borISetAdd(&ctx->op->pre, ctx->ground_atom_to_fact[ga->id]);
+                pddlISetAdd(&ctx->op->pre, ctx->ground_atom_to_fact[ga->id]);
         }
         return 0;
 
@@ -537,9 +537,9 @@ static int actionEff(pddl_cond_t *c, void *ud)
         ASSERT(ga != NULL || a->neg);
         if (a->neg){
             if (ga != NULL)
-                borISetAdd(&ctx->op->del_eff, ctx->ground_atom_to_fact[ga->id]);
+                pddlISetAdd(&ctx->op->del_eff, ctx->ground_atom_to_fact[ga->id]);
         }else{
-            borISetAdd(&ctx->op->add_eff, ctx->ground_atom_to_fact[ga->id]);
+            pddlISetAdd(&ctx->op->add_eff, ctx->ground_atom_to_fact[ga->id]);
         }
         return 0;
 
@@ -628,8 +628,8 @@ static int actionCondEff(action_ctx_t *ctx_in,
     }
 
     if (!ctx.cond_eff_failed
-            && (borISetSize(&op.add_eff) > 0
-                    || borISetSize(&op.del_eff) > 0)){
+            && (pddlISetSize(&op.add_eff) > 0
+                    || pddlISetSize(&op.del_eff) > 0)){
         pddlStripsOpAddCondEff(ctx_in->op, &op);
     }
     pddlStripsOpFree(&op);
@@ -685,8 +685,8 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
     if (ret == 0){
         char *name = groundOpName(pddl, action, ga->arg);
         pddlStripsOpFinalize(&op, name);
-        if (borISetSize(&op.add_eff) > 0
-                || borISetSize(&op.del_eff) > 0
+        if (pddlISetSize(&op.add_eff) > 0
+                || pddlISetSize(&op.del_eff) > 0
                 || op.cond_eff_size > 0){
             pddlStripsOpsAdd(&strips->op, &op);
             if (op.cond_eff_size > 0)

@@ -299,15 +299,15 @@ static void searchFree(pddl_symbolic_task_t *ss,
 
 static pddl_bdd_t *bddStateSelectOne(pddl_symbolic_task_t *ss,
                                  pddl_bdd_t *bdd,
-                                 bor_iset_t *state)
+                                 pddl_iset_t *state)
 {
-    borISetEmpty(state);
+    pddlISetEmpty(state);
     char *cube = ALLOC_ARR(char, ss->vars.bdd_var_size);
     pddlBDDPickOneCube(ss->mgr, bdd, cube);
     for (int gi = 0; gi < ss->vars.group_size; ++gi){
         int fact_id = pddlSymbolicVarsFactFromBDDCube(&ss->vars, gi, cube);
         ASSERT(fact_id >= 0);
-        borISetAdd(state, fact_id);
+        pddlISetAdd(state, fact_id);
     }
     FREE(cube);
     return pddlSymbolicVarsCreateState(&ss->vars, state);
@@ -315,8 +315,8 @@ static pddl_bdd_t *bddStateSelectOne(pddl_symbolic_task_t *ss,
 
 struct plan {
     int plan_len;
-    bor_iset_t *state;
-    bor_iset_t **tr_op;
+    pddl_iset_t *state;
+    pddl_iset_t **tr_op;
 };
 typedef struct plan plan_t;
 
@@ -326,11 +326,11 @@ static const pddl_symbolic_state_t *
                       const pddl_symbolic_state_t *state,
                       pddl_bdd_t *bdd)
 {
-    if (borISetSize(&state->parent_ids) == 0)
+    if (pddlISetSize(&state->parent_ids) == 0)
         return state;
 
     int state_id;
-    BOR_ISET_FOR_EACH(&state->parent_ids, state_id){
+    PDDL_ISET_FOR_EACH(&state->parent_ids, state_id){
         const pddl_symbolic_state_t *state;
         state = pddlSymbolicStatesGet(&search->state, state_id);
         ASSERT(state->trans_id >= 0);
@@ -356,8 +356,8 @@ static void planInit(pddl_symbolic_task_t *ss,
     bzero(plan, sizeof(*plan));
 
     int alloc = 2;
-    plan->state = CALLOC_ARR(bor_iset_t, alloc + 1);
-    plan->tr_op = CALLOC_ARR(bor_iset_t *, alloc);
+    plan->state = CALLOC_ARR(pddl_iset_t, alloc + 1);
+    plan->tr_op = CALLOC_ARR(pddl_iset_t *, alloc);
 
     // Backtrack from the goal_state and extract one particular state at
     // each step.
@@ -366,7 +366,7 @@ static void planInit(pddl_symbolic_task_t *ss,
     const pddl_symbolic_state_t *state;
     state = planNextState(ss, search, goal_state, bdd);
     while (state->parent_id >= 0){
-        ASSERT(borISetSize(&state->parent_ids) == 0);
+        ASSERT(pddlISetSize(&state->parent_ids) == 0);
         ASSERT(state->trans_id >= 0);
         ASSERT(state->parent_id >= 0);
 
@@ -374,10 +374,10 @@ static void planInit(pddl_symbolic_task_t *ss,
         if (idx == alloc){
             int old_alloc = alloc;
             alloc *= 2;
-            plan->state = REALLOC_ARR(plan->state, bor_iset_t, alloc + 1);
+            plan->state = REALLOC_ARR(plan->state, pddl_iset_t, alloc + 1);
             bzero(plan->state + old_alloc + 1,
-                  sizeof(bor_iset_t) * (alloc - old_alloc));
-            plan->tr_op = REALLOC_ARR(plan->tr_op, bor_iset_t *, alloc);
+                  sizeof(pddl_iset_t) * (alloc - old_alloc));
+            plan->tr_op = REALLOC_ARR(plan->tr_op, pddl_iset_t *, alloc);
         }
 
         plan->tr_op[idx] = &search->trans.trans[state->trans_id].op;
@@ -403,11 +403,11 @@ static void planInit(pddl_symbolic_task_t *ss,
 
     // Reverse the order of states and transitions
     for (int i = 0; i < (plan->plan_len + 1) / 2; ++i){
-        bor_iset_t tmp;
+        pddl_iset_t tmp;
         BOR_SWAP(plan->state[i], plan->state[plan->plan_len - i], tmp);
     }
     for (int i = 0; i < plan->plan_len / 2; ++i){
-        bor_iset_t *tmp;
+        pddl_iset_t *tmp;
         BOR_SWAP(plan->tr_op[i], plan->tr_op[plan->plan_len - i - 1], tmp);
     }
 }
@@ -415,14 +415,14 @@ static void planInit(pddl_symbolic_task_t *ss,
 static void planFree(plan_t *plan)
 {
     for (int i = 0; i < plan->plan_len + 1; ++i)
-        borISetFree(plan->state + i);
+        pddlISetFree(plan->state + i);
     FREE(plan->state);
     FREE(plan->tr_op);
 }
 
 static void planReverse(plan_t *plan)
 {
-    bor_iset_t state_tmp;
+    pddl_iset_t state_tmp;
     int len = (plan->plan_len + 1) / 2;
     for (int i = 0; i < len; ++i){
         BOR_SWAP(plan->state[i],
@@ -430,7 +430,7 @@ static void planReverse(plan_t *plan)
                  state_tmp);
     }
 
-    bor_iset_t *tr_tmp;
+    pddl_iset_t *tr_tmp;
     len = plan->plan_len / 2;
     for (int i = 0; i < len; ++i){
         BOR_SWAP(plan->tr_op[i],
@@ -444,19 +444,19 @@ static void planExtractFw(plan_t *plan,
                           bor_iarr_t *out)
 {
     // Extract plan from the intermediate states
-    BOR_ISET(res_state);
+    PDDL_ISET(res_state);
     for (int si = 0; si < plan->plan_len; ++si){
-        const bor_iset_t *from = plan->state + si;
-        const bor_iset_t *to = plan->state + si + 1;
+        const pddl_iset_t *from = plan->state + si;
+        const pddl_iset_t *to = plan->state + si + 1;
 
         int op_id;
         int found = 0;
-        BOR_ISET_FOR_EACH(plan->tr_op[si], op_id){
+        PDDL_ISET_FOR_EACH(plan->tr_op[si], op_id){
             const pddl_strips_op_t *op = strips->op.op[op_id];
-            if (borISetIsSubset(&op->pre, from)){
-                borISetMinus2(&res_state, from, &op->del_eff);
-                borISetUnion(&res_state, &op->add_eff);
-                if (borISetEq(&res_state, to)){
+            if (pddlISetIsSubset(&op->pre, from)){
+                pddlISetMinus2(&res_state, from, &op->del_eff);
+                pddlISetUnion(&res_state, &op->add_eff);
+                if (pddlISetEq(&res_state, to)){
                     borIArrAdd(out, op_id);
                     found = 1;
                     break;
@@ -465,7 +465,7 @@ static void planExtractFw(plan_t *plan,
         }
         ASSERT_RUNTIME(found);
     }
-    borISetFree(&res_state);
+    pddlISetFree(&res_state);
 }
 
 
@@ -693,8 +693,8 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
     if (state == NULL)
         return;
 
-    BOR_ISET(parents);
-    borISetAdd(&parents, state->id);
+    PDDL_ISET(parents);
+    pddlISetAdd(&parents, state->id);
     pddl_bdd_t *bdd = searchStateBDD(ss, search, state);
     bdd = pddlBDDClone(ss->mgr, bdd);
 
@@ -702,7 +702,7 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
     while (next != NULL
             && pddlCostCmp(&state->cost, &next->cost) == 0
             && pddlCostCmp(&state->heur, &next->heur) == 0){
-        ASSERT(borISetSize(&next->parent_ids) == 0);
+        ASSERT(pddlISetSize(&next->parent_ids) == 0);
         ASSERT(next->parent_id >= 0);
 
         next = pddlSymbolicStatesNextOpen(&search->state);
@@ -711,13 +711,13 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
                                              &next->bdd, &next->cost);
         if (!pddlBDDIsFalse(ss->mgr, next->bdd)){
             pddlBDDOrUpdate(ss->mgr, &bdd, next->bdd);
-            borISetAdd(&parents, next->id);
+            pddlISetAdd(&parents, next->id);
         }
 
         next = pddlSymbolicStatesOpenPeek(&search->state);
     }
 
-    if (borISetSize(&parents) > 1){
+    if (pddlISetSize(&parents) > 1){
         pddl_symbolic_state_t *merged;
         merged = pddlSymbolicStatesAddBDD(&search->state, ss->mgr, bdd);
         merged->parent_id = -2;
@@ -725,18 +725,18 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
         merged->cost = state->cost;
         merged->f_value = state->f_value;
         merged->heur = state->heur;
-        borISetUnion(&merged->parent_ids, &parents);
+        pddlISetUnion(&merged->parent_ids, &parents);
         pddlSymbolicStatesOpenState(&search->state, merged);
 
         DBG(err, "%s: Merged %d states when preparing next state (nodes: %d)",
             (search->fw ? "fw" : "bw"),
-            borISetSize(&parents),
+            pddlISetSize(&parents),
             pddlBDDSize(bdd));
     }else{
         pddlSymbolicStatesOpenState(&search->state, state);
     }
 
-    borISetFree(&parents);
+    pddlISetFree(&parents);
     pddlBDDDel(ss->mgr, bdd);
 }
 
@@ -974,7 +974,7 @@ static void prepareTask(pddl_symbolic_task_t *ss,
 #ifdef PDDL_DEBUG
     for (int i = 0; i < ss->mg_strips.mg.mgroup_size; ++i){
         for (int j = i + 1; j < ss->mg_strips.mg.mgroup_size; ++j){
-            ASSERT(borISetIsDisjoint(&ss->mg_strips.mg.mgroup[i].mgroup,
+            ASSERT(pddlISetIsDisjoint(&ss->mg_strips.mg.mgroup[i].mgroup,
                                      &ss->mg_strips.mg.mgroup[j].mgroup));
         }
     }
@@ -1249,9 +1249,9 @@ static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
 
     // We need to choose one particular state before extracting plans from
     // fw and bw searches
-    BOR_ISET(cut_fact_state);
+    PDDL_ISET(cut_fact_state);
     pddl_bdd_t *cut_state = bddStateSelectOne(ss, cut, &cut_fact_state);
-    borISetFree(&cut_fact_state);
+    pddlISetFree(&cut_fact_state);
     pddlBDDDel(ss->mgr, cut);
 
     // Extract forward plan from init to cut_state
@@ -1421,11 +1421,11 @@ int pddlSymbolicTaskSearch(pddl_symbolic_task_t *ss,
 
 static pddl_bdd_t *createFDRState(pddl_symbolic_task_t *ss, const int *state)
 {
-    BOR_ISET(st);
+    PDDL_ISET(st);
     for (int i = 0; i < ss->fdr.var.var_size; ++i)
-        borISetAdd(&st, ss->fdr.var.var[i].val[state[i]].global_id);
+        pddlISetAdd(&st, ss->fdr.var.var[i].val[state[i]].global_id);
     pddl_bdd_t *bdd_state = pddlSymbolicVarsCreateState(&ss->vars, &st);
-    borISetFree(&st);
+    pddlISetFree(&st);
     return bdd_state;
 }
 
@@ -1439,7 +1439,7 @@ int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
     pddl_bdd_t *bdd_res_state = createFDRState(ss, res_state);
     for (int tri = 0; res && tri < ss->search_fw.trans.trans_size; ++tri){
         pddl_symbolic_trans_set_t *trs = ss->search_fw.trans.trans + tri;
-        if (!borISetIn(op_id, &trs->op))
+        if (!pddlISetIn(op_id, &trs->op))
             continue;
 
         pddl_bdd_t *next_states = pddlSymbolicTransSetImage(trs, bdd_state);
@@ -1467,7 +1467,7 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
     pddl_bdd_t *bdd_res_state = createFDRState(ss, res_state);
     for (int tri = 0; res && tri < ss->search_bw.trans.trans_size; ++tri){
         pddl_symbolic_trans_set_t *trs = ss->search_bw.trans.trans + tri;
-        if (!borISetIn(op_id, &trs->op))
+        if (!pddlISetIn(op_id, &trs->op))
             continue;
 
         pddl_bdd_t *next_states = pddlSymbolicTransSetPreImage(trs, bdd_state);
@@ -1500,7 +1500,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
         int fw_op_id = borIArrGet(op, fi);
         for (int tri = 0; tri < ss->search_fw.trans.trans_size; ++tri){
             pddl_symbolic_trans_set_t *trs = ss->search_fw.trans.trans + tri;
-            if (!borISetIn(fw_op_id, &trs->op))
+            if (!pddlISetIn(fw_op_id, &trs->op))
                 continue;
             fw_node[fi + 1] = pddlSymbolicTransSetImage(trs, fw_node[fi]);
             if (ss->cfg.fw.use_op_constr){
@@ -1538,7 +1538,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
         int bw_op_id = borIArrGet(op, plan_size - fi - 1);
         for (int tri = 0; tri < ss->search_bw.trans.trans_size; ++tri){
             pddl_symbolic_trans_set_t *trs = ss->search_bw.trans.trans + tri;
-            if (!borISetIn(bw_op_id, &trs->op))
+            if (!pddlISetIn(bw_op_id, &trs->op))
                 continue;
             int fi2 = plan_size - fi;
             bw_node[fi2 - 1] = pddlSymbolicTransSetPreImage(trs, bw_node[fi2]);

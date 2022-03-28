@@ -33,7 +33,7 @@ static void backwardIrrelevanceEnqueue(const pddl_strips_t *s,
 
     const pddl_strips_op_t *op = s->op.op[op_id];
     int next;
-    BOR_ISET_FOR_EACH(&op->pre, next){
+    PDDL_ISET_FOR_EACH(&op->pre, next){
         if (fact_irr[next] == 0){
             fact_irr[next] = -1;
             queue[(*queue_size)++] = next;
@@ -53,7 +53,7 @@ static void backwardIrrelevance(const pddl_strips_t *s,
     // Initialize queue with the goal
     queue_size = 0;
     int fact_id;
-    BOR_ISET_FOR_EACH(&s->goal, fact_id){
+    PDDL_ISET_FOR_EACH(&s->goal, fact_id){
         if (fact_irr[fact_id] == 0){
             queue[queue_size++] = fact_id;
             fact_irr[fact_id] = -1;
@@ -64,7 +64,7 @@ static void backwardIrrelevance(const pddl_strips_t *s,
         fact_id = queue[--queue_size];
         const pddl_strips_fact_cross_ref_fact_t *f = cref->fact + fact_id;
         int op_id;
-        BOR_ISET_FOR_EACH(&f->op_add, op_id){
+        PDDL_ISET_FOR_EACH(&f->op_add, op_id){
             if (op_irr[op_id] == 0){
                 backwardIrrelevanceEnqueue(s, op_id, fact_irr, op_irr,
                                            queue, &queue_size);
@@ -76,7 +76,7 @@ static void backwardIrrelevance(const pddl_strips_t *s,
         //       without add effects
         //       cannot be part of the strictly optimal plan, but it may
         //       reduce branching for the satisficing planning.
-        BOR_ISET_FOR_EACH(&f->op_del, op_id){
+        PDDL_ISET_FOR_EACH(&f->op_del, op_id){
             if (op_irr[op_id] == 0){
                 backwardIrrelevanceEnqueue(s, op_id, fact_irr, op_irr,
                                            queue, &queue_size);
@@ -88,9 +88,9 @@ static void backwardIrrelevance(const pddl_strips_t *s,
 }
 
 int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
-                            bor_iset_t *irrelevant_facts,
-                            bor_iset_t *irrelevant_ops,
-                            bor_iset_t *static_facts,
+                            pddl_iset_t *irrelevant_facts,
+                            pddl_iset_t *irrelevant_ops,
+                            pddl_iset_t *static_facts,
                             bor_err_t *err)
 {
     pddl_strips_fact_cross_ref_t cref;
@@ -109,15 +109,15 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
     fact_irr = CALLOC_ARR(int, strips->fact.fact_size);
     op_irr = CALLOC_ARR(int, strips->op.op_size);
 
-    if (irrelevant_ops != NULL && borISetSize(irrelevant_ops) > 0){
+    if (irrelevant_ops != NULL && pddlISetSize(irrelevant_ops) > 0){
         int op_id;
-        BOR_ISET_FOR_EACH(irrelevant_ops, op_id)
+        PDDL_ISET_FOR_EACH(irrelevant_ops, op_id)
             op_irr[op_id] = 1;
     }
 
-    if (irrelevant_facts != NULL && borISetSize(irrelevant_facts) > 0){
+    if (irrelevant_facts != NULL && pddlISetSize(irrelevant_facts) > 0){
         int fact_id;
-        BOR_ISET_FOR_EACH(irrelevant_facts, fact_id)
+        PDDL_ISET_FOR_EACH(irrelevant_facts, fact_id)
             fact_irr[fact_id] = 1;
     }
 
@@ -132,12 +132,12 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
      * from all operators, init and goal.
      */
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
-        if (borISetSize(&cref.fact[fact_id].op_add) == 0
-                && borISetSize(&cref.fact[fact_id].op_del) == 0
+        if (pddlISetSize(&cref.fact[fact_id].op_add) == 0
+                && pddlISetSize(&cref.fact[fact_id].op_del) == 0
                 && cref.fact[fact_id].is_init){
             fact_irr[fact_id] = 1;
             if (static_facts != NULL)
-                borISetAdd(static_facts, fact_id);
+                pddlISetAdd(static_facts, fact_id);
         }
     }
 
@@ -146,14 +146,14 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
     if (irrelevant_facts != NULL){
         for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
             if (fact_irr[fact_id] >= 0)
-                borISetAdd(irrelevant_facts, fact_id);
+                pddlISetAdd(irrelevant_facts, fact_id);
         }
     }
 
     if (irrelevant_ops != NULL){
         for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
             if (op_irr[op_id] >= 0)
-                borISetAdd(irrelevant_ops, op_id);
+                pddlISetAdd(irrelevant_ops, op_id);
         }
     }
 
@@ -165,9 +165,9 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
 
     BOR_INFO(err, "Irrelevance analysis DONE: irrelevant facts: %d,"
                   " irrelevant ops: %d, static facts: %d",
-             (irrelevant_facts != NULL ? borISetSize(irrelevant_facts) : -1),
-             (irrelevant_ops != NULL ? borISetSize(irrelevant_ops) : -1),
-             (static_facts != NULL ? borISetSize(static_facts) : -1));
+             (irrelevant_facts != NULL ? pddlISetSize(irrelevant_facts) : -1),
+             (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1),
+             (static_facts != NULL ? pddlISetSize(static_facts) : -1));
 
     return 0;
 }
@@ -193,7 +193,7 @@ static void backwardIrrelevanceFDREnqueue(const pddl_fdr_t *fdr,
 }
 
 static void backwardIrrelevanceFDR(const pddl_fdr_t *fdr,
-                                   const bor_iset_t *var_to_op,
+                                   const pddl_iset_t *var_to_op,
                                    int *var_irr,
                                    int *op_irr)
 {
@@ -213,9 +213,9 @@ static void backwardIrrelevanceFDR(const pddl_fdr_t *fdr,
 
     while (queue_size > 0){
         int var_id = queue[--queue_size];
-        const bor_iset_t *ops = var_to_op + var_id;
+        const pddl_iset_t *ops = var_to_op + var_id;
         int op_id;
-        BOR_ISET_FOR_EACH(ops, op_id){
+        PDDL_ISET_FOR_EACH(ops, op_id){
             if (op_irr[op_id] == 0){
                 backwardIrrelevanceFDREnqueue(fdr, op_id, var_irr, op_irr,
                                               queue, &queue_size);
@@ -227,11 +227,11 @@ static void backwardIrrelevanceFDR(const pddl_fdr_t *fdr,
 }
 
 int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
-                               bor_iset_t *irrelevant_vars,
-                               bor_iset_t *irrelevant_ops,
+                               pddl_iset_t *irrelevant_vars,
+                               pddl_iset_t *irrelevant_ops,
                                bor_err_t *err)
 {
-    bor_iset_t *var_to_op;
+    pddl_iset_t *var_to_op;
     int *var_irr, *op_irr;
 
     if (fdr->has_cond_eff){
@@ -242,25 +242,25 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
     BOR_INFO(err, "Irrelevance analysis on FDR. vars: %d, facts: %d, ops: %d",
              fdr->var.var_size, fdr->var.global_id_size, fdr->op.op_size);
 
-    var_to_op = CALLOC_ARR(bor_iset_t, fdr->var.var_size);
+    var_to_op = CALLOC_ARR(pddl_iset_t, fdr->var.var_size);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         for (int fi = 0; fi < op->eff.fact_size; ++fi)
-            borISetAdd(var_to_op + op->eff.fact[fi].var, op_id);
+            pddlISetAdd(var_to_op + op->eff.fact[fi].var, op_id);
     }
 
     var_irr = CALLOC_ARR(int, fdr->var.var_size);
     op_irr = CALLOC_ARR(int, fdr->op.op_size);
 
-    if (irrelevant_ops != NULL && borISetSize(irrelevant_ops) > 0){
+    if (irrelevant_ops != NULL && pddlISetSize(irrelevant_ops) > 0){
         int op_id;
-        BOR_ISET_FOR_EACH(irrelevant_ops, op_id)
+        PDDL_ISET_FOR_EACH(irrelevant_ops, op_id)
             op_irr[op_id] = 1;
     }
 
-    if (irrelevant_vars != NULL && borISetSize(irrelevant_vars) > 0){
+    if (irrelevant_vars != NULL && pddlISetSize(irrelevant_vars) > 0){
         int var_id;
-        BOR_ISET_FOR_EACH(irrelevant_vars, var_id)
+        PDDL_ISET_FOR_EACH(irrelevant_vars, var_id)
             var_irr[var_id] = 1;
     }
 
@@ -270,14 +270,14 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
     if (irrelevant_vars != NULL){
         for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
             if (var_irr[var_id] >= 0)
-                borISetAdd(irrelevant_vars, var_id);
+                pddlISetAdd(irrelevant_vars, var_id);
         }
     }
 
     if (irrelevant_ops != NULL){
         for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
             if (op_irr[op_id] >= 0)
-                borISetAdd(irrelevant_ops, op_id);
+                pddlISetAdd(irrelevant_ops, op_id);
         }
     }
 
@@ -287,14 +287,14 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
         FREE(op_irr);
 
     for (int var = 0; var < fdr->var.var_size; ++var)
-        borISetFree(var_to_op + var);
+        pddlISetFree(var_to_op + var);
     if (var_to_op != NULL)
         FREE(var_to_op);
 
     BOR_INFO(err, "Irrelevance analysis on FDR DONE: irrelevant vars: %d,"
                   " irrelevant ops: %d",
-             (irrelevant_vars != NULL ? borISetSize(irrelevant_vars) : -1),
-             (irrelevant_ops != NULL ? borISetSize(irrelevant_ops) : -1));
+             (irrelevant_vars != NULL ? pddlISetSize(irrelevant_vars) : -1),
+             (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1));
 
     return 0;
 }

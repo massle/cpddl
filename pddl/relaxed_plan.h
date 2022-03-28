@@ -37,8 +37,8 @@ extern "C" {
  * it must be zeroized by the caller.
  */
 void pddlRelaxedPlanCountConflictsStrips(const bor_iarr_t *plan,
-                                         const bor_iset_t *init,
-                                         const bor_iset_t *goal,
+                                         const pddl_iset_t *init,
+                                         const pddl_iset_t *goal,
                                          const pddl_strips_ops_t *ops,
                                          int goal_conflict_weight,
                                          int *fact_conflicts);

@@ -104,15 +104,15 @@ static int stepLiftedEndomorph(void)
     int ret = 0;
     pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
     cfg.ignore_costs = opt.lifted_endomorph.ignore_costs;
-    BOR_ISET(redundant_objs);
+    PDDL_ISET(redundant_objs);
     pddlEndomorphismLifted(&pddl, &lifted_mgroups, &cfg,
             &redundant_objs, NULL, &err);
-    if (borISetSize(&redundant_objs) > 0){
+    if (pddlISetSize(&redundant_objs) > 0){
         pddlRemoveObjs(&pddl, &redundant_objs, &err);
         if (opt.lmg.enable)
             ret = stepLiftedMGroups();
     }
-    borISetFree(&redundant_objs);
+    pddlISetFree(&redundant_objs);
 
     BOR_INFO_PREFIX_POP(&err);
     return ret;

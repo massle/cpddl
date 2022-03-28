@@ -32,14 +32,14 @@ struct state_node {
     int op_id:30; /*!< ID of the operator reaching this state */
     pddl_strips_state_space_status_t status:2;/*!< PDDL_STRIPS_STATE_SPACE_STATUS_* */
     int g_value; /*!< Cost of the path from init to this state */
-    bor_iset_t state;
+    pddl_iset_t state;
 
     pddl_list_t htable;
     pddl_htable_key_t hash;
 };
 typedef struct state_node state_node_t;
 
-static pddl_htable_key_t stateHash(const bor_iset_t *state)
+static pddl_htable_key_t stateHash(const pddl_iset_t *state)
 {
     return pddlCityHash_64(state->s, sizeof(int) * state->size);
 }
@@ -54,7 +54,7 @@ static int htableEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 {
     const state_node_t *sn1 = PDDL_LIST_ENTRY(k1, state_node_t, htable);
     const state_node_t *sn2 = PDDL_LIST_ENTRY(k2, state_node_t, htable);
-    return borISetEq(&sn1->state, &sn2->state);
+    return pddlISetEq(&sn1->state, &sn2->state);
 }
 
 void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
@@ -74,7 +74,7 @@ void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space)
 {
     for (int id = 0; id < state_space->num_states; ++id){
         state_node_t *sn = pddlExtArrGet(state_space->node, id);
-        borISetFree(&sn->state);
+        pddlISetFree(&sn->state);
     }
     if (state_space->htable != NULL)
         pddlHTableDel(state_space->htable);
@@ -84,11 +84,11 @@ void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space)
 
 pddl_state_id_t pddlStripsStateSpaceInsert(
                             pddl_strips_state_space_t *state_space,
-                            const bor_iset_t *state)
+                            const pddl_iset_t *state)
 {
     state_node_t *sn = pddlExtArrGet(state_space->node, state_space->num_states);
     bzero(sn, sizeof(*sn));
-    borISetSet(&sn->state, state);
+    pddlISetSet(&sn->state, state);
     sn->hash = stateHash(state);
 
     pddl_list_t *snl = pddlHTableInsertUnique(state_space->htable, &sn->htable);
@@ -99,7 +99,7 @@ pddl_state_id_t pddlStripsStateSpaceInsert(
         sn->status = PDDL_STRIPS_STATE_SPACE_STATUS_NEW;
         sn->g_value = -1;
     }else{
-        borISetFree(&sn->state);
+        pddlISetFree(&sn->state);
         sn = PDDL_LIST_ENTRY(snl, state_node_t, htable);
     }
     return sn->id;
@@ -123,7 +123,7 @@ void pddlStripsStateSpaceGet(const pddl_strips_state_space_t *state_space,
 {
     const state_node_t *sn = pddlExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
-    borISetSet(&node->state, &sn->state);
+    pddlISetSet(&node->state, &sn->state);
 }
 
 void pddlStripsStateSpaceGetNoState(const pddl_strips_state_space_t *state_space,
@@ -153,10 +153,10 @@ void pddlStripsStateSpaceNodeInit(pddl_strips_state_space_node_t *node,
                                   const pddl_strips_state_space_t *state_space)
 {
     bzero(node, sizeof(*node));
-    borISetInit(&node->state);
+    pddlISetInit(&node->state);
 }
 
 void pddlStripsStateSpaceNodeFree(pddl_strips_state_space_node_t *node)
 {
-    borISetFree(&node->state);
+    pddlISetFree(&node->state);
 }

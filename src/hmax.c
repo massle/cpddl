@@ -51,7 +51,7 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
     h->op = CALLOC_ARR(pddl_hmax_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
-    BOR_ISET(pre);
+    PDDL_ISET(pre);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
         const pddl_fdr_op_t *src = fdr->op.op[op_id];
         pddl_hmax_op_t *op = h->op + op_id;
@@ -59,44 +59,44 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
         pddlFDRPartStateToGlobalIDs(&src->eff, &fdr->var, &op->eff);
         op->cost = src->cost;
 
-        borISetEmpty(&pre);
+        pddlISetEmpty(&pre);
         pddlFDRPartStateToGlobalIDs(&src->pre, &fdr->var, &pre);
         int fact;
-        BOR_ISET_FOR_EACH(&pre, fact)
-            borISetAdd(&h->fact[fact].pre_op, op_id);
-        op->pre_size = borISetSize(&pre);
+        PDDL_ISET_FOR_EACH(&pre, fact)
+            pddlISetAdd(&h->fact[fact].pre_op, op_id);
+        op->pre_size = pddlISetSize(&pre);
 
         // Record operator with no preconditions
         if (op->pre_size == 0){
-            borISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
+            pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
             op->pre_size = 1;
         }
     }
 
     // Set up goal operator
     pddl_hmax_op_t *op = h->op + h->op_goal;
-    borISetAdd(&op->eff, h->fact_goal);
+    pddlISetAdd(&op->eff, h->fact_goal);
     op->cost = 0;
 
-    borISetEmpty(&pre);
+    pddlISetEmpty(&pre);
     pddlFDRPartStateToGlobalIDs(&fdr->goal, &fdr->var, &pre);
     int fact;
-    BOR_ISET_FOR_EACH(&pre, fact)
-        borISetAdd(&h->fact[fact].pre_op, h->op_goal);
-    op->pre_size = borISetSize(&pre);
+    PDDL_ISET_FOR_EACH(&pre, fact)
+        pddlISetAdd(&h->fact[fact].pre_op, h->op_goal);
+    op->pre_size = pddlISetSize(&pre);
 
-    borISetFree(&pre);
+    pddlISetFree(&pre);
 }
 
 void pddlHMaxFree(pddl_hmax_t *hmax)
 {
     for (int i = 0; i < hmax->fact_size; ++i)
-        borISetFree(&hmax->fact[i].pre_op);
+        pddlISetFree(&hmax->fact[i].pre_op);
     if (hmax->fact != NULL)
         FREE(hmax->fact);
 
     for (int i = 0; i < hmax->op_size; ++i)
-        borISetFree(&hmax->op[i].eff);
+        pddlISetFree(&hmax->op[i].eff);
     if (hmax->op != NULL)
         FREE(hmax->op);
 }
@@ -139,7 +139,7 @@ static void enqueueOpEffects(pddl_hmax_t *h,
     int value = op->cost + fact_value;
     int fid;
 
-    BOR_ISET_FOR_EACH(&op->eff, fid){
+    PDDL_ISET_FOR_EACH(&op->eff, fid){
         pddl_hmax_fact_t *fact = h->fact + fid;
         if (FVALUE(fact) > value)
             FPUSH(pq, value, fact);
@@ -166,7 +166,7 @@ int pddlHMax(pddl_hmax_t *h,
             break;
 
         int op_id;
-        BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_hmax_op_t *op = h->op + op_id;
             if (--op->unsat == 0)
                 enqueueOpEffects(h, op, value, &pq);

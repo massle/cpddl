@@ -82,25 +82,25 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
 
     // Perform at most num_steps of a random walk
     int num_performed_steps = 0;
-    BOR_ISET(app_ops);
+    PDDL_ISET(app_ops);
     memcpy(resulting_state, start_state, sizeof(int) * rndw->fdr->var.var_size);
     for (int step = 0; step < num_steps; ++step){
-        borISetEmpty(&app_ops);
+        pddlISetEmpty(&app_ops);
         pddlFDRAppOpFind(rndw->app, resulting_state, &app_ops);
-        if (borISetSize(&app_ops) == 0){
+        if (pddlISetSize(&app_ops) == 0){
             // No applicable operators -- terminate
             break;
         }else{
-            int which_op = pddlRandMT(rndw->rnd, 0, borISetSize(&app_ops));
-            ASSERT(which_op >= 0 && which_op < borISetSize(&app_ops));
-            int op_id = borISetGet(&app_ops, which_op);
+            int which_op = pddlRandMT(rndw->rnd, 0, pddlISetSize(&app_ops));
+            ASSERT(which_op >= 0 && which_op < pddlISetSize(&app_ops));
+            int op_id = pddlISetGet(&app_ops, which_op);
             const pddl_fdr_op_t *op = rndw->fdr->op.op[op_id];
             pddlFDROpApplyOnStateInPlace(op, rndw->fdr->var.var_size,
                                          resulting_state);
             ++num_performed_steps;
         }
     }
-    borISetFree(&app_ops);
+    pddlISetFree(&app_ops);
 
     return num_performed_steps;
 }

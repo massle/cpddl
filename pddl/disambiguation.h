@@ -48,7 +48,7 @@ typedef struct pddl_disambiguate_fact pddl_disambiguate_fact_t;
 
 struct pddl_disambiguate_mgroup {
     pddl_bitset_t fact; /*!< Facts contained in the mutex group */
-    bor_iset_t mgroup;
+    pddl_iset_t mgroup;
 };
 typedef struct pddl_disambiguate_mgroup pddl_disambiguate_mgroup_t;
 
@@ -110,12 +110,12 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis);
  *        -1 if {set} was detected to be a mutex.
  */
 int pddlDisambiguate(pddl_disambiguate_t *dis,
-                     const bor_iset_t *set,
-                     const bor_iset_t *mgroup_select,
+                     const pddl_iset_t *set,
+                     const pddl_iset_t *mgroup_select,
                      int only_disjunct_mgroups,
                      int single_fact_disamb,
                      pddl_set_iset_t *disamb_sets,
-                     bor_iset_t *can_extend_with);
+                     pddl_iset_t *can_extend_with);
 
 /**
  * Disambiguate a set of facts.
@@ -123,7 +123,7 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
  *        1 if some facts were added
  *        -1 if the set was detected to be mutex
  */
-_pddl_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, bor_iset_t *set)
+_pddl_inline int pddlDisambiguateSet(pddl_disambiguate_t *dis, pddl_iset_t *set)
 {
     return pddlDisambiguate(dis, set, NULL, 1, 0, NULL, set);
 }

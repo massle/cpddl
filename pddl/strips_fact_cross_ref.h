@@ -31,9 +31,9 @@ struct pddl_strips_fact_cross_ref_fact {
     int fact_id; /*!< ID of the fact */
     int is_init; /*!< True if the fact is in the initial state */
     int is_goal; /*!< True if the fact is in the goal */
-    bor_iset_t op_pre; /*!< Operators having this fact in its precondition */
-    bor_iset_t op_add; /*!< Operators having this fact in its add effect */
-    bor_iset_t op_del; /*!< Operators having this fact in its del effect */
+    pddl_iset_t op_pre; /*!< Operators having this fact in its precondition */
+    pddl_iset_t op_add; /*!< Operators having this fact in its add effect */
+    pddl_iset_t op_del; /*!< Operators having this fact in its del effect */
 };
 typedef struct pddl_strips_fact_cross_ref_fact
     pddl_strips_fact_cross_ref_fact_t;

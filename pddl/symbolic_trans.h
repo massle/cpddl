@@ -30,7 +30,7 @@ extern "C" {
 
 struct pddl_symbolic_trans {
     pddl_bdd_t *bdd; /*!< BDD representing the transition(s) */
-    bor_iset_t eff_groups; /*!< Groups appearing in the effect(s) */
+    pddl_iset_t eff_groups; /*!< Groups appearing in the effect(s) */
     pddl_bdd_t **var_pre; /*!< List of pre variables */
     pddl_bdd_t **var_eff; /*!< List of eff variables */
     int var_size; /*!< Size of .var_pre and .var_eff */
@@ -44,7 +44,7 @@ struct pddl_symbolic_trans_set {
     pddl_symbolic_trans_t *trans;
     int trans_size;
 
-    bor_iset_t op; /*!< List of covered operators */
+    pddl_iset_t op; /*!< List of covered operators */
     pddl_cost_t cost; /*!< Cost of the covered operatros */
     pddl_cost_t heur_change; /*!< Change of heuristic value induced by transitions */
 };

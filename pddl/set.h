@@ -22,7 +22,7 @@
 
 #include <stdio.h>
 #include <boruvka/hashset.h>
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <pddl/core.h>
 
 #ifdef __cplusplus
@@ -54,19 +54,19 @@ _pddl_inline void pddlSetISetFree(pddl_set_iset_t *ss)
     borHashSetFree(&ss->set);
 }
 
-_pddl_inline int pddlSetISetAdd(pddl_set_iset_t *ss, const bor_iset_t *set)
+_pddl_inline int pddlSetISetAdd(pddl_set_iset_t *ss, const pddl_iset_t *set)
 {
     return borHashSetAdd(&ss->set, set);
 }
 
-_pddl_inline int pddlSetISetFind(pddl_set_iset_t *ss, const bor_iset_t *set)
+_pddl_inline int pddlSetISetFind(pddl_set_iset_t *ss, const pddl_iset_t *set)
 {
     return borHashSetFind(&ss->set, set);
 }
 
-_pddl_inline const bor_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
+_pddl_inline const pddl_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
 {
-    return (const bor_iset_t *)borHashSetGet(&ss->set, id);
+    return (const pddl_iset_t *)borHashSetGet(&ss->set, id);
 }
 
 _pddl_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
@@ -81,9 +81,9 @@ _pddl_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
         pddlSetISetAdd(dst, pddlSetISetGet(src, i));
 }
 
-void pddlISetPrintCompressed(const bor_iset_t *set, FILE *fout);
-void pddlISetPrint(const bor_iset_t *set, FILE *fout);
-void pddlISetPrintln(const bor_iset_t *set, FILE *fout);
+void pddlISetPrintCompressed(const pddl_iset_t *set, FILE *fout);
+void pddlISetPrint(const pddl_iset_t *set, FILE *fout);
+void pddlISetPrintln(const pddl_iset_t *set, FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -119,7 +119,7 @@ void pddlFDROpsFree(pddl_fdr_ops_t *ops);
  * Delete the specified set of operators.
  * This function may change IDs of operators.
  */
-void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const bor_iset_t *set);
+void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const pddl_iset_t *set);
 
 /**
  * Remap facts.

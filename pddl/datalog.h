@@ -21,7 +21,7 @@
 #define __PDDL_DATALOG_H__
 
 #include <stdio.h>
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <boruvka/err.h>
 #include <pddl/common.h>
 
@@ -34,7 +34,7 @@ struct pddl_datalog_atom {
     unsigned *arg;
 
     int var_size;
-    bor_iset_t var_set;
+    pddl_iset_t var_set;
 };
 typedef struct pddl_datalog_atom pddl_datalog_atom_t;
 
@@ -47,10 +47,10 @@ struct pddl_datalog_rule {
     int neg_body_size;
     int neg_body_alloc;
 
-    bor_iset_t var_set;
+    pddl_iset_t var_set;
     int is_safe;
     int same_head_body_vars;
-    bor_iset_t common_body_var_set;
+    pddl_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
 

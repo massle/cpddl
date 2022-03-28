@@ -32,7 +32,7 @@ extern "C" {
  * Computes a set of redundant operators using fixpoint computation with a
  * set of operator mutexes and symmetries.
  */
-void pddlOpMutexSymRedundantFixpoint(bor_iset_t *redundant,
+void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant,
                                      const pddl_strips_t *strips,
                                      const pddl_strips_sym_t *sym,
                                      const pddl_op_mutex_pairs_t *op_mutex,

@@ -274,7 +274,7 @@ static int sqlPredClear(sql_pred_t *qpred, sqlite3 *db, bor_err_t *err)
 
 static void sqlActionConstructColumns(char *query,
                                       const pddl_prep_action_t *prep_action,
-                                      bor_iset_t *type_tables)
+                                      pddl_iset_t *type_tables)
 {
     query[0] = 0x0;
     int shift = 0;
@@ -301,7 +301,7 @@ static void sqlActionConstructColumns(char *query,
             int type = prep_action->param_type[pi];
             if (pddlTypeNumObjs(prep_action->type, type) > 0){
                 shift += sprintf(query + shift, "tb_type%d.t as arg%d", pi, pi);
-                borISetAdd(type_tables, pi);
+                pddlISetAdd(type_tables, pi);
             }else{
                 shift += sprintf(query + shift, "-1");
             }
@@ -313,7 +313,7 @@ static void sqlActionConstructColumns(char *query,
 static void sqlActionConstructTables(char *query,
                                      const sql_pred_t *preds,
                                      const pddl_prep_action_t *prep_action,
-                                     const bor_iset_t *type_tables)
+                                     const pddl_iset_t *type_tables)
 {
     query[0] = 0x0;
     int shift = 0;
@@ -326,7 +326,7 @@ static void sqlActionConstructTables(char *query,
                          preds[atom->pred].table_name, ci);
     }
     int idx;
-    BOR_ISET_FOR_EACH(type_tables, idx){
+    PDDL_ISET_FOR_EACH(type_tables, idx){
         if (shift != 0)
             shift += sprintf(query + shift, ", ");
         int type = prep_action->param_type[idx];
@@ -507,7 +507,7 @@ static void sqlActionInit(sql_action_t *action,
     if (action->param_size == 0)
         return;
 
-    BOR_ISET(type_tables);
+    PDDL_ISET(type_tables);
     char qcols[QUERY_SIZE];
     sqlActionConstructColumns(qcols, prep_action, &type_tables);
     char qtables[QUERY_SIZE];
@@ -516,7 +516,7 @@ static void sqlActionInit(sql_action_t *action,
     sqlActionConstructJoinCond(qjoincond, preds, prep_action);
     char qwhere[QUERY_SIZE];
     sqlActionConstructWhereCond(qwhere, preds, prep_action);
-    borISetFree(&type_tables);
+    pddlISetFree(&type_tables);
 
     char query[QUERY_SELECT_SIZE];
     int used = sprintf(query, "SELECT %s FROM %s %s %s;",

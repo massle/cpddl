@@ -25,7 +25,7 @@
 #include <pddl/obj.h>
 #include <pddl/pred.h>
 #include <pddl/cond.h>
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -25,7 +25,7 @@
 #include <pddl/obj.h>
 #include <pddl/pred.h>
 #include <pddl/ground_atom.h>
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,7 +112,7 @@ int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
  * fs->fact_size elements.
  */
 int pddlFactsDelFactsGenRemap(int fact_size,
-                              const bor_iset_t *del_facts,
+                              const pddl_iset_t *del_facts,
                               int *remap);
 
 /**
@@ -123,7 +123,7 @@ void pddlFactsDelFact(pddl_facts_t *fs, int fact_id);
 /**
  * Same as pddlFactsDelFacts() but the input is a set of facts.
  */
-void pddlFactsDelFacts(pddl_facts_t *fs, const bor_iset_t *m, int *remap);
+void pddlFactsDelFacts(pddl_facts_t *fs, const pddl_iset_t *m, int *remap);
 
 /**
  * Copies all facts from src to dst using pddlFactsAdd().
@@ -141,7 +141,7 @@ void pddlFactsPrint(const pddl_facts_t *fs,
                     const char *suffix,
                     FILE *fout);
 
-void pddlFactsPrintSet(const bor_iset_t *fact_set,
+void pddlFactsPrintSet(const pddl_iset_t *fact_set,
                        const pddl_facts_t *fs,
                        const char *prefix,
                        const char *suffix,

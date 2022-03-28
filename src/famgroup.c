@@ -40,11 +40,11 @@ static int varId(const pddl_strips_t *strips, int fact_id)
     return fact_id;
 }
 
-static void getPredel(bor_iset_t *predel, const pddl_strips_op_t *op)
+static void getPredel(pddl_iset_t *predel, const pddl_strips_op_t *op)
 {
-    borISetEmpty(predel);
-    borISetUnion(predel, &op->pre);
-    borISetIntersect(predel, &op->del_eff);
+    pddlISetEmpty(predel);
+    pddlISetUnion(predel, &op->pre);
+    pddlISetIntersect(predel, &op->del_eff);
 }
 
 static int nextRow(fam_t *fam, double rhs, char sense)
@@ -60,7 +60,7 @@ static int nextRow(fam_t *fam, double rhs, char sense)
 static void initStateConstr(fam_t *fam)
 {
     int fact;
-    BOR_ISET_FOR_EACH(&fam->strips->init, fact)
+    PDDL_ISET_FOR_EACH(&fam->strips->init, fact)
         borLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), 1.);
     borLPSetRHS(fam->lp, fam->row, 1., 'L');
     ++fam->row;
@@ -70,38 +70,38 @@ static void opConstrs(fam_t *fam)
 {
     const pddl_strips_op_t *op;
     int fact;
-    BOR_ISET(predel);
+    PDDL_ISET(predel);
 
     PDDL_STRIPS_OPS_FOR_EACH(&fam->strips->op, op){
-        BOR_ISET_FOR_EACH(&op->add_eff, fact)
+        PDDL_ISET_FOR_EACH(&op->add_eff, fact)
             borLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), 1.);
 
         getPredel(&predel, op);
-        BOR_ISET_FOR_EACH(&predel, fact)
+        PDDL_ISET_FOR_EACH(&predel, fact)
             borLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), -1.);
         borLPSetRHS(fam->lp, fam->row, 0., 'L');
         ++fam->row;
     }
-    borISetFree(&predel);
+    pddlISetFree(&predel);
 }
 
 static void goalConstr(fam_t *fam)
 {
     int row = nextRow(fam, 1, 'G');
     int fact;
-    BOR_ISET_FOR_EACH(&fam->strips->goal, fact)
+    PDDL_ISET_FOR_EACH(&fam->strips->goal, fact)
         borLPSetCoef(fam->lp, row, varId(fam->strips, fact), 1.);
 
 }
 
-static void skipMGroupAndSubsetsConstr(fam_t *fam, const bor_iset_t *facts)
+static void skipMGroupAndSubsetsConstr(fam_t *fam, const pddl_iset_t *facts)
 {
     int row = nextRow(fam, 1., 'G');
 
-    const int size = borISetSize(facts);
+    const int size = pddlISetSize(facts);
     int fi = 0;
     for (int fact_id = 0; fact_id < fam->strips->fact.fact_size; ++fact_id){
-        if (fi < size && borISetGet(facts, fi) == fact_id){
+        if (fi < size && pddlISetGet(facts, fi) == fact_id){
             ++fi;
         }else{
             borLPSetCoef(fam->lp, row, varId(fam->strips, fact_id), 1.);
@@ -109,16 +109,16 @@ static void skipMGroupAndSubsetsConstr(fam_t *fam, const bor_iset_t *facts)
     }
 }
 
-static void skipMGroupExactlyConstr(fam_t *fam, const bor_iset_t *facts)
+static void skipMGroupExactlyConstr(fam_t *fam, const pddl_iset_t *facts)
 {
-    int row = nextRow(fam, borISetSize(facts) - 1, 'L');
+    int row = nextRow(fam, pddlISetSize(facts) - 1, 'L');
     int fact;
 
-    BOR_ISET_FOR_EACH(facts, fact)
+    PDDL_ISET_FOR_EACH(facts, fact)
         borLPSetCoef(fam->lp, row, varId(fam->strips, fact), 1.);
 }
 
-static void skipMGroup(fam_t *fam, const bor_iset_t *facts)
+static void skipMGroup(fam_t *fam, const pddl_iset_t *facts)
 {
     if (fam->cfg.maximal){
         skipMGroupAndSubsetsConstr(fam, facts);
@@ -130,19 +130,19 @@ static void skipMGroup(fam_t *fam, const bor_iset_t *facts)
 
 static void objToFAMGroup(const double *obj,
                           const pddl_strips_t *strips,
-                          bor_iset_t *fam_group)
+                          pddl_iset_t *fam_group)
 {
-    borISetEmpty(fam_group);
+    pddlISetEmpty(fam_group);
 
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
         int var_id = varId(strips, fact_id);
         if (obj[var_id] > 0.5)
-            borISetAdd(fam_group, fact_id);
+            pddlISetAdd(fam_group, fact_id);
     }
 }
 
 static pddl_mgroup_t *addFAMGroup(pddl_mgroups_t *mgs,
-                                  const bor_iset_t *fset,
+                                  const pddl_iset_t *fset,
                                   const pddl_strips_t *strips)
 {
     pddl_mgroup_t *mg;
@@ -154,14 +154,14 @@ static pddl_mgroup_t *addFAMGroup(pddl_mgroups_t *mgs,
     return mg;
 }
 
-static void genSymmetricFAMGroups(fam_t *fam, const bor_iset_t *mgfacts)
+static void genSymmetricFAMGroups(fam_t *fam, const pddl_iset_t *mgfacts)
 {
     pddl_set_iset_t set_of_mgroups;
 
     pddlSetISetInit(&set_of_mgroups);
     pddlSetISetAdd(&set_of_mgroups, mgfacts);
     pddlStripsSymAllFactSetSymmetries(fam->cfg.sym, &set_of_mgroups);
-    const bor_iset_t *fset;
+    const pddl_iset_t *fset;
     PDDL_SET_ISET_FOR_EACH(&set_of_mgroups, fset){
         if (!fam->cfg.keep_only_asymetric)
             addFAMGroup(fam->mgroups, fset, fam->strips);
@@ -172,20 +172,20 @@ static void genSymmetricFAMGroups(fam_t *fam, const bor_iset_t *mgfacts)
 
 static void prioritizeUncovered(fam_t *fam)
 {
-    BOR_ISET(covered);
+    PDDL_ISET(covered);
     for (int mi = 0; mi < fam->mgroups->mgroup_size; ++mi)
-        borISetUnion(&covered, &fam->mgroups->mgroup[mi].mgroup);
+        pddlISetUnion(&covered, &fam->mgroups->mgroup[mi].mgroup);
 
     for (int fact_id = 0; fact_id < fam->strips->fact.fact_size; ++fact_id){
         int var_id = varId(fam->strips, fact_id);
-        if (borISetIn(fact_id, &covered)){
+        if (pddlISetIn(fact_id, &covered)){
             borLPSetObj(fam->lp, var_id, 1.);
         }else{
-            borLPSetObj(fam->lp, var_id, borISetSize(&covered));
+            borLPSetObj(fam->lp, var_id, pddlISetSize(&covered));
         }
         borLPSetVarBinary(fam->lp, var_id);
     }
-    borISetFree(&covered);
+    pddlISetFree(&covered);
 }
 
 static void famInit(fam_t *fam,
@@ -246,7 +246,7 @@ static void famFree(fam_t *fam)
 
 static void famInfer(fam_t *fam)
 {
-    BOR_ISET(famgroup);
+    PDDL_ISET(famgroup);
     double val, *obj;
     pddl_mgroup_t *mg;
     pddl_timer_t timer;
@@ -280,7 +280,7 @@ static void famInfer(fam_t *fam)
             break;
     }
     FREE(obj);
-    borISetFree(&famgroup);
+    pddlISetFree(&famgroup);
 }
 
 int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
@@ -318,27 +318,27 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
 
 
 
-static int isDeadEndOp(const bor_iset_t *mgroup,
+static int isDeadEndOp(const pddl_iset_t *mgroup,
                        const pddl_strips_op_t *op,
-                       bor_iset_t *madd,
-                       bor_iset_t *mpredel)
+                       pddl_iset_t *madd,
+                       pddl_iset_t *mpredel)
 {
-    if (borISetSize(&op->pre) < borISetSize(&op->del_eff)){
-        borISetIntersect2(mpredel, mgroup, &op->pre);
-        borISetIntersect(mpredel, &op->del_eff);
+    if (pddlISetSize(&op->pre) < pddlISetSize(&op->del_eff)){
+        pddlISetIntersect2(mpredel, mgroup, &op->pre);
+        pddlISetIntersect(mpredel, &op->del_eff);
     }else{
-        borISetIntersect2(mpredel, mgroup, &op->del_eff);
-        borISetIntersect(mpredel, &op->pre);
+        pddlISetIntersect2(mpredel, mgroup, &op->del_eff);
+        pddlISetIntersect(mpredel, &op->pre);
     }
-    borISetIntersect2(madd, mgroup, &op->add_eff);
-    return borISetSize(mpredel) > borISetSize(madd);
+    pddlISetIntersect2(madd, mgroup, &op->add_eff);
+    return pddlISetSize(mpredel) > pddlISetSize(madd);
 }
 
-static void deadEndOps(const bor_iset_t *mgroup,
+static void deadEndOps(const pddl_iset_t *mgroup,
                        const pddl_strips_t *strips,
-                       bor_iset_t *madd,
-                       bor_iset_t *mpredel,
-                       bor_iset_t *dead_end)
+                       pddl_iset_t *madd,
+                       pddl_iset_t *mpredel,
+                       pddl_iset_t *dead_end)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
@@ -347,25 +347,25 @@ static void deadEndOps(const bor_iset_t *mgroup,
             continue;
 
         if (isDeadEndOp(mgroup, op, madd, mpredel))
-            borISetAdd(dead_end, op->id);
+            pddlISetAdd(dead_end, op->id);
     }
 }
 
 void pddlFAMGroupsDeadEndOps(const pddl_mgroups_t *mgs,
                              const pddl_strips_t *strips,
-                             bor_iset_t *dead_end_ops)
+                             pddl_iset_t *dead_end_ops)
 {
-    BOR_ISET(madd);
-    BOR_ISET(mpredel);
+    PDDL_ISET(madd);
+    PDDL_ISET(mpredel);
 
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mgs->mgroup + mi;
         if (mg->is_fam_group
-                && !borISetIsDisjunct(&strips->goal, &mg->mgroup)){
+                && !pddlISetIsDisjunct(&strips->goal, &mg->mgroup)){
             deadEndOps(&mg->mgroup, strips, &madd, &mpredel, dead_end_ops);
         }
     }
 
-    borISetFree(&madd);
-    borISetFree(&mpredel);
+    pddlISetFree(&madd);
+    pddlISetFree(&mpredel);
 }

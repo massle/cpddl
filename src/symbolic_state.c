@@ -26,7 +26,7 @@ static void stateFree(pddl_symbolic_state_t *state,
 {
     if (state->bdd != NULL)
         pddlBDDDel(mgr, state->bdd);
-    borISetFree(&state->parent_ids);
+    pddlISetFree(&state->parent_ids);
 }
 
 

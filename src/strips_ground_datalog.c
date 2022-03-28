@@ -120,7 +120,7 @@ static void addEqFacts(ground_t *g)
 static void atomToDLAtom(const ground_t *g,
                          const pddl_cond_atom_t *atom,
                          pddl_datalog_atom_t *dlatom,
-                         bor_iset_t *used_param)
+                         pddl_iset_t *used_param)
 {
     pddlDatalogAtomInit(g->dl, dlatom, g->pred_to_dlpred[atom->pred]);
     for (int i = 0; i < atom->arg_size; ++i){
@@ -131,7 +131,7 @@ static void atomToDLAtom(const ground_t *g,
             int param = atom->arg[i].param;
             pddlDatalogAtomSetArg(g->dl, dlatom, i, g->dlvar[param]);
             if (!atom->neg && used_param != NULL)
-                borISetAdd(used_param, param);
+                pddlISetAdd(used_param, param);
         }
     }
 }
@@ -179,7 +179,7 @@ static unsigned addActionRule(ground_t *g,
         pddlDatalogAtomFree(g->dl, &atom);
     }
 
-    BOR_ISET(used_param);
+    PDDL_ISET(used_param);
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
@@ -194,7 +194,7 @@ static unsigned addActionRule(ground_t *g,
     if (cei < 0){
         for (int i = 0; i < action->param.param_size; ++i){
             int type = action->param.param[i].type;
-            if (type != 0 || !borISetIn(i, &used_param)){
+            if (type != 0 || !pddlISetIn(i, &used_param)){
                 pddlDatalogAtomInit(g->dl, &atom, g->type_to_dlpred[type]);
                 pddlDatalogAtomSetArg(g->dl, &atom, 0, g->dlvar[i]);
                 pddlDatalogRuleAddBody(g->dl, &rule, &atom);
@@ -202,7 +202,7 @@ static unsigned addActionRule(ground_t *g,
             }
         }
     }
-    borISetFree(&used_param);
+    pddlISetFree(&used_param);
 
     pddlDatalogAddRule(g->dl, &rule);
     pddlDatalogRuleFree(g->dl, &rule);

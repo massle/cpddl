@@ -35,7 +35,7 @@ struct pred_tnode {
     pred_tnode_t *child;
     int child_size;
     int child_alloc;
-    bor_iset_t fact;
+    pddl_iset_t fact;
 };
 
 struct pred_tree {
@@ -76,7 +76,7 @@ static void predTNodeFree(pred_tnode_t *tnode)
         predTNodeFree(tnode->child + i);
     if (tnode->child != NULL)
         FREE(tnode->child);
-    borISetFree(&tnode->fact);
+    pddlISetFree(&tnode->fact);
 }
 
 static void predTreeInitNode(pred_tree_t *tree,
@@ -175,7 +175,7 @@ static void _predTreeAdd(pred_tree_t *tree,
                          const pddl_fact_t *fact)
 {
     if (tnode->leaf){
-        borISetAdd(&tnode->fact, fact->id);
+        pddlISetAdd(&tnode->fact, fact->id);
     }else{
         int argi = tree->arg[tnode->depth];
         pddl_obj_id_t fact_obj = fact->ground_atom->arg[argi];
@@ -235,48 +235,48 @@ static void _gen(pred_tree_t *tree,
                  pred_tnode_t **tnode,
                  int tree_size,
                  int param_i,
-                 const bor_iset_t *params,
+                 const pddl_iset_t *params,
                  int lifted_mgroup_id,
                  pddl_mgroups_t *mg)
 {
-    if (param_i == borISetSize(params)){
+    if (param_i == pddlISetSize(params)){
         // We have fixed all variables -- create the mutex group from all
         // leaf nodes
-        BOR_ISET(mgroup);
+        PDDL_ISET(mgroup);
         for (int i = 0; i < tree_size; ++i){
             if (tnode[i]->leaf)
-                borISetUnion(&mgroup, &tnode[i]->fact);
+                pddlISetUnion(&mgroup, &tnode[i]->fact);
         }
-        if (borISetSize(&mgroup) > 0){
+        if (pddlISetSize(&mgroup) > 0){
             pddl_mgroup_t *m = pddlMGroupsAdd(mg, &mgroup);
             m->lifted_mgroup_id = lifted_mgroup_id;
         }
-        borISetFree(&mgroup);
+        pddlISetFree(&mgroup);
         return;
     }
 
     // Find all nodes corresponding to the current parameter and collect
     // all possible objects that can be bound to this parameter
-    int param = borISetGet(params, param_i);
-    BOR_ISET(relevant_tree);
-    BOR_ISET(param_obj);
+    int param = pddlISetGet(params, param_i);
+    PDDL_ISET(relevant_tree);
+    PDDL_ISET(param_obj);
     for (int i = 0; i < tree_size; ++i){
         if (tnode[i]->depth < tree[i].arg_size
                 && tree[i].param[tnode[i]->depth] == param){
-            borISetAdd(&relevant_tree, i);
+            pddlISetAdd(&relevant_tree, i);
             for (int ci = 0; ci < tnode[i]->child_size; ++ci)
-                borISetAdd(&param_obj, tnode[i]->child[ci].obj);
+                pddlISetAdd(&param_obj, tnode[i]->child[ci].obj);
         }
     }
 
     // Prepare an array of tree nodes for recursive descent
     pred_tnode_t *next_tnode[tree_size];
     int obj;
-    BOR_ISET_FOR_EACH(&param_obj, obj){
+    PDDL_ISET_FOR_EACH(&param_obj, obj){
         // For each object find nodes that match and descent in those nodes
         memcpy(next_tnode, tnode, sizeof(pred_tnode_t *) * tree_size);
         int tree_i;
-        BOR_ISET_FOR_EACH(&relevant_tree, tree_i){
+        PDDL_ISET_FOR_EACH(&relevant_tree, tree_i){
             for (int ci = 0; ci < tnode[tree_i]->child_size; ++ci){
                 pred_tnode_t *ch = tnode[tree_i]->child + ci;
                 if (ch->obj == obj)
@@ -292,17 +292,17 @@ static void _gen(pred_tree_t *tree,
              lifted_mgroup_id, mg);
     }
 
-    borISetFree(&relevant_tree);
-    borISetFree(&param_obj);
+    pddlISetFree(&relevant_tree);
+    pddlISetFree(&param_obj);
 }
 
 static void gen(pred_tree_t *tree, int tree_size,
                 int lifted_mgroup_id, pddl_mgroups_t *mg)
 {
-    BOR_ISET(param);
+    PDDL_ISET(param);
     for (int i = 0; i < tree_size; ++i){
         for (int j = 0; j < tree[i].arg_size; ++j){
-            borISetAdd(&param, tree[i].param[j]);
+            pddlISetAdd(&param, tree[i].param[j]);
         }
     }
 
@@ -312,7 +312,7 @@ static void gen(pred_tree_t *tree, int tree_size,
 
     _gen(tree, tnode, tree_size, 0, &param, lifted_mgroup_id, mg);
 
-    borISetFree(&param);
+    pddlISetFree(&param);
 }
 
 
@@ -325,7 +325,7 @@ static void predTNodePrint(pred_tnode_t *tn,
         fprintf(fout, "  ");
     fprintf(fout, "%d:%d:%d ::", tn->obj, tn->depth, tn->leaf);
     int fact;
-    BOR_ISET_FOR_EACH(&tn->fact, fact){
+    PDDL_ISET_FOR_EACH(&tn->fact, fact){
         fprintf(fout, " (%s)", strips->fact.fact[fact]->name);
     }
     fprintf(fout, "\n");
@@ -380,7 +380,7 @@ static void groundMGroup(pddl_mgroups_t *mg,
 
 void pddlMGroupFree(pddl_mgroup_t *m)
 {
-    borISetFree(&m->mgroup);
+    pddlISetFree(&m->mgroup);
 }
 
 void pddlMGroupsInitEmpty(pddl_mgroups_t *mg)
@@ -437,7 +437,7 @@ void pddlMGroupsFree(pddl_mgroups_t *mg)
 }
 
 
-pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const bor_iset_t *fact)
+pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const pddl_iset_t *fact)
 {
     if (mg->mgroup_alloc == mg->mgroup_size){
         if (mg->mgroup_alloc == 0)
@@ -450,7 +450,7 @@ pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const bor_iset_t *fact)
     pddl_mgroup_t *m = mg->mgroup + mg->mgroup_size++;
     bzero(m, sizeof(*m));
     m->lifted_mgroup_id = -1;
-    borISetUnion(&m->mgroup, fact);
+    pddlISetUnion(&m->mgroup, fact);
     return m;
 }
 
@@ -458,9 +458,9 @@ static int cmpMGroup(const void *a, const void *b, void *_)
 {
     const pddl_mgroup_t *m1 = a;
     const pddl_mgroup_t *m2 = b;
-    int cmp = borISetSize(&m1->mgroup) - borISetSize(&m2->mgroup);
+    int cmp = pddlISetSize(&m1->mgroup) - pddlISetSize(&m2->mgroup);
     if (cmp == 0)
-        cmp = borISetCmp(&m1->mgroup, &m2->mgroup);
+        cmp = pddlISetCmp(&m1->mgroup, &m2->mgroup);
     if (cmp == 0)
         cmp = m1->lifted_mgroup_id - m2->lifted_mgroup_id;
     return cmp;
@@ -478,7 +478,7 @@ void pddlMGroupsSortUniq(pddl_mgroups_t *mg)
     const pddl_mgroup_t *b = mg->mgroup + 0;
     for (int i = 1; i < mg->mgroup_size; ++i){
         pddl_mgroup_t *m = mg->mgroup + i;
-        if (borISetCmp(&b->mgroup, &m->mgroup) == 0){
+        if (pddlISetCmp(&b->mgroup, &m->mgroup) == 0){
             pddlMGroupFree(m);
         }else{
             if (ins != i)
@@ -494,9 +494,9 @@ static int cmpMGroupSizeDesc(const void *a, const void *b, void *_)
 {
     const pddl_mgroup_t *m1 = a;
     const pddl_mgroup_t *m2 = b;
-    int cmp = borISetSize(&m2->mgroup) - borISetSize(&m1->mgroup);
+    int cmp = pddlISetSize(&m2->mgroup) - pddlISetSize(&m1->mgroup);
     if (cmp == 0)
-        cmp = borISetCmp(&m1->mgroup, &m2->mgroup);
+        cmp = pddlISetCmp(&m1->mgroup, &m2->mgroup);
     if (cmp == 0)
         cmp = m1->lifted_mgroup_id - m2->lifted_mgroup_id;
     return cmp;
@@ -504,16 +504,16 @@ static int cmpMGroupSizeDesc(const void *a, const void *b, void *_)
 
 static int cmpMGroupEssentialAndSizeDesc(const void *a, const void *b, void *u)
 {
-    const bor_iset_t *ess = u;
+    const pddl_iset_t *ess = u;
     const pddl_mgroup_t *m1 = a;
     const pddl_mgroup_t *m2 = b;
-    int ness1 = borISetIsDisjoint(&m1->mgroup, ess);
-    int ness2 = borISetIsDisjoint(&m2->mgroup, ess);
+    int ness1 = pddlISetIsDisjoint(&m1->mgroup, ess);
+    int ness2 = pddlISetIsDisjoint(&m2->mgroup, ess);
     int cmp = ness1 - ness2;
     if (cmp == 0)
-        cmp = borISetSize(&m2->mgroup) - borISetSize(&m1->mgroup);
+        cmp = pddlISetSize(&m2->mgroup) - pddlISetSize(&m1->mgroup);
     if (cmp == 0)
-        cmp = borISetCmp(&m1->mgroup, &m2->mgroup);
+        cmp = pddlISetCmp(&m1->mgroup, &m2->mgroup);
     if (cmp == 0)
         cmp = m1->lifted_mgroup_id - m2->lifted_mgroup_id;
     return cmp;
@@ -529,7 +529,7 @@ void pddlMGroupsSortBySizeDesc(pddl_mgroups_t *mg)
 }
 
 void pddlMGroupsSortByEssentialAndSizeDesc(pddl_mgroups_t *mg,
-                                           const bor_iset_t *ess)
+                                           const pddl_iset_t *ess)
 {
     if (mg->mgroup_size == 0)
         return;
@@ -544,7 +544,7 @@ int pddlMGroupsSetExactlyOne(pddl_mgroups_t *mgs, const pddl_strips_t *strips)
 
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         pddl_mgroup_t *mg = mgs->mgroup + mi;
-        if (borISetIsDisjunct(&mg->mgroup, &strips->init)){
+        if (pddlISetIsDisjunct(&mg->mgroup, &strips->init)){
             mg->is_exactly_one = 0;
             continue;
         }
@@ -554,17 +554,17 @@ int pddlMGroupsSetExactlyOne(pddl_mgroups_t *mgs, const pddl_strips_t *strips)
         for (int op_id = 0;
                 op_id < strips->op.op_size && mg->is_exactly_one; ++op_id){
             const pddl_strips_op_t *op = strips->op.op[op_id];
-            if (!borISetIsDisjunct(&op->del_eff, &mg->mgroup)
-                    && borISetIsDisjunct(&op->add_eff, &mg->mgroup)){
+            if (!pddlISetIsDisjunct(&op->del_eff, &mg->mgroup)
+                    && pddlISetIsDisjunct(&op->add_eff, &mg->mgroup)){
                 mg->is_exactly_one = 0;
                 break;
             }
 
             for (int ce_id = 0; ce_id < op->cond_eff_size; ++ce_id){
                 const pddl_strips_op_cond_eff_t *ce = op->cond_eff + ce_id;
-                if (!borISetIsDisjunct(&ce->del_eff, &mg->mgroup)
-                        && borISetIsDisjunct(&ce->add_eff, &mg->mgroup)
-                        && borISetIsDisjunct(&op->add_eff, &mg->mgroup)){
+                if (!pddlISetIsDisjunct(&ce->del_eff, &mg->mgroup)
+                        && pddlISetIsDisjunct(&ce->add_eff, &mg->mgroup)
+                        && pddlISetIsDisjunct(&op->add_eff, &mg->mgroup)){
                     mg->is_exactly_one = 0;
                     break;
                 }
@@ -583,7 +583,7 @@ int pddlMGroupsSetGoal(pddl_mgroups_t *mgs, const pddl_strips_t *strips)
     int num = 0;
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         pddl_mgroup_t *mg = mgs->mgroup + mi;
-        if (!borISetIsDisjunct(&mg->mgroup, &strips->goal)){
+        if (!pddlISetIsDisjunct(&mg->mgroup, &strips->goal)){
             ++num;
             mg->is_goal = 1;
         }
@@ -592,27 +592,27 @@ int pddlMGroupsSetGoal(pddl_mgroups_t *mgs, const pddl_strips_t *strips)
 }
 
 void pddlMGroupsGatherExactlyOneFacts(const pddl_mgroups_t *mgs,
-                                      bor_iset_t *set)
+                                      pddl_iset_t *set)
 {
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         if (mgs->mgroup[mi].is_exactly_one)
-            borISetUnion(set, &mgs->mgroup[mi].mgroup);
+            pddlISetUnion(set, &mgs->mgroup[mi].mgroup);
     }
 }
 
-void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts)
+void pddlMGroupsReduce(pddl_mgroups_t *mgs, const pddl_iset_t *rm_facts)
 {
     int max_fact_id = 0;
 
-    if (borISetSize(rm_facts) == 0)
+    if (pddlISetSize(rm_facts) == 0)
         return;
 
-    max_fact_id = borISetGet(rm_facts, borISetSize(rm_facts) - 1);
+    max_fact_id = pddlISetGet(rm_facts, pddlISetSize(rm_facts) - 1);
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         pddl_mgroup_t *mg = mgs->mgroup + mi;
-        borISetMinus(&mg->mgroup, rm_facts);
-        if (borISetSize(&mg->mgroup) > 0){
-            int fid = borISetGet(&mg->mgroup, borISetSize(&mg->mgroup) - 1);
+        pddlISetMinus(&mg->mgroup, rm_facts);
+        if (pddlISetSize(&mg->mgroup) > 0){
+            int fid = pddlISetGet(&mg->mgroup, pddlISetSize(&mg->mgroup) - 1);
             max_fact_id = PDDL_MAX(max_fact_id, fid);
         }
     }
@@ -623,10 +623,10 @@ void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts)
     int ins = 0;
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         pddl_mgroup_t *mg = mgs->mgroup + mi;
-        if (borISetSize(&mg->mgroup) == 0){
+        if (pddlISetSize(&mg->mgroup) == 0){
             pddlMGroupFree(mg);
         }else{
-            borISetRemap(&mg->mgroup, remap);
+            pddlISetRemap(&mg->mgroup, remap);
             mgs->mgroup[ins++] = mgs->mgroup[mi];
         }
     }
@@ -637,10 +637,10 @@ void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts)
         FREE(remap);
 }
 
-void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const bor_iset_t *rm)
+void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const pddl_iset_t *rm)
 {
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi)
-        borISetMinus(&mgs->mgroup[mgi].mgroup, rm);
+        pddlISetMinus(&mgs->mgroup[mgi].mgroup, rm);
 }
 
 void pddlMGroupsRemoveSmall(pddl_mgroups_t *mgs, int size)
@@ -648,7 +648,7 @@ void pddlMGroupsRemoveSmall(pddl_mgroups_t *mgs, int size)
     int ins = 0;
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         pddl_mgroup_t *mg = mgs->mgroup + mi;
-        if (borISetSize(&mg->mgroup) <= size){
+        if (pddlISetSize(&mg->mgroup) <= size){
             pddlMGroupFree(mg);
         }else{
             mgs->mgroup[ins++] = mgs->mgroup[mi];
@@ -666,24 +666,24 @@ void pddlMGroupsRemoveSubsets(pddl_mgroups_t *mgs)
 {
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         pddl_mgroup_t *m1 = mgs->mgroup + mi;
-        int m1size = borISetSize(&m1->mgroup);
+        int m1size = pddlISetSize(&m1->mgroup);
         if (m1size <= 0)
             continue;
 
         for (int mi2 = mi + 1; mi2 < mgs->mgroup_size; ++mi2){
             pddl_mgroup_t *m2 = mgs->mgroup + mi2;
-            int m2size = borISetSize(&m2->mgroup);
+            int m2size = pddlISetSize(&m2->mgroup);
             if (m2size <= 0)
                 continue;
 
             if (m1size <= m2size){
-                if (borISetIsSubset(&m1->mgroup, &m2->mgroup)){
-                    borISetEmpty(&m1->mgroup);
+                if (pddlISetIsSubset(&m1->mgroup, &m2->mgroup)){
+                    pddlISetEmpty(&m1->mgroup);
                     break;
                 }
             }else{
-                if (borISetIsSubset(&m2->mgroup, &m1->mgroup))
-                    borISetEmpty(&m2->mgroup);
+                if (pddlISetIsSubset(&m2->mgroup, &m1->mgroup))
+                    pddlISetEmpty(&m2->mgroup);
             }
         }
     }
@@ -692,15 +692,15 @@ void pddlMGroupsRemoveSubsets(pddl_mgroups_t *mgs)
 
 void pddlMGroupsAddFDRVars(pddl_mgroups_t *mgs, const pddl_fdr_vars_t *vars)
 {
-    BOR_ISET(mg);
+    PDDL_ISET(mg);
     for (int var = 0; var < vars->var_size; ++var){
-        borISetEmpty(&mg);
+        pddlISetEmpty(&mg);
         for (int val = 0; val < vars->var[var].val_size; ++val)
-            borISetAdd(&mg, vars->var[var].val[val].global_id);
+            pddlISetAdd(&mg, vars->var[var].val[val].global_id);
         pddl_mgroup_t *m = pddlMGroupsAdd(mgs, &mg);
         m->is_exactly_one = 1;
     }
-    borISetFree(&mg);
+    pddlISetFree(&mg);
 }
 
 int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
@@ -740,24 +740,24 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
         borLPSetCoef(lp, fact_id, fact_id, 1.);
     }
 
-    BOR_ISET(covered_facts);
+    PDDL_ISET(covered_facts);
     for (int mi = 0; mi < mgs->mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mgs->mgroup + mi;
         int fact_id;
-        BOR_ISET_FOR_EACH(&mg->mgroup, fact_id)
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fact_id)
             borLPSetCoef(lp, fact_id, fact_size + mi, -1.);
-        borISetUnion(&covered_facts, &mg->mgroup);
+        pddlISetUnion(&covered_facts, &mg->mgroup);
     }
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&covered_facts, fact_id)
+    PDDL_ISET_FOR_EACH(&covered_facts, fact_id)
         borLPSetCoef(lp, fact_size, fact_id, 1.);
     char sense = 'E';
-    double rhs = borISetSize(&covered_facts);
+    double rhs = pddlISetSize(&covered_facts);
     borLPSetRHS(lp, fact_size, rhs, sense);
 
-    cover_number = fact_size - borISetSize(&covered_facts);
-    borISetFree(&covered_facts);
+    cover_number = fact_size - pddlISetSize(&covered_facts);
+    pddlISetFree(&covered_facts);
 
     double val, *obj;
     obj = ALLOC_ARR(double, cols);
@@ -787,7 +787,7 @@ int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs)
     return cnt;
 }
 
-void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
+void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, pddl_iset_t *ess)
 {
     int fact_size = 0;
     int fact_alloc = 128;
@@ -796,7 +796,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
     fact_mgroups = CALLOC_ARR(int, fact_alloc);
     for (int i = 0; i < mgroup->mgroup_size; ++i){
         int fact;
-        BOR_ISET_FOR_EACH(&mgroup->mgroup[i].mgroup, fact){
+        PDDL_ISET_FOR_EACH(&mgroup->mgroup[i].mgroup, fact){
             if (fact >= fact_alloc){
                 int orig_alloc = fact_alloc;
                 while (fact >= fact_alloc)
@@ -813,7 +813,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
 
     for (int fact_id = 0; fact_id < fact_size; ++fact_id){
         if (fact_mgroups[fact_id] == 1)
-            borISetAdd(ess, fact_id);
+            pddlISetAdd(ess, fact_id);
     }
 
     FREE(fact_mgroups);
@@ -828,11 +828,11 @@ void pddlMGroupsExtractCoverLargest(const pddl_mgroups_t *_mgs,
         pddlMGroupsSortBySizeDesc(&mgs);
         pddlMGroupsRemoveEmpty(&mgs);
         if (mgs.mgroup_size > 0){
-            BOR_ISET(set);
-            borISetUnion(&set, &mgs.mgroup[0].mgroup);
+            PDDL_ISET(set);
+            pddlISetUnion(&set, &mgs.mgroup[0].mgroup);
             pddlMGroupsAdd(cover_set, &set);
             pddlMGroupsRemoveSet(&mgs, &set);
-            borISetFree(&set);
+            pddlISetFree(&set);
         }
     }
     pddlMGroupsFree(&mgs);
@@ -846,52 +846,52 @@ void pddlMGroupsExtractCoverEssential(const pddl_mgroups_t *_mgs,
     pddlMGroupsRemoveSubsets(&mgs);
     pddlMGroupsRemoveEmpty(&mgs);
     
-    BOR_ISET(essential);
+    PDDL_ISET(essential);
     pddlMGroupsEssentialFacts(&mgs, &essential);
     while (mgs.mgroup_size > 0){
         pddlMGroupsSortByEssentialAndSizeDesc(&mgs, &essential);
         pddlMGroupsRemoveEmpty(&mgs);
         if (mgs.mgroup_size > 0){
-            BOR_ISET(set);
-            borISetUnion(&set, &mgs.mgroup[0].mgroup);
+            PDDL_ISET(set);
+            pddlISetUnion(&set, &mgs.mgroup[0].mgroup);
             pddlMGroupsAdd(cover_set, &set);
             pddlMGroupsRemoveSet(&mgs, &set);
-            borISetFree(&set);
+            pddlISetFree(&set);
         }
     }
-    borISetFree(&essential);
+    pddlISetFree(&essential);
     pddlMGroupsFree(&mgs);
 }
 
 int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs)
 {
     int num = 0;
-    BOR_ISET(facts);
+    PDDL_ISET(facts);
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi)
-        borISetUnion(&facts, &mgs->mgroup[mgi].mgroup);
-    num = borISetSize(&facts);
-    borISetFree(&facts);
+        pddlISetUnion(&facts, &mgs->mgroup[mgi].mgroup);
+    num = pddlISetSize(&facts);
+    pddlISetFree(&facts);
     return num;
 }
 
 void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
                                     const pddl_mgroups_t *src,
-                                    const bor_iset_t *fset)
+                                    const pddl_iset_t *fset)
 {
-    BOR_ISET(mg1);
-    BOR_ISET(mg2);
+    PDDL_ISET(mg1);
+    PDDL_ISET(mg2);
     for (int mgi = 0; mgi < src->mgroup_size; ++mgi){
-        const bor_iset_t *mg = &src->mgroup[mgi].mgroup;
-        borISetIntersect2(&mg1, mg, fset);
-        if (borISetSize(&mg1) > 0)
+        const pddl_iset_t *mg = &src->mgroup[mgi].mgroup;
+        pddlISetIntersect2(&mg1, mg, fset);
+        if (pddlISetSize(&mg1) > 0)
             pddlMGroupsAdd(dst, &mg1);
 
-        borISetMinus2(&mg2, mg, fset);
-        if (borISetSize(&mg2) > 0)
+        pddlISetMinus2(&mg2, mg, fset);
+        if (pddlISetSize(&mg2) > 0)
             pddlMGroupsAdd(dst, &mg2);
     }
-    borISetFree(&mg1);
-    borISetFree(&mg2);
+    pddlISetFree(&mg1);
+    pddlISetFree(&mg2);
 
     pddlMGroupsSortUniq(dst);
 }
@@ -901,14 +901,14 @@ void pddlMGroupsPrint(const pddl_t *pddl,
                       const pddl_mgroups_t *mg,
                       FILE *fout)
 {
-    BOR_ISET(lmgs);
+    PDDL_ISET(lmgs);
     for (int i = 0; i < mg->mgroup_size; ++i){
         const pddl_mgroup_t *m = mg->mgroup + i;
-        borISetAdd(&lmgs, m->lifted_mgroup_id);
+        pddlISetAdd(&lmgs, m->lifted_mgroup_id);
     }
 
     int lmgid;
-    BOR_ISET_FOR_EACH(&lmgs, lmgid){
+    PDDL_ISET_FOR_EACH(&lmgs, lmgid){
         if (lmgid >= 0 && pddl != NULL){
             pddlLiftedMGroupPrint(pddl, mg->lifted_mgroup.mgroup + lmgid, fout);
         }
@@ -918,7 +918,7 @@ void pddlMGroupsPrint(const pddl_t *pddl,
             if (m->lifted_mgroup_id != lmgid)
                 continue;
             int fact;
-            BOR_ISET_FOR_EACH(&m->mgroup, fact){
+            PDDL_ISET_FOR_EACH(&m->mgroup, fact){
                 fprintf(fout, " (%s)", strips->fact.fact[fact]->name);
             }
             if (m->is_exactly_one)
@@ -932,7 +932,7 @@ void pddlMGroupsPrint(const pddl_t *pddl,
         fprintf(fout, "\n");
     }
 
-    borISetFree(&lmgs);
+    pddlISetFree(&lmgs);
 }
 
 void pddlMGroupPrint(const pddl_t *pddl,
@@ -942,7 +942,7 @@ void pddlMGroupPrint(const pddl_t *pddl,
 {
     int init = 0;
     int fact;
-    BOR_ISET_FOR_EACH(&mg->mgroup, fact){
+    PDDL_ISET_FOR_EACH(&mg->mgroup, fact){
         if (init)
             fprintf(fout, " ");
         fprintf(fout, "(%s)", strips->fact.fact[fact]->name);
@@ -982,7 +982,7 @@ void pddlMGroupsPrintTable(const pddl_t *pddl,
         pddlOutBoxAddLine(box, line);
 
         int fact;
-        BOR_ISET_FOR_EACH(&m->mgroup, fact){
+        PDDL_ISET_FOR_EACH(&m->mgroup, fact){
             snprintf(line, 128, "%d:(%s)", fact, strips->fact.fact[fact]->name);
             pddlOutBoxAddLine(box, line);
         }

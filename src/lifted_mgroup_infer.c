@@ -1467,7 +1467,7 @@ static void refineParamTypesTree(refine_t *refine,
     const pddl_type_t *atom_parent_type = ts->type + atom_parent_type_id;
 
     int tid;
-    BOR_ISET_FOR_EACH(&atom_parent_type->child, tid){
+    PDDL_ISET_FOR_EACH(&atom_parent_type->child, tid){
         if (tid == atom_type_id)
             continue;
         ASSERT(pddlTypesAreDisjunct(ts, tid, atom_type_id));
@@ -1495,14 +1495,14 @@ static void refineParamTypes(refine_t *refine,
 
     if (pddlTypesIsEither(ts, cand_type_id)){
         int tid;
-        BOR_ISET_FOR_EACH(&cand_type->either, tid)
+        PDDL_ISET_FOR_EACH(&cand_type->either, tid)
             refineParamTypes(refine, cand, param, tid, atom_type_id);
         return;
     }
 
     if (pddlTypesIsEither(ts, atom_type_id)){
         int tid;
-        BOR_ISET_FOR_EACH(&atom_type->either, tid)
+        PDDL_ISET_FOR_EACH(&atom_type->either, tid)
             refineParamTypes(refine, cand, param, cand_type_id, tid);
         return;
     }
@@ -1553,7 +1553,7 @@ static void refineTypes(refine_t *refine,
 
         if (aobj >= 0){
             int tid;
-            BOR_ISET_FOR_EACH(&ts->type[atype].child, tid){
+            PDDL_ISET_FOR_EACH(&ts->type[atype].child, tid){
                 if (!pddlTypesObjHasType(ts, tid, aobj))
                     addCandidateWithChangedParamType(refine, cand, cparam, tid);
             }
@@ -1563,12 +1563,12 @@ static void refineTypes(refine_t *refine,
 
 static void countedVariables(const pddl_lifted_mgroup_t *cand,
                              const pddl_cond_atom_t *atom,
-                             bor_iset_t *vars)
+                             pddl_iset_t *vars)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom->arg[i].param >= 0
                 && cand->param.param[atom->arg[i].param].is_counted_var){
-            borISetAdd(vars, atom->arg[i].param);
+            pddlISetAdd(vars, atom->arg[i].param);
         }
     }
 }
@@ -1587,19 +1587,19 @@ static void refineVariables(refine_t *refine,
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
 
-    BOR_ISET(relevant_params);
+    PDDL_ISET(relevant_params);
 
     // Collect counted variables present in both cand_atom1 and cand_atom2
-    BOR_ISET(counted_vars2);
+    PDDL_ISET(counted_vars2);
     countedVariables(cand->mgroup, cand_atom1, &relevant_params);
     countedVariables(cand->mgroup, cand_atom2, &counted_vars2);
-    borISetIntersect(&relevant_params, &counted_vars2);
-    borISetFree(&counted_vars2);
+    pddlISetIntersect(&relevant_params, &counted_vars2);
+    pddlISetFree(&counted_vars2);
 
     // If a1 and a2 differ in a argument corresonding to counted variable,
     // then we can try to change this variable to non-counted variable
     int counted_var;
-    BOR_ISET_FOR_EACH(&relevant_params, counted_var){
+    PDDL_ISET_FOR_EACH(&relevant_params, counted_var){
         for (int ai1 = 0; ai1 < cand_atom1->arg_size; ++ai1){
             if (cand_atom1->arg[ai1].param != counted_var)
                 continue;
@@ -1621,7 +1621,7 @@ static void refineVariables(refine_t *refine,
         }
     }
 
-    borISetFree(&relevant_params);
+    pddlISetFree(&relevant_params);
 }
 
 static void _refineVariablesProved(refine_t *refine,

@@ -32,9 +32,9 @@ extern "C" {
  */
 struct pddl_symbolic_fact_group {
     int id;
-    bor_iset_t fact; /*!< Facts forming this mutex group */
-    bor_iset_t pre_var; /*!< Corresponding precondition BDD variables */
-    bor_iset_t eff_var; /*!< Corresponding effect BDD variables */
+    pddl_iset_t fact; /*!< Facts forming this mutex group */
+    pddl_iset_t pre_var; /*!< Corresponding precondition BDD variables */
+    pddl_iset_t eff_var; /*!< Corresponding effect BDD variables */
 };
 typedef struct pddl_symbolic_fact_group pddl_symbolic_fact_group_t;
 
@@ -86,13 +86,13 @@ void pddlSymbolicVarsFree(pddl_symbolic_vars_t *vars);
  * Construct BDD representing the given STRIPS state
  */
 pddl_bdd_t *pddlSymbolicVarsCreateState(pddl_symbolic_vars_t *vars,
-                                        const bor_iset_t *state);
+                                        const pddl_iset_t *state);
 
 /**
  * Construct BDD partial state
  */
 pddl_bdd_t *pddlSymbolicVarsCreatePartialState(pddl_symbolic_vars_t *vars,
-                                               const bor_iset_t *part_state);
+                                               const pddl_iset_t *part_state);
 
 /**
  * Construct bi-implication of the corresponding mutex group
@@ -108,16 +108,16 @@ pddl_bdd_t *pddlSymbolicVarsCreateMutexPre(pddl_symbolic_vars_t *vars,
                                            int fact1, int fact2);
 
 pddl_bdd_t *pddlSymbolicVarsCreateExactlyOneMGroupPre(pddl_symbolic_vars_t *vars,
-                                                      const bor_iset_t *mgroup);
+                                                      const pddl_iset_t *mgroup);
 pddl_bdd_t *pddlSymbolicVarsCreateExactlyOneMGroupEff(pddl_symbolic_vars_t *vars,
-                                                      const bor_iset_t *mgroup);
+                                                      const pddl_iset_t *mgroup);
 
 int pddlSymbolicVarsFactFromBDDCube(const pddl_symbolic_vars_t *vars,
                                     int group_id,
                                     const char *cube);
 
 void pddlSymbolicVarsGroupsBDDVars(pddl_symbolic_vars_t *vars,
-                                   const bor_iset_t *groups,
+                                   const pddl_iset_t *groups,
                                    pddl_bdd_t ***var_pre,
                                    pddl_bdd_t ***var_eff,
                                    int *var_size);

@@ -20,7 +20,7 @@
 #ifndef __PDDL_SCC_H__
 #define __PDDL_SCC_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <boruvka/iarr.h>
 
 #ifdef __cplusplus
@@ -33,7 +33,7 @@ extern "C" {
  * Directed graph for SCC algorithm.
  */
 struct pddl_scc_graph {
-    bor_iset_t *node;
+    pddl_iset_t *node;
     int node_size;
 };
 typedef struct pddl_scc_graph pddl_scc_graph_t;
@@ -41,7 +41,7 @@ typedef struct pddl_scc_graph pddl_scc_graph_t;
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size);
 void pddlSCCGraphInitInduced(pddl_scc_graph_t *g,
                              const pddl_scc_graph_t *src,
-                             const bor_iset_t *ind);
+                             const pddl_iset_t *ind);
 void pddlSCCGraphFree(pddl_scc_graph_t *g);
 void pddlSCCGraphAddEdge(pddl_scc_graph_t *g, int from, int to);
 
@@ -49,7 +49,7 @@ void pddlSCCGraphAddEdge(pddl_scc_graph_t *g, int from, int to);
  * Strongly connected components
  */
 struct pddl_scc {
-    bor_iset_t *comp; /*!< List of components */
+    pddl_iset_t *comp; /*!< List of components */
     int comp_size;    /*!< Number of components */
     int comp_alloc;
 };

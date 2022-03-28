@@ -99,7 +99,7 @@ struct mg_strips {
     const pddl_strips_t *strips;
     const pddl_mgroups_t *mgroup;
     int fact_size;
-    bor_iset_t *fact_to_mgroup;
+    pddl_iset_t *fact_to_mgroup;
     int op_size;
     mg_strips_op_t *op;
 
@@ -113,15 +113,15 @@ typedef struct mg_strips mg_strips_t;
 
 struct pre_eff_vars {
     int group_id;
-    bor_iset_t pre;
-    bor_iset_t eff;
+    pddl_iset_t pre;
+    pddl_iset_t eff;
     pddl_htable_key_t key;
     pddl_list_t htable;
 };
 typedef struct pre_eff_vars pre_eff_vars_t;
 
 struct op_groups {
-    bor_iset_t *group;
+    pddl_iset_t *group;
     int group_size;
     int group_alloc;
     pddl_htable_t *htable;
@@ -147,7 +147,7 @@ static int preEffEq(const pddl_list_t *l1, const pddl_list_t *l2, void *_)
 {
     const pre_eff_vars_t *v1 = PDDL_LIST_ENTRY(l1, pre_eff_vars_t, htable);
     const pre_eff_vars_t *v2 = PDDL_LIST_ENTRY(l2, pre_eff_vars_t, htable);
-    return borISetEq(&v1->pre, &v2->pre) && borISetEq(&v1->eff, &v2->eff);
+    return pddlISetEq(&v1->pre, &v2->pre) && pddlISetEq(&v1->eff, &v2->eff);
 }
 
 static void assignOpToGroup(op_groups_t *opgs,
@@ -158,9 +158,9 @@ static void assignOpToGroup(op_groups_t *opgs,
     pre_eff_vars_t *pev = ALLOC(pre_eff_vars_t);
     bzero(pev, sizeof(*pev));
     for (int fi = 0; fi < pre->fact_size; ++fi)
-        borISetAdd(&pev->pre, pre->fact[fi].var);
+        pddlISetAdd(&pev->pre, pre->fact[fi].var);
     for (int fi = 0; fi < eff->fact_size; ++fi)
-        borISetAdd(&pev->eff, eff->fact[fi].var);
+        pddlISetAdd(&pev->eff, eff->fact[fi].var);
     pev->key = preEffComputeHash(pev);
     pddlListInit(&pev->htable);
 
@@ -170,18 +170,18 @@ static void assignOpToGroup(op_groups_t *opgs,
             if (opgs->group_alloc == 0)
                 opgs->group_alloc = 2;
             opgs->group_alloc *= 2;
-            opgs->group = REALLOC_ARR(opgs->group, bor_iset_t,
+            opgs->group = REALLOC_ARR(opgs->group, pddl_iset_t,
                                           opgs->group_alloc);
         }
         int group_id = opgs->group_size++;
-        bor_iset_t *g = opgs->group + group_id;
-        borISetInit(g);
+        pddl_iset_t *g = opgs->group + group_id;
+        pddlISetInit(g);
         pev->group_id = group_id;
-        borISetAdd(g, op_id);
+        pddlISetAdd(g, op_id);
 
     }else{
         pev = PDDL_LIST_ENTRY(found, pre_eff_vars_t, htable);
-        borISetAdd(opgs->group + pev->group_id, op_id);
+        pddlISetAdd(opgs->group + pev->group_id, op_id);
     }
 }
 
@@ -208,7 +208,7 @@ static void opGroupsInitMGStrips(op_groups_t *opg, const mg_strips_t *mgs)
 static void opGroupsFree(op_groups_t *opg)
 {
     for (int i = 0; i < opg->group_size; ++i)
-        borISetFree(opg->group + i);
+        pddlISetFree(opg->group + i);
     if (opg->group != NULL)
         FREE(opg->group);
 
@@ -219,8 +219,8 @@ static void opGroupsFree(op_groups_t *opg)
         pddl_list_t *item = pddlListNext(&list);
         pddlListDel(item);
         pre_eff_vars_t *v = PDDL_LIST_ENTRY(item, pre_eff_vars_t, htable);
-        borISetFree(&v->pre);
-        borISetFree(&v->eff);
+        pddlISetFree(&v->pre);
+        pddlISetFree(&v->eff);
         FREE(v);
     }
     pddlHTableDel(opg->htable);
@@ -228,13 +228,13 @@ static void opGroupsFree(op_groups_t *opg)
 
 static int extractSolution(IloCP &cp,
                            IloIntVarArray &var_op,
-                           bor_iset_t *redundant_op,
+                           pddl_iset_t *redundant_op,
                            int *map,
                            bor_err_t *err)
 {
     std::vector<char> mapped_to(var_op.getSize(), 0);
 
-    BOR_ISET(redundant);
+    PDDL_ISET(redundant);
     for (int i = 0; i < var_op.getSize(); ++i)
         mapped_to[cp.getValue(var_op[i])] = 1;
 
@@ -243,7 +243,7 @@ static int extractSolution(IloCP &cp,
             if (map != NULL)
                 map[i] = cp.getValue(var_op[i]);
 
-            borISetAdd(&redundant, i);
+            pddlISetAdd(&redundant, i);
 #ifdef DEBUG_PRINT_OP_MAPPING
             BOR_INFO(err, "    :: op %d -> %d", i, cp.getValue(var_op[i]));
 #endif /* DEBUG_PRINT_OP_MAPPING */
@@ -253,14 +253,14 @@ static int extractSolution(IloCP &cp,
             map[i] = i;
         }
     }
-    int num_redundant = borISetSize(&redundant);
+    int num_redundant = pddlISetSize(&redundant);
 
     if (redundant_op != NULL
-            && borISetSize(&redundant) > borISetSize(redundant_op)){
-        borISetEmpty(redundant_op);
-        borISetUnion(redundant_op, &redundant);
+            && pddlISetSize(&redundant) > pddlISetSize(redundant_op)){
+        pddlISetEmpty(redundant_op);
+        pddlISetUnion(redundant_op, &redundant);
     }
-    borISetFree(&redundant);
+    pddlISetFree(&redundant);
     return num_redundant;
 }
 
@@ -268,7 +268,7 @@ static int solve(IloModel &model,
                  IloIntVarArray &var_op,
                  const pddl_endomorphism_config_t *cfg,
                  float max_search_time,
-                 bor_iset_t *redundant_op,
+                 pddl_iset_t *redundant_op,
                  int *map,
                  const char *name,
                  bor_err_t *err)
@@ -338,7 +338,7 @@ static int solve(IloModel &model,
 }
 
 static int fdrOpPreConstr(const pddl_fdr_op_t *op,
-                          const bor_iset_t *group,
+                          const pddl_iset_t *group,
                           const pddl_fdr_t *fdr,
                           IloEnv &env,
                           IloModel &model,
@@ -350,7 +350,7 @@ static int fdrOpPreConstr(const pddl_fdr_op_t *op,
 
     int pre_size = op->pre.fact_size + 1;
     IloIntTupleSet pre(env, pre_size);
-    BOR_ISET_FOR_EACH(group, other_op_id){
+    PDDL_ISET_FOR_EACH(group, other_op_id){
         const pddl_fdr_op_t *other_op = fdr->op.op[other_op_id];
         if (other_op->cost > op->cost)
             continue;
@@ -374,7 +374,7 @@ static int fdrOpPreConstr(const pddl_fdr_op_t *op,
 }
 
 static int fdrOpEffConstr(const pddl_fdr_op_t *op,
-                          const bor_iset_t *group,
+                          const pddl_iset_t *group,
                           const pddl_fdr_t *fdr,
                           IloEnv &env,
                           IloModel &model,
@@ -386,7 +386,7 @@ static int fdrOpEffConstr(const pddl_fdr_op_t *op,
 
     int eff_size = op->eff.fact_size + 1;
     IloIntTupleSet eff(env, eff_size);
-    BOR_ISET_FOR_EACH(group, other_op_id){
+    PDDL_ISET_FOR_EACH(group, other_op_id){
         const pddl_fdr_op_t *other_op = fdr->op.op[other_op_id];
         if (other_op->cost > op->cost)
             continue;
@@ -410,7 +410,7 @@ static int fdrOpEffConstr(const pddl_fdr_op_t *op,
 }
 
 static int fdrOpConstr(int op_id,
-                       const bor_iset_t *group,
+                       const pddl_iset_t *group,
                        const pddl_fdr_t *fdr,
                        IloEnv &env,
                        IloModel &model,
@@ -430,7 +430,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
                         const op_groups_t *opg,
                         IloEnv &env,
                         IloModel &model,
-                        bor_iset_t *redundant_ops,
+                        pddl_iset_t *redundant_ops,
                         pddl_time_limit_t *time_limit,
                         bor_err_t *err)
 {
@@ -483,8 +483,8 @@ static int fdrInference(const pddl_fdr_t *fdr,
             return -1;
 
         int op_id;
-        const bor_iset_t *group = &opg->group[group_id];
-        BOR_ISET_FOR_EACH(group, op_id){
+        const pddl_iset_t *group = &opg->group[group_id];
+        PDDL_ISET_FOR_EACH(group, op_id){
             if (pddlTimeLimitCheck(time_limit) != 0)
                 return -1;
 
@@ -492,7 +492,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
                                          var_fact, var_op, err);
         }
         //BOR_INFO(err, "  Created operator constraints %d",
-        //         borISetSize(&opg.group[group_id]));
+        //         pddlISetSize(&opg.group[group_id]));
     }
     BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
 
@@ -511,7 +511,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
 
 static int fdrRedundantOps(const pddl_fdr_t *fdr,
                            const pddl_endomorphism_config_t *cfg,
-                           bor_iset_t *redundant_ops,
+                           pddl_iset_t *redundant_ops,
                            bor_err_t *err)
 {
     pddl_time_limit_t time_limit;
@@ -558,11 +558,11 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
     mgs->mgroup = &mg_strips->mg;
 
     mgs->fact_size = mgs->strips->fact.fact_size;
-    mgs->fact_to_mgroup = CALLOC_ARR(bor_iset_t, mgs->fact_size);
+    mgs->fact_to_mgroup = CALLOC_ARR(pddl_iset_t, mgs->fact_size);
     for (int mgi = 0; mgi < mgs->mgroup->mgroup_size; ++mgi){
         int fact_id;
-        BOR_ISET_FOR_EACH(&mgs->mgroup->mgroup[mgi].mgroup, fact_id)
-            borISetAdd(mgs->fact_to_mgroup + fact_id, mgi);
+        PDDL_ISET_FOR_EACH(&mgs->mgroup->mgroup[mgi].mgroup, fact_id)
+            pddlISetAdd(mgs->fact_to_mgroup + fact_id, mgi);
     }
 
     mgs->op_size = mgs->strips->op.op_size;
@@ -572,26 +572,26 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
         mg_strips_op_t *op = mgs->op + op_id;
         op->cost = sop->cost;
         int fact_id;
-        BOR_ISET_FOR_EACH(&sop->pre, fact_id){
+        PDDL_ISET_FOR_EACH(&sop->pre, fact_id){
             int mgroup_id;
-            BOR_ISET_FOR_EACH(&mgs->fact_to_mgroup[fact_id], mgroup_id){
+            PDDL_ISET_FOR_EACH(&mgs->fact_to_mgroup[fact_id], mgroup_id){
                 ASSERT(!pddlFDRPartStateIsSet(&op->pre, mgroup_id));
                 pddlFDRPartStateSet(&op->pre, mgroup_id, fact_id);
             }
         }
 
-        BOR_ISET_FOR_EACH(&sop->add_eff, fact_id){
+        PDDL_ISET_FOR_EACH(&sop->add_eff, fact_id){
             int mgroup_id;
-            BOR_ISET_FOR_EACH(&mgs->fact_to_mgroup[fact_id], mgroup_id){
+            PDDL_ISET_FOR_EACH(&mgs->fact_to_mgroup[fact_id], mgroup_id){
                 ASSERT(!pddlFDRPartStateIsSet(&op->eff, mgroup_id));
                 pddlFDRPartStateSet(&op->eff, mgroup_id, fact_id);
             }
         }
 
 #ifdef PDDL_DEBUG
-        BOR_ISET_FOR_EACH(&sop->del_eff, fact_id){
+        PDDL_ISET_FOR_EACH(&sop->del_eff, fact_id){
             int mgroup_id;
-            BOR_ISET_FOR_EACH(&mgs->fact_to_mgroup[fact_id], mgroup_id)
+            PDDL_ISET_FOR_EACH(&mgs->fact_to_mgroup[fact_id], mgroup_id)
                 ASSERT(pddlFDRPartStateIsSet(&op->eff, mgroup_id));
         }
 #endif /* PDDL_DEBUG */
@@ -605,7 +605,7 @@ static void mgStripsInit(mg_strips_t *mgs, const pddl_mg_strips_t *mg_strips)
 static void mgStripsFree(mg_strips_t *mgs)
 {
     for (int fi = 0; fi < mgs->fact_size; ++fi)
-        borISetFree(mgs->fact_to_mgroup + fi);
+        pddlISetFree(mgs->fact_to_mgroup + fi);
     FREE(mgs->fact_to_mgroup);
 
     for (int op_id = 0; op_id < mgs->op_size; ++op_id){
@@ -632,17 +632,17 @@ static int mgStripsPartStateIsIdentity(const mg_strips_t *mgs,
 static void mgStripsFindIdentity(mg_strips_t *mgs, const op_groups_t *opg)
 {
     int fact_id;
-    BOR_ISET_FOR_EACH(&mgs->strips->init, fact_id)
+    PDDL_ISET_FOR_EACH(&mgs->strips->init, fact_id)
         mgs->fact_identity[fact_id] = 1;
-    BOR_ISET_FOR_EACH(&mgs->strips->goal, fact_id)
+    PDDL_ISET_FOR_EACH(&mgs->strips->goal, fact_id)
         mgs->fact_identity[fact_id] = 1;
 
     for (int group_id = 0; group_id < opg->group_size; ++group_id){
-        const bor_iset_t *group = &opg->group[group_id];
-        if (borISetSize(group) != 1)
+        const pddl_iset_t *group = &opg->group[group_id];
+        if (pddlISetSize(group) != 1)
             continue;
 
-        int op_id = borISetGet(group, 0);
+        int op_id = pddlISetGet(group, 0);
         mgs->op_identity[op_id] = 1;
 
         const mg_strips_op_t *op = mgs->op + op_id;
@@ -697,7 +697,7 @@ static void mgStripsPrepareCVars(mg_strips_t *mgs)
 }
 
 static int mgStripsOpPreConstr(int op_id,
-                               const bor_iset_t *group,
+                               const pddl_iset_t *group,
                                const mg_strips_t *mgs,
                                IloEnv &env,
                                IloModel &model,
@@ -715,7 +715,7 @@ static int mgStripsOpPreConstr(int op_id,
     }
 
     IloIntTupleSet pre(env, pre_size);
-    BOR_ISET_FOR_EACH(group, other_op_id){
+    PDDL_ISET_FOR_EACH(group, other_op_id){
         const mg_strips_op_t *other_op = mgs->op + other_op_id;
         if (other_op->cost > op->cost)
             continue;
@@ -757,7 +757,7 @@ static int mgStripsOpPreConstr(int op_id,
 }
 
 static int mgStripsOpEffConstr(int op_id,
-                                const bor_iset_t *group,
+                                const pddl_iset_t *group,
                                 const mg_strips_t *mgs,
                                 IloEnv &env,
                                 IloModel &model,
@@ -775,7 +775,7 @@ static int mgStripsOpEffConstr(int op_id,
     }
 
     IloIntTupleSet eff(env, eff_size);
-    BOR_ISET_FOR_EACH(group, other_op_id){
+    PDDL_ISET_FOR_EACH(group, other_op_id){
         const mg_strips_op_t *other_op = mgs->op + other_op_id;
         if (other_op->cost > op->cost)
             continue;
@@ -817,7 +817,7 @@ static int mgStripsOpEffConstr(int op_id,
 }
 
 static int mgStripsOpConstr(int op_id,
-                            const bor_iset_t *group,
+                            const pddl_iset_t *group,
                             const mg_strips_t *mgs,
                             IloEnv &env,
                             IloModel &model,
@@ -845,7 +845,7 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
                              const op_groups_t *opg,
                              IloEnv &env,
                              IloModel &model,
-                             bor_iset_t *redundant_ops,
+                             pddl_iset_t *redundant_ops,
                              pddl_time_limit_t *time_limit,
                              bor_err_t *err)
 {
@@ -881,13 +881,13 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
             return -1;
 
         int op_id;
-        const bor_iset_t *group = &opg->group[group_id];
-        BOR_ISET_FOR_EACH(group, op_id){
+        const pddl_iset_t *group = &opg->group[group_id];
+        PDDL_ISET_FOR_EACH(group, op_id){
             num_op_constr += mgStripsOpConstr(op_id, group, mgs, env, model,
                                               var_fact, var_op, err);
         }
         //BOR_INFO(err, "  Created operator constraints %d",
-        //         borISetSize(&opg.group[group_id]));
+        //         pddlISetSize(&opg.group[group_id]));
     }
     BOR_INFO(err, "  Added %d operator constraints", num_op_constr);
 
@@ -906,7 +906,7 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
 static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                 const pddl_endomorphism_config_t *cfg,
-                                bor_iset_t *redundant_ops,
+                                pddl_iset_t *redundant_ops,
                                 bor_err_t *err)
 {
     pddl_time_limit_t time_limit;
@@ -968,13 +968,13 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
 
 struct label_groups {
-    bor_iset_t init_loop;
-    bor_iset_t loop;
-    bor_iset_t init_to;
-    bor_iset_t init_from;
-    bor_iset_t goal_to;
-    bor_iset_t goal_from;
-    bor_iset_t goal;
+    pddl_iset_t init_loop;
+    pddl_iset_t loop;
+    pddl_iset_t init_to;
+    pddl_iset_t init_from;
+    pddl_iset_t goal_to;
+    pddl_iset_t goal_from;
+    pddl_iset_t goal;
 };
 typedef struct label_groups label_groups_t;
 
@@ -985,12 +985,12 @@ struct ts_presolve {
 };
 typedef struct ts_presolve ts_presolve_t;
 
-static bool cmpISetSize(const bor_iset_t *a, const bor_iset_t *b)
+static bool cmpISetSize(const pddl_iset_t *a, const pddl_iset_t *b)
 {
-    return borISetSize(a) < borISetSize(b);
+    return pddlISetSize(a) < pddlISetSize(b);
 }
 
-static void presolveTRStateAllow(bor_iset_t *state_allow,
+static void presolveTRStateAllow(pddl_iset_t *state_allow,
                                  const ts_presolve_t *presolve,
                                  const pddl_trans_systems_t *tss,
                                  int tsi,
@@ -1000,12 +1000,12 @@ static void presolveTRStateAllow(bor_iset_t *state_allow,
 {
     const pddl_trans_system_t *ts = tss->ts[tsi];
     int olabel, ofrom, oto;
-    int from_is_goal = borISetIn(from, &ts->goal_states);
-    int to_is_goal = borISetIn(to, &ts->goal_states);
+    int from_is_goal = pddlISetIn(from, &ts->goal_states);
+    int to_is_goal = pddlISetIn(to, &ts->goal_states);
     int label_cost = tss->label.label[label].cost;
     const std::vector<bool> &op_allow = presolve->op_allow[label];
-    BOR_ISET(from_allow);
-    BOR_ISET(to_allow);
+    PDDL_ISET(from_allow);
+    PDDL_ISET(to_allow);
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, ofrom, olabel, oto){
         if (!op_allow[olabel])
             continue;
@@ -1017,27 +1017,27 @@ static void presolveTRStateAllow(bor_iset_t *state_allow,
             continue;
         if (from == to && ofrom != oto)
             continue;
-        if (from_is_goal && !borISetIn(ofrom, &ts->goal_states))
+        if (from_is_goal && !pddlISetIn(ofrom, &ts->goal_states))
             continue;
-        if (to_is_goal && !borISetIn(oto, &ts->goal_states))
+        if (to_is_goal && !pddlISetIn(oto, &ts->goal_states))
             continue;
-        if (!borISetIn(ofrom, state_allow + from))
+        if (!pddlISetIn(ofrom, state_allow + from))
             continue;
-        if (!borISetIn(oto, state_allow + to))
+        if (!pddlISetIn(oto, state_allow + to))
             continue;
-        borISetAdd(&from_allow, ofrom);
-        borISetAdd(&to_allow, oto);
+        pddlISetAdd(&from_allow, ofrom);
+        pddlISetAdd(&to_allow, oto);
     }
-    borISetIntersect(state_allow + from, &from_allow);
-    borISetIntersect(state_allow + to, &to_allow);
-    borISetFree(&from_allow);
-    borISetFree(&to_allow);
+    pddlISetIntersect(state_allow + from, &from_allow);
+    pddlISetIntersect(state_allow + to, &to_allow);
+    pddlISetFree(&from_allow);
+    pddlISetFree(&to_allow);
 }
 
-static void stateAllowFree(bor_iset_t *state_allow, int num_states)
+static void stateAllowFree(pddl_iset_t *state_allow, int num_states)
 {
     for (int si = 0; si < num_states; ++si)
-        borISetFree(state_allow + si);
+        pddlISetFree(state_allow + si);
     FREE(state_allow);
 }
 
@@ -1048,7 +1048,7 @@ static int presolveStateAllow(ts_presolve_t *presolve,
 {
     const pddl_trans_system_t *ts = tss->ts[tsi];
 
-    bor_iset_t *state_allow = CALLOC_ARR(bor_iset_t, ts->num_states);
+    pddl_iset_t *state_allow = CALLOC_ARR(pddl_iset_t, ts->num_states);
     for (int si = 0; si < ts->num_states; ++si){
         if (pddlTimeLimitCheck(time_limit) != 0){
             stateAllowFree(state_allow, ts->num_states);
@@ -1056,16 +1056,16 @@ static int presolveStateAllow(ts_presolve_t *presolve,
         }
 
         if (si == ts->init_state){
-            borISetAdd(state_allow + si, si);
+            pddlISetAdd(state_allow + si, si);
 
-        }else if (borISetIn(si, &ts->goal_states)){
+        }else if (pddlISetIn(si, &ts->goal_states)){
             int si2;
-            BOR_ISET_FOR_EACH(&ts->goal_states, si2)
-                borISetAdd(state_allow + si, si2);
+            PDDL_ISET_FOR_EACH(&ts->goal_states, si2)
+                pddlISetAdd(state_allow + si, si2);
 
         }else{
             for (int si2 = 0; si2 < ts->num_states; ++si2)
-                borISetAdd(state_allow + si, si2);
+                pddlISetAdd(state_allow + si, si2);
         }
     }
 
@@ -1076,7 +1076,7 @@ static int presolveStateAllow(ts_presolve_t *presolve,
     }
     for (int si = 0; si < ts->num_states; ++si){
         int state;
-        BOR_ISET_FOR_EACH(state_allow + si, state)
+        PDDL_ISET_FOR_EACH(state_allow + si, state)
             presolve->state_allow[tsi][si][state] = true;
     }
     stateAllowFree(state_allow, ts->num_states);
@@ -1087,13 +1087,13 @@ static void labelGroupsFree(const pddl_trans_systems_t *tss,
                             label_groups_t *label_group)
 {
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
-        borISetFree(&label_group[tsi].init_loop);
-        borISetFree(&label_group[tsi].loop);
-        borISetFree(&label_group[tsi].init_to);
-        borISetFree(&label_group[tsi].init_from);
-        borISetFree(&label_group[tsi].goal_to);
-        borISetFree(&label_group[tsi].goal_from);
-        borISetFree(&label_group[tsi].goal);
+        pddlISetFree(&label_group[tsi].init_loop);
+        pddlISetFree(&label_group[tsi].loop);
+        pddlISetFree(&label_group[tsi].init_to);
+        pddlISetFree(&label_group[tsi].init_from);
+        pddlISetFree(&label_group[tsi].goal_to);
+        pddlISetFree(&label_group[tsi].goal_from);
+        pddlISetFree(&label_group[tsi].goal);
     }
     FREE(label_group);
 }
@@ -1118,56 +1118,56 @@ static int tsPresolve(ts_presolve_t *presolve,
     label_groups_t *label_group;
     label_group = CALLOC_ARR(label_groups_t, tss->ts_size);
 
-    std::vector<std::vector<bor_iset_t *>> relevant(tss->label.label_size);
+    std::vector<std::vector<pddl_iset_t *>> relevant(tss->label.label_size);
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
         if (pddlTimeLimitCheck(time_limit) != 0){
             labelGroupsFree(tss, label_group);
             return -1;
         }
         const pddl_trans_system_t *ts = tss->ts[tsi];
-        int consider_goal = (borISetSize(&ts->goal_states) != ts->num_states);
+        int consider_goal = (pddlISetSize(&ts->goal_states) != ts->num_states);
         const pddl_label_set_t *labels;
         int from, to;
         PDDL_LABELED_TRANSITIONS_SET_FOR_EACH_LABEL_SET(&ts->trans,
                                                         from, labels, to){
             if (from == to){
                 if (from == ts->init_state)
-                    borISetUnion(&label_group[tsi].init_loop, &labels->label);
-                borISetUnion(&label_group[tsi].loop, &labels->label);
+                    pddlISetUnion(&label_group[tsi].init_loop, &labels->label);
+                pddlISetUnion(&label_group[tsi].loop, &labels->label);
             }
 
             int from_init = (from == ts->init_state);
             int to_init = (to == ts->init_state);
             if (from_init)
-                borISetUnion(&label_group[tsi].init_from, &labels->label);
+                pddlISetUnion(&label_group[tsi].init_from, &labels->label);
             if (to_init)
-                borISetUnion(&label_group[tsi].init_to, &labels->label);
+                pddlISetUnion(&label_group[tsi].init_to, &labels->label);
 
             if (consider_goal){
-                int from_goal = borISetIn(from, &ts->goal_states);
-                int to_goal = borISetIn(to, &ts->goal_states);
+                int from_goal = pddlISetIn(from, &ts->goal_states);
+                int to_goal = pddlISetIn(to, &ts->goal_states);
                 if (from_goal)
-                    borISetUnion(&label_group[tsi].goal_from, &labels->label);
+                    pddlISetUnion(&label_group[tsi].goal_from, &labels->label);
                 if (to_goal)
-                    borISetUnion(&label_group[tsi].goal_to, &labels->label);
+                    pddlISetUnion(&label_group[tsi].goal_to, &labels->label);
                 if (from_goal && to_goal)
-                    borISetUnion(&label_group[tsi].goal, &labels->label);
+                    pddlISetUnion(&label_group[tsi].goal, &labels->label);
             }
         }
         int op;
-        BOR_ISET_FOR_EACH(&label_group[tsi].init_loop, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].init_loop, op)
             relevant[op].push_back(&label_group[tsi].init_loop);
-        BOR_ISET_FOR_EACH(&label_group[tsi].loop, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].loop, op)
             relevant[op].push_back(&label_group[tsi].loop);
-        BOR_ISET_FOR_EACH(&label_group[tsi].init_to, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].init_to, op)
             relevant[op].push_back(&label_group[tsi].init_to);
-        BOR_ISET_FOR_EACH(&label_group[tsi].init_from, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].init_from, op)
             relevant[op].push_back(&label_group[tsi].init_from);
-        BOR_ISET_FOR_EACH(&label_group[tsi].goal_to, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].goal_to, op)
             relevant[op].push_back(&label_group[tsi].goal_to);
-        BOR_ISET_FOR_EACH(&label_group[tsi].goal_from, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].goal_from, op)
             relevant[op].push_back(&label_group[tsi].goal_from);
-        BOR_ISET_FOR_EACH(&label_group[tsi].goal, op)
+        PDDL_ISET_FOR_EACH(&label_group[tsi].goal, op)
             relevant[op].push_back(&label_group[tsi].goal);
     }
 
@@ -1184,28 +1184,28 @@ static int tsPresolve(ts_presolve_t *presolve,
 
         std::sort(relevant[op_id].begin(), relevant[op_id].end(), cmpISetSize);
 
-        BOR_ISET(allowed);
-        borISetUnion(&allowed, relevant[op_id][0]);
+        PDDL_ISET(allowed);
+        pddlISetUnion(&allowed, relevant[op_id][0]);
         for (size_t i = 1; i < relevant[op_id].size(); ++i)
-            borISetIntersect(&allowed, relevant[op_id][i]);
+            pddlISetIntersect(&allowed, relevant[op_id][i]);
 
-        BOR_ISET(allowed2);
+        PDDL_ISET(allowed2);
         int op_cost = tss->label.label[op_id].cost;
         int other_op;
-        BOR_ISET_FOR_EACH(&allowed, other_op){
+        PDDL_ISET_FOR_EACH(&allowed, other_op){
             if (tss->label.label[other_op].cost <= op_cost)
-                borISetAdd(&allowed2, other_op);
+                pddlISetAdd(&allowed2, other_op);
         }
-        borISetFree(&allowed);
+        pddlISetFree(&allowed);
 
-        if (borISetSize(&allowed2) <= 1){
+        if (pddlISetSize(&allowed2) <= 1){
             presolve->op_identity[op_id] = true;
             presolve->op_allow[op_id].resize(tss->label.label_size, false);
             presolve->op_allow[op_id][op_id] = true;
             //fprintf(stderr, "O %d identity\n", op_id);
         }else{
             presolve->op_allow[op_id].resize(tss->label.label_size, false);
-            BOR_ISET_FOR_EACH(&allowed2, other_op)
+            PDDL_ISET_FOR_EACH(&allowed2, other_op)
                 presolve->op_allow[op_id][other_op] = true;
             /*
             fprintf(stderr, "O %d: ", op_id);
@@ -1213,7 +1213,7 @@ static int tsPresolve(ts_presolve_t *presolve,
             fprintf(stderr, "\n");
             */
         }
-        borISetFree(&allowed2);
+        pddlISetFree(&allowed2);
     }
 
     labelGroupsFree(tss, label_group);
@@ -1295,9 +1295,9 @@ static int tsConstraints(const pddl_trans_systems_t *tss,
     // Goal constraints
     int goal_state;
     IloIntArray goal_val(env);
-    BOR_ISET_FOR_EACH(&ts->goal_states, goal_state)
+    PDDL_ISET_FOR_EACH(&ts->goal_states, goal_state)
         goal_val.add(goal_state);
-    BOR_ISET_FOR_EACH(&ts->goal_states, goal_state){
+    PDDL_ISET_FOR_EACH(&ts->goal_states, goal_state){
         IloIntVar &var = var_state[var_state_offset + goal_state];
         model.add(IloAllowedAssignments(env, var, goal_val));
         num_constrs += 1;
@@ -1321,7 +1321,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
                        const ts_presolve_t *presolve,
                        IloEnv &env,
                        IloModel &model,
-                       bor_iset_t *redundant_ops,
+                       pddl_iset_t *redundant_ops,
                        pddl_time_limit_t *time_limit,
                        bor_err_t *err)
 {
@@ -1403,7 +1403,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
 
 static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
                                    const pddl_endomorphism_config_t *cfg,
-                                   bor_iset_t *redundant_ops,
+                                   pddl_iset_t *redundant_ops,
                                    bor_err_t *err)
 {
     pddl_time_limit_t time_limit;
@@ -1463,7 +1463,7 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
                            const pddl_mg_strips_t *mg_strips,
                            const pddl_trans_systems_t *tss,
                            const pddl_endomorphism_config_t *cfg,
-                           bor_iset_t *redundant_ops,
+                           pddl_iset_t *redundant_ops,
                            bor_err_t *err)
 {
     BOR_INFO2(err, "Endomorphism in a subprocess ...");
@@ -1515,7 +1515,7 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
         *shared_ret = ret;
         if (ret == 0){
             int op;
-            BOR_ISET_FOR_EACH(redundant_ops, op)
+            PDDL_ISET_FOR_EACH(redundant_ops, op)
                 shared_ops[op] = 1;
         }
         exit(ret);
@@ -1526,13 +1526,13 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
         if (ret == 0){
             for (int op_id = 0; op_id < op_size; ++op_id){
                 if (shared_ops[op_id])
-                    borISetAdd(redundant_ops, op_id);
+                    pddlISetAdd(redundant_ops, op_id);
             }
         }
         munmap(shared, shared_size);
         BOR_INFO(err, "Endomorphism in a subprocess: ret: %d,"
                       " redundant ops: %d",
-                 ret, borISetSize(redundant_ops));
+                 ret, pddlISetSize(redundant_ops));
         BOR_INFO2(err, "Endomorphism in a subprocess DONE");
         return ret;
     }
@@ -1540,7 +1540,7 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
 
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
-                                    bor_iset_t *redundant_ops,
+                                    pddl_iset_t *redundant_ops,
                                     bor_err_t *err)
 {
     if (cfg->ignore_costs)
@@ -1552,7 +1552,7 @@ int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
 
 int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                          const pddl_endomorphism_config_t *cfg,
-                                         bor_iset_t *redundant_ops,
+                                         pddl_iset_t *redundant_ops,
                                          bor_err_t *err)
 {
     if (cfg->ignore_costs)
@@ -1564,7 +1564,7 @@ int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
 int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             const pddl_endomorphism_config_t *cfg,
-                                            bor_iset_t *redundant_ops,
+                                            pddl_iset_t *redundant_ops,
                                             bor_err_t *err)
 {
     if (cfg->ignore_costs)
@@ -2192,7 +2192,7 @@ static int liftedSolve(const pddl_t *pddl,
                        const lifted_endomorphism_t *end,
                        const pddl_endomorphism_config_t *cfg,
                        float max_search_time,
-                       bor_iset_t *redundant_objs,
+                       pddl_iset_t *redundant_objs,
                        int *map,
                        bor_err_t *err)
 {
@@ -2365,7 +2365,7 @@ static int selectMGroups(select_mgroups_t *select,
 int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
-                           bor_iset_t *redundant_objects,
+                           pddl_iset_t *redundant_objects,
                            pddl_obj_id_t *omap,
                            bor_err_t *err)
 {
@@ -2447,7 +2447,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
 static int relaxedLifted(const pddl_t *pddl,
                          const pddl_endomorphism_config_t *cfg,
-                         bor_iset_t *redundant_objects,
+                         pddl_iset_t *redundant_objects,
                          pddl_obj_id_t *omap,
                          bor_err_t *err)
 {
@@ -2473,7 +2473,7 @@ static int relaxedLifted(const pddl_t *pddl,
 
 static int relaxedLiftedInSubprocess(const pddl_t *pddl,
                                      const pddl_endomorphism_config_t *cfg,
-                                     bor_iset_t *redundant_objects,
+                                     pddl_iset_t *redundant_objects,
                                      pddl_obj_id_t *omap,
                                      bor_err_t *err)
 {
@@ -2510,9 +2510,9 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
         for (int i = 0; i < pddl->obj.obj_size; ++i)
             shared_map[i] = i;
 
-        BOR_ISET(red);
+        PDDL_ISET(red);
         int ret = relaxedLifted(pddl, cfg, &red, shared_map, err);
-        borISetFree(&red);
+        pddlISetFree(&red);
         *shared_ret = ret;
         exit(ret);
 
@@ -2525,13 +2525,13 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
 
             for (int i = 0; i < pddl->obj.obj_size; ++i){
                 if (shared_map[i] != i)
-                    borISetAdd(redundant_objects, i);
+                    pddlISetAdd(redundant_objects, i);
             }
         }
         munmap(shared, shared_size);
         BOR_INFO(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
                       " redundant ops: %d",
-                 ret, borISetSize(redundant_objects));
+                 ret, pddlISetSize(redundant_objects));
         BOR_INFO2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
         return ret;
     }
@@ -2539,7 +2539,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
 
 int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   const pddl_endomorphism_config_t *cfg,
-                                  bor_iset_t *redundant_objects,
+                                  pddl_iset_t *redundant_objects,
                                   pddl_obj_id_t *omap,
                                   bor_err_t *err)
 {
@@ -2573,7 +2573,7 @@ int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
 #else /* PDDL_CPOPTIMIZER */
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
-                                    bor_iset_t *redundant_ops,
+                                    pddl_iset_t *redundant_ops,
                                     bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
@@ -2582,7 +2582,7 @@ int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
 
 int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                          const pddl_endomorphism_config_t *cfg,
-                                         bor_iset_t *redundant_ops,
+                                         pddl_iset_t *redundant_ops,
                                          bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
@@ -2591,7 +2591,7 @@ int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
 int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             const pddl_endomorphism_config_t *cfg,
-                                            bor_iset_t *redundant_ops,
+                                            pddl_iset_t *redundant_ops,
                                             bor_err_t *err)
 {
     BOR_FATAL2("Missing CPOPTIMIZER");
@@ -2601,7 +2601,7 @@ int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
 int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
-                           bor_iset_t *redundant_objects,
+                           pddl_iset_t *redundant_objects,
                            pddl_obj_id_t *map,
                            bor_err_t *err)
 {
@@ -2611,7 +2611,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
 int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   const pddl_endomorphism_config_t *cfg,
-                                  bor_iset_t *redundant_objects,
+                                  pddl_iset_t *redundant_objects,
                                   pddl_obj_id_t *map,
                                   bor_err_t *err)
 {

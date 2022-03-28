@@ -20,7 +20,7 @@
 #ifndef __PDDL_TYPE_H__
 #define __PDDL_TYPE_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <pddl/common.h>
 #include <pddl/objset.h>
 #include <pddl/lisp.h>
@@ -35,8 +35,8 @@ struct pddl_objs;
 struct pddl_type {
     char *name;        /*!< Name of the type */
     int parent;        /*!< ID of the parent type */
-    bor_iset_t child;  /*!< IDs of children types */
-    bor_iset_t either; /*!< type IDs for special (either ...) type */
+    pddl_iset_t child;  /*!< IDs of children types */
+    pddl_iset_t either; /*!< type IDs for special (either ...) type */
     pddl_objset_t obj; /*!< Objs of this type */
 };
 typedef struct pddl_type pddl_type_t;

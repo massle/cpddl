@@ -2778,17 +2778,17 @@ static int removeNonStaticImply(pddl_cond_t **c, void *data)
 }
 
 
-static void implyAtomParams(const pddl_cond_atom_t *atom, bor_iset_t *params)
+static void implyAtomParams(const pddl_cond_atom_t *atom, pddl_iset_t *params)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom->arg[i].param >= 0)
-            borISetAdd(params, atom->arg[i].param);
+            pddlISetAdd(params, atom->arg[i].param);
     }
 }
 
 static int implyParams(pddl_cond_t *c, void *data)
 {
-    bor_iset_t *params = data;
+    pddl_iset_t *params = data;
     pddl_cond_imply_t *imp;
     pddl_list_t *item;
     pddl_cond_part_t *and;
@@ -2813,7 +2813,7 @@ static int implyParams(pddl_cond_t *c, void *data)
 }
 
 struct instantiate_ctx {
-    const bor_iset_t *params;
+    const pddl_iset_t *params;
     const pddl_obj_id_t *arg;
 };
 typedef struct instantiate_ctx instantiate_ctx_t;
@@ -2824,8 +2824,8 @@ static int instantiateTraverse(pddl_cond_t *cond, void *ud)
     if (cond->type == PDDL_COND_ATOM){
         pddl_cond_atom_t *atom = OBJ(cond, atom);
         for (int i = 0; i < atom->arg_size; ++i){
-            for (int j = 0; j < borISetSize(ctx->params); ++j){
-                if (atom->arg[i].param == borISetGet(ctx->params, j)){
+            for (int j = 0; j < pddlISetSize(ctx->params); ++j){
+                if (atom->arg[i].param == pddlISetGet(ctx->params, j)){
                     atom->arg[i].param = -1;
                     atom->arg[i].obj = ctx->arg[j];
                     break;
@@ -2838,7 +2838,7 @@ static int instantiateTraverse(pddl_cond_t *cond, void *ud)
 }
 
 static pddl_cond_t *instantiate(pddl_cond_t *cond,
-                                const bor_iset_t *params,
+                                const pddl_iset_t *params,
                                 const pddl_obj_id_t *arg,
                                 int eq_pred)
 {
@@ -2848,8 +2848,8 @@ static pddl_cond_t *instantiate(pddl_cond_t *cond,
     instantiate_ctx_t ctx;
 
     and = condPartNew(PDDL_COND_AND);
-    for (int i = 0; i < borISetSize(params); ++i){
-        int param = borISetGet(params, i);
+    for (int i = 0; i < pddlISetSize(params); ++i){
+        int param = pddlISetGet(params, i);
         eq = condAtomNew();
         eq->pred = eq_pred;
         eq->arg_size = 2;
@@ -2873,19 +2873,19 @@ static void removeStaticImplyRec(pddl_cond_part_t *top,
                                  pddl_cond_t *cond,
                                  const pddl_t *pddl,
                                  const pddl_params_t *params,
-                                 const bor_iset_t *imp_params,
+                                 const pddl_iset_t *imp_params,
                                  int pidx,
                                  pddl_obj_id_t *arg)
 {
     const pddl_obj_id_t *obj;
     int obj_size;
 
-    if (pidx == borISetSize(imp_params)){
+    if (pidx == pddlISetSize(imp_params)){
         pddl_cond_t *c = instantiate(cond, imp_params, arg,
                                      pddl->pred.eq_pred);
         pddlCondPartAdd(top, c);
     }else{
-        int param = borISetGet(imp_params, pidx);
+        int param = pddlISetGet(imp_params, pidx);
         obj = pddlTypesObjsByType(&pddl->type, params->param[param].type,
                                   &obj_size);
         for (int i = 0; i < obj_size; ++i){
@@ -2902,22 +2902,22 @@ static int removeStaticImply(pddl_cond_t **cond, const pddl_t *pddl,
                              const pddl_params_t *params)
 {
     pddl_cond_part_t *or;
-    BOR_ISET(imply_params);
+    PDDL_ISET(imply_params);
     pddl_obj_id_t *obj;
 
     if (params == NULL)
         return 0;
 
     pddlCondTraverse(*cond, NULL, implyParams, &imply_params);
-    if (borISetSize(&imply_params) > 0){
-        obj = ALLOC_ARR(pddl_obj_id_t, borISetSize(&imply_params));
+    if (pddlISetSize(&imply_params) > 0){
+        obj = ALLOC_ARR(pddl_obj_id_t, pddlISetSize(&imply_params));
         or = condPartNew(PDDL_COND_OR);
         removeStaticImplyRec(or, *cond, pddl, params, &imply_params, 0, obj);
         FREE(obj);
         pddlCondDel(*cond);
         *cond = &or->cls;
     }
-    borISetFree(&imply_params);
+    pddlISetFree(&imply_params);
     return 0;
 }
 

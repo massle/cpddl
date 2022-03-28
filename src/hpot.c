@@ -253,16 +253,16 @@ static int addInitConstr(pddl_pot_t *pot,
     double rhs = sol.objval;
     rhs *= cfg->init_constr_coef;
 
-    BOR_ISET(vars);
+    PDDL_ISET(vars);
     for (int var = 0; var < fdr->var.var_size; ++var){
         int v = fdr->var.var[var].val[fdr->init[var]].global_id;
-        borISetAdd(&vars, v);
+        pddlISetAdd(&vars, v);
     }
     rhs -= INIT_STATE_RHS_DECREASE_STEP;
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
     BOR_INFO(err, "added lower bound constraint with rhs: %.4f (%a)",
              rhs, rhs);
-    borISetFree(&vars);
+    pddlISetFree(&vars);
     pddlPotSolutionFree(&sol);
 
     return 0;
@@ -356,20 +356,20 @@ static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
 
     }else if (s->type == STATE_SAMPLER_SYNTACTIC_MUTEX){
         ASSERT(s->mutex != NULL);
-        BOR_ISET(state);
+        PDDL_ISET(state);
         unsigned long count = 0UL;
         do {
-            borISetEmpty(&state);
+            pddlISetEmpty(&state);
             for (int var = 0; var < s->fdr->var.var_size; ++var){
                 int val = pddlRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
                 val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
                 s->state[var] = val;
-                borISetAdd(&state, s->fdr->var.var[var].val[val].global_id);
+                pddlISetAdd(&state, s->fdr->var.var[var].val[val].global_id);
             }
             if (++count % 100000UL == 0UL)
                 BOR_INFO(err, "tried %lu random states", count);
         } while (pddlMutexPairsIsMutexSet(s->mutex, &state));
-        borISetFree(&state);
+        pddlISetFree(&state);
 
     }else if (s->type == STATE_SAMPLER_RANDOM_WALK){
         pddlRandomWalkSampleState(&s->random_walk,
@@ -382,15 +382,15 @@ static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
 
 static double countStatesMutex(const pddl_mgroups_t *mgs,
                                const pddl_mutex_pairs_t *mutex,
-                               const bor_iset_t *fixed)
+                               const pddl_iset_t *fixed)
 {
     if (pddlMutexPairsIsMutexSet(mutex, fixed))
         return 0.;
 
-    if (fixed == NULL || borISetSize(fixed) == 0){
-        double num = borISetSize(&mgs->mgroup[0].mgroup);
+    if (fixed == NULL || pddlISetSize(fixed) == 0){
+        double num = pddlISetSize(&mgs->mgroup[0].mgroup);
         for (int i = 1; i < mgs->mgroup_size; ++i)
-            num *= borISetSize(&mgs->mgroup[i].mgroup);
+            num *= pddlISetSize(&mgs->mgroup[i].mgroup);
         return num;
     }
 
@@ -398,7 +398,7 @@ static double countStatesMutex(const pddl_mgroups_t *mgs,
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi){
         int mg_size = 0;
         int fact;
-        BOR_ISET_FOR_EACH(&mgs->mgroup[mgi].mgroup, fact){
+        PDDL_ISET_FOR_EACH(&mgs->mgroup[mgi].mgroup, fact){
             if (!pddlMutexPairsIsMutexFactSet(mutex, fact, fixed))
                 mg_size += 1;
         }
@@ -412,19 +412,19 @@ static void setObjAllStatesMutex1(pddl_pot_t *pot,
                                   const pddl_mutex_pairs_t *mutex)
 {
     double *coef = CALLOC_ARR(double, pot->var_size);
-    BOR_ISET(fixed);
+    PDDL_ISET(fixed);
 
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mgs->mgroup + mgi;
         double sum = 0.;
         int fixed_fact;
-        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
-            borISetEmpty(&fixed);
-            borISetAdd(&fixed, fixed_fact);
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
+            pddlISetEmpty(&fixed);
+            pddlISetAdd(&fixed, fixed_fact);
             coef[fixed_fact] = countStatesMutex(mgs, mutex, &fixed);
             sum += coef[fixed_fact];
         }
-        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
             coef[fixed_fact] /= sum;
             if (coef[fixed_fact] < 1E-6)
                 coef[fixed_fact] = 0.;
@@ -433,7 +433,7 @@ static void setObjAllStatesMutex1(pddl_pot_t *pot,
 
     pddlPotSetObj(pot, coef);
 
-    borISetFree(&fixed);
+    pddlISetFree(&fixed);
     if (coef != NULL)
         FREE(coef);
 }
@@ -444,27 +444,27 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
                                   const pddl_mutex_pairs_t *mutex)
 {
     double *coef = CALLOC_ARR(double, pot->var_size);
-    BOR_ISET(fixed);
+    PDDL_ISET(fixed);
 
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mgs->mgroup + mgi;
         double sum = 0.;
         int fixed_fact;
-        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
             coef[fixed_fact] = 0.;
             for (int f = 0; f < fact_size; ++f){
                 if (f == fixed_fact)
                     continue;
 
-                borISetEmpty(&fixed);
-                borISetAdd(&fixed, fixed_fact);
-                borISetAdd(&fixed, f);
-                ASSERT(borISetSize(&fixed) == 2);
+                pddlISetEmpty(&fixed);
+                pddlISetAdd(&fixed, fixed_fact);
+                pddlISetAdd(&fixed, f);
+                ASSERT(pddlISetSize(&fixed) == 2);
                 coef[fixed_fact] += countStatesMutex(mgs, mutex, &fixed);
             }
             sum += coef[fixed_fact];
         }
-        BOR_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fixed_fact){
             coef[fixed_fact] /= sum;
             if (coef[fixed_fact] < 1E-6)
                 coef[fixed_fact] = 0.;
@@ -473,7 +473,7 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
 
     pddlPotSetObj(pot, coef);
 
-    borISetFree(&fixed);
+    pddlISetFree(&fixed);
     if (coef != NULL)
         FREE(coef);
 }
@@ -494,25 +494,25 @@ static void setObjAllStatesMutex(pddl_pot_t *pot,
 }
 
 static void setObjAllStatesMutexConditioned(pddl_pot_t *pot,
-                                            const bor_iset_t *cond,
+                                            const pddl_iset_t *cond,
                                             const pddl_mg_strips_t *s,
                                             const pddl_mutex_pairs_t *mutex,
                                             int mutex_size)
 {
     pddl_mgroups_t mgs;
     pddlMGroupsInitEmpty(&mgs);
-    BOR_ISET(mg);
+    PDDL_ISET(mg);
     for (int mgi = 0; mgi < s->mg.mgroup_size; ++mgi){
         int fact_id;
-        borISetEmpty(&mg);
-        BOR_ISET_FOR_EACH(&s->mg.mgroup[mgi].mgroup, fact_id){
+        pddlISetEmpty(&mg);
+        PDDL_ISET_FOR_EACH(&s->mg.mgroup[mgi].mgroup, fact_id){
             if (!pddlMutexPairsIsMutexFactSet(mutex, fact_id, cond))
-                borISetAdd(&mg, fact_id);
+                pddlISetAdd(&mg, fact_id);
         }
         pddlMGroupsAdd(&mgs, &mg);
-        ASSERT_RUNTIME(borISetSize(&mg) > 0);
+        ASSERT_RUNTIME(pddlISetSize(&mg) > 0);
     }
-    borISetFree(&mg);
+    pddlISetFree(&mg);
 
     if (mutex_size == 1){
         setObjAllStatesMutex1(pot, &mgs, mutex);
@@ -529,29 +529,29 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
                               const pddl_mg_strips_t *mg_strips,
                               const pddl_mutex_pairs_t *mutex,
                               const pddl_hpot_config_t *cfg,
-                              const bor_iset_t *facts,
+                              const pddl_iset_t *facts,
                               bor_err_t *err)
 {
     int mutex_size = cfg->all_states_mutex_size;
-    BOR_ISET(cond);
+    PDDL_ISET(cond);
     int fact_id;
     int count = 0;
-    BOR_ISET_FOR_EACH(facts, fact_id){
-        borISetEmpty(&cond);
-        borISetAdd(&cond, fact_id);
+    PDDL_ISET_FOR_EACH(facts, fact_id){
+        pddlISetEmpty(&cond);
+        pddlISetAdd(&cond, fact_id);
         setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
                                         mutex_size);
         solveAndAdd(pot, sols, cfg, err);
         if (++count % 10 == 0){
             BOR_INFO(err, "Computed conditioned func %d/%d and generated %d"
                           " potential functions",
-                     count, borISetSize(facts), sols->sol_size);
+                     count, pddlISetSize(facts), sols->sol_size);
         }
     }
     BOR_INFO(err, "Computed conditioned func %d/%d and generated %d"
                   " potential functions",
-             count, borISetSize(facts), sols->sol_size);
-    borISetFree(&cond);
+             count, pddlISetSize(facts), sols->sol_size);
+    pddlISetFree(&cond);
 
     if (sols->sol_size > 0)
         return 0;
@@ -568,7 +568,7 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
 {
     int mutex_size = cfg->all_states_mutex_size;
     pddl_rand_mt_t *rnd = pddlRandMTNew(rand_sampler_seed);
-    BOR_ISET(cond);
+    PDDL_ISET(cond);
     int count = 0;
     int fact_size = mg_strips->strips.fact.fact_size;
     for (int i = 0; i < num_samples; ++i){
@@ -576,9 +576,9 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
         int f2 = pddlRandMT(rnd, 0, fact_size);
         if (pddlMutexPairsIsMutex(mutex, f1, f2))
             continue;
-        borISetEmpty(&cond);
-        borISetAdd(&cond, f1);
-        borISetAdd(&cond, f2);
+        pddlISetEmpty(&cond);
+        pddlISetAdd(&cond, f1);
+        pddlISetAdd(&cond, f2);
 
         setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
                                         mutex_size);
@@ -592,7 +592,7 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
     BOR_INFO(err, "Computed conditioned func^2 %d and generated %d"
                   " potential functions",
              count, sols->sol_size);
-    borISetFree(&cond);
+    pddlISetFree(&cond);
     pddlRandMTDel(rnd);
 
     if (sols->sol_size > 0)
@@ -674,12 +674,12 @@ static int samples(pddl_pot_solutions_t *sols,
     return ret;
 }
 
-static void setStateToFDRState(const bor_iset_t *state,
+static void setStateToFDRState(const pddl_iset_t *state,
                                int *fdr_state,
                                const pddl_fdr_t *fdr)
 {
     int fact_id;
-    BOR_ISET_FOR_EACH(state, fact_id){
+    PDDL_ISET_FOR_EACH(state, fact_id){
         const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact_id];
         fdr_state[v->var_id] = v->val_id;
     }
@@ -745,16 +745,16 @@ static void diverseGenStates(diverse_pot_t *div,
     int num_states = 0;
     int num_dead_ends = 0;
     int num_duplicates = 0;
-    BOR_ISET(state);
+    PDDL_ISET(state);
     for (int si = 0; si < cfg.num_samples; ++si){
         stateSamplerSample(&sampler, err);
 
-        borISetEmpty(&state);
+        pddlISetEmpty(&state);
         bzero(div->coef, sizeof(double) * pot->var_size);
         for (int var = 0; var < fdr->var.var_size; ++var){
             int id = fdr->var.var[var].val[sampler.state[var]].global_id;
             div->coef[id] = 1.;
-            borISetAdd(&state, id);
+            pddlISetAdd(&state, id);
         }
 
         if (pddlSetISetFind(&div->states, &state) >= 0){
@@ -796,7 +796,7 @@ static void diverseGenStates(diverse_pot_t *div,
     BOR_INFO(err, "Detected duplicates: %d", num_duplicates);
     ASSERT(num_states == pddlSetISetSize(&div->states));
     div->active_states = pddlSetISetSize(&div->states);
-    borISetFree(&state);
+    pddlISetFree(&state);
     stateSamplerFree(&sampler);
 }
 
@@ -807,12 +807,12 @@ static int diverseAvg(diverse_pot_t *div,
                       bor_err_t *err)
 {
     bzero(div->coef, sizeof(double) * pot->var_size);
-    const bor_iset_t *state;
+    const pddl_iset_t *state;
     PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, i, state){
         if (div->state_est[i] < 0)
             continue;
         int fact_id;
-        BOR_ISET_FOR_EACH(state, fact_id)
+        PDDL_ISET_FOR_EACH(state, fact_id)
             div->coef[fact_id] += 1.;
     }
     pddlPotSetObj(pot, div->coef);
@@ -828,7 +828,7 @@ static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,
         return NULL;
 
     int *fdr_state = ALLOC_ARR(int, fdr->var.var_size);
-    const bor_iset_t *state;
+    const pddl_iset_t *state;
     PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, si, state){
         if (div->state_est[si] < 0)
             continue;
@@ -861,7 +861,7 @@ static void diverseFilterOutStates(diverse_pot_t *div,
                                    bor_err_t *err)
 {
     int *fdr_state = ALLOC_ARR(int, fdr->var.var_size);
-    const bor_iset_t *state;
+    const pddl_iset_t *state;
     PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, si, state){
         if (div->state_est[si] < 0)
             continue;
@@ -985,23 +985,23 @@ int pddlHPot(pddl_pot_solutions_t *sols,
         ret = solveAndAdd(&pot, sols, cfg, err);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED){
-        BOR_ISET(facts);
+        PDDL_ISET(facts);
         for (int f = 0; f < mg_strips.strips.fact.fact_size; ++f)
-            borISetAdd(&facts, f);
+            pddlISetAdd(&facts, f);
         ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex, cfg,
                                  &facts, err);
-        borISetFree(&facts);
+        pddlISetFree(&facts);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND){
         pddl_rand_mt_t *rnd = pddlRandMTNew(rand_sampler_seed);
-        BOR_ISET(facts);
+        PDDL_ISET(facts);
         int fact_size = mg_strips.strips.fact.fact_size;
         for (int i = 0; i < cfg->num_samples; ++i)
-            borISetAdd(&facts, pddlRandMT(rnd, 0, fact_size));
+            pddlISetAdd(&facts, pddlRandMT(rnd, 0, fact_size));
 
         ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex, cfg,
                                  &facts, err);
-        borISetFree(&facts);
+        pddlISetFree(&facts);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2){
         ret = allStatesMutexCond2(sols, &pot, &mg_strips, &mutex, cfg,

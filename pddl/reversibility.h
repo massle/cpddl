@@ -31,8 +31,8 @@ extern "C" {
  * Conjunctive formula over facts
  */
 struct pddl_conj_fact_formula {
-    bor_iset_t pos; /*!< Positive facts */
-    bor_iset_t neg; /*!< Negative facts */
+    pddl_iset_t pos; /*!< Positive facts */
+    pddl_iset_t neg; /*!< Negative facts */
 };
 typedef struct pddl_conj_fact_formula pddl_conj_fact_formula_t;
 

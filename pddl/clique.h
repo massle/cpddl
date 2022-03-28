@@ -31,7 +31,7 @@ extern "C" {
  * least 2 using Bron-Kerbosch algorithm with pivoting.
  */
 void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
-                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void (*cb)(const pddl_iset_t *clique, void *userdata),
                            void *userdata);
 
 /**
@@ -39,7 +39,7 @@ void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
  * https://users.aalto.fi/~pat/cliquer.html
  */
 void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
-                           void (*cb)(const bor_iset_t *clique, void *userdata),
+                           void (*cb)(const pddl_iset_t *clique, void *userdata),
                            void *userdata);
 
 /**
@@ -51,8 +51,8 @@ void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
  *            \cup {(i,j') | i \in U, j' \in U', (i,j') \in E }
  */
 void pddlCliqueFindMaximalBicliques(const pddl_graph_simple_t *G,
-                                    void (*cb)(const bor_iset_t *left,
-                                               const bor_iset_t *right,
+                                    void (*cb)(const pddl_iset_t *left,
+                                               const pddl_iset_t *right,
                                                void *ud),
                                     void *ud);
 

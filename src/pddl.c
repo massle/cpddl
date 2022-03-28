@@ -861,9 +861,9 @@ void pddlAddObjectTypes(pddl_t *pddl)
 }
 
 
-void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
+void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_obj, bor_err_t *err)
 {
-    if (borISetSize(rm_obj) == 0)
+    if (pddlISetSize(rm_obj) == 0)
         return;
     pddl_obj_id_t *remap = ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     pddlRemoveObjsGetRemap(pddl, rm_obj, remap, err);
@@ -871,17 +871,17 @@ void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_obj, bor_err_t *err)
 }
 
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
-                            const bor_iset_t *rm_obj,
+                            const pddl_iset_t *rm_obj,
                             pddl_obj_id_t *remap,
                             bor_err_t *err)
 {
-    if (borISetSize(rm_obj) == 0)
+    if (pddlISetSize(rm_obj) == 0)
         return;
     BOR_INFO_PREFIX_PUSH(err, "PDDL rm objs: ");
-    BOR_INFO(err, "Removing %d objects", borISetSize(rm_obj));
+    BOR_INFO(err, "Removing %d objects", pddlISetSize(rm_obj));
 
     for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
-        if (idx < borISetSize(rm_obj) && borISetGet(rm_obj, idx) == i){
+        if (idx < pddlISetSize(rm_obj) && pddlISetGet(rm_obj, idx) == i){
             remap[i] = PDDL_OBJ_ID_UNDEF;
             ++idx;
         }else{

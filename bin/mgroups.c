@@ -72,8 +72,8 @@ static void mgroupDominance(const pddl_mgroups_t *m1,
         int found = 0;
         for (int j = 0; j < m2->mgroup_size; ++j){
             const pddl_mgroup_t *mj = m2->mgroup + j;
-            if (borISetEq(&mi->mgroup, &mj->mgroup)
-                    || borISetIsSubset(&mi->mgroup, &mj->mgroup)){
+            if (pddlISetEq(&mi->mgroup, &mj->mgroup)
+                    || pddlISetIsSubset(&mi->mgroup, &mj->mgroup)){
                 found = 1;
                 break;
             }

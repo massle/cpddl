@@ -300,21 +300,21 @@ int main(int argc, char *argv[])
 
     // Prune strips
     if (!strips.has_cond_eff){
-        BOR_ISET(rm_fact);
-        BOR_ISET(rm_op);
+        PDDL_ISET(rm_fact);
+        PDDL_ISET(rm_op);
         if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op, NULL, &err) != 0){
             BOR_INFO2(&err, "Irrelevance analysis failed.");
             fprintf(stderr, "Error: ");
             borErrPrint(&err, 1, stderr);
             return -1;
         }
-        if (borISetSize(&rm_fact) > 0 || borISetSize(&rm_op) > 0){
+        if (pddlISetSize(&rm_fact) > 0 || pddlISetSize(&rm_op) > 0){
             pddlStripsReduce(&strips, &rm_fact, &rm_op);
-            if (borISetSize(&rm_fact) > 0)
+            if (pddlISetSize(&rm_fact) > 0)
                 pddlMGroupsReduce(&mgroups, &rm_fact);
         }
-        borISetFree(&rm_fact);
-        borISetFree(&rm_op);
+        pddlISetFree(&rm_fact);
+        pddlISetFree(&rm_op);
     }
 
     // Find fam-groups

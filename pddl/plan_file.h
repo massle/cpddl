@@ -54,7 +54,7 @@ void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p);
 
 struct pddl_plan_file_strips {
     bor_iarr_t op; /*!< Sequence of operators */
-    bor_iset_t *state; /*!< Intermediate states */
+    pddl_iset_t *state; /*!< Intermediate states */
     int state_size;
     int state_alloc;
     int cost; /*!< Cost of the plan */

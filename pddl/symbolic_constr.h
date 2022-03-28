@@ -30,9 +30,9 @@ struct pddl_symbolic_constr {
     pddl_symbolic_vars_t *vars;
 
     pddl_mgroups_t mgroup;
-    bor_iset_t *fact_mutex;
-    bor_iset_t *fact_mutex_fw;
-    bor_iset_t *fact_mutex_bw;
+    pddl_iset_t *fact_mutex;
+    pddl_iset_t *fact_mutex_fw;
+    pddl_iset_t *fact_mutex_bw;
     pddl_disambiguate_t disambiguate;
 
     pddl_bdds_t fw_mutex;

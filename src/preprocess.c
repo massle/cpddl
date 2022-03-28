@@ -30,8 +30,8 @@ static int pddlPruneFDRH2FwBw(pddl_fdr_t *fdr, bor_err_t *err)
     pddlMGStripsInitFDR(&mg_strips, fdr);
     pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
 
-    BOR_ISET(rm_fact);
-    BOR_ISET(rm_op);
+    PDDL_ISET(rm_fact);
+    PDDL_ISET(rm_op);
     if (fdr->has_cond_eff){
         BOR_INFO2(err, "Skipping h^2, because FDR has conditional effects.");
 
@@ -40,11 +40,11 @@ static int pddlPruneFDRH2FwBw(pddl_fdr_t *fdr, bor_err_t *err)
         BOR_TRACE_RET(err, -1);
     }
 
-    if (borISetSize(&rm_fact) > 0 || borISetSize(&rm_op) > 0)
+    if (pddlISetSize(&rm_fact) > 0 || pddlISetSize(&rm_op) > 0)
         pddlFDRReduce(fdr, NULL, &rm_fact, &rm_op);
 
-    borISetFree(&rm_op);
-    borISetFree(&rm_fact);
+    pddlISetFree(&rm_op);
+    pddlISetFree(&rm_fact);
     pddlMutexPairsFree(&mutex);
     pddlMGStripsFree(&mg_strips);
 
@@ -53,8 +53,8 @@ static int pddlPruneFDRH2FwBw(pddl_fdr_t *fdr, bor_err_t *err)
 
 static int pddlPruneFDRIrrelevance(pddl_fdr_t *fdr, bor_err_t *err)
 {
-    BOR_ISET(rm_var);
-    BOR_ISET(rm_op);
+    PDDL_ISET(rm_var);
+    PDDL_ISET(rm_op);
     if (fdr->has_cond_eff){
         BOR_INFO2(err, "Skipping irrelevance analysis, because FDR has"
                        " conditional effects.");
@@ -63,11 +63,11 @@ static int pddlPruneFDRIrrelevance(pddl_fdr_t *fdr, bor_err_t *err)
         BOR_TRACE_RET(err, -1);
     }
 
-    if (borISetSize(&rm_var) > 0 || borISetSize(&rm_op) > 0)
+    if (pddlISetSize(&rm_var) > 0 || pddlISetSize(&rm_op) > 0)
         pddlFDRReduce(fdr, &rm_var, NULL, &rm_op);
 
-    borISetFree(&rm_op);
-    borISetFree(&rm_var);
+    pddlISetFree(&rm_op);
+    pddlISetFree(&rm_var);
 
     return 0;
 }

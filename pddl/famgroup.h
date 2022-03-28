@@ -91,7 +91,7 @@ _pddl_inline int pddlFAMGroupsInferAll(pddl_mgroups_t *mgs,
  */
 void pddlFAMGroupsDeadEndOps(const pddl_mgroups_t *mgs,
                              const pddl_strips_t *strips,
-                             bor_iset_t *dead_end_ops);
+                             pddl_iset_t *dead_end_ops);
 
 
 #ifdef __cplusplus

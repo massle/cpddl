@@ -79,18 +79,18 @@ void pddlTransSystemAbstrMapPruneState(pddl_trans_system_abstr_map_t *map,
 }
 
 void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
-                                     const bor_iset_t *states)
+                                     const pddl_iset_t *states)
 {
     if (map->map_num_states >= 0){
         BOR_FATAL2("This function can be called only on mapping that wasn't"
                    "finalized yet!");
     }
-    if (borISetSize(states) <= 1)
+    if (pddlISetSize(states) <= 1)
         return;
 
-    int to = borISetGet(states, 0);
+    int to = pddlISetGet(states, 0);
     int state;
-    BOR_ISET_FOR_EACH(states, state){
+    PDDL_ISET_FOR_EACH(states, state){
         if (map->map[state] >= 0){
             ASSERT_RUNTIME(map->map[state] == state);
             map->map[state] = to;

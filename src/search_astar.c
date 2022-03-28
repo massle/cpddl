@@ -40,7 +40,7 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
 
     astar->goal_state_id = PDDL_NO_STATE_ID;
 
-    borISetInit(&astar->applicable);
+    pddlISetInit(&astar->applicable);
     pddlFDRStateSpaceNodeInit(&astar->cur_node, &astar->state_space);
     pddlFDRStateSpaceNodeInit(&astar->next_node, &astar->state_space);
 
@@ -55,7 +55,7 @@ void pddlSearchAStarDel(pddl_search_astar_t *astar)
     pddlFDRStateSpaceNodeFree(&astar->cur_node);
     pddlFDRStateSpaceNodeFree(&astar->next_node);
     pddlFDRStateSpaceFree(&astar->state_space);
-    borISetFree(&astar->applicable);
+    pddlISetFree(&astar->applicable);
     FREE(astar);
 }
 
@@ -177,12 +177,12 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
     }
 
     // Find all applicable operators
-    borISetEmpty(&astar->applicable);
+    pddlISetEmpty(&astar->applicable);
     pddlFDRAppOpFind(&astar->app_op, astar->cur_node.state, &astar->applicable);
     ++astar->_stat.expanded;
 
     int op_id;
-    BOR_ISET_FOR_EACH(&astar->applicable, op_id){
+    PDDL_ISET_FOR_EACH(&astar->applicable, op_id){
         const pddl_fdr_op_t *op = astar->fdr->op.op[op_id];
 
         // Create a new state

@@ -65,31 +65,31 @@ void pddlHFFInit(pddl_hff_t *h, const pddl_fdr_t *fdr)
         op->cost = src->cost;
 
         int fact;
-        BOR_ISET_FOR_EACH(&op->pre, fact)
-            borISetAdd(&h->fact[fact].pre_op, op_id);
-        op->pre_size = borISetSize(&op->pre);
-        BOR_ISET_FOR_EACH(&op->eff, fact)
-            borISetAdd(&h->fact[fact].eff_op, op_id);
+        PDDL_ISET_FOR_EACH(&op->pre, fact)
+            pddlISetAdd(&h->fact[fact].pre_op, op_id);
+        op->pre_size = pddlISetSize(&op->pre);
+        PDDL_ISET_FOR_EACH(&op->eff, fact)
+            pddlISetAdd(&h->fact[fact].eff_op, op_id);
 
         // Record operator with no preconditions
         if (op->pre_size == 0){
-            borISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
+            pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
             op->pre_size = 1;
         }
     }
 
     // Set up goal operator
     pddl_hff_op_t *op = h->op + h->op_goal;
-    borISetAdd(&op->eff, h->fact_goal);
+    pddlISetAdd(&op->eff, h->fact_goal);
     op->cost = 0;
 
     pddlFDRPartStateToGlobalIDs(&fdr->goal, &fdr->var, &op->pre);
     int fact;
-    BOR_ISET_FOR_EACH(&op->pre, fact)
-        borISetAdd(&h->fact[fact].pre_op, h->op_goal);
-    op->pre_size = borISetSize(&op->pre);
-    BOR_ISET_FOR_EACH(&op->eff, fact)
-        borISetAdd(&h->fact[fact].eff_op, h->op_goal);
+    PDDL_ISET_FOR_EACH(&op->pre, fact)
+        pddlISetAdd(&h->fact[fact].pre_op, h->op_goal);
+    op->pre_size = pddlISetSize(&op->pre);
+    PDDL_ISET_FOR_EACH(&op->eff, fact)
+        pddlISetAdd(&h->fact[fact].eff_op, h->op_goal);
 }
 
 void pddlHFFInitStrips(pddl_hff_t *h, const pddl_strips_t *strips)
@@ -114,50 +114,50 @@ void pddlHFFInitStrips(pddl_hff_t *h, const pddl_strips_t *strips)
         const pddl_strips_op_t *src = strips->op.op[op_id];
         pddl_hff_op_t *op = h->op + op_id;
 
-        borISetUnion(&op->pre, &src->pre);
-        borISetUnion(&op->eff, &src->add_eff);
+        pddlISetUnion(&op->pre, &src->pre);
+        pddlISetUnion(&op->eff, &src->add_eff);
         op->cost = src->cost;
 
         int fact;
-        BOR_ISET_FOR_EACH(&op->pre, fact)
-            borISetAdd(&h->fact[fact].pre_op, op_id);
-        op->pre_size = borISetSize(&op->pre);
-        BOR_ISET_FOR_EACH(&op->eff, fact)
-            borISetAdd(&h->fact[fact].eff_op, op_id);
+        PDDL_ISET_FOR_EACH(&op->pre, fact)
+            pddlISetAdd(&h->fact[fact].pre_op, op_id);
+        op->pre_size = pddlISetSize(&op->pre);
+        PDDL_ISET_FOR_EACH(&op->eff, fact)
+            pddlISetAdd(&h->fact[fact].eff_op, op_id);
 
         // Record operator with no preconditions
         if (op->pre_size == 0){
-            borISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
+            pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
             op->pre_size = 1;
         }
     }
 
     // Set up goal operator
     pddl_hff_op_t *op = h->op + h->op_goal;
-    borISetAdd(&op->eff, h->fact_goal);
+    pddlISetAdd(&op->eff, h->fact_goal);
     op->cost = 0;
 
-    borISetUnion(&op->pre, &strips->goal);
+    pddlISetUnion(&op->pre, &strips->goal);
     int fact;
-    BOR_ISET_FOR_EACH(&op->pre, fact)
-        borISetAdd(&h->fact[fact].pre_op, h->op_goal);
-    op->pre_size = borISetSize(&op->pre);
-    BOR_ISET_FOR_EACH(&op->eff, fact)
-        borISetAdd(&h->fact[fact].eff_op, h->op_goal);
+    PDDL_ISET_FOR_EACH(&op->pre, fact)
+        pddlISetAdd(&h->fact[fact].pre_op, h->op_goal);
+    op->pre_size = pddlISetSize(&op->pre);
+    PDDL_ISET_FOR_EACH(&op->eff, fact)
+        pddlISetAdd(&h->fact[fact].eff_op, h->op_goal);
 }
 
 void pddlHFFFree(pddl_hff_t *hff)
 {
     for (int i = 0; i < hff->fact_size; ++i){
-        borISetFree(&hff->fact[i].pre_op);
-        borISetFree(&hff->fact[i].eff_op);
+        pddlISetFree(&hff->fact[i].pre_op);
+        pddlISetFree(&hff->fact[i].eff_op);
     }
     if (hff->fact != NULL)
         FREE(hff->fact);
 
     for (int i = 0; i < hff->op_size; ++i){
-        borISetFree(&hff->op[i].pre);
-        borISetFree(&hff->op[i].eff);
+        pddlISetFree(&hff->op[i].pre);
+        pddlISetFree(&hff->op[i].eff);
     }
     if (hff->op != NULL)
         FREE(hff->op);
@@ -186,10 +186,10 @@ static void initOps(pddl_hff_t *h)
     }
 }
 
-static void addInitState(pddl_hff_t *h, const bor_iset_t *state, pddl_pq_t *pq)
+static void addInitState(pddl_hff_t *h, const pddl_iset_t *state, pddl_pq_t *pq)
 {
     int fact_id;
-    BOR_ISET_FOR_EACH(state, fact_id)
+    PDDL_ISET_FOR_EACH(state, fact_id)
         FPUSH(pq, 0, h->fact + fact_id);
     FPUSH(pq, 0, h->fact + h->fact_nopre);
 }
@@ -200,7 +200,7 @@ static void enqueueOpEffects(pddl_hff_t *h,
                              pddl_pq_t *pq)
 {
     int fid;
-    BOR_ISET_FOR_EACH(&op->eff, fid){
+    PDDL_ISET_FOR_EACH(&op->eff, fid){
         pddl_hff_fact_t *fact = h->fact + fid;
         if (FVALUE(fact) > op->value){
             h->fact[fid].reached_by_op = op_id;
@@ -209,7 +209,7 @@ static void enqueueOpEffects(pddl_hff_t *h,
     }
 }
 
-static int hadd(pddl_hff_t *h, const bor_iset_t *state)
+static int hadd(pddl_hff_t *h, const pddl_iset_t *state)
 {
     pddl_pq_t pq;
 
@@ -228,7 +228,7 @@ static int hadd(pddl_hff_t *h, const bor_iset_t *state)
             break;
 
         int op_id;
-        BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_hff_op_t *op = h->op + op_id;
             op->value = pddlSumSat(op->value, value);
             if (--op->unsat == 0){
@@ -257,13 +257,13 @@ static void relaxedPlanMarkFact(pddl_hff_t *h, int fact)
 
     h->op[op].marked = 1;
     int pre;
-    BOR_ISET_FOR_EACH(&h->op[op].pre, pre){
+    PDDL_ISET_FOR_EACH(&h->op[op].pre, pre){
         if (!h->fact[pre].marked)
             relaxedPlanMarkFact(h, pre);
     }
 }
 
-static void markRelaxedPlan(pddl_hff_t *h, const bor_iset_t *state)
+static void markRelaxedPlan(pddl_hff_t *h, const pddl_iset_t *state)
 {
     for (int oi = 0; oi < h->op_size; ++oi)
         h->op[oi].marked = 0;
@@ -272,7 +272,7 @@ static void markRelaxedPlan(pddl_hff_t *h, const bor_iset_t *state)
 
     h->fact[h->fact_nopre].marked = 1;
     int fact_id;
-    BOR_ISET_FOR_EACH(state, fact_id)
+    PDDL_ISET_FOR_EACH(state, fact_id)
         h->fact[fact_id].marked = 1;
 
     relaxedPlanMarkFact(h, h->fact_goal);
@@ -305,7 +305,7 @@ static void extractPlan(const pddl_hff_t *h, bor_iarr_t *plan)
     FREE(ops);
 }
 
-static int hff(pddl_hff_t *h, const bor_iset_t *state)
+static int hff(pddl_hff_t *h, const pddl_iset_t *state)
 {
     int add_heur = hadd(h, state);
     if (add_heur == PDDL_COST_DEAD_END)
@@ -324,14 +324,14 @@ int pddlHFF(pddl_hff_t *h,
              const int *fdr_state,
              const pddl_fdr_vars_t *vars)
 {
-    BOR_ISET(state);
+    PDDL_ISET(state);
     for (int var = 0; var < vars->var_size; ++var){
         int val = fdr_state[var];
         int fact_id = vars->var[var].val[val].global_id;
-        borISetAdd(&state, fact_id);
+        pddlISetAdd(&state, fact_id);
     }
     int ret = hff(h, &state);
-    borISetFree(&state);
+    pddlISetFree(&state);
     return ret;
 }
 
@@ -347,13 +347,13 @@ int pddlHFFPlan(pddl_hff_t *h,
     return heur;
 }
 
-int pddlHFFStrips(pddl_hff_t *h, const bor_iset_t *state)
+int pddlHFFStrips(pddl_hff_t *h, const pddl_iset_t *state)
 {
     return hff(h, state);
 }
 
 int pddlHFFStripsPlan(pddl_hff_t *h,
-                      const bor_iset_t *state,
+                      const pddl_iset_t *state,
                       bor_iarr_t *plan)
 {
     int heur = pddlHFFStrips(h, state);

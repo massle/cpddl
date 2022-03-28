@@ -29,8 +29,8 @@ static void tsReachabilityState(const pddl_ts_t *ts, int state, int *reach)
     for (int s = 0; s < ts->num_states; ++s){
         if (reach[s])
             continue;
-        const bor_iset_t *tr = pddlTSTransition(ts, state, s);
-        if (borISetSize(tr) == 0)
+        const pddl_iset_t *tr = pddlTSTransition(ts, state, s);
+        if (pddlISetSize(tr) == 0)
             continue;
         reach[s] = 1;
         tsReachabilityState(ts, s, reach);
@@ -55,10 +55,10 @@ static void opMutexesFromSingleTransitions(pddl_op_mutex_pairs_t *m,
                                            const pddl_ts_t *ts)
 {
     int s1, s2;
-    const bor_iset_t *tr;
+    const pddl_iset_t *tr;
 
     PDDL_TS_FOR_EACH_NONEMPTY_TRANSITION(ts, s1, s2, tr){
-        if (s1 != s2 && borISetSize(tr) > 1)
+        if (s1 != s2 && pddlISetSize(tr) > 1)
             pddlOpMutexPairsAddGroup(m, tr);
     }
 }
@@ -88,20 +88,20 @@ static void opMutexesFromCondensedTS(pddl_op_mutex_pairs_t *m,
             // t_end then we have found an op-mutex.
 
             int s_start;
-            const bor_iset_t *s_tr;
+            const pddl_iset_t *s_tr;
             PDDL_TS_FOR_EACH_NONEMPTY_TRANSITION_TO(ts, s, s_start, s_tr){
                 int t_end;
-                const bor_iset_t *t_tr;
+                const pddl_iset_t *t_tr;
                 PDDL_TS_FOR_EACH_NONEMPTY_TRANSITION_FROM(ts, t, t_end, t_tr){
                     if (t_tr == s_tr
                             || reach[t_end * ts->num_states + s_start]){
                         continue;
                     }
-                    ASSERT(borISetIsDisjunct(s_tr, t_tr));
+                    ASSERT(pddlISetIsDisjunct(s_tr, t_tr));
 
                     int o1, o2;
-                    BOR_ISET_FOR_EACH(s_tr, o1){
-                        BOR_ISET_FOR_EACH(t_tr, o2){
+                    PDDL_ISET_FOR_EACH(s_tr, o1){
+                        PDDL_ISET_FOR_EACH(t_tr, o2){
                             pddlOpMutexPairsAdd(m, o1, o2);
                         }
                     }
@@ -152,8 +152,8 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
                                    const pddl_mgroups_t *mgroup,
                                    bor_err_t *err)
 {
-    BOR_ISET(covered);
-    BOR_ISET(op_mgroup);
+    PDDL_ISET(covered);
+    PDDL_ISET(op_mgroup);
 
     BOR_INFO2(err, "Op-mutexes from uncovered facts:");
 
@@ -161,30 +161,30 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
     pddlStripsFactCrossRefInit(&cr, strips, 0, 0, 1, 1, 1);
 
     for (int i = 0; mgroup != NULL && i < mgroup->mgroup_size; ++i)
-        borISetUnion(&covered, &mgroup->mgroup[i].mgroup);
+        pddlISetUnion(&covered, &mgroup->mgroup[i].mgroup);
 
     int mi = 0;
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
         const pddl_strips_fact_cross_ref_fact_t *fact = cr.fact + fact_id;
-        if (mi < borISetSize(&covered) && fact_id == borISetGet(&covered, mi)){
+        if (mi < pddlISetSize(&covered) && fact_id == pddlISetGet(&covered, mi)){
             ++mi;
-        }else if (borISetSize(&fact->op_del) == 0){
-            borISetEmpty(&op_mgroup);
+        }else if (pddlISetSize(&fact->op_del) == 0){
+            pddlISetEmpty(&op_mgroup);
             int opi;
-            BOR_ISET_FOR_EACH(&fact->op_add, opi){
+            PDDL_ISET_FOR_EACH(&fact->op_add, opi){
                 const pddl_strips_op_t *op = strips->op.op[opi];
-                if (borISetSize(&op->add_eff) != 1)
+                if (pddlISetSize(&op->add_eff) != 1)
                     continue;
-                borISetAdd(&op_mgroup, opi);
+                pddlISetAdd(&op_mgroup, opi);
             }
 
-            if (borISetSize(&op_mgroup) > 1)
+            if (pddlISetSize(&op_mgroup) > 1)
                 pddlOpMutexPairsAddGroup(m, &op_mgroup);
         }
     }
 
-    borISetFree(&op_mgroup);
-    borISetFree(&covered);
+    pddlISetFree(&op_mgroup);
+    pddlISetFree(&covered);
 
     pddlStripsFactCrossRefFree(&cr);
     BOR_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(m));
@@ -218,7 +218,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
         int fid = pddlFactsAdd(&P2.fact, &fact);
 
         // add the fact to the corresponding operator's add effect
-        borISetAdd(&op->add_eff, fid);
+        pddlISetAdd(&op->add_eff, fid);
         fact.name = NULL;
         pddlFactFree(&fact);
     }
@@ -261,7 +261,7 @@ static void opMutexHmFromOp(pddl_op_mutex_pairs_t *opm,
                             const pddl_strips_op_t *op,
                             const pddl_strips_t *strips_in,
                             const pddl_mutex_pairs_t *mutex,
-                            bor_iset_t *unreach_map,
+                            pddl_iset_t *unreach_map,
                             bor_err_t *err)
 {
     pddl_strips_t strips;
@@ -269,23 +269,23 @@ static void opMutexHmFromOp(pddl_op_mutex_pairs_t *opm,
 
     pddlStripsInitCopy(&strips, strips_in);
 
-    BOR_ISET(init);
-    borISetMinus2(&init, &op->pre, &op->del_eff);
-    borISetUnion(&init, &op->add_eff);
+    PDDL_ISET(init);
+    pddlISetMinus2(&init, &op->pre, &op->del_eff);
+    pddlISetUnion(&init, &op->add_eff);
 
-    borISetEmpty(&strips.init);
-    borISetUnion(&strips.init, &init);
+    pddlISetEmpty(&strips.init);
+    pddlISetUnion(&strips.init, &init);
 
     for (int fact_id = 0; fact_id < strips_in->fact.fact_size; ++fact_id){
-        if (!borISetIn(fact_id, &op->del_eff)
+        if (!pddlISetIn(fact_id, &op->del_eff)
                 && !pddlMutexPairsIsMutexFactSet(mutex, fact_id, &init)
                 && !pddlMutexPairsIsMutexFactSet(mutex, fact_id, &op->pre)){
-            borISetAdd(&strips.init, fact_id);
+            pddlISetAdd(&strips.init, fact_id);
         }
     }
-    borISetFree(&init);
+    pddlISetFree(&init);
 
-    BOR_ISET(unreach_ops);
+    PDDL_ISET(unreach_ops);
     pddlMutexPairsInitCopy(&hm_mutex, mutex);
     if (pddlHm(m, &strips, &hm_mutex, NULL, &unreach_ops, 0, 0, err) != 0){
         // TODO
@@ -295,15 +295,15 @@ static void opMutexHmFromOp(pddl_op_mutex_pairs_t *opm,
     }
 
     int op_unreach_id;
-    BOR_ISET_FOR_EACH(&unreach_ops, op_unreach_id){
+    PDDL_ISET_FOR_EACH(&unreach_ops, op_unreach_id){
         if (op->id == op_unreach_id)
             continue;
-        borISetAdd(&unreach_map[op->id], op_unreach_id);
-        if (borISetIn(op->id, &unreach_map[op_unreach_id])){
+        pddlISetAdd(&unreach_map[op->id], op_unreach_id);
+        if (pddlISetIn(op->id, &unreach_map[op_unreach_id])){
             pddlOpMutexPairsAdd(opm, op->id, op_unreach_id);
         }
     }
-    borISetFree(&unreach_ops);
+    pddlISetFree(&unreach_ops);
 
     pddlMutexPairsFree(&hm_mutex);
     pddlStripsFree(&strips);
@@ -313,19 +313,19 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
                                  int m,
                                  const pddl_strips_t *strips_in,
                                  const pddl_mutex_pairs_t *mutex,
-                                 const bor_iset_t *ops,
+                                 const pddl_iset_t *ops,
                                  bor_err_t *err)
 {
-    bor_iset_t *unreach_map;
+    pddl_iset_t *unreach_map;
 
     BOR_INFO_PREFIX_PUSH(err, "OPM ");
     BOR_INFO(err, "Op-mutexes using h^%d from each operator:", m);
 
-    unreach_map = CALLOC_ARR(bor_iset_t, strips_in->op.op_size);
+    unreach_map = CALLOC_ARR(pddl_iset_t, strips_in->op.op_size);
 
     if (ops != NULL){
         int opi;
-        BOR_ISET_FOR_EACH(ops, opi){
+        PDDL_ISET_FOR_EACH(ops, opi){
             const pddl_strips_op_t *op = strips_in->op.op[opi];
             opMutexHmFromOp(opm, m, op, strips_in, mutex, unreach_map, err);
         }
@@ -337,7 +337,7 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
 
     const pddl_strips_op_t *op;
     PDDL_STRIPS_OPS_FOR_EACH(&strips_in->op, op)
-        borISetFree(unreach_map + op->id);
+        pddlISetFree(unreach_map + op->id);
     if (unreach_map != NULL)
         FREE(unreach_map);
 

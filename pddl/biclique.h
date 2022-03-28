@@ -34,8 +34,8 @@ extern "C" {
  * maximal bicliques. https://doi.org/10.1016/j.dam.2003.09.004
  */
 void pddlBicliqueFindMaximal(const pddl_graph_simple_t *g,
-                             void (*cb)(const bor_iset_t *left,
-                                        const bor_iset_t *right, void *ud),
+                             void (*cb)(const pddl_iset_t *left,
+                                        const pddl_iset_t *right, void *ud),
                              void *ud);
 
 

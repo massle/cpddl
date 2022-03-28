@@ -58,9 +58,9 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr);
  * Delete the specified facts and operators.
  */
 void pddlFDRReduce(pddl_fdr_t *fdr,
-                   const bor_iset_t *del_vars,
-                   const bor_iset_t *del_facts,
-                   const bor_iset_t *del_ops);
+                   const pddl_iset_t *del_vars,
+                   const pddl_iset_t *del_facts,
+                   const pddl_iset_t *del_ops);
 
 /**
  * Returns true if the plan is a relaxed plan of the problem.

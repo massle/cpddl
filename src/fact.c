@@ -245,7 +245,7 @@ int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
 }
 
 int pddlFactsDelFactsGenRemap(int fact_size,
-                              const bor_iset_t *del_facts,
+                              const pddl_iset_t *del_facts,
                               int *remap)
 {
     int size = 0;
@@ -253,7 +253,7 @@ int pddlFactsDelFactsGenRemap(int fact_size,
     bzero(remap, sizeof(int) * fact_size);
 
     int fact_id;
-    BOR_ISET_FOR_EACH(del_facts, fact_id){
+    PDDL_ISET_FOR_EACH(del_facts, fact_id){
         if (fact_id >= fact_size)
             break;
         remap[fact_id] = -1;
@@ -281,7 +281,7 @@ void pddlFactsDelFact(pddl_facts_t *fs, int fact_id)
     fs->fact[fact_id] = NULL;
 }
 
-void pddlFactsDelFacts(pddl_facts_t *fs, const bor_iset_t *m, int *remap)
+void pddlFactsDelFacts(pddl_facts_t *fs, const pddl_iset_t *m, int *remap)
 {
     int new_size = pddlFactsDelFactsGenRemap(fs->fact_size, m, remap);
 
@@ -337,13 +337,13 @@ void pddlFactsPrint(const pddl_facts_t *fs,
         pddlFactPrint(fs->fact[i], prefix, suffix, fout);
 }
 
-void pddlFactsPrintSet(const bor_iset_t *fact_set,
+void pddlFactsPrintSet(const pddl_iset_t *fact_set,
                        const pddl_facts_t *fs,
                        const char *prefix,
                        const char *suffix,
                        FILE *fout)
 {
     int fid;
-    BOR_ISET_FOR_EACH(fact_set, fid)
+    PDDL_ISET_FOR_EACH(fact_set, fid)
         pddlFactPrint(fs->fact[fid], prefix, suffix, fout);
 }

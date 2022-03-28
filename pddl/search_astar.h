@@ -41,7 +41,7 @@ struct pddl_search_astar {
 
     pddl_state_id_t goal_state_id;
 
-    bor_iset_t applicable;
+    pddl_iset_t applicable;
     pddl_fdr_state_space_node_t cur_node;
     pddl_fdr_state_space_node_t next_node;
     pddl_search_stat_t _stat;

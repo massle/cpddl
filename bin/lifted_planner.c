@@ -34,7 +34,7 @@ static pddl_homomorphism_heur_t *
         if (type == except)
             continue;
         if (pddlTypesIsMinimal(&pddl->type, type))
-            borISetAdd(&homo_cfg.collapse_types, type);
+            pddlISetAdd(&homo_cfg.collapse_types, type);
     }
     pddl_homomorphism_heur_t *heur;
     if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, err)) == NULL){

@@ -20,7 +20,7 @@
 #ifndef __PDDL_STRIPS_H__
 #define __PDDL_STRIPS_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #include <pddl/common.h>
 #include <pddl/strips_op.h>
@@ -63,8 +63,8 @@ struct pddl_strips {
     char *problem_file;
     pddl_facts_t fact; /*!< Set of facts */
     pddl_strips_ops_t op; /*!< Set of operators */
-    bor_iset_t init; /*!< Initial state */
-    bor_iset_t goal; /*!< Goal specification */
+    pddl_iset_t init; /*!< Initial state */
+    pddl_iset_t goal; /*!< Goal specification */
     int goal_is_unreachable; /*!< True if the goal is not reachable */
     int has_cond_eff; /*!< True if the problem contains operators with
                            conditinal effects. */
@@ -98,9 +98,9 @@ void pddlStripsCompileAwayCondEff(pddl_strips_t *strips);
 /**
  * Writes IDs of operators to the corresponding fact elements.
  * fact_arr is a beggining of the array containing structures containing
- * bor_iset_t elements where IDs are written.
+ * pddl_iset_t elements where IDs are written.
  * el_size is a size of a single element in fact_arr.
- * pre_offset is an offset of the bor_iset_t element where operators of
+ * pre_offset is an offset of the pddl_iset_t element where operators of
  * which the fact is a precondition should be written.
  * add_offset and del_offset are the same as pre_offset instead for add and
  * delete effects, respectivelly.
@@ -118,21 +118,21 @@ void pddlStripsCrossRefFactsOps(const pddl_strips_t *strips,
  * Finds the set of the operators applicable in the given state.
  */
 void pddlStripsApplicableOps(const pddl_strips_t *strips,
-                             const bor_iset_t *state,
-                             bor_iset_t *app_ops);
+                             const pddl_iset_t *state,
+                             pddl_iset_t *app_ops);
 
 
 /**
  * Returns true if the given set of facts form a fact-alternating mutex
  * group.
  */
-int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const bor_iset_t *facts);
+int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const pddl_iset_t *facts);
 
 /**
  * Returns true if the given set of facts is an exactly-one mutex group.
  */
 int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
-                                 const bor_iset_t *facts);
+                                 const pddl_iset_t *facts);
 
 /**
  * Remove conditional effects by merging them into the operator if
@@ -144,8 +144,8 @@ int pddlStripsMergeCondEffIfPossible(pddl_strips_t *strips);
  * Delete the specified facts and operators.
  */
 void pddlStripsReduce(pddl_strips_t *strips,
-                      const bor_iset_t *del_facts,
-                      const bor_iset_t *del_ops);
+                      const pddl_iset_t *del_facts,
+                      const pddl_iset_t *del_ops);
 
 /**
  * Remove static facts, i.e., facts that are true in all reachable states.
@@ -165,7 +165,7 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err);
  */
 int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    const pddl_mutex_pairs_t *mutex,
-                                   bor_iset_t *changed_ops,
+                                   pddl_iset_t *changed_ops,
                                    bor_err_t *err);
 
 /**
@@ -173,7 +173,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
  */
 int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  const pddl_mutex_pairs_t *mutex,
-                                 bor_iset_t *unreachable_ops,
+                                 pddl_iset_t *unreachable_ops,
                                  bor_err_t *err);
 
 /**

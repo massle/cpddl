@@ -56,29 +56,29 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
 
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
-                                    bor_iset_t *redundant_ops,
+                                    pddl_iset_t *redundant_ops,
                                     bor_err_t *err);
 
 int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
                                          const pddl_endomorphism_config_t *cfg,
-                                         bor_iset_t *redundant_ops,
+                                         pddl_iset_t *redundant_ops,
                                          bor_err_t *err);
 
 int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             const pddl_endomorphism_config_t *c,
-                                            bor_iset_t *redundant_ops,
+                                            pddl_iset_t *redundant_ops,
                                             bor_err_t *err);
 
 int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups,
                            const pddl_endomorphism_config_t *cfg,
-                           bor_iset_t *redundant_objects,
+                           pddl_iset_t *redundant_objects,
                            pddl_obj_id_t *map,
                            bor_err_t *err);
 
 int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   const pddl_endomorphism_config_t *cfg,
-                                  bor_iset_t *redundant_objects,
+                                  pddl_iset_t *redundant_objects,
                                   pddl_obj_id_t *map,
                                   bor_err_t *err);
 

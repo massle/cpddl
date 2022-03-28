@@ -129,13 +129,13 @@ void pddlAddObjectTypes(pddl_t *pddl);
 /**
  * Remove specified objects from the planning task.
  */
-void pddlRemoveObjs(pddl_t *pddl, const bor_iset_t *rm_objs, bor_err_t *err);
+void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_objs, bor_err_t *err);
 
 /**
  * Same as pddlRemoveObjs() except a remap array must be provided.
  */
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
-                            const bor_iset_t *rm_obj,
+                            const pddl_iset_t *rm_obj,
                             pddl_obj_id_t *remap,
                             bor_err_t *err);
 

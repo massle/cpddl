@@ -23,7 +23,7 @@
 #include <pddl/extarr.h>
 #include <boruvka/pairheap.h>
 #include <pddl/rbtree.h>
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <boruvka/err.h>
 #include <pddl/bdd.h>
 #include <pddl/cost.h>
@@ -35,7 +35,7 @@ extern "C" {
 struct pddl_symbolic_state {
     int id; /*!< ID of this state */
     int parent_id; /*!< Parent state ID */
-    bor_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
+    pddl_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
     int trans_id; /*!< ID of the transitions that achieved this state */
     pddl_cost_t cost; /*!< Cost of the state: g value + zero cost g value */
     pddl_cost_t heur; /*!< Heuristic estimate */

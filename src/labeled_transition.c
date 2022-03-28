@@ -80,7 +80,7 @@ static int cmp(const void *a, const void *b, void *arg)
 {
     const pddl_labeled_transitions_t *t1 = a;
     const pddl_labeled_transitions_t *t2 = b;
-    return borISetCmp(&t1->label->label, &t2->label->label);
+    return pddlISetCmp(&t1->label->label, &t2->label->label);
 }
 
 void pddlLabeledTransitionsSetSort(pddl_labeled_transitions_set_t *t)

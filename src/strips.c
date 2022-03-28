@@ -56,8 +56,8 @@ void pddlStripsInit(pddl_strips_t *strips)
     bzero(strips, sizeof(*strips));
     pddlFactsInit(&strips->fact);
     pddlStripsOpsInit(&strips->op);
-    borISetInit(&strips->init);
-    borISetInit(&strips->goal);
+    pddlISetInit(&strips->init);
+    pddlISetInit(&strips->goal);
 }
 
 void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
@@ -82,13 +82,13 @@ void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
     f_aux = pddlFactsAdd(&strips->fact, &fact);
     pddlFactFree(&fact);
 
-    borISetAdd(&strips->init, f_init);
-    borISetAdd(&strips->goal, f_goal);
+    pddlISetAdd(&strips->init, f_init);
+    pddlISetAdd(&strips->goal, f_goal);
 
     pddl_strips_op_t op;
     pddlStripsOpInit(&op);
-    borISetAdd(&op.pre, f_aux);
-    borISetAdd(&op.add_eff, f_goal);
+    pddlISetAdd(&op.pre, f_aux);
+    pddlISetAdd(&op.add_eff, f_goal);
     pddlStripsOpFinalize(&op, STRDUP("unreachable-op"));
     pddlStripsOpsAdd(&strips->op, &op);
     pddlStripsOpFree(&op);
@@ -108,8 +108,8 @@ void pddlStripsFree(pddl_strips_t *strips)
         FREE(strips->problem_file);
     pddlFactsFree(&strips->fact);
     pddlStripsOpsFree(&strips->op);
-    borISetFree(&strips->init);
-    borISetFree(&strips->goal);
+    pddlISetFree(&strips->init);
+    pddlISetFree(&strips->goal);
     bzero(strips, sizeof(*strips));
 }
 
@@ -121,8 +121,8 @@ void pddlStripsInitCopy(pddl_strips_t *dst, const pddl_strips_t *src)
 
     pddlFactsCopy(&dst->fact, &src->fact);
     pddlStripsOpsCopy(&dst->op, &src->op);
-    borISetUnion(&dst->init, &src->init);
-    borISetUnion(&dst->goal, &src->goal);
+    pddlISetUnion(&dst->init, &src->init);
+    pddlISetUnion(&dst->goal, &src->goal);
     dst->goal_is_unreachable = src->goal_is_unreachable;
     dst->has_cond_eff = src->has_cond_eff;
 }
@@ -148,44 +148,44 @@ static int addNegFact(pddl_strips_t *strips, int fact_id)
 
     for (int opi = 0; opi < strips->op.op_size; ++opi){
         pddl_strips_op_t *op = strips->op.op[opi];
-        if (borISetIn(fact_id, &op->del_eff))
-            borISetAdd(&op->add_eff, neg_id);
-        if (borISetIn(fact_id, &op->add_eff))
-            borISetAdd(&op->del_eff, neg_id);
+        if (pddlISetIn(fact_id, &op->del_eff))
+            pddlISetAdd(&op->add_eff, neg_id);
+        if (pddlISetIn(fact_id, &op->add_eff))
+            pddlISetAdd(&op->del_eff, neg_id);
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
-            if (borISetIn(fact_id, &ce->del_eff))
-                borISetAdd(&ce->add_eff, neg_id);
-            if (borISetIn(fact_id, &ce->add_eff))
-                borISetAdd(&ce->del_eff, neg_id);
+            if (pddlISetIn(fact_id, &ce->del_eff))
+                pddlISetAdd(&ce->add_eff, neg_id);
+            if (pddlISetIn(fact_id, &ce->add_eff))
+                pddlISetAdd(&ce->del_eff, neg_id);
         }
     }
 
-    if (!borISetIn(fact_id, &strips->init))
-        borISetAdd(&strips->init, neg_id);
+    if (!pddlISetIn(fact_id, &strips->init))
+        pddlISetAdd(&strips->init, neg_id);
 
     return neg_id;
 }
 
 static void opCompileAwayCondEffNegPreRec(pddl_strips_t *strips,
                                           const pddl_strips_op_t *op_in,
-                                          const bor_iset_t *neg_pre,
+                                          const pddl_iset_t *neg_pre,
                                           int neg_pre_size,
                                           int cur_neg_pre)
 {
     pddl_strips_op_t op;
 
     int neg_fact;
-    BOR_ISET_FOR_EACH(neg_pre + cur_neg_pre, neg_fact){
-        if (borISetIn(strips->fact.fact[neg_fact]->neg_of, &op_in->pre))
+    PDDL_ISET_FOR_EACH(neg_pre + cur_neg_pre, neg_fact){
+        if (pddlISetIn(strips->fact.fact[neg_fact]->neg_of, &op_in->pre))
             continue;
         pddlStripsOpInit(&op);
         pddlStripsOpCopyWithoutCondEff(&op, op_in);
-        borISetAdd(&op.pre, neg_fact);
+        pddlISetAdd(&op.pre, neg_fact);
 
         if (cur_neg_pre == neg_pre_size - 1){
             pddlStripsOpNormalize(&op);
-            if (borISetSize(&op.add_eff) > 0)
+            if (pddlISetSize(&op.add_eff) > 0)
                 pddlStripsOpsAdd(&strips->op, &op);
         }else{
             opCompileAwayCondEffNegPreRec(strips, &op, neg_pre, neg_pre_size,
@@ -203,24 +203,24 @@ static void opCompileAwayCondEffNegPre(pddl_strips_t *strips,
                                        int neg_ce_size)
 {
     // Prepare negative preconditions
-    bor_iset_t neg_pre[neg_ce_size];
+    pddl_iset_t neg_pre[neg_ce_size];
     for (int i = 0; i < neg_ce_size; ++i)
-        borISetInit(neg_pre + i);
+        pddlISetInit(neg_pre + i);
 
     for (int i = 0; i < neg_ce_size; ++i){
         const pddl_strips_op_cond_eff_t *ce = src_op->cond_eff + neg_ce[i];
         int fact_id;
-        BOR_ISET_FOR_EACH(&ce->pre, fact_id){
+        PDDL_ISET_FOR_EACH(&ce->pre, fact_id){
             int neg_fact_id = strips->fact.fact[fact_id]->neg_of;
             ASSERT_RUNTIME(neg_fact_id >= 0);
-            borISetAdd(&neg_pre[i], neg_fact_id);
+            pddlISetAdd(&neg_pre[i], neg_fact_id);
         }
     }
 
     opCompileAwayCondEffNegPreRec(strips, op, neg_pre, neg_ce_size, 0);
 
     for (int i = 0; i < neg_ce_size; ++i)
-        borISetFree(neg_pre + i);
+        pddlISetFree(neg_pre + i);
 }
 
 static void opCompileAwayCondEffComb(pddl_strips_t *strips,
@@ -237,10 +237,10 @@ static void opCompileAwayCondEffComb(pddl_strips_t *strips,
 
     // First merge in positive conditional effects
     for (int i = 0; i < pos_ce_size; ++i){
-        borISetUnion(&op.pre, &src_op->cond_eff[pos_ce[i]].pre);
-        borISetMinus(&op.add_eff, &src_op->cond_eff[pos_ce[i]].del_eff);
-        borISetUnion(&op.del_eff, &src_op->cond_eff[pos_ce[i]].del_eff);
-        borISetUnion(&op.add_eff, &src_op->cond_eff[pos_ce[i]].add_eff);
+        pddlISetUnion(&op.pre, &src_op->cond_eff[pos_ce[i]].pre);
+        pddlISetMinus(&op.add_eff, &src_op->cond_eff[pos_ce[i]].del_eff);
+        pddlISetUnion(&op.del_eff, &src_op->cond_eff[pos_ce[i]].del_eff);
+        pddlISetUnion(&op.add_eff, &src_op->cond_eff[pos_ce[i]].add_eff);
     }
 
     if (neg_ce_size > 0){
@@ -249,7 +249,7 @@ static void opCompileAwayCondEffComb(pddl_strips_t *strips,
     }else{
         // Or add operator if there are no negative preconditions
         pddlStripsOpNormalize(&op);
-        if (borISetSize(&op.add_eff) > 0)
+        if (pddlISetSize(&op.add_eff) > 0)
             pddlStripsOpsAdd(&strips->op, &op);
     }
 
@@ -291,7 +291,7 @@ static void compileAwayCondEffCreateNegFacts(pddl_strips_t *strips)
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             const pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
             int fact_id;
-            BOR_ISET_FOR_EACH(&ce->pre, fact_id){
+            PDDL_ISET_FOR_EACH(&ce->pre, fact_id){
                 if (strips->fact.fact[fact_id]->neg_of == -1){
                     addNegFact(strips, fact_id);
                     ASSERT_RUNTIME(strips->fact.fact[fact_id]->neg_of != -1);
@@ -358,158 +358,158 @@ void pddlStripsCrossRefFactsOps(const pddl_strips_t *strips,
         int fact_id;
 
         if (pre_offset >= 0){
-            BOR_ISET_FOR_EACH(&op->pre, fact_id){
+            PDDL_ISET_FOR_EACH(&op->pre, fact_id){
                 char *el = fact_arr + (el_size * fact_id);
-                bor_iset_t *s = (bor_iset_t *)(el + pre_offset);
-                borISetAdd(s, op_id);
+                pddl_iset_t *s = (pddl_iset_t *)(el + pre_offset);
+                pddlISetAdd(s, op_id);
             }
         }
 
         if (add_offset >= 0){
-            BOR_ISET_FOR_EACH(&op->add_eff, fact_id){
+            PDDL_ISET_FOR_EACH(&op->add_eff, fact_id){
                 char *el = fact_arr + (el_size * fact_id);
-                bor_iset_t *s = (bor_iset_t *)(el + add_offset);
-                borISetAdd(s, op_id);
+                pddl_iset_t *s = (pddl_iset_t *)(el + add_offset);
+                pddlISetAdd(s, op_id);
             }
         }
 
         if (del_offset >= 0){
-            BOR_ISET_FOR_EACH(&op->del_eff, fact_id){
+            PDDL_ISET_FOR_EACH(&op->del_eff, fact_id){
                 char *el = fact_arr + (el_size * fact_id);
-                bor_iset_t *s = (bor_iset_t *)(el + del_offset);
-                borISetAdd(s, op_id);
+                pddl_iset_t *s = (pddl_iset_t *)(el + del_offset);
+                pddlISetAdd(s, op_id);
             }
         }
     }
 }
 
 void pddlStripsApplicableOps(const pddl_strips_t *strips,
-                             const bor_iset_t *state,
-                             bor_iset_t *app_ops)
+                             const pddl_iset_t *state,
+                             pddl_iset_t *app_ops)
 {
     for (int i = 0; i < strips->op.op_size; ++i){
         const pddl_strips_op_t *op = strips->op.op[i];
-        if (borISetIsSubset(&op->pre, state))
-            borISetAdd(app_ops, i);
+        if (pddlISetIsSubset(&op->pre, state))
+            pddlISetAdd(app_ops, i);
     }
 }
 
-static int isFAMGroup(const bor_iset_t *facts,
-                      const bor_iset_t *pre,
-                      const bor_iset_t *add_eff,
-                      const bor_iset_t *del_eff)
+static int isFAMGroup(const pddl_iset_t *facts,
+                      const pddl_iset_t *pre,
+                      const pddl_iset_t *add_eff,
+                      const pddl_iset_t *del_eff)
 {
-    BOR_ISET(predel);
+    PDDL_ISET(predel);
 
-    borISetIntersect2(&predel, pre, del_eff);
-    int add_size = borISetIntersectionSize(add_eff, facts);
-    if (add_size > borISetIntersectionSize(&predel, facts)){
-        borISetFree(&predel);
+    pddlISetIntersect2(&predel, pre, del_eff);
+    int add_size = pddlISetIntersectionSize(add_eff, facts);
+    if (add_size > pddlISetIntersectionSize(&predel, facts)){
+        pddlISetFree(&predel);
         return 0;
     }
 
-    borISetFree(&predel);
+    pddlISetFree(&predel);
     return 1;
 }
 
 static int condEffAreDisjunct(const pddl_strips_op_t *op,
-                              const bor_iset_t *facts)        
+                              const pddl_iset_t *facts)        
 {
-    BOR_ISET(del_eff);
-    BOR_ISET(del_eff2);
-    BOR_ISET(add_eff);
-    BOR_ISET(add_eff2);
+    PDDL_ISET(del_eff);
+    PDDL_ISET(del_eff2);
+    PDDL_ISET(add_eff);
+    PDDL_ISET(add_eff2);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
-        borISetIntersect2(&del_eff, &op->cond_eff[cei].del_eff, facts);
-        borISetIntersect2(&add_eff, &op->cond_eff[cei].add_eff, facts);
+        pddlISetIntersect2(&del_eff, &op->cond_eff[cei].del_eff, facts);
+        pddlISetIntersect2(&add_eff, &op->cond_eff[cei].add_eff, facts);
 
         for (int cei2 = cei + 1; cei2 < op->cond_eff_size; ++cei2){
-            borISetIntersect2(&del_eff2, &op->cond_eff[cei2].del_eff, facts);
-            borISetIntersect2(&add_eff2, &op->cond_eff[cei2].add_eff, facts);
-            if (!borISetIsDisjunct(&del_eff, &del_eff2)
-                    || !borISetIsDisjunct(&add_eff, &add_eff2)){
-                borISetFree(&del_eff);
-                borISetFree(&del_eff2);
-                borISetFree(&add_eff);
-                borISetFree(&add_eff2);
+            pddlISetIntersect2(&del_eff2, &op->cond_eff[cei2].del_eff, facts);
+            pddlISetIntersect2(&add_eff2, &op->cond_eff[cei2].add_eff, facts);
+            if (!pddlISetIsDisjunct(&del_eff, &del_eff2)
+                    || !pddlISetIsDisjunct(&add_eff, &add_eff2)){
+                pddlISetFree(&del_eff);
+                pddlISetFree(&del_eff2);
+                pddlISetFree(&add_eff);
+                pddlISetFree(&add_eff2);
                 return 0;
             }
         }
     }
 
-    borISetFree(&del_eff);
-    borISetFree(&del_eff2);
-    borISetFree(&add_eff);
-    borISetFree(&add_eff2);
+    pddlISetFree(&del_eff);
+    pddlISetFree(&del_eff2);
+    pddlISetFree(&add_eff);
+    pddlISetFree(&add_eff2);
 
     return 1;
 }
 
 static int isFAMGroupCERec(const pddl_strips_t *strips,
-                           const bor_iset_t *facts,
+                           const pddl_iset_t *facts,
                            const pddl_strips_op_t *op,
                            int cond_eff_i,
-                           const bor_iset_t *pre_in,
-                           const bor_iset_t *add_eff_in,
-                           const bor_iset_t *del_eff_in)
+                           const pddl_iset_t *pre_in,
+                           const pddl_iset_t *add_eff_in,
+                           const pddl_iset_t *del_eff_in)
 {
-    BOR_ISET(pre);
-    BOR_ISET(add_eff);
-    BOR_ISET(del_eff);
+    PDDL_ISET(pre);
+    PDDL_ISET(add_eff);
+    PDDL_ISET(del_eff);
 
     for (int cei = cond_eff_i; cei < op->cond_eff_size; ++cei){
-        borISetUnion2(&pre, pre_in, &op->cond_eff[cei].pre);
-        borISetUnion2(&add_eff, add_eff_in, &op->cond_eff[cei].add_eff);
-        borISetUnion2(&del_eff, del_eff_in, &op->cond_eff[cei].del_eff);
+        pddlISetUnion2(&pre, pre_in, &op->cond_eff[cei].pre);
+        pddlISetUnion2(&add_eff, add_eff_in, &op->cond_eff[cei].add_eff);
+        pddlISetUnion2(&del_eff, del_eff_in, &op->cond_eff[cei].del_eff);
         if (!isFAMGroup(facts, &pre, &add_eff, &del_eff)){
-            borISetFree(&pre);
-            borISetFree(&add_eff);
-            borISetFree(&del_eff);
+            pddlISetFree(&pre);
+            pddlISetFree(&add_eff);
+            pddlISetFree(&del_eff);
             return 0;
         }
 
         if (cond_eff_i + 1 < op->cond_eff_size){
             if (!isFAMGroupCERec(strips, facts, op, cond_eff_i + 1,
                                  &pre, &add_eff, &del_eff)){
-                borISetFree(&pre);
-                borISetFree(&add_eff);
-                borISetFree(&del_eff);
+                pddlISetFree(&pre);
+                pddlISetFree(&add_eff);
+                pddlISetFree(&del_eff);
                 return 0;
             }
         }
     }
 
-    borISetFree(&pre);
-    borISetFree(&add_eff);
-    borISetFree(&del_eff);
+    pddlISetFree(&pre);
+    pddlISetFree(&add_eff);
+    pddlISetFree(&del_eff);
     return 1;
 }
 
 static int isFAMGroupCE(const pddl_strips_t *strips,
-                        const bor_iset_t *facts,
+                        const pddl_iset_t *facts,
                         const pddl_strips_op_t *op)
 {
     if (condEffAreDisjunct(op, facts)){
-        BOR_ISET(pre);
-        BOR_ISET(add_eff);
-        BOR_ISET(del_eff);
+        PDDL_ISET(pre);
+        PDDL_ISET(add_eff);
+        PDDL_ISET(del_eff);
 
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
-            borISetUnion2(&pre, &op->pre, &op->cond_eff[cei].pre);
-            borISetUnion2(&add_eff, &op->add_eff, &op->cond_eff[cei].add_eff);
-            borISetUnion2(&del_eff, &op->del_eff, &op->cond_eff[cei].del_eff);
+            pddlISetUnion2(&pre, &op->pre, &op->cond_eff[cei].pre);
+            pddlISetUnion2(&add_eff, &op->add_eff, &op->cond_eff[cei].add_eff);
+            pddlISetUnion2(&del_eff, &op->del_eff, &op->cond_eff[cei].del_eff);
             if (!isFAMGroup(facts, &pre, &add_eff, &del_eff)){
-                borISetFree(&pre);
-                borISetFree(&add_eff);
-                borISetFree(&del_eff);
+                pddlISetFree(&pre);
+                pddlISetFree(&add_eff);
+                pddlISetFree(&del_eff);
                 return 0;
             }
         }
 
-        borISetFree(&pre);
-        borISetFree(&add_eff);
-        borISetFree(&del_eff);
+        pddlISetFree(&pre);
+        pddlISetFree(&add_eff);
+        pddlISetFree(&del_eff);
         return 1;
 
     }else{
@@ -518,7 +518,7 @@ static int isFAMGroupCE(const pddl_strips_t *strips,
     }
 }
 
-int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const bor_iset_t *facts)
+int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const pddl_iset_t *facts)
 {
     for (int oi = 0; oi < strips->op.op_size; ++oi){
         const pddl_strips_op_t *op = strips->op.op[oi];
@@ -533,23 +533,23 @@ int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const bor_iset_t *facts)
 }
 
 int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
-                                 const bor_iset_t *facts)
+                                 const pddl_iset_t *facts)
 {
-    if (borISetIsDisjunct(facts, &strips->init))
+    if (pddlISetIsDisjunct(facts, &strips->init))
         return 0;
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
-        if (!borISetIsDisjunct(&op->del_eff, facts)
-                && borISetIsDisjunct(&op->add_eff, facts)){
+        if (!pddlISetIsDisjunct(&op->del_eff, facts)
+                && pddlISetIsDisjunct(&op->add_eff, facts)){
             return 0;
         }
 
         for (int ce_id = 0; ce_id < op->cond_eff_size; ++ce_id){
             const pddl_strips_op_cond_eff_t *ce = op->cond_eff + ce_id;
-            if (!borISetIsDisjunct(&ce->del_eff, facts)
-                    && borISetIsDisjunct(&ce->add_eff, facts)
-                    && borISetIsDisjunct(&op->add_eff, facts)){
+            if (!pddlISetIsDisjunct(&ce->del_eff, facts)
+                    && pddlISetIsDisjunct(&ce->add_eff, facts)
+                    && pddlISetIsDisjunct(&op->add_eff, facts)){
                 return 0;
             }
         }
@@ -580,12 +580,12 @@ int pddlStripsMergeCondEffIfPossible(pddl_strips_t *strips)
         pddl_strips_op_t *op = strips->op.op[op_id];
         int ins = 0;
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
-            if (borISetIsSubset(&op->cond_eff[cei].pre, &op->pre)){
-                borISetUnion(&op->add_eff, &op->cond_eff[cei].add_eff);
-                borISetUnion(&op->del_eff, &op->cond_eff[cei].del_eff);
-                borISetFree(&op->cond_eff[cei].pre);
-                borISetFree(&op->cond_eff[cei].add_eff);
-                borISetFree(&op->cond_eff[cei].del_eff);
+            if (pddlISetIsSubset(&op->cond_eff[cei].pre, &op->pre)){
+                pddlISetUnion(&op->add_eff, &op->cond_eff[cei].add_eff);
+                pddlISetUnion(&op->del_eff, &op->cond_eff[cei].del_eff);
+                pddlISetFree(&op->cond_eff[cei].pre);
+                pddlISetFree(&op->cond_eff[cei].add_eff);
+                pddlISetFree(&op->cond_eff[cei].del_eff);
                 change = 1;
             }else{
                 op->cond_eff[ins++] = op->cond_eff[cei];
@@ -598,22 +598,22 @@ int pddlStripsMergeCondEffIfPossible(pddl_strips_t *strips)
         pddl_strips_op_t *op = strips->op.op[op_id];
         if (op->cond_eff_size == 0)
             continue;
-        if (borISetSize(&op->add_eff) > 0 || borISetSize(&op->del_eff) > 0)
+        if (pddlISetSize(&op->add_eff) > 0 || pddlISetSize(&op->del_eff) > 0)
             continue;
 
         int can_flatten = 1;
         for (int cei = 1; cei < op->cond_eff_size; ++cei){
-            if (!borISetEq(&op->cond_eff[cei - 1].pre, &op->cond_eff[cei].pre)){
+            if (!pddlISetEq(&op->cond_eff[cei - 1].pre, &op->cond_eff[cei].pre)){
                 can_flatten = 0;
                 break;
             }
         }
 
         if (can_flatten){
-            borISetUnion(&op->pre, &op->cond_eff[0].pre);
+            pddlISetUnion(&op->pre, &op->cond_eff[0].pre);
             for (int cei = 0; cei < op->cond_eff_size; ++cei){
-                borISetUnion(&op->del_eff, &op->cond_eff[cei].del_eff);
-                borISetUnion(&op->add_eff, &op->cond_eff[cei].add_eff);
+                pddlISetUnion(&op->del_eff, &op->cond_eff[cei].del_eff);
+                pddlISetUnion(&op->add_eff, &op->cond_eff[cei].add_eff);
             }
 
             pddlStripsOpFreeAllCondEffs(op);
@@ -630,39 +630,39 @@ int pddlStripsMergeCondEffIfPossible(pddl_strips_t *strips)
 }
 
 void pddlStripsReduce(pddl_strips_t *strips,
-                      const bor_iset_t *del_facts,
-                      const bor_iset_t *del_ops)
+                      const pddl_iset_t *del_facts,
+                      const pddl_iset_t *del_ops)
 {
-    if (del_ops != NULL && borISetSize(del_ops) > 0)
+    if (del_ops != NULL && pddlISetSize(del_ops) > 0)
         pddlStripsOpsDelOpsSet(&strips->op, del_ops);
 
-    if (del_facts != NULL && borISetSize(del_facts) > 0){
+    if (del_facts != NULL && pddlISetSize(del_facts) > 0){
         pddlStripsOpsRemoveFacts(&strips->op, del_facts);
 
         int *remap_fact = CALLOC_ARR(int, strips->fact.fact_size);
         pddlFactsDelFacts(&strips->fact, del_facts, remap_fact);
         pddlStripsOpsRemapFacts(&strips->op, remap_fact);
 
-        borISetMinus(&strips->init, del_facts);
-        borISetRemap(&strips->init, remap_fact);
-        borISetMinus(&strips->goal, del_facts);
-        borISetRemap(&strips->goal, remap_fact);
+        pddlISetMinus(&strips->init, del_facts);
+        pddlISetRemap(&strips->init, remap_fact);
+        pddlISetMinus(&strips->goal, del_facts);
+        pddlISetRemap(&strips->goal, remap_fact);
 
         if (remap_fact != NULL)
             FREE(remap_fact);
 
-        BOR_ISET(useless_ops);
+        PDDL_ISET(useless_ops);
         for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
             const pddl_strips_op_t *op = strips->op.op[op_id];
-            if (borISetSize(&op->add_eff) == 0
-                    && borISetSize(&op->del_eff) == 0
+            if (pddlISetSize(&op->add_eff) == 0
+                    && pddlISetSize(&op->del_eff) == 0
                     && op->cond_eff_size == 0){
-                borISetAdd(&useless_ops, op_id);
+                pddlISetAdd(&useless_ops, op_id);
             }
         }
-        if (borISetSize(&useless_ops) > 0)
+        if (pddlISetSize(&useless_ops) > 0)
             pddlStripsOpsDelOpsSet(&strips->op, &useless_ops);
-        borISetFree(&useless_ops);
+        pddlISetFree(&useless_ops);
 
         if (strips->has_cond_eff)
             resetHasCondEffFlag(strips);
@@ -675,44 +675,44 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err)
     int *nonstatic_facts = CALLOC_ARR(int, strips->fact.fact_size);
 
     int fact;
-    BOR_ISET_FOR_EACH(&strips->init, fact)
+    PDDL_ISET_FOR_EACH(&strips->init, fact)
         nonstatic_facts[fact] = -1;
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
         int fact;
-        BOR_ISET_FOR_EACH(&op->add_eff, fact){
+        PDDL_ISET_FOR_EACH(&op->add_eff, fact){
             if (nonstatic_facts[fact] == 0)
                 nonstatic_facts[fact] = 1;
         }
-        BOR_ISET_FOR_EACH(&op->del_eff, fact)
+        PDDL_ISET_FOR_EACH(&op->del_eff, fact)
             nonstatic_facts[fact] = 1;
         for (int ce_id = 0; ce_id < op->cond_eff_size; ++ce_id){
             const pddl_strips_op_cond_eff_t *ce = op->cond_eff + ce_id;
-            BOR_ISET_FOR_EACH(&ce->add_eff, fact){
+            PDDL_ISET_FOR_EACH(&ce->add_eff, fact){
                 if (nonstatic_facts[fact] == 0)
                     nonstatic_facts[fact] = 1;
             }
-            BOR_ISET_FOR_EACH(&ce->del_eff, fact)
+            PDDL_ISET_FOR_EACH(&ce->del_eff, fact)
                 nonstatic_facts[fact] = 1;
         }
     }
 
-    BOR_ISET(del_facts);
+    PDDL_ISET(del_facts);
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
         if (nonstatic_facts[fact_id] <= 0){
-            borISetAdd(&del_facts, fact_id);
+            pddlISetAdd(&del_facts, fact_id);
             ++num;
         }
     }
 
-    BOR_INFO(err, "Found %d static facts", borISetSize(&del_facts));
-    if (borISetSize(&del_facts) > 0){
+    BOR_INFO(err, "Found %d static facts", pddlISetSize(&del_facts));
+    if (pddlISetSize(&del_facts) > 0){
         pddlStripsReduce(strips, &del_facts, NULL);
-        BOR_INFO(err, "Removed %d static facts", borISetSize(&del_facts));
+        BOR_INFO(err, "Removed %d static facts", pddlISetSize(&del_facts));
     }
 
-    borISetFree(&del_facts);
+    pddlISetFree(&del_facts);
     if (nonstatic_facts != NULL)
         FREE(nonstatic_facts);
 
@@ -720,8 +720,8 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err)
 }
 
 static int isDelEffMutex(const pddl_mutex_pairs_t *mutex,
-                         const bor_iset_t *pre,
-                         const bor_iset_t *pre2,
+                         const pddl_iset_t *pre,
+                         const pddl_iset_t *pre2,
                          int fact_id)
 {
     if (pddlMutexPairsIsMutexFactSet(mutex, fact_id, pre))
@@ -733,29 +733,29 @@ static int isDelEffMutex(const pddl_mutex_pairs_t *mutex,
 
 static void findUselessDelEffs(const pddl_strips_t *strips,
                                const pddl_mutex_pairs_t *mutex,
-                               const bor_iset_t *pre,
-                               const bor_iset_t *pre2,
-                               const bor_iset_t *del_eff,
-                               bor_iset_t *useless)
+                               const pddl_iset_t *pre,
+                               const pddl_iset_t *pre2,
+                               const pddl_iset_t *del_eff,
+                               pddl_iset_t *useless)
 {
     int del_fact;
-    BOR_ISET_FOR_EACH(del_eff, del_fact){
+    PDDL_ISET_FOR_EACH(del_eff, del_fact){
         if (mutex != NULL && isDelEffMutex(mutex, pre, pre2, del_fact)){
-            borISetAdd(useless, del_fact);
+            pddlISetAdd(useless, del_fact);
 
         }else if (strips->fact.fact[del_fact]->neg_of >= 0){
             int neg = strips->fact.fact[del_fact]->neg_of;
             int pre_fact;
-            BOR_ISET_FOR_EACH(pre, pre_fact){
+            PDDL_ISET_FOR_EACH(pre, pre_fact){
                 if (pre_fact == neg){
-                    borISetAdd(useless, del_fact);
+                    pddlISetAdd(useless, del_fact);
                     break;
                 }
             }
             if (pre2 != NULL){
-                BOR_ISET_FOR_EACH(pre2, pre_fact){
+                PDDL_ISET_FOR_EACH(pre2, pre_fact){
                     if (pre_fact == neg){
-                        borISetAdd(useless, del_fact);
+                        pddlISetAdd(useless, del_fact);
                         break;
                     }
                 }
@@ -766,45 +766,45 @@ static void findUselessDelEffs(const pddl_strips_t *strips,
 
 int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    const pddl_mutex_pairs_t *mutex,
-                                   bor_iset_t *changed_ops,
+                                   pddl_iset_t *changed_ops,
                                    bor_err_t *err)
 {
     int ret = 0;
     BOR_INFO(err, "Removing useless delete effects. num mutex pairs: %d",
              (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
 
-    BOR_ISET(useless);
+    PDDL_ISET(useless);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         pddl_strips_op_t *op = strips->op.op[op_id];
 
         int changed = 0;
-        borISetEmpty(&useless);
+        pddlISetEmpty(&useless);
         findUselessDelEffs(strips, mutex, &op->pre, NULL,
                            &op->del_eff, &useless);
-        if (borISetSize(&useless) > 0){
-            borISetMinus(&op->del_eff, &useless);
+        if (pddlISetSize(&useless) > 0){
+            pddlISetMinus(&op->del_eff, &useless);
             changed = 1;
             if (changed_ops != NULL)
-                borISetAdd(changed_ops, op_id);
+                pddlISetAdd(changed_ops, op_id);
         }
 
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
-            borISetEmpty(&useless);
+            pddlISetEmpty(&useless);
             findUselessDelEffs(strips, mutex, &op->pre, &ce->pre,
                                &ce->del_eff, &useless);
-            if (borISetSize(&useless) > 0){
-                borISetMinus(&ce->del_eff, &useless);
+            if (pddlISetSize(&useless) > 0){
+                pddlISetMinus(&ce->del_eff, &useless);
                 changed = 1;
                 if (changed_ops != NULL)
-                    borISetAdd(changed_ops, op_id);
+                    pddlISetAdd(changed_ops, op_id);
             }
         }
 
         if (changed)
             ++ret;
     }
-    borISetFree(&useless);
+    pddlISetFree(&useless);
 
     BOR_INFO(err, "Removing useless delete effects DONE."
                   " (modified ops: %d)", ret);
@@ -813,36 +813,36 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
 
 int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  const pddl_mutex_pairs_t *mutex,
-                                 bor_iset_t *unreachable_ops,
+                                 pddl_iset_t *unreachable_ops,
                                  bor_err_t *err)
 {
-    BOR_ISET(part_state);
+    PDDL_ISET(part_state);
     int num = 0;
     for (int oi = 0; oi < strips->op.op_size; ++oi){
         const pddl_strips_op_t *op = strips->op.op[oi];
         if (pddlMutexPairsIsMutexSet(mutex, &op->pre)){
-            borISetAdd(unreachable_ops, oi);
+            pddlISetAdd(unreachable_ops, oi);
             ++num;
             continue;
         }
 
-        borISetMinus2(&part_state, &op->pre, &op->del_eff);
-        borISetUnion(&part_state, &op->add_eff);
+        pddlISetMinus2(&part_state, &op->pre, &op->del_eff);
+        pddlISetUnion(&part_state, &op->add_eff);
         if (pddlMutexPairsIsMutexSet(mutex, &part_state)){
-            borISetAdd(unreachable_ops, oi);
+            pddlISetAdd(unreachable_ops, oi);
             ++num;
         }
     }
-    borISetFree(&part_state);
+    pddlISetFree(&part_state);
     BOR_INFO(err, "Found %d unreachable operators.", num);
     return 0;
 }
 
-static void printPythonISet(const bor_iset_t *s, FILE *fout)
+static void printPythonISet(const pddl_iset_t *s, FILE *fout)
 {
     int i;
     fprintf(fout, "set([");
-    BOR_ISET_FOR_EACH(s, i)
+    PDDL_ISET_FOR_EACH(s, i)
         fprintf(fout, " %d,", i);
     fprintf(fout, "])");
 }
@@ -901,12 +901,12 @@ void pddlStripsPrintPython(const pddl_strips_t *strips, FILE *fout)
     fprintf(fout, "],\n");
 
     fprintf(fout, "'init' : [");
-    BOR_ISET_FOR_EACH(&strips->init, f)
+    PDDL_ISET_FOR_EACH(&strips->init, f)
         fprintf(fout, "%d, ", f);
     fprintf(fout, "],\n");
 
     fprintf(fout, "'goal' : [");
-    BOR_ISET_FOR_EACH(&strips->goal, f)
+    PDDL_ISET_FOR_EACH(&strips->goal, f)
         fprintf(fout, "%d, ", f);
     fprintf(fout, "],\n");
 
@@ -938,24 +938,24 @@ void pddlStripsPrintPDDLDomain(const pddl_strips_t *strips, FILE *fout)
         }
         fprintf(fout, "(:action %s\n", name);
         fprintf(fout, "    :precondition (and");
-        BOR_ISET_FOR_EACH(&op->pre, fact_id)
+        PDDL_ISET_FOR_EACH(&op->pre, fact_id)
             fprintf(fout, " (F%d)", fact_id);
         fprintf(fout, ")\n");
 
         fprintf(fout, "    :effect (and");
-        BOR_ISET_FOR_EACH(&op->add_eff, fact_id)
+        PDDL_ISET_FOR_EACH(&op->add_eff, fact_id)
             fprintf(fout, " (F%d)", fact_id);
-        BOR_ISET_FOR_EACH(&op->del_eff, fact_id)
+        PDDL_ISET_FOR_EACH(&op->del_eff, fact_id)
             fprintf(fout, " (not (F%d))", fact_id);
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             const pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
             fprintf(fout, " (when (and");
-            BOR_ISET_FOR_EACH(&ce->pre, fact_id)
+            PDDL_ISET_FOR_EACH(&ce->pre, fact_id)
                 fprintf(fout, " (F%d)", fact_id);
             fprintf(fout, ") (and");
-            BOR_ISET_FOR_EACH(&ce->add_eff, fact_id)
+            PDDL_ISET_FOR_EACH(&ce->add_eff, fact_id)
                 fprintf(fout, " (F%d)", fact_id);
-            BOR_ISET_FOR_EACH(&ce->del_eff, fact_id)
+            PDDL_ISET_FOR_EACH(&ce->del_eff, fact_id)
                 fprintf(fout, " (not (F%d))", fact_id);
             fprintf(fout, ")");
         }
@@ -978,12 +978,12 @@ void pddlStripsPrintPDDLProblem(const pddl_strips_t *strips, FILE *fout)
             strips->problem_name, strips->domain_name);
 
     fprintf(fout, "(:init\n");
-    BOR_ISET_FOR_EACH(&strips->init, fact_id)
+    PDDL_ISET_FOR_EACH(&strips->init, fact_id)
         fprintf(fout, "    (F%d)\n", fact_id);
     fprintf(fout, ")\n");
 
     fprintf(fout, "(:goal (and");
-    BOR_ISET_FOR_EACH(&strips->goal, fact_id)
+    PDDL_ISET_FOR_EACH(&strips->goal, fact_id)
         fprintf(fout, " (F%d)", fact_id);
     fprintf(fout, "))\n");
     fprintf(fout, "(:metric minimize (total-cost))\n");

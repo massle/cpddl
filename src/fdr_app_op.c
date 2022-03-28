@@ -27,7 +27,7 @@
  */
 struct pddl_fdr_app_op_tree {
     int var; /*!< Decision variable */
-    bor_iset_t ops; /*!< List of immediate operators that are returned once
+    pddl_iset_t ops; /*!< List of immediate operators that are returned once
                          this node is reached */
     struct pddl_fdr_app_op_tree **val; /*!< Subtrees indexed by the value of
                                         the decision variable */
@@ -94,9 +94,9 @@ static int *sortedOps(const pddl_fdr_app_op_t *app)
 
 static void treeBuildSetOps(pddl_fdr_app_op_tree_t *tree, const int *ops, int len)
 {
-    borISetEmpty(&tree->ops);
+    pddlISetEmpty(&tree->ops);
     for (int i = 0; i < len; ++i)
-        borISetAdd(&tree->ops, ops[i]);
+        pddlISetAdd(&tree->ops, ops[i]);
 }
 
 static int treeBuildDef(pddl_fdr_app_op_tree_t *tree,
@@ -160,7 +160,7 @@ static pddl_fdr_app_op_tree_t *treeNew(const int *op_ids, int len,
 
     tree = ALLOC(pddl_fdr_app_op_tree_t);
     tree->var = -1;
-    borISetInit(&tree->ops);
+    pddlISetInit(&tree->ops);
     tree->val = NULL;
     tree->val_size = 0;
     tree->def = NULL;
@@ -210,7 +210,7 @@ static void treeDel(pddl_fdr_app_op_tree_t *tree)
 {
     int i;
 
-    borISetFree(&tree->ops);
+    pddlISetFree(&tree->ops);
     if (tree->val){
         for (i = 0; i < tree->val_size; ++i)
             if (tree->val[i])
@@ -260,11 +260,11 @@ void pddlFDRAppOpFree(pddl_fdr_app_op_t *app)
 
 static int treeFind(const pddl_fdr_app_op_tree_t *tree,
                     const int *vals,
-                    bor_iset_t *ops)
+                    pddl_iset_t *ops)
 {
     // insert all immediate operators
-    borISetUnion(ops, &tree->ops);
-    int found = borISetSize(&tree->ops);
+    pddlISetUnion(ops, &tree->ops);
+    int found = pddlISetSize(&tree->ops);
 
     // check whether this node should check on any variable value
     if (tree->var != -1){
@@ -288,7 +288,7 @@ static int treeFind(const pddl_fdr_app_op_tree_t *tree,
 
 int pddlFDRAppOpFind(const pddl_fdr_app_op_t *app,
                      const int *state,
-                     bor_iset_t *ops)
+                     pddl_iset_t *ops)
 {
     if (app->root == NULL)
         return 0;

@@ -290,8 +290,14 @@ void borSetMinus2(bor_set_t *d, const bor_set_t *s1, const bor_set_t *s2)
         borSetAdd(d, s1->s[i]);
 }
 
-void borSetRemap(bor_set_t *s, const TYPE *remap)
+void borSetRemap(bor_set_t *dst, const TYPE *remap)
 {
-    for (int i = 0; i < s->size; ++i)
-        s->s[i] = remap[(int)s->s[i]];
+    BOR_SET(tmp);
+    borSetUnion(&tmp, dst);
+
+    borSetEmpty(dst);
+    int v;
+    BOR_SET_FOR_EACH(&tmp, v)
+        borSetAdd(dst, remap[v]);
+    borSetFree(&tmp);
 }

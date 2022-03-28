@@ -19,7 +19,7 @@
 #ifndef __PDDL_APP_OP_H__
 #define __PDDL_APP_OP_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <pddl/fdr_op.h>
 #include <pddl/fdr_part_state.h>
 #include <pddl/fdr_var.h>
@@ -63,7 +63,7 @@ void pddlFDRAppOpFree(pddl_fdr_app_op_t *app);
  */
 int pddlFDRAppOpFind(const pddl_fdr_app_op_t *app,
                      const int *state,
-                     bor_iset_t *ops);
+                     pddl_iset_t *ops);
 
 #ifdef __cplusplus
 } /* extern "C" */

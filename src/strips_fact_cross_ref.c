@@ -42,12 +42,12 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
                                 cref->fact_size);
 
     if (init){
-        BOR_ISET_FOR_EACH(&strips->init, fact)
+        PDDL_ISET_FOR_EACH(&strips->init, fact)
             cref->fact[fact].is_init = 1;
     }
 
     if (goal){
-        BOR_ISET_FOR_EACH(&strips->goal, fact)
+        PDDL_ISET_FOR_EACH(&strips->goal, fact)
             cref->fact[fact].is_goal = 1;
     }
 
@@ -56,16 +56,16 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
             const pddl_strips_op_t *op = strips->op.op[op_id];
 
             if (op_pre){
-                BOR_ISET_FOR_EACH(&op->pre, fact)
-                    borISetAdd(&cref->fact[fact].op_pre, op_id);
+                PDDL_ISET_FOR_EACH(&op->pre, fact)
+                    pddlISetAdd(&cref->fact[fact].op_pre, op_id);
             }
             if (op_add){
-                BOR_ISET_FOR_EACH(&op->add_eff, fact)
-                    borISetAdd(&cref->fact[fact].op_add, op_id);
+                PDDL_ISET_FOR_EACH(&op->add_eff, fact)
+                    pddlISetAdd(&cref->fact[fact].op_add, op_id);
             }
             if (op_del){
-                BOR_ISET_FOR_EACH(&op->del_eff, fact)
-                    borISetAdd(&cref->fact[fact].op_del, op_id);
+                PDDL_ISET_FOR_EACH(&op->del_eff, fact)
+                    pddlISetAdd(&cref->fact[fact].op_del, op_id);
             }
         }
     }
@@ -74,9 +74,9 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
 void pddlStripsFactCrossRefFree(pddl_strips_fact_cross_ref_t *cref)
 {
     for (int i = 0; i < cref->fact_size; ++i){
-        borISetFree(&cref->fact[i].op_pre);
-        borISetFree(&cref->fact[i].op_add);
-        borISetFree(&cref->fact[i].op_del);
+        pddlISetFree(&cref->fact[i].op_pre);
+        pddlISetFree(&cref->fact[i].op_add);
+        pddlISetFree(&cref->fact[i].op_del);
     }
     if (cref->fact != NULL)
         FREE(cref->fact);

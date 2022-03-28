@@ -34,7 +34,7 @@ struct pddl_strips_sym_gen {
     int *op; /*!< Mapping from operators to operators */
     int *fact_inv; /*!< Inverse mapping of facts */
     int *op_inv; /*!< Inverse mapping of operators */
-    bor_iset_t *op_cycle; /*!< Sets of operators that are permuted between
+    pddl_iset_t *op_cycle; /*!< Sets of operators that are permuted between
                                ecah other */
     int op_cycle_size;
     int op_cycle_alloc;
@@ -69,7 +69,7 @@ void pddlStripsSymFree(pddl_strips_sym_t *sym);
  * Computes all sets that are symmetric to the given set of sets of facts.
  * It takes sym_set and updates it with everything that is symmetric to all
  * sets that were to stored in it.
- * {sym_set} must be a set of isets (bor_iset_t).
+ * {sym_set} must be a set of isets (pddl_iset_t).
  */
 void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
                                        pddl_set_iset_t *sym_set);
@@ -82,8 +82,8 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
  */
 void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
                         int gen_id,
-                        const bor_iset_t *inset,
-                        bor_iset_t *outset);
+                        const pddl_iset_t *inset,
+                        pddl_iset_t *outset);
 
 void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout);
 

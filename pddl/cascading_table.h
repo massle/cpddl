@@ -20,7 +20,7 @@
 #ifndef __PDDL_CASCADING_TABLE_H__
 #define __PDDL_CASCADING_TABLE_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <boruvka/iarr.h>
 
 #ifdef __cplusplus

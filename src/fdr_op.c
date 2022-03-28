@@ -173,13 +173,13 @@ void pddlFDROpsFree(pddl_fdr_ops_t *ops)
         FREE(ops->op);
 }
 
-void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const bor_iset_t *set)
+void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const pddl_iset_t *set)
 {
-    int size = borISetSize(set);
+    int size = pddlISetSize(set);
     int cur = 0;
     int ins = 0;
     for (int op_id = 0; op_id < ops->op_size; ++op_id){
-        if (cur < size && borISetGet(set, cur) == op_id){
+        if (cur < size && pddlISetGet(set, cur) == op_id){
             pddlFDROpDel(ops->op[op_id]);
             ++cur;
         }else{

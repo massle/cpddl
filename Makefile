@@ -25,6 +25,7 @@ OBJS += google-city-hash
 OBJS += rand-mt
 OBJS += segmarr
 OBJS += extarr
+OBJS += hashset
 OBJS += rbtree
 OBJS += htable
 OBJS += fifo
@@ -145,6 +146,9 @@ OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
 OBJS += objset
+OBJS += iset
+OBJS += lset
+OBJS += cset
 
 OBJS_CPP = endomorphism
 
@@ -152,6 +156,12 @@ OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
+GEN += pddl/iset.h
+GEN += src/iset.c
+GEN += pddl/lset.h
+GEN += src/lset.c
+GEN += pddl/cset.h
+GEN += src/cset.c
 
 all: $(TARGETS)
 
@@ -186,6 +196,18 @@ pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
 	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -206,6 +228,7 @@ clean:
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
 	rm -f src/*.pb.{cc,h}
+	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -d test ]; then $(MAKE) -C test clean; fi;
 	if [ -d doc ]; then $(MAKE) -C doc clean; fi;

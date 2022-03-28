@@ -27,7 +27,7 @@ extern "C" {
 
 int pddlRSEInvertibleFacts(const pddl_strips_t *strips,
                            const pddl_mgroups_t *fam_groups,
-                           bor_iset_t *invertible_facts,
+                           pddl_iset_t *invertible_facts,
                            bor_err_t *err);
 
 #ifdef __cplusplus

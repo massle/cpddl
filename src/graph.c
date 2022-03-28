@@ -23,19 +23,19 @@ void pddlGraphSimpleInit(pddl_graph_simple_t *g, int node_size)
 {
     bzero(g, sizeof(*g));
     g->node_size = node_size;
-    g->node = CALLOC_ARR(bor_iset_t, g->node_size);
+    g->node = CALLOC_ARR(pddl_iset_t, g->node_size);
 }
 
 void pddlGraphSimpleFree(pddl_graph_simple_t *g)
 {
     for (int i = 0; i < g->node_size; ++i)
-        borISetFree(g->node + i);
+        pddlISetFree(g->node + i);
     if (g->node != NULL)
         FREE(g->node);
 }
 
 void pddlGraphSimpleAddEdge(pddl_graph_simple_t *g, int n1, int n2)
 {
-    borISetAdd(&g->node[n1], n2);
-    borISetAdd(&g->node[n2], n1);
+    pddlISetAdd(&g->node[n1], n2);
+    pddlISetAdd(&g->node[n2], n1);
 }

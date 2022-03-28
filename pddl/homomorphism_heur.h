@@ -57,7 +57,7 @@ void pddlHomomorphismHeurDel(pddl_homomorphism_heur_t *h);
 int pddlHomomorphismHeurEvalGroundInit(pddl_homomorphism_heur_t *h);
 
 int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
-                             const bor_iset_t *state,
+                             const pddl_iset_t *state,
                              const pddl_ground_atoms_t *gatoms);
 
 #ifdef __cplusplus

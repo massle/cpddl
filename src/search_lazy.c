@@ -40,7 +40,7 @@ pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
 
     lazy->goal_state_id = PDDL_NO_STATE_ID;
 
-    borISetInit(&lazy->applicable);
+    pddlISetInit(&lazy->applicable);
     pddlFDRStateSpaceNodeInit(&lazy->cur_node, &lazy->state_space);
     pddlFDRStateSpaceNodeInit(&lazy->next_node, &lazy->state_space);
 
@@ -55,7 +55,7 @@ void pddlSearchLazyDel(pddl_search_lazy_t *lazy)
     pddlFDRStateSpaceNodeFree(&lazy->cur_node);
     pddlFDRStateSpaceNodeFree(&lazy->next_node);
     pddlFDRStateSpaceFree(&lazy->state_space);
-    borISetFree(&lazy->applicable);
+    pddlISetFree(&lazy->applicable);
     FREE(lazy);
 }
 
@@ -163,7 +163,7 @@ int pddlSearchLazyStep(pddl_search_lazy_t *lazy)
     }
 
     // Find all applicable operators
-    borISetEmpty(&lazy->applicable);
+    pddlISetEmpty(&lazy->applicable);
     pddlFDRAppOpFind(&lazy->app_op, lazy->cur_node.state, &lazy->applicable);
     ++lazy->_stat.expanded;
 
@@ -183,7 +183,7 @@ int pddlSearchLazyStep(pddl_search_lazy_t *lazy)
     }
 
     int op_id;
-    BOR_ISET_FOR_EACH(&lazy->applicable, op_id){
+    PDDL_ISET_FOR_EACH(&lazy->applicable, op_id){
         const pddl_fdr_op_t *op = lazy->fdr->op.op[op_id];
 
         // Create a new state

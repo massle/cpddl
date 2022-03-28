@@ -29,23 +29,23 @@
 
 #define GOAL_BONUS 100000
 
-static void collectEdges(const bor_iset_t *pre,
-                         const bor_iset_t *eff,
+static void collectEdges(const pddl_iset_t *pre,
+                         const pddl_iset_t *eff,
                          const pddl_fdr_vars_t *vars,
                          int eff_eff_edges,
                          int *value)
 {
     int eff_var;
-    BOR_ISET_FOR_EACH(eff, eff_var){
+    PDDL_ISET_FOR_EACH(eff, eff_var){
         int pre_var;
-        BOR_ISET_FOR_EACH(pre, pre_var){
+        PDDL_ISET_FOR_EACH(pre, pre_var){
             if (pre_var == eff_var)
                 continue;
             value[pre_var * vars->var_size + eff_var] += 1;
         }
         if (eff_eff_edges){
             int eff_var2;
-            BOR_ISET_FOR_EACH(eff, eff_var2){
+            PDDL_ISET_FOR_EACH(eff, eff_var2){
                 if (eff_var2 == eff_var)
                     continue;
                 value[eff_var2 * vars->var_size + eff_var] += 1;
@@ -63,29 +63,29 @@ void pddlCGInit(pddl_cg_t *cg,
     bzero(cg, sizeof(*cg));
 
     int *value = CALLOC_ARR(int, vars->var_size * vars->var_size);
-    BOR_ISET(pre);
-    BOR_ISET(eff);
+    PDDL_ISET(pre);
+    PDDL_ISET(eff);
     for (int oi = 0; oi < ops->op_size; ++oi){
         const pddl_fdr_op_t *op = ops->op[oi];
 
-        borISetEmpty(&pre);
-        borISetEmpty(&eff);
+        pddlISetEmpty(&pre);
+        pddlISetEmpty(&eff);
 
         for (int prei = 0; prei < op->pre.fact_size; ++prei)
-            borISetAdd(&pre, op->pre.fact[prei].var);
+            pddlISetAdd(&pre, op->pre.fact[prei].var);
         for (int effi = 0; effi < op->eff.fact_size; ++effi)
-            borISetAdd(&eff, op->eff.fact[effi].var);
+            pddlISetAdd(&eff, op->eff.fact[effi].var);
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
             for (int prei = 0; prei < ce->pre.fact_size; ++prei)
-                borISetAdd(&pre, ce->pre.fact[prei].var);
+                pddlISetAdd(&pre, ce->pre.fact[prei].var);
             for (int effi = 0; effi < ce->eff.fact_size; ++effi)
-                borISetAdd(&eff, ce->eff.fact[effi].var);
+                pddlISetAdd(&eff, ce->eff.fact[effi].var);
         }
         collectEdges(&pre, &eff, vars, eff_eff_edges, value);
     }
-    borISetFree(&pre);
-    borISetFree(&eff);
+    pddlISetFree(&pre);
+    pddlISetFree(&eff);
 
     cg->node_size = vars->var_size;
     cg->node = CALLOC_ARR(pddl_cg_node_t, cg->node_size);
@@ -134,13 +134,13 @@ void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in)
 
 void pddlCGInitProjectToVars(pddl_cg_t *dst,
                              const pddl_cg_t *src,
-                             const bor_iset_t *vars_set)
+                             const pddl_iset_t *vars_set)
 {
     pddlCGInitCopy(dst, src);
 
     int *vars = CALLOC_ARR(int, src->node_size);
     int var;
-    BOR_ISET_FOR_EACH(vars_set, var)
+    PDDL_ISET_FOR_EACH(vars_set, var)
         vars[var] = 1;
 
     for (int ni = 0; ni < dst->node_size; ++ni){
@@ -180,13 +180,13 @@ void pddlCGInitProjectToBlackVars(pddl_cg_t *dst,
                                   const pddl_cg_t *src,
                                   const pddl_fdr_vars_t *vars)
 {
-    BOR_ISET(rm_vars);
+    PDDL_ISET(rm_vars);
     for (int i = 0; i < vars->var_size; ++i){
         if (vars->var[i].is_black)
-            borISetAdd(&rm_vars, i);
+            pddlISetAdd(&rm_vars, i);
     }
     pddlCGInitProjectToVars(dst, src, &rm_vars);
-    borISetFree(&rm_vars);
+    pddlISetFree(&rm_vars);
 }
 
 void pddlCGFree(pddl_cg_t *cg)
@@ -284,7 +284,7 @@ static void orderVarInit(order_var_t *order_var,
     pddlSCC(&scc, &scc_graph);
     for (int ci = 0; ci < scc.comp_size; ++ci){
         int var_id;
-        BOR_ISET_FOR_EACH(scc.comp + ci, var_id)
+        PDDL_ISET_FOR_EACH(scc.comp + ci, var_id)
             order_var[var_id].scc_id = ci;
     }
 

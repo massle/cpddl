@@ -36,29 +36,29 @@ typedef struct fact_vertex fact_vertex_t;
 
 struct black_vars {
     int fact_size;
-    bor_iset_t invertible_facts;
+    pddl_iset_t invertible_facts;
     fact_vertex_t *fact_vertex;
     int fact_vertex_size;
-    bor_iset_t *fact_to_fact_vertex;
+    pddl_iset_t *fact_to_fact_vertex;
     pddl_scc_graph_t cg;
 };
 typedef struct black_vars black_vars_t;
 
 static int numFactVertices(const pddl_mgroups_t *mgroups,
-                           const bor_iset_t *invertible_facts)
+                           const pddl_iset_t *invertible_facts)
 {
     int num_vert = 0;
-    BOR_ISET(facts);
-    BOR_ISET(mgfacts);
+    PDDL_ISET(facts);
+    PDDL_ISET(mgfacts);
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-        borISetIntersect2(&mgfacts, invertible_facts,
+        pddlISetIntersect2(&mgfacts, invertible_facts,
                           &mgroups->mgroup[mgi].mgroup);
-        num_vert += borISetSize(&mgfacts);
-        borISetUnion(&facts, &mgfacts);
+        num_vert += pddlISetSize(&mgfacts);
+        pddlISetUnion(&facts, &mgfacts);
     }
-    num_vert += borISetSize(invertible_facts) - borISetSize(&facts);
-    borISetFree(&facts);
-    borISetFree(&mgfacts);
+    num_vert += pddlISetSize(invertible_facts) - pddlISetSize(&facts);
+    pddlISetFree(&facts);
+    pddlISetFree(&mgfacts);
     return num_vert;
 }
 
@@ -69,60 +69,60 @@ static void blackVarsCGInit(black_vars_t *bv,
 {
     pddlSCCGraphInit(cg, bv->fact_vertex_size);
 
-    bor_iset_t *from = CALLOC_ARR(bor_iset_t, bv->fact_vertex_size);
-    bor_iset_t *to = CALLOC_ARR(bor_iset_t, bv->fact_vertex_size);
+    pddl_iset_t *from = CALLOC_ARR(pddl_iset_t, bv->fact_vertex_size);
+    pddl_iset_t *to = CALLOC_ARR(pddl_iset_t, bv->fact_vertex_size);
 
-    BOR_ISET(facts);
+    PDDL_ISET(facts);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
-        borISetUnion2(&facts, &op->add_eff, &op->del_eff);
+        pddlISetUnion2(&facts, &op->add_eff, &op->del_eff);
         int fact;
-        BOR_ISET_FOR_EACH(&facts, fact){
+        PDDL_ISET_FOR_EACH(&facts, fact){
             int vert_id;
-            BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
-                borISetAdd(&to[vert_id], op_id);
+            PDDL_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
+                pddlISetAdd(&to[vert_id], op_id);
         }
 
-        borISetUnion(&facts, &op->pre);
-        BOR_ISET_FOR_EACH(&facts, fact){
+        pddlISetUnion(&facts, &op->pre);
+        PDDL_ISET_FOR_EACH(&facts, fact){
             int vert_id;
-            BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
-                borISetAdd(&from[vert_id], op_id);
+            PDDL_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
+                pddlISetAdd(&from[vert_id], op_id);
         }
 
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
             if (!mgroups->mgroup[mgi].is_fam_group)
                 continue;
 
-            const bor_iset_t *mg = &mgroups->mgroup[mgi].mgroup;
-            if (!borISetIsDisjoint(mg, &op->pre)){
-                BOR_ISET_FOR_EACH(mg, fact){
+            const pddl_iset_t *mg = &mgroups->mgroup[mgi].mgroup;
+            if (!pddlISetIsDisjoint(mg, &op->pre)){
+                PDDL_ISET_FOR_EACH(mg, fact){
                     int vert_id;
-                    BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id){
+                    PDDL_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id){
                         if (bv->fact_vertex[vert_id].mgroup == mgi)
-                            borISetAdd(&from[vert_id], op_id);
+                            pddlISetAdd(&from[vert_id], op_id);
                     }
                 }
             }
         }
     }
-    borISetFree(&facts);
+    pddlISetFree(&facts);
 
     for (int vfrom = 0; vfrom < bv->fact_vertex_size; ++vfrom){
         for (int vto = 0; vto < bv->fact_vertex_size; ++vto){
             if (vfrom == vto)
                 continue;
-            if (!borISetIsDisjoint(from + vfrom, to + vto))
+            if (!pddlISetIsDisjoint(from + vfrom, to + vto))
                 pddlSCCGraphAddEdge(cg, vfrom, vto);
         }
     }
 
     for (int fact = 0; fact < strips->fact.fact_size; ++fact){
-        const bor_iset_t *vert_set = bv->fact_to_fact_vertex + fact;
-        for (int i = 0; i < borISetSize(vert_set); ++i){
-            int vert1 = borISetGet(vert_set, i);
-            for (int j = i + 1; j < borISetSize(vert_set); ++j){
-                int vert2 = borISetGet(vert_set, j);
+        const pddl_iset_t *vert_set = bv->fact_to_fact_vertex + fact;
+        for (int i = 0; i < pddlISetSize(vert_set); ++i){
+            int vert1 = pddlISetGet(vert_set, i);
+            for (int j = i + 1; j < pddlISetSize(vert_set); ++j){
+                int vert2 = pddlISetGet(vert_set, j);
                 pddlSCCGraphAddEdge(cg, vert1, vert2);
                 pddlSCCGraphAddEdge(cg, vert2, vert1);
             }
@@ -130,28 +130,28 @@ static void blackVarsCGInit(black_vars_t *bv,
     }
 
     for (int f = 0; f < bv->fact_vertex_size; ++f){
-        borISetFree(from + f);
-        borISetFree(to + f);
+        pddlISetFree(from + f);
+        pddlISetFree(to + f);
     }
     FREE(from);
     FREE(to);
 }
 
-static void uncoveredDelEffs(const pddl_strips_t *strips, bor_iset_t *facts)
+static void uncoveredDelEffs(const pddl_strips_t *strips, pddl_iset_t *facts)
 {
-    BOR_ISET(deleff);
-    borISetEmpty(facts);
+    PDDL_ISET(deleff);
+    pddlISetEmpty(facts);
     for (int opi = 0; opi < strips->op.op_size; ++opi){
         const pddl_strips_op_t *op = strips->op.op[opi];
-        borISetMinus2(&deleff, &op->del_eff, &op->pre);
-        borISetUnion(facts, &deleff);
+        pddlISetMinus2(&deleff, &op->del_eff, &op->pre);
+        pddlISetUnion(facts, &deleff);
     }
-    borISetFree(&deleff);
+    pddlISetFree(&deleff);
 }
 
 static void findRelaxedPlan(const black_vars_t *bv,
                             const pddl_strips_t *strips,
-                            bor_iset_t *plan_set,
+                            pddl_iset_t *plan_set,
                             int *conflicts,
                             bor_err_t *err)
 {
@@ -166,7 +166,7 @@ static void findRelaxedPlan(const black_vars_t *bv,
                                             &strips->op, 1, conflicts);
         for (int i = 0; i < strips->fact.fact_size; ++i){
             if (conflicts[i] > 0
-                    && borISetSize(&bv->fact_to_fact_vertex[i]) > 0){
+                    && pddlISetSize(&bv->fact_to_fact_vertex[i]) > 0){
                 BOR_INFO(err, "Conflict count: %d:(%s) = %d",
                          i, strips->fact.fact[i]->name, conflicts[i]);
             }
@@ -176,7 +176,7 @@ static void findRelaxedPlan(const black_vars_t *bv,
     if (plan_set != NULL){
         int op;
         BOR_IARR_FOR_EACH(&plan, op)
-            borISetAdd(plan_set, op);
+            pddlISetAdd(plan_set, op);
     }
 
     borIArrFree(&plan);
@@ -186,8 +186,8 @@ static int maxOutdegreeInProjectionToRelaxedPlan(
                 const pddl_strips_t *strips,
                 const pddl_mutex_pairs_t *mutex,
                 const pddl_strips_fact_cross_ref_t *cref,
-                const bor_iset_t *mgroup,
-                const bor_iset_t *relaxed_plan)
+                const pddl_iset_t *mgroup,
+                const pddl_iset_t *relaxed_plan)
 {
     pddl_mgroup_projection_t proj;
     pddlMGroupProjectionInit(&proj, strips, mgroup, mutex, cref);
@@ -208,42 +208,42 @@ static void setWeightWithProjectionsToRelaxedPlan(
     if (mgroups->mgroup_size == 0)
         return;
 
-    bor_iset_t *mgs = CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
-    bor_iset_t *mgs_vert = CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    pddl_iset_t *mgs = CALLOC_ARR(pddl_iset_t, mgroups->mgroup_size);
+    pddl_iset_t *mgs_vert = CALLOC_ARR(pddl_iset_t, mgroups->mgroup_size);
     for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
         const fact_vertex_t *vert = bv->fact_vertex + vert_id;
         if (vert->mgroup >= 0){
-            borISetAdd(mgs + vert->mgroup, vert->fact);
-            borISetAdd(mgs_vert + vert->mgroup, vert_id);
+            pddlISetAdd(mgs + vert->mgroup, vert->fact);
+            pddlISetAdd(mgs_vert + vert->mgroup, vert_id);
         }
     }
 
-    BOR_ISET(plan_set);
+    PDDL_ISET(plan_set);
     findRelaxedPlan(bv, strips, &plan_set, NULL, err);
 
     pddl_strips_fact_cross_ref_t cref;
     pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 1, 1, 1);
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-        if (borISetSize(mgs + mgi) <= 1)
+        if (pddlISetSize(mgs + mgi) <= 1)
             continue;
         float deg = maxOutdegreeInProjectionToRelaxedPlan(strips, mutex, &cref,
                                                           mgs + mgi, &plan_set);
         if (deg > 1)
             deg *= bv->fact_vertex_size;
         int vert_id;
-        BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
+        PDDL_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
             bv->fact_vertex[vert_id].weight = PDDL_MAX(1, deg);
         if (deg > 1)
             BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
-                     strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
-                     bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight);
+                     strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
+                     bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight);
     }
     pddlStripsFactCrossRefFree(&cref);
-    borISetFree(&plan_set);
+    pddlISetFree(&plan_set);
 
     for (int i = 0; i < mgroups->mgroup_size; ++i){
-        borISetFree(mgs + i);
-        borISetFree(mgs_vert + i);
+        pddlISetFree(mgs + i);
+        pddlISetFree(mgs_vert + i);
     }
     FREE(mgs);
     FREE(mgs_vert);
@@ -261,13 +261,13 @@ static void setWeightWithConflictsInRelaxedPlan(
         return;
 
     // TODO: refactor
-    bor_iset_t *mgs = CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
-    bor_iset_t *mgs_vert = CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    pddl_iset_t *mgs = CALLOC_ARR(pddl_iset_t, mgroups->mgroup_size);
+    pddl_iset_t *mgs_vert = CALLOC_ARR(pddl_iset_t, mgroups->mgroup_size);
     for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
         const fact_vertex_t *vert = bv->fact_vertex + vert_id;
         if (vert->mgroup >= 0){
-            borISetAdd(mgs + vert->mgroup, vert->fact);
-            borISetAdd(mgs_vert + vert->mgroup, vert_id);
+            pddlISetAdd(mgs + vert->mgroup, vert->fact);
+            pddlISetAdd(mgs_vert + vert->mgroup, vert_id);
         }
     }
 
@@ -275,22 +275,22 @@ static void setWeightWithConflictsInRelaxedPlan(
     findRelaxedPlan(bv, strips, NULL, conflicts, err);
 
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-        if (borISetSize(mgs + mgi) <= 0)
+        if (pddlISetSize(mgs + mgi) <= 0)
             continue;
         float weight = 0.;
         int fact_id;
-        BOR_ISET_FOR_EACH(mgs + mgi, fact_id)
+        PDDL_ISET_FOR_EACH(mgs + mgi, fact_id)
             weight += conflicts[fact_id];
         weight = weight * bv->fact_vertex_size;
-        weight /= borISetSize(mgs_vert + mgi);
+        weight /= pddlISetSize(mgs_vert + mgi);
 
         int vert_id;
-        BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
+        PDDL_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
             bv->fact_vertex[vert_id].weight = PDDL_MAX(1, weight);
         if (weight > 0.)
             BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
-                     strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
-                     bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight);
+                     strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
+                     bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight);
     }
 
     for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
@@ -306,48 +306,48 @@ static void setWeightWithConflictsInRelaxedPlan(
     }
 
     // Distribute weights to mutex groups from the same lifted mutex group
-    BOR_ISET(lifted_ids);
+    PDDL_ISET(lifted_ids);
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-        if (borISetSize(mgs + mgi) <= 0)
+        if (pddlISetSize(mgs + mgi) <= 0)
             continue;
         if (mgroups->mgroup[mgi].lifted_mgroup_id >= 0)
-            borISetAdd(&lifted_ids, mgroups->mgroup[mgi].lifted_mgroup_id);
+            pddlISetAdd(&lifted_ids, mgroups->mgroup[mgi].lifted_mgroup_id);
     }
     int lifted_id;
-    BOR_ISET_FOR_EACH(&lifted_ids, lifted_id){
+    PDDL_ISET_FOR_EACH(&lifted_ids, lifted_id){
         float max_weight = 1.;
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
             if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)
                 continue;
-            if (borISetSize(mgs_vert + mgi) == 0)
+            if (pddlISetSize(mgs_vert + mgi) == 0)
                 continue;
-            float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
+            float w = bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight;
             max_weight = PDDL_MAX(max_weight, w);
         }
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
             if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)
                 continue;
-            if (borISetSize(mgs_vert + mgi) == 0)
+            if (pddlISetSize(mgs_vert + mgi) == 0)
                 continue;
-            float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
+            float w = bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight;
             if (w < max_weight){
                 BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
-                         strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
+                         strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
                          max_weight);
                 int vert_id;
-                BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
+                PDDL_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
                     bv->fact_vertex[vert_id].weight = max_weight;
             }
         }
     }
-    borISetFree(&lifted_ids);
+    pddlISetFree(&lifted_ids);
 
     if (conflicts != NULL)
         FREE(conflicts);
 
     for (int i = 0; i < mgroups->mgroup_size; ++i){
-        borISetFree(mgs + i);
-        borISetFree(mgs_vert + i);
+        pddlISetFree(mgs + i);
+        pddlISetFree(mgs_vert + i);
     }
     FREE(mgs);
     FREE(mgs_vert);
@@ -366,10 +366,10 @@ static void blackVarsInit(black_vars_t *bv,
     // Find invertible facts
     pddlRSEInvertibleFacts(strips, mgroups, &bv->invertible_facts, err);
     BOR_INFO(err, "Invertible facts: %d/%d",
-            borISetSize(&bv->invertible_facts), bv->fact_size);
+            pddlISetSize(&bv->invertible_facts), bv->fact_size);
 
     // Prepare vertices
-    bv->fact_to_fact_vertex = CALLOC_ARR(bor_iset_t, bv->fact_size);
+    bv->fact_to_fact_vertex = CALLOC_ARR(pddl_iset_t, bv->fact_size);
     bv->fact_vertex_size = numFactVertices(mgroups, &bv->invertible_facts);
     BOR_INFO(err, "Fact-mgroup pairs: %d", bv->fact_vertex_size);
     bv->fact_vertex = CALLOC_ARR(fact_vertex_t, bv->fact_vertex_size);
@@ -381,42 +381,42 @@ static void blackVarsInit(black_vars_t *bv,
     }
 
     // Assign facts and mgroups to vertices
-    BOR_ISET(facts);
+    PDDL_ISET(facts);
     int vert_id = 0;
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-        borISetIntersect2(&facts, &bv->invertible_facts,
+        pddlISetIntersect2(&facts, &bv->invertible_facts,
                                   &mgroups->mgroup[mgi].mgroup);
         int fact;
-        BOR_ISET_FOR_EACH(&facts, fact){
+        PDDL_ISET_FOR_EACH(&facts, fact){
             bv->fact_vertex[vert_id].fact = fact;
             bv->fact_vertex[vert_id].mgroup = mgi;
-            borISetAdd(bv->fact_to_fact_vertex + fact, vert_id);
+            pddlISetAdd(bv->fact_to_fact_vertex + fact, vert_id);
             ++vert_id;
         }
     }
-    borISetFree(&facts);
+    pddlISetFree(&facts);
 
     // Assign the rest of the facts not belonging to any mgroup
     int fact;
-    BOR_ISET_FOR_EACH(&bv->invertible_facts, fact){
-        if (borISetSize(bv->fact_to_fact_vertex + fact) == 0){
+    PDDL_ISET_FOR_EACH(&bv->invertible_facts, fact){
+        if (pddlISetSize(bv->fact_to_fact_vertex + fact) == 0){
             bv->fact_vertex[vert_id].fact = fact;
             bv->fact_vertex[vert_id].mgroup = -1;
-            borISetAdd(bv->fact_to_fact_vertex + fact, vert_id);
+            pddlISetAdd(bv->fact_to_fact_vertex + fact, vert_id);
             ++vert_id;
         }
     }
 
     // Delete effects that are uncovered by preconditions must be encoded
     // as a single-fact variables
-    BOR_ISET(uncovered_del_effs);
+    PDDL_ISET(uncovered_del_effs);
     uncoveredDelEffs(strips, &uncovered_del_effs);
-    BOR_ISET_FOR_EACH(&uncovered_del_effs, fact){
+    PDDL_ISET_FOR_EACH(&uncovered_del_effs, fact){
         int vert_id;
-        BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
+        PDDL_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, vert_id)
             bv->fact_vertex[vert_id].mgroup = -1;
     }
-    borISetFree(&uncovered_del_effs);
+    pddlISetFree(&uncovered_del_effs);
 
     blackVarsCGInit(bv, &bv->cg, strips, mgroups);
 
@@ -428,9 +428,9 @@ static void blackVarsInit(black_vars_t *bv,
 
 static void blackVarsFree(black_vars_t *bv)
 {
-    borISetFree(&bv->invertible_facts);
+    pddlISetFree(&bv->invertible_facts);
     for (int f = 0; f < bv->fact_size; ++f)
-        borISetFree(bv->fact_to_fact_vertex + f);
+        pddlISetFree(bv->fact_to_fact_vertex + f);
     FREE(bv->fact_to_fact_vertex);
     FREE(bv->fact_vertex);
     pddlSCCGraphFree(&bv->cg);
@@ -467,14 +467,14 @@ static void addCycles2(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
     int num = 0;
     for (int v1 = 0; v1 < bv->fact_vertex_size; ++v1){
         int v2;
-        BOR_ISET_FOR_EACH(&bv->cg.node[v1], v2){
+        PDDL_ISET_FOR_EACH(&bv->cg.node[v1], v2){
             // Skip cycles with the same mutex group
             if (bv->fact_vertex[v1].mgroup == bv->fact_vertex[v2].mgroup
                     && bv->fact_vertex[v1].mgroup >= 0){
                 continue;
             }
 
-            if (borISetIn(v1, &bv->cg.node[v2])){
+            if (pddlISetIn(v1, &bv->cg.node[v2])){
                 BOR_IARR(path);
                 borIArrAdd(&path, v1);
                 borIArrAdd(&path, v2);
@@ -493,13 +493,13 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
     for (int v1 = 0; v1 < bv->fact_vertex_size; ++v1){
         int v1mgroup = bv->fact_vertex[v1].mgroup;
         int v2;
-        BOR_ISET_FOR_EACH(&bv->cg.node[v1], v2){
+        PDDL_ISET_FOR_EACH(&bv->cg.node[v1], v2){
             // Skip 2-vertex cycles
-            if (borISetIn(v1, &bv->cg.node[v2]))
+            if (pddlISetIn(v1, &bv->cg.node[v2]))
                 continue;
             int v2mgroup = bv->fact_vertex[v2].mgroup;
             int v3;
-            BOR_ISET_FOR_EACH(&bv->cg.node[v2], v3){
+            PDDL_ISET_FOR_EACH(&bv->cg.node[v2], v3){
                 int v3mgroup = bv->fact_vertex[v3].mgroup;
                 // Skip cycles with the same mutex group
                 if (v1mgroup == v2mgroup && v2mgroup == v3mgroup
@@ -507,7 +507,7 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
                     continue;
                 }
 
-                if (borISetIn(v1, &bv->cg.node[v3])){
+                if (pddlISetIn(v1, &bv->cg.node[v3])){
                     BOR_IARR(path);
                     borIArrAdd(&path, v1);
                     borIArrAdd(&path, v2);
@@ -522,20 +522,20 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, bor_err_t *err)
     BOR_INFO(err, "Added %d 3-cycles", num);
 }
 
-static void addLeafMGroup(bor_lp_t *lp, const bor_iset_t *mg)
+static void addLeafMGroup(bor_lp_t *lp, const pddl_iset_t *mg)
 {
     int row = borLPNumRows(lp);
     double rhs = 0;
     char sense = 'L';
     borLPAddRows(lp, 1, &rhs, &sense);
     int var;
-    BOR_ISET_FOR_EACH(mg, var)
+    PDDL_ISET_FOR_EACH(mg, var)
         borLPSetCoef(lp, row, var, 1.);
 }
 
 static void addRedFacts(bor_lp_t *lp,
                         const black_vars_t *bv,
-                        const bor_iset_t *black_vars)
+                        const pddl_iset_t *black_vars)
 {
     int row = borLPNumRows(lp);
     double rhs = 1;
@@ -544,10 +544,10 @@ static void addRedFacts(bor_lp_t *lp,
 
     int *black = CALLOC_ARR(int, bv->fact_vertex_size);
     int var;
-    BOR_ISET_FOR_EACH(black_vars, var){
+    PDDL_ISET_FOR_EACH(black_vars, var){
         int fact = bv->fact_vertex[var].fact;
         int var2;
-        BOR_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, var2)
+        PDDL_ISET_FOR_EACH(bv->fact_to_fact_vertex + fact, var2)
             black[var2] = 1;
 
     }
@@ -558,11 +558,11 @@ static void addRedFacts(bor_lp_t *lp,
     FREE(black);
 }
 
-static int compIsSingleMGroup(const black_vars_t *bv, const bor_iset_t *comp)
+static int compIsSingleMGroup(const black_vars_t *bv, const pddl_iset_t *comp)
 {
-    int mgi = bv->fact_vertex[borISetGet(comp, 0)].mgroup;
+    int mgi = bv->fact_vertex[pddlISetGet(comp, 0)].mgroup;
     int var;
-    BOR_ISET_FOR_EACH(comp, var){
+    PDDL_ISET_FOR_EACH(comp, var){
         if (bv->fact_vertex[var].mgroup != mgi)
             return 0;
     }
@@ -571,15 +571,15 @@ static int compIsSingleMGroup(const black_vars_t *bv, const bor_iset_t *comp)
 
 static int findMultiMGroupComponent(const black_vars_t *bv,
                                     const pddl_scc_graph_t *black_graph,
-                                    bor_iset_t *comp)
+                                    pddl_iset_t *comp)
 {
     int found = 0;
     pddl_scc_t scc;
     pddlSCC(&scc, black_graph);
     for (int i = 0; i < scc.comp_size; ++i){
         if (!compIsSingleMGroup(bv, &scc.comp[i])){
-            borISetEmpty(comp);
-            borISetUnion(comp, &scc.comp[i]);
+            pddlISetEmpty(comp);
+            pddlISetUnion(comp, &scc.comp[i]);
             found = 1;
             break;
         }
@@ -597,25 +597,25 @@ static int updateLPWithCycleFn(const bor_iarr_t *cycle, void *ud)
 {
     int ret = PDDL_GRAPH_SIMPLE_CYCLE_CONT;
     struct update_lp *update = ud;
-    BOR_ISET(mg);
+    PDDL_ISET(mg);
     int vert_id;
     BOR_IARR_FOR_EACH(cycle, vert_id){
-        borISetAdd(&mg, update->bv->fact_vertex[vert_id].mgroup);
-        if (borISetSize(&mg) > 1)
+        pddlISetAdd(&mg, update->bv->fact_vertex[vert_id].mgroup);
+        if (pddlISetSize(&mg) > 1)
             break;
     }
-    if (borISetSize(&mg) > 1){
+    if (pddlISetSize(&mg) > 1){
         addCycle(update->lp, cycle);
         ret = PDDL_GRAPH_SIMPLE_CYCLE_STOP;
     }
-    borISetFree(&mg);
+    pddlISetFree(&mg);
     return ret;
 }
 
 static void updateLPWithCycle(bor_lp_t *lp,
                               const black_vars_t *bv,
                               const pddl_scc_graph_t *black_graph,
-                              const bor_iset_t *comp)
+                              const pddl_iset_t *comp)
 {
     struct update_lp update = { lp, bv };
     pddl_scc_graph_t graph;
@@ -626,7 +626,7 @@ static void updateLPWithCycle(bor_lp_t *lp,
 
 static int solveLP(bor_lp_t *lp,
                    const black_vars_t *bv,
-                   bor_iset_t *black_vars)
+                   pddl_iset_t *black_vars)
 {
     double *obj = CALLOC_ARR(double, bv->fact_vertex_size);
     double val;
@@ -635,17 +635,17 @@ static int solveLP(bor_lp_t *lp,
         return -1;
     }
 
-    borISetEmpty(black_vars);
+    pddlISetEmpty(black_vars);
     for (int v = 0; v < bv->fact_vertex_size; ++v){
         if (obj[v] >= .5)
-            borISetAdd(black_vars, v);
+            pddlISetAdd(black_vars, v);
     }
     FREE(obj);
     return 0;
 }
 
 static pddl_black_mgroup_t *blackMGroupsAdd(pddl_black_mgroups_t *bmgroups,
-                                            const bor_iset_t *m)
+                                            const pddl_iset_t *m)
 {
     if (bmgroups->mgroup_size == bmgroups->mgroup_alloc){
         if (bmgroups->mgroup_alloc == 0)
@@ -656,9 +656,9 @@ static pddl_black_mgroup_t *blackMGroupsAdd(pddl_black_mgroups_t *bmgroups,
                                            bmgroups->mgroup_alloc);
     }
     pddl_black_mgroup_t *mg = bmgroups->mgroup + bmgroups->mgroup_size++;
-    borISetInit(&mg->mgroup);
-    borISetUnion(&mg->mgroup, m);
-    borISetInit(&mg->mutex_facts);
+    pddlISetInit(&mg->mgroup);
+    pddlISetUnion(&mg->mgroup, m);
+    pddlISetInit(&mg->mutex_facts);
     return mg;
 }
 
@@ -667,58 +667,58 @@ static pddl_black_mgroup_t *blackMGroupsAddSingle(pddl_black_mgroups_t *bmgroups
 {
     pddl_black_mgroup_t *mg;
 
-    BOR_ISET(m);
-    borISetAdd(&m, fact);
+    PDDL_ISET(m);
+    pddlISetAdd(&m, fact);
     mg = blackMGroupsAdd(bmgroups, &m);
-    borISetFree(&m);
+    pddlISetFree(&m);
 
     return mg;
 }
 
 static void blackFactsToBlackMGroups(const black_vars_t *bv,
-                                     const bor_iset_t *black_vars,
+                                     const pddl_iset_t *black_vars,
                                      const pddl_mgroups_t *mgroups,
                                      pddl_black_mgroups_t *bmgroups,
                                      bor_err_t *err)
 {
-    bor_iset_t *mgs = CALLOC_ARR(bor_iset_t, mgroups->mgroup_size);
+    pddl_iset_t *mgs = CALLOC_ARR(pddl_iset_t, mgroups->mgroup_size);
     int vert_id;
-    BOR_ISET_FOR_EACH(black_vars, vert_id){
+    PDDL_ISET_FOR_EACH(black_vars, vert_id){
         int fact = bv->fact_vertex[vert_id].fact;
         int mgi = bv->fact_vertex[vert_id].mgroup;
         if (mgi >= 0){
-            borISetAdd(mgs + mgi, fact);
+            pddlISetAdd(mgs + mgi, fact);
         }else{
             blackMGroupsAddSingle(bmgroups, fact);
         }
     }
 
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-        if (borISetSize(mgs + mgi) == 0)
+        if (pddlISetSize(mgs + mgi) == 0)
             continue;
         pddl_black_mgroup_t *mg = blackMGroupsAdd(bmgroups, mgs + mgi);
-        borISetUnion(&mg->mutex_facts, &mgroups->mgroup[mgi].mgroup);
-        borISetMinus(&mg->mutex_facts, &mg->mgroup);
+        pddlISetUnion(&mg->mutex_facts, &mgroups->mgroup[mgi].mgroup);
+        pddlISetMinus(&mg->mutex_facts, &mg->mgroup);
     }
 
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi)
-        borISetFree(mgs + mgi);
+        pddlISetFree(mgs + mgi);
     if (mgs != NULL)
         FREE(mgs);
 }
 
-static int mgroupIsLeaf(const bor_iset_t *mgroup,
+static int mgroupIsLeaf(const pddl_iset_t *mgroup,
                         const pddl_strips_t *strips,
-                        const bor_iset_t *fact_op)
+                        const pddl_iset_t *fact_op)
 {
     int fact;
-    BOR_ISET_FOR_EACH(mgroup, fact){
+    PDDL_ISET_FOR_EACH(mgroup, fact){
         int opi;
-        BOR_ISET_FOR_EACH(fact_op + fact, opi){
+        PDDL_ISET_FOR_EACH(fact_op + fact, opi){
             const pddl_strips_op_t *op = strips->op.op[opi];
-            if (!borISetIsSubset(&op->add_eff, mgroup))
+            if (!pddlISetIsSubset(&op->add_eff, mgroup))
                 return 0;
-            if (!borISetIsSubset(&op->del_eff, mgroup))
+            if (!pddlISetIsSubset(&op->del_eff, mgroup))
                 return 0;
         }
     }
@@ -729,7 +729,7 @@ static int mgroupIsLeaf(const bor_iset_t *mgroup,
 static int findAndUpdateLeafs(bor_lp_t *lp,
                               const black_vars_t *bv,
                               const pddl_strips_t *strips,
-                              const bor_iset_t *black_vars,
+                              const pddl_iset_t *black_vars,
                               int num_mgroups,
                               bor_err_t *err)
 {
@@ -737,30 +737,30 @@ static int findAndUpdateLeafs(bor_lp_t *lp,
     pddl_strips_fact_cross_ref_t cref;
     pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 1, 1, 1);
 
-    bor_iset_t *fact_op = CALLOC_ARR(bor_iset_t, strips->fact.fact_size);
+    pddl_iset_t *fact_op = CALLOC_ARR(pddl_iset_t, strips->fact.fact_size);
     for (int fact = 0; fact < strips->fact.fact_size; ++fact){
-        borISetUnion(fact_op + fact, &cref.fact[fact].op_pre);
-        borISetUnion(fact_op + fact, &cref.fact[fact].op_add);
-        borISetUnion(fact_op + fact, &cref.fact[fact].op_del);
+        pddlISetUnion(fact_op + fact, &cref.fact[fact].op_pre);
+        pddlISetUnion(fact_op + fact, &cref.fact[fact].op_add);
+        pddlISetUnion(fact_op + fact, &cref.fact[fact].op_del);
     }
 
-    bor_iset_t *bmgroups = CALLOC_ARR(bor_iset_t, num_mgroups);
-    bor_iset_t *bmgroups_vert = CALLOC_ARR(bor_iset_t, num_mgroups);
+    pddl_iset_t *bmgroups = CALLOC_ARR(pddl_iset_t, num_mgroups);
+    pddl_iset_t *bmgroups_vert = CALLOC_ARR(pddl_iset_t, num_mgroups);
     int vert_id;
-    BOR_ISET_FOR_EACH(black_vars, vert_id){
+    PDDL_ISET_FOR_EACH(black_vars, vert_id){
         if (bv->fact_vertex[vert_id].mgroup >= 0){
-            borISetAdd(bmgroups + bv->fact_vertex[vert_id].mgroup,
+            pddlISetAdd(bmgroups + bv->fact_vertex[vert_id].mgroup,
                        bv->fact_vertex[vert_id].fact);
-            borISetAdd(bmgroups_vert + bv->fact_vertex[vert_id].mgroup,
+            pddlISetAdd(bmgroups_vert + bv->fact_vertex[vert_id].mgroup,
                        vert_id);
         }
     }
 
     for (int mgi = 0; mgi < num_mgroups; ++mgi){
-        if (borISetSize(bmgroups + mgi) == 0)
+        if (pddlISetSize(bmgroups + mgi) == 0)
             continue;
 
-        const bor_iset_t *mg = bmgroups + mgi;
+        const pddl_iset_t *mg = bmgroups + mgi;
         if (mgroupIsLeaf(mg, strips, fact_op)){
             addLeafMGroup(lp, bmgroups_vert + mgi);
             ++updated;
@@ -768,11 +768,11 @@ static int findAndUpdateLeafs(bor_lp_t *lp,
     }
 
     for (int i = 0; i < strips->fact.fact_size; ++i)
-        borISetFree(fact_op + i);
+        pddlISetFree(fact_op + i);
     FREE(fact_op);
     for (int i = 0; i < num_mgroups; ++i){
-        borISetFree(bmgroups + i);
-        borISetFree(bmgroups_vert + i);
+        pddlISetFree(bmgroups + i);
+        pddlISetFree(bmgroups_vert + i);
     }
     FREE(bmgroups);
     FREE(bmgroups_vert);
@@ -791,17 +791,17 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
                                 bor_err_t *err)
 {
     int ret = 0;
-    BOR_ISET(black_vars);
+    PDDL_ISET(black_vars);
     int cont = 1;
     int solution = 0;
     int num_updates = 0;
     while (cont && (ret = solveLP(lp, bv, &black_vars)) == 0){
         BOR_INFO(err, "Solved. Candidate set size: %d",
-                 borISetSize(&black_vars));
+                 pddlISetSize(&black_vars));
 
         pddl_scc_graph_t black_graph;
         pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
-        BOR_ISET(comp);
+        PDDL_ISET(comp);
         if (findMultiMGroupComponent(bv, &black_graph, &comp)){
             BOR_INFO2(err, "The solution has a cycle."
                            " Updating LP by adding more cycles...");
@@ -815,12 +815,12 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
 
         }else if (!findAndUpdateLeafs(lp, bv, strips, &black_vars,
                                       mgroups->mgroup_size, err)){
-            if (borISetSize(&black_vars) > 0){
+            if (pddlISetSize(&black_vars) > 0){
                 blackFactsToBlackMGroups(bv, &black_vars, mgroups,
                                          bmgroups + solution, err);
                 BOR_INFO(err, "Found non-empty solution %d with"
                               " %d black facts and %d black mgroups",
-                         solution, borISetSize(&black_vars),
+                         solution, pddlISetSize(&black_vars),
                          bmgroups->mgroup_size);
                 ++solution;
                 if (solution >= cfg->num_solutions){
@@ -833,13 +833,13 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
                 cont = 0;
             }
         }
-        borISetFree(&comp);
+        pddlISetFree(&comp);
         pddlSCCGraphFree(&black_graph);
-        borISetEmpty(&black_vars);
+        pddlISetEmpty(&black_vars);
     }
     if (ret != 0)
         BOR_INFO2(err, "No solution exists.");
-    borISetFree(&black_vars);
+    pddlISetFree(&black_vars);
 
     if (bmgroups->mgroup_size > 0 || ret == 0)
         return 0;
@@ -888,8 +888,8 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
 void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups)
 {
     for (int i = 0; i < bmgroups->mgroup_size; ++i){
-        borISetFree(&bmgroups->mgroup[i].mgroup);
-        borISetFree(&bmgroups->mgroup[i].mutex_facts);
+        pddlISetFree(&bmgroups->mgroup[i].mgroup);
+        pddlISetFree(&bmgroups->mgroup[i].mutex_facts);
     }
     if (bmgroups->mgroup != NULL)
         FREE(bmgroups->mgroup);
@@ -904,11 +904,11 @@ void pddlBlackMGroupsPrint(const pddl_strips_t *strips,
         const pddl_black_mgroup_t *bmg = bmgroups->mgroup + mgi;
         int fact;
         fprintf(fout, "black-mgroup:");
-        BOR_ISET_FOR_EACH(&bmg->mgroup, fact)
+        PDDL_ISET_FOR_EACH(&bmg->mgroup, fact)
             fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
         fprintf(fout, "\n");
         fprintf(fout, "  mutex-facts:");
-        BOR_ISET_FOR_EACH(&bmg->mutex_facts, fact)
+        PDDL_ISET_FOR_EACH(&bmg->mutex_facts, fact)
             fprintf(fout, " %d:(%s)", fact, strips->fact.fact[fact]->name);
         fprintf(fout, "\n");
     }

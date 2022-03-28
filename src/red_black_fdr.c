@@ -41,11 +41,11 @@ static void prepareStrips(pddl_strips_t *strips,
 {
     BOR_INFO_PREFIX_PUSH(err, "Clean Strips: ");
     pddlStripsInitCopy(strips, strips_in);
-    BOR_ISET(unreachable_ops);
+    PDDL_ISET(unreachable_ops);
     pddlStripsFindUnreachableOps(strips, mutex, &unreachable_ops, err);
     pddlStripsReduce(strips, NULL, &unreachable_ops);
     pddlStripsRemoveUselessDelEffs(strips, mutex, NULL, err);
-    borISetFree(&unreachable_ops);
+    pddlISetFree(&unreachable_ops);
     BOR_INFO_PREFIX_POP(err);
 }
 
@@ -54,25 +54,25 @@ static void prepareMGroups(pddl_mgroups_t *mgroups,
                            const pddl_mgroups_t *mgroups_in,
                            bor_err_t *err)
 {
-    BOR_ISET(black_facts);
+    PDDL_ISET(black_facts);
     pddlMGroupsInitEmpty(mgroups);
     // Put black mgroups first
     for (int mgi = 0; mgi < black_mgroups->mgroup_size; ++mgi){
         const pddl_black_mgroup_t *bmg = black_mgroups->mgroup + mgi;
-        borISetUnion(&black_facts, &bmg->mgroup);
+        pddlISetUnion(&black_facts, &bmg->mgroup);
         pddlMGroupsAdd(mgroups, &bmg->mgroup);
     }
     // Next, copy the input mgroups without black facts
     for (int mgi = 0; mgi < mgroups_in->mgroup_size; ++mgi){
         const pddl_mgroup_t *mgin = mgroups_in->mgroup + mgi;
-        BOR_ISET(m);
-        borISetMinus2(&m, &mgin->mgroup, &black_facts);
-        if (borISetSize(&m) > 0)
+        PDDL_ISET(m);
+        pddlISetMinus2(&m, &mgin->mgroup, &black_facts);
+        if (pddlISetSize(&m) > 0)
             pddlMGroupsAdd(mgroups, &m);
-        borISetFree(&m);
+        pddlISetFree(&m);
     }
     //pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
-    borISetFree(&black_facts);
+    pddlISetFree(&black_facts);
     BOR_INFO(err, "Created %d mutex groups of which %d are black",
              mgroups->mgroup_size, black_mgroups->mgroup_size);
 }
@@ -86,8 +86,8 @@ static void setBlackVars(pddl_fdr_t *fdr,
     for (int mgi = 0; mgi < black_mgroups->mgroup_size; ++mgi){
         none_of_those[mgi] = -1;
         const pddl_black_mgroup_t *bmg = black_mgroups->mgroup + mgi;
-        int first_fact = borISetGet(&bmg->mgroup, 0);
-        int val_id = borISetGet(&fdr->var.strips_id_to_val[first_fact], 0);
+        int first_fact = pddlISetGet(&bmg->mgroup, 0);
+        int val_id = pddlISetGet(&fdr->var.strips_id_to_val[first_fact], 0);
         int var_id = fdr->var.global_id_to_val[val_id]->var_id;
         if (fdr->var.var[var_id].val_none_of_those >= 0){
             none_of_those[mgi] = var_id;
@@ -106,25 +106,25 @@ static void compileAwayRedDelEffs(pddl_strips_t *strips,
                                   const pddl_black_mgroups_t *black_mgroups,
                                   bor_err_t *err)
 {
-    BOR_ISET(black_facts);
+    PDDL_ISET(black_facts);
     for (int mgi = 0; mgi < black_mgroups->mgroup_size; ++mgi)
-        borISetUnion(&black_facts, &black_mgroups->mgroup[mgi].mgroup);
+        pddlISetUnion(&black_facts, &black_mgroups->mgroup[mgi].mgroup);
 
     pddlStripsInitCopy(strips, strips_in);
     for (int oi = 0; oi < strips->op.op_size; ++oi){
         pddl_strips_op_t *op = strips->op.op[oi];
-        borISetIntersect(&op->del_eff, &black_facts);
+        pddlISetIntersect(&op->del_eff, &black_facts);
     }
 
     pddlMGroupsInitEmpty(mgroups);
     for (int mgi = 0; mgi < mgroups_in->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mgroups_in->mgroup + mgi;
-        if (!borISetIsDisjoint(&mg->mgroup, &black_facts)){
+        if (!pddlISetIsDisjoint(&mg->mgroup, &black_facts)){
             pddlMGroupsAdd(mgroups, &mg->mgroup);
         }
     }
 
-    borISetFree(&black_facts);
+    pddlISetFree(&black_facts);
 }
 
 static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
@@ -145,9 +145,9 @@ static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
         ASSERT(set_val >= 0);
         const pddl_black_mgroup_t *bmg = black_mgroups->mgroup + mgi;
         int mutex_fact;
-        BOR_ISET_FOR_EACH(&bmg->mutex_facts, mutex_fact){
+        PDDL_ISET_FOR_EACH(&bmg->mutex_facts, mutex_fact){
             int opi;
-            BOR_ISET_FOR_EACH(&cref.fact[mutex_fact].op_pre, opi){
+            PDDL_ISET_FOR_EACH(&cref.fact[mutex_fact].op_pre, opi){
                 pddl_fdr_op_t *op = fdr->op.op[opi];
                 ASSERT(!pddlFDRPartStateIsSet(&op->pre, set_var)
                         || pddlFDRPartStateGet(&op->pre, set_var) == set_val);
