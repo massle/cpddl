@@ -24,7 +24,7 @@
 #include <boruvka/extarr.h>
 #include <boruvka/pairheap.h>
 #include <pddl/rbtree.h>
-#include <boruvka/rand.h>
+#include <pddl/rand.h>
 #include <pddl/timer.h>
 
 #include "pddl/fdr.h"
@@ -846,10 +846,10 @@ static void orderSwap(int *order,
                       const int *influence,
                       int size,
                       double *cost,
-                      bor_rand_t *rnd)
+                      pddl_rand_t *rnd)
 {
-    int swap_idx1 = borRand(rnd, 0, size);
-    int swap_idx2 = borRand(rnd, 0, size);
+    int swap_idx1 = pddlRand(rnd, 0, size);
+    int swap_idx2 = pddlRand(rnd, 0, size);
     if (swap_idx1 == swap_idx2)
         return;
 
@@ -880,7 +880,7 @@ static double orderOptimize(int iterations,
                             int *order,
                             const int *influence,
                             int size,
-                            bor_rand_t *rnd)
+                            pddl_rand_t *rnd)
 {
     double cost = orderComputeCost(order, influence, size);
     for (int i = 0; i < iterations; ++i)
@@ -888,14 +888,14 @@ static double orderOptimize(int iterations,
     return cost;
 }
 
-static void orderRandomize(int *order, int size, bor_rand_t *rnd)
+static void orderRandomize(int *order, int size, pddl_rand_t *rnd)
 {
     int *order2 = ALLOC_ARR(int, size);
     for (int i = 0; i < size; ++i)
         order2[i] = -1;
     for (int num = 0; num < size; ++num){
         while (1){
-            int pos = borRand(rnd, 0, size);
+            int pos = pddlRand(rnd, 0, size);
             if (order2[pos] == -1){
                 order2[pos] = num;
                 break;
@@ -911,8 +911,8 @@ static void orderCompute(int *order,
                          const pddl_cg_t *cg,
                          bor_err_t *err)
 {
-    bor_rand_t rnd;
-    borRandInitSeed(&rnd, 1371);
+    pddl_rand_t rnd;
+    pddlRandInitSeed(&rnd, 1371);
 
     ASSERT_RUNTIME(cg->node_size == size);
 

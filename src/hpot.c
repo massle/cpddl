@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/rand.h>
+#include <pddl/rand.h>
 #include "pddl/hpot.h"
 #include "pddl/pot.h"
 #include "pddl/critical_path.h"
@@ -281,7 +281,7 @@ struct state_sampler {
     const pddl_mutex_pairs_t *mutex;
     pddl_random_walk_t random_walk;
     int random_walk_max_steps;
-    bor_rand_mt_t *rnd;
+    pddl_rand_mt_t *rnd;
     int *state;
 };
 typedef struct state_sampler state_sampler_t;
@@ -324,8 +324,8 @@ static void stateSamplerInit(state_sampler_t *s,
         }
 
     }else{
-        //s->rnd = borRandMTNewAuto();
-        s->rnd = borRandMTNew(rand_sampler_seed);
+        //s->rnd = pddlRandMTNewAuto();
+        s->rnd = pddlRandMTNew(rand_sampler_seed);
         if (mutex != NULL){
             s->mutex = mutex;
             s->type = STATE_SAMPLER_SYNTACTIC_MUTEX;
@@ -342,14 +342,14 @@ static void stateSamplerFree(state_sampler_t *s)
     if (s->state != NULL)
         FREE(s->state);
     if (s->rnd != NULL)
-        borRandMTDel(s->rnd);
+        pddlRandMTDel(s->rnd);
 }
 
 static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
 {
     if (s->type == STATE_SAMPLER_SYNTACTIC){
         for (int var = 0; var < s->fdr->var.var_size; ++var){
-            int val = borRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
+            int val = pddlRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
             val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
             s->state[var] = val;
         }
@@ -361,7 +361,7 @@ static void stateSamplerSample(state_sampler_t *s, bor_err_t *err)
         do {
             borISetEmpty(&state);
             for (int var = 0; var < s->fdr->var.var_size; ++var){
-                int val = borRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
+                int val = pddlRandMT(s->rnd, 0, s->fdr->var.var[var].val_size);
                 val = BOR_MIN(val, s->fdr->var.var[var].val_size - 1);
                 s->state[var] = val;
                 borISetAdd(&state, s->fdr->var.var[var].val[val].global_id);
@@ -567,13 +567,13 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
                                bor_err_t *err)
 {
     int mutex_size = cfg->all_states_mutex_size;
-    bor_rand_mt_t *rnd = borRandMTNew(rand_sampler_seed);
+    pddl_rand_mt_t *rnd = pddlRandMTNew(rand_sampler_seed);
     BOR_ISET(cond);
     int count = 0;
     int fact_size = mg_strips->strips.fact.fact_size;
     for (int i = 0; i < num_samples; ++i){
-        int f1 = borRandMT(rnd, 0, fact_size);
-        int f2 = borRandMT(rnd, 0, fact_size);
+        int f1 = pddlRandMT(rnd, 0, fact_size);
+        int f2 = pddlRandMT(rnd, 0, fact_size);
         if (pddlMutexPairsIsMutex(mutex, f1, f2))
             continue;
         borISetEmpty(&cond);
@@ -593,7 +593,7 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
                   " potential functions",
              count, sols->sol_size);
     borISetFree(&cond);
-    borRandMTDel(rnd);
+    pddlRandMTDel(rnd);
 
     if (sols->sol_size > 0)
         return 0;
@@ -692,7 +692,7 @@ struct diverse_pot {
     int *state_est;
     pddl_set_iset_t states;
     int active_states;
-    bor_rand_mt_t *rnd;
+    pddl_rand_mt_t *rnd;
 };
 typedef struct diverse_pot diverse_pot_t;
 
@@ -707,8 +707,8 @@ static void diverseInit(diverse_pot_t *div,
     div->state_est = CALLOC_ARR(int, num_samples);
     pddlSetISetInit(&div->states);
     div->active_states = 0;
-    //div->rnd = borRandMTNewAuto();
-    div->rnd = borRandMTNew(rand_diverse_seed);
+    //div->rnd = pddlRandMTNewAuto();
+    div->rnd = pddlRandMTNew(rand_diverse_seed);
 }
 
 static void diverseFree(diverse_pot_t *div,
@@ -721,7 +721,7 @@ static void diverseFree(diverse_pot_t *div,
     pddlPotSolutionFree(&div->avg_func);
     FREE(div->state_est);
     pddlSetISetFree(&div->states);
-    borRandMTDel(div->rnd);
+    pddlRandMTDel(div->rnd);
 }
 
 static void diverseGenStates(diverse_pot_t *div,
@@ -842,7 +842,7 @@ static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,
         }
     }
 
-    int sid = borRandMT(div->rnd, 0, div->active_states);
+    int sid = pddlRandMT(div->rnd, 0, div->active_states);
     PDDL_SET_ISET_FOR_EACH_ID(&div->states, si){
         if (div->state_est[si] < 0)
             continue;
@@ -993,11 +993,11 @@ int pddlHPot(pddl_pot_solutions_t *sols,
         borISetFree(&facts);
 
     }else if (cfg->obj == PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND){
-        bor_rand_mt_t *rnd = borRandMTNew(rand_sampler_seed);
+        pddl_rand_mt_t *rnd = pddlRandMTNew(rand_sampler_seed);
         BOR_ISET(facts);
         int fact_size = mg_strips.strips.fact.fact_size;
         for (int i = 0; i < cfg->num_samples; ++i)
-            borISetAdd(&facts, borRandMT(rnd, 0, fact_size));
+            borISetAdd(&facts, pddlRandMT(rnd, 0, fact_size));
 
         ret = allStatesMutexCond(sols, &pot, &mg_strips, &mutex, cfg,
                                  &facts, err);

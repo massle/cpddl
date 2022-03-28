@@ -19,7 +19,7 @@
 #ifndef __PDDL_HOMOMORPHISM_H__
 #define __PDDL_HOMOMORPHISM_H__
 
-#include <boruvka/rand-mt.h>
+#include <pddl/rand-mt.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/endomorphism.h>
 
@@ -77,7 +77,7 @@ struct pddl_homomorphic_task {
     int input_obj_size; /*!< Number of objects in the input task */
     pddl_obj_id_t *obj_map; /*!< Mapping from object IDs of the input task to
                                  object IDs of .task */
-    bor_rand_mt_t *rnd; /*!< Random number generator */
+    pddl_rand_mt_t *rnd; /*!< Random number generator */
 };
 typedef struct pddl_homomorphic_task pddl_homomorphic_task_t;
 
