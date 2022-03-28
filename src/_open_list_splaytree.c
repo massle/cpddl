@@ -20,7 +20,7 @@
 # error "COST_SIZE must be set!"
 #endif
 
-#include <boruvka/fifo.h>
+#include "pddl/fifo.h"
 #include "pddl/open_list.h"
 #include "alloc.h"
 
@@ -32,7 +32,7 @@ typedef struct node node_t;
 
 /** A node holding a key and all the values. */
 struct keynode {
-    bor_fifo_t fifo;              /*!< Structure containing all values */
+    pddl_fifo_t fifo;              /*!< Structure containing all values */
     struct keynode *spe_left;  /*!< Connector to splay-tree */
     struct keynode *spe_right; /*!< Connector to splay-tree */
     int cost[COST_SIZE];
@@ -68,13 +68,13 @@ static keynode_t *keynodeNew(void)
 {
     keynode_t *kn;
     kn = MALLOC(sizeof(keynode_t));
-    borFifoInit(&kn->fifo, sizeof(node_t));
+    pddlFifoInit(&kn->fifo, sizeof(node_t));
     return kn;
 }
 
 static void keynodeDel(keynode_t *kn)
 {
-    borFifoFree(&kn->fifo);
+    pddlFifoFree(&kn->fifo);
     FREE(kn);
 }
 
@@ -146,7 +146,7 @@ static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,
 
     // Push next node into key-node container
     node.state_id = state_id;
-    borFifoPush(&kn->fifo, &node);
+    pddlFifoPush(&kn->fifo, &node);
 }
 
 static keynode_t *top(pddl_open_list_t *_list,
@@ -166,7 +166,7 @@ static keynode_t *top(pddl_open_list_t *_list,
     // We know for sure that this key-node must contain some nodes because
     // an empty key-nodes are removed immediately.
     // Pop next node from the key-node.
-    n = borFifoFront(&kn->fifo);
+    n = pddlFifoFront(&kn->fifo);
     *state_id = n->state_id;
     memcpy(cost, kn->cost, sizeof(int) * COST_SIZE);
     return kn;
@@ -181,10 +181,10 @@ static int pddlOpenListSplayTreePop(pddl_open_list_t *_list,
     if (kn == NULL)
         return -1;
 
-    borFifoPop(&kn->fifo);
+    pddlFifoPop(&kn->fifo);
 
     // If the key-node is empty, remove it from the tree
-    if (borFifoEmpty(&kn->fifo)){
+    if (pddlFifoEmpty(&kn->fifo)){
         borSplayRemove(list, kn);
         keynodeDel(kn);
     }

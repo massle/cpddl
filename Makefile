@@ -22,6 +22,7 @@ OBJS  = alloc
 OBJS += timer
 OBJS += rbtree
 OBJS += htable
+OBJS += fifo
 OBJS += lisp
 OBJS += require
 OBJS += type

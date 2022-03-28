@@ -179,7 +179,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_bdd_t *goal,
                       bor_err_t *err)
 {
-    char prefix[129];
+    char prefix[20];
     sprintf(prefix, "Search create %s: ", (fw ? "fw" : "bw"));
     BOR_INFO_PREFIX_PUSH(err, prefix);
     BOR_INFO(err, "Creating %s direction", (fw ? "fw" : "bw"));
