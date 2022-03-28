@@ -17,8 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
+#include "pddl/core.h"
 #include "pddl/outbox.h"
+#include "alloc.h"
 
 void pddlOutBoxesInit(pddl_outboxes_t *b)
 {
@@ -64,7 +65,7 @@ void pddlOutBoxAddLine(pddl_outbox_t *box, const char *line)
     strcpy(box->line[box->line_size], line);
     box->line[box->line_size][len] = 0x0;
     ++box->line_size;
-    box->max_line_len = BOR_MAX(box->max_line_len, len);
+    box->max_line_len = PDDL_MAX(box->max_line_len, len);
 }
 
 void pddlOutBoxesMerge(pddl_outboxes_t *dst,
@@ -86,7 +87,7 @@ void pddlOutBoxesMerge(pddl_outboxes_t *dst,
 
         int max_line_size = 0;
         for (int i = start; i < end; ++i)
-            max_line_size = BOR_MAX(max_line_size, src->box[i].line_size);
+            max_line_size = PDDL_MAX(max_line_size, src->box[i].line_size);
 
         pddl_outbox_t *box = pddlOutBoxesAdd(dst);
         for (int line_i = 0; line_i < max_line_size; ++line_i){
@@ -118,7 +119,7 @@ void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, bor_err_t *err)
 {
     int line_len = 0;
     for (int i = 0; i < b->box_size; ++i)
-        line_len = BOR_MAX(line_len, b->box[i].max_line_len);
+        line_len = PDDL_MAX(line_len, b->box[i].max_line_len);
     line_len += 4;
 
     char *line = ALLOC_ARR(char, line_len + 1);

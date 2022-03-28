@@ -232,7 +232,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
             deg *= bv->fact_vertex_size;
         int vert_id;
         BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
-            bv->fact_vertex[vert_id].weight = BOR_MAX(1, deg);
+            bv->fact_vertex[vert_id].weight = PDDL_MAX(1, deg);
         if (deg > 1)
             BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
                      strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
@@ -286,7 +286,7 @@ static void setWeightWithConflictsInRelaxedPlan(
 
         int vert_id;
         BOR_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
-            bv->fact_vertex[vert_id].weight = BOR_MAX(1, weight);
+            bv->fact_vertex[vert_id].weight = PDDL_MAX(1, weight);
         if (weight > 0.)
             BOR_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
                      strips->fact.fact[borISetGet(mgs + mgi, 0)]->name,
@@ -322,7 +322,7 @@ static void setWeightWithConflictsInRelaxedPlan(
             if (borISetSize(mgs_vert + mgi) == 0)
                 continue;
             float w = bv->fact_vertex[borISetGet(mgs_vert + mgi, 0)].weight;
-            max_weight = BOR_MAX(max_weight, w);
+            max_weight = PDDL_MAX(max_weight, w);
         }
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
             if (mgroups->mgroup[mgi].lifted_mgroup_id != lifted_id)

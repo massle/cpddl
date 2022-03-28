@@ -138,7 +138,7 @@ static int packerBitsNeeded(int range)
 {
     pddl_fdr_packer_word_t max_val = range - 1;
     int num = PDDL_FDR_PACKER_WORD_BITS;
-    max_val = BOR_MAX(1, max_val);
+    max_val = PDDL_MAX(1, max_val);
 
     for (; !(max_val & PDDL_FDR_PACKER_WORD_SET_HI_BIT); --num, max_val <<= 1);
     return num;

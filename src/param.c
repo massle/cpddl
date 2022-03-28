@@ -181,7 +181,7 @@ void pddlParamsRemap(pddl_params_t *params, const int *remap)
     for (int i = 0; i < params->param_size; ++i){
         if (remap[i] != -1){
             params->param[remap[i]] = params->param[i];
-            max_id = BOR_MAX(max_id, remap[i]);
+            max_id = PDDL_MAX(max_id, remap[i]);
         }
     }
     params->param_size = max_id + 1;

@@ -24,7 +24,7 @@
 struct pddl_profile_slot {
     pddl_timer_t timer;
     int counter;
-    bor_real_t elapsed;
+    double elapsed;
 };
 typedef struct pddl_profile_slot pddl_profile_slot_t;
 
@@ -51,7 +51,7 @@ void pddlProfileStart(int slot)
             profile.slot[i].elapsed = 0.;
         }
     }
-    profile.slot_size = BOR_MAX(profile.slot_size, slot + 1);
+    profile.slot_size = PDDL_MAX(profile.slot_size, slot + 1);
     pddlTimerStart(&profile.slot[slot].timer);
 }
 

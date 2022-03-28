@@ -407,7 +407,7 @@ void pddlTypesRemapObjs(pddl_types_t *ts,
         PDDL_OBJSET_FOR_EACH(&t->obj, obj){
             if (remap[obj] >= 0){
                 pddlObjSetAdd(&newset, remap[obj]);
-                num_objs = BOR_MAX(num_objs, remap[obj] + 1);
+                num_objs = PDDL_MAX(num_objs, remap[obj] + 1);
             }
         }
 

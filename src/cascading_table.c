@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "pddl/core.h"
 #include "pddl/cascading_table.h"
 #include "alloc.h"
 
@@ -182,7 +183,7 @@ void pddlCascadingTableAbstract(pddl_cascading_table_t *t, const int *abstr)
                 t->lookup_table[i] = PRUNED;
             }else{
                 t->lookup_table[i] = new_val;
-                new_size = BOR_MAX(new_size, t->lookup_table[i] + 1);
+                new_size = PDDL_MAX(new_size, t->lookup_table[i] + 1);
             }
         }
     }

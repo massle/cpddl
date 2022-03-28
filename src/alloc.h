@@ -18,7 +18,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <boruvka/core.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -290,7 +290,7 @@ static int solve(IloModel &model,
     int max_num = -1;
     while (cp.next()){
         num = extractSolution(cp, var_op, redundant_op, map, err);
-        max_num = BOR_MAX(max_num, num);
+        max_num = PDDL_MAX(max_num, num);
         BOR_INFO(err, "  Found a solution with %d redundant %s", num, name);
     }
 

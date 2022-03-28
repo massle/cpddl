@@ -486,7 +486,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
     if (name != NULL)
         p->name = STRDUP(name);
     p->user_id = -1;
-    dl->max_pred_arity = BOR_MAX(dl->max_pred_arity, arity);
+    dl->max_pred_arity = PDDL_MAX(dl->max_pred_arity, arity);
     dl->dirty = 1;
     return p->id;
 }
@@ -569,7 +569,7 @@ static void joinCost(const pddl_datalog_rule_t *rule,
     int a1size = borISetSize(&a1->var_set);
     int a2size = borISetSize(&a2->var_set);
     join_cost[2] = borISetSize(join_vars);
-    join_cost[0] = join_cost[2] - BOR_MAX(a1size, a2size);
+    join_cost[0] = join_cost[2] - PDDL_MAX(a1size, a2size);
     join_cost[1] = join_cost[2] - BOR_MIN(a1size, a2size);
 }
 

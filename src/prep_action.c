@@ -46,7 +46,7 @@ static int actionInitPre(pddl_cond_t *c, void *ud)
 
     if (c->type == PDDL_COND_ATOM){
         a = PDDL_COND_CAST(c, atom);
-        ctx->a->max_arg_size = BOR_MAX(ctx->a->max_arg_size, a->arg_size);
+        ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->pred == ctx->pddl->pred.eq_pred){
             pddlCondArrAdd(&ctx->a->pre_eq, c);
         }else{
@@ -76,7 +76,7 @@ static int actionInitEff(pddl_cond_t *c, void *ud)
 
     if (c->type == PDDL_COND_ATOM){
         a = PDDL_COND_CAST(c, atom);
-        ctx->a->max_arg_size = BOR_MAX(ctx->a->max_arg_size, a->arg_size);
+        ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->neg){
             pddlCondArrAdd(&ctx->a->del_eff, c);
         }else{
@@ -220,7 +220,7 @@ static int actionInitCondEff(pddl_cond_t *c, void *ud)
             pddlCondArrAdd(&a->pre_eq, parent->pre_eq.cond[i]);
         for (int i = 0; i < parent->pre.size; ++i)
             pddlCondArrAdd(&a->pre, parent->pre.cond[i]);
-        a->max_arg_size = BOR_MAX(a->max_arg_size, parent->max_arg_size);
+        a->max_arg_size = PDDL_MAX(a->max_arg_size, parent->max_arg_size);
 
 
         return -1;

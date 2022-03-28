@@ -145,7 +145,7 @@ int pddlPotSolutionsEvalMaxFDRState(const pddl_pot_solutions_t *sols,
     int h = 0;
     for (int i = 0; i < sols->sol_size; ++i){
         int h1 = pddlPotSolutionEvalFDRState(sols->sol + i, vars, fdr_state);
-        h = BOR_MAX(h, h1);
+        h = PDDL_MAX(h, h1);
     }
     return h;
 }
@@ -380,7 +380,7 @@ static void init(pddl_pot_t *pot, int maxpot_segm_size)
     bzero(pot, sizeof(*pot));
     pot->constr_lb.set = 0;
 
-    int segm_size = BOR_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
+    int segm_size = PDDL_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
     pot->maxpot_size = 0;
     pot->maxpot = borSegmArrNew(sizeof(maxpot_t), segm_size);
     pot->maxpot_htable = pddlHTableNew(htableHash, htableEq, NULL);

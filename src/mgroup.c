@@ -613,7 +613,7 @@ void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts)
         borISetMinus(&mg->mgroup, rm_facts);
         if (borISetSize(&mg->mgroup) > 0){
             int fid = borISetGet(&mg->mgroup, borISetSize(&mg->mgroup) - 1);
-            max_fact_id = BOR_MAX(max_fact_id, fid);
+            max_fact_id = PDDL_MAX(max_fact_id, fid);
         }
     }
 
@@ -806,7 +806,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess)
                       sizeof(int) * (fact_alloc - orig_alloc));
             }
             ++fact_mgroups[fact];
-            fact_size = BOR_MAX(fact_size, fact + 1);
+            fact_size = PDDL_MAX(fact_size, fact + 1);
         }
 
     }

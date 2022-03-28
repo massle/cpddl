@@ -809,9 +809,9 @@ int pddlPredFuncMaxParamSize(const pddl_t *pddl)
     int max = 0;
 
     for (int i = 0; i < pddl->pred.pred_size; ++i)
-        max = BOR_MAX(max, pddl->pred.pred[i].param_size);
+        max = PDDL_MAX(max, pddl->pred.pred[i].param_size);
     for (int i = 0; i < pddl->func.pred_size; ++i)
-        max = BOR_MAX(max, pddl->func.pred[i].param_size);
+        max = PDDL_MAX(max, pddl->func.pred[i].param_size);
 
     return max;
 }

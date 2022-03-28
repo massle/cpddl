@@ -132,7 +132,7 @@ int pddlMGroupProjectionMaxOutdegree(const pddl_mgroup_projection_t *p)
     int max = -1;
     for (int state = 0; state < p->num_states; ++state){
         int deg = outdegree(p, state);
-        max = BOR_MAX(max, deg);
+        max = PDDL_MAX(max, deg);
     }
     return max;
 }

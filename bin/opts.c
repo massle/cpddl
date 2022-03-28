@@ -353,7 +353,7 @@ static int maxLen(int group)
         }else{
             len = 2;
         }
-        maxlen = BOR_MAX(maxlen, len);
+        maxlen = PDDL_MAX(maxlen, len);
     }
     return maxlen;
 }

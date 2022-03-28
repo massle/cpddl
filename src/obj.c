@@ -326,7 +326,7 @@ void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
 {
     int new_size = 0;
     for (int i = 0; i < objs->obj_size; ++i)
-        new_size = BOR_MAX(new_size, remap[i] + 1);
+        new_size = PDDL_MAX(new_size, remap[i] + 1);
 
     int *isset = CALLOC_ARR(int, new_size);
     pddl_obj_t *nobjs = CALLOC_ARR(pddl_obj_t, new_size);
