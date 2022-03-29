@@ -14,8 +14,8 @@
  *  See the License for more information.
  */
 
-#ifndef __BOR_SET_H__
-#define __BOR_SET_H__
+#ifndef __PDDL_SET_H__
+#define __PDDL_SET_H__
 
 #include <string.h>
 #include <pddl/core.h>
@@ -29,199 +29,199 @@ extern "C" {
  * Array-based set.
  * The elements in .s are always sorted.
  */
-struct bor_set {
+struct pddl_set {
     TYPE *s;
     int size;
     int alloc;
 };
-typedef struct bor_set bor_set_t;
+typedef struct pddl_set pddl_set_t;
 
-#define BOR_SET_INIT { NULL, 0, 0 }
-#define BOR_SET(NAME) bor_set_t NAME = BOR_SET_INIT
+#define PDDL_SET_INIT { NULL, 0, 0 }
+#define PDDL_SET(NAME) pddl_set_t NAME = PDDL_SET_INIT
 
-#define BOR_SET_FOR_EACH(S, V) \
+#define PDDL_SET_FOR_EACH(S, V) \
     for (int __i = 0; __i < (S)->size && ((V) = (S)->s[__i], 1); ++__i)
 
-#define BOR_SET_ADD(S, ...) \
+#define PDDL_SET_ADD(S, ...) \
     do { \
-        TYPE ___bor_set_vals[] = {__VA_ARGS__}; \
-        int ___bor_set_size = sizeof(___bor_set_vals) / sizeof(TYPE); \
-        for (int i = 0; i < ___bor_set_size; ++i) \
-            borSetAdd((S), ___bor_set_vals[i]); \
+        TYPE ___pddl_set_vals[] = {__VA_ARGS__}; \
+        int ___pddl_set_size = sizeof(___pddl_set_vals) / sizeof(TYPE); \
+        for (int i = 0; i < ___pddl_set_size; ++i) \
+            pddlSetAdd((S), ___pddl_set_vals[i]); \
     }while (0)
 
-#define BOR_SET_SET(S, ...) \
+#define PDDL_SET_SET(S, ...) \
     do { \
-        borSetEmpty(S); \
-        BOR_SET_ADD((S), __VA_ARGS__); \
+        pddlSetEmpty(S); \
+        PDDL_SET_ADD((S), __VA_ARGS__); \
     } while (0)
 
 /**
  * Initialize the set.
  */
-void borSetInit(bor_set_t *s);
+void pddlSetInit(pddl_set_t *s);
 
 /**
  * Frees allocated memory.
  */
-void borSetFree(bor_set_t *s);
+void pddlSetFree(pddl_set_t *s);
 
 /**
  * Returns ith element from the set.
  */
-_pddl_inline TYPE borSetGet(const bor_set_t *s, int i);
+_pddl_inline TYPE pddlSetGet(const pddl_set_t *s, int i);
 
 /**
  * Returns size of the set.
  */
-_pddl_inline int borSetSize(const bor_set_t *s);
+_pddl_inline int pddlSetSize(const pddl_set_t *s);
 
 
 /**
  * Returns true if val \in s
  */
-int borSetHas(const bor_set_t *s, TYPE val);
-_pddl_inline int borSetIn(TYPE val, const bor_set_t *s);
+int pddlSetHas(const pddl_set_t *s, TYPE val);
+_pddl_inline int pddlSetIn(TYPE val, const pddl_set_t *s);
 
 /**
  * Return true if s1 \subset s2
  */
-int borSetIsSubset(const bor_set_t *s1, const bor_set_t *s2);
+int pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * Returns size of s1 \cap s2.
  */
-int borSetIntersectionSize(const bor_set_t *s1, const bor_set_t *s2);
+int pddlSetIntersectionSize(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * Returns true if | s1 \cap s2 | >= limit
  */
-int borSetIntersectionSizeAtLeast(const bor_set_t *s1, const bor_set_t *s2,
+int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
                                   int limit);
 
 /**
  * Returns true if | s1 \cap s2 \cap s3 | >= limit
  */
-int borSetIntersectionSizeAtLeast3(const bor_set_t *s1,
-                                   const bor_set_t *s2,
-                                   const bor_set_t *s3,
+int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
+                                   const pddl_set_t *s2,
+                                   const pddl_set_t *s3,
                                    int limit);
 
 /**
  * Returns true if the sets are disjoint.
  */
-_pddl_inline int borSetIsDisjunct(const bor_set_t *s1, const bor_set_t *s2);
-_pddl_inline int borSetIsDisjoint(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int pddlSetIsDisjunct(const pddl_set_t *s1, const pddl_set_t *s2);
+_pddl_inline int pddlSetIsDisjoint(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * s = \emptyset
  */
-_pddl_inline void borSetEmpty(bor_set_t *s);
+_pddl_inline void pddlSetEmpty(pddl_set_t *s);
 
 /**
  * d = s
  */
-void borSetSet(bor_set_t *d, const bor_set_t *s);
+void pddlSetSet(pddl_set_t *d, const pddl_set_t *s);
 
 /**
  * s = s \cup {val}
  */
-void borSetAdd(bor_set_t *s, TYPE val);
+void pddlSetAdd(pddl_set_t *s, TYPE val);
 
 /**
  * s = s \setminus {val}
  * Returns true if val was found in s.
  */
-int borSetRm(bor_set_t *s, TYPE val);
+int pddlSetRm(pddl_set_t *s, TYPE val);
 
 /**
  * dst = dst \cup src
  */
-void borSetUnion(bor_set_t *dst, const bor_set_t *src);
+void pddlSetUnion(pddl_set_t *dst, const pddl_set_t *src);
 
 /**
  * dst = s1 \cup s2
  */
-void borSetUnion2(bor_set_t *dst, const bor_set_t *s1, const bor_set_t *s2);
+void pddlSetUnion2(pddl_set_t *dst, const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * dst = dst \cap src
  */
-void borSetIntersect(bor_set_t *dst, const bor_set_t *src);
+void pddlSetIntersect(pddl_set_t *dst, const pddl_set_t *src);
 
 /**
  * dst = s1 \cap s2
  */
-void borSetIntersect2(bor_set_t *dst, const bor_set_t *s1, const bor_set_t *s2);
+void pddlSetIntersect2(pddl_set_t *dst, const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * s1 = s1 \setminus s2
  */
-void borSetMinus(bor_set_t *s1, const bor_set_t *s2);
+void pddlSetMinus(pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * d = s1 \setminus s2
  */
-void borSetMinus2(bor_set_t *d, const bor_set_t *s1, const bor_set_t *s2);
+void pddlSetMinus2(pddl_set_t *d, const pddl_set_t *s1, const pddl_set_t *s2);
 
 
 /**
  * Returns true if the sets are equal.
  */
-_pddl_inline int borSetEq(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int pddlSetEq(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * Compares sets, return values are the same as by memcmp().
  */
-_pddl_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2);
+_pddl_inline int pddlSetCmp(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * Remaps the elements of the set using remap array containing maping from
  * the old value to the new value. The mapping must be monotonically
  * increasing and it is assumed that the values in the set are >= 0.
  */
-void borSetRemap(bor_set_t *s, const TYPE *remap);
+void pddlSetRemap(pddl_set_t *s, const TYPE *remap);
 
 
 
 /**** INLINES: ****/
-_pddl_inline TYPE borSetGet(const bor_set_t *s, int i)
+_pddl_inline TYPE pddlSetGet(const pddl_set_t *s, int i)
 {
     return s->s[i];
 }
 
-_pddl_inline int borSetSize(const bor_set_t *s)
+_pddl_inline int pddlSetSize(const pddl_set_t *s)
 {
     return s->size;
 }
 
-_pddl_inline int borSetIn(TYPE val, const bor_set_t *s)
+_pddl_inline int pddlSetIn(TYPE val, const pddl_set_t *s)
 {
-    return borSetHas(s, val);
+    return pddlSetHas(s, val);
 }
 
-_pddl_inline int borSetIsDisjunct(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int pddlSetIsDisjunct(const pddl_set_t *s1, const pddl_set_t *s2)
 {
-    return borSetIsDisjoint(s1, s2);
+    return pddlSetIsDisjoint(s1, s2);
 }
 
-_pddl_inline int borSetIsDisjoint(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int pddlSetIsDisjoint(const pddl_set_t *s1, const pddl_set_t *s2)
 {
-    return !borSetIntersectionSizeAtLeast(s1, s2, 1);
+    return !pddlSetIntersectionSizeAtLeast(s1, s2, 1);
 }
 
-_pddl_inline void borSetEmpty(bor_set_t *s)
+_pddl_inline void pddlSetEmpty(pddl_set_t *s)
 {
     s->size = 0;
 }
 
-_pddl_inline int borSetEq(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int pddlSetEq(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     return s1->size == s2->size
             && memcmp(s1->s, s2->s, sizeof(TYPE) * s1->size) == 0;
 }
 
-_pddl_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2)
+_pddl_inline int pddlSetCmp(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int cmp;
     cmp = memcmp(s1->s, s2->s,
@@ -235,4 +235,4 @@ _pddl_inline int borSetCmp(const bor_set_t *s1, const bor_set_t *s2)
 }
 #endif /* __cplusplus */
 
-#endif /* __BOR_SET_H__ */
+#endif /* __PDDL_SET_H__ */

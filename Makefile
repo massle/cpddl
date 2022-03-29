@@ -273,9 +273,7 @@ list-global-symbols: libpddl.a
         | sort \
         | uniq \
         | grep -v '^pddl' \
-        | grep -v '^bor' \
-        | grep -v '^_bor' \
-        | grep -v '^__bor' \
+        | grep -v '^_Z.*Ilo' \
         | grep -v '^_Z.*Ilo' \
         | less
 

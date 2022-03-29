@@ -12,16 +12,16 @@
  *  See the License for more information.
  */
 
-#include "boruvka/arr.h"
+#include "pddl/arr.h"
 #include "alloc.h"
 
-void borArrFree(bor_arr_t *a)
+void pddlArrFree(pddl_arr_t *a)
 {
     if (a->arr != NULL)
         FREE(a->arr);
 }
 
-void borArrRealloc(bor_arr_t *a, int size)
+void pddlArrRealloc(pddl_arr_t *a, int size)
 {
     while (size > a->alloc){
         if (a->alloc == 0)
