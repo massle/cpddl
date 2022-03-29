@@ -94,7 +94,7 @@ _pddl_inline int keynodeCmp(const int *kn1, const int *kn2)
     memcpy(node->cost, key, sizeof(int) * COST_SIZE)
 #define BOR_SPLAY_KEY_CMP(head, key1, key2) \
     keynodeCmp(key1, key2)
-#include "boruvka/splaytree_def.h"
+#include "splaytree_def.h"
 
 pddl_open_list_t *MAIN_FN_NAME(void)
 {
