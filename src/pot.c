@@ -18,7 +18,7 @@
 
 #include "alloc.h"
 #include "pddl/hfunc.h"
-#include <boruvka/lp.h>
+#include <pddl/lp.h>
 #include "pddl/pot.h"
 #include "pddl/disambiguation.h"
 #include "assert.h"
@@ -546,7 +546,7 @@ void pddlPotDecreaseLowerBoundConstrRHS(pddl_pot_t *pot, double decrease)
     pot->constr_lb.rhs -= decrease;
 }
 
-static void setConstr(bor_lp_t *lp,
+static void setConstr(pddl_lp_t *lp,
                       int row,
                       const pddl_pot_t *pot,
                       const pddl_pot_constr_t *c)
@@ -554,13 +554,13 @@ static void setConstr(bor_lp_t *lp,
     int var;
 
     PDDL_ISET_FOR_EACH(&c->plus, var)
-        borLPSetCoef(lp, row, var, 1);
+        pddlLPSetCoef(lp, row, var, 1);
     PDDL_ISET_FOR_EACH(&c->minus, var)
-        borLPSetCoef(lp, row, var, -1);
-    borLPSetRHS(lp, row, c->rhs, 'L');
+        pddlLPSetCoef(lp, row, var, -1);
+    pddlLPSetRHS(lp, row, c->rhs, 'L');
 }
 
-static void setConstrs(bor_lp_t *lp,
+static void setConstrs(pddl_lp_t *lp,
                        const pddl_pot_t *pot,
                        const pddl_pot_constrs_t *cs,
                        int *row)
@@ -569,7 +569,7 @@ static void setConstrs(bor_lp_t *lp,
         setConstr(lp, (*row)++, pot, cs->c + ci);
 }
 
-static void setMaxpotConstr(bor_lp_t *lp,
+static void setMaxpotConstr(pddl_lp_t *lp,
                             const pddl_pot_t *pot,
                             const maxpot_t *maxpot,
                             int *prow)
@@ -579,13 +579,13 @@ static void setMaxpotConstr(bor_lp_t *lp,
         if (maxpot->var[i].count > 1)
             coef = 1. / maxpot->var[i].count;
         int row = (*prow)++;
-        borLPSetCoef(lp, row, maxpot->var[i].var_id, coef);
-        borLPSetCoef(lp, row, maxpot->maxpot_id, -1.);
-        borLPSetRHS(lp, row, 0., 'L');
+        pddlLPSetCoef(lp, row, maxpot->var[i].var_id, coef);
+        pddlLPSetCoef(lp, row, maxpot->maxpot_id, -1.);
+        pddlLPSetRHS(lp, row, 0., 'L');
     }
 }
 
-static void setMaxpotConstrs(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
+static void setMaxpotConstrs(pddl_lp_t *lp, const pddl_pot_t *pot, int *row)
 {
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
         const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
@@ -593,62 +593,62 @@ static void setMaxpotConstrs(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
     }
 }
 
-static void setLBConstr(bor_lp_t *lp, const pddl_pot_t *pot, int *row)
+static void setLBConstr(pddl_lp_t *lp, const pddl_pot_t *pot, int *row)
 {
     if (!pot->constr_lb.set)
         return;
 
-    if (*row == borLPNumRows(lp)){
+    if (*row == pddlLPNumRows(lp)){
         char sense = 'G';
-        borLPAddRows(lp, 1, &pot->constr_lb.rhs, &sense);
+        pddlLPAddRows(lp, 1, &pot->constr_lb.rhs, &sense);
     }else{
-        borLPSetRHS(lp, *row, pot->constr_lb.rhs, 'G');
+        pddlLPSetRHS(lp, *row, pot->constr_lb.rhs, 'G');
     }
 
     int var;
     PDDL_ISET_FOR_EACH(&pot->constr_lb.vars, var)
-        borLPSetCoef(lp, *row, var, 1.);
+        pddlLPSetCoef(lp, *row, var, 1.);
     (*row)++;
 }
 
-static void enforceIntInit(bor_lp_t *lp, const pddl_pot_t *pot)
+static void enforceIntInit(pddl_lp_t *lp, const pddl_pot_t *pot)
 {
-    int var = borLPNumCols(lp);
-    borLPAddCols(lp, 1);
-    borLPSetVarRange(lp, var, -1E20, 1E20);
-    borLPSetVarInt(lp, var);
-    borLPSetObj(lp, var, 0);
+    int var = pddlLPNumCols(lp);
+    pddlLPAddCols(lp, 1);
+    pddlLPSetVarRange(lp, var, -1E20, 1E20);
+    pddlLPSetVarInt(lp, var);
+    pddlLPSetObj(lp, var, 0);
 
     double rhs = 0;
     char sense = 'E';
-    int row = borLPNumRows(lp);
-    borLPAddRows(lp, 1, &rhs, &sense);
+    int row = pddlLPNumRows(lp);
+    pddlLPAddRows(lp, 1, &rhs, &sense);
     int fact;
     PDDL_ISET_FOR_EACH(&pot->init, fact)
-        borLPSetCoef(lp, row, fact, 1);
-    borLPSetCoef(lp, row, var, 1);
+        pddlLPSetCoef(lp, row, fact, 1);
+    pddlLPSetCoef(lp, row, var, 1);
 }
 
-static int addOpPotConstrs(bor_lp_t *lp, const pddl_pot_t *pot)
+static int addOpPotConstrs(pddl_lp_t *lp, const pddl_pot_t *pot)
 {
-    int var_size = borLPNumCols(lp);
-    borLPAddCols(lp, pot->constr_op.size);
+    int var_size = pddlLPNumCols(lp);
+    pddlLPAddCols(lp, pot->constr_op.size);
     for (int i = 0; i < pot->constr_op.size; ++i){
         int var = var_size + i;
-        //borLPSetVarRange(lp, var, LPVAR_LOWER, 10. * LPVAR_UPPER);
-        borLPSetVarRange(lp, var, -1E20, 1E20);
-        borLPSetVarInt(lp, var);
-        borLPSetObj(lp, var, 0);
+        //pddlLPSetVarRange(lp, var, LPVAR_LOWER, 10. * LPVAR_UPPER);
+        pddlLPSetVarRange(lp, var, -1E20, 1E20);
+        pddlLPSetVarInt(lp, var);
+        pddlLPSetObj(lp, var, 0);
     }
 
-    int row = borLPNumRows(lp);
+    int row = pddlLPNumRows(lp);
     for (int i = 0; i < pot->constr_op.size; ++i){
         double rhs = 0;
         char sense = 'E';
-        borLPAddRows(lp, 1, &rhs, &sense);
+        pddlLPAddRows(lp, 1, &rhs, &sense);
         setConstr(lp, row, pot, pot->constr_op.c + i);
-        borLPSetRHS(lp, row, rhs, sense);
-        borLPSetCoef(lp, row, var_size + i, 1);
+        pddlLPSetRHS(lp, row, rhs, sense);
+        pddlLPSetCoef(lp, row, var_size + i, 1);
         ++row;
     }
 
@@ -680,7 +680,7 @@ static double constrLHS(const pddl_pot_t *pot,
 }
 
 
-static void storeOpPot(bor_lp_t *lp,
+static void storeOpPot(pddl_lp_t *lp,
                        const double *obj,
                        int var_offset,
                        const pddl_pot_t *pot,
@@ -704,11 +704,11 @@ static void storeOpPot(bor_lp_t *lp,
 int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
 {
     int ret = 0;
-    bor_lp_t *lp;
+    pddl_lp_t *lp;
 
     unsigned lp_flags;
-    lp_flags  = BOR_LP_MAX;
-    lp_flags |= BOR_LP_NUM_THREADS(1);
+    lp_flags  = PDDL_LP_MAX;
+    lp_flags |= PDDL_LP_NUM_THREADS(1);
 
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
@@ -716,13 +716,13 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         rows += m->var_size;
     }
-    lp = borLPNew(rows, pot->var_size, lp_flags);
+    lp = pddlLPNew(rows, pot->var_size, lp_flags);
 
     for (int i = 0; i < pot->var_size; ++i){
         if (pot->use_ilp)
-            borLPSetVarInt(lp, i);
-        borLPSetVarRange(lp, i, LPVAR_LOWER, LPVAR_UPPER);
-        borLPSetObj(lp, i, pot->obj[i]);
+            pddlLPSetVarInt(lp, i);
+        pddlLPSetVarRange(lp, i, LPVAR_LOWER, LPVAR_UPPER);
+        pddlLPSetObj(lp, i, pot->obj[i]);
     }
 
     int row = 0;
@@ -736,13 +736,13 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     if (pot->enforce_int_init)
         enforceIntInit(lp, pot);
 
-    row = borLPNumRows(lp);
+    row = pddlLPNumRows(lp);
     setLBConstr(lp, pot, &row);
 
-    int var_size = borLPNumCols(lp);
+    int var_size = pddlLPNumCols(lp);
     double objval, *obj;
     obj = CALLOC_ARR(double, var_size);
-    if (borLPSolve(lp, &objval, obj) == 0){
+    if (pddlLPSolve(lp, &objval, obj) == 0){
         sol->objval = objval;
         sol->pot_size = pot->var_size;
         sol->pot = ALLOC_ARR(double, sol->pot_size);
@@ -757,7 +757,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
     }
 
     FREE(obj);
-    borLPDel(lp);
+    pddlLPDel(lp);
 
     return ret;
 }

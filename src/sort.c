@@ -183,7 +183,7 @@ int pddlSort(void *base, size_t nmemb, size_t size,
         return 0;
     }
 
-#ifndef PDDL_TIMSORT
+#ifdef PDDL_TIMSORT
     return pddlTimSort(base, nmemb, size, cmp, carg);
 #else /* PDDL_TIMSORT */
     pddlQSort(base, nmemb, size, cmp, carg);

@@ -3,18 +3,17 @@
 
 CFLAGS += -I.
 CFLAGS += -Wno-sizeof-pointer-div
-CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
 CFLAGS += $(CUDD_CFLAGS)
 CFLAGS += $(SQLITE_CFLAGS)
+CFLAGS += $(LP_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
-CPPFLAGS += $(BORUVKA_CFLAGS)
 CPPFLAGS += $(CPOPTIMIZER_CPPFLAGS)
 
-CPPCHECK_FLAGS += --platform=unix64 --enable=all -I. -Ithird-party/boruvka
+CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
 
 TARGETS  = libpddl.a
 
@@ -25,6 +24,7 @@ OBJS += hfunc
 OBJS += google-city-hash
 OBJS += rand-mt
 OBJS += sort
+OBJS += qsort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap
@@ -32,6 +32,10 @@ OBJS += hashset
 OBJS += rbtree
 OBJS += htable
 OBJS += fifo
+OBJS += lp
+OBJS += lp-cplex
+OBJS += lp-lpsolve
+OBJS += lp-gurobi
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -184,11 +188,9 @@ pddl/config.h:
 	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
 	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
 	if [ "$(USE_SQLITE)" = "yes" ]; then echo "#define PDDL_SQLITE" >>$@; fi
-	echo '#include <boruvka/lp.h>' >__lp.c
-	echo 'int main(int argc, char *arvg[]) { return borLPSolverAvailable(BOR_LP_DEFAULT); }' >>__lp.c
-	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm
-	if ! ./__lp; then echo "#define PDDL_LP" >>$@; fi
-	rm -f __lp.c __lp
+	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
+	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
+	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
 	echo '#define IL_STD' >__cpopt.c
 	echo '#include <ilcp/cp.h>' >>__cpopt.c
 	echo '#include <ilcplex/cpxconst.h>' >>__cpopt.c
@@ -243,7 +245,7 @@ clean:
 	if [ -d test ]; then $(MAKE) -C test clean; fi;
 	if [ -d doc ]; then $(MAKE) -C doc clean; fi;
 
-mrproper: clean boruvka-clean opts-clean bliss-clean lpsolve-clean cudd-clean
+mrproper: clean opts-clean bliss-clean lpsolve-clean cudd-clean
 
 check:
 	$(MAKE) -C test check
@@ -277,16 +279,8 @@ list-global-symbols: libpddl.a
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: boruvka opts bliss cudd sqlite
-third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean sqlite-clean
-
-boruvka: third-party/boruvka/Makefile
-	$(MAKE) $(_BOR_MAKE_DEF) -C third-party/boruvka all
-boruvka-clean:
-	$(MAKE) -C third-party/boruvka clean
-third-party/boruvka/Makefile:
-	git submodule init -- third-party/boruvka
-	git submodule update -- third-party/boruvka
+third-party: opts bliss cudd sqlite
+third-party-clean: opts-clean bliss-clean cudd-clean sqlite-clean
 
 opts: third-party/opts/Makefile
 	$(MAKE) -C third-party/opts all
@@ -340,7 +334,6 @@ third-party/sqlite/libsqlite.a:
 .PHONY: all clean check check-ci check-valgrind help doc install analyze \
   examples mrproper \
   third-party third-party-clean \
-  boruvka boruvka-clean \
   opts opts-clean \
   bliss bliss-clean \
   lpsolve lpsolve-clean \

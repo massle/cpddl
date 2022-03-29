@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/lp.h>
+#include <pddl/lp.h>
 #include "pddl/config.h"
 #include "pddl/invertibility.h"
 #include "pddl/scc.h"
@@ -436,33 +436,33 @@ static void blackVarsFree(black_vars_t *bv)
     pddlSCCGraphFree(&bv->cg);
 }
 
-static bor_lp_t *createLP(const black_vars_t *bv)
+static pddl_lp_t *createLP(const black_vars_t *bv)
 {
     unsigned lp_flags;
-    lp_flags  = BOR_LP_DEFAULT;
-    lp_flags |= BOR_LP_NUM_THREADS(1);
-    lp_flags |= BOR_LP_MAX;
-    bor_lp_t *lp = borLPNew(0, bv->fact_vertex_size, lp_flags);
+    lp_flags  = PDDL_LP_DEFAULT;
+    lp_flags |= PDDL_LP_NUM_THREADS(1);
+    lp_flags |= PDDL_LP_MAX;
+    pddl_lp_t *lp = pddlLPNew(0, bv->fact_vertex_size, lp_flags);
     for (int vi = 0; vi < bv->fact_vertex_size; ++vi){
-        borLPSetObj(lp, vi, bv->fact_vertex[vi].weight);
-        borLPSetVarBinary(lp, vi);
+        pddlLPSetObj(lp, vi, bv->fact_vertex[vi].weight);
+        pddlLPSetVarBinary(lp, vi);
     }
 
     return lp;
 }
 
-static void addCycle(bor_lp_t *lp, const pddl_iarr_t *cycle)
+static void addCycle(pddl_lp_t *lp, const pddl_iarr_t *cycle)
 {
-    int row = borLPNumRows(lp);
+    int row = pddlLPNumRows(lp);
     double rhs = pddlIArrSize(cycle) - 1;
     char sense = 'L';
-    borLPAddRows(lp, 1, &rhs, &sense);
+    pddlLPAddRows(lp, 1, &rhs, &sense);
     int var;
     PDDL_IARR_FOR_EACH(cycle, var)
-        borLPSetCoef(lp, row, var, 1.);
+        pddlLPSetCoef(lp, row, var, 1.);
 }
 
-static void addCycles2(bor_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
+static void addCycles2(pddl_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
 {
     int num = 0;
     for (int v1 = 0; v1 < bv->fact_vertex_size; ++v1){
@@ -487,7 +487,7 @@ static void addCycles2(bor_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
     PDDL_INFO(err, "Added %d 2-cycles", num);
 }
 
-static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
+static void addCycles3(pddl_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
 {
     int num = 0;
     for (int v1 = 0; v1 < bv->fact_vertex_size; ++v1){
@@ -522,25 +522,25 @@ static void addCycles3(bor_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
     PDDL_INFO(err, "Added %d 3-cycles", num);
 }
 
-static void addLeafMGroup(bor_lp_t *lp, const pddl_iset_t *mg)
+static void addLeafMGroup(pddl_lp_t *lp, const pddl_iset_t *mg)
 {
-    int row = borLPNumRows(lp);
+    int row = pddlLPNumRows(lp);
     double rhs = 0;
     char sense = 'L';
-    borLPAddRows(lp, 1, &rhs, &sense);
+    pddlLPAddRows(lp, 1, &rhs, &sense);
     int var;
     PDDL_ISET_FOR_EACH(mg, var)
-        borLPSetCoef(lp, row, var, 1.);
+        pddlLPSetCoef(lp, row, var, 1.);
 }
 
-static void addRedFacts(bor_lp_t *lp,
+static void addRedFacts(pddl_lp_t *lp,
                         const black_vars_t *bv,
                         const pddl_iset_t *black_vars)
 {
-    int row = borLPNumRows(lp);
+    int row = pddlLPNumRows(lp);
     double rhs = 1;
     char sense = 'G';
-    borLPAddRows(lp, 1, &rhs, &sense);
+    pddlLPAddRows(lp, 1, &rhs, &sense);
 
     int *black = CALLOC_ARR(int, bv->fact_vertex_size);
     int var;
@@ -553,7 +553,7 @@ static void addRedFacts(bor_lp_t *lp,
     }
     for (int var = 0; var < bv->fact_vertex_size; ++var){
         if (!black[var])
-            borLPSetCoef(lp, row, var, 1.);
+            pddlLPSetCoef(lp, row, var, 1.);
     }
     FREE(black);
 }
@@ -589,7 +589,7 @@ static int findMultiMGroupComponent(const black_vars_t *bv,
 }
 
 struct update_lp {
-    bor_lp_t *lp;
+    pddl_lp_t *lp;
     const black_vars_t *bv;
 };
 
@@ -612,7 +612,7 @@ static int updateLPWithCycleFn(const pddl_iarr_t *cycle, void *ud)
     return ret;
 }
 
-static void updateLPWithCycle(bor_lp_t *lp,
+static void updateLPWithCycle(pddl_lp_t *lp,
                               const black_vars_t *bv,
                               const pddl_scc_graph_t *black_graph,
                               const pddl_iset_t *comp)
@@ -624,13 +624,13 @@ static void updateLPWithCycle(bor_lp_t *lp,
     pddlSCCGraphFree(&graph);
 }
 
-static int solveLP(bor_lp_t *lp,
+static int solveLP(pddl_lp_t *lp,
                    const black_vars_t *bv,
                    pddl_iset_t *black_vars)
 {
     double *obj = CALLOC_ARR(double, bv->fact_vertex_size);
     double val;
-    if (borLPSolve(lp, &val, obj) != 0){
+    if (pddlLPSolve(lp, &val, obj) != 0){
         FREE(obj);
         return -1;
     }
@@ -726,7 +726,7 @@ static int mgroupIsLeaf(const pddl_iset_t *mgroup,
     return 1;
 }
 
-static int findAndUpdateLeafs(bor_lp_t *lp,
+static int findAndUpdateLeafs(pddl_lp_t *lp,
                               const black_vars_t *bv,
                               const pddl_strips_t *strips,
                               const pddl_iset_t *black_vars,
@@ -782,7 +782,7 @@ static int findAndUpdateLeafs(bor_lp_t *lp,
     return updated > 0;
 }
 
-static int findBlackVarsUsingLP(bor_lp_t *lp,
+static int findBlackVarsUsingLP(pddl_lp_t *lp,
                                 const black_vars_t *bv,
                                 const pddl_strips_t *strips,
                                 const pddl_mgroups_t *mgroups,
@@ -809,7 +809,7 @@ static int findBlackVarsUsingLP(bor_lp_t *lp,
                 addCycles3(lp, bv, err);
             }else{
                 updateLPWithCycle(lp, bv, &black_graph, &comp);
-                PDDL_INFO(err, "Updated. Num constraints: %d", borLPNumRows(lp));
+                PDDL_INFO(err, "Updated. Num constraints: %d", pddlLPNumRows(lp));
             }
             ++num_updates;
 
@@ -873,13 +873,13 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
     black_vars_t bv;
     blackVarsInit(&bv, strips, &mgroups, mutex, cfg, err);
 
-    bor_lp_t *lp = createLP(&bv);
+    pddl_lp_t *lp = createLP(&bv);
     if (cfg->lp_add_2cycles)
         addCycles2(lp, &bv, err);
     if (cfg->lp_add_3cycles)
         addCycles3(lp, &bv, err);
     findBlackVarsUsingLP(lp, &bv, strips, &mgroups, cfg, bmgroups, err);
-    borLPDel(lp);
+    pddlLPDel(lp);
     blackVarsFree(&bv);
     pddlMGroupsFree(&mgroups);
     PDDL_INFO_PREFIX_POP(err);

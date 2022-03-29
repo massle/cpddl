@@ -2,9 +2,7 @@
 -include ../Makefile.include
 
 CFLAGS += -I../
-CFLAGS += $(BORUVKA_CFLAGS)
 LDFLAGS += -L../ -lpddl
-LDFLAGS += $(BORUVKA_LDFLAGS)
 LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
 LDFLAGS += $(LP_LDFLAGS)
 LDFLAGS += $(BLISS_LDFLAGS)

@@ -75,12 +75,12 @@ static void factsInit(pddl_hflow_fact_t *facts,
                       const pddl_fdr_part_state_t *goal,
                       const pddl_fdr_ops_t *op);
 /** Initialize LP solver */
-static bor_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
+static pddl_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
                         const pddl_fdr_ops_t *op,
                         int use_ilp,
                         int num_threads);
 /** Solve the problem */
-static int lpSolve(bor_lp_t *lp,
+static int lpSolve(pddl_lp_t *lp,
                    const pddl_hflow_fact_t *facts, int facts_size,
                    int use_ilp,
                    const pddl_set_iset_t *ldms);
@@ -110,7 +110,7 @@ void pddlHFlowFree(pddl_hflow_t *h)
     }
     if (h->facts != NULL)
         FREE(h->facts);
-    borLPDel(h->lp);
+    pddlLPDel(h->lp);
 }
 
 int pddlHFlow(pddl_hflow_t *h,
@@ -289,24 +289,24 @@ static void factsInit(pddl_hflow_fact_t *facts,
 }
 
 
-static bor_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
+static pddl_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
                         const pddl_fdr_ops_t *op,
                         int use_ilp,
                         int num_threads)
 {
-    bor_lp_t *lp;
+    pddl_lp_t *lp;
     unsigned lp_flags;
 
-    lp_flags  = BOR_LP_MIN;
-    lp_flags |= BOR_LP_NUM_THREADS(num_threads);
-    lp = borLPNew(2 * facts_size, op->op_size, lp_flags);
+    lp_flags  = PDDL_LP_MIN;
+    lp_flags |= PDDL_LP_NUM_THREADS(num_threads);
+    lp = pddlLPNew(2 * facts_size, op->op_size, lp_flags);
 
     // Set up columns
     for (int i = 0; i < op->op_size; ++i){
         if (use_ilp)
-            borLPSetVarInt(lp, i);
-        borLPSetVarRange(lp, i, 0., INT_MAX);
-        borLPSetObj(lp, i, op->op[i]->cost);
+            pddlLPSetVarInt(lp, i);
+        pddlLPSetVarRange(lp, i, 0., INT_MAX);
+        pddlLPSetObj(lp, i, op->op[i]->cost);
     }
 
     // Set up rows
@@ -314,34 +314,34 @@ static bor_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
         for (int i = 0; i < facts[r].constr_len; ++i){
             int c = facts[r].constr_idx[i];
             double coef = facts[r].constr_coef[i];
-            borLPSetCoef(lp, 2 * r, c, coef);
-            borLPSetCoef(lp, 2 * r + 1, c, coef);
+            pddlLPSetCoef(lp, 2 * r, c, coef);
+            pddlLPSetCoef(lp, 2 * r + 1, c, coef);
         }
     }
 
     return lp;
 }
 
-static void lpAddLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)
+static void lpAddLandmarks(pddl_lp_t *lp, const pddl_set_iset_t *ldms)
 {
     if (ldms == NULL || pddlSetISetSize(ldms) == 0)
         return;
 
     int ldm_size = pddlSetISetSize(ldms);
-    int row_id = borLPNumRows(lp);
+    int row_id = pddlLPNumRows(lp);
     double *rhs = ALLOC_ARR(double, ldm_size);
     char *sense = ALLOC_ARR(char, ldm_size);
     for (int i = 0; i < ldm_size; ++i){
         rhs[i] = 1.;
         sense[i] = 'G';
     }
-    borLPAddRows(lp, ldm_size, rhs, sense);
+    pddlLPAddRows(lp, ldm_size, rhs, sense);
 
     for (int i = 0; i < ldm_size; ++i){
         int op_id;
         const pddl_iset_t *ldm = pddlSetISetGet(ldms, i);
         PDDL_ISET_FOR_EACH(ldm, op_id)
-            borLPSetCoef(lp, row_id, op_id, 1.);
+            pddlLPSetCoef(lp, row_id, op_id, 1.);
         ++row_id;
     }
 
@@ -349,16 +349,16 @@ static void lpAddLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)
     FREE(sense);
 }
 
-static void lpDelLandmarks(bor_lp_t *lp, const pddl_set_iset_t *ldms)
+static void lpDelLandmarks(pddl_lp_t *lp, const pddl_set_iset_t *ldms)
 {
     int from, to;
 
     if (ldms == NULL || pddlSetISetSize(ldms) == 0)
         return;
 
-    to = borLPNumRows(lp) - 1;
-    from = borLPNumRows(lp) - pddlSetISetSize(ldms);
-    borLPDelRows(lp, from, to);
+    to = pddlLPNumRows(lp) - 1;
+    from = pddlLPNumRows(lp) - pddlSetISetSize(ldms);
+    pddlLPDelRows(lp, from, to);
 }
 
 static int roundOff(double z)
@@ -369,7 +369,7 @@ static int roundOff(double z)
     return v;
 }
 
-static int lpSolve(bor_lp_t *lp,
+static int lpSolve(pddl_lp_t *lp,
                    const pddl_hflow_fact_t *facts, int facts_size,
                    int use_ilp,
                    const pddl_set_iset_t *ldms)
@@ -383,12 +383,12 @@ static int lpSolve(bor_lp_t *lp,
         upper = facts[i].upper_bound;
 
         if (lower == upper){
-            borLPSetRHS(lp, 2 * i, lower, 'E');
-            borLPSetRHS(lp, 2 * i + 1, upper, 'E');
+            pddlLPSetRHS(lp, 2 * i, lower, 'E');
+            pddlLPSetRHS(lp, 2 * i + 1, upper, 'E');
 
         }else{
-            borLPSetRHS(lp, 2 * i, lower, 'G');
-            borLPSetRHS(lp, 2 * i + 1, upper, 'L');
+            pddlLPSetRHS(lp, 2 * i, lower, 'G');
+            pddlLPSetRHS(lp, 2 * i + 1, upper, 'L');
         }
     }
 
@@ -396,7 +396,7 @@ static int lpSolve(bor_lp_t *lp,
     lpAddLandmarks(lp, ldms);
 
     double z;
-    if (borLPSolve(lp, &z, NULL) == 0){
+    if (pddlLPSolve(lp, &z, NULL) == 0){
         h = roundOff(z);
     }else{
         h = PDDL_COST_DEAD_END;

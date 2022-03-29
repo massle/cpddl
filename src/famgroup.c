@@ -18,7 +18,7 @@
 
 #include <limits.h>
 #include "alloc.h"
-#include <boruvka/lp.h>
+#include <pddl/lp.h>
 #include "pddl/timer.h"
 #include "pddl/famgroup.h"
 #include "pddl/set.h"
@@ -29,7 +29,7 @@ struct fam {
     pddl_mgroups_t *mgroups;
     pddl_err_t *err;
 
-    bor_lp_t *lp;
+    pddl_lp_t *lp;
     int lp_var_size;
     int row; /*!< ID of the next row */
 };
@@ -49,10 +49,10 @@ static void getPredel(pddl_iset_t *predel, const pddl_strips_op_t *op)
 
 static int nextRow(fam_t *fam, double rhs, char sense)
 {
-    if (fam->row >= borLPNumRows(fam->lp)){
-        borLPAddRows(fam->lp, 1, &rhs, &sense);
+    if (fam->row >= pddlLPNumRows(fam->lp)){
+        pddlLPAddRows(fam->lp, 1, &rhs, &sense);
     }else{
-        borLPSetRHS(fam->lp, fam->row, rhs, sense);
+        pddlLPSetRHS(fam->lp, fam->row, rhs, sense);
     }
     return fam->row++;
 }
@@ -61,8 +61,8 @@ static void initStateConstr(fam_t *fam)
 {
     int fact;
     PDDL_ISET_FOR_EACH(&fam->strips->init, fact)
-        borLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), 1.);
-    borLPSetRHS(fam->lp, fam->row, 1., 'L');
+        pddlLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), 1.);
+    pddlLPSetRHS(fam->lp, fam->row, 1., 'L');
     ++fam->row;
 }
 
@@ -74,12 +74,12 @@ static void opConstrs(fam_t *fam)
 
     PDDL_STRIPS_OPS_FOR_EACH(&fam->strips->op, op){
         PDDL_ISET_FOR_EACH(&op->add_eff, fact)
-            borLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), 1.);
+            pddlLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), 1.);
 
         getPredel(&predel, op);
         PDDL_ISET_FOR_EACH(&predel, fact)
-            borLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), -1.);
-        borLPSetRHS(fam->lp, fam->row, 0., 'L');
+            pddlLPSetCoef(fam->lp, fam->row, varId(fam->strips, fact), -1.);
+        pddlLPSetRHS(fam->lp, fam->row, 0., 'L');
         ++fam->row;
     }
     pddlISetFree(&predel);
@@ -90,7 +90,7 @@ static void goalConstr(fam_t *fam)
     int row = nextRow(fam, 1, 'G');
     int fact;
     PDDL_ISET_FOR_EACH(&fam->strips->goal, fact)
-        borLPSetCoef(fam->lp, row, varId(fam->strips, fact), 1.);
+        pddlLPSetCoef(fam->lp, row, varId(fam->strips, fact), 1.);
 
 }
 
@@ -104,7 +104,7 @@ static void skipMGroupAndSubsetsConstr(fam_t *fam, const pddl_iset_t *facts)
         if (fi < size && pddlISetGet(facts, fi) == fact_id){
             ++fi;
         }else{
-            borLPSetCoef(fam->lp, row, varId(fam->strips, fact_id), 1.);
+            pddlLPSetCoef(fam->lp, row, varId(fam->strips, fact_id), 1.);
         }
     }
 }
@@ -115,7 +115,7 @@ static void skipMGroupExactlyConstr(fam_t *fam, const pddl_iset_t *facts)
     int fact;
 
     PDDL_ISET_FOR_EACH(facts, fact)
-        borLPSetCoef(fam->lp, row, varId(fam->strips, fact), 1.);
+        pddlLPSetCoef(fam->lp, row, varId(fam->strips, fact), 1.);
 }
 
 static void skipMGroup(fam_t *fam, const pddl_iset_t *facts)
@@ -179,11 +179,11 @@ static void prioritizeUncovered(fam_t *fam)
     for (int fact_id = 0; fact_id < fam->strips->fact.fact_size; ++fact_id){
         int var_id = varId(fam->strips, fact_id);
         if (pddlISetIn(fact_id, &covered)){
-            borLPSetObj(fam->lp, var_id, 1.);
+            pddlLPSetObj(fam->lp, var_id, 1.);
         }else{
-            borLPSetObj(fam->lp, var_id, pddlISetSize(&covered));
+            pddlLPSetObj(fam->lp, var_id, pddlISetSize(&covered));
         }
-        borLPSetVarBinary(fam->lp, var_id);
+        pddlLPSetVarBinary(fam->lp, var_id);
     }
     pddlISetFree(&covered);
 }
@@ -207,23 +207,23 @@ static void famInit(fam_t *fam,
     if (fam->cfg.limit <= 0)
         fam->cfg.limit = INT_MAX;
 
-    if (!borLPSolverAvailable(BOR_LP_DEFAULT)){
+    if (!pddlLPSolverAvailable(PDDL_LP_DEFAULT)){
         PDDL_FATAL2("Missing LP solver! Exiting...");
     }
 
-    lp_flags  = BOR_LP_DEFAULT;
-    lp_flags |= BOR_LP_NUM_THREADS(1); // TODO: Parametrize
-    lp_flags |= BOR_LP_MAX;
+    lp_flags  = PDDL_LP_DEFAULT;
+    lp_flags |= PDDL_LP_NUM_THREADS(1); // TODO: Parametrize
+    lp_flags |= PDDL_LP_MAX;
     fam->lp_var_size = strips->fact.fact_size;
     rows = strips->op.op_size + 1;
-    fam->lp = borLPNew(rows, fam->lp_var_size, lp_flags);
+    fam->lp = pddlLPNew(rows, fam->lp_var_size, lp_flags);
 
     // Set up coeficients in the objective function and set up binary
     // variables
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
         int var_id = varId(strips, fact_id);
-        borLPSetObj(fam->lp, var_id, 1.);
-        borLPSetVarBinary(fam->lp, var_id);
+        pddlLPSetObj(fam->lp, var_id, 1.);
+        pddlLPSetVarBinary(fam->lp, var_id);
     }
 
     // Initial state constraint
@@ -241,7 +241,7 @@ static void famInit(fam_t *fam,
 
 static void famFree(fam_t *fam)
 {
-    borLPDel(fam->lp);
+    pddlLPDel(fam->lp);
 }
 
 static void famInfer(fam_t *fam)
@@ -254,9 +254,9 @@ static void famInfer(fam_t *fam)
 
     pddlTimerStart(&timer);
 
-    obj = ALLOC_ARR(double, borLPNumCols(fam->lp));
+    obj = ALLOC_ARR(double, pddlLPNumCols(fam->lp));
     for (int i = 0;
-            borLPSolve(fam->lp, &val, obj) == 0
+            pddlLPSolve(fam->lp, &val, obj) == 0
                 && val > 0.5 && i < fam->cfg.limit;
             ++i){
         objToFAMGroup(obj, fam->strips, &famgroup);

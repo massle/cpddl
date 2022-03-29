@@ -19,7 +19,7 @@
 #ifndef __PDDL_HFLOW_H__
 #define __PDDL_HFLOW_H__
 
-#include <boruvka/lp.h>
+#include <pddl/lp.h>
 #include <pddl/fdr.h>
 #include <pddl/set.h>
 
@@ -61,7 +61,7 @@ struct pddl_hflow {
     const pddl_fdr_vars_t *vars;
     int use_ilp; /*!< True if ILP instead of LP should be used */
     pddl_hflow_fact_t *facts; /*!< Array of fact related structures */
-    bor_lp_t *lp; /*!< (I)LP solver */
+    pddl_lp_t *lp; /*!< (I)LP solver */
 };
 typedef struct pddl_hflow pddl_hflow_t;
 
