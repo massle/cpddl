@@ -86,13 +86,13 @@ _pddl_inline int keynodeCmp(const int *kn1, const int *kn2)
 }
 
 /** Define splay-tree structure */
-#define BOR_SPLAY_TREE_NODE_T keynode_t
-#define BOR_SPLAY_TREE_T pddl_open_list_splaytree_t
-#define BOR_SPLAY_KEY_T const int *
-#define BOR_SPLAY_NODE_KEY(node) node->cost
-#define BOR_SPLAY_NODE_SET_KEY(head, node, key) \
+#define PDDL_SPLAY_TREE_NODE_T keynode_t
+#define PDDL_SPLAY_TREE_T pddl_open_list_splaytree_t
+#define PDDL_SPLAY_KEY_T const int *
+#define PDDL_SPLAY_NODE_KEY(node) node->cost
+#define PDDL_SPLAY_NODE_SET_KEY(head, node, key) \
     memcpy(node->cost, key, sizeof(int) * COST_SIZE)
-#define BOR_SPLAY_KEY_CMP(head, key1, key2) \
+#define PDDL_SPLAY_KEY_CMP(head, key1, key2) \
     keynodeCmp(key1, key2)
 #include "splaytree_def.h"
 
@@ -109,7 +109,7 @@ pddl_open_list_t *MAIN_FN_NAME(void)
                   pddlOpenListSplayTreeClear);
     list->pre_keynode = keynodeNew();
 
-    borSplayInit(list);
+    pddlSplayInit(list);
 
     return &list->list;
 }
@@ -121,7 +121,7 @@ static void pddlOpenListSplayTreeDel(pddl_open_list_t *_list)
     pddlOpenListSplayTreeClear(&list->list);
     if (list->pre_keynode)
         keynodeDel(list->pre_keynode);
-    borSplayFree(list);
+    pddlSplayFree(list);
     _pddlOpenListFree(&list->list);
     FREE(list);
 }
@@ -135,7 +135,7 @@ static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,
     node_t node;
 
     // Try to insert pre-allocated key-node
-    kn = borSplayInsert(list, cost, list->pre_keynode);
+    kn = pddlSplayInsert(list, cost, list->pre_keynode);
 
     if (kn == NULL){
         // Insertion was successful, remember the inserted key-node and
@@ -161,7 +161,7 @@ static keynode_t *top(pddl_open_list_t *_list,
         return NULL;
 
     // Find out minimal node
-    kn = borSplayMin(list);
+    kn = pddlSplayMin(list);
 
     // We know for sure that this key-node must contain some nodes because
     // an empty key-nodes are removed immediately.
@@ -185,7 +185,7 @@ static int pddlOpenListSplayTreePop(pddl_open_list_t *_list,
 
     // If the key-node is empty, remove it from the tree
     if (pddlFifoEmpty(&kn->fifo)){
-        borSplayRemove(list, kn);
+        pddlSplayRemove(list, kn);
         keynodeDel(kn);
     }
 
@@ -208,7 +208,7 @@ static void pddlOpenListSplayTreeClear(pddl_open_list_t *_list)
 
     while (list->root){
         kn = list->root;
-        borSplayRemove(list, list->root);
+        pddlSplayRemove(list, list->root);
         keynodeDel(kn);
     }
 }
