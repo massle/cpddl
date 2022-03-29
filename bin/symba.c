@@ -206,7 +206,7 @@ static int setPot(const char *_spec, pddl_hpot_config_t *pot_cfg, int *pot_flag)
     }
 
     if (spec != NULL)
-        BOR_FREE(spec);
+        PDDL_FREE(spec);
 
     *pot_flag = 1;
     return 0;

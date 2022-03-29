@@ -30,8 +30,8 @@ static void stateFree(pddl_symbolic_state_t *state,
 }
 
 
-static int openLT(const bor_pairheap_node_t *n1,
-                  const bor_pairheap_node_t *n2,
+static int openLT(const pddl_pairheap_node_t *n1,
+                  const pddl_pairheap_node_t *n2,
                   void *data)
 {
     const pddl_symbolic_state_t *o1, *o2;
@@ -45,8 +45,8 @@ static int openLT(const bor_pairheap_node_t *n1,
     return cmp < 0;
 }
 
-static int openCostLT(const bor_pairheap_node_t *n1,
-                      const bor_pairheap_node_t *n2,
+static int openCostLT(const pddl_pairheap_node_t *n1,
+                      const pddl_pairheap_node_t *n2,
                       void *data)
 {
     const pddl_symbolic_state_t *o1, *o2;
@@ -99,8 +99,8 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
     states->pool = pddlExtArrNew(el_size, NULL, &el_init);
     states->num_states = 0;
 
-    states->open = borPairHeapNew(openLT, states);
-    states->open_cost = borPairHeapNew(openCostLT, states);
+    states->open = pddlPairHeapNew(openLT, states);
+    states->open_cost = pddlPairHeapNew(openCostLT, states);
 
     states->closed = pddlRBTreeNew(rbtreeCostCmp, NULL);
     states->num_closed = 0;
@@ -117,8 +117,8 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
 void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
                             pddl_bdd_manager_t *mgr)
 {
-    borPairHeapDel(states->open_cost);
-    borPairHeapDel(states->open);
+    pddlPairHeapDel(states->open_cost);
+    pddlPairHeapDel(states->open);
 
     pddlBDDDel(mgr, states->all_closed);
 
@@ -209,30 +209,30 @@ void pddlSymbolicStatesOpenState(pddl_symbolic_states_t *states,
                                  pddl_symbolic_state_t *state)
 {
     ASSERT(!state->is_closed);
-    borPairHeapAdd(states->open, &state->heap);
-    borPairHeapAdd(states->open_cost, &state->heap_cost);
+    pddlPairHeapAdd(states->open, &state->heap);
+    pddlPairHeapAdd(states->open_cost, &state->heap_cost);
 }
 
 pddl_symbolic_state_t *
     pddlSymbolicStatesNextOpen(pddl_symbolic_states_t *states)
 {
-    if (borPairHeapEmpty(states->open))
+    if (pddlPairHeapEmpty(states->open))
         return NULL;
 
-    bor_pairheap_node_t *hstate = borPairHeapExtractMin(states->open);
+    pddl_pairheap_node_t *hstate = pddlPairHeapExtractMin(states->open);
     pddl_symbolic_state_t *state;
     state = pddl_container_of(hstate, pddl_symbolic_state_t, heap);
-    borPairHeapRemove(states->open_cost, &state->heap_cost);
+    pddlPairHeapRemove(states->open_cost, &state->heap_cost);
     return state;
 }
 
 pddl_symbolic_state_t *
     pddlSymbolicStatesOpenPeek(const pddl_symbolic_states_t *states)
 {
-    if (borPairHeapEmpty(states->open))
+    if (pddlPairHeapEmpty(states->open))
         return NULL;
 
-    bor_pairheap_node_t *hstate = borPairHeapMin(states->open);
+    pddl_pairheap_node_t *hstate = pddlPairHeapMin(states->open);
     pddl_symbolic_state_t *state;
     state = pddl_container_of(hstate, pddl_symbolic_state_t, heap);
     return state;
@@ -241,10 +241,10 @@ pddl_symbolic_state_t *
 const pddl_cost_t *
     pddlSymbolicStatesMinOpenCost(const pddl_symbolic_states_t *states)
 {
-    if (borPairHeapEmpty(states->open_cost))
+    if (pddlPairHeapEmpty(states->open_cost))
         return NULL;
 
-    bor_pairheap_node_t *hstate = borPairHeapMin(states->open_cost);
+    pddl_pairheap_node_t *hstate = pddlPairHeapMin(states->open_cost);
     pddl_symbolic_state_t *state;
     state = pddl_container_of(hstate, pddl_symbolic_state_t, heap_cost);
     return &state->cost;

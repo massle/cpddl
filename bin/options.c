@@ -135,7 +135,7 @@ static int optProcessStrips(const char *tag)
             return -1;
         }
     }
-    BOR_FREE(s);
+    PDDL_FREE(s);
     return 0;
 }
 

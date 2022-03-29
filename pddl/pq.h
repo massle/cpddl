@@ -21,7 +21,7 @@
 #define __PDDL_PQ_H__
 
 #include <pddl/core.h>
-#include <boruvka/pairheap.h>
+#include <pddl/pairheap.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,7 +53,7 @@ struct pddl_pq_el {
     int key;
     union {
         int bucket;
-        bor_pairheap_node_t heap;
+        pddl_pairheap_node_t heap;
     } conn;
 };
 typedef struct pddl_pq_el pddl_pq_el_t;
@@ -83,7 +83,7 @@ typedef struct pddl_pq_bucket_queue pddl_pq_bucket_queue_t;
  * Heap-based priority queue.
  */
 struct pddl_pq_heap_queue {
-    bor_pairheap_t *heap;
+    pddl_pairheap_t *heap;
 };
 typedef struct pddl_pq_heap_queue pddl_pq_heap_queue_t;
 
@@ -135,7 +135,7 @@ _pddl_inline int pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
 
 _pddl_inline int pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
 {
-    return borPairHeapEmpty(q->heap);
+    return pddlPairHeapEmpty(q->heap);
 }
 
 _pddl_inline int pddlPQEmpty(const pddl_pq_t *q)

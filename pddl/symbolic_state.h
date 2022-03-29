@@ -21,7 +21,7 @@
 #define __PDDL_SYMBOLIC_STATE_H__
 
 #include <pddl/extarr.h>
-#include <boruvka/pairheap.h>
+#include <pddl/pairheap.h>
 #include <pddl/rbtree.h>
 #include <pddl/iset.h>
 #include <boruvka/err.h>
@@ -42,8 +42,8 @@ struct pddl_symbolic_state {
     pddl_cost_t f_value; /*!< .cost + .heur */
     pddl_bdd_t *bdd; /*!< BDD representing the state */
     int is_closed; /*!< True if the state is closed */
-    bor_pairheap_node_t heap;
-    bor_pairheap_node_t heap_cost;
+    pddl_pairheap_node_t heap;
+    pddl_pairheap_node_t heap_cost;
     pddl_rbtree_node_t rbtree;
 };
 typedef struct pddl_symbolic_state pddl_symbolic_state_t;
@@ -58,8 +58,8 @@ typedef struct pddl_symbolic_all_closed pddl_symbolic_all_closed_t;
 struct pddl_symbolic_states {
     pddl_extarr_t *pool; /*!< Data pool */
     int num_states; /*!< Number of states stored in .pool */
-    bor_pairheap_t *open; /*!< Open list */
-    bor_pairheap_t *open_cost; /*!< Costs of states in the open list */
+    pddl_pairheap_t *open; /*!< Open list */
+    pddl_pairheap_t *open_cost; /*!< Costs of states in the open list */
     pddl_rbtree_t *closed; /*!< Closed states stored with increasing cost */
     int num_closed; /*!< Number of closed states */
     pddl_bdd_t *all_closed; /*!< BDD representing all closed states */

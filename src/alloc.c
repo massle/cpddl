@@ -14,7 +14,7 @@
  */
 
 #include <stdio.h>
-#include "alloc.h"
+#include "pddl/alloc.h"
 
 #ifdef PDDL_MEMCHECK
 #include <malloc.h>

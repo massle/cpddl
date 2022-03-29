@@ -191,7 +191,7 @@ static int setPot(const char *_spec)
     }
 
     if (spec != NULL)
-        BOR_FREE(spec);
+        PDDL_FREE(spec);
 
     opt.pot = 1;
     return 0;

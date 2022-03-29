@@ -22,7 +22,7 @@
 #include "alloc.h"
 #include <boruvka/sort.h>
 #include <pddl/extarr.h>
-#include <boruvka/pairheap.h>
+#include <pddl/pairheap.h>
 #include <pddl/rbtree.h>
 #include <pddl/rand.h>
 #include <pddl/timer.h>
@@ -1297,8 +1297,8 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     int fw_cont = searchStep(ss, &ss->search_fw, &ss->search_bw, err);
     int bw_cont = searchStep(ss, &ss->search_bw, &ss->search_fw, err);
 
-    while (!borPairHeapEmpty(ss->search_fw.state.open)
-            && !borPairHeapEmpty(ss->search_bw.state.open)){
+    while (!pddlPairHeapEmpty(ss->search_fw.state.open)
+            && !pddlPairHeapEmpty(ss->search_bw.state.open)){
         if (fw_cont != PDDL_SYMBOLIC_CONT && bw_cont != PDDL_SYMBOLIC_CONT)
             break;
 

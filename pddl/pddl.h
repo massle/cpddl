@@ -22,6 +22,7 @@
 
 #include <pddl/config.h>
 #include <pddl/core.h>
+#include <pddl/alloc.h>
 #include <pddl/timer.h>
 #include <pddl/hfunc.h>
 #include <pddl/rand.h>

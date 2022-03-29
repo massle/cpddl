@@ -14,7 +14,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "pddl/alloc.h"
 #include "pddl/irrelevance.h"
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"
@@ -30,7 +30,7 @@ typedef void (*pddl_process_strips_free_fn)(pddl_process_strips_step_t *step);
 
 struct pddl_process_strips_step {
     char *name;
-    bor_list_t conn;
+    pddl_list_t conn;
     int can_reuse_rm_op_fact;
     pddl_process_strips_execute_fn execute;
     pddl_process_strips_free_fn free;
@@ -46,20 +46,20 @@ typedef struct pddl_process_strips_step_hm pddl_process_strips_step_hm_t;
 void pddlProcessStripsInit(pddl_process_strips_t *prune)
 {
     bzero(prune, sizeof(*prune));
-    borListInit(&prune->steps);
+    pddlListInit(&prune->steps);
 }
 
 void pddlProcessStripsFree(pddl_process_strips_t *prune)
 {
-    bor_list_t *item, *tmp;
+    pddl_list_t *item, *tmp;
     PDDL_LIST_FOR_EACH_SAFE(&prune->steps, item, tmp){
         pddl_process_strips_step_t *step;
         step = PDDL_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
-        borListDel(&step->conn);
+        pddlListDel(&step->conn);
         step->free(step);
         if (step->name != NULL)
-            BOR_FREE(step->name);
-        BOR_FREE(step);
+            PDDL_FREE(step->name);
+        PDDL_FREE(step);
     }
     pddlISetFree(&prune->rm_op);
     pddlISetFree(&prune->rm_fact);
@@ -120,7 +120,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
     prune->mutex = mutex;
 
     // TODO: Configure fixpoint
-    bor_list_t *item;
+    pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&prune->steps, item){
         pddl_process_strips_step_t *s;
         s = PDDL_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
@@ -147,10 +147,10 @@ static void stepInit(const char *name,
 {
     bzero(step, sizeof(*step));
     step->name = PDDL_STRDUP(name);
-    borListInit(&step->conn);
+    pddlListInit(&step->conn);
     step->execute = execute;
     step->free = free;
-    borListAppend(&prune->steps, &step->conn);
+    pddlListAppend(&prune->steps, &step->conn);
 }
 
 static pddl_process_strips_step_t *stepNew(const char *name,
@@ -158,7 +158,7 @@ static pddl_process_strips_step_t *stepNew(const char *name,
                                          pddl_process_strips_execute_fn execute,
                                          pddl_process_strips_free_fn free)
 {
-    pddl_process_strips_step_t *step = BOR_ALLOC(pddl_process_strips_step_t);
+    pddl_process_strips_step_t *step = PDDL_ALLOC(pddl_process_strips_step_t);
     stepInit(name, step, prune, execute, free);
     return step;
 }
@@ -170,7 +170,7 @@ static pddl_process_strips_step_hm_t *
                   pddl_process_strips_free_fn free)
 {
     pddl_process_strips_step_hm_t *step;
-    step = BOR_ALLOC(pddl_process_strips_step_hm_t);
+    step = PDDL_ALLOC(pddl_process_strips_step_hm_t);
     stepInit(name, &step->step, prune, execute, free);
     step->time_limit = 0.f;
     return step;

@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <boruvka/pairheap.h>
+#include <pddl/pairheap.h>
 #include "pddl/cg.h"
 #include "pddl/scc.h"
 #include "alloc.h"
@@ -231,7 +231,7 @@ void pddlCGMarkBackwardReachableVars(const pddl_cg_t *cg,
 }
 
 struct order_var {
-    bor_pairheap_node_t heap;
+    pddl_pairheap_node_t heap;
     int var; /*!< ID of the variable */
     int w; /*!< Incoming weight */
     int ordered; /*!< True if the variable was already ordered */
@@ -240,8 +240,8 @@ struct order_var {
 };
 typedef struct order_var order_var_t;
 
-static int heapLT(const bor_pairheap_node_t *a,
-                  const bor_pairheap_node_t *b, void *_)
+static int heapLT(const pddl_pairheap_node_t *a,
+                  const pddl_pairheap_node_t *b, void *_)
 {
     order_var_t *v1 = pddl_container_of(a, order_var_t, heap);
     order_var_t *v2 = pddl_container_of(b, order_var_t, heap);
@@ -309,7 +309,7 @@ static void orderVarInit(order_var_t *order_var,
 
 static void removeVar(order_var_t *order_var,
                       int var_id,
-                      bor_pairheap_t *heap,
+                      pddl_pairheap_t *heap,
                       const pddl_cg_t *cg)
 {
     const pddl_cg_node_t *n = cg->node + var_id;
@@ -319,7 +319,7 @@ static void removeVar(order_var_t *order_var,
                 && !order_var[e->end].ordered){
             order_var[e->end].w -= e->value;
             //order_var[e->end].w -= order_var[var_id].w;
-            borPairHeapDecreaseKey(heap, &order_var[e->end].heap);
+            pddlPairHeapDecreaseKey(heap, &order_var[e->end].heap);
         }
     }
 }
@@ -375,13 +375,13 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
     order_var_t *order_var = ALLOC_ARR(order_var_t, cg->node_size);
     orderVarInit(order_var, cg, goal);
 
-    bor_pairheap_t *heap = borPairHeapNew(heapLT, NULL);
+    pddl_pairheap_t *heap = pddlPairHeapNew(heapLT, NULL);
     for (int var_id = 0; var_id < cg->node_size; ++var_id)
-        borPairHeapAdd(heap, &order_var[var_id].heap);
+        pddlPairHeapAdd(heap, &order_var[var_id].heap);
 
     int ins = 0;
-    for (; !borPairHeapEmpty(heap); ++ins){
-        bor_pairheap_node_t *hnode = borPairHeapExtractMin(heap);
+    for (; !pddlPairHeapEmpty(heap); ++ins){
+        pddl_pairheap_node_t *hnode = pddlPairHeapExtractMin(heap);
         order_var_t *minvar = pddl_container_of(hnode, order_var_t, heap);
         minvar->ordered = 1;
         var_ordering[ins] = minvar->var;
@@ -391,7 +391,7 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
     //reverseArr(var_ordering, cg->node_size);
     moveUnimportantVarsBack(cg, goal, var_ordering);
 
-    borPairHeapDel(heap);
+    pddlPairHeapDel(heap);
     FREE(order_var);
 }
 

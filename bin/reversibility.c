@@ -1027,12 +1027,12 @@ static void reversibilityIterative(FILE *fout, int max_depth)
 {
     BOR_INFO(&err, "Computing reverse plans iteratively. max-depth: %d",
                    max_depth);
-    int *skip = BOR_CALLOC_ARR(int, strips.op.op_size);
+    int *skip = PDDL_CALLOC_ARR(int, strips.op.op_size);
     for (int depth = 1; depth <= max_depth; ++depth){
         BOR_INFO(&err, "Computing for max-depth: %d", depth);
         reversibilityIterativeDepth(skip, depth, fout);
     }
-    BOR_FREE(skip);
+    PDDL_FREE(skip);
     BOR_INFO2(&err, "Reverse plans computed.");
 }
 

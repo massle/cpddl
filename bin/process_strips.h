@@ -10,7 +10,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_process_strips {
-    bor_list_t steps;
+    pddl_list_t steps;
     pddl_iset_t rm_op;
     pddl_iset_t rm_fact;
     int removed_op;

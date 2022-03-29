@@ -25,6 +25,7 @@ OBJS += google-city-hash
 OBJS += rand-mt
 OBJS += segmarr
 OBJS += extarr
+OBJS += pairheap
 OBJS += hashset
 OBJS += rbtree
 OBJS += htable
