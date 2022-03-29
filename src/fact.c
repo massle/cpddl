@@ -19,7 +19,7 @@
 
 #include "alloc.h"
 #include "pddl/hfunc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/pddl.h"
 #include "pddl/fact.h"
 #include "err.h"
@@ -313,7 +313,7 @@ static int factCmpByName(const void *a, const void *b, void *_)
 
 void pddlFactsSort(pddl_facts_t *fs, int *remap)
 {
-    borSort(fs->fact, fs->fact_size, sizeof(pddl_fact_t *),
+    pddlSort(fs->fact, fs->fact_size, sizeof(pddl_fact_t *),
             factCmpByName, NULL);
     for (int i = 0; i < fs->fact_size; ++i){
         pddl_fact_t *f = fs->fact[i];

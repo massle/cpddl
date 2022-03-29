@@ -18,7 +18,7 @@
  */
 
 #include <limits.h>
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include <pddl/iarr.h>
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
@@ -302,7 +302,7 @@ static int deduplicate(pddl_strips_ops_t *ops, int *remove)
         dedup[op_id].hash = opHash(ops->op[op_id]);
     }
 
-    borSort(dedup, ops->op_size, sizeof(deduplicate_t),
+    pddlSort(dedup, ops->op_size, sizeof(deduplicate_t),
             opDeduplicateCmp, NULL);
 
     int start, cur;
@@ -364,7 +364,7 @@ static int opCmp(const void *a, const void *b, void *_)
 
 void pddlStripsOpsSort(pddl_strips_ops_t *ops)
 {
-    borSort(ops->op, ops->op_size, sizeof(pddl_strips_op_t *), opCmp, NULL);
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_strips_op_t *), opCmp, NULL);
     for (int i = 0; i < ops->op_size; ++i)
         ops->op[i]->id = i;
 }

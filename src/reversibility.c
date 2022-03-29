@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/reversibility.h"
 #include "alloc.h"
 
@@ -64,7 +64,7 @@ static int revPlanCmp(const void *a, const void *b, void *ud)
 
 void pddlReversibilityUniformSort(pddl_reversibility_uniform_t *r)
 {
-    borSort(r->plan, r->plan_size, sizeof(pddl_reverse_plan_t),
+    pddlSort(r->plan, r->plan_size, sizeof(pddl_reverse_plan_t),
             revPlanCmp, NULL);
 }
 

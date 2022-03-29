@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/symbolic_trans.h"
 #include "assert.h"
 #include "fmt.h"
@@ -465,7 +465,7 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
             op_ids[ins++] = op_id;
     }
     op_ids_size = ins;
-    borSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)ops);
+    pddlSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)ops);
 
     int start = 0, end = 1;
     for (end = 1; end < op_ids_size; ++end){

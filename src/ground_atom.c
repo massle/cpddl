@@ -18,7 +18,7 @@
  */
 
 #include "pddl/hfunc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/ground_atom.h"
 #include "pddl/pddl_struct.h"
 #include "alloc.h"

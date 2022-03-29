@@ -23,6 +23,7 @@ OBJS += timer
 OBJS += hfunc
 OBJS += google-city-hash
 OBJS += rand-mt
+OBJS += sort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap

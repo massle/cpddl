@@ -17,7 +17,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/fdr_app_op.h"
 #include "pddl/cg.h"
 #include "assert.h"
@@ -88,7 +88,7 @@ static int *sortedOps(const pddl_fdr_app_op_t *app)
     for (int i = 0; i < app->ops->op_size; ++i)
         op_ids[i] = i;
 
-    borSort(op_ids, app->ops->op_size, sizeof(int), opsSortCmp, (void *)app);
+    pddlSort(op_ids, app->ops->op_size, sizeof(int), opsSortCmp, (void *)app);
     return op_ids;
 }
 

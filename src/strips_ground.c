@@ -19,7 +19,7 @@
 
 #include <limits.h>
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 
 #include "pddl/pddl.h"
 #include "pddl/strips_ground.h"
@@ -326,7 +326,7 @@ static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
     if (ga->arg == 0)
         return;
 
-    borSort(ga->arg, ga->size, sizeof(pddl_strips_ground_args_t),
+    pddlSort(ga->arg, ga->size, sizeof(pddl_strips_ground_args_t),
             groundArgsCmp, NULL);
 
     // Remove duplicates -- it shoud not happen, but just in case...

@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/cost.h"
 #include "pddl/hff.h"
 #include "assert.h"
@@ -295,7 +295,7 @@ static void extractPlan(const pddl_hff_t *h, pddl_iarr_t *plan)
     int *ops = ALLOC_ARR(int, h->op_size);
     for (int i = 0; i < h->op_size; ++i)
         ops[i] = i;
-    borSort(ops, h->op_size, sizeof(int), cmpExtractPlan, (void *)h);
+    pddlSort(ops, h->op_size, sizeof(int), cmpExtractPlan, (void *)h);
     for (int i = 0; i < h->op_size; ++i){
         if (!h->op[ops[i]].marked)
             break;

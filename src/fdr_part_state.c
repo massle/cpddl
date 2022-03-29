@@ -17,11 +17,11 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/fdr_part_state.h"
 #include "assert.h"
-int borSort(void *base, size_t nmemb, size_t size,
-            bor_sort_cmp cmp, void *carg);
+int pddlSort(void *base, size_t nmemb, size_t size,
+            pddl_sort_cmp cmp, void *carg);
 
 static int factsCmp(const void *a, const void *b, void *_)
 {
@@ -35,7 +35,7 @@ static int factsCmp(const void *a, const void *b, void *_)
 
 static void sortFacts(pddl_fdr_part_state_t *ps)
 {
-    borSort(ps->fact, ps->fact_size, sizeof(pddl_fdr_fact_t), factsCmp, NULL);
+    pddlSort(ps->fact, ps->fact_size, sizeof(pddl_fdr_fact_t), factsCmp, NULL);
 }
 
 void pddlFDRPartStateInit(pddl_fdr_part_state_t *ps)

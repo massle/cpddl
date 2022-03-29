@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/timer.h"
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
@@ -593,7 +593,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
     }
 
     if (fdr_op->cond_eff_size > 1){
-        borSort(fdr_op->cond_eff, fdr_op->cond_eff_size,
+        pddlSort(fdr_op->cond_eff, fdr_op->cond_eff_size,
                 sizeof(pddl_fdr_op_cond_eff_t), cmpCondEff, NULL);
     }
 

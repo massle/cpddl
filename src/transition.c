@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/transition.h"
 
 void pddlTransitionsInit(pddl_transitions_t *ts)
@@ -71,5 +71,5 @@ static int cmp(const void *a, const void *b, void *arg)
 
 void pddlTransitionsSort(pddl_transitions_t *ts)
 {
-    borSort(ts->trans, ts->trans_size, sizeof(pddl_transition_t), cmp, NULL);
+    pddlSort(ts->trans, ts->trans_size, sizeof(pddl_transition_t), cmp, NULL);
 }

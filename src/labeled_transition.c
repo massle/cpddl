@@ -19,7 +19,7 @@
 
 #include <stdio.h>
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/labeled_transition.h"
 
 void pddlLabeledTransitionsSetInit(pddl_labeled_transitions_set_t *t)
@@ -85,7 +85,7 @@ static int cmp(const void *a, const void *b, void *arg)
 
 void pddlLabeledTransitionsSetSort(pddl_labeled_transitions_set_t *t)
 {
-    borSort(t->trans, t->trans_size, sizeof(pddl_labeled_transitions_t),
+    pddlSort(t->trans, t->trans_size, sizeof(pddl_labeled_transitions_t),
             cmp, NULL);
     for (int i = 0; i < t->trans_size; ++i)
         pddlTransitionsSort(&t->trans[i].trans);

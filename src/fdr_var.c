@@ -17,7 +17,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
 #include "assert.h"
@@ -109,7 +109,7 @@ static int varsMGroupUncoveredDescCmp(const void *a, const void *b, void *_)
 /** Sort mgroups in a descending order by the number of uncovered facts */
 static void varsMGroupsSortUncoveredDesc(vars_mgroups_t *vmgs)
 {
-    borSort(vmgs->mgroup, vmgs->mgroup_size, sizeof(*vmgs->mgroup),
+    pddlSort(vmgs->mgroup, vmgs->mgroup_size, sizeof(*vmgs->mgroup),
             varsMGroupUncoveredDescCmp, NULL);
 
 }

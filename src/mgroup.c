@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include <boruvka/lp.h>
 #include "pddl/pddl_struct.h"
 #include "pddl/strips.h"
@@ -141,7 +141,7 @@ static void predTreeInit(pred_tree_t *tree,
     for (int i = 0; i < tree->arg_size; ++i)
         tree->arg[i] = i;
     struct arg_order ao = { atom, &mg->param };
-    borSort(tree->arg, tree->arg_size, sizeof(int), cmpArgOrder, &ao);
+    pddlSort(tree->arg, tree->arg_size, sizeof(int), cmpArgOrder, &ao);
 
     int arg_size = 0;
     for (; arg_size < tree->arg_size; ++arg_size){
@@ -471,7 +471,7 @@ void pddlMGroupsSortUniq(pddl_mgroups_t *mg)
     if (mg->mgroup_size == 0)
         return;
 
-    borSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
+    pddlSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
             cmpMGroup, NULL);
 
     int ins = 1;
@@ -524,7 +524,7 @@ void pddlMGroupsSortBySizeDesc(pddl_mgroups_t *mg)
     if (mg->mgroup_size == 0)
         return;
 
-    borSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
+    pddlSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
             cmpMGroupSizeDesc, NULL);
 }
 
@@ -534,7 +534,7 @@ void pddlMGroupsSortByEssentialAndSizeDesc(pddl_mgroups_t *mg,
     if (mg->mgroup_size == 0)
         return;
 
-    borSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
+    pddlSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
             cmpMGroupEssentialAndSizeDesc, (void *)ess);
 }
 

@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/pq.h"
 #include "pddl/trans_system_graph.h"
 #include "assert.h"
@@ -52,7 +52,7 @@ static int edgesCmp(const void *a, const void *b, void *_)
 
 static void pddlTransSystemGraphEdgesSort(pddl_trans_system_graph_edges_t *e)
 {
-    borSort(e->edge, e->edge_size, sizeof(*e->edge), edgesCmp, NULL);
+    pddlSort(e->edge, e->edge_size, sizeof(*e->edge), edgesCmp, NULL);
 }
 
 void pddlTransSystemGraphInit(pddl_trans_system_graph_t *g,

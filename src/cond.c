@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 
 #include "pddl/pddl.h"
 #include "pddl/cond.h"

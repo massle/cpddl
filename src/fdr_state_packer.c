@@ -18,7 +18,7 @@
 
 #include <string.h>
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/fdr_state_packer.h"
 
 struct pddl_fdr_state_packer_var {
@@ -201,7 +201,7 @@ static void sortedVarsInit(sorted_vars_t *sv, const pddl_fdr_vars_t *vars,
         sv->var[i] = pvar + i;
 
     // Sort array
-    borSort(sv->var, sv->var_size, sizeof(pddl_fdr_state_packer_var_t *),
+    pddlSort(sv->var, sv->var_size, sizeof(pddl_fdr_state_packer_var_t *),
             cmpByBitlen, NULL);
 }
 

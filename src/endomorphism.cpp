@@ -34,7 +34,7 @@
 
 #include "alloc.h"
 #include "pddl/hfunc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/set.h"
 #include "pddl/time_limit.h"
 #include "pddl/pddl_struct.h"
@@ -1979,7 +1979,7 @@ static int cmpTuple(const void *a, const void *b, void *u)
 
 static void predObjTupleSort(pred_obj_tuple_t *tup)
 {
-    borSort(tup->tuple, tup->tuple_size, sizeof(obj_tuple_t),
+    pddlSort(tup->tuple, tup->tuple_size, sizeof(obj_tuple_t),
             cmpTuple, NULL);
 }
 

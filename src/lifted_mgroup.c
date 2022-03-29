@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
@@ -125,7 +125,7 @@ static int cmpAtoms(const void *a, const void *b, void *_)
 void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
 {
     if (m->cond.size > 1){
-        borSort(m->cond.cond, m->cond.size, sizeof(const pddl_cond_t *),
+        pddlSort(m->cond.cond, m->cond.size, sizeof(const pddl_cond_t *),
                 cmpAtoms, NULL);
     }
 
@@ -492,7 +492,7 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm)
     if (lm->mgroup_size == 0)
         return;
 
-    borSort(lm->mgroup, lm->mgroup_size, sizeof(pddl_lifted_mgroup_t),
+    pddlSort(lm->mgroup, lm->mgroup_size, sizeof(pddl_lifted_mgroup_t),
             cmpLiftedMGroups, NULL);
 
     int ins = 1;

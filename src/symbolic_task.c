@@ -20,7 +20,7 @@
 #include "pddl/config.h"
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include <pddl/extarr.h>
 #include <pddl/pairheap.h>
 #include <pddl/rbtree.h>

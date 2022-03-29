@@ -17,7 +17,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/sort.h>
+#include <pddl/sort.h>
 #include "pddl/fdr_op.h"
 #include "assert.h"
 
@@ -230,7 +230,7 @@ static int opCmpName(const void *a, const void *b, void *_)
 
 void pddlFDROpsSort(pddl_fdr_ops_t *ops)
 {
-    borSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpName, NULL);
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpName, NULL);
     for (int i = 0; i < ops->op_size; ++i)
         ops->op[i]->id = i;
 }
