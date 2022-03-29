@@ -43,6 +43,11 @@ endif
 LDFLAGS += -pthread
 LDFLAGS += $(SYSTEM_LDFLAGS)
 
+USE_CPLEX ?= auto
+USE_CPOPTIMIZER ?= auto
+USE_GUROBI ?= auto
+USE_LPSOLVE ?= auto
+
 ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/include/ilcplex/cplex.h)' ''
     $(error IBM_CPLEX_ROOT defined, but could not find cplex header files)
@@ -66,33 +71,37 @@ ifneq '$(IBM_CPLEX_ROOT)' ''
   CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
   CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
   CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert -lstdc++
+  USE_CPLEX := yes
+  USE_CPOPTIMIZER := yes
 endif
 
-OPTS_CFLAGS ?=
-OPTS_LDFLGS ?=
-USE_LOCAL_OPTS ?= $(shell if test -f $(BASEPATH_)/third-party/opts/libopts.a; then echo "yes"; else echo "no"; fi;)
-ifeq '$(USE_LOCAL_OPTS)' 'yes'
-  OPTS_CFLAGS := -I$(BASEPATH_)/third-party/opts
-  OPTS_LDFLAGS := -L$(BASEPATH_)/third-party/opts -lopts
+ifneq '$(GUROBI_ROOT)' ''
+  ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
+    $(error GUROBI_ROOT defined, but could not find Gurobi header files)
+  endif
+  ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi95.so)' ''
+    $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+  endif
+  GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
+  GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -lgurobi95
+  USE_GUROBI := yes
 endif
 
-BORUVKA_CFLAGS ?=
-BORUVKA_LDFLAGS ?=
-USE_LOCAL_BORUVKA ?= $(shell if test -f $(BASEPATH_)/third-party/boruvka/libboruvka.a; then echo "yes"; else echo "no"; fi;)
-ifeq '$(USE_LOCAL_BORUVKA)' 'yes'
-  BORUVKA_CFLAGS := -I$(BASEPATH_)/third-party/boruvka
-  BORUVKA_LDFLAGS := -L$(BASEPATH_)/third-party/boruvka -lboruvka
-endif
-
-ifeq '$(BOR_CPLEX_CFLAGS)' ''
+ifeq '$(USE_CPLEX)' 'auto'
   ifneq '$(CPLEX_CFLAGS)' ''
-    BOR_CPLEX_CFLAGS := $(CPLEX_CFLAGS)
+    USE_CPLEX := yes
   endif
 endif
 
-ifeq '$(BOR_GUROBI_CFLAGS)' ''
+ifeq '$(USE_CPOPTIMIZER)' 'auto'
+  ifneq '$(CPOPTIMIZER_CFLAGS)' ''
+    USE_CPOPTIMIZER := yes
+  endif
+endif
+
+ifeq '$(USE_GUROBI)' 'auto'
   ifneq '$(GUROBI_CFLAGS)' ''
-    BOR_GUROBI_CFLAGS := $(GUROBI_CFLAGS)
+    USE_GUROBI := yes
   endif
 endif
 
@@ -102,17 +111,19 @@ ifeq '$(USE_LOCAL_LPSOLVE)' 'yes'
   LPSOLVE_LDFLAGS := -L$(BASEPATH_)/third-party/lpsolve -llpsolve -ldl
 endif
 
-ifeq '$(BOR_LPSOLVE_CFLAGS)' ''
+ifeq '$(USE_LPSOLVE)' 'auto'
   ifneq '$(LPSOLVE_CFLAGS)' ''
-    BOR_LPSOLVE_CFLAGS := $(LPSOLVE_CFLAGS)
+    USE_LPSOLVE := yes
   endif
 endif
 
-
-BOR_CC := $(CC)
-
-_BOR_MAKE_VARS := $(filter BOR_%, $(.VARIABLES))
-_BOR_MAKE_DEF := $(foreach V,$(_BOR_MAKE_VARS),$(V:BOR_%=%)="$($(V))") DEBUG=no
+OPTS_CFLAGS ?=
+OPTS_LDFLGS ?=
+USE_LOCAL_OPTS ?= $(shell if test -f $(BASEPATH_)/third-party/opts/libopts.a; then echo "yes"; else echo "no"; fi;)
+ifeq '$(USE_LOCAL_OPTS)' 'yes'
+  OPTS_CFLAGS := -I$(BASEPATH_)/third-party/opts
+  OPTS_LDFLAGS := -L$(BASEPATH_)/third-party/opts -lopts
+endif
 
 
 BLISS_VERSION = 0.77
@@ -178,6 +189,7 @@ SQLITE_BUILD_CFLAGS ?= -O2 \
 
 
 LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS)
+LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS)
 
 .DEFAULT_GOAL := all
 
@@ -211,9 +223,6 @@ help:
 	@echo "    USE_LOCAL_OPTS    = $(USE_LOCAL_OPTS)"
 	@echo "    OPTS_CFLAGS       = $(OPTS_CFLAGS)"
 	@echo "    OPTS_LDFLAGS      = $(OPTS_LDFLAGS)"
-	@echo "    USE_LOCAL_BORUVKA = $(USE_LOCAL_BORUVKA)"
-	@echo "    BORUVKA_CFLAGS    = $(BORUVKA_CFLAGS)"
-	@echo "    BORUVKA_LDFLAGS   = $(BORUVKA_LDFLAGS)"
 	@echo "    USE_BLISS         = $(USE_BLISS)"
 	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
 	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
@@ -229,15 +238,18 @@ help:
 	@echo ""
 	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
 	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"
+	@echo "    USE_CPLEX       = $(USE_CPLEX)"
 	@echo "    GUROBI_CFLAGS   = $(GUROBI_CFLAGS)"
 	@echo "    GUROBI_LDFLAGS  = $(GUROBI_LDFLAGS)"
+	@echo "    USE_GUROBI      = $(USE_GUROBI)"
 	@echo "    LPSOLVE_CFLAGS  = $(LPSOLVE_CFLAGS)"
 	@echo "    LPSOLVE_LDFLAGS = $(LPSOLVE_LDFLAGS)"
+	@echo "    USE_LPSOLVE     = $(USE_LPSOLVE)"
 	@echo "    LP_LDFLAGS      = $(LP_LDFLAGS)"
+	@echo "    LP_CFLAGS      = $(LP_LDFLAGS)"
 	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
 	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
-	@echo
-	@echo "Boruvka make variables: $(_BOR_MAKE_DEF)"
+	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS
