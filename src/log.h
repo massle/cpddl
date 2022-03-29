@@ -21,10 +21,10 @@
 #define __PDDL_LOG_H__
 
 #define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \
-    BOR_INFO((ERR), "%s" #NAME " = %d", (PREFIX), (C)->NAME)
+    PDDL_INFO((ERR), "%s" #NAME " = %d", (PREFIX), (C)->NAME)
 #define PDDL_LOG_CONFIG_DBL(C, PREFIX, NAME, ERR) \
-    BOR_INFO((ERR), "%s" #NAME " = %.4f", (PREFIX), (C)->NAME)
+    PDDL_INFO((ERR), "%s" #NAME " = %.4f", (PREFIX), (C)->NAME)
 #define PDDL_LOG_CONFIG_BOOL(C, PREFIX, NAME, ERR) \
-    BOR_INFO((ERR), "%s" #NAME " = %s", (PREFIX), ((C)->NAME ? "true" : "false"))
+    PDDL_INFO((ERR), "%s" #NAME " = %s", (PREFIX), ((C)->NAME ? "true" : "false"))
 
 #endif /* __PDDL_LOG_H__ */

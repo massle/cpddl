@@ -44,24 +44,24 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_mutex_pairs_t *mutex,
                           unsigned fdr_var_flags,
                           unsigned fdr_flags,
-                          bor_err_t *err)
+                          pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "FDR: ");
+    PDDL_INFO_PREFIX_PUSH(err, "FDR: ");
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 
     if (fdr_flags == PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE){
-        BOR_INFO2(err, "cfg.set_none_of_those_in_pre = 1");
+        PDDL_INFO2(err, "cfg.set_none_of_those_in_pre = 1");
     }else{
-        BOR_INFO2(err, "cfg.set_none_of_those_in_pre = 0");
+        PDDL_INFO2(err, "cfg.set_none_of_those_in_pre = 0");
     }
 
     if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_ESSENTIAL_FIRST){
-        BOR_INFO2(err, "cfg.vars_selection_order = essential");
+        PDDL_INFO2(err, "cfg.vars_selection_order = essential");
     }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST){
-        BOR_INFO2(err, "cfg.vars_selection_order = largest");
+        PDDL_INFO2(err, "cfg.vars_selection_order = largest");
     }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
-        BOR_INFO2(err, "cfg.vars_selection_order = largest-multi");
+        PDDL_INFO2(err, "cfg.vars_selection_order = largest-multi");
     }
 
 
@@ -70,39 +70,39 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     // variables
     if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
                                   fdr_var_flags) != 0){
-        BOR_INFO_PREFIX_POP(err);
+        PDDL_INFO_PREFIX_POP(err);
         return -1;
     }
-    BOR_INFO(err, "Created %d variables.", fdr->var.var_size);
+    PDDL_INFO(err, "Created %d variables.", fdr->var.var_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
             ++num_none_of_those;
     }
-    BOR_INFO(err, "Created %d none-of-those values.", num_none_of_those);
+    PDDL_INFO(err, "Created %d none-of-those values.", num_none_of_those);
 
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
 
     // Initial state
     fdr->init = ALLOC_ARR(int, fdr->var.var_size);
     stripsToFDRState(&fdr->var, &strips->init, fdr->init);
-    BOR_INFO2(err, "Created initial state.");
+    PDDL_INFO2(err, "Created initial state.");
 
     // Goal
     pddlFDRPartStateInit(&fdr->goal);
     stripsToFDRPartState(&fdr->var, &strips->goal, &fdr->goal);
-    BOR_INFO2(err, "Created goal specification.");
+    PDDL_INFO2(err, "Created goal specification.");
 
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
-    BOR_INFO(err, "Created %d operators", fdr->op.op_size);
+    PDDL_INFO(err, "Created %d operators", fdr->op.op_size);
 
     pddlTimerStop(&timer);
-    BOR_INFO(err, "Translation took %.2f seconds",
+    PDDL_INFO(err, "Translation took %.2f seconds",
              pddlTimerElapsedInSF(&timer));
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -251,7 +251,7 @@ static void relaxedReachFacts(const pddl_fdr_t *fdr,
 int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
                          const int *fdr_state,
                          const pddl_iarr_t *plan,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     int *reached = CALLOC_ARR(int, fdr->var.global_id_size);
     for (int var = 0; var < fdr->var.var_size; ++var)
@@ -261,7 +261,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
     PDDL_IARR_FOR_EACH(plan, op_id){
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         if (!relaxedPreHold(fdr, reached, &op->pre)){
-            BOR_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
+            PDDL_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
                      op_id, op->name);
             FREE(reached);
             return 0;
@@ -629,7 +629,7 @@ static void tnfEffToPre(pddl_fdr_t *fdr,
 static void tnfFull(pddl_fdr_t *fdr,
                     const pddl_fdr_t *fdr_in,
                     unsigned flags,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     pddl_fdr_val_t **u_vals = CALLOC_ARR(pddl_fdr_val_t *,
                                              fdr->var.var_size);
@@ -717,7 +717,7 @@ static int tnfDisOp(pddl_fdr_t *fdr,
                     pddl_set_iset_t *dis_sets,
                     unsigned flags,
                     pddl_fdr_op_t *op,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     if (flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
         tnfPreToEff(&op->pre, &op->eff);
@@ -759,7 +759,7 @@ static int tnfDisGoal(pddl_fdr_t *fdr,
                       int dis_offset,
                       pddl_set_iset_t *dis_sets,
                       unsigned flags,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     PDDL_ISET(goal);
     PDDL_ISET(ext);
@@ -793,7 +793,7 @@ static int tnfDisGoal(pddl_fdr_t *fdr,
 static void tnfDisForgettingOps(pddl_fdr_t *fdr,
                                 int dis_offset,
                                 const pddl_set_iset_t *dis_sets,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
     int dis_size = pddlSetISetSize(dis_sets);
     for (int dis_id = 0; dis_id < dis_size; ++dis_id){
@@ -825,7 +825,7 @@ static void tnfDisForgettingOps(pddl_fdr_t *fdr,
 static void tnfDis(pddl_fdr_t *fdr,
                    pddl_disambiguate_t *dis,
                    unsigned flags,
-                   bor_err_t *err)
+                   pddl_err_t *err)
 {
     PDDL_ISET(unreachable_ops);
     pddl_set_iset_t dis_sets;
@@ -852,7 +852,7 @@ static void tnfMultiplyOpSet(pddl_fdr_t *fdr,
                              pddl_set_iset_t *hset,
                              int set_id,
                              pddl_fdr_op_t *op,
-                             bor_err_t *err)
+                             pddl_err_t *err)
 {
     if (set_id >= pddlSetISetSize(hset)){
         pddl_fdr_op_t *new_op = pddlFDROpClone(op);
@@ -890,7 +890,7 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
                          pddl_disambiguate_t *dis,
                          unsigned flags,
                          pddl_fdr_op_t *op,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     pddl_set_iset_t hset;
     pddlSetISetInit(&hset);
@@ -937,7 +937,7 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
 static void tnfMultiply(pddl_fdr_t *fdr,
                         pddl_disambiguate_t *dis,
                         unsigned flags,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     PDDL_ISET(rm_ops);
 
@@ -957,7 +957,7 @@ static void tnfMultiply(pddl_fdr_t *fdr,
 
 static void removeUnreachableOps(pddl_fdr_t *fdr,
                                  const pddl_mutex_pairs_t *mutex,
-                                 bor_err_t *err)
+                                 pddl_err_t *err)
 {
     PDDL_ISET(rm_ops);
 
@@ -973,7 +973,7 @@ static void removeUnreachableOps(pddl_fdr_t *fdr,
     if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
         pddlFDROpsSort(&fdr->op);
-        BOR_INFO(err, "Removed %d unreachable operators", pddlISetSize(&rm_ops));
+        PDDL_INFO(err, "Removed %d unreachable operators", pddlISetSize(&rm_ops));
     }
     pddlISetFree(&rm_ops);
 }
@@ -982,21 +982,21 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
                                     unsigned flags,
-                                    bor_err_t *err)
+                                    pddl_err_t *err)
 {
     if (fdr_in->has_cond_eff && mutex != NULL){
-        BOR_ERR_RET2(err, -1, "Disambiguated Transition Normal Form is not"
+        PDDL_ERR_RET2(err, -1, "Disambiguated Transition Normal Form is not"
                               " supported for conditional effects");
     }
 
     if ((flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
             && (flags & PDDL_FDR_TNF_MULTIPLY_OPS)){
-        BOR_ERR_RET2(err, -1, "PDDL_FDR_TNF_PREVAIL_TO_EFF cannot be combined"
+        PDDL_ERR_RET2(err, -1, "PDDL_FDR_TNF_PREVAIL_TO_EFF cannot be combined"
                               "with PDDL_FDR_TNF_MULTIPLY_OPS");
     }
 
-    BOR_INFO_PREFIX_PUSH(err, "TNF: ");
-    BOR_INFO(err, "Creating a Transition Normal Form"
+    PDDL_INFO_PREFIX_PUSH(err, "TNF: ");
+    PDDL_INFO(err, "Creating a Transition Normal Form"
                   " (vars: %d, facts: %d, ops: %d)",
                   fdr_in->var.var_size,
                   fdr_in->var.global_id_size,
@@ -1005,7 +1005,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     pddlFDRInitCopy(fdr, fdr_in);
 
     if (mutex == NULL){
-        BOR_INFO2(err, "Constructing full TNF");
+        PDDL_INFO2(err, "Constructing full TNF");
         tnfFull(fdr, fdr_in, flags, err);
 
     }else{
@@ -1017,11 +1017,11 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
 
         if (flags & PDDL_FDR_TNF_MULTIPLY_OPS){
-            BOR_INFO2(err, "Multiply operators with disambiguation");
+            PDDL_INFO2(err, "Multiply operators with disambiguation");
             tnfMultiply(fdr, &dis, flags, err);
             removeUnreachableOps(fdr, mutex, err);
         }else{
-            BOR_INFO2(err, "Using disambiguation");
+            PDDL_INFO2(err, "Using disambiguation");
             tnfDis(fdr, &dis, flags, err);
         }
 
@@ -1029,12 +1029,12 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlMGroupsFree(&mgs);
     }
 
-    BOR_INFO(err, "Transition Normal Form created."
+    PDDL_INFO(err, "Transition Normal Form created."
                   " (vars: %d, facts: %d, ops: %d)",
                   fdr->var.var_size,
                   fdr->var.global_id_size,
                   fdr->op.op_size);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 

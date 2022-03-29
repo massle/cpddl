@@ -71,7 +71,7 @@ static int factAddIsInvertible(const pddl_strips_t *strips,
 int pddlRSEInvertibleFacts(const pddl_strips_t *strips,
                            const pddl_mgroups_t *fam_groups,
                            pddl_iset_t *invertible_facts,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     pddl_strips_fact_cross_ref_t cref;
     pddlStripsFactCrossRefInit(&cref, strips, 0, 0, 0, 1, 1);

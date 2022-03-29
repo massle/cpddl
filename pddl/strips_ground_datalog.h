@@ -34,7 +34,7 @@ extern "C" {
 int pddlStripsGroundDatalog(pddl_strips_t *strips,
                             const pddl_t *pddl,
                             const pddl_ground_config_t *cfg,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

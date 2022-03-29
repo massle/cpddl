@@ -330,7 +330,7 @@ static void reverseArr(int *arr, int size)
     int len = size / 2;
     for (int i = 0; i < len; ++i){
         int tmp;
-        BOR_SWAP(arr[i], arr[size - 1 - i], tmp);
+        PDDL_SWAP(arr[i], arr[size - 1 - i], tmp);
     }
 }
 */
@@ -527,12 +527,12 @@ static char *pddlGraphEasy(const char *graph_easy_bin,
     return NULL;
 }
 
-void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err)
+void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err)
 {
     size_t buf_size;
     char *buf = pddlCGAsDot(cg, &buf_size);
     if (buf == NULL){
-        BOR_INFO2(err, "Could not print out causal graph");
+        PDDL_INFO2(err, "Could not print out causal graph");
         return;
     }
 
@@ -545,7 +545,7 @@ void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err)
         for (; cur < graph_size && graph[cur] != '\n'; ++cur);
         graph[cur++] = 0x0;
         if (err != NULL)
-            BOR_INFO(err, "CG: %s", graph + from);
+            PDDL_INFO(err, "CG: %s", graph + from);
         if (out != NULL)
             fprintf(out, "CG: %s\n", graph + from);
     }

@@ -30,7 +30,7 @@ extern "C" {
  * - h^2 fw/bw
  * - irrelevance analysis
  */
-int pddlPruneFDR(pddl_fdr_t *fdr, bor_err_t *err);
+int pddlPruneFDR(pddl_fdr_t *fdr, pddl_err_t *err);
 
 
 #ifdef __cplusplus

@@ -256,7 +256,7 @@ static void addActionsRules(ground_t *g)
 static int groundInit(ground_t *g,
                       const pddl_t *pddl,
                       const pddl_ground_config_t *cfg,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     bzero(g, sizeof(*g));
     g->pddl = pddl;
@@ -337,11 +337,11 @@ static void insertAction(int pred,
 int pddlStripsGroundDatalog(pddl_strips_t *strips,
                             const pddl_t *pddl,
                             const pddl_ground_config_t *cfg,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Ground DL: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Ground DL: ");
     pddlGroundConfigLog(cfg, "cfg.", err);
-    BOR_INFO2(err, "Grounding using datalog ...");
+    PDDL_INFO2(err, "Grounding using datalog ...");
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
@@ -364,7 +364,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                                            &ground);
     }
 
-    BOR_INFO(err, "Grounding finished: %d actions, %d facts,"
+    PDDL_INFO(err, "Grounding finished: %d actions, %d facts,"
                   " %d static facts, %d functions",
              ground.strips_maker.num_action_args,
              ground.strips_maker.ground_atom.atom_size,
@@ -376,12 +376,12 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
 
     groundFree(&ground);
     if (ret != 0){
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, ret);
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, ret);
     }
 
-    BOR_INFO2(err, "Grounding finished.");
+    PDDL_INFO2(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }

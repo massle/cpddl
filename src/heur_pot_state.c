@@ -70,7 +70,7 @@ static int potFuncHeur(const pot_func_t *f,
 struct heur {
     pddl_heur_t heur;
     const pddl_fdr_t *fdr;
-    bor_err_t *err;
+    pddl_err_t *err;
     pddl_extarr_t *func_state;
     pddl_list_t func_list;
 };
@@ -128,7 +128,7 @@ static int heurEstimate(pddl_heur_t *_h,
     return potFuncHeur(f, node->state, &h->fdr->var);
 }
 
-pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, bor_err_t *err)
+pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
     heur_t *h = ALLOC(heur_t);
     bzero(h, sizeof(*h));

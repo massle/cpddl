@@ -394,7 +394,7 @@ static void predsSetUp(pddl_datalog_t *dl)
     }
 }
 
-static void setUp(pddl_datalog_t *dl, int db, bor_err_t *err)
+static void setUp(pddl_datalog_t *dl, int db, pddl_err_t *err)
 {
     if (dl->dirty){
         for (int r = 0; r < dl->rule_size; ++r)
@@ -703,15 +703,15 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl)
     return 1;
 }
 
-int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err)
+int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "DL: ");
-    BOR_INFO(err, "Normal form of the datalog program start"
+    PDDL_INFO_PREFIX_PUSH(err, "DL: ");
+    PDDL_INFO(err, "Normal form of the datalog program start"
                   " (consts: %d, vars: %d, predicates: %d, rules: %d)",
              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
-        BOR_ERR_RET2(err, -1, "Cannot create normal form because the"
+        PDDL_ERR_RET2(err, -1, "Cannot create normal form because the"
                               "datalog program is not safe");
     }
 
@@ -720,15 +720,15 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err)
         while (dl->rule[ci].body_size > 2)
             toNormalFormStep(dl, ci);
     }
-    BOR_INFO(err, "Normal form of the datalog program DONE"
+    PDDL_INFO(err, "Normal form of the datalog program DONE"
                   " (consts: %d, vars: %d, predicates: %d, rules: %d)",
              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     dl->dirty = 1;
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 
-static void insertInitialFacts(pddl_datalog_t *dl, bor_err_t *err)
+static void insertInitialFacts(pddl_datalog_t *dl, pddl_err_t *err)
 {
     int args[dl->max_pred_arity];
     for (int ri = 0; ri < dl->rule_size; ++ri){
@@ -831,7 +831,7 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
                                 int rule_id,
                                 int fact_id,
                                 int *var_map,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
     const pddl_datalog_rule_t *rule = dl->rule + rule_id;
     int other_atom_idx = (atom_idx + 1) % 2;
@@ -862,7 +862,7 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
 static void applyFactOnRule(pddl_datalog_t *dl,
                             const pddl_datalog_fact_t *f,
                             int rule_id,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     const pddl_datalog_rule_t *rule = dl->rule + rule_id;
     int var_map[dl->var_size];
@@ -882,16 +882,16 @@ static void applyFactOnRule(pddl_datalog_t *dl,
     }
 }
 
-void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
+void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "DL: ");
-    BOR_INFO_PREFIX_PUSH(err, "Canonical model: ");
-    BOR_INFO(err, "start (consts: %d, vars: %d, predicates: %d, rules: %d)",
+    PDDL_INFO_PREFIX_PUSH(err, "DL: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Canonical model: ");
+    PDDL_INFO(err, "start (consts: %d, vars: %d, predicates: %d, rules: %d)",
              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 1, err);
 
     insertInitialFacts(dl, err);
-    BOR_INFO(err, "Added initial facts: %d", dl->db.fact_size);
+    PDDL_INFO(err, "Added initial facts: %d", dl->db.fact_size);
 
     int cur_id = 0;
     while (cur_id < dl->db.fact_size){
@@ -901,16 +901,16 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
             applyFactOnRule(dl, f, rule_id, err);
         ++cur_id;
         if (cur_id % 100000 == 0){
-            BOR_INFO(err, "progress (facts processed: %d, overall: %d,"
+            PDDL_INFO(err, "progress (facts processed: %d, overall: %d,"
                           " db-mem: %luMB)",
                      cur_id, dl->db.fact_size,
                      dbUseddMem(&dl->db) / (1024lu * 1024lu));
         }
     }
-    BOR_INFO(err, "DONE (facts: %d, db-mem: %luMB)",
+    PDDL_INFO(err, "DONE (facts: %d, db-mem: %luMB)",
              dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
-    BOR_INFO_PREFIX_POP(err);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
 }
 
 void pddlDatalogFactsFromCanonicalModel(

@@ -28,14 +28,14 @@ typedef int16_t fact_id_t;
 struct set_range_pair {
     fact_id_t from;
     fact_id_t to;
-} bor_packed;
+} pddl_packed;
 typedef struct set_range_pair set_range_pair_t;
 
 struct set_range {
     set_range_pair_t *v;
     fact_id_t size;
     fact_id_t alloc;
-} bor_packed;
+} pddl_packed;
 typedef struct set_range set_range_t;
 
 _pddl_inline int setRangeIsSet(const set_range_t *s, int v)
@@ -172,7 +172,7 @@ _pddl_inline void metaFactSet1(h3_t *h3, int fid)
 static void h3Init(h3_t *h3,
                    const pddl_strips_t *strips,
                    size_t excess_mem,
-                   bor_err_t *err)
+                   pddl_err_t *err)
 {
     bzero(h3, sizeof(*h3));
     h3->fact_size = strips->fact.fact_size;
@@ -230,7 +230,7 @@ static void h3Init(h3_t *h3,
     }
 
     if (h3->meta_fact3 != NULL || h3->op_fact1 != NULL || h3->op_fact2 != NULL){
-        BOR_INFO(err, "uses additional memory of %.2f MB"
+        PDDL_INFO(err, "uses additional memory of %.2f MB"
                       "(meta-fact3: %d, op-fact1: %d, op-fact2: %d",
                  used_excess_mem / (1024. * 1024.),
                  (h3->meta_fact3 != NULL ? 1 : 0),
@@ -560,17 +560,17 @@ int pddlH3(const pddl_strips_t *strips,
            pddl_iset_t *unreachable_ops,
            float time_limit_s,
            size_t excess_memory,
-           bor_err_t *err)
+           pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        BOR_ERR_RET2(err, -1, "h^3: Conditional effects not supported!");
+        PDDL_ERR_RET2(err, -1, "h^3: Conditional effects not supported!");
 
     pddl_time_limit_t time_limit;
     h3_t h3;
     int updated, ret = 0;
 
-    BOR_INFO_PREFIX_PUSH(err, "h^3 fw: ");
-    BOR_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
+    PDDL_INFO_PREFIX_PUSH(err, "h^3 fw: ");
+    PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
                   " time-limit: %.2f, excess-memory: %lu",
              strips->fact.fact_size,
              strips->op.op_size,
@@ -617,13 +617,13 @@ int pddlH3(const pddl_strips_t *strips,
 mutex_h3_end:
     h3Free(&h3);
 
-    BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
+    PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)ms->num_mutex_pairs,
              (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
              (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1),
              (ret == -2 ? 1 : 0));
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
 
     return ret;
 }

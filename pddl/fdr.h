@@ -45,7 +45,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_mutex_pairs_t *mutex,
                           unsigned fdr_var_flags,
                           unsigned fdr_flags,
-                          bor_err_t *err);
+                          pddl_err_t *err);
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);
 
@@ -68,7 +68,7 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
 int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
                          const int *fdr_state,
                          const pddl_iarr_t *plan,
-                         bor_err_t *err);
+                         pddl_err_t *err);
 
 
 /** Prevail conditions are copied to effects -- this creates a true TNF,
@@ -91,7 +91,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
                                     unsigned flags,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,

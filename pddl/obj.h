@@ -51,7 +51,7 @@ typedef struct pddl_objs pddl_objs_t;
 /**
  * Parse :constants and :objects from domain and problem PDDLs.
  */
-int pddlObjsParse(pddl_t *pddl, bor_err_t *err);
+int pddlObjsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initialize dst as a deep copy of src.

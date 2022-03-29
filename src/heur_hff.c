@@ -43,7 +43,7 @@ static int heurEstimate(pddl_heur_t *_h,
     return pddlHFF(&h->hff, node->state, &h->fdr->var);
 }
 
-pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, bor_err_t *err)
+pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
     pddl_heur_hff_t *h = ALLOC(pddl_heur_hff_t);
     bzero(h, sizeof(*h));

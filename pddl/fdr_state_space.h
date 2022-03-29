@@ -53,7 +53,7 @@ typedef struct pddl_fdr_state_space pddl_fdr_state_space_t;
 
 void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
                            const pddl_fdr_vars_t *vars,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 void pddlFDRStateSpaceFree(pddl_fdr_state_space_t *state_space);
 
 /**

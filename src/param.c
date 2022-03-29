@@ -94,7 +94,7 @@ typedef struct _set_param_t set_param_t;
 
 static int setParams(const pddl_lisp_node_t *root,
                      int child_from, int child_to, int child_type, void *ud,
-                     bor_err_t *err)
+                     pddl_err_t *err)
 {
     pddl_params_t *params = ((set_param_t *)ud)->param;
     pddl_types_t *types = ((set_param_t *)ud)->types;
@@ -130,14 +130,14 @@ static int setParams(const pddl_lisp_node_t *root,
 int pddlParamsParse(pddl_params_t *params,
                     const pddl_lisp_node_t *root,
                     pddl_types_t *types,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     set_param_t set_param;
     set_param.param = params;
     set_param.types = types;
     if (pddlLispParseTypedList(root, 0, root->child_size,
                                 setParams, &set_param, err) != 0)
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     return 0;
 }
 
@@ -145,7 +145,7 @@ int pddlParamsParseAgent(pddl_params_t *params,
                          const pddl_lisp_node_t *n,
                          int nid,
                          pddl_types_t *types,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     set_param_t set_param;
     int to;
@@ -161,7 +161,7 @@ int pddlParamsParseAgent(pddl_params_t *params,
     set_param.param = params;
     set_param.types = types;
     if (pddlLispParseTypedList(n, nid + 1, to, setParams, &set_param, err) != 0)
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
 
     params->param[params->param_size - 1].is_agent = 1;
     return to;

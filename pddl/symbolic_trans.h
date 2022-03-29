@@ -67,7 +67,7 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *tr,
                                float max_time,
                                pddl_cost_t *op_heur_change,
                                int sum_op_heur_change_to_cost,
-                               bor_err_t *err);
+                               pddl_err_t *err);
 void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *tr);
 
 typedef pddl_bdd_t *(*pddl_symbolic_trans_set_image_fn)(

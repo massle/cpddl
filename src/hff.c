@@ -41,7 +41,7 @@
 void pddlHFFInit(pddl_hff_t *h, const pddl_fdr_t *fdr)
 {
     if (fdr->has_cond_eff)
-        BOR_FATAL2("h^ff does not support conditional effects\n");
+        PDDL_FATAL2("h^ff does not support conditional effects\n");
     bzero(h, sizeof(*h));
 
     // Allocate facts and add one for empty-precondition fact and one for
@@ -95,7 +95,7 @@ void pddlHFFInit(pddl_hff_t *h, const pddl_fdr_t *fdr)
 void pddlHFFInitStrips(pddl_hff_t *h, const pddl_strips_t *strips)
 {
     if (strips->has_cond_eff)
-        BOR_FATAL2("h^ff does not support conditional effects\n");
+        PDDL_FATAL2("h^ff does not support conditional effects\n");
     bzero(h, sizeof(*h));
 
     // Allocate facts and add one for empty-precondition fact and one for

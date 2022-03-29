@@ -22,7 +22,7 @@ static void usage(const char *name)
 static int readOpts(int *argc,
                     char *argv[],
                     pddl_hpot_config_t *pot_cfg,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     int disamb = 0;
     int weak_disamb = 0;
@@ -201,15 +201,15 @@ static int readOpts(int *argc,
 
 
     if (*argc == 2){
-        BOR_INFO(err, "Input file: '%s'", argv[1]);
+        PDDL_INFO(err, "Input file: '%s'", argv[1]);
         if (pddlFiles1(&opt.files, argv[1], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }else{ // *argc == 3
-        BOR_INFO(err, "Input files: '%s' and '%s'", argv[1], argv[2]);
+        PDDL_INFO(err, "Input files: '%s' and '%s'", argv[1], argv[2]);
         if (pddlFiles(&opt.files, argv[1], argv[2], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
-    BOR_INFO(err, "PDDL files: '%s' '%s'\n",
+    PDDL_INFO(err, "PDDL files: '%s' '%s'\n",
              opt.files.domain_pddl, opt.files.problem_pddl);
 
     return 0;
@@ -236,12 +236,12 @@ int main(int argc, char *argv[])
 {
     pddl_hpot_config_t hpot_cfg = PDDL_HPOT_CONFIG_INIT;
 
-    bor_err_t err = BOR_ERR_INIT;
-    borErrWarnEnable(&err, stderr);
-    borErrInfoEnable(&err, stderr);
+    pddl_err_t err = PDDL_ERR_INIT;
+    pddlErrWarnEnable(&err, stderr);
+    pddlErrInfoEnable(&err, stderr);
 
     if (readOpts(&argc, argv, &hpot_cfg, &err) != 0){
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
     pddlNormalize(&pddl);
@@ -280,15 +280,15 @@ int main(int argc, char *argv[])
     ground_cfg.prune_op_dead_end = 1;
     pddl_strips_t strips;
     if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
-        BOR_INFO2(&err, "Grounding failed.");
+        PDDL_INFO2(&err, "Grounding failed.");
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
     //if (strips.has_cond_eff)
     //    pddlStripsCompileAwayCondEff(&strips);
     if (strips.has_cond_eff){
-        BOR_INFO2(&err, "Has conditional effects -- terminating...");
+        PDDL_INFO2(&err, "Has conditional effects -- terminating...");
         return -1;
     }
 
@@ -303,9 +303,9 @@ int main(int argc, char *argv[])
         PDDL_ISET(rm_fact);
         PDDL_ISET(rm_op);
         if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op, NULL, &err) != 0){
-            BOR_INFO2(&err, "Irrelevance analysis failed.");
+            PDDL_INFO2(&err, "Irrelevance analysis failed.");
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
         if (pddlISetSize(&rm_fact) > 0 || pddlISetSize(&rm_op) > 0){
@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
         pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
         if (pddlFAMGroupsInfer(&mgroups, &strips, &fam_cfg, &err) != 0){
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }
@@ -337,23 +337,23 @@ int main(int argc, char *argv[])
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                           fdr_flag, &err);
     if (pddlPruneFDR(&fdr, &err) != 0){
-        BOR_INFO2(&err, "Pruning failed.");
+        PDDL_INFO2(&err, "Pruning failed.");
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
-    BOR_INFO(&err, "Number of operators: %d", fdr.op.op_size);
-    BOR_INFO(&err, "Number of variables: %d", fdr.var.var_size);
-    BOR_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
+    PDDL_INFO(&err, "Number of operators: %d", fdr.op.op_size);
+    PDDL_INFO(&err, "Number of variables: %d", fdr.var.var_size);
+    PDDL_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
 
     pddl_pot_solutions_t pot;
     if (pddlHPot(&pot, &fdr, &hpot_cfg, &err) != 0){
-        BOR_INFO2(&err, "Cannot find potential heuristic");
+        PDDL_INFO2(&err, "Cannot find potential heuristic");
         return -1;
     }
     int est = pddlPotSolutionsEvalMaxFDRState(&pot, &fdr.var, fdr.init);
-    BOR_INFO(&err, "Init state estimate: %d", est);
+    PDDL_INFO(&err, "Init state estimate: %d", est);
 
     // Print out FDR in fast-downward format and potentials
     FILE *fout = stdout;

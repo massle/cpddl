@@ -88,7 +88,7 @@ static int rbtreeAllClosedCmp(const pddl_rbtree_node_t *n1,
 void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
                             pddl_bdd_manager_t *mgr,
                             int use_heur_inconsistent,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     bzero(states, sizeof(*states));
     size_t el_size = sizeof(pddl_symbolic_state_t);
@@ -108,7 +108,7 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
     states->all_closed = pddlBDDZero(mgr);
     if (use_heur_inconsistent){
         states->all_closed_g = pddlRBTreeNew(rbtreeAllClosedCmp, NULL);
-        BOR_INFO2(err, "Created mapping from g-value to close-states BDDs");
+        PDDL_INFO2(err, "Created mapping from g-value to close-states BDDs");
     }
 
     pddlCostSetMax(&states->bound);

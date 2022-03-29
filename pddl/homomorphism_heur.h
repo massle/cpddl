@@ -46,11 +46,11 @@ typedef struct pddl_homomorphism_heur pddl_homomorphism_heur_t;
 pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
                                 const pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                bor_err_t *err);
+                                pddl_err_t *err);
 pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
                                 const pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                bor_err_t *err);
+                                pddl_err_t *err);
 
 void pddlHomomorphismHeurDel(pddl_homomorphism_heur_t *h);
 

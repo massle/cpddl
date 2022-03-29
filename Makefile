@@ -20,6 +20,7 @@ TARGETS  = libpddl.a
 
 OBJS  = alloc
 OBJS += timer
+OBJS += err
 OBJS += hfunc
 OBJS += google-city-hash
 OBJS += rand-mt

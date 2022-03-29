@@ -186,7 +186,7 @@ void pddlMGroupProjectionPruneUnreachableFromInit(pddl_mgroup_projection_t *p,
     pddlISetIntersect2(&init, &p->mgroup, &strips->init);
 
     if (pddlISetSize(&init) > 1)
-        BOR_FATAL2("The set of facts is not a mutex group!");
+        PDDL_FATAL2("The set of facts is not a mutex group!");
 
     if (pddlISetSize(&init) == 0){
         pddlISetAdd(&from_state, p->num_states - 1);

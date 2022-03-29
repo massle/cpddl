@@ -12,7 +12,7 @@
  *  See the License for more information.
  */
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include "pddl/sort.h"
 #include "alloc.h"
 
@@ -163,7 +163,7 @@ void pddlInsertSortInt(int *arr, size_t nmemb)
 int pddlTimSort(void *base, size_t nmemb, size_t size,
                pddl_sort_cmp cmp, void *carg)
 {
-    BOR_FATAL2("TimSort is not compiled in!");
+    PDDL_FATAL2("TimSort is not compiled in!");
 }
 #endif /* PDDL_TIMSORT */
 

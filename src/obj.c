@@ -61,7 +61,7 @@ typedef struct _set_t set_t;
 
 static int setCB(const pddl_lisp_node_t *root,
                  int child_from, int child_to, int child_type, void *ud,
-                 bor_err_t *err)
+                 pddl_err_t *err)
 {
     pddl_objs_t *objs = ((set_t *)ud)->objs;
     pddl_obj_t *o;
@@ -103,7 +103,7 @@ static int setCB(const pddl_lisp_node_t *root,
 }
 
 static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
-                 bor_err_t *err)
+                 pddl_err_t *err)
 
 {
     const pddl_lisp_node_t *n;
@@ -129,10 +129,10 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
     set.is_const = is_const;
     if (pddlLispParseTypedList(n, 1, to, setCB, &set, err) != 0){
         if (is_const){
-            BOR_TRACE_PREPEND(err, "Invalid definition of :constants in %s: ",
+            PDDL_TRACE_PREPEND(err, "Invalid definition of :constants in %s: ",
                               lisp->filename);
         }else{
-            BOR_TRACE_PREPEND(err, "Invalid definition of :objects in %s: ",
+            PDDL_TRACE_PREPEND(err, "Invalid definition of :objects in %s: ",
                               lisp->filename);
         }
         return -1;
@@ -142,7 +142,7 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
 }
 
 static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     const pddl_lisp_node_t *n, *p;
     int i, factor, pi, parse_from;
@@ -193,7 +193,7 @@ static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
     return 0;
 }
 
-int pddlObjsParse(pddl_t *pddl, bor_err_t *err)
+int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
 {
     const pddl_lisp_t *dom_lisp = pddl->domain_lisp;
     const pddl_lisp_t *prob_lisp = pddl->problem_lisp;
@@ -204,14 +204,14 @@ int pddlObjsParse(pddl_t *pddl, bor_err_t *err)
 
     if (parse(pddl, dom_lisp, PDDL_KW_CONSTANTS, 1, err) != 0
             || parse(pddl, prob_lisp, PDDL_KW_OBJECTS, 0, err) != 0)
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
 
     if (((pddl->require & PDDL_REQUIRE_MULTI_AGENT)
                 && (pddl->require & PDDL_REQUIRE_UNFACTORED_PRIVACY))
             || (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY)){
         if (parsePrivate(pddl, dom_lisp, PDDL_KW_CONSTANTS, err) != 0
                 || parsePrivate(pddl, prob_lisp, PDDL_KW_OBJECTS, err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
 
     for (i = 0; i < pddl->obj.obj_size; ++i)

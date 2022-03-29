@@ -48,7 +48,7 @@ void pddlUnreachableInMGroupsDTGs(const pddl_strips_t *strips,
                                   const pddl_mgroups_t *mgroups,
                                   pddl_iset_t *unreachable_facts,
                                   pddl_iset_t *unreachable_ops,
-                                  bor_err_t *err);
+                                  pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

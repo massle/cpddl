@@ -31,7 +31,7 @@
 
 
 static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     char err_prefix[ERR_PREFIX_MAXSIZE];
     const pddl_lisp_node_t *n;
@@ -41,7 +41,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     if (root->child_size < 4
             || root->child_size / 2 == 1
             || root->child[1].value == NULL){
-        BOR_ERR_RET2(err, -1, "Invalid definition.");
+        PDDL_ERR_RET2(err, -1, "Invalid definition.");
     }
 
     a = pddlActionsAddEmpty(&pddl->action);
@@ -58,12 +58,12 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
 
             ret = pddlParamsParseAgent(&a->param, root, i, &pddl->type, err);
             if (ret < 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             i = ret - 2;
 
         }else if (root->child[i].kw == PDDL_KW_PARAMETERS){
             if (pddlParamsParse(&a->param, n, &pddl->type, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
 
         }else if (root->child[i].kw == PDDL_KW_PRE){
             // Skip empty preconditions, i.e., () or (and)
@@ -75,9 +75,9 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
                      "Precondition of the action `%s': ", a->name);
             a->pre = pddlCondParse(n, pddl, &a->param, err_prefix, err);
             if (a->pre == NULL)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             if (pddlCondCheckPre(a->pre, pddl->require, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             pddlCondSetPredRead(a->pre, &pddl->pred);
 
         }else if (root->child[i].kw == PDDL_KW_EFF){
@@ -88,9 +88,9 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
                      "Effect of the action `%s': ", a->name);
             a->eff = pddlCondParse(n, pddl, &a->param, err_prefix, err);
             if (a->eff == NULL)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             if (pddlCondCheckEff(a->eff, pddl->require, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             pddlCondSetPredReadWriteEff(a->eff, &pddl->pred);
 
         }else{
@@ -116,7 +116,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     return 0;
 }
 
-int pddlActionsParse(pddl_t *pddl, bor_err_t *err)
+int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
 {
     const pddl_lisp_node_t *root = &pddl->domain_lisp->root;
     const pddl_lisp_node_t *n;
@@ -125,7 +125,7 @@ int pddlActionsParse(pddl_t *pddl, bor_err_t *err)
         n = root->child + i;
         if (pddlLispNodeHeadKw(n) == PDDL_KW_ACTION){
             if (parseAction(pddl, n, err) != 0){
-                BOR_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
+                PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
                                       " on line %d: ",
                                       pddl->domain_lisp->filename, n->lineno);
             }
@@ -341,14 +341,14 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     pddl_cond_t *c;
 
     if (a->pre->type != PDDL_COND_AND){
-        BOR_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
+        PDDL_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
     pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
     PDDL_LIST_FOR_EACH(&pre->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM){
-            BOR_FATAL("Precondition of the action `%s' is"
+            PDDL_FATAL("Precondition of the action `%s' is"
                       " not a flatten conjuction (conjuction contains"
                       " something else besides atoms).", a->name);
         }

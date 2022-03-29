@@ -18,7 +18,7 @@
  */
 
 #include "alloc.h"
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include "pddl/trans_system_abstr_map.h"
 #include "assert.h"
 
@@ -42,7 +42,7 @@ void pddlTransSystemAbstrMapFree(pddl_trans_system_abstr_map_t *map)
 void pddlTransSystemAbstrMapFinalize(pddl_trans_system_abstr_map_t *map)
 {
     if (map->map_num_states >= 0){
-        BOR_FATAL2("This function can be called only on mapping that wasn't"
+        PDDL_FATAL2("This function can be called only on mapping that wasn't"
                    "finalized yet!");
     }
 
@@ -71,7 +71,7 @@ void pddlTransSystemAbstrMapPruneState(pddl_trans_system_abstr_map_t *map,
                                        int state)
 {
     if (map->map_num_states >= 0){
-        BOR_FATAL2("This function can be called only on mapping that wasn't"
+        PDDL_FATAL2("This function can be called only on mapping that wasn't"
                    "finalized yet!");
     }
     map->map[state] = -1;
@@ -82,7 +82,7 @@ void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
                                      const pddl_iset_t *states)
 {
     if (map->map_num_states >= 0){
-        BOR_FATAL2("This function can be called only on mapping that wasn't"
+        PDDL_FATAL2("This function can be called only on mapping that wasn't"
                    "finalized yet!");
     }
     if (pddlISetSize(states) <= 1)

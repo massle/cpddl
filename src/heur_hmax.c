@@ -43,7 +43,7 @@ static int heurEstimate(pddl_heur_t *_h,
     return pddlHMax(&h->hmax, node->state, &h->fdr->var);
 }
 
-pddl_heur_t *pddlHeurHMax(const pddl_fdr_t *fdr, bor_err_t *err)
+pddl_heur_t *pddlHeurHMax(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
     pddl_heur_hmax_t *h = ALLOC(pddl_heur_hmax_t);
     bzero(h, sizeof(*h));

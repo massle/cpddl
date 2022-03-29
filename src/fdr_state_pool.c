@@ -39,7 +39,7 @@ struct state_id_arr {
     } el_arr;
     uint16_t size;
     uint16_t alloc;
-} bor_packed;
+} pddl_packed;
 typedef struct state_id_arr state_id_arr_t;
 
 static void stateIDArrAdd(state_id_arr_t *arr, pddl_state_id_t id)
@@ -64,7 +64,7 @@ static void stateIDArrAdd(state_id_arr_t *arr, pddl_state_id_t id)
         }
 
         if (arr->alloc <= arr->size){
-            BOR_FATAL("There is too much pressure on the hash table"
+            PDDL_FATAL("There is too much pressure on the hash table"
                       "resulting in too many elements sharing the same"
                       "bucket. (The size of the bucket does not fit in %lu"
                       "bytes.)",
@@ -201,12 +201,12 @@ static void htablePrintStats(const htable_t *ht)
             cur += writ;
         }
     }
-    BOR_INFO(ht->state_pool->err, "State pool: rehashing stats %s", info);
+    PDDL_INFO(ht->state_pool->err, "State pool: rehashing stats %s", info);
 }
 
 static void htableResize(htable_t *ht, size_t size)
 {
-    BOR_INFO(ht->state_pool->err, "State pool: rehashing size: %lu,"
+    PDDL_INFO(ht->state_pool->err, "State pool: rehashing size: %lu,"
                                   " new-size: %lu, elements: %lu",
              ht->size, size, ht->num_elements);
     htablePrintStats(ht);
@@ -219,12 +219,12 @@ static void htableResize(htable_t *ht, size_t size)
         htableInsert(ht, id, packed_state);
     }
 
-    BOR_INFO2(ht->state_pool->err, "State pool: rehashing DONE");
+    PDDL_INFO2(ht->state_pool->err, "State pool: rehashing DONE");
 }
 
 void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
                           const pddl_fdr_vars_t *vars,
-                          bor_err_t *err)
+                          pddl_err_t *err)
 {
     bzero(state_pool, sizeof(*state_pool));
     state_pool->err = err;
@@ -237,7 +237,7 @@ void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
                                       NULL, NULL);
 
     state_pool->htable = htableNew(state_pool);
-    BOR_INFO(err, "State pool created. bytes per state: %d", (int)node_size);
+    PDDL_INFO(err, "State pool created. bytes per state: %d", (int)node_size);
 }
 
 void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool)

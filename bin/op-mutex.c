@@ -30,7 +30,7 @@ struct options {
     const char *op_mutex_out;
 } opt;
 
-bor_err_t err = BOR_ERR_INIT;
+pddl_err_t err = PDDL_ERR_INIT;
 pddl_files_t files;
 pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
 pddl_t pddl;
@@ -183,13 +183,13 @@ static int readOpts(int *argc, char *argv[])
         opt.no_ground_prune = 1;
 
     if (*argc == 2){
-        BOR_INFO(&err, "Input file: '%s'", argv[1]);
+        PDDL_INFO(&err, "Input file: '%s'", argv[1]);
         if (pddlFiles1(&files, argv[1], &err) != 0)
-            BOR_TRACE_RET(&err, -1);
+            PDDL_TRACE_RET(&err, -1);
     }else{ // *argc == 3
-        BOR_INFO(&err, "Input files: '%s' and '%s'", argv[1], argv[2]);
+        PDDL_INFO(&err, "Input files: '%s' and '%s'", argv[1], argv[2]);
         if (pddlFiles(&files, argv[1], argv[2], &err) != 0)
-            BOR_TRACE_RET(&err, -1);
+            PDDL_TRACE_RET(&err, -1);
     }
 
     return 0;
@@ -197,15 +197,15 @@ static int readOpts(int *argc, char *argv[])
 
 static int readPDDL(void)
 {
-    BOR_INFO2(&err, "Reading PDDL ...");
-    BOR_INFO(&err, "PDDL option no-adl: %d", opt.not_force_adl);
+    PDDL_INFO2(&err, "Reading PDDL ...");
+    PDDL_INFO(&err, "PDDL option no-adl: %d", opt.not_force_adl);
 
     if (opt.not_force_adl)
         pddl_cfg.force_adl = 0;
 
     if (pddlInit(&pddl, files.domain_pddl, files.problem_pddl,
                  &pddl_cfg, &err) != 0){
-        BOR_TRACE_RET(&err, -1);
+        PDDL_TRACE_RET(&err, -1);
     }
 
     pddlNormalize(&pddl);
@@ -213,12 +213,12 @@ static int readPDDL(void)
         pddlCompileAwayCondEff(&pddl);
     pddlCheckSizeTypes(&pddl);
 
-    BOR_INFO(&err, "Number of PDDL Types: %d", pddl.type.type_size);
-    BOR_INFO(&err, "Number of PDDL Objects: %d", pddl.obj.obj_size);
-    BOR_INFO(&err, "Number of PDDL Predicates: %d", pddl.pred.pred_size);
-    BOR_INFO(&err, "Number of PDDL Functions: %d", pddl.func.pred_size);
-    BOR_INFO(&err, "Number of PDDL Actions: %d", pddl.action.action_size);
-    BOR_INFO(&err, "PDDL Metric: %d", pddl.metric);
+    PDDL_INFO(&err, "Number of PDDL Types: %d", pddl.type.type_size);
+    PDDL_INFO(&err, "Number of PDDL Objects: %d", pddl.obj.obj_size);
+    PDDL_INFO(&err, "Number of PDDL Predicates: %d", pddl.pred.pred_size);
+    PDDL_INFO(&err, "Number of PDDL Functions: %d", pddl.func.pred_size);
+    PDDL_INFO(&err, "Number of PDDL Actions: %d", pddl.action.action_size);
+    PDDL_INFO(&err, "PDDL Metric: %d", pddl.metric);
     fflush(stdout);
     fflush(stderr);
 
@@ -227,13 +227,13 @@ static int readPDDL(void)
 
 static int liftedMGroups(void)
 {
-    BOR_INFO2(&err, "");
-    BOR_INFO2(&err, "Inference of lifted mutex groups ...");
-    BOR_INFO(&err, "Lifted mutex groups option lmg-fd: %d",
+    PDDL_INFO2(&err, "");
+    PDDL_INFO2(&err, "Inference of lifted mutex groups ...");
+    PDDL_INFO(&err, "Lifted mutex groups option lmg-fd: %d",
              opt.lifted_mgroup_fd);
-    BOR_INFO(&err, "Lifted mutex groups option lmg-max-candidates: %d",
+    PDDL_INFO(&err, "Lifted mutex groups option lmg-max-candidates: %d",
              opt.lifted_mgroup_max_candidates);
-    BOR_INFO(&err, "Lifted mutex groups option lmg-max-mgroups: %d",
+    PDDL_INFO(&err, "Lifted mutex groups option lmg-max-mgroups: %d",
              opt.lifted_mgroup_max_mgroups);
 
     lifted_mgroups_limits.max_candidates = opt.lifted_mgroup_max_candidates;
@@ -255,13 +255,13 @@ static int liftedMGroups(void)
 
 static int groundStrips(void)
 {
-    BOR_INFO2(&err, "");
-    BOR_INFO2(&err, "Grounding of STRIPS ...");
-    BOR_INFO(&err, "Grounding of STRIPS option no-ground-prune: %d",
+    PDDL_INFO2(&err, "");
+    PDDL_INFO2(&err, "Grounding of STRIPS ...");
+    PDDL_INFO(&err, "Grounding of STRIPS option no-ground-prune: %d",
              opt.no_ground_prune);
-    BOR_INFO(&err, "Grounding of STRIPS option no-ground-prune-pre: %d",
+    PDDL_INFO(&err, "Grounding of STRIPS option no-ground-prune-pre: %d",
              opt.no_ground_prune_pre);
-    BOR_INFO(&err, "Grounding of STRIPS option no-ground-prune-dead-end: %d",
+    PDDL_INFO(&err, "Grounding of STRIPS option no-ground-prune-dead-end: %d",
              opt.no_ground_prune_dead_end);
 
     ground_cfg.lifted_mgroups = &lifted_mgroups;
@@ -275,26 +275,26 @@ static int groundStrips(void)
         ground_cfg.prune_op_dead_end = 0;
 
     if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
-        BOR_INFO2(&err, "Grounding failed.");
-        BOR_TRACE_RET(&err, -1);
+        PDDL_INFO2(&err, "Grounding failed.");
+        PDDL_TRACE_RET(&err, -1);
     }
 
     if (opt.compile_away_cond_eff)
         pddlStripsCompileAwayCondEff(&strips);
 
-    BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
-    BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+    PDDL_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+    PDDL_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
 
     int count = 0;
     for (int i = 0; i < strips.op.op_size; ++i){
         if (strips.op.op[i]->cond_eff_size > 0)
             ++count;
     }
-    BOR_INFO(&err, "Number of Strips Operators"
+    PDDL_INFO(&err, "Number of Strips Operators"
             " with Conditional Effects: %d", count);
-    BOR_INFO(&err, "Goal is unreachable: %d",
+    PDDL_INFO(&err, "Goal is unreachable: %d",
             strips.goal_is_unreachable);
-    BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+    PDDL_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
     fflush(stdout);
     fflush(stderr);
 
@@ -303,18 +303,18 @@ static int groundStrips(void)
 
 static int groundMGroups(void)
 {
-    BOR_INFO2(&err, "");
-    BOR_INFO2(&err, "Grounding mutex groups ...");
+    PDDL_INFO2(&err, "");
+    PDDL_INFO2(&err, "Grounding mutex groups ...");
 
     pddlMGroupsGround(&mgroups, &pddl, &lifted_mgroups, &strips);
     pddlMGroupsSetExactlyOne(&mgroups, &strips);
     pddlMGroupsSetGoal(&mgroups, &strips);
-    BOR_INFO(&err, "Found %d mutex groups", mgroups.mgroup_size);
+    PDDL_INFO(&err, "Found %d mutex groups", mgroups.mgroup_size);
 
     pddlMGroupsRemoveSubsets(&mgroups);
     pddlMGroupsRemoveSmall(&mgroups, 1);
     pddlMGroupsSortUniq(&mgroups);
-    BOR_INFO(&err, "Found %d maximal non-unit mutex groups, %d exactly-one",
+    PDDL_INFO(&err, "Found %d maximal non-unit mutex groups, %d exactly-one",
              mgroups.mgroup_size,
              pddlMGroupsNumExactlyOne(&mgroups));
 
@@ -327,13 +327,13 @@ static int inferMutexGroups(void)
         return 0;
 
     if (strips.has_cond_eff){
-        BOR_INFO2(&err, "fam-groups and h^2 disabled because the problem has"
+        PDDL_INFO2(&err, "fam-groups and h^2 disabled because the problem has"
                 " conditional effects.");
         return 0;
     }
 
-    BOR_INFO2(&err, "");
-    BOR_INFO2(&err, "Inference of mutex groups...");
+    PDDL_INFO2(&err, "");
+    PDDL_INFO2(&err, "Inference of mutex groups...");
 
     if (opt.fam){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
@@ -343,33 +343,33 @@ static int inferMutexGroups(void)
             pddlMGroupsInitEmpty(&mgroups);
         }
         if (pddlFAMGroupsInfer(&mgroups, &strips, &cfg, &err) != 0){
-            BOR_TRACE_RET(&err, -1);
+            PDDL_TRACE_RET(&err, -1);
         }
         if (opt.fam_lmg)
             pddlMGroupsRemoveSubsets(&mgroups);
-        BOR_INFO(&err, "Found %d fam-groups.", mgroups.mgroup_size);
+        PDDL_INFO(&err, "Found %d fam-groups.", mgroups.mgroup_size);
 
     }else if (opt.h2_mgroup){
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){
-            BOR_INFO2(&err, "h^2 fw failed.");
-            BOR_TRACE_RET(&err, -1);
+            PDDL_INFO2(&err, "h^2 fw failed.");
+            PDDL_TRACE_RET(&err, -1);
         }
 
         // Clean mgroups if we want only h^2 mutex groups
         pddlMGroupsFree(&mgroups);
         pddlMGroupsInitEmpty(&mgroups);
-        BOR_INFO2(&err, "Inference of h^2 mutex groups...");
+        PDDL_INFO2(&err, "Inference of h^2 mutex groups...");
         pddlMutexPairsInferMutexGroups(&mutex, &mgroups, &err);
-        BOR_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
+        PDDL_INFO(&err, "Found %d h^2 mutex groups.", mgroups.mgroup_size);
         pddlMutexPairsFree(&mutex);
     }
 
     pddlMGroupsSetExactlyOne(&mgroups, &strips);
     pddlMGroupsSetGoal(&mgroups, &strips);
 
-    BOR_INFO2(&err, "Inference of mutex groups DONE.");
+    PDDL_INFO2(&err, "Inference of mutex groups DONE.");
 
     return 0;
 }
@@ -395,13 +395,13 @@ static void reduceStrips(const pddl_iset_t *rm_fact, const pddl_iset_t *rm_op)
 static int pruneStripsFixpointH2FwBw(void)
 {
     if (strips.has_cond_eff){
-        BOR_INFO2(&err, "h^2 disabled because the problem has"
+        PDDL_INFO2(&err, "h^2 disabled because the problem has"
                         " conditional effects.");
         return 0;
     }
 
-    BOR_INFO2(&err, "");
-    BOR_INFO2(&err, "Fixpoint pruning using h^2 fw/bw...");
+    PDDL_INFO2(&err, "");
+    PDDL_INFO2(&err, "Fixpoint pruning using h^2 fw/bw...");
 
     PDDL_ISET(rm_fact);
     PDDL_ISET(rm_op);
@@ -415,7 +415,7 @@ static int pruneStripsFixpointH2FwBw(void)
         pddlISetEmpty(&rm_op);
         if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op,
                                     NULL, &err) != 0){
-            BOR_TRACE_RET(&err, -1);
+            PDDL_TRACE_RET(&err, -1);
         }
         reduceStrips(&rm_fact, &rm_op);
 
@@ -423,7 +423,7 @@ static int pruneStripsFixpointH2FwBw(void)
         pddlISetEmpty(&rm_op);
         pddl_mg_strips_t mg_strips;
         pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-        BOR_INFO(&err, "  MG-Strips created for h^2 fw/bw with %d facts,"
+        PDDL_INFO(&err, "  MG-Strips created for h^2 fw/bw with %d facts,"
                        " %d ops, and %d mgroups",
                 mg_strips.strips.fact.fact_size,
                 mg_strips.strips.op.op_size,
@@ -432,8 +432,8 @@ static int pruneStripsFixpointH2FwBw(void)
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
                        &rm_fact, &rm_op, 0., &err) != 0){
-            BOR_INFO2(&err, "h^2 fw/bw failed.");
-            BOR_TRACE_RET(&err, -1);
+            PDDL_INFO2(&err, "h^2 fw/bw failed.");
+            PDDL_TRACE_RET(&err, -1);
         }
         pddlMGStripsFree(&mg_strips);
         reduceStrips(&rm_fact, &rm_op);
@@ -449,13 +449,13 @@ static int pruneStripsFixpointH2FwBw(void)
     pddlISetFree(&rm_fact);
     pddlISetFree(&rm_op);
 
-    BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
-    BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
-    BOR_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
-    BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
-    BOR_INFO(&err, "Mutex pairs after reduction: %d", mutex.num_mutex_pairs);
-    BOR_INFO(&err, "Mutex groups after reduction: %d", mgroups.mgroup_size);
-    BOR_INFO2(&err, "Fixpoint pruning h^2 fw/bw DONE.");
+    PDDL_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+    PDDL_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+    PDDL_INFO(&err, "Goal is unreachable: %d", strips.goal_is_unreachable);
+    PDDL_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+    PDDL_INFO(&err, "Mutex pairs after reduction: %d", mutex.num_mutex_pairs);
+    PDDL_INFO(&err, "Mutex groups after reduction: %d", mgroups.mgroup_size);
+    PDDL_INFO2(&err, "Fixpoint pruning h^2 fw/bw DONE.");
     fflush(stdout);
     fflush(stderr);
     return 0;
@@ -475,7 +475,7 @@ static int inferOpMutex(void)
 {
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, &strips, &mgroups);
-    BOR_INFO(&err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
+    PDDL_INFO(&err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
                    " input mgroups: %d",
              mg_strips.strips.fact.fact_size,
              mg_strips.strips.op.op_size,
@@ -489,8 +489,8 @@ static int inferOpMutex(void)
         size_t excess_mem = 1024L * 1024L * opt.hm_excess_mem;
         if (pddlHm(opt.hm, &mg_strips.strips, &mutex, NULL, NULL,
                    opt.hm_time_limit, excess_mem, &err) != 0){
-            BOR_INFO2(&err, "h^2 failed.");
-            BOR_TRACE_RET(&err, -1);
+            PDDL_INFO2(&err, "h^2 failed.");
+            PDDL_TRACE_RET(&err, -1);
         }
     }
 
@@ -502,14 +502,14 @@ static int inferOpMutex(void)
         ret = pddlOpMutexInferTransSystems(&opm, &mg_strips, &mutex,
                                            opt.op_mutex_ts, max_mem, 1, &err);
         if (ret < 0)
-            BOR_TRACE_RET(&err, ret);
+            PDDL_TRACE_RET(&err, ret);
     }
 
     if (opt.op_mutex_op_fact > 1){
         ret = pddlOpMutexInferHmOpFactCompilation(&opm, opt.op_mutex_op_fact,
                                                   &mg_strips.strips, &err);
         if (ret < 0)
-            BOR_TRACE_RET(&err, ret);
+            PDDL_TRACE_RET(&err, ret);
     }
 
     if (opt.op_mutex_hm_op > 1){
@@ -517,7 +517,7 @@ static int inferOpMutex(void)
                                            &mg_strips.strips, &mutex,
                                            NULL, &err);
         if (ret < 0)
-            BOR_TRACE_RET(&err, ret);
+            PDDL_TRACE_RET(&err, ret);
     }
 
     if (opt.op_mutex_out != NULL){
@@ -525,7 +525,7 @@ static int inferOpMutex(void)
         if (fout == NULL){
             pddlOpMutexPairsFree(&opm);
             pddlMGStripsFree(&mg_strips);
-            BOR_ERR_RET(&err, -1, "Could not open file '%s'\n",
+            PDDL_ERR_RET(&err, -1, "Could not open file '%s'\n",
                         opt.op_mutex_out);
         }
         int o1, o2;
@@ -543,8 +543,8 @@ static int inferOpMutex(void)
 
 int main(int argc, char *argv[])
 {
-    borErrWarnEnable(&err, stderr);
-    borErrInfoEnable(&err, stderr);
+    pddlErrWarnEnable(&err, stderr);
+    pddlErrInfoEnable(&err, stderr);
 
     if (readOpts(&argc, argv) != 0
             || readPDDL() != 0
@@ -553,9 +553,9 @@ int main(int argc, char *argv[])
             || groundMGroups() != 0
             || mgroupsAndPruning() != 0
             || inferOpMutex() != 0){
-        if (borErrIsSet(&err)){
+        if (pddlErrIsSet(&err)){
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
         }
         return -1;
     }

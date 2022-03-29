@@ -43,7 +43,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    op_t *op,
                    pddl_cost_t *op_heur_change,
                    int sum_op_heur_change_to_cost,
-                   bor_err_t *err)
+                   pddl_err_t *err)
 {
     bzero(op, sizeof(*op));
     op->op_id = op_id;
@@ -57,7 +57,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
     // Disambiguate preconditions
     if (pddlDisambiguate(&constr->disambiguate, &op->pre, NULL,
                          1, 0, NULL, &op->pre) < 0){
-        BOR_INFO(err, "Operator %d:(%s) skipped, because it"
+        PDDL_INFO(err, "Operator %d:(%s) skipped, because it"
                 " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
         return;
@@ -88,7 +88,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
 
     if (!pddlISetIsDisjoint(&op->neg_pre, &op->pre)
             || !pddlISetIsDisjoint(&op->neg_eff, &op->eff)){
-        BOR_INFO(err, "Operator %d:(%s) skipped, because it"
+        PDDL_INFO(err, "Operator %d:(%s) skipped, because it"
                       " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
     }
@@ -122,7 +122,7 @@ static void opsInit(pddl_symbolic_constr_t *constr,
                     op_t *ops,
                     pddl_cost_t *op_heur_change,
                     int sum_op_heur_change_to_cost,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         opInit(constr, strips->op.op[op_id], use_op_constr,
@@ -171,7 +171,7 @@ static void transInit(pddl_symbolic_vars_t *vars,
                       const op_t *op,
                       pddl_symbolic_trans_t *tr,
                       int use_op_constr,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     ASSERT(!op->is_dead);
 
@@ -323,7 +323,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
                               int use_op_constr,
                               int max_nodes,
                               float max_time,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
@@ -340,7 +340,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     for (int i = 0; i < T_size; ++i)
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
-    BOR_INFO(err, "Initialized individual trans BDDs: cost: %s,"
+    PDDL_INFO(err, "Initialized individual trans BDDs: cost: %s,"
                   " heur change: %s ops: %d",
              F_COST(&trset->cost),
              F_COST(&trset->heur_change),
@@ -404,7 +404,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     long nodes = 0;
     for (int i = 0; i < trset->trans_size; ++i)
         nodes += pddlBDDSize(trset->trans[i].bdd);
-    BOR_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
+    PDDL_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
                   " nodes: %lu, %s",
              trset->cost, pddlISetSize(&trset->op), trset->trans_size,
              nodes, (T_size > 1 ? "(time limit reached)" : ""));
@@ -444,7 +444,7 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                float max_time,
                                pddl_cost_t *op_heur_change,
                                int sum_op_heur_change_to_cost,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;

@@ -428,7 +428,7 @@ static int allocateVars(vars_t *vars,
     }else if (method == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
         allocateLargestMulti(vars, strips, mg, mutex);
     }else{
-        BOR_FATAL2("Unspecified method for variable allocation.");
+        PDDL_FATAL2("Unspecified method for variable allocation.");
     }
 
     allocateUncoveredSingleFacts(vars, strips, mutex, flags);
@@ -735,7 +735,7 @@ void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)
 void pddlFDRVarsPrintTable(const pddl_fdr_vars_t *vars,
                            int linesize,
                            FILE *fout,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     char line[256];
     pddl_outboxes_t boxes;

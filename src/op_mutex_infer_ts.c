@@ -141,7 +141,7 @@ static int opMutexInfer(const pddl_trans_systems_t *tss,
                         int ts_id,
                         int fd,
                         pddl_op_mutex_pairs_t *m,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     const pddl_trans_system_t *ts = tss->ts[ts_id];
     int num_ops = tss->label.label_size;
@@ -177,7 +177,7 @@ static int transformTransSystemAndFindOpMutexes(int fd,
                                                 pddl_trans_systems_t *tss,
                                                 const pddl_iset_t *ts_ids,
                                                 int prune_dead_labels,
-                                                bor_err_t *err)
+                                                pddl_err_t *err)
 {
     int ts_last;
 
@@ -283,7 +283,7 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
                                      size_t max_mem_in_mb,
                                      const pddl_iset_t *ts_ids,
                                      int prune_dead_labels,
-                                     bor_err_t *err)
+                                     pddl_err_t *err)
 {
     int fd[2];
 
@@ -321,16 +321,16 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         waitpid(pid, &wstatus, 0);
         if (WIFEXITED(wstatus)){
             if (WEXITSTATUS(wstatus) != 0){
-                BOR_ERR2(err, "Inference of op-mutexes failed.");
+                PDDL_ERR2(err, "Inference of op-mutexes failed.");
                 ret = -1;
             }
         }else if (WIFSIGNALED(wstatus)){
             int signum = WTERMSIG(wstatus);
-            BOR_ERR(err, "Inference of op-mutexes failed: received signal"
+            PDDL_ERR(err, "Inference of op-mutexes failed: received signal"
                          "'%s'", strsignal(signum));
             ret = -1;
         }else{
-            BOR_ERR2(err, "Inference of op-mutexes failed for unknown reason");
+            PDDL_ERR2(err, "Inference of op-mutexes failed for unknown reason");
             // TODO: analyase what happened!
             // TODO: Handle out of memory error printout in child!
             ret = -1;
@@ -347,7 +347,7 @@ static int findOpMutexesRec(pddl_op_mutex_pairs_t *m,
                             const pddl_iset_t *ts_ids,
                             int size,
                             int prune_dead_labels,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     if (size == 0){
         if (max_mem_mb > 0){
@@ -389,22 +389,22 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  int merge_size,
                                  size_t max_mem_in_mb,
                                  int prune_dead_labels,
-                                 bor_err_t *err)
+                                 pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "OPM ");
-    BOR_INFO(err, "Computing op-mutex pairs from abstract transition systems."
+    PDDL_INFO_PREFIX_PUSH(err, "OPM ");
+    PDDL_INFO(err, "Computing op-mutex pairs from abstract transition systems."
                   " merge-size: %d", merge_size);
     pddl_trans_systems_t tss;
     pddlTransSystemsInit(&tss, mg_strips, mutex);
-    BOR_INFO(err, "  Created %d atomic abstractions", tss.ts_size);
+    PDDL_INFO(err, "  Created %d atomic abstractions", tss.ts_size);
     if (prune_dead_labels)
         pddlTransSystemsCollectDeadLabelsFromAll(&tss);
     int ret = findOpMutexesRec(m, &tss, max_mem_in_mb, NULL, merge_size,
                                prune_dead_labels, err);
     pddlTransSystemsFree(&tss);
-    BOR_INFO(err, "Computing op-mutex pairs from abstract transition"
+    PDDL_INFO(err, "Computing op-mutex pairs from abstract transition"
                   " systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
                   merge_size, m->num_op_mutex_pairs);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return ret;
 }

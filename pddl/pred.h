@@ -58,7 +58,7 @@ typedef struct pddl_preds pddl_preds_t;
 /**
  * Parse :predicates from domain PDDL.
  */
-int pddlPredsParse(pddl_t *pddl, bor_err_t *err);
+int pddlPredsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -68,7 +68,7 @@ void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src);
 /**
  * Parse :functions from domain PDDL.
  */
-int pddlFuncsParse(pddl_t *pddl, bor_err_t *err);
+int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Frees allocated resources.

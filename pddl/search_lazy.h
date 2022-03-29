@@ -34,7 +34,7 @@ extern "C" {
 struct pddl_search_lazy {
     const pddl_fdr_t *fdr;
     pddl_heur_t *heur;
-    bor_err_t *err;
+    pddl_err_t *err;
     pddl_fdr_state_space_t state_space;
     pddl_open_list_t *list;
     pddl_fdr_app_op_t app_op;
@@ -50,7 +50,7 @@ typedef struct pddl_search_lazy pddl_search_lazy_t;
 
 pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
                                    pddl_heur_t *heur,
-                                   bor_err_t *err);
+                                   pddl_err_t *err);
 void pddlSearchLazyDel(pddl_search_lazy_t *lazy);
 int pddlSearchLazyInitStep(pddl_search_lazy_t *lazy);
 int pddlSearchLazyStep(pddl_search_lazy_t *lazy);

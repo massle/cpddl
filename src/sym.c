@@ -162,7 +162,7 @@ void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {
     bzero(sym, sizeof(*sym));
     if (strips->has_cond_eff){
-        BOR_FATAL2("pddlStripsInitSymPDG() does not support conditional"
+        PDDL_FATAL2("pddlStripsInitSymPDG() does not support conditional"
                    " effects.");
     }
 
@@ -327,7 +327,7 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 
 #include "pddl/sym.h"
 
-#define ERROR BOR_FATAL2("sym module requires bliss library")
+#define ERROR PDDL_FATAL2("sym module requires bliss library")
 
 void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {

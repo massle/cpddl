@@ -26,7 +26,7 @@
 static void prepareMutex(pddl_mutex_pairs_t *mutex,
                          const pddl_mutex_pairs_t *mutex_in,
                          const pddl_mgroups_t *mgroups_in,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     pddlMutexPairsInitCopy(mutex, mutex_in);
     for (int mgi = 0; mgi < mgroups_in->mgroup_size; ++mgi)
@@ -37,22 +37,22 @@ static void prepareStrips(pddl_strips_t *strips,
                           const pddl_strips_t *strips_in,
                           const pddl_mutex_pairs_t *mutex,
                           const pddl_red_black_fdr_config_t *cfg,
-                          bor_err_t *err)
+                          pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Clean Strips: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Clean Strips: ");
     pddlStripsInitCopy(strips, strips_in);
     PDDL_ISET(unreachable_ops);
     pddlStripsFindUnreachableOps(strips, mutex, &unreachable_ops, err);
     pddlStripsReduce(strips, NULL, &unreachable_ops);
     pddlStripsRemoveUselessDelEffs(strips, mutex, NULL, err);
     pddlISetFree(&unreachable_ops);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
 }
 
 static void prepareMGroups(pddl_mgroups_t *mgroups,
                            const pddl_black_mgroups_t *black_mgroups,
                            const pddl_mgroups_t *mgroups_in,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     PDDL_ISET(black_facts);
     pddlMGroupsInitEmpty(mgroups);
@@ -73,14 +73,14 @@ static void prepareMGroups(pddl_mgroups_t *mgroups,
     }
     //pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
     pddlISetFree(&black_facts);
-    BOR_INFO(err, "Created %d mutex groups of which %d are black",
+    PDDL_INFO(err, "Created %d mutex groups of which %d are black",
              mgroups->mgroup_size, black_mgroups->mgroup_size);
 }
 
 static void setBlackVars(pddl_fdr_t *fdr,
                          const pddl_black_mgroups_t *black_mgroups,
                          int *none_of_those,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     int num_none_of_those = 0;
     for (int mgi = 0; mgi < black_mgroups->mgroup_size; ++mgi){
@@ -96,7 +96,7 @@ static void setBlackVars(pddl_fdr_t *fdr,
         ASSERT(fdr->var.var[var_id].is_black != 1);
         fdr->var.var[var_id].is_black = 1;
     }
-    BOR_INFO(err, "Black variables with none-of-those: %d", num_none_of_those);
+    PDDL_INFO(err, "Black variables with none-of-those: %d", num_none_of_those);
 }
 
 static void compileAwayRedDelEffs(pddl_strips_t *strips,
@@ -104,7 +104,7 @@ static void compileAwayRedDelEffs(pddl_strips_t *strips,
                                   const pddl_strips_t *strips_in,
                                   const pddl_mgroups_t *mgroups_in,
                                   const pddl_black_mgroups_t *black_mgroups,
-                                  bor_err_t *err)
+                                  pddl_err_t *err)
 {
     PDDL_ISET(black_facts);
     for (int mgi = 0; mgi < black_mgroups->mgroup_size; ++mgi)
@@ -131,7 +131,7 @@ static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
                                 const pddl_strips_t *strips,
                                 const pddl_black_mgroups_t *black_mgroups,
                                 const int *none_of_those,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
     int num_set = 0;
     pddl_strips_fact_cross_ref_t cref;
@@ -158,11 +158,11 @@ static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
             }
         }
     }
-    BOR_INFO(err, "Set %d additional none-of-those preconditions", num_set);
+    PDDL_INFO(err, "Set %d additional none-of-those preconditions", num_set);
     pddlStripsFactCrossRefFree(&cref);
 }
 
-static void fdrStat(const pddl_fdr_t *fdr, bor_err_t *err)
+static void fdrStat(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
     int num_black_vars = 0;
     int num_black_facts = 0;
@@ -177,9 +177,9 @@ static void fdrStat(const pddl_fdr_t *fdr, bor_err_t *err)
             --num_black_facts;
         num_black_facts_with_none_of_those += var->val_size;
     }
-    BOR_INFO(err, "Num black variables: %d", num_black_vars);
-    BOR_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
-    BOR_INFO(err, "Num black FDR facts: %d",
+    PDDL_INFO(err, "Num black variables: %d", num_black_vars);
+    PDDL_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
+    PDDL_INFO(err, "Num black FDR facts: %d",
              num_black_facts_with_none_of_those);
 }
 
@@ -189,7 +189,7 @@ static int constructFDR(pddl_fdr_t *fdr,
                         const pddl_mutex_pairs_t *mutex,
                         const pddl_black_mgroups_t *black_mgroups,
                         const pddl_red_black_fdr_config_t *cfg,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     // Re-create the set of mutex groups
     pddl_mgroups_t mgroups1;
@@ -236,12 +236,12 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                                const pddl_mgroups_t *mgroups_in,
                                const pddl_mutex_pairs_t *mutex_in,
                                const pddl_red_black_fdr_config_t *cfg,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     pddl_timer_t timer;
     pddlTimerStart(&timer);
-    BOR_INFO_PREFIX_PUSH(err, "Black-FDR: ");
-    BOR_INFO2(err, "Construction of FDR with black variables...");
+    PDDL_INFO_PREFIX_PUSH(err, "Black-FDR: ");
+    PDDL_INFO2(err, "Construction of FDR with black variables...");
 
     // Make sure that mutex groups are contained in the mutex pairs
     pddl_mutex_pairs_t mutex;
@@ -268,8 +268,8 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                 pddlBlackMGroupsFree(black_mgroups + i);
             pddlStripsFree(&strips);
             pddlMutexPairsFree(&mutex);
-            BOR_INFO_PREFIX_POP(err);
-            BOR_TRACE_RET(err, -1);
+            PDDL_INFO_PREFIX_POP(err);
+            PDDL_TRACE_RET(err, -1);
         }
         num_created += 1;
     }
@@ -280,13 +280,13 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlMutexPairsFree(&mutex);
 
     pddlTimerStop(&timer);
-    BOR_INFO(err, "Translation took %.2f seconds",
+    PDDL_INFO(err, "Translation took %.2f seconds",
              pddlTimerElapsedInSF(&timer));
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return num_created;
 }
 
-int pddlRedBlackCheck(const pddl_fdr_t *fdr, bor_err_t *err)
+int pddlRedBlackCheck(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
     pddl_cg_t cg;
     pddlCGInit(&cg, &fdr->var, &fdr->op, 1);
@@ -295,7 +295,7 @@ int pddlRedBlackCheck(const pddl_fdr_t *fdr, bor_err_t *err)
     pddlCGInitProjectToBlackVars(&black_cg, &cg, &fdr->var);
     int is_acyclic = pddlCGIsAcyclic(&black_cg);
     if (!is_acyclic)
-        BOR_FATAL2("Black causal graph is not acyclic!");
+        PDDL_FATAL2("Black causal graph is not acyclic!");
 
     pddlCGFree(&black_cg);
     pddlCGFree(&cg);

@@ -89,7 +89,7 @@ int pddlTypesAdd(pddl_types_t *t, const char *name, int parent)
 
 static int setCB(const pddl_lisp_node_t *root,
                  int child_from, int child_to, int child_type, void *ud,
-                 bor_err_t *err)
+                 pddl_err_t *err)
 {
     pddl_types_t *t = ud;
     int pid;
@@ -115,7 +115,7 @@ static int setCB(const pddl_lisp_node_t *root,
     return 0;
 }
 
-int pddlTypesParse(pddl_t *pddl, bor_err_t *e)
+int pddlTypesParse(pddl_t *pddl, pddl_err_t *e)
 {
     pddl_types_t *types;
     const pddl_lisp_node_t *n;
@@ -127,7 +127,7 @@ int pddlTypesParse(pddl_t *pddl, bor_err_t *e)
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_TYPES);
     if (n != NULL){
         if (pddlLispParseTypedList(n, 1, n->child_size, setCB, types, e) != 0){
-            BOR_TRACE_PREPEND_RET(e, -1, "Invalid definition of :types in %s: ",
+            PDDL_TRACE_PREPEND_RET(e, -1, "Invalid definition of :types in %s: ",
                                   pddl->domain_lisp->filename);
         }
     }
@@ -293,7 +293,7 @@ static int pddlTypesEither(pddl_types_t *ts, const pddl_iset_t *either)
 
 
 int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     int tid;
 

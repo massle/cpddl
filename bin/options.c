@@ -224,7 +224,7 @@ static int optLiftedPlannerHeur(const char *tag)
     return 0;
 }
 
-int setOptions(int argc, char *argv[], bor_err_t *err)
+int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
     opt.lifted_planner.search_fn = NULL;
     opt.lifted_planner.heur_fn = NULL;
@@ -416,10 +416,10 @@ int setOptions(int argc, char *argv[], bor_err_t *err)
 
     if (argc == 2){
         if (pddlFiles1(&opt.files, argv[1], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }else{ // argc == 3
         if (pddlFiles(&opt.files, argv[1], argv[2], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
 
     if (opt.max_mem > 0){

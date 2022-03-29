@@ -20,7 +20,7 @@
 #ifndef __PDDL_REQUIRE_H__
 #define __PDDL_REQUIRE_H__
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/common.h>
 #include <pddl/lisp.h>
 
@@ -56,7 +56,7 @@ extern "C" {
 /**
  * Parses :requirements from domain pddl.
  */
-int pddlRequireParse(pddl_t *pddl, bor_err_t *err);
+int pddlRequireParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Print requirements in PDDL format.

@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     pddl_config_t cfg = PDDL_CONFIG_INIT;
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
     pddl_t pddl;
-    bor_err_t err = BOR_ERR_INIT;
+    pddl_err_t err = PDDL_ERR_INIT;
     pddl_strips_t strips;
 
     bzero(&o, sizeof(o));
@@ -42,11 +42,11 @@ int main(int argc, char *argv[])
     }
 
     if (o.quiet){
-        borErrWarnEnable(&err, NULL);
-        borErrInfoEnable(&err, NULL);
+        pddlErrWarnEnable(&err, NULL);
+        pddlErrInfoEnable(&err, NULL);
     }else{
-        borErrWarnEnable(&err, stderr);
-        borErrInfoEnable(&err, stdout);
+        pddlErrWarnEnable(&err, stderr);
+        pddlErrInfoEnable(&err, stdout);
     }
 
     cfg.force_adl = 0;
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     if (pddlInit(&pddl, argv[1], argv[2], &cfg, &err) != 0){
         if (!o.quiet){
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
         }
         return -1;
     }
@@ -66,20 +66,20 @@ int main(int argc, char *argv[])
         pddlCompileAwayCondEff(&pddl);
 
     if (!o.quiet){
-        BOR_INFO(&err, "Number of PDDL Types: %d", pddl.type.type_size);
-        BOR_INFO(&err, "Number of PDDL Objects: %d", pddl.obj.obj_size);
-        BOR_INFO(&err, "Number of PDDL Predicates: %d", pddl.pred.pred_size);
-        BOR_INFO(&err, "Number of PDDL Functions: %d", pddl.func.pred_size);
-        BOR_INFO(&err, "Number of PDDL Actions: %d", pddl.action.action_size);
-        BOR_INFO(&err, "Number of PDDL Metric: %d", pddl.metric);
+        PDDL_INFO(&err, "Number of PDDL Types: %d", pddl.type.type_size);
+        PDDL_INFO(&err, "Number of PDDL Objects: %d", pddl.obj.obj_size);
+        PDDL_INFO(&err, "Number of PDDL Predicates: %d", pddl.pred.pred_size);
+        PDDL_INFO(&err, "Number of PDDL Functions: %d", pddl.func.pred_size);
+        PDDL_INFO(&err, "Number of PDDL Actions: %d", pddl.action.action_size);
+        PDDL_INFO(&err, "Number of PDDL Metric: %d", pddl.metric);
         fflush(stdout);
     }
 
     if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
         if (!o.quiet){
-            BOR_INFO2(&err, "Grounding failed.");
+            PDDL_INFO2(&err, "Grounding failed.");
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
         }
         return -1;
     }
@@ -88,19 +88,19 @@ int main(int argc, char *argv[])
         pddlStripsCompileAwayCondEff(&strips);
 
     if (!o.quiet){
-        BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
-        BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+        PDDL_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+        PDDL_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
 
         int count = 0;
         for (int i = 0; i < strips.op.op_size; ++i){
             if (strips.op.op[i]->cond_eff_size > 0)
                 ++count;
         }
-        BOR_INFO(&err, "Number of Strips Operators"
+        PDDL_INFO(&err, "Number of Strips Operators"
                        " with Conditional Effects: %d", count);
-        BOR_INFO(&err, "Goal is unreachable: %d",
+        PDDL_INFO(&err, "Goal is unreachable: %d",
                  strips.goal_is_unreachable);
-        BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+        PDDL_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
         fflush(stdout);
     }
 

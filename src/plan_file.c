@@ -64,13 +64,13 @@ static void planFileStripsAddState(pddl_plan_file_strips_t *p,
 
 static int readFile(struct parse *parse,
                     const char *filename,
-                    bor_err_t *err,
-                    int (*cb)(struct parse *, const char *, bor_err_t *))
+                    pddl_err_t *err,
+                    int (*cb)(struct parse *, const char *, pddl_err_t *))
 {
     FILE *fin;
 
     if ((fin = fopen(filename, "r")) == NULL)
-        BOR_ERR_RET(err, -1, "Could not open file '%s'", filename);
+        PDDL_ERR_RET(err, -1, "Could not open file '%s'", filename);
 
     int ret = 0;
     size_t len = 0;
@@ -106,7 +106,7 @@ static int readFile(struct parse *parse,
 
 static int parseFDR(struct parse *parse,
                     const char *name,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     pddl_plan_file_fdr_t *p = parse->pfdr;
     int *state = parse->fdr_state;
@@ -126,7 +126,7 @@ static int parseFDR(struct parse *parse,
     }
 
     if (!found){
-        BOR_ERR(err, "Could not find a matching operator for '%s'.", name);
+        PDDL_ERR(err, "Could not find a matching operator for '%s'.", name);
         return -1;
     }
     return 0;
@@ -134,7 +134,7 @@ static int parseFDR(struct parse *parse,
 
 static int parseStrips(struct parse *parse,
                        const char *name,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     pddl_plan_file_strips_t *p = parse->pstrips;
     pddl_iset_t *state = &parse->strips_state;
@@ -157,7 +157,7 @@ static int parseStrips(struct parse *parse,
     }
 
     if (!found){
-        BOR_ERR(err, "Could not find a matching operator for '%s'.", name);
+        PDDL_ERR(err, "Could not find a matching operator for '%s'.", name);
         return -1;
     }
     return 0;
@@ -166,7 +166,7 @@ static int parseStrips(struct parse *parse,
 int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
                         const pddl_fdr_t *fdr,
                         const char *filename,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     bzero(p, sizeof(*p));
     planFileFDRAddState(p, fdr, fdr->init);
@@ -194,7 +194,7 @@ void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p)
 int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
                            const pddl_strips_t *strips,
                            const char *filename,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     bzero(p, sizeof(*p));
     planFileStripsAddState(p, strips, &strips->init);
@@ -218,12 +218,12 @@ void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p)
         FREE(p->state);
 }
 
-int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err)
+int pddlPlanFileParseOptimalCost(const char *filename, pddl_err_t *err)
 {
     FILE *fin;
 
     if ((fin = fopen(filename, "r")) == NULL)
-        BOR_ERR_RET(err, -1, "Could not open file '%s'", filename);
+        PDDL_ERR_RET(err, -1, "Could not open file '%s'", filename);
 
     size_t len = 0;
     char *line = NULL;

@@ -309,9 +309,9 @@ static void pruneRedundantSet(reduce_t *red, const pddl_iset_t *redundant)
     }
 }
 
-static void computeRedundantSets(reduce_t *red, bor_err_t *err)
+static void computeRedundantSets(reduce_t *red, pddl_err_t *err)
 {
-    BOR_INFO2(err, "  --> Computing redundant sets for each symmetry");
+    PDDL_INFO2(err, "  --> Computing redundant sets for each symmetry");
     for (int gi = 0; gi < red->gen_size; ++gi){
         reduce_gen_t *rgen = red->gen + gi;
         if (rgen->is_destroyed){
@@ -322,7 +322,7 @@ static void computeRedundantSets(reduce_t *red, bor_err_t *err)
 
         findRedundantSet(rgen, red);
         /*
-        BOR_INFO(err, "    --> Sym %d: size: %d, destroyed symmetries: %d,"
+        PDDL_INFO(err, "    --> Sym %d: size: %d, destroyed symmetries: %d,"
                       " relevant ops: %d",
                  gi, pddlISetSize(&rgen->redundant_set),
                  rgen->num_destroyed_syms,
@@ -331,7 +331,7 @@ static void computeRedundantSets(reduce_t *red, bor_err_t *err)
     }
 }
 
-static int selectRedundantSet(const reduce_t *red, bor_err_t *err)
+static int selectRedundantSet(const reduce_t *red, pddl_err_t *err)
 {
     int best_size = -1;
     int best_sym_destroyed = INT_MAX;
@@ -361,15 +361,15 @@ void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant_out,
                                      const pddl_strips_t *strips,
                                      const pddl_strips_sym_t *sym,
                                      const pddl_op_mutex_pairs_t *op_mutex,
-                                     bor_err_t *err)
+                                     pddl_err_t *err)
 {
     reduce_t red;
     int change, gen_id;
 
-    BOR_INFO2(err, "Redundant set with op-mutexes and symmetries:");
+    PDDL_INFO2(err, "Redundant set with op-mutexes and symmetries:");
 
     reduceInit(&red, strips, sym, op_mutex);
-    BOR_INFO2(err, "  --> Initialized");
+    PDDL_INFO2(err, "  --> Initialized");
 
     change = 1;
     while (change){
@@ -379,7 +379,7 @@ void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant_out,
         if ((gen_id = selectRedundantSet(&red, err)) >= 0){
             pruneRedundantSet(&red, &red.gen[gen_id].redundant_set);
             change = 1;
-            BOR_INFO(err, "  --> Selected redundant set from symmetry"
+            PDDL_INFO(err, "  --> Selected redundant set from symmetry"
                      " %d with size %d destroying %d symmetries"
                      " :: overall: %d",
                      gen_id,
@@ -389,7 +389,7 @@ void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant_out,
         }
     }
 
-    BOR_INFO(err, "Op-mutex symmetry redundant operators: %d",
+    PDDL_INFO(err, "Op-mutex symmetry redundant operators: %d",
              pddlISetSize(&red.pruned_ops));
 
 

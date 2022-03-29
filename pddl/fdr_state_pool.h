@@ -32,13 +32,13 @@ struct pddl_fdr_state_pool {
     void *htable; /*!< Hash table of the states */
     pddl_state_id_t num_states; /*!< Number of states stored so far */
     pddl_fdr_state_packer_t packer;
-    bor_err_t *err; /*!< Logger */
+    pddl_err_t *err; /*!< Logger */
 };
 typedef struct pddl_fdr_state_pool pddl_fdr_state_pool_t;
 
 void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
                           const pddl_fdr_vars_t *vars,
-                          bor_err_t *err);
+                          pddl_err_t *err);
 void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool);
 
 /**

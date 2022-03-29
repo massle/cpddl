@@ -58,7 +58,7 @@ static int htableEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 }
 
 void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     bzero(state_space, sizeof(*state_space));
     state_space->htable = pddlHTableNew(htableHash, htableEq, NULL);
@@ -66,7 +66,7 @@ void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
                                       MIN_STATES_PER_BLOCK,
                                       NULL, NULL);
 
-    BOR_INFO(err, "State space created. bytes per state node: %d",
+    PDDL_INFO(err, "State space created. bytes per state node: %d",
              (int)sizeof(state_node_t));
 }
 

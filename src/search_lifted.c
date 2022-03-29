@@ -30,7 +30,7 @@ typedef int (*search_step_fn)(pddl_search_lifted_t *);
 
 struct pddl_search_lifted {
     const pddl_t *pddl;
-    bor_err_t *err;
+    pddl_err_t *err;
     pddl_sql_grounder_t *grounder;
     pddl_strips_maker_t strips;
     pddl_strips_state_space_t state_space;
@@ -77,7 +77,7 @@ static int searchInit(pddl_search_lifted_t *s,
                       search_init_step_fn init_step_fn,
                       search_step_fn step_fn,
                       const char *err_prefix,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     s->pddl = pddl;
     s->err = err;
@@ -121,9 +121,9 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
                                     int h_weight,
                                     int is_lazy,
                                     const char *err_prefix,
-                                    bor_err_t *err)
+                                    pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, err_prefix);
+    PDDL_INFO_PREFIX_PUSH(err, err_prefix);
     pddl_search_lifted_bfs_t *bfs;
 
     bfs = ALLOC(pddl_search_lifted_bfs_t);
@@ -137,21 +137,21 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     bfs->is_lazy = is_lazy;
     bfs->list = pddlOpenListSplayTree2();
 
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return &bfs->search;
 }
 
 static void bfsDel(pddl_search_lifted_t *s)
 {
-    bor_err_t *err = s->err;
-    BOR_INFO_PREFIX_PUSH(err, s->err_prefix);
+    pddl_err_t *err = s->err;
+    PDDL_INFO_PREFIX_PUSH(err, s->err_prefix);
     searchFree(s);
 
     pddl_search_lifted_bfs_t *bfs = BFS(s);
     if (bfs->list)
         pddlOpenListDel(bfs->list);
     FREE(bfs);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
 }
 
 
@@ -172,7 +172,7 @@ static void bfsPush(pddl_search_lifted_bfs_t *bfs,
 static int bfsInitStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    BOR_INFO_PREFIX_PUSH(s->err, s->err_prefix);
+    PDDL_INFO_PREFIX_PUSH(s->err, s->err_prefix);
     int ret = PDDL_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
@@ -195,7 +195,7 @@ static int bfsInitStep(pddl_search_lifted_t *s)
         ++s->_stat.evaluated;
     }
 
-    BOR_INFO(s->err, "Heuristic value for the initial state: %d", h_value);
+    PDDL_INFO(s->err, "Heuristic value for the initial state: %d", h_value);
     if (h_value == PDDL_COST_DEAD_END){
         ++s->_stat.dead_end;
         ret = PDDL_SEARCH_UNSOLVABLE;
@@ -204,7 +204,7 @@ static int bfsInitStep(pddl_search_lifted_t *s)
     ASSERT_RUNTIME(s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_NEW);
     bfsPush(bfs, &s->cur_node, h_value);
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
-    BOR_INFO_PREFIX_POP(s->err);
+    PDDL_INFO_PREFIX_POP(s->err);
     return ret;
 }
 
@@ -259,7 +259,7 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
 static int bfsStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    BOR_INFO_PREFIX_PUSH(s->err, s->err_prefix);
+    PDDL_INFO_PREFIX_PUSH(s->err, s->err_prefix);
 
     ++s->_stat.steps;
 
@@ -267,7 +267,7 @@ static int bfsStep(pddl_search_lifted_t *s)
     int cur_cost[2];
     pddl_state_id_t cur_state_id;
     if (pddlOpenListPop(bfs->list, &cur_state_id, cur_cost) != 0){
-        BOR_INFO_PREFIX_POP(s->err);
+        PDDL_INFO_PREFIX_POP(s->err);
         return PDDL_SEARCH_UNSOLVABLE;
     }
 
@@ -276,7 +276,7 @@ static int bfsStep(pddl_search_lifted_t *s)
 
     // Skip already closed nodes
     if (s->cur_node.status != PDDL_STRIPS_STATE_SPACE_STATUS_OPEN){
-        BOR_INFO_PREFIX_POP(s->err);
+        PDDL_INFO_PREFIX_POP(s->err);
         return PDDL_SEARCH_CONT;
     }
 
@@ -290,7 +290,7 @@ static int bfsStep(pddl_search_lifted_t *s)
     // Check whether it is a goal
     if (isGoal(s)){
         extractPlan(s, cur_state_id);
-        BOR_INFO_PREFIX_POP(s->err);
+        PDDL_INFO_PREFIX_POP(s->err);
         return PDDL_SEARCH_FOUND;
     }
 
@@ -323,7 +323,7 @@ static int bfsStep(pddl_search_lifted_t *s)
                                        next_state_id, &s->next_node);
         bfsInsertNextState(bfs, args_id, cost, h_value);
     }
-    BOR_INFO_PREFIX_POP(s->err);
+    PDDL_INFO_PREFIX_POP(s->err);
     return PDDL_SEARCH_CONT;
 }
 
@@ -352,11 +352,11 @@ void pddlSearchLiftedStat(const pddl_search_lifted_t *s,
     stat->generated = s->state_space.num_states;
 }
 
-void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, bor_err_t *err)
+void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, pddl_err_t *err)
 {
     pddl_search_stat_t stat;
     pddlSearchLiftedStat(s, &stat);
-    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
                   " gen: %lu, open: %lu, closed: %lu,"
                   " reopen: %lu, de: %lu, f: %d",
                   stat.steps,
@@ -397,7 +397,7 @@ static int _setGoal(pddl_cond_t *c, void *_s)
         }
         if (!pddlCondAtomIsGrounded(atom)){
             s->goal_is_unreachable = 1;
-            BOR_ERR_RET2(s->err, -1, "Goal specification cannot contain"
+            PDDL_ERR_RET2(s->err, -1, "Goal specification cannot contain"
                          " parametrized atoms.");
         }
 
@@ -413,7 +413,7 @@ static int _setGoal(pddl_cond_t *c, void *_s)
         return 0;
 
     }else{
-        BOR_ERR(s->err, "Only conjuctive goal specifications are supported."
+        PDDL_ERR(s->err, "Only conjuctive goal specifications are supported."
                 " (Goal contains %s.)", pddlCondTypeName(c->type));
         s->goal_is_unreachable = 1;
         return -2;
@@ -598,28 +598,28 @@ static void extractPlan(pddl_search_lifted_t *s,
     for (int i = 0; i < s->plan.plan_len / 2; ++i){
         int j = s->plan.plan_len - 1 - i;
         char *tmp;
-        BOR_SWAP(s->plan.plan[i], s->plan.plan[j], tmp);
+        PDDL_SWAP(s->plan.plan[i], s->plan.plan[j], tmp);
     }
 }
 
 
 pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
                                             pddl_homomorphism_heur_t *heur,
-                                            bor_err_t *err)
+                                            pddl_err_t *err)
 {
     return bfsNew(pddl, heur, 1, 1, 0, "Lifted A*: ", err);
 }
 
 pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
                                            pddl_homomorphism_heur_t *heur,
-                                           bor_err_t *err)
+                                           pddl_err_t *err)
 {
     return bfsNew(pddl, heur, 0, 1, 0, "Lifted GBFS: ", err);
 }
 
 pddl_search_lifted_t *pddlSearchLiftedLazy(const pddl_t *pddl,
                                            pddl_homomorphism_heur_t *heur,
-                                           bor_err_t *err)
+                                           pddl_err_t *err)
 {
     return bfsNew(pddl, heur, 0, 1, 1, "Lifted Lazy: ", err);
 }

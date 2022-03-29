@@ -146,7 +146,7 @@ static void h2Init(h2_t *h2,
                    const pddl_mutex_pairs_t *mutexes,
                    const pddl_iset_t *unreachable_facts,
                    const pddl_iset_t *unreachable_ops,
-                   bor_err_t *err)
+                   pddl_err_t *err)
 {
     bzero(h2, sizeof(*h2));
     h2->fact_size = strips->fact.fact_size;
@@ -180,17 +180,17 @@ static void h2Init(h2_t *h2,
     }
 }
 
-static void h2AllocOpFact(h2_t *h2, bor_err_t *err)
+static void h2AllocOpFact(h2_t *h2, pddl_err_t *err)
 {
     size_t op_fact_size = (size_t)h2->fact_size * h2->op_size;
     h2->op_fact = calloc(op_fact_size, 1);
     if (h2->op_fact != NULL){
-        BOR_INFO(err, "uses additional memory of %.2f MB",
+        PDDL_INFO(err, "uses additional memory of %.2f MB",
                 op_fact_size / (1024. * 1024.));
     }
 }
 
-static void h2InitOpFact(h2_t *h2, const pddl_strips_ops_t *ops, bor_err_t *err)
+static void h2InitOpFact(h2_t *h2, const pddl_strips_ops_t *ops, pddl_err_t *err)
 {
     h2AllocOpFact(h2, err);
     if (h2->op_fact != NULL){
@@ -318,7 +318,7 @@ static int h2Run(h2_t *h2,
                  const pddl_strips_ops_t *ops,
                  pddl_time_limit_t *time_limit,
                  int is_bw,
-                 bor_err_t *err)
+                 pddl_err_t *err)
 {
     int updated;
     int ret = 0;
@@ -407,12 +407,12 @@ static int h2StateFw(const pddl_strips_t *strips,
                      pddl_iset_t *unreachable_facts,
                      pddl_iset_t *unreachable_ops,
                      float time_limit_s,
-                     bor_err_t *err)
+                     pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        BOR_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
+        PDDL_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
 
-    BOR_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
+    PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
              strips->fact.fact_size,
              strips->op.op_size,
              (unsigned long)m->num_mutex_pairs,
@@ -432,7 +432,7 @@ static int h2StateFw(const pddl_strips_t *strips,
 
     setOutput(&h2, m, unreachable_facts, unreachable_ops);
 
-    BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
+    PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)m->num_mutex_pairs,
              (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
@@ -448,12 +448,12 @@ int pddlH2(const pddl_strips_t *strips,
            pddl_iset_t *unreachable_facts,
            pddl_iset_t *unreachable_ops,
            float time_limit_in_s,
-           bor_err_t *err)
+           pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "h^2 fw: ");
+    PDDL_INFO_PREFIX_PUSH(err, "h^2 fw: ");
     int ret = h2StateFw(strips, &strips->init, m, unreachable_facts,
                         unreachable_ops, time_limit_in_s, err);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return ret;
 }
 
@@ -612,13 +612,13 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                pddl_iset_t *unreachable_facts,
                pddl_iset_t *unreachable_ops,
                float time_limit_in_s,
-               bor_err_t *err)
+               pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        BOR_ERR_RET2(err, -1, "h^2 fw/bw: Conditional effects not supported!");
+        PDDL_ERR_RET2(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
-    BOR_INFO_PREFIX_PUSH(err, "h^2 fw/bw: ");
-    BOR_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
+    PDDL_INFO_PREFIX_PUSH(err, "h^2 fw/bw: ");
+    PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
              strips->fact.fact_size,
              strips->op.op_size,
              (unsigned long)mutex->num_mutex_pairs,
@@ -678,7 +678,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
 
     setOutput(&h2, mutex, unreachable_facts, unreachable_ops);
 
-    BOR_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
+    PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
                   " unreachable ops: %d, time-limit reached: %d",
              (unsigned long)mutex->num_mutex_pairs,
              (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
@@ -686,6 +686,6 @@ int pddlH2FwBw(const pddl_strips_t *strips,
              (ret == -2 ? 1 : 0));
 
     h2Free(&h2);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return ret;
 }

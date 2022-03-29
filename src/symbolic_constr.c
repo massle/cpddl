@@ -183,9 +183,9 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
                             const pddl_mgroups_t *mgroup,
                             int max_nodes,
                             float max_time,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
-    BOR_INFO2(err, "Constructing constraint BDDs ...");
+    PDDL_INFO2(err, "Constructing constraint BDDs ...");
 
     constr->vars = vars;
 
@@ -212,14 +212,14 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
             pddlISetAdd(constr->fact_mutex_bw + f2, f1);
         }
     }
-    BOR_INFO2(err, "Mutex maps created.");
+    PDDL_INFO2(err, "Mutex maps created.");
 
     if (pddlDisambiguateInit(&constr->disambiguate, vars->fact_size,
                              mutex, mgroup) != 0){
-        BOR_FATAL2("Disambiguation failed because there are"
+        PDDL_FATAL2("Disambiguation failed because there are"
                    " no exactly-1 mutex groups");
     }
-    BOR_INFO2(err, "Disambiguation created.");
+    PDDL_INFO2(err, "Disambiguation created.");
 
     pddlBDDsInit(&constr->fw_mutex);
     pddlBDDsInit(&constr->fw_mgroup);
@@ -232,14 +232,14 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     pddlMutexPairsInit(&bw_mutex, vars->fact_size);
     separateFwBwMutex(mutex, &fw_mutex, &bw_mutex);
 
-    BOR_INFO(err, "Mutexes separated: fw-mutex pairs: %d, bw-mutex pairs: %d",
+    PDDL_INFO(err, "Mutexes separated: fw-mutex pairs: %d, bw-mutex pairs: %d",
              fw_mutex.num_mutex_pairs,
              bw_mutex.num_mutex_pairs);
 
     if (bw_mutex.num_mutex_pairs > 0){
         int num = constrConstructMutex(vars, &constr->fw_mutex, &bw_mutex,
                                        max_nodes, max_time);
-        BOR_INFO(err, "Created %d fw-mutex BDDs from %d mutexes. nodes: %lu",
+        PDDL_INFO(err, "Created %d fw-mutex BDDs from %d mutexes. nodes: %lu",
                  constr->fw_mutex.bdd_size, num,
                  pddlBDDsSize(&constr->fw_mutex));
     }
@@ -247,7 +247,7 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     if (fw_mutex.num_mutex_pairs > 0){
         int num = constrConstructMutex(vars, &constr->bw_mutex, &fw_mutex,
                                        max_nodes, max_time);
-        BOR_INFO(err, "Created %d bw-mutex BDDs from %d mutexes nodes: %lu",
+        PDDL_INFO(err, "Created %d bw-mutex BDDs from %d mutexes nodes: %lu",
                  constr->bw_mutex.bdd_size, num,
                  pddlBDDsSize(&constr->bw_mutex));
     }
@@ -255,13 +255,13 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     if (mgroup != NULL){
         int num_fw = constrConstructFwMGroup(vars, &constr->fw_mgroup, mgroup,
                                              max_nodes, max_time);
-        BOR_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups nodes: %lu",
+        PDDL_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups nodes: %lu",
                  constr->fw_mgroup.bdd_size, num_fw,
                  pddlBDDsSize(&constr->fw_mgroup));
 
         int num_bw = constrConstructBwMGroup(vars, &constr->bw_mgroup, mgroup,
                                              max_nodes, max_time);
-        BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups nodes: %lu",
+        PDDL_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups nodes: %lu",
                  constr->bw_mgroup.bdd_size, num_bw,
                  pddlBDDsSize(&constr->bw_mgroup));
     }

@@ -58,7 +58,7 @@ struct pddl_sql_grounder {
 #define CHECK_SQL_ERR(db, code) \
     do { \
     if ((code) != SQLITE_OK){ \
-        BOR_FATAL("Sqlite Error: %s: %s\n", \
+        PDDL_FATAL("Sqlite Error: %s: %s\n", \
                   sqlite3_errstr(code), sqlite3_errmsg(db)); \
     } \
     } while (0)
@@ -90,7 +90,7 @@ static void createTypeTables(sqlite3 *db, const pddl_t *pddl)
 static void createPredTable(sqlite3 *db,
                             const char *table_name,
                             int param_size,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     char query[QUERY_SIZE];
     int shift = sprintf(query, "CREATE TABLE %s (", table_name);
@@ -111,7 +111,7 @@ static void createPredTable(sqlite3 *db,
     shift += sprintf(query + shift, ");");
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
-    //BOR_INFO(err, "Predicate table: %s", query);
+    //PDDL_INFO(err, "Predicate table: %s", query);
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -129,7 +129,7 @@ static void sqlPredInit(sql_pred_t *qpred,
                         sqlite3 *db,
                         const pddl_preds_t *preds,
                         int pred_id,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     const pddl_pred_t *pred = preds->pred + pred_id;
     bzero(qpred, sizeof(*qpred));
@@ -193,7 +193,7 @@ static void sqlPredInit(sql_pred_t *qpred,
     sprintf(query + shift, ");");
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
-    //BOR_INFO(err, "Insert atom query: %s", query);
+    //PDDL_INFO(err, "Insert atom query: %s", query);
     ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -247,7 +247,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
 static int sqlPredInsertAtomArg(sql_pred_t *qpred,
                                 sqlite3 *db,
                                 const pddl_obj_id_t *arg,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
     sqlite3_reset(qpred->stmt_insert);
     for (int i = 0; i < qpred->arity; ++i){
@@ -261,7 +261,7 @@ static int sqlPredInsertAtomArg(sql_pred_t *qpred,
     return ret == SQLITE_DONE;
 }
 
-static int sqlPredClear(sql_pred_t *qpred, sqlite3 *db, bor_err_t *err)
+static int sqlPredClear(sql_pred_t *qpred, sqlite3 *db, pddl_err_t *err)
 {
     sqlite3_reset(qpred->stmt_clear);
     int ret = sqlite3_step(qpred->stmt_clear);
@@ -499,7 +499,7 @@ static void sqlActionInit(sql_action_t *action,
                           sqlite3 *db,
                           const sql_pred_t *preds,
                           const pddl_prep_action_t *prep_action,
-                          bor_err_t *err)
+                          pddl_err_t *err)
 {
     bzero(action, sizeof(*action));
     action->param_size = prep_action->param_size;
@@ -523,7 +523,7 @@ static void sqlActionInit(sql_action_t *action,
                        qcols, qtables, qjoincond, qwhere);
     ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
 
-    //BOR_INFO(err, "Action query %s: %s", prep_action->action->name, query);
+    //PDDL_INFO(err, "Action query %s: %s", prep_action->action->name, query);
     int ret = sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -596,17 +596,17 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 }
 
 
-pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
+pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "SQL Grounder: ");
+    PDDL_INFO_PREFIX_PUSH(err, "SQL Grounder: ");
     pddl_sql_grounder_t *g = ALLOC(pddl_sql_grounder_t);
     bzero(g, sizeof(*g));
 
     g->pddl = pddl;
     if (pddlPrepActionsInit(g->pddl, &g->prep_action, err) != 0){
         FREE(g);
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, NULL);
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, NULL);
     }
 
     // Create a database
@@ -616,7 +616,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
                     | SQLITE_OPEN_PRIVATECACHE;
     int ret = sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
-    BOR_INFO2(err, "Sqlite database created");
+    PDDL_INFO2(err, "Sqlite database created");
     ASSERT_RUNTIME(sqlite3_get_autocommit(g->db));
 
     // Create type tables
@@ -626,7 +626,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
     g->pred = CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
     for (int pi = 0; pi < pddl->pred.pred_size; ++pi)
         sqlPredInit(g->pred + pi, g->db, &g->pddl->pred, pi, err);
-    BOR_INFO(err, "%d predicate tables created.", pddl->pred.pred_size);
+    PDDL_INFO(err, "%d predicate tables created.", pddl->pred.pred_size);
 
     // Create sql actions
     g->action = CALLOC_ARR(sql_action_t, g->prep_action.action_size);
@@ -634,10 +634,10 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err)
         sqlActionInit(g->action + ai, g->db, g->pred,
                       g->prep_action.action + ai, err);
     }
-    BOR_INFO(err, "%d action sql queries prepared.",
+    PDDL_INFO(err, "%d action sql queries prepared.",
              g->prep_action.action_size);
 
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return g;
 }
 
@@ -672,32 +672,32 @@ const pddl_prep_action_t *pddlSqlGrounderPrepAction(
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
                                   int pred_id,
                                   const pddl_obj_id_t *args,
-                                  bor_err_t *err)
+                                  pddl_err_t *err)
 {
     return sqlPredInsertAtomArg(g->pred + pred_id, g->db, args, err);
 }
 
 int pddlSqlGrounderInsertGroundAtom(pddl_sql_grounder_t *g,
                                     const pddl_ground_atom_t *ga,
-                                    bor_err_t *err)
+                                    pddl_err_t *err)
 {
     return pddlSqlGrounderInsertAtomArgs(g, ga->pred, ga->arg, err);
 }
 
 int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
                               const pddl_cond_atom_t *a,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     pddl_obj_id_t args[a->arg_size];
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
-            BOR_ERR_RET2(err, -1, "SQL Grounder: Atom is not grounded!");
+            PDDL_ERR_RET2(err, -1, "SQL Grounder: Atom is not grounded!");
         args[i] = a->arg[i].obj;
     }
     return pddlSqlGrounderInsertAtomArgs(g, a->pred, args, err);
 }
 
-int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, bor_err_t *err)
+int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, pddl_err_t *err)
 {
     for (int pi = 0; pi < g->pddl->pred.pred_size; ++pi){
         if (!g->pred[pi].is_static)
@@ -708,7 +708,7 @@ int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, bor_err_t *err)
 
 int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
                                int action_id,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     sql_action_t *action = g->action + action_id;
     g->it_action_id = action_id;
@@ -719,7 +719,7 @@ int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
 
 int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
                               pddl_obj_id_t *args,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     if (g->it_action_id < 0)
         return 0;
@@ -746,7 +746,7 @@ int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
             }
         }
         if (invalid){
-            BOR_INFO2(err, "Invalid row");
+            PDDL_INFO2(err, "Invalid row");
             continue;
         }
         const pddl_prep_action_t *paction;

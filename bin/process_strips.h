@@ -29,7 +29,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                              pddl_strips_t *strips,
                              pddl_mgroups_t *mgroups,
                              pddl_mutex_pairs_t *mutex,
-                             bor_err_t *err);
+                             pddl_err_t *err);
 
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune);
 void pddlProcessStripsAddFAMGroupsDeadEndOps(pddl_process_strips_t *prune);

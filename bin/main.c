@@ -8,7 +8,7 @@
 #include "print_to_file.h"
 
 
-bor_err_t err = BOR_ERR_INIT;
+pddl_err_t err = PDDL_ERR_INIT;
 pddl_t pddl;
 int pddl_set = 0;
 pddl_lifted_mgroups_t lifted_mgroups;
@@ -35,7 +35,7 @@ static int stepPDDL(void)
 
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
-        BOR_TRACE_RET(&err, -1);
+        PDDL_TRACE_RET(&err, -1);
     }
     pddl_set = 1;
     pddlCheckSizeTypes(&pddl);
@@ -63,7 +63,7 @@ static int stepLiftedMGroups(void)
     monotonicity_invariants_set = 1;
 
     if (!opt.lmg.enable){
-        BOR_INFO2(&err, "Inference of lifted mutex groups turned off");
+        PDDL_INFO2(&err, "Inference of lifted mutex groups turned off");
         return 0;
     }
 
@@ -96,11 +96,11 @@ static int stepLiftedMGroups(void)
 static int stepLiftedEndomorph(void)
 {
     if (!opt.lifted_endomorph.enable){
-        BOR_INFO2(&err, "Inference of lifted endomorphisms turned off");
+        PDDL_INFO2(&err, "Inference of lifted endomorphisms turned off");
         return 0;
     }
 
-    BOR_INFO_PREFIX_PUSH(&err, "LENDO: ");
+    PDDL_INFO_PREFIX_PUSH(&err, "LENDO: ");
     int ret = 0;
     pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
     cfg.ignore_costs = opt.lifted_endomorph.ignore_costs;
@@ -114,7 +114,7 @@ static int stepLiftedEndomorph(void)
     }
     pddlISetFree(&redundant_objs);
 
-    BOR_INFO_PREFIX_POP(&err);
+    PDDL_INFO_PREFIX_POP(&err);
     return ret;
 }
 
@@ -131,18 +131,18 @@ static void stripsCompileAwayCondEff(void)
         return;
 
 
-    BOR_INFO_PREFIX_PUSH(&err, "STRIPS CE: ");
+    PDDL_INFO_PREFIX_PUSH(&err, "STRIPS CE: ");
     if (!strips.has_cond_eff){
-        BOR_INFO2(&err, "The task has no conditional effects.");
-        BOR_INFO_PREFIX_POP(&err);
+        PDDL_INFO2(&err, "The task has no conditional effects.");
+        PDDL_INFO_PREFIX_POP(&err);
         return;
     }
 
-    BOR_INFO2(&err, "Compiling away conditional effects ...");
+    PDDL_INFO2(&err, "Compiling away conditional effects ...");
     pddlStripsCompileAwayCondEff(&strips);
-    BOR_INFO2(&err, "Conditional effects compiled away.");
+    PDDL_INFO2(&err, "Conditional effects compiled away.");
     pddlStripsLogInfo(&strips, &err);
-    BOR_INFO_PREFIX_POP(&err);
+    PDDL_INFO_PREFIX_POP(&err);
 }
 
 static int stepGround(void)
@@ -154,8 +154,8 @@ static int stepGround(void)
     }
 
     if (opt.ground.method_fn(&strips, &pddl, &opt.ground.cfg, &err) != 0){
-        BOR_INFO2(&err, "Grounding failed.");
-        BOR_TRACE_RET(&err, -1);
+        PDDL_INFO2(&err, "Grounding failed.");
+        PDDL_TRACE_RET(&err, -1);
     }
 
     stripsCompileAwayCondEff();
@@ -170,21 +170,21 @@ static int stepGround(void)
 static int stepGroundMGroups(void)
 {
     if (!opt.ground.mgroup){
-        BOR_INFO2(&err, "Grounding of lifted mutex groups disabled.");
+        PDDL_INFO2(&err, "Grounding of lifted mutex groups disabled.");
         return 0;
     }
 
-    BOR_INFO_PREFIX_PUSH(&err, "Ground LMG: ");
-    BOR_INFO2(&err, "Grounding of lifted mutex groups ...");
+    PDDL_INFO_PREFIX_PUSH(&err, "Ground LMG: ");
+    PDDL_INFO2(&err, "Grounding of lifted mutex groups ...");
     pddlMGroupsGround(&mgroup, &pddl, &lifted_mgroups, &strips);
     if (opt.ground.mgroup_remove_subsets)
         pddlMGroupsRemoveSubsets(&mgroup);
     pddlMGroupsSetExactlyOne(&mgroup, &strips);
     pddlMGroupsSetGoal(&mgroup, &strips);
-    BOR_INFO(&err, "Found %d mutex groups", mgroup.mgroup_size);
+    PDDL_INFO(&err, "Found %d mutex groups", mgroup.mgroup_size);
     pddlMutexPairsAddMGroups(&mutex, &mgroup);
-    BOR_INFO(&err, "Found %d mutex pairs", mutex.num_mutex_pairs);
-    BOR_INFO_PREFIX_POP(&err);
+    PDDL_INFO(&err, "Found %d mutex pairs", mutex.num_mutex_pairs);
+    PDDL_INFO_PREFIX_POP(&err);
 
 
     PRINT_TO_FILE(&err, opt.ground.mgroup_out, "grounded mutex groups",
@@ -196,11 +196,11 @@ static int stepGroundMGroups(void)
 static int stepInferMGroups(void)
 {
     if (!opt.mg.fam && !opt.mg.h2){
-        BOR_INFO2(&err, "Inference of mutex groups disabled.");
+        PDDL_INFO2(&err, "Inference of mutex groups disabled.");
         return 0;
     }
 
-    BOR_INFO_PREFIX_PUSH(&err, "MG: ");
+    PDDL_INFO_PREFIX_PUSH(&err, "MG: ");
     if (opt.mg.fam){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
         cfg.maximal = opt.mg.fam_maximal;
@@ -210,10 +210,10 @@ static int stepInferMGroups(void)
             pddlMGroupsFree(&mgroup);
             pddlMGroupsInitEmpty(&mgroup);
         }
-        BOR_INFO(&err, "Inference of fam-groups starting with %d fam-groups",
+        PDDL_INFO(&err, "Inference of fam-groups starting with %d fam-groups",
                  mgroup.mgroup_size);
         if (pddlFAMGroupsInfer(&mgroup, &strips, &cfg, &err) != 0){
-            BOR_TRACE_RET(&err, -1);
+            PDDL_TRACE_RET(&err, -1);
         }
         if (opt.mg.remove_subsets)
             pddlMGroupsRemoveSubsets(&mgroup);
@@ -222,8 +222,8 @@ static int stepInferMGroups(void)
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){
-            BOR_INFO2(&err, "h^2 fw failed.");
-            BOR_TRACE_RET(&err, -1);
+            PDDL_INFO2(&err, "h^2 fw failed.");
+            PDDL_TRACE_RET(&err, -1);
         }
 
         pddlMGroupsFree(&mgroup);
@@ -232,14 +232,14 @@ static int stepInferMGroups(void)
         pddlMutexPairsFree(&mutex);
     }
 
-    BOR_INFO(&err, "Found %d mutex groups", mgroup.mgroup_size);
+    PDDL_INFO(&err, "Found %d mutex groups", mgroup.mgroup_size);
 
     pddlMGroupsSetExactlyOne(&mgroup, &strips);
     pddlMGroupsSetGoal(&mgroup, &strips);
 
     pddlMutexPairsAddMGroups(&mutex, &mgroup);
-    BOR_INFO(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
-    BOR_INFO_PREFIX_POP(&err);
+    PDDL_INFO(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
+    PDDL_INFO_PREFIX_POP(&err);
 
     PRINT_TO_FILE(&err, opt.mg.out, "mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
@@ -265,7 +265,7 @@ static int stepRedBlackFDR(void)
     for (int i = 0; i < num; ++i){
         if (opt.fdr.order_vars_cg){
             pddlFDRReorderVarsCG(fdr + i);
-            BOR_INFO(&err, "FDR[%d]: variables reordered using causal graph.", i);
+            PDDL_INFO(&err, "FDR[%d]: variables reordered using causal graph.", i);
         }
     }
 
@@ -293,7 +293,7 @@ static int stepFDR(void)
 
     if (opt.fdr.order_vars_cg){
         pddlFDRReorderVarsCG(&fdr);
-        BOR_INFO2(&err, "FDR variables reordered using causal graph.");
+        PDDL_INFO2(&err, "FDR variables reordered using causal graph.");
     }
     PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
 
@@ -308,11 +308,11 @@ static int stepFDR(void)
     return 0;
 }
 
-static void printAStarStat(const pddl_search_astar_t *astar, bor_err_t *err)
+static void printAStarStat(const pddl_search_astar_t *astar, pddl_err_t *err)
 {
     pddl_search_stat_t stat;
     pddlSearchAStarStat(astar, &stat);
-    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
                   " gen: %lu, open: %lu, closed: %lu,"
                   " reopen: %lu, de: %lu, f: %d",
                   stat.steps,
@@ -331,7 +331,7 @@ static int stepAStar(void)
     if (!opt.astar.enable)
         return 0;
 
-    BOR_INFO_PREFIX_PUSH(&err, "A*: ");
+    PDDL_INFO_PREFIX_PUSH(&err, "A*: ");
     // TODO
     pddl_heur_t *heur = pddlHeurBlind();
     pddl_search_astar_t *astar;
@@ -339,25 +339,25 @@ static int stepAStar(void)
     int ret = pddlSearchAStarInitStep(astar);
     astar_search_started = 1;
 
-    bor_timer_t info_timer;
-    borTimerStart(&info_timer);
+    pddl_timer_t info_timer;
+    pddlTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
         if (astar_terminate){
             printAStarStat(astar, &err);
-            BOR_INFO2(&err, "Search aborted.");
+            PDDL_INFO2(&err, "Search aborted.");
             pddlSearchAStarDel(astar);
             pddlHeurDel(heur);
-            BOR_INFO_PREFIX_POP(&err);
+            PDDL_INFO_PREFIX_POP(&err);
             return -1;
         }
 
         ret = pddlSearchAStarStep(astar);
         // TODO: parametrize
         if (step >= 100){
-            borTimerStop(&info_timer);
-            if (borTimerElapsedInSF(&info_timer) >= 1.){
+            pddlTimerStop(&info_timer);
+            if (pddlTimerElapsedInSF(&info_timer) >= 1.){
                 printAStarStat(astar, &err);
-                borTimerStart(&info_timer);
+                pddlTimerStart(&info_timer);
             }
             step = 0;
         }
@@ -365,27 +365,27 @@ static int stepAStar(void)
     printAStarStat(astar, &err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
-        BOR_INFO2(&err, "Problem is unsolvable.");
+        PDDL_INFO2(&err, "Problem is unsolvable.");
 
     }else if (ret == PDDL_SEARCH_FOUND){
-        BOR_INFO2(&err, "Plan found.");
+        PDDL_INFO2(&err, "Plan found.");
         pddl_plan_t plan;
         pddlPlanInit(&plan);
         pddlPlanLoadBacktrack(&plan, astar->goal_state_id, &astar->state_space);
-        BOR_INFO(&err, "Plan Cost: %d", plan.cost);
-        BOR_INFO(&err, "Plan Length: %d", plan.length);
+        PDDL_INFO(&err, "Plan Cost: %d", plan.cost);
+        PDDL_INFO(&err, "Plan Length: %d", plan.length);
         PRINT_TO_FILE(&err, opt.astar.plan_out, "plan",
                       pddlPlanPrint(&plan, &fdr.op, fout));
         pddlPlanFree(&plan);
     }else{
-        BOR_FATAL("Unkown return status: %d", ret);
+        PDDL_FATAL("Unkown return status: %d", ret);
     }
 
     if (astar_terminate){
-        BOR_INFO2(&err, "Search aborted.");
+        PDDL_INFO2(&err, "Search aborted.");
         pddlSearchAStarDel(astar);
         pddlHeurDel(heur);
-        BOR_INFO_PREFIX_POP(&err);
+        PDDL_INFO_PREFIX_POP(&err);
         return -1;
     }
 
@@ -420,8 +420,8 @@ void freeData(void)
 
 int main(int argc, char *argv[])
 {
-    borErrWarnEnable(&err, stderr);
-    borErrInfoEnable(&err, stderr);
+    pddlErrWarnEnable(&err, stderr);
+    pddlErrInfoEnable(&err, stderr);
     int ret = 0;
     if ((ret = setOptions(argc, argv, &err)) != 0
             || (ret = stepPDDL()) != 0
@@ -438,9 +438,9 @@ int main(int argc, char *argv[])
             || (ret = stepAStar()) != 0
             || (ret = stepSymba()) != 0){
         if (ret < 0){
-            if (borErrIsSet(&err)){
+            if (pddlErrIsSet(&err)){
                 fprintf(stderr, "Error: ");
-                borErrPrint(&err, 1, stderr);
+                pddlErrPrint(&err, 1, stderr);
             }
             freeData();
             return -1;

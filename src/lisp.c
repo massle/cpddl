@@ -149,14 +149,14 @@ static pddl_lisp_node_t *lispNodeAddChild(pddl_lisp_node_t *r)
 
 static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
                     char *data, int from, int size, int *cont,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     pddl_lisp_node_t *sub;
     int i = from;
     char c;
 
     if (i >= size){
-        BOR_ERR_RET(err, -1, "Invalid PDDL file `%s'."
+        PDDL_ERR_RET(err, -1, "Invalid PDDL file `%s'."
                     " Mission expression on line %d.",
                     fn, *lineno);
     }
@@ -182,7 +182,7 @@ static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
             sub = lispNodeAddChild(root);
             sub->lineno = *lineno;
             if (parseExp(fn, sub, lineno, data, i + 1, size, &i, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
 
             c = data[i];
             continue;
@@ -207,11 +207,11 @@ static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
             sub->kw = recongnizeKeyword(sub->value);
         }
     }
-    BOR_ERR_RET(err, -1, "Invalid PDDL file `%s'."
+    PDDL_ERR_RET(err, -1, "Invalid PDDL file `%s'."
                 " Missing ending parenthesis.", fn);
 }
 
-pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
+pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
 {
     int fd, i, lineno;
     struct stat st;
@@ -221,17 +221,17 @@ pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
 
     fd = open(fn, O_RDONLY);
     if (fd == -1)
-        BOR_ERR_RET(err, NULL, "Could not not open file `%s'.", fn);
+        PDDL_ERR_RET(err, NULL, "Could not not open file `%s'.", fn);
 
     if (fstat(fd, &st) != 0){
-        BOR_ERR(err, "Could not determine size of the file `%s'.", fn);
+        PDDL_ERR(err, "Could not determine size of the file `%s'.", fn);
         close(fd);
         return NULL;
     }
 
     data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (data == MAP_FAILED){
-        BOR_ERR(err, "Could not mmap file `%s'.", fn);
+        PDDL_ERR(err, "Could not mmap file `%s'.", fn);
         close(fd);
         return NULL;
     }
@@ -244,7 +244,7 @@ pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
         if (data[i] == '\n'){
             ++lineno;
         }else if (!IS_WS(data[i])){
-            BOR_ERR(err, "Incorrect PDDL file `%s'. Unexpected `%c' on line %d.",
+            PDDL_ERR(err, "Incorrect PDDL file `%s'. Unexpected `%c' on line %d.",
                 fn, data[i], lineno);
             munmap((void *)data, st.st_size);
             close(fd);
@@ -254,7 +254,7 @@ pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
     lispNodeInit(&root);
     root.lineno = lineno;
     if (parseExp(fn, &root, &lineno, data, i + 1, st.st_size, NULL, err) != 0){
-        BOR_TRACE(err);
+        PDDL_TRACE(err);
         munmap((void *)data, st.st_size);
         lispNodeFree(&root);
         close(fd);
@@ -374,7 +374,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
                            int child_from, int child_to,
                            pddl_lisp_parse_typed_list_fn cb,
                            void *ud,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     pddl_lisp_node_t *n;
     int type_from;
@@ -393,7 +393,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
                 ERR_LISP_RET2(err, -1, n,
                               "Invalid typed list. Unspecified type after `-'");
             if (cb(root, type_from, i, i + 1, ud, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             type_from = i + 2;
             ++i;
         }
@@ -401,7 +401,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
 
     if (type_from < child_to){
         if (cb(root, type_from, child_to, -1, ud, err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
 
     return 0;

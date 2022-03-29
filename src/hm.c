@@ -25,17 +25,17 @@ int pddlHm(int m,
            pddl_iset_t *unreachable_ops,
            float time_limit,
            size_t excess_memory,
-           bor_err_t *err)
+           pddl_err_t *err)
 {
     if (m == 1){
         if (time_limit > 0 || excess_memory > 0 || mutex != NULL)
-            BOR_INFO2(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
+            PDDL_INFO2(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
                            " and memory limit");
         return pddlH1(strips, unreachable_facts, unreachable_ops, err);
 
     }else if (m == 2){
         if (excess_memory > 0)
-            BOR_INFO2(err, "h^2 using pddlHm() ignores the memory limit");
+            PDDL_INFO2(err, "h^2 using pddlHm() ignores the memory limit");
         return pddlH2(strips, mutex, unreachable_facts, unreachable_ops,
                       time_limit, err);
 
@@ -44,7 +44,7 @@ int pddlHm(int m,
                       time_limit, excess_memory, err);
 
     }else{
-        BOR_INFO(err, "h^%d not supported!", m);
+        PDDL_INFO(err, "h^%d not supported!", m);
         return -1;
     }
 }

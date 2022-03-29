@@ -9,10 +9,10 @@ volatile sig_atomic_t search_started = 0;
 
 pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
                                      const pddl_homomorphism_config_t *cfg,
-                                     bor_err_t *err) = NULL;
+                                     pddl_err_t *err) = NULL;
 pddl_search_lifted_t *(*search_fn)(const pddl_t *pddl,
                                    pddl_homomorphism_heur_t *heur,
-                                   bor_err_t *err) = pddlSearchLiftedAStar;
+                                   pddl_err_t *err) = pddlSearchLiftedAStar;
 
 void sigHandlerTerminate(int signal)
 {
@@ -50,7 +50,7 @@ static void usage(const char *name)
 
 static int readOpts(int *argc,
                     char *argv[],
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     opt.homo_type = "type";
     opt.homo_rm_ratio = .5f;
@@ -128,15 +128,15 @@ static int readOpts(int *argc,
 
 
     if (*argc == 2){
-        BOR_INFO(err, "Input file: '%s'", argv[1]);
+        PDDL_INFO(err, "Input file: '%s'", argv[1]);
         if (pddlFiles1(&opt.files, argv[1], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }else{ // *argc == 3
-        BOR_INFO(err, "Input files: '%s' and '%s'", argv[1], argv[2]);
+        PDDL_INFO(err, "Input files: '%s' and '%s'", argv[1], argv[2]);
         if (pddlFiles(&opt.files, argv[1], argv[2], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
-    BOR_INFO(err, "PDDL files: '%s' '%s'\n",
+    PDDL_INFO(err, "PDDL files: '%s' '%s'\n",
              opt.files.domain_pddl, opt.files.problem_pddl);
 
     return 0;
@@ -145,7 +145,7 @@ static int readOpts(int *argc,
 static pddl_homomorphism_heur_t *_heurCollapseAllExceptOneType(
                                             const pddl_t *pddl,
                                             int except,
-                                            bor_err_t *err)
+                                            pddl_err_t *err)
 {
     pddl_homomorphism_config_t homo_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
     for (int type = 0; type < pddl->type.type_size; ++type){
@@ -157,14 +157,14 @@ static pddl_homomorphism_heur_t *_heurCollapseAllExceptOneType(
     pddl_homomorphism_heur_t *heur;
     if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
-        borErrPrint(err, 1, stderr);
+        pddlErrPrint(err, 1, stderr);
         return NULL;
     }
     return heur;
 }
 
 static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl,
-                                                              bor_err_t *err)
+                                                              pddl_err_t *err)
 {
     pddl_homomorphism_heur_t *heur = NULL;
     int best_hval = -1;
@@ -177,7 +177,7 @@ static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl
                 continue;
 
             int hval = pddlHomomorphismHeurEvalGroundInit(h);
-            BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
+            PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
                      hval);
             if (hval > best_hval && hval != PDDL_COST_DEAD_END){
                 if (heur != NULL)
@@ -194,20 +194,20 @@ static pddl_homomorphism_heur_t *heurCollapseAllExceptOneType(const pddl_t *pddl
 
 static pddl_homomorphism_heur_t *_heurCollapseRandom(const pddl_t *pddl,
                                                      int seed,
-                                                     bor_err_t *err)
+                                                     pddl_err_t *err)
 {
     homo_cfg.random_seed = seed;
     pddl_homomorphism_heur_t *heur;
     if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
-        borErrPrint(err, 1, stderr);
+        pddlErrPrint(err, 1, stderr);
         return NULL;
     }
     return heur;
 }
 
 static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
-                                                    bor_err_t *err)
+                                                    pddl_err_t *err)
 {
     int seed = 6899;
     pddl_homomorphism_heur_t *heur = NULL;
@@ -216,7 +216,7 @@ static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
         pddl_homomorphism_heur_t *h;
         h = _heurCollapseRandom(pddl, seed, err);
         int hval = pddlHomomorphismHeurEvalGroundInit(h);
-        BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
+        PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d",
                 hval);
         if (hval > best_hval && hval != PDDL_COST_DEAD_END){
             if (heur != NULL)
@@ -231,11 +231,11 @@ static pddl_homomorphism_heur_t *heurCollapseRandom(const pddl_t *pddl,
     return heur;
 }
 
-static void printSearchStat(const pddl_search_lifted_t *astar, bor_err_t *err)
+static void printSearchStat(const pddl_search_lifted_t *astar, pddl_err_t *err)
 {
     pddl_search_stat_t stat;
     pddlSearchLiftedStat(astar, &stat);
-    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
                   " gen: %lu, open: %lu, closed: %lu,"
                   " reopen: %lu, de: %lu, f: %d",
                   stat.steps,
@@ -268,12 +268,12 @@ int main(int argc, char *argv[])
     signal(SIGINT, sigHandlerTerminate);
     signal(SIGTERM, sigHandlerTerminate);
 
-    bor_err_t err = BOR_ERR_INIT;
-    borErrWarnEnable(&err, stderr);
-    borErrInfoEnable(&err, stderr);
+    pddl_err_t err = PDDL_ERR_INIT;
+    pddlErrWarnEnable(&err, stderr);
+    pddlErrInfoEnable(&err, stderr);
 
     if (readOpts(&argc, argv, &err) != 0){
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
     pddlNormalize(&pddl);
@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
         if (homo_cfg_rand){
             heur = heurCollapseRandom(&pddl, &err);
         }else{
-            BOR_INFO2(&err, "Homomorph: Collapse all types except one");
+            PDDL_INFO2(&err, "Homomorph: Collapse all types except one");
             heur = heurCollapseAllExceptOneType(&pddl, &err);
         }
         if (heur == NULL)
@@ -310,21 +310,21 @@ int main(int argc, char *argv[])
     int ret = pddlSearchLiftedInitStep(astar);
     search_started = 1;
 
-    bor_timer_t info_timer;
-    borTimerStart(&info_timer);
+    pddl_timer_t info_timer;
+    pddlTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
         if (terminate){
             printSearchStat(astar, &err);
-            BOR_INFO2(&err, "Search aborted.");
+            PDDL_INFO2(&err, "Search aborted.");
             exit(-1);
         }
 
         ret = pddlSearchLiftedStep(astar);
         if (step >= 100){
-            borTimerStop(&info_timer);
-            if (borTimerElapsedInSF(&info_timer) >= 1.){
+            pddlTimerStop(&info_timer);
+            if (pddlTimerElapsedInSF(&info_timer) >= 1.){
                 printSearchStat(astar, &err);
-                borTimerStart(&info_timer);
+                pddlTimerStart(&info_timer);
             }
             step = 0;
         }
@@ -332,13 +332,13 @@ int main(int argc, char *argv[])
     printSearchStat(astar, &err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
-        BOR_INFO2(&err, "Problem is unsolvable.");
+        PDDL_INFO2(&err, "Problem is unsolvable.");
 
     }else if (ret == PDDL_SEARCH_FOUND){
-        BOR_INFO2(&err, "Plan found.");
+        PDDL_INFO2(&err, "Plan found.");
         const pddl_lifted_plan_t *plan = pddlSearchLiftedPlan(astar);
-        BOR_INFO(&err, "Plan Cost: %d", plan->plan_cost);
-        BOR_INFO(&err, "Plan Length: %d", plan->plan_len);
+        PDDL_INFO(&err, "Plan Cost: %d", plan->plan_cost);
+        PDDL_INFO(&err, "Plan Length: %d", plan->plan_len);
         if (opt.out == NULL || strcmp(opt.out, "-") == 0){
             printPlan(plan, stdout);
         }else{
@@ -347,18 +347,18 @@ int main(int argc, char *argv[])
                 printPlan(plan, fout);
                 fclose(fout);
             }else{
-                BOR_ERR(&err, "Could not open file '%s'", opt.out);
+                PDDL_ERR(&err, "Could not open file '%s'", opt.out);
                 fprintf(stderr, "Error: ");
-                borErrPrint(&err, 1, stderr);
+                pddlErrPrint(&err, 1, stderr);
                 return -1;
             }
         }
     }else{
-        BOR_FATAL("Unkown return status: %d", ret);
+        PDDL_FATAL("Unkown return status: %d", ret);
     }
 
     if (terminate){
-        BOR_INFO2(&err, "Search aborted.");
+        PDDL_INFO2(&err, "Search aborted.");
         exit(-1);
     }
 

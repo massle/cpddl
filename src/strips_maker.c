@@ -274,7 +274,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
                              pddl_strips_t *strips,
                              const pddl_t *pddl,
                              int **map_ground_atom_to_fact_id,
-                             bor_err_t *err)
+                             pddl_err_t *err)
 {
     const pddl_ground_atom_t *ga;
     int fact_id;
@@ -284,7 +284,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
         ASSERT(ga->id == i);
         fact_id = pddlFactsAddGroundAtom(&strips->fact, ga, pddl);
         if (fact_id != ga->id){
-            BOR_FATAL2("The fact and the corresponding grounded atom have"
+            PDDL_FATAL2("The fact and the corresponding grounded atom have"
                        " different IDs. This is definitelly a bug!");
         }
     }
@@ -301,7 +301,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
 #endif
     *map_ground_atom_to_fact_id = ground_atom_to_fact_id;
 
-    BOR_INFO(err, "Created %d STRIPS facts", strips->fact.fact_size);
+    PDDL_INFO(err, "Created %d STRIPS facts", strips->fact.fact_size);
     return 0;
 }
 
@@ -309,7 +309,7 @@ static int createInitState(pddl_strips_maker_t *sm,
                            pddl_strips_t *strips,
                            const pddl_t *pddl,
                            const int *ground_atom_to_fact_id,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     pddl_list_t *item;
     const pddl_cond_t *c;
@@ -325,7 +325,7 @@ static int createInitState(pddl_strips_maker_t *sm,
                 pddlISetAdd(&strips->init, ground_atom_to_fact_id[ga->id]);
         }
     }
-    BOR_INFO(err, "Created init state consisting of %d facts",
+    PDDL_INFO(err, "Created init state consisting of %d facts",
              pddlISetSize(&strips->init));
     return 0;
 }
@@ -334,7 +334,7 @@ struct create_goal {
     pddl_strips_maker_t *sm;
     pddl_strips_t *strips;
     const int *ground_atom_to_fact_id;
-    bor_err_t *err;
+    pddl_err_t *err;
     int fail;
 };
 
@@ -345,12 +345,12 @@ static int _createGoal(pddl_cond_t *c, void *_g)
     pddl_strips_maker_t *sm = ggoal->sm;
     pddl_strips_t *strips = ggoal->strips;
     const int *ground_atom_to_fact_id = ggoal->ground_atom_to_fact_id;
-    bor_err_t *err = ggoal->err;
+    pddl_err_t *err = ggoal->err;
 
     if (c->type == PDDL_COND_ATOM){
         const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
         if (!pddlCondAtomIsGrounded(atom))
-            BOR_ERR_RET2(err, -1, "Goal specification cannot contain"
+            PDDL_ERR_RET2(err, -1, "Goal specification cannot contain"
                          " parametrized atoms.");
 
         // Find fact in the set of reachable facts
@@ -380,7 +380,7 @@ static int _createGoal(pddl_cond_t *c, void *_g)
         return 0;
 
     }else{
-        BOR_ERR(err, "Only conjuctive goal specifications are supported."
+        PDDL_ERR(err, "Only conjuctive goal specifications are supported."
                 " (Goal contains %s.)", pddlCondTypeName(c->type));
         ggoal->fail = 1;
         return -2;
@@ -391,18 +391,18 @@ static int createGoal(pddl_strips_maker_t *sm,
                       pddl_strips_t *strips,
                       const pddl_t *pddl,
                       const int *ground_atom_to_fact_id,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     struct create_goal ggoal = { sm, strips, ground_atom_to_fact_id, err, 0 };
     if (pddl->goal->type == PDDL_COND_OR){
-        BOR_ERR_RET2(err, -1, "Only conjuctive goal specifications"
+        PDDL_ERR_RET2(err, -1, "Only conjuctive goal specifications"
                      " are supported. This goal is a disjunction.");
     }
 
     pddlCondTraverse(pddl->goal, _createGoal, NULL, &ggoal);
     if (ggoal.fail)
-        BOR_TRACE_RET(err, -1);
-    BOR_INFO(err, "Goal created consisting of %d facts",
+        PDDL_TRACE_RET(err, -1);
+    PDDL_INFO(err, "Goal created consisting of %d facts",
              pddlISetSize(&strips->goal));
     return 0;
 }
@@ -413,7 +413,7 @@ struct action_ctx {
     const pddl_action_t *action;
     const pddl_obj_id_t *args;
     const int *ground_atom_to_fact;
-    bor_err_t *err;
+    pddl_err_t *err;
     int failed;
 
     int cond_eff;
@@ -472,7 +472,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                     ctx->cond_eff_failed = 1;
                     return -2;
                 }
-                BOR_FATAL2("Unsatisfied (in)equality precondition."
+                PDDL_FATAL2("Unsatisfied (in)equality precondition."
                            " This is definitely a bug!\n");
             }
 
@@ -489,7 +489,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                     ctx->cond_eff_failed = 1;
                     return -2;
                 }
-                BOR_FATAL2("Unsatisfied negative precondition."
+                PDDL_FATAL2("Unsatisfied negative precondition."
                            " This is definitely a bug!\n");
             }
 
@@ -508,7 +508,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
             }
 
             if (ga == NULL){
-                BOR_FATAL2("Unsatisfied positive precondition."
+                PDDL_FATAL2("Unsatisfied positive precondition."
                            " This is definitely a bug!\n");
             }
             if (!is_static)
@@ -519,7 +519,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
     }else if (c->type == PDDL_COND_AND){
         return 0;
     }else{
-        BOR_ERR2(ctx->err, "Precondition is not a conjuction."
+        PDDL_ERR2(ctx->err, "Precondition is not a conjuction."
                            " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
@@ -544,7 +544,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
         return 0;
 
     }else if (c->type == PDDL_COND_ASSIGN){
-        BOR_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
+        PDDL_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
@@ -555,7 +555,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
         if (ctx->cond_eff){
             ctx->cond_eff_failed = 1;
             ctx->failed = 1;
-            BOR_ERR_RET2(ctx->err, -2,
+            PDDL_ERR_RET2(ctx->err, -2,
                         "Costs in conditional effects are not supported.");
         }
 
@@ -567,7 +567,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
             if (ga == NULL){
                 ctx->op->cost += 0;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
-                BOR_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
+                PDDL_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
                          name);
                 if (name != NULL)
                     FREE(name);
@@ -575,7 +575,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
                 ctx->cond_eff_failed = 1;
                 ctx->failed = 1;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
-                BOR_ERR(ctx->err, "Missing cost for action (%s)", name);
+                PDDL_ERR(ctx->err, "Missing cost for action (%s)", name);
                 if (name != NULL)
                     FREE(name);
                 return -2;
@@ -599,7 +599,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
     }else if (c->type == PDDL_COND_AND){
         return 0;
     }else{
-        BOR_ERR2(ctx->err, "Effect is not a conjuction"
+        PDDL_ERR2(ctx->err, "Effect is not a conjuction"
                            " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
@@ -619,12 +619,12 @@ static int actionCondEff(action_ctx_t *ctx_in,
 
     pddlCondTraverse((pddl_cond_t *)pre, actionPre, NULL, &ctx);
     if (ctx.failed)
-        BOR_TRACE_RET(ctx_in->err, -1);
+        PDDL_TRACE_RET(ctx_in->err, -1);
 
     if (!ctx.cond_eff_failed){
         pddlCondTraverse((pddl_cond_t *)eff, actionEff, NULL, &ctx);
         if (ctx.failed)
-            BOR_TRACE_RET(ctx_in->err, -1);
+            PDDL_TRACE_RET(ctx_in->err, -1);
     }
 
     if (!ctx.cond_eff_failed
@@ -642,7 +642,7 @@ static int createOp(pddl_strips_maker_t *sm,
                     const pddl_action_t *a,
                     const pddl_obj_id_t *args,
                     pddl_strips_op_t *op,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     action_ctx_t ctx;
     ctx.sm = sm;
@@ -659,10 +659,10 @@ static int createOp(pddl_strips_maker_t *sm,
     op->cost = 0;
     pddlCondTraverse((pddl_cond_t *)a->pre, actionPre, NULL, &ctx);
     if (ctx.failed)
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     pddlCondTraverse((pddl_cond_t *)a->eff, actionEff, NULL, &ctx);
     if (ctx.failed)
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
 
     if (!pddl->metric)
         op->cost = 1;
@@ -675,7 +675,7 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
                                         const pddl_t *pddl,
                                         const int *ground_atom_to_fact_id,
                                         const pddl_ground_action_args_t *ga,
-                                        bor_err_t *err)
+                                        pddl_err_t *err)
 {
     const pddl_action_t *action = pddl->action.action + ga->action_id;
     pddl_strips_op_t op;
@@ -696,7 +696,7 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
 
     pddlStripsOpFree(&op);
     if (ret != 0)
-        BOR_TRACE_RET(err, ret);
+        PDDL_TRACE_RET(err, ret);
     return 0;
 }
 
@@ -704,7 +704,7 @@ static int createOps(pddl_strips_maker_t *sm,
                      pddl_strips_t *strips,
                      const pddl_t *pddl,
                      const int *ground_atom_to_fact_id,
-                     bor_err_t *err)
+                     pddl_err_t *err)
 {
     for (int i = 0; i < sm->num_action_args; ++i){
         pddl_ground_action_args_t **ppa = pddlExtArrGet(sm->action_args_arr, i);
@@ -722,14 +722,14 @@ static int createOps(pddl_strips_maker_t *sm,
                                                    ground_atom_to_fact_id,
                                                    ga, err);
             if (ret != 0)
-                BOR_TRACE_RET(err, ret);
+                PDDL_TRACE_RET(err, ret);
         }
     }
 
     pddlStripsOpsSort(&strips->op);
-    BOR_INFO2(err, "Operators sorted.");
+    PDDL_INFO2(err, "Operators sorted.");
 
-    BOR_INFO(err, "Created %d operators", strips->op.op_size);
+    PDDL_INFO(err, "Created %d operators", strips->op.op_size);
 
     return 0;
 }
@@ -738,9 +738,9 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
                               const pddl_t *pddl,
                               const pddl_ground_config_t *cfg,
                               pddl_strips_t *strips,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Strips Maker: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Strips Maker: ");
     pddlStripsInit(strips);
     strips->cfg = *cfg;
     if (pddl->domain_name)
@@ -757,8 +757,8 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
             || createInitState(sm, strips, pddl, ground_atom_to_fact, err) != 0
             || createGoal(sm, strips, pddl, ground_atom_to_fact, err) != 0
             || createOps(sm, strips, pddl, ground_atom_to_fact, err) != 0){
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, -1);
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, -1);
     }
     if (ground_atom_to_fact != NULL)
         FREE(ground_atom_to_fact);
@@ -767,32 +767,32 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         pddlStripsRemoveStaticFacts(strips, err);
 
     pddlStripsMergeCondEffIfPossible(strips);
-    BOR_INFO2(err, "Merged conditional effects where possible.");
+    PDDL_INFO2(err, "Merged conditional effects where possible.");
 
     pddlStripsOpsDeduplicate(&strips->op);
-    BOR_INFO(err, "Operators deduplicated. Num operators: %d",
+    PDDL_INFO(err, "Operators deduplicated. Num operators: %d",
              strips->op.op_size);
 
     if (strips->goal_is_unreachable){
-        BOR_INFO2(err, "Strips problem marked as unsolvable");
+        PDDL_INFO2(err, "Strips problem marked as unsolvable");
         pddlStripsMakeUnsolvable(strips);
     }
 
-    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
-    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    PDDL_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
+    PDDL_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
     int count = 0;
     for (int i = 0; i < strips->op.op_size; ++i){
         if (strips->op.op[i]->cond_eff_size > 0)
             ++count;
     }
-    BOR_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
+    PDDL_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
              count);
-    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
-    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    PDDL_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    PDDL_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
 
 
-    BOR_INFO2(err, "PDDL grounded to STRIPS.");
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO2(err, "PDDL grounded to STRIPS.");
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 

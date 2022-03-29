@@ -29,18 +29,18 @@ struct options {
 
 static void mgroupCoverNumber(const pddl_mgroups_t *mgroups,
                               const pddl_strips_t *strips,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     if (o.mgroup_cover_num){
-        BOR_INFO2(err, "Computing mutex group cover number");
+        PDDL_INFO2(err, "Computing mutex group cover number");
         int num = pddlMGroupsCoverNumber(mgroups, strips->fact.fact_size);
-        BOR_INFO(err, "Mutex group cover number: %d", num);
+        PDDL_INFO(err, "Mutex group cover number: %d", num);
     }
 }
 
 static void fdrVars(const pddl_strips_t *strips,
                     const pddl_mgroups_t *mgroups,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     if (!o.fdr_vars)
         return;
@@ -50,10 +50,10 @@ static void fdrVars(const pddl_strips_t *strips,
 
     unsigned flags = PDDL_FDR_VARS_LARGEST_FIRST;
     flags |= PDDL_FDR_VARS_NO_NEGATED_FACTS;
-    BOR_INFO2(err, "Creating FDR variables...");
+    PDDL_INFO2(err, "Creating FDR variables...");
     pddl_fdr_vars_t vars;
     pddlFDRVarsInitFromStrips(&vars, strips, mgroups, &mutex, flags);
-    BOR_INFO(err, "Created FDR variables: %d", vars.var_size);
+    PDDL_INFO(err, "Created FDR variables: %d", vars.var_size);
     //pddlFDRVarsPrintDebug(&vars, stderr);
     pddlFDRVarsFree(&vars);
 
@@ -64,7 +64,7 @@ static void mgroupDominance(const pddl_mgroups_t *m1,
                             const pddl_mgroups_t *m2,
                             const char *m1_name,
                             const char *m2_name,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     int dom = 0;
     for (int i = 0; i < m1->mgroup_size; ++i){
@@ -81,14 +81,14 @@ static void mgroupDominance(const pddl_mgroups_t *m1,
         if (!found)
             dom += 1;
     }
-    BOR_INFO(err, "mutex group dominance %s > %s: %d", m1_name, m2_name, dom);
+    PDDL_INFO(err, "mutex group dominance %s > %s: %d", m1_name, m2_name, dom);
 }
 
 int main(int argc, char *argv[])
 {
     pddl_config_t cfg = PDDL_CONFIG_INIT;
     pddl_t pddl;
-    bor_err_t err = BOR_ERR_INIT;
+    pddl_err_t err = PDDL_ERR_INIT;
     pddl_strips_t strips;
     pddl_lifted_mgroups_t lifted_mgroups;
     pddl_lifted_mgroups_t monotonicity_invariants;
@@ -170,8 +170,8 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    borErrWarnEnable(&err, stderr);
-    borErrInfoEnable(&err, stderr);
+    pddlErrWarnEnable(&err, stderr);
+    pddlErrInfoEnable(&err, stderr);
 
     cfg.force_adl = 0;
     if (o.force_adl)
@@ -217,13 +217,13 @@ int main(int argc, char *argv[])
     if (argc == 2){
         if (pddlFiles1(&files, argv[1], &err) != 0){
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }else{ // argc == 3
         if (pddlFiles(&files, argv[1], argv[2], &err) != 0){
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
     if (pddlInit(&pddl, files.domain_pddl, files.problem_pddl,
                  &cfg, &err) != 0){
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
@@ -239,12 +239,12 @@ int main(int argc, char *argv[])
     if (o.compile_away_cond_eff_pddl)
         pddlCompileAwayCondEff(&pddl);
 
-    BOR_INFO(&err, "Number of PDDL Types: %d", pddl.type.type_size);
-    BOR_INFO(&err, "Number of PDDL Objects: %d", pddl.obj.obj_size);
-    BOR_INFO(&err, "Number of PDDL Predicates: %d", pddl.pred.pred_size);
-    BOR_INFO(&err, "Number of PDDL Functions: %d", pddl.func.pred_size);
-    BOR_INFO(&err, "Number of PDDL Actions: %d", pddl.action.action_size);
-    BOR_INFO(&err, "Number of PDDL Metric: %d", pddl.metric);
+    PDDL_INFO(&err, "Number of PDDL Types: %d", pddl.type.type_size);
+    PDDL_INFO(&err, "Number of PDDL Objects: %d", pddl.obj.obj_size);
+    PDDL_INFO(&err, "Number of PDDL Predicates: %d", pddl.pred.pred_size);
+    PDDL_INFO(&err, "Number of PDDL Functions: %d", pddl.func.pred_size);
+    PDDL_INFO(&err, "Number of PDDL Actions: %d", pddl.action.action_size);
+    PDDL_INFO(&err, "Number of PDDL Metric: %d", pddl.metric);
     fflush(stdout);
     fflush(stderr);
 
@@ -291,34 +291,34 @@ int main(int argc, char *argv[])
             ground_cfg.prune_op_dead_end = o.lift_prune_dead_end;
         }
         if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
-            BOR_INFO2(&err, "Grounding failed.");
+            PDDL_INFO2(&err, "Grounding failed.");
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
 
         if (o.compile_away_cond_eff)
             pddlStripsCompileAwayCondEff(&strips);
 
-        BOR_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
-        BOR_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
+        PDDL_INFO(&err, "Number of Strips Operators: %d", strips.op.op_size);
+        PDDL_INFO(&err, "Number of Strips Facts: %d", strips.fact.fact_size);
 
         int count = 0;
         for (int i = 0; i < strips.op.op_size; ++i){
             if (strips.op.op[i]->cond_eff_size > 0)
                 ++count;
         }
-        BOR_INFO(&err, "Number of Strips Operators"
+        PDDL_INFO(&err, "Number of Strips Operators"
                 " with Conditional Effects: %d", count);
-        BOR_INFO(&err, "Goal is unreachable: %d",
+        PDDL_INFO(&err, "Goal is unreachable: %d",
                 strips.goal_is_unreachable);
-        BOR_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
+        PDDL_INFO(&err, "Has Conditional Effects: %d", strips.has_cond_eff);
         fflush(stdout);
         fflush(stderr);
 
         if (o.ground_lmg){
             pddlMGroupsGround(&lmg_mgroups, &pddl, &lifted_mgroups, &strips);
-            BOR_INFO(&err, "Ground mutex groups from lifted mutex groups: %d",
+            PDDL_INFO(&err, "Ground mutex groups from lifted mutex groups: %d",
                      lmg_mgroups.mgroup_size);
 
             if (o.print){
@@ -331,13 +331,13 @@ int main(int argc, char *argv[])
             }
 
             pddlMGroupsRemoveSubsets(&lmg_mgroups);
-            BOR_INFO(&err, "Ground maximal mutex groups from lifted mutex"
+            PDDL_INFO(&err, "Ground maximal mutex groups from lifted mutex"
                             " groups: %d", lmg_mgroups.mgroup_size);
 
             pddl_mutex_pairs_t mutex;
             pddlMutexPairsInitStrips(&mutex, &strips);
             pddlMutexPairsAddMGroups(&mutex, &lmg_mgroups);
-            BOR_INFO(&err, "Lifted mutex groups mutex-pairs: %d",
+            PDDL_INFO(&err, "Lifted mutex groups mutex-pairs: %d",
                      mutex.num_mutex_pairs);
             pddlMutexPairsFree(&mutex);
 
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
             if (o.h2_mgroup){
                 pddlMGroupsInitEmpty(&h2_mgroups);
                 pddlMutexPairsInferMutexGroups(&mutex, &h2_mgroups, &err);
-                BOR_INFO(&err, "Found %d h2 mutex groups.",
+                PDDL_INFO(&err, "Found %d h2 mutex groups.",
                          h2_mgroups.mgroup_size);
 
                 if (o.print){
@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
             }
             if (pddlFAMGroupsInfer(&fam_mgroups, &strips, &cfg, &err) != 0){
                 fprintf(stderr, "Error: ");
-                borErrPrint(&err, 1, stderr);
+                pddlErrPrint(&err, 1, stderr);
                 return -1;
             }
             if (o.fam_lmg)
@@ -396,7 +396,7 @@ int main(int argc, char *argv[])
             pddl_mutex_pairs_t mutex;
             pddlMutexPairsInitStrips(&mutex, &strips);
             pddlMutexPairsAddMGroups(&mutex, &fam_mgroups);
-            BOR_INFO(&err, "fam-groups: %d, mutex-pairs: %d",
+            PDDL_INFO(&err, "fam-groups: %d, mutex-pairs: %d",
                      fam_mgroups.mgroup_size, mutex.num_mutex_pairs);
             pddlMutexPairsFree(&mutex);
 
@@ -441,7 +441,7 @@ int main(int argc, char *argv[])
     }
     pddlFree(&pddl);
 
-    BOR_INFO2(&err, "DONE");
+    PDDL_INFO2(&err, "DONE");
     return 0;
 }
 

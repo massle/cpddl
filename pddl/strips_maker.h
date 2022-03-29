@@ -111,7 +111,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
                               const pddl_t *pddl,
                               const pddl_ground_config_t *cfg,
                               pddl_strips_t *strips,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 
 pddl_ground_action_args_t *pddlStripsMakerActionArgs(pddl_strips_maker_t *sm,
                                                      int id);

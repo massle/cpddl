@@ -18,7 +18,7 @@
 
 #include <stdio.h>
 #include "alloc.h"
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include "pddl/config.h"
 #include "pddl/clique.h"
 
@@ -236,7 +236,7 @@ void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
                            void (*cb)(const pddl_iset_t *clique, void *userdata),
                            void *userdata)
 {
-    BOR_FATAL2("Cliquer library is not linked!");
+    PDDL_FATAL2("Cliquer library is not linked!");
 }
 #endif /* PDDL_CLIQUER */
 

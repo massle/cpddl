@@ -53,7 +53,7 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
                             const pddl_mgroups_t *mgroup,
                             int max_nodes,
                             float max_time,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr);
 

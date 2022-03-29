@@ -52,7 +52,7 @@ struct pddl_strips_state_space {
 typedef struct pddl_strips_state_space pddl_strips_state_space_t;
 
 void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space);
 
 /**

@@ -1,7 +1,7 @@
 #include <pddl/pddl.h>
 #include "report.h"
 
-void reportLiftedMGroups(const pddl_t *pddl, bor_err_t *err)
+void reportLiftedMGroups(const pddl_t *pddl, pddl_err_t *err)
 {
     pddl_lifted_mgroups_infer_limits_t limits
                 = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
@@ -13,9 +13,9 @@ void reportLiftedMGroups(const pddl_t *pddl, bor_err_t *err)
     pddlLiftedMGroupsInit(&lmg);
     pddlLiftedMGroupsInit(&mono);
 
-    BOR_INFO2(err, "FD Lifted Mutex Groups:");
+    PDDL_INFO2(err, "FD Lifted Mutex Groups:");
     pddlLiftedMGroupsInferMonotonicity(pddl, &limits, &mono, &fd, err);
-    BOR_INFO2(err, "Lifted Mutex Groups:");
+    PDDL_INFO2(err, "Lifted Mutex Groups:");
     pddlLiftedMGroupsInferFAMGroups(pddl, &limits, &lmg, err);
 
     for (int li = 0; li < mono.mgroup_size; ++li){

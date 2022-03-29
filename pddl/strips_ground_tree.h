@@ -42,7 +42,7 @@ struct pddl_strips_ground_tnode {
     pddl_obj_size_t child_size;
     pddl_obj_size_t child_alloc;
     struct pddl_strips_ground_tnode **child;
-} bor_packed;
+} pddl_packed;
 typedef struct pddl_strips_ground_tnode pddl_strips_ground_tnode_t;
 
 struct pddl_strips_ground_tree {

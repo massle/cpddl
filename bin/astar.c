@@ -38,7 +38,7 @@ static void usage(const char *name)
 static int readOpts(int *argc,
                     char *argv[],
                     pddl_hpot_config_t *pot_cfg,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     opt.heur_spec = NULL;
 
@@ -72,15 +72,15 @@ static int readOpts(int *argc,
 
 
     if (*argc == 2){
-        BOR_INFO(err, "Input file: '%s'", argv[1]);
+        PDDL_INFO(err, "Input file: '%s'", argv[1]);
         if (pddlFiles1(&opt.files, argv[1], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }else{ // *argc == 3
-        BOR_INFO(err, "Input files: '%s' and '%s'", argv[1], argv[2]);
+        PDDL_INFO(err, "Input files: '%s' and '%s'", argv[1], argv[2]);
         if (pddlFiles(&opt.files, argv[1], argv[2], err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
-    BOR_INFO(err, "PDDL files: '%s' '%s'\n",
+    PDDL_INFO(err, "PDDL files: '%s' '%s'\n",
              opt.files.domain_pddl, opt.files.problem_pddl);
 
     if (opt.heur_spec == NULL){
@@ -88,16 +88,16 @@ static int readOpts(int *argc,
         usage(argv[0]);
         exit(-1);
     }
-    BOR_INFO(err, "Heuristic: '%s'", opt.heur_spec);
+    PDDL_INFO(err, "Heuristic: '%s'", opt.heur_spec);
 
     return 0;
 }
 
-static void printSearchStat(const pddl_search_astar_t *astar, bor_err_t *err)
+static void printSearchStat(const pddl_search_astar_t *astar, pddl_err_t *err)
 {
     pddl_search_stat_t stat;
     pddlSearchAStarStat(astar, &stat);
-    BOR_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
+    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
                   " gen: %lu, open: %lu, closed: %lu,"
                   " reopen: %lu, de: %lu, f: %d",
                   stat.steps,
@@ -112,7 +112,7 @@ static void printSearchStat(const pddl_search_astar_t *astar, bor_err_t *err)
 }
 
 static pddl_heur_t *createHeur(const pddl_fdr_t *fdr,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     if (strcmp(opt.heur_spec, "blind") == 0){
         return pddlHeurBlind();
@@ -146,12 +146,12 @@ int main(int argc, char *argv[])
     signal(SIGINT, sigHandlerTerminate);
     signal(SIGTERM, sigHandlerTerminate);
 
-    bor_err_t err = BOR_ERR_INIT;
-    borErrWarnEnable(&err, stderr);
-    borErrInfoEnable(&err, stderr);
+    pddl_err_t err = PDDL_ERR_INIT;
+    pddlErrWarnEnable(&err, stderr);
+    pddlErrInfoEnable(&err, stderr);
 
     if (readOpts(&argc, argv, &hpot_cfg, &err) != 0){
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
     pddlNormalize(&pddl);
@@ -190,15 +190,15 @@ int main(int argc, char *argv[])
     ground_cfg.prune_op_dead_end = 1;
     pddl_strips_t strips;
     if (pddlStripsGround(&strips, &pddl, &ground_cfg, &err) != 0){
-        BOR_INFO2(&err, "Grounding failed.");
+        PDDL_INFO2(&err, "Grounding failed.");
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
     //if (strips.has_cond_eff)
     //    pddlStripsCompileAwayCondEff(&strips);
     if (strips.has_cond_eff){
-        BOR_INFO2(&err, "Has conditional effects -- terminating...");
+        PDDL_INFO2(&err, "Has conditional effects -- terminating...");
         return -1;
     }
 
@@ -213,9 +213,9 @@ int main(int argc, char *argv[])
         PDDL_ISET(rm_fact);
         PDDL_ISET(rm_op);
         if (pddlIrrelevanceAnalysis(&strips, &rm_fact, &rm_op, NULL, &err) != 0){
-            BOR_INFO2(&err, "Irrelevance analysis failed.");
+            PDDL_INFO2(&err, "Irrelevance analysis failed.");
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
         if (pddlISetSize(&rm_fact) > 0 || pddlISetSize(&rm_op) > 0){
@@ -232,7 +232,7 @@ int main(int argc, char *argv[])
         pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
         if (pddlFAMGroupsInfer(&mgroups, &strips, &fam_cfg, &err) != 0){
             fprintf(stderr, "Error: ");
-            borErrPrint(&err, 1, stderr);
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }
@@ -247,15 +247,15 @@ int main(int argc, char *argv[])
     pddlFDRInitFromStrips(&fdr, &strips, &mgroups, &mutex, fdr_var_flag,
                           fdr_flag, &err);
     if (pddlPruneFDR(&fdr, &err) != 0){
-        BOR_INFO2(&err, "Pruning failed.");
+        PDDL_INFO2(&err, "Pruning failed.");
         fprintf(stderr, "Error: ");
-        borErrPrint(&err, 1, stderr);
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
-    BOR_INFO(&err, "Number of operators: %d", fdr.op.op_size);
-    BOR_INFO(&err, "Number of variables: %d", fdr.var.var_size);
-    BOR_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
+    PDDL_INFO(&err, "Number of operators: %d", fdr.op.op_size);
+    PDDL_INFO(&err, "Number of variables: %d", fdr.var.var_size);
+    PDDL_INFO(&err, "Number of facts: %d", fdr.var.global_id_size);
 
     pddl_heur_t *heur = createHeur(&fdr, &err);
 
@@ -264,21 +264,21 @@ int main(int argc, char *argv[])
     int ret = pddlSearchAStarInitStep(astar);
     search_started = 1;
 
-    bor_timer_t info_timer;
-    borTimerStart(&info_timer);
+    pddl_timer_t info_timer;
+    pddlTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
         if (terminate){
             printSearchStat(astar, &err);
-            BOR_INFO2(&err, "Search aborted.");
+            PDDL_INFO2(&err, "Search aborted.");
             exit(-1);
         }
 
         ret = pddlSearchAStarStep(astar);
         if (step >= 100){
-            borTimerStop(&info_timer);
-            if (borTimerElapsedInSF(&info_timer) >= 1.){
+            pddlTimerStop(&info_timer);
+            if (pddlTimerElapsedInSF(&info_timer) >= 1.){
                 printSearchStat(astar, &err);
-                borTimerStart(&info_timer);
+                pddlTimerStart(&info_timer);
             }
             step = 0;
         }
@@ -286,15 +286,15 @@ int main(int argc, char *argv[])
     printSearchStat(astar, &err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
-        BOR_INFO2(&err, "Problem is unsolvable.");
+        PDDL_INFO2(&err, "Problem is unsolvable.");
 
     }else if (ret == PDDL_SEARCH_FOUND){
-        BOR_INFO2(&err, "Plan found.");
+        PDDL_INFO2(&err, "Plan found.");
         pddl_plan_t plan;
         pddlPlanInit(&plan);
         pddlPlanLoadBacktrack(&plan, astar->goal_state_id, &astar->state_space);
-        BOR_INFO(&err, "Plan Cost: %d", plan.cost);
-        BOR_INFO(&err, "Plan Length: %d", plan.length);
+        PDDL_INFO(&err, "Plan Cost: %d", plan.cost);
+        PDDL_INFO(&err, "Plan Length: %d", plan.length);
         if (opt.out == NULL || strcmp(opt.out, "-") == 0){
             pddlPlanPrint(&plan, &fdr.op, stdout);
         }else{
@@ -303,19 +303,19 @@ int main(int argc, char *argv[])
                 pddlPlanPrint(&plan, &fdr.op, fout);
                 fclose(fout);
             }else{
-                BOR_ERR(&err, "Could not open file '%s'", opt.out);
+                PDDL_ERR(&err, "Could not open file '%s'", opt.out);
                 fprintf(stderr, "Error: ");
-                borErrPrint(&err, 1, stderr);
+                pddlErrPrint(&err, 1, stderr);
                 return -1;
             }
         }
         pddlPlanFree(&plan);
     }else{
-        BOR_FATAL("Unkown return status: %d", ret);
+        PDDL_FATAL("Unkown return status: %d", ret);
     }
 
     if (terminate){
-        BOR_INFO2(&err, "Search aborted.");
+        PDDL_INFO2(&err, "Search aborted.");
         exit(-1);
     }
 

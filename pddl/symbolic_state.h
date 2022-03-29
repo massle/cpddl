@@ -24,7 +24,7 @@
 #include <pddl/pairheap.h>
 #include <pddl/rbtree.h>
 #include <pddl/iset.h>
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/bdd.h>
 #include <pddl/cost.h>
 
@@ -74,7 +74,7 @@ typedef struct pddl_symbolic_states pddl_symbolic_states_t;
 void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
                             pddl_bdd_manager_t *mgr,
                             int use_heur_inconsistent,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 /**
  * Frees allocated memory.

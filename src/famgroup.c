@@ -27,7 +27,7 @@ struct fam {
     pddl_famgroup_config_t cfg;
     const pddl_strips_t *strips;
     pddl_mgroups_t *mgroups;
-    bor_err_t *err;
+    pddl_err_t *err;
 
     bor_lp_t *lp;
     int lp_var_size;
@@ -192,7 +192,7 @@ static void famInit(fam_t *fam,
                     pddl_mgroups_t *mgroups,
                     const pddl_strips_t *strips,
                     const pddl_famgroup_config_t *cfg,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     unsigned lp_flags;
     int rows;
@@ -208,7 +208,7 @@ static void famInit(fam_t *fam,
         fam->cfg.limit = INT_MAX;
 
     if (!borLPSolverAvailable(BOR_LP_DEFAULT)){
-        BOR_FATAL2("Missing LP solver! Exiting...");
+        PDDL_FATAL2("Missing LP solver! Exiting...");
     }
 
     lp_flags  = BOR_LP_DEFAULT;
@@ -271,7 +271,7 @@ static void famInfer(fam_t *fam)
         pddlTimerStop(&timer);
         float elapsed = pddlTimerElapsedInSF(&timer);
         if ((int)elapsed > last_info){
-            BOR_INFO(fam->err, "  Inference of fam-groups: fam-groups: %d",
+            PDDL_INFO(fam->err, "  Inference of fam-groups: fam-groups: %d",
                      i + 1);
             last_info = elapsed;
         }
@@ -286,15 +286,15 @@ static void famInfer(fam_t *fam)
 int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
                        const pddl_strips_t *strips,
                        const pddl_famgroup_config_t *cfg,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        BOR_FATAL2("fam-groups does not support conditional effects");
+        PDDL_FATAL2("fam-groups does not support conditional effects");
 
-    BOR_INFO_PREFIX_PUSH(err, "MG-fam: ");
+    PDDL_INFO_PREFIX_PUSH(err, "MG-fam: ");
     fam_t fam;
     int start_num = mgs->mgroup_size;
-    BOR_INFO(err, "Inference of fam-groups ["
+    PDDL_INFO(err, "Inference of fam-groups ["
                   "maximal: %d, goal: %d, sym: %d, keep-only-asymetric: %d,"
                   " prioritize-uncovered: %d,"
                   " limit: %d, time-limit: %.2fs] ...",
@@ -310,9 +310,9 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
     famInfer(&fam);
     famFree(&fam);
 
-    BOR_INFO(err, "Inference of fam-groups DONE: %d fam-groups found.",
+    PDDL_INFO(err, "Inference of fam-groups DONE: %d fam-groups found.",
              mgs->mgroup_size - start_num);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 

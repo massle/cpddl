@@ -279,13 +279,13 @@ pddl_cond_t *pddlCondParse(const pddl_lisp_node_t *root,
                            pddl_t *pddl,
                            const pddl_params_t *params,
                            const char *err_prefix,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 /**
  * Parse (:init ...) into a conjuction of atoms.
  */
 pddl_cond_part_t *pddlCondParseInit(const pddl_lisp_node_t *root, pddl_t *pddl,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 
 /**
  * Transforms atom into (and atom).
@@ -316,12 +316,12 @@ int pddlCondPartIsEmpty(const pddl_cond_part_t *part);
 /**
  * Returns 0 if cond is a correct precondition, -1 otherwise.
  */
-int pddlCondCheckPre(const pddl_cond_t *cond, int require, bor_err_t *err);
+int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err);
 
 /**
  * Same as pddlCondCheckPre() buf effect is checked.
  */
-int pddlCondCheckEff(const pddl_cond_t *cond, int require, bor_err_t *err);
+int pddlCondCheckEff(const pddl_cond_t *cond, int require, pddl_err_t *err);
 
 
 /**

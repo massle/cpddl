@@ -493,9 +493,9 @@ static int findCut(pddl_lm_cut_t *lmc)
     */
 
     if (lmc->cut.size == 0){
-        BOR_FATAL2("Empty cut!");
+        PDDL_FATAL2("Empty cut!");
     }else if (min_cost <= 0){
-        BOR_FATAL("Invalid cut cost: %d!", min_cost);
+        PDDL_FATAL("Invalid cut cost: %d!", min_cost);
     }
 
     return min_cost;
@@ -615,7 +615,7 @@ int pddlLMCut(pddl_lm_cut_t *lmc,
               pddl_set_iset_t *ldms_out)
 {
     if (lmc->fdr == NULL){
-        BOR_FATAL2("This function requires lm-cut construct from FDR");
+        PDDL_FATAL2("This function requires lm-cut construct from FDR");
     }
     return lmCut(lmc, fdr_state, NULL, ldms_in, ldms_out);
 }
@@ -626,7 +626,7 @@ int pddlLMCutStrips(pddl_lm_cut_t *lmc,
                     pddl_set_iset_t *ldms_out)
 {
     if (lmc->fdr != NULL){
-        BOR_FATAL2("This function requires lm-cut construct from STRIPS");
+        PDDL_FATAL2("This function requires lm-cut construct from STRIPS");
     }
     return lmCut(lmc, NULL, state, ldms_in, ldms_out);
 }

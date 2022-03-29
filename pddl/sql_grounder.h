@@ -34,7 +34,7 @@ typedef struct pddl_sql_grounder pddl_sql_grounder_t;
 /**
  * Create a new grounder.
  */
-pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, bor_err_t *err);
+pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Free all allocated memory
@@ -58,18 +58,18 @@ const pddl_prep_action_t *pddlSqlGrounderPrepAction(
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
                                   int pred_id,
                                   const pddl_obj_id_t *args,
-                                  bor_err_t *err);
+                                  pddl_err_t *err);
 int pddlSqlGrounderInsertGroundAtom(pddl_sql_grounder_t *g,
                                     const pddl_ground_atom_t *ga,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
                               const pddl_cond_atom_t *a,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 
 /**
  * Remove all atoms from non-static predicates.
  */
-int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, bor_err_t *err);
+int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, pddl_err_t *err);
 
 /**
  * Start grounding the specified action.
@@ -77,7 +77,7 @@ int pddlSqlGrounderClearNonStatic(pddl_sql_grounder_t *g, bor_err_t *err);
  */
 int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
                                int action_id,
-                               bor_err_t *err);
+                               pddl_err_t *err);
 
 /**
  * Fetch next grounded action.
@@ -87,7 +87,7 @@ int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
  */
 int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
                               pddl_obj_id_t *args,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 
 
 #ifdef __cplusplus

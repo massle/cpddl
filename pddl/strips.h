@@ -53,7 +53,7 @@ typedef struct pddl_ground_config pddl_ground_config_t;
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
                          const char *prefix,
-                         bor_err_t *err);
+                         pddl_err_t *err);
 
 struct pddl_strips {
     pddl_ground_config_t cfg;
@@ -151,7 +151,7 @@ void pddlStripsReduce(pddl_strips_t *strips,
  * Remove static facts, i.e., facts that are true in all reachable states.
  * Returns the number of removed facts.
  */
-int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err);
+int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, pddl_err_t *err);
 
 /**
  * Remove delete effects that cannot be part of the state where the
@@ -166,7 +166,7 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err);
 int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    const pddl_mutex_pairs_t *mutex,
                                    pddl_iset_t *changed_ops,
-                                   bor_err_t *err);
+                                   pddl_err_t *err);
 
 /**
  * Use mutexes to find unreachable operators.
@@ -174,7 +174,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
 int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  const pddl_mutex_pairs_t *mutex,
                                  pddl_iset_t *unreachable_ops,
-                                 bor_err_t *err);
+                                 pddl_err_t *err);
 
 /**
  * Print STRIPS problem in a format easily usable from python.
@@ -194,7 +194,7 @@ void pddlStripsPrintPDDLProblem(const pddl_strips_t *strips, FILE *fout);
 
 void pddlStripsPrintDebug(const pddl_strips_t *strips, FILE *fout);
 
-void pddlStripsLogInfo(const pddl_strips_t *strips, bor_err_t *err);
+void pddlStripsLogInfo(const pddl_strips_t *strips, pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

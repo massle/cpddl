@@ -48,7 +48,7 @@ static int heurEstimate(pddl_heur_t *_h,
     return *hval;
 }
 
-pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, bor_err_t *err)
+pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
     pddl_heur_lmc_t *h = ALLOC(pddl_heur_lmc_t);
     bzero(h, sizeof(*h));

@@ -42,7 +42,7 @@ void pddlPredFree(pddl_pred_t *pred)
 
 static int setCB(const pddl_lisp_node_t *root,
                  int child_from, int child_to, int child_type, void *ud,
-                 bor_err_t *err)
+                 pddl_err_t *err)
 {
     pddl_pred_t *pred = ((set_t *)ud)->pred;
     pddl_types_t *types = ((set_t *)ud)->types;
@@ -82,7 +82,7 @@ static int parsePred(pddl_t *pddl,
                      const char *owner_var,
                      const char *errname,
                      pddl_preds_t *ps,
-                     bor_err_t *err)
+                     pddl_err_t *err)
 {
     pddl_pred_t *p;
     set_t set;
@@ -102,7 +102,7 @@ static int parsePred(pddl_t *pddl,
     set.owner_var = owner_var;
     if (pddlLispParseTypedList(n, 1, n->child_size, setCB, &set, err) != 0){
         pddlPredsRemoveLast(ps);
-        BOR_TRACE_PREPEND_RET(err, -1, "%s `%s': ", errname, n->child[0].value);
+        PDDL_TRACE_PREPEND_RET(err, -1, "%s `%s': ", errname, n->child[0].value);
     }
 
     p->name = STRDUP(n->child[0].value);
@@ -112,7 +112,7 @@ static int parsePred(pddl_t *pddl,
 static int parsePrivatePreds(pddl_t *pddl,
                              const pddl_lisp_node_t *n,
                              pddl_preds_t *ps,
-                             bor_err_t *err)
+                             pddl_err_t *err)
 {
     const char *owner_var;
     int factor, from;
@@ -150,7 +150,7 @@ static int parsePrivatePreds(pddl_t *pddl,
     for (int i = from; i < n->child_size; ++i){
         if (parsePred(pddl, n->child + i, owner_var,
                       "private predicate", ps, err) != 0){
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
         }
 
         ps->pred[ps->pred_size - 1].is_private = 1;
@@ -170,7 +170,7 @@ static void addEqPredicate(pddl_preds_t *ps)
     ps->eq_pred = ps->pred_size - 1;
 }
 
-int pddlPredsParse(pddl_t *pddl, bor_err_t *err)
+int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
 {
     const pddl_lisp_node_t *n;
     int  private;
@@ -202,7 +202,7 @@ int pddlPredsParse(pddl_t *pddl, bor_err_t *err)
 
         if (parsePred(pddl, n->child + i, NULL, "predicate", &pddl->pred,
                       err) != 0)
-            BOR_TRACE_PREPEND_RET(err, -1, "While parsing :predicates in %s: ",
+            PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :predicates in %s: ",
                                   pddl->domain_lisp->filename);
     }
 
@@ -215,7 +215,7 @@ int pddlPredsParse(pddl_t *pddl, bor_err_t *err)
             }
 
             if (parsePrivatePreds(pddl, n->child + i, &pddl->pred, err) != 0)
-                BOR_TRACE_PREPEND_RET(err, -1, "While parsing private"
+                PDDL_TRACE_PREPEND_RET(err, -1, "While parsing private"
                                       " :predicates in %s: ",
                                       pddl->domain_lisp->filename);
         }
@@ -243,7 +243,7 @@ void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src)
     }
 }
 
-int pddlFuncsParse(pddl_t *pddl, bor_err_t *err)
+int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
 {
     const pddl_lisp_node_t *n;
 
@@ -254,7 +254,7 @@ int pddlFuncsParse(pddl_t *pddl, bor_err_t *err)
     for (int i = 1; i < n->child_size; ++i){
         if (parsePred(pddl, n->child + i, NULL, "function",
                       &pddl->func, err) != 0){
-            BOR_TRACE_PREPEND_RET(err, -1, "While parsing :functions in %s: ",
+            PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :functions in %s: ",
                                   pddl->domain_lisp->filename);
         }
 
@@ -263,7 +263,7 @@ int pddlFuncsParse(pddl_t *pddl, bor_err_t *err)
                 && strcmp(n->child[i + 1].value, "-") == 0){
             if (n->child[i + 2].value == NULL
                     || strcmp(n->child[i + 2].value, "number") != 0){
-                BOR_ERR_RET(err, -1, "While parsing :functions in %s: Only number"
+                PDDL_ERR_RET(err, -1, "While parsing :functions in %s: Only number"
                             " functions are supported (line %d).",
                         pddl->domain_lisp->filename, n->child[i + 2].lineno);
             }

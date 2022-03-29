@@ -27,7 +27,7 @@ static void liftedPlannerSigHandlerTerminate(int signal)
 static pddl_homomorphism_heur_t *
     _liftedPlannerHeurCollapseAllExceptOneType(const pddl_t *pddl,
                                                int except,
-                                               bor_err_t *err)
+                                               pddl_err_t *err)
 {
     pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
     for (int type = 0; type < pddl->type.type_size; ++type){
@@ -39,7 +39,7 @@ static pddl_homomorphism_heur_t *
     pddl_homomorphism_heur_t *heur;
     if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
-        borErrPrint(err, 1, stderr);
+        pddlErrPrint(err, 1, stderr);
         return NULL;
     }
     return heur;
@@ -47,7 +47,7 @@ static pddl_homomorphism_heur_t *
 
 static pddl_homomorphism_heur_t *
     liftedPlannerHeurCollapseAllExceptOneType(const pddl_t *pddl,
-                                              bor_err_t *err)
+                                              pddl_err_t *err)
 {
     pddl_homomorphism_heur_t *heur = NULL;
     int best_hval = -1;
@@ -60,7 +60,7 @@ static pddl_homomorphism_heur_t *
                 continue;
 
             int hval = pddlHomomorphismHeurEvalGroundInit(h);
-            BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
+            PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
             if (hval > best_hval && hval != PDDL_COST_DEAD_END){
                 if (heur != NULL)
                     pddlHomomorphismHeurDel(heur);
@@ -77,21 +77,21 @@ static pddl_homomorphism_heur_t *
 static pddl_homomorphism_heur_t *
     _liftedPlannerHeurCollapseRandom(const pddl_t *pddl,
                                      int seed,
-                                     bor_err_t *err)
+                                     pddl_err_t *err)
 {
     pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
     homo_cfg.random_seed = seed;
     pddl_homomorphism_heur_t *heur;
     if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
-        borErrPrint(err, 1, stderr);
+        pddlErrPrint(err, 1, stderr);
         return NULL;
     }
     return heur;
 }
 
 static pddl_homomorphism_heur_t *
-    liftedPlannerHeurCollapseRandom(const pddl_t *pddl, bor_err_t *err)
+    liftedPlannerHeurCollapseRandom(const pddl_t *pddl, pddl_err_t *err)
 {
     int seed = opt.lifted_planner.homomorph_cfg.random_seed;
     pddl_homomorphism_heur_t *heur = NULL;
@@ -100,7 +100,7 @@ static pddl_homomorphism_heur_t *
         pddl_homomorphism_heur_t *h;
         h = _liftedPlannerHeurCollapseRandom(pddl, seed, err);
         int hval = pddlHomomorphismHeurEvalGroundInit(h);
-        BOR_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
+        PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
         if (hval > best_hval && hval != PDDL_COST_DEAD_END){
             if (heur != NULL)
                 pddlHomomorphismHeurDel(heur);
@@ -114,26 +114,26 @@ static pddl_homomorphism_heur_t *
     return heur;
 }
 
-int liftedPlanner(const pddl_t *pddl, bor_err_t *err)
+int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
 {
     void (*old_sigint)(int);
     void (*old_sigterm)(int);
     old_sigint = signal(SIGINT, liftedPlannerSigHandlerTerminate);
     old_sigterm = signal(SIGTERM, liftedPlannerSigHandlerTerminate);
 
-    BOR_INFO_PREFIX_PUSH(err, "LPLAN: ");
+    PDDL_INFO_PREFIX_PUSH(err, "LPLAN: ");
     pddl_homomorphism_heur_t *heur = NULL;
     if (opt.lifted_planner.heur_fn != NULL){
         if (opt.lifted_planner.heur_fn == pddlHomomorphismHeurLMCut){
-            BOR_INFO2(err, "cfg.heur = lmc");
+            PDDL_INFO2(err, "cfg.heur = lmc");
         }else if (opt.lifted_planner.heur_fn == pddlHomomorphismHeurHFF){
-            BOR_INFO2(err, "cfg.heur = ff");
+            PDDL_INFO2(err, "cfg.heur = ff");
         }else{
-            BOR_INFO2(err, "cfg.heur = unkown !!");
+            PDDL_INFO2(err, "cfg.heur = unkown !!");
         }
         pddlHomomorphismConfigLog(&opt.lifted_planner.homomorph_cfg,
                                   "cfg.heur.homomorph.", err);
-        BOR_INFO(err, "cfg.heur.homomorph_samples = %d",
+        PDDL_INFO(err, "cfg.heur.homomorph_samples = %d",
                  opt.lifted_planner.homomorph_samples);
 
         if ((opt.lifted_planner.homomorph_cfg.type & 0xfu)
@@ -148,8 +148,8 @@ int liftedPlanner(const pddl_t *pddl, bor_err_t *err)
     int ret = pddlSearchLiftedInitStep(search);
     lifted_search_started = 1;
 
-    bor_timer_t info_timer;
-    borTimerStart(&info_timer);
+    pddl_timer_t info_timer;
+    pddlTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
         if (lifted_terminate){
             ret = PDDL_SEARCH_ABORT;
@@ -158,10 +158,10 @@ int liftedPlanner(const pddl_t *pddl, bor_err_t *err)
 
         ret = pddlSearchLiftedStep(search);
         if (step >= 100){
-            borTimerStop(&info_timer);
-            if (borTimerElapsedInSF(&info_timer) >= 1.){
+            pddlTimerStop(&info_timer);
+            if (pddlTimerElapsedInSF(&info_timer) >= 1.){
                 pddlSearchLiftedStatLog(search, err);
-                borTimerStart(&info_timer);
+                pddlTimerStart(&info_timer);
             }
             step = 0;
         }
@@ -169,27 +169,27 @@ int liftedPlanner(const pddl_t *pddl, bor_err_t *err)
     pddlSearchLiftedStatLog(search, err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
-        BOR_INFO2(err, "Problem is unsolvable.");
+        PDDL_INFO2(err, "Problem is unsolvable.");
 
     }else if (ret == PDDL_SEARCH_FOUND){
-        BOR_INFO2(err, "Plan found.");
+        PDDL_INFO2(err, "Plan found.");
         const pddl_lifted_plan_t *plan = pddlSearchLiftedPlan(search);
-        BOR_INFO(err, "Plan Cost: %d", plan->plan_cost);
-        BOR_INFO(err, "Plan Length: %d", plan->plan_len);
+        PDDL_INFO(err, "Plan Cost: %d", plan->plan_cost);
+        PDDL_INFO(err, "Plan Length: %d", plan->plan_len);
         PRINT_TO_FILE(err, opt.lifted_planner.plan_out, "plan",
                       pddlSearchLiftedPlanPrint(search, fout));
 
     }else if (ret == PDDL_SEARCH_ABORT){
-        BOR_INFO2(err, "Search aborted.");
+        PDDL_INFO2(err, "Search aborted.");
 
     }else{
-        BOR_FATAL("Unkown return status: %d", ret);
+        PDDL_FATAL("Unkown return status: %d", ret);
     }
 
     pddlSearchLiftedDel(search);
     if (heur != NULL)
         pddlHomomorphismHeurDel(heur);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     signal(SIGINT, old_sigint);
     signal(SIGTERM, old_sigterm);
     return 1;

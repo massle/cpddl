@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/pq.h>
 #include "alloc.h"
 
@@ -115,7 +115,7 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
     pddl_pq_bucket_t *bucket;
 
     if (key >= PDDL_PQ_BUCKET_SIZE){
-        BOR_FATAL("pddlPQBucketQueue: key %d is over a size of"
+        PDDL_FATAL("pddlPQBucketQueue: key %d is over a size of"
                   " the bucket queue, which is %d.",
                   key, PDDL_PQ_BUCKET_SIZE);
     }

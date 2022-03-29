@@ -54,7 +54,7 @@ struct pddl_prep_actions {
 typedef struct pddl_prep_actions pddl_prep_actions_t;
 
 int pddlPrepActionsInit(const pddl_t *pddl, pddl_prep_actions_t *as,
-                        bor_err_t *err);
+                        pddl_err_t *err);
 void pddlPrepActionsFree(pddl_prep_actions_t *as);
 
 /**

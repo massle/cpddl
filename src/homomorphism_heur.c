@@ -42,21 +42,21 @@ typedef struct hff hff_t;
 static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
                                     const pddl_t *pddl,
                                     const pddl_homomorphism_config_t *cfg,
-                                    bor_err_t *err)
+                                    pddl_err_t *err)
 {
     bzero(h, sizeof(*h));
     h->obj_map = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     //pddlInitCopy(&h->homo, pddl);
     if (pddlHomomorphism(&h->homo, pddl, cfg, h->obj_map, err) != 0){
         FREE(h->obj_map);
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
     if (pddlStripsGroundSql(&h->strips, &h->homo, &ground_cfg, err) != 0){
         FREE(h->obj_map);
         pddlFree(&h->homo);
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddl_prune_strips_t prune;
@@ -72,42 +72,42 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
 pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
                                 const pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Homomorph lm-cut: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Homomorph lm-cut: ");
     lmcut_t *lmc = ALLOC(lmcut_t);
     if (pddlHomomorphismHeurInit(&lmc->homo, pddl, cfg, err) != 0){
         FREE(lmc);
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, NULL);
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, NULL);
     }
     lmc->homo._type = LM_CUT_TYPE;
 
     pddlLMCutInitStrips(&lmc->lmc, &lmc->homo.strips, 0, 0);
-    BOR_INFO2(err, "Constructed lm-cut heuristic from the grounded"
+    PDDL_INFO2(err, "Constructed lm-cut heuristic from the grounded"
                    " homomorphic image");
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return &lmc->homo;
 }
 
 pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
                                 const pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Homomorph hff: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Homomorph hff: ");
     hff_t *hff = ALLOC(hff_t);
     if (pddlHomomorphismHeurInit(&hff->homo, pddl, cfg, err) != 0){
         FREE(hff);
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, NULL);
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, NULL);
     }
     hff->homo._type = HFF_TYPE;
 
     pddlHFFInitStrips(&hff->hff, &hff->homo.strips);
-    BOR_INFO2(err, "Constructed h^ff heuristic from the grounded"
+    PDDL_INFO2(err, "Constructed h^ff heuristic from the grounded"
                    " homomorphic image");
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return &hff->homo;
 }
 

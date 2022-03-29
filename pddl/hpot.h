@@ -71,7 +71,7 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
 
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
                        const char *prefix,
-                       bor_err_t *err);
+                       pddl_err_t *err);
 
 /**
  * Returns true if the config can produce an ensamble of potential
@@ -82,7 +82,7 @@ int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg);
 int pddlHPot(pddl_pot_solutions_t *sols,
              const pddl_fdr_t *fdr,
              const pddl_hpot_config_t *cfg,
-             bor_err_t *err);
+             pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

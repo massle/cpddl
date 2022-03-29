@@ -27,10 +27,10 @@
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
                          const char *prefix,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     if (cfg->lifted_mgroups == NULL){
-        BOR_INFO(err, "%slifted_mgroups->mgroup_size = 0", prefix);
+        PDDL_INFO(err, "%slifted_mgroups->mgroup_size = 0", prefix);
     }else{
         PDDL_LOG_CONFIG_INT(cfg, prefix, lifted_mgroups->mgroup_size, err);
     }
@@ -669,7 +669,7 @@ void pddlStripsReduce(pddl_strips_t *strips,
     }
 }
 
-int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err)
+int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, pddl_err_t *err)
 {
     int num = 0;
     int *nonstatic_facts = CALLOC_ARR(int, strips->fact.fact_size);
@@ -706,10 +706,10 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, bor_err_t *err)
         }
     }
 
-    BOR_INFO(err, "Found %d static facts", pddlISetSize(&del_facts));
+    PDDL_INFO(err, "Found %d static facts", pddlISetSize(&del_facts));
     if (pddlISetSize(&del_facts) > 0){
         pddlStripsReduce(strips, &del_facts, NULL);
-        BOR_INFO(err, "Removed %d static facts", pddlISetSize(&del_facts));
+        PDDL_INFO(err, "Removed %d static facts", pddlISetSize(&del_facts));
     }
 
     pddlISetFree(&del_facts);
@@ -767,10 +767,10 @@ static void findUselessDelEffs(const pddl_strips_t *strips,
 int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    const pddl_mutex_pairs_t *mutex,
                                    pddl_iset_t *changed_ops,
-                                   bor_err_t *err)
+                                   pddl_err_t *err)
 {
     int ret = 0;
-    BOR_INFO(err, "Removing useless delete effects. num mutex pairs: %d",
+    PDDL_INFO(err, "Removing useless delete effects. num mutex pairs: %d",
              (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
 
     PDDL_ISET(useless);
@@ -806,7 +806,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     }
     pddlISetFree(&useless);
 
-    BOR_INFO(err, "Removing useless delete effects DONE."
+    PDDL_INFO(err, "Removing useless delete effects DONE."
                   " (modified ops: %d)", ret);
     return ret;
 }
@@ -814,7 +814,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
 int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  const pddl_mutex_pairs_t *mutex,
                                  pddl_iset_t *unreachable_ops,
-                                 bor_err_t *err)
+                                 pddl_err_t *err)
 {
     PDDL_ISET(part_state);
     int num = 0;
@@ -834,7 +834,7 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
         }
     }
     pddlISetFree(&part_state);
-    BOR_INFO(err, "Found %d unreachable operators.", num);
+    PDDL_INFO(err, "Found %d unreachable operators.", num);
     return 0;
 }
 
@@ -1011,17 +1011,17 @@ void pddlStripsPrintDebug(const pddl_strips_t *strips, FILE *fout)
         fprintf(fout, "Has conditional effects\n");
 }
 
-void pddlStripsLogInfo(const pddl_strips_t *strips, bor_err_t *err)
+void pddlStripsLogInfo(const pddl_strips_t *strips, pddl_err_t *err)
 {
-    BOR_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
-    BOR_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
-    BOR_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
-    BOR_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    PDDL_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
+    PDDL_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    PDDL_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    PDDL_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
     int count = 0;
     for (int i = 0; i < strips->op.op_size; ++i){
         if (strips->op.op[i]->cond_eff_size > 0)
             ++count;
     }
-    BOR_INFO(err, "Number of Strips Operators"
+    PDDL_INFO(err, "Number of Strips Operators"
              " with Conditional Effects: %d", count);
 }

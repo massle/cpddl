@@ -26,8 +26,8 @@
 #include <assert.h>
 # define ASSERT(x) assert(x)
 # define ASSERT_RUNTIME(x) assert(x)
-# define DBG(E, format, ...) BOR_INFO((E), "DEBUG: " format, __VA_ARGS__)
-# define DBG2(E, msg) BOR_INFO2((E), "DEBUG: " msg)
+# define DBG(E, format, ...) PDDL_INFO((E), "DEBUG: " format, __VA_ARGS__)
+# define DBG2(E, msg) PDDL_INFO2((E), "DEBUG: " msg)
 
 #else /* PDDL_DEBUG */
 

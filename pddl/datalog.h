@@ -22,7 +22,7 @@
 
 #include <stdio.h>
 #include <pddl/iset.h>
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus
@@ -110,14 +110,14 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl);
  *
  * Return 0 on success, -1 if the normal form could not be created.
  */
-int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err);
+int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err);
 
 /**
  * Computes and stores the canonical model [1] of the datalog.
  * [1] Helmert, M. (2009). Concise finite-domain representations for PDDL
  * planning tasks. Artificial Intelligence, 173, 503–535.
  */
-void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err);
+void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
 
 /**
  * Can be called only after pddlDatalogCanonicalModel() function.

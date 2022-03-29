@@ -54,7 +54,7 @@ static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
                           const pddl_prep_action_t *action,
                           const pddl_obj_id_t *arg);
 static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
-                                  bor_err_t *err);
+                                  pddl_err_t *err);
 
 static int unifyStaticFacts(pddl_strips_ground_t *g);
 static int unifyFacts(pddl_strips_ground_t *g);
@@ -319,7 +319,7 @@ static int groundArgsCmp(const void *a, const void *b, void *_)
 }
 
 static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
-                                  bor_err_t *err)
+                                  pddl_err_t *err)
 {
     int ins;
 
@@ -334,7 +334,7 @@ static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
     ins = 0;
     for (int i = 1; i < ga->size; ++i){
         if (groundArgsCmp(ga->arg + i, ga->arg + ins, NULL) == 0){
-            BOR_WARN2(err, "Duplicate grounded action"
+            PDDL_WARN2(err, "Duplicate grounded action"
                            " -- this should not happen!");
             if (ga->arg[i].arg != NULL)
                 FREE(ga->arg[i].arg);
@@ -358,7 +358,7 @@ static void _unifyFacts(pddl_strips_ground_t *g, pddl_ground_atoms_t *ga,
             atreeUnifyFact(g, g->atree + j, fact, static_fact);
 
         if (!static_fact && i == next_batch - 1){
-            BOR_INFO(g->err, "  Next batch unified. (unified facts: %d,"
+            PDDL_INFO(g->err, "  Next batch unified. (unified facts: %d,"
                              " facts: %d, funcs: %d, add effs: %d)",
                      i + 1,
                      g->facts.atom_size,
@@ -382,7 +382,7 @@ static int unifyStaticFacts(pddl_strips_ground_t *g)
         atreeBlockStatic(g->atree + i);
     g->static_facts_unified = 1;
 
-    BOR_INFO(g->err, "  Static facts unified."
+    PDDL_INFO(g->err, "  Static facts unified."
                      " (static facts: %d, facts: %d, funcs: %d, add effs: %d)",
              g->static_facts.atom_size,
              g->facts.atom_size,
@@ -520,7 +520,7 @@ static int groundIncrease(pddl_strips_ground_t *g,
                 cost += ga->func_val;
             }else{
                 char *name = groundOpName(g->pddl, action, arg);
-                BOR_WARN(g->err, "Undefined cost for action (%s).", name);
+                PDDL_WARN(g->err, "Undefined cost for action (%s).", name);
                 FREE(name);
             }
         }else{
@@ -556,7 +556,7 @@ static int setUpOp(pddl_strips_ground_t *g, pddl_strips_op_t *op,
 
     // Different operator cost for the conditional effects is not allowed
     if (a->parent_action >= 0 && a->increase.size > 0){
-        BOR_ERR_RET2(g->err, -1,
+        PDDL_ERR_RET2(g->err, -1,
                      "Costs in conditional effects are not supported.");
     }
 
@@ -639,7 +639,7 @@ static int groundActions(pddl_strips_ground_t *g, pddl_strips_t *strips)
         pddlStripsOpInit(&op);
         if (setUpOp(g, &op, ga) != 0){
             pddlStripsOpFree(&op);
-            BOR_TRACE_RET(g->err, -1);
+            PDDL_TRACE_RET(g->err, -1);
         }
 
         // Remember this action as a parent for conditional effects
@@ -673,7 +673,7 @@ static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
         ASSERT(ga->id == i);
         fact_id = pddlFactsAddGroundAtom(&strips->fact, ga, g->pddl);
         if (fact_id != ga->id){
-            BOR_FATAL2("The fact and the corresponding grounded atom have"
+            PDDL_FATAL2("The fact and the corresponding grounded atom have"
                        " different IDs. This is definitelly a bug!");
         }
     }
@@ -726,7 +726,7 @@ static int _groundGoal(pddl_cond_t *c, void *_g)
     if (c->type == PDDL_COND_ATOM){
         const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
         if (!pddlCondAtomIsGrounded(atom))
-            BOR_ERR_RET2(g->err, -1, "Goal specification cannot contain"
+            PDDL_ERR_RET2(g->err, -1, "Goal specification cannot contain"
                          " parametrized atoms.");
 
         // Find fact in the set of reachable facts
@@ -756,7 +756,7 @@ static int _groundGoal(pddl_cond_t *c, void *_g)
         return 0;
 
     }else{
-        BOR_ERR(g->err, "Only conjuctive goal specifications are supported."
+        PDDL_ERR(g->err, "Only conjuctive goal specifications are supported."
                 " (Goal contains %s.)", pddlCondTypeName(c->type));
         ggoal->fail = 1;
         return -2;
@@ -767,13 +767,13 @@ static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
 {
     struct ground_goal ggoal = { g, strips, 0 };
     if (g->pddl->goal->type == PDDL_COND_OR){
-        BOR_ERR_RET2(g->err, -1, "Only conjuctive goal specifications"
+        PDDL_ERR_RET2(g->err, -1, "Only conjuctive goal specifications"
                      " are supported. This goal is a disjunction.");
     }
 
     pddlCondTraverse(g->pddl->goal, _groundGoal, NULL, &ggoal);
     if (ggoal.fail)
-        BOR_TRACE_RET(g->err, -1);
+        PDDL_TRACE_RET(g->err, -1);
     return 0;
 }
 
@@ -809,7 +809,7 @@ static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
 
 static int groundInit(pddl_strips_ground_t *g, const pddl_t *pddl,
                       const pddl_ground_config_t *cfg,
-                      bor_err_t *err,
+                      pddl_err_t *err,
                       pddl_strips_ground_unify_new_atom_fn new_atom,
                       void *new_atom_data)
 {
@@ -826,7 +826,7 @@ static int groundInit(pddl_strips_ground_t *g, const pddl_t *pddl,
     g->unify_new_atom_data = new_atom_data;
 
     if (pddlPrepActionsInit(pddl, &g->action, g->err) != 0)
-        BOR_TRACE_RET(g->err, -1);
+        PDDL_TRACE_RET(g->err, -1);
 
     if (g->cfg.lifted_mgroups != NULL){
         pddlLiftedMGroupsExtractGoalAware(&g->goal_mgroup,
@@ -871,28 +871,28 @@ static void groundFree(pddl_strips_ground_t *g)
 int pddlStripsGroundStart(pddl_strips_ground_t *g,
                           const pddl_t *pddl,
                           const pddl_ground_config_t *cfg,
-                          bor_err_t *err,
+                          pddl_err_t *err,
                           pddl_strips_ground_unify_new_atom_fn new_atom,
                           void *new_atom_data)
 {
-    BOR_INFO(err, "PDDL to STRIPS (domain: %s, problem: %s) ...",
+    PDDL_INFO(err, "PDDL to STRIPS (domain: %s, problem: %s) ...",
              pddl->domain_lisp->filename,
              pddl->problem_lisp->filename);
 
     if (groundInit(g, pddl, cfg, err, new_atom, new_atom_data) != 0){
         groundFree(g);
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     }
 
-    BOR_INFO(err, "  lifted mutex groups: %d",
+    PDDL_INFO(err, "  lifted mutex groups: %d",
              (g->cfg.lifted_mgroups != NULL
                 ?  g->cfg.lifted_mgroups->mgroup_size : -1));
-    BOR_INFO(err, "  goal-aware lifted mutex groups: %d",
+    PDDL_INFO(err, "  goal-aware lifted mutex groups: %d",
              (g->cfg.lifted_mgroups != NULL
                 ?  g->goal_mgroup.mgroup_size : -1));
-    BOR_INFO(err, "  prune-op-pre-mutex: %d", g->cfg.prune_op_pre_mutex);
-    BOR_INFO(err, "  prune-op-dead-end: %d", g->cfg.prune_op_dead_end);
-    BOR_INFO(err, "  prep-actions: %d", g->action.action_size);
+    PDDL_INFO(err, "  prune-op-pre-mutex: %d", g->cfg.prune_op_pre_mutex);
+    PDDL_INFO(err, "  prune-op-dead-end: %d", g->cfg.prune_op_dead_end);
+    PDDL_INFO(err, "  prep-actions: %d", g->action.action_size);
 
     return 0;
 }
@@ -901,14 +901,14 @@ int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g)
 {
     if (!g->static_facts_unified && unifyStaticFacts(g) != 0){
         groundFree(g);
-        BOR_TRACE_RET(g->err, -1);
+        PDDL_TRACE_RET(g->err, -1);
     }
     if (unifyFacts(g) != 0){
         groundFree(g);
-        BOR_TRACE_RET(g->err, -1);
+        PDDL_TRACE_RET(g->err, -1);
     }
 
-    BOR_INFO(g->err, "  Unification finished."
+    PDDL_INFO(g->err, "  Unification finished."
                      " (facts: %d, funcs: %d, add effs: %d)",
              g->facts.atom_size,
              g->funcs.atom_size,
@@ -945,7 +945,7 @@ int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
             || groundInitState(g, strips) != 0
             || groundGoal(g, strips) != 0){
         groundFree(g);
-        BOR_TRACE_RET(g->err, -1);
+        PDDL_TRACE_RET(g->err, -1);
     }
 
     groundFree(g);
@@ -961,7 +961,7 @@ int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
     if (strips->goal_is_unreachable)
         pddlStripsMakeUnsolvable(strips);
 
-    BOR_INFO2(g->err, "PDDL grounded to STRIPS.");
+    PDDL_INFO2(g->err, "PDDL grounded to STRIPS.");
 
     return 0;
 }
@@ -969,21 +969,21 @@ int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
 int pddlStripsGround(pddl_strips_t *strips,
                      const pddl_t *pddl,
                      const pddl_ground_config_t *cfg,
-                     bor_err_t *err)
+                     pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Ground: ");
+    PDDL_INFO_PREFIX_PUSH(err, "Ground: ");
     pddlGroundConfigLog(cfg, "cfg.", err);
     pddl_strips_ground_t g;
 
     if (pddlStripsGroundStart(&g, pddl, cfg, err, NULL, NULL) != 0
             || pddlStripsGroundUnifyStep(&g) != 0
             || pddlStripsGroundFinalize(&g, strips) != 0){
-        BOR_INFO2(err, "Grounding failed.");
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, -1);
+        PDDL_INFO2(err, "Grounding failed.");
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddlStripsLogInfo(strips, err);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }

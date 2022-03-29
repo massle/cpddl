@@ -35,10 +35,10 @@ struct options {
         int enable;
         pddl_search_lifted_t *(*search_fn)(const pddl_t *pddl,
                                            pddl_homomorphism_heur_t *heur,
-                                           bor_err_t *err);
+                                           pddl_err_t *err);
         pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
                                              const pddl_homomorphism_config_t *cfg,
-                                             bor_err_t *err);
+                                             pddl_err_t *err);
         pddl_homomorphism_config_t homomorph_cfg;
         int homomorph_samples;
         char *plan_out;
@@ -49,7 +49,7 @@ struct options {
         int (*method_fn)(pddl_strips_t *,
                          const pddl_t *,
                          const pddl_ground_config_t *,
-                         bor_err_t *);
+                         pddl_err_t *);
 
         int mgroup;
         int mgroup_remove_subsets;
@@ -99,6 +99,6 @@ struct options {
 typedef struct options options_t;
 extern options_t opt;
 
-int setOptions(int argc, char *argv[], bor_err_t *err);
+int setOptions(int argc, char *argv[], pddl_err_t *err);
 
 #endif /* OPTIONS_H */

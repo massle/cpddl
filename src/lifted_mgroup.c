@@ -330,7 +330,7 @@ void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg)
 static void printMGroup(const pddl_t *pddl,
                         const pddl_lifted_mgroup_t *mgroup,
                         FILE *fout,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     char line[MAX_LINE_SIZE];
     int used = 0;
@@ -374,7 +374,7 @@ static void printMGroup(const pddl_t *pddl,
     if (fout != NULL)
         fprintf(fout, "%s", line);
     if (err != NULL)
-        BOR_INFO(err, "%s", line);
+        PDDL_INFO(err, "%s", line);
 }
 
 void pddlLiftedMGroupPrint(const pddl_t *pddl,
@@ -387,7 +387,7 @@ void pddlLiftedMGroupPrint(const pddl_t *pddl,
 
 void pddlLiftedMGroupLog(const pddl_t *pddl,
                          const pddl_lifted_mgroup_t *mgroup,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     printMGroup(pddl, mgroup, NULL, err);
 }

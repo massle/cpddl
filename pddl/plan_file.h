@@ -44,7 +44,7 @@ typedef struct pddl_plan_file_fdr pddl_plan_file_fdr_t;
 int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
                         const pddl_fdr_t *fdr,
                         const char *filename,
-                        bor_err_t *err);
+                        pddl_err_t *err);
 
 /**
  * Free allocated memory.
@@ -64,11 +64,11 @@ typedef struct pddl_plan_file_strips pddl_plan_file_strips_t;
 int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
                            const pddl_strips_t *strips,
                            const char *filename,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p);
 
 
-int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err);
+int pddlPlanFileParseOptimalCost(const char *filename, pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

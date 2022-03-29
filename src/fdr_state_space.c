@@ -32,12 +32,12 @@ struct state_node {
     int op_id:30; /*!< ID of the operator reaching this state */
     pddl_fdr_state_space_status_t status:2;/*!< PDDL_FDR_STATE_SPACE_STATUS_* */
     int g_value; /*!< Cost of the path from init to this state */
-} bor_packed;
+} pddl_packed;
 typedef struct state_node state_node_t;
 
 void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
                            const pddl_fdr_vars_t *vars,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     bzero(state_space, sizeof(*state_space));
     pddlFDRStatePoolInit(&state_space->state_pool, vars, err);
@@ -45,7 +45,7 @@ void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
                                       MIN_STATES_PER_BLOCK,
                                       NULL, NULL);
 
-    BOR_INFO(err, "State space created. bytes per state node: %d",
+    PDDL_INFO(err, "State space created. bytes per state node: %d",
              (int)sizeof(state_node_t));
 }
 

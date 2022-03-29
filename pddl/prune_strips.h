@@ -45,7 +45,7 @@ void pddlPruneStripsFree(pddl_prune_strips_t *prune);
 int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
                            pddl_strips_t *strips,
                            pddl_mgroups_t *mgroups,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 void pddlPruneStripsAddIrrelevance(pddl_prune_strips_t *prune);
 

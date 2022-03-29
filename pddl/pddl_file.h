@@ -20,7 +20,7 @@
 #ifndef __PDDL_FILE_H__
 #define __PDDL_FILE_H__
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/config.h>
 
 #ifdef __cplusplus
@@ -35,9 +35,9 @@ struct pddl_files {
 };
 typedef struct pddl_files pddl_files_t;
 
-int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err);
+int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err);
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
-              bor_err_t *err);
+              pddl_err_t *err);
 
 int pddlIsFile(const char *);
 

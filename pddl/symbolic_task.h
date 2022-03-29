@@ -90,7 +90,7 @@ typedef struct pddl_symbolic_task pddl_symbolic_task_t;
 
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                           const pddl_symbolic_task_config_t *c,
-                                          bor_err_t *err);
+                                          pddl_err_t *err);
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
 
@@ -101,16 +101,16 @@ int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task);
 
 int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
                              pddl_iarr_t *plan,
-                             bor_err_t *err);
+                             pddl_err_t *err);
 int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
                              pddl_iarr_t *plan,
-                             bor_err_t *err);
+                             pddl_err_t *err);
 int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
                                pddl_iarr_t *plan,
-                               bor_err_t *err);
+                               pddl_err_t *err);
 int pddlSymbolicTaskSearch(pddl_symbolic_task_t *ss,
                            pddl_iarr_t *plan,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
                                  const int *state,

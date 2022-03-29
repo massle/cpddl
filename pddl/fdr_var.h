@@ -127,7 +127,7 @@ void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout);
 void pddlFDRVarsPrintTable(const pddl_fdr_vars_t *vars,
                            int linesize,
                            FILE *fout,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

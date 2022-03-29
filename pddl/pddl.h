@@ -22,11 +22,13 @@
 
 #include <pddl/config.h>
 #include <pddl/core.h>
+#include <pddl/err.h>
 #include <pddl/alloc.h>
 #include <pddl/timer.h>
 #include <pddl/hfunc.h>
 #include <pddl/rand.h>
 #include <pddl/rand-mt.h>
+#include <pddl/sort.h>
 #include <pddl/segmarr.h>
 #include <pddl/extarr.h>
 #include <pddl/rbtree.h>

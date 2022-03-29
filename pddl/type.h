@@ -54,7 +54,7 @@ typedef struct pddl_types pddl_types_t;
 /**
  * Parses :types into type array.
  */
-int pddlTypesParse(pddl_t *pddl, bor_err_t *err);
+int pddlTypesParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -124,7 +124,7 @@ int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj);
  * (either ...) types are created if necessary.
  */
 int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
-                         bor_err_t *err);
+                         pddl_err_t *err);
 
 /**
  * Returns true if parent is a parent type of child type.

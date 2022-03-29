@@ -64,7 +64,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
                            const pddl_mgroups_t *mgroups,
                            const pddl_mutex_pairs_t *mutex,
                            const pddl_black_mgroups_config_t *cfg,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups);
 

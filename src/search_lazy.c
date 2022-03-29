@@ -23,7 +23,7 @@
 
 pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
                                    pddl_heur_t *heur,
-                                   bor_err_t *err)
+                                   pddl_err_t *err)
 {
     pddl_search_lazy_t *lazy;
 
@@ -86,7 +86,7 @@ int pddlSearchLazyInitStep(pddl_search_lazy_t *lazy)
     int h_value = pddlHeurEstimate(lazy->heur,
                                    &lazy->cur_node,
                                    &lazy->state_space);
-    BOR_INFO(lazy->err, "Heuristic value for the initial state: %d", h_value);
+    PDDL_INFO(lazy->err, "Heuristic value for the initial state: %d", h_value);
     ++lazy->_stat.evaluated;
     if (h_value == PDDL_COST_DEAD_END){
         ++lazy->_stat.dead_end;

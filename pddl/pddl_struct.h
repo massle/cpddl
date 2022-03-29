@@ -52,7 +52,7 @@ typedef struct pddl_config pddl_config_t;
       0, /* .enforce_unit_cost */ \
     }
 
-void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, bor_err_t *err);
+void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, pddl_err_t *err);
 
 struct pddl {
     pddl_config_t cfg;
@@ -76,7 +76,7 @@ struct pddl {
  * Initialize pddl structure from the domain/problem PDDL files.
  */
 int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
-             const pddl_config_t *cfg, bor_err_t *err);
+             const pddl_config_t *cfg, pddl_err_t *err);
 
 /**
  * Creates a copy of the pddl structure.
@@ -89,7 +89,7 @@ void pddlInitCopy(pddl_t *dst, const pddl_t *src);
 void pddlFree(pddl_t *pddl);
 
 pddl_t *pddlNew(const char *domain_fn, const char *problem_fn,
-                const pddl_config_t *cfg, bor_err_t *err);
+                const pddl_config_t *cfg, pddl_err_t *err);
 void pddlDel(pddl_t *pddl);
 
 /**
@@ -129,7 +129,7 @@ void pddlAddObjectTypes(pddl_t *pddl);
 /**
  * Remove specified objects from the planning task.
  */
-void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_objs, bor_err_t *err);
+void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_objs, pddl_err_t *err);
 
 /**
  * Same as pddlRemoveObjs() except a remap array must be provided.
@@ -137,7 +137,7 @@ void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_objs, bor_err_t *err);
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
                             const pddl_iset_t *rm_obj,
                             pddl_obj_id_t *remap,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 /**
  * Remap object IDs.
@@ -147,12 +147,12 @@ void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
 /**
  * Remove empty types and all related predicates and actions from the task
  */
-void pddlRemoveEmptyTypes(pddl_t *pddl, bor_err_t *err);
+void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Remove assign and increase atoms to enforce the task to be unit cost
  */
-void pddlEnforceUnitCost(pddl_t *pddl, bor_err_t *err);
+void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Returns -1 on error, 0 if pddl wasn't changed, and 1 if the pddl was
@@ -160,7 +160,7 @@ void pddlEnforceUnitCost(pddl_t *pddl, bor_err_t *err);
  */
 int pddlCompileInLiftedMGroups(pddl_t *pddl,
                                const pddl_lifted_mgroups_t *mgroups,
-                               bor_err_t *err);
+                               pddl_err_t *err);
 
 /**
  * Prints PDDL domain file.

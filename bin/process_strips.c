@@ -25,7 +25,7 @@ typedef struct pddl_process_strips_step pddl_process_strips_step_t;
 
 typedef int (*pddl_process_strips_execute_fn)(pddl_process_strips_t *prune,
                                             pddl_process_strips_step_t *step,
-                                            bor_err_t *err);
+                                            pddl_err_t *err);
 typedef void (*pddl_process_strips_free_fn)(pddl_process_strips_step_t *step);
 
 struct pddl_process_strips_step {
@@ -65,10 +65,10 @@ void pddlProcessStripsFree(pddl_process_strips_t *prune)
     pddlISetFree(&prune->rm_fact);
 }
 
-static int apply(pddl_process_strips_t *prune, bor_err_t *err)
+static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
 {
     if (pddlISetSize(&prune->rm_fact) > 0 || pddlISetSize(&prune->rm_op) > 0){
-        BOR_INFO(err, "Removing %d facts, %d operators",
+        PDDL_INFO(err, "Removing %d facts, %d operators",
                  pddlISetSize(&prune->rm_fact),
                  pddlISetSize(&prune->rm_op));
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
@@ -86,25 +86,25 @@ static int apply(pddl_process_strips_t *prune, bor_err_t *err)
 
 static int step(pddl_process_strips_t *prune,
                 pddl_process_strips_step_t *step,
-                bor_err_t *err)
+                pddl_err_t *err)
 {
     if (!step->can_reuse_rm_op_fact)
         apply(prune, err);
 
-    BOR_INFO_PREFIX_PUSH(err, step->name);
+    PDDL_INFO_PREFIX_PUSH(err, step->name);
     int rm_fact = pddlISetSize(&prune->rm_fact);
     int rm_op = pddlISetSize(&prune->rm_op);
     if (step->execute(prune, step, err) != 0){
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, -1);
+        PDDL_INFO_PREFIX_POP(err);
+        PDDL_TRACE_RET(err, -1);
     }
-    BOR_INFO(err, "Found new redundant: %d facts, %d operators",
+    PDDL_INFO(err, "Found new redundant: %d facts, %d operators",
              pddlISetSize(&prune->rm_fact) - rm_fact,
              pddlISetSize(&prune->rm_op) - rm_op);
-    BOR_INFO(err, "Found redundant so far: %d facts, %d operators",
+    PDDL_INFO(err, "Found redundant so far: %d facts, %d operators",
              prune->removed_fact + pddlISetSize(&prune->rm_fact),
              prune->removed_op + pddlISetSize(&prune->rm_op));
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -112,9 +112,9 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                            pddl_strips_t *strips,
                            pddl_mgroups_t *mgroups,
                            pddl_mutex_pairs_t *mutex,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "STRIPS: ");
+    PDDL_INFO_PREFIX_PUSH(err, "STRIPS: ");
     prune->strips = strips;
     prune->mgroups = mgroups;
     prune->mutex = mutex;
@@ -125,17 +125,17 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
         pddl_process_strips_step_t *s;
         s = PDDL_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
         if (step(prune, s, err) != 0){
-            BOR_INFO_PREFIX_POP(err);
-            BOR_TRACE_RET(err, -1);
+            PDDL_INFO_PREFIX_POP(err);
+            PDDL_TRACE_RET(err, -1);
         }
     }
 
     apply(prune, err);
-    BOR_INFO(err, "Removed %d facts, %d operators",
+    PDDL_INFO(err, "Removed %d facts, %d operators",
              prune->removed_fact,
              prune->removed_op);
     pddlStripsLogInfo(strips, err);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
 
@@ -182,7 +182,7 @@ static void emptyFree(pddl_process_strips_step_t *_)
 
 static int irrelevance(pddl_process_strips_t *prune,
                        pddl_process_strips_step_t *step,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     return pddlIrrelevanceAnalysis(prune->strips,
                                    &prune->rm_fact,
@@ -200,7 +200,7 @@ void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune)
 
 static int famgroupsDeadEndOps(pddl_process_strips_t *prune,
                                pddl_process_strips_step_t *step,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     pddlFAMGroupsDeadEndOps(prune->mgroups, prune->strips, &prune->rm_op);
     return 0;
@@ -215,7 +215,7 @@ void pddlProcessStripsAddFAMGroupsDeadEndOps(pddl_process_strips_t *prune)
 
 static int h2fw(pddl_process_strips_t *prune,
                 pddl_process_strips_step_t *_step,
-                bor_err_t *err)
+                pddl_err_t *err)
 {
     pddl_process_strips_step_hm_t *step;
     step = pddl_container_of(_step, pddl_process_strips_step_hm_t, step);
@@ -238,7 +238,7 @@ void pddlProcessStripsAddH2Fw(pddl_process_strips_t *prune,
 
 static int h2fwbw(pddl_process_strips_t *prune,
                   pddl_process_strips_step_t *_step,
-                  bor_err_t *err)
+                  pddl_err_t *err)
 {
     pddl_process_strips_step_hm_t *step;
     step = pddl_container_of(_step, pddl_process_strips_step_hm_t, step);
@@ -266,7 +266,7 @@ void pddlProcessStripsAddH2FwBw(pddl_process_strips_t *prune,
 
 static int h3fw(pddl_process_strips_t *prune,
                 pddl_process_strips_step_t *_step,
-                bor_err_t *err)
+                pddl_err_t *err)
 {
     pddl_process_strips_step_hm_t *step;
     step = pddl_container_of(_step, pddl_process_strips_step_hm_t, step);
@@ -292,7 +292,7 @@ void pddlProcessStripsAddH3Fw(pddl_process_strips_t *prune,
 
 static int deduplicateOps(pddl_process_strips_t *prune,
                           pddl_process_strips_step_t *step,
-                          bor_err_t *err)
+                          pddl_err_t *err)
 {
     pddlStripsOpsDeduplicateSet(&prune->strips->op, &prune->rm_op);
     return 0;

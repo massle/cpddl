@@ -23,11 +23,11 @@ static void closeFile(FILE *f)
     if ((OUT) != NULL){ \
         FILE *fout = openFile((OUT)); \
         if (fout != NULL){ \
-            BOR_INFO((ERR), "Printing %s to %s ...", (S), (OUT)); \
+            PDDL_INFO((ERR), "Printing %s to %s ...", (S), (OUT)); \
             CMD; \
             closeFile(fout); \
         }else{ \
-            BOR_ERR_RET((ERR), -1, "Could not open '%s'", (OUT)); \
+            PDDL_ERR_RET((ERR), -1, "Could not open '%s'", (OUT)); \
         } \
     } \
     } while (0) 
