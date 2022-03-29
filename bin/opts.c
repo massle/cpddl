@@ -1,4 +1,3 @@
-#include <boruvka/alloc.h>
 #include <stdio.h>
 #include <limits.h>
 #include "opts.h"
@@ -49,21 +48,21 @@ static int cur_group = -1;
 void optsFree(void)
 {
     for (int i = 0; i < o.group_size; ++i){
-        BOR_FREE(o.group[i].header);
+        PDDL_FREE(o.group[i].header);
     }
     if (o.group != NULL)
-        BOR_FREE(o.group);
+        PDDL_FREE(o.group);
 
     for (int i = 0; i < o.opt_size; ++i){
         if (o.opt[i].long_name != NULL)
-            BOR_FREE(o.opt[i].long_name);
+            PDDL_FREE(o.opt[i].long_name);
         if (o.opt[i].sdefault != NULL)
-            BOR_FREE(o.opt[i].sdefault);
+            PDDL_FREE(o.opt[i].sdefault);
         if (o.opt[i].desc != NULL)
-            BOR_FREE(o.opt[i].desc);
+            PDDL_FREE(o.opt[i].desc);
     }
     if (o.opt != NULL)
-        BOR_FREE(o.opt);
+        PDDL_FREE(o.opt);
 }
 
 void optsStartGroup(const char *header)
@@ -72,7 +71,7 @@ void optsStartGroup(const char *header)
         if (o.group_alloc == 0)
             o.group_alloc = 1;
         o.group_alloc *= 2;
-        o.group = BOR_REALLOC_ARR(o.group, opt_group_t, o.group_alloc);
+        o.group = PDDL_REALLOC_ARR(o.group, opt_group_t, o.group_alloc);
     }
 
     cur_group = o.group_size;
@@ -90,7 +89,7 @@ static opt_opt_t *optsAdd(int type,
         if (o.opt_alloc == 0)
             o.opt_alloc = 1;
         o.opt_alloc *= 2;
-        o.opt = BOR_REALLOC_ARR(o.opt, opt_opt_t, o.opt_alloc);
+        o.opt = PDDL_REALLOC_ARR(o.opt, opt_opt_t, o.opt_alloc);
     }
 
     opt_opt_t *opt = o.opt + o.opt_size++;
@@ -480,11 +479,11 @@ int optsProcessTags(const char *_s, int (*fn)(const char *t))
     char *cur;
     while ((cur = strsep(&next, ":")) != NULL){
         if (fn(cur) != 0){
-            BOR_FREE(s);
+            PDDL_FREE(s);
             return -1;
         }
     }
-    BOR_FREE(s);
+    PDDL_FREE(s);
 
     return 0;
 }
