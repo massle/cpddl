@@ -107,7 +107,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
 {
     PDDL_INFO_PREFIX_PUSH(err, "Prune: ");
     PDDL_INFO(err, "Start pruning. facts: %d, ops: %d",
-             strips->fact.fact_size, strips->op.op_size);
+              strips->fact.fact_size, strips->op.op_size);
     ctx_t ctx;
     bzero(&ctx, sizeof(ctx));
     ctx.strips = strips;
@@ -140,7 +140,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
     pddlISetFree(&ctx.rm_fact);
     pddlISetFree(&ctx.rm_op);
     PDDL_INFO(err, "DONE. facts: %d, ops: %d",
-             strips->fact.fact_size, strips->op.op_size);
+              strips->fact.fact_size, strips->op.op_size);
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
@@ -150,7 +150,7 @@ static int pruneIrrelevance(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
         PDDL_INFO2(c->err, "irrelevance analysis disabled because the problem"
-                          " has conditional effects.");
+                   " has conditional effects.");
         return 0;
     }
 
@@ -178,7 +178,7 @@ static int pruneUnreachableInDTGs(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
         PDDL_INFO2(c->err, "pruning unreachable facts in DTGs disabled because the problem"
-                          " has conditional effects.");
+                   " has conditional effects.");
         return 0;
     }
 
@@ -203,7 +203,7 @@ static int pruneFAMGroupDeadEnd(prune_strips_t *p, ctx_t *c)
     PDDL_INFO2(c->err, "Pruning dead-end operators ...");
     pddlFAMGroupsDeadEndOps(c->mgroup, c->strips, &c->rm_op);
     PDDL_INFO(c->err, "Pruning dead-end operators done. Dead end ops: %d",
-             pddlISetSize(&c->rm_op) - old_size);
+              pddlISetSize(&c->rm_op) - old_size);
     return 0;
 }
 
@@ -239,7 +239,7 @@ static int pruneH2FwBw(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
         PDDL_INFO2(c->err, "h^2 fw/bw disabled because the problem has"
-                          " conditional effects.");
+                   " conditional effects.");
         return 0;
     }
 
@@ -291,7 +291,7 @@ static int pruneDeduplicateOps(prune_strips_t *p, ctx_t *c)
     int num_ops = c->strips->op.op_size;
     pddlStripsOpsDeduplicate(&c->strips->op);
     PDDL_INFO(c->err, "Deduplication of operators removed %d operators",
-             num_ops - c->strips->op.op_size);
+              num_ops - c->strips->op.op_size);
     return 0;
 }
 

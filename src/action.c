@@ -126,8 +126,8 @@ int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
         if (pddlLispNodeHeadKw(n) == PDDL_KW_ACTION){
             if (parseAction(pddl, n, err) != 0){
                 PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
-                                      " on line %d: ",
-                                      pddl->domain_lisp->filename, n->lineno);
+                                       " on line %d: ",
+                                       pddl->domain_lisp->filename, n->lineno);
             }
         }
     }
@@ -349,8 +349,8 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
         c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM){
             PDDL_FATAL("Precondition of the action `%s' is"
-                      " not a flatten conjuction (conjuction contains"
-                      " something else besides atoms).", a->name);
+                       " not a flatten conjuction (conjuction contains"
+                       " something else besides atoms).", a->name);
         }
     }
 }
@@ -393,7 +393,7 @@ void pddlActionsRemapTypesAndPreds(pddl_actions_t *as,
     int ins = 0;
     for (int i = 0; i < as->action_size; ++i){
         if (pddlActionRemapTypesAndPreds(as->action + i, type_remap,
-                                         pred_remap, func_remap) == 0){
+                    pred_remap, func_remap) == 0){
             as->action[ins++] = as->action[i];
         }else{
             pddlActionFree(as->action + i);

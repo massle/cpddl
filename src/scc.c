@@ -74,10 +74,10 @@ static void sccTarjanStrongconnect(pddl_scc_t *scc, scc_dfs_t *dfs, int vert)
         if (dfs->index[end_vert] == -1){
             sccTarjanStrongconnect(scc, dfs, end_vert);
             dfs->lowlink[vert] = PDDL_MIN(dfs->lowlink[vert],
-                                         dfs->lowlink[end_vert]);
+                                          dfs->lowlink[end_vert]);
         }else if (dfs->in_stack[end_vert]){
             dfs->lowlink[vert] = PDDL_MIN(dfs->lowlink[vert],
-                                         dfs->lowlink[end_vert]);
+                                          dfs->lowlink[end_vert]);
         }
     }
 
@@ -155,7 +155,7 @@ static void cycleAdd(pddl_graph_simple_cycles_t *cycles,
             cycles->cycle_alloc = 2;
         cycles->cycle_alloc *= 2;
         cycles->cycle = REALLOC_ARR(cycles->cycle, pddl_iarr_t,
-                                        cycles->cycle_alloc);
+                                    cycles->cycle_alloc);
     }
     pddl_iarr_t *dst = cycles->cycle + cycles->cycle_size++;
 

@@ -58,7 +58,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
     if (pddlDisambiguate(&constr->disambiguate, &op->pre, NULL,
                          1, 0, NULL, &op->pre) < 0){
         PDDL_INFO(err, "Operator %d:(%s) skipped, because it"
-                " is unreachable or dead-end", op->op_id, op->name);
+                  " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
         return;
     }
@@ -89,7 +89,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
     if (!pddlISetIsDisjoint(&op->neg_pre, &op->pre)
             || !pddlISetIsDisjoint(&op->neg_eff, &op->eff)){
         PDDL_INFO(err, "Operator %d:(%s) skipped, because it"
-                      " is unreachable or dead-end", op->op_id, op->name);
+                  " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
     }
 
@@ -341,10 +341,10 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
     PDDL_INFO(err, "Initialized individual trans BDDs: cost: %s,"
-                  " heur change: %s ops: %d",
-             F_COST(&trset->cost),
-             F_COST(&trset->heur_change),
-             pddlISetSize(&trset->op));
+              " heur change: %s ops: %d",
+              F_COST(&trset->cost),
+              F_COST(&trset->heur_change),
+              pddlISetSize(&trset->op));
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -405,9 +405,9 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     for (int i = 0; i < trset->trans_size; ++i)
         nodes += pddlBDDSize(trset->trans[i].bdd);
     PDDL_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
-                  " nodes: %lu, %s",
-             trset->cost, pddlISetSize(&trset->op), trset->trans_size,
-             nodes, (T_size > 1 ? "(time limit reached)" : ""));
+              " nodes: %lu, %s",
+              trset->cost, pddlISetSize(&trset->op), trset->trans_size,
+              nodes, (T_size > 1 ? "(time limit reached)" : ""));
 }
 
 static int opIdCostCmp(const void *a, const void *b, void *_ops)
@@ -428,8 +428,8 @@ static int add(pddl_symbolic_trans_sets_t *trset)
     if (trset->trans_size == trset->trans_alloc){
         trset->trans_alloc *= 2;
         trset->trans = REALLOC_ARR(trset->trans,
-                                       pddl_symbolic_trans_set_t,
-                                       trset->trans_alloc);
+                                   pddl_symbolic_trans_set_t,
+                                   trset->trans_alloc);
     }
     bzero(trset->trans + trset->trans_size, sizeof(*trset->trans));
     return trset->trans_size++;

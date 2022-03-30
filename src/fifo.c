@@ -22,7 +22,7 @@ _pddl_inline void fifoReset(pddl_fifo_t *fifo);
 /** Initializes pointer to the first element in block and the end of the
  *  block. */
 _pddl_inline void fifoInitElPtrs(pddl_fifo_t *fifo, pddl_fifo_segm_t *segm,
-                                char **el, char **end);
+                                 char **el, char **end);
 /** Creates and initializes a new segment */
 _pddl_inline pddl_fifo_segm_t *segmNew(pddl_fifo_t *fifo);
 
@@ -141,7 +141,7 @@ _pddl_inline void fifoReset(pddl_fifo_t *fifo)
 }
 
 _pddl_inline void fifoInitElPtrs(pddl_fifo_t *fifo, pddl_fifo_segm_t *segm,
-                                char **el, char **end)
+                                 char **el, char **end)
 {
     *el  = ((char *)segm) + sizeof(pddl_fifo_segm_t);
     *end = ((char *)segm) + fifo->segm_size;

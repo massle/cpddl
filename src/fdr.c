@@ -101,7 +101,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
 
     pddlTimerStop(&timer);
     PDDL_INFO(err, "Translation took %.2f seconds",
-             pddlTimerElapsedInSF(&timer));
+              pddlTimerElapsedInSF(&timer));
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
@@ -262,7 +262,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         if (!relaxedPreHold(fdr, reached, &op->pre)){
             PDDL_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
-                     op_id, op->name);
+                      op_id, op->name);
             FREE(reached);
             return 0;
         }
@@ -594,7 +594,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
 
     if (fdr_op->cond_eff_size > 1){
         pddlSort(fdr_op->cond_eff, fdr_op->cond_eff_size,
-                sizeof(pddl_fdr_op_cond_eff_t), cmpCondEff, NULL);
+                 sizeof(pddl_fdr_op_cond_eff_t), cmpCondEff, NULL);
     }
 
     pddlFDROpsAddSteal(fdr_ops, fdr_op);
@@ -632,7 +632,7 @@ static void tnfFull(pddl_fdr_t *fdr,
                     pddl_err_t *err)
 {
     pddl_fdr_val_t **u_vals = CALLOC_ARR(pddl_fdr_val_t *,
-                                             fdr->var.var_size);
+                                         fdr->var.var_size);
 
     for (int opi = 0; opi < fdr->op.op_size; ++opi){
         pddl_fdr_op_t *op = fdr->op.op[opi];
@@ -986,21 +986,21 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
 {
     if (fdr_in->has_cond_eff && mutex != NULL){
         PDDL_ERR_RET2(err, -1, "Disambiguated Transition Normal Form is not"
-                              " supported for conditional effects");
+                      " supported for conditional effects");
     }
 
     if ((flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
             && (flags & PDDL_FDR_TNF_MULTIPLY_OPS)){
         PDDL_ERR_RET2(err, -1, "PDDL_FDR_TNF_PREVAIL_TO_EFF cannot be combined"
-                              "with PDDL_FDR_TNF_MULTIPLY_OPS");
+                      "with PDDL_FDR_TNF_MULTIPLY_OPS");
     }
 
     PDDL_INFO_PREFIX_PUSH(err, "TNF: ");
     PDDL_INFO(err, "Creating a Transition Normal Form"
-                  " (vars: %d, facts: %d, ops: %d)",
-                  fdr_in->var.var_size,
-                  fdr_in->var.global_id_size,
-                  fdr_in->op.op_size);
+              " (vars: %d, facts: %d, ops: %d)",
+              fdr_in->var.var_size,
+              fdr_in->var.global_id_size,
+              fdr_in->op.op_size);
 
     pddlFDRInitCopy(fdr, fdr_in);
 
@@ -1030,10 +1030,10 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     }
 
     PDDL_INFO(err, "Transition Normal Form created."
-                  " (vars: %d, facts: %d, ops: %d)",
-                  fdr->var.var_size,
-                  fdr->var.global_id_size,
-                  fdr->op.op_size);
+              " (vars: %d, facts: %d, ops: %d)",
+              fdr->var.var_size,
+              fdr->var.global_id_size,
+              fdr->op.op_size);
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }

@@ -190,12 +190,12 @@ static int initPot(pddl_pot_t *pot,
     if (cfg->weak_disambiguation){
         if (pddlPotInitMGStripsSingleFactDisamb(pot, mg_strips, mutex) == 0){
             PDDL_INFO(err, "Initialized with weak-disambiguation."
-                          " vars: %d, op-constr: %d,"
-                          " goal-constr: %d, maxpots: %d",
-                          pot->var_size,
-                          pot->constr_op.size,
-                          pot->constr_goal.size,
-                          pot->maxpot_size);
+                      " vars: %d, op-constr: %d,"
+                      " goal-constr: %d, maxpots: %d",
+                      pot->var_size,
+                      pot->constr_op.size,
+                      pot->constr_goal.size,
+                      pot->maxpot_size);
         }else{
             PDDL_INFO2(err, "Disambiguation proved the task unsolvable.");
             return -1;
@@ -204,12 +204,12 @@ static int initPot(pddl_pot_t *pot,
     }else if (cfg->disambiguation){
         if (pddlPotInitMGStrips(pot, mg_strips, mutex) == 0){
             PDDL_INFO(err, "Initialized with disambiguation."
-                          " vars: %d, op-constr: %d,"
-                          " goal-constr: %d, maxpots: %d",
-                          pot->var_size,
-                          pot->constr_op.size,
-                          pot->constr_goal.size,
-                          pot->maxpot_size);
+                      " vars: %d, op-constr: %d,"
+                      " goal-constr: %d, maxpots: %d",
+                      pot->var_size,
+                      pot->constr_op.size,
+                      pot->constr_goal.size,
+                      pot->maxpot_size);
         }else{
             PDDL_INFO2(err, "Disambiguation proved the task unsolvable.");
             return -1;
@@ -218,12 +218,12 @@ static int initPot(pddl_pot_t *pot,
     }else{
         pddlPotInitFDR(pot, fdr);
         PDDL_INFO(err, "Initialized without disambiguation."
-                      " vars: %d, op-constr: %d,"
-                      " goal-constr: %d, maxpots: %d",
-                      pot->var_size,
-                      pot->constr_op.size,
-                      pot->constr_goal.size,
-                      pot->maxpot_size);
+                  " vars: %d, op-constr: %d,"
+                  " goal-constr: %d, maxpots: %d",
+                  pot->var_size,
+                  pot->constr_op.size,
+                  pot->constr_goal.size,
+                  pot->maxpot_size);
     }
 
     if (cfg->op_pot)
@@ -249,7 +249,7 @@ static int addInitConstr(pddl_pot_t *pot,
 
     double sum = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr->init);
     PDDL_INFO(err, "Solved for the initial state: sum: %.4f (%a),"
-                  " objval: %.4f (%a)", sum, sum, sol.objval, sol.objval);
+              " objval: %.4f (%a)", sum, sum, sol.objval, sol.objval);
     double rhs = sol.objval;
     rhs *= cfg->init_constr_coef;
 
@@ -261,7 +261,7 @@ static int addInitConstr(pddl_pot_t *pot,
     rhs -= INIT_STATE_RHS_DECREASE_STEP;
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
     PDDL_INFO(err, "added lower bound constraint with rhs: %.4f (%a)",
-             rhs, rhs);
+              rhs, rhs);
     pddlISetFree(&vars);
     pddlPotSolutionFree(&sol);
 
@@ -544,13 +544,13 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
         solveAndAdd(pot, sols, cfg, err);
         if (++count % 10 == 0){
             PDDL_INFO(err, "Computed conditioned func %d/%d and generated %d"
-                          " potential functions",
-                     count, pddlISetSize(facts), sols->sol_size);
+                      " potential functions",
+                      count, pddlISetSize(facts), sols->sol_size);
         }
     }
     PDDL_INFO(err, "Computed conditioned func %d/%d and generated %d"
-                  " potential functions",
-             count, pddlISetSize(facts), sols->sol_size);
+              " potential functions",
+              count, pddlISetSize(facts), sols->sol_size);
     pddlISetFree(&cond);
 
     if (sols->sol_size > 0)
@@ -585,13 +585,13 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
         solveAndAdd(pot, sols, cfg, err);
         if (++count % 10 == 0){
             PDDL_INFO(err, "Computed conditioned func^2 %d and generated %d"
-                          " potential functions",
-                     count, sols->sol_size);
+                      " potential functions",
+                      count, sols->sol_size);
         }
     }
     PDDL_INFO(err, "Computed conditioned func^2 %d and generated %d"
-                  " potential functions",
-             count, sols->sol_size);
+              " potential functions",
+              count, sols->sol_size);
     pddlISetFree(&cond);
     pddlRandMTDel(rnd);
 
@@ -609,9 +609,9 @@ static int samples(pddl_pot_solutions_t *sols,
                    pddl_err_t *err)
 {
     PDDL_INFO(err, "generating %d samples (mutex: %d, random-walk: %d)...",
-             cfg->num_samples,
-             (mutex != NULL),
-             cfg->samples_random_walk);
+              cfg->num_samples,
+              (mutex != NULL),
+              cfg->samples_random_walk);
 
     state_sampler_t sampler;
     stateSamplerInit(&sampler, cfg, fdr, mutex, pot, err);
@@ -637,7 +637,7 @@ static int samples(pddl_pot_solutions_t *sols,
                     ++num_states;
                     if ((si + 1) % 100 == 0){
                         PDDL_INFO(err, "Solved for state: %d/%d",
-                                 num_states, cfg->num_samples);
+                                  num_states, cfg->num_samples);
                     }
                 }
             }
@@ -655,10 +655,10 @@ static int samples(pddl_pot_solutions_t *sols,
         pddlPotSetObj(pot, coef);
         if (solveAndAdd(pot, sols, cfg, err) == 0){
             PDDL_INFO(err, "Solved for a sum of %d/%d states",
-                     num_states, cfg->num_samples);
+                      num_states, cfg->num_samples);
         }else{
             PDDL_INFO(err, "No solution for sum of %d/%d states",
-                     num_states, cfg->num_samples);
+                      num_states, cfg->num_samples);
             ret = -1;
         }
     }
@@ -736,7 +736,7 @@ static void diverseGenStates(diverse_pot_t *div,
     ASSERT_RUNTIME(cfg.num_samples > 0);
 
     PDDL_INFO(err, "generating %d samples with random walk and"
-                  " computing potentials...", cfg.num_samples);
+              " computing potentials...", cfg.num_samples);
     state_sampler_t sampler;
     stateSamplerInit(&sampler, &cfg, fdr, NULL, pot, err);
 
@@ -780,7 +780,7 @@ static void diverseGenStates(diverse_pot_t *div,
 
                 if ((si + 1) % 100 == 0){
                     PDDL_INFO(err, "Diverse: %d/%d (dead-ends: %d)",
-                             num_states, cfg.num_samples, num_dead_ends);
+                              num_states, cfg.num_samples, num_dead_ends);
                 }
 
             }else{
@@ -895,7 +895,7 @@ static int diverse(pddl_pot_solutions_t *sols,
     }
     diverseFree(&div, pot, fdr, cfg->num_samples);
     PDDL_INFO(err, "Computed diverse potentials with %d functions",
-             sols->sol_size);
+              sols->sol_size);
     return 0;
 }
 
@@ -980,7 +980,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
                              cfg->all_states_mutex_size);
         if (cfg->all_states_mutex_size < 1 || cfg->all_states_mutex_size > 2){
             PDDL_FATAL("all-states-mutex with size %d unsupported!",
-                      cfg->all_states_mutex_size);
+                       cfg->all_states_mutex_size);
         }
         ret = solveAndAdd(&pot, sols, cfg, err);
 
@@ -1017,7 +1017,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
         }
         pddlPotFree(&pot);
         PDDL_ERR_RET(err, -1, "Unkown objective function for potential"
-                             " heuristic: %d", cfg->obj);
+                     " heuristic: %d", cfg->obj);
     }
 
     if (need_mutex){

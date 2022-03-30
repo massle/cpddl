@@ -59,7 +59,7 @@ static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
             n->child_alloc = 1;
         n->child_alloc *= 2;
         n->child = REALLOC_ARR(n->child, pddl_strips_ground_tnode_t *,
-                                   n->child_alloc);
+                               n->child_alloc);
     }
 }
 

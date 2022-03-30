@@ -41,7 +41,7 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
                 gen->op_cycle_alloc = 2;
             gen->op_cycle_alloc *= 2;
             gen->op_cycle = REALLOC_ARR(gen->op_cycle, pddl_iset_t,
-                                            gen->op_cycle_alloc);
+                                        gen->op_cycle_alloc);
         }
         pddl_iset_t *cycle = gen->op_cycle + gen->op_cycle_size++;
         pddlISetInit(cycle);
@@ -163,7 +163,7 @@ void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
     bzero(sym, sizeof(*sym));
     if (strips->has_cond_eff){
         PDDL_FATAL2("pddlStripsInitSymPDG() does not support conditional"
-                   " effects.");
+                    " effects.");
     }
 
     BlissGraph *pdg = pdgConstruct(strips);

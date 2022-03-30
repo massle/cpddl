@@ -48,11 +48,11 @@ static int eq(const pddl_list_t *e1, const pddl_list_t *e2, void *_hs)
 }
 
 void pddlHashSetInit(pddl_hashset_t *s,
-                    pddl_hashset_hash_fn hash_fn,
-                    pddl_hashset_eq_fn eq_fn,
-                    pddl_hashset_clone_fn clone_fn,
-                    pddl_hashset_del_fn del_fn,
-                    void *userdata)
+                     pddl_hashset_hash_fn hash_fn,
+                     pddl_hashset_eq_fn eq_fn,
+                     pddl_hashset_clone_fn clone_fn,
+                     pddl_hashset_del_fn del_fn,
+                     void *userdata)
 {
     bzero(s, sizeof(*s));
     s->hash_fn = hash_fn;

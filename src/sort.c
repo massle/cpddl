@@ -55,7 +55,7 @@ void pddlListInsertSort(pddl_list_t *list, pddl_sort_list_cmp cmp, void *data)
 /**** INSERT SORT LIST END ****/
 
 void pddlCountSort(void *base, size_t nmemb, size_t size, int from, int to,
-                  pddl_sort_key get_key, void *arg)
+                   pddl_sort_key get_key, void *arg)
 {
     int range = to - from + 1;
     int cnt[range];
@@ -82,7 +82,7 @@ void pddlCountSort(void *base, size_t nmemb, size_t size, int from, int to,
 }
 
 _pddl_inline void sort2(void *e1, void *e2, size_t size,
-                       pddl_sort_cmp cmp, void *arg)
+                        pddl_sort_cmp cmp, void *arg)
 {
     if (cmp(e2, e1, arg) < 0){
         unsigned char tmp[size];
@@ -93,7 +93,7 @@ _pddl_inline void sort2(void *e1, void *e2, size_t size,
 }
 
 _pddl_inline void sort3(void *e1, void *e2, void *e3, size_t size,
-                       pddl_sort_cmp cmp, void *arg)
+                        pddl_sort_cmp cmp, void *arg)
 {
     sort2(e1, e2, size, cmp, arg);
     sort2(e2, e3, size, cmp, arg);
@@ -101,7 +101,7 @@ _pddl_inline void sort3(void *e1, void *e2, void *e3, size_t size,
 }
 
 void pddlInsertSort(void *base, size_t nmemb, size_t size,
-                   pddl_sort_cmp cmp, void *arg)
+                    pddl_sort_cmp cmp, void *arg)
 {
     unsigned char *begin = base, *cur, *end;
     unsigned char *prev, *ins;
@@ -129,8 +129,8 @@ void pddlInsertSort(void *base, size_t nmemb, size_t size,
 
             // Find its position backwards
             for (ins = prev, prev -= size;
-                 prev >= begin && cmp(tmp, prev, arg) < 0;
-                 prev -= size, ins -= size);
+                    prev >= begin && cmp(tmp, prev, arg) < 0;
+                    prev -= size, ins -= size);
 
             // Move all values from ins to the right
             memmove(ins + size, ins, cur - ins);
@@ -161,14 +161,14 @@ void pddlInsertSortInt(int *arr, size_t nmemb)
 
 #ifndef PDDL_TIMSORT
 int pddlTimSort(void *base, size_t nmemb, size_t size,
-               pddl_sort_cmp cmp, void *carg)
+                pddl_sort_cmp cmp, void *carg)
 {
     PDDL_FATAL2("TimSort is not compiled in!");
 }
 #endif /* PDDL_TIMSORT */
 
 int pddlSort(void *base, size_t nmemb, size_t size,
-            pddl_sort_cmp cmp, void *carg)
+             pddl_sort_cmp cmp, void *carg)
 {
     if (nmemb <= 1)
         return 0;

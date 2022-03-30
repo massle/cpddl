@@ -171,7 +171,7 @@ static void assignOpToGroup(op_groups_t *opgs,
                 opgs->group_alloc = 2;
             opgs->group_alloc *= 2;
             opgs->group = REALLOC_ARR(opgs->group, pddl_iset_t,
-                                          opgs->group_alloc);
+                                      opgs->group_alloc);
         }
         int group_id = opgs->group_size++;
         pddl_iset_t *g = opgs->group + group_id;
@@ -453,7 +453,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
         var_op[oi] = IloIntVar(env, 0, fdr->op.op_size - 1, name);
     }
     PDDL_INFO(err, "  Created %d fact and %d operator variables",
-             fdr->var.global_id_size, fdr->op.op_size);
+              fdr->var.global_id_size, fdr->op.op_size);
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -521,7 +521,7 @@ static int fdrRedundantOps(const pddl_fdr_t *fdr,
 
     int ret = 0;
     PDDL_INFO(err, "Endomorphism on FDR (facts: %d, ops: %d) ...",
-             fdr->var.global_id_size, fdr->op.op_size);
+              fdr->var.global_id_size, fdr->op.op_size);
     op_groups_t opg;
     opGroupsInitFDR(&opg, fdr);
     PDDL_INFO(err, "  Operators grouped into %d groups", opg.group_size);
@@ -757,13 +757,13 @@ static int mgStripsOpPreConstr(int op_id,
 }
 
 static int mgStripsOpEffConstr(int op_id,
-                                const pddl_iset_t *group,
-                                const mg_strips_t *mgs,
-                                IloEnv &env,
-                                IloModel &model,
-                                IloIntVarArray &fact_var,
-                                IloIntVarArray &op_var,
-                                pddl_err_t *err)
+                               const pddl_iset_t *group,
+                               const mg_strips_t *mgs,
+                               IloEnv &env,
+                               IloModel &model,
+                               IloIntVarArray &fact_var,
+                               IloIntVarArray &op_var,
+                               pddl_err_t *err)
 {
     const mg_strips_op_t *op = mgs->op + op_id;
     int other_op_id;
@@ -869,7 +869,7 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
         //var_op[vi++] = IloIntVar(env, 0, mgs->op_size - 1);
     }
     PDDL_INFO(err, "  Created %d fact and %d operator variables",
-             (int)var_fact.getSize(), (int)var_op.getSize());
+              (int)var_fact.getSize(), (int)var_op.getSize());
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -916,8 +916,8 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
     int ret = 0;
     PDDL_INFO(err, "Endomorphism on MG-Strips (facts: %d, ops: %d)...",
-             mg_strips->strips.fact.fact_size,
-             mg_strips->strips.op.op_size);
+              mg_strips->strips.fact.fact_size,
+              mg_strips->strips.op.op_size);
     mg_strips_t mgs;
     mgStripsInit(&mgs, mg_strips);
 
@@ -927,8 +927,8 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
     mgStripsFindIdentity(&mgs, &opg);
     PDDL_INFO(err, "  Found %d/%d identity facts, %d/%d identity ops",
-             mgStripsNumIdentityFacts(&mgs), mgs.fact_size,
-             mgStripsNumIdentityOps(&mgs), mgs.op_size);
+              mgStripsNumIdentityFacts(&mgs), mgs.fact_size,
+              mgStripsNumIdentityOps(&mgs), mgs.op_size);
     if (mgStripsNumIdentityOps(&mgs) == mgs.op_size){
         PDDL_INFO2(err, "  All operators are identity");
         PDDL_INFO2(err, "  Found 0 redundant operators");
@@ -939,7 +939,7 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
 
     mgStripsPrepareCVars(&mgs);
     PDDL_INFO(err, "  CSP needs %d fact and %d non-identity operator variables",
-             mgs.cvar_fact_size, mgs.non_identity_cvar_op_size);
+              mgs.cvar_fact_size, mgs.non_identity_cvar_op_size);
 
     IloEnv env;
     IloModel model(env);
@@ -1042,9 +1042,9 @@ static void stateAllowFree(pddl_iset_t *state_allow, int num_states)
 }
 
 static int presolveStateAllow(ts_presolve_t *presolve,
-                               const pddl_trans_systems_t *tss,
-                               int tsi,
-                               pddl_time_limit_t *time_limit)
+                              const pddl_trans_systems_t *tss,
+                              int tsi,
+                              pddl_time_limit_t *time_limit)
 {
     const pddl_trans_system_t *ts = tss->ts[tsi];
 
@@ -1265,7 +1265,7 @@ static int transConstraints(const pddl_trans_systems_t *tss,
     }
     if (val.getCardinality() == 0){
         PDDL_INFO(err, "Could not find mapping for (%d)->%d->(%d)",
-                 from, label, to);
+                  from, label, to);
         return 0;
     }
 
@@ -1351,7 +1351,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
         //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
     }
     PDDL_INFO(err, "  Created %d state and %d operator variables",
-             (int)var_state.getSize(), (int)var_op.getSize());
+              (int)var_state.getSize(), (int)var_op.getSize());
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -1380,7 +1380,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
         if (num < 0)
             return -1;
         PDDL_INFO(err, "  Added %d constraints for TS %d with %d states",
-                 num, tsi, tss->ts[tsi]->num_states);
+                  num, tsi, tss->ts[tsi]->num_states);
         num_constrs += num;
     }
     PDDL_INFO(err, "  Added %d constraints overall", num_constrs);
@@ -1413,8 +1413,8 @@ static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
 
     int ret = 0;
     PDDL_INFO(err, "Endomorphism on factored TS"
-                  " (num-ts: %d, num-labels: %d) ...",
-             tss->ts_size, tss->label.label_size);
+              " (num-ts: %d, num-labels: %d) ...",
+              tss->ts_size, tss->label.label_size);
 
     ts_presolve_t presolve;
     PDDL_INFO2(err, "  Running presolve...");
@@ -1487,8 +1487,8 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
     if (shared == MAP_FAILED){
         //perror("mmap() failed");
         PDDL_INFO(err, "Could not allocate shared memory of size %ld using"
-                      " mmap: %s",
-                 (long)shared_size, strerror(errno));
+                  " mmap: %s",
+                  (long)shared_size, strerror(errno));
         return -1;
     }
     bzero(shared, shared_size);
@@ -1531,8 +1531,8 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
         }
         munmap(shared, shared_size);
         PDDL_INFO(err, "Endomorphism in a subprocess: ret: %d,"
-                      " redundant ops: %d",
-                 ret, pddlISetSize(redundant_ops));
+                  " redundant ops: %d",
+                  ret, pddlISetSize(redundant_ops));
         PDDL_INFO2(err, "Endomorphism in a subprocess DONE");
         return ret;
     }
@@ -1860,7 +1860,7 @@ static void liftedEndomorphismAnalyzeAction(
 
         }else{
             PDDL_FATAL("Unexpected atom of type %d:%s\n",
-                      c->type, pddlCondTypeName(c->type));
+                       c->type, pddlCondTypeName(c->type));
         }
     }
 }
@@ -1905,7 +1905,7 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
 #ifdef PDDL_DEBUG
     for (int i = 0; i < end->obj_size; ++i){
         PDDL_INFO(err, "Obj-fixed %d:(%s): %d",
-                 i, pddl->obj.obj[i].name, end->obj_is_fixed[i]);
+                  i, pddl->obj.obj[i].name, end->obj_is_fixed[i]);
     }
 #endif /* PDDL_DEBUG */
 }
@@ -1963,7 +1963,7 @@ static obj_tuple_t *predObjTupleAdd(pred_obj_tuple_t *tup)
             tup->tuple_alloc = 1;
         tup->tuple_alloc *= 2;
         tup->tuple = REALLOC_ARR(tup->tuple, obj_tuple_t,
-                                     tup->tuple_alloc);
+                                 tup->tuple_alloc);
     }
     tup->tuple[tup->tuple_size].tuple = ALLOC_ARR(int, tup->size);
     tup->tuple[tup->tuple_size].value = 0;
@@ -1980,7 +1980,7 @@ static int cmpTuple(const void *a, const void *b, void *u)
 static void predObjTupleSort(pred_obj_tuple_t *tup)
 {
     pddlSort(tup->tuple, tup->tuple_size, sizeof(obj_tuple_t),
-            cmpTuple, NULL);
+             cmpTuple, NULL);
 }
 
 static void predObjTuplesInit(pred_obj_tuples_t *tup, const pddl_t *pddl)
@@ -2039,7 +2039,7 @@ static int _predObjTuplesInitFromCond(pddl_cond_t *c, void *u)
 
     }else if (c->type != PDDL_COND_AND){
         PDDL_FATAL("Unexpected atom of type %d:%s\n",
-                  c->type, pddlCondTypeName(c->type));
+                   c->type, pddlCondTypeName(c->type));
     }
     return 0;
 }
@@ -2384,7 +2384,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
         PDDL_INFO2(err, "Non-strict type partitioning"
-                       " -- abstaining from the inference");
+                   " -- abstaining from the inference");
         PDDL_INFO_PREFIX_POP(err);
         return 0;
     }
@@ -2406,7 +2406,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 
     if (lifted_mgroups.mgroup_size == 0){
         PDDL_INFO2(err, "No mutex groups so lifted endomorphisms cannot be"
-                       " inferred");
+                   " inferred");
         PDDL_INFO_PREFIX_POP(err);
         pddlLiftedMGroupsFree(&lifted_mgroups);
         return 0;
@@ -2435,7 +2435,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
             }
         }else{
             PDDL_INFO2(err, "Not enough unfixed objects to try to find"
-                           " endomorphisms");
+                       " endomorphisms");
         }
         liftedEndomorphismFree(&end);
     }
@@ -2465,7 +2465,7 @@ static int relaxedLifted(const pddl_t *pddl,
         }
     }else{
         PDDL_INFO2(err, "Not enough unfixed objects to try to find"
-                       " endomorphisms");
+                   " endomorphisms");
     }
     liftedEndomorphismFree(&end);
     return 0;
@@ -2490,8 +2490,8 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
     if (shared == MAP_FAILED){
         //perror("mmap() failed");
         PDDL_INFO(err, "Could not allocate shared memory of size %ld using"
-                      " mmap: %s",
-                 (long)shared_size, strerror(errno));
+                  " mmap: %s",
+                  (long)shared_size, strerror(errno));
         return -1;
     }
     bzero(shared, shared_size);
@@ -2530,8 +2530,8 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
         }
         munmap(shared, shared_size);
         PDDL_INFO(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
-                      " redundant ops: %d",
-                 ret, pddlISetSize(redundant_objects));
+                  " redundant ops: %d",
+                  ret, pddlISetSize(redundant_objects));
         PDDL_INFO2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
         return ret;
     }
@@ -2555,7 +2555,7 @@ int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
         PDDL_INFO2(err, "Non-strict type partitioning"
-                       " -- abstaining from the inference");
+                   " -- abstaining from the inference");
         PDDL_INFO_PREFIX_POP(err);
         return 0;
     }

@@ -44,7 +44,7 @@ void pddlTransitionsAdd(pddl_transitions_t *ts, int from, int to)
             ts->trans_alloc = 1;
         ts->trans_alloc *= 2;
         ts->trans = REALLOC_ARR(ts->trans, pddl_transition_t,
-                                    ts->trans_alloc);
+                                ts->trans_alloc);
     }
 
     pddl_transition_t *t = ts->trans + ts->trans_size++;

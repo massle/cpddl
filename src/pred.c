@@ -201,9 +201,9 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
         }
 
         if (parsePred(pddl, n->child + i, NULL, "predicate", &pddl->pred,
-                      err) != 0)
+                    err) != 0)
             PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :predicates in %s: ",
-                                  pddl->domain_lisp->filename);
+                                   pddl->domain_lisp->filename);
     }
 
     // And then the private predicates
@@ -216,8 +216,8 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
 
             if (parsePrivatePreds(pddl, n->child + i, &pddl->pred, err) != 0)
                 PDDL_TRACE_PREPEND_RET(err, -1, "While parsing private"
-                                      " :predicates in %s: ",
-                                      pddl->domain_lisp->filename);
+                                       " :predicates in %s: ",
+                                       pddl->domain_lisp->filename);
         }
     }
 
@@ -255,7 +255,7 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
         if (parsePred(pddl, n->child + i, NULL, "function",
                       &pddl->func, err) != 0){
             PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :functions in %s: ",
-                                  pddl->domain_lisp->filename);
+                                   pddl->domain_lisp->filename);
         }
 
         if (i + 2 < n->child_size
@@ -264,8 +264,8 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
             if (n->child[i + 2].value == NULL
                     || strcmp(n->child[i + 2].value, "number") != 0){
                 PDDL_ERR_RET(err, -1, "While parsing :functions in %s: Only number"
-                            " functions are supported (line %d).",
-                        pddl->domain_lisp->filename, n->child[i + 2].lineno);
+                             " functions are supported (line %d).",
+                             pddl->domain_lisp->filename, n->child[i + 2].lineno);
             }
             i += 2;
         }
@@ -302,7 +302,7 @@ pddl_pred_t *pddlPredsAdd(pddl_preds_t *ps)
             ps->pred_alloc *= 2;
         }
         ps->pred = REALLOC_ARR(ps->pred, pddl_pred_t,
-                                   ps->pred_alloc);
+                               ps->pred_alloc);
     }
 
     p = ps->pred + ps->pred_size++;

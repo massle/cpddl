@@ -51,24 +51,24 @@ static void stateIDArrAdd(state_id_arr_t *arr, pddl_state_id_t id)
         if (arr->size == STATE_ID_ARR_FIXED_ARR_SIZE){
             pddl_state_id_t tmp[STATE_ID_ARR_FIXED_ARR_SIZE];
             memcpy(tmp, arr->el_arr.el,
-                    sizeof(pddl_state_id_t) * STATE_ID_ARR_FIXED_ARR_SIZE);
+                   sizeof(pddl_state_id_t) * STATE_ID_ARR_FIXED_ARR_SIZE);
             arr->alloc = 2 * STATE_ID_ARR_FIXED_ARR_SIZE;
             arr->el_arr.arr = ALLOC_ARR(pddl_state_id_t, arr->alloc);
             memcpy(arr->el_arr.arr, tmp,
-                    sizeof(pddl_state_id_t) * STATE_ID_ARR_FIXED_ARR_SIZE);
+                   sizeof(pddl_state_id_t) * STATE_ID_ARR_FIXED_ARR_SIZE);
 
         }else if (arr->size == arr->alloc){
             arr->alloc *= 2;
             arr->el_arr.arr = REALLOC_ARR(arr->el_arr.arr, pddl_state_id_t,
-                                              arr->alloc);
+                                          arr->alloc);
         }
 
         if (arr->alloc <= arr->size){
             PDDL_FATAL("There is too much pressure on the hash table"
-                      "resulting in too many elements sharing the same"
-                      "bucket. (The size of the bucket does not fit in %lu"
-                      "bytes.)",
-                      (unsigned long)sizeof(arr->alloc));
+                       "resulting in too many elements sharing the same"
+                       "bucket. (The size of the bucket does not fit in %lu"
+                       "bytes.)",
+                       (unsigned long)sizeof(arr->alloc));
         }
 
         arr->el_arr.arr[arr->size++] = id;
@@ -207,8 +207,8 @@ static void htablePrintStats(const htable_t *ht)
 static void htableResize(htable_t *ht, size_t size)
 {
     PDDL_INFO(ht->state_pool->err, "State pool: rehashing size: %lu,"
-                                  " new-size: %lu, elements: %lu",
-             ht->size, size, ht->num_elements);
+              " new-size: %lu, elements: %lu",
+              ht->size, size, ht->num_elements);
     htablePrintStats(ht);
 
     const pddl_fdr_state_pool_t *state_pool = ht->state_pool;

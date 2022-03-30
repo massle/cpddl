@@ -45,7 +45,7 @@ void pddlProfileStart(int slot)
         while (slot >= profile.slot_alloc)
             profile.slot_alloc *= 2;
         profile.slot = REALLOC_ARR(profile.slot, pddl_profile_slot_t,
-                                       profile.slot_alloc);
+                                   profile.slot_alloc);
         for (int i = profile.slot_size; i < profile.slot_alloc; ++i){
             profile.slot[i].counter = 0;
             profile.slot[i].elapsed = 0.;

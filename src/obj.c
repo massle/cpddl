@@ -130,10 +130,10 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
     if (pddlLispParseTypedList(n, 1, to, setCB, &set, err) != 0){
         if (is_const){
             PDDL_TRACE_PREPEND(err, "Invalid definition of :constants in %s: ",
-                              lisp->filename);
+                               lisp->filename);
         }else{
             PDDL_TRACE_PREPEND(err, "Invalid definition of :objects in %s: ",
-                              lisp->filename);
+                               lisp->filename);
         }
         return -1;
     }
@@ -369,7 +369,7 @@ void pddlObjsPrint(const pddl_objs_t *objs, FILE *fout)
     fprintf(fout, "Obj[%d]:\n", objs->obj_size);
     for (int i = 0; i < objs->obj_size; ++i){
         fprintf(fout, "    [%d]: %s, type: %d, is-constant: %d,"
-                      " is-private: %d, owner: %d, is-agent: %d\n", i,
+                " is-private: %d, owner: %d, is-agent: %d\n", i,
                 objs->obj[i].name, objs->obj[i].type,
                 objs->obj[i].is_constant, objs->obj[i].is_private,
                 (int)objs->obj[i].owner, objs->obj[i].is_agent);

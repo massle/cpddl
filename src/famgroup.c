@@ -295,23 +295,23 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
     fam_t fam;
     int start_num = mgs->mgroup_size;
     PDDL_INFO(err, "Inference of fam-groups ["
-                  "maximal: %d, goal: %d, sym: %d, keep-only-asymetric: %d,"
-                  " prioritize-uncovered: %d,"
-                  " limit: %d, time-limit: %.2fs] ...",
-                  cfg->maximal,
-                  cfg->goal,
-                  (cfg->sym == NULL ? 0 : 1),
-                  cfg->keep_only_asymetric,
-                  cfg->prioritize_uncovered,
-                  cfg->limit,
-                  cfg->time_limit);
+              "maximal: %d, goal: %d, sym: %d, keep-only-asymetric: %d,"
+              " prioritize-uncovered: %d,"
+              " limit: %d, time-limit: %.2fs] ...",
+              cfg->maximal,
+              cfg->goal,
+              (cfg->sym == NULL ? 0 : 1),
+              cfg->keep_only_asymetric,
+              cfg->prioritize_uncovered,
+              cfg->limit,
+              cfg->time_limit);
 
     famInit(&fam, mgs, strips, cfg, err);
     famInfer(&fam);
     famFree(&fam);
 
     PDDL_INFO(err, "Inference of fam-groups DONE: %d fam-groups found.",
-             mgs->mgroup_size - start_num);
+              mgs->mgroup_size - start_num);
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }

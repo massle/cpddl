@@ -62,7 +62,7 @@ extern "C" {
 
 #ifndef PDDL_SPLAY_KEY_EQ
 # define PDDL_SPLAY_KEY_EQ(head, key1, key2) \
-    (PDDL_SPLAY_KEY_CMP((head), (key1), (key2)) == 0)
+(PDDL_SPLAY_KEY_CMP((head), (key1), (key2)) == 0)
 #endif /* PDDL_SPLAY_KEY_EQ */
 
 #define PDDL_SPLAY_LEFT(elm)   (elm)->spe_left
@@ -115,7 +115,7 @@ _pddl_inline void pddlSplayFree(PDDL_SPLAY_TREE_T *head)
 }
 
 _pddl_inline void pddlSplay(PDDL_SPLAY_TREE_T *head,
-                          PDDL_SPLAY_KEY_T key)
+                            PDDL_SPLAY_KEY_T key)
 {
     PDDL_SPLAY_TREE_NODE_T __node, *__left, *__right, *__tmp;
     int __comp;
@@ -150,8 +150,8 @@ _pddl_inline void pddlSplay(PDDL_SPLAY_TREE_T *head,
 }
 
 _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayInsert(PDDL_SPLAY_TREE_T *head,
-                                                  PDDL_SPLAY_KEY_T key,
-                                                  PDDL_SPLAY_TREE_NODE_T *elm)
+                                                     PDDL_SPLAY_KEY_T key,
+                                                     PDDL_SPLAY_TREE_NODE_T *elm)
 {
     PDDL_SPLAY_NODE_SET_KEY(head, elm, key);
 
@@ -177,7 +177,7 @@ _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayInsert(PDDL_SPLAY_TREE_T *head,
 }
 
 _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayRemove(PDDL_SPLAY_TREE_T *head,
-                                                  PDDL_SPLAY_TREE_NODE_T *elm)
+                                                     PDDL_SPLAY_TREE_NODE_T *elm)
 {
     PDDL_SPLAY_TREE_NODE_T *__tmp;
     if (PDDL_SPLAY_EMPTY(head))
@@ -198,7 +198,7 @@ _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayRemove(PDDL_SPLAY_TREE_T *head,
 }
 
 _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayFind(PDDL_SPLAY_TREE_T *head,
-                                                PDDL_SPLAY_KEY_T key)
+                                                   PDDL_SPLAY_KEY_T key)
 {
     if (PDDL_SPLAY_EMPTY(head))
         return(NULL);
@@ -209,7 +209,7 @@ _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayFind(PDDL_SPLAY_TREE_T *head,
 }
 
 _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayNext(PDDL_SPLAY_TREE_T *head,
-                                                PDDL_SPLAY_TREE_NODE_T *elm)
+                                                   PDDL_SPLAY_TREE_NODE_T *elm)
 {
     pddlSplay(head, PDDL_SPLAY_NODE_KEY(elm));
     if (PDDL_SPLAY_RIGHT(elm) != NULL) {
@@ -223,7 +223,7 @@ _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayNext(PDDL_SPLAY_TREE_T *head,
 }
 
 _pddl_inline PDDL_SPLAY_TREE_NODE_T *pddlSplayPrev(PDDL_SPLAY_TREE_T *head,
-                                                PDDL_SPLAY_TREE_NODE_T *elm)
+                                                   PDDL_SPLAY_TREE_NODE_T *elm)
 {
     pddlSplay(head, PDDL_SPLAY_NODE_KEY(elm));
     if (PDDL_SPLAY_LEFT(elm) != NULL) {

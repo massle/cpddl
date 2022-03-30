@@ -101,7 +101,7 @@ void pddlBDDsMergeAnd(pddl_bdd_manager_t *mgr,
             }else{
                 pddl_bdd_t *res = NULL;
                 if (pddlBDDSize(bdd1) < max_nodes
-                       && pddlBDDSize(bdd2) < max_nodes){
+                        && pddlBDDSize(bdd2) < max_nodes){
                     res = pddlBDDAndLimit(mgr, bdd1, bdd2, max_nodes,
                                           &time_limit);
                 }

@@ -128,7 +128,7 @@ int pddlTypesParse(pddl_t *pddl, pddl_err_t *e)
     if (n != NULL){
         if (pddlLispParseTypedList(n, 1, n->child_size, setCB, types, e) != 0){
             PDDL_TRACE_PREPEND_RET(e, -1, "Invalid definition of :types in %s: ",
-                                  pddl->domain_lisp->filename);
+                                   pddl->domain_lisp->filename);
         }
     }
 

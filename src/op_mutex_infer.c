@@ -142,7 +142,7 @@ int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
 
     pddlStripsFactCrossRefFree(&cr);
     PDDL_INFO(err, "  --> Found %d op-mutexes from fam-groups",
-             pddlOpMutexPairsSize(m));
+              pddlOpMutexPairsSize(m));
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
@@ -233,7 +233,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
 
     if (pddlHm(m, &P2, &mutex, NULL, NULL, 0, 0, err) == 0){
         PDDL_INFO(err, "  --> h^%d computed with %d mutex pairs.",
-                 m, mutex.num_mutex_pairs);
+                  m, mutex.num_mutex_pairs);
         int fact_size = P2.fact.fact_size;
         for (int i = op_fact_offset; i < fact_size; ++i){
             for (int j = i + 1; j < fact_size; ++j){

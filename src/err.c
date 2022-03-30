@@ -91,7 +91,7 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable)
 
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
-             const char *format, ...)
+              const char *format, ...)
 {
     if (err == NULL)
         return;
@@ -143,7 +143,7 @@ void _pddlTrace(pddl_err_t *err, const char *filename, int line, const char *fun
 }
 
 void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
-              const char *format, ...)
+               const char *format, ...)
 {
     if (err == NULL)
         return;
@@ -162,7 +162,7 @@ void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func
 }
 
 void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
-              const char *format, ...)
+               const char *format, ...)
 {
     if (err == NULL)
         return;

@@ -42,11 +42,11 @@ void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
     bzero(state_space, sizeof(*state_space));
     pddlFDRStatePoolInit(&state_space->state_pool, vars, err);
     state_space->node = pddlExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
-                                      MIN_STATES_PER_BLOCK,
-                                      NULL, NULL);
+                                       MIN_STATES_PER_BLOCK,
+                                       NULL, NULL);
 
     PDDL_INFO(err, "State space created. bytes per state node: %d",
-             (int)sizeof(state_node_t));
+              (int)sizeof(state_node_t));
 }
 
 void pddlFDRStateSpaceFree(pddl_fdr_state_space_t *state_space)
@@ -60,7 +60,7 @@ pddl_state_id_t pddlFDRStateSpaceInsert(pddl_fdr_state_space_t *state_space,
                                         const int *state)
 {
     pddl_state_id_t id, num;
-   
+
     num = state_space->state_pool.num_states;
     id = pddlFDRStatePoolInsert(&state_space->state_pool, state);
     ASSERT(id <= num);
@@ -100,7 +100,7 @@ void pddlFDRStateSpaceGetNoState(const pddl_fdr_state_space_t *state_space,
                                  pddl_fdr_state_space_node_t *node)
 {
     ASSERT_RUNTIME(state_id >= 0
-                    && state_id < state_space->state_pool.num_states);
+                   && state_id < state_space->state_pool.num_states);
     const state_node_t *sn = pddlExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
 }
@@ -109,7 +109,7 @@ void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
                           const pddl_fdr_state_space_node_t *node)
 {
     ASSERT_RUNTIME(node->id >= 0
-                    && node->id < state_space->state_pool.num_states);
+                   && node->id < state_space->state_pool.num_states);
     state_node_t *sn = pddlExtArrGet(state_space->node, node->id);
     sn->parent_id = node->parent_id;
     sn->op_id = node->op_id;

@@ -75,8 +75,8 @@ void pddlMGroupIdxPairsAdd(pddl_mgroup_idx_pairs_t *p, int mg_id, int idx)
             p->mgroup_idx_alloc *= 2;
         }
         p->mgroup_idx = REALLOC_ARR(p->mgroup_idx,
-                                        pddl_mgroup_idx_pair_t,
-                                        p->mgroup_idx_alloc);
+                                    pddl_mgroup_idx_pair_t,
+                                    p->mgroup_idx_alloc);
     }
     pddl_mgroup_idx_pair_t *pair = p->mgroup_idx + p->mgroup_idx_size++;
     pair->mg_id = mg_id;
@@ -195,7 +195,7 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
     pddlMGroupsInitCopy(&tss->mgroup, &mg_strips->mg);
 
     tss->fact_to_mgroup = CALLOC_ARR(pddl_mgroup_idx_pairs_t,
-                                         tss->fact_size);
+                                     tss->fact_size);
     for (int mgi = 0; mgi < mg_strips->mg.mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mgi;
         ASSERT_RUNTIME(mg->is_exactly_one);
@@ -436,7 +436,7 @@ void pddlTransSystemPrintDebug1(const pddl_trans_systems_t *tss,
         fprintf(fout, "     ");
         for (int i = 0; i < trans->trans.trans_size; ++i){
             fprintf(fout, " %d->%d", trans->trans.trans[i].from,
-                                     trans->trans.trans[i].to);
+                    trans->trans.trans[i].to);
         }
         fprintf(fout, "\n");
     }
@@ -465,7 +465,7 @@ void pddlTransSystemPrintDebug2(const pddl_trans_systems_t *tss,
             if (i != 0)
                 fprintf(fout, " ");
             fprintf(fout, "%d->%d", trans->trans.trans[i].from,
-                                    trans->trans.trans[i].to);
+                    trans->trans.trans[i].to);
         }
         fprintf(fout, "]");
     }
@@ -784,7 +784,7 @@ static int transSystemsAddTS(pddl_trans_systems_t *tss,
             tss->ts_alloc = 4;
         tss->ts_alloc *= 2;
         tss->ts = REALLOC_ARR(tss->ts, pddl_trans_system_t *,
-                                  tss->ts_alloc);
+                              tss->ts_alloc);
     }
 
     int ts_id = tss->ts_size++;

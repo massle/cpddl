@@ -99,7 +99,7 @@ void pddlMGroupProjectionInitCopy(pddl_mgroup_projection_t *p,
     for (int i = 0; i < p->num_states; ++i){
         for (int j = 0; j < p->num_states; ++j){
             pddlISetUnion(p->tr + i * p->num_states + j,
-                         src->tr + i * p->num_states + j);
+                          src->tr + i * p->num_states + j);
         }
     }
 }

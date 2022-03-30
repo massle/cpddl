@@ -32,7 +32,7 @@ static void pddlTransSystemGraphEdgesAdd(pddl_trans_system_graph_edges_t *e,
             e->edge_alloc = 2;
         e->edge_alloc *= 2;
         e->edge = REALLOC_ARR(e->edge, pddl_trans_system_graph_edge_t,
-                                  e->edge_alloc);
+                              e->edge_alloc);
     }
     pddl_trans_system_graph_edge_t *edge = e->edge + e->edge_size++;
     edge->end = end;

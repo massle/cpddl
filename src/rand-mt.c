@@ -148,7 +148,7 @@ void pddlRandMTReseedAuto(pddl_rand_mt_t *r)
             pddlRandMTReseed2(r, bigSeed, PDDL_RAND_MT_N);
         }
     }
-    
+
     pddlRandMTReseed(r, hash(time(NULL), clock()));
 }
 
@@ -182,7 +182,7 @@ void __pddlRandMTReload(pddl_rand_mt_t *r)
     for(i = PDDL_RAND_MT_M; --i; ++p)
         *p = twist(p[MmN], p[0], p[1]);
     *p = twist(p[MmN], p[0], r->state[0]);
-    
+
     r->left = PDDL_RAND_MT_N;
     r->next = r->state;
 }
@@ -223,7 +223,7 @@ static uint32_t hash(time_t t, clock_t c)
     // Get a uint32 from t and c
     // Better than uint32(x) in case x is floating point in [0,1]
     // Based on code by Lawrence Kirby (fred@genesis.demon.co.uk)
-    
+
     static uint32_t differ = 0;  // guarantee time-based seeds will change
     uint32_t h1 = 0;
     uint32_t h2 = 0;

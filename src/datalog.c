@@ -170,9 +170,9 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     dbFree(dl, db);
     db->hfact = pddlHTableNew(factHash, factEq, NULL);
     db->hrelevant_fact[0] = pddlHTableNew(relevantFactHash,
-                                         relevantFactEq, NULL);
+                                          relevantFactEq, NULL);
     db->hrelevant_fact[1] = pddlHTableNew(relevantFactHash,
-                                         relevantFactEq, NULL);
+                                          relevantFactEq, NULL);
 
     size_t size = sizeof(pddl_datalog_fact_t);
     size += dl->max_pred_arity * sizeof(int);
@@ -280,7 +280,7 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
                               int fact_id)
 {
     void *xf = pddlExtArrGet(db->relevant_fact[bid],
-                            db->relevant_fact_size[bid]);
+                             db->relevant_fact_size[bid]);
     pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)xf;
 
     pddlISetInit(&f->fact);
@@ -361,7 +361,7 @@ static void ruleSetUp(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
             pddlISetUnion(&rule->common_body_var_set, &rule->body[0].var_set);
         }else{
             pddlISetIntersect(&rule->common_body_var_set,
-                             &rule->body[i].var_set);
+                              &rule->body[i].var_set);
         }
 
         pddlISetUnion(&body_vars, &rule->body[i].var_set);
@@ -475,7 +475,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
             dl->pred_alloc = 1;
         dl->pred_alloc *= 2;
         dl->pred = REALLOC_ARR(dl->pred, pddl_datalog_pred_t,
-                                   dl->pred_alloc);
+                               dl->pred_alloc);
     }
     pddl_datalog_pred_t *p = dl->pred + dl->pred_size;
     bzero(p, sizeof(*p));
@@ -526,7 +526,7 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
             dl->rule_alloc = 1;
         dl->rule_alloc *= 2;
         dl->rule = REALLOC_ARR(dl->rule, pddl_datalog_rule_t,
-                                     dl->rule_alloc);
+                               dl->rule_alloc);
     }
     pddl_datalog_rule_t *rule = dl->rule + dl->rule_size++;
     pddlDatalogRuleInit(dl, rule);
@@ -707,12 +707,12 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
 {
     PDDL_INFO_PREFIX_PUSH(err, "DL: ");
     PDDL_INFO(err, "Normal form of the datalog program start"
-                  " (consts: %d, vars: %d, predicates: %d, rules: %d)",
-             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+              " (consts: %d, vars: %d, predicates: %d, rules: %d)",
+              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
         PDDL_ERR_RET2(err, -1, "Cannot create normal form because the"
-                              "datalog program is not safe");
+                      "datalog program is not safe");
     }
 
     int rule_size = dl->rule_size;
@@ -721,8 +721,8 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
             toNormalFormStep(dl, ci);
     }
     PDDL_INFO(err, "Normal form of the datalog program DONE"
-                  " (consts: %d, vars: %d, predicates: %d, rules: %d)",
-             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+              " (consts: %d, vars: %d, predicates: %d, rules: %d)",
+              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     dl->dirty = 1;
     PDDL_INFO_PREFIX_POP(err);
     return 0;
@@ -887,7 +887,7 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
     PDDL_INFO_PREFIX_PUSH(err, "DL: ");
     PDDL_INFO_PREFIX_PUSH(err, "Canonical model: ");
     PDDL_INFO(err, "start (consts: %d, vars: %d, predicates: %d, rules: %d)",
-             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 1, err);
 
     insertInitialFacts(dl, err);
@@ -902,25 +902,25 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
         ++cur_id;
         if (cur_id % 100000 == 0){
             PDDL_INFO(err, "progress (facts processed: %d, overall: %d,"
-                          " db-mem: %luMB)",
-                     cur_id, dl->db.fact_size,
-                     dbUseddMem(&dl->db) / (1024lu * 1024lu));
+                      " db-mem: %luMB)",
+                      cur_id, dl->db.fact_size,
+                      dbUseddMem(&dl->db) / (1024lu * 1024lu));
         }
     }
     PDDL_INFO(err, "DONE (facts: %d, db-mem: %luMB)",
-             dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
+              dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
     PDDL_INFO_PREFIX_POP(err);
     PDDL_INFO_PREFIX_POP(err);
 }
 
 void pddlDatalogFactsFromCanonicalModel(
-            pddl_datalog_t *dl,
-            unsigned pred,
-            void (*fn)(int pred_user_id,
-                       int arity,
-                       const pddl_obj_id_t *arg_user_id,
-                       void *user_data),
-            void *user_data)
+                                        pddl_datalog_t *dl,
+                                        unsigned pred,
+                                        void (*fn)(int pred_user_id,
+                                                   int arity,
+                                                   const pddl_obj_id_t *arg_user_id,
+                                                   void *user_data),
+                                        void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
     pddl_obj_id_t arg[arity];
@@ -1026,7 +1026,7 @@ void pddlDatalogRuleAddBody(pddl_datalog_t *dl,
             rule->body_alloc = 1;
         rule->body_alloc *= 2;
         rule->body = REALLOC_ARR(rule->body, pddl_datalog_atom_t,
-                                     rule->body_alloc);
+                                 rule->body_alloc);
     }
     pddl_datalog_atom_t *a = rule->body + rule->body_size++;
     pddlDatalogAtomCopy(dl, a, atom);
@@ -1041,7 +1041,7 @@ void pddlDatalogRuleAddNegStaticBody(pddl_datalog_t *dl,
             rule->neg_body_alloc = 1;
         rule->neg_body_alloc *= 2;
         rule->neg_body = REALLOC_ARR(rule->neg_body, pddl_datalog_atom_t,
-                                         rule->neg_body_alloc);
+                                     rule->neg_body_alloc);
     }
     pddl_datalog_atom_t *a = rule->neg_body + rule->neg_body_size++;
     pddlDatalogAtomCopy(dl, a, atom);

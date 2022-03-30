@@ -102,7 +102,7 @@ static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
             ga->atom_alloc *= 2;
         }
         ga->atom = REALLOC_ARR(ga->atom,
-                                   pddl_ground_atom_t *, ga->atom_alloc);
+                               pddl_ground_atom_t *, ga->atom_alloc);
     }
 
     g = pddlGroundAtomClone(a);

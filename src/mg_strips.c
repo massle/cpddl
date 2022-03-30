@@ -256,7 +256,7 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
         mg->is_fam_group = pddlStripsIsFAMGroup(&mg_strips->strips,
                                                 &mg->mgroup);
         ASSERT_RUNTIME(!pddlISetIsDisjunct(&mg_strips->strips.init,
-                                          &mg->mgroup));
+                                           &mg->mgroup));
         ASSERT_RUNTIME(pddlStripsIsExactlyOneMGroup(&mg_strips->strips,
                                                     &mg->mgroup));
     }

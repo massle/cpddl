@@ -321,8 +321,8 @@ static int hff(pddl_hff_t *h, const pddl_iset_t *state)
 
 
 int pddlHFF(pddl_hff_t *h,
-             const int *fdr_state,
-             const pddl_fdr_vars_t *vars)
+            const int *fdr_state,
+            const pddl_fdr_vars_t *vars)
 {
     PDDL_ISET(state);
     for (int var = 0; var < vars->var_size; ++var){

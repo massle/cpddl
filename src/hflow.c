@@ -76,9 +76,9 @@ static void factsInit(pddl_hflow_fact_t *facts,
                       const pddl_fdr_ops_t *op);
 /** Initialize LP solver */
 static pddl_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
-                        const pddl_fdr_ops_t *op,
-                        int use_ilp,
-                        int num_threads);
+                         const pddl_fdr_ops_t *op,
+                         int use_ilp,
+                         int num_threads);
 /** Solve the problem */
 static int lpSolve(pddl_lp_t *lp,
                    const pddl_hflow_fact_t *facts, int facts_size,
@@ -177,9 +177,9 @@ static void factAddConstr(pddl_hflow_fact_t *fact, int op_id, double coef)
 {
     ++fact->constr_len;
     fact->constr_idx = REALLOC_ARR(fact->constr_idx, int,
-                                       fact->constr_len);
+                                   fact->constr_len);
     fact->constr_coef = REALLOC_ARR(fact->constr_coef, double,
-                                        fact->constr_len);
+                                    fact->constr_len);
     fact->constr_idx[fact->constr_len - 1] = op_id;
     fact->constr_coef[fact->constr_len - 1] = coef;
 }
@@ -290,9 +290,9 @@ static void factsInit(pddl_hflow_fact_t *facts,
 
 
 static pddl_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
-                        const pddl_fdr_ops_t *op,
-                        int use_ilp,
-                        int num_threads)
+                         const pddl_fdr_ops_t *op,
+                         int use_ilp,
+                         int num_threads)
 {
     pddl_lp_t *lp;
     unsigned lp_flags;

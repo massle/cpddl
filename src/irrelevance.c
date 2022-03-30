@@ -98,11 +98,11 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
 
     if (strips->has_cond_eff){
         PDDL_ERR_RET2(err, -1, "Irrelevance analysis does not support"
-                              " conditional effects.");
+                      " conditional effects.");
     }
 
     PDDL_INFO(err, "Irrelevance analysis. facts: %d, ops: %d",
-             strips->fact.fact_size, strips->op.op_size);
+              strips->fact.fact_size, strips->op.op_size);
 
     pddlStripsFactCrossRefInit(&cref, strips, 1, 1, 0, 1, 1);
 
@@ -164,10 +164,10 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
     pddlStripsFactCrossRefFree(&cref);
 
     PDDL_INFO(err, "Irrelevance analysis DONE: irrelevant facts: %d,"
-                  " irrelevant ops: %d, static facts: %d",
-             (irrelevant_facts != NULL ? pddlISetSize(irrelevant_facts) : -1),
-             (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1),
-             (static_facts != NULL ? pddlISetSize(static_facts) : -1));
+              " irrelevant ops: %d, static facts: %d",
+              (irrelevant_facts != NULL ? pddlISetSize(irrelevant_facts) : -1),
+              (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1),
+              (static_facts != NULL ? pddlISetSize(static_facts) : -1));
 
     return 0;
 }
@@ -236,11 +236,11 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
 
     if (fdr->has_cond_eff){
         PDDL_ERR_RET2(err, -1, "Irrelevance analysis does not support"
-                              " conditional effects.");
+                      " conditional effects.");
     }
 
     PDDL_INFO(err, "Irrelevance analysis on FDR. vars: %d, facts: %d, ops: %d",
-             fdr->var.var_size, fdr->var.global_id_size, fdr->op.op_size);
+              fdr->var.var_size, fdr->var.global_id_size, fdr->op.op_size);
 
     var_to_op = CALLOC_ARR(pddl_iset_t, fdr->var.var_size);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
@@ -292,9 +292,9 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
         FREE(var_to_op);
 
     PDDL_INFO(err, "Irrelevance analysis on FDR DONE: irrelevant vars: %d,"
-                  " irrelevant ops: %d",
-             (irrelevant_vars != NULL ? pddlISetSize(irrelevant_vars) : -1),
-             (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1));
+              " irrelevant ops: %d",
+              (irrelevant_vars != NULL ? pddlISetSize(irrelevant_vars) : -1),
+              (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1));
 
     return 0;
 }

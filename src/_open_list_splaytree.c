@@ -102,11 +102,11 @@ pddl_open_list_t *MAIN_FN_NAME(void)
 
     list = ALLOC(pddl_open_list_splaytree_t);
     _pddlOpenListInit(&list->list,
-                  pddlOpenListSplayTreeDel,
-                  pddlOpenListSplayTreePush,
-                  pddlOpenListSplayTreePop,
-                  pddlOpenListSplayTreeTop,
-                  pddlOpenListSplayTreeClear);
+                      pddlOpenListSplayTreeDel,
+                      pddlOpenListSplayTreePush,
+                      pddlOpenListSplayTreePop,
+                      pddlOpenListSplayTreeTop,
+                      pddlOpenListSplayTreeClear);
     list->pre_keynode = keynodeNew();
 
     pddlSplayInit(list);
@@ -193,8 +193,8 @@ static int pddlOpenListSplayTreePop(pddl_open_list_t *_list,
 }
 
 static int pddlOpenListSplayTreeTop(pddl_open_list_t *_list,
-                                  pddl_state_id_t *state_id,
-                                  int *cost)
+                                    pddl_state_id_t *state_id,
+                                    int *cost)
 {
     if (top(_list, state_id, cost) == NULL)
         return -1;

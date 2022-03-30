@@ -80,7 +80,7 @@ int pddlSetIntersectionSize(const pddl_set_t *s1, const pddl_set_t *s2)
 }
 
 int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
-                                  int limit)
+                                   int limit)
 {
     int i, j, size, setsize;
 
@@ -105,9 +105,9 @@ int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
 }
 
 int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
-                                   const pddl_set_t *s2,
-                                   const pddl_set_t *s3,
-                                   int limit)
+                                    const pddl_set_t *s2,
+                                    const pddl_set_t *s3,
+                                    int limit)
 {
     int i, j, k, setsize;
 

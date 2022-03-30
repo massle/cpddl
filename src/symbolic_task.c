@@ -143,13 +143,13 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     }
     if (pot.sol_size != 1){
         PDDL_ERR_RET(err, -1, "Symbolic search supports only a single"
-                             " potential function, got %d",
-                    pot.sol_size);
+                     " potential function, got %d",
+                     pot.sol_size);
     }
 
     const pddl_pot_solution_t *sol = pot.sol + 0;
     PDDL_INFO(err, "Sum of potentials for the initial state: %.4f",
-             pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
+              pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init));
     init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
     *op_pot = CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
     for (int i = 0; i < sol->op_pot_size && i < fdr->op.op_size; ++i){
@@ -220,12 +220,12 @@ static int searchInit(pddl_symbolic_task_t *ss,
         search->goal = pddlBDDClone(ss->mgr, search->goal);
 
     PDDL_INFO(err, "Creating transitions."
-                  " merge max nodes: %lu,"
-                  " merge max time: %.2fs",
-             search->cfg.trans_merge_max_nodes,
-             search->cfg.trans_merge_max_time);
+              " merge max nodes: %lu,"
+              " merge max time: %.2fs",
+              search->cfg.trans_merge_max_nodes,
+              search->cfg.trans_merge_max_time);
     PDDL_INFO(err, "Heuristic value for the initial state: %s",
-             F_COST(&pot_init_h_value));
+              F_COST(&pot_init_h_value));
     pddlSymbolicTransSetsInit(&search->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               search->cfg.use_op_constr,
@@ -298,8 +298,8 @@ static void searchFree(pddl_symbolic_task_t *ss,
 }
 
 static pddl_bdd_t *bddStateSelectOne(pddl_symbolic_task_t *ss,
-                                 pddl_bdd_t *bdd,
-                                 pddl_iset_t *state)
+                                     pddl_bdd_t *bdd,
+                                     pddl_iset_t *state)
 {
     pddlISetEmpty(state);
     char *cube = ALLOC_ARR(char, ss->vars.bdd_var_size);
@@ -426,16 +426,16 @@ static void planReverse(plan_t *plan)
     int len = (plan->plan_len + 1) / 2;
     for (int i = 0; i < len; ++i){
         PDDL_SWAP(plan->state[i],
-                 plan->state[plan->plan_len - i],
-                 state_tmp);
+                  plan->state[plan->plan_len - i],
+                  state_tmp);
     }
 
     pddl_iset_t *tr_tmp;
     len = plan->plan_len / 2;
     for (int i = 0; i < len; ++i){
         PDDL_SWAP(plan->tr_op[i],
-                 plan->tr_op[plan->plan_len - i - 1],
-                 tr_tmp);
+                  plan->tr_op[plan->plan_len - i - 1],
+                  tr_tmp);
     }
 }
 
@@ -470,8 +470,8 @@ static void planExtractFw(plan_t *plan,
 
 
 static pddl_bdd_t *searchStateBDD(pddl_symbolic_task_t *ss,
-                              pddl_symbolic_search_t *search,
-                              pddl_symbolic_state_t *state)
+                                  pddl_symbolic_search_t *search,
+                                  pddl_symbolic_state_t *state)
 {
     if (state->bdd == NULL){
         const pddl_symbolic_state_t *prev_state;
@@ -560,7 +560,7 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
                 searchSetBestPlan(search, state, closed_state);
                 searchSetBestPlan(other_search, closed_state, state);
                 PDDL_INFO(err, "%s: Found best plan so far: cost: %s",
-                         (search->fw ? "fw" : "bw"), F_COST(&search->state.bound));
+                          (search->fw ? "fw" : "bw"), F_COST(&search->state.bound));
                 res = 1;
             }
             pddlBDDDel(ss->mgr, goal);

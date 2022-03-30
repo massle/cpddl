@@ -38,7 +38,7 @@ static int checkDerivedPredicates(const pddl_t *pddl, pddl_err_t *err)
         const pddl_lisp_node_t *n = root->child + i;
         if (pddlLispNodeHeadKw(n) == PDDL_KW_DERIVED){
             PDDL_ERR_RET(err, -1, "Derived predicates are not supported"
-                                 " (line %d).", n->lineno);
+                         " (line %d).", n->lineno);
         }
     }
     return 0;
@@ -58,12 +58,12 @@ static const char *parseName(pddl_lisp_t *lisp, int kw,
     if (n == NULL){
         // TODO: Configure warn/err
         PDDL_ERR_RET(err, NULL, "Could not find %s name definition in %s.",
-                    err_name, lisp->filename);
+                     err_name, lisp->filename);
     }
 
     if (n->child_size != 2 || n->child[1].value == NULL){
         PDDL_ERR_RET(err, NULL, "Invalid %s name definition in %s.",
-                    err_name, lisp->filename);
+                     err_name, lisp->filename);
     }
 
     return n->child[1].value;
@@ -97,7 +97,7 @@ static int checkDomainName(pddl_t *pddl, pddl_err_t *err)
 
     if (strcmp(problem_domain_name, pddl->domain_name) != 0){
         PDDL_WARN(err, "Domain names does not match: `%s' x `%s'",
-                 pddl->domain_name, problem_domain_name);
+                  pddl->domain_name, problem_domain_name);
         return 0;
     }
     return 0;
@@ -118,7 +118,7 @@ static int parseMetric(pddl_t *pddl, const pddl_lisp_t *lisp, pddl_err_t *err)
             || n->child[2].child_size != 1
             || strcmp(n->child[2].child[0].value, "total-cost") != 0){
         PDDL_ERR_RET(err, -1, "Only (:metric minimize (total-cost)) is supported"
-                    " (line %d in %s).", n->lineno, lisp->filename);
+                     " (line %d in %s).", n->lineno, lisp->filename);
     }
 
     pddl->metric = 1;
@@ -132,13 +132,13 @@ static int parseInit(pddl_t *pddl, pddl_err_t *err)
     ninit = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_INIT);
     if (ninit == NULL){
         PDDL_ERR_RET(err, -1, "Missing :init in %s.",
-                    pddl->problem_lisp->filename);
+                     pddl->problem_lisp->filename);
     }
 
     pddl->init = pddlCondParseInit(ninit, pddl, err);
     if (pddl->init == NULL){
         PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :init specification"
-                              " in %s: ", pddl->problem_lisp->filename);
+                               " in %s: ", pddl->problem_lisp->filename);
     }
 
     pddl_cond_const_it_atom_t it;
@@ -159,13 +159,13 @@ static int parseGoal(pddl_t *pddl, pddl_err_t *err)
 
     if (ngoal->child_size != 2 || ngoal->child[1].value != NULL){
         PDDL_ERR_RET(err, -1, "Invalid definition of :goal in %s (line %d).",
-                    pddl->problem_lisp->filename, ngoal->lineno);
+                     pddl->problem_lisp->filename, ngoal->lineno);
     }
 
     pddl->goal = pddlCondParse(ngoal->child + 1, pddl, NULL, "", err);
     if (pddl->goal == NULL){
         PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :goal specification"
-                              " in %s: ", pddl->problem_lisp->filename);
+                               " in %s: ", pddl->problem_lisp->filename);
     }
     return 0;
 }
@@ -777,7 +777,7 @@ static void compileAwayCondEff(pddl_t *pddl, int only_non_static)
                     // This shoud never fail, because we force
                     // normalization before this.
                     PDDL_FATAL2("Fatal Error: Encountered problem in"
-                               " the normalization.");
+                                " the normalization.");
                 }
                 a->pre = pddlCondNewAnd2(a->pre, neg_pre);
 
@@ -823,9 +823,9 @@ void pddlCheckSizeTypes(const pddl_t *pddl)
     max_size = (1ul << (sizeof(pddl_obj_size_t) * 8)) - 1;
     if (pddl->obj.obj_size > max_size){
         PDDL_FATAL("The problem has %d objects, but pddl_obj_size_t can"
-                  " hold only %lu.",
-                  pddl->obj.obj_size,
-                  sizeof(pddl_obj_size_t) * 8 - 1);
+                   " hold only %lu.",
+                   pddl->obj.obj_size,
+                   sizeof(pddl_obj_size_t) * 8 - 1);
     }
 
     max_size = (1ul << (sizeof(pddl_action_param_size_t) * 8)) - 1;
@@ -833,10 +833,10 @@ void pddlCheckSizeTypes(const pddl_t *pddl)
         int param_size = pddl->action.action[ai].param.param_size;
         if (param_size > max_size){
             PDDL_FATAL("The action %s has %d parameters, but"
-                      "pddl_action_param_size_t can hold only %lu.",
-                      pddl->action.action[ai].name,
-                      param_size,
-                      sizeof(pddl_action_param_size_t) * 8 - 1);
+                       "pddl_action_param_size_t can hold only %lu.",
+                       pddl->action.action[ai].name,
+                       param_size,
+                       sizeof(pddl_action_param_size_t) * 8 - 1);
         }
     }
 }
@@ -932,7 +932,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
         pddlActionsRemapTypesAndPreds(&pddl->action, type_remap,
                                       pred_remap, func_remap);
         PDDL_INFO(err, "Removed %d actions",
-                 action_size - pddl->action.action_size);
+                  action_size - pddl->action.action_size);
 
         if (pred_size != pddl->pred.pred_size
                 || func_size != pddl->func.pred_size){
@@ -940,7 +940,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
             if (pddlCondRemapPreds(&pddl->init->cls,
                                    pred_remap, func_remap) != 0){
                 PDDL_INFO2(err, "The task is unsolvable, because the initial"
-                               " state is false");
+                           " state is false");
                 pddlCondDel(&pddl->init->cls);
                 pddl_cond_t *c = pddlCondNewEmptyAnd();
                 pddl->init = PDDL_COND_CAST(c, part);
@@ -950,7 +950,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
 
             if (pddlCondRemapPreds(pddl->goal, pred_remap, func_remap) != 0){
                 PDDL_INFO2(err, "The task is unsolvable, because the goal"
-                               " is false");
+                           " is false");
                 pddlCondDel(pddl->goal);
                 pddl_cond_bool_t *b = pddlCondNewBool(0);
                 pddl->goal = &b->cls;

@@ -62,8 +62,8 @@ static int actionInitPre(pddl_cond_t *c, void *ud)
         return 0;
     }else{
         PDDL_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
-                " (found %s). It seems it was not normalized.",
-                pddlCondTypeName(c->type));
+                 " (found %s). It seems it was not normalized.",
+                 pddlCondTypeName(c->type));
         ctx->failed = 1;
         return -2;
     }
@@ -101,8 +101,8 @@ static int actionInitEff(pddl_cond_t *c, void *ud)
         return 0;
     }else{
         PDDL_ERR2(ctx-> err, "Effect is not a simple conjuction"
-                 " (possibly containingconditional effects and function"
-                 " assignement). It seems it was not normalized.");
+                  " (possibly containingconditional effects and function"
+                  " assignement). It seems it was not normalized.");
         ctx->failed = 1;
         return -2;
     }
@@ -133,13 +133,13 @@ static int actionInit2(pddl_prep_action_t *a,
     pddlCondTraverse(pre, actionInitPre, NULL, &ctx);
     if (ctx.failed){
         PDDL_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
-                              action->name);
+                               action->name);
     }
 
     pddlCondTraverse(eff, actionInitEff, NULL, &ctx);
     if (ctx.failed){
         PDDL_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
-                              action->name);
+                               action->name);
     }
 
     return 0;
@@ -177,7 +177,7 @@ static void actionsReserve(pddl_prep_actions_t *as)
     if (as->action_size >= as->action_alloc){
         as->action_alloc *= 2;
         as->action = REALLOC_ARR(as->action, pddl_prep_action_t,
-                                     as->action_alloc);
+                                 as->action_alloc);
     }
 }
 
@@ -203,8 +203,8 @@ static int actionInitCondEff(pddl_cond_t *c, void *ud)
         }
         if (a->cond_eff_size > 0){
             PDDL_ERR(ctx->err, "Preparation of the action %s failed:"
-                    " Nested conditional effects are not supported.",
-                ctx->action->name);
+                     " Nested conditional effects are not supported.",
+                     ctx->action->name);
             ctx->failed = 1;
             return -2;
         }

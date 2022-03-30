@@ -82,8 +82,8 @@ static void reduceGenInit(reduce_gen_t *rgen,
     int op_id;
     PDDL_ISET_FOR_EACH(&rgen->relevant_op, op_id){
         pddlISetIntersect2(rgen->op_mutex_with + op_id,
-                          red->op_mutex_with + op_id,
-                          &rgen->relevant_op);
+                           red->op_mutex_with + op_id,
+                           &rgen->relevant_op);
     }
 }
 

@@ -73,7 +73,7 @@ pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op)
             op->cond_eff_alloc = 1;
         op->cond_eff_alloc *= 2;
         op->cond_eff = REALLOC_ARR(op->cond_eff, pddl_fdr_op_cond_eff_t,
-                                       op->cond_eff_alloc);
+                                   op->cond_eff_alloc);
     }
 
     pddl_fdr_op_cond_eff_t *ce = op->cond_eff + op->cond_eff_size++;

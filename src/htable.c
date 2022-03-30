@@ -28,8 +28,8 @@ struct _pddl_htable_el_t {
 static int _eq(const pddl_list_t *key1, const pddl_list_t *key2, void *userdata);
 
 pddl_htable_t *pddlHTableNew(pddl_htable_hash_fn hash_func,
-                           pddl_htable_eq_fn eq_func,
-                           void *userdata)
+                             pddl_htable_eq_fn eq_func,
+                             void *userdata)
 {
     pddl_htable_t *htable;
     size_t i;
@@ -86,7 +86,7 @@ void pddlHTableGather(pddl_htable_t *m, pddl_list_t *list)
 }
 
 size_t pddlHTableFindAll(const pddl_htable_t *m, const pddl_list_t *key1,
-                        pddl_list_t ***out_arr, size_t *size)
+                         pddl_list_t ***out_arr, size_t *size)
 {
     pddl_list_t *item;
     size_t found_size, bucket;
@@ -103,7 +103,7 @@ size_t pddlHTableFindAll(const pddl_htable_t *m, const pddl_list_t *key1,
             ++found_size;
             if (reallocate){
                 (*out_arr) = REALLOC_ARR(*out_arr, pddl_list_t *,
-                                             found_size);
+                                         found_size);
                 (*out_arr)[found_size - 1] = item;
 
             }else if (found_size <= *size){

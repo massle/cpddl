@@ -357,17 +357,17 @@ void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, pddl_err_t *err)
     pddl_search_stat_t stat;
     pddlSearchLiftedStat(s, &stat);
     PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
-                  " gen: %lu, open: %lu, closed: %lu,"
-                  " reopen: %lu, de: %lu, f: %d",
-                  stat.steps,
-                  stat.expanded,
-                  stat.evaluated,
-                  stat.generated,
-                  stat.open,
-                  stat.closed,
-                  stat.reopen,
-                  stat.dead_end,
-                  stat.last_f_value);
+              " gen: %lu, open: %lu, closed: %lu,"
+              " reopen: %lu, de: %lu, f: %d",
+              stat.steps,
+              stat.expanded,
+              stat.evaluated,
+              stat.generated,
+              stat.open,
+              stat.closed,
+              stat.reopen,
+              stat.dead_end,
+              stat.last_f_value);
 }
 
 
@@ -398,7 +398,7 @@ static int _setGoal(pddl_cond_t *c, void *_s)
         if (!pddlCondAtomIsGrounded(atom)){
             s->goal_is_unreachable = 1;
             PDDL_ERR_RET2(s->err, -1, "Goal specification cannot contain"
-                         " parametrized atoms.");
+                          " parametrized atoms.");
         }
 
         return 0;
@@ -414,7 +414,7 @@ static int _setGoal(pddl_cond_t *c, void *_s)
 
     }else{
         PDDL_ERR(s->err, "Only conjuctive goal specifications are supported."
-                " (Goal contains %s.)", pddlCondTypeName(c->type));
+                 " (Goal contains %s.)", pddlCondTypeName(c->type));
         s->goal_is_unreachable = 1;
         return -2;
     }

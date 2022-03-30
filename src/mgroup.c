@@ -192,7 +192,7 @@ static void _predTreeAdd(pred_tree_t *tree,
                 tnode->child_alloc = 2;
             tnode->child_alloc *= 2;
             tnode->child = REALLOC_ARR(tnode->child, pred_tnode_t,
-                                           tnode->child_alloc);
+                                       tnode->child_alloc);
         }
 
         pred_tnode_t *next = tnode->child + tnode->child_size++;
@@ -444,7 +444,7 @@ pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const pddl_iset_t *fact)
             mg->mgroup_alloc = 2;
         mg->mgroup_alloc *= 2;
         mg->mgroup = REALLOC_ARR(mg->mgroup, pddl_mgroup_t,
-                                     mg->mgroup_alloc);
+                                 mg->mgroup_alloc);
     }
 
     pddl_mgroup_t *m = mg->mgroup + mg->mgroup_size++;
@@ -472,7 +472,7 @@ void pddlMGroupsSortUniq(pddl_mgroups_t *mg)
         return;
 
     pddlSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
-            cmpMGroup, NULL);
+             cmpMGroup, NULL);
 
     int ins = 1;
     const pddl_mgroup_t *b = mg->mgroup + 0;
@@ -525,7 +525,7 @@ void pddlMGroupsSortBySizeDesc(pddl_mgroups_t *mg)
         return;
 
     pddlSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
-            cmpMGroupSizeDesc, NULL);
+             cmpMGroupSizeDesc, NULL);
 }
 
 void pddlMGroupsSortByEssentialAndSizeDesc(pddl_mgroups_t *mg,
@@ -535,7 +535,7 @@ void pddlMGroupsSortByEssentialAndSizeDesc(pddl_mgroups_t *mg,
         return;
 
     pddlSort(mg->mgroup, mg->mgroup_size, sizeof(pddl_mgroup_t),
-            cmpMGroupEssentialAndSizeDesc, (void *)ess);
+             cmpMGroupEssentialAndSizeDesc, (void *)ess);
 }
 
 int pddlMGroupsSetExactlyOne(pddl_mgroups_t *mgs, const pddl_strips_t *strips)
@@ -709,7 +709,7 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
         return fact_size;
     if (!pddlLPSolverAvailable(PDDL_LP_DEFAULT)){
         PDDL_FATAL2("Can't computed mutex group cover number:"
-                   " Missing LP solver!");
+                    " Missing LP solver!");
     }
 
     unsigned lp_flags;
@@ -845,7 +845,7 @@ void pddlMGroupsExtractCoverEssential(const pddl_mgroups_t *_mgs,
     pddlMGroupsInitCopy(&mgs, _mgs);
     pddlMGroupsRemoveSubsets(&mgs);
     pddlMGroupsRemoveEmpty(&mgs);
-    
+
     PDDL_ISET(essential);
     pddlMGroupsEssentialFacts(&mgs, &essential);
     while (mgs.mgroup_size > 0){

@@ -161,9 +161,9 @@ static int condWhenTraverse(pddl_cond_when_t *w,
                             int (*post)(pddl_cond_t *, void *),
                             void *userdata);
 static int condWhenRebuild(pddl_cond_when_t **w,
-                            int (*pre)(pddl_cond_t **, void *),
-                            int (*post)(pddl_cond_t **, void *),
-                            void *userdata);
+                           int (*pre)(pddl_cond_t **, void *),
+                           int (*post)(pddl_cond_t **, void *),
+                           void *userdata);
 static void condWhenPrintPDDL(const pddl_cond_when_t *w,
                               const pddl_t *pddl,
                               const pddl_params_t *params,
@@ -179,9 +179,9 @@ static int condAtomTraverse(pddl_cond_atom_t *,
                             int (*post)(pddl_cond_t *, void *),
                             void *userdata);
 static int condAtomRebuild(pddl_cond_atom_t **a,
-                            int (*pre)(pddl_cond_t **, void *),
-                            int (*post)(pddl_cond_t **, void *),
-                            void *userdata);
+                           int (*pre)(pddl_cond_t **, void *),
+                           int (*post)(pddl_cond_t **, void *),
+                           void *userdata);
 static void condAtomPrintPDDL(const pddl_cond_atom_t *a,
                               const pddl_t *pddl,
                               const pddl_params_t *params,
@@ -198,9 +198,9 @@ static int condFuncOpTraverse(pddl_cond_func_op_t *,
                               int (*post)(pddl_cond_t *, void *),
                               void *userdata);
 static int condFuncOpRebuild(pddl_cond_func_op_t **,
-                            int (*pre)(pddl_cond_t **, void *),
-                            int (*post)(pddl_cond_t **, void *),
-                            void *userdata);
+                             int (*pre)(pddl_cond_t **, void *),
+                             int (*post)(pddl_cond_t **, void *),
+                             void *userdata);
 static void condFuncOpPrintPDDL(const pddl_cond_func_op_t *,
                                 const pddl_t *pddl,
                                 const pddl_params_t *params,
@@ -216,9 +216,9 @@ static int condBoolTraverse(pddl_cond_bool_t *,
                             int (*post)(pddl_cond_t *, void *),
                             void *userdata);
 static int condBoolRebuild(pddl_cond_bool_t **a,
-                            int (*pre)(pddl_cond_t **, void *),
-                            int (*post)(pddl_cond_t **, void *),
-                            void *userdata);
+                           int (*pre)(pddl_cond_t **, void *),
+                           int (*post)(pddl_cond_t **, void *),
+                           void *userdata);
 static void condBoolPrintPDDL(const pddl_cond_bool_t *b,
                               const pddl_t *pddl,
                               const pddl_params_t *params,
@@ -950,9 +950,9 @@ static int condImplyEq(const pddl_cond_imply_t *i1,
 }
 
 static int condImplyTraverse(pddl_cond_imply_t *imp,
-                            int (*pre)(pddl_cond_t *, void *),
-                            int (*post)(pddl_cond_t *, void *),
-                            void *u)
+                             int (*pre)(pddl_cond_t *, void *),
+                             int (*post)(pddl_cond_t *, void *),
+                             void *u)
 {
     if (imp->left != NULL){
         if (condTraverse(imp->left, pre, post, u) != 0)
@@ -966,9 +966,9 @@ static int condImplyTraverse(pddl_cond_imply_t *imp,
 }
 
 static int condImplyRebuild(pddl_cond_imply_t **imp,
-                           int (*pre)(pddl_cond_t **, void *),
-                           int (*post)(pddl_cond_t **, void *),
-                           void *u)
+                            int (*pre)(pddl_cond_t **, void *),
+                            int (*post)(pddl_cond_t **, void *),
+                            void *u)
 {
     if ((*imp)->left != NULL){
         if (condRebuild(&(*imp)->left, pre, post, u) != 0)
@@ -1890,7 +1890,7 @@ pddl_cond_part_t *pddlCondParseInit(const pddl_lisp_node_t *root, pddl_t *pddl,
         if ((c = parseInitFactFunc(n, pddl, err)) == NULL){
             condPartDel(and);
             PDDL_TRACE_PREPEND_RET(err, NULL, "While parsing :init in %s: ",
-                                  pddl->problem_lisp->filename);
+                                   pddl->problem_lisp->filename);
         }
         condPartAdd(and, c);
     }
@@ -1965,7 +1965,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
         if (cond->type == PDDL_COND_OR
                 && !(require & PDDL_REQUIRE_DISJUNCTIVE_PRE)){
             PDDL_ERR2(err, "(or ...) can be used only with"
-                     " :disjunctive-preconditions");
+                      " :disjunctive-preconditions");
             return -1;
         }
 
@@ -1981,7 +1981,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
     }else if (cond->type == PDDL_COND_FORALL){
         if (!(require & PDDL_REQUIRE_UNIVERSAL_PRE)){
             PDDL_ERR2(err, "(forall ...) can be used only with"
-                     " :universal-preconditions");
+                      " :universal-preconditions");
             return -1;
         }
 
@@ -1991,7 +1991,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
     }else if (cond->type == PDDL_COND_EXIST){
         if (!(require & PDDL_REQUIRE_EXISTENTIAL_PRE)){
             PDDL_ERR2(err, "(exists ...) can be used only with"
-                     " :existential-preconditions");
+                      " :existential-preconditions");
             return -1;
         }
 
@@ -2006,7 +2006,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
         atom = OBJ(cond, atom);
         if (atom->neg && !(require & PDDL_REQUIRE_NEGATIVE_PRE)){
             PDDL_ERR2(err, "For negative preconditions add"
-                          " :negative-preconditions");
+                      " :negative-preconditions");
             return -1;
         }
 
@@ -2016,7 +2016,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
         imp = OBJ(cond, imply);
         if (!(require & PDDL_REQUIRE_DISJUNCTIVE_PRE)){
             PDDL_ERR2(err, "(imply ...) can be used only with"
-                     " :disjunctive-preconditions");
+                      " :disjunctive-preconditions");
             return -1;
         }
 
@@ -2048,7 +2048,7 @@ static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
     if (cond->type == PDDL_COND_FORALL){
         if (!(require & PDDL_REQUIRE_CONDITIONAL_EFF)){
             PDDL_ERR2(err, "(forall ...) is allowed in effects only if"
-                     " :conditional-effects is specified as requirement");
+                      " :conditional-effects is specified as requirement");
             return -1;
         }
 
@@ -2058,7 +2058,7 @@ static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
     }else if (cond->type == PDDL_COND_WHEN){
         if (!(require & PDDL_REQUIRE_CONDITIONAL_EFF)){
             PDDL_ERR2(err, "(when ...) is allowed in effects only if"
-                     " :conditional-effects is specified as requirement");
+                      " :conditional-effects is specified as requirement");
             return -1;
         }
 
@@ -2070,7 +2070,7 @@ static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
     }else{
         if (checkPEffect(cond, require, err) != 0){
             PDDL_ERR2(err, "A single effect has to be either literal or"
-                     " conditional effect (+ universal quantifier).");
+                      " conditional effect (+ universal quantifier).");
             return -1;
         }
         return 0;
@@ -2103,7 +2103,7 @@ static int checkCondEffect(const pddl_cond_t *cond, int require,
             sub = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
             if (checkPEffect(sub, require, err) != 0){
                 PDDL_ERR2(err, "Conditional effect can contain only literals"
-                         " and conjuction of literals.");
+                          " and conjuction of literals.");
                 return -1;
             }
         }
@@ -3621,8 +3621,8 @@ static int condRemapPreds(pddl_cond_t *c, void *_remap)
 }
 
 int pddlCondRemapPreds(pddl_cond_t *c,
-                        const int *pred_remap,
-                        const int *func_remap)
+                       const int *pred_remap,
+                       const int *func_remap)
 {
     struct pred_remap remap = { pred_remap, func_remap, 0};
     pddlCondTraverse(c, NULL, condRemapPreds, (void *)&remap);

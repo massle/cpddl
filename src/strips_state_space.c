@@ -63,11 +63,11 @@ void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
     bzero(state_space, sizeof(*state_space));
     state_space->htable = pddlHTableNew(htableHash, htableEq, NULL);
     state_space->node = pddlExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
-                                      MIN_STATES_PER_BLOCK,
-                                      NULL, NULL);
+                                       MIN_STATES_PER_BLOCK,
+                                       NULL, NULL);
 
     PDDL_INFO(err, "State space created. bytes per state node: %d",
-             (int)sizeof(state_node_t));
+              (int)sizeof(state_node_t));
 }
 
 void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space)
@@ -131,7 +131,7 @@ void pddlStripsStateSpaceGetNoState(const pddl_strips_state_space_t *state_space
                                     pddl_strips_state_space_node_t *node)
 {
     ASSERT_RUNTIME(state_id >= 0
-                    && state_id < state_space->num_states);
+                   && state_id < state_space->num_states);
     const state_node_t *sn = pddlExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
 }
@@ -140,7 +140,7 @@ void pddlStripsStateSpaceSet(pddl_strips_state_space_t *state_space,
                              const pddl_strips_state_space_node_t *node)
 {
     ASSERT_RUNTIME(node->id >= 0
-                    && node->id < state_space->num_states);
+                   && node->id < state_space->num_states);
     state_node_t *sn = pddlExtArrGet(state_space->node, node->id);
     sn->parent_id = node->parent_id;
     sn->op_id = node->op_id;

@@ -240,10 +240,10 @@ static void mutexUnify2(const pddl_t *pddl,
         }
         if (action_c != NULL){
             PDDL_INFO(err, "Found mutex condition for action '%s'"
-                          " and mgroup %s: %s",
-                     action->name,
-                     F_LIFTED_MGROUP(pddl, mgroup),
-                     F_COND_PDDL(action_c, pddl, pre_param));
+                      " and mgroup %s: %s",
+                      action->name,
+                      F_LIFTED_MGROUP(pddl, mgroup),
+                      F_COND_PDDL(action_c, pddl, pre_param));
             pddlCondArrAdd(action_cond, action_c);
         }
     }
@@ -435,10 +435,10 @@ static void deadEndAdd(const pddl_t *pddl,
         }
         if (cond != NULL){
             PDDL_INFO(err, "Found dead-end condition for action '%s'"
-                          " and mgroup %s: %s",
-                     action->name,
-                     F_LIFTED_MGROUP(pddl, mgroup),
-                     F_COND_PDDL_BUFSIZE(cond, pddl, &action->param, 10000));
+                      " and mgroup %s: %s",
+                      action->name,
+                      F_LIFTED_MGROUP(pddl, mgroup),
+                      F_COND_PDDL_BUFSIZE(cond, pddl, &action->param, 10000));
             pddlCondArrAdd(action_cond, cond);
         }
     }else{
@@ -580,11 +580,11 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
 
     PDDL_INFO_PREFIX_PUSH(err, "Compile-in LMG: ");
     PDDL_INFO(err, "actions: %d, lifted mgroups: %d",
-             pddl->action.action_size, mgroups->mgroup_size);
+              pddl->action.action_size, mgroups->mgroup_size);
     if (mgroups->mgroup_size == 0){
         PDDL_INFO2(err, "No lifted mutex groups.");
         PDDL_INFO(err, "DONE. actions: %d, lifted mgroups: %d",
-                 pddl->action.action_size, mgroups->mgroup_size);
+                  pddl->action.action_size, mgroups->mgroup_size);
         PDDL_INFO_PREFIX_POP(err);
         return 0;
     }
@@ -603,8 +603,8 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
         c = actionCondsMerge(&acs, action->pre, pddl, &action->param);
         if (c != NULL){
             PDDL_INFO(err, "Precondition of action '%s' extended with %s",
-                     action->name,
-                     F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
+                      action->name,
+                      F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
             action->pre = pddlCondNewAnd2(action->pre, c);
             changed = 1;
         }
@@ -616,9 +616,9 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
             c = actionCondsMerge(&acs, when->pre, pddl, &action->param);
             if (c != NULL){
                 PDDL_INFO(err, "Precondition of a conditional effect of"
-                              " action '%s' extended with %s",
-                         action->name,
-                         F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
+                          " action '%s' extended with %s",
+                          action->name,
+                          F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
                 pddl_cond_when_t *wwhen = (pddl_cond_when_t *)when;
                 wwhen->pre = pddlCondNewAnd2(when->pre, c);
                 changed = 1;

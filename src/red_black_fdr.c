@@ -74,7 +74,7 @@ static void prepareMGroups(pddl_mgroups_t *mgroups,
     //pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
     pddlISetFree(&black_facts);
     PDDL_INFO(err, "Created %d mutex groups of which %d are black",
-             mgroups->mgroup_size, black_mgroups->mgroup_size);
+              mgroups->mgroup_size, black_mgroups->mgroup_size);
 }
 
 static void setBlackVars(pddl_fdr_t *fdr,
@@ -150,7 +150,7 @@ static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
             PDDL_ISET_FOR_EACH(&cref.fact[mutex_fact].op_pre, opi){
                 pddl_fdr_op_t *op = fdr->op.op[opi];
                 ASSERT(!pddlFDRPartStateIsSet(&op->pre, set_var)
-                        || pddlFDRPartStateGet(&op->pre, set_var) == set_val);
+                       || pddlFDRPartStateGet(&op->pre, set_var) == set_val);
                 if (!pddlFDRPartStateIsSet(&op->pre, set_var)){
                     pddlFDRPartStateSet(&op->pre, set_var, set_val);
                     ++num_set;
@@ -180,7 +180,7 @@ static void fdrStat(const pddl_fdr_t *fdr, pddl_err_t *err)
     PDDL_INFO(err, "Num black variables: %d", num_black_vars);
     PDDL_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
     PDDL_INFO(err, "Num black FDR facts: %d",
-             num_black_facts_with_none_of_those);
+              num_black_facts_with_none_of_those);
 }
 
 static int constructFDR(pddl_fdr_t *fdr,
@@ -232,11 +232,11 @@ static int constructFDR(pddl_fdr_t *fdr,
 }
 
 int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
-                               const pddl_strips_t *strips_in,
-                               const pddl_mgroups_t *mgroups_in,
-                               const pddl_mutex_pairs_t *mutex_in,
-                               const pddl_red_black_fdr_config_t *cfg,
-                               pddl_err_t *err)
+                                  const pddl_strips_t *strips_in,
+                                  const pddl_mgroups_t *mgroups_in,
+                                  const pddl_mutex_pairs_t *mutex_in,
+                                  const pddl_red_black_fdr_config_t *cfg,
+                                  pddl_err_t *err)
 {
     pddl_timer_t timer;
     pddlTimerStart(&timer);
@@ -281,7 +281,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
 
     pddlTimerStop(&timer);
     PDDL_INFO(err, "Translation took %.2f seconds",
-             pddlTimerElapsedInSF(&timer));
+              pddlTimerElapsedInSF(&timer));
     PDDL_INFO_PREFIX_POP(err);
     return num_created;
 }

@@ -119,8 +119,8 @@ static void recursiveClear(pddl_pairheap_node_t *node,
 }
 
 void pddlPairHeapClear(pddl_pairheap_t *ph,
-                      pddl_pairheap_clear clear_fn,
-                      void *user_data)
+                       pddl_pairheap_clear clear_fn,
+                       void *user_data)
 {
     pddl_list_t *lnode, *ltmp;
     pddl_pairheap_node_t *node;

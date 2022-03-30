@@ -187,8 +187,8 @@ static int collapseObjs(pddl_t *pddl,
 
 
 static int _collapseObjs(pddl_homomorphic_task_t *h,
-                        int *collapse_map,
-                        pddl_err_t *err)
+                         int *collapse_map,
+                         pddl_err_t *err)
 {
     int repr = -1;
     for (int i = 0; i < h->task.obj.obj_size; ++i){
@@ -389,12 +389,12 @@ static int collapseType(pddl_t *pddl,
     pddl_types_t *types = &pddl->type;
     if (!pddlTypesIsMinimal(types, type)){
         PDDL_ERR_RET(err, -1, "Type %d (%s) is not minimal!",
-                    type, types->type[type].name);
+                     type, types->type[type].name);
     }
     if (pddlTypeNumObjs(types, type) <= 1){
         PDDL_INFO(err, "Type %d (%s) has no more than one object:"
-                      " nothing to collapse",
-                 type, types->type[type].name);
+                  " nothing to collapse",
+                  type, types->type[type].name);
         return 0;
     }
 
@@ -409,8 +409,8 @@ static int collapseType(pddl_t *pddl,
 
     if (ret == 0){
         PDDL_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
-                      type, types->type[type].name,
-                      init_num_objs, pddl->obj.obj_size);
+                  type, types->type[type].name,
+                  init_num_objs, pddl->obj.obj_size);
         return 0;
     }else{
         PDDL_TRACE_RET(err, -1);
@@ -569,14 +569,14 @@ static int collapseGaifman(pddl_t *pddl,
     gaifman_t gaif;
     gaifmanInit(&gaif, pddl, cfg->keep_goal_objs);
     PDDL_INFO(err, "Static objects: %d/%d",
-             gaif.num_static_objs, pddl->obj.obj_size);
+              gaif.num_static_objs, pddl->obj.obj_size);
     PDDL_INFO(err, "Non-goal static objects: %d/%d",
-             gaif.num_static_nongoal_objs, pddl->obj.obj_size);
+              gaif.num_static_nongoal_objs, pddl->obj.obj_size);
     pddl_obj_id_t o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, pddl, &o1, &o2)){
         PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
-                 o1, pddl->obj.obj[o1].name,
-                 o2, pddl->obj.obj[o2].name);
+                  o1, pddl->obj.obj[o1].name,
+                  o2, pddl->obj.obj[o2].name);
         int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
         collapse_map[o1] = collapse_map[o2] = 1;
         ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
@@ -687,8 +687,8 @@ static int collapseRPG(pddl_t *pddl,
             PDDL_TRACE_RET(err, -1);
         }else if (found > 0){
             PDDL_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
-                     o1, pddl->obj.obj[o1].name,
-                     o2, pddl->obj.obj[o2].name, depth);
+                      o1, pddl->obj.obj[o1].name,
+                      o2, pddl->obj.obj[o2].name, depth);
             int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
             collapse_map[o1] = collapse_map[o2] = 1;
             ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
@@ -846,8 +846,8 @@ int pddlHomomorphism(pddl_t *pddl,
     deduplicate(pddl);
     pddlNormalize(pddl);
     PDDL_INFO(err, "Homomorphism computed (objs: %d, from objs: %d).",
-             pddl->obj.obj_size,
-             src->obj.obj_size);
+              pddl->obj.obj_size,
+              src->obj.obj_size);
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }
@@ -888,12 +888,12 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
     pddl_types_t *types = &h->task.type;
     if (!pddlTypesIsMinimal(types, type)){
         PDDL_ERR_RET(err, -1, "Type %d (%s) is not minimal!",
-                    type, types->type[type].name);
+                     type, types->type[type].name);
     }
     if (pddlTypeNumObjs(types, type) <= 1){
         PDDL_INFO(err, "Type %d (%s) has no more than one object:"
-                      " nothing to collapse",
-                 type, types->type[type].name);
+                  " nothing to collapse",
+                  type, types->type[type].name);
         return 0;
     }
 
@@ -908,8 +908,8 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
 
     if (ret == 0){
         PDDL_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
-                      type, types->type[type].name,
-                      init_num_objs, h->task.obj.obj_size);
+                  type, types->type[type].name,
+                  init_num_objs, h->task.obj.obj_size);
         return 0;
     }else{
         PDDL_TRACE_RET(err, -1);
@@ -976,14 +976,14 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
     gaifman_t gaif;
     gaifmanInit(&gaif, &h->task, preserve_goals);
     PDDL_INFO(err, "Static objects: %d/%d",
-             gaif.num_static_objs, h->task.obj.obj_size);
+              gaif.num_static_objs, h->task.obj.obj_size);
     PDDL_INFO(err, "Non-goal static objects: %d/%d",
-             gaif.num_static_nongoal_objs, h->task.obj.obj_size);
+              gaif.num_static_nongoal_objs, h->task.obj.obj_size);
     pddl_obj_id_t o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, &h->task, &o1, &o2)){
         PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
-                 o1, h->task.obj.obj[o1].name,
-                 o2, h->task.obj.obj[o2].name);
+                  o1, h->task.obj.obj[o1].name,
+                  o2, h->task.obj.obj[o2].name);
         ret = collapsePair(h, o1, o2, err);
     }else{
         PDDL_INFO2(err, "Nothing to collapse.");
@@ -1013,8 +1013,8 @@ int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
             PDDL_TRACE_RET(err, -1);
         }else if (found > 0){
             PDDL_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
-                     o1, h->task.obj.obj[o1].name,
-                     o2, h->task.obj.obj[o2].name, depth);
+                      o1, h->task.obj.obj[o1].name,
+                      o2, h->task.obj.obj[o2].name, depth);
             ret = collapsePair(h, o1, o2, err);
             break;
         }

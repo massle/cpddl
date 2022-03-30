@@ -141,7 +141,7 @@ static pddl_lisp_node_t *lispNodeAddChild(pddl_lisp_node_t *r)
 
     ++r->child_size;
     r->child = REALLOC_ARR(r->child, pddl_lisp_node_t,
-                               r->child_size);
+                           r->child_size);
     n = r->child + r->child_size - 1;
     lispNodeInit(n);
     return n;
@@ -157,8 +157,8 @@ static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
 
     if (i >= size){
         PDDL_ERR_RET(err, -1, "Invalid PDDL file `%s'."
-                    " Mission expression on line %d.",
-                    fn, *lineno);
+                     " Mission expression on line %d.",
+                     fn, *lineno);
     }
 
     c = data[i];
@@ -208,7 +208,7 @@ static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
         }
     }
     PDDL_ERR_RET(err, -1, "Invalid PDDL file `%s'."
-                " Missing ending parenthesis.", fn);
+                 " Missing ending parenthesis.", fn);
 }
 
 pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
@@ -245,7 +245,7 @@ pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
             ++lineno;
         }else if (!IS_WS(data[i])){
             PDDL_ERR(err, "Incorrect PDDL file `%s'. Unexpected `%c' on line %d.",
-                fn, data[i], lineno);
+                     fn, data[i], lineno);
             munmap((void *)data, st.st_size);
             close(fd);
             return NULL;

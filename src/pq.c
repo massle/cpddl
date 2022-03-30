@@ -116,8 +116,8 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
 
     if (key >= PDDL_PQ_BUCKET_SIZE){
         PDDL_FATAL("pddlPQBucketQueue: key %d is over a size of"
-                  " the bucket queue, which is %d.",
-                  key, PDDL_PQ_BUCKET_SIZE);
+                   " the bucket queue, which is %d.",
+                   key, PDDL_PQ_BUCKET_SIZE);
     }
 
     bucket = q->bucket + key;
@@ -128,7 +128,7 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
             bucket->alloc *= PDDL_PQ_BUCKET_EXPANSION_FACTOR;
         }
         bucket->el = REALLOC_ARR(bucket->el, pddl_pq_el_t *,
-                                     bucket->alloc);
+                                 bucket->alloc);
 
     }
     el->key = key;

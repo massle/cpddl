@@ -198,7 +198,7 @@ static void h3Init(h3_t *h3,
         used_excess_mem += meta_fact3_size;
     }else{
         h3->meta_fact3_set = CALLOC_ARR(set_range_t,
-                                            h3->fact_size * h3->fact_size);
+                                        h3->fact_size * h3->fact_size);
         if (max_mem >= h3->fact_size * h3->fact_size)
             max_mem -= h3->fact_size * h3->fact_size;
     }
@@ -231,11 +231,11 @@ static void h3Init(h3_t *h3,
 
     if (h3->meta_fact3 != NULL || h3->op_fact1 != NULL || h3->op_fact2 != NULL){
         PDDL_INFO(err, "uses additional memory of %.2f MB"
-                      "(meta-fact3: %d, op-fact1: %d, op-fact2: %d",
-                 used_excess_mem / (1024. * 1024.),
-                 (h3->meta_fact3 != NULL ? 1 : 0),
-                 (h3->op_fact1 != NULL ? 1 : 0),
-                 (h3->op_fact2 != NULL ? 1 : 0));
+                  "(meta-fact3: %d, op-fact1: %d, op-fact2: %d",
+                  used_excess_mem / (1024. * 1024.),
+                  (h3->meta_fact3 != NULL ? 1 : 0),
+                  (h3->op_fact1 != NULL ? 1 : 0),
+                  (h3->op_fact2 != NULL ? 1 : 0));
     }
 
     h3->ext = ALLOC_ARR(int, h3->fact_size);
@@ -571,12 +571,12 @@ int pddlH3(const pddl_strips_t *strips,
 
     PDDL_INFO_PREFIX_PUSH(err, "h^3 fw: ");
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
-                  " time-limit: %.2f, excess-memory: %lu",
-             strips->fact.fact_size,
-             strips->op.op_size,
-             (unsigned long)ms->num_mutex_pairs,
-             time_limit_s,
-             (unsigned long)excess_memory);
+              " time-limit: %.2f, excess-memory: %lu",
+              strips->fact.fact_size,
+              strips->op.op_size,
+              (unsigned long)ms->num_mutex_pairs,
+              time_limit_s,
+              (unsigned long)excess_memory);
 
     pddlTimeLimitSet(&time_limit, time_limit_s);
     h3Init(&h3, strips, excess_memory, err);
@@ -618,11 +618,11 @@ mutex_h3_end:
     h3Free(&h3);
 
     PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
-                  " unreachable ops: %d, time-limit reached: %d",
-             (unsigned long)ms->num_mutex_pairs,
-             (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
-             (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1),
-             (ret == -2 ? 1 : 0));
+              " unreachable ops: %d, time-limit reached: %d",
+              (unsigned long)ms->num_mutex_pairs,
+              (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
+              (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1),
+              (ret == -2 ? 1 : 0));
     PDDL_INFO_PREFIX_POP(err);
 
     return ret;

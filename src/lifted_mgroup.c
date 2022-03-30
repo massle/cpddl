@@ -126,7 +126,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
 {
     if (m->cond.size > 1){
         pddlSort(m->cond.cond, m->cond.size, sizeof(const pddl_cond_t *),
-                cmpAtoms, NULL);
+                 cmpAtoms, NULL);
     }
 
     if (m->param.param_size <= 1)
@@ -440,7 +440,7 @@ void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
             lm->mgroup_alloc = 2;
         lm->mgroup_alloc *= 2;
         lm->mgroup = REALLOC_ARR(lm->mgroup, pddl_lifted_mgroup_t,
-                                     lm->mgroup_alloc);
+                                 lm->mgroup_alloc);
     }
 
     pddl_lifted_mgroup_t *add = lm->mgroup + lm->mgroup_size++;
@@ -493,7 +493,7 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm)
         return;
 
     pddlSort(lm->mgroup, lm->mgroup_size, sizeof(pddl_lifted_mgroup_t),
-            cmpLiftedMGroups, NULL);
+             cmpLiftedMGroups, NULL);
 
     int ins = 1;
     for (int i = 1; i < lm->mgroup_size; ++i){

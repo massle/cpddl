@@ -283,7 +283,7 @@ static int groundInit(ground_t *g,
     for (int i = 0; i < g->pddl->pred.pred_size; ++i){
         const pddl_pred_t *pred = g->pddl->pred.pred + i;
         g->pred_to_dlpred[i]
-                = pddlDatalogAddPred(g->dl, pred->param_size, pred->name);
+            = pddlDatalogAddPred(g->dl, pred->param_size, pred->name);
         pddlDatalogSetUserId(g->dl, g->pred_to_dlpred[i], i);
     }
 
@@ -365,11 +365,11 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
     }
 
     PDDL_INFO(err, "Grounding finished: %d actions, %d facts,"
-                  " %d static facts, %d functions",
-             ground.strips_maker.num_action_args,
-             ground.strips_maker.ground_atom.atom_size,
-             ground.strips_maker.ground_atom_static.atom_size,
-             ground.strips_maker.ground_func.atom_size);
+              " %d static facts, %d functions",
+              ground.strips_maker.num_action_args,
+              ground.strips_maker.ground_atom.atom_size,
+              ground.strips_maker.ground_atom_static.atom_size,
+              ground.strips_maker.ground_func.atom_size);
 
     int ret = pddlStripsMakerMakeStrips(&ground.strips_maker, ground.pddl, cfg,
                                         strips, err);

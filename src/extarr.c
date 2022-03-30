@@ -4,8 +4,8 @@
 #include "alloc.h"
 
 pddl_extarr_t *_pddlExtArrNew(size_t el_size, size_t segment_size,
-                            pddl_extarr_el_init_fn init_fn,
-                            const void *init_data)
+                              pddl_extarr_el_init_fn init_fn,
+                              const void *init_data)
 {
     pddl_extarr_t *arr;
 
@@ -13,8 +13,8 @@ pddl_extarr_t *_pddlExtArrNew(size_t el_size, size_t segment_size,
     arr->arr = pddlSegmArrNew(el_size, segment_size);
     if (arr->arr == NULL){
         fprintf(stderr, "Error: Cannot create a segmented array with elemen"
-                        " size of %d bytes and segment size of %d bytes.\n",
-                        (int)el_size, (int)segment_size);
+                " size of %d bytes and segment size of %d bytes.\n",
+                (int)el_size, (int)segment_size);
         FREE(arr);
         exit(-1);
     }
@@ -35,10 +35,10 @@ pddl_extarr_t *_pddlExtArrNew(size_t el_size, size_t segment_size,
 }
 
 pddl_extarr_t *pddlExtArrNew2(size_t el_size,
-                            size_t init_pagesize_multiple,
-                            size_t min_els_per_segment,
-                            pddl_extarr_el_init_fn init_fn,
-                            const void *init_data)
+                              size_t init_pagesize_multiple,
+                              size_t min_els_per_segment,
+                              pddl_extarr_el_init_fn init_fn,
+                              const void *init_data)
 {
     size_t segment_size;
 
@@ -52,12 +52,12 @@ pddl_extarr_t *pddlExtArrNew2(size_t el_size,
 }
 
 pddl_extarr_t *pddlExtArrNew(size_t el_size,
-                           pddl_extarr_el_init_fn init_fn,
-                           const void *init_data)
+                             pddl_extarr_el_init_fn init_fn,
+                             const void *init_data)
 {
     return pddlExtArrNew2(el_size, PDDL_EXTARR_PAGESIZE_MULTIPLE,
-                         PDDL_EXTARR_MIN_ELS_PER_SEGMENT,
-                         init_fn, init_data);
+                          PDDL_EXTARR_MIN_ELS_PER_SEGMENT,
+                          init_fn, init_data);
 }
 
 void pddlExtArrDel(pddl_extarr_t *arr)

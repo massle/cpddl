@@ -128,7 +128,7 @@ void pddlUnreachableInMGroupsDTGs(const pddl_strips_t *strips,
 
     pddlStripsFactCrossRefFree(&cref);
     PDDL_INFO(err, "Pruning using mutex group DTGs DONE."
-                  " unreachable facts: %d, unreachable ops: %d",
-                  pddlISetSize(unreachable_facts),
-                  pddlISetSize(unreachable_ops));
+              " unreachable facts: %d, unreachable ops: %d",
+              pddlISetSize(unreachable_facts),
+              pddlISetSize(unreachable_ops));
 }

@@ -121,7 +121,7 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
             sols->sol_alloc = 1;
         sols->sol_alloc *= 2;
         sols->sol = REALLOC_ARR(sols->sol, pddl_pot_solution_t,
-                                    sols->sol_alloc);
+                                sols->sol_alloc);
     }
 
     pddl_pot_solution_t *s = sols->sol + sols->sol_size++;
@@ -331,7 +331,7 @@ static void addMGStripsOp(pddl_pot_t *pot,
     pddlSetISetInit(&hset);
 
     if (pddlDisambiguate(dis, &op->pre, &op->add_eff, 0,
-                         single_fact_dis, &hset, NULL) < 0){
+                single_fact_dis, &hset, NULL) < 0){
         // Skip unreachable operators
         pddlSetISetFree(&hset);
         return;
@@ -422,7 +422,7 @@ static int initMGStrips(pddl_pot_t *pot,
     }
     pot->op_size = mg_strips->strips.op.op_size;
     if (addMGStripsGoal(pot, &dis, &mg_strips->strips.goal,
-                        single_fact_disamb) != 0){
+                single_fact_disamb) != 0){
         pddlDisambiguateFree(&dis);
         pddlPotFree(pot);
         return -1;

@@ -60,7 +60,7 @@ pddl_param_t *pddlParamsAdd(pddl_params_t *params)
             params->param_alloc = 1;
         params->param_alloc *= 2;
         params->param = REALLOC_ARR(params->param, pddl_param_t,
-                                        params->param_alloc);
+                                    params->param_alloc);
     }
 
     param = params->param + params->param_size++;

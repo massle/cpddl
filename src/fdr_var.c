@@ -110,7 +110,7 @@ static int varsMGroupUncoveredDescCmp(const void *a, const void *b, void *_)
 static void varsMGroupsSortUncoveredDesc(vars_mgroups_t *vmgs)
 {
     pddlSort(vmgs->mgroup, vmgs->mgroup_size, sizeof(*vmgs->mgroup),
-            varsMGroupUncoveredDescCmp, NULL);
+             varsMGroupUncoveredDescCmp, NULL);
 
 }
 
@@ -444,7 +444,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
 {
     fdr_vars->strips_id_size = strips->fact.fact_size;
     fdr_vars->strips_id_to_val = CALLOC_ARR(pddl_iset_t,
-                                                strips->fact.fact_size);
+                                            strips->fact.fact_size);
     fdr_vars->var_size = vars->var_size;
     fdr_vars->var = CALLOC_ARR(pddl_fdr_var_t, vars->var_size);
 
@@ -455,7 +455,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
         fdr_vars->global_id_size += (vars->var[i].none_of_those ? 1 : 0);
     }
     fdr_vars->global_id_to_val = CALLOC_ARR(pddl_fdr_val_t *,
-                                                fdr_vars->global_id_size);
+                                            fdr_vars->global_id_size);
 
     int global_id = 0;
     for (int var_id = 0; var_id < vars->var_size; ++var_id){
@@ -581,7 +581,7 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
     dst->global_id_size = src->global_id_size;
     if (dst->global_id_size > 0){
         dst->global_id_to_val = ALLOC_ARR(pddl_fdr_val_t *,
-                                              dst->global_id_size);
+                                          dst->global_id_size);
         for (int i = 0; i < src->global_id_size; ++i){
             const pddl_fdr_val_t *sval = src->global_id_to_val[i];
             pddl_fdr_val_t *val = dst->var[sval->var_id].val + sval->val_id;
@@ -614,7 +614,7 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
     remap->remap = ALLOC_ARR(const pddl_fdr_val_t **, remap->var_size);
     for (int v = 0; v < remap->var_size; ++v){
         remap->remap[v] = CALLOC_ARR(const pddl_fdr_val_t *,
-                                         vars->var[v].val_size);
+                                     vars->var[v].val_size);
     }
 
     pddl_fdr_val_t delval;
@@ -691,8 +691,8 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
     val->val_id = var->val_size - 1;
     val->global_id = vars->global_id_size++;
     vars->global_id_to_val = REALLOC_ARR(vars->global_id_to_val,
-                                             pddl_fdr_val_t *,
-                                             vars->global_id_size);
+                                         pddl_fdr_val_t *,
+                                         vars->global_id_size);
     vars->global_id_to_val[vars->global_id_size - 1] = val;
     val->strips_id = -1;
 

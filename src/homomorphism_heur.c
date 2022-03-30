@@ -85,7 +85,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
 
     pddlLMCutInitStrips(&lmc->lmc, &lmc->homo.strips, 0, 0);
     PDDL_INFO2(err, "Constructed lm-cut heuristic from the grounded"
-                   " homomorphic image");
+               " homomorphic image");
     PDDL_INFO_PREFIX_POP(err);
     return &lmc->homo;
 }
@@ -106,7 +106,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
 
     pddlHFFInitStrips(&hff->hff, &hff->homo.strips);
     PDDL_INFO2(err, "Constructed h^ff heuristic from the grounded"
-                   " homomorphic image");
+               " homomorphic image");
     PDDL_INFO_PREFIX_POP(err);
     return &hff->homo;
 }
@@ -144,8 +144,8 @@ static void allocateGroundAtomToStripsFact(pddl_homomorphism_heur_t *h,
         h->ground_atom_to_strips_fact_size *= 2;
     }
     h->ground_atom_to_strips_fact
-            = REALLOC_ARR(h->ground_atom_to_strips_fact,
-                              int, h->ground_atom_to_strips_fact_size);
+        = REALLOC_ARR(h->ground_atom_to_strips_fact,
+                      int, h->ground_atom_to_strips_fact_size);
     for (int i = init_size; i < h->ground_atom_to_strips_fact_size; ++i)
         h->ground_atom_to_strips_fact[i] = -1;
 }

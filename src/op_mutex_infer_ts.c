@@ -327,7 +327,7 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         }else if (WIFSIGNALED(wstatus)){
             int signum = WTERMSIG(wstatus);
             PDDL_ERR(err, "Inference of op-mutexes failed: received signal"
-                         "'%s'", strsignal(signum));
+                     "'%s'", strsignal(signum));
             ret = -1;
         }else{
             PDDL_ERR2(err, "Inference of op-mutexes failed for unknown reason");
@@ -393,7 +393,7 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
 {
     PDDL_INFO_PREFIX_PUSH(err, "OPM ");
     PDDL_INFO(err, "Computing op-mutex pairs from abstract transition systems."
-                  " merge-size: %d", merge_size);
+              " merge-size: %d", merge_size);
     pddl_trans_systems_t tss;
     pddlTransSystemsInit(&tss, mg_strips, mutex);
     PDDL_INFO(err, "  Created %d atomic abstractions", tss.ts_size);
@@ -403,8 +403,8 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                prune_dead_labels, err);
     pddlTransSystemsFree(&tss);
     PDDL_INFO(err, "Computing op-mutex pairs from abstract transition"
-                  " systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
-                  merge_size, m->num_op_mutex_pairs);
+              " systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
+              merge_size, m->num_op_mutex_pairs);
     PDDL_INFO_PREFIX_POP(err);
     return ret;
 }

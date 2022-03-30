@@ -2010,38 +2010,38 @@ void pddlLiftedMGroupsInferFAMGroups(
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
             PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                          " Proved: %d",
-                     tested_candidates,
-                     refine.cand_size,
-                     mgroups->mgroup_size);
+                      " Proved: %d",
+                      tested_candidates,
+                      refine.cand_size,
+                      mgroups->mgroup_size);
             steps = 0;
         }
     }
 
     if (steps != 0){
         PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                      " Proved: %d",
-                 tested_candidates,
-                 refine.cand_size,
-                 mgroups->mgroup_size);
+                  " Proved: %d",
+                  tested_candidates,
+                  refine.cand_size,
+                  mgroups->mgroup_size);
     }
 
     pddlLiftedMGroupsSortAndUniq(mgroups);
     refineFree(&refine);
 
     PDDL_INFO(err, "Inference of lifted fam-groups done."
-                  " Found mutex groups: %d",
-             mgroups->mgroup_size);
+              " Found mutex groups: %d",
+              mgroups->mgroup_size);
     PDDL_INFO_PREFIX_POP(err);
 }
 
 
 void pddlLiftedMGroupsInferMonotonicity(
-                            const pddl_t *pddl,
-                            const pddl_lifted_mgroups_infer_limits_t *limit,
-                            pddl_lifted_mgroups_t *inv,
-                            pddl_lifted_mgroups_t *mgroups,
-                            pddl_err_t *err)
+                                        const pddl_t *pddl,
+                                        const pddl_lifted_mgroups_infer_limits_t *limit,
+                                        pddl_lifted_mgroups_t *inv,
+                                        pddl_lifted_mgroups_t *mgroups,
+                                        pddl_err_t *err)
 {
     PDDL_INFO_PREFIX_PUSH(err, "LMG: ");
     int steps = 0;
@@ -2076,23 +2076,23 @@ void pddlLiftedMGroupsInferMonotonicity(
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
             PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                          " Proved monotonicity invariants: %d,"
-                          " mutex groups: %d",
-                     tested_candidates,
-                     refine.cand_size,
-                     (inv != NULL ? inv->mgroup_size : -1),
-                     (mgroups != NULL ? mgroups->mgroup_size : -1));
+                      " Proved monotonicity invariants: %d,"
+                      " mutex groups: %d",
+                      tested_candidates,
+                      refine.cand_size,
+                      (inv != NULL ? inv->mgroup_size : -1),
+                      (mgroups != NULL ? mgroups->mgroup_size : -1));
             steps = 0;
         }
     }
 
     if (steps != 0){
         PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                      " Proved monotonicity invariants: %d, mutex groups: %d",
-                 tested_candidates,
-                 refine.cand_size,
-                 (inv != NULL ? inv->mgroup_size : -1),
-                 (mgroups != NULL ? mgroups->mgroup_size : -1));
+                  " Proved monotonicity invariants: %d, mutex groups: %d",
+                  tested_candidates,
+                  refine.cand_size,
+                  (inv != NULL ? inv->mgroup_size : -1),
+                  (mgroups != NULL ? mgroups->mgroup_size : -1));
     }
 
     if (inv != NULL)
@@ -2102,9 +2102,9 @@ void pddlLiftedMGroupsInferMonotonicity(
     refineFree(&refine);
 
     PDDL_INFO(err, "Inference of FD lifted mgroups done."
-                  " Found monotonicity invariants: %d, mutex groups: %d",
-             (inv != NULL ? inv->mgroup_size : -1),
-             (mgroups != NULL ? mgroups->mgroup_size : -1));
+              " Found monotonicity invariants: %d, mutex groups: %d",
+              (inv != NULL ? inv->mgroup_size : -1),
+              (mgroups != NULL ? mgroups->mgroup_size : -1));
     PDDL_INFO_PREFIX_POP(err);
 }
 

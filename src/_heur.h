@@ -36,8 +36,8 @@ struct pddl_heur {
 };
 
 _pddl_inline void _pddlHeurInit(pddl_heur_t *h,
-                               pddl_heur_del_fn del_fn,
-                               pddl_heur_estimate_fn estimate_fn)
+                                pddl_heur_del_fn del_fn,
+                                pddl_heur_estimate_fn estimate_fn)
 {
     bzero(h, sizeof(*h));
     h->del_fn = del_fn;

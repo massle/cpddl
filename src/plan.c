@@ -50,7 +50,7 @@ static void addState(pddl_plan_t *plan, pddl_state_id_t state_id)
             plan->state_alloc = 64;
         plan->state_alloc *= 2;
         plan->state = REALLOC_ARR(plan->state,
-                                      pddl_state_id_t, plan->state_alloc);
+                                  pddl_state_id_t, plan->state_alloc);
     }
 
     plan->state[plan->state_size++] = state_id;

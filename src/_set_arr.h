@@ -97,15 +97,15 @@ int pddlSetIntersectionSize(const pddl_set_t *s1, const pddl_set_t *s2);
  * Returns true if | s1 \cap s2 | >= limit
  */
 int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
-                                  int limit);
+                                   int limit);
 
 /**
  * Returns true if | s1 \cap s2 \cap s3 | >= limit
  */
 int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
-                                   const pddl_set_t *s2,
-                                   const pddl_set_t *s3,
-                                   int limit);
+                                    const pddl_set_t *s2,
+                                    const pddl_set_t *s3,
+                                    int limit);
 
 /**
  * Returns true if the sets are disjoint.

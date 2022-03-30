@@ -137,7 +137,7 @@ pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, pddl_err_t *err)
     h->err = err;
     pot_func_t *f_init = NULL;
     h->func_state = pddlExtArrNew2(sizeof(pot_func_t *),
-                                  1024, 1024 * 1024, NULL, &f_init);
+                                   1024, 1024 * 1024, NULL, &f_init);
     pddlListInit(&h->func_list);
     return &h->heur;
 }

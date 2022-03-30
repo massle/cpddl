@@ -144,7 +144,7 @@ void pddlSymbolicVarsFree(pddl_symbolic_vars_t *vars)
     }
     if (vars->fact != NULL)
         FREE(vars->fact);
-    
+
     if (vars->valid_states != NULL)
         pddlBDDDel(vars->mgr, vars->valid_states);
 

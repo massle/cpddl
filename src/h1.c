@@ -38,8 +38,8 @@ int pddlH1(const pddl_strips_t *strips,
     PDDL_IARR(queue);
 
     PDDL_INFO(err, "facts: %d, ops: %d",
-             strips->fact.fact_size,
-             strips->op.op_size);
+              strips->fact.fact_size,
+              strips->op.op_size);
 
     int fact;
     PDDL_ISET_FOR_EACH(&strips->init, fact){
@@ -104,8 +104,8 @@ int pddlH1(const pddl_strips_t *strips,
         FREE(ops);
 
     PDDL_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
-             (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
-             (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1));
+              (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
+              (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1));
     PDDL_INFO_PREFIX_POP(err);
     return 0;
 }

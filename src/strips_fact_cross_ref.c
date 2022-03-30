@@ -30,7 +30,7 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
 {
     if (strips->has_cond_eff){
         PDDL_FATAL2("pddlStripsFactCrossRefInit() does not support"
-                   " conditional effects!");
+                    " conditional effects!");
     }
 
     int fact;
@@ -39,7 +39,7 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
 
     cref->fact_size = strips->fact.fact_size;
     cref->fact = CALLOC_ARR(pddl_strips_fact_cross_ref_fact_t,
-                                cref->fact_size);
+                            cref->fact_size);
 
     if (init){
         PDDL_ISET_FOR_EACH(&strips->init, fact)

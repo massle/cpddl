@@ -71,7 +71,7 @@ static void stackPush(bk_stack_t *st,
             st->stack_alloc = 2;
         st->stack_alloc *= 2;
         st->stack = REALLOC_ARR(st->stack, bk_stack_el_t *,
-                                    st->stack_alloc);
+                                st->stack_alloc);
     }
     bk_stack_el_t *s = ALLOC(bk_stack_el_t);
     pddlISetInit(&s->clique);
@@ -210,8 +210,8 @@ static boolean cliquerCB(set_t clq, graph_t *G, clique_options *opts)
 }
 
 void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
-                           void (*cb)(const pddl_iset_t *clique, void *userdata),
-                           void *userdata)
+                                  void (*cb)(const pddl_iset_t *clique, void *userdata),
+                                  void *userdata)
 {
     graph_t *G = graph_new(g->node_size);
     for (int v = 0; v < g->node_size; ++v){
@@ -233,8 +233,8 @@ void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
 }
 #else /* PDDL_CLIQUER */
 void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
-                           void (*cb)(const pddl_iset_t *clique, void *userdata),
-                           void *userdata)
+                                  void (*cb)(const pddl_iset_t *clique, void *userdata),
+                                  void *userdata)
 {
     PDDL_FATAL2("Cliquer library is not linked!");
 }

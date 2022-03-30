@@ -203,7 +203,7 @@ int pddlSearchLazyStep(pddl_search_lazy_t *lazy)
 }
 
 void pddlSearchLazyStat(const pddl_search_lazy_t *lazy,
-                         pddl_search_stat_t *stat)
+                        pddl_search_stat_t *stat)
 {
     *stat = lazy->_stat;
     stat->generated = lazy->state_space.state_pool.num_states;

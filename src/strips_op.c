@@ -82,8 +82,8 @@ static pddl_strips_op_cond_eff_t *addCondEff(pddl_strips_op_t *op)
             op->cond_eff_alloc = 1;
         op->cond_eff_alloc *= 2;
         op->cond_eff = REALLOC_ARR(op->cond_eff,
-                                       pddl_strips_op_cond_eff_t,
-                                       op->cond_eff_alloc);
+                                   pddl_strips_op_cond_eff_t,
+                                   op->cond_eff_alloc);
     }
 
     ce = op->cond_eff + op->cond_eff_size++;
@@ -303,7 +303,7 @@ static int deduplicate(pddl_strips_ops_t *ops, int *remove)
     }
 
     pddlSort(dedup, ops->op_size, sizeof(deduplicate_t),
-            opDeduplicateCmp, NULL);
+             opDeduplicateCmp, NULL);
 
     int start, cur;
     for (start = 0, cur = 1; cur < ops->op_size; ++cur){

@@ -202,7 +202,7 @@ static void sortedVarsInit(sorted_vars_t *sv, const pddl_fdr_vars_t *vars,
 
     // Sort array
     pddlSort(sv->var, sv->var_size, sizeof(pddl_fdr_state_packer_var_t *),
-            cmpByBitlen, NULL);
+             cmpByBitlen, NULL);
 }
 
 static void sortedVarsFree(sorted_vars_t *sv)

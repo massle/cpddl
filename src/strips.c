@@ -771,7 +771,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
 {
     int ret = 0;
     PDDL_INFO(err, "Removing useless delete effects. num mutex pairs: %d",
-             (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
+              (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
 
     PDDL_ISET(useless);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -807,7 +807,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     pddlISetFree(&useless);
 
     PDDL_INFO(err, "Removing useless delete effects DONE."
-                  " (modified ops: %d)", ret);
+              " (modified ops: %d)", ret);
     return ret;
 }
 
@@ -1023,5 +1023,5 @@ void pddlStripsLogInfo(const pddl_strips_t *strips, pddl_err_t *err)
             ++count;
     }
     PDDL_INFO(err, "Number of Strips Operators"
-             " with Conditional Effects: %d", count);
+              " with Conditional Effects: %d", count);
 }

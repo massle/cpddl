@@ -23,7 +23,7 @@
 #include "assert.h"
 
 static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
-                                          int arg_size)
+                                           int arg_size)
 {
     uint64_t hash;
     hash = pddlCityHash_64(&ga->action_id, sizeof(ga->action_id));
@@ -73,7 +73,7 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
     pddlGroundAtomsInit(&sm->ground_func);
 
     sm->action_args = pddlHTableNew(htActionHash, htActionEq,
-                                   sm->action_arg_size);
+                                    sm->action_arg_size);
     pddl_ground_action_args_t *pa = NULL;
     sm->action_args_arr = pddlExtArrNew(sizeof(pa), NULL, &pa);
 }
@@ -285,7 +285,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
         fact_id = pddlFactsAddGroundAtom(&strips->fact, ga, pddl);
         if (fact_id != ga->id){
             PDDL_FATAL2("The fact and the corresponding grounded atom have"
-                       " different IDs. This is definitelly a bug!");
+                        " different IDs. This is definitelly a bug!");
         }
     }
 
@@ -326,7 +326,7 @@ static int createInitState(pddl_strips_maker_t *sm,
         }
     }
     PDDL_INFO(err, "Created init state consisting of %d facts",
-             pddlISetSize(&strips->init));
+              pddlISetSize(&strips->init));
     return 0;
 }
 
@@ -351,7 +351,7 @@ static int _createGoal(pddl_cond_t *c, void *_g)
         const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
         if (!pddlCondAtomIsGrounded(atom))
             PDDL_ERR_RET2(err, -1, "Goal specification cannot contain"
-                         " parametrized atoms.");
+                          " parametrized atoms.");
 
         // Find fact in the set of reachable facts
         ga = pddlGroundAtomsFindAtom(&sm->ground_atom, atom, NULL);
@@ -381,7 +381,7 @@ static int _createGoal(pddl_cond_t *c, void *_g)
 
     }else{
         PDDL_ERR(err, "Only conjuctive goal specifications are supported."
-                " (Goal contains %s.)", pddlCondTypeName(c->type));
+                 " (Goal contains %s.)", pddlCondTypeName(c->type));
         ggoal->fail = 1;
         return -2;
     }
@@ -396,14 +396,14 @@ static int createGoal(pddl_strips_maker_t *sm,
     struct create_goal ggoal = { sm, strips, ground_atom_to_fact_id, err, 0 };
     if (pddl->goal->type == PDDL_COND_OR){
         PDDL_ERR_RET2(err, -1, "Only conjuctive goal specifications"
-                     " are supported. This goal is a disjunction.");
+                      " are supported. This goal is a disjunction.");
     }
 
     pddlCondTraverse(pddl->goal, _createGoal, NULL, &ggoal);
     if (ggoal.fail)
         PDDL_TRACE_RET(err, -1);
     PDDL_INFO(err, "Goal created consisting of %d facts",
-             pddlISetSize(&strips->goal));
+              pddlISetSize(&strips->goal));
     return 0;
 }
 
@@ -473,7 +473,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                     return -2;
                 }
                 PDDL_FATAL2("Unsatisfied (in)equality precondition."
-                           " This is definitely a bug!\n");
+                            " This is definitely a bug!\n");
             }
 
         }else if (a->neg){
@@ -490,7 +490,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                     return -2;
                 }
                 PDDL_FATAL2("Unsatisfied negative precondition."
-                           " This is definitely a bug!\n");
+                            " This is definitely a bug!\n");
             }
 
         }else{
@@ -509,7 +509,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
 
             if (ga == NULL){
                 PDDL_FATAL2("Unsatisfied positive precondition."
-                           " This is definitely a bug!\n");
+                            " This is definitely a bug!\n");
             }
             if (!is_static)
                 pddlISetAdd(&ctx->op->pre, ctx->ground_atom_to_fact[ga->id]);
@@ -520,7 +520,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
         return 0;
     }else{
         PDDL_ERR2(ctx->err, "Precondition is not a conjuction."
-                           " It seems PDDL was not normalized.");
+                  " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
     }
@@ -556,7 +556,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
             ctx->cond_eff_failed = 1;
             ctx->failed = 1;
             PDDL_ERR_RET2(ctx->err, -2,
-                        "Costs in conditional effects are not supported.");
+                          "Costs in conditional effects are not supported.");
         }
 
         pddl_cond_func_op_t *inc = PDDL_COND_CAST(c, func_op);
@@ -568,7 +568,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
                 ctx->op->cost += 0;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
                 PDDL_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
-                         name);
+                          name);
                 if (name != NULL)
                     FREE(name);
                 /* TODO
@@ -600,7 +600,7 @@ static int actionEff(pddl_cond_t *c, void *ud)
         return 0;
     }else{
         PDDL_ERR2(ctx->err, "Effect is not a conjuction"
-                           " It seems PDDL was not normalized.");
+                  " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
     }
@@ -771,7 +771,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
 
     pddlStripsOpsDeduplicate(&strips->op);
     PDDL_INFO(err, "Operators deduplicated. Num operators: %d",
-             strips->op.op_size);
+              strips->op.op_size);
 
     if (strips->goal_is_unreachable){
         PDDL_INFO2(err, "Strips problem marked as unsolvable");
@@ -786,7 +786,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
             ++count;
     }
     PDDL_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
-             count);
+              count);
     PDDL_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
     PDDL_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
 

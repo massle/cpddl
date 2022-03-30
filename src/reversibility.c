@@ -65,7 +65,7 @@ static int revPlanCmp(const void *a, const void *b, void *ud)
 void pddlReversibilityUniformSort(pddl_reversibility_uniform_t *r)
 {
     pddlSort(r->plan, r->plan_size, sizeof(pddl_reverse_plan_t),
-            revPlanCmp, NULL);
+             revPlanCmp, NULL);
 }
 
 static int foundPlan(const pddl_iset_t *pre_a,
@@ -147,7 +147,7 @@ static void addPlan(pddl_reversibility_uniform_t *r,
         pddlISetEmpty(&rplan->formula.pos);
     }
     pddlIArrAppendArr(&rplan->plan, plan);
-        pddlISetFree(&pos);
+    pddlISetFree(&pos);
 }
 
 static void reversibleRec(pddl_reversibility_uniform_t *r,

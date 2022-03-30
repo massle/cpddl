@@ -28,20 +28,20 @@
 struct pddl_fdr_app_op_tree {
     int var; /*!< Decision variable */
     pddl_iset_t ops; /*!< List of immediate operators that are returned once
-                         this node is reached */
+                       this node is reached */
     struct pddl_fdr_app_op_tree **val; /*!< Subtrees indexed by the value of
-                                        the decision variable */
+                                         the decision variable */
     int val_size;
     struct pddl_fdr_app_op_tree *def; /*!< Default subtree containing operators
-                                       without precondition on the decision
-                                       variable */
+                                        without precondition on the decision
+                                        variable */
 };
 typedef struct pddl_fdr_app_op_tree pddl_fdr_app_op_tree_t;
 
 /** Creates a new tree node (and recursively all subtrees) */
 static pddl_fdr_app_op_tree_t *treeNew(const int *op_ids, int len,
-                                   const int *var,
-                                   const pddl_fdr_ops_t *ops);
+                                       const int *var,
+                                       const pddl_fdr_ops_t *ops);
 
 static int opsSortCmp(const void *a, const void *b, void *ud)
 {
@@ -148,8 +148,8 @@ static int treeBuildVal(pddl_fdr_app_op_tree_t *tree,
 }
 
 static pddl_fdr_app_op_tree_t *treeNew(const int *op_ids, int len,
-                                   const int *var,
-                                   const pddl_fdr_ops_t *ops)
+                                       const int *var,
+                                       const pddl_fdr_ops_t *ops)
 {
     pddl_fdr_app_op_tree_t *tree;
     const pddl_fdr_op_t *last_op = ops->op[op_ids[len - 1]];

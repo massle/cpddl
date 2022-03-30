@@ -57,7 +57,7 @@ static int pddlPruneFDRIrrelevance(pddl_fdr_t *fdr, pddl_err_t *err)
     PDDL_ISET(rm_op);
     if (fdr->has_cond_eff){
         PDDL_INFO2(err, "Skipping irrelevance analysis, because FDR has"
-                       " conditional effects.");
+                   " conditional effects.");
 
     }else if (pddlIrrelevanceAnalysisFDR(fdr, &rm_var, &rm_op, err) != 0){
         PDDL_TRACE_RET(err, -1);
@@ -75,7 +75,7 @@ static int pddlPruneFDRIrrelevance(pddl_fdr_t *fdr, pddl_err_t *err)
 int pddlPruneFDR(pddl_fdr_t *fdr, pddl_err_t *err)
 {
     PDDL_INFO(err, "Pruning of FDR. ops: %d, facts: %d, vars: %d",
-             fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
+              fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
 
     if (pddlPruneFDRH2FwBw(fdr, err) != 0)
         PDDL_TRACE_RET(err, -1);
@@ -83,7 +83,7 @@ int pddlPruneFDR(pddl_fdr_t *fdr, pddl_err_t *err)
         PDDL_TRACE_RET(err, -1);
 
     PDDL_INFO(err, "Pruning of FDR DONE. ops: %d, facts: %d, vars: %d",
-             fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
+              fdr->op.op_size, fdr->var.global_id_size, fdr->var.var_size);
 
     return 0;
 }

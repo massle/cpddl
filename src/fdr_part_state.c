@@ -21,7 +21,7 @@
 #include "pddl/fdr_part_state.h"
 #include "assert.h"
 int pddlSort(void *base, size_t nmemb, size_t size,
-            pddl_sort_cmp cmp, void *carg);
+             pddl_sort_cmp cmp, void *carg);
 
 static int factsCmp(const void *a, const void *b, void *_)
 {

@@ -184,8 +184,8 @@ int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err)
 
         }else{
             PDDL_ERR_RET(err, -1, "Cannot find problem pddl file"
-                                 " (tried %s or %s).",
-                                 s, prob_pddl);
+                         " (tried %s or %s).",
+                         s, prob_pddl);
         }
     }
 }

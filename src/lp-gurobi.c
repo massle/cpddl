@@ -63,11 +63,11 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags)
     lp->cls.cls = &pddl_lp_gurobi;
     if ((ret = GRBloadenv(&lp->env, NULL)) != 0){
         fprintf(stderr, "LP Gurobi Error: Could not create environment"
-                        " (error-code: %d)!\n", ret);
+                " (error-code: %d)!\n", ret);
         exit(-1);
     }
     if (GRBnewmodel(lp->env, &lp->model, NULL, cols,
-                    NULL, NULL, NULL, NULL, NULL) != 0){
+                NULL, NULL, NULL, NULL, NULL) != 0){
         grbError(lp);
     }
 
@@ -88,7 +88,7 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags)
 
     if (rows > 0){
         if (GRBaddconstrs(lp->model, rows, 0,
-                          NULL, NULL, NULL, NULL, NULL, NULL) != 0){
+                    NULL, NULL, NULL, NULL, NULL, NULL) != 0){
             grbError(lp);
         }
     }
@@ -175,7 +175,7 @@ static void addRows(pddl_lp_t *_lp, int cnt, const double *rhs, const char *sens
         gsense[i] = lpSense(sense[i]);
 
     if (GRBaddconstrs(lp->model, cnt, 0, NULL, NULL, NULL,
-                      gsense, (double *)rhs, NULL) != 0){
+                gsense, (double *)rhs, NULL) != 0){
         FREE(gsense);
         grbError(lp);
     }
@@ -213,7 +213,7 @@ static void addCols(pddl_lp_t *_lp, int cnt)
     lp_t *lp = LP(_lp);
 
     if (GRBaddvars(lp->model, cnt, 0, NULL, NULL, NULL,
-                   NULL, NULL, NULL, NULL, NULL) != 0){
+                NULL, NULL, NULL, NULL, NULL) != 0){
         grbError(lp);
     }
     GRBupdatemodel(lp->model);
