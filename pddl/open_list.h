@@ -86,24 +86,24 @@ _pddl_inline void pddlOpenListDel(pddl_open_list_t *l);
  * Inserts an element with the specified cost into the list.
  */
 _pddl_inline void pddlOpenListPush(pddl_open_list_t *list,
-                                  const int *cost,
-                                  pddl_state_id_t state_id);
+                                   const int *cost,
+                                   pddl_state_id_t state_id);
 
 /**
  * Pops the next element from the list that has the lowest cost.
  * Returns 0 on success, -1 if the heap is empty.
  */
 _pddl_inline int pddlOpenListPop(pddl_open_list_t *list,
-                                pddl_state_id_t *state_id,
-                                int *cost);
+                                 pddl_state_id_t *state_id,
+                                 int *cost);
 
 /**
  * Peeks at the top of the list.
  * Returns 0 on success, -1 if the heap is empty.
  */
 _pddl_inline int pddlOpenListTop(pddl_open_list_t *list,
-                                pddl_state_id_t *state_id,
-                                int *cost);
+                                 pddl_state_id_t *state_id,
+                                 int *cost);
 
 /**
  * Empties the list.
@@ -117,22 +117,22 @@ _pddl_inline void pddlOpenListDel(pddl_open_list_t *l)
 }
 
 _pddl_inline void pddlOpenListPush(pddl_open_list_t *list,
-                                  const int *cost,
-                                  pddl_state_id_t state_id)
+                                   const int *cost,
+                                   pddl_state_id_t state_id)
 {
     list->push_fn(list, cost, state_id);
 }
 
 _pddl_inline int pddlOpenListPop(pddl_open_list_t *list,
-                                pddl_state_id_t *state_id,
-                                int *cost)
+                                 pddl_state_id_t *state_id,
+                                 int *cost)
 {
     return list->pop_fn(list, state_id, cost);
 }
 
 _pddl_inline int pddlOpenListTop(pddl_open_list_t *list,
-                                pddl_state_id_t *state_id,
-                                int *cost)
+                                 pddl_state_id_t *state_id,
+                                 int *cost)
 {
     return list->top_fn(list, state_id, cost);
 }

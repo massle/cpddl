@@ -37,7 +37,7 @@ typedef int (*pddl_sort_key)(const void *, void *arg);
  * The range should be small enough to fit on stack.
  */
 void pddlCountSort(void *base, size_t nmemb, size_t size, int from, int to,
-                  pddl_sort_key key, void *arg);
+                   pddl_sort_key key, void *arg);
 
 
 /**
@@ -49,35 +49,35 @@ typedef int (*pddl_sort_cmp)(const void *, const void *, void *arg);
  * Insertion sort.
  */
 void pddlInsertSort(void *base, size_t nmemb, size_t size,
-                   pddl_sort_cmp cmp, void *arg);
+                    pddl_sort_cmp cmp, void *arg);
 void pddlInsertSortInt(int *base, size_t nmemb);
 
 /**
  * BSD heapsort.
  */
 void pddlHeapSort(void *base, size_t nmemb, size_t size,
-                 pddl_sort_cmp cmp, void *arg);
+                  pddl_sort_cmp cmp, void *arg);
 
 /**
  * BSD mergesort.
  * Requires size to be at least "sizeof(void *) / 2".
  */
 int pddlMergeSort(void *base, size_t nmemb, size_t size,
-                 pddl_sort_cmp cmp, void *carg);
+                  pddl_sort_cmp cmp, void *carg);
 
 /**
  * BSD kqsort.
  * Uses recursion.
  */
 void pddlQSort(void *base, size_t nmemb, size_t size,
-              pddl_sort_cmp cmp, void *carg);
+               pddl_sort_cmp cmp, void *carg);
 
 /**
  * Tim sort.
  * This is just wrapper around https://github.com/patperry/timsort.
  */
 int pddlTimSort(void *base, size_t nmemb, size_t size,
-               pddl_sort_cmp cmp, void *carg);
+                pddl_sort_cmp cmp, void *carg);
 
 
 /**
@@ -85,7 +85,7 @@ int pddlTimSort(void *base, size_t nmemb, size_t size,
  * Uses timsort if available or qsort if not.
  */
 int pddlSort(void *base, size_t nmemb, size_t size,
-            pddl_sort_cmp cmp, void *carg);
+             pddl_sort_cmp cmp, void *carg);
 
 /**
  * Sorts an array of elements that contain an integer key. {size} is the
@@ -109,7 +109,7 @@ int pddlSortByLongKey(void *base, size_t nmemb, size_t size, size_t offset);
  * Compare function for list sort functions.
  */
 typedef int (*pddl_sort_list_cmp)(const pddl_list_t *,
-                                 const pddl_list_t *, void *arg);
+                                  const pddl_list_t *, void *arg);
 
 /**
  * List sort based on merge sort (from BSD).

@@ -102,7 +102,7 @@ void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state);
  * to.
  */
 _pddl_inline const pddl_iset_t *pddlTSTransition(const pddl_ts_t *ts,
-                                               int from, int to)
+                                                 int from, int to)
 {
     return ts->tr + from * ts->num_states + to;
 }

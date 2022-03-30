@@ -100,8 +100,8 @@ _pddl_inline int pddlCostCmp(const pddl_cost_t *c1, const pddl_cost_t *c2)
  * Compare c1 + c2 and cs
  */
 _pddl_inline int pddlCostCmpSum(const pddl_cost_t *c1,
-                               const pddl_cost_t *c2,
-                               const pddl_cost_t *cs)
+                                const pddl_cost_t *c2,
+                                const pddl_cost_t *cs)
 {
     int cmp = (c1->cost + c2->cost) - cs->cost;
     if (cmp == 0)

@@ -60,8 +60,8 @@ typedef struct _pddl_extarr_t pddl_extarr_t;
  * for the initialization of each element before it is first returned.
  */
 pddl_extarr_t *pddlExtArrNew(size_t el_size,
-                           pddl_extarr_el_init_fn init_fn,
-                           const void *init_data);
+                             pddl_extarr_el_init_fn init_fn,
+                             const void *init_data);
 
 /**
  * Same as pddlExtArrNew() but initial multiple of pagesize can be provided
@@ -70,10 +70,10 @@ pddl_extarr_t *pddlExtArrNew(size_t el_size,
  * 128 times pagesize bytes, we set init_pagesize_multiple to 128.
  */
 pddl_extarr_t *pddlExtArrNew2(size_t el_size,
-                            size_t init_pagesize_multiple,
-                            size_t min_els_per_segment,
-                            pddl_extarr_el_init_fn init_fn,
-                            const void *init_data);
+                              size_t init_pagesize_multiple,
+                              size_t min_els_per_segment,
+                              pddl_extarr_el_init_fn init_fn,
+                              const void *init_data);
 
 /**
  * Deletes extendable array

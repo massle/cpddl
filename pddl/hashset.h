@@ -46,11 +46,11 @@ typedef struct pddl_hashset pddl_hashset_t;
  * Initializes an empty set.
  */
 void pddlHashSetInit(pddl_hashset_t *s,
-                    pddl_hashset_hash_fn hash_fn,
-                    pddl_hashset_eq_fn eq_fn,
-                    pddl_hashset_clone_fn clone_fn,
-                    pddl_hashset_del_fn del_fn,
-                    void *userdata);
+                     pddl_hashset_hash_fn hash_fn,
+                     pddl_hashset_eq_fn eq_fn,
+                     pddl_hashset_clone_fn clone_fn,
+                     pddl_hashset_del_fn del_fn,
+                     void *userdata);
 
 /**
  * Initialize an empty set of {i,l,c}sets.

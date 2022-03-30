@@ -108,8 +108,8 @@ _pddl_inline void pddlBitsetAnd(pddl_bitset_t *dst, const pddl_bitset_t *src)
 }
 
 _pddl_inline void pddlBitsetAnd2(pddl_bitset_t *dst,
-                                const pddl_bitset_t *s1,
-                                const pddl_bitset_t *s2)
+                                 const pddl_bitset_t *s1,
+                                 const pddl_bitset_t *s2)
 {
     for (int i = 0; i < s1->wordsize; ++i)
         dst->bitset[i] = s1->bitset[i] & s2->bitset[i];
@@ -122,8 +122,8 @@ _pddl_inline void pddlBitsetOr(pddl_bitset_t *dst, const pddl_bitset_t *src)
 }
 
 _pddl_inline void pddlBitsetOr2(pddl_bitset_t *dst,
-                               const pddl_bitset_t *s1,
-                               const pddl_bitset_t *s2)
+                                const pddl_bitset_t *s1,
+                                const pddl_bitset_t *s2)
 {
     for (int i = 0; i < s1->wordsize; ++i)
         dst->bitset[i] = s1->bitset[i] | s2->bitset[i];
@@ -142,8 +142,8 @@ _pddl_inline int pddlBitsetCnt(const pddl_bitset_t *s)
  * higher than one and returns the detected number of ones.
  */
 _pddl_inline int pddlBitsetAnd2Cnt1(pddl_bitset_t *dst,
-                                   const pddl_bitset_t *s1,
-                                   const pddl_bitset_t *s2)
+                                    const pddl_bitset_t *s1,
+                                    const pddl_bitset_t *s2)
 {
     int cnt = 0;
     for (int i = 0; i < s1->wordsize; ++i){

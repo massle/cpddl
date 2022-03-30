@@ -69,8 +69,8 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
                        pddl_err_t *err);
 
 _pddl_inline int pddlFAMGroupsInferMaximal(pddl_mgroups_t *mgs,
-                                          const pddl_strips_t *strips,
-                                          pddl_err_t *err)
+                                           const pddl_strips_t *strips,
+                                           pddl_err_t *err)
 {
     pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
     cfg.maximal = 1;
@@ -78,8 +78,8 @@ _pddl_inline int pddlFAMGroupsInferMaximal(pddl_mgroups_t *mgs,
 }
 
 _pddl_inline int pddlFAMGroupsInferAll(pddl_mgroups_t *mgs,
-                                      const pddl_strips_t *strips,
-                                      pddl_err_t *err)
+                                       const pddl_strips_t *strips,
+                                       pddl_err_t *err)
 {
     pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
     cfg.maximal = 0;

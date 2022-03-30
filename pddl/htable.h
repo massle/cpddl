@@ -45,14 +45,14 @@ typedef uint64_t pddl_htable_key_t;
  * Hash function.
  */
 typedef pddl_htable_key_t (*pddl_htable_hash_fn)(const pddl_list_t *key,
-                                               void *userdata);
+                                                 void *userdata);
 
 /**
  * Returns true if two given keys are same.
  * If this callback is set to NULL, exact values of keys are compared.
  */
 typedef int (*pddl_htable_eq_fn)(const pddl_list_t *key1, const pddl_list_t *key2,
-                                void *userdata);
+                                 void *userdata);
 
 
 /**
@@ -78,8 +78,8 @@ typedef struct _pddl_htable_t pddl_htable_t;
  * Creates hash table
  */
 pddl_htable_t *pddlHTableNew(pddl_htable_hash_fn hash_func,
-                           pddl_htable_eq_fn eq_func,
-                           void *userdata);
+                             pddl_htable_eq_fn eq_func,
+                             void *userdata);
 
 /**
  * Deletes a table.
@@ -116,7 +116,7 @@ _pddl_inline void pddlHTableInsert(pddl_htable_t *m, pddl_list_t *key1);
  * element was inserted.
  */
 _pddl_inline pddl_list_t *pddlHTableInsertUnique(pddl_htable_t *m,
-                                              pddl_list_t *key1);
+                                                 pddl_list_t *key1);
 
 /**
  * Same as pddlHTableInsert() but does not resize hash table.
@@ -128,14 +128,14 @@ _pddl_inline void pddlHTableInsertNoResize(pddl_htable_t *m, pddl_list_t *key1);
  * The bucket must be smaller then the size of the table.
  */
 _pddl_inline void pddlHTableInsertBucket(pddl_htable_t *m, size_t bucket,
-                                       pddl_list_t *key1);
+                                         pddl_list_t *key1);
 
 /**
  * Same as pddlHTableInsertBucket() but does not resize hash table.
  */
 _pddl_inline void pddlHTableInsertBucketNoResize(pddl_htable_t *m,
-                                               size_t bucket,
-                                               pddl_list_t *key1);
+                                                 size_t bucket,
+                                                 pddl_list_t *key1);
 
 /**
  * Removes an element from the hash table.
@@ -149,7 +149,7 @@ _pddl_inline int pddlHTableErase(pddl_htable_t *m, pddl_list_t *key1);
  * otherwise.
  */
 _pddl_inline int pddlHTableEraseBucket(pddl_htable_t *m, size_t bucket,
-                                     pddl_list_t *key1);
+                                       pddl_list_t *key1);
 
 /**
  * Returns a key from hash table that equals to {key1} or NULL if there is no
@@ -159,14 +159,14 @@ _pddl_inline int pddlHTableEraseBucket(pddl_htable_t *m, size_t bucket,
  * argument.
  */
 _pddl_inline pddl_list_t *pddlHTableFind(const pddl_htable_t *m,
-                                      const pddl_list_t *key1);
+                                         const pddl_list_t *key1);
 
 /**
  * Same as pddlHTableFind() but searches only the specified bucket.
  */
 _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
-                                            size_t bucket,
-                                            const pddl_list_t *key1);
+                                               size_t bucket,
+                                               const pddl_list_t *key1);
 
 /**
  * Searches for all elements that are equal to the provided.
@@ -184,14 +184,14 @@ _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
  * that were actually stored in output array).
  */
 size_t pddlHTableFindAll(const pddl_htable_t *m, const pddl_list_t *key1,
-                        pddl_list_t ***out_arr, size_t *size);
+                         pddl_list_t ***out_arr, size_t *size);
 
 
 /**
  * Returns a bucket number corresponding to the given element.
  */
 _pddl_inline size_t pddlHTableBucket(const pddl_htable_t *m,
-                                   const pddl_list_t *key1);
+                                     const pddl_list_t *key1);
 
 /**
  * Resize hash table to the specifed size.
@@ -224,7 +224,7 @@ _pddl_inline void pddlHTableInsert(pddl_htable_t *m, pddl_list_t *key1)
 }
 
 _pddl_inline pddl_list_t *pddlHTableInsertUnique(pddl_htable_t *m,
-                                              pddl_list_t *key1)
+                                                 pddl_list_t *key1)
 {
     size_t bucket;
     pddl_list_t *item;
@@ -246,7 +246,7 @@ _pddl_inline void pddlHTableInsertNoResize(pddl_htable_t *m, pddl_list_t *key1)
 }
 
 _pddl_inline void pddlHTableInsertBucket(pddl_htable_t *m, size_t bucket,
-                                       pddl_list_t *key1)
+                                         pddl_list_t *key1)
 {
     size_t size;
 
@@ -266,8 +266,8 @@ _pddl_inline void pddlHTableInsertBucket(pddl_htable_t *m, size_t bucket,
 }
 
 _pddl_inline void pddlHTableInsertBucketNoResize(pddl_htable_t *m,
-                                               size_t bucket,
-                                               pddl_list_t *key1)
+                                                 size_t bucket,
+                                                 pddl_list_t *key1)
 {
     pddlListAppend(&m->table[bucket], key1);
     ++m->num_elements;
@@ -281,7 +281,7 @@ _pddl_inline int pddlHTableErase(pddl_htable_t *m, pddl_list_t *key1)
 }
 
 _pddl_inline int pddlHTableEraseBucket(pddl_htable_t *m, size_t bucket,
-                                     pddl_list_t *key1)
+                                       pddl_list_t *key1)
 {
     pddl_list_t *item;
 
@@ -295,7 +295,7 @@ _pddl_inline int pddlHTableEraseBucket(pddl_htable_t *m, size_t bucket,
 }
 
 _pddl_inline pddl_list_t *pddlHTableFind(const pddl_htable_t *m,
-                                      const pddl_list_t *key1)
+                                         const pddl_list_t *key1)
 {
     size_t bucket;
     bucket = pddlHTableBucket(m, key1);
@@ -303,8 +303,8 @@ _pddl_inline pddl_list_t *pddlHTableFind(const pddl_htable_t *m,
 }
 
 _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
-                                            size_t bucket,
-                                            const pddl_list_t *key1)
+                                               size_t bucket,
+                                               const pddl_list_t *key1)
 {
     pddl_list_t *item;
 
@@ -322,7 +322,7 @@ _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
 
 
 _pddl_inline size_t pddlHTableBucket(const pddl_htable_t *m,
-                                   const pddl_list_t *key1)
+                                     const pddl_list_t *key1)
 {
     return m->hash(key1, m->data) % (pddl_htable_key_t)m->size;
 }

@@ -63,8 +63,8 @@ _pddl_inline pddl_state_id_t pddlFDRStatePoolHTableInsertUnique(
 }
 
 _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
-                                            size_t bucket,
-                                            const pddl_list_t *key1)
+                                               size_t bucket,
+                                               const pddl_list_t *key1)
 {
     pddl_list_t *item;
 
@@ -77,7 +77,7 @@ _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
 }
 
 _pddl_inline void pddlHTableInsertBucket(pddl_htable_t *m, size_t bucket,
-                                       pddl_list_t *key1)
+                                         pddl_list_t *key1)
 {
     size_t size;
 
@@ -97,15 +97,15 @@ _pddl_inline void pddlHTableInsertBucket(pddl_htable_t *m, size_t bucket,
 }
 
 _pddl_inline void pddlHTableInsertBucketNoResize(pddl_htable_t *m,
-                                               size_t bucket,
-                                               pddl_list_t *key1)
+                                                 size_t bucket,
+                                                 pddl_list_t *key1)
 {
     pddlListAppend(&m->table[bucket], key1);
     ++m->num_elements;
 }
 
 _pddl_inline size_t pddlHTableBucket(const pddl_htable_t *m,
-                                   const pddl_list_t *key1)
+                                     const pddl_list_t *key1)
 {
     return m->hash(key1, m->data) % (pddl_htable_key_t)m->size;
 }

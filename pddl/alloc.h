@@ -119,11 +119,11 @@ extern "C" {
 
 #ifdef PDDL_MEMCHECK
 void *pddlRealloc(void *ptr, size_t size,
-                 const char *file, int line, const char *func);
+                  const char *file, int line, const char *func);
 void *pddlAllocAlign(size_t size, size_t alignment,
-                    const char *file, int line, const char *func);
+                     const char *file, int line, const char *func);
 void *pddlCalloc(size_t nmemb, size_t size,
-                const char *file, int line, const char *func);
+                 const char *file, int line, const char *func);
 char *pddlStrdup(const char *str, const char *file, int line, const char *func);
 void pddlFreeCheck(void *ptr, const char *file, int line, const char *func);
 

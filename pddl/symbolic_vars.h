@@ -123,31 +123,31 @@ void pddlSymbolicVarsGroupsBDDVars(pddl_symbolic_vars_t *vars,
                                    int *var_size);
 
 _pddl_inline int pddlSymbolicVarsFactGroup(const pddl_symbolic_vars_t *vars,
-                                          int fact)
+                                           int fact)
 {
     return vars->fact[fact].group_id;
 }
 
 _pddl_inline pddl_bdd_t *pddlSymbolicVarsFactPreBDD(pddl_symbolic_vars_t *vars,
-                                                   int fact)
+                                                    int fact)
 {
     return pddlBDDClone(vars->mgr, vars->fact[fact].pre_bdd);
 }
 
 _pddl_inline pddl_bdd_t *pddlSymbolicVarsFactPreBDDNeg(pddl_symbolic_vars_t *vars,
-                                                      int fact)
+                                                       int fact)
 {
     return pddlBDDNot(vars->mgr, vars->fact[fact].pre_bdd);
 }
 
 _pddl_inline pddl_bdd_t *pddlSymbolicVarsFactEffBDD(pddl_symbolic_vars_t *vars,
-                                                   int fact)
+                                                    int fact)
 {
     return pddlBDDClone(vars->mgr, vars->fact[fact].eff_bdd);
 }
 
 _pddl_inline pddl_bdd_t *pddlSymbolicVarsFactEffBDDNeg(pddl_symbolic_vars_t *vars,
-                                                      int fact)
+                                                       int fact)
 {
     return pddlBDDNot(vars->mgr, vars->fact[fact].eff_bdd);
 }

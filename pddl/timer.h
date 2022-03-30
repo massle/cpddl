@@ -64,19 +64,19 @@ _pddl_inline const struct timespec *pddlTimerElapsed(const pddl_timer_t *t);
  * in format [minutes:seconds.milisec].
  */
 void pddlTimerPrintElapsed(const pddl_timer_t *t, FILE *out,
-                          const char *format, ...);
+                           const char *format, ...);
 /**
  * Stops timer and prints output same as pddlTimerPrintElapsed().
  */
 void pddlTimerStopAndPrintElapsed(pddl_timer_t *t, FILE *out,
-                                 const char *format, ...);
+                                  const char *format, ...);
 
 /**
  * Equivalent to pddlTimerPrintElapsed() expect it is called with va_list
  * instead of variable number of arguments.
  */
 _pddl_inline void pddlTimerPrintElapsed2(const pddl_timer_t *t, FILE *out,
-                                       const char *format, va_list ap);
+                                         const char *format, va_list ap);
 
 /**
  * Returns nanosecond part of elapsed time.
@@ -172,7 +172,7 @@ _pddl_inline const struct timespec *pddlTimerElapsed(const pddl_timer_t *t)
 }
 
 _pddl_inline void pddlTimerPrintElapsed2(const pddl_timer_t *t, FILE *out,
-                                       const char *format, va_list ap)
+                                         const char *format, va_list ap)
 {
     /* print elapsed time */
     fprintf(out, "[%02ld:%02ld.%03ld]",

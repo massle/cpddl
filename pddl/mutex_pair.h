@@ -54,7 +54,7 @@ typedef struct pddl_mutex_pairs pddl_mutex_pairs_t;
  */
 void pddlMutexPairsInit(pddl_mutex_pairs_t *m, int fact_size);
 void pddlMutexPairsInitStrips(pddl_mutex_pairs_t *m,
-                             const struct pddl_strips *s);
+                              const struct pddl_strips *s);
 
 /**
  * Initialize dst as a copy of src.

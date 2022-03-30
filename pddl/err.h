@@ -202,13 +202,13 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
 
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
-             const char *format, ...);
+              const char *format, ...);
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
 void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
-              const char *format, ...);
+               const char *format, ...);
 void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
-              const char *format, ...);
+               const char *format, ...);
 
 #ifdef __cplusplus
 } /* extern "C" */

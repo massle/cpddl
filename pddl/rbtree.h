@@ -76,8 +76,8 @@ typedef struct _pddl_rbtree_node_t pddl_rbtree_node_t;
  * and positive number if n1 > n2.
  */
 typedef int (*pddl_rbtree_cmp)(const pddl_rbtree_node_t *n1,
-                              const pddl_rbtree_node_t *n2,
-                              void *data);
+                               const pddl_rbtree_node_t *n2,
+                               void *data);
 
 struct _pddl_rbtree_t {
     pddl_rbtree_node_t *root;
@@ -233,7 +233,7 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeFind(pddl_rbtree_t *rbtree,
 }
 
 _pddl_inline pddl_rbtree_node_t *pddlRBTreeFindNearestGE(pddl_rbtree_t *rbtree,
-                                                      pddl_rbtree_node_t *elm)
+                                                         pddl_rbtree_node_t *elm)
 {
     pddl_rbtree_node_t *tmp = rbtree->root;
     pddl_rbtree_node_t *res = NULL;
