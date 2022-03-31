@@ -22,7 +22,6 @@ TARGETS += pddl-astar
 TARGETS += pddl-lifted-astar
 TARGETS += pddl-lifted-gbfs
 TARGETS += pddl-mgroups
-TARGETS += pddl-reversibility
 TARGETS += pddl-op-mutex
 TARGETS += pddl-symba
 

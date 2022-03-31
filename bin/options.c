@@ -394,9 +394,23 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddStr("astar-o", 0x0, &opt.astar.plan_out, NULL,
                "Alias for --astar-out");
 
+    optsStartGroup("Reversibility:");
+    optsAddInt("reversibility-max-depth", 0x0, &opt.reversibility.max_depth, 1,
+               "Maximum depth when searching for reversible plans"
+               " (also see --report-reversibility*).");
+    optsAddFlag("reversibility-use-mutex", 0x0, &opt.reversibility.use_mutex, 0,
+                "Use mutexes when search for reversible plans"
+               " (also see --report-reversibility*).");
+
     optsStartGroup("Reports:");
     optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
                 "Create report of lifted mutex groups.");
+    optsAddFlag("report-reversibility-simple", 0x0,
+                &opt.report.reversibility_simple, 0,
+                "Compute reversibility with the \"simple\" method.");
+    optsAddFlag("report-reversibility-iterative", 0x0,
+                &opt.report.reversibility_iterative, 0,
+                "Compute reversibility with the \"iterative\" method.");
 
     if (opts(&argc, argv) != 0)
         return -1;

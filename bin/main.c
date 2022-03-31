@@ -258,6 +258,74 @@ static int stepProcessStrips(void)
     return ret;
 }
 
+static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
+{
+    for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+        if (skip[op_id])
+            continue;
+
+        const pddl_strips_op_t *op = strips.op.op[op_id];
+
+        pddl_reversibility_uniform_t rev;
+        pddlReversibilityUniformInit(&rev);
+        const pddl_mutex_pairs_t *m = NULL;
+        if (opt.reversibility.use_mutex)
+            m = &mutex;
+        pddlReversibilityUniformInfer(&rev, &strips.op, op, max_depth, m);
+        pddlReversibilityUniformSort(&rev);
+        for (int i = 0; i < rev.plan_size; ++i){
+            if (rev.plan[i].reversible_op_id == op->id
+                    && pddlISetSize(&rev.plan[i].formula.pos) == 0
+                    && pddlISetSize(&rev.plan[i].formula.neg) == 0){
+                skip[op_id] = 1;
+            }
+            if (pddlIArrSize(&rev.plan[i].plan) == max_depth){
+                pddlReversePlanUniformPrint(rev.plan + i, &strips.op, fout);
+            }
+        }
+        pddlReversibilityUniformFree(&rev);
+    }
+}
+
+static int stepReportReversibility(void)
+{
+    if (!opt.report.reversibility_simple && !opt.report.reversibility_iterative)
+        return 0;
+
+    if (opt.report.reversibility_simple){
+        int max_depth = opt.reversibility.max_depth;
+        PDDL_INFO(&err, "Computing reverse plans. max-depth: %d", max_depth);
+        for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
+            const pddl_strips_op_t *op = strips.op.op[op_id];
+
+            pddl_reversibility_uniform_t rev;
+            pddlReversibilityUniformInit(&rev);
+            const pddl_mutex_pairs_t *m = NULL;
+            if (opt.reversibility.use_mutex)
+                m = &mutex;
+            pddlReversibilityUniformInfer(&rev, &strips.op, op, max_depth, m);
+            pddlReversibilityUniformSort(&rev);
+            pddlReversibilityUniformPrint(&rev, &strips.op, stdout);
+            pddlReversibilityUniformFree(&rev);
+        }
+        PDDL_INFO2(&err, "Reverse plans computed.");
+
+    }else{
+        int max_depth = opt.reversibility.max_depth;
+        PDDL_INFO(&err, "Computing reverse plans iteratively. max-depth: %d",
+                  max_depth);
+        int *skip = PDDL_CALLOC_ARR(int, strips.op.op_size);
+        for (int depth = 1; depth <= max_depth; ++depth){
+            PDDL_INFO(&err, "Computing for max-depth: %d", depth);
+            reversibilityIterativeDepth(skip, depth, stdout);
+        }
+        PDDL_FREE(skip);
+        PDDL_INFO2(&err, "Reverse plans computed.");
+    }
+
+    return 1;
+}
+
 static int stepRedBlackFDR(void)
 {
     if (!opt.rb_fdr.enable)
@@ -436,6 +504,7 @@ int main(int argc, char *argv[])
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
+            || (ret = stepReportReversibility()) != 0
             || (ret = stepRedBlackFDR()) != 0
             || (ret = stepFDR()) != 0
             || (ret = stepAStar()) != 0

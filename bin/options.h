@@ -91,12 +91,19 @@ struct options {
 
     struct {
         int lmg;
+        int reversibility_simple;
+        int reversibility_iterative;
     } report;
 
     struct {
         int enable;
         char *plan_out;
     } astar;
+
+    struct {
+        int max_depth;
+        int use_mutex;
+    } reversibility;
 };
 typedef struct options options_t;
 extern options_t opt;
