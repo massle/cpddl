@@ -242,16 +242,8 @@ clean:
 
 mrproper: clean opts-clean bliss-clean lpsolve-clean cudd-clean
 
-check:
-	$(MAKE) -C test check
-check-noreg:
-	$(MAKE) -C test check-noreg
-check-ci:
-	$(MAKE) -C test check-ci
-check-valgrind:
-	$(MAKE) -C test check-valgrind
-check-segfault:
-	$(MAKE) -C test check-segfault
+check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
+	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 static-check:
 	$(CPPCHECK) $(CPPCHECK_FLAGS) pddl/ src/
 
@@ -324,8 +316,12 @@ third-party/sqlite/libsqlite.a:
 	cd third-party/sqlite && ar cr libsqlite.a sqlite3.o
 	cd third-party/sqlite && ranlib libsqlite.a
 
-.PHONY: all clean check check-ci check-valgrind help doc install analyze \
+.PHONY: all clean help doc install analyze \
   examples mrproper \
+  check check-all \
+  check-valgrind check-all-valgrind \
+  check-segfault check-all-segfault \
+  check-gdb check-all-gdb \
   third-party third-party-clean \
   opts opts-clean \
   bliss bliss-clean \
