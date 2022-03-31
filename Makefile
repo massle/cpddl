@@ -108,6 +108,7 @@ OBJS += random_walk
 OBJS += open_list
 OBJS += open_list_splaytree1
 OBJS += open_list_splaytree2
+OBJS += search
 OBJS += search_astar
 OBJS += search_lazy
 OBJS += search_lifted

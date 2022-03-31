@@ -16,12 +16,39 @@
  * See the License for more information.
  */
 
+#include "pddl/open_list.h"
+#include "pddl/fdr_app_op.h"
 #include "alloc.h"
-#include "pddl/search_lazy.h"
+#include "search.h"
 #include "assert.h"
 
+struct pddl_search_lazy {
+    pddl_search_t search;
+    const pddl_fdr_t *fdr;
+    pddl_heur_t *heur;
+    pddl_err_t *err;
+    pddl_fdr_state_space_t state_space;
+    pddl_open_list_t *list;
+    pddl_fdr_app_op_t app_op;
 
-pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
+    pddl_state_id_t goal_state_id;
+
+    pddl_iset_t applicable;
+    pddl_fdr_state_space_node_t cur_node;
+    pddl_fdr_state_space_node_t next_node;
+    pddl_search_stat_t _stat;
+};
+typedef struct pddl_search_lazy pddl_search_lazy_t;
+
+static void pddlSearchLazyDel(pddl_search_t *s);
+static int pddlSearchLazyInitStep(pddl_search_t *s);
+static int pddlSearchLazyStep(pddl_search_t *s);
+static int pddlSearchLazyExtractPlan(pddl_search_t *s, pddl_plan_t *plan);
+static void pddlSearchLazyStat(const pddl_search_t *s,
+                               pddl_search_stat_t *stat);
+
+
+pddl_search_t *pddlSearchLazy(const pddl_fdr_t *fdr,
                                    pddl_heur_t *heur,
                                    pddl_err_t *err)
 {
@@ -29,6 +56,12 @@ pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
 
     lazy = ALLOC(pddl_search_lazy_t);
     bzero(lazy, sizeof(*lazy));
+    _pddlSearchInit(&lazy->search,
+                    pddlSearchLazyDel,
+                    pddlSearchLazyInitStep,
+                    pddlSearchLazyStep,
+                    pddlSearchLazyExtractPlan,
+                    pddlSearchLazyStat);
     lazy->fdr = fdr;
     lazy->heur = heur;
     lazy->err = err;
@@ -44,11 +77,12 @@ pddl_search_lazy_t *pddlSearchLazy(const pddl_fdr_t *fdr,
     pddlFDRStateSpaceNodeInit(&lazy->cur_node, &lazy->state_space);
     pddlFDRStateSpaceNodeInit(&lazy->next_node, &lazy->state_space);
 
-    return lazy;
+    return &lazy->search;
 }
 
-void pddlSearchLazyDel(pddl_search_lazy_t *lazy)
+static void pddlSearchLazyDel(pddl_search_t *s)
 {
+    pddl_search_lazy_t *lazy = pddl_container_of(s, pddl_search_lazy_t, search);
     pddlFDRAppOpFree(&lazy->app_op);
     if (lazy->list)
         pddlOpenListDel(lazy->list);
@@ -72,8 +106,9 @@ static void push(pddl_search_lazy_t *lazy,
     ++lazy->_stat.open;
 }
 
-int pddlSearchLazyInitStep(pddl_search_lazy_t *lazy)
+static int pddlSearchLazyInitStep(pddl_search_t *s)
 {
+    pddl_search_lazy_t *lazy = pddl_container_of(s, pddl_search_lazy_t, search);
     int ret = PDDL_SEARCH_CONT;
     pddl_state_id_t state_id;
     state_id = pddlFDRStateSpaceInsert(&lazy->state_space, lazy->fdr->init);
@@ -132,8 +167,9 @@ static void insertNextState(pddl_search_lazy_t *lazy,
     pddlFDRStateSpaceSet(&lazy->state_space, &lazy->next_node);
 }
 
-int pddlSearchLazyStep(pddl_search_lazy_t *lazy)
+static int pddlSearchLazyStep(pddl_search_t *s)
 {
+    pddl_search_lazy_t *lazy = pddl_container_of(s, pddl_search_lazy_t, search);
 
     ++lazy->_stat.steps;
 
@@ -202,9 +238,20 @@ int pddlSearchLazyStep(pddl_search_lazy_t *lazy)
     return PDDL_SEARCH_CONT;
 }
 
-void pddlSearchLazyStat(const pddl_search_lazy_t *lazy,
-                        pddl_search_stat_t *stat)
+static int pddlSearchLazyExtractPlan(pddl_search_t *s, pddl_plan_t *plan)
 {
+    pddl_search_lazy_t *lazy
+        = pddl_container_of(s, pddl_search_lazy_t, search);
+    if (lazy->goal_state_id < 0)
+        return -1;
+    pddlPlanLoadBacktrack(plan, lazy->goal_state_id, &lazy->state_space);
+    return 0;
+}
+
+static void pddlSearchLazyStat(const pddl_search_t *s,
+                               pddl_search_stat_t *stat)
+{
+    pddl_search_lazy_t *lazy = pddl_container_of(s, pddl_search_lazy_t, search);
     *stat = lazy->_stat;
     stat->generated = lazy->state_space.state_pool.num_states;
 }

@@ -90,15 +90,24 @@ struct options {
     } fdr;
 
     struct {
+        int enable;
+        pddl_search_t *(*search_fn)(const pddl_fdr_t *fdr,
+                                    pddl_heur_t *heur,
+                                    pddl_err_t *err);
+        pddl_heur_t *(*heur_fn0)(void);
+        pddl_heur_t *(*heur_fn2)(const pddl_fdr_t *fdr, pddl_err_t *err);
+        pddl_heur_t *(*heur_fn_pot)(const pddl_fdr_t *fdr,
+                                    const pddl_hpot_config_t *cfg,
+                                    pddl_err_t *err);
+        char log_prefix[16];
+        char *plan_out;
+    } ground_planner;
+
+    struct {
         int lmg;
         int reversibility_simple;
         int reversibility_iterative;
     } report;
-
-    struct {
-        int enable;
-        char *plan_out;
-    } astar;
 
     struct {
         int max_depth;

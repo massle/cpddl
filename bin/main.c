@@ -21,8 +21,8 @@ pddl_fdr_t fdr;
 int fdr_set = 0;
 pddl_mgroups_t mgroup;
 pddl_mutex_pairs_t mutex;
-int astar_search_started = 0;
-int astar_terminate = 0;
+int search_started = 0;
+int search_terminate = 0;
 
 
 static int stepPDDL(void)
@@ -379,10 +379,10 @@ static int stepFDR(void)
     return 0;
 }
 
-static void printAStarStat(const pddl_search_astar_t *astar, pddl_err_t *err)
+static void printSearchStat(const pddl_search_t *astar, pddl_err_t *err)
 {
     pddl_search_stat_t stat;
-    pddlSearchAStarStat(astar, &stat);
+    pddlSearchStat(astar, &stat);
     PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
                   " gen: %lu, open: %lu, closed: %lu,"
                   " reopen: %lu, de: %lu, f: %d",
@@ -397,43 +397,58 @@ static void printAStarStat(const pddl_search_astar_t *astar, pddl_err_t *err)
                   stat.last_f_value);
 }
 
-static int stepAStar(void)
+static pddl_heur_t *groundPlannerHeur(void)
 {
-    if (!opt.astar.enable)
+    if (opt.ground_planner.heur_fn0 != NULL){
+        return opt.ground_planner.heur_fn0();
+
+    }else if (opt.ground_planner.heur_fn2 != NULL){
+        return opt.ground_planner.heur_fn2(&fdr, &err);
+
+    }else if (opt.ground_planner.heur_fn_pot != NULL){
+        pddl_hpot_config_t cfg = PDDL_HPOT_CONFIG_INIT;
+        return opt.ground_planner.heur_fn_pot(&fdr, &cfg, &err);
+    }
+
+    PDDL_INFO2(&err, "Using blind heuristic");
+    return pddlHeurBlind();
+}
+
+static int stepGroundPlanner(void)
+{
+    if (!opt.ground_planner.enable)
         return 0;
 
-    PDDL_INFO_PREFIX_PUSH(&err, "A*: ");
-    // TODO
-    pddl_heur_t *heur = pddlHeurBlind();
-    pddl_search_astar_t *astar;
-    astar = pddlSearchAStar(&fdr, heur, &err);
-    int ret = pddlSearchAStarInitStep(astar);
-    astar_search_started = 1;
+    PDDL_INFO_PREFIX_PUSH(&err, opt.ground_planner.log_prefix);
+    pddl_heur_t *heur = groundPlannerHeur();
+    pddl_search_t *search = opt.ground_planner.search_fn(&fdr, heur, &err);
+    int ret = pddlSearchInitStep(search);
+    search_started = 1;
 
     pddl_timer_t info_timer;
     pddlTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
-        if (astar_terminate){
-            printAStarStat(astar, &err);
+        if (search_terminate){
+            printSearchStat(search, &err);
             PDDL_INFO2(&err, "Search aborted.");
-            pddlSearchAStarDel(astar);
+            pddlSearchDel(search);
             pddlHeurDel(heur);
             PDDL_INFO_PREFIX_POP(&err);
             return -1;
         }
 
-        ret = pddlSearchAStarStep(astar);
+        ret = pddlSearchStep(search);
         // TODO: parametrize
         if (step >= 100){
             pddlTimerStop(&info_timer);
             if (pddlTimerElapsedInSF(&info_timer) >= 1.){
-                printAStarStat(astar, &err);
+                printSearchStat(search, &err);
                 pddlTimerStart(&info_timer);
             }
             step = 0;
         }
     }
-    printAStarStat(astar, &err);
+    printSearchStat(search, &err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
         PDDL_INFO2(&err, "Problem is unsolvable.");
@@ -442,25 +457,25 @@ static int stepAStar(void)
         PDDL_INFO2(&err, "Plan found.");
         pddl_plan_t plan;
         pddlPlanInit(&plan);
-        pddlPlanLoadBacktrack(&plan, astar->goal_state_id, &astar->state_space);
+        pddlSearchExtractPlan(search, &plan);
         PDDL_INFO(&err, "Plan Cost: %d", plan.cost);
         PDDL_INFO(&err, "Plan Length: %d", plan.length);
-        PRINT_TO_FILE(&err, opt.astar.plan_out, "plan",
+        PRINT_TO_FILE(&err, opt.ground_planner.plan_out, "plan",
                       pddlPlanPrint(&plan, &fdr.op, fout));
         pddlPlanFree(&plan);
     }else{
         PDDL_FATAL("Unkown return status: %d", ret);
     }
 
-    if (astar_terminate){
+    if (search_terminate){
         PDDL_INFO2(&err, "Search aborted.");
-        pddlSearchAStarDel(astar);
+        pddlSearchDel(search);
         pddlHeurDel(heur);
         PDDL_INFO_PREFIX_POP(&err);
         return -1;
     }
 
-    pddlSearchAStarDel(astar);
+    pddlSearchDel(search);
     pddlHeurDel(heur);
     return 0;
 }
@@ -507,7 +522,7 @@ int main(int argc, char *argv[])
             || (ret = stepReportReversibility()) != 0
             || (ret = stepRedBlackFDR()) != 0
             || (ret = stepFDR()) != 0
-            || (ret = stepAStar()) != 0
+            || (ret = stepGroundPlanner()) != 0
             || (ret = stepSymba()) != 0){
         if (ret < 0){
             if (pddlErrIsSet(&err)){

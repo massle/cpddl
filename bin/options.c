@@ -224,6 +224,65 @@ static int optLiftedPlannerHeur(const char *tag)
     return 0;
 }
 
+static int optGroundPlanner(const char *tag)
+{
+    if (strcmp(tag, "astar") == 0){
+        opt.ground_planner.enable = 1;
+        opt.ground_planner.search_fn = pddlSearchAStar;
+        strcpy(opt.ground_planner.log_prefix, "A*: ");
+
+    }else if (strcmp(tag, "gbfs") == 0){
+        fprintf(stderr, "Error: gbfs not implemented yet!\n");
+        exit(-1);
+        opt.ground_planner.enable = 1;
+        //opt.ground_planner.search_fn = pddlSearchLiftedGBFS;
+        strcpy(opt.ground_planner.log_prefix, "GBFS: ");
+
+    }else if (strcmp(tag, "lazy") == 0){
+        opt.ground_planner.enable = 1;
+        opt.ground_planner.search_fn = pddlSearchLazy;
+        strcpy(opt.ground_planner.log_prefix, "Lazy: ");
+
+    }else{
+        fprintf(stderr, "Error: Unknown --gplan option '%s'\n", tag);
+        return -1;
+    }
+    return 0;
+}
+
+static int optGroundPlannerHeur(const char *tag)
+{
+    if (strcmp(tag, "blind") == 0){
+        opt.ground_planner.heur_fn0 = pddlHeurBlind;
+
+    }else if (strncmp(tag, "pot-state", 9) == 0){
+        opt.ground_planner.heur_fn2 = pddlHeurPotState;
+
+    }else if (strncmp(tag, "pot", 3) == 0){
+        opt.ground_planner.heur_fn_pot = pddlHeurPot;
+
+    }else if (strncmp(tag, "lmc", 3) == 0){
+        opt.ground_planner.heur_fn2 = pddlHeurLMCut;
+
+    }else if (strcmp(tag, "hmax") == 0){
+        opt.ground_planner.heur_fn2 = pddlHeurHMax;
+
+    }else if (strcmp(tag, "hadd") == 0){
+        opt.ground_planner.heur_fn2 = pddlHeurHAdd;
+
+    }else if (strcmp(tag, "hff") == 0){
+        opt.ground_planner.heur_fn2 = pddlHeurHFF;
+
+    }else if (strncmp(tag, "flow", 4) == 0){
+        opt.ground_planner.heur_fn2 = pddlHeurFlow;
+
+    }else{
+        fprintf(stderr, "Error: Unknown --gplan-heur option '%s'\n", tag);
+        return -1;
+    }
+    return 0;
+}
+
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
     opt.lifted_planner.search_fn = NULL;
@@ -386,13 +445,16 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
                "Output filename for the red-black FDR task.");
 
-    optsStartGroup("A Star:");
-    optsAddFlag("astar", 0x0, &opt.astar.enable, 0,
-                "Run A* algorithm");
-    optsAddStr("astar-out", 0x0, &opt.astar.plan_out, NULL,
+    optsStartGroup("Grounded Planner:");
+    optsAddTags("gplan", 0x0, NULL, optGroundPlanner,
+                "Enables grounded planner. Possible values: astar, gbfs, lazy");
+    optsAddTags("gplan-heur", 0x0, NULL, optGroundPlannerHeur,
+                "Sets up heuristics for grounded planner.\n"
+                " TODO: List of options");
+    optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
                "Output filename for the found plan.");
-    optsAddStr("astar-o", 0x0, &opt.astar.plan_out, NULL,
-               "Alias for --astar-out");
+    optsAddStr("gplan-o", 0x0, &opt.ground_planner.plan_out, NULL,
+               "Alias for --gplan-out");
 
     optsStartGroup("Reversibility:");
     optsAddInt("reversibility-max-depth", 0x0, &opt.reversibility.max_depth, 1,

@@ -16,19 +16,52 @@
  * See the License for more information.
  */
 
+#include "pddl/open_list.h"
+#include "pddl/fdr_app_op.h"
 #include "alloc.h"
-#include "pddl/search_astar.h"
+#include "search.h"
 #include "assert.h"
 
+struct pddl_search_astar {
+    pddl_search_t search;
+    const pddl_fdr_t *fdr;
+    pddl_heur_t *heur;
+    pddl_err_t *err;
+    pddl_fdr_state_space_t state_space;
+    pddl_open_list_t *list;
+    pddl_fdr_app_op_t app_op;
 
-pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
-                                     pddl_heur_t *heur,
-                                     pddl_err_t *err)
+    pddl_state_id_t goal_state_id;
+
+    pddl_iset_t applicable;
+    pddl_fdr_state_space_node_t cur_node;
+    pddl_fdr_state_space_node_t next_node;
+    pddl_search_stat_t _stat;
+};
+typedef struct pddl_search_astar pddl_search_astar_t;
+
+static void pddlSearchAStarDel(pddl_search_t *s);
+static int pddlSearchAStarInitStep(pddl_search_t *s);
+static int pddlSearchAStarStep(pddl_search_t *s);
+static int pddlSearchAStarExtractPlan(pddl_search_t *s, pddl_plan_t *plan);
+static void pddlSearchAStarStat(const pddl_search_t *s,
+                                pddl_search_stat_t *stat);
+
+
+pddl_search_t *pddlSearchAStar(const pddl_fdr_t *fdr,
+                               pddl_heur_t *heur,
+                               pddl_err_t *err)
 {
     pddl_search_astar_t *astar;
 
     astar = ALLOC(pddl_search_astar_t);
     bzero(astar, sizeof(*astar));
+    _pddlSearchInit(&astar->search,
+                    pddlSearchAStarDel,
+                    pddlSearchAStarInitStep,
+                    pddlSearchAStarStep,
+                    pddlSearchAStarExtractPlan,
+                    pddlSearchAStarStat);
     astar->fdr = fdr;
     astar->heur = heur;
     astar->err = err;
@@ -44,11 +77,13 @@ pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
     pddlFDRStateSpaceNodeInit(&astar->cur_node, &astar->state_space);
     pddlFDRStateSpaceNodeInit(&astar->next_node, &astar->state_space);
 
-    return astar;
+    return &astar->search;
 }
 
-void pddlSearchAStarDel(pddl_search_astar_t *astar)
+static void pddlSearchAStarDel(pddl_search_t *s)
 {
+    pddl_search_astar_t *astar
+        = pddl_container_of(s, pddl_search_astar_t, search);
     pddlFDRAppOpFree(&astar->app_op);
     if (astar->list)
         pddlOpenListDel(astar->list);
@@ -73,8 +108,10 @@ static void push(pddl_search_astar_t *astar,
     ++astar->_stat.open;
 }
 
-int pddlSearchAStarInitStep(pddl_search_astar_t *astar)
+static int pddlSearchAStarInitStep(pddl_search_t *s)
 {
+    pddl_search_astar_t *astar
+        = pddl_container_of(s, pddl_search_astar_t, search);
     int ret = PDDL_SEARCH_CONT;
     pddl_state_id_t state_id;
     state_id = pddlFDRStateSpaceInsert(&astar->state_space, astar->fdr->init);
@@ -145,8 +182,10 @@ static void insertNextState(pddl_search_astar_t *astar,
     pddlFDRStateSpaceSet(&astar->state_space, &astar->next_node);
 }
 
-int pddlSearchAStarStep(pddl_search_astar_t *astar)
+static int pddlSearchAStarStep(pddl_search_t *s)
 {
+    pddl_search_astar_t *astar
+        = pddl_container_of(s, pddl_search_astar_t, search);
 
     ++astar->_stat.steps;
 
@@ -201,9 +240,21 @@ int pddlSearchAStarStep(pddl_search_astar_t *astar)
     return PDDL_SEARCH_CONT;
 }
 
-void pddlSearchAStarStat(const pddl_search_astar_t *astar,
-                         pddl_search_stat_t *stat)
+static int pddlSearchAStarExtractPlan(pddl_search_t *s, pddl_plan_t *plan)
 {
+    pddl_search_astar_t *astar
+        = pddl_container_of(s, pddl_search_astar_t, search);
+    if (astar->goal_state_id < 0)
+        return -1;
+    pddlPlanLoadBacktrack(plan, astar->goal_state_id, &astar->state_space);
+    return 0;
+}
+
+static void pddlSearchAStarStat(const pddl_search_t *s,
+                                pddl_search_stat_t *stat)
+{
+    pddl_search_astar_t *astar
+        = pddl_container_of(s, pddl_search_astar_t, search);
     *stat = astar->_stat;
     stat->generated = astar->state_space.state_pool.num_states;
 }

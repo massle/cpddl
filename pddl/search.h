@@ -20,6 +20,10 @@
 #ifndef __PDDL_SEARCH_H__
 #define __PDDL_SEARCH_H__
 
+#include <pddl/fdr.h>
+#include <pddl/heur.h>
+#include <pddl/plan.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -41,6 +45,22 @@ struct pddl_search_stat {
     int last_f_value;
 };
 typedef struct pddl_search_stat pddl_search_stat_t;
+
+typedef struct pddl_search pddl_search_t;
+
+pddl_search_t *pddlSearchAStar(const pddl_fdr_t *fdr,
+                               pddl_heur_t *heur,
+                               pddl_err_t *err);
+
+pddl_search_t *pddlSearchLazy(const pddl_fdr_t *fdr,
+                              pddl_heur_t *heur,
+                              pddl_err_t *err);
+
+void pddlSearchDel(pddl_search_t *);
+int pddlSearchInitStep(pddl_search_t *);
+int pddlSearchStep(pddl_search_t *);
+int pddlSearchExtractPlan(pddl_search_t *, pddl_plan_t *plan);
+void pddlSearchStat(const pddl_search_t *, pddl_search_stat_t *stat);
 
 #ifdef __cplusplus
 } /* extern "C" */

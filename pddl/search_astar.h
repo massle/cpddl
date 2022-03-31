@@ -31,32 +31,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_search_astar {
-    const pddl_fdr_t *fdr;
-    pddl_heur_t *heur;
-    pddl_err_t *err;
-    pddl_fdr_state_space_t state_space;
-    pddl_open_list_t *list;
-    pddl_fdr_app_op_t app_op;
 
-    pddl_state_id_t goal_state_id;
-
-    pddl_iset_t applicable;
-    pddl_fdr_state_space_node_t cur_node;
-    pddl_fdr_state_space_node_t next_node;
-    pddl_search_stat_t _stat;
-};
-typedef struct pddl_search_astar pddl_search_astar_t;
-
-pddl_search_astar_t *pddlSearchAStar(const pddl_fdr_t *fdr,
-                                     pddl_heur_t *heur,
-                                     pddl_err_t *err);
-void pddlSearchAStarDel(pddl_search_astar_t *astar);
-int pddlSearchAStarInitStep(pddl_search_astar_t *astar);
-int pddlSearchAStarStep(pddl_search_astar_t *astar);
-
-void pddlSearchAStarStat(const pddl_search_astar_t *astar,
-                         pddl_search_stat_t *stat);
 
 #ifdef __cplusplus
 } /* extern "C" */
