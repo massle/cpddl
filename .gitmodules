@@ -4,3 +4,6 @@
 [submodule "test/pddl-data"]
 	path = test/pddl-data
 	url = ../pddl-data.git
+[submodule "t"]
+	path = t
+	url = git@gitlab.com:danfis/cppdl-test.git
