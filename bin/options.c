@@ -316,6 +316,10 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,
                 "Compile away conditional effects on the STRIPS level"
                 " (recommended instead of --pddl-ce).");
+    optsAddStr("strips-as-py", 0x0, &opt.strips.py_out, NULL,
+               "Output filename for STRIPS in python format.");
+    optsAddFlag("strips-stop", 0x0, &opt.strips.stop, 0,
+                "Stop after grounding to STRIPS.");
 
     optsStartGroup("Mutex Groups:");
     optsAddTags("mg", 0x0, "none", optSetMGroup,

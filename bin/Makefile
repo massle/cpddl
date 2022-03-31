@@ -15,11 +15,7 @@ ifeq '$(BIN_STATIC)' 'yes'
   LDFLAGS += -static
 endif
 
-TARGETS = pddl-check
-TARGETS += pddl-strips
-TARGETS += pddl-strips-as-py
-TARGETS += pddl-pddl
-TARGETS += pddl-lifted-mgroups
+TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-pot
 TARGETS += pddl-astar
@@ -29,7 +25,6 @@ TARGETS += pddl-mgroups
 TARGETS += pddl-reversibility
 TARGETS += pddl-op-mutex
 TARGETS += pddl-symba
-TARGETS += pddl
 
 OBJS  = opts.o
 OBJS += options.o

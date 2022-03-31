@@ -164,7 +164,10 @@ static int stepGround(void)
     pddlMutexPairsInitStrips(&mutex, &strips);
     strips_set = 1;
 
-    return 0;
+    PRINT_TO_FILE(&err, opt.strips.py_out, "STRIPS as python",
+                  pddlStripsPrintPython(&strips, fout));
+
+    return opt.strips.stop;
 }
 
 static int stepGroundMGroups(void)

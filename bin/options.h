@@ -59,6 +59,8 @@ struct options {
     struct {
         int compile_away_cond_eff;
         pddl_process_strips_t process;
+        char *py_out;
+        int stop;
     } strips;
 
     struct {
