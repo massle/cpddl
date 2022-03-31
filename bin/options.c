@@ -285,10 +285,10 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     optsStartGroup("Lifted Planner:");
     optsAddTags("lplan", 0x0, NULL, optLiftedPlanner,
-                "Enables lifted planner. Possible values: astar, gbfs");
+                "Enables lifted planner. Possible values: astar, gbfs, lazy");
     optsAddTags("lplan-heur", 0x0, NULL, optLiftedPlannerHeur,
                 "Sets up heuristics for lifted planner.\n"
-                " TODO");
+                " TODO: List of options");
     optsAddStr("lplan-out", 0x0, &opt.lifted_planner.plan_out, NULL,
                "Output filename for the found plan.");
     optsAddStr("lplan-o", 0x0, &opt.lifted_planner.plan_out, NULL,
