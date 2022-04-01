@@ -8,6 +8,7 @@
 #define STR 4
 #define STR_TAGS 5
 #define FLAG_FN 6
+#define PARAMS 7
 
 
 struct opt_group {
@@ -27,6 +28,7 @@ struct opt_opt {
     char *desc;
     int (*parse_tags)(const char *tag);
     int (*flag_fn)(int);
+    opts_params_t params;
 };
 typedef struct opt_opt opt_opt_t;
 
@@ -60,6 +62,7 @@ void optsFree(void)
             PDDL_FREE(o.opt[i].sdefault);
         if (o.opt[i].desc != NULL)
             PDDL_FREE(o.opt[i].desc);
+        optsParamsFree(&o.opt[i].params);
     }
     if (o.opt != NULL)
         PDDL_FREE(o.opt);
@@ -173,6 +176,15 @@ void optsAddTags(const char *long_name,
     opt->parse_tags = fn;
 }
 
+opts_params_t *optsAddParams(const char *long_name,
+                             char short_name,
+                             const char *desc)
+{
+    opt_opt_t *opt = optsAdd(PARAMS, long_name, short_name, NULL, desc);
+    optsParamsInit(&opt->params);
+    return &opt->params;
+}
+
 static opt_opt_t *findOptLong(const char *name)
 {
     for (int i = 0; i < o.opt_size; i++){
@@ -227,6 +239,9 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
     }else if (opt->type == STR_TAGS){
         if (optsProcessTags(val, opt->parse_tags) != 0)
             return -1;
+
+    }else if (opt->type == PARAMS){
+        optsParamsParse(&opt->params, val);
     }
 
     return 0;
@@ -488,3 +503,156 @@ int optsProcessTags(const char *_s, int (*fn)(const char *t))
     return 0;
 }
 
+void optsParamsInit(opts_params_t *params)
+{
+    bzero(params, sizeof(*params));
+}
+
+void optsParamsFree(opts_params_t *params)
+{
+    for (int i = 0; i < params->param_size; ++i){
+        PDDL_FREE(params->param[i].name);
+    }
+    if (params->param != NULL)
+        PDDL_FREE(params->param);
+}
+
+static opts_param_t *paramsAdd(opts_params_t *params,
+                               const char *name,
+                               void *dst)
+{
+    if (params->param_size == params->param_alloc){
+        if (params->param_alloc == 0)
+            params->param_alloc = 1;
+        params->param_alloc *= 2;
+        params->param = PDDL_REALLOC_ARR(params->param,
+                                         opts_param_t,
+                                         params->param_alloc);
+    }
+    opts_param_t *p = params->param + params->param_size++;
+    bzero(p, sizeof(*p));
+    p->name = PDDL_STRDUP(name);
+    p->dst = dst;
+    return p;
+}
+
+void optsParamsAddInt(opts_params_t *params, const char *name, void *dst)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_int = 1;
+}
+
+void optsParamsAddFlt(opts_params_t *params, const char *name, void *dst)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_flt = 1;
+}
+
+void optsParamsAddFlag(opts_params_t *params, const char *name, void *dst)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_flag = 1;
+}
+
+static char *trimWhitespace(char *s)
+{
+    while (s != NULL
+            && *s != 0x0
+            && (*s == ' ' || *s == '\t' || *s == '\n')){
+        *s = 0x0;
+        ++s;
+    }
+    char *t = s + strlen(s) - 1;
+    while (*t != 0x0 && (*t == ' ' || *t == '\t' || *t == '\n')){
+        *t = 0x0;
+        --t;
+    }
+    return s;
+}
+
+static int setParam(opts_params_t *params,
+                    const char *name,
+                    const char *value)
+{
+    for (int i = 0; i < params->param_size; ++i){
+        const opts_param_t *p = params->param + i;
+        if (strcmp(p->name, name) == 0){
+            if (p->is_int){
+                *((int *)p->dst) = atoi(value);
+
+            }else if (p->is_flt){
+                *((float *)p->dst) = atof(value);
+
+            }else if (p->is_flag){
+                if (strcmp(value, "1") == 0
+                        || strcmp(value, "true") == 0
+                        || strcmp(value, "True") == 0){
+                    *((int *)p->dst) = 1;
+
+                }else if (strcmp(value, "0") == 0
+                            || strcmp(value, "false") == 0
+                            || strcmp(value, "False") == 0){
+                    *((int *)p->dst) = 0;
+
+                }else{
+                    fprintf(stderr, "Error: Invalid argument to the"
+                            " parameter '%s'\n", name);
+                    return -1;
+                }
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int setParamFlag(opts_params_t *params, const char *name)
+{
+    for (int i = 0; i < params->param_size; ++i){
+        const opts_param_t *p = params->param + i;
+        if (strcmp(p->name, name) == 0 && p->is_flag){
+            *((int *)p->dst) = 1;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int parseParam(opts_params_t *params, char *text)
+{
+    text = trimWhitespace(text);
+    char *name = text;
+    char *value = text;
+    strsep(&value, "=");
+    if (value != NULL && *value != 0x0){
+        name = trimWhitespace(name);
+        value = trimWhitespace(value);
+        if (setParam(params, name, value) != 0){
+            fprintf(stderr, "Error: Uknwown parameter: '%s'\n", text);
+            return -1;
+        }
+
+    }else{
+        if (setParamFlag(params, name) != 0){
+            fprintf(stderr, "Error: Uknwown parameter: '%s'\n", text);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int optsParamsParse(opts_params_t *params, const char *text)
+{
+    char *s = PDDL_STRDUP(text);
+    char *next = s;
+    char *cur;
+    while ((cur = strsep(&next, ",")) != NULL){
+        if (parseParam(params, cur) != 0){
+            PDDL_FREE(s);
+            return -1;
+        }
+    }
+    PDDL_FREE(s);
+
+    return 0;
+}

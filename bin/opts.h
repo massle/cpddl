@@ -3,6 +3,22 @@
 
 #include <pddl/pddl.h>
 
+struct opts_param {
+    char *name;
+    void *dst;
+    int is_int;
+    int is_flt;
+    int is_flag;
+};
+typedef struct opts_param opts_param_t;
+
+struct opts_params {
+    opts_param_t *param;
+    int param_size;
+    int param_alloc;
+};
+typedef struct opts_params opts_params_t;
+
 void optsFree(void);
 
 void optsStartGroup(const char *header);
@@ -42,10 +58,21 @@ void optsAddTags(const char *long_name,
                  int (*fn)(const char *tag),
                  const char *desc);
 
+opts_params_t *optsAddParams(const char *long_name,
+                             char short_name,
+                             const char *desc);
+
 
 int opts(int *argc, char **argv);
 void optsPrint(FILE *fout);
 
 int optsProcessTags(const char *_s, int (*fn)(const char *t));
+
+void optsParamsInit(opts_params_t *params);
+void optsParamsFree(opts_params_t *params);
+void optsParamsAddInt(opts_params_t *params, const char *name, void *dst);
+void optsParamsAddFlt(opts_params_t *params, const char *name, void *dst);
+void optsParamsAddFlag(opts_params_t *params, const char *name, void *dst);
+int optsParamsParse(opts_params_t *params, const char *text);
 
 #endif /* OPTS_H */

@@ -224,32 +224,6 @@ static int optLiftedPlannerHeur(const char *tag)
     return 0;
 }
 
-static int optGroundPlanner(const char *tag)
-{
-    if (strcmp(tag, "astar") == 0){
-        opt.ground_planner.enable = 1;
-        opt.ground_planner.search_fn = pddlSearchAStar;
-        strcpy(opt.ground_planner.log_prefix, "A*: ");
-
-    }else if (strcmp(tag, "gbfs") == 0){
-        fprintf(stderr, "Error: gbfs not implemented yet!\n");
-        exit(-1);
-        opt.ground_planner.enable = 1;
-        //opt.ground_planner.search_fn = pddlSearchLiftedGBFS;
-        strcpy(opt.ground_planner.log_prefix, "GBFS: ");
-
-    }else if (strcmp(tag, "lazy") == 0){
-        opt.ground_planner.enable = 1;
-        opt.ground_planner.search_fn = pddlSearchLazy;
-        strcpy(opt.ground_planner.log_prefix, "Lazy: ");
-
-    }else{
-        fprintf(stderr, "Error: Unknown --gplan option '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
-
 static int optGroundPlannerHeur(const char *tag)
 {
     if (strcmp(tag, "blind") == 0){
@@ -285,6 +259,8 @@ static int optGroundPlannerHeur(const char *tag)
 
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
+    opts_params_t *params;
+
     opt.lifted_planner.search_fn = NULL;
     opt.lifted_planner.heur_fn = NULL;
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
@@ -360,6 +336,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "  default - default grounding method\n"
                 "  sql - sqlite-based grounding method\n"
                 "  dl - datalog-based grounding method\n"
+                // TODO
                 "  prune-pre - prune by checking only preconditions\n"
                 "  prune-dead-end - prune by checking only dead-ends\n"
                 "  prune-all - alias for prune-pre:prune-dead-end\n");
@@ -446,8 +423,12 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                "Output filename for the red-black FDR task.");
 
     optsStartGroup("Grounded Planner:");
-    optsAddTags("gplan", 0x0, NULL, optGroundPlanner,
-                "Enables grounded planner. Possible values: astar, gbfs, lazy");
+    params = optsAddParams("gplan", 0x0,
+                           "Enables grounded planner."
+                           " Possible values: astar, gbfs, lazy");
+    optsParamsAddFlag(params, "astar", (void *)&opt.ground_planner.use_astar);
+    optsParamsAddFlag(params, "gbfs", (void *)&opt.ground_planner.use_gbfs);
+    optsParamsAddFlag(params, "lazy", (void *)&opt.ground_planner.use_lazy);
     optsAddTags("gplan-heur", 0x0, NULL, optGroundPlannerHeur,
                 "Sets up heuristics for grounded planner.\n"
                 " TODO: List of options");
@@ -482,7 +463,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         return -1;
     }
 
-    // implications
     if (opt.lmg.fd_monotonicity)
         opt.lmg.fd = 1;
 
@@ -508,5 +488,24 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
             = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
         setrlimit(RLIMIT_AS, &mem_limit);
     }
+
+    if (opt.ground_planner.use_astar){
+        opt.ground_planner.enable = 1;
+        opt.ground_planner.search_fn = pddlSearchAStar;
+        strcpy(opt.ground_planner.log_prefix, "A*: ");
+
+    }else if (opt.ground_planner.use_gbfs){
+        fprintf(stderr, "Error: gbfs not implemented yet!\n");
+        exit(-1);
+        opt.ground_planner.enable = 1;
+        //opt.ground_planner.search_fn = pddlSearchLiftedGBFS;
+        strcpy(opt.ground_planner.log_prefix, "GBFS: ");
+
+    }else if (opt.ground_planner.use_lazy){
+        opt.ground_planner.enable = 1;
+        opt.ground_planner.search_fn = pddlSearchLazy;
+        strcpy(opt.ground_planner.log_prefix, "Lazy: ");
+    }
+
     return 0;
 }

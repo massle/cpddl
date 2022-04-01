@@ -6,6 +6,7 @@
 
 struct options {
     int help;
+    float t;
     int max_mem;
     pddl_files_t files;
 
@@ -101,6 +102,10 @@ struct options {
                                     pddl_err_t *err);
         char log_prefix[16];
         char *plan_out;
+
+        int use_astar;
+        int use_gbfs;
+        int use_lazy;
     } ground_planner;
 
     struct {
