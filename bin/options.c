@@ -5,6 +5,134 @@
 
 options_t opt = { 0 };
 
+static void hpotSetDisamb(int value, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    cfg->disambiguation = value;
+    if (value)
+        cfg->weak_disambiguation = 0;
+}
+
+static void hpotSetWeakDisamb(int value, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    cfg->weak_disambiguation = value;
+    if (value)
+        cfg->disambiguation = 0;
+}
+
+static void hpotSetObjSimple(int v, void *_cfg, int type)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    if (v)
+        cfg->obj = type;
+}
+
+static void hpotSetObjSample(int v, void *_cfg, int type)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    if (v){
+        cfg->obj = type;
+        cfg->num_samples = v;
+        cfg->samples_random_walk = 1;
+    }
+}
+
+static void hpotSetObjMutex(int v, void *_cfg, int type)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    if (v){
+        cfg->obj = type;
+        cfg->all_states_mutex_size = v;
+    }
+}
+
+static void hpotSetObjInit(int v, void *_cfg)
+{
+    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_INIT);
+}
+
+static void hpotSetObjAllStates(int v, void *_cfg)
+{
+    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES);
+}
+
+static void hpotSetObjMaxInitAll(int v, void *_cfg)
+{
+    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES);
+}
+
+static void hpotSetObjSamplesMax(int v, void *_cfg)
+{
+    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_SAMPLES_MAX);
+}
+
+static void hpotSetObjSamplesSum(int v, void *_cfg)
+{
+    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_SAMPLES_SUM);
+}
+
+static void hpotSetObjDiverse(int v, void *_cfg)
+{
+    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_DIVERSE);
+}
+
+static void hpotSetObjAllMutex(int v, void *_cfg)
+{
+    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX);
+}
+
+static void hpotSetObjAllMutexCond(int v, void *_cfg)
+{
+    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED);
+}
+
+static void hpotSetObjAllMutexCondRand(int v, void *_cfg)
+{
+    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND);
+}
+
+static void hpotSetObjAllMutexCondRand2(int v, void *_cfg)
+{
+    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2);
+}
+
+static void hpotParams(opts_params_t *params,
+                       pddl_hpot_config_t *cfg)
+{
+    optsParamsAddFlagFn(params, "disam", cfg, hpotSetDisamb);
+    optsParamsAddFlagFn(params, "disambiguation", cfg, hpotSetDisamb);
+    optsParamsAddFlagFn(params, "D", cfg, hpotSetDisamb);
+
+    optsParamsAddFlagFn(params, "weak-disam", cfg, hpotSetWeakDisamb);
+    optsParamsAddFlagFn(params, "weak-disambiguation", cfg, hpotSetWeakDisamb);
+    optsParamsAddFlagFn(params, "W", cfg, hpotSetWeakDisamb);
+
+    optsParamsAddFlagFn(params, "init", cfg, hpotSetObjInit);
+    optsParamsAddFlagFn(params, "I", cfg, hpotSetObjInit);
+
+    optsParamsAddFlagFn(params, "all", cfg, hpotSetObjAllStates);
+    optsParamsAddFlagFn(params, "A", cfg, hpotSetObjAllStates);
+
+    optsParamsAddFlagFn(params, "max-init-all", cfg, hpotSetObjMaxInitAll);
+
+    optsParamsAddFlag(params, "add-init", &cfg->add_init_constr);
+    optsParamsAddFlag(params, "+I", &cfg->add_init_constr);
+
+    optsParamsAddIntFn(params, "sample-max", cfg, hpotSetObjSamplesMax);
+    optsParamsAddIntFn(params, "sample-sum", cfg, hpotSetObjSamplesSum);
+    optsParamsAddIntFn(params, "diverse", cfg, hpotSetObjDiverse);
+
+    optsParamsAddIntFn(params, "all-mutex", cfg, hpotSetObjAllMutex);
+    optsParamsAddIntFn(params, "all-mutex-cond", cfg, hpotSetObjAllMutexCond);
+    optsParamsAddIntFn(params, "all-mutex-cond-rand", cfg,
+                       hpotSetObjAllMutexCondRand);
+    optsParamsAddIntFn(params, "all-mutex-cond-rand2", cfg,
+                       hpotSetObjAllMutexCondRand2);
+
+    optsParamsAddInt(params, "num-samples", &cfg->num_samples);
+}
+
 static int optSetGround(const char *tag)
 {
     if (strcmp(tag, "default") == 0){
@@ -224,38 +352,6 @@ static int optLiftedPlannerHeur(const char *tag)
     return 0;
 }
 
-static int optGroundPlannerHeur(const char *tag)
-{
-    if (strcmp(tag, "blind") == 0){
-        opt.ground_planner.heur_fn0 = pddlHeurBlind;
-
-    }else if (strncmp(tag, "pot-state", 9) == 0){
-        opt.ground_planner.heur_fn2 = pddlHeurPotState;
-
-    }else if (strncmp(tag, "pot", 3) == 0){
-        opt.ground_planner.heur_fn_pot = pddlHeurPot;
-
-    }else if (strncmp(tag, "lmc", 3) == 0){
-        opt.ground_planner.heur_fn2 = pddlHeurLMCut;
-
-    }else if (strcmp(tag, "hmax") == 0){
-        opt.ground_planner.heur_fn2 = pddlHeurHMax;
-
-    }else if (strcmp(tag, "hadd") == 0){
-        opt.ground_planner.heur_fn2 = pddlHeurHAdd;
-
-    }else if (strcmp(tag, "hff") == 0){
-        opt.ground_planner.heur_fn2 = pddlHeurHFF;
-
-    }else if (strncmp(tag, "flow", 4) == 0){
-        opt.ground_planner.heur_fn2 = pddlHeurFlow;
-
-    }else{
-        fprintf(stderr, "Error: Unknown --gplan-heur option '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
 
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
@@ -279,6 +375,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     opt.rb_fdr.cfg = _rb_cfg;
 
     opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+
+    pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    opt.ground_planner.pot_cfg = _pot_cfg;
 
 
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
@@ -423,15 +522,30 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                "Output filename for the red-black FDR task.");
 
     optsStartGroup("Grounded Planner:");
-    params = optsAddParams("gplan", 0x0,
-                           "Enables grounded planner."
-                           " Possible values: astar, gbfs, lazy");
-    optsParamsAddFlag(params, "astar", (void *)&opt.ground_planner.use_astar);
-    optsParamsAddFlag(params, "gbfs", (void *)&opt.ground_planner.use_gbfs);
-    optsParamsAddFlag(params, "lazy", (void *)&opt.ground_planner.use_lazy);
-    optsAddTags("gplan-heur", 0x0, NULL, optGroundPlannerHeur,
-                "Sets up heuristics for grounded planner.\n"
-                " TODO: List of options");
+    optsAddFlag("gplan-astar", 0x0, &opt.ground_planner.use_astar, 0,
+                "Run grounded planner with A*");
+    optsAddFlag("gplan-gbfs", 0x0, &opt.ground_planner.use_gbfs, 0,
+                "Run grounded planner with GBFS");
+    optsAddFlag("gplan-lazy", 0x0, &opt.ground_planner.use_lazy, 0,
+                "Run grounded planner with GBFS with lazy evaluation");
+    optsAddFlag("gplan-h-lmc", 0x0, &opt.ground_planner.use_lmc, 0,
+                "Use LM-Cut heuristic");
+    optsAddFlag("gplan-h-max", 0x0, &opt.ground_planner.use_hmax, 0,
+                "Use h^max heuristic");
+    optsAddFlag("gplan-h-add", 0x0, &opt.ground_planner.use_hadd, 0,
+                "Use h^add heuristic");
+    optsAddFlag("gplan-h-ff", 0x0, &opt.ground_planner.use_hff, 0,
+                "Use FF heuristic");
+    optsAddFlag("gplan-h-flow", 0x0, &opt.ground_planner.use_flow, 0,
+                "Use flow (state equation) heuristic");
+    optsAddFlag("gplan-h-pot", 0x0, &opt.ground_planner.use_pot, 0,
+                "Use potential heuristic (see --gplan-pot");
+
+    params = optsAddParams("gplan-pot", 0x0,
+                           "Configuration for the potential heuristic"
+                           " (if --gplan-h-pot is used)");
+    hpotParams(params, &opt.ground_planner.pot_cfg);
+
     optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
                "Output filename for the found plan.");
     optsAddStr("gplan-o", 0x0, &opt.ground_planner.plan_out, NULL,
@@ -487,24 +601,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         mem_limit.rlim_cur
             = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
         setrlimit(RLIMIT_AS, &mem_limit);
-    }
-
-    if (opt.ground_planner.use_astar){
-        opt.ground_planner.enable = 1;
-        opt.ground_planner.search_fn = pddlSearchAStar;
-        strcpy(opt.ground_planner.log_prefix, "A*: ");
-
-    }else if (opt.ground_planner.use_gbfs){
-        fprintf(stderr, "Error: gbfs not implemented yet!\n");
-        exit(-1);
-        opt.ground_planner.enable = 1;
-        //opt.ground_planner.search_fn = pddlSearchLiftedGBFS;
-        strcpy(opt.ground_planner.log_prefix, "GBFS: ");
-
-    }else if (opt.ground_planner.use_lazy){
-        opt.ground_planner.enable = 1;
-        opt.ground_planner.search_fn = pddlSearchLazy;
-        strcpy(opt.ground_planner.log_prefix, "Lazy: ");
     }
 
     return 0;

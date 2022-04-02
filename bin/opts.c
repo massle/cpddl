@@ -538,20 +538,41 @@ static opts_param_t *paramsAdd(opts_params_t *params,
 
 void optsParamsAddInt(opts_params_t *params, const char *name, void *dst)
 {
-    opts_param_t *p = paramsAdd(params, name, dst);
-    p->is_int = 1;
+    optsParamsAddIntFn(params, name, dst, NULL);
 }
 
 void optsParamsAddFlt(opts_params_t *params, const char *name, void *dst)
 {
-    opts_param_t *p = paramsAdd(params, name, dst);
-    p->is_flt = 1;
+    optsParamsAddFltFn(params, name, dst, NULL);
 }
 
 void optsParamsAddFlag(opts_params_t *params, const char *name, void *dst)
 {
+    optsParamsAddFlagFn(params, name, dst, NULL);
+}
+
+void optsParamsAddIntFn(opts_params_t *params, const char *name, void *dst,
+                        opts_params_int_fn fn)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_int = 1;
+    p->int_fn = fn;
+}
+
+void optsParamsAddFltFn(opts_params_t *params, const char *name, void *dst,
+                        opts_params_flt_fn fn)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_flt = 1;
+    p->flt_fn = fn;
+}
+
+void optsParamsAddFlagFn(opts_params_t *params, const char *name, void *dst,
+                         opts_params_flag_fn fn)
+{
     opts_param_t *p = paramsAdd(params, name, dst);
     p->is_flag = 1;
+    p->flag_fn = fn;
 }
 
 static char *trimWhitespace(char *s)
@@ -578,21 +599,39 @@ static int setParam(opts_params_t *params,
         const opts_param_t *p = params->param + i;
         if (strcmp(p->name, name) == 0){
             if (p->is_int){
-                *((int *)p->dst) = atoi(value);
+                int val = atoi(value);
+                if (p->int_fn != NULL){
+                    p->int_fn(val, p->dst);
+                }else{
+                    *((int *)p->dst) = val;
+                }
 
             }else if (p->is_flt){
-                *((float *)p->dst) = atof(value);
+                float val = atof(value);
+                if (p->flt_fn != NULL){
+                    p->flt_fn(val, p->dst);
+                }else{
+                    *((float *)p->dst) = val;
+                }
 
             }else if (p->is_flag){
                 if (strcmp(value, "1") == 0
                         || strcmp(value, "true") == 0
                         || strcmp(value, "True") == 0){
-                    *((int *)p->dst) = 1;
+                    if (p->flag_fn != NULL){
+                        p->flag_fn(1, p->dst);
+                    }else{
+                        *((int *)p->dst) = 1;
+                    }
 
                 }else if (strcmp(value, "0") == 0
                             || strcmp(value, "false") == 0
                             || strcmp(value, "False") == 0){
-                    *((int *)p->dst) = 0;
+                    if (p->flag_fn != NULL){
+                        p->flag_fn(0, p->dst);
+                    }else{
+                        *((int *)p->dst) = 0;
+                    }
 
                 }else{
                     fprintf(stderr, "Error: Invalid argument to the"
@@ -611,7 +650,11 @@ static int setParamFlag(opts_params_t *params, const char *name)
     for (int i = 0; i < params->param_size; ++i){
         const opts_param_t *p = params->param + i;
         if (strcmp(p->name, name) == 0 && p->is_flag){
-            *((int *)p->dst) = 1;
+            if (p->flag_fn != NULL){
+                p->flag_fn(1, p->dst);
+            }else{
+                *((int *)p->dst) = 1;
+            }
             return 0;
         }
     }

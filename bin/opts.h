@@ -3,9 +3,16 @@
 
 #include <pddl/pddl.h>
 
+typedef void (*opts_params_flag_fn)(int value, void *dst);
+typedef void (*opts_params_int_fn)(int value, void *dst);
+typedef void (*opts_params_flt_fn)(float value, void *dst);
+
 struct opts_param {
     char *name;
     void *dst;
+    opts_params_flag_fn flag_fn;
+    opts_params_int_fn int_fn;
+    opts_params_flt_fn flt_fn;
     int is_int;
     int is_flt;
     int is_flag;
@@ -18,6 +25,7 @@ struct opts_params {
     int param_alloc;
 };
 typedef struct opts_params opts_params_t;
+
 
 void optsFree(void);
 
@@ -73,6 +81,12 @@ void optsParamsFree(opts_params_t *params);
 void optsParamsAddInt(opts_params_t *params, const char *name, void *dst);
 void optsParamsAddFlt(opts_params_t *params, const char *name, void *dst);
 void optsParamsAddFlag(opts_params_t *params, const char *name, void *dst);
+void optsParamsAddIntFn(opts_params_t *params, const char *name, void *dst,
+                        opts_params_int_fn fn);
+void optsParamsAddFltFn(opts_params_t *params, const char *name, void *dst,
+                        opts_params_flt_fn fn);
+void optsParamsAddFlagFn(opts_params_t *params, const char *name, void *dst,
+                         opts_params_flag_fn fn);
 int optsParamsParse(opts_params_t *params, const char *text);
 
 #endif /* OPTS_H */

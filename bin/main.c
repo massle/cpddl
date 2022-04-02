@@ -397,31 +397,59 @@ static void printSearchStat(const pddl_search_t *astar, pddl_err_t *err)
                   stat.last_f_value);
 }
 
-static pddl_heur_t *groundPlannerHeur(void)
-{
-    if (opt.ground_planner.heur_fn0 != NULL){
-        return opt.ground_planner.heur_fn0();
-
-    }else if (opt.ground_planner.heur_fn2 != NULL){
-        return opt.ground_planner.heur_fn2(&fdr, &err);
-
-    }else if (opt.ground_planner.heur_fn_pot != NULL){
-        pddl_hpot_config_t cfg = PDDL_HPOT_CONFIG_INIT;
-        return opt.ground_planner.heur_fn_pot(&fdr, &cfg, &err);
-    }
-
-    PDDL_INFO2(&err, "Using blind heuristic");
-    return pddlHeurBlind();
-}
 
 static int stepGroundPlanner(void)
 {
-    if (!opt.ground_planner.enable)
+    if (!opt.ground_planner.use_astar
+            && !opt.ground_planner.use_gbfs
+            && !opt.ground_planner.use_lazy){
         return 0;
+    }
 
-    PDDL_INFO_PREFIX_PUSH(&err, opt.ground_planner.log_prefix);
-    pddl_heur_t *heur = groundPlannerHeur();
-    pddl_search_t *search = opt.ground_planner.search_fn(&fdr, heur, &err);
+    PDDL_INFO_PREFIX_PUSH(&err, "GPLAN: ");
+    pddl_heur_t *heur = NULL;
+    if (opt.ground_planner.use_lmc){
+        PDDL_INFO2(&err, "Heuristic: lmc");
+        heur = pddlHeurLMCut(&fdr, &err);
+
+    }else if (opt.ground_planner.use_hmax){
+        PDDL_INFO2(&err, "Heuristic: hmax");
+        heur = pddlHeurHMax(&fdr, &err);
+
+    }else if (opt.ground_planner.use_hadd){
+        PDDL_INFO2(&err, "Heuristic: hadd");
+        heur = pddlHeurHAdd(&fdr, &err);
+
+    }else if (opt.ground_planner.use_hff){
+        PDDL_INFO2(&err, "Heuristic: hff");
+        heur = pddlHeurHFF(&fdr, &err);
+
+    }else if (opt.ground_planner.use_flow){
+        PDDL_INFO2(&err, "Heuristic: flow");
+        heur = pddlHeurFlow(&fdr, &err);
+
+    }else if (opt.ground_planner.use_pot){
+        PDDL_INFO2(&err, "Heuristic: pot");
+        heur = pddlHeurPot(&fdr, &opt.ground_planner.pot_cfg, &err);
+
+    }else{
+        PDDL_INFO2(&err, "Heuristic: blind");
+        heur = pddlHeurBlind();
+    }
+
+    pddl_search_t *search = NULL;
+    if (opt.ground_planner.use_astar){
+        PDDL_INFO2(&err, "Search: astar");
+        search = pddlSearchAStar(&fdr, heur, &err);
+
+    }else if (opt.ground_planner.use_gbfs){
+        PDDL_FATAL2("Error: gbfs not implemented yet!\n");
+
+    }else if (opt.ground_planner.use_lazy){
+        PDDL_INFO2(&err, "Search: lazy");
+        search = pddlSearchLazy(&fdr, heur, &err);
+    }
+
     int ret = pddlSearchInitStep(search);
     search_started = 1;
 

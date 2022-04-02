@@ -7,7 +7,7 @@ variables:
 
 stages:
   - build
-  - test
+#  - test
 #  - test-valgrind
 
 .restrict: &restrict

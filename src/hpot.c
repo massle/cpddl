@@ -913,6 +913,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     }
 
     PDDL_INFO_PREFIX_PUSH(err, "Pot: ");
+    pddlHPotConfigLog(cfg, "cfg.", err);
     // Construct MG-Strips and compute h^2 mutexes if necessary
     pddl_mg_strips_t mg_strips;
     pddl_mutex_pairs_t mutex;
@@ -1064,6 +1065,7 @@ pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
 {
     pddl_heur_pot_t *h = ALLOC(pddl_heur_pot_t);
     pddlPotSolutionsInit(&h->sols);
+    pddlHPot(&h->sols, fdr, cfg, err);
     h->vars = &fdr->var;
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
     return &h->heur;
