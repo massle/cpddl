@@ -83,6 +83,7 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
     PDDL_LOG_CONFIG_INT(cfg, prefix, num_samples, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, samples_use_mutex, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, samples_random_walk, err);
+    PDDL_LOG_CONFIG_INT(cfg, prefix, all_states_mutex_size, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, op_pot, err);
     PDDL_LOG_CONFIG_BOOL(cfg, prefix, op_pot_real, err);
 }

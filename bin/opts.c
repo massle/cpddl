@@ -241,7 +241,8 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
             return -1;
 
     }else if (opt->type == PARAMS){
-        optsParamsParse(&opt->params, val);
+        if (optsParamsParse(&opt->params, val) != 0)
+            return -1;
     }
 
     return 0;
@@ -618,6 +619,7 @@ static int setParam(opts_params_t *params,
                 if (strcmp(value, "1") == 0
                         || strcmp(value, "true") == 0
                         || strcmp(value, "True") == 0){
+                    fprintf(stderr, "%s = %d\n", name, 1);
                     if (p->flag_fn != NULL){
                         p->flag_fn(1, p->dst);
                     }else{
@@ -627,6 +629,7 @@ static int setParam(opts_params_t *params,
                 }else if (strcmp(value, "0") == 0
                             || strcmp(value, "false") == 0
                             || strcmp(value, "False") == 0){
+                    fprintf(stderr, "%s = %d\n", name, 0);
                     if (p->flag_fn != NULL){
                         p->flag_fn(0, p->dst);
                     }else{
@@ -650,6 +653,7 @@ static int setParamFlag(opts_params_t *params, const char *name)
     for (int i = 0; i < params->param_size; ++i){
         const opts_param_t *p = params->param + i;
         if (strcmp(p->name, name) == 0 && p->is_flag){
+            fprintf(stderr, "%s = %d\n", name, 1);
             if (p->flag_fn != NULL){
                 p->flag_fn(1, p->dst);
             }else{
