@@ -3,4 +3,4 @@
 	url = https://github.com/danfis/opts
 [submodule "t"]
 	path = t
-	url = git@gitlab.com:danfis/cpddl-test.git
+	url = ../cpddl-test.git
