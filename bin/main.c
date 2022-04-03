@@ -408,54 +408,57 @@ static void printSearchStat(const pddl_search_t *astar, pddl_err_t *err)
 
 static int stepGroundPlanner(void)
 {
-    if (!opt.ground_planner.use_astar
-            && !opt.ground_planner.use_gbfs
-            && !opt.ground_planner.use_lazy){
+    if (opt.ground_planner.search == GROUND_PLAN_NONE)
         return 0;
-    }
 
     PDDL_INFO_PREFIX_PUSH(&err, "GPLAN: ");
     pddl_heur_t *heur = NULL;
-    if (opt.ground_planner.use_lmc){
-        PDDL_INFO2(&err, "Heuristic: lmc");
-        heur = pddlHeurLMCut(&fdr, &err);
-
-    }else if (opt.ground_planner.use_hmax){
-        PDDL_INFO2(&err, "Heuristic: hmax");
-        heur = pddlHeurHMax(&fdr, &err);
-
-    }else if (opt.ground_planner.use_hadd){
-        PDDL_INFO2(&err, "Heuristic: hadd");
-        heur = pddlHeurHAdd(&fdr, &err);
-
-    }else if (opt.ground_planner.use_hff){
-        PDDL_INFO2(&err, "Heuristic: hff");
-        heur = pddlHeurHFF(&fdr, &err);
-
-    }else if (opt.ground_planner.use_flow){
-        PDDL_INFO2(&err, "Heuristic: flow");
-        heur = pddlHeurFlow(&fdr, &err);
-
-    }else if (opt.ground_planner.use_pot){
-        PDDL_INFO2(&err, "Heuristic: pot");
-        heur = pddlHeurPot(&fdr, &opt.ground_planner.pot_cfg, &err);
-
-    }else{
-        PDDL_INFO2(&err, "Heuristic: blind");
-        heur = pddlHeurBlind();
+    switch (opt.ground_planner.heur){
+        case GROUND_PLAN_HEUR_LMC:
+            PDDL_INFO2(&err, "Heuristic: lmc");
+            heur = pddlHeurLMCut(&fdr, &err);
+            break;
+        case GROUND_PLAN_HEUR_MAX:
+            PDDL_INFO2(&err, "Heuristic: hmax");
+            heur = pddlHeurHMax(&fdr, &err);
+            break;
+        case GROUND_PLAN_HEUR_ADD:
+            PDDL_INFO2(&err, "Heuristic: hadd");
+            heur = pddlHeurHAdd(&fdr, &err);
+            break;
+        case GROUND_PLAN_HEUR_FF:
+            PDDL_INFO2(&err, "Heuristic: hff");
+            heur = pddlHeurHFF(&fdr, &err);
+            break;
+        case GROUND_PLAN_HEUR_FLOW:
+            PDDL_INFO2(&err, "Heuristic: flow");
+            heur = pddlHeurFlow(&fdr, &err);
+            break;
+        case GROUND_PLAN_HEUR_POT:
+            PDDL_INFO2(&err, "Heuristic: pot");
+            heur = pddlHeurPot(&fdr, &opt.ground_planner.pot_cfg, &err);
+            break;
+        case GROUND_PLAN_HEUR_BLIND:
+        default:
+            PDDL_INFO2(&err, "Heuristic: blind");
+            heur = pddlHeurBlind();
     }
 
     pddl_search_t *search = NULL;
-    if (opt.ground_planner.use_astar){
-        PDDL_INFO2(&err, "Search: astar");
-        search = pddlSearchAStar(&fdr, heur, &err);
-
-    }else if (opt.ground_planner.use_gbfs){
-        PDDL_FATAL2("Error: gbfs not implemented yet!\n");
-
-    }else if (opt.ground_planner.use_lazy){
-        PDDL_INFO2(&err, "Search: lazy");
-        search = pddlSearchLazy(&fdr, heur, &err);
+    switch (opt.ground_planner.search){
+        case GROUND_PLAN_ASTAR:
+            PDDL_INFO2(&err, "Search: astar");
+            search = pddlSearchAStar(&fdr, heur, &err);
+            break;
+        case GROUND_PLAN_GBFS:
+            PDDL_FATAL2("Error: gbfs not implemented yet!\n");
+            break;
+        case GROUND_PLAN_LAZY:
+            PDDL_INFO2(&err, "Search: lazy");
+            search = pddlSearchLazy(&fdr, heur, &err);
+            break;
+        default:
+            PDDL_FATAL("Unknown planner %d", opt.ground_planner.search);
     }
 
     int ret = pddlSearchInitStep(search);

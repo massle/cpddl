@@ -4,13 +4,34 @@
 #include <pddl/pddl.h>
 #include "process_strips.h"
 
-#define GROUND_TRIE 0
-#define GROUND_SQL 1
-#define GROUND_DL 2
+enum {
+    GROUND_TRIE = 0,
+    GROUND_SQL,
+    GROUND_DL
+};
 
-#define MG_NONE 0
-#define MG_FAM 1
-#define MG_H2 2
+enum {
+    MG_NONE = 0,
+    MG_FAM,
+    MG_H2
+};
+
+enum {
+    GROUND_PLAN_NONE = 0,
+    GROUND_PLAN_ASTAR,
+    GROUND_PLAN_GBFS,
+    GROUND_PLAN_LAZY
+};
+
+enum {
+    GROUND_PLAN_HEUR_BLIND = 0,
+    GROUND_PLAN_HEUR_LMC,
+    GROUND_PLAN_HEUR_MAX,
+    GROUND_PLAN_HEUR_ADD,
+    GROUND_PLAN_HEUR_FF,
+    GROUND_PLAN_HEUR_FLOW,
+    GROUND_PLAN_HEUR_POT
+};
 
 struct options {
     int help;
@@ -95,23 +116,9 @@ struct options {
     } fdr;
 
     struct {
-        pddl_heur_t *(*heur_fn0)(void);
-        pddl_heur_t *(*heur_fn2)(const pddl_fdr_t *fdr, pddl_err_t *err);
-        pddl_heur_t *(*heur_fn_pot)(const pddl_fdr_t *fdr,
-                                    const pddl_hpot_config_t *cfg,
-                                    pddl_err_t *err);
+        int search;
+        int heur;
         char *plan_out;
-
-        int use_astar;
-        int use_gbfs;
-        int use_lazy;
-
-        int use_lmc;
-        int use_hmax;
-        int use_hadd;
-        int use_hff;
-        int use_flow;
-        int use_pot;
         pddl_hpot_config_t pot_cfg;
     } ground_planner;
 

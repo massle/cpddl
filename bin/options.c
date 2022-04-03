@@ -497,24 +497,37 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                "Output filename for the red-black FDR task.");
 
     optsStartGroup("Grounded Planner:");
-    optsAddFlag("gplan-astar", 0x0, &opt.ground_planner.use_astar, 0,
-                "Run grounded planner with A*");
-    optsAddFlag("gplan-gbfs", 0x0, &opt.ground_planner.use_gbfs, 0,
-                "Run grounded planner with GBFS");
-    optsAddFlag("gplan-lazy", 0x0, &opt.ground_planner.use_lazy, 0,
-                "Run grounded planner with GBFS with lazy evaluation");
-    optsAddFlag("gplan-h-lmc", 0x0, &opt.ground_planner.use_lmc, 0,
-                "Use LM-Cut heuristic");
-    optsAddFlag("gplan-h-max", 0x0, &opt.ground_planner.use_hmax, 0,
-                "Use h^max heuristic");
-    optsAddFlag("gplan-h-add", 0x0, &opt.ground_planner.use_hadd, 0,
-                "Use h^add heuristic");
-    optsAddFlag("gplan-h-ff", 0x0, &opt.ground_planner.use_hff, 0,
-                "Use FF heuristic");
-    optsAddFlag("gplan-h-flow", 0x0, &opt.ground_planner.use_flow, 0,
-                "Use flow (state equation) heuristic");
-    optsAddFlag("gplan-h-pot", 0x0, &opt.ground_planner.use_pot, 0,
-                "Use potential heuristic (see --gplan-pot");
+    optsAddIntSwitch("gplan", 0x0, &opt.ground_planner.search,
+                     "Search algorithm for the grounded planner, one of:\n"
+                     "  none - no search (default)\n"
+                     "  astar - A*\n"
+                     "  gbfs - Greedy Best First Search\n"
+                     "  lazy - Greedy Best First Search with lazy evaluation",
+                     4,
+                     "none", GROUND_PLAN_NONE,
+                     "astar", GROUND_PLAN_ASTAR,
+                     "gbfs", GROUND_PLAN_GBFS,
+                     "lazy", GROUND_PLAN_LAZY);
+    optsAddIntSwitch("gplan-h", 0x0, &opt.ground_planner.heur,
+                     "Heuristic function for the grounded planner, one of:\n"
+                     "  blind - Blind heuristic (default)\n"
+                     "  lmc - LM-Cut\n"
+                     "  max/hmax - h^max\n"
+                     "  add/hadd - h^add\n"
+                     "  ff/hff - FF heuristic\n"
+                     "  flow - Flow heuristic\n"
+                     "  pot - Potential heuristic",
+                     10,
+                     "none", GROUND_PLAN_HEUR_BLIND,
+                     "lmc", GROUND_PLAN_HEUR_LMC,
+                     "max", GROUND_PLAN_HEUR_MAX,
+                     "hmax", GROUND_PLAN_HEUR_MAX,
+                     "add", GROUND_PLAN_HEUR_ADD,
+                     "hadd", GROUND_PLAN_HEUR_ADD,
+                     "ff", GROUND_PLAN_HEUR_FF,
+                     "hff", GROUND_PLAN_HEUR_FF,
+                     "flow", GROUND_PLAN_HEUR_FLOW,
+                     "pot", GROUND_PLAN_HEUR_POT);
 
     params = optsAddParams("gplan-pot", 0x0,
                            "Configuration for the potential heuristic"
