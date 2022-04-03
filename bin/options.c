@@ -254,8 +254,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     pddlProcessStripsInit(&opt.strips.process);
 
     opt.ground.cfg.lifted_mgroups = NULL;
-    opt.ground.cfg.prune_op_pre_mutex = 0;
-    opt.ground.cfg.prune_op_dead_end = 0;
     opt.ground.cfg.remove_static_facts = 1;
     opt.ground.method = GROUND_TRIE;
 
@@ -327,8 +325,18 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                      "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
                      "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF);
     params = optsAddParams("lplan-h-homo", 0x0,
-                           "Configuration of the homomorphism for the"
-                           " homomorphism-based heuristics");
+               "Configuration of the homomorphism for the"
+               " homomorphism-based heuristics.\n"
+               "Possible options:\n"
+               "  type = types|rnd-objs|gaif|rpg\n"
+               "  endomorph = <bool> -- enables lifted endomorphism (default: false)\n"
+               "  endomorph-ignore-cost = <bool> -- endomorphism ignores costs (default: false)\n"
+               "  rm-ratio = <float> -- ratio of removed objects\n"
+               "  seed = <int> -- random seed\n"
+               "  keep-goal-objs = <bool> -- do not collapse goal objects (default: true)\n"
+               "  samples = <int> -- number of samples from which 1 is selected (default: 1)\n"
+               "  rpg-max-depth = <int> -- maximum depth used for the rpg method (default: 2)"
+               );
     optsParamsAddIntSwitch(params, "type",
                            &opt.lifted_planner.homomorph_cfg.type,
                            5,
@@ -501,8 +509,24 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                      "pot", GROUND_PLAN_HEUR_POT);
 
     params = optsAddParams("gplan-pot", 0x0,
-                           "Configuration for the potential heuristic"
-                           " (if --gplan-h pot is used)");
+               "Configuration for the potential heuristic"
+               " (if --gplan-h pot is used)."
+               "Options:\n"
+               "  D/disamb = <bool> -- turns on disambiguation (default: true)\n"
+               "  W/weak-disamb = <bool> -- turns on weak disambiguation (default: false)\n"
+               "  I/init = <bool> -- sets objective to initial state\n"
+               "  A/all = <bool> -- sets objective to all syntactic states (default: true)\n"
+               "  max-init-all = <bool> -- sets objective to the maximum of I and A\n"
+               "  +I/add-init = <bool> -- adds constraint on the inital state (default: true)\n"
+               "  sample-max = <int> -- maximum over the specified number of samples states\n"
+               "  sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
+               "  diverse = <int> -- diversification over the specified number states\n"
+               "  all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
+               "  all-mutex-cond = <int> -- conditioned ensemble\n"
+               "  all-mutex-cond-rand = <int> -- conditioned on <num-samples> fact sets\n"
+               "  all-mutex-cond-rand2 = <int>\n"
+               "  num-samples = <int> -- sets number of samples"
+               );
     hpotParams(params, &opt.ground_planner.pot_cfg);
 
     optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
