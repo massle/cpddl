@@ -5,6 +5,13 @@
 #include "process_strips.h"
 
 enum {
+    LIFTED_PLAN_NONE = 0,
+    LIFTED_PLAN_ASTAR,
+    LIFTED_PLAN_GBFS,
+    LIFTED_PLAN_LAZY
+};
+
+enum {
     GROUND_TRIE = 0,
     GROUND_SQL,
     GROUND_DL
@@ -62,10 +69,7 @@ struct options {
     } lifted_endomorph;
 
     struct {
-        int enable;
-        pddl_search_lifted_t *(*search_fn)(const pddl_t *pddl,
-                                           pddl_homomorphism_heur_t *heur,
-                                           pddl_err_t *err);
+        int search;
         pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
                                              const pddl_homomorphism_config_t *cfg,
                                              pddl_err_t *err);

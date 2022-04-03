@@ -143,8 +143,25 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             heur = liftedPlannerHeurCollapseRandom(pddl, err);
         }
     }
+
     pddl_search_lifted_t *search;
-    search = opt.lifted_planner.search_fn(pddl, heur, err);
+    switch (opt.lifted_planner.search){
+        case LIFTED_PLAN_ASTAR:
+            PDDL_INFO2(err, "Search: astar");
+            search = pddlSearchLiftedAStar(pddl, heur, err);
+            break;
+        case LIFTED_PLAN_GBFS:
+            PDDL_INFO2(err, "Search: gbfs");
+            search = pddlSearchLiftedGBFS(pddl, heur, err);
+            break;
+        case LIFTED_PLAN_LAZY:
+            PDDL_INFO2(err, "Search: lazy");
+            search = pddlSearchLiftedLazy(pddl, heur, err);
+            break;
+        default:
+            PDDL_FATAL("Unknown lifted planner %d", opt.lifted_planner.search);
+    }
+
     int ret = pddlSearchLiftedInitStep(search);
     lifted_search_started = 1;
 

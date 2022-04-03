@@ -242,27 +242,6 @@ static int optFDREssentialFirst(int enabled)
     return 0;
 }
 
-static int optLiftedPlanner(const char *tag)
-{
-    if (strcmp(tag, "astar") == 0){
-        opt.lifted_planner.enable = 1;
-        opt.lifted_planner.search_fn = pddlSearchLiftedAStar;
-
-    }else if (strcmp(tag, "gbfs") == 0){
-        opt.lifted_planner.enable = 1;
-        opt.lifted_planner.search_fn = pddlSearchLiftedGBFS;
-
-    }else if (strcmp(tag, "lazy") == 0){
-        opt.lifted_planner.enable = 1;
-        opt.lifted_planner.search_fn = pddlSearchLiftedLazy;
-
-    }else{
-        fprintf(stderr, "Error: Unknown --lplan option '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
-
 static int optLiftedPlannerHeur(const char *tag)
 {
     if (strcmp(tag, "lmc") == 0){
@@ -315,7 +294,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
     opts_params_t *params;
 
-    opt.lifted_planner.search_fn = NULL;
     opt.lifted_planner.heur_fn = NULL;
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
     opt.lifted_planner.homomorph_cfg = _homomorph_cfg;
@@ -376,8 +354,17 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "Ignore costs of actions when inferring lifted endomorphisms.");
 
     optsStartGroup("Lifted Planner:");
-    optsAddTags("lplan", 0x0, NULL, optLiftedPlanner,
-                "Enables lifted planner. Possible values: astar, gbfs, lazy");
+    optsAddIntSwitch("lplan", 0x0, &opt.lifted_planner.search,
+                     "Search algorithm for the lifted planner, one of:\n"
+                     "  none - no search (default)\n"
+                     "  astar - A*\n"
+                     "  gbfs - Greedy Best First Search\n"
+                     "  lazy - Greedy Best First Search with lazy evaluation",
+                     4,
+                     "none", LIFTED_PLAN_NONE,
+                     "astar", LIFTED_PLAN_ASTAR,
+                     "gbfs", LIFTED_PLAN_GBFS,
+                     "lazy", LIFTED_PLAN_LAZY);
     optsAddTags("lplan-heur", 0x0, NULL, optLiftedPlannerHeur,
                 "Sets up heuristics for lifted planner.\n"
                 " TODO: List of options");
@@ -391,7 +378,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                      "Grounding method, one of:\n"
                      "  trie - default grounding method (default)\n"
                      "  sql - sqlite-based grounding method\n"
-                     "  dl - datalog-based grounding method\n",
+                     "  dl - datalog-based grounding method",
                      4,
                      "trie", GROUND_TRIE,
                      "sql", GROUND_SQL,
@@ -531,7 +518,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     params = optsAddParams("gplan-pot", 0x0,
                            "Configuration for the potential heuristic"
-                           " (if --gplan-h-pot is used)");
+                           " (if --gplan-h pot is used)");
     hpotParams(params, &opt.ground_planner.pot_cfg);
 
     optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,

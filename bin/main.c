@@ -120,7 +120,7 @@ static int stepLiftedEndomorph(void)
 
 static int stepLiftedPlanner(void)
 {
-    if (!opt.lifted_planner.enable)
+    if (opt.lifted_planner.search == LIFTED_PLAN_NONE)
         return 0;
     return liftedPlanner(&pddl, &err);
 }

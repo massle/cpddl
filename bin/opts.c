@@ -426,6 +426,12 @@ static int maxLen(int group)
 
 static void optsPrintDefault(const opt_opt_t *opt, FILE *fout)
 {
+    if (opt->type == FLAG_FN
+            || opt->type == PARAMS
+            || opt->type == INT_SWITCH){
+        return;
+    }
+
     fprintf(fout, " (default: ");
     if (opt->type == FLAG){
         if (opt->idefault){
@@ -498,12 +504,14 @@ static void optsPrintOpts(int group, FILE *fout)
             fprintf(fout, "int ");
         }else if (opt->type == FLT){
             fprintf(fout, "flt ");
-        }else if (opt->type == STR){
+        }else if (opt->type == STR
+                    || opt->type == PARAMS
+                    || opt->type == INT_SWITCH){
             fprintf(fout, "str ");
         }else if (opt->type == STR_TAGS){
             fprintf(fout, "tags");
         }
-        prefixlen += 3;
+        prefixlen += 4;
 
         if (opt->desc != NULL){
             fprintf(fout, "  ");
