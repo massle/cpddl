@@ -17,7 +17,6 @@ endif
 
 TARGETS = pddl
 TARGETS += pddl-fdr
-TARGETS += pddl-pot
 TARGETS += pddl-mgroups
 TARGETS += pddl-op-mutex
 TARGETS += pddl-symba

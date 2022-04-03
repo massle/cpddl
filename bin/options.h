@@ -121,6 +121,8 @@ struct options {
         char *out;
         int pretty_print_vars;
         int pretty_print_cg;
+        int pot;
+        pddl_hpot_config_t pot_cfg;
     } fdr;
 
     struct {

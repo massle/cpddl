@@ -263,6 +263,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
 
     pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    opt.fdr.pot_cfg = _pot_cfg;
     opt.ground_planner.pot_cfg = _pot_cfg;
 
 
@@ -444,6 +445,20 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddFlagFn("h2", 0x0, optProcessStripsH2,
                   "Alias for -P irr:fam-dead-end:h2fwbw:irr:dedup");
 
+    optsStartGroup("Red-Black FDR:");
+    optsAddFlag("rb-fdr", 0x0, &opt.rb_fdr.enable, 0,
+                "Compute red-black FDR encoding of the task.");
+    optsAddInt("rb-fdr-size", 0x0, &opt.rb_fdr.cfg.mgroup.num_solutions, 1,
+               "Number of different encodings to compute.");
+    optsAddFlag("rb-fdr-relaxed-plan", 0x0,
+                &opt.rb_fdr.cfg.mgroup.weight_facts_with_relaxed_plan, 0,
+                "Weight facts using relaxed plan.");
+    optsAddFlag("rb-fdr-conflicts", 0x0,
+                &opt.rb_fdr.cfg.mgroup.weight_facts_with_conflicts, 0,
+                "Weight facts with conflicts in relaxed plan.");
+    optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
+               "Output filename for the red-black FDR task.");
+
 
     optsStartGroup("Finite Domain Representation:");
     optsAddFlagFn("fdr-largest", 0x0, optFDRLargestFirst,
@@ -460,20 +475,12 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "Log FDR variables.");
     optsAddFlag("fdr-pretty-print-cg", 0x0, &opt.fdr.pretty_print_cg, 0,
                 "Log FDR causal graph.");
-
-    optsStartGroup("Red-Black FDR:");
-    optsAddFlag("rb-fdr", 0x0, &opt.rb_fdr.enable, 0,
-                "Compute red-black FDR encoding of the task.");
-    optsAddInt("rb-fdr-size", 0x0, &opt.rb_fdr.cfg.mgroup.num_solutions, 1,
-               "Number of different encodings to compute.");
-    optsAddFlag("rb-fdr-relaxed-plan", 0x0,
-                &opt.rb_fdr.cfg.mgroup.weight_facts_with_relaxed_plan, 0,
-                "Weight facts using relaxed plan.");
-    optsAddFlag("rb-fdr-conflicts", 0x0,
-                &opt.rb_fdr.cfg.mgroup.weight_facts_with_conflicts, 0,
-                "Weight facts with conflicts in relaxed plan.");
-    optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
-               "Output filename for the red-black FDR task.");
+    optsAddFlag("fdr-pot", 0x0, &opt.fdr.pot, 0,
+                "Generate potential heuristics as part of the FDR output.");
+    params = optsAddParams("fdr-pot-cfg", 0x0,
+               "Configuration for the potential heuristic (if --fdr-pot is used).\n"
+               "See --gplan-pot for the description of options.");
+    hpotParams(params, &opt.fdr.pot_cfg);
 
     optsStartGroup("Grounded Planner:");
     optsAddIntSwitch("gplan", 0x0, &opt.ground_planner.search,

@@ -364,6 +364,23 @@ static int stepRedBlackFDR(void)
     return 1;
 }
 
+static void printPotentials(const pddl_fdr_t *fdr,
+                            const pddl_pot_solutions_t *pot,
+                            FILE *fout)
+{
+    fprintf(fout, "%d\n", pot->sol_size);
+    for (int pi = 0; pi < pot->sol_size; ++pi){
+        const double *w = pot->sol[pi].pot;
+        fprintf(fout, "begin_potentials\n");
+        for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
+            const pddl_fdr_val_t *fval = fdr->var.global_id_to_val[fi];
+            fprintf(fout, "%d %d %.20f\n",
+                    fval->var_id, fval->val_id, w[fi]);
+        }
+        fprintf(fout, "end_potentials\n");
+    }
+}
+
 static int stepFDR(void)
 {
     pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex,
@@ -375,6 +392,18 @@ static int stepFDR(void)
         PDDL_INFO2(&err, "FDR variables reordered using causal graph.");
     }
     PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
+
+    if (opt.fdr.pot){
+        pddl_pot_solutions_t pot;
+        pddlPotSolutionsInit(&pot);
+        if (pddlHPot(&pot, &fdr, &opt.fdr.pot_cfg, &err) != 0){
+            PDDL_ERR_RET2(&err, -1, "Cannot find potential heuristic");
+            return -1;
+        }
+        APPEND_TO_FILE(&err, opt.fdr.out, "FDR Pot",
+                       printPotentials(&fdr, &pot, fout));
+        pddlPotSolutionsFree(&pot);
+    }
 
     if (opt.fdr.pretty_print_vars)
         pddlFDRVarsPrintTable(&fdr.var, 150, NULL, &err);
