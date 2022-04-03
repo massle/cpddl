@@ -12,6 +12,12 @@ enum {
 };
 
 enum {
+    LIFTED_PLAN_HEUR_BLIND = 0,
+    LIFTED_PLAN_HEUR_HOMO_LMC,
+    LIFTED_PLAN_HEUR_HOMO_FF,
+};
+
+enum {
     GROUND_TRIE = 0,
     GROUND_SQL,
     GROUND_DL
@@ -70,9 +76,7 @@ struct options {
 
     struct {
         int search;
-        pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
-                                             const pddl_homomorphism_config_t *cfg,
-                                             pddl_err_t *err);
+        int heur;
         pddl_homomorphism_config_t homomorph_cfg;
         int homomorph_samples;
         char *plan_out;

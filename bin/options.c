@@ -242,59 +242,11 @@ static int optFDREssentialFirst(int enabled)
     return 0;
 }
 
-static int optLiftedPlannerHeur(const char *tag)
-{
-    if (strcmp(tag, "lmc") == 0){
-        opt.lifted_planner.heur_fn = pddlHomomorphismHeurLMCut;
-
-    }else if (strcmp(tag, "ff") == 0 || strcmp(tag, "hff") == 0){
-        opt.lifted_planner.heur_fn = pddlHomomorphismHeurHFF;
-
-    }else if (strcmp(tag, "types") == 0){
-        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_TYPES;
-
-    }else if (strcmp(tag, "rnd-objs") == 0){
-        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_RAND_OBJS;
-
-    }else if (strcmp(tag, "gaif") == 0 || strcmp(tag, "gaifman") == 0){
-        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_GAIFMAN;
-    }else if (strcmp(tag, "rpg") == 0){
-        opt.lifted_planner.homomorph_cfg.type = PDDL_HOMOMORPHISM_RPG;
-
-    }else if (strcmp(tag, "endomorph") == 0){
-        opt.lifted_planner.homomorph_cfg.use_endomorphism = 1;
-
-    }else if (strcmp(tag, "endomorph-ignore-costs") == 0){
-        opt.lifted_planner.homomorph_cfg.endomorphism_cfg.ignore_costs = 1;
-
-    }else if (strncmp(tag, "rm-ratio=", 9) == 0){
-        opt.lifted_planner.homomorph_cfg.rm_ratio = atof(tag + 9);
-
-    }else if (strncmp(tag, "seed=", 5) == 0){
-        opt.lifted_planner.homomorph_cfg.random_seed = atoi(tag + 5);
-
-    }else if (strcmp(tag, "no-goal") == 0){
-        opt.lifted_planner.homomorph_cfg.keep_goal_objs = 0;
-
-    }else if (strncmp(tag, "samples=", 8) == 0){
-        opt.lifted_planner.homomorph_samples = atoi(tag + 8);
-
-    }else if (strncmp(tag, "rpg-max-depth=", 14) == 0){
-        opt.lifted_planner.homomorph_cfg.rpg_max_depth = atoi(tag + 14);
-
-    }else{
-        fprintf(stderr, "Error: Unknown --lplan-heur option '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
-
 
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
     opts_params_t *params;
 
-    opt.lifted_planner.heur_fn = NULL;
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
     opt.lifted_planner.homomorph_cfg = _homomorph_cfg;
     opt.lifted_planner.homomorph_samples = 1;
@@ -365,9 +317,41 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                      "astar", LIFTED_PLAN_ASTAR,
                      "gbfs", LIFTED_PLAN_GBFS,
                      "lazy", LIFTED_PLAN_LAZY);
-    optsAddTags("lplan-heur", 0x0, NULL, optLiftedPlannerHeur,
-                "Sets up heuristics for lifted planner.\n"
-                " TODO: List of options");
+    optsAddIntSwitch("lplan-h", 0x0, &opt.lifted_planner.heur,
+                     "Heuristic function for the lifted planner, one of:\n"
+                     "  blind - Blind heuristic (default)\n"
+                     "  homo-lmc - Homomorphism-based LM-Cut heuristic (see --lplan-h-homo)\n"
+                     "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)",
+                     3,
+                     "none", LIFTED_PLAN_HEUR_BLIND,
+                     "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
+                     "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF);
+    params = optsAddParams("lplan-h-homo", 0x0,
+                           "Configuration of the homomorphism for the"
+                           " homomorphism-based heuristics");
+    optsParamsAddIntSwitch(params, "type",
+                           &opt.lifted_planner.homomorph_cfg.type,
+                           5,
+                           "types", PDDL_HOMOMORPHISM_TYPES,
+                           "rnd-objs", PDDL_HOMOMORPHISM_RAND_OBJS,
+                           "gaifmain", PDDL_HOMOMORPHISM_GAIFMAN,
+                           "gaif", PDDL_HOMOMORPHISM_GAIFMAN,
+                           "rpg", PDDL_HOMOMORPHISM_RPG);
+    optsParamsAddFlag(params, "endomorph",
+                      &opt.lifted_planner.homomorph_cfg.use_endomorphism);
+    optsParamsAddFlag(params, "endomorph-ignore-costs",
+                      &opt.lifted_planner.homomorph_cfg.endomorphism_cfg.ignore_costs);
+    optsParamsAddFlt(params, "rm-ratio",
+                     &opt.lifted_planner.homomorph_cfg.rm_ratio);
+    optsParamsAddInt(params, "seed",
+                     &opt.lifted_planner.homomorph_cfg.random_seed);
+    optsParamsAddFlag(params, "keep-goal-objs",
+                      &opt.lifted_planner.homomorph_cfg.keep_goal_objs);
+    optsParamsAddInt(params, "samples",
+                     &opt.lifted_planner.homomorph_samples);
+    optsParamsAddInt(params, "rpg-max-depth",
+                     &opt.lifted_planner.homomorph_cfg.rpg_max_depth);
+
     optsAddStr("lplan-out", 0x0, &opt.lifted_planner.plan_out, NULL,
                "Output filename for the found plan.");
     optsAddStr("lplan-o", 0x0, &opt.lifted_planner.plan_out, NULL,

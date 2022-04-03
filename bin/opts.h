@@ -13,9 +13,13 @@ struct opts_param {
     opts_params_flag_fn flag_fn;
     opts_params_int_fn int_fn;
     opts_params_flt_fn flt_fn;
+    int switch_size;
+    char **switch_tag;
+    int *switch_ival;
     int is_int;
     int is_flt;
     int is_flag;
+    int is_int_switch;
 };
 typedef struct opts_param opts_param_t;
 
@@ -93,6 +97,10 @@ void optsParamsAddFltFn(opts_params_t *params, const char *name, void *dst,
                         opts_params_flt_fn fn);
 void optsParamsAddFlagFn(opts_params_t *params, const char *name, void *dst,
                          opts_params_flag_fn fn);
+void optsParamsAddIntSwitch(opts_params_t *params,
+                            const char *name,
+                            void *dst,
+                            int size, ...);
 int optsParamsParse(opts_params_t *params, const char *text);
 
 #endif /* OPTS_H */

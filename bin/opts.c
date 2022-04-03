@@ -572,6 +572,12 @@ void optsParamsFree(opts_params_t *params)
 {
     for (int i = 0; i < params->param_size; ++i){
         PDDL_FREE(params->param[i].name);
+        for (int j = 0; j < params->param[i].switch_size; ++j)
+            PDDL_FREE(params->param[i].switch_tag[j]);
+        if (params->param[i].switch_tag != NULL)
+            PDDL_FREE(params->param[i].switch_tag);
+        if (params->param[i].switch_ival != NULL)
+            PDDL_FREE(params->param[i].switch_ival);
     }
     if (params->param != NULL)
         PDDL_FREE(params->param);
@@ -633,6 +639,28 @@ void optsParamsAddFlagFn(opts_params_t *params, const char *name, void *dst,
     opts_param_t *p = paramsAdd(params, name, dst);
     p->is_flag = 1;
     p->flag_fn = fn;
+}
+
+void optsParamsAddIntSwitch(opts_params_t *params,
+                            const char *name,
+                            void *dst,
+                            int size, ...)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_int_switch = 1;
+    p->switch_size = size;
+    p->switch_tag = PDDL_ALLOC_ARR(char *, p->switch_size);
+    p->switch_ival = PDDL_ALLOC_ARR(int, p->switch_size);
+
+    va_list arg;
+    va_start(arg, size);
+    for (int i = 0; i < size; ++i){
+        const char *tag = va_arg(arg, const char *);
+        int val = va_arg(arg, int);
+        p->switch_tag[i] = PDDL_STRDUP(tag);
+        p->switch_ival[i] = val;
+    }
+    va_end(arg);
 }
 
 static char *trimWhitespace(char *s)
@@ -698,6 +726,20 @@ static int setParam(opts_params_t *params,
                 }else{
                     fprintf(stderr, "Error: Invalid argument to the"
                             " parameter '%s'\n", name);
+                    return -1;
+                }
+
+            }else if (p->is_int_switch){
+                int found = 0;
+                for (int i = 0; i < p->switch_size; ++i){
+                    if (strcmp(p->switch_tag[i], value) == 0){
+                        *(int *)p->dst = p->switch_ival[i];
+                        found = 1;
+                    }
+                }
+                if (!found){
+                    fprintf(stderr, "Error: Unkown value '%s' to the option %s\n",
+                            value, name);
                     return -1;
                 }
             }

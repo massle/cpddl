@@ -6,6 +6,12 @@
 static int lifted_search_started = 0;
 static int lifted_terminate = 0;
 
+typedef pddl_homomorphism_heur_t *(*heur_homo_fn)(
+                    const pddl_t *pddl,
+                    const pddl_homomorphism_config_t *cfg,
+                    pddl_err_t *err);
+
+
 static void liftedPlannerSigHandlerTerminate(int signal)
 {
     if (lifted_search_started && lifted_terminate){
@@ -26,6 +32,7 @@ static void liftedPlannerSigHandlerTerminate(int signal)
 
 static pddl_homomorphism_heur_t *
     _liftedPlannerHeurCollapseAllExceptOneType(const pddl_t *pddl,
+                                               heur_homo_fn heur_fn,
                                                int except,
                                                pddl_err_t *err)
 {
@@ -37,7 +44,7 @@ static pddl_homomorphism_heur_t *
             pddlISetAdd(&homo_cfg.collapse_types, type);
     }
     pddl_homomorphism_heur_t *heur;
-    if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, err)) == NULL){
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
         pddlErrPrint(err, 1, stderr);
         return NULL;
@@ -47,6 +54,7 @@ static pddl_homomorphism_heur_t *
 
 static pddl_homomorphism_heur_t *
     liftedPlannerHeurCollapseAllExceptOneType(const pddl_t *pddl,
+                                              heur_homo_fn heur_fn,
                                               pddl_err_t *err)
 {
     pddl_homomorphism_heur_t *heur = NULL;
@@ -55,7 +63,7 @@ static pddl_homomorphism_heur_t *
         if (pddlTypesIsMinimal(&pddl->type, type)
                 && pddlTypeNumObjs(&pddl->type, type) > 1){
             pddl_homomorphism_heur_t *h;
-            h = _liftedPlannerHeurCollapseAllExceptOneType(pddl, type, err);
+            h = _liftedPlannerHeurCollapseAllExceptOneType(pddl, heur_fn, type, err);
             if (h == NULL)
                 continue;
 
@@ -76,13 +84,14 @@ static pddl_homomorphism_heur_t *
 
 static pddl_homomorphism_heur_t *
     _liftedPlannerHeurCollapseRandom(const pddl_t *pddl,
+                                     heur_homo_fn heur_fn,
                                      int seed,
                                      pddl_err_t *err)
 {
     pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
     homo_cfg.random_seed = seed;
     pddl_homomorphism_heur_t *heur;
-    if ((heur = opt.lifted_planner.heur_fn(pddl, &homo_cfg, err)) == NULL){
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
         fprintf(stderr, "Error: ");
         pddlErrPrint(err, 1, stderr);
         return NULL;
@@ -91,14 +100,16 @@ static pddl_homomorphism_heur_t *
 }
 
 static pddl_homomorphism_heur_t *
-    liftedPlannerHeurCollapseRandom(const pddl_t *pddl, pddl_err_t *err)
+    liftedPlannerHeurCollapseRandom(const pddl_t *pddl,
+                                    heur_homo_fn heur_fn,
+                                    pddl_err_t *err)
 {
     int seed = opt.lifted_planner.homomorph_cfg.random_seed;
     pddl_homomorphism_heur_t *heur = NULL;
     int best_hval = -1;
     for (int i = 0; i < opt.lifted_planner.homomorph_samples; ++i){
         pddl_homomorphism_heur_t *h;
-        h = _liftedPlannerHeurCollapseRandom(pddl, seed, err);
+        h = _liftedPlannerHeurCollapseRandom(pddl, heur_fn, seed, err);
         int hval = pddlHomomorphismHeurEvalGroundInit(h);
         PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
         if (hval > best_hval && hval != PDDL_COST_DEAD_END){
@@ -123,13 +134,18 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
 
     PDDL_INFO_PREFIX_PUSH(err, "LPLAN: ");
     pddl_homomorphism_heur_t *heur = NULL;
-    if (opt.lifted_planner.heur_fn != NULL){
-        if (opt.lifted_planner.heur_fn == pddlHomomorphismHeurLMCut){
-            PDDL_INFO2(err, "cfg.heur = lmc");
-        }else if (opt.lifted_planner.heur_fn == pddlHomomorphismHeurHFF){
-            PDDL_INFO2(err, "cfg.heur = ff");
-        }else{
-            PDDL_INFO2(err, "cfg.heur = unkown !!");
+
+    if (opt.lifted_planner.heur != LIFTED_PLAN_HEUR_BLIND){
+        heur_homo_fn heur_fn = pddlHomomorphismHeurLMCut;
+        switch (opt.lifted_planner.heur){
+            case LIFTED_PLAN_HEUR_HOMO_LMC:
+                PDDL_INFO2(err, "cfg.heur = homo-lmc");
+                heur_fn = pddlHomomorphismHeurLMCut;
+                break;
+            case LIFTED_PLAN_HEUR_HOMO_FF:
+                PDDL_INFO2(err, "cfg.heur = homo-ff");
+                heur_fn = pddlHomomorphismHeurHFF;
+                break;
         }
         pddlHomomorphismConfigLog(&opt.lifted_planner.homomorph_cfg,
                                   "cfg.heur.homomorph.", err);
@@ -138,10 +154,13 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
 
         if ((opt.lifted_planner.homomorph_cfg.type & 0xfu)
                     == PDDL_HOMOMORPHISM_TYPES){
-            heur = liftedPlannerHeurCollapseAllExceptOneType(pddl, err);
+            heur = liftedPlannerHeurCollapseAllExceptOneType(pddl, heur_fn, err);
         }else{
-            heur = liftedPlannerHeurCollapseRandom(pddl, err);
+            heur = liftedPlannerHeurCollapseRandom(pddl, heur_fn, err);
         }
+
+    }else{
+        PDDL_INFO2(err, "cfg.heur = blind");
     }
 
     pddl_search_lifted_t *search;
