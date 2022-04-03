@@ -17,7 +17,6 @@ endif
 
 TARGETS = pddl
 TARGETS += pddl-fdr
-TARGETS += pddl-mgroups
 TARGETS += pddl-op-mutex
 TARGETS += pddl-symba
 
@@ -25,6 +24,7 @@ OBJS  = opts.o
 OBJS += options.o
 OBJS += process_strips.o
 OBJS += report_lifted_mgroups.o
+OBJS += report_mgroups.o
 OBJS += lifted_planner.o
 
 all: $(TARGETS)

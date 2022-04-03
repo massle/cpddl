@@ -431,6 +431,8 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "Set time limit in seconds for the inference of fam-groups.");
     optsAddInt("fam-limit", 0x0, &opt.mg.fam_limit, -1,
                 "Set limit on the number of inferred fam-groups.");
+    optsAddFlag("mg-cover-num", 0x0, &opt.mg.cover_number, 0,
+                "Compute cover number of the inferred mutex groups.");
 
     optsStartGroup("Process STRIPS:");
     optsAddTags("process-strips", 'P', NULL, optProcessStrips,
@@ -558,6 +560,8 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddFlag("report-reversibility-iterative", 0x0,
                 &opt.report.reversibility_iterative, 0,
                 "Compute reversibility with the \"iterative\" method.");
+    optsAddFlag("report-mgroups", 0x0, &opt.report.mgroups, 0,
+                "Report on mutex groups.");
 
     if (opts(&argc, argv) != 0)
         return -1;

@@ -105,6 +105,7 @@ struct options {
         float fam_time_limit;
         int fam_limit;
         int remove_subsets;
+        int cover_number;
         char *out;
     } mg;
 
@@ -136,6 +137,7 @@ struct options {
         int lmg;
         int reversibility_simple;
         int reversibility_iterative;
+        int mgroups;
     } report;
 
     struct {

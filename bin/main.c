@@ -178,6 +178,17 @@ static int stepGround(void)
     return opt.strips.stop;
 }
 
+static int stepReportMGroups(void)
+{
+    if (opt.report.mgroups){
+        PDDL_INFO_PREFIX_PUSH(&err, "Report MGroups: ");
+        reportMGroups(&pddl, &strips, &err);
+        PDDL_INFO_PREFIX_POP(&err);
+        return 1;
+    }
+    return 0;
+}
+
 static int stepGroundMGroups(void)
 {
     if (!opt.ground.mgroup){
@@ -254,6 +265,12 @@ static int stepInferMGroups(void)
 
     PRINT_TO_FILE(&err, opt.mg.out, "mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
+
+    if (opt.mg.cover_number){
+        PDDL_INFO2(&err, "Computing mutex group cover number");
+        int num = pddlMGroupsCoverNumber(&mgroup, strips.fact.fact_size);
+        PDDL_INFO(&err, "Mutex group cover number: %d", num);
+    }
 
     return 0;
 }
@@ -584,6 +601,7 @@ int main(int argc, char *argv[])
             || (ret = stepLiftedEndomorph()) != 0
             || (ret = stepLiftedPlanner()) != 0
             || (ret = stepGround()) != 0
+            || (ret = stepReportMGroups()) != 0
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
