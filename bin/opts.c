@@ -9,6 +9,7 @@
 #define STR_TAGS 5
 #define FLAG_FN 6
 #define PARAMS 7
+#define INT_SWITCH 8
 
 
 struct opt_group {
@@ -29,6 +30,10 @@ struct opt_opt {
     int (*parse_tags)(const char *tag);
     int (*flag_fn)(int);
     opts_params_t params;
+
+    int switch_size;
+    char **switch_tag;
+    int *switch_ival;
 };
 typedef struct opt_opt opt_opt_t;
 
@@ -63,6 +68,12 @@ void optsFree(void)
         if (o.opt[i].desc != NULL)
             PDDL_FREE(o.opt[i].desc);
         optsParamsFree(&o.opt[i].params);
+        for (int i = 0; i < o.opt[i].switch_size; ++i)
+            PDDL_FREE(o.opt[i].switch_tag[i]);
+        if (o.opt[i].switch_tag != NULL)
+            PDDL_FREE(o.opt[i].switch_tag);
+        if (o.opt[i].switch_ival != NULL)
+            PDDL_FREE(o.opt[i].switch_ival);
     }
     if (o.opt != NULL)
         PDDL_FREE(o.opt);
@@ -185,6 +196,28 @@ opts_params_t *optsAddParams(const char *long_name,
     return &opt->params;
 }
 
+void optsAddIntSwitch(const char *long_name,
+                      char short_name,
+                      int *set,
+                      const char *desc,
+                      int size, ...)
+{
+    opt_opt_t *opt = optsAdd(INT_SWITCH, long_name, short_name, set, desc);
+    opt->switch_size = size;
+    opt->switch_tag = PDDL_ALLOC_ARR(char *, opt->switch_size);
+    opt->switch_ival = PDDL_ALLOC_ARR(int, opt->switch_size);
+
+    va_list arg;
+    va_start(arg, size);
+    for (int i = 0; i < size; ++i){
+        const char *tag = va_arg(arg, const char *);
+        int val = va_arg(arg, int);
+        opt->switch_tag[i] = PDDL_STRDUP(tag);
+        opt->switch_ival[i] = val;
+    }
+    va_end(arg);
+}
+
 static opt_opt_t *findOptLong(const char *name)
 {
     for (int i = 0; i < o.opt_size; i++){
@@ -243,6 +276,24 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
     }else if (opt->type == PARAMS){
         if (optsParamsParse(&opt->params, val) != 0)
             return -1;
+
+    }else if (opt->type == INT_SWITCH){
+        int found = 0;
+        for (int i = 0; i < opt->switch_size; ++i){
+            if (strcmp(opt->switch_tag[i], val) == 0){
+                *(int *)opt->set = opt->switch_ival[i];
+                found = 1;
+            }
+        }
+        if (!found){
+            fprintf(stderr, "Error: Unkown value '%s' to the option %s\n",
+                    val, oname);
+            return -1;
+        }
+
+    }else{
+        fprintf(stderr, "Unkown type %d!\n", opt->type);
+        exit(-1);
     }
 
     return 0;

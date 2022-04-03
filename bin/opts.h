@@ -70,6 +70,12 @@ opts_params_t *optsAddParams(const char *long_name,
                              char short_name,
                              const char *desc);
 
+void optsAddIntSwitch(const char *long_name,
+                      char short_name,
+                      int *set,
+                      const char *desc,
+                      int size, ...);
+
 
 int opts(int *argc, char **argv);
 void optsPrint(FILE *fout);

@@ -4,6 +4,14 @@
 #include <pddl/pddl.h>
 #include "process_strips.h"
 
+#define GROUND_TRIE 0
+#define GROUND_SQL 1
+#define GROUND_DL 2
+
+#define MG_NONE 0
+#define MG_FAM 1
+#define MG_H2 2
+
 struct options {
     int help;
     float t;
@@ -47,10 +55,7 @@ struct options {
 
     struct {
         pddl_ground_config_t cfg;
-        int (*method_fn)(pddl_strips_t *,
-                         const pddl_t *,
-                         const pddl_ground_config_t *,
-                         pddl_err_t *);
+        int method;
 
         int mgroup;
         int mgroup_remove_subsets;
@@ -65,8 +70,7 @@ struct options {
     } strips;
 
     struct {
-        int fam;
-        int h2;
+        int method;
         int fam_lmg;
         int fam_maximal;
         float fam_time_limit;

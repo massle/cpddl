@@ -153,7 +153,15 @@ static int stepGround(void)
         opt.ground.cfg.lifted_mgroups = &lifted_mgroups;
     }
 
-    if (opt.ground.method_fn(&strips, &pddl, &opt.ground.cfg, &err) != 0){
+    int ret = -1;
+    if (opt.ground.method == GROUND_TRIE){
+        ret = pddlStripsGround(&strips, &pddl, &opt.ground.cfg, &err);
+    }else if (opt.ground.method == GROUND_SQL){
+        ret = pddlStripsGroundSql(&strips, &pddl, &opt.ground.cfg, &err);
+    }else if (opt.ground.method == GROUND_DL){
+        ret = pddlStripsGroundDatalog(&strips, &pddl, &opt.ground.cfg, &err);
+    }
+    if (ret != 0){
         PDDL_INFO2(&err, "Grounding failed.");
         PDDL_TRACE_RET(&err, -1);
     }
@@ -198,13 +206,13 @@ static int stepGroundMGroups(void)
 
 static int stepInferMGroups(void)
 {
-    if (!opt.mg.fam && !opt.mg.h2){
+    if (opt.mg.method == MG_NONE){
         PDDL_INFO2(&err, "Inference of mutex groups disabled.");
         return 0;
     }
 
     PDDL_INFO_PREFIX_PUSH(&err, "MG: ");
-    if (opt.mg.fam){
+    if (opt.mg.method == MG_FAM){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
         cfg.maximal = opt.mg.fam_maximal;
         cfg.limit = opt.mg.fam_limit;
@@ -221,7 +229,7 @@ static int stepInferMGroups(void)
         if (opt.mg.remove_subsets)
             pddlMGroupsRemoveSubsets(&mgroup);
 
-    }else if (opt.mg.h2){
+    }else if (opt.mg.method == MG_H2){
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){

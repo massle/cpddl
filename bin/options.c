@@ -133,53 +133,11 @@ static void hpotParams(opts_params_t *params,
     optsParamsAddInt(params, "num-samples", &cfg->num_samples);
 }
 
-static int optSetGround(const char *tag)
+static int optGroundNoPruning(int enabled)
 {
-    if (strcmp(tag, "default") == 0){
-        opt.ground.method_fn = pddlStripsGround;
-
-    }else if (strcmp(tag, "sql") == 0){
-        opt.ground.method_fn = pddlStripsGroundSql;
-
-    }else if (strcmp(tag, "dl") == 0){
-        opt.ground.method_fn = pddlStripsGroundDatalog;
-
-    }else if (strcmp(tag, "prune-pre") == 0){
-        opt.ground.cfg.prune_op_pre_mutex = 1;
-
-    }else if (strcmp(tag, "prune-dead-end") == 0){
-        opt.ground.cfg.prune_op_dead_end = 1;
-
-    }else if (strcmp(tag, "prune-all") == 0){
-        opt.ground.cfg.prune_op_pre_mutex = 1;
-        opt.ground.cfg.prune_op_dead_end = 1;
-
-    }else{
-        fprintf(stderr, "Error: Unknown ground config tag '%s'\n", tag);
-        return -1;
-    }
-    return 0;
-}
-
-static int optSetMGroup(const char *tag)
-{
-    if (strcmp(tag, "0") == 0
-            || strcmp(tag, "n") == 0
-            || strcmp(tag, "none") == 0){
-        opt.mg.fam = 0;
-        opt.mg.h2 = 0;
-
-    }else if (strcmp(tag, "fam") == 0){
-        opt.mg.fam = 1;
-        opt.mg.h2 = 0;
-
-    }else if (strcmp(tag, "h2") == 0){
-        opt.mg.fam = 0;
-        opt.mg.h2 = 1;
-
-    }else{
-        fprintf(stderr, "Error: Unknown mgroup config tag '%s'\n", tag);
-        return -1;
+    if (enabled){
+        opt.ground.cfg.prune_op_pre_mutex = 0;
+        opt.ground.cfg.prune_op_dead_end = 0;
     }
     return 0;
 }
@@ -369,7 +327,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     opt.ground.cfg.prune_op_pre_mutex = 0;
     opt.ground.cfg.prune_op_dead_end = 0;
     opt.ground.cfg.remove_static_facts = 1;
-    opt.ground.method_fn = pddlStripsGround;
+    opt.ground.method = GROUND_TRIE;
 
     pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
     opt.rb_fdr.cfg = _rb_cfg;
@@ -429,16 +387,27 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                "Alias for --lplan-out");
 
     optsStartGroup("Grounding:");
-    optsAddTags("ground", 'G', "default:prune-all",
-                optSetGround,
-                "Grounding method, combination (delimited by ':') of:\n"
-                "  default - default grounding method\n"
-                "  sql - sqlite-based grounding method\n"
-                "  dl - datalog-based grounding method\n"
-                // TODO
-                "  prune-pre - prune by checking only preconditions\n"
-                "  prune-dead-end - prune by checking only dead-ends\n"
-                "  prune-all - alias for prune-pre:prune-dead-end\n");
+    optsAddIntSwitch("ground", 'G', &opt.ground.method,
+                     "Grounding method, one of:\n"
+                     "  trie - default grounding method (default)\n"
+                     "  sql - sqlite-based grounding method\n"
+                     "  dl - datalog-based grounding method\n",
+                     4,
+                     "trie", GROUND_TRIE,
+                     "sql", GROUND_SQL,
+                     "dl", GROUND_DL,
+                     "datalog", GROUND_DL);
+    optsAddFlag("ground-prune-mutex", 0x0,
+                &opt.ground.cfg.prune_op_pre_mutex, 1,
+                "Prune during grounding by checking preconditions of operators");
+    optsAddFlag("ground-prune-de", 0x0,
+                &opt.ground.cfg.prune_op_dead_end, 1,
+                "Prune during grounding by checking dead-ends");
+    optsAddFlag("ground-prune-dead-end", 0x0,
+                &opt.ground.cfg.prune_op_dead_end, 1,
+                "Alias for --ground-prune-dead-end");
+    optsAddFlagFn("ground-prune-none", 0x0, optGroundNoPruning,
+                  "Alias for --no-ground-prune-mutex --no-ground-prune-de");
     optsAddFlag("ground-lmg", 0x0, &opt.ground.mgroup, 1,
                 "Ground lifted mutex groups.");
     optsAddFlag("ground-lmg-remove-subsets", 0x0,
@@ -457,11 +426,17 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "Stop after grounding to STRIPS.");
 
     optsStartGroup("Mutex Groups:");
-    optsAddTags("mg", 0x0, "none", optSetMGroup,
-                "Method for inference of mutex groups, one of:\n"
-                "  0/n/none - no mutex groups will be inferred on STRIPS level\n"
-                "  fam - fact-alternating mutex groups\n"
-                "  h2 - mutex groups from h^2 mutexes\n");
+    optsAddIntSwitch("mg", 0x0, &opt.mg.method,
+                     "Method for inference of mutex groups, one of:\n"
+                     "  0/n/none - no mutex groups will be inferred on STRIPS level (default)\n"
+                     "  fam - fact-alternating mutex groups\n"
+                     "  h2 - mutex groups from h^2 mutexes\n",
+                     5,
+                     "none", MG_NONE,
+                     "n", MG_NONE,
+                     "0", MG_NONE,
+                     "fam", MG_FAM,
+                     "h2", MG_H2);
     optsAddStr("mg-out", 0x0, &opt.mg.out, NULL,
                 "Output filename for infered mutex groups.");
     optsAddFlag("mg-remove-subsets", 0x0, &opt.mg.remove_subsets, 1,
