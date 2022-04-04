@@ -14,6 +14,12 @@ struct op_mutex_cfg {
 };
 typedef struct op_mutex_cfg op_mutex_cfg_t;
 
+struct h3_cfg {
+    float time;
+    int mem;
+};
+typedef struct h3_cfg h3_cfg_t;
+
 static void hpotSetDisamb(int value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -151,90 +157,6 @@ static int optGroundNoPruning(int enabled)
     return 0;
 }
 
-static int optProcessStrips(const char *tag)
-{
-    char *s = PDDL_STRDUP(tag);
-    char *next = s;
-    char *cur;
-    if ((cur = strsep(&next, ",")) != NULL){
-        if (strcmp(cur, "irr") == 0 || strcmp(cur, "irrelevance") == 0){
-            pddlProcessStripsAddIrrelevance(&opt.strips.process);
-            if (next != NULL){
-                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
-                return -1;
-            }
-
-        }else if (strcmp(cur, "fam-dead-end") == 0){
-            pddlProcessStripsAddFAMGroupsDeadEndOps(&opt.strips.process);
-            if (next != NULL){
-                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
-                return -1;
-            }
-
-        }else if (strcmp(cur, "dedup") == 0){
-            pddlProcessStripsAddDeduplicateOps(&opt.strips.process);
-            if (next != NULL){
-                fprintf(stderr, "Error: Invalid argument '%s'\n", next);
-                return -1;
-            }
-
-        }else if (strcmp(cur, "endo") == 0
-                    || strcmp(cur, "endomorph") == 0
-                    || strcmp(cur, "endomorphism") == 0){
-            // TODO
-
-        }else if (strcmp(cur, "h2fw") == 0){
-            float time_limit = 0.f;
-            while ((cur = strsep(&next, ",")) != NULL){
-                if (strncmp(cur, "time=", 5) == 0){
-                    time_limit = strtof(cur + 5, NULL);
-                }else{
-                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-                    return -1;
-                }
-            }
-            pddlProcessStripsAddH2Fw(&opt.strips.process, time_limit);
-
-        }else if (strcmp(cur, "h2fwbw") == 0){
-            float time_limit = 0.f;
-            while ((cur = strsep(&next, ",")) != NULL){
-                if (strncmp(cur, "time=", 5) == 0){
-                    time_limit = strtof(cur + 5, NULL);
-                }else{
-                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-                    return -1;
-                }
-            }
-            pddlProcessStripsAddH2FwBw(&opt.strips.process, time_limit);
-
-        }else if (strcmp(cur, "h3fw") == 0){
-            float time_limit = 0.f;
-            size_t excess_mem = 0;
-            while ((cur = strsep(&next, ",")) != NULL){
-                if (strncmp(cur, "time=", 5) == 0){
-                    time_limit = strtof(cur + 5, NULL);
-                }else if (strncmp(cur, "excess-mem=", 11) == 0){
-                    excess_mem = strtol(cur + 11, NULL, 10);
-                }else{
-                    fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-                    return -1;
-                }
-            }
-            pddlProcessStripsAddH3Fw(&opt.strips.process, time_limit, excess_mem);
-
-        }else{
-            fprintf(stderr, "Error: Invalid argument '%s'\n", cur);
-            return -1;
-        }
-    }
-    PDDL_FREE(s);
-    return 0;
-}
-
-static int optProcessStripsH2(int enabled)
-{
-    return optsProcessTags("irr:fam-dead-end:h2fwbw:irr:dedup", optProcessStrips);
-}
 
 static int optFDRLargestFirst(int enabled)
 {
@@ -246,6 +168,66 @@ static int optFDREssentialFirst(int enabled)
 {
     opt.fdr.var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     return 0;
+}
+
+static void irrelevance(void)
+{
+    pddlProcessStripsAddIrrelevance(&opt.strips.process);
+}
+
+static void famDeadEnd(void)
+{
+    pddlProcessStripsAddFAMGroupsDeadEndOps(&opt.strips.process);
+}
+
+static void deduplicateOps(void)
+{
+    pddlProcessStripsAddDeduplicateOps(&opt.strips.process);
+}
+
+static void pruneH2Fw(void)
+{
+    pddlProcessStripsAddH2Fw(&opt.strips.process, 0.f);
+}
+
+static int pruneH2FwLimit(float v)
+{
+    pddlProcessStripsAddH2Fw(&opt.strips.process, v);
+    return 0;
+}
+
+static void pruneH2FwBw(void)
+{
+    pddlProcessStripsAddH2FwBw(&opt.strips.process, 0.f);
+}
+
+static int pruneH2FwBwLimit(float v)
+{
+    pddlProcessStripsAddH2FwBw(&opt.strips.process, v);
+    return 0;
+}
+
+static void pruneH3Fw(void)
+{
+    pddlProcessStripsAddH3Fw(&opt.strips.process, 0.f, 0);
+}
+
+static void pruneH3FwLimit(void *ud)
+{
+    h3_cfg_t *cfg = ud;
+    size_t mem = cfg->mem;
+    mem *= 1024UL * 1024UL;
+    pddlProcessStripsAddH3Fw(&opt.strips.process, cfg->time, mem);
+    bzero(cfg, sizeof(*cfg));
+}
+
+static void h2Alias(void)
+{
+    irrelevance();
+    famDeadEnd();
+    pruneH2FwBw();
+    irrelevance();
+    deduplicateOps();
 }
 
 static void opMutex(void *ud)
@@ -454,17 +436,30 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "Compute cover number of the inferred mutex groups.");
 
     optsStartGroup("Process STRIPS:");
-    optsAddTags("process-strips", 'P', NULL, optProcessStrips,
-"(Post-)Process STRIPS. Each option adds a post-processing step:\n"
-"  irr/irrelevance - irrelevance analysis\n"
-"  fam-dead-end - use fam-groups to remove dead-end operators\n"
-"  h2fw - h^2 in forward direction, time=x sets time limit to x seconds\n"
-"  h2fwbw - h^2 in forward and backward direction, time=x sets time limit to x seconds\n"
-"  h3fw - h^3 in forward direction, time=x sets time limit to x seconds,"
-" and excess-mem=x sets excess memory to x MB\n"
-);
-    optsAddFlagFn("h2", 0x0, optProcessStripsH2,
-                  "Alias for -P irr:fam-dead-end:h2fwbw:irr:dedup");
+    optsAddFlagFn2("P-irr", 0x0, irrelevance, "Irrelevance analysis.");
+    optsAddFlagFn2("P-fam-dead-end", 0x0, famDeadEnd,
+                   "Remove dead-end operators using fam-groups (see --mg fam).");
+    optsAddFlagFn2("P-dedup", 0x0, deduplicateOps,
+                   "Remove duplicate operators.");
+    optsAddFlagFn2("P-h2fw", 0x0, pruneH2Fw,
+                   "Prune with h^2 in forward direction without time limit.");
+    optsAddFltFn("P-h2fw-time-limit", 0x0, pruneH2FwLimit,
+                 "Prune with h^2 in forward direction with the specified time limit.");
+    optsAddFlagFn2("P-h2fwbw", 0x0, pruneH2FwBw,
+                   "Prune with h^2 in forward/backward direction without time limit.");
+    optsAddFltFn("P-h2fwbw-time-limit", 0x0, pruneH2FwBwLimit,
+                 "Prune with h^2 in forward/backward direction with the specified time limit.");
+    optsAddFlagFn2("P-h3fw", 0x0, pruneH3Fw,
+                   "Prune with h^3 in forward direction without time limit.");
+    h3_cfg_t h3_cfg = { 0 };
+    params = optsAddParamsAndFn("P-h3fw-limit", 0x0,
+                                "Prune with h^3 with the specified limits.\n"
+                                "Options:\n"
+                                "  time = <float> -- time limit in s\n"
+                                "  mem = <int> -- excess memory in MB",
+                                &h3_cfg, pruneH3FwLimit);
+    optsParamsAddFlt(params, "time", &h3_cfg.time);
+    optsParamsAddInt(params, "mem", &h3_cfg.mem);
 
     op_mutex_cfg_t opm_cfg = { 0 };
     params = optsAddParamsAndFn("P-opm", 0x0,
@@ -481,6 +476,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsParamsAddInt(params, "hm-op", &opm_cfg.hm_op);
     optsParamsAddFlag(params, "no-prune", &opm_cfg.no_prune);
     optsParamsAddStr(params, "out", &opm_cfg.out);
+
+    optsAddFlagFn2("h2", 0x0, h2Alias,
+                   "Alias for --P-irr --P-fam-dead-end --P-h2fwbw --P-irr --P-dedup");
 
 
     optsStartGroup("Red-Black FDR:");

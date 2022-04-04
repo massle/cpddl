@@ -8,9 +8,11 @@
 #define STR 4
 #define STR_TAGS 5
 #define FLAG_FN 6
-#define PARAMS 7
-#define PARAMS_AND_FN 8
-#define INT_SWITCH 9
+#define FLAG_FN2 7
+#define PARAMS 8
+#define PARAMS_AND_FN 9
+#define INT_SWITCH 10
+#define FLT_FN 11
 
 
 struct opt_group {
@@ -30,6 +32,8 @@ struct opt_opt {
     char *desc;
     int (*parse_tags)(const char *tag);
     int (*flag_fn)(int);
+    void (*flag_fn2)(void);
+    int (*flt_fn)(float);
     opts_params_t params;
     void (*params_fn)(void *ud);
     void *params_userdata;
@@ -142,6 +146,15 @@ void optsAddFlagFn(const char *long_name,
     opt->flag_fn = fn;
 }
 
+void optsAddFlagFn2(const char *long_name,
+                    char short_name,
+                    void (*fn)(void),
+                    const char *desc)
+{
+    opt_opt_t *opt = optsAdd(FLAG_FN2, long_name, short_name, NULL, desc);
+    opt->flag_fn2 = fn;
+}
+
 void optsAddInt(const char *long_name,
                 char short_name,
                 int *set,
@@ -162,6 +175,15 @@ void optsAddFlt(const char *long_name,
     opt_opt_t *opt = optsAdd(FLT, long_name, short_name, set, desc);
     opt->fdefault = default_value;
     *(float *)set = default_value;
+}
+
+void optsAddFltFn(const char *long_name,
+                  char short_name,
+                  int (*fn)(float),
+                  const char *desc)
+{
+    opt_opt_t *opt = optsAdd(FLT_FN, long_name, short_name, NULL, desc);
+    opt->flt_fn = fn;
 }
 
 void optsAddStr(const char *long_name,
@@ -272,14 +294,19 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
         }
         *(int *)opt->set = v;
 
-    }else if (opt->type == FLT){
+    }else if (opt->type == FLT || opt->type == FLT_FN){
         char *end;
-        float v = strtol(val, &end, 10);
+        float v = strtof(val, &end);
         if (*end != 0x0){
             fprintf(stderr, "Error: Invalid value for the option %s\n", oname);
             return -1;
         }
-        *(float *)opt->set = v;
+        if (opt->type == FLT){
+            *(float *)opt->set = v;
+        }else if (opt->type == FLT_FN){
+            if (opt->flt_fn(v) != 0)
+                return -1;
+        }
 
     }else if (opt->type == STR){
         if (opt->set)
@@ -352,6 +379,8 @@ static opt_opt_t *findOpt(char *_arg)
                 }else if (opt->type == FLAG_FN){
                     if (opt->flag_fn(1))
                         return NULL;
+                }else if (opt->type == FLAG_FN2){
+                    opt->flag_fn2();
                 }else{
                     fprintf(stderr, "Error: Unknown option %s.\n", _arg);
                     return NULL;
@@ -380,6 +409,8 @@ int opts(int *argc, char **argv)
             }else if (opt->type == FLAG_FN){
                 if (opt->flag_fn(1) != 0)
                     return -1;
+            }else if (opt->type == FLAG_FN2){
+                opt->flag_fn2();
             }else{
                 if (i + 1 < *argc){
                     ++i;
@@ -431,7 +462,9 @@ static int maxLen(int group)
         int len = 0;
         if (opt->long_name != NULL){
             len = 2 + strlen(opt->long_name);
-            if (opt->type == FLAG || opt->type == FLAG_FN){
+            if (opt->type == FLAG
+                    || opt->type == FLAG_FN
+                    || opt->type == FLAG_FN2){
                 len += 5;
             }
             if (opt->short_name != 0x0){
@@ -448,6 +481,7 @@ static int maxLen(int group)
 static void optsPrintDefault(const opt_opt_t *opt, FILE *fout)
 {
     if (opt->type == FLAG_FN
+            || opt->type == FLAG_FN2
             || opt->type == PARAMS
             || opt->type == PARAMS_AND_FN
             || opt->type == INT_SWITCH){
@@ -522,9 +556,11 @@ static void optsPrintOpts(int group, FILE *fout)
             fprintf(fout, "    ");
         }else if (opt->type == FLAG_FN){
             fprintf(fout, "    ");
+        }else if (opt->type == FLAG_FN2){
+            fprintf(fout, "    ");
         }else if (opt->type == INT){
             fprintf(fout, "int ");
-        }else if (opt->type == FLT){
+        }else if (opt->type == FLT || opt->type == FLT_FN){
             fprintf(fout, "flt ");
         }else if (opt->type == STR
                     || opt->type == PARAMS

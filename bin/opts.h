@@ -47,6 +47,11 @@ void optsAddFlagFn(const char *long_name,
                    int (*fn)(int enabled),
                    const char *desc);
 
+void optsAddFlagFn2(const char *long_name,
+                    char short_name,
+                    void (*fn)(void),
+                    const char *desc);
+
 void optsAddInt(const char *long_name,
                 char short_name,
                 int *set,
@@ -58,6 +63,11 @@ void optsAddFlt(const char *long_name,
                 float *set,
                 float default_value,
                 const char *desc);
+
+void optsAddFltFn(const char *long_name,
+                  char short_name,
+                  int (*fn)(float v),
+                  const char *desc);
 
 void optsAddStr(const char *long_name,
                 char short_name,
