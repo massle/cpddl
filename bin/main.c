@@ -408,6 +408,46 @@ static int stepFDR(void)
         pddlFDRReorderVarsCG(&fdr);
         PDDL_INFO2(&err, "FDR variables reordered using causal graph.");
     }
+
+    if (opt.fdr.to_tnf || opt.fdr.to_tnf_multiply){
+        PDDL_INFO_PREFIX_PUSH(&err, "FDR-to-TNF: ");
+        if (opt.fdr.to_tnf){
+            PDDL_INFO(&err, "Constructing TNF (ops: %d)", fdr.op.op_size);
+        }else if (opt.fdr.to_tnf_multiply){
+            PDDL_INFO(&err, "Constructing TNF-multiply (ops: %d)", fdr.op.op_size);
+        }
+
+        pddl_mg_strips_t mg_strips;
+        pddl_mutex_pairs_t fdr_mutex;
+        pddlMGStripsInitFDR(&mg_strips, &fdr);
+        pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+        pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+
+        pddl_fdr_t fdr_old = fdr;
+        unsigned flags = 0;
+        if (opt.fdr.to_tnf_multiply)
+            flags = PDDL_FDR_TNF_MULTIPLY_OPS;
+        if (pddlFDRInitTransitionNormalForm(&fdr, &fdr_old, &fdr_mutex,
+                                            flags, &err) != 0){
+            pddlMutexPairsFree(&fdr_mutex);
+            pddlMGStripsFree(&mg_strips);
+            PDDL_INFO_PREFIX_POP(&err);
+            PDDL_TRACE_RET(&err, -1);
+        }
+        if (opt.fdr.to_tnf){
+            PDDL_INFO(&err, "Constructed TNF, ops: %d", fdr.op.op_size);
+        }else if (opt.fdr.to_tnf_multiply){
+            PDDL_INFO(&err, "Constructed TNF-multiply, ops: %d", fdr.op.op_size);
+        }
+
+        pddlMutexPairsFree(&fdr_mutex);
+        pddlMGStripsFree(&mg_strips);
+        pddlFDRFree(&fdr_old);
+        PDDL_INFO_PREFIX_POP(&err);
+    }
+
+
     PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
 
     if (opt.fdr.pot){
@@ -565,9 +605,106 @@ static int stepGroundPlanner(void)
     return 0;
 }
 
+static int fdrHasTNFOps(const pddl_fdr_t *fdr)
+{
+    for (int oi = 0; oi < fdr->op.op_size; ++oi){
+        const pddl_fdr_op_t *op = fdr->op.op[oi];
+        for (int i = 0; i < op->eff.fact_size; ++i){
+            if (!pddlFDRPartStateIsSet(&op->pre, op->eff.fact[i].var))
+                return 0;
+        }
+        for (int cei = 0; cei < op->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
+            for (int i = 0; i < ce->eff.fact_size; ++i){
+                if (!pddlFDRPartStateIsSet(&ce->pre, ce->eff.fact[i].var))
+                    return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+static void symbaPlanPrint(const pddl_fdr_t *fdr,
+                           const pddl_iarr_t *plan,
+                           int cost,
+                           FILE *fout)
+{
+    fprintf(fout, ";; Cost: %d\n", cost);
+    fprintf(fout, ";; Length: %d\n", pddlIArrSize(plan));
+    int op_id;
+    PDDL_IARR_FOR_EACH(plan, op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        fprintf(fout, "(%s) ;; cost: %ld\n", op->name, (long)op->cost);
+    }
+}
+
 static int stepSymba(void)
 {
-    // TODO
+    if (opt.symba.search == SYMBA_NONE)
+        return 0;
+
+    PDDL_INFO_PREFIX_PUSH(&err, "SYMBA: ");
+    if (opt.symba.cfg.fw.use_pot_heur){
+        if (fdrHasTNFOps(&fdr)){
+            PDDL_INFO2(&err, "fw: Using consistent potential heuristic");
+        }else{
+            opt.symba.cfg.fw.use_pot_heur = 0;
+            opt.symba.cfg.fw.use_pot_heur_inconsistent = 1;
+            PDDL_INFO2(&err, "fw: Using inconsistent potential heuristic");
+        }
+    }else{
+        PDDL_INFO2(&err, "fw: Using blind heuristic");
+    }
+
+    if (opt.symba.cfg.bw.use_pot_heur_inconsistent){
+        PDDL_INFO2(&err, "bw: Using inconsistent potential heuristic");
+    }else{
+        PDDL_INFO2(&err, "bw: Using blind heuristic");
+    }
+
+    if (opt.symba.search == SYMBA_FW){
+        opt.symba.cfg.fw.enabled = 1;
+        opt.symba.cfg.bw.enabled = 0;
+    }else if (opt.symba.search == SYMBA_BW){
+        opt.symba.cfg.fw.enabled = 0;
+        opt.symba.cfg.bw.enabled = 1;
+    }else{
+        opt.symba.cfg.fw.enabled = 1;
+        opt.symba.cfg.bw.enabled = 1;
+    }
+
+    pddl_symbolic_task_t *task;
+    if ((task = pddlSymbolicTaskNew(&fdr, &opt.symba.cfg, &err)) == NULL)
+        PDDL_TRACE_RET(&err, -1);
+
+    PDDL_IARR(plan);
+    int res;
+    if (opt.symba.search == SYMBA_FWBW
+            && opt.symba.bw_off_if_constr_failed
+            && pddlSymbolicTaskGoalConstrFailed(task)){
+        PDDL_INFO2(&err, "Switching to fw-only search.");
+        res = pddlSymbolicTaskSearchFw(task, &plan, &err);
+    }else{
+        res = pddlSymbolicTaskSearch(task, &plan, &err);
+    }
+
+
+    if (res == PDDL_SYMBOLIC_PLAN_FOUND){
+        int cost = 0;
+        int op;
+        PDDL_IARR_FOR_EACH(&plan, op)
+            cost += fdr.op.op[op]->cost;
+        PDDL_INFO(&err, "Plan Cost: %d", cost);
+        PDDL_INFO(&err, "Plan Length: %d", pddlIArrSize(&plan));
+        PRINT_TO_FILE(&err, opt.symba.out, "plan",
+                      symbaPlanPrint(&fdr, &plan, cost, fout));
+    }
+
+    pddlIArrFree(&plan);
+    pddlSymbolicTaskDel(task);
+
+    PDDL_INFO_PREFIX_POP(&err);
     return 0;
 }
 

@@ -18,7 +18,6 @@ endif
 TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-op-mutex
-TARGETS += pddl-symba
 
 OBJS  = opts.o
 OBJS += options.o

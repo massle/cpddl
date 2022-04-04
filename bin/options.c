@@ -266,6 +266,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     opt.fdr.pot_cfg = _pot_cfg;
     opt.ground_planner.pot_cfg = _pot_cfg;
 
+    pddl_symbolic_task_config_t _symba_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
+    opt.symba.cfg = _symba_cfg;
+
 
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
     optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
@@ -483,6 +486,11 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                "Configuration for the potential heuristic (if --fdr-pot is used).\n"
                "See --gplan-pot for the description of options.");
     hpotParams(params, &opt.fdr.pot_cfg);
+    optsAddFlag("fdr-tnf", 0x0, &opt.fdr.to_tnf, 0,
+                "Transform FDR to Transition Normal Form.");
+    optsAddFlag("fdr-tnfm", 0x0, &opt.fdr.to_tnf_multiply, 0,
+                "Transform FDR operators to TNF by multiplying its"
+                " preconditions.");
 
     optsStartGroup("Grounded Planner:");
     optsAddIntSwitch("gplan", 0x0, &opt.ground_planner.search,
@@ -542,6 +550,55 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                "Output filename for the found plan.");
     optsAddStr("gplan-o", 0x0, &opt.ground_planner.plan_out, NULL,
                "Alias for --gplan-out");
+
+    optsStartGroup("Symbolic Search:");
+    optsAddIntSwitch("symba", 0x0, &opt.symba.search,
+                     "Symbolic search, one of:\n"
+                     "  none -- symbolic search disabled (default)\n"
+                     "  fw -- forward-only search\n"
+                     "  bw -- backward-only search\n"
+                     "  fwbw/bi -- bi-directional search",
+                     5,
+                     "none", SYMBA_NONE,
+                     "fw", SYMBA_FW,
+                     "bw", SYMBA_BW,
+                     "fwbw", SYMBA_FWBW,
+                     "bi", SYMBA_FWBW);
+    optsAddInt("symba-fam", 0x0, &opt.symba.cfg.fam_groups, 0,
+               "Infer at most the specified number of goal-aware fam-groups.");
+    optsAddFlag("symba-fw-pot", 0x0, &opt.symba.cfg.fw.use_pot_heur, 0,
+                "Use potential heuristics in the forward search.");
+    params = optsAddParams("symba-fw-pot-cfg", 0x0,
+                           "Configuration of the potential heuristic for"
+                           " the forward search. (See --gplan-pot)");
+    hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
+    optsAddFlag("symba-bw-pot", 0x0,
+                &opt.symba.cfg.bw.use_pot_heur_inconsistent, 0,
+                "Use potential heuristics in the backward search."
+                " Note that this will always be treated as inconsistent.");
+    params = optsAddParams("symba-bw-pot-cfg", 0x0,
+                           "Configuration of the potential heuristic for"
+                           " the backward search. (See --gplan-pot)");
+    hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
+    optsAddFlt("symba-goal-constr-max-time", 0x0,
+               &opt.symba.cfg.goal_constr_max_time, 30.f,
+               "Set the time limit for applying mutex constraints on the"
+               " set of goal states.");
+    optsAddFlt("symba-fw-tr-merge-max-time", 0x0,
+               &opt.symba.cfg.fw.trans_merge_max_time, -1.,
+               "Time limit for merging transition relations in the forward"
+               " direction.");
+    optsAddFlt("symba-bw-tr-merge-max-time", 0x0,
+               &opt.symba.cfg.bw.trans_merge_max_time, -1.,
+               "Time limit for merging transition relations in the backward"
+               " direction.");
+    optsAddFlag("symba-bw-off", 0x0,
+                &opt.symba.bw_off_if_constr_failed, 1,
+                "Turn off backward search in case of bi-directional search"
+                " when mutex constraints could not be applied within\n"
+                "the time limit (see also --symba-goal-constr-max-time).");
+    optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
+               "Output file for the plan.");
 
     optsStartGroup("Reversibility:");
     optsAddInt("reversibility-max-depth", 0x0, &opt.reversibility.max_depth, 1,

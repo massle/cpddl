@@ -46,6 +46,13 @@ enum {
     GROUND_PLAN_HEUR_POT
 };
 
+enum {
+    SYMBA_NONE = 0,
+    SYMBA_FW,
+    SYMBA_BW,
+    SYMBA_FWBW,
+};
+
 struct options {
     int help;
     float t;
@@ -124,6 +131,8 @@ struct options {
         int pretty_print_cg;
         int pot;
         pddl_hpot_config_t pot_cfg;
+        int to_tnf;
+        int to_tnf_multiply;
     } fdr;
 
     struct {
@@ -132,6 +141,13 @@ struct options {
         char *plan_out;
         pddl_hpot_config_t pot_cfg;
     } ground_planner;
+
+    struct {
+        int search;
+        pddl_symbolic_task_config_t cfg;
+        int bw_off_if_constr_failed;
+        char *out;
+    } symba;
 
     struct {
         int lmg;
