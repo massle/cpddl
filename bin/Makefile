@@ -16,7 +16,6 @@ ifeq '$(BIN_STATIC)' 'yes'
 endif
 
 TARGETS = pddl
-TARGETS += pddl-fdr
 
 OBJS  = opts.o
 OBJS += options.o
