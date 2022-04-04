@@ -19,7 +19,11 @@
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"
 #include "pddl/mg_strips.h"
+#include "pddl/op_mutex_pair.h"
+#include "pddl/op_mutex_infer.h"
+#include "pddl/op_mutex_sym_redundant.h"
 #include "process_strips.h"
+#include "print_to_file.h"
 
 typedef struct pddl_process_strips_step pddl_process_strips_step_t;
 
@@ -42,6 +46,17 @@ struct pddl_process_strips_step_hm {
     size_t excess_memory;
 };
 typedef struct pddl_process_strips_step_hm pddl_process_strips_step_hm_t;
+
+struct pddl_process_strips_step_op_mutex {
+    pddl_process_strips_step_t step;
+    int ts;
+    int op_fact;
+    int hm_op;
+    int no_prune;
+    char *out;
+};
+typedef struct pddl_process_strips_step_op_mutex
+            pddl_process_strips_step_op_mutex_t;
 
 void pddlProcessStripsInit(pddl_process_strips_t *prune)
 {
@@ -303,4 +318,129 @@ void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune)
     pddl_process_strips_step_t *step;
     step = stepNew("deduplicate ops: ", prune, deduplicateOps, emptyFree);
     step->can_reuse_rm_op_fact = 0;
+}
+
+static int opMutexExecute(pddl_process_strips_t *prune,
+                          pddl_process_strips_step_t *_step,
+                          pddl_err_t *err)
+{
+    pddl_process_strips_step_op_mutex_t *step
+        = pddl_container_of(_step, pddl_process_strips_step_op_mutex_t, step);
+
+    PDDL_INFO(err, "Operator Mutexes [ts: %d, op-fact: %d, hm-op: %d,"
+                   " prune: %d, output: '%s']",
+             step->ts,
+             step->op_fact,
+             step->hm_op,
+             !step->no_prune,
+             (step->out == NULL ? "" : step->out));
+    if (step->ts < 0
+            && step->op_fact < 1
+            && step->hm_op < 1){
+        PDDL_INFO2(err, "Nothing to do");
+        return 0;
+    }
+
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
+    PDDL_INFO(err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
+              " input mgroups: %d",
+              mg_strips.strips.fact.fact_size,
+              mg_strips.strips.op.op_size,
+              mg_strips.mg.mgroup_size,
+              prune->mgroups->mgroup_size);
+
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
+
+    pddl_op_mutex_pairs_t opm;
+    pddlOpMutexPairsInit(&opm, &mg_strips.strips);
+    int ret;
+    size_t max_mem = 0;
+    if (step->ts){
+        ret = pddlOpMutexInferTransSystems(&opm, &mg_strips, &mg_mutex,
+                                           step->ts, max_mem, 1, err);
+        if (ret < 0)
+            PDDL_TRACE_RET(err, ret);
+    }
+
+    if (step->op_fact > 1){
+        ret = pddlOpMutexInferHmOpFactCompilation(&opm, step->op_fact,
+                                                  &mg_strips.strips, err);
+        if (ret < 0)
+            PDDL_TRACE_RET(err, ret);
+    }
+
+    if (step->hm_op > 1){
+        ret = pddlOpMutexInferHmFromEachOp(&opm, step->hm_op,
+                                           &mg_strips.strips, &mg_mutex,
+                                           NULL, err);
+        if (ret < 0)
+            PDDL_TRACE_RET(err, ret);
+    }
+
+    if (step->out != NULL){
+        int o1, o2;
+        PRINT_TO_FILE(err, step->out, "operator mutexes",
+            PDDL_OP_MUTEX_PAIRS_FOR_EACH(&opm, o1, o2)
+                fprintf(fout, "%d %d\n", o1, o2)
+        );
+    }
+
+    if (opm.num_op_mutex_pairs > 0 && !step->no_prune){
+        PDDL_INFO2(err, "Computing symmetries on PDG");
+        pddl_strips_sym_t sym;
+        pddlStripsSymInitPDG(&sym, prune->strips);
+        PDDL_INFO(err, "  Symmetry generators: %d", sym.gen_size);
+        PDDL_ISET(redundant);
+        pddlOpMutexSymRedundantFixpoint(&redundant, &mg_strips.strips,
+                                        &sym, &opm, err);
+        if (pddlISetSize(&redundant) > 0){
+            pddlStripsReduce(prune->strips, NULL, &redundant);
+            PDDL_INFO(err, "Number of Strips Operators: %d",
+                      prune->strips->op.op_size);
+        }
+        pddlISetFree(&redundant);
+        pddlStripsSymFree(&sym);
+    }
+
+    pddlOpMutexPairsFree(&opm);
+    pddlMutexPairsFree(&mg_mutex);
+    pddlMGStripsFree(&mg_strips);
+
+    return 0;
+}
+
+static void opMutexFree(pddl_process_strips_step_t *step)
+{
+    pddl_process_strips_step_op_mutex_t *s
+        = pddl_container_of(step, pddl_process_strips_step_op_mutex_t, step);
+    if (s->out != NULL)
+        PDDL_FREE(s->out);
+}
+
+static pddl_process_strips_step_op_mutex_t *
+            stepOpMutexNew(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_op_mutex_t *step;
+    step = PDDL_ALLOC(pddl_process_strips_step_op_mutex_t);
+    stepInit("op mutex: ", &step->step, prune, opMutexExecute, opMutexFree);
+    return step;
+}
+
+void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
+                                 int ts, int op_fact, int hm_op,
+                                 int no_prune, const char *out)
+{
+    pddl_process_strips_step_op_mutex_t *step;
+    step = stepOpMutexNew(prune);
+    step->ts = ts;
+    step->op_fact = op_fact;
+    step->hm_op = hm_op;
+    step->no_prune = no_prune;
+    step->out = NULL;
+    if (out != NULL)
+        step->out = PDDL_STRDUP(out);
 }

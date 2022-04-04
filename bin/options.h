@@ -85,6 +85,7 @@ struct options {
         int search;
         int heur;
         pddl_homomorphism_config_t homomorph_cfg;
+        int random_seed;
         int homomorph_samples;
         char *plan_out;
     } lifted_planner;

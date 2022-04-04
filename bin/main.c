@@ -63,7 +63,7 @@ static int stepLiftedMGroups(void)
     monotonicity_invariants_set = 1;
 
     if (!opt.lmg.enable){
-        PDDL_INFO2(&err, "Inference of lifted mutex groups turned off");
+        PDDL_INFO2(&err, "Inference of lifted mutex groups disabled");
         return 0;
     }
 
@@ -96,7 +96,7 @@ static int stepLiftedMGroups(void)
 static int stepLiftedEndomorph(void)
 {
     if (!opt.lifted_endomorph.enable){
-        PDDL_INFO2(&err, "Inference of lifted endomorphisms turned off");
+        PDDL_INFO2(&err, "Lifted endomorphisms disabled");
         return 0;
     }
 

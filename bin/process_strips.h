@@ -42,6 +42,10 @@ void pddlProcessStripsAddH3Fw(pddl_process_strips_t *prune,
                               size_t excess_memory);
 void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune);
 
+void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
+                                 int ts, int op_fact, int hm_op,
+                                 int no_prune, const char *out);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

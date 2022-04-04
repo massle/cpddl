@@ -5,6 +5,15 @@
 
 options_t opt = { 0 };
 
+struct op_mutex_cfg {
+    int ts;
+    int op_fact;
+    int hm_op;
+    int no_prune;
+    char *out;
+};
+typedef struct op_mutex_cfg op_mutex_cfg_t;
+
 static void hpotSetDisamb(int value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -174,9 +183,6 @@ static int optProcessStrips(const char *tag)
                     || strcmp(cur, "endomorphism") == 0){
             // TODO
 
-        }else if (strcmp(cur, "opm") == 0 || strcmp(cur, "op-mutex") == 0){
-            // TODO
-
         }else if (strcmp(cur, "h2fw") == 0){
             float time_limit = 0.f;
             while ((cur = strsep(&next, ",")) != NULL){
@@ -240,6 +246,17 @@ static int optFDREssentialFirst(int enabled)
 {
     opt.fdr.var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     return 0;
+}
+
+static void opMutex(void *ud)
+{
+    op_mutex_cfg_t *cfg = ud;
+    pddlProcessStripsAddOpMutex(&opt.strips.process,
+                                cfg->ts, cfg->op_fact, cfg->hm_op,
+                                cfg->no_prune, cfg->out);
+    if (cfg->out != NULL)
+        PDDL_FREE(cfg->out);
+    bzero(cfg, sizeof(*cfg));
 }
 
 
@@ -355,8 +372,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                       &opt.lifted_planner.homomorph_cfg.endomorphism_cfg.ignore_costs);
     optsParamsAddFlt(params, "rm-ratio",
                      &opt.lifted_planner.homomorph_cfg.rm_ratio);
-    optsParamsAddInt(params, "seed",
-                     &opt.lifted_planner.homomorph_cfg.random_seed);
+    optsParamsAddInt(params, "seed", &opt.lifted_planner.random_seed);
     optsParamsAddFlag(params, "keep-goal-objs",
                       &opt.lifted_planner.homomorph_cfg.keep_goal_objs);
     optsParamsAddInt(params, "samples",
@@ -449,6 +465,23 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 );
     optsAddFlagFn("h2", 0x0, optProcessStripsH2,
                   "Alias for -P irr:fam-dead-end:h2fwbw:irr:dedup");
+
+    op_mutex_cfg_t opm_cfg = { 0 };
+    params = optsAddParamsAndFn("P-opm", 0x0,
+                                "Operator mutexes.\n"
+                                "Options:\n"
+                                "  ts = <bool> -- use transition systems\n"
+                                "  op-fact = <int> -- op-fact compilation\n"
+                                "  hm-op = <int> -- h^m from each operator\n"
+                                "  no-prune = <bool> -- disabled pruning\n"
+                                "  out = <str> -- path to file where operator mutex are stored",
+                                &opm_cfg, opMutex);
+    optsParamsAddFlag(params, "ts", &opm_cfg.ts);
+    optsParamsAddInt(params, "op-fact", &opm_cfg.op_fact);
+    optsParamsAddInt(params, "hm-op", &opm_cfg.hm_op);
+    optsParamsAddFlag(params, "no-prune", &opm_cfg.no_prune);
+    optsParamsAddStr(params, "out", &opm_cfg.out);
+
 
     optsStartGroup("Red-Black FDR:");
     optsAddFlag("rb-fdr", 0x0, &opt.rb_fdr.enable, 0,
@@ -652,6 +685,11 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         mem_limit.rlim_cur
             = mem_limit.rlim_max = opt.max_mem * 1024UL * 1024UL;
         setrlimit(RLIMIT_AS, &mem_limit);
+    }
+
+    if (opt.lifted_planner.random_seed > 0){
+        opt.lifted_planner.homomorph_cfg.random_seed
+                = opt.lifted_planner.random_seed;
     }
 
     return 0;

@@ -9,7 +9,8 @@
 #define STR_TAGS 5
 #define FLAG_FN 6
 #define PARAMS 7
-#define INT_SWITCH 8
+#define PARAMS_AND_FN 8
+#define INT_SWITCH 9
 
 
 struct opt_group {
@@ -30,6 +31,8 @@ struct opt_opt {
     int (*parse_tags)(const char *tag);
     int (*flag_fn)(int);
     opts_params_t params;
+    void (*params_fn)(void *ud);
+    void *params_userdata;
 
     int switch_size;
     char **switch_tag;
@@ -196,6 +199,19 @@ opts_params_t *optsAddParams(const char *long_name,
     return &opt->params;
 }
 
+opts_params_t *optsAddParamsAndFn(const char *long_name,
+                                  char short_name,
+                                  const char *desc,
+                                  void *ud,
+                                  void (*fn)(void *ud))
+{
+    opt_opt_t *opt = optsAdd(PARAMS_AND_FN, long_name, short_name, NULL, desc);
+    optsParamsInit(&opt->params);
+    opt->params_fn = fn;
+    opt->params_userdata = ud;
+    return &opt->params;
+}
+
 void optsAddIntSwitch(const char *long_name,
                       char short_name,
                       int *set,
@@ -276,6 +292,11 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
     }else if (opt->type == PARAMS){
         if (optsParamsParse(&opt->params, val) != 0)
             return -1;
+
+    }else if (opt->type == PARAMS_AND_FN){
+        if (optsParamsParse(&opt->params, val) != 0)
+            return -1;
+        opt->params_fn(opt->params_userdata);
 
     }else if (opt->type == INT_SWITCH){
         int found = 0;
@@ -428,6 +449,7 @@ static void optsPrintDefault(const opt_opt_t *opt, FILE *fout)
 {
     if (opt->type == FLAG_FN
             || opt->type == PARAMS
+            || opt->type == PARAMS_AND_FN
             || opt->type == INT_SWITCH){
         return;
     }
@@ -506,6 +528,7 @@ static void optsPrintOpts(int group, FILE *fout)
             fprintf(fout, "flt ");
         }else if (opt->type == STR
                     || opt->type == PARAMS
+                    || opt->type == PARAMS_AND_FN
                     || opt->type == INT_SWITCH){
             fprintf(fout, "str ");
         }else if (opt->type == STR_TAGS){
@@ -602,19 +625,25 @@ static opts_param_t *paramsAdd(opts_params_t *params,
     return p;
 }
 
-void optsParamsAddInt(opts_params_t *params, const char *name, void *dst)
+void optsParamsAddInt(opts_params_t *params, const char *name, int *dst)
 {
     optsParamsAddIntFn(params, name, dst, NULL);
 }
 
-void optsParamsAddFlt(opts_params_t *params, const char *name, void *dst)
+void optsParamsAddFlt(opts_params_t *params, const char *name, float *dst)
 {
     optsParamsAddFltFn(params, name, dst, NULL);
 }
 
-void optsParamsAddFlag(opts_params_t *params, const char *name, void *dst)
+void optsParamsAddFlag(opts_params_t *params, const char *name, int *dst)
 {
     optsParamsAddFlagFn(params, name, dst, NULL);
+}
+
+void optsParamsAddStr(opts_params_t *params, const char *name, char **dst)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_str = 1;
 }
 
 void optsParamsAddIntFn(opts_params_t *params, const char *name, void *dst,
@@ -742,6 +771,9 @@ static int setParam(opts_params_t *params,
                             value, name);
                     return -1;
                 }
+
+            }else if (p->is_str){
+                *(char **)p->dst = PDDL_STRDUP(value);
             }
             return 0;
         }

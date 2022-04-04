@@ -20,6 +20,7 @@ struct opts_param {
     int is_flt;
     int is_flag;
     int is_int_switch;
+    int is_str;
 };
 typedef struct opts_param opts_param_t;
 
@@ -74,6 +75,12 @@ opts_params_t *optsAddParams(const char *long_name,
                              char short_name,
                              const char *desc);
 
+opts_params_t *optsAddParamsAndFn(const char *long_name,
+                                  char short_name,
+                                  const char *desc,
+                                  void *ud,
+                                  void (*fn)(void *ud));
+
 void optsAddIntSwitch(const char *long_name,
                       char short_name,
                       int *set,
@@ -88,9 +95,10 @@ int optsProcessTags(const char *_s, int (*fn)(const char *t));
 
 void optsParamsInit(opts_params_t *params);
 void optsParamsFree(opts_params_t *params);
-void optsParamsAddInt(opts_params_t *params, const char *name, void *dst);
-void optsParamsAddFlt(opts_params_t *params, const char *name, void *dst);
-void optsParamsAddFlag(opts_params_t *params, const char *name, void *dst);
+void optsParamsAddInt(opts_params_t *params, const char *name, int *dst);
+void optsParamsAddFlt(opts_params_t *params, const char *name, float *dst);
+void optsParamsAddFlag(opts_params_t *params, const char *name, int *dst);
+void optsParamsAddStr(opts_params_t *params, const char *name, char **dst);
 void optsParamsAddIntFn(opts_params_t *params, const char *name, void *dst,
                         opts_params_int_fn fn);
 void optsParamsAddFltFn(opts_params_t *params, const char *name, void *dst,
