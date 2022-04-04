@@ -771,7 +771,6 @@ static int setParam(opts_params_t *params,
                 if (strcmp(value, "1") == 0
                         || strcmp(value, "true") == 0
                         || strcmp(value, "True") == 0){
-                    fprintf(stderr, "%s = %d\n", name, 1);
                     if (p->flag_fn != NULL){
                         p->flag_fn(1, p->dst);
                     }else{
@@ -781,7 +780,6 @@ static int setParam(opts_params_t *params,
                 }else if (strcmp(value, "0") == 0
                             || strcmp(value, "false") == 0
                             || strcmp(value, "False") == 0){
-                    fprintf(stderr, "%s = %d\n", name, 0);
                     if (p->flag_fn != NULL){
                         p->flag_fn(0, p->dst);
                     }else{

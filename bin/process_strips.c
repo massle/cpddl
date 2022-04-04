@@ -22,6 +22,7 @@
 #include "pddl/op_mutex_pair.h"
 #include "pddl/op_mutex_infer.h"
 #include "pddl/op_mutex_sym_redundant.h"
+#include "pddl/endomorphism.h"
 #include "process_strips.h"
 #include "print_to_file.h"
 
@@ -57,6 +58,17 @@ struct pddl_process_strips_step_op_mutex {
 };
 typedef struct pddl_process_strips_step_op_mutex
             pddl_process_strips_step_op_mutex_t;
+
+struct pddl_process_strips_step_endomorph {
+    pddl_process_strips_step_t step;
+    pddl_endomorphism_config_t cfg;
+    int fdr;
+    int mg_strips;
+    int ts;
+    int fdr_ts;
+};
+typedef struct pddl_process_strips_step_endomorph
+            pddl_process_strips_step_endomorph_t;
 
 void pddlProcessStripsInit(pddl_process_strips_t *prune)
 {
@@ -165,6 +177,7 @@ static void stepInit(const char *name,
     pddlListInit(&step->conn);
     step->execute = execute;
     step->free = free;
+    step->can_reuse_rm_op_fact = 0;
     pddlListAppend(&prune->steps, &step->conn);
 }
 
@@ -397,11 +410,7 @@ static int opMutexExecute(pddl_process_strips_t *prune,
         PDDL_ISET(redundant);
         pddlOpMutexSymRedundantFixpoint(&redundant, &mg_strips.strips,
                                         &sym, &opm, err);
-        if (pddlISetSize(&redundant) > 0){
-            pddlStripsReduce(prune->strips, NULL, &redundant);
-            PDDL_INFO(err, "Number of Strips Operators: %d",
-                      prune->strips->op.op_size);
-        }
+        pddlISetUnion(&prune->rm_op, &redundant);
         pddlISetFree(&redundant);
         pddlStripsSymFree(&sym);
     }
@@ -443,4 +452,161 @@ void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
     step->out = NULL;
     if (out != NULL)
         step->out = PDDL_STRDUP(out);
+}
+
+
+
+static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
+                                const pddl_endomorphism_config_t *cfg,
+                                pddl_iset_t *redundant_op,
+                                pddl_err_t *err)
+{
+    int ret = 0;
+    PDDL_INFO2(err, "Redundant operators using endomorphism on FDR ...");
+    pddl_fdr_t fdr;
+    pddlFDRInitFromStrips(&fdr, prune->strips, prune->mgroups, prune->mutex,
+                          PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
+    ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, err);
+    pddlFDRFree(&fdr);
+    PDDL_INFO2(err, "Redundant operators using endomorphism on FDR DONE");
+    return ret;
+}
+
+static int pruneEndomorphismMGStrips(const pddl_process_strips_t *prune,
+                                     const pddl_endomorphism_config_t *cfg,
+                                     pddl_iset_t *redundant_op,
+                                     pddl_err_t *err)
+{
+    int ret = 0;
+    PDDL_INFO2(err, "Redundant operators using endomorphism on MG-Strips ...");
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
+    ret = pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op,
+                                               err);
+    pddlMGStripsFree(&mg_strips);
+    PDDL_INFO2(err, "Redundant operators using endomorphism on MG-Strips DONE");
+    return ret;
+}
+
+static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
+                               const pddl_endomorphism_config_t *cfg,
+                               pddl_iset_t *redundant_op,
+                               pddl_err_t *err)
+{
+    int ret = 0;
+    PDDL_INFO2(err, "Redundant operators using endomorphism on TSs ...");
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
+
+    pddl_trans_systems_t tss;
+    pddl_mutex_pairs_t mg_mutex;
+    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
+    pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
+    ret = pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op,
+                                                  err);
+    pddlTransSystemsFree(&tss);
+    pddlMutexPairsFree(&mg_mutex);
+    pddlMGStripsFree(&mg_strips);
+    PDDL_INFO2(err, "Redundant operators using endomorphism on TSs DONE");
+    return ret;
+}
+
+static int pruneEndomorphismFDRTS(const pddl_process_strips_t *prune,
+                                  const pddl_endomorphism_config_t *cfg,
+                                  pddl_iset_t *redundant_op,
+                                  pddl_err_t *err)
+{
+    int ret = pruneEndomorphismFDR(prune, cfg, redundant_op, err);
+
+    if (ret == 0){
+        PDDL_ISET(redundant2);
+        int ret2 = pruneEndomorphismTS(prune, cfg, &redundant2, err);
+        if (ret2 == 0
+                && pddlISetSize(&redundant2) > pddlISetSize(redundant_op)){
+            pddlISetEmpty(redundant_op);
+            pddlISetUnion(redundant_op, &redundant2);
+        }
+        pddlISetFree(&redundant2);
+    }else{
+        PDDL_INFO2(err, "Endomorphism on factored TS skipped, because"
+                        " endomorphism on FDR failed");
+    }
+
+    return ret;
+}
+
+static int endomorphExecute(pddl_process_strips_t *prune,
+                            pddl_process_strips_step_t *_step,
+                            pddl_err_t *err)
+{
+    pddl_process_strips_step_endomorph_t *step
+        = pddl_container_of(_step, pddl_process_strips_step_endomorph_t, step);
+
+    PDDL_ISET(redundant_op);
+    int ret = 0;
+    if (step->fdr){
+        ret = pruneEndomorphismFDR(prune, &step->cfg, &redundant_op, err);
+
+    }else if (step->mg_strips){
+        ret = pruneEndomorphismMGStrips(prune, &step->cfg, &redundant_op, err);
+
+    }else if (step->ts){
+        ret = pruneEndomorphismTS(prune, &step->cfg, &redundant_op, err);
+
+    }else if (step->fdr_ts){
+        ret = pruneEndomorphismFDRTS(prune, &step->cfg, &redundant_op, err);
+    }
+
+    if (ret != 0){
+        pddlISetFree(&redundant_op);
+        return -1;
+    }
+
+    pddlISetUnion(&prune->rm_op, &redundant_op);
+    pddlISetFree(&redundant_op);
+    return 0;
+}
+
+static pddl_process_strips_step_endomorph_t *
+            stepEndomorphNew(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_endomorph_t *step;
+    step = PDDL_ALLOC(pddl_process_strips_step_endomorph_t);
+    bzero(step, sizeof(*step));
+    stepInit("endomorph: ", &step->step, prune, endomorphExecute, emptyFree);
+    return step;
+}
+
+void pddlProcessStripsAddEndomorphFDR(pddl_process_strips_t *prune,
+                                      const pddl_endomorphism_config_t *cfg)
+{
+    pddl_process_strips_step_endomorph_t *p = stepEndomorphNew(prune);
+    p->cfg = *cfg;
+    p->fdr = 1;
+}
+
+void pddlProcessStripsAddEndomorphMGStrips(pddl_process_strips_t *prune,
+                                           const pddl_endomorphism_config_t *cfg)
+{
+    pddl_process_strips_step_endomorph_t *p = stepEndomorphNew(prune);
+    p->cfg = *cfg;
+    p->mg_strips = 1;
+}
+
+void pddlProcessStripsAddEndomorphTS(pddl_process_strips_t *prune,
+                                     const pddl_endomorphism_config_t *cfg)
+{
+    pddl_process_strips_step_endomorph_t *p = stepEndomorphNew(prune);
+    p->cfg = *cfg;
+    p->ts = 1;
+}
+
+void pddlProcessStripsAddEndomorphFDRTS(pddl_process_strips_t *prune,
+                                        const pddl_endomorphism_config_t *cfg)
+{
+    pddl_process_strips_step_endomorph_t *p = stepEndomorphNew(prune);
+    p->cfg = *cfg;
+    p->fdr_ts = 1;
 }

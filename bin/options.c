@@ -20,6 +20,17 @@ struct h3_cfg {
 };
 typedef struct h3_cfg h3_cfg_t;
 
+struct endomorph_cfg {
+    pddl_endomorphism_config_t cfg;
+    int fdr;
+    int mg_strips;
+    int ts;
+    int fdr_ts;
+};
+typedef struct endomorph_cfg endomorph_cfg_t;
+
+pddl_endomorphism_config_t endomorph_default_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
+
 static void hpotSetDisamb(int value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -228,6 +239,22 @@ static void h2Alias(void)
     pruneH2FwBw();
     irrelevance();
     deduplicateOps();
+}
+
+static void endomorphism(void *ud)
+{
+    endomorph_cfg_t *cfg = ud;
+    if (cfg->fdr){
+        pddlProcessStripsAddEndomorphFDR(&opt.strips.process, &cfg->cfg);
+    }else if (cfg->mg_strips){
+        pddlProcessStripsAddEndomorphMGStrips(&opt.strips.process, &cfg->cfg);
+    }else if (cfg->ts){
+        pddlProcessStripsAddEndomorphTS(&opt.strips.process, &cfg->cfg);
+    }else if (cfg->fdr_ts){
+        pddlProcessStripsAddEndomorphFDRTS(&opt.strips.process, &cfg->cfg);
+    }
+    bzero(cfg, sizeof(*cfg));
+    cfg->cfg = endomorph_default_cfg;
 }
 
 static void opMutex(void *ud)
@@ -451,6 +478,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                  "Prune with h^2 in forward/backward direction with the specified time limit.");
     optsAddFlagFn2("P-h3fw", 0x0, pruneH3Fw,
                    "Prune with h^3 in forward direction without time limit.");
+
     h3_cfg_t h3_cfg = { 0 };
     params = optsAddParamsAndFn("P-h3fw-limit", 0x0,
                                 "Prune with h^3 with the specified limits.\n"
@@ -460,6 +488,32 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                                 &h3_cfg, pruneH3FwLimit);
     optsParamsAddFlt(params, "time", &h3_cfg.time);
     optsParamsAddInt(params, "mem", &h3_cfg.mem);
+
+    endomorph_cfg_t endomorph_cfg = { 0 };
+    endomorph_cfg.cfg = endomorph_default_cfg;
+    params = optsAddParamsAndFn("P-endo", 0x0,
+                                "Endomorphism.\n"
+                                "Options:\n"
+                                "  fdr = <bool> -- use FDR\n"
+                                "  mg-strips = <bool> -- use MG-STRIPS\n"
+                                "  ts = <bool> -- use factored transition system\n"
+                                "  fdr-ts = <bool> -- use FDR and then factored TS\n"
+                                "  max-time = <float> -- time limit (default: 1 hour)\n"
+                                "  max-search-time = <float> -- time limit for the search part (default: 1 hour)\n"
+                                "  num-threads = <int> -- number of threads for the solved (default: 1)\n"
+                                "  fork = <bool> -- run in subprocess (default: true)\n"
+                                "  ignore-costs = <bool> -- ignore operator costs (default: false)",
+                                &endomorph_cfg, endomorphism);
+    optsParamsAddFlag(params, "fdr", &endomorph_cfg.fdr);
+    optsParamsAddFlag(params, "mg-strips", &endomorph_cfg.mg_strips);
+    optsParamsAddFlag(params, "ts", &endomorph_cfg.ts);
+    optsParamsAddFlag(params, "fdr-ts", &endomorph_cfg.fdr_ts);
+    optsParamsAddFlt(params, "max-time", &endomorph_cfg.cfg.max_time);
+    optsParamsAddFlt(params, "max-search-time", &endomorph_cfg.cfg.max_search_time);
+    optsParamsAddInt(params, "num-threads", &endomorph_cfg.cfg.num_threads);
+    optsParamsAddFlag(params, "fork", &endomorph_cfg.cfg.run_in_subprocess);
+    optsParamsAddFlag(params, "ignore-costs", &endomorph_cfg.cfg.ignore_costs);
+
 
     op_mutex_cfg_t opm_cfg = { 0 };
     params = optsAddParamsAndFn("P-opm", 0x0,

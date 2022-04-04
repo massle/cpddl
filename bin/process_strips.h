@@ -45,6 +45,14 @@ void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune);
 void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
                                  int ts, int op_fact, int hm_op,
                                  int no_prune, const char *out);
+void pddlProcessStripsAddEndomorphFDR(pddl_process_strips_t *prune,
+                                      const pddl_endomorphism_config_t *cfg);
+void pddlProcessStripsAddEndomorphMGStrips(pddl_process_strips_t *prune,
+                                           const pddl_endomorphism_config_t *cfg);
+void pddlProcessStripsAddEndomorphTS(pddl_process_strips_t *prune,
+                                     const pddl_endomorphism_config_t *cfg);
+void pddlProcessStripsAddEndomorphFDRTS(pddl_process_strips_t *prune,
+                                        const pddl_endomorphism_config_t *cfg);
 
 #ifdef __cplusplus
 } /* extern "C" */
