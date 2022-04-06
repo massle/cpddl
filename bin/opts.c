@@ -820,7 +820,6 @@ static int setParamFlag(opts_params_t *params, const char *name)
     for (int i = 0; i < params->param_size; ++i){
         const opts_param_t *p = params->param + i;
         if (strcmp(p->name, name) == 0 && p->is_flag){
-            fprintf(stderr, "%s = %d\n", name, 1);
             if (p->flag_fn != NULL){
                 p->flag_fn(1, p->dst);
             }else{
