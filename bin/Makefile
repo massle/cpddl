@@ -16,6 +16,7 @@ ifeq '$(BIN_STATIC)' 'yes'
 endif
 
 TARGETS = pddl
+TARGETS += pddl-fdr
 
 OBJS  = opts.o
 OBJS += options.o
@@ -28,8 +29,9 @@ all: $(TARGETS)
 
 pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LDFLAGS)
-pddl-%: %.c ../libpddl.a
-	$(CC) $(CFLAGS) $(OPTS_CFLAGS) -o $@ $< $(LDFLAGS) $(OPTS_LDFLAGS)
+pddl-%: pddl
+	rm -f $@
+	ln $< $@
 
 report_%.o: report_%.c report.h
 	$(CC) $(CFLAGS) -c -o $@ $<

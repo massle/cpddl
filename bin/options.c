@@ -1,5 +1,6 @@
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <libgen.h>
 #include "options.h"
 #include "opts.h"
 
@@ -271,6 +272,7 @@ static void opMutex(void *ud)
 
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
+    int is_pddl_fdr = (strcmp(basename(argv[0]), "pddl-fdr") == 0);
     opts_params_t *params;
 
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
@@ -294,6 +296,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     pddl_symbolic_task_config_t _symba_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
     opt.symba.cfg = _symba_cfg;
+
+    if (is_pddl_fdr)
+        opt.fdr.out = "-";
 
 
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
@@ -333,66 +338,68 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddFlag("lendo-ignore-costs", 0x0, &opt.lifted_endomorph.ignore_costs, 0,
                 "Ignore costs of actions when inferring lifted endomorphisms.");
 
-    optsStartGroup("Lifted Planner:");
-    optsAddIntSwitch("lplan", 0x0, &opt.lifted_planner.search,
-                     "Search algorithm for the lifted planner, one of:\n"
-                     "  none - no search (default)\n"
-                     "  astar - A*\n"
-                     "  gbfs - Greedy Best First Search\n"
-                     "  lazy - Greedy Best First Search with lazy evaluation",
-                     4,
-                     "none", LIFTED_PLAN_NONE,
-                     "astar", LIFTED_PLAN_ASTAR,
-                     "gbfs", LIFTED_PLAN_GBFS,
-                     "lazy", LIFTED_PLAN_LAZY);
-    optsAddIntSwitch("lplan-h", 0x0, &opt.lifted_planner.heur,
-                     "Heuristic function for the lifted planner, one of:\n"
-                     "  blind - Blind heuristic (default)\n"
-                     "  homo-lmc - Homomorphism-based LM-Cut heuristic (see --lplan-h-homo)\n"
-                     "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)",
-                     3,
-                     "none", LIFTED_PLAN_HEUR_BLIND,
-                     "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
-                     "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF);
-    params = optsAddParams("lplan-h-homo", 0x0,
-               "Configuration of the homomorphism for the"
-               " homomorphism-based heuristics.\n"
-               "Possible options:\n"
-               "  type = types|rnd-objs|gaif|rpg\n"
-               "  endomorph = <bool> -- enables lifted endomorphism (default: false)\n"
-               "  endomorph-ignore-cost = <bool> -- endomorphism ignores costs (default: false)\n"
-               "  rm-ratio = <float> -- ratio of removed objects\n"
-               "  seed = <int> -- random seed\n"
-               "  keep-goal-objs = <bool> -- do not collapse goal objects (default: true)\n"
-               "  samples = <int> -- number of samples from which 1 is selected (default: 1)\n"
-               "  rpg-max-depth = <int> -- maximum depth used for the rpg method (default: 2)"
-               );
-    optsParamsAddIntSwitch(params, "type",
-                           &opt.lifted_planner.homomorph_cfg.type,
-                           5,
-                           "types", PDDL_HOMOMORPHISM_TYPES,
-                           "rnd-objs", PDDL_HOMOMORPHISM_RAND_OBJS,
-                           "gaifmain", PDDL_HOMOMORPHISM_GAIFMAN,
-                           "gaif", PDDL_HOMOMORPHISM_GAIFMAN,
-                           "rpg", PDDL_HOMOMORPHISM_RPG);
-    optsParamsAddFlag(params, "endomorph",
-                      &opt.lifted_planner.homomorph_cfg.use_endomorphism);
-    optsParamsAddFlag(params, "endomorph-ignore-costs",
-                      &opt.lifted_planner.homomorph_cfg.endomorphism_cfg.ignore_costs);
-    optsParamsAddFlt(params, "rm-ratio",
-                     &opt.lifted_planner.homomorph_cfg.rm_ratio);
-    optsParamsAddInt(params, "seed", &opt.lifted_planner.random_seed);
-    optsParamsAddFlag(params, "keep-goal-objs",
-                      &opt.lifted_planner.homomorph_cfg.keep_goal_objs);
-    optsParamsAddInt(params, "samples",
-                     &opt.lifted_planner.homomorph_samples);
-    optsParamsAddInt(params, "rpg-max-depth",
-                     &opt.lifted_planner.homomorph_cfg.rpg_max_depth);
+    if (!is_pddl_fdr){
+        optsStartGroup("Lifted Planner:");
+        optsAddIntSwitch("lplan", 0x0, &opt.lifted_planner.search,
+                         "Search algorithm for the lifted planner, one of:\n"
+                         "  none - no search (default)\n"
+                         "  astar - A*\n"
+                         "  gbfs - Greedy Best First Search\n"
+                         "  lazy - Greedy Best First Search with lazy evaluation",
+                         4,
+                         "none", LIFTED_PLAN_NONE,
+                         "astar", LIFTED_PLAN_ASTAR,
+                         "gbfs", LIFTED_PLAN_GBFS,
+                         "lazy", LIFTED_PLAN_LAZY);
+        optsAddIntSwitch("lplan-h", 0x0, &opt.lifted_planner.heur,
+                         "Heuristic function for the lifted planner, one of:\n"
+                         "  blind - Blind heuristic (default)\n"
+                         "  homo-lmc - Homomorphism-based LM-Cut heuristic (see --lplan-h-homo)\n"
+                         "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)",
+                         3,
+                         "none", LIFTED_PLAN_HEUR_BLIND,
+                         "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
+                         "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF);
+        params = optsAddParams("lplan-h-homo", 0x0,
+                    "Configuration of the homomorphism for the"
+                    " homomorphism-based heuristics.\n"
+                    "Possible options:\n"
+                    "  type = types|rnd-objs|gaif|rpg\n"
+                    "  endomorph = <bool> -- enables lifted endomorphism (default: false)\n"
+                    "  endomorph-ignore-cost = <bool> -- endomorphism ignores costs (default: false)\n"
+                    "  rm-ratio = <float> -- ratio of removed objects\n"
+                    "  seed = <int> -- random seed\n"
+                    "  keep-goal-objs = <bool> -- do not collapse goal objects (default: true)\n"
+                    "  samples = <int> -- number of samples from which 1 is selected (default: 1)\n"
+                    "  rpg-max-depth = <int> -- maximum depth used for the rpg method (default: 2)"
+                    );
+        optsParamsAddIntSwitch(params, "type",
+                               &opt.lifted_planner.homomorph_cfg.type,
+                               5,
+                               "types", PDDL_HOMOMORPHISM_TYPES,
+                               "rnd-objs", PDDL_HOMOMORPHISM_RAND_OBJS,
+                               "gaifmain", PDDL_HOMOMORPHISM_GAIFMAN,
+                               "gaif", PDDL_HOMOMORPHISM_GAIFMAN,
+                               "rpg", PDDL_HOMOMORPHISM_RPG);
+        optsParamsAddFlag(params, "endomorph",
+                          &opt.lifted_planner.homomorph_cfg.use_endomorphism);
+        optsParamsAddFlag(params, "endomorph-ignore-costs",
+                          &opt.lifted_planner.homomorph_cfg.endomorphism_cfg.ignore_costs);
+        optsParamsAddFlt(params, "rm-ratio",
+                         &opt.lifted_planner.homomorph_cfg.rm_ratio);
+        optsParamsAddInt(params, "seed", &opt.lifted_planner.random_seed);
+        optsParamsAddFlag(params, "keep-goal-objs",
+                          &opt.lifted_planner.homomorph_cfg.keep_goal_objs);
+        optsParamsAddInt(params, "samples",
+                         &opt.lifted_planner.homomorph_samples);
+        optsParamsAddInt(params, "rpg-max-depth",
+                         &opt.lifted_planner.homomorph_cfg.rpg_max_depth);
 
-    optsAddStr("lplan-out", 0x0, &opt.lifted_planner.plan_out, NULL,
-               "Output filename for the found plan.");
-    optsAddStr("lplan-o", 0x0, &opt.lifted_planner.plan_out, NULL,
-               "Alias for --lplan-out");
+        optsAddStr("lplan-out", 0x0, &opt.lifted_planner.plan_out, NULL,
+                   "Output filename for the found plan.");
+        optsAddStr("lplan-o", 0x0, &opt.lifted_planner.plan_out, NULL,
+                   "Alias for --lplan-out");
+    }
 
     optsStartGroup("Grounding:");
     optsAddIntSwitch("ground", 'G', &opt.ground.method,
@@ -535,19 +542,21 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                    "Alias for --P-irr --P-fam-dead-end --P-h2fwbw --P-irr --P-dedup");
 
 
-    optsStartGroup("Red-Black FDR:");
-    optsAddFlag("rb-fdr", 0x0, &opt.rb_fdr.enable, 0,
-                "Compute red-black FDR encoding of the task.");
-    optsAddInt("rb-fdr-size", 0x0, &opt.rb_fdr.cfg.mgroup.num_solutions, 1,
-               "Number of different encodings to compute.");
-    optsAddFlag("rb-fdr-relaxed-plan", 0x0,
-                &opt.rb_fdr.cfg.mgroup.weight_facts_with_relaxed_plan, 0,
-                "Weight facts using relaxed plan.");
-    optsAddFlag("rb-fdr-conflicts", 0x0,
-                &opt.rb_fdr.cfg.mgroup.weight_facts_with_conflicts, 0,
-                "Weight facts with conflicts in relaxed plan.");
-    optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
-               "Output filename for the red-black FDR task.");
+    if (!is_pddl_fdr){
+        optsStartGroup("Red-Black FDR:");
+        optsAddFlag("rb-fdr", 0x0, &opt.rb_fdr.enable, 0,
+                    "Compute red-black FDR encoding of the task.");
+        optsAddInt("rb-fdr-size", 0x0, &opt.rb_fdr.cfg.mgroup.num_solutions, 1,
+                   "Number of different encodings to compute.");
+        optsAddFlag("rb-fdr-relaxed-plan", 0x0,
+                    &opt.rb_fdr.cfg.mgroup.weight_facts_with_relaxed_plan, 0,
+                    "Weight facts using relaxed plan.");
+        optsAddFlag("rb-fdr-conflicts", 0x0,
+                    &opt.rb_fdr.cfg.mgroup.weight_facts_with_conflicts, 0,
+                    "Weight facts with conflicts in relaxed plan.");
+        optsAddStr("rb-fdr-out", 0x0, &opt.rb_fdr.out, NULL,
+                   "Output filename for the red-black FDR task.");
+    }
 
 
     optsStartGroup("Finite Domain Representation:");
@@ -559,7 +568,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                   "Alias for --fdr-essential.");
     optsAddFlag("fdr-order-vars-cg", 0x0, &opt.fdr.order_vars_cg, 1,
                 "Order FDR variables using causal graph.");
-    optsAddStr("fdr-out", 'o', &opt.fdr.out, NULL,
+    optsAddStr("fdr-out", 'o', &opt.fdr.out, opt.fdr.out,
                "Output filename for FDR encoding of the task.");
     optsAddFlag("fdr-pretty-print-vars", 0x0, &opt.fdr.pretty_print_vars, 0,
                 "Log FDR variables.");
@@ -577,133 +586,135 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 "Transform FDR operators to TNF by multiplying its"
                 " preconditions.");
 
-    optsStartGroup("Grounded Planner:");
-    optsAddIntSwitch("gplan", 0x0, &opt.ground_planner.search,
-                     "Search algorithm for the grounded planner, one of:\n"
-                     "  none - no search (default)\n"
-                     "  astar - A*\n"
-                     "  gbfs - Greedy Best First Search\n"
-                     "  lazy - Greedy Best First Search with lazy evaluation",
-                     4,
-                     "none", GROUND_PLAN_NONE,
-                     "astar", GROUND_PLAN_ASTAR,
-                     "gbfs", GROUND_PLAN_GBFS,
-                     "lazy", GROUND_PLAN_LAZY);
-    optsAddIntSwitch("gplan-h", 0x0, &opt.ground_planner.heur,
-                     "Heuristic function for the grounded planner, one of:\n"
-                     "  blind - Blind heuristic (default)\n"
-                     "  lmc - LM-Cut\n"
-                     "  max/hmax - h^max\n"
-                     "  add/hadd - h^add\n"
-                     "  ff/hff - FF heuristic\n"
-                     "  flow - Flow heuristic\n"
-                     "  pot - Potential heuristic",
-                     10,
-                     "none", GROUND_PLAN_HEUR_BLIND,
-                     "lmc", GROUND_PLAN_HEUR_LMC,
-                     "max", GROUND_PLAN_HEUR_MAX,
-                     "hmax", GROUND_PLAN_HEUR_MAX,
-                     "add", GROUND_PLAN_HEUR_ADD,
-                     "hadd", GROUND_PLAN_HEUR_ADD,
-                     "ff", GROUND_PLAN_HEUR_FF,
-                     "hff", GROUND_PLAN_HEUR_FF,
-                     "flow", GROUND_PLAN_HEUR_FLOW,
-                     "pot", GROUND_PLAN_HEUR_POT);
+    if (!is_pddl_fdr){
+        optsStartGroup("Grounded Planner:");
+        optsAddIntSwitch("gplan", 0x0, &opt.ground_planner.search,
+                         "Search algorithm for the grounded planner, one of:\n"
+                         "  none - no search (default)\n"
+                         "  astar - A*\n"
+                         "  gbfs - Greedy Best First Search\n"
+                         "  lazy - Greedy Best First Search with lazy evaluation",
+                         4,
+                         "none", GROUND_PLAN_NONE,
+                         "astar", GROUND_PLAN_ASTAR,
+                         "gbfs", GROUND_PLAN_GBFS,
+                         "lazy", GROUND_PLAN_LAZY);
+        optsAddIntSwitch("gplan-h", 0x0, &opt.ground_planner.heur,
+                         "Heuristic function for the grounded planner, one of:\n"
+                         "  blind - Blind heuristic (default)\n"
+                         "  lmc - LM-Cut\n"
+                         "  max/hmax - h^max\n"
+                         "  add/hadd - h^add\n"
+                         "  ff/hff - FF heuristic\n"
+                         "  flow - Flow heuristic\n"
+                         "  pot - Potential heuristic",
+                         10,
+                         "none", GROUND_PLAN_HEUR_BLIND,
+                         "lmc", GROUND_PLAN_HEUR_LMC,
+                         "max", GROUND_PLAN_HEUR_MAX,
+                         "hmax", GROUND_PLAN_HEUR_MAX,
+                         "add", GROUND_PLAN_HEUR_ADD,
+                         "hadd", GROUND_PLAN_HEUR_ADD,
+                         "ff", GROUND_PLAN_HEUR_FF,
+                         "hff", GROUND_PLAN_HEUR_FF,
+                         "flow", GROUND_PLAN_HEUR_FLOW,
+                         "pot", GROUND_PLAN_HEUR_POT);
 
-    params = optsAddParams("gplan-pot", 0x0,
-               "Configuration for the potential heuristic"
-               " (if --gplan-h pot is used)."
-               "Options:\n"
-               "  D/disamb = <bool> -- turns on disambiguation (default: true)\n"
-               "  W/weak-disamb = <bool> -- turns on weak disambiguation (default: false)\n"
-               "  I/init = <bool> -- sets objective to initial state\n"
-               "  A/all = <bool> -- sets objective to all syntactic states (default: true)\n"
-               "  max-init-all = <bool> -- sets objective to the maximum of I and A\n"
-               "  +I/add-init = <bool> -- adds constraint on the inital state (default: true)\n"
-               "  sample-max = <int> -- maximum over the specified number of samples states\n"
-               "  sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
-               "  diverse = <int> -- diversification over the specified number states\n"
-               "  all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
-               "  all-mutex-cond = <int> -- conditioned ensemble\n"
-               "  all-mutex-cond-rand = <int> -- conditioned on <num-samples> fact sets\n"
-               "  all-mutex-cond-rand2 = <int>\n"
-               "  num-samples = <int> -- sets number of samples"
-               );
-    hpotParams(params, &opt.ground_planner.pot_cfg);
+        params = optsAddParams("gplan-pot", 0x0,
+                    "Configuration for the potential heuristic"
+                    " (if --gplan-h pot is used)."
+                    "Options:\n"
+                    "  D/disamb = <bool> -- turns on disambiguation (default: true)\n"
+                    "  W/weak-disamb = <bool> -- turns on weak disambiguation (default: false)\n"
+                    "  I/init = <bool> -- sets objective to initial state\n"
+                    "  A/all = <bool> -- sets objective to all syntactic states (default: true)\n"
+                    "  max-init-all = <bool> -- sets objective to the maximum of I and A\n"
+                    "  +I/add-init = <bool> -- adds constraint on the inital state (default: true)\n"
+                    "  sample-max = <int> -- maximum over the specified number of samples states\n"
+                    "  sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
+                    "  diverse = <int> -- diversification over the specified number states\n"
+                    "  all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
+                    "  all-mutex-cond = <int> -- conditioned ensemble\n"
+                    "  all-mutex-cond-rand = <int> -- conditioned on <num-samples> fact sets\n"
+                    "  all-mutex-cond-rand2 = <int>\n"
+                    "  num-samples = <int> -- sets number of samples"
+                    );
+        hpotParams(params, &opt.ground_planner.pot_cfg);
 
-    optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
-               "Output filename for the found plan.");
-    optsAddStr("gplan-o", 0x0, &opt.ground_planner.plan_out, NULL,
-               "Alias for --gplan-out");
+        optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
+                   "Output filename for the found plan.");
+        optsAddStr("gplan-o", 0x0, &opt.ground_planner.plan_out, NULL,
+                   "Alias for --gplan-out");
 
-    optsStartGroup("Symbolic Search:");
-    optsAddIntSwitch("symba", 0x0, &opt.symba.search,
-                     "Symbolic search, one of:\n"
-                     "  none -- symbolic search disabled (default)\n"
-                     "  fw -- forward-only search\n"
-                     "  bw -- backward-only search\n"
-                     "  fwbw/bi -- bi-directional search",
-                     5,
-                     "none", SYMBA_NONE,
-                     "fw", SYMBA_FW,
-                     "bw", SYMBA_BW,
-                     "fwbw", SYMBA_FWBW,
-                     "bi", SYMBA_FWBW);
-    optsAddInt("symba-fam", 0x0, &opt.symba.cfg.fam_groups, 0,
-               "Infer at most the specified number of goal-aware fam-groups.");
-    optsAddFlag("symba-fw-pot", 0x0, &opt.symba.cfg.fw.use_pot_heur, 0,
-                "Use potential heuristics in the forward search.");
-    params = optsAddParams("symba-fw-pot-cfg", 0x0,
-                           "Configuration of the potential heuristic for"
-                           " the forward search. (See --gplan-pot)");
-    hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
-    optsAddFlag("symba-bw-pot", 0x0,
-                &opt.symba.cfg.bw.use_pot_heur_inconsistent, 0,
-                "Use potential heuristics in the backward search."
-                " Note that this will always be treated as inconsistent.");
-    params = optsAddParams("symba-bw-pot-cfg", 0x0,
-                           "Configuration of the potential heuristic for"
-                           " the backward search. (See --gplan-pot)");
-    hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
-    optsAddFlt("symba-goal-constr-max-time", 0x0,
-               &opt.symba.cfg.goal_constr_max_time, 30.f,
-               "Set the time limit for applying mutex constraints on the"
-               " set of goal states.");
-    optsAddFlt("symba-fw-tr-merge-max-time", 0x0,
-               &opt.symba.cfg.fw.trans_merge_max_time, -1.,
-               "Time limit for merging transition relations in the forward"
-               " direction.");
-    optsAddFlt("symba-bw-tr-merge-max-time", 0x0,
-               &opt.symba.cfg.bw.trans_merge_max_time, -1.,
-               "Time limit for merging transition relations in the backward"
-               " direction.");
-    optsAddFlag("symba-bw-off", 0x0,
-                &opt.symba.bw_off_if_constr_failed, 1,
-                "Turn off backward search in case of bi-directional search"
-                " when mutex constraints could not be applied within\n"
-                "the time limit (see also --symba-goal-constr-max-time).");
-    optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
-               "Output file for the plan.");
+        optsStartGroup("Symbolic Search:");
+        optsAddIntSwitch("symba", 0x0, &opt.symba.search,
+                         "Symbolic search, one of:\n"
+                         "  none -- symbolic search disabled (default)\n"
+                         "  fw -- forward-only search\n"
+                         "  bw -- backward-only search\n"
+                         "  fwbw/bi -- bi-directional search",
+                         5,
+                         "none", SYMBA_NONE,
+                         "fw", SYMBA_FW,
+                         "bw", SYMBA_BW,
+                         "fwbw", SYMBA_FWBW,
+                         "bi", SYMBA_FWBW);
+        optsAddInt("symba-fam", 0x0, &opt.symba.cfg.fam_groups, 0,
+                   "Infer at most the specified number of goal-aware fam-groups.");
+        optsAddFlag("symba-fw-pot", 0x0, &opt.symba.cfg.fw.use_pot_heur, 0,
+                    "Use potential heuristics in the forward search.");
+        params = optsAddParams("symba-fw-pot-cfg", 0x0,
+                               "Configuration of the potential heuristic for"
+                               " the forward search. (See --gplan-pot)");
+        hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
+        optsAddFlag("symba-bw-pot", 0x0,
+                    &opt.symba.cfg.bw.use_pot_heur_inconsistent, 0,
+                    "Use potential heuristics in the backward search."
+                    " Note that this will always be treated as inconsistent.");
+        params = optsAddParams("symba-bw-pot-cfg", 0x0,
+                               "Configuration of the potential heuristic for"
+                               " the backward search. (See --gplan-pot)");
+        hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
+        optsAddFlt("symba-goal-constr-max-time", 0x0,
+                   &opt.symba.cfg.goal_constr_max_time, 30.f,
+                   "Set the time limit for applying mutex constraints on the"
+                   " set of goal states.");
+        optsAddFlt("symba-fw-tr-merge-max-time", 0x0,
+                   &opt.symba.cfg.fw.trans_merge_max_time, -1.,
+                   "Time limit for merging transition relations in the forward"
+                   " direction.");
+        optsAddFlt("symba-bw-tr-merge-max-time", 0x0,
+                   &opt.symba.cfg.bw.trans_merge_max_time, -1.,
+                   "Time limit for merging transition relations in the backward"
+                   " direction.");
+        optsAddFlag("symba-bw-off", 0x0,
+                    &opt.symba.bw_off_if_constr_failed, 1,
+                    "Turn off backward search in case of bi-directional search"
+                    " when mutex constraints could not be applied within\n"
+                    "the time limit (see also --symba-goal-constr-max-time).");
+        optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
+                   "Output file for the plan.");
 
-    optsStartGroup("Reversibility:");
-    optsAddInt("reversibility-max-depth", 0x0, &opt.reversibility.max_depth, 1,
-               "Maximum depth when searching for reversible plans"
-               " (also see --report-reversibility*).");
-    optsAddFlag("reversibility-use-mutex", 0x0, &opt.reversibility.use_mutex, 0,
-                "Use mutexes when search for reversible plans"
-               " (also see --report-reversibility*).");
+        optsStartGroup("Reversibility:");
+        optsAddInt("reversibility-max-depth", 0x0, &opt.reversibility.max_depth, 1,
+                   "Maximum depth when searching for reversible plans"
+                   " (also see --report-reversibility*).");
+        optsAddFlag("reversibility-use-mutex", 0x0, &opt.reversibility.use_mutex, 0,
+                    "Use mutexes when search for reversible plans"
+                    " (also see --report-reversibility*).");
 
-    optsStartGroup("Reports:");
-    optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
-                "Create report of lifted mutex groups.");
-    optsAddFlag("report-reversibility-simple", 0x0,
-                &opt.report.reversibility_simple, 0,
-                "Compute reversibility with the \"simple\" method.");
-    optsAddFlag("report-reversibility-iterative", 0x0,
-                &opt.report.reversibility_iterative, 0,
-                "Compute reversibility with the \"iterative\" method.");
-    optsAddFlag("report-mgroups", 0x0, &opt.report.mgroups, 0,
-                "Report on mutex groups.");
+        optsStartGroup("Reports:");
+        optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
+                    "Create report of lifted mutex groups.");
+        optsAddFlag("report-reversibility-simple", 0x0,
+                    &opt.report.reversibility_simple, 0,
+                    "Compute reversibility with the \"simple\" method.");
+        optsAddFlag("report-reversibility-iterative", 0x0,
+                    &opt.report.reversibility_iterative, 0,
+                    "Compute reversibility with the \"iterative\" method.");
+        optsAddFlag("report-mgroups", 0x0, &opt.report.mgroups, 0,
+                    "Report on mutex groups.");
+    }
 
     if (opts(&argc, argv) != 0)
         return -1;
