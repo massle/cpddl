@@ -1,10 +1,15 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <libgen.h>
+#include <pddl/pddl.h>
+#include "print_to_file.h"
 #include "options.h"
 #include "opts.h"
 
 options_t opt = { 0 };
+
+FILE *log_out = NULL;
+FILE *prop_out = NULL;
 
 struct op_mutex_cfg {
     int ts;
@@ -275,6 +280,8 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     int is_pddl_fdr = (strcmp(basename(argv[0]), "pddl-fdr") == 0);
     opts_params_t *params;
 
+    opt.log_out = "stderr";
+
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
     opt.lifted_planner.homomorph_cfg = _homomorph_cfg;
     opt.lifted_planner.homomorph_samples = 1;
@@ -304,6 +311,10 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
     optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
                "Maximum memory in MB if >0.");
+    optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
+               "Set output file for logs.");
+    optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
+               "Set output file for properties log.");
 
     optsStartGroup("PDDL:");
     optsAddFlag("force-adl", 0x0, &opt.pddl.force_adl, 1,
@@ -733,6 +744,17 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         }
         optsPrint(stderr);
         return -1;
+    }
+
+    if (opt.log_out != NULL){
+        log_out = openFile(opt.log_out);
+        pddlErrWarnEnable(err, log_out);
+        pddlErrInfoEnable(err, log_out);
+    }
+
+    if (opt.prop_out != NULL){
+        prop_out = openFile(opt.prop_out);
+        pddlErrPropEnable(err, prop_out);
     }
 
     if (argc == 2){

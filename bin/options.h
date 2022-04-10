@@ -55,8 +55,9 @@ enum {
 
 struct options {
     int help;
-    float t;
     int max_mem;
+    char *log_out;
+    char *prop_out;
     pddl_files_t files;
 
     struct {
@@ -166,5 +167,8 @@ typedef struct options options_t;
 extern options_t opt;
 
 int setOptions(int argc, char *argv[], pddl_err_t *err);
+
+extern FILE *log_out;
+extern FILE *prop_out;
 
 #endif /* OPTIONS_H */

@@ -723,15 +723,15 @@ void freeData(void)
         pddlLiftedMGroupsFree(&lifted_mgroups);
     if (pddl_set)
         pddlFree(&pddl);
+    if (log_out != NULL)
+        closeFile(log_out);
+    if (prop_out != NULL)
+        closeFile(prop_out);
     optsFree();
 }
 
 int main(int argc, char *argv[])
 {
-    pddlErrWarnEnable(&err, stderr);
-    pddlErrInfoEnable(&err, stderr);
-    FILE *propout = fopen("log.prop", "w");
-    pddlErrPropEnable(&err, propout);
     int ret = 0;
     if ((ret = setOptions(argc, argv, &err)) != 0
             || (ret = stepPDDL()) != 0
