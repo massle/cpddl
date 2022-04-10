@@ -124,7 +124,6 @@ typedef double pddl_real_t;
 # define PDDL_ATAN(x)     (atan(x))
 # define PDDL_POW(x, y)   (pow((x), (y)))
 # define PDDL_EXP(x)      (exp(x))
-# define PDDL_LOG(x)      (log(x))
 
 
 #define PDDL_MIN(x, y) ((x) < (y) ? (x) : (y)) /*!< minimum */

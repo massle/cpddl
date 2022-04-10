@@ -24,12 +24,7 @@ static void pddlErrPrintMsg(const pddl_err_t *err, FILE *fout)
     if (!err->err)
         return;
 
-    if (err->msg[0] == 0x0){
-        fprintf(fout, "Error: ");
-    }else{
-        fprintf(fout, "%s", err->msg_prefix);
-    }
-    fprintf(fout, "%s\n", err->msg);
+    fprintf(fout, "Error: %s\n", err->msg);
     fflush(fout);
 }
 
@@ -55,13 +50,6 @@ void pddlErrInit(pddl_err_t *err)
     bzero(err, sizeof(*err));
 }
 
-void pddlErrSetPrefix(pddl_err_t *err, const char *prefix)
-{
-    strncpy(err->msg_prefix, prefix, PDDL_ERR_MSG_PREFIX_MAXLEN - 1);
-    // err->msg_prefix[PDDL_ERR_MSG_PREFIX_MAXLEN - 1] is always set to 0
-    // from the initialization
-}
-
 int pddlErrIsSet(const pddl_err_t *err)
 {
     return err->err;
@@ -82,6 +70,11 @@ void pddlErrWarnEnable(pddl_err_t *err, FILE *fout)
 void pddlErrInfoEnable(pddl_err_t *err, FILE *fout)
 {
     err->info_out = fout;
+}
+
+void pddlErrPropEnable(pddl_err_t *err, FILE *fout)
+{
+    err->prop_out = fout;
 }
 
 void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable)
@@ -142,6 +135,36 @@ void _pddlTrace(pddl_err_t *err, const char *filename, int line, const char *fun
     }
 }
 
+void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
+{
+    if (err == NULL || err->ctx_size == PDDL_ERR_CTX_MAXLEN)
+        return;
+
+    pddl_err_ctx_t *ctx = err->ctx + err->ctx_size++;
+    strncpy(ctx->kw, kw, PDDL_ERR_CTX_KW_MAXLEN - 1);
+    ctx->kw[PDDL_ERR_CTX_KW_MAXLEN - 1] = '\0';
+    strncpy(ctx->info, info, PDDL_ERR_CTX_INFO_MAXLEN - 1);
+    ctx->info[PDDL_ERR_CTX_INFO_MAXLEN - 1] = '\0';
+    ctx->use_time = time;
+    if (time){
+        pddlTimerStart(&ctx->timer);
+        _pddlLog(err, "BEGIN");
+    }
+}
+
+void _pddlCtxEnd(pddl_err_t *err)
+{
+    if (err != NULL && err->ctx_size > 0){
+        pddl_err_ctx_t *ctx = err->ctx + err->ctx_size - 1;
+        if (ctx->use_time){
+            pddlTimerStop(&ctx->timer);
+            _pddlLog(err, "END elapsed time: %{ctx_elapsed_time}.3f",
+                     pddlTimerElapsedInSF(&ctx->timer));
+        }
+        --err->ctx_size;
+    }
+}
+
 void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
                const char *format, ...)
 {
@@ -161,34 +184,286 @@ void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func
     fflush(err->warn_out);
 }
 
-void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...)
+static void _pddlProp_kw(pddl_err_t *err, const char *kw)
 {
-    if (err == NULL)
-        return;
+    for (int i = 0; i < err->ctx_size; ++i)
+        fprintf(err->prop_out, "%s.", err->ctx[i].kw);
+    fprintf(err->prop_out, "%s = ", kw);
+}
 
-    struct rusage usg;
-    long peak_mem = 0L;
-    va_list ap;
-
-    if (err->info_out == NULL)
+static void _pddlProp_i(pddl_err_t *err, const char *kw, const char *v, int vlen)
+{
+    if (err == NULL || err->prop_out == NULL)
         return;
+    _pddlProp_kw(err, kw);
+    fwrite(v, sizeof(char), vlen, err->prop_out);
+    fwrite("\n", sizeof(char), 1, err->prop_out);
+    fflush(err->prop_out);
+}
+
+static void _pddlProp_s(pddl_err_t *err, const char *kw, const char *v, int vlen)
+{
+    if (err == NULL || err->prop_out == NULL)
+        return;
+    _pddlProp_kw(err, kw);
+    fwrite("\"", sizeof(char), 1, err->prop_out);
+    fwrite(v, sizeof(char), vlen, err->prop_out);
+    fwrite("\"\n", sizeof(char), 2, err->prop_out);
+    fflush(err->prop_out);
+}
+
+
+static void infoResources(pddl_err_t *err)
+{
     if (!err->info_timer_init){
         pddlTimerStart(&err->info_timer);
         err->info_timer_init = 1;
     }
 
-    if (getrusage(RUSAGE_SELF, &usg) == 0)
-        peak_mem = usg.ru_maxrss / 1024L;
-    va_start(ap, format);
-    pddlTimerStop(&err->info_timer);
-    if (!err->info_print_resources_disabled)
+    if (err->info_out == NULL)
+        return;
+
+    if (!err->info_print_resources_disabled){
+        struct rusage usg;
+        long peak_mem = 0L;
+        if (getrusage(RUSAGE_SELF, &usg) == 0)
+            peak_mem = usg.ru_maxrss / 1024L;
+        pddlTimerStop(&err->info_timer);
         fprintf(err->info_out, "[%.3fs %ldMB] ",
                 pddlTimerElapsedInSF(&err->info_timer), peak_mem);
+    }
+}
+void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
+               const char *format, ...)
+{
+    if (err == NULL || err->info_out == NULL)
+        return;
+
+    infoResources(err);
+
+    va_list ap;
+    va_start(ap, format);
     for (int pi = 0; pi < err->info_prefix_size; ++pi)
         fprintf(err->info_out, "%s", err->info_prefix[pi]);
     vfprintf(err->info_out, format, ap);
     va_end(ap);
     fprintf(err->info_out, "\n");
     fflush(err->info_out);
+}
+
+static void logInfo(pddl_err_t *err, const char *buf, int len)
+{
+    if (err->info_out != NULL)
+        fwrite(buf, sizeof(char), len, err->info_out);
+}
+
+static char digit_c[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                            'a', 'b', 'c', 'd', 'e', 'f' };
+
+static const char *itos(int value, int radix, char *buf, int buflen)
+{
+    int neg = 0;
+    if (value < 0){
+        neg = 1;
+        value = -value;
+    }
+
+    do {
+        int digit = value % radix;
+        buf[--buflen] = digit_c[digit];
+        value /= radix;
+    } while (value > 0);
+
+    if (neg)
+        buf[--buflen] = '-';
+
+    return buf + buflen;
+}
+
+static const char *utos(unsigned int value, unsigned int radix, char *buf, int buflen)
+{
+    do {
+        unsigned int digit = value % radix;
+        buf[--buflen] = digit_c[digit];
+        value /= radix;
+    } while (value > 0);
+    return buf + buflen;
+}
+
+static const char *ltos(long value, long radix, char *buf, int buflen)
+{
+    int neg = 0;
+    if (value < 0L){
+        neg = 1;
+        value = -value;
+    }
+
+    do {
+        long digit = value % radix;
+        buf[--buflen] = digit_c[digit];
+        value /= radix;
+    } while (value > 0);
+
+    if (neg)
+        buf[--buflen] = '-';
+
+    return buf + buflen;
+}
+
+static const char *ultos(unsigned long value, unsigned long radix, char *buf, int buflen)
+{
+    do {
+        unsigned long digit = value % radix;
+        buf[--buflen] = digit_c[digit];
+        value /= radix;
+    } while (value > 0);
+    return buf + buflen;
+}
+
+#define NUM_BUFSIZE 32
+#define MOD_BUFSIZE 32
+#define KW_BUFSIZE PDDL_ERR_CTX_KW_MAXLEN
+void _pddlLog(pddl_err_t *err, const char *fmt, ...)
+{
+    if (err == NULL)
+        return;
+
+    char bf[NUM_BUFSIZE];
+    char mod[MOD_BUFSIZE];
+    char keyword[KW_BUFSIZE];
+    int ins;
+    char ch;
+
+    if (err->info_out != NULL){
+        infoResources(err);
+        for (int pi = 0; pi < err->ctx_size; ++pi)
+            fprintf(err->info_out, "%s: ", err->ctx[pi].info);
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    while (1){
+        keyword[0] = '\0';
+        const char *fmt_begin = fmt;
+        int len = 0;
+        for (ch = *(fmt++); ch != '%' && ch != '\0'; ch = *(fmt++), ++len)
+            ;
+        if (len > 0)
+            logInfo(err, fmt_begin, len);
+        if (ch == '\0')
+            break;
+
+        ch = *(fmt++);
+        if (ch == '\0')
+            break;
+
+        if (ch == '%'){
+            logInfo(err, "%", 1);
+            continue;
+        }
+
+        if (ch == '{'){
+            ch = *(fmt++);
+            for (ins = 0; ch != '}' && ch != '\0'; ch = *(fmt++)){
+                if (ins < KW_BUFSIZE - 1)
+                    keyword[ins++] = ch;
+            }
+            keyword[ins] = '\0';
+            if (ch == '\0')
+                break;
+            ch = *(fmt++);
+        }
+
+        int is_long = 0;
+        if (ch == 'l') {
+            is_long = 1;
+            ch = *(fmt++);
+            if (ch == '\0')
+                break;
+        }
+
+        const char *s;
+        switch (ch){
+            case 'u':
+                if (is_long){
+                    unsigned long v = va_arg(va, unsigned long);
+                    s = ultos(v, 10, bf, NUM_BUFSIZE);
+                }else{
+                    unsigned int v = va_arg(va, unsigned int);
+                    s = utos(v, 10, bf, NUM_BUFSIZE);
+                }
+                logInfo(err, s, NUM_BUFSIZE - (s - bf));
+                if (keyword[0] != '\0')
+                    _pddlProp_i(err, keyword, s, NUM_BUFSIZE - (s - bf));
+                break;
+
+            case 'd':
+                if (is_long){
+                    long v = va_arg(va, long);
+                    s = ltos(v, 10, bf, NUM_BUFSIZE);
+                }else{
+                    int v = va_arg(va, int);
+                    s = itos(v, 10, bf, NUM_BUFSIZE);
+                }
+                logInfo(err, s, NUM_BUFSIZE - (s - bf));
+                if (keyword[0] != '\0')
+                    _pddlProp_i(err, keyword, s, NUM_BUFSIZE - (s - bf));
+                break;
+
+            case 'x':
+                if (is_long){
+                    unsigned long v = va_arg(va, unsigned long);
+                    s = ultos(v, 16, bf, NUM_BUFSIZE);
+                }else{
+                    unsigned int v = va_arg(va, unsigned int);
+                    s = utos(v, 16, bf, NUM_BUFSIZE);
+                }
+                logInfo(err, s, NUM_BUFSIZE - (s - bf));
+                if (keyword[0] != '\0')
+                    _pddlProp_i(err, keyword, s, NUM_BUFSIZE - (s - bf));
+                break;
+
+            case 'c':
+                ch = (char)(va_arg(va, int));
+                logInfo(err, &ch, 1);
+                if (keyword[0] != '\0')
+                    _pddlProp_s(err, keyword, &ch, 1);
+                break;
+
+            case 's':
+                s = va_arg(va, char*);
+                len = strlen(s);
+                logInfo(err, s, len);
+                if (keyword[0] != '\0')
+                    _pddlProp_s(err, keyword, s, len);
+                break;
+
+            default:
+                mod[0] = '%';
+                for (ins = 1; ch != 'f' && ch != 'g' && ch != '\0';
+                        ch = *(fmt++)){
+                    mod[ins++] = ch;
+                }
+                mod[ins++] = ch;
+                mod[ins] = '\0';
+
+                if (ch == 'f' || ch == 'g'){
+                    double v = va_arg(va, double);
+                    int len = snprintf(bf, NUM_BUFSIZE, mod, v);
+                    logInfo(err, bf, len);
+                    if (keyword[0] != '\0')
+                        _pddlProp_i(err, keyword, bf, len);
+                }else{
+                    fprintf(stderr, "Fatal error: unkown format flag '%c'\n", ch);
+                    exit(-1);
+                }
+        }
+    }
+
+    if (err->info_out != NULL){
+        fprintf(err->info_out, "\n");
+        fflush(err->info_out);
+    }
+
+    va_end(va);
 }

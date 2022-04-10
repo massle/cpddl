@@ -20,6 +20,8 @@
 #ifndef __PDDL_ASSERT_H__
 #define __PDDL_ASSERT_H__
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "pddl/config.h"
 
 #ifdef PDDL_DEBUG
