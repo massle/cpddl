@@ -243,8 +243,8 @@ void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func
 
     va_list ap;
     va_start(ap, format);
-    for (int pi = 0; pi < err->info_prefix_size; ++pi)
-        fprintf(err->info_out, "%s", err->info_prefix[pi]);
+    for (int pi = 0; pi < err->ctx_size; ++pi)
+        fprintf(err->info_out, "%s: ", err->ctx[pi].info);
     vfprintf(err->info_out, format, ap);
     va_end(ap);
     fprintf(err->info_out, "\n");

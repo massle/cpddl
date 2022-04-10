@@ -16,13 +16,14 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/open_list.h"
 #include "pddl/strips_state_space.h"
 #include "pddl/strips_maker.h"
 #include "pddl/sql_grounder.h"
 #include "pddl/search_lifted.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 typedef void (*search_del_fn)(pddl_search_lifted_t *);
 typedef int (*search_init_step_fn)(pddl_search_lifted_t *);
@@ -123,7 +124,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
                                     const char *err_prefix,
                                     pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, err_prefix);
+    CTX(err, "bfs", err_prefix);
     pddl_search_lifted_bfs_t *bfs;
 
     bfs = ALLOC(pddl_search_lifted_bfs_t);
@@ -137,21 +138,21 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     bfs->is_lazy = is_lazy;
     bfs->list = pddlOpenListSplayTree2();
 
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return &bfs->search;
 }
 
 static void bfsDel(pddl_search_lifted_t *s)
 {
     pddl_err_t *err = s->err;
-    PDDL_INFO_PREFIX_PUSH(err, s->err_prefix);
+    CTX(err, "bfs", s->err_prefix);
     searchFree(s);
 
     pddl_search_lifted_bfs_t *bfs = BFS(s);
     if (bfs->list)
         pddlOpenListDel(bfs->list);
     FREE(bfs);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 
@@ -172,7 +173,7 @@ static void bfsPush(pddl_search_lifted_bfs_t *bfs,
 static int bfsInitStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    PDDL_INFO_PREFIX_PUSH(s->err, s->err_prefix);
+    CTX(s->err, "bfs", s->err_prefix);
     int ret = PDDL_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
@@ -204,7 +205,7 @@ static int bfsInitStep(pddl_search_lifted_t *s)
     ASSERT_RUNTIME(s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_NEW);
     bfsPush(bfs, &s->cur_node, h_value);
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
-    PDDL_INFO_PREFIX_POP(s->err);
+    CTXEND(s->err);
     return ret;
 }
 
@@ -259,7 +260,7 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
 static int bfsStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    PDDL_INFO_PREFIX_PUSH(s->err, s->err_prefix);
+    CTX(s->err, "bfs", s->err_prefix);
 
     ++s->_stat.steps;
 
@@ -267,7 +268,7 @@ static int bfsStep(pddl_search_lifted_t *s)
     int cur_cost[2];
     pddl_state_id_t cur_state_id;
     if (pddlOpenListPop(bfs->list, &cur_state_id, cur_cost) != 0){
-        PDDL_INFO_PREFIX_POP(s->err);
+        CTXEND(s->err);
         return PDDL_SEARCH_UNSOLVABLE;
     }
 
@@ -276,7 +277,7 @@ static int bfsStep(pddl_search_lifted_t *s)
 
     // Skip already closed nodes
     if (s->cur_node.status != PDDL_STRIPS_STATE_SPACE_STATUS_OPEN){
-        PDDL_INFO_PREFIX_POP(s->err);
+        CTXEND(s->err);
         return PDDL_SEARCH_CONT;
     }
 
@@ -290,7 +291,7 @@ static int bfsStep(pddl_search_lifted_t *s)
     // Check whether it is a goal
     if (isGoal(s)){
         extractPlan(s, cur_state_id);
-        PDDL_INFO_PREFIX_POP(s->err);
+        CTXEND(s->err);
         return PDDL_SEARCH_FOUND;
     }
 
@@ -323,7 +324,7 @@ static int bfsStep(pddl_search_lifted_t *s)
                                        next_state_id, &s->next_node);
         bfsInsertNextState(bfs, args_id, cost, h_value);
     }
-    PDDL_INFO_PREFIX_POP(s->err);
+    CTXEND(s->err);
     return PDDL_SEARCH_CONT;
 }
 

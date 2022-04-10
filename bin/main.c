@@ -100,7 +100,7 @@ static int stepLiftedEndomorph(void)
         return 0;
     }
 
-    PDDL_INFO_PREFIX_PUSH(&err, "LENDO: ");
+    PDDL_CTX(&err, "lend", "LENDO");
     int ret = 0;
     pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
     cfg.ignore_costs = opt.lifted_endomorph.ignore_costs;
@@ -114,7 +114,7 @@ static int stepLiftedEndomorph(void)
     }
     pddlISetFree(&redundant_objs);
 
-    PDDL_INFO_PREFIX_POP(&err);
+    PDDL_CTXEND(&err);
     return ret;
 }
 
@@ -131,10 +131,10 @@ static void stripsCompileAwayCondEff(void)
         return;
 
 
-    PDDL_INFO_PREFIX_PUSH(&err, "STRIPS CE: ");
+    PDDL_CTX(&err, "strips_ce", "STRIPS CE");
     if (!strips.has_cond_eff){
         PDDL_INFO2(&err, "The task has no conditional effects.");
-        PDDL_INFO_PREFIX_POP(&err);
+        PDDL_CTXEND(&err);
         return;
     }
 
@@ -142,7 +142,7 @@ static void stripsCompileAwayCondEff(void)
     pddlStripsCompileAwayCondEff(&strips);
     PDDL_INFO2(&err, "Conditional effects compiled away.");
     pddlStripsLogInfo(&strips, &err);
-    PDDL_INFO_PREFIX_POP(&err);
+    PDDL_CTXEND(&err);
 }
 
 static int stepGround(void)
@@ -181,9 +181,9 @@ static int stepGround(void)
 static int stepReportMGroups(void)
 {
     if (opt.report.mgroups){
-        PDDL_INFO_PREFIX_PUSH(&err, "Report MGroups: ");
+        PDDL_CTX(&err, "report_mgs", "Report MGroups");
         reportMGroups(&pddl, &strips, &err);
-        PDDL_INFO_PREFIX_POP(&err);
+        PDDL_CTXEND(&err);
         return 1;
     }
     return 0;
@@ -196,7 +196,7 @@ static int stepGroundMGroups(void)
         return 0;
     }
 
-    PDDL_INFO_PREFIX_PUSH(&err, "Ground LMG: ");
+    PDDL_CTX(&err, "ground_lmg", "Ground LMG");
     PDDL_INFO2(&err, "Grounding of lifted mutex groups ...");
     pddlMGroupsGround(&mgroup, &pddl, &lifted_mgroups, &strips);
     if (opt.ground.mgroup_remove_subsets)
@@ -206,7 +206,7 @@ static int stepGroundMGroups(void)
     PDDL_INFO(&err, "Found %d mutex groups", mgroup.mgroup_size);
     pddlMutexPairsAddMGroups(&mutex, &mgroup);
     PDDL_INFO(&err, "Found %d mutex pairs", mutex.num_mutex_pairs);
-    PDDL_INFO_PREFIX_POP(&err);
+    PDDL_CTXEND(&err);
 
 
     PRINT_TO_FILE(&err, opt.ground.mgroup_out, "grounded mutex groups",
@@ -222,7 +222,7 @@ static int stepInferMGroups(void)
         return 0;
     }
 
-    PDDL_INFO_PREFIX_PUSH(&err, "MG: ");
+    PDDL_CTX(&err, "mg", "MG");
     if (opt.mg.method == MG_FAM){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
         cfg.maximal = opt.mg.fam_maximal;
@@ -261,7 +261,7 @@ static int stepInferMGroups(void)
 
     pddlMutexPairsAddMGroups(&mutex, &mgroup);
     PDDL_INFO(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
-    PDDL_INFO_PREFIX_POP(&err);
+    PDDL_CTXEND(&err);
 
     PRINT_TO_FILE(&err, opt.mg.out, "mutex groups",
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
@@ -410,7 +410,7 @@ static int stepFDR(void)
     }
 
     if (opt.fdr.to_tnf || opt.fdr.to_tnf_multiply){
-        PDDL_INFO_PREFIX_PUSH(&err, "FDR-to-TNF: ");
+        PDDL_CTX(&err, "fdr_to_tnf", "FDR-to-TNF");
         if (opt.fdr.to_tnf){
             PDDL_INFO(&err, "Constructing TNF (ops: %d)", fdr.op.op_size);
         }else if (opt.fdr.to_tnf_multiply){
@@ -432,7 +432,7 @@ static int stepFDR(void)
                                             flags, &err) != 0){
             pddlMutexPairsFree(&fdr_mutex);
             pddlMGStripsFree(&mg_strips);
-            PDDL_INFO_PREFIX_POP(&err);
+            PDDL_CTXEND(&err);
             PDDL_TRACE_RET(&err, -1);
         }
         if (opt.fdr.to_tnf){
@@ -444,7 +444,7 @@ static int stepFDR(void)
         pddlMutexPairsFree(&fdr_mutex);
         pddlMGStripsFree(&mg_strips);
         pddlFDRFree(&fdr_old);
-        PDDL_INFO_PREFIX_POP(&err);
+        PDDL_CTXEND(&err);
     }
 
 
@@ -497,7 +497,7 @@ static int stepGroundPlanner(void)
     if (opt.ground_planner.search == GROUND_PLAN_NONE)
         return 0;
 
-    PDDL_INFO_PREFIX_PUSH(&err, "GPLAN: ");
+    PDDL_CTX(&err, "gplan", "GPLAN");
     pddl_heur_t *heur = NULL;
     switch (opt.ground_planner.heur){
         case GROUND_PLAN_HEUR_LMC:
@@ -558,7 +558,7 @@ static int stepGroundPlanner(void)
             PDDL_INFO2(&err, "Search aborted.");
             pddlSearchDel(search);
             pddlHeurDel(heur);
-            PDDL_INFO_PREFIX_POP(&err);
+            PDDL_CTXEND(&err);
             return -1;
         }
 
@@ -596,7 +596,7 @@ static int stepGroundPlanner(void)
         PDDL_INFO2(&err, "Search aborted.");
         pddlSearchDel(search);
         pddlHeurDel(heur);
-        PDDL_INFO_PREFIX_POP(&err);
+        PDDL_CTXEND(&err);
         return -1;
     }
 
@@ -644,7 +644,7 @@ static int stepSymba(void)
     if (opt.symba.search == SYMBA_NONE)
         return 0;
 
-    PDDL_INFO_PREFIX_PUSH(&err, "SYMBA: ");
+    PDDL_CTX(&err, "symba", "SYMBA");
     if (opt.symba.cfg.fw.use_pot_heur){
         if (fdrHasTNFOps(&fdr)){
             PDDL_INFO2(&err, "fw: Using consistent potential heuristic");
@@ -704,7 +704,7 @@ static int stepSymba(void)
     pddlIArrFree(&plan);
     pddlSymbolicTaskDel(task);
 
-    PDDL_INFO_PREFIX_POP(&err);
+    PDDL_CTXEND(&err);
     return 0;
 }
 
@@ -730,6 +730,8 @@ int main(int argc, char *argv[])
 {
     pddlErrWarnEnable(&err, stderr);
     pddlErrInfoEnable(&err, stderr);
+    FILE *propout = fopen("log.prop", "w");
+    pddlErrPropEnable(&err, propout);
     int ret = 0;
     if ((ret = setOptions(argc, argv, &err)) != 0
             || (ret = stepPDDL()) != 0

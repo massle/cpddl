@@ -132,7 +132,7 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     old_sigint = signal(SIGINT, liftedPlannerSigHandlerTerminate);
     old_sigterm = signal(SIGTERM, liftedPlannerSigHandlerTerminate);
 
-    PDDL_INFO_PREFIX_PUSH(err, "LPLAN: ");
+    PDDL_CTX(err, "lplan", "LPLAN");
     pddl_homomorphism_heur_t *heur = NULL;
 
     if (opt.lifted_planner.heur != LIFTED_PLAN_HEUR_BLIND){
@@ -225,7 +225,7 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     pddlSearchLiftedDel(search);
     if (heur != NULL)
         pddlHomomorphismHeurDel(heur);
-    PDDL_INFO_PREFIX_POP(err);
+    PDDL_CTXEND(err);
     signal(SIGINT, old_sigint);
     signal(SIGTERM, old_sigterm);
     return 1;

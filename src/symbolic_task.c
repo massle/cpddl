@@ -44,6 +44,7 @@
 #include "pddl/hpot.h"
 #include "assert.h"
 #include "fmt.h"
+#include "err.h"
 
 #define ROUND_EPS 0.001
 
@@ -181,7 +182,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
 {
     char prefix[20];
     sprintf(prefix, "Search create %s: ", (fw ? "fw" : "bw"));
-    PDDL_INFO_PREFIX_PUSH(err, prefix);
+    CTX(err, "symba", prefix);
     PDDL_INFO(err, "Creating %s direction", (fw ? "fw" : "bw"));
     bzero(search, sizeof(*search));
     search->cfg = *_cfg;
@@ -205,7 +206,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
     pddl_cost_t pot_init_h_value;
     if (preparePotHeur(&ss->fdr, &search->cfg,
                        &op_pot, &pot_init_h_value, err) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
     if (search->use_heur)
@@ -248,7 +249,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
     search->plan_other_goal_id = -1;
 
     PDDL_INFO2(err, "DONE");
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -1064,7 +1065,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                 " potential heuristic.");
     }
 
-    PDDL_INFO_PREFIX_PUSH(err, "symbolic: ");
+    CTX(err, "symba", "symbolic");
 
     pddl_symbolic_task_t *ss;
     PDDL_INFO2(err, "Constructing symbolic task.");
@@ -1137,7 +1138,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     */
     //Cudd_PrintInfo(ss->mgr, stderr);
 
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return ss;
 }
 
@@ -1188,7 +1189,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 {
     if (!ss->search_fw.enabled)
         PDDL_FATAL2("Symbolic Task wasn't initialzed with fw search!");
-    PDDL_INFO_PREFIX_PUSH(err, "symbolic search fw: ");
+    CTX(err, "symba_fw", "symbolic search fw");
     searchStart(ss, &ss->search_fw, err);
     int res = searchOneDir(ss, &ss->search_fw, err);
     pddlIArrAppendArr(plan, &ss->search_fw.plan);
@@ -1202,7 +1203,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
                  ss->mg_strips.strips.op.op[op_id]->cost);
     }
 #endif /* PDDL_DEBUG */
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return res;
 }
 
@@ -1212,7 +1213,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 {
     if (!ss->search_bw.enabled)
         PDDL_FATAL2("Symbolic Task wasn't initialzed with bw search!");
-    PDDL_INFO_PREFIX_PUSH(err, "symbolic search bw: ");
+    CTX(err, "symba_bw", "symbolic search bw");
     searchStart(ss, &ss->search_bw, err);
     int res = searchOneDir(ss, &ss->search_bw, err);
     pddlIArrAppendArr(plan, &ss->search_bw.plan);
@@ -1226,7 +1227,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
                  ss->mg_strips.strips.op.op[op_id]->cost);
     }
 #endif /* PDDL_DEBUG */
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return res;
 }
 
@@ -1285,7 +1286,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         PDDL_FATAL2("Symbolic Task wasn't initialzed with fw search!");
     if (!ss->search_bw.enabled)
         PDDL_FATAL2("Symbolic Task wasn't initialzed with bw search!");
-    PDDL_INFO_PREFIX_PUSH(err, "symbolic search fw+bw: ");
+    CTX(err, "symba_fwbw", "symbolic search fw+bw");
     PDDL_INFO2(err, "start");
     searchStart(ss, &ss->search_fw, err);
     searchStart(ss, &ss->search_bw, err);
@@ -1400,7 +1401,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             break;
     }
     PDDL_INFO(err, "DONE: %s", res_str);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return res;
 }
 

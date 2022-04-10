@@ -27,6 +27,7 @@
 #include "alloc.h"
 #include "assert.h"
 #include "log.h"
+#include "err.h"
 
 #define ROUND_EPS 0.001
 // TODO
@@ -913,7 +914,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
         return -1;
     }
 
-    PDDL_INFO_PREFIX_PUSH(err, "Pot: ");
+    CTX(err, "pot", "Pot");
     pddlHPotConfigLog(cfg, "cfg.", err);
     // Construct MG-Strips and compute h^2 mutexes if necessary
     pddl_mg_strips_t mg_strips;
@@ -936,7 +937,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     // Initialize potential heuristic
     pddl_pot_t pot;
     if (initPot(&pot, fdr, &mg_strips, &mutex, cfg, err) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         return -1;
     }
 
@@ -944,7 +945,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
         // Add constraint on the initial state
         if (addInitConstr(&pot, fdr, cfg, err) != 0){
             pddlPotFree(&pot);
-            PDDL_INFO_PREFIX_POP(err);
+            CTXEND(err);
             return -1;
         }
     }
@@ -1031,7 +1032,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     if (ret != 0)
         PDDL_INFO2(err, "No optimal solution found");
 
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return ret;
 }
 

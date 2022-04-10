@@ -24,6 +24,7 @@
 #include "alloc.h"
 #include "assert.h"
 #include "log.h"
+#include "err.h"
 
 #define METHOD_TYPE 1
 #define METHOD_RANDOM_PAIR 2
@@ -781,7 +782,7 @@ int pddlHomomorphism(pddl_t *pddl,
         PDDL_ERR_RET2(err, -1, "Nothing to do!");
     }
 
-    PDDL_INFO_PREFIX_PUSH(err, "Homomorphism: ");
+    CTX(err, "homo", "Homomorphism");
     pddlHomomorphismConfigLog(cfg, "cfg.", err);
     PDDL_INFO(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);
     if (obj_map != NULL){
@@ -848,7 +849,7 @@ int pddlHomomorphism(pddl_t *pddl,
     PDDL_INFO(err, "Homomorphism computed (objs: %d, from objs: %d).",
               pddl->obj.obj_size,
               src->obj.obj_size);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 

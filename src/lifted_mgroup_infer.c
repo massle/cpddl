@@ -27,6 +27,7 @@
 #include "pddl/lifted_mgroup_htable.h"
 #include "pddl/lifted_mgroup_infer.h"
 #include "assert.h"
+#include "err.h"
 
 struct cand {
     int id;
@@ -1985,7 +1986,7 @@ void pddlLiftedMGroupsInferFAMGroups(
                             pddl_lifted_mgroups_t *mgroups,
                             pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "LMG: ");
+    CTX(err, "lmg", "LMG");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
@@ -2032,7 +2033,7 @@ void pddlLiftedMGroupsInferFAMGroups(
     PDDL_INFO(err, "Inference of lifted fam-groups done."
               " Found mutex groups: %d",
               mgroups->mgroup_size);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 
@@ -2043,7 +2044,7 @@ void pddlLiftedMGroupsInferMonotonicity(
                                         pddl_lifted_mgroups_t *mgroups,
                                         pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "LMG: ");
+    CTX(err, "lmg", "LMG");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
@@ -2105,7 +2106,7 @@ void pddlLiftedMGroupsInferMonotonicity(
               " Found monotonicity invariants: %d, mutex groups: %d",
               (inv != NULL ? inv->mgroup_size : -1),
               (mgroups != NULL ? mgroups->mgroup_size : -1));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 
@@ -2185,7 +2186,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_lifted_mgroups_t *lm,
                                    pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "LMG: ");
+    CTX(err, "lmg", "LMG");
     PDDL_INFO2(err, "Looking for exactly-one lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
@@ -2196,7 +2197,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
         }
     }
     PDDL_INFO(err, "Found %d exactly-one lifted mgroups.", num);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -2234,7 +2235,7 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_lifted_mgroups_t *lm,
                                pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "LMG: ");
+    CTX(err, "lmg", "LMG");
     PDDL_INFO2(err, "Looking for static lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
@@ -2245,6 +2246,6 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
         }
     }
     PDDL_INFO(err, "Found %d static lifted mgroups.", num);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }

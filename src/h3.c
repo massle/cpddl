@@ -17,11 +17,12 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/iarr.h>
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
 #include "pddl/time_limit.h"
+#include "alloc.h"
+#include "err.h"
 
 typedef int16_t fact_id_t;
 
@@ -569,7 +570,7 @@ int pddlH3(const pddl_strips_t *strips,
     h3_t h3;
     int updated, ret = 0;
 
-    PDDL_INFO_PREFIX_PUSH(err, "h^3 fw: ");
+    CTX(err, "h3fw", "h^3 fw");
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
               " time-limit: %.2f, excess-memory: %lu",
               strips->fact.fact_size,
@@ -623,7 +624,7 @@ mutex_h3_end:
               (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
               (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1),
               (ret == -2 ? 1 : 0));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 
     return ret;
 }

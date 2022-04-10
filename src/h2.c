@@ -16,13 +16,14 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/timer.h>
 #include "pddl/strips.h"
 #include "pddl/critical_path.h"
 #include "pddl/disambiguation.h"
 #include "pddl/time_limit.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 #define REACHED 1
 #define FW_MUTEX 2
@@ -450,10 +451,10 @@ int pddlH2(const pddl_strips_t *strips,
            float time_limit_in_s,
            pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "h^2 fw: ");
+    CTX(err, "h2fw", "h^2 fw");
     int ret = h2StateFw(strips, &strips->init, m, unreachable_facts,
                         unreachable_ops, time_limit_in_s, err);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return ret;
 }
 
@@ -617,7 +618,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
     if (strips->has_cond_eff)
         PDDL_ERR_RET2(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
-    PDDL_INFO_PREFIX_PUSH(err, "h^2 fw/bw: ");
+    CTX(err, "h2fwbw", "h^2 fw/bw");
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
               strips->fact.fact_size,
               strips->op.op_size,
@@ -686,6 +687,6 @@ int pddlH2FwBw(const pddl_strips_t *strips,
               (ret == -2 ? 1 : 0));
 
     h2Free(&h2);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return ret;
 }

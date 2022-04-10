@@ -23,6 +23,7 @@
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "assert.h"
+#include "err.h"
 
 #define QUERY_SIZE 4096
 #define QUERY_SELECT_SIZE (5 * QUERY_SIZE)
@@ -598,14 +599,14 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 
 pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "SQL Grounder: ");
+    CTX(err, "sql_grounder", "SQL Grounder");
     pddl_sql_grounder_t *g = ALLOC(pddl_sql_grounder_t);
     bzero(g, sizeof(*g));
 
     g->pddl = pddl;
     if (pddlPrepActionsInit(g->pddl, &g->prep_action, err) != 0){
         FREE(g);
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, NULL);
     }
 
@@ -637,7 +638,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
     PDDL_INFO(err, "%d action sql queries prepared.",
              g->prep_action.action_size);
 
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return g;
 }
 

@@ -118,11 +118,11 @@ static int step(pddl_process_strips_t *prune,
     if (!step->can_reuse_rm_op_fact)
         apply(prune, err);
 
-    PDDL_INFO_PREFIX_PUSH(err, step->name);
+    PDDL_CTX(err, "process_strips", step->name);
     int rm_fact = pddlISetSize(&prune->rm_fact);
     int rm_op = pddlISetSize(&prune->rm_op);
     if (step->execute(prune, step, err) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        PDDL_CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
     PDDL_INFO(err, "Found new redundant: %d facts, %d operators",
@@ -131,7 +131,7 @@ static int step(pddl_process_strips_t *prune,
     PDDL_INFO(err, "Found redundant so far: %d facts, %d operators",
              prune->removed_fact + pddlISetSize(&prune->rm_fact),
              prune->removed_op + pddlISetSize(&prune->rm_op));
-    PDDL_INFO_PREFIX_POP(err);
+    PDDL_CTXEND(err);
     return 0;
 }
 
@@ -141,7 +141,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                            pddl_mutex_pairs_t *mutex,
                            pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "STRIPS: ");
+    PDDL_CTX(err, "process_strips", "STRIPS");
     prune->strips = strips;
     prune->mgroups = mgroups;
     prune->mutex = mutex;
@@ -152,7 +152,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
         pddl_process_strips_step_t *s;
         s = PDDL_LIST_ENTRY(item, pddl_process_strips_step_t, conn);
         if (step(prune, s, err) != 0){
-            PDDL_INFO_PREFIX_POP(err);
+            PDDL_CTXEND(err);
             PDDL_TRACE_RET(err, -1);
         }
     }
@@ -162,7 +162,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
              prune->removed_fact,
              prune->removed_op);
     pddlStripsLogInfo(strips, err);
-    PDDL_INFO_PREFIX_POP(err);
+    PDDL_CTXEND(err);
     return 0;
 }
 

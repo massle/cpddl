@@ -21,12 +21,13 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <unistd.h>
-#include "alloc.h"
 #include "pddl/timer.h"
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
 #include "pddl/trans_system_graph.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 static void setMemLimit(size_t mem_in_mb)
 {
@@ -391,7 +392,7 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  int prune_dead_labels,
                                  pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "OPM ");
+    CTX(err, "opm", "OPM");
     PDDL_INFO(err, "Computing op-mutex pairs from abstract transition systems."
               " merge-size: %d", merge_size);
     pddl_trans_systems_t tss;
@@ -405,6 +406,6 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
     PDDL_INFO(err, "Computing op-mutex pairs from abstract transition"
               " systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
               merge_size, m->num_op_mutex_pairs);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return ret;
 }

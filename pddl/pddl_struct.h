@@ -52,7 +52,7 @@ typedef struct pddl_config pddl_config_t;
       0, /* .enforce_unit_cost */ \
     }
 
-void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, pddl_err_t *err);
+void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err);
 
 struct pddl {
     pddl_config_t cfg;

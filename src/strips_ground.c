@@ -24,6 +24,7 @@
 #include "pddl/pddl.h"
 #include "pddl/strips_ground.h"
 #include "assert.h"
+#include "err.h"
 
 struct pddl_strips_ground_atree {
     const pddl_prep_action_t *action;
@@ -971,7 +972,7 @@ int pddlStripsGround(pddl_strips_t *strips,
                      const pddl_ground_config_t *cfg,
                      pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Ground: ");
+    CTX(err, "ground", "Ground");
     pddlGroundConfigLog(cfg, "cfg.", err);
     pddl_strips_ground_t g;
 
@@ -979,11 +980,11 @@ int pddlStripsGround(pddl_strips_t *strips,
             || pddlStripsGroundUnifyStep(&g) != 0
             || pddlStripsGroundFinalize(&g, strips) != 0){
         PDDL_INFO2(err, "Grounding failed.");
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
 
     pddlStripsLogInfo(strips, err);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }

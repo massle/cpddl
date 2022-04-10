@@ -39,6 +39,7 @@
 #include "pddl/time_limit.h"
 #include "pddl/pddl_struct.h"
 #include "assert.h"
+#include "err.h"
 
 #if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
 # define NO_LOGGER
@@ -67,22 +68,20 @@ class Logger : public IloCP::Callback {
             */
 
         }else if (reason == Solution){
-            PDDL_INFO(err, "    cpoptimizer: mem: %ldMB, solutions: %d",
+            LOG(err, "cpoptimizer: mem: %ldMB, solutions: %d",
                      (long)cp.getInfo(IloCP::MemoryUsage) / (1024L * 1024L),
                      (int)cp.getInfo(IloCP::NumberOfSolutions));
 
         }else if (reason == Proof){
-            PDDL_INFO(err, "    cpoptimizer: mem: %ldMB, solutions: %d,"
-                          " proof",
-                     (long)cp.getInfo(IloCP::MemoryUsage) / (1024L * 1024L),
-                     (int)cp.getInfo(IloCP::NumberOfSolutions));
+            LOG(err, "cpoptimizer: mem: %ldMB, solutions: %d, proof",
+                (long)cp.getInfo(IloCP::MemoryUsage) / (1024L * 1024L),
+                (int)cp.getInfo(IloCP::NumberOfSolutions));
 
         }else if (reason == ObjBound){
-            PDDL_INFO(err, "    cpoptimizer: mem: %ldMB, solutions: %d,"
-                          " new bound: %.2f",
-                     (long)cp.getInfo(IloCP::MemoryUsage) / (1024L * 1024L),
-                     (int)cp.getInfo(IloCP::NumberOfSolutions),
-                     (double)cp.getObjBound());
+            LOG(err, "cpoptimizer: mem: %ldMB, solutions: %d, new bound: %.2f",
+                (long)cp.getInfo(IloCP::MemoryUsage) / (1024L * 1024L),
+                (int)cp.getInfo(IloCP::NumberOfSolutions),
+                (double)cp.getObjBound());
         }
     }
 };
@@ -245,7 +244,7 @@ static int extractSolution(IloCP &cp,
 
             pddlISetAdd(&redundant, i);
 #ifdef DEBUG_PRINT_OP_MAPPING
-            PDDL_INFO(err, "    :: op %d -> %d", i, cp.getValue(var_op[i]));
+            LOG(err, "    :: op %d -> %d", i, cp.getValue(var_op[i]));
 #endif /* DEBUG_PRINT_OP_MAPPING */
 
         }else if (map != NULL){
@@ -284,47 +283,47 @@ static int solve(IloModel &model,
     cp.setParameter(IloCP::Workers, cfg->num_threads);
     cp.setParameter(IloCP::TimeLimit, max_search_time);
 
-    PDDL_INFO2(err, "  Solving model ...");
+    LOG2(err, "Solving model ...");
     cp.startNewSearch();
     int num = -1;
     int max_num = -1;
     while (cp.next()){
         num = extractSolution(cp, var_op, redundant_op, map, err);
         max_num = PDDL_MAX(max_num, num);
-        PDDL_INFO(err, "  Found a solution with %d redundant %s", num, name);
+        LOG(err, "Found a solution with %d redundant %s", num, name);
     }
 
     switch (cp.getInfo(IloCP::FailStatus)){
         case IloCP::SearchHasNotFailed:
         case IloCP::SearchHasFailedNormally:
             if (num < 0){
-                PDDL_INFO2(err, "  Provably No Solution");
+                LOG2(err, "Provably No Solution");
             }else{
-                PDDL_INFO2(err, "  Optimal Solution Found");
+                LOG2(err, "Optimal Solution Found");
             }
             break;
         case IloCP::SearchStoppedByLimit:
-            PDDL_INFO2(err, "  Terminated by a time or fail limit");
+            LOG2(err, "Terminated by a time or fail limit");
             break;
         case IloCP::SearchStoppedByLabel:
-            PDDL_INFO2(err, "  Terminated -- stopped-by-label");
+            LOG2(err, "Terminated -- stopped-by-label");
             break;
         case IloCP::SearchStoppedByExit:
-            PDDL_INFO2(err, "  Terminated by exitSearch()");
+            LOG2(err, "Terminated by exitSearch()");
             break;
         case IloCP::SearchStoppedByAbort:
-            PDDL_INFO2(err, "  Aborted");
+            LOG2(err, "Aborted");
             break;
         case IloCP::UnknownFailureStatus:
-            PDDL_INFO2(err, "  Unknown failure");
+            LOG2(err, "Unknown failure");
             break;
     }
 
     if (num >= 0){
-        PDDL_INFO(err, "  Found %d redundant %s", max_num, name);
+        LOG(err, "Found %{num_redundant}d redundant %s", max_num, name);
         ret = 0;
     }else{
-        PDDL_INFO2(err, "  Solution not found");
+        LOG2(err, "Solution not found");
         ret = -1;
     }
 
@@ -452,8 +451,8 @@ static int fdrInference(const pddl_fdr_t *fdr,
         snprintf(name, 128, "%d:(%s)", oi, op->name);
         var_op[oi] = IloIntVar(env, 0, fdr->op.op_size - 1, name);
     }
-    PDDL_INFO(err, "  Created %d fact and %d operator variables",
-              fdr->var.global_id_size, fdr->op.op_size);
+    LOG(err, "Created %{num_fact_vars}d fact and %{num_op_vars}d operator variables",
+        fdr->var.global_id_size, fdr->op.op_size);
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -471,7 +470,7 @@ static int fdrInference(const pddl_fdr_t *fdr,
         int fact_id = fdr->var.var[var].val[val].global_id;
         model.add(var_fact[fact_id] == val);
     }
-    PDDL_INFO2(err, "  Added init and goal constraints");
+    LOG2(err, "Added init and goal constraints");
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -494,11 +493,11 @@ static int fdrInference(const pddl_fdr_t *fdr,
         //PDDL_INFO(err, "  Created operator constraints %d",
         //         pddlISetSize(&opg.group[group_id]));
     }
-    PDDL_INFO(err, "  Added %d operator constraints", num_op_constr);
+    LOG(err, "Added %{num_op_constrs}d operator constraints", num_op_constr);
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
-    PDDL_INFO2(err, "  Added objective function min(count-diff())");
+    LOG2(err, "  Added objective function min(count-diff())");
 
     //std::cerr << model << std::endl;
 
@@ -520,11 +519,11 @@ static int fdrRedundantOps(const pddl_fdr_t *fdr,
         pddlTimeLimitSet(&time_limit, cfg->max_time);
 
     int ret = 0;
-    PDDL_INFO(err, "Endomorphism on FDR (facts: %d, ops: %d) ...",
-              fdr->var.global_id_size, fdr->op.op_size);
+    LOG(err, "Endomorphism on FDR (facts: %d, ops: %d) ...",
+        fdr->var.global_id_size, fdr->op.op_size);
     op_groups_t opg;
     opGroupsInitFDR(&opg, fdr);
-    PDDL_INFO(err, "  Operators grouped into %d groups", opg.group_size);
+    LOG(err, "Operators grouped into %d groups", opg.group_size);
 
     IloEnv env;
     IloModel model(env);
@@ -533,14 +532,14 @@ static int fdrRedundantOps(const pddl_fdr_t *fdr,
         int rinf = fdrInference(fdr, cfg, &opg, env, model, redundant_ops,
                                 &time_limit, err);
         if (rinf < 0){
-            PDDL_INFO2(err, "  Time limit reached");
-            PDDL_INFO2(err, "  Terminating inference of endomorphism");
-            PDDL_INFO2(err, "  Terminated by a time limit");
+            LOG2(err, "Time limit reached");
+            LOG2(err, "Terminating inference of endomorphism");
+            LOG2(err, "Terminated by a time limit");
             ret = -1;
         }
     } catch(IloMemoryException &e){
-        PDDL_INFO2(err, "  Not Enough Memory");
-        PDDL_INFO2(err, "  Terminating inference of endomorphism");
+        LOG2(err, "Not Enough Memory");
+        LOG2(err, "Terminating inference of endomorphism");
         ret = -1;
     }
 
@@ -868,8 +867,8 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
         var_op[oi] = IloIntVar(env, 0, mgs->op_size - 1, name);
         //var_op[vi++] = IloIntVar(env, 0, mgs->op_size - 1);
     }
-    PDDL_INFO(err, "  Created %d fact and %d operator variables",
-              (int)var_fact.getSize(), (int)var_op.getSize());
+    LOG(err, "Created %d fact and %d operator variables",
+        (int)var_fact.getSize(), (int)var_op.getSize());
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -889,11 +888,11 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
         //PDDL_INFO(err, "  Created operator constraints %d",
         //         pddlISetSize(&opg.group[group_id]));
     }
-    PDDL_INFO(err, "  Added %d operator constraints", num_op_constr);
+    LOG(err, "Added %d operator constraints", num_op_constr);
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
-    PDDL_INFO2(err, "  Added objective function min(count-diff())");
+    LOG2(err, "Added objective function min(count-diff())");
 
     //std::cerr << model << std::endl;
 
@@ -915,30 +914,30 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
         pddlTimeLimitSet(&time_limit, cfg->max_time);
 
     int ret = 0;
-    PDDL_INFO(err, "Endomorphism on MG-Strips (facts: %d, ops: %d)...",
-              mg_strips->strips.fact.fact_size,
-              mg_strips->strips.op.op_size);
+    LOG(err, "Endomorphism on MG-Strips (facts: %d, ops: %d)...",
+        mg_strips->strips.fact.fact_size,
+        mg_strips->strips.op.op_size);
     mg_strips_t mgs;
     mgStripsInit(&mgs, mg_strips);
 
     op_groups_t opg;
     opGroupsInitMGStrips(&opg, &mgs);
-    PDDL_INFO(err, "  Operators grouped into %d groups", opg.group_size);
+    LOG(err, "Operators grouped into %d groups", opg.group_size);
 
     mgStripsFindIdentity(&mgs, &opg);
-    PDDL_INFO(err, "  Found %d/%d identity facts, %d/%d identity ops",
+    LOG(err, "Found %d/%d identity facts, %d/%d identity ops",
               mgStripsNumIdentityFacts(&mgs), mgs.fact_size,
               mgStripsNumIdentityOps(&mgs), mgs.op_size);
     if (mgStripsNumIdentityOps(&mgs) == mgs.op_size){
-        PDDL_INFO2(err, "  All operators are identity");
-        PDDL_INFO2(err, "  Found 0 redundant operators");
+        LOG2(err, "All operators are identity");
+        LOG2(err, "Found 0 redundant operators");
         opGroupsFree(&opg);
         mgStripsFree(&mgs);
         return 0;
     }
 
     mgStripsPrepareCVars(&mgs);
-    PDDL_INFO(err, "  CSP needs %d fact and %d non-identity operator variables",
+    LOG(err, "CSP needs %d fact and %d non-identity operator variables",
               mgs.cvar_fact_size, mgs.non_identity_cvar_op_size);
 
     IloEnv env;
@@ -948,14 +947,14 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
         int rinf = mgStripsInference(mg_strips, cfg, &mgs, &opg, env, model,
                                      redundant_ops, &time_limit, err);
         if (rinf < 0){
-            PDDL_INFO2(err, "  Time limit reached");
-            PDDL_INFO2(err, "  Terminating inference of endomorphism");
-            PDDL_INFO2(err, "  Terminated by a time limit");
+            LOG2(err, "Time limit reached");
+            LOG2(err, "Terminating inference of endomorphism");
+            LOG2(err, "Terminated by a time limit");
             ret = -1;
         }
     } catch(IloMemoryException &e){
-        PDDL_INFO2(err, "  Not Enough Memory");
-        PDDL_INFO2(err, "  Terminating inference of endomorphism");
+        LOG2(err, "Not Enough Memory");
+        LOG2(err, "Terminating inference of endomorphism");
         ret = -1;
     }
 
@@ -1217,13 +1216,13 @@ static int tsPresolve(ts_presolve_t *presolve,
     }
 
     labelGroupsFree(tss, label_group);
-    PDDL_INFO2(err, "    presolve restriction of operator domains done");
+    LOG2(err, "presolve restriction of operator domains done");
 
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
         if (presolveStateAllow(presolve, tss, tsi, time_limit) != 0)
             return -1;
     }
-    PDDL_INFO2(err, "    presolve restriction of state domains done");
+    LOG2(err, "presolve restriction of state domains done");
 
     return 0;
 }
@@ -1264,8 +1263,8 @@ static int transConstraints(const pddl_trans_systems_t *tss,
         val.add(IloIntArray(env, 3, olabel, ofrom, oto));
     }
     if (val.getCardinality() == 0){
-        PDDL_INFO(err, "Could not find mapping for (%d)->%d->(%d)",
-                  from, label, to);
+        LOG(err, "Could not find mapping for (%d)->%d->(%d)",
+            from, label, to);
         return 0;
     }
 
@@ -1350,8 +1349,8 @@ static int tsInference(const pddl_trans_systems_t *tss,
         var_op[li] = IloIntVar(env, 0, tss->label.label_size - 1, name);
         //var_op[vi++] = IloIntVar(env, 0, mgs.op_size - 1);
     }
-    PDDL_INFO(err, "  Created %d state and %d operator variables",
-              (int)var_state.getSize(), (int)var_op.getSize());
+    LOG(err, "Created %d state and %d operator variables",
+        (int)var_state.getSize(), (int)var_op.getSize());
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -1364,7 +1363,7 @@ static int tsInference(const pddl_trans_systems_t *tss,
             ++num_ident;
         }
     }
-    PDDL_INFO(err, "  Set %d operator-identity bounds", num_ident);
+    LOG(err, "Set %d operator-identity bounds", num_ident);
 
     if (pddlTimeLimitCheck(time_limit) != 0)
         return -1;
@@ -1379,15 +1378,15 @@ static int tsInference(const pddl_trans_systems_t *tss,
                                 var_op, time_limit, err);
         if (num < 0)
             return -1;
-        PDDL_INFO(err, "  Added %d constraints for TS %d with %d states",
-                  num, tsi, tss->ts[tsi]->num_states);
+        LOG(err, "Added %d constraints for TS %d with %d states",
+            num, tsi, tss->ts[tsi]->num_states);
         num_constrs += num;
     }
-    PDDL_INFO(err, "  Added %d constraints overall", num_constrs);
+    LOG(err, "Added %d constraints overall", num_constrs);
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(var_op));
     model.add(obj);
-    PDDL_INFO2(err, "  Added objective function");
+    LOG2(err, "Added objective function");
 
     //std::cerr << model << std::endl;
 
@@ -1412,28 +1411,27 @@ static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
         pddlTimeLimitSet(&time_limit, cfg->max_time);
 
     int ret = 0;
-    PDDL_INFO(err, "Endomorphism on factored TS"
-              " (num-ts: %d, num-labels: %d) ...",
-              tss->ts_size, tss->label.label_size);
+    LOG(err, "Endomorphism on factored TS (num-ts: %d, num-labels: %d) ...",
+        tss->ts_size, tss->label.label_size);
 
     ts_presolve_t presolve;
-    PDDL_INFO2(err, "  Running presolve...");
+    LOG2(err, "Running presolve...");
     if (tsPresolve(&presolve, tss, &time_limit, err) != 0){
-        PDDL_INFO2(err, "  Time limit reached");
-        PDDL_INFO2(err, "  Terminating presolve phase");
-        PDDL_INFO2(err, "  Terminating inference of endomorphism");
-        PDDL_INFO2(err, "  Terminated by a time limit");
+        LOG2(err, "Time limit reached");
+        LOG2(err, "Terminating presolve phase");
+        LOG2(err, "Terminating inference of endomorphism");
+        LOG2(err, "Terminated by a time limit");
         return -1;
     }
 
     int num_identity = 0;
     for (size_t i = 0; i < presolve.op_identity.size(); ++i)
         num_identity += int(presolve.op_identity[i]);
-    PDDL_INFO(err, "  Presolve found %d identity operators", num_identity);
+    LOG(err, "Presolve found %d identity operators", num_identity);
 
     if (num_identity == tss->label.label_size){
-        PDDL_INFO2(err, "  All operators are identity");
-        PDDL_INFO2(err, "  Found 0 redundant operators");
+        LOG2(err, "All operators are identity");
+        LOG2(err, "Found 0 redundant operators");
         return 0;
     }
 
@@ -1444,14 +1442,14 @@ static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
         int rinf = tsInference(tss, cfg, &presolve, env, model, redundant_ops,
                                &time_limit, err);
         if (rinf < 0){
-            PDDL_INFO2(err, "  Time limit reached");
-            PDDL_INFO2(err, "  Terminating inference of endomorphism");
-            PDDL_INFO2(err, "  Terminated by a time limit");
+            LOG2(err, "Time limit reached");
+            LOG2(err, "Terminating inference of endomorphism");
+            LOG2(err, "Terminated by a time limit");
             ret = -1;
         }
     }catch (IloMemoryException &e){
-        PDDL_INFO2(err, "  Not Enough Memory");
-        PDDL_INFO2(err, "  Terminating inference of endomorphism");
+        LOG2(err, "Not Enough Memory");
+        LOG2(err, "Terminating inference of endomorphism");
         ret = -1;
     }
 
@@ -1466,7 +1464,7 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
                            pddl_iset_t *redundant_ops,
                            pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Endomorphism in a subprocess ...");
+    LOG2(err, "Endomorphism in a subprocess ...");
     fflush(stdout);
     fflush(stderr);
     fflush(err->warn_out);
@@ -1486,16 +1484,15 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (shared == MAP_FAILED){
         //perror("mmap() failed");
-        PDDL_INFO(err, "Could not allocate shared memory of size %ld using"
-                  " mmap: %s",
-                  (long)shared_size, strerror(errno));
+        LOG(err, "Could not allocate shared memory of size %ld using mmap: %s",
+            (long)shared_size, strerror(errno));
         return -1;
     }
     bzero(shared, shared_size);
     int *shared_ret = (int *)shared;
     char *shared_ops = (char *)(shared_ret + 1);
     *shared_ret = -1;
-    PDDL_INFO(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
+    LOG(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
 
     int pid = fork();
     if (pid == -1){
@@ -1530,10 +1527,9 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
             }
         }
         munmap(shared, shared_size);
-        PDDL_INFO(err, "Endomorphism in a subprocess: ret: %d,"
-                  " redundant ops: %d",
-                  ret, pddlISetSize(redundant_ops));
-        PDDL_INFO2(err, "Endomorphism in a subprocess DONE");
+        LOG(err, "Endomorphism in a subprocess: ret: %d, redundant ops: %d",
+            ret, pddlISetSize(redundant_ops));
+        LOG2(err, "Endomorphism in a subprocess DONE");
         return ret;
     }
 }
@@ -1895,7 +1891,7 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
     if (lifted_mgroups != NULL){
         for (int ai = 0; ai < pddl->action.action_size; ++ai){
             const pddl_action_t *action = pddl->action.action + ai;
-            PDDL_INFO(err, "Analyzing action (%s) ...", action->name);
+            LOG(err, "Analyzing action (%s) ...", action->name);
             liftedEndomorphismAnalyzeAction(end, pddl, &action->param,
                                             action->pre, action->eff,
                                             lifted_mgroups, cfg, err);
@@ -1904,8 +1900,8 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
 
 #ifdef PDDL_DEBUG
     for (int i = 0; i < end->obj_size; ++i){
-        PDDL_INFO(err, "Obj-fixed %d:(%s): %d",
-                  i, pddl->obj.obj[i].name, end->obj_is_fixed[i]);
+        LOG(err, "Obj-fixed %d:(%s): %d",
+            i, pddl->obj.obj[i].name, end->obj_is_fixed[i]);
     }
 #endif /* PDDL_DEBUG */
 }
@@ -2218,7 +2214,7 @@ static int liftedSolve(const pddl_t *pddl,
 
     IloObjective obj = IloMinimize(env, IloCountDifferent(csp_vars));
     model.add(obj);
-    PDDL_INFO2(err, "  Added objective function min(count-diff())");
+    LOG2(err, "Added objective function min(count-diff())");
 
     //float max_search_time = pddlTimeLimitRemain(time_limit);
     //max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
@@ -2372,20 +2368,20 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     if (!pddl->normalized)
         PDDL_ERR_RET2(err, -1, "PDDL needs to be normalized!");
 
-    PDDL_INFO_PREFIX_PUSH(err, "Lifted endomorphism: ");
+    CTX(err, "lendo", "Lifted endomorphism");
     if (cfg->run_in_subprocess)
-        PDDL_INFO2(err, "run_in_subprocess is ignored");
+        LOG2(err, "run_in_subprocess is ignored");
 
     if (cfg->ignore_costs)
-        PDDL_INFO2(err, "Ignoring operator costs");
+        LOG2(err, "Ignoring operator costs");
 
     for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
         omap[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
-        PDDL_INFO2(err, "Non-strict type partitioning"
-                   " -- abstaining from the inference");
-        PDDL_INFO_PREFIX_POP(err);
+        LOG2(err, "Non-strict type partitioning"
+             " -- abstaining from the inference");
+        CTXEND(err);
         return 0;
     }
 
@@ -2405,9 +2401,8 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     }
 
     if (lifted_mgroups.mgroup_size == 0){
-        PDDL_INFO2(err, "No mutex groups so lifted endomorphisms cannot be"
-                   " inferred");
-        PDDL_INFO_PREFIX_POP(err);
+        LOG2(err, "No mutex groups so lifted endomorphisms cannot be inferred");
+        CTXEND(err);
         pddlLiftedMGroupsFree(&lifted_mgroups);
         return 0;
     }
@@ -2416,10 +2411,10 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     select_mgroups_t select;
     selectMGroupsInit(&select, pddl, &lifted_mgroups);
     while (selectMGroups(&select, pddl, &lifted_mgroups, cfg) == 0){
-        PDDL_INFO_PREFIX_PUSH(err, "Selected mgroup: ");
+        CTX(err, "select_mgroup", "Select mgroup");
         for (int i = 0; i < select.lifted_mgroups.mgroup_size; ++i)
             pddlLiftedMGroupLog(pddl, &select.lifted_mgroups.mgroup[i], err);
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
 
         lifted_endomorphism_t end;
         liftedEndomorphismInit(&end, pddl, &select.lifted_mgroups, cfg, err);
@@ -2434,14 +2429,13 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                 FREE(map);
             }
         }else{
-            PDDL_INFO2(err, "Not enough unfixed objects to try to find"
-                       " endomorphisms");
+            LOG2(err, "Not enough unfixed objects to try to find endomorphisms");
         }
         liftedEndomorphismFree(&end);
     }
     selectMGroupsFree(&select);
     pddlLiftedMGroupsFree(&lifted_mgroups);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -2464,8 +2458,7 @@ static int relaxedLifted(const pddl_t *pddl,
             FREE(map);
         }
     }else{
-        PDDL_INFO2(err, "Not enough unfixed objects to try to find"
-                   " endomorphisms");
+        LOG2(err, "Not enough unfixed objects to try to find endomorphisms");
     }
     liftedEndomorphismFree(&end);
     return 0;
@@ -2477,7 +2470,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
                                      pddl_obj_id_t *omap,
                                      pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Lifted Relaxed Endomorphism in a subprocess ...");
+    LOG2(err, "Lifted Relaxed Endomorphism in a subprocess ...");
     fflush(stdout);
     fflush(stderr);
     fflush(err->warn_out);
@@ -2489,16 +2482,15 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (shared == MAP_FAILED){
         //perror("mmap() failed");
-        PDDL_INFO(err, "Could not allocate shared memory of size %ld using"
-                  " mmap: %s",
-                  (long)shared_size, strerror(errno));
+        LOG(err, "Could not allocate shared memory of size %ld using mmap: %s",
+            (long)shared_size, strerror(errno));
         return -1;
     }
     bzero(shared, shared_size);
     int *shared_ret = (int *)shared;
     pddl_obj_id_t *shared_map = (pddl_obj_id_t *)(shared_ret + 1);
     *shared_ret = -1;
-    PDDL_INFO(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
+    LOG(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
 
     int pid = fork();
     if (pid == -1){
@@ -2529,10 +2521,10 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
             }
         }
         munmap(shared, shared_size);
-        PDDL_INFO(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
-                  " redundant ops: %d",
-                  ret, pddlISetSize(redundant_objects));
-        PDDL_INFO2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
+        LOG(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
+            " redundant ops: %d",
+            ret, pddlISetSize(redundant_objects));
+        LOG2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
         return ret;
     }
 }
@@ -2544,19 +2536,19 @@ int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   pddl_err_t *err)
 {
     if (!pddl->normalized)
-        PDDL_ERR_RET2(err, -1, "PDDL needs to be normalized!");
+        ERR_RET2(err, -1, "PDDL needs to be normalized!");
 
-    PDDL_INFO_PREFIX_PUSH(err, "Relaxed lifted endomorphism: ");
+    CTX(err, "relax_lendo", "Relaxed lifted endomorphism");
     if (cfg->ignore_costs)
-        PDDL_INFO2(err, "Ignoring operator costs");
+        LOG2(err, "Ignoring operator costs");
 
     for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
         omap[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
-        PDDL_INFO2(err, "Non-strict type partitioning"
-                   " -- abstaining from the inference");
-        PDDL_INFO_PREFIX_POP(err);
+        LOG2(err, "Non-strict type partitioning"
+             " -- abstaining from the inference");
+        CTXEND(err);
         return 0;
     }
 
@@ -2566,7 +2558,7 @@ int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
     }else{
         ret = relaxedLifted(pddl, cfg, redundant_objects, omap, err);
     }
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return ret;
 }
 

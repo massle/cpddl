@@ -21,6 +21,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/strips_maker.h"
 #include "assert.h"
+#include "err.h"
 
 static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
                                            int arg_size)
@@ -740,7 +741,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
                               pddl_strips_t *strips,
                               pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Strips Maker: ");
+    CTX(err, "strips_maker", "Strips Maker");
     pddlStripsInit(strips);
     strips->cfg = *cfg;
     if (pddl->domain_name)
@@ -757,7 +758,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
             || createInitState(sm, strips, pddl, ground_atom_to_fact, err) != 0
             || createGoal(sm, strips, pddl, ground_atom_to_fact, err) != 0
             || createOps(sm, strips, pddl, ground_atom_to_fact, err) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
     if (ground_atom_to_fact != NULL)
@@ -792,7 +793,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
 
 
     PDDL_INFO2(err, "PDDL grounded to STRIPS.");
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 

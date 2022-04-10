@@ -21,13 +21,14 @@
 #ifdef PDDL_SQLITE
 
 #include <sqlite3.h>
-#include "alloc.h"
 #include "pddl/strips_ground_sql.h"
 #include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/sql_grounder.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 
 struct sql_ground {
@@ -193,13 +194,13 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
                         const pddl_ground_config_t *cfg,
                         pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Ground SQL: ");
+    CTX(err, "ground_sql", "Ground SQL");
     pddlGroundConfigLog(cfg, "cfg.", err);
     PDDL_INFO2(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
     if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
 
@@ -223,13 +224,13 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
 
     sqlGroundFree(&ground);
     if (ret != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, ret);
     }
 
     PDDL_INFO2(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -242,7 +243,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
                                pddl_err_t *err)
 {
     // TODO: max_atoms
-    PDDL_INFO_PREFIX_PUSH(err, "Ground SQL Layer: ");
+    CTX(err, "ground_sql_layer", "Ground SQL Layer");
     pddlGroundConfigLog(cfg, "cfg.", err);
     PDDL_INFO(err, "cfg.max_layers = %d", max_layers);
     PDDL_INFO(err, "cfg.max_atoms = %d", max_atoms);
@@ -250,7 +251,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
 
     sql_ground_t ground;
     if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
     for (int step = 0; step < max_layers; ++step){
@@ -292,14 +293,14 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
 
     sqlGroundFree(&ground);
     if (ret != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, ret);
     }
 
     PDDL_INFO2(err, "Grounding finished.");
     if (strips != NULL)
         pddlStripsLogInfo(strips, err);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 

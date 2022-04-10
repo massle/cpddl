@@ -17,7 +17,6 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include <pddl/sort.h>
 #include "pddl/strips_ground_datalog.h"
@@ -25,7 +24,9 @@
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/datalog.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 struct action {
     int id;
@@ -339,7 +340,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                             const pddl_ground_config_t *cfg,
                             pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Ground DL: ");
+    CTX(err, "ground_dl", "Ground DL");
     pddlGroundConfigLog(cfg, "cfg.", err);
     PDDL_INFO2(err, "Grounding using datalog ...");
 
@@ -376,12 +377,12 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
 
     groundFree(&ground);
     if (ret != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, ret);
     }
 
     PDDL_INFO2(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }

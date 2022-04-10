@@ -24,6 +24,7 @@
 #include "pddl/critical_path.h"
 #include "pddl/mg_strips.h"
 #include "alloc.h"
+#include "err.h"
 
 #define IRRELEVANCE 1
 
@@ -105,7 +106,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
                            pddl_mgroups_t *mgroups,
                            pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Prune: ");
+    CTX(err, "strips_prune", "Prune");
     PDDL_INFO(err, "Start pruning. facts: %d, ops: %d",
               strips->fact.fact_size, strips->op.op_size);
     ctx_t ctx;
@@ -130,7 +131,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
         if (p->prune(p, &ctx) != 0){
             pddlISetFree(&ctx.rm_fact);
             pddlISetFree(&ctx.rm_op);
-            PDDL_INFO_PREFIX_POP(err);
+            CTXEND(err);
             PDDL_TRACE_RET(err, -1);
         }
     }
@@ -141,7 +142,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
     pddlISetFree(&ctx.rm_op);
     PDDL_INFO(err, "DONE. facts: %d, ops: %d",
               strips->fact.fact_size, strips->op.op_size);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 

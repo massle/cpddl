@@ -62,8 +62,6 @@ struct pddl_err {
     int trace_more;
     char msg[PDDL_ERR_MSG_MAXLEN];
     int err;
-    char info_prefix[PDDL_ERR_PREFIX_NUM][PDDL_ERR_PREFIX_MAXLEN];
-    int info_prefix_size;
 
     pddl_err_ctx_t ctx[PDDL_ERR_CTX_MAXLEN];
     int ctx_size;
@@ -168,28 +166,6 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
 #define PDDL_INFO2(E, msg) \
     _pddlInfo((E), __FILE__, __LINE__, __func__, msg)
 
-/**
- * Push another prefix to the info stream
- */
-#define PDDL_INFO_PREFIX_PUSH(E, prefix) \
-    if ((E) != NULL && (E)->info_prefix_size < PDDL_ERR_PREFIX_NUM) \
-        strncpy((E)->info_prefix[(E)->info_prefix_size++], \
-                prefix, PDDL_ERR_PREFIX_MAXLEN)
-
-/**
- * Same as PDDL_INFO_PREFIX_PUSH() but allows formatting.
- */
-#define PDDL_INFO_PREFIX_PUSHF(E, format, ...) \
-    if ((E) != NULL && (E)->info_prefix_size < PDDL_ERR_PREFIX_NUM) \
-        snprintf((E)->info_prefix[(E)->info_prefix_size++], \
-                 PDDL_ERR_PREFIX_MAXLEN, format, __VA_ARGS__)
-
-/**
- * Remove the last added prefix from the info stream.
- */
-#define PDDL_INFO_PREFIX_POP(E) \
-    if ((E) != NULL && (E)->info_prefix_size > 0) \
-        --(E)->info_prefix_size
 
 /**
  * Enter another level of context.

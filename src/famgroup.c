@@ -22,6 +22,7 @@
 #include "pddl/timer.h"
 #include "pddl/famgroup.h"
 #include "pddl/set.h"
+#include "err.h"
 
 struct fam {
     pddl_famgroup_config_t cfg;
@@ -271,8 +272,7 @@ static void famInfer(fam_t *fam)
         pddlTimerStop(&timer);
         float elapsed = pddlTimerElapsedInSF(&timer);
         if ((int)elapsed > last_info){
-            PDDL_INFO(fam->err, "  Inference of fam-groups: fam-groups: %d",
-                     i + 1);
+            LOG(fam->err, "  Inference of fam-groups: fam-groups: %d", i + 1);
             last_info = elapsed;
         }
 
@@ -291,28 +291,29 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
     if (strips->has_cond_eff)
         PDDL_FATAL2("fam-groups does not support conditional effects");
 
-    PDDL_INFO_PREFIX_PUSH(err, "MG-fam: ");
+    CTX(err, "mg_fam", "MG-fam");
     fam_t fam;
     int start_num = mgs->mgroup_size;
-    PDDL_INFO(err, "Inference of fam-groups ["
-              "maximal: %d, goal: %d, sym: %d, keep-only-asymetric: %d,"
-              " prioritize-uncovered: %d,"
-              " limit: %d, time-limit: %.2fs] ...",
-              cfg->maximal,
-              cfg->goal,
-              (cfg->sym == NULL ? 0 : 1),
-              cfg->keep_only_asymetric,
-              cfg->prioritize_uncovered,
-              cfg->limit,
-              cfg->time_limit);
+    // TODO: pddlFAMGroupConfigLog()
+    LOG(err, "Inference of fam-groups ["
+        "maximal: %d, goal: %d, sym: %d, keep-only-asymetric: %d,"
+        " prioritize-uncovered: %d,"
+        " limit: %d, time-limit: %.2fs] ...",
+        cfg->maximal,
+        cfg->goal,
+        (cfg->sym == NULL ? 0 : 1),
+        cfg->keep_only_asymetric,
+        cfg->prioritize_uncovered,
+        cfg->limit,
+        cfg->time_limit);
 
     famInit(&fam, mgs, strips, cfg, err);
     famInfer(&fam);
     famFree(&fam);
 
-    PDDL_INFO(err, "Inference of fam-groups DONE: %d fam-groups found.",
-              mgs->mgroup_size - start_num);
-    PDDL_INFO_PREFIX_POP(err);
+    LOG(err, "Inference of fam-groups DONE: %{fam_groups}d fam-groups found.",
+        mgs->mgroup_size - start_num);
+    CTXEND(err);
     return 0;
 }
 

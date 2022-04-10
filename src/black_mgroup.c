@@ -26,6 +26,7 @@
 #include "pddl/hff.h"
 #include "pddl/relaxed_plan.h"
 #include "alloc.h"
+#include "err.h"
 
 struct fact_vertex {
     int fact;
@@ -167,8 +168,8 @@ static void findRelaxedPlan(const black_vars_t *bv,
         for (int i = 0; i < strips->fact.fact_size; ++i){
             if (conflicts[i] > 0
                     && pddlISetSize(&bv->fact_to_fact_vertex[i]) > 0){
-                PDDL_INFO(err, "Conflict count: %d:(%s) = %d",
-                          i, strips->fact.fact[i]->name, conflicts[i]);
+                LOG(err, "Conflict count: %d:(%s) = %d",
+                    i, strips->fact.fact[i]->name, conflicts[i]);
             }
         }
     }
@@ -204,7 +205,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Setting weights using projections to a relaxed plan ...");
+    LOG2(err, "Setting weights using projections to a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -233,10 +234,11 @@ static void setWeightWithProjectionsToRelaxedPlan(
         int vert_id;
         PDDL_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
             bv->fact_vertex[vert_id].weight = PDDL_MAX(1, deg);
-        if (deg > 1)
-            PDDL_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
-                      strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
-                      bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight);
+        if (deg > 1){
+            LOG(err, "Change weight of mutex group (%s), ... to %.2f",
+                strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
+                bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight);
+        }
     }
     pddlStripsFactCrossRefFree(&cref);
     pddlISetFree(&plan_set);
@@ -256,7 +258,7 @@ static void setWeightWithConflictsInRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Setting weights using conflicts in a relaxed plan ...");
+    LOG2(err, "Setting weights using conflicts in a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -287,10 +289,11 @@ static void setWeightWithConflictsInRelaxedPlan(
         int vert_id;
         PDDL_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
             bv->fact_vertex[vert_id].weight = PDDL_MAX(1, weight);
-        if (weight > 0.)
-            PDDL_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
-                      strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
-                      bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight);
+        if (weight > 0.){
+            LOG(err, "Change weight of mutex group (%s), ... to %.2f",
+                strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
+                bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight);
+        }
     }
 
     for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
@@ -299,9 +302,9 @@ static void setWeightWithConflictsInRelaxedPlan(
         if (mgroup == -1 && conflicts[fact] > 0){
             float weight = conflicts[fact] * bv->fact_vertex_size;
             bv->fact_vertex[vert_id].weight = weight;
-            PDDL_INFO(err, "Change weight of fact (%s) to %.2f",
-                      strips->fact.fact[fact]->name,
-                      bv->fact_vertex[vert_id].weight);
+            LOG(err, "Change weight of fact (%s) to %.2f",
+                strips->fact.fact[fact]->name,
+                bv->fact_vertex[vert_id].weight);
         }
     }
 
@@ -331,9 +334,9 @@ static void setWeightWithConflictsInRelaxedPlan(
                 continue;
             float w = bv->fact_vertex[pddlISetGet(mgs_vert + mgi, 0)].weight;
             if (w < max_weight){
-                PDDL_INFO(err, "Change weight of mutex group (%s), ... to %.2f",
-                          strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
-                          max_weight);
+                LOG(err, "Change weight of mutex group (%s), ... to %.2f",
+                    strips->fact.fact[pddlISetGet(mgs + mgi, 0)]->name,
+                    max_weight);
                 int vert_id;
                 PDDL_ISET_FOR_EACH(mgs_vert + mgi, vert_id)
                     bv->fact_vertex[vert_id].weight = max_weight;
@@ -365,13 +368,13 @@ static void blackVarsInit(black_vars_t *bv,
 
     // Find invertible facts
     pddlRSEInvertibleFacts(strips, mgroups, &bv->invertible_facts, err);
-    PDDL_INFO(err, "Invertible facts: %d/%d",
-              pddlISetSize(&bv->invertible_facts), bv->fact_size);
+    LOG(err, "Invertible facts: %d/%d",
+        pddlISetSize(&bv->invertible_facts), bv->fact_size);
 
     // Prepare vertices
     bv->fact_to_fact_vertex = CALLOC_ARR(pddl_iset_t, bv->fact_size);
     bv->fact_vertex_size = numFactVertices(mgroups, &bv->invertible_facts);
-    PDDL_INFO(err, "Fact-mgroup pairs: %d", bv->fact_vertex_size);
+    LOG(err, "Fact-mgroup pairs: %d", bv->fact_vertex_size);
     bv->fact_vertex = CALLOC_ARR(fact_vertex_t, bv->fact_vertex_size);
     for (int vert_id = 0; vert_id < bv->fact_vertex_size; ++vert_id){
         fact_vertex_t *vert = bv->fact_vertex + vert_id;
@@ -484,7 +487,7 @@ static void addCycles2(pddl_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
             }
         }
     }
-    PDDL_INFO(err, "Added %d 2-cycles", num);
+    LOG(err, "Added %d 2-cycles", num);
 }
 
 static void addCycles3(pddl_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
@@ -519,7 +522,7 @@ static void addCycles3(pddl_lp_t *lp, const black_vars_t *bv, pddl_err_t *err)
             }
         }
     }
-    PDDL_INFO(err, "Added %d 3-cycles", num);
+    LOG(err, "Added %d 3-cycles", num);
 }
 
 static void addLeafMGroup(pddl_lp_t *lp, const pddl_iset_t *mg)
@@ -778,7 +781,7 @@ static int findAndUpdateLeafs(pddl_lp_t *lp,
     FREE(bmgroups_vert);
     pddlStripsFactCrossRefFree(&cref);
 
-    PDDL_INFO(err, "Found %d leaf mgroups", updated);
+    LOG(err, "Found %d leaf mgroups", updated);
     return updated > 0;
 }
 
@@ -796,20 +799,19 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
     int solution = 0;
     int num_updates = 0;
     while (cont && (ret = solveLP(lp, bv, &black_vars)) == 0){
-        PDDL_INFO(err, "Solved. Candidate set size: %d",
-                  pddlISetSize(&black_vars));
+        LOG(err, "Solved. Candidate set size: %d", pddlISetSize(&black_vars));
 
         pddl_scc_graph_t black_graph;
         pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
         PDDL_ISET(comp);
         if (findMultiMGroupComponent(bv, &black_graph, &comp)){
-            PDDL_INFO2(err, "The solution has a cycle."
-                       " Updating LP by adding more cycles...");
+            LOG2(err, "The solution has a cycle."
+                 " Updating LP by adding more cycles...");
             if (num_updates == 5){
                 addCycles3(lp, bv, err);
             }else{
                 updateLPWithCycle(lp, bv, &black_graph, &comp);
-                PDDL_INFO(err, "Updated. Num constraints: %d", pddlLPNumRows(lp));
+                LOG(err, "Updated. Num constraints: %d", pddlLPNumRows(lp));
             }
             ++num_updates;
 
@@ -818,15 +820,16 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
             if (pddlISetSize(&black_vars) > 0){
                 blackFactsToBlackMGroups(bv, &black_vars, mgroups,
                                          bmgroups + solution, err);
-                PDDL_INFO(err, "Found non-empty solution %d with"
-                          " %d black facts and %d black mgroups",
-                          solution, pddlISetSize(&black_vars),
-                          bmgroups->mgroup_size);
+                LOG(err, "Found non-empty solution %{solution.id}d with"
+                    " %{solution.black_facts}d black facts and"
+                    " %{solution.black_mgroups}d black mgroups",
+                    solution, pddlISetSize(&black_vars),
+                    bmgroups->mgroup_size);
                 ++solution;
                 if (solution >= cfg->num_solutions){
                     cont = 0;
                 }else{
-                    PDDL_INFO2(err, "Trying next solution");
+                    LOG2(err, "Trying next solution");
                     addRedFacts(lp, bv, &black_vars);
                 }
             }else{
@@ -838,7 +841,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
         pddlISetEmpty(&black_vars);
     }
     if (ret != 0)
-        PDDL_INFO2(err, "No solution exists.");
+        LOG2(err, "No solution exists.");
     pddlISetFree(&black_vars);
 
     if (bmgroups->mgroup_size > 0 || ret == 0)
@@ -854,7 +857,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
                            const pddl_black_mgroups_config_t *cfg,
                            pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Black-mg-LP: ");
+    CTX(err, "black_mg_lp", "Black-mg-LP");
     for (int i = 0; i < cfg->num_solutions; ++i)
         bzero(bmgroups + i, sizeof(*bmgroups));
 
@@ -882,7 +885,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
     pddlLPDel(lp);
     blackVarsFree(&bv);
     pddlMGroupsFree(&mgroups);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups)

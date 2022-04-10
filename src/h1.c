@@ -17,10 +17,11 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
-#include <pddl/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
+#include "alloc.h"
+#include "err.h"
 
 int pddlH1(const pddl_strips_t *strips,
            pddl_iset_t *unreachable_facts,
@@ -31,7 +32,7 @@ int pddlH1(const pddl_strips_t *strips,
         PDDL_ERR_RET2(err, -1, "pddlH1: Conditional effects are not supported!");
     }
 
-    PDDL_INFO_PREFIX_PUSH(err, "h^1: ");
+    CTX(err, "h1", "h^1");
     int *facts = CALLOC_ARR(int, strips->fact.fact_size);
     int *ops = CALLOC_ARR(int, strips->op.op_size);
     pddl_iset_t *fact_to_op = CALLOC_ARR(pddl_iset_t, strips->fact.fact_size);
@@ -106,7 +107,7 @@ int pddlH1(const pddl_strips_t *strips,
     PDDL_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
               (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
               (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 

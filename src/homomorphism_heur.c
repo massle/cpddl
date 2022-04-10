@@ -23,6 +23,7 @@
 #include "pddl/prune_strips.h"
 #include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 #define LM_CUT_TYPE 1
 #define HFF_TYPE 2
@@ -74,11 +75,11 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
                                 const pddl_homomorphism_config_t *cfg,
                                 pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Homomorph lm-cut: ");
+    CTX(err, "homo_lmc", "Homomorph lm-cut");
     lmcut_t *lmc = ALLOC(lmcut_t);
     if (pddlHomomorphismHeurInit(&lmc->homo, pddl, cfg, err) != 0){
         FREE(lmc);
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, NULL);
     }
     lmc->homo._type = LM_CUT_TYPE;
@@ -86,7 +87,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
     pddlLMCutInitStrips(&lmc->lmc, &lmc->homo.strips, 0, 0);
     PDDL_INFO2(err, "Constructed lm-cut heuristic from the grounded"
                " homomorphic image");
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return &lmc->homo;
 }
 
@@ -95,11 +96,11 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
                                 const pddl_homomorphism_config_t *cfg,
                                 pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Homomorph hff: ");
+    CTX(err, "homo_hff", "Homomorph hff");
     hff_t *hff = ALLOC(hff_t);
     if (pddlHomomorphismHeurInit(&hff->homo, pddl, cfg, err) != 0){
         FREE(hff);
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         PDDL_TRACE_RET(err, NULL);
     }
     hff->homo._type = HFF_TYPE;
@@ -107,7 +108,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
     pddlHFFInitStrips(&hff->hff, &hff->homo.strips);
     PDDL_INFO2(err, "Constructed h^ff heuristic from the grounded"
                " homomorphic image");
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return &hff->homo;
 }
 

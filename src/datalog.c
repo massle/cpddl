@@ -24,6 +24,7 @@
 #include "pddl/htable.h"
 #include "pddl/datalog.h"
 #include "assert.h"
+#include "err.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;
@@ -705,14 +706,15 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl)
 
 int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "DL: ");
-    PDDL_INFO(err, "Normal form of the datalog program start"
-              " (consts: %d, vars: %d, predicates: %d, rules: %d)",
-              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    CTX(err, "dl_normal_form", "DL Normal form");
+    LOG(err, "Normal form of the datalog program start"
+        " (consts: %{in.consts}d, vars: %{in.vars}d,"
+        " predicates: %{in.predicates}d, rules: %{in.rules}d)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
-        PDDL_ERR_RET2(err, -1, "Cannot create normal form because the"
-                      "datalog program is not safe");
+        ERR_RET2(err, -1, "Cannot create normal form because the"
+                 "datalog program is not safe");
     }
 
     int rule_size = dl->rule_size;
@@ -720,11 +722,12 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
         while (dl->rule[ci].body_size > 2)
             toNormalFormStep(dl, ci);
     }
-    PDDL_INFO(err, "Normal form of the datalog program DONE"
-              " (consts: %d, vars: %d, predicates: %d, rules: %d)",
-              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    LOG(err, "Normal form of the datalog program DONE"
+        " (consts: %{out.consts}d, vars: %{out.vars}d,"
+        " predicates: %{out.predicates}d, rules: %{out.rules}d)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     dl->dirty = 1;
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -884,14 +887,14 @@ static void applyFactOnRule(pddl_datalog_t *dl,
 
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "DL: ");
-    PDDL_INFO_PREFIX_PUSH(err, "Canonical model: ");
-    PDDL_INFO(err, "start (consts: %d, vars: %d, predicates: %d, rules: %d)",
-              dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    CTX(err, "dl_canonical_model", "DL Canonical model");
+    LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
+        " predicates: %{in.predicates}d, rules: %{in.rules}d)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 1, err);
 
     insertInitialFacts(dl, err);
-    PDDL_INFO(err, "Added initial facts: %d", dl->db.fact_size);
+    LOG(err, "Added initial facts: %{initial_facts}d", dl->db.fact_size);
 
     int cur_id = 0;
     while (cur_id < dl->db.fact_size){
@@ -901,16 +904,15 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
             applyFactOnRule(dl, f, rule_id, err);
         ++cur_id;
         if (cur_id % 100000 == 0){
-            PDDL_INFO(err, "progress (facts processed: %d, overall: %d,"
-                      " db-mem: %luMB)",
-                      cur_id, dl->db.fact_size,
-                      dbUseddMem(&dl->db) / (1024lu * 1024lu));
+            LOG(err, "progress (facts processed: %d, overall: %d,"
+                " db-mem: %luMB)",
+                cur_id, dl->db.fact_size,
+                dbUseddMem(&dl->db) / (1024lu * 1024lu));
         }
     }
-    PDDL_INFO(err, "DONE (facts: %d, db-mem: %luMB)",
-              dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
-    PDDL_INFO_PREFIX_POP(err);
-    PDDL_INFO_PREFIX_POP(err);
+    LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
+        dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
+    CTXEND(err);
 }
 
 void pddlDatalogFactsFromCanonicalModel(

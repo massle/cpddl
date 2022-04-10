@@ -16,10 +16,11 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
 #include "pddl/clique.h"
+#include "alloc.h"
+#include "err.h"
 
 #define FW_MUTEX 0x2
 #define BW_MUTEX 0x4
@@ -250,7 +251,7 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups,
                                     pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "MG-h2: ");
+    CTX(err, "mg_h2", "MG-h2");
     PDDL_INFO2(err, "Inference of h^2 mutex groups...");
     pddl_graph_simple_t graph;
     pddlGraphSimpleInit(&graph, mutex->fact_size);
@@ -263,6 +264,6 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
 
     pddlGraphSimpleFree(&graph);
     PDDL_INFO(err, "Found %d h^2 mutex groups.", mgroups->mgroup_size);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 

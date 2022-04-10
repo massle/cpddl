@@ -23,6 +23,7 @@
 #include "pddl/cg.h"
 #include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
                              const pddl_iset_t *state,
@@ -46,7 +47,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           unsigned fdr_flags,
                           pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "FDR: ");
+    CTX(err, "fdr", "FDR");
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 
@@ -70,7 +71,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     // variables
     if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
                                   fdr_var_flags) != 0){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         return -1;
     }
     PDDL_INFO(err, "Created %d variables.", fdr->var.var_size);
@@ -102,7 +103,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlTimerStop(&timer);
     PDDL_INFO(err, "Translation took %.2f seconds",
               pddlTimerElapsedInSF(&timer));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -995,7 +996,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                       "with PDDL_FDR_TNF_MULTIPLY_OPS");
     }
 
-    PDDL_INFO_PREFIX_PUSH(err, "TNF: ");
+    CTX(err, "tnf", "TNF");
     PDDL_INFO(err, "Creating a Transition Normal Form"
               " (vars: %d, facts: %d, ops: %d)",
               fdr_in->var.var_size,
@@ -1034,7 +1035,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
               fdr->var.var_size,
               fdr->var.global_id_size,
               fdr->op.op_size);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 

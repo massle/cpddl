@@ -22,6 +22,7 @@
 #include "pddl/cg.h"
 #include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 static void prepareMutex(pddl_mutex_pairs_t *mutex,
                          const pddl_mutex_pairs_t *mutex_in,
@@ -39,14 +40,14 @@ static void prepareStrips(pddl_strips_t *strips,
                           const pddl_red_black_fdr_config_t *cfg,
                           pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Clean Strips: ");
+    CTX(err, "clean_strips", "Clean Strips");
     pddlStripsInitCopy(strips, strips_in);
     PDDL_ISET(unreachable_ops);
     pddlStripsFindUnreachableOps(strips, mutex, &unreachable_ops, err);
     pddlStripsReduce(strips, NULL, &unreachable_ops);
     pddlStripsRemoveUselessDelEffs(strips, mutex, NULL, err);
     pddlISetFree(&unreachable_ops);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 static void prepareMGroups(pddl_mgroups_t *mgroups,
@@ -240,7 +241,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
 {
     pddl_timer_t timer;
     pddlTimerStart(&timer);
-    PDDL_INFO_PREFIX_PUSH(err, "Black-FDR: ");
+    CTX(err, "black_fdr", "Black-FDR");
     PDDL_INFO2(err, "Construction of FDR with black variables...");
 
     // Make sure that mutex groups are contained in the mutex pairs
@@ -268,7 +269,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
                 pddlBlackMGroupsFree(black_mgroups + i);
             pddlStripsFree(&strips);
             pddlMutexPairsFree(&mutex);
-            PDDL_INFO_PREFIX_POP(err);
+            CTXEND(err);
             PDDL_TRACE_RET(err, -1);
         }
         num_created += 1;
@@ -282,7 +283,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlTimerStop(&timer);
     PDDL_INFO(err, "Translation took %.2f seconds",
               pddlTimerElapsedInSF(&timer));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return num_created;
 }
 

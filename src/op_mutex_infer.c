@@ -16,13 +16,14 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/iarr.h>
 #include "pddl/ts.h"
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"
 #include "pddl/op_mutex_infer.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 static void tsReachabilityState(const pddl_ts_t *ts, int state, int *reach)
 {
@@ -119,7 +120,7 @@ int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
                               const pddl_mgroups_t *mgroup,
                               pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "OPM ");
+    CTX(err, "opm", "OPM");
     PDDL_INFO2(err, "Op-mutexes from fam-groups:");
 
     pddl_strips_fact_cross_ref_t cr;
@@ -143,7 +144,7 @@ int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
     pddlStripsFactCrossRefFree(&cr);
     PDDL_INFO(err, "  --> Found %d op-mutexes from fam-groups",
               pddlOpMutexPairsSize(m));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -200,7 +201,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
     pddl_strips_t P2;
     int op_fact_offset;
 
-    PDDL_INFO_PREFIX_PUSH(err, "OPM ");
+    CTX(err, "opm", "OPM");
     PDDL_INFO(err, "Op-mutexes using h^%d compilation:", m);
 
     pddlStripsInitCopy(&P2, strips);
@@ -251,7 +252,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
     pddlStripsFree(&P2);
 
     PDDL_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(opm));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
@@ -318,7 +319,7 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
 {
     pddl_iset_t *unreach_map;
 
-    PDDL_INFO_PREFIX_PUSH(err, "OPM ");
+    CTX(err, "opm", "OPM");
     PDDL_INFO(err, "Op-mutexes using h^%d from each operator:", m);
 
     unreach_map = CALLOC_ARR(pddl_iset_t, strips_in->op.op_size);
@@ -342,6 +343,6 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
         FREE(unreach_map);
 
     PDDL_INFO(err, "  --> Found %d op-mutexes", pddlOpMutexPairsSize(opm));
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }

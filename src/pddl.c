@@ -21,14 +21,16 @@
 #include "alloc.h"
 #include "pddl/pddl_struct.h"
 #include "assert.h"
-#include "log.h"
+#include "err.h"
 
-void pddlConfigLog(const pddl_config_t *cfg, const char *prefix, pddl_err_t *err)
+void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err)
 {
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, force_adl, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, normalize, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, remove_empty_types, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, compile_away_cond_eff, err);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    LOG_CONFIG_BOOL(cfg, force_adl, err);
+    LOG_CONFIG_BOOL(cfg, normalize, err);
+    LOG_CONFIG_BOOL(cfg, remove_empty_types, err);
+    LOG_CONFIG_BOOL(cfg, compile_away_cond_eff, err);
+    CTXEND(err);
 }
 
 static int checkDerivedPredicates(const pddl_t *pddl, pddl_err_t *err)
@@ -37,8 +39,8 @@ static int checkDerivedPredicates(const pddl_t *pddl, pddl_err_t *err)
     for (int i = 0; i < root->child_size; ++i){
         const pddl_lisp_node_t *n = root->child + i;
         if (pddlLispNodeHeadKw(n) == PDDL_KW_DERIVED){
-            PDDL_ERR_RET(err, -1, "Derived predicates are not supported"
-                         " (line %d).", n->lineno);
+            ERR_RET(err, -1, "Derived predicates are not supported"
+                    " (line %d).", n->lineno);
         }
     }
     return 0;
@@ -57,13 +59,13 @@ static const char *parseName(pddl_lisp_t *lisp, int kw,
     n = pddlLispFindNode(&lisp->root, kw);
     if (n == NULL){
         // TODO: Configure warn/err
-        PDDL_ERR_RET(err, NULL, "Could not find %s name definition in %s.",
-                     err_name, lisp->filename);
+        ERR_RET(err, NULL, "Could not find %s name definition in %s.",
+                err_name, lisp->filename);
     }
 
     if (n->child_size != 2 || n->child[1].value == NULL){
-        PDDL_ERR_RET(err, NULL, "Invalid %s name definition in %s.",
-                     err_name, lisp->filename);
+        ERR_RET(err, NULL, "Invalid %s name definition in %s.",
+                err_name, lisp->filename);
     }
 
     return n->child[1].value;
@@ -93,11 +95,11 @@ static int checkDomainName(pddl_t *pddl, pddl_err_t *err)
     problem_domain_name = parseName(pddl->problem_lisp,
                                     PDDL_KW_DOMAIN2, ":domain", err);
     if (problem_domain_name == NULL)
-        PDDL_TRACE_RET(err, 0);
+        TRACE_RET(err, 0);
 
     if (strcmp(problem_domain_name, pddl->domain_name) != 0){
-        PDDL_WARN(err, "Domain names does not match: `%s' x `%s'",
-                  pddl->domain_name, problem_domain_name);
+        WARN(err, "Domain names does not match: `%s' x `%s'",
+             pddl->domain_name, problem_domain_name);
         return 0;
     }
     return 0;
@@ -117,8 +119,8 @@ static int parseMetric(pddl_t *pddl, const pddl_lisp_t *lisp, pddl_err_t *err)
             || n->child[2].value != NULL
             || n->child[2].child_size != 1
             || strcmp(n->child[2].child[0].value, "total-cost") != 0){
-        PDDL_ERR_RET(err, -1, "Only (:metric minimize (total-cost)) is supported"
-                     " (line %d in %s).", n->lineno, lisp->filename);
+        ERR_RET(err, -1, "Only (:metric minimize (total-cost)) is supported"
+                " (line %d in %s).", n->lineno, lisp->filename);
     }
 
     pddl->metric = 1;
@@ -131,14 +133,13 @@ static int parseInit(pddl_t *pddl, pddl_err_t *err)
 
     ninit = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_INIT);
     if (ninit == NULL){
-        PDDL_ERR_RET(err, -1, "Missing :init in %s.",
-                     pddl->problem_lisp->filename);
+        ERR_RET(err, -1, "Missing :init in %s.", pddl->problem_lisp->filename);
     }
 
     pddl->init = pddlCondParseInit(ninit, pddl, err);
     if (pddl->init == NULL){
-        PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :init specification"
-                               " in %s: ", pddl->problem_lisp->filename);
+        TRACE_PREPEND_RET(err, -1, "While parsing :init specification"
+                          " in %s: ", pddl->problem_lisp->filename);
     }
 
     pddl_cond_const_it_atom_t it;
@@ -155,17 +156,17 @@ static int parseGoal(pddl_t *pddl, pddl_err_t *err)
 
     ngoal = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_GOAL);
     if (ngoal == NULL)
-        PDDL_ERR_RET(err, -1, "Missing :goal in %s.", pddl->problem_lisp->filename);
+        ERR_RET(err, -1, "Missing :goal in %s.", pddl->problem_lisp->filename);
 
     if (ngoal->child_size != 2 || ngoal->child[1].value != NULL){
-        PDDL_ERR_RET(err, -1, "Invalid definition of :goal in %s (line %d).",
-                     pddl->problem_lisp->filename, ngoal->lineno);
+        ERR_RET(err, -1, "Invalid definition of :goal in %s (line %d).",
+                pddl->problem_lisp->filename, ngoal->lineno);
     }
 
     pddl->goal = pddlCondParse(ngoal->child + 1, pddl, NULL, "", err);
     if (pddl->goal == NULL){
-        PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :goal specification"
-                               " in %s: ", pddl->problem_lisp->filename);
+        TRACE_PREPEND_RET(err, -1, "While parsing :goal specification"
+                          " in %s: ", pddl->problem_lisp->filename);
     }
     return 0;
 }
@@ -173,36 +174,37 @@ static int parseGoal(pddl_t *pddl, pddl_err_t *err)
 int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
              const pddl_config_t *cfg, pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "PDDL: ");
-    pddlConfigLog(cfg, "cfg.", err);
+    CTX(err, "pddl", "PDDL");
+    pddlConfigLog(cfg, err);
 
     bzero(pddl, sizeof(*pddl));
     pddl->cfg = *cfg;
 
-    PDDL_INFO(err, "Processing %s and %s.", domain_fn, problem_fn);
+    LOG(err, "Processing %{domain_fn}s and %{problem_fn}s.",
+        domain_fn, problem_fn);
 
     if (!checkConfig(cfg)){
-        PDDL_INFO_PREFIX_POP(err);
-        PDDL_TRACE_RET(err, -1);
+        CTXEND(err);
+        TRACE_RET(err, -1);
     }
 
-    PDDL_INFO2(err, "Parsing domain lisp file...");
+    LOG2(err, "Parsing domain lisp file...");
     pddl->domain_lisp = pddlLispParse(domain_fn, err);
     if (pddl->domain_lisp == NULL){
-        PDDL_INFO_PREFIX_POP(err);
-        PDDL_TRACE_RET(err, -1);
+        CTXEND(err);
+        TRACE_RET(err, -1);
     }
 
-    PDDL_INFO2(err, "Parsing problem lisp file...");
+    LOG2(err, "Parsing problem lisp file...");
     pddl->problem_lisp = pddlLispParse(problem_fn, err);
     if (pddl->problem_lisp == NULL){
-        PDDL_INFO_PREFIX_POP(err);
+        CTXEND(err);
         if (pddl->domain_lisp)
             pddlLispDel(pddl->domain_lisp);
-        PDDL_TRACE_RET(err, -1);
+        TRACE_RET(err, -1);
     }
 
-    PDDL_INFO2(err, "Parsing entire contents of domain/problem PDDL...");
+    LOG2(err, "Parsing entire contents of domain/problem PDDL...");
     pddl->domain_name = parseDomainName(pddl->domain_lisp, err);
     if (pddl->domain_name == NULL)
         goto pddl_fail;
@@ -225,49 +227,49 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         goto pddl_fail;
     }
     pddlTypesBuildObjTypeMap(&pddl->type, pddl->obj.obj_size);
-    PDDL_INFO2(err, "PDDL files processed.");
+    LOG2(err, "PDDL files processed.");
 
     if (cfg->normalize){
         pddlNormalize(pddl);
-        PDDL_INFO2(err, "PDDL task normalized.");
+        LOG2(err, "PDDL task normalized.");
     }
 
     if (cfg->remove_empty_types){
         pddlRemoveEmptyTypes(pddl, err);
         if (cfg->normalize){
             pddlNormalize(pddl);
-            PDDL_INFO2(err, "PDDL task normalized again.");
+            LOG2(err, "PDDL task normalized again.");
         }
     }
 
     if (cfg->enforce_unit_cost){
-        PDDL_INFO2(err, "Enforcing unit-cost...");
+        LOG2(err, "Enforcing unit-cost...");
         pddlEnforceUnitCost(pddl, err);
-        PDDL_INFO2(err, "Enforcing unit-cost DONE.");
+        LOG2(err, "Enforcing unit-cost DONE.");
     }
 
     if (cfg->compile_away_cond_eff){
-        PDDL_INFO2(err, "Compiling away conditional effects...");
+        LOG2(err, "Compiling away conditional effects...");
         pddlCompileAwayCondEff(pddl);
-        PDDL_INFO2(err, "Conditional effects compiled away.");
+        LOG2(err, "Conditional effects compiled away.");
     }
 
     pddlCheckSizeTypes(pddl);
-    PDDL_INFO(err, "Number of PDDL Types: %d", pddl->type.type_size);
-    PDDL_INFO(err, "Number of PDDL Objects: %d", pddl->obj.obj_size);
-    PDDL_INFO(err, "Number of PDDL Predicates: %d", pddl->pred.pred_size);
-    PDDL_INFO(err, "Number of PDDL Functions: %d", pddl->func.pred_size);
-    PDDL_INFO(err, "Number of PDDL Actions: %d", pddl->action.action_size);
-    PDDL_INFO(err, "PDDL Metric: %d", pddl->metric);
+    LOG(err, "Number of PDDL Types: %{num_types}d", pddl->type.type_size);
+    LOG(err, "Number of PDDL Objects: %{num_objs}d", pddl->obj.obj_size);
+    LOG(err, "Number of PDDL Predicates: %{num_preds}d", pddl->pred.pred_size);
+    LOG(err, "Number of PDDL Functions: %{num_funcs}d", pddl->func.pred_size);
+    LOG(err, "Number of PDDL Actions: %{num_actions}d", pddl->action.action_size);
+    LOG(err, "PDDL Metric: %{has_metric}d", pddl->metric);
 
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 
 pddl_fail:
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
     if (pddl != NULL)
         pddlFree(pddl);
-    PDDL_TRACE_RET(err, -1);
+    TRACE_RET(err, -1);
 }
 
 void pddlInitCopy(pddl_t *dst, const pddl_t *src)
@@ -877,8 +879,8 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
 {
     if (pddlISetSize(rm_obj) == 0)
         return;
-    PDDL_INFO_PREFIX_PUSH(err, "PDDL rm objs: ");
-    PDDL_INFO(err, "Removing %d objects", pddlISetSize(rm_obj));
+    CTX(err, "pddl_rm_objs", "PDDL rm objs");
+    LOG(err, "Removing %d objects", pddlISetSize(rm_obj));
 
     for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
         if (idx < pddlISetSize(rm_obj) && pddlISetGet(rm_obj, idx) == i){
@@ -890,7 +892,7 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
     }
 
     pddlRemapObjs(pddl, remap);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
@@ -912,7 +914,7 @@ void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
 
 void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Rm empty-types: ");
+    CTX(err, "pddl_rm_empty_types", "PDDL rm empty-types");
     int *type_remap = CALLOC_ARR(int, pddl->type.type_size);
     int *pred_remap = CALLOC_ARR(int, pddl->pred.pred_size);
     int *func_remap = CALLOC_ARR(int, pddl->func.pred_size);
@@ -922,16 +924,16 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
     int action_size = pddl->action.action_size;
 
     pddlTypesRemoveEmpty(&pddl->type, pddl->obj.obj_size, type_remap);
-    PDDL_INFO(err, "Removed %d empty types", type_size - pddl->type.type_size);
+    LOG(err, "Removed %d empty types", type_size - pddl->type.type_size);
     if (type_size != pddl->type.type_size){
         pddlObjsRemapTypes(&pddl->obj, type_remap);
         pddlPredsRemapTypes(&pddl->pred, type_remap, pred_remap);
-        PDDL_INFO(err, "Removed %d predicates", pred_size - pddl->pred.pred_size);
+        LOG(err, "Removed %d predicates", pred_size - pddl->pred.pred_size);
         pddlPredsRemapTypes(&pddl->func, type_remap, func_remap);
-        PDDL_INFO(err, "Removed %d functions", func_size - pddl->func.pred_size);
+        LOG(err, "Removed %d functions", func_size - pddl->func.pred_size);
         pddlActionsRemapTypesAndPreds(&pddl->action, type_remap,
                                       pred_remap, func_remap);
-        PDDL_INFO(err, "Removed %d actions",
+        LOG(err, "Removed %d actions",
                   action_size - pddl->action.action_size);
 
         if (pred_size != pddl->pred.pred_size
@@ -939,7 +941,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
 
             if (pddlCondRemapPreds(&pddl->init->cls,
                                    pred_remap, func_remap) != 0){
-                PDDL_INFO2(err, "The task is unsolvable, because the initial"
+                LOG2(err, "The task is unsolvable, because the initial"
                            " state is false");
                 pddlCondDel(&pddl->init->cls);
                 pddl_cond_t *c = pddlCondNewEmptyAnd();
@@ -949,7 +951,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
             }
 
             if (pddlCondRemapPreds(pddl->goal, pred_remap, func_remap) != 0){
-                PDDL_INFO2(err, "The task is unsolvable, because the goal"
+                LOG2(err, "The task is unsolvable, because the goal"
                            " is false");
                 pddlCondDel(pddl->goal);
                 pddl_cond_bool_t *b = pddlCondNewBool(0);
@@ -962,7 +964,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
     FREE(type_remap);
     FREE(pred_remap);
     FREE(func_remap);
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 static int _removeAssignIncrease(pddl_cond_t **c, void *_)
@@ -976,7 +978,7 @@ static int _removeAssignIncrease(pddl_cond_t **c, void *_)
 
 void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
 {
-    PDDL_INFO_PREFIX_PUSH(err, "Enforce unit-cost: ");
+    CTX(err, "pddl_enforce_unit_cost", "PDDL enforce unit-cost");
     // Remove (= ...) from the initial state
     pddl_cond_t *init = &pddl->init->cls;
     pddlCondRebuild(&init, NULL, _removeAssignIncrease, NULL);
@@ -989,7 +991,7 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
     }
 
     pddl->metric = 0;
-    PDDL_INFO_PREFIX_POP(err);
+    CTXEND(err);
 }
 
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)
