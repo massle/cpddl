@@ -1,6 +1,3 @@
-[submodule "third-party/opts"]
-	path = third-party/opts
-	url = https://github.com/danfis/opts
 [submodule "t"]
 	path = t
 	url = ../cpddl-test.git
