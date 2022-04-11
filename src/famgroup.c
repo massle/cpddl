@@ -238,6 +238,10 @@ static void famInit(fam_t *fam,
     // Skip mutex groups already stored in mgroups
     for (int i = 0; i < mgroups->mgroup_size; ++i)
         skipMGroup(fam, &mgroups->mgroup[i].mgroup);
+
+    LOG(err, "Created LP with %{lp_vars}d variables"
+        " and %{lp_constrs}d constraints",
+        fam->lp_var_size, fam->row);
 }
 
 static void famFree(fam_t *fam)
