@@ -21,30 +21,31 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <boruvka/pairheap.h>
+#include <pddl/pairheap.h>
 #include "pddl/cg.h"
 #include "pddl/scc.h"
+#include "alloc.h"
 #include "assert.h"
 
 #define GOAL_BONUS 100000
 
-static void collectEdges(const bor_iset_t *pre,
-                         const bor_iset_t *eff,
+static void collectEdges(const pddl_iset_t *pre,
+                         const pddl_iset_t *eff,
                          const pddl_fdr_vars_t *vars,
                          int eff_eff_edges,
                          int *value)
 {
     int eff_var;
-    BOR_ISET_FOR_EACH(eff, eff_var){
+    PDDL_ISET_FOR_EACH(eff, eff_var){
         int pre_var;
-        BOR_ISET_FOR_EACH(pre, pre_var){
+        PDDL_ISET_FOR_EACH(pre, pre_var){
             if (pre_var == eff_var)
                 continue;
             value[pre_var * vars->var_size + eff_var] += 1;
         }
         if (eff_eff_edges){
             int eff_var2;
-            BOR_ISET_FOR_EACH(eff, eff_var2){
+            PDDL_ISET_FOR_EACH(eff, eff_var2){
                 if (eff_var2 == eff_var)
                     continue;
                 value[eff_var2 * vars->var_size + eff_var] += 1;
@@ -61,33 +62,33 @@ void pddlCGInit(pddl_cg_t *cg,
 {
     bzero(cg, sizeof(*cg));
 
-    int *value = BOR_CALLOC_ARR(int, vars->var_size * vars->var_size);
-    BOR_ISET(pre);
-    BOR_ISET(eff);
+    int *value = CALLOC_ARR(int, vars->var_size * vars->var_size);
+    PDDL_ISET(pre);
+    PDDL_ISET(eff);
     for (int oi = 0; oi < ops->op_size; ++oi){
         const pddl_fdr_op_t *op = ops->op[oi];
 
-        borISetEmpty(&pre);
-        borISetEmpty(&eff);
+        pddlISetEmpty(&pre);
+        pddlISetEmpty(&eff);
 
         for (int prei = 0; prei < op->pre.fact_size; ++prei)
-            borISetAdd(&pre, op->pre.fact[prei].var);
+            pddlISetAdd(&pre, op->pre.fact[prei].var);
         for (int effi = 0; effi < op->eff.fact_size; ++effi)
-            borISetAdd(&eff, op->eff.fact[effi].var);
+            pddlISetAdd(&eff, op->eff.fact[effi].var);
         for (int cei = 0; cei < op->cond_eff_size; ++cei){
             const pddl_fdr_op_cond_eff_t *ce = op->cond_eff + cei;
             for (int prei = 0; prei < ce->pre.fact_size; ++prei)
-                borISetAdd(&pre, ce->pre.fact[prei].var);
+                pddlISetAdd(&pre, ce->pre.fact[prei].var);
             for (int effi = 0; effi < ce->eff.fact_size; ++effi)
-                borISetAdd(&eff, ce->eff.fact[effi].var);
+                pddlISetAdd(&eff, ce->eff.fact[effi].var);
         }
         collectEdges(&pre, &eff, vars, eff_eff_edges, value);
     }
-    borISetFree(&pre);
-    borISetFree(&eff);
+    pddlISetFree(&pre);
+    pddlISetFree(&eff);
 
     cg->node_size = vars->var_size;
-    cg->node = BOR_CALLOC_ARR(pddl_cg_node_t, cg->node_size);
+    cg->node = CALLOC_ARR(pddl_cg_node_t, cg->node_size);
     for (int v1 = 0; v1 < vars->var_size; ++v1){
         pddl_cg_node_t *n1 = cg->node + v1;
         for (int v2 = 0; v2 < vars->var_size; ++v2){
@@ -97,8 +98,8 @@ void pddlCGInit(pddl_cg_t *cg,
 
         int ins_fw = 0;
         int ins_bw = 0;
-        n1->fw = BOR_CALLOC_ARR(pddl_cg_edge_t, n1->fw_size);
-        n1->bw = BOR_CALLOC_ARR(pddl_cg_edge_t, n1->bw_size);
+        n1->fw = CALLOC_ARR(pddl_cg_edge_t, n1->fw_size);
+        n1->bw = CALLOC_ARR(pddl_cg_edge_t, n1->bw_size);
         for (int v2 = 0; v2 < vars->var_size; ++v2){
             if (value[v1 * vars->var_size + v2] > 0){
                 n1->fw[ins_fw].value = value[v1 * vars->var_size + v2];
@@ -111,44 +112,44 @@ void pddlCGInit(pddl_cg_t *cg,
         }
     }
 
-    BOR_FREE(value);
+    FREE(value);
 }
 
 void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in)
 {
     bzero(cg, sizeof(*cg));
     cg->node_size = cg_in->node_size;
-    cg->node = BOR_CALLOC_ARR(pddl_cg_node_t, cg->node_size);
+    cg->node = CALLOC_ARR(pddl_cg_node_t, cg->node_size);
     for (int node_id = 0; node_id < cg->node_size; ++node_id){
         pddl_cg_node_t *n = cg->node + node_id;
         const pddl_cg_node_t *m = cg_in->node + node_id;
         n->fw_size = m->fw_size;
-        n->fw = BOR_ALLOC_ARR(pddl_cg_edge_t, n->fw_size);
+        n->fw = ALLOC_ARR(pddl_cg_edge_t, n->fw_size);
         memcpy(n->fw, m->fw, sizeof(pddl_cg_edge_t) * n->fw_size);
         n->bw_size = m->bw_size;
-        n->bw = BOR_ALLOC_ARR(pddl_cg_edge_t, n->bw_size);
+        n->bw = ALLOC_ARR(pddl_cg_edge_t, n->bw_size);
         memcpy(n->bw, m->bw, sizeof(pddl_cg_edge_t) * n->bw_size);
     }
 }
 
 void pddlCGInitProjectToVars(pddl_cg_t *dst,
                              const pddl_cg_t *src,
-                             const bor_iset_t *vars_set)
+                             const pddl_iset_t *vars_set)
 {
     pddlCGInitCopy(dst, src);
 
-    int *vars = BOR_CALLOC_ARR(int, src->node_size);
+    int *vars = CALLOC_ARR(int, src->node_size);
     int var;
-    BOR_ISET_FOR_EACH(vars_set, var)
+    PDDL_ISET_FOR_EACH(vars_set, var)
         vars[var] = 1;
 
     for (int ni = 0; ni < dst->node_size; ++ni){
         pddl_cg_node_t *node = dst->node + ni;
         if (!vars[ni]){
             if (node->fw != NULL)
-                BOR_FREE(node->fw);
+                FREE(node->fw);
             if (node->bw != NULL)
-                BOR_FREE(node->bw);
+                FREE(node->bw);
             node->fw_size = 0;
             node->fw = NULL;
             node->bw_size = 0;
@@ -172,20 +173,20 @@ void pddlCGInitProjectToVars(pddl_cg_t *dst,
     }
 
     if (vars != NULL)
-        BOR_FREE(vars);
+        FREE(vars);
 }
 
 void pddlCGInitProjectToBlackVars(pddl_cg_t *dst,
                                   const pddl_cg_t *src,
                                   const pddl_fdr_vars_t *vars)
 {
-    BOR_ISET(rm_vars);
+    PDDL_ISET(rm_vars);
     for (int i = 0; i < vars->var_size; ++i){
         if (vars->var[i].is_black)
-            borISetAdd(&rm_vars, i);
+            pddlISetAdd(&rm_vars, i);
     }
     pddlCGInitProjectToVars(dst, src, &rm_vars);
-    borISetFree(&rm_vars);
+    pddlISetFree(&rm_vars);
 }
 
 void pddlCGFree(pddl_cg_t *cg)
@@ -193,12 +194,12 @@ void pddlCGFree(pddl_cg_t *cg)
     for (int n = 0; n < cg->node_size; ++n){
         pddl_cg_node_t *node = cg->node + n;
         if (node->fw != NULL)
-            BOR_FREE(node->fw);
+            FREE(node->fw);
         if (node->bw != NULL)
-            BOR_FREE(node->bw);
+            FREE(node->bw);
     }
     if (cg->node != NULL)
-        BOR_FREE(cg->node);
+        FREE(cg->node);
 }
 
 static void markBackwardReachableVarsDFS(const pddl_cg_t *cg,
@@ -230,7 +231,7 @@ void pddlCGMarkBackwardReachableVars(const pddl_cg_t *cg,
 }
 
 struct order_var {
-    bor_pairheap_node_t heap;
+    pddl_pairheap_node_t heap;
     int var; /*!< ID of the variable */
     int w; /*!< Incoming weight */
     int ordered; /*!< True if the variable was already ordered */
@@ -239,11 +240,11 @@ struct order_var {
 };
 typedef struct order_var order_var_t;
 
-static int heapLT(const bor_pairheap_node_t *a,
-                  const bor_pairheap_node_t *b, void *_)
+static int heapLT(const pddl_pairheap_node_t *a,
+                  const pddl_pairheap_node_t *b, void *_)
 {
-    order_var_t *v1 = bor_container_of(a, order_var_t, heap);
-    order_var_t *v2 = bor_container_of(b, order_var_t, heap);
+    order_var_t *v1 = pddl_container_of(a, order_var_t, heap);
+    order_var_t *v2 = pddl_container_of(b, order_var_t, heap);
     if (v1->scc_id == v2->scc_id){
         if (v1->w == v2->w)
             return v1->var < v2->var;
@@ -283,7 +284,7 @@ static void orderVarInit(order_var_t *order_var,
     pddlSCC(&scc, &scc_graph);
     for (int ci = 0; ci < scc.comp_size; ++ci){
         int var_id;
-        BOR_ISET_FOR_EACH(scc.comp + ci, var_id)
+        PDDL_ISET_FOR_EACH(scc.comp + ci, var_id)
             order_var[var_id].scc_id = ci;
     }
 
@@ -308,7 +309,7 @@ static void orderVarInit(order_var_t *order_var,
 
 static void removeVar(order_var_t *order_var,
                       int var_id,
-                      bor_pairheap_t *heap,
+                      pddl_pairheap_t *heap,
                       const pddl_cg_t *cg)
 {
     const pddl_cg_node_t *n = cg->node + var_id;
@@ -318,7 +319,7 @@ static void removeVar(order_var_t *order_var,
                 && !order_var[e->end].ordered){
             order_var[e->end].w -= e->value;
             //order_var[e->end].w -= order_var[var_id].w;
-            borPairHeapDecreaseKey(heap, &order_var[e->end].heap);
+            pddlPairHeapDecreaseKey(heap, &order_var[e->end].heap);
         }
     }
 }
@@ -329,7 +330,7 @@ static void reverseArr(int *arr, int size)
     int len = size / 2;
     for (int i = 0; i < len; ++i){
         int tmp;
-        BOR_SWAP(arr[i], arr[size - 1 - i], tmp);
+        PDDL_SWAP(arr[i], arr[size - 1 - i], tmp);
     }
 }
 */
@@ -338,10 +339,10 @@ static void moveUnimportantVarsBack(const pddl_cg_t *cg,
                                     const pddl_fdr_part_state_t *goal,
                                     int *var_ordering)
 {
-    int *old_order = BOR_ALLOC_ARR(int, cg->node_size);
+    int *old_order = ALLOC_ARR(int, cg->node_size);
     memcpy(old_order, var_ordering, sizeof(int) * cg->node_size);
 
-    int *important = BOR_CALLOC_ARR(int, cg->node_size);
+    int *important = CALLOC_ARR(int, cg->node_size);
     if (goal == NULL){
         for (int v = 0; v < cg->node_size; ++v)
             important[v] = 1;
@@ -358,8 +359,8 @@ static void moveUnimportantVarsBack(const pddl_cg_t *cg,
         if (!important[v])
             var_ordering[ins++] = v;
     }
-    BOR_FREE(important);
-    BOR_FREE(old_order);
+    FREE(important);
+    FREE(old_order);
 }
 
 void pddlCGVarOrdering(const pddl_cg_t *cg,
@@ -371,17 +372,17 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
         return;
     }
 
-    order_var_t *order_var = BOR_ALLOC_ARR(order_var_t, cg->node_size);
+    order_var_t *order_var = ALLOC_ARR(order_var_t, cg->node_size);
     orderVarInit(order_var, cg, goal);
 
-    bor_pairheap_t *heap = borPairHeapNew(heapLT, NULL);
+    pddl_pairheap_t *heap = pddlPairHeapNew(heapLT, NULL);
     for (int var_id = 0; var_id < cg->node_size; ++var_id)
-        borPairHeapAdd(heap, &order_var[var_id].heap);
+        pddlPairHeapAdd(heap, &order_var[var_id].heap);
 
     int ins = 0;
-    for (; !borPairHeapEmpty(heap); ++ins){
-        bor_pairheap_node_t *hnode = borPairHeapExtractMin(heap);
-        order_var_t *minvar = bor_container_of(hnode, order_var_t, heap);
+    for (; !pddlPairHeapEmpty(heap); ++ins){
+        pddl_pairheap_node_t *hnode = pddlPairHeapExtractMin(heap);
+        order_var_t *minvar = pddl_container_of(hnode, order_var_t, heap);
         minvar->ordered = 1;
         var_ordering[ins] = minvar->var;
         removeVar(order_var, minvar->var, heap, cg);
@@ -390,8 +391,8 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
     //reverseArr(var_ordering, cg->node_size);
     moveUnimportantVarsBack(cg, goal, var_ordering);
 
-    borPairHeapDel(heap);
-    BOR_FREE(order_var);
+    pddlPairHeapDel(heap);
+    FREE(order_var);
 }
 
 int pddlCGIsAcyclic(const pddl_cg_t *cg)
@@ -430,7 +431,7 @@ void pddlCGPrintDebug(const pddl_cg_t *cg, FILE *fout)
 char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size)
 {
     *buf_size = 1024 * 1024;
-    char *buf = BOR_ALLOC_ARR(char, *buf_size);
+    char *buf = ALLOC_ARR(char, *buf_size);
     int cur = 0;
 
     cur += sprintf(buf + cur, "digraph {\n");
@@ -447,7 +448,7 @@ char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size)
     buf[cur] = 0x0;
 
     *buf_size = cur + 1;
-    buf = BOR_REALLOC_ARR(buf, char, *buf_size);
+    buf = REALLOC_ARR(buf, char, *buf_size);
     return buf;
 }
 
@@ -501,12 +502,12 @@ static char *pddlGraphEasy(const char *graph_easy_bin,
 
         // Read output
         *buflen = 1024 * 1024;
-        char *buf = BOR_ALLOC_ARR(char, *buflen);
+        char *buf = ALLOC_ARR(char, *buflen);
         int cur = 0;
         while (1){
             if (*buflen - 1 - cur < 1024){
                 *buflen *= 2;
-                buf = BOR_REALLOC_ARR(buf, char, *buflen);
+                buf = REALLOC_ARR(buf, char, *buflen);
             }
 
             ssize_t ret = read(pipeout[0], buf + cur, *buflen - 1 - cur);
@@ -517,7 +518,7 @@ static char *pddlGraphEasy(const char *graph_easy_bin,
         }
         close(pipeout[0]);
         *buflen = cur + 1;
-        buf = BOR_REALLOC_ARR(buf, char, *buflen);
+        buf = REALLOC_ARR(buf, char, *buflen);
 
         waitpid(pid, NULL, 0);
         return buf;
@@ -526,12 +527,12 @@ static char *pddlGraphEasy(const char *graph_easy_bin,
     return NULL;
 }
 
-void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err)
+void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err)
 {
     size_t buf_size;
     char *buf = pddlCGAsDot(cg, &buf_size);
     if (buf == NULL){
-        BOR_INFO2(err, "Could not print out causal graph");
+        PDDL_INFO2(err, "Could not print out causal graph");
         return;
     }
 
@@ -544,13 +545,13 @@ void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err)
         for (; cur < graph_size && graph[cur] != '\n'; ++cur);
         graph[cur++] = 0x0;
         if (err != NULL)
-            BOR_INFO(err, "CG: %s", graph + from);
+            PDDL_INFO(err, "CG: %s", graph + from);
         if (out != NULL)
             fprintf(out, "CG: %s\n", graph + from);
     }
 
     if (buf != NULL)
-        BOR_FREE(buf);
+        FREE(buf);
     if (graph != NULL)
-        BOR_FREE(graph);
+        FREE(graph);
 }

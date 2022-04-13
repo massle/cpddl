@@ -17,37 +17,37 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/set.h"
 #include "pddl/biclique.h"
 #include "assert.h"
 
 static void otherSide(const pddl_graph_simple_t *g,
-                      const bor_iset_t *L,
-                      bor_iset_t *R)
+                      const pddl_iset_t *L,
+                      pddl_iset_t *R)
 {
-    borISetEmpty(R);
-    if (borISetSize(L) == 0)
+    pddlISetEmpty(R);
+    if (pddlISetSize(L) == 0)
         return;
-    borISetUnion(R, &g->node[borISetGet(L, 0)]);
-    for (int i = 1; i < borISetSize(L); ++i)
-        borISetIntersect(R, &g->node[borISetGet(L, i)]);
+    pddlISetUnion(R, &g->node[pddlISetGet(L, 0)]);
+    for (int i = 1; i < pddlISetSize(L); ++i)
+        pddlISetIntersect(R, &g->node[pddlISetGet(L, i)]);
 }
 
 static void expandStars(const pddl_set_iset_t *stars,
                         pddl_set_iset_t *next,
                         pddl_set_iset_t *bicliques)
 {
-    BOR_ISET(inter);
+    PDDL_ISET(inter);
     pddlSetISetFree(next);
     pddlSetISetInit(next);
 
     for (int i = 0; i < pddlSetISetSize(stars); ++i){
-        const bor_iset_t *c1 = pddlSetISetGet(stars, i);
+        const pddl_iset_t *c1 = pddlSetISetGet(stars, i);
         for (int j = i + 1; j < pddlSetISetSize(stars); ++j){
-            const bor_iset_t *c2 = pddlSetISetGet(stars, j);
-            borISetIntersect2(&inter, c1, c2);
-            if (borISetSize(&inter) > 0
+            const pddl_iset_t *c2 = pddlSetISetGet(stars, j);
+            pddlISetIntersect2(&inter, c1, c2);
+            if (pddlISetSize(&inter) > 0
                     && pddlSetISetFind(bicliques, &inter) < 0
                     && pddlSetISetFind(next, &inter) < 0){
                 pddlSetISetAdd(next, &inter);
@@ -55,7 +55,7 @@ static void expandStars(const pddl_set_iset_t *stars,
             }
         }
     }
-    borISetFree(&inter);
+    pddlISetFree(&inter);
 }
 
 static void expand(const pddl_set_iset_t *stars,
@@ -63,16 +63,16 @@ static void expand(const pddl_set_iset_t *stars,
                    pddl_set_iset_t *next,
                    pddl_set_iset_t *bicliques)
 {
-    BOR_ISET(inter);
+    PDDL_ISET(inter);
     pddlSetISetFree(next);
     pddlSetISetInit(next);
 
     for (int i = 0; i < pddlSetISetSize(stars); ++i){
-        const bor_iset_t *c1 = pddlSetISetGet(stars, i);
+        const pddl_iset_t *c1 = pddlSetISetGet(stars, i);
         for (int j = 0; j < pddlSetISetSize(cur); ++j){
-            const bor_iset_t *c2 = pddlSetISetGet(cur, j);
-            borISetIntersect2(&inter, c1, c2);
-            if (borISetSize(&inter) > 0
+            const pddl_iset_t *c2 = pddlSetISetGet(cur, j);
+            pddlISetIntersect2(&inter, c1, c2);
+            if (pddlISetSize(&inter) > 0
                     && pddlSetISetFind(bicliques, &inter) < 0
                     && pddlSetISetFind(next, &inter) < 0){
                 pddlSetISetAdd(next, &inter);
@@ -80,12 +80,12 @@ static void expand(const pddl_set_iset_t *stars,
             }
         }
     }
-    borISetFree(&inter);
+    pddlISetFree(&inter);
 }
 
 void pddlBicliqueFindMaximal(const pddl_graph_simple_t *g,
-                             void (*cb)(const bor_iset_t *left,
-                                        const bor_iset_t *right, void *ud),
+                             void (*cb)(const pddl_iset_t *left,
+                                        const pddl_iset_t *right, void *ud),
                              void *ud)
 {
     pddl_set_iset_t stars; // A list of stars
@@ -95,7 +95,7 @@ void pddlBicliqueFindMaximal(const pddl_graph_simple_t *g,
     // Construct stars from each node
     pddlSetISetInit(&stars);
     for (int v = 0; v < g->node_size; ++v){
-        if (borISetSize(&g->node[v]) > 0)
+        if (pddlISetSize(&g->node[v]) > 0)
             pddlSetISetAdd(&stars, &g->node[v]);
     }
 
@@ -112,17 +112,17 @@ void pddlBicliqueFindMaximal(const pddl_graph_simple_t *g,
         expand(&stars, cur + curi, cur + otheri, &bicliques);
     }
 
-    BOR_ISET(R);
+    PDDL_ISET(R);
     for (int i = 0; i < pddlSetISetSize(&bicliques); ++i){
-        const bor_iset_t *L = pddlSetISetGet(&bicliques, i);
+        const pddl_iset_t *L = pddlSetISetGet(&bicliques, i);
         otherSide(g, L, &R);
-        if (borISetSize(L) > 0
-                && borISetSize(&R) > 0
-                && borISetGet(L, 0) < borISetGet(&R, 0)){
+        if (pddlISetSize(L) > 0
+                && pddlISetSize(&R) > 0
+                && pddlISetGet(L, 0) < pddlISetGet(&R, 0)){
             cb(L, &R, ud);
         }
     }
-    borISetFree(&R);
+    pddlISetFree(&R);
 
     pddlSetISetFree(cur + 0);
     pddlSetISetFree(cur + 1);

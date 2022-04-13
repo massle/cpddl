@@ -20,14 +20,14 @@
 #ifndef __PDDL_GRAPH_H__
 #define __PDDL_GRAPH_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_graph_simple {
-    bor_iset_t *node;
+    pddl_iset_t *node;
     int node_size;
 };
 typedef struct pddl_graph_simple pddl_graph_simple_t;

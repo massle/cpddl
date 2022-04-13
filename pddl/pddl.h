@@ -21,6 +21,20 @@
 #define __PDDL_H__
 
 #include <pddl/config.h>
+#include <pddl/core.h>
+#include <pddl/err.h>
+#include <pddl/alloc.h>
+#include <pddl/timer.h>
+#include <pddl/hfunc.h>
+#include <pddl/rand.h>
+#include <pddl/rand-mt.h>
+#include <pddl/sort.h>
+#include <pddl/segmarr.h>
+#include <pddl/extarr.h>
+#include <pddl/rbtree.h>
+#include <pddl/htable.h>
+#include <pddl/fifo.h>
+
 #include <pddl/common.h>
 #include <pddl/cost.h>
 #include <pddl/pddl_file.h>
@@ -80,8 +94,6 @@
 #include <pddl/biclique.h>
 #include <pddl/open_list.h>
 #include <pddl/search.h>
-#include <pddl/search_astar.h>
-#include <pddl/search_lazy.h>
 #include <pddl/search_lifted.h>
 #include <pddl/plan.h>
 #include <pddl/relaxed_plan.h>

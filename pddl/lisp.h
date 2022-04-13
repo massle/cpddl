@@ -22,8 +22,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <boruvka/compiler.h>
-#include <boruvka/err.h>
+#include <pddl/core.h>
+#include <pddl/err.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -114,7 +114,7 @@ typedef struct pddl_lisp pddl_lisp_t;
 /**
  * Parses the input file and returns the parsed pddl-lisp object.
  */
-pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err);
+pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err);
 
 /**
  * Deep-clones lisp structure.
@@ -144,7 +144,7 @@ const pddl_lisp_node_t *pddlLispFindNode(
 typedef int (*pddl_lisp_parse_typed_list_fn)(
                 const pddl_lisp_node_t *root,
                 int child_from, int child_to, int child_type, void *ud,
-                bor_err_t *err);
+                pddl_err_t *err);
 
 /**
  * Parse typed list.
@@ -153,7 +153,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
                            int child_from, int child_to,
                            pddl_lisp_parse_typed_list_fn cb,
                            void *ud,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 /**
  * Copy pddl-lisp-node from src to dst.
@@ -168,35 +168,35 @@ void pddlLispNodeFree(pddl_lisp_node_t *node);
 /**
  * Returns the value of the first sub-element of the specified node.
  */
-_bor_inline const char *pddlLispNodeHead(const pddl_lisp_node_t *n);
+_pddl_inline const char *pddlLispNodeHead(const pddl_lisp_node_t *n);
 
 /**
  * Simliar to pddlLispNodeHead() but returns the keyword corresponding
  * to the head value.
  */
-_bor_inline int pddlLispNodeHeadKw(const pddl_lisp_node_t *n);
+_pddl_inline int pddlLispNodeHeadKw(const pddl_lisp_node_t *n);
 
 /**
  * Returns true if the node is () or (and)
  */
-_bor_inline int pddlLispNodeIsEmptyAnd(const pddl_lisp_node_t *n);
+_pddl_inline int pddlLispNodeIsEmptyAnd(const pddl_lisp_node_t *n);
 
 /**** INLINES: ****/
-_bor_inline const char *pddlLispNodeHead(const pddl_lisp_node_t *n)
+_pddl_inline const char *pddlLispNodeHead(const pddl_lisp_node_t *n)
 {
     if (n->child_size == 0)
         return NULL;
     return n->child[0].value;
 }
 
-_bor_inline int pddlLispNodeHeadKw(const pddl_lisp_node_t *n)
+_pddl_inline int pddlLispNodeHeadKw(const pddl_lisp_node_t *n)
 {
     if (n->child_size == 0)
         return -1;
     return n->child[0].kw;
 }
 
-_bor_inline int pddlLispNodeIsEmptyAnd(const pddl_lisp_node_t *n)
+_pddl_inline int pddlLispNodeIsEmptyAnd(const pddl_lisp_node_t *n)
 {
     return n->child_size == 0
                 || (n->child_size == 1

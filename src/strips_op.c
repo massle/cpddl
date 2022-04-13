@@ -18,11 +18,12 @@
  */
 
 #include <limits.h>
-#include <boruvka/sort.h>
-#include <boruvka/iarr.h>
-#include <boruvka/hfunc.h>
+#include <pddl/sort.h>
+#include <pddl/iarr.h>
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"
+#include "alloc.h"
 #include "helper.h"
 #include "assert.h"
 
@@ -33,22 +34,22 @@ void pddlStripsOpInit(pddl_strips_op_t *op)
 
 static void condEffFree(pddl_strips_op_cond_eff_t *ce)
 {
-    borISetFree(&ce->pre);
-    borISetFree(&ce->add_eff);
-    borISetFree(&ce->del_eff);
+    pddlISetFree(&ce->pre);
+    pddlISetFree(&ce->add_eff);
+    pddlISetFree(&ce->del_eff);
 }
 
 void pddlStripsOpFree(pddl_strips_op_t *op)
 {
     if (op->name)
-        BOR_FREE(op->name);
-    borISetFree(&op->pre);
-    borISetFree(&op->del_eff);
-    borISetFree(&op->add_eff);
+        FREE(op->name);
+    pddlISetFree(&op->pre);
+    pddlISetFree(&op->del_eff);
+    pddlISetFree(&op->add_eff);
     for (int i = 0; i < op->cond_eff_size; ++i)
         condEffFree(&op->cond_eff[i]);
     if (op->cond_eff != NULL)
-        BOR_FREE(op->cond_eff);
+        FREE(op->cond_eff);
 }
 
 void pddlStripsOpFreeAllCondEffs(pddl_strips_op_t *op)
@@ -61,7 +62,7 @@ void pddlStripsOpFreeAllCondEffs(pddl_strips_op_t *op)
 pddl_strips_op_t *pddlStripsOpNew(void)
 {
     pddl_strips_op_t *op;
-    op = BOR_ALLOC(pddl_strips_op_t);
+    op = ALLOC(pddl_strips_op_t);
     pddlStripsOpInit(op);
     return op;
 }
@@ -69,7 +70,7 @@ pddl_strips_op_t *pddlStripsOpNew(void)
 void pddlStripsOpDel(pddl_strips_op_t *op)
 {
     pddlStripsOpFree(op);
-    BOR_FREE(op);
+    FREE(op);
 }
 
 static pddl_strips_op_cond_eff_t *addCondEff(pddl_strips_op_t *op)
@@ -80,9 +81,9 @@ static pddl_strips_op_cond_eff_t *addCondEff(pddl_strips_op_t *op)
         if (op->cond_eff_alloc == 0)
             op->cond_eff_alloc = 1;
         op->cond_eff_alloc *= 2;
-        op->cond_eff = BOR_REALLOC_ARR(op->cond_eff,
-                                       pddl_strips_op_cond_eff_t,
-                                       op->cond_eff_alloc);
+        op->cond_eff = REALLOC_ARR(op->cond_eff,
+                                   pddl_strips_op_cond_eff_t,
+                                   op->cond_eff_alloc);
     }
 
     ce = op->cond_eff + op->cond_eff_size++;
@@ -94,16 +95,16 @@ pddl_strips_op_cond_eff_t *pddlStripsOpAddCondEff(pddl_strips_op_t *op,
                                                   const pddl_strips_op_t *f)
 {
     pddl_strips_op_cond_eff_t *ce = addCondEff(op);
-    borISetUnion(&ce->pre, &f->pre);
-    borISetUnion(&ce->add_eff, &f->add_eff);
-    borISetUnion(&ce->del_eff, &f->del_eff);
+    pddlISetUnion(&ce->pre, &f->pre);
+    pddlISetUnion(&ce->add_eff, &f->add_eff);
+    pddlISetUnion(&ce->del_eff, &f->del_eff);
     return ce;
 }
 
 void pddlStripsOpNormalize(pddl_strips_op_t *op)
 {
-    borISetMinus(&op->del_eff, &op->add_eff);
-    borISetMinus(&op->add_eff, &op->pre);
+    pddlISetMinus(&op->del_eff, &op->add_eff);
+    pddlISetMinus(&op->add_eff, &op->pre);
 }
 
 int pddlStripsOpFinalize(pddl_strips_op_t *op, char *name)
@@ -118,8 +119,8 @@ int pddlStripsOpFinalize(pddl_strips_op_t *op, char *name)
 void pddlStripsOpAddEffFromOp(pddl_strips_op_t *dst,
                               const pddl_strips_op_t *src)
 {
-    borISetUnion(&dst->add_eff, &src->add_eff);
-    borISetUnion(&dst->del_eff, &src->del_eff);
+    pddlISetUnion(&dst->add_eff, &src->add_eff);
+    pddlISetUnion(&dst->del_eff, &src->del_eff);
     pddlStripsOpNormalize(dst);
 }
 
@@ -131,37 +132,37 @@ void pddlStripsOpCopy(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
     for (int i = 0; i < src->cond_eff_size; ++i){
         const pddl_strips_op_cond_eff_t *f = src->cond_eff + i;
         ce = addCondEff(dst);
-        borISetUnion(&ce->pre, &f->pre);
-        borISetUnion(&ce->add_eff, &f->add_eff);
-        borISetUnion(&ce->del_eff, &f->del_eff);
+        pddlISetUnion(&ce->pre, &f->pre);
+        pddlISetUnion(&ce->add_eff, &f->add_eff);
+        pddlISetUnion(&ce->del_eff, &f->del_eff);
     }
 }
 
 void pddlStripsOpCopyWithoutCondEff(pddl_strips_op_t *dst,
                                     const pddl_strips_op_t *src)
 {
-    dst->name = BOR_STRDUP(src->name);
+    dst->name = STRDUP(src->name);
     dst->cost = src->cost;
-    borISetUnion(&dst->pre, &src->pre);
-    borISetUnion(&dst->add_eff, &src->add_eff);
-    borISetUnion(&dst->del_eff, &src->del_eff);
+    pddlISetUnion(&dst->pre, &src->pre);
+    pddlISetUnion(&dst->add_eff, &src->add_eff);
+    pddlISetUnion(&dst->del_eff, &src->del_eff);
 }
 
 void pddlStripsOpCopyDual(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
 {
     pddl_strips_op_cond_eff_t *ce;
 
-    dst->name = BOR_STRDUP(src->name);
+    dst->name = STRDUP(src->name);
     dst->cost = src->cost;
-    borISetUnion(&dst->pre, &src->del_eff);
-    borISetUnion(&dst->add_eff, &src->add_eff);
-    borISetUnion(&dst->del_eff, &src->pre);
+    pddlISetUnion(&dst->pre, &src->del_eff);
+    pddlISetUnion(&dst->add_eff, &src->add_eff);
+    pddlISetUnion(&dst->del_eff, &src->pre);
     for (int i = 0; i < src->cond_eff_size; ++i){
         const pddl_strips_op_cond_eff_t *f = src->cond_eff + i;
         ce = addCondEff(dst);
-        borISetUnion(&ce->pre, &f->del_eff);
-        borISetUnion(&ce->add_eff, &f->add_eff);
-        borISetUnion(&ce->del_eff, &f->pre);
+        pddlISetUnion(&ce->pre, &f->del_eff);
+        pddlISetUnion(&ce->add_eff, &f->add_eff);
+        pddlISetUnion(&ce->del_eff, &f->pre);
     }
 }
 
@@ -180,38 +181,38 @@ void pddlStripsOpRemapFacts(pddl_strips_op_t *op, const int *remap)
     }
 }
 
-static void iarrAppendISet(bor_iarr_t *arr, const bor_iset_t *set)
+static void iarrAppendISet(pddl_iarr_t *arr, const pddl_iset_t *set)
 {
     int fact;
-    BOR_ISET_FOR_EACH(set, fact)
-        borIArrAdd(arr, fact);
+    PDDL_ISET_FOR_EACH(set, fact)
+        pddlIArrAdd(arr, fact);
 }
 
 static uint64_t opHash(const pddl_strips_op_t *op)
 {
     const int delim = INT_MAX;
-    BOR_IARR(buf);
+    PDDL_IARR(buf);
     uint64_t hash;
 
     iarrAppendISet(&buf, &op->pre);
-    borIArrAdd(&buf, delim);
+    pddlIArrAdd(&buf, delim);
     iarrAppendISet(&buf, &op->add_eff);
-    borIArrAdd(&buf, delim);
+    pddlIArrAdd(&buf, delim);
     iarrAppendISet(&buf, &op->del_eff);
-    borIArrAdd(&buf, delim);
+    pddlIArrAdd(&buf, delim);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         const pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
         iarrAppendISet(&buf, &ce->pre);
-        borIArrAdd(&buf, delim);
+        pddlIArrAdd(&buf, delim);
         iarrAppendISet(&buf, &ce->add_eff);
-        borIArrAdd(&buf, delim);
+        pddlIArrAdd(&buf, delim);
         iarrAppendISet(&buf, &ce->del_eff);
-        borIArrAdd(&buf, delim);
+        pddlIArrAdd(&buf, delim);
     }
 
-    hash = borCityHash_64(buf.arr, buf.size);
-    borIArrFree(&buf);
+    hash = pddlCityHash_64(buf.arr, buf.size);
+    pddlIArrFree(&buf);
 
     return hash;
 }
@@ -222,17 +223,17 @@ static uint64_t opEq(const pddl_strips_op_t *op1,
     if (op1->cond_eff_size != op2->cond_eff_size)
         return 0;
 
-    if (!borISetEq(&op1->pre, &op2->pre)
-            || !borISetEq(&op1->add_eff, &op2->add_eff)
-            || !borISetEq(&op2->del_eff, &op2->del_eff))
+    if (!pddlISetEq(&op1->pre, &op2->pre)
+            || !pddlISetEq(&op1->add_eff, &op2->add_eff)
+            || !pddlISetEq(&op2->del_eff, &op2->del_eff))
         return 0;
 
     for (int cei = 0; cei < op1->cond_eff_size; ++cei){
         const pddl_strips_op_cond_eff_t *ce1 = op1->cond_eff + cei;
         const pddl_strips_op_cond_eff_t *ce2 = op2->cond_eff + cei;
-        if (!borISetEq(&ce1->pre, &ce2->pre)
-                || !borISetEq(&ce1->add_eff, &ce2->add_eff)
-                || !borISetEq(&ce1->del_eff, &ce2->del_eff))
+        if (!pddlISetEq(&ce1->pre, &ce2->pre)
+                || !pddlISetEq(&ce1->add_eff, &ce2->add_eff)
+                || !pddlISetEq(&ce1->del_eff, &ce2->del_eff))
             return 0;
     }
     return 1;
@@ -294,15 +295,15 @@ static int deduplicate(pddl_strips_ops_t *ops, int *remove)
     deduplicate_t *dedup;
     int change = 0;
 
-    dedup = BOR_CALLOC_ARR(deduplicate_t, ops->op_size);
+    dedup = CALLOC_ARR(deduplicate_t, ops->op_size);
     for (int op_id = 0; op_id < ops->op_size; ++op_id){
         dedup[op_id].id = op_id;
         dedup[op_id].cost = ops->op[op_id]->cost;
         dedup[op_id].hash = opHash(ops->op[op_id]);
     }
 
-    borSort(dedup, ops->op_size, sizeof(deduplicate_t),
-            opDeduplicateCmp, NULL);
+    pddlSort(dedup, ops->op_size, sizeof(deduplicate_t),
+             opDeduplicateCmp, NULL);
 
     int start, cur;
     for (start = 0, cur = 1; cur < ops->op_size; ++cur){
@@ -315,30 +316,30 @@ static int deduplicate(pddl_strips_ops_t *ops, int *remove)
     if (start < cur - 1)
         change |= deduplicateRange(ops, dedup, start, cur, remove);
 
-    BOR_FREE(dedup);
+    FREE(dedup);
     return change;
 }
 
 void pddlStripsOpsDeduplicate(pddl_strips_ops_t *ops)
 {
-    int *remove = BOR_CALLOC_ARR(int, ops->op_size);
+    int *remove = CALLOC_ARR(int, ops->op_size);
     if (deduplicate(ops, remove))
         pddlStripsOpsDelOps(ops, remove);
     if (remove != NULL)
-        BOR_FREE(remove);
+        FREE(remove);
 }
 
-void pddlStripsOpsDeduplicateSet(pddl_strips_ops_t *ops, bor_iset_t *rm_op)
+void pddlStripsOpsDeduplicateSet(pddl_strips_ops_t *ops, pddl_iset_t *rm_op)
 {
-    int *remove = BOR_CALLOC_ARR(int, ops->op_size);
+    int *remove = CALLOC_ARR(int, ops->op_size);
     if (deduplicate(ops, remove)){
         for (int oi = 0; oi < ops->op_size; ++oi){
             if (remove[oi])
-                borISetAdd(rm_op, oi);
+                pddlISetAdd(rm_op, oi);
         }
     }
     if (remove != NULL)
-        BOR_FREE(remove);
+        FREE(remove);
 }
 
 void pddlStripsOpsSetUnitCost(pddl_strips_ops_t *ops)
@@ -353,17 +354,17 @@ static int opCmp(const void *a, const void *b, void *_)
     pddl_strips_op_t *o2 = *(pddl_strips_op_t **)b;
     int cmp = strcmp(o1->name, o2->name);
     if (cmp == 0)
-        cmp = borISetCmp(&o1->pre, &o2->pre);
+        cmp = pddlISetCmp(&o1->pre, &o2->pre);
     if (cmp == 0)
-        cmp = borISetCmp(&o1->add_eff, &o2->add_eff);
+        cmp = pddlISetCmp(&o1->add_eff, &o2->add_eff);
     if (cmp == 0)
-        cmp = borISetCmp(&o1->del_eff, &o2->del_eff);
+        cmp = pddlISetCmp(&o1->del_eff, &o2->del_eff);
     return cmp;
 }
 
 void pddlStripsOpsSort(pddl_strips_ops_t *ops)
 {
-    borSort(ops->op, ops->op_size, sizeof(pddl_strips_op_t *), opCmp, NULL);
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_strips_op_t *), opCmp, NULL);
     for (int i = 0; i < ops->op_size; ++i)
         ops->op[i]->id = i;
 }
@@ -373,7 +374,7 @@ static void reorderCondEffs(pddl_strips_op_t *op)
     int size = 0;
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
-        if (borISetSize(&ce->pre) == 0){
+        if (pddlISetSize(&ce->pre) == 0){
             condEffFree(&op->cond_eff[cei]);
         }else{
             op->cond_eff[size++] = op->cond_eff[cei];
@@ -387,18 +388,18 @@ void pddlStripsOpRemoveFact(pddl_strips_op_t *op, int fact_id)
 {
     int reorder = 0;
 
-    borISetRm(&op->pre, fact_id);
-    borISetRm(&op->add_eff, fact_id);
-    borISetRm(&op->del_eff, fact_id);
+    pddlISetRm(&op->pre, fact_id);
+    pddlISetRm(&op->add_eff, fact_id);
+    pddlISetRm(&op->del_eff, fact_id);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
-        borISetRm(&ce->pre, fact_id);
-        borISetRm(&ce->add_eff, fact_id);
-        borISetRm(&ce->del_eff, fact_id);
-        if (borISetSize(&ce->pre) == 0){
-            borISetUnion(&op->add_eff, &ce->add_eff);
-            borISetUnion(&op->del_eff, &ce->del_eff);
+        pddlISetRm(&ce->pre, fact_id);
+        pddlISetRm(&ce->add_eff, fact_id);
+        pddlISetRm(&ce->del_eff, fact_id);
+        if (pddlISetSize(&ce->pre) == 0){
+            pddlISetUnion(&op->add_eff, &ce->add_eff);
+            pddlISetUnion(&op->del_eff, &ce->del_eff);
             reorder = 1;
         }
     }
@@ -407,22 +408,22 @@ void pddlStripsOpRemoveFact(pddl_strips_op_t *op, int fact_id)
         reorderCondEffs(op);
 }
 
-void pddlStripsOpRemoveFacts(pddl_strips_op_t *op, const bor_iset_t *facts)
+void pddlStripsOpRemoveFacts(pddl_strips_op_t *op, const pddl_iset_t *facts)
 {
     int reorder = 0;
 
-    borISetMinus(&op->pre, facts);
-    borISetMinus(&op->add_eff, facts);
-    borISetMinus(&op->del_eff, facts);
+    pddlISetMinus(&op->pre, facts);
+    pddlISetMinus(&op->add_eff, facts);
+    pddlISetMinus(&op->del_eff, facts);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
         pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
-        borISetMinus(&ce->pre, facts);
-        borISetMinus(&ce->add_eff, facts);
-        borISetMinus(&ce->del_eff, facts);
-        if (borISetSize(&ce->pre) == 0){
-            borISetUnion(&op->add_eff, &ce->add_eff);
-            borISetUnion(&op->del_eff, &ce->del_eff);
+        pddlISetMinus(&ce->pre, facts);
+        pddlISetMinus(&ce->add_eff, facts);
+        pddlISetMinus(&ce->del_eff, facts);
+        if (pddlISetSize(&ce->pre) == 0){
+            pddlISetUnion(&op->add_eff, &ce->add_eff);
+            pddlISetUnion(&op->del_eff, &ce->del_eff);
             reorder = 1;
         }
     }
@@ -436,7 +437,7 @@ void pddlStripsOpsInit(pddl_strips_ops_t *ops)
 {
     bzero(ops, sizeof(*ops));
     ops->op_alloc = 4;
-    ops->op = BOR_ALLOC_ARR(pddl_strips_op_t *, ops->op_alloc);
+    ops->op = ALLOC_ARR(pddl_strips_op_t *, ops->op_alloc);
 }
 
 void pddlStripsOpsFree(pddl_strips_ops_t *ops)
@@ -446,7 +447,7 @@ void pddlStripsOpsFree(pddl_strips_ops_t *ops)
             pddlStripsOpDel(ops->op[i]);
     }
     if (ops->op != NULL)
-        BOR_FREE(ops->op);
+        FREE(ops->op);
 }
 
 void pddlStripsOpsCopy(pddl_strips_ops_t *dst, const pddl_strips_ops_t *src)
@@ -461,7 +462,7 @@ static pddl_strips_op_t *nextNewOp(pddl_strips_ops_t *ops)
 
     if (ops->op_size >= ops->op_alloc){
         ops->op_alloc *= 2;
-        ops->op = BOR_REALLOC_ARR(ops->op, pddl_strips_op_t *, ops->op_alloc);
+        ops->op = REALLOC_ARR(ops->op, pddl_strips_op_t *, ops->op_alloc);
     }
 
     op = pddlStripsOpNew();
@@ -494,10 +495,10 @@ void pddlStripsOpsDelOps(pddl_strips_ops_t *ops, const int *m)
     ops->op_size = ins;
 }
 
-void pddlStripsOpsDelOpsSet(pddl_strips_ops_t *ops, const bor_iset_t *del_ops)
+void pddlStripsOpsDelOpsSet(pddl_strips_ops_t *ops, const pddl_iset_t *del_ops)
 {
     int op_id;
-    BOR_ISET_FOR_EACH(del_ops, op_id){
+    PDDL_ISET_FOR_EACH(del_ops, op_id){
         pddlStripsOpDel(ops->op[op_id]);
         ops->op[op_id] = NULL;
     }
@@ -519,7 +520,7 @@ void pddlStripsOpsRemapFacts(pddl_strips_ops_t *ops, const int *remap)
         pddlStripsOpRemapFacts(ops->op[i], remap);
 }
 
-void pddlStripsOpsRemoveFacts(pddl_strips_ops_t *ops, const bor_iset_t *facts)
+void pddlStripsOpsRemoveFacts(pddl_strips_ops_t *ops, const pddl_iset_t *facts)
 {
     for (int i = 0; i < ops->op_size; ++i)
         pddlStripsOpRemoveFacts(ops->op[i], facts);

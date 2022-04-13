@@ -17,14 +17,14 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/timer.h>
+#include "alloc.h"
+#include <pddl/timer.h>
 #include "profile.h"
 
 struct pddl_profile_slot {
-    bor_timer_t timer;
+    pddl_timer_t timer;
     int counter;
-    bor_real_t elapsed;
+    double elapsed;
 };
 typedef struct pddl_profile_slot pddl_profile_slot_t;
 
@@ -44,23 +44,23 @@ void pddlProfileStart(int slot)
             profile.slot_alloc = 2;
         while (slot >= profile.slot_alloc)
             profile.slot_alloc *= 2;
-        profile.slot = BOR_REALLOC_ARR(profile.slot, pddl_profile_slot_t,
-                                       profile.slot_alloc);
+        profile.slot = REALLOC_ARR(profile.slot, pddl_profile_slot_t,
+                                   profile.slot_alloc);
         for (int i = profile.slot_size; i < profile.slot_alloc; ++i){
             profile.slot[i].counter = 0;
             profile.slot[i].elapsed = 0.;
         }
     }
-    profile.slot_size = BOR_MAX(profile.slot_size, slot + 1);
-    borTimerStart(&profile.slot[slot].timer);
+    profile.slot_size = PDDL_MAX(profile.slot_size, slot + 1);
+    pddlTimerStart(&profile.slot[slot].timer);
 }
 
 void pddlProfileStop(int slot)
 {
     pddl_profile_slot_t *s = profile.slot + slot;
-    borTimerStop(&s->timer);
+    pddlTimerStop(&s->timer);
     ++s->counter;
-    s->elapsed += borTimerElapsedInSF(&s->timer);
+    s->elapsed += pddlTimerElapsedInSF(&s->timer);
 }
 
 void pddlProfilePrint(void)

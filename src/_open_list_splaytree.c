@@ -20,9 +20,9 @@
 # error "COST_SIZE must be set!"
 #endif
 
-#include <boruvka/alloc.h>
-#include <boruvka/fifo.h>
+#include "pddl/fifo.h"
 #include "pddl/open_list.h"
+#include "alloc.h"
 
 /** A structure containing a stored value */
 struct node {
@@ -32,7 +32,7 @@ typedef struct node node_t;
 
 /** A node holding a key and all the values. */
 struct keynode {
-    bor_fifo_t fifo;              /*!< Structure containing all values */
+    pddl_fifo_t fifo;              /*!< Structure containing all values */
     struct keynode *spe_left;  /*!< Connector to splay-tree */
     struct keynode *spe_right; /*!< Connector to splay-tree */
     int cost[COST_SIZE];
@@ -48,7 +48,7 @@ struct pddl_open_list_splaytree {
 typedef struct pddl_open_list_splaytree pddl_open_list_splaytree_t;
 
 #define LIST_FROM_PARENT(parent) \
-    bor_container_of(parent, pddl_open_list_splaytree_t, list)
+    pddl_container_of(parent, pddl_open_list_splaytree_t, list)
 
 
 static void pddlOpenListSplayTreeDel(pddl_open_list_t *list);
@@ -67,18 +67,18 @@ static void pddlOpenListSplayTreeClear(pddl_open_list_t *list);
 static keynode_t *keynodeNew(void)
 {
     keynode_t *kn;
-    kn = BOR_MALLOC(sizeof(keynode_t));
-    borFifoInit(&kn->fifo, sizeof(node_t));
+    kn = MALLOC(sizeof(keynode_t));
+    pddlFifoInit(&kn->fifo, sizeof(node_t));
     return kn;
 }
 
 static void keynodeDel(keynode_t *kn)
 {
-    borFifoFree(&kn->fifo);
-    BOR_FREE(kn);
+    pddlFifoFree(&kn->fifo);
+    FREE(kn);
 }
 
-_bor_inline int keynodeCmp(const int *kn1, const int *kn2)
+_pddl_inline int keynodeCmp(const int *kn1, const int *kn2)
 {
     int cmp;
     for (int i = 0; i < COST_SIZE && (cmp = kn1[i] - kn2[i]) == 0; ++i);
@@ -86,30 +86,30 @@ _bor_inline int keynodeCmp(const int *kn1, const int *kn2)
 }
 
 /** Define splay-tree structure */
-#define BOR_SPLAY_TREE_NODE_T keynode_t
-#define BOR_SPLAY_TREE_T pddl_open_list_splaytree_t
-#define BOR_SPLAY_KEY_T const int *
-#define BOR_SPLAY_NODE_KEY(node) node->cost
-#define BOR_SPLAY_NODE_SET_KEY(head, node, key) \
+#define PDDL_SPLAY_TREE_NODE_T keynode_t
+#define PDDL_SPLAY_TREE_T pddl_open_list_splaytree_t
+#define PDDL_SPLAY_KEY_T const int *
+#define PDDL_SPLAY_NODE_KEY(node) node->cost
+#define PDDL_SPLAY_NODE_SET_KEY(head, node, key) \
     memcpy(node->cost, key, sizeof(int) * COST_SIZE)
-#define BOR_SPLAY_KEY_CMP(head, key1, key2) \
+#define PDDL_SPLAY_KEY_CMP(head, key1, key2) \
     keynodeCmp(key1, key2)
-#include "boruvka/splaytree_def.h"
+#include "splaytree_def.h"
 
 pddl_open_list_t *MAIN_FN_NAME(void)
 {
     pddl_open_list_splaytree_t *list;
 
-    list = BOR_ALLOC(pddl_open_list_splaytree_t);
+    list = ALLOC(pddl_open_list_splaytree_t);
     _pddlOpenListInit(&list->list,
-                  pddlOpenListSplayTreeDel,
-                  pddlOpenListSplayTreePush,
-                  pddlOpenListSplayTreePop,
-                  pddlOpenListSplayTreeTop,
-                  pddlOpenListSplayTreeClear);
+                      pddlOpenListSplayTreeDel,
+                      pddlOpenListSplayTreePush,
+                      pddlOpenListSplayTreePop,
+                      pddlOpenListSplayTreeTop,
+                      pddlOpenListSplayTreeClear);
     list->pre_keynode = keynodeNew();
 
-    borSplayInit(list);
+    pddlSplayInit(list);
 
     return &list->list;
 }
@@ -121,9 +121,9 @@ static void pddlOpenListSplayTreeDel(pddl_open_list_t *_list)
     pddlOpenListSplayTreeClear(&list->list);
     if (list->pre_keynode)
         keynodeDel(list->pre_keynode);
-    borSplayFree(list);
+    pddlSplayFree(list);
     _pddlOpenListFree(&list->list);
-    BOR_FREE(list);
+    FREE(list);
 }
 
 static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,
@@ -135,7 +135,7 @@ static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,
     node_t node;
 
     // Try to insert pre-allocated key-node
-    kn = borSplayInsert(list, cost, list->pre_keynode);
+    kn = pddlSplayInsert(list, cost, list->pre_keynode);
 
     if (kn == NULL){
         // Insertion was successful, remember the inserted key-node and
@@ -146,7 +146,7 @@ static void pddlOpenListSplayTreePush(pddl_open_list_t *_list,
 
     // Push next node into key-node container
     node.state_id = state_id;
-    borFifoPush(&kn->fifo, &node);
+    pddlFifoPush(&kn->fifo, &node);
 }
 
 static keynode_t *top(pddl_open_list_t *_list,
@@ -161,12 +161,12 @@ static keynode_t *top(pddl_open_list_t *_list,
         return NULL;
 
     // Find out minimal node
-    kn = borSplayMin(list);
+    kn = pddlSplayMin(list);
 
     // We know for sure that this key-node must contain some nodes because
     // an empty key-nodes are removed immediately.
     // Pop next node from the key-node.
-    n = borFifoFront(&kn->fifo);
+    n = pddlFifoFront(&kn->fifo);
     *state_id = n->state_id;
     memcpy(cost, kn->cost, sizeof(int) * COST_SIZE);
     return kn;
@@ -181,11 +181,11 @@ static int pddlOpenListSplayTreePop(pddl_open_list_t *_list,
     if (kn == NULL)
         return -1;
 
-    borFifoPop(&kn->fifo);
+    pddlFifoPop(&kn->fifo);
 
     // If the key-node is empty, remove it from the tree
-    if (borFifoEmpty(&kn->fifo)){
-        borSplayRemove(list, kn);
+    if (pddlFifoEmpty(&kn->fifo)){
+        pddlSplayRemove(list, kn);
         keynodeDel(kn);
     }
 
@@ -193,8 +193,8 @@ static int pddlOpenListSplayTreePop(pddl_open_list_t *_list,
 }
 
 static int pddlOpenListSplayTreeTop(pddl_open_list_t *_list,
-                                  pddl_state_id_t *state_id,
-                                  int *cost)
+                                    pddl_state_id_t *state_id,
+                                    int *cost)
 {
     if (top(_list, state_id, cost) == NULL)
         return -1;
@@ -208,7 +208,7 @@ static void pddlOpenListSplayTreeClear(pddl_open_list_t *_list)
 
     while (list->root){
         kn = list->root;
-        borSplayRemove(list, list->root);
+        pddlSplayRemove(list, list->root);
         keynodeDel(kn);
     }
 }

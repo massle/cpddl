@@ -16,12 +16,12 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/sort.h>
+#include "alloc.h"
+#include <pddl/sort.h>
 #include "pddl/fdr_part_state.h"
 #include "assert.h"
-int borSort(void *base, size_t nmemb, size_t size,
-            bor_sort_cmp cmp, void *carg);
+int pddlSort(void *base, size_t nmemb, size_t size,
+             pddl_sort_cmp cmp, void *carg);
 
 static int factsCmp(const void *a, const void *b, void *_)
 {
@@ -35,7 +35,7 @@ static int factsCmp(const void *a, const void *b, void *_)
 
 static void sortFacts(pddl_fdr_part_state_t *ps)
 {
-    borSort(ps->fact, ps->fact_size, sizeof(pddl_fdr_fact_t), factsCmp, NULL);
+    pddlSort(ps->fact, ps->fact_size, sizeof(pddl_fdr_fact_t), factsCmp, NULL);
 }
 
 void pddlFDRPartStateInit(pddl_fdr_part_state_t *ps)
@@ -49,14 +49,14 @@ void pddlFDRPartStateInitCopy(pddl_fdr_part_state_t *dst,
     dst->fact_size = src->fact_size;
     dst->fact_alloc = src->fact_alloc;
     ASSERT(dst->fact_alloc >= dst->fact_size);
-    dst->fact = BOR_ALLOC_ARR(pddl_fdr_fact_t, src->fact_alloc);
+    dst->fact = ALLOC_ARR(pddl_fdr_fact_t, src->fact_alloc);
     memcpy(dst->fact, src->fact, sizeof(*dst->fact) * dst->fact_size);
 }
 
 void pddlFDRPartStateFree(pddl_fdr_part_state_t *ps)
 {
     if (ps->fact != NULL)
-        BOR_FREE(ps->fact);
+        FREE(ps->fact);
 }
 
 void pddlFDRPartStateSet(pddl_fdr_part_state_t *ps, int var, int val)
@@ -72,7 +72,7 @@ void pddlFDRPartStateSet(pddl_fdr_part_state_t *ps, int var, int val)
         if (ps->fact_alloc == 0)
             ps->fact_alloc = 1;
         ps->fact_alloc *= 2;
-        ps->fact = BOR_REALLOC_ARR(ps->fact, pddl_fdr_fact_t, ps->fact_alloc);
+        ps->fact = REALLOC_ARR(ps->fact, pddl_fdr_fact_t, ps->fact_alloc);
     }
 
     ps->fact[ps->fact_size].var = var;
@@ -164,11 +164,11 @@ void pddlFDRPartStateRemapVars(pddl_fdr_part_state_t *ps, const int *remap)
 
 void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,
                                  const pddl_fdr_vars_t *vars,
-                                 bor_iset_t *global_ids)
+                                 pddl_iset_t *global_ids)
 {
     for (int i = 0; i < ps->fact_size; ++i){
         const pddl_fdr_fact_t *f = ps->fact + i;
-        borISetAdd(global_ids, vars->var[f->var].val[f->val].global_id);
+        pddlISetAdd(global_ids, vars->var[f->var].val[f->val].global_id);
     }
 }
 

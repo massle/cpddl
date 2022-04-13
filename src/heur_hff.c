@@ -17,6 +17,7 @@
  */
 
 #include "pddl/hff.h"
+#include "alloc.h"
 #include "_heur.h"
 
 struct pddl_heur_hff {
@@ -28,23 +29,23 @@ typedef struct pddl_heur_hff pddl_heur_hff_t;
 
 static void heurDel(pddl_heur_t *_h)
 {
-    pddl_heur_hff_t *h = bor_container_of(_h, pddl_heur_hff_t, heur);
+    pddl_heur_hff_t *h = pddl_container_of(_h, pddl_heur_hff_t, heur);
     _pddlHeurFree(&h->heur);
     pddlHFFFree(&h->hff);
-    BOR_FREE(h);
+    FREE(h);
 }
 
 static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_node_t *node,
                         const pddl_fdr_state_space_t *state_space)
 {
-    pddl_heur_hff_t *h = bor_container_of(_h, pddl_heur_hff_t, heur);
+    pddl_heur_hff_t *h = pddl_container_of(_h, pddl_heur_hff_t, heur);
     return pddlHFF(&h->hff, node->state, &h->fdr->var);
 }
 
-pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, bor_err_t *err)
+pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
-    pddl_heur_hff_t *h = BOR_ALLOC(pddl_heur_hff_t);
+    pddl_heur_hff_t *h = ALLOC(pddl_heur_hff_t);
     bzero(h, sizeof(*h));
     pddlHFFInit(&h->hff, fdr);
     h->fdr = fdr;

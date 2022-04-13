@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/plan_file.h"
 
 struct parse {
@@ -25,7 +25,7 @@ struct parse {
     const pddl_fdr_t *fdr;
 
     pddl_plan_file_strips_t *pstrips;
-    bor_iset_t strips_state;
+    pddl_iset_t strips_state;
     const pddl_strips_t *strips;
 };
 
@@ -37,40 +37,40 @@ static void planFileFDRAddState(pddl_plan_file_fdr_t *p,
         if (p->state_alloc == 0)
             p->state_alloc = 4;
         p->state_alloc *= 2;
-        p->state = BOR_REALLOC_ARR(p->state, int *, p->state_alloc);
+        p->state = REALLOC_ARR(p->state, int *, p->state_alloc);
     }
 
-    p->state[p->state_size] = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    p->state[p->state_size] = ALLOC_ARR(int, fdr->var.var_size);
     memcpy(p->state[p->state_size], state, sizeof(int) * fdr->var.var_size);
     ++p->state_size;
 }
 
 static void planFileStripsAddState(pddl_plan_file_strips_t *p,
                                    const pddl_strips_t *strips,
-                                   const bor_iset_t *state)
+                                   const pddl_iset_t *state)
 {
     if (p->state_size == p->state_alloc){
         if (p->state_alloc == 0)
             p->state_alloc = 4;
         p->state_alloc *= 2;
-        p->state = BOR_REALLOC_ARR(p->state, bor_iset_t, p->state_alloc);
+        p->state = REALLOC_ARR(p->state, pddl_iset_t, p->state_alloc);
     }
 
-    bor_iset_t *s = p->state + p->state_size;
-    borISetInit(s);
-    borISetUnion(s, state);
+    pddl_iset_t *s = p->state + p->state_size;
+    pddlISetInit(s);
+    pddlISetUnion(s, state);
     ++p->state_size;
 }
 
 static int readFile(struct parse *parse,
                     const char *filename,
-                    bor_err_t *err,
-                    int (*cb)(struct parse *, const char *, bor_err_t *))
+                    pddl_err_t *err,
+                    int (*cb)(struct parse *, const char *, pddl_err_t *))
 {
     FILE *fin;
 
     if ((fin = fopen(filename, "r")) == NULL)
-        BOR_ERR_RET(err, -1, "Could not open file '%s'", filename);
+        PDDL_ERR_RET(err, -1, "Could not open file '%s'", filename);
 
     int ret = 0;
     size_t len = 0;
@@ -106,7 +106,7 @@ static int readFile(struct parse *parse,
 
 static int parseFDR(struct parse *parse,
                     const char *name,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     pddl_plan_file_fdr_t *p = parse->pfdr;
     int *state = parse->fdr_state;
@@ -119,14 +119,14 @@ static int parseFDR(struct parse *parse,
                 && pddlFDROpIsApplicable(op, cur_state)){
             pddlFDROpApplyOnState(op, fdr->var.var_size, cur_state, state);
             planFileFDRAddState(p, fdr, state);
-            borIArrAdd(&p->op, op_id);
+            pddlIArrAdd(&p->op, op_id);
             p->cost += op->cost;
             found = 1;
         }
     }
 
     if (!found){
-        BOR_ERR(err, "Could not find a matching operator for '%s'.", name);
+        PDDL_ERR(err, "Could not find a matching operator for '%s'.", name);
         return -1;
     }
     return 0;
@@ -134,22 +134,22 @@ static int parseFDR(struct parse *parse,
 
 static int parseStrips(struct parse *parse,
                        const char *name,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     pddl_plan_file_strips_t *p = parse->pstrips;
-    bor_iset_t *state = &parse->strips_state;
+    pddl_iset_t *state = &parse->strips_state;
     const pddl_strips_t *strips = parse->strips;
-    const bor_iset_t *cur_state = p->state + p->state_size - 1;
+    const pddl_iset_t *cur_state = p->state + p->state_size - 1;
 
     int found = 0;
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
         if (strcmp(op->name, name) == 0
-                && borISetIsSubset(&op->pre, cur_state)){
-            borISetMinus2(state, cur_state, &op->del_eff);
-            borISetUnion(state, &op->add_eff);
+                && pddlISetIsSubset(&op->pre, cur_state)){
+            pddlISetMinus2(state, cur_state, &op->del_eff);
+            pddlISetUnion(state, &op->add_eff);
             planFileStripsAddState(p, strips, state);
-            borIArrAdd(&p->op, op_id);
+            pddlIArrAdd(&p->op, op_id);
             p->cost += op->cost;
             found = 1;
             break;
@@ -157,7 +157,7 @@ static int parseStrips(struct parse *parse,
     }
 
     if (!found){
-        BOR_ERR(err, "Could not find a matching operator for '%s'.", name);
+        PDDL_ERR(err, "Could not find a matching operator for '%s'.", name);
         return -1;
     }
     return 0;
@@ -166,17 +166,17 @@ static int parseStrips(struct parse *parse,
 int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
                         const pddl_fdr_t *fdr,
                         const char *filename,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     bzero(p, sizeof(*p));
     planFileFDRAddState(p, fdr, fdr->init);
 
     struct parse parse;
     parse.pfdr = p;
-    parse.fdr_state = BOR_ALLOC_ARR(int, fdr->var.var_size);
+    parse.fdr_state = ALLOC_ARR(int, fdr->var.var_size);
     parse.fdr = fdr;
     int ret = readFile(&parse, filename, err, parseFDR);
-    BOR_FREE(parse.fdr_state);
+    FREE(parse.fdr_state);
 
     return ret;
 }
@@ -184,46 +184,46 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
 
 void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p)
 {
-    borIArrFree(&p->op);
+    pddlIArrFree(&p->op);
     for (int i = 0; i < p->state_size; ++i)
-        BOR_FREE(p->state[i]);
+        FREE(p->state[i]);
     if (p->state != NULL)
-        BOR_FREE(p->state);
+        FREE(p->state);
 }
 
 int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
                            const pddl_strips_t *strips,
                            const char *filename,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     bzero(p, sizeof(*p));
     planFileStripsAddState(p, strips, &strips->init);
 
     struct parse parse;
     parse.pstrips = p;
-    borISetInit(&parse.strips_state);
+    pddlISetInit(&parse.strips_state);
     parse.strips = strips;
     int ret = readFile(&parse, filename, err, parseStrips);
-    borISetFree(&parse.strips_state);
+    pddlISetFree(&parse.strips_state);
 
     return ret;
 }
 
 void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p)
 {
-    borIArrFree(&p->op);
+    pddlIArrFree(&p->op);
     for (int i = 0; i < p->state_size; ++i)
-        borISetFree(&p->state[i]);
+        pddlISetFree(&p->state[i]);
     if (p->state != NULL)
-        BOR_FREE(p->state);
+        FREE(p->state);
 }
 
-int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err)
+int pddlPlanFileParseOptimalCost(const char *filename, pddl_err_t *err)
 {
     FILE *fin;
 
     if ((fin = fopen(filename, "r")) == NULL)
-        BOR_ERR_RET(err, -1, "Could not open file '%s'", filename);
+        PDDL_ERR_RET(err, -1, "Could not open file '%s'", filename);
 
     size_t len = 0;
     char *line = NULL;

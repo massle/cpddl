@@ -110,7 +110,7 @@ void pddlLiftedMGroupPrint(const pddl_t *pddl,
                            FILE *fout);
 void pddlLiftedMGroupLog(const pddl_t *pddl,
                          const pddl_lifted_mgroup_t *mgroup,
-                         bor_err_t *err);
+                         pddl_err_t *err);
 
 const char *pddlLiftedMGroupFmt(const pddl_t *pddl,
                                 const pddl_lifted_mgroup_t *mgroup,

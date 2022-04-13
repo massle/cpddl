@@ -17,8 +17,9 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "pddl/core.h"
 #include "pddl/outbox.h"
+#include "alloc.h"
 
 void pddlOutBoxesInit(pddl_outboxes_t *b)
 {
@@ -29,12 +30,12 @@ void pddlOutBoxesFree(pddl_outboxes_t *b)
 {
     for (int i = 0; i < b->box_size; ++i){
         for (int l = 0; l < b->box[i].line_size; ++l)
-            BOR_FREE(b->box[i].line[l]);
+            FREE(b->box[i].line[l]);
         if (b->box[i].line != NULL)
-            BOR_FREE(b->box[i].line);
+            FREE(b->box[i].line);
     }
     if (b->box != NULL)
-        BOR_FREE(b->box);
+        FREE(b->box);
 }
 
 pddl_outbox_t *pddlOutBoxesAdd(pddl_outboxes_t *b)
@@ -43,7 +44,7 @@ pddl_outbox_t *pddlOutBoxesAdd(pddl_outboxes_t *b)
         if (b->box_alloc == 0)
             b->box_alloc = 2;
         b->box_alloc *= 2;
-        b->box = BOR_REALLOC_ARR(b->box, pddl_outbox_t, b->box_alloc);
+        b->box = REALLOC_ARR(b->box, pddl_outbox_t, b->box_alloc);
     }
     pddl_outbox_t *box = b->box + b->box_size++;
     bzero(box, sizeof(*box));
@@ -56,15 +57,15 @@ void pddlOutBoxAddLine(pddl_outbox_t *box, const char *line)
         if (box->line_alloc == 0)
             box->line_alloc = 2;
         box->line_alloc *= 2;
-        box->line = BOR_REALLOC_ARR(box->line, char *, box->line_alloc);
+        box->line = REALLOC_ARR(box->line, char *, box->line_alloc);
     }
 
     int len = strlen(line);
-    box->line[box->line_size] = BOR_ALLOC_ARR(char, len + 1);
+    box->line[box->line_size] = ALLOC_ARR(char, len + 1);
     strcpy(box->line[box->line_size], line);
     box->line[box->line_size][len] = 0x0;
     ++box->line_size;
-    box->max_line_len = BOR_MAX(box->max_line_len, len);
+    box->max_line_len = PDDL_MAX(box->max_line_len, len);
 }
 
 void pddlOutBoxesMerge(pddl_outboxes_t *dst,
@@ -86,7 +87,7 @@ void pddlOutBoxesMerge(pddl_outboxes_t *dst,
 
         int max_line_size = 0;
         for (int i = start; i < end; ++i)
-            max_line_size = BOR_MAX(max_line_size, src->box[i].line_size);
+            max_line_size = PDDL_MAX(max_line_size, src->box[i].line_size);
 
         pddl_outbox_t *box = pddlOutBoxesAdd(dst);
         for (int line_i = 0; line_i < max_line_size; ++line_i){
@@ -114,19 +115,19 @@ void pddlOutBoxesMerge(pddl_outboxes_t *dst,
     }
 }
 
-void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, bor_err_t *err)
+void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, pddl_err_t *err)
 {
     int line_len = 0;
     for (int i = 0; i < b->box_size; ++i)
-        line_len = BOR_MAX(line_len, b->box[i].max_line_len);
+        line_len = PDDL_MAX(line_len, b->box[i].max_line_len);
     line_len += 4;
 
-    char *line = BOR_ALLOC_ARR(char, line_len + 1);
+    char *line = ALLOC_ARR(char, line_len + 1);
     line[line_len] = 0x0;
     for (int i = 0; i < line_len; ++i)
         line[i] = '-';
     if (err != NULL)
-        BOR_INFO(err, "%s", line);
+        PDDL_INFO(err, "%s", line);
     if (fout != NULL)
         fprintf(fout, "%s\n", line);
     for (int bi = 0; bi < b->box_size; ++bi){
@@ -140,16 +141,16 @@ void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, bor_err_t *err)
             line[line_len - 1] = '|';
             line[line_len - 2] = ' ';
             if (err != NULL)
-                BOR_INFO(err, "%s", line);
+                PDDL_INFO(err, "%s", line);
             if (fout != NULL)
                 fprintf(fout, "%s\n", line);
         }
         for (int i = 0; i < line_len; ++i)
             line[i] = '-';
         if (err != NULL)
-            BOR_INFO(err, "%s", line);
+            PDDL_INFO(err, "%s", line);
         if (fout != NULL)
             fprintf(fout, "%s\n", line);
     }
-    BOR_FREE(line);
+    FREE(line);
 }

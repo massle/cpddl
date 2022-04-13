@@ -20,15 +20,12 @@
 #ifndef __PDDL_GROUND_ATOM_H__
 #define __PDDL_GROUND_ATOM_H__
 
-#include <boruvka/alloc.h>
-#include <boruvka/htable.h>
-
 #include <pddl/common.h>
 #include <pddl/lisp.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
 #include <pddl/cond.h>
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +36,7 @@ extern "C" {
 struct pddl_ground_atom {
     int id;
     uint64_t hash;
-    bor_list_t htable;
+    pddl_list_t htable;
 
     int func_val; /*!< Assigned value in the case of function */
     int pred;     /*!< Predicate ID */
@@ -64,7 +61,7 @@ struct pddl_ground_atoms {
     pddl_ground_atom_t **atom;
     int atom_size;
     int atom_alloc;
-    bor_htable_t *htable;
+    pddl_htable_t *htable;
 };
 typedef struct pddl_ground_atoms pddl_ground_atoms_t;
 

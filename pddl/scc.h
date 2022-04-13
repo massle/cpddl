@@ -20,8 +20,8 @@
 #ifndef __PDDL_SCC_H__
 #define __PDDL_SCC_H__
 
-#include <boruvka/iset.h>
-#include <boruvka/iarr.h>
+#include <pddl/iset.h>
+#include <pddl/iarr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,7 +33,7 @@ extern "C" {
  * Directed graph for SCC algorithm.
  */
 struct pddl_scc_graph {
-    bor_iset_t *node;
+    pddl_iset_t *node;
     int node_size;
 };
 typedef struct pddl_scc_graph pddl_scc_graph_t;
@@ -41,7 +41,7 @@ typedef struct pddl_scc_graph pddl_scc_graph_t;
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size);
 void pddlSCCGraphInitInduced(pddl_scc_graph_t *g,
                              const pddl_scc_graph_t *src,
-                             const bor_iset_t *ind);
+                             const pddl_iset_t *ind);
 void pddlSCCGraphFree(pddl_scc_graph_t *g);
 void pddlSCCGraphAddEdge(pddl_scc_graph_t *g, int from, int to);
 
@@ -49,7 +49,7 @@ void pddlSCCGraphAddEdge(pddl_scc_graph_t *g, int from, int to);
  * Strongly connected components
  */
 struct pddl_scc {
-    bor_iset_t *comp; /*!< List of components */
+    pddl_iset_t *comp; /*!< List of components */
     int comp_size;    /*!< Number of components */
     int comp_alloc;
 };
@@ -70,7 +70,7 @@ void pddlSCCFree(pddl_scc_t *scc);
 
 
 struct pddl_graph_simple_cycles {
-    bor_iarr_t *cycle;
+    pddl_iarr_t *cycle;
     int cycle_size;
     int cycle_alloc;
 };
@@ -79,7 +79,7 @@ typedef struct pddl_graph_simple_cycles pddl_graph_simple_cycles_t;
 /** TODO */
 #define PDDL_GRAPH_SIMPLE_CYCLE_CONT 0
 #define PDDL_GRAPH_SIMPLE_CYCLE_STOP 1
-typedef int (*pddl_graph_simple_cycle_fn)(const bor_iarr_t *cycle,
+typedef int (*pddl_graph_simple_cycle_fn)(const pddl_iarr_t *cycle,
                                           void *userdata);
 
 void pddlGraphSimpleCyclesFn(const pddl_scc_graph_t *graph,

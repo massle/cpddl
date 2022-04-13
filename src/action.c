@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/config.h"
 #include "pddl/pddl.h"
 #include "pddl/action.h"
@@ -31,7 +31,7 @@
 
 
 static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     char err_prefix[ERR_PREFIX_MAXSIZE];
     const pddl_lisp_node_t *n;
@@ -41,11 +41,11 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     if (root->child_size < 4
             || root->child_size / 2 == 1
             || root->child[1].value == NULL){
-        BOR_ERR_RET2(err, -1, "Invalid definition.");
+        PDDL_ERR_RET2(err, -1, "Invalid definition.");
     }
 
     a = pddlActionsAddEmpty(&pddl->action);
-    a->name = BOR_STRDUP(root->child[1].value);
+    a->name = STRDUP(root->child[1].value);
     for (i = 2; i < root->child_size; i += 2){
         n = root->child + i + 1;
         if (root->child[i].kw == PDDL_KW_AGENT){
@@ -58,12 +58,12 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
 
             ret = pddlParamsParseAgent(&a->param, root, i, &pddl->type, err);
             if (ret < 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             i = ret - 2;
 
         }else if (root->child[i].kw == PDDL_KW_PARAMETERS){
             if (pddlParamsParse(&a->param, n, &pddl->type, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
 
         }else if (root->child[i].kw == PDDL_KW_PRE){
             // Skip empty preconditions, i.e., () or (and)
@@ -75,9 +75,9 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
                      "Precondition of the action `%s': ", a->name);
             a->pre = pddlCondParse(n, pddl, &a->param, err_prefix, err);
             if (a->pre == NULL)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             if (pddlCondCheckPre(a->pre, pddl->require, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             pddlCondSetPredRead(a->pre, &pddl->pred);
 
         }else if (root->child[i].kw == PDDL_KW_EFF){
@@ -88,9 +88,9 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
                      "Effect of the action `%s': ", a->name);
             a->eff = pddlCondParse(n, pddl, &a->param, err_prefix, err);
             if (a->eff == NULL)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             if (pddlCondCheckEff(a->eff, pddl->require, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             pddlCondSetPredReadWriteEff(a->eff, &pddl->pred);
 
         }else{
@@ -116,7 +116,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     return 0;
 }
 
-int pddlActionsParse(pddl_t *pddl, bor_err_t *err)
+int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
 {
     const pddl_lisp_node_t *root = &pddl->domain_lisp->root;
     const pddl_lisp_node_t *n;
@@ -125,9 +125,9 @@ int pddlActionsParse(pddl_t *pddl, bor_err_t *err)
         n = root->child + i;
         if (pddlLispNodeHeadKw(n) == PDDL_KW_ACTION){
             if (parseAction(pddl, n, err) != 0){
-                BOR_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
-                                      " on line %d: ",
-                                      pddl->domain_lisp->filename, n->lineno);
+                PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
+                                       " on line %d: ",
+                                       pddl->domain_lisp->filename, n->lineno);
             }
         }
     }
@@ -138,7 +138,7 @@ void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src)
 {
     bzero(dst, sizeof(*dst));
     dst->action_size = dst->action_alloc = src->action_size;
-    dst->action = BOR_CALLOC_ARR(pddl_action_t, src->action_size);
+    dst->action = CALLOC_ARR(pddl_action_t, src->action_size);
     for (int i = 0; i < src->action_size; ++i)
         pddlActionInitCopy(dst->action + i, src->action + i);
 }
@@ -152,7 +152,7 @@ void pddlActionInit(pddl_action_t *a)
 void pddlActionFree(pddl_action_t *a)
 {
     if (a->name != NULL)
-        BOR_FREE(a->name);
+        FREE(a->name);
     pddlParamsFree(&a->param);
     if (a->pre != NULL)
         pddlCondDel(a->pre);
@@ -164,7 +164,7 @@ void pddlActionInitCopy(pddl_action_t *dst, const pddl_action_t *src)
 {
     pddlActionInit(dst);
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
     pddlParamsInitCopy(&dst->param, &src->param);
     if (src->pre != NULL)
         dst->pre = pddlCondClone(src->pre);
@@ -272,7 +272,7 @@ pddl_action_t *pddlActionsAddCopy(pddl_actions_t *as, int copy_id)
         if (as->action_alloc == 0)
             as->action_alloc = PDDL_ACTIONS_ALLOC_INIT;
         as->action_alloc *= 2;
-        as->action = BOR_REALLOC_ARR(as->action, pddl_action_t,
+        as->action = REALLOC_ARR(as->action, pddl_action_t,
                                      as->action_alloc);
     }
 
@@ -296,7 +296,7 @@ void pddlActionsFree(pddl_actions_t *actions)
         pddlActionFree(a);
     }
     if (actions->action != NULL)
-        BOR_FREE(actions->action);
+        FREE(actions->action);
 }
 
 void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
@@ -305,25 +305,25 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     pddl_action_t *newa;
     pddl_cond_part_t *pre;
     pddl_cond_t *first_cond, *cond;
-    bor_list_t *item;
+    pddl_list_t *item;
     int aidx;
 
     if (a->pre->type != PDDL_COND_OR)
         return;
 
-    pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
-    if (borListEmpty(&pre->part))
+    pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
+    if (pddlListEmpty(&pre->part))
         return;
 
-    item = borListNext(&pre->part);
-    borListDel(item);
-    first_cond = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    item = pddlListNext(&pre->part);
+    pddlListDel(item);
+    first_cond = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
     a->pre = NULL;
     aidx = a - as->action;
-    while (!borListEmpty(&pre->part)){
-        item = borListNext(&pre->part);
-        borListDel(item);
-        cond = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    while (!pddlListEmpty(&pre->part)){
+        item = pddlListNext(&pre->part);
+        pddlListDel(item);
+        cond = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         newa = pddlActionsAddCopy(as, aidx);
         newa->pre = cond;
         pddlActionNormalize(newa, pddl);
@@ -336,21 +336,21 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
 
 void pddlActionAssertPreConjuction(pddl_action_t *a)
 {
-    bor_list_t *item;
+    pddl_list_t *item;
     pddl_cond_part_t *pre;
     pddl_cond_t *c;
 
     if (a->pre->type != PDDL_COND_AND){
-        BOR_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
+        PDDL_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
-    pre = bor_container_of(a->pre, pddl_cond_part_t, cls);
-    BOR_LIST_FOR_EACH(&pre->part, item){
-        c = BOR_LIST_ENTRY(item, pddl_cond_t, conn);
+    pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
+    PDDL_LIST_FOR_EACH(&pre->part, item){
+        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
         if (c->type != PDDL_COND_ATOM){
-            BOR_FATAL("Precondition of the action `%s' is"
-                      " not a flatten conjuction (conjuction contains"
-                      " something else besides atoms).", a->name);
+            PDDL_FATAL("Precondition of the action `%s' is"
+                       " not a flatten conjuction (conjuction contains"
+                       " something else besides atoms).", a->name);
         }
     }
 }
@@ -393,7 +393,7 @@ void pddlActionsRemapTypesAndPreds(pddl_actions_t *as,
     int ins = 0;
     for (int i = 0; i < as->action_size; ++i){
         if (pddlActionRemapTypesAndPreds(as->action + i, type_remap,
-                                         pred_remap, func_remap) == 0){
+                    pred_remap, func_remap) == 0){
             as->action[ins++] = as->action[i];
         }else{
             pddlActionFree(as->action + i);

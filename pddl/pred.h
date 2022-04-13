@@ -43,7 +43,7 @@ struct pddl_pred {
 };
 typedef struct pddl_pred pddl_pred_t;
 
-_bor_inline int pddlPredIsStatic(const pddl_pred_t *pred);
+_pddl_inline int pddlPredIsStatic(const pddl_pred_t *pred);
 
 
 struct pddl_preds {
@@ -58,7 +58,7 @@ typedef struct pddl_preds pddl_preds_t;
 /**
  * Parse :predicates from domain PDDL.
  */
-int pddlPredsParse(pddl_t *pddl, bor_err_t *err);
+int pddlPredsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -68,7 +68,7 @@ void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src);
 /**
  * Parse :functions from domain PDDL.
  */
-int pddlFuncsParse(pddl_t *pddl, bor_err_t *err);
+int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Frees allocated resources.
@@ -118,7 +118,7 @@ void pddlFuncsPrintPDDL(const pddl_preds_t *ps,
 
 
 /**** INLINES: ****/
-_bor_inline int pddlPredIsStatic(const pddl_pred_t *pred)
+_pddl_inline int pddlPredIsStatic(const pddl_pred_t *pred)
 {
     return !pred->write;
 }

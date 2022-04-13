@@ -20,34 +20,34 @@
 #include "pddl/relaxed_plan.h"
 #include "assert.h"
 
-void pddlRelaxedPlanCountConflictsStrips(const bor_iarr_t *plan,
-                                         const bor_iset_t *init,
-                                         const bor_iset_t *goal,
+void pddlRelaxedPlanCountConflictsStrips(const pddl_iarr_t *plan,
+                                         const pddl_iset_t *init,
+                                         const pddl_iset_t *goal,
                                          const pddl_strips_ops_t *ops,
                                          int goal_conflict_weight,
                                          int *fact_conflicts)
 {
-    BOR_ISET(conflict);
-    BOR_ISET(state);
-    borISetUnion(&state, init);
+    PDDL_ISET(conflict);
+    PDDL_ISET(state);
+    pddlISetUnion(&state, init);
     int op_id;
-    BOR_IARR_FOR_EACH(plan, op_id){
+    PDDL_IARR_FOR_EACH(plan, op_id){
         const pddl_strips_op_t *op = ops->op[op_id];
         // TODO: Conditional effects not supported yet
         ASSERT_RUNTIME(op->cond_eff_size == 0);
-        borISetMinus2(&conflict, &op->pre, &state);
+        pddlISetMinus2(&conflict, &op->pre, &state);
         int fact_id;
-        BOR_ISET_FOR_EACH(&conflict, fact_id)
+        PDDL_ISET_FOR_EACH(&conflict, fact_id)
             fact_conflicts[fact_id] += 1;
-        borISetMinus(&state, &op->del_eff);
-        borISetUnion(&state, &op->add_eff);
+        pddlISetMinus(&state, &op->del_eff);
+        pddlISetUnion(&state, &op->add_eff);
     }
 
-    borISetMinus2(&conflict, goal, &state);
+    pddlISetMinus2(&conflict, goal, &state);
     int fact_id;
-    BOR_ISET_FOR_EACH(&conflict, fact_id)
+    PDDL_ISET_FOR_EACH(&conflict, fact_id)
         fact_conflicts[fact_id] += 1 * goal_conflict_weight;
 
-    borISetFree(&state);
-    borISetFree(&conflict);
+    pddlISetFree(&state);
+    pddlISetFree(&conflict);
 }

@@ -19,10 +19,10 @@
 #ifndef __PDDL_ACTION_ARGS_H__
 #define __PDDL_ACTION_ARGS_H__
 
-#include <boruvka/htable.h>
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 
 #include <pddl/common.h>
+#include <pddl/htable.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,8 +30,8 @@ extern "C" {
 
 struct pddl_action_args {
     int num_args;
-    bor_extarr_t *arg_pool;
-    bor_htable_t *htable;
+    pddl_extarr_t *arg_pool;
+    pddl_htable_t *htable;
     int args_size;
 };
 typedef struct pddl_action_args pddl_action_args_t;

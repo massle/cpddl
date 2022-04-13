@@ -54,7 +54,7 @@ typedef struct pddl_mutex_pairs pddl_mutex_pairs_t;
  */
 void pddlMutexPairsInit(pddl_mutex_pairs_t *m, int fact_size);
 void pddlMutexPairsInitStrips(pddl_mutex_pairs_t *m,
-                             const struct pddl_strips *s);
+                              const struct pddl_strips *s);
 
 /**
  * Initialize dst as a copy of src.
@@ -108,28 +108,28 @@ int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
  * Returns true if the set is mutex, i.e., it contains some mutex pair or
  * an unreachable fact.
  */
-int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const bor_iset_t *fs);
+int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs);
 
 /**
  * Returns true if {fact} \cup fs is a mutex assuming that fs is not a
  * mutex.
  */
 int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
-                                 int fact, const bor_iset_t *fs);
+                                 int fact, const pddl_iset_t *fs);
 
 /**
  * Returns true if fs1 \cup fs2 is a mutex assuming fs1 and fs2 are not
  * mutexes.
  */
 int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
-                                const bor_iset_t *fs1, const bor_iset_t *fs2);
+                                const pddl_iset_t *fs1, const pddl_iset_t *fs2);
 
 /**
  * Add to {mutex_with} facts that are mutex with {fact}.
  */
 void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
                                 int fact,
-                                bor_iset_t *mutex_with);
+                                pddl_iset_t *mutex_with);
 
 /**
  * Resize the struct and remap fact IDs according to remap.
@@ -141,7 +141,7 @@ void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
 /**
  * Reduce the struct by removing the specified set of facts.
  */
-void pddlMutexPairsReduce(pddl_mutex_pairs_t *m, const bor_iset_t *rm_facts);
+void pddlMutexPairsReduce(pddl_mutex_pairs_t *m, const pddl_iset_t *rm_facts);
 
 /**
  * Add mutex pairs from the given mutex group.
@@ -161,7 +161,7 @@ void pddlMutexPairsAddMGroups(pddl_mutex_pairs_t *mutex,
  */
 void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

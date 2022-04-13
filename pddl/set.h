@@ -21,15 +21,16 @@
 #define __PDDL_SET_H__
 
 #include <stdio.h>
-#include <boruvka/hashset.h>
-#include <boruvka/iset.h>
+#include <pddl/hashset.h>
+#include <pddl/iset.h>
+#include <pddl/core.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_set_iset {
-    bor_hashset_t set;
+    pddl_hashset_t set;
 };
 typedef struct pddl_set_iset pddl_set_iset_t;
 
@@ -43,46 +44,46 @@ typedef struct pddl_set_iset pddl_set_iset_t;
 #define PDDL_SET_ISET_FOR_EACH(SS, SET) \
     PDDL_SET_ISET_FOR_EACH_ID_SET(SS, __set_iset_i, SET)
 
-_bor_inline void pddlSetISetInit(pddl_set_iset_t *ss)
+_pddl_inline void pddlSetISetInit(pddl_set_iset_t *ss)
 {
-    borHashSetInitISet(&ss->set);
+    pddlHashSetInitISet(&ss->set);
 }
 
-_bor_inline void pddlSetISetFree(pddl_set_iset_t *ss)
+_pddl_inline void pddlSetISetFree(pddl_set_iset_t *ss)
 {
-    borHashSetFree(&ss->set);
+    pddlHashSetFree(&ss->set);
 }
 
-_bor_inline int pddlSetISetAdd(pddl_set_iset_t *ss, const bor_iset_t *set)
+_pddl_inline int pddlSetISetAdd(pddl_set_iset_t *ss, const pddl_iset_t *set)
 {
-    return borHashSetAdd(&ss->set, set);
+    return pddlHashSetAdd(&ss->set, set);
 }
 
-_bor_inline int pddlSetISetFind(pddl_set_iset_t *ss, const bor_iset_t *set)
+_pddl_inline int pddlSetISetFind(pddl_set_iset_t *ss, const pddl_iset_t *set)
 {
-    return borHashSetFind(&ss->set, set);
+    return pddlHashSetFind(&ss->set, set);
 }
 
-_bor_inline const bor_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
+_pddl_inline const pddl_iset_t *pddlSetISetGet(const pddl_set_iset_t *ss, int id)
 {
-    return (const bor_iset_t *)borHashSetGet(&ss->set, id);
+    return (const pddl_iset_t *)pddlHashSetGet(&ss->set, id);
 }
 
-_bor_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
+_pddl_inline int pddlSetISetSize(const pddl_set_iset_t *ss)
 {
     return ss->set.size;
 }
 
-_bor_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
-                                  const pddl_set_iset_t *src)
+_pddl_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
+                                   const pddl_set_iset_t *src)
 {
     for (int i = 0; i < pddlSetISetSize(src); ++i)
         pddlSetISetAdd(dst, pddlSetISetGet(src, i));
 }
 
-void pddlISetPrintCompressed(const bor_iset_t *set, FILE *fout);
-void pddlISetPrint(const bor_iset_t *set, FILE *fout);
-void pddlISetPrintln(const bor_iset_t *set, FILE *fout);
+void pddlISetPrintCompressed(const pddl_iset_t *set, FILE *fout);
+void pddlISetPrint(const pddl_iset_t *set, FILE *fout);
+void pddlISetPrintln(const pddl_iset_t *set, FILE *fout);
 
 #ifdef __cplusplus
 } /* extern "C" */

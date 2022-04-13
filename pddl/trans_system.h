@@ -50,13 +50,13 @@ void pddlMGroupIdxPairsAdd(pddl_mgroup_idx_pairs_t *p, int mg_id, int idx);
 typedef struct pddl_trans_systems pddl_trans_systems_t;
 struct pddl_trans_system {
     pddl_trans_systems_t *trans_systems;
-    bor_iset_t mgroup_ids; /*!< IDs of this TS's mutex groups */
+    pddl_iset_t mgroup_ids; /*!< IDs of this TS's mutex groups */
     int num_states;
     pddl_cascading_table_t *repr; /*!< Representation of states using
                                        cascading tables */
     pddl_labeled_transitions_set_t trans; /*!< Labeled transitions */
     int init_state;
-    bor_iset_t goal_states;
+    pddl_iset_t goal_states;
     int dead_labels_collected;
 };
 typedef struct pddl_trans_system pddl_trans_system_t;
@@ -71,7 +71,7 @@ struct pddl_trans_systems {
     pddl_labels_t label;
     /** A set of labels that are either unreachable or they lead to a
      *  dead-end state */
-    bor_iset_t dead_labels;
+    pddl_iset_t dead_labels;
     /** List of transition systems */
     pddl_trans_system_t **ts;
     int ts_size;
@@ -144,7 +144,7 @@ void pddlTransSystemsRemoveDeadLabelsFromAll(pddl_trans_systems_t *tss);
  */
 int pddlTransSystemsStripsState(const pddl_trans_systems_t *tss,
                                 int ts_id,
-                                const bor_iset_t *strips_state);
+                                const pddl_iset_t *strips_state);
 
 void pddlTransSystemsPrintDebug1(const pddl_trans_systems_t *tss,
                                  const pddl_strips_t *strips,

@@ -59,14 +59,14 @@ void pddlBitsetFree(pddl_bitset_t *b);
 /**
  * Sets the specified bit to 1.
  */
-_bor_inline void pddlBitsetSetBit(pddl_bitset_t *b, int bit)
+_pddl_inline void pddlBitsetSetBit(pddl_bitset_t *b, int bit)
 {
     int word = bit / PDDL_BITSET_WORD_BITSIZE;
     pddl_bitset_word_t shift = bit % PDDL_BITSET_WORD_BITSIZE;
     b->bitset[word] |= ((pddl_bitset_word_t)1) << shift;
 }
 
-_bor_inline void pddlBitsetClearBit(pddl_bitset_t *b, int bit)
+_pddl_inline void pddlBitsetClearBit(pddl_bitset_t *b, int bit)
 {
     int word = bit / PDDL_BITSET_WORD_BITSIZE;
     pddl_bitset_word_t shift = bit % PDDL_BITSET_WORD_BITSIZE;
@@ -76,7 +76,7 @@ _bor_inline void pddlBitsetClearBit(pddl_bitset_t *b, int bit)
 /**
  * Zeroize the whole bitset.
  */
-_bor_inline void pddlBitsetZeroize(pddl_bitset_t *b)
+_pddl_inline void pddlBitsetZeroize(pddl_bitset_t *b)
 {
     bzero(b->bitset, sizeof(pddl_bitset_word_t) * b->wordsize);
 }
@@ -84,7 +84,7 @@ _bor_inline void pddlBitsetZeroize(pddl_bitset_t *b)
 /**
  * Negate the bitset.
  */
-_bor_inline void pddlBitsetNeg(pddl_bitset_t *b)
+_pddl_inline void pddlBitsetNeg(pddl_bitset_t *b)
 {
     for (int i = 0; i < b->wordsize; ++i)
         b->bitset[i] = ~b->bitset[i];
@@ -95,41 +95,41 @@ _bor_inline void pddlBitsetNeg(pddl_bitset_t *b)
  * Copy the bitset from src to dst.
  * It is assumed that both bitsets have the same size.
  */
-_bor_inline void pddlBitsetCopy(pddl_bitset_t *dst, const pddl_bitset_t *src)
+_pddl_inline void pddlBitsetCopy(pddl_bitset_t *dst, const pddl_bitset_t *src)
 {
     memcpy(dst->bitset, src->bitset,
            sizeof(pddl_bitset_word_t) * src->wordsize);
 }
 
-_bor_inline void pddlBitsetAnd(pddl_bitset_t *dst, const pddl_bitset_t *src)
+_pddl_inline void pddlBitsetAnd(pddl_bitset_t *dst, const pddl_bitset_t *src)
 {
     for (int i = 0; i < src->wordsize; ++i)
         dst->bitset[i] &= src->bitset[i];
 }
 
-_bor_inline void pddlBitsetAnd2(pddl_bitset_t *dst,
-                                const pddl_bitset_t *s1,
-                                const pddl_bitset_t *s2)
+_pddl_inline void pddlBitsetAnd2(pddl_bitset_t *dst,
+                                 const pddl_bitset_t *s1,
+                                 const pddl_bitset_t *s2)
 {
     for (int i = 0; i < s1->wordsize; ++i)
         dst->bitset[i] = s1->bitset[i] & s2->bitset[i];
 }
 
-_bor_inline void pddlBitsetOr(pddl_bitset_t *dst, const pddl_bitset_t *src)
+_pddl_inline void pddlBitsetOr(pddl_bitset_t *dst, const pddl_bitset_t *src)
 {
     for (int i = 0; i < src->wordsize; ++i)
         dst->bitset[i] |= src->bitset[i];
 }
 
-_bor_inline void pddlBitsetOr2(pddl_bitset_t *dst,
-                               const pddl_bitset_t *s1,
-                               const pddl_bitset_t *s2)
+_pddl_inline void pddlBitsetOr2(pddl_bitset_t *dst,
+                                const pddl_bitset_t *s1,
+                                const pddl_bitset_t *s2)
 {
     for (int i = 0; i < s1->wordsize; ++i)
         dst->bitset[i] = s1->bitset[i] | s2->bitset[i];
 }
 
-_bor_inline int pddlBitsetCnt(const pddl_bitset_t *s)
+_pddl_inline int pddlBitsetCnt(const pddl_bitset_t *s)
 {
     int cnt = 0;
     for (int i = 0; i < s->wordsize; ++i)
@@ -141,9 +141,9 @@ _bor_inline int pddlBitsetCnt(const pddl_bitset_t *s)
  * Computes dst = s1 & s2 but terminates as soon as the number of ones is
  * higher than one and returns the detected number of ones.
  */
-_bor_inline int pddlBitsetAnd2Cnt1(pddl_bitset_t *dst,
-                                   const pddl_bitset_t *s1,
-                                   const pddl_bitset_t *s2)
+_pddl_inline int pddlBitsetAnd2Cnt1(pddl_bitset_t *dst,
+                                    const pddl_bitset_t *s1,
+                                    const pddl_bitset_t *s2)
 {
     int cnt = 0;
     for (int i = 0; i < s1->wordsize; ++i){
@@ -158,7 +158,7 @@ _bor_inline int pddlBitsetAnd2Cnt1(pddl_bitset_t *dst,
 /**
  * Returns number of ones in the bitset.
  */
-_bor_inline int pddlBitsetCount(const pddl_bitset_t *b)
+_pddl_inline int pddlBitsetCount(const pddl_bitset_t *b)
 {
     int cnt = 0;
     for (int i = 0; i < b->wordsize; ++i)
@@ -170,7 +170,7 @@ _bor_inline int pddlBitsetCount(const pddl_bitset_t *b)
 /**
  * Starts bit iterator
  */
-_bor_inline void pddlBitsetItStart(pddl_bitset_t *b)
+_pddl_inline void pddlBitsetItStart(pddl_bitset_t *b)
 {
     b->it_id = -1;
     b->it_word = 0;
@@ -179,7 +179,7 @@ _bor_inline void pddlBitsetItStart(pddl_bitset_t *b)
 /**
  * Returns next position of a set bit using the current iterator.
  */
-_bor_inline int pddlBitsetItNext(pddl_bitset_t *b)
+_pddl_inline int pddlBitsetItNext(pddl_bitset_t *b)
 {
     int ffs = PDDL_BITSET_FFS(b->bitset[b->it_word]);
     while (ffs <= 0){

@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 
 #include "pddl/lisp.h"
 #include "lisp_err.h"
@@ -132,7 +132,7 @@ static void lispNodeFree(pddl_lisp_node_t *n)
     for (int i = 0; i < n->child_size; ++i)
         lispNodeFree(n->child + i);
     if (n->child != NULL)
-        BOR_FREE(n->child);
+        FREE(n->child);
 }
 
 static pddl_lisp_node_t *lispNodeAddChild(pddl_lisp_node_t *r)
@@ -140,8 +140,8 @@ static pddl_lisp_node_t *lispNodeAddChild(pddl_lisp_node_t *r)
     pddl_lisp_node_t *n;
 
     ++r->child_size;
-    r->child = BOR_REALLOC_ARR(r->child, pddl_lisp_node_t,
-                               r->child_size);
+    r->child = REALLOC_ARR(r->child, pddl_lisp_node_t,
+                           r->child_size);
     n = r->child + r->child_size - 1;
     lispNodeInit(n);
     return n;
@@ -149,16 +149,16 @@ static pddl_lisp_node_t *lispNodeAddChild(pddl_lisp_node_t *r)
 
 static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
                     char *data, int from, int size, int *cont,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     pddl_lisp_node_t *sub;
     int i = from;
     char c;
 
     if (i >= size){
-        BOR_ERR_RET(err, -1, "Invalid PDDL file `%s'."
-                    " Mission expression on line %d.",
-                    fn, *lineno);
+        PDDL_ERR_RET(err, -1, "Invalid PDDL file `%s'."
+                     " Mission expression on line %d.",
+                     fn, *lineno);
     }
 
     c = data[i];
@@ -182,7 +182,7 @@ static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
             sub = lispNodeAddChild(root);
             sub->lineno = *lineno;
             if (parseExp(fn, sub, lineno, data, i + 1, size, &i, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
 
             c = data[i];
             continue;
@@ -207,11 +207,11 @@ static int parseExp(const char *fn, pddl_lisp_node_t *root, int *lineno,
             sub->kw = recongnizeKeyword(sub->value);
         }
     }
-    BOR_ERR_RET(err, -1, "Invalid PDDL file `%s'."
-                " Missing ending parenthesis.", fn);
+    PDDL_ERR_RET(err, -1, "Invalid PDDL file `%s'."
+                 " Missing ending parenthesis.", fn);
 }
 
-pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
+pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
 {
     int fd, i, lineno;
     struct stat st;
@@ -221,17 +221,17 @@ pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
 
     fd = open(fn, O_RDONLY);
     if (fd == -1)
-        BOR_ERR_RET(err, NULL, "Could not not open file `%s'.", fn);
+        PDDL_ERR_RET(err, NULL, "Could not not open file `%s'.", fn);
 
     if (fstat(fd, &st) != 0){
-        BOR_ERR(err, "Could not determine size of the file `%s'.", fn);
+        PDDL_ERR(err, "Could not determine size of the file `%s'.", fn);
         close(fd);
         return NULL;
     }
 
     data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (data == MAP_FAILED){
-        BOR_ERR(err, "Could not mmap file `%s'.", fn);
+        PDDL_ERR(err, "Could not mmap file `%s'.", fn);
         close(fd);
         return NULL;
     }
@@ -244,8 +244,8 @@ pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
         if (data[i] == '\n'){
             ++lineno;
         }else if (!IS_WS(data[i])){
-            BOR_ERR(err, "Incorrect PDDL file `%s'. Unexpected `%c' on line %d.",
-                fn, data[i], lineno);
+            PDDL_ERR(err, "Incorrect PDDL file `%s'. Unexpected `%c' on line %d.",
+                     fn, data[i], lineno);
             munmap((void *)data, st.st_size);
             close(fd);
             return NULL;
@@ -254,15 +254,15 @@ pddl_lisp_t *pddlLispParse(const char *fn, bor_err_t *err)
     lispNodeInit(&root);
     root.lineno = lineno;
     if (parseExp(fn, &root, &lineno, data, i + 1, st.st_size, NULL, err) != 0){
-        BOR_TRACE(err);
+        PDDL_TRACE(err);
         munmap((void *)data, st.st_size);
         lispNodeFree(&root);
         close(fd);
         return NULL;
     }
 
-    lisp = BOR_ALLOC(pddl_lisp_t);
-    lisp->filename = BOR_STRDUP(fn);
+    lisp = ALLOC(pddl_lisp_t);
+    lisp->filename = STRDUP(fn);
     lisp->fd = fd;
     lisp->data = data;
     lisp->size = st.st_size;
@@ -284,14 +284,14 @@ static void remapLispNodeValues(pddl_lisp_node_t *n,
 
 pddl_lisp_t *pddlLispClone(const pddl_lisp_t *src)
 {
-    pddl_lisp_t *lisp = BOR_ALLOC(pddl_lisp_t);
+    pddl_lisp_t *lisp = ALLOC(pddl_lisp_t);
     bzero(lisp, sizeof(*lisp));
     if (src->filename)
-        lisp->filename = BOR_STRDUP(src->filename);
+        lisp->filename = STRDUP(src->filename);
     pddlLispNodeInitCopy(&lisp->root, &src->root);
     lisp->fd = -1;
     lisp->size = src->size;
-    lisp->data = BOR_ALLOC_ARR(char, src->size);
+    lisp->data = ALLOC_ARR(char, src->size);
     memcpy(lisp->data, src->data, src->size);
     remapLispNodeValues(&lisp->root, lisp->data, src->data);
     return lisp;
@@ -300,19 +300,19 @@ pddl_lisp_t *pddlLispClone(const pddl_lisp_t *src)
 void pddlLispDel(pddl_lisp_t *lisp)
 {
     if (lisp->filename)
-        BOR_FREE(lisp->filename);
+        FREE(lisp->filename);
     if (lisp->data != NULL){
         if (lisp->fd >= 0){
             munmap((void *)lisp->data, lisp->size);
         }else{
-            BOR_FREE(lisp->data);
+            FREE(lisp->data);
         }
     }
 
     if (lisp->fd >= 0)
         close(lisp->fd);
     lispNodeFree(&lisp->root);
-    BOR_FREE(lisp);
+    FREE(lisp);
 }
 
 static void nodeDebug(const pddl_lisp_node_t *node, FILE *fout, int prefix)
@@ -348,7 +348,7 @@ void pddlLispNodeInitCopy(pddl_lisp_node_t *dst, const pddl_lisp_node_t *src)
     dst->lineno = src->lineno;
 
     dst->child_size = src->child_size;
-    dst->child = BOR_ALLOC_ARR(pddl_lisp_node_t, dst->child_size);
+    dst->child = ALLOC_ARR(pddl_lisp_node_t, dst->child_size);
     for (int i = 0; i < dst->child_size; ++i){
         lispNodeInit(dst->child + i);
         pddlLispNodeInitCopy(dst->child + i, src->child + i);
@@ -374,7 +374,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
                            int child_from, int child_to,
                            pddl_lisp_parse_typed_list_fn cb,
                            void *ud,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     pddl_lisp_node_t *n;
     int type_from;
@@ -393,7 +393,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
                 ERR_LISP_RET2(err, -1, n,
                               "Invalid typed list. Unspecified type after `-'");
             if (cb(root, type_from, i, i + 1, ud, err) != 0)
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             type_from = i + 2;
             ++i;
         }
@@ -401,7 +401,7 @@ int pddlLispParseTypedList(const pddl_lisp_node_t *root,
 
     if (type_from < child_to){
         if (cb(root, type_from, child_to, -1, ud, err) != 0)
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
     }
 
     return 0;

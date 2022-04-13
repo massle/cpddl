@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/sort.h>
+#include "alloc.h"
+#include <pddl/sort.h>
 #include "pddl/fdr_op.h"
 #include "assert.h"
 
@@ -29,7 +29,7 @@ static void condEffFree(pddl_fdr_op_cond_eff_t *ce)
 
 pddl_fdr_op_t *pddlFDROpNewEmpty(void)
 {
-    pddl_fdr_op_t *op = BOR_ALLOC(pddl_fdr_op_t);
+    pddl_fdr_op_t *op = ALLOC(pddl_fdr_op_t);
     bzero(op, sizeof(*op));
     return op;
 }
@@ -38,7 +38,7 @@ pddl_fdr_op_t *pddlFDROpClone(const pddl_fdr_op_t *op_in)
 {
     pddl_fdr_op_t *op = pddlFDROpNewEmpty();
     if (op_in->name != NULL)
-        op->name = BOR_STRDUP(op_in->name);
+        op->name = STRDUP(op_in->name);
     op->cost = op_in->cost;
     op->id = op_in->id;
     pddlFDRPartStateInitCopy(&op->pre, &op_in->pre);
@@ -56,14 +56,14 @@ pddl_fdr_op_t *pddlFDROpClone(const pddl_fdr_op_t *op_in)
 void pddlFDROpDel(pddl_fdr_op_t *op)
 {
     if (op->name != NULL)
-        BOR_FREE(op->name);
+        FREE(op->name);
     pddlFDRPartStateFree(&op->pre);
     pddlFDRPartStateFree(&op->eff);
     for (int cei = 0; cei < op->cond_eff_size; ++cei)
         condEffFree(op->cond_eff + cei);
     if (op->cond_eff != NULL)
-        BOR_FREE(op->cond_eff);
-    BOR_FREE(op);
+        FREE(op->cond_eff);
+    FREE(op);
 }
 
 pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op)
@@ -72,8 +72,8 @@ pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op)
         if (op->cond_eff_alloc == 0)
             op->cond_eff_alloc = 1;
         op->cond_eff_alloc *= 2;
-        op->cond_eff = BOR_REALLOC_ARR(op->cond_eff, pddl_fdr_op_cond_eff_t,
-                                       op->cond_eff_alloc);
+        op->cond_eff = REALLOC_ARR(op->cond_eff, pddl_fdr_op_cond_eff_t,
+                                   op->cond_eff_alloc);
     }
 
     pddl_fdr_op_cond_eff_t *ce = op->cond_eff + op->cond_eff_size++;
@@ -170,16 +170,16 @@ void pddlFDROpsFree(pddl_fdr_ops_t *ops)
             pddlFDROpDel(ops->op[op_id]);
     }
     if (ops->op != NULL)
-        BOR_FREE(ops->op);
+        FREE(ops->op);
 }
 
-void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const bor_iset_t *set)
+void pddlFDROpsDelSet(pddl_fdr_ops_t *ops, const pddl_iset_t *set)
 {
-    int size = borISetSize(set);
+    int size = pddlISetSize(set);
     int cur = 0;
     int ins = 0;
     for (int op_id = 0; op_id < ops->op_size; ++op_id){
-        if (cur < size && borISetGet(set, cur) == op_id){
+        if (cur < size && pddlISetGet(set, cur) == op_id){
             pddlFDROpDel(ops->op[op_id]);
             ++cur;
         }else{
@@ -209,7 +209,7 @@ void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op)
         if (ops->op_alloc == 0)
             ops->op_alloc = 8;
         ops->op_alloc *= 2;
-        ops->op = BOR_REALLOC_ARR(ops->op, pddl_fdr_op_t *, ops->op_alloc);
+        ops->op = REALLOC_ARR(ops->op, pddl_fdr_op_t *, ops->op_alloc);
     }
 
     op->id = ops->op_size;
@@ -230,7 +230,7 @@ static int opCmpName(const void *a, const void *b, void *_)
 
 void pddlFDROpsSort(pddl_fdr_ops_t *ops)
 {
-    borSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpName, NULL);
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpName, NULL);
     for (int i = 0; i < ops->op_size; ++i)
         ops->op[i]->id = i;
 }

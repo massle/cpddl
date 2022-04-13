@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/lm_cut.h"
 #include "assert.h"
 
@@ -38,10 +38,10 @@
     } \
     } while (0)
 
-_bor_inline pddl_lm_cut_fact_t *FPOP(pddl_pq_t *pq, int *value)
+_pddl_inline pddl_lm_cut_fact_t *FPOP(pddl_pq_t *pq, int *value)
 {
     pddl_pq_el_t *el = pddlPQPop(pq, value);
-    pddl_lm_cut_fact_t *fact = bor_container_of(el, pddl_lm_cut_fact_t, heap);
+    pddl_lm_cut_fact_t *fact = pddl_container_of(el, pddl_lm_cut_fact_t, heap);
     fact->heap.key = INT_MAX;
     return fact;
 }
@@ -77,14 +77,14 @@ static int getCost(int op_cost, int op_unit_cost, int op_cost_plus)
 
 static void opFree(pddl_lm_cut_op_t *op)
 {
-    borISetFree(&op->eff);
-    borISetFree(&op->pre);
+    pddlISetFree(&op->eff);
+    pddlISetFree(&op->pre);
 }
 
 static void factFree(pddl_lm_cut_fact_t *fact)
 {
-    borISetFree(&fact->pre_op);
-    borISetFree(&fact->eff_op);
+    pddlISetFree(&fact->pre_op);
+    pddlISetFree(&fact->eff_op);
 }
 
 
@@ -101,13 +101,13 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     lmc->fact_size = vars->global_id_size + 2;
-    lmc->fact = BOR_CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
+    lmc->fact = CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
     lmc->fact_goal = lmc->fact_size - 2;
     lmc->fact_nopre = lmc->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     lmc->op_size = fdr->op.op_size + 1;
-    lmc->op = BOR_CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
+    lmc->op = CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
     lmc->op_goal = lmc->op_size - 1;
 
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
@@ -118,17 +118,17 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
         op->op_id = op_id;
 
         pddlFDRPartStateToGlobalIDs(&src->eff, vars, &op->eff);
-        BOR_ISET_FOR_EACH(&op->eff, fact_id)
-            borISetAdd(&lmc->fact[fact_id].eff_op, op_id);
+        PDDL_ISET_FOR_EACH(&op->eff, fact_id)
+            pddlISetAdd(&lmc->fact[fact_id].eff_op, op_id);
 
         if (src->pre.fact_size == 0){
-            borISetAdd(&op->pre, lmc->fact_nopre);
-            borISetAdd(&lmc->fact[lmc->fact_nopre].pre_op, op_id);
+            pddlISetAdd(&op->pre, lmc->fact_nopre);
+            pddlISetAdd(&lmc->fact[lmc->fact_nopre].pre_op, op_id);
 
         }else{
             pddlFDRPartStateToGlobalIDs(&src->pre, vars, &op->pre);
-            BOR_ISET_FOR_EACH(&op->pre, fact_id)
-                borISetAdd(&lmc->fact[fact_id].pre_op, op_id);
+            PDDL_ISET_FOR_EACH(&op->pre, fact_id)
+                pddlISetAdd(&lmc->fact[fact_id].pre_op, op_id);
         }
 
         op->op_cost = getCost(src->cost, op_unit_cost, op_cost_plus);
@@ -136,17 +136,17 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
 
     // Set up goal operator
     pddl_lm_cut_op_t *op = lmc->op + lmc->op_goal;
-    borISetAdd(&op->eff, lmc->fact_goal);
-    borISetAdd(&lmc->fact[lmc->fact_goal].eff_op, lmc->op_goal);
+    pddlISetAdd(&op->eff, lmc->fact_goal);
+    pddlISetAdd(&lmc->fact[lmc->fact_goal].eff_op, lmc->op_goal);
     op->op_cost = 0;
 
     pddlFDRPartStateToGlobalIDs(&fdr->goal, vars, &op->pre);
     int fid;
-    BOR_ISET_FOR_EACH(&op->pre, fid)
-        borISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
+    PDDL_ISET_FOR_EACH(&op->pre, fid)
+        pddlISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
 
-    lmc->fact_state = BOR_ALLOC_ARR(int, lmc->fact_size);
-    borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
+    lmc->fact_state = ALLOC_ARR(int, lmc->fact_size);
+    pddlIArrRealloc(&lmc->queue, lmc->fact_size / 2);
     pddlPQInit(&lmc->pq);
 }
 
@@ -160,13 +160,13 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     lmc->fact_size = strips->fact.fact_size + 2;
-    lmc->fact = BOR_CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
+    lmc->fact = CALLOC_ARR(pddl_lm_cut_fact_t, lmc->fact_size);
     lmc->fact_goal = lmc->fact_size - 2;
     lmc->fact_nopre = lmc->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     lmc->op_size = strips->op.op_size + 1;
-    lmc->op = BOR_CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
+    lmc->op = CALLOC_ARR(pddl_lm_cut_op_t, lmc->op_size);
     lmc->op_goal = lmc->op_size - 1;
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -176,18 +176,18 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
 
         op->op_id = op_id;
 
-        borISetUnion(&op->eff, &src->add_eff);
-        BOR_ISET_FOR_EACH(&op->eff, fact_id)
-            borISetAdd(&lmc->fact[fact_id].eff_op, op_id);
+        pddlISetUnion(&op->eff, &src->add_eff);
+        PDDL_ISET_FOR_EACH(&op->eff, fact_id)
+            pddlISetAdd(&lmc->fact[fact_id].eff_op, op_id);
 
-        if (borISetSize(&src->pre) == 0){
-            borISetAdd(&op->pre, lmc->fact_nopre);
-            borISetAdd(&lmc->fact[lmc->fact_nopre].pre_op, op_id);
+        if (pddlISetSize(&src->pre) == 0){
+            pddlISetAdd(&op->pre, lmc->fact_nopre);
+            pddlISetAdd(&lmc->fact[lmc->fact_nopre].pre_op, op_id);
 
         }else{
-            borISetUnion(&op->pre, &src->pre);
-            BOR_ISET_FOR_EACH(&op->pre, fact_id)
-                borISetAdd(&lmc->fact[fact_id].pre_op, op_id);
+            pddlISetUnion(&op->pre, &src->pre);
+            PDDL_ISET_FOR_EACH(&op->pre, fact_id)
+                pddlISetAdd(&lmc->fact[fact_id].pre_op, op_id);
         }
 
         op->op_cost = getCost(src->cost, op_unit_cost, op_cost_plus);
@@ -195,17 +195,17 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
 
     // Set up goal operator
     pddl_lm_cut_op_t *op = lmc->op + lmc->op_goal;
-    borISetAdd(&op->eff, lmc->fact_goal);
-    borISetAdd(&lmc->fact[lmc->fact_goal].eff_op, lmc->op_goal);
+    pddlISetAdd(&op->eff, lmc->fact_goal);
+    pddlISetAdd(&lmc->fact[lmc->fact_goal].eff_op, lmc->op_goal);
     op->op_cost = 0;
 
-    borISetUnion(&op->pre, &strips->goal);
+    pddlISetUnion(&op->pre, &strips->goal);
     int fid;
-    BOR_ISET_FOR_EACH(&op->pre, fid)
-        borISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
+    PDDL_ISET_FOR_EACH(&op->pre, fid)
+        pddlISetAdd(&lmc->fact[fid].pre_op, lmc->op_goal);
 
-    lmc->fact_state = BOR_ALLOC_ARR(int, lmc->fact_size);
-    borIArrRealloc(&lmc->queue, lmc->fact_size / 2);
+    lmc->fact_state = ALLOC_ARR(int, lmc->fact_size);
+    pddlIArrRealloc(&lmc->queue, lmc->fact_size / 2);
     pddlPQInit(&lmc->pq);
 }
 
@@ -214,19 +214,19 @@ void pddlLMCutFree(pddl_lm_cut_t *lmc)
     for (int i = 0; i < lmc->fact_size; ++i)
         factFree(lmc->fact + i);
     if (lmc->fact != NULL)
-        BOR_FREE(lmc->fact);
+        FREE(lmc->fact);
 
     for (int i = 0; i < lmc->op_size; ++i)
         opFree(lmc->op + i);
     if (lmc->op != NULL)
-        BOR_FREE(lmc->op);
+        FREE(lmc->op);
 
     if (lmc->fact_state)
-        BOR_FREE(lmc->fact_state);
-    borIArrFree(&lmc->queue);
+        FREE(lmc->fact_state);
+    pddlIArrFree(&lmc->queue);
     pddlPQFree(&lmc->pq);
-    borISetFree(&lmc->cut);
-    borISetFree(&lmc->state);
+    pddlISetFree(&lmc->cut);
+    pddlISetFree(&lmc->state);
 }
 
 
@@ -254,28 +254,28 @@ static void initOps(pddl_lm_cut_t *lmc, int init_cost)
 
 static void addFDRInitState(pddl_lm_cut_t *lmc, const int *state, pddl_pq_t *pq)
 {
-    borISetEmpty(&lmc->state);
+    pddlISetEmpty(&lmc->state);
     for (int var = 0; var < lmc->fdr->var.var_size; ++var){
         int fact_id = lmc->fdr->var.var[var].val[state[var]].global_id;
         FPUSH(pq, 0, lmc->fact + fact_id);
-        borISetAdd(&lmc->state, fact_id);
+        pddlISetAdd(&lmc->state, fact_id);
     }
     FPUSH(pq, 0, lmc->fact + lmc->fact_nopre);
-    borISetAdd(&lmc->state, lmc->fact_nopre);
+    pddlISetAdd(&lmc->state, lmc->fact_nopre);
 }
 
 static void addStripsInitState(pddl_lm_cut_t *lmc,
-                               const bor_iset_t *state,
+                               const pddl_iset_t *state,
                                pddl_pq_t *pq)
 {
-    borISetEmpty(&lmc->state);
+    pddlISetEmpty(&lmc->state);
     int fact_id;
-    BOR_ISET_FOR_EACH(state, fact_id){
+    PDDL_ISET_FOR_EACH(state, fact_id){
         FPUSH(pq, 0, lmc->fact + fact_id);
-        borISetAdd(&lmc->state, fact_id);
+        pddlISetAdd(&lmc->state, fact_id);
     }
     FPUSH(pq, 0, lmc->fact + lmc->fact_nopre);
-    borISetAdd(&lmc->state, lmc->fact_nopre);
+    pddlISetAdd(&lmc->state, lmc->fact_nopre);
 }
 
 static void enqueueOpEffects(pddl_lm_cut_t *lmc,
@@ -285,7 +285,7 @@ static void enqueueOpEffects(pddl_lm_cut_t *lmc,
     int value = op->cost + fact_value;
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&op->eff, fact_id){
+    PDDL_ISET_FOR_EACH(&op->eff, fact_id){
         pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
         if (FVALUE(fact) > value)
             FPUSH(pq, value, fact);
@@ -294,7 +294,7 @@ static void enqueueOpEffects(pddl_lm_cut_t *lmc,
 
 static void hMaxFull(pddl_lm_cut_t *lmc,
                      const int *fdr_state,
-                     const bor_iset_t *strips_state,
+                     const pddl_iset_t *strips_state,
                      int init_cost)
 {
     pddl_pq_t pq;
@@ -313,7 +313,7 @@ static void hMaxFull(pddl_lm_cut_t *lmc,
         ASSERT(FVALUE(fact) == value);
 
         int op_id;
-        BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_lm_cut_op_t *op = lmc->op + op_id;
             ASSERT(op->unsat > 0);
             if (--op->unsat == 0){
@@ -333,7 +333,7 @@ static void updateSupp(pddl_lm_cut_t *lmc, pddl_lm_cut_op_t *op)
 {
     int fact_id, supp = -1, value = -1;
 
-    BOR_ISET_FOR_EACH(&op->pre, fact_id){
+    PDDL_ISET_FOR_EACH(&op->pre, fact_id){
         const pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
         if (FVALUE_IS_SET(fact) && FVALUE(fact) > value){
             value = FVALUE(fact);
@@ -359,7 +359,7 @@ static void enqueueOpEffectsInc(pddl_lm_cut_t *lmc,
     int fact_id;
 
     // Check all base effects
-    BOR_ISET_FOR_EACH(&op->eff, fact_id){
+    PDDL_ISET_FOR_EACH(&op->eff, fact_id){
         pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
         if (FVALUE(fact) > value)
             FPUSH(pq, value, fact);
@@ -386,13 +386,13 @@ static void hMaxIncUpdateOp(pddl_lm_cut_t *lmc,
     }
 }
 
-static void hMaxInc(pddl_lm_cut_t *lmc, const bor_iset_t *cut)
+static void hMaxInc(pddl_lm_cut_t *lmc, const pddl_iset_t *cut)
 {
     for (int op_id = 0; op_id < lmc->op_size; ++op_id)
         lmc->op[op_id].cut_candidate = 0;
 
     int op_id;
-    BOR_ISET_FOR_EACH(cut, op_id){
+    PDDL_ISET_FOR_EACH(cut, op_id){
         const pddl_lm_cut_op_t *op = lmc->op + op_id;
         enqueueOpEffectsInc(lmc, op, op->supp_cost, &lmc->pq);
     }
@@ -402,7 +402,7 @@ static void hMaxInc(pddl_lm_cut_t *lmc, const bor_iset_t *cut)
         const pddl_lm_cut_fact_t *fact = FPOP(&lmc->pq, &fact_value);
         int fact_id = FID(lmc, fact);
 
-        BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_lm_cut_op_t *op = lmc->op + op_id;
             hMaxIncUpdateOp(lmc, op, fact_id, fact_value);
         }
@@ -412,19 +412,19 @@ static void hMaxInc(pddl_lm_cut_t *lmc, const bor_iset_t *cut)
 /** Mark facts connected with the goal with zero cost paths */
 static void markGoalZone(pddl_lm_cut_t *lmc)
 {
-    borIArrEmpty(&lmc->queue);
-    borIArrAdd(&lmc->queue, lmc->fact_goal);
+    pddlIArrEmpty(&lmc->queue);
+    pddlIArrAdd(&lmc->queue, lmc->fact_goal);
     lmc->fact_state[lmc->fact_goal] = CUT_GOAL;
     while (lmc->queue.size > 0){
         int fact_id = lmc->queue.arr[--lmc->queue.size];
         const pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
 
         int op_id;
-        BOR_ISET_FOR_EACH(&fact->eff_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->eff_op, op_id){
             pddl_lm_cut_op_t *op = lmc->op + op_id;
             if (op->supp >= 0 && lmc->fact_state[op->supp] == CUT_UNDEF){
                 if (op->cost == 0){
-                    borIArrAdd(&lmc->queue, op->supp);
+                    pddlIArrAdd(&lmc->queue, op->supp);
                     lmc->fact_state[op->supp] = CUT_GOAL;
                 }else{
                     op->cut_candidate = 1;
@@ -449,36 +449,36 @@ static int findCut(pddl_lm_cut_t *lmc)
 {
     int min_cost = INT_MAX;
 
-    borIArrEmpty(&lmc->queue);
+    pddlIArrEmpty(&lmc->queue);
     int fact_id;
-    BOR_ISET_FOR_EACH(&lmc->state, fact_id){
+    PDDL_ISET_FOR_EACH(&lmc->state, fact_id){
         if (lmc->fact_state[fact_id] == CUT_UNDEF){
-            borIArrAdd(&lmc->queue, fact_id);
+            pddlIArrAdd(&lmc->queue, fact_id);
             lmc->fact_state[fact_id] = CUT_INIT;
         }
     }
 
-    borISetEmpty(&lmc->cut);
+    pddlISetEmpty(&lmc->cut);
     while (lmc->queue.size > 0){
         int fact_id = lmc->queue.arr[--lmc->queue.size];
         const pddl_lm_cut_fact_t *fact = lmc->fact + fact_id;
         int op_id;
-        BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->pre_op, op_id){
             const pddl_lm_cut_op_t *op = lmc->op + op_id;
             if (op->supp != fact_id)
                 continue;
             if (op->cut_candidate){
-                borISetAdd(&lmc->cut, op_id);
-                min_cost = BOR_MIN(min_cost, op->cost);
+                pddlISetAdd(&lmc->cut, op_id);
+                min_cost = PDDL_MIN(min_cost, op->cost);
                 continue;
             }
 
             int next;
-            BOR_ISET_FOR_EACH(&op->eff, next){
+            PDDL_ISET_FOR_EACH(&op->eff, next){
                 if (lmc->fact_state[next] == CUT_UNDEF){
                     if (F_IS_SUPP(lmc->fact + next)){
                         lmc->fact_state[next] = CUT_INIT;
-                        borIArrAdd(&lmc->queue, next);
+                        pddlIArrAdd(&lmc->queue, next);
                     }
                 }
             }
@@ -493,9 +493,9 @@ static int findCut(pddl_lm_cut_t *lmc)
     */
 
     if (lmc->cut.size == 0){
-        BOR_FATAL2("Empty cut!");
+        PDDL_FATAL2("Empty cut!");
     }else if (min_cost <= 0){
-        BOR_FATAL("Invalid cut cost: %d!", min_cost);
+        PDDL_FATAL("Invalid cut cost: %d!", min_cost);
     }
 
     return min_cost;
@@ -505,7 +505,7 @@ static int findCut(pddl_lm_cut_t *lmc)
 static void applyCutCost(pddl_lm_cut_t *lmc, int min_cost)
 {
     int op_id;
-    BOR_ISET_FOR_EACH(&lmc->cut, op_id)
+    PDDL_ISET_FOR_EACH(&lmc->cut, op_id)
         lmc->op[op_id].cost -= min_cost;
 }
 
@@ -522,13 +522,13 @@ static int cut(pddl_lm_cut_t *lmc)
 }
 
 static int landmarkCost(const pddl_lm_cut_t *lmc,
-                        const bor_iset_t *ldm)
+                        const pddl_iset_t *ldm)
 {
     int cost = PDDL_COST_MAX;
     int op_id;
 
-    BOR_ISET_FOR_EACH(ldm, op_id)
-        cost = BOR_MIN(cost, lmc->op[op_id].cost);
+    PDDL_ISET_FOR_EACH(ldm, op_id)
+        cost = PDDL_MIN(cost, lmc->op[op_id].cost);
 
     return cost;
 }
@@ -538,13 +538,13 @@ static int applyInitLandmarks(pddl_lm_cut_t *lmc,
                               pddl_set_iset_t *ldms_out)
 {
     int heur = 0;
-    BOR_ISET(ldm_ops);
+    PDDL_ISET(ldm_ops);
 
     // Record operators that should be changed as well as value that should
     // be substracted from their cost.
-    const bor_iset_t *ldm;
+    const pddl_iset_t *ldm;
     PDDL_SET_ISET_FOR_EACH(ldms, ldm){
-        if (borISetSize(ldm) == 0)
+        if (pddlISetSize(ldm) == 0)
             continue;
 
         // Determine cost of the landmark and skip zero-cost landmarks
@@ -558,8 +558,8 @@ static int applyInitLandmarks(pddl_lm_cut_t *lmc,
         // Mark each operator as changed and update it by substracting the
         // cost of the landmark.
         int op_id;
-        BOR_ISET_FOR_EACH(ldm, op_id){
-            borISetAdd(&ldm_ops, op_id);
+        PDDL_ISET_FOR_EACH(ldm, op_id){
+            pddlISetAdd(&ldm_ops, op_id);
             lmc->op[op_id].cost -= cost;
         }
 
@@ -570,14 +570,14 @@ static int applyInitLandmarks(pddl_lm_cut_t *lmc,
     // Update h^max
     hMaxInc(lmc, &ldm_ops);
 
-    borISetFree(&ldm_ops);
+    pddlISetFree(&ldm_ops);
 
     return heur;
 }
 
 static int lmCut(pddl_lm_cut_t *lmc,
                  const int *fdr_state,
-                 const bor_iset_t *strips_state,
+                 const pddl_iset_t *strips_state,
                  const pddl_set_iset_t *ldms_in,
                  pddl_set_iset_t *ldms_out)
 {
@@ -599,7 +599,7 @@ static int lmCut(pddl_lm_cut_t *lmc,
         heur += cut(lmc);
 
         // Store landmarks into output structure if requested.
-        if (ldms_out != NULL && borISetSize(&lmc->cut) > 0)
+        if (ldms_out != NULL && pddlISetSize(&lmc->cut) > 0)
             pddlSetISetAdd(ldms_out, &lmc->cut);
 
         //hMaxFull(h, state, 0);
@@ -615,18 +615,18 @@ int pddlLMCut(pddl_lm_cut_t *lmc,
               pddl_set_iset_t *ldms_out)
 {
     if (lmc->fdr == NULL){
-        BOR_FATAL2("This function requires lm-cut construct from FDR");
+        PDDL_FATAL2("This function requires lm-cut construct from FDR");
     }
     return lmCut(lmc, fdr_state, NULL, ldms_in, ldms_out);
 }
 
 int pddlLMCutStrips(pddl_lm_cut_t *lmc,
-                    const bor_iset_t *state,
+                    const pddl_iset_t *state,
                     const pddl_set_iset_t *ldms_in,
                     pddl_set_iset_t *ldms_out)
 {
     if (lmc->fdr != NULL){
-        BOR_FATAL2("This function requires lm-cut construct from STRIPS");
+        PDDL_FATAL2("This function requires lm-cut construct from STRIPS");
     }
     return lmCut(lmc, NULL, state, ldms_in, ldms_out);
 }

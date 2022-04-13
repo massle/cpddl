@@ -70,7 +70,7 @@ void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl);
 /**
  * Parses actions from domain PDDL.
  */
-int pddlActionsParse(pddl_t *pddl, bor_err_t *err);
+int pddlActionsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initializes dst as a deep copy of src.

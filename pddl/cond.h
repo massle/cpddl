@@ -20,7 +20,7 @@
 #ifndef __PDDL_COND_H__
 #define __PDDL_COND_H__
 
-#include <boruvka/list.h>
+#include <pddl/list.h>
 
 #include <pddl/common.h>
 #include <pddl/lisp.h>
@@ -51,14 +51,14 @@ extern "C" {
 const char *pddlCondTypeName(int type);
 
 #define PDDL_COND_CAST(C, T) \
-    (bor_container_of((C), pddl_cond_##T##_t, cls))
+    (pddl_container_of((C), pddl_cond_##T##_t, cls))
 
 /**
  * General condition
  */
 struct pddl_cond {
     unsigned type;   /*!< Type of the condition */
-    bor_list_t conn; /*!< Connection to the parent cond */
+    pddl_list_t conn; /*!< Connection to the parent cond */
 };
 typedef struct pddl_cond pddl_cond_t;
 
@@ -67,7 +67,7 @@ typedef struct pddl_cond pddl_cond_t;
  */
 struct pddl_cond_part {
     pddl_cond_t cls;
-    bor_list_t part; /*!< List of parts */
+    pddl_list_t part; /*!< List of parts */
 };
 typedef struct pddl_cond_part pddl_cond_part_t;
 
@@ -146,22 +146,22 @@ struct pddl_cond_imply {
 typedef struct pddl_cond_imply pddl_cond_imply_t;
 
 
-_bor_inline pddl_cond_part_t *pddlCondToAnd(pddl_cond_t *c)
+_pddl_inline pddl_cond_part_t *pddlCondToAnd(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, part);
 }
 
-_bor_inline pddl_cond_part_t *pddlCondToOr(pddl_cond_t *c)
+_pddl_inline pddl_cond_part_t *pddlCondToOr(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, part);
 }
 
-_bor_inline pddl_cond_bool_t *pddlCondToBool(pddl_cond_t *c)
+_pddl_inline pddl_cond_bool_t *pddlCondToBool(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, bool);
 }
 
-_bor_inline pddl_cond_atom_t *pddlCondToAtom(pddl_cond_t *c)
+_pddl_inline pddl_cond_atom_t *pddlCondToAtom(pddl_cond_t *c)
 {
     return PDDL_COND_CAST(c, atom);
 }
@@ -279,13 +279,13 @@ pddl_cond_t *pddlCondParse(const pddl_lisp_node_t *root,
                            pddl_t *pddl,
                            const pddl_params_t *params,
                            const char *err_prefix,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 /**
  * Parse (:init ...) into a conjuction of atoms.
  */
 pddl_cond_part_t *pddlCondParseInit(const pddl_lisp_node_t *root, pddl_t *pddl,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 
 /**
  * Transforms atom into (and atom).
@@ -316,12 +316,12 @@ int pddlCondPartIsEmpty(const pddl_cond_part_t *part);
 /**
  * Returns 0 if cond is a correct precondition, -1 otherwise.
  */
-int pddlCondCheckPre(const pddl_cond_t *cond, int require, bor_err_t *err);
+int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err);
 
 /**
  * Same as pddlCondCheckPre() buf effect is checked.
  */
-int pddlCondCheckEff(const pddl_cond_t *cond, int require, bor_err_t *err);
+int pddlCondCheckEff(const pddl_cond_t *cond, int require, pddl_err_t *err);
 
 
 /**
@@ -434,8 +434,8 @@ const char *pddlCondPDDLFmt(const pddl_cond_t *cond,
 
 
 struct pddl_cond_const_it {
-    const bor_list_t *list;
-    const bor_list_t *cur;
+    const pddl_list_t *list;
+    const pddl_list_t *cur;
 };
 typedef struct pddl_cond_const_it pddl_cond_const_it_t;
 typedef pddl_cond_const_it_t pddl_cond_const_it_atom_t;
@@ -470,11 +470,11 @@ const pddl_cond_when_t *pddlCondConstItWhenNext(pddl_cond_const_it_when_t *it);
             (WHEN) = pddlCondConstItWhenNext((IT)))
 
 struct pddl_cond_const_it_eff {
-    const bor_list_t *list;
-    const bor_list_t *cur;
+    const pddl_list_t *list;
+    const pddl_list_t *cur;
     const pddl_cond_t *when_pre;
-    const bor_list_t *when_list;
-    const bor_list_t *when_cur;
+    const pddl_list_t *when_list;
+    const pddl_list_t *when_cur;
 };
 typedef struct pddl_cond_const_it_eff pddl_cond_const_it_eff_t;
 

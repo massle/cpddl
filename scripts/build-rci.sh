@@ -31,7 +31,6 @@ EOF
 
 
 make mrproper
-make -j$NCPUS boruvka
 make -j$NCPUS opts
 make -j$NCPUS bliss
 make -j$NCPUS cudd

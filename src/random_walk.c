@@ -17,6 +17,7 @@
  */
 
 #include "pddl/random_walk.h"
+#include "alloc.h"
 #include "assert.h"
 
 static void init(pddl_random_walk_t *rndw,
@@ -26,7 +27,7 @@ static void init(pddl_random_walk_t *rndw,
     bzero(rndw, sizeof(*rndw));
     rndw->fdr = fdr;
     if (app_op == NULL){
-        pddl_fdr_app_op_t *app = BOR_ALLOC(pddl_fdr_app_op_t);
+        pddl_fdr_app_op_t *app = ALLOC(pddl_fdr_app_op_t);
         pddlFDRAppOpInit(app, &fdr->var, &fdr->op, &fdr->goal);
         rndw->app = app;
         rndw->owns_app_op = 1;
@@ -41,7 +42,7 @@ void pddlRandomWalkInit(pddl_random_walk_t *rndw,
                         const pddl_fdr_app_op_t *app_op)
 {
     init(rndw, fdr, app_op);
-    rndw->rnd = borRandMTNewAuto();
+    rndw->rnd = pddlRandMTNewAuto();
 }
 
 void pddlRandomWalkInitSeed(pddl_random_walk_t *rndw,
@@ -50,7 +51,7 @@ void pddlRandomWalkInitSeed(pddl_random_walk_t *rndw,
                             uint32_t seed)
 {
     init(rndw, fdr, app_op);
-    rndw->rnd = borRandMTNew(seed);
+    rndw->rnd = pddlRandMTNew(seed);
 }
 
 void pddlRandomWalkFree(pddl_random_walk_t *rndw)
@@ -58,11 +59,11 @@ void pddlRandomWalkFree(pddl_random_walk_t *rndw)
     if (rndw->owns_app_op && rndw->app != NULL){
         pddl_fdr_app_op_t *app = (pddl_fdr_app_op_t *)rndw->app;
         pddlFDRAppOpFree(app);
-        BOR_FREE(app);
+        FREE(app);
     }
 
     if (rndw->rnd != NULL)
-        borRandMTDel(rndw->rnd);
+        pddlRandMTDel(rndw->rnd);
 }
 
 int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
@@ -75,31 +76,31 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
     // Length of the walk
     int num_steps = 0;
     for (int i = 0; i < max_steps; ++i){
-        if (borRandMT01(rndw->rnd) < p)
+        if (pddlRandMT01(rndw->rnd) < p)
             ++num_steps;
     }
 
     // Perform at most num_steps of a random walk
     int num_performed_steps = 0;
-    BOR_ISET(app_ops);
+    PDDL_ISET(app_ops);
     memcpy(resulting_state, start_state, sizeof(int) * rndw->fdr->var.var_size);
     for (int step = 0; step < num_steps; ++step){
-        borISetEmpty(&app_ops);
+        pddlISetEmpty(&app_ops);
         pddlFDRAppOpFind(rndw->app, resulting_state, &app_ops);
-        if (borISetSize(&app_ops) == 0){
+        if (pddlISetSize(&app_ops) == 0){
             // No applicable operators -- terminate
             break;
         }else{
-            int which_op = borRandMT(rndw->rnd, 0, borISetSize(&app_ops));
-            ASSERT(which_op >= 0 && which_op < borISetSize(&app_ops));
-            int op_id = borISetGet(&app_ops, which_op);
+            int which_op = pddlRandMT(rndw->rnd, 0, pddlISetSize(&app_ops));
+            ASSERT(which_op >= 0 && which_op < pddlISetSize(&app_ops));
+            int op_id = pddlISetGet(&app_ops, which_op);
             const pddl_fdr_op_t *op = rndw->fdr->op.op[op_id];
             pddlFDROpApplyOnStateInPlace(op, rndw->fdr->var.var_size,
                                          resulting_state);
             ++num_performed_steps;
         }
     }
-    borISetFree(&app_ops);
+    pddlISetFree(&app_ops);
 
     return num_performed_steps;
 }

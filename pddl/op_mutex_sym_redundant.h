@@ -19,7 +19,7 @@
 #ifndef __PDDL_OP_MUTEX_SYM_REDUNDANT_H__
 #define __PDDL_OP_MUTEX_SYM_REDUNDANT_H__
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/op_mutex_pair.h>
 #include <pddl/sym.h>
 #include <pddl/strips.h>
@@ -32,11 +32,11 @@ extern "C" {
  * Computes a set of redundant operators using fixpoint computation with a
  * set of operator mutexes and symmetries.
  */
-void pddlOpMutexSymRedundantFixpoint(bor_iset_t *redundant,
+void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant,
                                      const pddl_strips_t *strips,
                                      const pddl_strips_sym_t *sym,
                                      const pddl_op_mutex_pairs_t *op_mutex,
-                                     bor_err_t *err);
+                                     pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

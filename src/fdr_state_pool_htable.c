@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/fdr_state_pool_htable.h"
 
 void pddlFDRStatePoolHTableInit(pddl_fdr_state_pool_htable_t *ht,
@@ -24,14 +24,14 @@ void pddlFDRStatePoolHTableInit(pddl_fdr_state_pool_htable_t *ht,
 {
     bzero(ht, sizeof(*ht));
     ht->size = 98317ul;
-    ht->table = BOR_CALLOC_ARR(bor_iarr_t, ht->size);
+    ht->table = CALLOC_ARR(pddl_iarr_t, ht->size);
     ht->state_pool = state_pool;
 }
 
 void pddlFDRStatePoolHTableFree(pddl_fdr_state_pool_htable_t *ht)
 {
     for (int i = 0; i < ht->size; ++i)
-        borIArrFree(ht->table + i);
+        pddlIArrFree(ht->table + i);
     if (ht->table != NULL)
-        BOR_FREE(ht->table);
+        FREE(ht->table);
 }

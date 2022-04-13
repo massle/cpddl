@@ -45,7 +45,7 @@ struct pddl_trans_system_graph {
     pddl_trans_system_graph_edges_t *fw; /*!< Forward edges */
     pddl_trans_system_graph_edges_t *bw; /*!< Backward edges */
     int init;
-    bor_iset_t goal;
+    pddl_iset_t goal;
 };
 typedef struct pddl_trans_system_graph pddl_trans_system_graph_t;
 
@@ -77,7 +77,7 @@ void pddlTransSystemGraphBwSCC(const pddl_trans_system_graph_t *g,
 
 /**
  * Computes reachability of states in forward direction.
- * {reachable_from} must be an array of bor_iset_t structs of size
+ * {reachable_from} must be an array of pddl_iset_t structs of size
  * g->num_states and reachable_from[v] will contain all states from which v
  * is reachable.
  * If consider_empty_paths is true, then a state s will be always considered
@@ -85,7 +85,7 @@ void pddlTransSystemGraphBwSCC(const pddl_trans_system_graph_t *g,
  * if there is a loop edge in s.
  */
 void pddlTransSystemGraphFwReachability(const pddl_trans_system_graph_t *g,
-                                        bor_iset_t *reachable_from,
+                                        pddl_iset_t *reachable_from,
                                         int consider_empty_paths);
 void pddlTransSystemGraphFwReachability2(const pddl_trans_system_graph_t *g,
                                          char *reachable,

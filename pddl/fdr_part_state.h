@@ -108,7 +108,7 @@ void pddlFDRPartStateRemapVars(pddl_fdr_part_state_t *ps, const int *remap);
  */
 void pddlFDRPartStateToGlobalIDs(const pddl_fdr_part_state_t *ps,
                                  const pddl_fdr_vars_t *vars,
-                                 bor_iset_t *global_ids);
+                                 pddl_iset_t *global_ids);
 
 /**
  * a = a \setminus b

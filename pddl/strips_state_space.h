@@ -19,8 +19,7 @@
 #ifndef __PDDL_STRIPS_STATE_SPACE_H__
 #define __PDDL_STRIPS_STATE_SPACE_H__
 
-#include <boruvka/extarr.h>
-#include <boruvka/htable.h>
+#include <pddl/extarr.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_state_pool.h>
 
@@ -41,19 +40,19 @@ struct pddl_strips_state_space_node {
     int op_id; /*!< ID of the operator reaching this state */
     int g_value; /*!< Cost of the path from init to this state */
     pddl_strips_state_space_status_t status; /*!< PDDL_STRIPS_STATE_SPACE_STATUS_* */
-    bor_iset_t state; /*!< Unpacked STRIPS state */
+    pddl_iset_t state; /*!< Unpacked STRIPS state */
 };
 typedef struct pddl_strips_state_space_node pddl_strips_state_space_node_t;
 
 struct pddl_strips_state_space {
-    bor_htable_t *htable;
-    bor_extarr_t *node; /*!< Array of state nodes */
+    pddl_htable_t *htable;
+    pddl_extarr_t *node; /*!< Array of state nodes */
     int num_states;
 };
 typedef struct pddl_strips_state_space pddl_strips_state_space_t;
 
 void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space);
 
 /**
@@ -62,7 +61,7 @@ void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space);
  */
 pddl_state_id_t pddlStripsStateSpaceInsert(
                         pddl_strips_state_space_t *state_space,
-                        const bor_iset_t *state);
+                        const pddl_iset_t *state);
 
 /**
  * Fills {node} with the state node corresponding to the given state_id.

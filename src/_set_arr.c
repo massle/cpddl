@@ -14,21 +14,21 @@
  *  See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include "boruvka/set.h"
+#include "alloc.h"
+#include "pddl/set.h"
 
-void borSetInit(bor_set_t *s)
+void pddlSetInit(pddl_set_t *s)
 {
     bzero(s, sizeof(*s));
 }
 
-void borSetFree(bor_set_t *s)
+void pddlSetFree(pddl_set_t *s)
 {
     if (s->s)
-        BOR_FREE(s->s);
+        FREE(s->s);
 }
 
-int borSetHas(const bor_set_t *s, TYPE v)
+int pddlSetHas(const pddl_set_t *s, TYPE v)
 {
     // TODO: binary search
     for (int i = 0; i < s->size; ++i){
@@ -38,7 +38,7 @@ int borSetHas(const bor_set_t *s, TYPE v)
     return 0;
 }
 
-int borSetIsSubset(const bor_set_t *s1, const bor_set_t *s2)
+int pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int i, j, size;
 
@@ -59,7 +59,7 @@ int borSetIsSubset(const bor_set_t *s1, const bor_set_t *s2)
     return i == size;
 }
 
-int borSetIntersectionSize(const bor_set_t *s1, const bor_set_t *s2)
+int pddlSetIntersectionSize(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int i, j, size, setsize;
 
@@ -79,8 +79,8 @@ int borSetIntersectionSize(const bor_set_t *s1, const bor_set_t *s2)
     return setsize;
 }
 
-int borSetIntersectionSizeAtLeast(const bor_set_t *s1, const bor_set_t *s2,
-                                  int limit)
+int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
+                                   int limit)
 {
     int i, j, size, setsize;
 
@@ -104,10 +104,10 @@ int borSetIntersectionSizeAtLeast(const bor_set_t *s1, const bor_set_t *s2,
     return 0;
 }
 
-int borSetIntersectionSizeAtLeast3(const bor_set_t *s1,
-                                   const bor_set_t *s2,
-                                   const bor_set_t *s3,
-                                   int limit)
+int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
+                                    const pddl_set_t *s2,
+                                    const pddl_set_t *s3,
+                                    int limit)
 {
     int i, j, k, setsize;
 
@@ -133,26 +133,26 @@ int borSetIntersectionSizeAtLeast3(const bor_set_t *s1,
     return 0;
 }
 
-void borSetSet(bor_set_t *d, const bor_set_t *s)
+void pddlSetSet(pddl_set_t *d, const pddl_set_t *s)
 {
     if (d->alloc < s->size){
         if (d->alloc == 0)
             d->alloc = 1;
         while (d->alloc < s->size)
             d->alloc *= 2;
-        d->s = BOR_REALLOC_ARR(d->s, TYPE, d->alloc);
+        d->s = REALLOC_ARR(d->s, TYPE, d->alloc);
     }
     memcpy(d->s, s->s, sizeof(TYPE) * s->size);
     d->size = s->size;
 }
 
-void borSetAdd(bor_set_t *s, TYPE v)
+void pddlSetAdd(pddl_set_t *s, TYPE v)
 {
     if (s->size >= s->alloc){
         if (s->alloc == 0)
             s->alloc = 1;
         s->alloc *= 2;
-        s->s = BOR_REALLOC_ARR(s->s, TYPE, s->alloc);
+        s->s = REALLOC_ARR(s->s, TYPE, s->alloc);
     }
     s->s[s->size++] = v;
 
@@ -170,7 +170,7 @@ void borSetAdd(bor_set_t *s, TYPE v)
     }
 }
 
-int borSetRm(bor_set_t *s, TYPE v)
+int pddlSetRm(pddl_set_t *s, TYPE v)
 {
     int i;
 
@@ -184,37 +184,37 @@ int borSetRm(bor_set_t *s, TYPE v)
     return 0;
 }
 
-void borSetUnion(bor_set_t *dst, const bor_set_t *src)
+void pddlSetUnion(pddl_set_t *dst, const pddl_set_t *src)
 {
     for (int i = 0; i < src->size; ++i)
-        borSetAdd(dst, src->s[i]);
+        pddlSetAdd(dst, src->s[i]);
 }
 
-void borSetUnion2(bor_set_t *dst, const bor_set_t *s1, const bor_set_t *s2)
+void pddlSetUnion2(pddl_set_t *dst, const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int i, j;
 
-    borSetEmpty(dst);
+    pddlSetEmpty(dst);
     for (i = 0, j = 0; i < s1->size && j < s2->size;){
         if (s1->s[i] == s2->s[j]){
-            borSetAdd(dst, s1->s[i]);
+            pddlSetAdd(dst, s1->s[i]);
             ++i;
             ++j;
         }else if (s1->s[i] < s2->s[j]){
-            borSetAdd(dst, s1->s[i]);
+            pddlSetAdd(dst, s1->s[i]);
             ++i;
         }else{
-            borSetAdd(dst, s2->s[j]);
+            pddlSetAdd(dst, s2->s[j]);
             ++j;
         }
     }
     for (; i < s1->size; ++i)
-        borSetAdd(dst, s1->s[i]);
+        pddlSetAdd(dst, s1->s[i]);
     for (; j < s2->size; ++j)
-        borSetAdd(dst, s2->s[j]);
+        pddlSetAdd(dst, s2->s[j]);
 }
 
-void borSetIntersect(bor_set_t *dst, const bor_set_t *src)
+void pddlSetIntersect(pddl_set_t *dst, const pddl_set_t *src)
 {
     int w, i, j, size;
 
@@ -233,14 +233,14 @@ void borSetIntersect(bor_set_t *dst, const bor_set_t *src)
     dst->size = w;
 }
 
-void borSetIntersect2(bor_set_t *dst, const bor_set_t *s1, const bor_set_t *s2)
+void pddlSetIntersect2(pddl_set_t *dst, const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int i, j;
 
-    borSetEmpty(dst);
+    pddlSetEmpty(dst);
     for (i = j = 0; i < s1->size && j < s2->size;){
         if (s1->s[i] == s2->s[j]){
-            borSetAdd(dst, s1->s[i]);
+            pddlSetAdd(dst, s1->s[i]);
             ++i;
             ++j;
         }else if (s1->s[i] < s2->s[j]){
@@ -251,7 +251,7 @@ void borSetIntersect2(bor_set_t *dst, const bor_set_t *s1, const bor_set_t *s2)
     }
 }
 
-void borSetMinus(bor_set_t *s1, const bor_set_t *s2)
+void pddlSetMinus(pddl_set_t *s1, const pddl_set_t *s2)
 {
     int w, i, j;
 
@@ -270,28 +270,34 @@ void borSetMinus(bor_set_t *s1, const bor_set_t *s2)
     s1->size = w;
 }
 
-void borSetMinus2(bor_set_t *d, const bor_set_t *s1, const bor_set_t *s2)
+void pddlSetMinus2(pddl_set_t *d, const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int i, j;
 
-    borSetEmpty(d);
+    pddlSetEmpty(d);
     for (i = j = 0; i < s1->size && j < s2->size;){
         if (s1->s[i] == s2->s[j]){
             ++i;
             ++j;
         }else if (s1->s[i] < s2->s[j]){
-            borSetAdd(d, s1->s[i]);
+            pddlSetAdd(d, s1->s[i]);
             ++i;
         }else{
             ++j;
         }
     }
     for (; i < s1->size; ++i)
-        borSetAdd(d, s1->s[i]);
+        pddlSetAdd(d, s1->s[i]);
 }
 
-void borSetRemap(bor_set_t *s, const TYPE *remap)
+void pddlSetRemap(pddl_set_t *dst, const TYPE *remap)
 {
-    for (int i = 0; i < s->size; ++i)
-        s->s[i] = remap[(int)s->s[i]];
+    PDDL_SET(tmp);
+    pddlSetUnion(&tmp, dst);
+
+    pddlSetEmpty(dst);
+    int v;
+    PDDL_SET_FOR_EACH(&tmp, v)
+        pddlSetAdd(dst, remap[v]);
+    pddlSetFree(&tmp);
 }

@@ -20,7 +20,7 @@
 #ifndef __PDDL_TYPE_H__
 #define __PDDL_TYPE_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <pddl/common.h>
 #include <pddl/objset.h>
 #include <pddl/lisp.h>
@@ -35,8 +35,8 @@ struct pddl_objs;
 struct pddl_type {
     char *name;        /*!< Name of the type */
     int parent;        /*!< ID of the parent type */
-    bor_iset_t child;  /*!< IDs of children types */
-    bor_iset_t either; /*!< type IDs for special (either ...) type */
+    pddl_iset_t child;  /*!< IDs of children types */
+    pddl_iset_t either; /*!< type IDs for special (either ...) type */
     pddl_objset_t obj; /*!< Objs of this type */
 };
 typedef struct pddl_type pddl_type_t;
@@ -54,7 +54,7 @@ typedef struct pddl_types pddl_types_t;
 /**
  * Parses :types into type array.
  */
-int pddlTypesParse(pddl_t *pddl, bor_err_t *err);
+int pddlTypesParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -124,7 +124,7 @@ int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj);
  * (either ...) types are created if necessary.
  */
 int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
-                         bor_err_t *err);
+                         pddl_err_t *err);
 
 /**
  * Returns true if parent is a parent type of child type.

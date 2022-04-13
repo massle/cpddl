@@ -20,9 +20,8 @@
 #ifndef __PDDL_OBJ_H__
 #define __PDDL_OBJ_H__
 
-#include <boruvka/htable.h>
-
 #include <pddl/common.h>
+#include <pddl/htable.h>
 #include <pddl/type.h>
 
 #ifdef __cplusplus
@@ -45,14 +44,14 @@ struct pddl_objs {
     pddl_obj_t *obj;
     int obj_size;
     int obj_alloc;
-    bor_htable_t *htable;
+    pddl_htable_t *htable;
 };
 typedef struct pddl_objs pddl_objs_t;
 
 /**
  * Parse :constants and :objects from domain and problem PDDLs.
  */
-int pddlObjsParse(pddl_t *pddl, bor_err_t *err);
+int pddlObjsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Initialize dst as a deep copy of src.

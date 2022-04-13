@@ -157,23 +157,23 @@ static int findDomainToProblem(const char *prob, char *domain_pddl)
     return -1;
 }
 
-int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err)
+int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err)
 {
     if (pddlIsFile(s)){
         if (strlen(s) >= PDDL_FILE_MAX_PATH_LEN - 1){
-            BOR_ERR_RET2(err, -1, "Path(s) too long.");
+            PDDL_ERR_RET2(err, -1, "Path(s) too long.");
         }
 
         if (findDomainToProblem(s, files->domain_pddl) == 0){
             strcpy(files->problem_pddl, s);
             return 0;
         }else{
-            BOR_ERR_RET2(err, -1, "Cannot find domain pddl file.");
+            PDDL_ERR_RET2(err, -1, "Cannot find domain pddl file.");
         }
 
     }else{
         if (strlen(s) + 5 >= PDDL_FILE_MAX_PATH_LEN - 1){
-            BOR_ERR_RET2(err, -1, "Path(s) too long.");
+            PDDL_ERR_RET2(err, -1, "Path(s) too long.");
         }
 
         char prob_pddl[MAX_LEN];
@@ -183,20 +183,20 @@ int pddlFiles1(pddl_files_t *files, const char *s, bor_err_t *err)
             return pddlFiles1(files, prob_pddl, err);
 
         }else{
-            BOR_ERR_RET(err, -1, "Cannot find problem pddl file"
-                                 " (tried %s or %s).",
-                                 s, prob_pddl);
+            PDDL_ERR_RET(err, -1, "Cannot find problem pddl file"
+                         " (tried %s or %s).",
+                         s, prob_pddl);
         }
     }
 }
 
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
-              bor_err_t *err)
+              pddl_err_t *err)
 {
     bzero(files, sizeof(*files));
 
     if (s1 == NULL && s2 == NULL){
-        BOR_ERR_RET2(err, -1, "Unspecified specifiers.");
+        PDDL_ERR_RET2(err, -1, "Unspecified specifiers.");
 
     }else if (s1 == NULL && s2 != NULL){
         return pddlFiles1(files, s2, err);
@@ -208,7 +208,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
         if (pddlIsFile(s1) && pddlIsFile(s2)){
             if (strlen(s1) >= PDDL_FILE_MAX_PATH_LEN - 1
                     || strlen(s2) >= PDDL_FILE_MAX_PATH_LEN - 1){
-                BOR_ERR_RET2(err, -1, "Path(s) too long.");
+                PDDL_ERR_RET2(err, -1, "Path(s) too long.");
             }
             strcpy(files->domain_pddl, s1);
             strcpy(files->problem_pddl, s2);
@@ -216,7 +216,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
 
         }else if (isDir(s1)){
             if (strlen(s1) + strlen(s2) >= PDDL_FILE_MAX_PATH_LEN - 1){
-                BOR_ERR_RET2(err, -1, "Path(s) too long.");
+                PDDL_ERR_RET2(err, -1, "Path(s) too long.");
             }
 
             char prob[PDDL_FILE_MAX_PATH_LEN];
@@ -227,7 +227,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
             return pddlFiles1(files, prob, err);
 
         }else{
-            BOR_ERR_RET2(err, -1, "Cannot find pddl files.");
+            PDDL_ERR_RET2(err, -1, "Cannot find pddl files.");
         }
     }
 }

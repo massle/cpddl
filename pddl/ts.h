@@ -32,7 +32,7 @@ extern "C" {
  */
 struct pddl_ts {
     int num_states; /*!< Number of states */
-    bor_iset_t *tr; /*!< Adjecancy matrix of states with set of labels
+    pddl_iset_t *tr; /*!< Adjecancy matrix of states with set of labels
                          on each edge */
     int init_state; /*!< ID of the init state */
 };
@@ -49,17 +49,17 @@ typedef struct pddl_ts pddl_ts_t;
             (STATE_FROM) < (TS)->num_states; ++(STATE_FROM)) \
         for ((STATE_TO) = 0; (STATE_TO) < (TS)->num_states; \
                 ++(STATE_TO), (TR) += 1) \
-            if (borISetSize(TR) > 0)
+            if (pddlISetSize(TR) > 0)
 
 #define PDDL_TS_FOR_EACH_NONEMPTY_TRANSITION_FROM(TS, FROM, STATE_TO, TR) \
     for ((STATE_TO) = 0, (TR) = (TS)->tr + (FROM) * (TS)->num_states; \
             (STATE_TO) < (TS)->num_states; ++(STATE_TO), (TR) += 1) \
-        if (borISetSize(TR) > 0)
+        if (pddlISetSize(TR) > 0)
 
 #define PDDL_TS_FOR_EACH_NONEMPTY_TRANSITION_TO(TS, TO, FROM, TR) \
     for ((FROM) = 0, (TR) = (TS)->tr + (FROM) * (TS)->num_states + (TO); \
             (FROM) < (TS)->num_states; ++(FROM), (TR) += (TS)->num_states) \
-        if (borISetSize(TR) > 0)
+        if (pddlISetSize(TR) > 0)
 
 
 /**
@@ -85,7 +85,7 @@ void pddlTSAddTransition(pddl_ts_t *ts, int s1, int s2, int l);
 void pddlTSInitProjToFAMGroup(pddl_ts_t *ts,
                               const pddl_strips_t *strips,
                               const pddl_strips_fact_cross_ref_t *cr,
-                              const bor_iset_t *famgroup);
+                              const pddl_iset_t *famgroup);
 
 /**
  * Create a condensation of ts.
@@ -101,13 +101,13 @@ void pddlTSPruneUnreachableStates(pddl_ts_t *ts, int state);
  * Returns transition leading from abstract state from to abstract state
  * to.
  */
-_bor_inline const bor_iset_t *pddlTSTransition(const pddl_ts_t *ts,
-                                               int from, int to)
+_pddl_inline const pddl_iset_t *pddlTSTransition(const pddl_ts_t *ts,
+                                                 int from, int to)
 {
     return ts->tr + from * ts->num_states + to;
 }
 
-_bor_inline bor_iset_t *pddlTSTransitionW(pddl_ts_t *ts, int from, int to)
+_pddl_inline pddl_iset_t *pddlTSTransitionW(pddl_ts_t *ts, int from, int to)
 {
     return ts->tr + from * ts->num_states + to;
 }

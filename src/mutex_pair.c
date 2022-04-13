@@ -16,10 +16,11 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
 #include "pddl/clique.h"
+#include "alloc.h"
+#include "err.h"
 
 #define FW_MUTEX 0x2
 #define BW_MUTEX 0x4
@@ -30,7 +31,7 @@ void pddlMutexPairsInit(pddl_mutex_pairs_t *m, int fact_size)
 {
     bzero(m, sizeof(*m));
     m->fact_size = fact_size;
-    m->map = BOR_CALLOC_ARR(char, (size_t)fact_size * fact_size);
+    m->map = CALLOC_ARR(char, (size_t)fact_size * fact_size);
 }
 
 void pddlMutexPairsInitStrips(pddl_mutex_pairs_t *m, const pddl_strips_t *s)
@@ -50,7 +51,7 @@ void pddlMutexPairsInitCopy(pddl_mutex_pairs_t *dst,
 void pddlMutexPairsFree(pddl_mutex_pairs_t *m)
 {
     if (m->map != NULL)
-        BOR_FREE(m->map);
+        FREE(m->map);
 }
 
 void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size)
@@ -127,13 +128,13 @@ int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
 }
 
 
-int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const bor_iset_t *fs)
+int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs)
 {
-    const int size = borISetSize(fs);
+    const int size = pddlISetSize(fs);
     for (int i = 0; i < size; ++i){
-        int f1 = borISetGet(fs, i);
+        int f1 = pddlISetGet(fs, i);
         for (int j = i; j < size; ++j){
-            int f2 = borISetGet(fs, j);
+            int f2 = pddlISetGet(fs, j);
             if (M(m, f1, f2))
                 return 1;
         }
@@ -142,11 +143,11 @@ int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const bor_iset_t *fs)
 }
 
 int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
-                                 int fact, const bor_iset_t *fs)
+                                 int fact, const pddl_iset_t *fs)
 {
     int fact2;
 
-    BOR_ISET_FOR_EACH(fs, fact2){
+    PDDL_ISET_FOR_EACH(fs, fact2){
         if (M(m, fact, fact2))
             return 1;
     }
@@ -154,11 +155,11 @@ int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
 }
 
 int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
-                                const bor_iset_t *fs1, const bor_iset_t *fs2)
+                                const pddl_iset_t *fs1, const pddl_iset_t *fs2)
 {
     int f1, f2;
-    BOR_ISET_FOR_EACH(fs1, f1){
-        BOR_ISET_FOR_EACH(fs2, f2){
+    PDDL_ISET_FOR_EACH(fs1, f1){
+        PDDL_ISET_FOR_EACH(fs2, f2){
             if (M(m, f1, f2))
                 return 1;
         }
@@ -168,11 +169,11 @@ int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
 
 void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
                                 int fact,
-                                bor_iset_t *mutex_with)
+                                pddl_iset_t *mutex_with)
 {
     for (int f = 0; f < m->fact_size; ++f){
         if (M(m, fact, f))
-            borISetAdd(mutex_with, f);
+            pddlISetAdd(mutex_with, f);
     }
 }
 
@@ -203,28 +204,28 @@ void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
     pddlMutexPairsFree(&old);
 }
 
-void pddlMutexPairsReduce(pddl_mutex_pairs_t *m, const bor_iset_t *rm_facts)
+void pddlMutexPairsReduce(pddl_mutex_pairs_t *m, const pddl_iset_t *rm_facts)
 {
-    if (borISetSize(rm_facts) == 0)
+    if (pddlISetSize(rm_facts) == 0)
         return;
 
-    int *remap = BOR_CALLOC_ARR(int, m->fact_size);
+    int *remap = CALLOC_ARR(int, m->fact_size);
     int new_size = pddlFactsDelFactsGenRemap(m->fact_size, rm_facts, remap);
     pddlMutexPairsRemapFacts(m, new_size, remap);
     if (remap != NULL)
-        BOR_FREE(remap);
+        FREE(remap);
 }
 
 void pddlMutexPairsAddMGroup(pddl_mutex_pairs_t *mutex,
                              const pddl_mgroup_t *mg)
 {
-    const bor_iset_t *facts = &mg->mgroup;
-    int size = borISetSize(facts);
+    const pddl_iset_t *facts = &mg->mgroup;
+    int size = pddlISetSize(facts);
 
     for (int i = 0; i < size; ++i){
-        int f1 = borISetGet(facts, i);
+        int f1 = pddlISetGet(facts, i);
         for (int j = i + 1; j < size; ++j){
-            int f2 = borISetGet(facts, j);
+            int f2 = pddlISetGet(facts, j);
             pddlMutexPairsAdd(mutex, f1, f2);
             setMutexFlag(mutex, f1, f2, FW_MUTEX);
         }
@@ -240,7 +241,7 @@ void pddlMutexPairsAddMGroups(pddl_mutex_pairs_t *mutex,
     }
 }
 
-static void addMGroup(const bor_iset_t *mg, void *_mgroups)
+static void addMGroup(const pddl_iset_t *mg, void *_mgroups)
 {
     pddl_mgroups_t *mgroups = _mgroups;
     pddlMGroupsAdd(mgroups, mg);
@@ -248,10 +249,10 @@ static void addMGroup(const bor_iset_t *mg, void *_mgroups)
 
 void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups,
-                                    bor_err_t *err)
+                                    pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "MG-h2: ");
-    BOR_INFO2(err, "Inference of h^2 mutex groups...");
+    CTX(err, "mg_h2", "MG-h2");
+    PDDL_INFO2(err, "Inference of h^2 mutex groups...");
     pddl_graph_simple_t graph;
     pddlGraphSimpleInit(&graph, mutex->fact_size);
 
@@ -262,7 +263,7 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
     pddlCliqueFindMaximal(&graph, addMGroup, mgroups);
 
     pddlGraphSimpleFree(&graph);
-    BOR_INFO(err, "Found %d h^2 mutex groups.", mgroups->mgroup_size);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO(err, "Found %d h^2 mutex groups.", mgroups->mgroup_size);
+    CTXEND(err);
 }
 

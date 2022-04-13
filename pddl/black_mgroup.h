@@ -47,8 +47,8 @@ typedef struct pddl_black_mgroups_config pddl_black_mgroups_config_t;
     }
 
 struct pddl_black_mgroup {
-    bor_iset_t mgroup;
-    bor_iset_t mutex_facts;
+    pddl_iset_t mgroup;
+    pddl_iset_t mutex_facts;
 };
 typedef struct pddl_black_mgroup pddl_black_mgroup_t;
 
@@ -64,7 +64,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
                            const pddl_mgroups_t *mgroups,
                            const pddl_mutex_pairs_t *mutex,
                            const pddl_black_mgroups_config_t *cfg,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 void pddlBlackMGroupsFree(pddl_black_mgroups_t *bmgroups);
 

@@ -4,9 +4,60 @@
 #include <pddl/pddl.h>
 #include "process_strips.h"
 
+enum {
+    LIFTED_PLAN_NONE = 0,
+    LIFTED_PLAN_ASTAR,
+    LIFTED_PLAN_GBFS,
+    LIFTED_PLAN_LAZY
+};
+
+enum {
+    LIFTED_PLAN_HEUR_BLIND = 0,
+    LIFTED_PLAN_HEUR_HOMO_LMC,
+    LIFTED_PLAN_HEUR_HOMO_FF,
+};
+
+enum {
+    GROUND_TRIE = 0,
+    GROUND_SQL,
+    GROUND_DL
+};
+
+enum {
+    MG_NONE = 0,
+    MG_FAM,
+    MG_H2
+};
+
+enum {
+    GROUND_PLAN_NONE = 0,
+    GROUND_PLAN_ASTAR,
+    GROUND_PLAN_GBFS,
+    GROUND_PLAN_LAZY
+};
+
+enum {
+    GROUND_PLAN_HEUR_BLIND = 0,
+    GROUND_PLAN_HEUR_LMC,
+    GROUND_PLAN_HEUR_MAX,
+    GROUND_PLAN_HEUR_ADD,
+    GROUND_PLAN_HEUR_FF,
+    GROUND_PLAN_HEUR_FLOW,
+    GROUND_PLAN_HEUR_POT
+};
+
+enum {
+    SYMBA_NONE = 0,
+    SYMBA_FW,
+    SYMBA_BW,
+    SYMBA_FWBW,
+};
+
 struct options {
     int help;
     int max_mem;
+    char *log_out;
+    char *prop_out;
     pddl_files_t files;
 
     struct {
@@ -32,24 +83,17 @@ struct options {
     } lifted_endomorph;
 
     struct {
-        int enable;
-        pddl_search_lifted_t *(*search_fn)(const pddl_t *pddl,
-                                           pddl_homomorphism_heur_t *heur,
-                                           bor_err_t *err);
-        pddl_homomorphism_heur_t *(*heur_fn)(const pddl_t *pddl,
-                                             const pddl_homomorphism_config_t *cfg,
-                                             bor_err_t *err);
+        int search;
+        int heur;
         pddl_homomorphism_config_t homomorph_cfg;
+        int random_seed;
         int homomorph_samples;
         char *plan_out;
     } lifted_planner;
 
     struct {
         pddl_ground_config_t cfg;
-        int (*method_fn)(pddl_strips_t *,
-                         const pddl_t *,
-                         const pddl_ground_config_t *,
-                         bor_err_t *);
+        int method;
 
         int mgroup;
         int mgroup_remove_subsets;
@@ -59,16 +103,18 @@ struct options {
     struct {
         int compile_away_cond_eff;
         pddl_process_strips_t process;
+        char *py_out;
+        int stop;
     } strips;
 
     struct {
-        int fam;
-        int h2;
+        int method;
         int fam_lmg;
         int fam_maximal;
         float fam_time_limit;
         int fam_limit;
         int remove_subsets;
+        int cover_number;
         char *out;
     } mg;
 
@@ -85,20 +131,44 @@ struct options {
         char *out;
         int pretty_print_vars;
         int pretty_print_cg;
+        int pot;
+        pddl_hpot_config_t pot_cfg;
+        int to_tnf;
+        int to_tnf_multiply;
     } fdr;
 
     struct {
+        int search;
+        int heur;
+        char *plan_out;
+        pddl_hpot_config_t pot_cfg;
+    } ground_planner;
+
+    struct {
+        int search;
+        pddl_symbolic_task_config_t cfg;
+        int bw_off_if_constr_failed;
+        char *out;
+    } symba;
+
+    struct {
         int lmg;
+        int reversibility_simple;
+        int reversibility_iterative;
+        int mgroups;
     } report;
 
     struct {
-        int enable;
-        char *plan_out;
-    } astar;
+        int max_depth;
+        int use_mutex;
+    } reversibility;
 };
 typedef struct options options_t;
 extern options_t opt;
 
-int setOptions(int argc, char *argv[], bor_err_t *err);
+int setOptions(int argc, char *argv[], pddl_err_t *err);
+
+extern FILE *log_out;
+extern FILE *prop_out;
 
 #endif /* OPTIONS_H */

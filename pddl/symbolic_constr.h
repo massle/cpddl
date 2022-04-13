@@ -30,9 +30,9 @@ struct pddl_symbolic_constr {
     pddl_symbolic_vars_t *vars;
 
     pddl_mgroups_t mgroup;
-    bor_iset_t *fact_mutex;
-    bor_iset_t *fact_mutex_fw;
-    bor_iset_t *fact_mutex_bw;
+    pddl_iset_t *fact_mutex;
+    pddl_iset_t *fact_mutex_fw;
+    pddl_iset_t *fact_mutex_bw;
     pddl_disambiguate_t disambiguate;
 
     pddl_bdds_t fw_mutex;
@@ -53,7 +53,7 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
                             const pddl_mgroups_t *mgroup,
                             int max_nodes,
                             float max_time,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr);
 

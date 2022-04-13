@@ -46,7 +46,7 @@ typedef void (*pddl_strips_ground_unify_new_atom_fn)
 struct pddl_strips_ground {
     const pddl_t *pddl;
     pddl_ground_config_t cfg;
-    bor_err_t *err;
+    pddl_err_t *err;
     pddl_prep_actions_t action;
     pddl_lifted_mgroups_t goal_mgroup;
 
@@ -74,7 +74,7 @@ typedef struct pddl_strips_ground pddl_strips_ground_t;
 int pddlStripsGround(pddl_strips_t *strips,
                      const pddl_t *pddl,
                      const pddl_ground_config_t *cfg,
-                     bor_err_t *err);
+                     pddl_err_t *err);
 
 
 /**
@@ -83,7 +83,7 @@ int pddlStripsGround(pddl_strips_t *strips,
 int pddlStripsGroundStart(pddl_strips_ground_t *g,
                           const pddl_t *pddl,
                           const pddl_ground_config_t *cfg,
-                          bor_err_t *err,
+                          pddl_err_t *err,
                           pddl_strips_ground_unify_new_atom_fn new_atom,
                           void *new_atom_data);
 

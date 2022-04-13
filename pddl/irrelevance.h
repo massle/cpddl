@@ -36,18 +36,18 @@ extern "C" {
  * during the analysis.
  */
 int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
-                            bor_iset_t *irrelevant_facts,
-                            bor_iset_t *irrelevant_ops,
-                            bor_iset_t *static_facts,
-                            bor_err_t *err);
+                            pddl_iset_t *irrelevant_facts,
+                            pddl_iset_t *irrelevant_ops,
+                            pddl_iset_t *static_facts,
+                            pddl_err_t *err);
 
 /**
  * Irrelevance analysis working on FDR variables.
  */
 int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
-                               bor_iset_t *irrelevant_vars,
-                               bor_iset_t *irrelevant_ops,
-                               bor_err_t *err);
+                               pddl_iset_t *irrelevant_vars,
+                               pddl_iset_t *irrelevant_ops,
+                               pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

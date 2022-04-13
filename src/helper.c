@@ -19,14 +19,16 @@
 
 #include "helper.h"
 
-void pddlISetRemap(bor_iset_t *dst, const int *remap)
+/*
+void pddlISetRemap(pddl_iset_t *dst, const int *remap)
 {
-    BOR_ISET(tmp);
-    borISetUnion(&tmp, dst);
+    PDDL_ISET(tmp);
+    pddlISetUnion(&tmp, dst);
 
-    borISetEmpty(dst);
+    pddlISetEmpty(dst);
     int v;
-    BOR_ISET_FOR_EACH(&tmp, v)
-        borISetAdd(dst, remap[v]);
-    borISetFree(&tmp);
+    PDDL_ISET_FOR_EACH(&tmp, v)
+        pddlISetAdd(dst, remap[v]);
+    pddlISetFree(&tmp);
 }
+*/

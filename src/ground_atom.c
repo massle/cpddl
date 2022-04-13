@@ -17,12 +17,11 @@
  * See the License for more information.
  */
 
-#include <boruvka/compiler.h>
-#include <boruvka/alloc.h>
-#include <boruvka/hfunc.h>
-#include <boruvka/sort.h>
+#include "pddl/hfunc.h"
+#include <pddl/sort.h>
 #include "pddl/ground_atom.h"
 #include "pddl/pddl_struct.h"
+#include "alloc.h"
 #include "err.h"
 #include "assert.h"
 
@@ -38,17 +37,17 @@ static int pddlGroundAtomCmp(const pddl_ground_atom_t *a1,
                              const pddl_ground_atom_t *a2);
 
 
-static bor_htable_key_t htableKey(const bor_list_t *key, void *_)
+static pddl_htable_key_t htableKey(const pddl_list_t *key, void *_)
 {
-    pddl_ground_atom_t *a = BOR_LIST_ENTRY(key, pddl_ground_atom_t, htable);
+    pddl_ground_atom_t *a = PDDL_LIST_ENTRY(key, pddl_ground_atom_t, htable);
     return a->hash;
 }
 
-static int htableEq(const bor_list_t *k1,
-                    const bor_list_t *k2, void *_)
+static int htableEq(const pddl_list_t *k1,
+                    const pddl_list_t *k2, void *_)
 {
-    pddl_ground_atom_t *a1 = BOR_LIST_ENTRY(k1, pddl_ground_atom_t, htable);
-    pddl_ground_atom_t *a2 = BOR_LIST_ENTRY(k2, pddl_ground_atom_t, htable);
+    pddl_ground_atom_t *a1 = PDDL_LIST_ENTRY(k1, pddl_ground_atom_t, htable);
+    pddl_ground_atom_t *a2 = PDDL_LIST_ENTRY(k2, pddl_ground_atom_t, htable);
     return pddlGroundAtomCmp(a1, a2) == 0;
 }
 
@@ -56,27 +55,27 @@ static uint64_t pddlGroundAtomHash(const pddl_ground_atom_t *a)
 {
     uint64_t hash;
 
-    hash = borCityHash_32(&a->pred, sizeof(int));
+    hash = pddlCityHash_32(&a->pred, sizeof(int));
     hash <<= 32u;
     hash |= 0xffffffffu \
-                & borCityHash_32(a->arg, sizeof(pddl_obj_id_t) * a->arg_size);
+                & pddlCityHash_32(a->arg, sizeof(pddl_obj_id_t) * a->arg_size);
     return hash;
 }
 
 void pddlGroundAtomDel(pddl_ground_atom_t *a)
 {
     if (a->arg != NULL)
-        BOR_FREE(a->arg);
-    BOR_FREE(a);
+        FREE(a->arg);
+    FREE(a);
 }
 
 
 pddl_ground_atom_t *pddlGroundAtomClone(const pddl_ground_atom_t *a)
 {
-    pddl_ground_atom_t *c = BOR_ALLOC(pddl_ground_atom_t);
+    pddl_ground_atom_t *c = ALLOC(pddl_ground_atom_t);
     *c = *a;
     if (a->arg != NULL){
-        c->arg = BOR_ALLOC_ARR(pddl_obj_id_t, c->arg_size);
+        c->arg = ALLOC_ARR(pddl_obj_id_t, c->arg_size);
         memcpy(c->arg, a->arg, sizeof(pddl_obj_id_t) * c->arg_size);
     }
     return c;
@@ -102,8 +101,8 @@ static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
         }else{
             ga->atom_alloc *= 2;
         }
-        ga->atom = BOR_REALLOC_ARR(ga->atom,
-                                   pddl_ground_atom_t *, ga->atom_alloc);
+        ga->atom = REALLOC_ARR(ga->atom,
+                               pddl_ground_atom_t *, ga->atom_alloc);
     }
 
     g = pddlGroundAtomClone(a);
@@ -115,19 +114,19 @@ static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
 void pddlGroundAtomsInit(pddl_ground_atoms_t *ga)
 {
     bzero(ga, sizeof(*ga));
-    ga->htable = borHTableNew(htableKey, htableEq, ga);
+    ga->htable = pddlHTableNew(htableKey, htableEq, ga);
 }
 
 void pddlGroundAtomsFree(pddl_ground_atoms_t *ga)
 {
     if (ga->htable != NULL)
-        borHTableDel(ga->htable);
+        pddlHTableDel(ga->htable);
     for (int i = 0; i < ga->atom_size; ++i){
         if (ga->atom[i] != NULL)
             pddlGroundAtomDel(ga->atom[i]);
     }
     if (ga->atom != NULL)
-        BOR_FREE(ga->atom);
+        FREE(ga->atom);
 }
 
 static void groundAtom(pddl_ground_atom_t *a,
@@ -151,20 +150,20 @@ pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
                                            const pddl_cond_atom_t *c,
                                            const pddl_obj_id_t *arg)
 {
-    bor_list_t *found;
+    pddl_list_t *found;
     pddl_ground_atom_t *out;
     PDDL_GROUND_ATOM_STACK(loc, c->arg_size);
 
     groundAtom(&loc, c, arg);
     loc.hash = pddlGroundAtomHash(&loc);
-    if ((found = borHTableFind(ga->htable, &loc.htable)) != NULL){
-        out = BOR_LIST_ENTRY(found, pddl_ground_atom_t, htable);
+    if ((found = pddlHTableFind(ga->htable, &loc.htable)) != NULL){
+        out = PDDL_LIST_ENTRY(found, pddl_ground_atom_t, htable);
         return out;
     }
 
     out = nextNewGroundAtom(ga, &loc);
-    borListInit(&out->htable);
-    borHTableInsert(ga->htable, &out->htable);
+    pddlListInit(&out->htable);
+    pddlHTableInsert(ga->htable, &out->htable);
     return out;
 }
 
@@ -173,7 +172,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
                                            const pddl_obj_id_t *arg,
                                            int arg_size)
 {
-    bor_list_t *found;
+    pddl_list_t *found;
     pddl_ground_atom_t *out;
     PDDL_GROUND_ATOM_STACK(loc, arg_size);
 
@@ -184,14 +183,14 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
     loc.layer = 0;
 
     loc.hash = pddlGroundAtomHash(&loc);
-    if ((found = borHTableFind(ga->htable, &loc.htable)) != NULL){
-        out = BOR_LIST_ENTRY(found, pddl_ground_atom_t, htable);
+    if ((found = pddlHTableFind(ga->htable, &loc.htable)) != NULL){
+        out = PDDL_LIST_ENTRY(found, pddl_ground_atom_t, htable);
         return out;
     }
 
     out = nextNewGroundAtom(ga, &loc);
-    borListInit(&out->htable);
-    borHTableInsert(ga->htable, &out->htable);
+    pddlListInit(&out->htable);
+    pddlHTableInsert(ga->htable, &out->htable);
     return out;
 }
 
@@ -200,14 +199,14 @@ pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
                                             const pddl_cond_atom_t *c,
                                             const pddl_obj_id_t *arg)
 {
-    bor_list_t *found;
+    pddl_list_t *found;
     pddl_ground_atom_t *out;
     PDDL_GROUND_ATOM_STACK(loc, c->arg_size);
 
     groundAtom(&loc, c, arg);
     loc.hash = pddlGroundAtomHash(&loc);
-    if ((found = borHTableFind(ga->htable, &loc.htable)) != NULL){
-        out = BOR_LIST_ENTRY(found, pddl_ground_atom_t, htable);
+    if ((found = pddlHTableFind(ga->htable, &loc.htable)) != NULL){
+        out = PDDL_LIST_ENTRY(found, pddl_ground_atom_t, htable);
         return out;
     }
     return NULL;
@@ -218,7 +217,7 @@ pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
                                             const pddl_obj_id_t *arg,
                                             int arg_size)
 {
-    bor_list_t *found;
+    pddl_list_t *found;
     pddl_ground_atom_t *out;
     PDDL_GROUND_ATOM_STACK(loc, arg_size);
 
@@ -229,8 +228,8 @@ pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
     loc.layer = 0;
 
     loc.hash = pddlGroundAtomHash(&loc);
-    if ((found = borHTableFind(ga->htable, &loc.htable)) != NULL){
-        out = BOR_LIST_ENTRY(found, pddl_ground_atom_t, htable);
+    if ((found = pddlHTableFind(ga->htable, &loc.htable)) != NULL){
+        out = PDDL_LIST_ENTRY(found, pddl_ground_atom_t, htable);
         return out;
     }
     return NULL;

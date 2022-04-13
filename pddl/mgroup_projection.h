@@ -30,8 +30,8 @@ extern "C" {
 
 struct pddl_mgroup_projection {
     int num_states;
-    bor_iset_t mgroup; /*!< Facts, each corresponding to an abstract state */
-    bor_iset_t *tr; /*!< Adjecancy matrix operato IDs as labels */
+    pddl_iset_t mgroup; /*!< Facts, each corresponding to an abstract state */
+    pddl_iset_t *tr; /*!< Adjecancy matrix operato IDs as labels */
 };
 typedef struct pddl_mgroup_projection pddl_mgroup_projection_t;
 
@@ -40,7 +40,7 @@ typedef struct pddl_mgroup_projection pddl_mgroup_projection_t;
  */
 void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
                               const pddl_strips_t *strips,
-                              const bor_iset_t *mgroup,
+                              const pddl_iset_t *mgroup,
                               const pddl_mutex_pairs_t *mutex,
                               const pddl_strips_fact_cross_ref_t *cref);
 
@@ -65,7 +65,7 @@ int pddlMGroupProjectionMaxOutdegree(const pddl_mgroup_projection_t *p);
  * TODO
  */
 void pddlMGroupProjectionPruneUnreachable(pddl_mgroup_projection_t *p,
-                                          const bor_iset_t *states,
+                                          const pddl_iset_t *states,
                                           int backward);
 
 /**
@@ -85,7 +85,7 @@ void pddlMGroupProjectionPruneUnreachableFromGoal(pddl_mgroup_projection_t *p,
  * Restrict all labels to the given set of operators.
  */
 void pddlMGroupProjectionRestrictOps(pddl_mgroup_projection_t *p,
-                                     const bor_iset_t *ops);
+                                     const pddl_iset_t *ops);
 
 void pddlMGroupProjectionPrint(const pddl_mgroup_projection_t *p,
                                const pddl_strips_t *strips,

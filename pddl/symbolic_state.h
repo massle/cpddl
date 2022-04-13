@@ -20,11 +20,11 @@
 #ifndef __PDDL_SYMBOLIC_STATE_H__
 #define __PDDL_SYMBOLIC_STATE_H__
 
-#include <boruvka/extarr.h>
-#include <boruvka/pairheap.h>
-#include <boruvka/rbtree.h>
-#include <boruvka/iset.h>
-#include <boruvka/err.h>
+#include <pddl/extarr.h>
+#include <pddl/pairheap.h>
+#include <pddl/rbtree.h>
+#include <pddl/iset.h>
+#include <pddl/err.h>
 #include <pddl/bdd.h>
 #include <pddl/cost.h>
 
@@ -35,35 +35,35 @@ extern "C" {
 struct pddl_symbolic_state {
     int id; /*!< ID of this state */
     int parent_id; /*!< Parent state ID */
-    bor_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
+    pddl_iset_t parent_ids; /*!< IDs of parent state if this is a merge-state */
     int trans_id; /*!< ID of the transitions that achieved this state */
     pddl_cost_t cost; /*!< Cost of the state: g value + zero cost g value */
     pddl_cost_t heur; /*!< Heuristic estimate */
     pddl_cost_t f_value; /*!< .cost + .heur */
     pddl_bdd_t *bdd; /*!< BDD representing the state */
     int is_closed; /*!< True if the state is closed */
-    bor_pairheap_node_t heap;
-    bor_pairheap_node_t heap_cost;
-    bor_rbtree_node_t rbtree;
+    pddl_pairheap_node_t heap;
+    pddl_pairheap_node_t heap_cost;
+    pddl_rbtree_node_t rbtree;
 };
 typedef struct pddl_symbolic_state pddl_symbolic_state_t;
 
 struct pddl_symbolic_all_closed {
     pddl_bdd_t *closed;
     pddl_cost_t g_value;
-    bor_rbtree_node_t rbtree;
+    pddl_rbtree_node_t rbtree;
 };
 typedef struct pddl_symbolic_all_closed pddl_symbolic_all_closed_t;
 
 struct pddl_symbolic_states {
-    bor_extarr_t *pool; /*!< Data pool */
+    pddl_extarr_t *pool; /*!< Data pool */
     int num_states; /*!< Number of states stored in .pool */
-    bor_pairheap_t *open; /*!< Open list */
-    bor_pairheap_t *open_cost; /*!< Costs of states in the open list */
-    bor_rbtree_t *closed; /*!< Closed states stored with increasing cost */
+    pddl_pairheap_t *open; /*!< Open list */
+    pddl_pairheap_t *open_cost; /*!< Costs of states in the open list */
+    pddl_rbtree_t *closed; /*!< Closed states stored with increasing cost */
     int num_closed; /*!< Number of closed states */
     pddl_bdd_t *all_closed; /*!< BDD representing all closed states */
-    bor_rbtree_t *all_closed_g; /*!< All closed states for each g-value */
+    pddl_rbtree_t *all_closed_g; /*!< All closed states for each g-value */
     pddl_cost_t bound; /*!< Bound for the cost of the plan */
 };
 typedef struct pddl_symbolic_states pddl_symbolic_states_t;
@@ -74,7 +74,7 @@ typedef struct pddl_symbolic_states pddl_symbolic_states_t;
 void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
                             pddl_bdd_manager_t *mgr,
                             int use_heur_inconsistent,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 /**
  * Frees allocated memory.

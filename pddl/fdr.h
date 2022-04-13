@@ -19,7 +19,7 @@
 #ifndef __PDDL_FDR_H__
 #define __PDDL_FDR_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/fdr_var.h>
 #include <pddl/fdr_op.h>
 
@@ -45,7 +45,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_mutex_pairs_t *mutex,
                           unsigned fdr_var_flags,
                           unsigned fdr_flags,
-                          bor_err_t *err);
+                          pddl_err_t *err);
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);
 
@@ -58,17 +58,17 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr);
  * Delete the specified facts and operators.
  */
 void pddlFDRReduce(pddl_fdr_t *fdr,
-                   const bor_iset_t *del_vars,
-                   const bor_iset_t *del_facts,
-                   const bor_iset_t *del_ops);
+                   const pddl_iset_t *del_vars,
+                   const pddl_iset_t *del_facts,
+                   const pddl_iset_t *del_ops);
 
 /**
  * Returns true if the plan is a relaxed plan of the problem.
  */
 int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
                          const int *fdr_state,
-                         const bor_iarr_t *plan,
-                         bor_err_t *err);
+                         const pddl_iarr_t *plan,
+                         pddl_err_t *err);
 
 
 /** Prevail conditions are copied to effects -- this creates a true TNF,
@@ -91,7 +91,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     const pddl_fdr_t *fdr_in,
                                     const pddl_mutex_pairs_t *mutex,
                                     unsigned flags,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,

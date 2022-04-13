@@ -102,7 +102,7 @@ void pddlLiftedMGroupsInferFAMGroups(
                             const pddl_t *pddl,
                             const pddl_lifted_mgroups_infer_limits_t *limit,
                             pddl_lifted_mgroups_t *lm,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 /**
  * Find monotonicity invariants (as in fast-downward) and stores them in
@@ -114,7 +114,7 @@ void pddlLiftedMGroupsInferMonotonicity(
                             const pddl_lifted_mgroups_infer_limits_t *limit,
                             pddl_lifted_mgroups_t *inv,
                             pddl_lifted_mgroups_t *mgroups,
-                            bor_err_t *err);
+                            pddl_err_t *err);
 
 /**
  * Determine which lifted mgroups are "exactly-one" type and sets the
@@ -122,7 +122,7 @@ void pddlLiftedMGroupsInferMonotonicity(
  */
 int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_lifted_mgroups_t *lm,
-                                   bor_err_t *err);
+                                   pddl_err_t *err);
 
 /**
  * Determine which lifted mgroups are static, i.e., it is either
@@ -131,7 +131,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
  */
 int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_lifted_mgroups_t *lm,
-                               bor_err_t *err);
+                               pddl_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

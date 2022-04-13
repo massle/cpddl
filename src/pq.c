@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include <pddl/pq.h>
+#include "alloc.h"
 
 static void pddlPQBucketQueueInit(pddl_pq_bucket_queue_t *q);
 static void pddlPQBucketQueueFree(pddl_pq_bucket_queue_t *q);
@@ -93,7 +93,7 @@ void pddlPQUpdate(pddl_pq_t *q, int key, pddl_pq_el_t *el)
 static void pddlPQBucketQueueInit(pddl_pq_bucket_queue_t *q)
 {
     q->bucket_size = PDDL_PQ_BUCKET_SIZE;
-    q->bucket = BOR_CALLOC_ARR(pddl_pq_bucket_t, q->bucket_size);
+    q->bucket = CALLOC_ARR(pddl_pq_bucket_t, q->bucket_size);
     q->lowest_key = q->bucket_size;
     q->size = 0;
 }
@@ -104,9 +104,9 @@ static void pddlPQBucketQueueFree(pddl_pq_bucket_queue_t *q)
 
     for (i = 0; i < q->bucket_size; ++i){
         if (q->bucket[i].el)
-            BOR_FREE(q->bucket[i].el);
+            FREE(q->bucket[i].el);
     }
-    BOR_FREE(q->bucket);
+    FREE(q->bucket);
 }
 
 static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
@@ -115,9 +115,9 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
     pddl_pq_bucket_t *bucket;
 
     if (key >= PDDL_PQ_BUCKET_SIZE){
-        BOR_FATAL("pddlPQBucketQueue: key %d is over a size of"
-                  " the bucket queue, which is %d.",
-                  key, PDDL_PQ_BUCKET_SIZE);
+        PDDL_FATAL("pddlPQBucketQueue: key %d is over a size of"
+                   " the bucket queue, which is %d.",
+                   key, PDDL_PQ_BUCKET_SIZE);
     }
 
     bucket = q->bucket + key;
@@ -127,8 +127,8 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
         }else{
             bucket->alloc *= PDDL_PQ_BUCKET_EXPANSION_FACTOR;
         }
-        bucket->el = BOR_REALLOC_ARR(bucket->el, pddl_pq_el_t *,
-                                     bucket->alloc);
+        bucket->el = REALLOC_ARR(bucket->el, pddl_pq_el_t *,
+                                 bucket->alloc);
 
     }
     el->key = key;
@@ -187,7 +187,7 @@ static void pddlPQBucketQueueToHeapQueue(pddl_pq_bucket_queue_t *b,
             pddlPQHeapQueuePush(h, i, bucket->el[j]);
         }
         if (bucket->el != NULL)
-            BOR_FREE(bucket->el);
+            FREE(bucket->el);
         bucket->el = NULL;
         bucket->size = bucket->alloc = 0;
     }
@@ -195,38 +195,38 @@ static void pddlPQBucketQueueToHeapQueue(pddl_pq_bucket_queue_t *b,
 }
 
 
-static int heapLT(const bor_pairheap_node_t *_n1,
-                  const bor_pairheap_node_t *_n2, void *_)
+static int heapLT(const pddl_pairheap_node_t *_n1,
+                  const pddl_pairheap_node_t *_n2, void *_)
 {
-    pddl_pq_el_t *e1 = bor_container_of(_n1, pddl_pq_el_t, conn.heap);
-    pddl_pq_el_t *e2 = bor_container_of(_n2, pddl_pq_el_t, conn.heap);
+    pddl_pq_el_t *e1 = pddl_container_of(_n1, pddl_pq_el_t, conn.heap);
+    pddl_pq_el_t *e2 = pddl_container_of(_n2, pddl_pq_el_t, conn.heap);
     return e1->key <= e2->key;
 }
 
 static void pddlPQHeapQueueInit(pddl_pq_heap_queue_t *q)
 {
-    q->heap = borPairHeapNew(heapLT, NULL);
+    q->heap = pddlPairHeapNew(heapLT, NULL);
 }
 
 static void pddlPQHeapQueueFree(pddl_pq_heap_queue_t *q)
 {
-    borPairHeapDel(q->heap);
+    pddlPairHeapDel(q->heap);
 }
 
 static void pddlPQHeapQueuePush(pddl_pq_heap_queue_t *q,
                                 int key, pddl_pq_el_t *el)
 {
     el->key = key;
-    borPairHeapAdd(q->heap, &el->conn.heap);
+    pddlPairHeapAdd(q->heap, &el->conn.heap);
 }
 
 static pddl_pq_el_t *pddlPQHeapQueuePop(pddl_pq_heap_queue_t *q, int *key)
 {
-    bor_pairheap_node_t *hn;
+    pddl_pairheap_node_t *hn;
     pddl_pq_el_t *el;
 
-    hn = borPairHeapExtractMin(q->heap);
-    el = bor_container_of(hn, pddl_pq_el_t, conn.heap);
+    hn = pddlPairHeapExtractMin(q->heap);
+    el = pddl_container_of(hn, pddl_pq_el_t, conn.heap);
     if (key)
         *key = el->key;
     return el;
@@ -236,5 +236,5 @@ static void pddlPQHeapQueueUpdate(pddl_pq_heap_queue_t *q,
                                   int key, pddl_pq_el_t *el)
 {
     el->key = key;
-    borPairHeapUpdate(q->heap, &el->conn.heap);
+    pddlPairHeapUpdate(q->heap, &el->conn.heap);
 }

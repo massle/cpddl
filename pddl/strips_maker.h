@@ -20,8 +20,7 @@
 #ifndef __PDDL_STRIPS_MAKER_H__
 #define __PDDL_STRIPS_MAKER_H__
 
-#include <boruvka/htable.h>
-#include <boruvka/extarr.h>
+#include <pddl/extarr.h>
 #include <pddl/common.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/strips.h>
@@ -33,8 +32,8 @@ extern "C" {
 
 struct pddl_ground_action_args {
     int id;
-    bor_list_t htable; /*!< Connection to hash table .action_args */
-    bor_htable_key_t hash; /*!< Hash key */
+    pddl_list_t htable; /*!< Connection to hash table .action_args */
+    pddl_htable_key_t hash; /*!< Hash key */
     int action_id; /*!< ID of the action */
     int action_id2; /*!< Additional ID used for distinguishing conditional
                          effects */
@@ -48,9 +47,9 @@ struct pddl_strips_maker {
     pddl_ground_atoms_t ground_atom;
     pddl_ground_atoms_t ground_atom_static;
     pddl_ground_atoms_t ground_func;
-    bor_htable_t *action_args;
+    pddl_htable_t *action_args;
     int num_action_args;
-    bor_extarr_t *action_args_arr;
+    pddl_extarr_t *action_args_arr;
 };
 typedef struct pddl_strips_maker pddl_strips_maker_t;
 
@@ -112,7 +111,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
                               const pddl_t *pddl,
                               const pddl_ground_config_t *cfg,
                               pddl_strips_t *strips,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 
 pddl_ground_action_args_t *pddlStripsMakerActionArgs(pddl_strips_maker_t *sm,
                                                      int id);

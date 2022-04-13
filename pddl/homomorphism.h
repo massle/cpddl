@@ -19,7 +19,7 @@
 #ifndef __PDDL_HOMOMORPHISM_H__
 #define __PDDL_HOMOMORPHISM_H__
 
-#include <boruvka/rand-mt.h>
+#include <pddl/rand-mt.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/endomorphism.h>
 
@@ -37,7 +37,7 @@ struct pddl_homomorphism_config {
     int use_endomorphism; /*!< If true, interleave collapsing with lifted
                                endomorphisms */
     pddl_endomorphism_config_t endomorphism_cfg;
-    bor_iset_t collapse_types; /*!< Set of types to collapse each to a
+    pddl_iset_t collapse_types; /*!< Set of types to collapse each to a
                                     single object */
     float rm_ratio; /*!< Ratio of objects that should be removed
                          -- for *_RAND_* types */
@@ -51,7 +51,7 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
         PDDL_HOMOMORPHISM_RAND_OBJS, /* .type */ \
         0, /* .use_endomorphism */ \
         PDDL_ENDOMORPHISM_CONFIG_INIT, /* .endomorphism_cfg */ \
-        BOR_ISET_INIT, /*. collapse_types */ \
+        PDDL_ISET_INIT, /*. collapse_types */ \
         0.5, /* .rm_ratio */ \
         6899, /* .random_seed */ \
         1, /* .keep_goal_objs */ \
@@ -60,7 +60,7 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
 void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
                                const char *prefix,
-                               bor_err_t *err);
+                               pddl_err_t *err);
 
 
 /**
@@ -70,14 +70,14 @@ int pddlHomomorphism(pddl_t *homo_image,
                      const pddl_t *src,
                      const pddl_homomorphism_config_t *cfg,
                      pddl_obj_id_t *obj_map,
-                     bor_err_t *err);
+                     pddl_err_t *err);
 
 struct pddl_homomorphic_task {
     pddl_t task; /*!< Homomorphic image of the input task */
     int input_obj_size; /*!< Number of objects in the input task */
     pddl_obj_id_t *obj_map; /*!< Mapping from object IDs of the input task to
                                  object IDs of .task */
-    bor_rand_mt_t *rnd; /*!< Random number generator */
+    pddl_rand_mt_t *rnd; /*!< Random number generator */
 };
 typedef struct pddl_homomorphic_task pddl_homomorphic_task_t;
 
@@ -102,7 +102,7 @@ void pddlHomomorphicTaskSeed(pddl_homomorphic_task_t *h, uint32_t seed);
  */
 int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
                                     int type,
-                                    bor_err_t *err);
+                                    pddl_err_t *err);
 
 /**
  * Collapse random pair of objects from the same minimal type.
@@ -111,7 +111,7 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
  */
 int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
                                           int preserve_goals,
-                                          bor_err_t *err);
+                                          pddl_err_t *err);
 
 /**
  * Collapse a pair of objects that are closest to each other in the
@@ -119,7 +119,7 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
  */
 int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
                                        int preserve_goals,
-                                       bor_err_t *err);
+                                       pddl_err_t *err);
 
 /**
  * Collapse pair of objects so that the image of init is within {max_depth}
@@ -128,7 +128,7 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
 int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
                                    int preserve_goals,
                                    int max_depth,
-                                   bor_err_t *err);
+                                   pddl_err_t *err);
 
 /**
  * Apply relaxed endomorphism on the task.
@@ -136,7 +136,7 @@ int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
 int pddlHomomorphicTaskApplyRelaxedEndomorphism(
             pddl_homomorphic_task_t *h,
             const pddl_endomorphism_config_t *cfg,
-            bor_err_t *err);
+            pddl_err_t *err);
 
 
 struct pddl_homomorphic_task_method {
@@ -145,13 +145,13 @@ struct pddl_homomorphic_task_method {
     int arg_preserve_goals;
     int arg_max_depth;
     pddl_endomorphism_config_t arg_endomorphism_cfg;
-    bor_list_t conn;
+    pddl_list_t conn;
 };
 typedef struct pddl_homomorphic_task_method pddl_homomorphic_task_method_t;
 
 struct pddl_homomorphic_task_reduce {
     int target_obj_size;
-    bor_list_t method;
+    pddl_list_t method;
 };
 typedef struct pddl_homomorphic_task_reduce pddl_homomorphic_task_reduce_t;
 
@@ -172,7 +172,7 @@ void pddlHomomorphicTaskReduceAddRelaxedEndomorphism(
             const pddl_endomorphism_config_t *cfg);
 int pddlHomomorphicTaskReduce(pddl_homomorphic_task_reduce_t *r,
                               pddl_homomorphic_task_t *h,
-                              bor_err_t *err);
+                              pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

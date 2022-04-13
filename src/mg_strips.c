@@ -21,16 +21,17 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "pddl/mg_strips.h"
+#include "alloc.h"
 #include "assert.h"
 
 static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
                                  const pddl_mgroup_t *mg_in)
 {
-    if (borISetIsDisjunct(&mg_in->mgroup, &mg_strips->strips.init))
+    if (pddlISetIsDisjunct(&mg_in->mgroup, &mg_strips->strips.init))
         return;
 
-    BOR_ISET(facts);
-    borISetUnion(&facts, &mg_in->mgroup);
+    PDDL_ISET(facts);
+    pddlISetUnion(&facts, &mg_in->mgroup);
 
     pddl_mgroup_t *mg = pddlMGroupsAdd(&mg_strips->mg, &facts);
     if (!pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &facts)){
@@ -38,14 +39,14 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
         pddlFactInit(&none_of_those);
         int name_size = 5;
         int fact_id;
-        BOR_ISET_FOR_EACH(&facts, fact_id){
+        PDDL_ISET_FOR_EACH(&facts, fact_id){
             name_size += strlen(mg_strips->strips.fact.fact[fact_id]->name);
             name_size += 1;
         }
-        none_of_those.name = BOR_ALLOC_ARR(char, name_size);
+        none_of_those.name = ALLOC_ARR(char, name_size);
         char *cur = none_of_those.name;
         cur += sprintf(cur, "NOT:");
-        BOR_ISET_FOR_EACH(&facts, fact_id){
+        PDDL_ISET_FOR_EACH(&facts, fact_id){
             cur += sprintf(cur, "%s;",
                            mg_strips->strips.fact.fact[fact_id]->name);
         }
@@ -53,24 +54,24 @@ static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
 
         int new_fact_id = pddlFactsAdd(&mg_strips->strips.fact, &none_of_those);
         ASSERT(new_fact_id == mg_strips->strips.fact.fact_size - 1);
-        borISetAdd(&mg->mgroup, new_fact_id);
+        pddlISetAdd(&mg->mgroup, new_fact_id);
         pddlFactFree(&none_of_those);
 
         for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id){
             pddl_strips_op_t *op = mg_strips->strips.op.op[op_id];
-            int in_del = !borISetIsDisjunct(&op->del_eff, &facts);
-            int in_add = !borISetIsDisjunct(&op->add_eff, &facts);
+            int in_del = !pddlISetIsDisjunct(&op->del_eff, &facts);
+            int in_add = !pddlISetIsDisjunct(&op->add_eff, &facts);
             if (in_del && !in_add)
-                borISetAdd(&op->add_eff, new_fact_id);
+                pddlISetAdd(&op->add_eff, new_fact_id);
             if (!in_del && in_add)
-                borISetAdd(&op->del_eff, new_fact_id);
+                pddlISetAdd(&op->del_eff, new_fact_id);
         }
 
-        if (borISetIsDisjunct(&mg_strips->strips.init, &facts))
-            borISetAdd(&mg_strips->strips.init, new_fact_id);
+        if (pddlISetIsDisjunct(&mg_strips->strips.init, &facts))
+            pddlISetAdd(&mg_strips->strips.init, new_fact_id);
     }
 
-    borISetFree(&facts);
+    pddlISetFree(&facts);
 }
 
 static void encodeBinaryFact(pddl_mg_strips_t *mg_strips, int fact_id,
@@ -86,7 +87,7 @@ static void encodeBinaryFact(pddl_mg_strips_t *mg_strips, int fact_id,
         pddl_fact_t not;
         pddlFactInit(&not);
         int name_size = strlen(mg_strips->strips.fact.fact[fact_id]->name) + 5;
-        not.name = BOR_ALLOC_ARR(char, name_size);
+        not.name = ALLOC_ARR(char, name_size);
         sprintf(not.name, "NOT:%s", mg_strips->strips.fact.fact[fact_id]->name);
         not_id = pddlFactsAdd(&mg_strips->strips.fact, &not);
         ASSERT(not_id == mg_strips->strips.fact.fact_size - 1);
@@ -99,28 +100,28 @@ static void encodeBinaryFact(pddl_mg_strips_t *mg_strips, int fact_id,
 
     for (int op_id = 0; op_id < mg_strips->strips.op.op_size; ++op_id){
         pddl_strips_op_t *op = mg_strips->strips.op.op[op_id];
-        int in_del = borISetIn(fact_id, &op->del_eff);
-        int in_add = borISetIn(fact_id, &op->add_eff);
-        int in_del_not = borISetIn(not_id, &op->del_eff);
-        int in_add_not = borISetIn(not_id, &op->add_eff);
+        int in_del = pddlISetIn(fact_id, &op->del_eff);
+        int in_add = pddlISetIn(fact_id, &op->add_eff);
+        int in_del_not = pddlISetIn(not_id, &op->del_eff);
+        int in_add_not = pddlISetIn(not_id, &op->add_eff);
 
         if (in_del && !in_add)
-            borISetAdd(&op->add_eff, not_id);
+            pddlISetAdd(&op->add_eff, not_id);
         if (!in_del && in_add)
-            borISetAdd(&op->del_eff, not_id);
+            pddlISetAdd(&op->del_eff, not_id);
         if (in_del_not && !in_add_not)
-            borISetAdd(&op->add_eff, fact_id);
+            pddlISetAdd(&op->add_eff, fact_id);
         if (!in_del_not && in_add_not)
-            borISetAdd(&op->del_eff, fact_id);
+            pddlISetAdd(&op->del_eff, fact_id);
     }
 
-    if (!borISetIn(fact_id, &mg_strips->strips.init))
-        borISetAdd(&mg_strips->strips.init, not_id);
+    if (!pddlISetIn(fact_id, &mg_strips->strips.init))
+        pddlISetAdd(&mg_strips->strips.init, not_id);
 
-    BOR_ISET(facts);
-    BOR_ISET_SET(&facts, fact_id, not_id);
+    PDDL_ISET(facts);
+    PDDL_ISET_SET(&facts, fact_id, not_id);
     pddlMGroupsAdd(&mg_strips->mg, &facts);
-    borISetFree(&facts);
+    pddlISetFree(&facts);
 }
 
 static void encodeBinaryFacts(pddl_mg_strips_t *mg_strips)
@@ -128,11 +129,11 @@ static void encodeBinaryFacts(pddl_mg_strips_t *mg_strips)
     int fact_size = mg_strips->strips.fact.fact_size;
     int *covered;
 
-    covered = BOR_CALLOC_ARR(int, fact_size);
+    covered = CALLOC_ARR(int, fact_size);
     for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mi;
         int fact_id;
-        BOR_ISET_FOR_EACH(&mg->mgroup, fact_id)
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fact_id)
             covered[fact_id] = 1;
     }
 
@@ -141,7 +142,7 @@ static void encodeBinaryFacts(pddl_mg_strips_t *mg_strips)
             encodeBinaryFact(mg_strips, fact_id, covered);
     }
 
-    BOR_FREE(covered);
+    FREE(covered);
 }
 
 static void encodeMGroups(pddl_mg_strips_t *mg_strips,
@@ -149,7 +150,7 @@ static void encodeMGroups(pddl_mg_strips_t *mg_strips,
 {
     for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg_in = mgroups->mgroup + mgi;
-        if (borISetSize(&mg_in->mgroup) <= 1)
+        if (pddlISetSize(&mg_in->mgroup) <= 1)
             continue;
 
         if (pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &mg_in->mgroup)){
@@ -170,7 +171,7 @@ static void encodeMGroupsNonOverlapLargestFirst(pddl_mg_strips_t *mg_strips,
 {
     while (mgroups->mgroup_size > 0){
         pddl_mgroup_t *mg_in = mgroups->mgroup + 0;
-        ASSERT(borISetSize(&mg_in->mgroup) > 1);
+        ASSERT(pddlISetSize(&mg_in->mgroup) > 1);
         if (pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &mg_in->mgroup)){
             // Copy exactly-one mutex groups directly to mg-strips
             pddlMGroupsAdd(&mg_strips->mg, &mg_in->mgroup);
@@ -182,8 +183,8 @@ static void encodeMGroupsNonOverlapLargestFirst(pddl_mg_strips_t *mg_strips,
         }
 
         for (int mi = 1; mi < mgroups->mgroup_size; ++mi)
-            borISetMinus(&mgroups->mgroup[mi].mgroup, &mg_in->mgroup);
-        borISetEmpty(&mg_in->mgroup);
+            pddlISetMinus(&mgroups->mgroup[mi].mgroup, &mg_in->mgroup);
+        pddlISetEmpty(&mg_in->mgroup);
         pddlMGroupsRemoveSubsets(mgroups);
         pddlMGroupsRemoveSmall(mgroups, 1);
         pddlMGroupsSortUniq(mgroups);
@@ -192,24 +193,24 @@ static void encodeMGroupsNonOverlapLargestFirst(pddl_mg_strips_t *mg_strips,
 }
 */
 
-static void findUncoveredDelEffs(bor_iset_t *out, const pddl_strips_t *strips)
+static void findUncoveredDelEffs(pddl_iset_t *out, const pddl_strips_t *strips)
 {
-    BOR_ISET(tmp);
+    PDDL_ISET(tmp);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
-        borISetMinus2(&tmp, &op->del_eff, &op->pre);
-        borISetUnion(out, &tmp);
+        pddlISetMinus2(&tmp, &op->del_eff, &op->pre);
+        pddlISetUnion(out, &tmp);
     }
-    borISetFree(&tmp);
+    pddlISetFree(&tmp);
 }
 
 static void prepareMGroups(pddl_mgroups_t *dst, const pddl_mgroups_t *src,
-                           const bor_iset_t *uncovered_del_effs)
+                           const pddl_iset_t *uncovered_del_effs)
 {
     pddlMGroupsInitCopy(dst, src);
 
     for (int mi = 0; mi < dst->mgroup_size; ++mi)
-        borISetMinus(&dst->mgroup[mi].mgroup, uncovered_del_effs);
+        pddlISetMinus(&dst->mgroup[mi].mgroup, uncovered_del_effs);
 
     pddlMGroupsRemoveSubsets(dst);
     pddlMGroupsRemoveSmall(dst, 1);
@@ -223,10 +224,10 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_mgroups_t *mgroups_in)
 {
     if (strips->has_cond_eff)
-        BOR_FATAL2("pddlMGStripsInit: conditional effects not yet supported.");
+        PDDL_FATAL2("pddlMGStripsInit: conditional effects not yet supported.");
 
     // Find facts that appear in delete effects but not in the precondition
-    BOR_ISET(uncovered_del_effs);
+    PDDL_ISET(uncovered_del_effs);
     findUncoveredDelEffs(&uncovered_del_effs, strips);
 
     // Prepare mutex groups: remove subsets, remove mutex groups having
@@ -241,7 +242,7 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
     //encodeMGroupsNonOverlapLargestFirst(mg_strips, &mgroups);
     encodeBinaryFacts(mg_strips);
 
-    borISetFree(&uncovered_del_effs);
+    pddlISetFree(&uncovered_del_effs);
     pddlMGroupsFree(&mgroups);
 
     //pddlStripsPrintDebug(&mg_strips->strips, stderr);
@@ -251,11 +252,11 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
     for (int mi = 0; mi < mg_strips->mg.mgroup_size; ++mi){
         pddl_mgroup_t *mg = mg_strips->mg.mgroup + mi;
         mg->is_exactly_one = 1;
-        mg->is_goal = !borISetIsDisjunct(&mg->mgroup, &mg_strips->strips.goal);
+        mg->is_goal = !pddlISetIsDisjunct(&mg->mgroup, &mg_strips->strips.goal);
         mg->is_fam_group = pddlStripsIsFAMGroup(&mg_strips->strips,
                                                 &mg->mgroup);
-        ASSERT_RUNTIME(!borISetIsDisjunct(&mg_strips->strips.init,
-                                          &mg->mgroup));
+        ASSERT_RUNTIME(!pddlISetIsDisjunct(&mg_strips->strips.init,
+                                           &mg->mgroup));
         ASSERT_RUNTIME(pddlStripsIsExactlyOneMGroup(&mg_strips->strips,
                                                     &mg->mgroup));
     }
@@ -263,33 +264,33 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
 
 static void fdrPreToPre(const pddl_fdr_vars_t *vars,
                         const pddl_fdr_part_state_t *fdr_pre,
-                        bor_iset_t *pre)
+                        pddl_iset_t *pre)
 {
     for (int i = 0; i < fdr_pre->fact_size; ++i){
         const pddl_fdr_fact_t *f = fdr_pre->fact + i;
-        borISetAdd(pre, vars->var[f->var].val[f->val].global_id);
+        pddlISetAdd(pre, vars->var[f->var].val[f->val].global_id);
     }
 }
 
 static void fdrEffToEff(const pddl_fdr_vars_t *vars,
                         const pddl_fdr_part_state_t *fdr_pre,
                         const pddl_fdr_part_state_t *fdr_eff,
-                        bor_iset_t *add_eff,
-                        bor_iset_t *del_eff)
+                        pddl_iset_t *add_eff,
+                        pddl_iset_t *del_eff)
 {
     int prei = 0;
     for (int i = 0; i < fdr_eff->fact_size; ++i){
         const pddl_fdr_fact_t *f = fdr_eff->fact + i;
-        borISetAdd(add_eff, vars->var[f->var].val[f->val].global_id);
+        pddlISetAdd(add_eff, vars->var[f->var].val[f->val].global_id);
         for (; prei < fdr_pre->fact_size
                 && fdr_pre->fact[prei].var < f->var; ++prei);
         if (prei < fdr_pre->fact_size && fdr_pre->fact[prei].var == f->var){
             const pddl_fdr_fact_t *d = fdr_pre->fact + prei;
-            borISetAdd(del_eff, vars->var[d->var].val[d->val].global_id);
+            pddlISetAdd(del_eff, vars->var[d->var].val[d->val].global_id);
         }else{
             for (int val = 0; val < vars->var[f->var].val_size; ++val){
                 if (val != f->val)
-                    borISetAdd(del_eff, vars->var[f->var].val[val].global_id);
+                    pddlISetAdd(del_eff, vars->var[f->var].val[val].global_id);
             }
         }
     }
@@ -336,7 +337,7 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
         const pddl_fdr_op_t *fop = fdr->op.op[op_id];
         pddl_strips_op_t op;
         pddlStripsOpInit(&op);
-        op.name = BOR_STRDUP(fop->name);
+        op.name = STRDUP(fop->name);
         op.cost = fop->cost;
         fdrPreToPre(&fdr->var, &fop->pre, &op.pre);
         fdrEffToEff(&fdr->var, &fop->pre, &fop->eff, &op.add_eff, &op.del_eff);
@@ -372,24 +373,24 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
     for (int var_id = 0; var_id < fdr->var.var_size; ++var_id){
         int val = fdr->init[var_id];
         int fact_id = fdr->var.var[var_id].val[val].global_id;
-        borISetAdd(&mg_strips->strips.init, fact_id);
+        pddlISetAdd(&mg_strips->strips.init, fact_id);
     }
 
     // Set goal
     for (int i = 0; i < fdr->goal.fact_size; ++i){
         const pddl_fdr_fact_t *f = fdr->goal.fact + i;
         int fact_id = fdr->var.var[f->var].val[f->val].global_id;
-        borISetAdd(&mg_strips->strips.goal, fact_id);
+        pddlISetAdd(&mg_strips->strips.goal, fact_id);
     }
 
     // Convert variables to exactly-one mutex groups
     for (int var = 0; var < fdr->var.var_size; ++var){
-        BOR_ISET(mg);
+        PDDL_ISET(mg);
         for (int val = 0; val < fdr->var.var[var].val_size; ++val)
-            borISetAdd(&mg, fdr->var.var[var].val[val].global_id);
+            pddlISetAdd(&mg, fdr->var.var[var].val[val].global_id);
         pddl_mgroup_t *m = pddlMGroupsAdd(&mg_strips->mg, &mg);
         m->is_exactly_one = 1;
-        borISetFree(&mg);
+        pddlISetFree(&mg);
     }
 }
 
@@ -470,7 +471,7 @@ double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
         for (int mgi = 0; mgi < mg_strips->mg.mgroup_size; ++mgi){
             int fact_id;
             int first = 1;
-            BOR_ISET_FOR_EACH(&mg_strips->mg.mgroup[mgi].mgroup, fact_id){
+            PDDL_ISET_FOR_EACH(&mg_strips->mg.mgroup[mgi].mgroup, fact_id){
                 if (!first)
                     dprintf(fdin[1], " ");
                 dprintf(fdin[1], "%d", fact_id + 1);
@@ -520,8 +521,8 @@ double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
 }
 
 void pddlMGStripsReduce(pddl_mg_strips_t *mg_strips,
-                        const bor_iset_t *del_facts,
-                        const bor_iset_t *del_ops)
+                        const pddl_iset_t *del_facts,
+                        const pddl_iset_t *del_ops)
 {
     pddlStripsReduce(&mg_strips->strips, del_facts, del_ops);
     pddlMGroupsReduce(&mg_strips->mg, del_facts);

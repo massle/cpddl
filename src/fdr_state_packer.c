@@ -17,8 +17,8 @@
  */
 
 #include <string.h>
-#include <boruvka/alloc.h>
-#include <boruvka/sort.h>
+#include "alloc.h"
+#include <pddl/sort.h>
 #include "pddl/fdr_state_packer.h"
 
 struct pddl_fdr_state_packer_var {
@@ -66,7 +66,7 @@ void pddlFDRStatePackerInit(pddl_fdr_state_packer_t *p,
     pddl_fdr_state_packer_var_t *pvar;
 
     p->num_vars = vars->var_size;
-    p->vars = BOR_ALLOC_ARR(pddl_fdr_state_packer_var_t, p->num_vars);
+    p->vars = ALLOC_ARR(pddl_fdr_state_packer_var_t, p->num_vars);
     for (i = 0; i < vars->var_size; ++i){
         p->vars[i].bitlen = packerBitsNeeded(vars->var[i].val_size);
         p->vars[i].pos = -1;
@@ -106,14 +106,14 @@ void pddlFDRStatePackerInitCopy(pddl_fdr_state_packer_t *d,
 {
     d->num_vars = p->num_vars;
     d->bufsize = p->bufsize;
-    d->vars = BOR_ALLOC_ARR(pddl_fdr_state_packer_var_t, p->num_vars);
+    d->vars = ALLOC_ARR(pddl_fdr_state_packer_var_t, p->num_vars);
     memcpy(d->vars, p->vars, sizeof(pddl_fdr_state_packer_var_t) * p->num_vars);
 }
 
 void pddlFDRStatePackerFree(pddl_fdr_state_packer_t *p)
 {
     if (p->vars)
-        BOR_FREE(p->vars);
+        FREE(p->vars);
 }
 
 void pddlFDRStatePackerPack(const pddl_fdr_state_packer_t *p,
@@ -138,7 +138,7 @@ static int packerBitsNeeded(int range)
 {
     pddl_fdr_packer_word_t max_val = range - 1;
     int num = PDDL_FDR_PACKER_WORD_BITS;
-    max_val = BOR_MAX(1, max_val);
+    max_val = PDDL_MAX(1, max_val);
 
     for (; !(max_val & PDDL_FDR_PACKER_WORD_SET_HI_BIT); --num, max_val <<= 1);
     return num;
@@ -193,7 +193,7 @@ static void sortedVarsInit(sorted_vars_t *sv, const pddl_fdr_vars_t *vars,
                            pddl_fdr_state_packer_var_t *pvar)
 {
     // Allocate arrays
-    sv->var = BOR_ALLOC_ARR(pddl_fdr_state_packer_var_t *, vars->var_size);
+    sv->var = ALLOC_ARR(pddl_fdr_state_packer_var_t *, vars->var_size);
     sv->var_size = vars->var_size;
     sv->var_left = sv->var_size;
 
@@ -201,14 +201,14 @@ static void sortedVarsInit(sorted_vars_t *sv, const pddl_fdr_vars_t *vars,
         sv->var[i] = pvar + i;
 
     // Sort array
-    borSort(sv->var, sv->var_size, sizeof(pddl_fdr_state_packer_var_t *),
-            cmpByBitlen, NULL);
+    pddlSort(sv->var, sv->var_size, sizeof(pddl_fdr_state_packer_var_t *),
+             cmpByBitlen, NULL);
 }
 
 static void sortedVarsFree(sorted_vars_t *sv)
 {
     if (sv->var)
-        BOR_FREE(sv->var);
+        FREE(sv->var);
 }
 
 static pddl_fdr_state_packer_var_t *sortedVarsNext(sorted_vars_t *sv,

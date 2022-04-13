@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include <pddl/disambiguation.h>
 #include "assert.h"
 
@@ -27,7 +27,7 @@ static void selectExactlyOneMGroups(pddl_mgroups_t *mg,
         const pddl_mgroup_t *m = mgroup->mgroup + mi;
         // exactly-one mutex groups of size one is a simply a static fact
         // that is true in all states, so we can skip this one
-        if (borISetSize(&m->mgroup) > 1
+        if (pddlISetSize(&m->mgroup) > 1
                 && (m->is_exactly_one
                         || (m->is_fam_group && m->is_goal))){
             pddlMGroupsAdd(mg, &m->mgroup);
@@ -54,7 +54,7 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
     dis->fact_size = fact_size;
     dis->mgroup_size = mgroup.mgroup_size;
 
-    dis->fact = BOR_CALLOC_ARR(pddl_disambiguate_fact_t, dis->fact_size);
+    dis->fact = CALLOC_ARR(pddl_disambiguate_fact_t, dis->fact_size);
     for (int fact_id = 0; fact_id < fact_size; ++fact_id){
         pddl_disambiguate_fact_t *f = dis->fact + fact_id;
         pddlBitsetInit(&f->mgroup, dis->mgroup_size);
@@ -63,15 +63,15 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
     }
 
     // Set .mgroup to mgroups the fact belongs
-    dis->mgroup = BOR_CALLOC_ARR(pddl_disambiguate_mgroup_t, dis->mgroup_size);
+    dis->mgroup = CALLOC_ARR(pddl_disambiguate_mgroup_t, dis->mgroup_size);
     for (int mi = 0; mi < mgroup.mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mgroup.mgroup + mi;
         pddl_disambiguate_mgroup_t *dm = dis->mgroup + mi;
-        borISetUnion(&dm->mgroup, &mg->mgroup);
+        pddlISetUnion(&dm->mgroup, &mg->mgroup);
         pddlBitsetInit(&dm->fact, dis->fact_size);
 
         int fact_id;
-        BOR_ISET_FOR_EACH(&mg->mgroup, fact_id){
+        PDDL_ISET_FOR_EACH(&mg->mgroup, fact_id){
             pddlBitsetSetBit(&dm->fact, fact_id);
             pddlBitsetSetBit(&dis->fact[fact_id].mgroup, mi);
             pddlBitsetSetBit(&dis->fact[fact_id].not_mgroup, mi);
@@ -88,11 +88,11 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
     // Add mutexes from mutex groups
     for (int mi = 0; mi < mgroup_in->mgroup_size; ++mi){
         const pddl_mgroup_t *mg = mgroup_in->mgroup + mi;
-        int mgroup_size = borISetSize(&mg->mgroup);
+        int mgroup_size = pddlISetSize(&mg->mgroup);
         for (int i = 0; i < mgroup_size; ++i){
-            int fact1 = borISetGet(&mg->mgroup, i);
+            int fact1 = pddlISetGet(&mg->mgroup, i);
             for (int j = i + 1; j < mgroup_size; ++j){
-                int fact2 = borISetGet(&mg->mgroup, j);
+                int fact2 = pddlISetGet(&mg->mgroup, j);
                 pddlBitsetSetBit(&dis->fact[fact1].not_mutex_fact, fact2);
                 pddlBitsetSetBit(&dis->fact[fact2].not_mutex_fact, fact1);
             }
@@ -130,14 +130,14 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis)
         pddlBitsetFree(&dis->fact[i].not_mutex_fact);
     }
     if (dis->fact != NULL)
-        BOR_FREE(dis->fact);
+        FREE(dis->fact);
 
     for (int i = 0; i < dis->mgroup_size; ++i){
         pddlBitsetFree(&dis->mgroup[i].fact);
-        borISetFree(&dis->mgroup[i].mgroup);
+        pddlISetFree(&dis->mgroup[i].mgroup);
     }
     if (dis->mgroup != NULL)
-        BOR_FREE(dis->mgroup);
+        FREE(dis->mgroup);
 
     pddlBitsetFree(&dis->all_mgroups);
     pddlBitsetFree(&dis->all_facts);
@@ -152,15 +152,15 @@ void pddlDisambiguateFree(pddl_disambiguate_t *dis)
 
 /** Initialize .cur_mgroup and .cur_allowed_facts */
 static void disambInitCur(pddl_disambiguate_t *dis,
-                          const bor_iset_t *facts,
-                          const bor_iset_t *mgroup_select,
+                          const pddl_iset_t *facts,
+                          const pddl_iset_t *mgroup_select,
                           int only_disjunct_mgroups)
 {
     pddlBitsetCopy(&dis->cur_mgroup, &dis->all_mgroups);
     pddlBitsetCopy(&dis->cur_allowed_facts, &dis->all_facts);
 
     int fact_id;
-    BOR_ISET_FOR_EACH(facts, fact_id){
+    PDDL_ISET_FOR_EACH(facts, fact_id){
         if (only_disjunct_mgroups)
             pddlBitsetAnd(&dis->cur_mgroup, &dis->fact[fact_id].not_mgroup);
         pddlBitsetAnd(&dis->cur_allowed_facts,
@@ -170,52 +170,52 @@ static void disambInitCur(pddl_disambiguate_t *dis,
     if (mgroup_select != NULL){
         pddlBitsetZeroize(&dis->tmp_mgroup_bitset);
         int fact_id;
-        BOR_ISET_FOR_EACH(mgroup_select, fact_id)
+        PDDL_ISET_FOR_EACH(mgroup_select, fact_id)
             pddlBitsetOr(&dis->tmp_mgroup_bitset, &dis->fact[fact_id].mgroup);
         pddlBitsetAnd(&dis->cur_mgroup, &dis->tmp_mgroup_bitset);
     }
 }
 
 static void updateCurAllowedFacts(pddl_disambiguate_t *dis,
-                                  const bor_iset_t *set)
+                                  const pddl_iset_t *set)
 {
-    int set_size = borISetSize(set);
+    int set_size = pddlISetSize(set);
     if (set_size == 0)
         return;
 
-    int fact_id = borISetGet(set, 0);
+    int fact_id = pddlISetGet(set, 0);
     pddlBitsetCopy(&dis->tmp_fact_bitset, &dis->fact[fact_id].not_mutex_fact);
     for (int i = 1; i < set_size; ++i){
-        int fact_id = borISetGet(set, i);
+        int fact_id = pddlISetGet(set, i);
         pddlBitsetOr(&dis->tmp_fact_bitset, &dis->fact[fact_id].not_mutex_fact);
     }
     pddlBitsetAnd(&dis->cur_allowed_facts, &dis->tmp_fact_bitset);
 }
 
 int pddlDisambiguate(pddl_disambiguate_t *dis,
-                     const bor_iset_t *set,
-                     const bor_iset_t *mgroup_select,
+                     const pddl_iset_t *set,
+                     const pddl_iset_t *mgroup_select,
                      int only_disjunct_mgroups,
                      int single_fact_disamb,
                      pddl_set_iset_t *disamb_sets,
-                     bor_iset_t *exactly_one)
+                     pddl_iset_t *exactly_one)
 {
     if (dis->mgroup_size == 0)
         return 0;
 
     int change = 0;
     int mgroup_id;
-    bor_iset_t *disamb_set;
+    pddl_iset_t *disamb_set;
 
     disambInitCur(dis, set, mgroup_select, only_disjunct_mgroups);
     if (pddlBitsetCnt(&dis->cur_mgroup) == 0)
         return 0;
 
-    disamb_set = BOR_CALLOC_ARR(bor_iset_t, dis->mgroup_size);
+    disamb_set = CALLOC_ARR(pddl_iset_t, dis->mgroup_size);
     pddlBitsetCopy(&dis->cur_mgroup_it, &dis->cur_mgroup);
     pddlBitsetItStart(&dis->cur_mgroup_it);
     while ((mgroup_id = pddlBitsetItNext(&dis->cur_mgroup_it)) >= 0)
-        borISetUnion(disamb_set + mgroup_id, &dis->mgroup[mgroup_id].mgroup);
+        pddlISetUnion(disamb_set + mgroup_id, &dis->mgroup[mgroup_id].mgroup);
 
     for (int local_change = 1; local_change;){
         local_change = 0;
@@ -234,32 +234,32 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
             // is mutex
             if (fact_size == 0){
                 for (int i = 0; i < dis->mgroup_size; ++i)
-                    borISetFree(disamb_set + i);
-                BOR_FREE(disamb_set);
+                    pddlISetFree(disamb_set + i);
+                FREE(disamb_set);
                 return -1;
             }
 
-            bor_iset_t *disamb = disamb_set + mgroup_id;
-            if (fact_size == borISetSize(disamb))
+            pddl_iset_t *disamb = disamb_set + mgroup_id;
+            if (fact_size == pddlISetSize(disamb))
                 continue;
 
 
             //fprintf(stderr, "%d --> %d / %d\n", mgroup_id, fact_size,
-            //        borISetSize(&dis->mgroup[mgroup_id].mgroup));
+            //        pddlISetSize(&dis->mgroup[mgroup_id].mgroup));
 
             // Extract the disambiguated set
-            borISetEmpty(disamb);
+            pddlISetEmpty(disamb);
             pddlBitsetItStart(&dis->cur_allowed_facts_from_mgroup);
             int ext = pddlBitsetItNext(&dis->cur_allowed_facts_from_mgroup);
             while (ext >= 0){
                 ASSERT(ext >= 0 && ext < dis->fact_size);
-                borISetAdd(disamb, ext);
+                pddlISetAdd(disamb, ext);
                 ext = pddlBitsetItNext(&dis->cur_allowed_facts_from_mgroup);
             }
 
             // Update allowed facts to those that are not mutex with at
             // least one of the facts
-            if (!single_fact_disamb || borISetSize(disamb) <= 1)
+            if (!single_fact_disamb || pddlISetSize(disamb) <= 1)
                 updateCurAllowedFacts(dis, disamb);
             local_change = 1;
         }
@@ -270,27 +270,27 @@ int pddlDisambiguate(pddl_disambiguate_t *dis,
         // disambiguations containing more than one fact to the full
         // original mutex group
         for (int mi = 0; mi < dis->mgroup_size; ++mi){
-            if (borISetSize(disamb_set + mi) > 1)
-                borISetUnion(disamb_set + mi, &dis->mgroup[mi].mgroup);
+            if (pddlISetSize(disamb_set + mi) > 1)
+                pddlISetUnion(disamb_set + mi, &dis->mgroup[mi].mgroup);
         }
     }
 
     for (int i = 0; i < dis->mgroup_size; ++i){
-        int set_size = borISetSize(disamb_set + i);
+        int set_size = pddlISetSize(disamb_set + i);
         if (disamb_sets != NULL && set_size > 0){
             pddlSetISetAdd(disamb_sets, disamb_set + i);
-            if (set_size != borISetSize(&dis->mgroup[i].mgroup))
+            if (set_size != pddlISetSize(&dis->mgroup[i].mgroup))
                 change = 1;
         }
 
         if (exactly_one != NULL && set_size == 1){
-            borISetAdd(exactly_one, borISetGet(disamb_set + i, 0));
+            pddlISetAdd(exactly_one, pddlISetGet(disamb_set + i, 0));
             change = 1;
         }
 
-        borISetFree(disamb_set + i);
+        pddlISetFree(disamb_set + i);
     }
-    BOR_FREE(disamb_set);
+    FREE(disamb_set);
 
     return change;
 }

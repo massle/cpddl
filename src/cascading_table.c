@@ -17,7 +17,9 @@
  * See the License for more information.
  */
 
+#include "pddl/core.h"
 #include "pddl/cascading_table.h"
+#include "alloc.h"
 
 #define PRUNED -1
 #define PDDL_CASCADING_TABLE_LEAF 0
@@ -45,12 +47,10 @@ typedef struct pddl_cascading_table_merge pddl_cascading_table_merge_t;
 
 #define LEAF(X, T) \
     pddl_cascading_table_leaf_t *X = \
-        bor_container_of((T), pddl_cascading_table_leaf_t, \
-                         cascading_table)
+        pddl_container_of((T), pddl_cascading_table_leaf_t, cascading_table)
 #define MERGE(X, T) \
     pddl_cascading_table_merge_t *X = \
-        bor_container_of((T), pddl_cascading_table_merge_t, \
-                         cascading_table)
+        pddl_container_of((T), pddl_cascading_table_merge_t, cascading_table)
 
 #define MERGE_IDX(M, LEFT, RIGHT) ((LEFT) * (M)->right->size + (RIGHT))
 #define MERGE_LR_FROM_IDX(M, IDX, LEFT, RIGHT) \
@@ -96,14 +96,14 @@ static struct methods methods[2] = {
 void pddlCascadingTableDel(pddl_cascading_table_t *t)
 {
     if (t->lookup_table != NULL)
-        BOR_FREE(t->lookup_table);
+        FREE(t->lookup_table);
     methods[t->type].delete(t);
 }
 
 static void delLeaf(pddl_cascading_table_t *_t)
 {
     LEAF(t, _t);
-    BOR_FREE(t);
+    FREE(t);
 }
 
 static void delMerge(pddl_cascading_table_t *_t)
@@ -111,7 +111,7 @@ static void delMerge(pddl_cascading_table_t *_t)
     MERGE(t, _t);
     pddlCascadingTableDel(t->left);
     pddlCascadingTableDel(t->right);
-    BOR_FREE(t);
+    FREE(t);
 }
 
 
@@ -125,7 +125,7 @@ static pddl_cascading_table_t *cloneLeaf(const pddl_cascading_table_t *_t)
     const LEAF(t, _t);
     pddl_cascading_table_leaf_t *out;
    
-    out = BOR_ALLOC(pddl_cascading_table_leaf_t);
+    out = ALLOC(pddl_cascading_table_leaf_t);
     bzero(out, sizeof(*out));
     copyTable(&out->cascading_table, &t->cascading_table);
     out->id = t->id;
@@ -138,7 +138,7 @@ static pddl_cascading_table_t *cloneMerge(const pddl_cascading_table_t *_t)
     MERGE(t, _t);
     pddl_cascading_table_merge_t *out;
    
-    out = BOR_ALLOC(pddl_cascading_table_merge_t);
+    out = ALLOC(pddl_cascading_table_merge_t);
     bzero(out, sizeof(*out));
     copyTable(&out->cascading_table, &t->cascading_table);
     out->left = pddlCascadingTableClone(t->left);
@@ -149,7 +149,7 @@ static pddl_cascading_table_t *cloneMerge(const pddl_cascading_table_t *_t)
 pddl_cascading_table_t *pddlCascadingTableNewLeaf(int id, int size)
 {
     pddl_cascading_table_leaf_t *t;
-    t = BOR_ALLOC(pddl_cascading_table_leaf_t);
+    t = ALLOC(pddl_cascading_table_leaf_t);
     bzero(t, sizeof(*t));
     initTable(&t->cascading_table, PDDL_CASCADING_TABLE_LEAF, size);
     t->id = id;
@@ -161,7 +161,7 @@ pddl_cascading_table_t *pddlCascadingTableMerge(pddl_cascading_table_t *t1,
                                                 pddl_cascading_table_t *t2)
 {
     pddl_cascading_table_merge_t *m;
-    m = BOR_ALLOC(pddl_cascading_table_merge_t);
+    m = ALLOC(pddl_cascading_table_merge_t);
     bzero(m, sizeof(*m));
     int size = t1->size * t2->size;
     initTable(&m->cascading_table, PDDL_CASCADING_TABLE_MERGE, size);
@@ -181,7 +181,7 @@ void pddlCascadingTableAbstract(pddl_cascading_table_t *t, const int *abstr)
                 t->lookup_table[i] = PRUNED;
             }else{
                 t->lookup_table[i] = new_val;
-                new_size = BOR_MAX(new_size, t->lookup_table[i] + 1);
+                new_size = PDDL_MAX(new_size, t->lookup_table[i] + 1);
             }
         }
     }
@@ -217,7 +217,7 @@ static void initTable(pddl_cascading_table_t *t, int type, int size)
 {
     t->type = type;
     t->size = size;
-    t->lookup_table = BOR_CALLOC_ARR(int, size);
+    t->lookup_table = CALLOC_ARR(int, size);
     for (int i = 0; i < t->size; ++i)
         t->lookup_table[i] = i;
 }
@@ -226,7 +226,7 @@ static void copyTable(pddl_cascading_table_t *t,
                       const pddl_cascading_table_t *src)
 {
     *t = *src;
-    t->lookup_table = BOR_CALLOC_ARR(int, t->size);
+    t->lookup_table = CALLOC_ARR(int, t->size);
     memcpy(t->lookup_table, src->lookup_table, sizeof(int) * t->size);
 }
 

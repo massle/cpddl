@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/sort.h>
+#include "alloc.h"
+#include <pddl/sort.h>
 #include "pddl/symbolic_trans.h"
 #include "assert.h"
 #include "fmt.h"
@@ -26,10 +26,10 @@
 struct op {
     int op_id;
     char *name;
-    bor_iset_t pre;
-    bor_iset_t neg_pre;
-    bor_iset_t eff;
-    bor_iset_t neg_eff;
+    pddl_iset_t pre;
+    pddl_iset_t neg_pre;
+    pddl_iset_t eff;
+    pddl_iset_t neg_eff;
     pddl_cost_t cost;
     pddl_cost_t heur_change;
     int is_dead;
@@ -43,53 +43,53 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    op_t *op,
                    pddl_cost_t *op_heur_change,
                    int sum_op_heur_change_to_cost,
-                   bor_err_t *err)
+                   pddl_err_t *err)
 {
     bzero(op, sizeof(*op));
     op->op_id = op_id;
-    borISetUnion(&op->pre, &op_in->pre);
-    borISetUnion(&op->eff, &op_in->add_eff);
-    borISetUnion(&op->neg_eff, &op_in->del_eff);
+    pddlISetUnion(&op->pre, &op_in->pre);
+    pddlISetUnion(&op->eff, &op_in->add_eff);
+    pddlISetUnion(&op->neg_eff, &op_in->del_eff);
     pddlCostSetOp(&op->cost, op_in->cost);
     if (op_in->name != NULL)
-        op->name = BOR_STRDUP(op_in->name);
+        op->name = STRDUP(op_in->name);
 
     // Disambiguate preconditions
     if (pddlDisambiguate(&constr->disambiguate, &op->pre, NULL,
                          1, 0, NULL, &op->pre) < 0){
-        BOR_INFO(err, "Operator %d:(%s) skipped, because it"
-                " is unreachable or dead-end", op->op_id, op->name);
+        PDDL_INFO(err, "Operator %d:(%s) skipped, because it"
+                  " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
         return;
     }
-    borISetMinus(&op->eff, &op->pre);
+    pddlISetMinus(&op->eff, &op->pre);
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&op->pre, fact_id)
-        borISetMinus(&op->neg_eff, constr->fact_mutex + fact_id);
+    PDDL_ISET_FOR_EACH(&op->pre, fact_id)
+        pddlISetMinus(&op->neg_eff, constr->fact_mutex + fact_id);
 
     if (use_op_constr){
         int fact;
 
-        BOR_ISET(fw_neg_pre);
+        PDDL_ISET(fw_neg_pre);
         // Find negative preconditions
-        BOR_ISET_FOR_EACH(&op->pre, fact){
-            borISetUnion(&op->neg_pre, constr->fact_mutex_bw + fact);
-            borISetUnion(&fw_neg_pre, constr->fact_mutex_fw + fact);
+        PDDL_ISET_FOR_EACH(&op->pre, fact){
+            pddlISetUnion(&op->neg_pre, constr->fact_mutex_bw + fact);
+            pddlISetUnion(&fw_neg_pre, constr->fact_mutex_fw + fact);
         }
 
         // E-delete facts that are mutex with the add effect
-        BOR_ISET_FOR_EACH(&op->eff, fact)
-            borISetUnion(&op->neg_eff, constr->fact_mutex_fw + fact);
-        borISetMinus(&op->neg_eff, &fw_neg_pre);
-        borISetMinus(&op->neg_eff, &op->neg_pre);
-        borISetFree(&fw_neg_pre);
+        PDDL_ISET_FOR_EACH(&op->eff, fact)
+            pddlISetUnion(&op->neg_eff, constr->fact_mutex_fw + fact);
+        pddlISetMinus(&op->neg_eff, &fw_neg_pre);
+        pddlISetMinus(&op->neg_eff, &op->neg_pre);
+        pddlISetFree(&fw_neg_pre);
     }
 
-    if (!borISetIsDisjoint(&op->neg_pre, &op->pre)
-            || !borISetIsDisjoint(&op->neg_eff, &op->eff)){
-        BOR_INFO(err, "Operator %d:(%s) skipped, because it"
-                      " is unreachable or dead-end", op->op_id, op->name);
+    if (!pddlISetIsDisjoint(&op->neg_pre, &op->pre)
+            || !pddlISetIsDisjoint(&op->neg_eff, &op->eff)){
+        PDDL_INFO(err, "Operator %d:(%s) skipped, because it"
+                  " is unreachable or dead-end", op->op_id, op->name);
         op->is_dead = 1;
     }
 
@@ -109,11 +109,11 @@ static void opInit(pddl_symbolic_constr_t *constr,
 static void opFree(op_t *op)
 {
     if (op->name != NULL)
-        BOR_FREE(op->name);
-    borISetFree(&op->pre);
-    borISetFree(&op->neg_pre);
-    borISetFree(&op->eff);
-    borISetFree(&op->neg_eff);
+        FREE(op->name);
+    pddlISetFree(&op->pre);
+    pddlISetFree(&op->neg_pre);
+    pddlISetFree(&op->eff);
+    pddlISetFree(&op->neg_eff);
 }
 
 static void opsInit(pddl_symbolic_constr_t *constr,
@@ -122,7 +122,7 @@ static void opsInit(pddl_symbolic_constr_t *constr,
                     op_t *ops,
                     pddl_cost_t *op_heur_change,
                     int sum_op_heur_change_to_cost,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         opInit(constr, strips->op.op[op_id], use_op_constr,
@@ -138,12 +138,12 @@ static void transFree(pddl_bdd_manager_t *mgr, pddl_symbolic_trans_t *tr)
         pddlBDDDel(mgr, tr->var_eff[i]);
     }
     if (tr->var_pre != NULL)
-        BOR_FREE(tr->var_pre);
+        FREE(tr->var_pre);
     if (tr->var_eff != NULL)
-        BOR_FREE(tr->var_eff);
+        FREE(tr->var_eff);
     pddlBDDDel(mgr, tr->exist_pre);
     pddlBDDDel(mgr, tr->exist_eff);
-    borISetFree(&tr->eff_groups);
+    pddlISetFree(&tr->eff_groups);
     bzero(tr, sizeof(*tr));
 }
 
@@ -153,8 +153,8 @@ static void transSetFree(pddl_bdd_manager_t *mgr,
     for (int i = 0; i < trset->trans_size; ++i)
         transFree(mgr, trset->trans + i);
     if (trset->trans != NULL)
-        BOR_FREE(trset->trans);
-    borISetFree(&trset->op);
+        FREE(trset->trans);
+    pddlISetFree(&trset->op);
 }
 
 static void transInitEffVars(pddl_symbolic_vars_t *vars,
@@ -171,26 +171,26 @@ static void transInit(pddl_symbolic_vars_t *vars,
                       const op_t *op,
                       pddl_symbolic_trans_t *tr,
                       int use_op_constr,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     ASSERT(!op->is_dead);
 
     // Build the BDD from bottom up by first filling the array bdds and
     // then going over it from last to the first item
-    pddl_bdd_t **bdds = BOR_CALLOC_ARR(pddl_bdd_t *, 2 * vars->group_size);
-    int *pre_set = BOR_CALLOC_ARR(int, vars->group_size);
-    int *eff_set = BOR_CALLOC_ARR(int, vars->group_size);
+    pddl_bdd_t **bdds = CALLOC_ARR(pddl_bdd_t *, 2 * vars->group_size);
+    int *pre_set = CALLOC_ARR(int, vars->group_size);
+    int *eff_set = CALLOC_ARR(int, vars->group_size);
 
     int fact_id;
-    BOR_ISET_FOR_EACH(&op->pre, fact_id){
+    PDDL_ISET_FOR_EACH(&op->pre, fact_id){
         int group_id = pddlSymbolicVarsFactGroup(vars, fact_id);
         pre_set[group_id] = 1;
         ASSERT(bdds[2 * group_id] == NULL);
         bdds[2 * group_id] = pddlSymbolicVarsFactPreBDD(vars, fact_id);
     }
 
-    BOR_ISET_FOR_EACH(&op->neg_pre, fact_id){
-        ASSERT(!borISetIn(fact_id, &op->pre));
+    PDDL_ISET_FOR_EACH(&op->neg_pre, fact_id){
+        ASSERT(!pddlISetIn(fact_id, &op->pre));
         int group_id = pddlSymbolicVarsFactGroup(vars, fact_id);
         pddl_bdd_t *bdd = pddlSymbolicVarsFactPreBDDNeg(vars, fact_id);
         if (bdds[2 * group_id] == NULL){
@@ -201,15 +201,15 @@ static void transInit(pddl_symbolic_vars_t *vars,
         }
     }
 
-    BOR_ISET_FOR_EACH(&op->eff, fact_id){
+    PDDL_ISET_FOR_EACH(&op->eff, fact_id){
         int group_id = pddlSymbolicVarsFactGroup(vars, fact_id);
         eff_set[group_id] = 1;
         ASSERT(bdds[2 * group_id + 1] == NULL);
         bdds[2 * group_id + 1] = pddlSymbolicVarsFactEffBDD(vars, fact_id);
     }
 
-    BOR_ISET_FOR_EACH(&op->neg_eff, fact_id){
-        ASSERT(!borISetIn(fact_id, &op->eff));
+    PDDL_ISET_FOR_EACH(&op->neg_eff, fact_id){
+        ASSERT(!pddlISetIn(fact_id, &op->eff));
         int group_id = pddlSymbolicVarsFactGroup(vars, fact_id);
         pddl_bdd_t *bdd = pddlSymbolicVarsFactEffBDDNeg(vars, fact_id);
         if (bdds[2 * group_id + 1] == NULL){
@@ -228,14 +228,14 @@ static void transInit(pddl_symbolic_vars_t *vars,
             pddlBDDDel(vars->mgr, bdds[i]);
         }
     }
-    BOR_FREE(bdds);
+    FREE(bdds);
 
 
     if (use_op_constr){
         int fact_id;
 
 
-        BOR_ISET_FOR_EACH(&op->eff, fact_id){
+        PDDL_ISET_FOR_EACH(&op->eff, fact_id){
             int group_id = vars->fact[fact_id].group_id;
             if (pre_set[group_id]){
                 pddlBDDAndUpdate(vars->mgr, &tr->bdd,
@@ -249,12 +249,12 @@ static void transInit(pddl_symbolic_vars_t *vars,
 
     for (int i = 0; i < vars->group_size; ++i){
         if (eff_set[i])
-            borISetAdd(&tr->eff_groups, i);
+            pddlISetAdd(&tr->eff_groups, i);
     }
     transInitEffVars(vars, tr);
 
-    BOR_FREE(pre_set);
-    BOR_FREE(eff_set);
+    FREE(pre_set);
+    FREE(eff_set);
 }
 
 static int transMerge(pddl_symbolic_vars_t *vars,
@@ -273,12 +273,12 @@ static int transMerge(pddl_symbolic_vars_t *vars,
     pddl_bdd_t *bdd1 = pddlBDDClone(vars->mgr, tr1->bdd);
     pddl_bdd_t *bdd2 = pddlBDDClone(vars->mgr, tr2->bdd);
 
-    borISetUnion2(&dst->eff_groups, &tr1->eff_groups, &tr2->eff_groups);
-    int e1 = 0, esize1 = borISetSize(&tr1->eff_groups);
-    int e2 = 0, esize2 = borISetSize(&tr2->eff_groups);
+    pddlISetUnion2(&dst->eff_groups, &tr1->eff_groups, &tr2->eff_groups);
+    int e1 = 0, esize1 = pddlISetSize(&tr1->eff_groups);
+    int e2 = 0, esize2 = pddlISetSize(&tr2->eff_groups);
     int group_id;
-    BOR_ISET_FOR_EACH(&dst->eff_groups, group_id){
-        if (e1 < esize1 && borISetGet(&tr1->eff_groups, e1) == group_id){
+    PDDL_ISET_FOR_EACH(&dst->eff_groups, group_id){
+        if (e1 < esize1 && pddlISetGet(&tr1->eff_groups, e1) == group_id){
             ++e1;
         }else{
             pddl_bdd_t *biimp;
@@ -287,7 +287,7 @@ static int transMerge(pddl_symbolic_vars_t *vars,
             pddlBDDDel(vars->mgr, biimp);
         }
 
-        if (e2 < esize2 && borISetGet(&tr2->eff_groups, e2) == group_id){
+        if (e2 < esize2 && pddlISetGet(&tr2->eff_groups, e2) == group_id){
             ++e2;
         }else{
             pddl_bdd_t *biimp;
@@ -305,7 +305,7 @@ static int transMerge(pddl_symbolic_vars_t *vars,
     pddlBDDDel(vars->mgr, bdd1);
     pddlBDDDel(vars->mgr, bdd2);
     if (dst->bdd == NULL){
-        borISetFree(&dst->eff_groups);
+        pddlISetFree(&dst->eff_groups);
         return -1;
     }
 
@@ -323,28 +323,28 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
                               int use_op_constr,
                               int max_nodes,
                               float max_time,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
     for (int i = 0; i < op_ids_size; ++i)
-        borISetAdd(&trset->op, op_ids[i]);
-    ASSERT(borISetSize(&trset->op) > 0);
+        pddlISetAdd(&trset->op, op_ids[i]);
+    ASSERT(pddlISetSize(&trset->op) > 0);
     trset->cost = ops[op_ids[0]].cost;
     trset->heur_change = ops[op_ids[0]].heur_change;
 
-    int T_size = borISetSize(&trset->op);
-    pddl_symbolic_trans_t *T = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
+    int T_size = pddlISetSize(&trset->op);
+    pddl_symbolic_trans_t *T = CALLOC_ARR(pddl_symbolic_trans_t, T_size);
     int Tres_size = 0;
-    pddl_symbolic_trans_t *Tres = BOR_CALLOC_ARR(pddl_symbolic_trans_t, T_size);
+    pddl_symbolic_trans_t *Tres = CALLOC_ARR(pddl_symbolic_trans_t, T_size);
     for (int i = 0; i < T_size; ++i)
         transInit(vars, constr, ops + op_ids[i], T + i, use_op_constr, err);
 
-    BOR_INFO(err, "Initialized individual trans BDDs: cost: %s,"
-                  " heur change: %s ops: %d",
-             F_COST(&trset->cost),
-             F_COST(&trset->heur_change),
-             borISetSize(&trset->op));
+    PDDL_INFO(err, "Initialized individual trans BDDs: cost: %s,"
+              " heur change: %s ops: %d",
+              F_COST(&trset->cost),
+              F_COST(&trset->heur_change),
+              pddlISetSize(&trset->op));
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -395,19 +395,19 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     }
 
     trset->trans_size = Tres_size;
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
+    trset->trans = CALLOC_ARR(pddl_symbolic_trans_t, trset->trans_size);
     memcpy(trset->trans, Tres, sizeof(pddl_symbolic_trans_t) * Tres_size);
 
-    BOR_FREE(T);
-    BOR_FREE(Tres);
+    FREE(T);
+    FREE(Tres);
 
     long nodes = 0;
     for (int i = 0; i < trset->trans_size; ++i)
         nodes += pddlBDDSize(trset->trans[i].bdd);
-    BOR_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
-                  " nodes: %lu, %s",
-             trset->cost, borISetSize(&trset->op), trset->trans_size,
-             nodes, (T_size > 1 ? "(time limit reached)" : ""));
+    PDDL_INFO(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
+              " nodes: %lu, %s",
+              trset->cost, pddlISetSize(&trset->op), trset->trans_size,
+              nodes, (T_size > 1 ? "(time limit reached)" : ""));
 }
 
 static int opIdCostCmp(const void *a, const void *b, void *_ops)
@@ -427,9 +427,9 @@ static int add(pddl_symbolic_trans_sets_t *trset)
 {
     if (trset->trans_size == trset->trans_alloc){
         trset->trans_alloc *= 2;
-        trset->trans = BOR_REALLOC_ARR(trset->trans,
-                                       pddl_symbolic_trans_set_t,
-                                       trset->trans_alloc);
+        trset->trans = REALLOC_ARR(trset->trans,
+                                   pddl_symbolic_trans_set_t,
+                                   trset->trans_alloc);
     }
     bzero(trset->trans + trset->trans_size, sizeof(*trset->trans));
     return trset->trans_size++;
@@ -444,28 +444,28 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                float max_time,
                                pddl_cost_t *op_heur_change,
                                int sum_op_heur_change_to_cost,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     bzero(trset, sizeof(*trset));
     trset->vars = vars;
 
-    op_t *ops = BOR_CALLOC_ARR(op_t, strips->op.op_size);
+    op_t *ops = CALLOC_ARR(op_t, strips->op.op_size);
     opsInit(constr, strips, use_op_constr, ops,
             op_heur_change, sum_op_heur_change_to_cost, err);
 
     trset->trans_size = 0;
     trset->trans_alloc = 2;
-    trset->trans = BOR_CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_alloc);
+    trset->trans = CALLOC_ARR(pddl_symbolic_trans_set_t, trset->trans_alloc);
 
     int op_ids_size = strips->op.op_size;
-    int *op_ids = BOR_ALLOC_ARR(int, op_ids_size);
+    int *op_ids = ALLOC_ARR(int, op_ids_size);
     int ins = 0;
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         if (!ops[op_id].is_dead)
             op_ids[ins++] = op_id;
     }
     op_ids_size = ins;
-    borSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)ops);
+    pddlSort(op_ids, op_ids_size, sizeof(int), opIdCostCmp, (void *)ops);
 
     int start = 0, end = 1;
     for (end = 1; end < op_ids_size; ++end){
@@ -491,11 +491,11 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                           use_op_constr, max_nodes, max_time, err);
     }
 
-    BOR_FREE(op_ids);
+    FREE(op_ids);
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         opFree(ops + op_id);
-    BOR_FREE(ops);
+    FREE(ops);
 }
 
 void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *trset)
@@ -503,7 +503,7 @@ void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *trset)
     for (int i = 0; i < trset->trans_size; ++i)
         transSetFree(trset->vars->mgr, trset->trans + i);
     if (trset->trans != NULL)
-        BOR_FREE(trset->trans);
+        FREE(trset->trans);
 }
 
 

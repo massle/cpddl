@@ -20,7 +20,7 @@
 #ifndef __PDDL_MGROUP_H__
 #define __PDDL_MGROUP_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <pddl/lifted_mgroup.h>
 
 #ifdef __cplusplus
@@ -30,7 +30,7 @@ extern "C" {
 struct pddl_fdr_vars;
 
 struct pddl_mgroup {
-    bor_iset_t mgroup; /*!< Set of facts forming the mutex group */
+    pddl_iset_t mgroup; /*!< Set of facts forming the mutex group */
     int lifted_mgroup_id; /*!< ID refering to the corresponding lifted
                                mutex group in pddl_mgroups_t or
                                -1 if there is none */
@@ -74,7 +74,7 @@ void pddlMGroupsFree(pddl_mgroups_t *mg);
 /**
  * Adds a new mutex group consisting of the given set of facts.
  */
-pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const bor_iset_t *fact);
+pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const pddl_iset_t *fact);
 
 /**
  * Sorts mutex groups and removes duplicates.
@@ -102,19 +102,19 @@ int pddlMGroupsSetGoal(pddl_mgroups_t *mgs, const pddl_strips_t *strips);
  * Adds to {set} all facts from all exactly-one mutex groups.
  */
 void pddlMGroupsGatherExactlyOneFacts(const pddl_mgroups_t *mgs,
-                                      bor_iset_t *set);
+                                      pddl_iset_t *set);
 
 /**
  * Remove the specified facts and remap the rest to the new IDs.
  * Note that the flags are not reset to 0.
  */
-void pddlMGroupsReduce(pddl_mgroups_t *mgs, const bor_iset_t *rm_facts);
+void pddlMGroupsReduce(pddl_mgroups_t *mgs, const pddl_iset_t *rm_facts);
 
 /**
  * Remove specified facts from all mutex groups.
  * Note that all flags are kept untouched.
  */
-void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const bor_iset_t *rm);
+void pddlMGroupsRemoveSet(pddl_mgroups_t *mgs, const pddl_iset_t *rm);
 
 /**
  * Removes all mutex groups containing at most size facts.
@@ -151,7 +151,7 @@ int pddlMGroupsNumExactlyOne(const pddl_mgroups_t *mgs);
 /**
  * Find facts that are part of only one mutex group.
  */
-void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, bor_iset_t *ess);
+void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, pddl_iset_t *ess);
 
 /**
  * Fill cover_set with mutex groups from mgs such that all facts from mgs
@@ -181,7 +181,7 @@ int pddlMGroupsNumCoveredFacts(const pddl_mgroups_t *mgs);
  */
 void pddlMGroupsSplitByIntersection(pddl_mgroups_t *dst,
                                     const pddl_mgroups_t *src,
-                                    const bor_iset_t *fset);
+                                    const pddl_iset_t *fset);
 
 /**
  * Debug print out
@@ -198,7 +198,7 @@ void pddlMGroupsPrintTable(const pddl_t *pddl,
                            const pddl_strips_t *strips,
                            const pddl_mgroups_t *mg,
                            FILE *fout,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

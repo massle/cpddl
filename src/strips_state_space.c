@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/hfunc.h>
+#include "pddl/hfunc.h"
 #include "pddl/strips_state_space.h"
 #include "assert.h"
 
@@ -32,66 +32,66 @@ struct state_node {
     int op_id:30; /*!< ID of the operator reaching this state */
     pddl_strips_state_space_status_t status:2;/*!< PDDL_STRIPS_STATE_SPACE_STATUS_* */
     int g_value; /*!< Cost of the path from init to this state */
-    bor_iset_t state;
+    pddl_iset_t state;
 
-    bor_list_t htable;
-    bor_htable_key_t hash;
+    pddl_list_t htable;
+    pddl_htable_key_t hash;
 };
 typedef struct state_node state_node_t;
 
-static bor_htable_key_t stateHash(const bor_iset_t *state)
+static pddl_htable_key_t stateHash(const pddl_iset_t *state)
 {
-    return borCityHash_64(state->s, sizeof(int) * state->size);
+    return pddlCityHash_64(state->s, sizeof(int) * state->size);
 }
 
-static bor_htable_key_t htableHash(const bor_list_t *k, void *_)
+static pddl_htable_key_t htableHash(const pddl_list_t *k, void *_)
 {
-    const state_node_t *sn = BOR_LIST_ENTRY(k, state_node_t, htable);
+    const state_node_t *sn = PDDL_LIST_ENTRY(k, state_node_t, htable);
     return sn->hash;
 }
 
-static int htableEq(const bor_list_t *k1, const bor_list_t *k2, void *_)
+static int htableEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 {
-    const state_node_t *sn1 = BOR_LIST_ENTRY(k1, state_node_t, htable);
-    const state_node_t *sn2 = BOR_LIST_ENTRY(k2, state_node_t, htable);
-    return borISetEq(&sn1->state, &sn2->state);
+    const state_node_t *sn1 = PDDL_LIST_ENTRY(k1, state_node_t, htable);
+    const state_node_t *sn2 = PDDL_LIST_ENTRY(k2, state_node_t, htable);
+    return pddlISetEq(&sn1->state, &sn2->state);
 }
 
 void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
-                              bor_err_t *err)
+                              pddl_err_t *err)
 {
     bzero(state_space, sizeof(*state_space));
-    state_space->htable = borHTableNew(htableHash, htableEq, NULL);
-    state_space->node = borExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
-                                      MIN_STATES_PER_BLOCK,
-                                      NULL, NULL);
+    state_space->htable = pddlHTableNew(htableHash, htableEq, NULL);
+    state_space->node = pddlExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
+                                       MIN_STATES_PER_BLOCK,
+                                       NULL, NULL);
 
-    BOR_INFO(err, "State space created. bytes per state node: %d",
-             (int)sizeof(state_node_t));
+    PDDL_INFO(err, "State space created. bytes per state node: %d",
+              (int)sizeof(state_node_t));
 }
 
 void pddlStripsStateSpaceFree(pddl_strips_state_space_t *state_space)
 {
     for (int id = 0; id < state_space->num_states; ++id){
-        state_node_t *sn = borExtArrGet(state_space->node, id);
-        borISetFree(&sn->state);
+        state_node_t *sn = pddlExtArrGet(state_space->node, id);
+        pddlISetFree(&sn->state);
     }
     if (state_space->htable != NULL)
-        borHTableDel(state_space->htable);
+        pddlHTableDel(state_space->htable);
     if (state_space->node != NULL)
-        borExtArrDel(state_space->node);
+        pddlExtArrDel(state_space->node);
 }
 
 pddl_state_id_t pddlStripsStateSpaceInsert(
                             pddl_strips_state_space_t *state_space,
-                            const bor_iset_t *state)
+                            const pddl_iset_t *state)
 {
-    state_node_t *sn = borExtArrGet(state_space->node, state_space->num_states);
+    state_node_t *sn = pddlExtArrGet(state_space->node, state_space->num_states);
     bzero(sn, sizeof(*sn));
-    borISetSet(&sn->state, state);
+    pddlISetSet(&sn->state, state);
     sn->hash = stateHash(state);
 
-    bor_list_t *snl = borHTableInsertUnique(state_space->htable, &sn->htable);
+    pddl_list_t *snl = pddlHTableInsertUnique(state_space->htable, &sn->htable);
     if (snl == NULL){
         sn->id = state_space->num_states++;
         sn->parent_id = PDDL_NO_STATE_ID;
@@ -99,8 +99,8 @@ pddl_state_id_t pddlStripsStateSpaceInsert(
         sn->status = PDDL_STRIPS_STATE_SPACE_STATUS_NEW;
         sn->g_value = -1;
     }else{
-        borISetFree(&sn->state);
-        sn = BOR_LIST_ENTRY(snl, state_node_t, htable);
+        pddlISetFree(&sn->state);
+        sn = PDDL_LIST_ENTRY(snl, state_node_t, htable);
     }
     return sn->id;
 }
@@ -121,9 +121,9 @@ void pddlStripsStateSpaceGet(const pddl_strips_state_space_t *state_space,
                              pddl_state_id_t state_id,
                              pddl_strips_state_space_node_t *node)
 {
-    const state_node_t *sn = borExtArrGet(state_space->node, state_id);
+    const state_node_t *sn = pddlExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
-    borISetSet(&node->state, &sn->state);
+    pddlISetSet(&node->state, &sn->state);
 }
 
 void pddlStripsStateSpaceGetNoState(const pddl_strips_state_space_t *state_space,
@@ -131,8 +131,8 @@ void pddlStripsStateSpaceGetNoState(const pddl_strips_state_space_t *state_space
                                     pddl_strips_state_space_node_t *node)
 {
     ASSERT_RUNTIME(state_id >= 0
-                    && state_id < state_space->num_states);
-    const state_node_t *sn = borExtArrGet(state_space->node, state_id);
+                   && state_id < state_space->num_states);
+    const state_node_t *sn = pddlExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
 }
 
@@ -140,8 +140,8 @@ void pddlStripsStateSpaceSet(pddl_strips_state_space_t *state_space,
                              const pddl_strips_state_space_node_t *node)
 {
     ASSERT_RUNTIME(node->id >= 0
-                    && node->id < state_space->num_states);
-    state_node_t *sn = borExtArrGet(state_space->node, node->id);
+                   && node->id < state_space->num_states);
+    state_node_t *sn = pddlExtArrGet(state_space->node, node->id);
     sn->parent_id = node->parent_id;
     sn->op_id = node->op_id;
     sn->g_value = node->g_value;
@@ -153,10 +153,10 @@ void pddlStripsStateSpaceNodeInit(pddl_strips_state_space_node_t *node,
                                   const pddl_strips_state_space_t *state_space)
 {
     bzero(node, sizeof(*node));
-    borISetInit(&node->state);
+    pddlISetInit(&node->state);
 }
 
 void pddlStripsStateSpaceNodeFree(pddl_strips_state_space_node_t *node)
 {
-    borISetFree(&node->state);
+    pddlISetFree(&node->state);
 }

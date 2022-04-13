@@ -18,6 +18,7 @@
 
 #include "pddl/pddl.h"
 #include "pddl/strips_ground_tree.h"
+#include "alloc.h"
 #include "assert.h"
 
 #define TNODE_FOR_EACH_CHILD(TN, CH) \
@@ -31,7 +32,7 @@ static pddl_strips_ground_tnode_t *tnodeNew(pddl_strips_ground_tree_t *t,
 {
     pddl_strips_ground_tnode_t *n;
 
-    n = BOR_ALLOC(pddl_strips_ground_tnode_t);
+    n = ALLOC(pddl_strips_ground_tnode_t);
     bzero(n, sizeof(*n));
     n->param = param;
     n->obj_id = obj_id;
@@ -46,8 +47,8 @@ static void tnodeDel(pddl_strips_ground_tnode_t *t)
     TNODE_FOR_EACH_CHILD(t, ch)
         tnodeDel(ch);
     if (t->child != NULL)
-        BOR_FREE(t->child);
-    BOR_FREE(t);
+        FREE(t->child);
+    FREE(t);
 }
 
 static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
@@ -57,8 +58,8 @@ static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
         if (n->child_alloc == 0)
             n->child_alloc = 1;
         n->child_alloc *= 2;
-        n->child = BOR_REALLOC_ARR(n->child, pddl_strips_ground_tnode_t *,
-                                   n->child_alloc);
+        n->child = REALLOC_ARR(n->child, pddl_strips_ground_tnode_t *,
+                               n->child_alloc);
     }
 }
 
@@ -170,7 +171,7 @@ static void unifyNew(pddl_strips_ground_tree_t *tr,
     }
 
     int param;
-    BOR_ISET_FOR_EACH(&tr->param, param){
+    PDDL_ISET_FOR_EACH(&tr->param, param){
         if (arg[param] == PDDL_OBJ_ID_UNDEF
                 && arg_pre[param] != PDDL_OBJ_ID_UNDEF){
             unifyNewArg(tr, tn, arg, param, remain,
@@ -332,7 +333,7 @@ static int instantiateArgs(pddl_strips_ground_tree_t *tr,
                            int arg_size_max)
 {
     int param;
-    BOR_ISET_FOR_EACH(&tr->param, param){
+    PDDL_ISET_FOR_EACH(&tr->param, param){
         if (param < param_start)
             continue;
         const pddl_obj_id_t *obj;
@@ -361,11 +362,11 @@ static int instantiateArgs(pddl_strips_ground_tree_t *tr,
 }
 
 static int isPreRelevant(const pddl_cond_atom_t *atom,
-                         const bor_iset_t *params)
+                         const pddl_iset_t *params)
 {
     for (int ai = 0; ai < atom->arg_size; ++ai){
         int param = atom->arg[ai].param;
-        if (param >= 0 && !borISetIn(param, params))
+        if (param >= 0 && !pddlISetIn(param, params))
             return 0;
     }
     return 1;
@@ -374,14 +375,14 @@ static int isPreRelevant(const pddl_cond_atom_t *atom,
 void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
                               const pddl_t *pddl,
                               const pddl_prep_action_t *a,
-                              const bor_iset_t *params)
+                              const pddl_iset_t *params)
 {
     bzero(tr, sizeof(*tr));
     tr->pddl = pddl;
     tr->action = a;
-    borISetUnion(&tr->param, params);
+    pddlISetUnion(&tr->param, params);
 
-    tr->pred_to_pre = BOR_CALLOC_ARR(bor_iset_t, pddl->pred.pred_size);
+    tr->pred_to_pre = CALLOC_ARR(pddl_iset_t, pddl->pred.pred_size);
     for (int i = 0; i < a->pre.size; ++i){
         const pddl_cond_atom_t *atom;
         atom = PDDL_COND_CAST(tr->action->pre.cond[i], atom);
@@ -389,7 +390,7 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
             continue;
 
         ++tr->pre_size;
-        borISetAdd(tr->pred_to_pre + atom->pred, i);
+        pddlISetAdd(tr->pred_to_pre + atom->pred, i);
 
         const pddl_pred_t *pred = pddl->pred.pred + atom->pred;
         if (pddlPredIsStatic(pred))
@@ -408,13 +409,13 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
 void pddlStripsGroundTreeFree(pddl_strips_ground_tree_t *tr)
 {
     for (int i = 0; i < tr->pddl->pred.pred_size; ++i)
-        borISetFree(tr->pred_to_pre + i);
-    borISetFree(&tr->param);
+        pddlISetFree(tr->pred_to_pre + i);
+    pddlISetFree(&tr->param);
     if (tr->root != NULL)
         tnodeDel(tr->root);
     pddlActionArgsFree(&tr->args);
     if (tr->pred_to_pre != NULL)
-        BOR_FREE(tr->pred_to_pre);
+        FREE(tr->pred_to_pre);
 }
 
 void pddlStripsGroundTreeUnifyFact(pddl_strips_ground_tree_t *tr,
@@ -422,7 +423,7 @@ void pddlStripsGroundTreeUnifyFact(pddl_strips_ground_tree_t *tr,
                                    int static_fact)
 {
     int pre_i;
-    BOR_ISET_FOR_EACH(tr->pred_to_pre + fact->pred, pre_i){
+    PDDL_ISET_FOR_EACH(tr->pred_to_pre + fact->pred, pre_i){
         unifyTree(tr, fact, pre_i, static_fact);
     }
 }

@@ -21,8 +21,8 @@
 #define __PDDL_COST_H__
 
 #include <stdio.h>
-#include <boruvka/compiler.h>
 #include <pddl/common.h>
+#include <pddl/core.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,19 +37,19 @@ typedef struct pddl_cost pddl_cost_t;
 extern pddl_cost_t pddl_cost_zero;
 extern pddl_cost_t pddl_cost_max;
 
-_bor_inline void pddlCostSetZero(pddl_cost_t *c1)
+_pddl_inline void pddlCostSetZero(pddl_cost_t *c1)
 {
     c1->cost = 0;
     c1->zero_cost = 0;
 }
 
-_bor_inline void pddlCostSetMax(pddl_cost_t *c1)
+_pddl_inline void pddlCostSetMax(pddl_cost_t *c1)
 {
     c1->cost = PDDL_COST_MAX;
     c1->zero_cost = PDDL_COST_MAX;
 }
 
-_bor_inline void pddlCostSetOp(pddl_cost_t *c1, int op_cost)
+_pddl_inline void pddlCostSetOp(pddl_cost_t *c1, int op_cost)
 {
     if (op_cost == 0){
         c1->zero_cost = 1;
@@ -61,7 +61,7 @@ _bor_inline void pddlCostSetOp(pddl_cost_t *c1, int op_cost)
 /**
  * c1 += c2
  */
-_bor_inline void pddlCostSum(pddl_cost_t *c1, const pddl_cost_t *c2)
+_pddl_inline void pddlCostSum(pddl_cost_t *c1, const pddl_cost_t *c2)
 {
     c1->cost += c2->cost;
     c1->zero_cost += c2->zero_cost;
@@ -70,7 +70,7 @@ _bor_inline void pddlCostSum(pddl_cost_t *c1, const pddl_cost_t *c2)
 /**
  * Saturated sum
  */
-_bor_inline void pddlCostSumSat(pddl_cost_t *c1, const pddl_cost_t *c2)
+_pddl_inline void pddlCostSumSat(pddl_cost_t *c1, const pddl_cost_t *c2)
 {
     if (c1->cost >= PDDL_COST_MAX || c1->cost <= PDDL_COST_MIN)
         return;
@@ -88,7 +88,7 @@ _bor_inline void pddlCostSumSat(pddl_cost_t *c1, const pddl_cost_t *c2)
 /**
  * Compare c1 and c2
  */
-_bor_inline int pddlCostCmp(const pddl_cost_t *c1, const pddl_cost_t *c2)
+_pddl_inline int pddlCostCmp(const pddl_cost_t *c1, const pddl_cost_t *c2)
 {
     int cmp = c1->cost - c2->cost;
     if (cmp == 0)
@@ -99,9 +99,9 @@ _bor_inline int pddlCostCmp(const pddl_cost_t *c1, const pddl_cost_t *c2)
 /**
  * Compare c1 + c2 and cs
  */
-_bor_inline int pddlCostCmpSum(const pddl_cost_t *c1,
-                               const pddl_cost_t *c2,
-                               const pddl_cost_t *cs)
+_pddl_inline int pddlCostCmpSum(const pddl_cost_t *c1,
+                                const pddl_cost_t *c2,
+                                const pddl_cost_t *cs)
 {
     int cmp = (c1->cost + c2->cost) - cs->cost;
     if (cmp == 0)
@@ -109,7 +109,7 @@ _bor_inline int pddlCostCmpSum(const pddl_cost_t *c1,
     return cmp;
 }
 
-_bor_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
+_pddl_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
 {
     if (c->cost >= PDDL_COST_DEAD_END)
         return 1;
@@ -118,7 +118,7 @@ _bor_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
 
 const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size);
 
-_bor_inline int pddlSumSat(int c1, int c2)
+_pddl_inline int pddlSumSat(int c1, int c2)
 {
     if (c1 >= PDDL_COST_MAX || c2 >= PDDL_COST_MAX)
         return PDDL_COST_MAX;

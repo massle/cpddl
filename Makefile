@@ -3,22 +3,40 @@
 
 CFLAGS += -I.
 CFLAGS += -Wno-sizeof-pointer-div
-CFLAGS += $(BORUVKA_CFLAGS)
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
 CFLAGS += $(CUDD_CFLAGS)
 CFLAGS += $(SQLITE_CFLAGS)
+CFLAGS += $(LP_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
-CPPFLAGS += $(BORUVKA_CFLAGS)
 CPPFLAGS += $(CPOPTIMIZER_CPPFLAGS)
 
-CPPCHECK_FLAGS += --platform=unix64 --enable=all -I. -Ithird-party/boruvka
+CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
 
 TARGETS  = libpddl.a
 
-OBJS  = lisp
+OBJS  = alloc
+OBJS += timer
+OBJS += err
+OBJS += hfunc
+OBJS += google-city-hash
+OBJS += rand-mt
+OBJS += sort
+OBJS += qsort
+OBJS += segmarr
+OBJS += extarr
+OBJS += pairheap
+OBJS += hashset
+OBJS += rbtree
+OBJS += htable
+OBJS += fifo
+OBJS += lp
+OBJS += lp-cplex
+OBJS += lp-lpsolve
+OBJS += lp-gurobi
+OBJS += lisp
 OBJS += require
 OBJS += type
 OBJS += param
@@ -90,6 +108,7 @@ OBJS += random_walk
 OBJS += open_list
 OBJS += open_list_splaytree1
 OBJS += open_list_splaytree2
+OBJS += search
 OBJS += search_astar
 OBJS += search_lazy
 OBJS += search_lifted
@@ -136,6 +155,10 @@ OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
 OBJS += objset
+OBJS += iset
+OBJS += lset
+OBJS += cset
+OBJS += iarr
 
 OBJS_CPP = endomorphism
 
@@ -143,6 +166,14 @@ OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
+GEN += pddl/iset.h
+GEN += src/iset.c
+GEN += pddl/lset.h
+GEN += src/lset.c
+GEN += pddl/cset.h
+GEN += src/cset.c
+GEN += pddl/iarr.h
+GEN += src/iarr.c
 
 all: $(TARGETS)
 
@@ -159,17 +190,11 @@ pddl/config.h:
 	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
 	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
 	if [ "$(USE_SQLITE)" = "yes" ]; then echo "#define PDDL_SQLITE" >>$@; fi
-	echo '#include <boruvka/lp.h>' >__lp.c
-	echo 'int main(int argc, char *arvg[]) { return borLPSolverAvailable(BOR_LP_DEFAULT); }' >>__lp.c
-	$(CC) $(CFLAGS) -o __lp __lp.c $(BORUVKA_LDFLAGS) $(LP_LDFLAGS) -pthread -lrt -lm
-	if ! ./__lp; then echo "#define PDDL_LP" >>$@; fi
-	rm -f __lp.c __lp
-	echo '#define IL_STD' >__cpopt.c
-	echo '#include <ilcp/cp.h>' >>__cpopt.c
-	echo '#include <ilcplex/cpxconst.h>' >>__cpopt.c
-	echo 'int main(int argc, char *arvg[]) { IloCP cp(); return 0; }' >>__cpopt.c
-	if $(CXX) $(CPPFLAGS) -o __cpopt __cpopt.c $(CPOPTIMIZER_LDFLAGS) -pthread -lrt -lm 2>/dev/null; then if ./__cpopt; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi; fi
-	rm -f __cpopt.c __cpopt
+	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
+	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
+	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
+	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
+	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
@@ -177,6 +202,22 @@ pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
 	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
+src/iarr.c: src/_arr.c scripts/fmt_set.sh
+	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -197,22 +238,15 @@ clean:
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
 	rm -f src/*.pb.{cc,h}
+	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -d test ]; then $(MAKE) -C test clean; fi;
 	if [ -d doc ]; then $(MAKE) -C doc clean; fi;
 
-mrproper: clean boruvka-clean opts-clean bliss-clean lpsolve-clean cudd-clean
+mrproper: clean opts-clean bliss-clean lpsolve-clean cudd-clean
 
-check:
-	$(MAKE) -C test check
-check-noreg:
-	$(MAKE) -C test check-noreg
-check-ci:
-	$(MAKE) -C test check-ci
-check-valgrind:
-	$(MAKE) -C test check-valgrind
-check-segfault:
-	$(MAKE) -C test check-segfault
+check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
+	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 static-check:
 	$(CPPCHECK) $(CPPCHECK_FLAGS) pddl/ src/
 
@@ -229,22 +263,12 @@ list-global-symbols: libpddl.a
         | sort \
         | uniq \
         | grep -v '^pddl' \
-        | grep -v '^bor' \
-        | grep -v '^_bor' \
-        | grep -v '^__bor' \
+        | grep -v '^_Z.*Ilo' \
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: boruvka opts bliss cudd sqlite
-third-party-clean: boruvka-clean opts-clean bliss-clean cudd-clean sqlite-clean
-
-boruvka: third-party/boruvka/Makefile
-	$(MAKE) $(_BOR_MAKE_DEF) -C third-party/boruvka all
-boruvka-clean:
-	$(MAKE) -C third-party/boruvka clean
-third-party/boruvka/Makefile:
-	git submodule init -- third-party/boruvka
-	git submodule update -- third-party/boruvka
+third-party: opts bliss cudd sqlite
+third-party-clean: opts-clean bliss-clean cudd-clean sqlite-clean
 
 opts: third-party/opts/Makefile
 	$(MAKE) -C third-party/opts all
@@ -295,10 +319,13 @@ third-party/sqlite/libsqlite.a:
 	cd third-party/sqlite && ar cr libsqlite.a sqlite3.o
 	cd third-party/sqlite && ranlib libsqlite.a
 
-.PHONY: all clean check check-ci check-valgrind help doc install analyze \
+.PHONY: all clean help doc install analyze \
   examples mrproper \
+  check check-all \
+  check-valgrind check-all-valgrind \
+  check-segfault check-all-segfault \
+  check-gdb check-all-gdb \
   third-party third-party-clean \
-  boruvka boruvka-clean \
   opts opts-clean \
   bliss bliss-clean \
   lpsolve lpsolve-clean \

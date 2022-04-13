@@ -32,8 +32,8 @@ extern "C" {
 struct pddl_prune_strips {
     pddl_mgroups_t mgroup;
     pddl_mutex_pairs_t mutex;
-    bor_list_t prune;
-    bor_list_t conn;
+    pddl_list_t prune;
+    pddl_list_t conn;
 };
 typedef struct pddl_prune_strips pddl_prune_strips_t;
 
@@ -45,7 +45,7 @@ void pddlPruneStripsFree(pddl_prune_strips_t *prune);
 int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
                            pddl_strips_t *strips,
                            pddl_mgroups_t *mgroups,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 
 void pddlPruneStripsAddIrrelevance(pddl_prune_strips_t *prune);
 

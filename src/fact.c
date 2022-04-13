@@ -17,10 +17,9 @@
  * See the License for more information.
  */
 
-#include <boruvka/compiler.h>
-#include <boruvka/alloc.h>
-#include <boruvka/hfunc.h>
-#include <boruvka/sort.h>
+#include "alloc.h"
+#include "pddl/hfunc.h"
+#include <pddl/sort.h>
 #include "pddl/pddl.h"
 #include "pddl/fact.h"
 #include "err.h"
@@ -31,23 +30,23 @@ static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src);
 /** Returns true if facts are equal.  */
 static int pddlFactEq(const pddl_fact_t *f1, const pddl_fact_t *f2);
 
-static bor_htable_key_t htableKey(const bor_list_t *key, void *_)
+static pddl_htable_key_t htableKey(const pddl_list_t *key, void *_)
 {
-    pddl_fact_t *f = BOR_LIST_ENTRY(key, pddl_fact_t, htable);
+    pddl_fact_t *f = PDDL_LIST_ENTRY(key, pddl_fact_t, htable);
     return f->hash;
 }
 
-static int htableEq(const bor_list_t *k1,
-                    const bor_list_t *k2, void *_)
+static int htableEq(const pddl_list_t *k1,
+                    const pddl_list_t *k2, void *_)
 {
-    pddl_fact_t *f1 = BOR_LIST_ENTRY(k1, pddl_fact_t, htable);
-    pddl_fact_t *f2 = BOR_LIST_ENTRY(k2, pddl_fact_t, htable);
+    pddl_fact_t *f1 = PDDL_LIST_ENTRY(k1, pddl_fact_t, htable);
+    pddl_fact_t *f2 = PDDL_LIST_ENTRY(k2, pddl_fact_t, htable);
     return pddlFactEq(f1, f2);
 }
 
-static bor_htable_key_t pddlFactHash(const pddl_fact_t *f)
+static pddl_htable_key_t pddlFactHash(const pddl_fact_t *f)
 {
-    return borHashSDBM(f->name);
+    return pddlHashSDBM(f->name);
 }
 
 static char *makeName(const pddl_ground_atom_t *ga, const pddl_t *pddl)
@@ -62,7 +61,7 @@ static char *makeName(const pddl_ground_atom_t *ga, const pddl_t *pddl)
                            " %s", pddl->obj.obj[ga->arg[i]].name);
     }
     name[PDDL_FACT_MAX_NAME_SIZE - 1] = 0x0;
-    return BOR_STRDUP(name);
+    return STRDUP(name);
 }
 
 static int isPrivate(const pddl_ground_atom_t *ga, const pddl_t *pddl)
@@ -97,7 +96,7 @@ void pddlFactInit(pddl_fact_t *f)
 
 pddl_fact_t *pddlFactNew(void)
 {
-    pddl_fact_t *f = BOR_ALLOC(pddl_fact_t);
+    pddl_fact_t *f = ALLOC(pddl_fact_t);
     pddlFactInit(f);
     return f;
 }
@@ -105,7 +104,7 @@ pddl_fact_t *pddlFactNew(void)
 void pddlFactFree(pddl_fact_t *f)
 {
     if (f->name != NULL)
-        BOR_FREE(f->name);
+        FREE(f->name);
     if (f->ground_atom != NULL)
         pddlGroundAtomDel(f->ground_atom);
 }
@@ -113,14 +112,14 @@ void pddlFactFree(pddl_fact_t *f)
 void pddlFactDel(pddl_fact_t *f)
 {
     pddlFactFree(f);
-    BOR_FREE(f);
+    FREE(f);
 }
 
 static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src)
 {
     pddlFactFree(dst);
     if (src->name != NULL)
-        dst->name = BOR_STRDUP(src->name);
+        dst->name = STRDUP(src->name);
     if (src->ground_atom != NULL)
         dst->ground_atom = pddlGroundAtomClone(src->ground_atom);
     dst->hash = pddlFactHash(dst);
@@ -157,25 +156,25 @@ static void makeSpace(pddl_facts_t *fs)
         }else{
             fs->fact_alloc *= 2;
         }
-        fs->fact = BOR_REALLOC_ARR(fs->fact, pddl_fact_t *, fs->fact_alloc);
+        fs->fact = REALLOC_ARR(fs->fact, pddl_fact_t *, fs->fact_alloc);
     }
 }
 
 void pddlFactsInit(pddl_facts_t *fs)
 {
     bzero(fs, sizeof(*fs));
-    fs->htable = borHTableNew(htableKey, htableEq, fs);
+    fs->htable = pddlHTableNew(htableKey, htableEq, fs);
 }
 
 void pddlFactsFree(pddl_facts_t *fs)
 {
     pddl_fact_t *fact;
 
-    borHTableDel(fs->htable);
+    pddlHTableDel(fs->htable);
     PDDL_FACTS_FOR_EACH(fs, fact)
         pddlFactDel(fact);
     if (fs->fact != NULL)
-        BOR_FREE(fs->fact);
+        FREE(fs->fact);
 }
 
 static int addFact(pddl_facts_t *fs, pddl_fact_t *fact)
@@ -184,18 +183,18 @@ static int addFact(pddl_facts_t *fs, pddl_fact_t *fact)
     fact->id = fs->fact_size;
     fs->fact[fs->fact_size] = fact;
     ++fs->fact_size;
-    borHTableInsert(fs->htable, &fact->htable);
+    pddlHTableInsert(fs->htable, &fact->htable);
 
     return fact->id;
 }
 
 int pddlFactsAdd(pddl_facts_t *fs, const pddl_fact_t *f)
 {
-    bor_list_t *hfound;
+    pddl_list_t *hfound;
     pddl_fact_t *fact;
 
-    if ((hfound = borHTableFind(fs->htable, &f->htable)) != NULL)
-        return (BOR_LIST_ENTRY(hfound, pddl_fact_t, htable))->id;
+    if ((hfound = pddlHTableFind(fs->htable, &f->htable)) != NULL)
+        return (PDDL_LIST_ENTRY(hfound, pddl_fact_t, htable))->id;
 
     fact = pddlFactNew();
     pddlFactCopy(fact, f);
@@ -205,13 +204,13 @@ int pddlFactsAdd(pddl_facts_t *fs, const pddl_fact_t *f)
 int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
                            const pddl_t *pddl)
 {
-    bor_list_t *hfound;
+    pddl_list_t *hfound;
     pddl_fact_t *fact;
 
     fact = factFromGroundAtom(ga, pddl);
-    if ((hfound = borHTableFind(fs->htable, &fact->htable)) != NULL){
+    if ((hfound = pddlHTableFind(fs->htable, &fact->htable)) != NULL){
         pddlFactDel(fact);
-        fact = BOR_LIST_ENTRY(hfound, pddl_fact_t, htable);
+        fact = PDDL_LIST_ENTRY(hfound, pddl_fact_t, htable);
         return fact->id;
     }
 
@@ -246,7 +245,7 @@ int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
 }
 
 int pddlFactsDelFactsGenRemap(int fact_size,
-                              const bor_iset_t *del_facts,
+                              const pddl_iset_t *del_facts,
                               int *remap)
 {
     int size = 0;
@@ -254,7 +253,7 @@ int pddlFactsDelFactsGenRemap(int fact_size,
     bzero(remap, sizeof(int) * fact_size);
 
     int fact_id;
-    BOR_ISET_FOR_EACH(del_facts, fact_id){
+    PDDL_ISET_FOR_EACH(del_facts, fact_id){
         if (fact_id >= fact_size)
             break;
         remap[fact_id] = -1;
@@ -277,12 +276,12 @@ void pddlFactsDelFact(pddl_facts_t *fs, int fact_id)
     f = fs->fact[fact_id];
     if (f->neg_of >= 0)
         fs->fact[f->neg_of]->neg_of = -1;
-    borHTableErase(fs->htable, &f->htable);
+    pddlHTableErase(fs->htable, &f->htable);
     pddlFactDel(f);
     fs->fact[fact_id] = NULL;
 }
 
-void pddlFactsDelFacts(pddl_facts_t *fs, const bor_iset_t *m, int *remap)
+void pddlFactsDelFacts(pddl_facts_t *fs, const pddl_iset_t *m, int *remap)
 {
     int new_size = pddlFactsDelFactsGenRemap(fs->fact_size, m, remap);
 
@@ -314,7 +313,7 @@ static int factCmpByName(const void *a, const void *b, void *_)
 
 void pddlFactsSort(pddl_facts_t *fs, int *remap)
 {
-    borSort(fs->fact, fs->fact_size, sizeof(pddl_fact_t *),
+    pddlSort(fs->fact, fs->fact_size, sizeof(pddl_fact_t *),
             factCmpByName, NULL);
     for (int i = 0; i < fs->fact_size; ++i){
         pddl_fact_t *f = fs->fact[i];
@@ -338,13 +337,13 @@ void pddlFactsPrint(const pddl_facts_t *fs,
         pddlFactPrint(fs->fact[i], prefix, suffix, fout);
 }
 
-void pddlFactsPrintSet(const bor_iset_t *fact_set,
+void pddlFactsPrintSet(const pddl_iset_t *fact_set,
                        const pddl_facts_t *fs,
                        const char *prefix,
                        const char *suffix,
                        FILE *fout)
 {
     int fid;
-    BOR_ISET_FOR_EACH(fact_set, fid)
+    PDDL_ISET_FOR_EACH(fact_set, fid)
         pddlFactPrint(fs->fact[fid], prefix, suffix, fout);
 }

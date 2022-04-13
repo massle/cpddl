@@ -21,12 +21,13 @@
 //       of variables are subtypes)
 
 #include <limits.h>
-#include "boruvka/timer.h"
-#include "boruvka/fifo.h"
+#include "pddl/timer.h"
+#include "pddl/fifo.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup_htable.h"
 #include "pddl/lifted_mgroup_infer.h"
 #include "assert.h"
+#include "err.h"
 
 struct cand {
     int id;
@@ -60,14 +61,14 @@ struct refine {
     const pddl_t *pddl;
     pddl_lifted_mgroups_infer_limits_t limit;
     cfg_t cfg;
-    bor_err_t *err;
+    pddl_err_t *err;
 
     pddl_lifted_mgroup_htable_t mgroup;
-    bor_extarr_t *cand;
+    pddl_extarr_t *cand;
     int cand_size;
 
-    bor_fifo_t queue1;
-    bor_fifo_t queue2;
+    pddl_fifo_t queue1;
+    pddl_fifo_t queue2;
 };
 typedef struct refine refine_t;
 
@@ -1073,7 +1074,7 @@ static int isAnyActionUnbalanced(const pddl_t *pddl,
 static void refineInit(refine_t *r,
                        const pddl_t *pddl,
                        const pddl_lifted_mgroups_infer_limits_t *limit,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     bzero(r, sizeof(*r));
     r->pddl = pddl;
@@ -1095,18 +1096,18 @@ static void refineInit(refine_t *r,
 
     cand_t c;
     bzero(&c, sizeof(c));
-    r->cand = borExtArrNew(sizeof(c), NULL, &c);
+    r->cand = pddlExtArrNew(sizeof(c), NULL, &c);
     r->cand_size = 0;
 
-    borFifoInit(&r->queue1, sizeof(int));
-    borFifoInit(&r->queue2, sizeof(int));
+    pddlFifoInit(&r->queue1, sizeof(int));
+    pddlFifoInit(&r->queue2, sizeof(int));
 }
 
 static void refineInitMonotonicity(
                             refine_t *r,
                             const pddl_t *pddl,
                             const pddl_lifted_mgroups_infer_limits_t *limit,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     refineInit(r, pddl, limit, err);
     bzero(&r->cfg, sizeof(r->cfg));
@@ -1116,31 +1117,31 @@ static void refineInitMonotonicity(
 static void refineFree(refine_t *r)
 {
     pddlLiftedMGroupHTableFree(&r->mgroup);
-    borExtArrDel(r->cand);
-    borFifoFree(&r->queue1);
-    borFifoFree(&r->queue2);
+    pddlExtArrDel(r->cand);
+    pddlFifoFree(&r->queue1);
+    pddlFifoFree(&r->queue2);
 }
 
 static int refineCont(const refine_t *r)
 {
-    return !borFifoEmpty(&r->queue1) || !borFifoEmpty(&r->queue2);
+    return !pddlFifoEmpty(&r->queue1) || !pddlFifoEmpty(&r->queue2);
 }
 
 static cand_t *refineNextCand(refine_t *r)
 {
     int next = 0;
-    if (!borFifoEmpty(&r->queue1)){
-        next = *(int *)borFifoFront(&r->queue1);
-        borFifoPop(&r->queue1);
+    if (!pddlFifoEmpty(&r->queue1)){
+        next = *(int *)pddlFifoFront(&r->queue1);
+        pddlFifoPop(&r->queue1);
 
-    }else if (!borFifoEmpty(&r->queue2)){
-        next = *(int *)borFifoFront(&r->queue2);
-        borFifoPop(&r->queue2);
+    }else if (!pddlFifoEmpty(&r->queue2)){
+        next = *(int *)pddlFifoFront(&r->queue2);
+        pddlFifoPop(&r->queue2);
 
     }else{
         return NULL;
     }
-    return borExtArrGet(r->cand, next);
+    return pddlExtArrGet(r->cand, next);
 }
 
 static int eachPredOnlyOnce(const pddl_lifted_mgroup_t *m)
@@ -1166,7 +1167,7 @@ static cand_t *_refineAddCand(refine_t *r,
     int id = pddlLiftedMGroupHTableAdd(&r->mgroup, m);
     if (id >= r->cand_size){
         r->cand_size = id + 1;
-        cand_t *cand = borExtArrGet(r->cand, id);
+        cand_t *cand = pddlExtArrGet(r->cand, id);
         bzero(cand, sizeof(*cand));
         cand->id = id;
         cand->mgroup = pddlLiftedMGroupHTableGet(&r->mgroup, id);
@@ -1182,7 +1183,7 @@ static cand_t *_refineAddCand(refine_t *r,
 
         return cand;
     }else{
-        ASSERT(((cand_t *)borExtArrGet(r->cand, id))->id == id);
+        ASSERT(((cand_t *)pddlExtArrGet(r->cand, id))->id == id);
         return NULL;
     }
 }
@@ -1193,7 +1194,7 @@ static void refineAddCand(refine_t *r,
 {
     cand_t *c = _refineAddCand(r, m, parent);
     if (c != NULL)
-        borFifoPush(&r->queue1, &c->id);
+        pddlFifoPush(&r->queue1, &c->id);
 }
 
 static void refineAddCandExtend(refine_t *r,
@@ -1205,7 +1206,7 @@ static void refineAddCandExtend(refine_t *r,
     if (c != NULL){
         c->refined_by_extend = 1;
         c->refined_by_extend_pred = extend_pred;
-        borFifoPush(&r->queue1, &c->id);
+        pddlFifoPush(&r->queue1, &c->id);
     }
 }
 
@@ -1216,7 +1217,7 @@ static void refineAddCandType(refine_t *r,
     cand_t *c = _refineAddCand(r, m, parent);
     if (c != NULL){
         c->refined_type = 1;
-        borFifoPush(&r->queue2, &c->id);
+        pddlFifoPush(&r->queue2, &c->id);
     }
 }
 
@@ -1227,7 +1228,7 @@ static void refineAddCandVar(refine_t *r,
     cand_t *c = _refineAddCand(r, m, parent);
     if (c != NULL){
         c->refined_var = 1;
-        borFifoPush(&r->queue2, &c->id);
+        pddlFifoPush(&r->queue2, &c->id);
     }
 }
 
@@ -1467,7 +1468,7 @@ static void refineParamTypesTree(refine_t *refine,
     const pddl_type_t *atom_parent_type = ts->type + atom_parent_type_id;
 
     int tid;
-    BOR_ISET_FOR_EACH(&atom_parent_type->child, tid){
+    PDDL_ISET_FOR_EACH(&atom_parent_type->child, tid){
         if (tid == atom_type_id)
             continue;
         ASSERT(pddlTypesAreDisjunct(ts, tid, atom_type_id));
@@ -1495,14 +1496,14 @@ static void refineParamTypes(refine_t *refine,
 
     if (pddlTypesIsEither(ts, cand_type_id)){
         int tid;
-        BOR_ISET_FOR_EACH(&cand_type->either, tid)
+        PDDL_ISET_FOR_EACH(&cand_type->either, tid)
             refineParamTypes(refine, cand, param, tid, atom_type_id);
         return;
     }
 
     if (pddlTypesIsEither(ts, atom_type_id)){
         int tid;
-        BOR_ISET_FOR_EACH(&atom_type->either, tid)
+        PDDL_ISET_FOR_EACH(&atom_type->either, tid)
             refineParamTypes(refine, cand, param, cand_type_id, tid);
         return;
     }
@@ -1553,7 +1554,7 @@ static void refineTypes(refine_t *refine,
 
         if (aobj >= 0){
             int tid;
-            BOR_ISET_FOR_EACH(&ts->type[atype].child, tid){
+            PDDL_ISET_FOR_EACH(&ts->type[atype].child, tid){
                 if (!pddlTypesObjHasType(ts, tid, aobj))
                     addCandidateWithChangedParamType(refine, cand, cparam, tid);
             }
@@ -1563,12 +1564,12 @@ static void refineTypes(refine_t *refine,
 
 static void countedVariables(const pddl_lifted_mgroup_t *cand,
                              const pddl_cond_atom_t *atom,
-                             bor_iset_t *vars)
+                             pddl_iset_t *vars)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom->arg[i].param >= 0
                 && cand->param.param[atom->arg[i].param].is_counted_var){
-            borISetAdd(vars, atom->arg[i].param);
+            pddlISetAdd(vars, atom->arg[i].param);
         }
     }
 }
@@ -1587,19 +1588,19 @@ static void refineVariables(refine_t *refine,
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
 
-    BOR_ISET(relevant_params);
+    PDDL_ISET(relevant_params);
 
     // Collect counted variables present in both cand_atom1 and cand_atom2
-    BOR_ISET(counted_vars2);
+    PDDL_ISET(counted_vars2);
     countedVariables(cand->mgroup, cand_atom1, &relevant_params);
     countedVariables(cand->mgroup, cand_atom2, &counted_vars2);
-    borISetIntersect(&relevant_params, &counted_vars2);
-    borISetFree(&counted_vars2);
+    pddlISetIntersect(&relevant_params, &counted_vars2);
+    pddlISetFree(&counted_vars2);
 
     // If a1 and a2 differ in a argument corresonding to counted variable,
     // then we can try to change this variable to non-counted variable
     int counted_var;
-    BOR_ISET_FOR_EACH(&relevant_params, counted_var){
+    PDDL_ISET_FOR_EACH(&relevant_params, counted_var){
         for (int ai1 = 0; ai1 < cand_atom1->arg_size; ++ai1){
             if (cand_atom1->arg[ai1].param != counted_var)
                 continue;
@@ -1621,7 +1622,7 @@ static void refineVariables(refine_t *refine,
         }
     }
 
-    borISetFree(&relevant_params);
+    pddlISetFree(&relevant_params);
 }
 
 static void _refineVariablesProved(refine_t *refine,
@@ -1826,7 +1827,7 @@ static void initialCandidatesAllVarsCounted(const pddl_t *pddl,
         pddlLiftedMGroupFree(&m);
     }
 
-    BOR_INFO(refine->err, "  %d initial candidates.", refine->cand_size);
+    PDDL_INFO(refine->err, "  %d initial candidates.", refine->cand_size);
 }
 
 static void initialCandidatesFD(const pddl_t *pddl, refine_t *refine)
@@ -1851,7 +1852,7 @@ static void initialCandidatesFD(const pddl_t *pddl, refine_t *refine)
         }
     }
 
-    BOR_INFO(refine->err, "  %d initial candidates.", refine->cand_size);
+    PDDL_INFO(refine->err, "  %d initial candidates.", refine->cand_size);
 }
 
 
@@ -1983,16 +1984,16 @@ void pddlLiftedMGroupsInferFAMGroups(
                             const pddl_t *pddl,
                             const pddl_lifted_mgroups_infer_limits_t *limit,
                             pddl_lifted_mgroups_t *mgroups,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
+    CTX(err, "lmg", "LMG");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
-    BOR_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
-    BOR_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
-    BOR_INFO2(err, "Inference of lifted fam-groups ...");
+    PDDL_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
+    PDDL_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
+    PDDL_INFO2(err, "Inference of lifted fam-groups ...");
 
     refineInit(&refine, pddl, limit, err);
 
@@ -2009,48 +2010,48 @@ void pddlLiftedMGroupsInferFAMGroups(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                          " Proved: %d",
-                     tested_candidates,
-                     refine.cand_size,
-                     mgroups->mgroup_size);
+            PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
+                      " Proved: %d",
+                      tested_candidates,
+                      refine.cand_size,
+                      mgroups->mgroup_size);
             steps = 0;
         }
     }
 
     if (steps != 0){
-        BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                      " Proved: %d",
-                 tested_candidates,
-                 refine.cand_size,
-                 mgroups->mgroup_size);
+        PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
+                  " Proved: %d",
+                  tested_candidates,
+                  refine.cand_size,
+                  mgroups->mgroup_size);
     }
 
     pddlLiftedMGroupsSortAndUniq(mgroups);
     refineFree(&refine);
 
-    BOR_INFO(err, "Inference of lifted fam-groups done."
-                  " Found mutex groups: %d",
-             mgroups->mgroup_size);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO(err, "Inference of lifted fam-groups done."
+              " Found mutex groups: %d",
+              mgroups->mgroup_size);
+    CTXEND(err);
 }
 
 
 void pddlLiftedMGroupsInferMonotonicity(
-                            const pddl_t *pddl,
-                            const pddl_lifted_mgroups_infer_limits_t *limit,
-                            pddl_lifted_mgroups_t *inv,
-                            pddl_lifted_mgroups_t *mgroups,
-                            bor_err_t *err)
+                                        const pddl_t *pddl,
+                                        const pddl_lifted_mgroups_infer_limits_t *limit,
+                                        pddl_lifted_mgroups_t *inv,
+                                        pddl_lifted_mgroups_t *mgroups,
+                                        pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
+    CTX(err, "lmg", "LMG");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
-    BOR_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
-    BOR_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
-    BOR_INFO2(err, "Inference of FD lifted mgroups ...");
+    PDDL_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
+    PDDL_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
+    PDDL_INFO2(err, "Inference of FD lifted mgroups ...");
 
     refineInitMonotonicity(&refine, pddl, limit, err);
 
@@ -2075,24 +2076,24 @@ void pddlLiftedMGroupsInferMonotonicity(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                          " Proved monotonicity invariants: %d,"
-                          " mutex groups: %d",
-                     tested_candidates,
-                     refine.cand_size,
-                     (inv != NULL ? inv->mgroup_size : -1),
-                     (mgroups != NULL ? mgroups->mgroup_size : -1));
+            PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
+                      " Proved monotonicity invariants: %d,"
+                      " mutex groups: %d",
+                      tested_candidates,
+                      refine.cand_size,
+                      (inv != NULL ? inv->mgroup_size : -1),
+                      (mgroups != NULL ? mgroups->mgroup_size : -1));
             steps = 0;
         }
     }
 
     if (steps != 0){
-        BOR_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                      " Proved monotonicity invariants: %d, mutex groups: %d",
-                 tested_candidates,
-                 refine.cand_size,
-                 (inv != NULL ? inv->mgroup_size : -1),
-                 (mgroups != NULL ? mgroups->mgroup_size : -1));
+        PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
+                  " Proved monotonicity invariants: %d, mutex groups: %d",
+                  tested_candidates,
+                  refine.cand_size,
+                  (inv != NULL ? inv->mgroup_size : -1),
+                  (mgroups != NULL ? mgroups->mgroup_size : -1));
     }
 
     if (inv != NULL)
@@ -2101,11 +2102,11 @@ void pddlLiftedMGroupsInferMonotonicity(
         pddlLiftedMGroupsSortAndUniq(mgroups);
     refineFree(&refine);
 
-    BOR_INFO(err, "Inference of FD lifted mgroups done."
-                  " Found monotonicity invariants: %d, mutex groups: %d",
-             (inv != NULL ? inv->mgroup_size : -1),
-             (mgroups != NULL ? mgroups->mgroup_size : -1));
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO(err, "Inference of FD lifted mgroups done."
+              " Found monotonicity invariants: %d, mutex groups: %d",
+              (inv != NULL ? inv->mgroup_size : -1),
+              (mgroups != NULL ? mgroups->mgroup_size : -1));
+    CTXEND(err);
 }
 
 
@@ -2139,7 +2140,7 @@ static int isDelEffBalanced(const unify_action_ctx_t *ctx,
 static int actionMayDeleteMGroup(const pddl_t *pddl,
                                  const pddl_action_t *action,
                                  const pddl_lifted_mgroup_t *mgroup,
-                                 bor_err_t *err)
+                                 pddl_err_t *err)
 {
     pddl_cond_const_it_eff_t it;
     const pddl_cond_atom_t *d;
@@ -2168,7 +2169,7 @@ static int actionMayDeleteMGroup(const pddl_t *pddl,
 /** Returns true if lmg is exactly-one lifted mgroup. */
 static int isMGroupSetExactlyOne(const pddl_t *pddl,
                                  const pddl_lifted_mgroup_t *lmg,
-                                 bor_err_t *err)
+                                 pddl_err_t *err)
 {
     //fprintf(stderr, "is-exactly-one? ");
     //pddlLiftedMGroupPrint(pddl, lmg, stderr);
@@ -2183,10 +2184,10 @@ static int isMGroupSetExactlyOne(const pddl_t *pddl,
 
 int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_lifted_mgroups_t *lm,
-                                   bor_err_t *err)
+                                   pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
-    BOR_INFO2(err, "Looking for exactly-one lifted mgroups ...");
+    CTX(err, "lmg", "LMG");
+    PDDL_INFO2(err, "Looking for exactly-one lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
@@ -2195,15 +2196,15 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
             ++num;
         }
     }
-    BOR_INFO(err, "Found %d exactly-one lifted mgroups.", num);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO(err, "Found %d exactly-one lifted mgroups.", num);
+    CTXEND(err);
     return 0;
 }
 
 /** If there is no unifiable delete effect, then the mutex group is static */
 static int isMGroupStatic(const pddl_t *pddl,
                           const pddl_lifted_mgroup_t *mgroup,
-                          bor_err_t *err)
+                          pddl_err_t *err)
 {
     //fprintf(stderr, "is-static? ");
     //pddlLiftedMGroupPrint(pddl, mgroup, stderr);
@@ -2232,10 +2233,10 @@ static int isMGroupStatic(const pddl_t *pddl,
 
 int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_lifted_mgroups_t *lm,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "LMG: ");
-    BOR_INFO2(err, "Looking for static lifted mgroups ...");
+    CTX(err, "lmg", "LMG");
+    PDDL_INFO2(err, "Looking for static lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
@@ -2244,7 +2245,7 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
             ++num;
         }
     }
-    BOR_INFO(err, "Found %d static lifted mgroups.", num);
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO(err, "Found %d static lifted mgroups.", num);
+    CTXEND(err);
     return 0;
 }

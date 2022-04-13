@@ -18,16 +18,17 @@
  */
 
 #include <unistd.h>
-#include <boruvka/alloc.h>
-#include <boruvka/htable.h>
-#include <boruvka/hfunc.h>
-#include <boruvka/extarr.h>
+#include "alloc.h"
+#include "pddl/hfunc.h"
+#include <pddl/extarr.h>
+#include "pddl/htable.h"
 #include "pddl/datalog.h"
 #include "assert.h"
+#include "err.h"
 
 struct pddl_datalog_fact {
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 
     int id;
     int arity;
@@ -37,11 +38,11 @@ struct pddl_datalog_fact {
 typedef struct pddl_datalog_fact pddl_datalog_fact_t;
 
 struct pddl_datalog_relevant_fact {
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 
     int id;
-    bor_iset_t fact;
+    pddl_iset_t fact;
     int key_size;
     int rule;
     int key[];
@@ -49,13 +50,13 @@ struct pddl_datalog_relevant_fact {
 typedef struct pddl_datalog_relevant_fact pddl_datalog_relevant_fact_t;
 
 struct pddl_datalog_db {
-    bor_htable_t *hfact;
-    bor_htable_t *hrelevant_fact[2];
+    pddl_htable_t *hfact;
+    pddl_htable_t *hrelevant_fact[2];
     size_t used_mem;
-    bor_extarr_t *fact;
+    pddl_extarr_t *fact;
     int fact_size;
-    bor_iset_t *pred_to_fact;
-    bor_extarr_t *relevant_fact[2];
+    pddl_iset_t *pred_to_fact;
+    pddl_extarr_t *relevant_fact[2];
     int relevant_fact_size[2];
 };
 typedef struct pddl_datalog_db pddl_datalog_db_t;
@@ -81,7 +82,7 @@ struct pddl_datalog_pred {
     int arity;
     char *name;
     int user_id;
-    bor_iset_t relevant_rules;
+    pddl_iset_t relevant_rules;
 };
 typedef struct pddl_datalog_pred pddl_datalog_pred_t;
 
@@ -120,45 +121,45 @@ struct pddl_datalog {
 #define IDX_TO_VAR(v) (((v)<<MASK_LEN) | VAR_MASK)
 #define IS_VAR(v) (((v) & MASK) == VAR_MASK)
 
-static bor_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
+static pddl_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
 {
     size_t size = sizeof(int) + fact->arity * sizeof(int);
-    return borCityHash_64(&fact->pred, size);
+    return pddlCityHash_64(&fact->pred, size);
 }
 
-static bor_htable_key_t factHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t factHash(const pddl_list_t *key, void *_)
 {
-    return BOR_LIST_ENTRY(key, pddl_datalog_fact_t, htable)->hash;
+    return PDDL_LIST_ENTRY(key, pddl_datalog_fact_t, htable)->hash;
 }
 
-static int factEq(const bor_list_t *key1, const bor_list_t *key2, void *_)
+static int factEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
 {
     const pddl_datalog_fact_t *f1, *f2;
-    f1 = BOR_LIST_ENTRY(key1, pddl_datalog_fact_t, htable);
-    f2 = BOR_LIST_ENTRY(key2, pddl_datalog_fact_t, htable);
+    f1 = PDDL_LIST_ENTRY(key1, pddl_datalog_fact_t, htable);
+    f2 = PDDL_LIST_ENTRY(key2, pddl_datalog_fact_t, htable);
     size_t size = sizeof(int) + f1->arity * sizeof(int);
     return f1->arity == f2->arity && memcmp(&f1->pred, &f2->pred, size) == 0;
 }
 
-static bor_htable_key_t relevantFactComputeHash(
+static pddl_htable_key_t relevantFactComputeHash(
                 const pddl_datalog_relevant_fact_t *f)
 {
     size_t size = f->key_size * 2 * sizeof(int);
-    return borCityHash_64(f->key, size);
+    return pddlCityHash_64(f->key, size);
 }
 
-static bor_htable_key_t relevantFactHash(const bor_list_t *key, void *_)
+static pddl_htable_key_t relevantFactHash(const pddl_list_t *key, void *_)
 {
-    return BOR_LIST_ENTRY(key, pddl_datalog_relevant_fact_t, htable)->hash;
+    return PDDL_LIST_ENTRY(key, pddl_datalog_relevant_fact_t, htable)->hash;
 }
 
-static int relevantFactEq(const bor_list_t *key1,
-                          const bor_list_t *key2,
+static int relevantFactEq(const pddl_list_t *key1,
+                          const pddl_list_t *key2,
                           void *_)
 {
     const pddl_datalog_relevant_fact_t *f1, *f2;
-    f1 = BOR_LIST_ENTRY(key1, pddl_datalog_relevant_fact_t, htable);
-    f2 = BOR_LIST_ENTRY(key2, pddl_datalog_relevant_fact_t, htable);
+    f1 = PDDL_LIST_ENTRY(key1, pddl_datalog_relevant_fact_t, htable);
+    f2 = PDDL_LIST_ENTRY(key2, pddl_datalog_relevant_fact_t, htable);
     size_t size = sizeof(int) + f1->key_size * 2 * sizeof(int);
     return f1->rule == f2->rule && memcmp(&f1->rule, &f2->rule, size) == 0;
 }
@@ -168,46 +169,46 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db);
 static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
 {
     dbFree(dl, db);
-    db->hfact = borHTableNew(factHash, factEq, NULL);
-    db->hrelevant_fact[0] = borHTableNew(relevantFactHash,
-                                         relevantFactEq, NULL);
-    db->hrelevant_fact[1] = borHTableNew(relevantFactHash,
-                                         relevantFactEq, NULL);
+    db->hfact = pddlHTableNew(factHash, factEq, NULL);
+    db->hrelevant_fact[0] = pddlHTableNew(relevantFactHash,
+                                          relevantFactEq, NULL);
+    db->hrelevant_fact[1] = pddlHTableNew(relevantFactHash,
+                                          relevantFactEq, NULL);
 
     size_t size = sizeof(pddl_datalog_fact_t);
     size += dl->max_pred_arity * sizeof(int);
     void *init = alloca(size);
     bzero(init, size);
-    db->fact = borExtArrNew(size, NULL, init);
-    db->pred_to_fact = BOR_CALLOC_ARR(bor_iset_t, dl->pred_size);
+    db->fact = pddlExtArrNew(size, NULL, init);
+    db->pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
 
     size = sizeof(pddl_datalog_relevant_fact_t);
     size += dl->max_pred_arity * 2 * sizeof(int);
     init = alloca(size);
     bzero(init, size);
-    db->relevant_fact[0] = borExtArrNew(size, NULL, init);
-    db->relevant_fact[1] = borExtArrNew(size, NULL, init);
+    db->relevant_fact[0] = pddlExtArrNew(size, NULL, init);
+    db->relevant_fact[1] = pddlExtArrNew(size, NULL, init);
 }
 
 static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
 {
     if (db->hfact == NULL)
         return;
-    borHTableDel(db->hfact);
-    borHTableDel(db->hrelevant_fact[0]);
-    borHTableDel(db->hrelevant_fact[1]);
-    borExtArrDel(db->fact);
+    pddlHTableDel(db->hfact);
+    pddlHTableDel(db->hrelevant_fact[0]);
+    pddlHTableDel(db->hrelevant_fact[1]);
+    pddlExtArrDel(db->fact);
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < db->relevant_fact_size[i]; ++j){
-            void *x = borExtArrGet(db->relevant_fact[i], j);
+            void *x = pddlExtArrGet(db->relevant_fact[i], j);
             pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)x;
-            borISetFree(&f->fact);
+            pddlISetFree(&f->fact);
         }
-        borExtArrDel(db->relevant_fact[i]);
+        pddlExtArrDel(db->relevant_fact[i]);
     }
     for (int i = 0; i < dl->pred_size; ++i)
-        borISetFree(db->pred_to_fact + i);
-    BOR_FREE(db->pred_to_fact);
+        pddlISetFree(db->pred_to_fact + i);
+    FREE(db->pred_to_fact);
 
     bzero(db, sizeof(*db));
 }
@@ -219,7 +220,7 @@ static size_t dbUseddMem(const pddl_datalog_db_t *db)
 
 static pddl_datalog_fact_t *dbFact(pddl_datalog_db_t *db, int id)
 {
-    return (pddl_datalog_fact_t *)borExtArrGet(db->fact, id);
+    return (pddl_datalog_fact_t *)pddlExtArrGet(db->fact, id);
 }
 
 static int dbHasFact(pddl_datalog_t *dl,
@@ -235,12 +236,12 @@ static int dbHasFact(pddl_datalog_t *dl,
     f->pred = pred;
     memcpy(f->arg, arg, sizeof(int) * arity);
     f->hash = factComputeHash(f);
-    bor_list_t *ret = borHTableFind(db->hfact, &f->htable);
+    pddl_list_t *ret = pddlHTableFind(db->hfact, &f->htable);
     if (ret == NULL){
         return 0;
 
     }else{
-        f = BOR_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
+        f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
         return f->id;
     }
 }
@@ -251,22 +252,22 @@ static int dbAddFact(pddl_datalog_t *dl,
                      const int *arg)
 {
     pddl_datalog_fact_t *f;
-    f = (pddl_datalog_fact_t *)borExtArrGet(db->fact, db->fact_size);
+    f = (pddl_datalog_fact_t *)pddlExtArrGet(db->fact, db->fact_size);
 
     f->arity = dl->pred[pred].arity;
     f->pred = pred;
     memcpy(f->arg, arg, sizeof(int) * f->arity);
     f->hash = factComputeHash(f);
-    borListInit(&f->htable);
-    bor_list_t *ret = borHTableInsertUnique(db->hfact, &f->htable);
+    pddlListInit(&f->htable);
+    pddl_list_t *ret = pddlHTableInsertUnique(db->hfact, &f->htable);
     if (ret == NULL){
         f->id = db->fact_size++;
         db->used_mem += db->fact->arr->el_size;
-        borISetAdd(&db->pred_to_fact[f->pred], f->id);
+        pddlISetAdd(&db->pred_to_fact[f->pred], f->id);
         db->used_mem += sizeof(int);
 
     }else{
-        f = BOR_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
+        f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
     }
     return f->id;
 }
@@ -275,34 +276,34 @@ static void dbAddRelevantFact(pddl_datalog_t *dl,
                               pddl_datalog_db_t *db,
                               int bid,
                               int rule,
-                              const bor_iset_t *key_vars,
+                              const pddl_iset_t *key_vars,
                               const int *var_map,
                               int fact_id)
 {
-    void *xf = borExtArrGet(db->relevant_fact[bid],
-                            db->relevant_fact_size[bid]);
+    void *xf = pddlExtArrGet(db->relevant_fact[bid],
+                             db->relevant_fact_size[bid]);
     pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)xf;
 
-    borISetInit(&f->fact);
-    f->key_size = borISetSize(key_vars);
+    pddlISetInit(&f->fact);
+    f->key_size = pddlISetSize(key_vars);
     f->rule = rule;
     for (int i = 0; i < f->key_size; ++i){
-        f->key[2 * i] = borISetGet(key_vars, i);
+        f->key[2 * i] = pddlISetGet(key_vars, i);
         f->key[2 * i + 1] = var_map[f->key[2 * i]];
     }
     f->hash = relevantFactComputeHash(f);
-    borListInit(&f->htable);
+    pddlListInit(&f->htable);
 
-    bor_list_t *ret;
-    ret = borHTableInsertUnique(db->hrelevant_fact[bid], &f->htable);
+    pddl_list_t *ret;
+    ret = pddlHTableInsertUnique(db->hrelevant_fact[bid], &f->htable);
     if (ret == NULL){
         f->id = db->relevant_fact_size[bid]++;
         db->used_mem += db->relevant_fact[bid]->arr->el_size;
 
     }else{
-        f = BOR_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
+        f = PDDL_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
     }
-    borISetAdd(&f->fact, fact_id);
+    pddlISetAdd(&f->fact, fact_id);
     db->used_mem += sizeof(int);
 }
 
@@ -311,10 +312,10 @@ static pddl_datalog_relevant_fact_t *dbFindRelevantFact(
             pddl_datalog_db_t *db,
             int bid,
             int rule,
-            const bor_iset_t *key_vars,
+            const pddl_iset_t *key_vars,
             const int *var_map)
 {
-    int key_size = borISetSize(key_vars);
+    int key_size = pddlISetSize(key_vars);
     size_t size = sizeof(pddl_datalog_relevant_fact_t);
     size += key_size * 2 * sizeof(int);
     pddl_datalog_relevant_fact_t *f = alloca(size);
@@ -322,29 +323,29 @@ static pddl_datalog_relevant_fact_t *dbFindRelevantFact(
     f->key_size = key_size;
     f->rule = rule;
     for (int i = 0; i < key_size; ++i){
-        f->key[2 * i] = borISetGet(key_vars, i);
+        f->key[2 * i] = pddlISetGet(key_vars, i);
         f->key[2 * i + 1] = var_map[f->key[2 * i]];
     }
     f->hash = relevantFactComputeHash(f);
 
-    bor_list_t *ret;
-    ret = borHTableFind(db->hrelevant_fact[bid], &f->htable);
+    pddl_list_t *ret;
+    ret = pddlHTableFind(db->hrelevant_fact[bid], &f->htable);
     if (ret == NULL){
         return NULL;
     }else{
-        return BOR_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
+        return PDDL_LIST_ENTRY(ret, pddl_datalog_relevant_fact_t, htable);
     }
 }
 
 static void atomSetUp(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
 {
     atom->var_size = 0;
-    borISetEmpty(&atom->var_set);
+    pddlISetEmpty(&atom->var_set);
     int arity = dl->pred[atom->pred].arity;
     for (int i = 0; i < arity; ++i){
         if (IS_VAR(atom->arg[i])){
             ASSERT(atom->arg[i] > 0);
-            borISetAdd(&atom->var_set, TO_IDX(atom->arg[i]));
+            pddlISetAdd(&atom->var_set, TO_IDX(atom->arg[i]));
             ++atom->var_size;
         }
     }
@@ -352,24 +353,24 @@ static void atomSetUp(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
 
 static void ruleSetUp(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
 {
-    BOR_ISET(body_vars);
+    PDDL_ISET(body_vars);
     atomSetUp(dl, &rule->head);
-    borISetEmpty(&rule->common_body_var_set);
+    pddlISetEmpty(&rule->common_body_var_set);
     for (int i = 0; i < rule->body_size; ++i){
         atomSetUp(dl, rule->body + i);
         if (i == 0){
-            borISetUnion(&rule->common_body_var_set, &rule->body[0].var_set);
+            pddlISetUnion(&rule->common_body_var_set, &rule->body[0].var_set);
         }else{
-            borISetIntersect(&rule->common_body_var_set,
-                             &rule->body[i].var_set);
+            pddlISetIntersect(&rule->common_body_var_set,
+                              &rule->body[i].var_set);
         }
 
-        borISetUnion(&body_vars, &rule->body[i].var_set);
+        pddlISetUnion(&body_vars, &rule->body[i].var_set);
     }
-    rule->is_safe = borISetIsSubset(&rule->head.var_set, &body_vars);
-    rule->same_head_body_vars = borISetEq(&body_vars, &rule->head.var_set);
-    borISetUnion2(&rule->var_set, &body_vars, &rule->head.var_set);
-    borISetFree(&body_vars);
+    rule->is_safe = pddlISetIsSubset(&rule->head.var_set, &body_vars);
+    rule->same_head_body_vars = pddlISetEq(&body_vars, &rule->head.var_set);
+    pddlISetUnion2(&rule->var_set, &body_vars, &rule->head.var_set);
+    pddlISetFree(&body_vars);
 
     // TODO: Check that the neg_body atom has only variables from
     // rule->var_set
@@ -380,7 +381,7 @@ static void ruleSetUp(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
 static void predsSetUp(pddl_datalog_t *dl)
 {
     for (int p = 0; p < dl->pred_size; ++p)
-        borISetEmpty(&dl->pred[p].relevant_rules);
+        pddlISetEmpty(&dl->pred[p].relevant_rules);
 
     for (int r = 0; r < dl->rule_size; ++r){
         const pddl_datalog_rule_t *rule = dl->rule + r;
@@ -389,12 +390,12 @@ static void predsSetUp(pddl_datalog_t *dl)
         for (int b = 0; b < rule->body_size; ++b){
             int pred = rule->body[b].pred;
             ASSERT(pred < dl->pred_size);
-            borISetAdd(&dl->pred[pred].relevant_rules, r);
+            pddlISetAdd(&dl->pred[pred].relevant_rules, r);
         }
     }
 }
 
-static void setUp(pddl_datalog_t *dl, int db, bor_err_t *err)
+static void setUp(pddl_datalog_t *dl, int db, pddl_err_t *err)
 {
     if (dl->dirty){
         for (int r = 0; r < dl->rule_size; ++r)
@@ -411,7 +412,7 @@ static void setUp(pddl_datalog_t *dl, int db, bor_err_t *err)
 
 pddl_datalog_t *pddlDatalogNew(void)
 {
-    pddl_datalog_t *dl = BOR_ALLOC(pddl_datalog_t);
+    pddl_datalog_t *dl = ALLOC(pddl_datalog_t);
     bzero(dl, sizeof(*dl));
     return dl;
 }
@@ -421,31 +422,31 @@ void pddlDatalogDel(pddl_datalog_t *dl)
     for (int i = 0; i < dl->rule_size; ++i)
         pddlDatalogRuleFree(dl, dl->rule + i);
     if (dl->rule != NULL)
-        BOR_FREE(dl->rule);
+        FREE(dl->rule);
 
     for (int i = 0; i < dl->c_size; ++i){
         if (dl->c[i].name != NULL)
-            BOR_FREE(dl->c[i].name);
+            FREE(dl->c[i].name);
     }
     if (dl->c != NULL)
-        BOR_FREE(dl->c);
+        FREE(dl->c);
 
     for (int i = 0; i < dl->var_size; ++i){
         if (dl->var[i].name != NULL)
-            BOR_FREE(dl->var[i].name);
+            FREE(dl->var[i].name);
     }
     if (dl->var != NULL)
-        BOR_FREE(dl->var);
+        FREE(dl->var);
 
     for (int i = 0; i < dl->pred_size; ++i){
         if (dl->pred[i].name != NULL)
-            BOR_FREE(dl->pred[i].name);
-        borISetFree(&dl->pred[i].relevant_rules);
+            FREE(dl->pred[i].name);
+        pddlISetFree(&dl->pred[i].relevant_rules);
     }
     if (dl->pred != NULL)
-        BOR_FREE(dl->pred);
+        FREE(dl->pred);
     dbFree(dl, &dl->db);
-    BOR_FREE(dl);
+    FREE(dl);
 }
 
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
@@ -454,7 +455,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
         if (dl->c_alloc == 0)
             dl->c_alloc = 1;
         dl->c_alloc *= 2;
-        dl->c = BOR_REALLOC_ARR(dl->c, pddl_datalog_const_t, dl->c_alloc);
+        dl->c = REALLOC_ARR(dl->c, pddl_datalog_const_t, dl->c_alloc);
     }
     pddl_datalog_const_t *c = dl->c + dl->c_size;
     bzero(c, sizeof(*c));
@@ -462,7 +463,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
     c->id = IDX_TO_CONST(c->idx);
     c->name = NULL;
     if (name != NULL)
-        c->name = BOR_STRDUP(name);
+        c->name = STRDUP(name);
     c->user_id = -1;
     dl->dirty = 1;
     return c->id;
@@ -474,8 +475,8 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
         if (dl->pred_alloc == 0)
             dl->pred_alloc = 1;
         dl->pred_alloc *= 2;
-        dl->pred = BOR_REALLOC_ARR(dl->pred, pddl_datalog_pred_t,
-                                   dl->pred_alloc);
+        dl->pred = REALLOC_ARR(dl->pred, pddl_datalog_pred_t,
+                               dl->pred_alloc);
     }
     pddl_datalog_pred_t *p = dl->pred + dl->pred_size;
     bzero(p, sizeof(*p));
@@ -484,9 +485,9 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
     p->arity = arity;
     p->name = NULL;
     if (name != NULL)
-        p->name = BOR_STRDUP(name);
+        p->name = STRDUP(name);
     p->user_id = -1;
-    dl->max_pred_arity = BOR_MAX(dl->max_pred_arity, arity);
+    dl->max_pred_arity = PDDL_MAX(dl->max_pred_arity, arity);
     dl->dirty = 1;
     return p->id;
 }
@@ -497,7 +498,7 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
         if (dl->var_alloc == 0)
             dl->var_alloc = 1;
         dl->var_alloc *= 2;
-        dl->var = BOR_REALLOC_ARR(dl->var, pddl_datalog_var_t, dl->var_alloc);
+        dl->var = REALLOC_ARR(dl->var, pddl_datalog_var_t, dl->var_alloc);
     }
     pddl_datalog_var_t *v = dl->var + dl->var_size;
     bzero(v, sizeof(*v));
@@ -505,7 +506,7 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
     v->id = IDX_TO_VAR(v->idx);
     v->name = NULL;
     if (name != NULL)
-        v->name = BOR_STRDUP(name);
+        v->name = STRDUP(name);
     dl->dirty = 1;
     return v->id;
 }
@@ -525,8 +526,8 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
         if (dl->rule_alloc == 0)
             dl->rule_alloc = 1;
         dl->rule_alloc *= 2;
-        dl->rule = BOR_REALLOC_ARR(dl->rule, pddl_datalog_rule_t,
-                                     dl->rule_alloc);
+        dl->rule = REALLOC_ARR(dl->rule, pddl_datalog_rule_t,
+                               dl->rule_alloc);
     }
     pddl_datalog_rule_t *rule = dl->rule + dl->rule_size++;
     pddlDatalogRuleInit(dl, rule);
@@ -538,48 +539,48 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
 static void joinVars(const pddl_datalog_rule_t *rule,
                      const pddl_datalog_atom_t *a1,
                      const pddl_datalog_atom_t *a2,
-                     bor_iset_t *vars)
+                     pddl_iset_t *vars)
 {
-    borISetEmpty(vars);
-    borISetUnion2(vars, &a1->var_set, &a2->var_set);
+    pddlISetEmpty(vars);
+    pddlISetUnion2(vars, &a1->var_set, &a2->var_set);
 
     if (rule->same_head_body_vars){
-        borISetIntersect(vars, &rule->head.var_set);
+        pddlISetIntersect(vars, &rule->head.var_set);
 
     }else{
-        BOR_ISET(cvars);
-        borISetUnion(&cvars, &rule->head.var_set);
+        PDDL_ISET(cvars);
+        pddlISetUnion(&cvars, &rule->head.var_set);
         for (int i = 0; i < rule->body_size; ++i){
             if (rule->body + i == a1 || rule->body + i == a2)
                 continue;
-            borISetUnion(&cvars, &rule->body[i].var_set);
+            pddlISetUnion(&cvars, &rule->body[i].var_set);
         }
-        borISetIntersect(vars, &cvars);
-        borISetFree(&cvars);
+        pddlISetIntersect(vars, &cvars);
+        pddlISetFree(&cvars);
     }
 }
 
 static void joinCost(const pddl_datalog_rule_t *rule,
                      const pddl_datalog_atom_t *a1,
                      const pddl_datalog_atom_t *a2,
-                     bor_iset_t *join_vars,
+                     pddl_iset_t *join_vars,
                      int *join_cost)
 {
     joinVars(rule, a1, a2, join_vars);
-    int a1size = borISetSize(&a1->var_set);
-    int a2size = borISetSize(&a2->var_set);
-    join_cost[2] = borISetSize(join_vars);
-    join_cost[0] = join_cost[2] - BOR_MAX(a1size, a2size);
-    join_cost[1] = join_cost[2] - BOR_MIN(a1size, a2size);
+    int a1size = pddlISetSize(&a1->var_set);
+    int a2size = pddlISetSize(&a2->var_set);
+    join_cost[2] = pddlISetSize(join_vars);
+    join_cost[0] = join_cost[2] - PDDL_MAX(a1size, a2size);
+    join_cost[1] = join_cost[2] - PDDL_MIN(a1size, a2size);
 }
 
 static void selectBodyAtoms(const pddl_datalog_t *dl,
                             const pddl_datalog_rule_t *rule,
                             int *a1, int *a2)
 {
-    BOR_ISET(join_vars);
+    PDDL_ISET(join_vars);
     int join_cost_size = 3 * rule->body_size * rule->body_size;
-    int *join_cost = BOR_ALLOC_ARR(int, join_cost_size);
+    int *join_cost = ALLOC_ARR(int, join_cost_size);
     for (int a1i = 0; a1i < rule->body_size; ++a1i){
         const pddl_datalog_atom_t *atom1 = rule->body + a1i;
         for (int a2i = a1i + 1; a2i < rule->body_size; ++a2i){
@@ -601,24 +602,24 @@ static void selectBodyAtoms(const pddl_datalog_t *dl,
         }
     }
 
-    BOR_FREE(join_cost);
-    borISetFree(&join_vars);
+    FREE(join_cost);
+    pddlISetFree(&join_vars);
 }
 
 static void collectVarsFromAtom(const pddl_datalog_t *dl,
                                 const pddl_datalog_atom_t *a,
-                                bor_iset_t *var)
+                                pddl_iset_t *var)
 {
     int arity = dl->pred[a->pred].arity;
     for (int i = 0; i < arity; ++i){
         if (IS_VAR(a->arg[i]))
-            borISetAdd(var, TO_IDX(a->arg[i]));
+            pddlISetAdd(var, TO_IDX(a->arg[i]));
     }
 }
 
 static void collectVarsFromRule(const pddl_datalog_t *dl,
                                 const pddl_datalog_rule_t *r,
-                                bor_iset_t *var)
+                                pddl_iset_t *var)
 {
     collectVarsFromAtom(dl, &r->head, var);
     for (int i = 0; i < r->body_size; ++i)
@@ -629,12 +630,12 @@ static void transferNegBody(pddl_datalog_t *dl,
                             pddl_datalog_rule_t *src,
                             pddl_datalog_rule_t *dst)
 {
-    BOR_ISET(vars);
+    PDDL_ISET(vars);
     collectVarsFromRule(dl, dst, &vars);
     int ins = 0;
     for (int i = 0; i < src->neg_body_size; ++i){
         pddl_datalog_atom_t *a = src->neg_body + i;
-        if (borISetIsSubset(&a->var_set, &vars)){
+        if (pddlISetIsSubset(&a->var_set, &vars)){
             pddlDatalogRuleAddNegStaticBody(dl, dst, a);
             pddlDatalogAtomFree(dl, a);
         }else{
@@ -642,13 +643,13 @@ static void transferNegBody(pddl_datalog_t *dl,
         }
     }
     src->neg_body_size = ins;
-    borISetFree(&vars);
+    pddlISetFree(&vars);
 }
 
 static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
 {
     pddl_datalog_rule_t *rule = dl->rule + rule_id;
-    BOR_ISET(vars);
+    PDDL_ISET(vars);
     pddl_datalog_atom_t head;
 
     // Select two atoms from the body
@@ -662,13 +663,13 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     joinVars(rule, a1, a2, &vars);
 
     // Construct a new predicate
-    int pred_arity = borISetSize(&vars);
+    int pred_arity = pddlISetSize(&vars);
     unsigned pred = pddlDatalogAddPred(dl, pred_arity, NULL);
 
     // Head of the new rule
     pddlDatalogAtomInit(dl, &head, pred);
     for (int i = 0; i < pred_arity; ++i){
-        unsigned v = dl->var[borISetGet(&vars, i)].id;
+        unsigned v = dl->var[pddlISetGet(&vars, i)].id;
         pddlDatalogAtomSetArg(dl, &head, i, v);
     }
 
@@ -691,7 +692,7 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     ruleSetUp(dl, rule);
 
     pddlDatalogAtomFree(dl, &head);
-    borISetFree(&vars);
+    pddlISetFree(&vars);
 }
 
 int pddlDatalogIsSafe(const pddl_datalog_t *dl)
@@ -703,16 +704,17 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl)
     return 1;
 }
 
-int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err)
+int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "DL: ");
-    BOR_INFO(err, "Normal form of the datalog program start"
-                  " (consts: %d, vars: %d, predicates: %d, rules: %d)",
-             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    CTX(err, "dl_normal_form", "DL Normal form");
+    LOG(err, "Normal form of the datalog program start"
+        " (consts: %{in.consts}d, vars: %{in.vars}d,"
+        " predicates: %{in.predicates}d, rules: %{in.rules}d)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
-        BOR_ERR_RET2(err, -1, "Cannot create normal form because the"
-                              "datalog program is not safe");
+        ERR_RET2(err, -1, "Cannot create normal form because the"
+                 "datalog program is not safe");
     }
 
     int rule_size = dl->rule_size;
@@ -720,15 +722,16 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, bor_err_t *err)
         while (dl->rule[ci].body_size > 2)
             toNormalFormStep(dl, ci);
     }
-    BOR_INFO(err, "Normal form of the datalog program DONE"
-                  " (consts: %d, vars: %d, predicates: %d, rules: %d)",
-             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    LOG(err, "Normal form of the datalog program DONE"
+        " (consts: %{out.consts}d, vars: %{out.vars}d,"
+        " predicates: %{out.predicates}d, rules: %{out.rules}d)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     dl->dirty = 1;
-    BOR_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }
 
-static void insertInitialFacts(pddl_datalog_t *dl, bor_err_t *err)
+static void insertInitialFacts(pddl_datalog_t *dl, pddl_err_t *err)
 {
     int args[dl->max_pred_arity];
     for (int ri = 0; ri < dl->rule_size; ++ri){
@@ -762,7 +765,7 @@ static int unify(pddl_datalog_t *dl,
         return -1;
 
     int var;
-    BOR_ISET_FOR_EACH(&atom->var_set, var)
+    PDDL_ISET_FOR_EACH(&atom->var_set, var)
         var_map[var] = -1;
 
     int arity = dl->pred[fact_pred].arity;
@@ -831,12 +834,12 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
                                 int rule_id,
                                 int fact_id,
                                 int *var_map,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
     const pddl_datalog_rule_t *rule = dl->rule + rule_id;
     int other_atom_idx = (atom_idx + 1) % 2;
     const pddl_datalog_atom_t *b1 = &rule->body[other_atom_idx];
-    const bor_iset_t *key_var = &rule->common_body_var_set;
+    const pddl_iset_t *key_var = &rule->common_body_var_set;
 
     dbAddRelevantFact(dl, &dl->db, atom_idx, rule_id,
                       key_var, var_map, fact_id);
@@ -848,7 +851,7 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
 
     int b1_arity = dl->pred[b1->pred].arity;
     int fid;
-    BOR_ISET_FOR_EACH(&rel->fact, fid){
+    PDDL_ISET_FOR_EACH(&rel->fact, fid){
         const pddl_datalog_fact_t *f = dbFact(&dl->db, fid);
         ASSERT(f->arity == b1_arity);
         for (int i = 0; i < b1_arity; ++i){
@@ -862,7 +865,7 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
 static void applyFactOnRule(pddl_datalog_t *dl,
                             const pddl_datalog_fact_t *f,
                             int rule_id,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
     const pddl_datalog_rule_t *rule = dl->rule + rule_id;
     int var_map[dl->var_size];
@@ -882,50 +885,49 @@ static void applyFactOnRule(pddl_datalog_t *dl,
     }
 }
 
-void pddlDatalogCanonicalModel(pddl_datalog_t *dl, bor_err_t *err)
+void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "DL: ");
-    BOR_INFO_PREFIX_PUSH(err, "Canonical model: ");
-    BOR_INFO(err, "start (consts: %d, vars: %d, predicates: %d, rules: %d)",
-             dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
+    CTX(err, "dl_canonical_model", "DL Canonical model");
+    LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
+        " predicates: %{in.predicates}d, rules: %{in.rules}d)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 1, err);
 
     insertInitialFacts(dl, err);
-    BOR_INFO(err, "Added initial facts: %d", dl->db.fact_size);
+    LOG(err, "Added initial facts: %{initial_facts}d", dl->db.fact_size);
 
     int cur_id = 0;
     while (cur_id < dl->db.fact_size){
         const pddl_datalog_fact_t *f = dbFact(&dl->db, cur_id);
         int rule_id;
-        BOR_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
+        PDDL_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
             applyFactOnRule(dl, f, rule_id, err);
         ++cur_id;
         if (cur_id % 100000 == 0){
-            BOR_INFO(err, "progress (facts processed: %d, overall: %d,"
-                          " db-mem: %luMB)",
-                     cur_id, dl->db.fact_size,
-                     dbUseddMem(&dl->db) / (1024lu * 1024lu));
+            LOG(err, "progress (facts processed: %d, overall: %d,"
+                " db-mem: %luMB)",
+                cur_id, dl->db.fact_size,
+                dbUseddMem(&dl->db) / (1024lu * 1024lu));
         }
     }
-    BOR_INFO(err, "DONE (facts: %d, db-mem: %luMB)",
-             dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
-    BOR_INFO_PREFIX_POP(err);
-    BOR_INFO_PREFIX_POP(err);
+    LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
+        dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
+    CTXEND(err);
 }
 
 void pddlDatalogFactsFromCanonicalModel(
-            pddl_datalog_t *dl,
-            unsigned pred,
-            void (*fn)(int pred_user_id,
-                       int arity,
-                       const pddl_obj_id_t *arg_user_id,
-                       void *user_data),
-            void *user_data)
+                                        pddl_datalog_t *dl,
+                                        unsigned pred,
+                                        void (*fn)(int pred_user_id,
+                                                   int arity,
+                                                   const pddl_obj_id_t *arg_user_id,
+                                                   void *user_data),
+                                        void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
     pddl_obj_id_t arg[arity];
     int fact_id;
-    BOR_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
+    PDDL_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
         int p = dl->pred[f->pred].user_id;
         for (int i = 0; i < arity; ++i)
@@ -941,7 +943,7 @@ void pddlDatalogAtomInit(pddl_datalog_t *dl,
     bzero(atom, sizeof(*atom));
     int p = TO_IDX(pred);
     atom->pred = p;
-    atom->arg = BOR_CALLOC_ARR(unsigned, dl->pred[p].arity);
+    atom->arg = CALLOC_ARR(unsigned, dl->pred[p].arity);
 }
 
 void pddlDatalogAtomCopy(pddl_datalog_t *dl,
@@ -950,15 +952,15 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
 {
     bzero(dst, sizeof(*dst));
     dst->pred = src->pred;
-    dst->arg = BOR_CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
+    dst->arg = CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
     memcpy(dst->arg, src->arg, sizeof(unsigned) * dl->pred[dst->pred].arity);
 }
 
 void pddlDatalogAtomFree(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
 {
     if (atom->arg != NULL)
-        BOR_FREE(atom->arg);
-    borISetFree(&atom->var_set);
+        FREE(atom->arg);
+    pddlISetFree(&atom->var_set);
 }
 
 void pddlDatalogAtomSetArg(pddl_datalog_t *dl,
@@ -983,13 +985,13 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
     pddlDatalogAtomCopy(dl, &dst->head, &src->head);
     dst->body_alloc = src->body_alloc;
     dst->body_size = src->body_size;
-    dst->body = BOR_ALLOC_ARR(pddl_datalog_atom_t, dst->body_alloc);
+    dst->body = ALLOC_ARR(pddl_datalog_atom_t, dst->body_alloc);
     for (int i = 0; i < dst->body_size; ++i)
         pddlDatalogAtomCopy(dl, dst->body + i, src->body + i);
 
     dst->neg_body_alloc = src->neg_body_alloc;
     dst->neg_body_size = src->neg_body_size;
-    dst->neg_body = BOR_ALLOC_ARR(pddl_datalog_atom_t, dst->neg_body_alloc);
+    dst->neg_body = ALLOC_ARR(pddl_datalog_atom_t, dst->neg_body_alloc);
     for (int i = 0; i < dst->neg_body_size; ++i)
         pddlDatalogAtomCopy(dl, dst->neg_body + i, src->neg_body + i);
 }
@@ -1000,13 +1002,13 @@ void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
     for (int i = 0; i < rule->body_size; ++i)
         pddlDatalogAtomFree(dl, &rule->body[i]);
     if (rule->body != NULL)
-        BOR_FREE(rule->body);
+        FREE(rule->body);
     for (int i = 0; i < rule->neg_body_size; ++i)
         pddlDatalogAtomFree(dl, &rule->neg_body[i]);
     if (rule->neg_body != NULL)
-        BOR_FREE(rule->neg_body);
-    borISetFree(&rule->var_set);
-    borISetFree(&rule->common_body_var_set);
+        FREE(rule->neg_body);
+    pddlISetFree(&rule->var_set);
+    pddlISetFree(&rule->common_body_var_set);
 }
 
 void pddlDatalogRuleSetHead(pddl_datalog_t *dl,
@@ -1025,8 +1027,8 @@ void pddlDatalogRuleAddBody(pddl_datalog_t *dl,
         if (rule->body_alloc == 0)
             rule->body_alloc = 1;
         rule->body_alloc *= 2;
-        rule->body = BOR_REALLOC_ARR(rule->body, pddl_datalog_atom_t,
-                                     rule->body_alloc);
+        rule->body = REALLOC_ARR(rule->body, pddl_datalog_atom_t,
+                                 rule->body_alloc);
     }
     pddl_datalog_atom_t *a = rule->body + rule->body_size++;
     pddlDatalogAtomCopy(dl, a, atom);
@@ -1040,8 +1042,8 @@ void pddlDatalogRuleAddNegStaticBody(pddl_datalog_t *dl,
         if (rule->neg_body_alloc == 0)
             rule->neg_body_alloc = 1;
         rule->neg_body_alloc *= 2;
-        rule->neg_body = BOR_REALLOC_ARR(rule->neg_body, pddl_datalog_atom_t,
-                                         rule->neg_body_alloc);
+        rule->neg_body = REALLOC_ARR(rule->neg_body, pddl_datalog_atom_t,
+                                     rule->neg_body_alloc);
     }
     pddl_datalog_atom_t *a = rule->neg_body + rule->neg_body_size++;
     pddlDatalogAtomCopy(dl, a, atom);
@@ -1060,22 +1062,22 @@ void pddlDatalogRuleRmBody(pddl_datalog_t *dl,
 int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
                           const pddl_datalog_rule_t *rule)
 {
-    BOR_ISET(body_vars);
+    PDDL_ISET(body_vars);
     for (int i = 0; i < rule->body_size; ++i){
         int arity = dl->pred[rule->body[i].pred].arity;
         for (int j = 0; j < arity; ++j){
             if (IS_VAR(rule->body[i].arg[j]))
-                borISetAdd(&body_vars, TO_IDX(rule->body[i].arg[j]));
+                pddlISetAdd(&body_vars, TO_IDX(rule->body[i].arg[j]));
         }
     }
     int arity = dl->pred[rule->head.pred].arity;
     for (int j = 0; j < arity; ++j){
         if (IS_VAR(rule->head.arg[j])){
-            if (!borISetIn(TO_IDX(rule->head.arg[j]), &body_vars))
+            if (!pddlISetIn(TO_IDX(rule->head.arg[j]), &body_vars))
                 return 0;
         }
     }
-    borISetFree(&body_vars);
+    pddlISetFree(&body_vars);
 
     return 1;
 }

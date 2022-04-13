@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/symbolic_constr.h"
 
 static void separateFwBwMutex(const pddl_mutex_pairs_t *mutex,
@@ -51,7 +51,7 @@ static void bddsAddMutex(pddl_symbolic_vars_t *vars,
 
 static void bddsAddExactlyOneMGroup(pddl_symbolic_vars_t *vars,
                                     pddl_bdds_t *bdds,
-                                    const bor_iset_t *mg)
+                                    const pddl_iset_t *mg)
 {
     pddl_bdd_t *bdd;
     bdd = pddlSymbolicVarsCreateExactlyOneMGroupPre(vars, mg);
@@ -124,9 +124,9 @@ static pddl_bdd_t *constructGroupMutex(pddl_symbolic_constr_t *constr,
 {
     pddl_bdd_t *bdd = pddlBDDOne(constr->vars->mgr);
     int fid;
-    BOR_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
+    PDDL_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
         int fact_id2;
-        BOR_ISET_FOR_EACH(constr->fact_mutex_bw + fid, fact_id2){
+        PDDL_ISET_FOR_EACH(constr->fact_mutex_bw + fid, fact_id2){
             pddl_bdd_t *mutex;
             mutex = pddlSymbolicVarsCreateMutexPre(constr->vars, fid, fact_id2);
             pddlBDDAndUpdate(constr->vars->mgr, &bdd, mutex);
@@ -137,26 +137,26 @@ static pddl_bdd_t *constructGroupMutex(pddl_symbolic_constr_t *constr,
 }
 
 static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
-                                       int group_id)
+                                        int group_id)
 {
     pddl_bdd_t *bdd = pddlBDDOne(constr->vars->mgr);
-    BOR_ISET(mgroups);
-    BOR_ISET(mgroups_bw);
+    PDDL_ISET(mgroups);
+    PDDL_ISET(mgroups_bw);
     int fid;
-    BOR_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
+    PDDL_ISET_FOR_EACH(&constr->vars->group[group_id].fact, fid){
         for (int mgi = 0; mgi < constr->mgroup.mgroup_size; ++mgi){
             const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
-            if (!borISetIn(fid, &mg->mgroup))
+            if (!pddlISetIn(fid, &mg->mgroup))
                 continue;
             if (mg->is_exactly_one)
-                borISetAdd(&mgroups, mgi);
+                pddlISetAdd(&mgroups, mgi);
             if (mg->is_fam_group && mg->is_goal && !mg->is_exactly_one)
-                borISetAdd(&mgroups_bw, mgi);
+                pddlISetAdd(&mgroups_bw, mgi);
         }
     }
 
     int mgi;
-    BOR_ISET_FOR_EACH(&mgroups, mgi){
+    PDDL_ISET_FOR_EACH(&mgroups, mgi){
         const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
         pddl_bdd_t *mgbdd;
         mgbdd = pddlSymbolicVarsCreateExactlyOneMGroupPre(constr->vars,
@@ -164,7 +164,7 @@ static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
         pddlBDDAndUpdate(constr->vars->mgr, &bdd, mgbdd);
         pddlBDDDel(constr->vars->mgr, mgbdd);
     }
-    BOR_ISET_FOR_EACH(&mgroups_bw, mgi){
+    PDDL_ISET_FOR_EACH(&mgroups_bw, mgi){
         const pddl_mgroup_t *mg = constr->mgroup.mgroup + mgi;
         pddl_bdd_t *mgbdd;
         mgbdd = pddlSymbolicVarsCreateExactlyOneMGroupEff(constr->vars,
@@ -172,8 +172,8 @@ static pddl_bdd_t *constructGroupMGroup(pddl_symbolic_constr_t *constr,
         pddlBDDAndUpdate(constr->vars->mgr, &bdd, mgbdd);
         pddlBDDDel(constr->vars->mgr, mgbdd);
     }
-    borISetFree(&mgroups);
-    borISetFree(&mgroups_bw);
+    pddlISetFree(&mgroups);
+    pddlISetFree(&mgroups_bw);
     return bdd;
 }
 
@@ -183,43 +183,43 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
                             const pddl_mgroups_t *mgroup,
                             int max_nodes,
                             float max_time,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
-    BOR_INFO2(err, "Constructing constraint BDDs ...");
+    PDDL_INFO2(err, "Constructing constraint BDDs ...");
 
     constr->vars = vars;
 
     pddlMGroupsInitCopy(&constr->mgroup, mgroup);
-    constr->fact_mutex = BOR_CALLOC_ARR(bor_iset_t, vars->fact_size);
-    constr->fact_mutex_fw = BOR_CALLOC_ARR(bor_iset_t, vars->fact_size);
-    constr->fact_mutex_bw = BOR_CALLOC_ARR(bor_iset_t, vars->fact_size);
+    constr->fact_mutex = CALLOC_ARR(pddl_iset_t, vars->fact_size);
+    constr->fact_mutex_fw = CALLOC_ARR(pddl_iset_t, vars->fact_size);
+    constr->fact_mutex_bw = CALLOC_ARR(pddl_iset_t, vars->fact_size);
     PDDL_MUTEX_PAIRS_FOR_EACH(mutex, f1, f2){
-        borISetAdd(constr->fact_mutex + f1, f2);
-        borISetAdd(constr->fact_mutex + f2, f1);
+        pddlISetAdd(constr->fact_mutex + f1, f2);
+        pddlISetAdd(constr->fact_mutex + f2, f1);
         if (pddlMutexPairsIsFwMutex(mutex, f1, f2)){
-            borISetAdd(constr->fact_mutex_fw + f1, f2);
-            borISetAdd(constr->fact_mutex_fw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_fw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_fw + f2, f1);
         }
         if (pddlMutexPairsIsBwMutex(mutex, f1, f2)){
-            borISetAdd(constr->fact_mutex_bw + f1, f2);
-            borISetAdd(constr->fact_mutex_bw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_bw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_bw + f2, f1);
         }
         if (!pddlMutexPairsIsFwMutex(mutex, f1, f2)
                 && !pddlMutexPairsIsBwMutex(mutex, f1, f2)){
-            borISetAdd(constr->fact_mutex_fw + f1, f2);
-            borISetAdd(constr->fact_mutex_fw + f2, f1);
-            borISetAdd(constr->fact_mutex_bw + f1, f2);
-            borISetAdd(constr->fact_mutex_bw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_fw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_fw + f2, f1);
+            pddlISetAdd(constr->fact_mutex_bw + f1, f2);
+            pddlISetAdd(constr->fact_mutex_bw + f2, f1);
         }
     }
-    BOR_INFO2(err, "Mutex maps created.");
+    PDDL_INFO2(err, "Mutex maps created.");
 
     if (pddlDisambiguateInit(&constr->disambiguate, vars->fact_size,
                              mutex, mgroup) != 0){
-        BOR_FATAL2("Disambiguation failed because there are"
-                   " no exactly-1 mutex groups");
+        PDDL_FATAL2("Disambiguation failed because there are"
+                    " no exactly-1 mutex groups");
     }
-    BOR_INFO2(err, "Disambiguation created.");
+    PDDL_INFO2(err, "Disambiguation created.");
 
     pddlBDDsInit(&constr->fw_mutex);
     pddlBDDsInit(&constr->fw_mgroup);
@@ -232,45 +232,45 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     pddlMutexPairsInit(&bw_mutex, vars->fact_size);
     separateFwBwMutex(mutex, &fw_mutex, &bw_mutex);
 
-    BOR_INFO(err, "Mutexes separated: fw-mutex pairs: %d, bw-mutex pairs: %d",
-             fw_mutex.num_mutex_pairs,
-             bw_mutex.num_mutex_pairs);
+    PDDL_INFO(err, "Mutexes separated: fw-mutex pairs: %d, bw-mutex pairs: %d",
+              fw_mutex.num_mutex_pairs,
+              bw_mutex.num_mutex_pairs);
 
     if (bw_mutex.num_mutex_pairs > 0){
         int num = constrConstructMutex(vars, &constr->fw_mutex, &bw_mutex,
                                        max_nodes, max_time);
-        BOR_INFO(err, "Created %d fw-mutex BDDs from %d mutexes. nodes: %lu",
-                 constr->fw_mutex.bdd_size, num,
-                 pddlBDDsSize(&constr->fw_mutex));
+        PDDL_INFO(err, "Created %d fw-mutex BDDs from %d mutexes. nodes: %lu",
+                  constr->fw_mutex.bdd_size, num,
+                  pddlBDDsSize(&constr->fw_mutex));
     }
 
     if (fw_mutex.num_mutex_pairs > 0){
         int num = constrConstructMutex(vars, &constr->bw_mutex, &fw_mutex,
                                        max_nodes, max_time);
-        BOR_INFO(err, "Created %d bw-mutex BDDs from %d mutexes nodes: %lu",
-                 constr->bw_mutex.bdd_size, num,
-                 pddlBDDsSize(&constr->bw_mutex));
+        PDDL_INFO(err, "Created %d bw-mutex BDDs from %d mutexes nodes: %lu",
+                  constr->bw_mutex.bdd_size, num,
+                  pddlBDDsSize(&constr->bw_mutex));
     }
 
     if (mgroup != NULL){
         int num_fw = constrConstructFwMGroup(vars, &constr->fw_mgroup, mgroup,
                                              max_nodes, max_time);
-        BOR_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups nodes: %lu",
-                 constr->fw_mgroup.bdd_size, num_fw,
-                 pddlBDDsSize(&constr->fw_mgroup));
+        PDDL_INFO(err, "Created %d fw-mgroup BDDs from %d mgroups nodes: %lu",
+                  constr->fw_mgroup.bdd_size, num_fw,
+                  pddlBDDsSize(&constr->fw_mgroup));
 
         int num_bw = constrConstructBwMGroup(vars, &constr->bw_mgroup, mgroup,
                                              max_nodes, max_time);
-        BOR_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups nodes: %lu",
-                 constr->bw_mgroup.bdd_size, num_bw,
-                 pddlBDDsSize(&constr->bw_mgroup));
+        PDDL_INFO(err, "Created %d bw-mgroup BDDs from %d mgroups nodes: %lu",
+                  constr->bw_mgroup.bdd_size, num_bw,
+                  pddlBDDsSize(&constr->bw_mgroup));
     }
 
     pddlMutexPairsFree(&fw_mutex);
     pddlMutexPairsFree(&bw_mutex);
 
-    constr->group_mutex = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
-    constr->group_mgroup = BOR_CALLOC_ARR(pddl_bdd_t *, vars->group_size);
+    constr->group_mutex = CALLOC_ARR(pddl_bdd_t *, vars->group_size);
+    constr->group_mgroup = CALLOC_ARR(pddl_bdd_t *, vars->group_size);
     for (int i = 0; i < constr->vars->group_size; ++i){
         constr->group_mutex[i] = constructGroupMutex(constr, i);
         constr->group_mgroup[i] = constructGroupMGroup(constr, i);
@@ -283,19 +283,19 @@ void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
         pddlBDDDel(constr->vars->mgr, constr->group_mutex[i]);
         pddlBDDDel(constr->vars->mgr, constr->group_mgroup[i]);
     }
-    BOR_FREE(constr->group_mutex);
-    BOR_FREE(constr->group_mgroup);
+    FREE(constr->group_mutex);
+    FREE(constr->group_mgroup);
 
     pddlMGroupsFree(&constr->mgroup);
 
     for (int i = 0; i < constr->vars->fact_size; ++i){
-        borISetFree(constr->fact_mutex + i);
-        borISetFree(constr->fact_mutex_fw + i);
-        borISetFree(constr->fact_mutex_bw + i);
+        pddlISetFree(constr->fact_mutex + i);
+        pddlISetFree(constr->fact_mutex_fw + i);
+        pddlISetFree(constr->fact_mutex_bw + i);
     }
-    BOR_FREE(constr->fact_mutex);
-    BOR_FREE(constr->fact_mutex_fw);
-    BOR_FREE(constr->fact_mutex_bw);
+    FREE(constr->fact_mutex);
+    FREE(constr->fact_mutex_fw);
+    FREE(constr->fact_mutex_bw);
 
     pddlBDDsFree(constr->vars->mgr, &constr->fw_mutex);
     pddlBDDsFree(constr->vars->mgr, &constr->fw_mgroup);

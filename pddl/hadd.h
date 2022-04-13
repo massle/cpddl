@@ -19,7 +19,7 @@
 #ifndef __PDDL_HADD_H__
 #define __PDDL_HADD_H__
 
-#include <boruvka/iset.h>
+#include <pddl/iset.h>
 #include <pddl/fdr.h>
 #include <pddl/pq.h>
 
@@ -28,7 +28,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_hadd_op {
-    bor_iset_t eff; /*!< Facts in its effect */
+    pddl_iset_t eff; /*!< Facts in its effect */
     int cost;       /*!< Cost of the operator */
     int pre_size;   /*!< Number of preconditions */
     int value;      /*!< Current value of the operator */
@@ -37,7 +37,7 @@ struct pddl_hadd_op {
 typedef struct pddl_hadd_op pddl_hadd_op_t;
 
 struct pddl_hadd_fact {
-    bor_iset_t pre_op; /*!< Operators having this fact as its precondition */
+    pddl_iset_t pre_op; /*!< Operators having this fact as its precondition */
     pddl_pq_el_t heap; /*!< Connection to priority heap */
 };
 typedef struct pddl_hadd_fact pddl_hadd_fact_t;

@@ -20,8 +20,8 @@
 #ifdef PDDL_BLISS
 
 #include <bliss/bliss_C.h>
-#include <boruvka/alloc.h>
-#include <boruvka/iarr.h>
+#include "alloc.h"
+#include <pddl/iarr.h>
 #include "pddl/sym.h"
 
 struct pdg_sym {
@@ -31,7 +31,7 @@ struct pdg_sym {
 
 static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
 {
-    int *op_used = BOR_CALLOC_ARR(int, op_size);
+    int *op_used = CALLOC_ARR(int, op_size);
     for (int i = 0; i < op_size; ++i){
         if (op_used[i] || gen->op[i] == i)
             continue;
@@ -40,24 +40,24 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
             if (gen->op_cycle_alloc == 0)
                 gen->op_cycle_alloc = 2;
             gen->op_cycle_alloc *= 2;
-            gen->op_cycle = BOR_REALLOC_ARR(gen->op_cycle, bor_iset_t,
-                                            gen->op_cycle_alloc);
+            gen->op_cycle = REALLOC_ARR(gen->op_cycle, pddl_iset_t,
+                                        gen->op_cycle_alloc);
         }
-        bor_iset_t *cycle = gen->op_cycle + gen->op_cycle_size++;
-        borISetInit(cycle);
+        pddl_iset_t *cycle = gen->op_cycle + gen->op_cycle_size++;
+        pddlISetInit(cycle);
 
         int op = i;
         op_used[op] = 1;
-        borISetAdd(cycle, op);
+        pddlISetAdd(cycle, op);
         while (!op_used[gen->op[op]]){
             op_used[gen->op[op]] = 1;
-            borISetAdd(cycle, gen->op[op]);
+            pddlISetAdd(cycle, gen->op[op]);
             op = gen->op[op];
         }
     }
 
     if (op_used != NULL)
-        BOR_FREE(op_used);
+        FREE(op_used);
 }
 
 static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
@@ -72,9 +72,9 @@ static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
         bliss_add_vertex(pdg, 0); // fact vertex
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
         int color = 1;
-        if (borISetIn(fact_id, &strips->init))
+        if (pddlISetIn(fact_id, &strips->init))
             color |= color_init;
-        if (borISetIn(fact_id, &strips->goal))
+        if (pddlISetIn(fact_id, &strips->goal))
             color |= color_goal;
         bliss_add_vertex(pdg, color); // fact true vertex
         bliss_add_vertex(pdg, 0); // fact false vertex
@@ -94,15 +94,15 @@ static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
         const pddl_strips_op_t *op = strips->op.op[op_id];
         int voi = 3 * fsize + op_id;
         int fact;
-        BOR_ISET_FOR_EACH(&op->pre, fact){
+        PDDL_ISET_FOR_EACH(&op->pre, fact){
             int v = fsize + 2 * strips->fact.fact[fact]->id;
             bliss_add_edge(pdg, v, voi);
         }
-        BOR_ISET_FOR_EACH(&op->add_eff, fact){
+        PDDL_ISET_FOR_EACH(&op->add_eff, fact){
             int v = fsize + 2 * strips->fact.fact[fact]->id;
             bliss_add_edge(pdg, voi, v);
         }
-        BOR_ISET_FOR_EACH(&op->del_eff, fact){
+        PDDL_ISET_FOR_EACH(&op->del_eff, fact){
             int v = fsize + 2 * strips->fact.fact[fact]->id + 1;
             bliss_add_edge(pdg, voi, v);
         }
@@ -125,19 +125,19 @@ static void pdgAutomorphismHook(void *ud, unsigned int n,
         if (sym->gen_alloc == 0)
             sym->gen_alloc = 2;
         sym->gen_alloc *= 2;
-        sym->gen = BOR_REALLOC_ARR(sym->gen, pddl_strips_sym_gen_t, sym->gen_alloc);
+        sym->gen = REALLOC_ARR(sym->gen, pddl_strips_sym_gen_t, sym->gen_alloc);
     }
     pddl_strips_sym_gen_t *gen = sym->gen + sym->gen_size++;
     bzero(gen, sizeof(*gen));
 
-    gen->fact = BOR_CALLOC_ARR(int, fact_size);
-    gen->fact_inv = BOR_CALLOC_ARR(int, fact_size);
+    gen->fact = CALLOC_ARR(int, fact_size);
+    gen->fact_inv = CALLOC_ARR(int, fact_size);
     for (int i = 0; i < fact_size; ++i){
         gen->fact[i] = i;
         gen->fact_inv[i] = i;
     }
-    gen->op = BOR_CALLOC_ARR(int, op_size);
-    gen->op_inv = BOR_CALLOC_ARR(int, op_size);
+    gen->op = CALLOC_ARR(int, op_size);
+    gen->op_inv = CALLOC_ARR(int, op_size);
     for (int i = 0; i < op_size; ++i){
         gen->op[i] = i;
         gen->op_inv[i] = i;
@@ -162,8 +162,8 @@ void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {
     bzero(sym, sizeof(*sym));
     if (strips->has_cond_eff){
-        BOR_FATAL2("pddlStripsInitSymPDG() does not support conditional"
-                   " effects.");
+        PDDL_FATAL2("pddlStripsInitSymPDG() does not support conditional"
+                    " effects.");
     }
 
     BlissGraph *pdg = pdgConstruct(strips);
@@ -181,57 +181,57 @@ void pddlStripsSymFree(pddl_strips_sym_t *sym)
         pddl_strips_sym_gen_t *gen = sym->gen + i;
 
         if (gen->fact != NULL)
-            BOR_FREE(gen->fact);
+            FREE(gen->fact);
         if (gen->fact_inv != NULL)
-            BOR_FREE(gen->fact_inv);
+            FREE(gen->fact_inv);
         if (gen->op != NULL)
-            BOR_FREE(gen->op);
+            FREE(gen->op);
         if (gen->op_inv != NULL)
-            BOR_FREE(gen->op_inv);
+            FREE(gen->op_inv);
         for (int j = 0; j < gen->op_cycle_size; ++j)
-            borISetFree(gen->op_cycle + j);
+            pddlISetFree(gen->op_cycle + j);
         if (gen->op_cycle != NULL)
-            BOR_FREE(gen->op_cycle);
+            FREE(gen->op_cycle);
     }
     if (sym->gen != NULL)
-        BOR_FREE(sym->gen);
+        FREE(sym->gen);
 }
 
-static void applyGenOnFactSet(const pddl_strips_sym_gen_t *gen, const bor_iset_t *in,
-                              bor_iset_t *out)
+static void applyGenOnFactSet(const pddl_strips_sym_gen_t *gen, const pddl_iset_t *in,
+                              pddl_iset_t *out)
 {
     int v;
-    borISetEmpty(out);
-    BOR_ISET_FOR_EACH(in, v)
-        borISetAdd(out, gen->fact[v]);
+    pddlISetEmpty(out);
+    PDDL_ISET_FOR_EACH(in, v)
+        pddlISetAdd(out, gen->fact[v]);
 }
 
 static void applyGenOnOpSet(const pddl_strips_sym_gen_t *gen,
-                            const bor_iset_t *in,
-                            bor_iset_t *out)
+                            const pddl_iset_t *in,
+                            pddl_iset_t *out)
 {
     int v;
-    borISetEmpty(out);
-    BOR_ISET_FOR_EACH(in, v)
-        borISetAdd(out, gen->op[v]);
+    pddlISetEmpty(out);
+    PDDL_ISET_FOR_EACH(in, v)
+        pddlISetAdd(out, gen->op[v]);
 }
 
 static void allSymmetries(const pddl_strips_sym_t *sym,
                           pddl_set_iset_t *sym_set,
                           void (*apply)(const pddl_strips_sym_gen_t *,
-                                        const bor_iset_t *in,
-                                        bor_iset_t *out))
+                                        const pddl_iset_t *in,
+                                        pddl_iset_t *out))
 {
-    BOR_IARR(queue);
-    BOR_ISET(img_set);
+    PDDL_IARR(queue);
+    PDDL_ISET(img_set);
 
     // Initialize queue with all sets that are already in sym_set
     PDDL_SET_ISET_FOR_EACH_ID(sym_set, i)
-        borIArrAdd(&queue, i);
-    while (borIArrSize(&queue) > 0){
+        pddlIArrAdd(&queue, i);
+    while (pddlIArrSize(&queue) > 0){
         // Get the next set in queu
         int in_id = queue.arr[--queue.size];
-        const bor_iset_t *in_set = pddlSetISetGet(sym_set, in_id);
+        const pddl_iset_t *in_set = pddlSetISetGet(sym_set, in_id);
 
         for (int i = 0; i < sym->gen_size; ++i){
             const pddl_strips_sym_gen_t *gen = sym->gen + i;
@@ -246,12 +246,12 @@ static void allSymmetries(const pddl_strips_sym_t *sym,
             // queue
             int out_id = pddlSetISetAdd(sym_set, &img_set);
             if (out_id >= sym_set_size)
-                borIArrAdd(&queue, out_id);
+                pddlIArrAdd(&queue, out_id);
         }
     }
 
-    borISetFree(&img_set);
-    borIArrFree(&queue);
+    pddlISetFree(&img_set);
+    pddlIArrFree(&queue);
 }
 
 void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
@@ -268,21 +268,21 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
 
 void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
                         int gen_id,
-                        const bor_iset_t *in,
-                        bor_iset_t *out)
+                        const pddl_iset_t *in,
+                        pddl_iset_t *out)
 {
     const pddl_strips_sym_gen_t *gen = sym->gen + gen_id;
     int op;
-    borISetEmpty(out);
-    BOR_ISET_FOR_EACH(in, op)
-        borISetAdd(out, gen->op[op]);
+    pddlISetEmpty(out);
+    PDDL_ISET_FOR_EACH(in, op)
+        pddlISetAdd(out, gen->op[op]);
 }
 
 void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 {
     int *fact_used;
 
-    fact_used = BOR_CALLOC_ARR(int, sym->fact_size);
+    fact_used = CALLOC_ARR(int, sym->fact_size);
 
     for (int gi = 0; gi < sym->gen_size; ++gi){
         const pddl_strips_sym_gen_t *gen = sym->gen + gi;
@@ -311,23 +311,23 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 
         fprintf(fout, "  ops:");
         for (int ci = 0; ci < gen->op_cycle_size; ++ci){
-            fprintf(fout, " [%d", borISetGet(&gen->op_cycle[ci], 0));
-            for (int i = 1; i < borISetSize(&gen->op_cycle[ci]); ++i)
-                fprintf(fout, ",%d", borISetGet(&gen->op_cycle[ci], i));
+            fprintf(fout, " [%d", pddlISetGet(&gen->op_cycle[ci], 0));
+            for (int i = 1; i < pddlISetSize(&gen->op_cycle[ci]); ++i)
+                fprintf(fout, ",%d", pddlISetGet(&gen->op_cycle[ci], i));
             fprintf(fout, "]");
         }
         fprintf(fout, "\n");
     }
 
     if (fact_used != NULL)
-        BOR_FREE(fact_used);
+        FREE(fact_used);
 }
 
 #else /* PDDL_BLISS */
 
 #include "pddl/sym.h"
 
-#define ERROR BOR_FATAL2("sym module requires bliss library")
+#define ERROR PDDL_FATAL2("sym module requires bliss library")
 
 void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {
@@ -353,8 +353,8 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
 
 void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
                         int gen_id,
-                        const bor_iset_t *inset,
-                        bor_iset_t *outset)
+                        const pddl_iset_t *inset,
+                        pddl_iset_t *outset)
 {
     ERROR;
 }

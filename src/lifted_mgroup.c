@@ -17,10 +17,11 @@
  * See the License for more information.
  */
 
-#include <boruvka/sort.h>
-#include <boruvka/hfunc.h>
+#include <pddl/sort.h>
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
+#include "alloc.h"
 #include "assert.h"
 
 #define LINESIZE 1024
@@ -124,15 +125,15 @@ static int cmpAtoms(const void *a, const void *b, void *_)
 void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
 {
     if (m->cond.size > 1){
-        borSort(m->cond.cond, m->cond.size, sizeof(const pddl_cond_t *),
-                cmpAtoms, NULL);
+        pddlSort(m->cond.cond, m->cond.size, sizeof(const pddl_cond_t *),
+                 cmpAtoms, NULL);
     }
 
     if (m->param.param_size <= 1)
         return;
 
-    int *remap_param = BOR_ALLOC_ARR(int, m->param.param_size);
-    int *remap_param_inv = BOR_ALLOC_ARR(int, m->param.param_size);
+    int *remap_param = ALLOC_ARR(int, m->param.param_size);
+    int *remap_param_inv = ALLOC_ARR(int, m->param.param_size);
     for (int i = 0; i < m->param.param_size; ++i){
         remap_param[i] = -1;
         remap_param_inv[i] = -1;
@@ -192,8 +193,8 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
         }
     }
 
-    BOR_FREE(remap_param);
-    BOR_FREE(remap_param_inv);
+    FREE(remap_param);
+    FREE(remap_param_inv);
 }
 
 int pddlLiftedMGroupNumCountedVars(const pddl_lifted_mgroup_t *mg)
@@ -213,7 +214,7 @@ int pddlLiftedMGroupNumFixedVars(const pddl_lifted_mgroup_t *mg)
 
 void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 {
-    int *remap_param = BOR_CALLOC_ARR(int, mg->param.param_size);
+    int *remap_param = CALLOC_ARR(int, mg->param.param_size);
 
     int num_del = 0;
     for (int ci = 0; ci < mg->cond.size; ++ci){
@@ -244,7 +245,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
     if (num_del == 0){
         if (remap_param != NULL)
-            BOR_FREE(remap_param);
+            FREE(remap_param);
         return;
     }
 
@@ -278,7 +279,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
     }
 
     if (remap_param != NULL)
-        BOR_FREE(remap_param);
+        FREE(remap_param);
 }
 
 static int atomHasCountedVar(const pddl_cond_atom_t *a,
@@ -329,7 +330,7 @@ void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg)
 static void printMGroup(const pddl_t *pddl,
                         const pddl_lifted_mgroup_t *mgroup,
                         FILE *fout,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     char line[MAX_LINE_SIZE];
     int used = 0;
@@ -373,7 +374,7 @@ static void printMGroup(const pddl_t *pddl,
     if (fout != NULL)
         fprintf(fout, "%s", line);
     if (err != NULL)
-        BOR_INFO(err, "%s", line);
+        PDDL_INFO(err, "%s", line);
 }
 
 void pddlLiftedMGroupPrint(const pddl_t *pddl,
@@ -386,7 +387,7 @@ void pddlLiftedMGroupPrint(const pddl_t *pddl,
 
 void pddlLiftedMGroupLog(const pddl_t *pddl,
                          const pddl_lifted_mgroup_t *mgroup,
-                         bor_err_t *err)
+                         pddl_err_t *err)
 {
     printMGroup(pddl, mgroup, NULL, err);
 }
@@ -428,7 +429,7 @@ void pddlLiftedMGroupsFree(pddl_lifted_mgroups_t *lm)
     for (int i = 0; i < lm->mgroup_size; ++i)
         pddlLiftedMGroupFree(lm->mgroup + i);
     if (lm->mgroup != NULL)
-        BOR_FREE(lm->mgroup);
+        FREE(lm->mgroup);
 }
 
 void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
@@ -438,8 +439,8 @@ void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
         if (lm->mgroup_alloc == 0)
             lm->mgroup_alloc = 2;
         lm->mgroup_alloc *= 2;
-        lm->mgroup = BOR_REALLOC_ARR(lm->mgroup, pddl_lifted_mgroup_t,
-                                     lm->mgroup_alloc);
+        lm->mgroup = REALLOC_ARR(lm->mgroup, pddl_lifted_mgroup_t,
+                                 lm->mgroup_alloc);
     }
 
     pddl_lifted_mgroup_t *add = lm->mgroup + lm->mgroup_size++;
@@ -491,8 +492,8 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm)
     if (lm->mgroup_size == 0)
         return;
 
-    borSort(lm->mgroup, lm->mgroup_size, sizeof(pddl_lifted_mgroup_t),
-            cmpLiftedMGroups, NULL);
+    pddlSort(lm->mgroup, lm->mgroup_size, sizeof(pddl_lifted_mgroup_t),
+             cmpLiftedMGroups, NULL);
 
     int ins = 1;
     for (int i = 1; i < lm->mgroup_size; ++i){

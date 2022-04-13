@@ -17,16 +17,16 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/htable.h>
-#include <boruvka/hfunc.h>
-#include <boruvka/sort.h>
+#include "pddl/hfunc.h"
+#include <pddl/sort.h>
 #include "pddl/strips_ground_datalog.h"
 #include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/datalog.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 struct action {
     int id;
@@ -54,9 +54,9 @@ static int maxVarSize(const pddl_t *pddl,
 {
     int max_var_size = 0;
     for (int i = 0; i < pddl->pred.pred_size; ++i)
-        max_var_size = BOR_MAX(max_var_size, pddl->pred.pred[i].param_size);
+        max_var_size = PDDL_MAX(max_var_size, pddl->pred.pred[i].param_size);
     for (int i = 0; i < prep->action_size; ++i)
-        max_var_size = BOR_MAX(max_var_size, prep->action[i].param_size);
+        max_var_size = PDDL_MAX(max_var_size, prep->action[i].param_size);
     return max_var_size;
 }
 
@@ -121,7 +121,7 @@ static void addEqFacts(ground_t *g)
 static void atomToDLAtom(const ground_t *g,
                          const pddl_cond_atom_t *atom,
                          pddl_datalog_atom_t *dlatom,
-                         bor_iset_t *used_param)
+                         pddl_iset_t *used_param)
 {
     pddlDatalogAtomInit(g->dl, dlatom, g->pred_to_dlpred[atom->pred]);
     for (int i = 0; i < atom->arg_size; ++i){
@@ -132,7 +132,7 @@ static void atomToDLAtom(const ground_t *g,
             int param = atom->arg[i].param;
             pddlDatalogAtomSetArg(g->dl, dlatom, i, g->dlvar[param]);
             if (!atom->neg && used_param != NULL)
-                borISetAdd(used_param, param);
+                pddlISetAdd(used_param, param);
         }
     }
 }
@@ -180,7 +180,7 @@ static unsigned addActionRule(ground_t *g,
         pddlDatalogAtomFree(g->dl, &atom);
     }
 
-    BOR_ISET(used_param);
+    PDDL_ISET(used_param);
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
@@ -195,7 +195,7 @@ static unsigned addActionRule(ground_t *g,
     if (cei < 0){
         for (int i = 0; i < action->param.param_size; ++i){
             int type = action->param.param[i].type;
-            if (type != 0 || !borISetIn(i, &used_param)){
+            if (type != 0 || !pddlISetIn(i, &used_param)){
                 pddlDatalogAtomInit(g->dl, &atom, g->type_to_dlpred[type]);
                 pddlDatalogAtomSetArg(g->dl, &atom, 0, g->dlvar[i]);
                 pddlDatalogRuleAddBody(g->dl, &rule, &atom);
@@ -203,7 +203,7 @@ static unsigned addActionRule(ground_t *g,
             }
         }
     }
-    borISetFree(&used_param);
+    pddlISetFree(&used_param);
 
     pddlDatalogAddRule(g->dl, &rule);
     pddlDatalogRuleFree(g->dl, &rule);
@@ -257,7 +257,7 @@ static void addActionsRules(ground_t *g)
 static int groundInit(ground_t *g,
                       const pddl_t *pddl,
                       const pddl_ground_config_t *cfg,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     bzero(g, sizeof(*g));
     g->pddl = pddl;
@@ -266,13 +266,13 @@ static int groundInit(ground_t *g,
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
     g->dl = pddlDatalogNew();
-    g->type_to_dlpred = BOR_ALLOC_ARR(unsigned, g->pddl->type.type_size);
-    g->pred_to_dlpred = BOR_ALLOC_ARR(unsigned, g->pddl->pred.pred_size);
-    g->obj_to_dlconst = BOR_ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
-    g->action = BOR_CALLOC_ARR(action_t, g->pddl->action.action_size);
+    g->type_to_dlpred = ALLOC_ARR(unsigned, g->pddl->type.type_size);
+    g->pred_to_dlpred = ALLOC_ARR(unsigned, g->pddl->pred.pred_size);
+    g->obj_to_dlconst = ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
+    g->action = CALLOC_ARR(action_t, g->pddl->action.action_size);
 
     g->dlvar_size = maxVarSize(pddl, &g->prep_action);
-    g->dlvar = BOR_ALLOC_ARR(unsigned, g->dlvar_size);
+    g->dlvar = ALLOC_ARR(unsigned, g->dlvar_size);
     for (int i = 0; i < g->dlvar_size; ++i)
         g->dlvar[i] = pddlDatalogAddVar(g->dl, NULL);
 
@@ -284,7 +284,7 @@ static int groundInit(ground_t *g,
     for (int i = 0; i < g->pddl->pred.pred_size; ++i){
         const pddl_pred_t *pred = g->pddl->pred.pred + i;
         g->pred_to_dlpred[i]
-                = pddlDatalogAddPred(g->dl, pred->param_size, pred->name);
+            = pddlDatalogAddPred(g->dl, pred->param_size, pred->name);
         pddlDatalogSetUserId(g->dl, g->pred_to_dlpred[i], i);
     }
 
@@ -307,11 +307,11 @@ static void groundFree(ground_t *g)
     pddlPrepActionsFree(&g->prep_action);
     pddlStripsMakerFree(&g->strips_maker);
     pddlDatalogDel(g->dl);
-    BOR_FREE(g->type_to_dlpred);
-    BOR_FREE(g->pred_to_dlpred);
-    BOR_FREE(g->obj_to_dlconst);
-    BOR_FREE(g->action);
-    BOR_FREE(g->dlvar);
+    FREE(g->type_to_dlpred);
+    FREE(g->pred_to_dlpred);
+    FREE(g->obj_to_dlconst);
+    FREE(g->action);
+    FREE(g->dlvar);
 }
 
 static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
@@ -338,11 +338,11 @@ static void insertAction(int pred,
 int pddlStripsGroundDatalog(pddl_strips_t *strips,
                             const pddl_t *pddl,
                             const pddl_ground_config_t *cfg,
-                            bor_err_t *err)
+                            pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Ground DL: ");
+    CTX(err, "ground_dl", "Ground DL");
     pddlGroundConfigLog(cfg, "cfg.", err);
-    BOR_INFO2(err, "Grounding using datalog ...");
+    PDDL_INFO2(err, "Grounding using datalog ...");
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
@@ -365,24 +365,24 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                                            &ground);
     }
 
-    BOR_INFO(err, "Grounding finished: %d actions, %d facts,"
-                  " %d static facts, %d functions",
-             ground.strips_maker.num_action_args,
-             ground.strips_maker.ground_atom.atom_size,
-             ground.strips_maker.ground_atom_static.atom_size,
-             ground.strips_maker.ground_func.atom_size);
+    PDDL_INFO(err, "Grounding finished: %d actions, %d facts,"
+              " %d static facts, %d functions",
+              ground.strips_maker.num_action_args,
+              ground.strips_maker.ground_atom.atom_size,
+              ground.strips_maker.ground_atom_static.atom_size,
+              ground.strips_maker.ground_func.atom_size);
 
     int ret = pddlStripsMakerMakeStrips(&ground.strips_maker, ground.pddl, cfg,
                                         strips, err);
 
     groundFree(&ground);
     if (ret != 0){
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, ret);
+        CTXEND(err);
+        PDDL_TRACE_RET(err, ret);
     }
 
-    BOR_INFO2(err, "Grounding finished.");
+    PDDL_INFO2(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
-    BOR_INFO_PREFIX_POP(err);
+    CTXEND(err);
     return 0;
 }

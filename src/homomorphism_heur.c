@@ -21,7 +21,9 @@
 #include "pddl/hff.h"
 #include "pddl/strips_ground_sql.h"
 #include "pddl/prune_strips.h"
+#include "alloc.h"
 #include "assert.h"
+#include "err.h"
 
 #define LM_CUT_TYPE 1
 #define HFF_TYPE 2
@@ -41,21 +43,21 @@ typedef struct hff hff_t;
 static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
                                     const pddl_t *pddl,
                                     const pddl_homomorphism_config_t *cfg,
-                                    bor_err_t *err)
+                                    pddl_err_t *err)
 {
     bzero(h, sizeof(*h));
-    h->obj_map = BOR_CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    h->obj_map = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     //pddlInitCopy(&h->homo, pddl);
     if (pddlHomomorphism(&h->homo, pddl, cfg, h->obj_map, err) != 0){
-        BOR_FREE(h->obj_map);
-        BOR_TRACE_RET(err, -1);
+        FREE(h->obj_map);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
     if (pddlStripsGroundSql(&h->strips, &h->homo, &ground_cfg, err) != 0){
-        BOR_FREE(h->obj_map);
+        FREE(h->obj_map);
         pddlFree(&h->homo);
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddl_prune_strips_t prune;
@@ -71,42 +73,42 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
 pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
                                 const pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Homomorph lm-cut: ");
-    lmcut_t *lmc = BOR_ALLOC(lmcut_t);
+    CTX(err, "homo_lmc", "Homomorph lm-cut");
+    lmcut_t *lmc = ALLOC(lmcut_t);
     if (pddlHomomorphismHeurInit(&lmc->homo, pddl, cfg, err) != 0){
-        BOR_FREE(lmc);
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, NULL);
+        FREE(lmc);
+        CTXEND(err);
+        PDDL_TRACE_RET(err, NULL);
     }
     lmc->homo._type = LM_CUT_TYPE;
 
     pddlLMCutInitStrips(&lmc->lmc, &lmc->homo.strips, 0, 0);
-    BOR_INFO2(err, "Constructed lm-cut heuristic from the grounded"
-                   " homomorphic image");
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO2(err, "Constructed lm-cut heuristic from the grounded"
+               " homomorphic image");
+    CTXEND(err);
     return &lmc->homo;
 }
 
 pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
                                 const pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                bor_err_t *err)
+                                pddl_err_t *err)
 {
-    BOR_INFO_PREFIX_PUSH(err, "Homomorph hff: ");
-    hff_t *hff = BOR_ALLOC(hff_t);
+    CTX(err, "homo_hff", "Homomorph hff");
+    hff_t *hff = ALLOC(hff_t);
     if (pddlHomomorphismHeurInit(&hff->homo, pddl, cfg, err) != 0){
-        BOR_FREE(hff);
-        BOR_INFO_PREFIX_POP(err);
-        BOR_TRACE_RET(err, NULL);
+        FREE(hff);
+        CTXEND(err);
+        PDDL_TRACE_RET(err, NULL);
     }
     hff->homo._type = HFF_TYPE;
 
     pddlHFFInitStrips(&hff->hff, &hff->homo.strips);
-    BOR_INFO2(err, "Constructed h^ff heuristic from the grounded"
-                   " homomorphic image");
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO2(err, "Constructed h^ff heuristic from the grounded"
+               " homomorphic image");
+    CTXEND(err);
     return &hff->homo;
 }
 
@@ -116,19 +118,19 @@ void pddlHomomorphismHeurDel(pddl_homomorphism_heur_t *h)
     pddlFree(&h->homo);
     pddlStripsFree(&h->strips);
     if (h->obj_map != NULL)
-        BOR_FREE(h->obj_map);
+        FREE(h->obj_map);
     if (h->ground_atom_to_strips_fact != NULL)
-        BOR_FREE(h->ground_atom_to_strips_fact);
+        FREE(h->ground_atom_to_strips_fact);
 
     if (h->_type == LM_CUT_TYPE){
-        lmcut_t *lmc = bor_container_of(h, lmcut_t, homo);
+        lmcut_t *lmc = pddl_container_of(h, lmcut_t, homo);
         pddlLMCutFree(&lmc->lmc);
-        BOR_FREE(lmc);
+        FREE(lmc);
 
     }else if (h->_type == HFF_TYPE){
-        hff_t *hff = bor_container_of(h, hff_t, homo);
+        hff_t *hff = pddl_container_of(h, hff_t, homo);
         pddlHFFFree(&hff->hff);
-        BOR_FREE(hff);
+        FREE(hff);
     }
 }
 
@@ -143,8 +145,8 @@ static void allocateGroundAtomToStripsFact(pddl_homomorphism_heur_t *h,
         h->ground_atom_to_strips_fact_size *= 2;
     }
     h->ground_atom_to_strips_fact
-            = BOR_REALLOC_ARR(h->ground_atom_to_strips_fact,
-                              int, h->ground_atom_to_strips_fact_size);
+        = REALLOC_ARR(h->ground_atom_to_strips_fact,
+                      int, h->ground_atom_to_strips_fact_size);
     for (int i = init_size; i < h->ground_atom_to_strips_fact_size; ++i)
         h->ground_atom_to_strips_fact[i] = -1;
 }
@@ -175,30 +177,30 @@ static int findStripsFact(const pddl_homomorphism_heur_t *h,
 
 int pddlHomomorphismHeurEvalGroundInit(pddl_homomorphism_heur_t *h)
 {
-    if (borISetIsSubset(&h->strips.goal, &h->strips.init))
+    if (pddlISetIsSubset(&h->strips.goal, &h->strips.init))
         return 0;
 
     int hval = 0;
     if (h->_type == LM_CUT_TYPE){
-        lmcut_t *lmc = bor_container_of(h, lmcut_t, homo);
+        lmcut_t *lmc = pddl_container_of(h, lmcut_t, homo);
         hval = pddlLMCutStrips(&lmc->lmc, &h->strips.init, NULL, NULL);
     }else if (h->_type == HFF_TYPE){
-        hff_t *hff = bor_container_of(h, hff_t, homo);
+        hff_t *hff = pddl_container_of(h, hff_t, homo);
         hval = pddlHFFStrips(&hff->hff, &h->strips.init);
     }
     return hval;
 }
 
 int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
-                             const bor_iset_t *state,
+                             const pddl_iset_t *state,
                              const pddl_ground_atoms_t *gatoms)
 {
-    if (borISetIsSubset(&h->strips.goal, &h->strips.init))
+    if (pddlISetIsSubset(&h->strips.goal, &h->strips.init))
         return 0;
 
-    BOR_ISET(strips_state);
+    PDDL_ISET(strips_state);
     int state_fact;
-    BOR_ISET_FOR_EACH(state, state_fact){
+    PDDL_ISET_FOR_EACH(state, state_fact){
         if (state_fact >= h->ground_atom_to_strips_fact_size)
             allocateGroundAtomToStripsFact(h, state_fact);
         int strips_fact = h->ground_atom_to_strips_fact[state_fact];
@@ -208,17 +210,17 @@ int pddlHomomorphismHeurEval(pddl_homomorphism_heur_t *h,
             h->ground_atom_to_strips_fact[state_fact] = strips_fact;
         }
         if (strips_fact >= 0)
-            borISetAdd(&strips_state, strips_fact);
+            pddlISetAdd(&strips_state, strips_fact);
     }
 
     int hval = 0;
     if (h->_type == LM_CUT_TYPE){
-        lmcut_t *lmc = bor_container_of(h, lmcut_t, homo);
+        lmcut_t *lmc = pddl_container_of(h, lmcut_t, homo);
         hval = pddlLMCutStrips(&lmc->lmc, &strips_state, NULL, NULL);
     }else if (h->_type == HFF_TYPE){
-        hff_t *hff = bor_container_of(h, hff_t, homo);
+        hff_t *hff = pddl_container_of(h, hff_t, homo);
         hval = pddlHFFStrips(&hff->hff, &strips_state);
     }
-    borISetFree(&strips_state);
+    pddlISetFree(&strips_state);
     return hval;
 }

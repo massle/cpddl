@@ -21,7 +21,7 @@
 #define __PDDL_OUTBOX_H__
 
 #include <stdio.h>
-#include <boruvka/err.h>
+#include <pddl/err.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +49,7 @@ void pddlOutBoxAddLine(pddl_outbox_t *pddl_outbox, const char *line);
 void pddlOutBoxesMerge(pddl_outboxes_t *dst,
                        const pddl_outboxes_t *src,
                        int max_len);
-void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, bor_err_t *err);
+void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -20,7 +20,7 @@
 #ifndef __PDDL_SYMBOLIC_TASK_H__
 #define __PDDL_SYMBOLIC_TASK_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/strips.h>
 #include <pddl/mgroup.h>
 #include <pddl/mutex_pair.h>
@@ -90,7 +90,7 @@ typedef struct pddl_symbolic_task pddl_symbolic_task_t;
 
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                           const pddl_symbolic_task_config_t *c,
-                                          bor_err_t *err);
+                                          pddl_err_t *err);
 
 void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
 
@@ -100,17 +100,17 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *states);
 int pddlSymbolicTaskGoalConstrFailed(const pddl_symbolic_task_t *task);
 
 int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
-                             bor_iarr_t *plan,
-                             bor_err_t *err);
+                             pddl_iarr_t *plan,
+                             pddl_err_t *err);
 int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
-                             bor_iarr_t *plan,
-                             bor_err_t *err);
+                             pddl_iarr_t *plan,
+                             pddl_err_t *err);
 int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
-                               bor_iarr_t *plan,
-                               bor_err_t *err);
+                               pddl_iarr_t *plan,
+                               pddl_err_t *err);
 int pddlSymbolicTaskSearch(pddl_symbolic_task_t *ss,
-                           bor_iarr_t *plan,
-                           bor_err_t *err);
+                           pddl_iarr_t *plan,
+                           pddl_err_t *err);
 
 int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
                                  const int *state,
@@ -121,7 +121,7 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
                                  const int *res_state,
                                  int op_id);
 int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
-                              const bor_iarr_t *op,
+                              const pddl_iarr_t *op,
                               int plan_size);
 #ifdef __cplusplus
 } /* extern "C" */

@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cudd/cudd.h>
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include "pddl/bdd.h"
 #include "assert.h"
 
@@ -46,7 +46,7 @@ static void outOfMemory(size_t mem_size)
     unsigned long peak_mem = 0L;
     if (getrusage(RUSAGE_SELF, &usg) == 0)
         peak_mem = usg.ru_maxrss / 1024UL;
-    BOR_FATAL("Memory allocation failed (peak memory: %luMB).", peak_mem);
+    PDDL_FATAL("Memory allocation failed (peak memory: %luMB).", peak_mem);
 }
 
 pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,
@@ -274,10 +274,10 @@ pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
 
 #else /* PDDL_CUDD */
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 #include "pddl/bdd.h"
 
-#define ERROR BOR_FATAL2("bdd module requires CUDD library")
+#define ERROR PDDL_FATAL2("bdd module requires CUDD library")
 
 pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,
                                       unsigned int cache_size)

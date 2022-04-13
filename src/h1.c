@@ -17,65 +17,66 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
+#include "alloc.h"
+#include "err.h"
 
 int pddlH1(const pddl_strips_t *strips,
-           bor_iset_t *unreachable_facts,
-           bor_iset_t *unreachable_ops,
-           bor_err_t *err)
+           pddl_iset_t *unreachable_facts,
+           pddl_iset_t *unreachable_ops,
+           pddl_err_t *err)
 {
     if (strips->has_cond_eff){
-        BOR_ERR_RET2(err, -1, "pddlH1: Conditional effects are not supported!");
+        PDDL_ERR_RET2(err, -1, "pddlH1: Conditional effects are not supported!");
     }
 
-    BOR_INFO_PREFIX_PUSH(err, "h^1: ");
-    int *facts = BOR_CALLOC_ARR(int, strips->fact.fact_size);
-    int *ops = BOR_CALLOC_ARR(int, strips->op.op_size);
-    bor_iset_t *fact_to_op = BOR_CALLOC_ARR(bor_iset_t, strips->fact.fact_size);
-    BOR_IARR(queue);
+    CTX(err, "h1", "h^1");
+    int *facts = CALLOC_ARR(int, strips->fact.fact_size);
+    int *ops = CALLOC_ARR(int, strips->op.op_size);
+    pddl_iset_t *fact_to_op = CALLOC_ARR(pddl_iset_t, strips->fact.fact_size);
+    PDDL_IARR(queue);
 
-    BOR_INFO(err, "facts: %d, ops: %d",
-             strips->fact.fact_size,
-             strips->op.op_size);
+    PDDL_INFO(err, "facts: %d, ops: %d",
+              strips->fact.fact_size,
+              strips->op.op_size);
 
     int fact;
-    BOR_ISET_FOR_EACH(&strips->init, fact){
+    PDDL_ISET_FOR_EACH(&strips->init, fact){
         facts[fact] = 1;
-        borIArrAdd(&queue, fact);
+        pddlIArrAdd(&queue, fact);
     }
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
-        ops[op_id] = borISetSize(&op->pre);
+        ops[op_id] = pddlISetSize(&op->pre);
         int fact;
-        BOR_ISET_FOR_EACH(&op->pre, fact)
-            borISetAdd(fact_to_op + fact, op_id);
+        PDDL_ISET_FOR_EACH(&op->pre, fact)
+            pddlISetAdd(fact_to_op + fact, op_id);
         if (ops[op_id] == 0){
             int fact;
-            BOR_ISET_FOR_EACH(&op->add_eff, fact){
+            PDDL_ISET_FOR_EACH(&op->add_eff, fact){
                 if (facts[fact] == 0){
                     facts[fact] = 1;
-                    borIArrAdd(&queue, fact);
+                    pddlIArrAdd(&queue, fact);
                 }
             }
         }
     }
 
-    while (borIArrSize(&queue) > 0){
-        int cur = borIArrGet(&queue, borIArrSize(&queue) - 1);
-        borIArrRmLast(&queue);
+    while (pddlIArrSize(&queue) > 0){
+        int cur = pddlIArrGet(&queue, pddlIArrSize(&queue) - 1);
+        pddlIArrRmLast(&queue);
         int op_id;
-        BOR_ISET_FOR_EACH(fact_to_op + cur, op_id){
+        PDDL_ISET_FOR_EACH(fact_to_op + cur, op_id){
             if (--ops[op_id] == 0){
                 const pddl_strips_op_t *op = strips->op.op[op_id];
                 int fact;
-                BOR_ISET_FOR_EACH(&op->add_eff, fact){
+                PDDL_ISET_FOR_EACH(&op->add_eff, fact){
                     if (facts[fact] == 0){
                         facts[fact] = 1;
-                        borIArrAdd(&queue, fact);
+                        pddlIArrAdd(&queue, fact);
                     }
                 }
             }
@@ -85,28 +86,28 @@ int pddlH1(const pddl_strips_t *strips,
     for (int fid = 0;
             unreachable_facts != NULL && fid < strips->fact.fact_size; ++fid){
         if (facts[fid] == 0)
-            borISetAdd(unreachable_facts, fid);
+            pddlISetAdd(unreachable_facts, fid);
     }
     for (int op_id = 0;
             unreachable_ops != NULL && op_id < strips->op.op_size; ++op_id){
         if (ops[op_id] > 0)
-            borISetAdd(unreachable_ops, op_id);
+            pddlISetAdd(unreachable_ops, op_id);
     }
 
-    borIArrFree(&queue);
+    pddlIArrFree(&queue);
     for (int fid = 0; fid < strips->fact.fact_size; ++fid)
-        borISetFree(fact_to_op + fid);
+        pddlISetFree(fact_to_op + fid);
     if (fact_to_op != NULL)
-        BOR_FREE(fact_to_op);
+        FREE(fact_to_op);
     if (facts != NULL)
-        BOR_FREE(facts);
+        FREE(facts);
     if (ops != NULL)
-        BOR_FREE(ops);
+        FREE(ops);
 
-    BOR_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
-             (unreachable_facts != NULL ? borISetSize(unreachable_facts) : -1),
-             (unreachable_ops != NULL ? borISetSize(unreachable_ops) : -1));
-    BOR_INFO_PREFIX_POP(err);
+    PDDL_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
+              (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
+              (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1));
+    CTXEND(err);
     return 0;
 }
 

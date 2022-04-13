@@ -59,7 +59,7 @@ void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in);
 
 void pddlCGInitProjectToVars(pddl_cg_t *dst,
                              const pddl_cg_t *src,
-                             const bor_iset_t *vars);
+                             const pddl_iset_t *vars);
 void pddlCGInitProjectToBlackVars(pddl_cg_t *dst,
                                   const pddl_cg_t *src,
                                   const pddl_fdr_vars_t *vars);
@@ -85,7 +85,7 @@ void pddlCGPrintDebug(const pddl_cg_t *cg, FILE *fout);
 
 char *pddlCGAsDot(const pddl_cg_t *cg, size_t *buf_size);
 
-void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, bor_err_t *err);
+void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err);
 
 
 #ifdef __cplusplus

@@ -19,8 +19,7 @@
 #ifndef __PDDL_POT_H__
 #define __PDDL_POT_H__
 
-#include <boruvka/htable.h>
-#include <boruvka/segmarr.h>
+#include <pddl/segmarr.h>
 #include <pddl/fdr.h>
 #include <pddl/mg_strips.h>
 
@@ -46,9 +45,9 @@ int pddlPotSolutionEvalFDRState(const pddl_pot_solution_t *sol,
                                 const pddl_fdr_vars_t *vars,
                                 const int *state);
 double pddlPotSolutionEvalStripsStateFlt(const pddl_pot_solution_t *sol,
-                                         const bor_iset_t *state);
+                                         const pddl_iset_t *state);
 int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,
-                                   const bor_iset_t *state);
+                                   const pddl_iset_t *state);
 
 struct pddl_pot_solutions {
     pddl_pot_solution_t *sol;
@@ -67,14 +66,14 @@ int pddlPotSolutionsEvalMaxFDRState(const pddl_pot_solutions_t *sols,
 
 struct pddl_pot_lb_constr {
     int set;
-    bor_iset_t vars;
+    pddl_iset_t vars;
     double rhs;
 };
 typedef struct pddl_pot_lb_constr pddl_pot_lb_constr_t;
 
 struct pddl_pot_constr {
-    bor_iset_t plus;
-    bor_iset_t minus;
+    pddl_iset_t plus;
+    pddl_iset_t minus;
     int rhs;
     int op_id;
 };
@@ -99,11 +98,11 @@ struct pddl_pot {
     pddl_pot_constrs_t constr_op; /*!< Operator constraints */
     pddl_pot_constrs_t constr_goal; /*!< Goal constraint */
     pddl_pot_lb_constr_t constr_lb;
-    bor_iset_t init;
+    pddl_iset_t init;
 
-    bor_segmarr_t *maxpot;
+    pddl_segmarr_t *maxpot;
     int maxpot_size;
-    bor_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
+    pddl_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
     int enforce_int_init; /*!< Enforce integer value for the initial state */
 };
 typedef struct pddl_pot pddl_pot_t;
@@ -160,13 +159,13 @@ void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
  * Set objective function to the given state.
  * This works only if {pot} was initialized with *InitMGStrips()
  */
-void pddlPotSetObjStripsState(pddl_pot_t *pot, const bor_iset_t *state);
+void pddlPotSetObjStripsState(pddl_pot_t *pot, const pddl_iset_t *state);
 
 /**
  * Sets lower bound constraint as sum(vars) >= rhs
  */
 void pddlPotSetLowerBoundConstr(pddl_pot_t *pot,
-                                const bor_iset_t *vars,
+                                const pddl_iset_t *vars,
                                 double rhs);
 
 /**
@@ -187,7 +186,7 @@ void pddlPotDecreaseLowerBoundConstrRHS(pddl_pot_t *pot, double decrease);
 /**
  * Turns on/off integer linear program.
  */
-_bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
+_pddl_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
 {
     pot->use_ilp = enable;
 }
@@ -195,7 +194,7 @@ _bor_inline void pddlPotUseILP(pddl_pot_t *pot, int enable)
 /**
  * Turns on/off storing of heuristic changes induced by operators.
  */
-_bor_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued)
+_pddl_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued)
 {
     if (enable){
         pot->op_pot = 1;
@@ -208,7 +207,7 @@ _bor_inline void pddlPotEnableOpPot(pddl_pot_t *pot, int enable, int real_valued
 /**
  * Turns on/off enforcing of the integer value for the initial state
  */
-_bor_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
+_pddl_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
 {
     pot->enforce_int_init = enable;
 }

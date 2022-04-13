@@ -19,7 +19,7 @@
 #ifndef __PDDL_PLAN_FILE_H__
 #define __PDDL_PLAN_FILE_H__
 
-#include <boruvka/iarr.h>
+#include <pddl/iarr.h>
 #include <pddl/fdr.h>
 #include <pddl/strips.h>
 
@@ -28,7 +28,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_plan_file_fdr {
-    bor_iarr_t op; /*!< Sequence of operators */
+    pddl_iarr_t op; /*!< Sequence of operators */
     int **state; /*!< Intermediate states */
     int state_size;
     int state_alloc;
@@ -44,7 +44,7 @@ typedef struct pddl_plan_file_fdr pddl_plan_file_fdr_t;
 int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
                         const pddl_fdr_t *fdr,
                         const char *filename,
-                        bor_err_t *err);
+                        pddl_err_t *err);
 
 /**
  * Free allocated memory.
@@ -53,8 +53,8 @@ void pddlPlanFileFDRFree(pddl_plan_file_fdr_t *p);
 
 
 struct pddl_plan_file_strips {
-    bor_iarr_t op; /*!< Sequence of operators */
-    bor_iset_t *state; /*!< Intermediate states */
+    pddl_iarr_t op; /*!< Sequence of operators */
+    pddl_iset_t *state; /*!< Intermediate states */
     int state_size;
     int state_alloc;
     int cost; /*!< Cost of the plan */
@@ -64,11 +64,11 @@ typedef struct pddl_plan_file_strips pddl_plan_file_strips_t;
 int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
                            const pddl_strips_t *strips,
                            const char *filename,
-                           bor_err_t *err);
+                           pddl_err_t *err);
 void pddlPlanFileStripsFree(pddl_plan_file_strips_t *p);
 
 
-int pddlPlanFileParseOptimalCost(const char *filename, bor_err_t *err);
+int pddlPlanFileParseOptimalCost(const char *filename, pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

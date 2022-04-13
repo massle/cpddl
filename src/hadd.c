@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/cost.h"
 #include "pddl/hadd.h"
 
@@ -43,16 +43,16 @@ void pddlHAddInit(pddl_hadd_t *h, const pddl_fdr_t *fdr)
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
     h->fact_size = fdr->var.global_id_size + 2;
-    h->fact = BOR_CALLOC_ARR(pddl_hadd_fact_t, h->fact_size);
+    h->fact = CALLOC_ARR(pddl_hadd_fact_t, h->fact_size);
     h->fact_goal = h->fact_size - 2;
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
     h->op_size = fdr->op.op_size + 1;
-    h->op = BOR_CALLOC_ARR(pddl_hadd_op_t, h->op_size);
+    h->op = CALLOC_ARR(pddl_hadd_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
-    BOR_ISET(pre);
+    PDDL_ISET(pre);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
         const pddl_fdr_op_t *src = fdr->op.op[op_id];
         pddl_hadd_op_t *op = h->op + op_id;
@@ -60,46 +60,46 @@ void pddlHAddInit(pddl_hadd_t *h, const pddl_fdr_t *fdr)
         pddlFDRPartStateToGlobalIDs(&src->eff, &fdr->var, &op->eff);
         op->cost = src->cost;
 
-        borISetEmpty(&pre);
+        pddlISetEmpty(&pre);
         pddlFDRPartStateToGlobalIDs(&src->pre, &fdr->var, &pre);
         int fact;
-        BOR_ISET_FOR_EACH(&pre, fact)
-            borISetAdd(&h->fact[fact].pre_op, op_id);
-        op->pre_size = borISetSize(&pre);
+        PDDL_ISET_FOR_EACH(&pre, fact)
+            pddlISetAdd(&h->fact[fact].pre_op, op_id);
+        op->pre_size = pddlISetSize(&pre);
 
         // Record operator with no preconditions
         if (op->pre_size == 0){
-            borISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
+            pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
             op->pre_size = 1;
         }
     }
 
     // Set up goal operator
     pddl_hadd_op_t *op = h->op + h->op_goal;
-    borISetAdd(&op->eff, h->fact_goal);
+    pddlISetAdd(&op->eff, h->fact_goal);
     op->cost = 0;
 
-    borISetEmpty(&pre);
+    pddlISetEmpty(&pre);
     pddlFDRPartStateToGlobalIDs(&fdr->goal, &fdr->var, &pre);
     int fact;
-    BOR_ISET_FOR_EACH(&pre, fact)
-        borISetAdd(&h->fact[fact].pre_op, h->op_goal);
-    op->pre_size = borISetSize(&pre);
+    PDDL_ISET_FOR_EACH(&pre, fact)
+        pddlISetAdd(&h->fact[fact].pre_op, h->op_goal);
+    op->pre_size = pddlISetSize(&pre);
 
-    borISetFree(&pre);
+    pddlISetFree(&pre);
 }
 
 void pddlHAddFree(pddl_hadd_t *hadd)
 {
     for (int i = 0; i < hadd->fact_size; ++i)
-        borISetFree(&hadd->fact[i].pre_op);
+        pddlISetFree(&hadd->fact[i].pre_op);
     if (hadd->fact != NULL)
-        BOR_FREE(hadd->fact);
+        FREE(hadd->fact);
 
     for (int i = 0; i < hadd->op_size; ++i)
-        borISetFree(&hadd->op[i].eff);
+        pddlISetFree(&hadd->op[i].eff);
     if (hadd->op != NULL)
-        BOR_FREE(hadd->op);
+        FREE(hadd->op);
 }
 
 static void initFacts(pddl_hadd_t *h)
@@ -136,7 +136,7 @@ static void addInitState(pddl_hadd_t *h,
 static void enqueueOpEffects(pddl_hadd_t *h, pddl_hadd_op_t *op, pddl_pq_t *pq)
 {
     int fid;
-    BOR_ISET_FOR_EACH(&op->eff, fid){
+    PDDL_ISET_FOR_EACH(&op->eff, fid){
         pddl_hadd_fact_t *fact = h->fact + fid;
         if (FVALUE(fact) > op->value)
             FPUSH(pq, op->value, fact);
@@ -157,14 +157,14 @@ int pddlHAdd(pddl_hadd_t *h,
     while (!pddlPQEmpty(&pq)){
         int value;
         pddl_pq_el_t *el = pddlPQPop(&pq, &value);
-        pddl_hadd_fact_t *fact = bor_container_of(el, pddl_hadd_fact_t, heap);
+        pddl_hadd_fact_t *fact = pddl_container_of(el, pddl_hadd_fact_t, heap);
 
         int fact_id = FID(h, fact);
         if (fact_id == h->fact_goal)
             break;
 
         int op_id;
-        BOR_ISET_FOR_EACH(&fact->pre_op, op_id){
+        PDDL_ISET_FOR_EACH(&fact->pre_op, op_id){
             pddl_hadd_op_t *op = h->op + op_id;
             op->value = pddlSumSat(op->value, value);
             if (--op->unsat == 0)

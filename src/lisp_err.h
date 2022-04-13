@@ -19,17 +19,17 @@
 #ifndef __PDDL_LISP_ERR_H__
 #define __PDDL_LISP_ERR_H__
 
-#include <boruvka/err.h>
+#include <pddl/err.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 #define ERR_LISP(E, N, format, ...) do { \
-        BOR_ERR((E), format " on line %d.", __VA_ARGS__, (N)->lineno); \
+        PDDL_ERR((E), format " on line %d.", __VA_ARGS__, (N)->lineno); \
     } while (0)
 #define ERR_LISP2(E, N, msg) do { \
-        BOR_ERR((E), msg " on line %d.", (N)->lineno); \
+        PDDL_ERR((E), msg " on line %d.", (N)->lineno); \
     } while (0)
 #define ERR_LISP_RET(E, V, N, format, ...) do { \
         ERR_LISP((E), (N), format, __VA_ARGS__); \

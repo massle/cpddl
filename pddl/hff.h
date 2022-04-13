@@ -19,8 +19,8 @@
 #ifndef __PDDL_HFF_H__
 #define __PDDL_HFF_H__
 
-#include <boruvka/iarr.h>
-#include <boruvka/iset.h>
+#include <pddl/iarr.h>
+#include <pddl/iset.h>
 #include <pddl/fdr.h>
 #include <pddl/pq.h>
 
@@ -30,7 +30,7 @@ extern "C" {
 
     /*
 struct pddl_hff_parallel_plan {
-    bor_iset_t *step;
+    pddl_iset_t *step;
     int step_size;
     int step_alloc;
 };
@@ -38,8 +38,8 @@ typedef struct pddl_hff_parallel_plan pddl_hff_parallel_plan_t;
 */
 
 struct pddl_hff_op {
-    bor_iset_t pre; /*!< Facts in its precondition */
-    bor_iset_t eff; /*!< Facts in its effect */
+    pddl_iset_t pre; /*!< Facts in its precondition */
+    pddl_iset_t eff; /*!< Facts in its effect */
     int cost;       /*!< Cost of the operator */
     int pre_size;   /*!< Number of preconditions */
 
@@ -51,8 +51,8 @@ struct pddl_hff_op {
 typedef struct pddl_hff_op pddl_hff_op_t;
 
 struct pddl_hff_fact {
-    bor_iset_t eff_op; /*!< Operators having this fact in its effect */
-    bor_iset_t pre_op; /*!< Operators having this fact as its precondition */
+    pddl_iset_t eff_op; /*!< Operators having this fact in its effect */
+    pddl_iset_t pre_op; /*!< Operators having this fact as its precondition */
 
     pddl_pq_el_t heap; /*!< Connection to priority heap */
     int marked;        /*!< True if marked as part of relaxed plan */
@@ -94,12 +94,12 @@ int pddlHFF(pddl_hff_t *hff,
 int pddlHFFPlan(pddl_hff_t *hff,
                 const int *fdr_state,
                 const pddl_fdr_vars_t *vars,
-                bor_iarr_t *plan);
+                pddl_iarr_t *plan);
 
-int pddlHFFStrips(pddl_hff_t *hff, const bor_iset_t *state);
+int pddlHFFStrips(pddl_hff_t *hff, const pddl_iset_t *state);
 int pddlHFFStripsPlan(pddl_hff_t *hff,
-                      const bor_iset_t *state,
-                      bor_iarr_t *plan);
+                      const pddl_iset_t *state,
+                      pddl_iarr_t *plan);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -18,11 +18,12 @@
  */
 
 
-#include <boruvka/alloc.h>
+#include "alloc.h"
 #include "pddl/pddl_struct.h"
 #include "pddl/unify.h"
 #include "fmt.h"
 #include "assert.h"
+#include "err.h"
 
 
 struct action_cond {
@@ -51,7 +52,7 @@ static void actionCondsFree(action_conds_t *acs)
         pddlCondArrFree(&acs->cond[i].cond);
     }
     if (acs->cond != NULL)
-        BOR_FREE(acs->cond);
+        FREE(acs->cond);
 }
 
 static pddl_cond_arr_t *actionConds(action_conds_t *acs,
@@ -66,7 +67,7 @@ static pddl_cond_arr_t *actionConds(action_conds_t *acs,
         if (acs->cond_alloc == 0)
             acs->cond_alloc = 2;
         acs->cond_alloc *= 2;
-        acs->cond = BOR_REALLOC_ARR(acs->cond, action_cond_t, acs->cond_alloc);
+        acs->cond = REALLOC_ARR(acs->cond, action_cond_t, acs->cond_alloc);
     }
     acs->cond[acs->cond_size].pre = pre;
     pddlCondArrInit(&acs->cond[acs->cond_size].cond);
@@ -214,7 +215,7 @@ static void mutexUnify2(const pddl_t *pddl,
                         const pddl_cond_atom_t *pre_atom2,
                         const pddl_cond_atom_t *mg_atom2,
                         action_conds_t *acs,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     const pddl_params_t *pre_param = &action->param;
     int eq_pred = pddl->pred.eq_pred;
@@ -239,11 +240,11 @@ static void mutexUnify2(const pddl_t *pddl,
             }
         }
         if (action_c != NULL){
-            BOR_INFO(err, "Found mutex condition for action '%s'"
-                          " and mgroup %s: %s",
-                     action->name,
-                     F_LIFTED_MGROUP(pddl, mgroup),
-                     F_COND_PDDL(action_c, pddl, pre_param));
+            LOG(err, "Found mutex condition for action '%{mutex.action}s'"
+                " and mgroup %{mutex.mgroup}s: %{mutex.cond}s",
+                action->name,
+                F_LIFTED_MGROUP(pddl, mgroup),
+                F_COND_PDDL(action_c, pddl, pre_param));
             pddlCondArrAdd(action_cond, action_c);
         }
     }
@@ -259,7 +260,7 @@ static void mutexUnify1(const pddl_t *pddl,
                         const pddl_cond_atom_t *pre_atom1,
                         const pddl_cond_atom_t *mg_atom1,
                         action_conds_t *acs,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 
 {
     int eq_pred = pddl->pred.eq_pred;
@@ -309,7 +310,7 @@ static void mutex(const pddl_t *pddl,
                   const pddl_cond_t *pre,
                   const pddl_cond_t *pre2,
                   action_conds_t *acs,
-                  bor_err_t *err)
+                  pddl_err_t *err)
 {
     pddl_cond_const_it_atom_t it;
     const pddl_cond_atom_t *pre_atom1, *mg_atom1;
@@ -330,7 +331,7 @@ static void compileInMutex(const pddl_t *pddl,
                            const pddl_action_t *action,
                            const pddl_lifted_mgroup_t *mgroup_in,
                            action_conds_t *acs,
-                           bor_err_t *err)
+                           pddl_err_t *err)
 {
     pddl_lifted_mgroup_t mgroup;
     pddlLiftedMGroupInitCopy(&mgroup, mgroup_in);
@@ -360,7 +361,7 @@ static int deadEndCollectNegConds(const pddl_t *pddl,
                                   const pddl_cond_atom_t *mg_del_atom,
                                   const pddl_cond_t *cond_del,
                                   pddl_cond_part_t *cond,
-                                  bor_err_t *err)
+                                  pddl_err_t *err)
 {
     int eq_pred = pddl->pred.eq_pred;
     pddl_cond_const_it_t itadd;
@@ -412,7 +413,7 @@ static void deadEndAdd(const pddl_t *pddl,
                        const pddl_cond_atom_t *pre_atom,
                        const pddl_cond_atom_t *mg_del_atom,
                        action_conds_t *acs,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     int eq_pred = pddl->pred.eq_pred;
     pddl_cond_t *cond_del, *cond;
@@ -434,11 +435,11 @@ static void deadEndAdd(const pddl_t *pddl,
             }
         }
         if (cond != NULL){
-            BOR_INFO(err, "Found dead-end condition for action '%s'"
-                          " and mgroup %s: %s",
-                     action->name,
-                     F_LIFTED_MGROUP(pddl, mgroup),
-                     F_COND_PDDL_BUFSIZE(cond, pddl, &action->param, 10000));
+            LOG(err, "Found dead-end condition for action '%{dead_end.action}s'"
+                " and mgroup %{dead_end.mgroup}s: %{dead_end.cond}s",
+                action->name,
+                F_LIFTED_MGROUP(pddl, mgroup),
+                F_COND_PDDL_BUFSIZE(cond, pddl, &action->param, 10000));
             pddlCondArrAdd(action_cond, cond);
         }
     }else{
@@ -456,7 +457,7 @@ static void deadEndPre(const pddl_t *pddl,
                        const pddl_cond_atom_t *del_atom,
                        const pddl_cond_atom_t *mg_atom,
                        action_conds_t *acs,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     const pddl_cond_t *pres[2] = {action->pre, pre};
     for (int i = 0; i < 2; ++i){
@@ -489,7 +490,7 @@ static void deadEndDel(const pddl_t *pddl,
                        const pddl_cond_t *eff,
                        const pddl_unify_t *unify_goal,
                        action_conds_t *acs,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     pddl_cond_const_it_t itdel;
     const pddl_cond_atom_t *del_atom;
@@ -518,7 +519,7 @@ static void deadEndGoal(const pddl_t *pddl,
                         const pddl_cond_t *pre,
                         const pddl_cond_t *eff,
                         action_conds_t *acs,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     pddl_cond_const_it_atom_t it;
     const pddl_cond_atom_t *goal_atom, *mg_atom;
@@ -543,7 +544,7 @@ static void deadEnd(const pddl_t *pddl,
                     const pddl_cond_t *pre,
                     const pddl_cond_t *eff,
                     action_conds_t *acs,
-                    bor_err_t *err)
+                    pddl_err_t *err)
 {
     deadEndGoal(pddl, action, mgroup, pre, eff, acs, err);
 }
@@ -552,7 +553,7 @@ static void compileInDeadEnd(const pddl_t *pddl,
                              const pddl_action_t *action,
                              const pddl_lifted_mgroup_t *mgroup_in,
                              action_conds_t *acs,
-                             bor_err_t *err)
+                             pddl_err_t *err)
 {
     pddl_lifted_mgroup_t mgroup;
     pddlLiftedMGroupInitCopy(&mgroup, mgroup_in);
@@ -574,18 +575,18 @@ static void compileInDeadEnd(const pddl_t *pddl,
 
 int pddlCompileInLiftedMGroups(pddl_t *pddl,
                                const pddl_lifted_mgroups_t *mgroups,
-                               bor_err_t *err)
+                               pddl_err_t *err)
 {
     int changed = 0;
 
-    BOR_INFO_PREFIX_PUSH(err, "Compile-in LMG: ");
-    BOR_INFO(err, "actions: %d, lifted mgroups: %d",
-             pddl->action.action_size, mgroups->mgroup_size);
+    CTX(err, "compile_in_lmg", "Compile-in LMG");
+    LOG(err, "actions: %{in.actions}d, lifted mgroups: %{in.lmgs}d",
+        pddl->action.action_size, mgroups->mgroup_size);
     if (mgroups->mgroup_size == 0){
-        BOR_INFO2(err, "No lifted mutex groups.");
-        BOR_INFO(err, "DONE. actions: %d, lifted mgroups: %d",
-                 pddl->action.action_size, mgroups->mgroup_size);
-        BOR_INFO_PREFIX_POP(err);
+        LOG2(err, "No lifted mutex groups.");
+        LOG(err, "DONE. actions: %{out.actions}d, lifted mgroups: %{out.lmgs}d",
+            pddl->action.action_size, mgroups->mgroup_size);
+        CTXEND(err);
         return 0;
     }
 
@@ -602,9 +603,9 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
         pddl_cond_t *c;
         c = actionCondsMerge(&acs, action->pre, pddl, &action->param);
         if (c != NULL){
-            BOR_INFO(err, "Precondition of action '%s' extended with %s",
-                     action->name,
-                     F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
+            LOG(err, "Precondition of action '%s' extended with %s",
+                action->name,
+                F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
             action->pre = pddlCondNewAnd2(action->pre, c);
             changed = 1;
         }
@@ -615,10 +616,10 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
             pddl_cond_t *c;
             c = actionCondsMerge(&acs, when->pre, pddl, &action->param);
             if (c != NULL){
-                BOR_INFO(err, "Precondition of a conditional effect of"
-                              " action '%s' extended with %s",
-                         action->name,
-                         F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
+                LOG(err, "Precondition of a conditional effect of"
+                    " action '%s' extended with %s",
+                    action->name,
+                    F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
                 pddl_cond_when_t *wwhen = (pddl_cond_when_t *)when;
                 wwhen->pre = pddlCondNewAnd2(when->pre, c);
                 changed = 1;
@@ -629,7 +630,7 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
 
     if (changed)
         pddlNormalize(pddl);
-    BOR_INFO(err, "DONE. actions: %d", pddl->action.action_size);
-    BOR_INFO_PREFIX_POP(err);
+    LOG(err, "DONE. actions: %{out.actions}d", pddl->action.action_size);
+    CTXEND(err);
     return changed;
 }

@@ -17,20 +17,20 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/hfunc.h>
+#include "alloc.h"
+#include "pddl/hfunc.h"
 #include "pddl/lifted_mgroup_htable.h"
 #include "assert.h"
 
 struct el {
     int id;
     pddl_lifted_mgroup_t mgroup;
-    bor_htable_key_t hash;
-    bor_list_t htable;
+    pddl_htable_key_t hash;
+    pddl_list_t htable;
 };
 typedef struct el el_t;
 
-static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
+static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
 {
     int *buf;
     int bufsize;
@@ -41,7 +41,7 @@ static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
         bufsize += 1 + a->arg_size;
     }
 
-    buf = BOR_ALLOC_ARR(int, bufsize);
+    buf = ALLOC_ARR(int, bufsize);
 
     for (int i = 0; i < m->param.param_size; ++i){
         buf[2 * i] = m->param.param[i].type;
@@ -62,22 +62,22 @@ static bor_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
     }
 
     ASSERT(ins == bufsize);
-    bor_htable_key_t hash = borCityHash_64(buf, bufsize * sizeof(int));
+    pddl_htable_key_t hash = pddlCityHash_64(buf, bufsize * sizeof(int));
 
-    BOR_FREE(buf);
+    FREE(buf);
     return hash;
 }
 
-static bor_htable_key_t htableHash(const bor_list_t *k, void *_)
+static pddl_htable_key_t htableHash(const pddl_list_t *k, void *_)
 {
-    el_t *m = BOR_LIST_ENTRY(k, el_t, htable);
+    el_t *m = PDDL_LIST_ENTRY(k, el_t, htable);
     return m->hash;
 }
 
-static int htableEq(const bor_list_t *k1, const bor_list_t *k2, void *_)
+static int htableEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 {
-    el_t *m1 = BOR_LIST_ENTRY(k1, el_t, htable);
-    el_t *m2 = BOR_LIST_ENTRY(k2, el_t, htable);
+    el_t *m1 = PDDL_LIST_ENTRY(k1, el_t, htable);
+    el_t *m2 = PDDL_LIST_ENTRY(k2, el_t, htable);
     return pddlLiftedMGroupEq(&m1->mgroup, &m2->mgroup);
 }
 
@@ -87,32 +87,32 @@ void pddlLiftedMGroupHTableInit(pddl_lifted_mgroup_htable_t *h)
     el_t el;
 
     bzero(h, sizeof(*h));
-    h->htable = borHTableNew(htableHash, htableEq, h);
+    h->htable = pddlHTableNew(htableHash, htableEq, h);
 
     bzero(&el, sizeof(el));
-    h->mgroup = borExtArrNew(sizeof(el), NULL, &el);
+    h->mgroup = pddlExtArrNew(sizeof(el), NULL, &el);
     h->mgroup_size = 0;
 }
 
 void pddlLiftedMGroupHTableFree(pddl_lifted_mgroup_htable_t *h)
 {
     for (int i = 0; i < h->mgroup_size; ++i){
-        el_t *m = borExtArrGet(h->mgroup, i);
+        el_t *m = pddlExtArrGet(h->mgroup, i);
         pddlLiftedMGroupFree(&m->mgroup);
     }
 
-    borHTableDel(h->htable);
-    borExtArrDel(h->mgroup);
+    pddlHTableDel(h->htable);
+    pddlExtArrDel(h->mgroup);
 }
 
 int pddlLiftedMGroupHTableAdd(pddl_lifted_mgroup_htable_t *h,
                               const pddl_lifted_mgroup_t *mg)
 {
-    el_t *el = borExtArrGet(h->mgroup, h->mgroup_size);
+    el_t *el = pddlExtArrGet(h->mgroup, h->mgroup_size);
     el->mgroup = *mg;
     el->hash = mgroupHash(mg);
 
-    bor_list_t *ins = borHTableInsertUnique(h->htable, &el->htable);
+    pddl_list_t *ins = pddlHTableInsertUnique(h->htable, &el->htable);
     if (ins == NULL){
         pddlLiftedMGroupInitCopy(&el->mgroup, mg);
         el->id = h->mgroup_size;
@@ -120,7 +120,7 @@ int pddlLiftedMGroupHTableAdd(pddl_lifted_mgroup_htable_t *h,
         return el->id;
 
     }else{
-        el = BOR_LIST_ENTRY(ins, el_t, htable);
+        el = PDDL_LIST_ENTRY(ins, el_t, htable);
         return el->id;
     }
 }
@@ -130,6 +130,6 @@ const pddl_lifted_mgroup_t *pddlLiftedMGroupHTableGet(
 {
     if (id < 0 || id >= h->mgroup_size)
         return NULL;
-    const el_t *e = borExtArrGet(h->mgroup, id);
+    const el_t *e = pddlExtArrGet(h->mgroup, id);
     return &e->mgroup;
 }

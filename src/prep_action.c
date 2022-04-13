@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include <boruvka/alloc.h>
-#include <boruvka/hfunc.h>
+#include "alloc.h"
+#include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/prep_action.h"
 #include "err.h"
@@ -35,7 +35,7 @@ struct action_ctx {
     const pddl_t *pddl;
     const pddl_action_t *action;
     int failed;
-    bor_err_t *err;
+    pddl_err_t *err;
 };
 typedef struct action_ctx action_ctx_t;
 
@@ -46,7 +46,7 @@ static int actionInitPre(pddl_cond_t *c, void *ud)
 
     if (c->type == PDDL_COND_ATOM){
         a = PDDL_COND_CAST(c, atom);
-        ctx->a->max_arg_size = BOR_MAX(ctx->a->max_arg_size, a->arg_size);
+        ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->pred == ctx->pddl->pred.eq_pred){
             pddlCondArrAdd(&ctx->a->pre_eq, c);
         }else{
@@ -61,9 +61,9 @@ static int actionInitPre(pddl_cond_t *c, void *ud)
     }else if (c->type == PDDL_COND_AND){
         return 0;
     }else{
-        BOR_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
-                " (found %s). It seems it was not normalized.",
-                pddlCondTypeName(c->type));
+        PDDL_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
+                 " (found %s). It seems it was not normalized.",
+                 pddlCondTypeName(c->type));
         ctx->failed = 1;
         return -2;
     }
@@ -76,7 +76,7 @@ static int actionInitEff(pddl_cond_t *c, void *ud)
 
     if (c->type == PDDL_COND_ATOM){
         a = PDDL_COND_CAST(c, atom);
-        ctx->a->max_arg_size = BOR_MAX(ctx->a->max_arg_size, a->arg_size);
+        ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->neg){
             pddlCondArrAdd(&ctx->a->del_eff, c);
         }else{
@@ -85,7 +85,7 @@ static int actionInitEff(pddl_cond_t *c, void *ud)
         return 0;
 
     }else if (c->type == PDDL_COND_ASSIGN){
-        BOR_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
+        PDDL_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
@@ -100,9 +100,9 @@ static int actionInitEff(pddl_cond_t *c, void *ud)
     }else if (c->type == PDDL_COND_AND){
         return 0;
     }else{
-        BOR_ERR2(ctx-> err, "Effect is not a simple conjuction"
-                 " (possibly containingconditional effects and function"
-                 " assignement). It seems it was not normalized.");
+        PDDL_ERR2(ctx-> err, "Effect is not a simple conjuction"
+                  " (possibly containingconditional effects and function"
+                  " assignement). It seems it was not normalized.");
         ctx->failed = 1;
         return -2;
     }
@@ -113,7 +113,7 @@ static int actionInit2(pddl_prep_action_t *a,
                        const pddl_action_t *action,
                        pddl_cond_t *pre,
                        pddl_cond_t *eff,
-                       bor_err_t *err)
+                       pddl_err_t *err)
 {
     action_ctx_t ctx;
     ctx.a = a;
@@ -125,21 +125,21 @@ static int actionInit2(pddl_prep_action_t *a,
     a->action = action;
     a->parent_action = -1;
     a->param_size = action->param.param_size;
-    a->param_type = BOR_ALLOC_ARR(int, a->param_size);
+    a->param_type = ALLOC_ARR(int, a->param_size);
     for (int i = 0; i < a->param_size; ++i)
         a->param_type[i] = action->param.param[i].type;
     a->type = &pddl->type;
 
     pddlCondTraverse(pre, actionInitPre, NULL, &ctx);
     if (ctx.failed){
-        BOR_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
-                              action->name);
+        PDDL_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
+                               action->name);
     }
 
     pddlCondTraverse(eff, actionInitEff, NULL, &ctx);
     if (ctx.failed){
-        BOR_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
-                              action->name);
+        PDDL_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
+                               action->name);
     }
 
     return 0;
@@ -148,7 +148,7 @@ static int actionInit2(pddl_prep_action_t *a,
 static int actionInit(pddl_prep_action_t *a,
                       const pddl_t *pddl,
                       const pddl_action_t *action,
-                      bor_err_t *err)
+                      pddl_err_t *err)
 {
     int ret;
     ret = actionInit2(a, pddl, action,
@@ -156,7 +156,7 @@ static int actionInit(pddl_prep_action_t *a,
                       (pddl_cond_t *)action->eff,
                       err);
     if (ret != 0)
-        BOR_TRACE(err);
+        PDDL_TRACE(err);
     return ret;
 }
 
@@ -169,15 +169,15 @@ static void actionFree(pddl_prep_action_t *a)
     pddlCondArrFree(&a->del_eff);
     pddlCondArrFree(&a->increase);
     if (a->param_type != NULL)
-        BOR_FREE(a->param_type);
+        FREE(a->param_type);
 }
 
 static void actionsReserve(pddl_prep_actions_t *as)
 {
     if (as->action_size >= as->action_alloc){
         as->action_alloc *= 2;
-        as->action = BOR_REALLOC_ARR(as->action, pddl_prep_action_t,
-                                     as->action_alloc);
+        as->action = REALLOC_ARR(as->action, pddl_prep_action_t,
+                                 as->action_alloc);
     }
 }
 
@@ -197,14 +197,14 @@ static int actionInitCondEff(pddl_cond_t *c, void *ud)
         // Parse preconditions and effects of (when ) element
         if (actionInit2(a, ctx->pddl, ctx->action,
                         when->pre, when->eff, ctx->err) != 0){
-            BOR_TRACE(ctx->err);
+            PDDL_TRACE(ctx->err);
             ctx->failed = 1;
             return -2;
         }
         if (a->cond_eff_size > 0){
-            BOR_ERR(ctx->err, "Preparation of the action %s failed:"
-                    " Nested conditional effects are not supported.",
-                ctx->action->name);
+            PDDL_ERR(ctx->err, "Preparation of the action %s failed:"
+                     " Nested conditional effects are not supported.",
+                     ctx->action->name);
             ctx->failed = 1;
             return -2;
         }
@@ -220,7 +220,7 @@ static int actionInitCondEff(pddl_cond_t *c, void *ud)
             pddlCondArrAdd(&a->pre_eq, parent->pre_eq.cond[i]);
         for (int i = 0; i < parent->pre.size; ++i)
             pddlCondArrAdd(&a->pre, parent->pre.cond[i]);
-        a->max_arg_size = BOR_MAX(a->max_arg_size, parent->max_arg_size);
+        a->max_arg_size = PDDL_MAX(a->max_arg_size, parent->max_arg_size);
 
 
         return -1;
@@ -229,7 +229,7 @@ static int actionInitCondEff(pddl_cond_t *c, void *ud)
 }
 
 static int actionsAddCondEff(pddl_prep_actions_t *as, int aid,
-                             const pddl_t *pddl, bor_err_t *err)
+                             const pddl_t *pddl, pddl_err_t *err)
 {
     action_ctx_t ctx;
     ctx.as = as;
@@ -242,25 +242,25 @@ static int actionsAddCondEff(pddl_prep_actions_t *as, int aid,
     pddlCondTraverse((pddl_cond_t *)ctx.action->eff,
                      actionInitCondEff, NULL, &ctx);
     if (ctx.failed)
-        BOR_TRACE_RET(err, -1);
+        PDDL_TRACE_RET(err, -1);
     return 0;
 }
 
 int pddlPrepActionsInit(const pddl_t *pddl, pddl_prep_actions_t *as,
-                        bor_err_t *err)
+                        pddl_err_t *err)
 {
     const pddl_action_t *action;
 
     bzero(as, sizeof(*as));
     as->action_alloc = 4;
-    as->action = BOR_ALLOC_ARR(pddl_prep_action_t, as->action_alloc);
+    as->action = ALLOC_ARR(pddl_prep_action_t, as->action_alloc);
 
     for (int i = 0; i < pddl->action.action_size; ++i){
         actionsReserve(as);
         action = pddl->action.action + i;
         if (actionInit(as->action + as->action_size, pddl, action, err) != 0){
             pddlPrepActionsFree(as);
-            BOR_TRACE_RET(err, -1);
+            PDDL_TRACE_RET(err, -1);
         }
         ++as->action_size;
     }
@@ -269,7 +269,7 @@ int pddlPrepActionsInit(const pddl_t *pddl, pddl_prep_actions_t *as,
         if (as->action[i].cond_eff_size > 0){
             if (actionsAddCondEff(as, i, pddl, err) != 0){
                 pddlPrepActionsFree(as);
-                BOR_TRACE_RET(err, -1);
+                PDDL_TRACE_RET(err, -1);
             }
         }
     }
@@ -282,7 +282,7 @@ void pddlPrepActionsFree(pddl_prep_actions_t *as)
     for (int i = 0; i < as->action_size; ++i)
         actionFree(as->action + i);
     if (as->action)
-        BOR_FREE(as->action);
+        FREE(as->action);
 }
 
 

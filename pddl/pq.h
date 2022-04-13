@@ -20,7 +20,8 @@
 #ifndef __PDDL_PQ_H__
 #define __PDDL_PQ_H__
 
-#include <boruvka/pairheap.h>
+#include <pddl/core.h>
+#include <pddl/pairheap.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,7 +53,7 @@ struct pddl_pq_el {
     int key;
     union {
         int bucket;
-        bor_pairheap_node_t heap;
+        pddl_pairheap_node_t heap;
     } conn;
 };
 typedef struct pddl_pq_el pddl_pq_el_t;
@@ -82,7 +83,7 @@ typedef struct pddl_pq_bucket_queue pddl_pq_bucket_queue_t;
  * Heap-based priority queue.
  */
 struct pddl_pq_heap_queue {
-    bor_pairheap_t *heap;
+    pddl_pairheap_t *heap;
 };
 typedef struct pddl_pq_heap_queue pddl_pq_heap_queue_t;
 
@@ -122,22 +123,22 @@ void pddlPQUpdate(pddl_pq_t *q, int new_key, pddl_pq_el_t *el);
 /**
  * Returns true if the queue is empty.
  */
-_bor_inline int pddlPQEmpty(const pddl_pq_t *q);
+_pddl_inline int pddlPQEmpty(const pddl_pq_t *q);
 
 
 
 /**** INLINES ****/
-_bor_inline int pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
+_pddl_inline int pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
 {
     return q->size == 0;
 }
 
-_bor_inline int pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
+_pddl_inline int pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
 {
-    return borPairHeapEmpty(q->heap);
+    return pddlPairHeapEmpty(q->heap);
 }
 
-_bor_inline int pddlPQEmpty(const pddl_pq_t *q)
+_pddl_inline int pddlPQEmpty(const pddl_pq_t *q)
 {
     if (q->bucket){
         return pddlPQBucketQueueEmpty(&q->bucket_queue);

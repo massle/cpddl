@@ -18,8 +18,8 @@
  */
 
 #include <stdio.h>
-#include <boruvka/alloc.h>
-#include <boruvka/sort.h>
+#include "alloc.h"
+#include <pddl/sort.h>
 #include "pddl/labeled_transition.h"
 
 void pddlLabeledTransitionsSetInit(pddl_labeled_transitions_set_t *t)
@@ -33,7 +33,7 @@ void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t)
         pddlTransitionsFree(&t->trans[i].trans);
     }
     if (t->trans != NULL)
-        BOR_FREE(t->trans);
+        FREE(t->trans);
 }
 
 pddl_labeled_transitions_t *
@@ -52,7 +52,7 @@ pddl_labeled_transitions_t *
         if (t->trans_alloc == 0)
             t->trans_alloc = 1;
         t->trans_alloc *= 2;
-        t->trans = BOR_REALLOC_ARR(t->trans, pddl_labeled_transitions_t,
+        t->trans = REALLOC_ARR(t->trans, pddl_labeled_transitions_t,
                                    t->trans_alloc);
     }
     pddl_labeled_transitions_t *tr = t->trans + t->trans_size++;
@@ -80,12 +80,12 @@ static int cmp(const void *a, const void *b, void *arg)
 {
     const pddl_labeled_transitions_t *t1 = a;
     const pddl_labeled_transitions_t *t2 = b;
-    return borISetCmp(&t1->label->label, &t2->label->label);
+    return pddlISetCmp(&t1->label->label, &t2->label->label);
 }
 
 void pddlLabeledTransitionsSetSort(pddl_labeled_transitions_set_t *t)
 {
-    borSort(t->trans, t->trans_size, sizeof(pddl_labeled_transitions_t),
+    pddlSort(t->trans, t->trans_size, sizeof(pddl_labeled_transitions_t),
             cmp, NULL);
     for (int i = 0; i < t->trans_size; ++i)
         pddlTransitionsSort(&t->trans[i].trans);

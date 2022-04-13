@@ -66,20 +66,20 @@ typedef struct pddl_famgroup_config pddl_famgroup_config_t;
 int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
                        const pddl_strips_t *strips,
                        const pddl_famgroup_config_t *cfg,
-                       bor_err_t *err);
+                       pddl_err_t *err);
 
-_bor_inline int pddlFAMGroupsInferMaximal(pddl_mgroups_t *mgs,
-                                          const pddl_strips_t *strips,
-                                          bor_err_t *err)
+_pddl_inline int pddlFAMGroupsInferMaximal(pddl_mgroups_t *mgs,
+                                           const pddl_strips_t *strips,
+                                           pddl_err_t *err)
 {
     pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
     cfg.maximal = 1;
     return pddlFAMGroupsInfer(mgs, strips, &cfg, err);
 }
 
-_bor_inline int pddlFAMGroupsInferAll(pddl_mgroups_t *mgs,
-                                      const pddl_strips_t *strips,
-                                      bor_err_t *err)
+_pddl_inline int pddlFAMGroupsInferAll(pddl_mgroups_t *mgs,
+                                       const pddl_strips_t *strips,
+                                       pddl_err_t *err)
 {
     pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
     cfg.maximal = 0;
@@ -91,7 +91,7 @@ _bor_inline int pddlFAMGroupsInferAll(pddl_mgroups_t *mgs,
  */
 void pddlFAMGroupsDeadEndOps(const pddl_mgroups_t *mgs,
                              const pddl_strips_t *strips,
-                             bor_iset_t *dead_end_ops);
+                             pddl_iset_t *dead_end_ops);
 
 
 #ifdef __cplusplus
