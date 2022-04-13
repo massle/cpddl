@@ -29,14 +29,14 @@
 extern "C" {
 #endif /* __cplusplus */
 
-void pddlSymbolicSplitGoalByPot(const bor_iset_t *goal,
+void pddlSymbolicSplitGoalByPot(const pddl_iset_t *goal,
                                 const pddl_mgroups_t *mgroups,
                                 const pddl_mutex_pairs_t *mutex,
                                 const double *pot,
                                 pddl_symbolic_vars_t *symb_vars,
                                 pddl_bdd_manager_t *mgr,
                                 pddl_bdds_t *bdds,
-                                bor_err_t *err);
+                                pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */
