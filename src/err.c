@@ -320,8 +320,8 @@ static const char *ultos(unsigned long value, unsigned long radix, char *buf, in
     return buf + buflen;
 }
 
-#define NUM_BUFSIZE 32
-#define MOD_BUFSIZE 32
+#define NUM_BUFSIZE 128
+#define MOD_BUFSIZE 128
 #define KW_BUFSIZE PDDL_ERR_CTX_KW_MAXLEN
 void _pddlLog(pddl_err_t *err, const char *fmt, ...)
 {
@@ -450,6 +450,7 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                 if (ch == 'f' || ch == 'g'){
                     double v = va_arg(va, double);
                     int len = snprintf(bf, NUM_BUFSIZE, mod, v);
+                    len = PDDL_MIN(len, NUM_BUFSIZE);
                     logInfo(err, bf, len);
                     if (keyword[0] != '\0')
                         _pddlProp_i(err, keyword, bf, len);
