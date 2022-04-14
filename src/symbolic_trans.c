@@ -100,8 +100,8 @@ static void opInit(pddl_symbolic_constr_t *constr,
                 op->cost.zero_cost = 1;
         }else{
             op->heur_change = op_heur_change[op_id];
-            DBG(err, "%d:(%s) --> %s / %d", op->op_id, op->name,
-                F_COST(&op->heur_change), op->cost);
+            //DBG(err, "%d:(%s) --> %s / %d", op->op_id, op->name,
+            //    F_COST(&op->heur_change), op->cost);
         }
     }
 }

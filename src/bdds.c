@@ -130,3 +130,37 @@ void pddlBDDsMergeAnd(pddl_bdd_manager_t *mgr,
 
     FREE(bdd);
 }
+
+
+void pddlBDDsCostsInit(pddl_bdds_costs_t *bdds)
+{
+    bzero(bdds, sizeof(*bdds));
+}
+
+void pddlBDDsCostsFree(pddl_bdd_manager_t *mgr, pddl_bdds_costs_t *bdds)
+{
+    for (int i = 0; i < bdds->bdd_size; ++i)
+        pddlBDDDel(mgr, bdds->bdd[i].bdd);
+    if (bdds->bdd != NULL)
+        FREE(bdds->bdd);
+}
+
+void pddlBDDsCostsAdd(pddl_bdd_manager_t *mgr,
+                      pddl_bdds_costs_t *bdds,
+                      pddl_bdd_t *bdd,
+                      const pddl_cost_t *cost)
+{
+    if (bdds->bdd_size == bdds->bdd_alloc){
+        if (bdds->bdd_alloc == 0)
+            bdds->bdd_alloc = 8;
+        bdds->bdd_alloc *= 2;
+        bdds->bdd = REALLOC_ARR(bdds->bdd, pddl_bdd_cost_t, bdds->bdd_alloc);
+    }
+    pddl_bdd_cost_t *b = bdds->bdd + bdds->bdd_size++;
+    b->bdd = pddlBDDClone(mgr, bdd);
+    if (cost != NULL){
+        b->cost = *cost;
+    }else{
+        pddlCostSetZero(&b->cost);
+    }
+}

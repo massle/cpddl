@@ -645,8 +645,9 @@ static int stepSymba(void)
         return 0;
 
     PDDL_CTX(&err, "symba", "SYMBA");
+    int is_tnf = fdrHasTNFOps(&fdr);
     if (opt.symba.cfg.fw.use_pot_heur){
-        if (fdrHasTNFOps(&fdr)){
+        if (is_tnf){
             PDDL_INFO2(&err, "fw: Using consistent potential heuristic");
         }else{
             opt.symba.cfg.fw.use_pot_heur = 0;
@@ -657,8 +658,14 @@ static int stepSymba(void)
         PDDL_INFO2(&err, "fw: Using blind heuristic");
     }
 
-    if (opt.symba.cfg.bw.use_pot_heur_inconsistent){
-        PDDL_INFO2(&err, "bw: Using inconsistent potential heuristic");
+    if (opt.symba.cfg.bw.use_pot_heur){
+        if (is_tnf){
+            PDDL_INFO2(&err, "bw: Using consistent potential heuristic");
+        }else{
+            opt.symba.cfg.bw.use_pot_heur = 0;
+            opt.symba.cfg.bw.use_pot_heur_inconsistent = 1;
+            PDDL_INFO2(&err, "bw: Using inconsistent potential heuristic");
+        }
     }else{
         PDDL_INFO2(&err, "bw: Using blind heuristic");
     }

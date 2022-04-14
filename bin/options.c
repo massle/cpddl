@@ -679,7 +679,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                                " the forward search. (See --gplan-pot)");
         hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
         optsAddFlag("symba-bw-pot", 0x0,
-                    &opt.symba.cfg.bw.use_pot_heur_inconsistent, 0,
+                    &opt.symba.cfg.bw.use_pot_heur, 0,
                     "Use potential heuristics in the backward search."
                     " Note that this will always be treated as inconsistent.");
         params = optsAddParams("symba-bw-pot-cfg", 0x0,

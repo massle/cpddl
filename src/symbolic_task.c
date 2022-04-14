@@ -58,7 +58,7 @@ struct pddl_symbolic_search {
     pddl_symbolic_trans_set_image_fn pre_image; /*!< constructing pre-image */
     pddl_symbolic_constr_apply_fn constr_apply; /*!< applying constraints */
     pddl_cost_t heur_init;
-    pddl_bdd_t *init; /*!< BDD of the inital state */
+    pddl_bdds_costs_t init; /*!< BDDs of the inital state */
     pddl_bdd_t *goal; /*!< BDD describing the goal states */
     pddl_symbolic_trans_sets_t trans; /*!< BDD transitions */
     pddl_symbolic_states_t state; /*!< State space */
@@ -179,6 +179,50 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     return 0;
 }
 
+static void applyConstrsOnSplitGoals(pddl_symbolic_task_t *ss,
+                                     pddl_symbolic_states_split_by_pot_t *goals,
+                                     pddl_err_t *err)
+{
+    float max_time = ss->cfg.goal_constr_max_time;
+    int num_bdd_state_vars = ss->vars.bdd_var_size / 2;
+    for (int gi = 0; gi < goals->state_size; ++gi){
+        pddl_symbolic_states_split_by_pot_bdd_t *goal = goals->state + gi;
+        int success = 0;
+        if (ss->goal_constr_failed){
+            if (pddlSymbolicConstrApplyBwLimit(
+                        &ss->constr, &goal->state, max_time) == 0){
+                success = 1;
+            }
+        }else{
+            pddl_time_limit_t tlimit;
+            pddlTimeLimitSet(&tlimit, max_time);
+            pddl_bdd_t *bdd = pddlBDDAndLimit(ss->mgr, goal->state, ss->goal,
+                                              UINT_MAX, &tlimit);
+            if (bdd != NULL){
+                pddlBDDDel(ss->mgr, goal->state);
+                goal->state = bdd;
+                success = 1;
+            }
+        }
+
+        if (success){
+            ASSERT(goal->h_int <= 0 || pddlBDDIsFalse(ss->mgr, goal->state));
+            LOG(err, "Goal with h-value %.2f (%d) updated with constraints."
+                " bdd size: %d, number of states: %.2f",
+                goal->h, goal->h_int, pddlBDDSize(goal->state),
+                pddlBDDCountMinterm(ss->mgr, goal->state, num_bdd_state_vars));
+        }else{
+            LOG(err, "Failed to apply constraints on the goal with"
+                " h-value %.2f (%d), bdd size: %d, number of states: %.2f",
+                goal->h, goal->h_int, pddlBDDSize(goal->state),
+                pddlBDDCountMinterm(ss->mgr, goal->state, num_bdd_state_vars));
+            max_time *= .5f;
+            max_time = PDDL_MAX(max_time, 1.);
+            LOG(err, "Setting the time limit to %.2fs", max_time);
+        }
+    }
+}
+
 static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
                       int fw,
@@ -188,7 +232,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_err_t *err)
 {
     char prefix[20];
-    sprintf(prefix, "Search create %s: ", (fw ? "fw" : "bw"));
+    sprintf(prefix, "Search create %s", (fw ? "fw" : "bw"));
     CTX(err, "symba", prefix);
     PDDL_INFO(err, "Creating %s direction", (fw ? "fw" : "bw"));
     bzero(search, sizeof(*search));
@@ -220,44 +264,55 @@ static int searchInit(pddl_symbolic_task_t *ss,
     if (search->use_heur)
         search->heur_init = pot_init_h_value;
 
-    search->init = init;
-    if (search->init != NULL)
-        search->init = pddlBDDClone(ss->mgr, search->init);
-
-    if (pot != NULL && !fw){
+    pddlBDDsCostsInit(&search->init);
+    if (pot != NULL && !fw && search->use_heur){
+        CTX(err, "symba_split_goal", "Split-goal");
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
         pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex,
                    NULL, NULL, 0., err);
 
         ASSERT(ss->mg_strips.strips.fact.fact_size == ss->fdr.var.global_id_size);
-        pddl_bdds_t bdds;
-        pddlBDDsInit(&bdds);
-        pddlSymbolicSplitGoalByPot(&ss->mg_strips.strips.goal,
-                &ss->mg_strips.mg,
-                &mutex,
-                pot,
-                &ss->vars,
-                ss->mgr,
-                &bdds,
-                err);
-        pddlBDDsFree(ss->mgr, &bdds);
+        pddl_symbolic_states_split_by_pot_t *goals;
+        goals = pddlSymbolicStatesSplitByPot(&ss->mg_strips.strips.goal,
+                                             &ss->mg_strips.mg, &mutex,
+                                             pot, &ss->vars, ss->mgr,
+                                             err);
+        applyConstrsOnSplitGoals(ss, goals, err);
 
+        pddl_cost_t h;
+        for (int i = 0; i < goals->state_size; ++i){
+            pddl_symbolic_states_split_by_pot_bdd_t *s = goals->state + i;
+            if (pddlBDDIsFalse(ss->mgr, s->state) || s->h_int > 0)
+                continue;
+            h = pddl_cost_zero;
+            pddlCostSum(&h, &search->heur_init);
+            h.cost += -s->h_int;
+            pddlBDDsCostsAdd(ss->mgr, &search->init, s->state, &h);
+            LOG(err, "Added init with h-value: %{init_h_value}s,"
+                " bdd-size: %{init_bdd_size}d",
+                F_COST(&h), pddlBDDSize(s->state));
+        }
+        pddlSymbolicStatesSplitByPotDel(goals, ss->mgr);
         pddlMutexPairsFree(&mutex);
-        exit(0);
+        CTXEND(err);
+
+    }else if (init != NULL){
+        pddlBDDsCostsAdd(ss->mgr, &search->init, init,
+                         (search->use_heur ? &search->heur_init : NULL));
     }
 
     search->goal = goal;
     if (search->goal != NULL)
         search->goal = pddlBDDClone(ss->mgr, search->goal);
 
-    PDDL_INFO(err, "Creating transitions."
-              " merge max nodes: %lu,"
-              " merge max time: %.2fs",
-              search->cfg.trans_merge_max_nodes,
-              search->cfg.trans_merge_max_time);
-    PDDL_INFO(err, "Heuristic value for the initial state: %s",
-              F_COST(&pot_init_h_value));
+    LOG(err, "Creating transitions."
+        " merge max nodes: %lu,"
+        " merge max time: %.2fs",
+        search->cfg.trans_merge_max_nodes,
+        search->cfg.trans_merge_max_time);
+    LOG(err, "Heuristic value for the initial state: %{init_h_value}s",
+        F_COST(&pot_init_h_value));
     pddlSymbolicTransSetsInit(&search->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
                               search->cfg.use_op_constr,
@@ -274,8 +329,11 @@ static int searchInit(pddl_symbolic_task_t *ss,
 
     pddlSymbolicStatesInit(&search->state, ss->mgr,
                            search->cfg.use_pot_heur_inconsistent, err);
-    pddlSymbolicStatesAddInit(&search->state, ss->mgr, search->init,
-                              (search->use_heur ? &search->heur_init : NULL));
+    for (int ii = 0; ii < search->init.bdd_size; ++ii){
+        pddlSymbolicStatesAddInit(&search->state, ss->mgr,
+                                  search->init.bdd[ii].bdd,
+                                  &search->init.bdd[ii].cost);
+    }
 
 
     search->plan_goal_id = -1;
@@ -296,8 +354,11 @@ static void searchReinit(pddl_symbolic_task_t *ss,
     pddlSymbolicStatesFree(&search->state, ss->mgr);
     pddlSymbolicStatesInit(&search->state, ss->mgr,
                            search->cfg.use_pot_heur_inconsistent, err);
-    pddlSymbolicStatesAddInit(&search->state, ss->mgr, search->init,
-                              (search->use_heur ? &search->heur_init : NULL));
+    for (int ii = 0; ii < search->init.bdd_size; ++ii){
+        pddlSymbolicStatesAddInit(&search->state, ss->mgr,
+                                  search->init.bdd[ii].bdd,
+                                  &search->init.bdd[ii].cost);
+    }
     pddlIArrFree(&search->plan);
     pddlIArrInit(&search->plan);
     search->plan_goal_id = -1;
@@ -324,8 +385,7 @@ static void searchFree(pddl_symbolic_task_t *ss,
 {
     pddlSymbolicTransSetsFree(&search->trans);
     pddlSymbolicStatesFree(&search->state, ss->mgr);
-    if (search->init != NULL)
-        pddlBDDDel(ss->mgr, search->init);
+    pddlBDDsCostsFree(ss->mgr, &search->init);
     if (search->goal != NULL)
         pddlBDDDel(ss->mgr, search->goal);
     pddlIArrFree(&search->plan);

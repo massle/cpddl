@@ -42,14 +42,6 @@ static states_t *statesNew(double key, pddl_bdd_t *bdd)
     return s;
 }
 
-static states_t *statesClone(states_t *s, pddl_bdd_manager_t *mgr)
-{
-    states_t *new = ALLOC(states_t);
-    new->key = s->key;
-    new->states = pddlBDDClone(mgr, s->states);
-    return new;
-}
-
 static void statesDel(states_t *states, pddl_bdd_manager_t *mgr)
 {
     pddlBDDDel(mgr, states->states);
@@ -63,8 +55,10 @@ static int statesRBTreeCmp(const pddl_rbtree_node_t *n1,
 {
     const states_t *s1 = pddl_container_of(n1, states_t, rbtree);
     const states_t *s2 = pddl_container_of(n2, states_t, rbtree);
-    if (fabs(s1->key - s2->key) < EPS)
+    if (s1->key == s2->key)
         return 0;
+    //if (fabs(s1->key - s2->key) < EPS)
+    //    return 0;
     if (s1->key < s2->key)
         return -1;
     return 1;
@@ -99,8 +93,7 @@ static int statesMapInsert(pddl_rbtree_t *map,
         return 0;
 
     }else{
-        states_t *el = statesClone(s, mgr);
-        pddl_rbtree_node_t *n = pddlRBTreeInsert(map, &el->rbtree);
+        pddl_rbtree_node_t *n = pddlRBTreeInsert(map, &s->rbtree);
         ASSERT_RUNTIME(n == NULL);
         return 1;
     }
@@ -128,8 +121,8 @@ static pddl_rbtree_t *statesMapNewMGroup(const pddl_iset_t *mg,
 }
 
 static pddl_rbtree_t *statesMapMerge(pddl_rbtree_t *map1,
-                                    pddl_rbtree_t *map2,
-                                    pddl_bdd_manager_t *mgr)
+                                     pddl_rbtree_t *map2,
+                                     pddl_bdd_manager_t *mgr)
 {
     pddl_rbtree_t *map = statesMapNew();
     pddl_rbtree_node_t *n1;
@@ -148,16 +141,138 @@ static pddl_rbtree_t *statesMapMerge(pddl_rbtree_t *map1,
     return map;
 }
 
+void pddlSymbolicStatesSplitByPotDel(pddl_symbolic_states_split_by_pot_t *s,
+                                     pddl_bdd_manager_t *mgr)
+{
+    for (int i = 0; i < s->state_size; ++i){
+        pddlBDDDel(mgr, s->state[i].state);
+    }
+    if (s->state != NULL)
+        FREE(s->state);
+    FREE(s);
+}
+
+pddl_symbolic_states_split_by_pot_t *
+pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
+                             const pddl_mgroups_t *mgroups,
+                             const pddl_mutex_pairs_t *mutex,
+                             const double *pot,
+                             pddl_symbolic_vars_t *symb_vars,
+                             pddl_bdd_manager_t *mgr,
+                             pddl_err_t *err)
+{
+    CTX(err, "symba_split_state_by_pot", "Split-state-by-pot");
+    pddl_disambiguate_t disamb;
+    if (pddlDisambiguateInit(&disamb, symb_vars->fact_size,
+                             mutex, mgroups) != 0){
+        FATAL2("Disambiguation failed because there are"
+               " no exactly-1 mutex groups");
+    }
+    PDDL_INFO2(err, "Disambiguation created.");
+
+    pddl_mgroups_t mgs;
+    pddlMGroupsInitEmpty(&mgs);
+    for (int i = 0; i < mgroups->mgroup_size; ++i){
+        const pddl_mgroup_t *mgin = mgroups->mgroup + i;
+        if (!mgin->is_exactly_one)
+            continue;
+
+        PDDL_ISET(mg_fact);
+        if (!pddlISetIsDisjoint(state, &mgin->mgroup)){
+            pddlISetIntersect2(&mg_fact, state, &mgin->mgroup);
+            ASSERT(pddlISetSize(&mg_fact) == 1);
+            pddlMGroupsAdd(&mgs, &mg_fact);
+
+        }else{
+            int dret = pddlDisambiguate(&disamb, state, &mgin->mgroup,
+                                        1, 0, NULL, &mg_fact);
+            if (dret < 0){
+                pddlMGroupsFree(&mgs);
+                pddlDisambiguateFree(&disamb);
+                ASSERT_RUNTIME(0);
+                // TODO: Unsolvable task
+            }else if (dret == 0){
+                pddlMGroupsAdd(&mgs, &mgin->mgroup);
+            }else{
+                pddlISetIntersect(&mg_fact, &mgin->mgroup);
+                pddlMGroupsAdd(&mgs, &mg_fact);
+            }
+        }
+        pddlISetFree(&mg_fact);
+    }
+
+    int maps_alloc = 2 * mgs.mgroup_size;
+    int maps_size = 0;
+    pddl_rbtree_t **maps = ALLOC_ARR(pddl_rbtree_t *, maps_alloc);
+    for (int i = 0; i < mgs.mgroup_size; ++i){
+        maps[maps_size++] = statesMapNewMGroup(&mgs.mgroup[i].mgroup,
+                                               symb_vars, mgr, pot);
+    }
+    pddlMGroupsFree(&mgs);
+    pddlDisambiguateFree(&disamb);
+
+    for (int mi = 0; mi < maps_size - 1; mi = mi + 2){
+        pddl_rbtree_t *map = statesMapMerge(maps[mi], maps[mi + 1], mgr);
+        ASSERT(maps_size < maps_alloc);
+        maps[maps_size++] = map;
+        statesMapDel(maps[mi], mgr);
+        statesMapDel(maps[mi + 1], mgr);
+        maps[mi] = maps[mi + 1] = NULL;
+    }
+
+    pddl_symbolic_states_split_by_pot_t *ret;
+    ret = ALLOC(pddl_symbolic_states_split_by_pot_t);
+    bzero(ret, sizeof(*ret));
+
+    pddl_rbtree_t *map = maps[maps_size - 1];
+    maps[maps_size - 1] = NULL;
+#ifdef PDDL_DEBUG
+    for (int i = 0; i < maps_size; ++i)
+        ASSERT(maps[i] == NULL);
+#endif /* PDDL_DEBUG */
+    FREE(maps);
+
+    pddl_rbtree_node_t *node;
+    PDDL_RBTREE_FOR_EACH(map, node){
+        states_t *states = pddl_container_of(node, states_t, rbtree);
+        if (ret->state_size == ret->state_alloc){
+            if (ret->state_alloc == 0)
+                ret->state_alloc = 2;
+            ret->state_alloc *= 2;
+            ret->state = REALLOC_ARR(ret->state,
+                                     pddl_symbolic_states_split_by_pot_bdd_t,
+                                     ret->state_alloc);
+        }
+        pddl_symbolic_states_split_by_pot_bdd_t *s;
+        s = ret->state + ret->state_size++;
+        s->h = states->key;
+        s->h_int = (int)ceil(states->key - EPS);
+        s->state = pddlBDDClone(mgr, states->states);
+
+        LOG(err, "Found states with h-value %{found_h}.2f (%{found_h_int}d),"
+            " bdd size: %{found_bdd_size}d",
+            s->h, s->h_int, pddlBDDSize(s->state));
+    }
+
+    statesMapDel(map, mgr);
+    CTXEND(err);
+
+    return ret;
+}
+
 void pddlSymbolicSplitGoalByPot(const pddl_iset_t *goal,
                                 const pddl_mgroups_t *mgroups,
                                 const pddl_mutex_pairs_t *mutex,
                                 const double *pot,
                                 pddl_symbolic_vars_t *symb_vars,
+                                pddl_symbolic_constr_t *constr,
                                 pddl_bdd_manager_t *mgr,
                                 pddl_bdds_t *bdds,
                                 pddl_err_t *err)
 {
-    CTX(err, "symba_split_goal", "SplitGoalByPot: ");
+    int num_bdd_state_vars = symb_vars->bdd_var_size / 2;
+
+    CTX(err, "symba_split_goal", "SplitGoalByPot");
     pddl_disambiguate_t disamb;
     if (pddlDisambiguateInit(&disamb, symb_vars->fact_size,
                              mutex, mgroups) != 0){
@@ -197,25 +312,17 @@ void pddlSymbolicSplitGoalByPot(const pddl_iset_t *goal,
         pddlISetFree(&mg_fact);
     }
 
-    int maps_alloc = 2;
+    int maps_alloc = 2 * mgs.mgroup_size;
     int maps_size = 0;
     pddl_rbtree_t **maps = ALLOC_ARR(pddl_rbtree_t *, maps_alloc);
     for (int i = 0; i < mgs.mgroup_size; ++i){
-        pddl_rbtree_t *map = statesMapNewMGroup(&mgs.mgroup[i].mgroup,
+        maps[maps_size++] = statesMapNewMGroup(&mgs.mgroup[i].mgroup,
                                                symb_vars, mgr, pot);
-        if (maps_size == maps_alloc){
-            maps_alloc *= 2;
-            maps = REALLOC_ARR(maps, pddl_rbtree_t *, maps_alloc);
-        }
-        maps[maps_size++] = map;
     }
 
     for (int mi = 0; mi < maps_size - 1; mi = mi + 2){
         pddl_rbtree_t *map = statesMapMerge(maps[mi], maps[mi + 1], mgr);
-        if (maps_size == maps_alloc){
-            maps_alloc *= 2;
-            maps = REALLOC_ARR(maps, pddl_rbtree_t *, maps_alloc);
-        }
+        ASSERT(maps_size < maps_alloc);
         maps[maps_size++] = map;
         statesMapDel(maps[mi], mgr);
         statesMapDel(maps[mi + 1], mgr);
@@ -226,22 +333,57 @@ void pddlSymbolicSplitGoalByPot(const pddl_iset_t *goal,
     pddl_rbtree_node_t *node;
     PDDL_RBTREE_FOR_EACH(map, node){
         states_t *states = pddl_container_of(node, states_t, rbtree);
+        LOG(err, "Found goal states with h-value %{found_goal_h_value}.2f",
+            states->key);
+    }
+    PDDL_RBTREE_FOR_EACH(map, node){
+        states_t *states = pddl_container_of(node, states_t, rbtree);
         double key = ceil(states->key - EPS);
-        if (key > 0)
+        if (key > 0){
+            LOG(err, "Skipping goal states with h-value %.2f"
+                " because goal states with h-value >0 must be unreachable",
+                states->key);
+            // This can happen with sets of states that are mutex, because
+            // disambiguation ensures that potentials are not optimized for
+            // such states.
+            ASSERT(pddlSymbolicConstrApplyBwLimit(constr, &states->states, 30.) != 0
+                        || pddlBDDIsFalse(mgr, states->states));
             continue;
+        }
+
+        // TODO: parametrize
+        if (pddlSymbolicConstrApplyBwLimit(constr, &states->states, 30.) == 0){
+            LOG(err, "Goal with h-value %.2f updated with constraints."
+                " number of states: %.0f",
+                states->key,
+                pddlBDDCountMinterm(mgr, states->states, num_bdd_state_vars));
+        }else{
+            LOG(err, "Applying constraints on the goal with h-value %.2f failed.",
+                states->key);
+            //ss->goal_constr_failed = 1;
+        }
+
+        // Skip empty sets of states
+        if (pddlBDDIsFalse(mgr, states->states))
+            continue;
+
         states_t *rounded = statesNew(key, pddlBDDClone(mgr, states->states));
         if (statesMapInsert(rounded_map, mgr, rounded) == 0)
             statesDel(rounded, mgr);
     }
 
+    // TODO: Test merging on freecell/pfile9
     PDDL_RBTREE_FOR_EACH(rounded_map, node){
         states_t *states = pddl_container_of(node, states_t, rbtree);
-        PDDL_INFO(err, "Found a set of goal states."
-                      " h-value: %.2f, bdd-size: %d, num-states: %.2f",
-                 states->key,
-                 pddlBDDSize(states->states),
-                 pddlBDDCountMinterm(mgr, states->states,
-                                     symb_vars->bdd_var_size / 2));
+        int h_value = states->key;
+        LOG(err, "Found a set of goal states."
+            " h-value: %{goal_h_value}d (key: %.2f),"
+            " bdd-size: %{goal_bdd_size}d,"
+            " num-states: %{goal_num_states}.2f ",
+            h_value,
+            states->key,
+            pddlBDDSize(states->states),
+            pddlBDDCountMinterm(mgr, states->states, num_bdd_state_vars));
         // TODO: In reality we also need to store the heuristic value so
         //       pddl_bdds_t won't do...
         pddlBDDsAdd(mgr, bdds, states->states);
@@ -250,7 +392,6 @@ void pddlSymbolicSplitGoalByPot(const pddl_iset_t *goal,
     statesMapDel(map, mgr);
 
 #ifdef PDDL_DEBUG
-    fprintf(stderr, "TEST\n");
     for (int i = 0; i < bdds->bdd_size; ++i){
         for (int j = i + 1; j < bdds->bdd_size; ++j){
             pddl_bdd_t *b = pddlBDDAnd(mgr, bdds->bdd[i], bdds->bdd[j]);

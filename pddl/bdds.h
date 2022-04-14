@@ -21,6 +21,7 @@
 #define __PDDL_BDDS_H__
 
 #include <pddl/bdd.h>
+#include <pddl/cost.h>
 
 struct pddl_bdds {
     pddl_bdd_t **bdd;
@@ -46,5 +47,25 @@ void pddlBDDsMergeAnd(pddl_bdd_manager_t *mgr,
                       pddl_bdds_t *bdds,
                       int max_nodes,
                       float max_time);
+
+struct pddl_bdd_cost {
+    pddl_bdd_t *bdd;
+    pddl_cost_t cost;
+};
+typedef struct pddl_bdd_cost pddl_bdd_cost_t;
+
+struct pddl_bdds_costs {
+    pddl_bdd_cost_t *bdd;
+    int bdd_size;
+    int bdd_alloc;
+};
+typedef struct pddl_bdds_costs pddl_bdds_costs_t;
+
+void pddlBDDsCostsInit(pddl_bdds_costs_t *bdds);
+void pddlBDDsCostsFree(pddl_bdd_manager_t *mgr, pddl_bdds_costs_t *bdds);
+void pddlBDDsCostsAdd(pddl_bdd_manager_t *mgr,
+                      pddl_bdds_costs_t *bdds,
+                      pddl_bdd_t *bdd,
+                      const pddl_cost_t *cost);
 
 #endif /* __PDDL_BDDS_H__ */
