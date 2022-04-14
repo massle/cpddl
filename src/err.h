@@ -46,10 +46,12 @@ extern "C" {
 
 #define LOG_CONFIG_INT(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}d", (C)->NAME)
+#define LOG_CONFIG_ULONG(C, NAME, ERR) \
+    LOG((ERR), #NAME " = %{" #NAME "}lu", (C)->NAME)
 #define LOG_CONFIG_DBL(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}.4f", (C)->NAME)
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %{" #NAME "}s", ((C)->NAME ? "true" : "false"))
+    LOG((ERR), #NAME " = %{" #NAME "}b", (C)->NAME)
 
 #ifdef __cplusplus
 } /* extern "C" */

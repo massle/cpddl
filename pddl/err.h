@@ -184,6 +184,17 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
 #define PDDL_LOG(E, format, ...) _pddlLog((E), format, __VA_ARGS__)
 #define PDDL_LOG2(E, msg) _pddlLog((E), msg)
 
+#define PDDL_PROP_BOOL(E, KEY, V) \
+    _pddlProp((E), (KEY), "%s", ((V) ? "true" : "false"))
+#define PDDL_PROP_INT(E, KEY, V) \
+    _pddlProp((E), (KEY), "%d", (V))
+#define PDDL_PROP_LONG(E, KEY, V) \
+    _pddlProp((E), (KEY), "%ld", (V))
+#define PDDL_PROP_DBL(E, KEY, V) \
+    _pddlProp((E), (KEY), "%.4f", (V))
+#define PDDL_PROP_STR(E, KEY, V) \
+    _pddlProp((E), (KEY), "\"%s\"", (V))
+
 /**
  * Trace the error -- record the current file, line and function.
  */
@@ -223,6 +234,7 @@ void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func
 void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
                const char *format, ...);
 void _pddlLog(pddl_err_t *err, const char *fmt, ...);
+void _pddlProp(pddl_err_t *err, const char *key, const char *fmt, ...);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -95,33 +95,39 @@ struct pddl_symbolic_task {
     PDDL_INFO(err, "cfg.%s." #N " = " F, dir, (T)cfg->N)
 #define LOG_SEARCH_CFG_I(N) LOG_SEARCH_CFG(N, int, "%d")
 static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
-                            const char *dir,
                             pddl_err_t *err)
 {
-    LOG_SEARCH_CFG_I(enabled);
-    LOG_SEARCH_CFG(trans_merge_max_nodes, unsigned long, "%lu");
-    LOG_SEARCH_CFG(trans_merge_max_time, float, "%.2f");
-    LOG_SEARCH_CFG_I(use_constr);
-    LOG_SEARCH_CFG_I(use_op_constr);
-    LOG_SEARCH_CFG_I(use_pot_heur);
-    LOG_SEARCH_CFG_I(use_pot_heur_inconsistent);
-    LOG_SEARCH_CFG_I(use_pot_heur_sum_op_cost);
+    LOG_CONFIG_BOOL(cfg, enabled, err);
+    LOG_CONFIG_ULONG(cfg, trans_merge_max_nodes, err);
+    LOG_CONFIG_DBL(cfg, trans_merge_max_time, err);
+    LOG_CONFIG_BOOL(cfg, use_constr, err);
+    LOG_CONFIG_BOOL(cfg, use_op_constr, err);
+    LOG_CONFIG_BOOL(cfg, use_pot_heur, err);
+    LOG_CONFIG_BOOL(cfg, use_pot_heur_inconsistent, err);
+    LOG_CONFIG_BOOL(cfg, use_pot_heur_sum_op_cost, err);
 
-    char prefix[128];
-    sprintf(prefix, "cfg.%s.pot_heur_config.", dir);
-    pddlHPotConfigLog(&cfg->pot_heur_config, prefix, err);
+    CTX_NO_TIME(err, "pot", "pot");
+    pddlHPotConfigLog(&cfg->pot_heur_config, err);
+    CTXEND(err);
 }
+
 
 static void logConfig(const pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
 {
-    PDDL_INFO(err, "cfg.cache_size = %d", cfg->cache_size);
-    PDDL_INFO(err, "cfg.constr_max_nodes = %lu",
-             (unsigned long)cfg->constr_max_nodes);
-    PDDL_INFO(err, "cfg.constr_max_time = %.2f", cfg->constr_max_time);
-    PDDL_INFO(err, "cfg.goal_constr_max_time = %.2f", cfg->goal_constr_max_time);
-    PDDL_INFO(err, "cfg.fam_groups = %d", cfg->fam_groups);
-    logSearchConfig(&cfg->fw, "fw", err);
-    logSearchConfig(&cfg->bw, "bw", err);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    LOG_CONFIG_INT(cfg, cache_size, err);
+    LOG_CONFIG_ULONG(cfg, constr_max_nodes, err);
+    LOG_CONFIG_DBL(cfg, constr_max_time, err);
+    LOG_CONFIG_DBL(cfg, goal_constr_max_time, err);
+    LOG_CONFIG_BOOL(cfg, fam_groups, err);
+
+    CTX_NO_TIME(err, "fw", "fw");
+    logSearchConfig(&cfg->fw, err);
+    CTXEND(err);
+    CTX_NO_TIME(err, "bw", "bw");
+    logSearchConfig(&cfg->bw, err);
+    CTXEND(err);
+    CTXEND(err);
 }
 
 
@@ -231,10 +237,11 @@ static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_bdd_t *goal,
                       pddl_err_t *err)
 {
-    char prefix[20];
-    sprintf(prefix, "Search create %s", (fw ? "fw" : "bw"));
-    CTX(err, "symba", prefix);
-    PDDL_INFO(err, "Creating %s direction", (fw ? "fw" : "bw"));
+    if (fw){
+        CTX(err, "symba_search_fw", "Symba-search-fw");
+    }else{
+        CTX(err, "symba_search_bw", "Symba-search-bw");
+    }
     bzero(search, sizeof(*search));
     search->cfg = *_cfg;
     search->enabled = 1;
@@ -1162,7 +1169,13 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     CTX(err, "symba", "symbolic");
 
     pddl_symbolic_task_t *ss;
-    PDDL_INFO2(err, "Constructing symbolic task.");
+    LOG(err, "Constructing symbolic task from FDR with"
+        " vars: %{fdr_vars}d,"
+        " facts: %{fdr_facts}d,"
+        " ops: %{fdr_ops}d",
+        fdr->var.var_size,
+        fdr->var.global_id_size,
+        fdr->op.op_size);
 
     ss = ALLOC(pddl_symbolic_task_t);
     bzero(ss, sizeof(*ss));
@@ -1269,9 +1282,11 @@ static int searchOneDir(pddl_symbolic_task_t *ss,
     while (res == PDDL_SYMBOLIC_CONT){
         res = searchStep(ss, search, NULL, err);
     }
-    PDDL_INFO(err, "Expanded BDD Nodes: %lu", search->num_expanded_bdd_nodes);
-    PDDL_INFO(err, "Expanded States: %lu", search->num_expanded_states);
-    PDDL_INFO(err, "Avg. Expanded BDD Nodes: %.2f",
+    LOG(err, "Expanded BDD Nodes: %{expanded_bdd_nodes}lu",
+        search->num_expanded_bdd_nodes);
+    LOG(err, "Expanded States: %{expanded_bdds}lu",
+        search->num_expanded_states);
+    LOG(err, "Avg. Expanded BDD Nodes: %{avg_expanded_bdd_nodes}.2f",
              search->avg_expanded_bdd_nodes);
     return res;
 }
@@ -1443,31 +1458,31 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
                  F_COST(&ss->search_fw.state.bound), pddlIArrSize(plan));
     }
 
-    PDDL_INFO(err, "Fw Expanded BDD Nodes: %lu",
-             ss->search_fw.num_expanded_bdd_nodes);
-    PDDL_INFO(err, "Fw Expanded States: %lu",
-             ss->search_fw.num_expanded_states);
-    PDDL_INFO(err, "Fw Avg. Expanded BDD Nodes: %.2f",
-             ss->search_fw.avg_expanded_bdd_nodes);
+    LOG(err, "Fw Expanded BDD Nodes: %{fw.expanded_bdd_nodes}lu",
+        ss->search_fw.num_expanded_bdd_nodes);
+    LOG(err, "Fw Expanded States: %{fw.expanded_bdds}lu",
+        ss->search_fw.num_expanded_states);
+    LOG(err, "Fw Avg. Expanded BDD Nodes: %{fw.avg_expanded_bdd_nodes}.2f",
+        ss->search_fw.avg_expanded_bdd_nodes);
 
-    PDDL_INFO(err, "Bw Expanded BDD Nodes: %lu",
-             ss->search_bw.num_expanded_bdd_nodes);
-    PDDL_INFO(err, "Bw Expanded States: %lu",
-             ss->search_bw.num_expanded_states);
-    PDDL_INFO(err, "Bw Avg. Expanded BDD Nodes: %.2f",
-             ss->search_bw.avg_expanded_bdd_nodes);
+    LOG(err, "Bw Expanded BDD Nodes: %{bw.expanded_bdd_nodes}lu",
+        ss->search_bw.num_expanded_bdd_nodes);
+    LOG(err, "Bw Expanded States: %{bw.expanded_bdds}lu",
+        ss->search_bw.num_expanded_states);
+    LOG(err, "Bw Avg. Expanded BDD Nodes: %{bw.avg_expanded_bdd_nodes}.2f",
+        ss->search_bw.avg_expanded_bdd_nodes);
 
-    PDDL_INFO(err, "Expanded BDD Nodes: %lu",
+    LOG(err, "Expanded BDD Nodes: %{expanded_bdd_nodes}lu",
              ss->search_fw.num_expanded_bdd_nodes
                 + ss->search_bw.num_expanded_bdd_nodes);
-    PDDL_INFO(err, "Expanded States: %lu",
+    LOG(err, "Expanded States: %{expanded_bdds}lu",
              ss->search_fw.num_expanded_states + ss->search_bw.num_expanded_states);
     float avg = ss->search_fw.avg_expanded_bdd_nodes
                     * ss->search_fw.num_expanded_states;
     avg += ss->search_bw.avg_expanded_bdd_nodes
                 * ss->search_bw.num_expanded_states;
     avg /= ss->search_fw.num_expanded_states + ss->search_bw.num_expanded_states;
-    PDDL_INFO(err, "Avg. Expanded BDD Nodes: %.2f", avg);
+    LOG(err, "Avg. Expanded BDD Nodes: %{avg_expanded_bdd_nodes}.2f", avg);
 
 #ifdef PDDL_DEBUG
     int op_id;

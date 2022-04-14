@@ -26,7 +26,6 @@
 #include "_heur.h"
 #include "alloc.h"
 #include "assert.h"
-#include "log.h"
 #include "err.h"
 
 #define ROUND_EPS 0.001
@@ -39,12 +38,10 @@
 static const uint32_t rand_sampler_seed = 524287;
 static const uint32_t rand_diverse_seed = 131071;
 
-void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
-                       const char *prefix,
-                       pddl_err_t *err)
+void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
 {
-    PDDL_LOG_CONFIG_INT(cfg, prefix, disambiguation, err);
-    PDDL_LOG_CONFIG_INT(cfg, prefix, weak_disambiguation, err);
+    LOG_CONFIG_BOOL(cfg, disambiguation, err);
+    LOG_CONFIG_BOOL(cfg, weak_disambiguation, err);
     const char *obj = "";
     switch (cfg->obj){
         case PDDL_HPOT_OBJ_INIT:
@@ -78,15 +75,15 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
             obj = "max(init,all)";
             break;
     }
-    PDDL_INFO(err, "%sobj = %s", prefix, obj);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, add_init_constr, err);
-    PDDL_LOG_CONFIG_DBL(cfg, prefix, init_constr_coef, err);
-    PDDL_LOG_CONFIG_INT(cfg, prefix, num_samples, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, samples_use_mutex, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, samples_random_walk, err);
-    PDDL_LOG_CONFIG_INT(cfg, prefix, all_states_mutex_size, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, op_pot, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, op_pot_real, err);
+    LOG(err, "obj = %{obj}s", obj);
+    LOG_CONFIG_BOOL(cfg, add_init_constr, err);
+    LOG_CONFIG_DBL(cfg, init_constr_coef, err);
+    LOG_CONFIG_INT(cfg, num_samples, err);
+    LOG_CONFIG_BOOL(cfg, samples_use_mutex, err);
+    LOG_CONFIG_BOOL(cfg, samples_random_walk, err);
+    LOG_CONFIG_INT(cfg, all_states_mutex_size, err);
+    LOG_CONFIG_BOOL(cfg, op_pot, err);
+    LOG_CONFIG_BOOL(cfg, op_pot_real, err);
 }
 
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
@@ -915,7 +912,9 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     }
 
     CTX(err, "pot", "Pot");
-    pddlHPotConfigLog(cfg, "cfg.", err);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlHPotConfigLog(cfg, err);
+    CTXEND(err);
     // Construct MG-Strips and compute h^2 mutexes if necessary
     pddl_mg_strips_t mg_strips;
     pddl_mutex_pairs_t mutex;

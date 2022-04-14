@@ -382,8 +382,26 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                 break;
         }
 
+        int bval;
         const char *s;
         switch (ch){
+            case 'b':
+                if (is_long){
+                    bval = va_arg(va, long);
+                }else{
+                    bval = va_arg(va, int);
+                }
+                if (bval){
+                    logInfo(err, "true", 4);
+                    if (keyword[0] != '\0')
+                        _pddlProp_i(err, keyword, "true", 4);
+                }else{
+                    logInfo(err, "false", 5);
+                    if (keyword[0] != '\0')
+                        _pddlProp_i(err, keyword, "false", 5);
+                }
+                break;
+
             case 'u':
                 if (is_long){
                     unsigned long v = va_arg(va, unsigned long);
@@ -467,4 +485,20 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
     }
 
     va_end(va);
+}
+
+#define BUFSIZE 1024
+void _pddlProp(pddl_err_t *err, const char *key, const char *fmt, ...)
+{
+    if (err == NULL || err->prop_out == NULL)
+        return;
+
+    char bf[BUFSIZE];
+    va_list va;
+    va_start(va, fmt);
+    int len = vsnprintf(bf, BUFSIZE - 1, fmt, va);
+    len = PDDL_MIN(len, BUFSIZE - 1);
+    va_end(va);
+    bf[BUFSIZE - 1] = '\0';
+    _pddlProp_i(err, key, bf, len);
 }

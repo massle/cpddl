@@ -69,9 +69,7 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         0, /* .op_pot_real */ \
     }
 
-void pddlHPotConfigLog(const pddl_hpot_config_t *cfg,
-                       const char *prefix,
-                       pddl_err_t *err);
+void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err);
 
 /**
  * Returns true if the config can produce an ensamble of potential

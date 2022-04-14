@@ -691,21 +691,27 @@ static int stepSymba(void)
             && opt.symba.bw_off_if_constr_failed
             && pddlSymbolicTaskGoalConstrFailed(task)){
         PDDL_INFO2(&err, "Switching to fw-only search.");
+        PDDL_PROP_BOOL(&err, "switch_to_fw_only", 1);
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
     }else{
         res = pddlSymbolicTaskSearch(task, &plan, &err);
     }
 
 
+    PDDL_PROP_BOOL(&err, "plan_found", res == PDDL_SYMBOLIC_PLAN_FOUND);
+    PDDL_PROP_BOOL(&err, "unsolvable", res == PDDL_SYMBOLIC_PLAN_NOT_EXIST);
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){
         int cost = 0;
         int op;
         PDDL_IARR_FOR_EACH(&plan, op)
             cost += fdr.op.op[op]->cost;
-        PDDL_INFO(&err, "Plan Cost: %d", cost);
-        PDDL_INFO(&err, "Plan Length: %d", pddlIArrSize(&plan));
+        PDDL_LOG(&err, "Plan Cost: %{plan_cost}d", cost);
+        PDDL_LOG(&err, "Plan Length: %{plan_length}d", pddlIArrSize(&plan));
         PRINT_TO_FILE(&err, opt.symba.out, "plan",
                       symbaPlanPrint(&fdr, &plan, cost, fout));
+
+    }else if (res == PDDL_SYMBOLIC_PLAN_NOT_EXIST){
+        PDDL_LOG2(&err, "Task proved unsolvable.");
     }
 
     pddlIArrFree(&plan);
@@ -739,6 +745,8 @@ void freeData(void)
 
 int main(int argc, char *argv[])
 {
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
     int ret = 0;
     if ((ret = setOptions(argc, argv, &err)) != 0
             || (ret = stepPDDL()) != 0
@@ -766,6 +774,9 @@ int main(int argc, char *argv[])
         }
     }
 
+    pddlTimerStop(&timer);
+    PDDL_LOG(&err, "Overall Elapsed Time: %{overall_elapsed_time}.4fs",
+             pddlTimerElapsedInSF(&timer));
     freeData();
     return 0;
 }
