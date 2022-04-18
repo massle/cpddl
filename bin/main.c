@@ -659,7 +659,7 @@ static int stepSymba(void)
     }
 
     if (opt.symba.cfg.bw.use_pot_heur){
-        if (is_tnf){
+        if (is_tnf && opt.symba.cfg.bw.use_goal_splitting){
             PDDL_INFO2(&err, "bw: Using consistent potential heuristic");
         }else{
             opt.symba.cfg.bw.use_pot_heur = 0;
