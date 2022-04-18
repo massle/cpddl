@@ -25,8 +25,9 @@
 #include "pddl/pddl_file.h"
 
 #define MAX_LEN 512
+#define BUFSIZE 1024
 
-static int isDir(const char *d)
+int pddlIsDir(const char *d)
 {
     struct stat st;
     if (stat(d, &st) == -1)
@@ -214,7 +215,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
             strcpy(files->problem_pddl, s2);
             return 0;
 
-        }else if (isDir(s1)){
+        }else if (pddlIsDir(s1)){
             if (strlen(s1) + strlen(s2) >= PDDL_FILE_MAX_PATH_LEN - 1){
                 PDDL_ERR_RET2(err, -1, "Path(s) too long.");
             }
@@ -230,4 +231,37 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
             PDDL_ERR_RET2(err, -1, "Cannot find pddl files.");
         }
     }
+}
+
+int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err)
+{
+    int problem_len = strlen(files->problem_pddl);
+    if (strcmp(files->problem_pddl + problem_len - 5, ".pddl") != 0)
+        return -1;
+
+    char plan_file[PDDL_FILE_MAX_PATH_LEN];
+    strcpy(plan_file, files->problem_pddl);
+    strcpy(plan_file + problem_len - 4, "plan");
+    if (!pddlIsFile(plan_file))
+        return -1;
+
+    FILE *fin = fopen(plan_file, "r");
+    if (fin == NULL)
+        return -1;
+
+    int optimal_cost = -1;
+    char *line = NULL;
+    size_t linesiz = 0;
+    ssize_t readsiz;
+    const char *found = NULL;
+    for (int i = 0; i < 3 && (readsiz = getline(&line, &linesiz, fin)) > 0; ++i){
+        if (line[0] == ';' && (found = strstr(line, "Optimal cost: ")) != NULL){
+            optimal_cost = atoi(found + 14);
+            break;
+        }
+    }
+    if (line != NULL)
+        free(line);
+    fclose(fin);
+    return optimal_cost;
 }

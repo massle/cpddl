@@ -38,8 +38,10 @@ typedef struct pddl_files pddl_files_t;
 int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err);
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
               pddl_err_t *err);
+int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err);
 
 int pddlIsFile(const char *);
+int pddlIsDir(const char *);
 
 #ifdef __cplusplus
 } /* extern "C" */
