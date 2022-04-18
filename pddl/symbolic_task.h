@@ -46,6 +46,7 @@ struct pddl_symbolic_search_config {
     int use_pot_heur;
     int use_pot_heur_inconsistent;
     int use_pot_heur_sum_op_cost;
+    int use_goal_splitting;
     pddl_hpot_config_t pot_heur_config;
 };
 typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
@@ -60,6 +61,7 @@ typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
         0, /* .use_pot_heur */ \
         0, /* .use_pot_heur_inconsistent */ \
         0, /* .use_pot_heur_sum_op_cost */ \
+        1, /* .use_goal_splitting */ \
         PDDL_HPOT_CONFIG_INIT, \
     }
 

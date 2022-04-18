@@ -105,6 +105,7 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_CONFIG_BOOL(cfg, use_pot_heur, err);
     LOG_CONFIG_BOOL(cfg, use_pot_heur_inconsistent, err);
     LOG_CONFIG_BOOL(cfg, use_pot_heur_sum_op_cost, err);
+    LOG_CONFIG_BOOL(cfg, use_goal_splitting, err);
 
     CTX_NO_TIME(err, "pot", "pot");
     pddlHPotConfigLog(&cfg->pot_heur_config, err);
@@ -272,8 +273,10 @@ static int searchInit(pddl_symbolic_task_t *ss,
         search->heur_init = pot_init_h_value;
 
     pddlBDDsCostsInit(&search->init);
-    // TODO: Parametrize goal-splitting
-    if (pot != NULL && !fw && search->use_heur){
+    if (pot != NULL
+            && !fw
+            && search->use_heur
+            && search->cfg.use_goal_splitting){
         CTX(err, "symba_split_goal", "Split-goal");
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
@@ -1140,7 +1143,9 @@ static void initConstr(pddl_symbolic_task_t *ss,
 
 }
 
-static void fixSearchConfig(pddl_symbolic_search_config_t *cfg)
+static void fixSearchConfig(pddl_symbolic_search_config_t *cfg,
+                            int is_fw,
+                            pddl_err_t *err)
 {
     if (cfg->use_op_constr)
         cfg->use_constr = 0;
@@ -1148,12 +1153,31 @@ static void fixSearchConfig(pddl_symbolic_search_config_t *cfg)
             || cfg->use_pot_heur_inconsistent
             || cfg->use_pot_heur_sum_op_cost)
         cfg->use_pot_heur = 1;
+
+    if (cfg->use_goal_splitting && !cfg->use_pot_heur){
+        LOG2(err, "cfg.use_goal_splitting reset to false, because potential"
+             " heuristic is not used");
+        cfg->use_goal_splitting = 0;
+    }
+    if (cfg->enabled
+            && cfg->use_pot_heur
+            && !cfg->use_pot_heur_inconsistent
+            && !cfg->use_goal_splitting
+            && !is_fw){
+        WARN2(err, "Using potential heuristics without goal splitting"
+              " may lead to suboptimal solutions even if the potential"
+              " heuristic is consistent!!");
+    }
 }
 
-static void fixConfig(pddl_symbolic_task_config_t *cfg)
+static void fixConfig(pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
 {
-    fixSearchConfig(&cfg->fw);
-    fixSearchConfig(&cfg->bw);
+    CTX(err, "fw", "fw");
+    fixSearchConfig(&cfg->fw, 1, err);
+    CTXEND(err);
+    CTX(err, "bw", "bw");
+    fixSearchConfig(&cfg->bw, 0, err);
+    CTXEND(err);
 }
 
 pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
@@ -1192,7 +1216,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     ss = ALLOC(pddl_symbolic_task_t);
     bzero(ss, sizeof(*ss));
     ss->cfg = *cfg;
-    fixConfig(&ss->cfg);
+    fixConfig(&ss->cfg, err);
     logConfig(&ss->cfg, err);
 
     prepareTask(ss, fdr, &ss->cfg, err);
