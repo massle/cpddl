@@ -272,6 +272,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
         search->heur_init = pot_init_h_value;
 
     pddlBDDsCostsInit(&search->init);
+    // TODO: Parametrize goal-splitting
     if (pot != NULL && !fw && search->use_heur){
         CTX(err, "symba_split_goal", "Split-goal");
         pddl_mutex_pairs_t mutex;
@@ -302,6 +303,15 @@ static int searchInit(pddl_symbolic_task_t *ss,
         }
         pddlSymbolicStatesSplitByPotDel(goals, ss->mgr);
         pddlMutexPairsFree(&mutex);
+
+        pddlBDDsCostsSortUniq(ss->mgr, &search->init);
+        LOG2(err, "Init states sorted.");
+        for (int i = 0; i < search->init.bdd_size; ++i){
+            LOG(err, "Init with h-value: %{init_h_value}s,"
+                " bdd-size: %{init_bdd_size}d",
+                F_COST(&search->init.bdd[i].cost),
+                pddlBDDSize(search->init.bdd[i].bdd));
+        }
         CTXEND(err);
 
     }else if (init != NULL){
@@ -599,7 +609,6 @@ static int searchNextOpenSize(pddl_symbolic_task_t *ss,
 
 
 
-
 static int checkGoal(pddl_symbolic_task_t *ss,
                      pddl_symbolic_search_t *search,
                      const pddl_symbolic_state_t *state,
@@ -614,6 +623,7 @@ static int checkGoal(pddl_symbolic_task_t *ss,
         planExtractFw(&plan, &ss->mg_strips.strips, &search->plan);
         planFree(&plan);
         pddlBDDDel(ss->mgr, goal);
+        search->plan_goal_id = state->id;
         return 1;
     }
     pddlBDDDel(ss->mgr, goal);
@@ -648,7 +658,6 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
     pddl_bdd_t *goal = pddlBDDAnd(ss->mgr, state_bdd,
                                   other_search->state.all_closed);
     if (!pddlBDDIsFalse(ss->mgr, goal)){
-        //fprintf(stderr, "----\n");
         pddl_rbtree_node_t *rbs;
         PDDL_RBTREE_FOR_EACH(other_search->state.closed, rbs){
             const pddl_symbolic_state_t *closed_state;
@@ -660,8 +669,12 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
             if (!pddlBDDIsFalse(ss->mgr, goal)){
                 searchSetBestPlan(search, state, closed_state);
                 searchSetBestPlan(other_search, closed_state, state);
-                PDDL_INFO(err, "%s: Found best plan so far: cost: %s",
-                          (search->fw ? "fw" : "bw"), F_COST(&search->state.bound));
+                LOG(err, "%{found_plan_dir}s: Found plan,"
+                    " steps: %{found_plan_steps}lu,"
+                    " cost: %{found_plan_cost}s",
+                    (search->fw ? "fw" : "bw"),
+                    (unsigned long)search->steps,
+                    F_COST(&search->state.bound));
                 res = 1;
             }
             pddlBDDDel(ss->mgr, goal);
@@ -889,7 +902,6 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     printStepLog(ss, search, state, err);
 
-
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
     if (pddlBDDIsFalse(ss->mgr, state_bdd)){
         DBG(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
@@ -899,23 +911,23 @@ static int searchStep(pddl_symbolic_task_t *ss,
         pddlBDDCountMinterm(ss->mgr, state_bdd, ss->vars.bdd_var_size / 2));
     DBG(err, "BDD Size: %d", pddlBDDSize(state_bdd));
 
-    if (other_search != NULL){
+    if (checkGoal(ss, search, state, err)){
+        LOG(err, "%{found_plan_dir}s: Found plan,"
+            " steps: %{found_plan_steps}lu,"
+            " cost: %{found_plan_cost}s,"
+            " length: %{found_plan_length}d",
+            (search->fw ? "fw" : "bw"),
+            (unsigned long)search->steps,
+            F_COST(&state->cost),
+            pddlIArrSize(&search->plan));
+
+        pddlTimerStop(&timer);
+        searchSetNextStepEstimate(ss, search, state,
+                                  pddlTimerElapsedInSF(&timer), err);
+        return PDDL_SYMBOLIC_PLAN_FOUND;
+
+    }else if (other_search != NULL){
         checkGoal2(ss, search, other_search, state, err);
-
-    }else{ // search->goal != NULL
-        if (checkGoal(ss, search, state, err)){
-            PDDL_INFO(err, "%s: Found plan, steps: %lu, cost: %s,"
-                          " length: %d",
-                     (search->fw ? "fw" : "bw"),
-                     (unsigned long)search->steps,
-                     F_COST(&state->cost),
-                     pddlIArrSize(&search->plan));
-
-            pddlTimerStop(&timer);
-            searchSetNextStepEstimate(ss, search, state,
-                                      pddlTimerElapsedInSF(&timer), err);
-            return PDDL_SYMBOLIC_PLAN_FOUND;
-        }
     }
     DBG2(err, "Goal checked");
 
@@ -1404,13 +1416,17 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     pddl_cost_t zero_cost;
     pddlCostSetZero(&zero_cost);
 
-    int fw_cont = searchStep(ss, &ss->search_fw, &ss->search_bw, err);
-    int bw_cont = searchStep(ss, &ss->search_bw, &ss->search_fw, err);
+    int fw_cont, bw_cont;
+    fw_cont = bw_cont = PDDL_SYMBOLIC_CONT;
 
     while (!pddlPairHeapEmpty(ss->search_fw.state.open)
             && !pddlPairHeapEmpty(ss->search_bw.state.open)){
-        if (fw_cont != PDDL_SYMBOLIC_CONT && bw_cont != PDDL_SYMBOLIC_CONT)
+        if (fw_cont == PDDL_SYMBOLIC_PLAN_FOUND
+                || bw_cont == PDDL_SYMBOLIC_PLAN_FOUND
+                || (fw_cont != PDDL_SYMBOLIC_CONT
+                        && bw_cont != PDDL_SYMBOLIC_CONT)){
             break;
+        }
 
         const pddl_cost_t *min_fw_cost = pddlSymbolicStatesMinOpenCost(&ss->search_fw.state);
         if (min_fw_cost == NULL)
@@ -1445,17 +1461,44 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             bw_cont = searchStep(ss, &ss->search_bw, &ss->search_fw, err);
         }
     }
-    ASSERT(pddlCostCmp(&ss->search_fw.state.bound, &ss->search_bw.state.bound) == 0);
-    ASSERT(ss->search_fw.plan_goal_id == ss->search_bw.plan_other_goal_id);
-    ASSERT(ss->search_fw.plan_other_goal_id == ss->search_bw.plan_goal_id);
 
-    if (ss->search_fw.plan_goal_id == -1){
-        res = PDDL_SYMBOLIC_PLAN_NOT_EXIST;
-    }else{
+    if (fw_cont == PDDL_SYMBOLIC_PLAN_FOUND){
+        const pddl_symbolic_state_t *goal;
+        goal = pddlSymbolicStatesGet(&ss->search_fw.state,
+                                     ss->search_fw.plan_goal_id);
+        pddlIArrAppendArr(plan, &ss->search_fw.plan);
+        LOG(err, "Found plan, cost: %{plan_cost}s,"
+            " length: %{plan_length}d,"
+            " using %{plan_dir}s direction",
+            F_COST(&goal->cost), pddlIArrSize(plan), "fw");
         res = PDDL_SYMBOLIC_PLAN_FOUND;
-        fwbwExtractPlan(ss, &ss->search_fw, &ss->search_bw, plan, err);
-        PDDL_INFO(err, "Found plan, cost: %s, length: %d",
-                 F_COST(&ss->search_fw.state.bound), pddlIArrSize(plan));
+
+    }else if (bw_cont == PDDL_SYMBOLIC_PLAN_FOUND){
+        const pddl_symbolic_state_t *goal;
+        goal = pddlSymbolicStatesGet(&ss->search_bw.state,
+                                     ss->search_bw.plan_goal_id);
+        pddlIArrAppendArr(plan, &ss->search_bw.plan);
+        LOG(err, "Found plan, cost: %{plan_cost}s,"
+            " length: %{plan_length}d,"
+            " using %{plan_dir}s direction",
+            F_COST(&goal->cost), pddlIArrSize(plan), "bw");
+        res = PDDL_SYMBOLIC_PLAN_FOUND;
+
+    }else{
+        ASSERT(pddlCostCmp(&ss->search_fw.state.bound, &ss->search_bw.state.bound) == 0);
+        ASSERT(ss->search_fw.plan_goal_id == ss->search_bw.plan_other_goal_id);
+        ASSERT(ss->search_fw.plan_other_goal_id == ss->search_bw.plan_goal_id);
+
+        if (ss->search_fw.plan_goal_id == -1){
+            res = PDDL_SYMBOLIC_PLAN_NOT_EXIST;
+        }else{
+            res = PDDL_SYMBOLIC_PLAN_FOUND;
+            fwbwExtractPlan(ss, &ss->search_fw, &ss->search_bw, plan, err);
+            LOG(err, "Found plan, cost: %{plan_cost}s,"
+                " length: %{plan_length}d,"
+                " using %{plan_dir}s direction",
+                F_COST(&ss->search_fw.state.bound), pddlIArrSize(plan), "fwbw");
+        }
     }
 
     LOG(err, "Fw Expanded BDD Nodes: %{fw.expanded_bdd_nodes}lu",
