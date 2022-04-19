@@ -20,9 +20,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <string.h>
+#include <dirent.h>
 
 #include "pddl/pddl_file.h"
+#include "alloc.h"
 
 #define MAX_LEN 512
 #define BUFSIZE 1024
@@ -264,4 +265,74 @@ int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err)
         free(line);
     fclose(fin);
     return optimal_cost;
+}
+
+void pddlBenchInit(pddl_bench_t *bench)
+{
+    bzero(bench, sizeof(*bench));
+}
+
+void pddlBenchFree(pddl_bench_t *bench)
+{
+    if (bench->task != NULL)
+        FREE(bench->task);
+}
+
+static void benchAdd(pddl_bench_t *bench, const pddl_files_t *fs)
+{
+    if (bench->task_size == bench->task_alloc){
+        if (bench->task_alloc == 0)
+            bench->task_alloc = 2;
+        bench->task_alloc *= 2;
+        bench->task = REALLOC_ARR(bench->task, pddl_bench_files_t,
+                                  bench->task_alloc);
+    }
+
+    // TODO
+}
+
+int pddlBenchLoadDir(pddl_bench_t *bench, const char *dirpath)
+{
+    if (!pddlIsDir(dirpath))
+        return -1;
+
+    DIR *dir = opendir(dirpath);
+    if (dir == NULL)
+        return -1;
+
+    char path[PDDL_FILE_MAX_PATH_LEN];
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL){
+        if (strncmp(entry->d_name, ".", 1) == 0)
+            continue;
+        if (strstr(entry->d_name, "domain") != NULL)
+            continue;
+
+        int path_len = snprintf(path, PDDL_FILE_MAX_PATH_LEN - 1, "%s/%s",
+                                dirpath, entry->d_name);
+        char *rpath = realpath(path, NULL);
+        if (rpath == NULL)
+            continue;
+
+        if (pddlIsDir(rpath)){
+            if (pddlBenchLoadDir(bench, path) != 0){
+                free(rpath);
+                closedir(dir);
+                return -1;
+            }
+
+        }else if (pddlIsFile(rpath)
+                    && path_len > 4
+                    && strcmp(path + path_len - 5, ".pddl") == 0){
+            pddl_files_t fs;
+            if (pddlFiles1(&fs, path, NULL) == 0){
+                benchAdd(bench, &fs);
+                printf("%s -- %s -- %s\n", path, fs.domain_pddl,
+                       fs.problem_pddl);
+            }
+        }
+        free(rpath);
+    }
+    closedir(dir);
+    return 0;
 }

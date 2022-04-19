@@ -27,7 +27,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define PDDL_FILE_MAX_PATH_LEN 512
+#define PDDL_FILE_MAX_PATH_LEN 4096
+#define PDDL_FILE_MAX_NAME_LEN 128
 
 struct pddl_files {
     char domain_pddl[PDDL_FILE_MAX_PATH_LEN];
@@ -42,6 +43,27 @@ int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err);
 
 int pddlIsFile(const char *);
 int pddlIsDir(const char *);
+
+
+struct pddl_bench_files {
+    pddl_files_t pddl_files;
+    int optimal_cost;
+    char bench_name[PDDL_FILE_MAX_NAME_LEN];
+    char domain_name[PDDL_FILE_MAX_NAME_LEN];
+    char problem_name[PDDL_FILE_MAX_NAME_LEN];
+};
+typedef struct pddl_bench_files pddl_bench_files_t;
+
+struct pddl_bench {
+    pddl_bench_files_t *task;
+    int task_size;
+    int task_alloc;
+};
+typedef struct pddl_bench pddl_bench_t;
+
+void pddlBenchInit(pddl_bench_t *bench);
+void pddlBenchFree(pddl_bench_t *bench);
+int pddlBenchLoadDir(pddl_bench_t *bench, const char *dirpath);
 
 #ifdef __cplusplus
 } /* extern "C" */
