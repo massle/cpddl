@@ -333,6 +333,22 @@ void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune)
     step->can_reuse_rm_op_fact = 0;
 }
 
+static int sortOps(pddl_process_strips_t *prune,
+                   pddl_process_strips_step_t *step,
+                   pddl_err_t *err)
+{
+    pddlStripsOpsSort(&prune->strips->op);
+    PDDL_INFO2(err, "Operators sorted by name");
+    return 0;
+}
+
+void pddlProcessStripsAddSortOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("sort ops: ", prune, sortOps, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+}
+
 static int opMutexExecute(pddl_process_strips_t *prune,
                           pddl_process_strips_step_t *_step,
                           pddl_err_t *err)

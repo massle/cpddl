@@ -204,6 +204,11 @@ static void deduplicateOps(void)
     pddlProcessStripsAddDeduplicateOps(&opt.strips.process);
 }
 
+static void sortOps(void)
+{
+    pddlProcessStripsAddSortOps(&opt.strips.process);
+}
+
 static void pruneH2Fw(void)
 {
     pddlProcessStripsAddH2Fw(&opt.strips.process, 0.f);
@@ -493,6 +498,7 @@ static void setProcessStripsOptions(void)
                    "Remove dead-end operators using fam-groups (see --mg fam).");
     optsAddFlagFn2("P-dedup", 0x0, deduplicateOps,
                    "Remove duplicate operators.");
+    optsAddFlagFn2("P-sort", 0x0, sortOps, "Sort operators by their names.");
     optsAddFlagFn2("P-h2fw", 0x0, pruneH2Fw,
                    "Prune with h^2 in forward direction without time limit.");
     optsAddFltFn("P-h2fw-time-limit", 0x0, pruneH2FwLimit,
@@ -560,8 +566,10 @@ static void setProcessStripsOptions(void)
                    "Alias for --P-irr --P-fam-dead-end --P-h2fwbw --P-irr"
                    " --P-dedup (set by default for pddl-symba)");
 
-    if (is_pddl_symba)
+    if (is_pddl_symba){
         h2Alias();
+        sortOps();
+    }
 }
 
 static void setRedBlackOptions(void)
