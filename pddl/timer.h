@@ -212,7 +212,7 @@ _pddl_inline unsigned long pddlTimerElapsedInH(const pddl_timer_t *t)
 
 _pddl_inline double pddlTimerElapsedInSF(const pddl_timer_t *t)
 {
-    pddl_real_t time;
+    double time;
     time  = t->t_elapsed.tv_nsec / 1000000000.;
     time += t->t_elapsed.tv_sec;
     return time;

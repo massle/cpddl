@@ -126,31 +126,6 @@ extern "C" {
     } while (0)
 
 
-// TODO: Get rid of pddl_real_t
-typedef double pddl_real_t;
-
-/**
- * TODO: Get rid of this
- * Returns true if a and b equal.
- */
-_pddl_inline int pddlEq(pddl_real_t _a, pddl_real_t _b)
-{
-    pddl_real_t ab;
-
-    ab = fabs(_a - _b);
-    if (ab < 1E-10)
-        return 1;
-
-    pddl_real_t a, b;
-    a = fabs(_a);
-    b = fabs(_b);
-    if (b > a){
-        return ab < 1E-10 * b;
-    }else{
-        return ab < 1E-10 * a;
-    }
-}
-
 typedef struct pddl pddl_t;
 typedef struct pddl_strips pddl_strips_t;
 
