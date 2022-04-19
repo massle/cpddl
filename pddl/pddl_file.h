@@ -45,17 +45,17 @@ int pddlIsFile(const char *);
 int pddlIsDir(const char *);
 
 
-struct pddl_bench_files {
+struct pddl_bench_task {
     pddl_files_t pddl_files;
     int optimal_cost;
     char bench_name[PDDL_FILE_MAX_NAME_LEN];
     char domain_name[PDDL_FILE_MAX_NAME_LEN];
     char problem_name[PDDL_FILE_MAX_NAME_LEN];
 };
-typedef struct pddl_bench_files pddl_bench_files_t;
+typedef struct pddl_bench_task pddl_bench_task_t;
 
 struct pddl_bench {
-    pddl_bench_files_t *task;
+    pddl_bench_task_t *task;
     int task_size;
     int task_alloc;
 };

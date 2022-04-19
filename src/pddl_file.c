@@ -24,6 +24,7 @@
 
 #include "pddl/pddl_file.h"
 #include "alloc.h"
+#include "assert.h"
 
 #define MAX_LEN 512
 #define BUFSIZE 1024
@@ -284,11 +285,59 @@ static void benchAdd(pddl_bench_t *bench, const pddl_files_t *fs)
         if (bench->task_alloc == 0)
             bench->task_alloc = 2;
         bench->task_alloc *= 2;
-        bench->task = REALLOC_ARR(bench->task, pddl_bench_files_t,
+        bench->task = REALLOC_ARR(bench->task, pddl_bench_task_t,
                                   bench->task_alloc);
     }
 
-    // TODO
+    pddl_bench_task_t *task = bench->task + bench->task_size++;
+    bzero(task, sizeof(*task));
+    char *rpath = realpath(fs->domain_pddl, task->pddl_files.domain_pddl);
+    ASSERT_RUNTIME(rpath != NULL);
+    rpath = realpath(fs->problem_pddl, task->pddl_files.problem_pddl);
+    ASSERT_RUNTIME(rpath != NULL);
+    task->optimal_cost = pddlFilesFindOptimalCost(&task->pddl_files, NULL);
+
+    char path[PDDL_FILE_MAX_PATH_LEN];
+    strcpy(path, fs->problem_pddl);
+    int len = strlen(path);
+    char *cur = path + len - 1;
+    for (; *cur != '.' && cur > path; --cur)
+        ;
+    if (*cur == '.')
+        *cur = '\0';
+    for (; *cur != '/' && cur > path; --cur)
+        ;
+    if (*cur == '/'){
+        strcpy(task->problem_name, cur + 1);
+
+        if (cur > path){
+            *cur = '\0';
+            for (--cur; *cur != '/' && cur > path; --cur)
+                ;
+            if (*cur == '/'){
+                strcpy(task->domain_name, cur + 1);
+            }
+
+            if (cur > path){
+                *cur = '\0';
+                for (--cur; *cur != '/' && cur > path; --cur)
+                    ;
+                if (*cur == '/'){
+                    if (strncmp(cur + 1, "seq-", 4) == 0){
+                        if (cur > path){
+                            *cur = '\0';
+                            for (--cur; *cur != '/' && cur > path; --cur)
+                                ;
+                            if (*cur == '/')
+                                strcpy(task->bench_name, cur + 1);
+                        }
+                    }else{
+                        strcpy(task->bench_name, cur + 1);
+                    }
+                }
+            }
+        }
+    }
 }
 
 int pddlBenchLoadDir(pddl_bench_t *bench, const char *dirpath)
@@ -325,11 +374,8 @@ int pddlBenchLoadDir(pddl_bench_t *bench, const char *dirpath)
                     && path_len > 4
                     && strcmp(path + path_len - 5, ".pddl") == 0){
             pddl_files_t fs;
-            if (pddlFiles1(&fs, path, NULL) == 0){
+            if (pddlFiles1(&fs, path, NULL) == 0)
                 benchAdd(bench, &fs);
-                printf("%s -- %s -- %s\n", path, fs.domain_pddl,
-                       fs.problem_pddl);
-            }
         }
         free(rpath);
     }
