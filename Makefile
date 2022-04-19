@@ -297,7 +297,7 @@ third-party/cudd/libcudd.a:
 	cd third-party/cudd && aclocal
 	cd third-party/cudd && autoconf
 	cd third-party/cudd && automake
-	cd third-party/cudd && ./configure --disable-shared
+	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX)
 	$(MAKE) -C third-party/cudd
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
