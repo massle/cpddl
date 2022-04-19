@@ -447,7 +447,6 @@ static int stepFDR(void)
         PDDL_CTXEND(&err);
     }
 
-
     PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
 
     if (opt.fdr.pot){
@@ -645,6 +644,12 @@ static int stepSymba(void)
         return 0;
 
     PDDL_CTX(&err, "symba", "SYMBA");
+
+    // Putting related operators close together seems to help the CPLEX
+    // solver for some reason
+    pddlFDROpsSortByName(&fdr.op);
+    PDDL_INFO2(&err, "FDR operators sorted.");
+
     int is_tnf = fdrHasTNFOps(&fdr);
     if (opt.symba.cfg.fw.use_pot_heur){
         if (is_tnf){

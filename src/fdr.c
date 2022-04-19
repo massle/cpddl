@@ -951,7 +951,7 @@ static void tnfMultiply(pddl_fdr_t *fdr,
 
     if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
-        pddlFDROpsSort(&fdr->op);
+        pddlFDROpsSortByName(&fdr->op);
     }
     pddlISetFree(&rm_ops);
 }
@@ -973,7 +973,7 @@ static void removeUnreachableOps(pddl_fdr_t *fdr,
 
     if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
-        pddlFDROpsSort(&fdr->op);
+        pddlFDROpsSortByName(&fdr->op);
         PDDL_INFO(err, "Removed %d unreachable operators", pddlISetSize(&rm_ops));
     }
     pddlISetFree(&rm_ops);

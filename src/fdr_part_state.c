@@ -135,6 +135,8 @@ int pddlFDRPartStateCmp(const pddl_fdr_part_state_t *p1,
     int cmp = p1->fact_size - p2->fact_size;
     for (int i = 0; i < p1->fact_size && cmp == 0; ++i)
         cmp = p1->fact[i].var - p2->fact[i].var;
+    for (int i = 0; i < p1->fact_size && cmp == 0; ++i)
+        cmp = p1->fact[i].val - p2->fact[i].val;
     return cmp;
 }
 
