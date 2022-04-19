@@ -701,7 +701,9 @@ static void storeOpPot(pddl_lp_t *lp,
     }
 }
 
-int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
+int pddlPotSolve(const pddl_pot_t *pot,
+                 pddl_pot_solution_t *sol,
+                 pddl_err_t *err)
 {
     int ret = 0;
     pddl_lp_t *lp;
@@ -716,7 +718,7 @@ int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol)
         const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         rows += m->var_size;
     }
-    lp = pddlLPNew(rows, pot->var_size, lp_flags);
+    lp = pddlLPNew(rows, pot->var_size, lp_flags, err);
 
     for (int i = 0; i < pot->var_size; ++i){
         if (pot->use_ilp)

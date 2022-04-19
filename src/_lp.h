@@ -29,7 +29,7 @@ extern "C" {
 struct _pddl_lp_cls_t {
     int solver_id;
     const char *solver_name;
-    pddl_lp_t *(*new)(int rows, int cols, unsigned flags);
+    pddl_lp_t *(*new)(int rows, int cols, unsigned flags, pddl_err_t *err);
     void (*del)(pddl_lp_t *);
     void (*set_obj)(pddl_lp_t *lp, int i, double coef);
     void (*set_var_range)(pddl_lp_t *lp, int i, double lb, double ub);

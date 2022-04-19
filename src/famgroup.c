@@ -217,7 +217,7 @@ static void famInit(fam_t *fam,
     lp_flags |= PDDL_LP_MAX;
     fam->lp_var_size = strips->fact.fact_size;
     rows = strips->op.op_size + 1;
-    fam->lp = pddlLPNew(rows, fam->lp_var_size, lp_flags);
+    fam->lp = pddlLPNew(rows, fam->lp_var_size, lp_flags, err);
 
     // Set up coeficients in the objective function and set up binary
     // variables
