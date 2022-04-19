@@ -177,8 +177,11 @@ GEN += src/iarr.c
 
 all: $(TARGETS)
 
-libpddl.a: $(OBJS)
-	ar cr $@ $(OBJS)
+libpddl.a: $(OBJS) Makefile
+	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
+	$(CC) -c -o .objs/_version.o _version.c
+	rm -f _version.c
+	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@
 
 pddl/config.h:

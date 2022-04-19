@@ -878,5 +878,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
                 = opt.lifted_planner.random_seed;
     }
 
+    PDDL_LOG(err, "Version: %{version}s", pddl_version);
     return 0;
 }

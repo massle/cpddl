@@ -27,6 +27,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+extern const char *pddl_version;
+
 typedef struct pddl pddl_t;
 typedef struct pddl_strips pddl_strips_t;
 
