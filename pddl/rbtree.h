@@ -16,7 +16,7 @@
 #ifndef __PDDL_RBTREE_H__
 #define __PDDL_RBTREE_H__
 
-#include <pddl/core.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {

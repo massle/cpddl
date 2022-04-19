@@ -17,8 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/timer.h>
+#include <stdio.h>
+#include "alloc.h"
 #include "profile.h"
 
 struct pddl_profile_slot {

@@ -16,10 +16,8 @@
 #ifndef __PDDL_TIMER_H__
 #define __PDDL_TIMER_H__
 
+#include "pddl/common.h"
 #include <time.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include "pddl/core.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,26 +55,6 @@ _pddl_inline void pddlTimerStop(pddl_timer_t *t);
  * Returns elapsed time.
  */
 _pddl_inline const struct timespec *pddlTimerElapsed(const pddl_timer_t *t);
-
-
-/**
- * Works as usual fprintf(3) but output is printed with prefix elapsed time
- * in format [minutes:seconds.milisec].
- */
-void pddlTimerPrintElapsed(const pddl_timer_t *t, FILE *out,
-                           const char *format, ...);
-/**
- * Stops timer and prints output same as pddlTimerPrintElapsed().
- */
-void pddlTimerStopAndPrintElapsed(pddl_timer_t *t, FILE *out,
-                                  const char *format, ...);
-
-/**
- * Equivalent to pddlTimerPrintElapsed() expect it is called with va_list
- * instead of variable number of arguments.
- */
-_pddl_inline void pddlTimerPrintElapsed2(const pddl_timer_t *t, FILE *out,
-                                         const char *format, va_list ap);
 
 /**
  * Returns nanosecond part of elapsed time.
@@ -169,19 +147,6 @@ _pddl_inline void pddlTimerStop(pddl_timer_t *t)
 _pddl_inline const struct timespec *pddlTimerElapsed(const pddl_timer_t *t)
 {
     return &t->t_elapsed;
-}
-
-_pddl_inline void pddlTimerPrintElapsed2(const pddl_timer_t *t, FILE *out,
-                                         const char *format, va_list ap)
-{
-    /* print elapsed time */
-    fprintf(out, "[%02ld:%02ld.%03ld]",
-            pddlTimerElapsedM(t),
-            pddlTimerElapsedS(t),
-            pddlTimerElapsedMs(t));
-
-    /* print the rest */
-    vfprintf(out, format, ap);
 }
 
 _pddl_inline long pddlTimerElapsedNs(const pddl_timer_t *t)

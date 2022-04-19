@@ -21,7 +21,7 @@
 #define __PDDL_H__
 
 #include <pddl/config.h>
-#include <pddl/core.h>
+#include <pddl/common.h>
 #include <pddl/err.h>
 #include <pddl/alloc.h>
 #include <pddl/timer.h>
@@ -35,7 +35,6 @@
 #include <pddl/htable.h>
 #include <pddl/fifo.h>
 
-#include <pddl/common.h>
 #include <pddl/cost.h>
 #include <pddl/pddl_file.h>
 #include <pddl/plan_file.h>

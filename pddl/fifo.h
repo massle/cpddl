@@ -17,7 +17,6 @@
 #ifndef __PDDL_FIFO_H__
 #define __PDDL_FIFO_H__
 
-#include <pddl/core.h>
 #include <pddl/list.h>
 
 #ifdef __cplusplus

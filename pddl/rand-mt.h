@@ -21,8 +21,7 @@
 #ifndef __PDDL_RAND_MT_H__
 #define __PDDL_RAND_MT_H__
 
-#include <stdint.h>
-#include <pddl/core.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {

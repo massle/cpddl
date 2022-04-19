@@ -17,7 +17,6 @@
  * See the License for more information.
  */
 
-#include "pddl/core.h"
 #include "pddl/outbox.h"
 #include "alloc.h"
 

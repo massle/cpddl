@@ -18,7 +18,6 @@ CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
 TARGETS  = libpddl.a
 
 OBJS  = alloc
-OBJS += timer
 OBJS += err
 OBJS += hfunc
 OBJS += google-city-hash
@@ -62,7 +61,6 @@ OBJS += strips_ground_datalog
 OBJS += action_args
 OBJS += ground_atom
 OBJS += profile
-OBJS += helper
 OBJS += lifted_mgroup
 OBJS += lifted_mgroup_infer
 OBJS += lifted_mgroup_htable

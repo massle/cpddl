@@ -20,14 +20,136 @@
 #ifndef __PDDL_COMMON_H__
 #define __PDDL_COMMON_H__
 
+#include <math.h>
+#include <float.h>
+#include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <limits.h>
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <pddl/config.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-extern const char *pddl_version;
+/**
+ * Returns offset of member in given type (struct).
+ */
+#define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
+/*#define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)*/
+
+/**
+ * Returns container of given member
+ */
+#define pddl_container_of(ptr, type, member) \
+    ((type *)( (char *)ptr - pddl_offsetof(type, member)))
+
+/**
+ * Marks inline function.
+ */
+#ifdef __GNUC__
+#  ifdef PDDL_DEBUG
+#    define _pddl_inline static __attribute__((unused))
+#  else /* PDDL_DEBUG */
+#    ifdef __NO_INLINE__
+#      define _pddl_inline static __attribute__((unused))
+#    else /* __NO_INLINE */
+#      define _pddl_inline static inline __attribute__((always_inline,unused))
+#    endif /* __NO_INLINE */
+#  endif /* PDDL_DEBUG */
+#else /* __GNUC__ */
+# define _pddl_inline static inline
+#endif /* __GNUC__ */
+
+/**
+ * __prefetch(x)  - prefetches the cacheline at "x" for read
+ * __prefetchw(x) - prefetches the cacheline at "x" for write
+ */
+#ifdef __GNUC__
+# define _pddl_prefetch(x) __builtin_prefetch(x)
+# define _pddl_prefetchw(x) __builtin_prefetch(x,1)
+#else /* __GNUC__ */
+# define _pddl_prefetch(x)
+# define _pddl_prefetchw(x)
+#endif /* __GNUC__ */
+
+/**
+ * Using this macros you can specify is it's likely or unlikely that branch
+ * will be used.
+ * Comes from linux header file ./include/compiler.h
+ */
+#ifdef __GNUC__
+# define pddl_likely(x) __builtin_expect(!!(x), 1)
+# define pddl_unlikely(x) __builtin_expect(!!(x), 0)
+#else /* __GNUC__ */
+# define pddl_likely(x) !!(x)
+# define pddl_unlikely(x) !!(x)
+#endif /* __GNUC__ */
+
+#ifdef __GNUC__
+# define pddl_aligned(x) __attribute__ ((aligned(x)))
+# define pddl_packed __attribute__ ((packed))
+#else /* __GNUC__ */
+# define pddl_aligned(x)
+# define pddl_packed
+#endif /* __GNUC__ */
+
+
+#ifdef __GNUC__
+# define PDDL_UNUSED(f) f __attribute__((unused))
+#else /* __GNUC__ */
+# define PDDL_UNUSED(f)
+#endif /* __GNUC__ */
+
+#ifdef __ICC
+/* disable unused parameter warning */
+# pragma warning(disable:869)
+/* disable annoying "operands are evaluated in unspecified order" warning */
+# pragma warning(disable:981)
+#endif /* __ICC */
+
+
+#define PDDL_MIN(x, y) ((x) < (y) ? (x) : (y)) /*!< minimum */
+#define PDDL_MAX(x, y) ((x) > (y) ? (x) : (y)) /*!< maximum */
+
+/**
+ * Swaps {a} and {b} using given temporary variable {tmp}.
+ */
+#define PDDL_SWAP(a, b, tmp) \
+    do { \
+        (tmp) = (a); \
+        (a) = (b); \
+        (b) = (tmp); \
+    } while (0)
+
+
+// TODO: Get rid of pddl_real_t
+typedef double pddl_real_t;
+
+/**
+ * TODO: Get rid of this
+ * Returns true if a and b equal.
+ */
+_pddl_inline int pddlEq(pddl_real_t _a, pddl_real_t _b)
+{
+    pddl_real_t ab;
+
+    ab = fabs(_a - _b);
+    if (ab < 1E-10)
+        return 1;
+
+    pddl_real_t a, b;
+    a = fabs(_a);
+    b = fabs(_b);
+    if (b > a){
+        return ab < 1E-10 * b;
+    }else{
+        return ab < 1E-10 * a;
+    }
+}
 
 typedef struct pddl pddl_t;
 typedef struct pddl_strips pddl_strips_t;
@@ -82,6 +204,9 @@ typedef uint32_t pddl_fdr_packer_word_t;
  * Word with all bits set (i.e., 0xffff...)
  */
 #define PDDL_FDR_PACKER_WORD_SET_ALL_BITS ((pddl_fdr_packer_word_t)-1)
+
+
+extern const char *pddl_version;
 
 #ifdef __cplusplus
 } /* extern "C" */

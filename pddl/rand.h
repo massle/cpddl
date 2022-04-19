@@ -15,11 +15,8 @@
 #ifndef __PDDL_RAND_H__
 #define __PDDL_RAND_H__
 
-#include <stdlib.h>
-#include <strings.h>
 #include <time.h>
-#include <unistd.h>
-#include <pddl/core.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {

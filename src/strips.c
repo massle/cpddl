@@ -20,7 +20,6 @@
 #include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips.h"
-#include "helper.h"
 #include "err.h"
 #include "assert.h"
 #include "log.h"

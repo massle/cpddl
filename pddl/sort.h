@@ -15,7 +15,6 @@
 #ifndef __PDDL_SORT_H__
 #define __PDDL_SORT_H__
 
-#include <pddl/core.h>
 #include <pddl/list.h>
 
 #ifdef __cplusplus
