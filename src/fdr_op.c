@@ -216,21 +216,55 @@ void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op)
     ops->op[ops->op_size++] = op;
 }
 
-static int opCmpName(const void *a, const void *b, void *_)
+static int opCmp(const void *a, const void *b, void *_)
+{
+    pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
+    pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
+    int cmp = pddlFDRPartStateCmp(&o1->pre, &o2->pre);
+    if (cmp == 0)
+        cmp = pddlFDRPartStateCmp(&o1->eff, &o2->eff);
+    if (cmp == 0)
+        cmp = o1->cond_eff_size - o2->cond_eff_size;
+    for (int cei = 0; cei < o1->cond_eff_size && cmp == 0; ++cei){
+        const pddl_fdr_op_cond_eff_t *ce1 = o1->cond_eff + cei;
+        const pddl_fdr_op_cond_eff_t *ce2 = o2->cond_eff + cei;
+        cmp = pddlFDRPartStateCmp(&ce1->pre, &ce2->pre);
+        if (cmp == 0)
+            cmp = pddlFDRPartStateCmp(&ce1->eff, &ce2->eff);
+    }
+    return cmp;
+}
+
+static int opCmpNameFirst(const void *a, const void *b, void *_)
 {
     pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
     pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
     int cmp = strcmp(o1->name, o2->name);
     if (cmp == 0)
-        cmp = pddlFDRPartStateCmp(&o1->pre, &o2->pre);
-    if (cmp == 0)
-        cmp = pddlFDRPartStateCmp(&o1->eff, &o2->eff);
+        cmp = opCmp(a, b, _);
     return cmp;
 }
 
-void pddlFDROpsSort(pddl_fdr_ops_t *ops)
+static int opCmpNameLast(const void *a, const void *b, void *_)
 {
-    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpName, NULL);
+    pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
+    pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
+    int cmp = opCmp(a, b, _);
+    if (cmp == 0)
+        cmp = strcmp(o1->name, o2->name);
+    return cmp;
+}
+
+void pddlFDROpsSortByName(pddl_fdr_ops_t *ops)
+{
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpNameFirst, NULL);
+    for (int i = 0; i < ops->op_size; ++i)
+        ops->op[i]->id = i;
+}
+
+void pddlFDROpsSortByStruct(pddl_fdr_ops_t *ops)
+{
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpNameLast, NULL);
     for (int i = 0; i < ops->op_size; ++i)
         ops->op[i]->id = i;
 }

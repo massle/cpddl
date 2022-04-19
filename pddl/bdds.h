@@ -67,5 +67,6 @@ void pddlBDDsCostsAdd(pddl_bdd_manager_t *mgr,
                       pddl_bdds_costs_t *bdds,
                       pddl_bdd_t *bdd,
                       const pddl_cost_t *cost);
+void pddlBDDsCostsSortUniq(pddl_bdd_manager_t *mgr, pddl_bdds_costs_t *bdds);
 
 #endif /* __PDDL_BDDS_H__ */

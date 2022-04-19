@@ -177,8 +177,11 @@ GEN += src/iarr.c
 
 all: $(TARGETS)
 
-libpddl.a: $(OBJS)
-	ar cr $@ $(OBJS)
+libpddl.a: $(OBJS) Makefile
+	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
+	$(CC) -c -o .objs/_version.o _version.c
+	rm -f _version.c
+	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@
 
 pddl/config.h:
@@ -243,7 +246,7 @@ clean:
 	if [ -d test ]; then $(MAKE) -C test clean; fi;
 	if [ -d doc ]; then $(MAKE) -C doc clean; fi;
 
-mrproper: clean opts-clean bliss-clean lpsolve-clean cudd-clean
+mrproper: clean third-party-clean
 
 check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
@@ -267,16 +270,8 @@ list-global-symbols: libpddl.a
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: opts bliss cudd sqlite
-third-party-clean: opts-clean bliss-clean cudd-clean sqlite-clean
-
-opts: third-party/opts/Makefile
-	$(MAKE) -C third-party/opts all
-opts-clean:
-	$(MAKE) -C third-party/opts clean
-third-party/opts/Makefile:
-	git submodule init -- third-party/opts
-	git submodule update -- third-party/opts
+third-party: bliss cudd sqlite
+third-party-clean: bliss-clean cudd-clean sqlite-clean
 
 bliss: third-party/bliss/libbliss.a
 bliss-clean:
@@ -305,7 +300,7 @@ third-party/cudd/libcudd.a:
 	cd third-party/cudd && aclocal
 	cd third-party/cudd && autoconf
 	cd third-party/cudd && automake
-	cd third-party/cudd && ./configure --disable-shared
+	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX)
 	$(MAKE) -C third-party/cudd
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
@@ -326,7 +321,6 @@ third-party/sqlite/libsqlite.a:
   check-segfault check-all-segfault \
   check-gdb check-all-gdb \
   third-party third-party-clean \
-  opts opts-clean \
   bliss bliss-clean \
   lpsolve lpsolve-clean \
   sqlite sqlite-clean

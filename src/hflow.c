@@ -299,7 +299,7 @@ static pddl_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
 
     lp_flags  = PDDL_LP_MIN;
     lp_flags |= PDDL_LP_NUM_THREADS(num_threads);
-    lp = pddlLPNew(2 * facts_size, op->op_size, lp_flags);
+    lp = pddlLPNew(2 * facts_size, op->op_size, lp_flags, NULL);
 
     // Set up columns
     for (int i = 0; i < op->op_size; ++i){

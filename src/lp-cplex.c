@@ -19,6 +19,7 @@
 #include "pddl/lp.h"
 #include "alloc.h"
 #include "_lp.h"
+#include "err.h"
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>
@@ -37,11 +38,10 @@ static void cplexErr(lp_t *lp, int status, const char *s)
 {
     char errmsg[1024];
     CPXgeterrorstring(lp->env, status, errmsg);
-    fprintf(stderr, "Error: CPLEX: %s: %s\n", s, errmsg);
-    exit(-1);
+    FATAL("Error: CPLEX: %s: %s", s, errmsg);
 }
 
-static pddl_lp_t *new(int rows, int cols, unsigned flags)
+static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     lp_t *lp;
     int st, num_threads;
@@ -54,6 +54,8 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags)
     lp->env = CPXopenCPLEX(&st);
     if (lp->env == NULL)
         cplexErr(lp, st, "Could not open CPLEX environment");
+
+    LOG(err, "CPLEX version: %{cplex_version}s", CPXversion(lp->env));
 
     // Set number of processing threads
     num_threads = PDDL_LP_GET_NUM_THREADS(flags);

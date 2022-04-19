@@ -216,7 +216,9 @@ _pddl_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
  * Solve the LP problem and returns the solution via sol.
  * Return 0 on success, -1 if solution was not found.
  */
-int pddlPotSolve(const pddl_pot_t *pot, pddl_pot_solution_t *sol);
+int pddlPotSolve(const pddl_pot_t *pot,
+                 pddl_pot_solution_t *sol,
+                 pddl_err_t *err);
 
 void pddlPotMGStripsPrintLP(const pddl_pot_t *pot,
                             const pddl_mg_strips_t *mg_strips,

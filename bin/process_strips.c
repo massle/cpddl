@@ -222,7 +222,7 @@ static int irrelevance(pddl_process_strips_t *prune,
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune)
 {
     pddl_process_strips_step_t *step;
-    step = stepNew("irrelevance: ", prune, irrelevance, emptyFree);
+    step = stepNew("irrelevance", prune, irrelevance, emptyFree);
     step->can_reuse_rm_op_fact = 0;
 }
 
@@ -237,7 +237,7 @@ static int famgroupsDeadEndOps(pddl_process_strips_t *prune,
 void pddlProcessStripsAddFAMGroupsDeadEndOps(pddl_process_strips_t *prune)
 {
     pddl_process_strips_step_t *step;
-    step = stepNew("fam dead-end: ", prune, famgroupsDeadEndOps, emptyFree);
+    step = stepNew("fam dead-end", prune, famgroupsDeadEndOps, emptyFree);
     step->can_reuse_rm_op_fact = 0;
 }
 
@@ -259,7 +259,7 @@ void pddlProcessStripsAddH2Fw(pddl_process_strips_t *prune,
                               float time_limit_in_s)
 {
     pddl_process_strips_step_hm_t *step;
-    step = stepHmNew("h^2 fw: ", prune, h2fw, emptyFree);
+    step = stepHmNew("h^2 fw", prune, h2fw, emptyFree);
     step->step.can_reuse_rm_op_fact = 1;
     step->time_limit = time_limit_in_s;
 }
@@ -287,7 +287,7 @@ void pddlProcessStripsAddH2FwBw(pddl_process_strips_t *prune,
                                 float time_limit_in_s)
 {
     pddl_process_strips_step_hm_t *step;
-    step = stepHmNew("h^2 fw+bw: ", prune, h2fwbw, emptyFree);
+    step = stepHmNew("h^2 fw+bw", prune, h2fwbw, emptyFree);
     step->step.can_reuse_rm_op_fact = 1;
     step->time_limit = time_limit_in_s;
 }
@@ -312,7 +312,7 @@ void pddlProcessStripsAddH3Fw(pddl_process_strips_t *prune,
                               size_t excess_memory)
 {
     pddl_process_strips_step_hm_t *step;
-    step = stepHmNew("h^3 fw: ", prune, h3fw, emptyFree);
+    step = stepHmNew("h^3 fw", prune, h3fw, emptyFree);
     step->step.can_reuse_rm_op_fact = 1;
     step->time_limit = time_limit_in_s;
     step->excess_memory = excess_memory;
@@ -329,7 +329,23 @@ static int deduplicateOps(pddl_process_strips_t *prune,
 void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune)
 {
     pddl_process_strips_step_t *step;
-    step = stepNew("deduplicate ops: ", prune, deduplicateOps, emptyFree);
+    step = stepNew("deduplicate ops", prune, deduplicateOps, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+}
+
+static int sortOps(pddl_process_strips_t *prune,
+                   pddl_process_strips_step_t *step,
+                   pddl_err_t *err)
+{
+    pddlStripsOpsSort(&prune->strips->op);
+    PDDL_INFO2(err, "Operators sorted by name");
+    return 0;
+}
+
+void pddlProcessStripsAddSortOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("sort ops", prune, sortOps, emptyFree);
     step->can_reuse_rm_op_fact = 0;
 }
 
@@ -435,7 +451,7 @@ static pddl_process_strips_step_op_mutex_t *
 {
     pddl_process_strips_step_op_mutex_t *step;
     step = PDDL_ALLOC(pddl_process_strips_step_op_mutex_t);
-    stepInit("op mutex: ", &step->step, prune, opMutexExecute, opMutexFree);
+    stepInit("op mutex", &step->step, prune, opMutexExecute, opMutexFree);
     return step;
 }
 
@@ -575,7 +591,7 @@ static pddl_process_strips_step_endomorph_t *
     pddl_process_strips_step_endomorph_t *step;
     step = PDDL_ALLOC(pddl_process_strips_step_endomorph_t);
     bzero(step, sizeof(*step));
-    stepInit("endomorph: ", &step->step, prune, endomorphExecute, emptyFree);
+    stepInit("endomorph", &step->step, prune, endomorphExecute, emptyFree);
     return step;
 }
 

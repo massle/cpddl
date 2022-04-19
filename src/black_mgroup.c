@@ -445,7 +445,7 @@ static pddl_lp_t *createLP(const black_vars_t *bv)
     lp_flags  = PDDL_LP_DEFAULT;
     lp_flags |= PDDL_LP_NUM_THREADS(1);
     lp_flags |= PDDL_LP_MAX;
-    pddl_lp_t *lp = pddlLPNew(0, bv->fact_vertex_size, lp_flags);
+    pddl_lp_t *lp = pddlLPNew(0, bv->fact_vertex_size, lp_flags, NULL);
     for (int vi = 0; vi < bv->fact_vertex_size; ++vi){
         pddlLPSetObj(lp, vi, bv->fact_vertex[vi].weight);
         pddlLPSetVarBinary(lp, vi);

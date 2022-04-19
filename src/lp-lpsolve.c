@@ -47,7 +47,7 @@ static int lpSense(char sense)
     }
 }
 
-static pddl_lp_t *new(int rows, int cols, unsigned flags)
+static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     lp_t *lp;
 

@@ -21,6 +21,7 @@
 #include "pddl/lp.h"
 #include "alloc.h"
 #include "_lp.h"
+#include "err.h"
 
 #ifdef PDDL_GUROBI
 # include <gurobi_c.h>
@@ -54,7 +55,7 @@ static void grbError(lp_t *lp)
     exit(-1);
 }
 
-static pddl_lp_t *new(int rows, int cols, unsigned flags)
+static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     lp_t *lp;
     int ret, sense, num_threads;
@@ -62,9 +63,8 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags)
     lp = ALLOC(lp_t);
     lp->cls.cls = &pddl_lp_gurobi;
     if ((ret = GRBloadenv(&lp->env, NULL)) != 0){
-        fprintf(stderr, "LP Gurobi Error: Could not create environment"
-                " (error-code: %d)!\n", ret);
-        exit(-1);
+        FATAL("LP Gurobi Error: Could not create environment"
+              " (error-code: %d)!", ret);
     }
     if (GRBnewmodel(lp->env, &lp->model, NULL, cols,
                 NULL, NULL, NULL, NULL, NULL) != 0){

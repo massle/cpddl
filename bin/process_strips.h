@@ -41,6 +41,7 @@ void pddlProcessStripsAddH3Fw(pddl_process_strips_t *prune,
                               float time_limit_in_s,
                               size_t excess_memory);
 void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune);
+void pddlProcessStripsAddSortOps(pddl_process_strips_t *prune);
 
 void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
                                  int ts, int op_fact, int hm_op,

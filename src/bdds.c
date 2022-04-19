@@ -17,8 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/bdds.h"
+#include "pddl/sort.h"
+#include "alloc.h"
 
 void pddlBDDsInit(pddl_bdds_t *bdds)
 {
@@ -163,4 +164,26 @@ void pddlBDDsCostsAdd(pddl_bdd_manager_t *mgr,
     }else{
         pddlCostSetZero(&b->cost);
     }
+}
+
+static int bddsCostsCmp(const void *a, const void *b, void *_)
+{
+    const pddl_bdd_cost_t *b1 = a;
+    const pddl_bdd_cost_t *b2 = b;
+    return pddlCostCmp(&b1->cost, &b2->cost);
+}
+
+void pddlBDDsCostsSortUniq(pddl_bdd_manager_t *mgr, pddl_bdds_costs_t *bdds)
+{
+    pddlSort(bdds->bdd, bdds->bdd_size, sizeof(*bdds->bdd), bddsCostsCmp, NULL);
+    int last = 0;
+    for (int i = 1; i < bdds->bdd_size; ++i){
+        if (pddlCostCmp(&bdds->bdd[last].cost, &bdds->bdd[i].cost) == 0){
+            pddlBDDOrUpdate(mgr, &bdds->bdd[last].bdd, bdds->bdd[i].bdd);
+            pddlBDDDel(mgr, bdds->bdd[i].bdd);
+        }else{
+            bdds->bdd[++last] = bdds->bdd[i];
+        }
+    }
+    bdds->bdd_size = last + 1;
 }

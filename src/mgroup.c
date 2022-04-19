@@ -722,7 +722,7 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     lp_flags  = PDDL_LP_DEFAULT;
     lp_flags |= PDDL_LP_NUM_THREADS(1);
     lp_flags |= PDDL_LP_MIN;
-    lp = pddlLPNew(rows, cols, lp_flags);
+    lp = pddlLPNew(rows, cols, lp_flags, NULL);
 
     for (int i = 0; i < cols; ++i){
         pddlLPSetVarBinary(lp, i);

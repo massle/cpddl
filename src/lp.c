@@ -56,38 +56,38 @@ int pddlLPSolverAvailable(unsigned solver)
 #endif /* PDDL_CPLEX */
 }
 
-pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags)
+pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     if (SOLVER(flags) == PDDL_LP_CPLEX){
 #ifdef PDDL_CPLEX
-        return pddl_lp_cplex.new(rows, cols, flags);
+        return pddl_lp_cplex.new(rows, cols, flags, err);
 #else /* PDDL_CPLEX */
-        return pddl_lp_not_available.new(rows, cols, flags);
+        return pddl_lp_not_available.new(rows, cols, flags, err);
 #endif /* PDDL_CPLEX */
     }else if (SOLVER(flags) == PDDL_LP_GUROBI){
 #ifdef PDDL_GUROBI
-        return pddl_lp_gurobi.new(rows, cols, flags);
+        return pddl_lp_gurobi.new(rows, cols, flags, err);
 #else /* PDDL_GUROBI */
-        return pddl_lp_not_available.new(rows, cols, flags);
+        return pddl_lp_not_available.new(rows, cols, flags, err);
 #endif /* PDDL_GUROBI */
     }else if (SOLVER(flags) == PDDL_LP_LPSOLVE){
 #ifdef PDDL_LPSOLVE
-        return pddl_lp_lpsolve.new(rows, cols, flags);
+        return pddl_lp_lpsolve.new(rows, cols, flags, err);
 #else /* PDDL_LPSOLVE */
-        return pddl_lp_not_available.new(rows, cols, flags);
+        return pddl_lp_not_available.new(rows, cols, flags, err);
 #endif /* PDDL_LPSOLVE */
     }
 
 #ifdef PDDL_CPLEX
-    return pddl_lp_cplex.new(rows, cols, flags);
+    return pddl_lp_cplex.new(rows, cols, flags, err);
 #else /* PDDL_CPLEX */
 #ifdef PDDL_GUROBI
-    return pddl_lp_gurobi.new(rows, cols, flags);
+    return pddl_lp_gurobi.new(rows, cols, flags, err);
 #else /* PDDL_GUROBI */
 #ifdef PDDL_LPSOLVE
-    return pddl_lp_lpsolve.new(rows, cols, flags);
+    return pddl_lp_lpsolve.new(rows, cols, flags, err);
 #else /* PDDL_LPSOLVE */
-    return pddl_lp_not_available.new(rows, cols, flags);
+    return pddl_lp_not_available.new(rows, cols, flags, err);
 #endif /* PDDL_LPSOLVE */
 #endif /* PDDL_GUROBI */
 #endif /* PDDL_CPLEX */
@@ -191,7 +191,7 @@ void pddlLPWrite(pddl_lp_t *lp, const char *fn)
     fprintf(stderr, "Error: The requested LP solver is not available!\n"); \
     exit(-1); \
     } while (0)
-static pddl_lp_t *noNew(int rows, int cols, unsigned flags)
+static pddl_lp_t *noNew(int rows, int cols, unsigned flags, pddl_err_t *err)
 { noSolverExit(); }
 static void noDel(pddl_lp_t *lp)
 { noSolverExit(); }

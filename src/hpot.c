@@ -103,14 +103,14 @@ static int solveAndAdd(pddl_pot_t *pot,
 {
     pddl_pot_solution_t sol;
     pddlPotSolutionInit(&sol);
-    int ret = pddlPotSolve(pot, &sol);
+    int ret = pddlPotSolve(pot, &sol, err);
     for (int i = 0; cfg->add_init_constr && ret != 0
                         && i < INIT_STATE_RHS_DECREASE_MAX_STEPS; ++i){
         pddlPotDecreaseLowerBoundConstrRHS(pot, INIT_STATE_RHS_DECREASE_STEP);
         double rhs = pddlPotSetLowerBoundConstrRHS(pot);
         PDDL_INFO(err, "Solution not found. Setting lower bound constraint to "
                       "%.4f (%a)", rhs, rhs);
-        ret = pddlPotSolve(pot, &sol);
+        ret = pddlPotSolve(pot, &sol, err);
     }
     if (ret == 0)
         pddlPotSolutionsAdd(sols, &sol);
@@ -240,7 +240,7 @@ static int addInitConstr(pddl_pot_t *pot,
     pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
     pddl_pot_solution_t sol;
     pddlPotSolutionInit(&sol);
-    int ret = pddlPotSolve(pot, &sol);
+    int ret = pddlPotSolve(pot, &sol, err);
     if (ret != 0){
         PDDL_INFO2(err, "No optimal solution for the initial state");
         return ret;
@@ -303,7 +303,7 @@ static void stateSamplerInit(state_sampler_t *s,
         pddlPotSetObjFDRState(pot, &fdr->var, fdr->init);
         pddl_pot_solution_t sol;
         pddlPotSolutionInit(&sol);
-        int ret = pddlPotSolve(pot, &sol);
+        int ret = pddlPotSolve(pot, &sol, err);
         if (ret != 0){
             PDDL_INFO2(err, "No optimal solution for the initial state");
             s->random_walk_max_steps = 0;
@@ -628,7 +628,7 @@ static int samples(pddl_pot_solutions_t *sols,
             // Dead-ends are simply skipped
             pddl_pot_solution_t sol;
             pddlPotSolutionInit(&sol);
-            if (pddlPotSolve(pot, &sol) == 0){
+            if (pddlPotSolve(pot, &sol, err) == 0){
                 int h;
                 h = pddlPotSolutionEvalFDRState(&sol, &fdr->var, sampler.state);
                 if (h != PDDL_COST_DEAD_END){
@@ -766,7 +766,7 @@ static void diverseGenStates(diverse_pot_t *div,
         pddlPotSetObj(pot, div->coef);
         pddl_pot_solution_t sol;
         pddlPotSolutionInit(&sol);
-        if (pddlPotSolve(pot, &sol) == 0){
+        if (pddlPotSolve(pot, &sol, err) == 0){
             int h = pddlPotSolutionEvalFDRState(&sol, &fdr->var, sampler.state);
             if (h != PDDL_COST_DEAD_END){
                 // Add state to the set of states and store heuristic estimate
@@ -815,7 +815,7 @@ static int diverseAvg(diverse_pot_t *div,
             div->coef[fact_id] += 1.;
     }
     pddlPotSetObj(pot, div->coef);
-    return pddlPotSolve(pot, &div->avg_func);
+    return pddlPotSolve(pot, &div->avg_func, err);
 }
 
 static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,

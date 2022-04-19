@@ -15,6 +15,8 @@
 #ifndef __PDDL_LP_H__
 #define __PDDL_LP_H__
 
+#include <pddl/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -60,7 +62,7 @@ int pddlLPSolverAvailable(unsigned solver);
 /**
  * Creates a new LP problem with specified number of rows and columns.
  */
-pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags);
+pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err);
 
 /**
  * Deletes the LP object.
