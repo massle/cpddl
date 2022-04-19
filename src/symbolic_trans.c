@@ -417,6 +417,16 @@ static int opIdCostCmp(const void *a, const void *b, void *_ops)
     if (cmp == 0)
         cmp = pddlCostCmp(&ops[id1].heur_change, &ops[id2].heur_change);
     if (cmp == 0)
+        cmp = strcmp(ops[id1].name, ops[id2].name);
+    if (cmp == 0)
+        cmp = pddlISetCmp(&ops[id1].pre, &ops[id2].pre);
+    if (cmp == 0)
+        cmp = pddlISetCmp(&ops[id1].neg_pre, &ops[id2].neg_pre);
+    if (cmp == 0)
+        cmp = pddlISetCmp(&ops[id1].eff, &ops[id2].eff);
+    if (cmp == 0)
+        cmp = pddlISetCmp(&ops[id1].neg_eff, &ops[id2].neg_eff);
+    if (cmp == 0)
         return id1 - id2;
     return cmp;
 }
