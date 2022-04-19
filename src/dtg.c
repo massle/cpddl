@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/iarr.h>
 #include "pddl/dtg.h"
+#include "internal.h"
 
 void pddlUnreachableInMGroupDTG(int init_fact,
                                 const pddl_mgroup_t *mgroup,

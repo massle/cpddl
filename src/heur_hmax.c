@@ -17,7 +17,7 @@
  */
 
 #include "pddl/hmax.h"
-#include "alloc.h"
+#include "internal.h"
 #include "_heur.h"
 
 struct pddl_heur_hmax {

@@ -26,8 +26,7 @@
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup_htable.h"
 #include "pddl/lifted_mgroup_infer.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 struct cand {
     int id;

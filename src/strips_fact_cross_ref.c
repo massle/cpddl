@@ -18,7 +18,7 @@
  */
 
 #include "pddl/strips_fact_cross_ref.h"
-#include "alloc.h"
+#include "internal.h"
 
 void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
                                 const pddl_strips_t *strips,

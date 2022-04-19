@@ -17,11 +17,10 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/prep_action.h"
-#include "err.h"
+#include "internal.h"
 
 #define MUST_NEQ(A, I, J) \
     ((A)->must_neq[(I) * (A)->param_size + (J)])

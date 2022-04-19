@@ -17,12 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips.h"
-#include "err.h"
-#include "assert.h"
-#include "log.h"
+#include "internal.h"
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
                          const char *prefix,

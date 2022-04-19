@@ -17,11 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include "pddl/symbolic_trans.h"
-#include "assert.h"
-#include "fmt.h"
+#include "internal.h"
 
 struct op {
     int op_id;

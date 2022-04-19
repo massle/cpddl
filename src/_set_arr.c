@@ -14,8 +14,8 @@
  *  See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/set.h"
+#include "internal.h"
 
 void pddlSetInit(pddl_set_t *s)
 {

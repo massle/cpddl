@@ -21,8 +21,7 @@
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
 #include "pddl/time_limit.h"
-#include "alloc.h"
-#include "err.h"
+#include "internal.h"
 
 typedef int16_t fact_id_t;
 

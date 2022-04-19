@@ -18,7 +18,7 @@
 
 #include <pddl/extarr.h>
 #include "pddl/hflow.h"
-#include "alloc.h"
+#include "internal.h"
 #include "_heur.h"
 
 struct pddl_heur_flow {

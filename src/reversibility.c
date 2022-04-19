@@ -18,7 +18,7 @@
 
 #include <pddl/sort.h>
 #include "pddl/reversibility.h"
-#include "alloc.h"
+#include "internal.h"
 
 static void pddlConjFactFormulaFree(pddl_conj_fact_formula_t *f)
 {

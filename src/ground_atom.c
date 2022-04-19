@@ -21,9 +21,7 @@
 #include <pddl/sort.h>
 #include "pddl/ground_atom.h"
 #include "pddl/pddl_struct.h"
-#include "alloc.h"
-#include "err.h"
-#include "assert.h"
+#include "internal.h"
 
 
 #define PDDL_GROUND_ATOM_STACK(NAME, ARG_SIZE) \

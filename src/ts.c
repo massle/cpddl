@@ -16,10 +16,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/iarr.h>
 #include "pddl/ts.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlTSInit(pddl_ts_t *ts, int num_states)
 {

@@ -21,8 +21,7 @@
 #include <pddl/iarr.h>
 #include <pddl/timer.h>
 #include "pddl/fdr_state_pool.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 #define PAGESIZE_MULTIPLY 1024
 #define MIN_STATES_PER_BLOCK (1024 * 1024)

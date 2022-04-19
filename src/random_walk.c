@@ -17,8 +17,7 @@
  */
 
 #include "pddl/random_walk.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 static void init(pddl_random_walk_t *rndw,
                  const pddl_fdr_t *fdr,

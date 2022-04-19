@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include "pddl/transition.h"
+#include "internal.h"
 
 void pddlTransitionsInit(pddl_transitions_t *ts)
 {

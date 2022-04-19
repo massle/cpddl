@@ -16,9 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/disambiguation.h>
-#include "assert.h"
+#include "internal.h"
 
 static void selectExactlyOneMGroups(pddl_mgroups_t *mg,
                                     const pddl_mgroups_t *mgroup)

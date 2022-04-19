@@ -18,7 +18,7 @@
  */
 
 #include "_heur.h"
-#include "alloc.h"
+#include "internal.h"
 
 static void heurDel(pddl_heur_t *h)
 {

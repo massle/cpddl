@@ -19,8 +19,7 @@
 
 #include "pddl/irrelevance.h"
 #include "pddl/strips_fact_cross_ref.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 static void backwardIrrelevanceEnqueue(const pddl_strips_t *s,
                                        int op_id,

@@ -21,9 +21,7 @@
 #include "pddl/critical_path.h"
 #include "pddl/disambiguation.h"
 #include "pddl/time_limit.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 #define REACHED 1
 #define FW_MUTEX 2

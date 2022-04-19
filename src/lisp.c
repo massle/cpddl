@@ -24,10 +24,9 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "alloc.h"
-
 #include "pddl/lisp.h"
 #include "lisp_err.h"
+#include "internal.h"
 
 
 #define IS_WS(c) ((c) == ' ' || (c) == '\n' || (c) == '\r' || (c) == '\t')

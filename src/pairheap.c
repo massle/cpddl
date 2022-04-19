@@ -13,7 +13,7 @@
  */
 
 #include "pddl/pairheap.h"
-#include "alloc.h"
+#include "internal.h"
 
 pddl_pairheap_t *pddlPairHeapNew(pddl_pairheap_lt less_than, void *data)
 {

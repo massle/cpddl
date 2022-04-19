@@ -15,9 +15,8 @@
  */
 
 #include "pddl/lp.h"
-#include "alloc.h"
 #include "_lp.h"
-#include "err.h"
+#include "internal.h"
 
 #ifdef PDDL_GUROBI
 # include <gurobi_c.h>

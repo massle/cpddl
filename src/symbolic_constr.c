@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/symbolic_constr.h"
+#include "internal.h"
 
 static void separateFwBwMutex(const pddl_mutex_pairs_t *mutex,
                               pddl_mutex_pairs_t *fw_mutex,

@@ -14,7 +14,7 @@
 
 #include <pddl/err.h>
 #include "pddl/sort.h"
-#include "alloc.h"
+#include "internal.h"
 
 /**** INSERT SORT LIST ****/
 void pddlListInsertSort(pddl_list_t *list, pddl_sort_list_cmp cmp, void *data)

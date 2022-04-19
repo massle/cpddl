@@ -17,11 +17,10 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/pred.h"
 #include "lisp_err.h"
-#include "assert.h"
+#include "internal.h"
 
 struct _set_t {
     pddl_pred_t *pred;

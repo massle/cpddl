@@ -24,9 +24,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cudd/cudd.h>
-#include <pddl/err.h>
 #include "pddl/bdd.h"
-#include "assert.h"
+#include "internal.h"
 
 
 #define M(P) ((DdManager *)(P))

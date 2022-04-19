@@ -17,11 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
-
 #include "pddl/param.h"
 #include "lisp_err.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlParamInit(pddl_param_t *param)
 {

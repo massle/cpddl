@@ -20,8 +20,7 @@
 #include "pddl/iarr.h"
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
-#include "alloc.h"
-#include "err.h"
+#include "internal.h"
 
 int pddlH1(const pddl_strips_t *strips,
            pddl_iset_t *unreachable_facts,

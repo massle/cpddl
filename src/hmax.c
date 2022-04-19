@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hmax.h"
+#include "internal.h"
 
 #define FID(heur, f) ((f) - (heur)->fact)
 #define FVALUE(fact) (fact)->heap.key

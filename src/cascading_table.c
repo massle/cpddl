@@ -18,7 +18,7 @@
  */
 
 #include "pddl/cascading_table.h"
-#include "alloc.h"
+#include "internal.h"
 
 #define PRUNED -1
 #define PDDL_CASCADING_TABLE_LEAF 0

@@ -18,12 +18,9 @@
  */
 
 
-#include "alloc.h"
 #include "pddl/pddl_struct.h"
 #include "pddl/unify.h"
-#include "fmt.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 
 struct action_cond {

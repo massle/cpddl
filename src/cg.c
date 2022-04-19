@@ -24,8 +24,7 @@
 #include <pddl/pairheap.h>
 #include "pddl/cg.h"
 #include "pddl/scc.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 #define GOAL_BONUS 100000
 

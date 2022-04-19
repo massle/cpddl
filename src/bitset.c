@@ -18,7 +18,7 @@
  */
 
 #include "pddl/bitset.h"
-#include "alloc.h"
+#include "internal.h"
 
 void pddlBitsetInit(pddl_bitset_t *b, int bitsize)
 {

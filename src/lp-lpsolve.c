@@ -17,8 +17,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "pddl/lp.h"
-#include "alloc.h"
 #include "_lp.h"
+#include "internal.h"
 
 #ifdef PDDL_LPSOLVE
 # include <lpsolve/lp_lib.h>

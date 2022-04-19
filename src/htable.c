@@ -14,8 +14,8 @@
  *  See the License for more information.
  */
 
-#include <pddl/htable.h>
-#include "alloc.h"
+#include "pddl/htable.h"
+#include "internal.h"
 
 #define PDDL_HTABLE_INITIAL_SIZE 100
 

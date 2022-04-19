@@ -16,12 +16,10 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/fdr_part_state.h"
-#include "assert.h"
-int pddlSort(void *base, size_t nmemb, size_t size,
-             pddl_sort_cmp cmp, void *carg);
+#include "internal.h"
+
 
 static int factsCmp(const void *a, const void *b, void *_)
 {

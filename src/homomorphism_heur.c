@@ -21,9 +21,7 @@
 #include "pddl/hff.h"
 #include "pddl/strips_ground_sql.h"
 #include "pddl/prune_strips.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 #define LM_CUT_TYPE 1
 #define HFF_TYPE 2

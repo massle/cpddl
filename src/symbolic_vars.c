@@ -17,9 +17,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/symbolic_vars.h"
-#include "assert.h"
+#include "internal.h"
 
 
 void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,

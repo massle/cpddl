@@ -1,7 +1,5 @@
-#include <stdio.h>
-#include <unistd.h>
 #include "pddl/extarr.h"
-#include "alloc.h"
+#include "internal.h"
 
 pddl_extarr_t *_pddlExtArrNew(size_t el_size, size_t segment_size,
                               pddl_extarr_el_init_fn init_fn,

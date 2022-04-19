@@ -14,7 +14,7 @@
  */
 
 #include "pddl/rbtree.h"
-#include "alloc.h"
+#include "internal.h"
 
 
 #define RB_NODE pddl_rbtree_node_t

@@ -21,9 +21,7 @@
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"
 #include "pddl/op_mutex_infer.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 static void tsReachabilityState(const pddl_ts_t *ts, int state, int *reach)
 {

@@ -19,7 +19,6 @@
 
 #include "pddl/config.h"
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include <pddl/extarr.h>
 #include <pddl/pairheap.h>
@@ -43,9 +42,7 @@
 #include "pddl/scc.h"
 #include "pddl/famgroup.h"
 #include "pddl/hpot.h"
-#include "assert.h"
-#include "fmt.h"
-#include "err.h"
+#include "internal.h"
 
 #define ROUND_EPS 0.001
 

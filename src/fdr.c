@@ -21,9 +21,7 @@
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
 #include "pddl/cg.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
                              const pddl_iset_t *state,

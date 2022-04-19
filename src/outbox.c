@@ -18,7 +18,7 @@
  */
 
 #include "pddl/outbox.h"
-#include "alloc.h"
+#include "internal.h"
 
 void pddlOutBoxesInit(pddl_outboxes_t *b)
 {

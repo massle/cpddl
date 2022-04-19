@@ -21,8 +21,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 #define LINESIZE 1024
 

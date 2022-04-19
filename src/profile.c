@@ -19,7 +19,7 @@
 
 #include <pddl/timer.h>
 #include <stdio.h>
-#include "alloc.h"
+#include "internal.h"
 #include "profile.h"
 
 struct pddl_profile_slot {

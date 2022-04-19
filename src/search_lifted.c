@@ -21,9 +21,7 @@
 #include "pddl/strips_maker.h"
 #include "pddl/sql_grounder.h"
 #include "pddl/search_lifted.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 typedef void (*search_del_fn)(pddl_search_lifted_t *);
 typedef int (*search_init_step_fn)(pddl_search_lifted_t *);

@@ -16,12 +16,11 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include <pddl/lp.h>
 #include "pddl/pot.h"
 #include "pddl/disambiguation.h"
-#include "assert.h"
+#include "internal.h"
 
 #define LPVAR_UPPER 1E7
 #define LPVAR_LOWER -1E20

@@ -23,8 +23,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <limits.h>
-#include <pddl/rand-mt.h>
-#include "alloc.h"
+#include "pddl/rand-mt.h"
+#include "internal.h"
 
 _pddl_inline void pddlRandMTInit(pddl_rand_mt_t *r, uint32_t seed);
 

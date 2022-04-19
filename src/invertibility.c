@@ -16,10 +16,10 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/disambiguation.h"
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/invertibility.h"
+#include "internal.h"
 
 static int existOpWithPreSubsetPreAdd(const pddl_strips_t *strips,
                                       const pddl_iset_t *ops,

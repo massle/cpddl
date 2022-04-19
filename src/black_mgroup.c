@@ -25,8 +25,7 @@
 #include "pddl/mgroup_projection.h"
 #include "pddl/hff.h"
 #include "pddl/relaxed_plan.h"
-#include "alloc.h"
-#include "err.h"
+#include "internal.h"
 
 struct fact_vertex {
     int fact;

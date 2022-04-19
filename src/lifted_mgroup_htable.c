@@ -17,10 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include "pddl/lifted_mgroup_htable.h"
-#include "assert.h"
+#include "internal.h"
 
 struct el {
     int id;

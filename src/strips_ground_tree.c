@@ -18,8 +18,7 @@
 
 #include "pddl/pddl.h"
 #include "pddl/strips_ground_tree.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 #define TNODE_FOR_EACH_CHILD(TN, CH) \
     for (int __i = 0; __i < (TN)->child_size \

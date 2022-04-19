@@ -26,9 +26,7 @@
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/sql_grounder.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 
 struct sql_ground {

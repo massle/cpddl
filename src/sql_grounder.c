@@ -18,12 +18,10 @@
  */
 
 #include <sqlite3.h>
-#include "alloc.h"
 #include "pddl/sql_grounder.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 #define QUERY_SIZE 4096
 #define QUERY_SELECT_SIZE (5 * QUERY_SIZE)

@@ -16,9 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/op_mutex_sym_redundant.h"
-#include "assert.h"
+#include "internal.h"
 
 struct reduce_gen {
     /** ID of the symmetry generator */

@@ -15,9 +15,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "pddl/lp.h"
-#include "alloc.h"
 #include "_lp.h"
-#include "err.h"
+#include "internal.h"
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>

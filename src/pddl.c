@@ -18,10 +18,8 @@
  */
 
 
-#include "alloc.h"
 #include "pddl/pddl_struct.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err)
 {
