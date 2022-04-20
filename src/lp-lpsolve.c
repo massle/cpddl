@@ -148,8 +148,11 @@ static void addCols(pddl_lp_t *_lp, int cnt)
     lp_t *lp = LP(_lp);
     int i;
 
+    double *col = CALLOC_ARR(double, get_Nrows(lp->lp) + 1);
     for (i = 0; i < cnt; ++i)
-        add_column(lp->lp, NULL);
+        add_column(lp->lp, col);
+    if (col != NULL)
+        FREE(col);
 }
 
 static void delCols(pddl_lp_t *_lp, int begin, int end)
