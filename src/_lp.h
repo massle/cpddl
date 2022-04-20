@@ -54,15 +54,9 @@ struct _pddl_lp_t {
 };
 
 extern pddl_lp_cls_t pddl_lp_not_available;
-#ifdef PDDL_CPLEX
 extern pddl_lp_cls_t pddl_lp_cplex;
-#endif /* PDDL_CPLEX */
-#ifdef PDDL_GUROBI
 extern pddl_lp_cls_t pddl_lp_gurobi;
-#endif /* PDDL_GUROBI */
-#ifdef PDDL_LPSOLVE
 extern pddl_lp_cls_t pddl_lp_lpsolve;
-#endif /* PDDL_LPSOLVE */
 
 #ifdef __cplusplus
 }

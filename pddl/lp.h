@@ -45,12 +45,12 @@ typedef struct _pddl_lp_t pddl_lp_t;
 /**
  * Sets minimization (default).
  */
-#define PDDL_LP_MIN 0x0
+#define PDDL_LP_MIN 0x0u
 
 /**
  * Sets maximization.
  */
-#define PDDL_LP_MAX 0x1
+#define PDDL_LP_MAX 0x1u
 
 
 /**

@@ -305,4 +305,6 @@ pddl_lp_cls_t pddl_lp_gurobi = {
     lpSolve,
     lpWrite,
 };
+#else /* PDDL_GUROBI */
+pddl_lp_cls_t pddl_lp_gurobi;
 #endif /* PDDL_GUROBI */

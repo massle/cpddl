@@ -23,74 +23,51 @@
 int pddlLPSolverAvailable(unsigned solver)
 {
     if (SOLVER(solver) == PDDL_LP_CPLEX){
-#ifdef PDDL_CPLEX
-        return 1;
-#else /* PDDL_CPLEX */
+        if (pddl_lp_cplex.new != NULL)
+            return 1;
         return 0;
-#endif /* PDDL_CPLEX */
+
     }else if (SOLVER(solver) == PDDL_LP_GUROBI){
-#ifdef PDDL_GUROBI
-        return 1;
-#else /* PDDL_GUROBI */
+        if (pddl_lp_gurobi.new != NULL)
+            return 1;
         return 0;
-#endif /* PDDL_GUROBI */
+
     }else if (SOLVER(solver) == PDDL_LP_LPSOLVE){
-#ifdef PDDL_LPSOLVE
-        return 1;
-#else /* PDDL_LPSOLVE */
+        if (pddl_lp_lpsolve.new != NULL)
+            return 1;
         return 0;
-#endif /* PDDL_LPSOLVE */
     }
-#ifdef PDDL_CPLEX
-        return 1;
-#else /* PDDL_CPLEX */
-#ifdef PDDL_GUROBI
-        return 1;
-#else /* PDDL_GUROBI */
-#ifdef PDDL_LPSOLVE
-        return 1;
-#else /* PDDL_LPSOLVE */
-        return 0;
-#endif /* PDDL_LPSOLVE */
-#endif /* PDDL_GUROBI */
-#endif /* PDDL_CPLEX */
+
+    return pddlLPSolverAvailable(PDDL_LP_CPLEX)
+            || pddlLPSolverAvailable(PDDL_LP_GUROBI)
+            || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
 }
 
 pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     if (SOLVER(flags) == PDDL_LP_CPLEX){
-#ifdef PDDL_CPLEX
-        return pddl_lp_cplex.new(rows, cols, flags, err);
-#else /* PDDL_CPLEX */
+        if (pddl_lp_cplex.new != NULL)
+            return pddl_lp_cplex.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_CPLEX */
+
     }else if (SOLVER(flags) == PDDL_LP_GUROBI){
-#ifdef PDDL_GUROBI
-        return pddl_lp_gurobi.new(rows, cols, flags, err);
-#else /* PDDL_GUROBI */
+        if (pddl_lp_gurobi.new != NULL)
+            return pddl_lp_gurobi.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_GUROBI */
+
     }else if (SOLVER(flags) == PDDL_LP_LPSOLVE){
-#ifdef PDDL_LPSOLVE
-        return pddl_lp_lpsolve.new(rows, cols, flags, err);
-#else /* PDDL_LPSOLVE */
+        if (pddl_lp_lpsolve.new != NULL)
+            return pddl_lp_lpsolve.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_LPSOLVE */
     }
 
-#ifdef PDDL_CPLEX
-    return pddl_lp_cplex.new(rows, cols, flags, err);
-#else /* PDDL_CPLEX */
-#ifdef PDDL_GUROBI
-    return pddl_lp_gurobi.new(rows, cols, flags, err);
-#else /* PDDL_GUROBI */
-#ifdef PDDL_LPSOLVE
-    return pddl_lp_lpsolve.new(rows, cols, flags, err);
-#else /* PDDL_LPSOLVE */
+    if (pddl_lp_cplex.new != NULL)
+        return pddl_lp_cplex.new(rows, cols, flags, err);
+    if (pddl_lp_gurobi.new != NULL)
+        return pddl_lp_gurobi.new(rows, cols, flags, err);
+    if (pddl_lp_lpsolve.new != NULL)
+        return pddl_lp_lpsolve.new(rows, cols, flags, err);
     return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_LPSOLVE */
-#endif /* PDDL_GUROBI */
-#endif /* PDDL_CPLEX */
 }
 
 void pddlLPDel(pddl_lp_t *lp)

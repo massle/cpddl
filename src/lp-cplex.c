@@ -289,4 +289,6 @@ pddl_lp_cls_t pddl_lp_cplex = {
     solve,
     cpxWrite,
 };
+#else /* PDDL_CPLEX */
+pddl_lp_cls_t pddl_lp_cplex;
 #endif /* PDDL_CPLEX */

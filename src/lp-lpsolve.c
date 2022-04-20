@@ -237,4 +237,6 @@ pddl_lp_cls_t pddl_lp_lpsolve = {
     lpSolve,
     lpWrite,
 };
+#else /* PDDL_LPSOLVE */
+pddl_lp_cls_t pddl_lp_lpsolve;
 #endif /* PDDL_LPSOLVE */
