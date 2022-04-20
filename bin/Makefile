@@ -30,9 +30,10 @@ all: $(TARGETS)
 
 pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LDFLAGS)
-pddl-%: pddl
-	rm -f $@
-	ln $< $@
+pddl-fdr: main.c ../libpddl.a $(OBJS)
+	$(CC) $(CFLAGS) -DBIN_PDDL_FDR=1 -o $@ $< $(OBJS) $(LDFLAGS)
+pddl-symba: main.c ../libpddl.a $(OBJS)
+	$(CC) $(CFLAGS) -DBIN_PDDL_SYMBA=1 -o $@ $< $(OBJS) $(LDFLAGS)
 
 report_%.o: report_%.c report.h
 	$(CC) $(CFLAGS) -c -o $@ $<

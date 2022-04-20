@@ -6,6 +6,9 @@
 #include "options.h"
 #include "opts.h"
 
+extern const int is_pddl_fdr;
+extern const int is_pddl_symba;
+
 options_t opt = { 0 };
 
 FILE *log_out = NULL;
@@ -36,8 +39,6 @@ struct endomorph_cfg {
 typedef struct endomorph_cfg endomorph_cfg_t;
 
 static pddl_endomorphism_config_t endomorph_default_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
-static int is_pddl_fdr;
-static int is_pddl_symba;
 
 static void hpotSetDisamb(int value, void *_cfg)
 {
@@ -810,9 +811,6 @@ static void setReportsOptions(void)
 
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
-    is_pddl_fdr = (strcmp(basename(argv[0]), "pddl-fdr") == 0);
-    is_pddl_symba = (strcmp(basename(argv[0]), "pddl-symba") == 0);
-
     setBaseOptions();
     setPddlOptions();
     setLMGOptions();
