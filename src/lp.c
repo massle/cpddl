@@ -32,6 +32,11 @@ int pddlLPSolverAvailable(unsigned solver)
             return 1;
         return 0;
 
+    }else if (SOLVER(solver) == PDDL_LP_GLPK){
+        if (pddl_lp_glpk.new != NULL)
+            return 1;
+        return 0;
+
     }else if (SOLVER(solver) == PDDL_LP_LPSOLVE){
         if (pddl_lp_lpsolve.new != NULL)
             return 1;
@@ -40,6 +45,7 @@ int pddlLPSolverAvailable(unsigned solver)
 
     return pddlLPSolverAvailable(PDDL_LP_CPLEX)
             || pddlLPSolverAvailable(PDDL_LP_GUROBI)
+            || pddlLPSolverAvailable(PDDL_LP_GLPK)
             || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
 }
 
@@ -55,6 +61,11 @@ pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
             return pddl_lp_gurobi.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
 
+    }else if (SOLVER(flags) == PDDL_LP_GLPK){
+        if (pddl_lp_gurobi.new != NULL)
+            return pddl_lp_glpk.new(rows, cols, flags, err);
+        return pddl_lp_not_available.new(rows, cols, flags, err);
+
     }else if (SOLVER(flags) == PDDL_LP_LPSOLVE){
         if (pddl_lp_lpsolve.new != NULL)
             return pddl_lp_lpsolve.new(rows, cols, flags, err);
@@ -65,6 +76,8 @@ pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
         return pddl_lp_cplex.new(rows, cols, flags, err);
     if (pddl_lp_gurobi.new != NULL)
         return pddl_lp_gurobi.new(rows, cols, flags, err);
+    if (pddl_lp_glpk.new != NULL)
+        return pddl_lp_glpk.new(rows, cols, flags, err);
     if (pddl_lp_lpsolve.new != NULL)
         return pddl_lp_lpsolve.new(rows, cols, flags, err);
     return pddl_lp_not_available.new(rows, cols, flags, err);

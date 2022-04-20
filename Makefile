@@ -35,6 +35,7 @@ OBJS += lp
 OBJS += lp-cplex
 OBJS += lp-lpsolve
 OBJS += lp-gurobi
+OBJS += lp-glpk
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -194,6 +195,7 @@ pddl/config.h:
 	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
+	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	echo "" >>$@

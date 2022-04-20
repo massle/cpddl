@@ -47,6 +47,7 @@ USE_CPLEX ?= auto
 USE_CPOPTIMIZER ?= auto
 USE_GUROBI ?= auto
 USE_LPSOLVE ?= auto
+USE_GLPK ?= auto
 
 ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/include/ilcplex/cplex.h)' ''
@@ -102,6 +103,18 @@ endif
 ifeq '$(USE_GUROBI)' 'auto'
   ifneq '$(GUROBI_CFLAGS)' ''
     USE_GUROBI := yes
+  endif
+endif
+
+ifeq '$(USE_GLPK)' 'auto'
+  ifneq '$(GLPK_CFLAGS)$(GLPK_LDFLAGS)' ''
+      USE_GLPK := yes
+  else
+    ifneq '$(wildcard /usr/include/glpk.h)' ''
+      USE_GLPK := yes
+      GLPK_CFLAGS :=
+      GLPK_LDFLAGS := -lglpk
+    endif
   endif
 endif
 
@@ -188,8 +201,8 @@ SQLITE_BUILD_CFLAGS ?= -O2 \
     -DSQLITE_OMIT_DEPRECATED
 
 
-LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS)
-LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS)
+LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS) $(GLPK_LDFLAGS)
+LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS) $(GLPK_CFLAGS)
 
 .DEFAULT_GOAL := all
 
@@ -242,6 +255,9 @@ help:
 	@echo "    GUROBI_CFLAGS   = $(GUROBI_CFLAGS)"
 	@echo "    GUROBI_LDFLAGS  = $(GUROBI_LDFLAGS)"
 	@echo "    USE_GUROBI      = $(USE_GUROBI)"
+	@echo "    GLPK_CFLAGS     = $(GLPK_CFLAGS)"
+	@echo "    GLPK_LDFLAGS    = $(GLPK_LDFLAGS)"
+	@echo "    USE_GLPK        = $(USE_GLPK)"
 	@echo "    LPSOLVE_CFLAGS  = $(LPSOLVE_CFLAGS)"
 	@echo "    LPSOLVE_LDFLAGS = $(LPSOLVE_LDFLAGS)"
 	@echo "    USE_LPSOLVE     = $(USE_LPSOLVE)"
