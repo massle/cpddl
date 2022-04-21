@@ -18,8 +18,6 @@
 #include "_lp.h"
 #include "internal.h"
 
-#define PDDL_GLPK
-
 #ifdef PDDL_GLPK
 # include <glpk.h>
 
