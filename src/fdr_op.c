@@ -215,11 +215,13 @@ void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op)
     ops->op[ops->op_size++] = op;
 }
 
-static int opCmp(const void *a, const void *b, void *_)
+static int opCmpNameFirst(const void *a, const void *b, void *_)
 {
     pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
     pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
-    int cmp = pddlFDRPartStateCmp(&o1->pre, &o2->pre);
+    int cmp = strcmp(o1->name, o2->name);
+    if (cmp == 0)
+        cmp = pddlFDRPartStateCmp(&o1->pre, &o2->pre);
     if (cmp == 0)
         cmp = pddlFDRPartStateCmp(&o1->eff, &o2->eff);
     if (cmp == 0)
@@ -234,21 +236,22 @@ static int opCmp(const void *a, const void *b, void *_)
     return cmp;
 }
 
-static int opCmpNameFirst(const void *a, const void *b, void *_)
+static int opCmpEffPreName(const void *a, const void *b, void *_)
 {
     pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
     pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
-    int cmp = strcmp(o1->name, o2->name);
+    int cmp = pddlFDRPartStateCmp(&o1->eff, &o2->eff);
     if (cmp == 0)
-        cmp = opCmp(a, b, _);
-    return cmp;
-}
-
-static int opCmpNameLast(const void *a, const void *b, void *_)
-{
-    pddl_fdr_op_t *o1 = *(pddl_fdr_op_t **)a;
-    pddl_fdr_op_t *o2 = *(pddl_fdr_op_t **)b;
-    int cmp = opCmp(a, b, _);
+        cmp = pddlFDRPartStateCmp(&o1->pre, &o2->pre);
+    if (cmp == 0)
+        cmp = o1->cond_eff_size - o2->cond_eff_size;
+    for (int cei = 0; cei < o1->cond_eff_size && cmp == 0; ++cei){
+        const pddl_fdr_op_cond_eff_t *ce1 = o1->cond_eff + cei;
+        const pddl_fdr_op_cond_eff_t *ce2 = o2->cond_eff + cei;
+        cmp = pddlFDRPartStateCmp(&ce1->eff, &ce2->eff);
+        if (cmp == 0)
+            cmp = pddlFDRPartStateCmp(&ce1->pre, &ce2->pre);
+    }
     if (cmp == 0)
         cmp = strcmp(o1->name, o2->name);
     return cmp;
@@ -261,9 +264,10 @@ void pddlFDROpsSortByName(pddl_fdr_ops_t *ops)
         ops->op[i]->id = i;
 }
 
-void pddlFDROpsSortByStruct(pddl_fdr_ops_t *ops)
+void pddlFDROpsSortByEffPreName(pddl_fdr_ops_t *ops)
 {
-    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *), opCmpNameLast, NULL);
+    pddlSort(ops->op, ops->op_size, sizeof(pddl_fdr_op_t *),
+             opCmpEffPreName, NULL);
     for (int i = 0; i < ops->op_size; ++i)
         ops->op[i]->id = i;
 }

@@ -142,9 +142,9 @@ void pddlFDROpsAddSteal(pddl_fdr_ops_t *ops, pddl_fdr_op_t *op);
 void pddlFDROpsSortByName(pddl_fdr_ops_t *ops);
 
 /**
- * Sort operators by their structure.
+ * Sort operators first by effects, then preconditions, then name.
  */
-void pddlFDROpsSortByStruct(pddl_fdr_ops_t *ops);
+void pddlFDROpsSortByEffPreName(pddl_fdr_ops_t *ops);
 
 #ifdef __cplusplus
 } /* extern "C" */

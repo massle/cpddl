@@ -657,7 +657,7 @@ static int stepSymba(void)
 
     // Putting related operators close together seems to help the CPLEX
     // solver for some reason
-    pddlFDROpsSortByStruct(&fdr.op);
+    pddlFDROpsSortByEffPreName(&fdr.op);
     PDDL_INFO2(&err, "FDR operators sorted.");
 
     int is_tnf = fdrHasTNFOps(&fdr);
