@@ -176,6 +176,9 @@ GEN += src/iarr.c
 
 all: $(TARGETS)
 
+bin:
+	$(MAKE) -C bin
+
 libpddl.a: $(OBJS) Makefile
 	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
 	$(CC) -c -o .objs/_version.o _version.c
@@ -315,7 +318,7 @@ sqlite-amalgam:
 	cat sqlite/sqlite3.h | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.h
 	rm -rf sqlite/
 
-.PHONY: all clean help doc install analyze \
+.PHONY: all bin clean help doc install analyze \
   examples mrproper \
   check check-all \
   check-valgrind check-all-valgrind \
