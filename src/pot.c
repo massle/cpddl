@@ -20,6 +20,7 @@
 #include <pddl/lp.h>
 #include "pddl/pot.h"
 #include "pddl/disambiguation.h"
+#include "pddl/sort.h"
 #include "internal.h"
 
 #define LPVAR_UPPER 1E7
@@ -385,6 +386,26 @@ static void init(pddl_pot_t *pot, int maxpot_segm_size)
     pot->maxpot_htable = pddlHTableNew(htableHash, htableEq, NULL);
 }
 
+static int cmpOpConstr(const void *a, const void *b, void *_)
+{
+    const pddl_pot_constr_t *c1 = a;
+    const pddl_pot_constr_t *c2 = b;
+    int cmp = pddlISetCmp(&c1->plus, &c2->plus);
+    if (cmp == 0)
+        cmp = pddlISetCmp(&c2->minus, &c1->minus);
+    if (cmp == 0)
+        cmp = c1->rhs - c2->rhs;
+    if (cmp == 0)
+        cmp = c1->op_id - c2->op_id;
+    return cmp;
+}
+
+static void sortConstrs(pddl_pot_t *pot)
+{
+    pddlSort(pot->constr_op.c, pot->constr_op.size, sizeof(*pot->constr_op.c),
+             cmpOpConstr, NULL);
+}
+
 void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
 {
     init(pot, fdr->var.var_size);
@@ -399,6 +420,8 @@ void pddlPotInitFDR(pddl_pot_t *pot, const pddl_fdr_t *fdr)
     addFDRInit(pot, &fdr->var, fdr->init);
 
     pot->obj = CALLOC_ARR(double, pot->var_size);
+
+    sortConstrs(pot);
 }
 
 static int initMGStrips(pddl_pot_t *pot,
@@ -431,6 +454,7 @@ static int initMGStrips(pddl_pot_t *pot,
     pot->obj = CALLOC_ARR(double, pot->var_size);
 
     pddlDisambiguateFree(&dis);
+    sortConstrs(pot);
     return 0;
 }
 
