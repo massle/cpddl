@@ -5,7 +5,6 @@ BASH ?= bash
 CC ?= gcc
 CXX ?= g++
 SCAN_BUILD ?= scan-build
-PYTHON2 ?= python2
 CPPCHECK ?= cppcheck
 
 SYSTEM = $(shell uname)
@@ -130,13 +129,6 @@ ifeq '$(USE_LPSOLVE)' 'auto'
   endif
 endif
 
-OPTS_CFLAGS ?=
-OPTS_LDFLGS ?=
-USE_LOCAL_OPTS ?= $(shell if test -f $(BASEPATH_)/third-party/opts/libopts.a; then echo "yes"; else echo "no"; fi;)
-ifeq '$(USE_LOCAL_OPTS)' 'yes'
-  OPTS_CFLAGS := -I$(BASEPATH_)/third-party/opts
-  OPTS_LDFLAGS := -L$(BASEPATH_)/third-party/opts -lopts
-endif
 
 
 BLISS_VERSION = 0.77
@@ -206,14 +198,12 @@ LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS) $(GLPK_CFLAGS)
 
 help:
 	@echo "Targets:"
-	@echo "    all            - Build library"
-	@echo "    doc            - Build documentation"
+	@echo "    all            - Build library (default)"
 	@echo "    check          - Build & Run automated tests"
 	@echo "    check-valgrind - Build & Run automated tests in valgrind(1)"
 	@echo "    check-segfault - Build & Run automated tests in valgrind(1) set up to detect only segfaults"
 	@echo "    clean          - Remove all generated files"
 	@echo "    analyze        - Perform static analysis using Clang Static Analyzer"
-	@echo "    submodule      - Fetch all submodules using git."
 	@echo "    third-party    - Build all third-party projects."
 	@echo "    third-party-clean - Clean all third-party projects."
 	@echo ""
@@ -221,7 +211,6 @@ help:
 	@echo "    CC         - Path to C compiler          (=$(CC))"
 	@echo "    CXX        - Path to C++ compiler        (=$(CXX))"
 	@echo "    SCAN_BUILD - Path to scan-build          (=$(SCAN_BUILD))"
-	@echo "    PYTHON2    - Path to python v2 interpret (=$(PYTHON2))"
 	@echo ""
 	@echo "    DEBUG      'yes'/'no' - Turn on/off debugging   (=$(DEBUG))"
 	@echo "    PROFIL     'yes'/'no' - Compiles profiling info (=$(PROFIL))"
@@ -231,9 +220,6 @@ help:
 	@echo "    SYSTEM            = $(SYSTEM)"
 	@echo "    CFLAGS            = $(CFLAGS)"
 	@echo "    LDFLAGS           = $(LDFLAGS)"
-	@echo "    USE_LOCAL_OPTS    = $(USE_LOCAL_OPTS)"
-	@echo "    OPTS_CFLAGS       = $(OPTS_CFLAGS)"
-	@echo "    OPTS_LDFLAGS      = $(OPTS_LDFLAGS)"
 	@echo "    USE_BLISS         = $(USE_BLISS)"
 	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
 	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
