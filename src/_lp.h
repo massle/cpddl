@@ -46,11 +46,13 @@ struct _pddl_lp_cls_t {
     int (*num_cols)(const pddl_lp_t *lp);
     int (*solve)(pddl_lp_t *lp, double *val, double *obj);
     void (*write)(pddl_lp_t *lp, const char *fn);
+    void (*tune)(pddl_lp_t *lp, unsigned flag);
 };
 typedef struct _pddl_lp_cls_t pddl_lp_cls_t;
 
 struct _pddl_lp_t {
     pddl_lp_cls_t *cls;
+    pddl_err_t *err;
 };
 
 extern pddl_lp_cls_t pddl_lp_not_available;

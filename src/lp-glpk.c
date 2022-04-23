@@ -42,6 +42,7 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
     lp = ALLOC(lp_t);
     bzero(lp, sizeof(*lp));
     lp->cls.cls = &pddl_lp_glpk;
+    lp->cls.err = err;
     lp->mip = 0;
     lp->lp = glp_create_prob();
     if ((flags & 0x1u) == PDDL_LP_MIN){
@@ -224,10 +225,14 @@ static void lpWrite(pddl_lp_t *_lp, const char *fn)
     glp_write_lp(lp->lp, NULL, fn);
 }
 
+static void tune(pddl_lp_t *_lp, unsigned flag)
+{
+}
+
 
 pddl_lp_cls_t pddl_lp_glpk = {
     PDDL_LP_GLPK,
-    "lpsolve",
+    "glpk",
     new,
     del,
     setObj,
@@ -245,6 +250,7 @@ pddl_lp_cls_t pddl_lp_glpk = {
     numCols,
     lpSolve,
     lpWrite,
+    tune,
 };
 #else /* PDDL_GLPK */
 pddl_lp_cls_t pddl_lp_glpk;

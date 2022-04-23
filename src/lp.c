@@ -173,6 +173,12 @@ void pddlLPWrite(pddl_lp_t *lp, const char *fn)
     lp->cls->write(lp, fn);
 }
 
+void pddlLPTune(pddl_lp_t *lp, unsigned flag)
+{
+    if (lp->cls->tune != NULL)
+        lp->cls->tune(lp, flag);
+}
+
 
 
 
@@ -215,6 +221,8 @@ static int noSolve(pddl_lp_t *lp, double *val, double *obj)
 { noSolverExit(); }
 static void noWrite(pddl_lp_t *lp, const char *fn)
 { noSolverExit(); }
+static void noTune(pddl_lp_t *lp, unsigned flag)
+{ noSolverExit(); }
 
 pddl_lp_cls_t pddl_lp_not_available = {
     0, "",
@@ -235,4 +243,5 @@ pddl_lp_cls_t pddl_lp_not_available = {
     noNumCols,
     noSolve,
     noWrite,
+    noTune,
 };

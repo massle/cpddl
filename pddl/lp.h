@@ -55,6 +55,11 @@ typedef struct _pddl_lp_t pddl_lp_t;
 
 
 /**
+ * Tune for finding integer operator potentials.
+ */
+#define PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL 0x1u
+
+/**
  * Returns true if the specified solver is available.
  * For PDDL_LP_DEFAULT returns false if there is no LP solver available.
  */
@@ -164,6 +169,11 @@ int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj);
 
 
 void pddlLPWrite(pddl_lp_t *lp, const char *fn);
+
+/**
+ * Tune parameters for the (I)LP problem based on the given PDDL_LP_TUNE_* flag.
+ */
+void pddlLPTune(pddl_lp_t *lp, unsigned flag);
 
 #ifdef __cplusplus
 }

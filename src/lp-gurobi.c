@@ -57,6 +57,7 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 
     lp = ALLOC(lp_t);
     lp->cls.cls = &pddl_lp_gurobi;
+    lp->cls.err = err;
     if ((ret = GRBloadenv(&lp->env, NULL)) != 0){
         FATAL("LP Gurobi Error: Could not create environment"
               " (error-code: %d)!", ret);
@@ -283,6 +284,9 @@ static void lpWrite(pddl_lp_t *_lp, const char *fn)
         grbError(lp);
 }
 
+static void tune(pddl_lp_t *_lp, unsigned flag)
+{
+}
 
 pddl_lp_cls_t pddl_lp_gurobi = {
     PDDL_LP_GUROBI,
@@ -304,6 +308,7 @@ pddl_lp_cls_t pddl_lp_gurobi = {
     numCols,
     lpSolve,
     lpWrite,
+    tune,
 };
 #else /* PDDL_GUROBI */
 pddl_lp_cls_t pddl_lp_gurobi;

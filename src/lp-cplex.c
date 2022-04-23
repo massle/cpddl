@@ -38,6 +38,30 @@ static void cplexErr(lp_t *lp, int status, const char *s)
     FATAL("Error: CPLEX: %s: %s", s, errmsg);
 }
 
+static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
+{
+    lp_t *lp = _lp;
+
+    double best_sol = 0.;
+    CPXcallbackgetinfodbl(ctx, CPXCALLBACKINFO_BEST_SOL, &best_sol);
+    if (best_sol < -1E10 || best_sol > 1E10)
+        best_sol = NAN;
+
+    double best_bound = 0.;
+    CPXcallbackgetinfodbl(ctx, CPXCALLBACKINFO_BEST_BND, &best_bound);
+    if (best_bound < -1E10 || best_bound > 1E10)
+        best_bound = NAN;
+
+    int feasible = 0;
+    CPXcallbackgetinfoint(ctx, CPXCALLBACKINFO_FEASIBLE, &feasible);
+
+    CTX_NO_TIME(lp->cls.err, "cplex", "cplex progress");
+    LOG(lp->cls.err, "best solution: %.2f, best bound: %.2f, feasible: %d",
+        best_sol, best_bound, feasible);
+    CTXEND(lp->cls.err);
+    return 0;
+}
+
 static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     lp_t *lp;
@@ -45,6 +69,7 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 
     lp = ALLOC(lp_t);
     lp->cls.cls = &pddl_lp_cplex;
+    lp->cls.err = err;
     lp->mip = 0;
 
     // Initialize CPLEX structures
@@ -65,10 +90,18 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
     if (st != 0)
         cplexErr(lp, st, "Could not set number of threads");
 
+    CPXsetintparam(lp->env, CPXPARAM_ScreenOutput, CPX_OFF);
+
     lp->lp = CPXcreateprob(lp->env, &st, "");
     if (lp->lp == NULL)
         cplexErr(lp, st, "Could not create CPLEX problem");
 
+    CPXcallbacksetfunc(lp->env, lp->lp,
+                       CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS
+                            | CPX_CALLBACKCONTEXT_LOCAL_PROGRESS
+                            | CPX_CALLBACKCONTEXT_RELAXATION
+                            | CPX_CALLBACKCONTEXT_CANDIDATE,
+                       callback, lp);
     // Set up minimaztion
     if ((flags & 0x1u) == 0){
         CPXchgobjsen(lp->env, lp->lp, CPX_MIN);
@@ -267,6 +300,18 @@ static void cpxWrite(pddl_lp_t *_lp, const char *fn)
         cplexErr(lp, st, "Failed to optimize ILP");
 }
 
+static void tune(pddl_lp_t *_lp, unsigned flag)
+{
+    lp_t *lp = LP(_lp);
+    if (flag == PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL){
+        CPXsetintparam(lp->env, CPXPARAM_Preprocessing_Relax, CPX_ON);
+        CPXsetintparam(lp->env, CPXPARAM_Preprocessing_Dual, 1);
+        //CPXsetintparam(lp->env, CPXPARAM_Preprocessing_CoeffReduce, 2);
+        //CPXsetintparam(lp->env, CPXPARAM_Preprocessing_Dependency, 3);
+    }
+}
+
+
 
 pddl_lp_cls_t pddl_lp_cplex = {
     PDDL_LP_CPLEX,
@@ -288,6 +333,7 @@ pddl_lp_cls_t pddl_lp_cplex = {
     numCols,
     solve,
     cpxWrite,
+    tune,
 };
 #else /* PDDL_CPLEX */
 pddl_lp_cls_t pddl_lp_cplex;

@@ -756,8 +756,10 @@ int pddlPotSolve(const pddl_pot_t *pot,
     setMaxpotConstrs(lp, pot, &row);
 
     int op_pot_var_offset = 0;
-    if (pot->op_pot && !pot->op_pot_real)
+    if (pot->op_pot && !pot->op_pot_real){
+        pddlLPTune(lp, PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL);
         op_pot_var_offset = addOpPotConstrs(lp, pot);
+    }
     if (pot->enforce_int_init)
         enforceIntInit(lp, pot);
 

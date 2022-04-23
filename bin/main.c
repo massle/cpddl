@@ -655,11 +655,6 @@ static int stepSymba(void)
 
     PDDL_CTX(&err, "symba", "SYMBA");
 
-    // Putting related operators close together seems to help the CPLEX
-    // solver for some reason
-    pddlFDROpsSortByEffPreName(&fdr.op);
-    PDDL_INFO2(&err, "FDR operators sorted.");
-
     int is_tnf = fdrHasTNFOps(&fdr);
     if (opt.symba.cfg.fw.use_pot_heur){
         if (is_tnf){
