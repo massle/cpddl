@@ -13,6 +13,7 @@ struct pddl_process_strips {
     pddl_list_t steps;
     pddl_iset_t rm_op;
     pddl_iset_t rm_fact;
+    int rm_not_unreachable_or_dead_end;
     int removed_op;
     int removed_fact;
 
