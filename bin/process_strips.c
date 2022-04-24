@@ -29,6 +29,7 @@
 /*
 TODO: RemoveUselessDelEffs
 TODO: FindOpsEmptyAddEff
+TODO: FindUnreachableOps
 */
 
 typedef struct pddl_process_strips_step pddl_process_strips_step_t;
@@ -237,12 +238,45 @@ static int irrelevance(pddl_process_strips_t *prune,
                                    err);
 }
 
+static int irrelevanceOps(pddl_process_strips_t *prune,
+                          pddl_process_strips_step_t *step,
+                          pddl_err_t *err)
+{
+    return pddlIrrelevanceAnalysis(prune->strips, NULL, &prune->rm_op,
+                                   NULL, err);
+}
+
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune)
 {
     pddl_process_strips_step_t *step;
     step = stepNew("irrelevance", prune, irrelevance, emptyFree);
     step->can_reuse_rm_op_fact = 0;
     step->not_unreachable_or_dead_end = 1;
+}
+
+void pddlProcessStripsAddIrrelevanceOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("irrelevance-ops", prune, irrelevanceOps, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 1;
+}
+
+
+static int removeUselessDelEffs(pddl_process_strips_t *prune,
+                                pddl_process_strips_step_t *step,
+                                pddl_err_t *err)
+{
+    pddlStripsRemoveUselessDelEffs(prune->strips, prune->mutex, NULL, err);
+    return 0;
+}
+
+void pddlProcessStripsAddRemoveUselessDelEffs(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("rm-useless-del-effs", prune, removeUselessDelEffs, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 0;
 }
 
 static int famgroupsDeadEndOps(pddl_process_strips_t *prune,

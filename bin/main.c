@@ -290,6 +290,8 @@ static int stepProcessStrips(void)
     int ret =  pddlProcessStripsExecute(&opt.strips.process, &strips,
                                         &mgroup, &mutex, &err);
     pddlProcessStripsFree(&opt.strips.process);
+    if (ret != 0)
+        PDDL_TRACE_RET(&err, -1);
     return ret;
 }
 

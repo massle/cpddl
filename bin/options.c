@@ -195,6 +195,16 @@ static void irrelevance(void)
     pddlProcessStripsAddIrrelevance(&opt.strips.process);
 }
 
+static void irrelevanceOps(void)
+{
+    pddlProcessStripsAddIrrelevanceOps(&opt.strips.process);
+}
+
+static void removeUselessDelEffs(void)
+{
+    pddlProcessStripsAddRemoveUselessDelEffs(&opt.strips.process);
+}
+
 static void famDeadEnd(void)
 {
     pddlProcessStripsAddFAMGroupsDeadEndOps(&opt.strips.process);
@@ -248,10 +258,12 @@ static void pruneH3FwLimit(void *ud)
 
 static void h2Alias(void)
 {
-    irrelevance();
+    irrelevanceOps();
     famDeadEnd();
+    removeUselessDelEffs();
     pruneH2FwBw();
     irrelevance();
+    removeUselessDelEffs();
     deduplicateOps();
 }
 
@@ -495,6 +507,10 @@ static void setProcessStripsOptions(void)
 
     optsStartGroup("Process STRIPS:");
     optsAddFlagFn2("P-irr", 0x0, irrelevance, "Irrelevance analysis.");
+    optsAddFlagFn2("P-irr-op", 0x0, irrelevanceOps,
+                   "As --P-irr but removes only operators.");
+    optsAddFlagFn2("P-rm-useless-del-effs", 0x0, removeUselessDelEffs,
+                   "Remove delete effects that can never be used.");
     optsAddFlagFn2("P-fam-dead-end", 0x0, famDeadEnd,
                    "Remove dead-end operators using fam-groups (see --mg fam).");
     optsAddFlagFn2("P-dedup", 0x0, deduplicateOps,
@@ -564,7 +580,7 @@ static void setProcessStripsOptions(void)
     optsParamsAddStr(params, "out", &opm_cfg.out);
 
     optsAddFlagFn2("h2", 0x0, h2Alias,
-                   "Alias for --P-irr --P-fam-dead-end --P-h2fwbw --P-irr"
+                   "Alias for --P-irr-op --P-fam-dead-end --P-h2fwbw --P-irr"
                    " --P-dedup (set by default for pddl-symba)");
 
     if (is_pddl_symba){

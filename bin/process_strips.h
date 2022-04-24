@@ -33,6 +33,8 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                              pddl_err_t *err);
 
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune);
+void pddlProcessStripsAddIrrelevanceOps(pddl_process_strips_t *prune);
+void pddlProcessStripsAddRemoveUselessDelEffs(pddl_process_strips_t *prune);
 void pddlProcessStripsAddFAMGroupsDeadEndOps(pddl_process_strips_t *prune);
 void pddlProcessStripsAddH2Fw(pddl_process_strips_t *prune,
                               float time_limit_in_s);
