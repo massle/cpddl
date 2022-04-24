@@ -26,6 +26,7 @@ struct _lp_t {
     CPXENVptr env;
     CPXLPptr lp;
     int mip;
+    pddl_timer_t log_timer;
 };
 typedef struct _lp_t lp_t;
 
@@ -41,6 +42,10 @@ static void cplexErr(lp_t *lp, int status, const char *s)
 static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
 {
     lp_t *lp = _lp;
+
+    pddlTimerStop(&lp->log_timer);
+    if (pddlTimerElapsedInSF(&lp->log_timer) < 1.)
+        return 0;
 
     double best_sol = 0.;
     CPXcallbackgetinfodbl(ctx, CPXCALLBACKINFO_BEST_SOL, &best_sol);
@@ -59,6 +64,7 @@ static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
     LOG(lp->cls.err, "best solution: %.2f, best bound: %.2f, feasible: %d",
         best_sol, best_bound, feasible);
     CTXEND(lp->cls.err);
+    pddlTimerStart(&lp->log_timer);
     return 0;
 }
 
@@ -264,6 +270,7 @@ static int solve(pddl_lp_t *_lp, double *val, double *obj)
     lp_t *lp = LP(_lp);
     int st;
 
+    pddlTimerStart(&lp->log_timer);
     if (lp->mip){
         if ((st = CPXmipopt(lp->env, lp->lp)) != 0)
             cplexErr(lp, st, "Failed to optimize LP");
