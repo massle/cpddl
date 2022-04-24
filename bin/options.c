@@ -205,6 +205,16 @@ static void removeUselessDelEffs(void)
     pddlProcessStripsAddRemoveUselessDelEffs(&opt.strips.process);
 }
 
+static void unreachableOps(void)
+{
+    pddlProcessStripsAddUnreachableOps(&opt.strips.process);
+}
+
+static void removeOpsEmptyAddEff(void)
+{
+    pddlProcessStripsAddRemoveOpsEmptyAddEff(&opt.strips.process);
+}
+
 static void famDeadEnd(void)
 {
     pddlProcessStripsAddFAMGroupsDeadEndOps(&opt.strips.process);
@@ -258,6 +268,7 @@ static void pruneH3FwLimit(void *ud)
 
 static void h2Alias(void)
 {
+    unreachableOps();
     irrelevanceOps();
     famDeadEnd();
     removeUselessDelEffs();
@@ -511,6 +522,10 @@ static void setProcessStripsOptions(void)
                    "As --P-irr but removes only operators.");
     optsAddFlagFn2("P-rm-useless-del-effs", 0x0, removeUselessDelEffs,
                    "Remove delete effects that can never be used.");
+    optsAddFlagFn2("P-unreachable-op", 0x0, unreachableOps,
+                   "Remove unreachable operators based on mutexes.");
+    optsAddFlagFn2("P-rm-ops-empty-add-eff", 0x0, removeOpsEmptyAddEff,
+                   "Remove operators with empty add effects.");
     optsAddFlagFn2("P-fam-dead-end", 0x0, famDeadEnd,
                    "Remove dead-end operators using fam-groups (see --mg fam).");
     optsAddFlagFn2("P-dedup", 0x0, deduplicateOps,

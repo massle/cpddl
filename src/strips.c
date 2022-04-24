@@ -836,7 +836,7 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
     return 0;
 }
 
-void pddlStripsFindOpsEmptAddEff(const pddl_strips_t *strips, pddl_iset_t *ops)
+void pddlStripsFindOpsEmptyAddEff(const pddl_strips_t *strips, pddl_iset_t *ops)
 {
     for (int oi = 0; oi < strips->op.op_size; ++oi){
         const pddl_strips_op_t *op = strips->op.op[oi];

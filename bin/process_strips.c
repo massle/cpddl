@@ -26,12 +26,6 @@
 #include "process_strips.h"
 #include "print_to_file.h"
 
-/*
-TODO: RemoveUselessDelEffs
-TODO: FindOpsEmptyAddEff
-TODO: FindUnreachableOps
-*/
-
 typedef struct pddl_process_strips_step pddl_process_strips_step_t;
 
 typedef int (*pddl_process_strips_execute_fn)(pddl_process_strips_t *prune,
@@ -276,6 +270,38 @@ void pddlProcessStripsAddRemoveUselessDelEffs(pddl_process_strips_t *prune)
     pddl_process_strips_step_t *step;
     step = stepNew("rm-useless-del-effs", prune, removeUselessDelEffs, emptyFree);
     step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 0;
+}
+
+static int unreachableOps(pddl_process_strips_t *prune,
+                          pddl_process_strips_step_t *step,
+                          pddl_err_t *err)
+{
+    return pddlStripsFindUnreachableOps(prune->strips, prune->mutex,
+                                        &prune->rm_op, err);
+}
+
+void pddlProcessStripsAddUnreachableOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("unreachable-ops", prune, unreachableOps, emptyFree);
+    step->can_reuse_rm_op_fact = 1;
+    step->not_unreachable_or_dead_end = 0;
+}
+
+static int removeOpsEmptyAddEff(pddl_process_strips_t *prune,
+                                pddl_process_strips_step_t *step,
+                                pddl_err_t *err)
+{
+    pddlStripsFindOpsEmptyAddEff(prune->strips, &prune->rm_op);
+    return 0;
+}
+
+void pddlProcessStripsAddRemoveOpsEmptyAddEff(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("rm-ops-empty-add-eff", prune, removeOpsEmptyAddEff, emptyFree);
+    step->can_reuse_rm_op_fact = 1;
     step->not_unreachable_or_dead_end = 0;
 }
 
