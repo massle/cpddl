@@ -834,6 +834,24 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
     return 0;
 }
 
+void pddlStripsFindOpsEmptAddEff(const pddl_strips_t *strips, pddl_iset_t *ops)
+{
+    for (int oi = 0; oi < strips->op.op_size; ++oi){
+        const pddl_strips_op_t *op = strips->op.op[oi];
+        if (pddlISetSize(&op->add_eff) == 0){
+            int found = 1;
+            for (int cei = 0; cei < op->cond_eff_size; ++cei){
+                if (pddlISetSize(&op->cond_eff[cei].add_eff) != 0){
+                    found = 0;
+                    break;
+                }
+            }
+            if (found)
+                pddlISetAdd(ops, oi);
+        }
+    }
+}
+
 static void printPythonISet(const pddl_iset_t *s, FILE *fout)
 {
     int i;

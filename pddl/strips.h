@@ -177,6 +177,11 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  pddl_err_t *err);
 
 /**
+ * Find operators with empty add effects.
+ */
+void pddlStripsFindOpsEmptAddEff(const pddl_strips_t *strips, pddl_iset_t *ops);
+
+/**
  * Print STRIPS problem in a format easily usable from python.
  */
 void pddlStripsPrintPython(const pddl_strips_t *strips, FILE *fout);
