@@ -517,10 +517,14 @@ void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *trset)
 
 static pddl_bdd_t *transImage(pddl_bdd_manager_t *mgr,
                               pddl_symbolic_trans_t *tr,
-                              pddl_bdd_t *state)
+                              pddl_bdd_t *state,
+                              pddl_time_limit_t *time_limit)
 {
     pddl_bdd_t *bdd1, *bdd;
-    bdd1 = pddlBDDAndAbstract(mgr, state, tr->bdd, tr->exist_pre);
+    bdd1 = pddlBDDAndAbstractLimit(mgr, state, tr->bdd, tr->exist_pre, 0,
+                                   time_limit);
+    if (bdd1 == NULL)
+        return NULL;
     bdd = pddlBDDSwapVars(mgr, bdd1, tr->var_pre, tr->var_eff, tr->var_size);
     pddlBDDDel(mgr, bdd1);
     return bdd;
@@ -528,11 +532,13 @@ static pddl_bdd_t *transImage(pddl_bdd_manager_t *mgr,
 
 static pddl_bdd_t *transPreImage(pddl_bdd_manager_t *mgr,
                                  pddl_symbolic_trans_t *tr,
-                                 pddl_bdd_t *state)
+                                 pddl_bdd_t *state,
+                                 pddl_time_limit_t *time_limit)
 {
     pddl_bdd_t *bdd1, *bdd;
     bdd1 = pddlBDDSwapVars(mgr, state, tr->var_eff, tr->var_pre, tr->var_size);
-    bdd = pddlBDDAndAbstract(mgr, bdd1, tr->bdd, tr->exist_eff);
+    bdd = pddlBDDAndAbstractLimit(mgr, bdd1, tr->bdd, tr->exist_eff, 0,
+                                  time_limit);
     pddlBDDDel(mgr, bdd1);
     return bdd;
 }
@@ -540,16 +546,24 @@ static pddl_bdd_t *transPreImage(pddl_bdd_manager_t *mgr,
 static pddl_bdd_t *transSetApply(pddl_bdd_manager_t *mgr,
                                  pddl_symbolic_trans_set_t *trset,
                                  pddl_bdd_t *state,
+                                 pddl_time_limit_t *time_limit,
                                  pddl_bdd_t *(*f)(pddl_bdd_manager_t *,
                                                   pddl_symbolic_trans_t *,
-                                                  pddl_bdd_t *))
+                                                  pddl_bdd_t *,
+                                                  pddl_time_limit_t *))
 {
     if (trset->trans_size == 0)
         return NULL;
 
-    pddl_bdd_t *bdd = f(mgr, trset->trans + 0, state);
+    pddl_bdd_t *bdd = f(mgr, trset->trans + 0, state, time_limit);
+    if (bdd == NULL)
+        return NULL;
     for (int i = 1; i < trset->trans_size; ++i){
-        pddl_bdd_t *bdd2 = f(mgr, trset->trans + i, state);
+        pddl_bdd_t *bdd2 = f(mgr, trset->trans + i, state, time_limit);
+        if (bdd2 == NULL){
+            pddlBDDDel(mgr, bdd);
+            return NULL;
+        }
         pddlBDDOrUpdate(mgr, &bdd, bdd2);
         pddlBDDDel(mgr, bdd2);
     }
@@ -557,13 +571,15 @@ static pddl_bdd_t *transSetApply(pddl_bdd_manager_t *mgr,
 }
 
 pddl_bdd_t *pddlSymbolicTransSetImage(pddl_symbolic_trans_set_t *trset,
-                                      pddl_bdd_t *state)
+                                      pddl_bdd_t *state,
+                                      pddl_time_limit_t *time_limit)
 {
-    return transSetApply(trset->vars->mgr, trset, state, transImage);
+    return transSetApply(trset->vars->mgr, trset, state, time_limit, transImage);
 }
 
 pddl_bdd_t *pddlSymbolicTransSetPreImage(pddl_symbolic_trans_set_t *trset,
-                                         pddl_bdd_t *state)
+                                         pddl_bdd_t *state,
+                                         pddl_time_limit_t *time_limit)
 {
-    return transSetApply(trset->vars->mgr, trset, state, transPreImage);
+    return transSetApply(trset->vars->mgr, trset, state, time_limit, transPreImage);
 }

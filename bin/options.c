@@ -804,6 +804,14 @@ static void setSymbaOptions(void)
                 "Turn off backward search in case of bi-directional search"
                 " when mutex constraints could not be applied within\n"
                 "the time limit (see also --symba-goal-constr-max-time).");
+    optsAddFlt("symba-bw-step-time-limit", 0x0,
+               &opt.symba.cfg.bw.step_time_limit, 300.,
+               "Time limit for a single step in the backward direction in"
+               " case of bi-directional search.\n"
+               "If the time limit is reached the backward search is disabled.");
+    optsAddFlag("symba-log-every-step", 0x0,
+                &opt.symba.cfg.log_every_step, 0,
+                "Log every step of during the search.");
     optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
                "Output file for the plan.");
 }
