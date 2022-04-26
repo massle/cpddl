@@ -13,7 +13,7 @@
  */
 
 #include "pddl/arr.h"
-#include "alloc.h"
+#include "internal.h"
 
 void pddlArrFree(pddl_arr_t *a)
 {

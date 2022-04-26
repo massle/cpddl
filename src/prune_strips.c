@@ -23,8 +23,7 @@
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"
 #include "pddl/mg_strips.h"
-#include "alloc.h"
-#include "err.h"
+#include "internal.h"
 
 #define IRRELEVANCE 1
 

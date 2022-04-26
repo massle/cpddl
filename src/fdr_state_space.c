@@ -19,8 +19,7 @@
 
 #include "pddl/hfunc.h"
 #include "pddl/fdr_state_space.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 
 #define PAGESIZE_MULTIPLY 1024

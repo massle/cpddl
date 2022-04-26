@@ -31,10 +31,7 @@
  * Adopted from https://cityhash.googlecode.com/svn/trunk/src/city.cc
  */
 
-#include "pddl/core.h"
-
-#include <stdint.h>
-#include <string.h>  // for memcpy and memset
+#include "pddl/common.h"
 
 #define SWAP(x, y, tmp) \
     tmp = y; \

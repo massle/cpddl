@@ -6,7 +6,6 @@ CFLAGS += -Wno-sizeof-pointer-div
 CFLAGS += $(BLISS_CFLAGS)
 CFLAGS += $(CLIQUER_CFLAGS)
 CFLAGS += $(CUDD_CFLAGS)
-CFLAGS += $(SQLITE_CFLAGS)
 CFLAGS += $(LP_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
@@ -18,7 +17,6 @@ CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
 TARGETS  = libpddl.a
 
 OBJS  = alloc
-OBJS += timer
 OBJS += err
 OBJS += hfunc
 OBJS += google-city-hash
@@ -36,6 +34,7 @@ OBJS += lp
 OBJS += lp-cplex
 OBJS += lp-lpsolve
 OBJS += lp-gurobi
+OBJS += lp-glpk
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -54,6 +53,7 @@ OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
 OBJS += strips_maker
+OBJS += sqlite3
 OBJS += sql_grounder
 OBJS += strips_ground_tree
 OBJS += strips_ground
@@ -62,7 +62,6 @@ OBJS += strips_ground_datalog
 OBJS += action_args
 OBJS += ground_atom
 OBJS += profile
-OBJS += helper
 OBJS += lifted_mgroup
 OBJS += lifted_mgroup_infer
 OBJS += lifted_mgroup_htable
@@ -177,6 +176,9 @@ GEN += src/iarr.c
 
 all: $(TARGETS)
 
+bin:
+	$(MAKE) -C bin
+
 libpddl.a: $(OBJS) Makefile
 	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
 	$(CC) -c -o .objs/_version.o _version.c
@@ -192,10 +194,10 @@ pddl/config.h:
 	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
 	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
 	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
-	if [ "$(USE_SQLITE)" = "yes" ]; then echo "#define PDDL_SQLITE" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
+	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	echo "" >>$@
@@ -222,6 +224,8 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
+.objs/sqlite3.o: src/sqlite3.c Makefile Makefile.include
+	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/config.h $(GEN)
@@ -270,8 +274,8 @@ list-global-symbols: libpddl.a
         | grep -v '^_Z.*Ilo' \
         | less
 
-third-party: bliss cudd sqlite
-third-party-clean: bliss-clean cudd-clean sqlite-clean
+third-party: bliss cudd
+third-party-clean: bliss-clean cudd-clean
 
 bliss: third-party/bliss/libbliss.a
 bliss-clean:
@@ -305,16 +309,16 @@ third-party/cudd/libcudd.a:
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
 
-sqlite: third-party/sqlite/libsqlite.a
-sqlite-clean:
-	rm -f third-party/sqlite/*.a
-	rm -f third-party/sqlite/*.o
-third-party/sqlite/libsqlite.a:
-	cd third-party/sqlite && $(CC) $(SQLITE_BUILD_CFLAGS) -c -o sqlite3.o sqlite3.c
-	cd third-party/sqlite && ar cr libsqlite.a sqlite3.o
-	cd third-party/sqlite && ranlib libsqlite.a
+sqlite-amalgam:
+	unzip $(SQLITE_SRC_ZIP)
+	mv sqlite-src-*/ sqlite
+	cd sqlite/ && ./configure --disable-json --disable-load-extension
+	cd sqlite/ && make OPTS="$(SQLITE_GEN_CFLAGS)" sqlite3.c
+	cat sqlite/sqlite3.c | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.c
+	cat sqlite/sqlite3.h | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.h
+	rm -rf sqlite/
 
-.PHONY: all clean help doc install analyze \
+.PHONY: all bin clean help doc install analyze \
   examples mrproper \
   check check-all \
   check-valgrind check-all-valgrind \
@@ -323,4 +327,4 @@ third-party/sqlite/libsqlite.a:
   third-party third-party-clean \
   bliss bliss-clean \
   lpsolve lpsolve-clean \
-  sqlite sqlite-clean
+  sqlite-amalgam

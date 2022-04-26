@@ -25,9 +25,7 @@
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
 #include "pddl/trans_system_graph.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 static void setMemLimit(size_t mem_in_mb)
 {

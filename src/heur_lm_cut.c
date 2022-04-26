@@ -18,8 +18,8 @@
 
 #include <pddl/extarr.h>
 #include "pddl/lm_cut.h"
-#include "alloc.h"
 #include "_heur.h"
+#include "internal.h"
 
 struct pddl_heur_lmc {
     pddl_heur_t heur;

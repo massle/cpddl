@@ -24,9 +24,7 @@
 #include "pddl/heur.h"
 #include "pddl/set.h"
 #include "_heur.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 #define ROUND_EPS 0.001
 // TODO

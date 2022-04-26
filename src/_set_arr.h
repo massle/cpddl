@@ -17,8 +17,6 @@
 #ifndef __PDDL_SET_H__
 #define __PDDL_SET_H__
 
-#include <string.h>
-#include <pddl/core.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus

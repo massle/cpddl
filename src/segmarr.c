@@ -1,5 +1,5 @@
 #include "pddl/segmarr.h"
-#include "alloc.h"
+#include "internal.h"
 
 pddl_segmarr_t *pddlSegmArrNew(size_t el_size, size_t segm_size)
 {

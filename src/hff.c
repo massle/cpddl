@@ -17,11 +17,10 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include "pddl/cost.h"
 #include "pddl/hff.h"
-#include "assert.h"
+#include "internal.h"
 
 #define FID(heur, f) ((f) - (heur)->fact)
 #define FVALUE(fact) (fact)->heap.key

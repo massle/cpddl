@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/op_mutex_pair.h"
+#include "internal.h"
 
 void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
 {

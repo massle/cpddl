@@ -18,13 +18,11 @@
  */
 
 #include <unistd.h>
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include <pddl/extarr.h>
 #include "pddl/htable.h"
 #include "pddl/datalog.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;

@@ -20,9 +20,7 @@
 #include "pddl/strips_fact_cross_ref.h"
 #include "pddl/red_black_fdr.h"
 #include "pddl/cg.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 static void prepareMutex(pddl_mutex_pairs_t *mutex,
                          const pddl_mutex_pairs_t *mutex_in,

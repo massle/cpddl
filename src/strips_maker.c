@@ -17,11 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include "pddl/strips_maker.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
                                            int arg_size)

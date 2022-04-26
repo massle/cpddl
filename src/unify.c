@@ -16,9 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/unify.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlUnifyInit(pddl_unify_t *u,
                    const pddl_types_t *type,

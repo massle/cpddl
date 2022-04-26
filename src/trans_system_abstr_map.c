@@ -17,10 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/err.h>
 #include "pddl/trans_system_abstr_map.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlTransSystemAbstrMapInit(pddl_trans_system_abstr_map_t *map,
                                  int num_states)

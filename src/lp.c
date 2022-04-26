@@ -23,74 +23,64 @@
 int pddlLPSolverAvailable(unsigned solver)
 {
     if (SOLVER(solver) == PDDL_LP_CPLEX){
-#ifdef PDDL_CPLEX
-        return 1;
-#else /* PDDL_CPLEX */
+        if (pddl_lp_cplex.new != NULL)
+            return 1;
         return 0;
-#endif /* PDDL_CPLEX */
+
     }else if (SOLVER(solver) == PDDL_LP_GUROBI){
-#ifdef PDDL_GUROBI
-        return 1;
-#else /* PDDL_GUROBI */
+        if (pddl_lp_gurobi.new != NULL)
+            return 1;
         return 0;
-#endif /* PDDL_GUROBI */
+
+    }else if (SOLVER(solver) == PDDL_LP_GLPK){
+        if (pddl_lp_glpk.new != NULL)
+            return 1;
+        return 0;
+
     }else if (SOLVER(solver) == PDDL_LP_LPSOLVE){
-#ifdef PDDL_LPSOLVE
-        return 1;
-#else /* PDDL_LPSOLVE */
+        if (pddl_lp_lpsolve.new != NULL)
+            return 1;
         return 0;
-#endif /* PDDL_LPSOLVE */
     }
-#ifdef PDDL_CPLEX
-        return 1;
-#else /* PDDL_CPLEX */
-#ifdef PDDL_GUROBI
-        return 1;
-#else /* PDDL_GUROBI */
-#ifdef PDDL_LPSOLVE
-        return 1;
-#else /* PDDL_LPSOLVE */
-        return 0;
-#endif /* PDDL_LPSOLVE */
-#endif /* PDDL_GUROBI */
-#endif /* PDDL_CPLEX */
+
+    return pddlLPSolverAvailable(PDDL_LP_CPLEX)
+            || pddlLPSolverAvailable(PDDL_LP_GUROBI)
+            || pddlLPSolverAvailable(PDDL_LP_GLPK)
+            || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
 }
 
 pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
 {
     if (SOLVER(flags) == PDDL_LP_CPLEX){
-#ifdef PDDL_CPLEX
-        return pddl_lp_cplex.new(rows, cols, flags, err);
-#else /* PDDL_CPLEX */
+        if (pddl_lp_cplex.new != NULL)
+            return pddl_lp_cplex.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_CPLEX */
+
     }else if (SOLVER(flags) == PDDL_LP_GUROBI){
-#ifdef PDDL_GUROBI
-        return pddl_lp_gurobi.new(rows, cols, flags, err);
-#else /* PDDL_GUROBI */
+        if (pddl_lp_gurobi.new != NULL)
+            return pddl_lp_gurobi.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_GUROBI */
+
+    }else if (SOLVER(flags) == PDDL_LP_GLPK){
+        if (pddl_lp_gurobi.new != NULL)
+            return pddl_lp_glpk.new(rows, cols, flags, err);
+        return pddl_lp_not_available.new(rows, cols, flags, err);
+
     }else if (SOLVER(flags) == PDDL_LP_LPSOLVE){
-#ifdef PDDL_LPSOLVE
-        return pddl_lp_lpsolve.new(rows, cols, flags, err);
-#else /* PDDL_LPSOLVE */
+        if (pddl_lp_lpsolve.new != NULL)
+            return pddl_lp_lpsolve.new(rows, cols, flags, err);
         return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_LPSOLVE */
     }
 
-#ifdef PDDL_CPLEX
-    return pddl_lp_cplex.new(rows, cols, flags, err);
-#else /* PDDL_CPLEX */
-#ifdef PDDL_GUROBI
-    return pddl_lp_gurobi.new(rows, cols, flags, err);
-#else /* PDDL_GUROBI */
-#ifdef PDDL_LPSOLVE
-    return pddl_lp_lpsolve.new(rows, cols, flags, err);
-#else /* PDDL_LPSOLVE */
+    if (pddl_lp_cplex.new != NULL)
+        return pddl_lp_cplex.new(rows, cols, flags, err);
+    if (pddl_lp_gurobi.new != NULL)
+        return pddl_lp_gurobi.new(rows, cols, flags, err);
+    if (pddl_lp_glpk.new != NULL)
+        return pddl_lp_glpk.new(rows, cols, flags, err);
+    if (pddl_lp_lpsolve.new != NULL)
+        return pddl_lp_lpsolve.new(rows, cols, flags, err);
     return pddl_lp_not_available.new(rows, cols, flags, err);
-#endif /* PDDL_LPSOLVE */
-#endif /* PDDL_GUROBI */
-#endif /* PDDL_CPLEX */
 }
 
 void pddlLPDel(pddl_lp_t *lp)
@@ -183,6 +173,12 @@ void pddlLPWrite(pddl_lp_t *lp, const char *fn)
     lp->cls->write(lp, fn);
 }
 
+void pddlLPTune(pddl_lp_t *lp, unsigned flag)
+{
+    if (lp->cls->tune != NULL)
+        lp->cls->tune(lp, flag);
+}
+
 
 
 
@@ -225,6 +221,8 @@ static int noSolve(pddl_lp_t *lp, double *val, double *obj)
 { noSolverExit(); }
 static void noWrite(pddl_lp_t *lp, const char *fn)
 { noSolverExit(); }
+static void noTune(pddl_lp_t *lp, unsigned flag)
+{ noSolverExit(); }
 
 pddl_lp_cls_t pddl_lp_not_available = {
     0, "",
@@ -245,4 +243,5 @@ pddl_lp_cls_t pddl_lp_not_available = {
     noNumCols,
     noSolve,
     noWrite,
+    noTune,
 };

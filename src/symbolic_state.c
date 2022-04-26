@@ -17,9 +17,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/symbolic_state.h"
-#include "assert.h"
+#include "internal.h"
 
 static void stateFree(pddl_symbolic_state_t *state,
                       pddl_bdd_manager_t *mgr)

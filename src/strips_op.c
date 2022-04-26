@@ -23,9 +23,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"
-#include "alloc.h"
-#include "helper.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlStripsOpInit(pddl_strips_op_t *op)
 {

@@ -17,12 +17,11 @@
  */
 
 #include <limits.h>
-#include "alloc.h"
 #include <pddl/lp.h>
 #include "pddl/timer.h"
 #include "pddl/famgroup.h"
 #include "pddl/set.h"
-#include "err.h"
+#include "internal.h"
 
 struct fam {
     pddl_famgroup_config_t cfg;

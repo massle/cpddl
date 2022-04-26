@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/cond_arr.h"
+#include "internal.h"
 
 void pddlCondArrInit(pddl_cond_arr_t *ca)
 {

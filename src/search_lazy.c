@@ -18,9 +18,8 @@
 
 #include "pddl/open_list.h"
 #include "pddl/fdr_app_op.h"
-#include "alloc.h"
 #include "search.h"
-#include "assert.h"
+#include "internal.h"
 
 struct pddl_search_lazy {
     pddl_search_t search;

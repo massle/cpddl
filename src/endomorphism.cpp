@@ -32,14 +32,12 @@
 #include <ilcp/cp.h>
 #include <ilcplex/cpxconst.h>
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include <pddl/sort.h>
 #include "pddl/set.h"
 #include "pddl/time_limit.h"
 #include "pddl/pddl_struct.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 #if CPX_VERSION_VERSION < 12 || CPX_VERSION_RELEASE < 9
 # define NO_LOGGER

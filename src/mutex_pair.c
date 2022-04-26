@@ -19,8 +19,7 @@
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
 #include "pddl/clique.h"
-#include "alloc.h"
-#include "err.h"
+#include "internal.h"
 
 #define FW_MUTEX 0x2
 #define BW_MUTEX 0x4

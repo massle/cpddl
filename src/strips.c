@@ -17,13 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips.h"
-#include "helper.h"
-#include "err.h"
-#include "assert.h"
-#include "log.h"
+#include "internal.h"
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
                          const char *prefix,
@@ -769,6 +765,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    pddl_iset_t *changed_ops,
                                    pddl_err_t *err)
 {
+    CTX(err, "rm_useless_del_effs", "rm-useless-del-effs");
     int ret = 0;
     PDDL_INFO(err, "Removing useless delete effects. num mutex pairs: %d",
               (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
@@ -808,6 +805,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
 
     PDDL_INFO(err, "Removing useless delete effects DONE."
               " (modified ops: %d)", ret);
+    CTXEND(err);
     return ret;
 }
 
@@ -836,6 +834,24 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
     pddlISetFree(&part_state);
     PDDL_INFO(err, "Found %d unreachable operators.", num);
     return 0;
+}
+
+void pddlStripsFindOpsEmptyAddEff(const pddl_strips_t *strips, pddl_iset_t *ops)
+{
+    for (int oi = 0; oi < strips->op.op_size; ++oi){
+        const pddl_strips_op_t *op = strips->op.op[oi];
+        if (pddlISetSize(&op->add_eff) == 0){
+            int found = 1;
+            for (int cei = 0; cei < op->cond_eff_size; ++cei){
+                if (pddlISetSize(&op->cond_eff[cei].add_eff) != 0){
+                    found = 0;
+                    break;
+                }
+            }
+            if (found)
+                pddlISetAdd(ops, oi);
+        }
+    }
 }
 
 static void printPythonISet(const pddl_iset_t *s, FILE *fout)

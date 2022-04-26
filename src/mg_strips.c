@@ -21,8 +21,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "pddl/mg_strips.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
                                  const pddl_mgroup_t *mg_in)

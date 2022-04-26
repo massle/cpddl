@@ -72,12 +72,15 @@ void pddlSymbolicTransSetsFree(pddl_symbolic_trans_sets_t *tr);
 
 typedef pddl_bdd_t *(*pddl_symbolic_trans_set_image_fn)(
         pddl_symbolic_trans_set_t *trset,
-        pddl_bdd_t *state);
+        pddl_bdd_t *state,
+        pddl_time_limit_t *time_limit);
 
 pddl_bdd_t *pddlSymbolicTransSetImage(pddl_symbolic_trans_set_t *trset,
-                                      pddl_bdd_t *state);
+                                      pddl_bdd_t *state,
+                                      pddl_time_limit_t *time_limit);
 pddl_bdd_t *pddlSymbolicTransSetPreImage(pddl_symbolic_trans_set_t *trset,
-                                         pddl_bdd_t *state);
+                                         pddl_bdd_t *state,
+                                         pddl_time_limit_t *time_limit);
 
 #ifdef __cplusplus
 } /* extern "C" */

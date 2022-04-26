@@ -14,7 +14,7 @@
  */
 
 #include "search.h"
-#include "alloc.h"
+#include "internal.h"
 
 void _pddlSearchInit(pddl_search_t *s,
                      pddl_search_del_fn fn_del,

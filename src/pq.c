@@ -19,7 +19,7 @@
 
 #include <pddl/err.h>
 #include <pddl/pq.h>
-#include "alloc.h"
+#include "internal.h"
 
 static void pddlPQBucketQueueInit(pddl_pq_bucket_queue_t *q);
 static void pddlPQBucketQueueFree(pddl_pq_bucket_queue_t *q);

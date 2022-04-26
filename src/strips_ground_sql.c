@@ -17,18 +17,12 @@
  * See the License for more information.
  */
 
-#include "pddl/config.h"
-#ifdef PDDL_SQLITE
-
-#include <sqlite3.h>
 #include "pddl/strips_ground_sql.h"
 #include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/sql_grounder.h"
-#include "alloc.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
 
 
 struct sql_ground {
@@ -303,26 +297,3 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
     CTXEND(err);
     return 0;
 }
-
-#else /* PDDL_SQLITE */
-#include "pddl/strips_ground_sql.h"
-#define ERROR PDDL_FATAL2("strips_ground_sql module requires sqlite")
-int pddlStripsGroundSql(pddl_strips_t *strips,
-                        const pddl_t *pddl,
-                        const pddl_ground_config_t *cfg,
-                        pddl_err_t *err)
-{
-    ERROR;
-}
-
-int pddlStripsGroundSqlLayered(const pddl_t *pddl,
-                               const pddl_ground_config_t *cfg,
-                               int max_layers,
-                               int max_atoms,
-                               pddl_strips_t *strips,
-                               pddl_ground_atoms_t *ground_atoms,
-                               pddl_err_t *err)
-{
-    ERROR;
-}
-#endif /* PDDL_SQLITE */

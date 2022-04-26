@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
+#include "internal.h"
 #include "_heur.h"
 
 struct pot_func {

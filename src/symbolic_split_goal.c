@@ -21,9 +21,7 @@
 #include "pddl/rbtree.h"
 #include "pddl/disambiguation.h"
 #include "pddl/symbolic_split_goal.h"
-#include "assert.h"
-#include "err.h"
-#include "alloc.h"
+#include "internal.h"
 
 #define EPS 1E-5
 

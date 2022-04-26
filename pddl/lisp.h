@@ -20,9 +20,6 @@
 #ifndef __PDDL_LISP_H__
 #define __PDDL_LISP_H__
 
-#include <stdio.h>
-#include <string.h>
-#include <pddl/core.h>
 #include <pddl/err.h>
 
 #ifdef __cplusplus

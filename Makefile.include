@@ -5,7 +5,6 @@ BASH ?= bash
 CC ?= gcc
 CXX ?= g++
 SCAN_BUILD ?= scan-build
-PYTHON2 ?= python2
 CPPCHECK ?= cppcheck
 
 SYSTEM = $(shell uname)
@@ -47,6 +46,7 @@ USE_CPLEX ?= auto
 USE_CPOPTIMIZER ?= auto
 USE_GUROBI ?= auto
 USE_LPSOLVE ?= auto
+USE_GLPK ?= auto
 
 ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/include/ilcplex/cplex.h)' ''
@@ -105,6 +105,18 @@ ifeq '$(USE_GUROBI)' 'auto'
   endif
 endif
 
+ifeq '$(USE_GLPK)' 'auto'
+  ifneq '$(GLPK_CFLAGS)$(GLPK_LDFLAGS)' ''
+      USE_GLPK := yes
+  else
+    ifneq '$(wildcard /usr/include/glpk.h)' ''
+      USE_GLPK := yes
+      GLPK_CFLAGS :=
+      GLPK_LDFLAGS := -lglpk
+    endif
+  endif
+endif
+
 USE_LOCAL_LPSOLVE ?= $(shell if test -f $(BASEPATH_)/third-party/lpsolve/liblpsolve.a; then echo "yes"; else echo "no"; fi;)
 ifeq '$(USE_LOCAL_LPSOLVE)' 'yes'
   LPSOLVE_CFLAGS := -I$(BASEPATH_)/third-party
@@ -117,13 +129,6 @@ ifeq '$(USE_LPSOLVE)' 'auto'
   endif
 endif
 
-OPTS_CFLAGS ?=
-OPTS_LDFLGS ?=
-USE_LOCAL_OPTS ?= $(shell if test -f $(BASEPATH_)/third-party/opts/libopts.a; then echo "yes"; else echo "no"; fi;)
-ifeq '$(USE_LOCAL_OPTS)' 'yes'
-  OPTS_CFLAGS := -I$(BASEPATH_)/third-party/opts
-  OPTS_LDFLAGS := -L$(BASEPATH_)/third-party/opts -lopts
-endif
 
 
 BLISS_VERSION = 0.77
@@ -165,44 +170,40 @@ ifeq '$(USE_CUDD)' 'auto'
   endif
 endif
 
-SQLITE_CFLAGS ?=
-SQLITE_LDFLAGS ?=
-USE_SQLITE ?= auto
-ifeq '$(USE_SQLITE)' 'auto'
-  USE_LOCAL_SQLITE ?= $(shell if test -f $(BASEPATH_)/third-party/sqlite/libsqlite.a; then echo "yes"; else echo "no"; fi;)
-  ifeq '$(USE_LOCAL_SQLITE)' 'yes'
-    SQLITE_CFLAGS := -I$(BASEPATH_)/third-party/sqlite
-    SQLITE_LDFLAGS := -L$(BASEPATH_)/third-party/sqlite -lsqlite -ldl
-  endif
-  ifneq '$(SQLITE_CFLAGS)$(SQLITE_LDFLAGS)' ''
-    USE_SQLITE := yes
-  endif
-endif
-SQLITE_BUILD_CFLAGS ?= -O2 \
-    -DSQLITE_OMIT_AUTOINCREMENT \
-    -DSQLITE_OMIT_CAST \
-    -DSQLITE_OMIT_COMPOUND_SELECT \
-    -DSQLITE_OMIT_EXPLAIN \
-    -DSQLITE_OMIT_FOREIGN_KEY \
-    -DSQLITE_OMIT_TEMPDB \
-    -DSQLITE_OMIT_DEPRECATED
+SQLITE_BUILD_CFLAGS := \
+  -DSQLITE_OMIT_AUTHORIZATION \
+  -DSQLITE_OMIT_AUTOINCREMENT \
+  -DSQLITE_OMIT_AUTORESET \
+  -DSQLITE_OMIT_AUTOVACUUM \
+  -DSQLITE_OMIT_DECLTYPE \
+  -DSQLITE_OMIT_DEPRECATED \
+  -DSQLITE_OMIT_JSON \
+  -DSQLITE_OMIT_LOAD_EXTENSION \
+  -DSQLITE_UNTESTABLE \
+  -DSQLITE_OMIT_PROGRESS_CALLBACK \
+  -DSQLITE_USE_ALLOCA \
+  -DSQLITE_OMIT_SHARED_CACHE \
+  -DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
+  -DSQLITE_DEFAULT_MEMSTATUS=0 \
+  -DSQLITE_DQS=0 \
+  -DSQLITE_MAX_EXPR_DEPTH=0
+SQLITE_GEN_CFLAGS := $(SQLITE_BUILD_CFLAGS)
+SQLITE_CFLAGS := -O2 -std=gnu99 $(SQLITE_BUILD_CFLAGS)
 
 
-LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS)
-LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS)
+LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS) $(GLPK_LDFLAGS)
+LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS) $(GLPK_CFLAGS)
 
 .DEFAULT_GOAL := all
 
 help:
 	@echo "Targets:"
-	@echo "    all            - Build library"
-	@echo "    doc            - Build documentation"
+	@echo "    all            - Build library (default)"
 	@echo "    check          - Build & Run automated tests"
 	@echo "    check-valgrind - Build & Run automated tests in valgrind(1)"
 	@echo "    check-segfault - Build & Run automated tests in valgrind(1) set up to detect only segfaults"
 	@echo "    clean          - Remove all generated files"
 	@echo "    analyze        - Perform static analysis using Clang Static Analyzer"
-	@echo "    submodule      - Fetch all submodules using git."
 	@echo "    third-party    - Build all third-party projects."
 	@echo "    third-party-clean - Clean all third-party projects."
 	@echo ""
@@ -210,7 +211,6 @@ help:
 	@echo "    CC         - Path to C compiler          (=$(CC))"
 	@echo "    CXX        - Path to C++ compiler        (=$(CXX))"
 	@echo "    SCAN_BUILD - Path to scan-build          (=$(SCAN_BUILD))"
-	@echo "    PYTHON2    - Path to python v2 interpret (=$(PYTHON2))"
 	@echo ""
 	@echo "    DEBUG      'yes'/'no' - Turn on/off debugging   (=$(DEBUG))"
 	@echo "    PROFIL     'yes'/'no' - Compiles profiling info (=$(PROFIL))"
@@ -220,9 +220,6 @@ help:
 	@echo "    SYSTEM            = $(SYSTEM)"
 	@echo "    CFLAGS            = $(CFLAGS)"
 	@echo "    LDFLAGS           = $(LDFLAGS)"
-	@echo "    USE_LOCAL_OPTS    = $(USE_LOCAL_OPTS)"
-	@echo "    OPTS_CFLAGS       = $(OPTS_CFLAGS)"
-	@echo "    OPTS_LDFLAGS      = $(OPTS_LDFLAGS)"
 	@echo "    USE_BLISS         = $(USE_BLISS)"
 	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
 	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
@@ -232,9 +229,6 @@ help:
 	@echo "    CUDD_CFLAGS       = $(CUDD_CFLAGS)"
 	@echo "    CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
 	@echo "    USE_CUDD          = $(USE_CUDD)"
-	@echo "    SQLITE_CFLAGS     = $(SQLITE_CFLAGS)"
-	@echo "    SQLITE_LDFLAGS    = $(SQLITE_LDFLAGS)"
-	@echo "    USE_SQLITE        = $(USE_SQLITE)"
 	@echo ""
 	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
 	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"
@@ -242,6 +236,9 @@ help:
 	@echo "    GUROBI_CFLAGS   = $(GUROBI_CFLAGS)"
 	@echo "    GUROBI_LDFLAGS  = $(GUROBI_LDFLAGS)"
 	@echo "    USE_GUROBI      = $(USE_GUROBI)"
+	@echo "    GLPK_CFLAGS     = $(GLPK_CFLAGS)"
+	@echo "    GLPK_LDFLAGS    = $(GLPK_LDFLAGS)"
+	@echo "    USE_GLPK        = $(USE_GLPK)"
 	@echo "    LPSOLVE_CFLAGS  = $(LPSOLVE_CFLAGS)"
 	@echo "    LPSOLVE_LDFLAGS = $(LPSOLVE_LDFLAGS)"
 	@echo "    USE_LPSOLVE     = $(USE_LPSOLVE)"

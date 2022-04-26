@@ -17,11 +17,10 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include "pddl/pq.h"
 #include "pddl/trans_system_graph.h"
-#include "assert.h"
+#include "internal.h"
 
 static void pddlTransSystemGraphEdgesAdd(pddl_trans_system_graph_edges_t *e,
                                          int end,

@@ -22,7 +22,7 @@
 
 #include "pddl/fifo.h"
 #include "pddl/open_list.h"
-#include "alloc.h"
+#include "internal.h"
 
 /** A structure containing a stored value */
 struct node {

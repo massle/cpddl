@@ -20,9 +20,7 @@
 #ifndef __PDDL_COST_H__
 #define __PDDL_COST_H__
 
-#include <stdio.h>
 #include <pddl/common.h>
-#include <pddl/core.h>
 
 #ifdef __cplusplus
 extern "C" {

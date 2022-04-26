@@ -21,8 +21,7 @@
 #ifndef __PDDL_RAND_MT_H__
 #define __PDDL_RAND_MT_H__
 
-#include <stdint.h>
-#include <pddl/core.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,7 +101,7 @@ void pddlRandMTDel(pddl_rand_mt_t *r);
 /**
  * Returns randomly generated number in range [from, to).
  */
-_pddl_inline double pddlRandMT(pddl_rand_mt_t *r, pddl_real_t from, pddl_real_t to);
+_pddl_inline double pddlRandMT(pddl_rand_mt_t *r, double from, double to);
 
 /**
  * Returns number between [0-1) real interval.
@@ -165,7 +164,7 @@ _pddl_inline double pddlRandMT01_53(pddl_rand_mt_t *r)
     return (a * 67108864.0 + b) * (1.0/9007199254740992.0);  /* by Isaku Wada */
 }
 
-_pddl_inline double pddlRandMT(pddl_rand_mt_t *r, pddl_real_t from, pddl_real_t to)
+_pddl_inline double pddlRandMT(pddl_rand_mt_t *r, double from, double to)
 {
     double val;
     val  = pddlRandMT01(r);

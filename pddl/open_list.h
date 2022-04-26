@@ -20,7 +20,6 @@
 #ifndef __PDDL_OPEN_LIST_H__
 #define __PDDL_OPEN_LIST_H__
 
-#include <pddl/core.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus

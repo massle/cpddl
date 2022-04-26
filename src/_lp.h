@@ -46,23 +46,20 @@ struct _pddl_lp_cls_t {
     int (*num_cols)(const pddl_lp_t *lp);
     int (*solve)(pddl_lp_t *lp, double *val, double *obj);
     void (*write)(pddl_lp_t *lp, const char *fn);
+    void (*tune)(pddl_lp_t *lp, unsigned flag);
 };
 typedef struct _pddl_lp_cls_t pddl_lp_cls_t;
 
 struct _pddl_lp_t {
     pddl_lp_cls_t *cls;
+    pddl_err_t *err;
 };
 
 extern pddl_lp_cls_t pddl_lp_not_available;
-#ifdef PDDL_CPLEX
 extern pddl_lp_cls_t pddl_lp_cplex;
-#endif /* PDDL_CPLEX */
-#ifdef PDDL_GUROBI
 extern pddl_lp_cls_t pddl_lp_gurobi;
-#endif /* PDDL_GUROBI */
-#ifdef PDDL_LPSOLVE
 extern pddl_lp_cls_t pddl_lp_lpsolve;
-#endif /* PDDL_LPSOLVE */
+extern pddl_lp_cls_t pddl_lp_glpk;
 
 #ifdef __cplusplus
 }

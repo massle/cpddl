@@ -20,7 +20,6 @@
 #ifndef __PDDL_PQ_H__
 #define __PDDL_PQ_H__
 
-#include <pddl/core.h>
 #include <pddl/pairheap.h>
 
 #ifdef __cplusplus

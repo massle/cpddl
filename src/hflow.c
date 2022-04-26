@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hflow.h"
+#include "internal.h"
 
 
 #define BOUND_INF 1E30

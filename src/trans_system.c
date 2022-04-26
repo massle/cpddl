@@ -17,10 +17,9 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/set.h"
 #include "pddl/trans_system.h"
-#include "assert.h"
+#include "internal.h"
 
 /** Returns index of the fact within the mutex groups with mgroup_id */
 static int indexOfFactWithinMGroup(const pddl_trans_systems_t *tss,

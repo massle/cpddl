@@ -20,8 +20,7 @@
 
 #include <pddl/iarr.h>
 #include "pddl/mgroup_projection.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
                               const pddl_strips_t *strips,

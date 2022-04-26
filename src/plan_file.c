@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/plan_file.h"
+#include "internal.h"
 
 struct parse {
     pddl_plan_file_fdr_t *pfdr;

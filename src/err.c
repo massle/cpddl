@@ -14,10 +14,11 @@
  * See the License for more information.
  */
 
+#include "pddl/err.h"
 #include <sys/resource.h>
 #include <strings.h>
 #include <string.h>
-#include "pddl/err.h"
+#include <stdarg.h>
 
 static void pddlErrPrintMsg(const pddl_err_t *err, FILE *fout)
 {

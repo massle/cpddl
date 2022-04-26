@@ -18,7 +18,7 @@
  */
 
 #include "pddl/relaxed_plan.h"
-#include "assert.h"
+#include "internal.h"
 
 void pddlRelaxedPlanCountConflictsStrips(const pddl_iarr_t *plan,
                                          const pddl_iset_t *init,

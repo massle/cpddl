@@ -17,6 +17,7 @@
 #ifndef __PDDL_ERR_H__
 #define __PDDL_ERR_H__
 
+#include <stdio.h>
 #include <pddl/timer.h>
 
 #ifdef __cplusplus

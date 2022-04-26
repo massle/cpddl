@@ -18,8 +18,7 @@
 #ifndef __PDDL_LIST_H__
 #define __PDDL_LIST_H__
 
-#include <string.h>
-#include <pddl/core.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {

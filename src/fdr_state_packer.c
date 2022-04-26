@@ -17,9 +17,9 @@
  */
 
 #include <string.h>
-#include "alloc.h"
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/fdr_state_packer.h"
+#include "internal.h"
 
 struct pddl_fdr_state_packer_var {
     int bitlen; /*!< Number of bits required to store a value */

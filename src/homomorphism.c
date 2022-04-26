@@ -21,10 +21,7 @@
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
 #include "pddl/strips_ground_sql.h"
-#include "alloc.h"
-#include "assert.h"
-#include "log.h"
-#include "err.h"
+#include "internal.h"
 
 #define METHOD_TYPE 1
 #define METHOD_RANDOM_PAIR 2

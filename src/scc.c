@@ -18,8 +18,8 @@
  */
 
 #include <stdio.h>
-#include "alloc.h"
 #include "pddl/scc.h"
+#include "internal.h"
 
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size)
 {

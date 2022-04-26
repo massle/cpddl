@@ -17,12 +17,12 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/obj.h"
 #include "pddl/require.h"
 #include "lisp_err.h"
+#include "internal.h"
 
 void pddlObjFree(pddl_obj_t *obj)
 {

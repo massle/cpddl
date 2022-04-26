@@ -60,6 +60,12 @@ pddl_bdd_t *pddlBDDAndAbstract(pddl_bdd_manager_t *mgr,
                                pddl_bdd_t *bdd1,
                                pddl_bdd_t *bdd2,
                                pddl_bdd_t *cube);
+pddl_bdd_t *pddlBDDAndAbstractLimit(pddl_bdd_manager_t *mgr,
+                                    pddl_bdd_t *bdd1,
+                                    pddl_bdd_t *bdd2,
+                                    pddl_bdd_t *cube,
+                                    unsigned int size_limit,
+                                    pddl_time_limit_t *time_limit);
 pddl_bdd_t *pddlBDDSwapVars(pddl_bdd_manager_t *mgr,
                             pddl_bdd_t *bdd,
                             pddl_bdd_t **v1,

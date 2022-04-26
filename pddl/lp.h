@@ -32,6 +32,7 @@ typedef struct _pddl_lp_t pddl_lp_t;
 #define PDDL_LP_CPLEX   0x0010u
 #define PDDL_LP_GUROBI  0x0020u
 #define PDDL_LP_LPSOLVE 0x0030u
+#define PDDL_LP_GLPK    0x0040u
 
 /**
  * Sets the number of parallel threads that will be invoked by a
@@ -45,13 +46,18 @@ typedef struct _pddl_lp_t pddl_lp_t;
 /**
  * Sets minimization (default).
  */
-#define PDDL_LP_MIN 0x0
+#define PDDL_LP_MIN 0x0u
 
 /**
  * Sets maximization.
  */
-#define PDDL_LP_MAX 0x1
+#define PDDL_LP_MAX 0x1u
 
+
+/**
+ * Tune for finding integer operator potentials.
+ */
+#define PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL 0x1u
 
 /**
  * Returns true if the specified solver is available.
@@ -163,6 +169,11 @@ int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj);
 
 
 void pddlLPWrite(pddl_lp_t *lp, const char *fn);
+
+/**
+ * Tune parameters for the (I)LP problem based on the given PDDL_LP_TUNE_* flag.
+ */
+void pddlLPTune(pddl_lp_t *lp, unsigned flag);
 
 #ifdef __cplusplus
 }

@@ -17,13 +17,11 @@
  * See the License for more information.
  */
 
-#include <sqlite3.h>
-#include "alloc.h"
 #include "pddl/sql_grounder.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
-#include "assert.h"
-#include "err.h"
+#include "internal.h"
+#include "sqlite3.h"
 
 #define QUERY_SIZE 4096
 #define QUERY_SELECT_SIZE (5 * QUERY_SIZE)
@@ -33,15 +31,15 @@ struct sql_pred {
     int arity;
     int is_static;
     char *table_name;
-    sqlite3_stmt *stmt_atom;
-    sqlite3_stmt *stmt_insert;
-    sqlite3_stmt *stmt_clear;
+    pddl_sqlite3_stmt *stmt_atom;
+    pddl_sqlite3_stmt *stmt_insert;
+    pddl_sqlite3_stmt *stmt_clear;
 };
 typedef struct sql_pred sql_pred_t;
 
 struct sql_action {
     int param_size;
-    sqlite3_stmt *stmt;
+    pddl_sqlite3_stmt *stmt;
     int applied0;
 };
 typedef struct sql_action sql_action_t;
@@ -49,7 +47,7 @@ typedef struct sql_action sql_action_t;
 struct pddl_sql_grounder {
     const pddl_t *pddl;
     pddl_prep_actions_t prep_action;
-    sqlite3 *db;
+    pddl_sqlite3 *db;
     sql_pred_t *pred;
     sql_action_t *action;
 
@@ -60,16 +58,16 @@ struct pddl_sql_grounder {
     do { \
     if ((code) != SQLITE_OK){ \
         PDDL_FATAL("Sqlite Error: %s: %s\n", \
-                  sqlite3_errstr(code), sqlite3_errmsg(db)); \
+                  pddl_sqlite3_errstr(code), pddl_sqlite3_errmsg(db)); \
     } \
     } while (0)
 
 
-static void createTypeTable(sqlite3 *db, const pddl_t *pddl, int type)
+static void createTypeTable(pddl_sqlite3 *db, const pddl_t *pddl, int type)
 {
     char query[QUERY_SIZE];
     sprintf(query, "CREATE TABLE type_%d (t int);", type);
-    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+    int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
     int obj_size;
@@ -77,18 +75,18 @@ static void createTypeTable(sqlite3 *db, const pddl_t *pddl, int type)
     objs = pddlTypesObjsByType(&pddl->type, type, &obj_size);
     for (int i = 0; i < obj_size; ++i){
         sprintf(query, "INSERT INTO type_%d values(%d);", type, objs[i]);
-        int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+        int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
         CHECK_SQL_ERR(db, ret);
     }
 }
 
-static void createTypeTables(sqlite3 *db, const pddl_t *pddl)
+static void createTypeTables(pddl_sqlite3 *db, const pddl_t *pddl)
 {
     for (int type = 0; type < pddl->type.type_size; ++type)
         createTypeTable(db, pddl, type);
 }
 
-static void createPredTable(sqlite3 *db,
+static void createPredTable(pddl_sqlite3 *db,
                             const char *table_name,
                             int param_size,
                             pddl_err_t *err)
@@ -113,21 +111,21 @@ static void createPredTable(sqlite3 *db,
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
     //PDDL_INFO(err, "Predicate table: %s", query);
-    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+    int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
     /* TODO: Disabled indexes
     for (int i = 0; i < param_size; ++i){
         sprintf(query, "CREATE INDEX index_%s_%d ON %s (x%d);",
                 table_name, i, table_name, i);
-        int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+        int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
         CHECK_SQL_ERR(db, ret);
     }
     */
 }
 
 static void sqlPredInit(sql_pred_t *qpred,
-                        sqlite3 *db,
+                        pddl_sqlite3 *db,
                         const pddl_preds_t *preds,
                         int pred_id,
                         pddl_err_t *err)
@@ -180,7 +178,7 @@ static void sqlPredInit(sql_pred_t *qpred,
         shift += sprintf(query + shift, " x0 = 1");
     shift += sprintf(query + shift, ";");
 
-    int ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_atom, NULL);
+    int ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_atom, NULL);
     CHECK_SQL_ERR(db, ret);
 
     shift = sprintf(query, "INSERT INTO %s values(", qpred->table_name);
@@ -195,46 +193,46 @@ static void sqlPredInit(sql_pred_t *qpred,
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
     //PDDL_INFO(err, "Insert atom query: %s", query);
-    ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
+    ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
     CHECK_SQL_ERR(db, ret);
 
     shift = sprintf(query, "DELETE FROM %s;", qpred->table_name);
     ASSERT_RUNTIME(shift < QUERY_SIZE);
-    ret = sqlite3_prepare_v2(db, query, -1, &qpred->stmt_clear, NULL);
+    ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_clear, NULL);
     CHECK_SQL_ERR(db, ret);
 }
 
-static void sqlPredFree(sql_pred_t *qpred, sqlite3 *db)
+static void sqlPredFree(sql_pred_t *qpred, pddl_sqlite3 *db)
 {
     if (qpred->table_name != NULL)
         FREE(qpred->table_name);
     if (qpred->stmt_atom != NULL)
-        sqlite3_finalize(qpred->stmt_atom);
+        pddl_sqlite3_finalize(qpred->stmt_atom);
     if (qpred->stmt_insert != NULL)
-        sqlite3_finalize(qpred->stmt_insert);
+        pddl_sqlite3_finalize(qpred->stmt_insert);
     if (qpred->stmt_clear != NULL)
-        sqlite3_finalize(qpred->stmt_clear);
+        pddl_sqlite3_finalize(qpred->stmt_clear);
 }
 
 static int sqlPredHasAtomArg(sql_pred_t *qpred,
-                             sqlite3 *db,
+                             pddl_sqlite3 *db,
                              const pddl_obj_id_t *arg)
 {
     ASSERT(qpred->stmt_atom != NULL);
-    sqlite3_reset(qpred->stmt_atom);
+    pddl_sqlite3_reset(qpred->stmt_atom);
     for (int i = 0; i < qpred->arity; ++i){
-        int ret = sqlite3_bind_int(qpred->stmt_atom, i + 1, arg[i]);
+        int ret = pddl_sqlite3_bind_int(qpred->stmt_atom, i + 1, arg[i]);
         CHECK_SQL_ERR(db, ret);
     }
     int ret;
-    int found = (ret = sqlite3_step(qpred->stmt_atom)) == SQLITE_ROW;
+    int found = (ret = pddl_sqlite3_step(qpred->stmt_atom)) == SQLITE_ROW;
     if (ret != SQLITE_ROW && ret != SQLITE_DONE)
         CHECK_SQL_ERR(db, ret);
     return found;
 }
 
 static int sqlPredHasAtom(sql_pred_t *qpred,
-                          sqlite3 *db,
+                          pddl_sqlite3 *db,
                           const pddl_cond_atom_t *atom)
 {
     pddl_obj_id_t arg[qpred->arity];
@@ -246,26 +244,26 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
 }
 
 static int sqlPredInsertAtomArg(sql_pred_t *qpred,
-                                sqlite3 *db,
+                                pddl_sqlite3 *db,
                                 const pddl_obj_id_t *arg,
                                 pddl_err_t *err)
 {
-    sqlite3_reset(qpred->stmt_insert);
+    pddl_sqlite3_reset(qpred->stmt_insert);
     for (int i = 0; i < qpred->arity; ++i){
         ASSERT(arg[i] >= 0);
-        int ret = sqlite3_bind_int(qpred->stmt_insert, i + 1, arg[i]);
+        int ret = pddl_sqlite3_bind_int(qpred->stmt_insert, i + 1, arg[i]);
         CHECK_SQL_ERR(db, ret);
     }
-    int ret = sqlite3_step(qpred->stmt_insert);
+    int ret = pddl_sqlite3_step(qpred->stmt_insert);
     if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT)
         CHECK_SQL_ERR(db, ret);
     return ret == SQLITE_DONE;
 }
 
-static int sqlPredClear(sql_pred_t *qpred, sqlite3 *db, pddl_err_t *err)
+static int sqlPredClear(sql_pred_t *qpred, pddl_sqlite3 *db, pddl_err_t *err)
 {
-    sqlite3_reset(qpred->stmt_clear);
-    int ret = sqlite3_step(qpred->stmt_clear);
+    pddl_sqlite3_reset(qpred->stmt_clear);
+    int ret = pddl_sqlite3_step(qpred->stmt_clear);
     if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT)
         CHECK_SQL_ERR(db, ret);
     return ret == SQLITE_DONE;
@@ -497,7 +495,7 @@ static void sqlActionConstructWhereCond(char *query,
 }
 
 static void sqlActionInit(sql_action_t *action,
-                          sqlite3 *db,
+                          pddl_sqlite3 *db,
                           const sql_pred_t *preds,
                           const pddl_prep_action_t *prep_action,
                           pddl_err_t *err)
@@ -525,14 +523,14 @@ static void sqlActionInit(sql_action_t *action,
     ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
 
     //PDDL_INFO(err, "Action query %s: %s", prep_action->action->name, query);
-    int ret = sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
+    int ret = pddl_sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
     CHECK_SQL_ERR(db, ret);
 }
 
-static void sqlActionFree(sql_action_t *action, sqlite3 *db)
+static void sqlActionFree(sql_action_t *action, pddl_sqlite3 *db)
 {
     if (action->stmt != NULL)
-        sqlite3_finalize(action->stmt);
+        pddl_sqlite3_finalize(action->stmt);
 }
 
 
@@ -615,10 +613,10 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
                     | SQLITE_OPEN_CREATE
                     | SQLITE_OPEN_MEMORY
                     | SQLITE_OPEN_PRIVATECACHE;
-    int ret = sqlite3_open_v2("db.sql", &g->db, flags, NULL);
+    int ret = pddl_sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
     PDDL_INFO2(err, "Sqlite database created");
-    ASSERT_RUNTIME(sqlite3_get_autocommit(g->db));
+    ASSERT_RUNTIME(pddl_sqlite3_get_autocommit(g->db));
 
     // Create type tables
     createTypeTables(g->db, g->pddl);
@@ -654,7 +652,7 @@ void pddlSqlGrounderDel(pddl_sql_grounder_t *g)
         FREE(g->action);
 
     pddlPrepActionsFree(&g->prep_action);
-    int ret = sqlite3_close_v2(g->db);
+    int ret = pddl_sqlite3_close_v2(g->db);
     CHECK_SQL_ERR(g->db, ret);
     FREE(g);
 }
@@ -714,7 +712,7 @@ int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
     sql_action_t *action = g->action + action_id;
     g->it_action_id = action_id;
     if (action->stmt != NULL)
-        sqlite3_reset(action->stmt);
+        pddl_sqlite3_reset(action->stmt);
     return 0;
 }
 
@@ -737,10 +735,10 @@ int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
     if (action->stmt == NULL)
         return 0;
 
-    while (sqlite3_step(action->stmt) == SQLITE_ROW){
+    while (pddl_sqlite3_step(action->stmt) == SQLITE_ROW){
         int invalid = 0;
         for (int i = 0; i < action->param_size; ++i){
-            args[i] = sqlite3_column_int(action->stmt, i);
+            args[i] = pddl_sqlite3_column_int(action->stmt, i);
             if (args[i] < 0){
                 invalid = 1;
                 break;

@@ -6,6 +6,9 @@
 #include "options.h"
 #include "opts.h"
 
+extern const int is_pddl_fdr;
+extern const int is_pddl_symba;
+
 options_t opt = { 0 };
 
 FILE *log_out = NULL;
@@ -36,8 +39,6 @@ struct endomorph_cfg {
 typedef struct endomorph_cfg endomorph_cfg_t;
 
 static pddl_endomorphism_config_t endomorph_default_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
-static int is_pddl_fdr;
-static int is_pddl_symba;
 
 static void hpotSetDisamb(int value, void *_cfg)
 {
@@ -194,6 +195,26 @@ static void irrelevance(void)
     pddlProcessStripsAddIrrelevance(&opt.strips.process);
 }
 
+static void irrelevanceOps(void)
+{
+    pddlProcessStripsAddIrrelevanceOps(&opt.strips.process);
+}
+
+static void removeUselessDelEffs(void)
+{
+    pddlProcessStripsAddRemoveUselessDelEffs(&opt.strips.process);
+}
+
+static void unreachableOps(void)
+{
+    pddlProcessStripsAddUnreachableOps(&opt.strips.process);
+}
+
+static void removeOpsEmptyAddEff(void)
+{
+    pddlProcessStripsAddRemoveOpsEmptyAddEff(&opt.strips.process);
+}
+
 static void famDeadEnd(void)
 {
     pddlProcessStripsAddFAMGroupsDeadEndOps(&opt.strips.process);
@@ -247,10 +268,13 @@ static void pruneH3FwLimit(void *ud)
 
 static void h2Alias(void)
 {
-    irrelevance();
+    unreachableOps();
+    irrelevanceOps();
     famDeadEnd();
+    removeUselessDelEffs();
     pruneH2FwBw();
     irrelevance();
+    removeUselessDelEffs();
     deduplicateOps();
 }
 
@@ -494,6 +518,14 @@ static void setProcessStripsOptions(void)
 
     optsStartGroup("Process STRIPS:");
     optsAddFlagFn2("P-irr", 0x0, irrelevance, "Irrelevance analysis.");
+    optsAddFlagFn2("P-irr-op", 0x0, irrelevanceOps,
+                   "As --P-irr but removes only operators.");
+    optsAddFlagFn2("P-rm-useless-del-effs", 0x0, removeUselessDelEffs,
+                   "Remove delete effects that can never be used.");
+    optsAddFlagFn2("P-unreachable-op", 0x0, unreachableOps,
+                   "Remove unreachable operators based on mutexes.");
+    optsAddFlagFn2("P-rm-ops-empty-add-eff", 0x0, removeOpsEmptyAddEff,
+                   "Remove operators with empty add effects.");
     optsAddFlagFn2("P-fam-dead-end", 0x0, famDeadEnd,
                    "Remove dead-end operators using fam-groups (see --mg fam).");
     optsAddFlagFn2("P-dedup", 0x0, deduplicateOps,
@@ -563,7 +595,7 @@ static void setProcessStripsOptions(void)
     optsParamsAddStr(params, "out", &opm_cfg.out);
 
     optsAddFlagFn2("h2", 0x0, h2Alias,
-                   "Alias for --P-irr --P-fam-dead-end --P-h2fwbw --P-irr"
+                   "Alias for --P-irr-op --P-fam-dead-end --P-h2fwbw --P-irr"
                    " --P-dedup (set by default for pddl-symba)");
 
     if (is_pddl_symba){
@@ -772,6 +804,14 @@ static void setSymbaOptions(void)
                 "Turn off backward search in case of bi-directional search"
                 " when mutex constraints could not be applied within\n"
                 "the time limit (see also --symba-goal-constr-max-time).");
+    optsAddFlt("symba-bw-step-time-limit", 0x0,
+               &opt.symba.cfg.bw.step_time_limit, 300.,
+               "Time limit for a single step in the backward direction in"
+               " case of bi-directional search.\n"
+               "If the time limit is reached the backward search is disabled.");
+    optsAddFlag("symba-log-every-step", 0x0,
+                &opt.symba.cfg.log_every_step, 0,
+                "Log every step of during the search.");
     optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
                "Output file for the plan.");
 }
@@ -810,9 +850,6 @@ static void setReportsOptions(void)
 
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
-    is_pddl_fdr = (strcmp(basename(argv[0]), "pddl-fdr") == 0);
-    is_pddl_symba = (strcmp(basename(argv[0]), "pddl-symba") == 0);
-
     setBaseOptions();
     setPddlOptions();
     setLMGOptions();

@@ -19,7 +19,6 @@
 
 #include "pddl/config.h"
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include <pddl/extarr.h>
 #include <pddl/pairheap.h>
@@ -43,9 +42,7 @@
 #include "pddl/scc.h"
 #include "pddl/famgroup.h"
 #include "pddl/hpot.h"
-#include "assert.h"
-#include "fmt.h"
-#include "err.h"
+#include "internal.h"
 
 #define ROUND_EPS 0.001
 
@@ -106,6 +103,7 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_CONFIG_BOOL(cfg, use_pot_heur_inconsistent, err);
     LOG_CONFIG_BOOL(cfg, use_pot_heur_sum_op_cost, err);
     LOG_CONFIG_BOOL(cfg, use_goal_splitting, err);
+    LOG_CONFIG_DBL(cfg, step_time_limit, err);
 
     CTX_NO_TIME(err, "pot", "pot");
     pddlHPotConfigLog(&cfg->pot_heur_config, err);
@@ -121,6 +119,7 @@ static void logConfig(const pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_DBL(cfg, constr_max_time, err);
     LOG_CONFIG_DBL(cfg, goal_constr_max_time, err);
     LOG_CONFIG_BOOL(cfg, fam_groups, err);
+    LOG_CONFIG_BOOL(cfg, log_every_step, err);
 
     CTX_NO_TIME(err, "fw", "fw");
     logSearchConfig(&cfg->fw, err);
@@ -261,6 +260,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
     }
 
 
+    // TODO: Refactor for cases where fw and bw uses the same heuristic
     double *pot;
     pddl_cost_t *op_pot;
     pddl_cost_t pot_init_h_value;
@@ -502,7 +502,7 @@ static void planInit(pddl_symbolic_task_t *ss,
         // So, compute the conjuction of the preimage of state and
         // state_prev.
         pddl_symbolic_trans_set_t *trset = search->trans.trans + state->trans_id;
-        pddl_bdd_t *preimg = search->pre_image(trset, bdd);
+        pddl_bdd_t *preimg = search->pre_image(trset, bdd, NULL);
         ASSERT_RUNTIME(!pddlBDDIsFalse(ss->mgr, preimg));
         pddlBDDAndUpdate(ss->mgr, &preimg, prev_state->bdd);
 
@@ -585,28 +585,34 @@ static void planExtractFw(plan_t *plan,
 
 static pddl_bdd_t *searchStateBDD(pddl_symbolic_task_t *ss,
                                   pddl_symbolic_search_t *search,
-                                  pddl_symbolic_state_t *state)
+                                  pddl_symbolic_state_t *state,
+                                  pddl_time_limit_t *time_limit)
 {
     if (state->bdd == NULL){
         const pddl_symbolic_state_t *prev_state;
         prev_state = pddlSymbolicStatesGet(&search->state, state->parent_id);
         state->bdd = search->image(search->trans.trans + state->trans_id,
-                                   prev_state->bdd);
-        pddlSymbolicStatesRemoveClosedStates(&search->state, ss->mgr,
-                                             &state->bdd, &state->cost);
-        if (search->constr_apply)
-            search->constr_apply(&ss->constr, &state->bdd);
+                                   prev_state->bdd, time_limit);
+        if (state->bdd != NULL){
+            pddlSymbolicStatesRemoveClosedStates(&search->state, ss->mgr,
+                                                 &state->bdd, &state->cost);
+            if (search->constr_apply)
+                search->constr_apply(&ss->constr, &state->bdd);
+        }
     }
     return state->bdd;
 }
 
 static int searchNextOpenSize(pddl_symbolic_task_t *ss,
-                              pddl_symbolic_search_t *search)
+                              pddl_symbolic_search_t *search,
+                              pddl_time_limit_t *time_limit)
 {
     pddl_symbolic_state_t *state = pddlSymbolicStatesOpenPeek(&search->state);
     if (state == NULL)
         return 0;
-    pddl_bdd_t *bdd = searchStateBDD(ss, search, state);
+    pddl_bdd_t *bdd = searchStateBDD(ss, search, state, time_limit);
+    if (bdd == NULL)
+        return -1;
     return pddlBDDSize(bdd);
 }
 
@@ -654,10 +660,15 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
                       pddl_symbolic_search_t *other_search,
                       pddl_symbolic_state_t *state,
+                      pddl_time_limit_t *time_limit,
                       pddl_err_t *err)
 {
     int res = 0;
-    pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
+    pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state, time_limit);
+    if (state_bdd == NULL){
+        LOG2(err, "Time limit reached when checking for goal");
+        return -1;
+    }
     pddl_bdd_t *goal = pddlBDDAnd(ss->mgr, state_bdd,
                                   other_search->state.all_closed);
     if (!pddlBDDIsFalse(ss->mgr, goal)){
@@ -690,30 +701,37 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
     return res;
 }
 
-static void searchSetNextStepEstimate(pddl_symbolic_task_t *ss,
-                                      pddl_symbolic_search_t *search,
-                                      pddl_symbolic_state_t *state,
-                                      float cur_time,
-                                      pddl_err_t *err)
+static int searchSetNextStepEstimate(pddl_symbolic_task_t *ss,
+                                     pddl_symbolic_search_t *search,
+                                     pddl_bdd_t *state_bdd,
+                                     float cur_time,
+                                     pddl_time_limit_t *time_limit,
+                                     pddl_err_t *err)
 {
-    pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
     long bdd_size = pddlBDDSize(state_bdd);
     if (bdd_size == 0){
         search->next_step_estimate = 0.f;
     }else if (cur_time < 1.){
         search->next_step_estimate = cur_time;
     }else{
-        int next_size = searchNextOpenSize(ss, search);
+        int next_size = searchNextOpenSize(ss, search, time_limit);
+        if (next_size < 0){
+            LOG2(err, "Time limit reached when estimating time for the next step.");
+            search->next_step_estimate = 1E10;
+            return -1;
+        }
         float est = ((float)next_size / (float)bdd_size) * cur_time;
         search->next_step_estimate = est;
     }
+    return 0;
 }
 
-static void searchExpandState(pddl_symbolic_task_t *ss,
-                              pddl_symbolic_search_t *search,
-                              pddl_symbolic_search_t *other_search,
-                              pddl_symbolic_state_t *state_in,
-                              pddl_err_t *err)
+static int searchExpandState(pddl_symbolic_task_t *ss,
+                             pddl_symbolic_search_t *search,
+                             pddl_symbolic_search_t *other_search,
+                             pddl_symbolic_state_t *state_in,
+                             pddl_time_limit_t *time_limit,
+                             pddl_err_t *err)
 {
     pddl_symbolic_states_t *states = &search->state;
     pddl_bdd_t *bdd_in = pddlBDDClone(ss->mgr, state_in->bdd);
@@ -723,7 +741,7 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
 
     if (pddlBDDIsFalse(ss->mgr, bdd_in)){
         pddlBDDDel(ss->mgr, bdd_in);
-        return;
+        return 0;
     }
 
     for (int tri = 0; tri < search->trans.trans_size; ++tri){
@@ -767,8 +785,12 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
         }
 
         pddlSymbolicStatesOpenState(states, state);
-        if (other_search != NULL)
-            checkGoal2(ss, search, other_search, state, err);
+        if (other_search != NULL){
+            if (checkGoal2(ss, search, other_search, state, time_limit, err) < 0){
+                pddlBDDDel(ss->mgr, bdd_in);
+                return -1;
+            }
+        }
     }
     search->num_expanded_bdd_nodes += pddlBDDSize(bdd_in);
     if (search->num_expanded_states == 0){
@@ -783,17 +805,23 @@ static void searchExpandState(pddl_symbolic_task_t *ss,
     ++search->num_expanded_states;
 
     pddlBDDDel(ss->mgr, bdd_in);
+    return 0;
 }
 
 static pddl_symbolic_state_t *searchNextNonEmpty(pddl_symbolic_task_t *ss,
                                                  pddl_symbolic_search_t *search,
+                                                 pddl_time_limit_t *time_limit,
                                                  pddl_err_t *err)
 {
     pddl_symbolic_state_t *state;
     do {
         state = pddlSymbolicStatesNextOpen(&search->state);
         if (state != NULL){
-            searchStateBDD(ss, search, state);
+            pddl_bdd_t *bdd = searchStateBDD(ss, search, state, time_limit);
+            if (bdd == NULL){
+                LOG2(err, "Time limit reached when asking for next open state.");
+                return NULL;
+            }
             pddlSymbolicStatesRemoveClosedStates(&search->state, ss->mgr,
                                                  &state->bdd, &state->cost);
         }
@@ -804,15 +832,21 @@ static pddl_symbolic_state_t *searchNextNonEmpty(pddl_symbolic_task_t *ss,
 
 static void searchPrepareNext(pddl_symbolic_task_t *ss,
                               pddl_symbolic_search_t *search,
+                              pddl_time_limit_t *time_limit,
                               pddl_err_t *err)
 {
-    pddl_symbolic_state_t *state = searchNextNonEmpty(ss, search, err);
+    pddl_symbolic_state_t *state = searchNextNonEmpty(ss, search, time_limit, err);
     if (state == NULL)
         return;
 
     PDDL_ISET(parents);
     pddlISetAdd(&parents, state->id);
-    pddl_bdd_t *bdd = searchStateBDD(ss, search, state);
+    pddl_bdd_t *bdd = searchStateBDD(ss, search, state, time_limit);
+    if (bdd == NULL){
+        pddlISetFree(&parents);
+        LOG2(err, "Time limit reached when preparing next open state.");
+        return;
+    }
     bdd = pddlBDDClone(ss->mgr, bdd);
 
     pddl_symbolic_state_t *next = pddlSymbolicStatesOpenPeek(&search->state);
@@ -823,7 +857,14 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
         ASSERT(next->parent_id >= 0);
 
         next = pddlSymbolicStatesNextOpen(&search->state);
-        searchStateBDD(ss, search, next);
+        pddl_bdd_t *next_bdd = searchStateBDD(ss, search, next, time_limit);
+        if (next_bdd == NULL){
+            pddlBDDDel(ss->mgr, bdd);
+            pddlISetFree(&parents);
+            LOG2(err, "Time limit reached when merging states with the same"
+                 " g and h-value");
+            return;
+        }
         pddlSymbolicStatesRemoveClosedStates(&search->state, ss->mgr,
                                              &next->bdd, &next->cost);
         if (!pddlBDDIsFalse(ss->mgr, next->bdd)){
@@ -866,14 +907,14 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
 #ifdef PDDL_DEBUG
     if (1){
 #else /* PDDL_DEBUG */
-    if (search->steps == 1
+    if (ss->cfg.log_every_step
+            || search->steps == 1
             || search->steps % 1000ul == 0
             || pddlTimerElapsedInSF(&search->steps_time) > 1.){
 #endif /* PDDL_DEBUG */
-        PDDL_INFO(err, "%s: step %lu, g: %s, h: %s, f: %s"
-                      " states: %d, closed states: %d,"
+        PDDL_INFO(err, "step %lu, g: %s, h: %s, f: %s,"
+                      " generated: %d, closed: %d,"
                       " cudd mem: %.2fMB, gc: %d, expanded BDD nodes: %lu",
-                 (search->fw ? "fw" : "bw"),
                  (unsigned long)search->steps,
                  F_COST(&state->cost),
                  F_COST(&state->heur),
@@ -890,6 +931,7 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
 static int searchStep(pddl_symbolic_task_t *ss,
                       pddl_symbolic_search_t *search,
                       pddl_symbolic_search_t *other_search,
+                      pddl_time_limit_t *time_limit,
                       pddl_err_t *err)
 {
     ++search->steps;
@@ -905,7 +947,13 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     printStepLog(ss, search, state, err);
 
-    pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state);
+    pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state, time_limit);
+    if (state_bdd == NULL){
+        LOG2(err, "Time limit reached when constructing BDD from the top of"
+             " open-list");
+        return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
+    }
+
     if (pddlBDDIsFalse(ss->mgr, state_bdd)){
         DBG(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
         return PDDL_SYMBOLIC_CONT;
@@ -925,22 +973,26 @@ static int searchStep(pddl_symbolic_task_t *ss,
             pddlIArrSize(&search->plan));
 
         pddlTimerStop(&timer);
-        searchSetNextStepEstimate(ss, search, state,
-                                  pddlTimerElapsedInSF(&timer), err);
+        searchSetNextStepEstimate(ss, search, state_bdd,
+                                  pddlTimerElapsedInSF(&timer), time_limit, err);
         return PDDL_SYMBOLIC_PLAN_FOUND;
 
     }else if (other_search != NULL){
-        checkGoal2(ss, search, other_search, state, err);
+        if (checkGoal2(ss, search, other_search, state, time_limit, err) < 0)
+            return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
     }
     DBG2(err, "Goal checked");
 
-    searchExpandState(ss, search, other_search, state, err);
+    if (searchExpandState(ss, search, other_search, state, time_limit, err) < 0){
+        LOG2(err, "Time limit reached when expanding the current state.");
+        return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
+    }
     DBG2(err, "Expanded");
     pddlSymbolicStatesCloseState(&search->state, ss->mgr, state);
     pddlTimerStop(&timer);
-    searchPrepareNext(ss, search, err);
-    searchSetNextStepEstimate(ss, search, state,
-                              pddlTimerElapsedInSF(&timer), err);
+    searchPrepareNext(ss, search, time_limit, err);
+    searchSetNextStepEstimate(ss, search, state->bdd,
+                              pddlTimerElapsedInSF(&timer), time_limit, err);
     return PDDL_SYMBOLIC_CONT;
 }
 
@@ -1168,14 +1220,19 @@ static void fixSearchConfig(pddl_symbolic_search_config_t *cfg,
               " may lead to suboptimal solutions even if the potential"
               " heuristic is consistent!!");
     }
+
+    if (is_fw && cfg->step_time_limit > 0.){
+        WARN2(err, "Time limit for a *forward* step is ignored.");
+        cfg->step_time_limit = 0.;
+    }
 }
 
 static void fixConfig(pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
 {
-    CTX(err, "fw", "fw");
+    CTX_NO_TIME(err, "fw", "fw");
     fixSearchConfig(&cfg->fw, 1, err);
     CTXEND(err);
-    CTX(err, "bw", "bw");
+    CTX_NO_TIME(err, "bw", "bw");
     fixSearchConfig(&cfg->bw, 0, err);
     CTXEND(err);
 }
@@ -1316,7 +1373,7 @@ static int searchOneDir(pddl_symbolic_task_t *ss,
 {
     int res = PDDL_SYMBOLIC_CONT;
     while (res == PDDL_SYMBOLIC_CONT){
-        res = searchStep(ss, search, NULL, err);
+        res = searchStep(ss, search, NULL, NULL, err);
     }
     LOG(err, "Expanded BDD Nodes: %{expanded_bdd_nodes}lu",
         search->num_expanded_bdd_nodes);
@@ -1463,26 +1520,45 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         if (pddlCostCmpSum(min_fw_cost, min_bw_cost, bound) >= 0)
             break;
 
-        float fw_est = ss->search_fw.next_step_estimate;
-        float bw_est = ss->search_bw.next_step_estimate;
         int fw_step = 0;
-        if (fw_cont == PDDL_SYMBOLIC_CONT && fw_est <= bw_est)
+        if (bw_cont == PDDL_SYMBOLIC_ABORT_TIME_LIMIT){
             fw_step = 1;
 
-        DBG(err, "fw est: %.2f, bw est: %.2f, fw open: %s,"
-                 " bw open: %s, bound: %s, use fw: %d"
-                 " fw-closed size: %d, bw-closed size: %d",
-                 fw_est, bw_est,
-                 F_COST(min_fw_cost),
-                 F_COST(min_bw_cost),
-                 F_COST(&ss->search_fw.state.bound),
-                 fw_step,
-                 pddlBDDSize(ss->search_fw.state.all_closed),
-                 pddlBDDSize(ss->search_bw.state.all_closed));
-        if (fw_step){
-            fw_cont = searchStep(ss, &ss->search_fw, &ss->search_bw, err);
         }else{
-            bw_cont = searchStep(ss, &ss->search_bw, &ss->search_fw, err);
+            float fw_est = ss->search_fw.next_step_estimate;
+            float bw_est = ss->search_bw.next_step_estimate;
+            if (fw_cont == PDDL_SYMBOLIC_CONT && fw_est <= bw_est)
+                fw_step = 1;
+            DBG(err, "fw est: %.2f, bw est: %.2f, fw open: %s,"
+                " bw open: %s, bound: %s, use fw: %d"
+                " fw-closed size: %d, bw-closed size: %d",
+                fw_est, bw_est,
+                F_COST(min_fw_cost),
+                F_COST(min_bw_cost),
+                F_COST(&ss->search_fw.state.bound),
+                fw_step,
+                pddlBDDSize(ss->search_fw.state.all_closed),
+                pddlBDDSize(ss->search_bw.state.all_closed));
+        }
+
+        if (fw_step){
+            CTX_NO_TIME(err, "fw_step", "fw-step");
+            fw_cont = searchStep(ss, &ss->search_fw, &ss->search_bw, NULL, err);
+            CTXEND(err);
+
+        }else{
+            CTX_NO_TIME(err, "bw_step", "bw-step");
+            pddl_time_limit_t step_time_limit;
+            pddlTimeLimitSet(&step_time_limit, ss->search_bw.cfg.step_time_limit);
+            bw_cont = searchStep(ss, &ss->search_bw, &ss->search_fw,
+                                 &step_time_limit, err);
+            if (pddlTimeLimitCheck(&step_time_limit) != 0)
+                bw_cont = PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
+            if (bw_cont == PDDL_SYMBOLIC_ABORT_TIME_LIMIT){
+                LOG2(err, "Time limit for the bw step reached.");
+                LOG2(err, "bw search disabled");
+            }
+            CTXEND(err);
         }
     }
 
@@ -1619,7 +1695,7 @@ int pddlSymbolicTaskCheckApplyFw(pddl_symbolic_task_t *ss,
         if (!pddlISetIn(op_id, &trs->op))
             continue;
 
-        pddl_bdd_t *next_states = pddlSymbolicTransSetImage(trs, bdd_state);
+        pddl_bdd_t *next_states = pddlSymbolicTransSetImage(trs, bdd_state, NULL);
         pddlSymbolicConstrApplyFw(&ss->constr, &next_states);
         pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, next_states, bdd_res_state);
         if (pddlBDDIsFalse(ss->mgr, conj)){
@@ -1647,7 +1723,7 @@ int pddlSymbolicTaskCheckApplyBw(pddl_symbolic_task_t *ss,
         if (!pddlISetIn(op_id, &trs->op))
             continue;
 
-        pddl_bdd_t *next_states = pddlSymbolicTransSetPreImage(trs, bdd_state);
+        pddl_bdd_t *next_states = pddlSymbolicTransSetPreImage(trs, bdd_state, NULL);
         pddlSymbolicConstrApplyBw(&ss->constr, &next_states);
         pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, next_states, bdd_res_state);
         if (pddlBDDIsFalse(ss->mgr, conj)){
@@ -1679,7 +1755,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             pddl_symbolic_trans_set_t *trs = ss->search_fw.trans.trans + tri;
             if (!pddlISetIn(fw_op_id, &trs->op))
                 continue;
-            fw_node[fi + 1] = pddlSymbolicTransSetImage(trs, fw_node[fi]);
+            fw_node[fi + 1] = pddlSymbolicTransSetImage(trs, fw_node[fi], NULL);
             if (ss->cfg.fw.use_op_constr){
                 pddl_bdd_t *tmp = pddlBDDClone(ss->mgr, fw_node[fi + 1]);
                 pddlSymbolicConstrApplyFw(&ss->constr, &tmp);
@@ -1718,7 +1794,7 @@ int pddlSymbolicTaskCheckPlan(pddl_symbolic_task_t *ss,
             if (!pddlISetIn(bw_op_id, &trs->op))
                 continue;
             int fi2 = plan_size - fi;
-            bw_node[fi2 - 1] = pddlSymbolicTransSetPreImage(trs, bw_node[fi2]);
+            bw_node[fi2 - 1] = pddlSymbolicTransSetPreImage(trs, bw_node[fi2], NULL);
             if (ss->cfg.bw.use_op_constr){
                 pddl_bdd_t *tmp = pddlBDDClone(ss->mgr, bw_node[fi2 - 1]);
                 pddlSymbolicConstrApplyBw(&ss->constr, &tmp);

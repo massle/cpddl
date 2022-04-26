@@ -17,7 +17,6 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include <pddl/sort.h>
 #include <pddl/lp.h>
 #include "pddl/pddl_struct.h"
@@ -25,7 +24,7 @@
 #include "pddl/mgroup.h"
 #include "pddl/fdr_var.h"
 #include "pddl/outbox.h"
-#include "assert.h"
+#include "internal.h"
 
 typedef struct pred_tnode pred_tnode_t;
 struct pred_tnode {

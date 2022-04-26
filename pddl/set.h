@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <pddl/hashset.h>
 #include <pddl/iset.h>
-#include <pddl/core.h>
 
 #ifdef __cplusplus
 extern "C" {

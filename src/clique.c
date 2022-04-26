@@ -17,10 +17,10 @@
  */
 
 #include <stdio.h>
-#include "alloc.h"
 #include <pddl/err.h>
 #include "pddl/config.h"
 #include "pddl/clique.h"
+#include "internal.h"
 
 struct bk_stack_el {
     pddl_iset_t clique;

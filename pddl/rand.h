@@ -15,11 +15,8 @@
 #ifndef __PDDL_RAND_H__
 #define __PDDL_RAND_H__
 
-#include <stdlib.h>
-#include <strings.h>
 #include <time.h>
-#include <unistd.h>
-#include <pddl/core.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,7 +61,7 @@ _pddl_inline double pddlRand01(pddl_rand_t *r);
 /**
  * Returns randomly generated number in range <from, to).
  */
-_pddl_inline double pddlRand(pddl_rand_t *r, pddl_real_t from, pddl_real_t to);
+_pddl_inline double pddlRand(pddl_rand_t *r, double from, double to);
 
 
 /**** INLINES ****/
@@ -94,7 +91,7 @@ _pddl_inline double pddlRand01(pddl_rand_t *r)
     return num;
 }
 
-_pddl_inline double pddlRand(pddl_rand_t *r, pddl_real_t from, pddl_real_t to)
+_pddl_inline double pddlRand(pddl_rand_t *r, double from, double to)
 {
     double num;
     drand48_r(&r->data, &num);

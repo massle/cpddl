@@ -24,9 +24,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cudd/cudd.h>
-#include <pddl/err.h>
 #include "pddl/bdd.h"
-#include "assert.h"
+#include "internal.h"
 
 
 #define M(P) ((DdManager *)(P))
@@ -166,6 +165,32 @@ pddl_bdd_t *pddlBDDAndAbstract(pddl_bdd_manager_t *mgr,
 {
     DdNode *b = Cudd_bddAndAbstract(M(mgr), B(bdd1), B(bdd2), B(cube));
     Cudd_Ref(b);
+    return PB(b);
+}
+
+pddl_bdd_t *pddlBDDAndAbstractLimit(pddl_bdd_manager_t *mgr,
+                                    pddl_bdd_t *bdd1,
+                                    pddl_bdd_t *bdd2,
+                                    pddl_bdd_t *cube,
+                                    unsigned int size_limit,
+                                    pddl_time_limit_t *time_limit)
+{
+    if (time_limit != NULL && time_limit->limit < 1E10){
+        unsigned long lim = pddlTimeLimitRemain(time_limit) * 1000ul;
+        Cudd_SetTimeLimit(M(mgr), lim);
+        Cudd_ResetStartTime(M(mgr));
+    }
+
+    DdNode *b;
+    if (size_limit > 0){
+        b = Cudd_bddAndAbstractLimit(M(mgr), B(bdd1), B(bdd2), B(cube), size_limit);
+    }else{
+        b = Cudd_bddAndAbstract(M(mgr), B(bdd1), B(bdd2), B(cube));
+    }
+    if (b != NULL)
+        Cudd_Ref(b);
+
+    Cudd_UnsetTimeLimit(M(mgr));
     return PB(b);
 }
 

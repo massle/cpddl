@@ -17,14 +17,11 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
-#include <pddl/sort.h>
-
+#include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/cond.h"
 #include "lisp_err.h"
-#include "assert.h"
-#include "fmt.h"
+#include "internal.h"
 
 static char *type_names[PDDL_COND_NUM_TYPES] = {
     "and",      /* PDDL_COND_AND */

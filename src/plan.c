@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/plan.h"
+#include "internal.h"
 
 void pddlPlanInit(pddl_plan_t *plan)
 {

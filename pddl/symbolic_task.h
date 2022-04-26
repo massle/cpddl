@@ -36,6 +36,7 @@ extern "C" {
 #define PDDL_SYMBOLIC_PLAN_FOUND 1
 #define PDDL_SYMBOLIC_PLAN_NOT_EXIST 2
 #define PDDL_SYMBOLIC_FAIL -1
+#define PDDL_SYMBOLIC_ABORT_TIME_LIMIT -2
 
 struct pddl_symbolic_search_config {
     int enabled;
@@ -47,6 +48,7 @@ struct pddl_symbolic_search_config {
     int use_pot_heur_inconsistent;
     int use_pot_heur_sum_op_cost;
     int use_goal_splitting;
+    float step_time_limit;
     pddl_hpot_config_t pot_heur_config;
 };
 typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
@@ -62,6 +64,7 @@ typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
         0, /* .use_pot_heur_inconsistent */ \
         0, /* .use_pot_heur_sum_op_cost */ \
         1, /* .use_goal_splitting */ \
+        0.f, /* .step_time_limit */ \
         PDDL_HPOT_CONFIG_INIT, \
     }
 
@@ -71,6 +74,7 @@ struct pddl_symbolic_task_config {
     float constr_max_time;
     float goal_constr_max_time;
     int fam_groups;
+    int log_every_step;
 
     pddl_symbolic_search_config_t fw;
     pddl_symbolic_search_config_t bw;
@@ -84,6 +88,7 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         -1.f, /* .constr_max_time */ \
         -1., /* .goal_constr_max_time */ \
         0, /* .fam_groups */ \
+        0, /* .log_every_step */ \
         __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(1), /* .fw */ \
         __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(0), /* .bw */ \
     }

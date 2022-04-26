@@ -19,7 +19,7 @@
 
 #include "pddl/hfunc.h"
 #include "pddl/strips_state_space.h"
-#include "assert.h"
+#include "internal.h"
 
 
 #define PAGESIZE_MULTIPLY 1024

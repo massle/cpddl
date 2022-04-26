@@ -14,7 +14,7 @@
 
 #include <pddl/err.h>
 #include "pddl/sort.h"
-#include "alloc.h"
+#include "internal.h"
 
 /**** INSERT SORT LIST ****/
 void pddlListInsertSort(pddl_list_t *list, pddl_sort_list_cmp cmp, void *data)
@@ -217,19 +217,6 @@ static int cmpLongKey(const void *a, const void *b, void *d)
     return 0;
 }
 
-static int cmpRealKey(const void *a, const void *b, void *d)
-{
-    long offset = (long)d;
-    pddl_real_t i1 = *(pddl_real_t *)(((char *)a) + offset);
-    pddl_real_t i2 = *(pddl_real_t *)(((char *)b) + offset);
-
-    if (pddlEq(i1, i2))
-        return 0;
-    if (i1 < i2)
-        return -1;
-    return 1;
-}
-
 int pddlSortByIntKey(void *base, size_t nmemb, size_t size, size_t offset)
 {
     return pddlSort(base, nmemb, size, cmpIntKey, (void *)offset);
@@ -238,9 +225,4 @@ int pddlSortByIntKey(void *base, size_t nmemb, size_t size, size_t offset)
 int pddlSortByLongKey(void *base, size_t nmemb, size_t size, size_t offset)
 {
     return pddlSort(base, nmemb, size, cmpLongKey, (void *)offset);
-}
-
-int pddlSortByRealKey(void *base, size_t nmemb, size_t size, size_t offset)
-{
-    return pddlSort(base, nmemb, size, cmpRealKey, (void *)offset);
 }

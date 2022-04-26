@@ -16,9 +16,8 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/lm_cut.h"
-#include "assert.h"
+#include "internal.h"
 
 
 #define FID(heur, f) ((f) - (heur)->fact)

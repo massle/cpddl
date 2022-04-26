@@ -7,6 +7,16 @@
 #include "lifted_planner.h"
 #include "print_to_file.h"
 
+#ifndef BIN_PDDL_FDR
+# define BIN_PDDL_FDR 0
+#endif
+#ifndef BIN_PDDL_SYMBA
+# define BIN_PDDL_SYMBA 0
+#endif
+
+const int is_pddl_fdr = BIN_PDDL_FDR;
+const int is_pddl_symba = BIN_PDDL_SYMBA;
+
 
 pddl_err_t err = PDDL_ERR_INIT;
 pddl_t pddl;
@@ -280,6 +290,8 @@ static int stepProcessStrips(void)
     int ret =  pddlProcessStripsExecute(&opt.strips.process, &strips,
                                         &mgroup, &mutex, &err);
     pddlProcessStripsFree(&opt.strips.process);
+    if (ret != 0)
+        PDDL_TRACE_RET(&err, -1);
     return ret;
 }
 
@@ -644,11 +656,6 @@ static int stepSymba(void)
         return 0;
 
     PDDL_CTX(&err, "symba", "SYMBA");
-
-    // Putting related operators close together seems to help the CPLEX
-    // solver for some reason
-    pddlFDROpsSortByName(&fdr.op);
-    PDDL_INFO2(&err, "FDR operators sorted.");
 
     int is_tnf = fdrHasTNFOps(&fdr);
     if (opt.symba.cfg.fw.use_pot_heur){

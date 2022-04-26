@@ -16,11 +16,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "pddl/config.h"
-#include "pddl/core.h"
 #include "pddl/lp.h"
-#include "alloc.h"
 #include "_lp.h"
+#include "internal.h"
 
 #ifdef PDDL_LPSOLVE
 # include <lpsolve/lp_lib.h>
@@ -53,6 +51,7 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
 
     lp = ALLOC(lp_t);
     lp->cls.cls = &pddl_lp_lpsolve;
+    lp->cls.err = err;
     lp->lp = make_lp(rows, cols);
     if ((flags & 0x1u) == PDDL_LP_MIN){
         set_minim(lp->lp);
@@ -150,8 +149,11 @@ static void addCols(pddl_lp_t *_lp, int cnt)
     lp_t *lp = LP(_lp);
     int i;
 
+    double *col = CALLOC_ARR(double, get_Nrows(lp->lp) + 1);
     for (i = 0; i < cnt; ++i)
-        add_column(lp->lp, NULL);
+        add_column(lp->lp, col);
+    if (col != NULL)
+        FREE(col);
 }
 
 static void delCols(pddl_lp_t *_lp, int begin, int end)
@@ -214,6 +216,9 @@ static void lpWrite(pddl_lp_t *_lp, const char *fn)
     write_lp(lp->lp, (char *)fn);
 }
 
+static void tune(pddl_lp_t *_lp, unsigned flag)
+{
+}
 
 pddl_lp_cls_t pddl_lp_lpsolve = {
     PDDL_LP_LPSOLVE,
@@ -235,5 +240,8 @@ pddl_lp_cls_t pddl_lp_lpsolve = {
     numCols,
     lpSolve,
     lpWrite,
+    tune,
 };
+#else /* PDDL_LPSOLVE */
+pddl_lp_cls_t pddl_lp_lpsolve;
 #endif /* PDDL_LPSOLVE */

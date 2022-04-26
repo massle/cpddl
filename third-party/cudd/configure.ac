@@ -44,24 +44,6 @@ AC_CONFIG_HEADERS([config.h])
 AC_C_BIGENDIAN
 AM_CONDITIONAL([CROSS_COMPILING],[test x$cross_compiling = xyes])
 
-# Building documentation requires doxygen, pdflatex, and makeindex.
-AC_CHECK_PROGS([DOXYGEN], [doxygen])
-if test -z "$DOXYGEN"; then
-   AC_MSG_WARN([Doxygen not found - continuing without Doxygen support])
-fi
-AM_CONDITIONAL([HAVE_DOXYGEN],[test -n "$DOXYGEN"])
-AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([Doxyfile])])
-
-AC_CHECK_PROGS([PDFLATEX], [pdflatex])
-if test -z "$PDFLATEX"; then
-    AC_MSG_WARN([pdflatex not found - unable to compile manual to PDF])
-fi
-AC_CHECK_PROGS([MAKEINDEX], [makeindex])
-if test -z "$MAKEINDEX"; then
-    AC_MSG_WARN([makeindex not found - unable to compile manual to PDF])
-fi
-AM_CONDITIONAL([HAVE_PDFLATEX],[test -n "$PDFLATEX" && test -n "$MAKEINDEX"])
-AM_COND_IF([HAVE_PDFLATEX], [AC_CONFIG_FILES([doc/cudd.tex])])
 
 # Checks for libraries.
 #AC_CHECK_LIB([m],[pow])
@@ -151,13 +133,6 @@ fi
 
 
 AC_CONFIG_FILES([Makefile])
-AC_CONFIG_FILES([dddmp/exp/test1.sh], [chmod +x dddmp/exp/test1.sh])
-AC_CONFIG_FILES([dddmp/exp/test2.sh], [chmod +x dddmp/exp/test2.sh])
-AC_CONFIG_FILES([dddmp/exp/test3.sh], [chmod +x dddmp/exp/test3.sh])
-AC_CONFIG_FILES([dddmp/exp/test4.sh], [chmod +x dddmp/exp/test4.sh])
-AC_CONFIG_FILES([dddmp/exp/test5.sh], [chmod +x dddmp/exp/test5.sh])
-AC_CONFIG_FILES([dddmp/exp/test6.sh], [chmod +x dddmp/exp/test6.sh])
-AC_CONFIG_FILES([dddmp/exp/test7.sh], [chmod +x dddmp/exp/test7.sh])
 
 AC_OUTPUT
 

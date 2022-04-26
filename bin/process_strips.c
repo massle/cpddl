@@ -37,6 +37,7 @@ struct pddl_process_strips_step {
     char *name;
     pddl_list_t conn;
     int can_reuse_rm_op_fact;
+    int not_unreachable_or_dead_end;
     pddl_process_strips_execute_fn execute;
     pddl_process_strips_free_fn free;
 };
@@ -99,8 +100,13 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
                  pddlISetSize(&prune->rm_fact),
                  pddlISetSize(&prune->rm_op));
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
-        if (prune->mgroups != NULL && pddlISetSize(&prune->rm_fact) > 0)
+        if (prune->mgroups != NULL && pddlISetSize(&prune->rm_fact) > 0){
             pddlMGroupsReduce(prune->mgroups, &prune->rm_fact);
+            if (prune->rm_not_unreachable_or_dead_end){
+                pddlMGroupsSetExactlyOne(prune->mgroups, prune->strips);
+                pddlMGroupsSetGoal(prune->mgroups, prune->strips);
+            }
+        }
         if (prune->mutex != NULL && pddlISetSize(&prune->rm_fact) > 0)
             pddlMutexPairsReduce(prune->mutex, &prune->rm_fact);
         prune->removed_op += pddlISetSize(&prune->rm_op);
@@ -108,6 +114,7 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
         pddlISetEmpty(&prune->rm_op);
         pddlISetEmpty(&prune->rm_fact);
     }
+    prune->rm_not_unreachable_or_dead_end = 0;
     return 0;
 }
 
@@ -132,6 +139,11 @@ static int step(pddl_process_strips_t *prune,
              prune->removed_fact + pddlISetSize(&prune->rm_fact),
              prune->removed_op + pddlISetSize(&prune->rm_op));
     PDDL_CTXEND(err);
+
+    if (step->not_unreachable_or_dead_end){
+        prune->rm_not_unreachable_or_dead_end = 1;
+        apply(prune, err);
+    }
     return 0;
 }
 
@@ -178,6 +190,7 @@ static void stepInit(const char *name,
     step->execute = execute;
     step->free = free;
     step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 0;
     pddlListAppend(&prune->steps, &step->conn);
 }
 
@@ -219,11 +232,77 @@ static int irrelevance(pddl_process_strips_t *prune,
                                    err);
 }
 
+static int irrelevanceOps(pddl_process_strips_t *prune,
+                          pddl_process_strips_step_t *step,
+                          pddl_err_t *err)
+{
+    return pddlIrrelevanceAnalysis(prune->strips, NULL, &prune->rm_op,
+                                   NULL, err);
+}
+
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune)
 {
     pddl_process_strips_step_t *step;
     step = stepNew("irrelevance", prune, irrelevance, emptyFree);
     step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 1;
+}
+
+void pddlProcessStripsAddIrrelevanceOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("irrelevance-ops", prune, irrelevanceOps, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 1;
+}
+
+
+static int removeUselessDelEffs(pddl_process_strips_t *prune,
+                                pddl_process_strips_step_t *step,
+                                pddl_err_t *err)
+{
+    pddlStripsRemoveUselessDelEffs(prune->strips, prune->mutex, NULL, err);
+    return 0;
+}
+
+void pddlProcessStripsAddRemoveUselessDelEffs(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("rm-useless-del-effs", prune, removeUselessDelEffs, emptyFree);
+    step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 0;
+}
+
+static int unreachableOps(pddl_process_strips_t *prune,
+                          pddl_process_strips_step_t *step,
+                          pddl_err_t *err)
+{
+    return pddlStripsFindUnreachableOps(prune->strips, prune->mutex,
+                                        &prune->rm_op, err);
+}
+
+void pddlProcessStripsAddUnreachableOps(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("unreachable-ops", prune, unreachableOps, emptyFree);
+    step->can_reuse_rm_op_fact = 1;
+    step->not_unreachable_or_dead_end = 0;
+}
+
+static int removeOpsEmptyAddEff(pddl_process_strips_t *prune,
+                                pddl_process_strips_step_t *step,
+                                pddl_err_t *err)
+{
+    pddlStripsFindOpsEmptyAddEff(prune->strips, &prune->rm_op);
+    return 0;
+}
+
+void pddlProcessStripsAddRemoveOpsEmptyAddEff(pddl_process_strips_t *prune)
+{
+    pddl_process_strips_step_t *step;
+    step = stepNew("rm-ops-empty-add-eff", prune, removeOpsEmptyAddEff, emptyFree);
+    step->can_reuse_rm_op_fact = 1;
+    step->not_unreachable_or_dead_end = 0;
 }
 
 static int famgroupsDeadEndOps(pddl_process_strips_t *prune,
@@ -331,6 +410,7 @@ void pddlProcessStripsAddDeduplicateOps(pddl_process_strips_t *prune)
     pddl_process_strips_step_t *step;
     step = stepNew("deduplicate ops", prune, deduplicateOps, emptyFree);
     step->can_reuse_rm_op_fact = 0;
+    step->not_unreachable_or_dead_end = 1;
 }
 
 static int sortOps(pddl_process_strips_t *prune,
@@ -452,6 +532,7 @@ static pddl_process_strips_step_op_mutex_t *
     pddl_process_strips_step_op_mutex_t *step;
     step = PDDL_ALLOC(pddl_process_strips_step_op_mutex_t);
     stepInit("op mutex", &step->step, prune, opMutexExecute, opMutexFree);
+    step->step.not_unreachable_or_dead_end = 1;
     return step;
 }
 
@@ -592,6 +673,7 @@ static pddl_process_strips_step_endomorph_t *
     step = PDDL_ALLOC(pddl_process_strips_step_endomorph_t);
     bzero(step, sizeof(*step));
     stepInit("endomorph", &step->step, prune, endomorphExecute, emptyFree);
+    step->step.not_unreachable_or_dead_end = 1;
     return step;
 }
 

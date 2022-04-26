@@ -20,9 +20,9 @@
 #ifdef PDDL_BLISS
 
 #include <bliss/bliss_C.h>
-#include "alloc.h"
 #include <pddl/iarr.h>
 #include "pddl/sym.h"
+#include "internal.h"
 
 struct pdg_sym {
     const pddl_strips_t *strips;

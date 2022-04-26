@@ -13,6 +13,7 @@ struct pddl_process_strips {
     pddl_list_t steps;
     pddl_iset_t rm_op;
     pddl_iset_t rm_fact;
+    int rm_not_unreachable_or_dead_end;
     int removed_op;
     int removed_fact;
 
@@ -32,6 +33,10 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                              pddl_err_t *err);
 
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune);
+void pddlProcessStripsAddIrrelevanceOps(pddl_process_strips_t *prune);
+void pddlProcessStripsAddRemoveUselessDelEffs(pddl_process_strips_t *prune);
+void pddlProcessStripsAddUnreachableOps(pddl_process_strips_t *prune);
+void pddlProcessStripsAddRemoveOpsEmptyAddEff(pddl_process_strips_t *prune);
 void pddlProcessStripsAddFAMGroupsDeadEndOps(pddl_process_strips_t *prune);
 void pddlProcessStripsAddH2Fw(pddl_process_strips_t *prune,
                               float time_limit_in_s);

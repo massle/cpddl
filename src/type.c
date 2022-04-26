@@ -17,12 +17,11 @@
  * See the License for more information.
  */
 
-#include "alloc.h"
 #include "pddl/pddl.h"
 #include "pddl/type.h"
 #include "pddl/obj.h"
 #include "lisp_err.h"
-#include "assert.h"
+#include "internal.h"
 
 static const char *object_name = "object";
 
