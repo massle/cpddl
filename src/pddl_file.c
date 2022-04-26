@@ -23,8 +23,7 @@
 #include <dirent.h>
 
 #include "pddl/pddl_file.h"
-#include "alloc.h"
-#include "assert.h"
+#include "internal.h"
 
 #define MAX_LEN 512
 #define BUFSIZE 1024
