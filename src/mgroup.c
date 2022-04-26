@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include <pddl/sort.h>
-#include <pddl/lp.h>
+#include "pddl/sort.h"
+#include "pddl/lp.h"
 #include "pddl/pddl_struct.h"
 #include "pddl/strips.h"
 #include "pddl/mgroup.h"

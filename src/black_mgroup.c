@@ -16,8 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/lp.h>
-#include "pddl/config.h"
+#include "pddl/lp.h"
 #include "pddl/invertibility.h"
 #include "pddl/scc.h"
 #include "pddl/strips_fact_cross_ref.h"

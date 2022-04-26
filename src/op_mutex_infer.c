@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/ts.h"
 #include "pddl/famgroup.h"
 #include "pddl/critical_path.h"

@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <pddl/err.h>
+#include "pddl/err.h"
 #include "pddl/trans_system_abstr_map.h"
 #include "internal.h"
 

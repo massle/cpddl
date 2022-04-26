@@ -17,7 +17,7 @@
  */
 
 #include "pddl/hfunc.h"
-#include <pddl/lp.h>
+#include "pddl/lp.h"
 #include "pddl/pot.h"
 #include "pddl/disambiguation.h"
 #include "pddl/sort.h"

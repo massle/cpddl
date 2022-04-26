@@ -33,7 +33,7 @@
 #include <ilcplex/cpxconst.h>
 
 #include "pddl/hfunc.h"
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/set.h"
 #include "pddl/time_limit.h"
 #include "pddl/pddl_struct.h"

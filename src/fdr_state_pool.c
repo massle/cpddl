@@ -18,8 +18,8 @@
  */
 
 #include "pddl/hfunc.h"
-#include <pddl/iarr.h>
-#include <pddl/timer.h>
+#include "pddl/iarr.h"
+#include "pddl/timer.h"
 #include "pddl/fdr_state_pool.h"
 #include "internal.h"
 

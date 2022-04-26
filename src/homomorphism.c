@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include <pddl/err.h>
-#include <pddl/rand-mt.h>
+#include "pddl/err.h"
+#include "pddl/rand-mt.h"
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
 #include "pddl/strips_ground_sql.h"

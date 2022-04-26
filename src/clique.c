@@ -16,9 +16,6 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
-#include <pddl/err.h>
-#include "pddl/config.h"
 #include "pddl/clique.h"
 #include "internal.h"
 

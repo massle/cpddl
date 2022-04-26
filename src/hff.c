@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/cost.h"
 #include "pddl/hff.h"
 #include "internal.h"

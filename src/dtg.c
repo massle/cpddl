@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <pddl/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/dtg.h"
 #include "internal.h"
 

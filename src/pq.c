@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include <pddl/err.h>
-#include <pddl/pq.h>
+#include "pddl/err.h"
+#include "pddl/pq.h"
 #include "internal.h"
 
 static void pddlPQBucketQueueInit(pddl_pq_bucket_queue_t *q);

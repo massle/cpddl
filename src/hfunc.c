@@ -12,7 +12,7 @@
  *  See the License for more information.
  */
 
-#include <pddl/hfunc.h>
+#include "pddl/hfunc.h"
 
 
 

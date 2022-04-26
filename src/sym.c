@@ -20,7 +20,7 @@
 #ifdef PDDL_BLISS
 
 #include <bliss/bliss_C.h>
-#include <pddl/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/sym.h"
 #include "internal.h"
 

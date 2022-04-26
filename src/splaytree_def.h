@@ -17,7 +17,7 @@
 #ifndef __PDDL_SPLAYTREE_DEF_H__
 #define __PDDL_SPLAYTREE_DEF_H__
 
-#include <pddl/list.h>
+#include "pddl/list.h"
 
 #ifdef __cplusplus
 extern "C" {

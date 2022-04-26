@@ -19,7 +19,7 @@
 #ifndef __PDDL_LISP_ERR_H__
 #define __PDDL_LISP_ERR_H__
 
-#include <pddl/err.h>
+#include "pddl/err.h"
 
 #ifdef __cplusplus
 extern "C" {

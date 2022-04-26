@@ -16,8 +16,7 @@
  * See the License for more information.
  */
 
-#include <limits.h>
-#include <pddl/lp.h>
+#include "pddl/lp.h"
 #include "pddl/timer.h"
 #include "pddl/famgroup.h"
 #include "pddl/set.h"

@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/fdr_app_op.h"
 #include "pddl/cg.h"
 #include "internal.h"

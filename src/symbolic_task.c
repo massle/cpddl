@@ -19,12 +19,12 @@
 
 #include "pddl/config.h"
 
-#include <pddl/sort.h>
-#include <pddl/extarr.h>
-#include <pddl/pairheap.h>
-#include <pddl/rbtree.h>
-#include <pddl/rand.h>
-#include <pddl/timer.h>
+#include "pddl/sort.h"
+#include "pddl/extarr.h"
+#include "pddl/pairheap.h"
+#include "pddl/rbtree.h"
+#include "pddl/rand.h"
+#include "pddl/timer.h"
 
 #include "pddl/fdr.h"
 #include "pddl/mg_strips.h"

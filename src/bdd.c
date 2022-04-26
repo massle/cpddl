@@ -299,7 +299,7 @@ pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
 
 #else /* PDDL_CUDD */
 
-#include <pddl/err.h>
+#include "pddl/err.h"
 #include "pddl/bdd.h"
 
 #define ERROR PDDL_FATAL2("bdd module requires CUDD library")
@@ -394,6 +394,17 @@ pddl_bdd_t *pddlBDDAndAbstract(pddl_bdd_manager_t *mgr,
                                pddl_bdd_t *bdd1,
                                pddl_bdd_t *bdd2,
                                pddl_bdd_t *cube)
+{
+    ERROR;
+    return NULL;
+}
+
+pddl_bdd_t *pddlBDDAndAbstractLimit(pddl_bdd_manager_t *mgr,
+                                    pddl_bdd_t *bdd1,
+                                    pddl_bdd_t *bdd2,
+                                    pddl_bdd_t *cube,
+                                    unsigned int size_limit,
+                                    pddl_time_limit_t *time_limit)
 {
     ERROR;
     return NULL;

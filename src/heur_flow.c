@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/extarr.h>
+#include "pddl/extarr.h"
 #include "pddl/hflow.h"
 #include "internal.h"
 #include "_heur.h"

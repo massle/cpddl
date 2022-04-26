@@ -17,9 +17,8 @@
  * See the License for more information.
  */
 
-#include <unistd.h>
 #include "pddl/hfunc.h"
-#include <pddl/extarr.h>
+#include "pddl/extarr.h"
 #include "pddl/htable.h"
 #include "pddl/datalog.h"
 #include "internal.h"

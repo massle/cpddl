@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <pddl/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
 #include "pddl/time_limit.h"

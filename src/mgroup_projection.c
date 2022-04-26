@@ -18,7 +18,7 @@
  * See the License for more information.
  */
 
-#include <pddl/iarr.h>
+#include "pddl/iarr.h"
 #include "pddl/mgroup_projection.h"
 #include "internal.h"
 

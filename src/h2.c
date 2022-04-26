@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/timer.h>
+#include "pddl/timer.h"
 #include "pddl/strips.h"
 #include "pddl/critical_path.h"
 #include "pddl/disambiguation.h"

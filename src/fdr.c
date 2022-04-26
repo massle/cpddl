@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/timer.h"
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
