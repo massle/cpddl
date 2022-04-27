@@ -782,7 +782,7 @@ static void setSymbaOptions(void)
     params = optsAddParams("symba-bw-pot-cfg", 0x0,
                            "Configuration of the potential heuristic for"
                            " the backward search. (See --gplan-pot)");
-    hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
+    hpotParams(params, &opt.symba.cfg.bw.pot_heur_config);
     optsAddFlt("symba-goal-constr-max-time", 0x0,
                &opt.symba.cfg.goal_constr_max_time, 30.f,
                "Set the time limit for applying mutex constraints on the"
