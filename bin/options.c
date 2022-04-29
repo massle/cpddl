@@ -436,14 +436,14 @@ static void setGroundOptions(void)
 {
     opt.ground.cfg.lifted_mgroups = NULL;
     opt.ground.cfg.remove_static_facts = 1;
-    opt.ground.method = GROUND_TRIE;
+    opt.ground.method = GROUND_DL;
 
     optsStartGroup("Grounding:");
     optsAddIntSwitch("ground", 'G', &opt.ground.method,
                      "Grounding method, one of:\n"
-                     "  trie - default grounding method (default)\n"
+                     "  dl - datalog-based grounding method (default)\n",
                      "  sql - sqlite-based grounding method\n"
-                     "  dl - datalog-based grounding method",
+                     "  trie - default grounding method"
                      4,
                      "trie", GROUND_TRIE,
                      "sql", GROUND_SQL,
