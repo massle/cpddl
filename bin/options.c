@@ -441,9 +441,9 @@ static void setGroundOptions(void)
     optsStartGroup("Grounding:");
     optsAddIntSwitch("ground", 'G', &opt.ground.method,
                      "Grounding method, one of:\n"
-                     "  dl - datalog-based grounding method (default)\n",
+                     "  dl - datalog-based grounding method (default)\n"
                      "  sql - sqlite-based grounding method\n"
-                     "  trie - default grounding method"
+                     "  trie - default grounding method",
                      4,
                      "trie", GROUND_TRIE,
                      "sql", GROUND_SQL,
