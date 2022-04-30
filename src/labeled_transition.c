@@ -18,7 +18,7 @@
  */
 
 #include <stdio.h>
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/labeled_transition.h"
 #include "internal.h"
 

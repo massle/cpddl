@@ -1,9 +1,6 @@
 #!/bin/bash
 
 make mrproper
-make opts
-make bliss
-make cudd
-make sqlite
+make third-party
 make
 make -C bin

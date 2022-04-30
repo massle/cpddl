@@ -18,7 +18,7 @@
  */
 
 #include "pddl/hfunc.h"
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/fact.h"
 #include "internal.h"

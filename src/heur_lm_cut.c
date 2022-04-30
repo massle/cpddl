@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/extarr.h>
+#include "pddl/extarr.h"
 #include "pddl/lm_cut.h"
 #include "_heur.h"
 #include "internal.h"

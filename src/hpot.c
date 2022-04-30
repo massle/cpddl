@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/rand.h>
+#include "pddl/rand.h"
 #include "pddl/hpot.h"
 #include "pddl/pot.h"
 #include "pddl/critical_path.h"

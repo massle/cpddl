@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <pddl/pairheap.h>
+#include "pddl/pairheap.h"
 #include "pddl/cg.h"
 #include "pddl/scc.h"
 #include "internal.h"

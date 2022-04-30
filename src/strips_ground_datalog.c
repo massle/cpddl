@@ -18,7 +18,7 @@
  */
 
 #include "pddl/hfunc.h"
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/strips_ground_datalog.h"
 #include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"

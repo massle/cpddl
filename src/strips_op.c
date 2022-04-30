@@ -18,8 +18,8 @@
  */
 
 #include <limits.h>
-#include <pddl/sort.h>
-#include <pddl/iarr.h>
+#include "pddl/sort.h"
+#include "pddl/iarr.h"
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"

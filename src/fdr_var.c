@@ -16,7 +16,7 @@
  * See the License for more information.
  */
 
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
 #include "internal.h"

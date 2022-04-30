@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-#include <pddl/sort.h>
+#include "pddl/sort.h"
 #include "pddl/pq.h"
 #include "pddl/trans_system_graph.h"
 #include "internal.h"

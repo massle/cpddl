@@ -12,7 +12,7 @@
  *  See the License for more information.
  */
 
-#include <pddl/err.h>
+#include "pddl/err.h"
 #include "pddl/sort.h"
 #include "internal.h"
 

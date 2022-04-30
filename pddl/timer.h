@@ -16,7 +16,7 @@
 #ifndef __PDDL_TIMER_H__
 #define __PDDL_TIMER_H__
 
-#include "pddl/common.h"
+#include <pddl/common.h>
 #include <time.h>
 
 #ifdef __cplusplus

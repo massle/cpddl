@@ -436,14 +436,14 @@ static void setGroundOptions(void)
 {
     opt.ground.cfg.lifted_mgroups = NULL;
     opt.ground.cfg.remove_static_facts = 1;
-    opt.ground.method = GROUND_TRIE;
+    opt.ground.method = GROUND_DL;
 
     optsStartGroup("Grounding:");
     optsAddIntSwitch("ground", 'G', &opt.ground.method,
                      "Grounding method, one of:\n"
-                     "  trie - default grounding method (default)\n"
+                     "  dl - datalog-based grounding method (default)\n",
                      "  sql - sqlite-based grounding method\n"
-                     "  dl - datalog-based grounding method",
+                     "  trie - default grounding method"
                      4,
                      "trie", GROUND_TRIE,
                      "sql", GROUND_SQL,
@@ -782,7 +782,7 @@ static void setSymbaOptions(void)
     params = optsAddParams("symba-bw-pot-cfg", 0x0,
                            "Configuration of the potential heuristic for"
                            " the backward search. (See --gplan-pot)");
-    hpotParams(params, &opt.symba.cfg.fw.pot_heur_config);
+    hpotParams(params, &opt.symba.cfg.bw.pot_heur_config);
     optsAddFlt("symba-goal-constr-max-time", 0x0,
                &opt.symba.cfg.goal_constr_max_time, 30.f,
                "Set the time limit for applying mutex constraints on the"
@@ -805,9 +805,9 @@ static void setSymbaOptions(void)
                 " when mutex constraints could not be applied within\n"
                 "the time limit (see also --symba-goal-constr-max-time).");
     optsAddFlt("symba-bw-step-time-limit", 0x0,
-               &opt.symba.cfg.bw.step_time_limit, 300.,
-               "Time limit for a single step in the backward direction in"
-               " case of bi-directional search.\n"
+               &opt.symba.cfg.bw.step_time_limit, 180.,
+               "Time limit (in seconds) for a single step in the backward"
+               " direction in case of bi-directional search.\n"
                "If the time limit is reached the backward search is disabled.");
     optsAddFlag("symba-log-every-step", 0x0,
                 &opt.symba.cfg.log_every_step, 0,

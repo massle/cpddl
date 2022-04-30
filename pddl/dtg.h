@@ -20,9 +20,9 @@
 #ifndef __PDDL_DTG_H__
 #define __PDDL_DTG_H__
 
-#include "pddl/mgroup.h"
-#include "pddl/strips_op.h"
-#include "pddl/strips_fact_cross_ref.h"
+#include <pddl/mgroup.h>
+#include <pddl/strips_op.h>
+#include <pddl/strips_fact_cross_ref.h>
 
 #ifdef __cplusplus
 extern "C" {
