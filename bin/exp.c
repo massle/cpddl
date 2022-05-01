@@ -14,7 +14,11 @@
 
 #define COMMAND_GEN 1
 #define COMMAND_RUN 2
+
 #define TARGET_RCI_CPU 1
+#define TARGET_FAI0 2
+#define TARGET_FAI1 3
+#define TARGET_FAI_ALL 4
 
 struct {
     int help;
@@ -87,9 +91,12 @@ static int setConfig(int argc, char *argv[])
                "Path to the directory with benchmark tasks.");
     optsAddIntSwitch("target", 't', &cfg.target,
                      "Target queue/host/... One of:"
-                     " rci-cpu",
-                     1,
-                     "rci-cpu", TARGET_RCI_CPU);
+                     " rci-cpu, fai0, fai1, faiall",
+                     4,
+                     "rci-cpu", TARGET_RCI_CPU,
+                     "fai0", TARGET_FAI0,
+                     "fai1", TARGET_FAI1,
+                     "faiall", TARGET_FAI_ALL);
 
     int ret = opts(&argc, argv);
     if (ret != 0)
@@ -166,6 +173,12 @@ static int setConfig(int argc, char *argv[])
     PDDL_INFO(&err, "cfg.bench = '%s'", cfg.bench_path);
     if (cfg.target == TARGET_RCI_CPU){
         PDDL_INFO2(&err, "cfg.target = rci-cpu");
+    }else if (cfg.target == TARGET_FAI0){
+        PDDL_INFO2(&err, "cfg.target = fai0");
+    }else if (cfg.target == TARGET_FAI1){
+        PDDL_INFO2(&err, "cfg.target = fai1");
+    }else if (cfg.target == TARGET_FAIALL){
+        PDDL_INFO2(&err, "cfg.target = faiall");
     }else{
         PDDL_INFO2(&err, "cfg.target = none");
     }
@@ -216,6 +229,37 @@ static int genRunFile(char *fn, int offset)
             fprintf(fout, "ID=${SLURM_ARRAY_TASK_ID}\n");
         }else{
             fprintf(fout, "ID=$((${SLURM_ARRAY_TASK_ID} + %d))\n", offset);
+        }
+
+    }else if (cfg.target == TARGET_FAI0
+                || cfg.target == TARGET_FAI1
+                || cfg.target == TARGET_FAI_ALL){
+        int num_cores = 1;
+        num_cores = cfg.max_mem / 4096;
+        if (cfg.max_mem % 4096 > 0)
+            num_cores += 1;
+
+        fprintf(fout, "#$ -S /bin/bash\n");
+        fprintf(fout, "#$ -V\n");
+        fprintf(fout, "#$ -cwd\n");
+        fprintf(fout, "#$ -e %s/job-${TASK_ID}.err\n", cfg.topdir);
+        fprintf(fout, "#$ -o %s/job-${TASK_ID}.out\n", cfg.topdir);
+        if (num_cores > 1){
+            fprintf(fout, "#$ -pe smp %d\n", num_cores);
+        }
+        if (cfg.target == TARGET_FAI0){
+            fprintf(fout, "#$ -q all.q@@fai0x\n");
+        }else if (cfg.target == TARGET_FAI1){
+            fprintf(fout, "#$ -q all.q@@fai1x\n");
+        }else{
+            fprintf(fout, "#$ -q all.q@@allhosts\n");
+        }
+
+        fprintf(fout, "\n");
+        if (offset == 0){
+            fprintf(fout, "ID=$((${SGE_TASK_ID} - 1))\n");
+        }else{
+            fprintf(fout, "ID=$((${SGE_TASK_ID} - 1 + %d))\n", offset);
         }
     }
 
@@ -366,6 +410,16 @@ static int cmdGen(void)
             int maxid = PDDL_MIN(999, bench.task_size - i - 1);
             fprintf(fout, "sbatch --array=0-%d %s\n", maxid, fnrun);
         }
+
+    }else if (cfg.target == TARGET_FAI0
+                || cfg.target == TARGET_FAI1
+                || cfg.target == TARGET_FAI_ALL){
+        char fnrun[PATHSIZE];
+        if (genRunFile(fnrun, 0) != 0)
+            return -1;
+        
+        fprintf(fout, "cd %s\n", cfg.topdir);
+        fprintf(fout, "qsub -t 1-%d %s\n", bench.task_size, fnrun);
     }
     fprintf(fout, "\n");
 
