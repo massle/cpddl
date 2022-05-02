@@ -962,32 +962,35 @@ static int searchStep(pddl_symbolic_task_t *ss,
         pddlBDDCountMinterm(ss->mgr, state_bdd, ss->vars.bdd_var_size / 2));
     DBG(err, "BDD Size: %d", pddlBDDSize(state_bdd));
 
-    if (checkGoal(ss, search, state, err)){
-        LOG(err, "%{found_plan_dir}s: Found plan,"
-            " steps: %{found_plan_steps}lu,"
-            " cost: %{found_plan_cost}s,"
-            " length: %{found_plan_length}d",
-            (search->fw ? "fw" : "bw"),
-            (unsigned long)search->steps,
-            F_COST(&state->cost),
-            pddlIArrSize(&search->plan));
+    if (pddlCostCmp(&state->f_value, &search->state.bound) <= 0){
+        if (checkGoal(ss, search, state, err)){
+            LOG(err, "%{found_plan_dir}s: Found plan,"
+                " steps: %{found_plan_steps}lu,"
+                " cost: %{found_plan_cost}s,"
+                " length: %{found_plan_length}d",
+                (search->fw ? "fw" : "bw"),
+                (unsigned long)search->steps,
+                F_COST(&state->cost),
+                pddlIArrSize(&search->plan));
 
-        pddlTimerStop(&timer);
-        searchSetNextStepEstimate(ss, search, state_bdd,
-                                  pddlTimerElapsedInSF(&timer), time_limit, err);
-        return PDDL_SYMBOLIC_PLAN_FOUND;
+            pddlTimerStop(&timer);
+            searchSetNextStepEstimate(ss, search, state_bdd,
+                                      pddlTimerElapsedInSF(&timer),
+                                      time_limit, err);
+            return PDDL_SYMBOLIC_PLAN_FOUND;
 
-    }else if (other_search != NULL){
-        if (checkGoal2(ss, search, other_search, state, time_limit, err) < 0)
+        }else if (other_search != NULL){
+            if (checkGoal2(ss, search, other_search, state, time_limit, err) < 0)
+                return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
+        }
+        DBG2(err, "Goal checked");
+
+        if (searchExpandState(ss, search, other_search, state, time_limit, err) < 0){
+            LOG2(err, "Time limit reached when expanding the current state.");
             return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
+        }
+        DBG2(err, "Expanded");
     }
-    DBG2(err, "Goal checked");
-
-    if (searchExpandState(ss, search, other_search, state, time_limit, err) < 0){
-        LOG2(err, "Time limit reached when expanding the current state.");
-        return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
-    }
-    DBG2(err, "Expanded");
     pddlSymbolicStatesCloseState(&search->state, ss->mgr, state);
     pddlTimerStop(&timer);
     searchPrepareNext(ss, search, time_limit, err);
@@ -1504,6 +1507,8 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             && !pddlPairHeapEmpty(ss->search_bw.state.open)){
         if (fw_cont == PDDL_SYMBOLIC_PLAN_FOUND
                 || bw_cont == PDDL_SYMBOLIC_PLAN_FOUND
+                || fw_cont == PDDL_SYMBOLIC_PLAN_NOT_EXIST
+                || bw_cont == PDDL_SYMBOLIC_PLAN_NOT_EXIST
                 || (fw_cont != PDDL_SYMBOLIC_CONT
                         && bw_cont != PDDL_SYMBOLIC_CONT)){
             break;
