@@ -177,7 +177,7 @@ static int setConfig(int argc, char *argv[])
         PDDL_INFO2(&err, "cfg.target = fai0");
     }else if (cfg.target == TARGET_FAI1){
         PDDL_INFO2(&err, "cfg.target = fai1");
-    }else if (cfg.target == TARGET_FAIALL){
+    }else if (cfg.target == TARGET_FAI_ALL){
         PDDL_INFO2(&err, "cfg.target = faiall");
     }else{
         PDDL_INFO2(&err, "cfg.target = none");
