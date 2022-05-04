@@ -31,6 +31,7 @@ struct {
     int max_mem;
     char *bench_path;
     int target;
+    int force;
 } cfg;
 
 static pddl_err_t err = PDDL_ERR_INIT;
@@ -49,6 +50,12 @@ static void cleanTaskDir(const char *dir)
     snprintf(fn, PATHSIZE - 1, "%s/task.timeout", dir);
     unlink(fn);
     snprintf(fn, PATHSIZE - 1, "%s/task.time", dir);
+    unlink(fn);
+    snprintf(fn, PATHSIZE - 1, "%s/task.status", dir);
+    unlink(fn);
+    snprintf(fn, PATHSIZE - 1, "%s/task.signum", dir);
+    unlink(fn);
+    snprintf(fn, PATHSIZE - 1, "%s/task.segfault", dir);
     unlink(fn);
 }
 
@@ -97,6 +104,7 @@ static int setConfig(int argc, char *argv[])
                      "fai0", TARGET_FAI0,
                      "fai1", TARGET_FAI1,
                      "faiall", TARGET_FAI_ALL);
+    optsAddFlag("force", 0x0, &cfg.force, 0, "");
 
     int ret = opts(&argc, argv);
     if (ret != 0)
@@ -431,53 +439,12 @@ static int cmdGen(void)
     return 0;
 }
 
-static void terminateTask(int pid)
+static int taskIsFinished(const char *topdir)
 {
-    struct timespec timeout;
-    timeout.tv_sec = 3;
-    timeout.tv_nsec = 0;
-
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &sigset, NULL);
-
-    PDDL_INFO2(&err, "Sending SIGTERM and wait at most 3 seconds.");
-    kill(pid, SIGTERM);
-
-    siginfo_t info;
-    int retsig = sigtimedwait(&sigset, &info, &timeout);
-    if (retsig < 0){
-        if (errno == EAGAIN){
-            PDDL_INFO2(&err, "Task not terminated within 3 seconds.");
-            PDDL_INFO2(&err, "Sending SIGKILL and wait");
-            kill(pid, SIGKILL);
-
-            int wstatus;
-            wait(&wstatus);
-            PDDL_INFO2(&err, "Task exited.");
-            PDDL_INFO(&err, "Exit status: %d", WEXITSTATUS(wstatus));
-
-        }else if (errno == EINTR){
-            PDDL_INFO2(&err, "sigtimedwait failed with err EINTR");
-        }else if (errno == EINVAL){
-            PDDL_INFO2(&err, "sigtimedwait failed with err EINVAL");
-        }else{
-            PDDL_INFO(&err, "sigtimedwait failed with errno %d", errno);
-        }
-
-    }else{
-        switch (retsig){
-            case SIGCHLD:
-                PDDL_INFO(&err, "Child terminated with status %d.",
-                          info.si_status);
-                PDDL_INFO(&err, "Exit status: %d", info.si_status);
-                break;
-            default:
-                PDDL_INFO(&err, "Caught signal %d (%s)",
-                          retsig, strsignal(retsig));
-        }
-    }
+    char fn[PATHSIZE];
+    snprintf(fn, PATHSIZE - 1, "%s/task.finished", topdir);
+    PDDL_INFO(&err, "Checking whether the task is finished (%s)", fn);
+    return pddlIsFile(fn);
 }
 
 static int cmdRun(void)
@@ -486,15 +453,33 @@ static int cmdRun(void)
     taskDir(cfg.topdir, cfg.task_id, topdir);
     PDDL_INFO(&err, "Task directory: %s", topdir);
 
+    if (!cfg.force && taskIsFinished(topdir)){
+        PDDL_INFO(&err, "Task %d (%s) is already finished.",
+                  cfg.task_id, topdir);
+        return 0;
+    }
+
     cleanTaskDir(topdir);
 
     pddl_timer_t timer;
     pddlTimerStart(&timer);
-    PDDL_INFO2(&err, "Forking...");
+
+    char memlimit[32];
+    sprintf(memlimit, "MemoryMax=%dM", cfg.max_mem);
+    char timelimit[32];
+    sprintf(timelimit, "RuntimeMaxSec=%d", cfg.max_time);
+    PDDL_INFO(&err, "Forking and running "
+              "'/usr/bin/systemd-run"
+              " --user"
+              " --scope"
+              " -p %s"
+              " -p %s"
+              " -G"
+              " /bin/bash ./run.sh'"
+              " in directory %s",
+              memlimit, timelimit, topdir);
     int pid = fork();
     if (pid == 0){
-        char memlimit[32];
-        sprintf(memlimit, "MemoryMax=%dM", cfg.max_mem);
 
         chdir(topdir);
         int fdout = open("task.out", O_WRONLY|O_CREAT, 0644);
@@ -513,60 +498,48 @@ static int cmdRun(void)
               "--user",
               "--scope",
               "-p", memlimit,
+              "-p", timelimit,
+              "-G",
               "/bin/bash", "./run.sh",
               NULL);
 
     }else if (pid > 0){
-        struct timespec timeout;
-        timeout.tv_sec = cfg.max_time;
-        timeout.tv_nsec = 0;
-
-        sigset_t sigset;
-        sigemptyset(&sigset);
-        sigaddset(&sigset, SIGCHLD);
-        sigprocmask(SIG_BLOCK, &sigset, NULL);
-
-        siginfo_t info;
-        int retsig = sigtimedwait(&sigset, &info, &timeout);
-        if (retsig < 0){
-            if (errno == EAGAIN){
-                PDDL_INFO2(&err, "Task timed out");
-                PDDL_INFO2(&err, "Terminating the task");
-                terminateTask(pid);
-                writeFileInDir(topdir, "task.timeout", "");
-
-            }else if (errno == EINTR){
-                PDDL_INFO2(&err, "sigtimedwait failed with err EINTR");
-            }else if (errno == EINVAL){
-                PDDL_INFO2(&err, "sigtimedwait failed with err EINVAL");
-            }else{
-                PDDL_INFO(&err, "sigtimedwait failed with errno %d", errno);
+        int wstatus;
+        wait(&wstatus);
+        if (WIFEXITED(wstatus)){
+            int code = WEXITSTATUS(wstatus);
+            PDDL_INFO(&err, "Exit status: %d", code);
+            if (code == 137){
+                PDDL_INFO2(&err, "Probably ran out of memory");
+                writeFileInDir(topdir, "task.memout", "");
+            }else if (code == 139){
+                PDDL_INFO2(&err, "Probably segmentation fault");
+                writeFileInDir(topdir, "task.segfault", "");
             }
 
-        }else{
-            switch (retsig){
-                case SIGCHLD:
-                    PDDL_INFO(&err, "Child terminated with status %d.",
-                              info.si_status);
-                    PDDL_INFO(&err, "Exit status: %d", info.si_status);
-                    if (info.si_status != 0){
-                        if (WIFSIGNALED(info.si_status)){
-                            PDDL_INFO(&err, "Terminated with signal %d (%s)",
-                                      WTERMSIG(info.si_status),
-                                      strsignal(WTERMSIG(info.si_status)));
-                            if (WTERMSIG(info.si_status) == SIGKILL){
-                                PDDL_INFO2(&err, "Probably ran out of memory");
-                                writeFileInDir(topdir, "task.memout", "");
-                            }
-                        }
-                    }
-                    break;
-                default:
-                    PDDL_INFO(&err, "Caught signal %d (%s)",
-                              retsig, strsignal(retsig));
+            char out[32];
+            sprintf(out, "%d", code);
+            writeFileInDir(topdir, "task.status", out);
+
+
+        }else if (WIFSIGNALED(wstatus)){
+            PDDL_INFO(&err, "Terminated with signal %d (%s)",
+                      WTERMSIG(wstatus),
+                      strsignal(WTERMSIG(wstatus)));
+
+            char out[32];
+            sprintf(out, "%d", WTERMSIG(wstatus));
+            writeFileInDir(topdir, "task.signum", out);
+
+            if (WTERMSIG(wstatus) == SIGKILL){
+                PDDL_INFO2(&err, "Probably ran out of memory");
+                writeFileInDir(topdir, "task.memout", "");
+            }
+            if (WTERMSIG(wstatus) == SIGTERM){
+                PDDL_INFO2(&err, "Probably reached time limit");
+                writeFileInDir(topdir, "task.timeout", "");
             }
         }
-
     }else{
         perror("fork failed: ");
         return -1;
