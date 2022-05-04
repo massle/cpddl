@@ -436,7 +436,7 @@ static int cmdGen(void)
     genRunMakefile(&bench);
 
     PDDL_INFO2(&err, "Done.");
-    PDDL_INDO2(&err, "Note: Don't forget to run 'loginctl enable-linger USER'"
+    PDDL_INFO2(&err, "Note: Don't forget to run 'loginctl enable-linger USER'"
                " on your computing nodes.");
     return 0;
 }
