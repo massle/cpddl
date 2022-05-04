@@ -17,6 +17,34 @@ function expcheck() {
     echo "Exit status:"
     find "$topdir" -name task.status -exec cat '{}' ';' -exec echo ';' | sort | uniq -c
 
+    echo "Finished tasks with non-zero exit status:"
+    for f in $(find "$topdir" -name task.finished | sort); do
+        dir=${f%/task.finished}
+        bench=$(cat ${dir}/task.prop | grep 'bench_name = ' | cut -f2 -d'"')
+        domain=$(cat ${dir}/task.prop | grep 'domain_name = ' | cut -f2 -d'"')
+        problem=$(cat ${dir}/task.prop | grep 'problem_name = ' | cut -f2 -d'"')
+
+        st=""
+        if [ -f ${dir}/task.timeout ]; then
+            st="${st}T"
+        fi
+        if [ -f ${dir}/task.memout ]; then
+            st="${st}M"
+        fi
+        if [ -f ${dir}/task.segfault ]; then
+            st="${st}S"
+        fi
+        if [ -f ${dir}/task.status ]; then
+            st="${st} Exit=$(cat ${dir}/task.status)"
+        fi
+        if [ -f ${dir}/task.signum ]; then
+            st="${st} Sig=$(cat ${dir}/task.signum)"
+        fi
+        if [ ! -f ${dir}/task.status ] || [ "$(cat ${dir}/task.status)" != "0" ]; then
+            echo $dir $bench/$domain/$problem "$st"
+        fi
+    done | column -t -s ' '
+
     echo
 }
 
