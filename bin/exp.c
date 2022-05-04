@@ -250,8 +250,8 @@ static int genRunFile(char *fn, int offset)
         fprintf(fout, "#$ -S /bin/bash\n");
         fprintf(fout, "#$ -V\n");
         fprintf(fout, "#$ -cwd\n");
-        fprintf(fout, "#$ -e %s/job-${TASK_ID}.err\n", cfg.topdir);
-        fprintf(fout, "#$ -o %s/job-${TASK_ID}.out\n", cfg.topdir);
+        fprintf(fout, "#$ -e %s/job-$TASK_ID.err\n", cfg.topdir);
+        fprintf(fout, "#$ -o %s/job-$TASK_ID.out\n", cfg.topdir);
         if (num_cores > 1){
             fprintf(fout, "#$ -pe smp %d\n", num_cores);
         }
@@ -436,6 +436,8 @@ static int cmdGen(void)
     genRunMakefile(&bench);
 
     PDDL_INFO2(&err, "Done.");
+    PDDL_INDO2(&err, "Note: Don't forget to run 'loginctl enable-linger USER'"
+               " on your computing nodes.");
     return 0;
 }
 
