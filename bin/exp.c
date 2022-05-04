@@ -18,7 +18,8 @@
 #define TARGET_RCI_CPU 1
 #define TARGET_FAI0 2
 #define TARGET_FAI1 3
-#define TARGET_FAI_ALL 4
+#define TARGET_FAI14 4
+#define TARGET_FAI_ALL 5
 
 struct {
     int help;
@@ -103,6 +104,7 @@ static int setConfig(int argc, char *argv[])
                      "rci-cpu", TARGET_RCI_CPU,
                      "fai0", TARGET_FAI0,
                      "fai1", TARGET_FAI1,
+                     "fai14", TARGET_FAI14,
                      "faiall", TARGET_FAI_ALL);
     optsAddFlag("force", 0x0, &cfg.force, 0, "");
 
@@ -185,6 +187,8 @@ static int setConfig(int argc, char *argv[])
         PDDL_INFO2(&err, "cfg.target = fai0");
     }else if (cfg.target == TARGET_FAI1){
         PDDL_INFO2(&err, "cfg.target = fai1");
+    }else if (cfg.target == TARGET_FAI14){
+        PDDL_INFO2(&err, "cfg.target = fai14");
     }else if (cfg.target == TARGET_FAI_ALL){
         PDDL_INFO2(&err, "cfg.target = faiall");
     }else{
@@ -241,6 +245,7 @@ static int genRunFile(char *fn, int offset)
 
     }else if (cfg.target == TARGET_FAI0
                 || cfg.target == TARGET_FAI1
+                || cfg.target == TARGET_FAI14
                 || cfg.target == TARGET_FAI_ALL){
         int num_cores = 1;
         num_cores = cfg.max_mem / 4096;
@@ -258,7 +263,9 @@ static int genRunFile(char *fn, int offset)
         if (cfg.target == TARGET_FAI0){
             fprintf(fout, "#$ -q all.q@@fai0x\n");
         }else if (cfg.target == TARGET_FAI1){
-            fprintf(fout, "#$ -q all.q@@fai1x\n");
+            fprintf(fout, "#$ -q all.q@fai11,all.q@fai12,all.q@fai13\n");
+        }else if (cfg.target == TARGET_FAI14){
+            fprintf(fout, "#$ -q all.q@fai14\n");
         }else{
             fprintf(fout, "#$ -q all.q@@allhosts\n");
         }
@@ -421,6 +428,7 @@ static int cmdGen(void)
 
     }else if (cfg.target == TARGET_FAI0
                 || cfg.target == TARGET_FAI1
+                || cfg.target == TARGET_FAI14
                 || cfg.target == TARGET_FAI_ALL){
         char fnrun[PATHSIZE];
         if (genRunFile(fnrun, 0) != 0)
