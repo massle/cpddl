@@ -775,8 +775,6 @@ static int searchExpandState(pddl_symbolic_task_t *ss,
         state->cost = cost;
         state->heur = heur;
         state->f_value = f_value;
-        DBG(err, "TR cost: %s, heur %s, f %s",
-            F_COST(&state->cost), F_COST(&state->heur), F_COST(&state->f_value));
 
         // Deal with blown-up f-values
         // TODO
@@ -887,11 +885,6 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
         merged->heur = state->heur;
         pddlISetUnion(&merged->parent_ids, &parents);
         pddlSymbolicStatesOpenState(&search->state, merged);
-
-        DBG(err, "%s: Merged %d states when preparing next state (nodes: %d)",
-            (search->fw ? "fw" : "bw"),
-            pddlISetSize(&parents),
-            pddlBDDSize(bdd));
     }else{
         pddlSymbolicStatesOpenState(&search->state, state);
     }
@@ -902,6 +895,7 @@ static void searchPrepareNext(pddl_symbolic_task_t *ss,
 
 static void printStepLog(const pddl_symbolic_task_t *ss,
                          pddl_symbolic_search_t *search,
+                         const pddl_symbolic_search_t *other_search,
                          const pddl_symbolic_state_t *state,
                          pddl_err_t *err)
 {
@@ -914,18 +908,53 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
             || search->steps % 1000ul == 0
             || pddlTimerElapsedInSF(&search->steps_time) > 1.){
 #endif /* PDDL_DEBUG */
-        PDDL_INFO(err, "step %lu, g: %s, h: %s, f: %s,"
-                      " generated: %d, closed: %d,"
-                      " cudd mem: %.2fMB, gc: %d, expanded BDD nodes: %lu",
-                 (unsigned long)search->steps,
-                 F_COST(&state->cost),
-                 F_COST(&state->heur),
-                 F_COST(&state->f_value),
-                 search->state.num_states,
-                 search->state.num_closed,
-                 pddlBDDMem(ss->mgr),
-                 pddlBDDGCUsed(ss->mgr),
-                 search->num_expanded_bdd_nodes);
+        if (other_search == NULL){
+            LOG_IN_CTX(err, "step", "step",
+                       "%{dir}s %{step}lu, g: %{g}s, h: %{h}s, f: %{f}s,"
+                       " gen: %{generated_states}d,"
+                       " closed: %{closed_states}d,"
+                       " cur-bdd-size: %{cur_state_bdd_size}d"
+                       " cur-bdd-states: %{cur_state_num_states}.1f",
+                       (search->fw ? "fw" : "bw"),
+                       (unsigned long)search->steps,
+                       F_COST(&state->cost),
+                       F_COST(&state->heur),
+                       F_COST(&state->f_value),
+                       search->state.num_states,
+                       search->state.num_closed,
+                       pddlBDDSize(state->bdd),
+                       pddlBDDCountMinterm(ss->mgr, state->bdd, ss->vars.bdd_var_size / 2));
+        }else{
+            const pddl_symbolic_search_t *sfw = search;
+            const pddl_symbolic_search_t *sbw = other_search;
+            if (!search->fw){
+                sfw = other_search;
+                sbw = search;
+            }
+
+            LOG_IN_CTX(err, "step", "step",
+                       "%{dir}s %{step}lu, g: %{g}s, h: %{h}s, f: %{f}s,"
+                       " gen: %{generated_states}d,"
+                       " closed: %{closed_states}d,"
+                       " bound: %{bound}s,"
+                       " fw-est: %{fw_estimate}.2f,"
+                       " bw-est: %{bw_estimate}.2f,"
+                       " cur-bdd-size: %{cur_state_bdd_size}d,"
+                       " cur-bdd-states: %{cur_state_num_states}.1f",
+                       (search->fw ? "fw" : "bw"),
+                       (unsigned long)search->steps,
+                       F_COST(&state->cost),
+                       F_COST(&state->heur),
+                       F_COST(&state->f_value),
+                       search->state.num_states,
+                       search->state.num_closed,
+                       (pddlCostIsMax(&search->state.bound)
+                            ? "unset" : F_COST(&search->state.bound)),
+                       sfw->next_step_estimate,
+                       sbw->next_step_estimate,
+                       pddlBDDSize(state->bdd),
+                       pddlBDDCountMinterm(ss->mgr, state->bdd, ss->vars.bdd_var_size / 2));
+        }
         pddlTimerStart(&search->steps_time);
     }
 }
@@ -947,7 +976,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
     }
 
-    printStepLog(ss, search, state, err);
+    printStepLog(ss, search, other_search, state, err);
 
     pddl_bdd_t *state_bdd = searchStateBDD(ss, search, state, time_limit);
     if (state_bdd == NULL){
@@ -956,13 +985,8 @@ static int searchStep(pddl_symbolic_task_t *ss,
         return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
     }
 
-    if (pddlBDDIsFalse(ss->mgr, state_bdd)){
-        DBG(err, "%s: State is empty", (search->fw ? "fw" : "bw"));
+    if (pddlBDDIsFalse(ss->mgr, state_bdd))
         return PDDL_SYMBOLIC_CONT;
-    }
-    DBG(err, "Num states: %.2f",
-        pddlBDDCountMinterm(ss->mgr, state_bdd, ss->vars.bdd_var_size / 2));
-    DBG(err, "BDD Size: %d", pddlBDDSize(state_bdd));
 
     if (pddlCostCmp(&state->f_value, &search->state.bound) <= 0){
         if (checkGoal(ss, search, state, err)){
@@ -985,13 +1009,11 @@ static int searchStep(pddl_symbolic_task_t *ss,
             if (checkGoal2(ss, search, other_search, state, time_limit, err) < 0)
                 return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
         }
-        DBG2(err, "Goal checked");
 
         if (searchExpandState(ss, search, other_search, state, time_limit, err) < 0){
             LOG2(err, "Time limit reached when expanding the current state.");
             return PDDL_SYMBOLIC_ABORT_TIME_LIMIT;
         }
-        DBG2(err, "Expanded");
     }
     pddlSymbolicStatesCloseState(&search->state, ss->mgr, state);
     pddlTimerStop(&timer);
@@ -1536,16 +1558,6 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             float bw_est = ss->search_bw.next_step_estimate;
             if (fw_cont == PDDL_SYMBOLIC_CONT && fw_est <= bw_est)
                 fw_step = 1;
-            DBG(err, "fw est: %.2f, bw est: %.2f, fw open: %s,"
-                " bw open: %s, bound: %s, use fw: %d"
-                " fw-closed size: %d, bw-closed size: %d",
-                fw_est, bw_est,
-                F_COST(min_fw_cost),
-                F_COST(min_bw_cost),
-                F_COST(&ss->search_fw.state.bound),
-                fw_step,
-                pddlBDDSize(ss->search_fw.state.all_closed),
-                pddlBDDSize(ss->search_bw.state.all_closed));
         }
 
         if (fw_step){

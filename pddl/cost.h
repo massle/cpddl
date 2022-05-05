@@ -114,6 +114,11 @@ _pddl_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
     return 0;
 }
 
+_pddl_inline int pddlCostIsMax(const pddl_cost_t *c)
+{
+    return pddlCostCmp(c, &pddl_cost_max) == 0;
+}
+
 const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size);
 
 _pddl_inline int pddlSumSat(int c1, int c2)
