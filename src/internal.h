@@ -39,6 +39,8 @@ extern "C" {
 #define CTXEND(E) PDDL_CTXEND(E)
 #define LOG(E, format, ...) PDDL_LOG((E), (format), __VA_ARGS__)
 #define LOG2(E, format) PDDL_LOG2((E), (format))
+#define LOG_IN_CTX(E, CTX_KW, CTX_I, format, ...) \
+    PDDL_LOG_IN_CTX(E, CTX_KW, CTX_I, format, __VA_ARGS__)
 #define TRACE(E) PDDL_TRACE(E)
 #define TRACE_RET(E, V) PDDL_TRACE_RET((E), (V))
 #define TRACE_PREPEND(E, format, ...) \

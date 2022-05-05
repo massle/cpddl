@@ -20,6 +20,44 @@
 #include <string.h>
 #include <stdarg.h>
 
+static void _pddlProp_kw(pddl_err_t *err, const char *kw)
+{
+    for (int i = 0; i < err->ctx_size; ++i)
+        fprintf(err->prop_out, "  ");
+    fprintf(err->prop_out, "%s = ", kw);
+}
+
+static void _pddlProp_ctxKw(pddl_err_t *err, const char *kw)
+{
+    if (err->prop_out == NULL)
+        return;
+    for (int i = 0; i < err->ctx_size; ++i)
+        fprintf(err->prop_out, "  ");
+    fprintf(err->prop_out, "%s:\n", kw);
+    fflush(err->prop_out);
+}
+
+static void _pddlProp_i(pddl_err_t *err, const char *kw, const char *v, int vlen)
+{
+    if (err == NULL || err->prop_out == NULL)
+        return;
+    _pddlProp_kw(err, kw);
+    fwrite(v, sizeof(char), vlen, err->prop_out);
+    fwrite("\n", sizeof(char), 1, err->prop_out);
+    fflush(err->prop_out);
+}
+
+static void _pddlProp_s(pddl_err_t *err, const char *kw, const char *v, int vlen)
+{
+    if (err == NULL || err->prop_out == NULL)
+        return;
+    _pddlProp_kw(err, kw);
+    fwrite("\"", sizeof(char), 1, err->prop_out);
+    fwrite(v, sizeof(char), vlen, err->prop_out);
+    fwrite("\"\n", sizeof(char), 2, err->prop_out);
+    fflush(err->prop_out);
+}
+
 static void pddlErrPrintMsg(const pddl_err_t *err, FILE *fout)
 {
     if (!err->err)
@@ -49,6 +87,12 @@ static void pddlErrPrintTraceback(const pddl_err_t *err, FILE *fout)
 void pddlErrInit(pddl_err_t *err)
 {
     bzero(err, sizeof(*err));
+}
+
+void pddlErrStartCtxTimer(pddl_err_t *err)
+{
+    pddlTimerStart(&err->ctx_timer);
+    err->ctx_timer_started = 1;
 }
 
 int pddlErrIsSet(const pddl_err_t *err)
@@ -141,6 +185,7 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
     if (err == NULL || err->ctx_size == PDDL_ERR_CTX_MAXLEN)
         return;
 
+    _pddlProp_ctxKw(err, kw);
     pddl_err_ctx_t *ctx = err->ctx + err->ctx_size++;
     strncpy(ctx->kw, kw, PDDL_ERR_CTX_KW_MAXLEN - 1);
     ctx->kw[PDDL_ERR_CTX_KW_MAXLEN - 1] = '\0';
@@ -150,6 +195,11 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
     if (time){
         pddlTimerStart(&ctx->timer);
         _pddlLog(err, "BEGIN");
+        if (err->ctx_timer_started){
+            pddlTimerStop(&err->ctx_timer);
+            PDDL_PROP_DBL(err, "ctx_start_time",
+                          pddlTimerElapsedInSF(&err->ctx_timer));
+        }
     }
 }
 
@@ -158,6 +208,11 @@ void _pddlCtxEnd(pddl_err_t *err)
     if (err != NULL && err->ctx_size > 0){
         pddl_err_ctx_t *ctx = err->ctx + err->ctx_size - 1;
         if (ctx->use_time){
+            if (err->ctx_timer_started){
+                pddlTimerStop(&err->ctx_timer);
+                PDDL_PROP_DBL(err, "ctx_end_time",
+                              pddlTimerElapsedInSF(&err->ctx_timer));
+            }
             pddlTimerStop(&ctx->timer);
             _pddlLog(err, "END elapsed time: %{ctx_elapsed_time}.3f",
                      pddlTimerElapsedInSF(&ctx->timer));
@@ -183,34 +238,6 @@ void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func
     va_end(ap);
     fprintf(err->warn_out, "\n");
     fflush(err->warn_out);
-}
-
-static void _pddlProp_kw(pddl_err_t *err, const char *kw)
-{
-    for (int i = 0; i < err->ctx_size; ++i)
-        fprintf(err->prop_out, "%s.", err->ctx[i].kw);
-    fprintf(err->prop_out, "%s = ", kw);
-}
-
-static void _pddlProp_i(pddl_err_t *err, const char *kw, const char *v, int vlen)
-{
-    if (err == NULL || err->prop_out == NULL)
-        return;
-    _pddlProp_kw(err, kw);
-    fwrite(v, sizeof(char), vlen, err->prop_out);
-    fwrite("\n", sizeof(char), 1, err->prop_out);
-    fflush(err->prop_out);
-}
-
-static void _pddlProp_s(pddl_err_t *err, const char *kw, const char *v, int vlen)
-{
-    if (err == NULL || err->prop_out == NULL)
-        return;
-    _pddlProp_kw(err, kw);
-    fwrite("\"", sizeof(char), 1, err->prop_out);
-    fwrite(v, sizeof(char), vlen, err->prop_out);
-    fwrite("\"\n", sizeof(char), 2, err->prop_out);
-    fflush(err->prop_out);
 }
 
 

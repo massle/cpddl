@@ -758,6 +758,7 @@ void freeData(void)
 
 int main(int argc, char *argv[])
 {
+    pddlErrStartCtxTimer(&err);
     pddl_timer_t timer;
     pddlTimerStart(&timer);
     int ret = 0;

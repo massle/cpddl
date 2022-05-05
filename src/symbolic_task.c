@@ -300,9 +300,10 @@ static int searchInit(pddl_symbolic_task_t *ss,
             pddlCostSum(&h, &search->heur_init);
             h.cost += -s->h_int;
             pddlBDDsCostsAdd(ss->mgr, &search->init, s->state, &h);
-            LOG(err, "Added init with h-value: %{init_h_value}s,"
-                " bdd-size: %{init_bdd_size}d",
-                F_COST(&h), pddlBDDSize(s->state));
+            LOG_IN_CTX(err, "bw_unsorted_init", "Determined unsorted bw init",
+                       "h-value: %{init_h_value}s,"
+                       " bdd-size: %{init_bdd_size}d",
+                       F_COST(&h), pddlBDDSize(s->state));
         }
         pddlSymbolicStatesSplitByPotDel(goals, ss->mgr);
         pddlMutexPairsFree(&mutex);
@@ -310,10 +311,11 @@ static int searchInit(pddl_symbolic_task_t *ss,
         pddlBDDsCostsSortUniq(ss->mgr, &search->init);
         LOG2(err, "Init states sorted.");
         for (int i = 0; i < search->init.bdd_size; ++i){
-            LOG(err, "Init with h-value: %{init_h_value}s,"
-                " bdd-size: %{init_bdd_size}d",
-                F_COST(&search->init.bdd[i].cost),
-                pddlBDDSize(search->init.bdd[i].bdd));
+            LOG_IN_CTX(err, "bw_init", "Added bw init",
+                       "h-value: %{init_h_value}s,"
+                       " bdd-size: %{init_bdd_size}d",
+                       F_COST(&search->init.bdd[i].cost),
+                       pddlBDDSize(search->init.bdd[i].bdd));
         }
         CTXEND(err);
 
