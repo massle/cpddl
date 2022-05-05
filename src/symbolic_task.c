@@ -44,8 +44,6 @@
 #include "pddl/hpot.h"
 #include "internal.h"
 
-#define ROUND_EPS 0.001
-
 struct pddl_symbolic_search {
     pddl_symbolic_search_config_t cfg; /*!< Configuration */
     int enabled;
@@ -238,9 +236,9 @@ static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_err_t *err)
 {
     if (fw){
-        CTX(err, "symba_search_fw", "Symba-search-fw");
+        CTX(err, "symba_search_fw_init", "fw-init");
     }else{
-        CTX(err, "symba_search_bw", "Symba-search-bw");
+        CTX(err, "symba_search_bw_init", "bw-init");
     }
     bzero(search, sizeof(*search));
     search->cfg = *_cfg;
@@ -277,7 +275,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
             && !fw
             && search->use_heur
             && search->cfg.use_goal_splitting){
-        CTX(err, "symba_split_goal", "Split-goal");
+        CTX(err, "symba_split_goal", "split-goal");
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
         pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex,
@@ -1286,7 +1284,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                 " potential heuristic.");
     }
 
-    CTX(err, "symba", "symbolic");
+    CTX(err, "symba_init", "symba-init");
 
     pddl_symbolic_task_t *ss;
     LOG(err, "Constructing symbolic task from FDR with"
@@ -1418,7 +1416,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 {
     if (!ss->search_fw.enabled)
         PDDL_FATAL2("Symbolic Task wasn't initialzed with fw search!");
-    CTX(err, "symba_fw", "symbolic search fw");
+    CTX(err, "symba_fw", "symba-fw");
     searchStart(ss, &ss->search_fw, err);
     int res = searchOneDir(ss, &ss->search_fw, err);
     pddlIArrAppendArr(plan, &ss->search_fw.plan);
@@ -1442,7 +1440,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 {
     if (!ss->search_bw.enabled)
         PDDL_FATAL2("Symbolic Task wasn't initialzed with bw search!");
-    CTX(err, "symba_bw", "symbolic search bw");
+    CTX(err, "symba_bw", "symba-bw");
     searchStart(ss, &ss->search_bw, err);
     int res = searchOneDir(ss, &ss->search_bw, err);
     pddlIArrAppendArr(plan, &ss->search_bw.plan);
@@ -1515,7 +1513,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         PDDL_FATAL2("Symbolic Task wasn't initialzed with fw search!");
     if (!ss->search_bw.enabled)
         PDDL_FATAL2("Symbolic Task wasn't initialzed with bw search!");
-    CTX(err, "symba_fwbw", "symbolic search fw+bw");
+    CTX(err, "symba_fwbw", "symba-bi");
     PDDL_INFO2(err, "start");
     searchStart(ss, &ss->search_fw, err);
     searchStart(ss, &ss->search_bw, err);
