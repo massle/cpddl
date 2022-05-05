@@ -58,16 +58,6 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
                              pddl_bdd_manager_t *mgr,
                              pddl_err_t *err);
 
-void pddlSymbolicSplitGoalByPot(const pddl_iset_t *goal,
-                                const pddl_mgroups_t *mgroups,
-                                const pddl_mutex_pairs_t *mutex,
-                                const double *pot,
-                                pddl_symbolic_vars_t *symb_vars,
-                                pddl_symbolic_constr_t *constr,
-                                pddl_bdd_manager_t *mgr,
-                                pddl_bdds_t *bdds,
-                                pddl_err_t *err);
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

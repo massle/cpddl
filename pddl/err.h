@@ -66,6 +66,8 @@ struct pddl_err {
 
     pddl_err_ctx_t ctx[PDDL_ERR_CTX_MAXLEN];
     int ctx_size;
+    pddl_timer_t ctx_timer;
+    int ctx_timer_started;
 
     FILE *warn_out;
     FILE *info_out;
@@ -82,6 +84,11 @@ typedef struct pddl_err pddl_err_t;
  * Initialize error structure.
  */
 void pddlErrInit(pddl_err_t *err);
+
+/**
+ * Start global context timer.
+ */
+void pddlErrStartCtxTimer(pddl_err_t *err);
 
 /**
  * Returns true if an error message is set.
@@ -184,6 +191,12 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
  */
 #define PDDL_LOG(E, format, ...) _pddlLog((E), format, __VA_ARGS__)
 #define PDDL_LOG2(E, msg) _pddlLog((E), msg)
+#define PDDL_LOG_IN_CTX(E, CTX_KW, CTX_I, format, ...) \
+    do { \
+        PDDL_CTX_NO_TIME((E), (CTX_KW), (CTX_I)); \
+        PDDL_LOG((E), format, __VA_ARGS__); \
+        PDDL_CTXEND((E)); \
+    } while (0)
 
 #define PDDL_PROP_BOOL(E, KEY, V) \
     _pddlProp((E), (KEY), "%s", ((V) ? "true" : "false"))
