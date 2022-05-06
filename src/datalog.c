@@ -20,15 +20,20 @@
 #include "pddl/hfunc.h"
 #include "pddl/extarr.h"
 #include "pddl/htable.h"
+#include "pddl/pairheap.h"
 #include "pddl/datalog.h"
 #include "internal.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;
     pddl_list_t htable;
+    pddl_pairheap_node_t heap;
 
     int id;
+    pddl_cost_t weight;
     int arity;
+
+    // The following .pred and .arg[] must be kept together
     int pred;
     int arg[];
 };
@@ -51,6 +56,7 @@ struct pddl_datalog_db {
     pddl_htable_t *hrelevant_fact[2];
     size_t used_mem;
     pddl_extarr_t *fact;
+    pddl_pairheap_t *fact_queue;
     int fact_size;
     pddl_iset_t *pred_to_fact;
     pddl_extarr_t *relevant_fact[2];
@@ -78,6 +84,7 @@ struct pddl_datalog_pred {
     int idx;
     int arity;
     char *name;
+    int is_goal;
     int user_id;
     pddl_iset_t relevant_rules;
 };
@@ -118,6 +125,10 @@ struct pddl_datalog {
 #define IDX_TO_VAR(v) (((v)<<MASK_LEN) | VAR_MASK)
 #define IS_VAR(v) (((v) & MASK) == VAR_MASK)
 
+#define NO_WEIGHT 0
+#define WEIGHT_MAX 1
+#define WEIGHT_ADD 2
+
 static pddl_htable_key_t factComputeHash(const pddl_datalog_fact_t *fact)
 {
     size_t size = sizeof(int) + fact->arity * sizeof(int);
@@ -136,6 +147,16 @@ static int factEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
     f2 = PDDL_LIST_ENTRY(key2, pddl_datalog_fact_t, htable);
     size_t size = sizeof(int) + f1->arity * sizeof(int);
     return f1->arity == f2->arity && memcmp(&f1->pred, &f2->pred, size) == 0;
+}
+
+static int factQueueLT(const pddl_pairheap_node_t *n1,
+                       const pddl_pairheap_node_t *n2,
+                       void *data)
+{
+    const pddl_datalog_fact_t *f1, *f2;
+    f1 = pddl_container_of(n1, pddl_datalog_fact_t, heap);
+    f2 = pddl_container_of(n2, pddl_datalog_fact_t, heap);
+    return pddlCostCmp(&f1->weight, &f2->weight) < 0;
 }
 
 static pddl_htable_key_t relevantFactComputeHash(
@@ -177,6 +198,7 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     void *init = alloca(size);
     bzero(init, size);
     db->fact = pddlExtArrNew(size, NULL, init);
+    db->fact_queue = pddlPairHeapNew(factQueueLT, NULL);
     db->pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
 
     size = sizeof(pddl_datalog_relevant_fact_t);
@@ -195,6 +217,8 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     pddlHTableDel(db->hrelevant_fact[0]);
     pddlHTableDel(db->hrelevant_fact[1]);
     pddlExtArrDel(db->fact);
+    if (db->fact_queue != NULL)
+        pddlPairHeapDel(db->fact_queue);
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < db->relevant_fact_size[i]; ++j){
             void *x = pddlExtArrGet(db->relevant_fact[i], j);
@@ -243,6 +267,28 @@ static int dbHasFact(pddl_datalog_t *dl,
     }
 }
 
+static pddl_datalog_fact_t *dbFindFact(pddl_datalog_t *dl,
+                                       pddl_datalog_db_t *db,
+                                       int pred,
+                                       const int *arg)
+{
+    int arity = dl->pred[pred].arity;
+    size_t size = sizeof(pddl_datalog_fact_t) + arity * sizeof(int);
+    pddl_datalog_fact_t *f = alloca(size);
+
+    f->arity = arity;
+    f->pred = pred;
+    memcpy(f->arg, arg, sizeof(int) * arity);
+    f->hash = factComputeHash(f);
+    pddl_list_t *ret = pddlHTableFind(db->hfact, &f->htable);
+    if (ret == NULL){
+        return NULL;
+
+    }else{
+        return PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
+    }
+}
+
 static int dbAddFact(pddl_datalog_t *dl,
                      pddl_datalog_db_t *db,
                      int pred,
@@ -267,6 +313,26 @@ static int dbAddFact(pddl_datalog_t *dl,
         f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
     }
     return f->id;
+}
+
+static void dbSetFactWeight(pddl_datalog_t *dl,
+                            pddl_datalog_db_t *db,
+                            int fact_id,
+                            const pddl_cost_t *weight)
+{
+    pddl_datalog_fact_t *f = dbFact(db, fact_id);
+    if (f->heap.children.next == NULL){
+        f->weight = *weight;
+        pddlPairHeapAdd(db->fact_queue, &f->heap);
+
+    }else if (pddlCostCmp(&f->weight, weight) > 0){
+        f->weight = *weight;
+        pddlPairHeapDecreaseKey(db->fact_queue, &f->heap);
+
+    }else if (pddlCostCmp(&f->weight, weight) != 0){
+        f->weight = *weight;
+        pddlPairHeapUpdate(db->fact_queue, &f->heap);
+    }
 }
 
 static void dbAddRelevantFact(pddl_datalog_t *dl,
@@ -489,6 +555,13 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
     return p->id;
 }
 
+unsigned pddlDatalogAddGoalPred(pddl_datalog_t *dl, const char *name)
+{
+    unsigned id = pddlDatalogAddPred(dl, 0, name);
+    dl->pred[id].is_goal = 1;
+    return id;
+}
+
 unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
 {
     if (dl->var_size == dl->var_alloc){
@@ -670,6 +743,9 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
         pddlDatalogAtomSetArg(dl, &head, i, v);
     }
 
+    // TODO: Reduce the number of rules by looking for rules with identical
+    //       body and a head that can be achieved only a this rule
+
     // Construct a new rule
     pddl_datalog_rule_t newrule;
     pddlDatalogRuleInit(dl, &newrule);
@@ -728,7 +804,9 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
     return 0;
 }
 
-static void insertInitialFacts(pddl_datalog_t *dl, pddl_err_t *err)
+static void insertInitialFacts(pddl_datalog_t *dl,
+                               int use_weight,
+                               pddl_err_t *err)
 {
     int args[dl->max_pred_arity];
     for (int ri = 0; ri < dl->rule_size; ++ri){
@@ -748,7 +826,9 @@ static void insertInitialFacts(pddl_datalog_t *dl, pddl_err_t *err)
         }
         if (abort)
             continue;
-        dbAddFact(dl, &dl->db, atom->pred, args);
+        int fact_id = dbAddFact(dl, &dl->db, atom->pred, args);
+        if (use_weight)
+            dbSetFactWeight(dl, &dl->db, fact_id, &rule->weight);
     }
 }
 
@@ -806,7 +886,42 @@ static int ruleNegBodySatisfied(pddl_datalog_t *dl,
     return 1;
 }
 
+static void ruleBodyWeight(pddl_datalog_t *dl,
+                           int weight_type,
+                           const pddl_datalog_rule_t *rule,
+                           const int *var_map,
+                           pddl_cost_t *w)
+{
+    pddlCostSetZero(w);
+
+    for (int bi = 0; bi < rule->body_size; ++bi){
+        const pddl_datalog_atom_t *b = &rule->body[bi];
+        int arity = dl->pred[b->pred].arity;
+        int arg[arity];
+        for (int i = 0; i < arity; ++i){
+            if (IS_VAR(b->arg[i])){
+                arg[i] = var_map[TO_IDX(b->arg[i])];
+            }else{
+                arg[i] = TO_IDX(b->arg[i]);
+            }
+        }
+        const pddl_datalog_fact_t *f = dbFindFact(dl, &dl->db, b->pred, arg);
+        ASSERT(f != NULL);
+        if (weight_type == WEIGHT_ADD){
+            pddlCostSum(w, &f->weight);
+
+        }else if (weight_type == WEIGHT_MAX){
+            if (pddlCostCmp(w, &f->weight) > 0)
+                *w = f->weight;
+
+        }else{
+            ASSERT_RUNTIME(0);
+        }
+    }
+}
+
 static void ruleToFact(pddl_datalog_t *dl,
+                       int use_weight,
                        const pddl_datalog_rule_t *rule,
                        const int *var_map)
 {
@@ -823,10 +938,17 @@ static void ruleToFact(pddl_datalog_t *dl,
             arg[i] = TO_IDX(head->arg[i]);
         }
     }
-    dbAddFact(dl, &dl->db, head->pred, arg);
+    int fact_id = dbAddFact(dl, &dl->db, head->pred, arg);
+    if (use_weight){
+        pddl_cost_t w;
+        ruleBodyWeight(dl, use_weight, rule, var_map, &w);
+        pddlCostSum(&w, &rule->weight);
+        dbSetFactWeight(dl, &dl->db, fact_id, &w);
+    }
 }
 
 static void applyFactOnJoinRule(pddl_datalog_t *dl,
+                                int use_weight,
                                 int atom_idx,
                                 int rule_id,
                                 int fact_id,
@@ -855,11 +977,12 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
             if (IS_VAR(b1->arg[i]))
                 var_map[TO_IDX(b1->arg[i])] = f->arg[i];
         }
-        ruleToFact(dl, rule, var_map);
+        ruleToFact(dl, use_weight, rule, var_map);
     }
 }
 
 static void applyFactOnRule(pddl_datalog_t *dl,
+                            int use_weight,
                             const pddl_datalog_fact_t *f,
                             int rule_id,
                             pddl_err_t *err)
@@ -868,29 +991,29 @@ static void applyFactOnRule(pddl_datalog_t *dl,
     int var_map[dl->var_size];
     if (rule->body_size == 1
             && unify(dl, f->pred, f->arg, &rule->body[0], var_map) == 0){
-        ruleToFact(dl, rule, var_map);
+        ruleToFact(dl, use_weight, rule, var_map);
     }
 
     if (rule->body_size == 2
             && unify(dl, f->pred, f->arg, &rule->body[0], var_map) == 0){
-        applyFactOnJoinRule(dl, 0, rule_id, f->id, var_map, err);
+        applyFactOnJoinRule(dl, use_weight, 0, rule_id, f->id, var_map, err);
     }
 
     if (rule->body_size == 2
             && unify(dl, f->pred, f->arg, &rule->body[1], var_map) == 0){
-        applyFactOnJoinRule(dl, 1, rule_id, f->id, var_map, err);
+        applyFactOnJoinRule(dl, use_weight, 1, rule_id, f->id, var_map, err);
     }
 }
 
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    CTX(err, "dl_canonical_model", "DL Canonical model");
+    CTX(err, "dl_canonical_model", "DL Canonical Model");
     LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
         " predicates: %{in.predicates}d, rules: %{in.rules}d)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 1, err);
 
-    insertInitialFacts(dl, err);
+    insertInitialFacts(dl, NO_WEIGHT, err);
     LOG(err, "Added initial facts: %{initial_facts}d", dl->db.fact_size);
 
     int cur_id = 0;
@@ -898,7 +1021,7 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
         const pddl_datalog_fact_t *f = dbFact(&dl->db, cur_id);
         int rule_id;
         PDDL_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
-            applyFactOnRule(dl, f, rule_id, err);
+            applyFactOnRule(dl, NO_WEIGHT, f, rule_id, err);
         ++cur_id;
         if (cur_id % 100000 == 0){
             LOG(err, "progress (facts processed: %d, overall: %d,"
@@ -912,14 +1035,63 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
     CTXEND(err);
 }
 
+static void weightedCanonicalModel(pddl_datalog_t *dl,
+                                   int weight_type,
+                                   pddl_err_t *err)
+{
+    CTX(err, "dl_weighted_canonical_model", "DL Weighted Canonical Model");
+    LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
+        " predicates: %{in.predicates}d, rules: %{in.rules}d,"
+        " weight_type: %{weight_type}s)",
+        dl->c_size, dl->var_size, dl->pred_size, dl->rule_size,
+        (weight_type == WEIGHT_ADD ? "add" : "max"));
+    setUp(dl, 1, err);
+
+    insertInitialFacts(dl, weight_type, err);
+    LOG(err, "Added initial facts: %{initial_facts}d", dl->db.fact_size);
+
+    int cur_id = 0;
+    while (!pddlPairHeapEmpty(dl->db.fact_queue)){
+        pddl_pairheap_node_t *qnode = pddlPairHeapExtractMin(dl->db.fact_queue);
+        const pddl_datalog_fact_t *f;
+        f = pddl_container_of(qnode, pddl_datalog_fact_t, heap);
+        if (dl->pred[f->pred].is_goal)
+            break;
+
+        int rule_id;
+        PDDL_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
+            applyFactOnRule(dl, weight_type, f, rule_id, err);
+        ++cur_id;
+        if (cur_id % 100000 == 0){
+            LOG(err, "progress (facts processed: %d, overall: %d,"
+                " db-mem: %luMB)",
+                cur_id, dl->db.fact_size,
+                dbUseddMem(&dl->db) / (1024lu * 1024lu));
+        }
+    }
+    LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
+        dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
+    CTXEND(err);
+}
+
+void pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl, pddl_err_t *err)
+{
+    weightedCanonicalModel(dl, WEIGHT_ADD, err);
+}
+
+void pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl, pddl_err_t *err)
+{
+    weightedCanonicalModel(dl, WEIGHT_MAX, err);
+}
+
 void pddlDatalogFactsFromCanonicalModel(
-                                        pddl_datalog_t *dl,
-                                        unsigned pred,
-                                        void (*fn)(int pred_user_id,
-                                                   int arity,
-                                                   const pddl_obj_id_t *arg_user_id,
-                                                   void *user_data),
-                                        void *user_data)
+            pddl_datalog_t *dl,
+            unsigned pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       void *user_data),
+            void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
     pddl_obj_id_t arg[arity];
@@ -930,6 +1102,28 @@ void pddlDatalogFactsFromCanonicalModel(
         for (int i = 0; i < arity; ++i)
             arg[i] = dl->c[f->arg[i]].user_id;
         fn(p, arity, arg, user_data);
+    }
+}
+
+void pddlDatalogFactsFromWeightedCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       const pddl_cost_t *weight,
+                       void *user_data),
+            void *user_data)
+{
+    int arity = dl->pred[TO_IDX(pred)].arity;
+    pddl_obj_id_t arg[arity];
+    int fact_id;
+    PDDL_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
+        pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
+        int p = dl->pred[f->pred].user_id;
+        for (int i = 0; i < arity; ++i)
+            arg[i] = dl->c[f->arg[i]].user_id;
+        fn(p, arity, arg, &f->weight, user_data);
     }
 }
 
@@ -991,6 +1185,8 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
     dst->neg_body = ALLOC_ARR(pddl_datalog_atom_t, dst->neg_body_alloc);
     for (int i = 0; i < dst->neg_body_size; ++i)
         pddlDatalogAtomCopy(dl, dst->neg_body + i, src->neg_body + i);
+
+    dst->weight = src->weight;
 }
 
 void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
@@ -1054,6 +1250,13 @@ void pddlDatalogRuleRmBody(pddl_datalog_t *dl,
     for (int j = i + 1; j < rule->body_size; ++j)
         rule->body[j - 1] = rule->body[j];
     --rule->body_size;
+}
+
+void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
+                              pddl_datalog_rule_t *rule,
+                              const pddl_cost_t *weight)
+{
+    rule->weight = *weight;
 }
 
 int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,

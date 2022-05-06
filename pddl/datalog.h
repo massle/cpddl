@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <pddl/iset.h>
 #include <pddl/err.h>
+#include <pddl/cost.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus
@@ -46,6 +47,7 @@ struct pddl_datalog_rule {
     pddl_datalog_atom_t *neg_body;
     int neg_body_size;
     int neg_body_alloc;
+    pddl_cost_t weight;
 
     pddl_iset_t var_set;
     int is_safe;
@@ -76,6 +78,12 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
  * TODO: Native support for types
  */
 unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name);
+
+/**
+ * Add 0-arity goal predicate. The fact instantiated from this predicate will
+ * cause pddlDatalogWeightedCanonicalModel*() to stop.
+ */
+unsigned pddlDatalogAddGoalPred(pddl_datalog_t *dl, const char *name);
 
 /**
  * Adds variable to the datalog program.
@@ -120,6 +128,17 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err);
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
 
 /**
+ * Computes weighted canonical model (either add or max variant).
+ *
+ * Correa, A. B., Frances, G., Pommerening, F., & Helmert, M. (2021).
+ * Delete-Relaxation Heuristics for Lifted Classical Planning. Proceedings
+ * of the International Conference on Automated Planning and Scheduling,
+ * 31(1), 94-102
+ */
+void pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl, pddl_err_t *err);
+void pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl, pddl_err_t *err);
+
+/**
  * Can be called only after pddlDatalogCanonicalModel() function.
  * Iterates over facts of the given predicate from the canonical model, the
  * returned values pred_user_id and arg_user_id are ids previously set by
@@ -131,6 +150,20 @@ void pddlDatalogFactsFromCanonicalModel(
             void (*fn)(int pred_user_id,
                        int arity,
                        const pddl_obj_id_t *arg_user_id,
+                       void *user_data),
+            void *user_data);
+
+/**
+ * Same as pddlDatalogFactsFromCanonicalModel() except it returns also the
+ * weight of the fact.
+ */
+void pddlDatalogFactsFromWeightedCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
 
@@ -208,6 +241,13 @@ void pddlDatalogRuleAddNegStaticBody(pddl_datalog_t *dl,
 void pddlDatalogRuleRmBody(pddl_datalog_t *dl,
                            pddl_datalog_rule_t *rule,
                            int i);
+
+/**
+ * Set weight of the rule.
+ */
+void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
+                              pddl_datalog_rule_t *rule,
+                              const pddl_cost_t *weight);
 
 /**
  * Returns true if the program is safe, i.e., all variables from head are
