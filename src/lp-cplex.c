@@ -102,12 +102,6 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
     if (lp->lp == NULL)
         cplexErr(lp, st, "Could not create CPLEX problem");
 
-    CPXcallbacksetfunc(lp->env, lp->lp,
-                       CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS
-                            | CPX_CALLBACKCONTEXT_LOCAL_PROGRESS
-                            | CPX_CALLBACKCONTEXT_RELAXATION
-                            | CPX_CALLBACKCONTEXT_CANDIDATE,
-                       callback, lp);
     // Set up minimaztion
     if ((flags & 0x1u) == 0){
         CPXchgobjsen(lp->env, lp->lp, CPX_MIN);
@@ -272,9 +266,18 @@ static int solve(pddl_lp_t *_lp, double *val, double *obj)
 
     pddlTimerStart(&lp->log_timer);
     if (lp->mip){
+        CPXcallbacksetfunc(lp->env, lp->lp,
+                           CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS
+                                | CPX_CALLBACKCONTEXT_LOCAL_PROGRESS
+                                | CPX_CALLBACKCONTEXT_RELAXATION
+                                | CPX_CALLBACKCONTEXT_CANDIDATE,
+                           callback, lp);
         if ((st = CPXmipopt(lp->env, lp->lp)) != 0)
             cplexErr(lp, st, "Failed to optimize LP");
+        CPXcallbacksetfunc(lp->env, lp->lp, 0, NULL, NULL);
+
     }else{
+        // TODO: CPXsetlpcallbackfunc
         if ((st = CPXlpopt(lp->env, lp->lp)) != 0)
             cplexErr(lp, st, "Failed to optimize LP");
     }
