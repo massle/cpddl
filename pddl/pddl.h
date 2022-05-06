@@ -121,5 +121,6 @@
 #include <pddl/red_black_fdr.h>
 #include <pddl/datalog.h>
 #include <pddl/prune_strips.h>
+#include <pddl/lifted_heur_relaxed.h>
 
 #endif /* __PDDL_H__ */
