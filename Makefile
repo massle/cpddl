@@ -53,7 +53,6 @@ OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
 OBJS += strips_maker
-OBJS += sqlite3
 OBJS += sql_grounder
 OBJS += strips_ground_tree
 OBJS += strips_ground
@@ -159,6 +158,8 @@ OBJS += lset
 OBJS += cset
 OBJS += iarr
 
+OBJS += __sqlite3
+
 OBJS_CPP = endomorphism
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
@@ -224,7 +225,7 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-.objs/sqlite3.o: src/sqlite3.c Makefile Makefile.include
+.objs/__sqlite3.o: src/sqlite3.c Makefile Makefile.include
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -240,17 +241,17 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 
 
 clean:
-	rm -f $(OBJS)
-	rm -f .objs/*.o
+	rm -f .objs/[a-zA-Z0-9]*.o
+	rm -f .objs/_[a-zA-Z0-9]*.o
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
 	rm -f src/*.pb.{cc,h}
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
-	if [ -d test ]; then $(MAKE) -C test clean; fi;
-	if [ -d doc ]; then $(MAKE) -C doc clean; fi;
+	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
 
 mrproper: clean third-party-clean
+	rm -f .objs/*
 
 check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
