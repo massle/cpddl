@@ -88,6 +88,51 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
     pddlISetFree(&pre);
 }
 
+void pddlHMaxInitStrips(pddl_hmax_t *h, const pddl_strips_t *strips)
+{
+    bzero(h, sizeof(*h));
+
+    // Allocate facts and add one for empty-precondition fact and one for
+    // goal fact
+    h->fact_size = strips->fact.fact_size + 2;
+    h->fact = CALLOC_ARR(pddl_hmax_fact_t, h->fact_size);
+    h->fact_goal = h->fact_size - 2;
+    h->fact_nopre = h->fact_size - 1;
+
+    // Allocate operators and add one artificial for goal
+    h->op_size = strips->op.op_size + 1;
+    h->op = CALLOC_ARR(pddl_hmax_op_t, h->op_size);
+    h->op_goal = h->op_size - 1;
+
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *src = strips->op.op[op_id];
+        pddl_hmax_op_t *op = h->op + op_id;
+        pddlISetUnion(&op->eff, &src->add_eff);
+        op->cost = src->cost;
+
+        int fact;
+        PDDL_ISET_FOR_EACH(&src->pre, fact)
+            pddlISetAdd(&h->fact[fact].pre_op, op_id);
+        op->pre_size = pddlISetSize(&src->pre);
+
+        // Record operator with no preconditions
+        if (op->pre_size == 0){
+            pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
+            op->pre_size = 1;
+        }
+    }
+
+    // Set up goal operator
+    pddl_hmax_op_t *op = h->op + h->op_goal;
+    pddlISetAdd(&op->eff, h->fact_goal);
+    op->cost = 0;
+
+    int fact;
+    PDDL_ISET_FOR_EACH(&strips->goal, fact)
+        pddlISetAdd(&h->fact[fact].pre_op, h->op_goal);
+    op->pre_size = pddlISetSize(&strips->goal);
+}
+
 void pddlHMaxFree(pddl_hmax_t *hmax)
 {
     for (int i = 0; i < hmax->fact_size; ++i)
@@ -131,6 +176,16 @@ static void addInitState(pddl_hmax_t *h,
     FPUSH(pq, 0, h->fact + h->fact_nopre);
 }
 
+static void addStripsInitState(pddl_hmax_t *h,
+                               const pddl_iset_t *state,
+                               pddl_pq_t *pq)
+{
+    int fact_id;
+    PDDL_ISET_FOR_EACH(state, fact_id)
+        FPUSH(pq, 0, h->fact + fact_id);
+    FPUSH(pq, 0, h->fact + h->fact_nopre);
+}
+
 static void enqueueOpEffects(pddl_hmax_t *h,
                              pddl_hmax_op_t *op,
                              int fact_value,
@@ -146,16 +201,22 @@ static void enqueueOpEffects(pddl_hmax_t *h,
     }
 }
 
-int pddlHMax(pddl_hmax_t *h,
-             const int *fdr_state,
-             const pddl_fdr_vars_t *vars)
+static int _pddlHMax(pddl_hmax_t *h,
+                     const int *fdr_state,
+                     const pddl_fdr_vars_t *vars,
+                     const pddl_iset_t *strips_state)
 {
     pddl_pq_t pq;
 
     pddlPQInit(&pq);
     initFacts(h);
     initOps(h);
-    addInitState(h, fdr_state, vars, &pq);
+    if (fdr_state != NULL){
+        addInitState(h, fdr_state, vars, &pq);
+    }else{
+        addStripsInitState(h, strips_state, &pq);
+    }
+
     while (!pddlPQEmpty(&pq)){
         int value;
         pddl_pq_el_t *el = pddlPQPop(&pq, &value);
@@ -178,4 +239,16 @@ int pddlHMax(pddl_hmax_t *h,
     if (FVALUE_IS_SET(h->fact + h->fact_goal))
         heur = FVALUE(h->fact + h->fact_goal);
     return heur;
+}
+
+int pddlHMax(pddl_hmax_t *h,
+             const int *fdr_state,
+             const pddl_fdr_vars_t *vars)
+{
+    return _pddlHMax(h, fdr_state, vars, NULL);
+}
+
+int pddlHMaxStrips(pddl_hmax_t *h, const pddl_iset_t *state)
+{
+    return _pddlHMax(h, NULL, NULL, state);
 }
