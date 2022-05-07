@@ -17,6 +17,9 @@
  * See the License for more information.
  */
 
+// TODO: Native support for types
+// TODO: Native support for (in)equality predicates
+
 #ifndef __PDDL_DATALOG_H__
 #define __PDDL_DATALOG_H__
 
@@ -69,6 +72,11 @@ pddl_datalog_t *pddlDatalogNew(void);
 void pddlDatalogDel(pddl_datalog_t *dl);
 
 /**
+ * Clear datalog database.
+ */
+void pddlDatalogClear(pddl_datalog_t *dl);
+
+/**
  * Adds constant to the datalog program.
  */
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
@@ -102,6 +110,11 @@ void pddlDatalogSetUserId(pddl_datalog_t *dl, unsigned element, int user_id);
 int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl);
 
 /**
+ * Remove last n added rules.
+ */
+void pddlDatalogRmLastRules(pddl_datalog_t *dl, int n);
+
+/**
  * Returns true if the program is safe, i.e., all variables from head are
  * in body.
  */
@@ -128,15 +141,22 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err);
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
 
 /**
- * Computes weighted canonical model (either add or max variant).
+ * Computes canonical model of the weighted datalog (either add or max
+ * variant). The computation stop once a goal fact is reached and the
+ * functions return 0 and goal fact's weight via argument. If no goal fact
+ * is reached, -1 is returned.
  *
  * Correa, A. B., Frances, G., Pommerening, F., & Helmert, M. (2021).
  * Delete-Relaxation Heuristics for Lifted Classical Planning. Proceedings
  * of the International Conference on Automated Planning and Scheduling,
  * 31(1), 94-102
  */
-void pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl, pddl_err_t *err);
-void pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl, pddl_err_t *err);
+int pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl,
+                                         pddl_cost_t *weight,
+                                         pddl_err_t *err);
+int pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl,
+                                         pddl_cost_t *weight,
+                                         pddl_err_t *err);
 
 /**
  * Can be called only after pddlDatalogCanonicalModel() function.
@@ -166,6 +186,7 @@ void pddlDatalogFactsFromWeightedCanonicalModel(
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
+
 
 /**
  * Initializes atom of the given predicate previously created with

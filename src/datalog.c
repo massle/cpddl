@@ -328,10 +328,6 @@ static void dbSetFactWeight(pddl_datalog_t *dl,
     }else if (pddlCostCmp(&f->weight, weight) > 0){
         f->weight = *weight;
         pddlPairHeapDecreaseKey(db->fact_queue, &f->heap);
-
-    }else if (pddlCostCmp(&f->weight, weight) != 0){
-        f->weight = *weight;
-        pddlPairHeapUpdate(db->fact_queue, &f->heap);
     }
 }
 
@@ -512,6 +508,11 @@ void pddlDatalogDel(pddl_datalog_t *dl)
     FREE(dl);
 }
 
+void pddlDatalogClear(pddl_datalog_t *dl)
+{
+    dbFree(dl, &dl->db);
+}
+
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
 {
     if (dl->c_size == dl->c_alloc){
@@ -558,7 +559,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
 unsigned pddlDatalogAddGoalPred(pddl_datalog_t *dl, const char *name)
 {
     unsigned id = pddlDatalogAddPred(dl, 0, name);
-    dl->pred[id].is_goal = 1;
+    dl->pred[TO_IDX(id)].is_goal = 1;
     return id;
 }
 
@@ -603,7 +604,14 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl)
     pddlDatalogRuleInit(dl, rule);
     pddlDatalogRuleCopy(dl, rule, cl);
     dl->dirty = 1;
-    return 0;
+    return dl->rule_size - 1;
+}
+
+void pddlDatalogRmLastRules(pddl_datalog_t *dl, int n)
+{
+    for (int i = 0; i < n && dl->rule_size > 0; ++i)
+        pddlDatalogRuleFree(dl, dl->rule + --dl->rule_size);
+    dl->dirty = 1;
 }
 
 static void joinVars(const pddl_datalog_rule_t *rule,
@@ -911,7 +919,7 @@ static void ruleBodyWeight(pddl_datalog_t *dl,
             pddlCostSum(w, &f->weight);
 
         }else if (weight_type == WEIGHT_MAX){
-            if (pddlCostCmp(w, &f->weight) > 0)
+            if (pddlCostCmp(w, &f->weight) < 0)
                 *w = f->weight;
 
         }else{
@@ -1035,10 +1043,12 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
     CTXEND(err);
 }
 
-static void weightedCanonicalModel(pddl_datalog_t *dl,
-                                   int weight_type,
-                                   pddl_err_t *err)
+static int weightedCanonicalModel(pddl_datalog_t *dl,
+                                  int weight_type,
+                                  pddl_cost_t *weight,
+                                  pddl_err_t *err)
 {
+    int ret = -1;
     CTX(err, "dl_weighted_canonical_model", "DL Weighted Canonical Model");
     LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
         " predicates: %{in.predicates}d, rules: %{in.rules}d,"
@@ -1055,8 +1065,11 @@ static void weightedCanonicalModel(pddl_datalog_t *dl,
         pddl_pairheap_node_t *qnode = pddlPairHeapExtractMin(dl->db.fact_queue);
         const pddl_datalog_fact_t *f;
         f = pddl_container_of(qnode, pddl_datalog_fact_t, heap);
-        if (dl->pred[f->pred].is_goal)
+        if (dl->pred[f->pred].is_goal){
+            *weight = f->weight;
+            ret = 0;
             break;
+        }
 
         int rule_id;
         PDDL_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
@@ -1072,16 +1085,21 @@ static void weightedCanonicalModel(pddl_datalog_t *dl,
     LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
         dl->db.fact_size, dbUseddMem(&dl->db) / (1024lu * 1024lu));
     CTXEND(err);
+    return ret;
 }
 
-void pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl, pddl_err_t *err)
+int pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl,
+                                         pddl_cost_t *weight,
+                                         pddl_err_t *err)
 {
-    weightedCanonicalModel(dl, WEIGHT_ADD, err);
+    return weightedCanonicalModel(dl, WEIGHT_ADD, weight, err);
 }
 
-void pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl, pddl_err_t *err)
+int pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl,
+                                         pddl_cost_t *weight,
+                                         pddl_err_t *err)
 {
-    weightedCanonicalModel(dl, WEIGHT_MAX, err);
+    return weightedCanonicalModel(dl, WEIGHT_MAX, weight, err);
 }
 
 void pddlDatalogFactsFromCanonicalModel(
@@ -1347,6 +1365,9 @@ void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout)
                 printAtom(dl, c->neg_body + i, fout);
             }
         }
-        fprintf(fout, ".\n");
+        fprintf(fout, ".");
+        if (pddlCostCmp(&c->weight, &pddl_cost_zero) != 0)
+            fprintf(fout, " ; w = %s", F_COST(&c->weight));
+        fprintf(fout, "\n");
     }
 }
