@@ -36,11 +36,24 @@ struct pddl_lifted_heur_relaxed {
     unsigned goal_dlpred;
 };
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_heur_relaxed_t;
+typedef struct pddl_lifted_heur_relaxed pddl_lifted_hmax_t;
+typedef struct pddl_lifted_heur_relaxed pddl_lifted_hadd_t;
 
-void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
-                               const pddl_t *pddl,
-                               pddl_err_t *err);
-void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h);
+void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
+                        const pddl_t *pddl,
+                        pddl_err_t *err);
+void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h);
+pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
+                           const pddl_iset_t *state,
+                           const pddl_ground_atoms_t *gatoms);
+
+void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
+                        const pddl_t *pddl,
+                        pddl_err_t *err);
+void pddlLiftedHAddFree(pddl_lifted_hadd_t *h);
+pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
+                           const pddl_iset_t *state,
+                           const pddl_ground_atoms_t *gatoms);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -172,6 +172,12 @@ static unsigned addActionRule(pddl_lifted_heur_relaxed_t *h,
         pddlDatalogRuleAddBody(h->dl, &rule, &atom);
         pddlDatalogAtomFree(h->dl, &atom);
 
+        // TODO: Set costs
+        if (!h->pddl->metric){
+            pddl_cost_t w;
+            pddlCostSetOp(&w, 1);
+            pddlDatalogRuleSetWeight(h->dl, &rule, &w);
+        }
         pddlDatalogAddRule(h->dl, &rule);
         pddlDatalogRuleFree(h->dl, &rule);
     }
@@ -229,9 +235,64 @@ static void addGoal(pddl_lifted_heur_relaxed_t *h)
     pddlDatalogRuleFree(h->dl, &rule);
 }
 
-void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
-                               const pddl_t *pddl,
-                               pddl_err_t *err)
+static int addFacts(pddl_lifted_heur_relaxed_t *h,
+                    const pddl_iset_t *facts,
+                    const pddl_ground_atoms_t *gatoms)
+{
+    int num_rules = 0;
+    int fact;
+    PDDL_ISET_FOR_EACH(facts, fact){
+        const pddl_ground_atom_t *ga = gatoms->atom[fact];
+        if (pddlPredIsStatic(h->pddl->pred.pred + ga->pred))
+            continue;
+
+        pddl_datalog_rule_t rule;
+        pddlDatalogRuleInit(h->dl, &rule);
+
+        pddl_datalog_atom_t atom;
+        pddlDatalogAtomInit(h->dl, &atom, h->pred_to_dlpred[ga->pred]);
+        for (int i = 0; i < ga->arg_size; ++i){
+            int obj = ga->arg[i];
+            ASSERT(obj >= 0);
+            pddlDatalogAtomSetArg(h->dl, &atom, i, h->obj_to_dlconst[obj]);
+        }
+        pddlDatalogRuleSetHead(h->dl, &rule, &atom);
+        pddlDatalogAtomFree(h->dl, &atom);
+        pddlDatalogAddRule(h->dl, &rule);
+        pddlDatalogRuleFree(h->dl, &rule);
+        ++num_rules;
+    }
+
+    return num_rules;
+}
+
+static void addInitStaticFacts(pddl_lifted_heur_relaxed_t *h)
+{
+    const pddl_cond_atom_t *a;
+    pddl_cond_const_it_atom_t it;
+    PDDL_COND_FOR_EACH_ATOM(&h->pddl->init->cls, &it, a){
+        if (!pddlPredIsStatic(h->pddl->pred.pred + a->pred))
+            continue;
+
+        pddl_datalog_atom_t atom;
+        pddl_datalog_rule_t rule;
+        pddlDatalogRuleInit(h->dl, &rule);
+        pddlDatalogAtomInit(h->dl, &atom, h->pred_to_dlpred[a->pred]);
+        for (int i = 0; i < a->arg_size; ++i){
+            int obj = a->arg[i].obj;
+            ASSERT(obj >= 0);
+            pddlDatalogAtomSetArg(h->dl, &atom, i, h->obj_to_dlconst[obj]);
+        }
+        pddlDatalogRuleSetHead(h->dl, &rule, &atom);
+        pddlDatalogAtomFree(h->dl, &atom);
+        pddlDatalogAddRule(h->dl, &rule);
+        pddlDatalogRuleFree(h->dl, &rule);
+    }
+}
+
+static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
+                                      const pddl_t *pddl,
+                                      pddl_err_t *err)
 {
     CTX(err, "lifted_relax_heur", "lifted-relax-heur");
     bzero(h, sizeof(*h));
@@ -267,16 +328,72 @@ void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
 
     addTypeFacts(h);
     addEqFacts(h);
+    addInitStaticFacts(h);
     addActionsRules(h);
     addGoal(h);
 
-    pddlDatalogPrint(h->dl, stderr);
     pddlDatalogToNormalForm(h->dl, err);
-    fprintf(stderr, "-----\n");
-    pddlDatalogPrint(h->dl, stderr);
     CTXEND(err);
 }
 
-void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
+static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
 {
+}
+
+pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_hmax_t *h,
+                                  const pddl_iset_t *state,
+                                  const pddl_ground_atoms_t *gatoms,
+                                  int (*eval)(pddl_datalog_t *,
+                                              pddl_cost_t *,
+                                              pddl_err_t *))
+{
+    pddlDatalogClear(h->dl);
+    int new_rules = addFacts(h, state, gatoms);
+
+    pddl_cost_t w = pddl_cost_zero;
+    if (eval(h->dl, &w, NULL) != 0)
+        w = pddl_cost_dead_end;
+
+    pddlDatalogRmLastRules(h->dl, new_rules);
+    return w;
+}
+
+void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
+                        const pddl_t *pddl,
+                        pddl_err_t *err)
+{
+    pddlLiftedHeurRelaxedInit(h, pddl, err);
+}
+
+void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h)
+{
+    pddlLiftedHeurRelaxedFree(h);
+}
+
+pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
+                           const pddl_iset_t *state,
+                           const pddl_ground_atoms_t *gatoms)
+{
+    return pddlLiftedHeurRelaxed(h, state, gatoms,
+                                 pddlDatalogWeightedCanonicalModelMax);
+}
+
+void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
+                        const pddl_t *pddl,
+                        pddl_err_t *err)
+{
+    pddlLiftedHeurRelaxedInit(h, pddl, err);
+}
+
+void pddlLiftedHAddFree(pddl_lifted_hadd_t *h)
+{
+    pddlLiftedHeurRelaxedFree(h);
+}
+
+pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
+                           const pddl_iset_t *state,
+                           const pddl_ground_atoms_t *gatoms)
+{
+    return pddlLiftedHeurRelaxed(h, state, gatoms,
+                                 pddlDatalogWeightedCanonicalModelAdd);
 }
