@@ -14,77 +14,10 @@
  */
 
 #include "pddl/lifted_heur_relaxed.h"
+#include "datalog_pddl.h"
 #include "internal.h"
 
-// TODO: Refactor with strips_ground_datalog.c
 
-static int maxVarSize(const pddl_t *pddl,
-                      const pddl_prep_actions_t *prep)
-{
-    int max_var_size = 0;
-    for (int i = 0; i < pddl->pred.pred_size; ++i)
-        max_var_size = PDDL_MAX(max_var_size, pddl->pred.pred[i].param_size);
-    for (int i = 0; i < prep->action_size; ++i)
-        max_var_size = PDDL_MAX(max_var_size, prep->action[i].param_size);
-    return max_var_size;
-}
-
-static void addTypeFacts(pddl_lifted_heur_relaxed_t *h)
-{
-    for (int ti = 0; ti < h->pddl->type.type_size; ++ti){
-        int size;
-        const pddl_obj_id_t *objs;
-        objs = pddlTypesObjsByType(&h->pddl->type, ti, &size);
-        for (int i = 0; i < size; ++i){
-            pddl_datalog_atom_t atom;
-            pddl_datalog_rule_t rule;
-            pddlDatalogRuleInit(h->dl, &rule);
-            pddlDatalogAtomInit(h->dl, &atom, h->type_to_dlpred[ti]);
-            pddlDatalogAtomSetArg(h->dl, &atom, 0, h->obj_to_dlconst[objs[i]]);
-            pddlDatalogRuleSetHead(h->dl, &rule, &atom);
-            pddlDatalogAtomFree(h->dl, &atom);
-            pddlDatalogAddRule(h->dl, &rule);
-            pddlDatalogRuleFree(h->dl, &rule);
-        }
-    }
-}
-
-
-static void addEqFacts(pddl_lifted_heur_relaxed_t *h)
-{
-    int eqp = h->pddl->pred.eq_pred;
-    for (int i = 0; i < h->pddl->obj.obj_size; ++i){
-        pddl_datalog_atom_t atom;
-        pddl_datalog_rule_t rule;
-        pddlDatalogRuleInit(h->dl, &rule);
-        pddlDatalogAtomInit(h->dl, &atom, h->pred_to_dlpred[eqp]);
-        pddlDatalogAtomSetArg(h->dl, &atom, 0, h->obj_to_dlconst[i]);
-        pddlDatalogAtomSetArg(h->dl, &atom, 1, h->obj_to_dlconst[i]);
-        pddlDatalogRuleSetHead(h->dl, &rule, &atom);
-        pddlDatalogAtomFree(h->dl, &atom);
-        pddlDatalogAddRule(h->dl, &rule);
-        pddlDatalogRuleFree(h->dl, &rule);
-    }
-}
-
-static void atomToDLAtom(const pddl_lifted_heur_relaxed_t *h,
-                         const pddl_cond_atom_t *atom,
-                         pddl_datalog_atom_t *dlatom,
-                         pddl_iset_t *used_param)
-{
-    pddlDatalogAtomInit(h->dl, dlatom, h->pred_to_dlpred[atom->pred]);
-    for (int i = 0; i < atom->arg_size; ++i){
-        if (atom->arg[i].obj >= 0){
-            pddlDatalogAtomSetArg(h->dl, dlatom, i,
-                                  h->obj_to_dlconst[atom->arg[i].obj]);
-        }else{
-            int param = atom->arg[i].param;
-            pddlDatalogAtomSetArg(h->dl, dlatom, i, h->dlvar[param]);
-            if (!atom->neg && used_param != NULL)
-                pddlISetAdd(used_param, param);
-        }
-    }
-}
 
 static void actionToDLAtom(const pddl_lifted_heur_relaxed_t *h,
                            unsigned dlpred,
@@ -129,11 +62,11 @@ static unsigned addActionRule(pddl_lifted_heur_relaxed_t *h,
         pddlDatalogAtomFree(h->dl, &atom);
     }
 
-    PDDL_ISET(used_param);
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
-        atomToDLAtom(h, catom, &atom, &used_param);
+        pddlDatalogPddlAtomToDLAtom(h->dl, &atom, catom, h->pred_to_dlpred,
+                                    h->obj_to_dlconst, h->dlvar);
         if (catom->neg){
             pddlDatalogRuleAddNegStaticBody(h->dl, &rule, &atom);
         }else{
@@ -142,17 +75,9 @@ static unsigned addActionRule(pddl_lifted_heur_relaxed_t *h,
         pddlDatalogAtomFree(h->dl, &atom);
     }
     if (cei < 0){
-        for (int i = 0; i < action->param.param_size; ++i){
-            int type = action->param.param[i].type;
-            if (type != 0 || !pddlISetIn(i, &used_param)){
-                pddlDatalogAtomInit(h->dl, &atom, h->type_to_dlpred[type]);
-                pddlDatalogAtomSetArg(h->dl, &atom, 0, h->dlvar[i]);
-                pddlDatalogRuleAddBody(h->dl, &rule, &atom);
-                pddlDatalogAtomFree(h->dl, &atom);
-            }
-        }
+        pddlDatalogPddlSetActionTypeBody(h->dl, &rule, h->pddl, &action->param,
+                                         pre, h->type_to_dlpred, h->dlvar);
     }
-    pddlISetFree(&used_param);
 
     pddlDatalogAddRule(h->dl, &rule);
     pddlDatalogRuleFree(h->dl, &rule);
@@ -164,7 +89,8 @@ static unsigned addActionRule(pddl_lifted_heur_relaxed_t *h,
             continue;
 
         pddlDatalogRuleInit(h->dl, &rule);
-        atomToDLAtom(h, catom, &atom, NULL);
+        pddlDatalogPddlAtomToDLAtom(h->dl, &atom, catom, h->pred_to_dlpred,
+                                    h->obj_to_dlconst, h->dlvar);
         pddlDatalogRuleSetHead(h->dl, &rule, &atom);
         pddlDatalogAtomFree(h->dl, &atom);
 
@@ -303,7 +229,7 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
     h->pred_to_dlpred = ALLOC_ARR(unsigned, h->pddl->pred.pred_size);
     h->obj_to_dlconst = ALLOC_ARR(unsigned, h->pddl->obj.obj_size);
 
-    h->dlvar_size = maxVarSize(pddl, &h->prep_action);
+    h->dlvar_size = pddlDatalogPddlMaxVarSize(pddl, &h->prep_action);
     h->dlvar = ALLOC_ARR(unsigned, h->dlvar_size);
     for (int i = 0; i < h->dlvar_size; ++i)
         h->dlvar[i] = pddlDatalogAddVar(h->dl, NULL);
@@ -326,10 +252,12 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
         pddlDatalogSetUserId(h->dl, h->obj_to_dlconst[i], i);
     }
 
-    addTypeFacts(h);
-    addEqFacts(h);
+    pddlDatalogPddlAddEqRules(h->dl, h->pddl, h->pred_to_dlpred,
+                              h->obj_to_dlconst);
     addInitStaticFacts(h);
     addActionsRules(h);
+    pddlDatalogPddlAddTypeRules(h->dl, h->pddl, h->type_to_dlpred,
+                                h->obj_to_dlconst);
     addGoal(h);
 
     pddlDatalogToNormalForm(h->dl, err);
@@ -338,6 +266,13 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
 
 static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
 {
+    pddlPrepActionsFree(&h->prep_action);
+    pddlDatalogDel(h->dl);
+    FREE(h->type_to_dlpred);
+    FREE(h->pred_to_dlpred);
+    FREE(h->obj_to_dlconst);
+    FREE(h->dlvar);
+    // TODO
 }
 
 pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_hmax_t *h,
