@@ -24,6 +24,7 @@
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/datalog.h"
+#include "datalog_pddl.h"
 #include "internal.h"
 
 struct action {
@@ -47,36 +48,6 @@ struct ground {
 };
 typedef struct ground ground_t;
 
-static int maxVarSize(const pddl_t *pddl,
-                      const pddl_prep_actions_t *prep)
-{
-    int max_var_size = 0;
-    for (int i = 0; i < pddl->pred.pred_size; ++i)
-        max_var_size = PDDL_MAX(max_var_size, pddl->pred.pred[i].param_size);
-    for (int i = 0; i < prep->action_size; ++i)
-        max_var_size = PDDL_MAX(max_var_size, prep->action[i].param_size);
-    return max_var_size;
-}
-
-static void addTypeFacts(ground_t *g)
-{
-    for (int ti = 0; ti < g->pddl->type.type_size; ++ti){
-        int size;
-        const pddl_obj_id_t *objs;
-        objs = pddlTypesObjsByType(&g->pddl->type, ti, &size);
-        for (int i = 0; i < size; ++i){
-            pddl_datalog_atom_t atom;
-            pddl_datalog_rule_t rule;
-            pddlDatalogRuleInit(g->dl, &rule);
-            pddlDatalogAtomInit(g->dl, &atom, g->type_to_dlpred[ti]);
-            pddlDatalogAtomSetArg(g->dl, &atom, 0, g->obj_to_dlconst[objs[i]]);
-            pddlDatalogRuleSetHead(g->dl, &rule, &atom);
-            pddlDatalogAtomFree(g->dl, &atom);
-            pddlDatalogAddRule(g->dl, &rule);
-            pddlDatalogRuleFree(g->dl, &rule);
-        }
-    }
-}
 
 static void addInitFacts(ground_t *g)
 {
@@ -99,41 +70,6 @@ static void addInitFacts(ground_t *g)
     }
 }
 
-static void addEqFacts(ground_t *g)
-{
-    int eqp = g->pddl->pred.eq_pred;
-    for (int i = 0; i < g->pddl->obj.obj_size; ++i){
-        pddl_datalog_atom_t atom;
-        pddl_datalog_rule_t rule;
-        pddlDatalogRuleInit(g->dl, &rule);
-        pddlDatalogAtomInit(g->dl, &atom, g->pred_to_dlpred[eqp]);
-        pddlDatalogAtomSetArg(g->dl, &atom, 0, g->obj_to_dlconst[i]);
-        pddlDatalogAtomSetArg(g->dl, &atom, 1, g->obj_to_dlconst[i]);
-        pddlDatalogRuleSetHead(g->dl, &rule, &atom);
-        pddlDatalogAtomFree(g->dl, &atom);
-        pddlDatalogAddRule(g->dl, &rule);
-        pddlDatalogRuleFree(g->dl, &rule);
-    }
-}
-
-static void atomToDLAtom(const ground_t *g,
-                         const pddl_cond_atom_t *atom,
-                         pddl_datalog_atom_t *dlatom,
-                         pddl_iset_t *used_param)
-{
-    pddlDatalogAtomInit(g->dl, dlatom, g->pred_to_dlpred[atom->pred]);
-    for (int i = 0; i < atom->arg_size; ++i){
-        if (atom->arg[i].obj >= 0){
-            pddlDatalogAtomSetArg(g->dl, dlatom, i,
-                                  g->obj_to_dlconst[atom->arg[i].obj]);
-        }else{
-            int param = atom->arg[i].param;
-            pddlDatalogAtomSetArg(g->dl, dlatom, i, g->dlvar[param]);
-            if (!atom->neg && used_param != NULL)
-                pddlISetAdd(used_param, param);
-        }
-    }
-}
 
 static void actionToDLAtom(const ground_t *g,
                            unsigned dlpred,
@@ -178,11 +114,11 @@ static unsigned addActionRule(ground_t *g,
         pddlDatalogAtomFree(g->dl, &atom);
     }
 
-    PDDL_ISET(used_param);
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
-        atomToDLAtom(g, catom, &atom, &used_param);
+        pddlDatalogPddlAtomToDLAtom(g->dl, &atom, catom, g->pred_to_dlpred,
+                                    g->obj_to_dlconst, g->dlvar);
         if (catom->neg){
             pddlDatalogRuleAddNegStaticBody(g->dl, &rule, &atom);
         }else{
@@ -191,17 +127,9 @@ static unsigned addActionRule(ground_t *g,
         pddlDatalogAtomFree(g->dl, &atom);
     }
     if (cei < 0){
-        for (int i = 0; i < action->param.param_size; ++i){
-            int type = action->param.param[i].type;
-            if (type != 0 || !pddlISetIn(i, &used_param)){
-                pddlDatalogAtomInit(g->dl, &atom, g->type_to_dlpred[type]);
-                pddlDatalogAtomSetArg(g->dl, &atom, 0, g->dlvar[i]);
-                pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-                pddlDatalogAtomFree(g->dl, &atom);
-            }
-        }
+        pddlDatalogPddlSetActionTypeBody(g->dl, &rule, g->pddl, &action->param,
+                                         pre, g->type_to_dlpred, g->dlvar);
     }
-    pddlISetFree(&used_param);
 
     pddlDatalogAddRule(g->dl, &rule);
     pddlDatalogRuleFree(g->dl, &rule);
@@ -213,7 +141,8 @@ static unsigned addActionRule(ground_t *g,
             continue;
 
         pddlDatalogRuleInit(g->dl, &rule);
-        atomToDLAtom(g, catom, &atom, NULL);
+        pddlDatalogPddlAtomToDLAtom(g->dl, &atom, catom, g->pred_to_dlpred,
+                                    g->obj_to_dlconst, g->dlvar);
         pddlDatalogRuleSetHead(g->dl, &rule, &atom);
         pddlDatalogAtomFree(g->dl, &atom);
 
@@ -269,14 +198,13 @@ static int groundInit(ground_t *g,
     g->obj_to_dlconst = ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
     g->action = CALLOC_ARR(action_t, g->pddl->action.action_size);
 
-    g->dlvar_size = maxVarSize(pddl, &g->prep_action);
+    g->dlvar_size = pddlDatalogPddlMaxVarSize(pddl, &g->prep_action);
     g->dlvar = ALLOC_ARR(unsigned, g->dlvar_size);
     for (int i = 0; i < g->dlvar_size; ++i)
         g->dlvar[i] = pddlDatalogAddVar(g->dl, NULL);
 
     for (int i = 0; i < g->pddl->type.type_size; ++i){
-        const pddl_type_t *type = g->pddl->type.type + i;
-        g->type_to_dlpred[i] = pddlDatalogAddPred(g->dl, 1, type->name);
+        g->type_to_dlpred[i] = UINT_MAX;
     }
 
     for (int i = 0; i < g->pddl->pred.pred_size; ++i){
@@ -292,10 +220,14 @@ static int groundInit(ground_t *g,
         pddlDatalogSetUserId(g->dl, g->obj_to_dlconst[i], i);
     }
 
-    addTypeFacts(g);
-    addInitFacts(g);
-    addEqFacts(g);
+    pddlDatalogPddlAddEqRules(g->dl, g->pddl, g->pred_to_dlpred,
+                              g->obj_to_dlconst);
     addActionsRules(g);
+    addInitFacts(g);
+    pddlDatalogPddlAddTypeRules(g->dl, g->pddl, g->type_to_dlpred,
+                                g->obj_to_dlconst);
+
+    pddlDatalogPrint(g->dl, stderr);
 
     return 0;
 }

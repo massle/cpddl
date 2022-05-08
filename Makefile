@@ -149,6 +149,7 @@ OBJS += black_mgroup
 OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
+OBJS += datalog_pddl
 OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
