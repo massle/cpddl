@@ -244,29 +244,6 @@ static pddl_datalog_fact_t *dbFact(pddl_datalog_db_t *db, int id)
     return (pddl_datalog_fact_t *)pddlExtArrGet(db->fact, id);
 }
 
-static int dbHasFact(pddl_datalog_t *dl,
-                     pddl_datalog_db_t *db,
-                     int pred,
-                     const int *arg)
-{
-    int arity = dl->pred[pred].arity;
-    size_t size = sizeof(pddl_datalog_fact_t) + arity * sizeof(int);
-    pddl_datalog_fact_t *f = alloca(size);
-
-    f->arity = arity;
-    f->pred = pred;
-    memcpy(f->arg, arg, sizeof(int) * arity);
-    f->hash = factComputeHash(f);
-    pddl_list_t *ret = pddlHTableFind(db->hfact, &f->htable);
-    if (ret == NULL){
-        return 0;
-
-    }else{
-        f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
-        return f->id;
-    }
-}
-
 static pddl_datalog_fact_t *dbFindFact(pddl_datalog_t *dl,
                                        pddl_datalog_db_t *db,
                                        int pred,
@@ -287,6 +264,14 @@ static pddl_datalog_fact_t *dbFindFact(pddl_datalog_t *dl,
     }else{
         return PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
     }
+}
+
+static int dbHasFact(pddl_datalog_t *dl,
+                     pddl_datalog_db_t *db,
+                     int pred,
+                     const int *arg)
+{
+    return dbFindFact(dl, db, pred, arg) != NULL;
 }
 
 static int dbAddFact(pddl_datalog_t *dl,
