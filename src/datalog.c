@@ -657,7 +657,12 @@ static void selectBodyAtoms(const pddl_datalog_t *dl,
     for (int a1i = 0; a1i < rule->body_size; ++a1i){
         for (int a2i = a1i + 1; a2i < rule->body_size; ++a2i){
             const int *cost = join_cost + 3 * (a1i * rule->body_size + a2i);
-            if (memcmp(cost, best_join_cost, 3 * sizeof(int)) < 0){
+            if (cost[0] < best_join_cost[0]
+                    || (cost[0] == best_join_cost[0]
+                            && cost[1] < best_join_cost[1])
+                    || (cost[0] == best_join_cost[0]
+                            && cost[1] == best_join_cost[1]
+                            && cost[2] < best_join_cost[2])){
                 memcpy(best_join_cost, cost, 3 * sizeof(int));
                 *a1 = a1i;
                 *a2 = a2i;
