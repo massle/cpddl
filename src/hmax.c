@@ -35,6 +35,26 @@
     } \
     } while (0)
 
+static int fdrNumCondEffs(const pddl_fdr_t *fdr)
+{
+    int num = 0;
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        num += op->cond_eff_size;
+    }
+    return num;
+}
+
+static int stripsNumCondEffs(const pddl_strips_t *strips)
+{
+    int num = 0;
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        const pddl_strips_op_t *op = strips->op.op[op_id];
+        num += op->cond_eff_size;
+    }
+    return num;
+}
+
 void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
 {
     bzero(h, sizeof(*h));
@@ -47,10 +67,11 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
-    h->op_size = fdr->op.op_size + 1;
+    h->op_size = fdr->op.op_size + 1 + fdrNumCondEffs(fdr);
     h->op = CALLOC_ARR(pddl_hmax_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
+    int cond_eff_ins = fdr->op.op_size;
     PDDL_ISET(pre);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
         const pddl_fdr_op_t *src = fdr->op.op[op_id];
@@ -70,6 +91,24 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
         if (op->pre_size == 0){
             pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
             op->pre_size = 1;
+        }
+
+        for (int cei = 0; cei < src->cond_eff_size; ++cei){
+            const pddl_fdr_op_cond_eff_t *ce = src->cond_eff + cei;
+            pddl_hmax_op_t *op = h->op + cond_eff_ins;
+            pddlFDRPartStateToGlobalIDs(&ce->eff, &fdr->var, &op->eff);
+            op->cost = src->cost;
+
+            PDDL_ISET(ce_pre);
+            pddlISetUnion(&ce_pre, &pre);
+            pddlFDRPartStateToGlobalIDs(&ce->pre, &fdr->var, &ce_pre);
+            int fact;
+            PDDL_ISET_FOR_EACH(&ce_pre, fact)
+                pddlISetAdd(&h->fact[fact].pre_op, cond_eff_ins);
+            op->pre_size = pddlISetSize(&ce_pre);
+            ASSERT_RUNTIME(op->pre_size > 0);
+
+            ++cond_eff_ins;
         }
     }
 
@@ -100,10 +139,11 @@ void pddlHMaxInitStrips(pddl_hmax_t *h, const pddl_strips_t *strips)
     h->fact_nopre = h->fact_size - 1;
 
     // Allocate operators and add one artificial for goal
-    h->op_size = strips->op.op_size + 1;
+    h->op_size = strips->op.op_size + 1 + stripsNumCondEffs(strips);
     h->op = CALLOC_ARR(pddl_hmax_op_t, h->op_size);
     h->op_goal = h->op_size - 1;
 
+    int cond_eff_ins = strips->op.op_size;
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *src = strips->op.op[op_id];
         pddl_hmax_op_t *op = h->op + op_id;
@@ -119,6 +159,23 @@ void pddlHMaxInitStrips(pddl_hmax_t *h, const pddl_strips_t *strips)
         if (op->pre_size == 0){
             pddlISetAdd(&h->fact[h->fact_nopre].pre_op, op_id);
             op->pre_size = 1;
+        }
+
+        for (int cei = 0; cei < src->cond_eff_size; ++cei){
+            const pddl_strips_op_cond_eff_t *ce = src->cond_eff + cei;
+            pddl_hmax_op_t *op = h->op + cond_eff_ins;
+            pddlISetUnion(&op->eff, &ce->add_eff);
+            op->cost = src->cost;
+
+            int fact;
+            PDDL_ISET_FOR_EACH(&src->pre, fact)
+                pddlISetAdd(&h->fact[fact].pre_op, cond_eff_ins);
+            PDDL_ISET_FOR_EACH(&ce->pre, fact)
+                pddlISetAdd(&h->fact[fact].pre_op, cond_eff_ins);
+            op->pre_size = pddlISetSize(&src->pre) + pddlISetSize(&ce->pre);
+            ASSERT_RUNTIME(op->pre_size > 0);
+
+            ++cond_eff_ins;
         }
     }
 
