@@ -412,7 +412,6 @@ static void ruleSetUp(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
         pddlISetUnion(&body_vars, &rule->body[i].var_set);
     }
     rule->is_safe = pddlISetIsSubset(&rule->head.var_set, &body_vars);
-    rule->same_head_body_vars = pddlISetEq(&body_vars, &rule->head.var_set);
     pddlISetUnion2(&rule->var_set, &body_vars, &rule->head.var_set);
     pddlISetFree(&body_vars);
 
@@ -607,20 +606,18 @@ static void joinVars(const pddl_datalog_rule_t *rule,
     pddlISetEmpty(vars);
     pddlISetUnion2(vars, &a1->var_set, &a2->var_set);
 
-    if (rule->same_head_body_vars){
-        pddlISetIntersect(vars, &rule->head.var_set);
-
-    }else{
-        PDDL_ISET(cvars);
-        pddlISetUnion(&cvars, &rule->head.var_set);
-        for (int i = 0; i < rule->body_size; ++i){
-            if (rule->body + i == a1 || rule->body + i == a2)
-                continue;
-            pddlISetUnion(&cvars, &rule->body[i].var_set);
-        }
-        pddlISetIntersect(vars, &cvars);
-        pddlISetFree(&cvars);
+    PDDL_ISET(cvars);
+    pddlISetUnion(&cvars, &rule->head.var_set);
+    for (int i = 0; i < rule->body_size; ++i){
+        if (rule->body + i == a1 || rule->body + i == a2)
+            continue;
+        pddlISetUnion(&cvars, &rule->body[i].var_set);
     }
+    // TODO
+    for (int i = 0; i < rule->neg_body_size; ++i)
+        pddlISetUnion(&cvars, &rule->neg_body[i].var_set);
+    pddlISetIntersect(vars, &cvars);
+    pddlISetFree(&cvars);
 }
 
 static void joinCost(const pddl_datalog_rule_t *rule,
@@ -689,7 +686,8 @@ static void collectVarsFromRule(const pddl_datalog_t *dl,
                                 const pddl_datalog_rule_t *r,
                                 pddl_iset_t *var)
 {
-    collectVarsFromAtom(dl, &r->head, var);
+    if (r->head.arg != NULL)
+        collectVarsFromAtom(dl, &r->head, var);
     for (int i = 0; i < r->body_size; ++i)
         collectVarsFromAtom(dl, &r->body[i], var);
 }
@@ -717,8 +715,6 @@ static void transferNegBody(pddl_datalog_t *dl,
 static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
 {
     pddl_datalog_rule_t *rule = dl->rule + rule_id;
-    PDDL_ISET(vars);
-    pddl_datalog_atom_t head;
 
     // Select two atoms from the body
     int a1i = 0, a2i = 0;
@@ -727,7 +723,16 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     const pddl_datalog_atom_t *a1 = rule->body + a1i;
     const pddl_datalog_atom_t *a2 = rule->body + a2i;
 
+    // Create a rule with those two atoms in the body and transfer negative
+    // atom from rule to newrule if possible
+    pddl_datalog_rule_t newrule;
+    pddlDatalogRuleInit(dl, &newrule);
+    pddlDatalogRuleAddBody(dl, &newrule, a1);
+    pddlDatalogRuleAddBody(dl, &newrule, a2);
+    transferNegBody(dl, rule, &newrule);
+
     // Determine variables of the head
+    PDDL_ISET(vars);
     joinVars(rule, a1, a2, &vars);
 
     // Construct a new predicate
@@ -735,22 +740,18 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     unsigned pred = pddlDatalogAddPred(dl, pred_arity, NULL);
 
     // Head of the new rule
+    pddl_datalog_atom_t head;
     pddlDatalogAtomInit(dl, &head, pred);
     for (int i = 0; i < pred_arity; ++i){
         unsigned v = dl->var[pddlISetGet(&vars, i)].id;
         pddlDatalogAtomSetArg(dl, &head, i, v);
     }
+    pddlDatalogRuleSetHead(dl, &newrule, &head);
 
     // TODO: Reduce the number of rules by looking for rules with identical
     //       body and a head that can be achieved only a this rule
 
-    // Construct a new rule
-    pddl_datalog_rule_t newrule;
-    pddlDatalogRuleInit(dl, &newrule);
-    pddlDatalogRuleSetHead(dl, &newrule, &head);
-    pddlDatalogRuleAddBody(dl, &newrule, a1);
-    pddlDatalogRuleAddBody(dl, &newrule, a2);
-    transferNegBody(dl, rule, &newrule);
+    // Add the new rule to the datalog database
     pddlDatalogAddRule(dl, &newrule);
     pddlDatalogRuleFree(dl, &newrule);
 

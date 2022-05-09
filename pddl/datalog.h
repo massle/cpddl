@@ -54,7 +54,6 @@ struct pddl_datalog_rule {
 
     pddl_iset_t var_set;
     int is_safe;
-    int same_head_body_vars;
     pddl_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
