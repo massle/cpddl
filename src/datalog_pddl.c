@@ -98,6 +98,7 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
                                       const pddl_t *pddl,
                                       const pddl_params_t *params,
                                       const pddl_cond_t *pre,
+                                      const pddl_cond_t *pre2,
                                       unsigned *type_to_dlpred,
                                       const unsigned *dlvar)
 {
@@ -115,6 +116,20 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
                 int tparam = params->param[catom->arg[ai].param].type;
                 if (pddlTypesIsSubset(&pddl->type, tpred, tparam))
                     param_covered[catom->arg[ai].param] = 1;
+            }
+        }
+    }
+    if (pre2 != NULL){
+        PDDL_COND_FOR_EACH_ATOM(pre2, &it, catom){
+            if (catom->neg)
+                continue;
+            for (int ai = 0; ai < catom->arg_size; ++ai){
+                if (catom->arg[ai].param >= 0){
+                    int tpred = pddl->pred.pred[catom->pred].param[ai];
+                    int tparam = params->param[catom->arg[ai].param].type;
+                    if (pddlTypesIsSubset(&pddl->type, tpred, tparam))
+                        param_covered[catom->arg[ai].param] = 1;
+                }
             }
         }
     }

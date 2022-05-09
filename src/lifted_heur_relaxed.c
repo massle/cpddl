@@ -18,84 +18,53 @@
 #include "internal.h"
 
 
-
-static void actionToDLAtom(const pddl_lifted_heur_relaxed_t *h,
-                           unsigned dlpred,
-                           int action_arity,
-                           pddl_datalog_atom_t *dlatom)
+static void addPreToBody(pddl_lifted_heur_relaxed_t *h,
+                         pddl_datalog_rule_t *rule,
+                         const pddl_cond_t *pre)
 {
-    pddlDatalogAtomInit(h->dl, dlatom, dlpred);
-    for (int i = 0; i < action_arity; ++i)
-        pddlDatalogAtomSetArg(h->dl, dlatom, i, h->dlvar[i]);
-}
-
-static unsigned addActionRule(pddl_lifted_heur_relaxed_t *h,
-                              int action_id,
-                              const pddl_cond_t *pre,
-                              const pddl_cond_t *eff,
-                              unsigned app_parent_dlpred,
-                              int cei)
-{
-    pddl_datalog_atom_t atom;
-    pddl_datalog_rule_t rule;
-    const pddl_action_t *action = h->pddl->action.action + action_id;
-    int action_arity = action->param.param_size;
-
-    char name[128];
-    if (cei == -1){
-        snprintf(name, 128, "app-%s", action->name);
-    }else{
-        snprintf(name, 128, "app-%s-ce-%d", action->name, cei);
-    }
-    unsigned app_dlpred = pddlDatalogAddPred(h->dl, action_arity, name);
-    if (cei < 0)
-        pddlDatalogSetUserId(h->dl, app_dlpred, action_id);
-
-    pddlDatalogRuleInit(h->dl, &rule);
-    actionToDLAtom(h, app_dlpred, action_arity, &atom);
-    pddlDatalogRuleSetHead(h->dl, &rule, &atom);
-    pddlDatalogAtomFree(h->dl, &atom);
-
-    if (cei >= 0){
-        actionToDLAtom(h, app_parent_dlpred, action_arity, &atom);
-        pddlDatalogRuleAddBody(h->dl, &rule, &atom);
-        pddlDatalogAtomFree(h->dl, &atom);
-    }
-
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
+        pddl_datalog_atom_t atom;
         pddlDatalogPddlAtomToDLAtom(h->dl, &atom, catom, h->pred_to_dlpred,
                                     h->obj_to_dlconst, h->dlvar);
         if (catom->neg){
-            pddlDatalogRuleAddNegStaticBody(h->dl, &rule, &atom);
+            pddlDatalogRuleAddNegStaticBody(h->dl, rule, &atom);
         }else{
-            pddlDatalogRuleAddBody(h->dl, &rule, &atom);
+            pddlDatalogRuleAddBody(h->dl, rule, &atom);
         }
         pddlDatalogAtomFree(h->dl, &atom);
     }
-    if (cei < 0){
-        pddlDatalogPddlSetActionTypeBody(h->dl, &rule, h->pddl, &action->param,
-                                         pre, h->type_to_dlpred, h->dlvar);
-    }
+}
 
-    pddlDatalogAddRule(h->dl, &rule);
-    pddlDatalogRuleFree(h->dl, &rule);
+static void addActionRule(pddl_lifted_heur_relaxed_t *h,
+                          int action_id,
+                          const pddl_cond_t *pre,
+                          const pddl_cond_t *eff,
+                          const pddl_cond_t *pre2)
+{
+    const pddl_action_t *action = h->pddl->action.action + action_id;
 
 
-    // add-effect :- app-action
+    pddl_datalog_rule_t rule;
+    pddlDatalogRuleInit(h->dl, &rule);
+
+    addPreToBody(h, &rule, pre);
+    if (pre2 != NULL)
+        addPreToBody(h, &rule, pre2);
+    pddlDatalogPddlSetActionTypeBody(h->dl, &rule, h->pddl, &action->param,
+                                     pre, pre2, h->type_to_dlpred, h->dlvar);
+
+    const pddl_cond_atom_t *catom;
+    pddl_cond_const_it_atom_t it;
     PDDL_COND_FOR_EACH_ATOM(eff, &it, catom){
         if (catom->neg)
             continue;
 
-        pddlDatalogRuleInit(h->dl, &rule);
+        pddl_datalog_atom_t atom;
         pddlDatalogPddlAtomToDLAtom(h->dl, &atom, catom, h->pred_to_dlpred,
                                     h->obj_to_dlconst, h->dlvar);
         pddlDatalogRuleSetHead(h->dl, &rule, &atom);
-        pddlDatalogAtomFree(h->dl, &atom);
-
-        actionToDLAtom(h, app_dlpred, action_arity, &atom);
-        pddlDatalogRuleAddBody(h->dl, &rule, &atom);
         pddlDatalogAtomFree(h->dl, &atom);
 
         // TODO: Set costs
@@ -105,26 +74,22 @@ static unsigned addActionRule(pddl_lifted_heur_relaxed_t *h,
             pddlDatalogRuleSetWeight(h->dl, &rule, &w);
         }
         pddlDatalogAddRule(h->dl, &rule);
-        pddlDatalogRuleFree(h->dl, &rule);
     }
 
-    return app_dlpred;
+    pddlDatalogRuleFree(h->dl, &rule);
 }
 
 static void addActionRules(pddl_lifted_heur_relaxed_t *h, int action_id)
 {
     const pddl_action_t *action = h->pddl->action.action + action_id;
 
-    unsigned app_dlpred = addActionRule(h, action_id, action->pre, action->eff, 0, -1);
+    addActionRule(h, action_id, action->pre, action->eff, NULL);
 
     // Conditional effects
     pddl_cond_const_it_when_t wit;
     const pddl_cond_when_t *when;
-    int wi = 0;
-    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
-        addActionRule(h, action_id, when->pre, when->eff, app_dlpred, wi);
-        ++wi;
-    }
+    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when)
+        addActionRule(h, action_id, action->pre, when->eff, when->pre);
 }
 
 static void addActionsRules(pddl_lifted_heur_relaxed_t *h)
@@ -234,10 +199,8 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
     for (int i = 0; i < h->dlvar_size; ++i)
         h->dlvar[i] = pddlDatalogAddVar(h->dl, NULL);
 
-    for (int i = 0; i < h->pddl->type.type_size; ++i){
-        const pddl_type_t *type = h->pddl->type.type + i;
-        h->type_to_dlpred[i] = pddlDatalogAddPred(h->dl, 1, type->name);
-    }
+    for (int i = 0; i < h->pddl->type.type_size; ++i)
+        h->type_to_dlpred[i] = UINT_MAX;
 
     for (int i = 0; i < h->pddl->pred.pred_size; ++i){
         const pddl_pred_t *pred = h->pddl->pred.pred + i;
@@ -254,8 +217,8 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
 
     pddlDatalogPddlAddEqRules(h->dl, h->pddl, h->pred_to_dlpred,
                               h->obj_to_dlconst);
-    addInitStaticFacts(h);
     addActionsRules(h);
+    addInitStaticFacts(h);
     pddlDatalogPddlAddTypeRules(h->dl, h->pddl, h->type_to_dlpred,
                                 h->obj_to_dlconst);
     addGoal(h);
@@ -272,7 +235,6 @@ static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
     FREE(h->pred_to_dlpred);
     FREE(h->obj_to_dlconst);
     FREE(h->dlvar);
-    // TODO
 }
 
 pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_hmax_t *h,

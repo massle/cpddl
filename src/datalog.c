@@ -613,7 +613,6 @@ static void joinVars(const pddl_datalog_rule_t *rule,
             continue;
         pddlISetUnion(&cvars, &rule->body[i].var_set);
     }
-    // TODO
     for (int i = 0; i < rule->neg_body_size; ++i)
         pddlISetUnion(&cvars, &rule->neg_body[i].var_set);
     pddlISetIntersect(vars, &cvars);

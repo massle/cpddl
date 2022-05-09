@@ -52,6 +52,7 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
                                       const pddl_t *pddl,
                                       const pddl_params_t *params,
                                       const pddl_cond_t *pre,
+                                      const pddl_cond_t *pre2,
                                       unsigned *type_to_dlpred,
                                       const unsigned *dlvar);
 

@@ -128,7 +128,7 @@ static unsigned addActionRule(ground_t *g,
     }
     if (cei < 0){
         pddlDatalogPddlSetActionTypeBody(g->dl, &rule, g->pddl, &action->param,
-                                         pre, g->type_to_dlpred, g->dlvar);
+                                         pre, NULL, g->type_to_dlpred, g->dlvar);
     }
 
     pddlDatalogAddRule(g->dl, &rule);
@@ -226,8 +226,6 @@ static int groundInit(ground_t *g,
     addInitFacts(g);
     pddlDatalogPddlAddTypeRules(g->dl, g->pddl, g->type_to_dlpred,
                                 g->obj_to_dlconst);
-
-    pddlDatalogPrint(g->dl, stderr);
 
     return 0;
 }
