@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "pddl/sort.h"
 #include "pddl/hfunc.h"
 #include "pddl/extarr.h"
 #include "pddl/htable.h"
@@ -85,6 +86,7 @@ struct pddl_datalog_pred {
     int arity;
     char *name;
     int is_goal;
+    int is_aux;
     int user_id;
     pddl_iset_t relevant_rules;
 };
@@ -383,14 +385,12 @@ static pddl_datalog_relevant_fact_t *dbFindRelevantFact(
 
 static void atomSetUp(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
 {
-    atom->var_size = 0;
     pddlISetEmpty(&atom->var_set);
     int arity = dl->pred[atom->pred].arity;
     for (int i = 0; i < arity; ++i){
         if (IS_VAR(atom->arg[i])){
             ASSERT(atom->arg[i] > 0);
             pddlISetAdd(&atom->var_set, TO_IDX(atom->arg[i]));
-            ++atom->var_size;
         }
     }
 }
@@ -547,6 +547,15 @@ unsigned pddlDatalogAddGoalPred(pddl_datalog_t *dl, const char *name)
     return id;
 }
 
+static unsigned pddlDatalogAddAuxPred(pddl_datalog_t *dl,
+                                      int arity,
+                                      const char *name)
+{
+    unsigned id = pddlDatalogAddPred(dl, arity, name);
+    dl->pred[TO_IDX(id)].is_aux = 1;
+    return id;
+}
+
 unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
 {
     if (dl->var_size == dl->var_alloc){
@@ -595,6 +604,23 @@ void pddlDatalogRmLastRules(pddl_datalog_t *dl, int n)
 {
     for (int i = 0; i < n && dl->rule_size > 0; ++i)
         pddlDatalogRuleFree(dl, dl->rule + --dl->rule_size);
+    dl->dirty = 1;
+}
+
+void pddlDatalogRmRules(pddl_datalog_t *dl, const pddl_iset_t *rm_rules)
+{
+    int rm_size = pddlISetSize(rm_rules);
+    int cur = 0;
+    int ins = 0;
+    for (int ri = 0; ri < dl->rule_size; ++ri){
+        if (cur < rm_size && pddlISetGet(rm_rules, cur) == ri){
+            pddlDatalogRuleFree(dl, dl->rule + ri);
+            ++cur;
+        }else{
+            dl->rule[ins++] = dl->rule[ri];
+        }
+    }
+    dl->rule_size = ins;
     dl->dirty = 1;
 }
 
@@ -736,7 +762,7 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
 
     // Construct a new predicate
     int pred_arity = pddlISetSize(&vars);
-    unsigned pred = pddlDatalogAddPred(dl, pred_arity, NULL);
+    unsigned pred = pddlDatalogAddAuxPred(dl, pred_arity, NULL);
 
     // Head of the new rule
     pddl_datalog_atom_t head;
@@ -747,13 +773,9 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
     }
     pddlDatalogRuleSetHead(dl, &newrule, &head);
 
-    // TODO: Reduce the number of rules by looking for rules with identical
-    //       body and a head that can be achieved only a this rule
-
     // Add the new rule to the datalog database
     pddlDatalogAddRule(dl, &newrule);
     pddlDatalogRuleFree(dl, &newrule);
-
 
     // Update rule with the new predicate
     rule = dl->rule + rule_id;
@@ -764,6 +786,186 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
 
     pddlDatalogAtomFree(dl, &head);
     pddlISetFree(&vars);
+}
+
+/** Remap predicates in remap to the predicate target */
+static void remapPredInAtom(pddl_datalog_t *dl,
+                            const pddl_iset_t *remap,
+                            int target,
+                            pddl_datalog_atom_t *atom)
+{
+    if (pddlISetIn(atom->pred, remap))
+        atom->pred = target;
+}
+
+static void remapPredInRule(pddl_datalog_t *dl,
+                            const pddl_iset_t *remap,
+                            int target,
+                            pddl_datalog_rule_t *rule)
+{
+    remapPredInAtom(dl, remap, target, &rule->head);
+    for (int i = 0; i < rule->body_size; ++i)
+        remapPredInAtom(dl, remap, target, &rule->body[i]);
+    for (int i = 0; i < rule->neg_body_size; ++i)
+        remapPredInAtom(dl, remap, target, &rule->neg_body[i]);
+}
+
+static void remapPreds(pddl_datalog_t *dl,
+                       const pddl_iset_t *remap,
+                       int target)
+{
+    for (int i = 0; i < dl->rule_size; ++i)
+        remapPredInRule(dl, remap, target, dl->rule + i);
+}
+
+/** Remap variables to the smallest possible IDs */
+static void remapVarsInAtom(pddl_datalog_t *dl,
+                            const unsigned *remap,
+                            pddl_datalog_atom_t *atom)
+{
+    pddlISetEmpty(&atom->var_set);
+    for (int ai = 0; ai < dl->pred[atom->pred].arity; ++ai){
+        if (IS_VAR(atom->arg[ai])){
+            int old = TO_IDX(atom->arg[ai]);
+            atom->arg[ai] = IDX_TO_VAR(remap[old]);
+            pddlISetAdd(&atom->var_set, remap[old]);
+        }
+    }
+}
+
+static void renameVarsInRule(pddl_datalog_t *dl, int rule_id)
+{
+    pddl_datalog_rule_t *rule = dl->rule + rule_id;
+
+    PDDL_ISET(rule_vars);
+    collectVarsFromRule(dl, rule, &rule_vars);
+
+    unsigned remap[dl->var_size];
+    bzero(remap, sizeof(unsigned) * dl->var_size);
+    for (int i = 0; i < pddlISetSize(&rule_vars); ++i)
+        remap[pddlISetGet(&rule_vars, i)] = i;
+
+    remapVarsInAtom(dl, remap, &rule->head);
+    for (int i = 0; i < rule->body_size; ++i)
+        remapVarsInAtom(dl, remap, rule->body + i);
+    for (int i = 0; i < rule->neg_body_size; ++i)
+        remapVarsInAtom(dl, remap, rule->neg_body + i);
+    ruleSetUp(dl, rule);
+
+    pddlISetFree(&rule_vars);
+}
+
+static void renameVarsInRules(pddl_datalog_t *dl)
+{
+    for (int i = 0; i < dl->rule_size; ++i)
+        renameVarsInRule(dl, i);
+}
+
+static int cmpRuleIds(const void *a, const void *b, void *_d)
+{
+    pddl_datalog_t *dl = _d;
+    int rule_id1 = *(int *)a;
+    int rule_id2 = *(int *)b;
+
+    if (rule_id1 == rule_id2)
+        return 0;
+    if (rule_id1 < 0)
+        return 1;
+    if (rule_id2 < 0)
+        return -1;
+
+    const pddl_datalog_rule_t *rule1 = dl->rule + rule_id1;
+    const pddl_datalog_rule_t *rule2 = dl->rule + rule_id2;
+    return pddlDatalogRuleCmpBodyFirst(dl, rule1, rule2);
+}
+
+/** Returns true if rule1 and rule2 can be merged */
+static int canMerge(pddl_datalog_t *dl,
+                    const pddl_datalog_rule_t *rule1,
+                    const pddl_datalog_rule_t *rule2,
+                    const int *pred_num_achievers)
+{
+    if (pred_num_achievers[rule1->head.pred] != 1)
+        return 0;
+    if (pred_num_achievers[rule2->head.pred] != 1)
+        return 0;
+    if (dl->pred[rule1->head.pred].arity != dl->pred[rule2->head.pred].arity)
+        return 0;
+    if (pddlDatalogAtomCmpArgs(dl, &rule1->head, &rule2->head) != 0)
+        return 0;
+    if (pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2) != 0)
+        return 0;
+    return 1;
+}
+
+static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
+{
+    if (dl->rule_size == 0)
+        return 0;
+
+    CTX(err, "reduce_rule_set", "reduce-rule-set");
+    int pred_num_achievers[dl->pred_size];
+    bzero(pred_num_achievers, sizeof(int) * dl->pred_size);
+    for (int ri = 0; ri < dl->rule_size; ++ri)
+        pred_num_achievers[dl->rule[ri].head.pred]++;
+
+    int *rule_ids = ALLOC_ARR(int, dl->rule_size);
+    int num_rules = 0;
+    for (int i = 0; i < dl->rule_size; ++i){
+        // Consider only rules that are the only possible achievers of
+        // their heads and the head atom was created as auxiliary
+        // (otherwise we could loose some facts important for the caller,
+        // especially if the caller changes the datalog program after later)
+        if (pred_num_achievers[dl->rule[i].head.pred] == 1
+                && dl->pred[dl->rule[i].head.pred].is_aux){
+            rule_ids[num_rules++] = i;
+        }
+    }
+    pddlSort(rule_ids, num_rules, sizeof(int), cmpRuleIds, dl);
+
+    for (int i = 0; i < num_rules - 1; ++i){
+        const pddl_datalog_rule_t *base = dl->rule + rule_ids[i];
+        if (pred_num_achievers[base->head.pred] > 1)
+            continue;
+
+        // Fill merge_preds with predicates that can be merged into
+        // base->head.pred and rm_rules with rules that can be removed
+        // after merging because they'll become identical to base
+        PDDL_ISET(merge_preds);
+        PDDL_ISET(rm_rules);
+        int next_id = i + 1;
+        const pddl_datalog_rule_t *next = dl->rule + rule_ids[next_id];
+        while (canMerge(dl, base, next, pred_num_achievers)){
+            pddlISetAdd(&merge_preds, next->head.pred);
+            pddlISetAdd(&rm_rules, rule_ids[next_id]);
+
+            if (++next_id == num_rules)
+                break;
+            next = dl->rule + rule_ids[next_id];
+        }
+
+        pddlISetRm(&merge_preds, base->head.pred);
+        if (pddlISetSize(&merge_preds) > 0){
+            LOG(err, "Remapping %d predicates and removing %d rules",
+                pddlISetSize(&merge_preds), pddlISetSize(&rm_rules));
+
+            // Apply changes to the datalog program
+            remapPreds(dl, &merge_preds, base->head.pred);
+            pddlDatalogRmRules(dl, &rm_rules);
+
+            pddlISetFree(&merge_preds);
+            pddlISetFree(&rm_rules);
+            FREE(rule_ids);
+            CTXEND(err);
+            return 1;
+        }
+        pddlISetFree(&merge_preds);
+        pddlISetFree(&rm_rules);
+    }
+    FREE(rule_ids);
+    LOG2(err, "Nothing to reduce");
+    CTXEND(err);
+    return 0;
 }
 
 int pddlDatalogIsSafe(const pddl_datalog_t *dl)
@@ -793,6 +995,11 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
         while (dl->rule[ci].body_size > 2)
             toNormalFormStep(dl, ci);
     }
+
+    renameVarsInRules(dl);
+    while (reduceRuleSet(dl, err))
+        ;
+
     LOG(err, "Normal form of the datalog program DONE"
         " (consts: %{out.consts}d, vars: %{out.vars}d,"
         " predicates: %{out.predicates}d, rules: %{out.rules}d)",
@@ -1162,6 +1369,27 @@ void pddlDatalogAtomFree(pddl_datalog_t *dl, pddl_datalog_atom_t *atom)
     pddlISetFree(&atom->var_set);
 }
 
+int pddlDatalogAtomCmpArgs(const pddl_datalog_t *dl,
+                           const pddl_datalog_atom_t *atom1,
+                           const pddl_datalog_atom_t *atom2)
+{
+    ASSERT_RUNTIME(dl->pred[atom1->pred].arity == dl->pred[atom2->pred].arity);
+    return memcmp(atom1->arg, atom2->arg,
+                  sizeof(unsigned) * dl->pred[atom1->pred].arity);
+}
+
+int pddlDatalogAtomCmp(const pddl_datalog_t *dl,
+                       const pddl_datalog_atom_t *atom1,
+                       const pddl_datalog_atom_t *atom2)
+{
+    int cmp = atom1->pred - atom2->pred;
+    if (cmp == 0){
+        cmp = memcmp(atom1->arg, atom2->arg,
+                     sizeof(unsigned) * dl->pred[atom1->pred].arity);
+    }
+    return cmp;
+}
+
 void pddlDatalogAtomSetArg(pddl_datalog_t *dl,
                            pddl_datalog_atom_t *atom,
                            int argi,
@@ -1210,6 +1438,42 @@ void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
         FREE(rule->neg_body);
     pddlISetFree(&rule->var_set);
     pddlISetFree(&rule->common_body_var_set);
+}
+
+int pddlDatalogRuleCmp(const pddl_datalog_t *dl,
+                       const pddl_datalog_rule_t *rule1,
+                       const pddl_datalog_rule_t *rule2)
+{
+    int cmp = pddlDatalogAtomCmp(dl, &rule1->head, &rule2->head);
+    if (cmp == 0)
+        cmp = pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2);
+    return cmp;
+}
+
+int pddlDatalogRuleCmpBodyFirst(const pddl_datalog_t *dl,
+                                const pddl_datalog_rule_t *rule1,
+                                const pddl_datalog_rule_t *rule2)
+{
+    int cmp = pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2);
+    if (cmp == 0)
+        cmp = pddlDatalogAtomCmp(dl, &rule1->head, &rule2->head);
+    return cmp;
+}
+
+int pddlDatalogRuleCmpBodyAndWeight(const pddl_datalog_t *dl,
+                                    const pddl_datalog_rule_t *rule1,
+                                    const pddl_datalog_rule_t *rule2)
+{
+    int cmp = rule1->body_size - rule2->body_size;
+    for (int i = 0; cmp == 0 && i < rule1->body_size; ++i)
+        cmp = pddlDatalogAtomCmp(dl, rule1->body + i, rule2->body + i);
+    if (cmp == 0)
+        cmp = rule1->neg_body_size - rule2->neg_body_size;
+    for (int i = 0; cmp == 0 && i < rule1->neg_body_size; ++i)
+        cmp = pddlDatalogAtomCmp(dl, rule1->neg_body + i, rule2->neg_body + i);
+    if (cmp == 0)
+        cmp = pddlCostCmp(&rule1->weight, &rule2->weight);
+    return cmp;
 }
 
 void pddlDatalogRuleSetHead(pddl_datalog_t *dl,
@@ -1331,33 +1595,39 @@ static void printAtom(const pddl_datalog_t *dl,
     fprintf(fout, ")");
 }
 
+void pddlDatalogPrintRule(const pddl_datalog_t *dl,
+                          const pddl_datalog_rule_t *c,
+                          FILE *fout)
+{
+    printAtom(dl, &c->head, fout);
+    if (c->body_size > 0 || c->neg_body_size > 0)
+        fprintf(fout, " :- ");
+    if (c->body_size > 0){
+        printAtom(dl, c->body + 0, fout);
+        for (int i = 1; i < c->body_size; ++i){
+            fprintf(fout, ", ");
+            printAtom(dl, c->body + i, fout);
+        }
+    }
+    if (c->neg_body_size > 0){
+        if (c->body_size > 0)
+            fprintf(fout, ", ");
+        fprintf(fout, "!");
+        printAtom(dl, c->neg_body + 0, fout);
+        for (int i = 1; i < c->neg_body_size; ++i){
+            fprintf(fout, ", !");
+            printAtom(dl, c->neg_body + i, fout);
+        }
+    }
+    fprintf(fout, ".");
+    if (pddlCostCmp(&c->weight, &pddl_cost_zero) != 0)
+        fprintf(fout, " ; w = %s", F_COST(&c->weight));
+    fprintf(fout, "\n");
+}
+
 void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout)
 {
     for (int ci = 0; ci < dl->rule_size; ++ci){
-        const pddl_datalog_rule_t *c = dl->rule + ci;
-        printAtom(dl, &c->head, fout);
-        if (c->body_size > 0 || c->neg_body_size > 0)
-            fprintf(fout, " :- ");
-        if (c->body_size > 0){
-            printAtom(dl, c->body + 0, fout);
-            for (int i = 1; i < c->body_size; ++i){
-                fprintf(fout, ", ");
-                printAtom(dl, c->body + i, fout);
-            }
-        }
-        if (c->neg_body_size > 0){
-            if (c->body_size > 0)
-                fprintf(fout, ", ");
-            fprintf(fout, "!");
-            printAtom(dl, c->neg_body + 0, fout);
-            for (int i = 1; i < c->neg_body_size; ++i){
-                fprintf(fout, ", !");
-                printAtom(dl, c->neg_body + i, fout);
-            }
-        }
-        fprintf(fout, ".");
-        if (pddlCostCmp(&c->weight, &pddl_cost_zero) != 0)
-            fprintf(fout, " ; w = %s", F_COST(&c->weight));
-        fprintf(fout, "\n");
+        pddlDatalogPrintRule(dl, dl->rule + ci, fout);
     }
 }

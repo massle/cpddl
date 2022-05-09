@@ -37,7 +37,6 @@ struct pddl_datalog_atom {
     int pred;
     unsigned *arg;
 
-    int var_size;
     pddl_iset_t var_set;
 };
 typedef struct pddl_datalog_atom pddl_datalog_atom_t;
@@ -112,6 +111,11 @@ int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl);
  * Remove last n added rules.
  */
 void pddlDatalogRmLastRules(pddl_datalog_t *dl, int n);
+
+/**
+ * Remove the given set of rules.
+ */
+void pddlDatalogRmRules(pddl_datalog_t *dl, const pddl_iset_t *rm_rules);
 
 /**
  * Returns true if the program is safe, i.e., all variables from head are
@@ -208,6 +212,16 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
 void pddlDatalogAtomFree(pddl_datalog_t *dl, pddl_datalog_atom_t *atom);
 
 /**
+ * Compares two atoms.
+ */
+int pddlDatalogAtomCmp(const pddl_datalog_t *dl,
+                       const pddl_datalog_atom_t *atom1,
+                       const pddl_datalog_atom_t *atom2);
+int pddlDatalogAtomCmpArgs(const pddl_datalog_t *dl,
+                           const pddl_datalog_atom_t *atom1,
+                           const pddl_datalog_atom_t *atom2);
+
+/**
  * Set argi'th argument of the atom to the given term which must be created
  * with pddlDatalogAdd{Var,Const}()
  */
@@ -232,6 +246,19 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
  * Free rule structure.
  */
 void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule);
+
+/**
+ * Compare two rules.
+ */
+int pddlDatalogRuleCmp(const pddl_datalog_t *dl,
+                       const pddl_datalog_rule_t *rule1,
+                       const pddl_datalog_rule_t *rule2);
+int pddlDatalogRuleCmpBodyFirst(const pddl_datalog_t *dl,
+                                const pddl_datalog_rule_t *rule1,
+                                const pddl_datalog_rule_t *rule2);
+int pddlDatalogRuleCmpBodyAndWeight(const pddl_datalog_t *dl,
+                                    const pddl_datalog_rule_t *rule1,
+                                    const pddl_datalog_rule_t *rule2);
 
 /**
  * Set head of the rule.
@@ -277,6 +304,9 @@ int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
                           const pddl_datalog_rule_t *rule);
 
 
+void pddlDatalogPrintRule(const pddl_datalog_t *dl,
+                          const pddl_datalog_rule_t *rule,
+                          FILE *fout);
 void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout);
 
 #ifdef __cplusplus
