@@ -21,7 +21,7 @@
 #define __PDDL_SEARCH_LIFTED_H__
 
 #include <pddl/search.h>
-#include <pddl/homomorphism_heur.h>
+#include <pddl/lifted_heur.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,13 +38,13 @@ typedef struct pddl_lifted_plan pddl_lifted_plan_t;
 typedef struct pddl_search_lifted pddl_search_lifted_t;
 
 pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
-                                            pddl_homomorphism_heur_t *heur,
+                                            pddl_lifted_heur_t *heur,
                                             pddl_err_t *err);
 pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
-                                           pddl_homomorphism_heur_t *heur,
+                                           pddl_lifted_heur_t *heur,
                                            pddl_err_t *err);
 pddl_search_lifted_t *pddlSearchLiftedLazy(const pddl_t *pddl,
-                                           pddl_homomorphism_heur_t *heur,
+                                           pddl_lifted_heur_t *heur,
                                            pddl_err_t *err);
 
 void pddlSearchLiftedDel(pddl_search_lifted_t *s);

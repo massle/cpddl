@@ -52,7 +52,7 @@ struct pddl_search_lifted {
 
 struct pddl_search_lifted_bfs {
     pddl_search_lifted_t search;
-    pddl_homomorphism_heur_t *heur;
+    pddl_lifted_heur_t *heur;
     int g_weight;
     int h_weight;
     int is_lazy;
@@ -115,7 +115,7 @@ static int bfsInitStep(pddl_search_lifted_t *bfs);
 static int bfsStep(pddl_search_lifted_t *bfs);
 
 static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
-                                    pddl_homomorphism_heur_t *heur,
+                                    pddl_lifted_heur_t *heur,
                                     int g_weight,
                                     int h_weight,
                                     int is_lazy,
@@ -171,7 +171,7 @@ static void bfsPush(pddl_search_lifted_bfs_t *bfs,
 static int bfsInitStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    CTX(s->err, "bfs", s->err_prefix);
+    CTX_NO_TIME(s->err, "bfs", s->err_prefix);
     int ret = PDDL_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
@@ -188,9 +188,10 @@ static int bfsInitStep(pddl_search_lifted_t *s)
 
     int h_value = 0;
     if (bfs->heur != NULL && !bfs->is_lazy){
-        h_value = pddlHomomorphismHeurEval(bfs->heur,
-                                           &s->cur_node.state,
-                                           &s->strips.ground_atom);
+        pddl_cost_t h = pddlLiftedHeurEstimate(bfs->heur,
+                                               &s->cur_node.state,
+                                               &s->strips.ground_atom);
+        h_value = h.cost;
         ++s->_stat.evaluated;
     }
 
@@ -230,9 +231,10 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
     if (in_h_value >= 0){
         h_value = in_h_value;
     }else if (bfs->heur != NULL){
-        h_value = pddlHomomorphismHeurEval(bfs->heur,
-                                           &s->next_node.state,
-                                           &s->strips.ground_atom);
+        pddl_cost_t h = pddlLiftedHeurEstimate(bfs->heur,
+                                               &s->next_node.state,
+                                               &s->strips.ground_atom);
+        h_value = h.cost;
         ++s->_stat.evaluated;
     }
 
@@ -258,7 +260,7 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
 static int bfsStep(pddl_search_lifted_t *s)
 {
     pddl_search_lifted_bfs_t *bfs = BFS(s);
-    CTX(s->err, "bfs", s->err_prefix);
+    CTX_NO_TIME(s->err, "bfs", s->err_prefix);
 
     ++s->_stat.steps;
 
@@ -302,9 +304,10 @@ static int bfsStep(pddl_search_lifted_t *s)
     if (pddlISetSize(&s->applicable) > 0 && bfs->is_lazy){
         h_value = 0;
         if (bfs->heur != NULL){
-            h_value = pddlHomomorphismHeurEval(bfs->heur,
-                                               &s->cur_node.state,
-                                               &s->strips.ground_atom);
+            pddl_cost_t h = pddlLiftedHeurEstimate(bfs->heur,
+                                                   &s->cur_node.state,
+                                                   &s->strips.ground_atom);
+            h_value = h.cost;
             ++s->_stat.evaluated;
         }
     }
@@ -603,21 +606,21 @@ static void extractPlan(pddl_search_lifted_t *s,
 
 
 pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
-                                            pddl_homomorphism_heur_t *heur,
+                                            pddl_lifted_heur_t *heur,
                                             pddl_err_t *err)
 {
     return bfsNew(pddl, heur, 1, 1, 0, "Lifted A*: ", err);
 }
 
 pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
-                                           pddl_homomorphism_heur_t *heur,
+                                           pddl_lifted_heur_t *heur,
                                            pddl_err_t *err)
 {
     return bfsNew(pddl, heur, 0, 1, 0, "Lifted GBFS: ", err);
 }
 
 pddl_search_lifted_t *pddlSearchLiftedLazy(const pddl_t *pddl,
-                                           pddl_homomorphism_heur_t *heur,
+                                           pddl_lifted_heur_t *heur,
                                            pddl_err_t *err)
 {
     return bfsNew(pddl, heur, 0, 1, 1, "Lifted Lazy: ", err);
