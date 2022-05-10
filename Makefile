@@ -158,6 +158,7 @@ OBJS += iset
 OBJS += lset
 OBJS += cset
 OBJS += iarr
+OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 
 OBJS += __sqlite3
