@@ -242,13 +242,14 @@ pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_hmax_t *h,
                                   const pddl_ground_atoms_t *gatoms,
                                   int (*eval)(pddl_datalog_t *,
                                               pddl_cost_t *,
+                                              int collect_fact_achievers,
                                               pddl_err_t *))
 {
     pddlDatalogClear(h->dl);
     int new_rules = addFacts(h, state, gatoms);
 
     pddl_cost_t w = pddl_cost_zero;
-    if (eval(h->dl, &w, NULL) != 0)
+    if (eval(h->dl, &w, 0, NULL) != 0)
         w = pddl_cost_dead_end;
 
     pddlDatalogRmLastRules(h->dl, new_rules);

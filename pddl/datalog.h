@@ -148,6 +148,10 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
  * variant). The computation stop once a goal fact is reached and the
  * functions return 0 and goal fact's weight via argument. If no goal fact
  * is reached, -1 is returned.
+ * If collect_fact_achievers is set to true, facts from the body of the
+ * best achiever rule is collected for each fact. Use
+ * pddlDatalogAchieverFactsFromWeightedCannonicalModel() to iterate over the
+ * achiever facts.
  *
  * Correa, A. B., Frances, G., Pommerening, F., & Helmert, M. (2021).
  * Delete-Relaxation Heuristics for Lifted Classical Planning. Proceedings
@@ -156,9 +160,11 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
  */
 int pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl,
                                          pddl_cost_t *weight,
+                                         int collect_fact_achievers,
                                          pddl_err_t *err);
 int pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl,
                                          pddl_cost_t *weight,
+                                         int collect_fact_achievers,
                                          pddl_err_t *err);
 
 /**
@@ -190,6 +196,23 @@ void pddlDatalogFactsFromWeightedCanonicalModel(
                        void *user_data),
             void *user_data);
 
+/**
+ * Similar to pddlDatalogFactsFromWeightedCanonicalModel(), but it first
+ * collect all best achievers backtracking from the goal fact (instance of
+ * goal_pred) and then iterates over them using the callback.
+ * {goal_pred} is assumed to be ID of the zero arity predicate previously
+ * added using *AddGoalPred().
+ * See pddlDatalogWeightedCanonicalModel{Add,Max}().
+ */
+void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned goal_pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       const pddl_cost_t *weight,
+                       void *user_data),
+            void *user_data);
 
 /**
  * Initializes atom of the given predicate previously created with
