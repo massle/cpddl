@@ -66,6 +66,11 @@ typedef struct _pddl_lp_t pddl_lp_t;
 int pddlLPSolverAvailable(unsigned solver);
 
 /**
+ * Set default solver.
+ */
+int pddlLPSetDefault(unsigned solver, pddl_err_t *err);
+
+/**
  * Creates a new LP problem with specified number of rows and columns.
  */
 pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err);

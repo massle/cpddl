@@ -16,9 +16,21 @@
 #include <stdio.h>
 #include "pddl/lp.h"
 #include "_lp.h"
+#include "internal.h"
 
 #define SOLVER(flags) ((flags) & 0xf0u)
 
+#if defined(PDDL_CPLEX)
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_cplex;
+#elif defined(PDDL_GUROBI)
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_gurobi;
+#elif defined(PDDL_GLPK)
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_glpk;
+#elif defined(PDDL_LPSOLVE)
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_lpsolve;
+#else
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_not_available;
+#endif
 
 int pddlLPSolverAvailable(unsigned solver)
 {
@@ -49,38 +61,49 @@ int pddlLPSolverAvailable(unsigned solver)
             || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
 }
 
-pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
+int pddlLPSetDefault(unsigned solver, pddl_err_t *err)
 {
-    if (SOLVER(flags) == PDDL_LP_CPLEX){
-        if (pddl_lp_cplex.new != NULL)
-            return pddl_lp_cplex.new(rows, cols, flags, err);
-        return pddl_lp_not_available.new(rows, cols, flags, err);
-
-    }else if (SOLVER(flags) == PDDL_LP_GUROBI){
-        if (pddl_lp_gurobi.new != NULL)
-            return pddl_lp_gurobi.new(rows, cols, flags, err);
-        return pddl_lp_not_available.new(rows, cols, flags, err);
-
-    }else if (SOLVER(flags) == PDDL_LP_GLPK){
-        if (pddl_lp_gurobi.new != NULL)
-            return pddl_lp_glpk.new(rows, cols, flags, err);
-        return pddl_lp_not_available.new(rows, cols, flags, err);
-
-    }else if (SOLVER(flags) == PDDL_LP_LPSOLVE){
-        if (pddl_lp_lpsolve.new != NULL)
-            return pddl_lp_lpsolve.new(rows, cols, flags, err);
-        return pddl_lp_not_available.new(rows, cols, flags, err);
+    if (!pddlLPSolverAvailable(solver)){
+        switch (SOLVER(solver)){
+            case PDDL_LP_CPLEX:
+                WARN2(err, "The CPLEX LP solver is not available");
+                break;
+            case PDDL_LP_GUROBI:
+                WARN2(err, "The Gurobi LP solver is not available");
+                break;
+            case PDDL_LP_LPSOLVE:
+                WARN2(err, "The lpsolve LP solver is not available");
+                break;
+            case PDDL_LP_GLPK:
+                WARN2(err, "The GLPK LP solver is not available");
+                break;
+            default:
+                WARN2(err, "Unkown LP solver identifier!");
+        }
+        return -1;
     }
 
-    if (pddl_lp_cplex.new != NULL)
-        return pddl_lp_cplex.new(rows, cols, flags, err);
-    if (pddl_lp_gurobi.new != NULL)
-        return pddl_lp_gurobi.new(rows, cols, flags, err);
-    if (pddl_lp_glpk.new != NULL)
-        return pddl_lp_glpk.new(rows, cols, flags, err);
-    if (pddl_lp_lpsolve.new != NULL)
-        return pddl_lp_lpsolve.new(rows, cols, flags, err);
-    return pddl_lp_not_available.new(rows, cols, flags, err);
+    switch (SOLVER(solver)){
+        case PDDL_LP_CPLEX:
+            pddl_lp_default = &pddl_lp_cplex;
+            break;
+        case PDDL_LP_GUROBI:
+            pddl_lp_default = &pddl_lp_gurobi;
+            break;
+        case PDDL_LP_LPSOLVE:
+            pddl_lp_default = &pddl_lp_lpsolve;
+            break;
+        case PDDL_LP_GLPK:
+            pddl_lp_default = &pddl_lp_glpk;
+            break;
+    }
+
+    return 0;
+}
+
+pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
+{
+    return pddl_lp_default->new(rows, cols, flags, err);
 }
 
 void pddlLPDel(pddl_lp_t *lp)

@@ -55,6 +55,7 @@ struct _pddl_lp_t {
     pddl_err_t *err;
 };
 
+extern pddl_lp_cls_t *pddl_lp_default;
 extern pddl_lp_cls_t pddl_lp_not_available;
 extern pddl_lp_cls_t pddl_lp_cplex;
 extern pddl_lp_cls_t pddl_lp_gurobi;
