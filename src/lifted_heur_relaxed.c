@@ -183,11 +183,13 @@ static void addInitStaticFacts(pddl_lifted_heur_relaxed_t *h)
 
 static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
                                       const pddl_t *pddl,
+                                      int collect_best_achiever_facts,
                                       pddl_err_t *err)
 {
     CTX(err, "lifted_relax_heur", "lifted-relax-heur");
     bzero(h, sizeof(*h));
     h->pddl = pddl;
+    h->collect_best_achiever_facts = collect_best_achiever_facts;
     pddlPrepActionsInit(h->pddl, &h->prep_action, err);
     h->dl = pddlDatalogNew();
     h->type_to_dlpred = ALLOC_ARR(unsigned, h->pddl->type.type_size);
@@ -237,7 +239,7 @@ static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
     FREE(h->dlvar);
 }
 
-pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_hmax_t *h,
+pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_heur_relaxed_t *h,
                                   const pddl_iset_t *state,
                                   const pddl_ground_atoms_t *gatoms,
                                   int (*eval)(pddl_datalog_t *,
@@ -249,18 +251,48 @@ pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_hmax_t *h,
     int new_rules = addFacts(h, state, gatoms);
 
     pddl_cost_t w = pddl_cost_zero;
-    if (eval(h->dl, &w, 0, NULL) != 0)
+    if (eval(h->dl, &w, h->collect_best_achiever_facts, NULL) != 0)
         w = pddl_cost_dead_end;
 
     pddlDatalogRmLastRules(h->dl, new_rules);
     return w;
 }
 
+struct best_achievers {
+    const pddl_ground_atoms_t *gatoms;
+    pddl_iset_t *achievers;
+};
+static void bestAchieverFacts(int pred,
+                              int arity,
+                              const pddl_obj_id_t *arg,
+                              const pddl_cost_t *weight,
+                              void *_d)
+{
+    struct best_achievers *d = _d;
+    pddl_ground_atom_t *ga;
+    ga = pddlGroundAtomsFindPred(d->gatoms, pred, arg, arity);
+    if (ga != NULL)
+        pddlISetAdd(d->achievers, ga->id);
+}
+
+void pddlLiftedHeurRelaxedBestAchieverFacts(pddl_lifted_heur_relaxed_t *h,
+                                            const pddl_ground_atoms_t *gatoms,
+                                            pddl_iset_t *achievers)
+{
+    struct best_achievers d;
+    d.gatoms = gatoms;
+    d.achievers = achievers;
+    pddlDatalogFactsFromWeightedCanonicalModel(h->dl, h->goal_dlpred,
+                                               bestAchieverFacts, &d);
+}
+
+
 void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
                         const pddl_t *pddl,
+                        int collect_best_achiever_facts,
                         pddl_err_t *err)
 {
-    pddlLiftedHeurRelaxedInit(h, pddl, err);
+    pddlLiftedHeurRelaxedInit(h, pddl, collect_best_achiever_facts, err);
 }
 
 void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h)
@@ -276,11 +308,19 @@ pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
                                  pddlDatalogWeightedCanonicalModelMax);
 }
 
+void pddlLiftedHMaxBestAchieverFacts(pddl_lifted_hmax_t *h,
+                                     const pddl_ground_atoms_t *gatoms,
+                                     pddl_iset_t *achievers)
+{
+    pddlLiftedHeurRelaxedBestAchieverFacts(h, gatoms, achievers);
+}
+
 void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
                         const pddl_t *pddl,
+                        int collect_best_achiever_facts,
                         pddl_err_t *err)
 {
-    pddlLiftedHeurRelaxedInit(h, pddl, err);
+    pddlLiftedHeurRelaxedInit(h, pddl, collect_best_achiever_facts, err);
 }
 
 void pddlLiftedHAddFree(pddl_lifted_hadd_t *h)
@@ -294,4 +334,11 @@ pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
 {
     return pddlLiftedHeurRelaxed(h, state, gatoms,
                                  pddlDatalogWeightedCanonicalModelAdd);
+}
+
+void pddlLiftedHAddBestAchieverFacts(pddl_lifted_hadd_t *h,
+                                     const pddl_ground_atoms_t *gatoms,
+                                     pddl_iset_t *achievers)
+{
+    pddlLiftedHeurRelaxedBestAchieverFacts(h, gatoms, achievers);
 }

@@ -34,6 +34,7 @@ struct pddl_lifted_heur_relaxed {
     unsigned *dlvar;
     int dlvar_size;
     unsigned goal_dlpred;
+    int collect_best_achiever_facts;
 };
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_heur_relaxed_t;
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_hmax_t;
@@ -41,19 +42,27 @@ typedef struct pddl_lifted_heur_relaxed pddl_lifted_hadd_t;
 
 void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
                         const pddl_t *pddl,
+                        int collect_best_achiever_facts,
                         pddl_err_t *err);
 void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h);
 pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
                            const pddl_iset_t *state,
                            const pddl_ground_atoms_t *gatoms);
+void pddlLiftedHMaxBestAchieverFacts(pddl_lifted_hmax_t *h,
+                                     const pddl_ground_atoms_t *gatoms,
+                                     pddl_iset_t *achievers);
 
 void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
                         const pddl_t *pddl,
+                        int collect_best_achiever_facts,
                         pddl_err_t *err);
 void pddlLiftedHAddFree(pddl_lifted_hadd_t *h);
 pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
                            const pddl_iset_t *state,
                            const pddl_ground_atoms_t *gatoms);
+void pddlLiftedHAddBestAchieverFacts(pddl_lifted_hadd_t *h,
+                                     const pddl_ground_atoms_t *gatoms,
+                                     pddl_iset_t *achievers);
 
 #ifdef __cplusplus
 } /* extern "C" */

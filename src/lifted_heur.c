@@ -76,7 +76,7 @@ pddl_lifted_heur_t *pddlLiftedHeurHMax(const pddl_t *pddl, pddl_err_t *err)
 {
     hmax_t *h = ALLOC(hmax_t);
     _pddlLiftedHeurInit(&h->h, hmaxDel, hmaxEstimate);
-    pddlLiftedHMaxInit(&h->hmax, pddl, err);
+    pddlLiftedHMaxInit(&h->hmax, pddl, 0, err);
     return &h->h;
 }
 
@@ -106,7 +106,7 @@ pddl_lifted_heur_t *pddlLiftedHeurHAdd(const pddl_t *pddl, pddl_err_t *err)
 {
     hadd_t *h = ALLOC(hadd_t);
     _pddlLiftedHeurInit(&h->h, haddDel, haddEstimate);
-    pddlLiftedHAddInit(&h->hadd, pddl, err);
+    pddlLiftedHAddInit(&h->hadd, pddl, 0, err);
     return &h->h;
 }
 
