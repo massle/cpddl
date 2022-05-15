@@ -130,6 +130,12 @@ static int stepLiftedEndomorph(void)
 
 static int stepPddlOutput(void)
 {
+    if (opt.pddl.compile_in_lmg){
+        int ret = pddlCompileInLiftedMGroups(&pddl, &lifted_mgroups, &err);
+        if (ret < 0)
+            return -1;
+    }
+
     PRINT_TO_FILE(&err, opt.pddl.domain_out, "PDDL domain file",
                   pddlPrintPDDLDomain(&pddl, fout));
     PRINT_TO_FILE(&err, opt.pddl.problem_out, "PDDL problem file",

@@ -367,6 +367,8 @@ static void setPddlPostprocessOptions(void)
                "Write PDDL domain file.");
     optsAddStr("pddl-problem-out", 0x0, &opt.pddl.problem_out, NULL,
                "Write PDDL problem file.");
+    optsAddFlag("pddl-compile-in-lmg", 0x0, &opt.pddl.compile_in_lmg, 0,
+                "Compile lifted mutex groups into actions' preconditions.");
     optsAddFlag("pddl-stop", 0x0, &opt.pddl.stop, 0,
                 "Stop after processing PDDL.");
 }

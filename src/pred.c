@@ -404,6 +404,8 @@ static void printPDDL(const char *t,
         return;
     fprintf(fout, "(:%s\n", t);
     for (int i = 0; i < ps->pred_size; ++i){
+        if (i == ps->eq_pred)
+            continue;
         const pddl_pred_t *p = ps->pred + i;
         fprintf(fout, "    (%s", p->name);
         for (int j = 0; j < p->param_size; ++j){
