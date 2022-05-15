@@ -128,6 +128,18 @@ static int stepLiftedEndomorph(void)
     return ret;
 }
 
+static int stepPddlOutput(void)
+{
+    PRINT_TO_FILE(&err, opt.pddl.domain_out, "PDDL domain file",
+                  pddlPrintPDDLDomain(&pddl, fout));
+    PRINT_TO_FILE(&err, opt.pddl.problem_out, "PDDL problem file",
+                  pddlPrintPDDLProblem(&pddl, fout));
+
+    if (opt.pddl.stop)
+        return 1;
+    return 0;
+}
+
 static int stepLiftedPlanner(void)
 {
     if (opt.lifted_planner.search == LIFTED_PLAN_NONE)
@@ -767,6 +779,7 @@ int main(int argc, char *argv[])
             || (ret = stepReportLiftedMGroups()) != 0
             || (ret = stepLiftedMGroups()) != 0
             || (ret = stepLiftedEndomorph()) != 0
+            || (ret = stepPddlOutput()) != 0
             || (ret = stepLiftedPlanner()) != 0
             || (ret = stepGround()) != 0
             || (ret = stepReportMGroups()) != 0

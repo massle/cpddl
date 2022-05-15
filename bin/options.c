@@ -360,6 +360,17 @@ static void setLEndoOptions(void)
                 "Ignore costs of actions when inferring lifted endomorphisms.");
 }
 
+static void setPddlPostprocessOptions(void)
+{
+    optsStartGroup("PDDL Post-process:");
+    optsAddStr("pddl-domain-out", 0x0, &opt.pddl.domain_out, NULL,
+               "Write PDDL domain file.");
+    optsAddStr("pddl-problem-out", 0x0, &opt.pddl.problem_out, NULL,
+               "Write PDDL problem file.");
+    optsAddFlag("pddl-stop", 0x0, &opt.pddl.stop, 0,
+                "Stop after processing PDDL.");
+}
+
 static void setLiftedPlannerOptions(void)
 {
     if (is_pddl_fdr || is_pddl_symba)
@@ -854,6 +865,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     setPddlOptions();
     setLMGOptions();
     setLEndoOptions();
+    setPddlPostprocessOptions();
     setLiftedPlannerOptions();
     setGroundOptions();
     setMutexGroupOptions();

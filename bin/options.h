@@ -64,6 +64,9 @@ struct options {
         int force_adl;
         int remove_empty_types;
         int compile_away_cond_eff;
+        char *domain_out;
+        char *problem_out;
+        int stop;
     } pddl;
 
     struct {
