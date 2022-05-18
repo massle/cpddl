@@ -17,6 +17,7 @@ endif
 TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-symba
+TARGETS += pddl-pddl
 
 OBJS  = opts.o
 OBJS += options.o
@@ -37,6 +38,8 @@ pddl-fdr: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_FDR=1 -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-symba: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_SYMBA=1 -o $@ $< $(OBJS) $(LDFLAGS)
+pddl-pddl: main.c ../libpddl.a $(OBJS)
+	$(CC) $(CFLAGS) -DBIN_PDDL_PDDL=1 -o $@ $< $(OBJS) $(LDFLAGS)
 
 report_%.o: report_%.c report.h
 	$(CC) $(CFLAGS) -c -o $@ $<

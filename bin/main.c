@@ -13,9 +13,13 @@
 #ifndef BIN_PDDL_SYMBA
 # define BIN_PDDL_SYMBA 0
 #endif
+#ifndef BIN_PDDL_PDDL
+# define BIN_PDDL_PDDL 0
+#endif
 
 const int is_pddl_fdr = BIN_PDDL_FDR;
 const int is_pddl_symba = BIN_PDDL_SYMBA;
+const int is_pddl_pddl = BIN_PDDL_PDDL;
 
 
 pddl_err_t err = PDDL_ERR_INIT;
