@@ -272,7 +272,6 @@ static void h2Alias(void)
     unreachableOps();
     irrelevanceOps();
     famDeadEnd();
-    removeUselessDelEffs();
     pruneH2FwBw();
     irrelevance();
     removeUselessDelEffs();
@@ -615,8 +614,9 @@ static void setProcessStripsOptions(void)
     optsParamsAddStr(params, "out", &opm_cfg.out);
 
     optsAddFlagFn2("h2", 0x0, h2Alias,
-                   "Alias for --P-irr-op --P-fam-dead-end --P-h2fwbw --P-irr"
-                   " --P-dedup (set by default for pddl-symba)");
+                   "Alias for --P-{unreachable-op,irr-op,fam-dead-end,"
+                   "h2fwbw,irr,rm-useless-del-effs,dedup}"
+                   " (set by default for pddl-symba)");
 
     if (is_pddl_symba){
         h2Alias();
