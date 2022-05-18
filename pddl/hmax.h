@@ -16,6 +16,8 @@
  * See the License for more information.
  */
 
+// TODO: Add support for conditional effects
+
 #ifndef __PDDL_HMAX_H__
 #define __PDDL_HMAX_H__
 
@@ -57,6 +59,7 @@ typedef struct pddl_hmax pddl_hmax_t;
  * Initialize h^max
  */
 void pddlHMaxInit(pddl_hmax_t *hmax, const pddl_fdr_t *fdr);
+void pddlHMaxInitStrips(pddl_hmax_t *h, const pddl_strips_t *strips);
 
 /**
  * Free allocated memory.
@@ -69,6 +72,7 @@ void pddlHMaxFree(pddl_hmax_t *hmax);
 int pddlHMax(pddl_hmax_t *hmax,
              const int *fdr_state,
              const pddl_fdr_vars_t *vars);
+int pddlHMaxStrips(pddl_hmax_t *h, const pddl_iset_t *state);
 
 #ifdef __cplusplus
 } /* extern "C" */

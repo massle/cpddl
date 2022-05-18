@@ -34,6 +34,7 @@ typedef struct pddl_cost pddl_cost_t;
 
 extern pddl_cost_t pddl_cost_zero;
 extern pddl_cost_t pddl_cost_max;
+extern pddl_cost_t pddl_cost_dead_end;
 
 _pddl_inline void pddlCostSetZero(pddl_cost_t *c1)
 {
@@ -50,9 +51,11 @@ _pddl_inline void pddlCostSetMax(pddl_cost_t *c1)
 _pddl_inline void pddlCostSetOp(pddl_cost_t *c1, int op_cost)
 {
     if (op_cost == 0){
+        c1->cost = 0;
         c1->zero_cost = 1;
     }else{
         c1->cost = op_cost;
+        c1->zero_cost = 0;
     }
 }
 

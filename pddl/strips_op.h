@@ -117,6 +117,12 @@ void pddlStripsOpRemoveFact(pddl_strips_op_t *op, int fact_id);
  */
 void pddlStripsOpRemoveFacts(pddl_strips_op_t *op, const pddl_iset_t *facts);
 
+/**
+ * Apply operator on the given state.
+ */
+void pddlStripsOpApplyOnState(const pddl_strips_op_t *op,
+                              const pddl_iset_t *in_state,
+                              pddl_iset_t *out_state);
 
 /**
  * Returns true if o enables p, i.e., if add(o) \cap pre(p) \neq \emptyset.

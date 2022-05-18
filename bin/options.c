@@ -385,10 +385,14 @@ static void setLiftedPlannerOptions(void)
     optsAddIntSwitch("lplan-h", 0x0, &opt.lifted_planner.heur,
                      "Heuristic function for the lifted planner, one of:\n"
                      "  blind - Blind heuristic (default)\n"
+                     "  hmax - lifted h^max\n"
+                     "  hadd - lifted h^add\n"
                      "  homo-lmc - Homomorphism-based LM-Cut heuristic (see --lplan-h-homo)\n"
                      "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)",
-                     3,
-                     "none", LIFTED_PLAN_HEUR_BLIND,
+                     5,
+                     "blind", LIFTED_PLAN_HEUR_BLIND,
+                     "hmax", LIFTED_PLAN_HEUR_HMAX,
+                     "hadd", LIFTED_PLAN_HEUR_HADD,
                      "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
                      "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF);
     params = optsAddParams("lplan-h-homo", 0x0,

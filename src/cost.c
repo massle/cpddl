@@ -22,6 +22,7 @@
 
 pddl_cost_t pddl_cost_zero = { 0, 0 };
 pddl_cost_t pddl_cost_max = { PDDL_COST_MAX, PDDL_COST_MAX };
+pddl_cost_t pddl_cost_dead_end = { PDDL_COST_DEAD_END, PDDL_COST_DEAD_END };
 
 const char *pddlCostFmt(const pddl_cost_t *c, char *s, size_t s_size)
 {

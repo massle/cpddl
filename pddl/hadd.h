@@ -58,6 +58,7 @@ typedef struct pddl_hadd pddl_hadd_t;
  * Initialize h^max
  */
 void pddlHAddInit(pddl_hadd_t *hadd, const pddl_fdr_t *fdr);
+void pddlHAddInitStrips(pddl_hadd_t *h, const pddl_strips_t *strips);
 
 /**
  * Free allocated memory.
@@ -70,6 +71,7 @@ void pddlHAddFree(pddl_hadd_t *hadd);
 int pddlHAdd(pddl_hadd_t *hadd,
              const int *fdr_state,
              const pddl_fdr_vars_t *vars);
+int pddlHAddStrips(pddl_hadd_t *h, const pddl_iset_t *state);
 
 #ifdef __cplusplus
 } /* extern "C" */

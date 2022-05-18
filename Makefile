@@ -149,6 +149,7 @@ OBJS += black_mgroup
 OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
+OBJS += datalog_pddl
 OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
@@ -157,6 +158,8 @@ OBJS += iset
 OBJS += lset
 OBJS += cset
 OBJS += iarr
+OBJS += lifted_heur
+OBJS += lifted_heur_relaxed
 
 OBJS += __sqlite3
 
@@ -241,8 +244,7 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 
 
 clean:
-	rm -f .objs/[a-zA-Z0-9]*.o
-	rm -f .objs/_[a-zA-Z0-9]*.o
+	rm -f .objs/*.o
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
 	rm -f src/*.pb.{cc,h}
@@ -250,8 +252,16 @@ clean:
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
 
+c:
+	rm -f .objs/[a-zA-Z0-9]*.o
+	rm -f .objs/_[a-zA-Z0-9]*.o
+	rm -f $(TARGETS)
+	rm -f pddl/config.h
+	rm -f $(GEN)
+	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
+	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
+
 mrproper: clean third-party-clean
-	rm -f .objs/*
 
 check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi

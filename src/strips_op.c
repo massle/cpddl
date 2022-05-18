@@ -430,6 +430,22 @@ void pddlStripsOpRemoveFacts(pddl_strips_op_t *op, const pddl_iset_t *facts)
         reorderCondEffs(op);
 }
 
+void pddlStripsOpApplyOnState(const pddl_strips_op_t *op,
+                              const pddl_iset_t *in_state,
+                              pddl_iset_t *out_state)
+{
+    pddlISetMinus2(out_state, in_state, &op->del_eff);
+    pddlISetUnion(out_state, &op->add_eff);
+
+    for (int cei = 0; cei < op->cond_eff_size; ++cei){
+        const pddl_strips_op_cond_eff_t *ce = op->cond_eff + cei;
+        if (pddlISetIsSubset(&ce->pre, in_state)){
+            pddlISetMinus(out_state, &ce->del_eff);
+            pddlISetUnion(out_state, &ce->add_eff);
+        }
+    }
+}
+
 
 void pddlStripsOpsInit(pddl_strips_ops_t *ops)
 {

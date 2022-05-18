@@ -17,12 +17,16 @@
  * See the License for more information.
  */
 
+// TODO: Native support for types
+// TODO: Native support for (in)equality predicates
+
 #ifndef __PDDL_DATALOG_H__
 #define __PDDL_DATALOG_H__
 
 #include <stdio.h>
 #include <pddl/iset.h>
 #include <pddl/err.h>
+#include <pddl/cost.h>
 #include <pddl/common.h>
 
 #ifdef __cplusplus
@@ -33,7 +37,6 @@ struct pddl_datalog_atom {
     int pred;
     unsigned *arg;
 
-    int var_size;
     pddl_iset_t var_set;
 };
 typedef struct pddl_datalog_atom pddl_datalog_atom_t;
@@ -46,10 +49,10 @@ struct pddl_datalog_rule {
     pddl_datalog_atom_t *neg_body;
     int neg_body_size;
     int neg_body_alloc;
+    pddl_cost_t weight;
 
     pddl_iset_t var_set;
     int is_safe;
-    int same_head_body_vars;
     pddl_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
@@ -67,6 +70,11 @@ pddl_datalog_t *pddlDatalogNew(void);
 void pddlDatalogDel(pddl_datalog_t *dl);
 
 /**
+ * Clear datalog database.
+ */
+void pddlDatalogClear(pddl_datalog_t *dl);
+
+/**
  * Adds constant to the datalog program.
  */
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
@@ -76,6 +84,12 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
  * TODO: Native support for types
  */
 unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name);
+
+/**
+ * Add 0-arity goal predicate. The fact instantiated from this predicate will
+ * cause pddlDatalogWeightedCanonicalModel*() to stop.
+ */
+unsigned pddlDatalogAddGoalPred(pddl_datalog_t *dl, const char *name);
 
 /**
  * Adds variable to the datalog program.
@@ -92,6 +106,16 @@ void pddlDatalogSetUserId(pddl_datalog_t *dl, unsigned element, int user_id);
  * TODO: Native support for types
  */
 int pddlDatalogAddRule(pddl_datalog_t *dl, const pddl_datalog_rule_t *cl);
+
+/**
+ * Remove last n added rules.
+ */
+void pddlDatalogRmLastRules(pddl_datalog_t *dl, int n);
+
+/**
+ * Remove the given set of rules.
+ */
+void pddlDatalogRmRules(pddl_datalog_t *dl, const pddl_iset_t *rm_rules);
 
 /**
  * Returns true if the program is safe, i.e., all variables from head are
@@ -120,6 +144,30 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err);
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
 
 /**
+ * Computes canonical model of the weighted datalog (either add or max
+ * variant). The computation stop once a goal fact is reached and the
+ * functions return 0 and goal fact's weight via argument. If no goal fact
+ * is reached, -1 is returned.
+ * If collect_fact_achievers is set to true, facts from the body of the
+ * best achiever rule is collected for each fact. Use
+ * pddlDatalogAchieverFactsFromWeightedCannonicalModel() to iterate over the
+ * achiever facts.
+ *
+ * Correa, A. B., Frances, G., Pommerening, F., & Helmert, M. (2021).
+ * Delete-Relaxation Heuristics for Lifted Classical Planning. Proceedings
+ * of the International Conference on Automated Planning and Scheduling,
+ * 31(1), 94-102
+ */
+int pddlDatalogWeightedCanonicalModelAdd(pddl_datalog_t *dl,
+                                         pddl_cost_t *weight,
+                                         int collect_fact_achievers,
+                                         pddl_err_t *err);
+int pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl,
+                                         pddl_cost_t *weight,
+                                         int collect_fact_achievers,
+                                         pddl_err_t *err);
+
+/**
  * Can be called only after pddlDatalogCanonicalModel() function.
  * Iterates over facts of the given predicate from the canonical model, the
  * returned values pred_user_id and arg_user_id are ids previously set by
@@ -131,6 +179,38 @@ void pddlDatalogFactsFromCanonicalModel(
             void (*fn)(int pred_user_id,
                        int arity,
                        const pddl_obj_id_t *arg_user_id,
+                       void *user_data),
+            void *user_data);
+
+/**
+ * Same as pddlDatalogFactsFromCanonicalModel() except it returns also the
+ * weight of the fact.
+ */
+void pddlDatalogFactsFromWeightedCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       const pddl_cost_t *weight,
+                       void *user_data),
+            void *user_data);
+
+/**
+ * Similar to pddlDatalogFactsFromWeightedCanonicalModel(), but it first
+ * collect all best achievers backtracking from the goal fact (instance of
+ * goal_pred) and then iterates over them using the callback.
+ * {goal_pred} is assumed to be ID of the zero arity predicate previously
+ * added using *AddGoalPred().
+ * See pddlDatalogWeightedCanonicalModel{Add,Max}().
+ */
+void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
+            pddl_datalog_t *dl,
+            unsigned goal_pred,
+            void (*fn)(int pred_user_id,
+                       int arity,
+                       const pddl_obj_id_t *arg_user_id,
+                       const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
 
@@ -153,6 +233,16 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
  * Free atom structure
  */
 void pddlDatalogAtomFree(pddl_datalog_t *dl, pddl_datalog_atom_t *atom);
+
+/**
+ * Compares two atoms.
+ */
+int pddlDatalogAtomCmp(const pddl_datalog_t *dl,
+                       const pddl_datalog_atom_t *atom1,
+                       const pddl_datalog_atom_t *atom2);
+int pddlDatalogAtomCmpArgs(const pddl_datalog_t *dl,
+                           const pddl_datalog_atom_t *atom1,
+                           const pddl_datalog_atom_t *atom2);
 
 /**
  * Set argi'th argument of the atom to the given term which must be created
@@ -179,6 +269,19 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
  * Free rule structure.
  */
 void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule);
+
+/**
+ * Compare two rules.
+ */
+int pddlDatalogRuleCmp(const pddl_datalog_t *dl,
+                       const pddl_datalog_rule_t *rule1,
+                       const pddl_datalog_rule_t *rule2);
+int pddlDatalogRuleCmpBodyFirst(const pddl_datalog_t *dl,
+                                const pddl_datalog_rule_t *rule1,
+                                const pddl_datalog_rule_t *rule2);
+int pddlDatalogRuleCmpBodyAndWeight(const pddl_datalog_t *dl,
+                                    const pddl_datalog_rule_t *rule1,
+                                    const pddl_datalog_rule_t *rule2);
 
 /**
  * Set head of the rule.
@@ -210,6 +313,13 @@ void pddlDatalogRuleRmBody(pddl_datalog_t *dl,
                            int i);
 
 /**
+ * Set weight of the rule.
+ */
+void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
+                              pddl_datalog_rule_t *rule,
+                              const pddl_cost_t *weight);
+
+/**
  * Returns true if the program is safe, i.e., all variables from head are
  * in body.
  */
@@ -217,6 +327,9 @@ int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
                           const pddl_datalog_rule_t *rule);
 
 
+void pddlDatalogPrintRule(const pddl_datalog_t *dl,
+                          const pddl_datalog_rule_t *rule,
+                          FILE *fout);
 void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout);
 
 #ifdef __cplusplus
