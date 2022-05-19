@@ -1017,8 +1017,9 @@ void pddlPrintPDDLProblem(const pddl_t *pddl, FILE *fout)
     fprintf(fout, "(:init\n");
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        fprintf(fout, " ");
+        fprintf(fout, "  ");
         pddlCondPrintPDDL(c, pddl, &params, fout);
+        fprintf(fout, "\n");
     }
     fprintf(fout, ")\n");
     pddlParamsFree(&params);

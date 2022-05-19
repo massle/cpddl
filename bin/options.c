@@ -8,6 +8,7 @@
 
 extern const int is_pddl_fdr;
 extern const int is_pddl_symba;
+extern const int is_pddl_pddl;
 
 options_t opt = { 0 };
 
@@ -271,7 +272,6 @@ static void h2Alias(void)
     unreachableOps();
     irrelevanceOps();
     famDeadEnd();
-    removeUselessDelEffs();
     pruneH2FwBw();
     irrelevance();
     removeUselessDelEffs();
@@ -360,9 +360,22 @@ static void setLEndoOptions(void)
                 "Ignore costs of actions when inferring lifted endomorphisms.");
 }
 
+static void setPddlPostprocessOptions(void)
+{
+    optsStartGroup("PDDL Post-process:");
+    optsAddStr("pddl-domain-out", 0x0, &opt.pddl.domain_out, NULL,
+               "Write PDDL domain file.");
+    optsAddStr("pddl-problem-out", 0x0, &opt.pddl.problem_out, NULL,
+               "Write PDDL problem file.");
+    optsAddFlag("pddl-compile-in-lmg", 0x0, &opt.pddl.compile_in_lmg, 0,
+                "Compile lifted mutex groups into actions' preconditions.");
+    optsAddFlag("pddl-stop", 0x0, &opt.pddl.stop, 0,
+                "Stop after processing PDDL.");
+}
+
 static void setLiftedPlannerOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba)
+    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
@@ -438,6 +451,8 @@ static void setLiftedPlannerOptions(void)
 
 static void setGroundOptions(void)
 {
+    if (is_pddl_pddl)
+        return;
     opt.ground.cfg.lifted_mgroups = NULL;
     opt.ground.cfg.remove_static_facts = 1;
     opt.ground.method = GROUND_DL;
@@ -484,6 +499,8 @@ static void setGroundOptions(void)
 
 static void setMutexGroupOptions(void)
 {
+    if (is_pddl_pddl)
+        return;
     optsStartGroup("Mutex Groups:");
     optsAddIntSwitch("mg", 0x0, &opt.mg.method,
                      "Method for inference of mutex groups, one of:\n"
@@ -516,6 +533,8 @@ static void setMutexGroupOptions(void)
 
 static void setProcessStripsOptions(void)
 {
+    if (is_pddl_pddl)
+        return;
     opts_params_t *params;
 
     pddlProcessStripsInit(&opt.strips.process);
@@ -599,8 +618,9 @@ static void setProcessStripsOptions(void)
     optsParamsAddStr(params, "out", &opm_cfg.out);
 
     optsAddFlagFn2("h2", 0x0, h2Alias,
-                   "Alias for --P-irr-op --P-fam-dead-end --P-h2fwbw --P-irr"
-                   " --P-dedup (set by default for pddl-symba)");
+                   "Alias for --P-{unreachable-op,irr-op,fam-dead-end,"
+                   "h2fwbw,irr,rm-useless-del-effs,dedup}"
+                   " (set by default for pddl-symba)");
 
     if (is_pddl_symba){
         h2Alias();
@@ -610,7 +630,7 @@ static void setProcessStripsOptions(void)
 
 static void setRedBlackOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba)
+    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
     pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
@@ -633,6 +653,9 @@ static void setRedBlackOptions(void)
 
 static void setFDROptions(void)
 {
+    if (is_pddl_pddl)
+        return;
+
     opts_params_t *params;
 
     opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
@@ -678,7 +701,7 @@ static void setFDROptions(void)
 
 static void setGroundPlannerOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba)
+    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
     pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
@@ -747,7 +770,7 @@ static void setGroundPlannerOptions(void)
 
 static void setSymbaOptions(void)
 {
-    if (is_pddl_fdr)
+    if (is_pddl_fdr || is_pddl_pddl)
         return;
 
     opts_params_t *params;
@@ -822,7 +845,7 @@ static void setSymbaOptions(void)
 
 static void setReversibilityOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba)
+    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
     optsStartGroup("Reversibility:");
@@ -836,7 +859,7 @@ static void setReversibilityOptions(void)
 
 static void setReportsOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba)
+    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
     optsStartGroup("Reports:");
@@ -852,12 +875,21 @@ static void setReportsOptions(void)
                 "Report on mutex groups.");
 }
 
+static void help(const char *argv0, FILE *fout)
+{
+    fprintf(fout, "Usage: %s [OPTIONS] [domain.pddl] problem.pddl\n", argv0);
+    fprintf(fout, "\n");
+    fprintf(fout, "OPTIONS:\n");
+    optsPrint(fout);
+}
+
 int setOptions(int argc, char *argv[], pddl_err_t *err)
 {
     setBaseOptions();
     setPddlOptions();
     setLMGOptions();
     setLEndoOptions();
+    setPddlPostprocessOptions();
     setLiftedPlannerOptions();
     setGroundOptions();
     setMutexGroupOptions();
@@ -873,7 +905,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         return -1;
 
     if (opt.help){
-        optsPrint(stderr);
+        help(argv[0], stderr);
         return -1;
     }
 
@@ -884,7 +916,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         for (int i = 1; i < argc; ++i){
             fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
         }
-        optsPrint(stderr);
+        help(argv[0], stderr);
         return -1;
     }
 
