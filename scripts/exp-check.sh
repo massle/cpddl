@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SHORT=0
+
 function expcheck() {
     topdir="$1"
     echo "DIR: ${topdir}"
@@ -13,6 +15,11 @@ function expcheck() {
     echo "Timeout: ${num_timeout}"
     echo "Memory out: ${num_memout}"
     echo "Segfaults: ${num_segfault}"
+
+    if [ "$SHORT" = "1" ]; then
+        echo
+        return
+    fi
 
     echo "Exit status:"
     find "$topdir" -name task.status -exec cat '{}' ';' -exec echo ';' | sort | uniq -c
@@ -47,6 +54,11 @@ function expcheck() {
 
     echo
 }
+
+if [ "$1" = "-s" ] || [ "$1" = "--short" ]; then
+    SHORT=1
+    shift
+fi
 
 while [ "$1" != "" ]; do
     expcheck "$1"

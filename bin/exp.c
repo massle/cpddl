@@ -166,6 +166,8 @@ static int setConfig(int argc, char *argv[])
     if (cfg.help){
         fprintf(stderr, "Usage: %s [OPTIONS] gen dst-dir run-script\n", argv[0]);
         optsPrint(stderr);
+        fprintf(stderr, "Note: Don't forget to run 'loginctl enable-linger USER'"
+                " on your computing nodes.\n");
         return -1;
     }
 
@@ -352,12 +354,12 @@ static int cmdGen(void)
         fprintf(stderr, "Error: Failed to create directory %s\n", cfg.topdir);
         return -1;
     }
-    cfg.topdir = realpath(cfg.topdir, NULL);
+    char *topdir = realpath(cfg.topdir, NULL);
 
     char dir[PATHSIZE];
     for (int ti = 0; ti < bench.task_size; ++ti){
         const pddl_bench_task_t *task = bench.task + ti;
-        taskDir(cfg.topdir, ti, dir);
+        taskDir(topdir, ti, dir);
         if (mkdir(dir, 0755) != 0){
             fprintf(stderr, "Error: Failed to create directory %s\n", dir);
             return -1;
@@ -402,7 +404,7 @@ static int cmdGen(void)
     pddlBenchFree(&bench);
 
     char fn[PATHSIZE];
-    snprintf(fn, PATHSIZE - 1, "%s/submit.sh", cfg.topdir);
+    snprintf(fn, PATHSIZE - 1, "%s/submit.sh", topdir);
     FILE *fout = fopen(fn, "w");
     if (fout == NULL){
         fprintf(stderr, "Error: Failed to create file %s", fn);
@@ -411,8 +413,8 @@ static int cmdGen(void)
     fprintf(fout, "#!/bin/bash\n");
     fprintf(fout, "set -e\n");
 
-    fprintf(fout, "if [ -f %s/submitted ]; then\n", cfg.topdir);
-    fprintf(fout, "    echo \"%s already submitted\"\n", cfg.topdir);
+    fprintf(fout, "if [ -f %s/submitted ]; then\n", topdir);
+    fprintf(fout, "    echo \"%s already submitted\"\n", topdir);
     fprintf(fout, "    exit 0\n");
     fprintf(fout, "fi\n");
     fprintf(fout, "\n");
@@ -434,18 +436,18 @@ static int cmdGen(void)
         if (genRunFile(fnrun, 0) != 0)
             return -1;
         
-        fprintf(fout, "cd %s\n", cfg.topdir);
-        fprintf(fout, "qsub -t 1-%d %s\n", bench.task_size, fnrun);
+        fprintf(fout, "cd %s\n", topdir);
+        fprintf(fout, "qsub -N '%s' -t 1-%d %s\n",
+                cfg.topdir, bench.task_size, fnrun);
     }
     fprintf(fout, "\n");
 
-    fprintf(fout, "touch %s/submitted\n", cfg.topdir);
+    fprintf(fout, "touch %s/submitted\n", topdir);
     fclose(fout);
     genRunMakefile(&bench);
+    free(topdir);
 
     PDDL_INFO2(&err, "Done.");
-    PDDL_INFO2(&err, "Note: Don't forget to run 'loginctl enable-linger USER'"
-               " on your computing nodes.");
     return 0;
 }
 
