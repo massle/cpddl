@@ -199,12 +199,12 @@ static int setConfig(int argc, char *argv[])
     return 0;
 }
 
-static int genRunFile(char *fn, int offset)
+static int genRunFile(char *fn, const char *topdir, int offset)
 {
     if (offset == 0){
-        snprintf(fn, PATHSIZE - 1, "%s/run.sh", cfg.topdir);
+        snprintf(fn, PATHSIZE - 1, "%s/run.sh", topdir);
     }else{
-        snprintf(fn, PATHSIZE - 1, "%s/run-%d.sh", cfg.topdir, offset);
+        snprintf(fn, PATHSIZE - 1, "%s/run-%d.sh", topdir, offset);
     }
     FILE *fout = fopen(fn, "w");
     if (fout == NULL){
@@ -234,8 +234,8 @@ static int genRunFile(char *fn, int offset)
         fprintf(fout, "#SBATCH --mem %dM # memory limit\n", mem);
         fprintf(fout, "#SBATCH -t %d-%d:%d:%d # time (D-HH:MM:SS)\n",
                 days, hours, minutes, seconds);
-        fprintf(fout, "#SBATCH -o %s/%%6a/run.out # STDOUT\n", cfg.topdir);
-        fprintf(fout, "#SBATCH -e %s/%%6a/run.err # STDOUT\n", cfg.topdir);
+        fprintf(fout, "#SBATCH -o %s/%%6a/run.out # STDOUT\n", topdir);
+        fprintf(fout, "#SBATCH -e %s/%%6a/run.err # STDOUT\n", topdir);
         fprintf(fout, "##SBATCH --hint=nomultithread\n");
 
         fprintf(fout, "\n");
@@ -257,8 +257,8 @@ static int genRunFile(char *fn, int offset)
         fprintf(fout, "#$ -S /bin/bash\n");
         fprintf(fout, "#$ -V\n");
         fprintf(fout, "#$ -cwd\n");
-        fprintf(fout, "#$ -e %s/job-$TASK_ID.err\n", cfg.topdir);
-        fprintf(fout, "#$ -o %s/job-$TASK_ID.out\n", cfg.topdir);
+        fprintf(fout, "#$ -e %s/job-$TASK_ID.err\n", topdir);
+        fprintf(fout, "#$ -o %s/job-$TASK_ID.out\n", topdir);
         if (num_cores > 1){
             fprintf(fout, "#$ -pe smp %d\n", num_cores);
         }
@@ -282,7 +282,7 @@ static int genRunFile(char *fn, int offset)
 
     fprintf(fout, "\n");
     fprintf(fout, "%s", cfg.progpath);
-    fprintf(fout, " --dir %s", cfg.topdir);
+    fprintf(fout, " --dir %s", topdir);
     fprintf(fout, " --max-time %d", cfg.max_time);
     fprintf(fout, " --max-mem %d", cfg.max_mem);
     fprintf(fout, " run ${ID}");
@@ -292,10 +292,10 @@ static int genRunFile(char *fn, int offset)
     return 0;
 }
 
-static int genRunMakefile(const pddl_bench_t *bench)
+static int genRunMakefile(const pddl_bench_t *bench, const char *topdir)
 {
     char fn[PATHSIZE];
-    snprintf(fn, PATHSIZE - 1, "%s/Makefile", cfg.topdir);
+    snprintf(fn, PATHSIZE - 1, "%s/Makefile", topdir);
     FILE *fout = fopen(fn, "w");
     if (fout == NULL){
         fprintf(stderr, "Error: Failed to create file %s", fn);
@@ -303,16 +303,16 @@ static int genRunMakefile(const pddl_bench_t *bench)
     }
 
     for (int ti = 0; ti < bench->task_size; ++ti){
-        fprintf(fout, "TASK += %s/%06d/task.finished\n", cfg.topdir, ti);
+        fprintf(fout, "TASK += %s/%06d/task.finished\n", topdir, ti);
     }
     fprintf(fout, "\n");
     fprintf(fout, "all: $(TASK)\n");
     fprintf(fout, "\n");
     for (int ti = 0; ti < bench->task_size; ++ti){
-        fprintf(fout, "%s/%06d/task.finished:\n", cfg.topdir, ti);
+        fprintf(fout, "%s/%06d/task.finished:\n", topdir, ti);
         fprintf(fout, "\t");
         fprintf(fout, "%s", cfg.progpath);
-        fprintf(fout, " --dir %s", cfg.topdir);
+        fprintf(fout, " --dir %s", topdir);
         fprintf(fout, " --max-time %d", cfg.max_time);
         fprintf(fout, " --max-mem %d", cfg.max_mem);
         fprintf(fout, " run %d", ti);
@@ -422,7 +422,7 @@ static int cmdGen(void)
     if (cfg.target == TARGET_RCI_CPU){
         char fnrun[PATHSIZE];
         for (int i = 0; i < bench.task_size; i += 1000){
-            if (genRunFile(fnrun, i) != 0)
+            if (genRunFile(fnrun, topdir, i) != 0)
                 return -1;
             int maxid = PDDL_MIN(999, bench.task_size - i - 1);
             fprintf(fout, "sbatch --array=0-%d %s\n", maxid, fnrun);
@@ -433,7 +433,7 @@ static int cmdGen(void)
                 || cfg.target == TARGET_FAI14
                 || cfg.target == TARGET_FAI_ALL){
         char fnrun[PATHSIZE];
-        if (genRunFile(fnrun, 0) != 0)
+        if (genRunFile(fnrun, topdir, 0) != 0)
             return -1;
         
         fprintf(fout, "cd %s\n", topdir);
@@ -444,7 +444,7 @@ static int cmdGen(void)
 
     fprintf(fout, "touch %s/submitted\n", topdir);
     fclose(fout);
-    genRunMakefile(&bench);
+    genRunMakefile(&bench, topdir);
     free(topdir);
 
     PDDL_INFO2(&err, "Done.");
