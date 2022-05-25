@@ -164,6 +164,7 @@ OBJS += lifted_heur_relaxed
 OBJS += __sqlite3
 
 OBJS_CPP = endomorphism
+OBJS_CPP += csp
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
