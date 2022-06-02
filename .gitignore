@@ -14,7 +14,6 @@ __pycache__
 *.pyc
 *.pyo
 third-party/preprocess/preprocess
-third-party/bliss
 pddl/objset.h
 src/objset.c
 pddl/iset.h
