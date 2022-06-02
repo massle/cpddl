@@ -473,6 +473,12 @@ int pddlBDDSize(pddl_bdd_t *bdd)
     return 0;
 }
 
+double pddlBDDCountMinterm(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd, int n)
+{
+    ERROR;
+    return 0.;
+}
+
 pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
 {
     ERROR;
