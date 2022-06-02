@@ -228,7 +228,7 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-.objs/__sqlite3.o: src/sqlite3.c Makefile Makefile.include
+.objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
