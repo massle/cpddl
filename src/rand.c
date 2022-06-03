@@ -26,8 +26,6 @@
 #include "pddl/rand.h"
 #include "internal.h"
 
-_pddl_inline void pddlRandInit(pddl_rand_t *r, uint32_t seed);
-
 _pddl_inline uint32_t hiBit(uint32_t u);
 _pddl_inline uint32_t loBit(uint32_t u);
 _pddl_inline uint32_t loBits(uint32_t u);
@@ -36,6 +34,22 @@ _pddl_inline uint32_t magic(uint32_t u);
 _pddl_inline uint32_t twist(uint32_t m, uint32_t s0, uint32_t s1);
 static uint32_t hash(time_t t, clock_t c);
 
+_pddl_inline void __pddlRandInit(pddl_rand_t *g, uint32_t seed)
+{
+    // Initialize generator state with seed
+    // See Knuth TAOCP Vol 2, 3rd Ed, p.106 for multiplier.
+    // In previous versions, most significant bits (MSBs) of the seed affect
+    // only MSBs of the state array.  Modified 9 Jan 2002 by Makoto Matsumoto.
+    register uint32_t *s = g->state;
+    register uint32_t *r = g->state;
+    register int i = 1;
+    *s++ = seed & 0xffffffffUL;
+    for( ; i < PDDL_RAND_MT_N; ++i )
+    {
+        *s++ = ( 1812433253UL * ( *r ^ (*r >> 30) ) + i ) & 0xffffffffUL;
+        r++;
+    }
+}
 
 pddl_rand_t *pddlRandNew(uint32_t seed)
 {
@@ -66,7 +80,7 @@ void pddlRandDel(pddl_rand_t *r)
 
 void pddlRandReseed(pddl_rand_t *r, uint32_t seed)
 {
-    pddlRandInit(r, seed);
+    __pddlRandInit(r, seed);
     __pddlRandReload(r);
 }
 

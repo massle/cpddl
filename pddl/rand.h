@@ -161,19 +161,7 @@ void __pddlRandReload(pddl_rand_t *r);
 /**** INLINES ****/
 _pddl_inline void pddlRandInit(pddl_rand_t *g, uint32_t seed)
 {
-    // Initialize generator state with seed
-    // See Knuth TAOCP Vol 2, 3rd Ed, p.106 for multiplier.
-    // In previous versions, most significant bits (MSBs) of the seed affect
-    // only MSBs of the state array.  Modified 9 Jan 2002 by Makoto Matsumoto.
-    register uint32_t *s = g->state;
-    register uint32_t *r = g->state;
-    register int i = 1;
-    *s++ = seed & 0xffffffffUL;
-    for( ; i < PDDL_RAND_MT_N; ++i )
-    {
-        *s++ = ( 1812433253UL * ( *r ^ (*r >> 30) ) + i ) & 0xffffffffUL;
-        r++;
-    }
+    pddlRandReseed(g, seed);
 }
 
 _pddl_inline void pddlRandInit2(pddl_rand_t *r, uint32_t *seed, uint32_t seedlen)
