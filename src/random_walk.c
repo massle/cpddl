@@ -41,7 +41,7 @@ void pddlRandomWalkInit(pddl_random_walk_t *rndw,
                         const pddl_fdr_app_op_t *app_op)
 {
     init(rndw, fdr, app_op);
-    rndw->rnd = pddlRandMTNewAuto();
+    pddlRandInitAuto(&rndw->rnd);
 }
 
 void pddlRandomWalkInitSeed(pddl_random_walk_t *rndw,
@@ -50,7 +50,7 @@ void pddlRandomWalkInitSeed(pddl_random_walk_t *rndw,
                             uint32_t seed)
 {
     init(rndw, fdr, app_op);
-    rndw->rnd = pddlRandMTNew(seed);
+    pddlRandInit(&rndw->rnd, seed);
 }
 
 void pddlRandomWalkFree(pddl_random_walk_t *rndw)
@@ -60,9 +60,6 @@ void pddlRandomWalkFree(pddl_random_walk_t *rndw)
         pddlFDRAppOpFree(app);
         FREE(app);
     }
-
-    if (rndw->rnd != NULL)
-        pddlRandMTDel(rndw->rnd);
 }
 
 int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
@@ -75,7 +72,7 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
     // Length of the walk
     int num_steps = 0;
     for (int i = 0; i < max_steps; ++i){
-        if (pddlRandMT01(rndw->rnd) < p)
+        if (pddlRand01(&rndw->rnd) < p)
             ++num_steps;
     }
 
@@ -90,7 +87,7 @@ int pddlRandomWalkSampleState(pddl_random_walk_t *rndw,
             // No applicable operators -- terminate
             break;
         }else{
-            int which_op = pddlRandMT(rndw->rnd, 0, pddlISetSize(&app_ops));
+            int which_op = pddlRand(&rndw->rnd, 0, pddlISetSize(&app_ops));
             ASSERT(which_op >= 0 && which_op < pddlISetSize(&app_ops));
             int op_id = pddlISetGet(&app_ops, which_op);
             const pddl_fdr_op_t *op = rndw->fdr->op.op[op_id];

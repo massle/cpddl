@@ -17,7 +17,7 @@
  */
 
 #include "pddl/err.h"
-#include "pddl/rand-mt.h"
+#include "pddl/rand.h"
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
 #include "pddl/strips_ground_sql.h"
@@ -242,7 +242,7 @@ static int collapsePair(pddl_homomorphic_task_t *h,
 
 static int collapseEndomorphism(pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
-                                pddl_rand_mt_t *rnd,
+                                pddl_rand_t *rnd,
                                 pddl_obj_id_t *obj_map,
                                 int obj_size,
                                 pddl_err_t *err)
@@ -286,7 +286,7 @@ static int collapseEndomorphism(pddl_t *pddl,
 
 static int collapseRandomPairTypeObj(pddl_t *pddl,
                                      const pddl_homomorphism_config_t *cfg,
-                                     pddl_rand_mt_t *rnd,
+                                     pddl_rand_t *rnd,
                                      pddl_obj_id_t *obj_map,
                                      int obj_size,
                                      pddl_err_t *err)
@@ -303,15 +303,15 @@ static int collapseRandomPairTypeObj(pddl_t *pddl,
     if (type_size == 0)
         return -1;
 
-    int choice = pddlRandMT(rnd, 0, type_size);
+    int choice = pddlRand(rnd, 0, type_size);
     int type = choose_types[choice];
     int num_objs;
     const pddl_obj_id_t *objs;
     objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
-    int obj1 = objs[(int)pddlRandMT(rnd, 0, num_objs)];
+    int obj1 = objs[(int)pddlRand(rnd, 0, num_objs)];
     int obj2 = obj1;
     while (obj1 == obj2)
-        obj2 = objs[(int)pddlRandMT(rnd, 0, num_objs)];
+        obj2 = objs[(int)pddlRand(rnd, 0, num_objs)];
 
     int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
     collapse_map[obj1] = collapse_map[obj2] = 1;
@@ -322,7 +322,7 @@ static int collapseRandomPairTypeObj(pddl_t *pddl,
 
 static int collapseRandomPairObj(pddl_t *pddl,
                                  const pddl_homomorphism_config_t *cfg,
-                                 pddl_rand_mt_t *rnd,
+                                 pddl_rand_t *rnd,
                                  pddl_obj_id_t *obj_map,
                                  int obj_size,
                                  pddl_err_t *err)
@@ -358,7 +358,7 @@ static int collapseRandomPairObj(pddl_t *pddl,
         return -1;
     }
 
-    int choice = pddlRandMT(rnd, 0, objs_size);
+    int choice = pddlRand(rnd, 0, objs_size);
     int obj1 = choose_objs[choice];
     int type = choose_types[choice];
     int num_objs;
@@ -366,7 +366,7 @@ static int collapseRandomPairObj(pddl_t *pddl,
     objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
     int obj2 = obj1;
     while (obj1 == obj2)
-        obj2 = objs[(int)pddlRandMT(rnd, 0, num_objs)];
+        obj2 = objs[(int)pddlRand(rnd, 0, num_objs)];
 
     int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
     collapse_map[obj1] = collapse_map[obj2] = 1;
@@ -558,7 +558,7 @@ static int gaifmanFindPair(gaifman_t *g,
 
 static int collapseGaifman(pddl_t *pddl,
                            const pddl_homomorphism_config_t *cfg,
-                           pddl_rand_mt_t *rnd,
+                           pddl_rand_t *rnd,
                            pddl_obj_id_t *obj_map,
                            int obj_size,
                            pddl_err_t *err)
@@ -666,7 +666,7 @@ static int rpgFindPair(const pddl_t *pddl,
 
 static int collapseRPG(pddl_t *pddl,
                        const pddl_homomorphism_config_t *cfg,
-                       pddl_rand_mt_t *rnd,
+                       pddl_rand_t *rnd,
                        pddl_obj_id_t *obj_map,
                        int obj_size,
                        pddl_err_t *err)
@@ -800,11 +800,11 @@ int pddlHomomorphism(pddl_t *pddl,
                 || cfg->type == PDDL_HOMOMORPHISM_GAIFMAN
                 || cfg->type == PDDL_HOMOMORPHISM_RPG){
         int (*fn[2])(pddl_t *pddl,
-                  const pddl_homomorphism_config_t *cfg,
-                  pddl_rand_mt_t *rnd,
-                  pddl_obj_id_t *obj_map,
-                  int obj_size,
-                  pddl_err_t *err) = { NULL, NULL };
+                     const pddl_homomorphism_config_t *cfg,
+                     pddl_rand_t *rnd,
+                     pddl_obj_id_t *obj_map,
+                     int obj_size,
+                     pddl_err_t *err) = { NULL, NULL };
         if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS)
             fn[0] = fn[1] = collapseRandomPairObj;
         if (cfg->type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS)
@@ -815,7 +815,8 @@ int pddlHomomorphism(pddl_t *pddl,
             fn[0] = fn[1] = collapseRPG;
         ASSERT_RUNTIME(fn[0] != NULL && fn[1] != NULL);
         int obj_size = src->obj.obj_size;
-        pddl_rand_mt_t *rnd = pddlRandMTNew(cfg->random_seed);
+        pddl_rand_t rnd;
+        pddlRandInit(&rnd, cfg->random_seed);
         int target = pddl->obj.obj_size * (1.f - cfg->rm_ratio);
         PDDL_INFO(err, "Target number of objects: %d", target);
 
@@ -825,7 +826,7 @@ int pddlHomomorphism(pddl_t *pddl,
         int fni = 0;
         while (pddl->obj.obj_size >= 1
                 && pddl->obj.obj_size > target){
-            if (fn[fni](pddl, cfg, rnd, obj_map, obj_size, err) != 0){
+            if (fn[fni](pddl, cfg, &rnd, obj_map, obj_size, err) != 0){
                 if (fn[fni] == collapseEndomorphism){
                     PDDL_INFO2(err, "Endomorphism failed -- disabling...");
                     fn[fni] = fn[(fni + 1) % 2];
@@ -835,7 +836,6 @@ int pddlHomomorphism(pddl_t *pddl,
             }
             fni = (fni + 1) % 2;
         }
-        pddlRandMTDel(rnd);
 
     }else{
         PDDL_FATAL("Homomorphism: Unkown type %d", cfg->type);
@@ -862,7 +862,7 @@ void pddlHomomorphicTaskInit(pddl_homomorphic_task_t *h, const pddl_t *in)
         for (int i = 0; i < h->input_obj_size; ++i)
             h->obj_map[i] = i;
     }
-    h->rnd = pddlRandMTNewAuto();
+    pddlRandInitAuto(&h->rnd);
 }
 
 void pddlHomomorphicTaskFree(pddl_homomorphic_task_t *h)
@@ -870,13 +870,11 @@ void pddlHomomorphicTaskFree(pddl_homomorphic_task_t *h)
     pddlFree(&h->task);
     if (h->obj_map != NULL)
         FREE(h->obj_map);
-    if (h->rnd != NULL)
-        pddlRandMTDel(h->rnd);
 }
 
 void pddlHomomorphicTaskSeed(pddl_homomorphic_task_t *h, uint32_t seed)
 {
-    pddlRandMTReseed(h->rnd, seed);
+    pddlRandReseed(&h->rnd, seed);
 }
 
 int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
@@ -949,7 +947,7 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
         return -1;
     }
 
-    int choice = pddlRandMT(h->rnd, 0, objs_size);
+    int choice = pddlRand(&h->rnd, 0, objs_size);
     int obj1 = choose_objs[choice];
     int type = choose_types[choice];
     int num_objs;
@@ -957,7 +955,7 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
     objs = pddlTypesObjsByType(&h->task.type, type, &num_objs);
     int obj2 = obj1;
     while (obj1 == obj2)
-        obj2 = objs[(int)pddlRandMT(h->rnd, 0, num_objs)];
+        obj2 = objs[(int)pddlRand(&h->rnd, 0, num_objs)];
 
     int ret = collapsePair(h, obj1, obj2, err);
     FREE(choose_types);

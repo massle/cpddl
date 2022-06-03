@@ -20,7 +20,7 @@ OBJS  = alloc
 OBJS += err
 OBJS += hfunc
 OBJS += google-city-hash
-OBJS += rand-mt
+OBJS += rand
 OBJS += sort
 OBJS += qsort
 OBJS += segmarr
@@ -180,7 +180,7 @@ GEN += src/iarr.c
 
 all: $(TARGETS)
 
-bin:
+bin: libpddl.a
 	$(MAKE) -C bin
 
 libpddl.a: $(OBJS) Makefile

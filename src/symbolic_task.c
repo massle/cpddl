@@ -1109,7 +1109,7 @@ static void orderCompute(int *order,
                          pddl_err_t *err)
 {
     pddl_rand_t rnd;
-    pddlRandInitSeed(&rnd, 1371);
+    pddlRandInit(&rnd, 1371);
 
     ASSERT_RUNTIME(cg->node_size == size);
 
