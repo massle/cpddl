@@ -718,8 +718,13 @@ static void storeOpPot(pddl_lp_t *lp,
                 sol->op_pot[c->op_id] = -constrLHS(pot, c, obj);
             }else{
                 double oval = obj[var_offset + ci];
-                ASSERT(round(oval) == (int)round(oval));
-                sol->op_pot[c->op_id] = (int)round(oval);
+                oval = round(oval);
+                if (oval > PDDL_COST_MAX)
+                    oval = PDDL_COST_MAX;
+                if (oval < PDDL_COST_MIN)
+                    oval = PDDL_COST_MIN;
+                ASSERT(oval == (int)oval);
+                sol->op_pot[c->op_id] = (int)oval;
             }
         }
     }
