@@ -12,26 +12,13 @@
  *  See the License for more information.
  */
 
-#include "pddl/csp.h"
+#include "_csp.h"
 #include "internal.h"
 
 #ifdef PDDL_CPOPTIMIZER
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <algorithm>
-#include <vector>
 #define IL_STD
 #include <ilcp/cp.h>
 #include <ilcplex/cpxconst.h>
-
-#include "pddl/hfunc.h"
-#include "pddl/sort.h"
-#include "pddl/set.h"
-#include "pddl/time_limit.h"
-#include "pddl/pddl_struct.h"
-#include "internal.h"
 
 #if CPX_VERSION_VERSION < 12 || (CPX_VERSION_VERSION == 12 && CPX_VERSION_RELEASE < 9)
 # define NO_LOGGER
@@ -76,8 +63,8 @@ class Logger : public IloCP::Callback {
 };
 #endif /* NO_LOGGER */
 
-struct pddl_csp {
-    pddl_csp_config_t cfg;
+struct pddl_csp_cp {
+    pddl_csp_t csp;
     IloEnv env;
     IloModel model;
 #ifndef NO_LOGGER
@@ -87,15 +74,17 @@ struct pddl_csp {
     IloIntVarArray int_var;
     IloCP *cp;
 
-    pddl_csp(const pddl_csp_config_t *cfg)
-        : cfg(*cfg), env(), model(env), int_var(env), cp(NULL)
+    pddl_csp_cp(const pddl_csp_config_t *cfg)
+        : env(), model(env), int_var(env), cp(NULL)
     {
+        csp.cls = &pddl_csp_cp_optimizer;
+        csp.cfg = *cfg;
 #ifndef NO_LOGGER
         logger = NULL;
 #endif /* NO_LOGGER */
     }
 
-    ~pddl_csp()
+    ~pddl_csp_cp()
     {
 #ifndef NO_LOGGER
         if (logger != NULL)
@@ -108,35 +97,41 @@ struct pddl_csp {
         env.end();
     }
 };
+typedef struct pddl_csp_cp pddl_csp_cp_t;
 
-pddl_csp_t *pddlCSPNew(const pddl_csp_config_t *cfg, pddl_err_t *err)
+#define CSP(C) pddl_csp_cp_t *csp = pddl_container_of(_csp, pddl_csp_cp_t, csp)
+
+static pddl_csp_t *cpNew(const pddl_csp_config_t *cfg, pddl_err_t *err)
 {
-    pddl_csp_t *csp = new pddl_csp(cfg);
-    return csp;
+    pddl_csp_cp_t *csp = new pddl_csp_cp(cfg);
+    return &csp->csp;
 }
 
-void pddlCSPDel(pddl_csp_t *csp)
+static void cpDel(pddl_csp_t *_csp)
 {
+    CSP(_csp);
     delete csp;
 }
 
-int pddlCSPAddVarInt(pddl_csp_t *csp,
-                     int min_val,
-                     int max_val,
-                     const char *name)
+static int cpAddVarInt(pddl_csp_t *_csp,
+                       int min_val,
+                       int max_val,
+                       const char *name)
 {
+    CSP(_csp);
     int idx = csp->int_var.getSize();
     csp->int_var.add(IloIntVar(csp->env, min_val, max_val, name));
     return idx;
 }
 
-int pddlCSPAddDomainInt(pddl_csp_t *csp,
-                        int tuple_size,
-                        int num_var_tuples,
-                        int num_val_tuples,
-                        const int *var,
-                        const int *val)
+static int cpAddDomainInt(pddl_csp_t *_csp,
+                          int tuple_size,
+                          int num_var_tuples,
+                          int num_val_tuples,
+                          const int *var,
+                          const int *val)
 {
+    CSP(_csp);
     IloIntTupleSet cpval(csp->env, tuple_size);
     for (int vi = 0, idx = 0; vi < num_val_tuples; ++vi, idx += tuple_size){
         IloIntArray cpval_tuple(csp->env, tuple_size);
@@ -155,16 +150,18 @@ int pddlCSPAddDomainInt(pddl_csp_t *csp,
     return 0;
 }
 
-int pddlCSPAddEqInt(pddl_csp_t *csp, int var_id, int value)
+static int cpAddEqInt(pddl_csp_t *_csp, int var_id, int value)
 {
+    CSP(_csp);
     csp->model.add(csp->int_var[var_id] == value);
     return 0;
 }
 
-int pddlCSPAddObjMinCountDifferent(pddl_csp_t *csp,
-                                   int var_size,
-                                   const int *var)
+static int cpAddObjMinCountDifferent(pddl_csp_t *_csp,
+                                     int var_size,
+                                     const int *var)
 {
+    CSP(_csp);
     IloIntVarArray cpvar(csp->env, var_size);
     for (int i = 0; i < var_size; ++i)
         cpvar[i] = csp->int_var[var[i]];
@@ -173,14 +170,15 @@ int pddlCSPAddObjMinCountDifferent(pddl_csp_t *csp,
     return 0;
 }
 
-int pddlCSPGetValInt(pddl_csp_t *csp, int var_id)
+static int cpGetValInt(pddl_csp_t *_csp, int var_id)
 {
+    CSP(_csp);
     if (csp->cp == NULL)
         return INT_MIN;
     return csp->cp->getValue(csp->int_var[var_id]);
 }
 
-static int pddlCSPEnd(pddl_csp_t *csp, pddl_err_t *err)
+static int cpEnd(pddl_csp_cp_t *csp, pddl_err_t *err)
 {
     int ret = PDDL_CSP_UNKNOWN;
     switch (csp->cp->getInfo(IloCP::FailStatus)){
@@ -222,7 +220,7 @@ static int pddlCSPEnd(pddl_csp_t *csp, pddl_err_t *err)
     return ret;
 }
 
-static int pddlCSPNext(pddl_csp_t *csp, pddl_err_t *err)
+static int cpNext(pddl_csp_cp_t *csp, pddl_err_t *err)
 {
     int ret = PDDL_CSP_FOUND;
     LOG2(err, "Solving model ...");
@@ -230,16 +228,17 @@ static int pddlCSPNext(pddl_csp_t *csp, pddl_err_t *err)
         LOG2(err, "Found solution.");
 
     }else{
-        ret = pddlCSPEnd(csp, err);
+        ret = cpEnd(csp, err);
     }
     return ret;
 }
 
-int pddlCSPSolve(pddl_csp_t *csp, pddl_err_t *err)
+static int cpSolve(pddl_csp_t *_csp, pddl_err_t *err)
 {
+    CSP(_csp);
     CTX(err, "csp_solve", "CSP-solve");
     if (csp->cp != NULL){
-        int ret = pddlCSPNext(csp, err);
+        int ret = cpNext(csp, err);
         CTXEND(err);
         return ret;
     }
@@ -250,9 +249,9 @@ int pddlCSPSolve(pddl_csp_t *csp, pddl_err_t *err)
     csp->cp->addCallback(csp->logger);
 #endif /* NO_LOGGER */
     csp->cp->setParameter(IloCP::LogVerbosity, IloCP::Quiet);
-    csp->cp->setParameter(IloCP::Workers, csp->cfg.num_threads);
-    if (csp->cfg.max_search_time > 0.)
-        csp->cp->setParameter(IloCP::TimeLimit, csp->cfg.max_search_time);
+    csp->cp->setParameter(IloCP::Workers, csp->csp.cfg.num_threads);
+    if (csp->csp.cfg.max_search_time > 0.)
+        csp->cp->setParameter(IloCP::TimeLimit, csp->csp.cfg.max_search_time);
 
     int ret = PDDL_CSP_FOUND;
     LOG2(err, "Solving model ...");
@@ -261,80 +260,33 @@ int pddlCSPSolve(pddl_csp_t *csp, pddl_err_t *err)
         LOG2(err, "Found solution.");
 
     }else{
-        ret = pddlCSPEnd(csp, err);
+        ret = cpEnd(csp, err);
     }
     CTXEND(err);
     return ret;
 }
 
-void pddlCSPDump(pddl_csp_t *csp, const char *fn)
+static void cpDump(pddl_csp_t *_csp, const char *fn)
 {
+    CSP(_csp);
     IloCP cp(csp->model);
     cp.dumpModel(fn);
 }
 
+pddl_csp_cls_t pddl_csp_cp_optimizer = {
+    PDDL_CSP_CP_OPTIMIZER,
+    "cp-optimizer",
+    cpNew,
+    cpDel,
+    cpAddVarInt,
+    cpAddDomainInt,
+    cpAddEqInt,
+    cpAddObjMinCountDifferent,
+    cpGetValInt,
+    cpSolve,
+    cpDump,
+};
+
 #else /* PDDL_CPOPTIMIZER */
-
-#define ERROR PDDL_FATAL2("csp module requires IBM Cplex CP Optimizer")
-
-pddl_csp_t *pddlCSPNew(const pddl_csp_config_t *cfg, pddl_err_t *err)
-{
-    ERROR;
-    return NULL;
-}
-
-void pddlCSPDel(pddl_csp_t *csp)
-{
-    ERROR;
-}
-
-int pddlCSPAddVarInt(pddl_csp_t *csp,
-                     int min_val,
-                     int max_val,
-                     const char *name)
-{
-    ERROR;
-    return -1;
-}
-
-int pddlCSPAddDomainInt(pddl_csp_t *csp,
-                        int var_size,
-                        int val_size,
-                        const int *var,
-                        const int *val)
-{
-    ERROR;
-    return -1;
-}
-
-int pddlCSPAddEqInt(pddl_csp_t *csp, int var_id, int value)
-{
-    ERROR;
-    return -1;
-}
-
-int pddlCSPAddObjMinCountDifferent(pddl_csp_t *csp,
-                                   int var_size,
-                                   const int *var)
-{
-    ERROR;
-    return -1;
-}
-
-int pddlCSPGetValInt(pddl_csp_t *csp, int var_id)
-{
-    ERROR;
-    return -1;
-}
-
-int pddlCSPSolve(pddl_csp_t *csp, pddl_err_t *err)
-{
-    ERROR;
-    return -1;
-}
-
-void pddlCSPDump(pddl_csp_t *csp, const char *fn)
-{
-    ERROR;
-}
+pddl_csp_cls_t pddl_csp_cp_optimizer;
 #endif /* PDDL_CPOPTIMIZER */

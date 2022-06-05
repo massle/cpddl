@@ -30,6 +30,7 @@ OBJS += lp-cplex
 OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
+OBJS += csp
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -160,7 +161,7 @@ OBJS += lifted_heur_relaxed
 OBJS += __sqlite3
 
 OBJS_CPP = endomorphism
-OBJS_CPP += csp
+OBJS_CPP += csp-cp-optimizer
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
@@ -235,7 +236,8 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
-.objs/csp.cpp.o: src/csp.cpp pddl/csp.h pddl/config.h $(GEN)
+
+.objs/csp-cp-optimizer.cpp.o: src/csp-cp-optimizer.cpp pddl/csp.h src/_csp.h src/csp.c pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)

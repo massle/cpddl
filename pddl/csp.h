@@ -21,6 +21,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define PDDL_CSP_CP_OPTIMIZER 1
+
 #define PDDL_CSP_FOUND 0
 #define PDDL_CSP_FOUND_SOLUTION 0
 #define PDDL_CSP_NO_SOLUTION -1
@@ -53,6 +55,16 @@ pddl_csp_t *pddlCSPNew(const pddl_csp_config_t *cfg, pddl_err_t *err);
  * Deletes the CSP object.
  */
 void pddlCSPDel(pddl_csp_t *csp);
+
+/**
+ * Returns solver ID
+ */
+int pddlCSPSolverId(const pddl_csp_t *csp);
+
+/**
+ * Returns the name of solver.
+ */
+const char *pddlCSPSolverName(const pddl_csp_t *csp);
 
 /**
  * Adds integer variable and returns its ID
