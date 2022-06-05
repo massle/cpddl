@@ -145,6 +145,7 @@ OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
 OBJS += datalog_pddl
+OBJS += endomorphism_lifted
 OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
@@ -234,6 +235,9 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
+.objs/csp.cpp.o: src/csp.cpp pddl/csp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
+
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/config.h $(GEN)

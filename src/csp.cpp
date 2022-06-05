@@ -131,23 +131,27 @@ int pddlCSPAddVarInt(pddl_csp_t *csp,
 }
 
 int pddlCSPAddDomainInt(pddl_csp_t *csp,
-                        int var_size,
-                        int val_size,
+                        int tuple_size,
+                        int num_var_tuples,
+                        int num_val_tuples,
                         const int *var,
                         const int *val)
 {
-    IloIntVarArray cpvar(csp->env, var_size);
-    for (int i = 0; i < var_size; ++i)
-        cpvar[i] = csp->int_var[var[i]];
-
-    IloIntTupleSet cpval(csp->env, var_size);
-    for (int vi = 0, idx = 0; vi < val_size; ++vi, idx += var_size){
-        IloIntArray cpval_tuple(csp->env, var_size);
-        for (int i = 0; i < var_size; ++i)
+    IloIntTupleSet cpval(csp->env, tuple_size);
+    for (int vi = 0, idx = 0; vi < num_val_tuples; ++vi, idx += tuple_size){
+        IloIntArray cpval_tuple(csp->env, tuple_size);
+        for (int i = 0; i < tuple_size; ++i)
             cpval_tuple[i] = val[idx + i];
         cpval.add(cpval_tuple);
     }
-    csp->model.add(IloAllowedAssignments(csp->env, cpvar, cpval));
+
+    for (int vari = 0, idx = 0; vari < num_var_tuples; ++vari, idx += tuple_size){
+        IloIntVarArray cpvar(csp->env, tuple_size);
+        for (int i = 0; i < tuple_size; ++i)
+            cpvar[i] = csp->int_var[var[idx + i]];
+        csp->model.add(IloAllowedAssignments(csp->env, cpvar, cpval));
+    }
+
     return 0;
 }
 
@@ -222,7 +226,6 @@ static int pddlCSPNext(pddl_csp_t *csp, pddl_err_t *err)
 {
     int ret = PDDL_CSP_FOUND;
     LOG2(err, "Solving model ...");
-    csp->cp->startNewSearch();
     if (csp->cp->next()){
         LOG2(err, "Found solution.");
 
@@ -248,7 +251,8 @@ int pddlCSPSolve(pddl_csp_t *csp, pddl_err_t *err)
 #endif /* NO_LOGGER */
     csp->cp->setParameter(IloCP::LogVerbosity, IloCP::Quiet);
     csp->cp->setParameter(IloCP::Workers, csp->cfg.num_threads);
-    csp->cp->setParameter(IloCP::TimeLimit, csp->cfg.max_search_time);
+    if (csp->cfg.max_search_time > 0.)
+        csp->cp->setParameter(IloCP::TimeLimit, csp->cfg.max_search_time);
 
     int ret = PDDL_CSP_FOUND;
     LOG2(err, "Solving model ...");
@@ -287,7 +291,7 @@ void pddlCSPDel(pddl_csp_t *csp)
 int pddlCSPAddVarInt(pddl_csp_t *csp,
                      int min_val,
                      int max_val,
-                     const char *name);
+                     const char *name)
 {
     ERROR;
     return -1;

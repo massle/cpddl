@@ -37,6 +37,12 @@ struct pddl_csp_config {
 };
 typedef struct pddl_csp_config pddl_csp_config_t;
 
+#define PDDL_CSP_CONFIG_INIT \
+    { \
+        1, /* .num_threads */ \
+        -1.f, /* .max_search_time */ \
+    }
+
 
 /**
  * Creates a new CSP problem.
@@ -57,16 +63,18 @@ int pddlCSPAddVarInt(pddl_csp_t *csp,
                      const char *name);
 
 /**
- * Adds constraint restricting the domain of the tuple of integer variables
+ * Adds constraint restricting the domain of tuples of integer variables
  * to the given values.
- * The size of var must be var_size, i.e., var_size is the size of the
- * tuple of variables.
- * The size of val must be var_size * val_size, i.e., val_size is the
- * number of allowed assignements to the tuple of variables.
+ * tuple_size is the size of each variable tuple.
+ * num_var_tuples is the number of variable tuples that are restricted.
+ * num_val_tuples is the number of value tuples.
+ * The size of var must be tuple_size * num_var_tuples.
+ * The size of val must be tuple_size * num_val_tuples.
  */
 int pddlCSPAddDomainInt(pddl_csp_t *csp,
-                        int var_size,
-                        int val_size,
+                        int tuple_size,
+                        int num_var_tuples,
+                        int num_val_tuples,
                         const int *var,
                         const int *val);
 

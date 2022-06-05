@@ -19,6 +19,7 @@
 #ifndef __PDDL_ENDOMORPHISM_H__
 #define __PDDL_ENDOMORPHISM_H__
 
+#include <pddl/pddl_struct.h>
 #include <pddl/fdr.h>
 #include <pddl/mg_strips.h>
 #include <pddl/trans_system.h>
