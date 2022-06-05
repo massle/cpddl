@@ -29,8 +29,7 @@
 #define HTABLE_RESIZE_FACTOR 2
 
 //#define STATE_ID_ARR_FIXED_ARR_SIZE 2
-#define STATE_ID_ARR_FIXED_ARR_SIZE \
-    (sizeof(pddl_state_id_t *) / sizeof(pddl_state_id_t))
+#define STATE_ID_ARR_FIXED_ARR_SIZE (sizeof(void *) / sizeof(pddl_state_id_t))
 struct state_id_arr {
     union {
         pddl_state_id_t *arr;
