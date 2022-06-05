@@ -2225,7 +2225,7 @@ static int instantiateCond(pddl_cond_t *c, void *data)
     }else if (c->type == PDDL_COND_ASSIGN
                 || c->type == PDDL_COND_INCREASE){
         if (OBJ(c, func_op)->lvalue)
-            return instantiateParentParam(&OBJ(c, func_op)->lvalue->cls, data);
+            return instantiateCond(&OBJ(c, func_op)->lvalue->cls, data);
         if (OBJ(c, func_op)->fvalue)
             return instantiateCond(&OBJ(c, func_op)->fvalue->cls, data);
     }
