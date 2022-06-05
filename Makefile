@@ -2,11 +2,6 @@
 -include Makefile.include
 
 CFLAGS += -I.
-CFLAGS += -Wno-sizeof-pointer-div
-CFLAGS += $(BLISS_CFLAGS)
-CFLAGS += $(CLIQUER_CFLAGS)
-CFLAGS += $(CUDD_CFLAGS)
-CFLAGS += $(LP_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
@@ -20,7 +15,7 @@ OBJS  = alloc
 OBJS += err
 OBJS += hfunc
 OBJS += google-city-hash
-OBJS += rand-mt
+OBJS += rand
 OBJS += sort
 OBJS += qsort
 OBJS += segmarr
@@ -181,7 +176,7 @@ GEN += src/iarr.c
 
 all: $(TARGETS)
 
-bin:
+bin: libpddl.a
 	$(MAKE) -C bin
 
 libpddl.a: $(OBJS) Makefile
@@ -229,7 +224,15 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-.objs/__sqlite3.o: src/sqlite3.c Makefile Makefile.include
+.objs/bdd.o: src/bdd.c pddl/bdd.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
+.objs/sym.o: src/sym.c pddl/sym.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
+.objs/clique.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
+.objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
+.objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -291,13 +294,9 @@ third-party-clean: bliss-clean cudd-clean
 
 bliss: third-party/bliss/libbliss.a
 bliss-clean:
-	rm -rf third-party/bliss
+	$(MAKE) -C third-party/bliss clean
 third-party/bliss/libbliss.a:
-	rm -rf third-party/bliss
-	cd third-party && unzip bliss-$(BLISS_VERSION).zip
-	mv third-party/bliss-$(BLISS_VERSION) third-party/bliss
-	cd third-party/bliss && patch -p1 <../bliss-$(BLISS_VERSION)-capi.patch
-	$(MAKE) CC=$(CXX) -C third-party/bliss -f Makefile-manual lib_static
+	$(MAKE) CC=$(CXX) -C third-party/bliss lib_static
 	cp third-party/bliss/src/bliss_C.h third-party/bliss/
 	mv third-party/bliss/libbliss_static.a $@
 

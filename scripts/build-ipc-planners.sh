@@ -1,14 +1,15 @@
 #!/bin/bash
 # Run in an empty directory.
 
-CPLEX_ROOT=/opt/cplex/v22.1.0/cplex
+#CPLEX_ROOT=/opt/cplex/v22.1.0/cplex
 
 mkdir -p opt sat agl unsolve
 
 function build-aidos(){
-    name="$1"
-    team_name="$2"
-    source_name="$3"
+    local name="$1"
+    local team_name="$2"
+    local source_name="$3"
+    local CPLEX_ROOT=/opt/cplex/v12.7.1.0/cplex
     if [ -f unsolve/${name}/planner.img ]; then
         return 0
     fi
@@ -18,7 +19,7 @@ function build-aidos(){
     cd $name
     cat >Singularity <<EOF
 Bootstrap: docker
-From: ubuntu:xenial
+From: ubuntu:bionic
 
 %setup
     cp -rv ../../repo/planners/${team_name}/source.tar.gz \$SINGULARITY_ROOTFS/
@@ -26,8 +27,11 @@ From: ubuntu:xenial
     mkdir \$SINGULARITY_ROOTFS/cplex
     cp -rv $CPLEX_ROOT/include \$SINGULARITY_ROOTFS/cplex/include
     cp -rv $CPLEX_ROOT/lib \$SINGULARITY_ROOTFS/cplex/lib
+    cp -rv $CPLEX_ROOT/python \$SINGULARITY_ROOTFS/cplex/python
 %post
     ## Install all necessary dependencies.
+    export DEBIAN_FRONTEND="noninteractive"
+    export TZ="Europe/London"
     apt-get update
     apt-get -y install cmake g++ g++-multilib make python autotools-dev automake ca-certificates git wget
     rm -rf /var/lib/apt/lists/*
@@ -58,12 +62,19 @@ From: ubuntu:xenial
 
     cd /planner
     sed -i 's/\${CMAKE_THREAD_LIBS_INIT}/\${CMAKE_THREAD_LIBS_INIT} dl/' src/cmake_modules/FindCplex.cmake
+    sed -i 's/-Werror//g' src/cmake_modules/FastDownwardMacros.cmake
+#sed -i 's/include <cmath>/include <math>/g' src/search/*.cc src/search/*/*.cc src/search/*.h src/search/*/*.h
+    sed -i 's/ceil/std::ceil/g' src/search/*.cc src/search/*/*.cc
+    sed -i '1i #include <cmath>' src/search/operator_counting/operator_counting_heuristic.cc
     ./build.py aidos_ipc -j12 VERBOSE=true
 
     find -name '*.o' -exec rm -f '{}' ';'
     find -name '*.a' -exec rm -f '{}' ';'
     find -name '*.cc' -exec rm -f '{}' ';'
     find -name '*.h' -exec rm -f '{}' ';'
+
+    cd /cplex/python/2.7/x86-64_linux
+    python setup.py install
 
 %runscript
     DOMAINFILE=\$1

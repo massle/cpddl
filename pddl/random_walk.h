@@ -19,7 +19,7 @@
 #ifndef __PDDL_RANDOM_WALK_H__
 #define __PDDL_RANDOM_WALK_H__
 
-#include <pddl/rand-mt.h>
+#include <pddl/rand.h>
 #include <pddl/fdr.h>
 #include <pddl/fdr_app_op.h>
 
@@ -31,7 +31,7 @@ struct pddl_random_walk {
     const pddl_fdr_t *fdr; /*!< Reference to the FDR problem */
     const pddl_fdr_app_op_t *app; /*!< Reference to successor generator */
     int owns_app_op; /*!< True if this object is responsible for .app_op */
-    pddl_rand_mt_t *rnd; /*!< Random number generator */
+    pddl_rand_t rnd; /*!< Random number generator */
 };
 typedef struct pddl_random_walk pddl_random_walk_t;
 

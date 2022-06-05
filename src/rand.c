@@ -23,10 +23,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <limits.h>
-#include "pddl/rand-mt.h"
+#include "pddl/rand.h"
 #include "internal.h"
-
-_pddl_inline void pddlRandMTInit(pddl_rand_mt_t *r, uint32_t seed);
 
 _pddl_inline uint32_t hiBit(uint32_t u);
 _pddl_inline uint32_t loBit(uint32_t u);
@@ -36,50 +34,57 @@ _pddl_inline uint32_t magic(uint32_t u);
 _pddl_inline uint32_t twist(uint32_t m, uint32_t s0, uint32_t s1);
 static uint32_t hash(time_t t, clock_t c);
 
-
-pddl_rand_mt_t *pddlRandMTNew(uint32_t seed)
+_pddl_inline void __pddlRandInit(pddl_rand_t *g, uint32_t seed)
 {
-    pddl_rand_mt_t *r;
-    r = ALLOC(pddl_rand_mt_t);
+    // Initialize generator state with seed
+    // See Knuth TAOCP Vol 2, 3rd Ed, p.106 for multiplier.
+    // In previous versions, most significant bits (MSBs) of the seed affect
+    // only MSBs of the state array.  Modified 9 Jan 2002 by Makoto Matsumoto.
+    register uint32_t *s = g->state;
+    register uint32_t *r = g->state;
+    register int i = 1;
+    *s++ = seed & 0xffffffffUL;
+    for( ; i < PDDL_RAND_MT_N; ++i )
+    {
+        *s++ = ( 1812433253UL * ( *r ^ (*r >> 30) ) + i ) & 0xffffffffUL;
+        r++;
+    }
+}
 
-    pddlRandMTReseed(r, seed);
-
+pddl_rand_t *pddlRandNew(uint32_t seed)
+{
+    pddl_rand_t *r = ALLOC(pddl_rand_t);
+    pddlRandInit(r, seed);
     return r;
 }
 
-pddl_rand_mt_t *pddlRandMTNew2(uint32_t *seed, uint32_t seedlen)
+pddl_rand_t *pddlRandNew2(uint32_t *seed, uint32_t seedlen)
 {
-    pddl_rand_mt_t *r;
-
-    r = ALLOC(pddl_rand_mt_t);
-
-    pddlRandMTReseed2(r, seed, seedlen);
-
+    pddl_rand_t *r = ALLOC(pddl_rand_t);
+    pddlRandInit2(r, seed, seedlen);
     return r;
 }
 
-pddl_rand_mt_t *pddlRandMTNewAuto(void)
+pddl_rand_t *pddlRandNewAuto(void)
 {
-    pddl_rand_mt_t *r;
-    r = ALLOC(pddl_rand_mt_t);
-
-    pddlRandMTReseedAuto(r);
-
+    pddl_rand_t *r = ALLOC(pddl_rand_t);
+    pddlRandInitAuto(r);
     return r;
 }
 
-void pddlRandMTDel(pddl_rand_mt_t *r)
+void pddlRandDel(pddl_rand_t *r)
 {
+    pddlRandFree(r);
     FREE(r);
 }
 
-void pddlRandMTReseed(pddl_rand_mt_t *r, uint32_t seed)
+void pddlRandReseed(pddl_rand_t *r, uint32_t seed)
 {
-    pddlRandMTInit(r, seed);
-    __pddlRandMTReload(r);
+    __pddlRandInit(r, seed);
+    __pddlRandReload(r);
 }
 
-void pddlRandMTReseed2(pddl_rand_mt_t *r, uint32_t *seed, uint32_t seedlen)
+void pddlRandReseed2(pddl_rand_t *r, uint32_t *seed, uint32_t seedlen)
 {
     register int i = 1;
     register uint32_t j = 0;
@@ -91,7 +96,7 @@ void pddlRandMTReseed2(pddl_rand_mt_t *r, uint32_t *seed, uint32_t seedlen)
     // default seed length of N = 624 uint32's).  Any bits above the lower 32
     // in each element are discarded.
 
-    pddlRandMTInit(r, 19650218UL);
+    pddlRandInit(r, 19650218UL);
 
     for (; k; --k){
         r->state[i] ^= ((r->state[i-1] ^ (r->state[i-1] >> 30)) * 1664525UL);
@@ -124,10 +129,10 @@ void pddlRandMTReseed2(pddl_rand_mt_t *r, uint32_t *seed, uint32_t seedlen)
 
     r->state[0] = 0x80000000UL;  // MSB is 1, assuring non-zero initial array
 
-    __pddlRandMTReload(r);
+    __pddlRandReload(r);
 }
 
-void pddlRandMTReseedAuto(pddl_rand_mt_t *r)
+void pddlRandReseedAuto(pddl_rand_t *r)
 {
     FILE *urandom;
     uint32_t bigSeed[PDDL_RAND_MT_N];
@@ -145,32 +150,15 @@ void pddlRandMTReseedAuto(pddl_rand_mt_t *r)
             success = fread(s++, sizeof(uint32_t), 1, urandom);
         fclose(urandom);
         if (success){
-            pddlRandMTReseed2(r, bigSeed, PDDL_RAND_MT_N);
+            pddlRandReseed2(r, bigSeed, PDDL_RAND_MT_N);
         }
     }
 
-    pddlRandMTReseed(r, hash(time(NULL), clock()));
+    pddlRandReseed(r, hash(time(NULL), clock()));
 }
 
 
-_pddl_inline void pddlRandMTInit(pddl_rand_mt_t *g, uint32_t seed)
-{
-    // Initialize generator state with seed
-    // See Knuth TAOCP Vol 2, 3rd Ed, p.106 for multiplier.
-    // In previous versions, most significant bits (MSBs) of the seed affect
-    // only MSBs of the state array.  Modified 9 Jan 2002 by Makoto Matsumoto.
-    register uint32_t *s = g->state;
-    register uint32_t *r = g->state;
-    register int i = 1;
-    *s++ = seed & 0xffffffffUL;
-    for( ; i < PDDL_RAND_MT_N; ++i )
-    {
-        *s++ = ( 1812433253UL * ( *r ^ (*r >> 30) ) + i ) & 0xffffffffUL;
-        r++;
-    }
-}
-
-void __pddlRandMTReload(pddl_rand_mt_t *r)
+void __pddlRandReload(pddl_rand_t *r)
 {
     // Generate N new values in state
     // Made clearer and faster by Matthew Bellew (matthew.bellew@home.com)

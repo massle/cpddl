@@ -901,6 +901,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     setReversibilityOptions();
     setReportsOptions();
 
+    if (is_pddl_pddl)
+        opt.pddl.stop = 1;
+
     if (opts(&argc, argv) != 0)
         return -1;
 

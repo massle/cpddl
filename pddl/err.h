@@ -178,13 +178,13 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
 /**
  * Enter another level of context.
  */
-#define PDDL_CTX(E, KW, I) if ((E) != NULL) _pddlCtx((E), (KW), (I), 1)
-#define PDDL_CTX_NO_TIME(E, KW, I) if ((E) != NULL) _pddlCtx((E), (KW), (I), 0)
+#define PDDL_CTX(E, KW, I) _pddlCtx((E), (KW), (I), 1)
+#define PDDL_CTX_NO_TIME(E, KW, I) _pddlCtx((E), (KW), (I), 0)
 
 /**
  * Leave current context.
  */
-#define PDDL_CTXEND(E) if ((E) != NULL && (E)->ctx_size > 0) _pddlCtxEnd(E)
+#define PDDL_CTXEND(E) _pddlCtxEnd(E)
 
 /**
  * Prints info line with timestamp.

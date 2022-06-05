@@ -32,7 +32,6 @@ ifeq '$(PROFIL)' 'yes'
   CPPFLAGS += -pg -no-pie
 endif
 CFLAGS += -Wall -pedantic --std=gnu99
-CFLAGS += -Wno-missing-braces
 CPPFLAGS += -Wall -pedantic
 
 ifeq '$(WERROR)' 'yes'
