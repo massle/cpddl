@@ -2,11 +2,6 @@
 -include Makefile.include
 
 CFLAGS += -I.
-CFLAGS += -Wno-sizeof-pointer-div
-CFLAGS += $(BLISS_CFLAGS)
-CFLAGS += $(CLIQUER_CFLAGS)
-CFLAGS += $(CUDD_CFLAGS)
-CFLAGS += $(LP_CFLAGS)
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
@@ -228,6 +223,14 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
+.objs/bdd.o: src/bdd.c pddl/bdd.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
+.objs/sym.o: src/sym.c pddl/sym.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
+.objs/clique.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
+.objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
