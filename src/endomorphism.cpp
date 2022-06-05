@@ -1519,14 +1519,20 @@ static int runInSubprocess(const pddl_fdr_t *fdr,
         wait(NULL);
         int ret = *shared_ret;
         if (ret == 0){
-            for (int op_id = 0; op_id < op_size; ++op_id){
-                if (shared_ops[op_id])
-                    pddlISetAdd(redundant_ops, op_id);
+            if (redundant_ops != NULL){
+                for (int op_id = 0; op_id < op_size; ++op_id){
+                    if (shared_ops[op_id])
+                        pddlISetAdd(redundant_ops, op_id);
+                }
             }
         }
         munmap(shared, shared_size);
-        LOG(err, "Endomorphism in a subprocess: ret: %d, redundant ops: %d",
-            ret, pddlISetSize(redundant_ops));
+        if (redundant_ops != NULL){
+            LOG(err, "Endomorphism in a subprocess: ret: %d, redundant ops: %d",
+                ret, pddlISetSize(redundant_ops));
+        }else{
+            LOG(err, "Endomorphism in a subprocess: ret: %d", ret);
+        }
         LOG2(err, "Endomorphism in a subprocess DONE");
         return ret;
     }
@@ -2513,15 +2519,21 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
             if (omap != NULL)
                 memcpy(omap, shared_map, sizeof(pddl_obj_id_t) * obj_size);
 
-            for (int i = 0; i < pddl->obj.obj_size; ++i){
-                if (shared_map[i] != i)
-                    pddlISetAdd(redundant_objects, i);
+            if (redundant_objects != NULL){
+                for (int i = 0; i < pddl->obj.obj_size; ++i){
+                    if (shared_map[i] != i)
+                        pddlISetAdd(redundant_objects, i);
+                }
             }
         }
         munmap(shared, shared_size);
-        LOG(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
-            " redundant ops: %d",
-            ret, pddlISetSize(redundant_objects));
+        if (redundant_objects != NULL){
+            LOG(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d,"
+                " redundant ops: %d",
+                ret, pddlISetSize(redundant_objects));
+        }else{
+            LOG(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d", ret);
+        }
         LOG2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
         return ret;
     }
