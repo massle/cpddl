@@ -30,6 +30,7 @@ OBJS += lp-cplex
 OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
+OBJS += cp
 OBJS += csp
 OBJS += lisp
 OBJS += require
