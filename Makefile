@@ -162,6 +162,7 @@ OBJS += __sqlite3
 
 OBJS_CPP = endomorphism
 OBJS_CPP += csp-cp-optimizer
+OBJS_CPP += csp-gecode
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
@@ -198,6 +199,7 @@ pddl/config.h:
 	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
+	if [ "$(USE_GECODE)" = "yes" ]; then echo "#define PDDL_GECODE" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
 	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
@@ -239,6 +241,8 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 
 .objs/csp-cp-optimizer.cpp.o: src/csp-cp-optimizer.cpp pddl/csp.h src/_csp.h src/csp.c pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
+.objs/csp-gecode.cpp.o: src/csp-gecode.cpp pddl/csp.h src/_csp.h src/csp.c pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(GECODE_CPPFLAGS) -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
