@@ -157,6 +157,7 @@ OBJS += cset
 OBJS += iarr
 OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
+OBJS += subprocess
 
 OBJS += __sqlite3
 
