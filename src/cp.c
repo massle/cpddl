@@ -15,9 +15,7 @@
 #include "pddl/cp.h"
 #include "pddl/hfunc.h"
 #include "internal.h"
-
-#define OBJ_SAT 0
-#define OBJ_MIN_COUNT_DIFF 1
+#include "_cp.h"
 
 #define HASH_SEED 7307
 
@@ -255,6 +253,40 @@ static void pddlCPConstrIVarAllowedAdd(pddl_cp_constrs_ivar_allowed_t *c,
     memcpy(cstr->ivar, var, sizeof(int) * arity);
     cstr->ival = tup;
     ++cstr->ival->ref;
+}
+
+void pddlCPSolFree(pddl_cp_sol_t *sol)
+{
+    for (int i = 0; i < sol->num_solutions; ++i)
+        FREE(sol->isol[i]);
+    if (sol->isol != NULL)
+        FREE(sol->isol);
+    bzero(sol, sizeof(*sol));
+}
+
+int *pddlCPSolGet(pddl_cp_sol_t *sol, int sol_id)
+{
+    return sol->isol[sol_id];
+}
+
+void pddlCPSolAdd(const pddl_cp_t *cp, pddl_cp_sol_t *sol, const int *isol)
+{
+    int *s = pddlCPSolAddEmpty(cp, sol);
+    memcpy(s, isol, sizeof(int) * sol->ivar_size);
+}
+
+int *pddlCPSolAddEmpty(const pddl_cp_t *cp, pddl_cp_sol_t *sol)
+{
+    if (sol->num_solutions == sol->isol_alloc){
+        if (sol->isol_alloc == 0)
+            sol->isol_alloc = 2;
+        sol->isol_alloc *= 2;
+        sol->isol = REALLOC_ARR(sol->isol, int *, sol->isol_alloc);
+    }
+    sol->ivar_size = cp->ivar.ivar_size;
+    int sol_id = sol->num_solutions++;
+    sol->isol[sol_id] = ALLOC_ARR(int, sol->ivar_size);
+    return sol->isol[sol_id];
 }
 
 void pddlCPInit(pddl_cp_t *cp)

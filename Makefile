@@ -164,6 +164,7 @@ OBJS += __sqlite3
 OBJS_CPP = endomorphism
 OBJS_CPP += csp-cp-optimizer
 OBJS_CPP += csp-gecode
+OBJS_CPP += cp-cp-optimizer
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
@@ -244,6 +245,8 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 .objs/csp-gecode.cpp.o: src/csp-gecode.cpp pddl/csp.h src/_csp.h src/csp.c pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(GECODE_CPPFLAGS) -c -o $@ $<
+.objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<

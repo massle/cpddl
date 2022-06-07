@@ -23,6 +23,13 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define PDDL_CP_FOUND 0
+#define PDDL_CP_FOUND_SUBOPTIMAL 1
+#define PDDL_CP_NO_SOLUTION -1
+#define PDDL_CP_REACHED_LIMIT -2
+#define PDDL_CP_ABORTED -3
+#define PDDL_CP_UNKNOWN -10
+
 /** Integer variable */
 struct pddl_cp_ivar {
     int id;
@@ -86,6 +93,31 @@ struct pddl_cp {
 };
 typedef struct pddl_cp pddl_cp_t;
 
+struct pddl_cp_solve_config {
+    int num_threads;
+    float max_search_time;
+};
+typedef struct pddl_cp_solve_config pddl_cp_solve_config_t;
+
+#define PDDL_CP_SOLVE_CONFIG_INIT \
+    { \
+        1, /* .num_threads */ \
+        -1.f, /* .max_search_time */ \
+    }
+
+struct pddl_cp_sol {
+    int ivar_size;
+    int num_solutions;
+    int **isol;
+    int isol_alloc;
+};
+typedef struct pddl_cp_sol pddl_cp_sol_t;
+
+/**
+ * Free memory allocated by *Solve*() functions.
+ */
+void pddlCPSolFree(pddl_cp_sol_t *sol);
+
 /**
  * Initialize empty constraint problem.
  */
@@ -140,6 +172,11 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout);
 // TODO: Minimize number of different values
 // var int: num_diff = nvalue([x0, x1, x2, x3, x4, x5, x6, x7]);
 // solve minimize num_diff;
+
+int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
+                            const pddl_cp_solve_config_t *cfg,
+                            pddl_cp_sol_t *sol,
+                            pddl_err_t *err);
 
 #ifdef __cplusplus
 }

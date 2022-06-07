@@ -21,7 +21,7 @@
 
 #include "pddl/endomorphism.h"
 #include "pddl/sort.h"
-#include "pddl/csp.h"
+#include "pddl/cp.h"
 #include "internal.h"
 
 struct lifted_endomorphism {
@@ -502,16 +502,18 @@ static void predObjTuplesInitFromCond(pred_obj_tuples_t *tup,
 
 static void liftedAddDomains(const pddl_t *pddl,
                              const lifted_endomorphism_t *end,
-                             pddl_csp_t *csp,
-                             const int *csp_var)
+                             pddl_cp_t *cp)
 {
     ASSERT(pddl->type.type[0].parent < 0);
 
     // First deal with fixed objects
     for (int obj = 0; obj < pddl->obj.obj_size; ++obj){
-        if (!end->obj_is_fixed[obj])
+        if (!end->obj_is_fixed[obj]){
+            pddlCPAddIVar(cp, 0, pddl->obj.obj_size - 1, pddl->obj.obj[obj].name);
             continue;
-        pddlCSPAddEqInt(csp, csp_var[obj], obj);
+        }else{
+            pddlCPAddIVar(cp, obj, obj, pddl->obj.obj[obj].name);
+        }
     }
 
     // And then with unfixed ones
@@ -523,10 +525,8 @@ static void liftedAddDomains(const pddl_t *pddl,
 
         for (int i = 0; i < num_objs; ++i){
             int obj = pddlTypeGetObj(&pddl->type, type, i);
-            if (!end->obj_is_fixed[obj]){
-                int var = csp_var[obj];
-                pddlCSPAddDomainInt(csp, 1, 1, num_objs, &var, obj_values);
-            }
+            if (!end->obj_is_fixed[obj])
+                pddlCPAddConstrIVarDomainArr(cp, obj, num_objs, obj_values);
         }
     }
 }
@@ -534,8 +534,7 @@ static void liftedAddDomains(const pddl_t *pddl,
 static void liftedAddTupleConstr(const pred_obj_tuple_t *tup,
                                  int from,
                                  int to,
-                                 pddl_csp_t *csp,
-                                 const int *csp_var)
+                                 pddl_cp_t *cp)
 {
     int *vals = ALLOC_ARR(int, tup->size * tup->tuple_size);
     for (int ti = from, ins = 0; ti < tup->tuple_size; ++ti){
@@ -543,21 +542,17 @@ static void liftedAddTupleConstr(const pred_obj_tuple_t *tup,
             vals[ins++] = tup->tuple[ti].tuple[i];
     }
 
-    int *vars = ALLOC_ARR(int, (to - from) * tup->size);
-    for (int ti = from, idx = 0; ti < to; ++ti){
-        for(int i = 0; i < tup->size; ++i)
-            vars[idx++] = csp_var[tup->tuple[ti].tuple[i]];
+    for (int ti = from; ti < to; ++ti){
+        pddlCPAddConstrIVarAllowed(cp, tup->size, tup->tuple[ti].tuple,
+                                   tup->tuple_size, vals);
     }
-    pddlCSPAddDomainInt(csp, tup->size, (to - from), tup->tuple_size, vars, vals);
-    FREE(vars);
     FREE(vals);
 }
 
 static void liftedAddInitConstr(const pddl_t *pddl,
                                 const lifted_endomorphism_t *end,
                                 const pddl_endomorphism_config_t *cfg,
-                                pddl_csp_t *csp,
-                                const int *csp_var)
+                                pddl_cp_t *cp)
 {
     pred_obj_tuples_t tuples;
     predObjTuplesInitFromCond(&tuples, pddl, &pddl->init->cls);
@@ -580,12 +575,12 @@ static void liftedAddInitConstr(const pddl_t *pddl,
         int to = 1;
         for (; to < tup->tuple_size; ++to){
             if (tup->tuple[from].value != tup->tuple[to].value){
-                liftedAddTupleConstr(tup, from, to, csp, csp_var);
+                liftedAddTupleConstr(tup, from, to, cp);
                 from = to;
             }
         }
         if (from != to)
-            liftedAddTupleConstr(tup, from, to, csp, csp_var);
+            liftedAddTupleConstr(tup, from, to, cp);
     }
     predObjTuplesFree(&tuples);
 }
@@ -620,23 +615,22 @@ static void liftedAddGoalConstr(IloEnv &env,
 }
 */
 
-static int extractSolution(pddl_csp_t *csp,
-                           int csp_var_size,
-                           const int *csp_var,
-                           pddl_iset_t *redundant_objs,
-                           pddl_obj_id_t *map,
-                           pddl_err_t *err)
+
+static int extractSol(int obj_size,
+                      const int *sol,
+                      pddl_iset_t *redundant_objs,
+                      pddl_obj_id_t *map)
 {
-    int *mapped_to = CALLOC_ARR(int, csp_var_size);
+    int *mapped_to = CALLOC_ARR(int, obj_size);
 
     PDDL_ISET(redundant);
-    for (int i = 0; i < csp_var_size; ++i)
-        mapped_to[pddlCSPGetValInt(csp, csp_var[i])] = 1;
+    for (int i = 0; i < obj_size; ++i)
+        mapped_to[sol[i]] = 1;
 
-    for (int i = 0; i < csp_var_size; ++i){
+    for (int i = 0; i < obj_size; ++i){
         if (!mapped_to[i]){
             if (map != NULL)
-                map[i] = pddlCSPGetValInt(csp, csp_var[i]);
+                map[i] = sol[i];
             pddlISetAdd(&redundant, i);
 
         }else if (map != NULL){
@@ -646,8 +640,7 @@ static int extractSolution(pddl_csp_t *csp,
     }
     int num_redundant = pddlISetSize(&redundant);
 
-    if (redundant_objs != NULL
-            && pddlISetSize(&redundant) > pddlISetSize(redundant_objs)){
+    if (redundant_objs != NULL){
         pddlISetEmpty(redundant_objs);
         pddlISetUnion(redundant_objs, &redundant);
     }
@@ -668,42 +661,42 @@ static int liftedSolve(const pddl_t *pddl,
     int ret = 0;
     int obj_size = pddl->obj.obj_size;
 
-    pddl_csp_config_t csp_cfg = PDDL_CSP_CONFIG_INIT;
-    pddl_csp_t *csp = pddlCSPNew(&csp_cfg, err);
+    pddl_cp_t cp;
+    pddlCPInit(&cp);
 
-    // Create variables
-    int csp_vars[obj_size];
-    for (int obj = 0; obj < obj_size; ++obj){
-        csp_vars[obj] = pddlCSPAddVarInt(csp, 0, obj_size - 1,
-                                         pddl->obj.obj[obj].name);
-    }
-
-    // Set domains
-    liftedAddDomains(pddl, end, csp, csp_vars);
+    // Create variables and set domains
+    liftedAddDomains(pddl, end, &cp);
 
     // Add constraints on the initial state and the goal
-    liftedAddInitConstr(pddl, end, cfg, csp, csp_vars);
+    liftedAddInitConstr(pddl, end, cfg, &cp);
 
-    pddlCSPAddObjMinCountDifferent(csp, obj_size, csp_vars);
+    pddlCPSetObjectiveMinCountDiffAllIVars(&cp);
     LOG2(err, "Added objective function min(count-diff())");
 
-    int max_num = -1;
-    while (pddlCSPSolve(csp, err) == PDDL_CSP_FOUND){
-        int num = extractSolution(csp, obj_size, csp_vars,
-                                  redundant_objs, map, err);
-        max_num = PDDL_MAX(max_num, num);
-        LOG(err, "Found a solution with %d redundant objects", num);
+    pddlCPSimplify(&cp);
+    //pddlCPWriteMinizinc(&cp, stderr);
+
+    pddl_cp_solve_config_t sol_cfg = PDDL_CP_SOLVE_CONFIG_INIT;
+    if (max_search_time > 0)
+        sol_cfg.max_search_time = max_search_time;
+    pddl_cp_sol_t sol;
+    int sret = pddlCPSolve_CPOptimizer(&cp, &sol_cfg, &sol, err);
+    int num_redundant = -1;
+    if (sret == PDDL_CP_FOUND || sret == PDDL_CP_FOUND_SUBOPTIMAL){
+        ASSERT_RUNTIME(sol.num_solutions == 1);
+        num_redundant = extractSol(obj_size, sol.isol[0], redundant_objs, map);
+        LOG(err, "Found a solution with %d redundant objects", num_redundant);
     }
 
-    if (max_num >= 0){
-        LOG(err, "Found %{num_redundant}d redundant objects", max_num);
+    if (num_redundant >= 0){
+        LOG(err, "Found %{num_redundant}d redundant objects", num_redundant);
         ret = 0;
     }else{
         LOG2(err, "Solution not found");
         ret = -1;
     }
 
-    pddlCSPDel(csp);
+    pddlCPFree(&cp);
     return ret;
 }
 
