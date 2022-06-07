@@ -46,7 +46,6 @@ USE_CPOPTIMIZER ?= auto
 USE_GUROBI ?= auto
 USE_LPSOLVE ?= auto
 USE_GLPK ?= auto
-USE_GECODE ?= auto
 
 ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/include/ilcplex/cplex.h)' ''
@@ -170,25 +169,6 @@ ifeq '$(USE_CUDD)' 'auto'
   endif
 endif
 
-ifeq '$(USE_GECODE)' 'auto'
-ifneq '$(GECODE_ROOT)' ''
-  ifeq '$(wildcard $(GECODE_ROOT)/include/gecode/driver.hh)' ''
-    $(error GECODE_ROOT defined, but could not find header files)
-  endif
-  ifeq '$(wildcard $(GECODE_ROOT)/lib/libgecodedriver.a)' ''
-    $(error GECODE_ROOT defined, but could not find library files)
-  endif
-  GECODE_CPPFLAGS := -I$(GECODE_ROOT)/include
-  GECODE_LDFLAGS := -L$(GECODE_ROOT)/lib -lgecodedriver
-  USE_GECODE := yes
-endif
-endif
-
-ifeq '$(USE_GECODE)' 'auto'
-  ifneq '$(GECODE_CFLAGS)$(GECODE_LDFLAGS)' ''
-    USE_GECODE := yes
-  endif
-endif
 
 SQLITE_BUILD_CFLAGS := \
   -DSQLITE_OMIT_AUTHORIZATION \
@@ -267,9 +247,6 @@ help:
 	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
 	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
 	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
-	@echo "    GECODE_CPPFLAGS = $(GECODE_CPPFLAGS)"
-	@echo "    GECODE_LDFLAGS  = $(GECODE_LDFLAGS)"
-	@echo "    USE_GECODE      = $(USE_GECODE)"
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS

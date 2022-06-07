@@ -31,7 +31,6 @@ OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
 OBJS += cp
-OBJS += csp
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -162,8 +161,6 @@ OBJS += lifted_heur_relaxed
 OBJS += __sqlite3
 
 OBJS_CPP = endomorphism
-OBJS_CPP += csp-cp-optimizer
-OBJS_CPP += csp-gecode
 OBJS_CPP += cp-cp-optimizer
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
@@ -201,7 +198,6 @@ pddl/config.h:
 	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
-	if [ "$(USE_GECODE)" = "yes" ]; then echo "#define PDDL_GECODE" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
 	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
@@ -241,10 +237,6 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 .objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 
-.objs/csp-cp-optimizer.cpp.o: src/csp-cp-optimizer.cpp pddl/csp.h src/_csp.h src/csp.c pddl/config.h $(GEN)
-	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
-.objs/csp-gecode.cpp.o: src/csp-gecode.cpp pddl/csp.h src/_csp.h src/csp.c pddl/config.h $(GEN)
-	$(CXX) $(CPPFLAGS) $(GECODE_CPPFLAGS) -c -o $@ $<
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 
