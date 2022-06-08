@@ -22,15 +22,70 @@
 #include "pddl/subprocess.h"
 #include "internal.h"
 
-#define CMD_BUFSIZ 256
+#define CMD_BUFSIZ 1024
 #define READ_INIT_BUFSIZ 256
 static void logCommand(char *const argv[], pddl_err_t *err)
 {
     char cmd[CMD_BUFSIZ];
     int written = 0;
-    for (int i = 0; argv[i] != NULL; ++i)
-        written += snprintf(cmd + written, CMD_BUFSIZ - written, " %s", argv[i]);
+    for (int i = 0; argv[i] != NULL && CMD_BUFSIZ - written > 0; ++i)
+        written += snprintf(cmd + written, CMD_BUFSIZ - written, " '%s'", argv[i]);
     LOG(err, "Command:%s", cmd);
+}
+
+struct buf {
+    char *buf;
+    int size;
+    int alloc;
+
+    char **out;
+    int *outsize;
+};
+
+static void bufInit(struct buf *buf, char **out, int *outsize)
+{
+    if (out != NULL){
+        *out = NULL;
+        *outsize = 0;
+    }
+    bzero(buf, sizeof(*buf));
+    buf->out = out;
+    buf->outsize = outsize;
+}
+
+static void bufAlloc(struct buf *buf)
+{
+    ASSERT(buf->out != NULL);
+    if (buf->alloc == buf->size){
+        if (buf->alloc == 0)
+            buf->alloc = READ_INIT_BUFSIZ;
+        buf->alloc *= 2;
+        buf->buf = REALLOC_ARR(buf->buf, char, buf->alloc);
+    }
+}
+
+static int bufRead(struct buf *buf, int fd)
+{
+    ASSERT(buf->out != NULL);
+    bufAlloc(buf);
+    int remain = buf->alloc - buf->size;
+    ssize_t r = read(fd, buf->buf + buf->size, remain);
+    if (r >= 0){
+        buf->size += r;
+        return 0;
+    }
+    return -1;
+}
+
+static void bufFinalize(struct buf *buf)
+{
+    if (buf->out == NULL)
+        return;
+
+    bufAlloc(buf);
+    buf->buf[buf->size] = '\x0';
+    *buf->out = buf->buf;
+    *buf->outsize = buf->size;
 }
 
 int pddlExecvp(char *const argv[],
@@ -51,21 +106,15 @@ int pddlExecvp(char *const argv[],
 
     if (status != NULL)
         bzero(status, sizeof(*status));
-    if (read_stdout != NULL){
-        *read_stdout = NULL;
-        *read_stdout_size = 0;
-    }
-    if (read_stderr != NULL){
-        *read_stderr = NULL;
-        *read_stderr_size = 0;
-    }
+
+    struct buf bufout, buferr;
+    bufInit(&bufout, read_stdout, read_stdout_size);
+    bufInit(&buferr, read_stderr, read_stderr_size);
 
     int fd_stdin[2] = { -1, -1 };
     int fd_stdout[2] = { -1, -1 };
     int fd_stderr[2] = { -1, -1 };
 
-    int read_stdout_alloc = 0;
-    int read_stderr_alloc = 0;
     int written = 0;
     if (write_stdin != NULL){
         if (pipe(fd_stdin) != 0){
@@ -202,17 +251,10 @@ int pddlExecvp(char *const argv[],
                         || (pfd[fdi].revents & POLLRDNORM)
                         || (pfd[fdi].revents & POLLRDBAND)
                         || (pfd[fdi].revents & POLLPRI)){
-                    if (read_stdout_alloc == *read_stdout_size){
-                        if (read_stdout_alloc == 0)
-                            read_stdout_alloc = READ_INIT_BUFSIZ;
-                        read_stdout_alloc *= 2;
-                        *read_stdout = REALLOC_ARR(*read_stdout, char,
-                                                   read_stdout_alloc);
+                    if (bufRead(&bufout, fd_stdout[0]) != 0){
+                        close(fd_stdout[0]);
+                        fd_stdout[0] = -1;
                     }
-                    int remain = read_stdout_alloc - *read_stdout_size;
-                    ssize_t r = read(fd_stdout[0], *read_stdout, remain);
-                    if (r > 0)
-                        *read_stdout_size += r;
 
                 }else if (pfd[fdi].revents & POLLHUP){
                     close(fd_stdout[0]);
@@ -232,17 +274,10 @@ int pddlExecvp(char *const argv[],
                         || (pfd[fdi].revents & POLLRDNORM)
                         || (pfd[fdi].revents & POLLRDBAND)
                         || (pfd[fdi].revents & POLLPRI)){
-                    if (read_stderr_alloc == *read_stderr_size){
-                        if (read_stderr_alloc == 0)
-                            read_stderr_alloc = READ_INIT_BUFSIZ;
-                        read_stderr_alloc *= 2;
-                        *read_stderr = REALLOC_ARR(*read_stderr, char,
-                                                   read_stderr_alloc);
+                    if (bufRead(&buferr, fd_stderr[0]) != 0){
+                        close(fd_stderr[0]);
+                        fd_stderr[0] = -1;
                     }
-                    int remain = read_stderr_alloc - *read_stderr_size;
-                    ssize_t r = read(fd_stderr[0], *read_stderr, remain);
-                    if (r > 0)
-                        *read_stderr_size += r;
 
                 }else if (pfd[fdi].revents & POLLHUP){
                     close(fd_stderr[0]);
@@ -285,17 +320,20 @@ int pddlExecvp(char *const argv[],
     if (fd_stderr[0] >= 0)
         close(fd_stderr[0]);
 
+    bufFinalize(&bufout);
+    bufFinalize(&buferr);
+
     if (write_stdin != NULL)
         LOG(err, "Written %d / %d", written, write_stdin_size);
 
     if (read_stdout != NULL){
         LOG(err, "Read %d bytes from stdout, allocated %d bytes",
-            *read_stdout_size, read_stdout_alloc);
+            bufout.size, bufout.alloc);
     }
 
     if (read_stderr != NULL){
         LOG(err, "Read %d bytes from stderr, allocated %d bytes",
-            *read_stderr_size, read_stderr_alloc);
+            buferr.size, buferr.alloc);
     }
 
     if (status != NULL){

@@ -19,6 +19,8 @@
 
 #define HASH_SEED 7307
 
+static int default_solver = PDDL_CP_SOLVER_DEFAULT;
+
 struct simplify_change {
     int change;
     int *ivar_change;
@@ -500,4 +502,35 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
         fprintf(fout, " \\(x%d)", i);
     fprintf(fout, "\\n\"];\n");
     fflush(fout);
+}
+
+void pddlCPSetDefaultSolver(int solver_id)
+{
+    default_solver = solver_id;
+}
+
+int pddlCPSolve(const pddl_cp_t *cp,
+                const pddl_cp_solve_config_t *cfg,
+                pddl_cp_sol_t *sol,
+                pddl_err_t *err)
+{
+    int solver = cfg->solver;
+    if (solver == PDDL_CP_SOLVER_DEFAULT){
+#ifdef PDDL_CPOPTIMIZER
+        solver = PDDL_CP_SOLVER_CPOPTIMIZER;
+#else /* PDDL_CPOPTIMIZER */
+        solver = PDDL_CP_SOLVER_MINIZINC;
+#endif /* PDDL_CPOPTIMIZER */
+        if (default_solver != PDDL_CP_SOLVER_DEFAULT)
+            solver = default_solver;
+    }
+
+    switch (solver){
+        case PDDL_CP_SOLVER_CPOPTIMIZER:
+            return pddlCPSolve_CPOptimizer(cp, cfg, sol, err);
+        case PDDL_CP_SOLVER_MINIZINC:
+            return pddlCPSolve_Minizinc(cp, cfg, sol, err);
+    }
+    FATAL("Unkown solver ID %d", solver);
+    return -1;
 }

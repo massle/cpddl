@@ -31,6 +31,7 @@ OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
 OBJS += cp
+OBJS += cp-minizinc
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -189,7 +190,7 @@ libpddl.a: $(OBJS) Makefile
 	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@
 
-pddl/config.h:
+pddl/config.h: Makefile Makefile.include
 	echo "#ifndef __PDDL_CONFIG_H__" >$@
 	echo "#define __PDDL_CONFIG_H__" >>$@
 	echo "" >>$@
@@ -203,6 +204,9 @@ pddl/config.h:
 	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
+	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
+	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
+	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 

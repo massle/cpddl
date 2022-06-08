@@ -23,7 +23,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 int *pddlCPSolGet(pddl_cp_sol_t *sol, int sol_id);
-void pddlCPSolAddSolution(const pddl_cp_t *cp, pddl_cp_sol_t *sol, const int *isol);
+void pddlCPSolAdd(const pddl_cp_t *cp, pddl_cp_sol_t *sol, const int *isol);
 int *pddlCPSolAddEmpty(const pddl_cp_t *cp, pddl_cp_sol_t *sol);
 
 #ifdef __cplusplus

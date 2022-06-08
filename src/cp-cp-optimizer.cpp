@@ -210,7 +210,8 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
 #else /* PDDL_CPOPTIMIZER */
 int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
                             const pddl_cp_solve_config_t *cfg,
-                            pddl_cp_sol_t *sol)
+                            pddl_cp_sol_t *sol,
+                            pddl_err_t *err)
 {
     FATAL2("Compiled without IBM CP Optimizer");
     return -1;

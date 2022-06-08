@@ -23,6 +23,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define PDDL_CP_SOLVER_DEFAULT 0
+#define PDDL_CP_SOLVER_CPOPTIMIZER 1
+#define PDDL_CP_SOLVER_MINIZINC 2
+
 #define PDDL_CP_FOUND 0
 #define PDDL_CP_FOUND_SUBOPTIMAL 1
 #define PDDL_CP_NO_SOLUTION -1
@@ -96,6 +100,10 @@ typedef struct pddl_cp pddl_cp_t;
 struct pddl_cp_solve_config {
     int num_threads;
     float max_search_time;
+    int solver; /*< Which solver to use, one of PDDL_CP_SOLVER_* */
+    const char *minizinc; /*!< Path to minizinc binary in case minizinc
+                               solver is used. If set to NULL, default path
+                               is used. */
 };
 typedef struct pddl_cp_solve_config pddl_cp_solve_config_t;
 
@@ -103,6 +111,8 @@ typedef struct pddl_cp_solve_config pddl_cp_solve_config_t;
     { \
         1, /* .num_threads */ \
         -1.f, /* .max_search_time */ \
+        PDDL_CP_SOLVER_DEFAULT, /*.solver */ \
+        NULL, /* .minizinc */ \
     }
 
 struct pddl_cp_sol {
@@ -169,14 +179,35 @@ void pddlCPSetObjectiveMinCountDiffAllIVars(pddl_cp_t *cp);
  */
 void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout);
 
-// TODO: Minimize number of different values
-// var int: num_diff = nvalue([x0, x1, x2, x3, x4, x5, x6, x7]);
-// solve minimize num_diff;
+/**
+ * Set default solver globally.
+ */
+void pddlCPSetDefaultSolver(int solver_id);
 
+/**
+ * Solve the problem..
+ */
+int pddlCPSolve(const pddl_cp_t *cp,
+                const pddl_cp_solve_config_t *cfg,
+                pddl_cp_sol_t *sol,
+                pddl_err_t *err);
+
+
+/**
+ * Solve with IBM CP Optimizer.
+ */
 int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
                             const pddl_cp_solve_config_t *cfg,
                             pddl_cp_sol_t *sol,
                             pddl_err_t *err);
+
+/**
+ * Solve with minizinc solver.
+ */
+int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
+                         const pddl_cp_solve_config_t *cfg,
+                         pddl_cp_sol_t *sol,
+                         pddl_err_t *err);
 
 #ifdef __cplusplus
 }

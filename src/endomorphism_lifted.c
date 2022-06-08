@@ -653,7 +653,6 @@ static int extractSol(int obj_size,
 static int liftedSolve(const pddl_t *pddl,
                        const lifted_endomorphism_t *end,
                        const pddl_endomorphism_config_t *cfg,
-                       float max_search_time,
                        pddl_iset_t *redundant_objs,
                        pddl_obj_id_t *map,
                        pddl_err_t *err)
@@ -677,16 +676,24 @@ static int liftedSolve(const pddl_t *pddl,
     //pddlCPWriteMinizinc(&cp, stderr);
 
     pddl_cp_solve_config_t sol_cfg = PDDL_CP_SOLVE_CONFIG_INIT;
-    if (max_search_time > 0)
-        sol_cfg.max_search_time = max_search_time;
+    if (cfg->max_search_time > 0)
+        sol_cfg.max_search_time = cfg->max_search_time;
     pddl_cp_sol_t sol;
-    int sret = pddlCPSolve_CPOptimizer(&cp, &sol_cfg, &sol, err);
+    int sret = pddlCPSolve(&cp, &sol_cfg, &sol, err);
+    // There must exist a solution -- at least identity
+    ASSERT_RUNTIME(sret == PDDL_CP_FOUND
+                    || sret == PDDL_CP_FOUND_SUBOPTIMAL
+                    || sret == PDDL_CP_ABORTED);
     int num_redundant = -1;
     if (sret == PDDL_CP_FOUND || sret == PDDL_CP_FOUND_SUBOPTIMAL){
         ASSERT_RUNTIME(sol.num_solutions == 1);
         num_redundant = extractSol(obj_size, sol.isol[0], redundant_objs, map);
         LOG(err, "Found a solution with %d redundant objects", num_redundant);
+
+    }else if (sret == PDDL_CP_ABORTED){
+        LOG2(err, "Solver was aborted.");
     }
+    pddlCPSolFree(&sol);
 
     if (num_redundant >= 0){
         LOG(err, "Found %{num_redundant}d redundant objects", num_redundant);
@@ -895,7 +902,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
         lifted_endomorphism_t end;
         liftedEndomorphismInit(&end, pddl, &select.lifted_mgroups, cfg, err);
         if (liftedEndomorphismNumUnfixed(&end) > 1){
-            liftedSolve(pddl, &end, cfg, 1800., redundant_objects, omap, err);
+            liftedSolve(pddl, &end, cfg, redundant_objects, omap, err);
         }else{
             LOG2(err, "Not enough unfixed objects to try to find endomorphisms");
         }
@@ -919,7 +926,7 @@ static int relaxedLifted(const pddl_t *pddl,
         int *map = NULL;
         if (omap != NULL)
             map = ALLOC_ARR(int, pddl->obj.obj_size);
-        liftedSolve(pddl, &end, cfg, 1800., redundant_objects, map, err);
+        liftedSolve(pddl, &end, cfg, redundant_objects, map, err);
         if (map != NULL){
             for (int i = 0; i < pddl->obj.obj_size; ++i)
                 omap[i] = map[i];
