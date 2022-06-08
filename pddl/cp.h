@@ -173,6 +173,7 @@ void pddlCPSimplify(pddl_cp_t *cp);
  * integer variables.
  */
 void pddlCPSetObjectiveMinCountDiffAllIVars(pddl_cp_t *cp);
+void pddlCPSetObjectiveMinCountDiff(pddl_cp_t *cp, const pddl_iset_t *ivars);
 
 /**
  * Write the model in the minizinc format.

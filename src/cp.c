@@ -438,6 +438,13 @@ void pddlCPSetObjectiveMinCountDiffAllIVars(pddl_cp_t *cp)
         pddlISetAdd(&cp->obj_ivars, vi);
 }
 
+void pddlCPSetObjectiveMinCountDiff(pddl_cp_t *cp, const pddl_iset_t *ivars)
+{
+    cp->objective = OBJ_MIN_COUNT_DIFF;
+    pddlISetEmpty(&cp->obj_ivars);
+    pddlISetUnion(&cp->obj_ivars, ivars);
+}
+
 void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
 {
     if (cp->unsat){
