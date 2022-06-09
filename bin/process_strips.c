@@ -564,6 +564,8 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
     pddlFDRInitFromStrips(&fdr, prune->strips, prune->mgroups, prune->mutex,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
     ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, err);
+    if (ret >= 0)
+        ret = 0;
     pddlFDRFree(&fdr);
     PDDL_INFO2(err, "Redundant operators using endomorphism on FDR DONE");
     return ret;
@@ -580,6 +582,8 @@ static int pruneEndomorphismMGStrips(const pddl_process_strips_t *prune,
     pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
     ret = pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op,
                                                err);
+    if (ret >= 0)
+        ret = 0;
     pddlMGStripsFree(&mg_strips);
     PDDL_INFO2(err, "Redundant operators using endomorphism on MG-Strips DONE");
     return ret;
@@ -601,8 +605,9 @@ static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
     pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
     pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
     pddlTransSystemsInit(&tss, &mg_strips, &mg_mutex);
-    ret = pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op,
-                                                  err);
+    ret = pddlEndomorphismTransSystemRedundantOps(&tss, cfg, redundant_op, err);
+    if (ret >= 0)
+        ret = 0;
     pddlTransSystemsFree(&tss);
     pddlMutexPairsFree(&mg_mutex);
     pddlMGStripsFree(&mg_strips);

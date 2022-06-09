@@ -270,7 +270,7 @@ static int solve(IloModel &model,
                  const char *name,
                  pddl_err_t *err)
 {
-    int ret = 0;
+    int ret = 1;
     IloCP cp(model);
     //cp.dumpModel("model.cpo");
 #ifndef NO_LOGGER
@@ -298,6 +298,7 @@ static int solve(IloModel &model,
                 LOG2(err, "Provably No Solution");
             }else{
                 LOG2(err, "Optimal Solution Found");
+                ret = 0;
             }
             break;
         case IloCP::SearchStoppedByLimit:
@@ -501,9 +502,8 @@ static int fdrInference(const pddl_fdr_t *fdr,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
-          "operators", err);
-    return 0;
+    return solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
+                 "operators", err);
 }
 
 static int fdrRedundantOps(const pddl_fdr_t *fdr,
@@ -534,6 +534,8 @@ static int fdrRedundantOps(const pddl_fdr_t *fdr,
             LOG2(err, "Terminating inference of endomorphism");
             LOG2(err, "Terminated by a time limit");
             ret = -1;
+        }else{
+            ret = rinf;
         }
     } catch(IloMemoryException &e){
         LOG2(err, "Not Enough Memory");
@@ -896,9 +898,8 @@ static int mgStripsInference(const pddl_mg_strips_t *mg_strips,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
-          "operators", err);
-    return 0;
+    return solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
+                 "operators", err);
 }
 
 static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
@@ -949,6 +950,8 @@ static int mgStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
             LOG2(err, "Terminating inference of endomorphism");
             LOG2(err, "Terminated by a time limit");
             ret = -1;
+        }else{
+            ret = rinf;
         }
     } catch(IloMemoryException &e){
         LOG2(err, "Not Enough Memory");
@@ -1393,9 +1396,8 @@ static int tsInference(const pddl_trans_systems_t *tss,
 
     float max_search_time = pddlTimeLimitRemain(time_limit);
     max_search_time = PDDL_MIN(max_search_time, cfg->max_search_time);
-    solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
-          "operators", err);
-    return 0;
+    return solve(model, var_op, cfg, max_search_time, redundant_ops, NULL,
+                 "operators", err);
 }
 
 static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
@@ -1444,6 +1446,8 @@ static int transSystemRedundantOps(const pddl_trans_systems_t *tss,
             LOG2(err, "Terminating inference of endomorphism");
             LOG2(err, "Terminated by a time limit");
             ret = -1;
+        }else{
+            ret = rinf;
         }
     }catch (IloMemoryException &e){
         LOG2(err, "Not Enough Memory");
