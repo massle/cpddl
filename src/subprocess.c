@@ -15,12 +15,32 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <errno.h>
 
 #include "pddl/subprocess.h"
 #include "internal.h"
+
+static void waitForSubprocess(pid_t pid, pddl_exec_status_t *status)
+{
+    int wstatus;
+    waitpid(pid, &wstatus, 0);
+    if (WIFEXITED(wstatus)){
+        if (status != NULL){
+            status->exited = 1;
+            status->exit_status = WEXITSTATUS(wstatus);
+        }
+
+    }else if (WIFSIGNALED(wstatus)){
+        if (status != NULL){
+            status->signaled = 1;
+            status->signum = WTERMSIG(wstatus);
+        }
+    }
+}
 
 #define CMD_BUFSIZ 1024
 #define READ_INIT_BUFSIZ 256
@@ -151,8 +171,11 @@ int pddlExecvp(char *const argv[],
         }
     }
 
-    int pid = fork();
-    if (pid == 0){
+    pid_t pid = fork();
+    if (pid < 0){
+        FATAL("fork() failed: %s", strerror(errno));
+
+    }else if (pid == 0){
         if (fd_stdin[1] >= 0)
             close(fd_stdin[1]);
         if (fd_stdin[0] >= 0){
@@ -188,130 +211,111 @@ int pddlExecvp(char *const argv[],
 
         execvp(argv[0], argv);
         FATAL2("exec failed!");
+    }
 
-    }else if (pid > 0){
-        struct pollfd pfd[3];
-        int pfdsize = 0;
+    struct pollfd pfd[3];
+    int pfdsize = 0;
 
-        if (fd_stdin[0] >= 0)
-            close(fd_stdin[0]);
+    if (fd_stdin[0] >= 0)
+        close(fd_stdin[0]);
+    if (fd_stdin[1] >= 0){
+        pfd[pfdsize].fd = fd_stdin[1];
+        pfd[pfdsize].events = POLLOUT | POLLWRBAND | POLLHUP;
+        ++pfdsize;
+    }
+
+    if (fd_stdout[1] >= 0)
+        close(fd_stdout[1]);
+    if (fd_stdout[0] >= 0){
+        pfd[pfdsize].fd = fd_stdout[0];
+        pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
+        ++pfdsize;
+    }
+
+    if (fd_stderr[1] >= 0)
+        close(fd_stderr[1]);
+    if (fd_stderr[0] >= 0){
+        pfd[pfdsize].fd = fd_stderr[0];
+        pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
+        ++pfdsize;
+    }
+
+    int rpoll = 0;
+    while (pfdsize > 0 && (rpoll = poll(pfd, pfdsize, -1)) > 0){
+        pfdsize = 0;
+        int fdi = 0;
         if (fd_stdin[1] >= 0){
-            pfd[pfdsize].fd = fd_stdin[1];
-            pfd[pfdsize].events = POLLOUT | POLLWRBAND | POLLHUP;
-            ++pfdsize;
-        }
-
-        if (fd_stdout[1] >= 0)
-            close(fd_stdout[1]);
-        if (fd_stdout[0] >= 0){
-            pfd[pfdsize].fd = fd_stdout[0];
-            pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
-            ++pfdsize;
-        }
-
-        if (fd_stderr[1] >= 0)
-            close(fd_stderr[1]);
-        if (fd_stderr[0] >= 0){
-            pfd[pfdsize].fd = fd_stderr[0];
-            pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
-            ++pfdsize;
-        }
-
-        int rpoll = 0;
-        while (pfdsize > 0 && (rpoll = poll(pfd, pfdsize, -1)) > 0){
-            pfdsize = 0;
-            int fdi = 0;
-            if (fd_stdin[1] >= 0){
-                if ((pfd[fdi].revents & POLLOUT)
-                        || (pfd[fdi].revents & POLLWRBAND)){
-                    int remaining = write_stdin_size - written;
-                    ssize_t w = write(fd_stdin[1], write_stdin, remaining);
-                    if (w > 0)
-                        written += w;
-                    if (written == write_stdin_size){
-                        close(fd_stdin[1]);
-                        fd_stdin[1] = -1;
-                    }
-
-                }else if (pfd[fdi].revents & POLLHUP){
+            if ((pfd[fdi].revents & POLLOUT)
+                    || (pfd[fdi].revents & POLLWRBAND)){
+                int remaining = write_stdin_size - written;
+                ssize_t w = write(fd_stdin[1], write_stdin, remaining);
+                if (w > 0)
+                    written += w;
+                if (written == write_stdin_size){
                     close(fd_stdin[1]);
                     fd_stdin[1] = -1;
                 }
 
-                if (fd_stdin[1] >= 0){
-                    pfd[pfdsize].fd = fd_stdin[1];
-                    pfd[pfdsize].events = POLLOUT | POLLWRBAND | POLLHUP;
-                    ++pfdsize;
-                }
-                ++fdi;
+            }else if (pfd[fdi].revents & POLLHUP){
+                close(fd_stdin[1]);
+                fd_stdin[1] = -1;
             }
 
-            if (fd_stdout[0] >= 0){
-                if ((pfd[fdi].revents & POLLIN)
-                        || (pfd[fdi].revents & POLLRDNORM)
-                        || (pfd[fdi].revents & POLLRDBAND)
-                        || (pfd[fdi].revents & POLLPRI)){
-                    if (bufRead(&bufout, fd_stdout[0]) != 0){
-                        close(fd_stdout[0]);
-                        fd_stdout[0] = -1;
-                    }
+            if (fd_stdin[1] >= 0){
+                pfd[pfdsize].fd = fd_stdin[1];
+                pfd[pfdsize].events = POLLOUT | POLLWRBAND | POLLHUP;
+                ++pfdsize;
+            }
+            ++fdi;
+        }
 
-                }else if (pfd[fdi].revents & POLLHUP){
+        if (fd_stdout[0] >= 0){
+            if ((pfd[fdi].revents & POLLIN)
+                    || (pfd[fdi].revents & POLLRDNORM)
+                    || (pfd[fdi].revents & POLLRDBAND)
+                    || (pfd[fdi].revents & POLLPRI)){
+                if (bufRead(&bufout, fd_stdout[0]) != 0){
                     close(fd_stdout[0]);
                     fd_stdout[0] = -1;
                 }
 
-                if (fd_stdout[0] >= 0){
-                    pfd[pfdsize].fd = fd_stdout[0];
-                    pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
-                    ++pfdsize;
-                }
-                ++fdi;
+            }else if (pfd[fdi].revents & POLLHUP){
+                close(fd_stdout[0]);
+                fd_stdout[0] = -1;
             }
 
-            if (fd_stderr[0] >= 0){
-                if ((pfd[fdi].revents & POLLIN)
-                        || (pfd[fdi].revents & POLLRDNORM)
-                        || (pfd[fdi].revents & POLLRDBAND)
-                        || (pfd[fdi].revents & POLLPRI)){
-                    if (bufRead(&buferr, fd_stderr[0]) != 0){
-                        close(fd_stderr[0]);
-                        fd_stderr[0] = -1;
-                    }
+            if (fd_stdout[0] >= 0){
+                pfd[pfdsize].fd = fd_stdout[0];
+                pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
+                ++pfdsize;
+            }
+            ++fdi;
+        }
 
-                }else if (pfd[fdi].revents & POLLHUP){
+        if (fd_stderr[0] >= 0){
+            if ((pfd[fdi].revents & POLLIN)
+                    || (pfd[fdi].revents & POLLRDNORM)
+                    || (pfd[fdi].revents & POLLRDBAND)
+                    || (pfd[fdi].revents & POLLPRI)){
+                if (bufRead(&buferr, fd_stderr[0]) != 0){
                     close(fd_stderr[0]);
                     fd_stderr[0] = -1;
                 }
 
-                if (fd_stderr[0] >= 0){
-                    pfd[pfdsize].fd = fd_stderr[0];
-                    pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
-                    ++pfdsize;
-                }
+            }else if (pfd[fdi].revents & POLLHUP){
+                close(fd_stderr[0]);
+                fd_stderr[0] = -1;
+            }
+
+            if (fd_stderr[0] >= 0){
+                pfd[pfdsize].fd = fd_stderr[0];
+                pfd[pfdsize].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI | POLLHUP;
+                ++pfdsize;
             }
         }
-
-        int wstatus;
-        wait(&wstatus);
-        if (WIFEXITED(wstatus)){
-            if (status != NULL){
-                status->exited = 1;
-                status->exit_status = WEXITSTATUS(wstatus);
-            }
-
-        }else if (WIFSIGNALED(wstatus)){
-            if (status != NULL){
-                status->signaled = 1;
-                status->signum = WTERMSIG(wstatus);
-            }
-        }
-
-    }else{
-        perror("fork failed: ");
-        CTXEND(err);
-        return -1;
     }
+
+    waitForSubprocess(pid, status);
 
     if (fd_stdin[1] >= 0)
         close(fd_stdin[1]);
@@ -343,6 +347,100 @@ int pddlExecvp(char *const argv[],
             status->signaled, status->signum,
             (status->signaled ? strsignal(status->signum) : "" ));
     }
+
+    CTXEND(err);
+    return 0;
+}
+
+int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
+                      void *in_out_data,
+                      size_t data_size,
+                      void *userdata,
+                      pddl_exec_status_t *status,
+                      pddl_err_t *err)
+{
+    CTX(err, "fork", "fork");
+    fflush(stdout);
+    fflush(stderr);
+    pddlErrFlush(err);
+
+    if (status != NULL)
+        bzero(status, sizeof(*status));
+
+    void *shared = mmap(NULL, data_size, PROT_WRITE | PROT_READ,
+                        MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared == MAP_FAILED){
+        LOG(err, "Could not allocate shared memory of size %lu using mmap: %s",
+            (unsigned long)data_size, strerror(errno));
+        CTXEND(err);
+        return -1;
+    }
+
+    memcpy(shared, in_out_data, data_size);
+    LOG2(err, "In data copied to the shared memory.");
+    pid_t pid = fork();
+    if (pid < 0){
+        FATAL("fork() failed: %s", strerror(errno));
+
+    }else if (pid == 0){
+        int ret = fn(shared, userdata);
+        exit(ret);
+    }
+
+    waitForSubprocess(pid, status);
+
+    memcpy(in_out_data, shared, data_size);
+    LOG2(err, "Out data copied to the output memory.");
+    if (munmap(shared, data_size) != 0){
+        LOG(err, "Could not release mmaped memory: %s", strerror(errno));
+        CTXEND(err);
+        return -1;
+    }
+
+    CTXEND(err);
+    return 0;
+}
+
+int pddlForkPipeOut(int (*fn)(int fdout, void *userdata),
+                    void *userdata,
+                    void **out,
+                    int *out_size,
+                    pddl_exec_status_t *status,
+                    pddl_err_t *err)
+{
+    CTX(err, "fork", "fork");
+    fflush(stdout);
+    fflush(stderr);
+    pddlErrFlush(err);
+
+    if (status != NULL)
+        bzero(status, sizeof(*status));
+
+    int fd[2];
+    if (pipe(fd) != 0){
+        FATAL("pipe() failed: %s", strerror(errno));
+    }
+
+    pid_t pid = fork();
+    if (pid < 0){
+        FATAL("fork() failed: %s", strerror(errno));
+
+    }else if (pid == 0){
+        close(fd[0]);
+        int ret = fn(fd[1], userdata);
+        exit(ret);
+    }
+
+    close(fd[1]);
+    struct buf buf;
+    bufInit(&buf, (char **)out, out_size);
+    while (bufRead(&buf, fd[0]) == 0)
+        ;
+    close(fd[0]);
+    bufFinalize(&buf);
+    LOG(err, "Read %d bytes, allocated %d bytes", buf.size, buf.alloc);
+
+    waitForSubprocess(pid, status);
 
     CTXEND(err);
     return 0;

@@ -30,6 +30,9 @@ struct pddl_exec_status {
 typedef struct pddl_exec_status pddl_exec_status_t;
 
 
+/**
+ * TODO
+ */
 int pddlExecvp(char *const argv[],
                pddl_exec_status_t *status,
                const char *write_stdin,
@@ -39,6 +42,23 @@ int pddlExecvp(char *const argv[],
                char **read_stderr,
                int *read_stderr_size,
                pddl_err_t *err);
+
+/**
+ * TODO
+ */
+int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
+                      void *in_out_data,
+                      size_t data_size,
+                      void *userdata,
+                      pddl_exec_status_t *status,
+                      pddl_err_t *err);
+
+int pddlForkPipeOut(int (*fn)(int fdout, void *userdata),
+                    void *userdata,
+                    void **out,
+                    int *out_size,
+                    pddl_exec_status_t *status,
+                    pddl_err_t *err);
 
 #ifdef __cplusplus
 }
