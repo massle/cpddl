@@ -90,7 +90,7 @@ static int bufRead(struct buf *buf, int fd)
     bufAlloc(buf);
     int remain = buf->alloc - buf->size;
     ssize_t r = read(fd, buf->buf + buf->size, remain);
-    if (r >= 0){
+    if (r > 0){
         buf->size += r;
         return 0;
     }
@@ -401,12 +401,12 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
     return 0;
 }
 
-int pddlForkPipeOut(int (*fn)(int fdout, void *userdata),
-                    void *userdata,
-                    void **out,
-                    int *out_size,
-                    pddl_exec_status_t *status,
-                    pddl_err_t *err)
+int pddlForkPipe(int (*fn)(int fdout, void *userdata),
+                 void *userdata,
+                 void **out,
+                 int *out_size,
+                 pddl_exec_status_t *status,
+                 pddl_err_t *err)
 {
     CTX(err, "fork", "fork");
     fflush(stdout);
@@ -428,6 +428,7 @@ int pddlForkPipeOut(int (*fn)(int fdout, void *userdata),
     }else if (pid == 0){
         close(fd[0]);
         int ret = fn(fd[1], userdata);
+        close(fd[1]);
         exit(ret);
     }
 

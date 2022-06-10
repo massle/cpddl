@@ -53,12 +53,15 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
                       pddl_exec_status_t *status,
                       pddl_err_t *err);
 
-int pddlForkPipeOut(int (*fn)(int fdout, void *userdata),
-                    void *userdata,
-                    void **out,
-                    int *out_size,
-                    pddl_exec_status_t *status,
-                    pddl_err_t *err);
+/**
+ * TODO
+ */
+int pddlForkPipe(int (*fn)(int fdout, void *userdata),
+                 void *userdata,
+                 void **out,
+                 int *out_size,
+                 pddl_exec_status_t *status,
+                 pddl_err_t *err);
 
 #ifdef __cplusplus
 }

@@ -14,6 +14,7 @@
 
 #include "pddl/cp.h"
 #include "pddl/hfunc.h"
+#include "pddl/subprocess.h"
 #include "internal.h"
 #include "_cp.h"
 
@@ -291,6 +292,97 @@ int *pddlCPSolAddEmpty(const pddl_cp_t *cp, pddl_cp_sol_t *sol)
     return sol->isol[sol_id];
 }
 
+static int writeInt(int fd, const int *data, int size)
+{
+    int written = 0;
+    size = sizeof(int) * size;
+    while (size != written){
+        ssize_t wret = write(fd, ((const char *)data) + written, size - written);
+        if (wret < 0)
+            return -1;
+        written += wret;
+        ASSERT(written <= size);
+    }
+    return 0;
+}
+
+static int readInt(int fd, int *data, int size)
+{
+    int readsize = 0;
+    size = sizeof(int) * size;
+    while (size != readsize){
+        ssize_t rret = read(fd, ((char *)data) + readsize,
+                            size - readsize);
+        if (rret < 0)
+            return -1;
+        readsize += rret;
+        ASSERT(readsize <= size);
+    }
+    return 0;
+}
+
+int pddlCPSolSerializeToFD(const pddl_cp_sol_t *sol, int fd)
+{
+    if (writeInt(fd, &sol->ivar_size, 1) != 0)
+        return -1;
+    if (writeInt(fd, &sol->num_solutions, 1) != 0)
+        return -1;
+    for (int i = 0; i < sol->num_solutions; ++i){
+        if (writeInt(fd, sol->isol[i], sol->ivar_size) != 0)
+            return -1;
+    }
+    return 0;
+}
+
+int pddlCPSolDeserializeFromFD(pddl_cp_sol_t *sol, int fd)
+{
+    bzero(sol, sizeof(*sol));
+    if (readInt(fd, &sol->ivar_size, 1) != 0)
+        return -1;
+    if (readInt(fd, &sol->num_solutions, 1) != 0)
+        return -1;
+    if (sol->num_solutions == 0)
+        return 0;
+
+    sol->isol_alloc = sol->num_solutions;
+    sol->isol = ALLOC_ARR(int *, sol->isol_alloc);
+    for (int i = 0; i < sol->num_solutions; ++i)
+        sol->isol[i] = CALLOC_ARR(int, sol->ivar_size);
+
+    for (int i = 0; i < sol->num_solutions; ++i){
+        if (readInt(fd, sol->isol[i], sol->ivar_size) != 0)
+            return -1;
+    }
+    return 0;
+}
+
+int pddlCPSolDeserializeFromMem(pddl_cp_sol_t *sol, void *_mem, size_t _memsize)
+{
+    bzero(sol, sizeof(*sol));
+    int *mem = _mem;
+    int memsize = _memsize / sizeof(int);
+    if (memsize < sizeof(int) * 2)
+        return -1;
+    sol->ivar_size = mem[0];
+    sol->num_solutions = mem[1];
+    if (sol->num_solutions == 0)
+        return 0;
+
+    sol->isol_alloc = sol->num_solutions;
+    sol->isol = ALLOC_ARR(int *, sol->isol_alloc);
+    for (int i = 0; i < sol->num_solutions; ++i)
+        sol->isol[i] = CALLOC_ARR(int, sol->ivar_size);
+
+    int memidx = 2;
+    for (int i = 0; i < sol->num_solutions; ++i){
+        if (memsize - memidx < sol->ivar_size)
+            return -1;
+        memcpy(sol->isol[i], mem + memidx, sizeof(int) * sol->ivar_size);
+        memidx += sol->ivar_size;
+    }
+    return 0;
+}
+
 void pddlCPInit(pddl_cp_t *cp)
 {
     bzero(cp, sizeof(*cp));
@@ -516,10 +608,10 @@ void pddlCPSetDefaultSolver(int solver_id)
     default_solver = solver_id;
 }
 
-int pddlCPSolve(const pddl_cp_t *cp,
-                const pddl_cp_solve_config_t *cfg,
-                pddl_cp_sol_t *sol,
-                pddl_err_t *err)
+static int solve(const pddl_cp_t *cp,
+                 const pddl_cp_solve_config_t *cfg,
+                 pddl_cp_sol_t *sol,
+                 pddl_err_t *err)
 {
     int solver = cfg->solver;
     if (solver == PDDL_CP_SOLVER_DEFAULT){
@@ -540,4 +632,62 @@ int pddlCPSolve(const pddl_cp_t *cp,
     }
     FATAL("Unkown solver ID %d", solver);
     return -1;
+}
+
+struct solve_arg {
+    const pddl_cp_t *cp;
+    const pddl_cp_solve_config_t *cfg;
+    pddl_cp_sol_t *sol;
+    pddl_err_t *err;
+};
+
+static int _solveInSubprocess(int fdout, void *userdata)
+{
+    struct solve_arg *arg = userdata;
+    int ret = solve(arg->cp, arg->cfg, arg->sol, arg->err);
+    if (ret == PDDL_CP_FOUND || ret == PDDL_CP_FOUND_SUBOPTIMAL){
+        LOG2(arg->err, "Found solution -- serializing the solution for the"
+             " parent process...");
+        if (pddlCPSolSerializeToFD(arg->sol, fdout) != 0){
+            LOG2(arg->err, "Failed to serialize output!");
+            return PDDL_CP_ABORTED;
+        }
+    }
+    return ret;
+}
+
+static int solveInSubprocess(const pddl_cp_t *cp,
+                             const pddl_cp_solve_config_t *cfg,
+                             pddl_cp_sol_t *sol,
+                             pddl_err_t *err)
+{
+    pddl_exec_status_t status;
+    void *data;
+    int data_size;
+
+    struct solve_arg arg = { cp, cfg, sol, err };
+    if (pddlForkPipe(_solveInSubprocess, &arg, &data, &data_size,
+                     &status, err) != 0){
+        return PDDL_CP_ABORTED;
+    }
+    if (status.signaled)
+        return PDDL_CP_ABORTED;
+
+    int ret = status.exit_status;
+    LOG(err, "Exit status: %d", ret);
+    if (ret == PDDL_CP_FOUND || ret == PDDL_CP_FOUND_SUBOPTIMAL){
+        LOG2(err, "Parsing solutions...");
+        pddlCPSolDeserializeFromMem(sol, data, data_size);
+    }
+    return ret;
+}
+
+int pddlCPSolve(const pddl_cp_t *cp,
+                const pddl_cp_solve_config_t *cfg,
+                pddl_cp_sol_t *sol,
+                pddl_err_t *err)
+{
+    if (cfg->run_in_subprocess)
+        return solveInSubprocess(cp, cfg, sol, err);
+    return solve(cp, cfg, sol, err);
 }
