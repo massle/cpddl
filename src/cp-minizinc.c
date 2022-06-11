@@ -22,7 +22,6 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
                          pddl_cp_sol_t *sol,
                          pddl_err_t *err)
 {
-    CTX(err, "cp_solve", "CP-solve");
     bzero(sol, sizeof(*sol));
 
     if (cfg->minizinc == NULL){
@@ -161,6 +160,5 @@ minizinc_end:
         FREE(solbuf);
     if (buf != NULL)
         free(buf);
-    CTXEND(err);
     return ret;
 }

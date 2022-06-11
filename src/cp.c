@@ -154,7 +154,7 @@ static void pddlCPIValTuplesInit(pddl_cp_ival_tuples_t *tuples)
 static void pddlCPIValTuplesFree(pddl_cp_ival_tuples_t *tuples)
 {
     // TODO
-    //pddlHTableDel(tuples->htable);
+    pddlHTableDel(tuples->htable);
     for (int i = 0; i < tuples->tuple_size; ++i){
         ASSERT(tuples->tuple[i]->idx == i);
         ASSERT(tuples->tuple[i] != NULL);
@@ -228,12 +228,16 @@ static void pddlCPIValTupleUnref(pddl_cp_ival_tuples_t *tuples,
     }
 }
 
+static void pddlCPConstIVarAllowedFree(pddl_cp_constr_ivar_allowed_t *c)
+{
+    if (c->ivar != NULL)
+        FREE(c->ivar);
+}
+
 static void pddlCPConstrIVarAllowedFree(pddl_cp_constrs_ivar_allowed_t *c)
 {
-    for (int i = 0; i < c->constr_size; ++i){
-        if (c->constr[i].ivar != NULL)
-            FREE(c->constr[i].ivar);
-    }
+    for (int i = 0; i < c->constr_size; ++i)
+        pddlCPConstIVarAllowedFree(c->constr + i);
     if (c->constr != NULL)
         FREE(c->constr);
 }
@@ -520,6 +524,25 @@ void pddlCPSimplify(pddl_cp_t *cp)
         FREE(change[0].ivar_change);
     if (change[1].ivar_change != NULL)
         FREE(change[1].ivar_change);
+
+    if (cp->unsat)
+        return;
+
+    // Remove constraints restricted to a single tuple -- these must
+    // already be reflected in domains of respective variables
+    int ins = 0;
+    for (int ci = 0; ci < cp->c_ivar_allowed.constr_size; ++ci){
+        pddl_cp_constr_ivar_allowed_t *c;
+        c = cp->c_ivar_allowed.constr + ci;
+        if (c->ival->num_tuples == 1){
+            pddlCPIValTupleUnref(&cp->ival_tuple, c->ival);
+            c->ival = NULL;
+            pddlCPConstIVarAllowedFree(c);
+        }else{
+            cp->c_ivar_allowed.constr[ins++] = *c;
+        }
+    }
+    cp->c_ivar_allowed.constr_size = ins;
 }
 
 void pddlCPSetObjectiveMinCountDiffAllIVars(pddl_cp_t *cp)
@@ -682,12 +705,45 @@ static int solveInSubprocess(const pddl_cp_t *cp,
     return ret;
 }
 
+static int onlyOneSolution(const pddl_cp_t *cp, pddl_cp_sol_t *sol)
+{
+    for (int i = 0; i < cp->ivar.ivar_size; ++i){
+        if (pddlISetSize(&cp->ivar.ivar[i].domain) > 1)
+            return -1;
+    }
+    sol->ivar_size = cp->ivar.ivar_size;
+    sol->num_solutions = 1;
+    sol->isol = ALLOC(int *);
+    sol->isol_alloc = 1;
+    sol->isol[0] = ALLOC_ARR(int, sol->ivar_size);
+    for (int i = 0; i < cp->ivar.ivar_size; ++i)
+        sol->isol[0][i] = pddlISetGet(&cp->ivar.ivar[i].domain, 0);
+
+    return 0;
+}
+
 int pddlCPSolve(const pddl_cp_t *cp,
                 const pddl_cp_solve_config_t *cfg,
                 pddl_cp_sol_t *sol,
                 pddl_err_t *err)
 {
+    CTX(err, "cp_solve", "CP-solve");
+    bzero(sol, sizeof(*sol));
+
+    if (cp->unsat){
+        CTXEND(err);
+        return PDDL_CP_NO_SOLUTION;
+    }
+
+    if (onlyOneSolution(cp, sol) == 0){
+        CTXEND(err);
+        return PDDL_CP_FOUND;
+    }
+
+    int ret = 0;
     if (cfg->run_in_subprocess)
-        return solveInSubprocess(cp, cfg, sol, err);
-    return solve(cp, cfg, sol, err);
+        ret = solveInSubprocess(cp, cfg, sol, err);
+    ret = solve(cp, cfg, sol, err);
+    CTXEND(err);
+    return ret;
 }

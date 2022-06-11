@@ -20,6 +20,7 @@
 
 #include "pddl/config.h"
 #include "pddl/endomorphism.h"
+#include "pddl/cp.h"
 
 #ifdef PDDL_CPOPTIMIZER
 #include <sys/types.h>
@@ -333,6 +334,146 @@ static int solve(IloModel &model,
 #endif /* NO_LOGGER */
 
     return ret;
+}
+
+static int fdrOpConstr(const pddl_fdr_t *fdr,
+                       const pddl_endomorphism_config_t *cfg,
+                       const pddl_fdr_op_t *op,
+                       const pddl_iset_t *group,
+                       pddl_cp_t *cp,
+                       int op_var_offset,
+                       pddl_err_t *err)
+{
+    int pre_size = op->pre.fact_size + 1;
+    int eff_size = op->eff.fact_size + 1;
+    int *pre_vals = ALLOC_ARR(int, pddlISetSize(group) * pre_size);
+    int pre_vals_size = 0;
+    int *eff_vals = ALLOC_ARR(int, pddlISetSize(group) * eff_size);
+    int eff_vals_size = 0;
+
+    int other_op_id;
+    PDDL_ISET_FOR_EACH(group, other_op_id){
+        const pddl_fdr_op_t *other_op = fdr->op.op[other_op_id];
+        // TODO: ignore costs
+        if (!cfg->ignore_costs && other_op->cost > op->cost)
+            continue;
+        int idx = pre_vals_size * pre_size;
+        pre_vals[idx++] = other_op->id;
+        for (int fi = 0; fi < other_op->pre.fact_size; ++fi)
+            pre_vals[idx++] = other_op->pre.fact[fi].val;
+        ++pre_vals_size;
+
+        idx = eff_vals_size * eff_size;
+        eff_vals[idx++] = other_op->id;
+        for (int fi = 0; fi < other_op->eff.fact_size; ++fi)
+            eff_vals[idx++] = other_op->eff.fact[fi].val;
+        ++eff_vals_size;
+    }
+
+    int *pre_var = ALLOC_ARR(int, pre_size);
+    pre_var[0] = op->id + op_var_offset;
+    for (int fi = 0; fi < op->pre.fact_size; ++fi){
+        int pvar = op->pre.fact[fi].var;
+        int pval = op->pre.fact[fi].val;
+        pre_var[fi + 1] = fdr->var.var[pvar].val[pval].global_id;
+    }
+
+    int *eff_var = ALLOC_ARR(int, eff_size);
+    eff_var[0] = op->id + op_var_offset;
+    for (int fi = 0; fi < op->eff.fact_size; ++fi){
+        int pvar = op->eff.fact[fi].var;
+        int pval = op->eff.fact[fi].val;
+        eff_var[fi + 1] = fdr->var.var[pvar].val[pval].global_id;
+    }
+
+    pddlCPAddConstrIVarAllowed(cp, pre_size, pre_var, pre_vals_size, pre_vals);
+    pddlCPAddConstrIVarAllowed(cp, eff_size, eff_var, eff_vals_size, eff_vals);
+    FREE(pre_var);
+    FREE(eff_var);
+    FREE(pre_vals);
+    FREE(eff_vals);
+    return 2;
+}
+
+static int fdrSetModel(const pddl_fdr_t *fdr,
+                       const pddl_endomorphism_config_t *cfg,
+                       const op_groups_t *opg,
+                       pddl_cp_t *cp,
+                       pddl_time_limit_t *time_limit,
+                       pddl_err_t *err)
+{
+    // Create fact variables
+    for (int fi = 0; fi < fdr->var.global_id_size; ++fi){
+        const pddl_fdr_val_t *val = fdr->var.global_id_to_val[fi];
+        const pddl_fdr_var_t *var = fdr->var.var + val->var_id;
+        char name[128];
+        snprintf(name, 128, "%d:(%s)", fi, val->name);
+        int id = pddlCPAddIVar(cp, 0, var->val_size - 1, name);
+        ASSERT_RUNTIME(id == fi);
+    }
+    LOG(err, "Created %{num_fact_vars}d fact variables",
+        fdr->var.global_id_size);
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
+    // Create operator variables
+    int op_var_offset = fdr->var.global_id_size;
+    for (int oi = 0; oi < fdr->op.op_size; ++oi){
+        const pddl_fdr_op_t *op = fdr->op.op[oi];
+        char name[128];
+        snprintf(name, 128, "%d:(%s)", oi, op->name);
+        int id = pddlCPAddIVar(cp, 0, fdr->op.op_size - 1, name);
+        ASSERT_RUNTIME(op->id + op_var_offset == id);
+    }
+    LOG(err, "Created %{num_op_vars}d operator variables", fdr->op.op_size);
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
+    // Set init constraint
+    for (int vi = 0; vi < fdr->var.var_size; ++vi){
+        int fact_id = fdr->var.var[vi].val[fdr->init[vi]].global_id;
+        pddlCPAddConstrIVarEq(cp, fact_id, fdr->init[vi]);
+    }
+
+    // Set goal constraint
+    for (int fi = 0; fi < fdr->goal.fact_size; ++fi){
+        int var = fdr->goal.fact[fi].var;
+        int val = fdr->goal.fact[fi].val;
+        int fact_id = fdr->var.var[var].val[val].global_id;
+        pddlCPAddConstrIVarEq(cp, fact_id, val);
+    }
+    LOG2(err, "Added init and goal constraints");
+    if (pddlTimeLimitCheck(time_limit) != 0)
+        return -1;
+
+    // Set operator constraints
+    int num_op_constr = 0;
+    for (int group_id = 0; group_id < opg->group_size; ++group_id){
+        if (pddlTimeLimitCheck(time_limit) != 0)
+            return -1;
+
+        int op_id;
+        const pddl_iset_t *group = &opg->group[group_id];
+        PDDL_ISET_FOR_EACH(group, op_id){
+            if (pddlTimeLimitCheck(time_limit) != 0)
+                return -1;
+
+            const pddl_fdr_op_t *op = fdr->op.op[op_id];
+            num_op_constr += fdrOpConstr(fdr, cfg, op, group, cp,
+                                         op_var_offset, err);
+        }
+        //PDDL_INFO(err, "  Created operator constraints %d",
+        //         pddlISetSize(&opg.group[group_id]));
+    }
+    LOG(err, "Added %{num_op_constrs}d operator constraints", num_op_constr);
+
+    PDDL_ISET(op_vars);
+    for (int oi = 0; oi < fdr->op.op_size; ++oi)
+        pddlISetAdd(&op_vars, oi + op_var_offset);
+    pddlCPSetObjectiveMinCountDiff(cp, &op_vars);
+    pddlISetFree(&op_vars);
+    LOG2(err, "  Added objective function min(count-diff())");
+    return 0;
 }
 
 static int fdrOpPreConstr(const pddl_fdr_op_t *op,

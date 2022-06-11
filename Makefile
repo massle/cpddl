@@ -147,6 +147,7 @@ OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
 OBJS += datalog_pddl
+OBJS += endomorphism
 OBJS += endomorphism_lifted
 OBJS += homomorphism
 OBJS += homomorphism_heur

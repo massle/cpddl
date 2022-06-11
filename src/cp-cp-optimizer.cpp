@@ -69,7 +69,6 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
                             pddl_cp_sol_t *sol,
                             pddl_err_t *err)
 {
-    CTX(err, "cp_solve", "CP-solve");
     bzero(sol, sizeof(*sol));
 
     IloEnv env;
@@ -142,8 +141,13 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
         if (cp->objective == OBJ_SAT){
             ASSERT(sol->num_solutions == 0);
             int *s = pddlCPSolAddEmpty(cp, sol);
-            for (int i = 0; i < sol->ivar_size; ++i)
-                s[i] = solve.getValue(cpvar[i]);
+            for (int i = 0; i < sol->ivar_size; ++i){
+                if (solve.isExtracted(cpvar[i])){
+                    s[i] = solve.getValue(cpvar[i]);
+                }else{
+                    s[i] = cpvar[i].getMin();
+                }
+            }
             ret = PDDL_CP_FOUND;
             // TODO: More solutions
             break;
@@ -153,14 +157,24 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
             // strictly better than the previous one
             if (sol->num_solutions == 1){
                 int *s = pddlCPSolGet(sol, 0);
-                for (int i = 0; i < sol->ivar_size; ++i)
-                    s[i] = solve.getValue(cpvar[i]);
+                for (int i = 0; i < sol->ivar_size; ++i){
+                    if (solve.isExtracted(cpvar[i])){
+                        s[i] = solve.getValue(cpvar[i]);
+                    }else{
+                        s[i] = cpvar[i].getMin();
+                    }
+                }
 
             }else{
                 ASSERT(sol->num_solutions == 0);
                 int *s = pddlCPSolAddEmpty(cp, sol);
-                for (int i = 0; i < sol->ivar_size; ++i)
-                    s[i] = solve.getValue(cpvar[i]);
+                for (int i = 0; i < sol->ivar_size; ++i){
+                    if (solve.isExtracted(cpvar[i])){
+                        s[i] = solve.getValue(cpvar[i]);
+                    }else{
+                        s[i] = cpvar[i].getMin();
+                    }
+                }
             }
             ret = PDDL_CP_FOUND_SUBOPTIMAL;
         }
@@ -203,7 +217,6 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
     solve.endSearch();
     solve.end();
     env.end();
-    CTXEND(err);
     return ret;
 }
 

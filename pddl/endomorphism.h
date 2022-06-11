@@ -55,6 +55,21 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
       0, /* .lifted_use_combinations */ \
     }
 
+struct pddl_endomorphism_sol {
+    pddl_iset_t redundant_ops;
+    int op_size;
+    int *op_map;
+    int is_optimal;
+};
+typedef struct pddl_endomorphism_sol pddl_endomorphism_sol_t;
+
+void pddlEndomorphismSolFree(pddl_endomorphism_sol_t *sol);
+
+int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
+                        const pddl_endomorphism_config_t *cfg,
+                        pddl_endomorphism_sol_t *sol,
+                        pddl_err_t *err);
+
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
                                     pddl_iset_t *redundant_ops,
