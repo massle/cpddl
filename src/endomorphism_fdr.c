@@ -125,16 +125,6 @@ static void opGroupsInitFDR(op_groups_t *opg, const pddl_fdr_t *fdr)
     }
 }
 
-static void opGroupsInitMGStrips(op_groups_t *opg, const mg_strips_t *mgs)
-{
-    bzero(opg, sizeof(*opg));
-    opg->htable = pddlHTableNew(preEffHash, preEffEq, NULL);
-    for (int oi = 0; oi < mgs->op_size; ++oi){
-        const mg_strips_op_t *op = mgs->op + oi;
-        assignOpToGroup(opg, oi, &op->pre, &op->eff);
-    }
-}
-
 static void opGroupsFree(op_groups_t *opg)
 {
     for (int i = 0; i < opg->group_size; ++i)
@@ -334,6 +324,7 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
                         pddl_endomorphism_sol_t *sol,
                         pddl_err_t *err)
 {
+    CTX(err, "endo_fdr", "Endo-FDR");
     bzero(sol, sizeof(*sol));
 
     pddl_time_limit_t time_limit;
@@ -353,6 +344,7 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
     if (fdrSetModel(fdr, cfg, &opg, &cp, &time_limit, err) != 0){
         opGroupsFree(&opg);
         pddlCPFree(&cp);
+        CTXEND(err);
         PDDL_TRACE_RET(err, -2);
     }
     LOG2(err, "Created model.");
@@ -387,5 +379,6 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
 
     pddlCPFree(&cp);
     opGroupsFree(&opg);
+    CTXEND(err);
     return ret;
 }

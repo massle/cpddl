@@ -70,6 +70,11 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
                         pddl_endomorphism_sol_t *sol,
                         pddl_err_t *err);
 
+int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
+                                const pddl_endomorphism_config_t *cfg,
+                                pddl_endomorphism_sol_t *sol,
+                                pddl_err_t *err);
+
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
                                     pddl_iset_t *redundant_ops,

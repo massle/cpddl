@@ -610,10 +610,13 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
     // Specify solution
     if (cp->objective == OBJ_SAT){
         fprintf(fout, "solve satisfy;\n");
+
     }else if (cp->objective == OBJ_MIN_COUNT_DIFF){
-        fprintf(fout, "var int: obj_val = nvalue([x0");
-        for (int i = 0; i < cp->ivar.ivar_size; ++i)
-            fprintf(fout, ",x%d", i);
+        ASSERT_RUNTIME(pddlISetSize(&cp->obj_ivars) > 0);
+        fprintf(fout, "var int: obj_val = nvalue([x%d",
+                pddlISetGet(&cp->obj_ivars, 0));
+        for (int i = 1; i < pddlISetSize(&cp->obj_ivars); ++i)
+            fprintf(fout, ",x%d", pddlISetGet(&cp->obj_ivars, i));
         fprintf(fout, "]);\n");
         fprintf(fout, "solve minimize obj_val;\n");
     }
@@ -741,9 +744,11 @@ int pddlCPSolve(const pddl_cp_t *cp,
     }
 
     int ret = 0;
-    if (cfg->run_in_subprocess)
+    if (cfg->run_in_subprocess){
         ret = solveInSubprocess(cp, cfg, sol, err);
-    ret = solve(cp, cfg, sol, err);
+    }else{
+        ret = solve(cp, cfg, sol, err);
+    }
     CTXEND(err);
     return ret;
 }
