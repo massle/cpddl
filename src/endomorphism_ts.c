@@ -94,6 +94,7 @@ static int cmpISetSize(const void *a, const void *b, void *_)
 }
 
 static void presolveTRStateAllow(pddl_iset_t *state_allow,
+                                 const pddl_endomorphism_config_t *cfg,
                                  const ts_presolve_t *presolve,
                                  const pddl_trans_systems_t *tss,
                                  int tsi,
@@ -112,7 +113,7 @@ static void presolveTRStateAllow(pddl_iset_t *state_allow,
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, ofrom, olabel, oto){
         if (!op_allow[olabel])
             continue;
-        if (tss->label.label[olabel].cost > label_cost)
+        if (!cfg->ignore_costs && tss->label.label[olabel].cost > label_cost)
             continue;
         if (from == ts->init_state && ofrom != from)
             continue;
@@ -145,6 +146,7 @@ static void stateAllowFree(pddl_iset_t *state_allow, int num_states)
 }
 
 static int presolveStateAllow(ts_presolve_t *presolve,
+                              const pddl_endomorphism_config_t *cfg,
                               const pddl_trans_systems_t *tss,
                               int tsi,
                               pddl_time_limit_t *time_limit)
@@ -174,7 +176,7 @@ static int presolveStateAllow(ts_presolve_t *presolve,
 
     int label_id, from, to;
     PDDL_LABELED_TRANSITIONS_SET_FOR_EACH(&ts->trans, from, label_id, to){
-        presolveTRStateAllow(state_allow, presolve,
+        presolveTRStateAllow(state_allow, cfg, presolve,
                              tss, tsi, from, label_id, to);
     }
     for (int si = 0; si < ts->num_states; ++si){
@@ -202,6 +204,7 @@ static void labelGroupsFree(const pddl_trans_systems_t *tss,
 }
 
 static int tsPresolve(ts_presolve_t *presolve,
+                      const pddl_endomorphism_config_t *cfg,
                       const pddl_trans_systems_t *tss,
                       pddl_time_limit_t *time_limit,
                       pddl_err_t *err)
@@ -299,7 +302,7 @@ static int tsPresolve(ts_presolve_t *presolve,
         int op_cost = tss->label.label[op_id].cost;
         int other_op;
         PDDL_ISET_FOR_EACH(&allowed, other_op){
-            if (tss->label.label[other_op].cost <= op_cost)
+            if (cfg->ignore_costs || tss->label.label[other_op].cost <= op_cost)
                 pddlISetAdd(&allowed2, other_op);
         }
         pddlISetFree(&allowed);
@@ -322,7 +325,7 @@ static int tsPresolve(ts_presolve_t *presolve,
     LOG2(err, "presolve restriction of operator domains done");
 
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
-        if (presolveStateAllow(presolve, tss, tsi, time_limit) != 0)
+        if (presolveStateAllow(presolve, cfg, tss, tsi, time_limit) != 0)
             return -1;
     }
     LOG2(err, "presolve restriction of state domains done");
@@ -558,7 +561,7 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
         tss->ts_size, tss->label.label_size);
     ts_presolve_t presolve;
     LOG2(err, "Running presolve...");
-    if (tsPresolve(&presolve, tss, &time_limit, err) != 0){
+    if (tsPresolve(&presolve, cfg, tss, &time_limit, err) != 0){
         LOG2(err, "Time limit reached");
         LOG2(err, "Terminating presolve phase");
         LOG2(err, "Terminating inference of endomorphism");
