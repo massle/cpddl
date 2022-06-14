@@ -5,7 +5,6 @@ CFLAGS += -I.
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
-CPPFLAGS += $(CPOPTIMIZER_CPPFLAGS)
 
 CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
 
@@ -164,8 +163,7 @@ OBJS += subprocess
 
 OBJS += __sqlite3
 
-OBJS_CPP = endomorphism
-OBJS_CPP += cp-cp-optimizer
+OBJS_CPP = cp-cp-optimizer
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 

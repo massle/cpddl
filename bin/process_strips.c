@@ -571,24 +571,6 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
     return ret;
 }
 
-static int pruneEndomorphismMGStrips(const pddl_process_strips_t *prune,
-                                     const pddl_endomorphism_config_t *cfg,
-                                     pddl_iset_t *redundant_op,
-                                     pddl_err_t *err)
-{
-    int ret = 0;
-    PDDL_INFO2(err, "Redundant operators using endomorphism on MG-Strips ...");
-    pddl_mg_strips_t mg_strips;
-    pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
-    ret = pddlEndomorphismMGStripsRedundantOps(&mg_strips, cfg, redundant_op,
-                                               err);
-    if (ret >= 0)
-        ret = 0;
-    pddlMGStripsFree(&mg_strips);
-    PDDL_INFO2(err, "Redundant operators using endomorphism on MG-Strips DONE");
-    return ret;
-}
-
 static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
                                const pddl_endomorphism_config_t *cfg,
                                pddl_iset_t *redundant_op,
@@ -650,9 +632,6 @@ static int endomorphExecute(pddl_process_strips_t *prune,
     int ret = 0;
     if (step->fdr){
         ret = pruneEndomorphismFDR(prune, &step->cfg, &redundant_op, err);
-
-    }else if (step->mg_strips){
-        ret = pruneEndomorphismMGStrips(prune, &step->cfg, &redundant_op, err);
 
     }else if (step->ts){
         ret = pruneEndomorphismTS(prune, &step->cfg, &redundant_op, err);

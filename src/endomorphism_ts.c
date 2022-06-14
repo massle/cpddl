@@ -634,3 +634,15 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
     return ret;
 }
 
+int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
+                                            const pddl_endomorphism_config_t *c,
+                                            pddl_iset_t *redundant_ops,
+                                            pddl_err_t *err)
+{
+    pddl_endomorphism_sol_t sol;
+    int ret = pddlEndomorphismTransSystem(tss, c, &sol, err);
+    if (ret == 0)
+        pddlISetUnion(redundant_ops, &sol.redundant_ops);
+    pddlEndomorphismSolFree(&sol);
+    return ret;
+}

@@ -382,3 +382,16 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
     CTXEND(err);
     return ret;
 }
+
+int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
+                                    const pddl_endomorphism_config_t *cfg,
+                                    pddl_iset_t *redundant_ops,
+                                    pddl_err_t *err)
+{
+    pddl_endomorphism_sol_t sol;
+    int ret = pddlEndomorphismFDR(fdr, cfg, &sol, err);
+    if (ret == 0)
+        pddlISetUnion(redundant_ops, &sol.redundant_ops);
+    pddlEndomorphismSolFree(&sol);
+    return ret;
+}
