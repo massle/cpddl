@@ -121,5 +121,7 @@
 #include <pddl/datalog.h>
 #include <pddl/prune_strips.h>
 #include <pddl/lifted_heur_relaxed.h>
+#include <pddl/cp.h>
+#include <pddl/subprocess.h>
 
 #endif /* __PDDL_H__ */

@@ -19,6 +19,7 @@
 #ifndef __PDDL_ENDOMORPHISM_H__
 #define __PDDL_ENDOMORPHISM_H__
 
+#include <pddl/pddl_struct.h>
 #include <pddl/fdr.h>
 #include <pddl/mg_strips.h>
 #include <pddl/trans_system.h>
@@ -54,15 +55,30 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
       0, /* .lifted_use_combinations */ \
     }
 
+struct pddl_endomorphism_sol {
+    pddl_iset_t redundant_ops;
+    int op_size;
+    int *op_map;
+    int is_optimal;
+};
+typedef struct pddl_endomorphism_sol pddl_endomorphism_sol_t;
+
+void pddlEndomorphismSolFree(pddl_endomorphism_sol_t *sol);
+
+int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
+                        const pddl_endomorphism_config_t *cfg,
+                        pddl_endomorphism_sol_t *sol,
+                        pddl_err_t *err);
+
+int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
+                                const pddl_endomorphism_config_t *cfg,
+                                pddl_endomorphism_sol_t *sol,
+                                pddl_err_t *err);
+
 int pddlEndomorphismFDRRedundantOps(const pddl_fdr_t *fdr,
                                     const pddl_endomorphism_config_t *cfg,
                                     pddl_iset_t *redundant_ops,
                                     pddl_err_t *err);
-
-int pddlEndomorphismMGStripsRedundantOps(const pddl_mg_strips_t *mg_strips,
-                                         const pddl_endomorphism_config_t *cfg,
-                                         pddl_iset_t *redundant_ops,
-                                         pddl_err_t *err);
 
 int pddlEndomorphismTransSystemRedundantOps(const pddl_trans_systems_t *tss,
                                             const pddl_endomorphism_config_t *c,

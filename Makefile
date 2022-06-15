@@ -5,7 +5,6 @@ CFLAGS += -I.
 
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I.
-CPPFLAGS += $(CPOPTIMIZER_CPPFLAGS)
 
 CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
 
@@ -30,6 +29,8 @@ OBJS += lp-cplex
 OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
+OBJS += cp
+OBJS += cp-minizinc
 OBJS += lisp
 OBJS += require
 OBJS += type
@@ -145,6 +146,9 @@ OBJS += red_black_fdr
 OBJS += outbox
 OBJS += datalog
 OBJS += datalog_pddl
+OBJS += endomorphism_fdr
+OBJS += endomorphism_ts
+OBJS += endomorphism_lifted
 OBJS += homomorphism
 OBJS += homomorphism_heur
 OBJS += prune_strips
@@ -155,10 +159,11 @@ OBJS += cset
 OBJS += iarr
 OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
+OBJS += subprocess
 
 OBJS += __sqlite3
 
-OBJS_CPP = endomorphism
+OBJS_CPP = cp-cp-optimizer
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
@@ -185,7 +190,7 @@ libpddl.a: $(OBJS) Makefile
 	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@
 
-pddl/config.h:
+pddl/config.h: Makefile Makefile.include
 	echo "#ifndef __PDDL_CONFIG_H__" >$@
 	echo "#define __PDDL_CONFIG_H__" >>$@
 	echo "" >>$@
@@ -199,6 +204,9 @@ pddl/config.h:
 	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
+	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
+	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
+	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
@@ -233,6 +241,10 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
+
+.objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
+
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.o: src/%.c pddl/config.h $(GEN)

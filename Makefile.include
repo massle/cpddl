@@ -169,6 +169,29 @@ ifeq '$(USE_CUDD)' 'auto'
   endif
 endif
 
+MINIZINC_BIN ?=
+MINIZINC_VERSION ?=
+ifeq '$(MINIZINC_BIN)' ''
+  MINIZINC_FOUND := $(shell if /usr/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+  ifeq '$(MINIZINC_FOUND)' 'yes'
+    MINIZINC_BIN := /usr/bin/minizinc
+  else
+    MINIZINC_FOUND := $(shell if /opt/minizinc/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+    ifeq '$(MINIZINC_FOUND)' 'yes'
+      MINIZINC_BIN := /opt/minizinc/bin/minizinc
+    endif
+  endif
+endif
+
+ifneq '$(MINIZINC_BIN)' ''
+  MINIZINC_FOUND := $(shell if $(MINIZINC_BIN) --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+  ifeq '$(MINIZINC_FOUND)' 'yes'
+    MINIZINC_VERSION := $(shell $(MINIZINC_BIN) --version 2>&1 | grep -o 'version [^ ,]*' | cut -f2 -d' ')
+  else
+    $(error MINIZINC_BIN defined [$(MINIZINC_BIN)], but it does not seem to be working)
+  endif
+endif
+
 SQLITE_BUILD_CFLAGS := \
   -DSQLITE_OMIT_AUTHORIZATION \
   -DSQLITE_OMIT_AUTOINCREMENT \
@@ -242,10 +265,11 @@ help:
 	@echo "    LPSOLVE_LDFLAGS = $(LPSOLVE_LDFLAGS)"
 	@echo "    USE_LPSOLVE     = $(USE_LPSOLVE)"
 	@echo "    LP_LDFLAGS      = $(LP_LDFLAGS)"
-	@echo "    LP_CFLAGS      = $(LP_LDFLAGS)"
+	@echo "    LP_CFLAGS       = $(LP_LDFLAGS)"
 	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
 	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
 	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
+	@echo "    MINIZINC_BIN    = $(MINIZINC_BIN)"
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS

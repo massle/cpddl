@@ -121,7 +121,10 @@ void pddlErrPropEnable(pddl_err_t *err, FILE *fout);
  */
 void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
 
-
+/**
+ * Flush all buffers.
+ */
+void pddlErrFlush(pddl_err_t *err);
 
 /**
  * Sets error message and starts tracing the calls.

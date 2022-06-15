@@ -72,6 +72,7 @@ int pddlLPSetDefault(unsigned solver, pddl_err_t *err);
 
 /**
  * Creates a new LP problem with specified number of rows and columns.
+ * TODO: Use pddl_lp_config_t instead of rows, cols, flags
  */
 pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err);
 

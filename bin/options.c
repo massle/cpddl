@@ -33,7 +33,6 @@ typedef struct h3_cfg h3_cfg_t;
 struct endomorph_cfg {
     pddl_endomorphism_config_t cfg;
     int fdr;
-    int mg_strips;
     int ts;
     int fdr_ts;
 };
@@ -283,8 +282,6 @@ static void endomorphism(void *ud)
     endomorph_cfg_t *cfg = ud;
     if (cfg->fdr){
         pddlProcessStripsAddEndomorphFDR(&opt.strips.process, &cfg->cfg);
-    }else if (cfg->mg_strips){
-        pddlProcessStripsAddEndomorphMGStrips(&opt.strips.process, &cfg->cfg);
     }else if (cfg->ts){
         pddlProcessStripsAddEndomorphTS(&opt.strips.process, &cfg->cfg);
     }else if (cfg->fdr_ts){
@@ -591,7 +588,6 @@ static void setProcessStripsOptions(void)
                                 "  ignore-costs = <bool> -- ignore operator costs (default: false)",
                                 &endomorph_cfg, endomorphism);
     optsParamsAddFlag(params, "fdr", &endomorph_cfg.fdr);
-    optsParamsAddFlag(params, "mg-strips", &endomorph_cfg.mg_strips);
     optsParamsAddFlag(params, "ts", &endomorph_cfg.ts);
     optsParamsAddFlag(params, "fdr-ts", &endomorph_cfg.fdr_ts);
     optsParamsAddFlt(params, "max-time", &endomorph_cfg.cfg.max_time);

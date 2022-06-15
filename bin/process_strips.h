@@ -53,8 +53,6 @@ void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
                                  int no_prune, const char *out);
 void pddlProcessStripsAddEndomorphFDR(pddl_process_strips_t *prune,
                                       const pddl_endomorphism_config_t *cfg);
-void pddlProcessStripsAddEndomorphMGStrips(pddl_process_strips_t *prune,
-                                           const pddl_endomorphism_config_t *cfg);
 void pddlProcessStripsAddEndomorphTS(pddl_process_strips_t *prune,
                                      const pddl_endomorphism_config_t *cfg);
 void pddlProcessStripsAddEndomorphFDRTS(pddl_process_strips_t *prune,

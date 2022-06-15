@@ -127,6 +127,18 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable)
     err->info_print_resources_disabled = disable;
 }
 
+void pddlErrFlush(pddl_err_t *err)
+{
+    if (err == NULL)
+        return;
+    if (err->warn_out != NULL)
+        fflush(err->warn_out);
+    if (err->info_out != NULL)
+        fflush(err->info_out);
+    if (err->prop_out != NULL)
+        fflush(err->prop_out);
+}
+
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
               const char *format, ...)
