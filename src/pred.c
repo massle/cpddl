@@ -246,6 +246,8 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
 {
     const pddl_lisp_node_t *n;
 
+    pddl->func.eq_pred = -1;
+
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_FUNCTIONS);
     if (n == NULL)
         return 0;
