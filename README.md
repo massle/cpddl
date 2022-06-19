@@ -91,10 +91,30 @@ disambiguations (``pddl/{pot.h,hpot.h,disambiguation.h}``) are described in
 Strengthening Potential Heuristics with Mutexes and Disambiguations,
 ICAPS 2020
 
-**Endomorphisms** (``pddl/endomorphism.h``) are described in
+**Endomorphisms/Homomorphism**
+(``pddl/endomorphism.h``, ``pddl/homomorphism*.h``) are described in
+ - Rostislav Horčík, Daniel Fišer, Álvaro Torralba
+Homomorphisms of Lifted Planning Tasks: The Case for Delete-free Relaxation Heuristics,
+AAAI 2022
  - Rostislav Horčík, Daniel Fišer.
 Endomorphisms of Classical Planning Tasks,
 AAAI 2021
+ - Rostislav Horčík, Daniel Fišer.
+Endomorphisms of Lifted Planning Problems,
+ICAPS 2021
+
+**Custom-design FDR encodings** (``pddl/red_black_fdr.h``)
+ - Daniel Fišer, Daniel Gnad, Michael Katz, Jörg Hoffmann
+Custom-Design of FDR Encodings: The Case of Red-Black Planning,
+IJCAI 2021
+
+**Symbolic search** (``pddl/symbolic*.h``)
+ - Daniel Fišer, Álvaro Torralba, Jörg Hoffmann.
+Operator-Potentials in Symbolic Search: From Forward to Bi-Directional Search,
+ICAPS 2022
+ - Daniel Fišer, Álvaro Torralba, Jörg Hoffmann.
+Operator-Potential Heuristics for Symbolic Search,
+AAAI 2022
 
 Please refer to these papers when documenting work that uses the corresponding
 parts of cpddl.
