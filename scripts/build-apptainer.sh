@@ -7,7 +7,7 @@ fi
 
 SETUP="
 %setup
-    cp -r ./ \$SINGULARITY_ROOTFS/cpddl
+    cp -r ./ \$APPTAINER_ROOTFS/cpddl
 "
 
 cplex_suff=
@@ -24,8 +24,8 @@ if [ "$1" = "--cplex" ]; then
               --include '*.a' \\
               --include '*.so' \\
               --exclude '*' \\
-              $cplex_dir/ \$SINGULARITY_ROOTFS/cplex/
-    find \$SINGULARITY_ROOTFS/cplex
+              $cplex_dir/ \$APPTAINER_ROOTFS/cplex/
+    find \$APPTAINER_ROOTFS/cplex
 "
     shift
 fi
@@ -58,7 +58,7 @@ RUN="
 function build_alpine(){
     local name="${1}${cplex_suff}"
     local base="$2"
-    cat >Singularity.${name} <<EOF
+    cat >Apptainer.${name} <<EOF
 Bootstrap: docker
 From: $base
 
@@ -72,13 +72,13 @@ $SETUP
     apk del make gcc g++ autoconf automake git glpk-dev bash
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Singularity.${name}
+    sudo apptainer build cpddl-${name}.img Apptainer.${name}
 }
 
 function build_debian(){
     local name="${1}${cplex_suff}"
     local base="$2"
-    cat >Singularity.${name} <<EOF
+    cat >Apptainer.${name} <<EOF
 Bootstrap: docker
 From: $base
 
@@ -96,13 +96,13 @@ $SETUP
 
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Singularity.${name}
+    sudo apptainer build cpddl-${name}.img Apptainer.${name}
 }
 
 function build_fedora(){
     local name="${1}${cplex_suff}"
     local base="$2"
-    cat >Singularity.${name} <<EOF
+    cat >Apptainer.${name} <<EOF
 Bootstrap: docker
 From: $base
 
@@ -115,7 +115,7 @@ $SETUP
     dnf -y remove make gcc g++ autoconf automake git glpk-devel
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Singularity.${name}
+    sudo apptainer build cpddl-${name}.img Apptainer.${name}
 }
 
 if [ "$1" = "alpine" ]; then
