@@ -37,6 +37,7 @@ struct pddl_action {
     pddl_params_t param;
     pddl_cond_t *pre;
     pddl_cond_t *eff;
+    int id;
 };
 typedef struct pddl_action pddl_action_t;
 
@@ -117,6 +118,11 @@ void pddlActionsRemapTypesAndPreds(pddl_actions_t *as,
                                    const int *type_remap,
                                    const int *pred_remap,
                                    const int *func_remap);
+
+/**
+ * Remove the set of actions specified by their IDs.
+ */
+void pddlActionsRemoveSet(pddl_actions_t *as, const pddl_iset_t *ids);
 
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout);
 void pddlActionsPrint(const pddl_t *pddl,

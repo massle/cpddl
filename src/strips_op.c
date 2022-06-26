@@ -28,6 +28,7 @@
 void pddlStripsOpInit(pddl_strips_op_t *op)
 {
     bzero(op, sizeof(*op));
+    op->pddl_action_id = -1;
 }
 
 static void condEffFree(pddl_strips_op_cond_eff_t *ce)
@@ -134,6 +135,8 @@ void pddlStripsOpCopy(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
         pddlISetUnion(&ce->add_eff, &f->add_eff);
         pddlISetUnion(&ce->del_eff, &f->del_eff);
     }
+
+    dst->pddl_action_id = src->pddl_action_id;
 }
 
 void pddlStripsOpCopyWithoutCondEff(pddl_strips_op_t *dst,
@@ -144,6 +147,7 @@ void pddlStripsOpCopyWithoutCondEff(pddl_strips_op_t *dst,
     pddlISetUnion(&dst->pre, &src->pre);
     pddlISetUnion(&dst->add_eff, &src->add_eff);
     pddlISetUnion(&dst->del_eff, &src->del_eff);
+    dst->pddl_action_id = src->pddl_action_id;
 }
 
 void pddlStripsOpCopyDual(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
@@ -162,6 +166,7 @@ void pddlStripsOpCopyDual(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
         pddlISetUnion(&ce->add_eff, &f->add_eff);
         pddlISetUnion(&ce->del_eff, &f->pre);
     }
+    dst->pddl_action_id = src->pddl_action_id;
 }
 
 void pddlStripsOpRemapFacts(pddl_strips_op_t *op, const int *remap)

@@ -47,6 +47,7 @@ struct pddl_strips_op {
     int cond_eff_alloc;
 
     int id;
+    int pddl_action_id; /*!< ID of the corresponding PDDL action schema */
 };
 typedef struct pddl_strips_op pddl_strips_op_t;
 

@@ -665,6 +665,7 @@ static int createOp(pddl_strips_maker_t *sm,
 
     if (!pddl->metric)
         op->cost = 1;
+    op->pddl_action_id = a->id;
 
     return 0;
 }
