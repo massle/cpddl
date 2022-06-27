@@ -41,6 +41,11 @@ struct pddl_ground_config {
     int prune_op_dead_end;
     /** If true static facts are found and removed */
     int remove_static_facts;
+    /** Keep action arguments in strips operators */
+    int keep_action_args;
+    /** Keep all static facts including the ones created from static
+     *  predicates */
+    int keep_all_static_facts;
 };
 typedef struct pddl_ground_config pddl_ground_config_t;
 
@@ -49,6 +54,8 @@ typedef struct pddl_ground_config pddl_ground_config_t;
         1, /* .prune_op_pre_mutex */ \
         1, /* .prune_op_dead_end */ \
         1, /* .remove_static_facts */ \
+        0, /* .keep_action_args */ \
+        0, /* .keep_all_static_facts */ \
     }
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg,

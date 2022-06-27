@@ -122,6 +122,8 @@ extern "C" {
 #define REALLOC(ptr, size) PDDL_REALLOC((ptr), (size))
 #define STRDUP(str) PDDL_STRDUP(str)
 
+#define ZEROIZE_PTR(P) bzero((P), sizeof(*(P)))
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -160,6 +160,7 @@ OBJS += iarr
 OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 OBJS += subprocess
+OBJS += asnets_task
 
 OBJS += __sqlite3
 
