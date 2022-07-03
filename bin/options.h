@@ -168,6 +168,12 @@ struct options {
         int max_depth;
         int use_mutex;
     } reversibility;
+
+    struct {
+        int enable;
+        char *out_task;
+        char *out_fdr;
+    } asnets;
 };
 typedef struct options options_t;
 extern options_t opt;

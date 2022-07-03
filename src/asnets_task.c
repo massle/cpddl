@@ -213,3 +213,82 @@ void pddlASNetsTaskFree(pddl_asnets_task_t *task)
     pddlStripsFree(&task->strips);
     pddlFree(&task->pddl);
 }
+
+static void printSet(const pddl_iset_t *set, FILE *fout)
+{
+    fprintf(fout, "%d", pddlISetSize(set));
+    int fact;
+    PDDL_ISET_FOR_EACH(set, fact)
+        fprintf(fout, " %d", fact);
+    fprintf(fout, "\n");
+}
+
+void pddlASNetsTaskPrintPDDLStrips(const pddl_asnets_task_t *task, FILE *fout)
+{
+    // Action schemas
+    fprintf(fout, "%d\n", task->pddl.action.action_size);
+    for (int ai = 0; ai < task->pddl.action.action_size; ++ai){
+        fprintf(fout, "%s\n", task->pddl.action.action[ai].name);
+        fprintf(fout, "%d\n", task->pddl_action[ai].atom.size);
+        ASSERT(task->pddl_action[ai].action_id == ai);
+    }
+
+    // STRIPS Facts
+    fprintf(fout, "%d\n", task->strips.fact.fact_size);
+    for (int fi = 0; fi < task->strips.fact.fact_size; ++fi){
+        fprintf(fout, "%s\n", task->strips.fact.fact[fi]->name);
+
+        const pddl_iset_t *val_ids = task->fdr.var.strips_id_to_val + fi;
+        ASSERT_RUNTIME(pddlISetSize(val_ids) == 1);
+        int val_id = pddlISetGet(val_ids, 0);
+        const pddl_fdr_val_t *val = task->fdr.var.global_id_to_val[val_id];
+        fprintf(fout, "%d %d\n", val->var_id, val->val_id);
+    }
+
+    // STRIPS operators
+    fprintf(fout, "%d\n", task->strips.op.op_size);
+    for (int oi = 0; oi < task->strips.op.op_size; ++oi){
+        const pddl_strips_op_t *op = task->strips.op.op[oi];
+        fprintf(fout, "%s\n", op->name);
+        printSet(&op->pre, fout);
+        printSet(&op->add_eff, fout);
+        printSet(&op->del_eff, fout);
+    }
+
+    // STRIPS Init
+    printSet(&task->strips.init, fout);
+
+    // STRIPS Goal
+    printSet(&task->strips.goal, fout);
+
+    // Relatedness
+    fprintf(fout, "%d\n", task->relatedness.rel_size);
+    for (int i = 0; i < task->relatedness.rel_size; ++i){
+        const pddl_asnets_task_relate_t *r = task->relatedness.rel + i;
+        fprintf(fout, "%d %d %d\n", r->op_id, r->fact_id, r->position);
+    }
+    fflush(fout);
+}
+
+int pddlASNetsTaskDump(const pddl_asnets_task_t *task,
+                       const char *fn_pddl_strips,
+                       const char *fn_fdr,
+                       pddl_err_t *err)
+{
+    FILE *fout1 = fopen(fn_pddl_strips, "w");
+    if (fout1 == NULL)
+        ERR_RET(err, -1, "Could not open %s", fn_pddl_strips);
+
+    FILE *fout2 = fopen(fn_fdr, "w");
+    if (fout2 == NULL){
+        fclose(fout1);
+        ERR_RET(err, -1, "Could not open %s", fn_fdr);
+    }
+
+    pddlASNetsTaskPrintPDDLStrips(task, fout1);
+    pddlFDRPrintFD(&task->fdr, NULL, 0, fout2);
+
+    fclose(fout1);
+    fclose(fout2);
+    return 0;
+}

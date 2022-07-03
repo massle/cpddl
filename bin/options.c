@@ -853,6 +853,20 @@ static void setReversibilityOptions(void)
                 " (also see --report-reversibility*).");
 }
 
+static void setASNetsOptions(void)
+{
+    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
+        return;
+
+    optsStartGroup("ASNets:");
+    optsAddFlag("asnets-task", 0x0, &opt.asnets.enable, 0,
+                "Produce task for ASNets.");
+    optsAddStr("asnets-task-out", 0x0, &opt.asnets.out_task, NULL,
+               "Set output file for the PDDL/Strips task.");
+    optsAddStr("asnets-task-fdr-out", 0x0, &opt.asnets.out_fdr, NULL,
+               "Set output file for the FDR/SAS FD task.");
+}
+
 static void setReportsOptions(void)
 {
     if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
@@ -895,6 +909,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     setGroundPlannerOptions();
     setSymbaOptions();
     setReversibilityOptions();
+    setASNetsOptions();
     setReportsOptions();
 
     if (is_pddl_pddl)
@@ -948,6 +963,13 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     if (opt.lifted_planner.random_seed > 0){
         opt.lifted_planner.homomorph_cfg.random_seed
                 = opt.lifted_planner.random_seed;
+    }
+
+    if (opt.asnets.enable){
+        if (opt.asnets.out_task == NULL)
+            PDDL_ERR_RET2(err, -1, "--asnets-task-out must be set!");
+        if (opt.asnets.out_fdr == NULL)
+            PDDL_ERR_RET2(err, -1, "--asnets-fdr-out must be set!");
     }
 
     PDDL_LOG(err, "Version: %{version}s", pddl_version);

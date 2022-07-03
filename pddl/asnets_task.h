@@ -61,6 +61,10 @@ int pddlASNetsTaskInit(pddl_asnets_task_t *task,
 
 void pddlASNetsTaskFree(pddl_asnets_task_t *task);
 
+int pddlASNetsTaskDump(const pddl_asnets_task_t *task,
+                       const char *fn_pddl_strips,
+                       const char *fn_fdr,
+                       pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

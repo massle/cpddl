@@ -39,6 +39,27 @@ int search_started = 0;
 int search_terminate = 0;
 
 
+static int stepASNets(void)
+{
+    if (!opt.asnets.enable)
+        return 0;
+
+    pddl_asnets_task_t task;
+    if (pddlASNetsTaskInit(&task, opt.files.domain_pddl,
+                           opt.files.problem_pddl, &err) != 0){
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    if (pddlASNetsTaskDump(&task, opt.asnets.out_task, opt.asnets.out_fdr,
+                           &err) != 0){
+        pddlASNetsTaskFree(&task);
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    pddlASNetsTaskFree(&task);
+    return 1;
+}
+
 static int stepPDDL(void)
 {
     pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
@@ -785,6 +806,7 @@ int main(int argc, char *argv[])
     pddlTimerStart(&timer);
     int ret = 0;
     if ((ret = setOptions(argc, argv, &err)) != 0
+            || (ret = stepASNets()) != 0
             || (ret = stepPDDL()) != 0
             || (ret = stepReportLiftedMGroups()) != 0
             || (ret = stepLiftedMGroups()) != 0
