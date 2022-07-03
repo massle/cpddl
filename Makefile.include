@@ -192,6 +192,16 @@ ifneq '$(MINIZINC_BIN)' ''
   endif
 endif
 
+DYNET_CFLAGS ?=
+DYNET_LDFLAGS ?=
+USE_DYNET ?= auto
+ifeq '$(USE_DYNET)' 'auto'
+  ifneq '$(DYNET_CFLAGS)$(DYNET_LDFLAGS)' ''
+    USE_DYNET := yes
+  endif
+endif
+
+
 SQLITE_BUILD_CFLAGS := \
   -DSQLITE_OMIT_AUTHORIZATION \
   -DSQLITE_OMIT_AUTOINCREMENT \
@@ -251,6 +261,9 @@ help:
 	@echo "    CUDD_CFLAGS       = $(CUDD_CFLAGS)"
 	@echo "    CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
 	@echo "    USE_CUDD          = $(USE_CUDD)"
+	@echo "    DYNET_CFLAGS      = $(DYNET_CFLAGS)"
+	@echo "    DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
+	@echo "    USE_DYNET         = $(USE_DYNET)"
 	@echo ""
 	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
 	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"
