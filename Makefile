@@ -161,6 +161,7 @@ OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 OBJS += subprocess
 OBJS += asnets_task
+OBJS += asnets_dynet
 
 OBJS += __sqlite3
 
@@ -238,6 +239,8 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
 .objs/clique.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
+.objs/asnets_dynet.o: src/asnets_dynet.c pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(DYNET_CFLAGS) -c -o $@ $<
 .objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
