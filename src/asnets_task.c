@@ -225,6 +225,12 @@ static void printSet(const pddl_iset_t *set, FILE *fout)
 
 void pddlASNetsTaskPrintPDDLStrips(const pddl_asnets_task_t *task, FILE *fout)
 {
+    // Predicates
+    fprintf(fout, "%d\n", task->pddl.pred.pred_size);
+    for (int pi = 0; pi < task->pddl.pred.pred_size; ++pi){
+        fprintf(fout, "%s\n", task->pddl.pred.pred[pi].name);
+    }
+
     // Action schemas
     fprintf(fout, "%d\n", task->pddl.action.action_size);
     for (int ai = 0; ai < task->pddl.action.action_size; ++ai){
@@ -237,6 +243,8 @@ void pddlASNetsTaskPrintPDDLStrips(const pddl_asnets_task_t *task, FILE *fout)
     fprintf(fout, "%d\n", task->strips.fact.fact_size);
     for (int fi = 0; fi < task->strips.fact.fact_size; ++fi){
         fprintf(fout, "%s\n", task->strips.fact.fact[fi]->name);
+
+        fprintf(fout, "%d\n", task->strips.fact.fact[fi]->ground_atom->pred);
 
         const pddl_iset_t *val_ids = task->fdr.var.strips_id_to_val + fi;
         ASSERT_RUNTIME(pddlISetSize(val_ids) == 1);
