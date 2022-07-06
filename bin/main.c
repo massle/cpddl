@@ -207,6 +207,30 @@ static int stepGround(void)
     PRINT_TO_FILE(&err, opt.strips.py_out, "STRIPS as python",
                   pddlStripsPrintPython(&strips, fout));
 
+    if (opt.strips.h2_dump != NULL){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlH2(&strips, &mutex, NULL, NULL, 0., &err);
+        PRINT_TO_FILE(&err, opt.strips.h2_dump, "Dump h^2 mutexes",
+            PDDL_MUTEX_PAIRS_FOR_EACH(&mutex, f1, f2)
+                fprintf(fout, "%d:(%s) %d:(%s)\n",
+                        f1, strips.fact.fact[f1]->name,
+                        f2, strips.fact.fact[f2]->name));
+        pddlMutexPairsFree(&mutex);
+    }
+
+    if (opt.strips.h3_dump != NULL){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlH3(&strips, &mutex, NULL, NULL, 0., 0, &err);
+        PRINT_TO_FILE(&err, opt.strips.h3_dump, "Dump h^3 mutexes",
+            PDDL_MUTEX_PAIRS_FOR_EACH(&mutex, f1, f2)
+                fprintf(fout, "%d:(%s) %d:(%s)\n",
+                        f1, strips.fact.fact[f1]->name,
+                        f2, strips.fact.fact[f2]->name));
+        pddlMutexPairsFree(&mutex);
+    }
+
     return opt.strips.stop;
 }
 

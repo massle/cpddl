@@ -490,6 +490,10 @@ static void setGroundOptions(void)
                 " (recommended instead of --pddl-ce).");
     optsAddStr("strips-as-py", 0x0, &opt.strips.py_out, NULL,
                "Output filename for STRIPS in python format.");
+    optsAddStr("strips-h2-dump", 0x0, &opt.strips.h2_dump, NULL,
+               "Compute h^2 and dump the mutexes to the specified file.");
+    optsAddStr("strips-h3-dump", 0x0, &opt.strips.h3_dump, NULL,
+               "Compute h^3 and dump the mutexes to the specified file.");
     optsAddFlag("strips-stop", 0x0, &opt.strips.stop, 0,
                 "Stop after grounding to STRIPS.");
 }
