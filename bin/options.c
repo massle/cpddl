@@ -725,8 +725,9 @@ static void setGroundPlannerOptions(void)
                      "  ff/hff - FF heuristic\n"
                      "  flow - Flow heuristic\n"
                      "  pot - Potential heuristic",
-                     10,
+                     11,
                      "none", GROUND_PLAN_HEUR_BLIND,
+                     "blind", GROUND_PLAN_HEUR_BLIND,
                      "lmc", GROUND_PLAN_HEUR_LMC,
                      "max", GROUND_PLAN_HEUR_MAX,
                      "hmax", GROUND_PLAN_HEUR_MAX,
