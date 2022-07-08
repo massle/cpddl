@@ -207,6 +207,21 @@ static int stepGround(void)
     PRINT_TO_FILE(&err, opt.strips.py_out, "STRIPS as python",
                   pddlStripsPrintPython(&strips, fout));
 
+    if (opt.strips.fam_dump != NULL){
+        pddl_mgroups_t mgs;
+        pddlMGroupsInitEmpty(&mgs);
+        pddlFAMGroupsInferMaximal(&mgs, &strips, &err);
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlMutexPairsAddMGroups(&mutex, &mgs);
+        PRINT_TO_FILE(&err, opt.strips.fam_dump, "Dump fam mutexes",
+            PDDL_MUTEX_PAIRS_FOR_EACH(&mutex, f1, f2)
+                fprintf(fout, "%d:(%s) %d:(%s)\n",
+                        f1, strips.fact.fact[f1]->name,
+                        f2, strips.fact.fact[f2]->name));
+        pddlMutexPairsFree(&mutex);
+        pddlMGroupsFree(&mgs);
+    }
     if (opt.strips.h2_dump != NULL){
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);

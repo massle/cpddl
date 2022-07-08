@@ -110,6 +110,7 @@ struct options {
         int compile_away_cond_eff;
         pddl_process_strips_t process;
         char *py_out;
+        char *fam_dump;
         char *h2_dump;
         char *h3_dump;
         int stop;
