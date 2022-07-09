@@ -257,6 +257,23 @@ void optsAddIntSwitch(const char *long_name,
     va_end(arg);
 }
 
+static void optsParamsPrintHelp(const opt_opt_t *opt, FILE *fout)
+{
+    if (opt->desc == NULL)
+        return;
+
+    if (opt->long_name != NULL){
+        if (opt->short_name != '\x0'){
+            fprintf(fout, "Option --%s/-%c:\n", opt->long_name, opt->short_name);
+        }else{
+            fprintf(fout, "Option --%s:\n", opt->long_name);
+        }
+    }else{
+        fprintf(fout, "Option -%c:\n", opt->short_name);
+    }
+    fprintf(fout, "%s\n", opt->desc);
+}
+
 static opt_opt_t *findOptLong(const char *name)
 {
     for (int i = 0; i < o.opt_size; i++){
@@ -318,10 +335,18 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
             return -1;
 
     }else if (opt->type == PARAMS){
+        if (strcmp(val, "help") == 0 || strcmp(val, "?") == 0){
+            optsParamsPrintHelp(opt, stderr);
+            return -1;
+        }
         if (optsParamsParse(&opt->params, val) != 0)
             return -1;
 
     }else if (opt->type == PARAMS_AND_FN){
+        if (strcmp(val, "help") == 0 || strcmp(val, "?") == 0){
+            optsParamsPrintHelp(opt, stderr);
+            return -1;
+        }
         if (optsParamsParse(&opt->params, val) != 0)
             return -1;
         opt->params_fn(opt->params_userdata);
@@ -842,13 +867,13 @@ static int parseParam(opts_params_t *params, char *text)
         name = trimWhitespace(name);
         value = trimWhitespace(value);
         if (setParam(params, name, value) != 0){
-            fprintf(stderr, "Error: Uknwown parameter: '%s'\n", text);
+            fprintf(stderr, "Error: Uknown parameter: '%s'\n", text);
             return -1;
         }
 
     }else{
         if (setParamFlag(params, name) != 0){
-            fprintf(stderr, "Error: Uknwown parameter: '%s'\n", text);
+            fprintf(stderr, "Error: Uknown parameter: '%s'\n", text);
             return -1;
         }
     }
