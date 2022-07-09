@@ -110,8 +110,10 @@ static int solveAndAdd(pddl_pot_t *pot,
                       "%.4f (%a)", rhs, rhs);
         ret = pddlPotSolve(pot, &sol, err);
     }
-    if (ret == 0)
+    if (ret == 0){
+        PDDL_INFO(err, "Have a solution. objval: %.4f", sol.objval);
         pddlPotSolutionsAdd(sols, &sol);
+    }
     pddlPotSolutionFree(&sol);
     return ret;
 }
