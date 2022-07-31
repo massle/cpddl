@@ -14,6 +14,7 @@
 #define PARAMS_AND_FN 9
 #define INT_SWITCH 10
 #define FLT_FN 11
+#define STR_FN 12
 
 
 struct opt_group {
@@ -35,6 +36,7 @@ struct opt_opt {
     int (*flag_fn)(int);
     void (*flag_fn2)(void);
     int (*flt_fn)(float);
+    int (*str_fn)(const char *);
     opts_params_t params;
     void (*params_fn)(void *ud);
     void *params_userdata;
@@ -200,6 +202,15 @@ void optsAddStr(const char *long_name,
     }
 }
 
+void optsAddStrFn(const char *long_name,
+                  char short_name,
+                  int (*fn)(const char *),
+                  const char *desc)
+{
+    opt_opt_t *opt = optsAdd(STR_FN, long_name, short_name, NULL, desc);
+    opt->str_fn = fn;
+}
+
 void optsAddTags(const char *long_name,
                  char short_name,
                  const char *default_value,
@@ -326,9 +337,14 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
                 return -1;
         }
 
-    }else if (opt->type == STR){
-        if (opt->set)
+    }else if (opt->type == STR || opt->type == STR_FN){
+        if (opt->type == STR_FN){
+            if (opt->str_fn(val) != 0)
+                return -1;
+
+        }else if (opt->set){
             *(char **)opt->set = (char *)val;
+        }
 
     }else if (opt->type == STR_TAGS){
         if (optsProcessTags(val, opt->parse_tags) != 0)
@@ -589,6 +605,7 @@ static void optsPrintOpts(int group, FILE *fout)
         }else if (opt->type == FLT || opt->type == FLT_FN){
             fprintf(fout, "flt ");
         }else if (opt->type == STR
+                    || opt->type == STR_FN
                     || opt->type == PARAMS
                     || opt->type == PARAMS_AND_FN
                     || opt->type == INT_SWITCH){

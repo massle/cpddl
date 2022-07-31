@@ -692,3 +692,65 @@ void pddlProcessStripsAddEndomorphFDRTS(pddl_process_strips_t *prune,
     p->cfg = *cfg;
     p->fdr_ts = 1;
 }
+
+struct pddl_process_strips_step_print {
+    pddl_process_strips_step_t step;
+    int print_domain;
+    int print_problem;
+    char *fn;
+};
+typedef struct pddl_process_strips_step_print pddl_process_strips_step_print_t;
+
+static int printExecute(pddl_process_strips_t *ps,
+                        pddl_process_strips_step_t *_step,
+                        pddl_err_t *err)
+{
+    pddl_process_strips_step_print_t *step;
+    step = pddl_container_of(_step, pddl_process_strips_step_print_t, step);
+
+    FILE *fout = fopen(step->fn, "w");
+    if (fout == NULL){
+        PDDL_INFO(err, "Could not open file %s", step->fn);
+        return 0;
+    }
+
+    if (step->print_domain){
+        pddlStripsPrintPDDLDomain(ps->strips, fout);
+
+    }else if (step->print_problem){
+        pddlStripsPrintPDDLProblem(ps->strips, fout);
+    }
+
+    fclose(fout);
+    return 0;
+}
+
+static void printFree(pddl_process_strips_step_t *_step)
+{
+    pddl_process_strips_step_print_t *step;
+    step = pddl_container_of(_step, pddl_process_strips_step_print_t, step);
+    if (step->fn != NULL)
+        PDDL_FREE(step->fn);
+}
+
+void pddlProcessStripsAddPrintPddlDomain(pddl_process_strips_t *ps,
+                                         const char *fn)
+{
+    pddl_process_strips_step_print_t *step;
+    step = PDDL_ALLOC(pddl_process_strips_step_print_t);
+    bzero(step, sizeof(*step));
+    stepInit("print-domain", &step->step, ps, printExecute, printFree);
+    step->print_domain = 1;
+    step->fn = PDDL_STRDUP(fn);
+}
+
+void pddlProcessStripsAddPrintPddlProblem(pddl_process_strips_t *ps,
+                                          const char *fn)
+{
+    pddl_process_strips_step_print_t *step;
+    step = PDDL_ALLOC(pddl_process_strips_step_print_t);
+    bzero(step, sizeof(*step));
+    stepInit("print-problem", &step->step, ps, printExecute, printFree);
+    step->print_problem = 1;
+    step->fn = PDDL_STRDUP(fn);
+}

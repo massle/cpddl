@@ -58,6 +58,11 @@ void pddlProcessStripsAddEndomorphTS(pddl_process_strips_t *prune,
 void pddlProcessStripsAddEndomorphFDRTS(pddl_process_strips_t *prune,
                                         const pddl_endomorphism_config_t *cfg);
 
+void pddlProcessStripsAddPrintPddlDomain(pddl_process_strips_t *ps,
+                                         const char *fn);
+void pddlProcessStripsAddPrintPddlProblem(pddl_process_strips_t *ps,
+                                          const char *fn);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -277,6 +277,18 @@ static void h2Alias(void)
     deduplicateOps();
 }
 
+static int printStripsPddlDomain(const char *fn)
+{
+    pddlProcessStripsAddPrintPddlDomain(&opt.strips.process, fn);
+    return 0;
+}
+
+static int printStripsPddlProblem(const char *fn)
+{
+    pddlProcessStripsAddPrintPddlProblem(&opt.strips.process, fn);
+    return 0;
+}
+
 static void endomorphism(void *ud)
 {
     endomorph_cfg_t *cfg = ud;
@@ -624,6 +636,12 @@ static void setProcessStripsOptions(void)
                    "Alias for --P-{unreachable-op,irr-op,fam-dead-end,"
                    "h2fwbw,irr,rm-useless-del-effs,dedup}"
                    " (set by default for pddl-symba)");
+
+    optsAddStrFn("P-pddl-domain", 0x0, printStripsPddlDomain,
+                 "Print STRIPS problem in the PDDL format -- domain file.");
+    optsAddStrFn("P-pddl-problem", 0x0, printStripsPddlProblem,
+                 "Print STRIPS problem in the PDDL format -- problem file.");
+
 
     if (is_pddl_symba){
         h2Alias();
