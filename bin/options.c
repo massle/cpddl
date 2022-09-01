@@ -581,7 +581,7 @@ static void setProcessStripsOptions(void)
     optsAddFlagFn2("P-h3fw", 0x0, pruneH3Fw,
                    "Prune with h^3 in forward direction without time limit.");
 
-    h3_cfg_t h3_cfg = { 0 };
+    static h3_cfg_t h3_cfg = { 0 };
     params = optsAddParamsAndFn("P-h3fw-limit", 0x0,
                                 "Prune with h^3 with the specified limits.\n"
                                 "Options:\n"
@@ -591,7 +591,7 @@ static void setProcessStripsOptions(void)
     optsParamsAddFlt(params, "time", &h3_cfg.time);
     optsParamsAddInt(params, "mem", &h3_cfg.mem);
 
-    endomorph_cfg_t endomorph_cfg = { 0 };
+    static endomorph_cfg_t endomorph_cfg = { 0 };
     endomorph_cfg.cfg = endomorph_default_cfg;
     params = optsAddParamsAndFn("P-endo", 0x0,
                                 "Endomorphism.\n"
@@ -616,7 +616,7 @@ static void setProcessStripsOptions(void)
     optsParamsAddFlag(params, "ignore-costs", &endomorph_cfg.cfg.ignore_costs);
 
 
-    op_mutex_cfg_t opm_cfg = { 0 };
+    static op_mutex_cfg_t opm_cfg = { 0 };
     params = optsAddParamsAndFn("P-opm", 0x0,
                                 "Operator mutexes.\n"
                                 "Options:\n"
