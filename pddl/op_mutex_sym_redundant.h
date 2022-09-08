@@ -38,6 +38,11 @@ void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant,
                                      const pddl_op_mutex_pairs_t *op_mutex,
                                      pddl_err_t *err);
 
+void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
+                                const pddl_strips_sym_t *sym,
+                                const pddl_op_mutex_pairs_t *op_mutex,
+                                pddl_iset_t *redundant,
+                                pddl_err_t *err);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

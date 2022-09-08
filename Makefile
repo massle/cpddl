@@ -123,6 +123,7 @@ OBJS += op_mutex_pair
 OBJS += op_mutex_infer
 OBJS += op_mutex_infer_ts
 OBJS += op_mutex_sym_redundant
+OBJS += op_mutex_redundant_lp
 OBJS += reversibility
 OBJS += invertibility
 OBJS += cascading_table
