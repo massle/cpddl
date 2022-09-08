@@ -180,3 +180,29 @@ void pddlOpMutexPairsUnion(pddl_op_mutex_pairs_t *m,
     PDDL_OP_MUTEX_PAIRS_FOR_EACH(n, o1, o2)
         pddlOpMutexPairsAdd(m, o1, o2);
 }
+
+void pddlOpMutexPairsGenMapOpToOpSet(const pddl_op_mutex_pairs_t *m,
+                                     const pddl_iset_t *relevant_ops,
+                                     pddl_iset_t *map)
+{
+    int *relevant_ops_arr = CALLOC_ARR(int, m->op_size);
+    if (relevant_ops != NULL){
+        int op_id;
+        PDDL_ISET_FOR_EACH(relevant_ops, op_id)
+            relevant_ops_arr[op_id] = 1;
+    }else{
+        for (int op_id = 0; op_id < m->op_size; ++op_id)
+            relevant_ops_arr[op_id] = 1;
+    }
+
+    int op_id1, op_id2;
+    PDDL_OP_MUTEX_PAIRS_FOR_EACH(m, op_id1, op_id2){
+        if (relevant_ops_arr[op_id1] && relevant_ops_arr[op_id2]){
+            pddlISetAdd(map + op_id1, op_id2);
+            pddlISetAdd(map + op_id2, op_id1);
+        }
+    }
+
+    if (relevant_ops_arr != NULL)
+        FREE(relevant_ops_arr);
+}
