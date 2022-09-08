@@ -735,11 +735,6 @@ int pddlPotSolve(const pddl_pot_t *pot,
                  pddl_err_t *err)
 {
     int ret = 0;
-    pddl_lp_t *lp;
-
-    unsigned lp_flags;
-    lp_flags  = PDDL_LP_MAX;
-    lp_flags |= PDDL_LP_NUM_THREADS(1);
 
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
@@ -747,7 +742,14 @@ int pddlPotSolve(const pddl_pot_t *pot,
         const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         rows += m->var_size;
     }
-    lp = pddlLPNew(rows, pot->var_size, lp_flags, err);
+
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 1;
+    cfg.rows = rows;
+    cfg.cols = pot->var_size;
+    if (pot->op_pot && !pot->op_pot_real)
+        cfg.tune_int_operator_potential = 1;
+    pddl_lp_t *lp = pddlLPNew(&cfg, err);
 
     for (int i = 0; i < pot->var_size; ++i){
         if (pot->use_ilp)
@@ -763,7 +765,6 @@ int pddlPotSolve(const pddl_pot_t *pot,
 
     int op_pot_var_offset = 0;
     if (pot->op_pot && !pot->op_pot_real){
-        pddlLPTune(lp, PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL);
         op_pot_var_offset = addOpPotConstrs(lp, pot);
     }
     if (pot->enforce_int_init)

@@ -439,11 +439,11 @@ static void blackVarsFree(black_vars_t *bv)
 
 static pddl_lp_t *createLP(const black_vars_t *bv)
 {
-    unsigned lp_flags;
-    lp_flags  = PDDL_LP_DEFAULT;
-    lp_flags |= PDDL_LP_NUM_THREADS(1);
-    lp_flags |= PDDL_LP_MAX;
-    pddl_lp_t *lp = pddlLPNew(0, bv->fact_vertex_size, lp_flags, NULL);
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 1;
+    cfg.rows = 0;
+    cfg.cols = bv->fact_vertex_size;
+    pddl_lp_t *lp = pddlLPNew(&cfg, NULL);
     for (int vi = 0; vi < bv->fact_vertex_size; ++vi){
         pddlLPSetObj(lp, vi, bv->fact_vertex[vi].weight);
         pddlLPSetVarBinary(lp, vi);

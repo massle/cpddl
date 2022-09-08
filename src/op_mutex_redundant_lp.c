@@ -135,13 +135,17 @@ void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
         return;
     }
 
-    unsigned lp_config = PDDL_LP_MAX;
     int num_ops = pddlISetSize(&red.relevant_ops);
     int num_vars = 2 * num_ops;
     LOG(err, "LP vars: %{num_lp_vars}d", num_vars);
     LOG(err, "LP rows: %{num_lp_rows}d", 2 * num_ops);
 
-    pddl_lp_t *lp = pddlLPNew(2 * num_ops, num_vars, lp_config, err);
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 1;
+    cfg.cols = num_vars;
+    cfg.rows = 2 * num_ops;
+    cfg.time_limit = 20.;
+    pddl_lp_t *lp = pddlLPNew(&cfg, err);
     for (int vi = 0; vi < num_vars; ++vi){
         pddlLPSetVarBinary(lp, vi);
         if (vi < num_ops)

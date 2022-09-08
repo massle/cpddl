@@ -21,10 +21,15 @@
 #ifdef PDDL_GUROBI
 # include <gurobi_c.h>
 
+#define MAX_COEFS 1000
 struct _lp_t {
     pddl_lp_t cls;
     GRBenv *env;
     GRBmodel *model;
+    int *coef_row;
+    int *coef_col;
+    double *coef_coef;
+    int coef_size;
 };
 typedef struct _lp_t lp_t;
 
@@ -50,54 +55,54 @@ static void grbError(lp_t *lp)
     exit(-1);
 }
 
-static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
+static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
-    lp_t *lp;
-    int ret, sense, num_threads;
+    int ret;
 
-    lp = ALLOC(lp_t);
+    lp_t *lp = ALLOC(lp_t);
     lp->cls.cls = &pddl_lp_gurobi;
     lp->cls.err = err;
+    lp->cls.cfg = *cfg;
     if ((ret = GRBloadenv(&lp->env, NULL)) != 0){
         FATAL("LP Gurobi Error: Could not create environment"
               " (error-code: %d)!", ret);
     }
-    if (GRBnewmodel(lp->env, &lp->model, NULL, cols,
+    if (GRBnewmodel(lp->env, &lp->model, NULL, cfg->cols,
                 NULL, NULL, NULL, NULL, NULL) != 0){
         grbError(lp);
     }
 
-    if (GRBsetintparam(lp->env, "OutputFlag", 0) != 0)
+    if (GRBsetintparam(lp->env, "OutputFlag", 1) != 0)
         grbError(lp);
 
-    num_threads = PDDL_LP_GET_NUM_THREADS(flags);
-    if (num_threads == PDDL_LP_NUM_THREADS_AUTO){
-        if (GRBsetintparam(lp->env, "Threads", 0) != 0)
-            grbError(lp);
-    }else if (num_threads == 0){
-        if (GRBsetintparam(lp->env, "Threads", 1) != 0)
-            grbError(lp);
-    }else{
-        if (GRBsetintparam(lp->env, "Threads", num_threads) != 0)
+    int num_threads = PDDL_MAX(1, cfg->num_threads);
+    if (GRBsetintparam(lp->env, "Threads", num_threads) != 0)
+        grbError(lp);
+
+    if (cfg->time_limit > 0.){
+        if (GRBsetdblparam(lp->env, "TimeLimit", cfg->time_limit) != 0)
             grbError(lp);
     }
 
-    if (rows > 0){
-        if (GRBaddconstrs(lp->model, rows, 0,
+    if (cfg->rows > 0){
+        if (GRBaddconstrs(lp->model, cfg->rows, 0,
                     NULL, NULL, NULL, NULL, NULL, NULL) != 0){
             grbError(lp);
         }
     }
 
-    if ((flags & 0x1) == PDDL_LP_MIN){
-        sense = GRB_MINIMIZE;
-    }else{
+    int sense = GRB_MINIMIZE;
+    if (cfg->maximize)
         sense = GRB_MAXIMIZE;
-    }
     if (GRBsetintattr(lp->model, GRB_INT_ATTR_MODELSENSE, sense) != 0)
         grbError(lp);
 
     GRBupdatemodel(lp->model);
+
+    lp->coef_size = 0;
+    lp->coef_row = ALLOC_ARR(int, MAX_COEFS);
+    lp->coef_col = ALLOC_ARR(int, MAX_COEFS);
+    lp->coef_coef = ALLOC_ARR(double, MAX_COEFS);
     return &lp->cls;
 }
 
@@ -105,6 +110,9 @@ static void del(pddl_lp_t *_lp)
 {
     lp_t *lp = LP(_lp);
     GRBfreeenv(lp->env);
+    FREE(lp->coef_row);
+    FREE(lp->coef_col);
+    FREE(lp->coef_coef);
     FREE(lp);
 }
 
@@ -146,9 +154,20 @@ static void setVarBinary(pddl_lp_t *_lp, int i)
 static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
 {
     lp_t *lp = LP(_lp);
-    if (GRBchgcoeffs(lp->model, 1, &row, &col, &coef) != 0)
+    if (lp->coef_size == MAX_COEFS){
+        GRBupdatemodel(lp->model);
+        lp->coef_size = 0;
+    }
+    lp->coef_row[lp->coef_size] = row;
+    lp->coef_col[lp->coef_size] = col;
+    lp->coef_coef[lp->coef_size] = coef;
+    if (GRBchgcoeffs(lp->model, 1,
+                     &lp->coef_row[lp->coef_size],
+                     &lp->coef_col[lp->coef_size],
+                     &lp->coef_coef[lp->coef_size]) != 0){
         grbError(lp);
-    GRBupdatemodel(lp->model);
+    }
+    ++lp->coef_size;
 }
 
 static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
@@ -284,13 +303,12 @@ static void lpWrite(pddl_lp_t *_lp, const char *fn)
         grbError(lp);
 }
 
-static void tune(pddl_lp_t *_lp, unsigned flag)
-{
-}
-
+#define TOSTR1(x) #x
+#define TOSTR(x) TOSTR1(x)
 pddl_lp_cls_t pddl_lp_gurobi = {
     PDDL_LP_GUROBI,
     "gurobi",
+    TOSTR(GRB_VERSION_MAJOR.GRB_VERSION_MINOR.GRB_VERSION_TECHNICAL),
     new,
     del,
     setObj,
@@ -308,7 +326,6 @@ pddl_lp_cls_t pddl_lp_gurobi = {
     numCols,
     lpSolve,
     lpWrite,
-    tune,
 };
 #else /* PDDL_GUROBI */
 pddl_lp_cls_t pddl_lp_gurobi;

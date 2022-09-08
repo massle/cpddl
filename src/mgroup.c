@@ -711,17 +711,16 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
                     " Missing LP solver!");
     }
 
-    unsigned lp_flags;
-    pddl_lp_t *lp;
     int cover_number = 0;
 
     int cols = fact_size + mgs->mgroup_size;
     int rows = fact_size + 1;
 
-    lp_flags  = PDDL_LP_DEFAULT;
-    lp_flags |= PDDL_LP_NUM_THREADS(1);
-    lp_flags |= PDDL_LP_MIN;
-    lp = pddlLPNew(rows, cols, lp_flags, NULL);
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 0;
+    cfg.rows = rows;
+    cfg.cols = cols;
+    pddl_lp_t *lp = pddlLPNew(&cfg, NULL);
 
     for (int i = 0; i < cols; ++i){
         pddlLPSetVarBinary(lp, i);

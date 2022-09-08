@@ -35,7 +35,7 @@ typedef struct _lp_t lp_t;
 
 #define LP(l) pddl_container_of((l), lp_t, cls)
 
-static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
+static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
     lp_t *lp;
 
@@ -43,18 +43,24 @@ static pddl_lp_t *new(int rows, int cols, unsigned flags, pddl_err_t *err)
     bzero(lp, sizeof(*lp));
     lp->cls.cls = &pddl_lp_glpk;
     lp->cls.err = err;
+    lp->cls.cfg = *cfg;
     lp->mip = 0;
     lp->lp = glp_create_prob();
-    if ((flags & 0x1u) == PDDL_LP_MIN){
-        glp_set_obj_dir(lp->lp, GLP_MIN);
-    }else{
+    if (cfg->maximize){
         glp_set_obj_dir(lp->lp, GLP_MAX);
+    }else{
+        glp_set_obj_dir(lp->lp, GLP_MIN);
     }
 
-    if (cols > 0)
-        glp_add_cols(lp->lp, cols);
-    if (rows > 0)
-        glp_add_rows(lp->lp, rows);
+    if (cfg->cols > 0)
+        glp_add_cols(lp->lp, cfg->cols);
+    if (cfg->rows > 0)
+        glp_add_rows(lp->lp, cfg->rows);
+
+    if (cfg->num_threads > 1){
+        LOG(err, "cfg.num_threads = %d is not supported by GLPK",
+            cfg->num_threads);
+    }
 
     return &lp->cls;
 }
@@ -186,14 +192,26 @@ static int lpSolve(pddl_lp_t *_lp, double *val, double *obj)
 {
     lp_t *lp = LP(_lp);
 
+
     glp_load_matrix(lp->lp, lp->mat_size, lp->ri, lp->ci, lp->coef);
 
-    int ret = glp_simplex(lp->lp, NULL);
+    glp_smcp cfg;
+    glp_init_smcp(&cfg);
+    cfg.msg_lev = GLP_MSG_ERR;
+    if (lp->cls.cfg.time_limit > 0.f)
+        cfg.tm_lim = 1000 * lp->cls.cfg.time_limit;
+
+    int ret = glp_simplex(lp->lp, &cfg);
     if (ret != 0)
         return -1;
 
     if (lp->mip){
-        ret = glp_intopt(lp->lp, NULL);
+        glp_iocp cfg;
+        glp_init_iocp(&cfg);
+        cfg.msg_lev = GLP_MSG_ERR;
+        if (lp->cls.cfg.time_limit > 0.f)
+            cfg.tm_lim = 1000 * lp->cls.cfg.time_limit;
+        ret = glp_intopt(lp->lp, &cfg);
         if (ret == 0){
             if (val != NULL)
                 *val = glp_mip_obj_val(lp->lp);
@@ -225,14 +243,13 @@ static void lpWrite(pddl_lp_t *_lp, const char *fn)
     glp_write_lp(lp->lp, NULL, fn);
 }
 
-static void tune(pddl_lp_t *_lp, unsigned flag)
-{
-}
 
-
+#define TOSTR1(x) #x
+#define TOSTR(x) TOSTR1(x)
 pddl_lp_cls_t pddl_lp_glpk = {
     PDDL_LP_GLPK,
     "glpk",
+    TOSTR(GLP_MAJOR_VERSION.GLP_MINOR_VERSION),
     new,
     del,
     setObj,
@@ -250,7 +267,6 @@ pddl_lp_cls_t pddl_lp_glpk = {
     numCols,
     lpSolve,
     lpWrite,
-    tune,
 };
 #else /* PDDL_GLPK */
 pddl_lp_cls_t pddl_lp_glpk;

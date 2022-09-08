@@ -294,12 +294,13 @@ static pddl_lp_t *lpInit(const pddl_hflow_fact_t *facts, int facts_size,
                          int use_ilp,
                          int num_threads)
 {
-    pddl_lp_t *lp;
-    unsigned lp_flags;
 
-    lp_flags  = PDDL_LP_MIN;
-    lp_flags |= PDDL_LP_NUM_THREADS(num_threads);
-    lp = pddlLPNew(2 * facts_size, op->op_size, lp_flags, NULL);
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 0;
+    cfg.rows = 2 * facts_size;
+    cfg.cols = op->op_size;
+    cfg.num_threads = num_threads;
+    pddl_lp_t *lp = pddlLPNew(&cfg, NULL);
 
     // Set up columns
     for (int i = 0; i < op->op_size; ++i){
