@@ -266,6 +266,28 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
     allSymmetries(sym, sym_set, applyGenOnOpSet);
 }
 
+void pddlStripsSymOpTransitiveClosure(const pddl_strips_sym_t *sym,
+                                      int op_id,
+                                      pddl_iset_t *transitive_closure)
+{
+    pddl_set_iset_t opset;
+    pddlSetISetInit(&opset);
+
+    PDDL_ISET(op);
+    pddlISetAdd(&op, op_id);
+    pddlSetISetAdd(&opset, &op);
+    pddlISetFree(&op);
+
+    pddlStripsSymAllOpSetSymmetries(sym, &opset);
+    const pddl_iset_t *sym_op;
+    PDDL_SET_ISET_FOR_EACH(&opset, sym_op){
+        ASSERT(pddlISetSize(sym_op) == 1);
+        pddlISetUnion(transitive_closure, sym_op);
+    }
+
+    pddlSetISetFree(&opset);
+}
+
 void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
                         int gen_id,
                         const pddl_iset_t *in,
