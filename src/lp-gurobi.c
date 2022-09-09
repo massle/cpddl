@@ -21,7 +21,7 @@
 #ifdef PDDL_GUROBI
 # include <gurobi_c.h>
 
-#define MAX_COEFS 1000
+#define MAX_COEFS 20000
 struct _lp_t {
     pddl_lp_t cls;
     GRBenv *env;
@@ -51,8 +51,24 @@ static char lpSense(char sense)
 
 static void grbError(lp_t *lp)
 {
-    fprintf(stderr, "LP Gurobi Error: %s\n", GRBgeterrormsg(lp->env));
-    exit(-1);
+    FATAL("Gurobi Error: %s\n", GRBgeterrormsg(lp->env));
+}
+
+static int cb(GRBmodel *model, void *cbdata, int where, void *ud)
+{
+    pddl_err_t *err = ud;
+    if (where == GRB_CB_MESSAGE){
+        char *msg;
+        if (GRBcbget(cbdata, where, GRB_CB_MSG_STRING, (void *)&msg) == 0){
+            char out[128];
+            int msglen = strlen(msg);
+            msglen = PDDL_MIN(128, msglen - 1);
+            memcpy(out, msg, msglen * sizeof(char));
+            out[msglen] = '\x0';
+            LOG(err, "gurobi: %s", out);
+        }
+    }
+    return 0;
 }
 
 static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
@@ -63,26 +79,36 @@ static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
     lp->cls.cls = &pddl_lp_gurobi;
     lp->cls.err = err;
     lp->cls.cfg = *cfg;
-    if ((ret = GRBloadenv(&lp->env, NULL)) != 0){
-        FATAL("LP Gurobi Error: Could not create environment"
+    if ((ret = GRBemptyenv(&lp->env)) != 0){
+        FATAL("Gurobi Error: Could not create environment"
               " (error-code: %d)!", ret);
     }
+    if (GRBsetintparam(lp->env, "OutputFlag", 0) != 0)
+        grbError(lp);
+
+    if ((ret = GRBstartenv(lp->env)) != 0){
+        if (ret == GRB_ERROR_NO_LICENSE)
+            WARN2(err, "It seems license file wasn't found. Don't forget to"
+                  " set GRB_LICENSE_FILE environment variable.");
+        grbError(lp);
+    }
+
     if (GRBnewmodel(lp->env, &lp->model, NULL, cfg->cols,
                 NULL, NULL, NULL, NULL, NULL) != 0){
         grbError(lp);
     }
 
-    if (GRBsetintparam(lp->env, "OutputFlag", 1) != 0)
-        grbError(lp);
+    GRBsetcallbackfunc(lp->model, cb, err);
 
     int num_threads = PDDL_MAX(1, cfg->num_threads);
-    if (GRBsetintparam(lp->env, "Threads", num_threads) != 0)
+    if (GRBsetintparam(GRBgetenv(lp->model), "Threads", num_threads) != 0)
         grbError(lp);
 
     if (cfg->time_limit > 0.){
-        if (GRBsetdblparam(lp->env, "TimeLimit", cfg->time_limit) != 0)
+        if (GRBsetdblparam(GRBgetenv(lp->model), "TimeLimit", cfg->time_limit) != 0)
             grbError(lp);
     }
+
 
     if (cfg->rows > 0){
         if (GRBaddconstrs(lp->model, cfg->rows, 0,
@@ -270,7 +296,16 @@ static int lpSolve(pddl_lp_t *_lp, double *val, double *obj)
     if (GRBgetintattr(lp->model, "Status", &st) != 0)
         grbError(lp);
 
-    if (st == GRB_OPTIMAL){
+    if (st == GRB_OPTIMAL || st == GRB_TIME_LIMIT){
+        if (st == GRB_TIME_LIMIT){
+            int val;
+            if (GRBgetintattr(lp->model, "SolCount", &val) != 0)
+                grbError(lp);
+            LOG(_lp->err, "Time limit: solutions: %d", val);
+            if (val <= 0)
+                return -1;
+        }
+
         if (val != NULL){
             if (GRBgetdblattr(lp->model, "ObjVal", val) != 0)
                 grbError(lp);
