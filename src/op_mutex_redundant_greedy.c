@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "pddl/op_mutex_sym_redundant.h"
 #include "internal.h"
+#include "pddl/op_mutex_redundant.h"
 
 struct reduce_gen {
     /** ID of the symmetry generator */
@@ -61,21 +61,19 @@ static void reduceGenInit(reduce_gen_t *rgen,
                           const reduce_t *red,
                           const pddl_strips_sym_gen_t *gen,
                           const pddl_strips_sym_t *sym,
-                          const pddl_strips_t *strips,
                           const pddl_op_mutex_pairs_t *op_mutex)
 {
     bzero(rgen, sizeof(*rgen));
     rgen->gen_id = gen_id;
     rgen->gen = gen;
 
-    const pddl_strips_op_t *op;
-    PDDL_STRIPS_OPS_FOR_EACH(&strips->op, op){
-        if (gen->op[op->id] != op->id
-                && pddlOpMutexPairsIsMutex(op_mutex, op->id, gen->op[op->id]))
-            pddlISetAdd(&rgen->relevant_op, op->id);
+    for (int op_id = 0; op_id < red->op_size; ++op_id){
+        if (gen->op[op_id] != op_id
+                && pddlOpMutexPairsIsMutex(op_mutex, op_id, gen->op[op_id]))
+            pddlISetAdd(&rgen->relevant_op, op_id);
     }
 
-    rgen->op_size = strips->op.op_size;
+    rgen->op_size = red->op_size;
     rgen->op_mutex_with = CALLOC_ARR(pddl_iset_t, rgen->op_size);
 
     int op_id;
@@ -100,24 +98,22 @@ static void reduceGenFree(reduce_gen_t *rgen)
 }
 
 static void reduceInit(reduce_t *red,
-                       const pddl_strips_t *strips,
                        const pddl_strips_sym_t *sym,
                        const pddl_op_mutex_pairs_t *op_mutex)
 {
     bzero(red, sizeof(*red));
-    red->op_size = strips->op.op_size;
+    red->op_size = op_mutex->op_size;
     red->op_mutex_with = CALLOC_ARR(pddl_iset_t, red->op_size);
-    const pddl_strips_op_t *op;
-    PDDL_STRIPS_OPS_FOR_EACH(&strips->op, op){
-        pddlOpMutexPairsMutexWith(op_mutex, op->id,
-                                  red->op_mutex_with + op->id);
+    for (int op_id = 0; op_id < red->op_size; ++op_id){
+        pddlOpMutexPairsMutexWith(op_mutex, op_id,
+                                  red->op_mutex_with + op_id);
     }
 
     red->gen_size = sym->gen_size;
     red->gen = CALLOC_ARR(reduce_gen_t, sym->gen_size);
     for (int i = 0; i < sym->gen_size; ++i){
         reduceGenInit(red->gen + i, i, red,
-                      sym->gen + i, sym, strips, op_mutex);
+                      sym->gen + i, sym, op_mutex);
     }
 }
 
@@ -356,18 +352,19 @@ static int selectRedundantSet(const reduce_t *red, pddl_err_t *err)
     return best;
 }
 
-void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant_out,
-                                     const pddl_strips_t *strips,
-                                     const pddl_strips_sym_t *sym,
-                                     const pddl_op_mutex_pairs_t *op_mutex,
-                                     pddl_err_t *err)
+int pddlOpMutexFindRedundantGreedy(const pddl_op_mutex_pairs_t *op_mutex,
+                                   const pddl_strips_sym_t *sym,
+                                   const pddl_op_mutex_redundant_config_t *cfg,
+                                   pddl_iset_t *redundant_out,
+                                   pddl_err_t *err)
 {
+    CTX(err, "opm_redundant_greedy", "OPM-Redundant-Greedy");
     reduce_t red;
     int change, gen_id;
 
     PDDL_INFO2(err, "Redundant set with op-mutexes and symmetries:");
 
-    reduceInit(&red, strips, sym, op_mutex);
+    reduceInit(&red, sym, op_mutex);
     PDDL_INFO2(err, "  --> Initialized");
 
     change = 1;
@@ -394,4 +391,6 @@ void pddlOpMutexSymRedundantFixpoint(pddl_iset_t *redundant_out,
 
     pddlISetUnion(redundant_out, &red.pruned_ops);
     reduceFree(&red);
+    CTXEND(err);
+    return 0;
 }

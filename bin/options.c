@@ -20,6 +20,8 @@ struct op_mutex_cfg {
     int op_fact;
     int hm_op;
     int no_prune;
+    int prune_method;
+    float prune_time_limit;
     char *out;
 };
 typedef struct op_mutex_cfg op_mutex_cfg_t;
@@ -306,9 +308,16 @@ static void endomorphism(void *ud)
 static void opMutex(void *ud)
 {
     op_mutex_cfg_t *cfg = ud;
+    if (!cfg->no_prune && cfg->prune_method == 0){
+        fprintf(stderr, "Option Error: --P-opm requires prune-method=..."
+                " option unless no-prune is set\n");
+        exit(-1);
+    }
     pddlProcessStripsAddOpMutex(&opt.strips.process,
                                 cfg->ts, cfg->op_fact, cfg->hm_op,
-                                cfg->no_prune, cfg->out);
+                                cfg->no_prune, cfg->prune_method,
+                                cfg->prune_time_limit,
+                                cfg->out);
     if (cfg->out != NULL)
         PDDL_FREE(cfg->out);
     bzero(cfg, sizeof(*cfg));
@@ -624,12 +633,22 @@ static void setProcessStripsOptions(void)
                                 "  op-fact = <int> -- op-fact compilation\n"
                                 "  hm-op = <int> -- h^m from each operator\n"
                                 "  no-prune = <bool> -- disabled pruning\n"
+                                "  p/prune-method = max/greedy -- inference method\n"
+                                "  tl/prune-time-limit = <float>\n"
                                 "  out = <str> -- path to file where operator mutex are stored",
                                 &opm_cfg, opMutex);
     optsParamsAddFlag(params, "ts", &opm_cfg.ts);
     optsParamsAddInt(params, "op-fact", &opm_cfg.op_fact);
     optsParamsAddInt(params, "hm-op", &opm_cfg.hm_op);
     optsParamsAddFlag(params, "no-prune", &opm_cfg.no_prune);
+    optsParamsAddIntSwitch(params, "p", &opm_cfg.prune_method, 2,
+                           "max", PDDL_OP_MUTEX_REDUNDANT_MAX,
+                           "greedy", PDDL_OP_MUTEX_REDUNDANT_GREEDY);
+    optsParamsAddIntSwitch(params, "prune-method", &opm_cfg.prune_method, 2,
+                           "max", PDDL_OP_MUTEX_REDUNDANT_MAX,
+                           "greedy", PDDL_OP_MUTEX_REDUNDANT_GREEDY);
+    optsParamsAddFlt(params, "tl", &opm_cfg.prune_time_limit);
+    optsParamsAddFlt(params, "prune-time-limit", &opm_cfg.prune_time_limit);
     optsParamsAddStr(params, "out", &opm_cfg.out);
 
     optsAddFlagFn2("h2", 0x0, h2Alias,

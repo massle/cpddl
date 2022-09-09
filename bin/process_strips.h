@@ -50,7 +50,9 @@ void pddlProcessStripsAddSortOps(pddl_process_strips_t *prune);
 
 void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
                                  int ts, int op_fact, int hm_op,
-                                 int no_prune, const char *out);
+                                 int no_prune, int prune_method,
+                                 float prune_time_limit,
+                                 const char *out);
 void pddlProcessStripsAddEndomorphFDR(pddl_process_strips_t *prune,
                                       const pddl_endomorphism_config_t *cfg);
 void pddlProcessStripsAddEndomorphTS(pddl_process_strips_t *prune,

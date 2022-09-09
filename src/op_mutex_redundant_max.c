@@ -14,8 +14,7 @@
  */
 
 #include "internal.h"
-#include "pddl/op_mutex_pair.h"
-#include "pddl/sym.h"
+#include "pddl/op_mutex_redundant.h"
 #include "pddl/lp.h"
 
 struct redundant {
@@ -28,13 +27,12 @@ struct redundant {
 typedef struct redundant redundant_t;
 
 static void redundantInit(redundant_t *red,
-                          const pddl_strips_t *strips,
                           const pddl_strips_sym_t *sym,
                           const pddl_op_mutex_pairs_t *op_mutex,
                           pddl_err_t *err)
 {
     bzero(red, sizeof(*red));
-    red->op_size = strips->op.op_size;
+    red->op_size = op_mutex->op_size;
 
     LOG2(err, "Computing transitive closures on symmetries...");
     red->op_sym = CALLOC_ARR(pddl_iset_t, red->op_size);
@@ -110,21 +108,21 @@ static void redundantFree(redundant_t *red)
         FREE(red->op_to_relevant_op);
 }
 
-void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
+int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
                                 const pddl_strips_sym_t *sym,
-                                const pddl_op_mutex_pairs_t *op_mutex,
+                                const pddl_op_mutex_redundant_config_t *cfg,
                                 pddl_iset_t *redundant,
                                 pddl_err_t *err)
 {
-    CTX(err, "op_mutex_max_redundant", "OPM-Max-Redundant");
+    CTX(err, "opm_redundant_max", "OPM-Redundant-Max");
     if (sym->gen_size == 0 || op_mutex->num_op_mutex_pairs == 0){
         LOG2(err, "Found 0 redundant ops");
         CTXEND(err);
-        return;
+        return 0;
     }
 
     redundant_t red;
-    redundantInit(&red, strips, sym, op_mutex, err);
+    redundantInit(&red, sym, op_mutex, err);
     LOG(err, "Relevant ops: %{num_relevant_ops}d / %d",
         pddlISetSize(&red.relevant_ops), red.op_size);
 
@@ -132,7 +130,7 @@ void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
         LOG2(err, "Found 0 redundant ops");
         redundantFree(&red);
         CTXEND(err);
-        return;
+        return 0;
     }
 
     int num_ops = pddlISetSize(&red.relevant_ops);
@@ -140,12 +138,13 @@ void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
     LOG(err, "LP vars: %{num_lp_vars}d", num_vars);
     LOG(err, "LP rows: %{num_lp_rows}d", 2 * num_ops);
 
-    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
-    cfg.maximize = 1;
-    cfg.cols = num_vars;
-    cfg.rows = 2 * num_ops;
-    cfg.time_limit = 20.;
-    pddl_lp_t *lp = pddlLPNew(&cfg, err);
+    pddl_lp_config_t lpcfg = PDDL_LP_CONFIG_INIT;
+    lpcfg.maximize = 1;
+    lpcfg.cols = num_vars;
+    lpcfg.rows = 2 * num_ops;
+    if (cfg->lp_time_limit > 0.)
+        lpcfg.time_limit = cfg->lp_time_limit;
+    pddl_lp_t *lp = pddlLPNew(&lpcfg, err);
     for (int vi = 0; vi < num_vars; ++vi){
         pddlLPSetVarBinary(lp, vi);
         if (vi < num_ops)
@@ -187,22 +186,18 @@ void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
         int num = 0;
         for (int oi = 0; oi < num_ops; ++oi){
             if (obj[oi] > .5){
-                fprintf(stderr, "%d: %s\n",
-                        pddlISetGet(&red.relevant_ops, oi),
-                        strips->op.op[pddlISetGet(&red.relevant_ops, oi)]->name);
                 if (redundant != NULL)
                     pddlISetAdd(redundant, pddlISetGet(&red.relevant_ops, oi));
                 ++num;
             }
         }
-        for (int oi = 0; oi < num_ops; ++oi){
-            if (obj[oi + num_ops] > .5){
-                fprintf(stderr, "L%d: %s\n",
-                        pddlISetGet(&red.relevant_ops, oi),
-                        strips->op.op[pddlISetGet(&red.relevant_ops, oi)]->name);
-            }
-        }
         LOG(err, "Found %d redundant ops", num);
+        int num_symmetric = 0;
+        for (int oi = 0; oi < num_ops; ++oi){
+            if (obj[oi + num_ops] > .5)
+                ++num_symmetric;
+        }
+        LOG(err, "Kept %d symmetric operators", num_symmetric);
     }else{
         LOG2(err, "Found 0 redundant ops");
     }
@@ -214,4 +209,5 @@ void pddlOpMutexMaxRedundantSet(const pddl_strips_t *strips,
     // TODO: Verify that all operators are indeed redundant
 
     CTXEND(err);
+    return 0;
 }

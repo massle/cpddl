@@ -21,7 +21,7 @@
 #include "pddl/mg_strips.h"
 #include "pddl/op_mutex_pair.h"
 #include "pddl/op_mutex_infer.h"
-#include "pddl/op_mutex_sym_redundant.h"
+#include "pddl/op_mutex_redundant.h"
 #include "pddl/endomorphism.h"
 #include "process_strips.h"
 #include "print_to_file.h"
@@ -55,6 +55,9 @@ struct pddl_process_strips_step_op_mutex {
     int op_fact;
     int hm_op;
     int no_prune;
+    pddl_op_mutex_redundant_config_t prune_cfg;
+    int prune_method;
+    float prune_time_limit;
     char *out;
 };
 typedef struct pddl_process_strips_step_op_mutex
@@ -504,8 +507,10 @@ static int opMutexExecute(pddl_process_strips_t *prune,
         pddlStripsSymInitPDG(&sym, prune->strips);
         PDDL_INFO(err, "  Symmetry generators: %d", sym.gen_size);
         PDDL_ISET(redundant);
-        pddlOpMutexSymRedundantFixpoint(&redundant, &mg_strips.strips,
-                                        &sym, &opm, err);
+        pddl_op_mutex_redundant_config_t cfg = PDDL_OP_MUTEX_REDUNDANT_CONFIG_INIT;
+        cfg.method = step->prune_method;
+        cfg.lp_time_limit = step->prune_time_limit;
+        pddlOpMutexFindRedundant(&opm, &sym, &cfg, &redundant, err);
         pddlISetUnion(&prune->rm_op, &redundant);
         pddlISetFree(&redundant);
         pddlStripsSymFree(&sym);
@@ -538,7 +543,9 @@ static pddl_process_strips_step_op_mutex_t *
 
 void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
                                  int ts, int op_fact, int hm_op,
-                                 int no_prune, const char *out)
+                                 int no_prune, int prune_method,
+                                 float prune_time_limit,
+                                 const char *out)
 {
     pddl_process_strips_step_op_mutex_t *step;
     step = stepOpMutexNew(prune);
@@ -546,6 +553,8 @@ void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
     step->op_fact = op_fact;
     step->hm_op = hm_op;
     step->no_prune = no_prune;
+    step->prune_method = prune_method;
+    step->prune_time_limit = prune_time_limit;
     step->out = NULL;
     if (out != NULL)
         step->out = PDDL_STRDUP(out);
