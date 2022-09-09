@@ -42,6 +42,34 @@ typedef struct endomorph_cfg endomorph_cfg_t;
 
 static pddl_endomorphism_config_t endomorph_default_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
 
+static int setLPSolver(const char *v)
+{
+    int solver = -1;
+    if (strcmp(v, "cplex") == 0){
+        solver = PDDL_LP_CPLEX;
+
+    }else if (strcmp(v, "gurobi") == 0 || strcmp(v, "grb") == 0){
+        solver = PDDL_LP_GUROBI;
+
+    }else if (strcmp(v, "glpk") == 0){
+        solver = PDDL_LP_GLPK;
+
+    }else if (strcmp(v, "lpsolve") == 0){
+        solver = PDDL_LP_LPSOLVE;
+
+    }else{
+        fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
+        return -1;
+    }
+
+    if (!pddlLPSolverAvailable(solver)){
+        fprintf(stderr, "Option Error: %s is not compiled-in!\n", v);
+        return -1;
+    }
+    pddlLPSetDefault(solver, NULL);
+    return 0;
+}
+
 static void hpotSetDisamb(int value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -333,6 +361,8 @@ static void setBaseOptions(void)
                "Set output file for logs.");
     optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
                "Set output file for properties log.");
+    optsAddStrFn("lp-solver", 0x0, setLPSolver,
+                 "Set the default LP solver: cplex/gurobi/glpk/lpsolve");
 
 }
 
