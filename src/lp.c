@@ -209,6 +209,7 @@ int pddlLPNumCols(const pddl_lp_t *lp)
 int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj)
 {
     CTX(lp->err, "lp_solve", "LP-Solve");
+    LOG(lp->err, "rows: %d, cols: %d", pddlLPNumRows(lp), pddlLPNumCols(lp));
     int ret = lp->cls->solve(lp, val, obj);
     CTXEND(lp->err);
     return ret;
