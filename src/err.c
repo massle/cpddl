@@ -215,6 +215,26 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
     }
 }
 
+void _pddlCtxFmt(pddl_err_t *err, const char *_kw, const char *_info,
+                 int time, ...)
+{
+    char kw[PDDL_ERR_CTX_MAXLEN];
+    char info[PDDL_ERR_MSG_MAXLEN];
+
+    va_list ap;
+    va_start(ap, time);
+    vsnprintf(kw, PDDL_ERR_CTX_MAXLEN - 1, _kw, ap);
+    va_end(ap);
+    kw[PDDL_ERR_CTX_MAXLEN - 1] = '\x0';
+
+    va_start(ap, time);
+    vsnprintf(info, PDDL_ERR_MSG_MAXLEN - 1, _info, ap);
+    va_end(ap);
+    info[PDDL_ERR_MSG_MAXLEN - 1] = '\x0';
+
+    _pddlCtx(err, kw, info, time);
+}
+
 void _pddlCtxEnd(pddl_err_t *err)
 {
     if (err != NULL && err->ctx_size > 0){

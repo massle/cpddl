@@ -182,6 +182,7 @@ void pddlErrFlush(pddl_err_t *err);
  * Enter another level of context.
  */
 #define PDDL_CTX(E, KW, I) _pddlCtx((E), (KW), (I), 1)
+#define PDDL_CTX_F(E, KW, I, ...) _pddlCtxFmt((E), (KW), (I), 1, __VA_ARGS__)
 #define PDDL_CTX_NO_TIME(E, KW, I) _pddlCtx((E), (KW), (I), 0)
 
 /**
@@ -245,6 +246,7 @@ void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
 void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time);
+void _pddlCtxFmt(pddl_err_t *err, const char *kw, const char *info, int time, ...);
 void _pddlCtxEnd(pddl_err_t *err);
 void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
                const char *format, ...);

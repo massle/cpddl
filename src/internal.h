@@ -35,6 +35,7 @@ extern "C" {
 #define WARN(E, format, ...) PDDL_WARN((E), (format), __VA_ARGS__)
 #define WARN2(E, msg) PDDL_WARN2((E), (msg))
 #define CTX(E, KW, I) PDDL_CTX((E), (KW), (I))
+#define CTX_F(E, KW, I, ...) PDDL_CTX((E), (KW), (I), __VA_ARGS__)
 #define CTX_NO_TIME(E, KW, I) PDDL_CTX_NO_TIME((E), (KW), (I))
 #define CTXEND(E) PDDL_CTXEND(E)
 #define LOG(E, format, ...) PDDL_LOG((E), (format), __VA_ARGS__)
