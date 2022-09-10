@@ -9,6 +9,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
+/** Forward declaration */
+typedef struct pddl_process_strips_step pddl_process_strips_step_t;
+
 struct pddl_process_strips {
     pddl_list_t steps;
     pddl_iset_t rm_op;
@@ -20,6 +23,8 @@ struct pddl_process_strips {
     pddl_strips_t *strips;
     pddl_mgroups_t *mgroups;
     pddl_mutex_pairs_t *mutex;
+
+    pddl_process_strips_step_t *open_fixpoint;
 };
 typedef struct pddl_process_strips pddl_process_strips_t;
 
@@ -31,6 +36,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                              pddl_mgroups_t *mgroups,
                              pddl_mutex_pairs_t *mutex,
                              pddl_err_t *err);
+
 
 void pddlProcessStripsAddIrrelevance(pddl_process_strips_t *prune);
 void pddlProcessStripsAddIrrelevanceOps(pddl_process_strips_t *prune);
@@ -64,6 +70,9 @@ void pddlProcessStripsAddPrintPddlDomain(pddl_process_strips_t *ps,
                                          const char *fn);
 void pddlProcessStripsAddPrintPddlProblem(pddl_process_strips_t *ps,
                                           const char *fn);
+
+void pddlProcessStripsFixpointStart(pddl_process_strips_t *ps);
+void pddlProcessStripsFixpointFinalize(pddl_process_strips_t *ps);
 
 #ifdef __cplusplus
 } /* extern "C" */

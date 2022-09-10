@@ -586,6 +586,16 @@ static void setMutexGroupOptions(void)
                 "Compute cover number of the inferred mutex groups.");
 }
 
+static void fixpointOpen(void)
+{
+    pddlProcessStripsFixpointStart(&opt.strips.process);
+}
+
+static void fixpointClose(void)
+{
+    pddlProcessStripsFixpointFinalize(&opt.strips.process);
+}
+
 static void setProcessStripsOptions(void)
 {
     if (is_pddl_pddl)
@@ -690,6 +700,15 @@ static void setProcessStripsOptions(void)
                  "Print STRIPS problem in the PDDL format -- domain file.");
     optsAddStrFn("P-pddl-problem", 0x0, printStripsPddlProblem,
                  "Print STRIPS problem in the PDDL format -- problem file.");
+
+    optsAddFlagFn2("P-fixpoint-start", 0x0, fixpointOpen,
+                   "Beginning of the fixpoint block.");
+    optsAddFlagFn2("P-fp[", 0x0, fixpointOpen,
+                   "Alias for --P-fixpoint-start.");
+    optsAddFlagFn2("P-fixpoint-end", 0x0, fixpointClose,
+                   "End of the fixpoint block.");
+    optsAddFlagFn2("P-fp]", 0x0, fixpointClose,
+                   "Alias for --P-fixpoint-end.");
 
 
     if (is_pddl_symba){
