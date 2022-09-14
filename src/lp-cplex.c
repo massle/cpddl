@@ -174,6 +174,10 @@ static void setObj(pddl_lp_t *_lp, int i, double coef)
 static void setVarRange(pddl_lp_t *_lp, int i, double lb, double ub)
 {
     lp_t *lp = LP(_lp);
+    if (lb <= -1E20)
+        lb = -CPX_INFBOUND;
+    if (ub >= 1E20)
+        ub = CPX_INFBOUND;
     static const char lu[2] = { 'L', 'U' };
     double bd[2] = { lb, ub };
     int ind[2];

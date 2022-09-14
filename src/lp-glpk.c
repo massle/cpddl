@@ -81,7 +81,15 @@ static void setObj(pddl_lp_t *_lp, int i, double coef)
 static void setVarRange(pddl_lp_t *_lp, int i, double lb, double ub)
 {
     lp_t *lp = LP(_lp);
-    glp_set_col_bnds(lp->lp, i + 1, GLP_DB, lb, ub);
+    if (lb <= -1E20 && ub >= 1E20){
+        glp_set_col_bnds(lp->lp, i + 1, GLP_FR, 0, 0);
+    }else if (lb <= -1E20){
+        glp_set_col_bnds(lp->lp, i + 1, GLP_UP, 0, ub);
+    }else if (ub >= 1E20){
+        glp_set_col_bnds(lp->lp, i + 1, GLP_LO, lb, 0);
+    }else{
+        glp_set_col_bnds(lp->lp, i + 1, GLP_DB, lb, ub);
+    }
 }
 
 static void setVarFree(pddl_lp_t *_lp, int i)

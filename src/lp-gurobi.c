@@ -152,6 +152,10 @@ static void setObj(pddl_lp_t *_lp, int i, double coef)
 static void setVarRange(pddl_lp_t *_lp, int i, double lb, double ub)
 {
     lp_t *lp = LP(_lp);
+    if (lb <= -1E20)
+        lb = -1E21; // This is infinity in gurobi
+    if (ub >= 1E20)
+        ub = 1E21; // This is infinity in gurobi
     if (GRBsetdblattrelement(lp->model, "LB", i, lb) != 0)
         grbError(lp);
     if (GRBsetdblattrelement(lp->model, "UB", i, ub) != 0)
