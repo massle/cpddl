@@ -486,9 +486,11 @@ static int opMutexExecute(pddl_process_strips_t *prune,
               prune->mgroups->mgroup_size);
 
     pddl_mutex_pairs_t mg_mutex;
-    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
+    if (step->ts || step->hm_op > 1){
+        pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+        pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
+    }
 
     pddl_op_mutex_pairs_t opm;
     pddlOpMutexPairsInit(&opm, &mg_strips.strips);
@@ -540,7 +542,8 @@ static int opMutexExecute(pddl_process_strips_t *prune,
     }
 
     pddlOpMutexPairsFree(&opm);
-    pddlMutexPairsFree(&mg_mutex);
+    if (step->ts || step->hm_op > 1)
+        pddlMutexPairsFree(&mg_mutex);
     pddlMGStripsFree(&mg_strips);
 
     return 0;
