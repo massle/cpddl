@@ -126,6 +126,19 @@ void pddlFDRFree(pddl_fdr_t *fdr)
     pddlFDRVarsFree(&fdr->var);
 }
 
+pddl_fdr_t *pddlFDRClone(const pddl_fdr_t *fdr_in)
+{
+    pddl_fdr_t *fdr = ALLOC(pddl_fdr_t);
+    pddlFDRInitCopy(fdr, fdr_in);
+    return fdr;
+}
+
+void pddlFDRDel(pddl_fdr_t *fdr)
+{
+    pddlFDRFree(fdr);
+    FREE(fdr);
+}
+
 void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
 {
     int *ordering = CALLOC_ARR(int, fdr->var.var_size + 1);

@@ -49,6 +49,9 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);
 
+pddl_fdr_t *pddlFDRClone(const pddl_fdr_t *fdr_in);
+void pddlFDRDel(pddl_fdr_t *fdr);
+
 /**
  * Reorder variables using causal graph
  */
