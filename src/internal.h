@@ -113,12 +113,15 @@ extern "C" {
     pddlLiftedMGroupFmt((PDDL), (MG), ((char [2048]){""}), 2048)
 
 
+#define ZEROIZE(ptr) PDDL_ZEROIZE(ptr)
+
 #define FREE(ptr) PDDL_FREE(ptr)
 #define ALLOC(type) PDDL_ALLOC(type)
 #define ALLOC_ARR(type, num_elements) PDDL_ALLOC_ARR(type, (num_elements))
 #define REALLOC_ARR(ptr, type, num_elements) \
     PDDL_REALLOC_ARR((ptr), type, (num_elements))
 #define CALLOC_ARR(type, num_elements) PDDL_CALLOC_ARR(type, (num_elements))
+#define ZALLOC(type) PDDL_ZALLOC(type)
 #define MALLOC(size) PDDL_MALLOC(size)
 #define REALLOC(ptr, size) PDDL_REALLOC((ptr), (size))
 #define STRDUP(str) PDDL_STRDUP(str)

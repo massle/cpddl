@@ -147,6 +147,8 @@ typedef int pddl_obj_id_t;
 #define PDDL_COST_MAX ((INT_MAX / 2) - 1)
 /** Minimum cost */
 #define PDDL_COST_MIN ((INT_MIN / 2) + 1)
+/** Zeroize given struct */
+#define PDDL_ZEROIZE(SPTR) bzero((SPTR), sizeof(*(SPTR)))
 
 
 /**
