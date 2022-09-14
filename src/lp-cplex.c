@@ -68,6 +68,31 @@ static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
     return 0;
 }
 
+static int callbackLP(CPXCENVptr env,
+                      void *cbdata,
+                      int wherefrom,
+                      void *_lp)
+{
+    lp_t *lp = _lp;
+
+    pddlTimerStop(&lp->log_timer);
+    if (pddlTimerElapsedInSF(&lp->log_timer) < 1.)
+        return 0;
+
+    double primal = 0.;
+    CPXgetcallbackinfo(env, cbdata, wherefrom,
+                       CPX_CALLBACK_INFO_PRIMAL_OBJ, &primal);
+    double dual = 0.;
+    CPXgetcallbackinfo(env, cbdata, wherefrom,
+                       CPX_CALLBACK_INFO_DUAL_OBJ, &dual);
+
+    CTX_NO_TIME(lp->cls.err, "cplex", "cplex progress");
+    LOG(lp->cls.err, "primal: %.4f, dual: %.4f", primal, dual);
+    CTXEND(lp->cls.err);
+    pddlTimerStart(&lp->log_timer);
+    return 0;
+}
+
 static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
     lp_t *lp;
@@ -283,12 +308,11 @@ static int solve(pddl_lp_t *_lp, double *val, double *obj)
         CPXcallbacksetfunc(lp->env, lp->lp, 0, NULL, NULL);
 
     }else{
-        // TODO: CPXsetlpcallbackfunc
+        CPXsetlpcallbackfunc(lp->env, callbackLP, lp);
         if ((st = CPXlpopt(lp->env, lp->lp)) != 0)
             cplexErr(lp, st, "Failed to optimize LP");
     }
 
-    // TODO: Report time needed to solve it
     st = CPXgetstat(lp->env, lp->lp);
     if (st == CPX_STAT_OPTIMAL
             || st == CPX_STAT_OPTIMAL_INFEAS
