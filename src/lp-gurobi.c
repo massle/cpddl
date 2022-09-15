@@ -135,6 +135,7 @@ static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
 static void del(pddl_lp_t *_lp)
 {
     lp_t *lp = LP(_lp);
+    GRBfreemodel(lp->model);
     GRBfreeenv(lp->env);
     FREE(lp->coef_row);
     FREE(lp->coef_col);
