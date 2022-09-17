@@ -22,6 +22,7 @@
 
 #include <pddl/fdr_state_space.h>
 #include <pddl/hpot.h>
+#include <pddl/op_mutex_pair.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,16 +36,16 @@ typedef struct pddl_heur pddl_heur_t;
 pddl_heur_t *pddlHeurBlind(void);
 
 /**
+ * Heuristic returning dead-end value for all states.
+ */
+pddl_heur_t *pddlHeurDeadEnd(void);
+
+/**
  * Potential heuristic.
  */
 pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
                          const pddl_hpot_config_t *cfg,
                          pddl_err_t *err);
-
-/**
- * TODO
- */
-pddl_heur_t *pddlHeurPotState(const pddl_fdr_t *fdr, pddl_err_t *err);
 
 /**
  * Flow heuristic
@@ -70,6 +71,14 @@ pddl_heur_t *pddlHeurHAdd(const pddl_fdr_t *fdr, pddl_err_t *err);
  * h^ff heuristic
  */
 pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, pddl_err_t *err);
+
+/**
+ * TODO
+ */
+pddl_heur_t *pddlHeurOpMutex(const pddl_fdr_t *fdr,
+                             const pddl_op_mutex_pairs_t *op_mutex,
+                             const pddl_hpot_config_t *cfg,
+                             pddl_err_t *err);
 
 /**
  * Destructor
