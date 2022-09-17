@@ -931,6 +931,10 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     // Initialize potential heuristic
     pddl_pot_t pot;
     if (initPot(&pot, fdr, &mg_strips, &mutex, cfg, err) != 0){
+        if (need_mutex){
+            pddlMutexPairsFree(&mutex);
+            pddlMGStripsFree(&mg_strips);
+        }
         CTXEND(err);
         return -1;
     }
@@ -1035,7 +1039,8 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 struct pddl_heur_pot {
     pddl_heur_t heur;
     pddl_pot_solutions_t sols;
-    const pddl_fdr_vars_t *vars;
+    pddl_fdr_vars_t vars;
+    int unsolvable;
 };
 typedef struct pddl_heur_pot pddl_heur_pot_t;
 
@@ -1044,6 +1049,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
     _pddlHeurFree(&h->heur);
     pddlPotSolutionsFree(&h->sols);
+    pddlFDRVarsFree(&h->vars);
     FREE(h);
 }
 
@@ -1052,7 +1058,9 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_t *state_space)
 {
     pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
-    int est = pddlPotSolutionsEvalMaxFDRState(&h->sols, h->vars, node->state);
+    if (h->unsolvable)
+        return PDDL_COST_DEAD_END;
+    int est = pddlPotSolutionsEvalMaxFDRState(&h->sols, &h->vars, node->state);
     return est;
 }
 
@@ -1060,10 +1068,15 @@ pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
                          const pddl_hpot_config_t *cfg,
                          pddl_err_t *err)
 {
-    pddl_heur_pot_t *h = ALLOC(pddl_heur_pot_t);
+    CTX(err, "hpot", "HPot");
+    pddl_heur_pot_t *h = ZALLOC(pddl_heur_pot_t);
     pddlPotSolutionsInit(&h->sols);
-    pddlHPot(&h->sols, fdr, cfg, err);
-    h->vars = &fdr->var;
+    pddlFDRVarsInitCopy(&h->vars, &fdr->var);
+    if (pddlHPot(&h->sols, fdr, cfg, err) != 0){
+        LOG2(err, "Task is unsolvable.");
+        h->unsolvable = 1;
+    }
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
+    CTXEND(err);
     return &h->heur;
 }
