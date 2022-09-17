@@ -39,6 +39,8 @@ typedef struct pddl_mg_strips pddl_mg_strips_t;
 void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_strips_t *strips,
                       const pddl_mgroups_t *mgroups);
+void pddlMGStripsInitCopy(pddl_mg_strips_t *mg_strips,
+                          const pddl_mg_strips_t *in);
 void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr);
 void pddlMGStripsFree(pddl_mg_strips_t *mg_strips);
 
