@@ -215,6 +215,8 @@ _pddl_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
 /**
  * Solve the LP problem and returns the solution via sol.
  * Return 0 on success, -1 if solution was not found.
+ *
+ * TODO: Add time-limit option
  */
 int pddlPotSolve(const pddl_pot_t *pot,
                  pddl_pot_solution_t *sol,
