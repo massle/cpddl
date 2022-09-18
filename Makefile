@@ -115,7 +115,6 @@ OBJS += heur_lm_cut
 OBJS += heur_hmax
 OBJS += heur_hadd
 OBJS += heur_hff
-OBJS += heur_pot_state
 OBJS += heur_flow
 OBJS += heur_op_mutex
 OBJS += dtg
