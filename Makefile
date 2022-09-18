@@ -80,6 +80,7 @@ OBJS += fdr
 OBJS += fdr_state_packer
 OBJS += fdr_state_pool
 OBJS += fdr_state_space
+OBJS += fdr_state_sampler
 OBJS += strips_state_space
 OBJS += sym
 OBJS += famgroup
@@ -163,6 +164,7 @@ OBJS += iarr
 OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 OBJS += subprocess
+OBJS += task
 
 OBJS += __sqlite3
 
