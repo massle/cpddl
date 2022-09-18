@@ -146,7 +146,9 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     pddlPotSolutionsInit(&pot);
     pddl_hpot_config_t pot_cfg = cfg->pot_heur_config;
     pot_cfg.op_pot = 1;
-    if (pddlHPot(&pot, fdr, &pot_cfg, err) != 0){
+    // TODO: Use task as input to symbolic task
+    pddl_task_t *task = pddlTaskNewFDR(fdr, err);
+    if (pddlHPot(&pot, task, &pot_cfg, err) != 0){
         PDDL_ERR_RET2(err, -1, "Could not find a potential function.");
     }
     if (pot.sol_size != 1){
@@ -183,6 +185,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     for (int i = 0; i < fdr->var.global_id_size; ++i)
         (*fpot)[i] = sol->pot[i];
 
+    pddlTaskDel(task);
     pddlPotSolutionsFree(&pot);
     return 0;
 }

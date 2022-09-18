@@ -25,6 +25,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define CONTAINER_OF_CONST(name, ptr, type, member) \
+    const type *name = pddl_container_of((ptr), type, member)
+
 #define ERR(E, format, ...) PDDL_ERR((E), (format), __VA_ARGS__)
 #define ERR2(E, msg) PDDL_ERR2((E), (msg))
 #define ERR_RET(E, V, format, ...) \

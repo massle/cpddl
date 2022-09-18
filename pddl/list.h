@@ -149,6 +149,7 @@ typedef struct _pddl_list_m_t pddl_list_m_t;
 		     item = tmp, tmp = (item)->next)
 
 /**
+ * TODO
  * Iterates over list of given type.
  * {pos}:    the type * to use as a loop cursor.
  * {head}:   the head for your list.
@@ -160,6 +161,7 @@ typedef struct _pddl_list_m_t pddl_list_m_t;
 	     pos = PDDL_LIST_ENTRY(pos->member.next, postype, member))
 
 /**
+ * TODO
  * Iterates over list of given type safe against removal of list entry
  * {pos}:	the type * to use as a loop cursor.
  * {n}:		another type * to use as temporary storage
@@ -183,6 +185,7 @@ _pddl_inline void pddlListInit(pddl_list_t *l);
  * returned.
  */
 _pddl_inline pddl_list_t *pddlListNext(pddl_list_t *l);
+_pddl_inline const pddl_list_t *pddlListNextConst(const pddl_list_t *l);
 
 /**
  * Returns previous element in list. If called on head last element is
@@ -244,6 +247,11 @@ _pddl_inline void pddlListInit(pddl_list_t *l)
 }
 
 _pddl_inline pddl_list_t *pddlListNext(pddl_list_t *l)
+{
+    return l->next;
+}
+
+_pddl_inline const pddl_list_t *pddlListNextConst(const pddl_list_t *l)
 {
     return l->next;
 }

@@ -1,84 +1,260 @@
 /***
- * cpddl
- * -------
- * Copyright (c)2019 Daniel Fiser <danfis@danfis.cz>,
- * Faculty of Electrical Engineering, Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
+ * Copyright (c)2022 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
 #ifndef __PDDL_HPOT_H__
 #define __PDDL_HPOT_H__
 
 #include <pddl/pot.h>
+#include <pddl/task.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-#define PDDL_HPOT_OBJ_INIT 0x1
-#define PDDL_HPOT_OBJ_ALL_STATES 0x2
-#define PDDL_HPOT_OBJ_SAMPLES_MAX 0x3
-#define PDDL_HPOT_OBJ_SAMPLES_SUM 0x4
-#define PDDL_HPOT_OBJ_ALL_STATES_MUTEX 0x5
-#define PDDL_HPOT_OBJ_DIVERSE 0x6
-#define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED 0x7
-#define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND 0x8
-#define PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2 0x9
-#define PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES 0xa
+enum pddl_hpot_type {
+    PDDL_HPOT_OPT_STATE_TYPE = 1,
+    PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE,
+    PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE,
+    PDDL_HPOT_OPT_SAMPLED_STATES_TYPE,
+    PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE,
+    PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE,
+    PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE,
+};
+typedef enum pddl_hpot_type pddl_hpot_type_t;
+
+struct _pddl_hpot_config {
+    pddl_hpot_type_t type;
+    pddl_list_t conn;
+};
+typedef struct _pddl_hpot_config _pddl_hpot_config_t;
+
+#define _PDDL_HPOT_CONFIG_INIT(type) \
+    { \
+        (type), /* .type */ \
+        { NULL, NULL }, /* .conn */ \
+    }
+
+/**
+ * Maximize the h-value for the given state
+ */
+struct pddl_hpot_config_opt_state {
+    _pddl_hpot_config_t cfg;
+    const int *fdr_state;
+};
+typedef struct pddl_hpot_config_opt_state pddl_hpot_config_opt_state_t;
+
+#define PDDL_HPOT_CONFIG_OPT_STATE_INIT \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_STATE_TYPE), /* .cfg */ \
+        NULL, /* .fdr_state */ \
+    }
+    
+
+/**
+ * Maximize the average h-value over all syntactic states
+ */
+struct pddl_hpot_config_opt_all_syntactic_states {
+    _pddl_hpot_config_t cfg;
+    /** If set to non-NULL, add the constraint maximizing h-value for the
+     *  given state. default: NULL */
+    const int *add_fdr_state_constr;
+    /** Coefficient used for the added state constraint. default: 1 */
+    double add_state_coef;
+};
+typedef struct pddl_hpot_config_opt_all_syntactic_states
+    pddl_hpot_config_opt_all_syntactic_states_t;
+
+#define PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE), /* .cfg */ \
+        NULL, /* .add_fdr_state_constr */ \
+        1., /* .add_state_coef */ \
+    }
+
+/**
+ * TODO
+ */
+struct pddl_hpot_config_opt_all_states_mutex {
+    _pddl_hpot_config_t cfg;
+    /** TODO */
+    int mutex_size;
+    /** If set to non-NULL, add the constraint maximizing h-value for the
+     *  given state. default: NULL */
+    const int *add_fdr_state_constr;
+    /** Coefficient used for the added state constraint. default: 1 */
+    double add_state_coef;
+};
+typedef struct pddl_hpot_config_opt_all_states_mutex
+    pddl_hpot_config_opt_all_states_mutex_t;
+
+#define PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE), /* .cfg */ \
+        2, /* .mutex_size */ \
+        NULL, /* .add_fdr_state_constr */ \
+        1., /* .add_state_coef */ \
+    }
+
+/**
+ * Maximize the average h-value over the sampled states.
+ */
+struct pddl_hpot_config_opt_sampled_states {
+    _pddl_hpot_config_t cfg;
+    /** Number of sampled states. default: 1000 */
+    int num_samples;
+    /** True if random walk should be used. default: true */
+    int use_random_walk;
+    /** Sample states by uniform sampling over syntactic states. default: false */
+    int use_syntactic_samples;
+    /** Sample (syntactic) states while removing mutex states */
+    int use_mutex_samples;
+    /** If set to non-NULL, add the constraint maximizing h-value for the
+     *  given state. default: NULL */
+    const int *add_fdr_state_constr;
+    /** Coefficient used for the added state constraint. default: 1 */
+    double add_state_coef;
+};
+typedef struct pddl_hpot_config_opt_sampled_states
+    pddl_hpot_config_opt_sampled_states_t;
+
+#define PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_SAMPLED_STATES_TYPE), /* .cfg */ \
+        1000, /* .num_samples */ \
+        1, /* .use_random_walk */ \
+        0, /* .use_syntactic_samples */ \
+        NULL, /* .mutex */ \
+        NULL, /* .add_fdr_state_constr */ \
+        1., /* .add_state_coef */ \
+    }
+
+/**
+ * Ensemble each maximizing for a sampled state
+ */
+struct pddl_hpot_config_opt_ensemble_sampled_states {
+    _pddl_hpot_config_t cfg;
+    /** Number of sampled states. default: 1000 */
+    int num_samples;
+    /** True if random walk should be used. default: true */
+    int use_random_walk;
+    /** Sample states by uniform sampling over syntactic states. default: false */
+    int use_syntactic_samples;
+    /** Sample (syntactic) states while removing mutex states */
+    int use_mutex_samples;
+};
+typedef struct pddl_hpot_config_opt_ensemble_sampled_states
+    pddl_hpot_config_opt_ensemble_sampled_states_t;
+
+#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_SAMPLED_STATES \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE), /* .cfg */ \
+        1000, /* .num_samples */ \
+        1, /* .use_random_walk */ \
+        0, /* .use_syntactic_samples */ \
+        0, /* .mutex */ \
+    }
+
+/**
+ * Ensemble constructed with the diversification algorithm
+ */
+struct pddl_hpot_config_opt_ensemble_diversification {
+    _pddl_hpot_config_t cfg;
+    /** Number of sampled states. default: 1000 */
+    int num_samples;
+    /** True if random walk should be used. default: true */
+    int use_random_walk;
+    /** Sample states by uniform sampling over syntactic states. default: false */
+    int use_syntactic_samples;
+    /** Sample (syntactic) states while removing mutex states. default: false */
+    int use_mutex_samples;
+};
+typedef struct pddl_hpot_config_opt_ensemble_diversification
+    pddl_hpot_config_opt_ensemble_diversification_t;
+
+#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_DIVERSIFICATION \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE), /* .cfg */ \
+        1000, /* .num_samples */ \
+        1, /* .use_random_walk */ \
+        0, /* .use_syntactic_samples */ \
+        0, /* .mutex */ \
+    }
+
+/**
+ * Ensemble constructed with the diversification algorithm
+ */
+struct pddl_hpot_config_opt_ensemble_all_states_mutex {
+    _pddl_hpot_config_t cfg;
+    /** TODO */
+    int cond_size;
+    /** TODO */
+    int mutex_size;
+    /** Number of sampled states conditioned on random sets of facts.
+     *  default: 0, i.e., disabled */
+    int num_rand_samples;
+};
+typedef struct pddl_hpot_config_opt_ensemble_all_states_mutex
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t;
+
+#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX \
+    { \
+        _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE), /* .cfg */ \
+        1, /* .cond_size */ \
+        2, /* .mutex_size */ \
+        0, /* .num_rand_samples */ \
+    }
 
 struct pddl_hpot_config {
-    int disambiguation; /*!< If true, disambiguation is used */
-    int weak_disambiguation; /*!< If true, weak disambiguation is used */
-    int obj; /*!< One of PDDL_HPOT_OBJ_*: specifies optimization method */
-    int add_init_constr; /*!< Add >= constraint on the initial state */
-    double init_constr_coef; /*!< Coeficient used for the initial state
-                                  constraint */
-    int num_samples; /*!< Number of samples used for sampling based methods */
-    int samples_use_mutex; /*!< If true, mutexes are used to filter out
-                                unreachable sample states */
-    int samples_random_walk; /*!< Uses random walk for sampling */
-    int all_states_mutex_size; /*!< Size of sets of facts for
-                                    *_ALL_STATES_MUTEX method */
-
+    /** A list of configurations (see above) */
+    pddl_list_t cfg;
+    /** If true, disambiguation is used. default: true */
+    int disambiguation;
+    /** If true, weak disambiguation is used. default: false */
+    int weak_disambiguation;
+    /** Infer operator potentials. default: false */
     int op_pot;
+    /** Infer real-valued operator potentials. default: false */
     int op_pot_real;
+    /** Time limit for each round of LP solver. default: disabled */
+    float time_limit;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
 #define PDDL_HPOT_CONFIG_INIT { \
+        { NULL, NULL }, /* .cfg */ \
         1, /* .disambiguation */ \
         0, /* .weak_disambiguation */ \
-        PDDL_HPOT_OBJ_ALL_STATES, /* .obj */ \
-        1, /* .add_init_constr */ \
-        1., /* .init_constr_coef */ \
-        1000, /* .num_samples */ \
-        0, /* .samples_use_mutex */ \
-        0, /* .samples_random_walk */ \
-        0, /* .all_states_mutex_size */ \
         0, /* .op_pot */ \
         0, /* .op_pot_real */ \
+        -1., /* .time_limit */ \
     }
+
+/**
+ * Add potential heuritic configuration config_el to the main configuration
+ * struct config.
+ */
+#define PDDL_HPOT_CONFIG_ADD(config, config_el) \
+    do { \
+        if (pddlListNext(&(config)->cfg) == NULL) \
+            pddlListInit(&(config)->cfg); \
+        pddlListInit(&(config_el)->cfg.conn); \
+        pddlListAppend(&(config)->cfg, &(config_el)->cfg.conn); \
+    } while (0)
+        
 
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err);
 
 /**
- * Returns true if the config can produce an ensamble of potential
+ * Returns true if the config produces an ensamble of potential
  * heuristics.
  */
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg);
 
 int pddlHPot(pddl_pot_solutions_t *sols,
-             const pddl_fdr_t *fdr,
+             pddl_task_t *task,
              const pddl_hpot_config_t *cfg,
              pddl_err_t *err);
 

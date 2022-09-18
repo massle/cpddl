@@ -6,6 +6,7 @@
 
 #include "internal.h"
 #include "_heur.h"
+#include "pddl/hmax.h"
 #include "pddl/hfunc.h"
 
 typedef struct heur heur_t;
@@ -117,11 +118,21 @@ static int taskHeurEstimate(task_t *task,
         if (pddlISetSize(&task->pruned_op) > 0)
             pddlFDRReduce(&fdr, NULL, NULL, &task->pruned_op);
 
+        pddl_hmax_t hmax;
+        pddlHMaxInit(&hmax, &fdr);
+        if (pddlHMax(&hmax, node->state, &fdr.var) == PDDL_COST_DEAD_END){
+            pddlHMaxFree(&hmax);
+            pddlFDRFree(&fdr);
+            return PDDL_COST_DEAD_END;
+        }
+        pddlHMaxFree(&hmax);
+
         //pddlFDRStatePoolGet(&state_space->state_pool, node->id, fdr.init);
         // TODO: Generalize for any heuristic
         pddl_hpot_config_t hcfg = PDDL_HPOT_CONFIG_INIT;
-        hcfg.obj = PDDL_HPOT_OBJ_INIT;
-        hcfg.add_init_constr = 0;
+        pddl_hpot_config_opt_state_t hcfg_state = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+        hcfg_state.fdr_state = node->state;
+        PDDL_HPOT_CONFIG_ADD(&hcfg, &hcfg_state);
         //task->h = pddlHeurPot(&fdr, &hcfg, task->heur->err);
         task->h = pddlHeurPot(&fdr, &hcfg, NULL);
         //task->h = pddlHeurLMCut(&fdr, NULL);
