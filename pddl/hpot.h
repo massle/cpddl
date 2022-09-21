@@ -67,7 +67,7 @@ struct pddl_hpot_config_opt_all_syntactic_states {
 typedef struct pddl_hpot_config_opt_all_syntactic_states
     pddl_hpot_config_opt_all_syntactic_states_t;
 
-#define PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES \
+#define PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE), /* .cfg */ \
         NULL, /* .add_fdr_state_constr */ \
@@ -90,7 +90,7 @@ struct pddl_hpot_config_opt_all_states_mutex {
 typedef struct pddl_hpot_config_opt_all_states_mutex
     pddl_hpot_config_opt_all_states_mutex_t;
 
-#define PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX \
+#define PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE), /* .cfg */ \
         2, /* .mutex_size */ \
@@ -120,13 +120,13 @@ struct pddl_hpot_config_opt_sampled_states {
 typedef struct pddl_hpot_config_opt_sampled_states
     pddl_hpot_config_opt_sampled_states_t;
 
-#define PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES \
+#define PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_SAMPLED_STATES_TYPE), /* .cfg */ \
         1000, /* .num_samples */ \
         1, /* .use_random_walk */ \
         0, /* .use_syntactic_samples */ \
-        NULL, /* .mutex */ \
+        0, /* .use_mutex_samples */ \
         NULL, /* .add_fdr_state_constr */ \
         1., /* .add_state_coef */ \
     }
@@ -148,7 +148,7 @@ struct pddl_hpot_config_opt_ensemble_sampled_states {
 typedef struct pddl_hpot_config_opt_ensemble_sampled_states
     pddl_hpot_config_opt_ensemble_sampled_states_t;
 
-#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_SAMPLED_STATES \
+#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_SAMPLED_STATES_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE), /* .cfg */ \
         1000, /* .num_samples */ \
@@ -174,7 +174,7 @@ struct pddl_hpot_config_opt_ensemble_diversification {
 typedef struct pddl_hpot_config_opt_ensemble_diversification
     pddl_hpot_config_opt_ensemble_diversification_t;
 
-#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_DIVERSIFICATION \
+#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_DIVERSIFICATION_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE), /* .cfg */ \
         1000, /* .num_samples */ \
@@ -199,7 +199,7 @@ struct pddl_hpot_config_opt_ensemble_all_states_mutex {
 typedef struct pddl_hpot_config_opt_ensemble_all_states_mutex
     pddl_hpot_config_opt_ensemble_all_states_mutex_t;
 
-#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX \
+#define PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE), /* .cfg */ \
         1, /* .cond_size */ \

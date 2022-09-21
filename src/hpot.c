@@ -404,13 +404,23 @@ static int hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
     const pddl_mg_strips_t *mg_strips = pddlTaskMGStrips(task);
     const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1., 0);
     pddlPotResetLowerBoundConstr(pot);
+
     if (cfg_opt->mutex_size == 1){
         setObjAllStatesMutex1(pot, &mg_strips->mg, mutex);
+
     }else if (cfg_opt->mutex_size == 2){
         setObjAllStatesMutex2(pot, &mg_strips->mg,
                               mg_strips->strips.fact.fact_size, mutex);
+
+    }else{
+        FATAL("All states mutex optimization not supported for"
+              " mutex_size=%d", cfg_opt->mutex_size);
     }
-    return 0;
+
+    return solveAndAddWithStateConstr(sols, pot, task, cfg,
+                                      cfg_opt->add_fdr_state_constr,
+                                      cfg_opt->add_state_coef,
+                                      err);
 }
 
 static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
@@ -477,9 +487,7 @@ static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
     int ret = 0;
     int state[fdr->var.var_size];
     int num_states = 0;
-    double *coef = CALLOC_ARR(double, pot->var_size);
     for (int si = 0; si < cfg_opt->num_samples; ++si){
-
         pddlFDRStateSamplerNext(sampler, state);
         ret = _hpotOptState(sols, pot, task, cfg, state, err);
         if (ret != 0)
@@ -490,9 +498,6 @@ static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
         }
         ++num_states;
     }
-
-    if (coef != NULL)
-        FREE(coef);
 
     // TODO: remove dead-ends
     ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
@@ -731,8 +736,14 @@ static void setObjAllStatesMutexConditioned(pddl_pot_t *pot,
             if (!pddlMutexPairsIsMutexFactSet(mutex, fact_id, cond))
                 pddlISetAdd(&mg, fact_id);
         }
+
+        if (pddlISetSize(&mg) == 0){
+            pddlISetFree(&mg);
+            pddlMGroupsFree(&mgs);
+            return;
+        }
+
         pddlMGroupsAdd(&mgs, &mg);
-        ASSERT_RUNTIME(pddlISetSize(&mg) > 0);
     }
     pddlISetFree(&mg);
 
