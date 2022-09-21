@@ -65,6 +65,7 @@ void pddlFDRStateSamplerInitRandomWalk(pddl_fdr_state_sampler_t *s,
     init(s, fdr, NULL, err);
     pddlRandomWalkInitSeed(&s->random_walk, fdr, NULL, s->seed);
     s->use_random_walk = 1;
+    s->random_walk_max_steps = max_steps;
     s->next_fn = nextRandomWalk;
 }
 
