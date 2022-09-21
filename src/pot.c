@@ -131,6 +131,7 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
         s->pot = ALLOC_ARR(double, s->pot_size);
         memcpy(s->pot, sol->pot, sizeof(double) * s->pot_size);
     }
+    s->objval = sol->objval;
     s->op_pot_size = sol->op_pot_size;
     if (s->op_pot_size > 0){
         s->op_pot = ALLOC_ARR(double, s->op_pot_size);
