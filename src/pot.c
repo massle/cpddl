@@ -102,6 +102,11 @@ int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,
     return potFltToInt(pddlPotSolutionEvalStripsStateFlt(sol, state));
 }
 
+int pddlPotSolutionRoundHValue(double hvalue)
+{
+    return potFltToInt(hvalue);
+}
+
 void pddlPotSolutionsInit(pddl_pot_solutions_t *sols)
 {
     bzero(sols, sizeof(*sols));
@@ -777,6 +782,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
     int var_size = pddlLPNumCols(lp);
     double objval, *obj;
     obj = CALLOC_ARR(double, var_size);
+
     if (pddlLPSolve(lp, &objval, obj) == 0){
         sol->objval = objval;
         sol->pot_size = pot->var_size;

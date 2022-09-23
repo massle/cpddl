@@ -44,6 +44,7 @@ double pddlPotSolutionEvalFDRStateFlt(const pddl_pot_solution_t *sol,
 int pddlPotSolutionEvalFDRState(const pddl_pot_solution_t *sol,
                                 const pddl_fdr_vars_t *vars,
                                 const int *state);
+int pddlPotSolutionRoundHValue(double hvalue);
 double pddlPotSolutionEvalStripsStateFlt(const pddl_pot_solution_t *sol,
                                          const pddl_iset_t *state);
 int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,

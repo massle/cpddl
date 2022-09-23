@@ -219,6 +219,7 @@ struct pddl_hpot_config {
     /** Infer real-valued operator potentials. default: false */
     int op_pot_real;
     /** Time limit for each round of LP solver. default: disabled */
+    // TODO: Not implemented yet
     float time_limit;
 };
 typedef struct pddl_hpot_config pddl_hpot_config_t;
