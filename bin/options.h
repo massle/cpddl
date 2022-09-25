@@ -2,6 +2,7 @@
 #define OPTIONS_H
 
 #include <pddl/pddl.h>
+#include <pddl/hpot_old.h>
 #include "process_strips.h"
 
 enum {
@@ -141,7 +142,7 @@ struct options {
         int pretty_print_vars;
         int pretty_print_cg;
         int pot;
-        pddl_hpot_config_t pot_cfg;
+        pddl_hpot_old_config_t pot_cfg;
         int to_tnf;
         int to_tnf_multiply;
     } fdr;
@@ -150,7 +151,7 @@ struct options {
         int search;
         int heur;
         char *plan_out;
-        pddl_hpot_config_t pot_cfg;
+        pddl_hpot_old_config_t pot_cfg;
     } ground_planner;
 
     struct {

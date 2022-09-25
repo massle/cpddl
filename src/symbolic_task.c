@@ -104,7 +104,7 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_CONFIG_DBL(cfg, step_time_limit, err);
 
     CTX_NO_TIME(err, "pot", "pot");
-    pddlHPotConfigLog(&cfg->pot_heur_config, err);
+    pddlHPotOldConfigLog(&cfg->pot_heur_config, err);
     CTXEND(err);
 }
 
@@ -144,11 +144,10 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 
     pddl_pot_solutions_t pot;
     pddlPotSolutionsInit(&pot);
-    pddl_hpot_config_t pot_cfg = cfg->pot_heur_config;
+    pddl_hpot_old_config_t pot_cfg = cfg->pot_heur_config;
     pot_cfg.op_pot = 1;
     // TODO: Use task as input to symbolic task
-    pddl_task_t *task = pddlTaskNewFDR(fdr, err);
-    if (pddlHPot(&pot, task, &pot_cfg, err) != 0){
+    if (pddlHPotOld(&pot, fdr, &pot_cfg, err) != 0){
         PDDL_ERR_RET2(err, -1, "Could not find a potential function.");
     }
     if (pot.sol_size != 1){
@@ -185,7 +184,6 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     for (int i = 0; i < fdr->var.global_id_size; ++i)
         (*fpot)[i] = sol->pot[i];
 
-    pddlTaskDel(task);
     pddlPotSolutionsFree(&pot);
     return 0;
 }
@@ -1281,12 +1279,12 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     if (((cfg->fw.use_pot_heur
             || cfg->fw.use_pot_heur_inconsistent
             || cfg->fw.use_pot_heur_sum_op_cost)
-                && pddlHPotConfigIsEnsemble(&cfg->fw.pot_heur_config))
+                && pddlHPotOldConfigIsEnsemble(&cfg->fw.pot_heur_config))
         ||
         ((cfg->bw.use_pot_heur
             || cfg->bw.use_pot_heur_inconsistent
             || cfg->bw.use_pot_heur_sum_op_cost)
-                && pddlHPotConfigIsEnsemble(&cfg->bw.pot_heur_config))){
+                && pddlHPotOldConfigIsEnsemble(&cfg->bw.pot_heur_config))){
         PDDL_ERR_RET2(err, NULL, "Symbolic tasks can use only a single"
                                 " potential heuristic.");
     }

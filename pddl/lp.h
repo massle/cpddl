@@ -27,6 +27,7 @@ typedef struct pddl_lp pddl_lp_t;
 /**
  * Solvers.
  */
+// TODO: enum
 #define PDDL_LP_DEFAULT 0
 #define PDDL_LP_CPLEX   1
 #define PDDL_LP_GUROBI  2

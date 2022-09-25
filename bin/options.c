@@ -72,7 +72,7 @@ static int setLPSolver(const char *v)
 
 static void hpotSetDisamb(int value, void *_cfg)
 {
-    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_old_config_t *cfg = _cfg;
     cfg->disambiguation = value;
     if (value)
         cfg->weak_disambiguation = 0;
@@ -80,7 +80,7 @@ static void hpotSetDisamb(int value, void *_cfg)
 
 static void hpotSetWeakDisamb(int value, void *_cfg)
 {
-    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_old_config_t *cfg = _cfg;
     cfg->weak_disambiguation = value;
     if (value)
         cfg->disambiguation = 0;
@@ -88,14 +88,14 @@ static void hpotSetWeakDisamb(int value, void *_cfg)
 
 static void hpotSetObjSimple(int v, void *_cfg, int type)
 {
-    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_old_config_t *cfg = _cfg;
     if (v)
         cfg->obj = type;
 }
 
 static void hpotSetObjSample(int v, void *_cfg, int type)
 {
-    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_old_config_t *cfg = _cfg;
     if (v){
         cfg->obj = type;
         cfg->num_samples = v;
@@ -105,7 +105,7 @@ static void hpotSetObjSample(int v, void *_cfg, int type)
 
 static void hpotSetObjMutex(int v, void *_cfg, int type)
 {
-    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_old_config_t *cfg = _cfg;
     if (v){
         cfg->obj = type;
         cfg->all_states_mutex_size = v;
@@ -163,7 +163,7 @@ static void hpotSetObjAllMutexCondRand2(int v, void *_cfg)
 }
 
 static void hpotParams(opts_params_t *params,
-                       pddl_hpot_config_t *cfg)
+                       pddl_hpot_old_config_t *cfg)
 {
     optsParamsAddFlagFn(params, "disam", cfg, hpotSetDisamb);
     optsParamsAddFlagFn(params, "disambiguation", cfg, hpotSetDisamb);
@@ -748,7 +748,7 @@ static void setFDROptions(void)
     opts_params_t *params;
 
     opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
-    pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_old_config_t _pot_cfg = PDDL_HPOT_OLD_CONFIG_INIT;
     opt.fdr.pot_cfg = _pot_cfg;
 
     if (is_pddl_fdr)
@@ -793,7 +793,7 @@ static void setGroundPlannerOptions(void)
     if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
-    pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_old_config_t _pot_cfg = PDDL_HPOT_OLD_CONFIG_INIT;
     opt.ground_planner.pot_cfg = _pot_cfg;
 
     opts_params_t *params;
