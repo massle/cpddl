@@ -25,19 +25,270 @@ struct state_sampler {
 };
 typedef struct state_sampler state_sampler_t;
 
+
+#define CLONE_OPT(dst, src, type) \
+    do { \
+        CONTAINER_OF_CONST(__c, src, pddl_hpot_config_opt_state_t, cfg); \
+        pddl_hpot_config_opt_state_t *__newc = ALLOC(pddl_hpot_config_opt_state_t); \
+        *__newc = *__c; \
+        pddlListInit(&__newc->cfg.conn); \
+        dst = &__newc->cfg; \
+    } while (0)
+
+static _pddl_hpot_config_t *hpotConfigClone(const _pddl_hpot_config_t *c)
+{
+    _pddl_hpot_config_t *newc = NULL;
+    switch(c->type){
+        case PDDL_HPOT_OPT_STATE_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_state_t);
+            break;
+        case PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_all_syntactic_states_t);
+            break;
+        case PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_all_states_mutex_t);
+            break;
+        case PDDL_HPOT_OPT_SAMPLED_STATES_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_sampled_states_t);
+            break;
+        case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_ensemble_sampled_states_t);
+            break;
+        case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_ensemble_diversification_t);
+            break;
+        case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
+            CLONE_OPT(newc, c, pddl_hpot_config_opt_ensemble_all_states_mutex_t);
+            break;
+    }
+    pddlListInit(&newc->conn);
+    return newc;
+}
+
+void pddlHPotConfigInit(pddl_hpot_config_t *cfg)
+{
+    pddl_hpot_config_t init = PDDL_HPOT_CONFIG_INIT;
+    *cfg = init;
+}
+
+void pddlHPotConfigInitCopy(pddl_hpot_config_t *dst,
+                            const pddl_hpot_config_t *src)
+{
+    *dst = *src;
+    pddlListInit(&dst->cfg);
+
+    pddl_list_t *entry;
+    PDDL_LIST_FOR_EACH(&src->cfg, entry){
+        CONTAINER_OF_CONST(c, entry, _pddl_hpot_config_t, conn);
+        _pddl_hpot_config_t *newc = hpotConfigClone(c);
+        pddlListAppend(&dst->cfg, &newc->conn);
+    }
+}
+
+void pddlHPotConfigFree(pddl_hpot_config_t *cfg)
+{
+    if (pddlListNext(&cfg->cfg) == NULL)
+        return;
+
+    while (!pddlListEmpty(&cfg->cfg)){
+        pddl_list_t *entry = pddlListNext(&cfg->cfg);
+        pddlListDel(entry);
+        CONTAINER_OF(_cfg, entry, _pddl_hpot_config_t, conn);
+        FREE(_cfg);
+    }
+}
+
+void pddlHPotConfigSetDisambiguation(pddl_hpot_config_t *cfg)
+{
+    cfg->disambiguation = 1;
+    cfg->weak_disambiguation = 0;
+}
+
+void pddlHPotConfigSetWeakDisambiguation(pddl_hpot_config_t *cfg)
+{
+    cfg->disambiguation = 0;
+    cfg->weak_disambiguation = 1;
+}
+
+void pddlHPotConfigSetOpPot(pddl_hpot_config_t *cfg)
+{
+    cfg->op_pot = 1;
+}
+
+void pddlHPotConfigSetOpPotReal(pddl_hpot_config_t *cfg)
+{
+    cfg->op_pot = 1;
+    cfg->op_pot_real = 1;
+}
+
+void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
+                       const _pddl_hpot_config_t *cfg_add)
+{
+    _pddl_hpot_config_t *add = hpotConfigClone(cfg_add);
+    if (pddlListNext(&cfg->cfg) == NULL)
+        pddlListInit(&cfg->cfg);
+    pddlListAppend(&cfg->cfg, &add->conn);
+}
+
+static void hpotConfigLogOptState(const pddl_hpot_config_opt_state_t *c,
+                                  pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "state");
+}
+
+static void hpotConfigLogOptAllSyntacticStates(
+                const pddl_hpot_config_opt_all_syntactic_states_t *c,
+                pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "all-syntactic-states");
+    if (c->add_fdr_state_constr != NULL){
+        LOG(err, "add_state_constr: %{add_state_constr}b", 1);
+        LOG(err, "add_state_constr_coef: %{add_state_constr}.2f",
+            c->add_state_coef);
+    }else{
+        LOG(err, "add_state_constr: %{add_state_constr}b", 0);
+    }
+}
+
+static void hpotConfigLogOptAllStatesMutex(
+                const pddl_hpot_config_opt_all_states_mutex_t *c,
+                pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "all-states-mutex");
+    LOG_CONFIG_INT(c, mutex_size, err);
+    
+    if (c->add_fdr_state_constr != NULL){
+        LOG(err, "add_state_constr: %{add_state_constr}b", 1);
+        LOG(err, "add_state_constr_coef: %{add_state_constr}.2f",
+            c->add_state_coef);
+    }else{
+        LOG(err, "add_state_constr: %{add_state_constr}b", 0);
+    }
+}
+
+static void hpotConfigLogOptSampledStates(
+                const pddl_hpot_config_opt_sampled_states_t *c,
+                pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "sampled-states");
+    LOG_CONFIG_INT(c, num_samples, err);
+    LOG_CONFIG_BOOL(c, use_random_walk, err);
+    LOG_CONFIG_BOOL(c, use_syntactic_samples, err);
+    LOG_CONFIG_BOOL(c, use_mutex_samples, err);
+    
+    if (c->add_fdr_state_constr != NULL){
+        LOG(err, "add_state_constr: %{add_state_constr}b", 1);
+        LOG(err, "add_state_constr_coef: %{add_state_constr}.2f",
+            c->add_state_coef);
+    }else{
+        LOG(err, "add_state_constr: %{add_state_constr}b", 0);
+    }
+}
+
+static void hpotConfigLogOptEnsembleSampledStates(
+                const pddl_hpot_config_opt_ensemble_sampled_states_t *c,
+                pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "ensemble-sampled-states");
+    LOG_CONFIG_INT(c, num_samples, err);
+    LOG_CONFIG_BOOL(c, use_random_walk, err);
+    LOG_CONFIG_BOOL(c, use_syntactic_samples, err);
+    LOG_CONFIG_BOOL(c, use_mutex_samples, err);
+}
+
+static void hpotConfigLogOptEnsembleDiversification(
+                const pddl_hpot_config_opt_ensemble_diversification_t *c,
+                pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "ensemble-diversification");
+    LOG_CONFIG_INT(c, num_samples, err);
+    LOG_CONFIG_BOOL(c, use_random_walk, err);
+    LOG_CONFIG_BOOL(c, use_syntactic_samples, err);
+    LOG_CONFIG_BOOL(c, use_mutex_samples, err);
+}
+
+static void hpotConfigLogOptEnsembleAllStatesMutex(
+                const pddl_hpot_config_opt_ensemble_all_states_mutex_t *c,
+                pddl_err_t *err)
+{
+    LOG(err, "type: %{type}s", "all-states-mutex");
+    LOG_CONFIG_INT(c, cond_size, err);
+    LOG_CONFIG_INT(c, mutex_size, err);
+    LOG_CONFIG_INT(c, num_rand_samples, err);
+}
+
+#define CONFIG_LOG(func, type) \
+    func(pddl_container_of(_c, type, cfg), err)
+static void hpotConfigLog(const _pddl_hpot_config_t *_c, pddl_err_t *err)
+{
+    switch(_c->type){
+        case PDDL_HPOT_OPT_STATE_TYPE:
+            CONFIG_LOG(hpotConfigLogOptState, pddl_hpot_config_opt_state_t);
+            break;
+        case PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE:
+            CONFIG_LOG(hpotConfigLogOptAllSyntacticStates,
+                       pddl_hpot_config_opt_all_syntactic_states_t);
+            break;
+        case PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE:
+            CONFIG_LOG(hpotConfigLogOptAllStatesMutex,
+                       pddl_hpot_config_opt_all_states_mutex_t);
+            break;
+        case PDDL_HPOT_OPT_SAMPLED_STATES_TYPE:
+            CONFIG_LOG(hpotConfigLogOptSampledStates,
+                       pddl_hpot_config_opt_sampled_states_t);
+            break;
+        case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
+            CONFIG_LOG(hpotConfigLogOptEnsembleSampledStates,
+                       pddl_hpot_config_opt_ensemble_sampled_states_t);
+            break;
+        case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
+            CONFIG_LOG(hpotConfigLogOptEnsembleDiversification,
+                       pddl_hpot_config_opt_ensemble_diversification_t);
+            break;
+        case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
+            CONFIG_LOG(hpotConfigLogOptEnsembleAllStatesMutex,
+                       pddl_hpot_config_opt_ensemble_all_states_mutex_t);
+            break;
+    }
+}
+
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
 {
-    // TODO
     LOG_CONFIG_BOOL(cfg, disambiguation, err);
     LOG_CONFIG_BOOL(cfg, weak_disambiguation, err);
     LOG_CONFIG_BOOL(cfg, op_pot, err);
     LOG_CONFIG_BOOL(cfg, op_pot_real, err);
     LOG_CONFIG_DBL(cfg, time_limit, err);
+    if (pddlListNextConst(&cfg->cfg) != NULL){
+        int idx = 0;
+        pddl_list_t *entry;
+        PDDL_LIST_FOR_EACH(&cfg->cfg, entry){
+            CONTAINER_OF_CONST(c, entry, _pddl_hpot_config_t, conn);
+            CTX_NO_TIME_F(err, "opt_%d", "Opt[%d]", idx);
+            hpotConfigLog(c, err);
+            CTXEND(err);
+            ++idx;
+        }
+    }
 }
 
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
 {
-    // TODO
+    const pddl_list_t *next = pddlListNextConst(&cfg->cfg);
+    if (next == NULL)
+        return 0;
+    if (pddlListNextConst(next) != &cfg->cfg)
+        return 1;
+
+    CONTAINER_OF_CONST(c, next, _pddl_hpot_config_t, conn);
+    switch (c->type){
+        case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
+        case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
+        case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
+            return 1;
+        default:
+            return 0;
+    }
     return 0;
 }
 

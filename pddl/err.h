@@ -184,6 +184,7 @@ void pddlErrFlush(pddl_err_t *err);
 #define PDDL_CTX(E, KW, I) _pddlCtx((E), (KW), (I), 1)
 #define PDDL_CTX_F(E, KW, I, ...) _pddlCtxFmt((E), (KW), (I), 1, __VA_ARGS__)
 #define PDDL_CTX_NO_TIME(E, KW, I) _pddlCtx((E), (KW), (I), 0)
+#define PDDL_CTX_NO_TIME_F(E, KW, I, ...) _pddlCtxFmt((E), (KW), (I), 0, __VA_ARGS__)
 
 /**
  * Leave current context.

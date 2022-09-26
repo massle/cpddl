@@ -75,7 +75,8 @@ typedef struct pddl_hpot_config_opt_all_syntactic_states
     }
 
 /**
- * TODO
+ * Maximize the average h-value over reachable states estimated using
+ * mutexes.
  */
 struct pddl_hpot_config_opt_all_states_mutex {
     _pddl_hpot_config_t cfg;
@@ -244,7 +245,38 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
         pddlListInit(&(config_el)->cfg.conn); \
         pddlListAppend(&(config)->cfg, &(config_el)->cfg.conn); \
     } while (0)
-        
+
+/**
+ * Initialize hpot configuration
+ */
+void pddlHPotConfigInit(pddl_hpot_config_t *cfg);
+
+/**
+ * Initialize dst as a deep copy of src.
+ */
+void pddlHPotConfigInitCopy(pddl_hpot_config_t *dst,
+                            const pddl_hpot_config_t *src);
+
+/**
+ * Free allocated memory. This can be called only if pddlHPotConfig*()
+ * functions were used.
+ */
+void pddlHPotConfigFree(pddl_hpot_config_t *cfg);
+
+/**
+ * Setters for the hpot configuration
+ */
+void pddlHPotConfigSetDisambiguation(pddl_hpot_config_t *cfg);
+void pddlHPotConfigSetWeakDisambiguation(pddl_hpot_config_t *cfg);
+void pddlHPotConfigSetOpPot(pddl_hpot_config_t *cfg);
+void pddlHPotConfigSetOpPotReal(pddl_hpot_config_t *cfg);
+
+/**
+ * Adds potential function configuration.
+ */
+void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
+                       const _pddl_hpot_config_t *cfg_add);
+
 
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err);
 
@@ -254,6 +286,9 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err);
  */
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg);
 
+/**
+ * TODO
+ */
 int pddlHPot(pddl_pot_solutions_t *sols,
              pddl_task_t *task,
              const pddl_hpot_config_t *cfg,

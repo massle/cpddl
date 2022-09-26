@@ -27,30 +27,29 @@ extern "C" {
 
 #define CONTAINER_OF_CONST(name, ptr, type, member) \
     const type *name = pddl_container_of((ptr), type, member)
+#define CONTAINER_OF(name, ptr, type, member) \
+    type *name = pddl_container_of((ptr), type, member)
 
-#define ERR(E, format, ...) PDDL_ERR((E), (format), __VA_ARGS__)
-#define ERR2(E, msg) PDDL_ERR2((E), (msg))
-#define ERR_RET(E, V, format, ...) \
-    PDDL_ERR_RET((E), (V), (format), __VA_ARGS__)
-#define ERR_RET2(E, V, msg) PDDL_ERR_RET2((E), (V), (msg))
-#define FATAL(format, ...) PDDL_FATAL(format, __VA_ARGS__)
-#define FATAL2(msg) PDDL_FATAL2(msg)
-#define WARN(E, format, ...) PDDL_WARN((E), (format), __VA_ARGS__)
-#define WARN2(E, msg) PDDL_WARN2((E), (msg))
-#define CTX(E, KW, I) PDDL_CTX((E), (KW), (I))
-#define CTX_F(E, KW, I, ...) PDDL_CTX((E), (KW), (I), __VA_ARGS__)
-#define CTX_NO_TIME(E, KW, I) PDDL_CTX_NO_TIME((E), (KW), (I))
-#define CTXEND(E) PDDL_CTXEND(E)
-#define LOG(E, format, ...) PDDL_LOG((E), (format), __VA_ARGS__)
-#define LOG2(E, format) PDDL_LOG2((E), (format))
-#define LOG_IN_CTX(E, CTX_KW, CTX_I, format, ...) \
-    PDDL_LOG_IN_CTX(E, CTX_KW, CTX_I, format, __VA_ARGS__)
-#define TRACE(E) PDDL_TRACE(E)
-#define TRACE_RET(E, V) PDDL_TRACE_RET((E), (V))
-#define TRACE_PREPEND(E, format, ...) \
-    PDDL_TRACE_PREPEND((E), (format), __VA_ARGS__)
-#define TRACE_PREPEND_RET(E, V, format, ...) \
-    PDDL_TRACE_PREPEND_RET((E), (V), (format), __VA_ARGS__)
+#define ERR PDDL_ERR
+#define ERR2 PDDL_ERR2
+#define ERR_RET PDDL_ERR_RET
+#define ERR_RET2 PDDL_ERR_RET2
+#define FATAL PDDL_FATAL
+#define FATAL2 PDDL_FATAL2
+#define WARN PDDL_WARN
+#define WARN2 PDDL_WARN2
+#define CTX PDDL_CTX
+#define CTX_F PDDL_CTX_F
+#define CTX_NO_TIME PDDL_CTX_NO_TIME
+#define CTX_NO_TIME_F PDDL_CTX_NO_TIME_F
+#define CTXEND PDDL_CTXEND
+#define LOG PDDL_LOG
+#define LOG2 PDDL_LOG2
+#define LOG_IN_CTX PDDL_LOG_IN_CTX
+#define TRACE PDDL_TRACE
+#define TRACE_RET PDDL_TRACE_RET
+#define TRACE_PREPEND PDDL_TRACE_PREPEND
+#define TRACE_PREPEND_RET PDDL_TRACE_PREPEND_RET
 
 #define LOG_CONFIG_INT(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}d", (C)->NAME)
@@ -116,18 +115,17 @@ extern "C" {
     pddlLiftedMGroupFmt((PDDL), (MG), ((char [2048]){""}), 2048)
 
 
-#define ZEROIZE(ptr) PDDL_ZEROIZE(ptr)
+#define ZEROIZE PDDL_ZEROIZE
 
-#define FREE(ptr) PDDL_FREE(ptr)
-#define ALLOC(type) PDDL_ALLOC(type)
-#define ALLOC_ARR(type, num_elements) PDDL_ALLOC_ARR(type, (num_elements))
-#define REALLOC_ARR(ptr, type, num_elements) \
-    PDDL_REALLOC_ARR((ptr), type, (num_elements))
-#define CALLOC_ARR(type, num_elements) PDDL_CALLOC_ARR(type, (num_elements))
-#define ZALLOC(type) PDDL_ZALLOC(type)
-#define MALLOC(size) PDDL_MALLOC(size)
-#define REALLOC(ptr, size) PDDL_REALLOC((ptr), (size))
-#define STRDUP(str) PDDL_STRDUP(str)
+#define FREE PDDL_FREE
+#define ALLOC PDDL_ALLOC
+#define ALLOC_ARR PDDL_ALLOC_ARR
+#define REALLOC_ARR PDDL_REALLOC_ARR
+#define CALLOC_ARR PDDL_CALLOC_ARR
+#define ZALLOC PDDL_ZALLOC
+#define MALLOC PDDL_MALLOC
+#define REALLOC PDDL_REALLOC
+#define STRDUP PDDL_STRDUP
 
 #ifdef __cplusplus
 } /* extern "C" */
