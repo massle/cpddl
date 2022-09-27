@@ -5,6 +5,7 @@
  */
 
 #include "internal.h"
+#include "_heur.h"
 #include "pddl/fdr_state_sampler.h"
 #include "pddl/set.h"
 #include "pddl/hpot.h"
@@ -28,8 +29,8 @@ typedef struct state_sampler state_sampler_t;
 
 #define CLONE_OPT(dst, src, type) \
     do { \
-        CONTAINER_OF_CONST(__c, src, pddl_hpot_config_opt_state_t, cfg); \
-        pddl_hpot_config_opt_state_t *__newc = ALLOC(pddl_hpot_config_opt_state_t); \
+        CONTAINER_OF_CONST(__c, src, type, cfg); \
+        type *__newc = ALLOC(type); \
         *__newc = *__c; \
         pddlListInit(&__newc->cfg.conn); \
         dst = &__newc->cfg; \
@@ -76,6 +77,9 @@ void pddlHPotConfigInitCopy(pddl_hpot_config_t *dst,
 {
     *dst = *src;
     pddlListInit(&dst->cfg);
+
+    if (pddlListNextConst(&src->cfg) == NULL)
+        return;
 
     pddl_list_t *entry;
     PDDL_LIST_FOR_EACH(&src->cfg, entry){
@@ -141,6 +145,7 @@ static void hpotConfigLogOptAllSyntacticStates(
                 pddl_err_t *err)
 {
     LOG(err, "type: %{type}s", "all-syntactic-states");
+    LOG_CONFIG_BOOL(c, add_init_state_constr, err);
     if (c->add_fdr_state_constr != NULL){
         LOG(err, "add_state_constr: %{add_state_constr}b", 1);
         LOG(err, "add_state_constr_coef: %{add_state_constr}.2f",
@@ -156,6 +161,7 @@ static void hpotConfigLogOptAllStatesMutex(
 {
     LOG(err, "type: %{type}s", "all-states-mutex");
     LOG_CONFIG_INT(c, mutex_size, err);
+    LOG_CONFIG_BOOL(c, add_init_state_constr, err);
     
     if (c->add_fdr_state_constr != NULL){
         LOG(err, "add_state_constr: %{add_state_constr}b", 1);
@@ -175,6 +181,7 @@ static void hpotConfigLogOptSampledStates(
     LOG_CONFIG_BOOL(c, use_random_walk, err);
     LOG_CONFIG_BOOL(c, use_syntactic_samples, err);
     LOG_CONFIG_BOOL(c, use_mutex_samples, err);
+    LOG_CONFIG_BOOL(c, add_init_state_constr, err);
     
     if (c->add_fdr_state_constr != NULL){
         LOG(err, "add_state_constr: %{add_state_constr}b", 1);
@@ -268,8 +275,18 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
             hpotConfigLog(c, err);
             CTXEND(err);
             ++idx;
+            if (idx > 3)
+                exit(-1);
         }
     }
+}
+
+int pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg)
+{
+    const pddl_list_t *next = pddlListNextConst(&cfg->cfg);
+    if (next == NULL || pddlListEmpty(&cfg->cfg))
+        return 1;
+    return 0;
 }
 
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
@@ -380,23 +397,34 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
 
 static void setStateConstr(pddl_pot_t *pot,
                            pddl_task_t *task,
+                           int add_init_state,
                            const int *add_fdr_state,
                            double add_state_coef,
                            pddl_err_t *err)
 {
+    ASSERT_RUNTIME_M(add_state_coef >= 0.
+                        && (!add_init_state || add_fdr_state == NULL),
+                     "Invalid hpot configuration");
     pddlPotResetLowerBoundConstr(pot);
-    if (add_fdr_state == NULL)
+    if (!add_init_state && add_fdr_state == NULL)
         return;
+
+    const pddl_fdr_t *fdr = pddlTaskFDR(task);
+    const int *add_state = NULL;
+    if (add_init_state){
+        add_state = fdr->init;
+    }else{
+        add_state = add_fdr_state;
+    }
 
     if (add_state_coef <= 0.)
         add_state_coef = 1.;
-    double h_value = heurForState(pot, task, add_fdr_state, err);
+    double h_value = heurForState(pot, task, add_state, err);
     double rhs = h_value * add_state_coef;
 
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
     PDDL_ISET(vars);
     for (int var = 0; var < fdr->var.var_size; ++var){
-        int v = fdr->var.var[var].val[add_fdr_state[var]].global_id;
+        int v = fdr->var.var[var].val[add_state[var]].global_id;
         pddlISetAdd(&vars, v);
     }
     rhs -= INIT_STATE_RHS_DECREASE_STEP;
@@ -523,7 +551,12 @@ static int hpotOptState(pddl_pot_solutions_t *sols,
                         pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_state_t, cfg);
-    return _hpotOptState(sols, pot, task, cfg, cfg_opt->fdr_state, err);
+    const int *state = cfg_opt->fdr_state;
+    if (state == NULL){
+        const pddl_fdr_t *fdr = pddlTaskFDR(task);
+        state = fdr->init;
+    }
+    return _hpotOptState(sols, pot, task, cfg, state, err);
 }
 
 static int hpotOptAllSyntacticStates(pddl_pot_solutions_t *sols,
@@ -534,7 +567,8 @@ static int hpotOptAllSyntacticStates(pddl_pot_solutions_t *sols,
                                      pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_all_syntactic_states_t, cfg);
-    setStateConstr(pot, task, cfg_opt->add_fdr_state_constr,
+    setStateConstr(pot, task, cfg_opt->add_init_state_constr,
+                   cfg_opt->add_fdr_state_constr,
                    cfg_opt->add_state_coef, err);
 
     const pddl_fdr_t *fdr = pddlTaskFDR(task);
@@ -654,7 +688,8 @@ static int hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_all_states_mutex_t, cfg);
     const pddl_mg_strips_t *mg_strips = pddlTaskMGStrips(task);
     const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1., 0);
-    setStateConstr(pot, task, cfg_opt->add_fdr_state_constr,
+    setStateConstr(pot, task, cfg_opt->add_init_state_constr,
+                   cfg_opt->add_fdr_state_constr,
                    cfg_opt->add_state_coef, err);
 
     if (cfg_opt->mutex_size == 1){
@@ -683,7 +718,8 @@ static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_sampled_states_t, cfg);
     const pddl_fdr_t *fdr = pddlTaskFDR(task);
-    setStateConstr(pot, task, cfg_opt->add_fdr_state_constr,
+    setStateConstr(pot, task, cfg_opt->add_init_state_constr,
+                   cfg_opt->add_fdr_state_constr,
                    cfg_opt->add_state_coef, err);
 
     pddl_fdr_state_sampler_t *sampler;
@@ -1131,10 +1167,11 @@ int pddlHPot(pddl_pot_solutions_t *sols,
              const pddl_hpot_config_t *cfg,
              pddl_err_t *err)
 {
-    // TODO: Check config
     ASSERT_RUNTIME_M(pddlListNextConst(&cfg->cfg) != NULL
                         && !pddlListEmpty(&cfg->cfg),
                      "Missing configuration of potential heuristics");
+    ASSERT_RUNTIME_M(!cfg->disambiguation || !cfg->weak_disambiguation,
+                     "Invalid hpot configuration");
 
     CTX(err, "hpot", "HPot");
     CTX_NO_TIME(err, "cfg", "Cfg");
@@ -1197,4 +1234,43 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     pddlPotFree(&pot);
     CTXEND(err);
     return ret;
+}
+
+struct pddl_heur_pot {
+    pddl_heur_t heur;
+    pddl_pot_solutions_t sols;
+    pddl_task_t *task;
+    const pddl_fdr_vars_t *vars;
+};
+typedef struct pddl_heur_pot pddl_heur_pot_t;
+
+static void heurDel(pddl_heur_t *_h)
+{
+    pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
+    _pddlHeurFree(&h->heur);
+    pddlPotSolutionsFree(&h->sols);
+    FREE(h);
+}
+
+static int heurEstimate(pddl_heur_t *_h,
+                        const pddl_fdr_state_space_node_t *node,
+                        const pddl_fdr_state_space_t *state_space)
+{
+    pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
+    int est = pddlPotSolutionsEvalMaxFDRState(&h->sols, h->vars, node->state);
+    return est;
+}
+
+pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
+                         const pddl_hpot_config_t *cfg,
+                         pddl_err_t *err)
+{
+    pddl_heur_pot_t *h = ALLOC(pddl_heur_pot_t);
+    pddlPotSolutionsInit(&h->sols);
+    h->task = pddlTaskNewFDR(fdr, err);
+    fdr = pddlTaskFDR(h->task);
+    pddlHPot(&h->sols, h->task, cfg, err);
+    h->vars = &fdr->var;
+    _pddlHeurInit(&h->heur, heurDel, heurEstimate);
+    return &h->heur;
 }

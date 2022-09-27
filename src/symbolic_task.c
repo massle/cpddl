@@ -104,7 +104,7 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_CONFIG_DBL(cfg, step_time_limit, err);
 
     CTX_NO_TIME(err, "pot", "pot");
-    pddlHPotOldConfigLog(&cfg->pot_heur_config, err);
+    pddlHPotConfigLog(&cfg->pot_heur_config, err);
     CTXEND(err);
 }
 
@@ -144,10 +144,9 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 
     pddl_pot_solutions_t pot;
     pddlPotSolutionsInit(&pot);
-    pddl_hpot_old_config_t pot_cfg = cfg->pot_heur_config;
-    pot_cfg.op_pot = 1;
     // TODO: Use task as input to symbolic task
-    if (pddlHPotOld(&pot, fdr, &pot_cfg, err) != 0){
+    pddl_task_t *task = pddlTaskNewFDR(fdr, err);
+    if (pddlHPot(&pot, task, &cfg->pot_heur_config, err) != 0){
         PDDL_ERR_RET2(err, -1, "Could not find a potential function.");
     }
     if (pot.sol_size != 1){
@@ -155,6 +154,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
                      " potential function, got %d",
                      pot.sol_size);
     }
+    pddlTaskDel(task);
 
     const pddl_pot_solution_t *sol = pot.sol + 0;
     double hflt = pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init);
@@ -247,6 +247,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
     }
     bzero(search, sizeof(*search));
     search->cfg = *_cfg;
+    pddlHPotConfigInitCopy(&search->cfg.pot_heur_config, &_cfg->pot_heur_config);
     search->enabled = 1;
     search->fw = fw;
     search->use_heur = search->cfg.use_pot_heur;
@@ -1233,8 +1234,10 @@ static void fixSearchConfig(pddl_symbolic_search_config_t *cfg,
         cfg->use_constr = 0;
     if (cfg->use_pot_heur
             || cfg->use_pot_heur_inconsistent
-            || cfg->use_pot_heur_sum_op_cost)
+            || cfg->use_pot_heur_sum_op_cost){
         cfg->use_pot_heur = 1;
+        cfg->pot_heur_config.op_pot = 1;
+    }
 
     if (cfg->use_goal_splitting && !cfg->use_pot_heur){
         LOG2(err, "cfg.use_goal_splitting reset to false, because potential"
@@ -1276,17 +1279,22 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                 " effects yet.");
     }
 
-    if (((cfg->fw.use_pot_heur
-            || cfg->fw.use_pot_heur_inconsistent
-            || cfg->fw.use_pot_heur_sum_op_cost)
-                && pddlHPotOldConfigIsEnsemble(&cfg->fw.pot_heur_config))
-        ||
-        ((cfg->bw.use_pot_heur
-            || cfg->bw.use_pot_heur_inconsistent
-            || cfg->bw.use_pot_heur_sum_op_cost)
-                && pddlHPotOldConfigIsEnsemble(&cfg->bw.pot_heur_config))){
+    int fw_use_pot = cfg->fw.use_pot_heur
+                        || cfg->fw.use_pot_heur_inconsistent
+                        || cfg->fw.use_pot_heur_sum_op_cost;
+    int bw_use_pot = cfg->bw.use_pot_heur
+                        || cfg->bw.use_pot_heur_inconsistent
+                        || cfg->bw.use_pot_heur_sum_op_cost;
+    if ((fw_use_pot && pddlHPotConfigIsEnsemble(&cfg->fw.pot_heur_config))
+            || (bw_use_pot && pddlHPotConfigIsEnsemble(&cfg->bw.pot_heur_config))){
         PDDL_ERR_RET2(err, NULL, "Symbolic tasks can use only a single"
-                                " potential heuristic.");
+                      " potential heuristic.");
+    }
+
+    if ((fw_use_pot && pddlHPotConfigIsEmpty(&cfg->fw.pot_heur_config))
+            || (bw_use_pot && pddlHPotConfigIsEmpty(&cfg->bw.pot_heur_config))){
+        PDDL_ERR_RET2(err, NULL, "Missing optimization criteria for the"
+                      " potential heuristic");
     }
 
     CTX(err, "symba_init", "symba-init");
@@ -1303,6 +1311,8 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     ss = ALLOC(pddl_symbolic_task_t);
     bzero(ss, sizeof(*ss));
     ss->cfg = *cfg;
+    pddlHPotConfigInitCopy(&ss->cfg.fw.pot_heur_config, &cfg->fw.pot_heur_config);
+    pddlHPotConfigInitCopy(&ss->cfg.bw.pot_heur_config, &cfg->bw.pot_heur_config);
     fixConfig(&ss->cfg, err);
     logConfig(&ss->cfg, err);
 
@@ -1389,6 +1399,8 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
         searchFree(ss, &ss->search_bw);
     if (ss->mgr != NULL)
         pddlBDDManagerDel(ss->mgr);
+    pddlHPotConfigFree(&ss->cfg.fw.pot_heur_config);
+    pddlHPotConfigFree(&ss->cfg.bw.pot_heur_config);
     FREE(ss);
 }
 

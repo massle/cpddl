@@ -195,6 +195,7 @@ _pddl_inline pddl_list_t *pddlListPrev(pddl_list_t *l);
 
 /**
  * Returns true if list is empty.
+ * TODO: rename to pddlListIsEmpty
  */
 _pddl_inline int pddlListEmpty(const pddl_list_t *head);
 

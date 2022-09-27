@@ -87,7 +87,6 @@ OBJS += famgroup
 OBJS += pot
 OBJS += lm_cut
 OBJS += hpot
-OBJS += hpot_old
 OBJS += hflow
 OBJS += hmax
 OBJS += hadd

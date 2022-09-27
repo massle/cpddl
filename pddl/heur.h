@@ -22,7 +22,6 @@
 
 #include <pddl/fdr_state_space.h>
 #include <pddl/hpot.h>
-#include <pddl/hpot_old.h>
 #include <pddl/op_mutex_pair.h>
 
 #ifdef __cplusplus
@@ -47,9 +46,6 @@ pddl_heur_t *pddlHeurDeadEnd(void);
 pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
                          const pddl_hpot_config_t *cfg,
                          pddl_err_t *err);
-pddl_heur_t *pddlHeurPotOld(const pddl_fdr_t *fdr,
-                            const pddl_hpot_old_config_t *cfg,
-                            pddl_err_t *err);
 
 /**
  * Flow heuristic

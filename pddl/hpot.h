@@ -42,6 +42,7 @@ typedef struct _pddl_hpot_config _pddl_hpot_config_t;
  */
 struct pddl_hpot_config_opt_state {
     _pddl_hpot_config_t cfg;
+    /** State for which to optimize. If NULL, initial state is used. */
     const int *fdr_state;
 };
 typedef struct pddl_hpot_config_opt_state pddl_hpot_config_opt_state_t;
@@ -58,6 +59,8 @@ typedef struct pddl_hpot_config_opt_state pddl_hpot_config_opt_state_t;
  */
 struct pddl_hpot_config_opt_all_syntactic_states {
     _pddl_hpot_config_t cfg;
+    /** Add constraint maximizing h-value for the initial state. default: false */
+    int add_init_state_constr;
     /** If set to non-NULL, add the constraint maximizing h-value for the
      *  given state. default: NULL */
     const int *add_fdr_state_constr;
@@ -70,6 +73,7 @@ typedef struct pddl_hpot_config_opt_all_syntactic_states
 #define PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT \
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE), /* .cfg */ \
+        0, /* .add_init_state_constr */ \
         NULL, /* .add_fdr_state_constr */ \
         1., /* .add_state_coef */ \
     }
@@ -82,6 +86,8 @@ struct pddl_hpot_config_opt_all_states_mutex {
     _pddl_hpot_config_t cfg;
     /** TODO */
     int mutex_size;
+    /** Add constraint maximizing h-value for the initial state. default: false */
+    int add_init_state_constr;
     /** If set to non-NULL, add the constraint maximizing h-value for the
      *  given state. default: NULL */
     const int *add_fdr_state_constr;
@@ -95,6 +101,7 @@ typedef struct pddl_hpot_config_opt_all_states_mutex
     { \
         _PDDL_HPOT_CONFIG_INIT(PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE), /* .cfg */ \
         2, /* .mutex_size */ \
+        0, /* .add_init_state_constr */ \
         NULL, /* .add_fdr_state_constr */ \
         1., /* .add_state_coef */ \
     }
@@ -112,6 +119,8 @@ struct pddl_hpot_config_opt_sampled_states {
     int use_syntactic_samples;
     /** Sample (syntactic) states while removing mutex states */
     int use_mutex_samples;
+    /** Add constraint maximizing h-value for the initial state. default: false */
+    int add_init_state_constr;
     /** If set to non-NULL, add the constraint maximizing h-value for the
      *  given state. default: NULL */
     const int *add_fdr_state_constr;
@@ -128,6 +137,7 @@ typedef struct pddl_hpot_config_opt_sampled_states
         1, /* .use_random_walk */ \
         0, /* .use_syntactic_samples */ \
         0, /* .use_mutex_samples */ \
+        0, /* .add_init_state_constr */ \
         NULL, /* .add_fdr_state_constr */ \
         1., /* .add_state_coef */ \
     }
@@ -279,6 +289,11 @@ void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
 
 
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err);
+
+/**
+ * Return true if there is no potential function added to the configuration.
+ */
+int pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg);
 
 /**
  * Returns true if the config produces an ensamble of potential

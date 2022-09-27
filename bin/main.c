@@ -1,6 +1,5 @@
 #include <signal.h>
 #include "pddl/pddl.h"
-#include "pddl/hpot_old.h"
 #include "opts.h"
 #include "options.h"
 #include "process_strips.h"
@@ -526,12 +525,14 @@ static int stepFDR(void)
     if (opt.fdr.pot){
         pddl_pot_solutions_t pot;
         pddlPotSolutionsInit(&pot);
-        if (pddlHPotOld(&pot, &fdr, &opt.fdr.pot_cfg, &err) != 0){
+        pddl_task_t *task = pddlTaskNewFDR(&fdr, &err);
+        if (pddlHPot(&pot, task, &opt.fdr.pot_cfg, &err) != 0){
             PDDL_ERR_RET2(&err, -1, "Cannot find potential heuristic");
             return -1;
         }
         APPEND_TO_FILE(&err, opt.fdr.out, "FDR Pot",
                        printPotentials(&fdr, &pot, fout));
+        pddlTaskDel(task);
         pddlPotSolutionsFree(&pot);
     }
 
@@ -595,7 +596,7 @@ static int stepGroundPlanner(void)
             break;
         case GROUND_PLAN_HEUR_POT:
             PDDL_INFO2(&err, "Heuristic: pot");
-            heur = pddlHeurPotOld(&fdr, &opt.ground_planner.pot_cfg, &err);
+            heur = pddlHeurPot(&fdr, &opt.ground_planner.pot_cfg, &err);
             break;
         case GROUND_PLAN_HEUR_BLIND:
         default:

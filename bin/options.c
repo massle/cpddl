@@ -72,7 +72,7 @@ static int setLPSolver(const char *v)
 
 static void hpotSetDisamb(int value, void *_cfg)
 {
-    pddl_hpot_old_config_t *cfg = _cfg;
+    pddl_hpot_config_t *cfg = _cfg;
     cfg->disambiguation = value;
     if (value)
         cfg->weak_disambiguation = 0;
@@ -80,90 +80,129 @@ static void hpotSetDisamb(int value, void *_cfg)
 
 static void hpotSetWeakDisamb(int value, void *_cfg)
 {
-    pddl_hpot_old_config_t *cfg = _cfg;
+    pddl_hpot_config_t *cfg = _cfg;
     cfg->weak_disambiguation = value;
     if (value)
         cfg->disambiguation = 0;
 }
 
-static void hpotSetObjSimple(int v, void *_cfg, int type)
-{
-    pddl_hpot_old_config_t *cfg = _cfg;
-    if (v)
-        cfg->obj = type;
-}
-
-static void hpotSetObjSample(int v, void *_cfg, int type)
-{
-    pddl_hpot_old_config_t *cfg = _cfg;
-    if (v){
-        cfg->obj = type;
-        cfg->num_samples = v;
-        cfg->samples_random_walk = 1;
-    }
-}
-
-static void hpotSetObjMutex(int v, void *_cfg, int type)
-{
-    pddl_hpot_old_config_t *cfg = _cfg;
-    if (v){
-        cfg->obj = type;
-        cfg->all_states_mutex_size = v;
-    }
-}
-
 static void hpotSetObjInit(int v, void *_cfg)
 {
-    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_INIT);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_state_t copt = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllStates(int v, void *_cfg)
 {
-    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_syntactic_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
-static void hpotSetObjMaxInitAll(int v, void *_cfg)
+static void hpotSetObjAllStatesInit(int v, void *_cfg)
 {
-    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES);
-}
-
-static void hpotSetObjSamplesMax(int v, void *_cfg)
-{
-    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_SAMPLES_MAX);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_syntactic_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
+    copt.add_init_state_constr = 1;
+    fprintf(stderr, "%lx\n", (long)copt.add_fdr_state_constr);
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjSamplesSum(int v, void *_cfg)
 {
-    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_SAMPLES_SUM);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_sampled_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES_INIT;
+    copt.num_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
-static void hpotSetObjDiverse(int v, void *_cfg)
+static void hpotSetObjSamplesSumInit(int v, void *_cfg)
 {
-    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_DIVERSE);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_sampled_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES_INIT;
+    copt.num_samples = v;
+    copt.add_init_state_constr = 1;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllMutex(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX_INIT;
+    copt.mutex_size = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
+
+static void hpotSetObjAllMutexInit(int v, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX_INIT;
+    copt.mutex_size = v;
+    copt.add_init_state_constr = 1;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
+}
+
+
+static void hpotSetObjSamplesMax(int v, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_sampled_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_SAMPLED_STATES_INIT;
+    copt.num_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
+}
+
+static void hpotSetObjDiverse(int v, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_diversification_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_DIVERSIFICATION_INIT;
+    copt.num_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
+}
+
 
 static void hpotSetObjAllMutexCond(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT;
+    copt.cond_size = 1;
+    copt.mutex_size = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllMutexCondRand(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT;
+    copt.cond_size = 1;
+    copt.mutex_size = 1;
+    copt.num_rand_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllMutexCondRand2(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT;
+    copt.cond_size = 1;
+    copt.mutex_size = 2;
+    copt.num_rand_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotParams(opts_params_t *params,
-                       pddl_hpot_old_config_t *cfg)
+                       pddl_hpot_config_t *cfg)
 {
     optsParamsAddFlagFn(params, "disam", cfg, hpotSetDisamb);
     optsParamsAddFlagFn(params, "disambiguation", cfg, hpotSetDisamb);
@@ -178,24 +217,23 @@ static void hpotParams(opts_params_t *params,
 
     optsParamsAddFlagFn(params, "all", cfg, hpotSetObjAllStates);
     optsParamsAddFlagFn(params, "A", cfg, hpotSetObjAllStates);
+    optsParamsAddFlagFn(params, "A+I", cfg, hpotSetObjAllStatesInit);
 
-    optsParamsAddFlagFn(params, "max-init-all", cfg, hpotSetObjMaxInitAll);
-
-    optsParamsAddFlag(params, "add-init", &cfg->add_init_constr);
-    optsParamsAddFlag(params, "+I", &cfg->add_init_constr);
-
-    optsParamsAddIntFn(params, "sample-max", cfg, hpotSetObjSamplesMax);
     optsParamsAddIntFn(params, "sample-sum", cfg, hpotSetObjSamplesSum);
-    optsParamsAddIntFn(params, "diverse", cfg, hpotSetObjDiverse);
+    optsParamsAddIntFn(params, "S", cfg, hpotSetObjSamplesSum);
+    optsParamsAddIntFn(params, "S+I", cfg, hpotSetObjSamplesSumInit);
 
     optsParamsAddIntFn(params, "all-mutex", cfg, hpotSetObjAllMutex);
+    optsParamsAddIntFn(params, "M", cfg, hpotSetObjAllMutex);
+    optsParamsAddIntFn(params, "M+I", cfg, hpotSetObjAllMutexInit);
+
+    optsParamsAddIntFn(params, "sample-max", cfg, hpotSetObjSamplesMax);
+    optsParamsAddIntFn(params, "diverse", cfg, hpotSetObjDiverse);
     optsParamsAddIntFn(params, "all-mutex-cond", cfg, hpotSetObjAllMutexCond);
     optsParamsAddIntFn(params, "all-mutex-cond-rand", cfg,
                        hpotSetObjAllMutexCondRand);
     optsParamsAddIntFn(params, "all-mutex-cond-rand2", cfg,
                        hpotSetObjAllMutexCondRand2);
-
-    optsParamsAddInt(params, "num-samples", &cfg->num_samples);
 }
 
 static int optGroundNoPruning(int enabled)
@@ -747,9 +785,7 @@ static void setFDROptions(void)
 
     opts_params_t *params;
 
-    opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
-    pddl_hpot_old_config_t _pot_cfg = PDDL_HPOT_OLD_CONFIG_INIT;
-    opt.fdr.pot_cfg = _pot_cfg;
+    pddlHPotConfigInit(&opt.fdr.pot_cfg);
 
     if (is_pddl_fdr)
         opt.fdr.out = "-";
@@ -793,8 +829,7 @@ static void setGroundPlannerOptions(void)
     if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
-    pddl_hpot_old_config_t _pot_cfg = PDDL_HPOT_OLD_CONFIG_INIT;
-    opt.ground_planner.pot_cfg = _pot_cfg;
+    pddlHPotConfigInit(&opt.ground_planner.pot_cfg);
 
     opts_params_t *params;
     optsStartGroup("Grounded Planner:");
@@ -838,17 +873,17 @@ static void setGroundPlannerOptions(void)
         "  D/disamb = <bool> -- turns on disambiguation (default: true)\n"
         "  W/weak-disamb = <bool> -- turns on weak disambiguation (default: false)\n"
         "  I/init = <bool> -- sets objective to initial state\n"
-        "  A/all = <bool> -- sets objective to all syntactic states (default: true)\n"
-        "  max-init-all = <bool> -- sets objective to the maximum of I and A\n"
-        "  +I/add-init = <bool> -- adds constraint on the inital state (default: true)\n"
+        "  A/all = <bool> -- sets objective to all syntactic states\n"
+        "  A+I = <bool> -- A + add constraint on the initial state\n"
+        "  S/sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
+        "  S+I = <int> -- S + add constriant on the initial state\n"
+        "  M/all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
+        "  M+I = <int> -- M + add constraint on the initial state\n"
         "  sample-max = <int> -- maximum over the specified number of samples states\n"
-        "  sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
         "  diverse = <int> -- diversification over the specified number states\n"
-        "  all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
         "  all-mutex-cond = <int> -- conditioned ensemble\n"
-        "  all-mutex-cond-rand = <int> -- conditioned on <num-samples> fact sets\n"
+        "  all-mutex-cond-rand = <int> -- conditioned on fact sets\n"
         "  all-mutex-cond-rand2 = <int>\n"
-        "  num-samples = <int> -- sets number of samples"
         );
     hpotParams(params, &opt.ground_planner.pot_cfg);
 

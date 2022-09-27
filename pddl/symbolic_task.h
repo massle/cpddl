@@ -25,7 +25,6 @@
 #include <pddl/mgroup.h>
 #include <pddl/mutex_pair.h>
 #include <pddl/hpot.h>
-#include <pddl/hpot_old.h>
 #include <pddl/bdd.h>
 #include <pddl/bdds.h>
 
@@ -50,7 +49,7 @@ struct pddl_symbolic_search_config {
     int use_pot_heur_sum_op_cost;
     int use_goal_splitting;
     float step_time_limit;
-    pddl_hpot_old_config_t pot_heur_config;
+    pddl_hpot_config_t pot_heur_config;
 };
 typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
 
@@ -66,7 +65,7 @@ typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
         0, /* .use_pot_heur_sum_op_cost */ \
         1, /* .use_goal_splitting */ \
         0.f, /* .step_time_limit */ \
-        PDDL_HPOT_OLD_CONFIG_INIT, \
+        PDDL_HPOT_CONFIG_INIT, \
     }
 
 struct pddl_symbolic_task_config {
