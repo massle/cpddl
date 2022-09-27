@@ -32,7 +32,6 @@ typedef struct state_sampler state_sampler_t;
         CONTAINER_OF_CONST(__c, src, type, cfg); \
         type *__newc = ALLOC(type); \
         *__newc = *__c; \
-        pddlListInit(&__newc->cfg.conn); \
         dst = &__newc->cfg; \
     } while (0)
 
@@ -62,7 +61,6 @@ static _pddl_hpot_config_t *hpotConfigClone(const _pddl_hpot_config_t *c)
             CLONE_OPT(newc, c, pddl_hpot_config_opt_ensemble_all_states_mutex_t);
             break;
     }
-    pddlListInit(&newc->conn);
     return newc;
 }
 
@@ -76,30 +74,17 @@ void pddlHPotConfigInitCopy(pddl_hpot_config_t *dst,
                             const pddl_hpot_config_t *src)
 {
     *dst = *src;
-    pddlListInit(&dst->cfg);
+    dst->cfg_size = 0;
 
-    if (pddlListNextConst(&src->cfg) == NULL)
-        return;
-
-    pddl_list_t *entry;
-    PDDL_LIST_FOR_EACH(&src->cfg, entry){
-        CONTAINER_OF_CONST(c, entry, _pddl_hpot_config_t, conn);
-        _pddl_hpot_config_t *newc = hpotConfigClone(c);
-        pddlListAppend(&dst->cfg, &newc->conn);
-    }
+    for (int i = 0; i < src->cfg_size; ++i)
+        dst->cfg[dst->cfg_size++] = hpotConfigClone(src->cfg[i]);
 }
 
 void pddlHPotConfigFree(pddl_hpot_config_t *cfg)
 {
-    if (pddlListNext(&cfg->cfg) == NULL)
-        return;
-
-    while (!pddlListEmpty(&cfg->cfg)){
-        pddl_list_t *entry = pddlListNext(&cfg->cfg);
-        pddlListDel(entry);
-        CONTAINER_OF(_cfg, entry, _pddl_hpot_config_t, conn);
-        FREE(_cfg);
-    }
+    for (int i = 0; i < cfg->cfg_size; ++i)
+        FREE(cfg->cfg[i]);
+    cfg->cfg_size = 0;
 }
 
 void pddlHPotConfigSetDisambiguation(pddl_hpot_config_t *cfg)
@@ -128,10 +113,8 @@ void pddlHPotConfigSetOpPotReal(pddl_hpot_config_t *cfg)
 void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
                        const _pddl_hpot_config_t *cfg_add)
 {
-    _pddl_hpot_config_t *add = hpotConfigClone(cfg_add);
-    if (pddlListNext(&cfg->cfg) == NULL)
-        pddlListInit(&cfg->cfg);
-    pddlListAppend(&cfg->cfg, &add->conn);
+    ASSERT_RUNTIME(cfg->cfg_size < PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS);
+    cfg->cfg[cfg->cfg_size++] = hpotConfigClone(cfg_add);
 }
 
 static void hpotConfigLogOptState(const pddl_hpot_config_opt_state_t *c,
@@ -266,39 +249,26 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, op_pot, err);
     LOG_CONFIG_BOOL(cfg, op_pot_real, err);
     LOG_CONFIG_DBL(cfg, time_limit, err);
-    if (pddlListNextConst(&cfg->cfg) != NULL){
-        int idx = 0;
-        pddl_list_t *entry;
-        PDDL_LIST_FOR_EACH(&cfg->cfg, entry){
-            CONTAINER_OF_CONST(c, entry, _pddl_hpot_config_t, conn);
-            CTX_NO_TIME_F(err, "opt_%d", "Opt[%d]", idx);
-            hpotConfigLog(c, err);
-            CTXEND(err);
-            ++idx;
-            if (idx > 3)
-                exit(-1);
-        }
+    for (int idx = 0; idx < cfg->cfg_size; ++idx){
+        CTX_NO_TIME_F(err, "opt_%d", "Opt[%d]", idx);
+        hpotConfigLog(cfg->cfg[idx], err);
+        CTXEND(err);
     }
 }
 
 int pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg)
 {
-    const pddl_list_t *next = pddlListNextConst(&cfg->cfg);
-    if (next == NULL || pddlListEmpty(&cfg->cfg))
-        return 1;
-    return 0;
+    return cfg->cfg_size == 0;
 }
 
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
 {
-    const pddl_list_t *next = pddlListNextConst(&cfg->cfg);
-    if (next == NULL)
+    if (cfg->cfg_size == 0)
         return 0;
-    if (pddlListNextConst(next) != &cfg->cfg)
+    if (cfg->cfg_size > 1)
         return 1;
 
-    CONTAINER_OF_CONST(c, next, _pddl_hpot_config_t, conn);
-    switch (c->type){
+    switch (cfg->cfg[0]->type){
         case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
         case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
         case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
@@ -1167,8 +1137,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
              const pddl_hpot_config_t *cfg,
              pddl_err_t *err)
 {
-    ASSERT_RUNTIME_M(pddlListNextConst(&cfg->cfg) != NULL
-                        && !pddlListEmpty(&cfg->cfg),
+    ASSERT_RUNTIME_M(!pddlHPotConfigIsEmpty(cfg),
                      "Missing configuration of potential heuristics");
     ASSERT_RUNTIME_M(!cfg->disambiguation || !cfg->weak_disambiguation,
                      "Invalid hpot configuration");
@@ -1188,12 +1157,8 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     ZEROIZE(&sampler);
 
     int ret = 0;
-    const pddl_list_t *item;
-    PDDL_LIST_FOR_EACH(&cfg->cfg, item){
-        if (ret < 0)
-            break;
-        const _pddl_hpot_config_t *_cfg;
-        _cfg = PDDL_LIST_ENTRY(item, const _pddl_hpot_config_t, conn);
+    for (int i = 0; i < cfg->cfg_size; ++i){
+        const _pddl_hpot_config_t *_cfg = cfg->cfg[i];
 
         switch (_cfg->type){
             case PDDL_HPOT_OPT_STATE_TYPE:

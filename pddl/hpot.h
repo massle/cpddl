@@ -14,6 +14,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS 10
+
 enum pddl_hpot_type {
     PDDL_HPOT_OPT_STATE_TYPE = 1,
     PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE,
@@ -27,14 +29,12 @@ typedef enum pddl_hpot_type pddl_hpot_type_t;
 
 struct _pddl_hpot_config {
     pddl_hpot_type_t type;
-    pddl_list_t conn;
 };
 typedef struct _pddl_hpot_config _pddl_hpot_config_t;
 
 #define _PDDL_HPOT_CONFIG_INIT(type) \
     { \
         (type), /* .type */ \
-        { NULL, NULL }, /* .conn */ \
     }
 
 /**
@@ -220,7 +220,8 @@ typedef struct pddl_hpot_config_opt_ensemble_all_states_mutex
 
 struct pddl_hpot_config {
     /** A list of configurations (see above) */
-    pddl_list_t cfg;
+    _pddl_hpot_config_t *cfg[PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS];
+    int cfg_size;
     /** If true, disambiguation is used. default: true */
     int disambiguation;
     /** If true, weak disambiguation is used. default: false */
@@ -236,7 +237,8 @@ struct pddl_hpot_config {
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
 #define PDDL_HPOT_CONFIG_INIT { \
-        { NULL, NULL }, /* .cfg */ \
+        { 0 }, /* .cfg[] */ \
+        0, /* .cfg_size */ \
         1, /* .disambiguation */ \
         0, /* .weak_disambiguation */ \
         0, /* .op_pot */ \
@@ -250,10 +252,12 @@ typedef struct pddl_hpot_config pddl_hpot_config_t;
  */
 #define PDDL_HPOT_CONFIG_ADD(config, config_el) \
     do { \
-        if (pddlListNext(&(config)->cfg) == NULL) \
-            pddlListInit(&(config)->cfg); \
-        pddlListInit(&(config_el)->cfg.conn); \
-        pddlListAppend(&(config)->cfg, &(config_el)->cfg.conn); \
+        if ((config)->cfg_size >= PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS){ \
+            fprintf(stderr, "Fatal Error: hpot can have at most %d configs", \
+                    PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS); \
+            exit(-1); \
+        } \
+        (config)->cfg[(config)->cfg_size++] = &(config_el)->cfg; \
     } while (0)
 
 /**
