@@ -389,6 +389,15 @@ static void opMutex(void *ud)
     bzero(cfg, sizeof(*cfg));
 }
 
+static void groundHeurOpMutex(void *ud)
+{
+    op_mutex_cfg_t *cfg = ud;
+    opt.ground_planner.heur_op_mutex = 1;
+    opt.ground_planner.heur_op_mutex_ts = cfg->ts;
+    opt.ground_planner.heur_op_mutex_op_fact = cfg->op_fact;
+    opt.ground_planner.heur_op_mutex_hm_op = cfg->hm_op;
+    bzero(cfg, sizeof(*cfg));
+}
 
 static void setBaseOptions(void)
 {
@@ -886,6 +895,18 @@ static void setGroundPlannerOptions(void)
         "  all-mutex-cond-rand2 = <int>\n"
         );
     hpotParams(params, &opt.ground_planner.pot_cfg);
+
+    static op_mutex_cfg_t opm_cfg = { 0 };
+    params = optsAddParamsAndFn("gplan-h-opm", 0x0,
+                                "Heuristics + pruning with operator mutexes.\n"
+                                "Options:\n"
+                                "  ts = <bool> -- use transition systems\n"
+                                "  op-fact = <int> -- op-fact compilation\n"
+                                "  hm-op = <int> -- h^m from each operator",
+                                &opm_cfg, groundHeurOpMutex);
+    optsParamsAddFlag(params, "ts", &opm_cfg.ts);
+    optsParamsAddInt(params, "op-fact", &opm_cfg.op_fact);
+    optsParamsAddInt(params, "hm-op", &opm_cfg.hm_op);
 
     optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
                "Output filename for the found plan.");

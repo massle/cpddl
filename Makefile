@@ -111,6 +111,7 @@ OBJS += plan
 OBJS += relaxed_plan
 OBJS += heur
 OBJS += heur_blind
+OBJS += heur_dead_end
 OBJS += heur_lm_cut
 OBJS += heur_hmax
 OBJS += heur_hadd

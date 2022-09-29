@@ -219,8 +219,15 @@ typedef struct pddl_hpot_config_opt_ensemble_all_states_mutex
     }
 
 struct pddl_hpot_config {
+    /** Input FDR planning task */
+    const pddl_fdr_t *fdr;
+    /** Input MG-Strips representation of the corresponding .fdr task */
+    const pddl_mg_strips_t *mg_strips;
+    /** Input set of mutexes */
+    const pddl_mutex_pairs_t *mutex;
     /** A list of configurations (see above) */
     _pddl_hpot_config_t *cfg[PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS];
+    /** Number of configs set in .cfg[] */
     int cfg_size;
     /** If true, disambiguation is used. default: true */
     int disambiguation;
@@ -237,6 +244,9 @@ struct pddl_hpot_config {
 typedef struct pddl_hpot_config pddl_hpot_config_t;
 
 #define PDDL_HPOT_CONFIG_INIT { \
+        NULL, /* .fdr */ \
+        NULL, /* .mg_strips */ \
+        NULL, /* .mutex */ \
         { 0 }, /* .cfg[] */ \
         0, /* .cfg_size */ \
         1, /* .disambiguation */ \
@@ -291,8 +301,33 @@ void pddlHPotConfigSetOpPotReal(pddl_hpot_config_t *cfg);
 void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
                        const _pddl_hpot_config_t *cfg_add);
 
+/**
+ * Replace inital state with the specified state in all configurations.
+ */
+void pddlHPotConfigReplaceInitStateWithState(pddl_hpot_config_t *cfg,
+                                             const int *fdr_state);
 
+
+/**
+ * Log the given configuration
+ */
 void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err);
+
+/**
+ * Check the configuration.
+ * Returns 0 if everything is ok.
+ */
+int pddlHPotConfigCheck(const pddl_hpot_config_t *cfg, pddl_err_t *err);
+
+/**
+ * Returns true if the configuration requires .mg_strips
+ */
+int pddlHPotConfigNeedMGStrips(const pddl_hpot_config_t *cfg);
+
+/**
+ * Returns true if the configuration requires .mutex
+ */
+int pddlHPotConfigNeedMutex(const pddl_hpot_config_t *cfg);
 
 /**
  * Return true if there is no potential function added to the configuration.
@@ -306,10 +341,9 @@ int pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg);
 int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg);
 
 /**
- * TODO
+ * Compute potential functions corresponding to the provided configuration.
  */
 int pddlHPot(pddl_pot_solutions_t *sols,
-             pddl_task_t *task,
              const pddl_hpot_config_t *cfg,
              pddl_err_t *err);
 

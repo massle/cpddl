@@ -117,6 +117,54 @@ void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
     cfg->cfg[cfg->cfg_size++] = hpotConfigClone(cfg_add);
 }
 
+void pddlHPotConfigReplaceInitConstrWithState(pddl_hpot_config_t *cfg,
+                                              const int *fdr_state)
+{
+    for (int i = 0; i < cfg->cfg_size; ++i){
+        _pddl_hpot_config_t *_c = cfg->cfg[i];
+        switch (_c->type){
+            case PDDL_HPOT_OPT_STATE_TYPE:
+                {
+                    CONTAINER_OF(c, _c, pddl_hpot_config_opt_state_t, cfg);
+                    if (c->fdr_state == NULL)
+                        c->fdr_state = fdr_state;
+                }
+                break;
+            case PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE:
+                {
+                    CONTAINER_OF(c, _c, pddl_hpot_config_opt_all_syntactic_states_t, cfg);
+                    if (c->add_init_state_constr){
+                        c->add_init_state_constr = 0;
+                        c->add_fdr_state_constr = fdr_state;
+                    }
+                }
+                break;
+            case PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE:
+                {
+                    CONTAINER_OF(c, _c, pddl_hpot_config_opt_all_states_mutex_t, cfg);
+                    if (c->add_init_state_constr){
+                        c->add_init_state_constr = 0;
+                        c->add_fdr_state_constr = fdr_state;
+                    }
+                }
+                break;
+            case PDDL_HPOT_OPT_SAMPLED_STATES_TYPE:
+                {
+                    CONTAINER_OF(c, _c, pddl_hpot_config_opt_sampled_states_t, cfg);
+                    if (c->add_init_state_constr){
+                        c->add_init_state_constr = 0;
+                        c->add_fdr_state_constr = fdr_state;
+                    }
+                }
+                break;
+            case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
+            case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
+            case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
+                break;
+        }
+    }
+}
+
 static void hpotConfigLogOptState(const pddl_hpot_config_opt_state_t *c,
                                   pddl_err_t *err)
 {
@@ -256,6 +304,113 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
     }
 }
 
+int pddlHPotConfigCheck(const pddl_hpot_config_t *cfg, pddl_err_t *err)
+{
+    if (pddlHPotConfigIsEmpty(cfg))
+        ERR_RET2(err, -1, "Missing configuration of potential heuristics");
+
+    if (cfg->fdr == NULL){
+        ERR_RET2(err, -1, "Config Error: .fdr is not set");
+    }
+    if (cfg->disambiguation && cfg->weak_disambiguation){
+        ERR_RET2(err, -1, "Config Error: Only one of .disambiguation and"
+                 " .weak_disambiguation can be set");
+    }
+    if (cfg->disambiguation || cfg->weak_disambiguation){
+        if (cfg->mg_strips == NULL || cfg->mutex == NULL){
+            ERR_RET2(err, -1, "Config Error: Disambiguation requires"
+                     " .mg_strips and .mutex");
+        }
+    }
+
+    for (int i = 0; i < cfg->cfg_size; ++i){
+        if (cfg->cfg[i]->type == PDDL_HPOT_OPT_SAMPLED_STATES_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_sampled_states_t, cfg);
+            if (c->use_mutex_samples && cfg->mutex == NULL){
+                ERR_RET2(err, -1, "Config Error: .use_mutex_samples"
+                         " requires .mutex to be set");
+            }
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_ensemble_sampled_states_t, cfg);
+            if (c->use_mutex_samples && cfg->mutex == NULL){
+                ERR_RET2(err, -1, "Config Error: .use_mutex_samples"
+                         " requires .mutex to be set");
+            }
+            if (c->num_samples <= 0)
+                ERR_RET2(err, -1, "Config Error: .num_samples must be > 0.");
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i],
+                               pddl_hpot_config_opt_ensemble_diversification_t, cfg);
+            if (c->use_mutex_samples && cfg->mutex == NULL){
+                ERR_RET2(err, -1, "Config Error: .use_mutex_samples"
+                         " requires .mutex to be set");
+            }
+            if (c->num_samples <= 0)
+                ERR_RET2(err, -1, "Config Error: .num_samples must be > 0.");
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE){
+            if (cfg->mutex == NULL){
+                ERR_RET2(err, -1, "Config Error: all-states-mutex"
+                         " requires .mutex to be set");
+            }
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i],
+                               pddl_hpot_config_opt_ensemble_all_states_mutex_t, cfg);
+            if (cfg->mutex == NULL){
+                ERR_RET2(err, -1, "Config Error: ensemble-all-states-mutex"
+                         " requires .mutex to be set");
+            }
+            if (c->mutex_size < 1 || c->mutex_size > 2){
+                ERR_RET2(err, -1, "Config Error: .mutex_size must be 1 or 2.");
+            }
+        }
+    }
+    return 0;
+}
+
+int pddlHPotConfigNeedMGStrips(const pddl_hpot_config_t *cfg)
+{
+    if (cfg->disambiguation || cfg->weak_disambiguation)
+        return 1;
+    return 0;
+}
+
+int pddlHPotConfigNeedMutex(const pddl_hpot_config_t *cfg)
+{
+    if (cfg->disambiguation || cfg->weak_disambiguation)
+        return 1;
+
+    for (int i = 0; i < cfg->cfg_size; ++i){
+        if (cfg->cfg[i]->type == PDDL_HPOT_OPT_SAMPLED_STATES_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_sampled_states_t, cfg);
+            if (c->use_mutex_samples)
+                return 1;
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_ensemble_sampled_states_t, cfg);
+            if (c->use_mutex_samples)
+                return 1;
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE){
+            CONTAINER_OF_CONST(c, cfg->cfg[i],
+                               pddl_hpot_config_opt_ensemble_diversification_t, cfg);
+            if (c->use_mutex_samples)
+                return 1;
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE){
+            if (cfg->mutex == NULL)
+                return 1;
+
+        }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE){
+            if (cfg->mutex == NULL)
+                return 1;
+        }
+    }
+    return 0;
+}
+
 int pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg)
 {
     return cfg->cfg_size == 0;
@@ -291,11 +446,10 @@ static void setStateToFDRState(const pddl_iset_t *state,
 }
 
 static double heurForState(pddl_pot_t *pot,
-                           pddl_task_t *task,
+                           const pddl_fdr_t *fdr,
                            const int *fdr_state,
                            pddl_err_t *err)
 {
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
     pddlPotResetLowerBoundConstr(pot);
     pddlPotSetObjFDRState(pot, &fdr->var, fdr_state);
     pddl_pot_solution_t sol;
@@ -326,7 +480,8 @@ static void stateSamplerFree(state_sampler_t *ss)
 
 static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
                                                  pddl_pot_t *pot,
-                                                 pddl_task_t *task,
+                                                 const pddl_fdr_t *fdr,
+                                                 const pddl_mutex_pairs_t *mutex,
                                                  int use_random_walk,
                                                  int use_syntactic_samples,
                                                  int use_mutex_samples,
@@ -335,8 +490,7 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
     if (use_random_walk){
         if (ss->state_sampler_random_walk_set)
             return &ss->state_sampler_random_walk;
-        const pddl_fdr_t *fdr = pddlTaskFDR(task);
-        double hinit_flt = heurForState(pot, task, fdr->init, err);
+        double hinit_flt = heurForState(pot, fdr, fdr->init, err);
         int hinit = pddlPotSolutionRoundHValue(hinit_flt);
         int max_steps = pddlFDRStateSamplerComputeMaxStepsFromHeurInit(fdr, hinit);
         pddlFDRStateSamplerInitRandomWalk(&ss->state_sampler_random_walk,
@@ -347,15 +501,12 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
     }else if (use_syntactic_samples){
         if (ss->state_sampler_syntactic_set)
             return &ss->state_sampler_syntactic;
-        const pddl_fdr_t *fdr = pddlTaskFDR(task);
         pddlFDRStateSamplerInitSyntactic(&ss->state_sampler_syntactic, fdr, err);
         return &ss->state_sampler_syntactic;
 
     }else if (use_mutex_samples){
         if (ss->state_sampler_mutex_set)
             return &ss->state_sampler_mutex;
-        const pddl_fdr_t *fdr = pddlTaskFDR(task);
-        const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1., 0);
         pddlFDRStateSamplerInitSyntacticMutex(&ss->state_sampler_mutex,
                                               fdr, mutex, err);
         return &ss->state_sampler_mutex;
@@ -366,7 +517,7 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
 }
 
 static void setStateConstr(pddl_pot_t *pot,
-                           pddl_task_t *task,
+                           const pddl_fdr_t *fdr,
                            int add_init_state,
                            const int *add_fdr_state,
                            double add_state_coef,
@@ -379,7 +530,6 @@ static void setStateConstr(pddl_pot_t *pot,
     if (!add_init_state && add_fdr_state == NULL)
         return;
 
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
     const int *add_state = NULL;
     if (add_init_state){
         add_state = fdr->init;
@@ -389,7 +539,7 @@ static void setStateConstr(pddl_pot_t *pot,
 
     if (add_state_coef <= 0.)
         add_state_coef = 1.;
-    double h_value = heurForState(pot, task, add_state, err);
+    double h_value = heurForState(pot, fdr, add_state, err);
     double rhs = h_value * add_state_coef;
 
     PDDL_ISET(vars);
@@ -424,7 +574,6 @@ static int solveAndAdd(pddl_pot_solutions_t *sols,
 
 static int solveAndAddWithStateConstr(pddl_pot_solutions_t *sols,
                                       pddl_pot_t *pot,
-                                      pddl_task_t *task,
                                       const pddl_hpot_config_t *cfg,
                                       const int *add_fdr_state,
                                       pddl_err_t *err)
@@ -444,14 +593,20 @@ static int solveAndAddWithStateConstr(pddl_pot_solutions_t *sols,
 }
 
 static int initPot(pddl_pot_t *pot,
-                   pddl_task_t *task,
                    const pddl_hpot_config_t *cfg,
                    pddl_err_t *err)
 {
     if (cfg->weak_disambiguation){
-        const pddl_mg_strips_t *mg_strips = pddlTaskMGStrips(task);
-        const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1, 0);
-        if (pddlPotInitMGStripsSingleFactDisamb(pot, mg_strips, mutex) == 0){
+        if (cfg->mg_strips == NULL){
+            ERR_RET2(err, -1, "Config Error: .mg_strips needs to be set if"
+                     " the weak disambiguation is used");
+        }
+        if (cfg->mutex == NULL){
+            ERR_RET2(err, -1, "Config Error: .mutex needs to be set if"
+                     " the weak disambiguation is used");
+        }
+
+        if (pddlPotInitMGStripsSingleFactDisamb(pot, cfg->mg_strips, cfg->mutex) == 0){
             PDDL_INFO(err, "Initialized with weak-disambiguation."
                       " vars: %d, op-constr: %d,"
                       " goal-constr: %d, maxpots: %d",
@@ -465,9 +620,15 @@ static int initPot(pddl_pot_t *pot,
         }
 
     }else if (cfg->disambiguation){
-        const pddl_mg_strips_t *mg_strips = pddlTaskMGStrips(task);
-        const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1, 0);
-        if (pddlPotInitMGStrips(pot, mg_strips, mutex) == 0){
+        if (cfg->mg_strips == NULL){
+            ERR_RET2(err, -1, "Config Error: .mg_strips needs to be set if"
+                     " the weak disambiguation is used");
+        }
+        if (cfg->mutex == NULL){
+            ERR_RET2(err, -1, "Config Error: .mutex needs to be set if"
+                     " the weak disambiguation is used");
+        }
+        if (pddlPotInitMGStrips(pot, cfg->mg_strips, cfg->mutex) == 0){
             PDDL_INFO(err, "Initialized with disambiguation."
                       " vars: %d, op-constr: %d,"
                       " goal-constr: %d, maxpots: %d",
@@ -481,7 +642,11 @@ static int initPot(pddl_pot_t *pot,
         }
 
     }else{
-        pddlPotInitFDR(pot, pddlTaskFDR(task));
+        if (cfg->fdr == NULL){
+            ERR_RET2(err, -1, "Config Error: .fdr needs to be set if"
+                     " the weak disambiguation is used");
+        }
+        pddlPotInitFDR(pot, cfg->fdr);
         PDDL_INFO(err, "Initialized without disambiguation."
                   " vars: %d, op-constr: %d,"
                   " goal-constr: %d, maxpots: %d",
@@ -499,15 +664,13 @@ static int initPot(pddl_pot_t *pot,
 
 static int _hpotOptState(pddl_pot_solutions_t *sols,
                          pddl_pot_t *pot,
-                         pddl_task_t *task,
                          const pddl_hpot_config_t *cfg,
                          const int *fdr_state,
                          pddl_err_t *err)
 {
     pddlPotResetLowerBoundConstr(pot);
 
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
-    pddlPotSetObjFDRState(pot, &fdr->var, fdr_state);
+    pddlPotSetObjFDRState(pot, &cfg->fdr->var, fdr_state);
     int ret = solveAndAdd(sols, pot, cfg, err);
     ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
     return ret;
@@ -515,35 +678,30 @@ static int _hpotOptState(pddl_pot_solutions_t *sols,
 
 static int hpotOptState(pddl_pot_solutions_t *sols,
                         pddl_pot_t *pot,
-                        pddl_task_t *task,
                         const pddl_hpot_config_t *cfg,
                         const _pddl_hpot_config_t *_cfg,
                         pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_state_t, cfg);
     const int *state = cfg_opt->fdr_state;
-    if (state == NULL){
-        const pddl_fdr_t *fdr = pddlTaskFDR(task);
-        state = fdr->init;
-    }
-    return _hpotOptState(sols, pot, task, cfg, state, err);
+    if (state == NULL)
+        state = cfg->fdr->init;
+    return _hpotOptState(sols, pot, cfg, state, err);
 }
 
 static int hpotOptAllSyntacticStates(pddl_pot_solutions_t *sols,
                                      pddl_pot_t *pot,
-                                     pddl_task_t *task,
                                      const pddl_hpot_config_t *cfg,
                                      const _pddl_hpot_config_t *_cfg,
                                      pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_all_syntactic_states_t, cfg);
-    setStateConstr(pot, task, cfg_opt->add_init_state_constr,
+    setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
                    cfg_opt->add_fdr_state_constr,
                    cfg_opt->add_state_coef, err);
 
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
-    pddlPotSetObjFDRAllSyntacticStates(pot, &fdr->var);
-    int ret = solveAndAddWithStateConstr(sols, pot, task, cfg,
+    pddlPotSetObjFDRAllSyntacticStates(pot, &cfg->fdr->var);
+    int ret = solveAndAddWithStateConstr(sols, pot, cfg,
                                          cfg_opt->add_fdr_state_constr, err);
     ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
     return 0;
@@ -649,63 +807,59 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
 
 static int hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
                                  pddl_pot_t *pot,
-                                 pddl_task_t *task,
                                  const pddl_hpot_config_t *cfg,
                                  const _pddl_hpot_config_t *_cfg,
                                  pddl_err_t *err)
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_all_states_mutex_t, cfg);
-    const pddl_mg_strips_t *mg_strips = pddlTaskMGStrips(task);
-    const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1., 0);
-    setStateConstr(pot, task, cfg_opt->add_init_state_constr,
+    setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
                    cfg_opt->add_fdr_state_constr,
                    cfg_opt->add_state_coef, err);
 
     if (cfg_opt->mutex_size == 1){
-        setObjAllStatesMutex1(pot, &mg_strips->mg, mutex);
+        setObjAllStatesMutex1(pot, &cfg->mg_strips->mg, cfg->mutex);
 
     }else if (cfg_opt->mutex_size == 2){
-        setObjAllStatesMutex2(pot, &mg_strips->mg,
-                              mg_strips->strips.fact.fact_size, mutex);
+        setObjAllStatesMutex2(pot, &cfg->mg_strips->mg,
+                              cfg->mg_strips->strips.fact.fact_size,
+                              cfg->mutex);
 
     }else{
         FATAL("All states mutex optimization not supported for"
               " mutex_size=%d", cfg_opt->mutex_size);
     }
 
-    return solveAndAddWithStateConstr(sols, pot, task, cfg,
+    return solveAndAddWithStateConstr(sols, pot, cfg,
                                       cfg_opt->add_fdr_state_constr, err);
 }
 
 static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
                                 pddl_pot_t *pot,
-                                pddl_task_t *task,
                                 state_sampler_t *state_sampler,
                                 const pddl_hpot_config_t *cfg,
                                 const _pddl_hpot_config_t *_cfg,
                                 pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_sampled_states_t, cfg);
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
-    setStateConstr(pot, task, cfg_opt->add_init_state_constr,
+    setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
                    cfg_opt->add_fdr_state_constr,
                    cfg_opt->add_state_coef, err);
 
     pddl_fdr_state_sampler_t *sampler;
-    sampler = stateSamplerGet(state_sampler, pot, task,
+    sampler = stateSamplerGet(state_sampler, pot, cfg->fdr, cfg->mutex,
                               cfg_opt->use_random_walk,
                               cfg_opt->use_syntactic_samples,
                               cfg_opt->use_mutex_samples,
                               err);
 
-    int state[fdr->var.var_size];
+    int state[cfg->fdr->var.var_size];
     int num_states = 0;
     double *coef = CALLOC_ARR(double, pot->var_size);
     for (int si = 0; si < cfg_opt->num_samples; ++si){
         pddlFDRStateSamplerNext(sampler, state);
-        for (int var = 0; var < fdr->var.var_size; ++var)
-            coef[fdr->var.var[var].val[state[var]].global_id] += 1.;
+        for (int var = 0; var < cfg->fdr->var.var_size; ++var)
+            coef[cfg->fdr->var.var[var].val[state[var]].global_id] += 1.;
         ++num_states;
     }
 
@@ -713,7 +867,7 @@ static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
     if (coef != NULL)
         FREE(coef);
 
-    int ret = solveAndAddWithStateConstr(sols, pot, task, cfg,
+    int ret = solveAndAddWithStateConstr(sols, pot, cfg,
                                          cfg_opt->add_fdr_state_constr, err);
     ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
     LOG(err, "Solved for average over %d states", num_states);
@@ -722,29 +876,27 @@ static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
 
 static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
                                         pddl_pot_t *pot,
-                                        pddl_task_t *task,
                                         state_sampler_t *state_sampler,
                                         const pddl_hpot_config_t *cfg,
                                         const _pddl_hpot_config_t *_cfg,
                                         pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_sampled_states_t, cfg);
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
     pddlPotResetLowerBoundConstr(pot);
 
     pddl_fdr_state_sampler_t *sampler;
-    sampler = stateSamplerGet(state_sampler, pot, task,
+    sampler = stateSamplerGet(state_sampler, pot, cfg->fdr, cfg->mutex,
                               cfg_opt->use_random_walk,
                               cfg_opt->use_syntactic_samples,
                               cfg_opt->use_mutex_samples,
                               err);
 
     int ret = 0;
-    int state[fdr->var.var_size];
+    int state[cfg->fdr->var.var_size];
     int num_states = 0;
     for (int si = 0; si < cfg_opt->num_samples; ++si){
         pddlFDRStateSamplerNext(sampler, state);
-        ret = _hpotOptState(sols, pot, task, cfg, state, err);
+        ret = _hpotOptState(sols, pot, cfg, state, err);
         if (ret != 0)
             break;
         if ((si + 1) % 100 == 0){
@@ -942,7 +1094,6 @@ static void diverseFilterOutStates(diverse_pot_t *div,
 
 static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
                                           pddl_pot_t *pot,
-                                          pddl_task_t *task,
                                           state_sampler_t *state_sampler,
                                           const pddl_hpot_config_t *cfg,
                                           const _pddl_hpot_config_t *_cfg,
@@ -950,25 +1101,24 @@ static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_diversification_t, cfg);
-    const pddl_fdr_t *fdr = pddlTaskFDR(task);
     PDDL_INFO(err, "Diverse potentials with %d samples", cfg_opt->num_samples);
     pddlPotResetLowerBoundConstr(pot);
 
     pddl_fdr_state_sampler_t *sampler;
-    sampler = stateSamplerGet(state_sampler, pot, task,
+    sampler = stateSamplerGet(state_sampler, pot, cfg->fdr, cfg->mutex,
                               cfg_opt->use_random_walk,
                               cfg_opt->use_syntactic_samples,
                               cfg_opt->use_mutex_samples,
                               err);
     diverse_pot_t div;
-    diverseInit(&div, pot, fdr, cfg_opt->num_samples);
-    diverseGenStates(&div, pot, sampler, fdr, cfg_opt->num_samples, err);
+    diverseInit(&div, pot, cfg->fdr, cfg_opt->num_samples);
+    diverseGenStates(&div, pot, sampler, cfg->fdr, cfg_opt->num_samples, err);
     while (div.active_states > 0){
-        const pddl_pot_solution_t *func = diverseSelectFunc(&div, pot, fdr, err);
+        const pddl_pot_solution_t *func = diverseSelectFunc(&div, pot, cfg->fdr, err);
         if (func == NULL)
             return -1;
         pddlPotSolutionsAdd(sols, func);
-        diverseFilterOutStates(&div, fdr, func, err);
+        diverseFilterOutStates(&div, cfg->fdr, func, err);
     }
     diverseFree(&div);
     PDDL_INFO(err, "Computed diverse potentials with %d functions",
@@ -1091,7 +1241,6 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
 
 static int hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
                                          pddl_pot_t *pot,
-                                         pddl_task_t *task,
                                          state_sampler_t *state_sampler,
                                          const pddl_hpot_config_t *cfg,
                                          const _pddl_hpot_config_t *_cfg,
@@ -1099,16 +1248,14 @@ static int hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_all_states_mutex_t, cfg);
-    const pddl_mg_strips_t *mg_strips = pddlTaskMGStrips(task);
-    const pddl_mutex_pairs_t *mutex = pddlTaskHmMutex(task, 2, -1., 0);
     pddlPotResetLowerBoundConstr(pot);
 
     int ret = 0;
     if (cfg_opt->num_rand_samples == 0){
         PDDL_ISET(facts);
-        for (int f = 0; f < mg_strips->strips.fact.fact_size; ++f)
+        for (int f = 0; f < cfg->mg_strips->strips.fact.fact_size; ++f)
             pddlISetAdd(&facts, f);
-        ret = allStatesMutexCond(sols, pot, mg_strips, mutex, cfg,
+        ret = allStatesMutexCond(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
                                  cfg_opt->mutex_size, &facts, err);
         pddlISetFree(&facts);
 
@@ -1116,16 +1263,16 @@ static int hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
         pddl_rand_t rnd;
         pddlRandInit(&rnd, rand_seed);
         PDDL_ISET(facts);
-        int fact_size = mg_strips->strips.fact.fact_size;
+        int fact_size = cfg->mg_strips->strips.fact.fact_size;
         for (int i = 0; i < cfg_opt->num_rand_samples; ++i)
             pddlISetAdd(&facts, pddlRand(&rnd, 0, fact_size));
 
-        ret = allStatesMutexCond(sols, pot, mg_strips, mutex, cfg,
+        ret = allStatesMutexCond(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
                                  cfg_opt->mutex_size, &facts, err);
         pddlISetFree(&facts);
 
     }else if (cfg_opt->cond_size == 2){
-        ret = allStatesMutexCond2(sols, pot, mg_strips, mutex, cfg,
+        ret = allStatesMutexCond2(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
                                   cfg_opt->mutex_size,
                                   cfg_opt->num_rand_samples, err);
     }
@@ -1133,14 +1280,11 @@ static int hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
 }
 
 int pddlHPot(pddl_pot_solutions_t *sols,
-             pddl_task_t *task,
              const pddl_hpot_config_t *cfg,
              pddl_err_t *err)
 {
-    ASSERT_RUNTIME_M(!pddlHPotConfigIsEmpty(cfg),
-                     "Missing configuration of potential heuristics");
-    ASSERT_RUNTIME_M(!cfg->disambiguation || !cfg->weak_disambiguation,
-                     "Invalid hpot configuration");
+    if (pddlHPotConfigCheck(cfg, err) != 0)
+        TRACE_RET(err, -1);
 
     CTX(err, "hpot", "HPot");
     CTX_NO_TIME(err, "cfg", "Cfg");
@@ -1148,9 +1292,10 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     CTXEND(err);
 
     pddl_pot_t pot;
-    if (initPot(&pot, task, cfg, err) != 0){
+    if (initPot(&pot, cfg, err) != 0){
+        sols->unsolvable = 1;
         CTXEND(err);
-        return -1;
+        return 0;
     }
 
     state_sampler_t sampler;
@@ -1162,34 +1307,34 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 
         switch (_cfg->type){
             case PDDL_HPOT_OPT_STATE_TYPE:
-                ret = hpotOptState(sols, &pot, task, cfg, _cfg, err);
+                ret = hpotOptState(sols, &pot, cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE:
-                ret = hpotOptAllSyntacticStates(sols, &pot, task, cfg, _cfg, err);
+                ret = hpotOptAllSyntacticStates(sols, &pot, cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE:
-                ret = hpotOptAllStatesMutex(sols, &pot, task, cfg, _cfg, err);
+                ret = hpotOptAllStatesMutex(sols, &pot, cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_SAMPLED_STATES_TYPE:
-                ret = hpotOptSampledStates(sols, &pot, task, &sampler,
+                ret = hpotOptSampledStates(sols, &pot, &sampler,
                                            cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
-                ret = hpotOptEnsembleSampledStates(sols, &pot, task, &sampler,
+                ret = hpotOptEnsembleSampledStates(sols, &pot, &sampler,
                                                    cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
-                ret = hpotOptEnsembleDiversification(sols, &pot, task, &sampler,
+                ret = hpotOptEnsembleDiversification(sols, &pot, &sampler,
                                                      cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
-                ret = hpotOptEnsembleAllStatesMutex(sols, &pot, task, &sampler,
+                ret = hpotOptEnsembleAllStatesMutex(sols, &pot, &sampler,
                                                     cfg, _cfg, err);
                 break;
         }
@@ -1204,8 +1349,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 struct pddl_heur_pot {
     pddl_heur_t heur;
     pddl_pot_solutions_t sols;
-    pddl_task_t *task;
-    const pddl_fdr_vars_t *vars;
+    pddl_fdr_vars_t vars;
 };
 typedef struct pddl_heur_pot pddl_heur_pot_t;
 
@@ -1222,20 +1366,20 @@ static int heurEstimate(pddl_heur_t *_h,
                         const pddl_fdr_state_space_t *state_space)
 {
     pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
-    int est = pddlPotSolutionsEvalMaxFDRState(&h->sols, h->vars, node->state);
+    int est = pddlPotSolutionsEvalMaxFDRState(&h->sols, &h->vars, node->state);
     return est;
 }
 
-pddl_heur_t *pddlHeurPot(const pddl_fdr_t *fdr,
-                         const pddl_hpot_config_t *cfg,
-                         pddl_err_t *err)
+pddl_heur_t *pddlHeurPot(const pddl_hpot_config_t *cfg, pddl_err_t *err)
 {
     pddl_heur_pot_t *h = ALLOC(pddl_heur_pot_t);
     pddlPotSolutionsInit(&h->sols);
-    h->task = pddlTaskNewFDR(fdr, err);
-    fdr = pddlTaskFDR(h->task);
-    pddlHPot(&h->sols, h->task, cfg, err);
-    h->vars = &fdr->var;
+    int ret = pddlHPot(&h->sols, cfg, err);
+    if (ret != 0){
+        pddlPotSolutionsFree(&h->sols);
+        TRACE_RET(err, NULL);
+    }
+    pddlFDRVarsInitCopy(&h->vars, &cfg->fdr->var);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
     return &h->heur;
 }

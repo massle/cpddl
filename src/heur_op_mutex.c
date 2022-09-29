@@ -6,6 +6,7 @@
 
 #include "internal.h"
 #include "_heur.h"
+#include "pddl/heur.h"
 #include "pddl/hmax.h"
 #include "pddl/hfunc.h"
 
@@ -24,7 +25,9 @@ typedef struct task task_t;
 
 struct heur {
     pddl_heur_t heur;
+    pddl_heur_op_mutex_config_t cfg;
     pddl_fdr_t fdr; /*!< Input (original) FDR task */
+    pddl_mutex_pairs_t mutex; /*!< Mutexes in the input task */
     pddl_err_t *err;
     pddl_iset_t *op_mutex; /*!< Map from op o to ops that form op-mutex with o */
     task_t **task;
@@ -127,16 +130,33 @@ static int taskHeurEstimate(task_t *task,
         }
         pddlHMaxFree(&hmax);
 
+        // TODO: pddlFDRSetInit()
+        memcpy(fdr.init, node->state, sizeof(int) * fdr.var.var_size);
+
+        pddl_mg_strips_t mg_strips;
+        pddlMGStripsInitFDR(&mg_strips, &fdr);
+
+        pddl_heur_config_t hcfg = *task->heur->cfg.cfg;
+        hcfg.fdr = &fdr;
+        hcfg.mg_strips = &mg_strips;
+        hcfg.mutex = &task->heur->mutex;
+        task->h = pddlHeur(&hcfg, task->heur->err);
+
+        /*
         //pddlFDRStatePoolGet(&state_space->state_pool, node->id, fdr.init);
         // TODO: Generalize for any heuristic
         pddl_hpot_config_t hcfg = PDDL_HPOT_CONFIG_INIT;
+        hcfg.fdr = &fdr;
         pddl_hpot_config_opt_state_t hcfg_state = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
         hcfg_state.fdr_state = node->state;
         PDDL_HPOT_CONFIG_ADD(&hcfg, &hcfg_state);
         //task->h = pddlHeurPot(&fdr, &hcfg, task->heur->err);
-        task->h = pddlHeurPot(&fdr, &hcfg, NULL);
+        task->h = pddlHeurPot(&hcfg, NULL);
         //task->h = pddlHeurLMCut(&fdr, NULL);
         //task->h = pddlHeurHFF(&fdr, NULL);
+        */
+
+        pddlMGStripsFree(&mg_strips);
         pddlFDRFree(&fdr);
     }
 
@@ -163,6 +183,7 @@ static void heurDel(pddl_heur_t *_h)
         FREE(h->task);
 
     pddlFDRFree(&h->fdr);
+    pddlMutexPairsFree(&h->mutex);
     _pddlHeurFree(&h->heur);
     FREE(h);
 }
@@ -210,18 +231,21 @@ static int heurEstimate(pddl_heur_t *_h,
 }
 
 pddl_heur_t *pddlHeurOpMutex(const pddl_fdr_t *fdr,
-                             const pddl_op_mutex_pairs_t *op_mutex,
-                             const pddl_hpot_config_t *cfg,
+                             const pddl_mutex_pairs_t *mutex,
+                             const pddl_heur_op_mutex_config_t *cfg,
                              pddl_err_t *err)
 {
     CTX(err, "heur_op_mutex", "hOPM");
     heur_t *h = ZALLOC(heur_t);
+    h->cfg = *cfg;
     pddlFDRInitCopy(&h->fdr, fdr);
     LOG2(err, "FDR task copied");
+    pddlMutexPairsInitCopy(&h->mutex, mutex);
     h->err = err;
 
-    h->op_mutex = CALLOC_ARR(pddl_iset_t, fdr->op.op_size);
-    pddlOpMutexPairsGenMapOpToOpSet(op_mutex, NULL, h->op_mutex);
+    h->op_mutex = CALLOC_ARR(pddl_iset_t, h->fdr.op.op_size);
+    ASSERT(cfg->op_mutex != NULL);
+    pddlOpMutexPairsGenMapOpToOpSet(cfg->op_mutex, NULL, h->op_mutex);
     LOG2(err, "Op-mutexes stored");
 
     h->task_size = 0;
