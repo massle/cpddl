@@ -72,13 +72,14 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         CTXEND(err);
         return -1;
     }
-    PDDL_INFO(err, "Created %d variables.", fdr->var.var_size);
+    LOG(err, "Created %{num_vars}d variables.", fdr->var.var_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
             ++num_none_of_those;
     }
-    PDDL_INFO(err, "Created %d none-of-those values.", num_none_of_those);
+    LOG(err, "Created %{num_none_of_those}d none-of-those values.",
+        num_none_of_those);
 
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
 
@@ -96,7 +97,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
-    PDDL_INFO(err, "Created %d operators", fdr->op.op_size);
+    LOG(err, "Created %{num_ops}d operators", fdr->op.op_size);
 
     pddlTimerStop(&timer);
     PDDL_INFO(err, "Translation took %.2f seconds",
