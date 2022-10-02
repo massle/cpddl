@@ -28,7 +28,7 @@
 #define BW_MUTEX 3
 #define IS_MUTEX(X) ((X) > 1)
 #define PRUNED -1
-#define _FACT(h2, x, y) ((h2)->fact[(x) * (h2)->fact_size + (y)])
+#define _FACT(h2, x, y) ((h2)->fact[(size_t)(x) * (h2)->fact_size + (y)])
 
 struct h2 {
     char *fact; /*!< 0/REACHED/MUTEX for each pair of facts */
