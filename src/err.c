@@ -14,6 +14,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/err.h"
 #include <sys/resource.h>
 #include <strings.h>
@@ -86,7 +87,7 @@ static void pddlErrPrintTraceback(const pddl_err_t *err, FILE *fout)
 
 void pddlErrInit(pddl_err_t *err)
 {
-    bzero(err, sizeof(*err));
+    ZEROIZE(err);
 }
 
 void pddlErrStartCtxTimer(pddl_err_t *err)

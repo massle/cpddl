@@ -283,8 +283,7 @@ static void remapLispNodeValues(pddl_lisp_node_t *n,
 
 pddl_lisp_t *pddlLispClone(const pddl_lisp_t *src)
 {
-    pddl_lisp_t *lisp = ALLOC(pddl_lisp_t);
-    bzero(lisp, sizeof(*lisp));
+    pddl_lisp_t *lisp = ZALLOC(pddl_lisp_t);
     if (src->filename)
         lisp->filename = STRDUP(src->filename);
     pddlLispNodeInitCopy(&lisp->root, &src->root);

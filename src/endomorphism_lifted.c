@@ -331,7 +331,7 @@ static void liftedEndomorphismInit(lifted_endomorphism_t *end,
                                    const pddl_endomorphism_config_t *cfg,
                                    pddl_err_t *err)
 {
-    bzero(end, sizeof(*end));
+    ZEROIZE(end);
     end->obj_size = pddl->obj.obj_size;
     end->obj_is_fixed = CALLOC_ARR(int, end->obj_size);
 
@@ -792,7 +792,7 @@ static int selectMGroups(select_mgroups_t *select,
                          const pddl_lifted_mgroups_t *lifted_mgroups,
                          const pddl_endomorphism_config_t *cfg)
 {
-    bzero(select->obj_st, sizeof(int) * select->obj_size);
+    ZEROIZE_ARR(select->obj_st, select->obj_size);
 
     if (!select->tried_all){
         pddlLiftedMGroupsFree(&select->lifted_mgroups);
@@ -961,7 +961,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
             (long)shared_size, strerror(errno));
         return -1;
     }
-    bzero(shared, shared_size);
+    ZEROIZE_RAW(shared, shared_size);
     int *shared_ret = (int *)shared;
     pddl_obj_id_t *shared_map = (pddl_obj_id_t *)(shared_ret + 1);
     *shared_ret = -1;

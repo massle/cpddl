@@ -102,7 +102,7 @@ static int pddlCPIVarsAdd(pddl_cp_ivars_t *v, int min_val, int max_val,
     }
 
     pddl_cp_ivar_t *var = v->ivar + v->ivar_size++;
-    bzero(var, sizeof(*var));
+    ZEROIZE(var);
     var->id = v->ivar_size - 1;
     for (int i = min_val; i <= max_val; ++i)
         pddlISetAdd(&var->domain, i);
@@ -147,7 +147,7 @@ static int ivalTupleEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 
 static void pddlCPIValTuplesInit(pddl_cp_ival_tuples_t *tuples)
 {
-    bzero(tuples, sizeof(*tuples));
+    ZEROIZE(tuples);
     tuples->htable = pddlHTableNew(ivalTupleHash, ivalTupleEq, NULL);
 }
 
@@ -173,8 +173,7 @@ static pddl_cp_ival_tuple_t *pddlCPIValTuplesAdd(pddl_cp_ival_tuples_t *tuples,
                                                  int num_tuples,
                                                  const int *ival)
 {
-    pddl_cp_ival_tuple_t *tup = ALLOC(pddl_cp_ival_tuple_t);
-    bzero(tup, sizeof(*tup));
+    pddl_cp_ival_tuple_t *tup = ZALLOC(pddl_cp_ival_tuple_t);
     tup->arity = arity;
     tup->num_tuples = num_tuples;
     tup->ival = (int *)ival;
@@ -254,7 +253,7 @@ static void pddlCPConstrIVarAllowedAdd(pddl_cp_constrs_ivar_allowed_t *c,
                                 c->constr_alloc);
     }
     pddl_cp_constr_ivar_allowed_t *cstr = c->constr + c->constr_size++;
-    bzero(cstr, sizeof(*cstr));
+    ZEROIZE(cstr);
     cstr->arity = arity;
     cstr->ivar = ALLOC_ARR(int, arity);
     memcpy(cstr->ivar, var, sizeof(int) * arity);
@@ -268,7 +267,7 @@ void pddlCPSolFree(pddl_cp_sol_t *sol)
         FREE(sol->isol[i]);
     if (sol->isol != NULL)
         FREE(sol->isol);
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 }
 
 int *pddlCPSolGet(pddl_cp_sol_t *sol, int sol_id)
@@ -340,7 +339,7 @@ int pddlCPSolSerializeToFD(const pddl_cp_sol_t *sol, int fd)
 
 int pddlCPSolDeserializeFromFD(pddl_cp_sol_t *sol, int fd)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
     if (readInt(fd, &sol->ivar_size, 1) != 0)
         return -1;
     if (readInt(fd, &sol->num_solutions, 1) != 0)
@@ -362,7 +361,7 @@ int pddlCPSolDeserializeFromFD(pddl_cp_sol_t *sol, int fd)
 
 int pddlCPSolDeserializeFromMem(pddl_cp_sol_t *sol, void *_mem, size_t _memsize)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
     int *mem = _mem;
     int memsize = _memsize / sizeof(int);
     if (memsize < sizeof(int) * 2)
@@ -389,7 +388,7 @@ int pddlCPSolDeserializeFromMem(pddl_cp_sol_t *sol, void *_mem, size_t _memsize)
 
 void pddlCPInit(pddl_cp_t *cp)
 {
-    bzero(cp, sizeof(*cp));
+    ZEROIZE(cp);
     pddlCPIValTuplesInit(&cp->ival_tuple);
 }
 
@@ -487,7 +486,7 @@ void pddlCPSimplify(pddl_cp_t *cp)
     do {
         other = (change_idx + 1) % 2;
         change[other].change = 0;
-        bzero(change[other].ivar_change, sizeof(int) * cp->ivar.ivar_size);
+        ZEROIZE_ARR(change[other].ivar_change, cp->ivar.ivar_size);
        
         for (int ci = 0; ci < cp->c_ivar_allowed.constr_size; ++ci){
             pddl_cp_constr_ivar_allowed_t *c = cp->c_ivar_allowed.constr + ci;
@@ -731,7 +730,7 @@ int pddlCPSolve(const pddl_cp_t *cp,
                 pddl_err_t *err)
 {
     CTX(err, "cp_solve", "CP-solve");
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     if (cp->unsat){
         CTXEND(err);

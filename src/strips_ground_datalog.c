@@ -186,7 +186,7 @@ static int groundInit(ground_t *g,
                       const pddl_ground_config_t *cfg,
                       pddl_err_t *err)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->pddl = pddl;
     pddlPrepActionsInit(g->pddl, &g->prep_action, err);
 

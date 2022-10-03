@@ -128,7 +128,7 @@ static void pdgAutomorphismHook(void *ud, unsigned int n,
         sym->gen = REALLOC_ARR(sym->gen, pddl_strips_sym_gen_t, sym->gen_alloc);
     }
     pddl_strips_sym_gen_t *gen = sym->gen + sym->gen_size++;
-    bzero(gen, sizeof(*gen));
+    ZEROIZE(gen);
 
     gen->fact = CALLOC_ARR(int, fact_size);
     gen->fact_inv = CALLOC_ARR(int, fact_size);
@@ -160,7 +160,7 @@ static void pdgAutomorphismHook(void *ud, unsigned int n,
 
 void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {
-    bzero(sym, sizeof(*sym));
+    ZEROIZE(sym);
     if (strips->has_cond_eff){
         PDDL_FATAL2("pddlStripsInitSymPDG() does not support conditional"
                     " effects.");
@@ -311,7 +311,7 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 
         fprintf(fout, "gen %d:\n", gi);
 
-        bzero(fact_used, sizeof(int) * sym->fact_size);
+        ZEROIZE_ARR(fact_used, sym->fact_size);
         fprintf(fout, "  facts:");
         for (int i = 0; i < sym->fact_size; ++i){
             if (fact_used[i] || gen->fact[i] == i)

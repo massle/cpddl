@@ -22,7 +22,7 @@
 
 void pddlTSInit(pddl_ts_t *ts, int num_states)
 {
-    bzero(ts, sizeof(*ts));
+    ZEROIZE(ts);
     ts->num_states = num_states;
     ts->tr = CALLOC_ARR(pddl_iset_t, num_states * num_states);
     ts->init_state = -1;
@@ -230,7 +230,7 @@ static void condCreateLoop(pddl_ts_t *cond,
 void pddlTSCondensate(pddl_ts_t *cond, const pddl_ts_t *ts)
 {
     cond_scc_t scc;
-    bzero(&scc, sizeof(scc));
+    ZEROIZE(&scc);
     sccTarjan(&scc, ts);
 
     pddlTSInit(cond, scc.comp_size);

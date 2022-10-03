@@ -1075,12 +1075,12 @@ static void refineInit(refine_t *r,
                        const pddl_lifted_mgroups_infer_limits_t *limit,
                        pddl_err_t *err)
 {
-    bzero(r, sizeof(*r));
+    ZEROIZE(r);
     r->pddl = pddl;
     r->limit = *limit;
     r->err = err;
 
-    bzero(&r->cfg, sizeof(r->cfg));
+    ZEROIZE(&r->cfg);
     r->cfg.max_counted_vars = INT_MAX;
     r->cfg.refine_type_too_heavy_init = 1;
     r->cfg.refine_type_too_heavy_action = 1;
@@ -1094,7 +1094,7 @@ static void refineInit(refine_t *r,
     pddlLiftedMGroupHTableInit(&r->mgroup);
 
     cand_t c;
-    bzero(&c, sizeof(c));
+    ZEROIZE(&c);
     r->cand = pddlExtArrNew(sizeof(c), NULL, &c);
     r->cand_size = 0;
 
@@ -1109,7 +1109,7 @@ static void refineInitMonotonicity(
                             pddl_err_t *err)
 {
     refineInit(r, pddl, limit, err);
-    bzero(&r->cfg, sizeof(r->cfg));
+    ZEROIZE(&r->cfg);
     r->cfg.max_counted_vars = 1;
 }
 
@@ -1167,7 +1167,7 @@ static cand_t *_refineAddCand(refine_t *r,
     if (id >= r->cand_size){
         r->cand_size = id + 1;
         cand_t *cand = pddlExtArrGet(r->cand, id);
-        bzero(cand, sizeof(*cand));
+        ZEROIZE(cand);
         cand->id = id;
         cand->mgroup = pddlLiftedMGroupHTableGet(&r->mgroup, id);
         cand->refined_from = -1;

@@ -110,6 +110,11 @@ extern "C" {
     _PDDL_ALLOC_MEMORY(void, NULL, (size))
 
 /**
+ * Raw memory allocation.
+ */
+#define PDDL_ZMALLOC(size) _PDDL_CALLOC_MEMORY(void, 1, (size))
+
+/**
  * Raw realloc
  */
 #define PDDL_REALLOC(ptr, size) \

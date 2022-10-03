@@ -38,7 +38,7 @@ typedef struct action_conds action_conds_t;
 
 static void actionCondsInit(action_conds_t *acs)
 {
-    bzero(acs, sizeof(*acs));
+    ZEROIZE(acs);
 }
 
 static void actionCondsFree(action_conds_t *acs)

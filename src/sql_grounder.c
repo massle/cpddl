@@ -131,7 +131,7 @@ static void sqlPredInit(sql_pred_t *qpred,
                         pddl_err_t *err)
 {
     const pddl_pred_t *pred = preds->pred + pred_id;
-    bzero(qpred, sizeof(*qpred));
+    ZEROIZE(qpred);
     qpred->pred = pred->id;
     qpred->arity = pred->param_size;
     qpred->is_static = pddlPredIsStatic(&preds->pred[pred_id]);
@@ -424,7 +424,7 @@ static void sqlActionConstructWhereCond(char *query,
     }
 
     int used_param[prep_action->param_size];
-    bzero(used_param, sizeof(int) * prep_action->param_size);
+    ZEROIZE_ARR(used_param, prep_action->param_size);
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
         const pddl_cond_t *c = prep_action->pre.cond[ci];
         const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
@@ -500,7 +500,7 @@ static void sqlActionInit(sql_action_t *action,
                           const pddl_prep_action_t *prep_action,
                           pddl_err_t *err)
 {
-    bzero(action, sizeof(*action));
+    ZEROIZE(action);
     action->param_size = prep_action->param_size;
 
     if (action->param_size == 0)
@@ -598,8 +598,7 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
 {
     CTX(err, "sql_grounder", "SQL Grounder");
-    pddl_sql_grounder_t *g = ALLOC(pddl_sql_grounder_t);
-    bzero(g, sizeof(*g));
+    pddl_sql_grounder_t *g = ZALLOC(pddl_sql_grounder_t);
 
     g->pddl = pddl;
     if (pddlPrepActionsInit(g->pddl, &g->prep_action, err) != 0){

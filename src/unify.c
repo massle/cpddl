@@ -27,7 +27,7 @@ void pddlUnifyInit(pddl_unify_t *u,
     ASSERT_RUNTIME(param1 != param2);
     ASSERT_RUNTIME(param1 != NULL);
     ASSERT_RUNTIME(param2 != NULL);
-    bzero(u, sizeof(*u));
+    ZEROIZE(u);
     u->type = type;
     u->param[0] = param1;
     u->param[1] = param2;

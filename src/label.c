@@ -40,8 +40,7 @@ pddl_label_set_t *pddlLabelSetNew(const pddl_iset_t *s)
 {
     pddl_label_set_t *ls;
 
-    ls = ALLOC(pddl_label_set_t);
-    bzero(ls, sizeof(*ls));
+    ls = ZALLOC(pddl_label_set_t);
     pddlISetUnion(&ls->label, s);
     ls->cost = 0;
     ls->ref = 1;

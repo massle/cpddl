@@ -204,8 +204,10 @@ static int lpSolve(pddl_lp_t *_lp, double *val, double *obj)
         }
     }
 
-    if (obj != NULL)
-        bzero(obj, sizeof(double) * get_Ncolumns(lp->lp));
+    if (obj != NULL){
+        int cols = get_Ncolumns(lp->lp);
+        ZEROIZE_ARR(obj, cols);
+    }
     if (val != NULL)
         *val = 0.;
     return -1;

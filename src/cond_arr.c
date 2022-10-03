@@ -22,7 +22,7 @@
 
 void pddlCondArrInit(pddl_cond_arr_t *ca)
 {
-    bzero(ca, sizeof(*ca));
+    ZEROIZE(ca);
 }
 
 void pddlCondArrFree(pddl_cond_arr_t *ca)

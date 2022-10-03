@@ -24,7 +24,7 @@
 
 void pddlLabeledTransitionsSetInit(pddl_labeled_transitions_set_t *t)
 {
-    bzero(t, sizeof(*t));
+    ZEROIZE(t);
 }
 
 void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t)

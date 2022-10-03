@@ -427,7 +427,7 @@ typedef struct gaifman gaifman_t;
 
 static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->obj_size = pddl->obj.obj_size;
     g->obj_is_static = CALLOC_ARR(int, pddl->obj.obj_size);
     g->obj_relate_to = CALLOC_ARR(pddl_iset_t, pddl->obj.obj_size);
@@ -498,7 +498,7 @@ static int gaifmanFindPairDepth(gaifman_t *g,
         if (pddlISetIn(x, &g->goal_objs))
             continue;
         int xtype = pddl->obj.obj[x].type;
-        bzero(visited, sizeof(int) * pddl->obj.obj_size);
+        ZEROIZE_ARR(visited, pddl->obj.obj_size);
         visited[x] = 1;
         pddlIArrEmpty(&queue);
         pddlIArrAdd(&queue, x);
@@ -854,7 +854,7 @@ int pddlHomomorphism(pddl_t *pddl,
 
 void pddlHomomorphicTaskInit(pddl_homomorphic_task_t *h, const pddl_t *in)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->input_obj_size = in->obj.obj_size;
     pddlInitCopy(&h->task, in);
     if (h->input_obj_size > 0){
@@ -1064,7 +1064,7 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
 void pddlHomomorphicTaskReduceInit(pddl_homomorphic_task_reduce_t *r,
                                    int target_obj_size)
 {
-    bzero(r, sizeof(*r));
+    ZEROIZE(r);
     r->target_obj_size = target_obj_size;
     pddlListInit(&r->method);
 }
@@ -1084,8 +1084,7 @@ void pddlHomomorphicTaskReduceFree(pddl_homomorphic_task_reduce_t *r)
 static pddl_homomorphic_task_method_t *methodNew(int method)
 {
     pddl_homomorphic_task_method_t *m;
-    m = ALLOC(pddl_homomorphic_task_method_t);
-    bzero(m, sizeof(*m));
+    m = ZALLOC(pddl_homomorphic_task_method_t);
     m->method = method;
     pddlListInit(&m->conn);
     return m;

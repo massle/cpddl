@@ -83,7 +83,7 @@ static void predTreeInitNode(pred_tree_t *tree,
                              int next,
                              pddl_obj_id_t obj)
 {
-    bzero(tnode, sizeof(*tnode));
+    ZEROIZE(tnode);
     tnode->depth = next;
     tnode->obj = obj;
     if (next >= tree->arg_size){
@@ -133,7 +133,7 @@ static void predTreeInit(pred_tree_t *tree,
                          const pddl_lifted_mgroup_t *mg,
                          const pddl_cond_atom_t *atom)
 {
-    bzero(tree, sizeof(*tree));
+    ZEROIZE(tree);
     tree->arg_size = atom->arg_size;
     tree->arg = ALLOC_ARR(int, atom->arg_size);
 
@@ -211,7 +211,7 @@ static void buildPredTrees(pred_tree_t *tree,
                            const pddl_strips_t *strips,
                            const pddl_lifted_mgroup_t *mg)
 {
-    bzero(tree, sizeof(*tree) * mg->cond.size);
+    ZEROIZE_ARR(tree, mg->cond.size);
     for (int ci = 0; ci < mg->cond.size; ++ci){
         const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ci], atom);
         predTreeInit(tree + ci, mg, a);
@@ -384,7 +384,7 @@ void pddlMGroupFree(pddl_mgroup_t *m)
 
 void pddlMGroupsInitEmpty(pddl_mgroups_t *mg)
 {
-    bzero(mg, sizeof(*mg));
+    ZEROIZE(mg);
 }
 
 void pddlMGroupsInitCopy(pddl_mgroups_t *dst, const pddl_mgroups_t *src)
@@ -447,7 +447,7 @@ pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const pddl_iset_t *fact)
     }
 
     pddl_mgroup_t *m = mg->mgroup + mg->mgroup_size++;
-    bzero(m, sizeof(*m));
+    ZEROIZE(m);
     m->lifted_mgroup_id = -1;
     pddlISetUnion(&m->mgroup, fact);
     return m;
@@ -800,8 +800,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, pddl_iset_t *ess)
                 while (fact >= fact_alloc)
                     fact_alloc *= 2;
                 fact_mgroups = REALLOC_ARR(fact_mgroups, int, fact_alloc);
-                bzero(fact_mgroups + orig_alloc,
-                      sizeof(int) * (fact_alloc - orig_alloc));
+                ZEROIZE_ARR(fact_mgroups + orig_alloc, fact_alloc - orig_alloc);
             }
             ++fact_mgroups[fact];
             fact_size = PDDL_MAX(fact_size, fact + 1);

@@ -37,7 +37,7 @@ static int sqlGroundInit(sql_ground_t *g,
                          const pddl_ground_config_t *cfg,
                          pddl_err_t *err)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->pddl = pddl;
     g->grounder = pddlSqlGrounderNew(pddl, err);
     if (g->grounder == NULL)

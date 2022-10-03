@@ -120,7 +120,7 @@ static int actionInit2(pddl_prep_action_t *a,
     ctx.failed = 0;
     ctx.err = err;
 
-    bzero(a, sizeof(*a));
+    ZEROIZE(a);
     a->action = action;
     a->parent_action = -1;
     a->param_size = action->param.param_size;
@@ -250,7 +250,7 @@ int pddlPrepActionsInit(const pddl_t *pddl, pddl_prep_actions_t *as,
 {
     const pddl_action_t *action;
 
-    bzero(as, sizeof(*as));
+    ZEROIZE(as);
     as->action_alloc = 4;
     as->action = ALLOC_ARR(pddl_prep_action_t, as->action_alloc);
 

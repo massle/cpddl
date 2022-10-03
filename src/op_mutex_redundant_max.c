@@ -31,7 +31,7 @@ static void redundantInit(redundant_t *red,
                           const pddl_op_mutex_pairs_t *op_mutex,
                           pddl_err_t *err)
 {
-    bzero(red, sizeof(*red));
+    ZEROIZE(red);
     red->op_size = op_mutex->op_size;
 
     LOG2(err, "Computing transitive closures on symmetries...");

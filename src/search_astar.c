@@ -53,8 +53,7 @@ pddl_search_t *pddlSearchAStar(const pddl_fdr_t *fdr,
 {
     pddl_search_astar_t *astar;
 
-    astar = ALLOC(pddl_search_astar_t);
-    bzero(astar, sizeof(*astar));
+    astar = ZALLOC(pddl_search_astar_t);
     _pddlSearchInit(&astar->search,
                     pddlSearchAStarDel,
                     pddlSearchAStarInitStep,

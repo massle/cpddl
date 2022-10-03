@@ -31,8 +31,7 @@ static pddl_strips_ground_tnode_t *tnodeNew(pddl_strips_ground_tree_t *t,
 {
     pddl_strips_ground_tnode_t *n;
 
-    n = ALLOC(pddl_strips_ground_tnode_t);
-    bzero(n, sizeof(*n));
+    n = ZALLOC(pddl_strips_ground_tnode_t);
     n->param = param;
     n->obj_id = obj_id;
     if (parent != NULL)
@@ -376,7 +375,7 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
                               const pddl_prep_action_t *a,
                               const pddl_iset_t *params)
 {
-    bzero(tr, sizeof(*tr));
+    ZEROIZE(tr);
     tr->pddl = pddl;
     tr->action = a;
     pddlISetUnion(&tr->param, params);

@@ -22,7 +22,7 @@
 void pddlFDRStatePoolHTableInit(pddl_fdr_state_pool_htable_t *ht,
                                 const struct pddl_fdr_state_pool *state_pool)
 {
-    bzero(ht, sizeof(*ht));
+    ZEROIZE(ht);
     ht->size = 98317ul;
     ht->table = CALLOC_ARR(pddl_iarr_t, ht->size);
     ht->state_pool = state_pool;

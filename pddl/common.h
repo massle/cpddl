@@ -157,6 +157,7 @@ typedef int pddl_obj_id_t;
 /** Zeroize given struct */
 #define PDDL_ZEROIZE(SPTR) bzero((SPTR), sizeof(*(SPTR)))
 #define PDDL_ZEROIZE_ARR(SPTR, SZ) bzero((SPTR), sizeof(*(SPTR)) * (SZ))
+#define PDDL_ZEROIZE_RAW(SPTR, SZ) bzero((SPTR), (SZ))
 
 
 /**

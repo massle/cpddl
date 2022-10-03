@@ -89,7 +89,7 @@ void pddlHFlowInit(pddl_hflow_t *h,
                    const pddl_fdr_t *fdr,
                    int use_ilp)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->fdr = fdr;
     h->vars = &fdr->var;
     h->use_ilp = use_ilp;

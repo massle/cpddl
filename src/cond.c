@@ -263,10 +263,7 @@ static pddl_cond_t *parse(const pddl_lisp_node_t *root,
 
 static pddl_cond_t *_condNew(int size, unsigned type)
 {
-    pddl_cond_t *c;
-
-    c = MALLOC(size);
-    bzero(c, size);
+    pddl_cond_t *c = ZMALLOC(size);
     c->type = type;
     pddlListInit(&c->conn);
     return c;
@@ -3831,7 +3828,7 @@ const pddl_cond_t *pddlCondConstItInit(pddl_cond_const_it_t *it,
                                        const pddl_cond_t *cond,
                                        int type)
 {
-    bzero(it, sizeof(*it));
+    ZEROIZE(it);
 
     if (cond == NULL)
         return NULL;
@@ -3972,7 +3969,7 @@ const pddl_cond_atom_t *pddlCondConstItEffInit(pddl_cond_const_it_eff_t *it,
                                                const pddl_cond_t *cond,
                                                const pddl_cond_t **pre)
 {
-    bzero(it, sizeof(*it));
+    ZEROIZE(it);
 
     if (pre != NULL)
         *pre = NULL;

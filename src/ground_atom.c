@@ -111,7 +111,7 @@ static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
 
 void pddlGroundAtomsInit(pddl_ground_atoms_t *ga)
 {
-    bzero(ga, sizeof(*ga));
+    ZEROIZE(ga);
     ga->htable = pddlHTableNew(htableKey, htableEq, ga);
 }
 

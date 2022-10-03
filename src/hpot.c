@@ -968,7 +968,7 @@ static void diverseGenStates(diverse_pot_t *div,
         pddlFDRStateSamplerNext(sampler, fdr_state);
 
         pddlISetEmpty(&state);
-        bzero(div->coef, sizeof(double) * pot->var_size);
+        ZEROIZE_ARR(div->coef, pot->var_size);
         for (int var = 0; var < fdr->var.var_size; ++var){
             int id = fdr->var.var[var].val[fdr_state[var]].global_id;
             div->coef[id] = 1.;
@@ -1023,7 +1023,7 @@ static int diverseAvg(diverse_pot_t *div,
                       pddl_pot_t *pot,
                       pddl_err_t *err)
 {
-    bzero(div->coef, sizeof(double) * pot->var_size);
+    ZEROIZE_ARR(div->coef, pot->var_size);
     const pddl_iset_t *state;
     PDDL_SET_ISET_FOR_EACH_ID_SET(&div->states, i, state){
         if (div->state_est[i] < 0)

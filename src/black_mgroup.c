@@ -361,7 +361,7 @@ static void blackVarsInit(black_vars_t *bv,
                           const pddl_black_mgroups_config_t *cfg,
                           pddl_err_t *err)
 {
-    bzero(bv, sizeof(*bv));
+    ZEROIZE(bv);
     bv->fact_size = strips->fact.fact_size;
 
     // Find invertible facts
@@ -857,7 +857,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
 {
     CTX(err, "black_mg_lp", "Black-mg-LP");
     for (int i = 0; i < cfg->num_solutions; ++i)
-        bzero(bmgroups + i, sizeof(*bmgroups));
+        ZEROIZE(bmgroups + i);
 
     pddl_mgroups_t mgroups;
     pddlMGroupsInitEmpty(&mgroups);

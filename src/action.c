@@ -135,7 +135,7 @@ int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
 
 void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->action_size = dst->action_alloc = src->action_size;
     dst->action = CALLOC_ARR(pddl_action_t, src->action_size);
     for (int i = 0; i < src->action_size; ++i)
@@ -144,7 +144,7 @@ void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src)
 
 void pddlActionInit(pddl_action_t *a)
 {
-    bzero(a, sizeof(*a));
+    ZEROIZE(a);
     pddlParamsInit(&a->param);
 }
 

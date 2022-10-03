@@ -21,7 +21,7 @@
 
 void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
 {
-    bzero(m, sizeof(*m));
+    ZEROIZE(m);
 
     m->op_size = s->op.op_size;
     m->op_id_to_id = ALLOC_ARR(int, m->op_size);
@@ -32,7 +32,7 @@ void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
 void pddlOpMutexPairsInitCopy(pddl_op_mutex_pairs_t *dst,
                               const pddl_op_mutex_pairs_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
 
     dst->op_size = src->op_size;
     dst->op_id_to_id = ALLOC_ARR(int, dst->op_size);

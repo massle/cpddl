@@ -175,7 +175,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     CTX(err, "pddl", "PDDL");
     pddlConfigLog(cfg, err);
 
-    bzero(pddl, sizeof(*pddl));
+    ZEROIZE(pddl);
     pddl->cfg = *cfg;
 
     LOG(err, "Processing %{domain_fn}s and %{problem_fn}s.",
@@ -272,7 +272,7 @@ pddl_fail:
 
 void pddlInitCopy(pddl_t *dst, const pddl_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->cfg = src->cfg;
     dst->domain_lisp = pddlLispClone(src->domain_lisp);
     dst->problem_lisp = pddlLispClone(src->problem_lisp);
@@ -366,7 +366,7 @@ static void findNonStaticPredInNegPre(pddl_t *pddl, int *np)
 {
     int i;
 
-    bzero(np, sizeof(int) * pddl->pred.pred_size);
+    ZEROIZE_ARR(np, pddl->pred.pred_size);
     for (i = 0; i < pddl->action.action_size; ++i){
         pddlCondTraverse(pddl->action.action[i].pre, markNegPre, NULL, np);
         pddlCondTraverse(pddl->action.action[i].eff, markNegPreWhen, NULL, np);

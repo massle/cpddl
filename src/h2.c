@@ -147,7 +147,7 @@ static void h2Init(h2_t *h2,
                    const pddl_iset_t *unreachable_ops,
                    pddl_err_t *err)
 {
-    bzero(h2, sizeof(*h2));
+    ZEROIZE(h2);
     h2->fact_size = strips->fact.fact_size;
     h2->op_size = strips->op.op_size;
     h2->fact = CALLOC_ARR(char, (size_t)h2->fact_size * h2->fact_size);
@@ -209,7 +209,7 @@ static void h2ResetOpFact(h2_t *h2, const pddl_strips_ops_t *ops)
 {
     if (h2->op_fact == NULL)
         return;
-    bzero(h2->op_fact, sizeof(char) * h2->fact_size * h2->op_size);
+    ZEROIZE_ARR(h2->op_fact, (size_t)h2->fact_size * h2->op_size);
     for (int op_id = 0; op_id < h2->op_size; ++op_id){
         const pddl_strips_op_t *op = ops->op[op_id];
         char *fact = h2->op_fact + (size_t)op_id * h2->fact_size;

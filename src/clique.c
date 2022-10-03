@@ -181,7 +181,7 @@ void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
         pddlISetAdd(&all_facts, i);
 
     bk_stack_t stack;
-    bzero(&stack, sizeof(stack));
+    ZEROIZE(&stack);
     stackPush(&stack, &empty, &all_facts, &empty, -1, NULL);
     inferCliques(g, &stack, cb, userdata);
     stackFree(&stack);

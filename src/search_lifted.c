@@ -125,8 +125,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     CTX(err, "bfs", err_prefix);
     pddl_search_lifted_bfs_t *bfs;
 
-    bfs = ALLOC(pddl_search_lifted_bfs_t);
-    bzero(bfs, sizeof(*bfs));
+    bfs = ZALLOC(pddl_search_lifted_bfs_t);
     searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep,
                err_prefix, err);
     // TODO: Check for conditional effects

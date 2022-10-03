@@ -57,13 +57,13 @@ static int cmpLiftedMGroups(const void *a, const void *b, void *_)
 
 void pddlLiftedMGroupInitEmpty(pddl_lifted_mgroup_t *dst)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
 }
 
 void pddlLiftedMGroupInitCopy(pddl_lifted_mgroup_t *dst,
                               const pddl_lifted_mgroup_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     pddlParamsInitCopy(&dst->param, &src->param);
     for (int i = 0; i < src->cond.size; ++i)
         pddlCondArrAdd(&dst->cond, pddlCondClone(src->cond.cond[i]));
@@ -75,7 +75,7 @@ void pddlLiftedMGroupInitCandFromPred(pddl_lifted_mgroup_t *mgroup,
                                       const pddl_pred_t *pred,
                                       int counted_var)
 {
-    bzero(mgroup, sizeof(*mgroup));
+    ZEROIZE(mgroup);
     pddlParamsInit(&mgroup->param);
     pddlCondArrInit(&mgroup->cond);
 
@@ -412,7 +412,7 @@ const char *pddlLiftedMGroupFmt(const pddl_t *pddl,
 
 void pddlLiftedMGroupsInit(pddl_lifted_mgroups_t *lm)
 {
-    bzero(lm, sizeof(*lm));
+    ZEROIZE(lm);
 }
 
 void pddlLiftedMGroupsInitCopy(pddl_lifted_mgroups_t *dst,

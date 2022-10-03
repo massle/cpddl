@@ -202,7 +202,7 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     size_t size = sizeof(pddl_datalog_fact_t);
     size += dl->max_pred_arity * sizeof(int);
     void *init = alloca(size);
-    bzero(init, size);
+    ZEROIZE_RAW(init, size);
     db->fact = pddlExtArrNew(size, NULL, init);
     db->fact_queue = pddlPairHeapNew(factQueueLT, NULL);
     db->pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
@@ -210,7 +210,7 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     size = sizeof(pddl_datalog_relevant_fact_t);
     size += dl->max_pred_arity * 2 * sizeof(int);
     init = alloca(size);
-    bzero(init, size);
+    ZEROIZE_RAW(init, size);
     db->relevant_fact[0] = pddlExtArrNew(size, NULL, init);
     db->relevant_fact[1] = pddlExtArrNew(size, NULL, init);
 }
@@ -251,7 +251,7 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
         pddlISetFree(db->pred_to_fact + i);
     FREE(db->pred_to_fact);
 
-    bzero(db, sizeof(*db));
+    ZEROIZE(db);
 }
 
 static pddl_datalog_fact_t *dbFindFact(pddl_datalog_t *dl,
@@ -468,9 +468,7 @@ static void setUp(pddl_datalog_t *dl, int db, pddl_err_t *err)
 
 pddl_datalog_t *pddlDatalogNew(void)
 {
-    pddl_datalog_t *dl = ALLOC(pddl_datalog_t);
-    bzero(dl, sizeof(*dl));
-    return dl;
+    return ZALLOC(pddl_datalog_t);
 }
 
 void pddlDatalogDel(pddl_datalog_t *dl)
@@ -519,7 +517,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
         dl->c = REALLOC_ARR(dl->c, pddl_datalog_const_t, dl->c_alloc);
     }
     pddl_datalog_const_t *c = dl->c + dl->c_size;
-    bzero(c, sizeof(*c));
+    ZEROIZE(c);
     c->idx = dl->c_size++;
     c->id = IDX_TO_CONST(c->idx);
     c->name = NULL;
@@ -540,7 +538,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
                                dl->pred_alloc);
     }
     pddl_datalog_pred_t *p = dl->pred + dl->pred_size;
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->idx = dl->pred_size++;
     p->id = IDX_TO_PRED(p->idx);
     p->arity = arity;
@@ -578,7 +576,7 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
         dl->var = REALLOC_ARR(dl->var, pddl_datalog_var_t, dl->var_alloc);
     }
     pddl_datalog_var_t *v = dl->var + dl->var_size;
-    bzero(v, sizeof(*v));
+    ZEROIZE(v);
     v->idx = dl->var_size++;
     v->id = IDX_TO_VAR(v->idx);
     v->name = NULL;
@@ -854,7 +852,7 @@ static void renameVarsInRule(pddl_datalog_t *dl, int rule_id)
     collectVarsFromRule(dl, rule, &rule_vars);
 
     unsigned remap[dl->var_size];
-    bzero(remap, sizeof(unsigned) * dl->var_size);
+    ZEROIZE_ARR(remap, dl->var_size);
     for (int i = 0; i < pddlISetSize(&rule_vars); ++i)
         remap[pddlISetGet(&rule_vars, i)] = i;
 
@@ -918,7 +916,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
 
     CTX(err, "reduce_rule_set", "reduce-rule-set");
     int pred_num_achievers[dl->pred_size];
-    bzero(pred_num_achievers, sizeof(int) * dl->pred_size);
+    ZEROIZE_ARR(pred_num_achievers, dl->pred_size);
     for (int ri = 0; ri < dl->rule_size; ++ri)
         pred_num_achievers[dl->rule[ri].head.pred]++;
 
@@ -1434,7 +1432,7 @@ void pddlDatalogAtomInit(pddl_datalog_t *dl,
                          pddl_datalog_atom_t *atom,
                          unsigned pred)
 {
-    bzero(atom, sizeof(*atom));
+    ZEROIZE(atom);
     int p = TO_IDX(pred);
     atom->pred = p;
     atom->arg = CALLOC_ARR(unsigned, dl->pred[p].arity);
@@ -1444,7 +1442,7 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
                          pddl_datalog_atom_t *dst,
                          const pddl_datalog_atom_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->pred = src->pred;
     dst->arg = CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
     memcpy(dst->arg, src->arg, sizeof(unsigned) * dl->pred[dst->pred].arity);
@@ -1489,14 +1487,14 @@ void pddlDatalogAtomSetArg(pddl_datalog_t *dl,
 
 void pddlDatalogRuleInit(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
 {
-    bzero(rule, sizeof(*rule));
+    ZEROIZE(rule);
 }
 
 void pddlDatalogRuleCopy(pddl_datalog_t *dl,
                          pddl_datalog_rule_t *dst,
                          const pddl_datalog_rule_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     pddlDatalogAtomCopy(dl, &dst->head, &src->head);
     dst->body_alloc = src->body_alloc;
     dst->body_size = src->body_size;

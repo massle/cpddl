@@ -63,7 +63,7 @@ static void reduceGenInit(reduce_gen_t *rgen,
                           const pddl_strips_sym_t *sym,
                           const pddl_op_mutex_pairs_t *op_mutex)
 {
-    bzero(rgen, sizeof(*rgen));
+    ZEROIZE(rgen);
     rgen->gen_id = gen_id;
     rgen->gen = gen;
 
@@ -101,7 +101,7 @@ static void reduceInit(reduce_t *red,
                        const pddl_strips_sym_t *sym,
                        const pddl_op_mutex_pairs_t *op_mutex)
 {
-    bzero(red, sizeof(*red));
+    ZEROIZE(red);
     red->op_size = op_mutex->op_size;
     red->op_mutex_with = CALLOC_ARR(pddl_iset_t, red->op_size);
     for (int op_id = 0; op_id < red->op_size; ++op_id){

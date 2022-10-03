@@ -195,7 +195,7 @@ int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err)
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
               pddl_err_t *err)
 {
-    bzero(files, sizeof(*files));
+    ZEROIZE(files);
 
     if (s1 == NULL && s2 == NULL){
         PDDL_ERR_RET2(err, -1, "Unspecified specifiers.");
@@ -269,7 +269,7 @@ int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err)
 
 void pddlBenchInit(pddl_bench_t *bench)
 {
-    bzero(bench, sizeof(*bench));
+    ZEROIZE(bench);
 }
 
 void pddlBenchFree(pddl_bench_t *bench)
@@ -289,7 +289,7 @@ static void benchAdd(pddl_bench_t *bench, const pddl_files_t *fs)
     }
 
     pddl_bench_task_t *task = bench->task + bench->task_size++;
-    bzero(task, sizeof(*task));
+    ZEROIZE(task);
     char *rpath = realpath(fs->domain_pddl, task->pddl_files.domain_pddl);
     ASSERT_RUNTIME(rpath != NULL);
     rpath = realpath(fs->problem_pddl, task->pddl_files.problem_pddl);

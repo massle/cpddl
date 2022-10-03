@@ -138,7 +138,7 @@ _pddl_inline void _pddlArrEnsureSize(pddl_arr_t *a, int size)
 
 _pddl_inline void pddlArrInit(pddl_arr_t *a)
 {
-    bzero(a, sizeof(*a));
+    PDDL_ZEROIZE(a);
 }
 
 _pddl_inline void pddlArrResize(pddl_arr_t *a, int size)

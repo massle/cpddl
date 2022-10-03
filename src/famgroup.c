@@ -193,7 +193,7 @@ static void famInit(fam_t *fam,
                     const pddl_famgroup_config_t *cfg,
                     pddl_err_t *err)
 {
-    bzero(fam, sizeof(*fam));
+    ZEROIZE(fam);
     fam->cfg = *cfg;
     fam->strips = strips;
     fam->mgroups = mgroups;

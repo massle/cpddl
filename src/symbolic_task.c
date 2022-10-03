@@ -243,7 +243,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
     }else{
         CTX(err, "symba_search_bw_init", "bw-init");
     }
-    bzero(search, sizeof(*search));
+    ZEROIZE(search);
     search->cfg = *_cfg;
     pddlHPotConfigInitCopy(&search->cfg.pot_heur_config, &_cfg->pot_heur_config);
     if (search->cfg.use_pot_heur){
@@ -471,7 +471,7 @@ static void planInit(pddl_symbolic_task_t *ss,
                      const pddl_symbolic_state_t *goal_state,
                      pddl_bdd_t *reached_goal)
 {
-    bzero(plan, sizeof(*plan));
+    ZEROIZE(plan);
 
     int alloc = 2;
     plan->state = CALLOC_ARR(pddl_iset_t, alloc + 1);
@@ -493,8 +493,7 @@ static void planInit(pddl_symbolic_task_t *ss,
             int old_alloc = alloc;
             alloc *= 2;
             plan->state = REALLOC_ARR(plan->state, pddl_iset_t, alloc + 1);
-            bzero(plan->state + old_alloc + 1,
-                  sizeof(pddl_iset_t) * (alloc - old_alloc));
+            ZEROIZE_ARR(plan->state + old_alloc + 1, alloc - old_alloc);
             plan->tr_op = REALLOC_ARR(plan->tr_op, pddl_iset_t *, alloc);
         }
 
@@ -1303,8 +1302,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
         fdr->var.global_id_size,
         fdr->op.op_size);
 
-    ss = ALLOC(pddl_symbolic_task_t);
-    bzero(ss, sizeof(*ss));
+    ss = ZALLOC(pddl_symbolic_task_t);
     ss->cfg = *cfg;
     pddlHPotConfigInitCopy(&ss->cfg.fw.pot_heur_config, &cfg->fw.pot_heur_config);
     pddlHPotConfigInitCopy(&ss->cfg.bw.pot_heur_config, &cfg->bw.pot_heur_config);

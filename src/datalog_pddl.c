@@ -103,7 +103,7 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
                                       const unsigned *dlvar)
 {
     int param_covered[params->param_size];
-    bzero(param_covered, sizeof(int) * params->param_size);
+    ZEROIZE_ARR(param_covered, params->param_size);
 
     const pddl_cond_atom_t *catom;
     pddl_cond_const_it_atom_t it;

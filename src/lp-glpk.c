@@ -39,8 +39,7 @@ static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
     lp_t *lp;
 
-    lp = ALLOC(lp_t);
-    bzero(lp, sizeof(*lp));
+    lp = ZALLOC(lp_t);
     lp->cls.cls = &pddl_lp_glpk;
     lp->cls.err = err;
     lp->cls.cfg = *cfg;

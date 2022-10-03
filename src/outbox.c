@@ -22,7 +22,7 @@
 
 void pddlOutBoxesInit(pddl_outboxes_t *b)
 {
-    bzero(b, sizeof(*b));
+    ZEROIZE(b);
 }
 
 void pddlOutBoxesFree(pddl_outboxes_t *b)
@@ -46,7 +46,7 @@ pddl_outbox_t *pddlOutBoxesAdd(pddl_outboxes_t *b)
         b->box = REALLOC_ARR(b->box, pddl_outbox_t, b->box_alloc);
     }
     pddl_outbox_t *box = b->box + b->box_size++;
-    bzero(box, sizeof(*box));
+    ZEROIZE(box);
     return box;
 }
 

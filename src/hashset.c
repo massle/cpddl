@@ -54,7 +54,7 @@ void pddlHashSetInit(pddl_hashset_t *s,
                      pddl_hashset_del_fn del_fn,
                      void *userdata)
 {
-    bzero(s, sizeof(*s));
+    ZEROIZE(s);
     s->hash_fn = hash_fn;
     s->eq_fn = eq_fn;
     s->clone_fn = clone_fn;

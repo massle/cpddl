@@ -38,7 +38,7 @@ static void sortFacts(pddl_fdr_part_state_t *ps)
 
 void pddlFDRPartStateInit(pddl_fdr_part_state_t *ps)
 {
-    bzero(ps, sizeof(*ps));
+    ZEROIZE(ps);
 }
 
 void pddlFDRPartStateInitCopy(pddl_fdr_part_state_t *dst,

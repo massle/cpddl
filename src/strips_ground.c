@@ -111,7 +111,7 @@ static void atreeFindConnectedPreParams(const pddl_prep_action_t *a,
     pddlISetAdd(param, first_param);
 
     int used_cond[a->pre.size];
-    bzero(used_cond, sizeof(int) * a->pre.size);
+    ZEROIZE_ARR(used_cond, a->pre.size);
 
     int changed = 1;
     while (changed){
@@ -134,7 +134,7 @@ static void atreeInit(pddl_strips_ground_atree_t *atr,
                       const pddl_t *pddl,
                       const pddl_prep_action_t *a)
 {
-    bzero(atr, sizeof(*atr));
+    ZEROIZE(atr);
     atr->action = a;
 
     PDDL_ISET(param_used);
@@ -811,7 +811,7 @@ static int groundInit(pddl_strips_ground_t *g, const pddl_t *pddl,
                       pddl_strips_ground_unify_new_atom_fn new_atom,
                       void *new_atom_data)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->pddl = pddl;
     g->cfg = *cfg;
     if (g->cfg.lifted_mgroups == NULL){

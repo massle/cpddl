@@ -328,7 +328,7 @@ static int lpSolve(pddl_lp_t *_lp, double *val, double *obj)
         if (obj != NULL){
             if (GRBgetintattr(lp->model, "NumVars", &cols) != 0)
                 grbError(lp);
-            bzero(obj, sizeof(double) * cols);
+            ZEROIZE_ARR(obj, cols);
         }
         if (val != NULL)
             *val = 0.;

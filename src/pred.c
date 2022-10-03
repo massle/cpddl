@@ -225,7 +225,7 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
 
 void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->eq_pred = src->eq_pred;
     dst->pred_size = dst->pred_alloc = src->pred_size;
     dst->pred = CALLOC_ARR(pddl_pred_t, src->pred_size);
@@ -307,7 +307,7 @@ pddl_pred_t *pddlPredsAdd(pddl_preds_t *ps)
     }
 
     p = ps->pred + ps->pred_size++;
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->id = ps->pred_size - 1;
     p->owner_param = -1;
     p->neg_of = -1;

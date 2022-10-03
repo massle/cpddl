@@ -23,7 +23,7 @@
 
 void pddlTransitionsInit(pddl_transitions_t *ts)
 {
-    bzero(ts, sizeof(*ts));
+    ZEROIZE(ts);
 }
 
 void pddlTransitionsFree(pddl_transitions_t *ts)

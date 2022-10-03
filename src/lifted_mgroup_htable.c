@@ -85,10 +85,10 @@ void pddlLiftedMGroupHTableInit(pddl_lifted_mgroup_htable_t *h)
 {
     el_t el;
 
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->htable = pddlHTableNew(htableHash, htableEq, h);
 
-    bzero(&el, sizeof(el));
+    ZEROIZE(&el);
     h->mgroup = pddlExtArrNew(sizeof(el), NULL, &el);
     h->mgroup_size = 0;
 }

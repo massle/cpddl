@@ -94,7 +94,7 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
 {
     const pddl_fdr_vars_t *vars = &fdr->var;
 
-    bzero(lmc, sizeof(*lmc));
+    ZEROIZE(lmc);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
@@ -153,7 +153,7 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
                          int op_unit_cost,
                          int op_cost_plus)
 {
-    bzero(lmc, sizeof(*lmc));
+    ZEROIZE(lmc);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
@@ -516,7 +516,7 @@ static int cut(pddl_lm_cut_t *lmc)
 {
     int cost;
 
-    bzero(lmc->fact_state, sizeof(int) * lmc->fact_size);
+    ZEROIZE_ARR(lmc->fact_state, lmc->fact_size);
     markGoalZone(lmc);
     cost = findCut(lmc);
     applyCutCost(lmc, cost);

@@ -46,8 +46,7 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
-    pddl_heur_hff_t *h = ALLOC(pddl_heur_hff_t);
-    bzero(h, sizeof(*h));
+    pddl_heur_hff_t *h = ZALLOC(pddl_heur_hff_t);
     pddlHFFInit(&h->hff, fdr);
     pddlFDRVarsInitCopy(&h->fdr_vars, &fdr->var);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);

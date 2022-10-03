@@ -64,7 +64,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     }
 
 
-    bzero(fdr, sizeof(*fdr));
+    ZEROIZE(fdr);
 
     // variables
     if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
@@ -108,7 +108,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
 
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
 {
-    bzero(fdr, sizeof(*fdr));
+    ZEROIZE(fdr);
     pddlFDRVarsInitCopy(&fdr->var, &fdr_in->var);
     pddlFDROpsInitCopy(&fdr->op, &fdr_in->op);
     fdr->init = ALLOC_ARR(int, fdr->var.var_size);

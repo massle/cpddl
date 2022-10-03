@@ -327,8 +327,10 @@ static int solve(pddl_lp_t *_lp, double *val, double *obj)
         if (st != 0)
             cplexErr(lp, st, "Cannot retrieve solution");
     }else{
-        if (obj != NULL)
-            bzero(obj, sizeof(double) * CPXgetnumcols(lp->env, lp->lp));
+        if (obj != NULL){
+            int cols = CPXgetnumcols(lp->env, lp->lp);
+            ZEROIZE_ARR(obj, cols);
+        }
         if (val != NULL)
             *val = 0.;
         return -1;

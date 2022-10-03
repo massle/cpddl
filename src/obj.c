@@ -199,7 +199,7 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
     const pddl_lisp_t *prob_lisp = pddl->problem_lisp;
     int i;
 
-    bzero(&pddl->obj, sizeof(pddl->obj));
+    ZEROIZE(&pddl->obj);
     pddl->obj.htable = pddlHTableNew(objHash, objEq, NULL);
 
     if (parse(pddl, dom_lisp, PDDL_KW_CONSTANTS, 1, err) != 0
@@ -222,7 +222,7 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
 
 void pddlObjsInitCopy(pddl_objs_t *dst, const pddl_objs_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
 
     dst->htable = pddlHTableNew(objHash, objEq, NULL);
 
@@ -308,7 +308,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     }
 
     o = objs->obj + objs->obj_size++;
-    bzero(o, sizeof(*o));
+    ZEROIZE(o);
     o->name = STRDUP(name);
     o->owner = PDDL_OBJ_ID_UNDEF;
 
