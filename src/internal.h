@@ -116,6 +116,7 @@ extern "C" {
 
 
 #define ZEROIZE PDDL_ZEROIZE
+#define ZEROIZE_ARR PDDL_ZEROIZE_ARR
 
 #define FREE PDDL_FREE
 #define ALLOC PDDL_ALLOC

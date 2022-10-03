@@ -7,6 +7,7 @@
 #ifndef __PDDL_TASK_H__
 #define __PDDL_TASK_H__
 
+#include <pddl/pddl_struct.h>
 #include <pddl/fdr.h>
 #include <pddl/mg_strips.h>
 
@@ -15,6 +16,11 @@ extern "C" {
 #endif /* __cplusplus */
 
 typedef struct pddl_task pddl_task_t;
+
+/**
+ * TODO
+ */
+pddl_task_t *pddlTaskNew(pddl_err_t *err);
 
 /**
  * TODO
@@ -35,6 +41,51 @@ void pddlTaskDel(pddl_task_t *task);
  * TODO
  */
 pddl_err_t *pddlTaskErr(pddl_task_t *task);
+
+/**
+ * TODO
+ */
+void pddlTaskPrintErr(pddl_task_t *task, FILE *fout);
+
+
+/**
+ * TODO
+ */
+pddl_status_t pddlTaskSetConfigPddl(pddl_task_t *task,
+                                    const char *domain_pddl,
+                                    const char *problem_pddl,
+                                    const pddl_config_t *cfg);
+
+/**
+ * TODO
+ * @param[in,out] task TODO
+ * @param[out] pddl_out TODO
+ * @return TODO
+ */
+pddl_status_t pddlTaskPddl(pddl_task_t *task, const pddl_t **pddl_out);
+
+
+/**
+ * TODO
+ */
+//int pddlTaskSetConfigLiftedMGroups(pddl_task_t *task, ...);
+
+/**
+ * TODO
+ * @param[in,out] task TODO
+ * @param[out] out TODO
+ * @return TODO
+ */
+pddl_status_t pddlTaskLiftedMGroups(pddl_task_t *task,
+                                    const pddl_lifted_mgroups_t **out);
+
+
+// TODO: Lifted endomorphism
+// TODO: Compile-in lifted mgroups
+
+// TODO: Strips, grounding
+// TODO: Mutex groups
+// TODO: Pruning of strips --> bin/process_strips
 
 /**
  * TODO

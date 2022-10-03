@@ -112,6 +112,7 @@ void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
 /**
  * Returns maximal number of parameters of all predicates and functions.
  */
+// TODO: rename to *MaxArity
 int pddlPredFuncMaxParamSize(const pddl_t *pddl);
 
 /**
