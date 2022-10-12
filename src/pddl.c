@@ -213,7 +213,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
 
     if (checkDerivedPredicates(pddl, err) != 0
             || checkDomainName(pddl, err) != 0
-            || pddlRequireParse(pddl, err) != 0
+            || pddlRequireFlagsParse(pddl, err) != 0
             || pddlTypesParse(pddl, err) != 0
             || pddlObjsParse(pddl, err) != 0
             || pddlPredsParse(pddl, err) != 0

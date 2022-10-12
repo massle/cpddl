@@ -99,7 +99,7 @@ static int requireKw(int kw, pddl_require_flags_t *f)
     return 0;
 }
 
-int pddlRequireParse(pddl_t *pddl, pddl_err_t *err)
+int pddlRequireFlagsParse(pddl_t *pddl, pddl_err_t *err)
 {
     ZEROIZE(&pddl->require);
     if (pddl->cfg.force_adl)

@@ -43,7 +43,7 @@ typedef struct pddl_require_flags pddl_require_flags_t;
 /**
  * Parses :requirements from domain pddl.
  */
-int pddlRequireParse(pddl_t *pddl, pddl_err_t *err);
+int pddlRequireFlagsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Transform flags to uint mask
