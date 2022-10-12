@@ -24,7 +24,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_lp_cls {
-    int solver_id;
+    pddl_lp_solver_t solver_id;
     const char *solver_name;
     const char *solver_version;
     pddl_lp_t *(*new)(const pddl_lp_config_t *cfg, pddl_err_t *err);

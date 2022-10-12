@@ -25,20 +25,22 @@ extern "C" {
 typedef struct pddl_lp pddl_lp_t;
 
 /**
- * Solvers.
+ * All possible solvers.
  */
-// TODO: enum
-#define PDDL_LP_DEFAULT 0
-#define PDDL_LP_CPLEX   1
-#define PDDL_LP_GUROBI  2
-#define PDDL_LP_LPSOLVE 3
-#define PDDL_LP_GLPK    4
+enum pddl_lp_solver {
+    PDDL_LP_DEFAULT = 0,
+    PDDL_LP_CPLEX,
+    PDDL_LP_GUROBI,
+    PDDL_LP_LPSOLVE,
+    PDDL_LP_GLPK,
+};
+typedef enum pddl_lp_solver pddl_lp_solver_t;
 
 struct pddl_lp_config {
     int rows; /*!< Number of rows (constraints) after initialization */
     int cols; /*!< Number of columns (variables) after initialization */
     int maximize; /*!< 1 for maximize, 0 for minimize */
-    int solver; /*!< One of the solver IDs above */
+    pddl_lp_solver_t solver; /*!< One of the solver IDs above */
     int num_threads; /*!< Number of threads. */
     float time_limit; /*!< Time limit for solving the problem. */
     int tune_int_operator_potential; /*!< True for tuning inference of
@@ -61,12 +63,12 @@ typedef struct pddl_lp_config pddl_lp_config_t;
  * Returns true if the specified solver is available.
  * For PDDL_LP_DEFAULT returns false if there is no LP solver available.
  */
-int pddlLPSolverAvailable(int solver);
+int pddlLPSolverAvailable(pddl_lp_solver_t solver);
 
 /**
  * Set default solver.
  */
-int pddlLPSetDefault(int solver, pddl_err_t *err);
+int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err);
 
 /**
  * Creates a new LP problem with specified number of rows and columns.

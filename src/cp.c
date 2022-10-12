@@ -628,7 +628,7 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
     fflush(fout);
 }
 
-void pddlCPSetDefaultSolver(int solver_id)
+void pddlCPSetDefaultSolver(pddl_cp_solver_t solver_id)
 {
     default_solver = solver_id;
 }
@@ -638,7 +638,7 @@ static int solve(const pddl_cp_t *cp,
                  pddl_cp_sol_t *sol,
                  pddl_err_t *err)
 {
-    int solver = cfg->solver;
+    pddl_cp_solver_t solver = cfg->solver;
     if (solver == PDDL_CP_SOLVER_DEFAULT){
 #ifdef PDDL_CPOPTIMIZER
         solver = PDDL_CP_SOLVER_CPOPTIMIZER;
@@ -654,6 +654,8 @@ static int solve(const pddl_cp_t *cp,
             return pddlCPSolve_CPOptimizer(cp, cfg, sol, err);
         case PDDL_CP_SOLVER_MINIZINC:
             return pddlCPSolve_Minizinc(cp, cfg, sol, err);
+        default:
+            FATAL("Unkown solver ID %d", solver);
     }
     FATAL("Unkown solver ID %d", solver);
     return -1;

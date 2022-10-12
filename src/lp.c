@@ -30,7 +30,7 @@ pddl_lp_cls_t *pddl_lp_default = &pddl_lp_lpsolve;
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_not_available;
 #endif
 
-static pddl_lp_cls_t *getSolverCls(int solver)
+static pddl_lp_cls_t *getSolverCls(pddl_lp_solver_t solver)
 {
     switch (solver){
         case PDDL_LP_CPLEX:
@@ -59,7 +59,7 @@ void pddlLPConfigLog(const pddl_lp_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, tune_int_operator_potential, err);
 }
 
-int pddlLPSolverAvailable(int solver)
+int pddlLPSolverAvailable(pddl_lp_solver_t solver)
 {
     if (solver == PDDL_LP_CPLEX){
         if (pddl_lp_cplex.new != NULL)
@@ -88,7 +88,7 @@ int pddlLPSolverAvailable(int solver)
             || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
 }
 
-int pddlLPSetDefault(int solver, pddl_err_t *err)
+int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
 {
     if (!pddlLPSolverAvailable(solver)){
         switch (solver){
