@@ -114,11 +114,9 @@ static int parsePrivatePreds(pddl_t *pddl,
                              pddl_err_t *err)
 {
     const char *owner_var;
-    int factor, from;
+    int from;
 
-    factor = (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY);
-
-    if (factor){
+    if (pddl->require.factored_privacy){
         if (n->child_size < 2 || n->child[0].kw != PDDL_KW_PRIVATE){
             ERR_LISP_RET2(err, -1, n,
                           "Invalid definition of :private predicate");
@@ -182,8 +180,7 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
         return 0;
 
     // Determine if we can expect :private definitions
-    private = (pddl->require & PDDL_REQUIRE_UNFACTORED_PRIVACY)
-                || (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY);
+    private = pddl->require.unfactored_privacy || pddl->require.factored_privacy;
 
     // Fisrt parse non :private predicates
     for (int i = 1; i < n->child_size; ++i){

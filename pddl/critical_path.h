@@ -40,9 +40,17 @@ int pddlH1(const pddl_strips_t *strips,
 /**
  * Compute h^2 reachability.
  * unreachable_facts and unreachable_ops can be set to NULL.
+ *
+ * @param[in]     strips            Input planning task
+ * @param[in,out] mutex             TODO
+ * @param[in,out] unreachable_facts TODO
+ * @param[in,out] unreachable_ops   TODO
+ * @param[in]     time_limit_in_s   TODO
+ * @param         err               TODO
+ * @return TODO
  */
 int pddlH2(const pddl_strips_t *strips,
-           pddl_mutex_pairs_t *m,
+           pddl_mutex_pairs_t *mutex,
            pddl_iset_t *unreachable_facts,
            pddl_iset_t *unreachable_ops,
            float time_limit_in_s,

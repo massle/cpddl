@@ -24,7 +24,7 @@
 
 #include <pddl/common.h>
 #include <pddl/lisp.h>
-#include <pddl/require.h>
+#include <pddl/require_flags.h>
 #include <pddl/param.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
@@ -316,12 +316,16 @@ int pddlCondPartIsEmpty(const pddl_cond_part_t *part);
 /**
  * Returns 0 if cond is a correct precondition, -1 otherwise.
  */
-int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err);
+int pddlCondCheckPre(const pddl_cond_t *cond,
+                     const pddl_require_flags_t *require,
+                     pddl_err_t *err);
 
 /**
  * Same as pddlCondCheckPre() buf effect is checked.
  */
-int pddlCondCheckEff(const pddl_cond_t *cond, int require, pddl_err_t *err);
+int pddlCondCheckEff(const pddl_cond_t *cond,
+                     const pddl_require_flags_t *require,
+                     pddl_err_t *err);
 
 
 /**

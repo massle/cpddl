@@ -1945,7 +1945,9 @@ void pddlCondReplace(pddl_cond_t *c, pddl_cond_t *r)
 
 
 /*** CHECK ***/
-int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
+int pddlCondCheckPre(const pddl_cond_t *cond,
+                     const pddl_require_flags_t *require,
+                     pddl_err_t *err)
 {
     pddl_cond_part_t *p;
     pddl_cond_quant_t *q;
@@ -1956,8 +1958,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
 
     if (cond->type == PDDL_COND_AND
             || cond->type == PDDL_COND_OR){
-        if (cond->type == PDDL_COND_OR
-                && !(require & PDDL_REQUIRE_DISJUNCTIVE_PRE)){
+        if (cond->type == PDDL_COND_OR && !require->disjunctive_pre){
             PDDL_ERR2(err, "(or ...) can be used only with"
                       " :disjunctive-preconditions");
             return -1;
@@ -1973,7 +1974,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
         return 0;
 
     }else if (cond->type == PDDL_COND_FORALL){
-        if (!(require & PDDL_REQUIRE_UNIVERSAL_PRE)){
+        if (!require->universal_pre){
             PDDL_ERR2(err, "(forall ...) can be used only with"
                       " :universal-preconditions");
             return -1;
@@ -1983,7 +1984,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
         return pddlCondCheckPre(q->cond, require, err);
 
     }else if (cond->type == PDDL_COND_EXIST){
-        if (!(require & PDDL_REQUIRE_EXISTENTIAL_PRE)){
+        if (!require->existential_pre){
             PDDL_ERR2(err, "(exists ...) can be used only with"
                       " :existential-preconditions");
             return -1;
@@ -1998,7 +1999,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
 
     }else if (cond->type == PDDL_COND_ATOM){
         atom = OBJ(cond, atom);
-        if (atom->neg && !(require & PDDL_REQUIRE_NEGATIVE_PRE)){
+        if (atom->neg && !require->negative_pre){
             PDDL_ERR2(err, "For negative preconditions add"
                       " :negative-preconditions");
             return -1;
@@ -2008,7 +2009,7 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
 
     }else if (cond->type == PDDL_COND_IMPLY){
         imp = OBJ(cond, imply);
-        if (!(require & PDDL_REQUIRE_DISJUNCTIVE_PRE)){
+        if (!require->disjunctive_pre){
             PDDL_ERR2(err, "(imply ...) can be used only with"
                       " :disjunctive-preconditions");
             return -1;
@@ -2029,18 +2030,25 @@ int pddlCondCheckPre(const pddl_cond_t *cond, int require, pddl_err_t *err)
 }
 
 
-static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err);
-static int checkPEffect(const pddl_cond_t *cond, int require, pddl_err_t *err);
-static int checkCondEffect(const pddl_cond_t *cond, int require,
+static int checkCEffect(const pddl_cond_t *cond,
+                        const pddl_require_flags_t *require,
+                        pddl_err_t *err);
+static int checkPEffect(const pddl_cond_t *cond,
+                        const pddl_require_flags_t *require,
+                        pddl_err_t *err);
+static int checkCondEffect(const pddl_cond_t *cond,
+                           const pddl_require_flags_t *require,
                            pddl_err_t *err);
 
-static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
+static int checkCEffect(const pddl_cond_t *cond,
+                        const pddl_require_flags_t *require,
+                        pddl_err_t *err)
 {
     pddl_cond_quant_t *forall;
     pddl_cond_when_t *when;
 
     if (cond->type == PDDL_COND_FORALL){
-        if (!(require & PDDL_REQUIRE_CONDITIONAL_EFF)){
+        if (!require->conditional_eff){
             PDDL_ERR2(err, "(forall ...) is allowed in effects only if"
                       " :conditional-effects is specified as requirement");
             return -1;
@@ -2050,7 +2058,7 @@ static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
         return pddlCondCheckEff(forall->cond, require, err);
 
     }else if (cond->type == PDDL_COND_WHEN){
-        if (!(require & PDDL_REQUIRE_CONDITIONAL_EFF)){
+        if (!require->conditional_eff){
             PDDL_ERR2(err, "(when ...) is allowed in effects only if"
                       " :conditional-effects is specified as requirement");
             return -1;
@@ -2071,7 +2079,9 @@ static int checkCEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
     }
 }
 
-static int checkPEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
+static int checkPEffect(const pddl_cond_t *cond,
+                        const pddl_require_flags_t *require,
+                        pddl_err_t *err)
 {
     if (cond->type == PDDL_COND_ATOM
             || cond->type == PDDL_COND_ASSIGN
@@ -2081,7 +2091,8 @@ static int checkPEffect(const pddl_cond_t *cond, int require, pddl_err_t *err)
     return -1;
 }
 
-static int checkCondEffect(const pddl_cond_t *cond, int require,
+static int checkCondEffect(const pddl_cond_t *cond,
+                           const pddl_require_flags_t *require,
                            pddl_err_t *err)
 {
     const pddl_cond_part_t *part;
@@ -2108,7 +2119,9 @@ static int checkCondEffect(const pddl_cond_t *cond, int require,
     return -1;
 }
 
-int pddlCondCheckEff(const pddl_cond_t *cond, int require, pddl_err_t *err)
+int pddlCondCheckEff(const pddl_cond_t *cond,
+                     const pddl_require_flags_t *require,
+                     pddl_err_t *err)
 {
     const pddl_cond_part_t *and;
     const pddl_cond_t *sub;

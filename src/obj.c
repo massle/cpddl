@@ -20,7 +20,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/obj.h"
-#include "pddl/require.h"
+#include "pddl/require_flags.h"
 #include "lisp_err.h"
 #include "internal.h"
 
@@ -149,7 +149,7 @@ static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
     pddl_obj_id_t owner;
     set_t set;
 
-    factor = (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY);
+    factor = pddl->require.factored_privacy;
     parse_from = 2;
     if (factor)
         parse_from = 1;
@@ -206,9 +206,8 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
             || parse(pddl, prob_lisp, PDDL_KW_OBJECTS, 0, err) != 0)
         PDDL_TRACE_RET(err, -1);
 
-    if (((pddl->require & PDDL_REQUIRE_MULTI_AGENT)
-                && (pddl->require & PDDL_REQUIRE_UNFACTORED_PRIVACY))
-            || (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY)){
+    if ((pddl->require.multi_agent && pddl->require.unfactored_privacy)
+            || pddl->require.factored_privacy){
         if (parsePrivate(pddl, dom_lisp, PDDL_KW_CONSTANTS, err) != 0
                 || parsePrivate(pddl, prob_lisp, PDDL_KW_OBJECTS, err) != 0)
             PDDL_TRACE_RET(err, -1);

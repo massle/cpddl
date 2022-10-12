@@ -22,7 +22,7 @@
 
 #include <pddl/config.h>
 #include <pddl/lisp.h>
-#include <pddl/require.h>
+#include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
@@ -60,7 +60,7 @@ struct pddl {
     pddl_lisp_t *problem_lisp;
     char *domain_name;
     char *problem_name;
-    unsigned require;
+    pddl_require_flags_t require;
     pddl_types_t type;
     pddl_objs_t obj;
     pddl_preds_t pred;

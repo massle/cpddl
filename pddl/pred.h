@@ -21,7 +21,7 @@
 #define __PDDL_PRED_H__
 
 #include <pddl/common.h>
-#include <pddl/require.h>
+#include <pddl/require_flags.h>
 #include <pddl/type.h>
 
 #ifdef __cplusplus

@@ -995,7 +995,7 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)
 {
     fprintf(fout, "(define (domain %s)\n", pddl->domain_name);
-    pddlRequirePrintPDDL(pddl->require, fout);
+    pddlRequireFlagsPrintPDDL(&pddl->require, fout);
     pddlTypesPrintPDDL(&pddl->type, fout);
     pddlObjsPrintPDDLConstants(&pddl->obj, &pddl->type, fout);
     pddlPredsPrintPDDL(&pddl->pred, &pddl->type, fout);
@@ -1058,7 +1058,7 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
 
     fprintf(fout, "Domain: %s\n", pddl->domain_name);
     fprintf(fout, "Problem: %s\n", pddl->problem_name);
-    fprintf(fout, "Require: %x\n", pddl->require);
+    fprintf(fout, "Require: %x\n", pddlRequireFlagsToMask(&pddl->require));
     pddlTypesPrint(&pddl->type, fout);
     pddlObjsPrint(&pddl->obj, fout);
     pddlPredsPrint(&pddl->pred, "Predicate", fout);

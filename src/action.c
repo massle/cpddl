@@ -48,7 +48,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     for (i = 2; i < root->child_size; i += 2){
         n = root->child + i + 1;
         if (root->child[i].kw == PDDL_KW_AGENT){
-            if (!(pddl->require & PDDL_REQUIRE_MULTI_AGENT)){
+            if (!pddl->require.multi_agent){
                 // TODO: err/warn
                 ERR_LISP_RET2(err, -1, root->child + i,
                               ":agent is allowed only with :multi-agent"
@@ -75,7 +75,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
             a->pre = pddlCondParse(n, pddl, &a->param, err_prefix, err);
             if (a->pre == NULL)
                 PDDL_TRACE_RET(err, -1);
-            if (pddlCondCheckPre(a->pre, pddl->require, err) != 0)
+            if (pddlCondCheckPre(a->pre, &pddl->require, err) != 0)
                 PDDL_TRACE_RET(err, -1);
             pddlCondSetPredRead(a->pre, &pddl->pred);
 
@@ -88,7 +88,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
             a->eff = pddlCondParse(n, pddl, &a->param, err_prefix, err);
             if (a->eff == NULL)
                 PDDL_TRACE_RET(err, -1);
-            if (pddlCondCheckEff(a->eff, pddl->require, err) != 0)
+            if (pddlCondCheckEff(a->eff, &pddl->require, err) != 0)
                 PDDL_TRACE_RET(err, -1);
             pddlCondSetPredReadWriteEff(a->eff, &pddl->pred);
 
