@@ -63,7 +63,7 @@ static int hasAtom(const pddl_fm_t *cond,
                    const pddl_fm_atom_t *atom)
 {
     if (cond->type == PDDL_FM_ATOM){
-        return pddlFmEq(cond, &atom->cls);
+        return pddlFmEq(cond, &atom->fm);
     }else{
         ASSERT_RUNTIME(cond->type == PDDL_FM_AND);
         const pddl_fm_junc_t *cand = pddlFmToJuncConst(cond);
@@ -71,7 +71,7 @@ static int hasAtom(const pddl_fm_t *cond,
         PDDL_LIST_FOR_EACH(&cand->part, item){
             const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
             ASSERT_RUNTIME(c->type == PDDL_FM_ATOM);
-            if (pddlFmEq(c, &atom->cls))
+            if (pddlFmEq(c, &atom->fm))
                 return 1;
         }
     }
@@ -228,7 +228,7 @@ static void analyzeActionAtom(
     if (!eff_atom->neg)
         return;
 
-    pddl_fm_t *pos_c = pddlFmClone(&eff_atom->cls);
+    pddl_fm_t *pos_c = pddlFmClone(&eff_atom->fm);
     pddl_fm_atom_t *pos_a = PDDL_FM_CAST(pos_c, atom);
     pos_a->neg = 0;
     if (hasAtom(act_pre, pos_a)){
@@ -555,7 +555,7 @@ static void liftedAddInitConstr(const pddl_t *pddl,
                                 pddl_cp_t *cp)
 {
     pred_obj_tuples_t tuples;
-    predObjTuplesInitFromCond(&tuples, pddl, &pddl->init->cls);
+    predObjTuplesInitFromCond(&tuples, pddl, &pddl->init->fm);
 
     if (cfg->ignore_costs){
         for (int pred = 0; pred < tuples.pred_size; ++pred){

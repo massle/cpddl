@@ -142,7 +142,7 @@ static int parseInit(pddl_t *pddl, pddl_err_t *err)
 
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *atom;
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, atom)
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom)
         pddl->pred.pred[atom->pred].in_init = 1;
 
     return 0;
@@ -286,7 +286,7 @@ void pddlInitCopy(pddl_t *dst, const pddl_t *src)
     pddlPredsInitCopy(&dst->pred, &src->pred);
     pddlPredsInitCopy(&dst->func, &src->func);
     if (src->init != NULL)
-        dst->init = pddlFmToAnd(pddlFmClone(&src->init->cls));
+        dst->init = pddlFmToAnd(pddlFmClone(&src->init->fm));
     if (src->goal != NULL)
         dst->goal = pddlFmClone(src->goal);
     pddlActionsInitCopy(&dst->action, &src->action);
@@ -328,7 +328,7 @@ void pddlFree(pddl_t *pddl)
     pddlPredsFree(&pddl->pred);
     pddlPredsFree(&pddl->func);
     if (pddl->init)
-        pddlFmDel(&pddl->init->cls);
+        pddlFmDel(&pddl->init->fm);
     if (pddl->goal)
         pddlFmDel(pddl->goal);
     pddlActionsFree(&pddl->action);
@@ -519,7 +519,7 @@ static void addNotPredsToInitRec(pddl_t *pddl, int pos, int neg,
     if (argi == arg_size){
         if (!initHasFact(pddl, pos, arg_size, arg)){
             a = pddlFmCreateFactAtom(neg, arg_size, arg);
-            pddlFmJuncAdd(pddl->init, &a->cls);
+            pddlFmJuncAdd(pddl->init, &a->fm);
             pddl->pred.pred[a->pred].in_init = 1;
         }
 
@@ -712,7 +712,7 @@ static void pddlResetPredReadWrite(pddl_t *pddl)
 
 void pddlNormalize(pddl_t *pddl)
 {
-    pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->cls, pddl);
+    pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
     ASSERT_RUNTIME(c->type == PDDL_FM_AND);
     pddl->init = pddlFmToAnd(c);
 
@@ -786,7 +786,7 @@ static void compileAwayCondEff(pddl_t *pddl, int only_non_static)
                 new_a->pre = pddlFmNewAnd2(new_a->pre, pddlFmClone(w->pre));
                 new_a->eff = pddlFmNewAnd2(new_a->eff, pddlFmClone(w->eff));
 
-                pddlFmDel(&w->cls);
+                pddlFmDel(&w->fm);
                 change = 1;
             }
         }
@@ -895,15 +895,15 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
 
 void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
 {
-    pddlFmRemapObjs(&pddl->init->cls, remap);
-    pddl_fm_t *c = pddlFmRemoveInvalidAtoms(&pddl->init->cls);
+    pddlFmRemapObjs(&pddl->init->fm, remap);
+    pddl_fm_t *c = pddlFmRemoveInvalidAtoms(&pddl->init->fm);
     ASSERT_RUNTIME(c->type == PDDL_FM_AND);
     pddl->init = pddlFmToAnd(c);
 
     pddlFmRemapObjs(pddl->goal, remap);
     pddl->goal = pddlFmRemoveInvalidAtoms(pddl->goal);
     if (pddl->goal == NULL)
-        pddl->goal = &pddlFmNewBool(1)->cls;
+        pddl->goal = &pddlFmNewBool(1)->fm;
 
     pddlActionsRemapObjs(&pddl->action, remap);
     pddlTypesRemapObjs(&pddl->type, remap);
@@ -937,15 +937,15 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
         if (pred_size != pddl->pred.pred_size
                 || func_size != pddl->func.pred_size){
 
-            if (pddlFmRemapPreds(&pddl->init->cls,
-                                   pred_remap, func_remap) != 0){
+            if (pddlFmRemapPreds(&pddl->init->fm,
+                                 pred_remap, func_remap) != 0){
                 LOG2(err, "The task is unsolvable, because the initial"
                            " state is false");
-                pddlFmDel(&pddl->init->cls);
+                pddlFmDel(&pddl->init->fm);
                 pddl_fm_t *c = pddlFmNewEmptyAnd();
                 pddl->init = pddlFmToAnd(c);
                 pddl_fm_bool_t *b = pddlFmNewBool(0);
-                pddlFmJuncAdd(pddl->init, &b->cls);
+                pddlFmJuncAdd(pddl->init, &b->fm);
             }
 
             if (pddlFmRemapPreds(pddl->goal, pred_remap, func_remap) != 0){
@@ -953,7 +953,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
                            " is false");
                 pddlFmDel(pddl->goal);
                 pddl_fm_bool_t *b = pddlFmNewBool(0);
-                pddl->goal = &b->cls;
+                pddl->goal = &b->fm;
             }
         }
     }
@@ -978,7 +978,7 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
 {
     CTX(err, "pddl_enforce_unit_cost", "PDDL enforce unit-cost");
     // Remove (= ...) from the initial state
-    pddl_fm_t *init = &pddl->init->cls;
+    pddl_fm_t *init = &pddl->init->fm;
     pddlFmRebuild(&init, NULL, _removeAssignIncrease, NULL);
     ASSERT_RUNTIME(init->type == PDDL_FM_AND);
     pddl->init = pddlFmToAnd(init);

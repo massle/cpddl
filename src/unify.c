@@ -284,7 +284,7 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
                 eq->pred = eq_pred;
                 eq->arg[0].param = v1;
                 eq->arg[1].param = v2;
-                pddlFmJuncAdd(pddlFmToJunc(and), &eq->cls);
+                pddlFmJuncAdd(pddlFmToJunc(and), &eq->fm);
             }
         }
     }
@@ -295,7 +295,7 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
             eq->pred = eq_pred;
             eq->arg[0].param = v;
             eq->arg[1].obj = u->map[idx][v].obj;
-            pddlFmJuncAdd(pddlFmToJunc(and), &eq->cls);
+            pddlFmJuncAdd(pddlFmToJunc(and), &eq->fm);
         }
     }
 
@@ -312,7 +312,7 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
                 eq->pred = eq_pred;
                 eq->arg[0].param = v;
                 eq->arg[1].obj = objs[i];
-                pddlFmJuncAdd(pddlFmToJunc(or), &eq->cls);
+                pddlFmJuncAdd(pddlFmToJunc(or), &eq->fm);
             }
             pddlFmJuncAdd(pddlFmToJunc(and), or);
         }
@@ -320,7 +320,7 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
 
     if (pddlFmJuncIsEmpty(pddlFmToJunc(and))){
         pddlFmDel(and);
-        return &pddlFmNewBool(1)->cls;
+        return &pddlFmNewBool(1)->fm;
     }
     return and;
 }

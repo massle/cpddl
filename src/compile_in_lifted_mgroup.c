@@ -128,9 +128,9 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
                                       const pddl_fm_t *unifier_cond)
 {
     if (a1->pred != a2->pred){
-        return &pddlFmNewBool(1)->cls;
+        return &pddlFmNewBool(1)->fm;
     }else if (a1->arg_size == 0){
-        return &pddlFmNewBool(0)->cls;
+        return &pddlFmNewBool(0)->fm;
     }
 
     pddl_fm_t *or = pddlFmNewEmptyOr();
@@ -142,7 +142,7 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
             int type2 = param->param[a2->arg[i].param].type;
             if (pddlTypesAreDisjunct(&pddl->type, type1, type2)){
                 pddlFmDel(or);
-                return &pddlFmNewBool(1)->cls;
+                return &pddlFmNewBool(1)->fm;
             }
 
             if (a1->arg[i].param < a2->arg[i].param){
@@ -157,7 +157,7 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
             int type = param->param[a1->arg[i].param].type;
             if (!pddlTypesObjHasType(&pddl->type, type, a2->arg[i].obj)){
                 pddlFmDel(or);
-                return &pddlFmNewBool(1)->cls;
+                return &pddlFmNewBool(1)->fm;
             }
             eq->arg[0] = a1->arg[i];
             eq->arg[1] = a2->arg[i];
@@ -166,7 +166,7 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
             int type = param->param[a2->arg[i].param].type;
             if (!pddlTypesObjHasType(&pddl->type, type, a1->arg[i].obj)){
                 pddlFmDel(or);
-                return &pddlFmNewBool(1)->cls;
+                return &pddlFmNewBool(1)->fm;
             }
             eq->arg[0] = a2->arg[i];
             eq->arg[1] = a1->arg[i];
@@ -174,7 +174,7 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
         }else{
             if (a1->arg[i].obj != a2->arg[i].obj){
                 pddlFmDel(or);
-                return &pddlFmNewBool(1)->cls;
+                return &pddlFmNewBool(1)->fm;
             }
         }
 
@@ -182,7 +182,7 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
         const pddl_fm_atom_t *a;
         int unsat = 0;
         PDDL_FM_FOR_EACH_ATOM(unifier_cond, &it, a){
-            if (pddlFmEq(&a->cls, &eq->cls)){
+            if (pddlFmEq(&a->fm, &eq->fm)){
                 unsat = 1;
                 break;
             }
@@ -191,12 +191,12 @@ static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
             continue;
 
         eq->neg = 1;
-        pddlFmJuncAdd(pddlFmToJunc(or), &eq->cls);
+        pddlFmJuncAdd(pddlFmToJunc(or), &eq->fm);
     }
 
     if (pddlFmJuncIsEmpty(pddlFmToJunc(or))){
         pddlFmDel(or);
-        return &pddlFmNewBool(0)->cls;
+        return &pddlFmNewBool(0)->fm;
     }
     return or;
 }

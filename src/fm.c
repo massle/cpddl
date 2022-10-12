@@ -298,7 +298,7 @@ static pddl_fm_junc_t *condPartClone(const pddl_fm_junc_t *p)
     pddl_fm_t *c, *nc;
     pddl_list_t *item;
 
-    n = condPartNew(p->cls.type);
+    n = condPartNew(p->fm.type);
     PDDL_LIST_FOR_EACH(&p->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         nc = pddlFmClone(c);
@@ -314,7 +314,7 @@ static pddl_fm_junc_t *condPartNegate(const pddl_fm_junc_t *p,
     pddl_fm_t *c, *nc;
     pddl_list_t *item;
 
-    if (p->cls.type == PDDL_FM_AND){
+    if (p->fm.type == PDDL_FM_AND){
         n = condPartNew(PDDL_FM_OR);
     }else{
         n = condPartNew(PDDL_FM_AND);
@@ -420,9 +420,9 @@ static void condPartPrintPDDL(const pddl_fm_junc_t *p,
 
 
     fprintf(fout, "(");
-    if (p->cls.type == PDDL_FM_AND){
+    if (p->fm.type == PDDL_FM_AND){
         fprintf(fout, "and");
-    }else if (p->cls.type == PDDL_FM_OR){
+    }else if (p->fm.type == PDDL_FM_OR){
         fprintf(fout, "or");
     }
     PDDL_LIST_FOR_EACH(&p->part, item){
@@ -453,7 +453,7 @@ static pddl_fm_quant_t *condQuantClone(const pddl_fm_quant_t *q)
 {
     pddl_fm_quant_t *n;
 
-    n = condQuantNew(q->cls.type);
+    n = condQuantNew(q->fm.type);
     pddlParamsInitCopy(&n->param, &q->param);
     n->cond = pddlFmClone(q->cond);
     return n;
@@ -464,7 +464,7 @@ static pddl_fm_quant_t *condQuantNegate(const pddl_fm_quant_t *q,
 {
     pddl_fm_quant_t *n;
 
-    if (q->cls.type == PDDL_FM_FORALL){
+    if (q->fm.type == PDDL_FM_FORALL){
         n = condQuantNew(PDDL_FM_EXIST);
     }else{
         n = condQuantNew(PDDL_FM_FORALL);
@@ -514,9 +514,9 @@ static void condQuantPrintPDDL(const pddl_fm_quant_t *q,
                                FILE *fout)
 {
     fprintf(fout, "(");
-    if (q->cls.type == PDDL_FM_FORALL){
+    if (q->fm.type == PDDL_FM_FORALL){
         fprintf(fout, "forall");
-    }else if (q->cls.type == PDDL_FM_EXIST){
+    }else if (q->fm.type == PDDL_FM_EXIST){
         fprintf(fout, "exists");
     }
 
@@ -763,7 +763,7 @@ static void condFuncOpDel(pddl_fm_func_op_t *op)
 static pddl_fm_func_op_t *condFuncOpClone(const pddl_fm_func_op_t *op)
 {
     pddl_fm_func_op_t *n;
-    n = condFuncOpNew(op->cls.type);
+    n = condFuncOpNew(op->fm.type);
     n->value = op->value;
     if (op->lvalue)
         n->lvalue = condAtomClone(op->lvalue);
@@ -814,9 +814,9 @@ static void condFuncOpPrintPDDL(const pddl_fm_func_op_t *op,
                                 const pddl_params_t *params,
                                 FILE *fout)
 {
-    if (op->cls.type == PDDL_FM_ASSIGN){
+    if (op->fm.type == PDDL_FM_ASSIGN){
         fprintf(fout, "(= ");
-    }else if (op->cls.type == PDDL_FM_INCREASE){
+    }else if (op->fm.type == PDDL_FM_INCREASE){
         fprintf(fout, "(increase ");
     }
 
@@ -934,7 +934,7 @@ static pddl_fm_t *condImplyNegate(const pddl_fm_imply_t *a,
     right = pddlFmNegate(a->right, pddl);
     pddlFmJuncAdd(or, left);
     pddlFmJuncAdd(or, right);
-    return &or->cls;
+    return &or->fm;
 }
 
 static int condImplyEq(const pddl_fm_imply_t *i1,
@@ -1345,19 +1345,19 @@ pddl_fm_t *pddlFmNewAnd2(pddl_fm_t *a, pddl_fm_t *b)
     pddl_fm_junc_t *p = condPartNew(PDDL_FM_AND);
     condPartAdd(p, a);
     condPartAdd(p, b);
-    return &p->cls;
+    return &p->fm;
 }
 
 pddl_fm_t *pddlFmNewEmptyAnd(void)
 {
     pddl_fm_junc_t *p = condPartNew(PDDL_FM_AND);
-    return &p->cls;
+    return &p->fm;
 }
 
 pddl_fm_t *pddlFmNewEmptyOr(void)
 {
     pddl_fm_junc_t *p = condPartNew(PDDL_FM_OR);
-    return &p->cls;
+    return &p->fm;
 }
 
 pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args)
@@ -1481,7 +1481,7 @@ static pddl_fm_t *parseAtom(const pddl_lisp_node_t *root,
     }
     atom->neg = negated;
 
-    return &atom->cls;
+    return &atom->fm;
 }
 
 static pddl_fm_t *parseAssign(const pddl_lisp_node_t *root,
@@ -1520,7 +1520,7 @@ static pddl_fm_t *parseAssign(const pddl_lisp_node_t *root,
     assign = condFuncOpNew(PDDL_FM_ASSIGN);
     assign->value = atoi(nval->value);
     assign->lvalue = OBJ(lvalue, atom);
-    return &assign->cls;
+    return &assign->fm;
 }
 
 static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
@@ -1560,7 +1560,7 @@ static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
         inc->fvalue = (pddl_fm_atom_t *)fvalue;
     }
 
-    return &inc->cls;
+    return &inc->fm;
 }
 
 static pddl_fm_t *parsePart(int part_type,
@@ -1582,7 +1582,7 @@ static pddl_fm_t *parsePart(int part_type,
         pddlListAppend(&part->part, &cond->conn);
     }
 
-    return &part->cls;
+    return &part->fm;
 }
 
 static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
@@ -1606,7 +1606,7 @@ static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
         part = condPartNew(PDDL_FM_AND);
         pddlListAppend(&part->part, &cleft->conn);
         pddlListAppend(&part->part, &cright->conn);
-        return &part->cls;
+        return &part->fm;
 
     }else{
         if ((cleft = parse(left, ctx, 0)) == NULL)
@@ -1620,7 +1620,7 @@ static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
         imp = condImplyNew();
         imp->left = cleft;
         imp->right = cright;
-        return &imp->cls;
+        return &imp->fm;
     }
 }
 
@@ -1703,7 +1703,7 @@ static pddl_fm_t *parseQuant(int quant_type,
     q->param = params;
     q->cond = cond;
 
-    return &q->cls;
+    return &q->fm;
 }
 
 static pddl_fm_t *parseWhen(const pddl_lisp_node_t *root,
@@ -1730,7 +1730,7 @@ static pddl_fm_t *parseWhen(const pddl_lisp_node_t *root,
     w = condWhenNew();
     w->pre = pre;
     w->eff = eff;
-    return &w->cls;
+    return &w->fm;
 }
 
 static pddl_fm_t *parse(const pddl_lisp_node_t *root,
@@ -1933,7 +1933,7 @@ pddl_fm_t *pddlFmAtomToAnd(pddl_fm_t *atom)
 
     and = condPartNew(PDDL_FM_AND);
     condPartAdd(and, atom);
-    return &and->cls;
+    return &and->fm;
 }
 
 pddl_fm_atom_t *pddlFmCreateFactAtom(int pred, int arg_size, 
@@ -2246,9 +2246,9 @@ static int instantiateParentParam(pddl_fm_t *c, void *data)
     }else if (c->type == PDDL_FM_ASSIGN
                 || c->type == PDDL_FM_INCREASE){
         if (OBJ(c, func_op)->lvalue)
-            return instantiateParentParam(&OBJ(c, func_op)->lvalue->cls, data);
+            return instantiateParentParam(&OBJ(c, func_op)->lvalue->fm, data);
         if (OBJ(c, func_op)->fvalue)
-            return instantiateParentParam(&OBJ(c, func_op)->fvalue->cls, data);
+            return instantiateParentParam(&OBJ(c, func_op)->fvalue->fm, data);
     }
 
     return 0;
@@ -2270,9 +2270,9 @@ static int instantiateCond(pddl_fm_t *c, void *data)
     }else if (c->type == PDDL_FM_ASSIGN
                 || c->type == PDDL_FM_INCREASE){
         if (OBJ(c, func_op)->lvalue)
-            return instantiateCond(&OBJ(c, func_op)->lvalue->cls, data);
+            return instantiateCond(&OBJ(c, func_op)->lvalue->fm, data);
         if (OBJ(c, func_op)->fvalue)
-            return instantiateCond(&OBJ(c, func_op)->fvalue->cls, data);
+            return instantiateCond(&OBJ(c, func_op)->fvalue->fm, data);
     }
 
     return 0;
@@ -2288,7 +2288,7 @@ static pddl_fm_junc_t *instantiatePart(pddl_fm_junc_t *p,
     pddl_list_t *item;
     instantiate_cond_t set;
 
-    out = condPartNew(p->cls.type);
+    out = condPartNew(p->fm.type);
 
     for (int i = 0; i < objs_size; ++i){
         PDDL_LIST_FOR_EACH(&p->part, item){
@@ -2301,7 +2301,7 @@ static pddl_fm_junc_t *instantiatePart(pddl_fm_junc_t *p,
         }
     }
 
-    pddlFmDel(&p->cls);
+    pddlFmDel(&p->fm);
     return out;
 }
 
@@ -2315,7 +2315,7 @@ static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
 
     // The instantiation of universal/existential quantifier is a
     // conjuction/disjunction of all instances.
-    if (q->cls.type == PDDL_FM_FORALL){
+    if (q->fm.type == PDDL_FM_FORALL){
         top = condPartNew(PDDL_FM_AND);
     }else{
         top = condPartNew(PDDL_FM_OR);
@@ -2331,10 +2331,10 @@ static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
 
         obj = pddlTypesObjsByType(types, param->type, &obj_size);
         if (obj_size == 0){
-            bval = q->cls.type == PDDL_FM_FORALL;
-            pddlFmDel(&top->cls);
-            pddlFmDel(&q->cls);
-            return &condBoolNew(bval)->cls;
+            bval = q->fm.type == PDDL_FM_FORALL;
+            pddlFmDel(&top->fm);
+            pddlFmDel(&q->fm);
+            return &condBoolNew(bval)->fm;
 
         }else{
             top = instantiatePart(top, i, obj, obj_size);
@@ -2343,10 +2343,10 @@ static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
 
     // Replace all parameters inherited from the parent with IDs of the
     // parent parameters.
-    pddlFmTraverse(&top->cls, NULL, instantiateParentParam, &q->param);
+    pddlFmTraverse(&top->fm, NULL, instantiateParentParam, &q->param);
 
-    pddlFmDel(&q->cls);
-    return &top->cls;
+    pddlFmDel(&q->fm);
+    return &top->fm;
 }
 
 static int instantiateForall(pddl_fm_t **c, void *data)
@@ -2393,10 +2393,10 @@ static pddl_fm_t *removeBoolPart(pddl_fm_junc_t *part)
             continue;
 
         bval = OBJ(c, bool)->val;
-        if (part->cls.type == PDDL_FM_AND){
+        if (part->fm.type == PDDL_FM_AND){
             if (!bval){
-                pddlFmDel(&part->cls);
-                return &condBoolNew(0)->cls;
+                pddlFmDel(&part->fm);
+                return &condBoolNew(0)->fm;
             }else{
                 pddlListDel(item);
                 pddlFmDel(c);
@@ -2404,8 +2404,8 @@ static pddl_fm_t *removeBoolPart(pddl_fm_junc_t *part)
 
         }else{ // PDDL_FM_OR
             if (bval){
-                pddlFmDel(&part->cls);
-                return &condBoolNew(1)->cls;
+                pddlFmDel(&part->fm);
+                return &condBoolNew(1)->fm;
             }else{
                 pddlListDel(item);
                 pddlFmDel(c);
@@ -2414,17 +2414,17 @@ static pddl_fm_t *removeBoolPart(pddl_fm_junc_t *part)
     }
 
     if (pddlListEmpty(&part->part)){
-        if (part->cls.type == PDDL_FM_AND){
-            pddlFmDel(&part->cls);
-            return &condBoolNew(1)->cls;
+        if (part->fm.type == PDDL_FM_AND){
+            pddlFmDel(&part->fm);
+            return &condBoolNew(1)->fm;
 
         }else{ // PDDL_FM_OR
-            pddlFmDel(&part->cls);
-            return &condBoolNew(0)->cls;
+            pddlFmDel(&part->fm);
+            return &condBoolNew(0)->fm;
         }
     }
 
-    return &part->cls;
+    return &part->fm;
 }
 
 static pddl_fm_t *removeBoolWhen(pddl_fm_when_t *when)
@@ -2433,18 +2433,18 @@ static pddl_fm_t *removeBoolWhen(pddl_fm_when_t *when)
     int bval;
 
     if (when->pre->type != PDDL_FM_BOOL)
-        return &when->cls;
+        return &when->fm;
 
     bval = OBJ(when->pre, bool)->val;
     if (bval){
         c = when->eff;
         when->eff = NULL;
-        pddlFmDel(&when->cls);
+        pddlFmDel(&when->fm);
         return c;
 
     }else{ // !bval
-        pddlFmDel(&when->cls);
-        return &condBoolNew(1)->cls;
+        pddlFmDel(&when->fm);
+        return &condBoolNew(1)->fm;
     }
 }
 
@@ -2515,8 +2515,8 @@ static pddl_fm_t *removeBoolAtom(pddl_fm_atom_t *atom, const pddl_t *pddl)
                 }else{
                     bval = atom->neg;
                 }
-                pddlFmDel(&atom->cls);
-                return &condBoolNew(bval)->cls;
+                pddlFmDel(&atom->fm);
+                return &condBoolNew(bval)->fm;
             }
 
         }else if (pddlFmAtomIsGrounded(atom)){
@@ -2527,19 +2527,19 @@ static pddl_fm_t *removeBoolAtom(pddl_fm_atom_t *atom, const pddl_t *pddl)
             }else{
                 bval = atom->neg;
             }
-            pddlFmDel(&atom->cls);
-            return &condBoolNew(bval)->cls;
+            pddlFmDel(&atom->fm);
+            return &condBoolNew(bval)->fm;
 
         }else if (atom->neg && !atomIsPartiallyInInit(pddl, atom)){
             // If the atom is static but not fully grounded we can evaluate
             // it if there is no atom matching the grounded parts
             bval = atom->neg;
-            pddlFmDel(&atom->cls);
-            return &condBoolNew(bval)->cls;
+            pddlFmDel(&atom->fm);
+            return &condBoolNew(bval)->fm;
         }
     }
 
-    return &atom->cls;
+    return &atom->fm;
 }
 
 static pddl_fm_t *removeBoolImply(pddl_fm_imply_t *imp)
@@ -2549,16 +2549,16 @@ static pddl_fm_t *removeBoolImply(pddl_fm_imply_t *imp)
         if (b->val){
             pddl_fm_t *ret = imp->right;
             imp->right = NULL;
-            pddlFmDel(&imp->cls);
+            pddlFmDel(&imp->fm);
             return ret;
 
         }else{
-            pddlFmDel(&imp->cls);
-            return &condBoolNew(1)->cls;
+            pddlFmDel(&imp->fm);
+            return &condBoolNew(1)->fm;
         }
     }
 
-    return &imp->cls;
+    return &imp->fm;
 }
 
 static int removeBool(pddl_fm_t **c, void *data)
@@ -2589,12 +2589,12 @@ static pddl_fm_t *flattenPart(pddl_fm_junc_t *part)
     pddl_fm_junc_t *p;
 
     if (pddlListEmpty(&part->part))
-        return &part->cls;
+        return &part->fm;
 
     PDDL_LIST_FOR_EACH_SAFE(&part->part, item, tmp){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
 
-        if (c->type == part->cls.type){
+        if (c->type == part->fm.type){
             // Flatten con/disjunctions
             p = OBJ(c, junc);
             condPartStealPart(part, p);
@@ -2616,11 +2616,11 @@ static pddl_fm_t *flattenPart(pddl_fm_junc_t *part)
         item = pddlListNext(&part->part);
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         pddlListDel(item);
-        pddlFmDel(&part->cls);
+        pddlFmDel(&part->fm);
         return c;
     }
 
-    return &part->cls;
+    return &part->fm;
 }
 
 /** Splits (when ...) if its precondition is disjunction */
@@ -2633,7 +2633,7 @@ static pddl_fm_t *flattenWhen(pddl_fm_when_t *when)
     pddl_fm_when_t *add;
 
     if (!when->pre || when->pre->type != PDDL_FM_OR)
-        return &when->cls;
+        return &when->fm;
 
     and = condPartNew(PDDL_FM_AND);
     pre = OBJ(when->pre, junc);
@@ -2645,13 +2645,13 @@ static pddl_fm_t *flattenWhen(pddl_fm_when_t *when)
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         add = condWhenClone(when);
         add->pre = c;
-        condPartAdd(and, &add->cls);
+        condPartAdd(and, &add->fm);
     }
 
-    pddlFmDel(&pre->cls);
-    pddlFmDel(&when->cls);
+    pddlFmDel(&pre->fm);
+    pddlFmDel(&when->fm);
 
-    return &and->cls;
+    return &and->fm;
 }
 
 static int flatten(pddl_fm_t **c, void *data)
@@ -2683,11 +2683,11 @@ static pddl_fm_junc_t *moveDisjunctionsCreate1(pddl_fm_junc_t *top,
             add = OBJ(c1, junc);
             add = condPartClone(add);
             condPartAdd(add, pddlFmClone(c2));
-            condPartAdd(ret, &add->cls);
+            condPartAdd(ret, &add->fm);
         }
     }
 
-    pddlFmDel(&top->cls);
+    pddlFmDel(&top->fm);
     return ret;
 }
 
@@ -2699,16 +2699,16 @@ static pddl_fm_t *moveDisjunctionsCreate(pddl_fm_junc_t *and,
     pddl_fm_junc_t *ret;
 
     ret = condPartNew(PDDL_FM_OR);
-    condPartAdd(ret, &and->cls);
+    condPartAdd(ret, &and->fm);
     while (!pddlListEmpty(or_list)){
         or_item = pddlListNext(or_list);
         pddlListDel(or_item);
         or = OBJ(PDDL_LIST_ENTRY(or_item, pddl_fm_t, conn), junc);
         ret = moveDisjunctionsCreate1(ret, or);
-        pddlFmDel(&or->cls);
+        pddlFmDel(&or->fm);
     }
 
-    return &ret->cls;
+    return &ret->fm;
 }
 
 static pddl_fm_t *moveDisjunctionsUpAnd(pddl_fm_junc_t *and)
@@ -2728,7 +2728,7 @@ static pddl_fm_t *moveDisjunctionsUpAnd(pddl_fm_junc_t *and)
     }
 
     if (pddlListEmpty(&or_list)){
-        return &and->cls;
+        return &and->fm;
     }
 
     return moveDisjunctionsCreate(and, &or_list);
@@ -2810,10 +2810,10 @@ static int removeNonStaticImply(pddl_fm_t **c, void *data)
         or = condPartNew(PDDL_FM_OR);
         pddlFmJuncAdd(or, pddlFmNegate(imp->left, pddl));
         pddlFmJuncAdd(or, imp->right);
-        *c = &or->cls;
+        *c = &or->fm;
 
         imp->right = NULL;
-        pddlFmDel(&imp->cls);
+        pddlFmDel(&imp->fm);
     }
 
     return 0;
@@ -2900,7 +2900,7 @@ static pddl_fm_t *instantiate(pddl_fm_t *cond,
         eq->arg[0].obj = PDDL_OBJ_ID_UNDEF;
         eq->arg[1].param = -1;
         eq->arg[1].obj = arg[i];
-        pddlFmJuncAdd(and, &eq->cls);
+        pddlFmJuncAdd(and, &eq->fm);
     }
 
     ctx.params = params;
@@ -2908,7 +2908,7 @@ static pddl_fm_t *instantiate(pddl_fm_t *cond,
     pddlFmTraverse(c, NULL, instantiateTraverse, &ctx);
 
     pddlFmJuncAdd(and, c);
-    return &and->cls;
+    return &and->fm;
 }
 
 static void removeStaticImplyRec(pddl_fm_junc_t *top,
@@ -2957,7 +2957,7 @@ static int removeStaticImply(pddl_fm_t **cond, const pddl_t *pddl,
         removeStaticImplyRec(or, *cond, pddl, params, &imply_params, 0, obj);
         FREE(obj);
         pddlFmDel(*cond);
-        *cond = &or->cls;
+        *cond = &or->fm;
     }
     pddlISetFree(&imply_params);
     return 0;
@@ -3087,7 +3087,7 @@ static int removeConflictsInEff(pddl_fm_junc_t *p)
                 if (a1->neg){
                     tmp = pddlListPrev(item);
                     pddlListDel(item);
-                    pddlFmDel(&a1->cls);
+                    pddlFmDel(&a1->fm);
                     item = tmp;
                     change = 1;
                     break;
@@ -3095,7 +3095,7 @@ static int removeConflictsInEff(pddl_fm_junc_t *p)
                 }else{
                     tmp = pddlListPrev(item2);
                     pddlListDel(item2);
-                    pddlFmDel(&a2->cls);
+                    pddlFmDel(&a2->fm);
                     item2 = tmp;
                     change = 1;
                 }
@@ -3166,9 +3166,9 @@ static int reorderEqPredicates(pddl_fm_t **c, void *data)
             }else{
                 pddl_fm_t *b = NULL;
                 if (a->arg[0].obj != a->arg[1].obj){
-                    b = &pddlFmNewBool(0)->cls;
+                    b = &pddlFmNewBool(0)->fm;
                 }else{
-                    b = &pddlFmNewBool(1)->cls;
+                    b = &pddlFmNewBool(1)->fm;
                 }
                 pddlFmDel(*c);
                 *c = b;
@@ -3196,14 +3196,14 @@ static int simplifyBoolsInPart(pddl_fm_t **c, void *data)
                         d->change = 1;
                     }else{
                         pddlFmDel(*c);
-                        *c = &pddlFmNewBool(1)->cls;
+                        *c = &pddlFmNewBool(1)->fm;
                         d->change = 1;
                         return 0;
                     }
                 }else{
                     if ((*c)->type == PDDL_FM_AND){
                         pddlFmDel(*c);
-                        *c = &pddlFmNewBool(0)->cls;
+                        *c = &pddlFmNewBool(0)->fm;
                         d->change = 1;
                         return 0;
                     }else{
@@ -3269,12 +3269,12 @@ static int simplifyConflictAtoms(pddl_fm_t **c, void *data)
             if (pddlFmAtomInConflict(a1, a2, d->pddl)){
                 if ((*c)->type == PDDL_FM_AND){
                     pddlFmDel(*c);
-                    *c = &pddlFmNewBool(0)->cls;
+                    *c = &pddlFmNewBool(0)->fm;
                     d->change = 1;
                     return 0;
                 }else{
                     pddlFmDel(*c);
-                    *c = &pddlFmNewBool(1)->cls;
+                    *c = &pddlFmNewBool(1)->fm;
                     d->change = 1;
                     return 0;
                 }
@@ -3330,7 +3330,7 @@ static int simplifyConflictEqAtoms(pddl_fm_t **c, void *data)
                     // a1 := (= p o); a2 := (= p o'), o != o', which can
                     // never be true
                     pddlFmDel(*c);
-                    *c = &pddlFmNewBool(0)->cls;
+                    *c = &pddlFmNewBool(0)->fm;
                     d->change = 1;
                     return 0;
                 }
@@ -3405,7 +3405,7 @@ static int atomHasNegationInDisjunction(const pddl_fm_atom_t *atom,
     *witness = NULL;
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *datom;
-    PDDL_FM_FOR_EACH_ATOM(&disj->cls, &it, datom){
+    PDDL_FM_FOR_EACH_ATOM(&disj->fm, &it, datom){
         if (condAtomEqNoNeg(atom, datom) && atom->neg == !datom->neg){
             *witness = (pddl_fm_atom_t *)datom;
             return 1;
@@ -3448,7 +3448,7 @@ static int simplifyByNegationDistribution(pddl_fm_t **c, void *data)
                 if (atom != NULL && part != NULL){
                     pddl_fm_atom_t *witness;
                     if (atomHasNegationInDisjunction(atom, part, &witness)){
-                        pddlFmJuncRm(part, &witness->cls);
+                        pddlFmJuncRm(part, &witness->fm);
                         d->change = 1;
                         return 0;
                     }

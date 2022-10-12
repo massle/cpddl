@@ -396,7 +396,7 @@ static int staticAtomHasEqArgs(const pddl_t *pddl, int pred_id,
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *a;
 
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, a){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, a){
         if (!a->neg && a->pred == pred_id){
             if (a->arg[arg0].obj == a->arg[arg1].obj)
                 return 1;
@@ -728,7 +728,7 @@ static int initHeaviness(const pddl_t *pddl,
     const pddl_fm_atom_t *a1, *a2;
     int unified = 0;
 
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it1, a1){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it1, a1){
         if (a1->neg)
             continue;
 
@@ -1287,7 +1287,7 @@ static void addRefinedCandidate(refine_t *r,
             new_atom->arg[i].param = atom_params[i];
         }
     }
-    pddlFmArrAdd(&new_cand.cond, &new_atom->cls);
+    pddlFmArrAdd(&new_cand.cond, &new_atom->fm);
 
     restrictParamTypes(r->pddl, &new_cand);
     mgroupFinalize(r->pddl, &new_cand);

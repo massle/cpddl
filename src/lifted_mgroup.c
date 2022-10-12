@@ -93,7 +93,7 @@ void pddlLiftedMGroupInitCandFromPred(pddl_lifted_mgroup_t *mgroup,
         atom->arg[param_id].param = param_id;
         atom->arg[param_id].obj = PDDL_OBJ_ID_UNDEF;
     }
-    pddlFmArrAdd(&mgroup->cond, &atom->cls);
+    pddlFmArrAdd(&mgroup->cond, &atom->fm);
 
     pddlLiftedMGroupSort(mgroup);
 }
@@ -313,14 +313,14 @@ void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg)
         const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ci], atom);
         if (!atomHasCountedVar(a, &mg->param))
             continue;
-        pddl_fm_t *newc = pddlFmClone(&a->cls);
+        pddl_fm_t *newc = pddlFmClone(&a->fm);
         pddl_fm_atom_t *newa = PDDL_FM_CAST(newc, atom);
         for (int ai = 0; ai < newa->arg_size; ++ai){
             int pi = newa->arg[ai].param;
             if (pi >= 0)
                 newa->arg[ai].param = map[pi];
         }
-        pddlFmArrAdd(&mg->cond, &newa->cls);
+        pddlFmArrAdd(&mg->cond, &newa->fm);
     }
 }
 

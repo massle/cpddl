@@ -330,7 +330,7 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     as->action[aidx].pre = first_cond;
     pddlActionNormalize(as->action + aidx, pddl);
 
-    pddlFmDel(&pre->cls);
+    pddlFmDel(&pre->fm);
 }
 
 void pddlActionAssertPreConjuction(pddl_action_t *a)
@@ -343,7 +343,7 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
         PDDL_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
-    pre = pddl_container_of(a->pre, pddl_fm_junc_t, cls);
+    pre = pddlFmToJunc(a->pre);
     PDDL_LIST_FOR_EACH(&pre->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type != PDDL_FM_ATOM){

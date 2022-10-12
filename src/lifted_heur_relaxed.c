@@ -161,7 +161,7 @@ static void addInitStaticFacts(pddl_lifted_heur_relaxed_t *h)
 {
     const pddl_fm_atom_t *a;
     pddl_fm_const_it_atom_t it;
-    PDDL_FM_FOR_EACH_ATOM(&h->pddl->init->cls, &it, a){
+    PDDL_FM_FOR_EACH_ATOM(&h->pddl->init->fm, &it, a){
         if (!pddlPredIsStatic(h->pddl->pred.pred + a->pred))
             continue;
 

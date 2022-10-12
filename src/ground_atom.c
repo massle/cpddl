@@ -237,7 +237,7 @@ void pddlGroundAtomsAddInit(pddl_ground_atoms_t *ga, const pddl_t *pddl)
 {
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *atom;
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom){
         pddlGroundAtomsAddAtom(ga, atom, NULL);
     }
 }

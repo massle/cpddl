@@ -53,7 +53,7 @@ static void addInitFacts(ground_t *g)
 {
     const pddl_fm_atom_t *a;
     pddl_fm_const_it_atom_t it;
-    PDDL_FM_FOR_EACH_ATOM(&g->pddl->init->cls, &it, a){
+    PDDL_FM_FOR_EACH_ATOM(&g->pddl->init->fm, &it, a){
         pddl_datalog_atom_t atom;
         pddl_datalog_rule_t rule;
         pddlDatalogRuleInit(g->dl, &rule);

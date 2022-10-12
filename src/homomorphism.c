@@ -79,7 +79,7 @@ static int _removeAffectedNegativeAtoms(pddl_fm_t **c, void *_data)
     }else if ((*c)->type == PDDL_FM_WHEN){
         pddl_fm_when_t *w = PDDL_FM_CAST(*c, when);
         if (w->pre == NULL)
-            w->pre = &pddlFmNewBool(1)->cls;
+            w->pre = &pddlFmNewBool(1)->fm;
         if (w->eff == NULL){
             pddlFmDel(*c);
             *c = NULL;
@@ -100,7 +100,7 @@ static void fixAction(pddl_t *pddl,
     pddlFmRebuild(&action->pre, NULL, _removeAffectedNegativeAtoms, &data);
     pddlFmRebuild(&action->eff, NULL, _removeAffectedNegativeAtoms, &data);
     if (action->pre == NULL)
-        action->pre = &pddlFmNewBool(1)->cls;
+        action->pre = &pddlFmNewBool(1)->fm;
 }
 
 static void fixActions(pddl_t *pddl,
@@ -165,7 +165,7 @@ static int collapseObjs(pddl_t *pddl,
             obj_map[i] = remap[obj_map[i]];
     }
 
-    pddlFmRemapObjs(&pddl->init->cls, remap);
+    pddlFmRemapObjs(&pddl->init->fm, remap);
     pddlFmRemapObjs(pddl->goal, remap);
     fixActions(pddl, repr, collapse_map, err);
     pddlActionsRemapObjs(&pddl->action, remap);
@@ -210,7 +210,7 @@ static int _collapseObjs(pddl_homomorphic_task_t *h,
             h->obj_map[i] = remap[h->obj_map[i]];
     }
 
-    pddlFmRemapObjs(&h->task.init->cls, remap);
+    pddlFmRemapObjs(&h->task.init->fm, remap);
     pddlFmRemapObjs(h->task.goal, remap);
     fixActions(&h->task, repr, collapse_map, err);
     pddlActionsRemapObjs(&h->task.action, remap);
@@ -436,7 +436,7 @@ static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
 
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *atom;
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom){
         if (pddlPredIsStatic(pddl->pred.pred + atom->pred)
                 && pddl->pred.pred[atom->pred].param_size > 1){
             for (int i = 0; i < atom->arg_size; ++i){
@@ -607,7 +607,7 @@ static int rpgTestPair(const pddl_t *pddl,
 {
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *atom;
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom){
         if (atomHasObj(atom, o2)){
             pddl_obj_id_t args[atom->arg_size];
             for (int i = 0; i < atom->arg_size; ++i){
@@ -761,7 +761,7 @@ static pddl_fm_t *deduplicateCosts(pddl_fm_t *c)
 
 static void deduplicate(pddl_t *pddl)
 {
-    pddl_fm_t *init = pddlFmDeduplicateAtoms(&pddl->init->cls, pddl);
+    pddl_fm_t *init = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
     init = deduplicateCosts(init);
     pddl->init = pddlFmToAnd(init);
     pddl->goal = pddlFmDeduplicateAtoms(pddl->goal, pddl);

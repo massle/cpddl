@@ -64,7 +64,7 @@ typedef enum pddl_fm_type pddl_fm_type_t;
 const char *pddlFmTypeName(pddl_fm_type_t type);
 
 #define PDDL_FM_CAST(C, T) \
-    (pddl_container_of((C), pddl_fm_##T##_t, cls))
+    (pddl_container_of((C), pddl_fm_##T##_t, fm))
 
 /**
  * Abstract formula
@@ -81,7 +81,7 @@ typedef struct pddl_fm pddl_fm_t;
  * Conjunction / Disjunction
  */
 struct pddl_fm_junc {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     pddl_list_t part; /*!< List of parts */
 };
 typedef struct pddl_fm_junc pddl_fm_junc_t;
@@ -95,7 +95,7 @@ typedef pddl_fm_junc_t pddl_fm_or_t;
  * Quantifiers
  */
 struct pddl_fm_quant {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     pddl_params_t param; /*!< List of parameters */
     pddl_fm_t *cond;   /*!< Quantified condition */
 };
@@ -110,7 +110,7 @@ typedef pddl_fm_quant_t pddl_fm_exist_t;
  * Conditional effect
  */
 struct pddl_fm_when {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     pddl_fm_t *pre;
     pddl_fm_t *eff;
 };
@@ -130,7 +130,7 @@ typedef struct pddl_fm_atom_arg pddl_fm_atom_arg_t;
  * Atom
  */
 struct pddl_fm_atom {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     int pred; /*!< Predicate ID */
     pddl_fm_atom_arg_t *arg; /*!< List of arguments */
     int arg_size; /*!< Number of arguments */
@@ -144,7 +144,7 @@ typedef struct pddl_fm_atom pddl_fm_atom_t;
  * TODO: For now only (increase (total-cost) (...)) is supported
  */
 struct pddl_fm_func_op {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     pddl_fm_atom_t *lvalue; /*!< lvalue for assignement */
     int value;                /*!< Assigned immediate value */
     pddl_fm_atom_t *fvalue; /*!< Assigned value through function symbol */
@@ -158,7 +158,7 @@ typedef pddl_fm_func_op_t pddl_fm_increase_t;
  * Boolean value
  */
 struct pddl_fm_bool {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     int val;
 };
 typedef struct pddl_fm_bool pddl_fm_bool_t;
@@ -167,7 +167,7 @@ typedef struct pddl_fm_bool pddl_fm_bool_t;
  * Imply: (imply (...) (...))
  */
 struct pddl_fm_imply {
-    pddl_fm_t cls;
+    pddl_fm_t fm;
     pddl_fm_t *left;
     pddl_fm_t *right;
 };
@@ -175,7 +175,7 @@ typedef struct pddl_fm_imply pddl_fm_imply_t;
 
 
 /**
- * Casting functions
+ * Safe casting functions
  */
 pddl_fm_junc_t *pddlFmToJunc(pddl_fm_t *c);
 const pddl_fm_junc_t *pddlFmToJuncConst(const pddl_fm_t *c);
