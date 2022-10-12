@@ -106,11 +106,11 @@ extern "C" {
 
 #define F_COST(C) pddlCostFmt((C), ((char [22]){""}), 22)
 #define F_COND(C, PDDL, PARAMS) \
-    pddlCondFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)
+    pddlFmFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)
 #define F_COND_PDDL(C, PDDL, PARAMS) \
-    pddlCondPDDLFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)
+    pddlFmPDDLFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)
 #define F_COND_PDDL_BUFSIZE(C, PDDL, PARAMS, BUFSIZE) \
-    pddlCondPDDLFmt((C), (PDDL), (PARAMS), ((char [(BUFSIZE)]){""}), (BUFSIZE))
+    pddlFmPDDLFmt((C), (PDDL), (PARAMS), ((char [(BUFSIZE)]){""}), (BUFSIZE))
 #define F_LIFTED_MGROUP(PDDL, MG) \
     pddlLiftedMGroupFmt((PDDL), (MG), ((char [2048]){""}), 2048)
 

@@ -70,7 +70,7 @@ void pddlUnifyFree(pddl_unify_t *u)
 
 static void initVal(pddl_unify_val_t *v,
                     const pddl_unify_val_t *map,
-                    const pddl_cond_atom_t *a,
+                    const pddl_fm_atom_t *a,
                     int argi)
 {
     v->obj = a->arg[argi].obj;
@@ -142,8 +142,8 @@ static int unifyVals(pddl_unify_t *u,
 }
 
 int pddlUnify(pddl_unify_t *u,
-              const pddl_cond_atom_t *a1,
-              const pddl_cond_atom_t *a2)
+              const pddl_fm_atom_t *a1,
+              const pddl_fm_atom_t *a2)
 {
     if (a1->pred != a2->pred)
         return -1;
@@ -162,15 +162,15 @@ int pddlUnify(pddl_unify_t *u,
 static int applyEquality(pddl_unify_t *u,
                          int idx,
                          int eq_pred,
-                         const pddl_cond_t *cond)
+                         const pddl_fm_t *cond)
 {
     if (cond == NULL)
         return 0;
 
     const pddl_unify_val_t *map = u->map[idx];
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *eq;
-    PDDL_COND_FOR_EACH_ATOM(cond, &it, eq){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *eq;
+    PDDL_FM_FOR_EACH_ATOM(cond, &it, eq){
         if (!eq->neg && eq->pred == eq_pred){
             pddl_unify_val_t v0,v1;
             initVal(&v0, map, eq, 0);
@@ -185,7 +185,7 @@ static int applyEquality(pddl_unify_t *u,
 int pddlUnifyApplyEquality(pddl_unify_t *u,
                            const pddl_params_t *param,
                            int eq_pred,
-                           const pddl_cond_t *cond)
+                           const pddl_fm_t *cond)
 {
     if (param == u->param[0]){
         return applyEquality(u, 0, eq_pred, cond);
@@ -198,14 +198,14 @@ int pddlUnifyApplyEquality(pddl_unify_t *u,
 
 static int checkInequality(const pddl_unify_val_t *map,
                            int eq_pred,
-                           const pddl_cond_t *cond)
+                           const pddl_fm_t *cond)
 {
     if (cond == NULL)
         return 1;
 
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *ineq;
-    PDDL_COND_FOR_EACH_ATOM(cond, &it, ineq){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *ineq;
+    PDDL_FM_FOR_EACH_ATOM(cond, &it, ineq){
         if (ineq->neg && ineq->pred == eq_pred){
             pddl_unify_val_t v0,v1;
             initVal(&v0, map, ineq, 0);
@@ -220,7 +220,7 @@ static int checkInequality(const pddl_unify_val_t *map,
 int pddlUnifyCheckInequality(const pddl_unify_t *u,
                              const pddl_params_t *param,
                              int eq_pred,
-                             const pddl_cond_t *cond)
+                             const pddl_fm_t *cond)
 {
     if (param == u->param[0]){
         return checkInequality(u->map[0], eq_pred, cond);
@@ -233,9 +233,9 @@ int pddlUnifyCheckInequality(const pddl_unify_t *u,
 
 int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
                          const pddl_params_t *param1,
-                         const pddl_cond_atom_t *a1,
+                         const pddl_fm_atom_t *a1,
                          const pddl_params_t *param2,
-                         const pddl_cond_atom_t *a2)
+                         const pddl_fm_atom_t *a2)
 {
     ASSERT_RUNTIME(param1 == u->param[0] || param1 == u->param[1]);
     ASSERT_RUNTIME(param2 == u->param[0] || param2 == u->param[1]);
@@ -269,63 +269,63 @@ int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2)
                       sizeof(pddl_unify_val_t) * u->param[1]->param_size) == 0;
 }
 
-static pddl_cond_t *_pddlUnifyToCond(const pddl_unify_t *u,
+static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
                                      int eq_pred,
                                      int idx)
 {
-    pddl_cond_t *and = pddlCondNewEmptyAnd();
-    pddl_cond_atom_t *eq;
+    pddl_fm_t *and = pddlFmNewEmptyAnd();
+    pddl_fm_atom_t *eq;
 
     for (int v1 = 0; v1 < u->param[idx]->param_size; ++v1){
         for (int v2 = v1 + 1; v2 < u->param[idx]->param_size; ++v2){
             if (u->map[idx][v1].var == u->map[idx][v2].var
                     && u->map[idx][v1].var >= 0){
-                eq = pddlCondNewEmptyAtom(2);
+                eq = pddlFmNewEmptyAtom(2);
                 eq->pred = eq_pred;
                 eq->arg[0].param = v1;
                 eq->arg[1].param = v2;
-                pddlCondPartAdd(PDDL_COND_CAST(and, part), &eq->cls);
+                pddlFmJuncAdd(pddlFmToJunc(and), &eq->cls);
             }
         }
     }
 
     for (int v = 0; v < u->param[idx]->param_size; ++v){
         if (u->map[idx][v].obj >= 0){
-            eq = pddlCondNewEmptyAtom(2);
+            eq = pddlFmNewEmptyAtom(2);
             eq->pred = eq_pred;
             eq->arg[0].param = v;
             eq->arg[1].obj = u->map[idx][v].obj;
-            pddlCondPartAdd(PDDL_COND_CAST(and, part), &eq->cls);
+            pddlFmJuncAdd(pddlFmToJunc(and), &eq->cls);
         }
     }
 
     for (int v = 0; v < u->param[idx]->param_size; ++v){
         if (u->map[idx][v].var >= 0
                 && u->map[idx][v].var_type != u->param[idx]->param[v].type){
-            pddl_cond_t *or = pddlCondNewEmptyOr();
+            pddl_fm_t *or = pddlFmNewEmptyOr();
             int type = u->map[idx][v].var_type;
             const pddl_obj_id_t *objs;
             int obj_size;
             objs = pddlTypesObjsByType(u->type, type, &obj_size);
             for (int i = 0; i < obj_size; ++i){
-                eq = pddlCondNewEmptyAtom(2);
+                eq = pddlFmNewEmptyAtom(2);
                 eq->pred = eq_pred;
                 eq->arg[0].param = v;
                 eq->arg[1].obj = objs[i];
-                pddlCondPartAdd(PDDL_COND_CAST(or, part), &eq->cls);
+                pddlFmJuncAdd(pddlFmToJunc(or), &eq->cls);
             }
-            pddlCondPartAdd(PDDL_COND_CAST(and, part), or);
+            pddlFmJuncAdd(pddlFmToJunc(and), or);
         }
     }
 
-    if (pddlCondPartIsEmpty(PDDL_COND_CAST(and, part))){
-        pddlCondDel(and);
-        return &pddlCondNewBool(1)->cls;
+    if (pddlFmJuncIsEmpty(pddlFmToJunc(and))){
+        pddlFmDel(and);
+        return &pddlFmNewBool(1)->cls;
     }
     return and;
 }
 
-pddl_cond_t *pddlUnifyToCond(const pddl_unify_t *u,
+pddl_fm_t *pddlUnifyToCond(const pddl_unify_t *u,
                              int eq_pred,
                              const pddl_params_t *param)
 {

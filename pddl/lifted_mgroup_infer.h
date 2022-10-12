@@ -65,7 +65,7 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
  */
 int pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
                                             const pddl_t *pddl,
-                                            const pddl_cond_arr_t *conj,
+                                            const pddl_fm_arr_t *conj,
                                             const pddl_obj_id_t *conj_args);
 
 /**
@@ -75,9 +75,9 @@ int pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
  */
 int pddlLiftedMGroupsAnyIsDeleted(const pddl_lifted_mgroups_t *mgs,
                                   const pddl_t *pddl,
-                                  const pddl_cond_arr_t *pre,
-                                  const pddl_cond_arr_t *add_eff,
-                                  const pddl_cond_arr_t *del_eff,
+                                  const pddl_fm_arr_t *pre,
+                                  const pddl_fm_arr_t *add_eff,
+                                  const pddl_fm_arr_t *del_eff,
                                   const pddl_obj_id_t *args);
 
 struct pddl_lifted_mgroups_infer_limits {

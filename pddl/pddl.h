@@ -45,8 +45,8 @@
 #include <pddl/param.h>
 #include <pddl/fact.h>
 #include <pddl/action.h>
-#include <pddl/cond.h>
-#include <pddl/cond_arr.h>
+#include <pddl/fm.h>
+#include <pddl/fm_arr.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>

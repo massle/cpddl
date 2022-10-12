@@ -72,12 +72,12 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
 
             snprintf(err_prefix, ERR_PREFIX_MAXSIZE,
                      "Precondition of the action `%s': ", a->name);
-            a->pre = pddlCondParse(n, pddl, &a->param, err_prefix, err);
+            a->pre = pddlFmParse(n, pddl, &a->param, err_prefix, err);
             if (a->pre == NULL)
                 PDDL_TRACE_RET(err, -1);
-            if (pddlCondCheckPre(a->pre, &pddl->require, err) != 0)
+            if (pddlFmCheckPre(a->pre, &pddl->require, err) != 0)
                 PDDL_TRACE_RET(err, -1);
-            pddlCondSetPredRead(a->pre, &pddl->pred);
+            pddlFmSetPredRead(a->pre, &pddl->pred);
 
         }else if (root->child[i].kw == PDDL_KW_EFF){
             if (pddlLispNodeIsEmptyAnd(n))
@@ -85,12 +85,12 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
 
             snprintf(err_prefix, ERR_PREFIX_MAXSIZE,
                      "Effect of the action `%s': ", a->name);
-            a->eff = pddlCondParse(n, pddl, &a->param, err_prefix, err);
+            a->eff = pddlFmParse(n, pddl, &a->param, err_prefix, err);
             if (a->eff == NULL)
                 PDDL_TRACE_RET(err, -1);
-            if (pddlCondCheckEff(a->eff, &pddl->require, err) != 0)
+            if (pddlFmCheckEff(a->eff, &pddl->require, err) != 0)
                 PDDL_TRACE_RET(err, -1);
-            pddlCondSetPredReadWriteEff(a->eff, &pddl->pred);
+            pddlFmSetPredReadWriteEff(a->eff, &pddl->pred);
 
         }else{
             ERR_LISP_RET(err, -1, root->child + i, "Unexpected token: %s",
@@ -101,12 +101,12 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     // Empty precondition is allowed meaning the action can be applied in
     // any state
     if (a->pre == NULL)
-        a->pre = pddlCondNewEmptyAnd();
+        a->pre = pddlFmNewEmptyAnd();
 
     // Empty effect is also allowed because of some domains that contain
     // these actions. This action can be later removed by pddlNormalize().
     if (a->eff == NULL)
-        a->eff = pddlCondNewEmptyAnd();
+        a->eff = pddlFmNewEmptyAnd();
 
     // TODO: Check compatibility of types of parameters and types of
     //       arguments of all predicates.
@@ -154,9 +154,9 @@ void pddlActionFree(pddl_action_t *a)
         FREE(a->name);
     pddlParamsFree(&a->param);
     if (a->pre != NULL)
-        pddlCondDel(a->pre);
+        pddlFmDel(a->pre);
     if (a->eff != NULL)
-        pddlCondDel(a->eff);
+        pddlFmDel(a->eff);
 }
 
 void pddlActionInitCopy(pddl_action_t *dst, const pddl_action_t *src)
@@ -166,26 +166,26 @@ void pddlActionInitCopy(pddl_action_t *dst, const pddl_action_t *src)
         dst->name = STRDUP(src->name);
     pddlParamsInitCopy(&dst->param, &src->param);
     if (src->pre != NULL)
-        dst->pre = pddlCondClone(src->pre);
+        dst->pre = pddlFmClone(src->pre);
     if (src->eff != NULL)
-        dst->eff = pddlCondClone(src->eff);
+        dst->eff = pddlFmClone(src->eff);
 }
 
 struct propagate_eq {
     pddl_action_t *a;
     int eq_pred;
 
-    const pddl_cond_atom_t *eq_atom;
+    const pddl_fm_atom_t *eq_atom;
     int param;
     pddl_obj_id_t obj;
 };
 
-static int setParamToObj(pddl_cond_t *cond, void *ud)
+static int setParamToObj(pddl_fm_t *cond, void *ud)
 {
     struct propagate_eq *ctx = ud;
 
-    if (cond->type == PDDL_COND_ATOM){
-        pddl_cond_atom_t *atom = PDDL_COND_CAST(cond, atom);
+    if (cond->type == PDDL_FM_ATOM){
+        pddl_fm_atom_t *atom = PDDL_FM_CAST(cond, atom);
         if (atom == ctx->eq_atom)
             return 0;
 
@@ -200,25 +200,25 @@ static int setParamToObj(pddl_cond_t *cond, void *ud)
     return 0;
 }
 
-static int _propagateEquality(pddl_cond_t *c, void *ud)
+static int _propagateEquality(pddl_fm_t *c, void *ud)
 {
     struct propagate_eq *ctx = ud;
 
-    if (c->type == PDDL_COND_ATOM){
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         if (atom->pred == ctx->eq_pred && !atom->neg){
             if (atom->arg[0].param >= 0 && atom->arg[1].obj >= 0){
                 ctx->eq_atom = atom;
                 ctx->param = atom->arg[0].param;
                 ctx->obj = atom->arg[1].obj;
-                pddlCondTraverse(ctx->a->pre, NULL, setParamToObj, ctx);
-                pddlCondTraverse(ctx->a->eff, NULL, setParamToObj, ctx);
+                pddlFmTraverse(ctx->a->pre, NULL, setParamToObj, ctx);
+                pddlFmTraverse(ctx->a->eff, NULL, setParamToObj, ctx);
             }else if (atom->arg[1].param >= 0 && atom->arg[0].obj >= 0){
                 ctx->eq_atom = atom;
                 ctx->param = atom->arg[1].param;
                 ctx->obj = atom->arg[0].obj;
-                pddlCondTraverse(ctx->a->pre, NULL, setParamToObj, ctx);
-                pddlCondTraverse(ctx->a->eff, NULL, setParamToObj, ctx);
+                pddlFmTraverse(ctx->a->pre, NULL, setParamToObj, ctx);
+                pddlFmTraverse(ctx->a->eff, NULL, setParamToObj, ctx);
             }
         }
     }
@@ -231,28 +231,28 @@ static void propagateEquality(pddl_action_t *a, const pddl_t *pddl)
         return;
 
     struct propagate_eq ctx = { a, pddl->pred.eq_pred, NULL, -1, -1 };
-    if (a->pre->type != PDDL_COND_AND
-            && a->pre->type != PDDL_COND_ATOM)
+    if (a->pre->type != PDDL_FM_AND
+            && a->pre->type != PDDL_FM_ATOM)
         return;
-    pddlCondTraverse(a->pre, _propagateEquality, NULL, &ctx);
+    pddlFmTraverse(a->pre, _propagateEquality, NULL, &ctx);
 }
 
 void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl)
 {
-    a->pre = pddlCondNormalize(a->pre, pddl, &a->param);
-    a->eff = pddlCondNormalize(a->eff, pddl, &a->param);
+    a->pre = pddlFmNormalize(a->pre, pddl, &a->param);
+    a->eff = pddlFmNormalize(a->eff, pddl, &a->param);
 
-    if (a->pre->type == PDDL_COND_BOOL && PDDL_COND_CAST(a->pre, bool)->val){
-        pddlCondDel(a->pre);
-        a->pre = pddlCondNewEmptyAnd();
+    if (a->pre->type == PDDL_FM_BOOL && PDDL_FM_CAST(a->pre, bool)->val){
+        pddlFmDel(a->pre);
+        a->pre = pddlFmNewEmptyAnd();
     }
-    if (a->pre->type == PDDL_COND_ATOM)
-        a->pre = pddlCondAtomToAnd(a->pre);
-    if (a->eff->type == PDDL_COND_ATOM
-            || a->eff->type == PDDL_COND_ASSIGN
-            || a->eff->type == PDDL_COND_INCREASE
-            || a->eff->type == PDDL_COND_WHEN){
-        a->eff = pddlCondAtomToAnd(a->eff);
+    if (a->pre->type == PDDL_FM_ATOM)
+        a->pre = pddlFmAtomToAnd(a->pre);
+    if (a->eff->type == PDDL_FM_ATOM
+            || a->eff->type == PDDL_FM_ASSIGN
+            || a->eff->type == PDDL_FM_INCREASE
+            || a->eff->type == PDDL_FM_WHEN){
+        a->eff = pddlFmAtomToAnd(a->eff);
     }
 
     propagateEquality(a, pddl);
@@ -302,27 +302,27 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
 {
     pddl_actions_t *as = &pddl->action;
     pddl_action_t *newa;
-    pddl_cond_part_t *pre;
-    pddl_cond_t *first_cond, *cond;
+    pddl_fm_junc_t *pre;
+    pddl_fm_t *first_cond, *cond;
     pddl_list_t *item;
     int aidx;
 
-    if (a->pre->type != PDDL_COND_OR)
+    if (a->pre->type != PDDL_FM_OR)
         return;
 
-    pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
+    pre = pddlFmToJunc(a->pre);
     if (pddlListEmpty(&pre->part))
         return;
 
     item = pddlListNext(&pre->part);
     pddlListDel(item);
-    first_cond = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
+    first_cond = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
     a->pre = NULL;
     aidx = a - as->action;
     while (!pddlListEmpty(&pre->part)){
         item = pddlListNext(&pre->part);
         pddlListDel(item);
-        cond = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
+        cond = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         newa = pddlActionsAddCopy(as, aidx);
         newa->pre = cond;
         pddlActionNormalize(newa, pddl);
@@ -330,23 +330,23 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     as->action[aidx].pre = first_cond;
     pddlActionNormalize(as->action + aidx, pddl);
 
-    pddlCondDel(&pre->cls);
+    pddlFmDel(&pre->cls);
 }
 
 void pddlActionAssertPreConjuction(pddl_action_t *a)
 {
     pddl_list_t *item;
-    pddl_cond_part_t *pre;
-    pddl_cond_t *c;
+    pddl_fm_junc_t *pre;
+    pddl_fm_t *c;
 
-    if (a->pre->type != PDDL_COND_AND){
+    if (a->pre->type != PDDL_FM_AND){
         PDDL_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
-    pre = pddl_container_of(a->pre, pddl_cond_part_t, cls);
+    pre = pddl_container_of(a->pre, pddl_fm_junc_t, cls);
     PDDL_LIST_FOR_EACH(&pre->part, item){
-        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type != PDDL_COND_ATOM){
+        c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type != PDDL_FM_ATOM){
             PDDL_FATAL("Precondition of the action `%s' is"
                        " not a flatten conjuction (conjuction contains"
                        " something else besides atoms).", a->name);
@@ -356,8 +356,8 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
 
 void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap)
 {
-    pddlCondRemapObjs(a->pre, remap);
-    pddlCondRemapObjs(a->eff, remap);
+    pddlFmRemapObjs(a->pre, remap);
+    pddlFmRemapObjs(a->eff, remap);
 }
 
 void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap)
@@ -376,9 +376,9 @@ int pddlActionRemapTypesAndPreds(pddl_action_t *a,
             return -1;
         a->param.param[i].type = type_remap[a->param.param[i].type];
     }
-    if (pddlCondRemapPreds(a->pre, pred_remap, func_remap) != 0)
+    if (pddlFmRemapPreds(a->pre, pred_remap, func_remap) != 0)
         return -1;
-    if (pddlCondRemapPreds(a->eff, pred_remap, func_remap) != 0)
+    if (pddlFmRemapPreds(a->eff, pred_remap, func_remap) != 0)
         return -1;
 
     return 0;
@@ -408,11 +408,11 @@ void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
     fprintf(fout, "\n");
 
     fprintf(fout, "        pre: ");
-    pddlCondPrint(pddl, a->pre, &a->param, fout);
+    pddlFmPrint(pddl, a->pre, &a->param, fout);
     fprintf(fout, "\n");
 
     fprintf(fout, "        eff: ");
-    pddlCondPrint(pddl, a->eff, &a->param, fout);
+    pddlFmPrint(pddl, a->eff, &a->param, fout);
     fprintf(fout, "\n");
 }
 
@@ -440,13 +440,13 @@ static void pddlActionPrintPDDL(const pddl_action_t *a,
 
     if (a->pre != NULL){
         fprintf(fout, "    :precondition ");
-        pddlCondPrintPDDL(a->pre, pddl, &a->param, fout);
+        pddlFmPrintPDDL(a->pre, pddl, &a->param, fout);
         fprintf(fout, "\n");
     }
 
     if (a->eff != NULL){
         fprintf(fout, "    :effect ");
-        pddlCondPrintPDDL(a->eff, pddl, &a->param, fout);
+        pddlFmPrintPDDL(a->eff, pddl, &a->param, fout);
         fprintf(fout, "\n");
     }
 

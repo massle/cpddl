@@ -49,7 +49,7 @@ typedef struct pred_tree pred_tree_t;
 static int checkFact(const pddl_types_t *types,
                      const pddl_ground_atom_t *ga,
                      const pddl_lifted_mgroup_t *mg,
-                     const pddl_cond_atom_t *mg_atom)
+                     const pddl_fm_atom_t *mg_atom)
 {
     if (ga->pred != mg_atom->pred)
         return 0;
@@ -94,7 +94,7 @@ static void predTreeInitNode(pred_tree_t *tree,
 }
 
 struct arg_order {
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
     const pddl_params_t *mg_params;
 };
 
@@ -103,7 +103,7 @@ static int cmpArgOrder(const void *a, const void *b, void *_ao)
     int ai1 = *(int *)a;
     int ai2 = *(int *)b;
     const struct arg_order *ao = _ao;
-    const pddl_cond_atom_t *atom = ao->atom;
+    const pddl_fm_atom_t *atom = ao->atom;
     const pddl_params_t *params = ao->mg_params;
 
     int a1obj = atom->arg[ai1].obj;
@@ -131,7 +131,7 @@ static int cmpArgOrder(const void *a, const void *b, void *_ao)
 
 static void predTreeInit(pred_tree_t *tree,
                          const pddl_lifted_mgroup_t *mg,
-                         const pddl_cond_atom_t *atom)
+                         const pddl_fm_atom_t *atom)
 {
     ZEROIZE(tree);
     tree->arg_size = atom->arg_size;
@@ -213,7 +213,7 @@ static void buildPredTrees(pred_tree_t *tree,
 {
     ZEROIZE_ARR(tree, mg->cond.size);
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ci], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ci], atom);
         predTreeInit(tree + ci, mg, a);
     }
 
@@ -223,7 +223,7 @@ static void buildPredTrees(pred_tree_t *tree,
             continue;
         const pddl_ground_atom_t *ga = fact->ground_atom;
         for (int ci = 0; ci < mg->cond.size; ++ci){
-            const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ci], atom);
+            const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ci], atom);
             if (a->pred == ga->pred && checkFact(&pddl->type, ga, mg, a))
                 predTreeAdd(&tree[ci], fact);
         }

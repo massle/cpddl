@@ -59,29 +59,29 @@ struct fix_action {
     const int *affected_types;
 };
 
-static int _removeAffectedNegativeAtoms(pddl_cond_t **c, void *_data)
+static int _removeAffectedNegativeAtoms(pddl_fm_t **c, void *_data)
 {
-    if ((*c)->type == PDDL_COND_ATOM){
+    if ((*c)->type == PDDL_FM_ATOM){
         const struct fix_action *data = _data;
         const pddl_param_t *params = data->action->param.param;
-        pddl_cond_atom_t *atom = PDDL_COND_CAST(*c, atom);
+        pddl_fm_atom_t *atom = PDDL_FM_CAST(*c, atom);
         if (atom->neg){
             for (int pi = 0; pi < atom->arg_size; ++pi){
                 int param = atom->arg[pi].param;
                 if (param >= 0 && data->affected_types[params[param].type]){
-                    pddlCondDel(*c);
+                    pddlFmDel(*c);
                     *c = NULL;
                     break;
                 }
             }
         }
 
-    }else if ((*c)->type == PDDL_COND_WHEN){
-        pddl_cond_when_t *w = PDDL_COND_CAST(*c, when);
+    }else if ((*c)->type == PDDL_FM_WHEN){
+        pddl_fm_when_t *w = PDDL_FM_CAST(*c, when);
         if (w->pre == NULL)
-            w->pre = &pddlCondNewBool(1)->cls;
+            w->pre = &pddlFmNewBool(1)->cls;
         if (w->eff == NULL){
-            pddlCondDel(*c);
+            pddlFmDel(*c);
             *c = NULL;
         }
     }
@@ -97,10 +97,10 @@ static void fixAction(pddl_t *pddl,
     data.pddl = pddl;
     data.action = action;
     data.affected_types = affected_types;
-    pddlCondRebuild(&action->pre, NULL, _removeAffectedNegativeAtoms, &data);
-    pddlCondRebuild(&action->eff, NULL, _removeAffectedNegativeAtoms, &data);
+    pddlFmRebuild(&action->pre, NULL, _removeAffectedNegativeAtoms, &data);
+    pddlFmRebuild(&action->eff, NULL, _removeAffectedNegativeAtoms, &data);
     if (action->pre == NULL)
-        action->pre = &pddlCondNewBool(1)->cls;
+        action->pre = &pddlFmNewBool(1)->cls;
 }
 
 static void fixActions(pddl_t *pddl,
@@ -119,11 +119,11 @@ static void fixActions(pddl_t *pddl,
     FREE(affected_types);
 }
 
-static int _collectGoalObjs(pddl_cond_t *c, void *_goal_objs)
+static int _collectGoalObjs(pddl_fm_t *c, void *_goal_objs)
 {
     pddl_iset_t *goal_objs = _goal_objs;
-    if (c->type == PDDL_COND_ATOM){
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         for (int i = 0; i < atom->arg_size; ++i){
             if (atom->arg[i].obj >= 0)
                 pddlISetAdd(goal_objs, atom->arg[i].obj);
@@ -134,7 +134,7 @@ static int _collectGoalObjs(pddl_cond_t *c, void *_goal_objs)
 
 static void collectGoalObjs(const pddl_t *pddl, pddl_iset_t *goal_objs)
 {
-    pddlCondTraverse(pddl->goal, NULL, _collectGoalObjs, goal_objs);
+    pddlFmTraverse(pddl->goal, NULL, _collectGoalObjs, goal_objs);
 }
 
 static int collapseObjs(pddl_t *pddl,
@@ -165,8 +165,8 @@ static int collapseObjs(pddl_t *pddl,
             obj_map[i] = remap[obj_map[i]];
     }
 
-    pddlCondRemapObjs(&pddl->init->cls, remap);
-    pddlCondRemapObjs(pddl->goal, remap);
+    pddlFmRemapObjs(&pddl->init->cls, remap);
+    pddlFmRemapObjs(pddl->goal, remap);
     fixActions(pddl, repr, collapse_map, err);
     pddlActionsRemapObjs(&pddl->action, remap);
 
@@ -210,8 +210,8 @@ static int _collapseObjs(pddl_homomorphic_task_t *h,
             h->obj_map[i] = remap[h->obj_map[i]];
     }
 
-    pddlCondRemapObjs(&h->task.init->cls, remap);
-    pddlCondRemapObjs(h->task.goal, remap);
+    pddlFmRemapObjs(&h->task.init->cls, remap);
+    pddlFmRemapObjs(h->task.goal, remap);
     fixActions(&h->task, repr, collapse_map, err);
     pddlActionsRemapObjs(&h->task.action, remap);
 
@@ -434,9 +434,9 @@ static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
     if (preserve_goals)
         collectGoalObjs(pddl, &g->goal_objs);
 
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *atom;
-    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *atom;
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
         if (pddlPredIsStatic(pddl->pred.pred + atom->pred)
                 && pddl->pred.pred[atom->pred].param_size > 1){
             for (int i = 0; i < atom->arg_size; ++i){
@@ -589,7 +589,7 @@ static int collapseGaifman(pddl_t *pddl,
     return ret;
 }
 
-static int atomHasObj(const pddl_cond_atom_t *atom, pddl_obj_id_t o)
+static int atomHasObj(const pddl_fm_atom_t *atom, pddl_obj_id_t o)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom->arg[i].obj == o)
@@ -605,9 +605,9 @@ static int rpgTestPair(const pddl_t *pddl,
                        pddl_obj_id_t o2,
                        pddl_err_t *err)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *atom;
-    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *atom;
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
         if (atomHasObj(atom, o2)){
             pddl_obj_id_t args[atom->arg_size];
             for (int i = 0; i < atom->arg_size; ++i){
@@ -704,33 +704,33 @@ static int collapseRPG(pddl_t *pddl,
 }
 
 
-static void _deduplicateCostsPart(pddl_cond_part_t *p)
+static void _deduplicateCostsPart(pddl_fm_junc_t *p)
 {
     pddl_list_t *item = pddlListNext(&p->part);
     while (item != &p->part){
-        pddl_cond_t *c1 = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c1->type != PDDL_COND_ASSIGN){
+        pddl_fm_t *c1 = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c1->type != PDDL_FM_ASSIGN){
             item = pddlListNext(item);
             continue;
         }
-        pddl_cond_func_op_t *ass1 = PDDL_COND_CAST(c1, func_op);
+        pddl_fm_func_op_t *ass1 = PDDL_FM_CAST(c1, func_op);
         ASSERT_RUNTIME(ass1->lvalue != NULL);
         ASSERT_RUNTIME(ass1->fvalue == NULL);
         int min_value = ass1->value;
 
         pddl_list_t *item2 = pddlListNext(item);
         while (item2 != &p->part){
-            pddl_cond_t *c2 = PDDL_LIST_ENTRY(item2, pddl_cond_t, conn);
-            if (c2->type == PDDL_COND_ASSIGN){
-                pddl_cond_func_op_t *ass2 = PDDL_COND_CAST(c2, func_op);
+            pddl_fm_t *c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
+            if (c2->type == PDDL_FM_ASSIGN){
+                pddl_fm_func_op_t *ass2 = PDDL_FM_CAST(c2, func_op);
                 ASSERT_RUNTIME(ass2->lvalue != NULL);
                 ASSERT_RUNTIME(ass2->fvalue == NULL);
-                if (pddlCondAtomCmp(ass1->lvalue, ass2->lvalue) == 0){
+                if (pddlFmAtomCmp(ass1->lvalue, ass2->lvalue) == 0){
                     min_value = PDDL_MIN(min_value, ass2->value);
                     pddl_list_t *item_del = item2;
                     item2 = pddlListNext(item2);
                     pddlListDel(item_del);
-                    pddlCondDel(c2);
+                    pddlFmDel(c2);
 
                 }else{
                     item2 = pddlListNext(item2);
@@ -746,25 +746,25 @@ static void _deduplicateCostsPart(pddl_cond_part_t *p)
     }
 }
 
-static int _deduplicateCosts(pddl_cond_t **c, void *data)
+static int _deduplicateCosts(pddl_fm_t **c, void *data)
 {
-    if ((*c)->type == PDDL_COND_AND || (*c)->type == PDDL_COND_OR)
-        _deduplicateCostsPart(PDDL_COND_CAST(*c, part));
+    if ((*c)->type == PDDL_FM_AND || (*c)->type == PDDL_FM_OR)
+        _deduplicateCostsPart(pddlFmToJunc(*c));
     return 0;
 }
 
-static pddl_cond_t *deduplicateCosts(pddl_cond_t *c)
+static pddl_fm_t *deduplicateCosts(pddl_fm_t *c)
 {
-    pddlCondRebuild(&c, NULL, _deduplicateCosts, NULL);
+    pddlFmRebuild(&c, NULL, _deduplicateCosts, NULL);
     return c;
 }
 
 static void deduplicate(pddl_t *pddl)
 {
-    pddl_cond_t *init = pddlCondDeduplicateAtoms(&pddl->init->cls, pddl);
+    pddl_fm_t *init = pddlFmDeduplicateAtoms(&pddl->init->cls, pddl);
     init = deduplicateCosts(init);
-    pddl->init = PDDL_COND_CAST(init, part);
-    pddl->goal = pddlCondDeduplicateAtoms(pddl->goal, pddl);
+    pddl->init = pddlFmToAnd(init);
+    pddl->goal = pddlFmDeduplicateAtoms(pddl->goal, pddl);
 }
 
 int pddlHomomorphism(pddl_t *pddl,

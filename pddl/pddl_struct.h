@@ -65,8 +65,8 @@ struct pddl {
     pddl_objs_t obj;
     pddl_preds_t pred;
     pddl_preds_t func;
-    pddl_cond_part_t *init;
-    pddl_cond_t *goal;
+    pddl_fm_and_t *init;
+    pddl_fm_t *goal;
     pddl_actions_t action;
     int metric;
     int normalized;

@@ -22,7 +22,7 @@
 
 #include <pddl/common.h>
 #include <pddl/action.h>
-#include <pddl/cond_arr.h>
+#include <pddl/fm_arr.h>
 #include <pddl/ground_atom.h>
 
 #ifdef __cplusplus
@@ -35,12 +35,12 @@ struct pddl_prep_action {
     int param_size;
     int *param_type;
     const pddl_types_t *type;
-    pddl_cond_arr_t pre_neg_static;
-    pddl_cond_arr_t pre_eq;
-    pddl_cond_arr_t pre;
-    pddl_cond_arr_t add_eff;
-    pddl_cond_arr_t del_eff;
-    pddl_cond_arr_t increase;
+    pddl_fm_arr_t pre_neg_static;
+    pddl_fm_arr_t pre_eq;
+    pddl_fm_arr_t pre;
+    pddl_fm_arr_t add_eff;
+    pddl_fm_arr_t del_eff;
+    pddl_fm_arr_t increase;
     int max_arg_size;
     int cond_eff_size;
 };

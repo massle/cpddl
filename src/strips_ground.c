@@ -69,7 +69,7 @@ static char *groundOpName(const pddl_t *pddl,
 
 
 /*** atree_t ***/
-static int atomHasParam(const pddl_cond_atom_t *a, const pddl_iset_t *param)
+static int atomHasParam(const pddl_fm_atom_t *a, const pddl_iset_t *param)
 {
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0 && pddlISetIn(a->arg[i].param, param))
@@ -81,14 +81,14 @@ static int atomHasParam(const pddl_cond_atom_t *a, const pddl_iset_t *param)
 static int preHasParam(const pddl_prep_action_t *a, const pddl_iset_t *param)
 {
     for (int i = 0; i < a->pre.size; ++i){
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(a->pre.cond[i], atom);
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.cond[i], atom);
         if (atomHasParam(atom, param))
             return 1;
     }
     return 0;
 }
 
-static void atomAddParam(const pddl_cond_atom_t *a, pddl_iset_t *param)
+static void atomAddParam(const pddl_fm_atom_t *a, pddl_iset_t *param)
 {
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
@@ -120,7 +120,7 @@ static void atreeFindConnectedPreParams(const pddl_prep_action_t *a,
             if (used_cond[i])
                 continue;
 
-            const pddl_cond_atom_t *atom = PDDL_COND_CAST(a->pre.cond[i], atom);
+            const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.cond[i], atom);
             if (atomHasParam(atom, param)){
                 used_cond[i] = 1;
                 changed = 1;
@@ -399,7 +399,7 @@ static int unifyFacts(pddl_strips_ground_t *g)
 /*** unify END ***/
 
 static void groundAtomsAddFact(pddl_strips_ground_t *g,
-                               const pddl_cond_atom_t *c,
+                               const pddl_fm_atom_t *c,
                                const pddl_obj_id_t *arg)
 {
     if (g->unify_new_atom_fn == NULL){
@@ -452,9 +452,9 @@ static void _groundActionAddEff(pddl_strips_ground_t *g,
         }
     }
 
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
     for (int i = 0; i < a->add_eff.size; ++i){
-        atom = PDDL_COND_CAST(a->add_eff.cond[i], atom);
+        atom = PDDL_FM_CAST(a->add_eff.cond[i], atom);
         groundAtomsAddFact(g, atom, arg);
     }
 
@@ -502,16 +502,16 @@ static char *groundOpName(const pddl_t *pddl,
 
 static int groundIncrease(pddl_strips_ground_t *g,
                           const pddl_obj_id_t *arg,
-                          const pddl_cond_arr_t *atoms,
+                          const pddl_fm_arr_t *atoms,
                           const pddl_action_t *action)
 {
-    const pddl_cond_func_op_t *inc;
+    const pddl_fm_func_op_t *inc;
     const pddl_ground_atom_t *ga;
     int cost = 0;
 
     // Only (increase (total-cost) ...) is allowed.
     for (int i = 0; i < atoms->size; ++i){
-        inc = PDDL_COND_CAST(atoms->cond[i], func_op);
+        inc = PDDL_FM_CAST(atoms->cond[i], func_op);
         if (inc->fvalue != NULL){
             ga = pddlGroundAtomsFindAtom(&g->funcs, inc->fvalue, arg);
             if (ga != NULL){
@@ -532,14 +532,14 @@ static int groundIncrease(pddl_strips_ground_t *g,
 static void groundAtoms(pddl_strips_ground_t *g,
                         int atom_max_arg_size,
                         const pddl_obj_id_t *arg,
-                        const pddl_cond_arr_t *atoms,
+                        const pddl_fm_arr_t *atoms,
                         pddl_iset_t *out)
 {
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
     const pddl_ground_atom_t *ga;
 
     for (int i = 0; i < atoms->size; ++i){
-        atom = PDDL_COND_CAST(atoms->cond[i], atom);
+        atom = PDDL_FM_CAST(atoms->cond[i], atom);
         ga = pddlGroundAtomsFindAtom(&g->facts, atom, arg);
         if (ga != NULL)
             pddlISetAdd(out, g->ground_atom_to_fact_id[ga->id]);
@@ -692,14 +692,14 @@ static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
 static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
 {
     pddl_list_t *item;
-    const pddl_cond_t *c;
-    const pddl_cond_atom_t *a;
+    const pddl_fm_t *c;
+    const pddl_fm_atom_t *a;
     const pddl_ground_atom_t *ga;
 
     PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
-        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            a = PDDL_COND_CAST(c, atom);
+        c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type == PDDL_FM_ATOM){
+            a = PDDL_FM_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&g->facts, a, NULL);
             if (ga != NULL)
                 pddlISetAdd(&strips->init, g->ground_atom_to_fact_id[ga->id]);
@@ -714,16 +714,16 @@ struct ground_goal {
     int fail;
 };
 
-static int _groundGoal(pddl_cond_t *c, void *_g)
+static int _groundGoal(pddl_fm_t *c, void *_g)
 {
     struct ground_goal *ggoal = _g;
     const pddl_ground_atom_t *ga;
     pddl_strips_ground_t *g = ggoal->g;
     pddl_strips_t *strips = ggoal->strips;
 
-    if (c->type == PDDL_COND_ATOM){
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
-        if (!pddlCondAtomIsGrounded(atom))
+    if (c->type == PDDL_FM_ATOM){
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        if (!pddlFmAtomIsGrounded(atom))
             PDDL_ERR_RET2(g->err, -1, "Goal specification cannot contain"
                          " parametrized atoms.");
 
@@ -744,18 +744,18 @@ static int _groundGoal(pddl_cond_t *c, void *_g)
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
 
-    }else if (c->type == PDDL_COND_BOOL){
-        const pddl_cond_bool_t *b = PDDL_COND_CAST(c, bool);
+    }else if (c->type == PDDL_FM_BOOL){
+        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
         if (!b->val)
             strips->goal_is_unreachable = 1;
         return 0;
 
     }else{
         PDDL_ERR(g->err, "Only conjuctive goal specifications are supported."
-                " (Goal contains %s.)", pddlCondTypeName(c->type));
+                " (Goal contains %s.)", pddlFmTypeName(c->type));
         ggoal->fail = 1;
         return -2;
     }
@@ -764,12 +764,12 @@ static int _groundGoal(pddl_cond_t *c, void *_g)
 static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
 {
     struct ground_goal ggoal = { g, strips, 0 };
-    if (g->pddl->goal->type == PDDL_COND_OR){
+    if (g->pddl->goal->type == PDDL_FM_OR){
         PDDL_ERR_RET2(g->err, -1, "Only conjuctive goal specifications"
                      " are supported. This goal is a disjunction.");
     }
 
-    pddlCondTraverse(g->pddl->goal, _groundGoal, NULL, &ggoal);
+    pddlFmTraverse(g->pddl->goal, _groundGoal, NULL, &ggoal);
     if (ggoal.fail)
         PDDL_TRACE_RET(g->err, -1);
     return 0;
@@ -778,27 +778,27 @@ static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
 static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
 {
     pddl_list_t *item;
-    const pddl_cond_t *c;
-    const pddl_cond_atom_t *a;
-    const pddl_cond_func_op_t *ass;
+    const pddl_fm_t *c;
+    const pddl_fm_atom_t *a;
+    const pddl_fm_func_op_t *ass;
     pddl_ground_atom_t *ga;
 
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
-        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            a = PDDL_COND_CAST(c, atom);
+        c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type == PDDL_FM_ATOM){
+            a = PDDL_FM_CAST(c, atom);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
-                ASSERT(pddlCondAtomIsGrounded(a));
+                ASSERT(pddlFmAtomIsGrounded(a));
                 pddlGroundAtomsAddAtom(&g->static_facts, a, NULL);
             }else{
-                ASSERT(pddlCondAtomIsGrounded(a));
+                ASSERT(pddlFmAtomIsGrounded(a));
                 groundAtomsAddFact(g, a, NULL);
             }
-        }else if (c->type == PDDL_COND_ASSIGN){
-            ass = PDDL_COND_CAST(c, func_op);
+        }else if (c->type == PDDL_FM_ASSIGN){
+            ass = PDDL_FM_CAST(c, func_op);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
-            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
             ga = pddlGroundAtomsAddAtom(&g->funcs, ass->lvalue, NULL);
             ga->func_val = ass->value;
         }

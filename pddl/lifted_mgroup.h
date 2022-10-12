@@ -21,8 +21,8 @@
 #define __PDDL_LIFTED_MGROUP_H__
 
 #include <pddl/common.h>
-#include <pddl/cond.h>
-#include <pddl/cond_arr.h>
+#include <pddl/fm.h>
+#include <pddl/fm_arr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,7 +30,7 @@ extern "C" {
 
 struct pddl_lifted_mgroup {
     pddl_params_t param;
-    pddl_cond_arr_t cond;
+    pddl_fm_arr_t cond;
     int is_exactly_one;
     int is_static;
 };

@@ -42,7 +42,7 @@ void pddlDatalogPddlAddEqRules(pddl_datalog_t *dl,
 
 void pddlDatalogPddlAtomToDLAtom(pddl_datalog_t *dl,
                                  pddl_datalog_atom_t *dlatom,
-                                 const pddl_cond_atom_t *atom,
+                                 const pddl_fm_atom_t *atom,
                                  const unsigned *pred_to_dlpred,
                                  const unsigned *obj_to_dlconst,
                                  const unsigned *dlvar);
@@ -51,8 +51,8 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
                                       pddl_datalog_rule_t *rule,
                                       const pddl_t *pddl,
                                       const pddl_params_t *params,
-                                      const pddl_cond_t *pre,
-                                      const pddl_cond_t *pre2,
+                                      const pddl_fm_t *pre,
+                                      const pddl_fm_t *pre2,
                                       unsigned *type_to_dlpred,
                                       const unsigned *dlvar);
 
