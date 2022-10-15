@@ -128,7 +128,7 @@ static int coverAtomWithMGroup(int *counted,
     int covered = 0;
 
     for (int ci = 0; ci < mgroup->cond.size; ++ci){
-        const pddl_fm_t *mc = mgroup->cond.cond[ci];
+        const pddl_fm_t *mc = mgroup->cond.fm[ci];
         const pddl_fm_atom_t *ma = PDDL_FM_CAST(mc, atom);
         if (ma->pred != atom->pred)
             continue;
@@ -745,7 +745,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
     memcpy(obj_st, select->obj_st, sizeof(int) * select->obj_size);
 
     for (int condi = 0; condi < mgroup->cond.size; ++condi){
-        const pddl_fm_t *c = mgroup->cond.cond[condi];
+        const pddl_fm_t *c = mgroup->cond.fm[condi];
         const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].obj >= 0){

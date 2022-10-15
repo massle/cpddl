@@ -214,11 +214,11 @@ static int actionInitCondEff(pddl_fm_t *c, void *ud)
 
         // Copy preconditions
         for (int i = 0; i < parent->pre_neg_static.size; ++i)
-            pddlFmArrAdd(&a->pre_neg_static, parent->pre_neg_static.cond[i]);
+            pddlFmArrAdd(&a->pre_neg_static, parent->pre_neg_static.fm[i]);
         for (int i = 0; i < parent->pre_eq.size; ++i)
-            pddlFmArrAdd(&a->pre_eq, parent->pre_eq.cond[i]);
+            pddlFmArrAdd(&a->pre_eq, parent->pre_eq.fm[i]);
         for (int i = 0; i < parent->pre.size; ++i)
-            pddlFmArrAdd(&a->pre, parent->pre.cond[i]);
+            pddlFmArrAdd(&a->pre, parent->pre.fm[i]);
         a->max_arg_size = PDDL_MAX(a->max_arg_size, parent->max_arg_size);
 
 
@@ -326,7 +326,7 @@ static int checkPre(const pddl_prep_action_t *a,
     const pddl_fm_atom_t *atom;
 
     for (int i = 0; i < pre->size; ++i){
-        atom = PDDL_FM_CAST(pre->cond[i], atom);
+        atom = PDDL_FM_CAST(pre->fm[i], atom);
         if (!checkPreAtom(a, atom, arg))
             return 0;
     }
@@ -337,7 +337,7 @@ static int checkEq(const pddl_prep_action_t *a, const pddl_obj_id_t *arg,
                    int soft)
 {
     const pddl_fm_atom_t *atom;
-    const pddl_fm_t **pre = a->pre_eq.cond;
+    const pddl_fm_t **pre = a->pre_eq.fm;
     int size = a->pre_eq.size;
     pddl_obj_id_t obj[2];
 
@@ -376,7 +376,7 @@ static int checkPreNegStatic(const pddl_prep_action_t *a,
     const pddl_fm_atom_t *atom;
 
     for (int i = 0; i < a->pre_neg_static.size; ++i){
-        atom = PDDL_FM_CAST(a->pre_neg_static.cond[i], atom);
+        atom = PDDL_FM_CAST(a->pre_neg_static.fm[i], atom);
         if (pddlGroundAtomsFindAtom(static_facts, atom, arg) != NULL)
             return 0;
     }
@@ -396,7 +396,7 @@ int pddlPrepActionCheck(const pddl_prep_action_t *a,
 int pddlPrepActionCheckFact(const pddl_prep_action_t *a, int pre_i,
                             const pddl_obj_id_t *fact_args)
 {
-    const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.cond[pre_i], atom);
+    const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[pre_i], atom);
     pddl_obj_id_t arg[a->param_size];
     int param;
 

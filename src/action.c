@@ -146,6 +146,7 @@ void pddlActionInit(pddl_action_t *a)
 {
     ZEROIZE(a);
     pddlParamsInit(&a->param);
+    a->id = -1;
 }
 
 void pddlActionFree(pddl_action_t *a)
@@ -169,6 +170,7 @@ void pddlActionInitCopy(pddl_action_t *dst, const pddl_action_t *src)
         dst->pre = pddlFmClone(src->pre);
     if (src->eff != NULL)
         dst->eff = pddlFmClone(src->eff);
+    dst->id = src->id;
 }
 
 struct propagate_eq {
@@ -282,6 +284,7 @@ pddl_action_t *pddlActionsAddCopy(pddl_actions_t *as, int copy_id)
     }else{
         pddlActionInit(a);
     }
+    a->id = as->action_size - 1;
     return a;
 }
 
@@ -393,9 +396,35 @@ void pddlActionsRemapTypesAndPreds(pddl_actions_t *as,
     for (int i = 0; i < as->action_size; ++i){
         if (pddlActionRemapTypesAndPreds(as->action + i, type_remap,
                     pred_remap, func_remap) == 0){
-            as->action[ins++] = as->action[i];
+            as->action[ins] = as->action[i];
+            as->action[ins].id = ins;
+            ++ins;
         }else{
             pddlActionFree(as->action + i);
+        }
+    }
+    as->action_size = ins;
+}
+
+void pddlActionsRemoveSet(pddl_actions_t *as, const pddl_iset_t *ids)
+{
+    int size = pddlISetSize(ids);
+    if (size == 0)
+        return;
+
+    int cur = 0;
+    int ins = 0;
+    for (int ai = 0; ai < as->action_size; ++ai){
+        if (ai == pddlISetGet(ids, cur)){
+            pddlActionFree(as->action + ai);
+            ++cur;
+
+        }else{
+            if (ai != ins){
+                as->action[ins] = as->action[ai];
+                as->action[ins].id = ins;
+            }
+            ++ins;
         }
     }
     as->action_size = ins;
@@ -423,8 +452,10 @@ void pddlActionsPrint(const pddl_t *pddl,
     int i;
 
     fprintf(fout, "Action[%d]:\n", actions->action_size);
-    for (i = 0; i < actions->action_size; ++i)
+    for (i = 0; i < actions->action_size; ++i){
+        ASSERT(actions->action[i].id == i);
         pddlActionPrint(pddl, actions->action + i, fout);
+    }
 }
 
 static void pddlActionPrintPDDL(const pddl_action_t *a,

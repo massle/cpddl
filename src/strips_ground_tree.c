@@ -254,7 +254,7 @@ static void unifyTree(pddl_strips_ground_tree_t *tr,
     // of set arguments.
     const pddl_fm_atom_t *atom;
     int num_args_set = 0;
-    atom = PDDL_FM_CAST(tr->action->pre.cond[pre_i], atom);
+    atom = PDDL_FM_CAST(tr->action->pre.fm[pre_i], atom);
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
         if (param >= 0 && arg_pre[param] == PDDL_OBJ_ID_UNDEF){
@@ -383,7 +383,7 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
     tr->pred_to_pre = CALLOC_ARR(pddl_iset_t, pddl->pred.pred_size);
     for (int i = 0; i < a->pre.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(tr->action->pre.cond[i], atom);
+        atom = PDDL_FM_CAST(tr->action->pre.fm[i], atom);
         if (!isPreRelevant(atom, params))
             continue;
 

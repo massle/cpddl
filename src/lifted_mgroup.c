@@ -32,9 +32,9 @@ static int cmpLiftedMGroups(const void *a, const void *b, void *_)
     const pddl_lifted_mgroup_t *m2 = b;
     int cmp = m1->cond.size - m2->cond.size;
     for (int i = 0; cmp == 0 && i < m1->cond.size; ++i){
-        const pddl_fm_t *c1 = m1->cond.cond[i];
+        const pddl_fm_t *c1 = m1->cond.fm[i];
         const pddl_fm_atom_t *a1 = PDDL_FM_CAST(c1, atom);
-        const pddl_fm_t *c2 = m2->cond.cond[i];
+        const pddl_fm_t *c2 = m2->cond.fm[i];
         const pddl_fm_atom_t *a2 = PDDL_FM_CAST(c2, atom);
         cmp = a1->pred - a2->pred;
         for (int j = 0; cmp == 0 && j < a1->arg_size; ++j){
@@ -66,7 +66,7 @@ void pddlLiftedMGroupInitCopy(pddl_lifted_mgroup_t *dst,
     ZEROIZE(dst);
     pddlParamsInitCopy(&dst->param, &src->param);
     for (int i = 0; i < src->cond.size; ++i)
-        pddlFmArrAdd(&dst->cond, pddlFmClone(src->cond.cond[i]));
+        pddlFmArrAdd(&dst->cond, pddlFmClone(src->cond.fm[i]));
     dst->is_exactly_one = src->is_exactly_one;
     dst->is_static = src->is_static;
 }
@@ -101,7 +101,7 @@ void pddlLiftedMGroupInitCandFromPred(pddl_lifted_mgroup_t *mgroup,
 void pddlLiftedMGroupFree(pddl_lifted_mgroup_t *mgroup)
 {
     for (int i = 0; i < mgroup->cond.size; ++i)
-        pddlFmDel((pddl_fm_t *)mgroup->cond.cond[i]);
+        pddlFmDel((pddl_fm_t *)mgroup->cond.fm[i]);
     pddlParamsFree(&mgroup->param);
     pddlFmArrFree(&mgroup->cond);
 }
@@ -124,7 +124,7 @@ static int cmpAtoms(const void *a, const void *b, void *_)
 void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
 {
     if (m->cond.size > 1){
-        pddlSort(m->cond.cond, m->cond.size, sizeof(const pddl_fm_t *),
+        pddlSort(m->cond.fm, m->cond.size, sizeof(const pddl_fm_t *),
                  cmpAtoms, NULL);
     }
 
@@ -147,7 +147,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     int next = 0;
     int next_counted = num_non_counted;
     for (int i = 0; i < m->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.cond[i], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].obj != PDDL_OBJ_ID_UNDEF)
                 continue;
@@ -183,7 +183,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     m->param = param;
 
     for (int i = 0; i < m->cond.size; ++i){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.cond[i], atom);
+        pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0){
                 ASSERT_RUNTIME(remap_param[a->arg[ai].param] >= 0);
@@ -217,7 +217,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
     int num_del = 0;
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        pddl_fm_t *c = (pddl_fm_t *)mg->cond.cond[ci];
+        pddl_fm_t *c = (pddl_fm_t *)mg->cond.fm[ci];
         ASSERT(c->type == PDDL_FM_ATOM);
         pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
         int has_counted = 0;
@@ -231,7 +231,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
         if (!has_counted){
             pddlFmDel(c);
-            mg->cond.cond[ci] = NULL;
+            mg->cond.fm[ci] = NULL;
             ++num_del;
         }else{
             for (int argi = 0; argi < a->arg_size; ++argi){
@@ -250,8 +250,8 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
     int ins = 0;
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        if (mg->cond.cond[ci] != NULL)
-            mg->cond.cond[ins++] = mg->cond.cond[ci];
+        if (mg->cond.fm[ci] != NULL)
+            mg->cond.fm[ins++] = mg->cond.fm[ci];
     }
     mg->cond.size = ins;
 
@@ -266,7 +266,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
 
     pddlParamsRemap(&mg->param, remap_param);
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        pddl_fm_t *c = (pddl_fm_t *)mg->cond.cond[ci];
+        pddl_fm_t *c = (pddl_fm_t *)mg->cond.fm[ci];
         ASSERT(c->type == PDDL_FM_ATOM);
         pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
         for (int argi = 0; argi < a->arg_size; ++argi){
@@ -310,7 +310,7 @@ void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg)
 
     int old_cond_size = mg->cond.size;
     for (int ci = 0; ci < old_cond_size; ++ci){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ci], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ci], atom);
         if (!atomHasCountedVar(a, &mg->param))
             continue;
         pddl_fm_t *newc = pddlFmClone(&a->fm);
@@ -339,7 +339,7 @@ static void printMGroup(const pddl_t *pddl,
         if (i > 0)
             used += snprintf(line + used, MAX_LINE_SIZE - used, ", ");
 
-        pddl_fm_atom_t *atom = PDDL_FM_CAST(mgroup->cond.cond[i], atom);
+        pddl_fm_atom_t *atom = PDDL_FM_CAST(mgroup->cond.fm[i], atom);
         used += snprintf(line + used, MAX_LINE_SIZE - used,
                          "%s", pddl->pred.pred[atom->pred].name);
         for (int j = 0; j < atom->arg_size; ++j){
@@ -455,7 +455,7 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
 
     pddl_lifted_mgroup_t *mg = lm->mgroup + lm->mgroup_size - 1;
     for (int i = 0; i < mg->cond.size; ++i){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[i], atom);
+        pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[i], atom);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0 && args[a->arg[ai].param] >= 0){
                 a->arg[ai].obj = args[a->arg[ai].param];
@@ -477,7 +477,7 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
     mg->param.param_size = idx;
 
     for (int i = 0; i < mg->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[i], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[i], atom);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0)
                 a->arg[ai].param = remap_param[a->arg[ai].param];

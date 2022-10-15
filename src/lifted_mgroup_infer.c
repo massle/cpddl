@@ -125,7 +125,7 @@ static int ctxArgInit(const pddl_t *pddl, const pddl_param_t *param)
 #define FOR_EACH_ATOM(MG, C) \
     for (int ___i = 0; \
             ___i < (MG)->cond.size \
-                && ((C) = PDDL_FM_CAST((MG)->cond.cond[___i], atom)); \
+                && ((C) = PDDL_FM_CAST((MG)->cond.fm[___i], atom)); \
                 ++___i)
 
 
@@ -169,7 +169,7 @@ static void replaceSingleObjectTypes(const pddl_t *pddl,
             int obj = pddlTypeGetObj(&pddl->type, type, 0);
 
             for (int ati = 0; ati < mg->cond.size; ++ati){
-                pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ati], atom);
+                pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ati], atom);
                 for (int ai = 0; ai < a->arg_size; ++ai){
                     if (a->arg[ai].param == pid){
                         a->arg[ai].param = -1;
@@ -185,7 +185,7 @@ static void replaceSingleObjectTypes(const pddl_t *pddl,
 
     if (mg->param.param_size != ins){
         for (int ati = 0; ati < mg->cond.size; ++ati){
-            pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ati], atom);
+            pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ati], atom);
             for (int ai = 0; ai < a->arg_size; ++ai){
                 if (a->arg[ai].param >= 0)
                     a->arg[ai].param = remap[a->arg[ai].param];
@@ -216,7 +216,7 @@ static void addProvedLiftedMGroup(const pddl_t *pddl,
 static int candHasPred(const pddl_lifted_mgroup_t *cand, int pred)
 {
     for (int i = 0; i < cand->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(cand->cond.cond[i], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(cand->cond.fm[i], atom);
         if (a->pred == pred)
             return 1;
     }
@@ -360,7 +360,7 @@ static int equalAtomInArrObj(const pddl_fm_atom_t *atom,
         return 0;
 
     for (int i = 0; i < arr->size; ++i){
-        const pddl_fm_atom_t *a2 = PDDL_FM_CAST(arr->cond[i], atom);
+        const pddl_fm_atom_t *a2 = PDDL_FM_CAST(arr->fm[i], atom);
         if (!a2->neg && atomsEqualObj(a2, atom, args))
             return 1;
     }
@@ -787,7 +787,7 @@ static int isGroundedCondArrTooHeavy(const cand_t *cand,
     const pddl_fm_atom_t *cand1, *cand2;
 
     for (int i = 0; i < arr->size; ++i){
-        const pddl_fm_atom_t *a1 = PDDL_FM_CAST(arr->cond[i], atom);
+        const pddl_fm_atom_t *a1 = PDDL_FM_CAST(arr->fm[i], atom);
         if (a1->neg)
             continue;
         FOR_EACH_ATOM(cand->mgroup, cand1){
@@ -799,7 +799,7 @@ static int isGroundedCondArrTooHeavy(const cand_t *cand,
             }
 
             for (int j = i + 1; j < arr->size; ++j){
-                const pddl_fm_atom_t *a2 = PDDL_FM_CAST(arr->cond[j], atom);
+                const pddl_fm_atom_t *a2 = PDDL_FM_CAST(arr->fm[j], atom);
                 if (a2->neg || atomsEqualObj(a1, a2, arr_args))
                     continue;
                 FOR_EACH_ATOM(cand->mgroup, cand2){
@@ -1146,9 +1146,9 @@ static cand_t *refineNextCand(refine_t *r)
 static int eachPredOnlyOnce(const pddl_lifted_mgroup_t *m)
 {
     for (int i = 0; i < m->cond.size; ++i){
-        int p1 = PDDL_FM_CAST(m->cond.cond[i], atom)->pred;
+        int p1 = PDDL_FM_CAST(m->cond.fm[i], atom)->pred;
         for (int j = i + 1; j < m->cond.size; ++j){
-            int p2 = PDDL_FM_CAST(m->cond.cond[j], atom)->pred;
+            int p2 = PDDL_FM_CAST(m->cond.fm[j], atom)->pred;
             if (p1 == p2)
                 return 0;
         }
@@ -1235,7 +1235,7 @@ static void refineAddCandVar(refine_t *r,
 static void restrictParamTypes(const pddl_t *pddl, pddl_lifted_mgroup_t *mg)
 {
     for (int ai = 0; ai < mg->cond.size; ++ai){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ai], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ai], atom);
         const pddl_pred_t *pred = pddl->pred.pred + a->pred;
 
         for (int i = 0; i < a->arg_size; ++i){
@@ -1747,7 +1747,7 @@ static void candInstantiateParamWithObj(pddl_lifted_mgroup_t *dst,
 {
     pddlLiftedMGroupInitCopy(dst, src);
     for (int ci = 0; ci < dst->cond.size; ++ci){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(dst->cond.cond[ci], atom);
+        pddl_fm_atom_t *a = PDDL_FM_CAST(dst->cond.fm[ci], atom);
         for (int i = 0; i < a->arg_size; ++i){
             if (a->arg[i].param == param){
                 a->arg[i].param = -1;
@@ -1936,7 +1936,7 @@ static int mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
     // First check whether there is a matching add effect. If there is one,
     // then mg cannot be deleted
     for (int addi = 0; addi < add_eff->size; ++addi){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(add_eff->cond[addi], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(add_eff->fm[addi], atom);
         const pddl_fm_atom_t *m;
         FOR_EACH_ATOM(mg, m){
             if (m->pred != a->pred)
@@ -1948,7 +1948,7 @@ static int mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
 
     // Then find out if there is a matching delete effect and precondition
     for (int di = 0; di < del_eff->size; ++di){
-        const pddl_fm_atom_t *d = PDDL_FM_CAST(del_eff->cond[di], atom);
+        const pddl_fm_atom_t *d = PDDL_FM_CAST(del_eff->fm[di], atom);
         const pddl_fm_atom_t *m;
         FOR_EACH_ATOM(mg, m){
             if (m->pred != d->pred)

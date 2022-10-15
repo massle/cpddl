@@ -123,5 +123,6 @@
 #include <pddl/lifted_heur_relaxed.h>
 #include <pddl/cp.h>
 #include <pddl/subprocess.h>
+#include <pddl/asnets_task.h>
 
 #endif /* __PDDL_H__ */
