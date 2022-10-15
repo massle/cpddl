@@ -23,13 +23,11 @@
 extern "C" {
 #endif /* __cplusplus */
 
-# define PDDL_LP_GET_NUM_THREADS(flags) (((flags) >> 8u) & 0x3fu)
-# define PDDL_LP_NUM_THREADS_AUTO 0x3fu
-
-struct _pddl_lp_cls_t {
-    int solver_id;
+struct pddl_lp_cls {
+    pddl_lp_solver_t solver_id;
     const char *solver_name;
-    pddl_lp_t *(*new)(int rows, int cols, unsigned flags, pddl_err_t *err);
+    const char *solver_version;
+    pddl_lp_t *(*new)(const pddl_lp_config_t *cfg, pddl_err_t *err);
     void (*del)(pddl_lp_t *);
     void (*set_obj)(pddl_lp_t *lp, int i, double coef);
     void (*set_var_range)(pddl_lp_t *lp, int i, double lb, double ub);
@@ -46,13 +44,13 @@ struct _pddl_lp_cls_t {
     int (*num_cols)(const pddl_lp_t *lp);
     int (*solve)(pddl_lp_t *lp, double *val, double *obj);
     void (*write)(pddl_lp_t *lp, const char *fn);
-    void (*tune)(pddl_lp_t *lp, unsigned flag);
 };
-typedef struct _pddl_lp_cls_t pddl_lp_cls_t;
+typedef struct pddl_lp_cls pddl_lp_cls_t;
 
-struct _pddl_lp_t {
+struct pddl_lp {
     pddl_lp_cls_t *cls;
     pddl_err_t *err;
+    pddl_lp_config_t cfg;
 };
 
 extern pddl_lp_cls_t *pddl_lp_default;

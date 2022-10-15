@@ -62,7 +62,7 @@ void pddlCountSort(void *base, size_t nmemb, size_t size, int from, int to,
     unsigned char *cur, *end, *tmp;
     int i, key;
 
-    bzero(cnt, sizeof(int) * range);
+    ZEROIZE_ARR(cnt, range);
     for (cur = base, end = cur + (nmemb * size); cur != end; cur += size){
         key = get_key(cur, arg) - from;
         ++cnt[key];

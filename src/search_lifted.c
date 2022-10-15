@@ -125,8 +125,7 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     CTX(err, "bfs", err_prefix);
     pddl_search_lifted_bfs_t *bfs;
 
-    bfs = ALLOC(pddl_search_lifted_bfs_t);
-    bzero(bfs, sizeof(*bfs));
+    bfs = ZALLOC(pddl_search_lifted_bfs_t);
     searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep,
                err_prefix, err);
     // TODO: Check for conditional effects
@@ -376,13 +375,13 @@ void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, pddl_err_t *err)
 
 
 
-static int _setGoal(pddl_cond_t *c, void *_s)
+static int _setGoal(pddl_fm_t *c, void *_s)
 {
     pddl_search_lifted_t *s = _s;
     const pddl_t *pddl = s->pddl;
 
-    if (c->type == PDDL_COND_ATOM){
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         if (pddlPredIsStatic(&pddl->pred.pred[atom->pred])){
             const pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&s->strips.ground_atom_static,
@@ -397,7 +396,7 @@ static int _setGoal(pddl_cond_t *c, void *_s)
             ga = pddlStripsMakerAddAtom(&s->strips, atom, NULL, NULL);
             pddlISetAdd(&s->goal, ga->id);
         }
-        if (!pddlCondAtomIsGrounded(atom)){
+        if (!pddlFmAtomIsGrounded(atom)){
             s->goal_is_unreachable = 1;
             PDDL_ERR_RET2(s->err, -1, "Goal specification cannot contain"
                           " parametrized atoms.");
@@ -405,18 +404,18 @@ static int _setGoal(pddl_cond_t *c, void *_s)
 
         return 0;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
 
-    }else if (c->type == PDDL_COND_BOOL){
-        const pddl_cond_bool_t *b = PDDL_COND_CAST(c, bool);
+    }else if (c->type == PDDL_FM_BOOL){
+        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
         if (!b->val)
             s->goal_is_unreachable = 1;
         return 0;
 
     }else{
         PDDL_ERR(s->err, "Only conjuctive goal specifications are supported."
-                 " (Goal contains %s.)", pddlCondTypeName(c->type));
+                 " (Goal contains %s.)", pddlFmTypeName(c->type));
         s->goal_is_unreachable = 1;
         return -2;
     }
@@ -425,7 +424,7 @@ static int _setGoal(pddl_cond_t *c, void *_s)
 static void setGoal(pddl_search_lifted_t *s)
 {
     pddlISetEmpty(&s->goal);
-    pddlCondTraverse(s->pddl->goal, _setGoal, NULL, s);
+    pddlFmTraverse(s->pddl->goal, _setGoal, NULL, s);
 }
 
 static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
@@ -434,9 +433,9 @@ static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
     pddl_list_t *item;
     PDDL_ISET(init);
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
-        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type == PDDL_FM_ATOM){
+            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
             const pddl_ground_atom_t *ga;
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(&s->strips, a, NULL, NULL);
@@ -446,11 +445,11 @@ static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
             }
             pddlSqlGrounderInsertAtom(s->grounder, a, s->err);
 
-        }else if (c->type == PDDL_COND_ASSIGN){
-            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+        }else if (c->type == PDDL_FM_ASSIGN){
+            const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
-            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
             pddlStripsMakerAddFunc(&s->strips, ass, NULL, NULL);
         }
     }
@@ -514,8 +513,8 @@ static void applyAction(pddl_search_lifted_t *s,
     PDDL_ISET(eadd);
     PDDL_ISET(edel);
     for (int i = 0; i < pa->add_eff.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(pa->add_eff.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(pa->add_eff.cond[i], atom);
         ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
 
         pddl_ground_atom_t *ga;
@@ -524,8 +523,8 @@ static void applyAction(pddl_search_lifted_t *s,
     }
 
     for (int i = 0; i < pa->del_eff.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(pa->del_eff.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(pa->del_eff.cond[i], atom);
         ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
 
         pddl_ground_atom_t *ga;
@@ -535,8 +534,8 @@ static void applyAction(pddl_search_lifted_t *s,
 
     *cost = 0;
     for (int i = 0; i < pa->increase.size && s->pddl->metric; ++i){
-        const pddl_cond_func_op_t *inc;
-        inc = PDDL_COND_CAST(pa->increase.cond[i], func_op);
+        const pddl_fm_func_op_t *inc;
+        inc = PDDL_FM_CAST(pa->increase.cond[i], func_op);
         if (inc->fvalue != NULL){
             const pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&s->strips.ground_func,

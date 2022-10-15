@@ -20,6 +20,8 @@ struct op_mutex_cfg {
     int op_fact;
     int hm_op;
     int no_prune;
+    int prune_method;
+    float prune_time_limit;
     char *out;
 };
 typedef struct op_mutex_cfg op_mutex_cfg_t;
@@ -40,6 +42,34 @@ typedef struct endomorph_cfg endomorph_cfg_t;
 
 static pddl_endomorphism_config_t endomorph_default_cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
 
+static int setLPSolver(const char *v)
+{
+    int solver = -1;
+    if (strcmp(v, "cplex") == 0){
+        solver = PDDL_LP_CPLEX;
+
+    }else if (strcmp(v, "gurobi") == 0 || strcmp(v, "grb") == 0){
+        solver = PDDL_LP_GUROBI;
+
+    }else if (strcmp(v, "glpk") == 0){
+        solver = PDDL_LP_GLPK;
+
+    }else if (strcmp(v, "lpsolve") == 0){
+        solver = PDDL_LP_LPSOLVE;
+
+    }else{
+        fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
+        return -1;
+    }
+
+    if (!pddlLPSolverAvailable(solver)){
+        fprintf(stderr, "Option Error: %s is not compiled-in!\n", v);
+        return -1;
+    }
+    pddlLPSetDefault(solver, NULL);
+    return 0;
+}
+
 static void hpotSetDisamb(int value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -56,80 +86,119 @@ static void hpotSetWeakDisamb(int value, void *_cfg)
         cfg->disambiguation = 0;
 }
 
-static void hpotSetObjSimple(int v, void *_cfg, int type)
-{
-    pddl_hpot_config_t *cfg = _cfg;
-    if (v)
-        cfg->obj = type;
-}
-
-static void hpotSetObjSample(int v, void *_cfg, int type)
-{
-    pddl_hpot_config_t *cfg = _cfg;
-    if (v){
-        cfg->obj = type;
-        cfg->num_samples = v;
-        cfg->samples_random_walk = 1;
-    }
-}
-
-static void hpotSetObjMutex(int v, void *_cfg, int type)
-{
-    pddl_hpot_config_t *cfg = _cfg;
-    if (v){
-        cfg->obj = type;
-        cfg->all_states_mutex_size = v;
-    }
-}
-
 static void hpotSetObjInit(int v, void *_cfg)
 {
-    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_INIT);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_state_t copt = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllStates(int v, void *_cfg)
 {
-    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_syntactic_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
-static void hpotSetObjMaxInitAll(int v, void *_cfg)
+static void hpotSetObjAllStatesInit(int v, void *_cfg)
 {
-    hpotSetObjSimple(v, _cfg, PDDL_HPOT_OBJ_MAX_INIT_ALL_STATES);
-}
-
-static void hpotSetObjSamplesMax(int v, void *_cfg)
-{
-    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_SAMPLES_MAX);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_syntactic_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
+    copt.add_init_state_constr = 1;
+    fprintf(stderr, "%lx\n", (long)copt.add_fdr_state_constr);
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjSamplesSum(int v, void *_cfg)
 {
-    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_SAMPLES_SUM);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_sampled_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES_INIT;
+    copt.num_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
-static void hpotSetObjDiverse(int v, void *_cfg)
+static void hpotSetObjSamplesSumInit(int v, void *_cfg)
 {
-    hpotSetObjSample(v, _cfg, PDDL_HPOT_OBJ_DIVERSE);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_sampled_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES_INIT;
+    copt.num_samples = v;
+    copt.add_init_state_constr = 1;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllMutex(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX_INIT;
+    copt.mutex_size = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
+
+static void hpotSetObjAllMutexInit(int v, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ALL_STATES_MUTEX_INIT;
+    copt.mutex_size = v;
+    copt.add_init_state_constr = 1;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
+}
+
+
+static void hpotSetObjSamplesMax(int v, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_sampled_states_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_SAMPLED_STATES_INIT;
+    copt.num_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
+}
+
+static void hpotSetObjDiverse(int v, void *_cfg)
+{
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_diversification_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_DIVERSIFICATION_INIT;
+    copt.num_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
+}
+
 
 static void hpotSetObjAllMutexCond(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT;
+    copt.cond_size = 1;
+    copt.mutex_size = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllMutexCondRand(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT;
+    copt.cond_size = 1;
+    copt.mutex_size = 1;
+    copt.num_rand_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotSetObjAllMutexCondRand2(int v, void *_cfg)
 {
-    hpotSetObjMutex(v, _cfg, PDDL_HPOT_OBJ_ALL_STATES_MUTEX_CONDITIONED_RAND2);
+    pddl_hpot_config_t *cfg = _cfg;
+    pddl_hpot_config_opt_ensemble_all_states_mutex_t copt
+            = PDDL_HPOT_CONFIG_OPT_ENSEMBLE_ALL_STATES_MUTEX_INIT;
+    copt.cond_size = 1;
+    copt.mutex_size = 2;
+    copt.num_rand_samples = v;
+    pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
 static void hpotParams(opts_params_t *params,
@@ -148,24 +217,23 @@ static void hpotParams(opts_params_t *params,
 
     optsParamsAddFlagFn(params, "all", cfg, hpotSetObjAllStates);
     optsParamsAddFlagFn(params, "A", cfg, hpotSetObjAllStates);
+    optsParamsAddFlagFn(params, "A+I", cfg, hpotSetObjAllStatesInit);
 
-    optsParamsAddFlagFn(params, "max-init-all", cfg, hpotSetObjMaxInitAll);
-
-    optsParamsAddFlag(params, "add-init", &cfg->add_init_constr);
-    optsParamsAddFlag(params, "+I", &cfg->add_init_constr);
-
-    optsParamsAddIntFn(params, "sample-max", cfg, hpotSetObjSamplesMax);
     optsParamsAddIntFn(params, "sample-sum", cfg, hpotSetObjSamplesSum);
-    optsParamsAddIntFn(params, "diverse", cfg, hpotSetObjDiverse);
+    optsParamsAddIntFn(params, "S", cfg, hpotSetObjSamplesSum);
+    optsParamsAddIntFn(params, "S+I", cfg, hpotSetObjSamplesSumInit);
 
     optsParamsAddIntFn(params, "all-mutex", cfg, hpotSetObjAllMutex);
+    optsParamsAddIntFn(params, "M", cfg, hpotSetObjAllMutex);
+    optsParamsAddIntFn(params, "M+I", cfg, hpotSetObjAllMutexInit);
+
+    optsParamsAddIntFn(params, "sample-max", cfg, hpotSetObjSamplesMax);
+    optsParamsAddIntFn(params, "diverse", cfg, hpotSetObjDiverse);
     optsParamsAddIntFn(params, "all-mutex-cond", cfg, hpotSetObjAllMutexCond);
     optsParamsAddIntFn(params, "all-mutex-cond-rand", cfg,
                        hpotSetObjAllMutexCondRand);
     optsParamsAddIntFn(params, "all-mutex-cond-rand2", cfg,
                        hpotSetObjAllMutexCondRand2);
-
-    optsParamsAddInt(params, "num-samples", &cfg->num_samples);
 }
 
 static int optGroundNoPruning(int enabled)
@@ -277,6 +345,18 @@ static void h2Alias(void)
     deduplicateOps();
 }
 
+static int printStripsPddlDomain(const char *fn)
+{
+    pddlProcessStripsAddPrintPddlDomain(&opt.strips.process, fn);
+    return 0;
+}
+
+static int printStripsPddlProblem(const char *fn)
+{
+    pddlProcessStripsAddPrintPddlProblem(&opt.strips.process, fn);
+    return 0;
+}
+
 static void endomorphism(void *ud)
 {
     endomorph_cfg_t *cfg = ud;
@@ -294,14 +374,30 @@ static void endomorphism(void *ud)
 static void opMutex(void *ud)
 {
     op_mutex_cfg_t *cfg = ud;
+    if (!cfg->no_prune && cfg->prune_method == 0){
+        fprintf(stderr, "Option Error: --P-opm requires prune-method=..."
+                " option unless no-prune is set\n");
+        exit(-1);
+    }
     pddlProcessStripsAddOpMutex(&opt.strips.process,
                                 cfg->ts, cfg->op_fact, cfg->hm_op,
-                                cfg->no_prune, cfg->out);
+                                cfg->no_prune, cfg->prune_method,
+                                cfg->prune_time_limit,
+                                cfg->out);
     if (cfg->out != NULL)
         PDDL_FREE(cfg->out);
     bzero(cfg, sizeof(*cfg));
 }
 
+static void groundHeurOpMutex(void *ud)
+{
+    op_mutex_cfg_t *cfg = ud;
+    opt.ground_planner.heur_op_mutex = 1;
+    opt.ground_planner.heur_op_mutex_ts = cfg->ts;
+    opt.ground_planner.heur_op_mutex_op_fact = cfg->op_fact;
+    opt.ground_planner.heur_op_mutex_hm_op = cfg->hm_op;
+    bzero(cfg, sizeof(*cfg));
+}
 
 static void setBaseOptions(void)
 {
@@ -312,6 +408,8 @@ static void setBaseOptions(void)
                "Set output file for logs.");
     optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
                "Set output file for properties log.");
+    optsAddStrFn("lp-solver", 0x0, setLPSolver,
+                 "Set the default LP solver: cplex/gurobi/glpk/lpsolve");
 
 }
 
@@ -490,6 +588,13 @@ static void setGroundOptions(void)
                 " (recommended instead of --pddl-ce).");
     optsAddStr("strips-as-py", 0x0, &opt.strips.py_out, NULL,
                "Output filename for STRIPS in python format.");
+    optsAddStr("strips-fam-dump", 0x0, &opt.strips.fam_dump, NULL,
+               "Compute fam-groups and dump the corresponding mutex pairs"
+               " to the specified file.");
+    optsAddStr("strips-h2-dump", 0x0, &opt.strips.h2_dump, NULL,
+               "Compute h^2 and dump the mutexes to the specified file.");
+    optsAddStr("strips-h3-dump", 0x0, &opt.strips.h3_dump, NULL,
+               "Compute h^3 and dump the mutexes to the specified file.");
     optsAddFlag("strips-stop", 0x0, &opt.strips.stop, 0,
                 "Stop after grounding to STRIPS.");
 }
@@ -528,6 +633,16 @@ static void setMutexGroupOptions(void)
                 "Compute cover number of the inferred mutex groups.");
 }
 
+static void fixpointOpen(void)
+{
+    pddlProcessStripsFixpointStart(&opt.strips.process);
+}
+
+static void fixpointClose(void)
+{
+    pddlProcessStripsFixpointFinalize(&opt.strips.process);
+}
+
 static void setProcessStripsOptions(void)
 {
     if (is_pddl_pddl)
@@ -562,7 +677,7 @@ static void setProcessStripsOptions(void)
     optsAddFlagFn2("P-h3fw", 0x0, pruneH3Fw,
                    "Prune with h^3 in forward direction without time limit.");
 
-    h3_cfg_t h3_cfg = { 0 };
+    static h3_cfg_t h3_cfg = { 0 };
     params = optsAddParamsAndFn("P-h3fw-limit", 0x0,
                                 "Prune with h^3 with the specified limits.\n"
                                 "Options:\n"
@@ -572,7 +687,7 @@ static void setProcessStripsOptions(void)
     optsParamsAddFlt(params, "time", &h3_cfg.time);
     optsParamsAddInt(params, "mem", &h3_cfg.mem);
 
-    endomorph_cfg_t endomorph_cfg = { 0 };
+    static endomorph_cfg_t endomorph_cfg = { 0 };
     endomorph_cfg.cfg = endomorph_default_cfg;
     params = optsAddParamsAndFn("P-endo", 0x0,
                                 "Endomorphism.\n"
@@ -597,7 +712,7 @@ static void setProcessStripsOptions(void)
     optsParamsAddFlag(params, "ignore-costs", &endomorph_cfg.cfg.ignore_costs);
 
 
-    op_mutex_cfg_t opm_cfg = { 0 };
+    static op_mutex_cfg_t opm_cfg = { 0 };
     params = optsAddParamsAndFn("P-opm", 0x0,
                                 "Operator mutexes.\n"
                                 "Options:\n"
@@ -605,18 +720,43 @@ static void setProcessStripsOptions(void)
                                 "  op-fact = <int> -- op-fact compilation\n"
                                 "  hm-op = <int> -- h^m from each operator\n"
                                 "  no-prune = <bool> -- disabled pruning\n"
+                                "  p/prune-method = max/greedy -- inference method\n"
+                                "  tl/prune-time-limit = <float>\n"
                                 "  out = <str> -- path to file where operator mutex are stored",
                                 &opm_cfg, opMutex);
     optsParamsAddFlag(params, "ts", &opm_cfg.ts);
     optsParamsAddInt(params, "op-fact", &opm_cfg.op_fact);
     optsParamsAddInt(params, "hm-op", &opm_cfg.hm_op);
     optsParamsAddFlag(params, "no-prune", &opm_cfg.no_prune);
+    optsParamsAddIntSwitch(params, "p", &opm_cfg.prune_method, 2,
+                           "max", PDDL_OP_MUTEX_REDUNDANT_MAX,
+                           "greedy", PDDL_OP_MUTEX_REDUNDANT_GREEDY);
+    optsParamsAddIntSwitch(params, "prune-method", &opm_cfg.prune_method, 2,
+                           "max", PDDL_OP_MUTEX_REDUNDANT_MAX,
+                           "greedy", PDDL_OP_MUTEX_REDUNDANT_GREEDY);
+    optsParamsAddFlt(params, "tl", &opm_cfg.prune_time_limit);
+    optsParamsAddFlt(params, "prune-time-limit", &opm_cfg.prune_time_limit);
     optsParamsAddStr(params, "out", &opm_cfg.out);
 
     optsAddFlagFn2("h2", 0x0, h2Alias,
                    "Alias for --P-{unreachable-op,irr-op,fam-dead-end,"
                    "h2fwbw,irr,rm-useless-del-effs,dedup}"
                    " (set by default for pddl-symba)");
+
+    optsAddStrFn("P-pddl-domain", 0x0, printStripsPddlDomain,
+                 "Print STRIPS problem in the PDDL format -- domain file.");
+    optsAddStrFn("P-pddl-problem", 0x0, printStripsPddlProblem,
+                 "Print STRIPS problem in the PDDL format -- problem file.");
+
+    optsAddFlagFn2("P-fixpoint-start", 0x0, fixpointOpen,
+                   "Beginning of the fixpoint block.");
+    optsAddFlagFn2("P-fp[", 0x0, fixpointOpen,
+                   "Alias for --P-fixpoint-start.");
+    optsAddFlagFn2("P-fixpoint-end", 0x0, fixpointClose,
+                   "End of the fixpoint block.");
+    optsAddFlagFn2("P-fp]", 0x0, fixpointClose,
+                   "Alias for --P-fixpoint-end.");
+
 
     if (is_pddl_symba){
         h2Alias();
@@ -654,9 +794,7 @@ static void setFDROptions(void)
 
     opts_params_t *params;
 
-    opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
-    pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
-    opt.fdr.pot_cfg = _pot_cfg;
+    pddlHPotConfigInit(&opt.fdr.pot_cfg);
 
     if (is_pddl_fdr)
         opt.fdr.out = "-";
@@ -700,8 +838,7 @@ static void setGroundPlannerOptions(void)
     if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
         return;
 
-    pddl_hpot_config_t _pot_cfg = PDDL_HPOT_CONFIG_INIT;
-    opt.ground_planner.pot_cfg = _pot_cfg;
+    pddlHPotConfigInit(&opt.ground_planner.pot_cfg);
 
     opts_params_t *params;
     optsStartGroup("Grounded Planner:");
@@ -725,8 +862,9 @@ static void setGroundPlannerOptions(void)
                      "  ff/hff - FF heuristic\n"
                      "  flow - Flow heuristic\n"
                      "  pot - Potential heuristic",
-                     10,
+                     11,
                      "none", GROUND_PLAN_HEUR_BLIND,
+                     "blind", GROUND_PLAN_HEUR_BLIND,
                      "lmc", GROUND_PLAN_HEUR_LMC,
                      "max", GROUND_PLAN_HEUR_MAX,
                      "hmax", GROUND_PLAN_HEUR_MAX,
@@ -744,19 +882,31 @@ static void setGroundPlannerOptions(void)
         "  D/disamb = <bool> -- turns on disambiguation (default: true)\n"
         "  W/weak-disamb = <bool> -- turns on weak disambiguation (default: false)\n"
         "  I/init = <bool> -- sets objective to initial state\n"
-        "  A/all = <bool> -- sets objective to all syntactic states (default: true)\n"
-        "  max-init-all = <bool> -- sets objective to the maximum of I and A\n"
-        "  +I/add-init = <bool> -- adds constraint on the inital state (default: true)\n"
+        "  A/all = <bool> -- sets objective to all syntactic states\n"
+        "  A+I = <bool> -- A + add constraint on the initial state\n"
+        "  S/sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
+        "  S+I = <int> -- S + add constriant on the initial state\n"
+        "  M/all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
+        "  M+I = <int> -- M + add constraint on the initial state\n"
         "  sample-max = <int> -- maximum over the specified number of samples states\n"
-        "  sample-sum = <int> -- optimize for the sum over the specified number of sampled states\n"
         "  diverse = <int> -- diversification over the specified number states\n"
-        "  all-mutex = <int> -- all syntactic states respecting mutexes of the given size\n"
         "  all-mutex-cond = <int> -- conditioned ensemble\n"
-        "  all-mutex-cond-rand = <int> -- conditioned on <num-samples> fact sets\n"
+        "  all-mutex-cond-rand = <int> -- conditioned on fact sets\n"
         "  all-mutex-cond-rand2 = <int>\n"
-        "  num-samples = <int> -- sets number of samples"
         );
     hpotParams(params, &opt.ground_planner.pot_cfg);
+
+    static op_mutex_cfg_t opm_cfg = { 0 };
+    params = optsAddParamsAndFn("gplan-h-opm", 0x0,
+                                "Heuristics + pruning with operator mutexes.\n"
+                                "Options:\n"
+                                "  ts = <bool> -- use transition systems\n"
+                                "  op-fact = <int> -- op-fact compilation\n"
+                                "  hm-op = <int> -- h^m from each operator",
+                                &opm_cfg, groundHeurOpMutex);
+    optsParamsAddFlag(params, "ts", &opm_cfg.ts);
+    optsParamsAddInt(params, "op-fact", &opm_cfg.op_fact);
+    optsParamsAddInt(params, "hm-op", &opm_cfg.hm_op);
 
     optsAddStr("gplan-out", 0x0, &opt.ground_planner.plan_out, NULL,
                "Output filename for the found plan.");

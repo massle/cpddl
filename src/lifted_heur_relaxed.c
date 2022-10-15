@@ -20,11 +20,11 @@
 
 static void addPreToBody(pddl_lifted_heur_relaxed_t *h,
                          pddl_datalog_rule_t *rule,
-                         const pddl_cond_t *pre)
+                         const pddl_fm_t *pre)
 {
-    const pddl_cond_atom_t *catom;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, catom){
         pddl_datalog_atom_t atom;
         pddlDatalogPddlAtomToDLAtom(h->dl, &atom, catom, h->pred_to_dlpred,
                                     h->obj_to_dlconst, h->dlvar);
@@ -39,9 +39,9 @@ static void addPreToBody(pddl_lifted_heur_relaxed_t *h,
 
 static void addActionRule(pddl_lifted_heur_relaxed_t *h,
                           int action_id,
-                          const pddl_cond_t *pre,
-                          const pddl_cond_t *eff,
-                          const pddl_cond_t *pre2)
+                          const pddl_fm_t *pre,
+                          const pddl_fm_t *eff,
+                          const pddl_fm_t *pre2)
 {
     const pddl_action_t *action = h->pddl->action.action + action_id;
 
@@ -55,9 +55,9 @@ static void addActionRule(pddl_lifted_heur_relaxed_t *h,
     pddlDatalogPddlSetActionTypeBody(h->dl, &rule, h->pddl, &action->param,
                                      pre, pre2, h->type_to_dlpred, h->dlvar);
 
-    const pddl_cond_atom_t *catom;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(eff, &it, catom){
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(eff, &it, catom){
         if (catom->neg)
             continue;
 
@@ -86,9 +86,9 @@ static void addActionRules(pddl_lifted_heur_relaxed_t *h, int action_id)
     addActionRule(h, action_id, action->pre, action->eff, NULL);
 
     // Conditional effects
-    pddl_cond_const_it_when_t wit;
-    const pddl_cond_when_t *when;
-    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when)
+    pddl_fm_const_it_when_t wit;
+    const pddl_fm_when_t *when;
+    PDDL_FM_FOR_EACH_WHEN(action->eff, &wit, when)
         addActionRule(h, action_id, action->pre, when->eff, when->pre);
 }
 
@@ -109,9 +109,9 @@ static void addGoal(pddl_lifted_heur_relaxed_t *h)
     pddlDatalogRuleSetHead(h->dl, &rule, &atom);
     pddlDatalogAtomFree(h->dl, &atom);
 
-    const pddl_cond_atom_t *a;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(h->pddl->goal, &it, a){
+    const pddl_fm_atom_t *a;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(h->pddl->goal, &it, a){
         pddl_datalog_atom_t atom;
         pddlDatalogAtomInit(h->dl, &atom, h->pred_to_dlpred[a->pred]);
         for (int i = 0; i < a->arg_size; ++i){
@@ -159,9 +159,9 @@ static int addFacts(pddl_lifted_heur_relaxed_t *h,
 
 static void addInitStaticFacts(pddl_lifted_heur_relaxed_t *h)
 {
-    const pddl_cond_atom_t *a;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(&h->pddl->init->cls, &it, a){
+    const pddl_fm_atom_t *a;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(&h->pddl->init->fm, &it, a){
         if (!pddlPredIsStatic(h->pddl->pred.pred + a->pred))
             continue;
 
@@ -187,7 +187,7 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
                                       pddl_err_t *err)
 {
     CTX(err, "lifted_relax_heur", "lifted-relax-heur");
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->pddl = pddl;
     h->collect_best_achiever_facts = collect_best_achiever_facts;
     pddlPrepActionsInit(h->pddl, &h->prep_action, err);

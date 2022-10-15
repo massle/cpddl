@@ -35,6 +35,13 @@
 extern "C" {
 #endif /* __cplusplus */
 
+enum pddl_status {
+    PDDL_OK = 0,
+    PDDL_FAIL = 1,
+    PDDL_ERR = 2,
+};
+typedef enum pddl_status pddl_status_t;
+
 /**
  * Returns offset of member in given type (struct).
  */
@@ -147,6 +154,10 @@ typedef int pddl_obj_id_t;
 #define PDDL_COST_MAX ((INT_MAX / 2) - 1)
 /** Minimum cost */
 #define PDDL_COST_MIN ((INT_MIN / 2) + 1)
+/** Zeroize given struct */
+#define PDDL_ZEROIZE(SPTR) bzero((SPTR), sizeof(*(SPTR)))
+#define PDDL_ZEROIZE_ARR(SPTR, SZ) bzero((SPTR), sizeof(*(SPTR)) * (SZ))
+#define PDDL_ZEROIZE_RAW(SPTR, SZ) bzero((SPTR), (SZ))
 
 
 /**

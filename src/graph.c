@@ -21,7 +21,7 @@
 
 void pddlGraphSimpleInit(pddl_graph_simple_t *g, int node_size)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->node_size = node_size;
     g->node = CALLOC_ARR(pddl_iset_t, g->node_size);
 }

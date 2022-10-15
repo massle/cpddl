@@ -31,8 +31,7 @@ static pddl_strips_ground_tnode_t *tnodeNew(pddl_strips_ground_tree_t *t,
 {
     pddl_strips_ground_tnode_t *n;
 
-    n = ALLOC(pddl_strips_ground_tnode_t);
-    bzero(n, sizeof(*n));
+    n = ZALLOC(pddl_strips_ground_tnode_t);
     n->param = param;
     n->obj_id = obj_id;
     if (parent != NULL)
@@ -253,9 +252,9 @@ static void unifyTree(pddl_strips_ground_tree_t *tr,
 
     // Set arg_pre[] according to the fact's arguments and count the number
     // of set arguments.
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
     int num_args_set = 0;
-    atom = PDDL_COND_CAST(tr->action->pre.cond[pre_i], atom);
+    atom = PDDL_FM_CAST(tr->action->pre.cond[pre_i], atom);
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
         if (param >= 0 && arg_pre[param] == PDDL_OBJ_ID_UNDEF){
@@ -360,7 +359,7 @@ static int instantiateArgs(pddl_strips_ground_tree_t *tr,
     return 0;
 }
 
-static int isPreRelevant(const pddl_cond_atom_t *atom,
+static int isPreRelevant(const pddl_fm_atom_t *atom,
                          const pddl_iset_t *params)
 {
     for (int ai = 0; ai < atom->arg_size; ++ai){
@@ -376,15 +375,15 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
                               const pddl_prep_action_t *a,
                               const pddl_iset_t *params)
 {
-    bzero(tr, sizeof(*tr));
+    ZEROIZE(tr);
     tr->pddl = pddl;
     tr->action = a;
     pddlISetUnion(&tr->param, params);
 
     tr->pred_to_pre = CALLOC_ARR(pddl_iset_t, pddl->pred.pred_size);
     for (int i = 0; i < a->pre.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(tr->action->pre.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(tr->action->pre.cond[i], atom);
         if (!isPreRelevant(atom, params))
             continue;
 

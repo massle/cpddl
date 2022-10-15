@@ -27,7 +27,7 @@ static const char *object_name = "object";
 
 static void pddlTypeInit(pddl_type_t *t)
 {
-    bzero(t, sizeof(*t));
+    ZEROIZE(t);
 }
 
 static void pddlTypeFree(pddl_type_t *t)
@@ -137,7 +137,7 @@ int pddlTypesParse(pddl_t *pddl, pddl_err_t *e)
 
 void pddlTypesInitCopy(pddl_types_t *dst, const pddl_types_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->type_size = src->type_size;
     dst->type_alloc = src->type_alloc;
     dst->type = CALLOC_ARR(pddl_type_t, dst->type_alloc);

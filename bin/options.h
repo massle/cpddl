@@ -45,7 +45,7 @@ enum {
     GROUND_PLAN_HEUR_ADD,
     GROUND_PLAN_HEUR_FF,
     GROUND_PLAN_HEUR_FLOW,
-    GROUND_PLAN_HEUR_POT
+    GROUND_PLAN_HEUR_POT,
 };
 
 enum {
@@ -110,6 +110,9 @@ struct options {
         int compile_away_cond_eff;
         pddl_process_strips_t process;
         char *py_out;
+        char *fam_dump;
+        char *h2_dump;
+        char *h3_dump;
         int stop;
     } strips;
 
@@ -146,6 +149,10 @@ struct options {
     struct {
         int search;
         int heur;
+        int heur_op_mutex;
+        int heur_op_mutex_ts;
+        int heur_op_mutex_op_fact;
+        int heur_op_mutex_hm_op;
         char *plan_out;
         pddl_hpot_config_t pot_cfg;
     } ground_planner;

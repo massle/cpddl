@@ -14,6 +14,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/err.h"
 #include <sys/resource.h>
 #include <strings.h>
@@ -86,7 +87,7 @@ static void pddlErrPrintTraceback(const pddl_err_t *err, FILE *fout)
 
 void pddlErrInit(pddl_err_t *err)
 {
-    bzero(err, sizeof(*err));
+    ZEROIZE(err);
 }
 
 void pddlErrStartCtxTimer(pddl_err_t *err)
@@ -213,6 +214,26 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
                           pddlTimerElapsedInSF(&err->ctx_timer));
         }
     }
+}
+
+void _pddlCtxFmt(pddl_err_t *err, const char *_kw, const char *_info,
+                 int time, ...)
+{
+    char kw[PDDL_ERR_CTX_MAXLEN];
+    char info[PDDL_ERR_MSG_MAXLEN];
+
+    va_list ap;
+    va_start(ap, time);
+    vsnprintf(kw, PDDL_ERR_CTX_MAXLEN - 1, _kw, ap);
+    va_end(ap);
+    kw[PDDL_ERR_CTX_MAXLEN - 1] = '\x0';
+
+    va_start(ap, time);
+    vsnprintf(info, PDDL_ERR_MSG_MAXLEN - 1, _info, ap);
+    va_end(ap);
+    info[PDDL_ERR_MSG_MAXLEN - 1] = '\x0';
+
+    _pddlCtx(err, kw, info, time);
 }
 
 void _pddlCtxEnd(pddl_err_t *err)

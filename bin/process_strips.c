@@ -21,12 +21,10 @@
 #include "pddl/mg_strips.h"
 #include "pddl/op_mutex_pair.h"
 #include "pddl/op_mutex_infer.h"
-#include "pddl/op_mutex_sym_redundant.h"
+#include "pddl/op_mutex_redundant.h"
 #include "pddl/endomorphism.h"
 #include "process_strips.h"
 #include "print_to_file.h"
-
-typedef struct pddl_process_strips_step pddl_process_strips_step_t;
 
 typedef int (*pddl_process_strips_execute_fn)(pddl_process_strips_t *prune,
                                             pddl_process_strips_step_t *step,
@@ -42,6 +40,13 @@ struct pddl_process_strips_step {
     pddl_process_strips_free_fn free;
 };
 
+struct pddl_process_strips_fixpoint {
+    pddl_process_strips_step_t step;
+    pddl_process_strips_t ps;
+};
+typedef struct pddl_process_strips_fixpoint pddl_process_strips_fixpoint_t;
+
+
 struct pddl_process_strips_step_hm {
     pddl_process_strips_step_t step;
     float time_limit;
@@ -55,6 +60,9 @@ struct pddl_process_strips_step_op_mutex {
     int op_fact;
     int hm_op;
     int no_prune;
+    pddl_op_mutex_redundant_config_t prune_cfg;
+    int prune_method;
+    float prune_time_limit;
     char *out;
 };
 typedef struct pddl_process_strips_step_op_mutex
@@ -147,18 +155,19 @@ static int step(pddl_process_strips_t *prune,
     return 0;
 }
 
-int pddlProcessStripsExecute(pddl_process_strips_t *prune,
-                           pddl_strips_t *strips,
-                           pddl_mgroups_t *mgroups,
-                           pddl_mutex_pairs_t *mutex,
-                           pddl_err_t *err)
+static int execute(pddl_process_strips_t *prune,
+                   pddl_strips_t *strips,
+                   pddl_mgroups_t *mgroups,
+                   pddl_mutex_pairs_t *mutex,
+                   pddl_err_t *err)
 {
-    PDDL_CTX(err, "process_strips", "STRIPS");
+    if (prune->open_fixpoint)
+        PDDL_FATAL2("process-strips: Fixpoint was not closed!");
+
     prune->strips = strips;
     prune->mgroups = mgroups;
     prune->mutex = mutex;
 
-    // TODO: Configure fixpoint
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&prune->steps, item){
         pddl_process_strips_step_t *s;
@@ -174,16 +183,33 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
              prune->removed_fact,
              prune->removed_op);
     pddlStripsLogInfo(strips, err);
-    PDDL_CTXEND(err);
     return 0;
+}
+
+int pddlProcessStripsExecute(pddl_process_strips_t *prune,
+                           pddl_strips_t *strips,
+                           pddl_mgroups_t *mgroups,
+                           pddl_mutex_pairs_t *mutex,
+                           pddl_err_t *err)
+{
+    PDDL_CTX(err, "process_strips", "STRIPS");
+    int ret = execute(prune, strips, mgroups, mutex, err);
+    PDDL_CTXEND(err);
+    return ret;
 }
 
 static void stepInit(const char *name,
                      pddl_process_strips_step_t *step,
-                     pddl_process_strips_t *prune,
+                     pddl_process_strips_t *ps,
                      pddl_process_strips_execute_fn execute,
                      pddl_process_strips_free_fn free)
 {
+    if (ps->open_fixpoint != NULL){
+        pddl_process_strips_fixpoint_t *fp;
+        fp = pddl_container_of(ps->open_fixpoint, pddl_process_strips_fixpoint_t, step);
+        stepInit(name, step, &fp->ps, execute, free);
+        return;
+    }
     bzero(step, sizeof(*step));
     step->name = PDDL_STRDUP(name);
     pddlListInit(&step->conn);
@@ -191,7 +217,7 @@ static void stepInit(const char *name,
     step->free = free;
     step->can_reuse_rm_op_fact = 0;
     step->not_unreachable_or_dead_end = 0;
-    pddlListAppend(&prune->steps, &step->conn);
+    pddlListAppend(&ps->steps, &step->conn);
 }
 
 static pddl_process_strips_step_t *stepNew(const char *name,
@@ -460,9 +486,11 @@ static int opMutexExecute(pddl_process_strips_t *prune,
               prune->mgroups->mgroup_size);
 
     pddl_mutex_pairs_t mg_mutex;
-    pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
+    if (step->ts || step->hm_op > 1){
+        pddlMutexPairsInitStrips(&mg_mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&mg_mutex, &mg_strips.mg);
+        pddlH2(&mg_strips.strips, &mg_mutex, NULL, NULL, 0., err);
+    }
 
     pddl_op_mutex_pairs_t opm;
     pddlOpMutexPairsInit(&opm, &mg_strips.strips);
@@ -504,15 +532,18 @@ static int opMutexExecute(pddl_process_strips_t *prune,
         pddlStripsSymInitPDG(&sym, prune->strips);
         PDDL_INFO(err, "  Symmetry generators: %d", sym.gen_size);
         PDDL_ISET(redundant);
-        pddlOpMutexSymRedundantFixpoint(&redundant, &mg_strips.strips,
-                                        &sym, &opm, err);
+        pddl_op_mutex_redundant_config_t cfg = PDDL_OP_MUTEX_REDUNDANT_CONFIG_INIT;
+        cfg.method = step->prune_method;
+        cfg.lp_time_limit = step->prune_time_limit;
+        pddlOpMutexFindRedundant(&opm, &sym, &cfg, &redundant, err);
         pddlISetUnion(&prune->rm_op, &redundant);
         pddlISetFree(&redundant);
         pddlStripsSymFree(&sym);
     }
 
     pddlOpMutexPairsFree(&opm);
-    pddlMutexPairsFree(&mg_mutex);
+    if (step->ts || step->hm_op > 1)
+        pddlMutexPairsFree(&mg_mutex);
     pddlMGStripsFree(&mg_strips);
 
     return 0;
@@ -538,7 +569,9 @@ static pddl_process_strips_step_op_mutex_t *
 
 void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
                                  int ts, int op_fact, int hm_op,
-                                 int no_prune, const char *out)
+                                 int no_prune, int prune_method,
+                                 float prune_time_limit,
+                                 const char *out)
 {
     pddl_process_strips_step_op_mutex_t *step;
     step = stepOpMutexNew(prune);
@@ -546,6 +579,8 @@ void pddlProcessStripsAddOpMutex(pddl_process_strips_t *prune,
     step->op_fact = op_fact;
     step->hm_op = hm_op;
     step->no_prune = no_prune;
+    step->prune_method = prune_method;
+    step->prune_time_limit = prune_time_limit;
     step->out = NULL;
     if (out != NULL)
         step->out = PDDL_STRDUP(out);
@@ -691,4 +726,128 @@ void pddlProcessStripsAddEndomorphFDRTS(pddl_process_strips_t *prune,
     pddl_process_strips_step_endomorph_t *p = stepEndomorphNew(prune);
     p->cfg = *cfg;
     p->fdr_ts = 1;
+}
+
+struct pddl_process_strips_step_print {
+    pddl_process_strips_step_t step;
+    int print_domain;
+    int print_problem;
+    char *fn;
+};
+typedef struct pddl_process_strips_step_print pddl_process_strips_step_print_t;
+
+static int printExecute(pddl_process_strips_t *ps,
+                        pddl_process_strips_step_t *_step,
+                        pddl_err_t *err)
+{
+    pddl_process_strips_step_print_t *step;
+    step = pddl_container_of(_step, pddl_process_strips_step_print_t, step);
+
+    FILE *fout = fopen(step->fn, "w");
+    if (fout == NULL){
+        PDDL_INFO(err, "Could not open file %s", step->fn);
+        return 0;
+    }
+
+    if (step->print_domain){
+        pddlStripsPrintPDDLDomain(ps->strips, fout);
+
+    }else if (step->print_problem){
+        pddlStripsPrintPDDLProblem(ps->strips, fout);
+    }
+
+    fclose(fout);
+    return 0;
+}
+
+static void printFree(pddl_process_strips_step_t *_step)
+{
+    pddl_process_strips_step_print_t *step;
+    step = pddl_container_of(_step, pddl_process_strips_step_print_t, step);
+    if (step->fn != NULL)
+        PDDL_FREE(step->fn);
+}
+
+void pddlProcessStripsAddPrintPddlDomain(pddl_process_strips_t *ps,
+                                         const char *fn)
+{
+    pddl_process_strips_step_print_t *step;
+    step = PDDL_ALLOC(pddl_process_strips_step_print_t);
+    bzero(step, sizeof(*step));
+    stepInit("print-domain", &step->step, ps, printExecute, printFree);
+    step->print_domain = 1;
+    step->fn = PDDL_STRDUP(fn);
+}
+
+void pddlProcessStripsAddPrintPddlProblem(pddl_process_strips_t *ps,
+                                          const char *fn)
+{
+    pddl_process_strips_step_print_t *step;
+    step = PDDL_ALLOC(pddl_process_strips_step_print_t);
+    bzero(step, sizeof(*step));
+    stepInit("print-problem", &step->step, ps, printExecute, printFree);
+    step->print_problem = 1;
+    step->fn = PDDL_STRDUP(fn);
+}
+
+static int fixpointExecute(pddl_process_strips_t *prune,
+                           pddl_process_strips_step_t *step,
+                           pddl_err_t *err)
+{
+    pddl_process_strips_fixpoint_t *fp;
+    fp = pddl_container_of(step, pddl_process_strips_fixpoint_t, step);
+    int cycle = 0;
+    do {
+        PDDL_CTX_F(err, "cycle_%d", "Cycle %d", cycle);
+        apply(prune, err);
+        fp->ps.removed_op = 0;
+        fp->ps.removed_fact = 0;
+        pddlISetEmpty(&fp->ps.rm_op);
+        pddlISetEmpty(&fp->ps.rm_fact);
+        execute(&fp->ps, prune->strips, prune->mgroups, prune->mutex, err);
+        apply(&fp->ps, err);
+        prune->removed_op += fp->ps.removed_op;
+        prune->removed_fact += fp->ps.removed_fact;
+        PDDL_CTXEND(err);
+        ++cycle;
+    } while (fp->ps.removed_op > 0 || fp->ps.removed_fact > 0);
+    PDDL_LOG(err, "Cycles: %{num_cycles}d", cycle);
+
+    return 0;
+}
+
+static void fixpointFree(pddl_process_strips_step_t *step)
+{
+    pddl_process_strips_fixpoint_t *fp;
+    fp = pddl_container_of(step, pddl_process_strips_fixpoint_t, step);
+    pddlProcessStripsFree(&fp->ps);
+}
+
+void pddlProcessStripsFixpointStart(pddl_process_strips_t *ps)
+{
+    pddl_process_strips_fixpoint_t *fp;
+    fp = PDDL_ALLOC(pddl_process_strips_fixpoint_t);
+    stepInit("fixpoint", &fp->step, ps, fixpointExecute, fixpointFree);
+    pddlProcessStripsInit(&fp->ps);
+
+    while (ps->open_fixpoint != NULL){
+        pddl_process_strips_fixpoint_t *fp_child;
+        fp_child = pddl_container_of(ps->open_fixpoint, pddl_process_strips_fixpoint_t, step);
+        ps = &fp_child->ps;
+    }
+    ps->open_fixpoint = &fp->step;
+}
+
+void pddlProcessStripsFixpointFinalize(pddl_process_strips_t *ps)
+{
+    if (ps->open_fixpoint == NULL)
+        PDDL_FATAL2("process-strips: No opened fixpoint!");
+
+    pddl_process_strips_fixpoint_t *fp;
+    fp = pddl_container_of(ps->open_fixpoint, pddl_process_strips_fixpoint_t, step);
+    if (fp->ps.open_fixpoint == NULL){
+        ps->open_fixpoint = NULL;
+    }else{
+        pddlProcessStripsFixpointFinalize(&fp->ps);
+    }
 }

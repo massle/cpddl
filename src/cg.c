@@ -59,7 +59,7 @@ void pddlCGInit(pddl_cg_t *cg,
                 const pddl_fdr_ops_t *ops,
                 int eff_eff_edges)
 {
-    bzero(cg, sizeof(*cg));
+    ZEROIZE(cg);
 
     int *value = CALLOC_ARR(int, vars->var_size * vars->var_size);
     PDDL_ISET(pre);
@@ -116,7 +116,7 @@ void pddlCGInit(pddl_cg_t *cg,
 
 void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in)
 {
-    bzero(cg, sizeof(*cg));
+    ZEROIZE(cg);
     cg->node_size = cg_in->node_size;
     cg->node = CALLOC_ARR(pddl_cg_node_t, cg->node_size);
     for (int node_id = 0; node_id < cg->node_size; ++node_id){
@@ -218,7 +218,7 @@ void pddlCGMarkBackwardReachableVars(const pddl_cg_t *cg,
                                      const pddl_fdr_part_state_t *goal,
                                      int *important_vars)
 {
-    bzero(important_vars, sizeof(int) * cg->node_size);
+    ZEROIZE_ARR(important_vars, cg->node_size);
 
     for (int fi = 0; fi < goal->fact_size; ++fi){
         int var = goal->fact[fi].var;

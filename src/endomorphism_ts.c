@@ -549,7 +549,7 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
                                 pddl_err_t *err)
 {
     CTX(err, "endo_ts", "Endo-TS");
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);

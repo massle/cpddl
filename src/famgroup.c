@@ -193,10 +193,7 @@ static void famInit(fam_t *fam,
                     const pddl_famgroup_config_t *cfg,
                     pddl_err_t *err)
 {
-    unsigned lp_flags;
-    int rows;
-
-    bzero(fam, sizeof(*fam));
+    ZEROIZE(fam);
     fam->cfg = *cfg;
     fam->strips = strips;
     fam->mgroups = mgroups;
@@ -210,12 +207,12 @@ static void famInit(fam_t *fam,
         PDDL_FATAL2("Missing LP solver! Exiting...");
     }
 
-    lp_flags  = PDDL_LP_DEFAULT;
-    lp_flags |= PDDL_LP_NUM_THREADS(1); // TODO: Parametrize
-    lp_flags |= PDDL_LP_MAX;
     fam->lp_var_size = strips->fact.fact_size;
-    rows = strips->op.op_size + 1;
-    fam->lp = pddlLPNew(rows, fam->lp_var_size, lp_flags, err);
+    pddl_lp_config_t lpcfg = PDDL_LP_CONFIG_INIT;
+    lpcfg.maximize = 1;
+    lpcfg.rows = strips->op.op_size + 1;
+    lpcfg.cols = fam->lp_var_size;
+    fam->lp = pddlLPNew(&lpcfg, err);
 
     // Set up coeficients in the objective function and set up binary
     // variables

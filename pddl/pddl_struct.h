@@ -22,7 +22,7 @@
 
 #include <pddl/config.h>
 #include <pddl/lisp.h>
-#include <pddl/require.h>
+#include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
@@ -60,13 +60,13 @@ struct pddl {
     pddl_lisp_t *problem_lisp;
     char *domain_name;
     char *problem_name;
-    unsigned require;
+    pddl_require_flags_t require;
     pddl_types_t type;
     pddl_objs_t obj;
     pddl_preds_t pred;
     pddl_preds_t func;
-    pddl_cond_part_t *init;
-    pddl_cond_t *goal;
+    pddl_fm_and_t *init;
+    pddl_fm_t *goal;
     pddl_actions_t action;
     int metric;
     int normalized;
@@ -112,6 +112,7 @@ void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
 /**
  * Returns maximal number of parameters of all predicates and functions.
  */
+// TODO: rename to *MaxArity
 int pddlPredFuncMaxParamSize(const pddl_t *pddl);
 
 /**

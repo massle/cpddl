@@ -25,7 +25,7 @@ void pddlSymbolicVarsInit(pddl_symbolic_vars_t *vars,
                           int fact_size,
                           const pddl_mgroups_t *mgroups)
 {
-    bzero(vars, sizeof(*vars));
+    ZEROIZE(vars);
     vars->group_size = mgroups->mgroup_size;
     vars->group = CALLOC_ARR(pddl_symbolic_fact_group_t, vars->group_size);
     vars->fact_size = fact_size;

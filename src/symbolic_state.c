@@ -89,10 +89,10 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
                             int use_heur_inconsistent,
                             pddl_err_t *err)
 {
-    bzero(states, sizeof(*states));
+    ZEROIZE(states);
     size_t el_size = sizeof(pddl_symbolic_state_t);
     pddl_symbolic_state_t el_init;
-    bzero(&el_init, sizeof(el_init));
+    ZEROIZE(&el_init);
     el_init.id = -1;
 
     states->pool = pddlExtArrNew(el_size, NULL, &el_init);

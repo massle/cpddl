@@ -22,7 +22,7 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
                          pddl_cp_sol_t *sol,
                          pddl_err_t *err)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     if (cfg->minizinc == NULL){
         LOG(err, "default minizinc [%s] version %s", PDDL_MINIZINC_BIN,

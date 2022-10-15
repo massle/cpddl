@@ -49,7 +49,7 @@ static void copyBasicInfo(pddl_strips_t *dst, const pddl_strips_t *src)
 
 void pddlStripsInit(pddl_strips_t *strips)
 {
-    bzero(strips, sizeof(*strips));
+    ZEROIZE(strips);
     pddlFactsInit(&strips->fact);
     pddlStripsOpsInit(&strips->op);
     pddlISetInit(&strips->init);
@@ -106,7 +106,7 @@ void pddlStripsFree(pddl_strips_t *strips)
     pddlStripsOpsFree(&strips->op);
     pddlISetFree(&strips->init);
     pddlISetFree(&strips->goal);
-    bzero(strips, sizeof(*strips));
+    ZEROIZE(strips);
 }
 
 void pddlStripsInitCopy(pddl_strips_t *dst, const pddl_strips_t *src)

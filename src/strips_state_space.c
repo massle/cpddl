@@ -60,7 +60,7 @@ static int htableEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 void pddlStripsStateSpaceInit(pddl_strips_state_space_t *state_space,
                               pddl_err_t *err)
 {
-    bzero(state_space, sizeof(*state_space));
+    ZEROIZE(state_space);
     state_space->htable = pddlHTableNew(htableHash, htableEq, NULL);
     state_space->node = pddlExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
                                        MIN_STATES_PER_BLOCK,
@@ -87,7 +87,7 @@ pddl_state_id_t pddlStripsStateSpaceInsert(
                             const pddl_iset_t *state)
 {
     state_node_t *sn = pddlExtArrGet(state_space->node, state_space->num_states);
-    bzero(sn, sizeof(*sn));
+    ZEROIZE(sn);
     pddlISetSet(&sn->state, state);
     sn->hash = stateHash(state);
 
@@ -152,7 +152,7 @@ void pddlStripsStateSpaceSet(pddl_strips_state_space_t *state_space,
 void pddlStripsStateSpaceNodeInit(pddl_strips_state_space_node_t *node,
                                   const pddl_strips_state_space_t *state_space)
 {
-    bzero(node, sizeof(*node));
+    ZEROIZE(node);
     pddlISetInit(&node->state);
 }
 

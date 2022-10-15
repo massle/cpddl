@@ -63,7 +63,7 @@ int pddlSqlGrounderInsertGroundAtom(pddl_sql_grounder_t *g,
                                     const pddl_ground_atom_t *ga,
                                     pddl_err_t *err);
 int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
-                              const pddl_cond_atom_t *a,
+                              const pddl_fm_atom_t *a,
                               pddl_err_t *err);
 
 /**

@@ -77,6 +77,13 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
                                      pddl_set_iset_t *sym_set);
 
 /**
+ * Computes a transitive closure over all symmetries of the given operator.
+ */
+void pddlStripsSymOpTransitiveClosure(const pddl_strips_sym_t *sym,
+                                      int op_id,
+                                      pddl_iset_t *transitive_closure);
+
+/**
  * Add to outset symmetric operators to operators in inset according to
  * generator with gen_id ID.
  */

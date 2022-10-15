@@ -261,6 +261,14 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
     }
 }
 
+void pddlMGStripsInitCopy(pddl_mg_strips_t *mg_strips,
+                          const pddl_mg_strips_t *in)
+{
+    ZEROIZE(mg_strips);
+    pddlStripsInitCopy(&mg_strips->strips, &in->strips);
+    pddlMGroupsInitCopy(&mg_strips->mg, &in->mg);
+}
+
 static void fdrPreToPre(const pddl_fdr_vars_t *vars,
                         const pddl_fdr_part_state_t *fdr_pre,
                         pddl_iset_t *pre)

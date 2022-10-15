@@ -27,7 +27,7 @@
 
 void pddlStripsOpInit(pddl_strips_op_t *op)
 {
-    bzero(op, sizeof(*op));
+    ZEROIZE(op);
 }
 
 static void condEffFree(pddl_strips_op_cond_eff_t *ce)
@@ -85,7 +85,7 @@ static pddl_strips_op_cond_eff_t *addCondEff(pddl_strips_op_t *op)
     }
 
     ce = op->cond_eff + op->cond_eff_size++;
-    bzero(ce, sizeof(*ce));
+    ZEROIZE(ce);
     return ce;
 }
 
@@ -449,7 +449,7 @@ void pddlStripsOpApplyOnState(const pddl_strips_op_t *op,
 
 void pddlStripsOpsInit(pddl_strips_ops_t *ops)
 {
-    bzero(ops, sizeof(*ops));
+    ZEROIZE(ops);
     ops->op_alloc = 4;
     ops->op = ALLOC_ARR(pddl_strips_op_t *, ops->op_alloc);
 }

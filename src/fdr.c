@@ -64,7 +64,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     }
 
 
-    bzero(fdr, sizeof(*fdr));
+    ZEROIZE(fdr);
 
     // variables
     if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
@@ -72,13 +72,14 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         CTXEND(err);
         return -1;
     }
-    PDDL_INFO(err, "Created %d variables.", fdr->var.var_size);
+    LOG(err, "Created %{num_vars}d variables.", fdr->var.var_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
             ++num_none_of_those;
     }
-    PDDL_INFO(err, "Created %d none-of-those values.", num_none_of_those);
+    LOG(err, "Created %{num_none_of_those}d none-of-those values.",
+        num_none_of_those);
 
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
 
@@ -96,7 +97,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
-    PDDL_INFO(err, "Created %d operators", fdr->op.op_size);
+    LOG(err, "Created %{num_ops}d operators", fdr->op.op_size);
 
     pddlTimerStop(&timer);
     PDDL_INFO(err, "Translation took %.2f seconds",
@@ -107,7 +108,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
 
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
 {
-    bzero(fdr, sizeof(*fdr));
+    ZEROIZE(fdr);
     pddlFDRVarsInitCopy(&fdr->var, &fdr_in->var);
     pddlFDROpsInitCopy(&fdr->op, &fdr_in->op);
     fdr->init = ALLOC_ARR(int, fdr->var.var_size);
@@ -124,6 +125,19 @@ void pddlFDRFree(pddl_fdr_t *fdr)
     pddlFDRPartStateFree(&fdr->goal);
     pddlFDROpsFree(&fdr->op);
     pddlFDRVarsFree(&fdr->var);
+}
+
+pddl_fdr_t *pddlFDRClone(const pddl_fdr_t *fdr_in)
+{
+    pddl_fdr_t *fdr = ALLOC(pddl_fdr_t);
+    pddlFDRInitCopy(fdr, fdr_in);
+    return fdr;
+}
+
+void pddlFDRDel(pddl_fdr_t *fdr)
+{
+    pddlFDRFree(fdr);
+    FREE(fdr);
 }
 
 void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)

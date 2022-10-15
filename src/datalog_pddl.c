@@ -76,7 +76,7 @@ void pddlDatalogPddlAddEqRules(pddl_datalog_t *dl,
 
 void pddlDatalogPddlAtomToDLAtom(pddl_datalog_t *dl,
                                  pddl_datalog_atom_t *dlatom,
-                                 const pddl_cond_atom_t *atom,
+                                 const pddl_fm_atom_t *atom,
                                  const unsigned *pred_to_dlpred,
                                  const unsigned *obj_to_dlconst,
                                  const unsigned *dlvar)
@@ -97,17 +97,17 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
                                       pddl_datalog_rule_t *rule,
                                       const pddl_t *pddl,
                                       const pddl_params_t *params,
-                                      const pddl_cond_t *pre,
-                                      const pddl_cond_t *pre2,
+                                      const pddl_fm_t *pre,
+                                      const pddl_fm_t *pre2,
                                       unsigned *type_to_dlpred,
                                       const unsigned *dlvar)
 {
     int param_covered[params->param_size];
-    bzero(param_covered, sizeof(int) * params->param_size);
+    ZEROIZE_ARR(param_covered, params->param_size);
 
-    const pddl_cond_atom_t *catom;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, catom){
         if (catom->neg)
             continue;
         for (int ai = 0; ai < catom->arg_size; ++ai){
@@ -120,7 +120,7 @@ void pddlDatalogPddlSetActionTypeBody(pddl_datalog_t *dl,
         }
     }
     if (pre2 != NULL){
-        PDDL_COND_FOR_EACH_ATOM(pre2, &it, catom){
+        PDDL_FM_FOR_EACH_ATOM(pre2, &it, catom){
             if (catom->neg)
                 continue;
             for (int ai = 0; ai < catom->arg_size; ++ai){

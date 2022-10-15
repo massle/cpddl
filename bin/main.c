@@ -207,6 +207,45 @@ static int stepGround(void)
     PRINT_TO_FILE(&err, opt.strips.py_out, "STRIPS as python",
                   pddlStripsPrintPython(&strips, fout));
 
+    if (opt.strips.fam_dump != NULL){
+        pddl_mgroups_t mgs;
+        pddlMGroupsInitEmpty(&mgs);
+        pddlFAMGroupsInferMaximal(&mgs, &strips, &err);
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlMutexPairsAddMGroups(&mutex, &mgs);
+        PRINT_TO_FILE(&err, opt.strips.fam_dump, "Dump fam mutexes",
+            PDDL_MUTEX_PAIRS_FOR_EACH(&mutex, f1, f2)
+                fprintf(fout, "%d:(%s) %d:(%s)\n",
+                        f1, strips.fact.fact[f1]->name,
+                        f2, strips.fact.fact[f2]->name));
+        pddlMutexPairsFree(&mutex);
+        pddlMGroupsFree(&mgs);
+    }
+    if (opt.strips.h2_dump != NULL){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlH2(&strips, &mutex, NULL, NULL, 0., &err);
+        PRINT_TO_FILE(&err, opt.strips.h2_dump, "Dump h^2 mutexes",
+            PDDL_MUTEX_PAIRS_FOR_EACH(&mutex, f1, f2)
+                fprintf(fout, "%d:(%s) %d:(%s)\n",
+                        f1, strips.fact.fact[f1]->name,
+                        f2, strips.fact.fact[f2]->name));
+        pddlMutexPairsFree(&mutex);
+    }
+
+    if (opt.strips.h3_dump != NULL){
+        pddl_mutex_pairs_t mutex;
+        pddlMutexPairsInitStrips(&mutex, &strips);
+        pddlH3(&strips, &mutex, NULL, NULL, 0., 0, &err);
+        PRINT_TO_FILE(&err, opt.strips.h3_dump, "Dump h^3 mutexes",
+            PDDL_MUTEX_PAIRS_FOR_EACH(&mutex, f1, f2)
+                fprintf(fout, "%d:(%s) %d:(%s)\n",
+                        f1, strips.fact.fact[f1]->name,
+                        f2, strips.fact.fact[f2]->name));
+        pddlMutexPairsFree(&mutex);
+    }
+
     return opt.strips.stop;
 }
 
@@ -484,15 +523,36 @@ static int stepFDR(void)
     PRINT_TO_FILE(&err, opt.fdr.out, "FDR", pddlFDRPrintFD(&fdr, &mgroup, 1, fout));
 
     if (opt.fdr.pot){
+        pddl_mg_strips_t mg_strips;
+        pddl_mutex_pairs_t mutex;
+        opt.fdr.pot_cfg.fdr = &fdr;
+        if (pddlHPotConfigNeedMGStrips(&opt.fdr.pot_cfg)
+                || pddlHPotConfigNeedMutex(&opt.fdr.pot_cfg)){
+            pddlMGStripsInitFDR(&mg_strips, &fdr);
+            opt.fdr.pot_cfg.mg_strips = &mg_strips;
+        }
+
+        if (pddlHPotConfigNeedMutex(&opt.fdr.pot_cfg)){
+            pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
+            pddlH2(&mg_strips.strips, &mutex, NULL, NULL, -1, &err);
+            opt.fdr.pot_cfg.mutex = &mutex;
+        }
+
         pddl_pot_solutions_t pot;
         pddlPotSolutionsInit(&pot);
-        if (pddlHPot(&pot, &fdr, &opt.fdr.pot_cfg, &err) != 0){
+
+        if (pddlHPot(&pot, &opt.fdr.pot_cfg, &err) != 0){
             PDDL_ERR_RET2(&err, -1, "Cannot find potential heuristic");
             return -1;
         }
         APPEND_TO_FILE(&err, opt.fdr.out, "FDR Pot",
                        printPotentials(&fdr, &pot, fout));
         pddlPotSolutionsFree(&pot);
+
+        if (opt.fdr.pot_cfg.mg_strips != NULL)
+            pddlMGStripsFree(&mg_strips);
+        if (opt.fdr.pot_cfg.mutex != NULL)
+            pddlMutexPairsFree(&mutex);
     }
 
     if (opt.fdr.pretty_print_vars)
@@ -531,37 +591,113 @@ static int stepGroundPlanner(void)
         return 0;
 
     PDDL_CTX(&err, "gplan", "GPLAN");
-    pddl_heur_t *heur = NULL;
+    pddl_heur_config_t heur_cfg = PDDL_HEUR_CONFIG_INIT;
+    heur_cfg.fdr = &fdr;
     switch (opt.ground_planner.heur){
         case GROUND_PLAN_HEUR_LMC:
+            heur_cfg.heur = PDDL_HEUR_LM_CUT;
             PDDL_INFO2(&err, "Heuristic: lmc");
-            heur = pddlHeurLMCut(&fdr, &err);
             break;
         case GROUND_PLAN_HEUR_MAX:
+            heur_cfg.heur = PDDL_HEUR_HMAX;
             PDDL_INFO2(&err, "Heuristic: hmax");
-            heur = pddlHeurHMax(&fdr, &err);
             break;
         case GROUND_PLAN_HEUR_ADD:
+            heur_cfg.heur = PDDL_HEUR_HADD;
             PDDL_INFO2(&err, "Heuristic: hadd");
-            heur = pddlHeurHAdd(&fdr, &err);
             break;
         case GROUND_PLAN_HEUR_FF:
+            heur_cfg.heur = PDDL_HEUR_HFF;
             PDDL_INFO2(&err, "Heuristic: hff");
-            heur = pddlHeurHFF(&fdr, &err);
             break;
         case GROUND_PLAN_HEUR_FLOW:
+            heur_cfg.heur = PDDL_HEUR_FLOW;
             PDDL_INFO2(&err, "Heuristic: flow");
-            heur = pddlHeurFlow(&fdr, &err);
             break;
         case GROUND_PLAN_HEUR_POT:
+            heur_cfg.heur = PDDL_HEUR_POT;
             PDDL_INFO2(&err, "Heuristic: pot");
-            heur = pddlHeurPot(&fdr, &opt.ground_planner.pot_cfg, &err);
             break;
         case GROUND_PLAN_HEUR_BLIND:
         default:
+            heur_cfg.heur = PDDL_HEUR_BLIND;
             PDDL_INFO2(&err, "Heuristic: blind");
-            heur = pddlHeurBlind();
     }
+
+    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT){
+        pddlHPotConfigInitCopy(&heur_cfg.pot, &opt.ground_planner.pot_cfg);
+    }
+
+    pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t mutex;
+
+    int need_mutex = 0;
+    int need_mg_strips = 0;
+
+    if (opt.ground_planner.heur_op_mutex)
+        need_mutex = need_mg_strips = 1;
+
+    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
+            && pddlHPotConfigNeedMutex(&heur_cfg.pot)){
+        need_mutex = 1;
+    }
+
+    if (need_mutex
+            || (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
+                    && pddlHPotConfigNeedMGStrips(&heur_cfg.pot))){
+        need_mg_strips = 1;
+    }
+
+    if (need_mg_strips){
+        pddlMGStripsInitFDR(&mg_strips, &fdr);
+        heur_cfg.mg_strips = &mg_strips;
+    }
+
+    if (need_mutex){
+        pddlMutexPairsInitStrips(&mutex, &mg_strips.strips);
+        pddlMutexPairsAddMGroups(&mutex, &mg_strips.mg);
+        pddlH2(&mg_strips.strips, &mutex, NULL, NULL, -1, &err);
+        heur_cfg.mutex = &mutex;
+    }
+
+    pddl_heur_t *heur = NULL;
+    if (opt.ground_planner.heur_op_mutex){
+        pddl_op_mutex_pairs_t opm;
+        pddlOpMutexPairsInit(&opm, &mg_strips.strips);
+
+        if (opt.ground_planner.heur_op_mutex_ts > 0){
+            size_t max_mem = 0;
+            pddlOpMutexInferTransSystems(&opm, &mg_strips, &mutex,
+                                         opt.ground_planner.heur_op_mutex_ts,
+                                         max_mem, 1, &err);
+
+        }else if (opt.ground_planner.heur_op_mutex_op_fact > 0){
+            pddlOpMutexInferHmOpFactCompilation(&opm, opt.ground_planner.heur_op_mutex_op_fact,
+                                                &mg_strips.strips, &err);
+
+        }else if (opt.ground_planner.heur_op_mutex_hm_op > 0){
+            pddlOpMutexInferHmFromEachOp(&opm,
+                                         opt.ground_planner.heur_op_mutex_hm_op,
+                                         &mg_strips.strips, &mutex,
+                                         NULL, &err);
+        }else{
+            // TODO
+        }
+
+        pddl_heur_config_t opm_cfg = PDDL_HEUR_CONFIG_INIT;
+        opm_cfg.fdr = heur_cfg.fdr;
+        opm_cfg.mg_strips = heur_cfg.mg_strips;
+        opm_cfg.mutex = heur_cfg.mutex;
+        opm_cfg.heur = PDDL_HEUR_OP_MUTEX;
+        opm_cfg.op_mutex.op_mutex = &opm;
+        opm_cfg.op_mutex.cfg = &heur_cfg;
+        heur = pddlHeur(&opm_cfg, &err);
+    }else{
+        heur = pddlHeur(&heur_cfg, &err);
+    }
+
+    if (heur == NULL)
+        PDDL_TRACE_RET(&err, -1);
 
     pddl_search_t *search = NULL;
     switch (opt.ground_planner.search){
@@ -635,6 +771,12 @@ static int stepGroundPlanner(void)
 
     pddlSearchDel(search);
     pddlHeurDel(heur);
+    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT)
+        pddlHPotConfigFree(&heur_cfg.pot);
+    if (heur_cfg.mg_strips != NULL)
+        pddlMGStripsFree(&mg_strips);
+    if (heur_cfg.mutex != NULL)
+        pddlMutexPairsFree(&mutex);
     return 0;
 }
 

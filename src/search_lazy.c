@@ -53,8 +53,7 @@ pddl_search_t *pddlSearchLazy(const pddl_fdr_t *fdr,
 {
     pddl_search_lazy_t *lazy;
 
-    lazy = ALLOC(pddl_search_lazy_t);
-    bzero(lazy, sizeof(*lazy));
+    lazy = ZALLOC(pddl_search_lazy_t);
     _pddlSearchInit(&lazy->search,
                     pddlSearchLazyDel,
                     pddlSearchLazyInitStep,

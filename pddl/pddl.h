@@ -38,15 +38,15 @@
 #include <pddl/pddl_file.h>
 #include <pddl/plan_file.h>
 #include <pddl/lisp.h>
-#include <pddl/require.h>
+#include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
 #include <pddl/param.h>
 #include <pddl/fact.h>
 #include <pddl/action.h>
-#include <pddl/cond.h>
-#include <pddl/cond_arr.h>
+#include <pddl/fm.h>
+#include <pddl/fm_arr.h>
 #include <pddl/pddl_struct.h>
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>
@@ -101,7 +101,7 @@
 #include <pddl/ts.h>
 #include <pddl/op_mutex_pair.h>
 #include <pddl/op_mutex_infer.h>
-#include <pddl/op_mutex_sym_redundant.h>
+#include <pddl/op_mutex_redundant.h>
 #include <pddl/time_limit.h>
 #include <pddl/reversibility.h>
 #include <pddl/invertibility.h>

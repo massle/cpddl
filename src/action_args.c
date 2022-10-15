@@ -17,6 +17,7 @@
  */
 
 #include <stdio.h>
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/action_args.h"
 
@@ -52,7 +53,7 @@ void pddlActionArgsInit(pddl_action_args_t *args, int num_args)
 {
     size_t size = sizeof(el_t) + sizeof(pddl_obj_id_t) * num_args;
 
-    bzero(args, sizeof(*args));
+    ZEROIZE(args);
     args->num_args = num_args;
     args->arg_pool = pddlExtArrNew(size, NULL, NULL);
     args->htable = pddlHTableNew(htableHash, htableEq, args);

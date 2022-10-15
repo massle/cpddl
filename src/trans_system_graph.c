@@ -57,7 +57,7 @@ static void pddlTransSystemGraphEdgesSort(pddl_trans_system_graph_edges_t *e)
 void pddlTransSystemGraphInit(pddl_trans_system_graph_t *g,
                               const pddl_trans_system_t *t)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->num_states = t->num_states;
     g->fw = CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
     g->bw = CALLOC_ARR(pddl_trans_system_graph_edges_t, g->num_states);
@@ -221,7 +221,7 @@ static void sccTarjan(int num_states,
                       pddl_set_iset_t *sset)
 {
     scc_t scc;
-    bzero(&scc, sizeof(scc));
+    ZEROIZE(&scc);
 
     scc_dfs_t dfs;
 

@@ -37,7 +37,7 @@ static int sqlGroundInit(sql_ground_t *g,
                          const pddl_ground_config_t *cfg,
                          pddl_err_t *err)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->pddl = pddl;
     g->grounder = pddlSqlGrounderNew(pddl, err);
     if (g->grounder == NULL)
@@ -47,9 +47,9 @@ static int sqlGroundInit(sql_ground_t *g,
     // Insert initial state
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
-        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type == PDDL_FM_ATOM){
+            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(&g->strips_maker, a, NULL, NULL);
             }else{
@@ -57,11 +57,11 @@ static int sqlGroundInit(sql_ground_t *g,
             }
             pddlSqlGrounderInsertAtom(g->grounder, a, err);
 
-        }else if (c->type == PDDL_COND_ASSIGN){
-            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+        }else if (c->type == PDDL_FM_ASSIGN){
+            const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
-            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
             pddlStripsMakerAddFunc(&g->strips_maker, ass, NULL, NULL);
         }
     }
@@ -113,7 +113,7 @@ static int addGroundAction(sql_ground_t *g,
 
 static int addGroundAtom(sql_ground_t *g,
                          int layer,
-                         const pddl_cond_atom_t *atom,
+                         const pddl_fm_atom_t *atom,
                          const pddl_obj_id_t *row,
                          pddl_err_t *err)
 {
@@ -145,8 +145,8 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
     const pddl_prep_action_t *paction;
     paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
     for (int i = 0; i < paction->add_eff.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(paction->add_eff.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(paction->add_eff.cond[i], atom);
 
         ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
         updated |= addGroundAtom(g, layer, atom, row, err);

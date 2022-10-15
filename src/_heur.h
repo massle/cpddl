@@ -20,7 +20,8 @@
 #ifndef __PDDL__HEUR_H__
 #define __PDDL__HEUR_H__
 
-#include <pddl/heur.h>
+#include "internal.h"
+#include "pddl/heur.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +40,7 @@ _pddl_inline void _pddlHeurInit(pddl_heur_t *h,
                                 pddl_heur_del_fn del_fn,
                                 pddl_heur_estimate_fn estimate_fn)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->del_fn = del_fn;
     h->estimate_fn = estimate_fn;
 }

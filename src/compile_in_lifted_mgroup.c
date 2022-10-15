@@ -24,8 +24,8 @@
 
 
 struct action_cond {
-    const pddl_cond_t *pre;
-    pddl_cond_arr_t cond;
+    const pddl_fm_t *pre;
+    pddl_fm_arr_t cond;
 };
 typedef struct action_cond action_cond_t;
 
@@ -38,22 +38,22 @@ typedef struct action_conds action_conds_t;
 
 static void actionCondsInit(action_conds_t *acs)
 {
-    bzero(acs, sizeof(*acs));
+    ZEROIZE(acs);
 }
 
 static void actionCondsFree(action_conds_t *acs)
 {
     for (int i = 0; i < acs->cond_size; ++i){
         for (int ci = 0; ci < acs->cond[i].cond.size; ++ci)
-            pddlCondDel((pddl_cond_t *)acs->cond[i].cond.cond[ci]);
-        pddlCondArrFree(&acs->cond[i].cond);
+            pddlFmDel((pddl_fm_t *)acs->cond[i].cond.cond[ci]);
+        pddlFmArrFree(&acs->cond[i].cond);
     }
     if (acs->cond != NULL)
         FREE(acs->cond);
 }
 
-static pddl_cond_arr_t *actionConds(action_conds_t *acs,
-                                    const pddl_cond_t *pre)
+static pddl_fm_arr_t *actionConds(action_conds_t *acs,
+                                    const pddl_fm_t *pre)
 {
     for (int i = 0; i < acs->cond_size; ++i){
         if (acs->cond[i].pre == pre)
@@ -67,17 +67,17 @@ static pddl_cond_arr_t *actionConds(action_conds_t *acs,
         acs->cond = REALLOC_ARR(acs->cond, action_cond_t, acs->cond_alloc);
     }
     acs->cond[acs->cond_size].pre = pre;
-    pddlCondArrInit(&acs->cond[acs->cond_size].cond);
+    pddlFmArrInit(&acs->cond[acs->cond_size].cond);
     ++acs->cond_size;
     return &acs->cond[acs->cond_size - 1].cond;
 }
 
-static pddl_cond_t *actionCondsMerge(const action_conds_t *acs,
-                                     const pddl_cond_t *pre,
+static pddl_fm_t *actionCondsMerge(const action_conds_t *acs,
+                                     const pddl_fm_t *pre,
                                      const pddl_t *pddl,
                                      const pddl_params_t *param)
 {
-    const pddl_cond_arr_t *conds = NULL;
+    const pddl_fm_arr_t *conds = NULL;
     for (int i = 0; i < acs->cond_size; ++i){
         if (acs->cond[i].pre == pre)
             conds = &acs->cond[i].cond;
@@ -86,32 +86,32 @@ static pddl_cond_t *actionCondsMerge(const action_conds_t *acs,
     if (conds == NULL)
         return NULL;
 
-    pddl_cond_t *out = pddlCondNewEmptyAnd();
+    pddl_fm_t *out = pddlFmNewEmptyAnd();
     for (int i = 0; i < conds->size; ++i){
-        pddl_cond_t *c = pddlCondNegate(conds->cond[i], pddl);
-        c = pddlCondSimplify(c, pddl, param);
-        c = pddlCondNormalize(c, pddl, param);
-        c = pddlCondSimplify(c, pddl, param);
-        pddlCondPartAdd(PDDL_COND_CAST(out, part), c);
-        out = pddlCondSimplify(out, pddl, param);
-        out = pddlCondNormalize(out, pddl, param);
-        out = pddlCondSimplify(out, pddl, param);
-        if (out->type != PDDL_COND_AND){
-            pddl_cond_t *n = pddlCondNewEmptyAnd();
-            pddlCondPartAdd(PDDL_COND_CAST(n, part), out);
+        pddl_fm_t *c = pddlFmNegate(conds->cond[i], pddl);
+        c = pddlFmSimplify(c, pddl, param);
+        c = pddlFmNormalize(c, pddl, param);
+        c = pddlFmSimplify(c, pddl, param);
+        pddlFmJuncAdd(pddlFmToJunc(out), c);
+        out = pddlFmSimplify(out, pddl, param);
+        out = pddlFmNormalize(out, pddl, param);
+        out = pddlFmSimplify(out, pddl, param);
+        if (out->type != PDDL_FM_AND){
+            pddl_fm_t *n = pddlFmNewEmptyAnd();
+            pddlFmJuncAdd(pddlFmToJunc(n), out);
             out = n;
         }
     }
-    out = pddlCondSimplify(out, pddl, param);
-    out = pddlCondNormalize(out, pddl, param);
-    out = pddlCondSimplify(out, pddl, param);
+    out = pddlFmSimplify(out, pddl, param);
+    out = pddlFmNormalize(out, pddl, param);
+    out = pddlFmSimplify(out, pddl, param);
     return out;
 }
 
 static int checkInequality(const pddl_unify_t *unify,
                            const pddl_t *pddl,
                            const pddl_action_t *action,
-                           const pddl_cond_t *pre)
+                           const pddl_fm_t *pre)
 {
     int eq_pred = pddl->pred.eq_pred;
     const pddl_params_t *param = &action->param;
@@ -121,28 +121,28 @@ static int checkInequality(const pddl_unify_t *unify,
                     || pddlUnifyCheckInequality(unify, param, eq_pred, pre));
 }
 
-static pddl_cond_t *condAtomsNotEqual(const pddl_t *pddl,
+static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
                                       const pddl_params_t *param,
-                                      const pddl_cond_atom_t *a1,
-                                      const pddl_cond_atom_t *a2,
-                                      const pddl_cond_t *unifier_cond)
+                                      const pddl_fm_atom_t *a1,
+                                      const pddl_fm_atom_t *a2,
+                                      const pddl_fm_t *unifier_cond)
 {
     if (a1->pred != a2->pred){
-        return &pddlCondNewBool(1)->cls;
+        return &pddlFmNewBool(1)->fm;
     }else if (a1->arg_size == 0){
-        return &pddlCondNewBool(0)->cls;
+        return &pddlFmNewBool(0)->fm;
     }
 
-    pddl_cond_t *or = pddlCondNewEmptyOr();
+    pddl_fm_t *or = pddlFmNewEmptyOr();
     for (int i = 0; i < a1->arg_size; ++i){
-        pddl_cond_atom_t *eq = pddlCondNewEmptyAtom(2);
+        pddl_fm_atom_t *eq = pddlFmNewEmptyAtom(2);
         eq->pred = pddl->pred.eq_pred;
         if (a1->arg[i].param >= 0 && a2->arg[i].param >= 0){
             int type1 = param->param[a1->arg[i].param].type;
             int type2 = param->param[a2->arg[i].param].type;
             if (pddlTypesAreDisjunct(&pddl->type, type1, type2)){
-                pddlCondDel(or);
-                return &pddlCondNewBool(1)->cls;
+                pddlFmDel(or);
+                return &pddlFmNewBool(1)->fm;
             }
 
             if (a1->arg[i].param < a2->arg[i].param){
@@ -156,8 +156,8 @@ static pddl_cond_t *condAtomsNotEqual(const pddl_t *pddl,
         }else if (a1->arg[i].param >= 0){
             int type = param->param[a1->arg[i].param].type;
             if (!pddlTypesObjHasType(&pddl->type, type, a2->arg[i].obj)){
-                pddlCondDel(or);
-                return &pddlCondNewBool(1)->cls;
+                pddlFmDel(or);
+                return &pddlFmNewBool(1)->fm;
             }
             eq->arg[0] = a1->arg[i];
             eq->arg[1] = a2->arg[i];
@@ -165,24 +165,24 @@ static pddl_cond_t *condAtomsNotEqual(const pddl_t *pddl,
         }else if (a2->arg[i].param >= 0){
             int type = param->param[a2->arg[i].param].type;
             if (!pddlTypesObjHasType(&pddl->type, type, a1->arg[i].obj)){
-                pddlCondDel(or);
-                return &pddlCondNewBool(1)->cls;
+                pddlFmDel(or);
+                return &pddlFmNewBool(1)->fm;
             }
             eq->arg[0] = a2->arg[i];
             eq->arg[1] = a1->arg[i];
 
         }else{
             if (a1->arg[i].obj != a2->arg[i].obj){
-                pddlCondDel(or);
-                return &pddlCondNewBool(1)->cls;
+                pddlFmDel(or);
+                return &pddlFmNewBool(1)->fm;
             }
         }
 
-        pddl_cond_const_it_atom_t it;
-        const pddl_cond_atom_t *a;
+        pddl_fm_const_it_atom_t it;
+        const pddl_fm_atom_t *a;
         int unsat = 0;
-        PDDL_COND_FOR_EACH_ATOM(unifier_cond, &it, a){
-            if (pddlCondEq(&a->cls, &eq->cls)){
+        PDDL_FM_FOR_EACH_ATOM(unifier_cond, &it, a){
+            if (pddlFmEq(&a->fm, &eq->fm)){
                 unsat = 1;
                 break;
             }
@@ -191,12 +191,12 @@ static pddl_cond_t *condAtomsNotEqual(const pddl_t *pddl,
             continue;
 
         eq->neg = 1;
-        pddlCondPartAdd(PDDL_COND_CAST(or, part), &eq->cls);
+        pddlFmJuncAdd(pddlFmToJunc(or), &eq->fm);
     }
 
-    if (pddlCondPartIsEmpty(PDDL_COND_CAST(or, part))){
-        pddlCondDel(or);
-        return &pddlCondNewBool(0)->cls;
+    if (pddlFmJuncIsEmpty(pddlFmToJunc(or))){
+        pddlFmDel(or);
+        return &pddlFmNewBool(0)->fm;
     }
     return or;
 }
@@ -204,13 +204,13 @@ static pddl_cond_t *condAtomsNotEqual(const pddl_t *pddl,
 static void mutexUnify2(const pddl_t *pddl,
                         const pddl_action_t *action,
                         const pddl_lifted_mgroup_t *mgroup,
-                        const pddl_cond_t *pre,
-                        const pddl_cond_t *pre2,
-                        const pddl_cond_atom_t *pre_atom1,
-                        const pddl_cond_atom_t *mg_atom1,
+                        const pddl_fm_t *pre,
+                        const pddl_fm_t *pre2,
+                        const pddl_fm_atom_t *pre_atom1,
+                        const pddl_fm_atom_t *mg_atom1,
                         const pddl_unify_t *unify1,
-                        const pddl_cond_atom_t *pre_atom2,
-                        const pddl_cond_atom_t *mg_atom2,
+                        const pddl_fm_atom_t *pre_atom2,
+                        const pddl_fm_atom_t *mg_atom2,
                         action_conds_t *acs,
                         pddl_err_t *err)
 {
@@ -223,16 +223,16 @@ static void mutexUnify2(const pddl_t *pddl,
             && pddlUnifyAtomsDiffer(&unify, pre_param, pre_atom1,
                                             pre_param, pre_atom2)){
 
-        pddl_cond_t *unifier_c = pddlUnifyToCond(&unify, eq_pred, pre_param);
-        pddl_cond_t *ineq_c = condAtomsNotEqual(pddl, pre_param, pre_atom1,
+        pddl_fm_t *unifier_c = pddlUnifyToCond(&unify, eq_pred, pre_param);
+        pddl_fm_t *ineq_c = condAtomsNotEqual(pddl, pre_param, pre_atom1,
                                                 pre_atom2, unifier_c);
-        pddl_cond_t *action_c = pddlCondNewAnd2(unifier_c, ineq_c);
-        action_c = pddlCondSimplify(action_c, pddl, pre_param);
+        pddl_fm_t *action_c = pddlFmNewAnd2(unifier_c, ineq_c);
+        action_c = pddlFmSimplify(action_c, pddl, pre_param);
 
-        pddl_cond_arr_t *action_cond = actionConds(acs, pre);
+        pddl_fm_arr_t *action_cond = actionConds(acs, pre);
         for (int i = 0; i < action_cond->size; ++i){
-            if (pddlCondEq(action_c, action_cond->cond[i])){
-                pddlCondDel(action_c);
+            if (pddlFmEq(action_c, action_cond->cond[i])){
+                pddlFmDel(action_c);
                 action_c = NULL;
             }
         }
@@ -242,7 +242,7 @@ static void mutexUnify2(const pddl_t *pddl,
                 action->name,
                 F_LIFTED_MGROUP(pddl, mgroup),
                 F_COND_PDDL(action_c, pddl, pre_param));
-            pddlCondArrAdd(action_cond, action_c);
+            pddlFmArrAdd(action_cond, action_c);
         }
     }
     pddlUnifyFree(&unify);
@@ -251,11 +251,11 @@ static void mutexUnify2(const pddl_t *pddl,
 static void mutexUnify1(const pddl_t *pddl,
                         const pddl_action_t *action,
                         const pddl_lifted_mgroup_t *mgroup,
-                        const pddl_cond_t *pre,
-                        const pddl_cond_t *pre2,
-                        pddl_cond_const_it_atom_t it,
-                        const pddl_cond_atom_t *pre_atom1,
-                        const pddl_cond_atom_t *mg_atom1,
+                        const pddl_fm_t *pre,
+                        const pddl_fm_t *pre2,
+                        pddl_fm_const_it_atom_t it,
+                        const pddl_fm_atom_t *pre_atom1,
+                        const pddl_fm_atom_t *mg_atom1,
                         action_conds_t *acs,
                         pddl_err_t *err)
 
@@ -266,11 +266,11 @@ static void mutexUnify1(const pddl_t *pddl,
     pddlUnifyApplyEquality(&unify, &action->param, eq_pred, pre);
     if (pddlUnify(&unify, pre_atom1, mg_atom1) == 0
             && checkInequality(&unify, pddl, action, pre)){
-        const pddl_cond_atom_t *pre_atom2, *mg_atom2;
-        PDDL_COND_FOR_EACH_ATOM_CONT(&it, pre_atom2){
+        const pddl_fm_atom_t *pre_atom2, *mg_atom2;
+        PDDL_FM_FOR_EACH_ATOM_CONT(&it, pre_atom2){
             if (pre_atom2->neg)
                 continue;
-            PDDL_COND_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom2){
+            PDDL_FM_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom2){
                 if (mg_atom2 == mg_atom1 || pre_atom2 == pre_atom1)
                     continue;
                 if (pre_atom2->pred != mg_atom2->pred)
@@ -281,12 +281,12 @@ static void mutexUnify1(const pddl_t *pddl,
             }
         }
         if (pre2 != NULL){
-            pddl_cond_const_it_atom_t it;
-            const pddl_cond_atom_t *pre_atom2, *mg_atom2;
-            PDDL_COND_FOR_EACH_ATOM(pre2, &it, pre_atom2){
+            pddl_fm_const_it_atom_t it;
+            const pddl_fm_atom_t *pre_atom2, *mg_atom2;
+            PDDL_FM_FOR_EACH_ATOM(pre2, &it, pre_atom2){
                 if (pre_atom2->neg)
                     continue;
-                PDDL_COND_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom2){
+                PDDL_FM_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom2){
                     if (mg_atom2 == mg_atom1 || pre_atom2 == pre_atom1)
                         continue;
                     if (pre_atom2->pred != mg_atom2->pred)
@@ -304,17 +304,17 @@ static void mutexUnify1(const pddl_t *pddl,
 static void mutex(const pddl_t *pddl,
                   const pddl_action_t *action,
                   const pddl_lifted_mgroup_t *mgroup,
-                  const pddl_cond_t *pre,
-                  const pddl_cond_t *pre2,
+                  const pddl_fm_t *pre,
+                  const pddl_fm_t *pre2,
                   action_conds_t *acs,
                   pddl_err_t *err)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *pre_atom1, *mg_atom1;
-    PDDL_COND_FOR_EACH_ATOM(pre, &it, pre_atom1){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *pre_atom1, *mg_atom1;
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, pre_atom1){
         if (pre_atom1->neg)
             continue;
-        PDDL_COND_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom1){
+        PDDL_FM_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom1){
             if (pre_atom1->pred != mg_atom1->pred)
                 continue;
             mutexUnify1(pddl, action, mgroup, pre, pre2,
@@ -336,9 +336,9 @@ static void compileInMutex(const pddl_t *pddl,
 
     mutex(pddl, action, &mgroup, action->pre, NULL, acs, err);
 
-    pddl_cond_const_it_when_t wit;
-    const pddl_cond_when_t *when;
-    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
+    pddl_fm_const_it_when_t wit;
+    const pddl_fm_when_t *when;
+    PDDL_FM_FOR_EACH_WHEN(action->eff, &wit, when){
         mutex(pddl, action, &mgroup, when->pre, action->pre, acs, err);
     }
 
@@ -350,24 +350,24 @@ static void compileInMutex(const pddl_t *pddl,
 static int deadEndCollectNegConds(const pddl_t *pddl,
                                   const pddl_action_t *action,
                                   const pddl_lifted_mgroup_t *mgroup,
-                                  const pddl_cond_t *pre,
-                                  const pddl_cond_t *eff,
+                                  const pddl_fm_t *pre,
+                                  const pddl_fm_t *eff,
                                   const pddl_unify_t *unify_goal_del_pre,
-                                  const pddl_cond_atom_t *pre_atom,
-                                  const pddl_cond_atom_t *del_atom,
-                                  const pddl_cond_atom_t *mg_del_atom,
-                                  const pddl_cond_t *cond_del,
-                                  pddl_cond_part_t *cond,
+                                  const pddl_fm_atom_t *pre_atom,
+                                  const pddl_fm_atom_t *del_atom,
+                                  const pddl_fm_atom_t *mg_del_atom,
+                                  const pddl_fm_t *cond_del,
+                                  pddl_fm_junc_t *cond,
                                   pddl_err_t *err)
 {
     int eq_pred = pddl->pred.eq_pred;
-    pddl_cond_const_it_t itadd;
-    const pddl_cond_atom_t *add;
-    PDDL_COND_FOR_EACH_ATOM(eff, &itadd, add){
+    pddl_fm_const_it_t itadd;
+    const pddl_fm_atom_t *add;
+    PDDL_FM_FOR_EACH_ATOM(eff, &itadd, add){
         if (add->neg)
             continue;
-        const pddl_cond_atom_t *mg_atom;
-        PDDL_COND_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom){
+        const pddl_fm_atom_t *mg_atom;
+        PDDL_FM_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom){
             if (add->pred != mg_atom->pred)
                 continue;
             if (mg_atom == mg_del_atom)
@@ -380,17 +380,17 @@ static int deadEndCollectNegConds(const pddl_t *pddl,
                     return -1;
 
                 }else{
-                    pddl_cond_t *c;
+                    pddl_fm_t *c;
                     c = pddlUnifyToCond(&unify, eq_pred, &action->param);
-                    c = pddlCondSimplify(c, pddl, &action->param);
-                    if (pddlCondIsEntailed(c, cond_del, pddl, &action->param)){
-                        pddlCondDel(c);
+                    c = pddlFmSimplify(c, pddl, &action->param);
+                    if (pddlFmIsEntailed(c, cond_del, pddl, &action->param)){
+                        pddlFmDel(c);
                         return -1;
                     }
 
-                    c = pddlCondNegate(c, pddl);
-                    c = pddlCondSimplify(c, pddl, &action->param);
-                    pddlCondPartAdd(cond, c);
+                    c = pddlFmNegate(c, pddl);
+                    c = pddlFmSimplify(c, pddl, &action->param);
+                    pddlFmJuncAdd(cond, c);
                 }
             }
             pddlUnifyFree(&unify);
@@ -403,31 +403,31 @@ static int deadEndCollectNegConds(const pddl_t *pddl,
 static void deadEndAdd(const pddl_t *pddl,
                        const pddl_action_t *action,
                        const pddl_lifted_mgroup_t *mgroup,
-                       const pddl_cond_t *pre,
-                       const pddl_cond_t *eff,
+                       const pddl_fm_t *pre,
+                       const pddl_fm_t *eff,
                        const pddl_unify_t *unify_goal_del_pre,
-                       const pddl_cond_atom_t *del_atom,
-                       const pddl_cond_atom_t *pre_atom,
-                       const pddl_cond_atom_t *mg_del_atom,
+                       const pddl_fm_atom_t *del_atom,
+                       const pddl_fm_atom_t *pre_atom,
+                       const pddl_fm_atom_t *mg_del_atom,
                        action_conds_t *acs,
                        pddl_err_t *err)
 {
     int eq_pred = pddl->pred.eq_pred;
-    pddl_cond_t *cond_del, *cond;
+    pddl_fm_t *cond_del, *cond;
 
     cond_del = pddlUnifyToCond(unify_goal_del_pre, eq_pred, &action->param);
-    cond_del = pddlCondSimplify(cond_del, pddl, &action->param);
-    cond = pddlCondNewEmptyAnd();
+    cond_del = pddlFmSimplify(cond_del, pddl, &action->param);
+    cond = pddlFmNewEmptyAnd();
 
     if (deadEndCollectNegConds(pddl, action, mgroup, pre, eff,
                                unify_goal_del_pre, pre_atom, del_atom, mg_del_atom,
-                               cond_del, PDDL_COND_CAST(cond, part), err) == 0){
-        pddlCondPartAdd(PDDL_COND_CAST(cond, part), cond_del);
-        cond = pddlCondSimplify(cond, pddl, &action->param);
-        pddl_cond_arr_t *action_cond = actionConds(acs, pre);
+                               cond_del, pddlFmToJunc(cond), err) == 0){
+        pddlFmJuncAdd(pddlFmToJunc(cond), cond_del);
+        cond = pddlFmSimplify(cond, pddl, &action->param);
+        pddl_fm_arr_t *action_cond = actionConds(acs, pre);
         for (int i = 0; i < action_cond->size; ++i){
-            if (pddlCondEq(cond, action_cond->cond[i])){
-                pddlCondDel(cond);
+            if (pddlFmEq(cond, action_cond->cond[i])){
+                pddlFmDel(cond);
                 cond = NULL;
             }
         }
@@ -437,33 +437,33 @@ static void deadEndAdd(const pddl_t *pddl,
                 action->name,
                 F_LIFTED_MGROUP(pddl, mgroup),
                 F_COND_PDDL_BUFSIZE(cond, pddl, &action->param, 10000));
-            pddlCondArrAdd(action_cond, cond);
+            pddlFmArrAdd(action_cond, cond);
         }
     }else{
-        pddlCondDel(cond_del);
-        pddlCondDel(cond);
+        pddlFmDel(cond_del);
+        pddlFmDel(cond);
     }
 }
 
 static void deadEndPre(const pddl_t *pddl,
                        const pddl_action_t *action,
                        const pddl_lifted_mgroup_t *mgroup,
-                       const pddl_cond_t *pre,
-                       const pddl_cond_t *eff,
+                       const pddl_fm_t *pre,
+                       const pddl_fm_t *eff,
                        const pddl_unify_t *unify_del,
-                       const pddl_cond_atom_t *del_atom,
-                       const pddl_cond_atom_t *mg_atom,
+                       const pddl_fm_atom_t *del_atom,
+                       const pddl_fm_atom_t *mg_atom,
                        action_conds_t *acs,
                        pddl_err_t *err)
 {
-    const pddl_cond_t *pres[2] = {action->pre, pre};
+    const pddl_fm_t *pres[2] = {action->pre, pre};
     for (int i = 0; i < 2; ++i){
-        const pddl_cond_t *pre = pres[i];
+        const pddl_fm_t *pre = pres[i];
         if (pre == NULL)
             continue;
-        pddl_cond_const_it_t itpre;
-        const pddl_cond_atom_t *pre_atom;
-        PDDL_COND_FOR_EACH_ATOM(pre, &itpre, pre_atom){
+        pddl_fm_const_it_t itpre;
+        const pddl_fm_atom_t *pre_atom;
+        PDDL_FM_FOR_EACH_ATOM(pre, &itpre, pre_atom){
             if (pre_atom->neg)
                 continue;
             if (pre_atom->pred != mg_atom->pred)
@@ -483,19 +483,19 @@ static void deadEndPre(const pddl_t *pddl,
 static void deadEndDel(const pddl_t *pddl,
                        const pddl_action_t *action,
                        const pddl_lifted_mgroup_t *mgroup,
-                       const pddl_cond_t *pre,
-                       const pddl_cond_t *eff,
+                       const pddl_fm_t *pre,
+                       const pddl_fm_t *eff,
                        const pddl_unify_t *unify_goal,
                        action_conds_t *acs,
                        pddl_err_t *err)
 {
-    pddl_cond_const_it_t itdel;
-    const pddl_cond_atom_t *del_atom;
-    PDDL_COND_FOR_EACH_ATOM(eff, &itdel, del_atom){
+    pddl_fm_const_it_t itdel;
+    const pddl_fm_atom_t *del_atom;
+    PDDL_FM_FOR_EACH_ATOM(eff, &itdel, del_atom){
         if (!del_atom->neg)
             continue;
-        const pddl_cond_atom_t *mg_atom;
-        PDDL_COND_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom){
+        const pddl_fm_atom_t *mg_atom;
+        PDDL_FM_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom){
             if (del_atom->pred != mg_atom->pred)
                 continue;
             pddl_unify_t unify;
@@ -513,15 +513,15 @@ static void deadEndDel(const pddl_t *pddl,
 static void deadEndGoal(const pddl_t *pddl,
                         const pddl_action_t *action,
                         const pddl_lifted_mgroup_t *mgroup,
-                        const pddl_cond_t *pre,
-                        const pddl_cond_t *eff,
+                        const pddl_fm_t *pre,
+                        const pddl_fm_t *eff,
                         action_conds_t *acs,
                         pddl_err_t *err)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *goal_atom, *mg_atom;
-    PDDL_COND_FOR_EACH_ATOM(pddl->goal, &it, goal_atom){
-        PDDL_COND_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *goal_atom, *mg_atom;
+    PDDL_FM_FOR_EACH_ATOM(pddl->goal, &it, goal_atom){
+        PDDL_FM_ARR_FOR_EACH_ATOM(&mgroup->cond, mg_atom){
             if (goal_atom->pred != mg_atom->pred)
                 continue;
             pddl_unify_t unify;
@@ -538,8 +538,8 @@ static void deadEndGoal(const pddl_t *pddl,
 static void deadEnd(const pddl_t *pddl,
                     const pddl_action_t *action,
                     const pddl_lifted_mgroup_t *mgroup,
-                    const pddl_cond_t *pre,
-                    const pddl_cond_t *eff,
+                    const pddl_fm_t *pre,
+                    const pddl_fm_t *eff,
                     action_conds_t *acs,
                     pddl_err_t *err)
 {
@@ -559,9 +559,9 @@ static void compileInDeadEnd(const pddl_t *pddl,
     deadEnd(pddl, action, &mgroup, action->pre, action->eff, acs, err);
 
     /*
-    pddl_cond_const_it_when_t wit;
-    const pddl_cond_when_t *when;
-    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
+    pddl_fm_const_it_when_t wit;
+    const pddl_fm_when_t *when;
+    PDDL_FM_FOR_EACH_WHEN(action->eff, &wit, when){
         mutex(pddl, action, &mgroup, &action->param,
               when->pre, action->pre, acs, err);
     }
@@ -597,28 +597,28 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
             compileInDeadEnd(pddl, action, mgroups->mgroup + mgi, &acs, err);
         }
 
-        pddl_cond_t *c;
+        pddl_fm_t *c;
         c = actionCondsMerge(&acs, action->pre, pddl, &action->param);
         if (c != NULL){
             LOG(err, "Precondition of action '%s' extended with %s",
                 action->name,
                 F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
-            action->pre = pddlCondNewAnd2(action->pre, c);
+            action->pre = pddlFmNewAnd2(action->pre, c);
             changed = 1;
         }
 
-        pddl_cond_const_it_when_t wit;
-        const pddl_cond_when_t *when;
-        PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
-            pddl_cond_t *c;
+        pddl_fm_const_it_when_t wit;
+        const pddl_fm_when_t *when;
+        PDDL_FM_FOR_EACH_WHEN(action->eff, &wit, when){
+            pddl_fm_t *c;
             c = actionCondsMerge(&acs, when->pre, pddl, &action->param);
             if (c != NULL){
                 LOG(err, "Precondition of a conditional effect of"
                     " action '%s' extended with %s",
                     action->name,
                     F_COND_PDDL_BUFSIZE(c, pddl, &action->param, 10000));
-                pddl_cond_when_t *wwhen = (pddl_cond_when_t *)when;
-                wwhen->pre = pddlCondNewAnd2(when->pre, c);
+                pddl_fm_when_t *wwhen = (pddl_fm_when_t *)when;
+                wwhen->pre = pddlFmNewAnd2(when->pre, c);
                 changed = 1;
             }
         }

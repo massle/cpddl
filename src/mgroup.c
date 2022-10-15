@@ -49,7 +49,7 @@ typedef struct pred_tree pred_tree_t;
 static int checkFact(const pddl_types_t *types,
                      const pddl_ground_atom_t *ga,
                      const pddl_lifted_mgroup_t *mg,
-                     const pddl_cond_atom_t *mg_atom)
+                     const pddl_fm_atom_t *mg_atom)
 {
     if (ga->pred != mg_atom->pred)
         return 0;
@@ -83,7 +83,7 @@ static void predTreeInitNode(pred_tree_t *tree,
                              int next,
                              pddl_obj_id_t obj)
 {
-    bzero(tnode, sizeof(*tnode));
+    ZEROIZE(tnode);
     tnode->depth = next;
     tnode->obj = obj;
     if (next >= tree->arg_size){
@@ -94,7 +94,7 @@ static void predTreeInitNode(pred_tree_t *tree,
 }
 
 struct arg_order {
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
     const pddl_params_t *mg_params;
 };
 
@@ -103,7 +103,7 @@ static int cmpArgOrder(const void *a, const void *b, void *_ao)
     int ai1 = *(int *)a;
     int ai2 = *(int *)b;
     const struct arg_order *ao = _ao;
-    const pddl_cond_atom_t *atom = ao->atom;
+    const pddl_fm_atom_t *atom = ao->atom;
     const pddl_params_t *params = ao->mg_params;
 
     int a1obj = atom->arg[ai1].obj;
@@ -131,9 +131,9 @@ static int cmpArgOrder(const void *a, const void *b, void *_ao)
 
 static void predTreeInit(pred_tree_t *tree,
                          const pddl_lifted_mgroup_t *mg,
-                         const pddl_cond_atom_t *atom)
+                         const pddl_fm_atom_t *atom)
 {
-    bzero(tree, sizeof(*tree));
+    ZEROIZE(tree);
     tree->arg_size = atom->arg_size;
     tree->arg = ALLOC_ARR(int, atom->arg_size);
 
@@ -211,9 +211,9 @@ static void buildPredTrees(pred_tree_t *tree,
                            const pddl_strips_t *strips,
                            const pddl_lifted_mgroup_t *mg)
 {
-    bzero(tree, sizeof(*tree) * mg->cond.size);
+    ZEROIZE_ARR(tree, mg->cond.size);
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ci], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ci], atom);
         predTreeInit(tree + ci, mg, a);
     }
 
@@ -223,7 +223,7 @@ static void buildPredTrees(pred_tree_t *tree,
             continue;
         const pddl_ground_atom_t *ga = fact->ground_atom;
         for (int ci = 0; ci < mg->cond.size; ++ci){
-            const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ci], atom);
+            const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.cond[ci], atom);
             if (a->pred == ga->pred && checkFact(&pddl->type, ga, mg, a))
                 predTreeAdd(&tree[ci], fact);
         }
@@ -384,7 +384,7 @@ void pddlMGroupFree(pddl_mgroup_t *m)
 
 void pddlMGroupsInitEmpty(pddl_mgroups_t *mg)
 {
-    bzero(mg, sizeof(*mg));
+    ZEROIZE(mg);
 }
 
 void pddlMGroupsInitCopy(pddl_mgroups_t *dst, const pddl_mgroups_t *src)
@@ -447,7 +447,7 @@ pddl_mgroup_t *pddlMGroupsAdd(pddl_mgroups_t *mg, const pddl_iset_t *fact)
     }
 
     pddl_mgroup_t *m = mg->mgroup + mg->mgroup_size++;
-    bzero(m, sizeof(*m));
+    ZEROIZE(m);
     m->lifted_mgroup_id = -1;
     pddlISetUnion(&m->mgroup, fact);
     return m;
@@ -711,17 +711,16 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
                     " Missing LP solver!");
     }
 
-    unsigned lp_flags;
-    pddl_lp_t *lp;
     int cover_number = 0;
 
     int cols = fact_size + mgs->mgroup_size;
     int rows = fact_size + 1;
 
-    lp_flags  = PDDL_LP_DEFAULT;
-    lp_flags |= PDDL_LP_NUM_THREADS(1);
-    lp_flags |= PDDL_LP_MIN;
-    lp = pddlLPNew(rows, cols, lp_flags, NULL);
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 0;
+    cfg.rows = rows;
+    cfg.cols = cols;
+    pddl_lp_t *lp = pddlLPNew(&cfg, NULL);
 
     for (int i = 0; i < cols; ++i){
         pddlLPSetVarBinary(lp, i);
@@ -801,8 +800,7 @@ void pddlMGroupsEssentialFacts(const pddl_mgroups_t *mgroup, pddl_iset_t *ess)
                 while (fact >= fact_alloc)
                     fact_alloc *= 2;
                 fact_mgroups = REALLOC_ARR(fact_mgroups, int, fact_alloc);
-                bzero(fact_mgroups + orig_alloc,
-                      sizeof(int) * (fact_alloc - orig_alloc));
+                ZEROIZE_ARR(fact_mgroups + orig_alloc, fact_alloc - orig_alloc);
             }
             ++fact_mgroups[fact];
             fact_size = PDDL_MAX(fact_size, fact + 1);

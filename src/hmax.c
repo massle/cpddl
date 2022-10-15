@@ -57,7 +57,7 @@ static int stripsNumCondEffs(const pddl_strips_t *strips)
 
 void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
@@ -129,7 +129,7 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
 
 void pddlHMaxInitStrips(pddl_hmax_t *h, const pddl_strips_t *strips)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact

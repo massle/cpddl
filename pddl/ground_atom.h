@@ -24,7 +24,7 @@
 #include <pddl/lisp.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
-#include <pddl/cond.h>
+#include <pddl/fm.h>
 #include <pddl/iset.h>
 
 #ifdef __cplusplus
@@ -81,7 +81,7 @@ void pddlGroundAtomsFree(pddl_ground_atoms_t *fs);
  * was added in the past.
  */
 pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
-                                           const pddl_cond_atom_t *c,
+                                           const pddl_fm_atom_t *c,
                                            const pddl_obj_id_t *arg);
 
 /**
@@ -97,7 +97,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
  * Find the grounded fact.
  */
 pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
-                                            const pddl_cond_atom_t *c,
+                                            const pddl_fm_atom_t *c,
                                             const pddl_obj_id_t *arg);
 pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
                                             int pred,

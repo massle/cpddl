@@ -19,7 +19,7 @@
 
 void pddlSetInit(pddl_set_t *s)
 {
-    bzero(s, sizeof(*s));
+    ZEROIZE(s);
 }
 
 void pddlSetFree(pddl_set_t *s)

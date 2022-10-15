@@ -174,7 +174,7 @@ static void h3Init(h3_t *h3,
                    size_t excess_mem,
                    pddl_err_t *err)
 {
-    bzero(h3, sizeof(*h3));
+    ZEROIZE(h3);
     h3->fact_size = strips->fact.fact_size;
     h3->op_size = strips->op.op_size;
     h3->meta_fact1 = CALLOC_ARR(char, h3->fact_size);
@@ -527,7 +527,7 @@ static int applyOp(const pddl_strips_op_t *op, h3_t *h3)
         }
 
     }else{
-        bzero(h3->ext, sizeof(int) * h3->fact_size);
+        ZEROIZE_ARR(h3->ext, h3->fact_size);
         for (int f1 = 0; f1 < h3->fact_size; ++f1){
             if (pddlISetIn(f1, &op->add_eff)
                     || pddlISetIn(f1, &op->del_eff)

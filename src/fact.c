@@ -88,7 +88,7 @@ static pddl_fact_t *factFromGroundAtom(const pddl_ground_atom_t *ga,
 
 void pddlFactInit(pddl_fact_t *f)
 {
-    bzero(f, sizeof(*f));
+    ZEROIZE(f);
     f->neg_of = -1;
 }
 
@@ -160,7 +160,7 @@ static void makeSpace(pddl_facts_t *fs)
 
 void pddlFactsInit(pddl_facts_t *fs)
 {
-    bzero(fs, sizeof(*fs));
+    ZEROIZE(fs);
     fs->htable = pddlHTableNew(htableKey, htableEq, fs);
 }
 
@@ -248,7 +248,7 @@ int pddlFactsDelFactsGenRemap(int fact_size,
 {
     int size = 0;
 
-    bzero(remap, sizeof(int) * fact_size);
+    ZEROIZE_ARR(remap, fact_size);
 
     int fact_id;
     PDDL_ISET_FOR_EACH(del_facts, fact_id){
