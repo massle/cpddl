@@ -67,6 +67,8 @@ struct options {
         int remove_empty_types;
         int compile_away_cond_eff;
         int compile_in_lmg;
+        int compile_in_lmg_mutex;
+        int compile_in_lmg_dead_end;
         char *domain_out;
         char *problem_out;
         int stop;

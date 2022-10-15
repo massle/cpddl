@@ -463,7 +463,15 @@ static void setPddlPostprocessOptions(void)
     optsAddStr("pddl-problem-out", 0x0, &opt.pddl.problem_out, NULL,
                "Write PDDL problem file.");
     optsAddFlag("pddl-compile-in-lmg", 0x0, &opt.pddl.compile_in_lmg, 0,
-                "Compile lifted mutex groups into actions' preconditions.");
+                "Alias for --pddl-compile-in-lmg-mutex --pddl-compile-in-dead-end");
+    optsAddFlag("pddl-compile-in-lmg-mutex", 0x0,
+                &opt.pddl.compile_in_lmg_mutex, 0,
+                "Compile lifted mutex groups into actions' preconditions"
+                " pruning mutexes.");
+    optsAddFlag("pddl-compile-in-lmg-dead-end", 0x0,
+                &opt.pddl.compile_in_lmg_dead_end, 0,
+                "Compile lifted mutex groups into actions' preconditions"
+                " pruning dead-ends.");
     optsAddFlag("pddl-stop", 0x0, &opt.pddl.stop, 0,
                 "Stop after processing PDDL.");
 }

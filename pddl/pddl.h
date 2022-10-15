@@ -48,6 +48,7 @@
 #include <pddl/fm.h>
 #include <pddl/fm_arr.h>
 #include <pddl/pddl_struct.h>
+#include <pddl/compile_in_lifted_mgroup.h>
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>
 #include <pddl/strips.h>

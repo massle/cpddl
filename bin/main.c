@@ -155,10 +155,18 @@ static int stepLiftedEndomorph(void)
 
 static int stepPddlOutput(void)
 {
-    if (opt.pddl.compile_in_lmg){
-        int ret = pddlCompileInLiftedMGroups(&pddl, &lifted_mgroups, &err);
+    if (opt.pddl.compile_in_lmg
+            || opt.pddl.compile_in_lmg_mutex
+            || opt.pddl.compile_in_lmg_dead_end){
+        pddl_compile_in_lmg_config_t cfg = PDDL_COMPILE_IN_LMG_CONFIG_INIT;
+        cfg.prune_mutex = opt.pddl.compile_in_lmg
+                            || opt.pddl.compile_in_lmg_mutex;
+        cfg.prune_dead_end = opt.pddl.compile_in_lmg
+                                || opt.pddl.compile_in_lmg_dead_end;
+        int ret = pddlCompileInLiftedMGroups(&pddl, &lifted_mgroups, &cfg, &err);
         if (ret < 0)
             return -1;
+        stepLiftedMGroups();
     }
 
     PRINT_TO_FILE(&err, opt.pddl.domain_out, "PDDL domain file",
