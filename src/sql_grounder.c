@@ -283,7 +283,7 @@ static void sqlActionConstructColumns(char *query,
 
         int found = 0;
         for (int ci = 0; ci < prep_action->pre.size; ++ci){
-            const pddl_fm_t *c = prep_action->pre.cond[ci];
+            const pddl_fm_t *c = prep_action->pre.fm[ci];
             const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
             for (int ai = 0; ai < atom->arg_size; ++ai){
                 if (atom->arg[ai].param >= 0 && atom->arg[ai].param == pi){
@@ -317,7 +317,7 @@ static void sqlActionConstructTables(char *query,
     query[0] = 0x0;
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
-        const pddl_fm_t *c = prep_action->pre.cond[ci];
+        const pddl_fm_t *c = prep_action->pre.fm[ci];
         const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         if (ci != 0)
             shift += sprintf(query + shift, ", ");
@@ -342,10 +342,10 @@ static void sqlActionConstructJoinCond(char *query,
     int ins = 0;
     int shift = 0;
     for (int ci1 = 0; ci1 < prep_action->pre.size; ++ci1){
-        const pddl_fm_t *c1 = prep_action->pre.cond[ci1];
+        const pddl_fm_t *c1 = prep_action->pre.fm[ci1];
         const pddl_fm_atom_t *atom1 = PDDL_FM_CAST(c1, atom);
         for (int ci2 = ci1 + 1; ci2 < prep_action->pre.size; ++ci2){
-            const pddl_fm_t *c2 = prep_action->pre.cond[ci2];
+            const pddl_fm_t *c2 = prep_action->pre.fm[ci2];
             const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(c2, atom);
 
             for (int a1 = 0; a1 < atom1->arg_size; ++a1){
@@ -415,7 +415,7 @@ static void sqlActionConstructWhereCond(char *query,
     int ins = 0;
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre_eq.size; ++ci){
-        const pddl_fm_t *c = prep_action->pre_eq.cond[ci];
+        const pddl_fm_t *c = prep_action->pre_eq.fm[ci];
         const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         shift = addEqCond(query, shift, atom,
                           cmp[(atom->neg ? 1 : 0)],
@@ -426,7 +426,7 @@ static void sqlActionConstructWhereCond(char *query,
     int used_param[prep_action->param_size];
     ZEROIZE_ARR(used_param, prep_action->param_size);
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
-        const pddl_fm_t *c = prep_action->pre.cond[ci];
+        const pddl_fm_t *c = prep_action->pre.fm[ci];
         const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         for (int ai = 0; ai < atom->arg_size; ++ai){
             if (atom->arg[ai].param >= 0)
@@ -540,7 +540,7 @@ static int actionCheckNegPreStatic(pddl_sql_grounder_t *g,
 {
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre_neg_static.cond[i], atom);
+        atom = PDDL_FM_CAST(paction->pre_neg_static.fm[i], atom);
         if (atom->arg_size == 0){
             if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
                 return 0;
@@ -567,7 +567,7 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 {
     for (int i = 0; i < paction->pre_eq.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre_eq.cond[i], atom);
+        atom = PDDL_FM_CAST(paction->pre_eq.fm[i], atom);
         if (atom->neg){
             if (atom->arg[0].obj == atom->arg[1].obj)
                 return 0;
@@ -579,14 +579,14 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 
     for (int i = 0; i < paction->pre.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre.cond[i], atom);
+        atom = PDDL_FM_CAST(paction->pre.fm[i], atom);
         if (!sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
             return 0;
     }
 
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre_neg_static.cond[i], atom);
+        atom = PDDL_FM_CAST(paction->pre_neg_static.fm[i], atom);
         if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
             return 0;
     }

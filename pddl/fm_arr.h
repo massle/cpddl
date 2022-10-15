@@ -14,7 +14,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_fm_arr {
-    const pddl_fm_t **cond;
+    const pddl_fm_t **fm;
     int size;
     int alloc;
 };
@@ -29,8 +29,8 @@ void pddlFmArrInitCopy(pddl_fm_arr_t *dst, const pddl_fm_arr_t *src);
 
 #define PDDL_FM_ARR_FOR_EACH_ATOM(COND_ARR, ATOM) \
     for (int ___cai = 0; ___cai < (COND_ARR)->size; ++___cai) \
-        if (pddlFmIsAtom((COND_ARR)->cond[___cai]) \
-                && ((ATOM) = PDDL_FM_CAST((COND_ARR)->cond[___cai], atom)))
+        if (pddlFmIsAtom((COND_ARR)->fm[___cai]) \
+                && ((ATOM) = PDDL_FM_CAST((COND_ARR)->fm[___cai], atom)))
 
 
 #ifdef __cplusplus

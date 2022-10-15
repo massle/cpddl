@@ -146,7 +146,7 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
     paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
     for (int i = 0; i < paction->add_eff.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->add_eff.cond[i], atom);
+        atom = PDDL_FM_CAST(paction->add_eff.fm[i], atom);
 
         ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
         updated |= addGroundAtom(g, layer, atom, row, err);

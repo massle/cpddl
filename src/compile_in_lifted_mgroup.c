@@ -45,7 +45,7 @@ static void actionCondsFree(action_conds_t *acs)
 {
     for (int i = 0; i < acs->cond_size; ++i){
         for (int ci = 0; ci < acs->cond[i].cond.size; ++ci)
-            pddlFmDel((pddl_fm_t *)acs->cond[i].cond.cond[ci]);
+            pddlFmDel((pddl_fm_t *)acs->cond[i].cond.fm[ci]);
         pddlFmArrFree(&acs->cond[i].cond);
     }
     if (acs->cond != NULL)
@@ -88,7 +88,7 @@ static pddl_fm_t *actionCondsMerge(const action_conds_t *acs,
 
     pddl_fm_t *out = pddlFmNewEmptyAnd();
     for (int i = 0; i < conds->size; ++i){
-        pddl_fm_t *c = pddlFmNegate(conds->cond[i], pddl);
+        pddl_fm_t *c = pddlFmNegate(conds->fm[i], pddl);
         c = pddlFmSimplify(c, pddl, param);
         c = pddlFmNormalize(c, pddl, param);
         c = pddlFmSimplify(c, pddl, param);
@@ -231,7 +231,7 @@ static void mutexUnify2(const pddl_t *pddl,
 
         pddl_fm_arr_t *action_cond = actionConds(acs, pre);
         for (int i = 0; i < action_cond->size; ++i){
-            if (pddlFmEq(action_c, action_cond->cond[i])){
+            if (pddlFmEq(action_c, action_cond->fm[i])){
                 pddlFmDel(action_c);
                 action_c = NULL;
             }
@@ -426,7 +426,7 @@ static void deadEndAdd(const pddl_t *pddl,
         cond = pddlFmSimplify(cond, pddl, &action->param);
         pddl_fm_arr_t *action_cond = actionConds(acs, pre);
         for (int i = 0; i < action_cond->size; ++i){
-            if (pddlFmEq(cond, action_cond->cond[i])){
+            if (pddlFmEq(cond, action_cond->fm[i])){
                 pddlFmDel(cond);
                 cond = NULL;
             }

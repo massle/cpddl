@@ -514,7 +514,7 @@ static void applyAction(pddl_search_lifted_t *s,
     PDDL_ISET(edel);
     for (int i = 0; i < pa->add_eff.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(pa->add_eff.cond[i], atom);
+        atom = PDDL_FM_CAST(pa->add_eff.fm[i], atom);
         ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
 
         pddl_ground_atom_t *ga;
@@ -524,7 +524,7 @@ static void applyAction(pddl_search_lifted_t *s,
 
     for (int i = 0; i < pa->del_eff.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(pa->del_eff.cond[i], atom);
+        atom = PDDL_FM_CAST(pa->del_eff.fm[i], atom);
         ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
 
         pddl_ground_atom_t *ga;
@@ -535,7 +535,7 @@ static void applyAction(pddl_search_lifted_t *s,
     *cost = 0;
     for (int i = 0; i < pa->increase.size && s->pddl->metric; ++i){
         const pddl_fm_func_op_t *inc;
-        inc = PDDL_FM_CAST(pa->increase.cond[i], func_op);
+        inc = PDDL_FM_CAST(pa->increase.fm[i], func_op);
         if (inc->fvalue != NULL){
             const pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&s->strips.ground_func,

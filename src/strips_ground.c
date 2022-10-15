@@ -81,7 +81,7 @@ static int atomHasParam(const pddl_fm_atom_t *a, const pddl_iset_t *param)
 static int preHasParam(const pddl_prep_action_t *a, const pddl_iset_t *param)
 {
     for (int i = 0; i < a->pre.size; ++i){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.cond[i], atom);
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[i], atom);
         if (atomHasParam(atom, param))
             return 1;
     }
@@ -120,7 +120,7 @@ static void atreeFindConnectedPreParams(const pddl_prep_action_t *a,
             if (used_cond[i])
                 continue;
 
-            const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.cond[i], atom);
+            const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[i], atom);
             if (atomHasParam(atom, param)){
                 used_cond[i] = 1;
                 changed = 1;
@@ -454,7 +454,7 @@ static void _groundActionAddEff(pddl_strips_ground_t *g,
 
     const pddl_fm_atom_t *atom;
     for (int i = 0; i < a->add_eff.size; ++i){
-        atom = PDDL_FM_CAST(a->add_eff.cond[i], atom);
+        atom = PDDL_FM_CAST(a->add_eff.fm[i], atom);
         groundAtomsAddFact(g, atom, arg);
     }
 
@@ -511,7 +511,7 @@ static int groundIncrease(pddl_strips_ground_t *g,
 
     // Only (increase (total-cost) ...) is allowed.
     for (int i = 0; i < atoms->size; ++i){
-        inc = PDDL_FM_CAST(atoms->cond[i], func_op);
+        inc = PDDL_FM_CAST(atoms->fm[i], func_op);
         if (inc->fvalue != NULL){
             ga = pddlGroundAtomsFindAtom(&g->funcs, inc->fvalue, arg);
             if (ga != NULL){
@@ -539,7 +539,7 @@ static void groundAtoms(pddl_strips_ground_t *g,
     const pddl_ground_atom_t *ga;
 
     for (int i = 0; i < atoms->size; ++i){
-        atom = PDDL_FM_CAST(atoms->cond[i], atom);
+        atom = PDDL_FM_CAST(atoms->fm[i], atom);
         ga = pddlGroundAtomsFindAtom(&g->facts, atom, arg);
         if (ga != NULL)
             pddlISetAdd(out, g->ground_atom_to_fact_id[ga->id]);

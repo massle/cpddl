@@ -73,7 +73,7 @@ static void computeRelatednessOpFact(pddl_asnets_task_t *task,
     ASSERT(atom != NULL);
 
     for (int pos = 0; pos < a->atom.size; ++pos){
-        const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(a->atom.cond[pos], atom);
+        const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(a->atom.fm[pos], atom);
         if (atomEq(atom, atom2, op->action_args)){
             pddl_asnets_task_relate_t *rel = relatednessAdd(task);
             rel->op_id = op->id;
@@ -116,7 +116,7 @@ static void condArrAddUnique(pddl_fm_arr_t *carr,
 {
     for (int i = 0; i < carr->size; ++i){
         const pddl_fm_atom_t *atom2;
-        atom2 = PDDL_FM_CAST(carr->cond[i], atom);
+        atom2 = PDDL_FM_CAST(carr->fm[i], atom);
         if (pddlFmAtomCmpNoNeg(atom, atom2) == 0)
             return;
     }
