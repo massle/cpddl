@@ -589,26 +589,25 @@ static pddl_fm_t *simplifyPre(pddl_fm_t *pre,
 
 static void removeIrrelevantActions(pddl_t *pddl)
 {
-    for (int ai = 0; ai < pddl->action.action_size;){
+    PDDL_ISET(rm);
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
         pddl_action_t *a = pddl->action.action + ai;
         a->pre = simplifyPre(a->pre, pddl, &a->param);
         a->eff = pddlFmDeconflictEff(a->eff, pddl, &a->param);
 
-        if (isFalsePre(a->pre) || !pddlFmHasAtom(a->eff)){
-            pddlActionFree(a);
-            if (ai != pddl->action.action_size - 1)
-                *a = pddl->action.action[pddl->action.action_size - 1];
-            --pddl->action.action_size;
-        }else{
-            ++ai;
-        }
+        if (isFalsePre(a->pre) || !pddlFmHasAtom(a->eff))
+            pddlISetAdd(&rm, ai);
     }
+
+    pddlActionsRemoveSet(&pddl->action, &rm);
+    pddlISetFree(&rm);
 }
 
 static int removeActionsWithUnsatisfiableArgs(pddl_t *pddl)
 {
+    PDDL_ISET(rm);
     int ret = 0;
-    for (int ai = 0; ai < pddl->action.action_size;){
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
         pddl_action_t *a = pddl->action.action + ai;
         int remove = 0;
         for (int pi = 0; pi < a->param.param_size; ++pi){
@@ -619,15 +618,13 @@ static int removeActionsWithUnsatisfiableArgs(pddl_t *pddl)
         }
 
         if (remove){
-            pddlActionFree(a);
-            if (ai != pddl->action.action_size - 1)
-                *a = pddl->action.action[pddl->action.action_size - 1];
-            --pddl->action.action_size;
+            pddlISetAdd(&rm, ai);
             ret = 1;
-        }else{
-            ++ai;
         }
     }
+
+    pddlActionsRemoveSet(&pddl->action, &rm);
+    pddlISetFree(&rm);
 
     return ret;
 }
@@ -678,23 +675,22 @@ static int isInequalityUnsatisfiable(const pddl_t *pddl,
 
 static int removeUnreachableActions(pddl_t *pddl)
 {
+    PDDL_ISET(rm);
     int ret = 0;
-    for (int ai = 0; ai < pddl->action.action_size;){
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
         pddl_action_t *a = pddl->action.action + ai;
         a->pre = simplifyPre(a->pre, pddl, &a->param);
         a->eff = pddlFmDeconflictEff(a->eff, pddl, &a->param);
 
         if (isStaticPreUnreachable(pddl, a->pre)
                 || isInequalityUnsatisfiable(pddl, a)){
-            pddlActionFree(a);
-            if (ai != pddl->action.action_size - 1)
-                *a = pddl->action.action[pddl->action.action_size - 1];
-            --pddl->action.action_size;
+            pddlISetAdd(&rm, ai);
             ret = 1;
-        }else{
-            ++ai;
         }
     }
+
+    pddlActionsRemoveSet(&pddl->action, &rm);
+    pddlISetFree(&rm);
 
     return ret;
 }

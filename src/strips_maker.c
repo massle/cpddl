@@ -272,6 +272,7 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 static int createStripsFacts(pddl_strips_maker_t *sm,
                              pddl_strips_t *strips,
                              const pddl_t *pddl,
+                             const pddl_ground_config_t *cfg,
                              int **map_ground_atom_to_fact_id,
                              pddl_err_t *err)
 {
@@ -285,6 +286,13 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
         if (fact_id != ga->id){
             PDDL_FATAL2("The fact and the corresponding grounded atom have"
                         " different IDs. This is definitelly a bug!");
+        }
+    }
+
+    if (cfg->keep_all_static_facts){
+        for (int i = 0; i < sm->ground_atom_static.atom_size; ++i){
+            ga = sm->ground_atom_static.atom[i];
+            pddlFactsAddGroundAtom(&strips->fact, ga, pddl);
         }
     }
 
@@ -307,6 +315,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
 static int createInitState(pddl_strips_maker_t *sm,
                            pddl_strips_t *strips,
                            const pddl_t *pddl,
+                           const pddl_ground_config_t *cfg,
                            const int *ground_atom_to_fact_id,
                            pddl_err_t *err)
 {
@@ -320,8 +329,15 @@ static int createInitState(pddl_strips_maker_t *sm,
         if (c->type == PDDL_FM_ATOM){
             a = PDDL_FM_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&sm->ground_atom, a, NULL);
-            if (ga != NULL)
+            if (ga != NULL){
                 pddlISetAdd(&strips->init, ground_atom_to_fact_id[ga->id]);
+            }else if (cfg->keep_all_static_facts){
+                ga = pddlGroundAtomsFindAtom(&sm->ground_atom_static, a, NULL);
+                if (ga != NULL){
+                    int id = ga->id + sm->ground_atom.atom_size;
+                    pddlISetAdd(&strips->init, ground_atom_to_fact_id[id]);
+                }
+            }
         }
     }
     PDDL_INFO(err, "Created init state consisting of %d facts",
@@ -389,6 +405,7 @@ static int _createGoal(pddl_fm_t *c, void *_g)
 static int createGoal(pddl_strips_maker_t *sm,
                       pddl_strips_t *strips,
                       const pddl_t *pddl,
+                      const pddl_ground_config_t *cfg,
                       const int *ground_atom_to_fact_id,
                       pddl_err_t *err)
 {
@@ -409,6 +426,7 @@ static int createGoal(pddl_strips_maker_t *sm,
 struct action_ctx {
     pddl_strips_maker_t *sm;
     const pddl_t *pddl;
+    const pddl_ground_config_t *cfg;
     const pddl_action_t *action;
     const pddl_obj_id_t *args;
     const int *ground_atom_to_fact;
@@ -510,8 +528,13 @@ static int actionPre(pddl_fm_t *c, void *ud)
                 PDDL_FATAL2("Unsatisfied positive precondition."
                             " This is definitely a bug!\n");
             }
-            if (!is_static)
+            if (!is_static){
                 pddlISetAdd(&ctx->op->pre, ctx->ground_atom_to_fact[ga->id]);
+
+            }else if (ctx->cfg->keep_all_static_facts){
+                int id = ga->id + ctx->sm->ground_atom.atom_size;
+                pddlISetAdd(&ctx->op->pre, ctx->ground_atom_to_fact[id]);
+            }
         }
         return 0;
 
@@ -637,6 +660,7 @@ static int actionCondEff(action_ctx_t *ctx_in,
 
 static int createOp(pddl_strips_maker_t *sm,
                     const pddl_t *pddl,
+                    const pddl_ground_config_t *cfg,
                     const int *ground_atom_to_fact_id,
                     const pddl_action_t *a,
                     const pddl_obj_id_t *args,
@@ -646,6 +670,7 @@ static int createOp(pddl_strips_maker_t *sm,
     action_ctx_t ctx;
     ctx.sm = sm;
     ctx.pddl = pddl;
+    ctx.cfg = cfg;
     ctx.action = a;
     ctx.args = args;
     ctx.ground_atom_to_fact = ground_atom_to_fact_id;
@@ -665,6 +690,7 @@ static int createOp(pddl_strips_maker_t *sm,
 
     if (!pddl->metric)
         op->cost = 1;
+    op->pddl_action_id = a->id;
 
     return 0;
 }
@@ -672,6 +698,7 @@ static int createOp(pddl_strips_maker_t *sm,
 static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
                                         pddl_strips_t *strips,
                                         const pddl_t *pddl,
+                                        const pddl_ground_config_t *cfg,
                                         const int *ground_atom_to_fact_id,
                                         const pddl_ground_action_args_t *ga,
                                         pddl_err_t *err)
@@ -679,10 +706,16 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
     const pddl_action_t *action = pddl->action.action + ga->action_id;
     pddl_strips_op_t op;
     pddlStripsOpInit(&op);
-    int ret = createOp(sm, pddl, ground_atom_to_fact_id, action, ga->arg,
+    int ret = createOp(sm, pddl, cfg, ground_atom_to_fact_id, action, ga->arg,
                        &op, err);
     if (ret == 0){
         char *name = groundOpName(pddl, action, ga->arg);
+        if (cfg->keep_action_args){
+            op.action_args_size = action->param.param_size;
+            op.action_args = ALLOC_ARR(pddl_obj_id_t, op.action_args_size);
+            memcpy(op.action_args, ga->arg,
+                   sizeof(pddl_obj_id_t) * op.action_args_size);
+        }
         pddlStripsOpFinalize(&op, name);
         if (pddlISetSize(&op.add_eff) > 0
                 || pddlISetSize(&op.del_eff) > 0
@@ -702,6 +735,7 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
 static int createOps(pddl_strips_maker_t *sm,
                      pddl_strips_t *strips,
                      const pddl_t *pddl,
+                     const pddl_ground_config_t *cfg,
                      const int *ground_atom_to_fact_id,
                      pddl_err_t *err)
 {
@@ -717,7 +751,7 @@ static int createOps(pddl_strips_maker_t *sm,
         }
 
         if (ga != NULL){
-            int ret = createOpFromGroundActionArgs(sm, strips, pddl,
+            int ret = createOpFromGroundActionArgs(sm, strips, pddl, cfg,
                                                    ground_atom_to_fact_id,
                                                    ga, err);
             if (ret != 0)
@@ -752,10 +786,10 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         strips->problem_file = STRDUP(pddl->problem_lisp->filename);
 
     int *ground_atom_to_fact = NULL;
-    if (createStripsFacts(sm, strips, pddl, &ground_atom_to_fact, err) != 0
-            || createInitState(sm, strips, pddl, ground_atom_to_fact, err) != 0
-            || createGoal(sm, strips, pddl, ground_atom_to_fact, err) != 0
-            || createOps(sm, strips, pddl, ground_atom_to_fact, err) != 0){
+    if (createStripsFacts(sm, strips, pddl, cfg, &ground_atom_to_fact, err) != 0
+            || createInitState(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0
+            || createGoal(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0
+            || createOps(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0){
         CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }

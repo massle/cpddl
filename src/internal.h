@@ -130,6 +130,8 @@ extern "C" {
 #define REALLOC PDDL_REALLOC
 #define STRDUP PDDL_STRDUP
 
+#define ZEROIZE_PTR(P) bzero((P), sizeof(*(P)))
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
