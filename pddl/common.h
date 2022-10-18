@@ -193,6 +193,7 @@ typedef uint32_t pddl_fdr_packer_word_t;
 
 
 extern const char *pddl_version;
+extern const char *pddl_build_version;
 
 #ifdef __cplusplus
 } /* extern "C" */
