@@ -46,33 +46,33 @@ const char *pddlFmTypeName(pddl_fm_type_t type)
 typedef void (*pddl_fm_method_del_fn)(pddl_fm_t *);
 typedef pddl_fm_t *(*pddl_fm_method_clone_fn)(const pddl_fm_t *);
 typedef pddl_fm_t *(*pddl_fm_method_negate_fn)(const pddl_fm_t *,
-                                                   const pddl_t *);
+                                               const pddl_t *);
 typedef int (*pddl_fm_method_eq_fn)(const pddl_fm_t *,
-                                      const pddl_fm_t *);
+                                    const pddl_fm_t *);
 typedef int (*pddl_fm_method_traverse_fn)(pddl_fm_t *,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *userdata);
+                                          int (*pre)(pddl_fm_t *, void *),
+                                          int (*post)(pddl_fm_t *, void *),
+                                          void *userdata);
 typedef int (*pddl_fm_method_rebuild_fn)(
-                            pddl_fm_t **c,
-                            int (*pre)(pddl_fm_t **, void *),
-                            int (*post)(pddl_fm_t **, void *),
-                            void *userdata);
+                                         pddl_fm_t **c,
+                                         int (*pre)(pddl_fm_t **, void *),
+                                         int (*post)(pddl_fm_t **, void *),
+                                         void *userdata);
 typedef void (*pddl_fm_method_print_pddl_fn)(
-                            const pddl_fm_t *c,
-                            const pddl_t *pddl,
-                            const pddl_params_t *params,
-                            FILE *fout);
+                                             const pddl_fm_t *c,
+                                             const pddl_t *pddl,
+                                             const pddl_params_t *params,
+                                             FILE *fout);
 
-static int condEq(const pddl_fm_t *, const pddl_fm_t *);
-static int condTraverse(pddl_fm_t *c,
-                        int (*pre)(pddl_fm_t *, void *),
-                        int (*post)(pddl_fm_t *, void *),
-                        void *u);
-static int condRebuild(pddl_fm_t **c,
-                       int (*pre)(pddl_fm_t **, void *),
-                       int (*post)(pddl_fm_t **, void *),
-                       void *u);
+static int fmEq(const pddl_fm_t *, const pddl_fm_t *);
+static int fmTraverse(pddl_fm_t *c,
+                      int (*pre)(pddl_fm_t *, void *),
+                      int (*post)(pddl_fm_t *, void *),
+                      void *u);
+static int fmRebuild(pddl_fm_t **c,
+                     int (*pre)(pddl_fm_t **, void *),
+                     int (*post)(pddl_fm_t **, void *),
+                     void *u);
 
 struct pddl_fm_cls {
     pddl_fm_method_del_fn del;
@@ -87,14 +87,15 @@ typedef struct pddl_fm_cls pddl_fm_cls_t;
 
 #define METHOD(X, NAME) ((pddl_fm_method_##NAME##_fn)(X))
 #define MCLS(NAME) \
-    { .del = METHOD(cond##NAME##Del, del), \
-      .clone = METHOD(cond##NAME##Clone, clone), \
-      .negate = METHOD(cond##NAME##Negate, negate), \
-      .eq = METHOD(cond##NAME##Eq, eq), \
-      .traverse = METHOD(cond##NAME##Traverse, traverse), \
-      .rebuild = METHOD(cond##NAME##Rebuild, rebuild), \
-      .print_pddl = METHOD(cond##NAME##PrintPDDL, print_pddl), \
-    }
+{ \
+    .del = METHOD(fm##NAME##Del, del), \
+    .clone = METHOD(fm##NAME##Clone, clone), \
+    .negate = METHOD(fm##NAME##Negate, negate), \
+    .eq = METHOD(fm##NAME##Eq, eq), \
+    .traverse = METHOD(fm##NAME##Traverse, traverse), \
+    .rebuild = METHOD(fm##NAME##Rebuild, rebuild), \
+    .print_pddl = METHOD(fm##NAME##PrintPDDL, print_pddl), \
+}
 
 
 struct parse_ctx {
@@ -110,135 +111,134 @@ typedef struct parse_ctx parse_ctx_t;
 
 #define OBJ(C, T) PDDL_FM_CAST(C, T)
 
-static void condPartDel(pddl_fm_junc_t *);
-static pddl_fm_junc_t *condPartClone(const pddl_fm_junc_t *p);
-static pddl_fm_junc_t *condPartNegate(const pddl_fm_junc_t *p,
-                                        const pddl_t *pddl);
-static int condPartEq(const pddl_fm_junc_t *c1, const pddl_fm_junc_t *c2);
-static void condPartAdd(pddl_fm_junc_t *p, pddl_fm_t *add);
-static int condPartTraverse(pddl_fm_junc_t *,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *userdata);
-static int condPartRebuild(pddl_fm_junc_t **p,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
+static void fmPartDel(pddl_fm_junc_t *);
+static pddl_fm_junc_t *fmPartClone(const pddl_fm_junc_t *p);
+static pddl_fm_junc_t *fmPartNegate(const pddl_fm_junc_t *p, const pddl_t *pddl);
+static int fmPartEq(const pddl_fm_junc_t *c1, const pddl_fm_junc_t *c2);
+static void fmPartAdd(pddl_fm_junc_t *p, pddl_fm_t *add);
+static int fmPartTraverse(pddl_fm_junc_t *,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *userdata);
+static int fmPartRebuild(pddl_fm_junc_t **p,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *userdata);
+static void fmPartPrintPDDL(const pddl_fm_junc_t *p,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout);
+
+static void fmQuantDel(pddl_fm_quant_t *);
+static pddl_fm_quant_t *fmQuantClone(const pddl_fm_quant_t *q);
+static pddl_fm_quant_t *fmQuantNegate(const pddl_fm_quant_t *q,
+                                      const pddl_t *pddl);
+static int fmQuantEq(const pddl_fm_quant_t *c1,
+                     const pddl_fm_quant_t *c2);
+static int fmQuantTraverse(pddl_fm_quant_t *,
+                           int (*pre)(pddl_fm_t *, void *),
+                           int (*post)(pddl_fm_t *, void *),
                            void *userdata);
-static void condPartPrintPDDL(const pddl_fm_junc_t *p,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout);
+static int fmQuantRebuild(pddl_fm_quant_t **q,
+                          int (*pre)(pddl_fm_t **, void *),
+                          int (*post)(pddl_fm_t **, void *),
+                          void *userdata);
+static void fmQuantPrintPDDL(const pddl_fm_quant_t *q,
+                             const pddl_t *pddl,
+                             const pddl_params_t *params,
+                             FILE *fout);
 
-static void condQuantDel(pddl_fm_quant_t *);
-static pddl_fm_quant_t *condQuantClone(const pddl_fm_quant_t *q);
-static pddl_fm_quant_t *condQuantNegate(const pddl_fm_quant_t *q,
-                                          const pddl_t *pddl);
-static int condQuantEq(const pddl_fm_quant_t *c1,
-                       const pddl_fm_quant_t *c2);
-static int condQuantTraverse(pddl_fm_quant_t *,
-                             int (*pre)(pddl_fm_t *, void *),
-                             int (*post)(pddl_fm_t *, void *),
-                             void *userdata);
-static int condQuantRebuild(pddl_fm_quant_t **q,
-                            int (*pre)(pddl_fm_t **, void *),
-                            int (*post)(pddl_fm_t **, void *),
-                            void *userdata);
-static void condQuantPrintPDDL(const pddl_fm_quant_t *q,
-                               const pddl_t *pddl,
-                               const pddl_params_t *params,
-                               FILE *fout);
-
-static void condWhenDel(pddl_fm_when_t *);
-static pddl_fm_when_t *condWhenClone(const pddl_fm_when_t *w);
-static pddl_fm_when_t *condWhenNegate(const pddl_fm_when_t *w,
-                                        const pddl_t *pddl);
-static int condWhenEq(const pddl_fm_when_t *c1, const pddl_fm_when_t *c2);
-static int condWhenTraverse(pddl_fm_when_t *w,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *userdata);
-static int condWhenRebuild(pddl_fm_when_t **w,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *userdata);
-static void condWhenPrintPDDL(const pddl_fm_when_t *w,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout);
-
-static void condAtomDel(pddl_fm_atom_t *);
-static pddl_fm_atom_t *condAtomClone(const pddl_fm_atom_t *a);
-static pddl_fm_atom_t *condAtomNegate(const pddl_fm_atom_t *a,
-                                        const pddl_t *pddl);
-static int condAtomEq(const pddl_fm_atom_t *c1, const pddl_fm_atom_t *c2);
-static int condAtomTraverse(pddl_fm_atom_t *,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *userdata);
-static int condAtomRebuild(pddl_fm_atom_t **a,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *userdata);
-static void condAtomPrintPDDL(const pddl_fm_atom_t *a,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout);
-
-static void condFuncOpDel(pddl_fm_func_op_t *);
-static pddl_fm_func_op_t *condFuncOpClone(const pddl_fm_func_op_t *);
-static pddl_fm_func_op_t *condFuncOpNegate(const pddl_fm_func_op_t *,
-                                             const pddl_t *pddl);
-static int condFuncOpEq(const pddl_fm_func_op_t *c1,
-                        const pddl_fm_func_op_t *c2);
-static int condFuncOpTraverse(pddl_fm_func_op_t *,
-                              int (*pre)(pddl_fm_t *, void *),
-                              int (*post)(pddl_fm_t *, void *),
-                              void *userdata);
-static int condFuncOpRebuild(pddl_fm_func_op_t **,
-                             int (*pre)(pddl_fm_t **, void *),
-                             int (*post)(pddl_fm_t **, void *),
-                             void *userdata);
-static void condFuncOpPrintPDDL(const pddl_fm_func_op_t *,
-                                const pddl_t *pddl,
-                                const pddl_params_t *params,
-                                FILE *fout);
-
-static void condBoolDel(pddl_fm_bool_t *);
-static pddl_fm_bool_t *condBoolClone(const pddl_fm_bool_t *a);
-static pddl_fm_bool_t *condBoolNegate(const pddl_fm_bool_t *a,
-                                        const pddl_t *pddl);
-static int condBoolEq(const pddl_fm_bool_t *c1, const pddl_fm_bool_t *c2);
-static int condBoolTraverse(pddl_fm_bool_t *,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *userdata);
-static int condBoolRebuild(pddl_fm_bool_t **a,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *userdata);
-static void condBoolPrintPDDL(const pddl_fm_bool_t *b,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout);
-
-static void condImplyDel(pddl_fm_imply_t *);
-static pddl_fm_imply_t *condImplyClone(const pddl_fm_imply_t *a);
-static pddl_fm_t *condImplyNegate(const pddl_fm_imply_t *a,
+static void fmWhenDel(pddl_fm_when_t *);
+static pddl_fm_when_t *fmWhenClone(const pddl_fm_when_t *w);
+static pddl_fm_when_t *fmWhenNegate(const pddl_fm_when_t *w,
                                     const pddl_t *pddl);
-static int condImplyEq(const pddl_fm_imply_t *c1,
-                       const pddl_fm_imply_t *c2);
-static int condImplyTraverse(pddl_fm_imply_t *,
-                             int (*pre)(pddl_fm_t *, void *),
-                             int (*post)(pddl_fm_t *, void *),
-                             void *userdata);
-static int condImplyRebuild(pddl_fm_imply_t **a,
-                            int (*pre)(pddl_fm_t **, void *),
-                            int (*post)(pddl_fm_t **, void *),
+static int fmWhenEq(const pddl_fm_when_t *c1, const pddl_fm_when_t *c2);
+static int fmWhenTraverse(pddl_fm_when_t *w,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *userdata);
+static int fmWhenRebuild(pddl_fm_when_t **w,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *userdata);
+static void fmWhenPrintPDDL(const pddl_fm_when_t *w,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout);
+
+static void fmAtomDel(pddl_fm_atom_t *);
+static pddl_fm_atom_t *fmAtomClone(const pddl_fm_atom_t *a);
+static pddl_fm_atom_t *fmAtomNegate(const pddl_fm_atom_t *a,
+                                    const pddl_t *pddl);
+static int fmAtomEq(const pddl_fm_atom_t *c1, const pddl_fm_atom_t *c2);
+static int fmAtomTraverse(pddl_fm_atom_t *,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *userdata);
+static int fmAtomRebuild(pddl_fm_atom_t **a,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *userdata);
+static void fmAtomPrintPDDL(const pddl_fm_atom_t *a,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout);
+
+static void fmFuncOpDel(pddl_fm_func_op_t *);
+static pddl_fm_func_op_t *fmFuncOpClone(const pddl_fm_func_op_t *);
+static pddl_fm_func_op_t *fmFuncOpNegate(const pddl_fm_func_op_t *,
+                                         const pddl_t *pddl);
+static int fmFuncOpEq(const pddl_fm_func_op_t *c1,
+                      const pddl_fm_func_op_t *c2);
+static int fmFuncOpTraverse(pddl_fm_func_op_t *,
+                            int (*pre)(pddl_fm_t *, void *),
+                            int (*post)(pddl_fm_t *, void *),
                             void *userdata);
-static void condImplyPrintPDDL(const pddl_fm_imply_t *b,
-                               const pddl_t *pddl,
-                               const pddl_params_t *params,
-                               FILE *fout);
+static int fmFuncOpRebuild(pddl_fm_func_op_t **,
+                           int (*pre)(pddl_fm_t **, void *),
+                           int (*post)(pddl_fm_t **, void *),
+                           void *userdata);
+static void fmFuncOpPrintPDDL(const pddl_fm_func_op_t *,
+                              const pddl_t *pddl,
+                              const pddl_params_t *params,
+                              FILE *fout);
+
+static void fmBoolDel(pddl_fm_bool_t *);
+static pddl_fm_bool_t *fmBoolClone(const pddl_fm_bool_t *a);
+static pddl_fm_bool_t *fmBoolNegate(const pddl_fm_bool_t *a,
+                                    const pddl_t *pddl);
+static int fmBoolEq(const pddl_fm_bool_t *c1, const pddl_fm_bool_t *c2);
+static int fmBoolTraverse(pddl_fm_bool_t *,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *userdata);
+static int fmBoolRebuild(pddl_fm_bool_t **a,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *userdata);
+static void fmBoolPrintPDDL(const pddl_fm_bool_t *b,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout);
+
+static void fmImplyDel(pddl_fm_imply_t *);
+static pddl_fm_imply_t *fmImplyClone(const pddl_fm_imply_t *a);
+static pddl_fm_t *fmImplyNegate(const pddl_fm_imply_t *a,
+                                const pddl_t *pddl);
+static int fmImplyEq(const pddl_fm_imply_t *c1,
+                     const pddl_fm_imply_t *c2);
+static int fmImplyTraverse(pddl_fm_imply_t *,
+                           int (*pre)(pddl_fm_t *, void *),
+                           int (*post)(pddl_fm_t *, void *),
+                           void *userdata);
+static int fmImplyRebuild(pddl_fm_imply_t **a,
+                          int (*pre)(pddl_fm_t **, void *),
+                          int (*post)(pddl_fm_t **, void *),
+                          void *userdata);
+static void fmImplyPrintPDDL(const pddl_fm_imply_t *b,
+                             const pddl_t *pddl,
+                             const pddl_params_t *params,
+                             FILE *fout);
 
 
 static pddl_fm_cls_t cond_cls[PDDL_FM_NUM_TYPES] = {
@@ -255,13 +255,13 @@ static pddl_fm_cls_t cond_cls[PDDL_FM_NUM_TYPES] = {
 };
 
 static pddl_fm_t *parse(const pddl_lisp_node_t *root,
-                          const parse_ctx_t *ctx,
-                          int negated);
+                        const parse_ctx_t *ctx,
+                        int negated);
 
-#define condNew(CTYPE, TYPE) \
-    (CTYPE *)_condNew(sizeof(CTYPE), TYPE)
+#define fmNew(CTYPE, TYPE) \
+    (CTYPE *)_fmNew(sizeof(CTYPE), TYPE)
 
-static pddl_fm_t *_condNew(int size, unsigned type)
+static pddl_fm_t *_fmNew(int size, unsigned type)
 {
     pddl_fm_t *c = ZMALLOC(size);
     c->type = type;
@@ -271,34 +271,31 @@ static pddl_fm_t *_condNew(int size, unsigned type)
 
 
 /*** PART ***/
-static pddl_fm_junc_t *condPartNew(int type)
+static pddl_fm_junc_t *fmPartNew(int type)
 {
-    pddl_fm_junc_t *p;
-    p = condNew(pddl_fm_junc_t, type);
+    pddl_fm_junc_t *p = fmNew(pddl_fm_junc_t, type);
     pddlListInit(&p->part);
     return p;
 }
 
-static void condPartDel(pddl_fm_junc_t *p)
+static void fmPartDel(pddl_fm_junc_t *p)
 {
     pddl_list_t *item, *tmp;
-    pddl_fm_t *cond;
-
     PDDL_LIST_FOR_EACH_SAFE(&p->part, item, tmp){
-        cond = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        pddlFmDel(cond);
+        pddl_fm_t *fm = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        pddlFmDel(fm);
     }
 
     FREE(p);
 }
 
-static pddl_fm_junc_t *condPartClone(const pddl_fm_junc_t *p)
+static pddl_fm_junc_t *fmPartClone(const pddl_fm_junc_t *p)
 {
     pddl_fm_junc_t *n;
     pddl_fm_t *c, *nc;
     pddl_list_t *item;
 
-    n = condPartNew(p->fm.type);
+    n = fmPartNew(p->fm.type);
     PDDL_LIST_FOR_EACH(&p->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         nc = pddlFmClone(c);
@@ -307,17 +304,17 @@ static pddl_fm_junc_t *condPartClone(const pddl_fm_junc_t *p)
     return n;
 }
 
-static pddl_fm_junc_t *condPartNegate(const pddl_fm_junc_t *p,
-                                        const pddl_t *pddl)
+static pddl_fm_junc_t *fmPartNegate(const pddl_fm_junc_t *p,
+                                    const pddl_t *pddl)
 {
     pddl_fm_junc_t *n;
     pddl_fm_t *c, *nc;
     pddl_list_t *item;
 
     if (p->fm.type == PDDL_FM_AND){
-        n = condPartNew(PDDL_FM_OR);
+        n = fmPartNew(PDDL_FM_OR);
     }else{
-        n = condPartNew(PDDL_FM_AND);
+        n = fmPartNew(PDDL_FM_AND);
     }
     PDDL_LIST_FOR_EACH(&p->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
@@ -327,8 +324,8 @@ static pddl_fm_junc_t *condPartNegate(const pddl_fm_junc_t *p,
     return n;
 }
 
-static int condPartEq(const pddl_fm_junc_t *p1,
-                      const pddl_fm_junc_t *p2)
+static int fmPartEq(const pddl_fm_junc_t *p1,
+                    const pddl_fm_junc_t *p2)
 {
     pddl_fm_t *c1, *c2;
     pddl_list_t *item1, *item2;
@@ -337,7 +334,7 @@ static int condPartEq(const pddl_fm_junc_t *p1,
         int found = 0;
         PDDL_LIST_FOR_EACH(&p2->part, item2){
             c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
-            if(condEq(c1, c2)){
+            if(fmEq(c1, c2)){
                 found = 1;
                 break;
             }
@@ -349,33 +346,33 @@ static int condPartEq(const pddl_fm_junc_t *p1,
     return 1;
 }
 
-static void condPartAdd(pddl_fm_junc_t *p, pddl_fm_t *add)
+static void fmPartAdd(pddl_fm_junc_t *p, pddl_fm_t *add)
 {
     pddlListInit(&add->conn);
     pddlListAppend(&p->part, &add->conn);
 }
 
-static int condPartTraverse(pddl_fm_junc_t *p,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *u)
+static int fmPartTraverse(pddl_fm_junc_t *p,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *u)
 {
     pddl_fm_t *c;
     pddl_list_t *item, *tmp;
 
     PDDL_LIST_FOR_EACH_SAFE(&p->part, item, tmp){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (condTraverse(c, pre, post, u) != 0)
+        if (fmTraverse(c, pre, post, u) != 0)
             return -1;
     }
 
     return 0;
 }
 
-static int condPartRebuild(pddl_fm_junc_t **p,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *u)
+static int fmPartRebuild(pddl_fm_junc_t **p,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *u)
 {
     pddl_fm_t *c;
     pddl_list_t *item, *last;
@@ -388,7 +385,7 @@ static int condPartRebuild(pddl_fm_junc_t **p,
         item = pddlListNext(&(*p)->part);
         pddlListDel(item);
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (condRebuild(&c, pre, post, u) != 0)
+        if (fmRebuild(&c, pre, post, u) != 0)
             return -1;
         if (c != NULL)
             pddlListAppend(&(*p)->part, &c->conn);
@@ -398,8 +395,8 @@ static int condPartRebuild(pddl_fm_junc_t **p,
 }
 
 /** Moves all parts of src to dst */
-static void condPartStealPart(pddl_fm_junc_t *dst,
-                              pddl_fm_junc_t *src)
+static void fmPartStealPart(pddl_fm_junc_t *dst,
+                            pddl_fm_junc_t *src)
 {
     pddl_list_t *item;
 
@@ -410,10 +407,10 @@ static void condPartStealPart(pddl_fm_junc_t *dst,
     }
 }
 
-static void condPartPrintPDDL(const pddl_fm_junc_t *p,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout)
+static void fmPartPrintPDDL(const pddl_fm_junc_t *p,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout)
 {
     pddl_list_t *item;
     const pddl_fm_t *child;
@@ -436,46 +433,46 @@ static void condPartPrintPDDL(const pddl_fm_junc_t *p,
 
 
 /*** QUANT ***/
-static pddl_fm_quant_t *condQuantNew(int type)
+static pddl_fm_quant_t *fmQuantNew(int type)
 {
-    return condNew(pddl_fm_quant_t, type);
+    return fmNew(pddl_fm_quant_t, type);
 }
 
-static void condQuantDel(pddl_fm_quant_t *q)
+static void fmQuantDel(pddl_fm_quant_t *q)
 {
     pddlParamsFree(&q->param);
-    if (q->cond != NULL)
-        pddlFmDel(q->cond);
+    if (q->qfm != NULL)
+        pddlFmDel(q->qfm);
     FREE(q);
 }
 
-static pddl_fm_quant_t *condQuantClone(const pddl_fm_quant_t *q)
+static pddl_fm_quant_t *fmQuantClone(const pddl_fm_quant_t *q)
 {
     pddl_fm_quant_t *n;
 
-    n = condQuantNew(q->fm.type);
+    n = fmQuantNew(q->fm.type);
     pddlParamsInitCopy(&n->param, &q->param);
-    n->cond = pddlFmClone(q->cond);
+    n->qfm = pddlFmClone(q->qfm);
     return n;
 }
 
-static pddl_fm_quant_t *condQuantNegate(const pddl_fm_quant_t *q,
-                                          const pddl_t *pddl)
+static pddl_fm_quant_t *fmQuantNegate(const pddl_fm_quant_t *q,
+                                      const pddl_t *pddl)
 {
     pddl_fm_quant_t *n;
 
     if (q->fm.type == PDDL_FM_FORALL){
-        n = condQuantNew(PDDL_FM_EXIST);
+        n = fmQuantNew(PDDL_FM_EXIST);
     }else{
-        n = condQuantNew(PDDL_FM_FORALL);
+        n = fmQuantNew(PDDL_FM_FORALL);
     }
     pddlParamsInitCopy(&n->param, &q->param);
-    n->cond = pddlFmNegate(q->cond, pddl);
+    n->qfm = pddlFmNegate(q->qfm, pddl);
     return n;
 }
 
-static int condQuantEq(const pddl_fm_quant_t *q1,
-                       const pddl_fm_quant_t *q2)
+static int fmQuantEq(const pddl_fm_quant_t *q1,
+                     const pddl_fm_quant_t *q2)
 {
     if (q1->param.param_size != q2->param.param_size)
         return 0;
@@ -485,33 +482,33 @@ static int condQuantEq(const pddl_fm_quant_t *q1,
                 || q1->param.param[i].inherit != q2->param.param[i].inherit)
             return 0;
     }
-    return condEq(q1->cond, q2->cond);
+    return fmEq(q1->qfm, q2->qfm);
 }
 
-static int condQuantTraverse(pddl_fm_quant_t *q,
-                             int (*pre)(pddl_fm_t *, void *),
-                             int (*post)(pddl_fm_t *, void *),
-                             void *u)
+static int fmQuantTraverse(pddl_fm_quant_t *q,
+                           int (*pre)(pddl_fm_t *, void *),
+                           int (*post)(pddl_fm_t *, void *),
+                           void *u)
 {
-    if (q->cond)
-        return condTraverse(q->cond, pre, post, u);
+    if (q->qfm)
+        return fmTraverse(q->qfm, pre, post, u);
     return 0;
 }
 
-static int condQuantRebuild(pddl_fm_quant_t **q,
-                            int (*pre)(pddl_fm_t **, void *),
-                            int (*post)(pddl_fm_t **, void *),
-                            void *userdata)
+static int fmQuantRebuild(pddl_fm_quant_t **q,
+                          int (*pre)(pddl_fm_t **, void *),
+                          int (*post)(pddl_fm_t **, void *),
+                          void *userdata)
 {
-    if ((*q)->cond)
-        return condRebuild(&(*q)->cond, pre, post, userdata);
+    if ((*q)->qfm)
+        return fmRebuild(&(*q)->qfm, pre, post, userdata);
     return 0;
 }
 
-static void condQuantPrintPDDL(const pddl_fm_quant_t *q,
-                               const pddl_t *pddl,
-                               const pddl_params_t *params,
-                               FILE *fout)
+static void fmQuantPrintPDDL(const pddl_fm_quant_t *q,
+                             const pddl_t *pddl,
+                             const pddl_params_t *params,
+                             FILE *fout)
 {
     fprintf(fout, "(");
     if (q->fm.type == PDDL_FM_FORALL){
@@ -524,7 +521,7 @@ static void condQuantPrintPDDL(const pddl_fm_quant_t *q,
     pddlParamsPrintPDDL(&q->param, &pddl->type, fout);
     fprintf(fout, ") ");
 
-    pddlFmPrintPDDL(q->cond, pddl, &q->param, fout);
+    pddlFmPrintPDDL(q->qfm, pddl, &q->param, fout);
 
     fprintf(fout, ")");
 }
@@ -533,12 +530,12 @@ static void condQuantPrintPDDL(const pddl_fm_quant_t *q,
 
 
 /*** WHEN ***/
-static pddl_fm_when_t *condWhenNew(void)
+static pddl_fm_when_t *fmWhenNew(void)
 {
-    return condNew(pddl_fm_when_t, PDDL_FM_WHEN);
+    return fmNew(pddl_fm_when_t, PDDL_FM_WHEN);
 }
 
-static void condWhenDel(pddl_fm_when_t *w)
+static void fmWhenDel(pddl_fm_when_t *w)
 {
     if (w->pre)
         pddlFmDel(w->pre);
@@ -547,11 +544,11 @@ static void condWhenDel(pddl_fm_when_t *w)
     FREE(w);
 }
 
-static pddl_fm_when_t *condWhenClone(const pddl_fm_when_t *w)
+static pddl_fm_when_t *fmWhenClone(const pddl_fm_when_t *w)
 {
     pddl_fm_when_t *n;
 
-    n = condWhenNew();
+    n = fmWhenNew();
     if (w->pre)
         n->pre = pddlFmClone(w->pre);
     if (w->eff)
@@ -559,50 +556,50 @@ static pddl_fm_when_t *condWhenClone(const pddl_fm_when_t *w)
     return n;
 }
 
-static pddl_fm_when_t *condWhenNegate(const pddl_fm_when_t *w,
-                                        const pddl_t *pddl)
+static pddl_fm_when_t *fmWhenNegate(const pddl_fm_when_t *w,
+                                    const pddl_t *pddl)
 {
     PDDL_FATAL2("Cannot negate (when ...)");
 }
 
-static int condWhenEq(const pddl_fm_when_t *w1,
-                      const pddl_fm_when_t *w2)
+static int fmWhenEq(const pddl_fm_when_t *w1,
+                    const pddl_fm_when_t *w2)
 {
-    return condEq(w1->pre, w2->pre) && condEq(w1->eff, w2->eff);
+    return fmEq(w1->pre, w2->pre) && fmEq(w1->eff, w2->eff);
 }
 
-static int condWhenTraverse(pddl_fm_when_t *w,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *u)
+static int fmWhenTraverse(pddl_fm_when_t *w,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *u)
 {
-    if (w->pre != NULL && condTraverse(w->pre, pre, post, u) != 0)
+    if (w->pre != NULL && fmTraverse(w->pre, pre, post, u) != 0)
         return -1;
-    if (w->eff != NULL && condTraverse(w->eff, pre, post, u) != 0)
+    if (w->eff != NULL && fmTraverse(w->eff, pre, post, u) != 0)
         return -1;
     return 0;
 }
 
-static int condWhenRebuild(pddl_fm_when_t **w,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *u)
+static int fmWhenRebuild(pddl_fm_when_t **w,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *u)
 {
     if ((*w)->pre){
-        if (condRebuild(&(*w)->pre, pre, post, u) != 0)
+        if (fmRebuild(&(*w)->pre, pre, post, u) != 0)
             return -1;
     }
     if ((*w)->eff){
-        if (condRebuild(&(*w)->eff, pre, post, u) != 0)
+        if (fmRebuild(&(*w)->eff, pre, post, u) != 0)
             return -1;
     }
     return 0;
 }
 
-static void condWhenPrintPDDL(const pddl_fm_when_t *w,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout)
+static void fmWhenPrintPDDL(const pddl_fm_when_t *w,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout)
 {
     fprintf(fout, "(when ");
     pddlFmPrintPDDL(w->pre, pddl, params, fout);
@@ -614,23 +611,23 @@ static void condWhenPrintPDDL(const pddl_fm_when_t *w,
 
 
 /*** ATOM ***/
-static pddl_fm_atom_t *condAtomNew(void)
+static pddl_fm_atom_t *fmAtomNew(void)
 {
-    return condNew(pddl_fm_atom_t, PDDL_FM_ATOM);
+    return fmNew(pddl_fm_atom_t, PDDL_FM_ATOM);
 }
 
-static void condAtomDel(pddl_fm_atom_t *a)
+static void fmAtomDel(pddl_fm_atom_t *a)
 {
     if (a->arg != NULL)
         FREE(a->arg);
     FREE(a);
 }
 
-static pddl_fm_atom_t *condAtomClone(const pddl_fm_atom_t *a)
+static pddl_fm_atom_t *fmAtomClone(const pddl_fm_atom_t *a)
 {
     pddl_fm_atom_t *n;
 
-    n = condAtomNew();
+    n = fmAtomNew();
     n->pred = a->pred;
     n->arg_size = a->arg_size;
     n->arg = ALLOC_ARR(pddl_fm_atom_arg_t, n->arg_size);
@@ -640,12 +637,12 @@ static pddl_fm_atom_t *condAtomClone(const pddl_fm_atom_t *a)
     return n;
 }
 
-static pddl_fm_atom_t *condAtomNegate(const pddl_fm_atom_t *a,
-                                        const pddl_t *pddl)
+static pddl_fm_atom_t *fmAtomNegate(const pddl_fm_atom_t *a,
+                                    const pddl_t *pddl)
 {
     pddl_fm_atom_t *n;
 
-    n = condAtomClone(a);
+    n = fmAtomClone(a);
     if (pddl->pred.pred[a->pred].neg_of >= 0){
         n->pred = pddl->pred.pred[a->pred].neg_of;
     }else{
@@ -654,8 +651,8 @@ static pddl_fm_atom_t *condAtomNegate(const pddl_fm_atom_t *a,
     return n;
 }
 
-static int condAtomEq(const pddl_fm_atom_t *a1,
-                      const pddl_fm_atom_t *a2)
+static int fmAtomEq(const pddl_fm_atom_t *a1,
+                    const pddl_fm_atom_t *a2)
 {
     if (a1->pred != a2->pred
             || a1->neg != a2->neg
@@ -670,8 +667,8 @@ static int condAtomEq(const pddl_fm_atom_t *a1,
     return 1;
 }
 
-static int condAtomEqNoNeg(const pddl_fm_atom_t *a1,
-                           const pddl_fm_atom_t *a2)
+static int fmAtomEqNoNeg(const pddl_fm_atom_t *a1,
+                         const pddl_fm_atom_t *a2)
 {
     if (a1->pred != a2->pred
             || a1->arg_size != a2->arg_size)
@@ -685,18 +682,18 @@ static int condAtomEqNoNeg(const pddl_fm_atom_t *a1,
     return 1;
 }
 
-static int condAtomTraverse(pddl_fm_atom_t *a,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *u)
+static int fmAtomTraverse(pddl_fm_atom_t *a,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *u)
 {
     return 0;
 }
 
-static int condAtomRebuild(pddl_fm_atom_t **a,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *u)
+static int fmAtomRebuild(pddl_fm_atom_t **a,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *u)
 {
     return 0;
 }
@@ -735,10 +732,10 @@ static void atomPrintPDDL(const pddl_fm_atom_t *a,
         fprintf(fout, ")");
 }
 
-static void condAtomPrintPDDL(const pddl_fm_atom_t *a,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout)
+static void fmAtomPrintPDDL(const pddl_fm_atom_t *a,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout)
 {
     atomPrintPDDL(a, pddl, params, 0, fout);
 }
@@ -746,73 +743,73 @@ static void condAtomPrintPDDL(const pddl_fm_atom_t *a,
 
 
 /*** FUNC_OP ***/
-static pddl_fm_func_op_t *condFuncOpNew(int type)
+static pddl_fm_func_op_t *fmFuncOpNew(int type)
 {
-    return condNew(pddl_fm_func_op_t, type);
+    return fmNew(pddl_fm_func_op_t, type);
 }
 
-static void condFuncOpDel(pddl_fm_func_op_t *op)
+static void fmFuncOpDel(pddl_fm_func_op_t *op)
 {
     if (op->lvalue)
-        condAtomDel(op->lvalue);
+        fmAtomDel(op->lvalue);
     if (op->fvalue)
-        condAtomDel(op->fvalue);
+        fmAtomDel(op->fvalue);
     FREE(op);
 }
 
-static pddl_fm_func_op_t *condFuncOpClone(const pddl_fm_func_op_t *op)
+static pddl_fm_func_op_t *fmFuncOpClone(const pddl_fm_func_op_t *op)
 {
     pddl_fm_func_op_t *n;
-    n = condFuncOpNew(op->fm.type);
+    n = fmFuncOpNew(op->fm.type);
     n->value = op->value;
     if (op->lvalue)
-        n->lvalue = condAtomClone(op->lvalue);
+        n->lvalue = fmAtomClone(op->lvalue);
     if (op->fvalue)
-        n->fvalue = condAtomClone(op->fvalue);
+        n->fvalue = fmAtomClone(op->fvalue);
     return n;
 }
 
-static pddl_fm_func_op_t *condFuncOpNegate(const pddl_fm_func_op_t *op,
-                                             const pddl_t *pddl)
+static pddl_fm_func_op_t *fmFuncOpNegate(const pddl_fm_func_op_t *op,
+                                         const pddl_t *pddl)
 {
     PDDL_FATAL2("Cannot negate function!");
 }
 
-static int condFuncOpEq(const pddl_fm_func_op_t *f1,
-                        const pddl_fm_func_op_t *f2)
+static int fmFuncOpEq(const pddl_fm_func_op_t *f1,
+                      const pddl_fm_func_op_t *f2)
 {
     if (f1->fvalue == NULL && f2->fvalue != NULL)
         return 0;
     if (f1->fvalue != NULL && f2->fvalue == NULL)
         return 0;
     if (f1->fvalue != NULL){
-        return condAtomEq(f1->lvalue, f2->lvalue)
-                    && condAtomEq(f1->fvalue, f2->fvalue);
+        return fmAtomEq(f1->lvalue, f2->lvalue)
+            && fmAtomEq(f1->fvalue, f2->fvalue);
     }else{
-        return f1->value == f2->value && condAtomEq(f1->lvalue, f2->lvalue);
+        return f1->value == f2->value && fmAtomEq(f1->lvalue, f2->lvalue);
     }
 }
 
-static int condFuncOpTraverse(pddl_fm_func_op_t *op,
-                              int (*pre)(pddl_fm_t *, void *),
-                              int (*post)(pddl_fm_t *, void *),
-                              void *u)
+static int fmFuncOpTraverse(pddl_fm_func_op_t *op,
+                            int (*pre)(pddl_fm_t *, void *),
+                            int (*post)(pddl_fm_t *, void *),
+                            void *u)
 {
     return 0;
 }
 
-static int condFuncOpRebuild(pddl_fm_func_op_t **op,
-                             int (*pre)(pddl_fm_t **, void *),
-                             int (*post)(pddl_fm_t **, void *),
-                             void *userdata)
+static int fmFuncOpRebuild(pddl_fm_func_op_t **op,
+                           int (*pre)(pddl_fm_t **, void *),
+                           int (*post)(pddl_fm_t **, void *),
+                           void *userdata)
 {
     return 0;
 }
 
-static void condFuncOpPrintPDDL(const pddl_fm_func_op_t *op,
-                                const pddl_t *pddl,
-                                const pddl_params_t *params,
-                                FILE *fout)
+static void fmFuncOpPrintPDDL(const pddl_fm_func_op_t *op,
+                              const pddl_t *pddl,
+                              const pddl_params_t *params,
+                              FILE *fout)
 {
     if (op->fm.type == PDDL_FM_ASSIGN){
         fprintf(fout, "(= ");
@@ -836,59 +833,59 @@ static void condFuncOpPrintPDDL(const pddl_fm_func_op_t *op,
 
 
 /*** BOOL ***/
-static pddl_fm_bool_t *condBoolNew(int val)
+static pddl_fm_bool_t *fmBoolNew(int val)
 {
     pddl_fm_bool_t *b;
-    b = condNew(pddl_fm_bool_t, PDDL_FM_BOOL);
+    b = fmNew(pddl_fm_bool_t, PDDL_FM_BOOL);
     b->val = val;
     return b;
 }
 
-static void condBoolDel(pddl_fm_bool_t *a)
+static void fmBoolDel(pddl_fm_bool_t *a)
 {
     FREE(a);
 }
 
-static pddl_fm_bool_t *condBoolClone(const pddl_fm_bool_t *a)
+static pddl_fm_bool_t *fmBoolClone(const pddl_fm_bool_t *a)
 {
-    return condBoolNew(a->val);
+    return fmBoolNew(a->val);
 }
 
-static pddl_fm_bool_t *condBoolNegate(const pddl_fm_bool_t *a,
-                                        const pddl_t *pddl)
+static pddl_fm_bool_t *fmBoolNegate(const pddl_fm_bool_t *a,
+                                    const pddl_t *pddl)
 {
-    pddl_fm_bool_t *b = condBoolClone(a);
+    pddl_fm_bool_t *b = fmBoolClone(a);
     b->val = !a->val;
     return b;
 }
 
-static int condBoolEq(const pddl_fm_bool_t *b1,
-                      const pddl_fm_bool_t *b2)
+static int fmBoolEq(const pddl_fm_bool_t *b1,
+                    const pddl_fm_bool_t *b2)
 {
     return b1->val == b2->val;
 }
 
 
-static int condBoolTraverse(pddl_fm_bool_t *a,
-                            int (*pre)(pddl_fm_t *, void *),
-                            int (*post)(pddl_fm_t *, void *),
-                            void *u)
+static int fmBoolTraverse(pddl_fm_bool_t *a,
+                          int (*pre)(pddl_fm_t *, void *),
+                          int (*post)(pddl_fm_t *, void *),
+                          void *u)
 {
     return 0;
 }
 
-static int condBoolRebuild(pddl_fm_bool_t **a,
-                           int (*pre)(pddl_fm_t **, void *),
-                           int (*post)(pddl_fm_t **, void *),
-                           void *userdata)
+static int fmBoolRebuild(pddl_fm_bool_t **a,
+                         int (*pre)(pddl_fm_t **, void *),
+                         int (*post)(pddl_fm_t **, void *),
+                         void *userdata)
 {
     return 0;
 }
 
-static void condBoolPrintPDDL(const pddl_fm_bool_t *b,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params,
-                              FILE *fout)
+static void fmBoolPrintPDDL(const pddl_fm_bool_t *b,
+                            const pddl_t *pddl,
+                            const pddl_params_t *params,
+                            FILE *fout)
 {
     if (b->val){
         fprintf(fout, "(TRUE)");
@@ -899,12 +896,12 @@ static void condBoolPrintPDDL(const pddl_fm_bool_t *b,
 
 
 /*** IMPLY ***/
-static pddl_fm_imply_t *condImplyNew(void)
+static pddl_fm_imply_t *fmImplyNew(void)
 {
-    return condNew(pddl_fm_imply_t, PDDL_FM_IMPLY);
+    return fmNew(pddl_fm_imply_t, PDDL_FM_IMPLY);
 }
 
-static void condImplyDel(pddl_fm_imply_t *a)
+static void fmImplyDel(pddl_fm_imply_t *a)
 {
     if (a->left != NULL)
         pddlFmDel(a->left);
@@ -913,9 +910,9 @@ static void condImplyDel(pddl_fm_imply_t *a)
     FREE(a);
 }
 
-static pddl_fm_imply_t *condImplyClone(const pddl_fm_imply_t *a)
+static pddl_fm_imply_t *fmImplyClone(const pddl_fm_imply_t *a)
 {
-    pddl_fm_imply_t *n = condImplyNew();
+    pddl_fm_imply_t *n = fmImplyNew();
     if (a->left != NULL)
         n->left = pddlFmClone(a->left);
     if (a->right != NULL)
@@ -923,13 +920,13 @@ static pddl_fm_imply_t *condImplyClone(const pddl_fm_imply_t *a)
     return n;
 }
 
-static pddl_fm_t *condImplyNegate(const pddl_fm_imply_t *a,
-                                    const pddl_t *pddl)
+static pddl_fm_t *fmImplyNegate(const pddl_fm_imply_t *a,
+                                const pddl_t *pddl)
 {
     pddl_fm_junc_t *or;
     pddl_fm_t *left, *right;
 
-    or = condPartNew(PDDL_FM_AND);
+    or = fmPartNew(PDDL_FM_AND);
     left = pddlFmClone(a->left);
     right = pddlFmNegate(a->right, pddl);
     pddlFmJuncAdd(or, left);
@@ -937,48 +934,48 @@ static pddl_fm_t *condImplyNegate(const pddl_fm_imply_t *a,
     return &or->fm;
 }
 
-static int condImplyEq(const pddl_fm_imply_t *i1,
-                       const pddl_fm_imply_t *i2)
+static int fmImplyEq(const pddl_fm_imply_t *i1,
+                     const pddl_fm_imply_t *i2)
 {
-    return condEq(i1->left, i2->left) && condEq(i1->right, i2->right);
+    return fmEq(i1->left, i2->left) && fmEq(i1->right, i2->right);
 }
 
-static int condImplyTraverse(pddl_fm_imply_t *imp,
-                             int (*pre)(pddl_fm_t *, void *),
-                             int (*post)(pddl_fm_t *, void *),
-                             void *u)
+static int fmImplyTraverse(pddl_fm_imply_t *imp,
+                           int (*pre)(pddl_fm_t *, void *),
+                           int (*post)(pddl_fm_t *, void *),
+                           void *u)
 {
     if (imp->left != NULL){
-        if (condTraverse(imp->left, pre, post, u) != 0)
+        if (fmTraverse(imp->left, pre, post, u) != 0)
             return -1;
     }
     if (imp->right != NULL){
-        if (condTraverse(imp->right, pre, post, u) != 0)
+        if (fmTraverse(imp->right, pre, post, u) != 0)
             return -1;
     }
     return 0;
 }
 
-static int condImplyRebuild(pddl_fm_imply_t **imp,
-                            int (*pre)(pddl_fm_t **, void *),
-                            int (*post)(pddl_fm_t **, void *),
-                            void *u)
+static int fmImplyRebuild(pddl_fm_imply_t **imp,
+                          int (*pre)(pddl_fm_t **, void *),
+                          int (*post)(pddl_fm_t **, void *),
+                          void *u)
 {
     if ((*imp)->left != NULL){
-        if (condRebuild(&(*imp)->left, pre, post, u) != 0)
+        if (fmRebuild(&(*imp)->left, pre, post, u) != 0)
             return -1;
     }
     if ((*imp)->right != NULL){
-        if (condRebuild(&(*imp)->right, pre, post, u) != 0)
+        if (fmRebuild(&(*imp)->right, pre, post, u) != 0)
             return -1;
     }
     return 0;
 }
 
-static void condImplyPrintPDDL(const pddl_fm_imply_t *imp,
-                               const pddl_t *pddl,
-                               const pddl_params_t *params,
-                               FILE *fout)
+static void fmImplyPrintPDDL(const pddl_fm_imply_t *imp,
+                             const pddl_t *pddl,
+                             const pddl_params_t *params,
+                             FILE *fout)
 {
     fprintf(fout, "(imply ");
     if (imp->left == NULL){
@@ -1033,14 +1030,14 @@ pddl_fm_atom_t *pddlFmToAtom(pddl_fm_t *c)
     return PDDL_FM_CAST(c, atom);
 }
 
-void pddlFmDel(pddl_fm_t *cond)
+void pddlFmDel(pddl_fm_t *fm)
 {
-    cond_cls[cond->type].del(cond);
+    cond_cls[fm->type].del(fm);
 }
 
-pddl_fm_t *pddlFmClone(const pddl_fm_t *cond)
+pddl_fm_t *pddlFmClone(const pddl_fm_t *fm)
 {
-    return cond_cls[cond->type].clone(cond);
+    return cond_cls[fm->type].clone(fm);
 }
 
 int pddlFmIsFalse(const pddl_fm_t *c)
@@ -1066,13 +1063,12 @@ int pddlFmIsAtom(const pddl_fm_t *c)
     return c->type == PDDL_FM_ATOM;
 }
 
-pddl_fm_t *pddlFmNegate(const pddl_fm_t *cond,
-                            const pddl_t *pddl)
+pddl_fm_t *pddlFmNegate(const pddl_fm_t *fm, const pddl_t *pddl)
 {
-    return cond_cls[cond->type].negate(cond, pddl);
+    return cond_cls[fm->type].negate(fm, pddl);
 }
 
-static int condEq(const pddl_fm_t *c1, const pddl_fm_t *c2)
+static int fmEq(const pddl_fm_t *c1, const pddl_fm_t *c2)
 {
     if (c1 == c2)
         return 1;
@@ -1086,22 +1082,22 @@ static int condEq(const pddl_fm_t *c1, const pddl_fm_t *c2)
 
 int pddlFmEq(const pddl_fm_t *c1, const pddl_fm_t *c2)
 {
-    return condEq(c1, c2);
+    return fmEq(c1, c2);
 }
 
 int pddlFmIsImplied(const pddl_fm_t *s,
-                      const pddl_fm_t *c,
-                      const pddl_t *pddl,
-                      const pddl_params_t *param)
+                    const pddl_fm_t *c,
+                    const pddl_t *pddl,
+                    const pddl_params_t *param)
 {
     ASSERT_RUNTIME(s->type == PDDL_FM_BOOL
-                    || s->type == PDDL_FM_ATOM
-                    || s->type == PDDL_FM_AND
-                    || s->type == PDDL_FM_OR);
+                   || s->type == PDDL_FM_ATOM
+                   || s->type == PDDL_FM_AND
+                   || s->type == PDDL_FM_OR);
     ASSERT_RUNTIME(c->type == PDDL_FM_BOOL
-                    || c->type == PDDL_FM_ATOM
-                    || c->type == PDDL_FM_AND
-                    || c->type == PDDL_FM_OR);
+                   || c->type == PDDL_FM_ATOM
+                   || c->type == PDDL_FM_AND
+                   || c->type == PDDL_FM_OR);
     if (pddlFmEq(s, c))
         return 1;
 
@@ -1199,10 +1195,10 @@ int pddlFmIsImplied(const pddl_fm_t *s,
     return 0;
 }
 
-static int condTraverse(pddl_fm_t *c,
-                        int (*pre)(pddl_fm_t *, void *),
-                        int (*post)(pddl_fm_t *, void *),
-                        void *u)
+static int fmTraverse(pddl_fm_t *c,
+                      int (*pre)(pddl_fm_t *, void *),
+                      int (*post)(pddl_fm_t *, void *),
+                      void *u)
 {
     int ret;
 
@@ -1225,17 +1221,17 @@ static int condTraverse(pddl_fm_t *c,
 }
 
 void pddlFmTraverse(pddl_fm_t *c,
-                      int (*pre)(pddl_fm_t *, void *),
-                      int (*post)(pddl_fm_t *, void *),
-                      void *u)
+                    int (*pre)(pddl_fm_t *, void *),
+                    int (*post)(pddl_fm_t *, void *),
+                    void *u)
 {
-    condTraverse(c, pre, post, u);
+    fmTraverse(c, pre, post, u);
 }
 
-static int condRebuild(pddl_fm_t **c,
-                       int (*pre)(pddl_fm_t **, void *),
-                       int (*post)(pddl_fm_t **, void *),
-                       void *u)
+static int fmRebuild(pddl_fm_t **c,
+                     int (*pre)(pddl_fm_t **, void *),
+                     int (*post)(pddl_fm_t **, void *),
+                     void *u)
 {
     int ret;
 
@@ -1258,11 +1254,11 @@ static int condRebuild(pddl_fm_t **c,
 }
 
 void pddlFmRebuild(pddl_fm_t **c,
-                     int (*pre)(pddl_fm_t **, void *),
-                     int (*post)(pddl_fm_t **, void *),
-                     void *u)
+                   int (*pre)(pddl_fm_t **, void *),
+                   int (*post)(pddl_fm_t **, void *),
+                   void *u)
 {
-    condRebuild(c, pre, post, u);
+    fmRebuild(c, pre, post, u);
 }
 
 struct test_static {
@@ -1294,7 +1290,7 @@ static int pddlFmIsStatic(pddl_fm_t *c, const pddl_t *pddl)
 }
 
 pddl_fm_when_t *pddlFmRemoveFirstNonStaticWhen(pddl_fm_t *c,
-                                                   const pddl_t *pddl)
+                                               const pddl_t *pddl)
 {
     pddl_fm_junc_t *cp;
     pddl_fm_t *cw;
@@ -1342,27 +1338,27 @@ pddl_fm_when_t *pddlFmRemoveFirstWhen(pddl_fm_t *c, const pddl_t *pddl)
 
 pddl_fm_t *pddlFmNewAnd2(pddl_fm_t *a, pddl_fm_t *b)
 {
-    pddl_fm_junc_t *p = condPartNew(PDDL_FM_AND);
-    condPartAdd(p, a);
-    condPartAdd(p, b);
+    pddl_fm_junc_t *p = fmPartNew(PDDL_FM_AND);
+    fmPartAdd(p, a);
+    fmPartAdd(p, b);
     return &p->fm;
 }
 
 pddl_fm_t *pddlFmNewEmptyAnd(void)
 {
-    pddl_fm_junc_t *p = condPartNew(PDDL_FM_AND);
+    pddl_fm_junc_t *p = fmPartNew(PDDL_FM_AND);
     return &p->fm;
 }
 
 pddl_fm_t *pddlFmNewEmptyOr(void)
 {
-    pddl_fm_junc_t *p = condPartNew(PDDL_FM_OR);
+    pddl_fm_junc_t *p = fmPartNew(PDDL_FM_OR);
     return &p->fm;
 }
 
 pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args)
 {
-    pddl_fm_atom_t *atom = condAtomNew();
+    pddl_fm_atom_t *atom = fmAtomNew();
 
     if (num_args > 0){
         atom->arg_size = num_args;
@@ -1378,7 +1374,7 @@ pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args)
 
 pddl_fm_bool_t *pddlFmNewBool(int is_true)
 {
-    return condBoolNew(is_true);
+    return fmBoolNew(is_true);
 }
 
 static int hasAtom(pddl_fm_t *c, void *_ret)
@@ -1432,8 +1428,8 @@ static int parseAtomArg(pddl_fm_atom_arg_t *arg,
 }
 
 static pddl_fm_t *parseAtom(const pddl_lisp_node_t *root,
-                              const parse_ctx_t *ctx,
-                              int negated)
+                            const parse_ctx_t *ctx,
+                            int negated)
 {
     pddl_fm_atom_t *atom;
     const char *name;
@@ -1469,13 +1465,13 @@ static pddl_fm_t *parseAtom(const pddl_lisp_node_t *root,
         }
     }
 
-    atom = condAtomNew();
+    atom = fmAtomNew();
     atom->pred = pred;
     atom->arg_size = root->child_size - 1;
     atom->arg = ALLOC_ARR(pddl_fm_atom_arg_t, atom->arg_size);
     for (int i = 0; i < atom->arg_size; ++i){
         if (parseAtomArg(atom->arg + i, root->child + i + 1, ctx) != 0){
-            condAtomDel(atom);
+            fmAtomDel(atom);
             PDDL_TRACE_RET(ctx->err, NULL);
         }
     }
@@ -1485,8 +1481,8 @@ static pddl_fm_t *parseAtom(const pddl_lisp_node_t *root,
 }
 
 static pddl_fm_t *parseAssign(const pddl_lisp_node_t *root,
-                                const parse_ctx_t *ctx,
-                                int negated)
+                              const parse_ctx_t *ctx,
+                              int negated)
 {
     const char *head;
     const pddl_lisp_node_t *nfunc, *nval;
@@ -1508,7 +1504,7 @@ static pddl_fm_t *parseAssign(const pddl_lisp_node_t *root,
         ERR_LISP_RET2(ctx->err, NULL, root, "Invalid function in (= ...).");
     if (nval->value == NULL){
         ERR_LISP_RET2(ctx->err, NULL, root, "Only (= ... N) expressions where"
-                                            " N is a number are supported.");
+                      " N is a number are supported.");
     }
 
     sub_ctx = *ctx;
@@ -1517,15 +1513,15 @@ static pddl_fm_t *parseAssign(const pddl_lisp_node_t *root,
     if (lvalue == NULL)
         PDDL_TRACE_RET(ctx->err, NULL);
 
-    assign = condFuncOpNew(PDDL_FM_ASSIGN);
+    assign = fmFuncOpNew(PDDL_FM_ASSIGN);
     assign->value = atoi(nval->value);
     assign->lvalue = OBJ(lvalue, atom);
     return &assign->fm;
 }
 
 static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
-                                  const parse_ctx_t *ctx,
-                                  int negated)
+                                const parse_ctx_t *ctx,
+                                int negated)
 {
     pddl_fm_func_op_t *inc;
     pddl_fm_t *fvalue;
@@ -1542,7 +1538,7 @@ static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
     }
 
     if (root->child[2].value != NULL){
-        inc = condFuncOpNew(PDDL_FM_INCREASE);
+        inc = fmFuncOpNew(PDDL_FM_INCREASE);
         inc->value = atoi(root->child[2].value);
         if (inc->value < 0){
             ERR_LISP_RET(ctx->err, NULL, root,
@@ -1556,7 +1552,7 @@ static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
         fvalue = parseAtom(root->child + 2, &sub_ctx, negated);
         if (fvalue == NULL)
             PDDL_TRACE_RET(ctx->err, NULL);
-        inc = condFuncOpNew(PDDL_FM_INCREASE);
+        inc = fmFuncOpNew(PDDL_FM_INCREASE);
         inc->fvalue = (pddl_fm_atom_t *)fvalue;
     }
 
@@ -1564,31 +1560,31 @@ static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
 }
 
 static pddl_fm_t *parsePart(int part_type,
-                              const pddl_lisp_node_t *root,
-                              const parse_ctx_t *ctx,
-                              int negated)
+                            const pddl_lisp_node_t *root,
+                            const parse_ctx_t *ctx,
+                            int negated)
 {
     pddl_fm_junc_t *part;
-    pddl_fm_t *cond;
+    pddl_fm_t *fm;
     int i;
 
-    part = condPartNew(part_type);
+    part = fmPartNew(part_type);
     for (i = 1; i < root->child_size; ++i){
-        cond = parse(root->child + i, ctx, negated);
-        if (cond == NULL){
-            condPartDel(part);
+        fm = parse(root->child + i, ctx, negated);
+        if (fm == NULL){
+            fmPartDel(part);
             PDDL_TRACE_RET(ctx->err, NULL);
         }
-        pddlListAppend(&part->part, &cond->conn);
+        pddlListAppend(&part->part, &fm->conn);
     }
 
     return &part->fm;
 }
 
 static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
-                               const pddl_lisp_node_t *right,
-                               const parse_ctx_t *ctx,
-                               int negated)
+                             const pddl_lisp_node_t *right,
+                             const parse_ctx_t *ctx,
+                             int negated)
 {
     pddl_fm_junc_t *part;
     pddl_fm_imply_t *imp;
@@ -1603,7 +1599,7 @@ static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
             PDDL_TRACE_RET(ctx->err, NULL);
         }
 
-        part = condPartNew(PDDL_FM_AND);
+        part = fmPartNew(PDDL_FM_AND);
         pddlListAppend(&part->part, &cleft->conn);
         pddlListAppend(&part->part, &cright->conn);
         return &part->fm;
@@ -1617,7 +1613,7 @@ static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
             PDDL_TRACE_RET(ctx->err, NULL);
         }
 
-        imp = condImplyNew();
+        imp = fmImplyNew();
         imp->left = cleft;
         imp->right = cright;
         return &imp->fm;
@@ -1659,13 +1655,12 @@ static int parseQuantParams(pddl_params_t *params,
 }
 
 static pddl_fm_t *parseQuant(int quant_type,
-                               const pddl_lisp_node_t *root,
-                               const parse_ctx_t *ctx,
-                               int negated)
+                             const pddl_lisp_node_t *root,
+                             const parse_ctx_t *ctx,
+                             int negated)
 {
     pddl_fm_quant_t *q;
     pddl_params_t params;
-    pddl_fm_t *cond;
     parse_ctx_t sub_ctx;
 
     if (root->child_size != 3
@@ -1693,21 +1688,21 @@ static pddl_fm_t *parseQuant(int quant_type,
 
     sub_ctx = *ctx;
     sub_ctx.params = &params;
-    cond = parse(root->child + 2, &sub_ctx, negated);
-    if (cond == NULL){
+    pddl_fm_t *fm = parse(root->child + 2, &sub_ctx, negated);
+    if (fm == NULL){
         pddlParamsFree(&params);
         PDDL_TRACE_RET(ctx->err, NULL);
     }
 
-    q = condQuantNew(quant_type);
+    q = fmQuantNew(quant_type);
     q->param = params;
-    q->cond = cond;
+    q->qfm = fm;
 
     return &q->fm;
 }
 
 static pddl_fm_t *parseWhen(const pddl_lisp_node_t *root,
-                              const parse_ctx_t *ctx)
+                            const parse_ctx_t *ctx)
 {
     pddl_fm_when_t *w;
     pddl_fm_t *pre, *eff;
@@ -1727,15 +1722,15 @@ static pddl_fm_t *parseWhen(const pddl_lisp_node_t *root,
         PDDL_TRACE_RET(ctx->err, NULL);
     }
 
-    w = condWhenNew();
+    w = fmWhenNew();
     w->pre = pre;
     w->eff = eff;
     return &w->fm;
 }
 
 static pddl_fm_t *parse(const pddl_lisp_node_t *root,
-                          const parse_ctx_t *ctx,
-                          int negated)
+                        const parse_ctx_t *ctx,
+                        int negated)
 {
     int kw;
 
@@ -1815,10 +1810,10 @@ static pddl_fm_t *parse(const pddl_lisp_node_t *root,
 }
 
 pddl_fm_t *pddlFmParse(const pddl_lisp_node_t *root,
-                           pddl_t *pddl,
-                           const pddl_params_t *params,
-                           const char *err_prefix,
-                           pddl_err_t *err)
+                       pddl_t *pddl,
+                       const pddl_params_t *params,
+                       const char *err_prefix,
+                       pddl_err_t *err)
 {
     parse_ctx_t ctx;
     pddl_fm_t *c;
@@ -1838,7 +1833,7 @@ pddl_fm_t *pddlFmParse(const pddl_lisp_node_t *root,
 }
 
 static pddl_fm_t *parseInitFunc(const pddl_lisp_node_t *n, pddl_t *pddl,
-                                  pddl_err_t *err)
+                                pddl_err_t *err)
 {
     parse_ctx_t ctx;
     pddl_params_t params;
@@ -1862,7 +1857,7 @@ static pddl_fm_t *parseInitFunc(const pddl_lisp_node_t *n, pddl_t *pddl,
 }
 
 static pddl_fm_t *parseInitFact(const pddl_lisp_node_t *n, pddl_t *pddl,
-                                  pddl_err_t *err)
+                                pddl_err_t *err)
 {
     parse_ctx_t ctx;
     pddl_params_t params;
@@ -1886,7 +1881,7 @@ static pddl_fm_t *parseInitFact(const pddl_lisp_node_t *n, pddl_t *pddl,
 }
 
 static pddl_fm_t *parseInitFactFunc(const pddl_lisp_node_t *n, pddl_t *pddl,
-                                      pddl_err_t *err)
+                                    pddl_err_t *err)
 {
     const char *head;
 
@@ -1906,22 +1901,22 @@ static pddl_fm_t *parseInitFactFunc(const pddl_lisp_node_t *n, pddl_t *pddl,
 }
 
 pddl_fm_junc_t *pddlFmParseInit(const pddl_lisp_node_t *root, pddl_t *pddl,
-                                    pddl_err_t *err)
+                                pddl_err_t *err)
 {
     const pddl_lisp_node_t *n;
     pddl_fm_junc_t *and;
     pddl_fm_t *c;
 
-    and = condPartNew(PDDL_FM_AND);
+    and = fmPartNew(PDDL_FM_AND);
 
     for (int i = 1; i < root->child_size; ++i){
         n = root->child + i;
         if ((c = parseInitFactFunc(n, pddl, err)) == NULL){
-            condPartDel(and);
+            fmPartDel(and);
             PDDL_TRACE_PREPEND_RET(err, NULL, "While parsing :init in %s: ",
                                    pddl->problem_lisp->filename);
         }
-        condPartAdd(and, c);
+        fmPartAdd(and, c);
     }
 
     return and;
@@ -1931,17 +1926,17 @@ pddl_fm_t *pddlFmAtomToAnd(pddl_fm_t *atom)
 {
     pddl_fm_junc_t *and;
 
-    and = condPartNew(PDDL_FM_AND);
-    condPartAdd(and, atom);
+    and = fmPartNew(PDDL_FM_AND);
+    fmPartAdd(and, atom);
     return &and->fm;
 }
 
 pddl_fm_atom_t *pddlFmCreateFactAtom(int pred, int arg_size, 
-                                         const pddl_obj_id_t *arg)
+                                     const pddl_obj_id_t *arg)
 {
     pddl_fm_atom_t *a;
 
-    a = condAtomNew();
+    a = fmAtomNew();
     a->pred = pred;
     a->arg_size = arg_size;
     a->arg = ALLOC_ARR(pddl_fm_atom_arg_t, arg_size);
@@ -1954,7 +1949,7 @@ pddl_fm_atom_t *pddlFmCreateFactAtom(int pred, int arg_size,
 
 void pddlFmJuncAdd(pddl_fm_junc_t *part, pddl_fm_t *c)
 {
-    condPartAdd(part, c);
+    fmPartAdd(part, c);
 }
 
 void pddlFmJuncRm(pddl_fm_junc_t *part, pddl_fm_t *c)
@@ -1980,9 +1975,9 @@ void pddlFmReplace(pddl_fm_t *c, pddl_fm_t *r)
 
 
 /*** CHECK ***/
-int pddlFmCheckPre(const pddl_fm_t *cond,
-                     const pddl_require_flags_t *require,
-                     pddl_err_t *err)
+int pddlFmCheckPre(const pddl_fm_t *fm,
+                   const pddl_require_flags_t *require,
+                   pddl_err_t *err)
 {
     pddl_fm_junc_t *p;
     pddl_fm_quant_t *q;
@@ -1991,15 +1986,15 @@ int pddlFmCheckPre(const pddl_fm_t *cond,
     pddl_fm_t *c;
     pddl_list_t *item;
 
-    if (cond->type == PDDL_FM_AND
-            || cond->type == PDDL_FM_OR){
-        if (cond->type == PDDL_FM_OR && !require->disjunctive_pre){
+    if (fm->type == PDDL_FM_AND
+            || fm->type == PDDL_FM_OR){
+        if (fm->type == PDDL_FM_OR && !require->disjunctive_pre){
             PDDL_ERR2(err, "(or ...) can be used only with"
                       " :disjunctive-preconditions");
             return -1;
         }
 
-        p = OBJ(cond, junc);
+        p = OBJ(fm, junc);
         PDDL_LIST_FOR_EACH(&p->part, item){
             c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
             if (pddlFmCheckPre(c, require, err) != 0)
@@ -2008,32 +2003,32 @@ int pddlFmCheckPre(const pddl_fm_t *cond,
 
         return 0;
 
-    }else if (cond->type == PDDL_FM_FORALL){
+    }else if (fm->type == PDDL_FM_FORALL){
         if (!require->universal_pre){
             PDDL_ERR2(err, "(forall ...) can be used only with"
                       " :universal-preconditions");
             return -1;
         }
 
-        q = OBJ(cond, quant);
-        return pddlFmCheckPre(q->cond, require, err);
+        q = OBJ(fm, quant);
+        return pddlFmCheckPre(q->qfm, require, err);
 
-    }else if (cond->type == PDDL_FM_EXIST){
+    }else if (fm->type == PDDL_FM_EXIST){
         if (!require->existential_pre){
             PDDL_ERR2(err, "(exists ...) can be used only with"
                       " :existential-preconditions");
             return -1;
         }
 
-        q = OBJ(cond, quant);
-        return pddlFmCheckPre(q->cond, require, err);
+        q = OBJ(fm, quant);
+        return pddlFmCheckPre(q->qfm, require, err);
 
-    }else if (cond->type == PDDL_FM_WHEN){
+    }else if (fm->type == PDDL_FM_WHEN){
         PDDL_ERR2(err, "(when ...) cannot be part of preconditions");
         return -1;
 
-    }else if (cond->type == PDDL_FM_ATOM){
-        atom = OBJ(cond, atom);
+    }else if (fm->type == PDDL_FM_ATOM){
+        atom = OBJ(fm, atom);
         if (atom->neg && !require->negative_pre){
             PDDL_ERR2(err, "For negative preconditions add"
                       " :negative-preconditions");
@@ -2042,8 +2037,8 @@ int pddlFmCheckPre(const pddl_fm_t *cond,
 
         return 0;
 
-    }else if (cond->type == PDDL_FM_IMPLY){
-        imp = OBJ(cond, imply);
+    }else if (fm->type == PDDL_FM_IMPLY){
+        imp = OBJ(fm, imply);
         if (!require->disjunctive_pre){
             PDDL_ERR2(err, "(imply ...) can be used only with"
                       " :disjunctive-preconditions");
@@ -2056,8 +2051,7 @@ int pddlFmCheckPre(const pddl_fm_t *cond,
             return -1;
         return 0;
 
-    }else if (cond->type == PDDL_FM_ASSIGN
-                || cond->type == PDDL_FM_INCREASE){
+    }else if (fm->type == PDDL_FM_ASSIGN || fm->type == PDDL_FM_INCREASE){
         return 0;
     }
 
@@ -2065,47 +2059,47 @@ int pddlFmCheckPre(const pddl_fm_t *cond,
 }
 
 
-static int checkCEffect(const pddl_fm_t *cond,
+static int checkCEffect(const pddl_fm_t *fm,
                         const pddl_require_flags_t *require,
                         pddl_err_t *err);
-static int checkPEffect(const pddl_fm_t *cond,
+static int checkPEffect(const pddl_fm_t *fm,
                         const pddl_require_flags_t *require,
                         pddl_err_t *err);
-static int checkCondEffect(const pddl_fm_t *cond,
+static int checkCondEffect(const pddl_fm_t *fm,
                            const pddl_require_flags_t *require,
                            pddl_err_t *err);
 
-static int checkCEffect(const pddl_fm_t *cond,
+static int checkCEffect(const pddl_fm_t *fm,
                         const pddl_require_flags_t *require,
                         pddl_err_t *err)
 {
     pddl_fm_quant_t *forall;
     pddl_fm_when_t *when;
 
-    if (cond->type == PDDL_FM_FORALL){
+    if (fm->type == PDDL_FM_FORALL){
         if (!require->conditional_eff){
             PDDL_ERR2(err, "(forall ...) is allowed in effects only if"
                       " :conditional-effects is specified as requirement");
             return -1;
         }
 
-        forall = OBJ(cond, quant);
-        return pddlFmCheckEff(forall->cond, require, err);
+        forall = OBJ(fm, quant);
+        return pddlFmCheckEff(forall->qfm, require, err);
 
-    }else if (cond->type == PDDL_FM_WHEN){
+    }else if (fm->type == PDDL_FM_WHEN){
         if (!require->conditional_eff){
             PDDL_ERR2(err, "(when ...) is allowed in effects only if"
                       " :conditional-effects is specified as requirement");
             return -1;
         }
 
-        when = OBJ(cond, when);
+        when = OBJ(fm, when);
         if (pddlFmCheckPre(when->pre, require, err) != 0)
             return -1;
         return checkCondEffect(when->eff, require, err);
 
     }else{
-        if (checkPEffect(cond, require, err) != 0){
+        if (checkPEffect(fm, require, err) != 0){
             PDDL_ERR2(err, "A single effect has to be either literal or"
                       " conditional effect (+ universal quantifier).");
             return -1;
@@ -2114,19 +2108,19 @@ static int checkCEffect(const pddl_fm_t *cond,
     }
 }
 
-static int checkPEffect(const pddl_fm_t *cond,
+static int checkPEffect(const pddl_fm_t *fm,
                         const pddl_require_flags_t *require,
                         pddl_err_t *err)
 {
-    if (cond->type == PDDL_FM_ATOM
-            || cond->type == PDDL_FM_ASSIGN
-            || cond->type == PDDL_FM_INCREASE){
+    if (fm->type == PDDL_FM_ATOM
+            || fm->type == PDDL_FM_ASSIGN
+            || fm->type == PDDL_FM_INCREASE){
         return 0;
     }
     return -1;
 }
 
-static int checkCondEffect(const pddl_fm_t *cond,
+static int checkCondEffect(const pddl_fm_t *fm,
                            const pddl_require_flags_t *require,
                            pddl_err_t *err)
 {
@@ -2134,11 +2128,11 @@ static int checkCondEffect(const pddl_fm_t *cond,
     const pddl_fm_t *sub;
     pddl_list_t *item;
 
-    if (checkPEffect(cond, require, err) == 0)
+    if (checkPEffect(fm, require, err) == 0)
         return 0;
 
-    if (cond->type == PDDL_FM_AND){
-        part = OBJ(cond, junc);
+    if (fm->type == PDDL_FM_AND){
+        part = OBJ(fm, junc);
         PDDL_LIST_FOR_EACH(&part->part, item){
             sub = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
             if (checkPEffect(sub, require, err) != 0){
@@ -2154,16 +2148,16 @@ static int checkCondEffect(const pddl_fm_t *cond,
     return -1;
 }
 
-int pddlFmCheckEff(const pddl_fm_t *cond,
-                     const pddl_require_flags_t *require,
-                     pddl_err_t *err)
+int pddlFmCheckEff(const pddl_fm_t *fm,
+                   const pddl_require_flags_t *require,
+                   pddl_err_t *err)
 {
     const pddl_fm_junc_t *and;
     const pddl_fm_t *sub;
     pddl_list_t *item;
 
-    if (cond->type == PDDL_FM_AND){
-        and = OBJ(cond, junc);
+    if (fm->type == PDDL_FM_AND){
+        and = OBJ(fm, junc);
         PDDL_LIST_FOR_EACH(&and->part, item){
             sub = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
             if (checkCEffect(sub, require, err) != 0)
@@ -2173,52 +2167,52 @@ int pddlFmCheckEff(const pddl_fm_t *cond,
         return 0;
 
     }else{
-        return checkCEffect(cond, require, err);
+        return checkCEffect(fm, require, err);
     }
 }
 
 
-static int setPredRead(pddl_fm_t *cond, void *data)
+static int setPredRead(pddl_fm_t *fm, void *data)
 {
     pddl_fm_atom_t *atom;
     pddl_preds_t *preds = data;
 
-    if (cond->type == PDDL_FM_ATOM){
-        atom = OBJ(cond, atom);
+    if (fm->type == PDDL_FM_ATOM){
+        atom = OBJ(fm, atom);
         preds->pred[atom->pred].read = 1;
     }
     return 0;
 }
 
-void pddlFmSetPredRead(const pddl_fm_t *cond, pddl_preds_t *preds)
+void pddlFmSetPredRead(const pddl_fm_t *fm, pddl_preds_t *preds)
 {
-    pddlFmTraverse((pddl_fm_t *)cond, setPredRead, NULL, preds);
+    pddlFmTraverse((pddl_fm_t *)fm, setPredRead, NULL, preds);
 }
 
 
-static int setPredReadWrite(pddl_fm_t *cond, void *data)
+static int setPredReadWrite(pddl_fm_t *fm, void *data)
 {
     pddl_fm_atom_t *atom;
     pddl_fm_when_t *when;
     pddl_preds_t *preds = data;
 
-    if (cond->type == PDDL_FM_WHEN){
-        when = OBJ(cond, when);
+    if (fm->type == PDDL_FM_WHEN){
+        when = OBJ(fm, when);
         pddlFmTraverse((pddl_fm_t *)when->pre, setPredRead, NULL, data);
         pddlFmTraverse((pddl_fm_t *)when->eff,
-                         setPredReadWrite, NULL, data);
+                       setPredReadWrite, NULL, data);
         return -1;
 
-    }else if (cond->type == PDDL_FM_ATOM){
-        atom = OBJ(cond, atom);
+    }else if (fm->type == PDDL_FM_ATOM){
+        atom = OBJ(fm, atom);
         preds->pred[atom->pred].write = 1;
     }
     return 0;
 }
 
-void pddlFmSetPredReadWriteEff(const pddl_fm_t *cond, pddl_preds_t *preds)
+void pddlFmSetPredReadWriteEff(const pddl_fm_t *fm, pddl_preds_t *preds)
 {
-    pddlFmTraverse((pddl_fm_t *)cond, setPredReadWrite, NULL, preds);
+    pddlFmTraverse((pddl_fm_t *)fm, setPredReadWrite, NULL, preds);
 }
 
 /*** INSTANTIATE QUANTIFIERS ***/
@@ -2244,7 +2238,7 @@ static int instantiateParentParam(pddl_fm_t *c, void *data)
         }
 
     }else if (c->type == PDDL_FM_ASSIGN
-                || c->type == PDDL_FM_INCREASE){
+            || c->type == PDDL_FM_INCREASE){
         if (OBJ(c, func_op)->lvalue)
             return instantiateParentParam(&OBJ(c, func_op)->lvalue->fm, data);
         if (OBJ(c, func_op)->fvalue)
@@ -2268,7 +2262,7 @@ static int instantiateCond(pddl_fm_t *c, void *data)
         }
 
     }else if (c->type == PDDL_FM_ASSIGN
-                || c->type == PDDL_FM_INCREASE){
+            || c->type == PDDL_FM_INCREASE){
         if (OBJ(c, func_op)->lvalue)
             return instantiateCond(&OBJ(c, func_op)->lvalue->fm, data);
         if (OBJ(c, func_op)->fvalue)
@@ -2279,16 +2273,16 @@ static int instantiateCond(pddl_fm_t *c, void *data)
 }
 
 static pddl_fm_junc_t *instantiatePart(pddl_fm_junc_t *p,
-                                         int param_id,
-                                         const pddl_obj_id_t *objs,
-                                         int objs_size)
+                                       int param_id,
+                                       const pddl_obj_id_t *objs,
+                                       int objs_size)
 {
     pddl_fm_junc_t *out;
     pddl_fm_t *c, *newc;
     pddl_list_t *item;
     instantiate_cond_t set;
 
-    out = condPartNew(p->fm.type);
+    out = fmPartNew(p->fm.type);
 
     for (int i = 0; i < objs_size; ++i){
         PDDL_LIST_FOR_EACH(&p->part, item){
@@ -2297,7 +2291,7 @@ static pddl_fm_junc_t *instantiatePart(pddl_fm_junc_t *p,
             set.param_id = param_id;
             set.obj_id = objs[i];
             pddlFmTraverse(newc, NULL, instantiateCond, &set);
-            condPartAdd(out, newc);
+            fmPartAdd(out, newc);
         }
     }
 
@@ -2306,7 +2300,7 @@ static pddl_fm_junc_t *instantiatePart(pddl_fm_junc_t *p,
 }
 
 static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
-                                     const pddl_types_t *types)
+                                   const pddl_types_t *types)
 {
     pddl_fm_junc_t *top;
     const pddl_param_t *param;
@@ -2316,12 +2310,12 @@ static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
     // The instantiation of universal/existential quantifier is a
     // conjuction/disjunction of all instances.
     if (q->fm.type == PDDL_FM_FORALL){
-        top = condPartNew(PDDL_FM_AND);
+        top = fmPartNew(PDDL_FM_AND);
     }else{
-        top = condPartNew(PDDL_FM_OR);
+        top = fmPartNew(PDDL_FM_OR);
     }
-    condPartAdd(top, q->cond);
-    q->cond = NULL;
+    fmPartAdd(top, q->qfm);
+    q->qfm = NULL;
 
     // Apply object to each (non-inherited) parameter according to its type
     for (int i = 0; i < q->param.param_size; ++i){
@@ -2334,7 +2328,7 @@ static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
             bval = q->fm.type == PDDL_FM_FORALL;
             pddlFmDel(&top->fm);
             pddlFmDel(&q->fm);
-            return &condBoolNew(bval)->fm;
+            return &fmBoolNew(bval)->fm;
 
         }else{
             top = instantiatePart(top, i, obj, obj_size);
@@ -2371,11 +2365,10 @@ static int instantiateExist(pddl_fm_t **c, void *data)
     return 0;
 }
 
-static void pddlFmInstantiateQuant(pddl_fm_t **cond,
-                                     const pddl_types_t *types)
+static void pddlFmInstantiateQuant(pddl_fm_t **fm, const pddl_types_t *types)
 {
-    pddlFmRebuild(cond, NULL, instantiateForall, (void *)types);
-    pddlFmRebuild(cond, NULL, instantiateExist, (void *)types);
+    pddlFmRebuild(fm, NULL, instantiateForall, (void *)types);
+    pddlFmRebuild(fm, NULL, instantiateExist, (void *)types);
 }
 
 
@@ -2396,7 +2389,7 @@ static pddl_fm_t *removeBoolPart(pddl_fm_junc_t *part)
         if (part->fm.type == PDDL_FM_AND){
             if (!bval){
                 pddlFmDel(&part->fm);
-                return &condBoolNew(0)->fm;
+                return &fmBoolNew(0)->fm;
             }else{
                 pddlListDel(item);
                 pddlFmDel(c);
@@ -2405,7 +2398,7 @@ static pddl_fm_t *removeBoolPart(pddl_fm_junc_t *part)
         }else{ // PDDL_FM_OR
             if (bval){
                 pddlFmDel(&part->fm);
-                return &condBoolNew(1)->fm;
+                return &fmBoolNew(1)->fm;
             }else{
                 pddlListDel(item);
                 pddlFmDel(c);
@@ -2416,11 +2409,11 @@ static pddl_fm_t *removeBoolPart(pddl_fm_junc_t *part)
     if (pddlListEmpty(&part->part)){
         if (part->fm.type == PDDL_FM_AND){
             pddlFmDel(&part->fm);
-            return &condBoolNew(1)->fm;
+            return &fmBoolNew(1)->fm;
 
         }else{ // PDDL_FM_OR
             pddlFmDel(&part->fm);
-            return &condBoolNew(0)->fm;
+            return &fmBoolNew(0)->fm;
         }
     }
 
@@ -2444,7 +2437,7 @@ static pddl_fm_t *removeBoolWhen(pddl_fm_when_t *when)
 
     }else{ // !bval
         pddlFmDel(&when->fm);
-        return &condBoolNew(1)->fm;
+        return &fmBoolNew(1)->fm;
     }
 }
 
@@ -2516,7 +2509,7 @@ static pddl_fm_t *removeBoolAtom(pddl_fm_atom_t *atom, const pddl_t *pddl)
                     bval = atom->neg;
                 }
                 pddlFmDel(&atom->fm);
-                return &condBoolNew(bval)->fm;
+                return &fmBoolNew(bval)->fm;
             }
 
         }else if (pddlFmAtomIsGrounded(atom)){
@@ -2528,14 +2521,14 @@ static pddl_fm_t *removeBoolAtom(pddl_fm_atom_t *atom, const pddl_t *pddl)
                 bval = atom->neg;
             }
             pddlFmDel(&atom->fm);
-            return &condBoolNew(bval)->fm;
+            return &fmBoolNew(bval)->fm;
 
         }else if (atom->neg && !atomIsPartiallyInInit(pddl, atom)){
             // If the atom is static but not fully grounded we can evaluate
             // it if there is no atom matching the grounded parts
             bval = atom->neg;
             pddlFmDel(&atom->fm);
-            return &condBoolNew(bval)->fm;
+            return &fmBoolNew(bval)->fm;
         }
     }
 
@@ -2554,7 +2547,7 @@ static pddl_fm_t *removeBoolImply(pddl_fm_imply_t *imp)
 
         }else{
             pddlFmDel(&imp->fm);
-            return &condBoolNew(1)->fm;
+            return &fmBoolNew(1)->fm;
         }
     }
 
@@ -2597,13 +2590,13 @@ static pddl_fm_t *flattenPart(pddl_fm_junc_t *part)
         if (c->type == part->fm.type){
             // Flatten con/disjunctions
             p = OBJ(c, junc);
-            condPartStealPart(part, p);
+            fmPartStealPart(part, p);
 
             pddlListDel(item);
             pddlFmDel(c);
 
         }else if ((c->type == PDDL_FM_AND || c->type == PDDL_FM_OR)
-                    && pddlListEmpty(&OBJ(c, junc)->part)){
+                && pddlListEmpty(&OBJ(c, junc)->part)){
             pddlListDel(item);
             pddlFmDel(c);
         }
@@ -2635,7 +2628,7 @@ static pddl_fm_t *flattenWhen(pddl_fm_when_t *when)
     if (!when->pre || when->pre->type != PDDL_FM_OR)
         return &when->fm;
 
-    and = condPartNew(PDDL_FM_AND);
+    and = fmPartNew(PDDL_FM_AND);
     pre = OBJ(when->pre, junc);
     when->pre = NULL;
 
@@ -2643,9 +2636,9 @@ static pddl_fm_t *flattenWhen(pddl_fm_when_t *when)
         item = pddlListNext(&pre->part);
         pddlListDel(item);
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        add = condWhenClone(when);
+        add = fmWhenClone(when);
         add->pre = c;
-        condPartAdd(and, &add->fm);
+        fmPartAdd(and, &add->fm);
     }
 
     pddlFmDel(&pre->fm);
@@ -2668,22 +2661,22 @@ static int flatten(pddl_fm_t **c, void *data)
 }
 
 static pddl_fm_junc_t *moveDisjunctionsCreate1(pddl_fm_junc_t *top,
-                                                 pddl_fm_junc_t *or)
+                                               pddl_fm_junc_t *or)
 {
     pddl_fm_junc_t *ret;
     pddl_list_t *item1, *item2;
     pddl_fm_t *c1, *c2;
     pddl_fm_junc_t *add;
 
-    ret = condPartNew(PDDL_FM_OR);
+    ret = fmPartNew(PDDL_FM_OR);
     PDDL_LIST_FOR_EACH(&top->part, item1){
         c1 = PDDL_LIST_ENTRY(item1, pddl_fm_t, conn);
         PDDL_LIST_FOR_EACH(&or->part, item2){
             c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
             add = OBJ(c1, junc);
-            add = condPartClone(add);
-            condPartAdd(add, pddlFmClone(c2));
-            condPartAdd(ret, &add->fm);
+            add = fmPartClone(add);
+            fmPartAdd(add, pddlFmClone(c2));
+            fmPartAdd(ret, &add->fm);
         }
     }
 
@@ -2692,14 +2685,14 @@ static pddl_fm_junc_t *moveDisjunctionsCreate1(pddl_fm_junc_t *top,
 }
 
 static pddl_fm_t *moveDisjunctionsCreate(pddl_fm_junc_t *and,
-                                           pddl_list_t *or_list)
+                                         pddl_list_t *or_list)
 {
     pddl_list_t *or_item;
     pddl_fm_junc_t *or;
     pddl_fm_junc_t *ret;
 
-    ret = condPartNew(PDDL_FM_OR);
-    condPartAdd(ret, &and->fm);
+    ret = fmPartNew(PDDL_FM_OR);
+    fmPartAdd(ret, &and->fm);
     while (!pddlListEmpty(or_list)){
         or_item = pddlListNext(or_list);
         pddlListDel(or_item);
@@ -2807,7 +2800,7 @@ static int removeNonStaticImply(pddl_fm_t **c, void *data)
     imp = OBJ(*c, imply);
     if (!isStaticImply(imp, pddl)){
         pddl_fm_junc_t *or;
-        or = condPartNew(PDDL_FM_OR);
+        or = fmPartNew(PDDL_FM_OR);
         pddlFmJuncAdd(or, pddlFmNegate(imp->left, pddl));
         pddlFmJuncAdd(or, imp->right);
         *c = &or->fm;
@@ -2860,11 +2853,11 @@ struct instantiate_ctx {
 };
 typedef struct instantiate_ctx instantiate_ctx_t;
 
-static int instantiateTraverse(pddl_fm_t *cond, void *ud)
+static int instantiateTraverse(pddl_fm_t *fm, void *ud)
 {
     const instantiate_ctx_t *ctx = ud;
-    if (cond->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *atom = OBJ(cond, atom);
+    if (fm->type == PDDL_FM_ATOM){
+        pddl_fm_atom_t *atom = OBJ(fm, atom);
         for (int i = 0; i < atom->arg_size; ++i){
             for (int j = 0; j < pddlISetSize(ctx->params); ++j){
                 if (atom->arg[i].param == pddlISetGet(ctx->params, j)){
@@ -2879,20 +2872,20 @@ static int instantiateTraverse(pddl_fm_t *cond, void *ud)
     return 0;
 }
 
-static pddl_fm_t *instantiate(pddl_fm_t *cond,
-                                const pddl_iset_t *params,
-                                const pddl_obj_id_t *arg,
-                                int eq_pred)
+static pddl_fm_t *instantiate(pddl_fm_t *fm,
+                              const pddl_iset_t *params,
+                              const pddl_obj_id_t *arg,
+                              int eq_pred)
 {
     pddl_fm_junc_t *and;
     pddl_fm_atom_t *eq;
-    pddl_fm_t *c = pddlFmClone(cond);
+    pddl_fm_t *c = pddlFmClone(fm);
     instantiate_ctx_t ctx;
 
-    and = condPartNew(PDDL_FM_AND);
+    and = fmPartNew(PDDL_FM_AND);
     for (int i = 0; i < pddlISetSize(params); ++i){
         int param = pddlISetGet(params, i);
-        eq = condAtomNew();
+        eq = fmAtomNew();
         eq->pred = eq_pred;
         eq->arg_size = 2;
         eq->arg = ALLOC_ARR(pddl_fm_atom_arg_t, 2);
@@ -2912,7 +2905,7 @@ static pddl_fm_t *instantiate(pddl_fm_t *cond,
 }
 
 static void removeStaticImplyRec(pddl_fm_junc_t *top,
-                                 pddl_fm_t *cond,
+                                 pddl_fm_t *fm,
                                  const pddl_t *pddl,
                                  const pddl_params_t *params,
                                  const pddl_iset_t *imp_params,
@@ -2923,8 +2916,7 @@ static void removeStaticImplyRec(pddl_fm_junc_t *top,
     int obj_size;
 
     if (pidx == pddlISetSize(imp_params)){
-        pddl_fm_t *c = instantiate(cond, imp_params, arg,
-                                     pddl->pred.eq_pred);
+        pddl_fm_t *c = instantiate(fm, imp_params, arg, pddl->pred.eq_pred);
         pddlFmJuncAdd(top, c);
     }else{
         int param = pddlISetGet(imp_params, pidx);
@@ -2932,15 +2924,15 @@ static void removeStaticImplyRec(pddl_fm_junc_t *top,
                                   &obj_size);
         for (int i = 0; i < obj_size; ++i){
             arg[pidx] = obj[i];
-            removeStaticImplyRec(top, cond, pddl, params,
+            removeStaticImplyRec(top, fm, pddl, params,
                                  imp_params, pidx + 1, arg);
         }
     }
 }
-                                 
+
 /** Implications are removed by instantiation of the left sides and putting
  *  the instantiated objects to (= ...) predicate. */
-static int removeStaticImply(pddl_fm_t **cond, const pddl_t *pddl,
+static int removeStaticImply(pddl_fm_t **fm, const pddl_t *pddl,
                              const pddl_params_t *params)
 {
     pddl_fm_junc_t *or;
@@ -2950,23 +2942,24 @@ static int removeStaticImply(pddl_fm_t **cond, const pddl_t *pddl,
     if (params == NULL)
         return 0;
 
-    pddlFmTraverse(*cond, NULL, implyParams, &imply_params);
+    pddlFmTraverse(*fm, NULL, implyParams, &imply_params);
     if (pddlISetSize(&imply_params) > 0){
         obj = ALLOC_ARR(pddl_obj_id_t, pddlISetSize(&imply_params));
-        or = condPartNew(PDDL_FM_OR);
-        removeStaticImplyRec(or, *cond, pddl, params, &imply_params, 0, obj);
+        or = fmPartNew(PDDL_FM_OR);
+        removeStaticImplyRec(or, *fm, pddl, params, &imply_params, 0, obj);
         FREE(obj);
-        pddlFmDel(*cond);
-        *cond = &or->fm;
+        pddlFmDel(*fm);
+        *fm = &or->fm;
     }
     pddlISetFree(&imply_params);
     return 0;
 }
 
-pddl_fm_t *pddlFmNormalize(pddl_fm_t *cond, const pddl_t *pddl,
-                               const pddl_params_t *params)
+pddl_fm_t *pddlFmNormalize(pddl_fm_t *fm,
+                           const pddl_t *pddl,
+                           const pddl_params_t *params)
 {
-    pddl_fm_t *c = cond;
+    pddl_fm_t *c = fm;
 
     // TODO: Check return values
     pddlFmInstantiateQuant(&c, &pddl->type);
@@ -3015,9 +3008,9 @@ static int deduplicateAtoms(pddl_fm_t **c, void *data)
     return 0;
 }
 
-pddl_fm_t *pddlFmDeduplicateAtoms(pddl_fm_t *cond, const pddl_t *pddl)
+pddl_fm_t *pddlFmDeduplicateAtoms(pddl_fm_t *fm, const pddl_t *pddl)
 {
-    pddl_fm_t *c = cond;
+    pddl_fm_t *c = fm;
     pddlFmRebuild(&c, NULL, deduplicateAtoms, NULL);
     return c;
 }
@@ -3052,9 +3045,9 @@ static int deduplicate(pddl_fm_t **c, void *data)
     return 0;
 }
 
-pddl_fm_t *pddlFmDeduplicate(pddl_fm_t *cond, const pddl_t *pddl)
+pddl_fm_t *pddlFmDeduplicate(pddl_fm_t *fm, const pddl_t *pddl)
 {
-    pddl_fm_t *c = cond;
+    pddl_fm_t *c = fm;
     pddlFmRebuild(&c, NULL, deduplicate, NULL);
     return c;
 }
@@ -3128,10 +3121,10 @@ static int deconflictEffPre(pddl_fm_t **c, void *data)
     return 0;
 }
 
-pddl_fm_t *pddlFmDeconflictEff(pddl_fm_t *cond, const pddl_t *pddl,
-                                   const pddl_params_t *params)
+pddl_fm_t *pddlFmDeconflictEff(pddl_fm_t *fm, const pddl_t *pddl,
+                               const pddl_params_t *params)
 {
-    pddl_fm_t *c = cond;
+    pddl_fm_t *c = fm;
     int change = 0;
     pddlFmRebuild(&c, deconflictEffPre, deconflictEffPost, &change);
     if (change)
@@ -3346,15 +3339,15 @@ static int entailsAny(const pddl_fm_t *c,
                       const pddl_t *pddl,
                       const pddl_params_t *param)
 {
-        pddl_list_t *item;
-        PDDL_LIST_FOR_EACH(&p->part, item){
-            const pddl_fm_t *s = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-            if (s == c)
-                continue;
-            if (pddlFmIsEntailed(s, c, pddl, param))
-                return 1;
-        }
-        return 0;
+    pddl_list_t *item;
+    PDDL_LIST_FOR_EACH(&p->part, item){
+        const pddl_fm_t *s = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (s == c)
+            continue;
+        if (pddlFmIsEntailed(s, c, pddl, param))
+            return 1;
+    }
+    return 0;
 }
 
 /** ((A or B) and (A => B)) -> B
@@ -3406,7 +3399,7 @@ static int atomHasNegationInDisjunction(const pddl_fm_atom_t *atom,
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *datom;
     PDDL_FM_FOR_EACH_ATOM(&disj->fm, &it, datom){
-        if (condAtomEqNoNeg(atom, datom) && atom->neg == !datom->neg){
+        if (fmAtomEqNoNeg(atom, datom) && atom->neg == !datom->neg){
             *witness = (pddl_fm_atom_t *)datom;
             return 1;
         }
@@ -3463,12 +3456,12 @@ static int simplifyByNegationDistribution(pddl_fm_t **c, void *data)
     return 0;
 }
 
-pddl_fm_t *pddlFmSimplify(pddl_fm_t *cond,
-                              const pddl_t *pddl,
-                              const pddl_params_t *params)
+pddl_fm_t *pddlFmSimplify(pddl_fm_t *fm,
+                          const pddl_t *pddl,
+                          const pddl_params_t *params)
 {
     struct simplify d;
-    pddl_fm_t *c = cond;
+    pddl_fm_t *c = fm;
 
     d.pddl = pddl;
     d.params = params;
@@ -3527,13 +3520,13 @@ static int cmpAtoms(const pddl_fm_atom_t *a1, const pddl_fm_atom_t *a2,
 }
 
 int pddlFmAtomCmp(const pddl_fm_atom_t *a1,
-                    const pddl_fm_atom_t *a2)
+                  const pddl_fm_atom_t *a2)
 {
     return cmpAtoms(a1, a2, 1);
 }
 
 int pddlFmAtomCmpNoNeg(const pddl_fm_atom_t *a1,
-                         const pddl_fm_atom_t *a2)
+                       const pddl_fm_atom_t *a2)
 {
     return cmpAtoms(a1, a2, 0);
 }
@@ -3547,8 +3540,8 @@ static int atomNegPred(const pddl_fm_atom_t *a, const pddl_t *pddl)
 }
 
 int pddlFmAtomInConflict(const pddl_fm_atom_t *a1,
-                           const pddl_fm_atom_t *a2,
-                           const pddl_t *pddl)
+                         const pddl_fm_atom_t *a2,
+                         const pddl_t *pddl)
 {
     if (a1->pred == a2->pred && a1->neg != a2->neg)
         return cmpAtomArgs(a1, a2) == 0;
@@ -3561,7 +3554,7 @@ int pddlFmAtomInConflict(const pddl_fm_atom_t *a1,
     return 0;
 }
 
-static void condAtomRemapObjs(pddl_fm_atom_t *a, const pddl_obj_id_t *remap)
+static void fmAtomRemapObjs(pddl_fm_atom_t *a, const pddl_obj_id_t *remap)
 {
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].obj >= 0)
@@ -3569,19 +3562,19 @@ static void condAtomRemapObjs(pddl_fm_atom_t *a, const pddl_obj_id_t *remap)
     }
 }
 
-static int condRemapObjs(pddl_fm_t *c, void *_remap)
+static int fmRemapObjs(pddl_fm_t *c, void *_remap)
 {
     const pddl_obj_id_t *remap = _remap;
     if (c->type == PDDL_FM_ATOM){
         pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
-        condAtomRemapObjs(a, remap);
+        fmAtomRemapObjs(a, remap);
 
     }else if (c->type == PDDL_FM_ASSIGN || c->type == PDDL_FM_INCREASE){
         pddl_fm_func_op_t *a = PDDL_FM_CAST(c, func_op);
         if (a->lvalue != NULL)
-            condAtomRemapObjs(a->lvalue, remap);
+            fmAtomRemapObjs(a->lvalue, remap);
         if (a->fvalue != NULL)
-            condAtomRemapObjs(a->fvalue, remap);
+            fmAtomRemapObjs(a->fvalue, remap);
     }
 
     return 0;
@@ -3589,7 +3582,7 @@ static int condRemapObjs(pddl_fm_t *c, void *_remap)
 
 void pddlFmRemapObjs(pddl_fm_t *c, const pddl_obj_id_t *remap)
 {
-    pddlFmTraverse(c, NULL, condRemapObjs, (void *)remap);
+    pddlFmTraverse(c, NULL, fmRemapObjs, (void *)remap);
 }
 
 static int atomIsInvalid(const pddl_fm_atom_t *a)
@@ -3601,7 +3594,7 @@ static int atomIsInvalid(const pddl_fm_atom_t *a)
     return 0;
 }
 
-static int condRemoveInvalidAtoms(pddl_fm_t **c, void *_)
+static int fmRemoveInvalidAtoms(pddl_fm_t **c, void *_)
 {
     if ((*c)->type == PDDL_FM_ATOM){
         if (atomIsInvalid(OBJ(*c, atom))){
@@ -3610,7 +3603,7 @@ static int condRemoveInvalidAtoms(pddl_fm_t **c, void *_)
             return 0;
         }
     }else if ((*c)->type == PDDL_FM_ASSIGN
-                || (*c)->type == PDDL_FM_INCREASE){
+            || (*c)->type == PDDL_FM_INCREASE){
         pddl_fm_func_op_t *f = OBJ(*c, func_op);
         if (f->lvalue == NULL
                 || atomIsInvalid(f->lvalue)
@@ -3626,7 +3619,7 @@ static int condRemoveInvalidAtoms(pddl_fm_t **c, void *_)
 
 pddl_fm_t *pddlFmRemoveInvalidAtoms(pddl_fm_t *c)
 {
-    pddlFmRebuild(&c, NULL, condRemoveInvalidAtoms, NULL);
+    pddlFmRebuild(&c, NULL, fmRemoveInvalidAtoms, NULL);
     return c;
 }
 
@@ -3636,7 +3629,7 @@ struct pred_remap {
     int fail;
 };
 
-static int condRemapPreds(pddl_fm_t *c, void *_remap)
+static int fmRemapPreds(pddl_fm_t *c, void *_remap)
 {
     struct pred_remap *remap = _remap;
     if (c->type == PDDL_FM_ATOM){
@@ -3663,11 +3656,11 @@ static int condRemapPreds(pddl_fm_t *c, void *_remap)
 }
 
 int pddlFmRemapPreds(pddl_fm_t *c,
-                       const int *pred_remap,
-                       const int *func_remap)
+                     const int *pred_remap,
+                     const int *func_remap)
 {
     struct pred_remap remap = { pred_remap, func_remap, 0};
-    pddlFmTraverse(c, NULL, condRemapPreds, (void *)&remap);
+    pddlFmTraverse(c, NULL, fmRemapPreds, (void *)&remap);
     if (remap.fail)
         return -1;
     return 0;
@@ -3675,17 +3668,17 @@ int pddlFmRemapPreds(pddl_fm_t *c,
 
 
 /*** PRINT ***/
-static void condPartPrint(const pddl_t *pddl,
-                          pddl_fm_junc_t *cond,
-                          const char *name,
-                          const pddl_params_t *params,
-                          FILE *fout)
+static void fmPartPrint(const pddl_t *pddl,
+                        pddl_fm_junc_t *fm,
+                        const char *name,
+                        const pddl_params_t *params,
+                        FILE *fout)
 {
     pddl_list_t *item;
     const pddl_fm_t *child;
 
     fprintf(fout, "(%s", name);
-    PDDL_LIST_FOR_EACH(&cond->part, item){
+    PDDL_LIST_FOR_EACH(&fm->part, item){
         child = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         fprintf(fout, " ");
         pddlFmPrint(pddl, child, params, fout);
@@ -3693,11 +3686,11 @@ static void condPartPrint(const pddl_t *pddl,
     fprintf(fout, ")");
 }
 
-static void condQuantPrint(const pddl_t *pddl,
-                           const pddl_fm_quant_t *q,
-                           const char *name,
-                           const pddl_params_t *params,
-                           FILE *fout)
+static void fmQuantPrint(const pddl_t *pddl,
+                         const pddl_fm_quant_t *q,
+                         const char *name,
+                         const pddl_params_t *params,
+                         FILE *fout)
 {
     fprintf(fout, "(%s", name);
 
@@ -3705,15 +3698,15 @@ static void condQuantPrint(const pddl_t *pddl,
     pddlParamsPrint(&q->param, fout);
     fprintf(fout, ") ");
 
-    pddlFmPrint(pddl, q->cond, &q->param, fout);
+    pddlFmPrint(pddl, q->qfm, &q->param, fout);
 
     fprintf(fout, ")");
 }
 
-static void condWhenPrint(const pddl_t *pddl,
-                          const pddl_fm_when_t *w,
-                          const pddl_params_t *params,
-                          FILE *fout)
+static void fmWhenPrint(const pddl_t *pddl,
+                        const pddl_fm_when_t *w,
+                        const pddl_params_t *params,
+                        FILE *fout)
 {
     fprintf(fout, "(when ");
     pddlFmPrint(pddl, w->pre, params, fout);
@@ -3722,10 +3715,10 @@ static void condWhenPrint(const pddl_t *pddl,
     fprintf(fout, ")");
 }
 
-static void condAtomPrint(const pddl_t *pddl,
-                          const pddl_fm_atom_t *atom,
-                          const pddl_params_t *params,
-                          FILE *fout, int is_func)
+static void fmAtomPrint(const pddl_t *pddl,
+                        const pddl_fm_atom_t *atom,
+                        const pddl_params_t *params,
+                        FILE *fout, int is_func)
 {
     const pddl_pred_t *pred;
     int i;
@@ -3761,7 +3754,7 @@ static void condAtomPrint(const pddl_t *pddl,
     fprintf(fout, ")");
 }
 
-static void condBoolPrint(const pddl_fm_bool_t *b, FILE *fout)
+static void fmBoolPrint(const pddl_fm_bool_t *b, FILE *fout)
 {
     if (b->val){
         fprintf(fout, "TRUE");
@@ -3770,10 +3763,10 @@ static void condBoolPrint(const pddl_fm_bool_t *b, FILE *fout)
     }
 }
 
-static void condImplyPrint(const pddl_fm_imply_t *imp,
-                           const pddl_t *pddl,
-                           const pddl_params_t *params,
-                           FILE *fout)
+static void fmImplyPrint(const pddl_fm_imply_t *imp,
+                         const pddl_t *pddl,
+                         const pddl_params_t *params,
+                         FILE *fout)
 
 {
     fprintf(fout, "(imply ");
@@ -3786,53 +3779,53 @@ static void condImplyPrint(const pddl_fm_imply_t *imp,
 }
 
 void pddlFmPrint(const struct pddl *pddl,
-                   const pddl_fm_t *cond,
-                   const pddl_params_t *params,
-                   FILE *fout)
+                 const pddl_fm_t *fm,
+                 const pddl_params_t *params,
+                 FILE *fout)
 {
-    if (cond->type == PDDL_FM_AND){
-        condPartPrint(pddl, OBJ(cond, junc), "and", params, fout);
+    if (fm->type == PDDL_FM_AND){
+        fmPartPrint(pddl, OBJ(fm, junc), "and", params, fout);
 
-    }else if (cond->type == PDDL_FM_OR){
-        condPartPrint(pddl, OBJ(cond, junc), "or", params, fout);
+    }else if (fm->type == PDDL_FM_OR){
+        fmPartPrint(pddl, OBJ(fm, junc), "or", params, fout);
 
-    }else if (cond->type == PDDL_FM_FORALL){
-        condQuantPrint(pddl, OBJ(cond, quant), "forall", params, fout);
+    }else if (fm->type == PDDL_FM_FORALL){
+        fmQuantPrint(pddl, OBJ(fm, quant), "forall", params, fout);
 
-    }else if (cond->type == PDDL_FM_EXIST){
-        condQuantPrint(pddl, OBJ(cond, quant), "exists", params, fout);
+    }else if (fm->type == PDDL_FM_EXIST){
+        fmQuantPrint(pddl, OBJ(fm, quant), "exists", params, fout);
 
-    }else if (cond->type == PDDL_FM_WHEN){
-        condWhenPrint(pddl, OBJ(cond, when), params, fout);
+    }else if (fm->type == PDDL_FM_WHEN){
+        fmWhenPrint(pddl, OBJ(fm, when), params, fout);
 
-    }else if (cond->type == PDDL_FM_ATOM){
-        condAtomPrint(pddl, OBJ(cond, atom), params, fout, 0);
+    }else if (fm->type == PDDL_FM_ATOM){
+        fmAtomPrint(pddl, OBJ(fm, atom), params, fout, 0);
 
-    }else if (cond->type == PDDL_FM_ASSIGN){
-        condFuncOpPrintPDDL(OBJ(cond, func_op), pddl, params, fout);
+    }else if (fm->type == PDDL_FM_ASSIGN){
+        fmFuncOpPrintPDDL(OBJ(fm, func_op), pddl, params, fout);
 
-    }else if (cond->type == PDDL_FM_INCREASE){
-        condFuncOpPrintPDDL(OBJ(cond, func_op), pddl, params, fout);
+    }else if (fm->type == PDDL_FM_INCREASE){
+        fmFuncOpPrintPDDL(OBJ(fm, func_op), pddl, params, fout);
 
-    }else if (cond->type == PDDL_FM_BOOL){
-        condBoolPrint(OBJ(cond, bool), fout);
+    }else if (fm->type == PDDL_FM_BOOL){
+        fmBoolPrint(OBJ(fm, bool), fout);
 
-    }else if (cond->type == PDDL_FM_IMPLY){
-        condImplyPrint(OBJ(cond, imply), pddl, params, fout);
+    }else if (fm->type == PDDL_FM_IMPLY){
+        fmImplyPrint(OBJ(fm, imply), pddl, params, fout);
 
     }else{
         PDDL_FATAL2("Unknown type!");
     }
 }
 
-const char *pddlFmFmt(const pddl_fm_t *cond,
-                        const pddl_t *pddl,
-                        const pddl_params_t *params,
-                        char *s,
-                        size_t s_size)
+const char *pddlFmFmt(const pddl_fm_t *fm,
+                      const pddl_t *pddl,
+                      const pddl_params_t *params,
+                      char *s,
+                      size_t s_size)
 {
     FILE *fout = fmemopen(s, s_size - 1, "w");
-    pddlFmPrint(pddl, cond, params, fout);
+    pddlFmPrint(pddl, fm, params, fout);
     fflush(fout);
     if (ferror(fout) != 0 && s_size >= 4){
         s[s_size - 4] = '.';
@@ -3844,22 +3837,22 @@ const char *pddlFmFmt(const pddl_fm_t *cond,
     return s;
 }
 
-void pddlFmPrintPDDL(const pddl_fm_t *cond,
-                       const pddl_t *pddl,
-                       const pddl_params_t *params,
-                       FILE *fout)
+void pddlFmPrintPDDL(const pddl_fm_t *fm,
+                     const pddl_t *pddl,
+                     const pddl_params_t *params,
+                     FILE *fout)
 {
-    cond_cls[cond->type].print_pddl(cond, pddl, params, fout);
+    cond_cls[fm->type].print_pddl(fm, pddl, params, fout);
 }
 
-const char *pddlFmPDDLFmt(const pddl_fm_t *cond,
-                            const pddl_t *pddl,
-                            const pddl_params_t *params,
-                            char *s,
-                            size_t s_size)
+const char *pddlFmPDDLFmt(const pddl_fm_t *fm,
+                          const pddl_t *pddl,
+                          const pddl_params_t *params,
+                          char *s,
+                          size_t s_size)
 {
     FILE *fout = fmemopen(s, s_size - 1, "w");
-    pddlFmPrintPDDL(cond, pddl, params, fout);
+    pddlFmPrintPDDL(fm, pddl, params, fout);
     fflush(fout);
     if (ferror(fout) != 0 && s_size >= 4){
         s[s_size - 4] = '.';
@@ -3873,19 +3866,19 @@ const char *pddlFmPDDLFmt(const pddl_fm_t *cond,
 
 
 const pddl_fm_t *pddlFmConstItInit(pddl_fm_const_it_t *it,
-                                       const pddl_fm_t *cond,
-                                       int type)
+                                   const pddl_fm_t *fm,
+                                   int type)
 {
     ZEROIZE(it);
 
-    if (cond == NULL)
+    if (fm == NULL)
         return NULL;
 
-    if (cond->type == type)
-        return cond;
+    if (fm->type == type)
+        return fm;
 
-    if (cond->type == PDDL_FM_AND || cond->type == PDDL_FM_OR){
-        const pddl_fm_junc_t *p = PDDL_FM_CAST(cond, junc);
+    if (fm->type == PDDL_FM_AND || fm->type == PDDL_FM_OR){
+        const pddl_fm_junc_t *p = PDDL_FM_CAST(fm, junc);
         it->list = &p->part;
         for (it->cur = pddlListNext((pddl_list_t *)it->list);
                 it->cur != it->list;
@@ -3917,10 +3910,10 @@ const pddl_fm_t *pddlFmConstItNext(pddl_fm_const_it_t *it, int type)
 }
 
 const pddl_fm_atom_t *pddlFmConstItAtomInit(pddl_fm_const_it_atom_t *it,
-                                                const pddl_fm_t *cond)
+                                            const pddl_fm_t *fm)
 {
     const pddl_fm_t *c;
-    if ((c = pddlFmConstItInit(it, cond, PDDL_FM_ATOM)) == NULL)
+    if ((c = pddlFmConstItInit(it, fm, PDDL_FM_ATOM)) == NULL)
         return NULL;
     return PDDL_FM_CAST(c, atom);
 }
@@ -3934,10 +3927,10 @@ const pddl_fm_atom_t *pddlFmConstItAtomNext(pddl_fm_const_it_atom_t *it)
 }
 
 const pddl_fm_when_t *pddlFmConstItWhenInit(pddl_fm_const_it_when_t *it,
-                                                const pddl_fm_t *cond)
+                                            const pddl_fm_t *fm)
 {
     const pddl_fm_t *c;
-    if ((c = pddlFmConstItInit(it, cond, PDDL_FM_WHEN)) == NULL)
+    if ((c = pddlFmConstItInit(it, fm, PDDL_FM_WHEN)) == NULL)
         return NULL;
     return PDDL_FM_CAST(c, when);
 }
@@ -3953,7 +3946,7 @@ const pddl_fm_when_t *pddlFmConstItWhenNext(pddl_fm_const_it_when_t *it)
 
 
 static const pddl_fm_t *constItEffNextCond(pddl_fm_const_it_eff_t *it,
-                                             const pddl_fm_t **pre)
+                                           const pddl_fm_t **pre)
 {
     if (pre != NULL)
         *pre = NULL;
@@ -3983,8 +3976,8 @@ static const pddl_fm_t *constItEffNextCond(pddl_fm_const_it_eff_t *it,
 }
 
 static const pddl_fm_atom_t *constItEffWhen(pddl_fm_const_it_eff_t *it,
-                                              const pddl_fm_when_t *w,
-                                              const pddl_fm_t **pre)
+                                            const pddl_fm_when_t *w,
+                                            const pddl_fm_t **pre)
 {
     if (w->eff == NULL){
         return NULL;
@@ -4003,37 +3996,37 @@ static const pddl_fm_atom_t *constItEffWhen(pddl_fm_const_it_eff_t *it,
 
     }else{
         ASSERT_RUNTIME_M(
-            w->eff->type != PDDL_FM_OR
-                && w->eff->type != PDDL_FM_FORALL
-                && w->eff->type != PDDL_FM_EXIST
-                && w->eff->type != PDDL_FM_IMPLY
-                && w->eff->type != PDDL_FM_WHEN,
-            "Effect is not normalized.");
+                         w->eff->type != PDDL_FM_OR
+                         && w->eff->type != PDDL_FM_FORALL
+                         && w->eff->type != PDDL_FM_EXIST
+                         && w->eff->type != PDDL_FM_IMPLY
+                         && w->eff->type != PDDL_FM_WHEN,
+                         "Effect is not normalized.");
     }
     return NULL;
 }
 
 const pddl_fm_atom_t *pddlFmConstItEffInit(pddl_fm_const_it_eff_t *it,
-                                               const pddl_fm_t *cond,
-                                               const pddl_fm_t **pre)
+                                           const pddl_fm_t *fm,
+                                           const pddl_fm_t **pre)
 {
     ZEROIZE(it);
 
     if (pre != NULL)
         *pre = NULL;
-    if (cond == NULL)
+    if (fm == NULL)
         return NULL;
 
-    if (cond->type == PDDL_FM_ATOM){
-        return PDDL_FM_CAST(cond, atom);
+    if (fm->type == PDDL_FM_ATOM){
+        return PDDL_FM_CAST(fm, atom);
 
-    }else if (cond->type == PDDL_FM_AND){
-        const pddl_fm_junc_t *p = PDDL_FM_CAST(cond, junc);
+    }else if (fm->type == PDDL_FM_AND){
+        const pddl_fm_junc_t *p = PDDL_FM_CAST(fm, junc);
         it->list = &p->part;
         return pddlFmConstItEffNext(it, pre);
 
-    }else if (cond->type == PDDL_FM_WHEN){
-        const pddl_fm_when_t *w = PDDL_FM_CAST(cond, when);
+    }else if (fm->type == PDDL_FM_WHEN){
+        const pddl_fm_when_t *w = PDDL_FM_CAST(fm, when);
         const pddl_fm_atom_t *a = constItEffWhen(it, w, pre);
         if (a != NULL)
             return a;
@@ -4041,17 +4034,17 @@ const pddl_fm_atom_t *pddlFmConstItEffInit(pddl_fm_const_it_eff_t *it,
 
     }else{
         ASSERT_RUNTIME_M(
-            cond->type != PDDL_FM_OR
-                && cond->type != PDDL_FM_FORALL
-                && cond->type != PDDL_FM_EXIST
-                && cond->type != PDDL_FM_IMPLY,
-            "Effect is not normalized.");
+                         fm->type != PDDL_FM_OR
+                         && fm->type != PDDL_FM_FORALL
+                         && fm->type != PDDL_FM_EXIST
+                         && fm->type != PDDL_FM_IMPLY,
+                         "Effect is not normalized.");
     }
     return NULL;
 }
 
 const pddl_fm_atom_t *pddlFmConstItEffNext(pddl_fm_const_it_eff_t *it,
-                                               const pddl_fm_t **pre)
+                                           const pddl_fm_t **pre)
 {
     const pddl_fm_t *c;
 
@@ -4070,13 +4063,13 @@ const pddl_fm_atom_t *pddlFmConstItEffNext(pddl_fm_const_it_eff_t *it,
                 return a;
         }else{
             ASSERT_RUNTIME_M(
-                c->type != PDDL_FM_AND
-                    && c->type != PDDL_FM_OR
-                    && c->type != PDDL_FM_FORALL
-                    && c->type != PDDL_FM_EXIST
-                    && c->type != PDDL_FM_IMPLY
-                    && c->type != PDDL_FM_WHEN,
-                "Effect is not normalized.");
+                             c->type != PDDL_FM_AND
+                             && c->type != PDDL_FM_OR
+                             && c->type != PDDL_FM_FORALL
+                             && c->type != PDDL_FM_EXIST
+                             && c->type != PDDL_FM_IMPLY
+                             && c->type != PDDL_FM_WHEN,
+                             "Effect is not normalized.");
         }
     }
 }
