@@ -62,6 +62,7 @@ static int htActionEq(const pddl_list_t *k1, const pddl_list_t *k2, void *ud)
 
 void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 {
+    ZEROIZE(sm);
     sm->action_size = pddl->action.action_size;
     sm->action_arg_size = CALLOC_ARR(int, sm->action_size);
     for (int ai = 0; ai < sm->action_size; ++ai)
