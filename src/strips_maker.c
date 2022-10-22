@@ -841,3 +841,89 @@ pddl_ground_atom_t *pddlStripsMakerGroundAtom(pddl_strips_maker_t *sm, int id)
 {
     return sm->ground_atom.atom[id];
 }
+const pddl_ground_atom_t *pddlStripsMakerGroundAtomConst(
+                const pddl_strips_maker_t *sm, int id)
+{
+    return sm->ground_atom.atom[id];
+}
+
+static int stripsEffInState(pddl_strips_maker_t *smaker,
+                            const pddl_fm_t *pre,
+                            const pddl_fm_t *eff,
+                            const pddl_obj_id_t *args,
+                            const pddl_iset_t *state,
+                            pddl_iset_t *add_eff,
+                            pddl_iset_t *del_eff,
+                            int *cost)
+{
+    pddl_fm_const_it_t it;
+    const pddl_fm_t *fm;
+
+    if (pre != NULL){
+        PDDL_FM_FOR_EACH(pre, &it, fm){
+            if (pddlFmIsAtom(fm)){
+                const pddl_fm_atom_t *atom = pddlFmToAtomConst(fm);
+                // Skip negative preconditions -- they refer to static facts
+                if (atom->neg)
+                    continue;
+
+                const pddl_ground_atom_t *ga;
+                ga = pddlGroundAtomsFindAtom(&smaker->ground_atom_static,
+                                             atom, args);
+                if (ga == NULL){
+                    ga = pddlGroundAtomsFindAtom(&smaker->ground_atom,
+                                                 atom, args);
+                }
+
+                if (ga == NULL || !pddlISetIn(ga->id, state))
+                    return 1;
+            }
+        }
+    }
+
+    PDDL_FM_FOR_EACH(eff, &it, fm){
+        if (pddlFmIsAtom(fm)){
+            const pddl_fm_atom_t *atom = pddlFmToAtomConst(fm);
+            const pddl_ground_atom_t *ga;
+            ga = pddlStripsMakerAddAtom(smaker, atom, args, NULL);
+            if (atom->neg){
+                pddlISetAdd(del_eff, ga->id);
+            }else{
+                pddlISetAdd(add_eff, ga->id);
+            }
+
+        }else if (pddlFmIsWhen(fm)){
+            const pddl_fm_when_t *w = pddlFmToWhenConst(fm);
+            stripsEffInState(smaker, w->pre, w->eff, args, state,
+                             add_eff, del_eff, cost);
+
+        }else if (pddlFmIsIncrease(fm)){
+            const pddl_fm_increase_t *inc = pddlFmToIncreaseConst(fm);
+            if (inc->fvalue != NULL){
+                const pddl_ground_atom_t *ga;
+                ga = pddlGroundAtomsFindAtom(&smaker->ground_func,
+                                             inc->fvalue, args);
+                if (ga != NULL)
+                    *cost += ga->func_val;
+            }else{
+                *cost += inc->value;
+            }
+        }
+    }
+    return 0;
+}
+
+void pddlStripsMakerActionEffInState(pddl_strips_maker_t *smaker,
+                                     const pddl_action_t *a,
+                                     const pddl_obj_id_t *args,
+                                     const pddl_iset_t *state,
+                                     pddl_iset_t *add_eff,
+                                     pddl_iset_t *del_eff,
+                                     int *cost)
+{
+    *cost = 0;
+    stripsEffInState(smaker, NULL, a->eff, args, state, add_eff, del_eff, cost);
+    pddlISetIntersect(del_eff, state);
+    pddlISetMinus(del_eff, add_eff);
+    pddlISetMinus(add_eff, state);
+}

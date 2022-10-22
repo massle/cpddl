@@ -93,6 +93,7 @@
 #include <pddl/biclique.h>
 #include <pddl/open_list.h>
 #include <pddl/search.h>
+#include <pddl/lifted_app_action.h>
 #include <pddl/search_lifted.h>
 #include <pddl/plan.h>
 #include <pddl/relaxed_plan.h>
