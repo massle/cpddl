@@ -190,13 +190,12 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
     ZEROIZE(h);
     h->pddl = pddl;
     h->collect_best_achiever_facts = collect_best_achiever_facts;
-    pddlPrepActionsInit(h->pddl, &h->prep_action, err);
     h->dl = pddlDatalogNew();
     h->type_to_dlpred = ALLOC_ARR(unsigned, h->pddl->type.type_size);
     h->pred_to_dlpred = ALLOC_ARR(unsigned, h->pddl->pred.pred_size);
     h->obj_to_dlconst = ALLOC_ARR(unsigned, h->pddl->obj.obj_size);
 
-    h->dlvar_size = pddlDatalogPddlMaxVarSize(pddl, &h->prep_action);
+    h->dlvar_size = pddlDatalogPddlMaxVarSize(pddl);
     h->dlvar = ALLOC_ARR(unsigned, h->dlvar_size);
     for (int i = 0; i < h->dlvar_size; ++i)
         h->dlvar[i] = pddlDatalogAddVar(h->dl, NULL);
@@ -231,7 +230,6 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
 
 static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
 {
-    pddlPrepActionsFree(&h->prep_action);
     pddlDatalogDel(h->dl);
     FREE(h->type_to_dlpred);
     FREE(h->pred_to_dlpred);

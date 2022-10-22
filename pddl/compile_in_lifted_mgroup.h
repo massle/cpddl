@@ -23,8 +23,8 @@ typedef struct pddl_compile_in_lmg_config pddl_compile_in_lmg_config_t;
 
 #define PDDL_COMPILE_IN_LMG_CONFIG_INIT \
     { \
-        0, /* .compile_in_mutex */ \
-        1, /* .compile_in_dead_end */ \
+        0, /* .prune_mutex */ \
+        1, /* .prune_dead_end */ \
     }
 
 
