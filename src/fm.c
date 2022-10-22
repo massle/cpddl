@@ -1033,6 +1033,24 @@ pddl_fm_atom_t *pddlFmToAtom(pddl_fm_t *c)
     return PDDL_FM_CAST(c, atom);
 }
 
+const pddl_fm_atom_t *pddlFmToAtomConst(const pddl_fm_t *c)
+{
+    ASSERT(c->type == PDDL_FM_ATOM);
+    return PDDL_FM_CAST(c, atom);
+}
+
+const pddl_fm_increase_t *pddlFmToIncreaseConst(const pddl_fm_t *c)
+{
+    ASSERT(c->type == PDDL_FM_INCREASE);
+    return PDDL_FM_CAST(c, increase);
+}
+
+const pddl_fm_when_t *pddlFmToWhenConst(const pddl_fm_t *c)
+{
+    ASSERT(c->type == PDDL_FM_WHEN);
+    return PDDL_FM_CAST(c, when);
+}
+
 void pddlFmDel(pddl_fm_t *cond)
 {
     cond_cls[cond->type].del(cond);
@@ -1064,6 +1082,16 @@ int pddlFmIsTrue(const pddl_fm_t *c)
 int pddlFmIsAtom(const pddl_fm_t *c)
 {
     return c->type == PDDL_FM_ATOM;
+}
+
+int pddlFmIsWhen(const pddl_fm_t *c)
+{
+    return c->type == PDDL_FM_WHEN;
+}
+
+int pddlFmIsIncrease(const pddl_fm_t *c)
+{
+    return c->type == PDDL_FM_INCREASE;
 }
 
 pddl_fm_t *pddlFmNegate(const pddl_fm_t *cond,
@@ -3873,13 +3901,16 @@ const char *pddlFmPDDLFmt(const pddl_fm_t *cond,
 
 
 const pddl_fm_t *pddlFmConstItInit(pddl_fm_const_it_t *it,
-                                       const pddl_fm_t *cond,
-                                       int type)
+                                   const pddl_fm_t *cond,
+                                   int type)
 {
     ZEROIZE(it);
 
     if (cond == NULL)
         return NULL;
+
+    if (type < 0 && cond->type != PDDL_FM_AND && cond->type != PDDL_FM_OR)
+        return cond;
 
     if (cond->type == type)
         return cond;
@@ -3891,7 +3922,7 @@ const pddl_fm_t *pddlFmConstItInit(pddl_fm_const_it_t *it,
                 it->cur != it->list;
                 it->cur = pddlListNext((pddl_list_t *)it->cur)){
             const pddl_fm_t *c = PDDL_LIST_ENTRY(it->cur, pddl_fm_t, conn);
-            if (c->type == type)
+            if (type < 0 || c->type == type)
                 return c;
         }
         return NULL;
@@ -3909,7 +3940,7 @@ const pddl_fm_t *pddlFmConstItNext(pddl_fm_const_it_t *it, int type)
             it->cur != it->list;
             it->cur = pddlListNext((pddl_list_t *)it->cur)){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(it->cur, pddl_fm_t, conn);
-        if (c->type == type)
+        if (type < 0 || c->type == type)
             return c;
     }
 
