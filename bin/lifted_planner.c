@@ -190,66 +190,66 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             break;
     }
 
-    pddl_search_lifted_t *search;
+    pddl_lifted_search_t *search;
     switch (opt.lifted_planner.search){
         case LIFTED_PLAN_ASTAR:
             PDDL_INFO2(err, "Search: astar");
-            search = pddlSearchLiftedAStar(pddl, heur, err);
+            search = pddlLiftedSearchAStar(pddl, heur, err);
             break;
         case LIFTED_PLAN_GBFS:
             PDDL_INFO2(err, "Search: gbfs");
-            search = pddlSearchLiftedGBFS(pddl, heur, err);
+            search = pddlLiftedSearchGBFS(pddl, heur, err);
             break;
         case LIFTED_PLAN_LAZY:
             PDDL_INFO2(err, "Search: lazy");
-            search = pddlSearchLiftedLazy(pddl, heur, err);
+            search = pddlLiftedSearchLazy(pddl, heur, err);
             break;
         default:
             PDDL_FATAL("Unknown lifted planner %d", opt.lifted_planner.search);
     }
 
-    int ret = pddlSearchLiftedInitStep(search);
+    pddl_lifted_search_status_t ret = pddlLiftedSearchInitStep(search);
     lifted_search_started = 1;
 
     pddl_timer_t info_timer;
     pddlTimerStart(&info_timer);
-    for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
+    for (int step = 1; ret == PDDL_LIFTED_SEARCH_CONT; ++step){
         if (lifted_terminate){
-            ret = PDDL_SEARCH_ABORT;
+            ret = PDDL_LIFTED_SEARCH_ABORT;
             break;
         }
 
-        ret = pddlSearchLiftedStep(search);
+        ret = pddlLiftedSearchStep(search);
         if (step >= 100){
             pddlTimerStop(&info_timer);
             if (pddlTimerElapsedInSF(&info_timer) >= 1.){
-                pddlSearchLiftedStatLog(search, err);
+                pddlLiftedSearchStatLog(search, err);
                 pddlTimerStart(&info_timer);
             }
             step = 0;
         }
     }
-    pddlSearchLiftedStatLog(search, err);
+    pddlLiftedSearchStatLog(search, err);
 
-    if (ret == PDDL_SEARCH_UNSOLVABLE){
+    if (ret == PDDL_LIFTED_SEARCH_UNSOLVABLE){
         PDDL_INFO2(err, "Problem is unsolvable.");
 
-    }else if (ret == PDDL_SEARCH_FOUND){
+    }else if (ret == PDDL_LIFTED_SEARCH_FOUND){
         PDDL_INFO2(err, "Plan found.");
-        const pddl_lifted_plan_t *plan = pddlSearchLiftedPlan(search);
+        const pddl_lifted_plan_t *plan = pddlLiftedSearchPlan(search);
         PDDL_INFO(err, "Plan Cost: %d", plan->plan_cost);
         PDDL_INFO(err, "Plan Length: %d", plan->plan_len);
         PRINT_TO_FILE(err, opt.lifted_planner.plan_out, "plan",
-                      pddlSearchLiftedPlanPrint(search, fout));
+                      pddlLiftedSearchPlanPrint(search, fout));
 
-    }else if (ret == PDDL_SEARCH_ABORT){
+    }else if (ret == PDDL_LIFTED_SEARCH_ABORT){
         PDDL_INFO2(err, "Search aborted.");
 
     }else{
         PDDL_FATAL("Unkown return status: %d", ret);
     }
 
-    pddlSearchLiftedDel(search);
+    pddlLiftedSearchDel(search);
     if (heur_homo != NULL)
         pddlHomomorphismHeurDel(heur_homo);
     if (heur != NULL)
