@@ -19,7 +19,7 @@
 #include "pddl/open_list.h"
 #include "pddl/strips_state_space.h"
 #include "pddl/strips_maker.h"
-#include "pddl/sql_grounder.h"
+#include "pddl/lifted_app_action.h"
 #include "pddl/search_lifted.h"
 #include "internal.h"
 
@@ -30,11 +30,10 @@ typedef int (*search_step_fn)(pddl_search_lifted_t *);
 struct pddl_search_lifted {
     const pddl_t *pddl;
     pddl_err_t *err;
-    pddl_sql_grounder_t *grounder;
+    pddl_lifted_app_action_t *app_action;
     pddl_strips_maker_t strips;
     pddl_strips_state_space_t state_space;
 
-    pddl_iset_t applicable;
     pddl_strips_state_space_node_t cur_node;
     pddl_strips_state_space_node_t next_node;
     pddl_search_stat_t _stat;
@@ -65,9 +64,11 @@ typedef struct pddl_search_lifted_bfs pddl_search_lifted_bfs_t;
 static void setGoal(pddl_search_lifted_t *s);
 static pddl_state_id_t insertInitState(pddl_search_lifted_t *s);
 static int isGoal(const pddl_search_lifted_t *s);
-static void findApplicableOps(pddl_search_lifted_t *s,
-                              pddl_iset_t *applicable_ops);
-static void applyAction(pddl_search_lifted_t *s, int args_id, int *cost);
+static void applyAction(pddl_search_lifted_t *s,
+                        const pddl_action_t *action,
+                        const pddl_obj_id_t *args,
+                        int *args_id,
+                        int *cost);
 static void extractPlan(pddl_search_lifted_t *s, pddl_state_id_t goal_state_id);
 
 static int searchInit(pddl_search_lifted_t *s,
@@ -81,11 +82,10 @@ static int searchInit(pddl_search_lifted_t *s,
     s->pddl = pddl;
     s->err = err;
 
-    s->grounder = pddlSqlGrounderNew(pddl, err);
+    s->app_action = pddlLiftedAppActionNew(pddl, PDDL_LIFTED_APP_ACTION_SQL, err);
     pddlStripsMakerInit(&s->strips, pddl);
     pddlStripsStateSpaceInit(&s->state_space, err);
 
-    pddlISetInit(&s->applicable);
     pddlStripsStateSpaceNodeInit(&s->cur_node, &s->state_space);
     pddlStripsStateSpaceNodeInit(&s->next_node, &s->state_space);
     s->del_fn = del_fn;
@@ -100,9 +100,8 @@ static void searchFree(pddl_search_lifted_t *s)
     pddlStripsStateSpaceNodeFree(&s->cur_node);
     pddlStripsStateSpaceNodeFree(&s->next_node);
     pddlStripsStateSpaceFree(&s->state_space);
-    pddlISetFree(&s->applicable);
     pddlStripsMakerFree(&s->strips);
-    pddlSqlGrounderDel(s->grounder);
+    pddlLiftedAppActionDel(s->app_action);
     pddlISetFree(&s->goal);
     for (int i = 0; i < s->plan.plan_len; ++i)
         FREE(s->plan.plan[i]);
@@ -295,12 +294,14 @@ static int bfsStep(pddl_search_lifted_t *s)
     }
 
     // Find all applicable operators
-    pddlISetEmpty(&s->applicable);
-    findApplicableOps(s, &s->applicable);
+    pddlLiftedAppActionSetStripsState(s->app_action, &s->strips,
+                                      &s->cur_node.state);
+    pddlLiftedAppActionFindAppActions(s->app_action);
     ++s->_stat.expanded;
 
+    int app_size = pddlLiftedAppActionSize(s->app_action);
     int h_value = -1;
-    if (pddlISetSize(&s->applicable) > 0 && bfs->is_lazy){
+    if (app_size > 0 && bfs->is_lazy){
         h_value = 0;
         if (bfs->heur != NULL){
             pddl_cost_t h = pddlLiftedHeurEstimate(bfs->heur,
@@ -311,10 +312,15 @@ static int bfsStep(pddl_search_lifted_t *s)
         }
     }
 
-    int args_id;
-    PDDL_ISET_FOR_EACH(&s->applicable, args_id){
-        int cost;
-        applyAction(s, args_id, &cost);
+    for (int app_i = 0; app_i < app_size; ++app_i){
+        int action_id = pddlLiftedAppActionId(s->app_action, app_i);
+        const pddl_action_t *action = s->pddl->action.action + action_id;
+        const pddl_obj_id_t *args = pddlLiftedAppActionArgs(s->app_action, app_i);
+
+        int cost, args_id;
+        applyAction(s, action, args, &args_id, &cost);
+        if (args_id < 0)
+            continue;
 
         // Insert the new state
         pddl_state_id_t next_state_id;
@@ -443,7 +449,6 @@ static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
                 ga = pddlStripsMakerAddAtom(&s->strips, a, NULL, NULL);
                 pddlISetAdd(&init, ga->id);
             }
-            pddlSqlGrounderInsertAtom(s->grounder, a, s->err);
 
         }else if (c->type == PDDL_FM_ASSIGN){
             const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
@@ -467,91 +472,31 @@ static int isGoal(const pddl_search_lifted_t *s)
 }
 
 
-static void findApplicableOpsAction(pddl_search_lifted_t *s,
-                                    int action_id,
-                                    pddl_iset_t *applicable_ops)
-{
-    if (pddlSqlGrounderActionStart(s->grounder, action_id, s->err) != 0)
-        return;
-
-    const pddl_prep_action_t *paction;
-    paction = pddlSqlGrounderPrepAction(s->grounder, action_id);
-    ASSERT(paction->parent_action < 0);
-
-    pddl_obj_id_t row[paction->param_size];
-    while (pddlSqlGrounderActionNext(s->grounder, row, s->err)){
-        pddl_ground_action_args_t *a;
-        a = pddlStripsMakerAddAction(&s->strips, action_id, 0, row, NULL);
-        pddlISetAdd(applicable_ops, a->id);
-    }
-}
-
-static void findApplicableOps(pddl_search_lifted_t *s,
-                              pddl_iset_t *applicable_ops)
-{
-    pddlSqlGrounderClearNonStatic(s->grounder, s->err);
-    int fact;
-    PDDL_ISET_FOR_EACH(&s->cur_node.state, fact){
-        const pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerGroundAtom(&s->strips, fact);
-        pddlSqlGrounderInsertGroundAtom(s->grounder, ga, s->err);
-    }
-    int action_size = pddlSqlGrounderPrepActionSize(s->grounder);
-    for (int ai = 0; ai < action_size; ++ai)
-        findApplicableOpsAction(s, ai, applicable_ops);
-}
-
 static void applyAction(pddl_search_lifted_t *s,
-                        int args_id,
+                        const pddl_action_t *action,
+                        const pddl_obj_id_t *args,
+                        int *args_id,
                         int *cost)
 {
-    const pddl_ground_action_args_t *aargs;
-    aargs = pddlStripsMakerActionArgs(&s->strips, args_id);
-    const pddl_prep_action_t *pa;
-    pa = pddlSqlGrounderPrepAction(s->grounder, aargs->action_id);
-
-    PDDL_ISET(eadd);
-    PDDL_ISET(edel);
-    for (int i = 0; i < pa->add_eff.size; ++i){
-        const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(pa->add_eff.fm[i], atom);
-        ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
-
-        pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerAddAtom(&s->strips, atom, aargs->arg, NULL);
-        pddlISetAdd(&eadd, ga->id);
-    }
-
-    for (int i = 0; i < pa->del_eff.size; ++i){
-        const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(pa->del_eff.fm[i], atom);
-        ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
-
-        pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerAddAtom(&s->strips, atom, aargs->arg, NULL);
-        pddlISetAdd(&edel, ga->id);
-    }
-
-    *cost = 0;
-    for (int i = 0; i < pa->increase.size && s->pddl->metric; ++i){
-        const pddl_fm_func_op_t *inc;
-        inc = PDDL_FM_CAST(pa->increase.fm[i], func_op);
-        if (inc->fvalue != NULL){
-            const pddl_ground_atom_t *ga;
-            ga = pddlGroundAtomsFindAtom(&s->strips.ground_func,
-                                         inc->fvalue, aargs->arg);
-            *cost += ga->func_val;
-        }else{
-            *cost += inc->value;
-        }
-    }
+    *args_id = -1;
+    PDDL_ISET(add_eff);
+    PDDL_ISET(del_eff);
+    pddlStripsMakerActionEffInState(&s->strips, action, args,
+                                    &s->cur_node.state,
+                                    &add_eff, &del_eff, cost);
     if (!s->pddl->metric)
         *cost = 1;
 
-    pddlISetMinus2(&s->next_node.state, &s->cur_node.state, &edel);
-    pddlISetUnion(&s->next_node.state, &eadd);
-    pddlISetFree(&eadd);
-    pddlISetFree(&edel);
+    if (pddlISetSize(&add_eff) > 0 || pddlISetSize(&del_eff) > 0){
+        const pddl_ground_action_args_t *a;
+        a = pddlStripsMakerAddAction(&s->strips, action->id, 0, args, NULL);
+        *args_id = a->id;
+        pddlISetMinus2(&s->next_node.state, &s->cur_node.state, &del_eff);
+        pddlISetUnion(&s->next_node.state, &add_eff);
+    }
+
+    pddlISetFree(&add_eff);
+    pddlISetFree(&del_eff);
 }
 
 static void addPlanOp(pddl_search_lifted_t *s, int op_id)
@@ -566,14 +511,12 @@ static void addPlanOp(pddl_search_lifted_t *s, int op_id)
 
     const pddl_ground_action_args_t *aargs;
     aargs = pddlStripsMakerActionArgs(&s->strips, op_id);
-    const pddl_prep_action_t *pa;
-    pa = pddlSqlGrounderPrepAction(s->grounder, aargs->action_id);
-    const pddl_action_t *action = pa->action;
+    const pddl_action_t *action = s->pddl->action.action + aargs->action_id;
 
     static int maxlen = 512;
     char name[maxlen + 1];
     int len = snprintf(name, maxlen, "%s", action->name);
-    for (int i = 0; i < pa->param_size; ++i){
+    for (int i = 0; i < action->param.param_size; ++i){
         len += snprintf(name + len, maxlen - len, " %s",
                         s->pddl->obj.obj[aargs->arg[i]].name);
     }

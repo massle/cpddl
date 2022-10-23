@@ -76,6 +76,7 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
                                     sm->action_arg_size);
     pddl_ground_action_args_t *pa = NULL;
     sm->action_args_arr = pddlExtArrNew(sizeof(pa), NULL, &pa);
+    sm->eq_pred = pddl->pred.eq_pred;
 }
 
 void pddlStripsMakerFree(pddl_strips_maker_t *sm)
@@ -863,20 +864,42 @@ static int stripsEffInState(pddl_strips_maker_t *smaker,
         PDDL_FM_FOR_EACH(pre, &it, fm){
             if (pddlFmIsAtom(fm)){
                 const pddl_fm_atom_t *atom = pddlFmToAtomConst(fm);
-                // Skip negative preconditions -- they refer to static facts
-                if (atom->neg)
+                if (atom->pred == smaker->eq_pred){
+                    ASSERT(atom->arg_size == 2);
+                    pddl_obj_id_t o1 = atom->arg[0].obj;
+                    if (atom->arg[0].param >= 0)
+                        o1 = args[atom->arg[0].param];
+
+                    pddl_obj_id_t o2 = atom->arg[1].obj;
+                    if (atom->arg[1].param >= 0)
+                        o2 = args[atom->arg[1].param];
+
+                    if (atom->neg){
+                        if (o1 == o2)
+                            return 1;
+                    }else{
+                        if (o1 != o2)
+                            return 1;
+                    }
                     continue;
+                }
 
                 const pddl_ground_atom_t *ga;
                 ga = pddlGroundAtomsFindAtom(&smaker->ground_atom_static,
                                              atom, args);
-                if (ga == NULL){
-                    ga = pddlGroundAtomsFindAtom(&smaker->ground_atom,
-                                                 atom, args);
+                // Negative preconditions are of static predicates only
+                if (atom->neg){
+                    if (ga != NULL)
+                        return 1;
+                }else{
+                    if (ga == NULL){
+                        ga = pddlGroundAtomsFindAtom(&smaker->ground_atom,
+                                                     atom, args);
+                        if (ga == NULL || !pddlISetIn(ga->id, state))
+                            return 1;
+                    }
                 }
 
-                if (ga == NULL || !pddlISetIn(ga->id, state))
-                    return 1;
             }
         }
     }

@@ -50,6 +50,7 @@ struct pddl_strips_maker {
     pddl_htable_t *action_args;
     int num_action_args;
     pddl_extarr_t *action_args_arr;
+    int eq_pred;
 };
 typedef struct pddl_strips_maker pddl_strips_maker_t;
 
