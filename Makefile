@@ -108,6 +108,7 @@ OBJS += search_astar
 OBJS += search_lazy
 OBJS += lifted_app_action
 OBJS += lifted_app_action_sql
+OBJS += lifted_app_action_datalog
 OBJS += lifted_search
 OBJS += plan
 OBJS += relaxed_plan

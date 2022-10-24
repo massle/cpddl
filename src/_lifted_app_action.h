@@ -48,6 +48,8 @@ void _pddlLiftedAppActionInit(pddl_lifted_app_action_t *aa,
 
 pddl_lifted_app_action_t *pddlLiftedAppActionNewSql(const pddl_t *pddl,
                                                     pddl_err_t *err);
+pddl_lifted_app_action_t *pddlLiftedAppActionNewDatalog(const pddl_t *pddl,
+                                                        pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

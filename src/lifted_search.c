@@ -70,7 +70,7 @@ static int searchInit(pddl_lifted_search_t *s,
     s->pddl = pddl;
     s->err = err;
 
-    s->app_action = pddlLiftedAppActionNew(pddl, PDDL_LIFTED_APP_ACTION_SQL, err);
+    s->app_action = pddlLiftedAppActionNew(pddl, PDDL_LIFTED_APP_ACTION_DL, err);
     pddlStripsMakerInit(&s->strips, pddl);
     pddlStripsStateSpaceInit(&s->state_space, err);
 

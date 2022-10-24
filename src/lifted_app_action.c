@@ -64,10 +64,13 @@ pddl_lifted_app_action_t *pddlLiftedAppActionNew(const pddl_t *pddl,
 {
     ASSERT_RUNTIME(pddl->normalized);
 
-    if (backend == PDDL_LIFTED_APP_ACTION_SQL){
-        return pddlLiftedAppActionNewSql(pddl, err);
-    }else{
-        ERR_RET(err, NULL, "Unkown backend '%d'", (int)backend);
+    switch (backend){
+        case PDDL_LIFTED_APP_ACTION_SQL:
+            return pddlLiftedAppActionNewSql(pddl, err);
+        case PDDL_LIFTED_APP_ACTION_DL:
+            return pddlLiftedAppActionNewDatalog(pddl, err);
+        default:
+            ERR_RET(err, NULL, "Unkown backend '%d'", (int)backend);
     }
 }
 
