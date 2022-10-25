@@ -24,7 +24,7 @@ struct pddl_lifted_search {
 
     pddl_strips_state_space_node_t cur_node;
     pddl_strips_state_space_node_t next_node;
-    pddl_search_stat_t _stat;
+    pddl_lifted_search_stat_t _stat;
 
     pddl_iset_t goal;
     int goal_is_unreachable;
@@ -269,7 +269,12 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
     --s->_stat.open;
     ++s->_stat.closed;
+    int last_f_value = s->_stat.last_f_value;
     s->_stat.last_f_value = cur_cost[0];
+    if (last_f_value != s->_stat.last_f_value){
+        s->_stat.expanded_before_last_f_layer = s->_stat.expanded;
+        s->_stat.dead_end_before_last_f_layer = s->_stat.dead_end;
+    }
 
     // Check whether it is a goal
     if (isGoal(s)){
@@ -338,7 +343,7 @@ pddl_lifted_search_status_t pddlLiftedSearchStep(pddl_lifted_search_t *s)
 }
 
 void pddlLiftedSearchStat(const pddl_lifted_search_t *s,
-                          pddl_search_stat_t *stat)
+                          pddl_lifted_search_stat_t *stat)
 {
     *stat = s->_stat;
     stat->generated = s->state_space.num_states;
@@ -346,25 +351,29 @@ void pddlLiftedSearchStat(const pddl_lifted_search_t *s,
 
 void pddlLiftedSearchStatLog(const pddl_lifted_search_t *s, pddl_err_t *err)
 {
-    pddl_search_stat_t stat;
+    pddl_lifted_search_stat_t stat;
     pddlLiftedSearchStat(s, &stat);
     LOG(err, "Search steps: %{stat_steps}lu,"
         " expand: %{stat_expanded}lu,"
+        " expand-blf: %{stat_expanded_before_last_f_layer}lu,"
         " eval: %{stat_evaluated}lu,"
         " gen: %{stat_generated}lu,"
         " open: %{stat_open}lu,"
         " closed: %{stat_closed}lu,"
         " reopen: %{stat_reopen}lu,"
         " de: %{stat_dead_end}lu,"
+        " de-blf: %{stat_dead_end_before_last_f_layer}lu,"
         " f: %{stat_fvalue}d",
         stat.steps,
         stat.expanded,
+        stat.expanded_before_last_f_layer,
         stat.evaluated,
         stat.generated,
         stat.open,
         stat.closed,
         stat.reopen,
         stat.dead_end,
+        stat.dead_end_before_last_f_layer,
         stat.last_f_value);
 }
 
