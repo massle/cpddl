@@ -339,7 +339,7 @@ static int cmdGen(void)
     }
 
     pddl_rand_t rnd;
-    pddlRandInit(&rnd);
+    pddlRandInitAuto(&rnd);
     for (int ti = bench.task_size - 1; ti > 0; --ti){
         int idx = pddlRand(&rnd, 0, ti);
         if (idx != ti){
