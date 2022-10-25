@@ -62,6 +62,7 @@ enum {
 
 struct options {
     int help;
+    int version;
     int max_mem;
     char *log_out;
     char *prop_out;

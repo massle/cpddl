@@ -403,6 +403,7 @@ static void groundHeurOpMutex(void *ud)
 static void setBaseOptions(void)
 {
     optsAddFlag("help", 'h', &opt.help, 0, "Print this help.");
+    optsAddFlag("version", 0x0, &opt.version, 0, "Print version and exit.");
     optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
                "Maximum memory in MB if >0.");
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
@@ -1025,6 +1026,7 @@ static void setReportsOptions(void)
 static void help(const char *argv0, FILE *fout)
 {
     fprintf(fout, "Usage: %s [OPTIONS] [domain.pddl] problem.pddl\n", argv0);
+    fprintf(fout, "version: %s\n", pddl_version);
     fprintf(fout, "\n");
     fprintf(fout, "OPTIONS:\n");
     optsPrint(fout);
@@ -1069,6 +1071,11 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     if (opt.help){
         help(argv[0], stderr);
         return -1;
+    }
+
+    if (opt.version){
+        fprintf(stdout, "%s\n", pddl_version);
+        return 1;
     }
 
     if (opt.lmg.fd_monotonicity)

@@ -192,9 +192,11 @@ all: $(TARGETS)
 bin: libpddl.a
 	$(MAKE) -C bin
 
-libpddl.a: $(OBJS) Makefile
-	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
-	$(CC) -c -o .objs/_version.o _version.c
+libpddl.a: $(OBJS) Makefile pddl/version.h
+	echo "#include \"pddl/version.h\"" >_version.c
+	echo "const char *pddl_build_version = \"$(shell git rev-parse HEAD)\";" >>_version.c
+	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>_version.c
+	$(CC) -I. -c -o .objs/_version.o _version.c
 	rm -f _version.c
 	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@
