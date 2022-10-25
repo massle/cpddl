@@ -355,14 +355,14 @@ void pddlLiftedSearchStatLog(const pddl_lifted_search_t *s, pddl_err_t *err)
     pddlLiftedSearchStat(s, &stat);
     LOG(err, "Search steps: %{stat_steps}lu,"
         " expand: %{stat_expanded}lu,"
-        " expand-blf: %{stat_expanded_before_last_f_layer}lu,"
+        " expand-blfl: %{stat_expanded_blfl}lu,"
         " eval: %{stat_evaluated}lu,"
         " gen: %{stat_generated}lu,"
         " open: %{stat_open}lu,"
         " closed: %{stat_closed}lu,"
         " reopen: %{stat_reopen}lu,"
         " de: %{stat_dead_end}lu,"
-        " de-blf: %{stat_dead_end_before_last_f_layer}lu,"
+        " de-blfl: %{stat_dead_end_blfl}lu,"
         " f: %{stat_fvalue}d",
         stat.steps,
         stat.expanded,
