@@ -9,6 +9,7 @@
 extern const int is_pddl_fdr;
 extern const int is_pddl_symba;
 extern const int is_pddl_pddl;
+extern const int is_pddl_lplan;
 
 options_t opt = { 0 };
 
@@ -478,8 +479,6 @@ static void setPddlPostprocessOptions(void)
 
 static void setLiftedPlannerOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
-        return;
 
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
     opt.lifted_planner.homomorph_cfg = _homomorph_cfg;
@@ -498,6 +497,13 @@ static void setLiftedPlannerOptions(void)
                      "astar", LIFTED_PLAN_ASTAR,
                      "gbfs", LIFTED_PLAN_GBFS,
                      "lazy", LIFTED_PLAN_LAZY);
+    optsAddIntSwitch("lplan-succ-gen", 0x0, &opt.lifted_planner.succ_gen,
+                     "Backend of the successor generator, one of:\n"
+                     "  dl - datalog (default)\n"
+                     "  sql - sqlite\n",
+                     2,
+                     "dl", LIFTED_PLAN_SUCC_GEN_DL,
+                     "sql", LIFTED_PLAN_SUCC_GEN_SQL);
     optsAddIntSwitch("lplan-h", 0x0, &opt.lifted_planner.heur,
                      "Heuristic function for the lifted planner, one of:\n"
                      "  blind - Blind heuristic (default)\n"
@@ -554,8 +560,6 @@ static void setLiftedPlannerOptions(void)
 
 static void setGroundOptions(void)
 {
-    if (is_pddl_pddl)
-        return;
     opt.ground.cfg.lifted_mgroups = NULL;
     opt.ground.cfg.remove_static_facts = 1;
     opt.ground.method = GROUND_DL;
@@ -609,8 +613,6 @@ static void setGroundOptions(void)
 
 static void setMutexGroupOptions(void)
 {
-    if (is_pddl_pddl)
-        return;
     optsStartGroup("Mutex Groups:");
     optsAddIntSwitch("mg", 0x0, &opt.mg.method,
                      "Method for inference of mutex groups, one of:\n"
@@ -653,8 +655,6 @@ static void fixpointClose(void)
 
 static void setProcessStripsOptions(void)
 {
-    if (is_pddl_pddl)
-        return;
     opts_params_t *params;
 
     pddlProcessStripsInit(&opt.strips.process);
@@ -774,9 +774,6 @@ static void setProcessStripsOptions(void)
 
 static void setRedBlackOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
-        return;
-
     pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
     opt.rb_fdr.cfg = _rb_cfg;
 
@@ -797,9 +794,6 @@ static void setRedBlackOptions(void)
 
 static void setFDROptions(void)
 {
-    if (is_pddl_pddl)
-        return;
-
     opts_params_t *params;
 
     pddlHPotConfigInit(&opt.fdr.pot_cfg);
@@ -843,9 +837,6 @@ static void setFDROptions(void)
 
 static void setGroundPlannerOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
-        return;
-
     pddlHPotConfigInit(&opt.ground_planner.pot_cfg);
 
     opts_params_t *params;
@@ -924,9 +915,6 @@ static void setGroundPlannerOptions(void)
 
 static void setSymbaOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_pddl)
-        return;
-
     opts_params_t *params;
 
     pddl_symbolic_task_config_t _symba_cfg = PDDL_SYMBOLIC_TASK_CONFIG_INIT;
@@ -999,9 +987,6 @@ static void setSymbaOptions(void)
 
 static void setReversibilityOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
-        return;
-
     optsStartGroup("Reversibility:");
     optsAddInt("reversibility-max-depth", 0x0, &opt.reversibility.max_depth, 1,
                "Maximum depth when searching for reversible plans"
@@ -1013,9 +998,6 @@ static void setReversibilityOptions(void)
 
 static void setASNetsOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
-        return;
-
     optsStartGroup("ASNets:");
     optsAddFlag("asnets-task", 0x0, &opt.asnets.enable, 0,
                 "Produce task for ASNets.");
@@ -1027,9 +1009,6 @@ static void setASNetsOptions(void)
 
 static void setReportsOptions(void)
 {
-    if (is_pddl_fdr || is_pddl_symba || is_pddl_pddl)
-        return;
-
     optsStartGroup("Reports:");
     optsAddFlag("report-lmg", 0x0, &opt.report.lmg, 0,
                 "Create report of lifted mutex groups.");
@@ -1058,17 +1037,28 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     setLMGOptions();
     setLEndoOptions();
     setPddlPostprocessOptions();
-    setLiftedPlannerOptions();
-    setGroundOptions();
-    setMutexGroupOptions();
-    setProcessStripsOptions();
-    setRedBlackOptions();
-    setFDROptions();
-    setGroundPlannerOptions();
-    setSymbaOptions();
-    setReversibilityOptions();
-    setASNetsOptions();
-    setReportsOptions();
+    if (!is_pddl_pddl){
+        if (!is_pddl_fdr && !is_pddl_symba)
+            setLiftedPlannerOptions();
+        if (!is_pddl_lplan){
+            setGroundOptions();
+            setMutexGroupOptions();
+            setProcessStripsOptions();
+            if (!is_pddl_fdr && !is_pddl_symba)
+                setRedBlackOptions();
+            setFDROptions();
+            if (!is_pddl_fdr && !is_pddl_symba)
+                setGroundPlannerOptions();
+            if (!is_pddl_fdr)
+                setSymbaOptions();
+            if (!is_pddl_fdr && !is_pddl_symba)
+                setReversibilityOptions();
+            if (!is_pddl_fdr && !is_pddl_symba)
+                setASNetsOptions();
+            if (!is_pddl_fdr && !is_pddl_symba)
+                setReportsOptions();
+        }
+    }
 
     if (is_pddl_pddl)
         opt.pddl.stop = 1;

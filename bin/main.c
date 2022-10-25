@@ -16,10 +16,14 @@
 #ifndef BIN_PDDL_PDDL
 # define BIN_PDDL_PDDL 0
 #endif
+#ifndef BIN_PDDL_LPLAN
+# define BIN_PDDL_LPLAN 0
+#endif
 
 const int is_pddl_fdr = BIN_PDDL_FDR;
 const int is_pddl_symba = BIN_PDDL_SYMBA;
 const int is_pddl_pddl = BIN_PDDL_PDDL;
+const int is_pddl_lplan = BIN_PDDL_LPLAN;
 
 
 pddl_err_t err = PDDL_ERR_INIT;

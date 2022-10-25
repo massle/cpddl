@@ -30,17 +30,37 @@ struct pddl_lifted_plan {
 };
 typedef struct pddl_lifted_plan pddl_lifted_plan_t;
 
+enum pddl_lifted_search_alg {
+    PDDL_LIFTED_SEARCH_ASTAR,
+    PDDL_LIFTED_SEARCH_GBFS,
+    PDDL_LIFTED_SEARCH_LAZY,
+};
+typedef enum pddl_lifted_search_alg pddl_lifted_search_alg_t;
+
+struct pddl_lifted_search_config {
+    /** Input task */
+    const pddl_t *pddl;
+    /** Algorithm used for the lifted search */
+    pddl_lifted_search_alg_t alg;
+    /** Which backed to use for the successor generator */
+    pddl_lifted_app_action_backend_t succ_gen;
+    /** Lifted heuristic */
+    pddl_lifted_heur_t *heur;
+};
+typedef struct pddl_lifted_search_config pddl_lifted_search_config_t;
+
+#define PDDL_LIFTED_SEARCH_CONFIG_INIT \
+    { \
+        NULL, /* .pddl */ \
+        PDDL_LIFTED_SEARCH_ASTAR, /* .alg */ \
+        PDDL_LIFTED_APP_ACTION_DL, /* .succ_gen */ \
+        NULL, /* .heur */ \
+    }
+
 typedef struct pddl_lifted_search pddl_lifted_search_t;
 
-pddl_lifted_search_t *pddlLiftedSearchAStar(const pddl_t *pddl,
-                                            pddl_lifted_heur_t *heur,
-                                            pddl_err_t *err);
-pddl_lifted_search_t *pddlLiftedSearchGBFS(const pddl_t *pddl,
-                                           pddl_lifted_heur_t *heur,
-                                           pddl_err_t *err);
-pddl_lifted_search_t *pddlLiftedSearchLazy(const pddl_t *pddl,
-                                           pddl_lifted_heur_t *heur,
-                                           pddl_err_t *err);
+pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg,
+                                          pddl_err_t *err);
 
 void pddlLiftedSearchDel(pddl_lifted_search_t *s);
 pddl_lifted_search_status_t pddlLiftedSearchInitStep(pddl_lifted_search_t *s);

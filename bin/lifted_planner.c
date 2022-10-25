@@ -190,24 +190,41 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             break;
     }
 
-    pddl_lifted_search_t *search;
+    pddl_lifted_search_config_t search_cfg = PDDL_LIFTED_SEARCH_CONFIG_INIT;
+    search_cfg.pddl = pddl;
+    search_cfg.heur = heur;
+
+    switch (opt.lifted_planner.succ_gen){
+        case LIFTED_PLAN_SUCC_GEN_DL:
+            search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_DL;
+            PDDL_INFO2(err, "Search successor generator: datalog");
+            break;
+        case LIFTED_PLAN_SUCC_GEN_SQL:
+            search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_SQL;
+            PDDL_INFO2(err, "Search successor generator: sql");
+            break;
+        default:
+            search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_DL;
+    }
+
     switch (opt.lifted_planner.search){
         case LIFTED_PLAN_ASTAR:
+            search_cfg.alg = PDDL_LIFTED_SEARCH_ASTAR;
             PDDL_INFO2(err, "Search: astar");
-            search = pddlLiftedSearchAStar(pddl, heur, err);
             break;
         case LIFTED_PLAN_GBFS:
+            search_cfg.alg = PDDL_LIFTED_SEARCH_GBFS;
             PDDL_INFO2(err, "Search: gbfs");
-            search = pddlLiftedSearchGBFS(pddl, heur, err);
             break;
         case LIFTED_PLAN_LAZY:
+            search_cfg.alg = PDDL_LIFTED_SEARCH_LAZY;
             PDDL_INFO2(err, "Search: lazy");
-            search = pddlLiftedSearchLazy(pddl, heur, err);
             break;
         default:
             PDDL_FATAL("Unknown lifted planner %d", opt.lifted_planner.search);
     }
 
+    pddl_lifted_search_t *search = pddlLiftedSearchNew(&search_cfg, err);
     pddl_lifted_search_status_t ret = pddlLiftedSearchInitStep(search);
     lifted_search_started = 1;
 

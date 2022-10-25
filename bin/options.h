@@ -12,6 +12,11 @@ enum {
 };
 
 enum {
+    LIFTED_PLAN_SUCC_GEN_DL = 0,
+    LIFTED_PLAN_SUCC_GEN_SQL,
+};
+
+enum {
     LIFTED_PLAN_HEUR_BLIND = 0,
     LIFTED_PLAN_HEUR_HMAX,
     LIFTED_PLAN_HEUR_HADD,
@@ -92,6 +97,7 @@ struct options {
 
     struct {
         int search;
+        int succ_gen;
         int heur;
         pddl_homomorphism_config_t homomorph_cfg;
         int random_seed;

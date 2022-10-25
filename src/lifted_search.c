@@ -61,6 +61,7 @@ static void extractPlan(pddl_lifted_search_t *s, pddl_state_id_t goal_state_id);
 
 static int searchInit(pddl_lifted_search_t *s,
                       const pddl_t *pddl,
+                      const pddl_lifted_search_config_t *cfg,
                       search_del_fn del_fn,
                       search_init_step_fn init_step_fn,
                       search_step_fn step_fn,
@@ -70,7 +71,7 @@ static int searchInit(pddl_lifted_search_t *s,
     s->pddl = pddl;
     s->err = err;
 
-    s->app_action = pddlLiftedAppActionNew(pddl, PDDL_LIFTED_APP_ACTION_DL, err);
+    s->app_action = pddlLiftedAppActionNew(pddl, cfg->succ_gen, err);
     pddlStripsMakerInit(&s->strips, pddl);
     pddlStripsStateSpaceInit(&s->state_space, err);
 
@@ -101,8 +102,7 @@ static void bfsDel(pddl_lifted_search_t *bfs);
 static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *bfs);
 static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *bfs);
 
-static pddl_lifted_search_t *bfsNew(const pddl_t *pddl,
-                                    pddl_lifted_heur_t *heur,
+static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     int g_weight,
                                     int h_weight,
                                     int is_lazy,
@@ -113,10 +113,10 @@ static pddl_lifted_search_t *bfsNew(const pddl_t *pddl,
     pddl_lifted_search_bfs_t *bfs;
 
     bfs = ZALLOC(pddl_lifted_search_bfs_t);
-    searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep,
+    searchInit(&bfs->search, cfg->pddl, cfg, bfsDel, bfsInitStep, bfsStep,
                err_prefix, err);
     // TODO: Check for conditional effects
-    bfs->heur = heur;
+    bfs->heur = cfg->heur;
     bfs->g_weight = g_weight;
     bfs->h_weight = h_weight;
     bfs->is_lazy = is_lazy;
@@ -534,26 +534,22 @@ static void extractPlan(pddl_lifted_search_t *s,
     }
 }
 
-
-pddl_lifted_search_t *pddlLiftedSearchAStar(const pddl_t *pddl,
-                                            pddl_lifted_heur_t *heur,
-                                            pddl_err_t *err)
+pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg,
+                                          pddl_err_t *err)
 {
-    return bfsNew(pddl, heur, 1, 1, 0, "Lifted A*: ", err);
-}
+    switch (cfg->alg){
+        case PDDL_LIFTED_SEARCH_ASTAR:
+            return bfsNew(cfg, 1, 1, 0, "Lifted A*: ", err);
 
-pddl_lifted_search_t *pddlLiftedSearchGBFS(const pddl_t *pddl,
-                                           pddl_lifted_heur_t *heur,
-                                           pddl_err_t *err)
-{
-    return bfsNew(pddl, heur, 0, 1, 0, "Lifted GBFS: ", err);
-}
+        case PDDL_LIFTED_SEARCH_LAZY:
+            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS: ", err);
 
-pddl_lifted_search_t *pddlLiftedSearchLazy(const pddl_t *pddl,
-                                           pddl_lifted_heur_t *heur,
-                                           pddl_err_t *err)
-{
-    return bfsNew(pddl, heur, 0, 1, 1, "Lifted Lazy: ", err);
+        case PDDL_LIFTED_SEARCH_GBFS:
+            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy: ", err);
+
+        default:
+            ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);
+    }
 }
 
 const pddl_lifted_plan_t *pddlLiftedSearchPlan(const pddl_lifted_search_t *s)

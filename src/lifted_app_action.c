@@ -64,14 +64,23 @@ pddl_lifted_app_action_t *pddlLiftedAppActionNew(const pddl_t *pddl,
 {
     ASSERT_RUNTIME(pddl->normalized);
 
+    CTX(err, "lifted_app_action", "Lifted-App-Action");
+    pddl_lifted_app_action_t *aa = NULL;
     switch (backend){
         case PDDL_LIFTED_APP_ACTION_SQL:
-            return pddlLiftedAppActionNewSql(pddl, err);
+            LOG(err, "backend: %{backend}s", "sql");
+            aa = pddlLiftedAppActionNewSql(pddl, err);
+            break;
+
         case PDDL_LIFTED_APP_ACTION_DL:
-            return pddlLiftedAppActionNewDatalog(pddl, err);
-        default:
-            ERR_RET(err, NULL, "Unkown backend '%d'", (int)backend);
+            LOG(err, "backend: %{backend}s", "datalog");
+            aa = pddlLiftedAppActionNewDatalog(pddl, err);
+            break;
     }
+    CTXEND(err);
+    if (aa == NULL)
+        ERR_RET(err, NULL, "Unkown backend '%d'", (int)backend);
+    return aa;
 }
 
 void pddlLiftedAppActionDel(pddl_lifted_app_action_t *aa)
