@@ -128,15 +128,12 @@ static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
 
 static void bfsDel(pddl_lifted_search_t *s)
 {
-    pddl_err_t *err = s->err;
-    CTX(err, "bfs", s->err_prefix);
     searchFree(s);
 
     pddl_lifted_search_bfs_t *bfs = BFS(s);
     if (bfs->list)
         pddlOpenListDel(bfs->list);
     FREE(bfs);
-    CTXEND(err);
 }
 
 
@@ -181,7 +178,7 @@ static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
         ++s->_stat.evaluated;
     }
 
-    PDDL_INFO(s->err, "Heuristic value for the initial state: %d", h_value);
+    LOG(s->err, "Heuristic value for the initial state: %{init_hvalue}d", h_value);
     if (h_value == PDDL_COST_DEAD_END){
         ++s->_stat.dead_end;
         ret = PDDL_LIFTED_SEARCH_UNSOLVABLE;
@@ -351,18 +348,24 @@ void pddlLiftedSearchStatLog(const pddl_lifted_search_t *s, pddl_err_t *err)
 {
     pddl_search_stat_t stat;
     pddlLiftedSearchStat(s, &stat);
-    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
-              " gen: %lu, open: %lu, closed: %lu,"
-              " reopen: %lu, de: %lu, f: %d",
-              stat.steps,
-              stat.expanded,
-              stat.evaluated,
-              stat.generated,
-              stat.open,
-              stat.closed,
-              stat.reopen,
-              stat.dead_end,
-              stat.last_f_value);
+    LOG(err, "Search steps: %{stat_steps}lu,"
+        " expand: %{stat_expanded}lu,"
+        " eval: %{stat_evaluated}lu,"
+        " gen: %{stat_generated}lu,"
+        " open: %{stat_open}lu,"
+        " closed: %{stat_closed}lu,"
+        " reopen: %{stat_reopen}lu,"
+        " de: %{stat_dead_end}lu,"
+        " f: %{stat_fvalue}d",
+        stat.steps,
+        stat.expanded,
+        stat.evaluated,
+        stat.generated,
+        stat.open,
+        stat.closed,
+        stat.reopen,
+        stat.dead_end,
+        stat.last_f_value);
 }
 
 
@@ -539,13 +542,13 @@ pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg
 {
     switch (cfg->alg){
         case PDDL_LIFTED_SEARCH_ASTAR:
-            return bfsNew(cfg, 1, 1, 0, "Lifted A*: ", err);
+            return bfsNew(cfg, 1, 1, 0, "Lifted A*", err);
 
         case PDDL_LIFTED_SEARCH_LAZY:
-            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS: ", err);
+            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS", err);
 
         case PDDL_LIFTED_SEARCH_GBFS:
-            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy: ", err);
+            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy", err);
 
         default:
             ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);

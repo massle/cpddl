@@ -225,18 +225,18 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     }
 
     pddl_lifted_search_t *search = pddlLiftedSearchNew(&search_cfg, err);
-    pddl_lifted_search_status_t ret = pddlLiftedSearchInitStep(search);
+    pddl_lifted_search_status_t st = pddlLiftedSearchInitStep(search);
     lifted_search_started = 1;
 
     pddl_timer_t info_timer;
     pddlTimerStart(&info_timer);
-    for (int step = 1; ret == PDDL_LIFTED_SEARCH_CONT; ++step){
+    for (int step = 1; st == PDDL_LIFTED_SEARCH_CONT; ++step){
         if (lifted_terminate){
-            ret = PDDL_LIFTED_SEARCH_ABORT;
+            st = PDDL_LIFTED_SEARCH_ABORT;
             break;
         }
 
-        ret = pddlLiftedSearchStep(search);
+        st = pddlLiftedSearchStep(search);
         if (step >= 100){
             pddlTimerStop(&info_timer);
             if (pddlTimerElapsedInSF(&info_timer) >= 1.){
@@ -248,22 +248,29 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     }
     pddlLiftedSearchStatLog(search, err);
 
-    if (ret == PDDL_LIFTED_SEARCH_UNSOLVABLE){
+    PDDL_PROP_BOOL(err, "finished", 1);
+    PDDL_PROP_BOOL(err, "unsolvable", st == PDDL_LIFTED_SEARCH_UNSOLVABLE);
+    PDDL_PROP_BOOL(err, "found", st == PDDL_LIFTED_SEARCH_FOUND);
+    PDDL_PROP_BOOL(err, "aborted", st == PDDL_LIFTED_SEARCH_ABORT);
+
+    if (st == PDDL_LIFTED_SEARCH_UNSOLVABLE){
         PDDL_INFO2(err, "Problem is unsolvable.");
 
-    }else if (ret == PDDL_LIFTED_SEARCH_FOUND){
+    }else if (st == PDDL_LIFTED_SEARCH_FOUND){
         PDDL_INFO2(err, "Plan found.");
         const pddl_lifted_plan_t *plan = pddlLiftedSearchPlan(search);
         PDDL_INFO(err, "Plan Cost: %d", plan->plan_cost);
+        PDDL_PROP_INT(err, "plan_cost", plan->plan_cost);
         PDDL_INFO(err, "Plan Length: %d", plan->plan_len);
+        PDDL_PROP_INT(err, "plan_length", plan->plan_len);
         PRINT_TO_FILE(err, opt.lifted_planner.plan_out, "plan",
                       pddlLiftedSearchPlanPrint(search, fout));
 
-    }else if (ret == PDDL_LIFTED_SEARCH_ABORT){
+    }else if (st == PDDL_LIFTED_SEARCH_ABORT){
         PDDL_INFO2(err, "Search aborted.");
 
     }else{
-        PDDL_FATAL("Unkown return status: %d", ret);
+        PDDL_FATAL("Unkown return status: %d", (int)st);
     }
 
     pddlLiftedSearchDel(search);
