@@ -100,8 +100,8 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     LOG(err, "Created %{num_ops}d operators", fdr->op.op_size);
 
     pddlTimerStop(&timer);
-    PDDL_INFO(err, "Translation took %.2f seconds",
-              pddlTimerElapsedInSF(&timer));
+    PDDL_LOG(err, "Translation took %{translation_time}.2f seconds",
+             pddlTimerElapsedInSF(&timer));
     CTXEND(err);
     return 0;
 }
@@ -986,7 +986,8 @@ static void removeUnreachableOps(pddl_fdr_t *fdr,
     if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
         pddlFDROpsSortByName(&fdr->op);
-        PDDL_INFO(err, "Removed %d unreachable operators", pddlISetSize(&rm_ops));
+        PDDL_LOG(err, "Removed %{rm_unreachable_ops}d unreachable operators",
+                 pddlISetSize(&rm_ops));
     }
     pddlISetFree(&rm_ops);
 }
@@ -1009,11 +1010,12 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     }
 
     CTX(err, "tnf", "TNF");
-    PDDL_INFO(err, "Creating a Transition Normal Form"
-              " (vars: %d, facts: %d, ops: %d)",
-              fdr_in->var.var_size,
-              fdr_in->var.global_id_size,
-              fdr_in->op.op_size);
+    PDDL_LOG(err, "Creating a Transition Normal Form"
+             " (vars: %{tnf_in_vars}d, facts: %{tnf_in_facts}d,"
+             " ops: %{tnf_in_ops}d)",
+             fdr_in->var.var_size,
+             fdr_in->var.global_id_size,
+             fdr_in->op.op_size);
 
     pddlFDRInitCopy(fdr, fdr_in);
 
@@ -1042,11 +1044,11 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlMGroupsFree(&mgs);
     }
 
-    PDDL_INFO(err, "Transition Normal Form created."
-              " (vars: %d, facts: %d, ops: %d)",
-              fdr->var.var_size,
-              fdr->var.global_id_size,
-              fdr->op.op_size);
+    PDDL_LOG(err, "Transition Normal Form created."
+             " (vars: %{tnf_vars}d, facts: %{tnf_facts}d, ops: %{tnf_ops}d)",
+             fdr->var.var_size,
+             fdr->var.global_id_size,
+             fdr->op.op_size);
     CTXEND(err);
     return 0;
 }

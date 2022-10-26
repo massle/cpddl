@@ -310,7 +310,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
 #endif
     *map_ground_atom_to_fact_id = ground_atom_to_fact_id;
 
-    PDDL_INFO(err, "Created %d STRIPS facts", strips->fact.fact_size);
+    LOG(err, "Created %{created_facts}d STRIPS facts", strips->fact.fact_size);
     return 0;
 }
 
@@ -342,8 +342,8 @@ static int createInitState(pddl_strips_maker_t *sm,
             }
         }
     }
-    PDDL_INFO(err, "Created init state consisting of %d facts",
-              pddlISetSize(&strips->init));
+    LOG(err, "Created init state consisting of %{init_state_facts}d facts",
+        pddlISetSize(&strips->init));
     return 0;
 }
 
@@ -420,8 +420,8 @@ static int createGoal(pddl_strips_maker_t *sm,
     pddlFmTraverse(pddl->goal, _createGoal, NULL, &ggoal);
     if (ggoal.fail)
         PDDL_TRACE_RET(err, -1);
-    PDDL_INFO(err, "Goal created consisting of %d facts",
-              pddlISetSize(&strips->goal));
+    LOG(err, "Goal created consisting of %{goal_facts}d facts",
+        pddlISetSize(&strips->goal));
     return 0;
 }
 
@@ -591,8 +591,8 @@ static int actionEff(pddl_fm_t *c, void *ud)
             if (ga == NULL){
                 ctx->op->cost += 0;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
-                PDDL_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
-                          name);
+                LOG(ctx->err, "Missing cost for action (%{missing_cost_for}s),"
+                    " assigning 0", name);
                 if (name != NULL)
                     FREE(name);
                 /* TODO
@@ -764,7 +764,7 @@ static int createOps(pddl_strips_maker_t *sm,
     pddlStripsOpsSort(&strips->op);
     PDDL_INFO2(err, "Operators sorted.");
 
-    PDDL_INFO(err, "Created %d operators", strips->op.op_size);
+    LOG(err, "Created %{created_ops}d operators", strips->op.op_size);
 
     return 0;
 }
@@ -805,25 +805,25 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
     PDDL_INFO2(err, "Merged conditional effects where possible.");
 
     pddlStripsOpsDeduplicate(&strips->op);
-    PDDL_INFO(err, "Operators deduplicated. Num operators: %d",
-              strips->op.op_size);
+    LOG(err, "Operators deduplicated. Num operators: %{num_ops_dedup}d",
+        strips->op.op_size);
 
     if (strips->goal_is_unreachable){
         PDDL_INFO2(err, "Strips problem marked as unsolvable");
         pddlStripsMakeUnsolvable(strips);
     }
 
-    PDDL_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
-    PDDL_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    LOG(err, "Number of Strips Operators: %{num_ops}d", strips->op.op_size);
+    LOG(err, "Number of Strips Facts: %{num_facts}d", strips->fact.fact_size);
     int count = 0;
     for (int i = 0; i < strips->op.op_size; ++i){
         if (strips->op.op[i]->cond_eff_size > 0)
             ++count;
     }
-    PDDL_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
-              count);
-    PDDL_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
-    PDDL_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    LOG(err, "Number of Strips Operators with Conditional Effects:"
+        " %{num_ops_with_ce}d", count);
+    LOG(err, "Goal is unreachable: %{goal_unreachable}d", strips->goal_is_unreachable);
+    LOG(err, "Has Conditional Effects: %{has_ce}d", strips->has_cond_eff);
 
 
     PDDL_INFO2(err, "PDDL grounded to STRIPS.");

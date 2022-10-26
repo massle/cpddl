@@ -104,7 +104,7 @@ void pddlProcessStripsFree(pddl_process_strips_t *prune)
 static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
 {
     if (pddlISetSize(&prune->rm_fact) > 0 || pddlISetSize(&prune->rm_op) > 0){
-        PDDL_INFO(err, "Removing %d facts, %d operators",
+        PDDL_LOG(err, "Removing %{rm_facts}d facts, %{rm_operators}d operators",
                  pddlISetSize(&prune->rm_fact),
                  pddlISetSize(&prune->rm_op));
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
@@ -140,10 +140,12 @@ static int step(pddl_process_strips_t *prune,
         PDDL_CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
-    PDDL_INFO(err, "Found new redundant: %d facts, %d operators",
+    PDDL_LOG(err, "Found new redundant: %{new_redundant_facts}d facts,"
+             " %{new_redundant_ops}d operators",
              pddlISetSize(&prune->rm_fact) - rm_fact,
              pddlISetSize(&prune->rm_op) - rm_op);
-    PDDL_INFO(err, "Found redundant so far: %d facts, %d operators",
+    PDDL_LOG(err, "Found redundant so far: %{redundant_facts_overall}d facts,"
+             " %{redundant_ops_overall}d operators",
              prune->removed_fact + pddlISetSize(&prune->rm_fact),
              prune->removed_op + pddlISetSize(&prune->rm_op));
     PDDL_CTXEND(err);
@@ -179,7 +181,7 @@ static int execute(pddl_process_strips_t *prune,
     }
 
     apply(prune, err);
-    PDDL_INFO(err, "Removed %d facts, %d operators",
+    PDDL_LOG(err, "Removed %{removed_facts}d facts, %{removed_ops}d operators",
              prune->removed_fact,
              prune->removed_op);
     pddlStripsLogInfo(strips, err);
@@ -192,7 +194,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                            pddl_mutex_pairs_t *mutex,
                            pddl_err_t *err)
 {
-    PDDL_CTX(err, "process_strips", "STRIPS");
+    PDDL_CTX(err, "process_strips", "STRIPS-P");
     int ret = execute(prune, strips, mgroups, mutex, err);
     PDDL_CTXEND(err);
     return ret;
