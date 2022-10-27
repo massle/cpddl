@@ -1,12 +1,14 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 #include "pddl/pddl.h"
 #include "opts.h"
 
@@ -33,6 +35,7 @@ struct {
     char *bench_path;
     int target;
     int force;
+    int no_systemd;
 } cfg;
 
 static pddl_err_t err = PDDL_ERR_INIT;
@@ -106,7 +109,10 @@ static int setConfig(int argc, char *argv[])
                      "fai1", TARGET_FAI1,
                      "fai14", TARGET_FAI14,
                      "faiall", TARGET_FAI_ALL);
-    optsAddFlag("force", 0x0, &cfg.force, 0, "");
+    optsAddFlag("force", 0x0, &cfg.force, 0,
+                "Run task even if it is finished.");
+    optsAddFlag("no-systemd", 'S', &cfg.no_systemd, 0,
+                "Set to true if systemd is not available");
 
     int ret = opts(&argc, argv);
     if (ret != 0)
@@ -142,23 +148,23 @@ static int setConfig(int argc, char *argv[])
     if (cfg.command == COMMAND_GEN){
         if (cfg.bench_path == NULL || !pddlIsDir(cfg.bench_path)){
             fprintf(stderr, "Error: Bench must be specified.\n");
-            cfg.help = 1;
+            return -1;
         }
         if (cfg.topdir == NULL || pddlIsDir(cfg.topdir)){
             fprintf(stderr, "Error: dst-dir must not exist.\n");
-            cfg.help = 1;
+            return -1;
         }
         if (cfg.run_script == NULL || !pddlIsFile(cfg.run_script)){
             fprintf(stderr, "Error: run-script %s does not exist.\n",
                     cfg.run_script);
-            cfg.help = 1;
+            return -1;
         }
 
     }else if (cfg.command == COMMAND_RUN){
         if (cfg.topdir == NULL || !pddlIsDir(cfg.topdir)){
             fprintf(stderr, "Error: directory %s does not exist.\n",
                     cfg.topdir);
-            cfg.help = 1;
+            return -1;
         }
     }
 
@@ -196,6 +202,8 @@ static int setConfig(int argc, char *argv[])
     }else{
         PDDL_INFO2(&err, "cfg.target = none");
     }
+    PDDL_INFO(&err, "cfg.force = %d", cfg.force);
+    PDDL_INFO(&err, "cfg.no_systemd = %d", cfg.no_systemd);
     return 0;
 }
 
@@ -285,6 +293,8 @@ static int genRunFile(char *fn, const char *topdir, int offset)
     fprintf(fout, " --dir %s", topdir);
     fprintf(fout, " --max-time %d", cfg.max_time);
     fprintf(fout, " --max-mem %d", cfg.max_mem);
+    if (cfg.no_systemd)
+        fprintf(fout, " --no-systemd");
     fprintf(fout, " run ${ID}");
     fprintf(fout, "\n");
     fclose(fout);
@@ -315,6 +325,8 @@ static int genRunMakefile(const pddl_bench_t *bench, const char *topdir)
         fprintf(fout, " --dir %s", topdir);
         fprintf(fout, " --max-time %d", cfg.max_time);
         fprintf(fout, " --max-mem %d", cfg.max_mem);
+        if (cfg.no_systemd)
+            fprintf(fout, " --no-systemd");
         fprintf(fout, " run %d", ti);
         fprintf(fout, "\n");
     }
@@ -437,8 +449,8 @@ static int cmdGen(void)
             return -1;
         
         fprintf(fout, "cd %s\n", topdir);
-        fprintf(fout, "qsub -N '%s' -t 1-%d %s\n",
-                cfg.topdir, bench.task_size, fnrun);
+        fprintf(fout, "qsub -N '%s' -t 1-%d %s 2>&1 | tee %s/submit.log\n",
+                cfg.topdir, bench.task_size, fnrun, cfg.topdir);
     }
     fprintf(fout, "\n");
 
@@ -457,6 +469,21 @@ static int taskIsFinished(const char *topdir)
     snprintf(fn, PATHSIZE - 1, "%s/task.finished", topdir);
     PDDL_INFO(&err, "Checking whether the task is finished (%s)", fn);
     return pddlIsFile(fn);
+}
+
+static int timeout_reached = 0;
+static void *thTimeout(void *_pid)
+{
+    int *pid = _pid;
+    usleep(1000ul * 1000ul * cfg.max_time);
+    timeout_reached = 1;
+    PDDL_INFO2(&err, "Timeout reached.");
+    PDDL_INFO(&err, "Sending SIGTERM to %d", *pid);
+    kill(*pid, SIGTERM);
+    usleep(1000ul * 1000ul * 5);
+    PDDL_INFO(&err, "Sending SIGKILL to %d", *pid);
+    kill(*pid, SIGKILL);
+    return NULL;
 }
 
 static int cmdRun(void)
@@ -480,16 +507,23 @@ static int cmdRun(void)
     sprintf(memlimit, "MemoryMax=%dM", cfg.max_mem);
     char timelimit[32];
     sprintf(timelimit, "RuntimeMaxSec=%d", cfg.max_time);
-    PDDL_INFO(&err, "Forking and running "
-              "'/usr/bin/systemd-run"
-              " --user"
-              " --scope"
-              " -p %s"
-              " -p %s"
-              " -G"
-              " /bin/bash ./run.sh'"
-              " in directory %s",
-              memlimit, timelimit, topdir);
+    if (cfg.no_systemd){
+        PDDL_INFO(&err, "Forking and running (with ulimit)"
+                  " '/bin/bash ./run.sh'"
+                  " in directory %s",
+                  topdir);
+    }else{
+        PDDL_INFO(&err, "Forking and running "
+                  "'/usr/bin/systemd-run"
+                  " --user"
+                  " --scope"
+                  " -p %s"
+                  " -p %s"
+                  " -G"
+                  " /bin/bash ./run.sh'"
+                  " in directory %s",
+                  memlimit, timelimit, topdir);
+    }
     int pid = fork();
     if (pid == 0){
 
@@ -505,19 +539,51 @@ static int cmdRun(void)
         dup(fdout);
         close(2);
         dup(fderr);
-        execl("/usr/bin/systemd-run",
-              "/usr/bin/systemd-run",
-              "--user",
-              "--scope",
-              "-p", memlimit,
-              "-p", timelimit,
-              "-G",
-              "/bin/bash", "./run.sh",
-              NULL);
+        if (cfg.no_systemd){
+            struct rlimit mem_limit;
+            mem_limit.rlim_cur = 1024ul * 1024ul * cfg.max_mem;
+            mem_limit.rlim_max = mem_limit.rlim_cur + 1024ul;
+            setrlimit(RLIMIT_AS, &mem_limit);
+            struct rlimit time_limit;
+            time_limit.rlim_cur = cfg.max_time + 10;
+            time_limit.rlim_max = time_limit.rlim_cur + 15;
+            setrlimit(RLIMIT_CPU, &time_limit);
+            execl("/bin/bash", "/bin/bash", "./run.sh", NULL);
+
+        }else{
+            execl("/usr/bin/systemd-run",
+                  "/usr/bin/systemd-run",
+                  "--user",
+                  "--scope",
+                  "-p", memlimit,
+                  "-p", timelimit,
+                  "-G",
+                  "/bin/bash", "./run.sh",
+                  NULL);
+        }
 
     }else if (pid > 0){
+        pthread_t th;
         int wstatus;
+
+        if (cfg.no_systemd){
+            int ret = pthread_create(&th, NULL, thTimeout, &pid);
+            if (ret != 0){
+                perror("pthread failed");
+                exit(-1);
+            }
+        }
+
         wait(&wstatus);
+        if (cfg.no_systemd){
+            pthread_cancel(th);
+            pthread_join(th, NULL);
+        }
+
+        if (timeout_reached){
+            writeFileInDir(topdir, "task.timeout", "");
+        }
+
         if (WIFEXITED(wstatus)){
             int code = WEXITSTATUS(wstatus);
             PDDL_INFO(&err, "Exit status: %d", code);
@@ -527,6 +593,9 @@ static int cmdRun(void)
             }else if (code == 139){
                 PDDL_INFO2(&err, "Probably segmentation fault");
                 writeFileInDir(topdir, "task.segfault", "");
+            }else if (code == 152){
+                PDDL_INFO2(&err, "Probably time out");
+                writeFileInDir(topdir, "task.timeout", "");
             }
 
             char out[32];
