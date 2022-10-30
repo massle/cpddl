@@ -58,7 +58,7 @@ static int stripsNumCondEffs(const pddl_strips_t *strips)
 
 void pddlHAddInit(pddl_hadd_t *h, const pddl_fdr_t *fdr)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
@@ -130,7 +130,7 @@ void pddlHAddInit(pddl_hadd_t *h, const pddl_fdr_t *fdr)
 
 void pddlHAddInitStrips(pddl_hadd_t *h, const pddl_strips_t *strips)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact

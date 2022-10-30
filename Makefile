@@ -32,7 +32,7 @@ OBJS += lp-glpk
 OBJS += cp
 OBJS += cp-minizinc
 OBJS += lisp
-OBJS += require
+OBJS += require_flags
 OBJS += type
 OBJS += param
 OBJS += obj
@@ -43,8 +43,8 @@ OBJS += prep_action
 OBJS += pddl
 OBJS += unify
 OBJS += compile_in_lifted_mgroup
-OBJS += cond
-OBJS += cond_arr
+OBJS += fm
+OBJS += fm_arr
 OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
@@ -80,6 +80,7 @@ OBJS += fdr
 OBJS += fdr_state_packer
 OBJS += fdr_state_pool
 OBJS += fdr_state_space
+OBJS += fdr_state_sampler
 OBJS += strips_state_space
 OBJS += sym
 OBJS += famgroup
@@ -110,19 +111,22 @@ OBJS += plan
 OBJS += relaxed_plan
 OBJS += heur
 OBJS += heur_blind
+OBJS += heur_dead_end
 OBJS += heur_lm_cut
 OBJS += heur_hmax
 OBJS += heur_hadd
 OBJS += heur_hff
-OBJS += heur_pot_state
 OBJS += heur_flow
+OBJS += heur_op_mutex
 OBJS += dtg
 OBJS += scc
 OBJS += ts
 OBJS += op_mutex_pair
 OBJS += op_mutex_infer
 OBJS += op_mutex_infer_ts
-OBJS += op_mutex_sym_redundant
+OBJS += op_mutex_redundant
+OBJS += op_mutex_redundant_greedy
+OBJS += op_mutex_redundant_max
 OBJS += reversibility
 OBJS += invertibility
 OBJS += cascading_table
@@ -160,6 +164,7 @@ OBJS += iarr
 OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 OBJS += subprocess
+OBJS += task
 OBJS += asnets_task
 
 OBJS += __sqlite3
@@ -185,9 +190,11 @@ all: $(TARGETS)
 bin: libpddl.a
 	$(MAKE) -C bin
 
-libpddl.a: $(OBJS) Makefile
-	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
-	$(CC) -c -o .objs/_version.o _version.c
+libpddl.a: $(OBJS) Makefile pddl/version.h
+	echo "#include \"pddl/version.h\"" >_version.c
+	echo "const char *pddl_build_version = \"$(shell git rev-parse HEAD)\";" >>_version.c
+	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>_version.c
+	$(CC) -I. -c -o .objs/_version.o _version.c
 	rm -f _version.c
 	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@

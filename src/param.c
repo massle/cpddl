@@ -23,7 +23,7 @@
 
 void pddlParamInit(pddl_param_t *param)
 {
-    bzero(param, sizeof(*param));
+    ZEROIZE(param);
     param->inherit = -1;
 }
 
@@ -36,7 +36,7 @@ void pddlParamInitCopy(pddl_param_t *dst, const pddl_param_t *src)
 
 void pddlParamsInit(pddl_params_t *params)
 {
-    bzero(params, sizeof(*params));
+    ZEROIZE(params);
 }
 
 void pddlParamsFree(pddl_params_t *params)

@@ -128,7 +128,7 @@ static void pdgAutomorphismHook(void *ud, unsigned int n,
         sym->gen = REALLOC_ARR(sym->gen, pddl_strips_sym_gen_t, sym->gen_alloc);
     }
     pddl_strips_sym_gen_t *gen = sym->gen + sym->gen_size++;
-    bzero(gen, sizeof(*gen));
+    ZEROIZE(gen);
 
     gen->fact = CALLOC_ARR(int, fact_size);
     gen->fact_inv = CALLOC_ARR(int, fact_size);
@@ -160,7 +160,7 @@ static void pdgAutomorphismHook(void *ud, unsigned int n,
 
 void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {
-    bzero(sym, sizeof(*sym));
+    ZEROIZE(sym);
     if (strips->has_cond_eff){
         PDDL_FATAL2("pddlStripsInitSymPDG() does not support conditional"
                     " effects.");
@@ -266,6 +266,28 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
     allSymmetries(sym, sym_set, applyGenOnOpSet);
 }
 
+void pddlStripsSymOpTransitiveClosure(const pddl_strips_sym_t *sym,
+                                      int op_id,
+                                      pddl_iset_t *transitive_closure)
+{
+    pddl_set_iset_t opset;
+    pddlSetISetInit(&opset);
+
+    PDDL_ISET(op);
+    pddlISetAdd(&op, op_id);
+    pddlSetISetAdd(&opset, &op);
+    pddlISetFree(&op);
+
+    pddlStripsSymAllOpSetSymmetries(sym, &opset);
+    const pddl_iset_t *sym_op;
+    PDDL_SET_ISET_FOR_EACH(&opset, sym_op){
+        ASSERT(pddlISetSize(sym_op) == 1);
+        pddlISetUnion(transitive_closure, sym_op);
+    }
+
+    pddlSetISetFree(&opset);
+}
+
 void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
                         int gen_id,
                         const pddl_iset_t *in,
@@ -289,7 +311,7 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 
         fprintf(fout, "gen %d:\n", gi);
 
-        bzero(fact_used, sizeof(int) * sym->fact_size);
+        ZEROIZE_ARR(fact_used, sym->fact_size);
         fprintf(fout, "  facts:");
         for (int i = 0; i < sym->fact_size; ++i){
             if (fact_used[i] || gen->fact[i] == i)

@@ -82,7 +82,7 @@ static prune_strips_t *addPruneStrips(pddl_prune_strips_t *p,
 
 void pddlPruneStripsInit(pddl_prune_strips_t *prune)
 {
-    bzero(prune, sizeof(*prune));
+    ZEROIZE(prune);
     pddlListInit(&prune->prune);
     pddlListInit(&prune->conn);
 }
@@ -109,7 +109,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
     PDDL_INFO(err, "Start pruning. facts: %d, ops: %d",
               strips->fact.fact_size, strips->op.op_size);
     ctx_t ctx;
-    bzero(&ctx, sizeof(ctx));
+    ZEROIZE(&ctx);
     ctx.strips = strips;
 
     if (mgroups != NULL){

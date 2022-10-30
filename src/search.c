@@ -23,7 +23,7 @@ void _pddlSearchInit(pddl_search_t *s,
                      pddl_search_extract_plan_fn fn_extract_plan,
                      pddl_search_stat_fn fn_stat)
 {
-    bzero(s, sizeof(*s));
+    ZEROIZE(s);
     s->fn_del = fn_del;
     s->fn_init_step = fn_init_step;
     s->fn_step = fn_step;

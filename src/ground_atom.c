@@ -111,7 +111,7 @@ static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
 
 void pddlGroundAtomsInit(pddl_ground_atoms_t *ga)
 {
-    bzero(ga, sizeof(*ga));
+    ZEROIZE(ga);
     ga->htable = pddlHTableNew(htableKey, htableEq, ga);
 }
 
@@ -128,7 +128,7 @@ void pddlGroundAtomsFree(pddl_ground_atoms_t *ga)
 }
 
 static void groundAtom(pddl_ground_atom_t *a,
-                       const pddl_cond_atom_t *c, const pddl_obj_id_t *arg)
+                       const pddl_fm_atom_t *c, const pddl_obj_id_t *arg)
 {
     a->func_val = 0;
     a->pred = c->pred;
@@ -145,7 +145,7 @@ static void groundAtom(pddl_ground_atom_t *a,
 }
 
 pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
-                                           const pddl_cond_atom_t *c,
+                                           const pddl_fm_atom_t *c,
                                            const pddl_obj_id_t *arg)
 {
     pddl_list_t *found;
@@ -194,7 +194,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
 
 
 pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
-                                            const pddl_cond_atom_t *c,
+                                            const pddl_fm_atom_t *c,
                                             const pddl_obj_id_t *arg)
 {
     pddl_list_t *found;
@@ -235,9 +235,9 @@ pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
 
 void pddlGroundAtomsAddInit(pddl_ground_atoms_t *ga, const pddl_t *pddl)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *atom;
-    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, atom){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *atom;
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom){
         pddlGroundAtomsAddAtom(ga, atom, NULL);
     }
 }

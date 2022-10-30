@@ -41,7 +41,7 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
 {
     pddl_mgroups_t mgroup;
 
-    bzero(dis, sizeof(*dis));
+    ZEROIZE(dis);
 
     pddlMGroupsInitEmpty(&mgroup);
     selectExactlyOneMGroups(&mgroup, mgroup_in);

@@ -23,9 +23,15 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define PDDL_CP_SOLVER_DEFAULT 0
-#define PDDL_CP_SOLVER_CPOPTIMIZER 1
-#define PDDL_CP_SOLVER_MINIZINC 2
+/**
+ * All possible solvers.
+ */
+enum pddl_cp_solver {
+    PDDL_CP_SOLVER_DEFAULT = 0,
+    PDDL_CP_SOLVER_CPOPTIMIZER,
+    PDDL_CP_SOLVER_MINIZINC,
+};
+typedef enum pddl_cp_solver pddl_cp_solver_t;
 
 #define PDDL_CP_FOUND 0
 #define PDDL_CP_FOUND_SUBOPTIMAL 1
@@ -100,7 +106,7 @@ typedef struct pddl_cp pddl_cp_t;
 struct pddl_cp_solve_config {
     int num_threads;
     float max_search_time;
-    int solver; /*< Which solver to use, one of PDDL_CP_SOLVER_* */
+    pddl_cp_solver_t solver; /*< Which solver to use, one of PDDL_CP_SOLVER_* */
     const char *minizinc; /*!< Path to minizinc binary in case minizinc
                                solver is used. If set to NULL, default path
                                is used. */
@@ -185,7 +191,7 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout);
 /**
  * Set default solver globally.
  */
-void pddlCPSetDefaultSolver(int solver_id);
+void pddlCPSetDefaultSolver(pddl_cp_solver_t solver_id);
 
 /**
  * Solve the problem..

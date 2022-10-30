@@ -36,7 +36,7 @@ static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
 
     bufsize = m->param.param_size * 2;
     for (int i = 0; i < m->cond.size; ++i){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(m->cond.cond[i], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
         bufsize += 1 + a->arg_size;
     }
 
@@ -49,7 +49,7 @@ static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
 
     int ins = 2 * m->param.param_size;
     for (int i = 0; i < m->cond.size; ++i){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(m->cond.cond[i], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
         buf[ins++] = a->pred;
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0){
@@ -85,10 +85,10 @@ void pddlLiftedMGroupHTableInit(pddl_lifted_mgroup_htable_t *h)
 {
     el_t el;
 
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->htable = pddlHTableNew(htableHash, htableEq, h);
 
-    bzero(&el, sizeof(el));
+    ZEROIZE(&el);
     h->mgroup = pddlExtArrNew(sizeof(el), NULL, &el);
     h->mgroup_size = 0;
 }

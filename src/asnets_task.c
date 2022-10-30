@@ -49,7 +49,7 @@ static int relateCmp(const void *a, const void *b, void *_)
 }
 
 static int atomEq(const pddl_ground_atom_t *a1,
-                  const pddl_cond_atom_t *a2,
+                  const pddl_fm_atom_t *a2,
                   const pddl_obj_id_t *args)
 {
     if (a1->pred != a2->pred)
@@ -73,7 +73,7 @@ static void computeRelatednessOpFact(pddl_asnets_task_t *task,
     ASSERT(atom != NULL);
 
     for (int pos = 0; pos < a->atom.size; ++pos){
-        const pddl_cond_atom_t *atom2 = PDDL_COND_CAST(a->atom.cond[pos], atom);
+        const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(a->atom.fm[pos], atom);
         if (atomEq(atom, atom2, op->action_args)){
             pddl_asnets_task_relate_t *rel = relatednessAdd(task);
             rel->op_id = op->id;
@@ -111,16 +111,16 @@ static void computeRelatedness(pddl_asnets_task_t *task)
 
 }
 
-static void condArrAddUnique(pddl_cond_arr_t *carr,
-                             const pddl_cond_atom_t *atom)
+static void condArrAddUnique(pddl_fm_arr_t *carr,
+                             const pddl_fm_atom_t *atom)
 {
     for (int i = 0; i < carr->size; ++i){
-        const pddl_cond_atom_t *atom2;
-        atom2 = PDDL_COND_CAST(carr->cond[i], atom);
-        if (pddlCondAtomCmpNoNeg(atom, atom2) == 0)
+        const pddl_fm_atom_t *atom2;
+        atom2 = PDDL_FM_CAST(carr->fm[i], atom);
+        if (pddlFmAtomCmpNoNeg(atom, atom2) == 0)
             return;
     }
-    pddlCondArrAdd(carr, &atom->cls);
+    pddlFmArrAdd(carr, &atom->fm);
 }
 
 int pddlASNetsTaskInit(pddl_asnets_task_t *task,
@@ -153,13 +153,13 @@ int pddlASNetsTaskInit(pddl_asnets_task_t *task,
         pddl_asnets_task_action_t *a = task->pddl_action + ai;
         a->action_id = ai;
 
-        pddl_cond_const_it_t it;
-        const pddl_cond_atom_t *atom;
-        PDDL_COND_FOR_EACH_ATOM(task->pddl.action.action[ai].pre, &it, atom){
+        pddl_fm_const_it_t it;
+        const pddl_fm_atom_t *atom;
+        PDDL_FM_FOR_EACH_ATOM(task->pddl.action.action[ai].pre, &it, atom){
             if (atom->pred != task->pddl.pred.eq_pred)
                 condArrAddUnique(&a->atom, atom);
         }
-        PDDL_COND_FOR_EACH_ATOM(task->pddl.action.action[ai].eff, &it, atom){
+        PDDL_FM_FOR_EACH_ATOM(task->pddl.action.action[ai].eff, &it, atom){
             if (atom->pred != task->pddl.pred.eq_pred)
                 condArrAddUnique(&a->atom, atom);
         }
@@ -204,7 +204,7 @@ int pddlASNetsTaskInit(pddl_asnets_task_t *task,
 void pddlASNetsTaskFree(pddl_asnets_task_t *task)
 {
     for (int i = 0; i < task->pddl.action.action_size; ++i)
-        pddlCondArrFree(&task->pddl_action[i].atom);
+        pddlFmArrFree(&task->pddl_action[i].atom);
     if (task->pddl_action != NULL)
         FREE(task->pddl_action);
     if (task->relatedness.rel != NULL)

@@ -99,10 +99,20 @@ extern "C" {
     _PDDL_CALLOC_MEMORY(type, (num_elements), sizeof(type))
 
 /**
+ * Allocated zeroized struct
+ */
+#define PDDL_ZALLOC(type) PDDL_CALLOC_ARR(type, 1)
+
+/**
  * Raw memory allocation.
  */
 #define PDDL_MALLOC(size) \
     _PDDL_ALLOC_MEMORY(void, NULL, (size))
+
+/**
+ * Raw memory allocation.
+ */
+#define PDDL_ZMALLOC(size) _PDDL_CALLOC_MEMORY(void, 1, (size))
 
 /**
  * Raw realloc

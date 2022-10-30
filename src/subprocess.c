@@ -68,7 +68,7 @@ static void bufInit(struct buf *buf, char **out, int *outsize)
         *out = NULL;
         *outsize = 0;
     }
-    bzero(buf, sizeof(*buf));
+    ZEROIZE(buf);
     buf->out = out;
     buf->outsize = outsize;
 }
@@ -125,7 +125,7 @@ int pddlExecvp(char *const argv[],
     pddlErrFlush(err);
 
     if (status != NULL)
-        bzero(status, sizeof(*status));
+        ZEROIZE(status);
 
     struct buf bufout, buferr;
     bufInit(&bufout, read_stdout, read_stdout_size);
@@ -365,7 +365,7 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
     pddlErrFlush(err);
 
     if (status != NULL)
-        bzero(status, sizeof(*status));
+        ZEROIZE(status);
 
     void *shared = mmap(NULL, data_size, PROT_WRITE | PROT_READ,
                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -414,7 +414,7 @@ int pddlForkPipe(int (*fn)(int fdout, void *userdata),
     pddlErrFlush(err);
 
     if (status != NULL)
-        bzero(status, sizeof(*status));
+        ZEROIZE(status);
 
     int fd[2];
     if (pipe(fd) != 0){

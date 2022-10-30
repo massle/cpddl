@@ -78,7 +78,7 @@ _pddl_inline void pddlBitsetClearBit(pddl_bitset_t *b, int bit)
  */
 _pddl_inline void pddlBitsetZeroize(pddl_bitset_t *b)
 {
-    bzero(b->bitset, sizeof(pddl_bitset_word_t) * b->wordsize);
+    PDDL_ZEROIZE_ARR(b->bitset, b->wordsize);
 }
 
 /**

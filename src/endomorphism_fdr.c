@@ -85,8 +85,7 @@ static void assignOpToGroup(op_groups_t *opgs,
                             const pddl_fdr_part_state_t *pre,
                             const pddl_fdr_part_state_t *eff)
 {
-    pre_eff_vars_t *pev = ALLOC(pre_eff_vars_t);
-    bzero(pev, sizeof(*pev));
+    pre_eff_vars_t *pev = ZALLOC(pre_eff_vars_t);
     for (int fi = 0; fi < pre->fact_size; ++fi)
         pddlISetAdd(&pev->pre, pre->fact[fi].var);
     for (int fi = 0; fi < eff->fact_size; ++fi)
@@ -117,7 +116,7 @@ static void assignOpToGroup(op_groups_t *opgs,
 
 static void opGroupsInitFDR(op_groups_t *opg, const pddl_fdr_t *fdr)
 {
-    bzero(opg, sizeof(*opg));
+    ZEROIZE(opg);
     opg->htable = pddlHTableNew(preEffHash, preEffEq, NULL);
     for (int oi = 0; oi < fdr->op.op_size; ++oi){
         const pddl_fdr_op_t *op = fdr->op.op[oi];
@@ -325,7 +324,7 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
                         pddl_err_t *err)
 {
     CTX(err, "endo_fdr", "Endo-FDR");
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);

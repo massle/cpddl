@@ -36,7 +36,7 @@ _pddl_inline void _pddlLiftedHeurInit(pddl_lifted_heur_t *h,
                                       pddl_lifted_heur_del_fn del_fn,
                                       pddl_lifted_heur_estimate_fn estimate_fn)
 {
-    bzero(h, sizeof(*h));
+    PDDL_ZEROIZE(h);
     h->del_fn = del_fn;
     h->estimate_fn = estimate_fn;
 }

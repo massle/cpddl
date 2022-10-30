@@ -22,7 +22,7 @@
 
 void pddlBitsetInit(pddl_bitset_t *b, int bitsize)
 {
-    bzero(b, sizeof(*b));
+    ZEROIZE(b);
 
     b->bitsize = bitsize;
     b->wordsize = bitsize / PDDL_BITSET_WORD_BITSIZE;
@@ -40,7 +40,6 @@ void pddlBitsetInit(pddl_bitset_t *b, int bitsize)
 
     //b->bitset = ALLOC_ALIGN_ARR(pddl_bitset_word_t, b->wordsize, 0x100);
     b->bitset = CALLOC_ARR(pddl_bitset_word_t, b->wordsize);
-    bzero(b->bitset, sizeof(pddl_bitset_word_t) * b->wordsize);
 }
 
 void pddlBitsetFree(pddl_bitset_t *b)

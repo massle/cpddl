@@ -28,7 +28,7 @@
 
 void pddlMutexPairsInit(pddl_mutex_pairs_t *m, int fact_size)
 {
-    bzero(m, sizeof(*m));
+    ZEROIZE(m);
     m->fact_size = fact_size;
     m->map = CALLOC_ARR(char, (size_t)fact_size * fact_size);
 }
@@ -59,7 +59,7 @@ void pddlMutexPairsEmpty(pddl_mutex_pairs_t *m, int fact_size)
         pddlMutexPairsFree(m);
         pddlMutexPairsInit(m, fact_size);
     }else{
-        bzero(m->map, sizeof(*m->map) * m->fact_size * m->fact_size);
+        ZEROIZE_ARR(m->map, (size_t)m->fact_size * m->fact_size);
     }
 }
 

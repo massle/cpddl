@@ -22,59 +22,58 @@ extern "C" {
 #endif /* __cplusplus */
 
 /** Forward declaration */
-typedef struct _pddl_lp_t pddl_lp_t;
+typedef struct pddl_lp pddl_lp_t;
 
 /**
- * Solvers.
- * Not all may be available (TODO)
+ * All possible solvers.
  */
-#define PDDL_LP_DEFAULT 0x0000u
-#define PDDL_LP_CPLEX   0x0010u
-#define PDDL_LP_GUROBI  0x0020u
-#define PDDL_LP_LPSOLVE 0x0030u
-#define PDDL_LP_GLPK    0x0040u
+enum pddl_lp_solver {
+    PDDL_LP_DEFAULT = 0,
+    PDDL_LP_CPLEX,
+    PDDL_LP_GUROBI,
+    PDDL_LP_LPSOLVE,
+    PDDL_LP_GLPK,
+};
+typedef enum pddl_lp_solver pddl_lp_solver_t;
 
-/**
- * Sets the number of parallel threads that will be invoked by a
- * parallel optimizer.
- * By default one thread is used.
- * Set num threads to -1 to switch to auto mode.
- */
-#define PDDL_LP_NUM_THREADS(num) \
-    ((((unsigned)(num)) & 0x3fu) << 8u)
+struct pddl_lp_config {
+    int rows; /*!< Number of rows (constraints) after initialization */
+    int cols; /*!< Number of columns (variables) after initialization */
+    int maximize; /*!< 1 for maximize, 0 for minimize */
+    pddl_lp_solver_t solver; /*!< One of the solver IDs above */
+    int num_threads; /*!< Number of threads. */
+    float time_limit; /*!< Time limit for solving the problem. */
+    int tune_int_operator_potential; /*!< True for tuning inference of
+                                          integer operator potentials */
+};
+typedef struct pddl_lp_config pddl_lp_config_t;
 
-/**
- * Sets minimization (default).
- */
-#define PDDL_LP_MIN 0x0u
-
-/**
- * Sets maximization.
- */
-#define PDDL_LP_MAX 0x1u
-
-
-/**
- * Tune for finding integer operator potentials.
- */
-#define PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL 0x1u
+#define PDDL_LP_CONFIG_INIT \
+    { \
+        0, /* .rows */ \
+        0, /* .cols */ \
+        0, /* .maximize */ \
+        PDDL_LP_DEFAULT, /* .solver */ \
+        1, /* .num_threads */ \
+        -1., /* .time_limit */ \
+        0, /* .tune_int_operator_potential */ \
+    }
 
 /**
  * Returns true if the specified solver is available.
  * For PDDL_LP_DEFAULT returns false if there is no LP solver available.
  */
-int pddlLPSolverAvailable(unsigned solver);
+int pddlLPSolverAvailable(pddl_lp_solver_t solver);
 
 /**
  * Set default solver.
  */
-int pddlLPSetDefault(unsigned solver, pddl_err_t *err);
+int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err);
 
 /**
  * Creates a new LP problem with specified number of rows and columns.
- * TODO: Use pddl_lp_config_t instead of rows, cols, flags
  */
-pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err);
+pddl_lp_t *pddlLPNew(const pddl_lp_config_t *cfg, pddl_err_t *err);
 
 /**
  * Deletes the LP object.
@@ -171,15 +170,11 @@ int pddlLPNumCols(const pddl_lp_t *lp);
  * Objective value is returned via argument val and values of each variable
  * via argument obj if non-NULL.
  */
+// TODO: Status: optimal/suboptimal
 int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj);
 
 
 void pddlLPWrite(pddl_lp_t *lp, const char *fn);
-
-/**
- * Tune parameters for the (I)LP problem based on the given PDDL_LP_TUNE_* flag.
- */
-void pddlLPTune(pddl_lp_t *lp, unsigned flag);
 
 #ifdef __cplusplus
 }

@@ -21,7 +21,7 @@
 
 void pddlPlanInit(pddl_plan_t *plan)
 {
-    bzero(plan, sizeof(*plan));
+    ZEROIZE(plan);
 }
 
 void pddlPlanFree(pddl_plan_t *plan)
@@ -33,7 +33,7 @@ void pddlPlanFree(pddl_plan_t *plan)
 
 void pddlPlanCopy(pddl_plan_t *dst, const pddl_plan_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     *dst = *src;
     dst->state = ALLOC_ARR(pddl_state_id_t, dst->state_alloc);
     memcpy(dst->state, src->state, sizeof(pddl_state_id_t) * dst->state_size);

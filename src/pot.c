@@ -44,7 +44,7 @@ static int potFltToInt(double pot)
 
 void pddlPotSolutionInit(pddl_pot_solution_t *sol)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 }
 
 void pddlPotSolutionFree(pddl_pot_solution_t *sol)
@@ -102,9 +102,14 @@ int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,
     return potFltToInt(pddlPotSolutionEvalStripsStateFlt(sol, state));
 }
 
+int pddlPotSolutionRoundHValue(double hvalue)
+{
+    return potFltToInt(hvalue);
+}
+
 void pddlPotSolutionsInit(pddl_pot_solutions_t *sols)
 {
-    bzero(sols, sizeof(*sols));
+    ZEROIZE(sols);
 }
 
 void pddlPotSolutionsFree(pddl_pot_solutions_t *sols)
@@ -131,6 +136,7 @@ void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
         s->pot = ALLOC_ARR(double, s->pot_size);
         memcpy(s->pot, sol->pot, sizeof(double) * s->pot_size);
     }
+    s->objval = sol->objval;
     s->op_pot_size = sol->op_pot_size;
     if (s->op_pot_size > 0){
         s->op_pot = ALLOC_ARR(double, s->op_pot_size);
@@ -197,7 +203,7 @@ static pddl_pot_constr_t *addConstr(pddl_pot_constrs_t *cs, int op_id)
     }
 
     pddl_pot_constr_t *c = cs->c + cs->size++;
-    bzero(c, sizeof(*c));
+    ZEROIZE(c);
     c->op_id = op_id;
     return c;
 }
@@ -377,7 +383,7 @@ static int addMGStripsGoal(pddl_pot_t *pot,
 
 static void init(pddl_pot_t *pot, int maxpot_segm_size)
 {
-    bzero(pot, sizeof(*pot));
+    ZEROIZE(pot);
     pot->constr_lb.set = 0;
 
     int segm_size = PDDL_MAX(maxpot_segm_size, 8) * sizeof(maxpot_t);
@@ -515,7 +521,7 @@ void pddlPotSetObjFDRState(pddl_pot_t *pot,
                            const pddl_fdr_vars_t *vars,
                            const int *state)
 {
-    bzero(pot->obj, sizeof(*pot->obj) * pot->var_size);
+    ZEROIZE_ARR(pot->obj, pot->var_size);
     for (int var_id = 0; var_id < vars->var_size; ++var_id)
         pot->obj[vars->var[var_id].val[state[var_id]].global_id] = 1.;
 }
@@ -523,7 +529,7 @@ void pddlPotSetObjFDRState(pddl_pot_t *pot,
 void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
                                         const pddl_fdr_vars_t *vars)
 {
-    bzero(pot->obj, sizeof(*pot->obj) * pot->var_size);
+    ZEROIZE_ARR(pot->obj, pot->var_size);
     for (int var_id = 0; var_id < vars->var_size; ++var_id){
         double c = 1. / vars->var[var_id].val_size;
         for (int val = 0; val < vars->var[var_id].val_size; ++val){
@@ -534,7 +540,7 @@ void pddlPotSetObjFDRAllSyntacticStates(pddl_pot_t *pot,
 
 void pddlPotSetObjStripsState(pddl_pot_t *pot, const pddl_iset_t *state)
 {
-    bzero(pot->obj, sizeof(*pot->obj) * pot->var_size);
+    ZEROIZE_ARR(pot->obj, pot->var_size);
     int fact_id;
     PDDL_ISET_FOR_EACH(state, fact_id)
         pot->obj[fact_id] = 1.;
@@ -735,11 +741,6 @@ int pddlPotSolve(const pddl_pot_t *pot,
                  pddl_err_t *err)
 {
     int ret = 0;
-    pddl_lp_t *lp;
-
-    unsigned lp_flags;
-    lp_flags  = PDDL_LP_MAX;
-    lp_flags |= PDDL_LP_NUM_THREADS(1);
 
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
@@ -747,7 +748,14 @@ int pddlPotSolve(const pddl_pot_t *pot,
         const maxpot_t *m = pddlSegmArrGet(pot->maxpot, mi);
         rows += m->var_size;
     }
-    lp = pddlLPNew(rows, pot->var_size, lp_flags, err);
+
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 1;
+    cfg.rows = rows;
+    cfg.cols = pot->var_size;
+    if (pot->op_pot && !pot->op_pot_real)
+        cfg.tune_int_operator_potential = 1;
+    pddl_lp_t *lp = pddlLPNew(&cfg, err);
 
     for (int i = 0; i < pot->var_size; ++i){
         if (pot->use_ilp)
@@ -763,7 +771,6 @@ int pddlPotSolve(const pddl_pot_t *pot,
 
     int op_pot_var_offset = 0;
     if (pot->op_pot && !pot->op_pot_real){
-        pddlLPTune(lp, PDDL_LP_TUNE_INT_OPERATOR_POTENTIAL);
         op_pot_var_offset = addOpPotConstrs(lp, pot);
     }
     if (pot->enforce_int_init)
@@ -775,6 +782,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
     int var_size = pddlLPNumCols(lp);
     double objval, *obj;
     obj = CALLOC_ARR(double, var_size);
+
     if (pddlLPSolve(lp, &objval, obj) == 0){
         sol->objval = objval;
         sol->pot_size = pot->var_size;
@@ -785,7 +793,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
             storeOpPot(lp, obj, op_pot_var_offset, pot, sol);
 
     }else{
-        bzero(sol, sizeof(*sol));
+        ZEROIZE(sol);
         ret = -1;
     }
 

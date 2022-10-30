@@ -168,7 +168,7 @@ int pddlPlanFileFDRInit(pddl_plan_file_fdr_t *p,
                         const char *filename,
                         pddl_err_t *err)
 {
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     planFileFDRAddState(p, fdr, fdr->init);
 
     struct parse parse;
@@ -196,7 +196,7 @@ int pddlPlanFileStripsInit(pddl_plan_file_strips_t *p,
                            const char *filename,
                            pddl_err_t *err)
 {
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     planFileStripsAddState(p, strips, &strips->init);
 
     struct parse parse;

@@ -23,7 +23,7 @@ static void init(pddl_random_walk_t *rndw,
                  const pddl_fdr_t *fdr,
                  const pddl_fdr_app_op_t *app_op)
 {
-    bzero(rndw, sizeof(*rndw));
+    ZEROIZE(rndw);
     rndw->fdr = fdr;
     if (app_op == NULL){
         pddl_fdr_app_op_t *app = ALLOC(pddl_fdr_app_op_t);

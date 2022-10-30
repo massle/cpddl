@@ -110,6 +110,16 @@ void pddlOpMutexPairsMinus(pddl_op_mutex_pairs_t *m,
 void pddlOpMutexPairsUnion(pddl_op_mutex_pairs_t *m,
                            const pddl_op_mutex_pairs_t *n);
 
+/**
+ * Generates a map op_id -> pddl_iset of op_ids.
+ * If relevant_ops is non-NULL, only those operators are considered.
+ * Output argument map must be array of pddl_iset_t with m->op_size
+ * elements.
+ */
+void pddlOpMutexPairsGenMapOpToOpSet(const pddl_op_mutex_pairs_t *m,
+                                     const pddl_iset_t *relevant_ops,
+                                     pddl_iset_t *map);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

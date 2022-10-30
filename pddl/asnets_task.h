@@ -26,7 +26,7 @@ extern "C" {
 
 struct pddl_asnets_task_action {
     int action_id;
-    pddl_cond_arr_t atom;
+    pddl_fm_arr_t atom;
 };
 typedef struct pddl_asnets_task_action pddl_asnets_task_action_t;
 

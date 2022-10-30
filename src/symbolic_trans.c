@@ -43,7 +43,7 @@ static void opInit(pddl_symbolic_constr_t *constr,
                    int sum_op_heur_change_to_cost,
                    pddl_err_t *err)
 {
-    bzero(op, sizeof(*op));
+    ZEROIZE(op);
     op->op_id = op_id;
     pddlISetUnion(&op->pre, &op_in->pre);
     pddlISetUnion(&op->eff, &op_in->add_eff);
@@ -142,7 +142,7 @@ static void transFree(pddl_bdd_manager_t *mgr, pddl_symbolic_trans_t *tr)
     pddlBDDDel(mgr, tr->exist_pre);
     pddlBDDDel(mgr, tr->exist_eff);
     pddlISetFree(&tr->eff_groups);
-    bzero(tr, sizeof(*tr));
+    ZEROIZE(tr);
 }
 
 static void transSetFree(pddl_bdd_manager_t *mgr,
@@ -261,7 +261,7 @@ static int transMerge(pddl_symbolic_vars_t *vars,
                       pddl_symbolic_trans_t *tr2,
                       size_t max_nodes)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
 
     if (pddlBDDSize(tr1->bdd) >= max_nodes
             || pddlBDDSize(tr2->bdd) >= max_nodes){
@@ -323,7 +323,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
                               float max_time,
                               pddl_err_t *err)
 {
-    bzero(trset, sizeof(*trset));
+    ZEROIZE(trset);
     trset->vars = vars;
     for (int i = 0; i < op_ids_size; ++i)
         pddlISetAdd(&trset->op, op_ids[i]);
@@ -358,7 +358,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
 
             }else{
                 if (T[i].bdd == NULL && T[i + 1].bdd == NULL){
-                    bzero(T + ins, sizeof(*T));
+                    ZEROIZE(T + ins);
 
                 }else if (T[i].bdd == NULL){
                     T[ins] = T[i + 1];
@@ -373,7 +373,7 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
                     if (res < 0){
                         Tres[Tres_size++] = T[i];
                         Tres[Tres_size++] = T[i + 1];
-                        bzero(T + ins, sizeof(*T));
+                        ZEROIZE(T + ins);
 
                     }else{
                         transFree(vars->mgr, T + i);
@@ -439,7 +439,7 @@ static int add(pddl_symbolic_trans_sets_t *trset)
                                    pddl_symbolic_trans_set_t,
                                    trset->trans_alloc);
     }
-    bzero(trset->trans + trset->trans_size, sizeof(*trset->trans));
+    ZEROIZE(trset->trans + trset->trans_size);
     return trset->trans_size++;
 }
 
@@ -454,7 +454,7 @@ void pddlSymbolicTransSetsInit(pddl_symbolic_trans_sets_t *trset,
                                int sum_op_heur_change_to_cost,
                                pddl_err_t *err)
 {
-    bzero(trset, sizeof(*trset));
+    ZEROIZE(trset);
     trset->vars = vars;
 
     op_t *ops = CALLOC_ARR(op_t, strips->op.op_size);

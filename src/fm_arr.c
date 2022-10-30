@@ -17,36 +17,36 @@
  * See the License for more information.
  */
 
-#include "pddl/cond_arr.h"
+#include "pddl/fm_arr.h"
 #include "internal.h"
 
-void pddlCondArrInit(pddl_cond_arr_t *ca)
+void pddlFmArrInit(pddl_fm_arr_t *ca)
 {
-    bzero(ca, sizeof(*ca));
+    ZEROIZE(ca);
 }
 
-void pddlCondArrFree(pddl_cond_arr_t *ca)
+void pddlFmArrFree(pddl_fm_arr_t *ca)
 {
-    if (ca->cond)
-        FREE(ca->cond);
+    if (ca->fm)
+        FREE(ca->fm);
 }
 
-void pddlCondArrAdd(pddl_cond_arr_t *ca, const pddl_cond_t *c)
+void pddlFmArrAdd(pddl_fm_arr_t *ca, const pddl_fm_t *c)
 {
     if (ca->size >= ca->alloc){
         if (ca->alloc == 0)
             ca->alloc = 1;
         ca->alloc *= 2;
-        ca->cond = REALLOC_ARR(ca->cond, const pddl_cond_t *, ca->alloc);
+        ca->fm = REALLOC_ARR(ca->fm, const pddl_fm_t *, ca->alloc);
     }
-    ca->cond[ca->size++] = c;
+    ca->fm[ca->size++] = c;
 }
 
-void pddlCondArrInitCopy(pddl_cond_arr_t *dst, const pddl_cond_arr_t *src)
+void pddlFmArrInitCopy(pddl_fm_arr_t *dst, const pddl_fm_arr_t *src)
 {
     *dst = *src;
-    if (src->cond != NULL){
-        dst->cond = ALLOC_ARR(const pddl_cond_t *, dst->alloc);
-        memcpy(dst->cond, src->cond, sizeof(pddl_cond_t *) * src->size);
+    if (src->fm != NULL){
+        dst->fm = ALLOC_ARR(const pddl_fm_t *, dst->alloc);
+        memcpy(dst->fm, src->fm, sizeof(pddl_fm_t *) * src->size);
     }
 }

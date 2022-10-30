@@ -43,7 +43,7 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
                                     const pddl_homomorphism_config_t *cfg,
                                     pddl_err_t *err)
 {
-    bzero(h, sizeof(*h));
+    ZEROIZE(h);
     h->obj_map = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
     //pddlInitCopy(&h->homo, pddl);
     if (pddlHomomorphism(&h->homo, pddl, cfg, h->obj_map, err) != 0){

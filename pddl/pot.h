@@ -28,10 +28,13 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_pot_solution {
-    double *pot; /*!< Potentials for all facts */
+    /** Potentials for all facts */
+    double *pot;
     int pot_size;
-    double objval; /*!< Objective value */
-    double *op_pot; /*!< Change of heuristic value for each operator */
+    /** Objective value */
+    double objval;
+    /** Change of heuristic value for each operator */
+    double *op_pot;
     int op_pot_size;
 };
 typedef struct pddl_pot_solution pddl_pot_solution_t;
@@ -44,6 +47,7 @@ double pddlPotSolutionEvalFDRStateFlt(const pddl_pot_solution_t *sol,
 int pddlPotSolutionEvalFDRState(const pddl_pot_solution_t *sol,
                                 const pddl_fdr_vars_t *vars,
                                 const int *state);
+int pddlPotSolutionRoundHValue(double hvalue);
 double pddlPotSolutionEvalStripsStateFlt(const pddl_pot_solution_t *sol,
                                          const pddl_iset_t *state);
 int pddlPotSolutionEvalStripsState(const pddl_pot_solution_t *sol,
@@ -53,6 +57,8 @@ struct pddl_pot_solutions {
     pddl_pot_solution_t *sol;
     int sol_size;
     int sol_alloc;
+    /** True if the input task is proved unsolvable */
+    int unsolvable;
 };
 typedef struct pddl_pot_solutions pddl_pot_solutions_t;
 
@@ -215,6 +221,8 @@ _pddl_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
 /**
  * Solve the LP problem and returns the solution via sol.
  * Return 0 on success, -1 if solution was not found.
+ *
+ * TODO: Add time-limit option
  */
 int pddlPotSolve(const pddl_pot_t *pot,
                  pddl_pot_solution_t *sol,

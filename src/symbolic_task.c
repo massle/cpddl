@@ -74,6 +74,7 @@ struct pddl_symbolic_task {
     pddl_symbolic_task_config_t cfg; /*!< Configuration */
     pddl_fdr_t fdr;
     pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t mutex;
     pddl_bdd_manager_t *mgr; /*!< Cudd manager */
     pddl_symbolic_vars_t vars; /*!< TODO */
     pddl_symbolic_constr_t constr; /*!< Constraints */
@@ -144,10 +145,8 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 
     pddl_pot_solutions_t pot;
     pddlPotSolutionsInit(&pot);
-    pddl_hpot_config_t pot_cfg = cfg->pot_heur_config;
-    pot_cfg.op_pot = 1;
-    if (pddlHPot(&pot, fdr, &pot_cfg, err) != 0){
-        PDDL_ERR_RET2(err, -1, "Could not find a potential function.");
+    if (pddlHPot(&pot, &cfg->pot_heur_config, err) != 0){
+        TRACE_RET(err, -1);
     }
     if (pot.sol_size != 1){
         PDDL_ERR_RET(err, -1, "Symbolic search supports only a single"
@@ -244,8 +243,14 @@ static int searchInit(pddl_symbolic_task_t *ss,
     }else{
         CTX(err, "symba_search_bw_init", "bw-init");
     }
-    bzero(search, sizeof(*search));
+    ZEROIZE(search);
     search->cfg = *_cfg;
+    pddlHPotConfigInitCopy(&search->cfg.pot_heur_config, &_cfg->pot_heur_config);
+    if (search->cfg.use_pot_heur){
+        search->cfg.pot_heur_config.fdr = &ss->fdr;
+        search->cfg.pot_heur_config.mg_strips = &ss->mg_strips;
+        search->cfg.pot_heur_config.mutex = &ss->mutex;
+    }
     search->enabled = 1;
     search->fw = fw;
     search->use_heur = search->cfg.use_pot_heur;
@@ -280,15 +285,11 @@ static int searchInit(pddl_symbolic_task_t *ss,
             && search->use_heur
             && search->cfg.use_goal_splitting){
         CTX(err, "symba_split_goal", "split-goal");
-        pddl_mutex_pairs_t mutex;
-        pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
-        pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex,
-                   NULL, NULL, 0., err);
 
         ASSERT(ss->mg_strips.strips.fact.fact_size == ss->fdr.var.global_id_size);
         pddl_symbolic_states_split_by_pot_t *goals;
         goals = pddlSymbolicStatesSplitByPot(&ss->mg_strips.strips.goal,
-                                             &ss->mg_strips.mg, &mutex,
+                                             &ss->mg_strips.mg, &ss->mutex,
                                              pot, &ss->vars, ss->mgr,
                                              err);
         applyConstrsOnSplitGoals(ss, goals, err);
@@ -308,7 +309,6 @@ static int searchInit(pddl_symbolic_task_t *ss,
                        F_COST(&h), pddlBDDSize(s->state));
         }
         pddlSymbolicStatesSplitByPotDel(goals, ss->mgr);
-        pddlMutexPairsFree(&mutex);
 
         pddlBDDsCostsSortUniq(ss->mgr, &search->init);
         LOG2(err, "Init states sorted.");
@@ -471,7 +471,7 @@ static void planInit(pddl_symbolic_task_t *ss,
                      const pddl_symbolic_state_t *goal_state,
                      pddl_bdd_t *reached_goal)
 {
-    bzero(plan, sizeof(*plan));
+    ZEROIZE(plan);
 
     int alloc = 2;
     plan->state = CALLOC_ARR(pddl_iset_t, alloc + 1);
@@ -493,8 +493,7 @@ static void planInit(pddl_symbolic_task_t *ss,
             int old_alloc = alloc;
             alloc *= 2;
             plan->state = REALLOC_ARR(plan->state, pddl_iset_t, alloc + 1);
-            bzero(plan->state + old_alloc + 1,
-                  sizeof(pddl_iset_t) * (alloc - old_alloc));
+            ZEROIZE_ARR(plan->state + old_alloc + 1, alloc - old_alloc);
             plan->tr_op = REALLOC_ARR(plan->tr_op, pddl_iset_t *, alloc);
         }
 
@@ -1157,6 +1156,11 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     pddlFDRInitCopy(&ss->fdr, fdr);
     pddlMGStripsInitFDR(&ss->mg_strips, fdr);
 
+    pddlMutexPairsInitStrips(&ss->mutex, &ss->mg_strips.strips);
+    pddlMutexPairsAddMGroups(&ss->mutex, &ss->mg_strips.mg);
+    pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &ss->mutex,
+               NULL, NULL, 0., err);
+
     int *var_order = ALLOC_ARR(int, fdr->var.var_size + 1);
     pddl_cg_t cg;
     pddlCGInit(&cg, &fdr->var, &fdr->op, 1);
@@ -1208,20 +1212,12 @@ static void initConstr(pddl_symbolic_task_t *ss,
     pddlMGroupsSetGoal(&mgs, &ss->mg_strips.strips);
     PDDL_INFO(err, "%d exactly-1 mutex groups overall", mgs.mgroup_size);
 
-    pddl_mutex_pairs_t mutex;
-    pddlMutexPairsInitStrips(&mutex, &ss->mg_strips.strips);
-    pddlH2FwBw(&ss->mg_strips.strips, &ss->mg_strips.mg, &mutex,
-               NULL, NULL, 0., err);
-    pddlMutexPairsAddMGroups(&mutex, &mgs);
-
-    pddlSymbolicConstrInit(&ss->constr, &ss->vars, &mutex, &mgs,
+    pddlSymbolicConstrInit(&ss->constr, &ss->vars, &ss->mutex, &mgs,
                            ss->cfg.constr_max_nodes,
                            ss->cfg.constr_max_time,
                            err);
 
     pddlMGroupsFree(&mgs);
-    pddlMutexPairsFree(&mutex);
-
 }
 
 static void fixSearchConfig(pddl_symbolic_search_config_t *cfg,
@@ -1232,8 +1228,10 @@ static void fixSearchConfig(pddl_symbolic_search_config_t *cfg,
         cfg->use_constr = 0;
     if (cfg->use_pot_heur
             || cfg->use_pot_heur_inconsistent
-            || cfg->use_pot_heur_sum_op_cost)
+            || cfg->use_pot_heur_sum_op_cost){
         cfg->use_pot_heur = 1;
+        cfg->pot_heur_config.op_pot = 1;
+    }
 
     if (cfg->use_goal_splitting && !cfg->use_pot_heur){
         LOG2(err, "cfg.use_goal_splitting reset to false, because potential"
@@ -1275,17 +1273,22 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                                 " effects yet.");
     }
 
-    if (((cfg->fw.use_pot_heur
-            || cfg->fw.use_pot_heur_inconsistent
-            || cfg->fw.use_pot_heur_sum_op_cost)
-                && pddlHPotConfigIsEnsemble(&cfg->fw.pot_heur_config))
-        ||
-        ((cfg->bw.use_pot_heur
-            || cfg->bw.use_pot_heur_inconsistent
-            || cfg->bw.use_pot_heur_sum_op_cost)
-                && pddlHPotConfigIsEnsemble(&cfg->bw.pot_heur_config))){
+    int fw_use_pot = cfg->fw.use_pot_heur
+                        || cfg->fw.use_pot_heur_inconsistent
+                        || cfg->fw.use_pot_heur_sum_op_cost;
+    int bw_use_pot = cfg->bw.use_pot_heur
+                        || cfg->bw.use_pot_heur_inconsistent
+                        || cfg->bw.use_pot_heur_sum_op_cost;
+    if ((fw_use_pot && pddlHPotConfigIsEnsemble(&cfg->fw.pot_heur_config))
+            || (bw_use_pot && pddlHPotConfigIsEnsemble(&cfg->bw.pot_heur_config))){
         PDDL_ERR_RET2(err, NULL, "Symbolic tasks can use only a single"
-                                " potential heuristic.");
+                      " potential heuristic.");
+    }
+
+    if ((fw_use_pot && pddlHPotConfigIsEmpty(&cfg->fw.pot_heur_config))
+            || (bw_use_pot && pddlHPotConfigIsEmpty(&cfg->bw.pot_heur_config))){
+        PDDL_ERR_RET2(err, NULL, "Missing optimization criteria for the"
+                      " potential heuristic");
     }
 
     CTX(err, "symba_init", "symba-init");
@@ -1299,9 +1302,10 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
         fdr->var.global_id_size,
         fdr->op.op_size);
 
-    ss = ALLOC(pddl_symbolic_task_t);
-    bzero(ss, sizeof(*ss));
+    ss = ZALLOC(pddl_symbolic_task_t);
     ss->cfg = *cfg;
+    pddlHPotConfigInitCopy(&ss->cfg.fw.pot_heur_config, &cfg->fw.pot_heur_config);
+    pddlHPotConfigInitCopy(&ss->cfg.bw.pot_heur_config, &cfg->bw.pot_heur_config);
     fixConfig(&ss->cfg, err);
     logConfig(&ss->cfg, err);
 
@@ -1343,10 +1347,19 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
         ss->goal_constr_failed = 1;
     }
 
-    if (ss->cfg.fw.enabled)
-        searchInit(ss, &ss->search_fw, 1, &ss->cfg.fw, ss->init, ss->goal, err);
-    if (ss->cfg.bw.enabled)
-        searchInit(ss, &ss->search_bw, 0, &ss->cfg.bw, ss->goal, ss->init, err);
+    if (ss->cfg.fw.enabled){
+        if (searchInit(ss, &ss->search_fw, 1, &ss->cfg.fw, ss->init,
+                    ss->goal, err) != 0){
+            TRACE_RET(err, NULL);
+        }
+    }
+    if (ss->cfg.bw.enabled){
+        if (searchInit(ss, &ss->search_bw, 0, &ss->cfg.bw, ss->goal,
+                    ss->init, err) != 0){
+            TRACE_RET(err, NULL);
+        }
+    }
+
 
 
     // TODO
@@ -1375,6 +1388,7 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
 {
     pddlFDRFree(&ss->fdr);
     pddlMGStripsFree(&ss->mg_strips);
+    pddlMutexPairsFree(&ss->mutex);
     pddlSymbolicConstrFree(&ss->constr);
     if (ss->init != NULL)
         pddlBDDDel(ss->mgr, ss->init);
@@ -1388,6 +1402,8 @@ void pddlSymbolicTaskDel(pddl_symbolic_task_t *ss)
         searchFree(ss, &ss->search_bw);
     if (ss->mgr != NULL)
         pddlBDDManagerDel(ss->mgr);
+    pddlHPotConfigFree(&ss->cfg.fw.pot_heur_config);
+    pddlHPotConfigFree(&ss->cfg.bw.pot_heur_config);
     FREE(ss);
 }
 

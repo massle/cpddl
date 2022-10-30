@@ -28,7 +28,7 @@ void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
                               const pddl_mutex_pairs_t *mutex,
                               const pddl_strips_fact_cross_ref_t *cref)
 {
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->num_states = pddlISetSize(mgroup) + 1;
     pddlISetUnion(&p->mgroup, mgroup);
     p->tr = CALLOC_ARR(pddl_iset_t, p->num_states * p->num_states);
@@ -91,7 +91,7 @@ void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
 void pddlMGroupProjectionInitCopy(pddl_mgroup_projection_t *p,
                                   const pddl_mgroup_projection_t *src)
 {
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->num_states = src->num_states;
     pddlISetUnion(&p->mgroup, &src->mgroup);
     p->tr = CALLOC_ARR(pddl_iset_t, p->num_states * p->num_states);
