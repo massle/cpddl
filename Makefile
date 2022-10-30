@@ -161,11 +161,11 @@ OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 OBJS += subprocess
 OBJS += asnets_task
-OBJS += asnets_dynet
 
 OBJS += __sqlite3
 
-OBJS_CPP = cp-cp-optimizer
+OBJS_CPP  = cp-cp-optimizer
+OBJS_CPP += asnets_dynet
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
@@ -239,8 +239,6 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
 .objs/clique.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
-.objs/asnets_dynet.o: src/asnets_dynet.c pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(DYNET_CFLAGS) -c -o $@ $<
 .objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
@@ -248,6 +246,8 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
+.objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<

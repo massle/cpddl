@@ -192,11 +192,11 @@ ifneq '$(MINIZINC_BIN)' ''
   endif
 endif
 
-DYNET_CFLAGS ?=
+DYNET_CPPFLAGS ?=
 DYNET_LDFLAGS ?=
 USE_DYNET ?= auto
 ifeq '$(USE_DYNET)' 'auto'
-  ifneq '$(DYNET_CFLAGS)$(DYNET_LDFLAGS)' ''
+  ifneq '$(DYNET_CPPFLAGS)$(DYNET_LDFLAGS)' ''
     USE_DYNET := yes
   endif
 endif
