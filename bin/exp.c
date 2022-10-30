@@ -449,8 +449,8 @@ static int cmdGen(void)
             return -1;
         
         fprintf(fout, "cd %s\n", topdir);
-        fprintf(fout, "qsub -N '%s' -t 1-%d %s 2>&1 | tee %s/submit.log\n",
-                cfg.topdir, bench.task_size, fnrun, cfg.topdir);
+        fprintf(fout, "qsub -N '%s' -t 1-%d %s 2>&1 | tee submit.log\n",
+                cfg.topdir, bench.task_size, fnrun);
     }
     fprintf(fout, "\n");
 
