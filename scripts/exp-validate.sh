@@ -18,5 +18,8 @@ while read plan; do
     "$VAL" "$domain" "$problem" "$plan" >"$dir/validate.${base}" 2>&1
     if [ "$?" != 0 ]; then
         echo "$plan : PLAN FAILED!"
+        echo "valid_plan = false" >"$dir/validate.prop"
+    else
+        echo "valid_plan = true" >"$dir/validate.prop"
     fi
 done
