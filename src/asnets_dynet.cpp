@@ -9,6 +9,7 @@
 #include "pddl/asnets.h"
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
+#include <dynet/training.h>
 
 struct Action {
     int action_id;
@@ -98,6 +99,194 @@ struct LiftedTask {
         return arr.size() - 1;
     }
 };
+
+
+struct ActionModule {
+    int hidden_dim;
+    int related_props;
+    int layer;
+    int input_vec_size;
+    int output_dim;
+    dynet::Parameter W;
+    dynet::Parameter bias;
+
+    ActionModule(const ActionModule&) = delete;
+
+    // TODO: landmarks/...
+    ActionModule(int hidden_dimension,
+                 int num_related_propositions,
+                 int layer,
+                 bool is_output,
+                 dynet::ParameterCollection &model)
+        : hidden_dim(hidden_dimension),
+          related_props(num_related_propositions),
+          layer(layer)
+    {
+        if (layer == 0){
+            // input state
+            input_vec_size = related_props;
+            // goal specification
+            input_vec_size += related_props;
+            // applicability of the action
+            input_vec_size += 1;
+
+        }else{
+            // Related propositions
+            input_vec_size = related_props * hidden_dim;
+            // Skip connection
+            input_vec_size += hidden_dim;
+        }
+
+        if (is_output){
+            output_dim = 1;
+        }else{
+            output_dim = hidden_dim;
+        }
+
+        std::vector<long> dim_W(2);
+        dim_W[0] = output_dim;
+        dim_W[1] = input_vec_size;
+        W = model.add_parameters(dynet::Dim(dim_W));
+
+        std::vector<long> dim_bias(1);
+        dim_bias[0] = output_dim;
+        bias = model.add_parameters(dynet::Dim(dim_bias));
+    }
+
+    dynet::Expression expr(dynet::ComputationGraph &cg,
+                           const std::vector<dynet::Expression> &input)
+    {
+        dynet::Expression w = dynet::parameter(cg, W);
+        dynet::Expression b = dynet::parameter(cg, bias);
+        dynet::Expression u = dynet::concatenate(input);
+        return dynet::elu((w * u) + b);
+    }
+
+    dynet::Expression exprInput(dynet::ComputationGraph &cg,
+                                const std::vector<dynet::Expression> &input_state,
+                                const std::vector<dynet::Expression> &input_goal,
+                                const dynet::Expression &input_applicable)
+    {
+        ASSERT_RUNTIME(layer == 0);
+        std::vector<dynet::Expression> input;
+        input.insert(input.end(), input_state.begin(), input_state.end());
+        input.insert(input.end(), input_goal.begin(), input_goal.end());
+        input.push_back(input_applicable);
+        return expr(cg, input);
+    }
+};
+
+struct PropositionModule {
+    int hidden_dim;
+    int related_acts;
+    int layer;
+    int input_vec_size;
+    dynet::Parameter W;
+    dynet::Parameter bias;
+
+    PropositionModule(const PropositionModule&) = delete;
+
+    PropositionModule(int hidden_dimension,
+                      int num_related_actions,
+                      int layer,
+                      dynet::ParameterCollection &model)
+        : hidden_dim(hidden_dimension),
+          related_acts(num_related_actions),
+          layer(layer)
+    {
+        // Related actions
+        input_vec_size = related_acts * hidden_dim;
+        if (layer > 0){
+            // Skip connection
+            input_vec_size += hidden_dim;
+        }
+
+        std::vector<long> dim_W(2);
+        dim_W[0] = hidden_dim;
+        dim_W[1] = input_vec_size;
+        W = model.add_parameters(dynet::Dim(dim_W));
+
+        std::vector<long> dim_bias(1);
+        dim_bias[0] = hidden_dim;
+        bias = model.add_parameters(dynet::Dim(dim_bias));
+    }
+
+    dynet::Expression expr(dynet::ComputationGraph &cg,
+                           const std::vector<std::vector<dynet::Expression>> &input)
+    {
+        std::vector<dynet::Expression> pooled_input(input.size());
+        for (size_t i = 0; i < input.size(); ++i){
+            pooled_input[i] = input[i][0];
+            for (int j = 1; j < input[i].size(); ++j){
+                pooled_input[i] = dynet::max(pooled_input[i], input[i][j]);
+            }
+        }
+        dynet::Expression w = dynet::parameter(cg, W);
+        dynet::Expression b = dynet::parameter(cg, bias);
+        dynet::Expression u = dynet::concatenate(pooled_input);
+        return dynet::elu((w * u) + b);
+    }
+};
+
+struct ModelParameters {
+    int num_layers;
+    std::vector<std::vector<ActionModule *>> action;
+    std::vector<std::vector<PropositionModule *>> prop;
+
+    ModelParameters(int hidden_dimension,
+                    int num_layers,
+                    const LiftedTask &task,
+                    dynet::ParameterCollection &model)
+        : num_layers(num_layers)
+    {
+        action.resize(num_layers + 1);
+        prop.resize(num_layers);
+
+        for (int layer = 0; layer < num_layers; ++layer){
+            for (size_t aid = 0; aid < task.action.size(); ++aid){
+                ActionModule *am = new ActionModule(hidden_dimension,
+                                                    task.action[aid].atom.size(),
+                                                    layer,
+                                                    false,
+                                                    model);
+                action[layer].push_back(am);
+            }
+
+            for (size_t pid = 0; pid < task.pred.size(); ++pid){
+                PropositionModule *pm = new PropositionModule(hidden_dimension,
+                                                              task.pred[pid].action.size(),
+                                                              layer,
+                                                              model);
+                prop[layer].push_back(pm);
+            }
+        }
+
+        for (size_t aid = 0; aid < task.action.size(); ++aid){
+            ActionModule *am = new ActionModule(hidden_dimension,
+                                                task.action[aid].atom.size(),
+                                                num_layers,
+                                                true,
+                                                model);
+            action[num_layers].push_back(am);
+        }
+
+        ASSERT_RUNTIME(num_layers == action.size() - 1);
+        ASSERT_RUNTIME(num_layers == prop.size());
+    }
+
+    ~ModelParameters()
+    {
+        for (size_t i = 0; i < action.size(); ++i){
+            for (size_t j = 0; j < action[i].size(); ++j)
+                delete action[i][j];
+        }
+        for (size_t i = 0; i < prop.size(); ++i){
+            for (size_t j = 0; j < prop[i].size(); ++j)
+                delete prop[i][j];
+        }
+    }
+};
+
 
 struct Op {
     int op_id;
@@ -300,174 +489,113 @@ struct GroundTask {
         }
         LOG2(err, "Check DONE.");
     }
-};
 
-
-struct ActionModule {
-    int hidden_dim;
-    int related_props;
-    int layer;
-    int input_vec_size;
-    int output_dim;
-    dynet::Parameter W;
-    dynet::Parameter bias;
-
-    ActionModule(const ActionModule&) = delete;
-
-    // TODO: landmarks/...
-    ActionModule(int hidden_dimension,
-                 int num_related_propositions,
-                 int layer,
-                 bool is_output,
-                 dynet::ParameterCollection &model)
-        : hidden_dim(hidden_dimension),
-          related_props(num_related_propositions),
-          layer(layer)
-    {
-        if (layer == 0){
-            // input state
-            input_vec_size = related_props;
-            // goal specification
-            input_vec_size += related_props;
-            // applicability of the action
-            input_vec_size += 1;
-
-        }else{
-            // Related propositions
-            input_vec_size = related_props * hidden_dim;
-            // Skip connection
-            input_vec_size += hidden_dim;
-        }
-
-        if (is_output){
-            output_dim = 1;
-        }else{
-            output_dim = hidden_dim;
-        }
-
-        std::vector<long> dim_W(2);
-        dim_W[0] = input_vec_size;
-        dim_W[1] = output_dim;
-        W = model.add_parameters(dynet::Dim(dim_W));
-
-        std::vector<long> dim_bias(1);
-        dim_bias[0] = output_dim;
-        bias = model.add_parameters(dynet::Dim(dim_bias));
-    }
-
-    dynet::Expression expr(dynet::ComputationGraph &cg,
-                           const std::vector<dynet::Expression> &input)
-    {
-        dynet::Expression w = dynet::parameter(cg, W);
-        dynet::Expression b = dynet::parameter(cg, bias);
-        dynet::Expression u = dynet::concatenate(input);
-        return dynet::elu((w * u) + b);
-    }
-};
-
-struct PropositionModule {
-    int hidden_dim;
-    int related_acts;
-    int layer;
-    int input_vec_size;
-    dynet::Parameter W;
-    dynet::Parameter bias;
-
-    PropositionModule(const PropositionModule&) = delete;
-
-    PropositionModule(int hidden_dimension,
-                      int num_related_actions,
+    void _actionLayer(ModelParameters &model,
+                      dynet::ComputationGraph &cg,
                       int layer,
-                      dynet::ParameterCollection &model)
-        : hidden_dim(hidden_dimension),
-          related_acts(num_related_actions),
-          layer(layer)
+                      const std::vector<dynet::Expression> &prop_layer,
+                      const std::vector<dynet::Expression> &prev_action_layer,
+                      std::vector<dynet::Expression> &action_layer)
     {
-        // Related actions
-        input_vec_size = related_acts * hidden_dim;
-        if (layer > 0){
-            // Skip connection
-            input_vec_size += hidden_dim;
+        for (int op_id = 0; op_id < op.size(); ++op_id){
+            std::vector<dynet::Expression> in;
+            for (int i = 0; i < op[op_id].related_fact.size(); ++i){
+                int fact_id = op[op_id].related_fact[i];
+                in.push_back(prop_layer[fact_id]);
+            }
+            in.push_back(prev_action_layer[op_id]);
+            int action_id = op[op_id].action->action_id;
+            ActionModule *am = model.action[layer][action_id];
+            dynet::Expression e = am->expr(cg, in);
+            action_layer.push_back(e);
         }
-
-        std::vector<long> dim_W(2);
-        dim_W[0] = input_vec_size;
-        dim_W[1] = hidden_dim;
-        W = model.add_parameters(dynet::Dim(dim_W));
-
-        std::vector<long> dim_bias(1);
-        dim_bias[0] = hidden_dim;
-        bias = model.add_parameters(dynet::Dim(dim_bias));
     }
 
-    dynet::Expression expr(dynet::ComputationGraph &cg,
-                           const std::vector<std::vector<dynet::Expression>> &input)
+    void _propLayer(ModelParameters &model,
+                    dynet::ComputationGraph &cg,
+                    int layer,
+                    const std::vector<dynet::Expression> &action_layer,
+                    const std::vector<dynet::Expression> *prev_prop_layer,
+                    std::vector<dynet::Expression> &prop_layer)
     {
-        std::vector<dynet::Expression> pooled_input(input.size());
-        for (size_t i = 0; i < input.size(); ++i){
-            pooled_input[i] = dynet::max(input[i]);
+        for (int fact_id = 0; fact_id < fact.size(); ++fact_id){
+            std::vector<std::vector<dynet::Expression>> input;
+            int input_size = fact[fact_id].related_op.size();
+            if (prev_prop_layer != NULL)
+                input_size += 1;
+            input.resize(input_size);
+            for (int ri = 0; ri < fact[fact_id].related_op.size(); ++ri){
+                const std::vector<int> &rops = fact[fact_id].related_op[ri];
+                for (int op_id : rops){
+                    input[ri].push_back(action_layer[op_id]);
+                }
+            }
+            if (prev_prop_layer != NULL)
+                input[input_size - 1].push_back((*prev_prop_layer)[fact_id]);
+
+            int pred_id = fact[fact_id].pred->pred_id;
+            PropositionModule *pm = model.prop[layer][pred_id];
+            dynet::Expression e = pm->expr(cg, input);
+            prop_layer.push_back(e);
         }
-        dynet::Expression w = dynet::parameter(cg, W);
-        dynet::Expression b = dynet::parameter(cg, bias);
-        dynet::Expression u = dynet::concatenate(pooled_input);
-        return dynet::elu((w * u) + b);
     }
+
+    dynet::Expression expr(ModelParameters &model,
+                           dynet::ComputationGraph &cg,
+                           dynet::Expression input_state,
+                           dynet::Expression input_goal_condition,
+                           dynet::Expression input_applicable_ops)
+    {
+        std::vector<std::vector<dynet::Expression>> action_layer;
+        action_layer.resize(model.num_layers + 1);
+        std::vector<std::vector<dynet::Expression>> prop_layer;
+        prop_layer.resize(model.num_layers);
+
+        int layer = 0;
+        // First action layer
+        for (int op_id = 0; op_id < op.size(); ++op_id){
+            std::vector<dynet::Expression> in_state;
+            std::vector<dynet::Expression> in_goal;
+            dynet::Expression in_applicable;
+            for (int i = 0; i < op[op_id].related_fact.size(); ++i){
+                int fact_id = op[op_id].related_fact[i];
+                in_state.push_back(dynet::pick(input_state, fact_id));
+                in_goal.push_back(dynet::pick(input_goal_condition, fact_id));
+                in_applicable = dynet::pick(input_applicable_ops, op_id);
+            }
+            int action_id = op[op_id].action->action_id;
+            ActionModule *am = model.action[layer][action_id];
+            dynet::Expression e = am->exprInput(cg, in_state, in_goal, in_applicable);
+            action_layer[layer].push_back(e);
+        }
+
+        for (; layer < model.num_layers; ++layer){
+            const std::vector<dynet::Expression> *prev_prop_layer = NULL;
+            if (layer > 0)
+                prev_prop_layer = &prop_layer[layer - 1];
+            _propLayer(model, cg, layer, action_layer[layer],
+                       prev_prop_layer, prop_layer[layer]);
+            _actionLayer(model, cg, layer + 1, prop_layer[layer],
+                         action_layer[layer], action_layer[layer + 1]);
+        }
+
+        return dynet::concatenate(action_layer[layer]);
+    }
+
 };
 
+static dynet::Expression loss(dynet::Expression output,
+                              dynet::Expression labels)
+{
+    dynet::Expression e = dynet::cmult(1 - labels, dynet::log(1 - output));
+    e = e + dynet::cmult(labels, dynet::log(output));
+    e = dynet::sum_elems(e);
+    //e = dynet::mean_batches(e);
+    e = -e;
+    // TODO: L2 regularization?
+    return e;
+}
 
-struct ModelParameters {
-    std::vector<std::vector<ActionModule *>> action;
-    std::vector<std::vector<PropositionModule *>> prop;
-
-    ModelParameters(int hidden_dimension,
-                    int num_layers,
-                    const LiftedTask &task,
-                    dynet::ParameterCollection &model)
-    {
-        action.resize(num_layers + 1);
-        prop.resize(num_layers);
-
-        for (int layer = 0; layer < num_layers; ++layer){
-            for (size_t aid = 0; aid < task.action.size(); ++aid){
-                ActionModule *am = new ActionModule(hidden_dimension,
-                                                    task.action[aid].atom.size(),
-                                                    layer,
-                                                    false,
-                                                    model);
-                action[layer].push_back(am);
-            }
-
-            for (size_t pid = 0; pid < task.pred.size(); ++pid){
-                PropositionModule *pm = new PropositionModule(hidden_dimension,
-                                                              task.pred[pid].action.size(),
-                                                              layer,
-                                                              model);
-                prop[layer].push_back(pm);
-            }
-        }
-
-        for (size_t aid = 0; aid < task.action.size(); ++aid){
-            ActionModule *am = new ActionModule(hidden_dimension,
-                                                task.action[aid].atom.size(),
-                                                num_layers,
-                                                true,
-                                                model);
-            action[num_layers].push_back(am);
-        }
-    }
-
-    ~ModelParameters()
-    {
-        for (size_t i = 0; i < action.size(); ++i){
-            for (size_t j = 0; j < action[i].size(); ++j)
-                delete action[i][j];
-        }
-        for (size_t i = 0; i < prop.size(); ++i){
-            for (size_t j = 0; j < prop[i].size(); ++j)
-                delete prop[i][j];
-        }
-    }
-};
 
 int pddlASNetsTrain(const char *domain_fn,
                     const char **problem_fn,
@@ -495,22 +623,64 @@ int pddlASNetsTrain(const char *domain_fn,
     int hidden_dimension = 16;
     int num_layers = 2;
 
+    // TODO: Parametrize
     dynet::DynetParams dynet_params;
     //dynet_params.autobatch = true;
     dynet_params.mem_descriptor = "4096";
-    dynet_params.profiling = 10;
+    //dynet_params.profiling = 10;
     dynet_params.random_seed = 123;
     dynet_params.shared_parameters = true;
     //dynet_params.weight_decay = 1E-6;
     dynet::initialize(dynet_params);
 
     dynet::ParameterCollection model;
+    dynet::AdamTrainer trainer(model);
+
     ModelParameters params(hidden_dimension, num_layers, lifted_task, model);
 
+    dynet::ComputationGraph cg;
+    std::vector<float> state(ground_task[0]->fact.size(), 0);
+    std::vector<float> goal(ground_task[0]->fact.size(), 0);
+    std::vector<float> op_appl(ground_task[0]->op.size(), 0);
+    std::vector<float> output(ground_task[0]->op.size(), 0);
 
-    for (size_t i = 0; i < ground_task.size(); ++i){
-        delete ground_task[i];
+    int fact_id;
+    PDDL_ISET_FOR_EACH(&ground_task[1]->strips.init, fact_id)
+        state[fact_id] = 1;
+    PDDL_ISET_FOR_EACH(&ground_task[1]->strips.goal, fact_id)
+        goal[fact_id] = 1;
+    for (int op_id = 0; op_id < ground_task[1]->strips.op.op_size; ++op_id){
+        if (pddlISetIsSubset(&ground_task[1]->strips.op.op[op_id]->pre,
+                             &ground_task[1]->strips.init)){
+            op_appl[op_id] = 1;
+            output[op_id] = 1;
+        }
     }
+
+    std::vector<long> dim(1);
+    dim[0] = state.size();
+    dynet::Expression e_input_state = dynet::input(cg, dynet::Dim(dim), state);
+    dynet::Expression e_input_goal = dynet::input(cg, dynet::Dim(dim), goal);
+    dim[0] = op_appl.size();
+    dynet::Expression e_input_op_appl = dynet::input(cg, dynet::Dim(dim), op_appl);
+    dynet::Expression e_output = dynet::input(cg, dynet::Dim(dim), output);
+
+    dynet::Expression e = ground_task[1]->expr(params, cg, e_input_state, e_input_goal, e_input_op_appl);
+
+    dynet::Expression e_loss = loss(e, e_output);
+    //cg.print_graphviz();
+
+    float loss_val = dynet::as_scalar(cg.forward(e_loss));
+    cg.backward(e_loss);
+    trainer.update();
+
+    loss_val = dynet::as_scalar(cg.forward(e_loss));
+    cg.backward(e_loss);
+    trainer.update();
+    LOG(err, "loss: %f", loss_val);
+
+    for (size_t i = 0; i < ground_task.size(); ++i)
+        delete ground_task[i];
 
     dynet::cleanup();
     CTXEND(err);
