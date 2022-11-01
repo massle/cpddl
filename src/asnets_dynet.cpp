@@ -12,7 +12,7 @@
 #include <dynet/training.h>
 #include <dynet/param-init.h>
 
-static const float SMALL_CONST = 1E-20;
+static const float SMALL_CONST = 1E-20f;
 
 static dynet::Expression maskedSoftmax(dynet::ComputationGraph &cg,
                                        const dynet::Expression &in,
@@ -34,18 +34,26 @@ static dynet::Expression maskedSoftmax(dynet::ComputationGraph &cg,
     // Normalize each element
     sm = dynet::cdiv(sm, sum);
 
-    // And assign very small probability to elements with 0 to get
-    // meaningful loss values
-    sm = dynet::max(sm, dynet::constant(cg, sm.dim(), SMALL_CONST));
-
     return sm;
 }
 
-static dynet::Expression crossEntropyLoss(dynet::Expression output,
+static dynet::Expression crossEntropyLoss(dynet::ComputationGraph &cg,
+                                          dynet::Expression output,
                                           dynet::Expression labels)
 {
-    dynet::Expression e = dynet::cmult(1 - labels, dynet::log(1 - output));
-    e = e + dynet::cmult(labels, dynet::log(output));
+    dynet::Expression o1 = 1 - output;
+    dynet::Expression o2 = output;
+
+    // Avoid log(0)
+    dynet::Expression small_const = dynet::constant(cg, o1.dim(), SMALL_CONST);
+    o1 = dynet::max(o1, small_const);
+    o2 = dynet::max(o2, small_const);
+
+    // (1 - y) * log (1 - \pi)
+    dynet::Expression e = dynet::cmult(1 - labels, dynet::log(o1));
+    // y * log(\pi)
+    e = e + dynet::cmult(labels, dynet::log(o2));
+
     e = dynet::sum_elems(e);
     e = dynet::mean_batches(e);
     e = -e;
@@ -668,7 +676,7 @@ int pddlASNetsTrain(const char *domain_fn,
     }
 
     int hidden_dimension = 16;
-    int num_layers = 1;
+    int num_layers = 2;
 
     // TODO: Parametrize
     dynet::DynetParams dynet_params;
@@ -723,7 +731,13 @@ int pddlASNetsTrain(const char *domain_fn,
     dynet::Expression e = ground_task[0]->expr(params, cg, e_input_state,
                                                e_input_goal,
                                                e_input_op_appl, 0.1);
-    dynet::Expression e_loss = crossEntropyLoss(e, e_output);
+    {
+    std::vector<float> val = dynet::as_vector(cg.forward(e));
+    for (int i = 0; i < val.size(); ++i){
+        LOG(err, "%d: %f", i, val[i]);
+    }
+    }
+    dynet::Expression e_loss = crossEntropyLoss(cg, e, e_output);
 
     float loss_val = dynet::as_scalar(cg.forward(e_loss));
     cg.backward(e_loss);
