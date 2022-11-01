@@ -10,6 +10,48 @@
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>
+#include <dynet/param-init.h>
+
+static const float SMALL_CONST = 1E-20;
+
+static dynet::Expression maskedSoftmax(dynet::ComputationGraph &cg,
+                                       const dynet::Expression &in,
+                                       const dynet::Expression &mask)
+{
+    // Subtract maximum for numerical stability
+    dynet::Expression sm = in - dynet::max_dim(in);
+
+    // Compute exponentials
+    sm = dynet::exp(sm);
+
+    // Multiply by the mask
+    sm = dynet::cmult(sm, mask);
+
+    // Compute sum and clip it so that we don't divide by zero
+    dynet::Expression min_sum = dynet::constant(cg, dynet::Dim({1}), SMALL_CONST);
+    dynet::Expression sum = dynet::max(dynet::sum_rows(sm), min_sum);
+
+    // Normalize each element
+    sm = dynet::cdiv(sm, sum);
+
+    // And assign very small probability to elements with 0 to get
+    // meaningful loss values
+    sm = dynet::max(sm, dynet::constant(cg, sm.dim(), SMALL_CONST));
+
+    return sm;
+}
+
+static dynet::Expression crossEntropyLoss(dynet::Expression output,
+                                          dynet::Expression labels)
+{
+    dynet::Expression e = dynet::cmult(1 - labels, dynet::log(1 - output));
+    e = e + dynet::cmult(labels, dynet::log(output));
+    e = dynet::sum_elems(e);
+    e = dynet::mean_batches(e);
+    e = -e;
+    // TODO: L2 regularization?
+    return e;
+}
 
 struct Action {
     int action_id;
@@ -105,6 +147,7 @@ struct ActionModule {
     int hidden_dim;
     int related_props;
     int layer;
+    bool is_output;
     int input_vec_size;
     int output_dim;
     dynet::Parameter W;
@@ -120,7 +163,8 @@ struct ActionModule {
                  dynet::ParameterCollection &model)
         : hidden_dim(hidden_dimension),
           related_props(num_related_propositions),
-          layer(layer)
+          layer(layer),
+          is_output(is_output)
     {
         if (layer == 0){
             // input state
@@ -146,11 +190,11 @@ struct ActionModule {
         std::vector<long> dim_W(2);
         dim_W[0] = output_dim;
         dim_W[1] = input_vec_size;
-        W = model.add_parameters(dynet::Dim(dim_W));
+        W = model.add_parameters(dynet::Dim(dim_W), dynet::ParameterInitNormal());
 
         std::vector<long> dim_bias(1);
         dim_bias[0] = output_dim;
-        bias = model.add_parameters(dynet::Dim(dim_bias));
+        bias = model.add_parameters(dynet::Dim(dim_bias), dynet::ParameterInitNormal());
     }
 
     dynet::Expression expr(dynet::ComputationGraph &cg,
@@ -159,7 +203,10 @@ struct ActionModule {
         dynet::Expression w = dynet::parameter(cg, W);
         dynet::Expression b = dynet::parameter(cg, bias);
         dynet::Expression u = dynet::concatenate(input);
-        return dynet::elu((w * u) + b);
+        dynet::Expression e = (w * u) + b;
+        if (is_output)
+            return e;
+        return dynet::elu(e);
     }
 
     dynet::Expression exprInput(dynet::ComputationGraph &cg,
@@ -204,11 +251,11 @@ struct PropositionModule {
         std::vector<long> dim_W(2);
         dim_W[0] = hidden_dim;
         dim_W[1] = input_vec_size;
-        W = model.add_parameters(dynet::Dim(dim_W));
+        W = model.add_parameters(dynet::Dim(dim_W), dynet::ParameterInitNormal());
 
         std::vector<long> dim_bias(1);
         dim_bias[0] = hidden_dim;
-        bias = model.add_parameters(dynet::Dim(dim_bias));
+        bias = model.add_parameters(dynet::Dim(dim_bias), dynet::ParameterInitNormal());
     }
 
     dynet::Expression expr(dynet::ComputationGraph &cg,
@@ -552,7 +599,7 @@ struct GroundTask {
         prop_layer.resize(model.num_layers);
 
         int layer = 0;
-        // First action layer
+        // First action layer needs to be connected to inputs
         for (int op_id = 0; op_id < op.size(); ++op_id){
             std::vector<dynet::Expression> in_state;
             std::vector<dynet::Expression> in_goal;
@@ -579,23 +626,12 @@ struct GroundTask {
                          action_layer[layer], action_layer[layer + 1]);
         }
 
-        return dynet::concatenate(action_layer[layer]);
+        dynet::Expression out = dynet::concatenate(action_layer[layer]);
+
+        return maskedSoftmax(cg, out, input_applicable_ops);
     }
 
 };
-
-static dynet::Expression loss(dynet::Expression output,
-                              dynet::Expression labels)
-{
-    dynet::Expression e = dynet::cmult(1 - labels, dynet::log(1 - output));
-    e = e + dynet::cmult(labels, dynet::log(output));
-    e = dynet::sum_elems(e);
-    //e = dynet::mean_batches(e);
-    e = -e;
-    // TODO: L2 regularization?
-    return e;
-}
-
 
 int pddlASNetsTrain(const char *domain_fn,
                     const char **problem_fn,
@@ -621,16 +657,16 @@ int pddlASNetsTrain(const char *domain_fn,
     }
 
     int hidden_dimension = 16;
-    int num_layers = 2;
+    int num_layers = 1;
 
     // TODO: Parametrize
     dynet::DynetParams dynet_params;
     //dynet_params.autobatch = true;
     dynet_params.mem_descriptor = "4096";
     //dynet_params.profiling = 10;
-    dynet_params.random_seed = 123;
-    dynet_params.shared_parameters = true;
-    //dynet_params.weight_decay = 1E-6;
+    dynet_params.random_seed = 1234;
+    //dynet_params.shared_parameters = true;
+    dynet_params.weight_decay = 2E-4;
     dynet::initialize(dynet_params);
 
     dynet::ParameterCollection model;
@@ -639,21 +675,29 @@ int pddlASNetsTrain(const char *domain_fn,
     ModelParameters params(hidden_dimension, num_layers, lifted_task, model);
 
     dynet::ComputationGraph cg;
+    // TODO: For debugging
+    cg.set_check_validity(true);
+    cg.set_immediate_compute(true);
+
     std::vector<float> state(ground_task[0]->fact.size(), 0);
     std::vector<float> goal(ground_task[0]->fact.size(), 0);
     std::vector<float> op_appl(ground_task[0]->op.size(), 0);
     std::vector<float> output(ground_task[0]->op.size(), 0);
 
     int fact_id;
-    PDDL_ISET_FOR_EACH(&ground_task[1]->strips.init, fact_id)
+    PDDL_ISET_FOR_EACH(&ground_task[0]->strips.init, fact_id)
         state[fact_id] = 1;
-    PDDL_ISET_FOR_EACH(&ground_task[1]->strips.goal, fact_id)
+    PDDL_ISET_FOR_EACH(&ground_task[0]->strips.goal, fact_id)
         goal[fact_id] = 1;
-    for (int op_id = 0; op_id < ground_task[1]->strips.op.op_size; ++op_id){
-        if (pddlISetIsSubset(&ground_task[1]->strips.op.op[op_id]->pre,
-                             &ground_task[1]->strips.init)){
+    for (int op_id = 0; op_id < ground_task[0]->strips.op.op_size; ++op_id){
+        int assigned = false;
+        if (pddlISetIsSubset(&ground_task[0]->strips.op.op[op_id]->pre,
+                             &ground_task[0]->strips.init)){
             op_appl[op_id] = 1;
-            output[op_id] = 1;
+            if (!assigned){
+                output[op_id] = 1;
+                assigned = true;
+            }
         }
     }
 
@@ -665,19 +709,20 @@ int pddlASNetsTrain(const char *domain_fn,
     dynet::Expression e_input_op_appl = dynet::input(cg, dynet::Dim(dim), op_appl);
     dynet::Expression e_output = dynet::input(cg, dynet::Dim(dim), output);
 
-    dynet::Expression e = ground_task[1]->expr(params, cg, e_input_state, e_input_goal, e_input_op_appl);
-
-    dynet::Expression e_loss = loss(e, e_output);
-    //cg.print_graphviz();
+    dynet::Expression e = ground_task[0]->expr(params, cg, e_input_state, e_input_goal, e_input_op_appl);
+    dynet::Expression e_loss = crossEntropyLoss(e, e_output);
 
     float loss_val = dynet::as_scalar(cg.forward(e_loss));
     cg.backward(e_loss);
     trainer.update();
+    LOG(err, "loss: %f", loss_val);
 
+    /*
     loss_val = dynet::as_scalar(cg.forward(e_loss));
     cg.backward(e_loss);
     trainer.update();
     LOG(err, "loss: %f", loss_val);
+    */
 
     for (size_t i = 0; i < ground_task.size(); ++i)
         delete ground_task[i];
