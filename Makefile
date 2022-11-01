@@ -216,6 +216,7 @@ pddl/config.h: Makefile Makefile.include
 	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
 	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
 	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
+	if [ "$(USE_DYNET)" = "yes" ]; then echo "#define PDDL_DYNET" >>$@; fi
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 

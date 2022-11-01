@@ -124,5 +124,6 @@
 #include <pddl/cp.h>
 #include <pddl/subprocess.h>
 #include <pddl/asnets_task.h>
+#include <pddl/asnets.h>
 
 #endif /* __PDDL_H__ */

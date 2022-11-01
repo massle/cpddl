@@ -198,6 +198,11 @@ USE_DYNET ?= auto
 ifeq '$(USE_DYNET)' 'auto'
   ifneq '$(DYNET_CPPFLAGS)$(DYNET_LDFLAGS)' ''
     USE_DYNET := yes
+
+  else ifneq '$(DYNET_ROOT)' ''
+    DYNET_CPPFLAGS := -I$(DYNET_ROOT)/include
+    DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
+    USE_DYNET := yes
   endif
 endif
 
@@ -282,6 +287,9 @@ help:
 	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
 	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
 	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
+	@echo "    DYNET_CPPFLAGS  = $(DYNET_CPPFLAGS)"
+	@echo "    DYNET_LDFLAGS   = $(DYNET_LDFLAGS)"
+	@echo "    USE_DYNET       = $(USE_DYNET)"
 	@echo "    MINIZINC_BIN    = $(MINIZINC_BIN)"
 
 # These variables should not be passed to sub-makes

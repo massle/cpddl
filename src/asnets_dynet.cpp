@@ -6,11 +6,14 @@
 #include "pddl/strips_ground_datalog.h"
 #include "pddl/critical_path.h"
 #include "pddl/fdr.h"
+#include "pddl/asnets.h"
+#include <dynet/dynet.h>
 #include <dynet/expr.h>
 
 struct Action {
     int action_id;
     std::vector<const pddl_fm_atom_t *> atom;
+    std::string name;
 };
 
 struct ActionPos {
@@ -50,6 +53,7 @@ struct LiftedTask {
         for (int ai = 0; ai < pddl.action.action_size; ++ai){
             const pddl_action_t *a = pddl.action.action + ai;
             action[ai].action_id = ai;
+            action[ai].name = a->name;
 
             const pddl_fm_atom_t *at;
             pddl_fm_const_it_atom_t it;
@@ -152,10 +156,12 @@ struct GroundTask {
 
         pddl_mutex_pairs_t mutex;
         PDDL_ISET(unreachable_op);
+        PDDL_ISET(unreachable_fact);
         pddlMutexPairsInitStrips(&mutex, &strips);
-        pddlH2(&strips, &mutex, NULL, &unreachable_op, -1., err);
-        pddlStripsReduce(&strips, NULL, &unreachable_op);
+        pddlH2(&strips, &mutex, &unreachable_fact, &unreachable_op, -1., err);
+        pddlStripsReduce(&strips, &unreachable_fact, &unreachable_op);
         pddlISetFree(&unreachable_op);
+        pddlISetFree(&unreachable_fact);
 
         pddl_mgroups_t mgroups;
         pddlMGroupsInitEmpty(&mgroups);
@@ -170,6 +176,7 @@ struct GroundTask {
         pddlLiftedMGroupsFree(&lmg);
 
         _computeRelatedness(p, err);
+        _check(p, err);
 
         CTXEND(err);
     }
@@ -259,6 +266,39 @@ struct GroundTask {
             }
         }
         FATAL2("Error: Cannot find the right action/pos related to a fact");
+    }
+
+    void _check(const LiftedTask &p, pddl_err_t *err)
+    {
+        // TODO: Replace asserts with reporting what exactly is wrong
+        LOG2(err, "Checking everything is properly set up...");
+        ASSERT_RUNTIME(fdr.op.op_size == strips.op.op_size);
+        ASSERT_RUNTIME(strips.op.op_size == op.size());
+        for (int op_id = 0; op_id < op.size(); ++op_id){
+            ASSERT_RUNTIME(op[op_id].related_fact.size() == op[op_id].action->atom.size());
+            for (int fact_id : op[op_id].related_fact)
+                ASSERT_RUNTIME(fact_id >= 0);
+        }
+
+        ASSERT_RUNTIME(strips.fact.fact_size == fact.size());
+        for (int fact_id = 0; fact_id < fact.size(); ++fact_id){
+            ASSERT_RUNTIME(fact[fact_id].related_op.size() == fact[fact_id].pred->action.size());
+            for (int i = 0; i < fact[fact_id].related_op.size(); ++i){
+                const std::vector<int> &rop = fact[fact_id].related_op[i];
+                if (rop.size() == 0){
+                    LOG(err, "%s : %d/%d=(%d,%d)=(%s,%d)",
+                        strips.fact.fact[fact_id]->name,
+                        i, (int)fact[fact_id].related_op.size(),
+                        fact[fact_id].pred->action[i].action_id,
+                        fact[fact_id].pred->action[i].pos,
+                        p.action[fact[fact_id].pred->action[i].action_id].name.c_str(),
+                        fact[fact_id].pred->action[i].pos);
+                }
+
+                ASSERT_RUNTIME(rop.size() > 0);
+            }
+        }
+        LOG2(err, "Check DONE.");
     }
 };
 
@@ -402,7 +442,7 @@ struct ModelParameters {
                                                               task.pred[pid].action.size(),
                                                               layer,
                                                               model);
-                prop[pid].push_back(pm);
+                prop[layer].push_back(pm);
             }
         }
 
@@ -455,6 +495,15 @@ int pddlASNetsTrain(const char *domain_fn,
     int hidden_dimension = 16;
     int num_layers = 2;
 
+    dynet::DynetParams dynet_params;
+    //dynet_params.autobatch = true;
+    dynet_params.mem_descriptor = "4096";
+    dynet_params.profiling = 10;
+    dynet_params.random_seed = 123;
+    dynet_params.shared_parameters = true;
+    //dynet_params.weight_decay = 1E-6;
+    dynet::initialize(dynet_params);
+
     dynet::ParameterCollection model;
     ModelParameters params(hidden_dimension, num_layers, lifted_task, model);
 
@@ -463,6 +512,7 @@ int pddlASNetsTrain(const char *domain_fn,
         delete ground_task[i];
     }
 
+    dynet::cleanup();
     CTXEND(err);
     return 0;
 }

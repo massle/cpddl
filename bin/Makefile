@@ -8,6 +8,7 @@ LDFLAGS += $(LP_LDFLAGS)
 LDFLAGS += $(BLISS_LDFLAGS)
 LDFLAGS += $(CLIQUER_LDFLAGS)
 LDFLAGS += $(CUDD_LDFLAGS)
+LDFLAGS += $(DYNET_LDFLAGS)
 LDFLAGS += -pthread -lrt -lm
 
 ifeq '$(BIN_STATIC)' 'yes'
@@ -18,6 +19,7 @@ TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-symba
 TARGETS += pddl-pddl
+TARGETS += pddl-asnets
 
 OBJS  = opts.o
 OBJS += options.o
@@ -40,6 +42,8 @@ pddl-symba: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_SYMBA=1 -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_PDDL=1 -o $@ $< $(OBJS) $(LDFLAGS)
+pddl-asnets: asnets.c ../libpddl.a $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 report_%.o: report_%.c report.h
 	$(CC) $(CFLAGS) -c -o $@ $<
