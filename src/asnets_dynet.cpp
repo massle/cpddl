@@ -542,7 +542,8 @@ struct GroundTask {
                       int layer,
                       const std::vector<dynet::Expression> &prop_layer,
                       const std::vector<dynet::Expression> &prev_action_layer,
-                      std::vector<dynet::Expression> &action_layer)
+                      std::vector<dynet::Expression> &action_layer,
+                      float dropout_rate)
     {
         for (int op_id = 0; op_id < op.size(); ++op_id){
             std::vector<dynet::Expression> in;
@@ -554,6 +555,9 @@ struct GroundTask {
             int action_id = op[op_id].action->action_id;
             ActionModule *am = model.action[layer][action_id];
             dynet::Expression e = am->expr(cg, in);
+            if (dropout_rate > 0.f && layer != model.num_layers){
+                e = dynet::dropout(e, dropout_rate);
+            }
             action_layer.push_back(e);
         }
     }
@@ -563,7 +567,8 @@ struct GroundTask {
                     int layer,
                     const std::vector<dynet::Expression> &action_layer,
                     const std::vector<dynet::Expression> *prev_prop_layer,
-                    std::vector<dynet::Expression> &prop_layer)
+                    std::vector<dynet::Expression> &prop_layer,
+                    float dropout_rate)
     {
         for (int fact_id = 0; fact_id < fact.size(); ++fact_id){
             std::vector<std::vector<dynet::Expression>> input;
@@ -583,6 +588,9 @@ struct GroundTask {
             int pred_id = fact[fact_id].pred->pred_id;
             PropositionModule *pm = model.prop[layer][pred_id];
             dynet::Expression e = pm->expr(cg, input);
+            if (dropout_rate > 0.f){
+                e = dynet::dropout(e, dropout_rate);
+            }
             prop_layer.push_back(e);
         }
     }
@@ -591,7 +599,8 @@ struct GroundTask {
                            dynet::ComputationGraph &cg,
                            dynet::Expression input_state,
                            dynet::Expression input_goal_condition,
-                           dynet::Expression input_applicable_ops)
+                           dynet::Expression input_applicable_ops,
+                           float dropout_rate)
     {
         std::vector<std::vector<dynet::Expression>> action_layer;
         action_layer.resize(model.num_layers + 1);
@@ -621,9 +630,11 @@ struct GroundTask {
             if (layer > 0)
                 prev_prop_layer = &prop_layer[layer - 1];
             _propLayer(model, cg, layer, action_layer[layer],
-                       prev_prop_layer, prop_layer[layer]);
+                       prev_prop_layer, prop_layer[layer], dropout_rate);
+
             _actionLayer(model, cg, layer + 1, prop_layer[layer],
-                         action_layer[layer], action_layer[layer + 1]);
+                         action_layer[layer], action_layer[layer + 1],
+                         dropout_rate);
         }
 
         dynet::Expression out = dynet::concatenate(action_layer[layer]);
@@ -662,7 +673,7 @@ int pddlASNetsTrain(const char *domain_fn,
     // TODO: Parametrize
     dynet::DynetParams dynet_params;
     //dynet_params.autobatch = true;
-    dynet_params.mem_descriptor = "4096";
+    //dynet_params.mem_descriptor = "4096";
     //dynet_params.profiling = 10;
     dynet_params.random_seed = 1234;
     //dynet_params.shared_parameters = true;
@@ -709,12 +720,16 @@ int pddlASNetsTrain(const char *domain_fn,
     dynet::Expression e_input_op_appl = dynet::input(cg, dynet::Dim(dim), op_appl);
     dynet::Expression e_output = dynet::input(cg, dynet::Dim(dim), output);
 
-    dynet::Expression e = ground_task[0]->expr(params, cg, e_input_state, e_input_goal, e_input_op_appl);
+    dynet::Expression e = ground_task[0]->expr(params, cg, e_input_state,
+                                               e_input_goal,
+                                               e_input_op_appl, 0.1);
     dynet::Expression e_loss = crossEntropyLoss(e, e_output);
 
     float loss_val = dynet::as_scalar(cg.forward(e_loss));
     cg.backward(e_loss);
     trainer.update();
+    LOG(err, "loss: %f", loss_val);
+    loss_val = dynet::as_scalar(cg.forward(e_loss));
     LOG(err, "loss: %f", loss_val);
 
     /*
