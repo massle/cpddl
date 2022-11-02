@@ -1,12 +1,7 @@
 #include "internal.h"
-#include "pddl/pddl_struct.h"
-#include "pddl/lifted_mgroup_infer.h"
-#include "pddl/strips.h"
-#include "pddl/strips_ground_datalog.h"
-#include "pddl/critical_path.h"
-#include "pddl/fdr.h"
 #include "pddl/asnets.h"
 #include "pddl/asnets_task.h"
+
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>
