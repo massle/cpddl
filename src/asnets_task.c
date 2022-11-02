@@ -1,51 +1,125 @@
 /***
- * Copyright (c)2016 Daniel Fiser <danfis@danfis.cz>,
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
+ * Copyright (c)2022 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
-#include "pddl/asnets_task.h"
-#include "pddl/strips_ground_datalog.h"
-#include "pddl/sort.h"
-#include "pddl/critical_path.h"
-#include "pddl/lifted_mgroup_infer.h"
 #include "internal.h"
+#include "pddl/asnets_task.h"
+#include "pddl/lifted_mgroup_infer.h"
+#include "pddl/strips_ground_datalog.h"
+#include "pddl/critical_path.h"
 
-static pddl_asnets_task_relate_t *relatednessAdd(pddl_asnets_task_t *task)
+static void addRelatedAction(pddl_asnets_pred_t *pred, int action_id, int pos)
 {
-    if (task->relatedness.rel_size == task->relatedness.rel_alloc){
-        if (task->relatedness.rel_alloc == 0)
-            task->relatedness.rel_alloc = 2;
-        task->relatedness.rel_alloc *= 2;
-        task->relatedness.rel = REALLOC_ARR(task->relatedness.rel,
-                                            pddl_asnets_task_relate_t,
-                                            task->relatedness.rel_alloc);
+    if (pred->related_action_size == pred->related_action_alloc){
+        if (pred->related_action_alloc == 0)
+            pred->related_action_alloc = 2;
+        pred->related_action_alloc *= 2;
+        pred->related_action = REALLOC_ARR(pred->related_action,
+                                           pddl_asnets_action_pos_t,
+                                           pred->related_action_alloc);
     }
 
-    pddl_asnets_task_relate_t *rel;
-    rel = task->relatedness.rel + task->relatedness.rel_size++;
-    return rel;
+    pred->related_action[pred->related_action_size].action_id = action_id;
+    pred->related_action[pred->related_action_size].pos = pos;
+    ++pred->related_action_size;
 }
 
-static int relateCmp(const void *a, const void *b, void *_)
+static int addRelatedAtom(pddl_asnets_action_t *action,
+                          const pddl_fm_atom_t *atom)
 {
-    const pddl_asnets_task_relate_t *r1 = a;
-    const pddl_asnets_task_relate_t *r2 = b;
-    int cmp = r1->op_id - r2->op_id;
-    if (cmp == 0)
-        cmp = r1->position - r2->position;
-    if (cmp == 0)
-        cmp = r1->fact_id - r2->fact_id;
-    return cmp;
+    if (action->related_atom_size == action->related_atom_alloc){
+        if (action->related_atom_alloc == 0)
+            action->related_atom_alloc = 2;
+        action->related_atom_alloc *= 2;
+        action->related_atom = REALLOC_ARR(action->related_atom,
+                                           const pddl_fm_atom_t *,
+                                           action->related_atom_alloc);
+    }
+
+    int pos = action->related_atom_size;
+    action->related_atom[action->related_atom_size++] = atom;
+    return pos;
+}
+
+static int addUniqueRelatedAtom(pddl_asnets_action_t *action,
+                                const pddl_fm_atom_t *atom)
+{
+    for (int i = 0; i < action->related_atom_size; ++i){
+        const pddl_fm_atom_t *a = action->related_atom[i];
+        if (a->pred == atom->pred){
+            int eq = 1;
+            for (int ai = 0; ai < atom->arg_size; ++ai){
+                if (a->arg[ai].obj != atom->arg[ai].obj
+                        || a->arg[ai].param != atom->arg[ai].param){
+                    eq = 0;
+                    break;
+                }
+            }
+            if (eq)
+                return -1;
+        }
+    }
+    return addRelatedAtom(action, atom);
+}
+
+int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
+                             const char *domain_fn,
+                             const char *problem_fn,
+                             pddl_err_t *err)
+{
+    ZEROIZE(lt);
+    pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
+    pddl_cfg.force_adl = 1;
+    pddl_cfg.normalize = 1;
+    pddl_cfg.enforce_unit_cost = 1;
+    if (pddlInit(&lt->pddl, domain_fn, problem_fn, &pddl_cfg, err) != 0)
+        TRACE_RET(err, -1);
+
+    lt->action_size = lt->pddl.action.action_size;
+    lt->action = CALLOC_ARR(pddl_asnets_action_t, lt->action_size);
+
+    lt->pred_size = lt->pddl.pred.pred_size;
+    lt->pred = CALLOC_ARR(pddl_asnets_pred_t, lt->pred_size);
+    for (int pi = 0; pi < lt->pddl.pred.pred_size; ++pi)
+        lt->pred[pi].pred_id = pi;
+
+    for (int ai = 0; ai < lt->pddl.action.action_size; ++ai){
+        const pddl_action_t *a = lt->pddl.action.action + ai;
+        lt->action[ai].action_id = ai;
+
+        const pddl_fm_atom_t *at;
+        pddl_fm_const_it_atom_t it;
+        PDDL_FM_FOR_EACH_ATOM(a->pre, &it, at){
+            int pos;
+            if ((pos = addUniqueRelatedAtom(lt->action + ai, at)) >= 0)
+                addRelatedAction(lt->pred + at->pred, ai, pos);
+        }
+        PDDL_FM_FOR_EACH_ATOM(a->eff, &it, at){
+            int pos;
+            if ((pos = addUniqueRelatedAtom(lt->action + ai, at)) >= 0)
+                addRelatedAction(lt->pred + at->pred, ai, pos);
+        }
+    }
+    return 0;
+}
+
+void pddlASNetsLiftedTaskFree(pddl_asnets_lifted_task_t *lt)
+{
+    for (int ai = 0; ai < lt->action_size; ++ai){
+        if (lt->action[ai].related_atom != NULL)
+            FREE(lt->action[ai].related_atom);
+    }
+    if (lt->action != NULL)
+        FREE(lt->action);
+
+    for (int pi = 0; pi < lt->pred_size; ++pi){
+        if (lt->pred[pi].related_action != NULL)
+            FREE(lt->pred[pi].related_action);
+    }
+    if (lt->pred != NULL)
+        FREE(lt->pred);
 }
 
 static int atomEq(const pddl_ground_atom_t *a1,
@@ -64,106 +138,142 @@ static int atomEq(const pddl_ground_atom_t *a1,
     return 1;
 }
 
-static void computeRelatednessOpFact(pddl_asnets_task_t *task,
-                                     const pddl_strips_op_t *op,
-                                     int fact_id)
+static void addRelatedOp(pddl_asnets_ground_task_t *gt,
+                         int fact_id, int op_id, int pos)
 {
-    pddl_asnets_task_action_t *a = task->pddl_action + op->pddl_action_id;
-    const pddl_ground_atom_t *atom = task->strips.fact.fact[fact_id]->ground_atom;
-    ASSERT(atom != NULL);
-
-    for (int pos = 0; pos < a->atom.size; ++pos){
-        const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(a->atom.fm[pos], atom);
-        if (atomEq(atom, atom2, op->action_args)){
-            pddl_asnets_task_relate_t *rel = relatednessAdd(task);
-            rel->op_id = op->id;
-            rel->fact_id = fact_id;
-            rel->position = pos;
+    const pddl_asnets_action_t *action = gt->op[op_id].action;
+    const pddl_asnets_pred_t *pred = gt->fact[fact_id].pred;
+    for (size_t i = 0; i < pred->related_action_size; ++i){
+        if (pred->related_action[i].action_id == action->action_id
+                && pred->related_action[i].pos == pos){
+            pddlIArrAdd(&gt->fact[fact_id].related_op[i], op_id);
+            return;
         }
     }
+    FATAL2("Error: Cannot find the right action/pos related to a fact");
 }
 
-static void computeRelatednessOp(pddl_asnets_task_t *task,
-                                 const pddl_strips_op_t *op)
+static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
+                                     pddl_err_t *err)
 {
-    // TODO: Conditional effects not supported yet
-    ASSERT(op->cond_eff_size == 0);
-    ASSERT(op->action_args != NULL);
-    ASSERT(op->pddl_action_id >= 0);
-
-    PDDL_ISET(facts);
-    pddlISetUnion(&facts, &op->pre);
-    pddlISetUnion(&facts, &op->add_eff);
-    pddlISetUnion(&facts, &op->del_eff);
-    int fact;
-    PDDL_ISET_FOR_EACH(&facts, fact)
-        computeRelatednessOpFact(task, op, fact);
-    pddlISetFree(&facts);
-}
-
-static void computeRelatedness(pddl_asnets_task_t *task)
-{
-    for (int oi = 0; oi < task->strips.op.op_size; ++oi){
-        computeRelatednessOp(task, task->strips.op.op[oi]);
+    CTX(err, "relatedness", "Relatedness");
+    gt->op_size = gt->strips.op.op_size;
+    gt->op = CALLOC_ARR(pddl_asnets_op_t, gt->op_size);
+    for (int i = 0; i < gt->op_size; ++i){
+        gt->op[i].op_id = i;
+        ASSERT(gt->strips.op.op[i]->pddl_action_id >= 0);
+        gt->op[i].action = gt->lifted_task->action + gt->strips.op.op[i]->pddl_action_id;
+        gt->op[i].related_fact_size = gt->op[i].action->related_atom_size;
+        gt->op[i].related_fact = ALLOC_ARR(int, gt->op[i].related_fact_size);
+        for (int j = 0; j < gt->op[i].related_fact_size; ++j)
+            gt->op[i].related_fact[j] = -1;
     }
-    pddlSort(task->relatedness.rel, task->relatedness.rel_size,
-             sizeof(pddl_asnets_task_relate_t), relateCmp, NULL);
 
-}
-
-static void condArrAddUnique(pddl_fm_arr_t *carr,
-                             const pddl_fm_atom_t *atom)
-{
-    for (int i = 0; i < carr->size; ++i){
-        const pddl_fm_atom_t *atom2;
-        atom2 = PDDL_FM_CAST(carr->fm[i], atom);
-        if (pddlFmAtomCmpNoNeg(atom, atom2) == 0)
-            return;
+    gt->fact_size = gt->strips.fact.fact_size;
+    gt->fact = CALLOC_ARR(pddl_asnets_fact_t, gt->fact_size);
+    for (int i = 0; i < gt->fact_size; ++i){
+        gt->fact[i].fact_id = i;
+        ASSERT(gt->strips.fact.fact[i]->ground_atom != NULL);
+        gt->fact[i].pred = gt->lifted_task->pred + gt->strips.fact.fact[i]->ground_atom->pred;
+        gt->fact[i].related_op_size = gt->fact[i].pred->related_action_size;
+        gt->fact[i].related_op = ALLOC_ARR(pddl_iarr_t, gt->fact[i].related_op_size);
+        for (int j = 0; j < gt->op[i].related_fact_size; ++j)
+            gt->op[i].related_fact[j] = -1;
     }
-    pddlFmArrAdd(carr, &atom->fm);
+
+    for (int op_id = 0; op_id < gt->op_size; ++op_id){
+        const pddl_strips_op_t *so = gt->strips.op.op[op_id];
+        pddl_asnets_op_t *op = gt->op + op_id;
+        const pddl_obj_id_t *oargs = so->action_args;
+
+        // TODO: Conditional effects not supported yet
+        ASSERT(so->cond_eff_size == 0);
+        ASSERT(so->action_args != NULL);
+        ASSERT(so->pddl_action_id >= 0);
+
+        PDDL_ISET(facts);
+        pddlISetUnion(&facts, &so->pre);
+        pddlISetUnion(&facts, &so->add_eff);
+        pddlISetUnion(&facts, &so->del_eff);
+        int fact_id;
+        PDDL_ISET_FOR_EACH(&facts, fact_id){
+            const pddl_ground_atom_t *fatom = gt->strips.fact.fact[fact_id]->ground_atom;
+            for (size_t pos = 0; pos < op->action->related_atom_size; ++pos){
+                const pddl_fm_atom_t *atom = op->action->related_atom[pos];
+                if (atomEq(fatom, atom, oargs)){
+                    ASSERT(op->related_fact[pos] < 0);
+                    op->related_fact[pos] = fact_id;
+                    addRelatedOp(gt, fact_id, op_id, pos);
+                }
+            }
+        }
+        pddlISetFree(&facts);
+    }
+    CTXEND(err);
 }
 
-int pddlASNetsTaskInit(pddl_asnets_task_t *task,
-                       const char *domain_fn,
-                       const char *problem_fn,
-                       pddl_err_t *err)
+static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
+                                  pddl_err_t *err)
 {
-    CTX(err, "asnets_task", "ASNets-task");
-    ZEROIZE_PTR(task);
+    // TODO: Replace asserts with reporting what exactly is wrong
+    LOG2(err, "Checking everything is properly set up...");
+    ASSERT_RUNTIME(gt->fdr.op.op_size == gt->strips.op.op_size);
+    ASSERT_RUNTIME(gt->strips.op.op_size == gt->op_size);
+    for (int op_id = 0; op_id < gt->op_size; ++op_id){
+        ASSERT_RUNTIME(gt->op[op_id].related_fact_size
+                            == gt->op[op_id].action->related_atom_size);
+        for (int i = 0; i < gt->op[op_id].related_fact_size; ++i)
+            ASSERT_RUNTIME(gt->op[op_id].related_fact[i] >= 0);
+    }
+
+    ASSERT_RUNTIME(gt->strips.fact.fact_size == gt->fact_size);
+    for (int fact_id = 0; fact_id < gt->fact_size; ++fact_id){
+        ASSERT_RUNTIME(gt->fact[fact_id].related_op_size
+                            == gt->fact[fact_id].pred->related_action_size);
+        for (int i = 0; i < gt->fact[fact_id].related_op_size; ++i){
+            const pddl_iarr_t *rop = gt->fact[fact_id].related_op + i;
+            if (pddlIArrSize(rop) == 0){
+                LOG(err, "%s : %d/%d=(%d,%d)",
+                    gt->strips.fact.fact[fact_id]->name,
+                    i, gt->fact[fact_id].related_op_size,
+                    gt->fact[fact_id].pred->related_action[i].action_id,
+                    gt->fact[fact_id].pred->related_action[i].pos);
+            }
+
+            ASSERT_RUNTIME(pddlIArrSize(rop) > 0);
+        }
+    }
+    LOG2(err, "Check DONE.");
+    return 1;
+}
+
+int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
+                             const pddl_asnets_lifted_task_t *lt,
+                             const char *domain_fn,
+                             const char *problem_fn,
+                             pddl_err_t *err)
+{
+    CTX(err, "asnets_ground_task", "ASNets-GroundTask");
+    ZEROIZE(gt);
+    gt->lifted_task = lt;
+
     pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
     pddl_cfg.force_adl = 1;
     pddl_cfg.normalize = 1;
     pddl_cfg.enforce_unit_cost = 1;
-    if (pddlInit(&task->pddl, domain_fn, problem_fn, &pddl_cfg, err) != 0){
+    if (pddlInit(&gt->pddl, domain_fn, problem_fn, &pddl_cfg, err) != 0){
         CTXEND(err);
         TRACE_RET(err, -1);
     }
-    pddlNormalize(&task->pddl);
+
+    ASSERT_RUNTIME(gt->pddl.action.action_size == lt->action_size);
+    ASSERT_RUNTIME(gt->pddl.pred.pred_size == lt->pred_size);
 
     pddl_lifted_mgroups_infer_limits_t lifted_mgroups_limits
-            = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
-    pddl_lifted_mgroups_t lifted_mgroups;
-    pddlLiftedMGroupsInit(&lifted_mgroups);
-    pddlLiftedMGroupsInferFAMGroups(&task->pddl, &lifted_mgroups_limits,
-                                    &lifted_mgroups, err);
-
-    task->pddl_action = CALLOC_ARR(pddl_asnets_task_action_t,
-                                   task->pddl.action.action_size);
-    for (int ai = 0; ai < task->pddl.action.action_size; ++ai){
-        pddl_asnets_task_action_t *a = task->pddl_action + ai;
-        a->action_id = ai;
-
-        pddl_fm_const_it_t it;
-        const pddl_fm_atom_t *atom;
-        PDDL_FM_FOR_EACH_ATOM(task->pddl.action.action[ai].pre, &it, atom){
-            if (atom->pred != task->pddl.pred.eq_pred)
-                condArrAddUnique(&a->atom, atom);
-        }
-        PDDL_FM_FOR_EACH_ATOM(task->pddl.action.action[ai].eff, &it, atom){
-            if (atom->pred != task->pddl.pred.eq_pred)
-                condArrAddUnique(&a->atom, atom);
-        }
-    }
+        = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
+    pddl_lifted_mgroups_t lmg;
+    pddlLiftedMGroupsInit(&lmg);
+    pddlLiftedMGroupsInferFAMGroups(&gt->pddl, &lifted_mgroups_limits, &lmg, err);
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
     ground_cfg.prune_op_pre_mutex = 0;
@@ -171,132 +281,64 @@ int pddlASNetsTaskInit(pddl_asnets_task_t *task,
     ground_cfg.remove_static_facts = 0;
     ground_cfg.keep_action_args = 1;
     ground_cfg.keep_all_static_facts = 1;
-    if (pddlStripsGroundDatalog(&task->strips, &task->pddl,
-                                &ground_cfg, err) != 0){
+    if (pddlStripsGroundDatalog(&gt->strips, &gt->pddl, &ground_cfg, err) != 0){
+        pddlFree(&gt->pddl);
         CTXEND(err);
         TRACE_RET(err, -1);
     }
 
     pddl_mutex_pairs_t mutex;
     PDDL_ISET(unreachable_op);
-    pddlMutexPairsInitStrips(&mutex, &task->strips);
-    pddlH2(&task->strips, &mutex, NULL, &unreachable_op, -1., err);
-    pddlStripsReduce(&task->strips, NULL, &unreachable_op);
+    PDDL_ISET(unreachable_fact);
+    pddlMutexPairsInitStrips(&mutex, &gt->strips);
+    pddlH2(&gt->strips, &mutex, &unreachable_fact, &unreachable_op, -1., err);
+    pddlStripsReduce(&gt->strips, &unreachable_fact, &unreachable_op);
     pddlISetFree(&unreachable_op);
+    pddlISetFree(&unreachable_fact);
 
     pddl_mgroups_t mgroups;
     pddlMGroupsInitEmpty(&mgroups);
-    pddlMGroupsGround(&mgroups, &task->pddl, &lifted_mgroups, &task->strips);
+    pddlMGroupsGround(&mgroups, &gt->pddl, &lmg, &gt->strips);
 
-    pddlFDRInitFromStrips(&task->fdr, &task->strips, &mgroups, &mutex,
+    pddlFDRInitFromStrips(&gt->fdr, &gt->strips, &mgroups, &mutex,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
-    ASSERT_RUNTIME(task->strips.op.op_size == task->fdr.op.op_size);
-
-    computeRelatedness(task);
+    ASSERT_RUNTIME(gt->strips.op.op_size == gt->fdr.op.op_size);
 
     pddlMGroupsFree(&mgroups);
     pddlMutexPairsFree(&mutex);
-    pddlLiftedMGroupsFree(&lifted_mgroups);
+    pddlLiftedMGroupsFree(&lmg);
+
+    computeGroundRelatedness(gt, err);
+    if (!checkGroundRelatedness(gt, err)){
+        pddlASNetsGroundTaskFree(gt);
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
     CTXEND(err);
     return 0;
 }
 
-void pddlASNetsTaskFree(pddl_asnets_task_t *task)
+void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *gt)
 {
-    for (int i = 0; i < task->pddl.action.action_size; ++i)
-        pddlFmArrFree(&task->pddl_action[i].atom);
-    if (task->pddl_action != NULL)
-        FREE(task->pddl_action);
-    if (task->relatedness.rel != NULL)
-        FREE(task->relatedness.rel);
-    pddlFDRFree(&task->fdr);
-    pddlStripsFree(&task->strips);
-    pddlFree(&task->pddl);
+    for (int i = 0; i < gt->op_size; ++i){
+        if (gt->op[i].related_fact != NULL)
+            FREE(gt->op[i].related_fact);
+    }
+    if (gt->op != NULL)
+        FREE(gt->op);
+
+    for (int i = 0; i < gt->fact_size; ++i){
+        for (int j = 0; j < gt->fact[i].related_op_size; ++j)
+            pddlIArrFree(gt->fact[i].related_op + j);
+        if (gt->fact[i].related_op != NULL)
+            FREE(gt->fact[i].related_op);
+    }
+    if (gt->fact != NULL)
+        FREE(gt->fact);
+
+    pddlFDRFree(&gt->fdr);
+    pddlStripsFree(&gt->strips);
+    pddlFree(&gt->pddl);
 }
 
-static void printSet(const pddl_iset_t *set, FILE *fout)
-{
-    fprintf(fout, "%d", pddlISetSize(set));
-    int fact;
-    PDDL_ISET_FOR_EACH(set, fact)
-        fprintf(fout, " %d", fact);
-    fprintf(fout, "\n");
-}
-
-void pddlASNetsTaskPrintPDDLStrips(const pddl_asnets_task_t *task, FILE *fout)
-{
-    // Predicates
-    fprintf(fout, "%d\n", task->pddl.pred.pred_size);
-    for (int pi = 0; pi < task->pddl.pred.pred_size; ++pi){
-        fprintf(fout, "%s\n", task->pddl.pred.pred[pi].name);
-    }
-
-    // Action schemas
-    fprintf(fout, "%d\n", task->pddl.action.action_size);
-    for (int ai = 0; ai < task->pddl.action.action_size; ++ai){
-        fprintf(fout, "%s\n", task->pddl.action.action[ai].name);
-        fprintf(fout, "%d\n", task->pddl_action[ai].atom.size);
-        ASSERT(task->pddl_action[ai].action_id == ai);
-    }
-
-    // STRIPS Facts
-    fprintf(fout, "%d\n", task->strips.fact.fact_size);
-    for (int fi = 0; fi < task->strips.fact.fact_size; ++fi){
-        fprintf(fout, "%s\n", task->strips.fact.fact[fi]->name);
-
-        fprintf(fout, "%d\n", task->strips.fact.fact[fi]->ground_atom->pred);
-
-        const pddl_iset_t *val_ids = task->fdr.var.strips_id_to_val + fi;
-        ASSERT_RUNTIME(pddlISetSize(val_ids) == 1);
-        int val_id = pddlISetGet(val_ids, 0);
-        const pddl_fdr_val_t *val = task->fdr.var.global_id_to_val[val_id];
-        fprintf(fout, "%d %d\n", val->var_id, val->val_id);
-    }
-
-    // STRIPS operators
-    fprintf(fout, "%d\n", task->strips.op.op_size);
-    for (int oi = 0; oi < task->strips.op.op_size; ++oi){
-        const pddl_strips_op_t *op = task->strips.op.op[oi];
-        fprintf(fout, "%s\n", op->name);
-        printSet(&op->pre, fout);
-        printSet(&op->add_eff, fout);
-        printSet(&op->del_eff, fout);
-    }
-
-    // STRIPS Init
-    printSet(&task->strips.init, fout);
-
-    // STRIPS Goal
-    printSet(&task->strips.goal, fout);
-
-    // Relatedness
-    fprintf(fout, "%d\n", task->relatedness.rel_size);
-    for (int i = 0; i < task->relatedness.rel_size; ++i){
-        const pddl_asnets_task_relate_t *r = task->relatedness.rel + i;
-        fprintf(fout, "%d %d %d\n", r->op_id, r->fact_id, r->position);
-    }
-    fflush(fout);
-}
-
-int pddlASNetsTaskDump(const pddl_asnets_task_t *task,
-                       const char *fn_pddl_strips,
-                       const char *fn_fdr,
-                       pddl_err_t *err)
-{
-    FILE *fout1 = fopen(fn_pddl_strips, "w");
-    if (fout1 == NULL)
-        ERR_RET(err, -1, "Could not open %s", fn_pddl_strips);
-
-    FILE *fout2 = fopen(fn_fdr, "w");
-    if (fout2 == NULL){
-        fclose(fout1);
-        ERR_RET(err, -1, "Could not open %s", fn_fdr);
-    }
-
-    pddlASNetsTaskPrintPDDLStrips(task, fout1);
-    pddlFDRPrintFD(&task->fdr, NULL, 0, fout2);
-
-    fclose(fout1);
-    fclose(fout2);
-    return 0;
-}
