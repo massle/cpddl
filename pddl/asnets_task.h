@@ -14,6 +14,7 @@ extern "C" {
 #include "pddl/pddl_struct.h"
 #include "pddl/strips.h"
 #include "pddl/fdr.h"
+#include "pddl/fdr_app_op.h"
 #include "pddl/iarr.h"
 
 struct pddl_asnets_action {
@@ -68,6 +69,8 @@ struct pddl_asnets_ground_task {
     pddl_t pddl;
     pddl_strips_t strips;
     pddl_fdr_t fdr;
+    pddl_fdr_app_op_t fdr_app_op;
+    pddl_iset_t static_fact;
 
     const pddl_asnets_lifted_task_t *lifted_task;
     pddl_asnets_op_t *op;
@@ -89,6 +92,22 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                              const char *problem_fn,
                              pddl_err_t *err);
 void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *lt);
+
+void pddlASNetsGroundTaskFDRStateToStrips(const pddl_asnets_ground_task_t *gt,
+                                          const int *fdr_state,
+                                          pddl_iset_t *strips_state);
+
+void pddlASNetsGroundTaskFDRApplicableOps(const pddl_asnets_ground_task_t *gt,
+                                          const int *fdr_state,
+                                          pddl_iset_t *ops);
+
+void pddlASNetsGroundTaskFDRGoal(const pddl_asnets_ground_task_t *gt,
+                                 pddl_iset_t *strips_goal);
+
+void pddlASNetsGroundTaskFDRApplyOp(const pddl_asnets_ground_task_t *gt,
+                                    const int *state,
+                                    int op_id,
+                                    int *out_state);
 
 #ifdef __cplusplus
 }

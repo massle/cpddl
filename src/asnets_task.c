@@ -302,6 +302,22 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
     ASSERT_RUNTIME(gt->strips.op.op_size == gt->fdr.op.op_size);
 
+    pddlFDRAppOpInit(&gt->fdr_app_op, &gt->fdr.var, &gt->fdr.op, &gt->fdr.goal);
+
+    int *fact_in_fdr = CALLOC_ARR(int, gt->strips.fact.fact_size);
+    for (int vari = 0; vari < gt->fdr.var.var_size; ++vari){
+        for (int vali = 0; vali < gt->fdr.var.var[vari].val_size; ++vali){
+            int strips_id = gt->fdr.var.var[vari].val[vali].strips_id;
+            if (strips_id >= 0)
+                fact_in_fdr[strips_id] = 1;
+        }
+    }
+    for (int fact_id = 0; fact_id < gt->strips.fact.fact_size; ++fact_id){
+        if (!fact_in_fdr[fact_id])
+            pddlISetAdd(&gt->static_fact, fact_id);
+    }
+    FREE(fact_in_fdr);
+
     pddlMGroupsFree(&mgroups);
     pddlMutexPairsFree(&mutex);
     pddlLiftedMGroupsFree(&lmg);
@@ -340,3 +356,43 @@ void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *gt)
     pddlFree(&gt->pddl);
 }
 
+void pddlASNetsGroundTaskFDRStateToStrips(const pddl_asnets_ground_task_t *gt,
+                                          const int *fdr_state,
+                                          pddl_iset_t *strips_state)
+{
+    pddlISetSet(strips_state, &gt->static_fact);
+    for (int vari = 0; vari < gt->fdr.var.var_size; ++vari){
+        int strips_id = gt->fdr.var.var[vari].val[fdr_state[vari]].strips_id;
+        if (strips_id >= 0)
+            pddlISetAdd(strips_state, strips_id);
+    }
+}
+
+void pddlASNetsGroundTaskFDRApplicableOps(const pddl_asnets_ground_task_t *gt,
+                                          const int *fdr_state,
+                                          pddl_iset_t *ops)
+{
+    pddlISetEmpty(ops);
+    pddlFDRAppOpFind(&gt->fdr_app_op, fdr_state, ops);
+}
+
+void pddlASNetsGroundTaskFDRGoal(const pddl_asnets_ground_task_t *gt,
+                                 pddl_iset_t *strips_goal)
+{
+    pddlISetEmpty(strips_goal);
+    for (int i = 0; i < gt->fdr.goal.fact_size; ++i){
+        int var = gt->fdr.goal.fact[i].var;
+        int val = gt->fdr.goal.fact[i].val;
+        if (gt->fdr.var.var[var].val[val].strips_id >= 0)
+            pddlISetAdd(strips_goal, gt->fdr.var.var[var].val[val].strips_id);
+    }
+}
+
+void pddlASNetsGroundTaskFDRApplyOp(const pddl_asnets_ground_task_t *gt,
+                                    const int *state,
+                                    int op_id,
+                                    int *out_state)
+{
+    pddlFDROpApplyOnState(gt->fdr.op.op[op_id], gt->fdr.var.var_size,
+                          state, out_state);
+}

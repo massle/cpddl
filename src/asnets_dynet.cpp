@@ -385,48 +385,63 @@ struct ASNetsPolicy {
         dim[0] = applicable_ops.size();
         e_applicable_ops = dynet::input(cg, dynet::Dim(dim), &applicable_ops);
         e_output = asnetsExpr(task, params, cg, e_state, e_goal, e_applicable_ops, -1);
+
+        setInitState();
+        setGoal();
     }
 
-    void setState(const pddl_iset_t *s)
+    void setInitState()
+    {
+        setState(task->fdr.init);
+    }
+
+    void setState(const int *s)
     {
         for (int i = 0; i < state.size(); ++i)
             state[i] = 0;
+
+        PDDL_ISET(strips_state);
+        pddlASNetsGroundTaskFDRStateToStrips(task, s, &strips_state);
         int fact_id;
-        PDDL_ISET_FOR_EACH(s, fact_id)
+        PDDL_ISET_FOR_EACH(&strips_state, fact_id)
             state[fact_id] = 1;
+        pddlISetFree(&strips_state);
+
+        setApplicableOps(s);
     }
 
-    void setGoal(const pddl_iset_t *g)
+    void setGoal()
     {
         for (int i = 0; i < goal.size(); ++i)
             goal[i] = 0;
+
+        PDDL_ISET(strips_g);
+        pddlASNetsGroundTaskFDRGoal(task, &strips_g);
         int fact_id;
-        PDDL_ISET_FOR_EACH(g, fact_id)
+        PDDL_ISET_FOR_EACH(&strips_g, fact_id)
             goal[fact_id] = 1;
+        pddlISetFree(&strips_g);
     }
 
-    void setApplicableOpsInState(const pddl_iset_t *state)
-    {
-        for (int op_id = 0; op_id < task->strips.op.op_size; ++op_id){
-            if (pddlISetIsSubset(&task->strips.op.op[op_id]->pre, state)){
-                applicable_ops[op_id] = 1;
-            }else{
-                applicable_ops[op_id] = 0;
-            }
-        }
-    }
-
-    void setApplicableOps(const pddl_iset_t *ops)
+    void setApplicableOps(const int *state)
     {
         for (int i = 0; i < applicable_ops.size(); ++i)
             applicable_ops[i] = 0;
+
+        PDDL_ISET(ops);
+        pddlASNetsGroundTaskFDRApplicableOps(task, state, &ops);
         int op_id;
-        PDDL_ISET_FOR_EACH(ops, op_id)
+        PDDL_ISET_FOR_EACH(&ops, op_id)
             applicable_ops[op_id] = 1;
+        pddlISetFree(&ops);
     }
 
-    int run()
+    int apply(const int *state, int *out_state)
     {
+        if (state == NULL)
+            state = task->fdr.init;
+        setState(state);
+
         std::vector<float> out = dynet::as_vector(cg.forward(e_output));
         ASSERT_RUNTIME(out.size() == task->strips.op.op_size);
 
@@ -434,14 +449,26 @@ struct ASNetsPolicy {
         float best_value = -1;
         for (int op_id = 0; op_id < out.size(); ++op_id){
             ASSERT(out[op_id] >= 0.f);
+            if (applicable_ops[op_id] < .5)
+                continue;
             if (out[op_id] > best_value){
                 best_op_id = op_id;
                 best_value = out[op_id];
             }
         }
 
+        if (out_state != NULL)
+            pddlASNetsGroundTaskFDRApplyOp(task, state, best_op_id, out_state);
+
         return best_op_id;
     }
+};
+
+struct pddl_asnets {
+    pddl_asnets_lifted_task_t lifted_task;
+    pddl_asnets_ground_task_t *ground_task;
+    int ground_task_size;
+    ASNetsPolicy *policy;
 };
 
 int pddlASNetsTrain(const char *domain_fn,
@@ -557,6 +584,11 @@ int pddlASNetsTrain(const char *domain_fn,
     }
 
     ASNetsPolicy policy(ground_task + 0, params);
+    int state[ground_task[0].fdr.var.var_size];
+    int op_id = policy.apply(NULL, state);
+    LOG(err, "op_id: %d", op_id);
+    op_id = policy.apply(state, NULL);
+    LOG(err, "op_id: %d", op_id);
 
     /*
     loss_val = dynet::as_scalar(cg.forward(e_loss));
