@@ -166,6 +166,7 @@ OBJS += lifted_heur_relaxed
 OBJS += subprocess
 OBJS += task
 OBJS += asnets_task
+OBJS += asnets_train_data
 
 OBJS += __sqlite3
 

@@ -132,6 +132,18 @@ extern "C" {
 
 #define ZEROIZE_PTR(P) bzero((P), sizeof(*(P)))
 
+
+#define ARR_MAKE_SPACE(PTR, TYPE, SIZE, ALLOC, INIT_SIZE) \
+    do { \
+        if ((SIZE) == (ALLOC)){ \
+            if ((ALLOC) == 0){ \
+                (ALLOC) = (INIT_SIZE); \
+            } \
+            (ALLOC) *= 2; \
+            (PTR) = REALLOC_ARR((PTR), TYPE, (ALLOC)); \
+        } \
+    } while (0)
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
