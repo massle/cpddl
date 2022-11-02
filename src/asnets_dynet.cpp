@@ -357,12 +357,11 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
     return maskedSoftmax(cg, out, input_applicable_ops);
 }
 
-/*
 struct ASNetsPolicy {
     std::vector<float> state;
     std::vector<float> goal;
     std::vector<float> applicable_ops;
-    const GroundTask &task;
+    const pddl_asnets_ground_task_t *task;
     const ModelParameters &params;
 
     dynet::ComputationGraph cg;
@@ -371,10 +370,11 @@ struct ASNetsPolicy {
     dynet::Expression e_applicable_ops;
     dynet::Expression e_output;
 
-    ASNetsPolicy(const GroundTask &task, const ModelParameters &params)
-        : state(task.strips.fact.fact_size, 0),
-          goal(task.strips.fact.fact_size, 0),
-          applicable_ops(task.strips.op.op_size, 0),
+    ASNetsPolicy(const pddl_asnets_ground_task_t *task,
+                 const ModelParameters &params)
+        : state(task->strips.fact.fact_size, 0),
+          goal(task->strips.fact.fact_size, 0),
+          applicable_ops(task->strips.op.op_size, 0),
           task(task),
           params(params)
     {
@@ -384,7 +384,7 @@ struct ASNetsPolicy {
         e_goal = dynet::input(cg, dynet::Dim(dim), &goal);
         dim[0] = applicable_ops.size();
         e_applicable_ops = dynet::input(cg, dynet::Dim(dim), &applicable_ops);
-        e_output = task.expr(params, cg, e_state, e_goal, e_applicable_ops, -1);
+        e_output = asnetsExpr(task, params, cg, e_state, e_goal, e_applicable_ops, -1);
     }
 
     void setState(const pddl_iset_t *s)
@@ -407,8 +407,8 @@ struct ASNetsPolicy {
 
     void setApplicableOpsInState(const pddl_iset_t *state)
     {
-        for (int op_id = 0; op_id < task.strips.op.op_size; ++op_id){
-            if (pddlISetIsSubset(&task.strips.op.op[op_id]->pre, state)){
+        for (int op_id = 0; op_id < task->strips.op.op_size; ++op_id){
+            if (pddlISetIsSubset(&task->strips.op.op[op_id]->pre, state)){
                 applicable_ops[op_id] = 1;
             }else{
                 applicable_ops[op_id] = 0;
@@ -428,7 +428,7 @@ struct ASNetsPolicy {
     int run()
     {
         std::vector<float> out = dynet::as_vector(cg.forward(e_output));
-        ASSERT_RUNTIME(out.size() == task.strips.op.op_size);
+        ASSERT_RUNTIME(out.size() == task->strips.op.op_size);
 
         int best_op_id = -1;
         float best_value = -1;
@@ -443,7 +443,6 @@ struct ASNetsPolicy {
         return best_op_id;
     }
 };
-*/
 
 int pddlASNetsTrain(const char *domain_fn,
                     const char **problem_fn,
@@ -557,7 +556,7 @@ int pddlASNetsTrain(const char *domain_fn,
     LOG(err, "loss: %f", loss_val);
     }
 
-    //ASNetsPolicy policy(*ground_task[0], params);
+    ASNetsPolicy policy(ground_task + 0, params);
 
     /*
     loss_val = dynet::as_scalar(cg.forward(e_loss));

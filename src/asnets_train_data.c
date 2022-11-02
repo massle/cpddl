@@ -162,6 +162,8 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
         pddlPlanFree(&plan);
 
     }else{
+        if (st == PDDL_SEARCH_ABORT)
+            LOG2(err, "Search reached time-out");
         LOG2(err, "Plan not found");
     }
 

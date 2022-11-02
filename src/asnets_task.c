@@ -176,9 +176,7 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
         ASSERT(gt->strips.fact.fact[i]->ground_atom != NULL);
         gt->fact[i].pred = gt->lifted_task->pred + gt->strips.fact.fact[i]->ground_atom->pred;
         gt->fact[i].related_op_size = gt->fact[i].pred->related_action_size;
-        gt->fact[i].related_op = ALLOC_ARR(pddl_iarr_t, gt->fact[i].related_op_size);
-        for (int j = 0; j < gt->op[i].related_fact_size; ++j)
-            gt->op[i].related_fact[j] = -1;
+        gt->fact[i].related_op = CALLOC_ARR(pddl_iarr_t, gt->fact[i].related_op_size);
     }
 
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
