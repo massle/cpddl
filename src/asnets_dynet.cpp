@@ -373,6 +373,7 @@ static void setApplicableOpsVector(const pddl_asnets_ground_task_t *task,
         applicable_ops[op_id] = 1;
     pddlISetFree(&ops);
 }
+
 static void setStateVector(const pddl_asnets_ground_task_t *task,
                            const int *s,
                            std::vector<float> &state,
@@ -493,6 +494,18 @@ struct pddl_asnets {
     ASNetsPolicy *policy;
 };
 
+struct pddl_asnets_train_stats {
+    int max_epochs;
+    int epoch;
+    int max_train_steps;
+    int train_step;
+    float overall_loss;
+    float success_rate;
+    int num_samples;
+    int consecutive_successful_epochs;
+};
+typedef struct pddl_asnets_train_stats pddl_asnets_train_stats_t;
+
 struct ASNetsTrainMiniBatchTask {
     int task_id;
     int size;
@@ -557,6 +570,8 @@ struct ASNetsTrainMiniBatch {
                          const pddl_asnets_train_data_t *data,
                          int minibatch_size)
     {
+        if (minibatch_size < 0)
+            minibatch_size = data->sample_size;
         minibatch_size = PDDL_MIN(minibatch_size, data->sample_size);
         batch.resize(a->ground_task_size);
         for (int i = 0; i < a->ground_task_size; ++i){
@@ -671,28 +686,16 @@ void pddlASNetsLoadWeights(pddl_asnets_t *a, const char *fn)
     // TODO
 }
 
-static int trainStep(pddl_asnets_t *a,
-                     int epoch,
-                     int train_step,
-                     pddl_asnets_train_data_t *data,
-                     pddl_err_t *err)
+static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
+                                         pddl_asnets_train_data_t *data,
+                                         int minibatch_size,
+                                         dynet::ComputationGraph &cg)
 {
-    //LOG(err, "epoch: %{epoch}d/%d, step: %{step}d/%d",
-    //    epoch, a->cfg.max_train_epochs,
-    //    train_step, a->cfg.train_cycles);
-
-    dynet::AdamTrainer trainer(a->params->model);
-    dynet::ComputationGraph cg;
-    // TODO: For debugging
-    cg.set_check_validity(true);
-    cg.set_immediate_compute(true);
-    cg.clear();
-
     // Sample a minibatch
-    pddlASNetsTrainDataShuffle(data);
-    ASNetsTrainMiniBatch batch(a, data, a->cfg.batch_size);
+    ASNetsTrainMiniBatch batch(a, data, minibatch_size);
     batch.createInputs(cg);
 
+    // Construct network for all relevant ground tasks at once
     std::vector<dynet::Expression> nets;
     int batch_size = 0;
     for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
@@ -715,21 +718,59 @@ static int trainStep(pddl_asnets_t *a,
     ASSERT_RUNTIME(nets.size() > 0);
     // Compute mean over all losses
     dynet::Expression e_loss = dynet::sum(nets) / batch_size;
+    return e_loss;
+}
+
+
+static int trainStep(pddl_asnets_t *a,
+                     int epoch,
+                     int train_step,
+                     pddl_asnets_train_data_t *data,
+                     pddl_asnets_train_stats_t *stats,
+                     pddl_err_t *err)
+{
+    //LOG(err, "epoch: %{epoch}d/%d, step: %{step}d/%d",
+    //    epoch, a->cfg.max_train_epochs,
+    //    train_step, a->cfg.train_cycles);
+    stats->train_step = train_step + 1;
+
+    dynet::AdamTrainer trainer(a->params->model);
+    dynet::ComputationGraph cg;
+#ifdef PDDL_DEBUG
+    cg.set_check_validity(true);
+    cg.set_immediate_compute(true);
+#endif /* PDDL_DEBUG */
+
+    // Sample a minibatch
+    pddlASNetsTrainDataShuffle(data);
+
+    // Construct network with the right input data
+    dynet::Expression e_loss = asnetsTrainExpr(a, data, a->cfg.batch_size, cg);
+    // TODO: L2 regularization -- is it done automatically by dynet?
+
+    // Learn parameters
     float loss_val = dynet::as_scalar(cg.forward(e_loss));
-    // TODO: L2 regularization?
-    LOG(err, "epoch: %d, step: %d, loss: %{loss}f", epoch, train_step, loss_val);
     cg.backward(e_loss);
     trainer.update();
 
+    LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
+        " succ epochs: %d"
+        " | minibatch loss: %{batch_loss}f, size: %{batch_size}d",
+        stats->epoch, stats->max_epochs,
+        stats->train_step, stats->max_train_steps,
+        stats->overall_loss, stats->success_rate, stats->num_samples,
+        stats->consecutive_successful_epochs,
+        loss_val, a->cfg.batch_size);
 
     return 0;
 }
 
-static void trainPolicyStatePool(pddl_asnets_t *a,
-                                 int ground_task_id,
-                                 pddl_fdr_state_pool_t *states,
-                                 pddl_err_t *err)
+static int trainPolicyStatePool(pddl_asnets_t *a,
+                                int ground_task_id,
+                                pddl_fdr_state_pool_t *states,
+                                pddl_err_t *err)
 {
+    int ret = 0;
     const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
     int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
@@ -742,6 +783,11 @@ static void trainPolicyStatePool(pddl_asnets_t *a,
     for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
         // get the last reached state
         pddlFDRStatePoolGet(states, state_id, state);
+        if (pddlFDRPartStateIsConsistentWithState(&task->fdr.goal, state)){
+            ret = 1;
+            break;
+        }
+
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
         int op_id = policy.apply(state, state2);
@@ -760,6 +806,7 @@ static void trainPolicyStatePool(pddl_asnets_t *a,
 
     FREE(state);
     FREE(state2);
+    return ret;
 }
 
 static int trainExploration(pddl_asnets_t *a,
@@ -774,9 +821,10 @@ static int trainExploration(pddl_asnets_t *a,
     pddlFDRStatePoolInit(&states, &task->fdr.var, err);
 
     // Collect states from the policy rollout
-    trainPolicyStatePool(a, ground_task_id, &states, err);
-    LOG(err, "Policy rollout: %{policy_rollout_states}d states",
-        states.num_states);
+    int reached_goal = trainPolicyStatePool(a, ground_task_id, &states, err);
+    LOG(err, "Policy rollout: %{policy_rollout_states}d states,"
+        " reached goal: %{reached_goal}d",
+        states.num_states, reached_goal);
 
     // TODO: Here we can add also states from random walks.
     //       Maybe for the for the first epoch?
@@ -802,24 +850,48 @@ static int trainExploration(pddl_asnets_t *a,
     return 0;
 }
 
+static float overallLoss(pddl_asnets_t *a,
+                         pddl_asnets_train_data_t *data)
+{
+    dynet::ComputationGraph cg;
+    dynet::Expression e_loss = asnetsTrainExpr(a, data, -1, cg);
+    return dynet::as_scalar(cg.forward(e_loss));
+}
+
+static float successRate(pddl_asnets_t *a)
+{
+    int num_solved = 0;
+    for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
+        const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
+        pddl_fdr_state_pool_t states;
+        pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
+        if (trainPolicyStatePool(a, task_id, &states, NULL))
+            num_solved += 1;
+        pddlFDRStatePoolFree(&states);
+    }
+
+    return num_solved / (float)a->ground_task_size;
+}
+
 static int trainEpoch(pddl_asnets_t *a,
                       int epoch,
                       pddl_asnets_train_data_t *data,
+                      pddl_asnets_train_stats_t *stats,
                       pddl_err_t *err)
 {
-    CTX(err, "epoch", "epoch");
     LOG(err, "epoch: %{epoch}d/%d", epoch, a->cfg.max_train_epochs);
+    stats->epoch = epoch + 1;
 
     // Exploration phase
     for (int ground_task = 0; ground_task < a->ground_task_size; ++ground_task){
         int ret;
         if ((ret = trainExploration(a, epoch, ground_task, data, err)) != 0){
-            CTXEND(err);
             if (ret < 0)
                 TRACE_RET(err, ret);
             return ret;
         }
     }
+    stats->num_samples = data->sample_size;
 
     // Training phase
     int num_steps = a->cfg.train_steps;
@@ -828,14 +900,24 @@ static int trainEpoch(pddl_asnets_t *a,
     LOG(err, "num training steps: %{training_steps}d", num_steps);
     for (int train_step = 0; train_step < num_steps; ++train_step){
         int ret;
-        if ((ret = trainStep(a, epoch, train_step, data, err)) != 0){
-            CTXEND(err);
+        if ((ret = trainStep(a, epoch, train_step, data, stats, err)) != 0){
             if (ret < 0)
                 TRACE_RET(err, ret);
             return ret;
         }
     }
-    CTXEND(err);
+
+    stats->success_rate = successRate(a);
+    stats->overall_loss = overallLoss(a, data);
+    LOG(err, "Overall loss: %{overall_loss}f", stats->overall_loss);
+    LOG(err, "Success rate: %{success_rate}f", stats->success_rate);
+    LOG(err, "Train samples: %{train_samples}d", stats->num_samples);
+    LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
+        " succ epochs: %d",
+        stats->epoch, stats->max_epochs,
+        stats->train_step, stats->max_train_steps,
+        stats->overall_loss, stats->success_rate, stats->num_samples,
+        stats->consecutive_successful_epochs);
     return 0;
 }
 
@@ -851,154 +933,53 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
+
+    pddl_asnets_train_stats_t stats;
+    ZEROIZE(&stats);
+    stats.max_epochs = a->cfg.max_train_epochs;
+    stats.max_train_steps = a->cfg.train_steps;
+    stats.success_rate = successRate(a);
+    stats.overall_loss = -1.f;
+
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
+        if (a->cfg.double_batch_size_every_epoch > 0
+                && epoch > 0
+                && epoch % a->cfg.double_batch_size_every_epoch == 0){
+            a->cfg.batch_size *= 2;
+        }
+
         int ret;
-        if ((ret = trainEpoch(a, epoch, &data, err)) != 0){
+        if ((ret = trainEpoch(a, epoch, &data, &stats, err)) != 0){
             pddlASNetsTrainDataFree(&data);
             CTXEND(err);
             if (ret < 0)
                 TRACE_RET(err, ret);
             return ret;
         }
+
+        if (stats.success_rate >= a->cfg.early_termination_success_rate){
+            stats.consecutive_successful_epochs += 1;
+        }else{
+            stats.consecutive_successful_epochs = 0;
+        }
+
+        LOG(err, "Consecutive successful epochs: %d",
+            stats.consecutive_successful_epochs);
+        if (stats.consecutive_successful_epochs >= a->cfg.early_termination_epochs){
+            LOG(err, "Reached %d/%d consecutive successful epochs.",
+                stats.consecutive_successful_epochs,
+                a->cfg.early_termination_epochs);
+            LOG2(err, "Terminating training.");
+        }
     }
+    LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
+        " succ epochs: %d",
+        stats.epoch, stats.max_epochs,
+        stats.train_step, stats.max_train_steps,
+        stats.overall_loss, stats.success_rate, stats.num_samples,
+        stats.consecutive_successful_epochs);
 
     pddlASNetsTrainDataFree(&data);
     CTXEND(err);
     return 0;
 }
-
-#if 0
-int pddlASNetsTrain(const char *domain_fn,
-                    const char **problem_fn,
-                    int problem_fn_size,
-                    pddl_err_t *err)
-{
-    if (problem_fn_size <= 0)
-        ERR_RET2(err, -1, "At least one problem file must be provided.");
-
-    CTX(err, "asnets_train", "ASNets-Train");
-
-    int st;
-
-    pddl_asnets_lifted_task_t lifted_task;
-    st = pddlASNetsLiftedTaskInit(&lifted_task, domain_fn, problem_fn[0], err);
-    if (st < 0){
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    pddl_asnets_ground_task_t *ground_task;
-    ground_task = ALLOC_ARR(pddl_asnets_ground_task, problem_fn_size);
-    for (int probi = 0; probi < problem_fn_size; ++probi){
-        st = pddlASNetsGroundTaskInit(&ground_task[probi],
-                                      &lifted_task,
-                                      domain_fn,
-                                      problem_fn[probi],
-                                      err);
-        if (st < 0){
-            pddlASNetsLiftedTaskFree(&lifted_task);
-            for (int i = 0; i < probi; ++i)
-                pddlASNetsGroundTaskFree(&ground_task[i]);
-            FREE(ground_task);
-            CTXEND(err);
-            TRACE_RET(err, -1);
-        }
-    }
-
-    int hidden_dimension = 16;
-    int num_layers = 2;
-
-    // TODO: Parametrize
-    dynet::DynetParams dynet_params;
-    //dynet_params.autobatch = true;
-    //dynet_params.mem_descriptor = "4096";
-    //dynet_params.profiling = 10;
-    dynet_params.random_seed = 1234;
-    //dynet_params.shared_parameters = true;
-    dynet_params.weight_decay = 2E-4;
-    dynet::initialize(dynet_params);
-
-    ModelParameters params(hidden_dimension, num_layers, &lifted_task);
-
-    {
-    dynet::AdamTrainer trainer(params.model);
-
-    dynet::ComputationGraph cg;
-    // TODO: For debugging
-    cg.set_check_validity(true);
-    cg.set_immediate_compute(true);
-
-    std::vector<float> state(ground_task[0].fact_size, 0);
-    std::vector<float> goal(ground_task[0].fact_size, 0);
-    std::vector<float> op_appl(ground_task[0].op_size, 0);
-    std::vector<float> output(ground_task[0].op_size, 0);
-
-    int fact_id;
-    PDDL_ISET_FOR_EACH(&ground_task[0].strips.init, fact_id)
-        state[fact_id] = 1;
-    PDDL_ISET_FOR_EACH(&ground_task[0].strips.goal, fact_id)
-        goal[fact_id] = 1;
-    for (int op_id = 0; op_id < ground_task[0].strips.op.op_size; ++op_id){
-        int assigned = false;
-        if (pddlISetIsSubset(&ground_task[0].strips.op.op[op_id]->pre,
-                             &ground_task[0].strips.init)){
-            op_appl[op_id] = 1;
-            if (!assigned){
-                output[op_id] = 1;
-                assigned = true;
-            }
-        }
-    }
-
-    std::vector<long> dim(1);
-    dim[0] = state.size();
-    dynet::Expression e_input_state = dynet::input(cg, dynet::Dim(dim), state);
-    dynet::Expression e_input_goal = dynet::input(cg, dynet::Dim(dim), goal);
-    dim[0] = op_appl.size();
-    dynet::Expression e_input_op_appl = dynet::input(cg, dynet::Dim(dim), op_appl);
-    dynet::Expression e_output = dynet::input(cg, dynet::Dim(dim), output);
-
-    dynet::Expression e = asnetsExpr(ground_task + 0,
-                                     params, cg, e_input_state,
-                                     e_input_goal,
-                                     e_input_op_appl, 0.1);
-    {
-    std::vector<float> val = dynet::as_vector(cg.forward(e));
-    for (int i = 0; i < val.size(); ++i){
-        LOG(err, "%d: %f", i, val[i]);
-    }
-    }
-    dynet::Expression e_loss = crossEntropyLoss(cg, e, e_output);
-
-    float loss_val = dynet::as_scalar(cg.forward(e_loss));
-    cg.backward(e_loss);
-    trainer.update();
-    LOG(err, "loss: %f", loss_val);
-    loss_val = dynet::as_scalar(cg.forward(e_loss));
-    LOG(err, "loss: %f", loss_val);
-    }
-
-    ASNetsPolicy policy(ground_task + 0, params);
-    int state[ground_task[0].fdr.var.var_size];
-    int op_id = policy.apply(NULL, state);
-    LOG(err, "op_id: %d", op_id);
-    op_id = policy.apply(state, NULL);
-    LOG(err, "op_id: %d", op_id);
-
-    /*
-    loss_val = dynet::as_scalar(cg.forward(e_loss));
-    cg.backward(e_loss);
-    trainer.update();
-    LOG(err, "loss: %f", loss_val);
-    */
-
-    dynet::cleanup();
-
-    pddlASNetsLiftedTaskFree(&lifted_task);
-    for (int i = 0; i < problem_fn_size; ++i)
-        pddlASNetsGroundTaskFree(&ground_task[i]);
-    FREE(ground_task);
-    CTXEND(err);
-    return 0;
-}
-#endif

@@ -159,6 +159,7 @@ void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td)
             PDDL_SWAP(td->sample[src], td->sample[dst], tmp);
         }
     }
+    pddlRandFree(&rnd);
 }
 
 static int stateExists(const pddl_asnets_train_data_t *td,
@@ -188,15 +189,14 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
                                     float max_time,
                                     pddl_err_t *err)
 {
-    CTX(err, "asnets_teacher_rollout", "ASNets-Teacher-Rollout");
-    LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
-
     if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG2(err, "Init state already in the data pool -- skipping.");
-        LOG(err, "num samples: %{num_samples}d", td->sample_size);
-        CTXEND(err);
+        LOG(err, "Init state already in the data pool -- skipping."
+            " num samples: %{num_samples}d", td->sample_size);
         return 1;
     }
+
+    CTX(err, "asnets_teacher_rollout", "ASNets-Teacher-Rollout");
+    LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
 
     pddl_timer_t timer;
     pddlTimerStart(&timer);

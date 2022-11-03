@@ -26,6 +26,8 @@ struct pddl_asnets_config {
     float dropout_rate;
     /** Number of samples in a minibatch */
     int batch_size;
+    /** Double .batch_size every specified number of epochs */
+    int double_batch_size_every_epoch;
     /** Maximum number of epochs used for training */
     int max_train_epochs;
     /** Number of train cycles within each epoch */
@@ -34,6 +36,11 @@ struct pddl_asnets_config {
     int policy_rollout_limit;
     /** Time limit in seconds for the teacher to solve the given task */
     float teacher_timeout;
+    /** Minimum success rate in .early_termination_epochs to terminate early */
+    float early_termination_success_rate;
+    /** Number of epochs in which the success rate must be at higher than
+     *  .early_termination_success_rate */
+    int early_termination_epochs;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
 
@@ -45,10 +52,30 @@ typedef struct pddl_asnets_config pddl_asnets_config_t;
         2E-4, /* .weight_decay */ \
         0.1, /* .dropout_rate */ \
         64, /* .batch_size */ \
-        10, /* .max_train_epochs */ \
+        0, /* .double_batch_size_every_epoch */ \
+        100, /* .max_train_epochs */ \
         700, /* .train_steps */ \
-        100, /* .policy_rollout_limit */ \
-        30.f, /* .teacher_timeout */ \
+        1000, /* .policy_rollout_limit */ \
+        10.f, /* .teacher_timeout */ \
+        0.999, /* .early_termination_success_rate */ \
+        20, /* .early_termination_epochs */ \
+    }
+
+#define PDDL_ASNETS_CONFIG_INIT_TOYER_ET_AL \
+    { \
+        16, /* .hidden_dimension */ \
+        2, /* .num_layers */ \
+        6961, /* .random_seed */ \
+        2E-4, /* .weight_decay */ \
+        0.1, /* .dropout_rate */ \
+        64, /* .batch_size */ \
+        0, /* .double_batch_size_every_epoch */ \
+        100, /* .max_train_epochs */ \
+        700, /* .train_steps */ \
+        1000, /* .policy_rollout_limit */ \
+        10.f, /* .teacher_timeout */ \
+        0.999, /* .early_termination_success_rate */ \
+        20, /* .early_termination_epochs */ \
     }
 
 typedef struct pddl_asnets pddl_asnets_t;
