@@ -1,13 +1,14 @@
 #include "internal.h"
 #include "pddl/asnets.h"
 #include "pddl/asnets_task.h"
+#include "pddl/asnets_train_data.h"
 
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>
 #include <dynet/param-init.h>
 
-static const float SMALL_CONST = 1E-20f;
+static const float SMALL_CONST = 1E-6f;
 
 static dynet::Expression maskedSoftmax(dynet::ComputationGraph &cg,
                                        const dynet::Expression &in,
@@ -23,7 +24,8 @@ static dynet::Expression maskedSoftmax(dynet::ComputationGraph &cg,
     sm = dynet::cmult(sm, mask);
 
     // Compute sum and clip it so that we don't divide by zero
-    dynet::Expression min_sum = dynet::constant(cg, dynet::Dim({1}), SMALL_CONST);
+    dynet::Dim min_sum_dim({1}, sm.dim().batch_elems());
+    dynet::Expression min_sum = dynet::constant(cg, min_sum_dim, SMALL_CONST);
     dynet::Expression sum = dynet::max(dynet::sum_rows(sm), min_sum);
 
     // Normalize each element
@@ -50,9 +52,8 @@ static dynet::Expression crossEntropyLoss(dynet::ComputationGraph &cg,
     e = e + dynet::cmult(labels, dynet::log(o2));
 
     e = dynet::sum_elems(e);
-    e = dynet::mean_batches(e);
+    e = dynet::sum_batches(e);
     e = -e;
-    // TODO: L2 regularization?
     return e;
 }
 
@@ -193,13 +194,13 @@ struct ModelParameters {
     int num_layers;
     std::vector<std::vector<ActionModule *>> action;
     std::vector<std::vector<PropositionModule *>> prop;
+    dynet::ParameterCollection model;
 
     ModelParameters(const ModelParameters &) = delete;
 
     ModelParameters(int hidden_dimension,
                     int num_layers,
-                    const pddl_asnets_lifted_task_t *task,
-                    dynet::ParameterCollection &model)
+                    const pddl_asnets_lifted_task_t *task)
         : num_layers(num_layers)
     {
         action.resize(num_layers + 1);
@@ -357,6 +358,56 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
     return maskedSoftmax(cg, out, input_applicable_ops);
 }
 
+static void setApplicableOpsVector(const pddl_asnets_ground_task_t *task,
+                                   const int *state,
+                                   std::vector<float> &applicable_ops)
+{
+    applicable_ops.resize(task->strips.op.op_size);
+    for (int i = 0; i < applicable_ops.size(); ++i)
+        applicable_ops[i] = 0;
+
+    PDDL_ISET(ops);
+    pddlASNetsGroundTaskFDRApplicableOps(task, state, &ops);
+    int op_id;
+    PDDL_ISET_FOR_EACH(&ops, op_id)
+        applicable_ops[op_id] = 1;
+    pddlISetFree(&ops);
+}
+static void setStateVector(const pddl_asnets_ground_task_t *task,
+                           const int *s,
+                           std::vector<float> &state,
+                           std::vector<float> &applicable_ops)
+{
+    state.resize(task->strips.fact.fact_size);
+    for (int i = 0; i < state.size(); ++i)
+        state[i] = 0;
+
+    PDDL_ISET(strips_state);
+    pddlASNetsGroundTaskFDRStateToStrips(task, s, &strips_state);
+    int fact_id;
+    PDDL_ISET_FOR_EACH(&strips_state, fact_id)
+        state[fact_id] = 1;
+    pddlISetFree(&strips_state);
+
+    setApplicableOpsVector(task, s, applicable_ops);
+}
+
+static void setGoalVector(const pddl_asnets_ground_task_t *task,
+                          std::vector<float> &goal)
+{
+    goal.resize(task->strips.fact.fact_size);
+    for (int i = 0; i < goal.size(); ++i)
+        goal[i] = 0;
+
+    PDDL_ISET(strips_g);
+    pddlASNetsGroundTaskFDRGoal(task, &strips_g);
+    int fact_id;
+    PDDL_ISET_FOR_EACH(&strips_g, fact_id)
+        goal[fact_id] = 1;
+    pddlISetFree(&strips_g);
+}
+
+
 struct ASNetsPolicy {
     std::vector<float> state;
     std::vector<float> goal;
@@ -397,43 +448,12 @@ struct ASNetsPolicy {
 
     void setState(const int *s)
     {
-        for (int i = 0; i < state.size(); ++i)
-            state[i] = 0;
-
-        PDDL_ISET(strips_state);
-        pddlASNetsGroundTaskFDRStateToStrips(task, s, &strips_state);
-        int fact_id;
-        PDDL_ISET_FOR_EACH(&strips_state, fact_id)
-            state[fact_id] = 1;
-        pddlISetFree(&strips_state);
-
-        setApplicableOps(s);
+        setStateVector(task, s, state, applicable_ops);
     }
 
     void setGoal()
     {
-        for (int i = 0; i < goal.size(); ++i)
-            goal[i] = 0;
-
-        PDDL_ISET(strips_g);
-        pddlASNetsGroundTaskFDRGoal(task, &strips_g);
-        int fact_id;
-        PDDL_ISET_FOR_EACH(&strips_g, fact_id)
-            goal[fact_id] = 1;
-        pddlISetFree(&strips_g);
-    }
-
-    void setApplicableOps(const int *state)
-    {
-        for (int i = 0; i < applicable_ops.size(); ++i)
-            applicable_ops[i] = 0;
-
-        PDDL_ISET(ops);
-        pddlASNetsGroundTaskFDRApplicableOps(task, state, &ops);
-        int op_id;
-        PDDL_ISET_FOR_EACH(&ops, op_id)
-            applicable_ops[op_id] = 1;
-        pddlISetFree(&ops);
+        setGoalVector(task, goal);
     }
 
     int apply(const int *state, int *out_state)
@@ -465,12 +485,389 @@ struct ASNetsPolicy {
 };
 
 struct pddl_asnets {
+    pddl_asnets_config_t cfg;
     pddl_asnets_lifted_task_t lifted_task;
+    ModelParameters *params;
     pddl_asnets_ground_task_t *ground_task;
     int ground_task_size;
     ASNetsPolicy *policy;
 };
 
+struct ASNetsTrainMiniBatchTask {
+    int task_id;
+    int size;
+    int fact_size;
+    int op_size;
+    std::vector<float> state;
+    std::vector<float> goal;
+    std::vector<float> applicable_ops;
+    std::vector<unsigned int> selected_op;
+    dynet::Expression e_state;
+    dynet::Expression e_goal;
+    dynet::Expression e_applicable_ops;
+    dynet::Expression e_output;
+
+    ASNetsTrainMiniBatchTask()
+        : task_id(-1), size(0), fact_size(0), op_size(0)
+    {}
+
+    void add(std::vector<float> &in_state,
+             std::vector<float> &in_applicable_ops,
+             int in_selected_op)
+    {
+        state.insert(state.end(), in_state.begin(), in_state.end());
+        applicable_ops.insert(applicable_ops.end(),
+                              in_applicable_ops.begin(),
+                              in_applicable_ops.end());
+
+        ASSERT(in_selected_op >= 0 && in_selected_op < op_size);
+        selected_op.push_back(in_selected_op);
+        ++size;
+    }
+
+    void createInputs(dynet::ComputationGraph &cg)
+    {
+        if (size == 0)
+            return;
+        ASSERT_RUNTIME(state.size() == size * fact_size);
+        ASSERT_RUNTIME(applicable_ops.size() == size * op_size);
+        ASSERT_RUNTIME(selected_op.size() == size);
+        ASSERT_RUNTIME(goal.size() == fact_size);
+
+        std::vector<long> dim(1);
+        dim[0] = fact_size;
+        e_state = dynet::input(cg, dynet::Dim(dim, size), state);
+
+        std::vector<float> g;
+        for (int i = 0; i < size; ++i)
+            g.insert(g.end(), goal.begin(), goal.end());
+        e_goal = dynet::input(cg, dynet::Dim(dim, size), g);
+
+        dim[0] = op_size;
+        e_applicable_ops = dynet::input(cg, dynet::Dim(dim, size),
+                                        applicable_ops);
+        e_output = dynet::one_hot(cg, op_size, selected_op);
+    }
+};
+
+struct ASNetsTrainMiniBatch {
+    std::vector<ASNetsTrainMiniBatchTask> batch;
+
+    ASNetsTrainMiniBatch(const pddl_asnets_t *a,
+                         const pddl_asnets_train_data_t *data,
+                         int minibatch_size)
+    {
+        minibatch_size = PDDL_MIN(minibatch_size, data->sample_size);
+        batch.resize(a->ground_task_size);
+        for (int i = 0; i < a->ground_task_size; ++i){
+            batch[i].task_id = i;
+            batch[i].fact_size = a->ground_task[i].strips.fact.fact_size;
+            batch[i].op_size = a->ground_task[i].strips.op.op_size;
+            setGoalVector(a->ground_task + i, batch[i].goal);
+        }
+
+        for (int sample = 0; sample < minibatch_size; ++sample){
+            int task_id, selected_op;
+            const int *fdr_state;
+            pddlASNetsTrainDataGetSample(data, sample, &task_id,
+                                         &selected_op, NULL, &fdr_state);
+            std::vector<float> state, applicable_ops;
+            setStateVector(a->ground_task + task_id, fdr_state,
+                           state, applicable_ops);
+            batch[task_id].add(state, applicable_ops, selected_op);
+        }
+    }
+
+    void createInputs(dynet::ComputationGraph &cg)
+    {
+        for (int task_id = 0; task_id < batch.size(); ++task_id){
+            if (batch[task_id].size == 0)
+                continue;
+            batch[task_id].createInputs(cg);
+        }
+    }
+};
+
+
+
+pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
+                             const char **problem_fn,
+                             int problem_fn_size,
+                             const pddl_asnets_config_t *cfg,
+                             pddl_err_t *err)
+{
+    if (problem_fn_size <= 0)
+        ERR_RET2(err, NULL, "ASNets: At least one problem file is required.");
+
+    CTX(err, "asnets", "ASNets");
+    pddl_asnets_t *a = ZALLOC(pddl_asnets_t);
+    a->cfg = *cfg;
+    
+    int st;
+    st = pddlASNetsLiftedTaskInit(&a->lifted_task, domain_fn, problem_fn[0], err);
+    if (st < 0){
+        CTXEND(err);
+        TRACE_RET(err, NULL);
+    }
+
+    a->ground_task_size = problem_fn_size;
+    a->ground_task = ALLOC_ARR(pddl_asnets_ground_task, a->ground_task_size);
+    for (int probi = 0; probi < problem_fn_size; ++probi){
+        st = pddlASNetsGroundTaskInit(&a->ground_task[probi],
+                                      &a->lifted_task,
+                                      domain_fn,
+                                      problem_fn[probi],
+                                      err);
+        if (st < 0){
+            pddlASNetsLiftedTaskFree(&a->lifted_task);
+            for (int i = 0; i < probi; ++i)
+                pddlASNetsGroundTaskFree(&a->ground_task[i]);
+            FREE(a->ground_task);
+            CTXEND(err);
+            TRACE_RET(err, NULL);
+        }
+    }
+
+    dynet::DynetParams dynet_params;
+    dynet_params.autobatch = false;
+    //dynet_params.mem_descriptor = "4096";
+    //dynet_params.profiling = 10;
+    dynet_params.random_seed = a->cfg.random_seed;
+    //dynet_params.shared_parameters = true;
+    dynet_params.weight_decay = a->cfg.weight_decay;
+    dynet::initialize(dynet_params);
+
+    a->params = new ModelParameters(cfg->hidden_dimension,
+                                    cfg->num_layers,
+                                    &a->lifted_task);
+
+    CTXEND(err);
+    return a;
+}
+
+void pddlASNetsDel(pddl_asnets_t *a)
+{
+    if (a->policy != NULL)
+        delete a->policy;
+
+    pddlASNetsLiftedTaskFree(&a->lifted_task);
+    for (int i = 0; i < a->ground_task_size; ++i)
+        pddlASNetsGroundTaskFree(&a->ground_task[i]);
+    FREE(a->ground_task);
+
+    delete a->params;
+    dynet::cleanup();
+}
+
+//void pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
+
+void pddlASNetsSaveWeights(const pddl_asnets_t *a, const char *fn)
+{
+    // TODO
+}
+
+void pddlASNetsLoadWeights(pddl_asnets_t *a, const char *fn)
+{
+    // TODO
+}
+
+static int trainStep(pddl_asnets_t *a,
+                     int epoch,
+                     int train_step,
+                     pddl_asnets_train_data_t *data,
+                     pddl_err_t *err)
+{
+    //LOG(err, "epoch: %{epoch}d/%d, step: %{step}d/%d",
+    //    epoch, a->cfg.max_train_epochs,
+    //    train_step, a->cfg.train_cycles);
+
+    dynet::AdamTrainer trainer(a->params->model);
+    dynet::ComputationGraph cg;
+    // TODO: For debugging
+    cg.set_check_validity(true);
+    cg.set_immediate_compute(true);
+    cg.clear();
+
+    // Sample a minibatch
+    pddlASNetsTrainDataShuffle(data);
+    ASNetsTrainMiniBatch batch(a, data, a->cfg.batch_size);
+    batch.createInputs(cg);
+
+    std::vector<dynet::Expression> nets;
+    int batch_size = 0;
+    for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
+        if (batch.batch[task_id].size == 0)
+            continue;
+        const ASNetsTrainMiniBatchTask &b = batch.batch[task_id];
+        //LOG(err, "Batch: task: %d, size: %d", task_id, b.size);
+        dynet::Expression e = asnetsExpr(a->ground_task + task_id,
+                                         *a->params,
+                                         cg,
+                                         b.e_state,
+                                         b.e_goal,
+                                         b.e_applicable_ops,
+                                         a->cfg.dropout_rate);
+        dynet::Expression e_loss = crossEntropyLoss(cg, e, b.e_output);
+        nets.push_back(e_loss);
+        batch_size += b.size;
+    }
+
+    ASSERT_RUNTIME(nets.size() > 0);
+    // Compute mean over all losses
+    dynet::Expression e_loss = dynet::sum(nets) / batch_size;
+    float loss_val = dynet::as_scalar(cg.forward(e_loss));
+    // TODO: L2 regularization?
+    LOG(err, "epoch: %d, step: %d, loss: %{loss}f", epoch, train_step, loss_val);
+    cg.backward(e_loss);
+    trainer.update();
+
+
+    return 0;
+}
+
+static void trainPolicyStatePool(pddl_asnets_t *a,
+                                 int ground_task_id,
+                                 pddl_fdr_state_pool_t *states,
+                                 pddl_err_t *err)
+{
+    const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
+    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
+    int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
+
+    ASNetsPolicy policy(task, *a->params);
+
+
+    // Start in the initial state
+    pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
+    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
+        // get the last reached state
+        pddlFDRStatePoolGet(states, state_id, state);
+        // Apply policy. If we get -1, it means the state is dead-end,
+        // because there are no applicable operators
+        int op_id = policy.apply(state, state2);
+        if (op_id < 0){
+            break;
+        }
+
+        // Insert current state
+        pddl_state_id_t prev_state_id = state_id;
+        state_id = pddlFDRStatePoolInsert(states, state2);
+        // If the new state was already in the pool, then we got a cycle
+        if (state_id <= prev_state_id){
+            break;
+        }
+    }
+
+    FREE(state);
+    FREE(state2);
+}
+
+static int trainExploration(pddl_asnets_t *a,
+                            int epoch,
+                            int ground_task_id,
+                            pddl_asnets_train_data_t *data,
+                            pddl_err_t *err)
+{
+    const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
+
+    pddl_fdr_state_pool_t states;
+    pddlFDRStatePoolInit(&states, &task->fdr.var, err);
+
+    // Collect states from the policy rollout
+    trainPolicyStatePool(a, ground_task_id, &states, err);
+    LOG(err, "Policy rollout: %{policy_rollout_states}d states",
+        states.num_states);
+
+    // TODO: Here we can add also states from random walks.
+    //       Maybe for the for the first epoch?
+
+    // Extend training data with teacher rollouts
+    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
+    for (pddl_state_id_t state_id = 0; state_id < states.num_states; ++state_id){
+        pddlFDRStatePoolGet(&states, state_id, state);
+        // TODO: Parametrize
+        int ret;
+        ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id, state,
+                                                   &task->fdr,
+                                                   a->cfg.teacher_timeout, err);
+        if (ret < 0){
+            FREE(state);
+            pddlFDRStatePoolFree(&states);
+            TRACE_RET(err, -1);
+        }
+    }
+    FREE(state);
+
+    pddlFDRStatePoolFree(&states);
+    return 0;
+}
+
+static int trainEpoch(pddl_asnets_t *a,
+                      int epoch,
+                      pddl_asnets_train_data_t *data,
+                      pddl_err_t *err)
+{
+    CTX(err, "epoch", "epoch");
+    LOG(err, "epoch: %{epoch}d/%d", epoch, a->cfg.max_train_epochs);
+
+    // Exploration phase
+    for (int ground_task = 0; ground_task < a->ground_task_size; ++ground_task){
+        int ret;
+        if ((ret = trainExploration(a, epoch, ground_task, data, err)) != 0){
+            CTXEND(err);
+            if (ret < 0)
+                TRACE_RET(err, ret);
+            return ret;
+        }
+    }
+
+    // Training phase
+    int num_steps = a->cfg.train_steps;
+    //num_steps = PDDL_MIN(num_steps, data->sample_size / a->cfg.batch_size);
+    //num_steps = PDDL_MAX(num_steps, 1);
+    LOG(err, "num training steps: %{training_steps}d", num_steps);
+    for (int train_step = 0; train_step < num_steps; ++train_step){
+        int ret;
+        if ((ret = trainStep(a, epoch, train_step, data, err)) != 0){
+            CTXEND(err);
+            if (ret < 0)
+                TRACE_RET(err, ret);
+            return ret;
+        }
+    }
+    CTXEND(err);
+    return 0;
+}
+
+int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
+{
+    CTX(err, "asnets_train", "ASNets-Train");
+    // Cleanup policy, because we can have at most one computation graph at
+    // a time
+    if (a->policy != NULL){
+        delete a->policy;
+        a->policy = NULL;
+    }
+
+    pddl_asnets_train_data_t data;
+    pddlASNetsTrainDataInit(&data);
+    for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
+        int ret;
+        if ((ret = trainEpoch(a, epoch, &data, err)) != 0){
+            pddlASNetsTrainDataFree(&data);
+            CTXEND(err);
+            if (ret < 0)
+                TRACE_RET(err, ret);
+            return ret;
+        }
+    }
+
+    pddlASNetsTrainDataFree(&data);
+    CTXEND(err);
+    return 0;
+}
+
+#if 0
 int pddlASNetsTrain(const char *domain_fn,
                     const char **problem_fn,
                     int problem_fn_size,
@@ -521,12 +918,10 @@ int pddlASNetsTrain(const char *domain_fn,
     dynet_params.weight_decay = 2E-4;
     dynet::initialize(dynet_params);
 
-    dynet::ParameterCollection model;
-
-    ModelParameters params(hidden_dimension, num_layers, &lifted_task, model);
+    ModelParameters params(hidden_dimension, num_layers, &lifted_task);
 
     {
-    dynet::AdamTrainer trainer(model);
+    dynet::AdamTrainer trainer(params.model);
 
     dynet::ComputationGraph cg;
     // TODO: For debugging
@@ -606,3 +1001,4 @@ int pddlASNetsTrain(const char *domain_fn,
     CTXEND(err);
     return 0;
 }
+#endif

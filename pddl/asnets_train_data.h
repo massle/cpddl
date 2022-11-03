@@ -16,21 +16,12 @@ extern "C" {
 #include "pddl/fdr.h"
 #include "pddl/heur.h"
 
-struct pddl_asnets_train_data_row {
-    pddl_htable_key_t hash;
-    pddl_list_t htable;
-
-    int ground_task_id;
-    int selected_op_id;
-    int fdr_state_size;
-    int fdr_state[];
-};
-typedef struct pddl_asnets_train_data_row pddl_asnets_train_data_row_t;
+typedef struct pddl_asnets_train_data_sample pddl_asnets_train_data_sample_t;
 
 struct pddl_asnets_train_data {
-    pddl_asnets_train_data_row_t **row;
-    int row_size;
-    int row_alloc;
+    pddl_asnets_train_data_sample_t **sample;
+    int sample_size;
+    int sample_alloc;
 
     pddl_htable_t *htable;
 };
@@ -38,6 +29,13 @@ typedef struct pddl_asnets_train_data pddl_asnets_train_data_t;
 
 void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td);
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td);
+
+int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
+                                 int sample_id,
+                                 int *ground_task_id,
+                                 int *selected_op_id,
+                                 int *fdr_state_size,
+                                 const int **fdr_state);
 
 void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
                             int ground_task_id,
@@ -52,6 +50,8 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
                                 const pddl_fdr_ops_t *ops,
                                 const pddl_iarr_t *plan);
 
+void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td);
+
 int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
                                     int ground_task_id,
                                     const int *state,
@@ -59,6 +59,13 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
                                     const pddl_heur_config_t *cfg,
                                     float max_time,
                                     pddl_err_t *err);
+
+int pddlASNetsTrainDataRolloutAStarLMCut(pddl_asnets_train_data_t *td,
+                                         int ground_task_id,
+                                         const int *state,
+                                         const pddl_fdr_t *fdr,
+                                         float max_time,
+                                         pddl_err_t *err);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
