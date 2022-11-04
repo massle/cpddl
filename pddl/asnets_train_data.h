@@ -24,6 +24,7 @@ struct pddl_asnets_train_data {
     int sample_alloc;
 
     pddl_htable_t *htable;
+    pddl_htable_t *fail_cache;
 };
 typedef struct pddl_asnets_train_data pddl_asnets_train_data_t;
 

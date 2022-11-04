@@ -81,11 +81,24 @@ void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td)
 {
     ZEROIZE(td);
     td->htable = pddlHTableNew(htableHash, htableEq, NULL);
+    td->fail_cache = pddlHTableNew(htableHash, htableEq, NULL);
 }
 
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
 {
     pddlHTableDel(td->htable);
+
+    pddl_list_t list;
+    pddlHTableGather(td->fail_cache, &list);
+    while (!pddlListEmpty(&list)){
+        pddl_list_t *item = pddlListNext(&list);
+        pddlListDel(item);
+        pddl_asnets_train_data_sample_t *s;
+        s = PDDL_LIST_ENTRY(item, pddl_asnets_train_data_sample_t, htable);
+        sampleDel(s);
+    }
+    pddlHTableDel(td->fail_cache);
+
     for (int i = 0; i < td->sample_size; ++i)
         sampleDel(td->sample[i]);
     if (td->sample != NULL)
@@ -129,6 +142,18 @@ void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
     }
 }
 
+void pddlASNetsTrainDataAddFail(pddl_asnets_train_data_t *td,
+                                int ground_task_id,
+                                const int *state,
+                                int state_size)
+{
+    pddl_asnets_train_data_sample_t *sample;
+    sample = sampleNew(ground_task_id, state, state_size, -1);
+
+    if (pddlHTableInsertUnique(td->fail_cache, &sample->htable) != NULL)
+        sampleDel(sample);
+}
+
 void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
                                 int ground_task_id,
                                 int state_size,
@@ -163,9 +188,9 @@ void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td)
 }
 
 static int stateExists(const pddl_asnets_train_data_t *td,
-                        int ground_task_id,
-                        const int *state,
-                        int state_size)
+                       int ground_task_id,
+                       const int *state,
+                       int state_size)
 {
     pddl_asnets_train_data_sample_t *sample;
     sample = alloca(sampleSize(state_size));
@@ -181,6 +206,25 @@ static int stateExists(const pddl_asnets_train_data_t *td,
     }
 }
 
+static int failExists(const pddl_asnets_train_data_t *td,
+                      int ground_task_id,
+                      const int *state,
+                      int state_size)
+{
+    pddl_asnets_train_data_sample_t *sample;
+    sample = alloca(sampleSize(state_size));
+    sample->fdr_state_size = state_size;
+    sample->ground_task_id = ground_task_id;
+    memcpy(sample->fdr_state, state, sizeof(int) * state_size);
+    sample->hash = sampleHash(sample);
+
+    if (pddlHTableFind(td->fail_cache, &sample->htable) == NULL){
+        return 0;
+    }else{
+        return 1;
+    }
+}
+
 int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
                                     int ground_task_id,
                                     const int *state,
@@ -189,14 +233,18 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
                                     float max_time,
                                     pddl_err_t *err)
 {
-    if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG(err, "Init state already in the data pool -- skipping."
-            " num samples: %{num_samples}d", td->sample_size);
-        return 1;
-    }
-
     CTX(err, "asnets_teacher_rollout", "ASNets-Teacher-Rollout");
     LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
+    if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
+        LOG2(err, "State already in the data pool -- skipping.");
+        CTXEND(err);
+        return 1;
+
+    }else if (failExists(td, ground_task_id, state, _fdr->var.var_size)){
+        LOG2(err, "State already seen and could not be solved -- skipping.");
+        CTXEND(err);
+        return 1;
+    }
 
     pddl_timer_t timer;
     pddlTimerStart(&timer);
@@ -241,6 +289,7 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
         pddlPlanFree(&plan);
 
     }else{
+        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
         if (st == PDDL_SEARCH_ABORT)
             LOG2(err, "Search reached time-out");
         LOG2(err, "Plan not found");

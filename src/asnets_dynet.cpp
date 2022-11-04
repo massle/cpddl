@@ -17,6 +17,15 @@
 
 static const float SMALL_CONST = 1E-6f;
 
+static dynet::Expression poolMax(const std::vector<dynet::Expression> &in)
+{
+    if (in.size() == 1)
+        return in[0];
+
+    dynet::Expression mat = dynet::concatenate(in, 1);
+    return dynet::max_dim(mat, 1);
+}
+
 static dynet::Expression maskedSoftmax(dynet::ComputationGraph &cg,
                                        const dynet::Expression &in,
                                        const dynet::Expression &mask)
@@ -190,12 +199,9 @@ struct PropositionModule {
                            const std::vector<std::vector<dynet::Expression>> &input) const 
     {
         std::vector<dynet::Expression> pooled_input(input.size());
-        for (size_t i = 0; i < input.size(); ++i){
-            pooled_input[i] = input[i][0];
-            for (size_t j = 1; j < input[i].size(); ++j){
-                pooled_input[i] = dynet::max(pooled_input[i], input[i][j]);
-            }
-        }
+        for (size_t i = 0; i < input.size(); ++i)
+            pooled_input[i] = poolMax(input[i]);
+
         dynet::Expression w = dynet::parameter(cg, W);
         dynet::Expression b = dynet::parameter(cg, bias);
         dynet::Expression u = dynet::concatenate(pooled_input);
@@ -802,6 +808,7 @@ static int trainExploration(pddl_asnets_t *a,
                             pddl_err_t *err)
 {
     const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
+    CTX(err, "exploration", "Exploration Phase");
 
     pddl_fdr_state_pool_t states;
     pddlFDRStatePoolInit(&states, &task->fdr.var, err);
@@ -827,12 +834,14 @@ static int trainExploration(pddl_asnets_t *a,
         if (ret < 0){
             FREE(state);
             pddlFDRStatePoolFree(&states);
+            CTXEND(err);
             TRACE_RET(err, -1);
         }
     }
     FREE(state);
 
     pddlFDRStatePoolFree(&states);
+    CTXEND(err);
     return 0;
 }
 
