@@ -1,8 +1,15 @@
+/***
+ * Copyright (c)2022 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
+ */
+
 #include "internal.h"
 #include "pddl/asnets.h"
 #include "pddl/asnets_task.h"
 #include "pddl/asnets_train_data.h"
 
+#ifdef PDDL_DYNET
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>
@@ -135,6 +142,12 @@ struct ActionModule {
         input.insert(input.end(), input_goal.begin(), input_goal.end());
         input.push_back(input_applicable);
         return expr(cg, input);
+    }
+
+    void saveWeights()
+    {
+        // TODO
+        // SQL format:
     }
 };
 
@@ -409,89 +422,61 @@ static void setGoalVector(const pddl_asnets_ground_task_t *task,
 }
 
 
-struct ASNetsPolicy {
+static int runPolicy(const pddl_asnets_ground_task_t *task,
+                     const ModelParameters &params,
+                     dynet::ComputationGraph &cg,
+                     const int *in_state,
+                     int *out_state)
+{
     std::vector<float> state;
     std::vector<float> goal;
     std::vector<float> applicable_ops;
-    const pddl_asnets_ground_task_t *task;
-    const ModelParameters &params;
 
-    dynet::ComputationGraph cg;
-    dynet::Expression e_state;
-    dynet::Expression e_goal;
-    dynet::Expression e_applicable_ops;
-    dynet::Expression e_output;
+    setGoalVector(task, goal);
+    setStateVector(task, in_state, state, applicable_ops);
 
-    ASNetsPolicy(const pddl_asnets_ground_task_t *task,
-                 const ModelParameters &params)
-        : state(task->strips.fact.fact_size, 0),
-          goal(task->strips.fact.fact_size, 0),
-          applicable_ops(task->strips.op.op_size, 0),
-          task(task),
-          params(params)
-    {
-        std::vector<long> dim(1);
-        dim[0] = state.size();
-        e_state = dynet::input(cg, dynet::Dim(dim), &state);
-        e_goal = dynet::input(cg, dynet::Dim(dim), &goal);
-        dim[0] = applicable_ops.size();
-        e_applicable_ops = dynet::input(cg, dynet::Dim(dim), &applicable_ops);
-        e_output = asnetsExpr(task, params, cg, e_state, e_goal, e_applicable_ops, -1);
+    cg.clear();
 
-        setInitState();
-        setGoal();
-    }
+    std::vector<long> dim(1);
+    dim[0] = state.size();
+    dynet::Expression e_state = dynet::input(cg, dynet::Dim(dim), state);
+    dynet::Expression e_goal = dynet::input(cg, dynet::Dim(dim), goal);
 
-    void setInitState()
-    {
-        setState(task->fdr.init);
-    }
+    dim[0] = applicable_ops.size();
+    dynet::Expression e_applicable_ops = dynet::input(cg, dynet::Dim(dim), applicable_ops);
+    dynet::Expression e_output = asnetsExpr(task, params, cg, e_state, e_goal,
+                                            e_applicable_ops, -1);
 
-    void setState(const int *s)
-    {
-        setStateVector(task, s, state, applicable_ops);
-    }
+    std::vector<float> out = dynet::as_vector(cg.forward(e_output));
+    ASSERT_RUNTIME(out.size() == task->strips.op.op_size);
 
-    void setGoal()
-    {
-        setGoalVector(task, goal);
-    }
-
-    int apply(const int *state, int *out_state)
-    {
-        if (state == NULL)
-            state = task->fdr.init;
-        setState(state);
-
-        std::vector<float> out = dynet::as_vector(cg.forward(e_output));
-        ASSERT_RUNTIME(out.size() == task->strips.op.op_size);
-
-        int best_op_id = -1;
-        float best_value = -1;
-        for (int op_id = 0; op_id < out.size(); ++op_id){
-            ASSERT(out[op_id] >= 0.f);
-            if (applicable_ops[op_id] < .5)
-                continue;
-            if (out[op_id] > best_value){
-                best_op_id = op_id;
-                best_value = out[op_id];
-            }
+    int best_op_id = -1;
+    float best_value = -1;
+    for (int op_id = 0; op_id < out.size(); ++op_id){
+        ASSERT(out[op_id] >= 0.f);
+        if (applicable_ops[op_id] < .5)
+            continue;
+        if (out[op_id] > best_value){
+            best_op_id = op_id;
+            best_value = out[op_id];
         }
-
-        if (out_state != NULL)
-            pddlASNetsGroundTaskFDRApplyOp(task, state, best_op_id, out_state);
-
-        return best_op_id;
     }
-};
+
+    if (out_state != NULL)
+        pddlASNetsGroundTaskFDRApplyOp(task, in_state, best_op_id, out_state);
+
+    return best_op_id;
+}
+
 
 struct pddl_asnets {
     pddl_asnets_config_t cfg;
     pddl_asnets_lifted_task_t lifted_task;
+    dynet::ComputationGraph *cg;
+    dynet::Trainer *trainer;
     ModelParameters *params;
     pddl_asnets_ground_task_t *ground_task;
     int ground_task_size;
-    ASNetsPolicy *policy;
 };
 
 struct pddl_asnets_train_stats {
@@ -656,21 +641,30 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
                                     cfg->num_layers,
                                     &a->lifted_task);
 
+    // TODO: Parametrize
+    a->trainer = new dynet::AdamTrainer(a->params->model);
+    a->cg = new dynet::ComputationGraph();
+#ifdef PDDL_DEBUG
+    a->cg->set_check_validity(true);
+    a->cg->set_immediate_compute(true);
+#endif /* PDDL_DEBUG */
+
     CTXEND(err);
     return a;
 }
 
 void pddlASNetsDel(pddl_asnets_t *a)
 {
-    if (a->policy != NULL)
-        delete a->policy;
-
     pddlASNetsLiftedTaskFree(&a->lifted_task);
     for (int i = 0; i < a->ground_task_size; ++i)
         pddlASNetsGroundTaskFree(&a->ground_task[i]);
     FREE(a->ground_task);
 
     delete a->params;
+    if (a->trainer != NULL)
+        delete a->trainer;
+    if (a->cg != NULL)
+        delete a->cg;
     dynet::cleanup();
 }
 
@@ -691,6 +685,8 @@ static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
                                          int minibatch_size,
                                          dynet::ComputationGraph &cg)
 {
+    cg.clear();
+
     // Sample a minibatch
     ASNetsTrainMiniBatch batch(a, data, minibatch_size);
     batch.createInputs(cg);
@@ -734,24 +730,17 @@ static int trainStep(pddl_asnets_t *a,
     //    train_step, a->cfg.train_cycles);
     stats->train_step = train_step + 1;
 
-    dynet::AdamTrainer trainer(a->params->model);
-    dynet::ComputationGraph cg;
-#ifdef PDDL_DEBUG
-    cg.set_check_validity(true);
-    cg.set_immediate_compute(true);
-#endif /* PDDL_DEBUG */
-
     // Sample a minibatch
     pddlASNetsTrainDataShuffle(data);
 
     // Construct network with the right input data
-    dynet::Expression e_loss = asnetsTrainExpr(a, data, a->cfg.batch_size, cg);
+    dynet::Expression e_loss = asnetsTrainExpr(a, data, a->cfg.batch_size, *a->cg);
     // TODO: L2 regularization -- is it done automatically by dynet?
 
     // Learn parameters
-    float loss_val = dynet::as_scalar(cg.forward(e_loss));
-    cg.backward(e_loss);
-    trainer.update();
+    float loss_val = dynet::as_scalar(a->cg->forward(e_loss));
+    a->cg->backward(e_loss);
+    a->trainer->update();
 
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d"
@@ -775,9 +764,6 @@ static int trainPolicyStatePool(pddl_asnets_t *a,
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
     int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
 
-    ASNetsPolicy policy(task, *a->params);
-
-
     // Start in the initial state
     pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
     for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
@@ -790,7 +776,7 @@ static int trainPolicyStatePool(pddl_asnets_t *a,
 
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
-        int op_id = policy.apply(state, state2);
+        int op_id = runPolicy(task, *a->params, *a->cg, state, state2);
         if (op_id < 0){
             break;
         }
@@ -853,9 +839,9 @@ static int trainExploration(pddl_asnets_t *a,
 static float overallLoss(pddl_asnets_t *a,
                          pddl_asnets_train_data_t *data)
 {
-    dynet::ComputationGraph cg;
-    dynet::Expression e_loss = asnetsTrainExpr(a, data, -1, cg);
-    return dynet::as_scalar(cg.forward(e_loss));
+    dynet::Expression e_loss = asnetsTrainExpr(a, data, -1, *a->cg);
+    float loss = dynet::as_scalar(a->cg->forward(e_loss));
+    return loss;
 }
 
 static float successRate(pddl_asnets_t *a)
@@ -907,10 +893,14 @@ static int trainEpoch(pddl_asnets_t *a,
         }
     }
 
+    CTX(err, "success_rate", "Success Rate");
     stats->success_rate = successRate(a);
+    LOG(err, "Success rate: %{success_rate}f", stats->success_rate);
+    CTXEND(err);
+    CTX(err, "overall_loss", "Overall Loss");
     stats->overall_loss = overallLoss(a, data);
     LOG(err, "Overall loss: %{overall_loss}f", stats->overall_loss);
-    LOG(err, "Success rate: %{success_rate}f", stats->success_rate);
+    CTXEND(err);
     LOG(err, "Train samples: %{train_samples}d", stats->num_samples);
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d",
@@ -924,13 +914,6 @@ static int trainEpoch(pddl_asnets_t *a,
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 {
     CTX(err, "asnets_train", "ASNets-Train");
-    // Cleanup policy, because we can have at most one computation graph at
-    // a time
-    if (a->policy != NULL){
-        delete a->policy;
-        a->policy = NULL;
-    }
-
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
 
@@ -983,3 +966,38 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     CTXEND(err);
     return 0;
 }
+
+#else /* PDDL_DYNET */
+
+pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
+                             const char **problem_fn,
+                             int problem_fn_size,
+                             const pddl_asnets_config_t *cfg,
+                             pddl_err_t *err)
+{
+    FATAL("This module requires dynet library.");
+    return NULL;
+}
+
+void pddlASNetsDel(pddl_asnets_t *a)
+{
+    FATAL("This module requires dynet library.");
+}
+
+void pddlASNetsSaveWeights(const pddl_asnets_t *a, const char *fn)
+{
+    FATAL("This module requires dynet library.");
+}
+
+void pddlASNetsLoadWeights(pddl_asnets_t *a, const char *fn)
+{
+    FATAL("This module requires dynet library.");
+}
+
+int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
+{
+    FATAL("This module requires dynet library.");
+    return -1;
+}
+
+#endif /* PDDL_DYNET */

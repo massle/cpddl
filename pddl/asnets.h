@@ -51,8 +51,8 @@ typedef struct pddl_asnets_config pddl_asnets_config_t;
         6961, /* .random_seed */ \
         2E-4, /* .weight_decay */ \
         0.1, /* .dropout_rate */ \
-        64, /* .batch_size */ \
-        0, /* .double_batch_size_every_epoch */ \
+        1, /* .batch_size */ \
+        8, /* .double_batch_size_every_epoch */ \
         100, /* .max_train_epochs */ \
         700, /* .train_steps */ \
         1000, /* .policy_rollout_limit */ \

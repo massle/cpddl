@@ -120,6 +120,7 @@ void pddlASNetsLiftedTaskFree(pddl_asnets_lifted_task_t *lt)
     }
     if (lt->pred != NULL)
         FREE(lt->pred);
+    pddlFree(&lt->pddl);
 }
 
 static int atomEq(const pddl_ground_atom_t *a1,
@@ -351,6 +352,8 @@ void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *gt)
     if (gt->fact != NULL)
         FREE(gt->fact);
 
+    pddlISetFree(&gt->static_fact);
+    pddlFDRAppOpFree(&gt->fdr_app_op);
     pddlFDRFree(&gt->fdr);
     pddlStripsFree(&gt->strips);
     pddlFree(&gt->pddl);
