@@ -192,7 +192,7 @@ struct PropositionModule {
         std::vector<dynet::Expression> pooled_input(input.size());
         for (size_t i = 0; i < input.size(); ++i){
             pooled_input[i] = input[i][0];
-            for (int j = 1; j < input[i].size(); ++j){
+            for (size_t j = 1; j < input[i].size(); ++j){
                 pooled_input[i] = dynet::max(pooled_input[i], input[i][j]);
             }
         }
@@ -220,7 +220,7 @@ struct ModelParameters {
         prop.resize(num_layers);
 
         for (int layer = 0; layer < num_layers; ++layer){
-            for (size_t aid = 0; aid < task->action_size; ++aid){
+            for (int aid = 0; aid < task->action_size; ++aid){
                 ActionModule *am;
                 am = new ActionModule(hidden_dimension,
                                       task->action[aid].related_atom_size,
@@ -228,7 +228,7 @@ struct ModelParameters {
                 action[layer].push_back(am);
             }
 
-            for (size_t pid = 0; pid < task->pred_size; ++pid){
+            for (int pid = 0; pid < task->pred_size; ++pid){
                 PropositionModule *pm;
                 pm = new PropositionModule(hidden_dimension,
                                            task->pred[pid].related_action_size,
@@ -237,7 +237,7 @@ struct ModelParameters {
             }
         }
 
-        for (size_t aid = 0; aid < task->action_size; ++aid){
+        for (int aid = 0; aid < task->action_size; ++aid){
             ActionModule *am;
             am = new ActionModule(hidden_dimension,
                                   task->action[aid].related_atom_size,
@@ -245,8 +245,8 @@ struct ModelParameters {
             action[num_layers].push_back(am);
         }
 
-        ASSERT_RUNTIME(num_layers == action.size() - 1);
-        ASSERT_RUNTIME(num_layers == prop.size());
+        ASSERT_RUNTIME(num_layers == (int)action.size() - 1);
+        ASSERT_RUNTIME(num_layers == (int)prop.size());
     }
 
     ~ModelParameters()
@@ -376,7 +376,7 @@ static void setApplicableOpsVector(const pddl_asnets_ground_task_t *task,
                                    std::vector<float> &applicable_ops)
 {
     applicable_ops.resize(task->strips.op.op_size);
-    for (int i = 0; i < applicable_ops.size(); ++i)
+    for (size_t i = 0; i < applicable_ops.size(); ++i)
         applicable_ops[i] = 0;
 
     PDDL_ISET(ops);
@@ -393,7 +393,7 @@ static void setStateVector(const pddl_asnets_ground_task_t *task,
                            std::vector<float> &applicable_ops)
 {
     state.resize(task->strips.fact.fact_size);
-    for (int i = 0; i < state.size(); ++i)
+    for (size_t i = 0; i < state.size(); ++i)
         state[i] = 0;
 
     PDDL_ISET(strips_state);
@@ -410,7 +410,7 @@ static void setGoalVector(const pddl_asnets_ground_task_t *task,
                           std::vector<float> &goal)
 {
     goal.resize(task->strips.fact.fact_size);
-    for (int i = 0; i < goal.size(); ++i)
+    for (size_t i = 0; i < goal.size(); ++i)
         goal[i] = 0;
 
     PDDL_ISET(strips_g);
@@ -448,11 +448,11 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
                                             e_applicable_ops, -1);
 
     std::vector<float> out = dynet::as_vector(cg.forward(e_output));
-    ASSERT_RUNTIME(out.size() == task->strips.op.op_size);
+    ASSERT_RUNTIME((int)out.size() == task->strips.op.op_size);
 
     int best_op_id = -1;
     float best_value = -1;
-    for (int op_id = 0; op_id < out.size(); ++op_id){
+    for (size_t op_id = 0; op_id < out.size(); ++op_id){
         ASSERT(out[op_id] >= 0.f);
         if (applicable_ops[op_id] < .5)
             continue;
@@ -527,10 +527,10 @@ struct ASNetsTrainMiniBatchTask {
     {
         if (size == 0)
             return;
-        ASSERT_RUNTIME(state.size() == size * fact_size);
-        ASSERT_RUNTIME(applicable_ops.size() == size * op_size);
-        ASSERT_RUNTIME(selected_op.size() == size);
-        ASSERT_RUNTIME(goal.size() == fact_size);
+        ASSERT_RUNTIME((int)state.size() == size * fact_size);
+        ASSERT_RUNTIME((int)applicable_ops.size() == size * op_size);
+        ASSERT_RUNTIME((int)selected_op.size() == size);
+        ASSERT_RUNTIME((int)goal.size() == fact_size);
 
         std::vector<long> dim(1);
         dim[0] = fact_size;
@@ -580,7 +580,7 @@ struct ASNetsTrainMiniBatch {
 
     void createInputs(dynet::ComputationGraph &cg)
     {
-        for (int task_id = 0; task_id < batch.size(); ++task_id){
+        for (size_t task_id = 0; task_id < batch.size(); ++task_id){
             if (batch[task_id].size == 0)
                 continue;
             batch[task_id].createInputs(cg);
