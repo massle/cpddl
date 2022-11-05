@@ -85,6 +85,8 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                              const char *problem_fn,
                              pddl_err_t *err);
 void pddlASNetsLiftedTaskFree(pddl_asnets_lifted_task_t *lt);
+void pddlASNetsLiftedTaskToSHA256(const pddl_asnets_lifted_task_t *lt,
+                                  char *hash_str);
 
 int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                              const pddl_asnets_lifted_task_t *lt,

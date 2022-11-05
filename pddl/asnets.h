@@ -53,8 +53,8 @@ typedef struct pddl_asnets_config pddl_asnets_config_t;
         0.1, /* .dropout_rate */ \
         64, /* .batch_size */ \
         0, /* .double_batch_size_every_epoch */ \
-        100, /* .max_train_epochs */ \
-        700, /* .train_steps */ \
+        2, /* .max_train_epochs */ \
+        7, /* .train_steps */ \
         1000, /* .policy_rollout_limit */ \
         10.f, /* .teacher_timeout */ \
         0.999, /* .early_termination_success_rate */ \
@@ -88,10 +88,8 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
 
 void pddlASNetsDel(pddl_asnets_t *a);
 
-//void pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
-
-void pddlASNetsSaveWeights(const pddl_asnets_t *a, const char *fn);
-void pddlASNetsLoadWeights(pddl_asnets_t *a, const char *fn);
+int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err);
+int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err);
 
 
 /**

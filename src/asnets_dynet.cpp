@@ -5,9 +5,11 @@
  */
 
 #include "internal.h"
+#include "sqlite3.h"
 #include "pddl/asnets.h"
 #include "pddl/asnets_task.h"
 #include "pddl/asnets_train_data.h"
+#include "pddl/sha256.h"
 
 #ifdef PDDL_DYNET
 #include <dynet/dynet.h>
@@ -474,17 +476,6 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
     return best_op_id;
 }
 
-
-struct pddl_asnets {
-    pddl_asnets_config_t cfg;
-    pddl_asnets_lifted_task_t lifted_task;
-    dynet::ComputationGraph *cg;
-    dynet::Trainer *trainer;
-    ModelParameters *params;
-    pddl_asnets_ground_task_t *ground_task;
-    int ground_task_size;
-};
-
 struct pddl_asnets_train_stats {
     int max_epochs;
     int epoch;
@@ -496,6 +487,18 @@ struct pddl_asnets_train_stats {
     int consecutive_successful_epochs;
 };
 typedef struct pddl_asnets_train_stats pddl_asnets_train_stats_t;
+
+struct pddl_asnets {
+    pddl_asnets_config_t cfg;
+    pddl_asnets_lifted_task_t lifted_task;
+    dynet::ComputationGraph *cg;
+    dynet::Trainer *trainer;
+    ModelParameters *params;
+    pddl_asnets_ground_task_t *ground_task;
+    int ground_task_size;
+
+    pddl_asnets_train_stats_t train_stats;
+};
 
 struct ASNetsTrainMiniBatchTask {
     int task_id;
@@ -655,6 +658,12 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
     a->cg->set_immediate_compute(true);
 #endif /* PDDL_DEBUG */
 
+    ZEROIZE(&a->train_stats);
+    a->train_stats.max_epochs = a->cfg.max_train_epochs;
+    a->train_stats.max_train_steps = a->cfg.train_steps;
+    a->train_stats.success_rate = -1.f;
+    a->train_stats.overall_loss = -1.f;
+
     CTXEND(err);
     return a;
 }
@@ -674,16 +683,643 @@ void pddlASNetsDel(pddl_asnets_t *a)
     dynet::cleanup();
 }
 
-//void pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
+#define SIG_ACTION_W 0
+#define SIG_ACTION_B 1
+#define SIG_PROP_W 2
+#define SIG_PROP_B 3
 
-void pddlASNetsSaveWeights(const pddl_asnets_t *a, const char *fn)
+static const char sql_create_info[]
+    = "DROP TABLE IF EXISTS asnets_info;"
+      "CREATE TABLE asnets_info ("
+            "parameter TEXT,"
+            "int_value INT DEFAULT -1,"
+            "flt_value REAL DEFAULT -1.,"
+            "str_value TEXT DEFAULT NULL"
+      ");";
+static const char sql_query_info[]
+    = "SELECT int_value, flt_value, str_value"
+      " FROM asnets_info WHERE parameter = ?;";
+
+static const char sql_create_weights[]
+    = "DROP TABLE IF EXISTS asnets_weights;"
+      "CREATE TABLE asnets_weights ("
+            "id INT PRIMARY KEY,"
+            "layer INT,"
+            "sig INT,"
+            "name TEXT,"
+            "idx INT,"
+            "weights BLOB"
+      ");";
+static const char sql_insert_weights[]
+    = "INSERT INTO asnets_weights VALUES(?,?,?,?,?,?);";
+static const char sql_query_weights[]
+    = "SELECT layer, sig, name, idx, weights"
+      " FROM asnets_weights WHERE id = ?;";
+
+
+
+struct Info {
+    char cpddl_version[128];
+    char domain_name[128];
+    char domain_hash[PDDL_SHA256_HASH_STR_SIZE];
+    pddl_asnets_config_t cfg;
+    pddl_asnets_train_stats_t train_stats;
+    // TODO: problem_names
+    // TODO: size of float / ...
+    // TODO: store the whole domain pddl file?
+    // TODO: num_samples
+    // TODO: success_rate
+    // TODO: loss
+
+    Info()
+    {
+        cpddl_version[0] = '\x0';
+        domain_name[0] = '\x0';
+        domain_hash[0] = '\x0';
+        ZEROIZE(&cfg);
+        ZEROIZE(&train_stats);
+    }
+
+    Info(const pddl_asnets_t *a)
+    {
+        strncpy(cpddl_version, pddl_version, sizeof(cpddl_version));
+        strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name));
+        pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
+        cfg = a->cfg;
+        train_stats = a->train_stats;
+    }
+
+    int checkLoadedInfo(const Info &o, pddl_err_t *err)
+    {
+        if (cfg.hidden_dimension != o.cfg.hidden_dimension){
+            ERR_RET(err, 0, "Hidden dimensions don't match. model: %d, asnets: %d",
+                    cfg.hidden_dimension, o.cfg.hidden_dimension);
+        }
+
+        if (cfg.num_layers != o.cfg.num_layers){
+            ERR_RET(err, 0, "Number of layers don't match. model: %d, asnets: %d",
+                    cfg.num_layers, o.cfg.num_layers);
+        }
+
+        if (strcmp(domain_name, o.domain_name) != 0){
+            ERR_RET(err, 0, "Domain names differ. model: %s, asnets: %s",
+                    domain_name, o.domain_name);
+        }
+
+        if (strcmp(domain_hash, o.domain_hash) != 0){
+            ERR_RET(err, 0, "Domain hash differ. model: %s, asnets: %s",
+                    domain_hash, o.domain_hash);
+        }
+
+        return 1;
+    }
+
+    int create(pddl_sqlite3 *db, pddl_err_t *err)
+    {
+        char *errmsg = NULL;
+        int ret = pddl_sqlite3_exec(db, sql_create_info, NULL, NULL, &errmsg);
+        if (ret != SQLITE_OK){
+            ERR(err, "Sqlite Error: %s", errmsg);
+            pddl_sqlite3_free(errmsg);
+            return -1;
+        }
+        return 0;
+    }
+
+    int _sqlInsertInfo(pddl_sqlite3 *db,
+                       const char *param,
+                       int int_val,
+                       float float_val,
+                       const char *str_val,
+                       pddl_err_t *err)
+    {
+        char *query = ALLOC_ARR(char, 1024 * 1024);
+        int query_size = 0;
+        query_size = sprintf(query, "INSERT INTO asnets_info (parameter");
+        if (str_val != NULL){
+            query_size += sprintf(query + query_size, ",str_value)");
+            query_size += sprintf(query + query_size, " VALUES('%s'", param);
+            query_size += sprintf(query + query_size, ",'%s');", str_val);
+
+        }else if (float_val > -FLT_MIN){
+            query_size += sprintf(query + query_size, ",flt_value)");
+            query_size += sprintf(query + query_size, " VALUES('%s'", param);
+            query_size += sprintf(query + query_size, ",%f);", float_val);
+
+        }else{
+            query_size += sprintf(query + query_size, ",int_value)");
+            query_size += sprintf(query + query_size, " VALUES('%s'", param);
+            query_size += sprintf(query + query_size, ",%d);", int_val);
+        }
+
+        char *errmsg = NULL;
+        int ret = pddl_sqlite3_exec(db, query, NULL, NULL, &errmsg);
+        FREE(query);
+        if (ret != SQLITE_OK){
+            ERR(err, "Sqlite Error: %s", errmsg);
+            pddl_sqlite3_free(errmsg);
+            return -1;
+        }
+        return 0;
+    }
+
+#define SQL_INS_INFO_STR(P, V) \
+    _sqlInsertInfo(db, P, INT_MIN, -FLT_MIN, V, err)
+#define SQL_INS_INFO_INT(P, V) \
+    _sqlInsertInfo(db, P, V, -FLT_MIN, NULL, err)
+#define SQL_INS_INFO_FLT(P, V) \
+    _sqlInsertInfo(db, P, INT_MIN, V, NULL, err)
+
+    int save(pddl_sqlite3 *db, pddl_err_t *err)
+    {
+        char *errmsg = NULL;
+        if (SQL_INS_INFO_STR("cpddl_version", pddl_version) != 0
+                || SQL_INS_INFO_STR("domain_name", domain_name) != 0
+                || SQL_INS_INFO_STR("domain_hash", domain_hash) != 0
+
+                || SQL_INS_INFO_INT("epoch", train_stats.epoch) != 0
+                || SQL_INS_INFO_INT("num_samples", train_stats.num_samples) != 0
+                || SQL_INS_INFO_FLT("overall_loss", train_stats.overall_loss) != 0
+                || SQL_INS_INFO_FLT("success_rate", train_stats.success_rate) != 0
+
+                || SQL_INS_INFO_INT("cfg_hidden_dimension", cfg.hidden_dimension) != 0
+                || SQL_INS_INFO_INT("cfg_num_layers", cfg.num_layers) != 0
+                || SQL_INS_INFO_INT("cfg_random_seed", cfg.random_seed) != 0
+                || SQL_INS_INFO_FLT("cfg_weight_decay", cfg.weight_decay) != 0
+                || SQL_INS_INFO_FLT("cfg_dropout_rate", cfg.dropout_rate) != 0
+                || SQL_INS_INFO_INT("cfg_batch_size", cfg.batch_size) != 0
+                || SQL_INS_INFO_INT("cfg_double_batch_size_every_epoch",
+                                    cfg.double_batch_size_every_epoch) != 0
+                || SQL_INS_INFO_INT("cfg_max_train_epochs", cfg.max_train_epochs) != 0
+                || SQL_INS_INFO_INT("cfg_train_steps", cfg.train_steps) != 0
+                || SQL_INS_INFO_INT("cfg_policy_rollout_limit", cfg.policy_rollout_limit) != 0
+                || SQL_INS_INFO_FLT("cfg_teacher_timeout", cfg.teacher_timeout) != 0
+                || SQL_INS_INFO_FLT("cfg_early_termination_success_rate",
+                                    cfg.early_termination_success_rate) != 0
+                || SQL_INS_INFO_INT("cfg_early_termination_epochs",
+                                    cfg.early_termination_epochs) != 0){
+            pddl_sqlite3_free(errmsg);
+            TRACE_RET(err, -1);
+        }
+        return 0;
+    }
+
+
+    int _sqlSelectInfo(pddl_sqlite3 *db,
+                       pddl_sqlite3_stmt *stmt,
+                       const char *param,
+                       int *int_val,
+                       float *flt_val,
+                       char *str_val,
+                       pddl_err_t *err)
+    {
+        pddl_sqlite3_reset(stmt);
+        int ret = pddl_sqlite3_bind_text(stmt, 1, param, -1, SQLITE_STATIC);
+        if (ret != SQLITE_OK){
+            ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                    pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+        }
+
+        int found = (ret = pddl_sqlite3_step(stmt)) == SQLITE_ROW;
+        if (ret != SQLITE_ROW && ret != SQLITE_DONE){
+            ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                    pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+        }
+        if (!found)
+            ERR_RET(err, -1, "Parameter %s not found.", param);
+
+        if (int_val != NULL)
+            *int_val = pddl_sqlite3_column_int(stmt, 0);
+        if (flt_val != NULL)
+            *flt_val = pddl_sqlite3_column_double(stmt, 1);
+        if (str_val != NULL){
+            const unsigned char *v = pddl_sqlite3_column_text(stmt, 2);
+            strcpy(str_val, (const char *)v);
+        }
+        return 0;
+    }
+
+    int _sqlSelectInfoInt(pddl_sqlite3 *db,
+                          pddl_sqlite3_stmt *stmt,
+                          const char *param,
+                          pddl_err_t *err)
+    {
+        int val;
+        int ret = _sqlSelectInfo(db, stmt, param, &val, NULL, NULL, err);
+        if (ret < 0)
+            TRACE_RET(err, INT_MIN);
+        return val;
+
+    }
+
+    float _sqlSelectInfoFlt(pddl_sqlite3 *db,
+                            pddl_sqlite3_stmt *stmt,
+                            const char *param,
+                            pddl_err_t *err)
+    {
+        float val;
+        int ret = _sqlSelectInfo(db, stmt, param, NULL, &val, NULL, err);
+        if (ret < 0)
+            TRACE_RET(err, -FLT_MIN);
+        return val;
+
+    }
+
+    int _sqlSelectInfoStr(pddl_sqlite3 *db,
+                          pddl_sqlite3_stmt *stmt,
+                          const char *param,
+                          char *val,
+                          pddl_err_t *err)
+    {
+        int ret = _sqlSelectInfo(db, stmt, param, NULL, NULL, val, err);
+        if (ret < 0)
+            TRACE_RET(err, -1);
+        return 0;
+    }
+
+#define SQL_INFO_CFG_INT(N) \
+    do { \
+        cfg.N = _sqlSelectInfoInt(db, stmt, "cfg_" #N, err); \
+        if (cfg.N == INT_MIN){ \
+            TRACE_RET(err, -1); \
+        }else{ \
+            LOG(err, "cfg." #N " = %d", cfg.N); \
+        } \
+    } while (0)
+
+#define SQL_INFO_CFG_FLT(N) \
+    do { \
+        cfg.N = _sqlSelectInfoFlt(db, stmt, "cfg_" #N, err); \
+        if (cfg.N == -FLT_MIN){ \
+            TRACE_RET(err, -1); \
+        }else{ \
+            LOG(err, "cfg." #N " = %f", cfg.N); \
+        } \
+    } while (0)
+
+    int load(pddl_sqlite3 *db, pddl_err_t *err)
+    {
+        pddl_sqlite3_stmt *stmt;
+        int ret = pddl_sqlite3_prepare_v2(db, sql_query_info, -1, &stmt, NULL);
+        if (ret != SQLITE_OK){
+            ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                    pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+        }
+
+        if (_sqlSelectInfoStr(db, stmt, "cpddl_version", cpddl_version, err) != 0)
+            TRACE_RET(err, -1);
+        LOG(err, "cpddl version = %s", cpddl_version);
+        if (_sqlSelectInfoStr(db, stmt, "domain_name", domain_name, err) != 0)
+            TRACE_RET(err, -1);
+        LOG(err, "domain name = %s", domain_name);
+        if (_sqlSelectInfoStr(db, stmt, "domain_hash", domain_hash, err) != 0)
+            TRACE_RET(err, -1);
+        LOG(err, "domain hash = %s", domain_hash);
+
+        train_stats.epoch = _sqlSelectInfoInt(db, stmt, "epoch", err);
+        if (train_stats.epoch == INT_MIN)
+            TRACE_RET(err, -1);
+        LOG(err, "train epoch = %d", train_stats.epoch);
+        train_stats.num_samples = _sqlSelectInfoInt(db, stmt, "num_samples", err);
+        if (train_stats.num_samples == INT_MIN)
+            TRACE_RET(err, -1);
+        LOG(err, "num samples = %d", train_stats.num_samples);
+        train_stats.success_rate = _sqlSelectInfoFlt(db, stmt, "success_rate", err);
+        if (train_stats.success_rate == -FLT_MIN)
+            TRACE_RET(err, -1);
+        LOG(err, "success rate = %f", train_stats.success_rate);
+        train_stats.overall_loss = _sqlSelectInfoFlt(db, stmt, "overall_loss", err);
+        if (train_stats.overall_loss == -FLT_MIN)
+            TRACE_RET(err, -1);
+        LOG(err, "overall loss = %f", train_stats.overall_loss);
+
+        SQL_INFO_CFG_INT(hidden_dimension);
+        SQL_INFO_CFG_INT(num_layers);
+        SQL_INFO_CFG_FLT(weight_decay);
+        SQL_INFO_CFG_FLT(dropout_rate);
+        SQL_INFO_CFG_INT(random_seed);
+        SQL_INFO_CFG_INT(batch_size);
+        SQL_INFO_CFG_INT(double_batch_size_every_epoch);
+        SQL_INFO_CFG_INT(max_train_epochs);
+        SQL_INFO_CFG_INT(train_steps);
+        SQL_INFO_CFG_INT(policy_rollout_limit);
+        SQL_INFO_CFG_FLT(teacher_timeout);
+        SQL_INFO_CFG_FLT(early_termination_success_rate);
+        SQL_INFO_CFG_INT(early_termination_epochs);
+        return 0;
+    }
+};
+
+
+
+static int sqlInsertWeights(pddl_sqlite3 *db,
+                            pddl_sqlite3_stmt *stmt,
+                            int id,
+                            int layer,
+                            int sig,
+                            const char *name,
+                            int idx,
+                            const dynet::Parameter &param,
+                            pddl_err_t *err)
 {
-    // TODO
+    pddl_sqlite3_reset(stmt);
+    int ret = pddl_sqlite3_bind_int(stmt, 1, id);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    ret = pddl_sqlite3_bind_int(stmt, 2, layer);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    ret = pddl_sqlite3_bind_int(stmt, 3, sig);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    ret = pddl_sqlite3_bind_text(stmt, 4, name, -1, SQLITE_STATIC);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    ret = pddl_sqlite3_bind_int(stmt, 5, idx);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    const dynet::Tensor *val = ((dynet::Parameter &)param).values();
+    size_t size = sizeof(float) * val->d.size();
+    ret = pddl_sqlite3_bind_blob(stmt, 6, val->v, size, SQLITE_STATIC);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    ret = pddl_sqlite3_step(stmt);
+    if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+    return 0;
 }
 
-void pddlASNetsLoadWeights(pddl_asnets_t *a, const char *fn)
+
+static int sqlSelectWeights(pddl_sqlite3 *db,
+                            pddl_sqlite3_stmt *stmt,
+                            int id,
+                            int param_layer,
+                            int param_sig,
+                            const char *param_name,
+                            int param_idx,
+                            dynet::Parameter &param,
+                            pddl_err_t *err)
 {
-    // TODO
+    pddl_sqlite3_reset(stmt);
+    int ret = pddl_sqlite3_bind_int(stmt, 1, id);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    int found = (ret = pddl_sqlite3_step(stmt)) == SQLITE_ROW;
+    if (ret != SQLITE_ROW && ret != SQLITE_DONE){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+    if (!found)
+        ERR_RET(err, -1, "Weight %d not found.", id);
+
+    int layer = pddl_sqlite3_column_int(stmt, 0);
+    if (layer != param_layer){
+        ERR_RET(err, -1, "Layers do not match (stored layer: %d, requested: %d)",
+                layer, param_layer);
+    }
+
+    int sig = pddl_sqlite3_column_int(stmt, 1);
+    if (sig != param_sig)
+        ERR_RET2(err, -1, "Stored weights don't match");
+
+    const unsigned char *name = pddl_sqlite3_column_text(stmt, 2);
+    if (strcmp((const char *)name, param_name) != 0){
+        ERR_RET(err, -1, "Stored weights don't match"
+                " (stored name: %s, requested: %s)", name, param_name);
+    }
+
+    int idx = pddl_sqlite3_column_int(stmt, 3);
+    if (idx != param_idx){
+        ERR_RET(err, -1, "Stored weights don't match"
+                " (stored index: %d, requested: %d)", idx, param_idx);
+    }
+
+    int w_size = pddl_sqlite3_column_bytes(stmt, 4) / sizeof(float);
+    if (w_size != (int)param.dim().size()){
+        ERR_RET(err, -1, "Size of weights don't match"
+                " (stored size: %d, requested: %d)",
+                w_size, (int)param.dim().size());
+    }
+
+    const float *w = (const float *)pddl_sqlite3_column_blob(stmt, 4);
+    std::vector<float> warr(w, w + w_size);
+    dynet::TensorTools::set_elements(*param.values(), warr);
+
+    return 0;
+}
+
+int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
+{
+    pddl_sqlite3 *db;
+    int flags = SQLITE_OPEN_READWRITE
+                    | SQLITE_OPEN_CREATE;
+    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    Info info(a);
+    if (info.create(db, err) != 0 || info.save(db, err) != 0){
+        pddl_sqlite3_close_v2(db);
+        TRACE_RET(err, -1);
+    }
+
+    char *errmsg = NULL;
+    ret = pddl_sqlite3_exec(db, sql_create_weights, NULL, NULL, &errmsg);
+    if (ret != SQLITE_OK){
+        pddl_sqlite3_close_v2(db);
+        ERR(err, "Sqlite Error: %s", errmsg);
+        pddl_sqlite3_free(errmsg);
+        return -1;
+    }
+
+    pddl_sqlite3_stmt *stmt;
+    ret = pddl_sqlite3_prepare_v2(db, sql_insert_weights, -1, &stmt, NULL);
+    if (ret != SQLITE_OK){
+        pddl_sqlite3_close_v2(db);
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    int id = 0;
+    for (int layer = 0; layer <= a->params->num_layers; ++layer){
+        const std::vector<ActionModule *> &acts = a->params->action[layer];
+        for (size_t i = 0; i < acts.size(); ++i){
+            ret = sqlInsertWeights(db, stmt, id, layer, SIG_ACTION_W,
+                                   a->lifted_task.pddl.action.action[i].name,
+                                   i, acts[i]->W, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+
+            ret = sqlInsertWeights(db, stmt, id, layer, SIG_ACTION_B,
+                                   a->lifted_task.pddl.action.action[i].name,
+                                   i, acts[i]->bias, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+        }
+        if (layer == a->params->num_layers)
+            break;
+
+        const std::vector<PropositionModule *> &props = a->params->prop[layer];
+        for (size_t i = 0; i < props.size(); ++i){
+            ret = sqlInsertWeights(db, stmt, id, layer, SIG_PROP_W,
+                                   a->lifted_task.pddl.pred.pred[i].name,
+                                   i, props[i]->W, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+
+            ret = sqlInsertWeights(db, stmt, id, layer, SIG_PROP_B,
+                                   a->lifted_task.pddl.pred.pred[i].name,
+                                   i, props[i]->bias, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+        }
+    }
+    pddl_sqlite3_finalize(stmt);
+
+    ret = pddl_sqlite3_close_v2(db);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+    return 0;
+}
+
+int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
+{
+    CTX(err, "asnets_load", "ASNets-Load");
+    LOG(err, "Loading model from %s", fn);
+    pddl_sqlite3 *db;
+    int flags = SQLITE_OPEN_READONLY;
+    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
+    if (ret != SQLITE_OK){
+        CTXEND(err);
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    Info info;
+    if (info.load(db, err) != 0){
+        pddl_sqlite3_close_v2(db);
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
+    Info info_cur(a);
+    if (!info_cur.checkLoadedInfo(info, err)){
+        pddl_sqlite3_close_v2(db);
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
+
+    pddl_sqlite3_stmt *w_stmt;
+    ret = pddl_sqlite3_prepare_v2(db, sql_query_weights, -1, &w_stmt, NULL);
+    if (ret != SQLITE_OK){
+        pddl_sqlite3_close_v2(db);
+        CTXEND(err);
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    int id = 0;
+    for (int layer = 0; layer <= a->params->num_layers; ++layer){
+        std::vector<ActionModule *> &acts = a->params->action[layer];
+        for (size_t i = 0; i < acts.size(); ++i){
+            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_ACTION_W,
+                                   a->lifted_task.pddl.action.action[i].name,
+                                   i, acts[i]->W, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                CTXEND(err);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+
+            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_ACTION_B,
+                                   a->lifted_task.pddl.action.action[i].name,
+                                   i, acts[i]->bias, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                CTXEND(err);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+        }
+        if (layer == a->params->num_layers)
+            break;
+
+        std::vector<PropositionModule *> &props = a->params->prop[layer];
+        for (size_t i = 0; i < props.size(); ++i){
+            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_PROP_W,
+                                   a->lifted_task.pddl.pred.pred[i].name,
+                                   i, props[i]->W, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                CTXEND(err);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+
+            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_PROP_B,
+                                   a->lifted_task.pddl.pred.pred[i].name,
+                                   i, props[i]->bias, err);
+            if (ret != 0){
+                pddl_sqlite3_close_v2(db);
+                CTXEND(err);
+                TRACE_RET(err, -1);
+            }
+            ++id;
+        }
+    }
+
+
+    pddl_sqlite3_finalize(w_stmt);
+
+    ret = pddl_sqlite3_close_v2(db);
+    if (ret != SQLITE_OK){
+        CTXEND(err);
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+    CTXEND(err);
+    return 0;
 }
 
 static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
@@ -728,13 +1364,9 @@ static int trainStep(pddl_asnets_t *a,
                      int epoch,
                      int train_step,
                      pddl_asnets_train_data_t *data,
-                     pddl_asnets_train_stats_t *stats,
                      pddl_err_t *err)
 {
-    //LOG(err, "epoch: %{epoch}d/%d, step: %{step}d/%d",
-    //    epoch, a->cfg.max_train_epochs,
-    //    train_step, a->cfg.train_cycles);
-    stats->train_step = train_step + 1;
+    a->train_stats.train_step = train_step + 1;
 
     // Sample a minibatch
     pddlASNetsTrainDataShuffle(data);
@@ -751,10 +1383,11 @@ static int trainStep(pddl_asnets_t *a,
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d"
         " | minibatch loss: %{batch_loss}f, size: %{batch_size}d",
-        stats->epoch, stats->max_epochs,
-        stats->train_step, stats->max_train_steps,
-        stats->overall_loss, stats->success_rate, stats->num_samples,
-        stats->consecutive_successful_epochs,
+        a->train_stats.epoch, a->train_stats.max_epochs,
+        a->train_stats.train_step, a->train_stats.max_train_steps,
+        a->train_stats.overall_loss, a->train_stats.success_rate,
+        a->train_stats.num_samples,
+        a->train_stats.consecutive_successful_epochs,
         loss_val, a->cfg.batch_size);
 
     return 0;
@@ -871,11 +1504,10 @@ static float successRate(pddl_asnets_t *a)
 static int trainEpoch(pddl_asnets_t *a,
                       int epoch,
                       pddl_asnets_train_data_t *data,
-                      pddl_asnets_train_stats_t *stats,
                       pddl_err_t *err)
 {
     LOG(err, "epoch: %{epoch}d/%d", epoch, a->cfg.max_train_epochs);
-    stats->epoch = epoch + 1;
+    a->train_stats.epoch = epoch + 1;
 
     // Exploration phase
     for (int ground_task = 0; ground_task < a->ground_task_size; ++ground_task){
@@ -886,7 +1518,7 @@ static int trainEpoch(pddl_asnets_t *a,
             return ret;
         }
     }
-    stats->num_samples = data->sample_size;
+    a->train_stats.num_samples = data->sample_size;
 
     // Training phase
     int num_steps = a->cfg.train_steps;
@@ -895,7 +1527,7 @@ static int trainEpoch(pddl_asnets_t *a,
     LOG(err, "num training steps: %{training_steps}d", num_steps);
     for (int train_step = 0; train_step < num_steps; ++train_step){
         int ret;
-        if ((ret = trainStep(a, epoch, train_step, data, stats, err)) != 0){
+        if ((ret = trainStep(a, epoch, train_step, data, err)) != 0){
             if (ret < 0)
                 TRACE_RET(err, ret);
             return ret;
@@ -903,20 +1535,21 @@ static int trainEpoch(pddl_asnets_t *a,
     }
 
     CTX(err, "success_rate", "Success Rate");
-    stats->success_rate = successRate(a);
-    LOG(err, "Success rate: %{success_rate}f", stats->success_rate);
+    a->train_stats.success_rate = successRate(a);
+    LOG(err, "Success rate: %{success_rate}f", a->train_stats.success_rate);
     CTXEND(err);
     CTX(err, "overall_loss", "Overall Loss");
-    stats->overall_loss = overallLoss(a, data);
-    LOG(err, "Overall loss: %{overall_loss}f", stats->overall_loss);
+    a->train_stats.overall_loss = overallLoss(a, data);
+    LOG(err, "Overall loss: %{overall_loss}f", a->train_stats.overall_loss);
     CTXEND(err);
-    LOG(err, "Train samples: %{train_samples}d", stats->num_samples);
+    LOG(err, "Train samples: %{train_samples}d", a->train_stats.num_samples);
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d",
-        stats->epoch, stats->max_epochs,
-        stats->train_step, stats->max_train_steps,
-        stats->overall_loss, stats->success_rate, stats->num_samples,
-        stats->consecutive_successful_epochs);
+        a->train_stats.epoch, a->train_stats.max_epochs,
+        a->train_stats.train_step, a->train_stats.max_train_steps,
+        a->train_stats.overall_loss, a->train_stats.success_rate,
+        a->train_stats.num_samples,
+        a->train_stats.consecutive_successful_epochs);
     return 0;
 }
 
@@ -926,12 +1559,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
 
-    pddl_asnets_train_stats_t stats;
-    ZEROIZE(&stats);
-    stats.max_epochs = a->cfg.max_train_epochs;
-    stats.max_train_steps = a->cfg.train_steps;
-    stats.success_rate = successRate(a);
-    stats.overall_loss = -1.f;
+    a->train_stats.success_rate = successRate(a);
 
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
         if (a->cfg.double_batch_size_every_epoch > 0
@@ -941,7 +1569,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
         }
 
         int ret;
-        if ((ret = trainEpoch(a, epoch, &data, &stats, err)) != 0){
+        if ((ret = trainEpoch(a, epoch, &data, err)) != 0){
             pddlASNetsTrainDataFree(&data);
             CTXEND(err);
             if (ret < 0)
@@ -949,27 +1577,29 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
             return ret;
         }
 
-        if (stats.success_rate >= a->cfg.early_termination_success_rate){
-            stats.consecutive_successful_epochs += 1;
+        if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){
+            a->train_stats.consecutive_successful_epochs += 1;
         }else{
-            stats.consecutive_successful_epochs = 0;
+            a->train_stats.consecutive_successful_epochs = 0;
         }
 
         LOG(err, "Consecutive successful epochs: %d",
-            stats.consecutive_successful_epochs);
-        if (stats.consecutive_successful_epochs >= a->cfg.early_termination_epochs){
+            a->train_stats.consecutive_successful_epochs);
+        if (a->train_stats.consecutive_successful_epochs
+                >= a->cfg.early_termination_epochs){
             LOG(err, "Reached %d/%d consecutive successful epochs.",
-                stats.consecutive_successful_epochs,
+                a->train_stats.consecutive_successful_epochs,
                 a->cfg.early_termination_epochs);
             LOG2(err, "Terminating training.");
         }
     }
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d",
-        stats.epoch, stats.max_epochs,
-        stats.train_step, stats.max_train_steps,
-        stats.overall_loss, stats.success_rate, stats.num_samples,
-        stats.consecutive_successful_epochs);
+        a->train_stats.epoch, a->train_stats.max_epochs,
+        a->train_stats.train_step, a->train_stats.max_train_steps,
+        a->train_stats.overall_loss, a->train_stats.success_rate,
+        a->train_stats.num_samples,
+        a->train_stats.consecutive_successful_epochs);
 
     pddlASNetsTrainDataFree(&data);
     CTXEND(err);
@@ -993,14 +1623,16 @@ void pddlASNetsDel(pddl_asnets_t *a)
     FATAL("This module requires dynet library.");
 }
 
-void pddlASNetsSaveWeights(const pddl_asnets_t *a, const char *fn)
+int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
     FATAL("This module requires dynet library.");
+    return -1;
 }
 
-void pddlASNetsLoadWeights(pddl_asnets_t *a, const char *fn)
+int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
     FATAL("This module requires dynet library.");
+    return -1;
 }
 
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)

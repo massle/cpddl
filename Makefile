@@ -13,6 +13,7 @@ TARGETS  = libpddl.a
 OBJS  = alloc
 OBJS += err
 OBJS += hfunc
+OBJS += sha256
 OBJS += google-city-hash
 OBJS += rand
 OBJS += sort

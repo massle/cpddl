@@ -9,6 +9,7 @@
 #include "pddl/lifted_mgroup_infer.h"
 #include "pddl/strips_ground_datalog.h"
 #include "pddl/critical_path.h"
+#include "pddl/sha256.h"
 
 static void addRelatedAction(pddl_asnets_pred_t *pred, int action_id, int pos)
 {
@@ -121,6 +122,31 @@ void pddlASNetsLiftedTaskFree(pddl_asnets_lifted_task_t *lt)
     if (lt->pred != NULL)
         FREE(lt->pred);
     pddlFree(&lt->pddl);
+}
+
+void pddlASNetsLiftedTaskToSHA256(const pddl_asnets_lifted_task_t *lt,
+                                  char *hash_str)
+{
+    pddl_sha256_t sha;
+    char hash[PDDL_SHA256_HASH_SIZE];
+    pddlSHA256Init(&sha);
+    for (int i = 0; i < lt->pddl.type.type_size; ++i){
+        const pddl_type_t *type = lt->pddl.type.type + i;
+        if (type->name != NULL)
+            pddlSHA256Update(&sha, type->name, strlen(type->name));
+    }
+    for (int i = 0; i < lt->pddl.pred.pred_size; ++i){
+        const pddl_pred_t *pred = lt->pddl.pred.pred + i;
+        if (pred->name != NULL)
+            pddlSHA256Update(&sha, pred->name, strlen(pred->name));
+    }
+    for (int i = 0; i < lt->pddl.action.action_size; ++i){
+        const pddl_action_t *action = lt->pddl.action.action + i;
+        if (action->name != NULL)
+            pddlSHA256Update(&sha, action->name, strlen(action->name));
+    }
+    pddlSHA256Finalize(&sha, hash);
+    pddlSHA256ToStr(hash, hash_str);
 }
 
 static int atomEq(const pddl_ground_atom_t *a1,

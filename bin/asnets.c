@@ -14,9 +14,21 @@ int main(int argc, char *argv[])
     pddl_asnets_config_t cfg = PDDL_ASNETS_CONFIG_INIT;
     pddl_asnets_t *asnets = pddlASNetsNew(domain_fn, problem_fn, argc - 2,
                                           &cfg, &err);
+    if (1)
+    {
+        int ret = pddlASNetsLoad(asnets, "model.asnets", &err);
+        if (ret < 0)
+            pddlErrPrint(&err, 1, stderr);
+        return ret;
+    }
     int ret = pddlASNetsTrain(asnets, &err);
+    if (ret == 0){
+        ret = pddlASNetsSave(asnets, "model.asnets", &err);
+    }
+
     if (ret < 0)
         pddlErrPrint(&err, 1, stderr);
+
     pddlASNetsDel(asnets);
     return ret;
 }

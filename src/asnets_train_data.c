@@ -89,6 +89,7 @@ void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
     pddlHTableDel(td->htable);
 
     pddl_list_t list;
+    pddlListInit(&list);
     pddlHTableGather(td->fail_cache, &list);
     while (!pddlListEmpty(&list)){
         pddl_list_t *item = pddlListNext(&list);
