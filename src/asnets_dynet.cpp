@@ -801,7 +801,7 @@ struct Info {
             query_size += sprintf(query + query_size, " VALUES('%s'", param);
             query_size += sprintf(query + query_size, ",'%s');", str_val);
 
-        }else if (float_val > -FLT_MIN){
+        }else if (float_val > -FLT_MAX){
             query_size += sprintf(query + query_size, ",flt_value)");
             query_size += sprintf(query + query_size, " VALUES('%s'", param);
             query_size += sprintf(query + query_size, ",%f);", float_val);
@@ -824,9 +824,9 @@ struct Info {
     }
 
 #define SQL_INS_INFO_STR(P, V) \
-    _sqlInsertInfo(db, P, INT_MIN, -FLT_MIN, V, err)
+    _sqlInsertInfo(db, P, INT_MIN, -FLT_MAX, V, err)
 #define SQL_INS_INFO_INT(P, V) \
-    _sqlInsertInfo(db, P, V, -FLT_MIN, NULL, err)
+    _sqlInsertInfo(db, P, V, -FLT_MAX, NULL, err)
 #define SQL_INS_INFO_FLT(P, V) \
     _sqlInsertInfo(db, P, INT_MIN, V, NULL, err)
 
@@ -920,7 +920,7 @@ struct Info {
         float val;
         int ret = _sqlSelectInfo(db, stmt, param, NULL, &val, NULL, err);
         if (ret < 0)
-            TRACE_RET(err, -FLT_MIN);
+            TRACE_RET(err, -FLT_MAX);
         return val;
 
     }
@@ -950,7 +950,7 @@ struct Info {
 #define SQL_INFO_CFG_FLT(N) \
     do { \
         cfg.N = _sqlSelectInfoFlt(db, stmt, "cfg_" #N, err); \
-        if (cfg.N == -FLT_MIN){ \
+        if (cfg.N == -FLT_MAX){ \
             TRACE_RET(err, -1); \
         }else{ \
             LOG(err, "cfg." #N " = %f", cfg.N); \
@@ -985,11 +985,11 @@ struct Info {
             TRACE_RET(err, -1);
         LOG(err, "num samples = %d", train_stats.num_samples);
         train_stats.success_rate = _sqlSelectInfoFlt(db, stmt, "success_rate", err);
-        if (train_stats.success_rate == -FLT_MIN)
+        if (train_stats.success_rate == -FLT_MAX)
             TRACE_RET(err, -1);
         LOG(err, "success rate = %f", train_stats.success_rate);
         train_stats.overall_loss = _sqlSelectInfoFlt(db, stmt, "overall_loss", err);
-        if (train_stats.overall_loss == -FLT_MIN)
+        if (train_stats.overall_loss == -FLT_MAX)
             TRACE_RET(err, -1);
         LOG(err, "overall loss = %f", train_stats.overall_loss);
 
