@@ -79,6 +79,9 @@ static char *parseDomainName(pddl_lisp_t *lisp, pddl_err_t *err)
 
 static char *parseProblemName(pddl_lisp_t *lisp, pddl_err_t *err)
 {
+    if (lisp == NULL)
+        return STRDUP("no-problem");
+
     const char *name = parseName(lisp, PDDL_KW_PROBLEM, "problem", err);
     if (name != NULL)
         return STRDUP(name);
@@ -87,13 +90,16 @@ static char *parseProblemName(pddl_lisp_t *lisp, pddl_err_t *err)
 
 static int checkDomainName(pddl_t *pddl, pddl_err_t *err)
 {
+    if (pddl->problem_lisp == NULL)
+        return 0;
+
     const char *problem_domain_name;
 
     // TODO: Configure err/warn/nothing
     problem_domain_name = parseName(pddl->problem_lisp,
                                     PDDL_KW_DOMAIN2, ":domain", err);
     if (problem_domain_name == NULL)
-        TRACE_RET(err, 0);
+        TRACE_RET(err, -1);
 
     if (strcmp(problem_domain_name, pddl->domain_name) != 0){
         WARN(err, "Domain names does not match: `%s' x `%s'",
@@ -105,6 +111,9 @@ static int checkDomainName(pddl_t *pddl, pddl_err_t *err)
 
 static int parseMetric(pddl_t *pddl, const pddl_lisp_t *lisp, pddl_err_t *err)
 {
+    if (lisp == NULL)
+        return 0;
+
     const pddl_lisp_node_t *n;
 
     n = pddlLispFindNode(&lisp->root, PDDL_KW_METRIC);
@@ -127,6 +136,11 @@ static int parseMetric(pddl_t *pddl, const pddl_lisp_t *lisp, pddl_err_t *err)
 
 static int parseInit(pddl_t *pddl, pddl_err_t *err)
 {
+    if (pddl->problem_lisp == NULL){
+        pddl->init = pddlFmToAnd(pddlFmNewEmptyAnd());
+        return 0;
+    }
+
     const pddl_lisp_node_t *ninit;
 
     ninit = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_INIT);
@@ -150,6 +164,11 @@ static int parseInit(pddl_t *pddl, pddl_err_t *err)
 
 static int parseGoal(pddl_t *pddl, pddl_err_t *err)
 {
+    if (pddl->problem_lisp == NULL){
+        pddl->goal = &pddlFmNewBool(0)->fm;
+        return 0;
+    }
+
     const pddl_lisp_node_t *ngoal;
 
     ngoal = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_GOAL);
@@ -178,8 +197,11 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     ZEROIZE(pddl);
     pddl->cfg = *cfg;
 
+    if (problem_fn == NULL)
+        pddl->only_domain = 1;
+
     LOG(err, "Processing %{domain_fn}s and %{problem_fn}s.",
-        domain_fn, problem_fn);
+        domain_fn, (problem_fn != NULL ? problem_fn : "null"));
 
     if (!checkConfig(cfg)){
         CTXEND(err);
@@ -193,13 +215,15 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         TRACE_RET(err, -1);
     }
 
-    LOG2(err, "Parsing problem lisp file...");
-    pddl->problem_lisp = pddlLispParse(problem_fn, err);
-    if (pddl->problem_lisp == NULL){
-        CTXEND(err);
-        if (pddl->domain_lisp)
-            pddlLispDel(pddl->domain_lisp);
-        TRACE_RET(err, -1);
+    if (problem_fn != NULL){
+        LOG2(err, "Parsing problem lisp file...");
+        pddl->problem_lisp = pddlLispParse(problem_fn, err);
+        if (pddl->problem_lisp == NULL){
+            CTXEND(err);
+            if (pddl->domain_lisp)
+                pddlLispDel(pddl->domain_lisp);
+            TRACE_RET(err, -1);
+        }
     }
 
     LOG2(err, "Parsing entire contents of domain/problem PDDL...");
@@ -275,7 +299,8 @@ void pddlInitCopy(pddl_t *dst, const pddl_t *src)
     ZEROIZE(dst);
     dst->cfg = src->cfg;
     dst->domain_lisp = pddlLispClone(src->domain_lisp);
-    dst->problem_lisp = pddlLispClone(src->problem_lisp);
+    if (src->problem_lisp != NULL)
+        dst->problem_lisp = pddlLispClone(src->problem_lisp);
     if (src->domain_name != NULL)
         dst->domain_name = STRDUP(src->domain_name);
     if (src->problem_name != NULL)
@@ -712,7 +737,8 @@ void pddlNormalize(pddl_t *pddl)
     ASSERT_RUNTIME(c->type == PDDL_FM_AND);
     pddl->init = pddlFmToAnd(c);
 
-    removeActionsWithUnsatisfiableArgs(pddl);
+    if (!pddl->only_domain)
+        removeActionsWithUnsatisfiableArgs(pddl);
 
     for (int i = 0; i < pddl->action.action_size; ++i)
         pddlActionNormalize(pddl->action.action + i, pddl);
@@ -720,7 +746,8 @@ void pddlNormalize(pddl_t *pddl)
     for (int i = 0; i < pddl->action.action_size; ++i)
         pddlActionSplit(pddl->action.action + i, pddl);
 
-    removeIrrelevantActions(pddl);
+    if (!pddl->only_domain)
+        removeIrrelevantActions(pddl);
 
 #ifdef PDDL_DEBUG
     for (int i = 0; i < pddl->action.action_size; ++i){
@@ -732,10 +759,12 @@ void pddlNormalize(pddl_t *pddl)
         pddl->goal = pddlFmNormalize(pddl->goal, pddl, NULL);
 
     compileOutNonStaticNegPre(pddl);
-    removeIrrelevantActions(pddl);
-    do {
-        pddlResetPredReadWrite(pddl);
-    } while (removeUnreachableActions(pddl));
+    if (!pddl->only_domain){
+        removeIrrelevantActions(pddl);
+        do {
+            pddlResetPredReadWrite(pddl);
+        } while (removeUnreachableActions(pddl));
+    }
     pddl->normalized = 1;
 }
 

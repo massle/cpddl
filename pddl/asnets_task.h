@@ -82,7 +82,6 @@ typedef struct pddl_asnets_ground_task pddl_asnets_ground_task_t;
 
 int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
-                             const char *problem_fn,
                              pddl_err_t *err);
 void pddlASNetsLiftedTaskFree(pddl_asnets_lifted_task_t *lt);
 void pddlASNetsLiftedTaskToSHA256(const pddl_asnets_lifted_task_t *lt,

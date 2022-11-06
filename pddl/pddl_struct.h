@@ -55,20 +55,37 @@ typedef struct pddl_config pddl_config_t;
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err);
 
 struct pddl {
+    /** Configuration */
     pddl_config_t cfg;
+    /** True if the pddl struct was built only from the domain file */
+    int only_domain;
+    /** Underlying lisp of the domain file */
     pddl_lisp_t *domain_lisp;
+    /** Underlying lisp of the problem file, is NULL iff .only_domain is true */
     pddl_lisp_t *problem_lisp;
+    /** Domain name from the domain file */
     char *domain_name;
+    /** Problem name from the problem file */
     char *problem_name;
+    /** :requirements flags */
     pddl_require_flags_t require;
+    /** List of types */
     pddl_types_t type;
+    /** List of objects -- both :constants and :objects together */
     pddl_objs_t obj;
+    /** List of predicates */
     pddl_preds_t pred;
+    /** List of functions */
     pddl_preds_t func;
+    /** The initial state */
     pddl_fm_and_t *init;
+    /** The goal condition */
     pddl_fm_t *goal;
+    /** List of actions */
     pddl_actions_t action;
+    /** True if metric is defined in the problem file (i.e., (minimize ...)) */
     int metric;
+    /** True if the task was normalized */
     int normalized;
 };
 

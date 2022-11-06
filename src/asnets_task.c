@@ -67,7 +67,6 @@ static int addUniqueRelatedAtom(pddl_asnets_action_t *action,
 
 int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
-                             const char *problem_fn,
                              pddl_err_t *err)
 {
     ZEROIZE(lt);
@@ -75,7 +74,9 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
     pddl_cfg.force_adl = 1;
     pddl_cfg.normalize = 1;
     pddl_cfg.enforce_unit_cost = 1;
-    if (pddlInit(&lt->pddl, domain_fn, problem_fn, &pddl_cfg, err) != 0)
+    pddl_cfg.remove_empty_types = 0;
+    pddl_cfg.compile_away_cond_eff = 0;
+    if (pddlInit(&lt->pddl, domain_fn, NULL, &pddl_cfg, err) != 0)
         TRACE_RET(err, -1);
 
     lt->action_size = lt->pddl.action.action_size;

@@ -176,8 +176,10 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
     addEqPredicate(&pddl->pred);
 
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_PREDICATES);
-    if (n == NULL)
+    if (n == NULL){
+        LOG2(err, "No predicates found");
         return 0;
+    }
 
     // Determine if we can expect :private definitions
     private = pddl->require.unfactored_privacy || pddl->require.factored_privacy;
@@ -217,6 +219,8 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
         }
     }
 
+    LOG(err, "Predicates parsed, num predicates: %{parsed_preds}d",
+        pddl->pred.pred_size);
     return 0;
 }
 
@@ -246,8 +250,10 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
     pddl->func.eq_pred = -1;
 
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_FUNCTIONS);
-    if (n == NULL)
+    if (n == NULL){
+        LOG2(err, "No functions found.");
         return 0;
+    }
 
     for (int i = 1; i < n->child_size; ++i){
         if (parsePred(pddl, n->child + i, NULL, "function",
@@ -268,7 +274,8 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
             i += 2;
         }
     }
-
+    LOG(err, "Functions parsed, num functions: %{parsed_funcs}d",
+        pddl->func.pred_size);
     return 0;
 }
 

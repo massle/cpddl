@@ -85,6 +85,7 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
                              int problem_fn_size,
                              const pddl_asnets_config_t *cfg,
                              pddl_err_t *err);
+pddl_asnets_t *pddlASNetsNewFromConfigFile(const char *cfg_fn, pddl_err_t *err);
 
 void pddlASNetsDel(pddl_asnets_t *a);
 

@@ -613,7 +613,7 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
     a->cfg = *cfg;
     
     int st;
-    st = pddlASNetsLiftedTaskInit(&a->lifted_task, domain_fn, problem_fn[0], err);
+    st = pddlASNetsLiftedTaskInit(&a->lifted_task, domain_fn, err);
     if (st < 0){
         CTXEND(err);
         TRACE_RET(err, NULL);

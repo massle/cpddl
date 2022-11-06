@@ -106,6 +106,9 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
                  pddl_err_t *err)
 
 {
+    if (lisp == NULL)
+        return 0;
+
     const pddl_lisp_node_t *n;
     int to;
     set_t set;
@@ -138,12 +141,20 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
         return -1;
     }
 
+    if (is_const){
+        LOG(err, ":constants parsed, num constants: %{parsed_consts}d",
+            pddl->obj.obj_size);
+    }
+
     return 0;
 }
 
 static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
                         pddl_err_t *err)
 {
+    if (lisp == NULL)
+        return 0;
+
     const pddl_lisp_node_t *n, *p;
     int i, factor, pi, parse_from;
     pddl_obj_id_t owner;
@@ -216,6 +227,8 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
     for (i = 0; i < pddl->obj.obj_size; ++i)
         pddlTypesAddObj(&pddl->type, i, pddl->obj.obj[i].type);
 
+    LOG(err, "Objects parsed, num objects: %{parsed_objs}d",
+        pddl->obj.obj_size);
     return 0;
 }
 
