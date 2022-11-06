@@ -15,6 +15,7 @@ OBJS += err
 OBJS += hfunc
 OBJS += sha256
 OBJS += google-city-hash
+OBJS += toml
 OBJS += rand
 OBJS += sort
 OBJS += qsort
@@ -310,8 +311,16 @@ list-global-symbols: libpddl.a
         | sort \
         | uniq \
         | grep -v '^pddl' \
+        | grep -v '^_pddl' \
+        | grep -v '^__pddl' \
         | grep -v '^_Z.*Ilo' \
         | grep -v '^_Z.*Ilo' \
+        | grep -v '^_Z.*dynet' \
+        | grep -v '^CPX' \
+        | grep -v '^GRB' \
+        | grep -v '^glp_' \
+        | grep -v '^bliss_' \
+        | grep -v '^Cudd_' \
         | less
 
 third-party: bliss cudd

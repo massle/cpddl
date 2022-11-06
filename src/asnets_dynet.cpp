@@ -6,6 +6,7 @@
 
 #include "internal.h"
 #include "sqlite3.h"
+#include "toml.h"
 #include "pddl/asnets.h"
 #include "pddl/asnets_task.h"
 #include "pddl/asnets_train_data.h"
@@ -18,6 +19,202 @@
 #include <dynet/param-init.h>
 
 static const float SMALL_CONST = 1E-6f;
+
+void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
+{
+    LOG(err, "domain_pddl = %{domain_pddl}s", cfg->domain_pddl);
+    LOG_CONFIG_INT(cfg, problem_pddl_size, err);
+    for (int i = 0; i < cfg->problem_pddl_size; ++i)
+        LOG(err, "problem_pddl[%d] = %{problem_pddl}s", i, cfg->problem_pddl[i]);
+    LOG_CONFIG_INT(cfg, hidden_dimension, err);
+    LOG_CONFIG_INT(cfg, num_layers, err);
+    LOG_CONFIG_INT(cfg, random_seed, err);
+    LOG_CONFIG_DBL(cfg, weight_decay, err);
+    LOG_CONFIG_DBL(cfg, dropout_rate, err);
+    LOG_CONFIG_INT(cfg, batch_size, err);
+    LOG_CONFIG_INT(cfg, double_batch_size_every_epoch, err);
+    LOG_CONFIG_INT(cfg, max_train_epochs, err);
+    LOG_CONFIG_INT(cfg, train_steps, err);
+    LOG_CONFIG_INT(cfg, policy_rollout_limit, err);
+    LOG_CONFIG_DBL(cfg, teacher_timeout, err);
+    LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
+    LOG_CONFIG_INT(cfg, early_termination_epochs, err);
+}
+
+void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
+{
+    ZEROIZE(cfg);
+    cfg->hidden_dimension = 16;
+    cfg->num_layers = 2;
+    cfg->random_seed = 6961;
+    cfg->weight_decay = 2E-4;
+    cfg->dropout_rate = 0.1;
+    cfg->batch_size = 64;
+    cfg->double_batch_size_every_epoch = 0;
+    cfg->max_train_epochs = 300;
+    cfg->train_steps = 700;
+    cfg->policy_rollout_limit = 1000;
+    cfg->teacher_timeout = 10.f;
+    cfg->early_termination_success_rate = 0.999;
+    cfg->early_termination_epochs = 20;
+}
+
+void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
+                              const pddl_asnets_config_t *src)
+{
+    *dst = *src;
+    if (src->domain_pddl != NULL)
+        dst->domain_pddl = STRDUP(src->domain_pddl);
+
+    if (dst->problem_pddl_size > 0){
+        dst->problem_pddl = ALLOC_ARR(char *, dst->problem_pddl_size);
+        for (int i = 0; i < dst->problem_pddl_size; ++i)
+            dst->problem_pddl[i] = STRDUP(src->problem_pddl[i]);
+    }
+}
+
+#define TOML_INT(K) \
+    do { \
+        if (pddl_toml_key_exists(c, #K)){ \
+            pddl_toml_datum_t d = pddl_toml_int_in(c, #K); \
+            if (!d.ok){ \
+                pddl_toml_free(top); \
+                ERR_RET2(err, -1, #K " must be int"); \
+            } \
+            cfg->K = d.u.i; \
+        } \
+    } while (0)
+
+#define TOML_FLT(K) \
+    do { \
+        if (pddl_toml_key_exists(c, #K)){ \
+            pddl_toml_datum_t d = pddl_toml_double_in(c, #K); \
+            if (!d.ok){ \
+                pddl_toml_free(top); \
+                ERR_RET2(err, -1, #K " must be float"); \
+            } \
+            cfg->K = d.u.d; \
+        } \
+    } while (0)
+
+int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
+                                 const char *filename,
+                                 pddl_err_t *err)
+{
+    pddlASNetsConfigInit(cfg);
+
+    FILE *fin = fopen(filename, "r");
+    if (fin == NULL)
+        ERR_RET(err, -1, "Could not open file %s", filename);
+
+    pddl_toml_table_t *top = pddl_toml_parse_file(fin, err);
+    fclose(fin);
+    if (top == NULL){
+        TRACE_RET(err, -1);
+    }
+
+    pddl_toml_table_t *c = pddl_toml_table_in(top, "asnets");
+    if (c == NULL){
+        pddl_toml_free(top);
+        ERR_RET2(err, -1, "No [asnets] section in the configuration file.");
+    }
+
+    char *root = NULL;
+    if (pddl_toml_key_exists(c, "root")){
+        pddl_toml_datum_t d = pddl_toml_string_in(c, "root");
+        if (!d.ok){
+            pddl_toml_free(top);
+            ERR_RET2(err, -1, "root must be string");
+        }
+        root = d.u.s;
+    }
+
+    if (pddl_toml_key_exists(c, "domain")){
+        pddl_toml_datum_t d = pddl_toml_string_in(c, "domain");
+        if (!d.ok){
+            pddl_toml_free(top);
+            ERR_RET2(err, -1, "domain must be string");
+        }
+        if (root != NULL){
+            char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
+            sprintf(fn, "%s/%s", root, d.u.s);
+            pddlASNetsConfigSetDomain(cfg, fn);
+            FREE(fn);
+        }else{
+            pddlASNetsConfigSetDomain(cfg, d.u.s);
+        }
+        FREE(d.u.s);
+    }
+
+    if (pddl_toml_key_exists(c, "problems")){
+        const pddl_toml_array_t *arr = pddl_toml_array_in(c, "problems");
+        if (arr == NULL){
+            pddl_toml_free(top);
+            ERR_RET2(err, -1, "problems must be array");
+        }
+        int size = pddl_toml_array_nelem(arr);
+        for (int i = 0; i < size; ++i){
+            pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "Each element of problems must be string");
+            }
+            if (root != NULL){
+                char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
+                sprintf(fn, "%s/%s", root, d.u.s);
+                pddlASNetsConfigAddProblem(cfg, fn);
+                FREE(fn);
+            }else{
+                pddlASNetsConfigAddProblem(cfg, d.u.s);
+            }
+            FREE(d.u.s);
+        }
+    }
+
+    if (root != NULL)
+        FREE(root);
+
+    TOML_INT(hidden_dimension);
+    TOML_INT(num_layers);
+    TOML_INT(random_seed);
+    TOML_FLT(weight_decay);
+    TOML_FLT(dropout_rate);
+    TOML_INT(batch_size);
+    TOML_INT(double_batch_size_every_epoch);
+    TOML_INT(max_train_epochs);
+    TOML_INT(train_steps);
+    TOML_INT(policy_rollout_limit);
+    TOML_FLT(teacher_timeout);
+    TOML_FLT(early_termination_success_rate);
+    TOML_INT(early_termination_epochs);
+
+    pddl_toml_free(top);
+    return 0;
+}
+
+void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
+{
+    if (cfg->domain_pddl != NULL)
+        FREE(cfg->domain_pddl);
+    for (int i = 0; i < cfg->problem_pddl_size; ++i)
+        FREE(cfg->problem_pddl[i]);
+    if (cfg->problem_pddl != NULL)
+        FREE(cfg->problem_pddl);
+}
+
+void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
+{
+    if (cfg->domain_pddl != NULL)
+        FREE(cfg->domain_pddl);
+    cfg->domain_pddl = STRDUP(fn);
+}
+
+void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg, const char *fn)
+{
+    cfg->problem_pddl = REALLOC_ARR(cfg->problem_pddl, char *,
+                                    cfg->problem_pddl_size + 1);
+    cfg->problem_pddl[cfg->problem_pddl_size++] = STRDUP(fn);
+}
 
 static dynet::Expression poolMax(const std::vector<dynet::Expression> &in)
 {
@@ -599,33 +796,33 @@ struct ASNetsTrainMiniBatch {
 
 
 
-pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
-                             const char **problem_fn,
-                             int problem_fn_size,
-                             const pddl_asnets_config_t *cfg,
-                             pddl_err_t *err)
+pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
-    if (problem_fn_size <= 0)
+    if (cfg->problem_pddl_size <= 0)
         ERR_RET2(err, NULL, "ASNets: At least one problem file is required.");
 
     CTX(err, "asnets", "ASNets");
     pddl_asnets_t *a = ZALLOC(pddl_asnets_t);
-    a->cfg = *cfg;
+    pddlASNetsConfigInitCopy(&a->cfg, cfg);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlASNetsConfigLog(&a->cfg, err);
+    CTXEND(err);
     
+    fprintf(stderr, "%s %d\n", cfg->domain_pddl, cfg->problem_pddl_size);
     int st;
-    st = pddlASNetsLiftedTaskInit(&a->lifted_task, domain_fn, err);
+    st = pddlASNetsLiftedTaskInit(&a->lifted_task, cfg->domain_pddl, err);
     if (st < 0){
         CTXEND(err);
         TRACE_RET(err, NULL);
     }
 
-    a->ground_task_size = problem_fn_size;
+    a->ground_task_size = cfg->problem_pddl_size;
     a->ground_task = ALLOC_ARR(pddl_asnets_ground_task, a->ground_task_size);
-    for (int probi = 0; probi < problem_fn_size; ++probi){
+    for (int probi = 0; probi < cfg->problem_pddl_size; ++probi){
         st = pddlASNetsGroundTaskInit(&a->ground_task[probi],
                                       &a->lifted_task,
-                                      domain_fn,
-                                      problem_fn[probi],
+                                      cfg->domain_pddl,
+                                      cfg->problem_pddl[probi],
                                       err);
         if (st < 0){
             pddlASNetsLiftedTaskFree(&a->lifted_task);
@@ -680,6 +877,7 @@ void pddlASNetsDel(pddl_asnets_t *a)
         delete a->trainer;
     if (a->cg != NULL)
         delete a->cg;
+    pddlASNetsConfigFree(&a->cfg);
     dynet::cleanup();
 }
 
@@ -752,22 +950,22 @@ struct Info {
     int checkLoadedInfo(const Info &o, pddl_err_t *err)
     {
         if (cfg.hidden_dimension != o.cfg.hidden_dimension){
-            ERR_RET(err, 0, "Hidden dimensions don't match. model: %d, asnets: %d",
+            ERR_RET(err, 0, "Hidden dimensions don't match. asnets: %d, loaded: %d",
                     cfg.hidden_dimension, o.cfg.hidden_dimension);
         }
 
         if (cfg.num_layers != o.cfg.num_layers){
-            ERR_RET(err, 0, "Number of layers don't match. model: %d, asnets: %d",
+            ERR_RET(err, 0, "Number of layers don't match. asnets: %d, loaded: %d",
                     cfg.num_layers, o.cfg.num_layers);
         }
 
         if (strcmp(domain_name, o.domain_name) != 0){
-            ERR_RET(err, 0, "Domain names differ. model: %s, asnets: %s",
+            ERR_RET(err, 0, "Domain names differ. asnets: %s, loaded: %s",
                     domain_name, o.domain_name);
         }
 
         if (strcmp(domain_hash, o.domain_hash) != 0){
-            ERR_RET(err, 0, "Domain hash differ. model: %s, asnets: %s",
+            ERR_RET(err, 0, "Domain hash differ. asnets: %s, loaded: %s",
                     domain_hash, o.domain_hash);
         }
 
