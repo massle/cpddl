@@ -742,8 +742,8 @@ struct Info {
 
     Info(const pddl_asnets_t *a)
     {
-        strncpy(cpddl_version, pddl_version, sizeof(cpddl_version));
-        strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name));
+        strncpy(cpddl_version, pddl_version, sizeof(cpddl_version) - 1);
+        strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name) - 1);
         pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
         cfg = a->cfg;
         train_stats = a->train_stats;
