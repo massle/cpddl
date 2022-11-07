@@ -1657,11 +1657,17 @@ static int trainExploration(pddl_asnets_t *a,
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
     for (pddl_state_id_t state_id = 0; state_id < states.num_states; ++state_id){
         pddlFDRStatePoolGet(&states, state_id, state);
-        // TODO: Parametrize
         int ret;
-        ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id, state,
-                                                   &task->fdr,
-                                                   a->cfg.teacher_timeout, err);
+
+        switch (a->cfg.trainer){
+            case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+                ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
+                                                           state, &task->fdr,
+                                                           a->cfg.teacher_timeout,
+                                                           err);
+                break;
+        }
+
         if (ret < 0){
             FREE(state);
             pddlFDRStatePoolFree(&states);

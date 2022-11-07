@@ -28,6 +28,8 @@ OBJS += report_lifted_mgroups.o
 OBJS += report_mgroups.o
 OBJS += lifted_planner.o
 
+ASNETS_OBJS = opts.o
+
 EXP_OBJS = opts.o
 
 all: $(TARGETS)
@@ -42,8 +44,8 @@ pddl-symba: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_SYMBA=1 -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_PDDL=1 -o $@ $< $(OBJS) $(LDFLAGS)
-pddl-asnets: asnets.c ../libpddl.a $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+pddl-asnets: asnets.c ../libpddl.a $(ASNETS_OBJS)
+	$(CC) $(CFLAGS) -o $@ $< $(ASNETS_OBJS) $(LDFLAGS)
 
 report_%.o: report_%.c report.h
 	$(CC) $(CFLAGS) -c -o $@ $<

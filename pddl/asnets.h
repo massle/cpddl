@@ -13,6 +13,11 @@ extern "C" {
 
 typedef struct pddl_asnets pddl_asnets_t;
 
+enum pddl_asnets_trainer {
+    PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
+};
+typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
+
 struct pddl_asnets_config {
     /** Domain PDDL file. Set using *SetDomain() */
     char *domain_pddl;
@@ -52,6 +57,9 @@ struct pddl_asnets_config {
     /** Number of epochs in which the success rate must be at higher than
      *  .early_termination_success_rate. Default: 20 */
     int early_termination_epochs;
+
+    /** Which trainer will be used. One of PDDL_ASNETS_TRAINER_* */
+    pddl_asnets_trainer_t trainer;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
 
