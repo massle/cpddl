@@ -106,23 +106,16 @@ static int stepLiftedMGroups(void)
         return 0;
     }
 
-    pddl_lifted_mgroups_infer_limits_t lifted_mgroups_limits
-            = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
-    lifted_mgroups_limits.max_candidates = opt.lmg.max_candidates;
-    lifted_mgroups_limits.max_mgroups = opt.lmg.max_mgroups;
+    pddl_lifted_mgroups_infer_config_t cfg
+            = PDDL_LIFTED_MGROUPS_INFER_CONFIG_INIT;
+    cfg.max_candidates = opt.lmg.max_candidates;
+    cfg.max_mgroups = opt.lmg.max_mgroups;
+    cfg.fd = opt.lmg.fd;
+    if (opt.lmg.fd_monotonicity)
+        cfg.fd_monotonicity = &monotonicity_invariants;
 
-    if (opt.lmg.fd){
-        pddl_lifted_mgroups_t *mono = NULL;
-        if (opt.lmg.fd_monotonicity)
-            mono = &monotonicity_invariants;
-        pddlLiftedMGroupsInferMonotonicity(&pddl, &lifted_mgroups_limits, mono,
-                                           &lifted_mgroups, &err);
-    }else{
-        pddlLiftedMGroupsInferFAMGroups(&pddl, &lifted_mgroups_limits,
-                                        &lifted_mgroups, &err);
-    }
-    pddlLiftedMGroupsSetExactlyOne(&pddl, &lifted_mgroups, &err);
-    pddlLiftedMGroupsSetStatic(&pddl, &lifted_mgroups, &err);
+    if (pddlLiftedMGroupsInfer(&pddl, &cfg, &lifted_mgroups, &err) != 0)
+        return -1;
 
     PRINT_TO_FILE(&err, opt.lmg.out, "lifted mutex groups",
                   pddlLiftedMGroupsPrint(&pddl, &lifted_mgroups, fout));

@@ -28,6 +28,43 @@
 #include "pddl/lifted_mgroup_infer.h"
 #include "internal.h"
 
+void pddlLiftedMGroupsInferConfigLog(const pddl_lifted_mgroups_infer_config_t *cfg,
+                                     pddl_err_t *err)
+{
+    LOG_CONFIG_INT(cfg, max_candidates, err);
+    LOG_CONFIG_INT(cfg, max_mgroups, err);
+    LOG_CONFIG_BOOL(cfg, fd, err);
+    LOG(err, "fd_monotonicity = %{fd_monotonicity}b", cfg->fd_monotonicity != NULL);
+}
+
+int pddlLiftedMGroupsInfer(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_infer_config_t *cfg,
+                           pddl_lifted_mgroups_t *lmg,
+                           pddl_err_t *err)
+{
+    CTX(err, "lmg", "LMG");
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlLiftedMGroupsInferConfigLog(cfg, err);
+    CTXEND(err);
+
+    pddl_lifted_mgroups_infer_limits_t limits
+            = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
+    limits.max_candidates = cfg->max_candidates;
+    limits.max_mgroups = cfg->max_mgroups;
+
+    if (cfg->fd){
+        pddlLiftedMGroupsInferMonotonicity(pddl, &limits,
+                                           cfg->fd_monotonicity, lmg, err);
+    }else{
+        pddlLiftedMGroupsInferFAMGroups(pddl, &limits, lmg, err);
+    }
+    pddlLiftedMGroupsSetExactlyOne(pddl, lmg, err);
+    pddlLiftedMGroupsSetStatic(pddl, lmg, err);
+
+    CTXEND(err);
+    return 0;
+}
+
 struct cand {
     int id;
     const pddl_lifted_mgroup_t *mgroup;
