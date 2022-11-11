@@ -71,6 +71,7 @@ static int stepPDDL(void)
     pddl_cfg.normalize = 1;
     pddl_cfg.remove_empty_types = opt.pddl.remove_empty_types;
     pddl_cfg.compile_away_cond_eff = opt.pddl.compile_away_cond_eff;
+    pddl_cfg.enforce_unit_cost = opt.pddl.enforce_unit_cost;
 
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){

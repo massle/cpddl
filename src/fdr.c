@@ -73,6 +73,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         return -1;
     }
     LOG(err, "Created %{num_vars}d variables.", fdr->var.var_size);
+    LOG(err, "Created %{num_facts}d facts.", fdr->var.global_id_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)

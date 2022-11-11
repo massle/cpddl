@@ -75,6 +75,7 @@ struct options {
         int compile_in_lmg;
         int compile_in_lmg_mutex;
         int compile_in_lmg_dead_end;
+        int enforce_unit_cost;
         char *domain_out;
         char *problem_out;
         int stop;

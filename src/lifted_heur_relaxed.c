@@ -55,6 +55,28 @@ static void addActionRule(pddl_lifted_heur_relaxed_t *h,
     pddlDatalogPddlSetActionTypeBody(h->dl, &rule, h->pddl, &action->param,
                                      pre, pre2, h->type_to_dlpred, h->dlvar);
 
+    // Set cost of the operator
+    pddl_cost_t w;
+    if (!h->pddl->metric){
+        pddlCostSetOp(&w, 1);
+    }else{
+        pddlCostSetZero(&w);
+        const pddl_fm_t *fm;
+        pddl_fm_const_it_t it;
+        PDDL_FM_FOR_EACH(eff, &it, fm){
+            if (pddlFmIsIncrease(fm)){
+                const pddl_fm_increase_t *inc = pddlFmToIncreaseConst(fm);
+                if (inc->fvalue != NULL){
+                    // TODO
+                    FATAL2("Lifted relaxed heuristics do not support"
+                           " non-static action costs yet.");
+                }else{
+                    w.cost += inc->value;
+                }
+            }
+        }
+    }
+
     const pddl_fm_atom_t *catom;
     pddl_fm_const_it_atom_t it;
     PDDL_FM_FOR_EACH_ATOM(eff, &it, catom){
@@ -67,12 +89,7 @@ static void addActionRule(pddl_lifted_heur_relaxed_t *h,
         pddlDatalogRuleSetHead(h->dl, &rule, &atom);
         pddlDatalogAtomFree(h->dl, &atom);
 
-        // TODO: Set costs
-        if (!h->pddl->metric){
-            pddl_cost_t w;
-            pddlCostSetOp(&w, 1);
-            pddlDatalogRuleSetWeight(h->dl, &rule, &w);
-        }
+        pddlDatalogRuleSetWeight(h->dl, &rule, &w);
         pddlDatalogAddRule(h->dl, &rule);
     }
 

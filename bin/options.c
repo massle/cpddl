@@ -425,6 +425,8 @@ static void setPddlOptions(void)
                 "Remove empty types");
     optsAddFlag("pddl-ce", 0x0, &opt.pddl.compile_away_cond_eff, 0,
                 "Compile away conditional effects on the PDDL level.");
+    optsAddFlag("pddl-unit-cost", 0x0, &opt.pddl.enforce_unit_cost, 0,
+                "Enforce unit cost on the PDDL level.");
 }
 
 static void setLMGOptions(void)
@@ -557,6 +559,9 @@ static void setLiftedPlannerOptions(void)
                "Output filename for the found plan.");
     optsAddStr("lplan-o", 0x0, &opt.lifted_planner.plan_out, NULL,
                "Alias for --lplan-out");
+
+    if (is_pddl_lplan)
+        opt.lifted_planner.search = LIFTED_PLAN_ASTAR;
 }
 
 static void setGroundOptions(void)

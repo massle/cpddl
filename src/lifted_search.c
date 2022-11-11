@@ -554,10 +554,10 @@ pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg
             return bfsNew(cfg, 1, 1, 0, "Lifted A*", err);
 
         case PDDL_LIFTED_SEARCH_LAZY:
-            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS", err);
+            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy", err);
 
         case PDDL_LIFTED_SEARCH_GBFS:
-            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy", err);
+            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS", err);
 
         default:
             ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);
