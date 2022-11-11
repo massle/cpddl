@@ -373,6 +373,13 @@ void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
     ERROR;
 }
 
+void pddlStripsSymOpTransitiveClosure(const pddl_strips_sym_t *sym,
+                                      int op_id,
+                                      pddl_iset_t *transitive_closure)
+{
+    ERROR;
+}
+
 void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
                         int gen_id,
                         const pddl_iset_t *inset,

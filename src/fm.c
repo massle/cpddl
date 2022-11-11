@@ -38,9 +38,7 @@ static char *type_names[PDDL_FM_NUM_TYPES] = {
 
 const char *pddlFmTypeName(pddl_fm_type_t type)
 {
-    if (type >= 0 && type < PDDL_FM_NUM_TYPES)
-        return type_names[type];
-    return "unknown";
+    return type_names[type];
 }
 
 typedef void (*pddl_fm_method_del_fn)(pddl_fm_t *);
