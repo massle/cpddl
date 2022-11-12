@@ -16,6 +16,7 @@
 
 #define COMMAND_GEN 1
 #define COMMAND_RUN 2
+#define COMMAND_IS_FINISHED 3
 
 #define TARGET_RCI_CPU 1
 #define TARGET_FAI0 2
@@ -137,6 +138,13 @@ static int setConfig(int argc, char *argv[])
                 fprintf(stderr, "Error: Invalid command.\n");
                 cfg.help = 1;
             }
+
+        }else if (strcmp(argv[1], "is-finished") == 0){
+            cfg.command = COMMAND_IS_FINISHED;
+            if (argc <= 2){
+                fprintf(stderr, "Error: Missing directories to check.\n");
+                cfg.help = 1;
+            }
         }
     }
 
@@ -171,6 +179,8 @@ static int setConfig(int argc, char *argv[])
 
     if (cfg.help){
         fprintf(stderr, "Usage: %s [OPTIONS] gen dst-dir run-script\n", argv[0]);
+        fprintf(stderr, "Usage: %s [OPTIONS] run task-id\n", argv[0]);
+        fprintf(stderr, "Usage: %s [OPTIONS] is-finished dir [dir [...]]\n", argv[0]);
         optsPrint(stderr);
         fprintf(stderr, "Note: Don't forget to run 'loginctl enable-linger USER'"
                 " on your computing nodes.\n");
@@ -182,28 +192,30 @@ static int setConfig(int argc, char *argv[])
 
     cfg.progpath = realpath(argv[0], NULL);
 
-    PDDL_INFO(&err, "cfg.progpath = '%s'", cfg.progpath);
-    PDDL_INFO(&err, "cfg.run_script = '%s'", cfg.run_script);
-    PDDL_INFO(&err, "cfg.topdir = '%s'", cfg.topdir);
-    PDDL_INFO(&err, "cfg.task_id = %d", cfg.task_id);
-    PDDL_INFO(&err, "cfg.max_time = %ds", cfg.max_time);
-    PDDL_INFO(&err, "cfg.max_mem = %dMB", cfg.max_mem);
-    PDDL_INFO(&err, "cfg.bench = '%s'", cfg.bench_path);
-    if (cfg.target == TARGET_RCI_CPU){
-        PDDL_INFO2(&err, "cfg.target = rci-cpu");
-    }else if (cfg.target == TARGET_FAI0){
-        PDDL_INFO2(&err, "cfg.target = fai0");
-    }else if (cfg.target == TARGET_FAI1){
-        PDDL_INFO2(&err, "cfg.target = fai1");
-    }else if (cfg.target == TARGET_FAI14){
-        PDDL_INFO2(&err, "cfg.target = fai14");
-    }else if (cfg.target == TARGET_FAI_ALL){
-        PDDL_INFO2(&err, "cfg.target = faiall");
-    }else{
-        PDDL_INFO2(&err, "cfg.target = none");
+    if (cfg.command != COMMAND_IS_FINISHED){
+        PDDL_INFO(&err, "cfg.progpath = '%s'", cfg.progpath);
+        PDDL_INFO(&err, "cfg.run_script = '%s'", cfg.run_script);
+        PDDL_INFO(&err, "cfg.topdir = '%s'", cfg.topdir);
+        PDDL_INFO(&err, "cfg.task_id = %d", cfg.task_id);
+        PDDL_INFO(&err, "cfg.max_time = %ds", cfg.max_time);
+        PDDL_INFO(&err, "cfg.max_mem = %dMB", cfg.max_mem);
+        PDDL_INFO(&err, "cfg.bench = '%s'", cfg.bench_path);
+        if (cfg.target == TARGET_RCI_CPU){
+            PDDL_INFO2(&err, "cfg.target = rci-cpu");
+        }else if (cfg.target == TARGET_FAI0){
+            PDDL_INFO2(&err, "cfg.target = fai0");
+        }else if (cfg.target == TARGET_FAI1){
+            PDDL_INFO2(&err, "cfg.target = fai1");
+        }else if (cfg.target == TARGET_FAI14){
+            PDDL_INFO2(&err, "cfg.target = fai14");
+        }else if (cfg.target == TARGET_FAI_ALL){
+            PDDL_INFO2(&err, "cfg.target = faiall");
+        }else{
+            PDDL_INFO2(&err, "cfg.target = none");
+        }
+        PDDL_INFO(&err, "cfg.force = %d", cfg.force);
+        PDDL_INFO(&err, "cfg.no_systemd = %d", cfg.no_systemd);
     }
-    PDDL_INFO(&err, "cfg.force = %d", cfg.force);
-    PDDL_INFO(&err, "cfg.no_systemd = %d", cfg.no_systemd);
     return 0;
 }
 
@@ -633,6 +645,28 @@ static int cmdRun(void)
     return 0;
 }
 
+static int cmdIsFinished(int num_dirs, char *dir[])
+{
+    for (int di = 0; di < num_dirs; ++di){
+        char path[512];
+        int finished = 0;
+        for (int ti = 0; 1; ++ti){
+            snprintf(path, 511, "%s/%06d", dir[di], ti);
+            if (!pddlIsDir(path))
+                break;
+            snprintf(path, 511, "%s/%06d/task.finished", dir[di], ti);
+            if (!pddlIsFile(path)){
+                printf("Not finished %s/%06d\n", dir[di], ti);
+                return 1;
+            }
+            ++finished;
+        }
+        printf("Finished %s: %d\n", dir[di], finished);
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     pddlErrInfoEnable(&err, stderr);
@@ -645,6 +679,8 @@ int main(int argc, char *argv[])
             return cmdGen();
         case COMMAND_RUN:
             return cmdRun();
+        case COMMAND_IS_FINISHED:
+            return cmdIsFinished(argc - 2, argv + 2);
     }
     return 0;
 }
