@@ -1268,7 +1268,7 @@ static int walk_tabpath(context_t *ctx) {
 
 /* handle lines like [x.y.z] or [[x.y.z]] */
 static int parse_select(context_t *ctx) {
-  assert(ctx->tok.tok == LBRACKET);
+  ASSERT(ctx->tok.tok == LBRACKET);
 
   /* true if [[ */
   int llb = (ctx->tok.ptr + 1 < ctx->stop && ctx->tok.ptr[1] == '[');
@@ -1279,7 +1279,7 @@ static int parse_select(context_t *ctx) {
   if (eat_token(ctx, LBRACKET, 1, FLINE))
     return -1;
   if (llb) {
-    assert(ctx->tok.tok == LBRACKET);
+    ASSERT(ctx->tok.tok == LBRACKET);
     if (eat_token(ctx, LBRACKET, 1, FLINE))
       return -1;
   }
