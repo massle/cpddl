@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
         }
 
     }else if (opt.eval != NULL){
-        ret = pddlASNetsLoad(asnets, "model.asnets", &err);
+        ret = pddlASNetsLoad(asnets, opt.eval, &err);
         if (ret < 0){
             fprintf(stderr, "Error: ");
             pddlErrPrint(&err, 1, stderr);
