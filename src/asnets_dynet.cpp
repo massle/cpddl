@@ -795,6 +795,50 @@ struct ASNetsTrainMiniBatch {
 };
 
 
+static int policyRollout(pddl_asnets_t *a,
+                         const pddl_asnets_ground_task_t *task,
+                         pddl_fdr_state_pool_t *states,
+                         pddl_iarr_t *trace,
+                         pddl_err_t *err)
+{
+    int ret = 0;
+    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
+    int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
+
+    // Start in the initial state
+    pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
+    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
+        // get the last reached state
+        pddlFDRStatePoolGet(states, state_id, state);
+        if (pddlFDRPartStateIsConsistentWithState(&task->fdr.goal, state)){
+            ret = 1;
+            break;
+        }
+
+        // Apply policy. If we get -1, it means the state is dead-end,
+        // because there are no applicable operators
+        int op_id = runPolicy(task, *a->params, *a->cg, state, state2);
+        if (op_id < 0){
+            break;
+        }
+        if (trace != NULL)
+            pddlIArrAdd(trace, op_id);
+
+        // Insert current state
+        pddl_state_id_t prev_state_id = state_id;
+        state_id = pddlFDRStatePoolInsert(states, state2);
+        // If the new state was already in the pool, then we got a cycle
+        if (state_id <= prev_state_id){
+            break;
+        }
+    }
+
+    FREE(state);
+    FREE(state2);
+    return ret;
+}
+
+
 
 pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
@@ -1520,6 +1564,39 @@ int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     return 0;
 }
 
+int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
+{
+    return a->ground_task_size;
+}
+
+const pddl_asnets_ground_task_t *
+pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
+{
+    if (id < 0 || id >= a->ground_task_size)
+        return NULL;
+    return a->ground_task + id;
+}
+
+int pddlASNetsRunPolicy(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        const int *in_state,
+                        int *out_state)
+{
+    return runPolicy(task, *a->params, *a->cg, in_state, out_state);
+}
+
+int pddlASNetsSolveTask(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        pddl_iarr_t *trace,
+                        pddl_err_t *err)
+{
+    pddl_fdr_state_pool_t states;
+    pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
+    int ret = policyRollout(a, task, &states, trace, NULL);
+    pddlFDRStatePoolFree(&states);
+    return ret;
+}
+
 static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
                                          pddl_asnets_train_data_t *data,
                                          int minibatch_size,
@@ -1591,47 +1668,6 @@ static int trainStep(pddl_asnets_t *a,
     return 0;
 }
 
-static int trainPolicyStatePool(pddl_asnets_t *a,
-                                int ground_task_id,
-                                pddl_fdr_state_pool_t *states,
-                                pddl_err_t *err)
-{
-    int ret = 0;
-    const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
-    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
-    int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
-
-    // Start in the initial state
-    pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
-    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
-        // get the last reached state
-        pddlFDRStatePoolGet(states, state_id, state);
-        if (pddlFDRPartStateIsConsistentWithState(&task->fdr.goal, state)){
-            ret = 1;
-            break;
-        }
-
-        // Apply policy. If we get -1, it means the state is dead-end,
-        // because there are no applicable operators
-        int op_id = runPolicy(task, *a->params, *a->cg, state, state2);
-        if (op_id < 0){
-            break;
-        }
-
-        // Insert current state
-        pddl_state_id_t prev_state_id = state_id;
-        state_id = pddlFDRStatePoolInsert(states, state2);
-        // If the new state was already in the pool, then we got a cycle
-        if (state_id <= prev_state_id){
-            break;
-        }
-    }
-
-    FREE(state);
-    FREE(state2);
-    return ret;
-}
-
 static int trainExploration(pddl_asnets_t *a,
                             int epoch,
                             int ground_task_id,
@@ -1645,7 +1681,7 @@ static int trainExploration(pddl_asnets_t *a,
     pddlFDRStatePoolInit(&states, &task->fdr.var, err);
 
     // Collect states from the policy rollout
-    int reached_goal = trainPolicyStatePool(a, ground_task_id, &states, err);
+    int reached_goal = policyRollout(a, task, &states, NULL, err);
     LOG(err, "Policy rollout: %{policy_rollout_states}d states,"
         " reached goal: %{reached_goal}d",
         states.num_states, reached_goal);
@@ -1697,7 +1733,7 @@ static float successRate(pddl_asnets_t *a)
         const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
         pddl_fdr_state_pool_t states;
         pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
-        if (trainPolicyStatePool(a, task_id, &states, NULL))
+        if (policyRollout(a, task, &states, NULL, NULL))
             num_solved += 1;
         pddlFDRStatePoolFree(&states);
     }

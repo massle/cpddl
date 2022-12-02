@@ -147,7 +147,23 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        // TODO: Run evaluation of input problems
+        int num_tasks = pddlASNetsNumGroundTasks(asnets);
+        for (int task_id = 0; task_id < num_tasks; ++task_id){
+            const pddl_asnets_ground_task_t *task;
+            task = pddlASNetsGetGroundTask(asnets, task_id);
+            PDDL_IARR(plan);
+            int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
+            PDDL_LOG(&err, "Task %s/%s solved: %d",
+                     task->pddl.domain_name,
+                     task->pddl.problem_name,
+                     solved);
+            if (solved){
+                int op_id;
+                PDDL_IARR_FOR_EACH(&plan, op_id){
+                }
+            }
+            pddlIArrFree(&plan);
+        }
     }
 
     pddlTimerStop(&timer);

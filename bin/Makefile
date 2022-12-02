@@ -19,7 +19,9 @@ TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-symba
 TARGETS += pddl-pddl
-TARGETS += pddl-asnets
+ifeq '$(USE_DYNET)' 'yes'
+  TARGETS += pddl-asnets
+endif
 
 OBJS  = opts.o
 OBJS += options.o

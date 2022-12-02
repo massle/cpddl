@@ -7,6 +7,9 @@
 #ifndef __PDDL_ASNETS_H__
 #define __PDDL_ASNETS_H__
 
+#include <pddl/iarr.h>
+#include <pddl/asnets_task.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -78,16 +81,59 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
 
 
 
+/**
+ * Creates a new instance of ASNets according to the configuration
+ */
 pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err);
 
+/**
+ * Free allocated memory.
+ */
 void pddlASNetsDel(pddl_asnets_t *a);
 
+/**
+ * Save ASNets model into the given file.
+ */
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err);
-int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err);
-
 
 /**
- * TODO
+ * Load ASNets from the given file.
+ */
+int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err);
+
+/**
+ * Returns number of ground tasks stored in the given object.
+ */
+int pddlASNetsNumGroundTasks(const pddl_asnets_t *a);
+
+/**
+ * Returns ASNets task with the given ID
+ */
+const pddl_asnets_ground_task_t *
+pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id);
+
+/**
+ * Run policy on the given state from the given task.
+ * If {out_state} is non-NULL, it is filled with the resulting state.
+ * Returns ID of the selected operator, or -1 if no operator is applicable.
+ */
+int pddlASNetsRunPolicy(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        const int *in_state,
+                        int *out_state);
+
+/**
+ * Try to solve the task using the ASNets policy.
+ * {trace} is filled with the policy trace.
+ * Return true if a plan was found, and false otherwise.
+ */
+int pddlASNetsSolveTask(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        pddl_iarr_t *trace,
+                        pddl_err_t *err);
+
+/**
+ * Train ASNets according to the configuration it was created with.
  */
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
 
