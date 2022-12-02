@@ -1832,6 +1832,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
                 a->train_stats.consecutive_successful_epochs,
                 a->cfg.early_termination_epochs);
             LOG2(err, "Terminating training.");
+            break;
         }
     }
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
