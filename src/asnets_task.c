@@ -319,6 +319,7 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddlMutexPairsInitStrips(&mutex, &gt->strips);
     pddlH2(&gt->strips, &mutex, &unreachable_fact, &unreachable_op, -1., err);
     pddlStripsReduce(&gt->strips, &unreachable_fact, &unreachable_op);
+    pddlMutexPairsReduce(&mutex, &unreachable_fact);
     pddlISetFree(&unreachable_op);
     pddlISetFree(&unreachable_fact);
 
