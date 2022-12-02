@@ -659,6 +659,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
     float best_value = -1;
     for (size_t op_id = 0; op_id < out.size(); ++op_id){
         ASSERT(out[op_id] >= 0.f);
+        // Skip operators that are not applicable
         if (applicable_ops[op_id] < .5)
             continue;
         if (out[op_id] > best_value){
@@ -667,7 +668,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
         }
     }
 
-    if (out_state != NULL)
+    if (out_state != NULL && best_op_id >= 0)
         pddlASNetsGroundTaskFDRApplyOp(task, in_state, best_op_id, out_state);
 
     return best_op_id;
