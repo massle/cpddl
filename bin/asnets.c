@@ -158,8 +158,18 @@ int main(int argc, char *argv[])
                      task->pddl.problem_name,
                      solved);
             if (solved){
-                int op_id;
-                PDDL_IARR_FOR_EACH(&plan, op_id){
+                char fn[512];
+                snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
+                         task->pddl.problem_name);
+                FILE *fout = fopen(fn, "w");
+                if (fout != NULL){
+                    int op_id;
+                    PDDL_IARR_FOR_EACH(&plan, op_id){
+                        fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
+                    }
+                    fclose(fout);
+                }else{
+                    PDDL_LOG(&err, "Could not open file %s", fn);
                 }
             }
             pddlIArrFree(&plan);
