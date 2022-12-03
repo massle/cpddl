@@ -119,6 +119,11 @@ _pddl_inline pddl_list_t *pddlHTableInsertUnique(pddl_htable_t *m,
                                                  pddl_list_t *key1);
 
 /**
+ * Remove the given element from the table.
+ */
+_pddl_inline void pddlHTableRemove(pddl_htable_t *m, pddl_list_t *key);
+
+/**
  * Same as pddlHTableInsert() but does not resize hash table.
  */
 _pddl_inline void pddlHTableInsertNoResize(pddl_htable_t *m, pddl_list_t *key1);
@@ -314,6 +319,12 @@ _pddl_inline pddl_list_t *pddlHTableFindBucket(const pddl_htable_t *m,
     }
 
     return NULL;
+}
+
+_pddl_inline void pddlHTableRemove(pddl_htable_t *m, pddl_list_t *item)
+{
+    pddlListDel(item);
+    --m->num_elements;
 }
 
 

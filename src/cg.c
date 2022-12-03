@@ -496,7 +496,18 @@ static char *pddlGraphEasy(const char *graph_easy_bin,
 
         // Write input to graph-easy
         size_t len = strlen(input);
-        write(pipein[1], input, sizeof(char) * len);
+        ssize_t wlen = 0;
+        do {
+            ssize_t w = write(pipein[1], input + wlen, sizeof(char) * (len - wlen));
+            if (w < 0){
+                perror("Could not write to pipe");
+                close(pipeout[0]);
+                close(pipein[1]);
+                waitpid(pid, NULL, 0);
+                return NULL;
+            }
+            wlen += w;
+        } while (wlen != (ssize_t)len);
         close(pipein[1]);
 
         // Read output

@@ -505,6 +505,18 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm)
     lm->mgroup_size = ins;
 }
 
+int pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
+                        const pddl_lifted_mgroups_t *lmg2)
+{
+    if (lmg1->mgroup_size != lmg2->mgroup_size)
+        return 0;
+    for (int i = 0; i < lmg1->mgroup_size; ++i){
+        if (!pddlLiftedMGroupEq(lmg1->mgroup + i, lmg2->mgroup + i))
+            return 0;
+    }
+    return 1;
+}
+
 void pddlLiftedMGroupsDoubleCounted(pddl_lifted_mgroups_t *mgs)
 {
     for (int i = 0; i < mgs->mgroup_size; ++i)

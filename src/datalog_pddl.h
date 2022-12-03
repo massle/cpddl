@@ -21,14 +21,12 @@
 #define __PDDL_DATALOG_PDDL_H__
 
 #include <pddl/datalog.h>
-#include <pddl/prep_action.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-int pddlDatalogPddlMaxVarSize(const pddl_t *pddl,
-                              const pddl_prep_actions_t *prep);
+int pddlDatalogPddlMaxVarSize(const pddl_t *pddl);
 
 void pddlDatalogPddlAddTypeRules(pddl_datalog_t *dl,
                                  const pddl_t *pddl,

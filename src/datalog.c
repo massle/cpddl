@@ -54,6 +54,15 @@ struct pddl_datalog_relevant_fact {
 };
 typedef struct pddl_datalog_relevant_fact pddl_datalog_relevant_fact_t;
 
+struct pddl_datalog_db_freeze {
+    int fact_size;
+    int relevant_fact_size[2];
+    size_t used_mem;
+    pddl_iset_t *pred_to_fact;
+    int canonical_model_end;
+};
+typedef struct pddl_datalog_db_freeze pddl_datalog_db_freeze_t;
+
 struct pddl_datalog_db {
     pddl_htable_t *hfact;
     pddl_htable_t *hrelevant_fact[2];
@@ -64,6 +73,8 @@ struct pddl_datalog_db {
     pddl_iset_t *pred_to_fact;
     pddl_extarr_t *relevant_fact[2];
     int relevant_fact_size[2];
+    pddl_datalog_db_freeze_t freeze;
+    int canonical_model_end;
 };
 typedef struct pddl_datalog_db pddl_datalog_db_t;
 
@@ -213,6 +224,7 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     ZEROIZE_RAW(init, size);
     db->relevant_fact[0] = pddlExtArrNew(size, NULL, init);
     db->relevant_fact[1] = pddlExtArrNew(size, NULL, init);
+    db->freeze.pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
 }
 
 static size_t dbUsedMem(const pddl_datalog_db_t *db)
@@ -251,7 +263,50 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
         pddlISetFree(db->pred_to_fact + i);
     FREE(db->pred_to_fact);
 
+    for (int i = 0; i < dl->pred_size; ++i)
+        pddlISetFree(db->freeze.pred_to_fact + i);
+    FREE(db->freeze.pred_to_fact);
+
     ZEROIZE(db);
+}
+
+static void dbFreeze(pddl_datalog_t *dl, pddl_datalog_db_t *db)
+{
+    db->freeze.fact_size = db->fact_size;
+    db->freeze.relevant_fact_size[0] = db->relevant_fact_size[0];
+    db->freeze.relevant_fact_size[1] = db->relevant_fact_size[1];
+    db->freeze.used_mem = db->used_mem;
+    for (int i = 0; i < dl->pred_size; ++i)
+        pddlISetSet(db->freeze.pred_to_fact + i, db->pred_to_fact + i);
+    db->freeze.canonical_model_end = db->canonical_model_end;
+}
+
+static void dbRollback(pddl_datalog_t *dl, pddl_datalog_db_t *db)
+{
+    for (int fact_id = db->freeze.fact_size; fact_id < db->fact_size; ++fact_id){
+        pddl_datalog_fact_t *f = dbFact(db, fact_id);
+        pddlISetFree(&f->best_fact_achievers);
+        pddlHTableErase(db->hfact, &f->htable);
+        if (!FACT_NOT_IN_QUEUE(f))
+            pddlPairHeapRemove(db->fact_queue, &f->heap);
+    }
+    db->fact_size = db->freeze.fact_size;
+
+    for (int side = 0; side < 2; ++side){
+        for (int i = db->freeze.relevant_fact_size[side];
+                i < db->relevant_fact_size[side]; ++i){
+            void *x = pddlExtArrGet(db->relevant_fact[side], i);
+            pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)x;
+            pddlISetFree(&f->fact);
+            pddlHTableRemove(db->hrelevant_fact[side], &f->htable);
+        }
+        db->relevant_fact_size[side] = db->freeze.relevant_fact_size[side];
+    }
+
+    for (int i = 0; i < dl->pred_size; ++i)
+        pddlISetSet(db->pred_to_fact + i, db->freeze.pred_to_fact + i);
+    db->used_mem = db->freeze.used_mem;
+    db->canonical_model_end = db->freeze.canonical_model_end;
 }
 
 static pddl_datalog_fact_t *dbFindFact(pddl_datalog_t *dl,
@@ -1263,9 +1318,24 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
                 dbUsedMem(&dl->db) / (1024lu * 1024lu));
         }
     }
+    dl->db.canonical_model_end = dl->db.fact_size;
     LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
         dl->db.fact_size, dbUsedMem(&dl->db) / (1024lu * 1024lu));
     CTXEND(err);
+}
+
+void pddlDatalogCanonicalModelCont(pddl_datalog_t *dl, pddl_err_t *err)
+{
+    // TODO: Refactor with pddlDatalogCanonicalModel()
+    int cur_id = dl->db.canonical_model_end;
+    while (cur_id < dl->db.fact_size){
+        const pddl_datalog_fact_t *f = dbFact(&dl->db, cur_id);
+        int rule_id;
+        PDDL_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
+            applyFactOnRule(dl, NO_WEIGHT, 0, f, rule_id, err);
+        ++cur_id;
+    }
+    dl->db.canonical_model_end = dl->db.fact_size;
 }
 
 static int weightedCanonicalModel(pddl_datalog_t *dl,
@@ -1426,6 +1496,31 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
     pddlISetFree(&achievers);
     pddlIArrFree(&queue);
     FREE(in_queue);
+}
+
+void pddlDatalogSaveStateOfDB(pddl_datalog_t *dl)
+{
+    dbFreeze(dl, &dl->db);
+}
+
+void pddlDatalogRollbackDB(pddl_datalog_t *dl)
+{
+    dbRollback(dl, &dl->db);
+}
+
+void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
+                            unsigned in_pred,
+                            const unsigned *in_arg)
+{
+    ASSERT_RUNTIME(IS_PRED(in_pred));
+    int pred = TO_IDX(in_pred);
+    int arg_size = dl->pred[pred].arity;
+    int arg[arg_size];
+    for (int i = 0; i < arg_size; ++i){
+        ASSERT_RUNTIME(IS_CONST(in_arg[i]));
+        arg[i] = TO_IDX(in_arg[i]);
+    }
+    dbAddFact(dl, &dl->db, pred, arg);
 }
 
 void pddlDatalogAtomInit(pddl_datalog_t *dl,
@@ -1639,6 +1734,7 @@ int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
 
     return 1;
 }
+
 
 static void printEl(const pddl_datalog_t *dl, unsigned id, FILE *fout)
 {

@@ -50,6 +50,7 @@ struct pddl_strips_maker {
     pddl_htable_t *action_args;
     int num_action_args;
     pddl_extarr_t *action_args_arr;
+    int eq_pred;
 };
 typedef struct pddl_strips_maker pddl_strips_maker_t;
 
@@ -116,7 +117,27 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
 pddl_ground_action_args_t *pddlStripsMakerActionArgs(pddl_strips_maker_t *sm,
                                                      int id);
 pddl_ground_atom_t *pddlStripsMakerGroundAtom(pddl_strips_maker_t *sm, int id);
+const pddl_ground_atom_t *pddlStripsMakerGroundAtomConst(
+                const pddl_strips_maker_t *sm, int id);
 
+
+/**
+ * Return effects of the action {a} grounded with arguments {args} in a
+ * form of STRIPS add and delete effects {add_eff} and {del_eff} obtained
+ * using {smaker}.
+ * It is assumed that {a} is normalized and applicable in state {state}.
+ * The cost of the action {cost} is set according to (increase ...)
+ * formulae.
+ * Note that conditional effects are merged into {add_eff} and {del_eff}
+ * based on their applicability in {state}.
+ */
+void pddlStripsMakerActionEffInState(pddl_strips_maker_t *smaker,
+                                     const pddl_action_t *a,
+                                     const pddl_obj_id_t *args,
+                                     const pddl_iset_t *state,
+                                     pddl_iset_t *add_eff,
+                                     pddl_iset_t *del_eff,
+                                     int *cost);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

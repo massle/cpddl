@@ -19,6 +19,7 @@ TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-symba
 TARGETS += pddl-pddl
+TARGETS += pddl-lplan
 ifeq '$(USE_DYNET)' 'yes'
   TARGETS += pddl-asnets
 endif
@@ -46,6 +47,8 @@ pddl-symba: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_SYMBA=1 -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -DBIN_PDDL_PDDL=1 -o $@ $< $(OBJS) $(LDFLAGS)
+pddl-lplan: main.c ../libpddl.a $(OBJS)
+	$(CC) $(CFLAGS) -DBIN_PDDL_LPLAN=1 -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-asnets: asnets.c ../libpddl.a $(ASNETS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(ASNETS_OBJS) $(LDFLAGS)
 

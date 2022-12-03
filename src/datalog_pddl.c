@@ -18,14 +18,13 @@
 #include "internal.h"
 
 
-int pddlDatalogPddlMaxVarSize(const pddl_t *pddl,
-                              const pddl_prep_actions_t *prep)
+int pddlDatalogPddlMaxVarSize(const pddl_t *pddl)
 {
     int max_var_size = 0;
     for (int i = 0; i < pddl->pred.pred_size; ++i)
         max_var_size = PDDL_MAX(max_var_size, pddl->pred.pred[i].param_size);
-    for (int i = 0; i < prep->action_size; ++i)
-        max_var_size = PDDL_MAX(max_var_size, prep->action[i].param_size);
+    for (int i = 0; i < pddl->action.action_size; ++i)
+        max_var_size = PDDL_MAX(max_var_size, pddl->action.action[i].param.param_size);
     return max_var_size;
 }
 

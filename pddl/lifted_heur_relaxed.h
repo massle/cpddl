@@ -17,7 +17,6 @@
 #define __PDDL_LIFTED_HEUR_RELAXED_H__
 
 #include <pddl/datalog.h>
-#include <pddl/prep_action.h>
 #include <pddl/strips_maker.h>
 
 #ifdef __cplusplus
@@ -26,7 +25,6 @@ extern "C" {
 
 struct pddl_lifted_heur_relaxed {
     const pddl_t *pddl;
-    pddl_prep_actions_t prep_action;
     pddl_datalog_t *dl;
     unsigned *type_to_dlpred;
     unsigned *pred_to_dlpred;

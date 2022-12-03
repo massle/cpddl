@@ -48,6 +48,7 @@
 #include <pddl/fm.h>
 #include <pddl/fm_arr.h>
 #include <pddl/pddl_struct.h>
+#include <pddl/compile_in_lifted_mgroup.h>
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>
 #include <pddl/strips.h>
@@ -92,7 +93,8 @@
 #include <pddl/biclique.h>
 #include <pddl/open_list.h>
 #include <pddl/search.h>
-#include <pddl/search_lifted.h>
+#include <pddl/lifted_app_action.h>
+#include <pddl/lifted_search.h>
 #include <pddl/plan.h>
 #include <pddl/relaxed_plan.h>
 #include <pddl/heur.h>

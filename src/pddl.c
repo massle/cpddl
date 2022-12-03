@@ -28,6 +28,7 @@ void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, normalize, err);
     LOG_CONFIG_BOOL(cfg, remove_empty_types, err);
     LOG_CONFIG_BOOL(cfg, compile_away_cond_eff, err);
+    LOG_CONFIG_BOOL(cfg, enforce_unit_cost, err);
     CTXEND(err);
 }
 

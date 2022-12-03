@@ -16,10 +16,14 @@
 #ifndef BIN_PDDL_PDDL
 # define BIN_PDDL_PDDL 0
 #endif
+#ifndef BIN_PDDL_LPLAN
+# define BIN_PDDL_LPLAN 0
+#endif
 
 const int is_pddl_fdr = BIN_PDDL_FDR;
 const int is_pddl_symba = BIN_PDDL_SYMBA;
 const int is_pddl_pddl = BIN_PDDL_PDDL;
+const int is_pddl_lplan = BIN_PDDL_LPLAN;
 
 
 pddl_err_t err = PDDL_ERR_INIT;
@@ -46,6 +50,7 @@ static int stepPDDL(void)
     pddl_cfg.normalize = 1;
     pddl_cfg.remove_empty_types = opt.pddl.remove_empty_types;
     pddl_cfg.compile_away_cond_eff = opt.pddl.compile_away_cond_eff;
+    pddl_cfg.enforce_unit_cost = opt.pddl.enforce_unit_cost;
 
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
@@ -81,23 +86,16 @@ static int stepLiftedMGroups(void)
         return 0;
     }
 
-    pddl_lifted_mgroups_infer_limits_t lifted_mgroups_limits
-            = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
-    lifted_mgroups_limits.max_candidates = opt.lmg.max_candidates;
-    lifted_mgroups_limits.max_mgroups = opt.lmg.max_mgroups;
+    pddl_lifted_mgroups_infer_config_t cfg
+            = PDDL_LIFTED_MGROUPS_INFER_CONFIG_INIT;
+    cfg.max_candidates = opt.lmg.max_candidates;
+    cfg.max_mgroups = opt.lmg.max_mgroups;
+    cfg.fd = opt.lmg.fd;
+    if (opt.lmg.fd_monotonicity)
+        cfg.fd_monotonicity = &monotonicity_invariants;
 
-    if (opt.lmg.fd){
-        pddl_lifted_mgroups_t *mono = NULL;
-        if (opt.lmg.fd_monotonicity)
-            mono = &monotonicity_invariants;
-        pddlLiftedMGroupsInferMonotonicity(&pddl, &lifted_mgroups_limits, mono,
-                                           &lifted_mgroups, &err);
-    }else{
-        pddlLiftedMGroupsInferFAMGroups(&pddl, &lifted_mgroups_limits,
-                                        &lifted_mgroups, &err);
-    }
-    pddlLiftedMGroupsSetExactlyOne(&pddl, &lifted_mgroups, &err);
-    pddlLiftedMGroupsSetStatic(&pddl, &lifted_mgroups, &err);
+    if (pddlLiftedMGroupsInfer(&pddl, &cfg, &lifted_mgroups, &err) != 0)
+        return -1;
 
     PRINT_TO_FILE(&err, opt.lmg.out, "lifted mutex groups",
                   pddlLiftedMGroupsPrint(&pddl, &lifted_mgroups, fout));
@@ -134,10 +132,18 @@ static int stepLiftedEndomorph(void)
 
 static int stepPddlOutput(void)
 {
-    if (opt.pddl.compile_in_lmg){
-        int ret = pddlCompileInLiftedMGroups(&pddl, &lifted_mgroups, &err);
+    if (opt.pddl.compile_in_lmg
+            || opt.pddl.compile_in_lmg_mutex
+            || opt.pddl.compile_in_lmg_dead_end){
+        pddl_compile_in_lmg_config_t cfg = PDDL_COMPILE_IN_LMG_CONFIG_INIT;
+        cfg.prune_mutex = opt.pddl.compile_in_lmg
+                            || opt.pddl.compile_in_lmg_mutex;
+        cfg.prune_dead_end = opt.pddl.compile_in_lmg
+                                || opt.pddl.compile_in_lmg_dead_end;
+        int ret = pddlCompileInLiftedMGroups(&pddl, &lifted_mgroups, &cfg, &err);
         if (ret < 0)
             return -1;
+        stepLiftedMGroups();
     }
 
     PRINT_TO_FILE(&err, opt.pddl.domain_out, "PDDL domain file",

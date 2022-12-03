@@ -183,6 +183,9 @@ pddl_fm_and_t *pddlFmToAnd(pddl_fm_t *c);
 pddl_fm_or_t *pddlFmToOr(pddl_fm_t *c);
 pddl_fm_bool_t *pddlFmToBool(pddl_fm_t *c);
 pddl_fm_atom_t *pddlFmToAtom(pddl_fm_t *c);
+const pddl_fm_atom_t *pddlFmToAtomConst(const pddl_fm_t *c);
+const pddl_fm_increase_t *pddlFmToIncreaseConst(const pddl_fm_t *c);
+const pddl_fm_when_t *pddlFmToWhenConst(const pddl_fm_t *c);
 
 /**
  * Free memory.
@@ -203,6 +206,16 @@ int pddlFmIsTrue(const pddl_fm_t *c);
  * Returns true if c is an atom
  */
 int pddlFmIsAtom(const pddl_fm_t *c);
+
+/**
+ * Returns true if {c} is a when (conditional effect) node
+ */
+int pddlFmIsWhen(const pddl_fm_t *c);
+
+/**
+ * Returns true if {c} is (increase ...) atom
+ */
+int pddlFmIsIncrease(const pddl_fm_t *c);
 
 /**
  * Creates an exact copy of the condition.
@@ -478,6 +491,23 @@ struct pddl_fm_const_it {
 typedef struct pddl_fm_const_it pddl_fm_const_it_t;
 typedef pddl_fm_const_it_t pddl_fm_const_it_atom_t;
 typedef pddl_fm_const_it_t pddl_fm_const_it_when_t;
+typedef pddl_fm_const_it_t pddl_fm_const_it_increase_t;
+
+const pddl_fm_t *pddlFmConstItInit(pddl_fm_const_it_atom_t *it,
+                                   const pddl_fm_t *fm,
+                                   int type);
+const pddl_fm_t *pddlFmConstItNext(pddl_fm_const_it_atom_t *it,
+                                   int type);
+
+#define PDDL_FM_FOR_EACH(COND, IT, ATOM) \
+    for ((ATOM) = pddlFmConstItInit((IT), (COND), -1); \
+            (ATOM) != NULL; \
+            (ATOM) = pddlFmConstItNext((IT), -1))
+
+#define PDDL_FM_FOR_EACH_CONT(IT, ATOM) \
+    for ((ATOM) = pddlFmConstItNext((IT), -1); \
+            (ATOM) != NULL; \
+            (ATOM) = pddlFmConstItNext((IT), -1))
 
 const pddl_fm_atom_t *pddlFmConstItAtomInit(pddl_fm_const_it_atom_t *it,
                                             const pddl_fm_t *fm);
