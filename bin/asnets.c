@@ -12,6 +12,7 @@ static struct {
 
     char *train;
     char *eval;
+    int eval_write_plans;
 } opt;
 
 static pddl_err_t err = PDDL_ERR_INIT;
@@ -42,6 +43,8 @@ static int parseOpts(int argc, char *argv[])
                "Train ASNets and save the model to the specified file.");
     optsAddStr("eval", 'e', &opt.eval, NULL,
                "Evaluate model stored in the specified file.");
+    optsAddFlag("eval-write-plans", 0x0, &opt.eval_write_plans, 0,
+                "Write plans to files based on domain and problem names.");
 
     if (opts(&argc, argv) != 0)
         return -1;
@@ -160,18 +163,20 @@ int main(int argc, char *argv[])
                      solved);
             if (solved){
                 ++num_solved;
-                char fn[512];
-                snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
-                         task->pddl.problem_name);
-                FILE *fout = fopen(fn, "w");
-                if (fout != NULL){
-                    int op_id;
-                    PDDL_IARR_FOR_EACH(&plan, op_id){
-                        fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
+                if (opt.eval_write_plans){
+                    char fn[512];
+                    snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
+                             task->pddl.problem_name);
+                    FILE *fout = fopen(fn, "w");
+                    if (fout != NULL){
+                        int op_id;
+                        PDDL_IARR_FOR_EACH(&plan, op_id){
+                            fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
+                        }
+                        fclose(fout);
+                    }else{
+                        PDDL_LOG(&err, "Could not open file %s", fn);
                     }
-                    fclose(fout);
-                }else{
-                    PDDL_LOG(&err, "Could not open file %s", fn);
                 }
             }
             pddlIArrFree(&plan);
