@@ -11,8 +11,10 @@
 #include "pddl/asnets_task.h"
 #include "pddl/asnets_train_data.h"
 #include "pddl/sha256.h"
+#include "pddl/pddl_file.h"
 
 #ifdef PDDL_DYNET
+#include <dirent.h>
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>
@@ -127,6 +129,18 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             ERR_RET2(err, -1, "root must be string");
         }
         root = d.u.s;
+        if (strcmp(root, "__PWD__") == 0){
+            FREE(root);
+            char path[512];
+            if (realpath(filename, path) == NULL)
+                PDDL_ERR_RET(err, -1, "Could not resolve path %s", filename);
+            int len = strlen(path);
+            int pos = len - 1;
+            for (; pos >= 0 && path[pos] != '/'; --pos);
+            if (pos >= 0)
+                path[pos] = 0x0;
+            root = STRDUP(path);
+        }
     }
 
     if (pddl_toml_key_exists(c, "domain")){
@@ -162,7 +176,30 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             if (root != NULL){
                 char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
                 sprintf(fn, "%s/%s", root, d.u.s);
-                pddlASNetsConfigAddProblem(cfg, fn);
+                if (pddlIsDir(fn)){
+                    DIR *dir = opendir(fn);
+                    if (dir == NULL)
+                        ERR_RET(err, -1, "Could not open directory %s", fn);
+                    struct dirent *entry;
+                    while ((entry = readdir(dir)) != NULL){
+                        if (strncmp(entry->d_name, ".", 1) == 0)
+                            continue;
+                        if (strstr(entry->d_name, "domain") != NULL)
+                            continue;
+                        int fnsize = strlen(root) + strlen(d.u.s) + 2;
+                        fnsize += strlen(entry->d_name) + 1;
+                        char *prob = ALLOC_ARR(char, fnsize);
+                        sprintf(prob, "%s/%s", fn, entry->d_name);
+                        if (pddlIsFile(prob)){
+                            pddlASNetsConfigAddProblem(cfg, prob);
+                        }
+                        FREE(prob);
+                    }
+                    closedir(dir);
+
+                }else{
+                    pddlASNetsConfigAddProblem(cfg, fn);
+                }
                 FREE(fn);
             }else{
                 pddlASNetsConfigAddProblem(cfg, d.u.s);
