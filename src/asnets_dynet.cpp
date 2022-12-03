@@ -388,12 +388,6 @@ struct ActionModule {
         input.push_back(input_applicable);
         return expr(cg, input);
     }
-
-    void saveWeights()
-    {
-        // TODO
-        // SQL format:
-    }
 };
 
 struct PropositionModule {
