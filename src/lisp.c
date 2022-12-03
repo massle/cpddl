@@ -219,8 +219,10 @@ pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
     pddl_lisp_node_t root;
 
     fd = open(fn, O_RDONLY);
-    if (fd == -1)
+    if (fd == -1){
+        perror("");
         PDDL_ERR_RET(err, NULL, "Could not not open file `%s'.", fn);
+    }
 
     if (fstat(fd, &st) != 0){
         PDDL_ERR(err, "Could not determine size of the file `%s'.", fn);
@@ -229,9 +231,9 @@ pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
     }
 
     data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    close(fd);
     if (data == MAP_FAILED){
         PDDL_ERR(err, "Could not mmap file `%s'.", fn);
-        close(fd);
         return NULL;
     }
 
@@ -246,7 +248,6 @@ pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
             PDDL_ERR(err, "Incorrect PDDL file `%s'. Unexpected `%c' on line %d.",
                      fn, data[i], lineno);
             munmap((void *)data, st.st_size);
-            close(fd);
             return NULL;
         }
     }
@@ -256,13 +257,11 @@ pddl_lisp_t *pddlLispParse(const char *fn, pddl_err_t *err)
         PDDL_TRACE(err);
         munmap((void *)data, st.st_size);
         lispNodeFree(&root);
-        close(fd);
         return NULL;
     }
 
     lisp = ALLOC(pddl_lisp_t);
     lisp->filename = STRDUP(fn);
-    lisp->fd = fd;
     lisp->data = data;
     lisp->size = st.st_size;
     lisp->root = root;
@@ -287,9 +286,11 @@ pddl_lisp_t *pddlLispClone(const pddl_lisp_t *src)
     if (src->filename)
         lisp->filename = STRDUP(src->filename);
     pddlLispNodeInitCopy(&lisp->root, &src->root);
-    lisp->fd = -1;
     lisp->size = src->size;
-    lisp->data = ALLOC_ARR(char, src->size);
+    lisp->data = mmap(NULL, src->size, PROT_READ | PROT_WRITE,
+                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (lisp->data == MAP_FAILED)
+        FATAL2("Error: Could not allocated enough memory.");
     memcpy(lisp->data, src->data, src->size);
     remapLispNodeValues(&lisp->root, lisp->data, src->data);
     return lisp;
@@ -299,16 +300,9 @@ void pddlLispDel(pddl_lisp_t *lisp)
 {
     if (lisp->filename)
         FREE(lisp->filename);
-    if (lisp->data != NULL){
-        if (lisp->fd >= 0){
-            munmap((void *)lisp->data, lisp->size);
-        }else{
-            FREE(lisp->data);
-        }
-    }
+    if (lisp->data != NULL)
+        munmap((void *)lisp->data, lisp->size);
 
-    if (lisp->fd >= 0)
-        close(lisp->fd);
     lispNodeFree(&lisp->root);
     FREE(lisp);
 }

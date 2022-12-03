@@ -147,17 +147,19 @@ int main(int argc, char *argv[])
             return -1;
         }
 
+        int num_solved = 0;
         int num_tasks = pddlASNetsNumGroundTasks(asnets);
         for (int task_id = 0; task_id < num_tasks; ++task_id){
             const pddl_asnets_ground_task_t *task;
             task = pddlASNetsGetGroundTask(asnets, task_id);
             PDDL_IARR(plan);
             int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
-            PDDL_LOG(&err, "Task %s/%s solved: %d",
+            PDDL_LOG(&err, "Task %{eval_domain}s/%{eval_problem}s solved: %{eval_solved}b",
                      task->pddl.domain_name,
                      task->pddl.problem_name,
                      solved);
             if (solved){
+                ++num_solved;
                 char fn[512];
                 snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
                          task->pddl.problem_name);
@@ -174,6 +176,8 @@ int main(int argc, char *argv[])
             }
             pddlIArrFree(&plan);
         }
+        PDDL_LOG(&err, "Solved %{eval_num_solved}d out of"
+                 " %{eval_num_tasks}d tasks", num_solved, num_tasks);
     }
 
     pddlTimerStop(&timer);
