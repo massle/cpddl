@@ -157,10 +157,12 @@ int main(int argc, char *argv[])
             task = pddlASNetsGetGroundTask(asnets, task_id);
             PDDL_IARR(plan);
             int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
-            PDDL_LOG(&err, "Task %{eval_domain}s/%{eval_problem}s solved: %{eval_solved}b",
-                     task->pddl.domain_name,
-                     task->pddl.problem_name,
-                     solved);
+            PDDL_LOG(&err, "Task %{eval_domain}s %{eval_problem}s"
+                     " solved: %{eval_solved}b, length: %{eval_length}d",
+                     task->pddl.domain_lisp->filename,
+                     task->pddl.problem_lisp->filename,
+                     solved,
+                     (solved ? pddlIArrSize(&plan) : -1));
             if (solved){
                 ++num_solved;
                 if (opt.eval_write_plans){

@@ -169,33 +169,23 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             if (root != NULL){
                 char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
                 sprintf(fn, "%s/%s", root, d.u.s);
-                if (pddlIsDir(fn)){
-                    DIR *dir = opendir(fn);
-                    if (dir == NULL)
-                        ERR_RET(err, -1, "Could not open directory %s", fn);
-                    struct dirent *entry;
-                    while ((entry = readdir(dir)) != NULL){
-                        int entry_len = strlen(entry->d_name);
-                        if (entry_len < 5
-                                || strcmp(entry->d_name + entry_len - 5, ".pddl") != 0){
-                            continue;
-                        }
-                        if (strstr(entry->d_name, "domain") != NULL)
-                            continue;
-                        int fnsize = strlen(root) + strlen(d.u.s) + 2;
-                        fnsize += strlen(entry->d_name) + 1;
-                        char *prob = ALLOC_ARR(char, fnsize);
-                        sprintf(prob, "%s/%s", fn, entry->d_name);
-                        if (pddlIsFile(prob)){
-                            pddlASNetsConfigAddProblem(cfg, prob);
-                        }
-                        FREE(prob);
-                    }
-                    closedir(dir);
-
-                }else{
-                    pddlASNetsConfigAddProblem(cfg, fn);
+                int len;
+                char **files = pddlListDirPDDLFiles(fn, &len, err);
+                if (files == NULL){
+                    FREE(fn);
+                    TRACE_RET(err, -1);
                 }
+
+                for (int i = 0; i < len; ++i){
+                    if (strstr(files[i], "domain") != NULL){
+                        FREE(files[i]);
+                        continue;
+                    }
+                    if (pddlIsFile(files[i]))
+                        pddlASNetsConfigAddProblem(cfg, files[i]);
+                    FREE(files[i]);
+                }
+                FREE(files);
                 FREE(fn);
             }else{
                 pddlASNetsConfigAddProblem(cfg, d.u.s);
@@ -603,7 +593,7 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
 
             if (input[ri].size() == 0){
                 // This means there is no operator having this fact in its
-                // precondition or add effect at position ri.
+                // precondition or effect at position ri.
                 // So, we set the input to the minimum value of the
                 // activation function.
                 if (!have_const_min){

@@ -44,6 +44,8 @@ int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err);
 int pddlIsFile(const char *);
 int pddlIsDir(const char *);
 char *pddlDirname(const char *fn);
+char **pddlListDir(const char *dname, int *list_size, pddl_err_t *err);
+char **pddlListDirPDDLFiles(const char *dname, int *list_size, pddl_err_t *err);
 
 
 struct pddl_bench_task {

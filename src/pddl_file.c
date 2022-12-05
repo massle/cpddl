@@ -22,8 +22,9 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include "pddl/pddl_file.h"
 #include "internal.h"
+#include "pddl/pddl_file.h"
+#include "pddl/sort.h"
 
 #define MAX_LEN 512
 #define BUFSIZE 1024
@@ -52,15 +53,83 @@ int pddlIsFile(const char *d)
 
 char *pddlDirname(const char *fn)
 {
-    char path[1024];
-    if (realpath(fn, path) == NULL)
-        FATAL("Could not resolve path %s", fn);
-    int len = strlen(path);
+    char *dname = STRDUP(fn);
+    int len = strlen(dname);
     int pos = len - 1;
-    for (; pos >= 0 && path[pos] != '/'; --pos);
-    if (pos >= 0)
-        path[pos] = 0x0;
+    for (; pos >= 0 && dname[pos] != '/'; --pos);
+    if (pos >= 0 && pos < len - 1)
+        dname[pos + 1] = '\x0';
+
+    char path[4096];
+    if (realpath(dname, path) == NULL)
+        FATAL("Could not resolve path %s", fn);
+    FREE(dname);
     return STRDUP(path);
+}
+
+static int cmpFilename(const void *a, const void *b, void *_)
+{
+    char *s1 = *(char **)a;
+    char *s2 = *(char **)b;
+    return strcmp(s1, s2);
+}
+
+static char **_pddlListDir(const char *dname,
+                           int *list_size,
+                           const char *suff,
+                           pddl_err_t *err)
+{
+    *list_size = 0;
+    if (!pddlIsDir(dname))
+        return NULL;
+
+    int dname_size = strlen(dname);
+    int suff_size = -1;
+    if (suff != NULL)
+        suff_size = strlen(suff);
+    int alloc = 2;
+    char **list = ALLOC_ARR(char *, alloc);
+
+    DIR *dir = opendir(dname);
+    if (dir == NULL){
+        FREE(list);
+        ERR_RET(err, NULL, "Could not open directory %s", dname);
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL){
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        int esize = strlen(entry->d_name);
+        if (suff_size > 0){
+            if (esize < suff_size
+                    || strcmp(entry->d_name + esize - suff_size, suff) != 0){
+                continue;
+            }
+        }
+
+        if (*list_size == alloc){
+            alloc *= 2;
+            list = REALLOC_ARR(list, char *, alloc);
+        }
+        list[*list_size] = ALLOC_ARR(char, dname_size + esize + 2);
+        sprintf(list[*list_size], "%s/%s", dname, entry->d_name);
+        *list_size += 1;
+    }
+    closedir(dir);
+
+    pddlSort(list, *list_size, sizeof(char *), cmpFilename, NULL);
+    return list;
+}
+
+char **pddlListDir(const char *dname, int *list_size, pddl_err_t *err)
+{
+    return _pddlListDir(dname, list_size, NULL, err);
+}
+
+char **pddlListDirPDDLFiles(const char *dname, int *list_size, pddl_err_t *err)
+{
+    return _pddlListDir(dname, list_size, ".pddl", err);
 }
 
 static void extractDir(const char *path, char *dir)
