@@ -106,6 +106,11 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err);
 int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err);
 
 /**
+ * Load model information from the given file and print it out.
+ */
+int pddlASNetsPrintModelInfo(const char *fn, pddl_err_t *err);
+
+/**
  * Returns number of ground tasks stored in the given object.
  */
 int pddlASNetsNumGroundTasks(const pddl_asnets_t *a);

@@ -25,7 +25,8 @@ static const float MIN_ACTIVATION_VALUE = -1.f;
 
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
-    LOG(err, "domain_pddl = %{domain_pddl}s", cfg->domain_pddl);
+    if (cfg->domain_pddl != NULL)
+        LOG(err, "domain_pddl = %{domain_pddl}s", cfg->domain_pddl);
     LOG_CONFIG_INT(cfg, problem_pddl_size, err);
     for (int i = 0; i < cfg->problem_pddl_size; ++i)
         LOG(err, "problem_pddl[%d] = %{problem_pddl}s", i, cfg->problem_pddl[i]);
@@ -949,8 +950,7 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     CTX_NO_TIME(err, "cfg", "Cfg");
     pddlASNetsConfigLog(&a->cfg, err);
     CTXEND(err);
-    
-    fprintf(stderr, "%s %d\n", cfg->domain_pddl, cfg->problem_pddl_size);
+
     int st;
     st = pddlASNetsLiftedTaskInit(&a->lifted_task, cfg->domain_pddl, err);
     if (st < 0){
@@ -1061,15 +1061,11 @@ static const char sql_query_weights[]
 struct Info {
     char cpddl_version[128];
     char domain_name[128];
+    char domain_pddl[4096];
     char domain_hash[PDDL_SHA256_HASH_STR_SIZE];
     pddl_asnets_config_t cfg;
     pddl_asnets_train_stats_t train_stats;
-    // TODO: problem_names
-    // TODO: size of float / ...
     // TODO: store the whole domain pddl file?
-    // TODO: num_samples
-    // TODO: success_rate
-    // TODO: loss
 
     Info()
     {
@@ -1084,6 +1080,7 @@ struct Info {
     {
         strncpy(cpddl_version, pddl_version, sizeof(cpddl_version) - 1);
         strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name) - 1);
+        strncpy(domain_pddl, a->lifted_task.pddl.domain_lisp->filename, sizeof(domain_pddl) - 1);
         pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
         cfg = a->cfg;
         train_stats = a->train_stats;
@@ -1175,6 +1172,7 @@ struct Info {
         char *errmsg = NULL;
         if (SQL_INS_INFO_STR("cpddl_version", pddl_version) != 0
                 || SQL_INS_INFO_STR("domain_name", domain_name) != 0
+                || SQL_INS_INFO_STR("domain_pddl", domain_pddl) != 0
                 || SQL_INS_INFO_STR("domain_hash", domain_hash) != 0
 
                 || SQL_INS_INFO_INT("epoch", train_stats.epoch) != 0
@@ -1312,6 +1310,9 @@ struct Info {
         if (_sqlSelectInfoStr(db, stmt, "domain_name", domain_name, err) != 0)
             TRACE_RET(err, -1);
         LOG(err, "domain name = %s", domain_name);
+        if (_sqlSelectInfoStr(db, stmt, "domain_pddl", domain_pddl, err) != 0)
+            TRACE_RET(err, -1);
+        LOG(err, "domain pddl = %s", domain_pddl);
         if (_sqlSelectInfoStr(db, stmt, "domain_hash", domain_hash, err) != 0)
             TRACE_RET(err, -1);
         LOG(err, "domain hash = %s", domain_hash);
@@ -1662,6 +1663,30 @@ int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     return 0;
 }
 
+int pddlASNetsPrintModelInfo(const char *fn, pddl_err_t *err)
+{
+    CTX(err, "asnets_model_info", "ASNets-Info");
+    LOG(err, "Loading model from %s", fn);
+    pddl_sqlite3 *db;
+    int flags = SQLITE_OPEN_READONLY;
+    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
+    if (ret != SQLITE_OK){
+        CTXEND(err);
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    Info info;
+    if (info.load(db, err) != 0){
+        pddl_sqlite3_close_v2(db);
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
+    CTXEND(err);
+    return 0;
+}
+
 int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
 {
     return a->ground_task_size;
@@ -1929,7 +1954,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
                         best_success_rate,
                         best_success_rate_loss);
                 LOG(err, "Saving model to %s (success rate: %.2f, loss: %.3f)",
-                    best_success_rate, best_success_rate_loss);
+                    fn, best_success_rate, best_success_rate_loss);
                 pddlASNetsSave(a, fn, err);
             }
         }

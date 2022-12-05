@@ -14,6 +14,7 @@ static struct {
     char *train_save_prefix;
     char *eval;
     int eval_write_plans;
+    char *info;
 } opt;
 
 static pddl_err_t err = PDDL_ERR_INIT;
@@ -49,11 +50,14 @@ static int parseOpts(int argc, char *argv[])
                "Evaluate model stored in the specified file.");
     optsAddFlag("eval-write-plans", 0x0, &opt.eval_write_plans, 0,
                 "Write plans to files based on domain and problem names.");
+    optsAddStr("info", 'i', &opt.info, NULL,
+               "Print info about the stored model.");
 
     if (opts(&argc, argv) != 0)
         return -1;
 
-    if (argc != 2){
+    if ((opt.info != NULL && argc != 1)
+            || (opt.info == NULL && argc != 2)){
         for (int i = 1; i < argc; ++i){
             fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
         }
@@ -61,9 +65,11 @@ static int parseOpts(int argc, char *argv[])
         return -1;
     }
 
-    if ((opt.train == NULL && opt.eval == NULL)
-            || (opt.train != NULL && opt.eval != NULL)){
-        fprintf(stderr, "Error: Either --train or --eval option must be used.\n");
+    if ((opt.train == NULL && opt.eval == NULL && opt.info == NULL)
+            || (opt.train != NULL && opt.eval != NULL)
+            || (opt.train != NULL && opt.info != NULL)
+            || (opt.eval != NULL && opt.info != NULL)){
+        fprintf(stderr, "Error: Either --train, --eval, or --info option must be used.\n");
         help(argv[0], stderr);
         return -1;
     }
@@ -96,7 +102,8 @@ static int parseOpts(int argc, char *argv[])
         setrlimit(RLIMIT_AS, &mem_limit);
     }
 
-    config_file = argv[1];
+    if (argc > 1)
+        config_file = argv[1];
 
     PDDL_LOG(&err, "Version: %{version}s", pddl_version);
     return 0;
@@ -117,25 +124,32 @@ int main(int argc, char *argv[])
     }
 
     pddl_asnets_config_t cfg;
-    if (pddlASNetsConfigInitFromFile(&cfg, config_file, &err) != 0){
-        if (pddlErrIsSet(&err)){
-            fprintf(stderr, "Error: ");
-            pddlErrPrint(&err, 1, stderr);
+    if (config_file != NULL){
+        if (pddlASNetsConfigInitFromFile(&cfg, config_file, &err) != 0){
+            if (pddlErrIsSet(&err)){
+                fprintf(stderr, "Error: ");
+                pddlErrPrint(&err, 1, stderr);
+            }
+            return -1;
         }
-        return -1;
+    }else{
+        pddlASNetsConfigInit(&cfg);
     }
 
     if (opt.train_save_prefix != NULL)
         cfg.save_model_prefix = opt.train_save_prefix;
 
 
-    pddl_asnets_t *asnets = pddlASNetsNew(&cfg, &err);
-    if (asnets == NULL){
-        if (pddlErrIsSet(&err)){
-            fprintf(stderr, "Error: ");
-            pddlErrPrint(&err, 1, stderr);
+    pddl_asnets_t *asnets = NULL;
+    if (opt.train != NULL || opt.eval != NULL){
+        asnets = pddlASNetsNew(&cfg, &err);
+        if (asnets == NULL){
+            if (pddlErrIsSet(&err)){
+                fprintf(stderr, "Error: ");
+                pddlErrPrint(&err, 1, stderr);
+            }
+            return -1;
         }
-        return -1;
     }
 
     int ret = 0;
@@ -193,6 +207,14 @@ int main(int argc, char *argv[])
         }
         PDDL_LOG(&err, "Solved %{eval_num_solved}d out of"
                  " %{eval_num_tasks}d tasks", num_solved, num_tasks);
+
+    }else if (opt.info != NULL){
+        ret = pddlASNetsPrintModelInfo(opt.info, &err);
+        if (ret < 0){
+            fprintf(stderr, "Error: ");
+            pddlErrPrint(&err, 1, stderr);
+            return -1;
+        }
     }
 
     pddlTimerStop(&timer);
@@ -200,7 +222,8 @@ int main(int argc, char *argv[])
              pddlTimerElapsedInSF(&timer));
 
     pddlASNetsConfigFree(&cfg);
-    pddlASNetsDel(asnets);
+    if (asnets != NULL)
+        pddlASNetsDel(asnets);
     if (log_out != NULL)
         closeFile(log_out);
     if (prop_out != NULL)
