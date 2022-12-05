@@ -81,7 +81,7 @@ static char **_pddlListDir(const char *dname,
 {
     *list_size = 0;
     if (!pddlIsDir(dname))
-        return NULL;
+        ERR_RET(err, NULL, "%s is not a directory", dname);
 
     int dname_size = strlen(dname);
     int suff_size = -1;

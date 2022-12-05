@@ -82,6 +82,7 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);
 void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
                                 const char *problem_fn);
+void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
 
 
 

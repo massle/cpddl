@@ -179,23 +179,27 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             if (root != NULL){
                 char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
                 sprintf(fn, "%s/%s", root, d.u.s);
-                int len;
-                char **files = pddlListDirPDDLFiles(fn, &len, err);
-                if (files == NULL){
-                    FREE(fn);
-                    TRACE_RET(err, -1);
-                }
-
-                for (int i = 0; i < len; ++i){
-                    if (strstr(files[i], "domain") != NULL){
-                        FREE(files[i]);
-                        continue;
+                if (pddlIsFile(fn)){
+                    pddlASNetsConfigAddProblem(cfg, fn);
+                }else{
+                    int len;
+                    char **files = pddlListDirPDDLFiles(fn, &len, err);
+                    if (files == NULL){
+                        FREE(fn);
+                        TRACE_RET(err, -1);
                     }
-                    if (pddlIsFile(files[i]))
-                        pddlASNetsConfigAddProblem(cfg, files[i]);
-                    FREE(files[i]);
+
+                    for (int i = 0; i < len; ++i){
+                        if (strstr(files[i], "domain") != NULL){
+                            FREE(files[i]);
+                            continue;
+                        }
+                        if (pddlIsFile(files[i]))
+                            pddlASNetsConfigAddProblem(cfg, files[i]);
+                        FREE(files[i]);
+                    }
+                    FREE(files);
                 }
-                FREE(files);
                 FREE(fn);
             }else{
                 pddlASNetsConfigAddProblem(cfg, d.u.s);
@@ -247,6 +251,41 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg, const char *fn)
     cfg->problem_pddl = REALLOC_ARR(cfg->problem_pddl, char *,
                                     cfg->problem_pddl_size + 1);
     cfg->problem_pddl[cfg->problem_pddl_size++] = STRDUP(fn);
+}
+
+void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
+{
+    fprintf(fout, "[asnets]\n");
+    if (cfg->domain_pddl == NULL){
+        fprintf(fout, "#\n");
+        fprintf(fout, "# The following defines the input planning tasks:\n");
+        fprintf(fout, "#\n");
+        fprintf(fout, "# root = \"__PWD__\"\n");
+        fprintf(fout, "# domain = \"domain.pddl\"\n");
+        fprintf(fout, "# problems = [\"prob1.pddl\", \"prob2.pddl\"]\n");
+    }else{
+        fprintf(fout, "domain = \"%s\"\n", cfg->domain_pddl);
+        fprintf(fout, "problems = [\n");
+        for (int i = 0; i < cfg->problem_pddl_size; ++i)
+            fprintf(fout, "    \"%s\",\n", cfg->problem_pddl[i]);
+        fprintf(fout, "]\n");
+    }
+    fprintf(fout, "hidden_dimension = %d\n", cfg->hidden_dimension);
+    fprintf(fout, "num_layers = %d\n", cfg->num_layers);
+    fprintf(fout, "random_seed = %d\n", cfg->random_seed);
+    fprintf(fout, "weight_decay = %f\n", cfg->weight_decay);
+    fprintf(fout, "dropout_rate = %f\n", cfg->dropout_rate);
+    fprintf(fout, "batch_size = %d\n", cfg->batch_size);
+    fprintf(fout, "double_batch_size_every_epoch = %d\n",
+            cfg->double_batch_size_every_epoch);
+    fprintf(fout, "max_train_epochs = %d\n", cfg->max_train_epochs);
+    fprintf(fout, "train_steps = %d\n", cfg->train_steps);
+    fprintf(fout, "policy_rollout_limit = %d\n", cfg->policy_rollout_limit);
+    fprintf(fout, "teacher_timeout = %f\n", cfg->teacher_timeout);
+    fprintf(fout, "early_termination_success_rate = %f\n",
+            cfg->early_termination_success_rate);
+    fprintf(fout, "early_termination_epochs = %d\n",
+            cfg->early_termination_epochs);
 }
 
 static dynet::Expression poolMax(const std::vector<dynet::Expression> &in)

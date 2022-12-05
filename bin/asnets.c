@@ -15,6 +15,7 @@ static struct {
     char *eval;
     int eval_write_plans;
     char *info;
+    char *gen;
 } opt;
 
 static pddl_err_t err = PDDL_ERR_INIT;
@@ -52,24 +53,34 @@ static int parseOpts(int argc, char *argv[])
                 "Write plans to files based on domain and problem names.");
     optsAddStr("info", 'i', &opt.info, NULL,
                "Print info about the stored model.");
+    optsAddStr("gen", 'g', &opt.gen, NULL,
+               "Generate a default configuration file.");
 
     if (opts(&argc, argv) != 0)
         return -1;
 
-    if ((opt.info != NULL && argc != 1)
-            || (opt.info == NULL && argc != 2)){
-        for (int i = 1; i < argc; ++i){
-            fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
+    int need_config = 0;
+    if (opt.eval != NULL || opt.train != NULL)
+        need_config = 1;
+
+    if ((need_config && argc != 2) || (!need_config && argc != 1)){
+        if (need_config && argc <= 1){
+            fprintf(stderr, "Error: Missing config file\n");
+        }else{
+            for (int i = 1; i < argc; ++i){
+                fprintf(stderr, "Error: Unrecognized argument: %s\n", argv[i]);
+            }
         }
         help(argv[0], stderr);
         return -1;
     }
 
-    if ((opt.train == NULL && opt.eval == NULL && opt.info == NULL)
-            || (opt.train != NULL && opt.eval != NULL)
-            || (opt.train != NULL && opt.info != NULL)
-            || (opt.eval != NULL && opt.info != NULL)){
-        fprintf(stderr, "Error: Either --train, --eval, or --info option must be used.\n");
+    int req_opts = (int)(opt.train != NULL);
+    req_opts += (int)(opt.eval != NULL);
+    req_opts += (int)(opt.info != NULL);
+    req_opts += (int)(opt.gen != NULL);
+    if (req_opts != 1){
+        fprintf(stderr, "Error: Either --train, --eval, --info, or --gen option must be used.\n");
         help(argv[0], stderr);
         return -1;
     }
@@ -214,6 +225,16 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Error: ");
             pddlErrPrint(&err, 1, stderr);
             return -1;
+        }
+
+    }else if (opt.gen != NULL){
+        FILE *fout = fopen(opt.gen, "w");
+        if (fout != NULL){
+            pddlASNetsConfigWrite(&cfg, fout);
+            fclose(fout);
+        }else{
+            fprintf(stderr, "Error: Could not open %s\n", opt.gen);
+            ret = -1;
         }
     }
 
