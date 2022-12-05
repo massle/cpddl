@@ -59,6 +59,8 @@ extern "C" {
     LOG((ERR), #NAME " = %{" #NAME "}.4f", (C)->NAME)
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}b", (C)->NAME)
+#define LOG_CONFIG_STR(C, NAME, ERR) \
+    LOG((ERR), #NAME " = %{" #NAME "}s", (C)->NAME)
 
 /** TODO: Get rid of this */
 #define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \

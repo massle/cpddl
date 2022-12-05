@@ -11,6 +11,7 @@ static struct {
     char *prop_out;
 
     char *train;
+    char *train_save_prefix;
     char *eval;
     int eval_write_plans;
 } opt;
@@ -41,6 +42,9 @@ static int parseOpts(int argc, char *argv[])
                "Set output file for properties log.");
     optsAddStr("train", 't', &opt.train, NULL,
                "Train ASNets and save the model to the specified file.");
+    optsAddStr("train-save-prefix", 0x0, &opt.train_save_prefix, NULL,
+               "If set, whenever success rate improves, a new model is"
+               " saved to the file with this prefix.");
     optsAddStr("eval", 'e', &opt.eval, NULL,
                "Evaluate model stored in the specified file.");
     optsAddFlag("eval-write-plans", 0x0, &opt.eval_write_plans, 0,
@@ -120,6 +124,10 @@ int main(int argc, char *argv[])
         }
         return -1;
     }
+
+    if (opt.train_save_prefix != NULL)
+        cfg.save_model_prefix = opt.train_save_prefix;
+
 
     pddl_asnets_t *asnets = pddlASNetsNew(&cfg, &err);
     if (asnets == NULL){

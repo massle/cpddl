@@ -42,6 +42,13 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
+    switch (cfg->trainer){
+        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+            LOG2(err, "trainer = astar-lmcut");
+            break;
+    }
+    if (cfg->save_model_prefix != NULL)
+        LOG_CONFIG_STR(cfg, save_model_prefix, err);
 }
 
 void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
@@ -60,6 +67,8 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->teacher_timeout = 10.f;
     cfg->early_termination_success_rate = 0.999;
     cfg->early_termination_epochs = 20;
+    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+    cfg->save_model_prefix = NULL;
 }
 
 void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
@@ -1888,6 +1897,8 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
 
+    float best_success_rate = 0.f;
+    float best_success_rate_loss = 1E10f;
     a->train_stats.success_rate = successRate(a);
 
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
@@ -1904,6 +1915,23 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
             if (ret < 0)
                 TRACE_RET(err, ret);
             return ret;
+        }
+
+        if (a->train_stats.success_rate > best_success_rate
+                || (a->train_stats.success_rate == best_success_rate
+                        && a->train_stats.overall_loss < best_success_rate_loss)){
+            best_success_rate = a->train_stats.success_rate;
+            best_success_rate_loss = a->train_stats.overall_loss;
+            if (a->cfg.save_model_prefix != NULL){
+                char fn[4096];
+                sprintf(fn, "%s-%.2f-%.03f.policy",
+                        a->cfg.save_model_prefix,
+                        best_success_rate,
+                        best_success_rate_loss);
+                LOG(err, "Saving model to %s (success rate: %.2f, loss: %.3f)",
+                    best_success_rate, best_success_rate_loss);
+                pddlASNetsSave(a, fn, err);
+            }
         }
 
         if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){
