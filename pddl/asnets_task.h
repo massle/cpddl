@@ -34,6 +34,7 @@ typedef struct pddl_asnets_action_pos pddl_asnets_action_pos_t;
 
 struct pddl_asnets_pred {
     int pred_id;
+    /** List of related actions and corresponding positions */
     pddl_asnets_action_pos_t *related_action;
     int related_action_size;
     int related_action_alloc;
@@ -52,6 +53,7 @@ typedef struct pddl_asnets_lifted_task pddl_asnets_lifted_task_t;
 struct pddl_asnets_op {
     int op_id;
     const pddl_asnets_action_t *action;
+    /** Array of related facts, index is the position */
     int *related_fact;
     int related_fact_size;
 };
@@ -60,6 +62,7 @@ typedef struct pddl_asnets_op pddl_asnets_op_t;
 struct pddl_asnets_fact {
     int fact_id;
     const pddl_asnets_pred_t *pred;
+    /** Array of related operators, index is a position */
     pddl_iarr_t *related_op;
     int related_op_size;
 };

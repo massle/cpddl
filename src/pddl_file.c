@@ -50,6 +50,19 @@ int pddlIsFile(const char *d)
     return 0;
 }
 
+char *pddlDirname(const char *fn)
+{
+    char path[1024];
+    if (realpath(fn, path) == NULL)
+        FATAL("Could not resolve path %s", fn);
+    int len = strlen(path);
+    int pos = len - 1;
+    for (; pos >= 0 && path[pos] != '/'; --pos);
+    if (pos >= 0)
+        path[pos] = 0x0;
+    return STRDUP(path);
+}
+
 static void extractDir(const char *path, char *dir)
 {
     int len = strlen(path);

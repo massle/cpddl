@@ -21,6 +21,7 @@
 #include <dynet/param-init.h>
 
 static const float SMALL_CONST = 1E-6f;
+static const float MIN_ACTIVATION_VALUE = -1.f;
 
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
@@ -131,15 +132,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         root = d.u.s;
         if (strcmp(root, "__PWD__") == 0){
             FREE(root);
-            char path[512];
-            if (realpath(filename, path) == NULL)
-                PDDL_ERR_RET(err, -1, "Could not resolve path %s", filename);
-            int len = strlen(path);
-            int pos = len - 1;
-            for (; pos >= 0 && path[pos] != '/'; --pos);
-            if (pos >= 0)
-                path[pos] = 0x0;
-            root = STRDUP(path);
+            root = pddlDirname(filename);
         }
     }
 
@@ -182,8 +175,11 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
                         ERR_RET(err, -1, "Could not open directory %s", fn);
                     struct dirent *entry;
                     while ((entry = readdir(dir)) != NULL){
-                        if (strncmp(entry->d_name, ".", 1) == 0)
+                        int entry_len = strlen(entry->d_name);
+                        if (entry_len < 5
+                                || strcmp(entry->d_name + entry_len - 5, ".pddl") != 0){
                             continue;
+                        }
                         if (strstr(entry->d_name, "domain") != NULL)
                             continue;
                         int fnsize = strlen(root) + strlen(d.u.s) + 2;
@@ -441,6 +437,7 @@ struct PropositionModule {
 
 struct ModelParameters {
     int num_layers;
+    int hidden_dim;
     std::vector<std::vector<ActionModule *>> action;
     std::vector<std::vector<PropositionModule *>> prop;
     dynet::ParameterCollection model;
@@ -450,7 +447,8 @@ struct ModelParameters {
     ModelParameters(int hidden_dimension,
                     int num_layers,
                     const pddl_asnets_lifted_task_t *task)
-        : num_layers(num_layers)
+        : num_layers(num_layers),
+          hidden_dim(hidden_dimension)
     {
         action.resize(num_layers + 1);
         prop.resize(num_layers);
@@ -465,6 +463,8 @@ struct ModelParameters {
             }
 
             for (int pid = 0; pid < task->pred_size; ++pid){
+                ASSERT_RUNTIME(pid != task->pddl.pred.eq_pred
+                                || task->pred[pid].related_action_size == 0);
                 PropositionModule *pm;
                 pm = new PropositionModule(hidden_dimension,
                                            task->pred[pid].related_action_size,
@@ -494,6 +494,55 @@ struct ModelParameters {
         for (size_t i = 0; i < prop.size(); ++i){
             for (size_t j = 0; j < prop[i].size(); ++j)
                 delete prop[i][j];
+        }
+    }
+
+    void dumpDebug() const
+    {
+        for (size_t layer = 0; layer < action.size(); ++layer){
+            for (size_t ai = 0; ai < action[layer].size(); ++ai){
+                ActionModule *m = action[layer][ai];
+                {
+                    dynet::Tensor *t = m->W.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Action.W " << layer << " " << ai << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+
+                {
+                    dynet::Tensor *t = m->bias.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Action.bias " << layer << " " << ai << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+            }
+        }
+
+        for (size_t layer = 0; layer < prop.size(); ++layer){
+            for (size_t pi = 0; pi < prop[layer].size(); ++pi){
+                PropositionModule *m = prop[layer][pi];
+                {
+                    dynet::Tensor *t = m->W.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Proposition.W " << layer << " " << pi << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+
+                {
+                    dynet::Tensor *t = m->bias.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Action.bias " << layer << " " << pi << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+            }
         }
     }
 };
@@ -534,7 +583,13 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
                        std::vector<dynet::Expression> &prop_layer,
                        float dropout_rate)
 {
+    dynet::Expression const_min;
+    bool have_const_min = false;
+
     for (int fact_id = 0; fact_id < g->fact_size; ++fact_id){
+        int pred_id = g->fact[fact_id].pred->pred_id;
+        PropositionModule *pm = model.prop[layer][pred_id];
+
         std::vector<std::vector<dynet::Expression>> input;
         int input_size = g->fact[fact_id].related_op_size;
         if (prev_prop_layer != NULL)
@@ -545,12 +600,24 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
             PDDL_IARR_FOR_EACH(g->fact[fact_id].related_op + ri, op_id){
                 input[ri].push_back(action_layer[op_id]);
             }
+
+            if (input[ri].size() == 0){
+                // This means there is no operator having this fact in its
+                // precondition or add effect at position ri.
+                // So, we set the input to the minimum value of the
+                // activation function.
+                if (!have_const_min){
+                    std::vector<long> d(1, model.hidden_dim);
+                    dynet::Dim const_min_dim(d);
+                    const_min = dynet::constant(cg, const_min_dim, MIN_ACTIVATION_VALUE);
+                    have_const_min = true;
+                }
+                input[ri].push_back(const_min);
+            }
         }
         if (prev_prop_layer != NULL)
             input[input_size - 1].push_back((*prev_prop_layer)[fact_id]);
 
-        int pred_id = g->fact[fact_id].pred->pred_id;
-        PropositionModule *pm = model.prop[layer][pred_id];
         dynet::Expression e = pm->expr(cg, input);
         if (dropout_rate > 0.f){
             e = dynet::dropout(e, dropout_rate);

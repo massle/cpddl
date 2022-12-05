@@ -94,11 +94,14 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
         const pddl_fm_atom_t *at;
         pddl_fm_const_it_atom_t it;
         PDDL_FM_FOR_EACH_ATOM(a->pre, &it, at){
+            if (at->pred == lt->pddl.pred.eq_pred)
+                continue;
             int pos;
             if ((pos = addUniqueRelatedAtom(lt->action + ai, at)) >= 0)
                 addRelatedAction(lt->pred + at->pred, ai, pos);
         }
         PDDL_FM_FOR_EACH_ATOM(a->eff, &it, at){
+            ASSERT_RUNTIME(at->pred != lt->pddl.pred.eq_pred);
             int pos;
             if ((pos = addUniqueRelatedAtom(lt->action + ai, at)) >= 0)
                 addRelatedAction(lt->pred + at->pred, ai, pos);
@@ -227,7 +230,7 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
             for (size_t pos = 0; pos < op->action->related_atom_size; ++pos){
                 const pddl_fm_atom_t *atom = op->action->related_atom[pos];
                 if (atomEq(fatom, atom, oargs)){
-                    ASSERT(op->related_fact[pos] < 0);
+                    ASSERT_RUNTIME(op->related_fact[pos] < 0);
                     op->related_fact[pos] = fact_id;
                     addRelatedOp(gt, fact_id, op_id, pos);
                 }
@@ -248,8 +251,9 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
         ASSERT_RUNTIME(gt->op[op_id].related_fact_size
                             == gt->op[op_id].action->related_atom_size);
-        for (int i = 0; i < gt->op[op_id].related_fact_size; ++i)
+        for (int i = 0; i < gt->op[op_id].related_fact_size; ++i){
             ASSERT_RUNTIME(gt->op[op_id].related_fact[i] >= 0);
+        }
     }
 
     ASSERT_RUNTIME(gt->strips.fact.fact_size == gt->fact_size);
@@ -259,14 +263,12 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
         for (int i = 0; i < gt->fact[fact_id].related_op_size; ++i){
             const pddl_iarr_t *rop = gt->fact[fact_id].related_op + i;
             if (pddlIArrSize(rop) == 0){
-                LOG(err, "%s : %d/%d=(%d,%d)",
+                LOG(err, "Missing related operator."
+                    " fact (%s), action/pos: %s/%d",
                     gt->strips.fact.fact[fact_id]->name,
-                    i, gt->fact[fact_id].related_op_size,
-                    gt->fact[fact_id].pred->related_action[i].action_id,
+                    gt->pddl.action.action[gt->fact[fact_id].pred->related_action[i].action_id].name,
                     gt->fact[fact_id].pred->related_action[i].pos);
             }
-
-            ASSERT_RUNTIME(pddlIArrSize(rop) > 0);
         }
     }
     LOG2(err, "Check DONE.");
