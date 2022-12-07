@@ -101,6 +101,35 @@ void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     int use_fd_fact_names,
                     FILE *fout);
 
+struct pddl_fdr_write_config {
+    /** If set, the output will be written to this file */
+    const char *filename;
+    /** If set, the task will be written to this stream */
+    FILE *fout;
+    /** If set to true, Fast Downward format is used. */
+    int fd;
+    /** If set to true, Fast Downward style of fact names is used */
+    int use_fd_fact_names;
+    /** If set, given mutex groups will be printed out */
+    const pddl_mgroups_t *mgroups;
+    /** If set to true, IDs of operators are incorporated in the names of
+     *  operators */
+    int encode_op_ids;
+};
+typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
+
+#define PDDL_FDR_WRITE_CONFIG_INIT \
+    { \
+        NULL, /* .filename */ \
+        NULL, /* .fout */ \
+        1, /* .fd */ \
+        0, /* .use_fd_fact_names */ \
+        NULL, /* .mgroups */ \
+        0, /* .encode_op_ids */ \
+    }
+
+void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
