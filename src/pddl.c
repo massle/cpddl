@@ -254,14 +254,34 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
 
     if (cfg->normalize){
         pddlNormalize(pddl);
-        LOG2(err, "PDDL task normalized.");
+        LOG(err, "PDDL task normalized."
+            " types: %{normalized_types}d,"
+            " objects: %{normalized_objects}d,"
+            " predicates: %{normalized_predicates}d,"
+            " functions: %{normalized_functions}d,"
+            " actions: %{normalized_actions}d",
+            pddl->type.type_size,
+            pddl->obj.obj_size,
+            pddl->pred.pred_size,
+            pddl->func.pred_size,
+            pddl->action.action_size);
     }
 
     if (cfg->remove_empty_types){
         pddlRemoveEmptyTypes(pddl, err);
         if (cfg->normalize){
             pddlNormalize(pddl);
-            LOG2(err, "PDDL task normalized again.");
+            LOG(err, "PDDL task normalized again."
+                " types: %{normalized_types}d,"
+                " objects: %{normalized_objects}d,"
+                " predicates: %{normalized_predicates}d,"
+                " functions: %{normalized_functions}d,"
+                " actions: %{normalized_actions}d",
+                pddl->type.type_size,
+                pddl->obj.obj_size,
+                pddl->pred.pred_size,
+                pddl->func.pred_size,
+                pddl->action.action_size);
         }
     }
 
@@ -738,7 +758,7 @@ void pddlNormalize(pddl_t *pddl)
     ASSERT_RUNTIME(c->type == PDDL_FM_AND);
     pddl->init = pddlFmToAnd(c);
 
-    if (!pddl->only_domain)
+    if (!pddl->only_domain && !pddl->cfg.keep_all_actions)
         removeActionsWithUnsatisfiableArgs(pddl);
 
     for (int i = 0; i < pddl->action.action_size; ++i)
@@ -747,7 +767,7 @@ void pddlNormalize(pddl_t *pddl)
     for (int i = 0; i < pddl->action.action_size; ++i)
         pddlActionSplit(pddl->action.action + i, pddl);
 
-    if (!pddl->only_domain)
+    if (!pddl->only_domain && !pddl->cfg.keep_all_actions)
         removeIrrelevantActions(pddl);
 
 #ifdef PDDL_DEBUG
@@ -760,7 +780,7 @@ void pddlNormalize(pddl_t *pddl)
         pddl->goal = pddlFmNormalize(pddl->goal, pddl, NULL);
 
     compileOutNonStaticNegPre(pddl);
-    if (!pddl->only_domain){
+    if (!pddl->only_domain && !pddl->cfg.keep_all_actions){
         removeIrrelevantActions(pddl);
         do {
             pddlResetPredReadWrite(pddl);

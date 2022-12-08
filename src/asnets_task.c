@@ -69,6 +69,7 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
                              pddl_err_t *err)
 {
+    CTX(err, "asnets_lifted_task", "ASNets-LiftedTask");
     ZEROIZE(lt);
     pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
     pddl_cfg.force_adl = 1;
@@ -76,8 +77,11 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
     pddl_cfg.enforce_unit_cost = 1;
     pddl_cfg.remove_empty_types = 0;
     pddl_cfg.compile_away_cond_eff = 0;
-    if (pddlInit(&lt->pddl, domain_fn, NULL, &pddl_cfg, err) != 0)
+    pddl_cfg.keep_all_actions = 1;
+    if (pddlInit(&lt->pddl, domain_fn, NULL, &pddl_cfg, err) != 0){
+        CTXEND(err);
         TRACE_RET(err, -1);
+    }
 
     lt->action_size = lt->pddl.action.action_size;
     lt->action = CALLOC_ARR(pddl_asnets_action_t, lt->action_size);
@@ -107,6 +111,7 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                 addRelatedAction(lt->pred + at->pred, ai, pos);
         }
     }
+    CTXEND(err);
     return 0;
 }
 
@@ -289,6 +294,9 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddl_cfg.force_adl = 1;
     pddl_cfg.normalize = 1;
     pddl_cfg.enforce_unit_cost = 1;
+    pddl_cfg.remove_empty_types = 0;
+    pddl_cfg.compile_away_cond_eff = 0;
+    pddl_cfg.keep_all_actions = 1;
     if (pddlInit(&gt->pddl, domain_fn, problem_fn, &pddl_cfg, err) != 0){
         CTXEND(err);
         TRACE_RET(err, -1);
