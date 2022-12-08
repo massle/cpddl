@@ -17,11 +17,11 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/fact.h"
-#include "internal.h"
 
 /** Deep copy of the fact.  */
 static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src);

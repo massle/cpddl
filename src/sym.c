@@ -19,10 +19,10 @@
 #include "pddl/config.h"
 #ifdef PDDL_BLISS
 
+#include "internal.h"
 #include <bliss/bliss_C.h>
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
-#include "internal.h"
 
 struct pdg_sym {
     const pddl_strips_t *strips;

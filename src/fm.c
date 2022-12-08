@@ -17,11 +17,11 @@
  * See the License for more information.
  */
 
+#include "internal.h"
+#include "lisp_err.h"
 #include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/fm.h"
-#include "lisp_err.h"
-#include "internal.h"
 
 static char *type_names[PDDL_FM_NUM_TYPES] = {
     "and",      /* PDDL_FM_AND */

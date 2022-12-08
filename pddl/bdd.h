@@ -20,7 +20,7 @@
 #ifndef __PDDL_BDD_H__
 #define __PDDL_BDD_H__
 
-#include <pddl/config.h>
+#include <pddl/common.h>
 #include <pddl/time_limit.h>
 
 struct pddl_bdd_manager {

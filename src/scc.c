@@ -17,9 +17,8 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
-#include "pddl/scc.h"
 #include "internal.h"
+#include "pddl/scc.h"
 
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size)
 {

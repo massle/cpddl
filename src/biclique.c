@@ -16,10 +16,9 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/set.h"
 #include "pddl/biclique.h"
-#include "internal.h"
 
 static void otherSide(const pddl_graph_simple_t *g,
                       const pddl_iset_t *L,

@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "pddl/clique.h"
 #include "internal.h"
+#include "pddl/clique.h"
 
 struct bk_stack_el {
     pddl_iset_t clique;

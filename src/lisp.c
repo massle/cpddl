@@ -17,16 +17,9 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-
+#include "internal.h"
 #include "pddl/lisp.h"
 #include "lisp_err.h"
-#include "internal.h"
 
 
 #define IS_WS(c) ((c) == ' ' || (c) == '\n' || (c) == '\r' || (c) == '\t')
@@ -288,7 +281,7 @@ pddl_lisp_t *pddlLispClone(const pddl_lisp_t *src)
     pddlLispNodeInitCopy(&lisp->root, &src->root);
     lisp->size = src->size;
     lisp->data = mmap(NULL, src->size, PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+                      MAP_PRIVATE | MAP_ANON, -1, 0);
     if (lisp->data == MAP_FAILED)
         FATAL2("Error: Could not allocated enough memory.");
     memcpy(lisp->data, src->data, src->size);

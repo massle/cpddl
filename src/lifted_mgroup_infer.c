@@ -20,13 +20,12 @@
 // TODO: Merge candidates with proved mgroups if possible (e.g., when types
 //       of variables are subtypes)
 
-#include <limits.h>
+#include "internal.h"
 #include "pddl/timer.h"
 #include "pddl/fifo.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup_htable.h"
 #include "pddl/lifted_mgroup_infer.h"
-#include "internal.h"
 
 void pddlLiftedMGroupsInferConfigLog(const pddl_lifted_mgroups_infer_config_t *cfg,
                                      pddl_err_t *err)

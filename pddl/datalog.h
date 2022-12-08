@@ -23,11 +23,10 @@
 #ifndef __PDDL_DATALOG_H__
 #define __PDDL_DATALOG_H__
 
-#include <stdio.h>
+#include <pddl/common.h>
 #include <pddl/iset.h>
 #include <pddl/err.h>
 #include <pddl/cost.h>
-#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {

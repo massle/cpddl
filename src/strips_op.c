@@ -17,13 +17,12 @@
  * See the License for more information.
  */
 
-#include <limits.h>
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/iarr.h"
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_op.h"
-#include "internal.h"
 
 void pddlStripsOpInit(pddl_strips_op_t *op)
 {

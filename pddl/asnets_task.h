@@ -11,11 +11,11 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include "pddl/pddl_struct.h"
-#include "pddl/strips.h"
-#include "pddl/fdr.h"
-#include "pddl/fdr_app_op.h"
-#include "pddl/iarr.h"
+#include <pddl/pddl_struct.h>
+#include <pddl/strips.h>
+#include <pddl/fdr.h>
+#include <pddl/fdr_app_op.h>
+#include <pddl/iarr.h>
 
 struct pddl_asnets_action {
     int action_id;

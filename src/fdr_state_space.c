@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/fdr_state_space.h"
-#include "internal.h"
 
 
 #define PAGESIZE_MULTIPLY 1024

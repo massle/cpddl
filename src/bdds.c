@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/bdds.h"
 #include "pddl/sort.h"
-#include "internal.h"
 
 void pddlBDDsInit(pddl_bdds_t *bdds)
 {

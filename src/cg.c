@@ -17,14 +17,10 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
+#include "internal.h"
 #include "pddl/pairheap.h"
 #include "pddl/cg.h"
 #include "pddl/scc.h"
-#include "internal.h"
 
 #define GOAL_BONUS 100000
 

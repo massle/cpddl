@@ -17,11 +17,10 @@
  * See the License for more information.
  */
 
-#include <limits.h>
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/strips_ground.h"
-#include "internal.h"
 
 struct pddl_strips_ground_atree {
     const pddl_prep_action_t *action;

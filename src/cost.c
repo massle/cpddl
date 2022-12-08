@@ -17,7 +17,6 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
 #include "pddl/cost.h"
 
 pddl_cost_t pddl_cost_zero = { 0, 0 };

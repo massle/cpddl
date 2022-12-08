@@ -23,8 +23,8 @@
 #include <pddl/config.h>
 #include <pddl/common.h>
 #include <pddl/err.h>
-#include <pddl/alloc.h>
 #include <pddl/timer.h>
+#include <pddl/alloc.h>
 #include <pddl/hfunc.h>
 #include <pddl/rand.h>
 #include <pddl/sort.h>

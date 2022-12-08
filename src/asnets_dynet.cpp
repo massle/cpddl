@@ -14,7 +14,6 @@
 #include "pddl/pddl_file.h"
 
 #ifdef PDDL_DYNET
-#include <dirent.h>
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>

@@ -17,11 +17,11 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/sort.h"
 #include "pddl/ground_atom.h"
 #include "pddl/pddl_struct.h"
-#include "internal.h"
 
 
 #define PDDL_GROUND_ATOM_STACK(NAME, ARG_SIZE) \

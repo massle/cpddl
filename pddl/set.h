@@ -20,7 +20,6 @@
 #ifndef __PDDL_SET_H__
 #define __PDDL_SET_H__
 
-#include <stdio.h>
 #include <pddl/hashset.h>
 #include <pddl/iset.h>
 

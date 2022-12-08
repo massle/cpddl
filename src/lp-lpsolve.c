@@ -14,11 +14,9 @@
  *  See the License for more information.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/lp.h"
 #include "_lp.h"
-#include "internal.h"
 
 #ifdef PDDL_LPSOLVE
 # include <lpsolve/lp_lib.h>
@@ -244,5 +242,5 @@ pddl_lp_cls_t pddl_lp_lpsolve = {
     lpWrite,
 };
 #else /* PDDL_LPSOLVE */
-pddl_lp_cls_t pddl_lp_lpsolve;
+pddl_lp_cls_t pddl_lp_lpsolve = { 0 };
 #endif /* PDDL_LPSOLVE */

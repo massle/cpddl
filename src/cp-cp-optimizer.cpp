@@ -12,8 +12,8 @@
  *  See the License for more information.
  */
 
-#include "pddl/cp.h"
 #include "internal.h"
+#include "pddl/cp.h"
 #include "_cp.h"
 
 #ifdef PDDL_CPOPTIMIZER

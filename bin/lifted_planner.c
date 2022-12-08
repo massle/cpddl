@@ -1,4 +1,3 @@
-#include <signal.h>
 #include "pddl/pddl.h"
 #include "options.h"
 #include "print_to_file.h"

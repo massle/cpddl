@@ -17,11 +17,11 @@
  * See the License for more information.
  */
 
+#include "internal.h"
+#include "lisp_err.h"
 #include "pddl/config.h"
 #include "pddl/pddl.h"
 #include "pddl/action.h"
-#include "lisp_err.h"
-#include "internal.h"
 
 
 #define PDDL_ACTIONS_ALLOC_INIT 4

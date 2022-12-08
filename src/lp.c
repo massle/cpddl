@@ -12,11 +12,9 @@
  *  See the License for more information.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/lp.h"
 #include "_lp.h"
-#include "internal.h"
 
 #if defined(PDDL_CPLEX)
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_cplex;

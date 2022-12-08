@@ -13,16 +13,10 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <errno.h>
-
+#include "internal.h"
 #include "pddl/endomorphism.h"
 #include "pddl/sort.h"
 #include "pddl/cp.h"
-#include "internal.h"
 
 struct lifted_endomorphism {
     int obj_size;

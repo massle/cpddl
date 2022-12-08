@@ -13,9 +13,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/pddl_struct.h"
 #include "datalog_pddl.h"
-#include "internal.h"
 
 
 int pddlDatalogPddlMaxVarSize(const pddl_t *pddl)

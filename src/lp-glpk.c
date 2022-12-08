@@ -12,11 +12,9 @@
  *  See the License for more information.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/lp.h"
 #include "_lp.h"
-#include "internal.h"
 
 #ifdef PDDL_GLPK
 # include <glpk.h>
@@ -276,5 +274,5 @@ pddl_lp_cls_t pddl_lp_glpk = {
     lpWrite,
 };
 #else /* PDDL_GLPK */
-pddl_lp_cls_t pddl_lp_glpk;
+pddl_lp_cls_t pddl_lp_glpk = { 0 };
 #endif /* PDDL_GLPK */

@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/hfunc.h"
 #include "pddl/extarr.h"
@@ -24,7 +25,6 @@
 #include "pddl/pairheap.h"
 #include "pddl/datalog.h"
 #include "pddl/iarr.h"
-#include "internal.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;

@@ -13,7 +13,6 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
 #include "pddl/alloc.h"
 
 #ifdef PDDL_MEMCHECK

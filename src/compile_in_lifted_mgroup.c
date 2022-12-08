@@ -18,9 +18,9 @@
  */
 
 
+#include "internal.h"
 #include "pddl/compile_in_lifted_mgroup.h"
 #include "pddl/unify.h"
-#include "internal.h"
 
 
 struct action_cond {

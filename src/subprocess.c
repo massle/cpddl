@@ -12,17 +12,8 @@
  *  See the License for more information.
  */
 
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <errno.h>
-
-#include "pddl/subprocess.h"
 #include "internal.h"
+#include "pddl/subprocess.h"
 
 static void waitForSubprocess(pid_t pid, pddl_exec_status_t *status)
 {

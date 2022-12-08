@@ -17,10 +17,9 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/label.h"
-#include "internal.h"
 
 static pddl_htable_key_t htableHash(const pddl_list_t *key, void *ud)
 {

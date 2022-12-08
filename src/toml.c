@@ -25,12 +25,9 @@
   SOFTWARE.
 
 */
-#define _POSIX_C_SOURCE 200809L
 
 #include "internal.h"
 #include "toml.h"
-#include <ctype.h>
-#include <errno.h>
 
 
 #define ALIGN8(sz) (((sz) + 7) & ~7)

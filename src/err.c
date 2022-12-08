@@ -16,10 +16,6 @@
 
 #include "internal.h"
 #include "pddl/err.h"
-#include <sys/resource.h>
-#include <strings.h>
-#include <string.h>
-#include <stdarg.h>
 
 static void _pddlProp_kw(pddl_err_t *err, const char *kw)
 {

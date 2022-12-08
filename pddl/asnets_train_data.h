@@ -11,10 +11,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include "pddl/htable.h"
-#include "pddl/plan.h"
-#include "pddl/fdr.h"
-#include "pddl/heur.h"
+#include <pddl/htable.h>
+#include <pddl/plan.h>
+#include <pddl/fdr.h>
+#include <pddl/heur.h>
 
 typedef struct pddl_asnets_train_data_sample pddl_asnets_train_data_sample_t;
 

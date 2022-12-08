@@ -16,6 +16,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/lp.h"
 #include "pddl/invertibility.h"
 #include "pddl/scc.h"
@@ -24,7 +25,6 @@
 #include "pddl/mgroup_projection.h"
 #include "pddl/hff.h"
 #include "pddl/relaxed_plan.h"
-#include "internal.h"
 
 struct fact_vertex {
     int fact;

@@ -368,5 +368,5 @@ pddl_lp_cls_t pddl_lp_gurobi = {
     lpWrite,
 };
 #else /* PDDL_GUROBI */
-pddl_lp_cls_t pddl_lp_gurobi;
+pddl_lp_cls_t pddl_lp_gurobi = { 0 };
 #endif /* PDDL_GUROBI */

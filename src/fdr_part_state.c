@@ -16,9 +16,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/fdr_part_state.h"
-#include "internal.h"
 
 
 static int factsCmp(const void *a, const void *b, void *_)

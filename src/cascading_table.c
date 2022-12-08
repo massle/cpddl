@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "pddl/cascading_table.h"
 #include "internal.h"
+#include "pddl/cascading_table.h"
 
 #define PRUNED -1
 #define PDDL_CASCADING_TABLE_LEAF 0

@@ -16,12 +16,12 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/timer.h"
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
 #include "pddl/cg.h"
-#include "internal.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
                              const pddl_iset_t *state,

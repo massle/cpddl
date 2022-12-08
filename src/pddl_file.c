@@ -17,11 +17,6 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
-
 #include "internal.h"
 #include "pddl/pddl_file.h"
 #include "pddl/sort.h"

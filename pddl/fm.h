@@ -20,9 +20,8 @@
 #ifndef __PDDL_FM_H__
 #define __PDDL_FM_H__
 
-#include <pddl/list.h>
-
 #include <pddl/common.h>
+#include <pddl/list.h>
 #include <pddl/lisp.h>
 #include <pddl/require_flags.h>
 #include <pddl/param.h>

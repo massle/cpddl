@@ -1,4 +1,3 @@
-#include <sys/resource.h>
 #include "pddl/pddl.h"
 #include "opts.h"
 #include "print_to_file.h"

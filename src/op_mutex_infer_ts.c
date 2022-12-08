@@ -17,15 +17,11 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/resource.h>
-#include <unistd.h>
+#include "internal.h"
 #include "pddl/timer.h"
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
 #include "pddl/trans_system_graph.h"
-#include "internal.h"
 
 static void setMemLimit(size_t mem_in_mb)
 {
