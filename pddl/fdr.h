@@ -34,6 +34,7 @@ struct pddl_fdr {
     pddl_fdr_part_state_t goal;
     int goal_is_unreachable;
     int has_cond_eff;
+    int is_shallow_copy;
 };
 typedef struct pddl_fdr pddl_fdr_t;
 
@@ -51,6 +52,16 @@ void pddlFDRFree(pddl_fdr_t *fdr);
 
 pddl_fdr_t *pddlFDRClone(const pddl_fdr_t *fdr_in);
 void pddlFDRDel(pddl_fdr_t *fdr);
+
+/**
+ * Creates a "shallow" copy of the planning tasks and sets the initial
+ * state to the given state.
+ * IMPORTANT: Chaning anything in {fdr} (except the initial state) will
+ * change also {fdr_in}.
+ */
+void pddlFDRInitShallowCopyWithDifferentInitState(pddl_fdr_t *fdr,
+                                                  const pddl_fdr_t *fdr_in,
+                                                  const int *state);
 
 /**
  * Reorder variables using causal graph

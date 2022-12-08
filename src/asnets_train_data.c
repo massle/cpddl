@@ -250,19 +250,19 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 
-    // TODO: This is a hacky way to change the initial state without
-    //       copying the whole planning task
-    pddl_fdr_t fdr = *_fdr;
-    fdr.init = (int *)state;
+    pddl_fdr_t fdr;
+    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
 
     pddl_heur_t *heur = pddlHeur(heur_cfg, err);
     if (heur == NULL){
+        pddlFDRFree(&fdr);
         CTXEND(err);
         TRACE_RET(err, -1);
     }
 
     pddl_search_t *search = pddlSearchAStar(&fdr, heur, err);
     if (search == NULL){
+        pddlFDRFree(&fdr);
         pddlHeurDel(heur);
         CTXEND(err);
         TRACE_RET(err, -1);
@@ -298,6 +298,7 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
 
     pddlSearchDel(search);
     pddlHeurDel(heur);
+    pddlFDRFree(&fdr);
     LOG(err, "num samples: %{num_samples}d", td->sample_size);
     CTXEND(err);
     return 0;

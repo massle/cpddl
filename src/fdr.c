@@ -122,9 +122,12 @@ void pddlFDRFree(pddl_fdr_t *fdr)
 {
     if (fdr->init != NULL)
         FREE(fdr->init);
-    pddlFDRPartStateFree(&fdr->goal);
-    pddlFDROpsFree(&fdr->op);
-    pddlFDRVarsFree(&fdr->var);
+
+    if (!fdr->is_shallow_copy){
+        pddlFDRPartStateFree(&fdr->goal);
+        pddlFDROpsFree(&fdr->op);
+        pddlFDRVarsFree(&fdr->var);
+    }
 }
 
 pddl_fdr_t *pddlFDRClone(const pddl_fdr_t *fdr_in)
@@ -138,6 +141,16 @@ void pddlFDRDel(pddl_fdr_t *fdr)
 {
     pddlFDRFree(fdr);
     FREE(fdr);
+}
+
+void pddlFDRInitShallowCopyWithDifferentInitState(pddl_fdr_t *fdr,
+                                                  const pddl_fdr_t *fdr_in,
+                                                  const int *state)
+{
+    *fdr = *fdr_in;
+    fdr->init = ALLOC_ARR(int, fdr->var.var_size);
+    memcpy(fdr->init, state, sizeof(int) * fdr->var.var_size);
+    fdr->is_shallow_copy = 1;
 }
 
 void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
