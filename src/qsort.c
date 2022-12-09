@@ -79,7 +79,7 @@ _pddl_inline char *med3(char *a, char *b, char *c, pddl_sort_cmp cmp, void *arg)
               :(CMP(arg, b, c) > 0 ? b : (CMP(arg, a, c) < 0 ? a : c ));
 }
 
-void pddlQSort(void *a, size_t n, size_t es, pddl_sort_cmp cmp, void *carg)
+int pddlQSort(void *a, size_t n, size_t es, pddl_sort_cmp cmp, void *carg)
 {
     char *pa, *pb, *pc, *pd, *pl, *pm, *pn;
     int d, r, swaptype, swap_cnt;
@@ -91,7 +91,7 @@ loop:    SWAPINIT(a, es);
             for (pl = pm; pl > (char *)a && CMP(carg, pl - es, pl) > 0;
                  pl -= es)
                 swap(pl, pl - es);
-        return;
+        return 0;
     }
     pm = (char *)a + (n / 2) * es;
     if (n > 7) {
@@ -138,7 +138,7 @@ loop:    SWAPINIT(a, es);
             for (pl = pm; pl > (char *)a && CMP(carg, pl - es, pl) > 0;
                  pl -= es)
                 swap(pl, pl - es);
-        return;
+        return 0;
     }
 
     pn = (char *)a + n * es;
@@ -154,4 +154,5 @@ loop:    SWAPINIT(a, es);
         n = r / es;
         goto loop;
     }
+    return 0;
 }

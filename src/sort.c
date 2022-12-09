@@ -16,7 +16,7 @@
 #include "pddl/sort.h"
 #include "internal.h"
 
-//#define DEFAULT_SORT_TIMSORT
+#define DEFAULT_SORT pddlQSort
 
 /**** INSERT SORT LIST ****/
 void pddlListInsertSort(pddl_list_t *list, pddl_sort_list_cmp cmp, void *data)
@@ -177,13 +177,7 @@ int pddlSort(void *base, size_t nmemb, size_t size,
         return 0;
     }
 
-#ifdef DEFAULT_SORT_TIMSORT
-    int ret = pddlTimSort(base, nmemb, size, cmp, carg);
-#else /* DEFAULT_SORT_TIMSORT */
-    pddlQSort(base, nmemb, size, cmp, carg);
-    int ret = 0;
-#endif /* DEFAULT_SORT_TIMSORT */
-
+    int ret = DEFAULT_SORT(base, nmemb, size, cmp, carg);
 #ifdef PDDL_DEBUG
     for (int i = 1; i < nmemb; ++i){
         char *ca = base;
@@ -211,7 +205,6 @@ int pddlStableSort(void *base, size_t nmemb, size_t size,
     }
 
     int ret = pddlTimSort(base, nmemb, size, cmp, carg);
-
 #ifdef PDDL_DEBUG
     for (int i = 1; i < nmemb; ++i){
         char *ca = base;

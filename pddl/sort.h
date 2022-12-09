@@ -68,8 +68,8 @@ int pddlMergeSort(void *base, size_t nmemb, size_t size,
  * BSD kqsort.
  * Uses recursion.
  */
-void pddlQSort(void *base, size_t nmemb, size_t size,
-               pddl_sort_cmp cmp, void *carg);
+int pddlQSort(void *base, size_t nmemb, size_t size,
+              pddl_sort_cmp cmp, void *carg);
 
 /**
  * Tim sort.
