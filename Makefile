@@ -19,6 +19,7 @@ OBJS += toml
 OBJS += rand
 OBJS += sort
 OBJS += qsort
+OBJS += timsort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap
