@@ -20,6 +20,7 @@ OBJS += rand
 OBJS += sort
 OBJS += qsort
 OBJS += timsort
+OBJS += mergesort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap
