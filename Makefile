@@ -21,6 +21,7 @@ OBJS += sort
 OBJS += qsort
 OBJS += timsort
 OBJS += mergesort
+OBJS += heapsort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap
