@@ -133,6 +133,11 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    if (opt.train != NULL && pddlIsFile(opt.train)){
+        fprintf(stderr, "Error: File %s already exists.\n", opt.train);
+        return -1;
+    }
+
     pddl_asnets_config_t cfg;
     if (config_file != NULL){
         if (pddlASNetsConfigInitFromFile(&cfg, config_file, &err) != 0){
