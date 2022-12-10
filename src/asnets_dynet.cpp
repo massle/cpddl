@@ -2035,38 +2035,38 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
                              const pddl_asnets_config_t *cfg,
                              pddl_err_t *err)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return NULL;
 }
 
 void pddlASNetsDel(pddl_asnets_t *a)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
 }
 
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return -1;
 }
 
 int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return -1;
 }
 
 int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return -1;
 }
 
 const pddl_asnets_ground_task_t *
 pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
 {
-    FATAL("This module requires dynet library.");
-    return -1;
+    FATAL2("This module requires dynet library.");
+    return NULL;
 }
 
 int pddlASNetsRunPolicy(pddl_asnets_t *a,
@@ -2074,7 +2074,7 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         const int *in_state,
                         int *out_state)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return -1;
 }
 
@@ -2083,13 +2083,13 @@ int pddlASNetsSolveTask(pddl_asnets_t *a,
                         pddl_iarr_t *trace,
                         pddl_err_t *err)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return -1;
 }
 
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 {
-    FATAL("This module requires dynet library.");
+    FATAL2("This module requires dynet library.");
     return -1;
 }
 

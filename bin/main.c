@@ -1,4 +1,3 @@
-#include <signal.h>
 #include "pddl/pddl.h"
 #include "opts.h"
 #include "options.h"
@@ -6,6 +5,7 @@
 #include "report.h"
 #include "lifted_planner.h"
 #include "print_to_file.h"
+#include <signal.h>
 
 #ifndef BIN_PDDL_FDR
 # define BIN_PDDL_FDR 0

@@ -32,7 +32,7 @@ ifeq '$(PROFIL)' 'yes'
   CPPFLAGS += -pg -no-pie
 endif
 CFLAGS += -Wall -pedantic --std=c99
-CPPFLAGS += -Wall -pedantic
+CPPFLAGS += -Wall -pedantic --std=c++11
 
 ifeq '$(WERROR)' 'yes'
   CFLAGS += -Werror

@@ -21,11 +21,11 @@
 #define __PDDL_COMMON_H__
 
 #ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
 #endif /* _DEFAULT_SOURCE */
 
 #ifndef _BSD_SOURCE
-#define _BSD_SOURCE
+#define _BSD_SOURCE 1
 #endif /* _BSD_SOURCE */
 
 #include <sys/mman.h>
@@ -64,11 +64,19 @@ enum pddl_status {
 };
 typedef enum pddl_status pddl_status_t;
 
+#if defined(__clang__) && __clang_major__ < 10
+# pragma clang diagnostic ignored "-Wmissing-braces"
+#endif
+
 /**
  * Returns offset of member in given type (struct).
  */
-#define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
-/*#define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)*/
+#if defined(__clang__) && __clang_major__ < 10
+# define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#else
+# define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
+/* #define pddl_offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER) */
+#endif
 
 /**
  * Returns container of given member
@@ -79,7 +87,7 @@ typedef enum pddl_status pddl_status_t;
 /**
  * Marks inline function.
  */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #  ifdef PDDL_DEBUG
 #    define _pddl_inline static __attribute__((unused))
 #  else /* PDDL_DEBUG */
@@ -89,9 +97,9 @@ typedef enum pddl_status pddl_status_t;
 #      define _pddl_inline static inline __attribute__((always_inline,unused))
 #    endif /* __NO_INLINE */
 #  endif /* PDDL_DEBUG */
-#else /* __GNUC__ */
+#else /* defined(__GNUC__) || defined(__clang__) */
 # define _pddl_inline static inline
-#endif /* __GNUC__ */
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 /**
  * __prefetch(x)  - prefetches the cacheline at "x" for read
