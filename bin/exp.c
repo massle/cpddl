@@ -654,9 +654,8 @@ static int cmdIsFinished(int num_dirs, char *dir[])
             snprintf(path, 511, "%s/%06d", dir[di], ti);
             if (!pddlIsDir(path))
                 break;
-            snprintf(path, 511, "%s/%06d/task.finished", dir[di], ti);
-            if (!pddlIsFile(path)){
-                printf("Not finished %s/%06d\n", dir[di], ti);
+            if (!taskIsFinished(path)){
+                printf("Not finished %s\n", path);
                 return 1;
             }
             ++finished;
