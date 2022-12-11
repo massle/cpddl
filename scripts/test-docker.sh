@@ -205,36 +205,6 @@ EOF
     fi
 }
 
-function osx(){
-    local m="$(gen_make $@)"
-    local run=
-    while [ "$1" != "" ]; do
-        if [ "$1" = "glpk" ]; then
-            run="$run
-RUN dnf -y install glpk-devel"
-        elif [ "$1" = "clang" ]; then
-            run="$run
-RUN dnf -y install clang"
-        fi
-        shift
-    done
-
-    cat >Dockerfile <<EOF
-FROM sickcodes/docker-osx:latest
-LABEL cpddl=test-build
-
-$run
-
-$COPY
-
-$m
-EOF
-    if [ "$RUN_CHECK" != "" ]; then
-        echo "RUN dnf -y install python3 diffutils" >>Dockerfile
-        echo "$RUN_CHECK" >>Dockerfile
-    fi
-}
-
 function run(){
     cat Dockerfile
     docker build --force-rm .
@@ -260,12 +230,6 @@ if [ "$1" != "" ]; then
     run 2>&1 | tee -a test.log
     exit
 fi
-
-echo "osx"
-osx
-echo "osx run"
-run
-exit 0
 
 for clang in "" "clang"; do
 for lp in "" "cplex" "glpk"; do
