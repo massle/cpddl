@@ -20,6 +20,8 @@
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_cplex;
 #elif defined(PDDL_GUROBI)
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_gurobi;
+#elif defined(PDDL_HIGHS)
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_highs;
 #elif defined(PDDL_GLPK)
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_glpk;
 #elif defined(PDDL_LPSOLVE)
@@ -35,6 +37,8 @@ static pddl_lp_cls_t *getSolverCls(pddl_lp_solver_t solver)
             return &pddl_lp_cplex;
         case PDDL_LP_GUROBI:
             return &pddl_lp_gurobi;
+        case PDDL_LP_HIGHS:
+            return &pddl_lp_highs;
         case PDDL_LP_LPSOLVE:
             return &pddl_lp_lpsolve;
         case PDDL_LP_GLPK:
@@ -69,6 +73,11 @@ int pddlLPSolverAvailable(pddl_lp_solver_t solver)
             return 1;
         return 0;
 
+    }else if (solver == PDDL_LP_HIGHS){
+        if (pddl_lp_highs.new != NULL)
+            return 1;
+        return 0;
+
     }else if (solver == PDDL_LP_GLPK){
         if (pddl_lp_glpk.new != NULL)
             return 1;
@@ -82,6 +91,7 @@ int pddlLPSolverAvailable(pddl_lp_solver_t solver)
 
     return pddlLPSolverAvailable(PDDL_LP_CPLEX)
             || pddlLPSolverAvailable(PDDL_LP_GUROBI)
+            || pddlLPSolverAvailable(PDDL_LP_HIGHS)
             || pddlLPSolverAvailable(PDDL_LP_GLPK)
             || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
 }
@@ -95,6 +105,9 @@ int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
                 break;
             case PDDL_LP_GUROBI:
                 WARN2(err, "The Gurobi LP solver is not available");
+                break;
+            case PDDL_LP_HIGHS:
+                WARN2(err, "The HiGHS LP solver is not available");
                 break;
             case PDDL_LP_LPSOLVE:
                 WARN2(err, "The lpsolve LP solver is not available");

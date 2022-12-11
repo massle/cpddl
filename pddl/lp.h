@@ -31,6 +31,7 @@ enum pddl_lp_solver {
     PDDL_LP_DEFAULT = 0,
     PDDL_LP_CPLEX,
     PDDL_LP_GUROBI,
+    PDDL_LP_HIGHS,
     PDDL_LP_LPSOLVE,
     PDDL_LP_GLPK,
 };
