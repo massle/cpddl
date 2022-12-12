@@ -11,6 +11,8 @@
 #ifdef PDDL_HIGHS
 #include <interfaces/highs_c_api.h>
 
+#define TOLERANCE 1E-5
+#define MIP_TOLERANCE 1E-5
 #define PDDL_LP_MIN_BOUND -1E20
 #define PDDL_LP_MAX_BOUND 1E20
 
@@ -52,11 +54,19 @@ struct _lp_t {
     pddl_lp_row_t *row;
     int row_size;
     int row_alloc;
-    int mip;
 };
 typedef struct _lp_t lp_t;
 
 #define LP(l) pddl_container_of((l), lp_t, cls)
+
+static void addCols(pddl_lp_t *_lp, int cnt);
+static void addRow(lp_t *lp, const double rhs, const char sense);
+
+static void freeRow(pddl_lp_row_t *row)
+{
+    if (row->coef != NULL)
+        FREE(row->coef);
+}
 
 
 static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
@@ -65,14 +75,25 @@ static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
     lp->cls.cls = &pddl_lp_highs;
     lp->cls.err = err;
     lp->cls.cfg = *cfg;
-    lp->mip = 0;
+
+    if (cfg->cols > 0)
+        addCols(&lp->cls, cfg->cols);
+    if (cfg->rows > 0){
+        for (int i = 0; i < cfg->rows; ++i)
+            addRow(lp, 0., 'L');
+    }
     return &lp->cls;
 }
 
 static void del(pddl_lp_t *_lp)
 {
     lp_t *lp = LP(_lp);
-    // TODO
+    if (lp->col != NULL)
+        FREE(lp->col);
+    for (int ri = 0; ri < lp->row_size; ++ri)
+        freeRow(lp->row + ri);
+    if (lp->row != NULL)
+        FREE(lp->row);
     FREE(lp);
 }
 
@@ -105,7 +126,6 @@ static void setVarInt(pddl_lp_t *_lp, int i)
     lp_t *lp = LP(_lp);
     PANIC_IF_FMT(i < 0 || i >= lp->col_size, "Column %d out of range", i);
     lp->col[i].type = PDDL_LP_COL_TYPE_INT;
-    lp->mip = 1;
 }
 
 static void setVarBinary(pddl_lp_t *_lp, int i)
@@ -113,7 +133,6 @@ static void setVarBinary(pddl_lp_t *_lp, int i)
     lp_t *lp = LP(_lp);
     PANIC_IF_FMT(i < 0 || i >= lp->col_size, "Column %d out of range", i);
     lp->col[i].type = PDDL_LP_COL_TYPE_BINARY;
-    lp->mip = 1;
 }
 
 static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
@@ -128,9 +147,32 @@ static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
         r->coef_alloc *= 2;
         r->coef = REALLOC_ARR(r->coef, pddl_lp_coef_t, r->coef_alloc);
     }
-    pddl_lp_coef_t *c = r->coef + r->coef_size++;
-    c->col = col;
-    c->coef = coef;
+
+    if (r->coef_size == 0 || r->coef[r->coef_size - 1].col < col){
+        pddl_lp_coef_t *c = r->coef + r->coef_size++;
+        c->col = col;
+        c->coef = coef;
+
+    }else{
+        int idx;
+        for (idx = r->coef_size - 1; idx >= 0; --idx){
+            if (r->coef[idx].col <= col)
+                break;
+        }
+
+        if (idx < 0 || r->coef[idx].col < col){
+            for (int i = r->coef_size - 1; i > idx; --i)
+                r->coef[i + 1] = r->coef[i];
+            r->coef[idx + 1].col = col;
+            r->coef[idx + 1].coef = coef;
+            ++r->coef_size;
+
+        }else{ // r->coef[idx].col == col
+            r->coef[idx].coef = coef;
+        }
+    }
+
+    // TODO: If coef == 0. delete coef
 }
 
 static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
@@ -138,12 +180,12 @@ static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
     lp_t *lp = LP(_lp);
     PANIC_IF_FMT(row < 0 || row >= lp->row_size, "Row %d out of range", row);
     if (sense == 'L'){
-        lp->row[row].lb = rhs;
-        lp->row[row].ub = PDDL_LP_MAX_BOUND;
-
-    }else if (sense == 'G'){
         lp->row[row].lb = PDDL_LP_MIN_BOUND;
         lp->row[row].ub = rhs;
+
+    }else if (sense == 'G'){
+        lp->row[row].lb = rhs;
+        lp->row[row].ub = PDDL_LP_MAX_BOUND;
 
     }else if (sense == 'E'){
         lp->row[row].lb = rhs;
@@ -176,8 +218,13 @@ static void addRows(pddl_lp_t *_lp, int cnt, const double *rhs, const char *sens
 
 static void delRows(pddl_lp_t *_lp, int begin, int end)
 {
-    //lp_t *lp = LP(_lp);
-    // TODO
+    lp_t *lp = LP(_lp);
+    for (int i = begin; i < end + 1; ++i)
+        freeRow(lp->row + i);
+    int ins = begin;
+    for (int i = end + 1; i < lp->row_size; ++i)
+        lp->row[ins++] = lp->row[i];
+    lp->row_size = ins;
 }
 
 static int numRows(const pddl_lp_t *_lp)
@@ -213,6 +260,7 @@ static void delCols(pddl_lp_t *_lp, int begin, int end)
 {
     //lp_t *lp = LP(_lp);
     // TODO
+    PANIC_IF(1, "Deleting columns not implemented yet.");
 }
 
 static int numCols(const pddl_lp_t *_lp)
@@ -221,21 +269,250 @@ static int numCols(const pddl_lp_t *_lp)
     return lp->col_size;
 }
 
+static void *createModel(lp_t *lp)
+{
+    int num_col = lp->col_size;
+    int num_row = lp->row_size;
+    int num_nz = 0;
+    for (int ri = 0; ri < lp->row_size; ++ri)
+        num_nz += lp->row[ri].coef_size;
+
+    int sense = kHighsObjSenseMinimize;
+    if (lp->cls.cfg.maximize)
+        sense = kHighsObjSenseMaximize;
+
+    double offset = 0.;
+    double *col_cost = ALLOC_ARR(double, num_col);
+    double *col_lower = ALLOC_ARR(double, num_col);
+    double *col_upper = ALLOC_ARR(double, num_col);
+    int is_mip = 0;
+    for (int i = 0; i < lp->col_size; ++i){
+        col_cost[i] = lp->col[i].obj;
+        col_lower[i] = lp->col[i].lb;
+        col_upper[i] = lp->col[i].ub;
+        if (lp->col[i].type == PDDL_LP_COL_TYPE_BINARY){
+            if (col_lower[i] < 0.){
+                col_lower[i] = 0.;
+            }else if (col_lower[i] > 1.){
+                col_lower[i] = 1.;
+            }
+
+            if (col_upper[i] > 1.){
+                col_upper[i] = 1.;
+            }else if (col_upper[i] < 0.){
+                col_upper[i] = 0.;
+            }
+        }
+        if (lp->col[i].type == PDDL_LP_COL_TYPE_BINARY
+                || lp->col[i].type == PDDL_LP_COL_TYPE_INT){
+            is_mip = 1;
+        }
+    }
+
+    double *row_lower = ALLOC_ARR(double, num_row);
+    double *row_upper = ALLOC_ARR(double, num_row);
+    for (int i = 0; i < lp->row_size; ++i){
+        row_lower[i] = lp->row[i].lb;
+        row_upper[i] = lp->row[i].ub;
+    }
+
+    int a_format = kHighsMatrixFormatRowwise;
+    HighsInt *a_start = ALLOC_ARR(HighsInt, num_row);
+    HighsInt *a_index = ALLOC_ARR(HighsInt, num_nz);
+    double *a_value = ALLOC_ARR(double, num_nz);
+
+    int ins = 0;
+    for (int ri = 0; ri < num_row; ++ri){
+        a_start[ri] = ins;
+        for (int ci = 0; ci < lp->row[ri].coef_size; ++ci){
+            a_index[ins] = lp->row[ri].coef[ci].col;
+            a_value[ins] = lp->row[ri].coef[ci].coef;
+            ++ins;
+        }
+    }
+
+    HighsInt *integrality = NULL;
+    if (is_mip){
+        integrality = ALLOC_ARR(HighsInt, num_col);
+        for (int i = 0; i < num_col; ++i){
+            switch (lp->col[i].type){
+                case PDDL_LP_COL_TYPE_REAL:
+                    integrality[i] = kHighsVarTypeContinuous;
+                    break;
+                case PDDL_LP_COL_TYPE_INT:
+                    integrality[i] = kHighsVarTypeInteger;
+                    break;
+                case PDDL_LP_COL_TYPE_BINARY:
+                    integrality[i] = kHighsVarTypeInteger;
+                    break;
+            }
+        }
+    }
+
+    void *model = Highs_create();
+    PANIC_IF(model == NULL, "Could not create a HiGHS model.");
+
+    int num_threads = PDDL_MAX(lp->cls.cfg.num_threads, 1);
+    Highs_setIntOptionValue(model, "threads", num_threads);
+    if (lp->cls.cfg.time_limit > 0.)
+        Highs_setDoubleOptionValue(model, "time_limit", lp->cls.cfg.time_limit);
+    Highs_setBoolOptionValue(model, "output_flag", 0);
+    //Highs_setIntOptionValue(model, "log_dev_level", 2);
+    //Highs_setIntOptionValue(model, "highs_debug_level", 2);
+    Highs_setDoubleOptionValue(model, "primal_feasibility_tolerance", TOLERANCE);
+    Highs_setDoubleOptionValue(model, "dual_feasibility_tolerance", TOLERANCE);
+    Highs_setDoubleOptionValue(model, "mip_feasibility_tolerance", MIP_TOLERANCE);
+
+    HighsInt st = 0;
+    if (is_mip){
+        st = Highs_passMip(model, num_col, num_row, num_nz, a_format,
+                           sense, offset, col_cost, col_lower, col_upper,
+                           row_lower, row_upper, a_start, a_index, a_value,
+                           integrality);
+    }else{
+        st = Highs_passLp(model, num_col, num_row, num_nz, a_format,
+                          sense, offset, col_cost, col_lower, col_upper,
+                          row_lower, row_upper, a_start, a_index, a_value);
+    }
+
+    FREE(col_cost);
+    FREE(col_lower);
+    FREE(col_upper);
+    FREE(row_lower);
+    FREE(row_upper);
+    FREE(a_start);
+    FREE(a_index);
+    FREE(a_value);
+    if (integrality != NULL)
+        FREE(integrality);
+
+    if (st == kHighsStatusError){
+        // TODO: Not sure how to recover from this...
+        return NULL;
+
+    }else if (st == kHighsStatusWarning){
+        return NULL;
+    }
+
+    //Highs_writeModel(model, "model.lp");
+    return model;
+}
+
 static int solve(pddl_lp_t *_lp, double *val, double *obj)
 {
-    //lp_t *lp = LP(_lp);
-    // TODO
+    lp_t *lp = LP(_lp);
+    int ret = 0;
 
-    // setOptionValue('threads', 1)
-    // setOptionValue('time_limit', 1.7)
-    // setOptionValue("output_flag", false)
-    return -1;
+    void *model = createModel(lp);
+    if (model == NULL){
+        LOG2(_lp->err, "Something went wrong with the creation of model!");
+        return -1;
+    }
+
+    HighsInt st = Highs_run(model);
+    if (st == kHighsStatusError){
+        LOG2(_lp->err, "Something went wrong during solving the model!");
+        Highs_destroy(model);
+        return -1;
+    }else if (st == kHighsStatusWarning){
+        // TODO
+    }
+
+    HighsInt modelst = Highs_getModelStatus(model);
+    if (modelst == kHighsModelStatusNotset){
+        LOG2(_lp->err, "Model status not set");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusLoadError){
+        LOG2(_lp->err, "Model load error!");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusModelError){
+        LOG2(_lp->err, "Model error!");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusPresolveError){
+        LOG2(_lp->err, "Presolve error!");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusSolveError){
+        LOG2(_lp->err, "Solve error!");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusPostsolveError){
+        LOG2(_lp->err, "Postsolve error!");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusModelEmpty){
+        LOG2(_lp->err, "Model is empty!");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusOptimal){
+        //LOG2(_lp->err, "Model has optimal solution.");
+        ret = 0;
+
+    }else if (modelst == kHighsModelStatusInfeasible){
+        LOG2(_lp->err, "Solution is infeasible.");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusUnboundedOrInfeasible){
+        LOG2(_lp->err, "Solution is unbounded or infeasible.");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusUnbounded){
+        LOG2(_lp->err, "Solution is unbounded.");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusObjectiveBound){
+        LOG2(_lp->err, "Bound on objective reached.");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusObjectiveTarget){
+        LOG2(_lp->err, "Target for objective reached.");
+        ret = -1;
+
+    }else if (modelst == kHighsModelStatusTimeLimit){
+        //LOG2(_lp->err, "Time limit.");
+        //ret = -1;
+        ret = 0;
+
+    }else if (modelst == kHighsModelStatusIterationLimit){
+        //LOG2(_lp->err, "Iteration limit.");
+        //ret = -1;
+        ret = 0;
+
+    }else if (modelst == kHighsModelStatusUnknown){
+        LOG2(_lp->err, "Unkown solution status");
+        ret = -1;
+
+    }else{
+        LOG(_lp->err, "Unkown solution status: %d", (int)modelst);
+    }
+
+    HighsInt solst;
+    Highs_getIntInfoValue(model, "primal_solution_status", &solst);
+    if (solst == kHighsSolutionStatusFeasible){
+        if (val != NULL)
+            *val = Highs_getObjectiveValue(model);
+        if (obj != NULL)
+            Highs_getSolution(model, obj, NULL, NULL, NULL);
+        ret = 0;
+
+    }else{
+        ret = -1;
+    }
+
+    Highs_destroy(model);
+
+    return ret;
 }
 
 static void cpxWrite(pddl_lp_t *_lp, const char *fn)
 {
-    //lp_t *lp = LP(_lp);
-    // TODO
+    lp_t *lp = LP(_lp);
+    void *model = createModel(lp);
+    Highs_writeModel(model, fn);
+    Highs_destroy(model);
 }
 
 
