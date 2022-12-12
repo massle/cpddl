@@ -31,7 +31,6 @@ OBJS += htable
 OBJS += fifo
 OBJS += lp
 OBJS += lp-cplex
-OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
 OBJS += lp-highs
@@ -221,9 +220,8 @@ pddl/config.h: Makefile Makefile.include
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
 	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
-	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
 	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_GLPK)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
+	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_GLPK)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
 	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
 	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
@@ -344,12 +342,6 @@ third-party/bliss/libbliss.a:
 	cp third-party/bliss/src/bliss_C.h third-party/bliss/
 	mv third-party/bliss/libbliss_static.a $@
 
-lpsolve: third-party/lpsolve/liblpsolve.a
-lpsolve-clean:
-	$(MAKE) -C third-party/lpsolve clean
-third-party/lpsolve/liblpsolve.a:
-	$(MAKE) -C third-party/lpsolve
-
 cudd: third-party/cudd/libcudd.a
 cudd-clean:
 	git clean -fdx third-party/cudd
@@ -381,5 +373,4 @@ sqlite-amalgam:
   check-gdb check-all-gdb \
   third-party third-party-clean \
   bliss bliss-clean \
-  lpsolve lpsolve-clean \
   sqlite-amalgam

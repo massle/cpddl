@@ -19,9 +19,10 @@ dependecies. However, certain functionalities require external libraries:
  [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
  [Gurobi](https://www.gurobi.com/),
  [GLPK](https://www.gnu.org/software/glpk/), or
- [lpsolve](https://sourceforge.net/projects/lpsolve/). CPLEX Optimizer and
+ [HiGHS](https://highs.dev). CPLEX Optimizer and
  Gurobi are commercial products, but it is possible to obtain an academic
- license, GLPK is licensed under GPLv3, and lpsolve is licensed under LGPL.
+ license, GLPK is licensed under GPLv3, and HiGHS is licensed under MIT
+ license.
  - constraint optimization (``pddl/cp.h``) requires either
  [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
  [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
@@ -53,9 +54,6 @@ containing the new configuration (see ``Makefile.local.tpl``):
  variables separately.
  - Gurobi can be used by setting up the ``GUROBI_CFLAGS`` and
  ``GUROBI_LDFLAGS`` variables.
- - To use lpsolve, the easiest way is to call ``make lpsolve`` which compiles
- the local copy in ``third-party/`` directory. After that the makefile
- automatically finds it.
  - If GLPK is not automatically found, you can explicitly set ``GLPK_CFLAGS``
  and ``GLPK_LDFLAGS`` variables.
  - If minizinc is not automatically found, set ``MINIZINC_BIN`` variable to

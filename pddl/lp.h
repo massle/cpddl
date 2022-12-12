@@ -48,7 +48,6 @@ enum pddl_lp_solver {
     PDDL_LP_CPLEX,
     PDDL_LP_GUROBI,
     PDDL_LP_HIGHS,
-    PDDL_LP_LPSOLVE,
     PDDL_LP_GLPK,
 };
 typedef enum pddl_lp_solver pddl_lp_solver_t;
@@ -103,7 +102,7 @@ void pddlLPDel(pddl_lp_t *lp);
 const char *pddlLPSolverName(const pddl_lp_t *lp);
 
 /**
- * Returns one of PDDL_LP_{CPLEX,GUROBI,LPSOLVE} constants according to the
+ * Returns one of PDDL_LP_{CPLEX,GUROBI,GLPK,HIGHS} constants according to the
  * current solver.
  */
 int pddlLPSolverID(const pddl_lp_t *lp);
