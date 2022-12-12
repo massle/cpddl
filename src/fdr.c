@@ -16,12 +16,12 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/timer.h"
 #include "pddl/fdr.h"
 #include "pddl/disambiguation.h"
 #include "pddl/cg.h"
-#include "internal.h"
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
                              const pddl_iset_t *state,
@@ -35,7 +35,6 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
                   const pddl_mutex_pairs_t *mutex,
                   unsigned fdr_flags,
                   int op_id);
-static void printOp(const pddl_fdr_op_t *op, FILE *fout);
 
 int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_strips_t *strips,
@@ -73,6 +72,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         return -1;
     }
     LOG(err, "Created %{num_vars}d variables.", fdr->var.var_size);
+    LOG(err, "Created %{num_facts}d facts.", fdr->var.global_id_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
@@ -100,8 +100,8 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     LOG(err, "Created %{num_ops}d operators", fdr->op.op_size);
 
     pddlTimerStop(&timer);
-    PDDL_INFO(err, "Translation took %.2f seconds",
-              pddlTimerElapsedInSF(&timer));
+    PDDL_LOG(err, "Translation took %{translation_time}.2f seconds",
+             pddlTimerElapsedInSF(&timer));
     CTXEND(err);
     return 0;
 }
@@ -122,9 +122,12 @@ void pddlFDRFree(pddl_fdr_t *fdr)
 {
     if (fdr->init != NULL)
         FREE(fdr->init);
-    pddlFDRPartStateFree(&fdr->goal);
-    pddlFDROpsFree(&fdr->op);
-    pddlFDRVarsFree(&fdr->var);
+
+    if (!fdr->is_shallow_copy){
+        pddlFDRPartStateFree(&fdr->goal);
+        pddlFDROpsFree(&fdr->op);
+        pddlFDRVarsFree(&fdr->var);
+    }
 }
 
 pddl_fdr_t *pddlFDRClone(const pddl_fdr_t *fdr_in)
@@ -138,6 +141,16 @@ void pddlFDRDel(pddl_fdr_t *fdr)
 {
     pddlFDRFree(fdr);
     FREE(fdr);
+}
+
+void pddlFDRInitShallowCopyWithDifferentInitState(pddl_fdr_t *fdr,
+                                                  const pddl_fdr_t *fdr_in,
+                                                  const int *state)
+{
+    *fdr = *fdr_in;
+    fdr->init = ALLOC_ARR(int, fdr->var.var_size);
+    memcpy(fdr->init, state, sizeof(int) * fdr->var.var_size);
+    fdr->is_shallow_copy = 1;
 }
 
 void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
@@ -301,105 +314,6 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
 
     FREE(reached);
     return found_goal;
-}
-
-static void printFDFactName(const pddl_fdr_var_t *var, int val, FILE *fout)
-{
-    if (val == var->val_none_of_those){
-        fprintf(fout, "<none of those>\n");
-    }else{
-        fprintf(fout, "Atom ");
-        int pred_found = 0;
-        for (const char *nc = var->val[val].name; *nc != 0; ++nc){
-            if (*nc == ' '){
-                if (!pred_found){
-                    fprintf(fout, "(");
-                    pred_found = 1;
-                }else{
-                    fprintf(fout, ", ");
-                }
-            }else{
-                fprintf(fout, "%c", *nc);
-            }
-        }
-        if (!pred_found)
-            fprintf(fout, "(");
-        fprintf(fout, ")\n");
-    }
-}
-
-void pddlFDRPrintFD(const pddl_fdr_t *fdr,
-                    const pddl_mgroups_t *mg,
-                    int use_fd_fact_names,
-                    FILE *fout)
-{
-    fprintf(fout, "begin_version\n3\nend_version\n");
-    fprintf(fout, "begin_metric\n1\nend_metric\n");
-
-    // variables
-    fprintf(fout, "%d\n", fdr->var.var_size);
-    for (int vi = 0; vi < fdr->var.var_size; ++vi){
-        const pddl_fdr_var_t *var = fdr->var.var + vi;
-        fprintf(fout, "begin_variable\n");
-        if (var->is_black){
-            fprintf(fout, "black-var%d\n", vi);
-        }else{
-            fprintf(fout, "var%d\n", vi);
-        }
-        fprintf(fout, "-1\n");
-        fprintf(fout, "%d\n", var->val_size);
-        for (int vali = 0; vali < var->val_size; ++vali){
-            if (use_fd_fact_names){
-                printFDFactName(var, vali, fout);
-            }else{
-                fprintf(fout, "%s\n", var->val[vali].name);
-            }
-        }
-        fprintf(fout, "end_variable\n");
-    }
-
-    // mutex groups
-    if (mg == NULL){
-        fprintf(fout, "0\n");
-    }else{
-        fprintf(fout, "%d\n", mg->mgroup_size);
-        for (int mi = 0; mi < mg->mgroup_size; ++mi){
-            const pddl_mgroup_t *m = mg->mgroup + mi;
-            fprintf(fout, "begin_mutex_group\n");
-            fprintf(fout, "%d\n", pddlISetSize(&m->mgroup));
-            int fact_id;
-            PDDL_ISET_FOR_EACH(&m->mgroup, fact_id){
-                // TODO
-                int val_id = pddlISetGet(&fdr->var.strips_id_to_val[fact_id], 0);
-                const pddl_fdr_val_t *v = fdr->var.global_id_to_val[val_id];
-                fprintf(fout, "%d %d\n", v->var_id, v->val_id);
-            }
-            fprintf(fout, "end_mutex_group\n");
-        }
-    }
-
-    // initial state
-    fprintf(fout, "begin_state\n");
-    for (int vi = 0; vi < fdr->var.var_size; ++vi)
-        fprintf(fout, "%d\n", fdr->init[vi]);
-    fprintf(fout, "end_state\n");
-
-    // goal
-    fprintf(fout, "begin_goal\n");
-    fprintf(fout, "%d\n", fdr->goal.fact_size);
-    for (int i = 0; i < fdr->goal.fact_size; ++i){
-        const pddl_fdr_fact_t *f = fdr->goal.fact + i;
-        fprintf(fout, "%d %d\n", f->var, f->val);
-    }
-    fprintf(fout, "end_goal\n");
-
-    // operators
-    fprintf(fout, "%d\n", fdr->op.op_size);
-    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
-        printOp(fdr->op.op[op_id], fout);
-
-    // axioms
-    fprintf(fout, "0\n");
 }
 
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
@@ -986,7 +900,8 @@ static void removeUnreachableOps(pddl_fdr_t *fdr,
     if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
         pddlFDROpsSortByName(&fdr->op);
-        PDDL_INFO(err, "Removed %d unreachable operators", pddlISetSize(&rm_ops));
+        PDDL_LOG(err, "Removed %{rm_unreachable_ops}d unreachable operators",
+                 pddlISetSize(&rm_ops));
     }
     pddlISetFree(&rm_ops);
 }
@@ -1009,11 +924,12 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     }
 
     CTX(err, "tnf", "TNF");
-    PDDL_INFO(err, "Creating a Transition Normal Form"
-              " (vars: %d, facts: %d, ops: %d)",
-              fdr_in->var.var_size,
-              fdr_in->var.global_id_size,
-              fdr_in->op.op_size);
+    PDDL_LOG(err, "Creating a Transition Normal Form"
+             " (vars: %{tnf_in_vars}d, facts: %{tnf_in_facts}d,"
+             " ops: %{tnf_in_ops}d)",
+             fdr_in->var.var_size,
+             fdr_in->var.global_id_size,
+             fdr_in->op.op_size);
 
     pddlFDRInitCopy(fdr, fdr_in);
 
@@ -1042,20 +958,24 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlMGroupsFree(&mgs);
     }
 
-    PDDL_INFO(err, "Transition Normal Form created."
-              " (vars: %d, facts: %d, ops: %d)",
-              fdr->var.var_size,
-              fdr->var.global_id_size,
-              fdr->op.op_size);
+    PDDL_LOG(err, "Transition Normal Form created."
+             " (vars: %{tnf_vars}d, facts: %{tnf_facts}d, ops: %{tnf_ops}d)",
+             fdr->var.var_size,
+             fdr->var.global_id_size,
+             fdr->op.op_size);
     CTXEND(err);
     return 0;
 }
 
-static void printOp(const pddl_fdr_op_t *op, FILE *fout)
+static void printFDOp(const pddl_fdr_op_t *op,
+                      const pddl_fdr_write_config_t *cfg,
+                      FILE *fout)
 {
     pddl_fdr_part_state_t prevail;
 
     fprintf(fout, "begin_operator\n");
+    if (cfg->encode_op_ids)
+        fprintf(fout, "id-%d-", op->id);
     fprintf(fout, "%s\n", op->name);
 
     PDDL_ISET(eff_var);
@@ -1108,4 +1028,135 @@ static void printOp(const pddl_fdr_op_t *op, FILE *fout)
 
     fprintf(fout, "%d\n", op->cost);
     fprintf(fout, "end_operator\n");
+}
+
+static void printFDFactName(const pddl_fdr_var_t *var, int val, FILE *fout)
+{
+    if (val == var->val_none_of_those){
+        fprintf(fout, "<none of those>\n");
+    }else{
+        fprintf(fout, "Atom ");
+        int pred_found = 0;
+        for (const char *nc = var->val[val].name; *nc != 0; ++nc){
+            if (*nc == ' '){
+                if (!pred_found){
+                    fprintf(fout, "(");
+                    pred_found = 1;
+                }else{
+                    fprintf(fout, ", ");
+                }
+            }else{
+                fprintf(fout, "%c", *nc);
+            }
+        }
+        if (!pred_found)
+            fprintf(fout, "(");
+        fprintf(fout, ")\n");
+    }
+}
+
+void pddlFDRPrintFD(const pddl_fdr_t *fdr,
+                    const pddl_mgroups_t *mg,
+                    int use_fd_fact_names,
+                    FILE *fout)
+{
+    pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
+    cfg.fd = 1;
+    cfg.fout = fout;
+    cfg.mgroups = mg;
+    cfg.use_fd_fact_names = use_fd_fact_names;
+    pddlFDRWrite(fdr, &cfg);
+}
+
+static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
+                           const pddl_fdr_write_config_t *cfg,
+                           FILE *fout)
+{
+    fprintf(fout, "begin_version\n3\nend_version\n");
+    fprintf(fout, "begin_metric\n1\nend_metric\n");
+
+    // variables
+    fprintf(fout, "%d\n", fdr->var.var_size);
+    for (int vi = 0; vi < fdr->var.var_size; ++vi){
+        const pddl_fdr_var_t *var = fdr->var.var + vi;
+        fprintf(fout, "begin_variable\n");
+        if (var->is_black){
+            fprintf(fout, "black-var%d\n", vi);
+        }else{
+            fprintf(fout, "var%d\n", vi);
+        }
+        fprintf(fout, "-1\n");
+        fprintf(fout, "%d\n", var->val_size);
+        for (int vali = 0; vali < var->val_size; ++vali){
+            if (cfg->use_fd_fact_names){
+                printFDFactName(var, vali, fout);
+            }else{
+                fprintf(fout, "%s\n", var->val[vali].name);
+            }
+        }
+        fprintf(fout, "end_variable\n");
+    }
+
+    // mutex groups
+    if (cfg->mgroups == NULL){
+        fprintf(fout, "0\n");
+    }else{
+        fprintf(fout, "%d\n", cfg->mgroups->mgroup_size);
+        for (int mi = 0; mi < cfg->mgroups->mgroup_size; ++mi){
+            const pddl_mgroup_t *m = cfg->mgroups->mgroup + mi;
+            fprintf(fout, "begin_mutex_group\n");
+            fprintf(fout, "%d\n", pddlISetSize(&m->mgroup));
+            int fact_id;
+            PDDL_ISET_FOR_EACH(&m->mgroup, fact_id){
+                // TODO
+                int val_id = pddlISetGet(&fdr->var.strips_id_to_val[fact_id], 0);
+                const pddl_fdr_val_t *v = fdr->var.global_id_to_val[val_id];
+                fprintf(fout, "%d %d\n", v->var_id, v->val_id);
+            }
+            fprintf(fout, "end_mutex_group\n");
+        }
+    }
+
+    // initial state
+    fprintf(fout, "begin_state\n");
+    for (int vi = 0; vi < fdr->var.var_size; ++vi)
+        fprintf(fout, "%d\n", fdr->init[vi]);
+    fprintf(fout, "end_state\n");
+
+    // goal
+    fprintf(fout, "begin_goal\n");
+    fprintf(fout, "%d\n", fdr->goal.fact_size);
+    for (int i = 0; i < fdr->goal.fact_size; ++i){
+        const pddl_fdr_fact_t *f = fdr->goal.fact + i;
+        fprintf(fout, "%d %d\n", f->var, f->val);
+    }
+    fprintf(fout, "end_goal\n");
+
+    // operators
+    fprintf(fout, "%d\n", fdr->op.op_size);
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
+        printFDOp(fdr->op.op[op_id], cfg, fout);
+
+    // axioms
+    fprintf(fout, "0\n");
+}
+
+void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)
+{
+    PANIC_IF(cfg->filename == NULL && cfg->fout == NULL,
+              "No output specified.");
+    PANIC_IF(!cfg->fd, "pddlFDRWrite() supports cfg->fd = 1 only at this moment.");
+
+    FILE *fout = cfg->fout;
+    if (fout == NULL){
+        fout = fopen(cfg->filename, "w");
+        if (fout == NULL)
+            PANIC_IF_FMT(fout == NULL, "Could not open file %s", cfg->filename);
+    }
+
+    if (cfg->fd)
+        pddlFDRWriteFD(fdr, cfg, fout);
+
+    if (cfg->fout == NULL)
+        fclose(fout);
 }

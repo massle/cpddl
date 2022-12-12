@@ -20,9 +20,8 @@
 #ifndef __PDDL_STRIPS_H__
 #define __PDDL_STRIPS_H__
 
-#include <pddl/iset.h>
-
 #include <pddl/common.h>
+#include <pddl/iset.h>
 #include <pddl/strips_op.h>
 #include <pddl/lifted_mgroup.h>
 #include <pddl/mutex_pair.h>

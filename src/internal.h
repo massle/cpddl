@@ -59,6 +59,8 @@ extern "C" {
     LOG((ERR), #NAME " = %{" #NAME "}.4f", (C)->NAME)
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}b", (C)->NAME)
+#define LOG_CONFIG_STR(C, NAME, ERR) \
+    LOG((ERR), #NAME " = %{" #NAME "}s", (C)->NAME)
 
 /** TODO: Get rid of this */
 #define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \
@@ -101,6 +103,23 @@ extern "C" {
     } \
     } while (0)
 
+#define PANIC_IF_FMT(COND, MSG, ...) \
+    do { \
+    if (!!(COND)){ \
+        fprintf(stderr, "Fatal Error: " MSG " :: %s:%s:%d " #COND "\n", \
+                __VA_ARGS__, __FILE__, __func__, __LINE__); \
+        exit(-1); \
+    } \
+    } while (0)
+
+#define PANIC_IF(COND, MSG) \
+    do { \
+    if (!!(COND)){ \
+        fprintf(stderr, "Fatal Error: " MSG " :: %s:%s:%d " #COND "\n", \
+                __FILE__, __func__, __LINE__); \
+        exit(-1); \
+    } \
+    } while (0)
 
 
 

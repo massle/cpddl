@@ -16,12 +16,12 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/timer.h"
 #include "pddl/strips.h"
 #include "pddl/critical_path.h"
 #include "pddl/disambiguation.h"
 #include "pddl/time_limit.h"
-#include "internal.h"
 
 #define REACHED 1
 #define FW_MUTEX 2

@@ -11,6 +11,7 @@
 #include "pddl/asnets_task.h"
 #include "pddl/asnets_train_data.h"
 #include "pddl/sha256.h"
+#include "pddl/pddl_file.h"
 
 #ifdef PDDL_DYNET
 #include <dynet/dynet.h>
@@ -19,10 +20,12 @@
 #include <dynet/param-init.h>
 
 static const float SMALL_CONST = 1E-6f;
+static const float MIN_ACTIVATION_VALUE = -1.f;
 
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
-    LOG(err, "domain_pddl = %{domain_pddl}s", cfg->domain_pddl);
+    if (cfg->domain_pddl != NULL)
+        LOG(err, "domain_pddl = %{domain_pddl}s", cfg->domain_pddl);
     LOG_CONFIG_INT(cfg, problem_pddl_size, err);
     for (int i = 0; i < cfg->problem_pddl_size; ++i)
         LOG(err, "problem_pddl[%d] = %{problem_pddl}s", i, cfg->problem_pddl[i]);
@@ -39,6 +42,13 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
+    switch (cfg->trainer){
+        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+            LOG2(err, "trainer = astar-lmcut");
+            break;
+    }
+    if (cfg->save_model_prefix != NULL)
+        LOG_CONFIG_STR(cfg, save_model_prefix, err);
 }
 
 void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
@@ -60,6 +70,8 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     // for now, hardcoding the trainer
     cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
     //cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+    cfg->save_model_prefix = NULL;
 }
 
 void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
@@ -130,6 +142,10 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             ERR_RET2(err, -1, "root must be string");
         }
         root = d.u.s;
+        if (strcmp(root, "__PWD__") == 0){
+            FREE(root);
+            root = pddlDirname(filename);
+        }
     }
 
     if (pddl_toml_key_exists(c, "domain")){
@@ -165,7 +181,27 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             if (root != NULL){
                 char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
                 sprintf(fn, "%s/%s", root, d.u.s);
-                pddlASNetsConfigAddProblem(cfg, fn);
+                if (pddlIsFile(fn)){
+                    pddlASNetsConfigAddProblem(cfg, fn);
+                }else{
+                    int len;
+                    char **files = pddlListDirPDDLFiles(fn, &len, err);
+                    if (files == NULL){
+                        FREE(fn);
+                        TRACE_RET(err, -1);
+                    }
+
+                    for (int i = 0; i < len; ++i){
+                        if (strstr(files[i], "domain") != NULL){
+                            FREE(files[i]);
+                            continue;
+                        }
+                        if (pddlIsFile(files[i]))
+                            pddlASNetsConfigAddProblem(cfg, files[i]);
+                        FREE(files[i]);
+                    }
+                    FREE(files);
+                }
                 FREE(fn);
             }else{
                 pddlASNetsConfigAddProblem(cfg, d.u.s);
@@ -217,6 +253,41 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg, const char *fn)
     cfg->problem_pddl = REALLOC_ARR(cfg->problem_pddl, char *,
                                     cfg->problem_pddl_size + 1);
     cfg->problem_pddl[cfg->problem_pddl_size++] = STRDUP(fn);
+}
+
+void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
+{
+    fprintf(fout, "[asnets]\n");
+    if (cfg->domain_pddl == NULL){
+        fprintf(fout, "#\n");
+        fprintf(fout, "# The following defines the input planning tasks:\n");
+        fprintf(fout, "#\n");
+        fprintf(fout, "# root = \"__PWD__\"\n");
+        fprintf(fout, "# domain = \"domain.pddl\"\n");
+        fprintf(fout, "# problems = [\"prob1.pddl\", \"prob2.pddl\"]\n");
+    }else{
+        fprintf(fout, "domain = \"%s\"\n", cfg->domain_pddl);
+        fprintf(fout, "problems = [\n");
+        for (int i = 0; i < cfg->problem_pddl_size; ++i)
+            fprintf(fout, "    \"%s\",\n", cfg->problem_pddl[i]);
+        fprintf(fout, "]\n");
+    }
+    fprintf(fout, "hidden_dimension = %d\n", cfg->hidden_dimension);
+    fprintf(fout, "num_layers = %d\n", cfg->num_layers);
+    fprintf(fout, "random_seed = %d\n", cfg->random_seed);
+    fprintf(fout, "weight_decay = %f\n", cfg->weight_decay);
+    fprintf(fout, "dropout_rate = %f\n", cfg->dropout_rate);
+    fprintf(fout, "batch_size = %d\n", cfg->batch_size);
+    fprintf(fout, "double_batch_size_every_epoch = %d\n",
+            cfg->double_batch_size_every_epoch);
+    fprintf(fout, "max_train_epochs = %d\n", cfg->max_train_epochs);
+    fprintf(fout, "train_steps = %d\n", cfg->train_steps);
+    fprintf(fout, "policy_rollout_limit = %d\n", cfg->policy_rollout_limit);
+    fprintf(fout, "teacher_timeout = %f\n", cfg->teacher_timeout);
+    fprintf(fout, "early_termination_success_rate = %f\n",
+            cfg->early_termination_success_rate);
+    fprintf(fout, "early_termination_epochs = %d\n",
+            cfg->early_termination_epochs);
 }
 
 static dynet::Expression poolMax(const std::vector<dynet::Expression> &in)
@@ -354,12 +425,6 @@ struct ActionModule {
         input.push_back(input_applicable);
         return expr(cg, input);
     }
-
-    void saveWeights()
-    {
-        // TODO
-        // SQL format:
-    }
 };
 
 struct PropositionModule {
@@ -413,6 +478,7 @@ struct PropositionModule {
 
 struct ModelParameters {
     int num_layers;
+    int hidden_dim;
     std::vector<std::vector<ActionModule *>> action;
     std::vector<std::vector<PropositionModule *>> prop;
     dynet::ParameterCollection model;
@@ -422,7 +488,8 @@ struct ModelParameters {
     ModelParameters(int hidden_dimension,
                     int num_layers,
                     const pddl_asnets_lifted_task_t *task)
-        : num_layers(num_layers)
+        : num_layers(num_layers),
+          hidden_dim(hidden_dimension)
     {
         action.resize(num_layers + 1);
         prop.resize(num_layers);
@@ -437,6 +504,8 @@ struct ModelParameters {
             }
 
             for (int pid = 0; pid < task->pred_size; ++pid){
+                ASSERT_RUNTIME(pid != task->pddl.pred.eq_pred
+                                || task->pred[pid].related_action_size == 0);
                 PropositionModule *pm;
                 pm = new PropositionModule(hidden_dimension,
                                            task->pred[pid].related_action_size,
@@ -466,6 +535,55 @@ struct ModelParameters {
         for (size_t i = 0; i < prop.size(); ++i){
             for (size_t j = 0; j < prop[i].size(); ++j)
                 delete prop[i][j];
+        }
+    }
+
+    void dumpDebug() const
+    {
+        for (size_t layer = 0; layer < action.size(); ++layer){
+            for (size_t ai = 0; ai < action[layer].size(); ++ai){
+                ActionModule *m = action[layer][ai];
+                {
+                    dynet::Tensor *t = m->W.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Action.W " << layer << " " << ai << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+
+                {
+                    dynet::Tensor *t = m->bias.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Action.bias " << layer << " " << ai << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+            }
+        }
+
+        for (size_t layer = 0; layer < prop.size(); ++layer){
+            for (size_t pi = 0; pi < prop[layer].size(); ++pi){
+                PropositionModule *m = prop[layer][pi];
+                {
+                    dynet::Tensor *t = m->W.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Proposition.W " << layer << " " << pi << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+
+                {
+                    dynet::Tensor *t = m->bias.values();
+                    std::vector<float> v = dynet::as_vector(*t);
+                    std::cerr << "Action.bias " << layer << " " << pi << std::endl;
+                    for (float x : v)
+                        std::cerr << " " << x;
+                    std::cerr << std::endl;
+                }
+            }
         }
     }
 };
@@ -506,7 +624,13 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
                        std::vector<dynet::Expression> &prop_layer,
                        float dropout_rate)
 {
+    dynet::Expression const_min;
+    bool have_const_min = false;
+
     for (int fact_id = 0; fact_id < g->fact_size; ++fact_id){
+        int pred_id = g->fact[fact_id].pred->pred_id;
+        PropositionModule *pm = model.prop[layer][pred_id];
+
         std::vector<std::vector<dynet::Expression>> input;
         int input_size = g->fact[fact_id].related_op_size;
         if (prev_prop_layer != NULL)
@@ -517,12 +641,24 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
             PDDL_IARR_FOR_EACH(g->fact[fact_id].related_op + ri, op_id){
                 input[ri].push_back(action_layer[op_id]);
             }
+
+            if (input[ri].size() == 0){
+                // This means there is no operator having this fact in its
+                // precondition or effect at position ri.
+                // So, we set the input to the minimum value of the
+                // activation function.
+                if (!have_const_min){
+                    std::vector<long> d(1, model.hidden_dim);
+                    dynet::Dim const_min_dim(d);
+                    const_min = dynet::constant(cg, const_min_dim, MIN_ACTIVATION_VALUE);
+                    have_const_min = true;
+                }
+                input[ri].push_back(const_min);
+            }
         }
         if (prev_prop_layer != NULL)
             input[input_size - 1].push_back((*prev_prop_layer)[fact_id]);
 
-        int pred_id = g->fact[fact_id].pred->pred_id;
-        PropositionModule *pm = model.prop[layer][pred_id];
         dynet::Expression e = pm->expr(cg, input);
         if (dropout_rate > 0.f){
             e = dynet::dropout(e, dropout_rate);
@@ -662,6 +798,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
     float best_value = -1;
     for (size_t op_id = 0; op_id < out.size(); ++op_id){
         ASSERT(out[op_id] >= 0.f);
+        // Skip operators that are not applicable
         if (applicable_ops[op_id] < .5)
             continue;
         if (out[op_id] > best_value){
@@ -670,7 +807,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
         }
     }
 
-    if (out_state != NULL)
+    if (out_state != NULL && best_op_id >= 0)
         pddlASNetsGroundTaskFDRApplyOp(task, in_state, best_op_id, out_state);
 
     return best_op_id;
@@ -798,6 +935,50 @@ struct ASNetsTrainMiniBatch {
 };
 
 
+static int policyRollout(pddl_asnets_t *a,
+                         const pddl_asnets_ground_task_t *task,
+                         pddl_fdr_state_pool_t *states,
+                         pddl_iarr_t *trace,
+                         pddl_err_t *err)
+{
+    int ret = 0;
+    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
+    int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
+
+    // Start in the initial state
+    pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
+    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
+        // get the last reached state
+        pddlFDRStatePoolGet(states, state_id, state);
+        if (pddlFDRPartStateIsConsistentWithState(&task->fdr.goal, state)){
+            ret = 1;
+            break;
+        }
+
+        // Apply policy. If we get -1, it means the state is dead-end,
+        // because there are no applicable operators
+        int op_id = runPolicy(task, *a->params, *a->cg, state, state2);
+        if (op_id < 0){
+            break;
+        }
+        if (trace != NULL)
+            pddlIArrAdd(trace, op_id);
+
+        // Insert current state
+        pddl_state_id_t prev_state_id = state_id;
+        state_id = pddlFDRStatePoolInsert(states, state2);
+        // If the new state was already in the pool, then we got a cycle
+        if (state_id <= prev_state_id){
+            break;
+        }
+    }
+
+    FREE(state);
+    FREE(state2);
+    return ret;
+}
+
+
 
 pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
@@ -810,8 +991,7 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     CTX_NO_TIME(err, "cfg", "Cfg");
     pddlASNetsConfigLog(&a->cfg, err);
     CTXEND(err);
-    
-    fprintf(stderr, "%s %d\n", cfg->domain_pddl, cfg->problem_pddl_size);
+
     int st;
     st = pddlASNetsLiftedTaskInit(&a->lifted_task, cfg->domain_pddl, err);
     if (st < 0){
@@ -922,15 +1102,11 @@ static const char sql_query_weights[]
 struct Info {
     char cpddl_version[128];
     char domain_name[128];
+    char domain_pddl[4096];
     char domain_hash[PDDL_SHA256_HASH_STR_SIZE];
     pddl_asnets_config_t cfg;
     pddl_asnets_train_stats_t train_stats;
-    // TODO: problem_names
-    // TODO: size of float / ...
     // TODO: store the whole domain pddl file?
-    // TODO: num_samples
-    // TODO: success_rate
-    // TODO: loss
 
     Info()
     {
@@ -945,6 +1121,7 @@ struct Info {
     {
         strncpy(cpddl_version, pddl_version, sizeof(cpddl_version) - 1);
         strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name) - 1);
+        strncpy(domain_pddl, a->lifted_task.pddl.domain_lisp->filename, sizeof(domain_pddl) - 1);
         pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
         cfg = a->cfg;
         train_stats = a->train_stats;
@@ -1036,6 +1213,7 @@ struct Info {
         char *errmsg = NULL;
         if (SQL_INS_INFO_STR("cpddl_version", pddl_version) != 0
                 || SQL_INS_INFO_STR("domain_name", domain_name) != 0
+                || SQL_INS_INFO_STR("domain_pddl", domain_pddl) != 0
                 || SQL_INS_INFO_STR("domain_hash", domain_hash) != 0
 
                 || SQL_INS_INFO_INT("epoch", train_stats.epoch) != 0
@@ -1173,6 +1351,9 @@ struct Info {
         if (_sqlSelectInfoStr(db, stmt, "domain_name", domain_name, err) != 0)
             TRACE_RET(err, -1);
         LOG(err, "domain name = %s", domain_name);
+        if (_sqlSelectInfoStr(db, stmt, "domain_pddl", domain_pddl, err) != 0)
+            TRACE_RET(err, -1);
+        LOG(err, "domain pddl = %s", domain_pddl);
         if (_sqlSelectInfoStr(db, stmt, "domain_hash", domain_hash, err) != 0)
             TRACE_RET(err, -1);
         LOG(err, "domain hash = %s", domain_hash);
@@ -1523,6 +1704,63 @@ int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     return 0;
 }
 
+int pddlASNetsPrintModelInfo(const char *fn, pddl_err_t *err)
+{
+    CTX(err, "asnets_model_info", "ASNets-Info");
+    LOG(err, "Loading model from %s", fn);
+    pddl_sqlite3 *db;
+    int flags = SQLITE_OPEN_READONLY;
+    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
+    if (ret != SQLITE_OK){
+        CTXEND(err);
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    Info info;
+    if (info.load(db, err) != 0){
+        pddl_sqlite3_close_v2(db);
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
+    CTXEND(err);
+    return 0;
+}
+
+int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
+{
+    return a->ground_task_size;
+}
+
+const pddl_asnets_ground_task_t *
+pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
+{
+    if (id < 0 || id >= a->ground_task_size)
+        return NULL;
+    return a->ground_task + id;
+}
+
+int pddlASNetsRunPolicy(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        const int *in_state,
+                        int *out_state)
+{
+    return runPolicy(task, *a->params, *a->cg, in_state, out_state);
+}
+
+int pddlASNetsSolveTask(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        pddl_iarr_t *trace,
+                        pddl_err_t *err)
+{
+    pddl_fdr_state_pool_t states;
+    pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
+    int ret = policyRollout(a, task, &states, trace, NULL);
+    pddlFDRStatePoolFree(&states);
+    return ret;
+}
+
 static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
                                          pddl_asnets_train_data_t *data,
                                          int minibatch_size,
@@ -1594,47 +1832,6 @@ static int trainStep(pddl_asnets_t *a,
     return 0;
 }
 
-static int trainPolicyStatePool(pddl_asnets_t *a,
-                                int ground_task_id,
-                                pddl_fdr_state_pool_t *states,
-                                pddl_err_t *err)
-{
-    int ret = 0;
-    const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
-    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
-    int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
-
-    // Start in the initial state
-    pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
-    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
-        // get the last reached state
-        pddlFDRStatePoolGet(states, state_id, state);
-        if (pddlFDRPartStateIsConsistentWithState(&task->fdr.goal, state)){
-            ret = 1;
-            break;
-        }
-
-        // Apply policy. If we get -1, it means the state is dead-end,
-        // because there are no applicable operators
-        int op_id = runPolicy(task, *a->params, *a->cg, state, state2);
-        if (op_id < 0){
-            break;
-        }
-
-        // Insert current state
-        pddl_state_id_t prev_state_id = state_id;
-        state_id = pddlFDRStatePoolInsert(states, state2);
-        // If the new state was already in the pool, then we got a cycle
-        if (state_id <= prev_state_id){
-            break;
-        }
-    }
-
-    FREE(state);
-    FREE(state2);
-    return ret;
-}
-
 static int trainExploration(pddl_asnets_t *a,
                             int epoch,
                             int ground_task_id,
@@ -1648,7 +1845,7 @@ static int trainExploration(pddl_asnets_t *a,
     pddlFDRStatePoolInit(&states, &task->fdr.var, err);
 
     // Collect states from the policy rollout
-    int reached_goal = trainPolicyStatePool(a, ground_task_id, &states, err);
+    int reached_goal = policyRollout(a, task, &states, NULL, err);
     LOG(err, "Policy rollout: %{policy_rollout_states}d states,"
         " reached goal: %{reached_goal}d",
         states.num_states, reached_goal);
@@ -1706,7 +1903,7 @@ static float successRate(pddl_asnets_t *a)
         const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
         pddl_fdr_state_pool_t states;
         pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
-        if (trainPolicyStatePool(a, task_id, &states, NULL))
+        if (policyRollout(a, task, &states, NULL, NULL))
             num_solved += 1;
         pddlFDRStatePoolFree(&states);
     }
@@ -1772,6 +1969,8 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
 
+    float best_success_rate = 0.f;
+    float best_success_rate_loss = 1E10f;
     a->train_stats.success_rate = successRate(a);
 
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
@@ -1790,6 +1989,23 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
             return ret;
         }
 
+        if (a->train_stats.success_rate > best_success_rate
+                || (a->train_stats.success_rate == best_success_rate
+                        && a->train_stats.overall_loss < best_success_rate_loss)){
+            best_success_rate = a->train_stats.success_rate;
+            best_success_rate_loss = a->train_stats.overall_loss;
+            if (a->cfg.save_model_prefix != NULL){
+                char fn[4096];
+                sprintf(fn, "%s-%.2f-%.03f.policy",
+                        a->cfg.save_model_prefix,
+                        best_success_rate,
+                        best_success_rate_loss);
+                LOG(err, "Saving model to %s (success rate: %.2f, loss: %.3f)",
+                    fn, best_success_rate, best_success_rate_loss);
+                pddlASNetsSave(a, fn, err);
+            }
+        }
+
         if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){
             a->train_stats.consecutive_successful_epochs += 1;
         }else{
@@ -1804,6 +2020,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
                 a->train_stats.consecutive_successful_epochs,
                 a->cfg.early_termination_epochs);
             LOG2(err, "Terminating training.");
+            break;
         }
     }
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
@@ -1843,6 +2060,37 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 }
 
 int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
+{
+    FATAL("This module requires dynet library.");
+    return -1;
+}
+
+int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
+{
+    FATAL("This module requires dynet library.");
+    return -1;
+}
+
+const pddl_asnets_ground_task_t *
+pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
+{
+    FATAL("This module requires dynet library.");
+    return -1;
+}
+
+int pddlASNetsRunPolicy(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        const int *in_state,
+                        int *out_state)
+{
+    FATAL("This module requires dynet library.");
+    return -1;
+}
+
+int pddlASNetsSolveTask(pddl_asnets_t *a,
+                        const pddl_asnets_ground_task_t *task,
+                        pddl_iarr_t *trace,
+                        pddl_err_t *err)
 {
     FATAL("This module requires dynet library.");
     return -1;

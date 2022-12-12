@@ -23,11 +23,10 @@
 #ifndef __PDDL_DATALOG_H__
 #define __PDDL_DATALOG_H__
 
-#include <stdio.h>
+#include <pddl/common.h>
 #include <pddl/iset.h>
 #include <pddl/err.h>
 #include <pddl/cost.h>
-#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -144,6 +143,11 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err);
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err);
 
 /**
+ * Continue computing canonical model.
+ */
+void pddlDatalogCanonicalModelCont(pddl_datalog_t *dl, pddl_err_t *err);
+
+/**
  * Computes canonical model of the weighted datalog (either add or max
  * variant). The computation stop once a goal fact is reached and the
  * functions return 0 and goal fact's weight via argument. If no goal fact
@@ -213,6 +217,26 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
+
+/**
+ * Save the current state of the database.
+ * After calling pddlDatalogRollbackDB(), the database will be restored to
+ * this state.
+ */
+void pddlDatalogSaveStateOfDB(pddl_datalog_t *dl);
+
+/**
+ * Rollback to the last state saved by pddlDatalogSaveStateOfDB().
+ * It is not safe to call this function before pddlDatalogSaveStateOfDB().
+ */
+void pddlDatalogRollbackDB(pddl_datalog_t *dl);
+
+/**
+ * Insert a new fact to the database.
+ */
+void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
+                            unsigned in_pred,
+                            const unsigned *in_arg);
 
 /**
  * Initializes atom of the given predicate previously created with

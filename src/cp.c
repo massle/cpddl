@@ -12,10 +12,10 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/cp.h"
 #include "pddl/hfunc.h"
 #include "pddl/subprocess.h"
-#include "internal.h"
 #include "_cp.h"
 
 #define HASH_SEED 7307

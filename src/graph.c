@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "pddl/graph.h"
 #include "internal.h"
+#include "pddl/graph.h"
 
 void pddlGraphSimpleInit(pddl_graph_simple_t *g, int node_size)
 {

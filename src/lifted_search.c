@@ -1,43 +1,30 @@
 /***
- * cpddl
- * -------
- * Copyright (c)2021 Daniel Fiser <danfis@danfis.cz>,
- * Faculty of Electrical Engineering, Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
+ * Copyright (c)2022 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
 #include "pddl/open_list.h"
 #include "pddl/strips_state_space.h"
 #include "pddl/strips_maker.h"
-#include "pddl/sql_grounder.h"
-#include "pddl/search_lifted.h"
+#include "pddl/lifted_app_action.h"
+#include "pddl/lifted_search.h"
 #include "internal.h"
 
-typedef void (*search_del_fn)(pddl_search_lifted_t *);
-typedef int (*search_init_step_fn)(pddl_search_lifted_t *);
-typedef int (*search_step_fn)(pddl_search_lifted_t *);
+typedef void (*search_del_fn)(pddl_lifted_search_t *);
+typedef pddl_lifted_search_status_t (*search_init_step_fn)(pddl_lifted_search_t *);
+typedef pddl_lifted_search_status_t (*search_step_fn)(pddl_lifted_search_t *);
 
-struct pddl_search_lifted {
+struct pddl_lifted_search {
     const pddl_t *pddl;
     pddl_err_t *err;
-    pddl_sql_grounder_t *grounder;
+    pddl_lifted_app_action_t *app_action;
     pddl_strips_maker_t strips;
     pddl_strips_state_space_t state_space;
 
-    pddl_iset_t applicable;
     pddl_strips_state_space_node_t cur_node;
     pddl_strips_state_space_node_t next_node;
-    pddl_search_stat_t _stat;
+    pddl_lifted_search_stat_t _stat;
 
     pddl_iset_t goal;
     int goal_is_unreachable;
@@ -50,28 +37,31 @@ struct pddl_search_lifted {
     const char *err_prefix;
 };
 
-struct pddl_search_lifted_bfs {
-    pddl_search_lifted_t search;
+struct pddl_lifted_search_bfs {
+    pddl_lifted_search_t search;
     pddl_lifted_heur_t *heur;
     int g_weight;
     int h_weight;
     int is_lazy;
     pddl_open_list_t *list;
 };
-typedef struct pddl_search_lifted_bfs pddl_search_lifted_bfs_t;
+typedef struct pddl_lifted_search_bfs pddl_lifted_search_bfs_t;
 
-#define BFS(S) pddl_container_of((S), pddl_search_lifted_bfs_t, search)
+#define BFS(S) pddl_container_of((S), pddl_lifted_search_bfs_t, search)
 
-static void setGoal(pddl_search_lifted_t *s);
-static pddl_state_id_t insertInitState(pddl_search_lifted_t *s);
-static int isGoal(const pddl_search_lifted_t *s);
-static void findApplicableOps(pddl_search_lifted_t *s,
-                              pddl_iset_t *applicable_ops);
-static void applyAction(pddl_search_lifted_t *s, int args_id, int *cost);
-static void extractPlan(pddl_search_lifted_t *s, pddl_state_id_t goal_state_id);
+static void setGoal(pddl_lifted_search_t *s);
+static pddl_state_id_t insertInitState(pddl_lifted_search_t *s);
+static int isGoal(const pddl_lifted_search_t *s);
+static void applyAction(pddl_lifted_search_t *s,
+                        const pddl_action_t *action,
+                        const pddl_obj_id_t *args,
+                        int *args_id,
+                        int *cost);
+static void extractPlan(pddl_lifted_search_t *s, pddl_state_id_t goal_state_id);
 
-static int searchInit(pddl_search_lifted_t *s,
+static int searchInit(pddl_lifted_search_t *s,
                       const pddl_t *pddl,
+                      const pddl_lifted_search_config_t *cfg,
                       search_del_fn del_fn,
                       search_init_step_fn init_step_fn,
                       search_step_fn step_fn,
@@ -81,11 +71,10 @@ static int searchInit(pddl_search_lifted_t *s,
     s->pddl = pddl;
     s->err = err;
 
-    s->grounder = pddlSqlGrounderNew(pddl, err);
+    s->app_action = pddlLiftedAppActionNew(pddl, cfg->succ_gen, err);
     pddlStripsMakerInit(&s->strips, pddl);
     pddlStripsStateSpaceInit(&s->state_space, err);
 
-    pddlISetInit(&s->applicable);
     pddlStripsStateSpaceNodeInit(&s->cur_node, &s->state_space);
     pddlStripsStateSpaceNodeInit(&s->next_node, &s->state_space);
     s->del_fn = del_fn;
@@ -95,14 +84,13 @@ static int searchInit(pddl_search_lifted_t *s,
     return 0;
 }
 
-static void searchFree(pddl_search_lifted_t *s)
+static void searchFree(pddl_lifted_search_t *s)
 {
     pddlStripsStateSpaceNodeFree(&s->cur_node);
     pddlStripsStateSpaceNodeFree(&s->next_node);
     pddlStripsStateSpaceFree(&s->state_space);
-    pddlISetFree(&s->applicable);
     pddlStripsMakerFree(&s->strips);
-    pddlSqlGrounderDel(s->grounder);
+    pddlLiftedAppActionDel(s->app_action);
     pddlISetFree(&s->goal);
     for (int i = 0; i < s->plan.plan_len; ++i)
         FREE(s->plan.plan[i]);
@@ -110,12 +98,11 @@ static void searchFree(pddl_search_lifted_t *s)
         FREE(s->plan.plan);
 }
 
-static void bfsDel(pddl_search_lifted_t *bfs);
-static int bfsInitStep(pddl_search_lifted_t *bfs);
-static int bfsStep(pddl_search_lifted_t *bfs);
+static void bfsDel(pddl_lifted_search_t *bfs);
+static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *bfs);
+static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *bfs);
 
-static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
-                                    pddl_lifted_heur_t *heur,
+static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     int g_weight,
                                     int h_weight,
                                     int is_lazy,
@@ -123,13 +110,13 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
                                     pddl_err_t *err)
 {
     CTX(err, "bfs", err_prefix);
-    pddl_search_lifted_bfs_t *bfs;
+    pddl_lifted_search_bfs_t *bfs;
 
-    bfs = ZALLOC(pddl_search_lifted_bfs_t);
-    searchInit(&bfs->search, pddl, bfsDel, bfsInitStep, bfsStep,
+    bfs = ZALLOC(pddl_lifted_search_bfs_t);
+    searchInit(&bfs->search, cfg->pddl, cfg, bfsDel, bfsInitStep, bfsStep,
                err_prefix, err);
     // TODO: Check for conditional effects
-    bfs->heur = heur;
+    bfs->heur = cfg->heur;
     bfs->g_weight = g_weight;
     bfs->h_weight = h_weight;
     bfs->is_lazy = is_lazy;
@@ -139,21 +126,18 @@ static pddl_search_lifted_t *bfsNew(const pddl_t *pddl,
     return &bfs->search;
 }
 
-static void bfsDel(pddl_search_lifted_t *s)
+static void bfsDel(pddl_lifted_search_t *s)
 {
-    pddl_err_t *err = s->err;
-    CTX(err, "bfs", s->err_prefix);
     searchFree(s);
 
-    pddl_search_lifted_bfs_t *bfs = BFS(s);
+    pddl_lifted_search_bfs_t *bfs = BFS(s);
     if (bfs->list)
         pddlOpenListDel(bfs->list);
     FREE(bfs);
-    CTXEND(err);
 }
 
 
-static void bfsPush(pddl_search_lifted_bfs_t *bfs,
+static void bfsPush(pddl_lifted_search_bfs_t *bfs,
                     pddl_strips_state_space_node_t *node,
                     int h_value)
 {
@@ -167,18 +151,18 @@ static void bfsPush(pddl_search_lifted_bfs_t *bfs,
     ++bfs->search._stat.open;
 }
 
-static int bfsInitStep(pddl_search_lifted_t *s)
+static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
 {
-    pddl_search_lifted_bfs_t *bfs = BFS(s);
+    pddl_lifted_search_bfs_t *bfs = BFS(s);
     CTX_NO_TIME(s->err, "bfs", s->err_prefix);
-    int ret = PDDL_SEARCH_CONT;
+    pddl_lifted_search_status_t ret = PDDL_LIFTED_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
     ASSERT_RUNTIME(state_id == 0);
 
     setGoal(s);
     if (s->goal_is_unreachable)
-        ret = PDDL_SEARCH_UNSOLVABLE;
+        ret = PDDL_LIFTED_SEARCH_UNSOLVABLE;
 
     pddlStripsStateSpaceGet(&s->state_space, state_id, &s->cur_node);
     s->cur_node.parent_id = PDDL_NO_STATE_ID;
@@ -194,10 +178,10 @@ static int bfsInitStep(pddl_search_lifted_t *s)
         ++s->_stat.evaluated;
     }
 
-    PDDL_INFO(s->err, "Heuristic value for the initial state: %d", h_value);
+    LOG(s->err, "Heuristic value for the initial state: %{init_hvalue}d", h_value);
     if (h_value == PDDL_COST_DEAD_END){
         ++s->_stat.dead_end;
-        ret = PDDL_SEARCH_UNSOLVABLE;
+        ret = PDDL_LIFTED_SEARCH_UNSOLVABLE;
     }
 
     ASSERT_RUNTIME(s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_NEW);
@@ -207,12 +191,12 @@ static int bfsInitStep(pddl_search_lifted_t *s)
     return ret;
 }
 
-static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
+static void bfsInsertNextState(pddl_lifted_search_bfs_t *bfs,
                                int args_id,
                                int op_cost,
                                int in_h_value)
 {
-    pddl_search_lifted_t *s = &bfs->search;
+    pddl_lifted_search_t *s = &bfs->search;
     // Compute its g() value
     int next_g_value = s->cur_node.g_value + op_cost;
 
@@ -256,9 +240,9 @@ static void bfsInsertNextState(pddl_search_lifted_bfs_t *bfs,
     pddlStripsStateSpaceSet(&s->state_space, &s->next_node);
 }
 
-static int bfsStep(pddl_search_lifted_t *s)
+static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
 {
-    pddl_search_lifted_bfs_t *bfs = BFS(s);
+    pddl_lifted_search_bfs_t *bfs = BFS(s);
     CTX_NO_TIME(s->err, "bfs", s->err_prefix);
 
     ++s->_stat.steps;
@@ -268,7 +252,7 @@ static int bfsStep(pddl_search_lifted_t *s)
     pddl_state_id_t cur_state_id;
     if (pddlOpenListPop(bfs->list, &cur_state_id, cur_cost) != 0){
         CTXEND(s->err);
-        return PDDL_SEARCH_UNSOLVABLE;
+        return PDDL_LIFTED_SEARCH_UNSOLVABLE;
     }
 
     // Load the current state
@@ -277,7 +261,7 @@ static int bfsStep(pddl_search_lifted_t *s)
     // Skip already closed nodes
     if (s->cur_node.status != PDDL_STRIPS_STATE_SPACE_STATUS_OPEN){
         CTXEND(s->err);
-        return PDDL_SEARCH_CONT;
+        return PDDL_LIFTED_SEARCH_CONT;
     }
 
     // Close the current node
@@ -285,22 +269,29 @@ static int bfsStep(pddl_search_lifted_t *s)
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
     --s->_stat.open;
     ++s->_stat.closed;
+    int last_f_value = s->_stat.last_f_value;
     s->_stat.last_f_value = cur_cost[0];
+    if (last_f_value != s->_stat.last_f_value){
+        s->_stat.expanded_before_last_f_layer = s->_stat.expanded;
+        s->_stat.dead_end_before_last_f_layer = s->_stat.dead_end;
+    }
 
     // Check whether it is a goal
     if (isGoal(s)){
         extractPlan(s, cur_state_id);
         CTXEND(s->err);
-        return PDDL_SEARCH_FOUND;
+        return PDDL_LIFTED_SEARCH_FOUND;
     }
 
     // Find all applicable operators
-    pddlISetEmpty(&s->applicable);
-    findApplicableOps(s, &s->applicable);
+    pddlLiftedAppActionSetStripsState(s->app_action, &s->strips,
+                                      &s->cur_node.state);
+    pddlLiftedAppActionFindAppActions(s->app_action);
     ++s->_stat.expanded;
 
+    int app_size = pddlLiftedAppActionSize(s->app_action);
     int h_value = -1;
-    if (pddlISetSize(&s->applicable) > 0 && bfs->is_lazy){
+    if (app_size > 0 && bfs->is_lazy){
         h_value = 0;
         if (bfs->heur != NULL){
             pddl_cost_t h = pddlLiftedHeurEstimate(bfs->heur,
@@ -311,10 +302,15 @@ static int bfsStep(pddl_search_lifted_t *s)
         }
     }
 
-    int args_id;
-    PDDL_ISET_FOR_EACH(&s->applicable, args_id){
-        int cost;
-        applyAction(s, args_id, &cost);
+    for (int app_i = 0; app_i < app_size; ++app_i){
+        int action_id = pddlLiftedAppActionId(s->app_action, app_i);
+        const pddl_action_t *action = s->pddl->action.action + action_id;
+        const pddl_obj_id_t *args = pddlLiftedAppActionArgs(s->app_action, app_i);
+
+        int cost, args_id;
+        applyAction(s, action, args, &args_id, &cost);
+        if (args_id < 0)
+            continue;
 
         // Insert the new state
         pddl_state_id_t next_state_id;
@@ -325,50 +321,60 @@ static int bfsStep(pddl_search_lifted_t *s)
         bfsInsertNextState(bfs, args_id, cost, h_value);
     }
     CTXEND(s->err);
-    return PDDL_SEARCH_CONT;
+    return PDDL_LIFTED_SEARCH_CONT;
 }
 
 
 
 
-void pddlSearchLiftedDel(pddl_search_lifted_t *s)
+void pddlLiftedSearchDel(pddl_lifted_search_t *s)
 {
     s->del_fn(s);
 }
 
-int pddlSearchLiftedInitStep(pddl_search_lifted_t *s)
+pddl_lifted_search_status_t pddlLiftedSearchInitStep(pddl_lifted_search_t *s)
 {
     return s->init_step_fn(s);
 }
 
-int pddlSearchLiftedStep(pddl_search_lifted_t *s)
+pddl_lifted_search_status_t pddlLiftedSearchStep(pddl_lifted_search_t *s)
 {
     return s->step_fn(s);
 }
 
-void pddlSearchLiftedStat(const pddl_search_lifted_t *s,
-                          pddl_search_stat_t *stat)
+void pddlLiftedSearchStat(const pddl_lifted_search_t *s,
+                          pddl_lifted_search_stat_t *stat)
 {
     *stat = s->_stat;
     stat->generated = s->state_space.num_states;
 }
 
-void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, pddl_err_t *err)
+void pddlLiftedSearchStatLog(const pddl_lifted_search_t *s, pddl_err_t *err)
 {
-    pddl_search_stat_t stat;
-    pddlSearchLiftedStat(s, &stat);
-    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
-              " gen: %lu, open: %lu, closed: %lu,"
-              " reopen: %lu, de: %lu, f: %d",
-              stat.steps,
-              stat.expanded,
-              stat.evaluated,
-              stat.generated,
-              stat.open,
-              stat.closed,
-              stat.reopen,
-              stat.dead_end,
-              stat.last_f_value);
+    pddl_lifted_search_stat_t stat;
+    pddlLiftedSearchStat(s, &stat);
+    LOG(err, "Search steps: %{stat_steps}lu,"
+        " expand: %{stat_expanded}lu,"
+        " expand-blfl: %{stat_expanded_blfl}lu,"
+        " eval: %{stat_evaluated}lu,"
+        " gen: %{stat_generated}lu,"
+        " open: %{stat_open}lu,"
+        " closed: %{stat_closed}lu,"
+        " reopen: %{stat_reopen}lu,"
+        " de: %{stat_dead_end}lu,"
+        " de-blfl: %{stat_dead_end_blfl}lu,"
+        " f: %{stat_fvalue}d",
+        stat.steps,
+        stat.expanded,
+        stat.expanded_before_last_f_layer,
+        stat.evaluated,
+        stat.generated,
+        stat.open,
+        stat.closed,
+        stat.reopen,
+        stat.dead_end,
+        stat.dead_end_before_last_f_layer,
+        stat.last_f_value);
 }
 
 
@@ -377,7 +383,7 @@ void pddlSearchLiftedStatLog(const pddl_search_lifted_t *s, pddl_err_t *err)
 
 static int _setGoal(pddl_fm_t *c, void *_s)
 {
-    pddl_search_lifted_t *s = _s;
+    pddl_lifted_search_t *s = _s;
     const pddl_t *pddl = s->pddl;
 
     if (c->type == PDDL_FM_ATOM){
@@ -421,13 +427,13 @@ static int _setGoal(pddl_fm_t *c, void *_s)
     }
 }
 
-static void setGoal(pddl_search_lifted_t *s)
+static void setGoal(pddl_lifted_search_t *s)
 {
     pddlISetEmpty(&s->goal);
     pddlFmTraverse(s->pddl->goal, _setGoal, NULL, s);
 }
 
-static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
+static pddl_state_id_t insertInitState(pddl_lifted_search_t *s)
 {
     const pddl_t *pddl = s->pddl;
     pddl_list_t *item;
@@ -443,7 +449,6 @@ static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
                 ga = pddlStripsMakerAddAtom(&s->strips, a, NULL, NULL);
                 pddlISetAdd(&init, ga->id);
             }
-            pddlSqlGrounderInsertAtom(s->grounder, a, s->err);
 
         }else if (c->type == PDDL_FM_ASSIGN){
             const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
@@ -461,100 +466,40 @@ static pddl_state_id_t insertInitState(pddl_search_lifted_t *s)
     return sid;
 }
 
-static int isGoal(const pddl_search_lifted_t *s)
+static int isGoal(const pddl_lifted_search_t *s)
 {
     return pddlISetIsSubset(&s->goal, &s->cur_node.state);
 }
 
 
-static void findApplicableOpsAction(pddl_search_lifted_t *s,
-                                    int action_id,
-                                    pddl_iset_t *applicable_ops)
-{
-    if (pddlSqlGrounderActionStart(s->grounder, action_id, s->err) != 0)
-        return;
-
-    const pddl_prep_action_t *paction;
-    paction = pddlSqlGrounderPrepAction(s->grounder, action_id);
-    ASSERT(paction->parent_action < 0);
-
-    pddl_obj_id_t row[paction->param_size];
-    while (pddlSqlGrounderActionNext(s->grounder, row, s->err)){
-        pddl_ground_action_args_t *a;
-        a = pddlStripsMakerAddAction(&s->strips, action_id, 0, row, NULL);
-        pddlISetAdd(applicable_ops, a->id);
-    }
-}
-
-static void findApplicableOps(pddl_search_lifted_t *s,
-                              pddl_iset_t *applicable_ops)
-{
-    pddlSqlGrounderClearNonStatic(s->grounder, s->err);
-    int fact;
-    PDDL_ISET_FOR_EACH(&s->cur_node.state, fact){
-        const pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerGroundAtom(&s->strips, fact);
-        pddlSqlGrounderInsertGroundAtom(s->grounder, ga, s->err);
-    }
-    int action_size = pddlSqlGrounderPrepActionSize(s->grounder);
-    for (int ai = 0; ai < action_size; ++ai)
-        findApplicableOpsAction(s, ai, applicable_ops);
-}
-
-static void applyAction(pddl_search_lifted_t *s,
-                        int args_id,
+static void applyAction(pddl_lifted_search_t *s,
+                        const pddl_action_t *action,
+                        const pddl_obj_id_t *args,
+                        int *args_id,
                         int *cost)
 {
-    const pddl_ground_action_args_t *aargs;
-    aargs = pddlStripsMakerActionArgs(&s->strips, args_id);
-    const pddl_prep_action_t *pa;
-    pa = pddlSqlGrounderPrepAction(s->grounder, aargs->action_id);
-
-    PDDL_ISET(eadd);
-    PDDL_ISET(edel);
-    for (int i = 0; i < pa->add_eff.size; ++i){
-        const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(pa->add_eff.fm[i], atom);
-        ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
-
-        pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerAddAtom(&s->strips, atom, aargs->arg, NULL);
-        pddlISetAdd(&eadd, ga->id);
-    }
-
-    for (int i = 0; i < pa->del_eff.size; ++i){
-        const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(pa->del_eff.fm[i], atom);
-        ASSERT(!pddlPredIsStatic(&s->pddl->pred.pred[atom->pred]));
-
-        pddl_ground_atom_t *ga;
-        ga = pddlStripsMakerAddAtom(&s->strips, atom, aargs->arg, NULL);
-        pddlISetAdd(&edel, ga->id);
-    }
-
-    *cost = 0;
-    for (int i = 0; i < pa->increase.size && s->pddl->metric; ++i){
-        const pddl_fm_func_op_t *inc;
-        inc = PDDL_FM_CAST(pa->increase.fm[i], func_op);
-        if (inc->fvalue != NULL){
-            const pddl_ground_atom_t *ga;
-            ga = pddlGroundAtomsFindAtom(&s->strips.ground_func,
-                                         inc->fvalue, aargs->arg);
-            *cost += ga->func_val;
-        }else{
-            *cost += inc->value;
-        }
-    }
+    *args_id = -1;
+    PDDL_ISET(add_eff);
+    PDDL_ISET(del_eff);
+    pddlStripsMakerActionEffInState(&s->strips, action, args,
+                                    &s->cur_node.state,
+                                    &add_eff, &del_eff, cost);
     if (!s->pddl->metric)
         *cost = 1;
 
-    pddlISetMinus2(&s->next_node.state, &s->cur_node.state, &edel);
-    pddlISetUnion(&s->next_node.state, &eadd);
-    pddlISetFree(&eadd);
-    pddlISetFree(&edel);
+    if (pddlISetSize(&add_eff) > 0 || pddlISetSize(&del_eff) > 0){
+        const pddl_ground_action_args_t *a;
+        a = pddlStripsMakerAddAction(&s->strips, action->id, 0, args, NULL);
+        *args_id = a->id;
+        pddlISetMinus2(&s->next_node.state, &s->cur_node.state, &del_eff);
+        pddlISetUnion(&s->next_node.state, &add_eff);
+    }
+
+    pddlISetFree(&add_eff);
+    pddlISetFree(&del_eff);
 }
 
-static void addPlanOp(pddl_search_lifted_t *s, int op_id)
+static void addPlanOp(pddl_lifted_search_t *s, int op_id)
 {
     pddl_lifted_plan_t *plan = &s->plan;
     if (plan->plan_alloc == plan->plan_len){
@@ -566,14 +511,12 @@ static void addPlanOp(pddl_search_lifted_t *s, int op_id)
 
     const pddl_ground_action_args_t *aargs;
     aargs = pddlStripsMakerActionArgs(&s->strips, op_id);
-    const pddl_prep_action_t *pa;
-    pa = pddlSqlGrounderPrepAction(s->grounder, aargs->action_id);
-    const pddl_action_t *action = pa->action;
+    const pddl_action_t *action = s->pddl->action.action + aargs->action_id;
 
     static int maxlen = 512;
     char name[maxlen + 1];
     int len = snprintf(name, maxlen, "%s", action->name);
-    for (int i = 0; i < pa->param_size; ++i){
+    for (int i = 0; i < action->param.param_size; ++i){
         len += snprintf(name + len, maxlen - len, " %s",
                         s->pddl->obj.obj[aargs->arg[i]].name);
     }
@@ -581,7 +524,7 @@ static void addPlanOp(pddl_search_lifted_t *s, int op_id)
     plan->plan[plan->plan_len++] = STRDUP(name);
 }
 
-static void extractPlan(pddl_search_lifted_t *s,
+static void extractPlan(pddl_lifted_search_t *s,
                         pddl_state_id_t goal_state_id)
 {
     pddlStripsStateSpaceGetNoState(&s->state_space, goal_state_id,
@@ -603,34 +546,30 @@ static void extractPlan(pddl_search_lifted_t *s,
     }
 }
 
-
-pddl_search_lifted_t *pddlSearchLiftedAStar(const pddl_t *pddl,
-                                            pddl_lifted_heur_t *heur,
-                                            pddl_err_t *err)
+pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg,
+                                          pddl_err_t *err)
 {
-    return bfsNew(pddl, heur, 1, 1, 0, "Lifted A*: ", err);
+    switch (cfg->alg){
+        case PDDL_LIFTED_SEARCH_ASTAR:
+            return bfsNew(cfg, 1, 1, 0, "Lifted A*", err);
+
+        case PDDL_LIFTED_SEARCH_LAZY:
+            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy", err);
+
+        case PDDL_LIFTED_SEARCH_GBFS:
+            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS", err);
+
+        default:
+            ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);
+    }
 }
 
-pddl_search_lifted_t *pddlSearchLiftedGBFS(const pddl_t *pddl,
-                                           pddl_lifted_heur_t *heur,
-                                           pddl_err_t *err)
-{
-    return bfsNew(pddl, heur, 0, 1, 0, "Lifted GBFS: ", err);
-}
-
-pddl_search_lifted_t *pddlSearchLiftedLazy(const pddl_t *pddl,
-                                           pddl_lifted_heur_t *heur,
-                                           pddl_err_t *err)
-{
-    return bfsNew(pddl, heur, 0, 1, 1, "Lifted Lazy: ", err);
-}
-
-const pddl_lifted_plan_t *pddlSearchLiftedPlan(const pddl_search_lifted_t *s)
+const pddl_lifted_plan_t *pddlLiftedSearchPlan(const pddl_lifted_search_t *s)
 {
     return &s->plan;
 }
 
-void pddlSearchLiftedPlanPrint(const pddl_search_lifted_t *s, FILE *fout)
+void pddlLiftedSearchPlanPrint(const pddl_lifted_search_t *s, FILE *fout)
 {
     const pddl_lifted_plan_t *plan = &s->plan;
     fprintf(fout, ";; Cost: %d\n", plan->plan_cost);

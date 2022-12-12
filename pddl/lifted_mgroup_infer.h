@@ -26,6 +26,37 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct pddl_lifted_mgroups_infer_config {
+    /** Maximum of generated candidates. Default: 10000 */
+    int max_candidates;
+    /** Maximum of proved lifted mutex groups. Default: 10000 */
+    int max_mgroups;
+    /** Find Fast-Downward type of lifted mutex groups. Default: false */
+    int fd;
+    /** If set to non-NULL and .fd is true, then it is filled with the
+     *  monotonicity invariants. Default: NULL */
+    pddl_lifted_mgroups_t *fd_monotonicity;
+};
+typedef struct pddl_lifted_mgroups_infer_config
+    pddl_lifted_mgroups_infer_config_t;
+
+#define PDDL_LIFTED_MGROUPS_INFER_CONFIG_INIT \
+    { \
+        10000, /* .max_candidates */ \
+        10000, /* .max_mgroups */ \
+        0, /* .fd */ \
+        NULL, /* .fd_monotonicity */ \
+    }
+
+
+/**
+ * Infer lifted mutex groups
+ */
+int pddlLiftedMGroupsInfer(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_infer_config_t *cfg,
+                           pddl_lifted_mgroups_t *lmg,
+                           pddl_err_t *err);
+
 /**
  * Returns true if two or more facts from the initial state are covered by
  * the candidate.

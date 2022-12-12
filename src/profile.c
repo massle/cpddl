@@ -17,10 +17,9 @@
  * See the License for more information.
  */
 
-#include "pddl/timer.h"
-#include <stdio.h>
 #include "internal.h"
 #include "profile.h"
+#include "pddl/timer.h"
 
 struct pddl_profile_slot {
     pddl_timer_t timer;

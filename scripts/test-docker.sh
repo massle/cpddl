@@ -1,7 +1,10 @@
 #!/bin/bash
 
+set -e
+
 if [ "$1" = "-h" ]; then
     echo "Usage: $0 [-h/--check/--check-all] ..."
+    echo "Example: $0 debian bullseye cplex clang"
     exit
 
 elif [ "$1" = "--check" ]; then
@@ -22,6 +25,7 @@ COPY ./ /cpddl
 
 function gen_make(){
     local m=""
+    local werror=""
     while [ "$1" != "" ]; do
         if [ "$1" = "cplex" ]; then
             m="
@@ -30,7 +34,7 @@ $m
 "
         elif [ "$1" = "third-party" ]; then
             m="$m
-RUN cd /cpddl && make third-party
+RUN cd /cpddl && make -j8 third-party
 "
         elif [ "$1" = "clang" ]; then
             m="
@@ -38,17 +42,33 @@ RUN cd /cpddl && echo \"CC = clang\" >>Makefile.local
 RUN cd /cpddl && echo \"CXX = clang++\" >>Makefile.local
 $m
 "
+
+        elif [ "$1" = "debian:buster" ]; then
+            werror="no"
+
+        elif [ "$1" = "ubuntu:bionic" ]; then
+            m="
+RUN cd /cpddl && echo \"CFLAGS += -Wno-strict-overflow\" >>Makefile.local
+$m
+"
         fi
         shift
     done
 
-    m="
+    pre="
 RUN cd /cpddl && rm -f Makefile.local && make mrproper && make help
+"
+    if [ "$werror" != "no" ]; then
+        pre="
+$pre
 RUN cd /cpddl && echo \"WERROR = yes\" >Makefile.local
+"
+    fi
+    m="$pre
 $m
 RUN cd /cpddl && make help
-RUN cd /cpddl && make
-RUN cd /cpddl && make bin
+RUN cd /cpddl && make -j8
+RUN cd /cpddl && make -j8 bin
 "
     echo "$m"
 }
@@ -70,11 +90,11 @@ RUN apk add clang"
     cat >Dockerfile <<EOF
 FROM alpine:3.16.0
 LABEL cpddl=test-build
-$COPY
 
 RUN apk update
 RUN apk upgrade
 RUN apk add make gcc g++ autoconf automake git bash libstdc++
+$COPY
 $run
 
 $m
@@ -86,7 +106,7 @@ EOF
 }
 
 function debian(){
-    local m="$(gen_make $@)"
+    local m="$(gen_make "debian:$1" $@)"
     local run=
     local from="$1"
     shift
@@ -104,11 +124,11 @@ RUN apt install -y clang"
     cat >Dockerfile <<EOF
 FROM debian:${from}-slim
 LABEL cpddl=test-build
-$COPY
 
 RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y make gcc g++ autoconf automake git
+$COPY
 $run
 
 $m
@@ -120,7 +140,7 @@ EOF
 }
 
 function ubuntu(){
-    local m="$(gen_make $@)"
+    local m="$(gen_make "ubuntu:$1" $@)"
     local run=
     local from="$1"
     shift
@@ -138,11 +158,11 @@ RUN apt install -y clang"
     cat >Dockerfile <<EOF
 FROM ubuntu:${from}
 LABEL cpddl=test-build
-$COPY
 
 RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y make gcc g++ autoconf automake git
+$COPY
 $run
 
 $m
@@ -172,10 +192,10 @@ RUN dnf -y install clang"
     cat >Dockerfile <<EOF
 FROM fedora:${from}
 LABEL cpddl=test-build
-$COPY
 
 RUN dnf -y update
 RUN dnf -y install make gcc g++ autoconf automake git
+$COPY
 $run
 
 $m
@@ -189,7 +209,6 @@ EOF
 function run(){
     cat Dockerfile
     docker build --force-rm .
-    yes | docker image prune --filter label=cpddl=test-build
 }
 
 rm -rf .cplex
@@ -280,3 +299,4 @@ done 2>&1 | tee -a test.log
 
 rm -rf .cplex
 rm -f Dockerfile
+yes | docker image prune --filter label=cpddl=test-build

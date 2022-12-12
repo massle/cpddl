@@ -19,9 +19,8 @@
 #ifndef __PDDL_ACTION_ARGS_H__
 #define __PDDL_ACTION_ARGS_H__
 
-#include <pddl/extarr.h>
-
 #include <pddl/common.h>
+#include <pddl/extarr.h>
 #include <pddl/htable.h>
 
 #ifdef __cplusplus

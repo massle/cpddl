@@ -19,6 +19,9 @@ OBJS += toml
 OBJS += rand
 OBJS += sort
 OBJS += qsort
+OBJS += timsort
+OBJS += mergesort
+OBJS += heapsort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap
@@ -108,7 +111,10 @@ OBJS += open_list_splaytree2
 OBJS += search
 OBJS += search_astar
 OBJS += search_lazy
-OBJS += search_lifted
+OBJS += lifted_app_action
+OBJS += lifted_app_action_sql
+OBJS += lifted_app_action_datalog
+OBJS += lifted_search
 OBJS += plan
 OBJS += relaxed_plan
 OBJS += heur
@@ -329,6 +335,8 @@ third-party-clean: bliss-clean cudd-clean
 bliss: third-party/bliss/libbliss.a
 bliss-clean:
 	$(MAKE) -C third-party/bliss clean
+	rm -f third-party/bliss/libbliss.a
+	rm -f third-party/bliss/bliss_C.h
 third-party/bliss/libbliss.a:
 	$(MAKE) CC=$(CXX) -C third-party/bliss lib_static
 	cp third-party/bliss/src/bliss_C.h third-party/bliss/

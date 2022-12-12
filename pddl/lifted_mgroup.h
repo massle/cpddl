@@ -154,6 +154,13 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
 void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm);
 
 /**
+ * Returns true if the two sets of lifted mutex groups are the same.
+ * It is assumed both lmg1 and lmg2 are sorted!
+ */
+int pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
+                        const pddl_lifted_mgroups_t *lmg2);
+
+/**
  * Extend each mutex group with a copy of itself but with fresh counted
  * variables.
  */

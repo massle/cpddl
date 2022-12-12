@@ -102,7 +102,6 @@ struct pddl_lisp_node {
 struct pddl_lisp {
     char *filename;
     pddl_lisp_node_t root;
-    int fd;
     char *data;
     size_t size;
 };

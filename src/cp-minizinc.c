@@ -12,9 +12,9 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/cp.h"
 #include "pddl/subprocess.h"
-#include "internal.h"
 #include "_cp.h"
 
 int pddlCPSolve_Minizinc(const pddl_cp_t *cp,

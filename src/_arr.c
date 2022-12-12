@@ -12,8 +12,8 @@
  *  See the License for more information.
  */
 
-#include "pddl/arr.h"
 #include "internal.h"
+#include "pddl/arr.h"
 
 void pddlArrFree(pddl_arr_t *a)
 {

@@ -16,8 +16,7 @@
 #ifndef __PDDL_ALLOC_H__
 #define __PDDL_ALLOC_H__
 
-#include <stdlib.h>
-#include <string.h>
+#include <pddl/common.h>
 
 #ifdef __cplusplus
 extern "C" {

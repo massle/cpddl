@@ -16,26 +16,12 @@
 
 #include "internal.h"
 #include "pddl/err.h"
-#include <sys/resource.h>
-#include <strings.h>
-#include <string.h>
-#include <stdarg.h>
 
 static void _pddlProp_kw(pddl_err_t *err, const char *kw)
 {
     for (int i = 0; i < err->ctx_size; ++i)
-        fprintf(err->prop_out, "  ");
+        fprintf(err->prop_out, "%s.", err->ctx[i].kw);
     fprintf(err->prop_out, "%s = ", kw);
-}
-
-static void _pddlProp_ctxKw(pddl_err_t *err, const char *kw)
-{
-    if (err->prop_out == NULL)
-        return;
-    for (int i = 0; i < err->ctx_size; ++i)
-        fprintf(err->prop_out, "  ");
-    fprintf(err->prop_out, "%s:\n", kw);
-    fflush(err->prop_out);
 }
 
 static void _pddlProp_i(pddl_err_t *err, const char *kw, const char *v, int vlen)
@@ -198,7 +184,6 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
     if (err == NULL || err->ctx_size == PDDL_ERR_CTX_MAXLEN)
         return;
 
-    _pddlProp_ctxKw(err, kw);
     pddl_err_ctx_t *ctx = err->ctx + err->ctx_size++;
     strncpy(ctx->kw, kw, PDDL_ERR_CTX_KW_MAXLEN - 1);
     ctx->kw[PDDL_ERR_CTX_KW_MAXLEN - 1] = '\0';

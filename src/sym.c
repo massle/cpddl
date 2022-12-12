@@ -19,10 +19,10 @@
 #include "pddl/config.h"
 #ifdef PDDL_BLISS
 
+#include "internal.h"
 #include <bliss/bliss_C.h>
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
-#include "internal.h"
 
 struct pdg_sym {
     const pddl_strips_t *strips;
@@ -369,6 +369,13 @@ void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
 
 void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
                                      pddl_set_iset_t *sym_set)
+{
+    ERROR;
+}
+
+void pddlStripsSymOpTransitiveClosure(const pddl_strips_sym_t *sym,
+                                      int op_id,
+                                      pddl_iset_t *transitive_closure)
 {
     ERROR;
 }

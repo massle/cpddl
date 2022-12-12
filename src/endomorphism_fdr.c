@@ -12,11 +12,11 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/endomorphism.h"
 #include "pddl/cp.h"
 #include "pddl/time_limit.h"
 #include "pddl/hfunc.h"
-#include "internal.h"
 
 struct mg_strips_op {
     int cost;

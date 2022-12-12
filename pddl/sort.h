@@ -68,12 +68,12 @@ int pddlMergeSort(void *base, size_t nmemb, size_t size,
  * BSD kqsort.
  * Uses recursion.
  */
-void pddlQSort(void *base, size_t nmemb, size_t size,
-               pddl_sort_cmp cmp, void *carg);
+int pddlQSort(void *base, size_t nmemb, size_t size,
+              pddl_sort_cmp cmp, void *carg);
 
 /**
  * Tim sort.
- * This is just wrapper around https://github.com/patperry/timsort.
+ * Stable sort.
  */
 int pddlTimSort(void *base, size_t nmemb, size_t size,
                 pddl_sort_cmp cmp, void *carg);
@@ -81,10 +81,16 @@ int pddlTimSort(void *base, size_t nmemb, size_t size,
 
 /**
  * Default sorting algorithm.
- * Uses timsort if available or qsort if not.
+ * Not guaranteed to be stable.
  */
 int pddlSort(void *base, size_t nmemb, size_t size,
              pddl_sort_cmp cmp, void *carg);
+
+/**
+ * Default stable sort.
+ */
+int pddlStableSort(void *base, size_t nmemb, size_t size,
+                   pddl_sort_cmp cmp, void *carg);
 
 /**
  * Sorts an array of elements that contain an integer key. {size} is the

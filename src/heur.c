@@ -61,6 +61,7 @@ pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
                 ERR_RET2(err, NULL, "Config Error: Missing input mutex set!");
             return pddlHeurOpMutex(cfg->fdr, cfg->mutex, &cfg->op_mutex, err);
     }
+    return NULL;
 }
 
 void pddlHeurDel(pddl_heur_t *h)

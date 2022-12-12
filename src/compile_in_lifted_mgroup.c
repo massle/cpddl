@@ -18,9 +18,9 @@
  */
 
 
-#include "pddl/pddl_struct.h"
-#include "pddl/unify.h"
 #include "internal.h"
+#include "pddl/compile_in_lifted_mgroup.h"
+#include "pddl/unify.h"
 
 
 struct action_cond {
@@ -52,8 +52,7 @@ static void actionCondsFree(action_conds_t *acs)
         FREE(acs->cond);
 }
 
-static pddl_fm_arr_t *actionConds(action_conds_t *acs,
-                                    const pddl_fm_t *pre)
+static pddl_fm_arr_t *actionConds(action_conds_t *acs, const pddl_fm_t *pre)
 {
     for (int i = 0; i < acs->cond_size; ++i){
         if (acs->cond[i].pre == pre)
@@ -73,9 +72,9 @@ static pddl_fm_arr_t *actionConds(action_conds_t *acs,
 }
 
 static pddl_fm_t *actionCondsMerge(const action_conds_t *acs,
-                                     const pddl_fm_t *pre,
-                                     const pddl_t *pddl,
-                                     const pddl_params_t *param)
+                                   const pddl_fm_t *pre,
+                                   const pddl_t *pddl,
+                                   const pddl_params_t *param)
 {
     const pddl_fm_arr_t *conds = NULL;
     for (int i = 0; i < acs->cond_size; ++i){
@@ -122,10 +121,10 @@ static int checkInequality(const pddl_unify_t *unify,
 }
 
 static pddl_fm_t *condAtomsNotEqual(const pddl_t *pddl,
-                                      const pddl_params_t *param,
-                                      const pddl_fm_atom_t *a1,
-                                      const pddl_fm_atom_t *a2,
-                                      const pddl_fm_t *unifier_cond)
+                                    const pddl_params_t *param,
+                                    const pddl_fm_atom_t *a1,
+                                    const pddl_fm_atom_t *a2,
+                                    const pddl_fm_t *unifier_cond)
 {
     if (a1->pred != a2->pred){
         return &pddlFmNewBool(1)->fm;
@@ -572,11 +571,16 @@ static void compileInDeadEnd(const pddl_t *pddl,
 
 int pddlCompileInLiftedMGroups(pddl_t *pddl,
                                const pddl_lifted_mgroups_t *mgroups,
+                               const pddl_compile_in_lmg_config_t *cfg,
                                pddl_err_t *err)
 {
     int changed = 0;
 
     CTX(err, "compile_in_lmg", "Compile-in LMG");
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    LOG_CONFIG_BOOL(cfg, prune_mutex, err);
+    LOG_CONFIG_BOOL(cfg, prune_dead_end, err);
+    CTXEND(err);
     LOG(err, "actions: %{in.actions}d, lifted mgroups: %{in.lmgs}d",
         pddl->action.action_size, mgroups->mgroup_size);
     if (mgroups->mgroup_size == 0){
@@ -593,8 +597,10 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
         action_conds_t acs;
         actionCondsInit(&acs);
         for (int mgi = 0; mgi < mgroups->mgroup_size; ++mgi){
-            compileInMutex(pddl, action, mgroups->mgroup + mgi, &acs, err);
-            compileInDeadEnd(pddl, action, mgroups->mgroup + mgi, &acs, err);
+            if (cfg->prune_mutex)
+                compileInMutex(pddl, action, mgroups->mgroup + mgi, &acs, err);
+            if (cfg->prune_dead_end)
+                compileInDeadEnd(pddl, action, mgroups->mgroup + mgi, &acs, err);
         }
 
         pddl_fm_t *c;

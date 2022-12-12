@@ -14,14 +14,12 @@
  *  See the License for more information.
  */
 
-#include <stdio.h>
-#include <unistd.h>
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/hashset.h"
 #include "pddl/iset.h"
 #include "pddl/lset.h"
 #include "pddl/cset.h"
-#include "internal.h"
 
 struct pddl_hashset_el {
     int id;

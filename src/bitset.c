@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "pddl/bitset.h"
 #include "internal.h"
+#include "pddl/bitset.h"
 
 void pddlBitsetInit(pddl_bitset_t *b, int bitsize)
 {

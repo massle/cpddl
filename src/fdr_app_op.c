@@ -16,10 +16,10 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/fdr_app_op.h"
 #include "pddl/cg.h"
-#include "internal.h"
 
 /**
  * Base building structure for a tree node.

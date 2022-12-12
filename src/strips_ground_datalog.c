@@ -20,7 +20,6 @@
 #include "pddl/hfunc.h"
 #include "pddl/sort.h"
 #include "pddl/strips_ground_datalog.h"
-#include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/datalog.h"
@@ -35,7 +34,6 @@ typedef struct action action_t;
 
 struct ground {
     const pddl_t *pddl;
-    pddl_prep_actions_t prep_action;
     pddl_strips_maker_t strips_maker;
 
     pddl_datalog_t *dl;
@@ -188,7 +186,6 @@ static int groundInit(ground_t *g,
 {
     ZEROIZE(g);
     g->pddl = pddl;
-    pddlPrepActionsInit(g->pddl, &g->prep_action, err);
 
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
@@ -198,7 +195,7 @@ static int groundInit(ground_t *g,
     g->obj_to_dlconst = ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
     g->action = CALLOC_ARR(action_t, g->pddl->action.action_size);
 
-    g->dlvar_size = pddlDatalogPddlMaxVarSize(pddl, &g->prep_action);
+    g->dlvar_size = pddlDatalogPddlMaxVarSize(pddl);
     g->dlvar = ALLOC_ARR(unsigned, g->dlvar_size);
     for (int i = 0; i < g->dlvar_size; ++i)
         g->dlvar[i] = pddlDatalogAddVar(g->dl, NULL);
@@ -232,7 +229,6 @@ static int groundInit(ground_t *g,
 
 static void groundFree(ground_t *g)
 {
-    pddlPrepActionsFree(&g->prep_action);
     pddlStripsMakerFree(&g->strips_maker);
     pddlDatalogDel(g->dl);
     FREE(g->type_to_dlpred);

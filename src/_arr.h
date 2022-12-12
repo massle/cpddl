@@ -15,7 +15,7 @@
 #ifndef __PDDL_ARR_H__
 #define __PDDL_ARR_H__
 
-#include <pddl/common.h>
+#include "pddl/common.h"
 
 #ifdef __cplusplus
 extern "C" {

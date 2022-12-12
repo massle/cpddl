@@ -20,14 +20,36 @@
 #ifndef __PDDL_COMMON_H__
 #define __PDDL_COMMON_H__
 
-#include <math.h>
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif /* _DEFAULT_SOURCE */
+
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE
+#endif /* _BSD_SOURCE */
+
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <float.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
 #include <limits.h>
+#include <math.h>
+#include <poll.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <signal.h>
+#include <time.h>
 #include <unistd.h>
 #include <pddl/config.h>
 
@@ -155,9 +177,9 @@ typedef int pddl_obj_id_t;
 /** Minimum cost */
 #define PDDL_COST_MIN ((INT_MIN / 2) + 1)
 /** Zeroize given struct */
-#define PDDL_ZEROIZE(SPTR) bzero((SPTR), sizeof(*(SPTR)))
-#define PDDL_ZEROIZE_ARR(SPTR, SZ) bzero((SPTR), sizeof(*(SPTR)) * (SZ))
-#define PDDL_ZEROIZE_RAW(SPTR, SZ) bzero((SPTR), (SZ))
+#define PDDL_ZEROIZE(SPTR) memset((SPTR), 0, sizeof(*(SPTR)))
+#define PDDL_ZEROIZE_ARR(SPTR, SZ) memset((SPTR), 0, sizeof(*(SPTR)) * (SZ))
+#define PDDL_ZEROIZE_RAW(SPTR, SZ) memset((SPTR), 0, (SZ))
 
 
 /**

@@ -16,7 +16,6 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
 #include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/action_args.h"

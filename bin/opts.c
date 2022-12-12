@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <limits.h>
-#include <stdarg.h>
 #include "opts.h"
 
 #define FLAG 1

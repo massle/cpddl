@@ -35,21 +35,30 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_config {
-    int force_adl; /*!< Force ADL to requirements */
-    int normalize; /*!< Normalize the task right after parsing */
-    int remove_empty_types; /*!< Remove types without any objects */
-    int compile_away_cond_eff; /*!< Compile away conditional effects */
-    int enforce_unit_cost; /*!< Enforce the task to have unit-cost actions */
+    /** Force ADL to requirements */
+    int force_adl;
+    /** Normalize the task right after parsing */
+    int normalize;
+    /** Remove types without any objects */
+    int remove_empty_types;
+    /** Compile away conditional effects */
+    int compile_away_cond_eff;
+    /** Enforce the task to have unit-cost actions */
+    int enforce_unit_cost;
+    /** If set to true all actions should be kept in the task even after
+     *  normalization */
+    int keep_all_actions;
 };
 typedef struct pddl_config pddl_config_t;
 
-#define PDDL_CONFIG_INIT_EMPTY { 0 }
 #define PDDL_CONFIG_INIT \
-    { 1, /* .force_adl */ \
-      1, /* .normalize */ \
-      1, /* .remove_empty_types */ \
-      0, /* .compile_away_cond_eff */ \
-      0, /* .enforce_unit_cost */ \
+    { \
+        1, /* .force_adl */ \
+        1, /* .normalize */ \
+        1, /* .remove_empty_types */ \
+        0, /* .compile_away_cond_eff */ \
+        0, /* .enforce_unit_cost */ \
+        0, /* .keep_all_actions */ \
     }
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err);
@@ -171,14 +180,6 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err);
  * Remove assign and increase atoms to enforce the task to be unit cost
  */
 void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err);
-
-/**
- * Returns -1 on error, 0 if pddl wasn't changed, and 1 if the pddl was
- * enriched with additional conditions pruning mutexes and dead-ends.
- */
-int pddlCompileInLiftedMGroups(pddl_t *pddl,
-                               const pddl_lifted_mgroups_t *mgroups,
-                               pddl_err_t *err);
 
 /**
  * Prints PDDL domain file.

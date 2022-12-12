@@ -20,12 +20,9 @@
 #include "pddl/config.h"
 #ifdef PDDL_CUDD
 
-#include <sys/resource.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include <cudd/cudd.h>
 #include "pddl/bdd.h"
-#include "internal.h"
 
 
 #define M(P) ((DdManager *)(P))

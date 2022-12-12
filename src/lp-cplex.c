@@ -12,11 +12,9 @@
  *  See the License for more information.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/lp.h"
 #include "_lp.h"
-#include "internal.h"
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>
@@ -375,5 +373,5 @@ pddl_lp_cls_t pddl_lp_cplex = {
     cpxWrite,
 };
 #else /* PDDL_CPLEX */
-pddl_lp_cls_t pddl_lp_cplex;
+pddl_lp_cls_t pddl_lp_cplex = { 0 };
 #endif /* PDDL_CPLEX */

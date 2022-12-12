@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "pddl/fm_arr.h"
 #include "internal.h"
+#include "pddl/fm_arr.h"
 
 void pddlFmArrInit(pddl_fm_arr_t *ca)
 {
