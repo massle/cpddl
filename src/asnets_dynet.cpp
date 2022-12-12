@@ -57,6 +57,9 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->teacher_timeout = 10.f;
     cfg->early_termination_success_rate = 0.999;
     cfg->early_termination_epochs = 20;
+    // for now, hardcoding the trainer
+    cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
+    //cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
 }
 
 void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
@@ -1662,6 +1665,12 @@ static int trainExploration(pddl_asnets_t *a,
         switch (a->cfg.trainer){
             case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
                 ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
+                                                           state, &task->fdr,
+                                                           a->cfg.teacher_timeout,
+                                                           err);
+                break;
+            case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
+                ret = pddlASNetsTrainDataRolloutFastDownward(data, ground_task_id,
                                                            state, &task->fdr,
                                                            a->cfg.teacher_timeout,
                                                            err);

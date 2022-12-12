@@ -9,6 +9,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/search.h"
 #include "pddl/asnets_train_data.h"
+#include "pddl/subprocess.h"
 
 struct pddl_asnets_train_data_sample {
     pddl_htable_key_t hash;
@@ -173,6 +174,25 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
     }
 }
 
+void pddlASNetsTrainDataAddPlanFastDownward(pddl_asnets_train_data_t *td,
+                                int ground_task_id,
+                                int state_size,
+                                const int *init_state,
+                                const pddl_fdr_ops_t *ops,
+                                const int *plan_ops, // integer array "plan_ops" to hold the op_ids
+                                const int plan_size) 
+{
+    int state[state_size];
+    memcpy(state, init_state, sizeof(int) * state_size);
+
+    for (int index = 0; index < plan_size; index++)
+    {
+        pddlASNetsTrainDataAdd(td, ground_task_id, state, state_size, plan_ops[index]);
+        const pddl_fdr_op_t *op = ops->op[plan_ops[index]];
+        pddlFDROpApplyOnStateInPlace(op, state_size, state);
+    }
+}
+
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td)
 {
     pddl_rand_t rnd;
@@ -315,5 +335,166 @@ int pddlASNetsTrainDataRolloutAStarLMCut(pddl_asnets_train_data_t *td,
     heur_cfg.heur = PDDL_HEUR_LM_CUT;
     return pddlASNetsTrainDataRolloutAStar(td, ground_task_id, state, fdr,
                                            &heur_cfg, max_time, err);
+}
+
+int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
+                                    int ground_task_id,
+                                    const int *state,
+                                    const pddl_fdr_t *_fdr,
+                                    float max_time,
+                                    pddl_err_t *err)
+{
+    CTX(err, "asnets_teacher_rollout_fast_downward", "ASNets-Teacher-Rollout-Fast-Downward");
+    LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
+    if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
+        LOG2(err, "State already in the data pool -- skipping.");
+        CTXEND(err);
+        return 1;
+
+    }else if (failExists(td, ground_task_id, state, _fdr->var.var_size)){
+        LOG2(err, "State already seen and could not be solved -- skipping.");
+        CTXEND(err);
+        return 1;
+    }
+    // pddl_timer_t timer;
+    // pddlTimerStart(&timer);
+
+    // TODO: This is a hacky way to change the initial state without
+    //       copying the whole planning task
+    pddl_fdr_t fdr = *_fdr;
+    fdr.init = (int *)state;
+
+    // attempt to write the FDR task with changed initial state to sas file
+    FILE *fout = fopen("output.sas", "w");
+    if (fout == NULL){
+        fprintf(stderr, "Error: Failed to create output sas file");
+        return -1;
+    }
+    pddlFDRPrintFD(&fdr, NULL, 1, fout);
+    fclose(fout);
+    
+    // attempt to execute fast-downward with the output.sas file
+    char *argv[] = {
+        "../../auxiliarystuff/fast-downward/fast-downward.py", // is this the correct way to pass the executable file?
+        "--build", // anyway to avoid adding this?
+        "release64", // anyway to avoid adding this?
+        //"../../cpddl-asnets/cpddl-dev/output.sas", // can the output.sas in current directory be accessed by the executable?
+        "../../auxiliarystuff/fast-downward/output.sas", // just to make sure it works
+        "--search",
+        "astar(lmcut())", // will the quotes inside the quotes cause problems?
+        NULL
+    };
+    pddl_exec_status_t status;
+    char *solbuf = NULL;
+    int solbuf_size;
+    LOG2(err, "about to call pddlExecvp() for fd");
+    int execret = pddlExecvp(argv, &status, NULL, 0,
+                             &solbuf, &solbuf_size, NULL, NULL, err);
+    LOG2(err, "returned from pddlExecvp() for fd");
+    LOG(err, "execret is %d", execret);
+    LOG(err, "solbuf is: %s", solbuf);
+    ASSERT_RUNTIME(execret == 0);
+
+    // read plan_ops from output file if successful, else call ..TrainDataAddFail()
+    // TO-DO: identify if plan found or timeout or search exhausted without solution
+    int *plan_ops = NULL;
+    int plan_size = 0;
+    FILE *fin = fopen("sas_plan", "r");
+    if (fin == NULL){
+        fprintf(stderr, "Error: Failed to open plan_sas file");
+        return -1;
+    }
+    LOG2(err, "successfully opened file sas_plan");
+    int max_size = 25;
+    char str[max_size];
+    char *str_val;
+    int val;
+    int plan_op_index = 0;
+    while(!feof(fin)){
+        LOG2(err, "attempting to read from fin");
+        str_val = fgets(str, max_size, fin);
+        LOG(err, "str_val is: %s", str_val);
+        if (strcmp(str_val, "FOR ASNETS") == 0) {
+            LOG2(err, "FOR ASNETS detected");
+            str_val = fgets(str, max_size, fin);
+            LOG(err, "str_val is: %s", str_val);
+            if (strcmp(str_val, "plan_size:") == 0) {
+                LOG2(err, "plan_size: detected");
+                // add plan_size
+                str_val = fgets(str, max_size, fin);
+                LOG(err, "str_val is: %s", str_val);
+                val = strtol(str_val, NULL, 10);
+                LOG(err, "val is: %d", val);
+                plan_size = val;
+                plan_ops = (int*) malloc(plan_size * sizeof(int));
+            }
+            str_val = fgets(str, max_size, fin);
+            LOG(err, "str_val is: %s", str_val);
+            if (strcmp(str_val, "plan_ops:") == 0) {
+                LOG2(err, "plan_ops: detected");
+                while(!feof(fin)){
+                    // add plan_op
+                    str_val = fgets(str, max_size, fin);
+                    LOG(err, "str_val is: %s", str_val);
+                    val = strtol(str_val+2, NULL, 10);
+                    LOG(err, "val is: %d", val);
+                    plan_ops[plan_op_index] = val;
+                    LOG(err, "plan_ops[plan_op_index] is: %d", plan_ops[plan_op_index]);
+                    plan_op_index++;
+                }
+            }
+        }
+    }
+    fclose(fin);
+    // extract planOps and apply in cppdl to retreive intermediate states and add to train data
+    pddlASNetsTrainDataAddPlanFastDownward(td, ground_task_id, fdr.var.var_size,
+                                       state, &fdr.op, plan_ops, plan_size);
+
+    // pddl_heur_t *heur = pddlHeur(heur_cfg, err);
+    // if (heur == NULL){
+    //     CTXEND(err);
+    //     TRACE_RET(err, -1);
+    // }
+
+    // pddl_search_t *search = pddlSearchAStar(&fdr, heur, err);
+    // if (search == NULL){
+    //     pddlHeurDel(heur);
+    //     CTXEND(err);
+    //     TRACE_RET(err, -1);
+    // }
+
+    // int st = pddlSearchInitStep(search);
+    // while (st == PDDL_SEARCH_CONT){
+    //     pddlTimerStop(&timer);
+    //     if (pddlTimerElapsedInSF(&timer) > max_time){
+    //         st = PDDL_SEARCH_ABORT;
+    //         break;
+    //     }
+
+    //     st = pddlSearchStep(search);
+    // }
+
+    // if (st == PDDL_SEARCH_FOUND){
+    //     LOG2(err, "Plan found");
+    //     pddl_plan_t plan;
+    //     pddlPlanInit(&plan);
+    //     if (pddlSearchExtractPlan(search, &plan) == 0){
+    //         pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
+    //                                    state, &fdr.op, &plan.op);
+    //     }
+    //     pddlPlanFree(&plan);
+
+    // }else{
+    //     pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+    //     if (st == PDDL_SEARCH_ABORT)
+    //         LOG2(err, "Search reached time-out");
+    //     LOG2(err, "Plan not found");
+    // }
+
+    // pddlSearchDel(search);
+    // pddlHeurDel(heur);
+    LOG(err, "num samples: %{num_samples}d", td->sample_size);
+    CTXEND(err);
+    return 0;
 }
 
