@@ -306,7 +306,7 @@ static void pruneRedundantSet(reduce_t *red, const pddl_iset_t *redundant)
 
 static void computeRedundantSets(reduce_t *red, pddl_err_t *err)
 {
-    PDDL_INFO2(err, "  --> Computing redundant sets for each symmetry");
+    PDDL_INFO(err, "  --> Computing redundant sets for each symmetry");
     for (int gi = 0; gi < red->gen_size; ++gi){
         reduce_gen_t *rgen = red->gen + gi;
         if (rgen->is_destroyed){
@@ -362,10 +362,10 @@ int pddlOpMutexFindRedundantGreedy(const pddl_op_mutex_pairs_t *op_mutex,
     reduce_t red;
     int change, gen_id;
 
-    PDDL_INFO2(err, "Redundant set with op-mutexes and symmetries:");
+    PDDL_INFO(err, "Redundant set with op-mutexes and symmetries:");
 
     reduceInit(&red, sym, op_mutex);
-    PDDL_INFO2(err, "  --> Initialized");
+    PDDL_INFO(err, "  --> Initialized");
 
     change = 1;
     while (change){

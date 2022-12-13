@@ -28,7 +28,7 @@ int pddlOpMutexFindRedundant(const pddl_op_mutex_pairs_t *op_mutex,
         case PDDL_OP_MUTEX_REDUNDANT_MAX:
             return pddlOpMutexFindRedundantMax(op_mutex, sym, cfg, red, err);
         default:
-            FATAL("Unknown method %d", cfg->method);
+            PANIC("Unknown method %d", cfg->method);
             return -1;
     }
 }

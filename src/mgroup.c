@@ -707,7 +707,7 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     if (mgs->mgroup_size == 0)
         return fact_size;
     if (!pddlLPSolverAvailable(PDDL_LP_DEFAULT)){
-        PDDL_FATAL2("Can't computed mutex group cover number:"
+        PANIC("Can't computed mutex group cover number:"
                     " Missing LP solver!");
     }
 
@@ -956,7 +956,7 @@ void pddlMGroupsPrintTable(const pddl_t *pddl,
                            pddl_err_t *err)
 {
     if (mg->mgroup_size == 0){
-        PDDL_INFO2(err, "No Mutex Groups");
+        PDDL_INFO(err, "No Mutex Groups");
         return;
     }
     char line[128];

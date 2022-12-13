@@ -1437,7 +1437,7 @@ pddl_toml_table_t *pddl_toml_parse_file(FILE *fp, pddl_err_t *err) {
       int xsz = bufsz + 1000;
       char *x = expand(buf, bufsz, xsz);
       if (!x) {
-        ERR2(err, "out of memory");
+        ERR(err, "out of memory");
         xfree(buf);
         return 0;
       }
@@ -1460,7 +1460,7 @@ pddl_toml_table_t *pddl_toml_parse_file(FILE *fp, pddl_err_t *err) {
     int xsz = bufsz + 1;
     char *x = expand(buf, bufsz, xsz);
     if (!x) {
-      ERR2(err, "out of memory");
+      ERR(err, "out of memory");
       xfree(buf);
       return 0;
     }

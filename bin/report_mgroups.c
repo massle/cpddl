@@ -7,7 +7,7 @@ static void mgroupCoverNumber(const pddl_mgroups_t *mgroups,
                               pddl_err_t *err)
 {
     if (opt.mg.cover_number){
-        PDDL_INFO2(err, "Computing mutex group cover number");
+        PDDL_INFO(err, "Computing mutex group cover number");
         int num = pddlMGroupsCoverNumber(mgroups, strips->fact.fact_size);
         PDDL_INFO(err, "Mutex group cover number: %d", num);
     }
@@ -23,7 +23,7 @@ static void fdrVars(const pddl_strips_t *strips,
 
     unsigned flags = PDDL_FDR_VARS_LARGEST_FIRST;
     flags |= PDDL_FDR_VARS_NO_NEGATED_FACTS;
-    PDDL_INFO2(err, "Creating FDR variables...");
+    PDDL_INFO(err, "Creating FDR variables...");
     pddl_fdr_vars_t vars;
     pddlFDRVarsInitFromStrips(&vars, strips, mgroups, &mutex, flags);
     PDDL_INFO(err, "Created FDR variables: %d", vars.var_size);

@@ -286,7 +286,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
         ASSERT(ga->id == i);
         fact_id = pddlFactsAddGroundAtom(&strips->fact, ga, pddl);
         if (fact_id != ga->id){
-            PDDL_FATAL2("The fact and the corresponding grounded atom have"
+            PANIC("The fact and the corresponding grounded atom have"
                         " different IDs. This is definitelly a bug!");
         }
     }
@@ -367,7 +367,7 @@ static int _createGoal(pddl_fm_t *c, void *_g)
     if (c->type == PDDL_FM_ATOM){
         const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         if (!pddlFmAtomIsGrounded(atom))
-            PDDL_ERR_RET2(err, -1, "Goal specification cannot contain"
+            PDDL_ERR_RET(err, -1, "Goal specification cannot contain"
                           " parametrized atoms.");
 
         // Find fact in the set of reachable facts
@@ -413,7 +413,7 @@ static int createGoal(pddl_strips_maker_t *sm,
 {
     struct create_goal ggoal = { sm, strips, ground_atom_to_fact_id, err, 0 };
     if (pddl->goal->type == PDDL_FM_OR){
-        PDDL_ERR_RET2(err, -1, "Only conjuctive goal specifications"
+        PDDL_ERR_RET(err, -1, "Only conjuctive goal specifications"
                       " are supported. This goal is a disjunction.");
     }
 
@@ -491,7 +491,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
                     ctx->cond_eff_failed = 1;
                     return -2;
                 }
-                PDDL_FATAL2("Unsatisfied (in)equality precondition."
+                PANIC("Unsatisfied (in)equality precondition."
                             " This is definitely a bug!\n");
             }
 
@@ -508,7 +508,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
                     ctx->cond_eff_failed = 1;
                     return -2;
                 }
-                PDDL_FATAL2("Unsatisfied negative precondition."
+                PANIC("Unsatisfied negative precondition."
                             " This is definitely a bug!\n");
             }
 
@@ -527,7 +527,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
             }
 
             if (ga == NULL){
-                PDDL_FATAL2("Unsatisfied positive precondition."
+                PANIC("Unsatisfied positive precondition."
                             " This is definitely a bug!\n");
             }
             if (!is_static){
@@ -543,7 +543,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
     }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
-        PDDL_ERR2(ctx->err, "Precondition is not a conjuction."
+        PDDL_ERR(ctx->err, "Precondition is not a conjuction."
                   " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
@@ -568,7 +568,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
         return 0;
 
     }else if (c->type == PDDL_FM_ASSIGN){
-        PDDL_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
+        PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
@@ -579,7 +579,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
         if (ctx->cond_eff){
             ctx->cond_eff_failed = 1;
             ctx->failed = 1;
-            PDDL_ERR_RET2(ctx->err, -2,
+            PDDL_ERR_RET(ctx->err, -2,
                           "Costs in conditional effects are not supported.");
         }
 
@@ -623,7 +623,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
     }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
-        PDDL_ERR2(ctx->err, "Effect is not a conjuction"
+        PDDL_ERR(ctx->err, "Effect is not a conjuction"
                   " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
@@ -762,7 +762,7 @@ static int createOps(pddl_strips_maker_t *sm,
     }
 
     pddlStripsOpsSort(&strips->op);
-    PDDL_INFO2(err, "Operators sorted.");
+    PDDL_INFO(err, "Operators sorted.");
 
     LOG(err, "Created %{created_ops}d operators", strips->op.op_size);
 
@@ -802,14 +802,14 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         pddlStripsRemoveStaticFacts(strips, err);
 
     pddlStripsMergeCondEffIfPossible(strips);
-    PDDL_INFO2(err, "Merged conditional effects where possible.");
+    PDDL_INFO(err, "Merged conditional effects where possible.");
 
     pddlStripsOpsDeduplicate(&strips->op);
     LOG(err, "Operators deduplicated. Num operators: %{num_ops_dedup}d",
         strips->op.op_size);
 
     if (strips->goal_is_unreachable){
-        PDDL_INFO2(err, "Strips problem marked as unsolvable");
+        PDDL_INFO(err, "Strips problem marked as unsolvable");
         pddlStripsMakeUnsolvable(strips);
     }
 
@@ -826,7 +826,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
     LOG(err, "Has Conditional Effects: %{has_ce}d", strips->has_cond_eff);
 
 
-    PDDL_INFO2(err, "PDDL grounded to STRIPS.");
+    PDDL_INFO(err, "PDDL grounded to STRIPS.");
     CTXEND(err);
     return 0;
 }

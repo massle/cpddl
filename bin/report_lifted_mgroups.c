@@ -13,9 +13,9 @@ void reportLiftedMGroups(const pddl_t *pddl, pddl_err_t *err)
     pddlLiftedMGroupsInit(&lmg);
     pddlLiftedMGroupsInit(&mono);
 
-    PDDL_INFO2(err, "FD Lifted Mutex Groups:");
+    PDDL_INFO(err, "FD Lifted Mutex Groups:");
     pddlLiftedMGroupsInferMonotonicity(pddl, &limits, &mono, &fd, err);
-    PDDL_INFO2(err, "Lifted Mutex Groups:");
+    PDDL_INFO(err, "Lifted Mutex Groups:");
     pddlLiftedMGroupsInferFAMGroups(pddl, &limits, &lmg, err);
 
     for (int li = 0; li < mono.mgroup_size; ++li){

@@ -37,7 +37,7 @@ pddl_heur_t *pot(const pddl_heur_config_t *cfg, pddl_err_t *err)
 pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->fdr == NULL)
-        ERR_RET2(err, NULL, "Config Error: Missing input task!");
+        ERR_RET(err, NULL, "Config Error: Missing input task!");
 
     switch (cfg->heur){
         case PDDL_HEUR_BLIND:
@@ -58,7 +58,7 @@ pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
             return pddlHeurHFF(cfg->fdr, err);
         case PDDL_HEUR_OP_MUTEX:
             if (cfg->mutex == NULL)
-                ERR_RET2(err, NULL, "Config Error: Missing input mutex set!");
+                ERR_RET(err, NULL, "Config Error: Missing input mutex set!");
             return pddlHeurOpMutex(cfg->fdr, cfg->mutex, &cfg->op_mutex, err);
     }
     return NULL;

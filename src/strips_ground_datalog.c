@@ -266,7 +266,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
 {
     CTX(err, "ground_dl", "Ground DL");
     pddlGroundConfigLog(cfg, "cfg.", err);
-    PDDL_INFO2(err, "Grounding using datalog ...");
+    PDDL_INFO(err, "Grounding using datalog ...");
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
@@ -305,7 +305,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO2(err, "Grounding finished.");
+    PDDL_INFO(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
     CTXEND(err);
     return 0;

@@ -62,7 +62,7 @@ static void stateIDArrAdd(state_id_arr_t *arr, pddl_state_id_t id)
         }
 
         if (arr->alloc <= arr->size){
-            PDDL_FATAL("There is too much pressure on the hash table"
+            PANIC("There is too much pressure on the hash table"
                        "resulting in too many elements sharing the same"
                        "bucket. (The size of the bucket does not fit in %lu"
                        "bytes.)",
@@ -217,7 +217,7 @@ static void htableResize(htable_t *ht, size_t size)
         htableInsert(ht, id, packed_state);
     }
 
-    PDDL_INFO2(ht->state_pool->err, "State pool: rehashing DONE");
+    PDDL_INFO(ht->state_pool->err, "State pool: rehashing DONE");
 }
 
 void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,

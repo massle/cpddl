@@ -68,7 +68,7 @@ static void addActionRule(pddl_lifted_heur_relaxed_t *h,
                 const pddl_fm_increase_t *inc = pddlFmToIncreaseConst(fm);
                 if (inc->fvalue != NULL){
                     // TODO
-                    FATAL2("Lifted relaxed heuristics do not support"
+                    PANIC("Lifted relaxed heuristics do not support"
                            " non-static action costs yet.");
                 }else{
                     w.cost += inc->value;

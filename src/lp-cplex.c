@@ -34,7 +34,7 @@ static void cplexErr(lp_t *lp, int status, const char *s)
 {
     char errmsg[1024];
     CPXgeterrorstring(lp->env, status, errmsg);
-    FATAL("Error: CPLEX: %s: %s", s, errmsg);
+    PANIC("Error: CPLEX: %s: %s", s, errmsg);
 }
 
 static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)

@@ -239,14 +239,14 @@ pddl_heur_t *pddlHeurOpMutex(const pddl_fdr_t *fdr,
     heur_t *h = ZALLOC(heur_t);
     h->cfg = *cfg;
     pddlFDRInitCopy(&h->fdr, fdr);
-    LOG2(err, "FDR task copied");
+    LOG(err, "FDR task copied");
     pddlMutexPairsInitCopy(&h->mutex, mutex);
     h->err = err;
 
     h->op_mutex = CALLOC_ARR(pddl_iset_t, h->fdr.op.op_size);
     ASSERT(cfg->op_mutex != NULL);
     pddlOpMutexPairsGenMapOpToOpSet(cfg->op_mutex, NULL, h->op_mutex);
-    LOG2(err, "Op-mutexes stored");
+    LOG(err, "Op-mutexes stored");
 
     h->task_size = 0;
     h->task_alloc = 8;

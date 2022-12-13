@@ -147,6 +147,18 @@ void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
     err->err = 1;
 }
 
+void _pddlPanic(const char *filename, int line, const char *func,
+                const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    fprintf(stderr, "FATAL ERROR: %s:%d [%s]: ", __FILE__, __LINE__, __func__);
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+    exit(-1);
+}
+
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...)
 {
     if (err == NULL)

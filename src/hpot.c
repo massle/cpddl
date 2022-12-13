@@ -307,18 +307,18 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
 int pddlHPotConfigCheck(const pddl_hpot_config_t *cfg, pddl_err_t *err)
 {
     if (pddlHPotConfigIsEmpty(cfg))
-        ERR_RET2(err, -1, "Missing configuration of potential heuristics");
+        ERR_RET(err, -1, "Missing configuration of potential heuristics");
 
     if (cfg->fdr == NULL){
-        ERR_RET2(err, -1, "Config Error: .fdr is not set");
+        ERR_RET(err, -1, "Config Error: .fdr is not set");
     }
     if (cfg->disambiguation && cfg->weak_disambiguation){
-        ERR_RET2(err, -1, "Config Error: Only one of .disambiguation and"
+        ERR_RET(err, -1, "Config Error: Only one of .disambiguation and"
                  " .weak_disambiguation can be set");
     }
     if (cfg->disambiguation || cfg->weak_disambiguation){
         if (cfg->mg_strips == NULL || cfg->mutex == NULL){
-            ERR_RET2(err, -1, "Config Error: Disambiguation requires"
+            ERR_RET(err, -1, "Config Error: Disambiguation requires"
                      " .mg_strips and .mutex");
         }
     }
@@ -327,31 +327,31 @@ int pddlHPotConfigCheck(const pddl_hpot_config_t *cfg, pddl_err_t *err)
         if (cfg->cfg[i]->type == PDDL_HPOT_OPT_SAMPLED_STATES_TYPE){
             CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_sampled_states_t, cfg);
             if (c->use_mutex_samples && cfg->mutex == NULL){
-                ERR_RET2(err, -1, "Config Error: .use_mutex_samples"
+                ERR_RET(err, -1, "Config Error: .use_mutex_samples"
                          " requires .mutex to be set");
             }
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE){
             CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_ensemble_sampled_states_t, cfg);
             if (c->use_mutex_samples && cfg->mutex == NULL){
-                ERR_RET2(err, -1, "Config Error: .use_mutex_samples"
+                ERR_RET(err, -1, "Config Error: .use_mutex_samples"
                          " requires .mutex to be set");
             }
             if (c->num_samples <= 0)
-                ERR_RET2(err, -1, "Config Error: .num_samples must be > 0.");
+                ERR_RET(err, -1, "Config Error: .num_samples must be > 0.");
 
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE){
             CONTAINER_OF_CONST(c, cfg->cfg[i],
                                pddl_hpot_config_opt_ensemble_diversification_t, cfg);
             if (c->use_mutex_samples && cfg->mutex == NULL){
-                ERR_RET2(err, -1, "Config Error: .use_mutex_samples"
+                ERR_RET(err, -1, "Config Error: .use_mutex_samples"
                          " requires .mutex to be set");
             }
             if (c->num_samples <= 0)
-                ERR_RET2(err, -1, "Config Error: .num_samples must be > 0.");
+                ERR_RET(err, -1, "Config Error: .num_samples must be > 0.");
 
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE){
             if (cfg->mutex == NULL){
-                ERR_RET2(err, -1, "Config Error: all-states-mutex"
+                ERR_RET(err, -1, "Config Error: all-states-mutex"
                          " requires .mutex to be set");
             }
 
@@ -359,11 +359,11 @@ int pddlHPotConfigCheck(const pddl_hpot_config_t *cfg, pddl_err_t *err)
             CONTAINER_OF_CONST(c, cfg->cfg[i],
                                pddl_hpot_config_opt_ensemble_all_states_mutex_t, cfg);
             if (cfg->mutex == NULL){
-                ERR_RET2(err, -1, "Config Error: ensemble-all-states-mutex"
+                ERR_RET(err, -1, "Config Error: ensemble-all-states-mutex"
                          " requires .mutex to be set");
             }
             if (c->mutex_size < 1 || c->mutex_size > 2){
-                ERR_RET2(err, -1, "Config Error: .mutex_size must be 1 or 2.");
+                ERR_RET(err, -1, "Config Error: .mutex_size must be 1 or 2.");
             }
         }
     }
@@ -456,7 +456,7 @@ static double heurForState(pddl_pot_t *pot,
     pddlPotSolutionInit(&sol);
     int ret = pddlPotSolve(pot, &sol, err);
     if (ret != 0){
-        PDDL_INFO2(err, "No optimal solution for the initial state");
+        PDDL_INFO(err, "No optimal solution for the initial state");
         return -1.;
     }
 
@@ -512,7 +512,7 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
         return &ss->state_sampler_mutex;
     }
 
-    FATAL2("No state sampler specified!");
+    PANIC("No state sampler specified!");
     return NULL;
 }
 
@@ -566,7 +566,7 @@ static int solveAndAdd(pddl_pot_solutions_t *sols,
         PDDL_INFO(err, "Have a solution. objval: %.4f", sol.objval);
         pddlPotSolutionsAdd(sols, &sol);
     }else{
-        PDDL_INFO2(err, "Solution not found.");
+        PDDL_INFO(err, "Solution not found.");
     }
     pddlPotSolutionFree(&sol);
     return ret;
@@ -598,11 +598,11 @@ static int initPot(pddl_pot_t *pot,
 {
     if (cfg->weak_disambiguation){
         if (cfg->mg_strips == NULL){
-            ERR_RET2(err, -1, "Config Error: .mg_strips needs to be set if"
+            ERR_RET(err, -1, "Config Error: .mg_strips needs to be set if"
                      " the weak disambiguation is used");
         }
         if (cfg->mutex == NULL){
-            ERR_RET2(err, -1, "Config Error: .mutex needs to be set if"
+            ERR_RET(err, -1, "Config Error: .mutex needs to be set if"
                      " the weak disambiguation is used");
         }
 
@@ -615,17 +615,17 @@ static int initPot(pddl_pot_t *pot,
                       pot->constr_goal.size,
                       pot->maxpot_size);
         }else{
-            PDDL_INFO2(err, "Disambiguation proved the task unsolvable.");
+            PDDL_INFO(err, "Disambiguation proved the task unsolvable.");
             return -1;
         }
 
     }else if (cfg->disambiguation){
         if (cfg->mg_strips == NULL){
-            ERR_RET2(err, -1, "Config Error: .mg_strips needs to be set if"
+            ERR_RET(err, -1, "Config Error: .mg_strips needs to be set if"
                      " the weak disambiguation is used");
         }
         if (cfg->mutex == NULL){
-            ERR_RET2(err, -1, "Config Error: .mutex needs to be set if"
+            ERR_RET(err, -1, "Config Error: .mutex needs to be set if"
                      " the weak disambiguation is used");
         }
         if (pddlPotInitMGStrips(pot, cfg->mg_strips, cfg->mutex) == 0){
@@ -637,13 +637,13 @@ static int initPot(pddl_pot_t *pot,
                       pot->constr_goal.size,
                       pot->maxpot_size);
         }else{
-            PDDL_INFO2(err, "Disambiguation proved the task unsolvable.");
+            PDDL_INFO(err, "Disambiguation proved the task unsolvable.");
             return -1;
         }
 
     }else{
         if (cfg->fdr == NULL){
-            ERR_RET2(err, -1, "Config Error: .fdr needs to be set if"
+            ERR_RET(err, -1, "Config Error: .fdr needs to be set if"
                      " the weak disambiguation is used");
         }
         pddlPotInitFDR(pot, cfg->fdr);
@@ -826,7 +826,7 @@ static int hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
                               cfg->mutex);
 
     }else{
-        FATAL("All states mutex optimization not supported for"
+        PANIC("All states mutex optimization not supported for"
               " mutex_size=%d", cfg_opt->mutex_size);
     }
 

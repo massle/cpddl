@@ -446,7 +446,7 @@ static int sortOps(pddl_process_strips_t *prune,
                    pddl_err_t *err)
 {
     pddlStripsOpsSort(&prune->strips->op);
-    PDDL_INFO2(err, "Operators sorted by name");
+    PDDL_INFO(err, "Operators sorted by name");
     return 0;
 }
 
@@ -474,7 +474,7 @@ static int opMutexExecute(pddl_process_strips_t *prune,
     if (step->ts < 0
             && step->op_fact < 1
             && step->hm_op < 1){
-        PDDL_INFO2(err, "Nothing to do");
+        PDDL_INFO(err, "Nothing to do");
         return 0;
     }
 
@@ -529,7 +529,7 @@ static int opMutexExecute(pddl_process_strips_t *prune,
     }
 
     if (opm.num_op_mutex_pairs > 0 && !step->no_prune){
-        PDDL_INFO2(err, "Computing symmetries on PDG");
+        PDDL_INFO(err, "Computing symmetries on PDG");
         pddl_strips_sym_t sym;
         pddlStripsSymInitPDG(&sym, prune->strips);
         PDDL_INFO(err, "  Symmetry generators: %d", sym.gen_size);
@@ -596,7 +596,7 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
                                 pddl_err_t *err)
 {
     int ret = 0;
-    PDDL_INFO2(err, "Redundant operators using endomorphism on FDR ...");
+    PDDL_INFO(err, "Redundant operators using endomorphism on FDR ...");
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, prune->strips, prune->mgroups, prune->mutex,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
@@ -604,7 +604,7 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
     if (ret >= 0)
         ret = 0;
     pddlFDRFree(&fdr);
-    PDDL_INFO2(err, "Redundant operators using endomorphism on FDR DONE");
+    PDDL_INFO(err, "Redundant operators using endomorphism on FDR DONE");
     return ret;
 }
 
@@ -614,7 +614,7 @@ static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
                                pddl_err_t *err)
 {
     int ret = 0;
-    PDDL_INFO2(err, "Redundant operators using endomorphism on TSs ...");
+    PDDL_INFO(err, "Redundant operators using endomorphism on TSs ...");
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
 
@@ -630,7 +630,7 @@ static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
     pddlTransSystemsFree(&tss);
     pddlMutexPairsFree(&mg_mutex);
     pddlMGStripsFree(&mg_strips);
-    PDDL_INFO2(err, "Redundant operators using endomorphism on TSs DONE");
+    PDDL_INFO(err, "Redundant operators using endomorphism on TSs DONE");
     return ret;
 }
 
@@ -651,7 +651,7 @@ static int pruneEndomorphismFDRTS(const pddl_process_strips_t *prune,
         }
         pddlISetFree(&redundant2);
     }else{
-        PDDL_INFO2(err, "Endomorphism on factored TS skipped, because"
+        PDDL_INFO(err, "Endomorphism on factored TS skipped, because"
                         " endomorphism on FDR failed");
     }
 

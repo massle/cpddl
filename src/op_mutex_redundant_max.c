@@ -34,7 +34,7 @@ static void redundantInit(redundant_t *red,
     ZEROIZE(red);
     red->op_size = op_mutex->op_size;
 
-    LOG2(err, "Computing transitive closures on symmetries...");
+    LOG(err, "Computing transitive closures on symmetries...");
     red->op_sym = CALLOC_ARR(pddl_iset_t, red->op_size);
     for (int op_id = 0; op_id < red->op_size; ++op_id){
         pddlStripsSymOpTransitiveClosure(sym, op_id, red->op_sym + op_id);
@@ -44,11 +44,11 @@ static void redundantInit(redundant_t *red,
     }
     LOG(err, "Symmetry-relevant ops: %d", pddlISetSize(&red->relevant_ops));
 
-    LOG2(err, "Collecting op-mutexes...");
+    LOG(err, "Collecting op-mutexes...");
     red->op_mutex = CALLOC_ARR(pddl_iset_t, red->op_size);
     pddlOpMutexPairsGenMapOpToOpSet(op_mutex, &red->relevant_ops, red->op_mutex);
 
-    LOG2(err, "Removing irrelevant operators...");
+    LOG(err, "Removing irrelevant operators...");
     int change = 1;
     while (change){
         change = 0;
@@ -90,7 +90,7 @@ static void redundantInit(redundant_t *red,
         int op_id = pddlISetGet(&red->relevant_ops, i);
         red->op_to_relevant_op[op_id] = i;
     }
-    LOG2(err, "Preparation done.");
+    LOG(err, "Preparation done.");
 }
 
 static void redundantFree(redundant_t *red)
@@ -116,7 +116,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
 {
     CTX(err, "opm_redundant_max", "OPM-Redundant-Max");
     if (sym->gen_size == 0 || op_mutex->num_op_mutex_pairs == 0){
-        LOG2(err, "Found 0 redundant ops");
+        LOG(err, "Found 0 redundant ops");
         CTXEND(err);
         return 0;
     }
@@ -127,7 +127,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         pddlISetSize(&red.relevant_ops), red.op_size);
 
     if (pddlISetSize(&red.relevant_ops) == 0){
-        LOG2(err, "Found 0 redundant ops");
+        LOG(err, "Found 0 redundant ops");
         redundantFree(&red);
         CTXEND(err);
         return 0;
@@ -180,7 +180,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
 
     double val;
     double *obj = CALLOC_ARR(double, num_vars);
-    LOG2(err, "Solving the ILP problem...");
+    LOG(err, "Solving the ILP problem...");
     if (pddlLPSolve(lp, &val, obj) == 0){
         LOG(err, "Problem solved with objective value %.4f", val);
         int num = 0;
@@ -199,7 +199,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         }
         LOG(err, "Kept %d symmetric operators", num_symmetric);
     }else{
-        LOG2(err, "Found 0 redundant ops");
+        LOG(err, "Found 0 redundant ops");
     }
     FREE(obj);
     pddlLPDel(lp);

@@ -405,13 +405,13 @@ static int solve(pddl_lp_t *_lp, double *val, double *obj)
 
     void *model = createModel(lp);
     if (model == NULL){
-        LOG2(_lp->err, "Something went wrong with the creation of model!");
+        LOG(_lp->err, "Something went wrong with the creation of model!");
         return -1;
     }
 
     HighsInt st = Highs_run(model);
     if (st == kHighsStatusError){
-        LOG2(_lp->err, "Something went wrong during solving the model!");
+        LOG(_lp->err, "Something went wrong during solving the model!");
         Highs_destroy(model);
         return -1;
     }else if (st == kHighsStatusWarning){
@@ -420,69 +420,69 @@ static int solve(pddl_lp_t *_lp, double *val, double *obj)
 
     HighsInt modelst = Highs_getModelStatus(model);
     if (modelst == kHighsModelStatusNotset){
-        LOG2(_lp->err, "Model status not set");
+        LOG(_lp->err, "Model status not set");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusLoadError){
-        LOG2(_lp->err, "Model load error!");
+        LOG(_lp->err, "Model load error!");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusModelError){
-        LOG2(_lp->err, "Model error!");
+        LOG(_lp->err, "Model error!");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusPresolveError){
-        LOG2(_lp->err, "Presolve error!");
+        LOG(_lp->err, "Presolve error!");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusSolveError){
-        LOG2(_lp->err, "Solve error!");
+        LOG(_lp->err, "Solve error!");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusPostsolveError){
-        LOG2(_lp->err, "Postsolve error!");
+        LOG(_lp->err, "Postsolve error!");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusModelEmpty){
-        LOG2(_lp->err, "Model is empty!");
+        LOG(_lp->err, "Model is empty!");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusOptimal){
-        //LOG2(_lp->err, "Model has optimal solution.");
+        //LOG(_lp->err, "Model has optimal solution.");
         ret = 0;
 
     }else if (modelst == kHighsModelStatusInfeasible){
-        LOG2(_lp->err, "Solution is infeasible.");
+        LOG(_lp->err, "Solution is infeasible.");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusUnboundedOrInfeasible){
-        LOG2(_lp->err, "Solution is unbounded or infeasible.");
+        LOG(_lp->err, "Solution is unbounded or infeasible.");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusUnbounded){
-        LOG2(_lp->err, "Solution is unbounded.");
+        LOG(_lp->err, "Solution is unbounded.");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusObjectiveBound){
-        LOG2(_lp->err, "Bound on objective reached.");
+        LOG(_lp->err, "Bound on objective reached.");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusObjectiveTarget){
-        LOG2(_lp->err, "Target for objective reached.");
+        LOG(_lp->err, "Target for objective reached.");
         ret = -1;
 
     }else if (modelst == kHighsModelStatusTimeLimit){
-        //LOG2(_lp->err, "Time limit.");
+        //LOG(_lp->err, "Time limit.");
         //ret = -1;
         ret = 0;
 
     }else if (modelst == kHighsModelStatusIterationLimit){
-        //LOG2(_lp->err, "Iteration limit.");
+        //LOG(_lp->err, "Iteration limit.");
         //ret = -1;
         ret = 0;
 
     }else if (modelst == kHighsModelStatusUnknown){
-        LOG2(_lp->err, "Unkown solution status");
+        LOG(_lp->err, "Unkown solution status");
         ret = -1;
 
     }else{

@@ -283,7 +283,7 @@ pddl_lisp_t *pddlLispClone(const pddl_lisp_t *src)
     lisp->data = mmap(NULL, src->size, PROT_READ | PROT_WRITE,
                       MAP_PRIVATE | MAP_ANON, -1, 0);
     if (lisp->data == MAP_FAILED)
-        FATAL2("Error: Could not allocated enough memory.");
+        PANIC("Error: Could not allocated enough memory.");
     memcpy(lisp->data, src->data, src->size);
     remapLispNodeValues(&lisp->root, lisp->data, src->data);
     return lisp;

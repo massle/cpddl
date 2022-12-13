@@ -316,7 +316,7 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         waitpid(pid, &wstatus, 0);
         if (WIFEXITED(wstatus)){
             if (WEXITSTATUS(wstatus) != 0){
-                PDDL_ERR2(err, "Inference of op-mutexes failed.");
+                PDDL_ERR(err, "Inference of op-mutexes failed.");
                 ret = -1;
             }
         }else if (WIFSIGNALED(wstatus)){
@@ -325,7 +325,7 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
                      "'%s'", strsignal(signum));
             ret = -1;
         }else{
-            PDDL_ERR2(err, "Inference of op-mutexes failed for unknown reason");
+            PDDL_ERR(err, "Inference of op-mutexes failed for unknown reason");
             // TODO: analyase what happened!
             // TODO: Handle out of memory error printout in child!
             ret = -1;

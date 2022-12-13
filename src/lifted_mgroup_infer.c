@@ -2030,7 +2030,7 @@ void pddlLiftedMGroupsInferFAMGroups(
 
     LOG(err, "limit.max_candidates = %{limit_max_candidates}d", limit->max_candidates);
     LOG(err, "limit.max_mgroups = %{limit_max_mgroups}d", limit->max_mgroups);
-    LOG2(err, "Inference of lifted fam-groups ...");
+    LOG(err, "Inference of lifted fam-groups ...");
 
     refineInit(&refine, pddl, limit, err);
 
@@ -2089,7 +2089,7 @@ void pddlLiftedMGroupsInferMonotonicity(const pddl_t *pddl,
 
     LOG(err, "limit.max_candidates = %{limit_max_candidates}d", limit->max_candidates);
     LOG(err, "limit.max_mgroups = %{limit_max_mgroups}d", limit->max_mgroups);
-    LOG2(err, "Inference of FD lifted mgroups ...");
+    LOG(err, "Inference of FD lifted mgroups ...");
 
     refineInitMonotonicity(&refine, pddl, limit, err);
 
@@ -2229,7 +2229,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_err_t *err)
 {
     CTX(err, "lmg_set_exactly_one", "LMG-Set-Exactly-One");
-    LOG2(err, "Looking for exactly-one lifted mgroups ...");
+    LOG(err, "Looking for exactly-one lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
@@ -2278,7 +2278,7 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_err_t *err)
 {
     CTX(err, "lmg_set_static", "LMG-Set-Static");
-    LOG2(err, "Looking for static lifted mgroups ...");
+    LOG(err, "Looking for static lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;

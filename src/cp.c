@@ -403,9 +403,9 @@ void pddlCPFree(pddl_cp_t *cp)
 int pddlCPAddIVar(pddl_cp_t *cp, int min_val, int max_val, const char *name)
 {
     if (cp->c_ivar_allowed.constr_size > 0){
-        FATAL2("CP: Adding variables after any constraints is prohibited!");
+        PANIC("CP: Adding variables after any constraints is prohibited!");
     }else if (cp->objective != OBJ_SAT){
-        FATAL2("CP: Adding variables after setting objective is prohibited!");
+        PANIC("CP: Adding variables after setting objective is prohibited!");
     }
     return pddlCPIVarsAdd(&cp->ivar, min_val, max_val, name);
 }
@@ -655,9 +655,9 @@ static int solve(const pddl_cp_t *cp,
         case PDDL_CP_SOLVER_MINIZINC:
             return pddlCPSolve_Minizinc(cp, cfg, sol, err);
         default:
-            FATAL("Unkown solver ID %d", solver);
+            PANIC("Unkown solver ID %d", solver);
     }
-    FATAL("Unkown solver ID %d", solver);
+    PANIC("Unkown solver ID %d", solver);
     return -1;
 }
 
@@ -673,10 +673,10 @@ static int _solveInSubprocess(int fdout, void *userdata)
     struct solve_arg *arg = userdata;
     int ret = solve(arg->cp, arg->cfg, arg->sol, arg->err);
     if (ret == PDDL_CP_FOUND || ret == PDDL_CP_FOUND_SUBOPTIMAL){
-        LOG2(arg->err, "Found solution -- serializing the solution for the"
+        LOG(arg->err, "Found solution -- serializing the solution for the"
              " parent process...");
         if (pddlCPSolSerializeToFD(arg->sol, fdout) != 0){
-            LOG2(arg->err, "Failed to serialize output!");
+            LOG(arg->err, "Failed to serialize output!");
             return PDDL_CP_ABORTED;
         }
     }
@@ -703,7 +703,7 @@ static int solveInSubprocess(const pddl_cp_t *cp,
     int ret = status.exit_status;
     LOG(err, "Exit status: %d", ret);
     if (ret == PDDL_CP_FOUND || ret == PDDL_CP_FOUND_SUBOPTIMAL){
-        LOG2(err, "Parsing solutions...");
+        LOG(err, "Parsing solutions...");
         pddlCPSolDeserializeFromMem(sol, data, data_size);
     }
     return ret;

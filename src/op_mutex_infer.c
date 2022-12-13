@@ -119,7 +119,7 @@ int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
                               pddl_err_t *err)
 {
     CTX(err, "opm", "OPM");
-    PDDL_INFO2(err, "Op-mutexes from fam-groups:");
+    PDDL_INFO(err, "Op-mutexes from fam-groups:");
 
     pddl_strips_fact_cross_ref_t cr;
     pddlStripsFactCrossRefInit(&cr, strips, 0, 0, 1, 1, 1);
@@ -154,7 +154,7 @@ int pddlOpMutexInferUncoveredFacts(pddl_op_mutex_pairs_t *m,
     PDDL_ISET(covered);
     PDDL_ISET(op_mgroup);
 
-    PDDL_INFO2(err, "Op-mutexes from uncovered facts:");
+    PDDL_INFO(err, "Op-mutexes from uncovered facts:");
 
     pddl_strips_fact_cross_ref_t cr;
     pddlStripsFactCrossRefInit(&cr, strips, 0, 0, 1, 1, 1);
@@ -221,7 +221,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
         fact.name = NULL;
         pddlFactFree(&fact);
     }
-    PDDL_INFO2(err, "  --> Modified problem created.");
+    PDDL_INFO(err, "  --> Modified problem created.");
 
     pddl_mutex_pairs_t mutex;
 
@@ -288,7 +288,7 @@ static void opMutexHmFromOp(pddl_op_mutex_pairs_t *opm,
     pddlMutexPairsInitCopy(&hm_mutex, mutex);
     if (pddlHm(m, &strips, &hm_mutex, NULL, &unreach_ops, 0, 0, err) != 0){
         // TODO
-        PDDL_ERR2(err, "h^2 failed!");
+        PDDL_ERR(err, "h^2 failed!");
         pddlErrPrint(err, 1, stderr);
         exit(-1);
     }

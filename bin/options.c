@@ -1125,9 +1125,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (opt.asnets.enable){
         if (opt.asnets.out_task == NULL)
-            PDDL_ERR_RET2(err, -1, "--asnets-task-out must be set!");
+            PDDL_ERR_RET(err, -1, "--asnets-task-out must be set!");
         if (opt.asnets.out_fdr == NULL)
-            PDDL_ERR_RET2(err, -1, "--asnets-fdr-out must be set!");
+            PDDL_ERR_RET(err, -1, "--asnets-fdr-out must be set!");
     }
 
     PDDL_LOG(err, "Version: %{version}s", pddl_version);

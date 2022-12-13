@@ -237,12 +237,12 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
     CTX(err, "asnets_teacher_rollout", "ASNets-Teacher-Rollout");
     LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
     if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG2(err, "State already in the data pool -- skipping.");
+        LOG(err, "State already in the data pool -- skipping.");
         CTXEND(err);
         return 1;
 
     }else if (failExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG2(err, "State already seen and could not be solved -- skipping.");
+        LOG(err, "State already seen and could not be solved -- skipping.");
         CTXEND(err);
         return 1;
     }
@@ -280,7 +280,7 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
     }
 
     if (st == PDDL_SEARCH_FOUND){
-        LOG2(err, "Plan found");
+        LOG(err, "Plan found");
         pddl_plan_t plan;
         pddlPlanInit(&plan);
         if (pddlSearchExtractPlan(search, &plan) == 0){
@@ -292,8 +292,8 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
     }else{
         pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
         if (st == PDDL_SEARCH_ABORT)
-            LOG2(err, "Search reached time-out");
-        LOG2(err, "Plan not found");
+            LOG(err, "Search reached time-out");
+        LOG(err, "Plan not found");
     }
 
     pddlSearchDel(search);

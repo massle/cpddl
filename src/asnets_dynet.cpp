@@ -44,7 +44,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
     switch (cfg->trainer){
         case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
-            LOG2(err, "trainer = astar-lmcut");
+            LOG(err, "trainer = astar-lmcut");
             break;
     }
     if (cfg->save_model_prefix != NULL)
@@ -91,7 +91,7 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
             pddl_toml_datum_t d = pddl_toml_int_in(c, #K); \
             if (!d.ok){ \
                 pddl_toml_free(top); \
-                ERR_RET2(err, -1, #K " must be int"); \
+                ERR_RET(err, -1, #K " must be int"); \
             } \
             cfg->K = d.u.i; \
         } \
@@ -103,7 +103,7 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
             pddl_toml_datum_t d = pddl_toml_double_in(c, #K); \
             if (!d.ok){ \
                 pddl_toml_free(top); \
-                ERR_RET2(err, -1, #K " must be float"); \
+                ERR_RET(err, -1, #K " must be float"); \
             } \
             cfg->K = d.u.d; \
         } \
@@ -128,7 +128,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     pddl_toml_table_t *c = pddl_toml_table_in(top, "asnets");
     if (c == NULL){
         pddl_toml_free(top);
-        ERR_RET2(err, -1, "No [asnets] section in the configuration file.");
+        ERR_RET(err, -1, "No [asnets] section in the configuration file.");
     }
 
     char *root = NULL;
@@ -136,7 +136,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         pddl_toml_datum_t d = pddl_toml_string_in(c, "root");
         if (!d.ok){
             pddl_toml_free(top);
-            ERR_RET2(err, -1, "root must be string");
+            ERR_RET(err, -1, "root must be string");
         }
         root = d.u.s;
         if (strcmp(root, "__PWD__") == 0){
@@ -149,7 +149,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         pddl_toml_datum_t d = pddl_toml_string_in(c, "domain");
         if (!d.ok){
             pddl_toml_free(top);
-            ERR_RET2(err, -1, "domain must be string");
+            ERR_RET(err, -1, "domain must be string");
         }
         if (root != NULL){
             char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
@@ -166,14 +166,14 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         const pddl_toml_array_t *arr = pddl_toml_array_in(c, "problems");
         if (arr == NULL){
             pddl_toml_free(top);
-            ERR_RET2(err, -1, "problems must be array");
+            ERR_RET(err, -1, "problems must be array");
         }
         int size = pddl_toml_array_nelem(arr);
         for (int i = 0; i < size; ++i){
             pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "Each element of problems must be string");
+                ERR_RET(err, -1, "Each element of problems must be string");
             }
             if (root != NULL){
                 char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
@@ -980,7 +980,7 @@ static int policyRollout(pddl_asnets_t *a,
 pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->problem_pddl_size <= 0)
-        ERR_RET2(err, NULL, "ASNets: At least one problem file is required.");
+        ERR_RET(err, NULL, "ASNets: At least one problem file is required.");
 
     CTX(err, "asnets", "ASNets");
     pddl_asnets_t *a = ZALLOC(pddl_asnets_t);
@@ -1482,7 +1482,7 @@ static int sqlSelectWeights(pddl_sqlite3 *db,
 
     int sig = pddl_sqlite3_column_int(stmt, 1);
     if (sig != param_sig)
-        ERR_RET2(err, -1, "Stored weights don't match");
+        ERR_RET(err, -1, "Stored weights don't match");
 
     const unsigned char *name = pddl_sqlite3_column_text(stmt, 2);
     if (strcmp((const char *)name, param_name) != 0){
@@ -2010,7 +2010,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
             LOG(err, "Reached %d/%d consecutive successful epochs.",
                 a->train_stats.consecutive_successful_epochs,
                 a->cfg.early_termination_epochs);
-            LOG2(err, "Terminating training.");
+            LOG(err, "Terminating training.");
             break;
         }
     }
@@ -2035,37 +2035,37 @@ pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
                              const pddl_asnets_config_t *cfg,
                              pddl_err_t *err)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return NULL;
 }
 
 void pddlASNetsDel(pddl_asnets_t *a)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
 }
 
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return -1;
 }
 
 int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return -1;
 }
 
 int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return -1;
 }
 
 const pddl_asnets_ground_task_t *
 pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return NULL;
 }
 
@@ -2074,7 +2074,7 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         const int *in_state,
                         int *out_state)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return -1;
 }
 
@@ -2083,13 +2083,13 @@ int pddlASNetsSolveTask(pddl_asnets_t *a,
                         pddl_iarr_t *trace,
                         pddl_err_t *err)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return -1;
 }
 
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 {
-    FATAL2("This module requires dynet library.");
+    PANIC("This module requires dynet library.");
     return -1;
 }
 

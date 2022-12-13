@@ -164,7 +164,7 @@ int pddlExecvp(char *const argv[],
 
     pid_t pid = fork();
     if (pid < 0){
-        FATAL("fork() failed: %s", strerror(errno));
+        PANIC("fork() failed: %s", strerror(errno));
 
     }else if (pid == 0){
         if (fd_stdin[1] >= 0)
@@ -201,7 +201,7 @@ int pddlExecvp(char *const argv[],
         }
 
         execvp(argv[0], argv);
-        FATAL2("exec failed!");
+        PANIC("exec failed!");
     }
 
     struct pollfd pfd[3];
@@ -368,10 +368,10 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
     }
 
     memcpy(shared, in_out_data, data_size);
-    LOG2(err, "In data copied to the shared memory.");
+    LOG(err, "In data copied to the shared memory.");
     pid_t pid = fork();
     if (pid < 0){
-        FATAL("fork() failed: %s", strerror(errno));
+        PANIC("fork() failed: %s", strerror(errno));
 
     }else if (pid == 0){
         int ret = fn(shared, userdata);
@@ -381,7 +381,7 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
     waitForSubprocess(pid, status);
 
     memcpy(in_out_data, shared, data_size);
-    LOG2(err, "Out data copied to the output memory.");
+    LOG(err, "Out data copied to the output memory.");
     if (munmap(shared, data_size) != 0){
         LOG(err, "Could not release mmaped memory: %s", strerror(errno));
         CTXEND(err);
@@ -409,12 +409,12 @@ int pddlForkPipe(int (*fn)(int fdout, void *userdata),
 
     int fd[2];
     if (pipe(fd) != 0){
-        FATAL("pipe() failed: %s", strerror(errno));
+        PANIC("pipe() failed: %s", strerror(errno));
     }
 
     pid_t pid = fork();
     if (pid < 0){
-        FATAL("fork() failed: %s", strerror(errno));
+        PANIC("fork() failed: %s", strerror(errno));
 
     }else if (pid == 0){
         close(fd[0]);

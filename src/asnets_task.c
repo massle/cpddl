@@ -186,7 +186,7 @@ static void addRelatedOp(pddl_asnets_ground_task_t *gt,
             return;
         }
     }
-    FATAL2("Error: Cannot find the right action/pos related to a fact");
+    PANIC("Error: Cannot find the right action/pos related to a fact");
 }
 
 static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
@@ -250,7 +250,7 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
                                   pddl_err_t *err)
 {
     // TODO: Replace asserts with reporting what exactly is wrong
-    LOG2(err, "Checking everything is properly set up...");
+    LOG(err, "Checking everything is properly set up...");
     ASSERT_RUNTIME(gt->fdr.op.op_size == gt->strips.op.op_size);
     ASSERT_RUNTIME(gt->strips.op.op_size == gt->op_size);
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
@@ -276,7 +276,7 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
             }
         }
     }
-    LOG2(err, "Check DONE.");
+    LOG(err, "Check DONE.");
     return 1;
 }
 

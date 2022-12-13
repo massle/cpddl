@@ -91,19 +91,19 @@ int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
     if (!pddlLPSolverAvailable(solver)){
         switch (solver){
             case PDDL_LP_CPLEX:
-                WARN2(err, "The CPLEX LP solver is not available");
+                WARN(err, "The CPLEX LP solver is not available");
                 break;
             case PDDL_LP_GUROBI:
-                WARN2(err, "The Gurobi LP solver is not available");
+                WARN(err, "The Gurobi LP solver is not available");
                 break;
             case PDDL_LP_HIGHS:
-                WARN2(err, "The HiGHS LP solver is not available");
+                WARN(err, "The HiGHS LP solver is not available");
                 break;
             case PDDL_LP_GLPK:
-                WARN2(err, "The GLPK LP solver is not available");
+                WARN(err, "The GLPK LP solver is not available");
                 break;
             default:
-                WARN2(err, "Unkown LP solver identifier!");
+                WARN(err, "Unkown LP solver identifier!");
         }
         return -1;
     }

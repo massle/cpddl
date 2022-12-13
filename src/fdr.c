@@ -49,17 +49,17 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlTimerStart(&timer);
 
     if (fdr_flags == PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE){
-        PDDL_INFO2(err, "cfg.set_none_of_those_in_pre = 1");
+        PDDL_INFO(err, "cfg.set_none_of_those_in_pre = 1");
     }else{
-        PDDL_INFO2(err, "cfg.set_none_of_those_in_pre = 0");
+        PDDL_INFO(err, "cfg.set_none_of_those_in_pre = 0");
     }
 
     if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_ESSENTIAL_FIRST){
-        PDDL_INFO2(err, "cfg.vars_selection_order = essential");
+        PDDL_INFO(err, "cfg.vars_selection_order = essential");
     }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST){
-        PDDL_INFO2(err, "cfg.vars_selection_order = largest");
+        PDDL_INFO(err, "cfg.vars_selection_order = largest");
     }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
-        PDDL_INFO2(err, "cfg.vars_selection_order = largest-multi");
+        PDDL_INFO(err, "cfg.vars_selection_order = largest-multi");
     }
 
 
@@ -86,12 +86,12 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     // Initial state
     fdr->init = ALLOC_ARR(int, fdr->var.var_size);
     stripsToFDRState(&fdr->var, &strips->init, fdr->init);
-    PDDL_INFO2(err, "Created initial state.");
+    PDDL_INFO(err, "Created initial state.");
 
     // Goal
     pddlFDRPartStateInit(&fdr->goal);
     stripsToFDRPartState(&fdr->var, &strips->goal, &fdr->goal);
-    PDDL_INFO2(err, "Created goal specification.");
+    PDDL_INFO(err, "Created goal specification.");
 
     // Operators
     pddlFDROpsInit(&fdr->op);
@@ -913,13 +913,13 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     pddl_err_t *err)
 {
     if (fdr_in->has_cond_eff && mutex != NULL){
-        PDDL_ERR_RET2(err, -1, "Disambiguated Transition Normal Form is not"
+        PDDL_ERR_RET(err, -1, "Disambiguated Transition Normal Form is not"
                       " supported for conditional effects");
     }
 
     if ((flags & PDDL_FDR_TNF_PREVAIL_TO_EFF)
             && (flags & PDDL_FDR_TNF_MULTIPLY_OPS)){
-        PDDL_ERR_RET2(err, -1, "PDDL_FDR_TNF_PREVAIL_TO_EFF cannot be combined"
+        PDDL_ERR_RET(err, -1, "PDDL_FDR_TNF_PREVAIL_TO_EFF cannot be combined"
                       "with PDDL_FDR_TNF_MULTIPLY_OPS");
     }
 
@@ -934,7 +934,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     pddlFDRInitCopy(fdr, fdr_in);
 
     if (mutex == NULL){
-        PDDL_INFO2(err, "Constructing full TNF");
+        PDDL_INFO(err, "Constructing full TNF");
         tnfFull(fdr, fdr_in, flags, err);
 
     }else{
@@ -946,11 +946,11 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
 
         if (flags & PDDL_FDR_TNF_MULTIPLY_OPS){
-            PDDL_INFO2(err, "Multiply operators with disambiguation");
+            PDDL_INFO(err, "Multiply operators with disambiguation");
             tnfMultiply(fdr, &dis, flags, err);
             removeUnreachableOps(fdr, mutex, err);
         }else{
-            PDDL_INFO2(err, "Using disambiguation");
+            PDDL_INFO(err, "Using disambiguation");
             tnfDis(fdr, &dis, flags, err);
         }
 

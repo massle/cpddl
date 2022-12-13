@@ -33,7 +33,7 @@ static int pddlPruneFDRH2FwBw(pddl_fdr_t *fdr, pddl_err_t *err)
     PDDL_ISET(rm_fact);
     PDDL_ISET(rm_op);
     if (fdr->has_cond_eff){
-        PDDL_INFO2(err, "Skipping h^2, because FDR has conditional effects.");
+        PDDL_INFO(err, "Skipping h^2, because FDR has conditional effects.");
 
     }else if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex,
                          &rm_fact, &rm_op, 0., err) != 0){
@@ -56,7 +56,7 @@ static int pddlPruneFDRIrrelevance(pddl_fdr_t *fdr, pddl_err_t *err)
     PDDL_ISET(rm_var);
     PDDL_ISET(rm_op);
     if (fdr->has_cond_eff){
-        PDDL_INFO2(err, "Skipping irrelevance analysis, because FDR has"
+        PDDL_INFO(err, "Skipping irrelevance analysis, because FDR has"
                    " conditional effects.");
 
     }else if (pddlIrrelevanceAnalysisFDR(fdr, &rm_var, &rm_op, err) != 0){

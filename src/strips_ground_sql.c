@@ -190,7 +190,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
 {
     CTX(err, "ground_sql", "Ground SQL");
     pddlGroundConfigLog(cfg, "cfg.", err);
-    PDDL_INFO2(err, "Grounding using sqlite ...");
+    PDDL_INFO(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
     if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
@@ -222,7 +222,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO2(err, "Grounding finished.");
+    PDDL_INFO(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
     CTXEND(err);
     return 0;
@@ -241,7 +241,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
     pddlGroundConfigLog(cfg, "cfg.", err);
     PDDL_INFO(err, "cfg.max_layers = %d", max_layers);
     PDDL_INFO(err, "cfg.max_atoms = %d", max_atoms);
-    PDDL_INFO2(err, "Grounding using sqlite ...");
+    PDDL_INFO(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
     if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
@@ -291,7 +291,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO2(err, "Grounding finished.");
+    PDDL_INFO(err, "Grounding finished.");
     if (strips != NULL)
         pddlStripsLogInfo(strips, err);
     CTXEND(err);

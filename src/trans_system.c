@@ -183,7 +183,7 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
                           const pddl_mutex_pairs_t *mutex)
 {
     if (mg_strips->strips.has_cond_eff){
-        PDDL_FATAL2("trans_system module does not support conditional effects!");
+        PANIC("trans_system module does not support conditional effects!");
     }
 
     ZEROIZE(tss);
