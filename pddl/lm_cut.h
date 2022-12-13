@@ -53,8 +53,6 @@ struct pddl_lm_cut_fact {
 typedef struct pddl_lm_cut_fact pddl_lm_cut_fact_t;
 
 struct pddl_lm_cut {
-    const pddl_fdr_t *fdr;
-
     pddl_lm_cut_fact_t *fact;
     int fact_size;
     int fact_goal;
@@ -104,6 +102,7 @@ void pddlLMCutFree(pddl_lm_cut_t *lmc);
  */
 int pddlLMCut(pddl_lm_cut_t *lmc,
               const int *fdr_state,
+              const pddl_fdr_vars_t *vars,
               const pddl_set_iset_t *ldms_in,
               pddl_set_iset_t *ldms);
 int pddlLMCutStrips(pddl_lm_cut_t *lmc,

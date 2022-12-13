@@ -17,13 +17,13 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/bdds.h"
 #include "pddl/sort.h"
-#include "internal.h"
 
 void pddlBDDsInit(pddl_bdds_t *bdds)
 {
-    bzero(bdds, sizeof(*bdds));
+    ZEROIZE(bdds);
 }
 
 void pddlBDDsFree(pddl_bdd_manager_t *mgr, pddl_bdds_t *bdds)
@@ -135,7 +135,7 @@ void pddlBDDsMergeAnd(pddl_bdd_manager_t *mgr,
 
 void pddlBDDsCostsInit(pddl_bdds_costs_t *bdds)
 {
-    bzero(bdds, sizeof(*bdds));
+    ZEROIZE(bdds);
 }
 
 void pddlBDDsCostsFree(pddl_bdd_manager_t *mgr, pddl_bdds_costs_t *bdds)

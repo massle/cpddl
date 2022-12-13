@@ -57,7 +57,7 @@ struct pddl_sql_grounder {
 #define CHECK_SQL_ERR(db, code) \
     do { \
     if ((code) != SQLITE_OK){ \
-        PDDL_FATAL("Sqlite Error: %s: %s\n", \
+        PANIC("Sqlite Error: %s: %s\n", \
                   pddl_sqlite3_errstr(code), pddl_sqlite3_errmsg(db)); \
     } \
     } while (0)
@@ -131,7 +131,7 @@ static void sqlPredInit(sql_pred_t *qpred,
                         pddl_err_t *err)
 {
     const pddl_pred_t *pred = preds->pred + pred_id;
-    bzero(qpred, sizeof(*qpred));
+    ZEROIZE(qpred);
     qpred->pred = pred->id;
     qpred->arity = pred->param_size;
     qpred->is_static = pddlPredIsStatic(&preds->pred[pred_id]);
@@ -233,7 +233,7 @@ static int sqlPredHasAtomArg(sql_pred_t *qpred,
 
 static int sqlPredHasAtom(sql_pred_t *qpred,
                           pddl_sqlite3 *db,
-                          const pddl_cond_atom_t *atom)
+                          const pddl_fm_atom_t *atom)
 {
     pddl_obj_id_t arg[qpred->arity];
     for (int i = 0; i < qpred->arity; ++i){
@@ -283,8 +283,8 @@ static void sqlActionConstructColumns(char *query,
 
         int found = 0;
         for (int ci = 0; ci < prep_action->pre.size; ++ci){
-            const pddl_cond_t *c = prep_action->pre.cond[ci];
-            const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+            const pddl_fm_t *c = prep_action->pre.fm[ci];
+            const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
             for (int ai = 0; ai < atom->arg_size; ++ai){
                 if (atom->arg[ai].param >= 0 && atom->arg[ai].param == pi){
                     shift += sprintf(query + shift, "tb%d.x%d as arg%d",
@@ -317,8 +317,8 @@ static void sqlActionConstructTables(char *query,
     query[0] = 0x0;
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
-        const pddl_cond_t *c = prep_action->pre.cond[ci];
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        const pddl_fm_t *c = prep_action->pre.fm[ci];
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         if (ci != 0)
             shift += sprintf(query + shift, ", ");
         shift += sprintf(query + shift, "%s as tb%d",
@@ -342,11 +342,11 @@ static void sqlActionConstructJoinCond(char *query,
     int ins = 0;
     int shift = 0;
     for (int ci1 = 0; ci1 < prep_action->pre.size; ++ci1){
-        const pddl_cond_t *c1 = prep_action->pre.cond[ci1];
-        const pddl_cond_atom_t *atom1 = PDDL_COND_CAST(c1, atom);
+        const pddl_fm_t *c1 = prep_action->pre.fm[ci1];
+        const pddl_fm_atom_t *atom1 = PDDL_FM_CAST(c1, atom);
         for (int ci2 = ci1 + 1; ci2 < prep_action->pre.size; ++ci2){
-            const pddl_cond_t *c2 = prep_action->pre.cond[ci2];
-            const pddl_cond_atom_t *atom2 = PDDL_COND_CAST(c2, atom);
+            const pddl_fm_t *c2 = prep_action->pre.fm[ci2];
+            const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(c2, atom);
 
             for (int a1 = 0; a1 < atom1->arg_size; ++a1){
                 if (atom1->arg[a1].param < 0)
@@ -382,7 +382,7 @@ static int objsConsecutive(const pddl_obj_id_t *objs, int obj_size)
 
 static int addEqCond(char *query,
                      int shift,
-                     const pddl_cond_atom_t *atom,
+                     const pddl_fm_atom_t *atom,
                      const char *cmp,
                      const char *prefix)
 {
@@ -415,8 +415,8 @@ static void sqlActionConstructWhereCond(char *query,
     int ins = 0;
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre_eq.size; ++ci){
-        const pddl_cond_t *c = prep_action->pre_eq.cond[ci];
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        const pddl_fm_t *c = prep_action->pre_eq.fm[ci];
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         shift = addEqCond(query, shift, atom,
                           cmp[(atom->neg ? 1 : 0)],
                           prefix[(ins == 0 ? 0 : 1)]);
@@ -424,10 +424,10 @@ static void sqlActionConstructWhereCond(char *query,
     }
 
     int used_param[prep_action->param_size];
-    bzero(used_param, sizeof(int) * prep_action->param_size);
+    ZEROIZE_ARR(used_param, prep_action->param_size);
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
-        const pddl_cond_t *c = prep_action->pre.cond[ci];
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
+        const pddl_fm_t *c = prep_action->pre.fm[ci];
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         for (int ai = 0; ai < atom->arg_size; ++ai){
             if (atom->arg[ai].param >= 0)
                 used_param[atom->arg[ai].param] = 1;
@@ -500,7 +500,7 @@ static void sqlActionInit(sql_action_t *action,
                           const pddl_prep_action_t *prep_action,
                           pddl_err_t *err)
 {
-    bzero(action, sizeof(*action));
+    ZEROIZE(action);
     action->param_size = prep_action->param_size;
 
     if (action->param_size == 0)
@@ -539,8 +539,8 @@ static int actionCheckNegPreStatic(pddl_sql_grounder_t *g,
                                    const pddl_obj_id_t *row)
 {
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(paction->pre_neg_static.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(paction->pre_neg_static.fm[i], atom);
         if (atom->arg_size == 0){
             if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
                 return 0;
@@ -566,8 +566,8 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
                                 const pddl_prep_action_t *paction)
 {
     for (int i = 0; i < paction->pre_eq.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(paction->pre_eq.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(paction->pre_eq.fm[i], atom);
         if (atom->neg){
             if (atom->arg[0].obj == atom->arg[1].obj)
                 return 0;
@@ -578,15 +578,15 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
     }
 
     for (int i = 0; i < paction->pre.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(paction->pre.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(paction->pre.fm[i], atom);
         if (!sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
             return 0;
     }
 
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
-        const pddl_cond_atom_t *atom;
-        atom = PDDL_COND_CAST(paction->pre_neg_static.cond[i], atom);
+        const pddl_fm_atom_t *atom;
+        atom = PDDL_FM_CAST(paction->pre_neg_static.fm[i], atom);
         if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
             return 0;
     }
@@ -598,8 +598,7 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
 {
     CTX(err, "sql_grounder", "SQL Grounder");
-    pddl_sql_grounder_t *g = ALLOC(pddl_sql_grounder_t);
-    bzero(g, sizeof(*g));
+    pddl_sql_grounder_t *g = ZALLOC(pddl_sql_grounder_t);
 
     g->pddl = pddl;
     if (pddlPrepActionsInit(g->pddl, &g->prep_action, err) != 0){
@@ -615,7 +614,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
                     | SQLITE_OPEN_PRIVATECACHE;
     int ret = pddl_sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
-    PDDL_INFO2(err, "Sqlite database created");
+    PDDL_INFO(err, "Sqlite database created");
     ASSERT_RUNTIME(pddl_sqlite3_get_autocommit(g->db));
 
     // Create type tables
@@ -684,13 +683,13 @@ int pddlSqlGrounderInsertGroundAtom(pddl_sql_grounder_t *g,
 }
 
 int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
-                              const pddl_cond_atom_t *a,
+                              const pddl_fm_atom_t *a,
                               pddl_err_t *err)
 {
     pddl_obj_id_t args[a->arg_size];
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
-            PDDL_ERR_RET2(err, -1, "SQL Grounder: Atom is not grounded!");
+            PDDL_ERR_RET(err, -1, "SQL Grounder: Atom is not grounded!");
         args[i] = a->arg[i].obj;
     }
     return pddlSqlGrounderInsertAtomArgs(g, a->pred, args, err);
@@ -745,7 +744,7 @@ int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
             }
         }
         if (invalid){
-            PDDL_INFO2(err, "Invalid row");
+            PDDL_INFO(err, "Invalid row");
             continue;
         }
         const pddl_prep_action_t *paction;

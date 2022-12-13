@@ -17,15 +17,11 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/resource.h>
-#include <unistd.h>
+#include "internal.h"
 #include "pddl/timer.h"
 #include "pddl/op_mutex_infer.h"
 #include "pddl/trans_system.h"
 #include "pddl/trans_system_graph.h"
-#include "internal.h"
 
 static void setMemLimit(size_t mem_in_mb)
 {
@@ -320,7 +316,7 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
         waitpid(pid, &wstatus, 0);
         if (WIFEXITED(wstatus)){
             if (WEXITSTATUS(wstatus) != 0){
-                PDDL_ERR2(err, "Inference of op-mutexes failed.");
+                PDDL_ERR(err, "Inference of op-mutexes failed.");
                 ret = -1;
             }
         }else if (WIFSIGNALED(wstatus)){
@@ -329,7 +325,7 @@ static int findOpMutexesWithMemLimit(pddl_op_mutex_pairs_t *m,
                      "'%s'", strsignal(signum));
             ret = -1;
         }else{
-            PDDL_ERR2(err, "Inference of op-mutexes failed for unknown reason");
+            PDDL_ERR(err, "Inference of op-mutexes failed for unknown reason");
             // TODO: analyase what happened!
             // TODO: Handle out of memory error printout in child!
             ret = -1;

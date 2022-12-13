@@ -19,9 +19,8 @@
 #ifndef __PDDL_STRIPS_GROUND_TREE_H__
 #define __PDDL_STRIPS_GROUND_TREE_H__
 
-#include <pddl/iset.h>
-
 #include <pddl/common.h>
+#include <pddl/iset.h>
 #include <pddl/ground_atom.h>
 #include <pddl/prep_action.h>
 #include <pddl/action_args.h>

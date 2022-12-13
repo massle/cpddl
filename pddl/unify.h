@@ -19,7 +19,7 @@
 #ifndef __PDDL_UNIFY_H__
 #define __PDDL_UNIFY_H__
 
-#include <pddl/cond.h>
+#include <pddl/fm.h>
 #include <pddl/param.h>
 
 #ifdef __cplusplus
@@ -54,8 +54,8 @@ void pddlUnifyFree(pddl_unify_t *u);
  * Return 0 on success, -1 if unification wasn't possible.
  */
 int pddlUnify(pddl_unify_t *u,
-              const pddl_cond_atom_t *a1,
-              const pddl_cond_atom_t *a2);
+              const pddl_fm_atom_t *a1,
+              const pddl_fm_atom_t *a2);
 
 /**
  * Updates the mapping with the equality atoms (= x y) from cond.
@@ -64,7 +64,7 @@ int pddlUnify(pddl_unify_t *u,
 int pddlUnifyApplyEquality(pddl_unify_t *u,
                            const pddl_params_t *param,
                            int eq_pred,
-                           const pddl_cond_t *cond);
+                           const pddl_fm_t *cond);
 
 /**
  * Returns true if the inequality conditions hold.
@@ -72,7 +72,7 @@ int pddlUnifyApplyEquality(pddl_unify_t *u,
 int pddlUnifyCheckInequality(const pddl_unify_t *u,
                              const pddl_params_t *param,
                              int eq_pred,
-                             const pddl_cond_t *cond);
+                             const pddl_fm_t *cond);
 
 /**
  * Returns true if u(a1) != u(a2), i.e., if a1 and a2 differ under the
@@ -80,9 +80,9 @@ int pddlUnifyCheckInequality(const pddl_unify_t *u,
  */
 int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
                          const pddl_params_t *param1,
-                         const pddl_cond_atom_t *a1,
+                         const pddl_fm_atom_t *a1,
                          const pddl_params_t *param2,
-                         const pddl_cond_atom_t *a2);
+                         const pddl_fm_atom_t *a2);
 
 /**
  * Returns true if u is equal to u2
@@ -92,7 +92,7 @@ int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2);
 /**
  * TODO
  */
-pddl_cond_t *pddlUnifyToCond(const pddl_unify_t *u,
+pddl_fm_t *pddlUnifyToCond(const pddl_unify_t *u,
                              int eq_pred,
                              const pddl_params_t *param);
 

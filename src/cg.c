@@ -17,14 +17,10 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
+#include "internal.h"
 #include "pddl/pairheap.h"
 #include "pddl/cg.h"
 #include "pddl/scc.h"
-#include "internal.h"
 
 #define GOAL_BONUS 100000
 
@@ -59,7 +55,7 @@ void pddlCGInit(pddl_cg_t *cg,
                 const pddl_fdr_ops_t *ops,
                 int eff_eff_edges)
 {
-    bzero(cg, sizeof(*cg));
+    ZEROIZE(cg);
 
     int *value = CALLOC_ARR(int, vars->var_size * vars->var_size);
     PDDL_ISET(pre);
@@ -116,7 +112,7 @@ void pddlCGInit(pddl_cg_t *cg,
 
 void pddlCGInitCopy(pddl_cg_t *cg, const pddl_cg_t *cg_in)
 {
-    bzero(cg, sizeof(*cg));
+    ZEROIZE(cg);
     cg->node_size = cg_in->node_size;
     cg->node = CALLOC_ARR(pddl_cg_node_t, cg->node_size);
     for (int node_id = 0; node_id < cg->node_size; ++node_id){
@@ -218,7 +214,7 @@ void pddlCGMarkBackwardReachableVars(const pddl_cg_t *cg,
                                      const pddl_fdr_part_state_t *goal,
                                      int *important_vars)
 {
-    bzero(important_vars, sizeof(int) * cg->node_size);
+    ZEROIZE_ARR(important_vars, cg->node_size);
 
     for (int fi = 0; fi < goal->fact_size; ++fi){
         int var = goal->fact[fi].var;
@@ -496,7 +492,18 @@ static char *pddlGraphEasy(const char *graph_easy_bin,
 
         // Write input to graph-easy
         size_t len = strlen(input);
-        write(pipein[1], input, sizeof(char) * len);
+        ssize_t wlen = 0;
+        do {
+            ssize_t w = write(pipein[1], input + wlen, sizeof(char) * (len - wlen));
+            if (w < 0){
+                perror("Could not write to pipe");
+                close(pipeout[0]);
+                close(pipein[1]);
+                waitpid(pid, NULL, 0);
+                return NULL;
+            }
+            wlen += w;
+        } while (wlen != (ssize_t)len);
         close(pipein[1]);
 
         // Read output
@@ -531,7 +538,7 @@ void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err)
     size_t buf_size;
     char *buf = pddlCGAsDot(cg, &buf_size);
     if (buf == NULL){
-        PDDL_INFO2(err, "Could not print out causal graph");
+        PDDL_INFO(err, "Could not print out causal graph");
         return;
     }
 

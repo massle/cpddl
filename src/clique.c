@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "pddl/clique.h"
 #include "internal.h"
+#include "pddl/clique.h"
 
 struct bk_stack_el {
     pddl_iset_t clique;
@@ -181,7 +181,7 @@ void pddlCliqueFindMaximal(const pddl_graph_simple_t *g,
         pddlISetAdd(&all_facts, i);
 
     bk_stack_t stack;
-    bzero(&stack, sizeof(stack));
+    ZEROIZE(&stack);
     stackPush(&stack, &empty, &all_facts, &empty, -1, NULL);
     inferCliques(g, &stack, cb, userdata);
     stackFree(&stack);
@@ -233,7 +233,7 @@ void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
                                   void (*cb)(const pddl_iset_t *clique, void *userdata),
                                   void *userdata)
 {
-    PDDL_FATAL2("Cliquer library is not linked!");
+    PANIC("Cliquer library is not linked!");
 }
 #endif /* PDDL_CLIQUER */
 

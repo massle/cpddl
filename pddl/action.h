@@ -23,7 +23,7 @@
 #include <pddl/lisp.h>
 #include <pddl/obj.h>
 #include <pddl/param.h>
-#include <pddl/cond.h>
+#include <pddl/fm.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,8 +35,8 @@ extern "C" {
 struct pddl_action {
     char *name;
     pddl_params_t param;
-    pddl_cond_t *pre;
-    pddl_cond_t *eff;
+    pddl_fm_t *pre;
+    pddl_fm_t *eff;
     int id;
 };
 typedef struct pddl_action pddl_action_t;
@@ -64,7 +64,7 @@ void pddlActionFree(pddl_action_t *a);
 void pddlActionInitCopy(pddl_action_t *dst, const pddl_action_t *src);
 
 /**
- * Normalize .pre and .eff (see pddlCondNormalize()).
+ * Normalize .pre and .eff (see pddlFmNormalize()).
  */
 void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl);
 

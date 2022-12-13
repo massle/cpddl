@@ -96,7 +96,7 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
     int *fact_irr, *op_irr;
 
     if (strips->has_cond_eff){
-        PDDL_ERR_RET2(err, -1, "Irrelevance analysis does not support"
+        PDDL_ERR_RET(err, -1, "Irrelevance analysis does not support"
                       " conditional effects.");
     }
 
@@ -234,7 +234,7 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
     int *var_irr, *op_irr;
 
     if (fdr->has_cond_eff){
-        PDDL_ERR_RET2(err, -1, "Irrelevance analysis does not support"
+        PDDL_ERR_RET(err, -1, "Irrelevance analysis does not support"
                       " conditional effects.");
     }
 

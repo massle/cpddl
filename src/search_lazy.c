@@ -53,8 +53,7 @@ pddl_search_t *pddlSearchLazy(const pddl_fdr_t *fdr,
 {
     pddl_search_lazy_t *lazy;
 
-    lazy = ALLOC(pddl_search_lazy_t);
-    bzero(lazy, sizeof(*lazy));
+    lazy = ZALLOC(pddl_search_lazy_t);
     _pddlSearchInit(&lazy->search,
                     pddlSearchLazyDel,
                     pddlSearchLazyInitStep,
@@ -241,7 +240,7 @@ static int pddlSearchLazyExtractPlan(pddl_search_t *s, pddl_plan_t *plan)
 {
     pddl_search_lazy_t *lazy
         = pddl_container_of(s, pddl_search_lazy_t, search);
-    if (lazy->goal_state_id < 0)
+    if (lazy->goal_state_id == PDDL_NO_STATE_ID)
         return -1;
     pddlPlanLoadBacktrack(plan, lazy->goal_state_id, &lazy->state_space);
     return 0;

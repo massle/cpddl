@@ -114,11 +114,9 @@ static int parsePrivatePreds(pddl_t *pddl,
                              pddl_err_t *err)
 {
     const char *owner_var;
-    int factor, from;
+    int from;
 
-    factor = (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY);
-
-    if (factor){
+    if (pddl->require.factored_privacy){
         if (n->child_size < 2 || n->child[0].kw != PDDL_KW_PRIVATE){
             ERR_LISP_RET2(err, -1, n,
                           "Invalid definition of :private predicate");
@@ -178,12 +176,13 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
     addEqPredicate(&pddl->pred);
 
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_PREDICATES);
-    if (n == NULL)
+    if (n == NULL){
+        LOG(err, "No predicates found");
         return 0;
+    }
 
     // Determine if we can expect :private definitions
-    private = (pddl->require & PDDL_REQUIRE_UNFACTORED_PRIVACY)
-                || (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY);
+    private = pddl->require.unfactored_privacy || pddl->require.factored_privacy;
 
     // Fisrt parse non :private predicates
     for (int i = 1; i < n->child_size; ++i){
@@ -220,12 +219,14 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
         }
     }
 
+    LOG(err, "Predicates parsed, num predicates: %{parsed_preds}d",
+        pddl->pred.pred_size);
     return 0;
 }
 
 void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->eq_pred = src->eq_pred;
     dst->pred_size = dst->pred_alloc = src->pred_size;
     dst->pred = CALLOC_ARR(pddl_pred_t, src->pred_size);
@@ -249,8 +250,10 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
     pddl->func.eq_pred = -1;
 
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_FUNCTIONS);
-    if (n == NULL)
+    if (n == NULL){
+        LOG(err, "No functions found.");
         return 0;
+    }
 
     for (int i = 1; i < n->child_size; ++i){
         if (parsePred(pddl, n->child + i, NULL, "function",
@@ -271,7 +274,8 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
             i += 2;
         }
     }
-
+    LOG(err, "Functions parsed, num functions: %{parsed_funcs}d",
+        pddl->func.pred_size);
     return 0;
 }
 
@@ -307,7 +311,7 @@ pddl_pred_t *pddlPredsAdd(pddl_preds_t *ps)
     }
 
     p = ps->pred + ps->pred_size++;
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->id = ps->pred_size - 1;
     p->owner_param = -1;
     p->neg_of = -1;

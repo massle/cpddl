@@ -20,7 +20,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/obj.h"
-#include "pddl/require.h"
+#include "pddl/require_flags.h"
 #include "lisp_err.h"
 #include "internal.h"
 
@@ -106,6 +106,9 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
                  pddl_err_t *err)
 
 {
+    if (lisp == NULL)
+        return 0;
+
     const pddl_lisp_node_t *n;
     int to;
     set_t set;
@@ -138,18 +141,26 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
         return -1;
     }
 
+    if (is_const){
+        LOG(err, ":constants parsed, num constants: %{parsed_consts}d",
+            pddl->obj.obj_size);
+    }
+
     return 0;
 }
 
 static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
                         pddl_err_t *err)
 {
+    if (lisp == NULL)
+        return 0;
+
     const pddl_lisp_node_t *n, *p;
     int i, factor, pi, parse_from;
     pddl_obj_id_t owner;
     set_t set;
 
-    factor = (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY);
+    factor = pddl->require.factored_privacy;
     parse_from = 2;
     if (factor)
         parse_from = 1;
@@ -199,16 +210,15 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
     const pddl_lisp_t *prob_lisp = pddl->problem_lisp;
     int i;
 
-    bzero(&pddl->obj, sizeof(pddl->obj));
+    ZEROIZE(&pddl->obj);
     pddl->obj.htable = pddlHTableNew(objHash, objEq, NULL);
 
     if (parse(pddl, dom_lisp, PDDL_KW_CONSTANTS, 1, err) != 0
             || parse(pddl, prob_lisp, PDDL_KW_OBJECTS, 0, err) != 0)
         PDDL_TRACE_RET(err, -1);
 
-    if (((pddl->require & PDDL_REQUIRE_MULTI_AGENT)
-                && (pddl->require & PDDL_REQUIRE_UNFACTORED_PRIVACY))
-            || (pddl->require & PDDL_REQUIRE_FACTORED_PRIVACY)){
+    if ((pddl->require.multi_agent && pddl->require.unfactored_privacy)
+            || pddl->require.factored_privacy){
         if (parsePrivate(pddl, dom_lisp, PDDL_KW_CONSTANTS, err) != 0
                 || parsePrivate(pddl, prob_lisp, PDDL_KW_OBJECTS, err) != 0)
             PDDL_TRACE_RET(err, -1);
@@ -217,12 +227,14 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
     for (i = 0; i < pddl->obj.obj_size; ++i)
         pddlTypesAddObj(&pddl->type, i, pddl->obj.obj[i].type);
 
+    LOG(err, "Objects parsed, num objects: %{parsed_objs}d",
+        pddl->obj.obj_size);
     return 0;
 }
 
 void pddlObjsInitCopy(pddl_objs_t *dst, const pddl_objs_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
 
     dst->htable = pddlHTableNew(objHash, objEq, NULL);
 
@@ -308,7 +320,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     }
 
     o = objs->obj + objs->obj_size++;
-    bzero(o, sizeof(*o));
+    ZEROIZE(o);
     o->name = STRDUP(name);
     o->owner = PDDL_OBJ_ID_UNDEF;
 

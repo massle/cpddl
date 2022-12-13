@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <limits.h>
-#include <stdarg.h>
 #include "opts.h"
 
 #define FLAG 1
@@ -14,6 +11,7 @@
 #define PARAMS_AND_FN 9
 #define INT_SWITCH 10
 #define FLT_FN 11
+#define STR_FN 12
 
 
 struct opt_group {
@@ -35,6 +33,7 @@ struct opt_opt {
     int (*flag_fn)(int);
     void (*flag_fn2)(void);
     int (*flt_fn)(float);
+    int (*str_fn)(const char *);
     opts_params_t params;
     void (*params_fn)(void *ud);
     void *params_userdata;
@@ -200,6 +199,15 @@ void optsAddStr(const char *long_name,
     }
 }
 
+void optsAddStrFn(const char *long_name,
+                  char short_name,
+                  int (*fn)(const char *),
+                  const char *desc)
+{
+    opt_opt_t *opt = optsAdd(STR_FN, long_name, short_name, NULL, desc);
+    opt->str_fn = fn;
+}
+
 void optsAddTags(const char *long_name,
                  char short_name,
                  const char *default_value,
@@ -257,6 +265,23 @@ void optsAddIntSwitch(const char *long_name,
     va_end(arg);
 }
 
+static void optsParamsPrintHelp(const opt_opt_t *opt, FILE *fout)
+{
+    if (opt->desc == NULL)
+        return;
+
+    if (opt->long_name != NULL){
+        if (opt->short_name != '\x0'){
+            fprintf(fout, "Option --%s/-%c:\n", opt->long_name, opt->short_name);
+        }else{
+            fprintf(fout, "Option --%s:\n", opt->long_name);
+        }
+    }else{
+        fprintf(fout, "Option -%c:\n", opt->short_name);
+    }
+    fprintf(fout, "%s\n", opt->desc);
+}
+
 static opt_opt_t *findOptLong(const char *name)
 {
     for (int i = 0; i < o.opt_size; i++){
@@ -309,19 +334,32 @@ static int optSet(opt_opt_t *opt, const char *oname, const char *val)
                 return -1;
         }
 
-    }else if (opt->type == STR){
-        if (opt->set)
+    }else if (opt->type == STR || opt->type == STR_FN){
+        if (opt->type == STR_FN){
+            if (opt->str_fn(val) != 0)
+                return -1;
+
+        }else if (opt->set){
             *(char **)opt->set = (char *)val;
+        }
 
     }else if (opt->type == STR_TAGS){
         if (optsProcessTags(val, opt->parse_tags) != 0)
             return -1;
 
     }else if (opt->type == PARAMS){
+        if (strcmp(val, "help") == 0 || strcmp(val, "?") == 0){
+            optsParamsPrintHelp(opt, stderr);
+            return -1;
+        }
         if (optsParamsParse(&opt->params, val) != 0)
             return -1;
 
     }else if (opt->type == PARAMS_AND_FN){
+        if (strcmp(val, "help") == 0 || strcmp(val, "?") == 0){
+            optsParamsPrintHelp(opt, stderr);
+            return -1;
+        }
         if (optsParamsParse(&opt->params, val) != 0)
             return -1;
         opt->params_fn(opt->params_userdata);
@@ -564,6 +602,7 @@ static void optsPrintOpts(int group, FILE *fout)
         }else if (opt->type == FLT || opt->type == FLT_FN){
             fprintf(fout, "flt ");
         }else if (opt->type == STR
+                    || opt->type == STR_FN
                     || opt->type == PARAMS
                     || opt->type == PARAMS_AND_FN
                     || opt->type == INT_SWITCH){
@@ -842,13 +881,13 @@ static int parseParam(opts_params_t *params, char *text)
         name = trimWhitespace(name);
         value = trimWhitespace(value);
         if (setParam(params, name, value) != 0){
-            fprintf(stderr, "Error: Uknwown parameter: '%s'\n", text);
+            fprintf(stderr, "Error: Uknown parameter: '%s'\n", text);
             return -1;
         }
 
     }else{
         if (setParamFlag(params, name) != 0){
-            fprintf(stderr, "Error: Uknwown parameter: '%s'\n", text);
+            fprintf(stderr, "Error: Uknown parameter: '%s'\n", text);
             return -1;
         }
     }

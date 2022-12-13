@@ -16,10 +16,10 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
-#include "internal.h"
 
 #define PDDL_FDR_VARS_METHOD_MASK 0xfu
 
@@ -39,7 +39,7 @@ typedef struct vars_mgroups vars_mgroups_t;
 
 static void varsMGroupsInit(vars_mgroups_t *vmgs, const pddl_mgroups_t *mgs)
 {
-    bzero(vmgs, sizeof(*vmgs));
+    ZEROIZE(vmgs);
     vmgs->mgroups = mgs;
     vmgs->has_uncovered = 0;
     vmgs->mgroup_size = mgs->mgroup_size;
@@ -118,7 +118,7 @@ static void varsMGroupsSortUncoveredDesc(vars_mgroups_t *vmgs)
 
 void pddlFDRValInit(pddl_fdr_val_t *val)
 {
-    bzero(val, sizeof(*val));
+    ZEROIZE(val);
 }
 
 void pddlFDRValFree(pddl_fdr_val_t *val)
@@ -129,7 +129,7 @@ void pddlFDRValFree(pddl_fdr_val_t *val)
 
 void pddlFDRVarInit(pddl_fdr_var_t *var)
 {
-    bzero(var, sizeof(*var));
+    ZEROIZE(var);
 }
 
 void pddlFDRVarFree(pddl_fdr_var_t *var)
@@ -254,7 +254,7 @@ typedef struct vars vars_t;
 
 static void varsInit(vars_t *vars, const pddl_mgroups_t *mgroups)
 {
-    bzero(vars, sizeof(*vars));
+    ZEROIZE(vars);
     vars->var_alloc = 8;
     vars->var = CALLOC_ARR(var_t, vars->var_alloc);
     varsMGroupsInit(&vars->mgroups, mgroups);
@@ -283,7 +283,7 @@ static void varsAdd(vars_t *vars,
     }
 
     var = vars->var + vars->var_size++;
-    bzero(var, sizeof(*var));
+    ZEROIZE(var);
     pddlISetUnion(&var->fact, facts);
     var->none_of_those = needNoneOfThose(&var->fact, strips, mutex);
 
@@ -427,7 +427,7 @@ static int allocateVars(vars_t *vars,
     }else if (method == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
         allocateLargestMulti(vars, strips, mg, mutex);
     }else{
-        PDDL_FATAL2("Unspecified method for variable allocation.");
+        PANIC("Unspecified method for variable allocation.");
     }
 
     allocateUncoveredSingleFacts(vars, strips, mutex, flags);
@@ -517,7 +517,7 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
         }
     }
 
-    bzero(fdr_vars, sizeof(*fdr_vars));
+    ZEROIZE(fdr_vars);
 
     varsInit(&vars, mg);
     if (allocateVars(&vars, strips, mg, &mutex, flags) != 0){
@@ -549,7 +549,7 @@ void pddlFDRVarsFree(pddl_fdr_vars_t *vars)
 
 static void pddlFDRValCopy(pddl_fdr_val_t *dst, const pddl_fdr_val_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     if (src->name != NULL)
         dst->name = STRDUP(src->name);
     dst->var_id = src->var_id;
@@ -560,7 +560,7 @@ static void pddlFDRValCopy(pddl_fdr_val_t *dst, const pddl_fdr_val_t *src)
 
 static void pddlFDRVarCopy(pddl_fdr_var_t *dst, const pddl_fdr_var_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->var_id = src->var_id;
     dst->val_size = src->val_size;
     dst->val = CALLOC_ARR(pddl_fdr_val_t, dst->val_size);
@@ -571,7 +571,7 @@ static void pddlFDRVarCopy(pddl_fdr_var_t *dst, const pddl_fdr_var_t *src)
 
 void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->var_size = src->var_size;
     dst->var = CALLOC_ARR(pddl_fdr_var_t, dst->var_size);
     for (int i = 0; i < dst->var_size; ++i)
@@ -608,7 +608,7 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
                          const pddl_iset_t *del_facts,
                          pddl_fdr_vars_remap_t *remap)
 {
-    bzero(remap, sizeof(*remap));
+    ZEROIZE(remap);
     remap->var_size = vars->var_size;
     remap->remap = ALLOC_ARR(const pddl_fdr_val_t **, remap->var_size);
     for (int v = 0; v < remap->var_size; ++v){
@@ -656,8 +656,7 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
         }
         if (val_ins <= 1){
             if (val_ins == 1){
-                bzero(remap->remap[var_id],
-                      sizeof(const pddl_fdr_val_t *) * var->val_size);
+                ZEROIZE_ARR(remap->remap[var_id], var->val_size);
                 --global_id;
             }
             var->val_size = val_ins;
@@ -683,7 +682,7 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
     var->val = REALLOC_ARR(var->val, pddl_fdr_val_t, var->val_size);
 
     pddl_fdr_val_t *val = var->val + var->val_size - 1;
-    bzero(val, sizeof(*val));
+    ZEROIZE(val);
     if (name != NULL)
         val->name = STRDUP(name);
     val->var_id = var_id;

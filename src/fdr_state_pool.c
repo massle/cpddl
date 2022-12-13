@@ -17,11 +17,11 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/iarr.h"
 #include "pddl/timer.h"
 #include "pddl/fdr_state_pool.h"
-#include "internal.h"
 
 #define PAGESIZE_MULTIPLY 1024
 #define MIN_STATES_PER_BLOCK (1024 * 1024)
@@ -62,7 +62,7 @@ static void stateIDArrAdd(state_id_arr_t *arr, pddl_state_id_t id)
         }
 
         if (arr->alloc <= arr->size){
-            PDDL_FATAL("There is too much pressure on the hash table"
+            PANIC("There is too much pressure on the hash table"
                        "resulting in too many elements sharing the same"
                        "bucket. (The size of the bucket does not fit in %lu"
                        "bytes.)",
@@ -99,7 +99,7 @@ static void htableInit(htable_t *ht,
                        const pddl_fdr_state_pool_t *state_pool,
                        size_t size)
 {
-    bzero(ht, sizeof(*ht));
+    ZEROIZE(ht);
     ht->size = size;
     ht->table = CALLOC_ARR(state_id_arr_t, ht->size);
     ht->bufsize = pddlFDRStatePackerBufSize(&state_pool->packer);
@@ -182,7 +182,7 @@ static void htablePrintStats(const htable_t *ht)
     int remain = 256;
 
     int sizes[256];
-    bzero(sizes, sizeof(int) * 256);
+    ZEROIZE_ARR(sizes, 256);
     int sum = 0;
     for (size_t i = 0; i < ht->size; ++i)
         sizes[ht->table[i].size]++;
@@ -217,14 +217,14 @@ static void htableResize(htable_t *ht, size_t size)
         htableInsert(ht, id, packed_state);
     }
 
-    PDDL_INFO2(ht->state_pool->err, "State pool: rehashing DONE");
+    PDDL_INFO(ht->state_pool->err, "State pool: rehashing DONE");
 }
 
 void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
                           const pddl_fdr_vars_t *vars,
                           pddl_err_t *err)
 {
-    bzero(state_pool, sizeof(*state_pool));
+    ZEROIZE(state_pool);
     state_pool->err = err;
     pddlFDRStatePackerInit(&state_pool->packer, vars);
     state_pool->num_states = 0;

@@ -16,9 +16,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/fdr_op.h"
-#include "internal.h"
 
 static void condEffFree(pddl_fdr_op_cond_eff_t *ce)
 {
@@ -28,9 +28,7 @@ static void condEffFree(pddl_fdr_op_cond_eff_t *ce)
 
 pddl_fdr_op_t *pddlFDROpNewEmpty(void)
 {
-    pddl_fdr_op_t *op = ALLOC(pddl_fdr_op_t);
-    bzero(op, sizeof(*op));
-    return op;
+    return ZALLOC(pddl_fdr_op_t);
 }
 
 pddl_fdr_op_t *pddlFDROpClone(const pddl_fdr_op_t *op_in)
@@ -76,7 +74,7 @@ pddl_fdr_op_cond_eff_t *pddlFDROpAddEmptyCondEff(pddl_fdr_op_t *op)
     }
 
     pddl_fdr_op_cond_eff_t *ce = op->cond_eff + op->cond_eff_size++;
-    bzero(ce, sizeof(*ce));
+    ZEROIZE(ce);
     return ce;
 }
 
@@ -150,7 +148,7 @@ int pddlFDROpIsApplicable(const pddl_fdr_op_t *op, const int *state)
 
 void pddlFDROpsInit(pddl_fdr_ops_t *ops)
 {
-    bzero(ops, sizeof(*ops));
+    ZEROIZE(ops);
 }
 
 void pddlFDROpsInitCopy(pddl_fdr_ops_t *ops, const pddl_fdr_ops_t *ops_in)

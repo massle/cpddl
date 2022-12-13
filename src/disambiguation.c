@@ -16,8 +16,8 @@
  * See the License for more information.
  */
 
-#include "pddl/disambiguation.h"
 #include "internal.h"
+#include "pddl/disambiguation.h"
 
 static void selectExactlyOneMGroups(pddl_mgroups_t *mg,
                                     const pddl_mgroups_t *mgroup)
@@ -41,7 +41,7 @@ int pddlDisambiguateInit(pddl_disambiguate_t *dis,
 {
     pddl_mgroups_t mgroup;
 
-    bzero(dis, sizeof(*dis));
+    ZEROIZE(dis);
 
     pddlMGroupsInitEmpty(&mgroup);
     selectExactlyOneMGroups(&mgroup, mgroup_in);

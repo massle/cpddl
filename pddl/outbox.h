@@ -20,7 +20,6 @@
 #ifndef __PDDL_OUTBOX_H__
 #define __PDDL_OUTBOX_H__
 
-#include <stdio.h>
 #include <pddl/err.h>
 
 #ifdef __cplusplus

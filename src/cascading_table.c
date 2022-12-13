@@ -17,8 +17,8 @@
  * See the License for more information.
  */
 
-#include "pddl/cascading_table.h"
 #include "internal.h"
+#include "pddl/cascading_table.h"
 
 #define PRUNED -1
 #define PDDL_CASCADING_TABLE_LEAF 0
@@ -125,7 +125,7 @@ static pddl_cascading_table_t *cloneLeaf(const pddl_cascading_table_t *_t)
     pddl_cascading_table_leaf_t *out;
    
     out = ALLOC(pddl_cascading_table_leaf_t);
-    bzero(out, sizeof(*out));
+    ZEROIZE(out);
     copyTable(&out->cascading_table, &t->cascading_table);
     out->id = t->id;
 
@@ -137,8 +137,7 @@ static pddl_cascading_table_t *cloneMerge(const pddl_cascading_table_t *_t)
     MERGE(t, _t);
     pddl_cascading_table_merge_t *out;
    
-    out = ALLOC(pddl_cascading_table_merge_t);
-    bzero(out, sizeof(*out));
+    out = ZALLOC(pddl_cascading_table_merge_t);
     copyTable(&out->cascading_table, &t->cascading_table);
     out->left = pddlCascadingTableClone(t->left);
     out->right = pddlCascadingTableClone(t->right);
@@ -148,8 +147,7 @@ static pddl_cascading_table_t *cloneMerge(const pddl_cascading_table_t *_t)
 pddl_cascading_table_t *pddlCascadingTableNewLeaf(int id, int size)
 {
     pddl_cascading_table_leaf_t *t;
-    t = ALLOC(pddl_cascading_table_leaf_t);
-    bzero(t, sizeof(*t));
+    t = ZALLOC(pddl_cascading_table_leaf_t);
     initTable(&t->cascading_table, PDDL_CASCADING_TABLE_LEAF, size);
     t->id = id;
 
@@ -160,8 +158,7 @@ pddl_cascading_table_t *pddlCascadingTableMerge(pddl_cascading_table_t *t1,
                                                 pddl_cascading_table_t *t2)
 {
     pddl_cascading_table_merge_t *m;
-    m = ALLOC(pddl_cascading_table_merge_t);
-    bzero(m, sizeof(*m));
+    m = ZALLOC(pddl_cascading_table_merge_t);
     int size = t1->size * t2->size;
     initTable(&m->cascading_table, PDDL_CASCADING_TABLE_MERGE, size);
     m->left = pddlCascadingTableClone(t1);

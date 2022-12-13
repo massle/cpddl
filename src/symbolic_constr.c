@@ -185,7 +185,7 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
                             float max_time,
                             pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Constructing constraint BDDs ...");
+    PDDL_INFO(err, "Constructing constraint BDDs ...");
 
     constr->vars = vars;
 
@@ -212,14 +212,14 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
             pddlISetAdd(constr->fact_mutex_bw + f2, f1);
         }
     }
-    PDDL_INFO2(err, "Mutex maps created.");
+    PDDL_INFO(err, "Mutex maps created.");
 
     if (pddlDisambiguateInit(&constr->disambiguate, vars->fact_size,
                              mutex, mgroup) != 0){
-        PDDL_FATAL2("Disambiguation failed because there are"
+        PANIC("Disambiguation failed because there are"
                     " no exactly-1 mutex groups");
     }
-    PDDL_INFO2(err, "Disambiguation created.");
+    PDDL_INFO(err, "Disambiguation created.");
 
     pddlBDDsInit(&constr->fw_mutex);
     pddlBDDsInit(&constr->fw_mgroup);

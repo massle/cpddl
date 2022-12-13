@@ -20,12 +20,9 @@
 #include "pddl/config.h"
 #ifdef PDDL_CUDD
 
-#include <sys/resource.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include <cudd/cudd.h>
 #include "pddl/bdd.h"
-#include "internal.h"
 
 
 #define M(P) ((DdManager *)(P))
@@ -45,7 +42,7 @@ static void outOfMemory(size_t mem_size)
     unsigned long peak_mem = 0L;
     if (getrusage(RUSAGE_SELF, &usg) == 0)
         peak_mem = usg.ru_maxrss / 1024UL;
-    PDDL_FATAL("Memory allocation failed (peak memory: %luMB).", peak_mem);
+    PANIC("Memory allocation failed (peak memory: %luMB).", peak_mem);
 }
 
 pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,
@@ -302,7 +299,7 @@ pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
 #include "pddl/err.h"
 #include "pddl/bdd.h"
 
-#define ERROR PDDL_FATAL2("bdd module requires CUDD library")
+#define ERROR PANIC("bdd module requires CUDD library")
 
 pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,
                                       unsigned int cache_size)

@@ -16,9 +16,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/fdr_part_state.h"
-#include "internal.h"
 
 
 static int factsCmp(const void *a, const void *b, void *_)
@@ -38,7 +38,7 @@ static void sortFacts(pddl_fdr_part_state_t *ps)
 
 void pddlFDRPartStateInit(pddl_fdr_part_state_t *ps)
 {
-    bzero(ps, sizeof(*ps));
+    ZEROIZE(ps);
 }
 
 void pddlFDRPartStateInitCopy(pddl_fdr_part_state_t *dst,

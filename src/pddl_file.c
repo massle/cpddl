@@ -17,13 +17,9 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
-
-#include "pddl/pddl_file.h"
 #include "internal.h"
+#include "pddl/pddl_file.h"
+#include "pddl/sort.h"
 
 #define MAX_LEN 512
 #define BUFSIZE 1024
@@ -48,6 +44,87 @@ int pddlIsFile(const char *d)
     if (S_ISREG(st.st_mode))
         return 1;
     return 0;
+}
+
+char *pddlDirname(const char *fn)
+{
+    char *dname = STRDUP(fn);
+    int len = strlen(dname);
+    int pos = len - 1;
+    for (; pos >= 0 && dname[pos] != '/'; --pos);
+    if (pos >= 0 && pos < len - 1)
+        dname[pos + 1] = '\x0';
+
+    char path[4096];
+    if (realpath(dname, path) == NULL)
+        PANIC("Could not resolve path %s", fn);
+    FREE(dname);
+    return STRDUP(path);
+}
+
+static int cmpFilename(const void *a, const void *b, void *_)
+{
+    char *s1 = *(char **)a;
+    char *s2 = *(char **)b;
+    return strcmp(s1, s2);
+}
+
+static char **_pddlListDir(const char *dname,
+                           int *list_size,
+                           const char *suff,
+                           pddl_err_t *err)
+{
+    *list_size = 0;
+    if (!pddlIsDir(dname))
+        ERR_RET(err, NULL, "%s is not a directory", dname);
+
+    int dname_size = strlen(dname);
+    int suff_size = -1;
+    if (suff != NULL)
+        suff_size = strlen(suff);
+    int alloc = 2;
+    char **list = ALLOC_ARR(char *, alloc);
+
+    DIR *dir = opendir(dname);
+    if (dir == NULL){
+        FREE(list);
+        ERR_RET(err, NULL, "Could not open directory %s", dname);
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL){
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        int esize = strlen(entry->d_name);
+        if (suff_size > 0){
+            if (esize < suff_size
+                    || strcmp(entry->d_name + esize - suff_size, suff) != 0){
+                continue;
+            }
+        }
+
+        if (*list_size == alloc){
+            alloc *= 2;
+            list = REALLOC_ARR(list, char *, alloc);
+        }
+        list[*list_size] = ALLOC_ARR(char, dname_size + esize + 2);
+        sprintf(list[*list_size], "%s/%s", dname, entry->d_name);
+        *list_size += 1;
+    }
+    closedir(dir);
+
+    pddlSort(list, *list_size, sizeof(char *), cmpFilename, NULL);
+    return list;
+}
+
+char **pddlListDir(const char *dname, int *list_size, pddl_err_t *err)
+{
+    return _pddlListDir(dname, list_size, NULL, err);
+}
+
+char **pddlListDirPDDLFiles(const char *dname, int *list_size, pddl_err_t *err)
+{
+    return _pddlListDir(dname, list_size, ".pddl", err);
 }
 
 static void extractDir(const char *path, char *dir)
@@ -163,19 +240,19 @@ int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err)
 {
     if (pddlIsFile(s)){
         if (strlen(s) >= PDDL_FILE_MAX_PATH_LEN - 1){
-            PDDL_ERR_RET2(err, -1, "Path(s) too long.");
+            PDDL_ERR_RET(err, -1, "Path(s) too long.");
         }
 
         if (findDomainToProblem(s, files->domain_pddl) == 0){
             strcpy(files->problem_pddl, s);
             return 0;
         }else{
-            PDDL_ERR_RET2(err, -1, "Cannot find domain pddl file.");
+            PDDL_ERR_RET(err, -1, "Cannot find domain pddl file.");
         }
 
     }else{
         if (strlen(s) + 5 >= PDDL_FILE_MAX_PATH_LEN - 1){
-            PDDL_ERR_RET2(err, -1, "Path(s) too long.");
+            PDDL_ERR_RET(err, -1, "Path(s) too long.");
         }
 
         char prob_pddl[MAX_LEN];
@@ -195,10 +272,10 @@ int pddlFiles1(pddl_files_t *files, const char *s, pddl_err_t *err)
 int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
               pddl_err_t *err)
 {
-    bzero(files, sizeof(*files));
+    ZEROIZE(files);
 
     if (s1 == NULL && s2 == NULL){
-        PDDL_ERR_RET2(err, -1, "Unspecified specifiers.");
+        PDDL_ERR_RET(err, -1, "Unspecified specifiers.");
 
     }else if (s1 == NULL && s2 != NULL){
         return pddlFiles1(files, s2, err);
@@ -210,7 +287,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
         if (pddlIsFile(s1) && pddlIsFile(s2)){
             if (strlen(s1) >= PDDL_FILE_MAX_PATH_LEN - 1
                     || strlen(s2) >= PDDL_FILE_MAX_PATH_LEN - 1){
-                PDDL_ERR_RET2(err, -1, "Path(s) too long.");
+                PDDL_ERR_RET(err, -1, "Path(s) too long.");
             }
             strcpy(files->domain_pddl, s1);
             strcpy(files->problem_pddl, s2);
@@ -218,7 +295,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
 
         }else if (pddlIsDir(s1)){
             if (strlen(s1) + strlen(s2) >= PDDL_FILE_MAX_PATH_LEN - 1){
-                PDDL_ERR_RET2(err, -1, "Path(s) too long.");
+                PDDL_ERR_RET(err, -1, "Path(s) too long.");
             }
 
             char prob[PDDL_FILE_MAX_PATH_LEN];
@@ -229,7 +306,7 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
             return pddlFiles1(files, prob, err);
 
         }else{
-            PDDL_ERR_RET2(err, -1, "Cannot find pddl files.");
+            PDDL_ERR_RET(err, -1, "Cannot find pddl files.");
         }
     }
 }
@@ -269,7 +346,7 @@ int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err)
 
 void pddlBenchInit(pddl_bench_t *bench)
 {
-    bzero(bench, sizeof(*bench));
+    ZEROIZE(bench);
 }
 
 void pddlBenchFree(pddl_bench_t *bench)
@@ -289,7 +366,7 @@ static void benchAdd(pddl_bench_t *bench, const pddl_files_t *fs)
     }
 
     pddl_bench_task_t *task = bench->task + bench->task_size++;
-    bzero(task, sizeof(*task));
+    ZEROIZE(task);
     char *rpath = realpath(fs->domain_pddl, task->pddl_files.domain_pddl);
     ASSERT_RUNTIME(rpath != NULL);
     rpath = realpath(fs->problem_pddl, task->pddl_files.problem_pddl);

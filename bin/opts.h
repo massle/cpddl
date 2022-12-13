@@ -75,6 +75,11 @@ void optsAddStr(const char *long_name,
                 const char *default_value,
                 const char *desc);
 
+void optsAddStrFn(const char *long_name,
+                 char short_name,
+                 int (*fn)(const char *v),
+                 const char *desc);
+
 void optsAddTags(const char *long_name,
                  char short_name,
                  const char *default_value,

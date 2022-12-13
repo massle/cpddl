@@ -20,9 +20,8 @@
 #ifndef __PDDL_STRIPS_OP_H__
 #define __PDDL_STRIPS_OP_H__
 
-#include <pddl/iset.h>
-
 #include <pddl/common.h>
+#include <pddl/iset.h>
 #include <pddl/fact.h>
 
 #ifdef __cplusplus

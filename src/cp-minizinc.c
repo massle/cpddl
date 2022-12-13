@@ -12,9 +12,9 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/cp.h"
 #include "pddl/subprocess.h"
-#include "internal.h"
 #include "_cp.h"
 
 int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
@@ -22,7 +22,7 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
                          pddl_cp_sol_t *sol,
                          pddl_err_t *err)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     if (cfg->minizinc == NULL){
         LOG(err, "default minizinc [%s] version %s", PDDL_MINIZINC_BIN,
@@ -38,7 +38,7 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     pddlCPWriteMinizinc(cp, fout);
     fflush(fout);
     fclose(fout);
-    LOG2(err, "Problem written in mzn format");
+    LOG(err, "Problem written in mzn format");
 
     char *argv[] = {
         (char *)(cfg->minizinc == NULL ? PDDL_MINIZINC_BIN : cfg->minizinc),
@@ -74,14 +74,14 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
                              &solbuf, &solbuf_size, NULL, NULL, err);
     ASSERT_RUNTIME(execret == 0);
     if (status.signaled){
-        LOG2(err, "Something went wrong.");
-        LOG2(err, "Minizinc was killed by a signal.");
+        LOG(err, "Something went wrong.");
+        LOG(err, "Minizinc was killed by a signal.");
         ret = PDDL_CP_UNKNOWN;
         goto minizinc_end;
     }
     if (solbuf_size == 0){
-        LOG2(err, "Something went wrong.");
-        LOG2(err, "Minizinc did not print any output.");
+        LOG(err, "Something went wrong.");
+        LOG(err, "Minizinc did not print any output.");
         ret = PDDL_CP_UNKNOWN;
         goto minizinc_end;
     }
@@ -101,8 +101,8 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     }
 
     if (solidx != 0){
-        LOG2(err, "Something went wrong.");
-        LOG2(err, "Minizinc did not print the full output.");
+        LOG(err, "Something went wrong.");
+        LOG(err, "Minizinc did not print the full output.");
         if (solarr != NULL)
             FREE(solarr);
         ret = PDDL_CP_UNKNOWN;
@@ -119,30 +119,30 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
 
     if (strncmp(solbuf + offset, "SAT", 3) == 0){
         ret = PDDL_CP_FOUND;
-        LOG2(err, "Solved optimally");
+        LOG(err, "Solved optimally");
     }else if (strncmp(solbuf + offset, "UNKNOWN", 7) == 0){
         if (have_solution){
             ret = PDDL_CP_FOUND_SUBOPTIMAL;
-            LOG2(err, "Solved sub-optimally");
+            LOG(err, "Solved sub-optimally");
         }else{
             ret = PDDL_CP_ABORTED;
-            LOG2(err, "No solution found before time limit");
+            LOG(err, "No solution found before time limit");
         }
     }else if (strncmp(solbuf + offset, "UNSAT", 5) == 0){
         ret = PDDL_CP_NO_SOLUTION;
-        LOG2(err, "Unsolvable");
+        LOG(err, "Unsolvable");
     }else if (strncmp(solbuf + offset, "UNBOUND", 7) == 0){
         ret = PDDL_CP_NO_SOLUTION;
-        LOG2(err, "Unbounded");
+        LOG(err, "Unbounded");
     }else if (strncmp(solbuf + offset, "UNSATorUNBOUND", 15) == 0){
         ret = PDDL_CP_NO_SOLUTION;
-        LOG2(err, "Unsolvable or unbounded");
+        LOG(err, "Unsolvable or unbounded");
     }else if (strncmp(solbuf + offset, "ERR", 3) == 0){
         ret = PDDL_CP_ABORTED;
-        LOG2(err, "Error");
+        LOG(err, "Error");
     }else{
-        LOG2(err, "Something went wrong.");
-        LOG2(err, "Minizinc did not print the full output -- missing result indicator.");
+        LOG(err, "Something went wrong.");
+        LOG(err, "Minizinc did not print the full output -- missing result indicator.");
         if (solarr != NULL)
             FREE(solarr);
         ret = PDDL_CP_UNKNOWN;

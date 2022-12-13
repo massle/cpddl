@@ -28,7 +28,7 @@ void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
                               const pddl_mutex_pairs_t *mutex,
                               const pddl_strips_fact_cross_ref_t *cref)
 {
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->num_states = pddlISetSize(mgroup) + 1;
     pddlISetUnion(&p->mgroup, mgroup);
     p->tr = CALLOC_ARR(pddl_iset_t, p->num_states * p->num_states);
@@ -91,7 +91,7 @@ void pddlMGroupProjectionInit(pddl_mgroup_projection_t *p,
 void pddlMGroupProjectionInitCopy(pddl_mgroup_projection_t *p,
                                   const pddl_mgroup_projection_t *src)
 {
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->num_states = src->num_states;
     pddlISetUnion(&p->mgroup, &src->mgroup);
     p->tr = CALLOC_ARR(pddl_iset_t, p->num_states * p->num_states);
@@ -185,7 +185,7 @@ void pddlMGroupProjectionPruneUnreachableFromInit(pddl_mgroup_projection_t *p,
     pddlISetIntersect2(&init, &p->mgroup, &strips->init);
 
     if (pddlISetSize(&init) > 1)
-        PDDL_FATAL2("The set of facts is not a mutex group!");
+        PANIC("The set of facts is not a mutex group!");
 
     if (pddlISetSize(&init) == 0){
         pddlISetAdd(&from_state, p->num_states - 1);

@@ -12,6 +12,11 @@ enum {
 };
 
 enum {
+    LIFTED_PLAN_SUCC_GEN_DL = 0,
+    LIFTED_PLAN_SUCC_GEN_SQL,
+};
+
+enum {
     LIFTED_PLAN_HEUR_BLIND = 0,
     LIFTED_PLAN_HEUR_HMAX,
     LIFTED_PLAN_HEUR_HADD,
@@ -45,7 +50,7 @@ enum {
     GROUND_PLAN_HEUR_ADD,
     GROUND_PLAN_HEUR_FF,
     GROUND_PLAN_HEUR_FLOW,
-    GROUND_PLAN_HEUR_POT
+    GROUND_PLAN_HEUR_POT,
 };
 
 enum {
@@ -57,6 +62,7 @@ enum {
 
 struct options {
     int help;
+    int version;
     int max_mem;
     char *log_out;
     char *prop_out;
@@ -67,6 +73,9 @@ struct options {
         int remove_empty_types;
         int compile_away_cond_eff;
         int compile_in_lmg;
+        int compile_in_lmg_mutex;
+        int compile_in_lmg_dead_end;
+        int enforce_unit_cost;
         char *domain_out;
         char *problem_out;
         int stop;
@@ -90,6 +99,7 @@ struct options {
 
     struct {
         int search;
+        int succ_gen;
         int heur;
         pddl_homomorphism_config_t homomorph_cfg;
         int random_seed;
@@ -110,6 +120,9 @@ struct options {
         int compile_away_cond_eff;
         pddl_process_strips_t process;
         char *py_out;
+        char *fam_dump;
+        char *h2_dump;
+        char *h3_dump;
         int stop;
     } strips;
 
@@ -146,6 +159,10 @@ struct options {
     struct {
         int search;
         int heur;
+        int heur_op_mutex;
+        int heur_op_mutex_ts;
+        int heur_op_mutex_op_fact;
+        int heur_op_mutex_hm_op;
         char *plan_out;
         pddl_hpot_config_t pot_cfg;
     } ground_planner;
@@ -168,6 +185,12 @@ struct options {
         int max_depth;
         int use_mutex;
     } reversibility;
+
+    struct {
+        int enable;
+        char *out_task;
+        char *out_fdr;
+    } asnets;
 };
 typedef struct options options_t;
 extern options_t opt;

@@ -53,8 +53,7 @@ pddl_search_t *pddlSearchAStar(const pddl_fdr_t *fdr,
 {
     pddl_search_astar_t *astar;
 
-    astar = ALLOC(pddl_search_astar_t);
-    bzero(astar, sizeof(*astar));
+    astar = ZALLOC(pddl_search_astar_t);
     _pddlSearchInit(&astar->search,
                     pddlSearchAStarDel,
                     pddlSearchAStarInitStep,
@@ -243,7 +242,7 @@ static int pddlSearchAStarExtractPlan(pddl_search_t *s, pddl_plan_t *plan)
 {
     pddl_search_astar_t *astar
         = pddl_container_of(s, pddl_search_astar_t, search);
-    if (astar->goal_state_id < 0)
+    if (astar->goal_state_id == PDDL_NO_STATE_ID)
         return -1;
     pddlPlanLoadBacktrack(plan, astar->goal_state_id, &astar->state_space);
     return 0;

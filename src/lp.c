@@ -12,98 +12,116 @@
  *  See the License for more information.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/lp.h"
 #include "_lp.h"
-#include "internal.h"
-
-#define SOLVER(flags) ((flags) & 0xf0u)
 
 #if defined(PDDL_CPLEX)
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_cplex;
 #elif defined(PDDL_GUROBI)
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_gurobi;
+#elif defined(PDDL_HIGHS)
+pddl_lp_cls_t *pddl_lp_default = &pddl_lp_highs;
 #elif defined(PDDL_GLPK)
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_glpk;
-#elif defined(PDDL_LPSOLVE)
-pddl_lp_cls_t *pddl_lp_default = &pddl_lp_lpsolve;
 #else
 pddl_lp_cls_t *pddl_lp_default = &pddl_lp_not_available;
 #endif
 
-int pddlLPSolverAvailable(unsigned solver)
+static pddl_lp_cls_t *getSolverCls(pddl_lp_solver_t solver)
 {
-    if (SOLVER(solver) == PDDL_LP_CPLEX){
+    switch (solver){
+        case PDDL_LP_CPLEX:
+            return &pddl_lp_cplex;
+        case PDDL_LP_GUROBI:
+            return &pddl_lp_gurobi;
+        case PDDL_LP_HIGHS:
+            return &pddl_lp_highs;
+        case PDDL_LP_GLPK:
+            return &pddl_lp_glpk;
+        default:
+            return pddl_lp_default;
+    }
+}
+
+void pddlLPConfigLog(const pddl_lp_config_t *cfg, pddl_err_t *err)
+{
+    LOG_CONFIG_INT(cfg, rows, err);
+    LOG_CONFIG_INT(cfg, cols, err);
+    LOG_CONFIG_BOOL(cfg, maximize, err);
+    const pddl_lp_cls_t *cls = getSolverCls(cfg->solver);
+    LOG(err, "solver = %{solver}s v%{solver_version}s",
+        cls->solver_name, cls->solver_version);
+    LOG_CONFIG_INT(cfg, num_threads, err);
+    LOG_CONFIG_DBL(cfg, time_limit, err);
+    LOG_CONFIG_BOOL(cfg, tune_int_operator_potential, err);
+}
+
+int pddlLPSolverAvailable(pddl_lp_solver_t solver)
+{
+    if (solver == PDDL_LP_CPLEX){
         if (pddl_lp_cplex.new != NULL)
             return 1;
         return 0;
 
-    }else if (SOLVER(solver) == PDDL_LP_GUROBI){
+    }else if (solver == PDDL_LP_GUROBI){
         if (pddl_lp_gurobi.new != NULL)
             return 1;
         return 0;
 
-    }else if (SOLVER(solver) == PDDL_LP_GLPK){
-        if (pddl_lp_glpk.new != NULL)
+    }else if (solver == PDDL_LP_HIGHS){
+        if (pddl_lp_highs.new != NULL)
             return 1;
         return 0;
 
-    }else if (SOLVER(solver) == PDDL_LP_LPSOLVE){
-        if (pddl_lp_lpsolve.new != NULL)
+    }else if (solver == PDDL_LP_GLPK){
+        if (pddl_lp_glpk.new != NULL)
             return 1;
         return 0;
     }
 
     return pddlLPSolverAvailable(PDDL_LP_CPLEX)
             || pddlLPSolverAvailable(PDDL_LP_GUROBI)
-            || pddlLPSolverAvailable(PDDL_LP_GLPK)
-            || pddlLPSolverAvailable(PDDL_LP_LPSOLVE);
+            || pddlLPSolverAvailable(PDDL_LP_HIGHS)
+            || pddlLPSolverAvailable(PDDL_LP_GLPK);
 }
 
-int pddlLPSetDefault(unsigned solver, pddl_err_t *err)
+int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
 {
     if (!pddlLPSolverAvailable(solver)){
-        switch (SOLVER(solver)){
+        switch (solver){
             case PDDL_LP_CPLEX:
-                WARN2(err, "The CPLEX LP solver is not available");
+                WARN(err, "The CPLEX LP solver is not available");
                 break;
             case PDDL_LP_GUROBI:
-                WARN2(err, "The Gurobi LP solver is not available");
+                WARN(err, "The Gurobi LP solver is not available");
                 break;
-            case PDDL_LP_LPSOLVE:
-                WARN2(err, "The lpsolve LP solver is not available");
+            case PDDL_LP_HIGHS:
+                WARN(err, "The HiGHS LP solver is not available");
                 break;
             case PDDL_LP_GLPK:
-                WARN2(err, "The GLPK LP solver is not available");
+                WARN(err, "The GLPK LP solver is not available");
                 break;
             default:
-                WARN2(err, "Unkown LP solver identifier!");
+                WARN(err, "Unkown LP solver identifier!");
         }
         return -1;
     }
 
-    switch (SOLVER(solver)){
-        case PDDL_LP_CPLEX:
-            pddl_lp_default = &pddl_lp_cplex;
-            break;
-        case PDDL_LP_GUROBI:
-            pddl_lp_default = &pddl_lp_gurobi;
-            break;
-        case PDDL_LP_LPSOLVE:
-            pddl_lp_default = &pddl_lp_lpsolve;
-            break;
-        case PDDL_LP_GLPK:
-            pddl_lp_default = &pddl_lp_glpk;
-            break;
-    }
-
+    pddl_lp_default = getSolverCls(solver);
     return 0;
 }
 
-pddl_lp_t *pddlLPNew(int rows, int cols, unsigned flags, pddl_err_t *err)
+pddl_lp_t *pddlLPNew(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
-    return pddl_lp_default->new(rows, cols, flags, err);
+    pddl_lp_cls_t *cls = getSolverCls(cfg->solver);
+    CTX_NO_TIME(err, "lp_init", "LP-Init");
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlLPConfigLog(cfg, err);
+    CTXEND(err);
+    pddl_lp_t *lp = cls->new(cfg, err);
+    CTXEND(err);
+    return lp;
 }
 
 void pddlLPDel(pddl_lp_t *lp)
@@ -188,18 +206,16 @@ int pddlLPNumCols(const pddl_lp_t *lp)
 
 int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj)
 {
-    return lp->cls->solve(lp, val, obj);
+    CTX(lp->err, "lp_solve", "LP-Solve");
+    LOG(lp->err, "rows: %d, cols: %d", pddlLPNumRows(lp), pddlLPNumCols(lp));
+    int ret = lp->cls->solve(lp, val, obj);
+    CTXEND(lp->err);
+    return ret;
 }
 
 void pddlLPWrite(pddl_lp_t *lp, const char *fn)
 {
     lp->cls->write(lp, fn);
-}
-
-void pddlLPTune(pddl_lp_t *lp, unsigned flag)
-{
-    if (lp->cls->tune != NULL)
-        lp->cls->tune(lp, flag);
 }
 
 
@@ -210,7 +226,7 @@ void pddlLPTune(pddl_lp_t *lp, unsigned flag)
     fprintf(stderr, "Error: The requested LP solver is not available!\n"); \
     exit(-1); \
     } while (0)
-static pddl_lp_t *noNew(int rows, int cols, unsigned flags, pddl_err_t *err)
+static pddl_lp_t *noNew(const pddl_lp_config_t *cfg, pddl_err_t *err)
 { noSolverExit(); }
 static void noDel(pddl_lp_t *lp)
 { noSolverExit(); }
@@ -244,11 +260,9 @@ static int noSolve(pddl_lp_t *lp, double *val, double *obj)
 { noSolverExit(); }
 static void noWrite(pddl_lp_t *lp, const char *fn)
 { noSolverExit(); }
-static void noTune(pddl_lp_t *lp, unsigned flag)
-{ noSolverExit(); }
 
 pddl_lp_cls_t pddl_lp_not_available = {
-    0, "",
+    0, "", "",
     noNew,
     noDel,
     noSetObj,
@@ -266,5 +280,4 @@ pddl_lp_cls_t pddl_lp_not_available = {
     noNumCols,
     noSolve,
     noWrite,
-    noTune,
 };

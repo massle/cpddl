@@ -20,13 +20,49 @@
 // TODO: Merge candidates with proved mgroups if possible (e.g., when types
 //       of variables are subtypes)
 
-#include <limits.h>
+#include "internal.h"
 #include "pddl/timer.h"
 #include "pddl/fifo.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup_htable.h"
 #include "pddl/lifted_mgroup_infer.h"
-#include "internal.h"
+
+void pddlLiftedMGroupsInferConfigLog(const pddl_lifted_mgroups_infer_config_t *cfg,
+                                     pddl_err_t *err)
+{
+    LOG_CONFIG_INT(cfg, max_candidates, err);
+    LOG_CONFIG_INT(cfg, max_mgroups, err);
+    LOG_CONFIG_BOOL(cfg, fd, err);
+    LOG(err, "fd_monotonicity = %{fd_monotonicity}b", cfg->fd_monotonicity != NULL);
+}
+
+int pddlLiftedMGroupsInfer(const pddl_t *pddl,
+                           const pddl_lifted_mgroups_infer_config_t *cfg,
+                           pddl_lifted_mgroups_t *lmg,
+                           pddl_err_t *err)
+{
+    CTX(err, "lmg", "LMG");
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlLiftedMGroupsInferConfigLog(cfg, err);
+    CTXEND(err);
+
+    pddl_lifted_mgroups_infer_limits_t limits
+            = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
+    limits.max_candidates = cfg->max_candidates;
+    limits.max_mgroups = cfg->max_mgroups;
+
+    if (cfg->fd){
+        pddlLiftedMGroupsInferMonotonicity(pddl, &limits,
+                                           cfg->fd_monotonicity, lmg, err);
+    }else{
+        pddlLiftedMGroupsInferFAMGroups(pddl, &limits, lmg, err);
+    }
+    pddlLiftedMGroupsSetExactlyOne(pddl, lmg, err);
+    pddlLiftedMGroupsSetStatic(pddl, lmg, err);
+
+    CTXEND(err);
+    return 0;
+}
 
 struct cand {
     int id;
@@ -73,8 +109,8 @@ typedef struct refine refine_t;
 
 
 struct ce_atom {
-    const pddl_cond_t *pre;
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_t *pre;
+    const pddl_fm_atom_t *atom;
 };
 typedef struct ce_atom ce_atom_t;
 
@@ -125,7 +161,7 @@ static int ctxArgInit(const pddl_t *pddl, const pddl_param_t *param)
 #define FOR_EACH_ATOM(MG, C) \
     for (int ___i = 0; \
             ___i < (MG)->cond.size \
-                && ((C) = PDDL_COND_CAST((MG)->cond.cond[___i], atom)); \
+                && ((C) = PDDL_FM_CAST((MG)->cond.fm[___i], atom)); \
                 ++___i)
 
 
@@ -134,26 +170,26 @@ static int ctxArgInit(const pddl_t *pddl, const pddl_param_t *param)
 
 static void refineTooHeavyInit(refine_t *refine,
                                const pddl_params_t *params,
-                               const pddl_cond_atom_t *a1,
-                               const pddl_cond_atom_t *a2,
+                               const pddl_fm_atom_t *a1,
+                               const pddl_fm_atom_t *a2,
                                const cand_t *cand,
-                               const pddl_cond_atom_t *cand_atom1,
-                               const pddl_cond_atom_t *cand_atom2);
+                               const pddl_fm_atom_t *cand_atom1,
+                               const pddl_fm_atom_t *cand_atom2);
 
 static void refineTooHeavyAction(refine_t *refine,
                                  const pddl_params_t *params,
-                                 const pddl_cond_atom_t *a1,
-                                 const pddl_cond_atom_t *a2,
+                                 const pddl_fm_atom_t *a1,
+                                 const pddl_fm_atom_t *a2,
                                  const cand_t *cand,
-                                 const pddl_cond_atom_t *cand_atom1,
-                                 const pddl_cond_atom_t *cand_atom2);
+                                 const pddl_fm_atom_t *cand_atom1,
+                                 const pddl_fm_atom_t *cand_atom2);
 
 static void refineUnbalancedAction(refine_t *refine,
                                    const unify_action_ctx_t *ctx,
                                    const pddl_action_t *action,
-                                   const pddl_cond_atom_t *add_eff,
+                                   const pddl_fm_atom_t *add_eff,
                                    const cand_t *cand,
-                                   const pddl_cond_atom_t *cand_add_eff);
+                                   const pddl_fm_atom_t *cand_add_eff);
 
 
 
@@ -169,7 +205,7 @@ static void replaceSingleObjectTypes(const pddl_t *pddl,
             int obj = pddlTypeGetObj(&pddl->type, type, 0);
 
             for (int ati = 0; ati < mg->cond.size; ++ati){
-                pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ati], atom);
+                pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ati], atom);
                 for (int ai = 0; ai < a->arg_size; ++ai){
                     if (a->arg[ai].param == pid){
                         a->arg[ai].param = -1;
@@ -185,7 +221,7 @@ static void replaceSingleObjectTypes(const pddl_t *pddl,
 
     if (mg->param.param_size != ins){
         for (int ati = 0; ati < mg->cond.size; ++ati){
-            pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ati], atom);
+            pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ati], atom);
             for (int ai = 0; ai < a->arg_size; ++ai){
                 if (a->arg[ai].param >= 0)
                     a->arg[ai].param = remap[a->arg[ai].param];
@@ -216,7 +252,7 @@ static void addProvedLiftedMGroup(const pddl_t *pddl,
 static int candHasPred(const pddl_lifted_mgroup_t *cand, int pred)
 {
     for (int i = 0; i < cand->cond.size; ++i){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(cand->cond.cond[i], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(cand->cond.fm[i], atom);
         if (a->pred == pred)
             return 1;
     }
@@ -225,13 +261,13 @@ static int candHasPred(const pddl_lifted_mgroup_t *cand, int pred)
 
 /** Returns true if there is an effect matching one of the predicats from
  *  cand */
-static int candHasAddEff(const cand_t *cand, const pddl_cond_t *eff)
+static int candHasAddEff(const cand_t *cand, const pddl_fm_t *eff)
 {
-    pddl_cond_const_it_eff_t it;
-    const pddl_cond_atom_t *a, *c;
-    const pddl_cond_t *pre;
+    pddl_fm_const_it_eff_t it;
+    const pddl_fm_atom_t *a, *c;
+    const pddl_fm_t *pre;
 
-    PDDL_COND_FOR_EACH_ADD_EFF(eff, &it, a, pre){
+    PDDL_FM_FOR_EACH_ADD_EFF(eff, &it, a, pre){
         FOR_EACH_ATOM(cand->mgroup, c){
             if (a->pred == c->pred)
                 return 1;
@@ -253,7 +289,7 @@ static int candHasCountedVar(const pddl_lifted_mgroup_t *cand)
 
 /** Returns true if atom has counted variable as one of its arguments */
 static int candAtomHasCountedVar(const pddl_lifted_mgroup_t *cand,
-                                 const pddl_cond_atom_t *atom)
+                                 const pddl_fm_atom_t *atom)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom->arg[i].param >= 0
@@ -288,7 +324,7 @@ static int actionArgTypesAreValid(const pddl_t *pddl,
 }
 
 /** Returns value corresponding to the specified argument */
-static int atomArg(const pddl_cond_atom_t *atom, int argi, const int *args)
+static int atomArg(const pddl_fm_atom_t *atom, int argi, const int *args)
 {
     int param = atom->arg[argi].param;
     if (param >= 0)
@@ -297,8 +333,8 @@ static int atomArg(const pddl_cond_atom_t *atom, int argi, const int *args)
 }
 
 /** Returns true if the atoms are equal under the given variable assignment */
-static int atomsEqual(const pddl_cond_atom_t *atom1,
-                      const pddl_cond_atom_t *atom2,
+static int atomsEqual(const pddl_fm_atom_t *atom1,
+                      const pddl_fm_atom_t *atom2,
                       const int *args)
 {
     if (atom1->pred != atom2->pred)
@@ -312,24 +348,24 @@ static int atomsEqual(const pddl_cond_atom_t *atom1,
 }
 
 /** Returns true if the exactly same atom can be found in conj */
-static int equalAtomIn(const pddl_cond_atom_t *atom,
-                       const pddl_cond_t *conj,
+static int equalAtomIn(const pddl_fm_atom_t *atom,
+                       const pddl_fm_t *conj,
                        const int *args)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *a2;
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *a2;
 
     if (conj == NULL)
         return 0;
 
-    PDDL_COND_FOR_EACH_ATOM(conj, &it, a2){
+    PDDL_FM_FOR_EACH_ATOM(conj, &it, a2){
         if (!a2->neg && atomsEqual(a2, atom, args))
             return 1;
     }
     return 0;
 }
 
-static pddl_obj_id_t atomArgObj(const pddl_cond_atom_t *atom, int argi,
+static pddl_obj_id_t atomArgObj(const pddl_fm_atom_t *atom, int argi,
                                 const pddl_obj_id_t *args)
 {
     int param = atom->arg[argi].param;
@@ -338,8 +374,8 @@ static pddl_obj_id_t atomArgObj(const pddl_cond_atom_t *atom, int argi,
     return atom->arg[argi].obj;
 }
 
-static int atomsEqualObj(const pddl_cond_atom_t *atom1,
-                         const pddl_cond_atom_t *atom2,
+static int atomsEqualObj(const pddl_fm_atom_t *atom1,
+                         const pddl_fm_atom_t *atom2,
                          const pddl_obj_id_t *args)
 {
     if (atom1->pred != atom2->pred)
@@ -352,15 +388,15 @@ static int atomsEqualObj(const pddl_cond_atom_t *atom1,
     return 1;
 }
 
-static int equalAtomInArrObj(const pddl_cond_atom_t *atom,
-                             const pddl_cond_arr_t *arr,
+static int equalAtomInArrObj(const pddl_fm_atom_t *atom,
+                             const pddl_fm_arr_t *arr,
                              const pddl_obj_id_t *args)
 {
     if (arr == NULL)
         return 0;
 
     for (int i = 0; i < arr->size; ++i){
-        const pddl_cond_atom_t *a2 = PDDL_COND_CAST(arr->cond[i], atom);
+        const pddl_fm_atom_t *a2 = PDDL_FM_CAST(arr->fm[i], atom);
         if (!a2->neg && atomsEqualObj(a2, atom, args))
             return 1;
     }
@@ -370,16 +406,16 @@ static int equalAtomInArrObj(const pddl_cond_atom_t *atom,
 /** Returns true the inequalities in the conjuction hold given the
  *  bound arguments */
 static int inequalitiesHold(const pddl_t *pddl,
-                            const pddl_cond_t *pre,
+                            const pddl_fm_t *pre,
                             const int *args)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *a;
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *a;
 
     if (pre == NULL)
         return 1;
 
-    PDDL_COND_FOR_EACH_ATOM(pre, &it, a){
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, a){
         if (a->neg && a->pred == pddl->pred.eq_pred){
             int v0 = atomArg(a, 0, args);
             int v1 = atomArg(a, 1, args);
@@ -393,10 +429,10 @@ static int inequalitiesHold(const pddl_t *pddl,
 static int staticAtomHasEqArgs(const pddl_t *pddl, int pred_id,
                                int arg0, int arg1)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *a;
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *a;
 
-    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it, a){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, a){
         if (!a->neg && a->pred == pred_id){
             if (a->arg[arg0].obj == a->arg[arg1].obj)
                 return 1;
@@ -408,16 +444,16 @@ static int staticAtomHasEqArgs(const pddl_t *pddl, int pred_id,
 /** Returns true if static preconditions are not violated with the given
  *  arguments */
 static int staticPreHold(const pddl_t *pddl,
-                         const pddl_cond_t *pre,
+                         const pddl_fm_t *pre,
                          const int *args)
 {
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *a;
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *a;
 
     if (pre == NULL)
         return 1;
 
-    PDDL_COND_FOR_EACH_ATOM(pre, &it, a){
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, a){
         if (!a->neg && pddlPredIsStatic(pddl->pred.pred + a->pred)){
             for (int i = 0; i < a->arg_size; ++i){
                 int arg0 = atomArg(a, i, args);
@@ -438,10 +474,10 @@ static int staticPreHold(const pddl_t *pddl,
 
 /*** UNIFICATION ***/
 static int _unifyFact(const pddl_t *pddl,
-                      const pddl_cond_atom_t *fact,
+                      const pddl_fm_atom_t *fact,
                       const pddl_obj_id_t *fact_arg,
                       const pddl_params_t *cand_params,
-                      const pddl_cond_atom_t *cand_atom,
+                      const pddl_fm_atom_t *cand_atom,
                       pddl_obj_id_t *cand_arg)
 {
     if (fact->pred != cand_atom->pred)
@@ -483,10 +519,10 @@ static int _unifyFact(const pddl_t *pddl,
 
 /** Unify fact (grounded with fact_arg) with the candidate atom */
 static int unifyFact(const pddl_t *pddl,
-                     const pddl_cond_atom_t *fact,
+                     const pddl_fm_atom_t *fact,
                      const pddl_obj_id_t *fact_arg,
                      const pddl_params_t *cand_params,
-                     const pddl_cond_atom_t *cand_atom,
+                     const pddl_fm_atom_t *cand_atom,
                      pddl_obj_id_t *cand_arg)
 {
     for (int i = 0; i < cand_params->param_size; ++i)
@@ -497,10 +533,10 @@ static int unifyFact(const pddl_t *pddl,
 /** Returns true if fact (grounded with fact_arg) can be unified with the
  *  given candidate atom and arguments. */
 static int canUnifyFact(const pddl_t *pddl,
-                        const pddl_cond_atom_t *fact,
+                        const pddl_fm_atom_t *fact,
                         const pddl_obj_id_t *fact_arg,
                         const pddl_params_t *cand_params,
-                        const pddl_cond_atom_t *cand_atom,
+                        const pddl_fm_atom_t *cand_atom,
                         const pddl_obj_id_t *cand_arg)
 {
     pddl_obj_id_t args[cand_params->param_size];
@@ -511,9 +547,9 @@ static int canUnifyFact(const pddl_t *pddl,
 /** Returns true if the atoms are compatible, i.e., they are the same
  *  predicate and arguments have matching types/objects */
 static int atomsAreCompatible(const pddl_t *pddl,
-                              const pddl_cond_atom_t *a1,
+                              const pddl_fm_atom_t *a1,
                               const pddl_params_t *a1_params,
-                              const pddl_cond_atom_t *a2,
+                              const pddl_fm_atom_t *a2,
                               const pddl_params_t *a2_params)
 {
     if (a1->pred != a2->pred)
@@ -558,8 +594,8 @@ static void renameArgs(unify_action_ctx_t *ctx, int from, int to)
 
 /** Unify action's atom with the candidate atom */
 static int unifyActionAtom(unify_action_ctx_t *ctx,
-                           const pddl_cond_atom_t *action_atom,
-                           const pddl_cond_atom_t *cand_atom)
+                           const pddl_fm_atom_t *action_atom,
+                           const pddl_fm_atom_t *cand_atom)
 {
     if (!atomsAreCompatible(ctx->pddl,
                             cand_atom, ctx->cand_param,
@@ -701,11 +737,11 @@ static int isGoalAware(const pddl_t *pddl, const pddl_lifted_mgroup_t *mg)
 {
     pddl_obj_id_t arg[mg->param.param_size];
 
-    pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *goal;
-    PDDL_COND_FOR_EACH_ATOM(pddl->goal, &it, goal){
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *goal;
+    PDDL_FM_FOR_EACH_ATOM(pddl->goal, &it, goal){
         ASSERT(!goal->neg);
-        const pddl_cond_atom_t *c;
+        const pddl_fm_atom_t *c;
         FOR_EACH_ATOM(mg, c){
             if (c->pred != goal->pred)
                 continue;
@@ -723,12 +759,12 @@ static int initHeaviness(const pddl_t *pddl,
                          refine_t *refine)
 {
     pddl_obj_id_t arg[cand->mgroup->param.param_size];
-    const pddl_cond_atom_t *cand1, *cand2;
-    pddl_cond_const_it_atom_t it1, it2;
-    const pddl_cond_atom_t *a1, *a2;
+    const pddl_fm_atom_t *cand1, *cand2;
+    pddl_fm_const_it_atom_t it1, it2;
+    const pddl_fm_atom_t *a1, *a2;
     int unified = 0;
 
-    PDDL_COND_FOR_EACH_ATOM(&pddl->init->cls, &it1, a1){
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it1, a1){
         if (a1->neg)
             continue;
 
@@ -741,7 +777,7 @@ static int initHeaviness(const pddl_t *pddl,
             unified = 1;
 
             it2 = it1;
-            PDDL_COND_FOR_EACH_ATOM_CONT(&it2, a2){
+            PDDL_FM_FOR_EACH_ATOM_CONT(&it2, a2){
                 if (a2->neg)
                     continue;
                 FOR_EACH_ATOM(cand->mgroup, cand2){
@@ -780,14 +816,14 @@ static int isInitTooHeavy(const pddl_t *pddl,
  *  candidate mutex group */
 static int isGroundedCondArrTooHeavy(const cand_t *cand,
                                      const pddl_t *pddl,
-                                     const pddl_cond_arr_t *arr,
+                                     const pddl_fm_arr_t *arr,
                                      const pddl_obj_id_t *arr_args)
 {
     pddl_obj_id_t arg[cand->mgroup->param.param_size];
-    const pddl_cond_atom_t *cand1, *cand2;
+    const pddl_fm_atom_t *cand1, *cand2;
 
     for (int i = 0; i < arr->size; ++i){
-        const pddl_cond_atom_t *a1 = PDDL_COND_CAST(arr->cond[i], atom);
+        const pddl_fm_atom_t *a1 = PDDL_FM_CAST(arr->fm[i], atom);
         if (a1->neg)
             continue;
         FOR_EACH_ATOM(cand->mgroup, cand1){
@@ -799,7 +835,7 @@ static int isGroundedCondArrTooHeavy(const cand_t *cand,
             }
 
             for (int j = i + 1; j < arr->size; ++j){
-                const pddl_cond_atom_t *a2 = PDDL_COND_CAST(arr->cond[j], atom);
+                const pddl_fm_atom_t *a2 = PDDL_FM_CAST(arr->fm[j], atom);
                 if (a2->neg || atomsEqualObj(a1, a2, arr_args))
                     continue;
                 FOR_EACH_ATOM(cand->mgroup, cand2){
@@ -823,11 +859,11 @@ static int isActionTooHeavy(const cand_t *cand,
                             const pddl_action_t *action,
                             refine_t *refine)
 {
-    pddl_cond_const_it_eff_t it1, it2;
-    const pddl_cond_atom_t *a1, *a2, *cand1, *cand2;
-    const pddl_cond_t *pre1, *pre2;
+    pddl_fm_const_it_eff_t it1, it2;
+    const pddl_fm_atom_t *a1, *a2, *cand1, *cand2;
+    const pddl_fm_t *pre1, *pre2;
 
-    PDDL_COND_FOR_EACH_ADD_EFF(action->eff, &it1, a1, pre1){
+    PDDL_FM_FOR_EACH_ADD_EFF(action->eff, &it1, a1, pre1){
         CE_ATOM(ce_a1, pre1, a1);
 
         FOR_EACH_ATOM(cand->mgroup, cand1){
@@ -839,7 +875,7 @@ static int isActionTooHeavy(const cand_t *cand,
                 continue;
 
             it2 = it1;
-            PDDL_COND_FOR_EACH_ADD_EFF_CONT(&it2, a2, pre2){
+            PDDL_FM_FOR_EACH_ADD_EFF_CONT(&it2, a2, pre2){
                 CE_ATOM(ce_a2, pre2, a2);
 
                 if (cand->each_pred_only_once
@@ -889,7 +925,7 @@ static int isAnyActionTooHeavy(const pddl_t *pddl,
 static int unifyActionEff(unify_action_ctx_t *ctx,
                           const pddl_action_t *action,
                           const ce_atom_t *eff,
-                          const pddl_cond_atom_t *cand_atom)
+                          const pddl_fm_atom_t *cand_atom)
 {
     return unifyActionAtom(ctx, eff->atom, cand_atom)
                 && actionArgTypesAreValid(ctx->pddl, &action->param,
@@ -901,7 +937,7 @@ static int unifyActionEff(unify_action_ctx_t *ctx,
 static int canUnifyEff(const unify_action_ctx_t *ctx_in,
                        const pddl_action_t *action,
                        const ce_atom_t *eff,
-                       const pddl_cond_atom_t *cand_atom,
+                       const pddl_fm_atom_t *cand_atom,
                        int need_matching_pre)
 {
     if (!atomsAreCompatible(ctx_in->pddl,
@@ -997,18 +1033,18 @@ static int isAddEffBalanced(const unify_action_ctx_t *ctx,
                             const ce_atom_t *add_eff,
                             const cand_t *cand)
 {
-    pddl_cond_const_it_eff_t it_del;
-    const pddl_cond_atom_t *del_eff_atom;
-    const pddl_cond_t *pre;
-    PDDL_COND_FOR_EACH_DEL_EFF(action->eff, &it_del, del_eff_atom, pre){
+    pddl_fm_const_it_eff_t it_del;
+    const pddl_fm_atom_t *del_eff_atom;
+    const pddl_fm_t *pre;
+    PDDL_FM_FOR_EACH_DEL_EFF(action->eff, &it_del, del_eff_atom, pre){
         ASSERT(del_eff_atom->neg);
         // Consider only delete effects that agree on the precondition with
         // the add effect it is suppose to cover.
-        if (!pddlCondEq(add_eff->pre, pre))
+        if (!pddlFmEq(add_eff->pre, pre))
             continue;
         CE_ATOM(del_eff, pre, del_eff_atom);
 
-        const pddl_cond_atom_t *cand_atom;
+        const pddl_fm_atom_t *cand_atom;
         FOR_EACH_ATOM(cand->mgroup, cand_atom){
             if (cand_atom->pred != del_eff_atom->pred)
                 continue;
@@ -1028,14 +1064,14 @@ static int isActionBalanced(const cand_t *cand,
                             const pddl_action_t *action,
                             refine_t *refine)
 {
-    pddl_cond_const_it_eff_t it;
-    const pddl_cond_atom_t *a;
-    const pddl_cond_t *pre;
-    PDDL_COND_FOR_EACH_ADD_EFF(action->eff, &it, a, pre){
+    pddl_fm_const_it_eff_t it;
+    const pddl_fm_atom_t *a;
+    const pddl_fm_t *pre;
+    PDDL_FM_FOR_EACH_ADD_EFF(action->eff, &it, a, pre){
         ASSERT(!a->neg);
         CE_ATOM(add_eff, pre, a);
 
-        const pddl_cond_atom_t *cand_atom;
+        const pddl_fm_atom_t *cand_atom;
         FOR_EACH_ATOM(cand->mgroup, cand_atom){
             if (cand_atom->pred != a->pred)
                 continue;
@@ -1075,12 +1111,12 @@ static void refineInit(refine_t *r,
                        const pddl_lifted_mgroups_infer_limits_t *limit,
                        pddl_err_t *err)
 {
-    bzero(r, sizeof(*r));
+    ZEROIZE(r);
     r->pddl = pddl;
     r->limit = *limit;
     r->err = err;
 
-    bzero(&r->cfg, sizeof(r->cfg));
+    ZEROIZE(&r->cfg);
     r->cfg.max_counted_vars = INT_MAX;
     r->cfg.refine_type_too_heavy_init = 1;
     r->cfg.refine_type_too_heavy_action = 1;
@@ -1094,7 +1130,7 @@ static void refineInit(refine_t *r,
     pddlLiftedMGroupHTableInit(&r->mgroup);
 
     cand_t c;
-    bzero(&c, sizeof(c));
+    ZEROIZE(&c);
     r->cand = pddlExtArrNew(sizeof(c), NULL, &c);
     r->cand_size = 0;
 
@@ -1109,7 +1145,7 @@ static void refineInitMonotonicity(
                             pddl_err_t *err)
 {
     refineInit(r, pddl, limit, err);
-    bzero(&r->cfg, sizeof(r->cfg));
+    ZEROIZE(&r->cfg);
     r->cfg.max_counted_vars = 1;
 }
 
@@ -1146,9 +1182,9 @@ static cand_t *refineNextCand(refine_t *r)
 static int eachPredOnlyOnce(const pddl_lifted_mgroup_t *m)
 {
     for (int i = 0; i < m->cond.size; ++i){
-        int p1 = PDDL_COND_CAST(m->cond.cond[i], atom)->pred;
+        int p1 = PDDL_FM_CAST(m->cond.fm[i], atom)->pred;
         for (int j = i + 1; j < m->cond.size; ++j){
-            int p2 = PDDL_COND_CAST(m->cond.cond[j], atom)->pred;
+            int p2 = PDDL_FM_CAST(m->cond.fm[j], atom)->pred;
             if (p1 == p2)
                 return 0;
         }
@@ -1167,7 +1203,7 @@ static cand_t *_refineAddCand(refine_t *r,
     if (id >= r->cand_size){
         r->cand_size = id + 1;
         cand_t *cand = pddlExtArrGet(r->cand, id);
-        bzero(cand, sizeof(*cand));
+        ZEROIZE(cand);
         cand->id = id;
         cand->mgroup = pddlLiftedMGroupHTableGet(&r->mgroup, id);
         cand->refined_from = -1;
@@ -1235,7 +1271,7 @@ static void refineAddCandVar(refine_t *r,
 static void restrictParamTypes(const pddl_t *pddl, pddl_lifted_mgroup_t *mg)
 {
     for (int ai = 0; ai < mg->cond.size; ++ai){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(mg->cond.cond[ai], atom);
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ai], atom);
         const pddl_pred_t *pred = pddl->pred.pred + a->pred;
 
         for (int i = 0; i < a->arg_size; ++i){
@@ -1258,17 +1294,17 @@ static void restrictParamTypes(const pddl_t *pddl, pddl_lifted_mgroup_t *mg)
  *  parameter. */
 static void addRefinedCandidate(refine_t *r,
                                 const cand_t *cand_in,
-                                const pddl_cond_atom_t *atom,
+                                const pddl_fm_atom_t *atom,
                                 const int *atom_params)
 {
     pddl_lifted_mgroup_t new_cand;
-    pddl_cond_atom_t *new_atom;
+    pddl_fm_atom_t *new_atom;
 
     // Create a copy of the candidate
     pddlLiftedMGroupInitCopy(&new_cand, cand_in->mgroup);
 
     // Construct a new atom that will be added to the new candidate
-    new_atom = pddlCondNewEmptyAtom(atom->arg_size);
+    new_atom = pddlFmNewEmptyAtom(atom->arg_size);
     new_atom->pred = atom->pred;
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom_params[i] < 0){
@@ -1287,7 +1323,7 @@ static void addRefinedCandidate(refine_t *r,
             new_atom->arg[i].param = atom_params[i];
         }
     }
-    pddlCondArrAdd(&new_cand.cond, &new_atom->cls);
+    pddlFmArrAdd(&new_cand.cond, &new_atom->fm);
 
     restrictParamTypes(r->pddl, &new_cand);
     mgroupFinalize(r->pddl, &new_cand);
@@ -1373,12 +1409,12 @@ static void refineExtend(refine_t *refine,
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
 
-    pddl_cond_const_it_eff_t it;
-    //pddl_cond_const_it_atom_t it;
-    const pddl_cond_atom_t *a;
-    const pddl_cond_t *pre;
+    pddl_fm_const_it_eff_t it;
+    //pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *a;
+    const pddl_fm_t *pre;
 
-    PDDL_COND_FOR_EACH_DEL_EFF(action->eff, &it, a, pre){
+    PDDL_FM_FOR_EACH_DEL_EFF(action->eff, &it, a, pre){
         ASSERT(a->neg);
         if (!candHasPred(cand->mgroup, a->pred)){
             int del_eff_params[a->arg_size];
@@ -1395,11 +1431,11 @@ static void refineExtendProvedWithAddEff(refine_t *refine,
                                          const pddl_action_t *action,
                                          const cand_t *cand)
 {
-    pddl_cond_const_it_eff_t it;
-    const pddl_cond_atom_t *a;
-    const pddl_cond_t *pre;
+    pddl_fm_const_it_eff_t it;
+    const pddl_fm_atom_t *a;
+    const pddl_fm_t *pre;
 
-    PDDL_COND_FOR_EACH_ADD_EFF(action->eff, &it, a, pre){
+    PDDL_FM_FOR_EACH_ADD_EFF(action->eff, &it, a, pre){
         ASSERT(!a->neg);
         CE_ATOM(ce_a, pre, a);
         int eff_params[a->arg_size];
@@ -1417,11 +1453,11 @@ static void refineExtendProved(refine_t *refine,
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
 
-    pddl_cond_const_it_eff_t it;
-    const pddl_cond_atom_t *a, *c;
-    const pddl_cond_t *pre;
+    pddl_fm_const_it_eff_t it;
+    const pddl_fm_atom_t *a, *c;
+    const pddl_fm_t *pre;
 
-    PDDL_COND_FOR_EACH_DEL_EFF(action->eff, &it, a, pre){
+    PDDL_FM_FOR_EACH_DEL_EFF(action->eff, &it, a, pre){
         ASSERT(a->neg);
         CE_ATOM(ce_a, pre, a);
 
@@ -1520,9 +1556,9 @@ static void refineParamTypes(refine_t *refine,
  *  atom and cand_atom cannot be unified. */
 static void refineTypes(refine_t *refine,
                         const pddl_params_t *params,
-                        const pddl_cond_atom_t *atom,
+                        const pddl_fm_atom_t *atom,
                         const cand_t *cand,
-                        const pddl_cond_atom_t *cand_atom)
+                        const pddl_fm_atom_t *cand_atom)
 {
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
@@ -1562,7 +1598,7 @@ static void refineTypes(refine_t *refine,
 }
 
 static void countedVariables(const pddl_lifted_mgroup_t *cand,
-                             const pddl_cond_atom_t *atom,
+                             const pddl_fm_atom_t *atom,
                              pddl_iset_t *vars)
 {
     for (int i = 0; i < atom->arg_size; ++i){
@@ -1577,11 +1613,11 @@ static void countedVariables(const pddl_lifted_mgroup_t *cand,
  *  variables so that a1 and a2 cannot be unified with cand_atom1 and
  *  cand_atom2. */
 static void refineVariables(refine_t *refine,
-                            const pddl_cond_atom_t *a1,
-                            const pddl_cond_atom_t *a2,
+                            const pddl_fm_atom_t *a1,
+                            const pddl_fm_atom_t *a2,
                             const cand_t *cand,
-                            const pddl_cond_atom_t *cand_atom1,
-                            const pddl_cond_atom_t *cand_atom2)
+                            const pddl_fm_atom_t *cand_atom1,
+                            const pddl_fm_atom_t *cand_atom2)
 {
     // TODO: Add variable -> object refinement
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
@@ -1667,11 +1703,11 @@ static void refineVariablesProved(refine_t *refine,
 
 static void refineTooHeavyInit(refine_t *refine,
                                const pddl_params_t *params,
-                               const pddl_cond_atom_t *a1,
-                               const pddl_cond_atom_t *a2,
+                               const pddl_fm_atom_t *a1,
+                               const pddl_fm_atom_t *a2,
                                const cand_t *cand,
-                               const pddl_cond_atom_t *cand_atom1,
-                               const pddl_cond_atom_t *cand_atom2)
+                               const pddl_fm_atom_t *cand_atom1,
+                               const pddl_fm_atom_t *cand_atom2)
 {
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
@@ -1686,11 +1722,11 @@ static void refineTooHeavyInit(refine_t *refine,
 
 static void refineTooHeavyAction(refine_t *refine,
                                  const pddl_params_t *params,
-                                 const pddl_cond_atom_t *a1,
-                                 const pddl_cond_atom_t *a2,
+                                 const pddl_fm_atom_t *a1,
+                                 const pddl_fm_atom_t *a2,
                                  const cand_t *cand,
-                                 const pddl_cond_atom_t *cand_atom1,
-                                 const pddl_cond_atom_t *cand_atom2)
+                                 const pddl_fm_atom_t *cand_atom1,
+                                 const pddl_fm_atom_t *cand_atom2)
 {
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
@@ -1706,9 +1742,9 @@ static void refineTooHeavyAction(refine_t *refine,
 static void refineUnbalancedAction(refine_t *refine,
                                    const unify_action_ctx_t *ctx,
                                    const pddl_action_t *action,
-                                   const pddl_cond_atom_t *add_eff,
+                                   const pddl_fm_atom_t *add_eff,
                                    const cand_t *cand,
-                                   const pddl_cond_atom_t *cand_add_eff)
+                                   const pddl_fm_atom_t *cand_add_eff)
 {
     if (refine == NULL || refine->cand_size >= refine->limit.max_candidates)
         return;
@@ -1747,7 +1783,7 @@ static void candInstantiateParamWithObj(pddl_lifted_mgroup_t *dst,
 {
     pddlLiftedMGroupInitCopy(dst, src);
     for (int ci = 0; ci < dst->cond.size; ++ci){
-        pddl_cond_atom_t *a = PDDL_COND_CAST(dst->cond.cond[ci], atom);
+        pddl_fm_atom_t *a = PDDL_FM_CAST(dst->cond.fm[ci], atom);
         for (int i = 0; i < a->arg_size; ++i){
             if (a->arg[i].param == param){
                 a->arg[i].param = -1;
@@ -1826,7 +1862,8 @@ static void initialCandidatesAllVarsCounted(const pddl_t *pddl,
         pddlLiftedMGroupFree(&m);
     }
 
-    PDDL_INFO(refine->err, "  %d initial candidates.", refine->cand_size);
+    LOG(refine->err, "  %{num_initial_candidates}d initial candidates.",
+        refine->cand_size);
 }
 
 static void initialCandidatesFD(const pddl_t *pddl, refine_t *refine)
@@ -1851,7 +1888,8 @@ static void initialCandidatesFD(const pddl_t *pddl, refine_t *refine)
         }
     }
 
-    PDDL_INFO(refine->err, "  %d initial candidates.", refine->cand_size);
+    LOG(refine->err, "  %{num_initial_candidates}d initial candidates.",
+        refine->cand_size);
 }
 
 
@@ -1894,11 +1932,11 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
         const pddl_lifted_mgroup_t *mg = src->mgroup + i;
         pddl_obj_id_t arg[mg->param.param_size];
 
-        pddl_cond_const_it_atom_t it;
-        const pddl_cond_atom_t *goal;
-        PDDL_COND_FOR_EACH_ATOM(pddl->goal, &it, goal){
+        pddl_fm_const_it_atom_t it;
+        const pddl_fm_atom_t *goal;
+        PDDL_FM_FOR_EACH_ATOM(pddl->goal, &it, goal){
             ASSERT(!goal->neg);
-            const pddl_cond_atom_t *c;
+            const pddl_fm_atom_t *c;
             FOR_EACH_ATOM(mg, c){
                 if (c->pred != goal->pred)
                     continue;
@@ -1913,7 +1951,7 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
 
 int pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
                                             const pddl_t *pddl,
-                                            const pddl_cond_arr_t *c,
+                                            const pddl_fm_arr_t *c,
                                             const pddl_obj_id_t *args)
 {
     for (int i = 0; i < mgs->mgroup_size; ++i){
@@ -1926,9 +1964,9 @@ int pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
 
 static int mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
                            const pddl_t *pddl,
-                           const pddl_cond_arr_t *pre,
-                           const pddl_cond_arr_t *add_eff,
-                           const pddl_cond_arr_t *del_eff,
+                           const pddl_fm_arr_t *pre,
+                           const pddl_fm_arr_t *add_eff,
+                           const pddl_fm_arr_t *del_eff,
                            const pddl_obj_id_t *args)
 {
     pddl_obj_id_t mg_arg[mg->param.param_size];
@@ -1936,8 +1974,8 @@ static int mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
     // First check whether there is a matching add effect. If there is one,
     // then mg cannot be deleted
     for (int addi = 0; addi < add_eff->size; ++addi){
-        const pddl_cond_atom_t *a = PDDL_COND_CAST(add_eff->cond[addi], atom);
-        const pddl_cond_atom_t *m;
+        const pddl_fm_atom_t *a = PDDL_FM_CAST(add_eff->fm[addi], atom);
+        const pddl_fm_atom_t *m;
         FOR_EACH_ATOM(mg, m){
             if (m->pred != a->pred)
                 continue;
@@ -1948,8 +1986,8 @@ static int mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
 
     // Then find out if there is a matching delete effect and precondition
     for (int di = 0; di < del_eff->size; ++di){
-        const pddl_cond_atom_t *d = PDDL_COND_CAST(del_eff->cond[di], atom);
-        const pddl_cond_atom_t *m;
+        const pddl_fm_atom_t *d = PDDL_FM_CAST(del_eff->fm[di], atom);
+        const pddl_fm_atom_t *m;
         FOR_EACH_ATOM(mg, m){
             if (m->pred != d->pred)
                 continue;
@@ -1964,9 +2002,9 @@ static int mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
 
 int pddlLiftedMGroupsAnyIsDeleted(const pddl_lifted_mgroups_t *mgs,
                                   const pddl_t *pddl,
-                                  const pddl_cond_arr_t *pre,
-                                  const pddl_cond_arr_t *add_eff,
-                                  const pddl_cond_arr_t *del_eff,
+                                  const pddl_fm_arr_t *pre,
+                                  const pddl_fm_arr_t *add_eff,
+                                  const pddl_fm_arr_t *del_eff,
                                   const pddl_obj_id_t *args)
 {
     for (int i = 0; i < mgs->mgroup_size; ++i){
@@ -1985,14 +2023,14 @@ void pddlLiftedMGroupsInferFAMGroups(
                             pddl_lifted_mgroups_t *mgroups,
                             pddl_err_t *err)
 {
-    CTX(err, "lmg", "LMG");
+    CTX(err, "lmg_fam_group", "LMG-FAM-Group");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
-    PDDL_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
-    PDDL_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
-    PDDL_INFO2(err, "Inference of lifted fam-groups ...");
+    LOG(err, "limit.max_candidates = %{limit_max_candidates}d", limit->max_candidates);
+    LOG(err, "limit.max_mgroups = %{limit_max_mgroups}d", limit->max_mgroups);
+    LOG(err, "Inference of lifted fam-groups ...");
 
     refineInit(&refine, pddl, limit, err);
 
@@ -2009,48 +2047,49 @@ void pddlLiftedMGroupsInferFAMGroups(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                      " Proved: %d",
-                      tested_candidates,
-                      refine.cand_size,
-                      mgroups->mgroup_size);
+            LOG(err, "Tested candidates: %{progress_tested_candidates}d,"
+                " Num candidates: %{progress_num_candidates}d,"
+                " Proved: %{progress_proved_mgroups}d",
+                tested_candidates,
+                refine.cand_size,
+                mgroups->mgroup_size);
             steps = 0;
         }
     }
 
     if (steps != 0){
-        PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                  " Proved: %d",
-                  tested_candidates,
-                  refine.cand_size,
-                  mgroups->mgroup_size);
+        LOG(err, "Tested candidates: %{num_tested_candidates}d,"
+            " Num candidates: %{num_candidates}d,"
+            " Proved: %{num_mgroups}d",
+            tested_candidates,
+            refine.cand_size,
+            mgroups->mgroup_size);
     }
 
     pddlLiftedMGroupsSortAndUniq(mgroups);
     refineFree(&refine);
 
-    PDDL_INFO(err, "Inference of lifted fam-groups done."
-              " Found mutex groups: %d",
-              mgroups->mgroup_size);
+    LOG(err, "Inference of lifted fam-groups done."
+        " Found mutex groups: %{found_mgroups}d",
+        mgroups->mgroup_size);
     CTXEND(err);
 }
 
 
-void pddlLiftedMGroupsInferMonotonicity(
-                                        const pddl_t *pddl,
+void pddlLiftedMGroupsInferMonotonicity(const pddl_t *pddl,
                                         const pddl_lifted_mgroups_infer_limits_t *limit,
                                         pddl_lifted_mgroups_t *inv,
                                         pddl_lifted_mgroups_t *mgroups,
                                         pddl_err_t *err)
 {
-    CTX(err, "lmg", "LMG");
+    CTX(err, "lmg_monotonicity", "LMG-Monotonicity");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
-    PDDL_INFO(err, "limit.max_candidates = %d", limit->max_candidates);
-    PDDL_INFO(err, "limit.max_mgroups = %d", limit->max_mgroups);
-    PDDL_INFO2(err, "Inference of FD lifted mgroups ...");
+    LOG(err, "limit.max_candidates = %{limit_max_candidates}d", limit->max_candidates);
+    LOG(err, "limit.max_mgroups = %{limit_max_mgroups}d", limit->max_mgroups);
+    LOG(err, "Inference of FD lifted mgroups ...");
 
     refineInitMonotonicity(&refine, pddl, limit, err);
 
@@ -2075,24 +2114,27 @@ void pddlLiftedMGroupsInferMonotonicity(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                      " Proved monotonicity invariants: %d,"
-                      " mutex groups: %d",
-                      tested_candidates,
-                      refine.cand_size,
-                      (inv != NULL ? inv->mgroup_size : -1),
-                      (mgroups != NULL ? mgroups->mgroup_size : -1));
+            LOG(err, "Tested candidates: %{progress_tested_candidates}d,"
+                " Num candidates: %{progress_num_candidates}d,"
+                " Proved monotonicity invariants: %{progress_proved_monotonicity_invariants}d,"
+                " mutex groups: %{progress_proved_mgroups}d",
+                tested_candidates,
+                refine.cand_size,
+                (inv != NULL ? inv->mgroup_size : -1),
+                (mgroups != NULL ? mgroups->mgroup_size : -1));
             steps = 0;
         }
     }
 
     if (steps != 0){
-        PDDL_INFO(err, "Tested candidates: %d, Num candidates: %d,"
-                  " Proved monotonicity invariants: %d, mutex groups: %d",
-                  tested_candidates,
-                  refine.cand_size,
-                  (inv != NULL ? inv->mgroup_size : -1),
-                  (mgroups != NULL ? mgroups->mgroup_size : -1));
+        LOG(err, "Tested candidates: %{num_tested_candidates}d,"
+            " Num candidates: %{num_candidates}d,"
+            " Proved monotonicity invariants: %{num_monotonicity_invariants}d,"
+            " mutex groups: %{num_mgroups}d",
+            tested_candidates,
+            refine.cand_size,
+            (inv != NULL ? inv->mgroup_size : -1),
+            (mgroups != NULL ? mgroups->mgroup_size : -1));
     }
 
     if (inv != NULL)
@@ -2101,10 +2143,11 @@ void pddlLiftedMGroupsInferMonotonicity(
         pddlLiftedMGroupsSortAndUniq(mgroups);
     refineFree(&refine);
 
-    PDDL_INFO(err, "Inference of FD lifted mgroups done."
-              " Found monotonicity invariants: %d, mutex groups: %d",
-              (inv != NULL ? inv->mgroup_size : -1),
-              (mgroups != NULL ? mgroups->mgroup_size : -1));
+    LOG(err, "Inference of FD lifted mgroups done."
+        " Found monotonicity invariants: %{found_monotonicity_invariants}d,"
+        " mutex groups: %{found_mgroups}d",
+        (inv != NULL ? inv->mgroup_size : -1),
+        (mgroups != NULL ? mgroups->mgroup_size : -1));
     CTXEND(err);
 }
 
@@ -2115,14 +2158,14 @@ static int isDelEffBalanced(const unify_action_ctx_t *ctx,
                             const ce_atom_t *del_eff,
                             const pddl_lifted_mgroup_t *mgroup)
 {
-    pddl_cond_const_it_eff_t it;
-    const pddl_cond_atom_t *a;
-    const pddl_cond_t *pre;
-    PDDL_COND_FOR_EACH_ADD_EFF(action->eff, &it, a, pre){
+    pddl_fm_const_it_eff_t it;
+    const pddl_fm_atom_t *a;
+    const pddl_fm_t *pre;
+    PDDL_FM_FOR_EACH_ADD_EFF(action->eff, &it, a, pre){
         ASSERT(!a->neg);
         CE_ATOM(add_eff, pre, a);
 
-        const pddl_cond_atom_t *cand_atom;
+        const pddl_fm_atom_t *cand_atom;
         FOR_EACH_ATOM(mgroup, cand_atom){
             if (cand_atom->pred != a->pred)
                 continue;
@@ -2141,14 +2184,14 @@ static int actionMayDeleteMGroup(const pddl_t *pddl,
                                  const pddl_lifted_mgroup_t *mgroup,
                                  pddl_err_t *err)
 {
-    pddl_cond_const_it_eff_t it;
-    const pddl_cond_atom_t *d;
-    const pddl_cond_t *pre;
-    PDDL_COND_FOR_EACH_DEL_EFF(action->eff, &it, d, pre){
+    pddl_fm_const_it_eff_t it;
+    const pddl_fm_atom_t *d;
+    const pddl_fm_t *pre;
+    PDDL_FM_FOR_EACH_DEL_EFF(action->eff, &it, d, pre){
         ASSERT(d->neg);
         CE_ATOM(del_eff, pre, d);
 
-        const pddl_cond_atom_t *cand_atom;
+        const pddl_fm_atom_t *cand_atom;
         FOR_EACH_ATOM(mgroup, cand_atom){
             if (cand_atom->pred != d->pred)
                 continue;
@@ -2185,8 +2228,8 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_lifted_mgroups_t *lm,
                                    pddl_err_t *err)
 {
-    CTX(err, "lmg", "LMG");
-    PDDL_INFO2(err, "Looking for exactly-one lifted mgroups ...");
+    CTX(err, "lmg_set_exactly_one", "LMG-Set-Exactly-One");
+    LOG(err, "Looking for exactly-one lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
@@ -2195,7 +2238,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
             ++num;
         }
     }
-    PDDL_INFO(err, "Found %d exactly-one lifted mgroups.", num);
+    LOG(err, "Found %{num_exactly_one}d exactly-one lifted mgroups.", num);
     CTXEND(err);
     return 0;
 }
@@ -2210,13 +2253,13 @@ static int isMGroupStatic(const pddl_t *pddl,
     for (int ai = 0; ai < pddl->action.action_size; ++ai){
         const pddl_action_t *action = pddl->action.action + ai;
 
-        pddl_cond_const_it_eff_t it;
-        const pddl_cond_atom_t *d;
-        const pddl_cond_t *pre;
-        PDDL_COND_FOR_EACH_DEL_EFF(action->eff, &it, d, pre){
+        pddl_fm_const_it_eff_t it;
+        const pddl_fm_atom_t *d;
+        const pddl_fm_t *pre;
+        PDDL_FM_FOR_EACH_DEL_EFF(action->eff, &it, d, pre){
             CE_ATOM(del_eff, pre, d);
 
-            const pddl_cond_atom_t *cand_atom;
+            const pddl_fm_atom_t *cand_atom;
             FOR_EACH_ATOM(mgroup, cand_atom){
                 if (cand_atom->pred != d->pred)
                     continue;
@@ -2234,8 +2277,8 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_lifted_mgroups_t *lm,
                                pddl_err_t *err)
 {
-    CTX(err, "lmg", "LMG");
-    PDDL_INFO2(err, "Looking for static lifted mgroups ...");
+    CTX(err, "lmg_set_static", "LMG-Set-Static");
+    LOG(err, "Looking for static lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
         pddl_lifted_mgroup_t *lmg = lm->mgroup + mi;
@@ -2244,7 +2287,7 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
             ++num;
         }
     }
-    PDDL_INFO(err, "Found %d static lifted mgroups.", num);
+    LOG(err, "Found %{num_static}d static lifted mgroups.", num);
     CTXEND(err);
     return 0;
 }

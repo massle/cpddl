@@ -16,19 +16,19 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/timer.h"
 #include "pddl/strips.h"
 #include "pddl/critical_path.h"
 #include "pddl/disambiguation.h"
 #include "pddl/time_limit.h"
-#include "internal.h"
 
 #define REACHED 1
 #define FW_MUTEX 2
 #define BW_MUTEX 3
 #define IS_MUTEX(X) ((X) > 1)
 #define PRUNED -1
-#define _FACT(h2, x, y) ((h2)->fact[(x) * (h2)->fact_size + (y)])
+#define _FACT(h2, x, y) ((h2)->fact[(size_t)(x) * (h2)->fact_size + (y)])
 
 struct h2 {
     char *fact; /*!< 0/REACHED/MUTEX for each pair of facts */
@@ -147,7 +147,7 @@ static void h2Init(h2_t *h2,
                    const pddl_iset_t *unreachable_ops,
                    pddl_err_t *err)
 {
-    bzero(h2, sizeof(*h2));
+    ZEROIZE(h2);
     h2->fact_size = strips->fact.fact_size;
     h2->op_size = strips->op.op_size;
     h2->fact = CALLOC_ARR(char, (size_t)h2->fact_size * h2->fact_size);
@@ -209,7 +209,7 @@ static void h2ResetOpFact(h2_t *h2, const pddl_strips_ops_t *ops)
 {
     if (h2->op_fact == NULL)
         return;
-    bzero(h2->op_fact, sizeof(char) * h2->fact_size * h2->op_size);
+    ZEROIZE_ARR(h2->op_fact, (size_t)h2->fact_size * h2->op_size);
     for (int op_id = 0; op_id < h2->op_size; ++op_id){
         const pddl_strips_op_t *op = ops->op[op_id];
         char *fact = h2->op_fact + (size_t)op_id * h2->fact_size;
@@ -409,7 +409,7 @@ static int h2StateFw(const pddl_strips_t *strips,
                      pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        PDDL_ERR_RET2(err, -1, "h^2: Conditional effects not supported!");
+        PDDL_ERR_RET(err, -1, "h^2: Conditional effects not supported!");
 
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
               strips->fact.fact_size,
@@ -614,7 +614,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
                pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        PDDL_ERR_RET2(err, -1, "h^2 fw/bw: Conditional effects not supported!");
+        PDDL_ERR_RET(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
     CTX(err, "h2fwbw", "h^2 fw/bw");
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",

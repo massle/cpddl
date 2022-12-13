@@ -31,8 +31,8 @@ ifeq '$(PROFIL)' 'yes'
   CFLAGS += -pg -no-pie
   CPPFLAGS += -pg -no-pie
 endif
-CFLAGS += -Wall -pedantic --std=gnu99
-CPPFLAGS += -Wall -pedantic
+CFLAGS += -Wall -pedantic --std=c99
+CPPFLAGS += -Wall -pedantic --std=c++11
 
 ifeq '$(WERROR)' 'yes'
   CFLAGS += -Werror
@@ -44,7 +44,6 @@ LDFLAGS += $(SYSTEM_LDFLAGS)
 USE_CPLEX ?= auto
 USE_CPOPTIMIZER ?= auto
 USE_GUROBI ?= auto
-USE_LPSOLVE ?= auto
 USE_GLPK ?= auto
 
 ifneq '$(IBM_CPLEX_ROOT)' ''
@@ -116,18 +115,6 @@ ifeq '$(USE_GLPK)' 'auto'
   endif
 endif
 
-USE_LOCAL_LPSOLVE ?= $(shell if test -f $(BASEPATH_)/third-party/lpsolve/liblpsolve.a; then echo "yes"; else echo "no"; fi;)
-ifeq '$(USE_LOCAL_LPSOLVE)' 'yes'
-  LPSOLVE_CFLAGS := -I$(BASEPATH_)/third-party
-  LPSOLVE_LDFLAGS := -L$(BASEPATH_)/third-party/lpsolve -llpsolve -ldl
-endif
-
-ifeq '$(USE_LPSOLVE)' 'auto'
-  ifneq '$(LPSOLVE_CFLAGS)' ''
-    USE_LPSOLVE := yes
-  endif
-endif
-
 
 
 BLISS_VERSION = 0.77
@@ -192,12 +179,31 @@ ifneq '$(MINIZINC_BIN)' ''
   endif
 endif
 
-DYNET_CFLAGS ?=
+DYNET_CPPFLAGS ?=
 DYNET_LDFLAGS ?=
 USE_DYNET ?= auto
 ifeq '$(USE_DYNET)' 'auto'
-  ifneq '$(DYNET_CFLAGS)$(DYNET_LDFLAGS)' ''
+  ifneq '$(DYNET_CPPFLAGS)$(DYNET_LDFLAGS)' ''
     USE_DYNET := yes
+
+  else ifneq '$(DYNET_ROOT)' ''
+    DYNET_CPPFLAGS := -I$(DYNET_ROOT)/include
+    DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
+    USE_DYNET := yes
+  endif
+endif
+
+HIGHS_CFLAGS ?=
+HIGHS_LDFLAGS ?=
+USE_HIGHS ?= auto
+ifeq '$(USE_HIGHS)' 'auto'
+  ifneq '$(HIGHS_CFLAGS)$(HIGHS_LDFLAGS)' ''
+    USE_HIGHS := yes
+
+  else ifneq '$(HIGHS_ROOT)' ''
+    HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
+    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lz -lstdc++
+    USE_HIGHS := yes
   endif
 endif
 
@@ -220,11 +226,11 @@ SQLITE_BUILD_CFLAGS := \
   -DSQLITE_DQS=0 \
   -DSQLITE_MAX_EXPR_DEPTH=0
 SQLITE_GEN_CFLAGS := $(SQLITE_BUILD_CFLAGS)
-SQLITE_CFLAGS := -O2 -std=gnu99 $(SQLITE_BUILD_CFLAGS)
+SQLITE_CFLAGS := -O2 -std=c99 $(SQLITE_BUILD_CFLAGS)
 
 
-LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(LPSOLVE_LDFLAGS) $(GLPK_LDFLAGS)
-LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(LPSOLVE_CFLAGS) $(GLPK_CFLAGS)
+LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(HIGHS_LDFLAGS) $(GLPK_LDFLAGS)
+LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(HIGHS_CFLAGS) $(GLPK_CFLAGS)
 
 .DEFAULT_GOAL := all
 
@@ -274,14 +280,17 @@ help:
 	@echo "    GLPK_CFLAGS     = $(GLPK_CFLAGS)"
 	@echo "    GLPK_LDFLAGS    = $(GLPK_LDFLAGS)"
 	@echo "    USE_GLPK        = $(USE_GLPK)"
-	@echo "    LPSOLVE_CFLAGS  = $(LPSOLVE_CFLAGS)"
-	@echo "    LPSOLVE_LDFLAGS = $(LPSOLVE_LDFLAGS)"
-	@echo "    USE_LPSOLVE     = $(USE_LPSOLVE)"
 	@echo "    LP_LDFLAGS      = $(LP_LDFLAGS)"
-	@echo "    LP_CFLAGS       = $(LP_LDFLAGS)"
+	@echo "    LP_CFLAGS       = $(LP_CFLAGS)"
 	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
 	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
 	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
+	@echo "    DYNET_CPPFLAGS  = $(DYNET_CPPFLAGS)"
+	@echo "    DYNET_LDFLAGS   = $(DYNET_LDFLAGS)"
+	@echo "    USE_DYNET       = $(USE_DYNET)"
+	@echo "    HIGHS_CPPFLAGS  = $(HIGHS_CPPFLAGS)"
+	@echo "    HIGHS_LDFLAGS   = $(HIGHS_LDFLAGS)"
+	@echo "    USE_HIGHS       = $(USE_HIGHS)"
 	@echo "    MINIZINC_BIN    = $(MINIZINC_BIN)"
 
 # These variables should not be passed to sub-makes

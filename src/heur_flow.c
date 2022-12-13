@@ -50,8 +50,7 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurFlow(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
-    pddl_heur_flow_t *h = ALLOC(pddl_heur_flow_t);
-    bzero(h, sizeof(*h));
+    pddl_heur_flow_t *h = ZALLOC(pddl_heur_flow_t);
     pddlHFlowInit(&h->flow, fdr, 0);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);
     int init = PDDL_COST_MAX;

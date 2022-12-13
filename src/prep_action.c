@@ -38,68 +38,68 @@ struct action_ctx {
 };
 typedef struct action_ctx action_ctx_t;
 
-static int actionInitPre(pddl_cond_t *c, void *ud)
+static int actionInitPre(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
-    pddl_cond_atom_t *a;
+    pddl_fm_atom_t *a;
 
-    if (c->type == PDDL_COND_ATOM){
-        a = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        a = PDDL_FM_CAST(c, atom);
         ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->pred == ctx->pddl->pred.eq_pred){
-            pddlCondArrAdd(&ctx->a->pre_eq, c);
+            pddlFmArrAdd(&ctx->a->pre_eq, c);
         }else{
             if (a->neg){
-                pddlCondArrAdd(&ctx->a->pre_neg_static, c);
+                pddlFmArrAdd(&ctx->a->pre_neg_static, c);
             }else{
-                pddlCondArrAdd(&ctx->a->pre, c);
+                pddlFmArrAdd(&ctx->a->pre, c);
             }
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
         PDDL_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
                  " (found %s). It seems it was not normalized.",
-                 pddlCondTypeName(c->type));
+                 pddlFmTypeName(c->type));
         ctx->failed = 1;
         return -2;
     }
 }
 
-static int actionInitEff(pddl_cond_t *c, void *ud)
+static int actionInitEff(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
-    pddl_cond_atom_t *a;
+    pddl_fm_atom_t *a;
 
-    if (c->type == PDDL_COND_ATOM){
-        a = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        a = PDDL_FM_CAST(c, atom);
         ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->neg){
-            pddlCondArrAdd(&ctx->a->del_eff, c);
+            pddlFmArrAdd(&ctx->a->del_eff, c);
         }else{
-            pddlCondArrAdd(&ctx->a->add_eff, c);
+            pddlFmArrAdd(&ctx->a->add_eff, c);
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_ASSIGN){
-        PDDL_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
+    }else if (c->type == PDDL_FM_ASSIGN){
+        PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
-    }else if (c->type == PDDL_COND_INCREASE){
-        pddlCondArrAdd(&ctx->a->increase, c);
+    }else if (c->type == PDDL_FM_INCREASE){
+        pddlFmArrAdd(&ctx->a->increase, c);
         return 0;
 
-    }else if (c->type == PDDL_COND_WHEN){
+    }else if (c->type == PDDL_FM_WHEN){
         ++ctx->a->cond_eff_size;
         return -1;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
-        PDDL_ERR2(ctx-> err, "Effect is not a simple conjuction"
+        PDDL_ERR(ctx-> err, "Effect is not a simple conjuction"
                   " (possibly containingconditional effects and function"
                   " assignement). It seems it was not normalized.");
         ctx->failed = 1;
@@ -110,8 +110,8 @@ static int actionInitEff(pddl_cond_t *c, void *ud)
 static int actionInit2(pddl_prep_action_t *a,
                        const pddl_t *pddl,
                        const pddl_action_t *action,
-                       pddl_cond_t *pre,
-                       pddl_cond_t *eff,
+                       pddl_fm_t *pre,
+                       pddl_fm_t *eff,
                        pddl_err_t *err)
 {
     action_ctx_t ctx;
@@ -120,7 +120,7 @@ static int actionInit2(pddl_prep_action_t *a,
     ctx.failed = 0;
     ctx.err = err;
 
-    bzero(a, sizeof(*a));
+    ZEROIZE(a);
     a->action = action;
     a->parent_action = -1;
     a->param_size = action->param.param_size;
@@ -129,13 +129,13 @@ static int actionInit2(pddl_prep_action_t *a,
         a->param_type[i] = action->param.param[i].type;
     a->type = &pddl->type;
 
-    pddlCondTraverse(pre, actionInitPre, NULL, &ctx);
+    pddlFmTraverse(pre, actionInitPre, NULL, &ctx);
     if (ctx.failed){
         PDDL_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
                                action->name);
     }
 
-    pddlCondTraverse(eff, actionInitEff, NULL, &ctx);
+    pddlFmTraverse(eff, actionInitEff, NULL, &ctx);
     if (ctx.failed){
         PDDL_TRACE_PREPEND_RET(err, -1, "Prepapration of action %s failed: ",
                                action->name);
@@ -151,8 +151,8 @@ static int actionInit(pddl_prep_action_t *a,
 {
     int ret;
     ret = actionInit2(a, pddl, action,
-                      (pddl_cond_t *)action->pre,
-                      (pddl_cond_t *)action->eff,
+                      (pddl_fm_t *)action->pre,
+                      (pddl_fm_t *)action->eff,
                       err);
     if (ret != 0)
         PDDL_TRACE(err);
@@ -161,12 +161,12 @@ static int actionInit(pddl_prep_action_t *a,
 
 static void actionFree(pddl_prep_action_t *a)
 {
-    pddlCondArrFree(&a->pre_neg_static);
-    pddlCondArrFree(&a->pre_eq);
-    pddlCondArrFree(&a->pre);
-    pddlCondArrFree(&a->add_eff);
-    pddlCondArrFree(&a->del_eff);
-    pddlCondArrFree(&a->increase);
+    pddlFmArrFree(&a->pre_neg_static);
+    pddlFmArrFree(&a->pre_eq);
+    pddlFmArrFree(&a->pre);
+    pddlFmArrFree(&a->add_eff);
+    pddlFmArrFree(&a->del_eff);
+    pddlFmArrFree(&a->increase);
     if (a->param_type != NULL)
         FREE(a->param_type);
 }
@@ -180,14 +180,14 @@ static void actionsReserve(pddl_prep_actions_t *as)
     }
 }
 
-static int actionInitCondEff(pddl_cond_t *c, void *ud)
+static int actionInitCondEff(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
-    const pddl_cond_when_t *when;
+    const pddl_fm_when_t *when;
     pddl_prep_action_t *a, *parent;
 
-    if (c->type == PDDL_COND_WHEN){
-        when = PDDL_COND_CAST(c, when);
+    if (c->type == PDDL_FM_WHEN){
+        when = PDDL_FM_CAST(c, when);
 
         // Create a new action
         actionsReserve(ctx->as);
@@ -214,11 +214,11 @@ static int actionInitCondEff(pddl_cond_t *c, void *ud)
 
         // Copy preconditions
         for (int i = 0; i < parent->pre_neg_static.size; ++i)
-            pddlCondArrAdd(&a->pre_neg_static, parent->pre_neg_static.cond[i]);
+            pddlFmArrAdd(&a->pre_neg_static, parent->pre_neg_static.fm[i]);
         for (int i = 0; i < parent->pre_eq.size; ++i)
-            pddlCondArrAdd(&a->pre_eq, parent->pre_eq.cond[i]);
+            pddlFmArrAdd(&a->pre_eq, parent->pre_eq.fm[i]);
         for (int i = 0; i < parent->pre.size; ++i)
-            pddlCondArrAdd(&a->pre, parent->pre.cond[i]);
+            pddlFmArrAdd(&a->pre, parent->pre.fm[i]);
         a->max_arg_size = PDDL_MAX(a->max_arg_size, parent->max_arg_size);
 
 
@@ -238,7 +238,7 @@ static int actionsAddCondEff(pddl_prep_actions_t *as, int aid,
     ctx.failed = 0;
     ctx.err = err;
 
-    pddlCondTraverse((pddl_cond_t *)ctx.action->eff,
+    pddlFmTraverse((pddl_fm_t *)ctx.action->eff,
                      actionInitCondEff, NULL, &ctx);
     if (ctx.failed)
         PDDL_TRACE_RET(err, -1);
@@ -250,7 +250,7 @@ int pddlPrepActionsInit(const pddl_t *pddl, pddl_prep_actions_t *as,
 {
     const pddl_action_t *action;
 
-    bzero(as, sizeof(*as));
+    ZEROIZE(as);
     as->action_alloc = 4;
     as->action = ALLOC_ARR(pddl_prep_action_t, as->action_alloc);
 
@@ -287,7 +287,7 @@ void pddlPrepActionsFree(pddl_prep_actions_t *as)
 
 
 static int checkPreAtomFact(const pddl_prep_action_t *a,
-                            const pddl_cond_atom_t *atom,
+                            const pddl_fm_atom_t *atom,
                             const pddl_obj_id_t *arg)
 {
     for (int i = 0; i < atom->arg_size; ++i){
@@ -305,7 +305,7 @@ static int checkPreAtomFact(const pddl_prep_action_t *a,
 }
 
 static int checkPreAtom(const pddl_prep_action_t *a,
-                        const pddl_cond_atom_t *atom,
+                        const pddl_fm_atom_t *atom,
                         const pddl_obj_id_t *arg)
 {
     for (int i = 0; i < atom->arg_size; ++i){
@@ -320,13 +320,13 @@ static int checkPreAtom(const pddl_prep_action_t *a,
 }
 
 static int checkPre(const pddl_prep_action_t *a,
-                    const pddl_cond_arr_t *pre,
+                    const pddl_fm_arr_t *pre,
                     const pddl_obj_id_t *arg)
 {
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
 
     for (int i = 0; i < pre->size; ++i){
-        atom = PDDL_COND_CAST(pre->cond[i], atom);
+        atom = PDDL_FM_CAST(pre->fm[i], atom);
         if (!checkPreAtom(a, atom, arg))
             return 0;
     }
@@ -336,13 +336,13 @@ static int checkPre(const pddl_prep_action_t *a,
 static int checkEq(const pddl_prep_action_t *a, const pddl_obj_id_t *arg,
                    int soft)
 {
-    const pddl_cond_atom_t *atom;
-    const pddl_cond_t **pre = a->pre_eq.cond;
+    const pddl_fm_atom_t *atom;
+    const pddl_fm_t **pre = a->pre_eq.fm;
     int size = a->pre_eq.size;
     pddl_obj_id_t obj[2];
 
     for (int i = 0; i < size; ++i){
-        atom = PDDL_COND_CAST(pre[i], atom);
+        atom = PDDL_FM_CAST(pre[i], atom);
         for (int j = 0; j < 2; ++j){
             if (atom->arg[j].param >= 0){
                 obj[j] = arg[atom->arg[j].param];
@@ -373,10 +373,10 @@ static int checkPreNegStatic(const pddl_prep_action_t *a,
     if (a->pre_neg_static.size == 0)
         return 1;
 
-    const pddl_cond_atom_t *atom;
+    const pddl_fm_atom_t *atom;
 
     for (int i = 0; i < a->pre_neg_static.size; ++i){
-        atom = PDDL_COND_CAST(a->pre_neg_static.cond[i], atom);
+        atom = PDDL_FM_CAST(a->pre_neg_static.fm[i], atom);
         if (pddlGroundAtomsFindAtom(static_facts, atom, arg) != NULL)
             return 0;
     }
@@ -396,7 +396,7 @@ int pddlPrepActionCheck(const pddl_prep_action_t *a,
 int pddlPrepActionCheckFact(const pddl_prep_action_t *a, int pre_i,
                             const pddl_obj_id_t *fact_args)
 {
-    const pddl_cond_atom_t *atom = PDDL_COND_CAST(a->pre.cond[pre_i], atom);
+    const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[pre_i], atom);
     pddl_obj_id_t arg[a->param_size];
     int param;
 

@@ -16,10 +16,9 @@
  * See the License for more information.
  */
 
-#include <string.h>
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/fdr_state_packer.h"
-#include "internal.h"
 
 struct pddl_fdr_state_packer_var {
     int bitlen; /*!< Number of bits required to store a value */
@@ -120,7 +119,7 @@ void pddlFDRStatePackerPack(const pddl_fdr_state_packer_t *p,
                             const int *state,
                             void *buffer)
 {
-    bzero(buffer, p->bufsize);
+    ZEROIZE_RAW(buffer, p->bufsize);
     for (int i = 0; i < p->num_vars; ++i)
         packerSetVar(p->vars + i, state[i], buffer);
 }

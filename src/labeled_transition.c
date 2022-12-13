@@ -17,14 +17,13 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/labeled_transition.h"
-#include "internal.h"
 
 void pddlLabeledTransitionsSetInit(pddl_labeled_transitions_set_t *t)
 {
-    bzero(t, sizeof(*t));
+    ZEROIZE(t);
 }
 
 void pddlLabeledTransitionsSetFree(pddl_labeled_transitions_set_t *t)

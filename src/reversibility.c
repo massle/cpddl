@@ -34,7 +34,7 @@ static void pddlReversePlanFree(pddl_reverse_plan_t *r)
 
 void pddlReversibilityUniformInit(pddl_reversibility_uniform_t *r)
 {
-    bzero(r, sizeof(*r));
+    ZEROIZE(r);
 }
 
 void pddlReversibilityUniformFree(pddl_reversibility_uniform_t *r)
@@ -112,7 +112,7 @@ static pddl_reverse_plan_t *addEmptyPlan(pddl_reversibility_uniform_t *r)
         r->plan = REALLOC_ARR(r->plan, pddl_reverse_plan_t, r->plan_alloc);
     }
     pddl_reverse_plan_t *plan = r->plan + r->plan_size++;
-    bzero(plan, sizeof(*plan));
+    ZEROIZE(plan);
     return plan;
 }
 

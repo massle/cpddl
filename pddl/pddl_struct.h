@@ -22,7 +22,7 @@
 
 #include <pddl/config.h>
 #include <pddl/lisp.h>
-#include <pddl/require.h>
+#include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
@@ -35,40 +35,66 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_config {
-    int force_adl; /*!< Force ADL to requirements */
-    int normalize; /*!< Normalize the task right after parsing */
-    int remove_empty_types; /*!< Remove types without any objects */
-    int compile_away_cond_eff; /*!< Compile away conditional effects */
-    int enforce_unit_cost; /*!< Enforce the task to have unit-cost actions */
+    /** Force ADL to requirements */
+    int force_adl;
+    /** Normalize the task right after parsing */
+    int normalize;
+    /** Remove types without any objects */
+    int remove_empty_types;
+    /** Compile away conditional effects */
+    int compile_away_cond_eff;
+    /** Enforce the task to have unit-cost actions */
+    int enforce_unit_cost;
+    /** If set to true all actions should be kept in the task even after
+     *  normalization */
+    int keep_all_actions;
 };
 typedef struct pddl_config pddl_config_t;
 
-#define PDDL_CONFIG_INIT_EMPTY { 0 }
 #define PDDL_CONFIG_INIT \
-    { 1, /* .force_adl */ \
-      1, /* .normalize */ \
-      1, /* .remove_empty_types */ \
-      0, /* .compile_away_cond_eff */ \
-      0, /* .enforce_unit_cost */ \
+    { \
+        1, /* .force_adl */ \
+        1, /* .normalize */ \
+        1, /* .remove_empty_types */ \
+        0, /* .compile_away_cond_eff */ \
+        0, /* .enforce_unit_cost */ \
+        0, /* .keep_all_actions */ \
     }
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err);
 
 struct pddl {
+    /** Configuration */
     pddl_config_t cfg;
+    /** True if the pddl struct was built only from the domain file */
+    int only_domain;
+    /** Underlying lisp of the domain file */
     pddl_lisp_t *domain_lisp;
+    /** Underlying lisp of the problem file, is NULL iff .only_domain is true */
     pddl_lisp_t *problem_lisp;
+    /** Domain name from the domain file */
     char *domain_name;
+    /** Problem name from the problem file */
     char *problem_name;
-    unsigned require;
+    /** :requirements flags */
+    pddl_require_flags_t require;
+    /** List of types */
     pddl_types_t type;
+    /** List of objects -- both :constants and :objects together */
     pddl_objs_t obj;
+    /** List of predicates */
     pddl_preds_t pred;
+    /** List of functions */
     pddl_preds_t func;
-    pddl_cond_part_t *init;
-    pddl_cond_t *goal;
+    /** The initial state */
+    pddl_fm_and_t *init;
+    /** The goal condition */
+    pddl_fm_t *goal;
+    /** List of actions */
     pddl_actions_t action;
+    /** True if metric is defined in the problem file (i.e., (minimize ...)) */
     int metric;
+    /** True if the task was normalized */
     int normalized;
 };
 
@@ -112,6 +138,7 @@ void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
 /**
  * Returns maximal number of parameters of all predicates and functions.
  */
+// TODO: rename to *MaxArity
 int pddlPredFuncMaxParamSize(const pddl_t *pddl);
 
 /**
@@ -153,14 +180,6 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err);
  * Remove assign and increase atoms to enforce the task to be unit cost
  */
 void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err);
-
-/**
- * Returns -1 on error, 0 if pddl wasn't changed, and 1 if the pddl was
- * enriched with additional conditions pruning mutexes and dead-ends.
- */
-int pddlCompileInLiftedMGroups(pddl_t *pddl,
-                               const pddl_lifted_mgroups_t *mgroups,
-                               pddl_err_t *err);
 
 /**
  * Prints PDDL domain file.

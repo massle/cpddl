@@ -20,11 +20,8 @@
  *  See the License for more information.
  */
 
-#include <stdio.h>
-#include <time.h>
-#include <limits.h>
-#include "pddl/rand.h"
 #include "internal.h"
+#include "pddl/rand.h"
 
 _pddl_inline uint32_t hiBit(uint32_t u);
 _pddl_inline uint32_t loBit(uint32_t u);

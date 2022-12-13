@@ -17,11 +17,8 @@
  * See the License for more information.
  */
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include "pddl/mg_strips.h"
 #include "internal.h"
+#include "pddl/mg_strips.h"
 
 static void makeMGroupExactlyOne(pddl_mg_strips_t *mg_strips,
                                  const pddl_mgroup_t *mg_in)
@@ -223,7 +220,7 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_mgroups_t *mgroups_in)
 {
     if (strips->has_cond_eff)
-        PDDL_FATAL2("pddlMGStripsInit: conditional effects not yet supported.");
+        PANIC("pddlMGStripsInit: conditional effects not yet supported.");
 
     // Find facts that appear in delete effects but not in the precondition
     PDDL_ISET(uncovered_del_effs);
@@ -259,6 +256,14 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
         ASSERT_RUNTIME(pddlStripsIsExactlyOneMGroup(&mg_strips->strips,
                                                     &mg->mgroup));
     }
+}
+
+void pddlMGStripsInitCopy(pddl_mg_strips_t *mg_strips,
+                          const pddl_mg_strips_t *in)
+{
+    ZEROIZE(mg_strips);
+    pddlStripsInitCopy(&mg_strips->strips, &in->strips);
+    pddlMGroupsInitCopy(&mg_strips->mg, &in->mg);
 }
 
 static void fdrPreToPre(const pddl_fdr_vars_t *vars,

@@ -12,11 +12,11 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/endomorphism.h"
 #include "pddl/cp.h"
 #include "pddl/time_limit.h"
 #include "pddl/hfunc.h"
-#include "internal.h"
 
 struct mg_strips_op {
     int cost;
@@ -85,8 +85,7 @@ static void assignOpToGroup(op_groups_t *opgs,
                             const pddl_fdr_part_state_t *pre,
                             const pddl_fdr_part_state_t *eff)
 {
-    pre_eff_vars_t *pev = ALLOC(pre_eff_vars_t);
-    bzero(pev, sizeof(*pev));
+    pre_eff_vars_t *pev = ZALLOC(pre_eff_vars_t);
     for (int fi = 0; fi < pre->fact_size; ++fi)
         pddlISetAdd(&pev->pre, pre->fact[fi].var);
     for (int fi = 0; fi < eff->fact_size; ++fi)
@@ -117,7 +116,7 @@ static void assignOpToGroup(op_groups_t *opgs,
 
 static void opGroupsInitFDR(op_groups_t *opg, const pddl_fdr_t *fdr)
 {
-    bzero(opg, sizeof(*opg));
+    ZEROIZE(opg);
     opg->htable = pddlHTableNew(preEffHash, preEffEq, NULL);
     for (int oi = 0; oi < fdr->op.op_size; ++oi){
         const pddl_fdr_op_t *op = fdr->op.op[oi];
@@ -224,7 +223,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
     LOG(err, "Created %{num_fact_vars}d fact variables",
         fdr->var.global_id_size);
     if (pddlTimeLimitCheck(time_limit) != 0)
-        PDDL_ERR_RET2(err, -1, "Time limit reached.");
+        PDDL_ERR_RET(err, -1, "Time limit reached.");
 
     // Create operator variables
     int op_var_offset = fdr->var.global_id_size;
@@ -237,7 +236,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
     }
     LOG(err, "Created %{num_op_vars}d operator variables", fdr->op.op_size);
     if (pddlTimeLimitCheck(time_limit) != 0)
-        PDDL_ERR_RET2(err, -1, "Time limit reached.");
+        PDDL_ERR_RET(err, -1, "Time limit reached.");
 
     // Set init constraint
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
@@ -252,21 +251,21 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         int fact_id = fdr->var.var[var].val[val].global_id;
         pddlCPAddConstrIVarEq(cp, fact_id, val);
     }
-    LOG2(err, "Added init and goal constraints");
+    LOG(err, "Added init and goal constraints");
     if (pddlTimeLimitCheck(time_limit) != 0)
-        PDDL_ERR_RET2(err, -1, "Time limit reached.");
+        PDDL_ERR_RET(err, -1, "Time limit reached.");
 
     // Set operator constraints
     int num_op_constr = 0;
     for (int group_id = 0; group_id < opg->group_size; ++group_id){
         if (pddlTimeLimitCheck(time_limit) != 0)
-            PDDL_ERR_RET2(err, -1, "Time limit reached.");
+            PDDL_ERR_RET(err, -1, "Time limit reached.");
 
         int op_id;
         const pddl_iset_t *group = &opg->group[group_id];
         PDDL_ISET_FOR_EACH(group, op_id){
             if (pddlTimeLimitCheck(time_limit) != 0)
-                PDDL_ERR_RET2(err, -1, "Time limit reached.");
+                PDDL_ERR_RET(err, -1, "Time limit reached.");
 
             const pddl_fdr_op_t *op = fdr->op.op[op_id];
             num_op_constr += fdrOpConstr(fdr, cfg, op, group, cp,
@@ -282,7 +281,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         pddlISetAdd(&op_vars, oi + op_var_offset);
     pddlCPSetObjectiveMinCountDiff(cp, &op_vars);
     pddlISetFree(&op_vars);
-    LOG2(err, "  Added objective function min(count-diff())");
+    LOG(err, "  Added objective function min(count-diff())");
     return 0;
 }
 
@@ -325,7 +324,7 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
                         pddl_err_t *err)
 {
     CTX(err, "endo_fdr", "Endo-FDR");
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -347,10 +346,10 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
         CTXEND(err);
         PDDL_TRACE_RET(err, -2);
     }
-    LOG2(err, "Created model.");
+    LOG(err, "Created model.");
 
     pddlCPSimplify(&cp);
-    LOG2(err, "Model simplified.");
+    LOG(err, "Model simplified.");
 
     pddl_cp_solve_config_t sol_cfg = PDDL_CP_SOLVE_CONFIG_INIT;
     if (cfg->max_search_time > 0)
@@ -372,7 +371,7 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
             sol->is_optimal = 1;
 
     }else if (sret == PDDL_CP_ABORTED){
-        LOG2(err, "Solver was aborted.");
+        LOG(err, "Solver was aborted.");
         ret = -1;
     }
     pddlCPSolFree(&cpsol);

@@ -14,27 +14,14 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/err.h"
-#include <sys/resource.h>
-#include <strings.h>
-#include <string.h>
-#include <stdarg.h>
 
 static void _pddlProp_kw(pddl_err_t *err, const char *kw)
 {
     for (int i = 0; i < err->ctx_size; ++i)
-        fprintf(err->prop_out, "  ");
+        fprintf(err->prop_out, "%s.", err->ctx[i].kw);
     fprintf(err->prop_out, "%s = ", kw);
-}
-
-static void _pddlProp_ctxKw(pddl_err_t *err, const char *kw)
-{
-    if (err->prop_out == NULL)
-        return;
-    for (int i = 0; i < err->ctx_size; ++i)
-        fprintf(err->prop_out, "  ");
-    fprintf(err->prop_out, "%s:\n", kw);
-    fflush(err->prop_out);
 }
 
 static void _pddlProp_i(pddl_err_t *err, const char *kw, const char *v, int vlen)
@@ -86,7 +73,7 @@ static void pddlErrPrintTraceback(const pddl_err_t *err, FILE *fout)
 
 void pddlErrInit(pddl_err_t *err)
 {
-    bzero(err, sizeof(*err));
+    ZEROIZE(err);
 }
 
 void pddlErrStartCtxTimer(pddl_err_t *err)
@@ -160,6 +147,18 @@ void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
     err->err = 1;
 }
 
+void _pddlPanic(const char *filename, int line, const char *func,
+                const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    fprintf(stderr, "FATAL ERROR: %s:%d [%s]: ", __FILE__, __LINE__, __func__);
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+    exit(-1);
+}
+
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...)
 {
     if (err == NULL)
@@ -197,7 +196,6 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
     if (err == NULL || err->ctx_size == PDDL_ERR_CTX_MAXLEN)
         return;
 
-    _pddlProp_ctxKw(err, kw);
     pddl_err_ctx_t *ctx = err->ctx + err->ctx_size++;
     strncpy(ctx->kw, kw, PDDL_ERR_CTX_KW_MAXLEN - 1);
     ctx->kw[PDDL_ERR_CTX_KW_MAXLEN - 1] = '\0';
@@ -213,6 +211,26 @@ void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
                           pddlTimerElapsedInSF(&err->ctx_timer));
         }
     }
+}
+
+void _pddlCtxFmt(pddl_err_t *err, const char *_kw, const char *_info,
+                 int time, ...)
+{
+    char kw[PDDL_ERR_CTX_MAXLEN];
+    char info[PDDL_ERR_MSG_MAXLEN];
+
+    va_list ap;
+    va_start(ap, time);
+    vsnprintf(kw, PDDL_ERR_CTX_MAXLEN - 1, _kw, ap);
+    va_end(ap);
+    kw[PDDL_ERR_CTX_MAXLEN - 1] = '\x0';
+
+    va_start(ap, time);
+    vsnprintf(info, PDDL_ERR_MSG_MAXLEN - 1, _info, ap);
+    va_end(ap);
+    info[PDDL_ERR_MSG_MAXLEN - 1] = '\x0';
+
+    _pddlCtx(err, kw, info, time);
 }
 
 void _pddlCtxEnd(pddl_err_t *err)

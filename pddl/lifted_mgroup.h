@@ -21,8 +21,8 @@
 #define __PDDL_LIFTED_MGROUP_H__
 
 #include <pddl/common.h>
-#include <pddl/cond.h>
-#include <pddl/cond_arr.h>
+#include <pddl/fm.h>
+#include <pddl/fm_arr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,7 +30,7 @@ extern "C" {
 
 struct pddl_lifted_mgroup {
     pddl_params_t param;
-    pddl_cond_arr_t cond;
+    pddl_fm_arr_t cond;
     int is_exactly_one;
     int is_static;
 };
@@ -152,6 +152,13 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
  * Sort mgroups according to size and predicates and removes duplicates.
  */
 void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm);
+
+/**
+ * Returns true if the two sets of lifted mutex groups are the same.
+ * It is assumed both lmg1 and lmg2 are sorted!
+ */
+int pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
+                        const pddl_lifted_mgroups_t *lmg2);
 
 /**
  * Extend each mutex group with a copy of itself but with fresh counted

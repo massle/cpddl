@@ -17,9 +17,9 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/fdr_state_space.h"
-#include "internal.h"
 
 
 #define PAGESIZE_MULTIPLY 1024
@@ -38,7 +38,7 @@ void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
                            const pddl_fdr_vars_t *vars,
                            pddl_err_t *err)
 {
-    bzero(state_space, sizeof(*state_space));
+    ZEROIZE(state_space);
     pddlFDRStatePoolInit(&state_space->state_pool, vars, err);
     state_space->node = pddlExtArrNew2(sizeof(state_node_t), PAGESIZE_MULTIPLY,
                                        MIN_STATES_PER_BLOCK,
@@ -120,7 +120,7 @@ void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
 void pddlFDRStateSpaceNodeInit(pddl_fdr_state_space_node_t *node,
                                const pddl_fdr_state_space_t *state_space)
 {
-    bzero(node, sizeof(*node));
+    ZEROIZE(node);
     node->var_size = state_space->state_pool.packer.num_vars;
     node->state = CALLOC_ARR(int, node->var_size);
 }

@@ -17,10 +17,10 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/iarr.h"
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
-#include "internal.h"
 
 int pddlH1(const pddl_strips_t *strips,
            pddl_iset_t *unreachable_facts,
@@ -28,7 +28,7 @@ int pddlH1(const pddl_strips_t *strips,
            pddl_err_t *err)
 {
     if (strips->has_cond_eff){
-        PDDL_ERR_RET2(err, -1, "pddlH1: Conditional effects are not supported!");
+        PDDL_ERR_RET(err, -1, "pddlH1: Conditional effects are not supported!");
     }
 
     CTX(err, "h1", "h^1");

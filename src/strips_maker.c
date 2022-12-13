@@ -62,6 +62,7 @@ static int htActionEq(const pddl_list_t *k1, const pddl_list_t *k2, void *ud)
 
 void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 {
+    ZEROIZE(sm);
     sm->action_size = pddl->action.action_size;
     sm->action_arg_size = CALLOC_ARR(int, sm->action_size);
     for (int ai = 0; ai < sm->action_size; ++ai)
@@ -75,6 +76,7 @@ void pddlStripsMakerInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
                                     sm->action_arg_size);
     pddl_ground_action_args_t *pa = NULL;
     sm->action_args_arr = pddlExtArrNew(sizeof(pa), NULL, &pa);
+    sm->eq_pred = pddl->pred.eq_pred;
 }
 
 void pddlStripsMakerFree(pddl_strips_maker_t *sm)
@@ -99,7 +101,7 @@ void pddlStripsMakerFree(pddl_strips_maker_t *sm)
 
 static pddl_ground_atom_t *addAtom(pddl_strips_maker_t *sm,
                                    pddl_ground_atoms_t *gas,
-                                   const pddl_cond_atom_t *atom,
+                                   const pddl_fm_atom_t *atom,
                                    const pddl_obj_id_t *args,
                                    int *is_new)
 {
@@ -130,7 +132,7 @@ static pddl_ground_atom_t *addAtomPred(pddl_strips_maker_t *sm,
 }
 
 pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
-                                           const pddl_cond_atom_t *atom,
+                                           const pddl_fm_atom_t *atom,
                                            const pddl_obj_id_t *args,
                                            int *is_new)
 {
@@ -147,7 +149,7 @@ pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
 }
 
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
-                                                 const pddl_cond_atom_t *atom,
+                                                 const pddl_fm_atom_t *atom,
                                                  const pddl_obj_id_t *args,
                                                  int *is_new)
 {
@@ -165,13 +167,13 @@ pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
 }
 
 pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,
-                                           const pddl_cond_func_op_t *func,
+                                           const pddl_fm_func_op_t *func,
                                            const pddl_obj_id_t *args,
                                            int *is_new)
 {
     ASSERT(func->fvalue == NULL);
     ASSERT(func->lvalue != NULL);
-    ASSERT(pddlCondAtomIsGrounded(func->lvalue));
+    ASSERT(pddlFmAtomIsGrounded(func->lvalue));
     if (is_new != NULL)
         *is_new = 0;
     int atom_size = sm->ground_func.atom_size;
@@ -247,9 +249,9 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
 {
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
-        const pddl_cond_t *c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            const pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+        const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type == PDDL_FM_ATOM){
+            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(sm, a, NULL, NULL);
             }else{
@@ -258,11 +260,11 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
             // TODO
             //sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
 
-        }else if (c->type == PDDL_COND_ASSIGN){
-            const pddl_cond_func_op_t *ass = PDDL_COND_CAST(c, func_op);
+        }else if (c->type == PDDL_FM_ASSIGN){
+            const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
-            ASSERT(pddlCondAtomIsGrounded(ass->lvalue));
+            ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
             pddlStripsMakerAddFunc(sm, ass, NULL, NULL);
         }
     }
@@ -284,7 +286,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
         ASSERT(ga->id == i);
         fact_id = pddlFactsAddGroundAtom(&strips->fact, ga, pddl);
         if (fact_id != ga->id){
-            PDDL_FATAL2("The fact and the corresponding grounded atom have"
+            PANIC("The fact and the corresponding grounded atom have"
                         " different IDs. This is definitelly a bug!");
         }
     }
@@ -308,7 +310,7 @@ static int createStripsFacts(pddl_strips_maker_t *sm,
 #endif
     *map_ground_atom_to_fact_id = ground_atom_to_fact_id;
 
-    PDDL_INFO(err, "Created %d STRIPS facts", strips->fact.fact_size);
+    LOG(err, "Created %{created_facts}d STRIPS facts", strips->fact.fact_size);
     return 0;
 }
 
@@ -320,14 +322,14 @@ static int createInitState(pddl_strips_maker_t *sm,
                            pddl_err_t *err)
 {
     pddl_list_t *item;
-    const pddl_cond_t *c;
-    const pddl_cond_atom_t *a;
+    const pddl_fm_t *c;
+    const pddl_fm_atom_t *a;
     const pddl_ground_atom_t *ga;
 
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
-        c = PDDL_LIST_ENTRY(item, pddl_cond_t, conn);
-        if (c->type == PDDL_COND_ATOM){
-            a = PDDL_COND_CAST(c, atom);
+        c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+        if (c->type == PDDL_FM_ATOM){
+            a = PDDL_FM_CAST(c, atom);
             ga = pddlGroundAtomsFindAtom(&sm->ground_atom, a, NULL);
             if (ga != NULL){
                 pddlISetAdd(&strips->init, ground_atom_to_fact_id[ga->id]);
@@ -340,8 +342,8 @@ static int createInitState(pddl_strips_maker_t *sm,
             }
         }
     }
-    PDDL_INFO(err, "Created init state consisting of %d facts",
-              pddlISetSize(&strips->init));
+    LOG(err, "Created init state consisting of %{init_state_facts}d facts",
+        pddlISetSize(&strips->init));
     return 0;
 }
 
@@ -353,7 +355,7 @@ struct create_goal {
     int fail;
 };
 
-static int _createGoal(pddl_cond_t *c, void *_g)
+static int _createGoal(pddl_fm_t *c, void *_g)
 {
     struct create_goal *ggoal = _g;
     const pddl_ground_atom_t *ga;
@@ -362,10 +364,10 @@ static int _createGoal(pddl_cond_t *c, void *_g)
     const int *ground_atom_to_fact_id = ggoal->ground_atom_to_fact_id;
     pddl_err_t *err = ggoal->err;
 
-    if (c->type == PDDL_COND_ATOM){
-        const pddl_cond_atom_t *atom = PDDL_COND_CAST(c, atom);
-        if (!pddlCondAtomIsGrounded(atom))
-            PDDL_ERR_RET2(err, -1, "Goal specification cannot contain"
+    if (c->type == PDDL_FM_ATOM){
+        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        if (!pddlFmAtomIsGrounded(atom))
+            PDDL_ERR_RET(err, -1, "Goal specification cannot contain"
                           " parametrized atoms.");
 
         // Find fact in the set of reachable facts
@@ -385,18 +387,18 @@ static int _createGoal(pddl_cond_t *c, void *_g)
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
 
-    }else if (c->type == PDDL_COND_BOOL){
-        const pddl_cond_bool_t *b = PDDL_COND_CAST(c, bool);
+    }else if (c->type == PDDL_FM_BOOL){
+        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
         if (!b->val)
             strips->goal_is_unreachable = 1;
         return 0;
 
     }else{
         PDDL_ERR(err, "Only conjuctive goal specifications are supported."
-                 " (Goal contains %s.)", pddlCondTypeName(c->type));
+                 " (Goal contains %s.)", pddlFmTypeName(c->type));
         ggoal->fail = 1;
         return -2;
     }
@@ -410,16 +412,16 @@ static int createGoal(pddl_strips_maker_t *sm,
                       pddl_err_t *err)
 {
     struct create_goal ggoal = { sm, strips, ground_atom_to_fact_id, err, 0 };
-    if (pddl->goal->type == PDDL_COND_OR){
-        PDDL_ERR_RET2(err, -1, "Only conjuctive goal specifications"
+    if (pddl->goal->type == PDDL_FM_OR){
+        PDDL_ERR_RET(err, -1, "Only conjuctive goal specifications"
                       " are supported. This goal is a disjunction.");
     }
 
-    pddlCondTraverse(pddl->goal, _createGoal, NULL, &ggoal);
+    pddlFmTraverse(pddl->goal, _createGoal, NULL, &ggoal);
     if (ggoal.fail)
         PDDL_TRACE_RET(err, -1);
-    PDDL_INFO(err, "Goal created consisting of %d facts",
-              pddlISetSize(&strips->goal));
+    LOG(err, "Goal created consisting of %{goal_facts}d facts",
+        pddlISetSize(&strips->goal));
     return 0;
 }
 
@@ -440,8 +442,8 @@ struct action_ctx {
 typedef struct action_ctx action_ctx_t;
 
 static int actionCondEff(action_ctx_t *ctx_in,
-                         const pddl_cond_t *pre,
-                         const pddl_cond_t *eff);
+                         const pddl_fm_t *pre,
+                         const pddl_fm_t *eff);
 
 static char *groundOpName(const pddl_t *pddl,
                           const pddl_action_t *action,
@@ -462,19 +464,19 @@ static char *groundOpName(const pddl_t *pddl,
     return name;
 }
 
-static int atomArg(const pddl_cond_atom_t *a, int i, const pddl_obj_id_t *args)
+static int atomArg(const pddl_fm_atom_t *a, int i, const pddl_obj_id_t *args)
 {
     if (a->arg[i].obj >= 0)
         return a->arg[i].obj;
     return args[a->arg[i].param];
 }
 
-static int actionPre(pddl_cond_t *c, void *ud)
+static int actionPre(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
 
-    if (c->type == PDDL_COND_ATOM){
-        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
         if (a->pred == ctx->pddl->pred.eq_pred){
             int p1 = atomArg(a, 0, ctx->args);
             int p2 = atomArg(a, 1, ctx->args);
@@ -489,7 +491,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                     ctx->cond_eff_failed = 1;
                     return -2;
                 }
-                PDDL_FATAL2("Unsatisfied (in)equality precondition."
+                PANIC("Unsatisfied (in)equality precondition."
                             " This is definitely a bug!\n");
             }
 
@@ -506,7 +508,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
                     ctx->cond_eff_failed = 1;
                     return -2;
                 }
-                PDDL_FATAL2("Unsatisfied negative precondition."
+                PANIC("Unsatisfied negative precondition."
                             " This is definitely a bug!\n");
             }
 
@@ -525,7 +527,7 @@ static int actionPre(pddl_cond_t *c, void *ud)
             }
 
             if (ga == NULL){
-                PDDL_FATAL2("Unsatisfied positive precondition."
+                PANIC("Unsatisfied positive precondition."
                             " This is definitely a bug!\n");
             }
             if (!is_static){
@@ -538,22 +540,22 @@ static int actionPre(pddl_cond_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
-        PDDL_ERR2(ctx->err, "Precondition is not a conjuction."
+        PDDL_ERR(ctx->err, "Precondition is not a conjuction."
                   " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
     }
 }
 
-static int actionEff(pddl_cond_t *c, void *ud)
+static int actionEff(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
 
-    if (c->type == PDDL_COND_ATOM){
-        pddl_cond_atom_t *a = PDDL_COND_CAST(c, atom);
+    if (c->type == PDDL_FM_ATOM){
+        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
         pddl_ground_atom_t *ga;
         ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_atom, a, ctx->args);
         ASSERT(ga != NULL || a->neg);
@@ -565,23 +567,23 @@ static int actionEff(pddl_cond_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_ASSIGN){
-        PDDL_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
+    }else if (c->type == PDDL_FM_ASSIGN){
+        PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
-    }else if (c->type == PDDL_COND_INCREASE){
+    }else if (c->type == PDDL_FM_INCREASE){
         if (!ctx->pddl->metric)
             return 0;
 
         if (ctx->cond_eff){
             ctx->cond_eff_failed = 1;
             ctx->failed = 1;
-            PDDL_ERR_RET2(ctx->err, -2,
+            PDDL_ERR_RET(ctx->err, -2,
                           "Costs in conditional effects are not supported.");
         }
 
-        pddl_cond_func_op_t *inc = PDDL_COND_CAST(c, func_op);
+        pddl_fm_func_op_t *inc = PDDL_FM_CAST(c, func_op);
         if (inc->fvalue != NULL){
             pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_func,
@@ -589,8 +591,8 @@ static int actionEff(pddl_cond_t *c, void *ud)
             if (ga == NULL){
                 ctx->op->cost += 0;
                 char *name = groundOpName(ctx->pddl, ctx->action, ctx->args);
-                PDDL_INFO(ctx->err, "Missing cost for action (%s), assigning 0",
-                          name);
+                LOG(ctx->err, "Missing cost for action (%{missing_cost_for}s),"
+                    " assigning 0", name);
                 if (name != NULL)
                     FREE(name);
                 /* TODO
@@ -610,18 +612,18 @@ static int actionEff(pddl_cond_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_COND_WHEN){
-        pddl_cond_when_t *w = PDDL_COND_CAST(c, when);
+    }else if (c->type == PDDL_FM_WHEN){
+        pddl_fm_when_t *w = PDDL_FM_CAST(c, when);
         if (actionCondEff(ctx, w->pre, w->eff) != 0){
             ctx->failed = 1;
             return -2;
         }
         return -1;
 
-    }else if (c->type == PDDL_COND_AND){
+    }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
-        PDDL_ERR2(ctx->err, "Effect is not a conjuction"
+        PDDL_ERR(ctx->err, "Effect is not a conjuction"
                   " It seems PDDL was not normalized.");
         ctx->failed = 1;
         return -2;
@@ -629,8 +631,8 @@ static int actionEff(pddl_cond_t *c, void *ud)
 }
 
 static int actionCondEff(action_ctx_t *ctx_in,
-                         const pddl_cond_t *pre,
-                         const pddl_cond_t *eff)
+                         const pddl_fm_t *pre,
+                         const pddl_fm_t *eff)
 {
     action_ctx_t ctx = *ctx_in;
     ctx.cond_eff = 1;
@@ -639,12 +641,12 @@ static int actionCondEff(action_ctx_t *ctx_in,
     pddlStripsOpInit(&op);
     ctx.op = &op;
 
-    pddlCondTraverse((pddl_cond_t *)pre, actionPre, NULL, &ctx);
+    pddlFmTraverse((pddl_fm_t *)pre, actionPre, NULL, &ctx);
     if (ctx.failed)
         PDDL_TRACE_RET(ctx_in->err, -1);
 
     if (!ctx.cond_eff_failed){
-        pddlCondTraverse((pddl_cond_t *)eff, actionEff, NULL, &ctx);
+        pddlFmTraverse((pddl_fm_t *)eff, actionEff, NULL, &ctx);
         if (ctx.failed)
             PDDL_TRACE_RET(ctx_in->err, -1);
     }
@@ -681,10 +683,10 @@ static int createOp(pddl_strips_maker_t *sm,
     ctx.op = op;
 
     op->cost = 0;
-    pddlCondTraverse((pddl_cond_t *)a->pre, actionPre, NULL, &ctx);
+    pddlFmTraverse((pddl_fm_t *)a->pre, actionPre, NULL, &ctx);
     if (ctx.failed)
         PDDL_TRACE_RET(err, -1);
-    pddlCondTraverse((pddl_cond_t *)a->eff, actionEff, NULL, &ctx);
+    pddlFmTraverse((pddl_fm_t *)a->eff, actionEff, NULL, &ctx);
     if (ctx.failed)
         PDDL_TRACE_RET(err, -1);
 
@@ -760,9 +762,9 @@ static int createOps(pddl_strips_maker_t *sm,
     }
 
     pddlStripsOpsSort(&strips->op);
-    PDDL_INFO2(err, "Operators sorted.");
+    PDDL_INFO(err, "Operators sorted.");
 
-    PDDL_INFO(err, "Created %d operators", strips->op.op_size);
+    LOG(err, "Created %{created_ops}d operators", strips->op.op_size);
 
     return 0;
 }
@@ -800,31 +802,31 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         pddlStripsRemoveStaticFacts(strips, err);
 
     pddlStripsMergeCondEffIfPossible(strips);
-    PDDL_INFO2(err, "Merged conditional effects where possible.");
+    PDDL_INFO(err, "Merged conditional effects where possible.");
 
     pddlStripsOpsDeduplicate(&strips->op);
-    PDDL_INFO(err, "Operators deduplicated. Num operators: %d",
-              strips->op.op_size);
+    LOG(err, "Operators deduplicated. Num operators: %{num_ops_dedup}d",
+        strips->op.op_size);
 
     if (strips->goal_is_unreachable){
-        PDDL_INFO2(err, "Strips problem marked as unsolvable");
+        PDDL_INFO(err, "Strips problem marked as unsolvable");
         pddlStripsMakeUnsolvable(strips);
     }
 
-    PDDL_INFO(err, "Number of Strips Operators: %d", strips->op.op_size);
-    PDDL_INFO(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    LOG(err, "Number of Strips Operators: %{num_ops}d", strips->op.op_size);
+    LOG(err, "Number of Strips Facts: %{num_facts}d", strips->fact.fact_size);
     int count = 0;
     for (int i = 0; i < strips->op.op_size; ++i){
         if (strips->op.op[i]->cond_eff_size > 0)
             ++count;
     }
-    PDDL_INFO(err, "Number of Strips Operators with Conditional Effects: %d",
-              count);
-    PDDL_INFO(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
-    PDDL_INFO(err, "Has Conditional Effects: %d", strips->has_cond_eff);
+    LOG(err, "Number of Strips Operators with Conditional Effects:"
+        " %{num_ops_with_ce}d", count);
+    LOG(err, "Goal is unreachable: %{goal_unreachable}d", strips->goal_is_unreachable);
+    LOG(err, "Has Conditional Effects: %{has_ce}d", strips->has_cond_eff);
 
 
-    PDDL_INFO2(err, "PDDL grounded to STRIPS.");
+    PDDL_INFO(err, "PDDL grounded to STRIPS.");
     CTXEND(err);
     return 0;
 }
@@ -839,4 +841,112 @@ pddl_ground_action_args_t *pddlStripsMakerActionArgs(pddl_strips_maker_t *sm,
 pddl_ground_atom_t *pddlStripsMakerGroundAtom(pddl_strips_maker_t *sm, int id)
 {
     return sm->ground_atom.atom[id];
+}
+const pddl_ground_atom_t *pddlStripsMakerGroundAtomConst(
+                const pddl_strips_maker_t *sm, int id)
+{
+    return sm->ground_atom.atom[id];
+}
+
+static int stripsEffInState(pddl_strips_maker_t *smaker,
+                            const pddl_fm_t *pre,
+                            const pddl_fm_t *eff,
+                            const pddl_obj_id_t *args,
+                            const pddl_iset_t *state,
+                            pddl_iset_t *add_eff,
+                            pddl_iset_t *del_eff,
+                            int *cost)
+{
+    pddl_fm_const_it_t it;
+    const pddl_fm_t *fm;
+
+    if (pre != NULL){
+        PDDL_FM_FOR_EACH(pre, &it, fm){
+            if (pddlFmIsAtom(fm)){
+                const pddl_fm_atom_t *atom = pddlFmToAtomConst(fm);
+                if (atom->pred == smaker->eq_pred){
+                    ASSERT(atom->arg_size == 2);
+                    pddl_obj_id_t o1 = atom->arg[0].obj;
+                    if (atom->arg[0].param >= 0)
+                        o1 = args[atom->arg[0].param];
+
+                    pddl_obj_id_t o2 = atom->arg[1].obj;
+                    if (atom->arg[1].param >= 0)
+                        o2 = args[atom->arg[1].param];
+
+                    if (atom->neg){
+                        if (o1 == o2)
+                            return 1;
+                    }else{
+                        if (o1 != o2)
+                            return 1;
+                    }
+                    continue;
+                }
+
+                const pddl_ground_atom_t *ga;
+                ga = pddlGroundAtomsFindAtom(&smaker->ground_atom_static,
+                                             atom, args);
+                // Negative preconditions are of static predicates only
+                if (atom->neg){
+                    if (ga != NULL)
+                        return 1;
+                }else{
+                    if (ga == NULL){
+                        ga = pddlGroundAtomsFindAtom(&smaker->ground_atom,
+                                                     atom, args);
+                        if (ga == NULL || !pddlISetIn(ga->id, state))
+                            return 1;
+                    }
+                }
+
+            }
+        }
+    }
+
+    PDDL_FM_FOR_EACH(eff, &it, fm){
+        if (pddlFmIsAtom(fm)){
+            const pddl_fm_atom_t *atom = pddlFmToAtomConst(fm);
+            const pddl_ground_atom_t *ga;
+            ga = pddlStripsMakerAddAtom(smaker, atom, args, NULL);
+            if (atom->neg){
+                pddlISetAdd(del_eff, ga->id);
+            }else{
+                pddlISetAdd(add_eff, ga->id);
+            }
+
+        }else if (pddlFmIsWhen(fm)){
+            const pddl_fm_when_t *w = pddlFmToWhenConst(fm);
+            stripsEffInState(smaker, w->pre, w->eff, args, state,
+                             add_eff, del_eff, cost);
+
+        }else if (pddlFmIsIncrease(fm)){
+            const pddl_fm_increase_t *inc = pddlFmToIncreaseConst(fm);
+            if (inc->fvalue != NULL){
+                const pddl_ground_atom_t *ga;
+                ga = pddlGroundAtomsFindAtom(&smaker->ground_func,
+                                             inc->fvalue, args);
+                if (ga != NULL)
+                    *cost += ga->func_val;
+            }else{
+                *cost += inc->value;
+            }
+        }
+    }
+    return 0;
+}
+
+void pddlStripsMakerActionEffInState(pddl_strips_maker_t *smaker,
+                                     const pddl_action_t *a,
+                                     const pddl_obj_id_t *args,
+                                     const pddl_iset_t *state,
+                                     pddl_iset_t *add_eff,
+                                     pddl_iset_t *del_eff,
+                                     int *cost)
+{
+    *cost = 0;
+    stripsEffInState(smaker, NULL, a->eff, args, state, add_eff, del_eff, cost);
+    pddlISetIntersect(del_eff, state);
+    pddlISetMinus(del_eff, add_eff);
+    pddlISetMinus(add_eff, state);
 }

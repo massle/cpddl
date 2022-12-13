@@ -91,8 +91,7 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
     const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mg_id;
     ASSERT_RUNTIME(mg->is_exactly_one);
 
-    pddl_trans_system_t *ts = ALLOC(pddl_trans_system_t);
-    bzero(ts, sizeof(*ts));
+    pddl_trans_system_t *ts = ZALLOC(pddl_trans_system_t);
     ts->trans_systems = tss;
     pddlISetAdd(&ts->mgroup_ids, mg_id);
     ts->num_states = pddlISetSize(&mg->mgroup);
@@ -113,8 +112,7 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
 pddl_trans_system_t *pddlTransSystemClone(pddl_trans_systems_t *tss,
                                           const pddl_trans_system_t *ts_in)
 {
-    pddl_trans_system_t *ts = ALLOC(pddl_trans_system_t);
-    bzero(ts, sizeof(*ts));
+    pddl_trans_system_t *ts = ZALLOC(pddl_trans_system_t);
     ts->trans_systems = tss;
     pddlISetUnion(&ts->mgroup_ids, &ts_in->mgroup_ids);
     ts->num_states = ts_in->num_states;
@@ -132,8 +130,7 @@ pddl_trans_system_t *pddlTransSystemNewMerge(pddl_trans_systems_t *tss,
                                              const pddl_trans_system_t *t1,
                                              const pddl_trans_system_t *t2)
 {
-    pddl_trans_system_t *ts = ALLOC(pddl_trans_system_t);
-    bzero(ts, sizeof(*ts));
+    pddl_trans_system_t *ts = ZALLOC(pddl_trans_system_t);
     ts->trans_systems = tss;
     pddlISetUnion2(&ts->mgroup_ids, &t1->mgroup_ids, &t2->mgroup_ids);
     ts->num_states = t1->num_states * t2->num_states;
@@ -186,10 +183,10 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
                           const pddl_mutex_pairs_t *mutex)
 {
     if (mg_strips->strips.has_cond_eff){
-        PDDL_FATAL2("trans_system module does not support conditional effects!");
+        PANIC("trans_system module does not support conditional effects!");
     }
 
-    bzero(tss, sizeof(*tss));
+    ZEROIZE(tss);
     tss->fact_size = mg_strips->strips.fact.fact_size;
     pddlMGroupsInitCopy(&tss->mgroup, &mg_strips->mg);
 

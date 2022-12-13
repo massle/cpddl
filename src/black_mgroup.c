@@ -16,6 +16,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/lp.h"
 #include "pddl/invertibility.h"
 #include "pddl/scc.h"
@@ -24,7 +25,6 @@
 #include "pddl/mgroup_projection.h"
 #include "pddl/hff.h"
 #include "pddl/relaxed_plan.h"
-#include "internal.h"
 
 struct fact_vertex {
     int fact;
@@ -203,7 +203,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 pddl_err_t *err)
 {
-    LOG2(err, "Setting weights using projections to a relaxed plan ...");
+    LOG(err, "Setting weights using projections to a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -256,7 +256,7 @@ static void setWeightWithConflictsInRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 pddl_err_t *err)
 {
-    LOG2(err, "Setting weights using conflicts in a relaxed plan ...");
+    LOG(err, "Setting weights using conflicts in a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -361,7 +361,7 @@ static void blackVarsInit(black_vars_t *bv,
                           const pddl_black_mgroups_config_t *cfg,
                           pddl_err_t *err)
 {
-    bzero(bv, sizeof(*bv));
+    ZEROIZE(bv);
     bv->fact_size = strips->fact.fact_size;
 
     // Find invertible facts
@@ -439,11 +439,11 @@ static void blackVarsFree(black_vars_t *bv)
 
 static pddl_lp_t *createLP(const black_vars_t *bv)
 {
-    unsigned lp_flags;
-    lp_flags  = PDDL_LP_DEFAULT;
-    lp_flags |= PDDL_LP_NUM_THREADS(1);
-    lp_flags |= PDDL_LP_MAX;
-    pddl_lp_t *lp = pddlLPNew(0, bv->fact_vertex_size, lp_flags, NULL);
+    pddl_lp_config_t cfg = PDDL_LP_CONFIG_INIT;
+    cfg.maximize = 1;
+    cfg.rows = 0;
+    cfg.cols = bv->fact_vertex_size;
+    pddl_lp_t *lp = pddlLPNew(&cfg, NULL);
     for (int vi = 0; vi < bv->fact_vertex_size; ++vi){
         pddlLPSetObj(lp, vi, bv->fact_vertex[vi].weight);
         pddlLPSetVarBinary(lp, vi);
@@ -803,7 +803,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
         pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
         PDDL_ISET(comp);
         if (findMultiMGroupComponent(bv, &black_graph, &comp)){
-            LOG2(err, "The solution has a cycle."
+            LOG(err, "The solution has a cycle."
                  " Updating LP by adding more cycles...");
             if (num_updates == 5){
                 addCycles3(lp, bv, err);
@@ -827,7 +827,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
                 if (solution >= cfg->num_solutions){
                     cont = 0;
                 }else{
-                    LOG2(err, "Trying next solution");
+                    LOG(err, "Trying next solution");
                     addRedFacts(lp, bv, &black_vars);
                 }
             }else{
@@ -839,7 +839,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
         pddlISetEmpty(&black_vars);
     }
     if (ret != 0)
-        LOG2(err, "No solution exists.");
+        LOG(err, "No solution exists.");
     pddlISetFree(&black_vars);
 
     if (bmgroups->mgroup_size > 0 || ret == 0)
@@ -857,7 +857,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
 {
     CTX(err, "black_mg_lp", "Black-mg-LP");
     for (int i = 0; i < cfg->num_solutions; ++i)
-        bzero(bmgroups + i, sizeof(*bmgroups));
+        ZEROIZE(bmgroups + i);
 
     pddl_mgroups_t mgroups;
     pddlMGroupsInitEmpty(&mgroups);

@@ -29,13 +29,13 @@ int pddlHm(int m,
 {
     if (m == 1){
         if (time_limit > 0 || excess_memory > 0 || mutex != NULL)
-            PDDL_INFO2(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
+            PDDL_INFO(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
                        " and memory limit");
         return pddlH1(strips, unreachable_facts, unreachable_ops, err);
 
     }else if (m == 2){
         if (excess_memory > 0)
-            PDDL_INFO2(err, "h^2 using pddlHm() ignores the memory limit");
+            PDDL_INFO(err, "h^2 using pddlHm() ignores the memory limit");
         return pddlH2(strips, mutex, unreachable_facts, unreachable_ops,
                       time_limit, err);
 

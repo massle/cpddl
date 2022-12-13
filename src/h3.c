@@ -17,11 +17,11 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/iarr.h"
 #include "pddl/critical_path.h"
 #include "pddl/strips.h"
 #include "pddl/time_limit.h"
-#include "internal.h"
 
 typedef int16_t fact_id_t;
 
@@ -174,7 +174,7 @@ static void h3Init(h3_t *h3,
                    size_t excess_mem,
                    pddl_err_t *err)
 {
-    bzero(h3, sizeof(*h3));
+    ZEROIZE(h3);
     h3->fact_size = strips->fact.fact_size;
     h3->op_size = strips->op.op_size;
     h3->meta_fact1 = CALLOC_ARR(char, h3->fact_size);
@@ -527,7 +527,7 @@ static int applyOp(const pddl_strips_op_t *op, h3_t *h3)
         }
 
     }else{
-        bzero(h3->ext, sizeof(int) * h3->fact_size);
+        ZEROIZE_ARR(h3->ext, h3->fact_size);
         for (int f1 = 0; f1 < h3->fact_size; ++f1){
             if (pddlISetIn(f1, &op->add_eff)
                     || pddlISetIn(f1, &op->del_eff)
@@ -563,7 +563,7 @@ int pddlH3(const pddl_strips_t *strips,
            pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        PDDL_ERR_RET2(err, -1, "h^3: Conditional effects not supported!");
+        PDDL_ERR_RET(err, -1, "h^3: Conditional effects not supported!");
 
     pddl_time_limit_t time_limit;
     h3_t h3;

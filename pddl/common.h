@@ -20,14 +20,36 @@
 #ifndef __PDDL_COMMON_H__
 #define __PDDL_COMMON_H__
 
-#include <math.h>
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
+#endif /* _DEFAULT_SOURCE */
+
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE 1
+#endif /* _BSD_SOURCE */
+
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <float.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
 #include <limits.h>
+#include <math.h>
+#include <poll.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <signal.h>
+#include <time.h>
 #include <unistd.h>
 #include <pddl/config.h>
 
@@ -35,11 +57,36 @@
 extern "C" {
 #endif /* __cplusplus */
 
+enum pddl_status {
+    PDDL_OK = 0,
+    PDDL_FAIL = 1,
+    PDDL_ERR = 2,
+};
+typedef enum pddl_status pddl_status_t;
+
+/** Compiler-specific pragmas */
+#if defined(__clang__) && __clang_major__ < 10
+# pragma clang diagnostic ignored "-Wmissing-braces"
+#endif
+
+#ifdef __ICC
+/* disable unused parameter warning */
+# pragma warning(disable:869)
+/* disable annoying "operands are evaluated in unspecified order" warning */
+# pragma warning(disable:981)
+#endif /* __ICC */
+
+
+
 /**
  * Returns offset of member in given type (struct).
  */
-#define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
-/*#define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)*/
+#if defined(__clang__) && __clang_major__ < 10
+# define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#else
+# define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
+/* #define pddl_offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER) */
+#endif
 
 /**
  * Returns container of given member
@@ -50,7 +97,7 @@ extern "C" {
 /**
  * Marks inline function.
  */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #  ifdef PDDL_DEBUG
 #    define _pddl_inline static __attribute__((unused))
 #  else /* PDDL_DEBUG */
@@ -60,56 +107,32 @@ extern "C" {
 #      define _pddl_inline static inline __attribute__((always_inline,unused))
 #    endif /* __NO_INLINE */
 #  endif /* PDDL_DEBUG */
-#else /* __GNUC__ */
+#else /* defined(__GNUC__) || defined(__clang__) */
 # define _pddl_inline static inline
-#endif /* __GNUC__ */
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 /**
- * __prefetch(x)  - prefetches the cacheline at "x" for read
- * __prefetchw(x) - prefetches the cacheline at "x" for write
+ * pddl_packed - mark struct as "packed", i.e., no alignment of members
+ * _pddl_prefetch(x) - prefetches the cacheline at "x" for read
+ * _pddl_prefetchw(x) - prefetches the cacheline at "x" for write
+ * pddl_likely/pddl_unlikely - mark likely/unlikely branch
+ * PDDL_UNUSED - mark function as possibly unused
  */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+# define pddl_packed __attribute__ ((packed))
 # define _pddl_prefetch(x) __builtin_prefetch(x)
 # define _pddl_prefetchw(x) __builtin_prefetch(x,1)
-#else /* __GNUC__ */
-# define _pddl_prefetch(x)
-# define _pddl_prefetchw(x)
-#endif /* __GNUC__ */
-
-/**
- * Using this macros you can specify is it's likely or unlikely that branch
- * will be used.
- * Comes from linux header file ./include/compiler.h
- */
-#ifdef __GNUC__
 # define pddl_likely(x) __builtin_expect(!!(x), 1)
 # define pddl_unlikely(x) __builtin_expect(!!(x), 0)
-#else /* __GNUC__ */
+# define PDDL_UNUSED(f) f __attribute__((unused))
+#else /* defined(__GNUC__) || defined(__clang__) */
+# define pddl_packed
+# define _pddl_prefetch(x)
+# define _pddl_prefetchw(x)
 # define pddl_likely(x) !!(x)
 # define pddl_unlikely(x) !!(x)
-#endif /* __GNUC__ */
-
-#ifdef __GNUC__
-# define pddl_aligned(x) __attribute__ ((aligned(x)))
-# define pddl_packed __attribute__ ((packed))
-#else /* __GNUC__ */
-# define pddl_aligned(x)
-# define pddl_packed
-#endif /* __GNUC__ */
-
-
-#ifdef __GNUC__
-# define PDDL_UNUSED(f) f __attribute__((unused))
-#else /* __GNUC__ */
 # define PDDL_UNUSED(f)
-#endif /* __GNUC__ */
-
-#ifdef __ICC
-/* disable unused parameter warning */
-# pragma warning(disable:869)
-/* disable annoying "operands are evaluated in unspecified order" warning */
-# pragma warning(disable:981)
-#endif /* __ICC */
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 
 #define PDDL_MIN(x, y) ((x) < (y) ? (x) : (y)) /*!< minimum */
@@ -147,6 +170,10 @@ typedef int pddl_obj_id_t;
 #define PDDL_COST_MAX ((INT_MAX / 2) - 1)
 /** Minimum cost */
 #define PDDL_COST_MIN ((INT_MIN / 2) + 1)
+/** Zeroize given struct */
+#define PDDL_ZEROIZE(SPTR) memset((SPTR), 0, sizeof(*(SPTR)))
+#define PDDL_ZEROIZE_ARR(SPTR, SZ) memset((SPTR), 0, sizeof(*(SPTR)) * (SZ))
+#define PDDL_ZEROIZE_RAW(SPTR, SZ) memset((SPTR), 0, (SZ))
 
 
 /**
@@ -182,6 +209,7 @@ typedef uint32_t pddl_fdr_packer_word_t;
 
 
 extern const char *pddl_version;
+extern const char *pddl_build_version;
 
 #ifdef __cplusplus
 } /* extern "C" */

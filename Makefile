@@ -13,10 +13,15 @@ TARGETS  = libpddl.a
 OBJS  = alloc
 OBJS += err
 OBJS += hfunc
+OBJS += sha256
 OBJS += google-city-hash
+OBJS += toml
 OBJS += rand
 OBJS += sort
 OBJS += qsort
+OBJS += timsort
+OBJS += mergesort
+OBJS += heapsort
 OBJS += segmarr
 OBJS += extarr
 OBJS += pairheap
@@ -26,13 +31,13 @@ OBJS += htable
 OBJS += fifo
 OBJS += lp
 OBJS += lp-cplex
-OBJS += lp-lpsolve
 OBJS += lp-gurobi
 OBJS += lp-glpk
+OBJS += lp-highs
 OBJS += cp
 OBJS += cp-minizinc
 OBJS += lisp
-OBJS += require
+OBJS += require_flags
 OBJS += type
 OBJS += param
 OBJS += obj
@@ -43,8 +48,8 @@ OBJS += prep_action
 OBJS += pddl
 OBJS += unify
 OBJS += compile_in_lifted_mgroup
-OBJS += cond
-OBJS += cond_arr
+OBJS += fm
+OBJS += fm_arr
 OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
@@ -80,6 +85,7 @@ OBJS += fdr
 OBJS += fdr_state_packer
 OBJS += fdr_state_pool
 OBJS += fdr_state_space
+OBJS += fdr_state_sampler
 OBJS += strips_state_space
 OBJS += sym
 OBJS += famgroup
@@ -105,24 +111,30 @@ OBJS += open_list_splaytree2
 OBJS += search
 OBJS += search_astar
 OBJS += search_lazy
-OBJS += search_lifted
+OBJS += lifted_app_action
+OBJS += lifted_app_action_sql
+OBJS += lifted_app_action_datalog
+OBJS += lifted_search
 OBJS += plan
 OBJS += relaxed_plan
 OBJS += heur
 OBJS += heur_blind
+OBJS += heur_dead_end
 OBJS += heur_lm_cut
 OBJS += heur_hmax
 OBJS += heur_hadd
 OBJS += heur_hff
-OBJS += heur_pot_state
 OBJS += heur_flow
+OBJS += heur_op_mutex
 OBJS += dtg
 OBJS += scc
 OBJS += ts
 OBJS += op_mutex_pair
 OBJS += op_mutex_infer
 OBJS += op_mutex_infer_ts
-OBJS += op_mutex_sym_redundant
+OBJS += op_mutex_redundant
+OBJS += op_mutex_redundant_greedy
+OBJS += op_mutex_redundant_max
 OBJS += reversibility
 OBJS += invertibility
 OBJS += cascading_table
@@ -160,12 +172,14 @@ OBJS += iarr
 OBJS += lifted_heur
 OBJS += lifted_heur_relaxed
 OBJS += subprocess
+OBJS += task
 OBJS += asnets_task
-OBJS += asnets_dynet
+OBJS += asnets_train_data
 
 OBJS += __sqlite3
 
-OBJS_CPP = cp-cp-optimizer
+OBJS_CPP  = cp-cp-optimizer
+OBJS_CPP += asnets_dynet
 
 OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
 
@@ -185,9 +199,11 @@ all: $(TARGETS)
 bin: libpddl.a
 	$(MAKE) -C bin
 
-libpddl.a: $(OBJS) Makefile
-	echo "const char *pddl_version = \"$(shell git rev-parse HEAD)\";" >_version.c
-	$(CC) -c -o .objs/_version.o _version.c
+libpddl.a: $(OBJS) Makefile pddl/version.h
+	echo "#include \"pddl/version.h\"" >_version.c
+	echo "const char *pddl_build_version = \"$(shell git rev-parse HEAD)\";" >>_version.c
+	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>_version.c
+	$(CC) -I. -c -o .objs/_version.o _version.c
 	rm -f _version.c
 	ar cr $@ $(OBJS) .objs/_version.o
 	ranlib $@
@@ -204,11 +220,12 @@ pddl/config.h: Makefile Makefile.include
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
 	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
-	if [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LPSOLVE" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_LPSOLVE)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
+	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
+	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_GLPK)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
 	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
 	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
+	if [ "$(USE_DYNET)" = "yes" ]; then echo "#define PDDL_DYNET" >>$@; fi
 	echo "" >>$@
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
@@ -248,6 +265,8 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
+.objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -300,8 +319,16 @@ list-global-symbols: libpddl.a
         | sort \
         | uniq \
         | grep -v '^pddl' \
+        | grep -v '^_pddl' \
+        | grep -v '^__pddl' \
         | grep -v '^_Z.*Ilo' \
         | grep -v '^_Z.*Ilo' \
+        | grep -v '^_Z.*dynet' \
+        | grep -v '^CPX' \
+        | grep -v '^GRB' \
+        | grep -v '^glp_' \
+        | grep -v '^bliss_' \
+        | grep -v '^Cudd_' \
         | less
 
 third-party: bliss cudd
@@ -310,16 +337,12 @@ third-party-clean: bliss-clean cudd-clean
 bliss: third-party/bliss/libbliss.a
 bliss-clean:
 	$(MAKE) -C third-party/bliss clean
+	rm -f third-party/bliss/libbliss.a
+	rm -f third-party/bliss/bliss_C.h
 third-party/bliss/libbliss.a:
 	$(MAKE) CC=$(CXX) -C third-party/bliss lib_static
 	cp third-party/bliss/src/bliss_C.h third-party/bliss/
 	mv third-party/bliss/libbliss_static.a $@
-
-lpsolve: third-party/lpsolve/liblpsolve.a
-lpsolve-clean:
-	$(MAKE) -C third-party/lpsolve clean
-third-party/lpsolve/liblpsolve.a:
-	$(MAKE) -C third-party/lpsolve
 
 cudd: third-party/cudd/libcudd.a
 cudd-clean:
@@ -352,5 +375,4 @@ sqlite-amalgam:
   check-gdb check-all-gdb \
   third-party third-party-clean \
   bliss bliss-clean \
-  lpsolve lpsolve-clean \
   sqlite-amalgam

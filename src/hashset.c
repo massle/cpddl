@@ -14,14 +14,12 @@
  *  See the License for more information.
  */
 
-#include <stdio.h>
-#include <unistd.h>
+#include "internal.h"
 #include "pddl/hfunc.h"
 #include "pddl/hashset.h"
 #include "pddl/iset.h"
 #include "pddl/lset.h"
 #include "pddl/cset.h"
-#include "internal.h"
 
 struct pddl_hashset_el {
     int id;
@@ -54,7 +52,7 @@ void pddlHashSetInit(pddl_hashset_t *s,
                      pddl_hashset_del_fn del_fn,
                      void *userdata)
 {
-    bzero(s, sizeof(*s));
+    ZEROIZE(s);
     s->hash_fn = hash_fn;
     s->eq_fn = eq_fn;
     s->clone_fn = clone_fn;

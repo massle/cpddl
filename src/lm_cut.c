@@ -94,8 +94,7 @@ void pddlLMCutInit(pddl_lm_cut_t *lmc,
 {
     const pddl_fdr_vars_t *vars = &fdr->var;
 
-    bzero(lmc, sizeof(*lmc));
-    lmc->fdr = fdr;
+    ZEROIZE(lmc);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
@@ -154,7 +153,7 @@ void pddlLMCutInitStrips(pddl_lm_cut_t *lmc,
                          int op_unit_cost,
                          int op_cost_plus)
 {
-    bzero(lmc, sizeof(*lmc));
+    ZEROIZE(lmc);
 
     // Allocate facts and add one for empty-precondition fact and one for
     // goal fact
@@ -251,11 +250,14 @@ static void initOps(pddl_lm_cut_t *lmc, int init_cost)
     }
 }
 
-static void addFDRInitState(pddl_lm_cut_t *lmc, const int *state, pddl_pq_t *pq)
+static void addFDRInitState(pddl_lm_cut_t *lmc,
+                            const int *state,
+                            const pddl_fdr_vars_t *vars,
+                            pddl_pq_t *pq)
 {
     pddlISetEmpty(&lmc->state);
-    for (int var = 0; var < lmc->fdr->var.var_size; ++var){
-        int fact_id = lmc->fdr->var.var[var].val[state[var]].global_id;
+    for (int var = 0; var < vars->var_size; ++var){
+        int fact_id = vars->var[var].val[state[var]].global_id;
         FPUSH(pq, 0, lmc->fact + fact_id);
         pddlISetAdd(&lmc->state, fact_id);
     }
@@ -293,6 +295,7 @@ static void enqueueOpEffects(pddl_lm_cut_t *lmc,
 
 static void hMaxFull(pddl_lm_cut_t *lmc,
                      const int *fdr_state,
+                     const pddl_fdr_vars_t *vars,
                      const pddl_iset_t *strips_state,
                      int init_cost)
 {
@@ -302,7 +305,7 @@ static void hMaxFull(pddl_lm_cut_t *lmc,
     initFacts(lmc);
     initOps(lmc, init_cost);
     if (fdr_state != NULL){
-        addFDRInitState(lmc, fdr_state, &pq);
+        addFDRInitState(lmc, fdr_state, vars, &pq);
     }else{
         addStripsInitState(lmc, strips_state, &pq);
     }
@@ -492,9 +495,9 @@ static int findCut(pddl_lm_cut_t *lmc)
     */
 
     if (lmc->cut.size == 0){
-        PDDL_FATAL2("Empty cut!");
+        PANIC("Empty cut!");
     }else if (min_cost <= 0){
-        PDDL_FATAL("Invalid cut cost: %d!", min_cost);
+        PANIC("Invalid cut cost: %d!", min_cost);
     }
 
     return min_cost;
@@ -513,7 +516,7 @@ static int cut(pddl_lm_cut_t *lmc)
 {
     int cost;
 
-    bzero(lmc->fact_state, sizeof(int) * lmc->fact_size);
+    ZEROIZE_ARR(lmc->fact_state, lmc->fact_size);
     markGoalZone(lmc);
     cost = findCut(lmc);
     applyCutCost(lmc, cost);
@@ -576,16 +579,17 @@ static int applyInitLandmarks(pddl_lm_cut_t *lmc,
 
 static int lmCut(pddl_lm_cut_t *lmc,
                  const int *fdr_state,
+                 const pddl_fdr_vars_t *vars,
                  const pddl_iset_t *strips_state,
                  const pddl_set_iset_t *ldms_in,
                  pddl_set_iset_t *ldms_out)
 {
     ASSERT(fdr_state == NULL || strips_state == NULL);
     ASSERT(fdr_state != NULL || strips_state != NULL);
-    ASSERT(fdr_state != NULL ? lmc->fdr != NULL : 1);
+    ASSERT(fdr_state == NULL || vars != NULL);
     int heur = 0;
 
-    hMaxFull(lmc, fdr_state, strips_state, 1);
+    hMaxFull(lmc, fdr_state, vars, strips_state, 1);
     if (!FVALUE_IS_SET(lmc->fact + lmc->fact_goal))
         return PDDL_COST_DEAD_END;
 
@@ -610,13 +614,11 @@ static int lmCut(pddl_lm_cut_t *lmc,
 
 int pddlLMCut(pddl_lm_cut_t *lmc,
               const int *fdr_state,
+              const pddl_fdr_vars_t *vars,
               const pddl_set_iset_t *ldms_in,
               pddl_set_iset_t *ldms_out)
 {
-    if (lmc->fdr == NULL){
-        PDDL_FATAL2("This function requires lm-cut construct from FDR");
-    }
-    return lmCut(lmc, fdr_state, NULL, ldms_in, ldms_out);
+    return lmCut(lmc, fdr_state, vars, NULL, ldms_in, ldms_out);
 }
 
 int pddlLMCutStrips(pddl_lm_cut_t *lmc,
@@ -624,8 +626,5 @@ int pddlLMCutStrips(pddl_lm_cut_t *lmc,
                     const pddl_set_iset_t *ldms_in,
                     pddl_set_iset_t *ldms_out)
 {
-    if (lmc->fdr != NULL){
-        PDDL_FATAL2("This function requires lm-cut construct from STRIPS");
-    }
-    return lmCut(lmc, NULL, state, ldms_in, ldms_out);
+    return lmCut(lmc, NULL, NULL, state, ldms_in, ldms_out);
 }

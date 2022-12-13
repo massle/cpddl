@@ -17,13 +17,12 @@
  * See the License for more information.
  */
 
-#include <stdio.h>
-#include "pddl/scc.h"
 #include "internal.h"
+#include "pddl/scc.h"
 
 void pddlSCCGraphInit(pddl_scc_graph_t *g, int node_size)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->node_size = node_size;
     g->node = CALLOC_ARR(pddl_iset_t, g->node_size);
 }
@@ -133,7 +132,7 @@ static void sccTarjan(pddl_scc_t *scc, const pddl_scc_graph_t *graph)
 
 void pddlSCC(pddl_scc_t *scc, const pddl_scc_graph_t *graph)
 {
-    bzero(scc, sizeof(*scc));
+    ZEROIZE(scc);
     sccTarjan(scc, graph);
 }
 
@@ -291,7 +290,7 @@ static int fnAddCycle(const pddl_iarr_t *path, void *ud)
 void pddlGraphSimpleCycles(pddl_graph_simple_cycles_t *cycles,
                            const pddl_scc_graph_t *graph)
 {
-    bzero(cycles, sizeof(*cycles));
+    ZEROIZE(cycles);
     pddlGraphSimpleCyclesFn(graph, fnAddCycle, cycles);
 }
 

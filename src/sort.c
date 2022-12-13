@@ -16,6 +16,8 @@
 #include "pddl/sort.h"
 #include "internal.h"
 
+#define DEFAULT_SORT pddlQSort
+
 /**** INSERT SORT LIST ****/
 void pddlListInsertSort(pddl_list_t *list, pddl_sort_list_cmp cmp, void *data)
 {
@@ -62,7 +64,7 @@ void pddlCountSort(void *base, size_t nmemb, size_t size, int from, int to,
     unsigned char *cur, *end, *tmp;
     int i, key;
 
-    bzero(cnt, sizeof(int) * range);
+    ZEROIZE_ARR(cnt, range);
     for (cur = base, end = cur + (nmemb * size); cur != end; cur += size){
         key = get_key(cur, arg) - from;
         ++cnt[key];
@@ -159,14 +161,6 @@ void pddlInsertSortInt(int *arr, size_t nmemb)
     }
 }
 
-#ifndef PDDL_TIMSORT
-int pddlTimSort(void *base, size_t nmemb, size_t size,
-                pddl_sort_cmp cmp, void *carg)
-{
-    PDDL_FATAL2("TimSort is not compiled in!");
-}
-#endif /* PDDL_TIMSORT */
-
 int pddlSort(void *base, size_t nmemb, size_t size,
              pddl_sort_cmp cmp, void *carg)
 {
@@ -183,12 +177,42 @@ int pddlSort(void *base, size_t nmemb, size_t size,
         return 0;
     }
 
-#ifdef PDDL_TIMSORT
-    return pddlTimSort(base, nmemb, size, cmp, carg);
-#else /* PDDL_TIMSORT */
-    pddlQSort(base, nmemb, size, cmp, carg);
-    return 0;
-#endif /* PDDL_TIMSORT */
+    int ret = DEFAULT_SORT(base, nmemb, size, cmp, carg);
+#ifdef PDDL_DEBUG
+    for (int i = 1; i < nmemb; ++i){
+        char *ca = base;
+        ASSERT(cmp(ca + (i - 1) * size, ca + i * size, carg) <= 0);
+    }
+#endif /* PDDL_DEBUG */
+
+    return ret;
+}
+
+int pddlStableSort(void *base, size_t nmemb, size_t size,
+                   pddl_sort_cmp cmp, void *carg)
+{
+    if (nmemb <= 1)
+        return 0;
+    if (nmemb == 2){
+        char *begin = base;
+        sort2(begin, begin + size, size, cmp, carg);
+        return 0;
+    }
+    if (nmemb == 3){
+        char *begin = base;
+        sort3(begin, begin + size, begin + size + size, size, cmp, carg);
+        return 0;
+    }
+
+    int ret = pddlTimSort(base, nmemb, size, cmp, carg);
+#ifdef PDDL_DEBUG
+    for (int i = 1; i < nmemb; ++i){
+        char *ca = base;
+        ASSERT(cmp(ca + (i - 1) * size, ca + i * size, carg) <= 0);
+    }
+#endif /* PDDL_DEBUG */
+
+    return ret;
 }
 
 static int cmpIntKey(const void *a, const void *b, void *d)

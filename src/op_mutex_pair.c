@@ -21,7 +21,7 @@
 
 void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
 {
-    bzero(m, sizeof(*m));
+    ZEROIZE(m);
 
     m->op_size = s->op.op_size;
     m->op_id_to_id = ALLOC_ARR(int, m->op_size);
@@ -32,7 +32,7 @@ void pddlOpMutexPairsInit(pddl_op_mutex_pairs_t *m, const pddl_strips_t *s)
 void pddlOpMutexPairsInitCopy(pddl_op_mutex_pairs_t *dst,
                               const pddl_op_mutex_pairs_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
 
     dst->op_size = src->op_size;
     dst->op_id_to_id = ALLOC_ARR(int, dst->op_size);
@@ -67,11 +67,14 @@ int pddlOpMutexPairsSize(const pddl_op_mutex_pairs_t *m)
 void pddlOpMutexPairsMutexWith(const pddl_op_mutex_pairs_t *m, int op_id,
                                pddl_iset_t *out)
 {
+    if (op_id < 0)
+        return;
+
     if (m->op_id_to_id[op_id] >= 0)
         pddlISetUnion(out, m->op_mutex + m->op_id_to_id[op_id]);
     for (int i = op_id - 1; i >= 0; --i){
         if (pddlOpMutexPairsIsMutex(m, i, op_id))
-                pddlISetAdd(out, i);
+            pddlISetAdd(out, i);
     }
 }
 
@@ -179,4 +182,30 @@ void pddlOpMutexPairsUnion(pddl_op_mutex_pairs_t *m,
     int o1, o2;
     PDDL_OP_MUTEX_PAIRS_FOR_EACH(n, o1, o2)
         pddlOpMutexPairsAdd(m, o1, o2);
+}
+
+void pddlOpMutexPairsGenMapOpToOpSet(const pddl_op_mutex_pairs_t *m,
+                                     const pddl_iset_t *relevant_ops,
+                                     pddl_iset_t *map)
+{
+    int *relevant_ops_arr = CALLOC_ARR(int, m->op_size);
+    if (relevant_ops != NULL){
+        int op_id;
+        PDDL_ISET_FOR_EACH(relevant_ops, op_id)
+            relevant_ops_arr[op_id] = 1;
+    }else{
+        for (int op_id = 0; op_id < m->op_size; ++op_id)
+            relevant_ops_arr[op_id] = 1;
+    }
+
+    int op_id1, op_id2;
+    PDDL_OP_MUTEX_PAIRS_FOR_EACH(m, op_id1, op_id2){
+        if (relevant_ops_arr[op_id1] && relevant_ops_arr[op_id2]){
+            pddlISetAdd(map + op_id1, op_id2);
+            pddlISetAdd(map + op_id2, op_id1);
+        }
+    }
+
+    if (relevant_ops_arr != NULL)
+        FREE(relevant_ops_arr);
 }

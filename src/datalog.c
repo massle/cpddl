@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/hfunc.h"
 #include "pddl/extarr.h"
@@ -24,7 +25,6 @@
 #include "pddl/pairheap.h"
 #include "pddl/datalog.h"
 #include "pddl/iarr.h"
-#include "internal.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;
@@ -54,6 +54,15 @@ struct pddl_datalog_relevant_fact {
 };
 typedef struct pddl_datalog_relevant_fact pddl_datalog_relevant_fact_t;
 
+struct pddl_datalog_db_freeze {
+    int fact_size;
+    int relevant_fact_size[2];
+    size_t used_mem;
+    pddl_iset_t *pred_to_fact;
+    int canonical_model_end;
+};
+typedef struct pddl_datalog_db_freeze pddl_datalog_db_freeze_t;
+
 struct pddl_datalog_db {
     pddl_htable_t *hfact;
     pddl_htable_t *hrelevant_fact[2];
@@ -64,6 +73,8 @@ struct pddl_datalog_db {
     pddl_iset_t *pred_to_fact;
     pddl_extarr_t *relevant_fact[2];
     int relevant_fact_size[2];
+    pddl_datalog_db_freeze_t freeze;
+    int canonical_model_end;
 };
 typedef struct pddl_datalog_db pddl_datalog_db_t;
 
@@ -202,7 +213,7 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     size_t size = sizeof(pddl_datalog_fact_t);
     size += dl->max_pred_arity * sizeof(int);
     void *init = alloca(size);
-    bzero(init, size);
+    ZEROIZE_RAW(init, size);
     db->fact = pddlExtArrNew(size, NULL, init);
     db->fact_queue = pddlPairHeapNew(factQueueLT, NULL);
     db->pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
@@ -210,9 +221,10 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     size = sizeof(pddl_datalog_relevant_fact_t);
     size += dl->max_pred_arity * 2 * sizeof(int);
     init = alloca(size);
-    bzero(init, size);
+    ZEROIZE_RAW(init, size);
     db->relevant_fact[0] = pddlExtArrNew(size, NULL, init);
     db->relevant_fact[1] = pddlExtArrNew(size, NULL, init);
+    db->freeze.pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
 }
 
 static size_t dbUsedMem(const pddl_datalog_db_t *db)
@@ -251,7 +263,50 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
         pddlISetFree(db->pred_to_fact + i);
     FREE(db->pred_to_fact);
 
-    bzero(db, sizeof(*db));
+    for (int i = 0; i < dl->pred_size; ++i)
+        pddlISetFree(db->freeze.pred_to_fact + i);
+    FREE(db->freeze.pred_to_fact);
+
+    ZEROIZE(db);
+}
+
+static void dbFreeze(pddl_datalog_t *dl, pddl_datalog_db_t *db)
+{
+    db->freeze.fact_size = db->fact_size;
+    db->freeze.relevant_fact_size[0] = db->relevant_fact_size[0];
+    db->freeze.relevant_fact_size[1] = db->relevant_fact_size[1];
+    db->freeze.used_mem = db->used_mem;
+    for (int i = 0; i < dl->pred_size; ++i)
+        pddlISetSet(db->freeze.pred_to_fact + i, db->pred_to_fact + i);
+    db->freeze.canonical_model_end = db->canonical_model_end;
+}
+
+static void dbRollback(pddl_datalog_t *dl, pddl_datalog_db_t *db)
+{
+    for (int fact_id = db->freeze.fact_size; fact_id < db->fact_size; ++fact_id){
+        pddl_datalog_fact_t *f = dbFact(db, fact_id);
+        pddlISetFree(&f->best_fact_achievers);
+        pddlHTableErase(db->hfact, &f->htable);
+        if (!FACT_NOT_IN_QUEUE(f))
+            pddlPairHeapRemove(db->fact_queue, &f->heap);
+    }
+    db->fact_size = db->freeze.fact_size;
+
+    for (int side = 0; side < 2; ++side){
+        for (int i = db->freeze.relevant_fact_size[side];
+                i < db->relevant_fact_size[side]; ++i){
+            void *x = pddlExtArrGet(db->relevant_fact[side], i);
+            pddl_datalog_relevant_fact_t *f = (pddl_datalog_relevant_fact_t *)x;
+            pddlISetFree(&f->fact);
+            pddlHTableRemove(db->hrelevant_fact[side], &f->htable);
+        }
+        db->relevant_fact_size[side] = db->freeze.relevant_fact_size[side];
+    }
+
+    for (int i = 0; i < dl->pred_size; ++i)
+        pddlISetSet(db->pred_to_fact + i, db->freeze.pred_to_fact + i);
+    db->used_mem = db->freeze.used_mem;
+    db->canonical_model_end = db->freeze.canonical_model_end;
 }
 
 static pddl_datalog_fact_t *dbFindFact(pddl_datalog_t *dl,
@@ -468,9 +523,7 @@ static void setUp(pddl_datalog_t *dl, int db, pddl_err_t *err)
 
 pddl_datalog_t *pddlDatalogNew(void)
 {
-    pddl_datalog_t *dl = ALLOC(pddl_datalog_t);
-    bzero(dl, sizeof(*dl));
-    return dl;
+    return ZALLOC(pddl_datalog_t);
 }
 
 void pddlDatalogDel(pddl_datalog_t *dl)
@@ -519,7 +572,7 @@ unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
         dl->c = REALLOC_ARR(dl->c, pddl_datalog_const_t, dl->c_alloc);
     }
     pddl_datalog_const_t *c = dl->c + dl->c_size;
-    bzero(c, sizeof(*c));
+    ZEROIZE(c);
     c->idx = dl->c_size++;
     c->id = IDX_TO_CONST(c->idx);
     c->name = NULL;
@@ -540,7 +593,7 @@ unsigned pddlDatalogAddPred(pddl_datalog_t *dl, int arity, const char *name)
                                dl->pred_alloc);
     }
     pddl_datalog_pred_t *p = dl->pred + dl->pred_size;
-    bzero(p, sizeof(*p));
+    ZEROIZE(p);
     p->idx = dl->pred_size++;
     p->id = IDX_TO_PRED(p->idx);
     p->arity = arity;
@@ -578,7 +631,7 @@ unsigned pddlDatalogAddVar(pddl_datalog_t *dl, const char *name)
         dl->var = REALLOC_ARR(dl->var, pddl_datalog_var_t, dl->var_alloc);
     }
     pddl_datalog_var_t *v = dl->var + dl->var_size;
-    bzero(v, sizeof(*v));
+    ZEROIZE(v);
     v->idx = dl->var_size++;
     v->id = IDX_TO_VAR(v->idx);
     v->name = NULL;
@@ -854,7 +907,7 @@ static void renameVarsInRule(pddl_datalog_t *dl, int rule_id)
     collectVarsFromRule(dl, rule, &rule_vars);
 
     unsigned remap[dl->var_size];
-    bzero(remap, sizeof(unsigned) * dl->var_size);
+    ZEROIZE_ARR(remap, dl->var_size);
     for (int i = 0; i < pddlISetSize(&rule_vars); ++i)
         remap[pddlISetGet(&rule_vars, i)] = i;
 
@@ -918,7 +971,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
 
     CTX(err, "reduce_rule_set", "reduce-rule-set");
     int pred_num_achievers[dl->pred_size];
-    bzero(pred_num_achievers, sizeof(int) * dl->pred_size);
+    ZEROIZE_ARR(pred_num_achievers, dl->pred_size);
     for (int ri = 0; ri < dl->rule_size; ++ri)
         pred_num_achievers[dl->rule[ri].head.pred]++;
 
@@ -976,7 +1029,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
         pddlISetFree(&rm_rules);
     }
     FREE(rule_ids);
-    LOG2(err, "Nothing to reduce");
+    LOG(err, "Nothing to reduce");
     CTXEND(err);
     return 0;
 }
@@ -999,7 +1052,7 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
-        ERR_RET2(err, -1, "Cannot create normal form because the"
+        ERR_RET(err, -1, "Cannot create normal form because the"
                  "datalog program is not safe");
     }
 
@@ -1265,9 +1318,24 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
                 dbUsedMem(&dl->db) / (1024lu * 1024lu));
         }
     }
+    dl->db.canonical_model_end = dl->db.fact_size;
     LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
         dl->db.fact_size, dbUsedMem(&dl->db) / (1024lu * 1024lu));
     CTXEND(err);
+}
+
+void pddlDatalogCanonicalModelCont(pddl_datalog_t *dl, pddl_err_t *err)
+{
+    // TODO: Refactor with pddlDatalogCanonicalModel()
+    int cur_id = dl->db.canonical_model_end;
+    while (cur_id < dl->db.fact_size){
+        const pddl_datalog_fact_t *f = dbFact(&dl->db, cur_id);
+        int rule_id;
+        PDDL_ISET_FOR_EACH(&dl->pred[f->pred].relevant_rules, rule_id)
+            applyFactOnRule(dl, NO_WEIGHT, 0, f, rule_id, err);
+        ++cur_id;
+    }
+    dl->db.canonical_model_end = dl->db.fact_size;
 }
 
 static int weightedCanonicalModel(pddl_datalog_t *dl,
@@ -1430,11 +1498,36 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
     FREE(in_queue);
 }
 
+void pddlDatalogSaveStateOfDB(pddl_datalog_t *dl)
+{
+    dbFreeze(dl, &dl->db);
+}
+
+void pddlDatalogRollbackDB(pddl_datalog_t *dl)
+{
+    dbRollback(dl, &dl->db);
+}
+
+void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
+                            unsigned in_pred,
+                            const unsigned *in_arg)
+{
+    ASSERT_RUNTIME(IS_PRED(in_pred));
+    int pred = TO_IDX(in_pred);
+    int arg_size = dl->pred[pred].arity;
+    int arg[arg_size];
+    for (int i = 0; i < arg_size; ++i){
+        ASSERT_RUNTIME(IS_CONST(in_arg[i]));
+        arg[i] = TO_IDX(in_arg[i]);
+    }
+    dbAddFact(dl, &dl->db, pred, arg);
+}
+
 void pddlDatalogAtomInit(pddl_datalog_t *dl,
                          pddl_datalog_atom_t *atom,
                          unsigned pred)
 {
-    bzero(atom, sizeof(*atom));
+    ZEROIZE(atom);
     int p = TO_IDX(pred);
     atom->pred = p;
     atom->arg = CALLOC_ARR(unsigned, dl->pred[p].arity);
@@ -1444,7 +1537,7 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
                          pddl_datalog_atom_t *dst,
                          const pddl_datalog_atom_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     dst->pred = src->pred;
     dst->arg = CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
     memcpy(dst->arg, src->arg, sizeof(unsigned) * dl->pred[dst->pred].arity);
@@ -1489,14 +1582,14 @@ void pddlDatalogAtomSetArg(pddl_datalog_t *dl,
 
 void pddlDatalogRuleInit(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
 {
-    bzero(rule, sizeof(*rule));
+    ZEROIZE(rule);
 }
 
 void pddlDatalogRuleCopy(pddl_datalog_t *dl,
                          pddl_datalog_rule_t *dst,
                          const pddl_datalog_rule_t *src)
 {
-    bzero(dst, sizeof(*dst));
+    ZEROIZE(dst);
     pddlDatalogAtomCopy(dl, &dst->head, &src->head);
     dst->body_alloc = src->body_alloc;
     dst->body_size = src->body_size;
@@ -1641,6 +1734,7 @@ int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
 
     return 1;
 }
+
 
 static void printEl(const pddl_datalog_t *dl, unsigned id, FILE *fout)
 {

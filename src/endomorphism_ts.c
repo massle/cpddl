@@ -12,12 +12,12 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/endomorphism.h"
 #include "pddl/cp.h"
 #include "pddl/time_limit.h"
 #include "pddl/hfunc.h"
 #include "pddl/sort.h"
-#include "internal.h"
 
 
 struct label_groups {
@@ -322,13 +322,13 @@ static int tsPresolve(ts_presolve_t *presolve,
     labelGroupsFree(tss, label_group);
     for (int op_id = 0; op_id < tss->label.label_size; ++op_id)
         isetPtrArrFree(relevant + op_id);
-    LOG2(err, "presolve restriction of operator domains done");
+    LOG(err, "presolve restriction of operator domains done");
 
     for (int tsi = 0; tsi < tss->ts_size; ++tsi){
         if (presolveStateAllow(presolve, cfg, tss, tsi, time_limit) != 0)
             return -1;
     }
-    LOG2(err, "presolve restriction of state domains done");
+    LOG(err, "presolve restriction of state domains done");
 
     return 0;
 }
@@ -497,7 +497,7 @@ static int tsSetModel(const pddl_trans_systems_t *tss,
         pddlISetAdd(&labels, op_id + var_label_offset);
     pddlCPSetObjectiveMinCountDiff(cp, &labels);
     pddlISetFree(&labels);
-    LOG2(err, "Added objective function");
+    LOG(err, "Added objective function");
 
     if (pddlTimeLimitCheck(time_limit) != 0){
         FREE(var_state_offset);
@@ -549,7 +549,7 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
                                 pddl_err_t *err)
 {
     CTX(err, "endo_ts", "Endo-TS");
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     pddl_time_limit_t time_limit;
     pddlTimeLimitInit(&time_limit);
@@ -560,12 +560,12 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
     LOG(err, "Endomorphism on factored TS (num-ts: %d, num-labels: %d) ...",
         tss->ts_size, tss->label.label_size);
     ts_presolve_t presolve;
-    LOG2(err, "Running presolve...");
+    LOG(err, "Running presolve...");
     if (tsPresolve(&presolve, cfg, tss, &time_limit, err) != 0){
-        LOG2(err, "Time limit reached");
-        LOG2(err, "Terminating presolve phase");
-        LOG2(err, "Terminating inference of endomorphism");
-        LOG2(err, "Terminated by a time limit");
+        LOG(err, "Time limit reached");
+        LOG(err, "Terminating presolve phase");
+        LOG(err, "Terminating inference of endomorphism");
+        LOG(err, "Terminated by a time limit");
         return -1;
     }
 
@@ -575,8 +575,8 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
     LOG(err, "Presolve found %d identity operators", num_identity);
 
     if (num_identity == tss->label.label_size){
-        LOG2(err, "All operators are identity");
-        LOG2(err, "Found 0 redundant operators");
+        LOG(err, "All operators are identity");
+        LOG(err, "Found 0 redundant operators");
         setSolIdentity(sol, tss->label.label_size);
         CTXEND(err);
         return 0;
@@ -592,10 +592,10 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
         CTXEND(err);
         PDDL_TRACE_RET(err, -2);
     }
-    LOG2(err, "Created model.");
+    LOG(err, "Created model.");
 
     pddlCPSimplify(&cp);
-    LOG2(err, "Model simplified.");
+    LOG(err, "Model simplified.");
 
     /*
     FILE *fout = fopen("model.mzn", "w");
@@ -623,7 +623,7 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
             sol->is_optimal = 1;
 
     }else if (sret == PDDL_CP_ABORTED){
-        LOG2(err, "Solver was aborted.");
+        LOG(err, "Solver was aborted.");
         ret = -1;
     }
     pddlCPSolFree(&cpsol);

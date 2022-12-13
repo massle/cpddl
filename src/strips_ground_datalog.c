@@ -20,7 +20,6 @@
 #include "pddl/hfunc.h"
 #include "pddl/sort.h"
 #include "pddl/strips_ground_datalog.h"
-#include "pddl/prep_action.h"
 #include "pddl/ground_atom.h"
 #include "pddl/strips_maker.h"
 #include "pddl/datalog.h"
@@ -35,7 +34,6 @@ typedef struct action action_t;
 
 struct ground {
     const pddl_t *pddl;
-    pddl_prep_actions_t prep_action;
     pddl_strips_maker_t strips_maker;
 
     pddl_datalog_t *dl;
@@ -51,9 +49,9 @@ typedef struct ground ground_t;
 
 static void addInitFacts(ground_t *g)
 {
-    const pddl_cond_atom_t *a;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(&g->pddl->init->cls, &it, a){
+    const pddl_fm_atom_t *a;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(&g->pddl->init->fm, &it, a){
         pddl_datalog_atom_t atom;
         pddl_datalog_rule_t rule;
         pddlDatalogRuleInit(g->dl, &rule);
@@ -83,8 +81,8 @@ static void actionToDLAtom(const ground_t *g,
 
 static unsigned addActionRule(ground_t *g,
                               int action_id,
-                              const pddl_cond_t *pre,
-                              const pddl_cond_t *eff,
+                              const pddl_fm_t *pre,
+                              const pddl_fm_t *eff,
                               unsigned app_parent_dlpred,
                               int cei)
 {
@@ -114,9 +112,9 @@ static unsigned addActionRule(ground_t *g,
         pddlDatalogAtomFree(g->dl, &atom);
     }
 
-    const pddl_cond_atom_t *catom;
-    pddl_cond_const_it_atom_t it;
-    PDDL_COND_FOR_EACH_ATOM(pre, &it, catom){
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, catom){
         pddlDatalogPddlAtomToDLAtom(g->dl, &atom, catom, g->pred_to_dlpred,
                                     g->obj_to_dlconst, g->dlvar);
         if (catom->neg){
@@ -136,7 +134,7 @@ static unsigned addActionRule(ground_t *g,
 
 
     // add-effect :- app-action
-    PDDL_COND_FOR_EACH_ATOM(eff, &it, catom){
+    PDDL_FM_FOR_EACH_ATOM(eff, &it, catom){
         if (catom->neg)
             continue;
 
@@ -166,10 +164,10 @@ static void addActionRules(ground_t *g, int action_id)
     a->app_dlpred = addActionRule(g, action_id, action->pre, action->eff, 0, -1);
 
     // Conditional effects
-    pddl_cond_const_it_when_t wit;
-    const pddl_cond_when_t *when;
+    pddl_fm_const_it_when_t wit;
+    const pddl_fm_when_t *when;
     int wi = 0;
-    PDDL_COND_FOR_EACH_WHEN(action->eff, &wit, when){
+    PDDL_FM_FOR_EACH_WHEN(action->eff, &wit, when){
         addActionRule(g, action_id, when->pre, when->eff, a->app_dlpred, wi);
         ++wi;
     }
@@ -186,9 +184,8 @@ static int groundInit(ground_t *g,
                       const pddl_ground_config_t *cfg,
                       pddl_err_t *err)
 {
-    bzero(g, sizeof(*g));
+    ZEROIZE(g);
     g->pddl = pddl;
-    pddlPrepActionsInit(g->pddl, &g->prep_action, err);
 
     pddlStripsMakerInit(&g->strips_maker, g->pddl);
 
@@ -198,7 +195,7 @@ static int groundInit(ground_t *g,
     g->obj_to_dlconst = ALLOC_ARR(unsigned, g->pddl->obj.obj_size);
     g->action = CALLOC_ARR(action_t, g->pddl->action.action_size);
 
-    g->dlvar_size = pddlDatalogPddlMaxVarSize(pddl, &g->prep_action);
+    g->dlvar_size = pddlDatalogPddlMaxVarSize(pddl);
     g->dlvar = ALLOC_ARR(unsigned, g->dlvar_size);
     for (int i = 0; i < g->dlvar_size; ++i)
         g->dlvar[i] = pddlDatalogAddVar(g->dl, NULL);
@@ -232,7 +229,6 @@ static int groundInit(ground_t *g,
 
 static void groundFree(ground_t *g)
 {
-    pddlPrepActionsFree(&g->prep_action);
     pddlStripsMakerFree(&g->strips_maker);
     pddlDatalogDel(g->dl);
     FREE(g->type_to_dlpred);
@@ -270,7 +266,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
 {
     CTX(err, "ground_dl", "Ground DL");
     pddlGroundConfigLog(cfg, "cfg.", err);
-    PDDL_INFO2(err, "Grounding using datalog ...");
+    PDDL_INFO(err, "Grounding using datalog ...");
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
@@ -309,7 +305,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO2(err, "Grounding finished.");
+    PDDL_INFO(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
     CTXEND(err);
     return 0;

@@ -163,10 +163,10 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
     pddl_disambiguate_t disamb;
     if (pddlDisambiguateInit(&disamb, symb_vars->fact_size,
                              mutex, mgroups) != 0){
-        FATAL2("Disambiguation failed because there are"
+        PANIC("Disambiguation failed because there are"
                " no exactly-1 mutex groups");
     }
-    PDDL_INFO2(err, "Disambiguation created.");
+    PDDL_INFO(err, "Disambiguation created.");
 
     pddl_mgroups_t mgs;
     pddlMGroupsInitEmpty(&mgs);
@@ -219,8 +219,7 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
     }
 
     pddl_symbolic_states_split_by_pot_t *ret;
-    ret = ALLOC(pddl_symbolic_states_split_by_pot_t);
-    bzero(ret, sizeof(*ret));
+    ret = ZALLOC(pddl_symbolic_states_split_by_pot_t);
 
     pddl_rbtree_t *map = maps[maps_size - 1];
     maps[maps_size - 1] = NULL;

@@ -14,8 +14,8 @@
  *  See the License for more information.
  */
 
-#include "pddl/fifo.h"
 #include "internal.h"
+#include "pddl/fifo.h"
 
 /** Just resets all pointers to NULL */
 _pddl_inline void fifoReset(pddl_fifo_t *fifo);

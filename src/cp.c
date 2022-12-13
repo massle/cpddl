@@ -12,10 +12,10 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/cp.h"
 #include "pddl/hfunc.h"
 #include "pddl/subprocess.h"
-#include "internal.h"
 #include "_cp.h"
 
 #define HASH_SEED 7307
@@ -102,7 +102,7 @@ static int pddlCPIVarsAdd(pddl_cp_ivars_t *v, int min_val, int max_val,
     }
 
     pddl_cp_ivar_t *var = v->ivar + v->ivar_size++;
-    bzero(var, sizeof(*var));
+    ZEROIZE(var);
     var->id = v->ivar_size - 1;
     for (int i = min_val; i <= max_val; ++i)
         pddlISetAdd(&var->domain, i);
@@ -147,7 +147,7 @@ static int ivalTupleEq(const pddl_list_t *k1, const pddl_list_t *k2, void *_)
 
 static void pddlCPIValTuplesInit(pddl_cp_ival_tuples_t *tuples)
 {
-    bzero(tuples, sizeof(*tuples));
+    ZEROIZE(tuples);
     tuples->htable = pddlHTableNew(ivalTupleHash, ivalTupleEq, NULL);
 }
 
@@ -173,8 +173,7 @@ static pddl_cp_ival_tuple_t *pddlCPIValTuplesAdd(pddl_cp_ival_tuples_t *tuples,
                                                  int num_tuples,
                                                  const int *ival)
 {
-    pddl_cp_ival_tuple_t *tup = ALLOC(pddl_cp_ival_tuple_t);
-    bzero(tup, sizeof(*tup));
+    pddl_cp_ival_tuple_t *tup = ZALLOC(pddl_cp_ival_tuple_t);
     tup->arity = arity;
     tup->num_tuples = num_tuples;
     tup->ival = (int *)ival;
@@ -254,7 +253,7 @@ static void pddlCPConstrIVarAllowedAdd(pddl_cp_constrs_ivar_allowed_t *c,
                                 c->constr_alloc);
     }
     pddl_cp_constr_ivar_allowed_t *cstr = c->constr + c->constr_size++;
-    bzero(cstr, sizeof(*cstr));
+    ZEROIZE(cstr);
     cstr->arity = arity;
     cstr->ivar = ALLOC_ARR(int, arity);
     memcpy(cstr->ivar, var, sizeof(int) * arity);
@@ -268,7 +267,7 @@ void pddlCPSolFree(pddl_cp_sol_t *sol)
         FREE(sol->isol[i]);
     if (sol->isol != NULL)
         FREE(sol->isol);
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 }
 
 int *pddlCPSolGet(pddl_cp_sol_t *sol, int sol_id)
@@ -340,7 +339,7 @@ int pddlCPSolSerializeToFD(const pddl_cp_sol_t *sol, int fd)
 
 int pddlCPSolDeserializeFromFD(pddl_cp_sol_t *sol, int fd)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
     if (readInt(fd, &sol->ivar_size, 1) != 0)
         return -1;
     if (readInt(fd, &sol->num_solutions, 1) != 0)
@@ -362,7 +361,7 @@ int pddlCPSolDeserializeFromFD(pddl_cp_sol_t *sol, int fd)
 
 int pddlCPSolDeserializeFromMem(pddl_cp_sol_t *sol, void *_mem, size_t _memsize)
 {
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
     int *mem = _mem;
     int memsize = _memsize / sizeof(int);
     if (memsize < sizeof(int) * 2)
@@ -389,7 +388,7 @@ int pddlCPSolDeserializeFromMem(pddl_cp_sol_t *sol, void *_mem, size_t _memsize)
 
 void pddlCPInit(pddl_cp_t *cp)
 {
-    bzero(cp, sizeof(*cp));
+    ZEROIZE(cp);
     pddlCPIValTuplesInit(&cp->ival_tuple);
 }
 
@@ -404,9 +403,9 @@ void pddlCPFree(pddl_cp_t *cp)
 int pddlCPAddIVar(pddl_cp_t *cp, int min_val, int max_val, const char *name)
 {
     if (cp->c_ivar_allowed.constr_size > 0){
-        FATAL2("CP: Adding variables after any constraints is prohibited!");
+        PANIC("CP: Adding variables after any constraints is prohibited!");
     }else if (cp->objective != OBJ_SAT){
-        FATAL2("CP: Adding variables after setting objective is prohibited!");
+        PANIC("CP: Adding variables after setting objective is prohibited!");
     }
     return pddlCPIVarsAdd(&cp->ivar, min_val, max_val, name);
 }
@@ -487,7 +486,7 @@ void pddlCPSimplify(pddl_cp_t *cp)
     do {
         other = (change_idx + 1) % 2;
         change[other].change = 0;
-        bzero(change[other].ivar_change, sizeof(int) * cp->ivar.ivar_size);
+        ZEROIZE_ARR(change[other].ivar_change, cp->ivar.ivar_size);
        
         for (int ci = 0; ci < cp->c_ivar_allowed.constr_size; ++ci){
             pddl_cp_constr_ivar_allowed_t *c = cp->c_ivar_allowed.constr + ci;
@@ -629,7 +628,7 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
     fflush(fout);
 }
 
-void pddlCPSetDefaultSolver(int solver_id)
+void pddlCPSetDefaultSolver(pddl_cp_solver_t solver_id)
 {
     default_solver = solver_id;
 }
@@ -639,7 +638,7 @@ static int solve(const pddl_cp_t *cp,
                  pddl_cp_sol_t *sol,
                  pddl_err_t *err)
 {
-    int solver = cfg->solver;
+    pddl_cp_solver_t solver = cfg->solver;
     if (solver == PDDL_CP_SOLVER_DEFAULT){
 #ifdef PDDL_CPOPTIMIZER
         solver = PDDL_CP_SOLVER_CPOPTIMIZER;
@@ -655,8 +654,10 @@ static int solve(const pddl_cp_t *cp,
             return pddlCPSolve_CPOptimizer(cp, cfg, sol, err);
         case PDDL_CP_SOLVER_MINIZINC:
             return pddlCPSolve_Minizinc(cp, cfg, sol, err);
+        default:
+            PANIC("Unkown solver ID %d", solver);
     }
-    FATAL("Unkown solver ID %d", solver);
+    PANIC("Unkown solver ID %d", solver);
     return -1;
 }
 
@@ -672,10 +673,10 @@ static int _solveInSubprocess(int fdout, void *userdata)
     struct solve_arg *arg = userdata;
     int ret = solve(arg->cp, arg->cfg, arg->sol, arg->err);
     if (ret == PDDL_CP_FOUND || ret == PDDL_CP_FOUND_SUBOPTIMAL){
-        LOG2(arg->err, "Found solution -- serializing the solution for the"
+        LOG(arg->err, "Found solution -- serializing the solution for the"
              " parent process...");
         if (pddlCPSolSerializeToFD(arg->sol, fdout) != 0){
-            LOG2(arg->err, "Failed to serialize output!");
+            LOG(arg->err, "Failed to serialize output!");
             return PDDL_CP_ABORTED;
         }
     }
@@ -702,7 +703,7 @@ static int solveInSubprocess(const pddl_cp_t *cp,
     int ret = status.exit_status;
     LOG(err, "Exit status: %d", ret);
     if (ret == PDDL_CP_FOUND || ret == PDDL_CP_FOUND_SUBOPTIMAL){
-        LOG2(err, "Parsing solutions...");
+        LOG(err, "Parsing solutions...");
         pddlCPSolDeserializeFromMem(sol, data, data_size);
     }
     return ret;
@@ -731,7 +732,7 @@ int pddlCPSolve(const pddl_cp_t *cp,
                 pddl_err_t *err)
 {
     CTX(err, "cp_solve", "CP-solve");
-    bzero(sol, sizeof(*sol));
+    ZEROIZE(sol);
 
     if (cp->unsat){
         CTXEND(err);
