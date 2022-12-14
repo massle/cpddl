@@ -46,6 +46,9 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
         case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
             LOG2(err, "trainer = astar-lmcut");
             break;
+        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
+            LOG2(err, "trainer = external-fast-downward");
+            break;
     }
     if (cfg->save_model_prefix != NULL)
         LOG_CONFIG_STR(cfg, save_model_prefix, err);
@@ -70,7 +73,6 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     // for now, hardcoding the trainer
     cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
     //cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
-    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
     cfg->save_model_prefix = NULL;
 }
 
@@ -1859,6 +1861,7 @@ static int trainExploration(pddl_asnets_t *a,
         pddlFDRStatePoolGet(&states, state_id, state);
         int ret;
 
+        LOG(err, "before the switch case - cfg.trainer is: %d", a->cfg.trainer);
         switch (a->cfg.trainer){
             case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
                 ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,

@@ -1132,6 +1132,49 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
     }
     fprintf(fout, "end_goal\n");
 
+    if (cfg->use_osp_params) {
+        
+        // TO-DO: For now, all hard_goals to make it work with external Fast Downward.
+        // Should include soft_goals when working with OSP problems.
+        
+        // hard_goal
+        fprintf(fout, "begin_hard_goal\n");
+        fprintf(fout, "%d\n", fdr->goal.fact_size);
+        for (int i = 0; i < fdr->goal.fact_size; ++i){
+            const pddl_fdr_fact_t *f = fdr->goal.fact + i;
+            fprintf(fout, "%d %d\n", f->var, f->val);
+        }
+        fprintf(fout, "end_hard_goal\n");
+
+        // soft_goal
+        fprintf(fout, "begin_soft_goal\n");
+        fprintf(fout, "0\n");
+        // fprintf(fout, "%d\n", fdr->goal.fact_size);
+        // for (int i = 0; i < fdr->goal.fact_size; ++i){
+        //     const pddl_fdr_fact_t *f = fdr->goal.fact + i;
+        //     fprintf(fout, "%d %d\n", f->var, f->val);
+        // }
+        fprintf(fout, "end_soft_goal\n");
+
+        // question
+        fprintf(fout, "begin_question\n");
+        fprintf(fout, "0\n");
+        fprintf(fout, "end_question\n");
+
+        // entailments
+        fprintf(fout, "begin_entailments\n");
+        fprintf(fout, "0\n");
+        fprintf(fout, "end_entailments\n");
+
+        // ltl_properties
+        fprintf(fout, "begin_ltlproperty\n");
+        fprintf(fout, "0\n");
+        fprintf(fout, "end_ltlproperty\n");
+
+        // relaxed_tasks
+        fprintf(fout, "0\n");
+    }
+
     // operators
     fprintf(fout, "%d\n", fdr->op.op_size);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)

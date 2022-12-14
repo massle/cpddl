@@ -51,13 +51,13 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
                                 const pddl_fdr_ops_t *ops,
                                 const pddl_iarr_t *plan);
 
-void pddlASNetsTrainDataAddPlanFastDownward(pddl_asnets_train_data_t *td,
-                                int ground_task_id,
-                                int state_size,
-                                const int *init_state,
-                                const pddl_fdr_ops_t *ops,
-                                const int *plan_ops,
-                                const int plan_size);
+// void pddlASNetsTrainDataAddPlanFastDownward(pddl_asnets_train_data_t *td,
+//                                 int ground_task_id,
+//                                 int state_size,
+//                                 const int *init_state,
+//                                 const pddl_fdr_ops_t *ops,
+//                                 const int *plan_ops,
+//                                 const int plan_size);
 
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td);
 

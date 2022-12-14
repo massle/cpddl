@@ -126,6 +126,8 @@ struct pddl_fdr_write_config {
     /** If set to true, IDs of operators are incorporated in the names of
      *  operators */
     int encode_op_ids;
+    /** If set to true, hard_goals, soft_goals and other details are included */
+    int use_osp_params;
 };
 typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
 
@@ -137,6 +139,7 @@ typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
         0, /* .use_fd_fact_names */ \
         NULL, /* .mgroups */ \
         0, /* .encode_op_ids */ \
+        0, /* .use_osp_params */ \
     }
 
 void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg);
