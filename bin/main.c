@@ -712,7 +712,7 @@ static int stepGroundPlanner(void)
             search = pddlSearchAStar(&fdr, heur, &err);
             break;
         case GROUND_PLAN_GBFS:
-            PDDL_FATAL2("Error: gbfs not implemented yet!\n");
+            PDDL_PANIC("Error: gbfs not implemented yet!\n");
             break;
         case GROUND_PLAN_LAZY:
             PDDL_INFO(&err, "Search: lazy");

@@ -164,7 +164,7 @@ static int execute(pddl_process_strips_t *prune,
                    pddl_err_t *err)
 {
     if (prune->open_fixpoint)
-        PDDL_FATAL2("process-strips: Fixpoint was not closed!");
+        PDDL_PANIC("process-strips: Fixpoint was not closed!");
 
     prune->strips = strips;
     prune->mgroups = mgroups;
@@ -843,7 +843,7 @@ void pddlProcessStripsFixpointStart(pddl_process_strips_t *ps)
 void pddlProcessStripsFixpointFinalize(pddl_process_strips_t *ps)
 {
     if (ps->open_fixpoint == NULL)
-        PDDL_FATAL2("process-strips: No opened fixpoint!");
+        PDDL_PANIC("process-strips: No opened fixpoint!");
 
     pddl_process_strips_fixpoint_t *fp;
     fp = pddl_container_of(ps->open_fixpoint, pddl_process_strips_fixpoint_t, step);

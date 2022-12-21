@@ -185,7 +185,7 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             heur = pddlLiftedHeurHomomorphism(heur_homo);
             break;
         default:
-            PDDL_FATAL2("Unknown lifted heuristic.");
+            PDDL_PANIC("Unknown lifted heuristic.");
             break;
     }
 
