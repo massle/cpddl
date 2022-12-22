@@ -28,6 +28,8 @@ extern "C" {
 struct pddl_strips_conj_config {
     /** List of non-singleton conj */
     pddl_set_iset_t conj;
+    /** If non-NULL, mutexes are used to prune unreachable operators */
+    const pddl_mutex_pairs_t *mutex;
 };
 typedef struct pddl_strips_conj_config pddl_strips_conj_config_t;
 
@@ -73,6 +75,14 @@ void pddlStripsConjInit(pddl_strips_conj_t *task,
  * Free allocated memory.
  */
 void pddlStripsConjFree(pddl_strips_conj_t *task);
+
+/**
+ * Transform {in_mutex} for the original planning task to mutexes for the
+ * {task}.
+ */
+void pddlStripsConjMutexPairsInitCopy(pddl_mutex_pairs_t *mutex,
+                                      const pddl_mutex_pairs_t *in_mutex,
+                                      const pddl_strips_conj_t *task);
 
 #ifdef __cplusplus
 } /* extern "C" */

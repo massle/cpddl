@@ -9,6 +9,7 @@
 
 void pddlStripsConjConfigInit(pddl_strips_conj_config_t *cfg)
 {
+    ZEROIZE(cfg);
     pddlSetISetInit(&cfg->conj);
 }
 
@@ -91,6 +92,7 @@ static void addFullOpX(pddl_strips_conj_t *task,
                        const pddl_iset_t *C_true,
                        const pddl_iset_t *C_false,
                        const pddl_iset_t *X,
+                       const pddl_mutex_pairs_t *mutex,
                        pddl_err_t *err)
 {
     pddl_strips_op_t op;
@@ -111,13 +113,18 @@ static void addFullOpX(pddl_strips_conj_t *task,
     pddlISetUnion(&op.pre, &pre_base);
     pddlISetFree(&pre_base);
 
+    if (mutex != NULL && pddlMutexPairsIsMutexSet(mutex, &op.pre)){
+        pddlStripsOpFree(&op);
+        return;
+    }
+
     pddlISetUnion(&op.del_eff, C_false);
 
     pddlISetUnion(&op.add_eff, C_true);
     pddlISetUnion(&op.add_eff, X);
 
     pddlStripsOpNormalize(&op);
-    if (pddlISetSize(&op.add_eff) > 0 && pddlISetSize(&op.del_eff) > 0)
+    if (pddlISetSize(&op.add_eff) > 0 || pddlISetSize(&op.del_eff) > 0)
         pddlStripsOpsAdd(&task->strips.op, &op);
     pddlStripsOpFree(&op);
 }
@@ -126,6 +133,7 @@ static void addFullOp(pddl_strips_conj_t *task,
                       const pddl_strips_t *in_task,
                       const pddl_strips_op_t *op,
                       const pddl_set_iset_t *downward_closed,
+                      const pddl_mutex_pairs_t *mutex,
                       pddl_err_t *err)
 {
     PDDL_ISET(C_false); // Conjunctions made false
@@ -159,12 +167,12 @@ static void addFullOp(pddl_strips_conj_t *task,
     genAllDownwardClosedSubsets(&C_pottrue, downward_closed, &empty, 0,
                                 &C_pottrue_subsets);
 
-    addFullOpX(task, in_task, op, &C_true, &C_false, &empty, err);
+    addFullOpX(task, in_task, op, &C_true, &C_false, &empty, mutex, err);
 
     int num_subsets = pddlSetISetSize(&C_pottrue_subsets);
     for (int si = 0; si < num_subsets; ++si){
         const pddl_iset_t *X = pddlSetISetGet(&C_pottrue_subsets, si);
-        addFullOpX(task, in_task, op, &C_true, &C_false, X, err);
+        addFullOpX(task, in_task, op, &C_true, &C_false, X, mutex, err);
     }
     pddlSetISetFree(&C_pottrue_subsets);
     pddlISetFree(&empty);
@@ -177,6 +185,7 @@ static void addFullOp(pddl_strips_conj_t *task,
 
 static void addFullOps(pddl_strips_conj_t *task,
                        const pddl_strips_t *in_task,
+                       const pddl_mutex_pairs_t *mutex,
                        pddl_err_t *err)
 {
     // Prepare downward closed sets
@@ -209,7 +218,8 @@ static void addFullOps(pddl_strips_conj_t *task,
     }
 
     for (int opi = 0; opi < in_task->op.op_size; ++opi){
-        addFullOp(task, in_task, in_task->op.op[opi], &downward_closed, err);
+        addFullOp(task, in_task, in_task->op.op[opi], &downward_closed,
+                  mutex, err);
     }
     pddlSetISetFree(&downward_closed);
 }
@@ -262,7 +272,7 @@ void pddlStripsConjInit(pddl_strips_conj_t *task,
     setToMetaSet(&in_task->goal, task->fact_to_conj, task->num_singletons,
                  task->strips.fact.fact_size, &task->strips.goal);
 
-    addFullOps(task, in_task, err);
+    addFullOps(task, in_task, cfg->mutex, err);
 }
 
 void pddlStripsConjFree(pddl_strips_conj_t *task)
@@ -274,4 +284,24 @@ void pddlStripsConjFree(pddl_strips_conj_t *task)
     }
     pddlSetISetFree(&task->conj_to_fact);
     pddlStripsFree(&task->strips);
+}
+
+void pddlStripsConjMutexPairsInitCopy(pddl_mutex_pairs_t *mutex,
+                                      const pddl_mutex_pairs_t *in_mutex,
+                                      const pddl_strips_conj_t *task)
+{
+    pddlMutexPairsInitStrips(mutex, &task->strips);
+    PDDL_MUTEX_PAIRS_FOR_EACH(in_mutex, f1, f2)
+        pddlMutexPairsAdd(mutex, f1, f2);
+
+    for (int fi = task->num_singletons; fi < task->strips.fact.fact_size; ++fi){
+        const pddl_iset_t *conj = task->fact_to_conj + fi;
+        int fact_id;
+        PDDL_ISET_FOR_EACH(conj, fact_id){
+            for (int fi2 = 0; fi2 < in_mutex->fact_size; ++fi2){
+                if (pddlMutexPairsIsMutex(in_mutex, fact_id, fi2))
+                    pddlMutexPairsAdd(mutex, fact_id, fi2);
+            }
+        }
+    }
 }
