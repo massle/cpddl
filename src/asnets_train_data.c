@@ -393,7 +393,8 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         // TODO - extract out unique problem name and use it here
         char *fn = ALLOC_ARR(char, strlen(fd_cfg->plan_file_prefix) + strlen("problem name here") + 2);
         sprintf(fn, "%s/%s", fd_cfg->plan_file_prefix, "problem name here");
-        plan_filename =  STRDUP(fn);
+        //plan_filename =  STRDUP(fn);
+        plan_filename = "plan_file";
     }
     else {
         plan_filename = "plan_file";
@@ -437,7 +438,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
             LOG2(err, "Plan Found");
             FILE *fin = fopen("plan_file", "r");
             if (fin == NULL){
-                fprintf(stderr, "Error: Failed to open plan_sas file");
+                fprintf(stderr, "Error: Failed to open plan_file");
                 return -1;
             }
             // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string

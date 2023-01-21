@@ -35,8 +35,10 @@ void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
     LOG_CONFIG_INT(fd_cfg, use_osp, err);
     LOG_CONFIG_INT(fd_cfg, use_unique_filenames, err);
     LOG_CONFIG_INT(fd_cfg, fd_arg_size, err);
-    for (int i = 0; i < fd_cfg->fd_arg_size; ++i)
-        LOG(err, "fd_args[%d] = %{fd_args}s", i, fd_cfg->fd_args[i]);
+    for (int i = 0; i < fd_cfg->fd_arg_size; ++i) {
+        if (fd_cfg->fd_args[i] != NULL)
+            LOG(err, "fd_args[%d] = %{fd_args}s", i, fd_cfg->fd_args[i]);
+    }
 }
 
 void pddlFDConfigInit(pddl_fd_config_t *cfg)
@@ -58,11 +60,11 @@ void pddlFDConfigFree(pddl_fd_config_t *cfg)
         FREE(cfg->fd_executable_path);
     if (cfg->plan_file_prefix != NULL)
         FREE(cfg->plan_file_prefix);
-    if (cfg->sas_file_prefix != NULL)
+    if (cfg->sas_file_prefix != NULL) 
         FREE(cfg->sas_file_prefix);
     for (int i = 0; i < cfg->fd_arg_size; ++i)
     {
-        if (cfg->fd_args[i] != NULL)
+        if (cfg->fd_args[i] != NULL) // not sure if this null check required or not here
             FREE(cfg->fd_args[i]);
     }
     if (cfg->fd_args != NULL)
@@ -140,6 +142,7 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
         for (int i = 0; i < dst->problem_pddl_size; ++i)
             dst->problem_pddl[i] = STRDUP(src->problem_pddl[i]);
     }
+    // TODO - handle fd_config here to avoid the current error caused by all asnetsConfigs pointing to same fd_config!!
 }
 
 #define TOML_INT(K) \
@@ -380,9 +383,10 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
         FREE(cfg->problem_pddl[i]);
     if (cfg->problem_pddl != NULL)
         FREE(cfg->problem_pddl);
-    if (cfg->fd_config != NULL)
-        pddlFDConfigFree(cfg->fd_config);
+    if (cfg->fd_config != NULL) {
+        pddlFDConfigFree(cfg->fd_config); // currently throws error, when fd_config points to already freed up space! To Fix!!
         FREE(cfg->fd_config);
+    }
 }
 
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
@@ -2152,7 +2156,6 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
                 pddlASNetsSave(a, fn, err);
             }
         }
-
         if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){
             a->train_stats.consecutive_successful_epochs += 1;
         }else{
@@ -2177,7 +2180,6 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
         a->train_stats.overall_loss, a->train_stats.success_rate,
         a->train_stats.num_samples,
         a->train_stats.consecutive_successful_epochs);
-
     pddlASNetsTrainDataFree(&data);
     CTXEND(err);
     return 0;
