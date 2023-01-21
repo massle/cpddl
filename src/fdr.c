@@ -1136,6 +1136,7 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
         
         // TO-DO: For now, all hard_goals to make it work with external Fast Downward.
         // Should include soft_goals when working with OSP problems.
+        // Should be able to handle incoming OSP problem files!!
         
         // hard_goal
         fprintf(fout, "begin_hard_goal\n");

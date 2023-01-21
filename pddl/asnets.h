@@ -18,9 +18,37 @@ typedef struct pddl_asnets pddl_asnets_t;
 
 enum pddl_asnets_trainer {
     PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
-    PDDL_ASNETS_TRAINER_FAST_DOWNWARD = 1,
+    PDDL_ASNETS_TRAINER_FAST_DOWNWARD, // still using astar(lmcut())
+    PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP, // should use osp_dfs(mugs_hmax()) 
 };
 typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
+
+struct pddl_fast_downward_config {
+    /** Path to SAS and Plan files. */
+    char *all_files_path;
+    /** Path to FD Executable. */
+    char *fd_executable_path;
+    /** SAS filename prefix. */
+    char *sas_file_prefix;
+    /** Plan filename prefix. */
+    char *plan_file_prefix;
+
+     /** Number of arguments to pass to FD */
+    int fd_arg_size;
+    /** Argumement to pass to FD. */
+    char **fd_args;
+
+    /** FD OSP Flag */
+    int use_osp;
+    /** Unique Filenames Flag */
+    int use_unique_filenames;
+};
+typedef struct pddl_fast_downward_config pddl_fd_config_t;
+
+void pddlFDConfigLog(const pddl_fd_config_t *cfg, pddl_err_t *err);
+void pddlFDConfigInit(pddl_fd_config_t *cfg);
+void pddlFDConfigFree(pddl_fd_config_t *cfg);
+
 
 struct pddl_asnets_config {
     /** Domain PDDL file. Set using *SetDomain() */
@@ -64,6 +92,13 @@ struct pddl_asnets_config {
 
     /** Which trainer will be used. One of PDDL_ASNETS_TRAINER_* */
     pddl_asnets_trainer_t trainer;
+
+    /** Configure call to Fast Downward trainer.
+     *  Is NULL by default.
+     *  Will be replaced by the config created using config file if FD used as trainer.
+     */
+    pddl_fd_config_t *fd_config;
+
     /** If set to non-NULL, pddlASNetsTrain() saves a model to the path
      *  with this prefix every time it finds a model with improved success
      *  rate */

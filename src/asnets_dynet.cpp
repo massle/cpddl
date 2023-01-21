@@ -22,6 +22,53 @@
 static const float SMALL_CONST = 1E-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
 
+void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
+{
+    if (fd_cfg->all_files_path != NULL)
+        LOG(err, "asnets_curr_dir_path = %{asnets_curr_dir_path}s", fd_cfg->all_files_path);
+    if (fd_cfg->fd_executable_path != NULL)
+        LOG(err, "fd_executable_path = %{fd_executable_path}s", fd_cfg->fd_executable_path);
+    if (fd_cfg->sas_file_prefix != NULL)
+        LOG(err, "sas_file_prefix = %{sas_file_prefix}s", fd_cfg->sas_file_prefix);
+    if (fd_cfg->plan_file_prefix != NULL)
+        LOG(err, "plan_file_prefix = %{plan_file_prefix}s", fd_cfg->plan_file_prefix);
+    LOG_CONFIG_INT(fd_cfg, use_osp, err);
+    LOG_CONFIG_INT(fd_cfg, use_unique_filenames, err);
+    LOG_CONFIG_INT(fd_cfg, fd_arg_size, err);
+    for (int i = 0; i < fd_cfg->fd_arg_size; ++i)
+        LOG(err, "fd_args[%d] = %{fd_args}s", i, fd_cfg->fd_args[i]);
+}
+
+void pddlFDConfigInit(pddl_fd_config_t *cfg)
+{
+    ZEROIZE(cfg);
+    cfg->use_osp = 0;
+    cfg->use_unique_filenames = 1;
+    cfg->plan_file_prefix = STRDUP("plan_file_");
+    cfg->sas_file_prefix = STRDUP("sas_file_");
+    cfg->fd_arg_size = 0;
+    // remaining vars to be set from config file
+}
+
+void pddlFDConfigFree(pddl_fd_config_t *cfg)
+{
+    if (cfg->all_files_path != NULL)
+        FREE(cfg->all_files_path);
+    if (cfg->fd_executable_path != NULL)
+        FREE(cfg->fd_executable_path);
+    if (cfg->plan_file_prefix != NULL)
+        FREE(cfg->plan_file_prefix);
+    if (cfg->sas_file_prefix != NULL)
+        FREE(cfg->sas_file_prefix);
+    for (int i = 0; i < cfg->fd_arg_size; ++i)
+    {
+        if (cfg->fd_args[i] != NULL)
+            FREE(cfg->fd_args[i]);
+    }
+    if (cfg->fd_args != NULL)
+        FREE(cfg->fd_args);
+}
+
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->domain_pddl != NULL)
@@ -49,6 +96,12 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
         case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
             LOG2(err, "trainer = external-fast-downward");
             break;
+        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP:
+            LOG2(err, "trainer = external-fast-downward-osp");
+            break;
+    }
+    if (cfg->fd_config != NULL) {
+        pddlFDConfigLog(cfg->fd_config, err);
     }
     if (cfg->save_model_prefix != NULL)
         LOG_CONFIG_STR(cfg, save_model_prefix, err);
@@ -70,9 +123,8 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->teacher_timeout = 10.f;
     cfg->early_termination_success_rate = 0.999;
     cfg->early_termination_epochs = 20;
-    // for now, hardcoding the trainer
-    cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
-    //cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT; // default value, will be overwritten by config file if present
+    cfg->fd_config = NULL;
     cfg->save_model_prefix = NULL;
 }
 
@@ -229,6 +281,93 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_FLT(early_termination_success_rate);
     TOML_INT(early_termination_epochs);
 
+    if (pddl_toml_key_exists(c, "trainer")){
+        pddl_toml_datum_t d = pddl_toml_int_in(c, "trainer");
+        if (!d.ok){
+            pddl_toml_free(top);
+            ERR_RET2(err, -1, "trainer must be int");
+        }
+        if (d.u.i == 0){
+            cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+        }
+        else if (d.u.i == 1){
+            cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
+        }
+        else {
+            cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP;
+        }
+    }
+
+    if (cfg->trainer > 0) {
+        cfg->fd_config = new pddl_fd_config_t(); // TODO - replace with zalloc??
+                                                 // cfg->fd_config = ZALLOC(pddl_fd_config_t);
+        pddlFDConfigInit(cfg->fd_config);
+        pddl_toml_table_t *f = pddl_toml_table_in(top, "fast_downward");
+        if (f == NULL){
+            pddl_toml_free(top);
+            ERR_RET2(err, -1, "No [fast_downward] section in the configuration file.");
+        }
+
+        if (pddl_toml_key_exists(f, "all_files_path")){
+            pddl_toml_datum_t d = pddl_toml_string_in(f, "all_files_path");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "all_files_path must be string");
+            }
+            cfg->fd_config->all_files_path = STRDUP(d.u.s);
+            FREE(d.u.s);
+        }
+
+        if (pddl_toml_key_exists(f, "fd_executable_path")){
+            pddl_toml_datum_t d = pddl_toml_string_in(f, "fd_executable_path");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "fd_executable_path must be string");
+            }
+            cfg->fd_config->fd_executable_path = STRDUP(d.u.s);
+            FREE(d.u.s);
+        }
+
+        if (pddl_toml_key_exists(f, "plan_file_prefix")){
+            pddl_toml_datum_t d = pddl_toml_string_in(f, "plan_file_prefix");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "plan_file_prefix must be string");
+            }
+            cfg->fd_config->plan_file_prefix = STRDUP(d.u.s);
+            FREE(d.u.s);
+        }
+
+        if (pddl_toml_key_exists(f, "sas_file_prefix")){
+            pddl_toml_datum_t d = pddl_toml_string_in(f, "sas_file_prefix");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "sas_file_prefix must be string");
+            }
+            cfg->fd_config->sas_file_prefix = STRDUP(d.u.s);
+            FREE(d.u.s);
+        }
+
+        if (pddl_toml_key_exists(f, "fd_args")){   
+            const pddl_toml_array_t *arr = pddl_toml_array_in(f, "fd_args");
+            if (arr == NULL){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "fd_args must be array");
+            }
+            int size = pddl_toml_array_nelem(arr);
+            for (int i = 0; i < size; ++i){
+                pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
+                if (!d.ok){
+                    pddl_toml_free(top);
+                    ERR_RET2(err, -1, "Each element of fd_args must be string");
+                }
+                cfg->fd_config->fd_args = REALLOC_ARR(cfg->fd_config->fd_args, char *, cfg->fd_config->fd_arg_size + 1);
+                cfg->fd_config->fd_args[cfg->fd_config->fd_arg_size++] = STRDUP(d.u.s);
+                FREE(d.u.s);
+            }
+        }
+    }
+
     pddl_toml_free(top);
     return 0;
 }
@@ -241,6 +380,9 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
         FREE(cfg->problem_pddl[i]);
     if (cfg->problem_pddl != NULL)
         FREE(cfg->problem_pddl);
+    if (cfg->fd_config != NULL)
+        pddlFDConfigFree(cfg->fd_config);
+        FREE(cfg->fd_config);
 }
 
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
@@ -1870,9 +2012,11 @@ static int trainExploration(pddl_asnets_t *a,
                                                            err);
                 break;
             case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
+            case PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP:
                 ret = pddlASNetsTrainDataRolloutFastDownward(data, ground_task_id,
                                                            state, &task->fdr,
                                                            a->cfg.teacher_timeout,
+                                                           a->cfg.fd_config,
                                                            err);
                 break;
         }

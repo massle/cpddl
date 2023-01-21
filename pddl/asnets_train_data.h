@@ -15,6 +15,7 @@ extern "C" {
 #include <pddl/plan.h>
 #include <pddl/fdr.h>
 #include <pddl/heur.h>
+#include "pddl/asnets.h"
 
 typedef struct pddl_asnets_train_data_sample pddl_asnets_train_data_sample_t;
 
@@ -81,6 +82,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                                     const int *state,
                                     const pddl_fdr_t *fdr,
                                     float max_time,
+                                    const pddl_fd_config_t *fd_cfg,
                                     pddl_err_t *err);
 
 #ifdef __cplusplus

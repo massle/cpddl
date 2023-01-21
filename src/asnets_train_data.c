@@ -344,6 +344,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                                     const int *state,
                                     const pddl_fdr_t *_fdr,
                                     float max_time,
+                                    const pddl_fd_config_t *fd_cfg,
                                     pddl_err_t *err)
 {
     CTX(err, "asnets_teacher_rollout_fast_downward", "ASNets-Teacher-Rollout-Fast-Downward");
@@ -359,8 +360,8 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         return 1;
     }
 
-    // To-Do: for now, not using the timer - instead, passing the time limit to FD via execution command.
-    // But later, have to keep track of time passed and kill the task to be safe.
+    // TODO: for now, not using the timer - instead, passing the time limit to FD via execution command.
+    // But later, have to keep track of time passed and kill the task from here to be safe.
     // pddl_timer_t timer;
     // pddlTimerStart(&timer);
 
@@ -369,23 +370,45 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
 
     // write the FDR task with changed initial state and op_id mentioned in op_names to sas file 
-    // parametrize from config file and append problem name later
+    // sas file name should be configured 
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
     cfg.fd = 1;
     cfg.encode_op_ids = 1;
     cfg.use_osp_params = 1;
-    // temporarily hardcoding filename
-    cfg.filename = "pddlopfile.sas";
+    if(fd_cfg->use_unique_filenames){
+        // TODO - extract out unique problem name and use it here
+        char *fn = ALLOC_ARR(char, strlen(fd_cfg->sas_file_prefix) + strlen("problem name here") + 2);
+        sprintf(fn, "%s/%s", fd_cfg->sas_file_prefix, "problem name here");
+        // cfg.filename =  STRDUP(fn);
+        cfg.filename = "sas_file";
+    }
+    else {
+        cfg.filename = "sas_file";
+    }
     pddlFDRWrite(&fdr, &cfg);
+
+    // set plan file name similar to sas file name
+    char *plan_filename = NULL;
+    if(fd_cfg->use_unique_filenames){
+        // TODO - extract out unique problem name and use it here
+        char *fn = ALLOC_ARR(char, strlen(fd_cfg->plan_file_prefix) + strlen("problem name here") + 2);
+        sprintf(fn, "%s/%s", fd_cfg->plan_file_prefix, "problem name here");
+        plan_filename =  STRDUP(fn);
+    }
+    else {
+        plan_filename = "plan_file";
+    }
     
-    
-    // attempt to execute fast-downward with the output.sas file
-    // TO-DO: make this parametrized using config file
+    // attempt to execute fast-downward with the sas_file and write to plan_file
+    // TO-DO: make this parameterized using fd_config
     char *argv[] = {
-        "../../auxiliarystuff/fast-downward/fast-downward.py", // TO-DO: pass python executable and filename as argument
+        "python3", 
+        fd_cfg->fd_executable_path, 
         "--build", // anyway to avoid adding this?
         "release64", // anyway to avoid adding this?
-        "../../cpddl-asnets/cpddl-dev/pddlopfile.sas", // TO-DO: change to absolute paths + concatenate filename from config
+        "--plan-file",
+        "plan_file",
+        "/home/aleena/HiWi-Papers-and-Project/cpddl-asnets/cpddl-dev/sas_file",
         "--search",
         "astar(lmcut())", 
         NULL
@@ -393,69 +416,82 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     pddl_exec_status_t status;
     char *solbuf = NULL;
     int solbuf_size;
-    LOG2(err, "about to call pddlExecvp() for fd");
     int execret = pddlExecvp(argv, &status, NULL, 0,
                              &solbuf, &solbuf_size, NULL, NULL, err);
-    LOG2(err, "returned from pddlExecvp() for fd");
+    // for testing purposes:
     LOG(err, "execret is %d", execret);
+    LOG(err, "exit status code is: %d", status.exit_status);
     LOG(err, "solbuf is: %s", solbuf);
+    // testing block end.
     ASSERT_RUNTIME(execret == 0);
 
-    // read plan_ops from output file if successful, else call ..TrainDataAddFail()
-    // TO-DO: identify if "plan found" OR "timeout" OR "no solution", i.e, "search exhausted".
-    // extract planOps and apply in cpddl to retreive intermediate states and build the plan, then add to train data
-    FILE *fin = fopen("sas_plan", "r");
-    if (fin == NULL){
-        fprintf(stderr, "Error: Failed to open plan_sas file");
-        return -1;
-    }
-    LOG2(err, "successfully opened file sas_plan");
-
-    // TO-DO: change to mmap() for efficiency
-    int max_size = 25; // TO-DO: fix this, make it dynamic
+    // Read plan_out file 
+    // TO-DO: fix this, make it dynamic, and confine scope to case 0.
+    int max_size = 25; 
     char str[max_size];
-    char *str_val;
-    int val;
-    //pddl_iarr_t *plan_ops;
-    PDDL_IARR(plan_ops);
-    int plan_size = 0;
-    pddlIArrInit(&plan_ops);
-    while(!feof(fin)){
-        LOG2(err, "attempting to read from fin");
-        str_val = fgets(str, max_size, fin);
-        if(feof(fin)) {
-            break;
-        }
-        LOG(err, "str_val is: %s", str_val);
-        if(str_val[0] == '(') {
-            val = strtol(str_val+4,NULL,10); // use regex instead?
-            LOG(err, "op_id val is: %d", val);
-            pddlIArrAdd(&plan_ops, val);
-        }
-        else if(str_val[0] == ';') {
-            val = strtol(str_val+9,NULL,10); // use regex instead?
-            LOG(err, "cost val is: %d", val);
-            plan_size = val;
-            break; // remaining info irrelevant
-        }
-    }
-    fclose(fin);
-    LOG2(err, "fin closed");
-    ASSERT(plan_ops.size == plan_size);
-
-    // TO-DO: identify if "plan found" OR "timeout" OR "no solution", i.e, "search exhausted".
-    // extract planOps and apply in cppdl to retreive intermediate states and build the plan, then add to train data
-    //if (st == PDDL_SEARCH_FOUND){
-        LOG2(err, "Plan found");
-        pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
+    // use exit_status_code to identify if plan found, plan not found or search timed out.
+    switch(status.exit_status) {
+        case 0: // case SUCCESS:
+            // extract planOps and apply in cpddl to retreive intermediate states
+            // then, build the plan and add to train data
+            LOG2(err, "Plan Found");
+            FILE *fin = fopen("plan_file", "r");
+            if (fin == NULL){
+                fprintf(stderr, "Error: Failed to open plan_sas file");
+                return -1;
+            }
+            // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string
+            char *str_val;
+            int val;
+            //pddl_iarr_t *plan_ops;
+            PDDL_IARR(plan_ops);
+            int plan_size = 0;
+            pddlIArrInit(&plan_ops);
+            while(!feof(fin)){
+                LOG2(err, "attempting to read from fin");
+                str_val = fgets(str, max_size, fin);
+                if(feof(fin)) {
+                    break;
+                }
+                LOG(err, "str_val is: %s", str_val);
+                if(str_val[0] == '(') {
+                    val = strtol(str_val+4,NULL,10); // use regex instead?
+                    LOG(err, "op_id val is: %d", val);
+                    pddlIArrAdd(&plan_ops, val);
+                }
+                else if(str_val[0] == ';') {
+                    val = strtol(str_val+9,NULL,10); // use regex instead?
+                    LOG(err, "cost val is: %d", val);
+                    plan_size = val;
+                    break; // remaining info irrelevant
+                }
+            }
+            fclose(fin);
+            ASSERT(plan_ops.size == plan_size);
+            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
                                        state, &fdr.op, &plan_ops);
-    // }else{
-    //     pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-    //     if (st == PDDL_SEARCH_ABORT)
-    //         LOG2(err, "Search reached time-out");
-    //     LOG2(err, "Plan not found");
-    // }
-    pddlIArrFree(&plan_ops);
+            pddlIArrFree(&plan_ops);        
+            break;
+
+        case 11: // case SEARCH_UNSOLVABLE:
+        case 12: // case SEARCH_UNSOLVABLE_INCOMPLETE:
+            // add to fail
+            LOG2(err, "Plan Not Found");
+            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+            break;
+        
+        case 23: // case SEARCH_OUT_OF_TIME:
+        case 24: // case SEARCH_OUT_OF_MEMORY_AND_TIME:
+            // add to fail
+            LOG2(err, "Search Timed Out");
+            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+            break;
+        
+        default: 
+            LOG2(err, "unexpected search exit code from fast downward");
+            break;
+    }
+
     pddlFDRFree(&fdr);
     LOG(err, "num samples: %{num_samples}d", td->sample_size);
     CTXEND(err);
