@@ -370,48 +370,47 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
 
     // write the FDR task with changed initial state and op_id mentioned in op_names to sas file 
-    // sas file name should be configured 
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
     cfg.fd = 1;
     cfg.encode_op_ids = 1;
-    cfg.use_osp_params = 1;
+    cfg.use_osp_params = 1; // TODO - configure this as well?? becuase non OSP fast downward translator may be called in the future
+    // set sas file name
+    char *problem_name = "default_problem_name";
+    char *sas_filename = NULL;
     if(fd_cfg->use_unique_filenames){
-        // TODO - extract out unique problem name and use it here
-        char *fn = ALLOC_ARR(char, strlen(fd_cfg->sas_file_prefix) + strlen("problem name here") + 2);
-        sprintf(fn, "%s/%s", fd_cfg->sas_file_prefix, "problem name here");
-        // cfg.filename =  STRDUP(fn);
-        cfg.filename = "sas_file";
+        // TODO - extract out unique problem name and use it here (whatever preceeds .pddl upto nearest / from end of string.)
     }
-    else {
-        cfg.filename = "sas_file";
-    }
+    char *fn1 = ALLOC_ARR(char, strlen(fd_cfg->all_files_path) + strlen(fd_cfg->sas_file_prefix) + strlen(problem_name) + 2);
+    sprintf(fn1, "%s/%s%s", fd_cfg->all_files_path, fd_cfg->sas_file_prefix, problem_name);
+    cfg.filename =  STRDUP(fn1);
+    sas_filename = STRDUP(fn1);
+    FREE(fn1);
     pddlFDRWrite(&fdr, &cfg);
+    // TODO - free cfg?
 
     // set plan file name similar to sas file name
     char *plan_filename = NULL;
-    if(fd_cfg->use_unique_filenames){
-        // TODO - extract out unique problem name and use it here
-        char *fn = ALLOC_ARR(char, strlen(fd_cfg->plan_file_prefix) + strlen("problem name here") + 2);
-        sprintf(fn, "%s/%s", fd_cfg->plan_file_prefix, "problem name here");
-        //plan_filename =  STRDUP(fn);
-        plan_filename = "plan_file";
-    }
-    else {
-        plan_filename = "plan_file";
-    }
+    char *fn2 = ALLOC_ARR(char, strlen(fd_cfg->all_files_path) + strlen(fd_cfg->plan_file_prefix) + strlen(problem_name) + 2);
+    sprintf(fn2, "%s/%s%s", fd_cfg->all_files_path, fd_cfg->plan_file_prefix, problem_name);
+    plan_filename =  STRDUP(fn2);
+    FREE(fn2);
     
     // attempt to execute fast-downward with the sas_file and write to plan_file
     // TO-DO: make this parameterized using fd_config
+    char *search_arg = "astar(lmcut())";
+    if(fd_cfg->use_osp) {
+        search_arg = "osp_dfs(u_eval=mugs_hmax())";
+    }
     char *argv[] = {
         "python3", 
         fd_cfg->fd_executable_path, 
         "--build", // anyway to avoid adding this?
         "release64", // anyway to avoid adding this?
         "--plan-file",
-        "plan_file",
-        "/home/aleena/HiWi-Papers-and-Project/cpddl-asnets/cpddl-dev/sas_file",
+        plan_filename,
+        sas_filename,
         "--search",
-        "astar(lmcut())", 
+        search_arg, 
         NULL
     };
     pddl_exec_status_t status;
@@ -436,9 +435,9 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
             // extract planOps and apply in cpddl to retreive intermediate states
             // then, build the plan and add to train data
             LOG2(err, "Plan Found");
-            FILE *fin = fopen("plan_file", "r");
+            FILE *fin = fopen(plan_filename, "r");
             if (fin == NULL){
-                fprintf(stderr, "Error: Failed to open plan_file");
+                fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
                 return -1;
             }
             // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string
@@ -494,6 +493,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     }
 
     pddlFDRFree(&fdr);
+    // TODO - FREE plan_filename, sas_filename, search_arg etc..??
     LOG(err, "num samples: %{num_samples}d", td->sample_size);
     CTXEND(err);
     return 0;

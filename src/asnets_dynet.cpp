@@ -54,6 +54,7 @@ void pddlFDConfigInit(pddl_fd_config_t *cfg)
 
 void pddlFDConfigFree(pddl_fd_config_t *cfg)
 {
+    fprintf(stderr, "------------about to segmentation fault-----------");
     if (cfg->all_files_path != NULL)
         FREE(cfg->all_files_path);
     if (cfg->fd_executable_path != NULL)
