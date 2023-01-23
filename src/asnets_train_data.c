@@ -360,52 +360,56 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         return 1;
     }
 
-    // TODO: for now, not using the timer - instead, passing the time limit to FD via execution command.
-    // But later, have to keep track of time passed and kill the task from here to be safe.
-    // pddl_timer_t timer;
-    // pddlTimerStart(&timer);
-
     // copy the planning task and change the initial state
     pddl_fdr_t fdr;
     pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
+
+    // set sas and plan file names
+    char *sas_filename = NULL;
+    char *plan_filename = NULL;
+    int id_length = (ground_task_id == 0 ? 1 : (int)(log10(ground_task_id)+1));
+    if(fd_cfg->use_unique_filenames){
+        sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + id_length + 2);
+        sprintf(sas_filename, "%s/%s%d", fd_cfg->saved_files_path, fd_cfg->sas_file_prefix, ground_task_id);
+
+        plan_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->plan_file_prefix) + id_length + 2);
+        sprintf(plan_filename, "%s/%s%d", fd_cfg->saved_files_path, fd_cfg->plan_file_prefix, ground_task_id);
+    }
+    else {
+        sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + 9);
+        sprintf(sas_filename, "%s/%sdefault", fd_cfg->saved_files_path, fd_cfg->sas_file_prefix);
+
+        plan_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->plan_file_prefix) + 9);
+        sprintf(plan_filename, "%s/%sdefault", fd_cfg->saved_files_path, fd_cfg->plan_file_prefix);
+    }
 
     // write the FDR task with changed initial state and op_id mentioned in op_names to sas file 
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
     cfg.fd = 1;
     cfg.encode_op_ids = 1;
-    cfg.use_osp_params = 1; // TODO - configure this as well?? becuase non OSP fast downward translator may be called in the future
-    // set sas file name
-    char *problem_name = "default_problem_name";
-    char *sas_filename = NULL;
-    if(fd_cfg->use_unique_filenames){
-        // TODO - extract out unique problem name and use it here (whatever preceeds .pddl upto nearest / from end of string.)
-    }
-    char *fn1 = ALLOC_ARR(char, strlen(fd_cfg->all_files_path) + strlen(fd_cfg->sas_file_prefix) + strlen(problem_name) + 2);
-    sprintf(fn1, "%s/%s%s", fd_cfg->all_files_path, fd_cfg->sas_file_prefix, problem_name);
-    cfg.filename =  STRDUP(fn1);
-    sas_filename = STRDUP(fn1);
-    FREE(fn1);
+    // TODO - calling FD without OSP also requires OSP params. So, keep the two separate in config!!
+    // cfg.use_osp_params = fd_cfg->use_osp; // to specify hard goals and soft goals in sas file
+    cfg.use_osp_params = 1;
+    cfg.filename = STRDUP(sas_filename);
     pddlFDRWrite(&fdr, &cfg);
-    // TODO - free cfg?
+    // TODO - convert to pinter and free cfg? or just free cfg.filename?? 
 
-    // set plan file name similar to sas file name
-    char *plan_filename = NULL;
-    char *fn2 = ALLOC_ARR(char, strlen(fd_cfg->all_files_path) + strlen(fd_cfg->plan_file_prefix) + strlen(problem_name) + 2);
-    sprintf(fn2, "%s/%s%s", fd_cfg->all_files_path, fd_cfg->plan_file_prefix, problem_name);
-    plan_filename =  STRDUP(fn2);
-    FREE(fn2);
+    // TODO: for now, not using the timer - instead, passing the time limit to FD via execution command.
+    // But later, have to keep track of time passed and kill the task from here to be safe.
+    // pddl_timer_t timer;
+    // pddlTimerStart(&timer);
     
-    // attempt to execute fast-downward with the sas_file and write to plan_file
-    // TO-DO: make this parameterized using fd_config
+    // execute fast-downward with the sas_file as input and write to plan_file
+    // TO-DO: make this parameterized using fd_config->args[]
     char *search_arg = "astar(lmcut())";
     if(fd_cfg->use_osp) {
         search_arg = "osp_dfs(u_eval=mugs_hmax())";
     }
     char *argv[] = {
-        "python3", 
+        fd_cfg->fd_interpreter, 
         fd_cfg->fd_executable_path, 
-        "--build", // anyway to avoid adding this?
-        "release64", // anyway to avoid adding this?
+        "--build",
+        "release64",
         "--plan-file",
         plan_filename,
         sas_filename,
@@ -413,6 +417,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         search_arg, 
         NULL
     };
+
     pddl_exec_status_t status;
     char *solbuf = NULL;
     int solbuf_size;
@@ -422,7 +427,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     LOG(err, "execret is %d", execret);
     LOG(err, "exit status code is: %d", status.exit_status);
     LOG(err, "solbuf is: %s", solbuf);
-    // testing block end.
+    // testing end.
     ASSERT_RUNTIME(execret == 0);
 
     // Read plan_out file 

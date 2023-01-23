@@ -25,7 +25,9 @@ typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
 
 struct pddl_fast_downward_config {
     /** Path to SAS and Plan files. */
-    char *all_files_path;
+    char *saved_files_path;
+    /** Python Interpreter*/
+    char *fd_interpreter;
     /** Path to FD Executable. */
     char *fd_executable_path;
     /** SAS filename prefix. */
@@ -48,6 +50,7 @@ typedef struct pddl_fast_downward_config pddl_fd_config_t;
 void pddlFDConfigLog(const pddl_fd_config_t *cfg, pddl_err_t *err);
 void pddlFDConfigInit(pddl_fd_config_t *cfg);
 void pddlFDConfigFree(pddl_fd_config_t *cfg);
+void pddlFDConfigCopy(pddl_fd_config_t *dst, const pddl_fd_config_t *src);
 
 
 struct pddl_asnets_config {

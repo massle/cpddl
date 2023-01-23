@@ -24,8 +24,10 @@ static const float MIN_ACTIVATION_VALUE = -1.f;
 
 void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
 {
-    if (fd_cfg->all_files_path != NULL)
-        LOG(err, "asnets_curr_dir_path = %{asnets_curr_dir_path}s", fd_cfg->all_files_path);
+    if (fd_cfg->saved_files_path != NULL)
+        LOG(err, "asnets_curr_dir_path = %{asnets_curr_dir_path}s", fd_cfg->saved_files_path);
+    if (fd_cfg->fd_interpreter != NULL)
+        LOG(err, "fd_interpreter = %{fd_interpreter}s", fd_cfg->fd_interpreter);
     if (fd_cfg->fd_executable_path != NULL)
         LOG(err, "fd_executable_path = %{fd_executable_path}s", fd_cfg->fd_executable_path);
     if (fd_cfg->sas_file_prefix != NULL)
@@ -36,7 +38,7 @@ void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
     LOG_CONFIG_INT(fd_cfg, use_unique_filenames, err);
     LOG_CONFIG_INT(fd_cfg, fd_arg_size, err);
     for (int i = 0; i < fd_cfg->fd_arg_size; ++i) {
-        if (fd_cfg->fd_args[i] != NULL)
+        if (fd_cfg->fd_args[i] != NULL)                // not sure if this null check required or not here
             LOG(err, "fd_args[%d] = %{fd_args}s", i, fd_cfg->fd_args[i]);
     }
 }
@@ -48,15 +50,17 @@ void pddlFDConfigInit(pddl_fd_config_t *cfg)
     cfg->use_unique_filenames = 1;
     cfg->plan_file_prefix = STRDUP("plan_file_");
     cfg->sas_file_prefix = STRDUP("sas_file_");
+    cfg->fd_interpreter = STRDUP("python3");
     cfg->fd_arg_size = 0;
     // remaining vars to be set from config file
 }
 
 void pddlFDConfigFree(pddl_fd_config_t *cfg)
 {
-    fprintf(stderr, "------------about to segmentation fault-----------");
-    if (cfg->all_files_path != NULL)
-        FREE(cfg->all_files_path);
+    if (cfg->saved_files_path != NULL)
+        FREE(cfg->saved_files_path);
+    if (cfg->fd_interpreter != NULL)
+        FREE(cfg->fd_interpreter);
     if (cfg->fd_executable_path != NULL)
         FREE(cfg->fd_executable_path);
     if (cfg->plan_file_prefix != NULL)
@@ -70,6 +74,28 @@ void pddlFDConfigFree(pddl_fd_config_t *cfg)
     }
     if (cfg->fd_args != NULL)
         FREE(cfg->fd_args);
+}
+
+void pddlFDConfigCopy(pddl_fd_config_t *dst,
+                              const pddl_fd_config_t *src)
+{
+    *dst = *src;
+    if (src->saved_files_path != NULL)
+        dst->saved_files_path = STRDUP(src->saved_files_path);
+    if (src->fd_executable_path != NULL)
+        dst->fd_executable_path = STRDUP(src->fd_executable_path);
+    if (src->fd_interpreter != NULL)
+        dst->fd_interpreter = STRDUP(src->fd_interpreter);
+    if (src->sas_file_prefix != NULL)
+        dst->sas_file_prefix = STRDUP(src->sas_file_prefix);
+    if (src->plan_file_prefix != NULL)
+        dst->plan_file_prefix = STRDUP(src->plan_file_prefix);
+
+    if (dst->fd_arg_size > 0){
+        dst->fd_args = ALLOC_ARR(char *, dst->fd_arg_size);
+        for (int i = 0; i < dst->fd_arg_size; ++i)
+            dst->fd_args[i] = STRDUP(src->fd_args[i]);
+    }
 }
 
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
@@ -143,7 +169,11 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
         for (int i = 0; i < dst->problem_pddl_size; ++i)
             dst->problem_pddl[i] = STRDUP(src->problem_pddl[i]);
     }
-    // TODO - handle fd_config here to avoid the current error caused by all asnetsConfigs pointing to same fd_config!!
+
+    if (src->fd_config != NULL) {
+        dst->fd_config = new pddl_fd_config_t(); // replace with ZALLOC(pddl_fd_config_t) ??
+        pddlFDConfigCopy(dst->fd_config, src->fd_config);
+    }
 }
 
 #define TOML_INT(K) \
@@ -312,13 +342,23 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             ERR_RET2(err, -1, "No [fast_downward] section in the configuration file.");
         }
 
-        if (pddl_toml_key_exists(f, "all_files_path")){
-            pddl_toml_datum_t d = pddl_toml_string_in(f, "all_files_path");
+        if (pddl_toml_key_exists(f, "saved_files_path")){
+            pddl_toml_datum_t d = pddl_toml_string_in(f, "saved_files_path");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "all_files_path must be string");
+                ERR_RET2(err, -1, "saved_files_path must be string");
             }
-            cfg->fd_config->all_files_path = STRDUP(d.u.s);
+            cfg->fd_config->saved_files_path = STRDUP(d.u.s);
+            FREE(d.u.s);
+        }
+
+        if (pddl_toml_key_exists(f, "fd_interpreter")){
+            pddl_toml_datum_t d = pddl_toml_string_in(f, "fd_interpreter");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "fd_interpreter must be string");
+            }
+            cfg->fd_config->fd_interpreter = STRDUP(d.u.s);
             FREE(d.u.s);
         }
 
