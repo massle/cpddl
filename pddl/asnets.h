@@ -18,8 +18,7 @@ typedef struct pddl_asnets pddl_asnets_t;
 
 enum pddl_asnets_trainer {
     PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
-    PDDL_ASNETS_TRAINER_FAST_DOWNWARD, // still using astar(lmcut())
-    PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP, // should use osp_dfs(mugs_hmax()) 
+    PDDL_ASNETS_TRAINER_FAST_DOWNWARD,
 };
 typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
 
@@ -40,8 +39,10 @@ struct pddl_fast_downward_config {
     /** Argumement to pass to FD. */
     char **fd_args;
 
-    /** FD OSP Flag */
-    int use_osp;
+    /** Set to true if OSP params expected by FD planner */
+    int use_osp_planner;
+    /** Set to true if OSP problem */
+    int is_osp_problem;
     /** Unique Filenames Flag */
     int use_unique_filenames;
 };

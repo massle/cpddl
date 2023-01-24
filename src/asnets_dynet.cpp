@@ -34,7 +34,8 @@ void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
         LOG(err, "sas_file_prefix = %{sas_file_prefix}s", fd_cfg->sas_file_prefix);
     if (fd_cfg->plan_file_prefix != NULL)
         LOG(err, "plan_file_prefix = %{plan_file_prefix}s", fd_cfg->plan_file_prefix);
-    LOG_CONFIG_INT(fd_cfg, use_osp, err);
+    LOG_CONFIG_INT(fd_cfg, use_osp_planner, err);
+    LOG_CONFIG_INT(fd_cfg, is_osp_problem, err);
     LOG_CONFIG_INT(fd_cfg, use_unique_filenames, err);
     LOG_CONFIG_INT(fd_cfg, fd_arg_size, err);
     for (int i = 0; i < fd_cfg->fd_arg_size; ++i) {
@@ -46,7 +47,8 @@ void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
 void pddlFDConfigInit(pddl_fd_config_t *cfg)
 {
     ZEROIZE(cfg);
-    cfg->use_osp = 0;
+    cfg->use_osp_planner = 1;  // will be overwritten from config file if present
+    cfg->is_osp_problem = 0;  // will be overwritten from config file if present
     cfg->use_unique_filenames = 1;
     cfg->plan_file_prefix = STRDUP("plan_file_");
     cfg->sas_file_prefix = STRDUP("sas_file_");
@@ -124,9 +126,6 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
             break;
         case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
             LOG2(err, "trainer = external-fast-downward");
-            break;
-        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP:
-            LOG2(err, "trainer = external-fast-downward-osp");
             break;
     }
     if (cfg->fd_config != NULL) {
@@ -328,11 +327,12 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
         }
         else {
-            cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP;
+            pddl_toml_free(top);
+            ERR_RET2(err, -1, "unknown trainer option");
         }
     }
 
-    if (cfg->trainer > 0) {
+    if (cfg->trainer == 1) {
         cfg->fd_config = new pddl_fd_config_t(); // TODO - replace with zalloc??
                                                  // cfg->fd_config = ZALLOC(pddl_fd_config_t);
         pddlFDConfigInit(cfg->fd_config);
@@ -340,6 +340,24 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         if (f == NULL){
             pddl_toml_free(top);
             ERR_RET2(err, -1, "No [fast_downward] section in the configuration file.");
+        }
+
+        if (pddl_toml_key_exists(f, "use_osp_planner")){
+            pddl_toml_datum_t d = pddl_toml_int_in(f, "use_osp_planner");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "use_osp_planner must be int");
+            }
+            cfg->fd_config->use_osp_planner = d.u.i;
+        }
+
+        if (pddl_toml_key_exists(f, "is_osp_problem")){
+            pddl_toml_datum_t d = pddl_toml_int_in(f, "is_osp_problem");
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET2(err, -1, "is_osp_problem must be int");
+            }
+            cfg->fd_config->is_osp_problem = d.u.i;
         }
 
         if (pddl_toml_key_exists(f, "saved_files_path")){
@@ -2057,7 +2075,6 @@ static int trainExploration(pddl_asnets_t *a,
                                                            err);
                 break;
             case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
-            case PDDL_ASNETS_TRAINER_FAST_DOWNWARD_OSP:
                 ret = pddlASNetsTrainDataRolloutFastDownward(data, ground_task_id,
                                                            state, &task->fdr,
                                                            a->cfg.teacher_timeout,

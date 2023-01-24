@@ -387,9 +387,9 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
     cfg.fd = 1;
     cfg.encode_op_ids = 1;
-    // TODO - calling FD without OSP also requires OSP params. So, keep the two separate in config!!
-    // cfg.use_osp_params = fd_cfg->use_osp; // to specify hard goals and soft goals in sas file
-    cfg.use_osp_params = 1;
+    cfg.use_osp_params = fd_cfg->use_osp_planner; // osp params expected by osp planner even for non-osp problem
+    cfg.all_soft_goals = fd_cfg->is_osp_problem; // currently osp problems handled only for all_soft_goals
+                                                 // TODO - incorporate general OSP problems
     cfg.filename = STRDUP(sas_filename);
     pddlFDRWrite(&fdr, &cfg);
     // TODO - convert to pinter and free cfg? or just free cfg.filename?? 
@@ -402,7 +402,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     // execute fast-downward with the sas_file as input and write to plan_file
     // TO-DO: make this parameterized using fd_config->args[]
     char *search_arg = "astar(lmcut())";
-    if(fd_cfg->use_osp) {
+    if(fd_cfg->is_osp_problem) {
         search_arg = "osp_dfs(u_eval=mugs_hmax())";
     }
     char *argv[] = {

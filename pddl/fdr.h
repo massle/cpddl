@@ -128,6 +128,8 @@ struct pddl_fdr_write_config {
     int encode_op_ids;
     /** If set to true, hard_goals, soft_goals and other details are included */
     int use_osp_params;
+    /** If set to true, will treat all goals as soft goals*/
+    int all_soft_goals;
 };
 typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
 
@@ -140,6 +142,7 @@ typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
         NULL, /* .mgroups */ \
         0, /* .encode_op_ids */ \
         0, /* .use_osp_params */ \
+        0, /* .all_soft_goals */ \
     }
 
 void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg);
