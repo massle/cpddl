@@ -1145,7 +1145,6 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
 
             // soft_goal
             fprintf(fout, "begin_soft_goal\n");
-            fprintf(fout, "0\n");
             fprintf(fout, "%d\n", fdr->goal.fact_size);
             for (int i = 0; i < fdr->goal.fact_size; ++i){
                 const pddl_fdr_fact_t *f = fdr->goal.fact + i;
