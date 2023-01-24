@@ -17,9 +17,10 @@
  */
 
 #include "pddl/config.h"
+#include "internal.h"
+
 #ifdef PDDL_BLISS
 
-#include "internal.h"
 #include <bliss/bliss_C.h>
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
