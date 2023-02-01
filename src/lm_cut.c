@@ -495,9 +495,9 @@ static int findCut(pddl_lm_cut_t *lmc)
     */
 
     if (lmc->cut.size == 0){
-        PDDL_FATAL2("Empty cut!");
+        PANIC("Empty cut!");
     }else if (min_cost <= 0){
-        PDDL_FATAL("Invalid cut cost: %d!", min_cost);
+        PANIC("Invalid cut cost: %d!", min_cost);
     }
 
     return min_cost;

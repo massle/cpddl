@@ -404,7 +404,7 @@ static int _setGoal(pddl_fm_t *c, void *_s)
         }
         if (!pddlFmAtomIsGrounded(atom)){
             s->goal_is_unreachable = 1;
-            PDDL_ERR_RET2(s->err, -1, "Goal specification cannot contain"
+            PDDL_ERR_RET(s->err, -1, "Goal specification cannot contain"
                           " parametrized atoms.");
         }
 

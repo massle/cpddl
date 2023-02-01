@@ -44,13 +44,8 @@ $m
 "
 
         elif [ "$1" = "debian:buster" ]; then
-            werror="no"
+            werror="yes"
 
-        elif [ "$1" = "ubuntu:bionic" ]; then
-            m="
-RUN cd /cpddl && echo \"CFLAGS += -Wno-strict-overflow\" >>Makefile.local
-$m
-"
         fi
         shift
     done
@@ -94,8 +89,9 @@ LABEL cpddl=test-build
 RUN apk update
 RUN apk upgrade
 RUN apk add make gcc g++ autoconf automake git bash libstdc++
-$COPY
 $run
+
+$COPY
 
 $m
 EOF
@@ -128,8 +124,9 @@ LABEL cpddl=test-build
 RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y make gcc g++ autoconf automake git
-$COPY
 $run
+
+$COPY
 
 $m
 EOF
@@ -162,8 +159,9 @@ LABEL cpddl=test-build
 RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y make gcc g++ autoconf automake git
-$COPY
 $run
+
+$COPY
 
 $m
 EOF
@@ -194,9 +192,10 @@ FROM fedora:${from}
 LABEL cpddl=test-build
 
 RUN dnf -y update
-RUN dnf -y install make gcc g++ autoconf automake git
-$COPY
+RUN dnf -y install make gcc g++ autoconf automake git findutils
 $run
+
+$COPY
 
 $m
 EOF

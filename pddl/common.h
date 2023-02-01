@@ -21,11 +21,11 @@
 #define __PDDL_COMMON_H__
 
 #ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
 #endif /* _DEFAULT_SOURCE */
 
 #ifndef _BSD_SOURCE
-#define _BSD_SOURCE
+#define _BSD_SOURCE 1
 #endif /* _BSD_SOURCE */
 
 #include <sys/mman.h>
@@ -64,11 +64,29 @@ enum pddl_status {
 };
 typedef enum pddl_status pddl_status_t;
 
+/** Compiler-specific pragmas */
+#if defined(__clang__) && __clang_major__ < 10
+# pragma clang diagnostic ignored "-Wmissing-braces"
+#endif
+
+#ifdef __ICC
+/* disable unused parameter warning */
+# pragma warning(disable:869)
+/* disable annoying "operands are evaluated in unspecified order" warning */
+# pragma warning(disable:981)
+#endif /* __ICC */
+
+
+
 /**
  * Returns offset of member in given type (struct).
  */
-#define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
-/*#define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)*/
+#if defined(__clang__) && __clang_major__ < 10
+# define pddl_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#else
+# define pddl_offsetof(TYPE, MEMBER) offsetof(TYPE, MEMBER)
+/* #define pddl_offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER) */
+#endif
 
 /**
  * Returns container of given member
@@ -79,7 +97,7 @@ typedef enum pddl_status pddl_status_t;
 /**
  * Marks inline function.
  */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #  ifdef PDDL_DEBUG
 #    define _pddl_inline static __attribute__((unused))
 #  else /* PDDL_DEBUG */
@@ -89,56 +107,32 @@ typedef enum pddl_status pddl_status_t;
 #      define _pddl_inline static inline __attribute__((always_inline,unused))
 #    endif /* __NO_INLINE */
 #  endif /* PDDL_DEBUG */
-#else /* __GNUC__ */
+#else /* defined(__GNUC__) || defined(__clang__) */
 # define _pddl_inline static inline
-#endif /* __GNUC__ */
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 /**
- * __prefetch(x)  - prefetches the cacheline at "x" for read
- * __prefetchw(x) - prefetches the cacheline at "x" for write
+ * pddl_packed - mark struct as "packed", i.e., no alignment of members
+ * _pddl_prefetch(x) - prefetches the cacheline at "x" for read
+ * _pddl_prefetchw(x) - prefetches the cacheline at "x" for write
+ * pddl_likely/pddl_unlikely - mark likely/unlikely branch
+ * PDDL_UNUSED - mark function as possibly unused
  */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+# define pddl_packed __attribute__ ((packed))
 # define _pddl_prefetch(x) __builtin_prefetch(x)
 # define _pddl_prefetchw(x) __builtin_prefetch(x,1)
-#else /* __GNUC__ */
-# define _pddl_prefetch(x)
-# define _pddl_prefetchw(x)
-#endif /* __GNUC__ */
-
-/**
- * Using this macros you can specify is it's likely or unlikely that branch
- * will be used.
- * Comes from linux header file ./include/compiler.h
- */
-#ifdef __GNUC__
 # define pddl_likely(x) __builtin_expect(!!(x), 1)
 # define pddl_unlikely(x) __builtin_expect(!!(x), 0)
-#else /* __GNUC__ */
+# define PDDL_UNUSED(f) f __attribute__((unused))
+#else /* defined(__GNUC__) || defined(__clang__) */
+# define pddl_packed
+# define _pddl_prefetch(x)
+# define _pddl_prefetchw(x)
 # define pddl_likely(x) !!(x)
 # define pddl_unlikely(x) !!(x)
-#endif /* __GNUC__ */
-
-#ifdef __GNUC__
-# define pddl_aligned(x) __attribute__ ((aligned(x)))
-# define pddl_packed __attribute__ ((packed))
-#else /* __GNUC__ */
-# define pddl_aligned(x)
-# define pddl_packed
-#endif /* __GNUC__ */
-
-
-#ifdef __GNUC__
-# define PDDL_UNUSED(f) f __attribute__((unused))
-#else /* __GNUC__ */
 # define PDDL_UNUSED(f)
-#endif /* __GNUC__ */
-
-#ifdef __ICC
-/* disable unused parameter warning */
-# pragma warning(disable:869)
-/* disable annoying "operands are evaluated in unspecified order" warning */
-# pragma warning(disable:981)
-#endif /* __ICC */
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 
 #define PDDL_MIN(x, y) ((x) < (y) ? (x) : (y)) /*!< minimum */

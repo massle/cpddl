@@ -203,7 +203,7 @@ static void setWeightWithProjectionsToRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 pddl_err_t *err)
 {
-    LOG2(err, "Setting weights using projections to a relaxed plan ...");
+    LOG(err, "Setting weights using projections to a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -256,7 +256,7 @@ static void setWeightWithConflictsInRelaxedPlan(
                 const pddl_mutex_pairs_t *mutex,
                 pddl_err_t *err)
 {
-    LOG2(err, "Setting weights using conflicts in a relaxed plan ...");
+    LOG(err, "Setting weights using conflicts in a relaxed plan ...");
     if (mgroups->mgroup_size == 0)
         return;
 
@@ -803,7 +803,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
         pddlSCCGraphInitInduced(&black_graph, &bv->cg, &black_vars);
         PDDL_ISET(comp);
         if (findMultiMGroupComponent(bv, &black_graph, &comp)){
-            LOG2(err, "The solution has a cycle."
+            LOG(err, "The solution has a cycle."
                  " Updating LP by adding more cycles...");
             if (num_updates == 5){
                 addCycles3(lp, bv, err);
@@ -827,7 +827,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
                 if (solution >= cfg->num_solutions){
                     cont = 0;
                 }else{
-                    LOG2(err, "Trying next solution");
+                    LOG(err, "Trying next solution");
                     addRedFacts(lp, bv, &black_vars);
                 }
             }else{
@@ -839,7 +839,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
         pddlISetEmpty(&black_vars);
     }
     if (ret != 0)
-        LOG2(err, "No solution exists.");
+        LOG(err, "No solution exists.");
     pddlISetFree(&black_vars);
 
     if (bmgroups->mgroup_size > 0 || ret == 0)

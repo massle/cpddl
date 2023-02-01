@@ -53,8 +53,8 @@ static int setLPSolver(const char *v)
     }else if (strcmp(v, "glpk") == 0){
         solver = PDDL_LP_GLPK;
 
-    }else if (strcmp(v, "lpsolve") == 0){
-        solver = PDDL_LP_LPSOLVE;
+    }else if (strcmp(v, "highs") == 0){
+        solver = PDDL_LP_HIGHS;
 
     }else{
         fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
@@ -409,7 +409,7 @@ static void setBaseOptions(void)
     optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
                "Set output file for properties log.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
-                 "Set the default LP solver: cplex/gurobi/glpk/lpsolve");
+                 "Set the default LP solver: cplex/gurobi/glpk/highs");
 
 }
 
@@ -1125,9 +1125,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (opt.asnets.enable){
         if (opt.asnets.out_task == NULL)
-            PDDL_ERR_RET2(err, -1, "--asnets-task-out must be set!");
+            PDDL_ERR_RET(err, -1, "--asnets-task-out must be set!");
         if (opt.asnets.out_fdr == NULL)
-            PDDL_ERR_RET2(err, -1, "--asnets-fdr-out must be set!");
+            PDDL_ERR_RET(err, -1, "--asnets-fdr-out must be set!");
     }
 
     PDDL_LOG(err, "Version: %{version}s", pddl_version);

@@ -163,10 +163,10 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
     pddl_disambiguate_t disamb;
     if (pddlDisambiguateInit(&disamb, symb_vars->fact_size,
                              mutex, mgroups) != 0){
-        FATAL2("Disambiguation failed because there are"
+        PANIC("Disambiguation failed because there are"
                " no exactly-1 mutex groups");
     }
-    PDDL_INFO2(err, "Disambiguation created.");
+    PDDL_INFO(err, "Disambiguation created.");
 
     pddl_mgroups_t mgs;
     pddlMGroupsInitEmpty(&mgs);

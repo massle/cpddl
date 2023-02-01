@@ -538,7 +538,7 @@ void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err)
     size_t buf_size;
     char *buf = pddlCGAsDot(cg, &buf_size);
     if (buf == NULL){
-        PDDL_INFO2(err, "Could not print out causal graph");
+        PDDL_INFO(err, "Could not print out causal graph");
         return;
     }
 

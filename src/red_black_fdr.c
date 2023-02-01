@@ -240,7 +240,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddl_timer_t timer;
     pddlTimerStart(&timer);
     CTX(err, "black_fdr", "Black-FDR");
-    PDDL_INFO2(err, "Construction of FDR with black variables...");
+    PDDL_INFO(err, "Construction of FDR with black variables...");
 
     // Make sure that mutex groups are contained in the mutex pairs
     pddl_mutex_pairs_t mutex;
@@ -294,7 +294,7 @@ int pddlRedBlackCheck(const pddl_fdr_t *fdr, pddl_err_t *err)
     pddlCGInitProjectToBlackVars(&black_cg, &cg, &fdr->var);
     int is_acyclic = pddlCGIsAcyclic(&black_cg);
     if (!is_acyclic)
-        PDDL_FATAL2("Black causal graph is not acyclic!");
+        PANIC("Black causal graph is not acyclic!");
 
     pddlCGFree(&black_cg);
     pddlCGFree(&cg);

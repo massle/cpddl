@@ -57,7 +57,7 @@ struct pddl_sql_grounder {
 #define CHECK_SQL_ERR(db, code) \
     do { \
     if ((code) != SQLITE_OK){ \
-        PDDL_FATAL("Sqlite Error: %s: %s\n", \
+        PANIC("Sqlite Error: %s: %s\n", \
                   pddl_sqlite3_errstr(code), pddl_sqlite3_errmsg(db)); \
     } \
     } while (0)
@@ -614,7 +614,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
                     | SQLITE_OPEN_PRIVATECACHE;
     int ret = pddl_sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
-    PDDL_INFO2(err, "Sqlite database created");
+    PDDL_INFO(err, "Sqlite database created");
     ASSERT_RUNTIME(pddl_sqlite3_get_autocommit(g->db));
 
     // Create type tables
@@ -689,7 +689,7 @@ int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
     pddl_obj_id_t args[a->arg_size];
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
-            PDDL_ERR_RET2(err, -1, "SQL Grounder: Atom is not grounded!");
+            PDDL_ERR_RET(err, -1, "SQL Grounder: Atom is not grounded!");
         args[i] = a->arg[i].obj;
     }
     return pddlSqlGrounderInsertAtomArgs(g, a->pred, args, err);
@@ -744,7 +744,7 @@ int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
             }
         }
         if (invalid){
-            PDDL_INFO2(err, "Invalid row");
+            PDDL_INFO(err, "Invalid row");
             continue;
         }
         const pddl_prep_action_t *paction;

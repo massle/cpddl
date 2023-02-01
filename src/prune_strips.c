@@ -149,7 +149,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
 static int pruneIrrelevance(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
-        PDDL_INFO2(c->err, "irrelevance analysis disabled because the problem"
+        PDDL_INFO(c->err, "irrelevance analysis disabled because the problem"
                    " has conditional effects.");
         return 0;
     }
@@ -177,7 +177,7 @@ void pddlPruneStripsAddIrrelevance(pddl_prune_strips_t *prune)
 static int pruneUnreachableInDTGs(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
-        PDDL_INFO2(c->err, "pruning unreachable facts in DTGs disabled because the problem"
+        PDDL_INFO(c->err, "pruning unreachable facts in DTGs disabled because the problem"
                    " has conditional effects.");
         return 0;
     }
@@ -200,7 +200,7 @@ static int pruneFAMGroupDeadEnd(prune_strips_t *p, ctx_t *c)
     if (c->mgroup != NULL && c->mgroup->mgroup_size == 0)
         return 0;
     int old_size = pddlISetSize(&c->rm_op);
-    PDDL_INFO2(c->err, "Pruning dead-end operators ...");
+    PDDL_INFO(c->err, "Pruning dead-end operators ...");
     pddlFAMGroupsDeadEndOps(c->mgroup, c->strips, &c->rm_op);
     PDDL_INFO(c->err, "Pruning dead-end operators done. Dead end ops: %d",
               pddlISetSize(&c->rm_op) - old_size);
@@ -216,13 +216,13 @@ void pddlPruneStripsAddFAMGroupDeadEnd(pddl_prune_strips_t *prune)
 static int pruneH2(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
-        PDDL_INFO2(c->err, "h^2 disabled because the problem has conditional effects.");
+        PDDL_INFO(c->err, "h^2 disabled because the problem has conditional effects.");
         return 0;
     }
 
     if (pddlH2(c->strips, c->mutex, &c->rm_fact, &c->rm_op,
                p->time_limit_in_s, c->err) != 0){
-        PDDL_INFO2(c->err, "h^2 fw failed.");
+        PDDL_INFO(c->err, "h^2 fw failed.");
         PDDL_TRACE_RET(c->err, -1);
     }
     return 0;
@@ -238,7 +238,7 @@ void pddlPruneStripsAddH2(pddl_prune_strips_t *prune, float time_limit_in_s)
 static int pruneH2FwBw(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
-        PDDL_INFO2(c->err, "h^2 fw/bw disabled because the problem has"
+        PDDL_INFO(c->err, "h^2 fw/bw disabled because the problem has"
                    " conditional effects.");
         return 0;
     }
@@ -247,7 +247,7 @@ static int pruneH2FwBw(prune_strips_t *p, ctx_t *c)
     pddlMGStripsInit(&mg_strips, c->strips, c->mgroup);
     if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, c->mutex, &c->rm_fact, &c->rm_op,
                    p->time_limit_in_s, c->err) != 0){
-        PDDL_INFO2(c->err, "h^2 fw/bw failed.");
+        PDDL_INFO(c->err, "h^2 fw/bw failed.");
         PDDL_TRACE_RET(c->err, -1);
     }
     pddlMGStripsFree(&mg_strips);
@@ -264,13 +264,13 @@ void pddlPruneStripsAddH2FwBw(pddl_prune_strips_t *prune, float time_limit_in_s)
 static int pruneH3(prune_strips_t *p, ctx_t *c)
 {
     if (c->strips->has_cond_eff){
-        PDDL_INFO2(c->err, "h^3 disabled because the problem has conditional effects.");
+        PDDL_INFO(c->err, "h^3 disabled because the problem has conditional effects.");
         return 0;
     }
 
     if (pddlH3(c->strips, c->mutex, &c->rm_fact, &c->rm_op,
                p->time_limit_in_s, p->excess_mem, c->err) != 0){
-        PDDL_INFO2(c->err, "h^3 fw failed.");
+        PDDL_INFO(c->err, "h^3 fw failed.");
         PDDL_TRACE_RET(c->err, -1);
     }
     return 0;

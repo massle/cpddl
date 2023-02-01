@@ -109,6 +109,25 @@ int pddlExecvp(char *const argv[],
                int *read_stderr_size,
                pddl_err_t *err)
 {
+    return pddlExecvpLimits(argv, status,
+                            write_stdin, write_stdin_size,
+                            read_stdout, read_stdout_size,
+                            read_stderr, read_stderr_size,
+                            -1., -1, err);
+}
+
+int pddlExecvpLimits(char *const argv[],
+                     pddl_exec_status_t *status,
+                     const char *write_stdin,
+                     int write_stdin_size,
+                     char **read_stdout,
+                     int *read_stdout_size,
+                     char **read_stderr,
+                     int *read_stderr_size,
+                     float time_limit_in_s,
+                     int mem_limit_in_mb,
+                     pddl_err_t *err)
+{
     CTX(err, "execvp", "exec");
     logCommand(argv, err);
     fflush(stdout);
@@ -118,6 +137,8 @@ int pddlExecvp(char *const argv[],
     if (status != NULL)
         ZEROIZE(status);
 
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
     struct buf bufout, buferr;
     bufInit(&bufout, read_stdout, read_stdout_size);
     bufInit(&buferr, read_stderr, read_stderr_size);
@@ -164,7 +185,7 @@ int pddlExecvp(char *const argv[],
 
     pid_t pid = fork();
     if (pid < 0){
-        FATAL("fork() failed: %s", strerror(errno));
+        PANIC("fork() failed: %s", strerror(errno));
 
     }else if (pid == 0){
         if (fd_stdin[1] >= 0)
@@ -200,8 +221,15 @@ int pddlExecvp(char *const argv[],
             }
         }
 
+        if (mem_limit_in_mb > 0){
+            struct rlimit mem_limit;
+            mem_limit.rlim_cur
+                = mem_limit.rlim_max = mem_limit_in_mb * 1024UL * 1024UL;
+            setrlimit(RLIMIT_AS, &mem_limit);
+        }
+
         execvp(argv[0], argv);
-        FATAL2("exec failed!");
+        PANIC("exec failed!");
     }
 
     struct pollfd pfd[3];
@@ -231,8 +259,29 @@ int pddlExecvp(char *const argv[],
         ++pfdsize;
     }
 
+    int timelimit = -1;
+    if (time_limit_in_s > 0.){
+        pddlTimerStop(&timer);
+        timelimit = ceil((time_limit_in_s - pddlTimerElapsedInSF(&timer)) * 1000);
+        LOG(err, "Setting time limit to %d ms", timelimit);
+    }
+
     int rpoll = 0;
-    while (pfdsize > 0 && (rpoll = poll(pfd, pfdsize, -1)) > 0){
+    while (pfdsize > 0 && (rpoll = poll(pfd, pfdsize, timelimit)) >= 0){
+        if (rpoll == 0){
+            // Time limit reached, notify the child and wait for it
+            // to terminate.
+            pddlTimerStop(&timer);
+            LOG(err, "Time limit reached (%.2fs). Sending SIGALRM to %d",
+                pddlTimerElapsedInSF(&timer), pid);
+            kill(pid, SIGALRM);
+            // Give the child process 100ms to terminate and then kill it
+            // with SIGKILL
+            usleep(100UL * 1000UL);
+            kill(pid, SIGKILL);
+            break;
+        }
+
         pfdsize = 0;
         int fdi = 0;
         if (fd_stdin[1] >= 0){
@@ -304,6 +353,12 @@ int pddlExecvp(char *const argv[],
                 ++pfdsize;
             }
         }
+
+        if (time_limit_in_s > 0.){
+            pddlTimerStop(&timer);
+            timelimit = ceil((time_limit_in_s - pddlTimerElapsedInSF(&timer)) * 1000);
+            //LOG(err, "Setting time limit to %d ms", timelimit);
+        }
     }
 
     waitForSubprocess(pid, status);
@@ -368,10 +423,10 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
     }
 
     memcpy(shared, in_out_data, data_size);
-    LOG2(err, "In data copied to the shared memory.");
+    LOG(err, "In data copied to the shared memory.");
     pid_t pid = fork();
     if (pid < 0){
-        FATAL("fork() failed: %s", strerror(errno));
+        PANIC("fork() failed: %s", strerror(errno));
 
     }else if (pid == 0){
         int ret = fn(shared, userdata);
@@ -381,7 +436,7 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
     waitForSubprocess(pid, status);
 
     memcpy(in_out_data, shared, data_size);
-    LOG2(err, "Out data copied to the output memory.");
+    LOG(err, "Out data copied to the output memory.");
     if (munmap(shared, data_size) != 0){
         LOG(err, "Could not release mmaped memory: %s", strerror(errno));
         CTXEND(err);
@@ -409,12 +464,12 @@ int pddlForkPipe(int (*fn)(int fdout, void *userdata),
 
     int fd[2];
     if (pipe(fd) != 0){
-        FATAL("pipe() failed: %s", strerror(errno));
+        PANIC("pipe() failed: %s", strerror(errno));
     }
 
     pid_t pid = fork();
     if (pid < 0){
-        FATAL("fork() failed: %s", strerror(errno));
+        PANIC("fork() failed: %s", strerror(errno));
 
     }else if (pid == 0){
         close(fd[0]);

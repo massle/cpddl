@@ -128,20 +128,14 @@ void pddlErrFlush(pddl_err_t *err);
 /**
  * Sets error message and starts tracing the calls.
  */
-#define PDDL_ERR(E, format, ...) \
-    _pddlErr((E), __FILE__, __LINE__, __func__, format, __VA_ARGS__)
-#define PDDL_ERR2(E, msg) \
-    _pddlErr((E), __FILE__, __LINE__, __func__, msg)
+#define PDDL_ERR(E, ...) \
+    _pddlErr((E), __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 /**
  * Same as PDDL_ERR() but also returns the value V immediatelly.
  */
-#define PDDL_ERR_RET(E, V, format, ...) do { \
-        PDDL_ERR((E), format, __VA_ARGS__); \
-        return (V); \
-    } while (0)
-#define PDDL_ERR_RET2(E, V, msg) do { \
-        PDDL_ERR2((E), msg); \
+#define PDDL_ERR_RET(E, V, ...) do { \
+        PDDL_ERR((E), __VA_ARGS__); \
         return (V); \
     } while (0)
 
@@ -149,32 +143,23 @@ void pddlErrFlush(pddl_err_t *err);
 /**
  * Fatal error that causes exit.
  */
-#define PDDL_FATAL(format, ...) do { \
-        fprintf(stderr, "FATAL ERROR: %s:%d [%s]: " format "\n", \
-                __FILE__, __LINE__, __func__, __VA_ARGS__); \
-        exit(-1); \
+#define PDDL_PANIC(...) _pddlPanic(__FILE__, __LINE__, __func__, __VA_ARGS__)
+#define PDDL_PANIC_IF(COND, ...) do { \
+        if (!!(COND)) PDDL_PANIC(__VA_ARGS__); \
     } while (0)
-#define PDDL_FATAL2(msg) do { \
-        fprintf(stderr, "FATAL ERROR: %s:%d [%s]: " msg "\n", \
-                __FILE__, __LINE__, __func__); \
-        exit(-1); \
-    } while (0)
+
 
 /**
  * Prints warning.
  */
-#define PDDL_WARN(E, format, ...) \
-    _pddlWarn((E), __FILE__, __LINE__, __func__, format, __VA_ARGS__)
-#define PDDL_WARN2(E, msg) \
-    _pddlWarn((E), __FILE__, __LINE__, __func__, msg)
+#define PDDL_WARN(E, ...) \
+    _pddlWarn((E), __FILE__, __LINE__, __func__,  __VA_ARGS__)
 
 /**
  * Prints info line with timestamp.
  */
-#define PDDL_INFO(E, format, ...) \
-    _pddlInfo((E), __FILE__, __LINE__, __func__, format, __VA_ARGS__)
-#define PDDL_INFO2(E, msg) \
-    _pddlInfo((E), __FILE__, __LINE__, __func__, msg)
+#define PDDL_INFO(E, ...) \
+    _pddlInfo((E), __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 
 /**
@@ -193,8 +178,7 @@ void pddlErrFlush(pddl_err_t *err);
 /**
  * Prints info line with timestamp.
  */
-#define PDDL_LOG(E, format, ...) _pddlLog((E), format, __VA_ARGS__)
-#define PDDL_LOG2(E, msg) _pddlLog((E), msg)
+#define PDDL_LOG(E, ...) _pddlLog((E), __VA_ARGS__)
 #define PDDL_LOG_IN_CTX(E, CTX_KW, CTX_I, format, ...) \
     do { \
         PDDL_CTX_NO_TIME((E), (CTX_KW), (CTX_I)); \
@@ -243,6 +227,8 @@ void pddlErrFlush(pddl_err_t *err);
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
               const char *format, ...);
+void _pddlPanic(const char *filename, int line, const char *func,
+                const char *format, ...);
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
 void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time);

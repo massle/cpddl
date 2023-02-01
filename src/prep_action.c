@@ -84,7 +84,7 @@ static int actionInitEff(pddl_fm_t *c, void *ud)
         return 0;
 
     }else if (c->type == PDDL_FM_ASSIGN){
-        PDDL_ERR2(ctx->err, "(= ...) is not supported in operators' effects.");
+        PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
@@ -99,7 +99,7 @@ static int actionInitEff(pddl_fm_t *c, void *ud)
     }else if (c->type == PDDL_FM_AND){
         return 0;
     }else{
-        PDDL_ERR2(ctx-> err, "Effect is not a simple conjuction"
+        PDDL_ERR(ctx-> err, "Effect is not a simple conjuction"
                   " (possibly containingconditional effects and function"
                   " assignement). It seems it was not normalized.");
         ctx->failed = 1;

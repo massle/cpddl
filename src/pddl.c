@@ -209,7 +209,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         TRACE_RET(err, -1);
     }
 
-    LOG2(err, "Parsing domain lisp file...");
+    LOG(err, "Parsing domain lisp file...");
     pddl->domain_lisp = pddlLispParse(domain_fn, err);
     if (pddl->domain_lisp == NULL){
         CTXEND(err);
@@ -217,7 +217,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     }
 
     if (problem_fn != NULL){
-        LOG2(err, "Parsing problem lisp file...");
+        LOG(err, "Parsing problem lisp file...");
         pddl->problem_lisp = pddlLispParse(problem_fn, err);
         if (pddl->problem_lisp == NULL){
             CTXEND(err);
@@ -227,7 +227,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         }
     }
 
-    LOG2(err, "Parsing entire contents of domain/problem PDDL...");
+    LOG(err, "Parsing entire contents of domain/problem PDDL...");
     pddl->domain_name = parseDomainName(pddl->domain_lisp, err);
     if (pddl->domain_name == NULL)
         goto pddl_fail;
@@ -250,7 +250,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         goto pddl_fail;
     }
     pddlTypesBuildObjTypeMap(&pddl->type, pddl->obj.obj_size);
-    LOG2(err, "PDDL files processed.");
+    LOG(err, "PDDL files processed.");
 
     if (cfg->normalize){
         pddlNormalize(pddl);
@@ -286,15 +286,15 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     }
 
     if (cfg->enforce_unit_cost){
-        LOG2(err, "Enforcing unit-cost...");
+        LOG(err, "Enforcing unit-cost...");
         pddlEnforceUnitCost(pddl, err);
-        LOG2(err, "Enforcing unit-cost DONE.");
+        LOG(err, "Enforcing unit-cost DONE.");
     }
 
     if (cfg->compile_away_cond_eff){
-        LOG2(err, "Compiling away conditional effects...");
+        LOG(err, "Compiling away conditional effects...");
         pddlCompileAwayCondEff(pddl);
-        LOG2(err, "Conditional effects compiled away.");
+        LOG(err, "Conditional effects compiled away.");
     }
 
     pddlCheckSizeTypes(pddl);
@@ -822,7 +822,7 @@ static void compileAwayCondEff(pddl_t *pddl, int only_non_static)
                 if ((neg_pre = pddlFmNegate(w->pre, pddl)) == NULL){
                     // This shoud never fail, because we force
                     // normalization before this.
-                    PDDL_FATAL2("Fatal Error: Encountered problem in"
+                    PANIC("Fatal Error: Encountered problem in"
                                 " the normalization.");
                 }
                 a->pre = pddlFmNewAnd2(a->pre, neg_pre);
@@ -868,7 +868,7 @@ void pddlCheckSizeTypes(const pddl_t *pddl)
 
     max_size = (1ul << (sizeof(pddl_obj_size_t) * 8)) - 1;
     if (pddl->obj.obj_size > max_size){
-        PDDL_FATAL("The problem has %d objects, but pddl_obj_size_t can"
+        PANIC("The problem has %d objects, but pddl_obj_size_t can"
                    " hold only %lu.",
                    pddl->obj.obj_size,
                    sizeof(pddl_obj_size_t) * 8 - 1);
@@ -878,7 +878,7 @@ void pddlCheckSizeTypes(const pddl_t *pddl)
     for (int ai = 0; ai < pddl->action.action_size; ++ai){
         int param_size = pddl->action.action[ai].param.param_size;
         if (param_size > max_size){
-            PDDL_FATAL("The action %s has %d parameters, but"
+            PANIC("The action %s has %d parameters, but"
                        "pddl_action_param_size_t can hold only %lu.",
                        pddl->action.action[ai].name,
                        param_size,
@@ -985,7 +985,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
 
             if (pddlFmRemapPreds(&pddl->init->fm,
                                  pred_remap, func_remap) != 0){
-                LOG2(err, "The task is unsolvable, because the initial"
+                LOG(err, "The task is unsolvable, because the initial"
                            " state is false");
                 pddlFmDel(&pddl->init->fm);
                 pddl_fm_t *c = pddlFmNewEmptyAnd();
@@ -995,7 +995,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
             }
 
             if (pddlFmRemapPreds(pddl->goal, pred_remap, func_remap) != 0){
-                LOG2(err, "The task is unsolvable, because the goal"
+                LOG(err, "The task is unsolvable, because the goal"
                            " is false");
                 pddlFmDel(pddl->goal);
                 pddl_fm_bool_t *b = pddlFmNewBool(0);

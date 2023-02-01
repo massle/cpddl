@@ -40,7 +40,7 @@ static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
     if (root->child_size < 4
             || root->child_size / 2 == 1
             || root->child[1].value == NULL){
-        PDDL_ERR_RET2(err, -1, "Invalid definition.");
+        PDDL_ERR_RET(err, -1, "Invalid definition.");
     }
 
     a = pddlActionsAddEmpty(&pddl->action);
@@ -345,14 +345,14 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     pddl_fm_t *c;
 
     if (a->pre->type != PDDL_FM_AND){
-        PDDL_FATAL("Precondition of the action `%s' is" " not a conjuction.", a->name);
+        PANIC("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
     pre = pddlFmToJunc(a->pre);
     PDDL_LIST_FOR_EACH(&pre->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type != PDDL_FM_ATOM){
-            PDDL_FATAL("Precondition of the action `%s' is"
+            PANIC("Precondition of the action `%s' is"
                        " not a flatten conjuction (conjuction contains"
                        " something else besides atoms).", a->name);
         }

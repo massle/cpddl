@@ -132,11 +132,11 @@ static pddl_homomorphism_heur_t *liftedHomomorphHeur(const pddl_t *pddl,
     heur_homo_fn heur_fn = pddlHomomorphismHeurLMCut;
     switch (opt.lifted_planner.heur){
         case LIFTED_PLAN_HEUR_HOMO_LMC:
-            PDDL_INFO2(err, "cfg.heur = homo-lmc");
+            PDDL_INFO(err, "cfg.heur = homo-lmc");
             heur_fn = pddlHomomorphismHeurLMCut;
             break;
         case LIFTED_PLAN_HEUR_HOMO_FF:
-            PDDL_INFO2(err, "cfg.heur = homo-ff");
+            PDDL_INFO(err, "cfg.heur = homo-ff");
             heur_fn = pddlHomomorphismHeurHFF;
             break;
     }
@@ -168,15 +168,15 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     pddl_lifted_heur_t *heur = NULL;
     switch (opt.lifted_planner.heur){
         case LIFTED_PLAN_HEUR_BLIND:
-            PDDL_INFO2(err, "cfg.heur = blind");
+            PDDL_INFO(err, "cfg.heur = blind");
             heur = pddlLiftedHeurBlind();
             break;
         case LIFTED_PLAN_HEUR_HMAX:
-            PDDL_INFO2(err, "cfg.heur = hmax");
+            PDDL_INFO(err, "cfg.heur = hmax");
             heur = pddlLiftedHeurHMax(pddl, err);
             break;
         case LIFTED_PLAN_HEUR_HADD:
-            PDDL_INFO2(err, "cfg.heur = hadd");
+            PDDL_INFO(err, "cfg.heur = hadd");
             heur = pddlLiftedHeurHAdd(pddl, err);
             break;
         case LIFTED_PLAN_HEUR_HOMO_LMC:
@@ -185,7 +185,7 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             heur = pddlLiftedHeurHomomorphism(heur_homo);
             break;
         default:
-            PDDL_FATAL2("Unknown lifted heuristic.");
+            PDDL_PANIC("Unknown lifted heuristic.");
             break;
     }
 
@@ -196,11 +196,11 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     switch (opt.lifted_planner.succ_gen){
         case LIFTED_PLAN_SUCC_GEN_DL:
             search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_DL;
-            PDDL_INFO2(err, "Search successor generator: datalog");
+            PDDL_INFO(err, "Search successor generator: datalog");
             break;
         case LIFTED_PLAN_SUCC_GEN_SQL:
             search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_SQL;
-            PDDL_INFO2(err, "Search successor generator: sql");
+            PDDL_INFO(err, "Search successor generator: sql");
             break;
         default:
             search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_DL;
@@ -209,18 +209,18 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     switch (opt.lifted_planner.search){
         case LIFTED_PLAN_ASTAR:
             search_cfg.alg = PDDL_LIFTED_SEARCH_ASTAR;
-            PDDL_INFO2(err, "Search: astar");
+            PDDL_INFO(err, "Search: astar");
             break;
         case LIFTED_PLAN_GBFS:
             search_cfg.alg = PDDL_LIFTED_SEARCH_GBFS;
-            PDDL_INFO2(err, "Search: gbfs");
+            PDDL_INFO(err, "Search: gbfs");
             break;
         case LIFTED_PLAN_LAZY:
             search_cfg.alg = PDDL_LIFTED_SEARCH_LAZY;
-            PDDL_INFO2(err, "Search: lazy");
+            PDDL_INFO(err, "Search: lazy");
             break;
         default:
-            PDDL_FATAL("Unknown lifted planner %d", opt.lifted_planner.search);
+            PDDL_PANIC("Unknown lifted planner %d", opt.lifted_planner.search);
     }
 
     pddl_lifted_search_t *search = pddlLiftedSearchNew(&search_cfg, err);
@@ -253,10 +253,10 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     PDDL_PROP_BOOL(err, "aborted", st == PDDL_LIFTED_SEARCH_ABORT);
 
     if (st == PDDL_LIFTED_SEARCH_UNSOLVABLE){
-        PDDL_INFO2(err, "Problem is unsolvable.");
+        PDDL_INFO(err, "Problem is unsolvable.");
 
     }else if (st == PDDL_LIFTED_SEARCH_FOUND){
-        PDDL_INFO2(err, "Plan found.");
+        PDDL_INFO(err, "Plan found.");
         const pddl_lifted_plan_t *plan = pddlLiftedSearchPlan(search);
         PDDL_INFO(err, "Plan Cost: %d", plan->plan_cost);
         PDDL_PROP_INT(err, "plan_cost", plan->plan_cost);
@@ -266,10 +266,10 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
                       pddlLiftedSearchPlanPrint(search, fout));
 
     }else if (st == PDDL_LIFTED_SEARCH_ABORT){
-        PDDL_INFO2(err, "Search aborted.");
+        PDDL_INFO(err, "Search aborted.");
 
     }else{
-        PDDL_FATAL("Unkown return status: %d", (int)st);
+        PDDL_PANIC("Unkown return status: %d", (int)st);
     }
 
     pddlLiftedSearchDel(search);

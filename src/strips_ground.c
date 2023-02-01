@@ -331,7 +331,7 @@ static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
     ins = 0;
     for (int i = 1; i < ga->size; ++i){
         if (groundArgsCmp(ga->arg + i, ga->arg + ins, NULL) == 0){
-            PDDL_WARN2(err, "Duplicate grounded action"
+            PDDL_WARN(err, "Duplicate grounded action"
                            " -- this should not happen!");
             if (ga->arg[i].arg != NULL)
                 FREE(ga->arg[i].arg);
@@ -553,7 +553,7 @@ static int setUpOp(pddl_strips_ground_t *g, pddl_strips_op_t *op,
 
     // Different operator cost for the conditional effects is not allowed
     if (a->parent_action >= 0 && a->increase.size > 0){
-        PDDL_ERR_RET2(g->err, -1,
+        PDDL_ERR_RET(g->err, -1,
                      "Costs in conditional effects are not supported.");
     }
 
@@ -670,7 +670,7 @@ static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
         ASSERT(ga->id == i);
         fact_id = pddlFactsAddGroundAtom(&strips->fact, ga, g->pddl);
         if (fact_id != ga->id){
-            PDDL_FATAL2("The fact and the corresponding grounded atom have"
+            PANIC("The fact and the corresponding grounded atom have"
                        " different IDs. This is definitelly a bug!");
         }
     }
@@ -723,7 +723,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
     if (c->type == PDDL_FM_ATOM){
         const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
         if (!pddlFmAtomIsGrounded(atom))
-            PDDL_ERR_RET2(g->err, -1, "Goal specification cannot contain"
+            PDDL_ERR_RET(g->err, -1, "Goal specification cannot contain"
                          " parametrized atoms.");
 
         // Find fact in the set of reachable facts
@@ -764,7 +764,7 @@ static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
 {
     struct ground_goal ggoal = { g, strips, 0 };
     if (g->pddl->goal->type == PDDL_FM_OR){
-        PDDL_ERR_RET2(g->err, -1, "Only conjuctive goal specifications"
+        PDDL_ERR_RET(g->err, -1, "Only conjuctive goal specifications"
                      " are supported. This goal is a disjunction.");
     }
 
@@ -958,7 +958,7 @@ int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
     if (strips->goal_is_unreachable)
         pddlStripsMakeUnsolvable(strips);
 
-    PDDL_INFO2(g->err, "PDDL grounded to STRIPS.");
+    PDDL_INFO(g->err, "PDDL grounded to STRIPS.");
 
     return 0;
 }
@@ -975,7 +975,7 @@ int pddlStripsGround(pddl_strips_t *strips,
     if (pddlStripsGroundStart(&g, pddl, cfg, err, NULL, NULL) != 0
             || pddlStripsGroundUnifyStep(&g) != 0
             || pddlStripsGroundFinalize(&g, strips) != 0){
-        PDDL_INFO2(err, "Grounding failed.");
+        PDDL_INFO(err, "Grounding failed.");
         CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }

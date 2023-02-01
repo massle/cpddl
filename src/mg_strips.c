@@ -220,7 +220,7 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
                       const pddl_mgroups_t *mgroups_in)
 {
     if (strips->has_cond_eff)
-        PDDL_FATAL2("pddlMGStripsInit: conditional effects not yet supported.");
+        PANIC("pddlMGStripsInit: conditional effects not yet supported.");
 
     // Find facts that appear in delete effects but not in the precondition
     PDDL_ISET(uncovered_del_effs);

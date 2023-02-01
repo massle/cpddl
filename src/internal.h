@@ -31,20 +31,15 @@ extern "C" {
     type *name = pddl_container_of((ptr), type, member)
 
 #define ERR PDDL_ERR
-#define ERR2 PDDL_ERR2
 #define ERR_RET PDDL_ERR_RET
-#define ERR_RET2 PDDL_ERR_RET2
-#define FATAL PDDL_FATAL
-#define FATAL2 PDDL_FATAL2
+#define PANIC PDDL_PANIC
 #define WARN PDDL_WARN
-#define WARN2 PDDL_WARN2
 #define CTX PDDL_CTX
 #define CTX_F PDDL_CTX_F
 #define CTX_NO_TIME PDDL_CTX_NO_TIME
 #define CTX_NO_TIME_F PDDL_CTX_NO_TIME_F
 #define CTXEND PDDL_CTXEND
 #define LOG PDDL_LOG
-#define LOG2 PDDL_LOG2
 #define LOG_IN_CTX PDDL_LOG_IN_CTX
 #define TRACE PDDL_TRACE
 #define TRACE_RET PDDL_TRACE_RET
@@ -75,7 +70,7 @@ extern "C" {
 #include <assert.h>
 # define ASSERT(x) assert(x)
 # define DBG(E, format, ...) PDDL_INFO((E), "DEBUG: " format, __VA_ARGS__)
-# define DBG2(E, msg) PDDL_INFO2((E), "DEBUG: " msg)
+# define DBG2(E, msg) PDDL_INFO((E), "DEBUG: " msg)
 
 #else /* PDDL_DEBUG */
 

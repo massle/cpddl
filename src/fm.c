@@ -557,7 +557,8 @@ static pddl_fm_when_t *fmWhenClone(const pddl_fm_when_t *w)
 static pddl_fm_when_t *fmWhenNegate(const pddl_fm_when_t *w,
                                     const pddl_t *pddl)
 {
-    PDDL_FATAL2("Cannot negate (when ...)");
+    PANIC("Cannot negate (when ...)");
+    return NULL;
 }
 
 static int fmWhenEq(const pddl_fm_when_t *w1,
@@ -770,7 +771,8 @@ static pddl_fm_func_op_t *fmFuncOpClone(const pddl_fm_func_op_t *op)
 static pddl_fm_func_op_t *fmFuncOpNegate(const pddl_fm_func_op_t *op,
                                          const pddl_t *pddl)
 {
-    PDDL_FATAL2("Cannot negate function!");
+    PANIC("Cannot negate function!");
+    return NULL;
 }
 
 static int fmFuncOpEq(const pddl_fm_func_op_t *f1,
@@ -2015,7 +2017,7 @@ int pddlFmCheckPre(const pddl_fm_t *fm,
     if (fm->type == PDDL_FM_AND
             || fm->type == PDDL_FM_OR){
         if (fm->type == PDDL_FM_OR && !require->disjunctive_pre){
-            PDDL_ERR2(err, "(or ...) can be used only with"
+            PDDL_ERR(err, "(or ...) can be used only with"
                       " :disjunctive-preconditions");
             return -1;
         }
@@ -2031,7 +2033,7 @@ int pddlFmCheckPre(const pddl_fm_t *fm,
 
     }else if (fm->type == PDDL_FM_FORALL){
         if (!require->universal_pre){
-            PDDL_ERR2(err, "(forall ...) can be used only with"
+            PDDL_ERR(err, "(forall ...) can be used only with"
                       " :universal-preconditions");
             return -1;
         }
@@ -2041,7 +2043,7 @@ int pddlFmCheckPre(const pddl_fm_t *fm,
 
     }else if (fm->type == PDDL_FM_EXIST){
         if (!require->existential_pre){
-            PDDL_ERR2(err, "(exists ...) can be used only with"
+            PDDL_ERR(err, "(exists ...) can be used only with"
                       " :existential-preconditions");
             return -1;
         }
@@ -2050,13 +2052,13 @@ int pddlFmCheckPre(const pddl_fm_t *fm,
         return pddlFmCheckPre(q->qfm, require, err);
 
     }else if (fm->type == PDDL_FM_WHEN){
-        PDDL_ERR2(err, "(when ...) cannot be part of preconditions");
+        PDDL_ERR(err, "(when ...) cannot be part of preconditions");
         return -1;
 
     }else if (fm->type == PDDL_FM_ATOM){
         atom = OBJ(fm, atom);
         if (atom->neg && !require->negative_pre){
-            PDDL_ERR2(err, "For negative preconditions add"
+            PDDL_ERR(err, "For negative preconditions add"
                       " :negative-preconditions");
             return -1;
         }
@@ -2066,7 +2068,7 @@ int pddlFmCheckPre(const pddl_fm_t *fm,
     }else if (fm->type == PDDL_FM_IMPLY){
         imp = OBJ(fm, imply);
         if (!require->disjunctive_pre){
-            PDDL_ERR2(err, "(imply ...) can be used only with"
+            PDDL_ERR(err, "(imply ...) can be used only with"
                       " :disjunctive-preconditions");
             return -1;
         }
@@ -2104,7 +2106,7 @@ static int checkCEffect(const pddl_fm_t *fm,
 
     if (fm->type == PDDL_FM_FORALL){
         if (!require->conditional_eff){
-            PDDL_ERR2(err, "(forall ...) is allowed in effects only if"
+            PDDL_ERR(err, "(forall ...) is allowed in effects only if"
                       " :conditional-effects is specified as requirement");
             return -1;
         }
@@ -2114,7 +2116,7 @@ static int checkCEffect(const pddl_fm_t *fm,
 
     }else if (fm->type == PDDL_FM_WHEN){
         if (!require->conditional_eff){
-            PDDL_ERR2(err, "(when ...) is allowed in effects only if"
+            PDDL_ERR(err, "(when ...) is allowed in effects only if"
                       " :conditional-effects is specified as requirement");
             return -1;
         }
@@ -2126,7 +2128,7 @@ static int checkCEffect(const pddl_fm_t *fm,
 
     }else{
         if (checkPEffect(fm, require, err) != 0){
-            PDDL_ERR2(err, "A single effect has to be either literal or"
+            PDDL_ERR(err, "A single effect has to be either literal or"
                       " conditional effect (+ universal quantifier).");
             return -1;
         }
@@ -2162,7 +2164,7 @@ static int checkCondEffect(const pddl_fm_t *fm,
         PDDL_LIST_FOR_EACH(&part->part, item){
             sub = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
             if (checkPEffect(sub, require, err) != 0){
-                PDDL_ERR2(err, "Conditional effect can contain only literals"
+                PDDL_ERR(err, "Conditional effect can contain only literals"
                           " and conjuction of literals.");
                 return -1;
             }
@@ -3840,7 +3842,7 @@ void pddlFmPrint(const struct pddl *pddl,
         fmImplyPrint(OBJ(fm, imply), pddl, params, fout);
 
     }else{
-        PDDL_FATAL2("Unknown type!");
+        PANIC("Unknown type!");
     }
 }
 

@@ -134,10 +134,10 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
 
     // TODO: satisfy/optimize
     int ret = PDDL_CP_UNKNOWN;
-    LOG2(err, "Solving model ...");
+    LOG(err, "Solving model ...");
     solve.startNewSearch();
     while (solve.next()){
-        LOG2(err, "Found solution.");
+        LOG(err, "Found solution.");
         if (cp->objective == OBJ_SAT){
             ASSERT(sol->num_solutions == 0);
             int *s = pddlCPSolAddEmpty(cp, sol);
@@ -185,31 +185,31 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
         case IloCP::SearchHasFailedNormally:
             if (sol->num_solutions == 0){
                 ret = PDDL_CP_NO_SOLUTION;
-                LOG2(err, "Provably No Solution");
+                LOG(err, "Provably No Solution");
             }else{
                 ret = PDDL_CP_FOUND;
-                LOG2(err, "Optimal solution");
+                LOG(err, "Optimal solution");
             }
             break;
         case IloCP::SearchStoppedByLimit:
-            LOG2(err, "Terminated by a time or fail limit");
+            LOG(err, "Terminated by a time or fail limit");
             if (sol->num_solutions == 0)
                 ret = PDDL_CP_REACHED_LIMIT;
             break;
         case IloCP::SearchStoppedByLabel:
-            LOG2(err, "Terminated -- stopped-by-label");
+            LOG(err, "Terminated -- stopped-by-label");
             ret = PDDL_CP_UNKNOWN;
             break;
         case IloCP::SearchStoppedByExit:
-            LOG2(err, "Terminated by exitSearch()");
+            LOG(err, "Terminated by exitSearch()");
             ret = PDDL_CP_ABORTED;
             break;
         case IloCP::SearchStoppedByAbort:
-            LOG2(err, "Aborted");
+            LOG(err, "Aborted");
             ret = PDDL_CP_ABORTED;
             break;
         case IloCP::UnknownFailureStatus:
-            LOG2(err, "Unknown failure");
+            LOG(err, "Unknown failure");
             ret = PDDL_CP_UNKNOWN;
             break;
     }
@@ -226,7 +226,7 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
                             pddl_cp_sol_t *sol,
                             pddl_err_t *err)
 {
-    FATAL2("Compiled without IBM CP Optimizer");
+    PANIC("Compiled without IBM CP Optimizer");
     return -1;
 }
 #endif /* PDDL_CPOPTIMIZER */

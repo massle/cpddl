@@ -21,6 +21,22 @@
 extern "C" {
 #endif /* __cplusplus */
 
+// TODO: pddl_lp_status: We need to distinguish at least: no solution
+// exists, cannot find a solution, optimal solution, suboptimal solution
+/*
+enum pddl_lp_status {
+    PDDL_LP_STATUS_OPTIMAL = 0,
+    PDDL_LP_STATUS_SUBOPTIMAL = 1,
+    PDDL_LP_STATUS_INFEASIBLE = 2,
+    PDDL_LP_STATUS_NO_SOLUTION_FOUND = -1,
+    PDDL_LP_STATUS_ERROR = -2,
+};
+typedef enum pddl_lp_status pddl_lp_status_t;
+
+#define PDDL_LP_HAS_SOLUTION(S) \
+    ((S) == PDDL_LP_STATUS_OPTIMAL || (S) == PDDL_LP_STATUS_SUBOPTIMAL)
+*/
+
 /** Forward declaration */
 typedef struct pddl_lp pddl_lp_t;
 
@@ -31,7 +47,7 @@ enum pddl_lp_solver {
     PDDL_LP_DEFAULT = 0,
     PDDL_LP_CPLEX,
     PDDL_LP_GUROBI,
-    PDDL_LP_LPSOLVE,
+    PDDL_LP_HIGHS,
     PDDL_LP_GLPK,
 };
 typedef enum pddl_lp_solver pddl_lp_solver_t;
@@ -86,7 +102,7 @@ void pddlLPDel(pddl_lp_t *lp);
 const char *pddlLPSolverName(const pddl_lp_t *lp);
 
 /**
- * Returns one of PDDL_LP_{CPLEX,GUROBI,LPSOLVE} constants according to the
+ * Returns one of PDDL_LP_{CPLEX,GUROBI,GLPK,HIGHS} constants according to the
  * current solver.
  */
 int pddlLPSolverID(const pddl_lp_t *lp);

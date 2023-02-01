@@ -177,7 +177,7 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
 
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_PREDICATES);
     if (n == NULL){
-        LOG2(err, "No predicates found");
+        LOG(err, "No predicates found");
         return 0;
     }
 
@@ -251,7 +251,7 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
 
     n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_FUNCTIONS);
     if (n == NULL){
-        LOG2(err, "No functions found.");
+        LOG(err, "No functions found.");
         return 0;
     }
 

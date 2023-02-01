@@ -584,7 +584,7 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
     LOG(err, "actions: %{in.actions}d, lifted mgroups: %{in.lmgs}d",
         pddl->action.action_size, mgroups->mgroup_size);
     if (mgroups->mgroup_size == 0){
-        LOG2(err, "No lifted mutex groups.");
+        LOG(err, "No lifted mutex groups.");
         LOG(err, "DONE. actions: %{out.actions}d, lifted mgroups: %{out.lmgs}d",
             pddl->action.action_size, mgroups->mgroup_size);
         CTXEND(err);

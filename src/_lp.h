@@ -57,8 +57,8 @@ extern pddl_lp_cls_t *pddl_lp_default;
 extern pddl_lp_cls_t pddl_lp_not_available;
 extern pddl_lp_cls_t pddl_lp_cplex;
 extern pddl_lp_cls_t pddl_lp_gurobi;
-extern pddl_lp_cls_t pddl_lp_lpsolve;
 extern pddl_lp_cls_t pddl_lp_glpk;
+extern pddl_lp_cls_t pddl_lp_highs;
 
 #ifdef __cplusplus
 }

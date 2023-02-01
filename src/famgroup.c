@@ -204,7 +204,7 @@ static void famInit(fam_t *fam,
         fam->cfg.limit = INT_MAX;
 
     if (!pddlLPSolverAvailable(PDDL_LP_DEFAULT)){
-        PDDL_FATAL2("Missing LP solver! Exiting...");
+        PANIC("Missing LP solver! Exiting...");
     }
 
     fam->lp_var_size = strips->fact.fact_size;
@@ -288,7 +288,7 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
                        pddl_err_t *err)
 {
     if (strips->has_cond_eff)
-        PDDL_FATAL2("fam-groups does not support conditional effects");
+        PANIC("fam-groups does not support conditional effects");
 
     CTX(err, "mg_fam", "MG-fam");
     fam_t fam;

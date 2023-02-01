@@ -247,7 +247,7 @@ static int collapseEndomorphism(pddl_t *pddl,
                                 int obj_size,
                                 pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Collapse with endomorphisms");
+    PDDL_INFO(err, "Collapse with endomorphisms");
     // TODO
     pddl_endomorphism_config_t ecfg = cfg->endomorphism_cfg;
     PDDL_ISET(redundant);
@@ -581,7 +581,7 @@ static int collapseGaifman(pddl_t *pddl,
         if (collapse_map != NULL)
             FREE(collapse_map);
     }else{
-        PDDL_INFO2(err, "Nothing to collapse.");
+        PDDL_INFO(err, "Nothing to collapse.");
         ret = 1;
     }
 
@@ -776,7 +776,7 @@ int pddlHomomorphism(pddl_t *pddl,
     ASSERT_RUNTIME_M(cfg->type != 0u, "Invalid configuration");
     if (cfg->type == PDDL_HOMOMORPHISM_TYPES
             && pddlISetSize(&cfg->collapse_types) == 0){
-        PDDL_ERR_RET2(err, -1, "Nothing to do!");
+        PDDL_ERR_RET(err, -1, "Nothing to do!");
     }
 
     CTX(err, "homo", "Homomorphism");
@@ -828,7 +828,7 @@ int pddlHomomorphism(pddl_t *pddl,
                 && pddl->obj.obj_size > target){
             if (fn[fni](pddl, cfg, &rnd, obj_map, obj_size, err) != 0){
                 if (fn[fni] == collapseEndomorphism){
-                    PDDL_INFO2(err, "Endomorphism failed -- disabling...");
+                    PDDL_INFO(err, "Endomorphism failed -- disabling...");
                     fn[fni] = fn[(fni + 1) % 2];
                 }else{
                     break;
@@ -838,7 +838,7 @@ int pddlHomomorphism(pddl_t *pddl,
         }
 
     }else{
-        PDDL_FATAL("Homomorphism: Unkown type %d", cfg->type);
+        PANIC("Homomorphism: Unkown type %d", cfg->type);
     }
 
     deduplicate(pddl);
@@ -982,7 +982,7 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
                   o2, h->task.obj.obj[o2].name);
         ret = collapsePair(h, o1, o2, err);
     }else{
-        PDDL_INFO2(err, "Nothing to collapse.");
+        PDDL_INFO(err, "Nothing to collapse.");
         ret = 1;
     }
 
@@ -1028,7 +1028,7 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
             const pddl_endomorphism_config_t *cfg,
             pddl_err_t *err)
 {
-    PDDL_INFO2(err, "Relaxed endomorphisms");
+    PDDL_INFO(err, "Relaxed endomorphisms");
     PDDL_ISET(redundant);
     pddl_obj_id_t *map = ALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(&h->task, cfg, &redundant, map, err);

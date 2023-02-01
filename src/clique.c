@@ -233,7 +233,7 @@ void pddlCliqueFindMaximalCliquer(const pddl_graph_simple_t *g,
                                   void (*cb)(const pddl_iset_t *clique, void *userdata),
                                   void *userdata)
 {
-    PDDL_FATAL2("Cliquer library is not linked!");
+    PANIC("Cliquer library is not linked!");
 }
 #endif /* PDDL_CLIQUER */
 

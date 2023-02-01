@@ -300,7 +300,7 @@ static void liftedEndomorphismAnalyzeAction(
                                             cfg, err);
 
         }else{
-            PDDL_FATAL("Unexpected atom of type %d:%s\n",
+            PANIC("Unexpected atom of type %d:%s\n",
                        c->type, pddlFmTypeName(c->type));
         }
     }
@@ -479,7 +479,7 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
         }
 
     }else if (c->type != PDDL_FM_AND){
-        PDDL_FATAL("Unexpected atom of type %d:%s\n",
+        PANIC("Unexpected atom of type %d:%s\n",
                    c->type, pddlFmTypeName(c->type));
     }
     return 0;
@@ -664,7 +664,7 @@ static int liftedSolve(const pddl_t *pddl,
     liftedAddInitConstr(pddl, end, cfg, &cp);
 
     pddlCPSetObjectiveMinCountDiffAllIVars(&cp);
-    LOG2(err, "Added objective function min(count-diff())");
+    LOG(err, "Added objective function min(count-diff())");
 
     pddlCPSimplify(&cp);
     //pddlCPWriteMinizinc(&cp, stderr);
@@ -685,7 +685,7 @@ static int liftedSolve(const pddl_t *pddl,
         LOG(err, "Found a solution with %d redundant objects", num_redundant);
 
     }else if (sret == PDDL_CP_ABORTED){
-        LOG2(err, "Solver was aborted.");
+        LOG(err, "Solver was aborted.");
     }
     pddlCPSolFree(&sol);
 
@@ -693,7 +693,7 @@ static int liftedSolve(const pddl_t *pddl,
         LOG(err, "Found %{num_redundant}d redundant objects", num_redundant);
         ret = 0;
     }else{
-        LOG2(err, "Solution not found");
+        LOG(err, "Solution not found");
         ret = -1;
     }
 
@@ -842,21 +842,21 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            pddl_err_t *err)
 {
     if (!pddl->normalized)
-        PDDL_ERR_RET2(err, -1, "PDDL needs to be normalized!");
+        PDDL_ERR_RET(err, -1, "PDDL needs to be normalized!");
 
     CTX(err, "lendo", "Lifted endomorphism");
     // TODO
     if (cfg->run_in_subprocess)
-        LOG2(err, "run_in_subprocess is ignored");
+        LOG(err, "run_in_subprocess is ignored");
 
     if (cfg->ignore_costs)
-        LOG2(err, "Ignoring operator costs");
+        LOG(err, "Ignoring operator costs");
 
     for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
         omap[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
-        LOG2(err, "Non-strict type partitioning"
+        LOG(err, "Non-strict type partitioning"
              " -- abstaining from the inference");
         CTXEND(err);
         return 0;
@@ -878,7 +878,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     }
 
     if (lifted_mgroups.mgroup_size == 0){
-        LOG2(err, "No mutex groups so lifted endomorphisms cannot be inferred");
+        LOG(err, "No mutex groups so lifted endomorphisms cannot be inferred");
         CTXEND(err);
         pddlLiftedMGroupsFree(&lifted_mgroups);
         return 0;
@@ -898,7 +898,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
         if (liftedEndomorphismNumUnfixed(&end) > 1){
             liftedSolve(pddl, &end, cfg, redundant_objects, omap, err);
         }else{
-            LOG2(err, "Not enough unfixed objects to try to find endomorphisms");
+            LOG(err, "Not enough unfixed objects to try to find endomorphisms");
         }
         liftedEndomorphismFree(&end);
     }
@@ -927,7 +927,7 @@ static int relaxedLifted(const pddl_t *pddl,
             FREE(map);
         }
     }else{
-        LOG2(err, "Not enough unfixed objects to try to find endomorphisms");
+        LOG(err, "Not enough unfixed objects to try to find endomorphisms");
     }
     liftedEndomorphismFree(&end);
     return 0;
@@ -939,7 +939,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
                                      pddl_obj_id_t *omap,
                                      pddl_err_t *err)
 {
-    LOG2(err, "Lifted Relaxed Endomorphism in a subprocess ...");
+    LOG(err, "Lifted Relaxed Endomorphism in a subprocess ...");
     fflush(stdout);
     fflush(stderr);
     fflush(err->warn_out);
@@ -1000,7 +1000,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
             LOG(err, "Relaxed Lifted Endomorphism in a subprocess: ret: %d",
                 ret);
         }
-        LOG2(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
+        LOG(err, "Relaxed Lifted Endomorphism in a subprocess DONE");
         return ret;
     }
 }
@@ -1012,17 +1012,17 @@ int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   pddl_err_t *err)
 {
     if (!pddl->normalized)
-        ERR_RET2(err, -1, "PDDL needs to be normalized!");
+        ERR_RET(err, -1, "PDDL needs to be normalized!");
 
     CTX(err, "relax_lendo", "Relaxed lifted endomorphism");
     if (cfg->ignore_costs)
-        LOG2(err, "Ignoring operator costs");
+        LOG(err, "Ignoring operator costs");
 
     for (int i = 0; omap != NULL && i < pddl->obj.obj_size; ++i)
         omap[i] = i;
 
     if (!pddlTypesHasStrictPartitioning(&pddl->type, &pddl->obj)){
-        LOG2(err, "Non-strict type partitioning"
+        LOG(err, "Non-strict type partitioning"
              " -- abstaining from the inference");
         CTXEND(err);
         return 0;

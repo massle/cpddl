@@ -201,17 +201,17 @@ static int setConfig(int argc, char *argv[])
         PDDL_INFO(&err, "cfg.max_mem = %dMB", cfg.max_mem);
         PDDL_INFO(&err, "cfg.bench = '%s'", cfg.bench_path);
         if (cfg.target == TARGET_RCI_CPU){
-            PDDL_INFO2(&err, "cfg.target = rci-cpu");
+            PDDL_INFO(&err, "cfg.target = rci-cpu");
         }else if (cfg.target == TARGET_FAI0){
-            PDDL_INFO2(&err, "cfg.target = fai0");
+            PDDL_INFO(&err, "cfg.target = fai0");
         }else if (cfg.target == TARGET_FAI1){
-            PDDL_INFO2(&err, "cfg.target = fai1");
+            PDDL_INFO(&err, "cfg.target = fai1");
         }else if (cfg.target == TARGET_FAI14){
-            PDDL_INFO2(&err, "cfg.target = fai14");
+            PDDL_INFO(&err, "cfg.target = fai14");
         }else if (cfg.target == TARGET_FAI_ALL){
-            PDDL_INFO2(&err, "cfg.target = faiall");
+            PDDL_INFO(&err, "cfg.target = faiall");
         }else{
-            PDDL_INFO2(&err, "cfg.target = none");
+            PDDL_INFO(&err, "cfg.target = none");
         }
         PDDL_INFO(&err, "cfg.force = %d", cfg.force);
         PDDL_INFO(&err, "cfg.no_systemd = %d", cfg.no_systemd);
@@ -471,7 +471,7 @@ static int cmdGen(void)
     genRunMakefile(&bench, topdir);
     free(topdir);
 
-    PDDL_INFO2(&err, "Done.");
+    PDDL_INFO(&err, "Done.");
     return 0;
 }
 
@@ -489,7 +489,7 @@ static void *thTimeout(void *_pid)
     int *pid = _pid;
     usleep(1000ul * 1000ul * cfg.max_time);
     timeout_reached = 1;
-    PDDL_INFO2(&err, "Timeout reached.");
+    PDDL_INFO(&err, "Timeout reached.");
     PDDL_INFO(&err, "Sending SIGTERM to %d", *pid);
     kill(*pid, SIGTERM);
     usleep(1000ul * 1000ul * 5);
@@ -600,13 +600,13 @@ static int cmdRun(void)
             int code = WEXITSTATUS(wstatus);
             PDDL_INFO(&err, "Exit status: %d", code);
             if (code == 137){
-                PDDL_INFO2(&err, "Probably ran out of memory");
+                PDDL_INFO(&err, "Probably ran out of memory");
                 writeFileInDir(topdir, "task.memout", "");
             }else if (code == 139){
-                PDDL_INFO2(&err, "Probably segmentation fault");
+                PDDL_INFO(&err, "Probably segmentation fault");
                 writeFileInDir(topdir, "task.segfault", "");
             }else if (code == 152){
-                PDDL_INFO2(&err, "Probably time out");
+                PDDL_INFO(&err, "Probably time out");
                 writeFileInDir(topdir, "task.timeout", "");
             }
 
@@ -625,11 +625,11 @@ static int cmdRun(void)
             writeFileInDir(topdir, "task.signum", out);
 
             if (WTERMSIG(wstatus) == SIGKILL){
-                PDDL_INFO2(&err, "Probably ran out of memory");
+                PDDL_INFO(&err, "Probably ran out of memory");
                 writeFileInDir(topdir, "task.memout", "");
             }
             if (WTERMSIG(wstatus) == SIGTERM){
-                PDDL_INFO2(&err, "Probably reached time limit");
+                PDDL_INFO(&err, "Probably reached time limit");
                 writeFileInDir(topdir, "task.timeout", "");
             }
         }
@@ -654,9 +654,8 @@ static int cmdIsFinished(int num_dirs, char *dir[])
             snprintf(path, 511, "%s/%06d", dir[di], ti);
             if (!pddlIsDir(path))
                 break;
-            snprintf(path, 511, "%s/%06d/task.finished", dir[di], ti);
-            if (!pddlIsFile(path)){
-                printf("Not finished %s/%06d\n", dir[di], ti);
+            if (!taskIsFinished(path)){
+                printf("Not finished %s\n", path);
                 return 1;
             }
             ++finished;

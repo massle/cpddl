@@ -22,6 +22,11 @@
 #GUROBI_CFLAGS = -I/opt/gurobi/include
 #GUROBI_LDFLAGS = -L/opt/gurobi/lib -Wl,-rpath=/opt/gurobi/lib -lgurobi70
 
+# Configuration of HiGHS library https://highs.dev
+#HIGHS_ROOT = /opt/HiGHS
+#HIGHS_CFLAGS = -I/opt/HiGHS/include
+#HIGHS_LDFLAGS = -L/opt/HiGHS/lib -lhighs
+
 # Configuration of Minizinc optimizer
 #MINIZINC_BIN = /opt/minizinc/bin/minizinc
 

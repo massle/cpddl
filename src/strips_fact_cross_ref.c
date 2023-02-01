@@ -29,7 +29,7 @@ void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
                                 int op_del)
 {
     if (strips->has_cond_eff){
-        PDDL_FATAL2("pddlStripsFactCrossRefInit() does not support"
+        PANIC("pddlStripsFactCrossRefInit() does not support"
                     " conditional effects!");
     }
 

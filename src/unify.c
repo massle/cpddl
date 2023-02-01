@@ -269,9 +269,7 @@ int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2)
                       sizeof(pddl_unify_val_t) * u->param[1]->param_size) == 0;
 }
 
-static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
-                                     int eq_pred,
-                                     int idx)
+static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u, int eq_pred, int idx)
 {
     pddl_fm_t *and = pddlFmNewEmptyAnd();
     pddl_fm_atom_t *eq;
@@ -326,8 +324,8 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u,
 }
 
 pddl_fm_t *pddlUnifyToCond(const pddl_unify_t *u,
-                             int eq_pred,
-                             const pddl_params_t *param)
+                           int eq_pred,
+                           const pddl_params_t *param)
 {
     if (param == u->param[0])
         return _pddlUnifyToCond(u, eq_pred, 0);

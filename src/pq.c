@@ -115,7 +115,7 @@ static void pddlPQBucketQueuePush(pddl_pq_bucket_queue_t *q,
     pddl_pq_bucket_t *bucket;
 
     if (key >= PDDL_PQ_BUCKET_SIZE){
-        PDDL_FATAL("pddlPQBucketQueue: key %d is over a size of"
+        PANIC("pddlPQBucketQueue: key %d is over a size of"
                    " the bucket queue, which is %d.",
                    key, PDDL_PQ_BUCKET_SIZE);
     }

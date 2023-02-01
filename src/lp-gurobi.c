@@ -51,7 +51,7 @@ static char lpSense(char sense)
 
 static void grbError(lp_t *lp)
 {
-    FATAL("Gurobi Error: %s\n", GRBgeterrormsg(lp->env));
+    PANIC("Gurobi Error: %s\n", GRBgeterrormsg(lp->env));
 }
 
 static int cb(GRBmodel *model, void *cbdata, int where, void *ud)
@@ -80,7 +80,7 @@ static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
     lp->cls.err = err;
     lp->cls.cfg = *cfg;
     if ((ret = GRBemptyenv(&lp->env)) != 0){
-        FATAL("Gurobi Error: Could not create environment"
+        PANIC("Gurobi Error: Could not create environment"
               " (error-code: %d)!", ret);
     }
     if (GRBsetintparam(lp->env, "OutputFlag", 0) != 0)
@@ -88,7 +88,7 @@ static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
 
     if ((ret = GRBstartenv(lp->env)) != 0){
         if (ret == GRB_ERROR_NO_LICENSE)
-            WARN2(err, "It seems license file wasn't found. Don't forget to"
+            WARN(err, "It seems license file wasn't found. Don't forget to"
                   " set GRB_LICENSE_FILE environment variable.");
         grbError(lp);
     }

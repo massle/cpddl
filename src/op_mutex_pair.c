@@ -67,11 +67,14 @@ int pddlOpMutexPairsSize(const pddl_op_mutex_pairs_t *m)
 void pddlOpMutexPairsMutexWith(const pddl_op_mutex_pairs_t *m, int op_id,
                                pddl_iset_t *out)
 {
+    if (op_id < 0)
+        return;
+
     if (m->op_id_to_id[op_id] >= 0)
         pddlISetUnion(out, m->op_mutex + m->op_id_to_id[op_id]);
     for (int i = op_id - 1; i >= 0; --i){
         if (pddlOpMutexPairsIsMutex(m, i, op_id))
-                pddlISetAdd(out, i);
+            pddlISetAdd(out, i);
     }
 }
 

@@ -1,4 +1,3 @@
-#include <signal.h>
 #include "pddl/pddl.h"
 #include "opts.h"
 #include "options.h"
@@ -6,6 +5,7 @@
 #include "report.h"
 #include "lifted_planner.h"
 #include "print_to_file.h"
+#include <signal.h>
 
 #ifndef BIN_PDDL_FDR
 # define BIN_PDDL_FDR 0
@@ -82,7 +82,7 @@ static int stepLiftedMGroups(void)
     monotonicity_invariants_set = 1;
 
     if (!opt.lmg.enable){
-        PDDL_INFO2(&err, "Inference of lifted mutex groups disabled");
+        PDDL_INFO(&err, "Inference of lifted mutex groups disabled");
         return 0;
     }
 
@@ -108,7 +108,7 @@ static int stepLiftedMGroups(void)
 static int stepLiftedEndomorph(void)
 {
     if (!opt.lifted_endomorph.enable){
-        PDDL_INFO2(&err, "Lifted endomorphisms disabled");
+        PDDL_INFO(&err, "Lifted endomorphisms disabled");
         return 0;
     }
 
@@ -171,14 +171,14 @@ static void stripsCompileAwayCondEff(void)
 
     PDDL_CTX(&err, "strips_ce", "STRIPS CE");
     if (!strips.has_cond_eff){
-        PDDL_INFO2(&err, "The task has no conditional effects.");
+        PDDL_INFO(&err, "The task has no conditional effects.");
         PDDL_CTXEND(&err);
         return;
     }
 
-    PDDL_INFO2(&err, "Compiling away conditional effects ...");
+    PDDL_INFO(&err, "Compiling away conditional effects ...");
     pddlStripsCompileAwayCondEff(&strips);
-    PDDL_INFO2(&err, "Conditional effects compiled away.");
+    PDDL_INFO(&err, "Conditional effects compiled away.");
     pddlStripsLogInfo(&strips, &err);
     PDDL_CTXEND(&err);
 }
@@ -200,7 +200,7 @@ static int stepGround(void)
         ret = pddlStripsGroundDatalog(&strips, &pddl, &opt.ground.cfg, &err);
     }
     if (ret != 0){
-        PDDL_INFO2(&err, "Grounding failed.");
+        PDDL_INFO(&err, "Grounding failed.");
         PDDL_TRACE_RET(&err, -1);
     }
 
@@ -269,12 +269,12 @@ static int stepReportMGroups(void)
 static int stepGroundMGroups(void)
 {
     if (!opt.ground.mgroup){
-        PDDL_INFO2(&err, "Grounding of lifted mutex groups disabled.");
+        PDDL_INFO(&err, "Grounding of lifted mutex groups disabled.");
         return 0;
     }
 
     PDDL_CTX(&err, "ground_lmg", "Ground LMG");
-    PDDL_INFO2(&err, "Grounding of lifted mutex groups ...");
+    PDDL_INFO(&err, "Grounding of lifted mutex groups ...");
     pddlMGroupsGround(&mgroup, &pddl, &lifted_mgroups, &strips);
     if (opt.ground.mgroup_remove_subsets)
         pddlMGroupsRemoveSubsets(&mgroup);
@@ -295,7 +295,7 @@ static int stepGroundMGroups(void)
 static int stepInferMGroups(void)
 {
     if (opt.mg.method == MG_NONE){
-        PDDL_INFO2(&err, "Inference of mutex groups disabled.");
+        PDDL_INFO(&err, "Inference of mutex groups disabled.");
         return 0;
     }
 
@@ -321,7 +321,7 @@ static int stepInferMGroups(void)
         pddl_mutex_pairs_t mutex;
         pddlMutexPairsInitStrips(&mutex, &strips);
         if (pddlH2(&strips, &mutex, NULL, NULL, 0., &err) != 0){
-            PDDL_INFO2(&err, "h^2 fw failed.");
+            PDDL_INFO(&err, "h^2 fw failed.");
             PDDL_TRACE_RET(&err, -1);
         }
 
@@ -344,7 +344,7 @@ static int stepInferMGroups(void)
                   pddlMGroupsPrint(&pddl, &strips, &mgroup, fout));
 
     if (opt.mg.cover_number){
-        PDDL_INFO2(&err, "Computing mutex group cover number");
+        PDDL_INFO(&err, "Computing mutex group cover number");
         int num = pddlMGroupsCoverNumber(&mgroup, strips.fact.fact_size);
         PDDL_INFO(&err, "Mutex group cover number: %d", num);
     }
@@ -412,7 +412,7 @@ static int stepReportReversibility(void)
             pddlReversibilityUniformPrint(&rev, &strips.op, stdout);
             pddlReversibilityUniformFree(&rev);
         }
-        PDDL_INFO2(&err, "Reverse plans computed.");
+        PDDL_INFO(&err, "Reverse plans computed.");
 
     }else{
         int max_depth = opt.reversibility.max_depth;
@@ -424,7 +424,7 @@ static int stepReportReversibility(void)
             reversibilityIterativeDepth(skip, depth, stdout);
         }
         PDDL_FREE(skip);
-        PDDL_INFO2(&err, "Reverse plans computed.");
+        PDDL_INFO(&err, "Reverse plans computed.");
     }
 
     return 1;
@@ -485,7 +485,7 @@ static int stepFDR(void)
 
     if (opt.fdr.order_vars_cg){
         pddlFDRReorderVarsCG(&fdr);
-        PDDL_INFO2(&err, "FDR variables reordered using causal graph.");
+        PDDL_INFO(&err, "FDR variables reordered using causal graph.");
     }
 
     if (opt.fdr.to_tnf || opt.fdr.to_tnf_multiply){
@@ -548,7 +548,7 @@ static int stepFDR(void)
         pddlPotSolutionsInit(&pot);
 
         if (pddlHPot(&pot, &opt.fdr.pot_cfg, &err) != 0){
-            PDDL_ERR_RET2(&err, -1, "Cannot find potential heuristic");
+            PDDL_ERR_RET(&err, -1, "Cannot find potential heuristic");
             return -1;
         }
         APPEND_TO_FILE(&err, opt.fdr.out, "FDR Pot",
@@ -602,32 +602,32 @@ static int stepGroundPlanner(void)
     switch (opt.ground_planner.heur){
         case GROUND_PLAN_HEUR_LMC:
             heur_cfg.heur = PDDL_HEUR_LM_CUT;
-            PDDL_INFO2(&err, "Heuristic: lmc");
+            PDDL_INFO(&err, "Heuristic: lmc");
             break;
         case GROUND_PLAN_HEUR_MAX:
             heur_cfg.heur = PDDL_HEUR_HMAX;
-            PDDL_INFO2(&err, "Heuristic: hmax");
+            PDDL_INFO(&err, "Heuristic: hmax");
             break;
         case GROUND_PLAN_HEUR_ADD:
             heur_cfg.heur = PDDL_HEUR_HADD;
-            PDDL_INFO2(&err, "Heuristic: hadd");
+            PDDL_INFO(&err, "Heuristic: hadd");
             break;
         case GROUND_PLAN_HEUR_FF:
             heur_cfg.heur = PDDL_HEUR_HFF;
-            PDDL_INFO2(&err, "Heuristic: hff");
+            PDDL_INFO(&err, "Heuristic: hff");
             break;
         case GROUND_PLAN_HEUR_FLOW:
             heur_cfg.heur = PDDL_HEUR_FLOW;
-            PDDL_INFO2(&err, "Heuristic: flow");
+            PDDL_INFO(&err, "Heuristic: flow");
             break;
         case GROUND_PLAN_HEUR_POT:
             heur_cfg.heur = PDDL_HEUR_POT;
-            PDDL_INFO2(&err, "Heuristic: pot");
+            PDDL_INFO(&err, "Heuristic: pot");
             break;
         case GROUND_PLAN_HEUR_BLIND:
         default:
             heur_cfg.heur = PDDL_HEUR_BLIND;
-            PDDL_INFO2(&err, "Heuristic: blind");
+            PDDL_INFO(&err, "Heuristic: blind");
     }
 
     if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT){
@@ -708,18 +708,18 @@ static int stepGroundPlanner(void)
     pddl_search_t *search = NULL;
     switch (opt.ground_planner.search){
         case GROUND_PLAN_ASTAR:
-            PDDL_INFO2(&err, "Search: astar");
+            PDDL_INFO(&err, "Search: astar");
             search = pddlSearchAStar(&fdr, heur, &err);
             break;
         case GROUND_PLAN_GBFS:
-            PDDL_FATAL2("Error: gbfs not implemented yet!\n");
+            PDDL_PANIC("Error: gbfs not implemented yet!\n");
             break;
         case GROUND_PLAN_LAZY:
-            PDDL_INFO2(&err, "Search: lazy");
+            PDDL_INFO(&err, "Search: lazy");
             search = pddlSearchLazy(&fdr, heur, &err);
             break;
         default:
-            PDDL_FATAL("Unknown planner %d", opt.ground_planner.search);
+            PDDL_PANIC("Unknown planner %d", opt.ground_planner.search);
     }
 
     int ret = pddlSearchInitStep(search);
@@ -730,7 +730,7 @@ static int stepGroundPlanner(void)
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
         if (search_terminate){
             printSearchStat(search, &err);
-            PDDL_INFO2(&err, "Search aborted.");
+            PDDL_INFO(&err, "Search aborted.");
             pddlSearchDel(search);
             pddlHeurDel(heur);
             PDDL_CTXEND(&err);
@@ -751,10 +751,10 @@ static int stepGroundPlanner(void)
     printSearchStat(search, &err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
-        PDDL_INFO2(&err, "Problem is unsolvable.");
+        PDDL_INFO(&err, "Problem is unsolvable.");
 
     }else if (ret == PDDL_SEARCH_FOUND){
-        PDDL_INFO2(&err, "Plan found.");
+        PDDL_INFO(&err, "Plan found.");
         pddl_plan_t plan;
         pddlPlanInit(&plan);
         pddlSearchExtractPlan(search, &plan);
@@ -764,11 +764,11 @@ static int stepGroundPlanner(void)
                       pddlPlanPrint(&plan, &fdr.op, fout));
         pddlPlanFree(&plan);
     }else{
-        PDDL_FATAL("Unkown return status: %d", ret);
+        PDDL_PANIC("Unkown return status: %d", ret);
     }
 
     if (search_terminate){
-        PDDL_INFO2(&err, "Search aborted.");
+        PDDL_INFO(&err, "Search aborted.");
         pddlSearchDel(search);
         pddlHeurDel(heur);
         PDDL_CTXEND(&err);
@@ -830,27 +830,27 @@ static int stepSymba(void)
     int is_tnf = fdrHasTNFOps(&fdr);
     if (opt.symba.cfg.fw.use_pot_heur){
         if (is_tnf){
-            PDDL_INFO2(&err, "fw: Using consistent potential heuristic");
+            PDDL_INFO(&err, "fw: Using consistent potential heuristic");
         }else{
             opt.symba.cfg.fw.use_pot_heur = 0;
             opt.symba.cfg.fw.use_pot_heur_inconsistent = 1;
-            PDDL_INFO2(&err, "fw: Using inconsistent potential heuristic");
+            PDDL_INFO(&err, "fw: Using inconsistent potential heuristic");
         }
     }else{
-        PDDL_INFO2(&err, "fw: Using blind heuristic");
+        PDDL_INFO(&err, "fw: Using blind heuristic");
     }
 
     if (opt.symba.cfg.bw.use_pot_heur){
         if (is_tnf && opt.symba.cfg.bw.use_goal_splitting){
-            PDDL_INFO2(&err, "bw: Using consistent potential heuristic"
+            PDDL_INFO(&err, "bw: Using consistent potential heuristic"
                        " (with goal splitting)");
         }else{
             opt.symba.cfg.bw.use_pot_heur = 0;
             opt.symba.cfg.bw.use_pot_heur_inconsistent = 1;
-            PDDL_INFO2(&err, "bw: Using inconsistent potential heuristic");
+            PDDL_INFO(&err, "bw: Using inconsistent potential heuristic");
         }
     }else{
-        PDDL_INFO2(&err, "bw: Using blind heuristic");
+        PDDL_INFO(&err, "bw: Using blind heuristic");
     }
 
     if (opt.symba.search == SYMBA_FW){
@@ -873,7 +873,7 @@ static int stepSymba(void)
     if (opt.symba.search == SYMBA_FWBW
             && opt.symba.bw_off_if_constr_failed
             && pddlSymbolicTaskGoalConstrFailed(task)){
-        PDDL_INFO2(&err, "Switching to fw-only search.");
+        PDDL_INFO(&err, "Switching to fw-only search.");
         PDDL_PROP_BOOL(&err, "switch_to_fw_only", 1);
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
     }else{
@@ -894,7 +894,7 @@ static int stepSymba(void)
                       symbaPlanPrint(&fdr, &plan, cost, fout));
 
     }else if (res == PDDL_SYMBOLIC_PLAN_NOT_EXIST){
-        PDDL_LOG2(&err, "Task proved unsolvable.");
+        PDDL_LOG(&err, "Task proved unsolvable.");
     }
 
     pddlIArrFree(&plan);

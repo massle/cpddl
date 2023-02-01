@@ -17,9 +17,10 @@
  */
 
 #include "pddl/config.h"
+#include "internal.h"
+
 #ifdef PDDL_BLISS
 
-#include "internal.h"
 #include <bliss/bliss_C.h>
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
@@ -162,7 +163,7 @@ void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {
     ZEROIZE(sym);
     if (strips->has_cond_eff){
-        PDDL_FATAL2("pddlStripsInitSymPDG() does not support conditional"
+        PANIC("pddlStripsInitSymPDG() does not support conditional"
                     " effects.");
     }
 
@@ -349,7 +350,7 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
 
 #include "pddl/sym.h"
 
-#define ERROR PDDL_FATAL2("sym module requires bliss library")
+#define ERROR PANIC("sym module requires bliss library")
 
 void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
 {

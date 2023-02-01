@@ -1029,7 +1029,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
         pddlISetFree(&rm_rules);
     }
     FREE(rule_ids);
-    LOG2(err, "Nothing to reduce");
+    LOG(err, "Nothing to reduce");
     CTXEND(err);
     return 0;
 }
@@ -1052,7 +1052,7 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
-        ERR_RET2(err, -1, "Cannot create normal form because the"
+        ERR_RET(err, -1, "Cannot create normal form because the"
                  "datalog program is not safe");
     }
 
