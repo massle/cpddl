@@ -418,7 +418,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     char *solbuf = NULL;
     int solbuf_size;
     int execret = pddlExecvpLimits(argv, &status, NULL, 0,
-                             &solbuf, &solbuf_size, NULL, NULL, 5, -1, err);
+                             &solbuf, &solbuf_size, NULL, NULL, max_time, -1, err);
     ASSERT_RUNTIME(execret == 0);
 
     if (status.exited == 1) {
@@ -484,6 +484,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                 break;
             
             default: 
+                // TO-DO: should it be added to fail data??
                 LOG(err, "unexpected search exit code from fast downward");
                 break;
         }
