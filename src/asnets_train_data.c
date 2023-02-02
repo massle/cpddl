@@ -350,12 +350,12 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     CTX(err, "asnets_teacher_rollout_fast_downward", "ASNets-Teacher-Rollout-Fast-Downward");
     LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
     if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG2(err, "State already in the data pool -- skipping.");
+        LOG(err, "State already in the data pool -- skipping.");
         CTXEND(err);
         return 1;
 
     }else if (failExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG2(err, "State already seen and could not be solved -- skipping.");
+        LOG(err, "State already seen and could not be solved -- skipping.");
         CTXEND(err);
         return 1;
     }
@@ -393,13 +393,9 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     cfg.filename = STRDUP(sas_filename);
     pddlFDRWrite(&fdr, &cfg);
     // TODO - convert to pinter and free cfg? or just free cfg.filename?? 
-
-    // TODO: for now, not using the timer - instead, passing the time limit to FD via execution command.
-    // But later, have to keep track of time passed and kill the task from here to be safe.
-    // pddl_timer_t timer;
-    // pddlTimerStart(&timer);
     
-    // execute fast-downward with the sas_file as input and write to plan_file
+    // execute fast-downward with sas_file as input and write to plan_file
+    // max_time passed as time_limit parameter to execvp() call
     // TO-DO: make this parameterized using fd_config->args[]
     char *search_arg = "astar(lmcut())";
     if(fd_cfg->is_osp_problem) {
@@ -421,80 +417,81 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     pddl_exec_status_t status;
     char *solbuf = NULL;
     int solbuf_size;
-    int execret = pddlExecvp(argv, &status, NULL, 0,
-                             &solbuf, &solbuf_size, NULL, NULL, err);
-    // for testing purposes:
-    LOG(err, "execret is %d", execret);
-    LOG(err, "exit status code is: %d", status.exit_status);
-    LOG(err, "solbuf is: %s", solbuf);
-    // testing end.
+    int execret = pddlExecvpLimits(argv, &status, NULL, 0,
+                             &solbuf, &solbuf_size, NULL, NULL, 5, -1, err);
     ASSERT_RUNTIME(execret == 0);
 
-    // Read plan_out file 
-    // TO-DO: fix this, make it dynamic, and confine scope to case 0.
-    int max_size = 25; 
-    char str[max_size];
-    // use exit_status_code to identify if plan found, plan not found or search timed out.
-    switch(status.exit_status) {
-        case 0: // case SUCCESS:
-            // extract planOps and apply in cpddl to retreive intermediate states
-            // then, build the plan and add to train data
-            LOG2(err, "Plan Found");
-            FILE *fin = fopen(plan_filename, "r");
-            if (fin == NULL){
-                fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
-                return -1;
-            }
-            // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string
-            char *str_val;
-            int val;
-            //pddl_iarr_t *plan_ops;
-            PDDL_IARR(plan_ops);
-            int plan_size = 0;
-            pddlIArrInit(&plan_ops);
-            while(!feof(fin)){
-                LOG2(err, "attempting to read from fin");
-                str_val = fgets(str, max_size, fin);
-                if(feof(fin)) {
-                    break;
+    if (status.exited == 1) {
+        // TO-DO: fix this, make it dynamic, and confine scope to case SUCCESS.
+        int max_size = 25; 
+        char str[max_size];
+        // use exit_status_code to identify if plan found, plan not found or search timed out internally.
+        switch(status.exit_status) {
+            case 0: // case SUCCESS:
+                // extract planOps and apply in cpddl to retreive intermediate states
+                // then, build the plan and add to train data
+                LOG(err, "Plan Found");
+                FILE *fin = fopen(plan_filename, "r");
+                if (fin == NULL){
+                    fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
+                    return -1;
                 }
-                LOG(err, "str_val is: %s", str_val);
-                if(str_val[0] == '(') {
-                    val = strtol(str_val+4,NULL,10); // use regex instead?
-                    LOG(err, "op_id val is: %d", val);
-                    pddlIArrAdd(&plan_ops, val);
+                // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string
+                char *str_val;
+                int val;
+                //pddl_iarr_t *plan_ops;
+                PDDL_IARR(plan_ops);
+                int plan_size = 0;
+                pddlIArrInit(&plan_ops);
+                while(!feof(fin)){
+                    LOG(err, "attempting to read from fin");
+                    str_val = fgets(str, max_size, fin);
+                    if(feof(fin)) {
+                        break;
+                    }
+                    LOG(err, "str_val is: %s", str_val);
+                    if(str_val[0] == '(') {
+                        val = strtol(str_val+4,NULL,10); // use regex instead?
+                        LOG(err, "op_id val is: %d", val);
+                        pddlIArrAdd(&plan_ops, val);
+                    }
+                    else if(str_val[0] == ';') {
+                        val = strtol(str_val+9,NULL,10); // use regex instead?
+                        LOG(err, "cost val is: %d", val);
+                        plan_size = val;
+                        break; // remaining info irrelevant
+                    }
                 }
-                else if(str_val[0] == ';') {
-                    val = strtol(str_val+9,NULL,10); // use regex instead?
-                    LOG(err, "cost val is: %d", val);
-                    plan_size = val;
-                    break; // remaining info irrelevant
-                }
-            }
-            fclose(fin);
-            ASSERT(plan_ops.size == plan_size);
-            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
-                                       state, &fdr.op, &plan_ops);
-            pddlIArrFree(&plan_ops);        
-            break;
+                fclose(fin);
+                ASSERT(plan_ops.size == plan_size);
+                pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
+                                        state, &fdr.op, &plan_ops);
+                pddlIArrFree(&plan_ops);        
+                break;
 
-        case 11: // case SEARCH_UNSOLVABLE:
-        case 12: // case SEARCH_UNSOLVABLE_INCOMPLETE:
-            // add to fail
-            LOG2(err, "Plan Not Found");
-            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-            break;
-        
-        case 23: // case SEARCH_OUT_OF_TIME:
-        case 24: // case SEARCH_OUT_OF_MEMORY_AND_TIME:
-            // add to fail
-            LOG2(err, "Search Timed Out");
-            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-            break;
-        
-        default: 
-            LOG2(err, "unexpected search exit code from fast downward");
-            break;
+            case 11: // case SEARCH_UNSOLVABLE:
+            case 12: // case SEARCH_UNSOLVABLE_INCOMPLETE:
+                // add to fail
+                LOG(err, "Plan Not Found");
+                pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+                break;
+            
+            case 23: // case SEARCH_OUT_OF_TIME:
+            case 24: // case SEARCH_OUT_OF_MEMORY_AND_TIME:
+                // add to fail
+                LOG(err, "Search Timed Out");
+                pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+                break;
+            
+            default: 
+                LOG(err, "unexpected search exit code from fast downward");
+                break;
+        }
+    }
+    // check if subprocess killed because of TLE 
+    else if (status.signaled == 1) {
+        LOG(err, "Search Timed Out");
+        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
     }
 
     pddlFDRFree(&fdr);

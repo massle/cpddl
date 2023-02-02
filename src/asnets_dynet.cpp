@@ -125,7 +125,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
             LOG(err, "trainer = astar-lmcut");
             break;
         case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
-            LOG2(err, "trainer = external-fast-downward");
+            LOG(err, "trainer = external-fast-downward");
             break;
     }
     if (cfg->fd_config != NULL) {
@@ -318,7 +318,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         pddl_toml_datum_t d = pddl_toml_int_in(c, "trainer");
         if (!d.ok){
             pddl_toml_free(top);
-            ERR_RET2(err, -1, "trainer must be int");
+            ERR_RET(err, -1, "trainer must be int");
         }
         if (d.u.i == 0){
             cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
@@ -328,7 +328,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         }
         else {
             pddl_toml_free(top);
-            ERR_RET2(err, -1, "unknown trainer option");
+            ERR_RET(err, -1, "unknown trainer option");
         }
     }
 
@@ -339,14 +339,14 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         pddl_toml_table_t *f = pddl_toml_table_in(top, "fast_downward");
         if (f == NULL){
             pddl_toml_free(top);
-            ERR_RET2(err, -1, "No [fast_downward] section in the configuration file.");
+            ERR_RET(err, -1, "No [fast_downward] section in the configuration file.");
         }
 
         if (pddl_toml_key_exists(f, "use_osp_planner")){
             pddl_toml_datum_t d = pddl_toml_int_in(f, "use_osp_planner");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "use_osp_planner must be int");
+                ERR_RET(err, -1, "use_osp_planner must be int");
             }
             cfg->fd_config->use_osp_planner = d.u.i;
         }
@@ -355,7 +355,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             pddl_toml_datum_t d = pddl_toml_int_in(f, "is_osp_problem");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "is_osp_problem must be int");
+                ERR_RET(err, -1, "is_osp_problem must be int");
             }
             cfg->fd_config->is_osp_problem = d.u.i;
         }
@@ -364,7 +364,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             pddl_toml_datum_t d = pddl_toml_string_in(f, "saved_files_path");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "saved_files_path must be string");
+                ERR_RET(err, -1, "saved_files_path must be string");
             }
             cfg->fd_config->saved_files_path = STRDUP(d.u.s);
             FREE(d.u.s);
@@ -374,7 +374,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             pddl_toml_datum_t d = pddl_toml_string_in(f, "fd_interpreter");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "fd_interpreter must be string");
+                ERR_RET(err, -1, "fd_interpreter must be string");
             }
             cfg->fd_config->fd_interpreter = STRDUP(d.u.s);
             FREE(d.u.s);
@@ -384,7 +384,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             pddl_toml_datum_t d = pddl_toml_string_in(f, "fd_executable_path");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "fd_executable_path must be string");
+                ERR_RET(err, -1, "fd_executable_path must be string");
             }
             cfg->fd_config->fd_executable_path = STRDUP(d.u.s);
             FREE(d.u.s);
@@ -394,7 +394,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             pddl_toml_datum_t d = pddl_toml_string_in(f, "plan_file_prefix");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "plan_file_prefix must be string");
+                ERR_RET(err, -1, "plan_file_prefix must be string");
             }
             cfg->fd_config->plan_file_prefix = STRDUP(d.u.s);
             FREE(d.u.s);
@@ -404,7 +404,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             pddl_toml_datum_t d = pddl_toml_string_in(f, "sas_file_prefix");
             if (!d.ok){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "sas_file_prefix must be string");
+                ERR_RET(err, -1, "sas_file_prefix must be string");
             }
             cfg->fd_config->sas_file_prefix = STRDUP(d.u.s);
             FREE(d.u.s);
@@ -414,14 +414,14 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             const pddl_toml_array_t *arr = pddl_toml_array_in(f, "fd_args");
             if (arr == NULL){
                 pddl_toml_free(top);
-                ERR_RET2(err, -1, "fd_args must be array");
+                ERR_RET(err, -1, "fd_args must be array");
             }
             int size = pddl_toml_array_nelem(arr);
             for (int i = 0; i < size; ++i){
                 pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
                 if (!d.ok){
                     pddl_toml_free(top);
-                    ERR_RET2(err, -1, "Each element of fd_args must be string");
+                    ERR_RET(err, -1, "Each element of fd_args must be string");
                 }
                 cfg->fd_config->fd_args = REALLOC_ARR(cfg->fd_config->fd_args, char *, cfg->fd_config->fd_arg_size + 1);
                 cfg->fd_config->fd_args[cfg->fd_config->fd_arg_size++] = STRDUP(d.u.s);
