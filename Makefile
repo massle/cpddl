@@ -54,6 +54,7 @@ OBJS += strips
 OBJS += strips_op
 OBJS += strips_fact_cross_ref
 OBJS += strips_maker
+OBJS += strips_conj
 OBJS += sql_grounder
 OBJS += strips_ground_tree
 OBJS += strips_ground
