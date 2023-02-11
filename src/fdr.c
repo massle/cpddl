@@ -1153,8 +1153,7 @@ void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)
     FILE *fout = cfg->fout;
     if (fout == NULL){
         fout = fopen(cfg->filename, "w");
-        if (fout == NULL)
-            PANIC_IF_FMT(fout == NULL, "Could not open file %s", cfg->filename);
+        PANIC_IF(fout == NULL, "Could not open file %s", cfg->filename);
     }
 
     if (cfg->fd)

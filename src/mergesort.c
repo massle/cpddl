@@ -97,9 +97,9 @@ int pddlMergeSort(void *base, size_t nmemb, size_t size,
     u_char *f1, *f2, *t, *b, *tp2, *q, *l1, *l2;
     u_char *list2, *list1, *p2, *p, *last, **p1;
 
-    PANIC_IF_FMT(size < PSIZE / 2, "Our implementation of merge sort requires"
-                 " data elements to have at least %lu bytes",
-                 (unsigned long)(PSIZE / 2));
+    PANIC_IF(size < PSIZE / 2, "Our implementation of merge sort requires"
+             " data elements to have at least %lu bytes",
+             (unsigned long)(PSIZE / 2));
     if (nmemb == 0)
         return (0);
 

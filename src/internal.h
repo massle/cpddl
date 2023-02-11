@@ -90,15 +90,6 @@ extern "C" {
     } \
     } while (0)
 
-#define PANIC_IF_FMT(COND, MSG, ...) \
-    do { \
-    if (!!(COND)){ \
-        fprintf(stderr, "Fatal Error: " MSG " :: %s:%s:%d " #COND "\n", \
-                __VA_ARGS__, __FILE__, __func__, __LINE__); \
-        exit(-1); \
-    } \
-    } while (0)
-
 #define PANIC_IF PDDL_PANIC_IF
 
 
