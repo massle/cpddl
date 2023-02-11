@@ -585,6 +585,65 @@ struct ModelParameters {
     }
 };
 
+class MissingInput {
+    dynet::Expression input;
+    bool created;
+    int dimension;
+
+  public:
+    MissingInput(int dimension)
+        : created(false), dimension(dimension)
+    {
+    }
+
+    dynet::Expression &get(dynet::ComputationGraph &cg)
+    {
+        if (!created){
+            std::vector<long> d(1, dimension);
+            dynet::Dim dim(d);
+            // Input is set to the minimum value of the activation function.
+            input = dynet::constant(cg, dim, MIN_ACTIVATION_VALUE);
+            created = true;
+        }
+
+        return input;
+    }
+
+};
+
+static void _firstActionLayer(const pddl_asnets_ground_task_t *g,
+                              const ModelParameters &model,
+                              dynet::ComputationGraph &cg,
+                              dynet::Expression input_state,
+                              dynet::Expression input_goal_condition,
+                              dynet::Expression input_applicable_ops,
+                              std::vector<dynet::Expression> &action_layer)
+{
+    MissingInput missing_input(1);
+
+    for (int op_id = 0; op_id < g->op_size; ++op_id){
+        std::vector<dynet::Expression> in_state;
+        std::vector<dynet::Expression> in_goal;
+        dynet::Expression in_applicable;
+        for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
+            int fact_id = g->op[op_id].related_fact[i];
+            if (fact_id < 0){
+                in_state.push_back(missing_input.get(cg));
+                in_goal.push_back(missing_input.get(cg));
+
+            }else{
+                PANIC_IF(fact_id < 0, "xx2");
+                in_state.push_back(dynet::pick(input_state, fact_id));
+                in_goal.push_back(dynet::pick(input_goal_condition, fact_id));
+            }
+            in_applicable = dynet::pick(input_applicable_ops, op_id);
+        }
+        int action_id = g->op[op_id].action->action_id;
+        ActionModule *am = model.action[0][action_id];
+        dynet::Expression e = am->exprInput(cg, in_state, in_goal, in_applicable);
+        action_layer.push_back(e);
+    }
+}
 
 static void _actionLayer(const pddl_asnets_ground_task_t *g,
                          const ModelParameters &model,
@@ -595,11 +654,18 @@ static void _actionLayer(const pddl_asnets_ground_task_t *g,
                          std::vector<dynet::Expression> &action_layer,
                          float dropout_rate)
 {
+    MissingInput missing_input(model.hidden_dim);
+
     for (int op_id = 0; op_id < g->op_size; ++op_id){
         std::vector<dynet::Expression> in;
         for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
             int fact_id = g->op[op_id].related_fact[i];
-            in.push_back(prop_layer[fact_id]);
+            if (fact_id < 0){
+                in.push_back(missing_input.get(cg));
+
+            }else{
+                in.push_back(prop_layer[fact_id]);
+            }
         }
         in.push_back(prev_action_layer[op_id]);
         int action_id = g->op[op_id].action->action_id;
@@ -621,8 +687,7 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
                        std::vector<dynet::Expression> &prop_layer,
                        float dropout_rate)
 {
-    dynet::Expression const_min;
-    bool have_const_min = false;
+    MissingInput missing_input(model.hidden_dim);
 
     for (int fact_id = 0; fact_id < g->fact_size; ++fact_id){
         int pred_id = g->fact[fact_id].pred->pred_id;
@@ -639,19 +704,8 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
                 input[ri].push_back(action_layer[op_id]);
             }
 
-            if (input[ri].size() == 0){
-                // This means there is no operator having this fact in its
-                // precondition or effect at position ri.
-                // So, we set the input to the minimum value of the
-                // activation function.
-                if (!have_const_min){
-                    std::vector<long> d(1, model.hidden_dim);
-                    dynet::Dim const_min_dim(d);
-                    const_min = dynet::constant(cg, const_min_dim, MIN_ACTIVATION_VALUE);
-                    have_const_min = true;
-                }
-                input[ri].push_back(const_min);
-            }
+            if (input[ri].size() == 0)
+                input[ri].push_back(missing_input.get(cg));
         }
         if (prev_prop_layer != NULL)
             input[input_size - 1].push_back((*prev_prop_layer)[fact_id]);
@@ -679,21 +733,8 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
 
     int layer = 0;
     // First action layer needs to be connected to inputs
-    for (int op_id = 0; op_id < g->op_size; ++op_id){
-        std::vector<dynet::Expression> in_state;
-        std::vector<dynet::Expression> in_goal;
-        dynet::Expression in_applicable;
-        for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
-            int fact_id = g->op[op_id].related_fact[i];
-            in_state.push_back(dynet::pick(input_state, fact_id));
-            in_goal.push_back(dynet::pick(input_goal_condition, fact_id));
-            in_applicable = dynet::pick(input_applicable_ops, op_id);
-        }
-        int action_id = g->op[op_id].action->action_id;
-        ActionModule *am = model.action[layer][action_id];
-        dynet::Expression e = am->exprInput(cg, in_state, in_goal, in_applicable);
-        action_layer[layer].push_back(e);
-    }
+    _firstActionLayer(g, model, cg, input_state, input_goal_condition,
+                      input_applicable_ops, action_layer[0]);
 
     for (; layer < model.num_layers; ++layer){
         const std::vector<dynet::Expression> *prev_prop_layer = NULL;
@@ -785,6 +826,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
 
     dim[0] = applicable_ops.size();
     dynet::Expression e_applicable_ops = dynet::input(cg, dynet::Dim(dim), applicable_ops);
+    // Dropout is used *only* during training -- we don't need to use it here
     dynet::Expression e_output = asnetsExpr(task, params, cg, e_state, e_goal,
                                             e_applicable_ops, -1);
 

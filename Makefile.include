@@ -188,7 +188,7 @@ ifeq '$(USE_DYNET)' 'auto'
 
   else ifneq '$(DYNET_ROOT)' ''
     DYNET_CPPFLAGS := -I$(DYNET_ROOT)/include
-    DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
+    DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet -lstdc++
     USE_DYNET := yes
   endif
 endif
