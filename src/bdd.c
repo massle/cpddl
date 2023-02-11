@@ -17,10 +17,10 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/config.h"
 #ifdef PDDL_CUDD
 
-#include "internal.h"
 #include <cudd/cudd.h>
 #include "pddl/bdd.h"
 
