@@ -57,9 +57,7 @@ typedef struct pddl_ground_config pddl_ground_config_t;
         0, /* .keep_all_static_facts */ \
     }
 
-void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
-                         const char *prefix,
-                         pddl_err_t *err);
+void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err);
 
 struct pddl_strips {
     pddl_ground_config_t cfg;

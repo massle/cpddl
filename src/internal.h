@@ -57,14 +57,6 @@ extern "C" {
 #define LOG_CONFIG_STR(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}s", (C)->NAME)
 
-/** TODO: Get rid of this */
-#define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \
-    PDDL_INFO((ERR), "%s" #NAME " = %d", (PREFIX), (C)->NAME)
-#define PDDL_LOG_CONFIG_DBL(C, PREFIX, NAME, ERR) \
-    PDDL_INFO((ERR), "%s" #NAME " = %.4f", (PREFIX), (C)->NAME)
-#define PDDL_LOG_CONFIG_BOOL(C, PREFIX, NAME, ERR) \
-    PDDL_INFO((ERR), "%s" #NAME " = %s", (PREFIX), ((C)->NAME ? "true" : "false"))
-
 
 #ifdef PDDL_DEBUG
 #include <assert.h>

@@ -30,27 +30,26 @@
 #define METHOD_ENDOMORPHISM 5
 
 void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
-                               const char *prefix,
                                pddl_err_t *err)
 {
     if (cfg->type == PDDL_HOMOMORPHISM_TYPES){
-        PDDL_INFO(err, "%stype = types", prefix);
+        LOG(err, "type = types");
     }else if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS){
-        PDDL_INFO(err, "%stype = rand-objs", prefix);
+        LOG(err, "type = rand-objs");
     }else if (cfg->type == PDDL_HOMOMORPHISM_RAND_TYPE_OBJS){
-        PDDL_INFO(err, "%stype = rand-type-objs", prefix);
+        LOG(err, "type = rand-type-objs");
     }else if (cfg->type == PDDL_HOMOMORPHISM_GAIFMAN){
-        PDDL_INFO(err, "%stype = gaifman", prefix);
+        LOG(err, "type = gaifman");
     }else if (cfg->type == PDDL_HOMOMORPHISM_RPG){
-        PDDL_INFO(err, "%stype = rpg", prefix);
+        LOG(err, "type = rpg");
     }else{
-        PDDL_INFO(err, "%stype = unknown", prefix);
+        LOG(err, "type = unknown");
     }
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, use_endomorphism, err);
-    PDDL_LOG_CONFIG_DBL(cfg, prefix, rm_ratio, err);
-    PDDL_LOG_CONFIG_INT(cfg, prefix, random_seed, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, keep_goal_objs, err);
-    PDDL_LOG_CONFIG_INT(cfg, prefix, rpg_max_depth, err);
+    LOG_CONFIG_BOOL(cfg, use_endomorphism, err);
+    LOG_CONFIG_DBL(cfg, rm_ratio, err);
+    LOG_CONFIG_INT(cfg, random_seed, err);
+    LOG_CONFIG_BOOL(cfg, keep_goal_objs, err);
+    LOG_CONFIG_INT(cfg, rpg_max_depth, err);
 }
 
 struct fix_action {
@@ -780,7 +779,9 @@ int pddlHomomorphism(pddl_t *pddl,
     }
 
     CTX(err, "homo", "Homomorphism");
-    pddlHomomorphismConfigLog(cfg, "cfg.", err);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlHomomorphismConfigLog(cfg, err);
+    CTXEND(err);
     PDDL_INFO(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);
     if (obj_map != NULL){
         for (int i = 0; i < src->obj.obj_size; ++i)
