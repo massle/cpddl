@@ -59,7 +59,6 @@ typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
     }
 
 void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
-                               const char *prefix,
                                pddl_err_t *err);
 
 

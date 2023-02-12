@@ -477,6 +477,9 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
                   int op_id)
 {
     const pddl_strips_op_t *op = strips->op.op[op_id];
+    if (pddlMutexPairsIsMutexSet(mutex, &op->pre))
+        return;
+
     pddl_fdr_op_t *fdr_op = pddlFDROpNewEmpty();
     pddl_fdr_part_state_t pre;
 
@@ -1150,8 +1153,7 @@ void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)
     FILE *fout = cfg->fout;
     if (fout == NULL){
         fout = fopen(cfg->filename, "w");
-        if (fout == NULL)
-            PANIC_IF_FMT(fout == NULL, "Could not open file %s", cfg->filename);
+        PANIC_IF(fout == NULL, "Could not open file %s", cfg->filename);
     }
 
     if (cfg->fd)

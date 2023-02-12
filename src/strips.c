@@ -21,18 +21,16 @@
 #include "pddl/strips.h"
 #include "internal.h"
 
-void pddlGroundConfigLog(const pddl_ground_config_t *cfg,
-                         const char *prefix,
-                         pddl_err_t *err)
+void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->lifted_mgroups == NULL){
-        PDDL_INFO(err, "%slifted_mgroups->mgroup_size = 0", prefix);
+        LOG(err, "lifted_mgroups->mgroup_size = 0");
     }else{
-        PDDL_LOG_CONFIG_INT(cfg, prefix, lifted_mgroups->mgroup_size, err);
+        LOG_CONFIG_INT(cfg, lifted_mgroups->mgroup_size, err);
     }
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, prune_op_pre_mutex, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, prune_op_dead_end, err);
-    PDDL_LOG_CONFIG_BOOL(cfg, prefix, remove_static_facts, err);
+    LOG_CONFIG_BOOL(cfg, prune_op_pre_mutex, err);
+    LOG_CONFIG_BOOL(cfg, prune_op_dead_end, err);
+    LOG_CONFIG_BOOL(cfg, remove_static_facts, err);
 }
 
 static void copyBasicInfo(pddl_strips_t *dst, const pddl_strips_t *src)
