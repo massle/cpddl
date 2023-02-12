@@ -129,21 +129,23 @@ static pddl_homomorphism_heur_t *liftedHomomorphHeur(const pddl_t *pddl,
 {
     pddl_homomorphism_heur_t *heur = NULL;
 
+    PDDL_CTX_NO_TIME(err, "cfg.heur", "Cfg Heur");
     heur_homo_fn heur_fn = pddlHomomorphismHeurLMCut;
     switch (opt.lifted_planner.heur){
         case LIFTED_PLAN_HEUR_HOMO_LMC:
-            PDDL_INFO(err, "cfg.heur = homo-lmc");
+            PDDL_LOG(err, "heur = homo-lmc");
             heur_fn = pddlHomomorphismHeurLMCut;
             break;
         case LIFTED_PLAN_HEUR_HOMO_FF:
-            PDDL_INFO(err, "cfg.heur = homo-ff");
+            PDDL_LOG(err, "heur = homo-ff");
             heur_fn = pddlHomomorphismHeurHFF;
             break;
     }
-    pddlHomomorphismConfigLog(&opt.lifted_planner.homomorph_cfg,
-                              "cfg.heur.homomorph.", err);
-    PDDL_INFO(err, "cfg.heur.homomorph_samples = %d",
-              opt.lifted_planner.homomorph_samples);
+    PDDL_CTX_NO_TIME(err, "homomorph", "Homomorph");
+    pddlHomomorphismConfigLog(&opt.lifted_planner.homomorph_cfg, err);
+    PDDL_LOG(err, "samples = %{samples}d", opt.lifted_planner.homomorph_samples);
+    PDDL_CTXEND(err);
+    PDDL_CTXEND(err);
 
     if ((opt.lifted_planner.homomorph_cfg.type & 0xfu)
             == PDDL_HOMOMORPHISM_TYPES){
