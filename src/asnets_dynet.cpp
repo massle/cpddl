@@ -2028,8 +2028,6 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
 
-    float best_success_rate = 0.f;
-    float best_success_rate_loss = 1E10f;
     a->train_stats.success_rate = successRate(a, err);
 
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
@@ -2048,21 +2046,16 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
             return ret;
         }
 
-        if (a->train_stats.success_rate > best_success_rate
-                || (a->train_stats.success_rate == best_success_rate
-                        && a->train_stats.overall_loss < best_success_rate_loss)){
-            best_success_rate = a->train_stats.success_rate;
-            best_success_rate_loss = a->train_stats.overall_loss;
-            if (a->cfg.save_model_prefix != NULL){
-                char fn[4096];
-                sprintf(fn, "%s-%.2f-%.03f.policy",
-                        a->cfg.save_model_prefix,
-                        best_success_rate,
-                        best_success_rate_loss);
-                LOG(err, "Saving model to %s (success rate: %.2f, loss: %.3f)",
-                    fn, best_success_rate, best_success_rate_loss);
-                pddlASNetsSave(a, fn, err);
-            }
+        if (a->cfg.save_model_prefix != NULL){
+            char fn[4096];
+            sprintf(fn, "%s-%05d-%.2f-%.03f.policy",
+                    a->cfg.save_model_prefix,
+                    epoch,
+                    a->train_stats.success_rate,
+                    a->train_stats.overall_loss);
+            LOG(err, "Saving model to %s (epoch: %d, success rate: %.2f, loss: %.3f)",
+                fn, epoch, a->train_stats.success_rate, a->train_stats.overall_loss);
+            pddlASNetsSave(a, fn, err);
         }
 
         if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){

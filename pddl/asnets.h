@@ -63,9 +63,8 @@ struct pddl_asnets_config {
 
     /** Which trainer will be used. One of PDDL_ASNETS_TRAINER_* */
     pddl_asnets_trainer_t trainer;
-    /** If set to non-NULL, pddlASNetsTrain() saves a model to the path
-     *  with this prefix every time it finds a model with improved success
-     *  rate */
+    /** If set to non-NULL, pddlASNetsTrain() saves the current model after
+     *  every epoch to the file with this prefix */
     const char *save_model_prefix;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
