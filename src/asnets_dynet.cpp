@@ -1474,9 +1474,14 @@ static int sqlInsertWeights(pddl_sqlite3 *db,
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
 
-    const dynet::Tensor *val = ((dynet::Parameter &)param).values();
-    size_t size = sizeof(float) * val->d.size();
-    ret = pddl_sqlite3_bind_blob(stmt, 6, val->v, size, SQLITE_STATIC);
+    // Raw weights are not scaled by weight_decay so we need to do that
+    // before saving the weights
+    const dynet::ParameterStorage &p = param.get_storage();
+    float weight_decay = p.owner->get_weight_decay().current_weight_decay();
+    std::vector<float> vals = dynet::as_scale_vector(p.values, weight_decay);
+    const float *vals_arr = &vals[0];
+    size_t size = sizeof(float) * vals.size();
+    ret = pddl_sqlite3_bind_blob(stmt, 6, vals_arr, size, SQLITE_STATIC);
     if (ret != SQLITE_OK){
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
@@ -1487,6 +1492,14 @@ static int sqlInsertWeights(pddl_sqlite3 *db,
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
+
+    LOG(err, "Weights saved. id: %d, layer: %d, type: %s/%s, name: %s, idx: %d,"
+        " array_size: %d",
+        id, layer,
+        (sig == SIG_ACTION_W || sig == SIG_ACTION_B ? "action" : "proposition"),
+        (sig == SIG_ACTION_W || sig == SIG_PROP_W ? "W" : "bias"),
+        name, idx, (int)vals.size());
+
     return 0;
 }
 
@@ -1547,18 +1560,21 @@ static int sqlSelectWeights(pddl_sqlite3 *db,
 
     const float *w = (const float *)pddl_sqlite3_column_blob(stmt, 4);
     std::vector<float> warr(w, w + w_size);
-    dynet::TensorTools::set_elements(*param.values(), warr);
+    dynet::TensorTools::set_elements(param.get_storage().values, warr);
 
     return 0;
 }
 
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
+    CTX(err, "asnets_save", "ASNets-Save");
+    LOG(err, "Saving model to %s", fn);
     pddl_sqlite3 *db;
     int flags = SQLITE_OPEN_READWRITE
                     | SQLITE_OPEN_CREATE;
     int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
     if (ret != SQLITE_OK){
+        CTXEND(err);
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
@@ -1566,6 +1582,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     Info info(a);
     if (info.create(db, err) != 0 || info.save(db, err) != 0){
         pddl_sqlite3_close_v2(db);
+        CTXEND(err);
         TRACE_RET(err, -1);
     }
 
@@ -1573,6 +1590,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     ret = pddl_sqlite3_exec(db, sql_create_weights, NULL, NULL, &errmsg);
     if (ret != SQLITE_OK){
         pddl_sqlite3_close_v2(db);
+        CTXEND(err);
         ERR(err, "Sqlite Error: %s", errmsg);
         pddl_sqlite3_free(errmsg);
         return -1;
@@ -1582,6 +1600,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     ret = pddl_sqlite3_prepare_v2(db, sql_insert_weights, -1, &stmt, NULL);
     if (ret != SQLITE_OK){
         pddl_sqlite3_close_v2(db);
+        CTXEND(err);
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
@@ -1595,6 +1614,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, acts[i]->W, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1604,6 +1624,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, acts[i]->bias, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1618,6 +1639,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, props[i]->W, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1627,6 +1649,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, props[i]->bias, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1636,9 +1659,12 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 
     ret = pddl_sqlite3_close_v2(db);
     if (ret != SQLITE_OK){
+        CTXEND(err);
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
+    LOG(err, "Model saved to '%s'", fn);
+    CTXEND(err);
     return 0;
 }
 
@@ -1795,7 +1821,7 @@ int pddlASNetsSolveTask(pddl_asnets_t *a,
 {
     pddl_fdr_state_pool_t states;
     pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
-    int ret = policyRollout(a, task, &states, trace, NULL);
+    int ret = policyRollout(a, task, &states, trace, err);
     pddlFDRStatePoolFree(&states);
     return ret;
 }
@@ -1929,14 +1955,14 @@ static float overallLoss(pddl_asnets_t *a,
     return loss;
 }
 
-static float successRate(pddl_asnets_t *a)
+static float successRate(pddl_asnets_t *a, pddl_err_t *err)
 {
     int num_solved = 0;
     for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
         const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
         pddl_fdr_state_pool_t states;
         pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
-        if (policyRollout(a, task, &states, NULL, NULL))
+        if (policyRollout(a, task, &states, NULL, err))
             num_solved += 1;
         pddlFDRStatePoolFree(&states);
     }
@@ -1978,7 +2004,7 @@ static int trainEpoch(pddl_asnets_t *a,
     }
 
     CTX(err, "success_rate", "Success Rate");
-    a->train_stats.success_rate = successRate(a);
+    a->train_stats.success_rate = successRate(a, err);
     LOG(err, "Success rate: %{success_rate}f", a->train_stats.success_rate);
     CTXEND(err);
     CTX(err, "overall_loss", "Overall Loss");
@@ -2004,7 +2030,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 
     float best_success_rate = 0.f;
     float best_success_rate_loss = 1E10f;
-    a->train_stats.success_rate = successRate(a);
+    a->train_stats.success_rate = successRate(a, err);
 
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
         if (a->cfg.double_batch_size_every_epoch > 0
