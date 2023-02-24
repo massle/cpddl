@@ -187,41 +187,21 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        int num_solved = 0;
-        int num_tasks = pddlASNetsNumGroundTasks(asnets);
-        for (int task_id = 0; task_id < num_tasks; ++task_id){
-            const pddl_asnets_ground_task_t *task;
-            task = pddlASNetsGetGroundTask(asnets, task_id);
-            PDDL_IARR(plan);
-            int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
-            PDDL_LOG(&err, "Task %{eval_domain}s %{eval_problem}s"
-                     " solved: %{eval_solved}b, length: %{eval_length}d",
-                     task->pddl.domain_lisp->filename,
-                     task->pddl.problem_lisp->filename,
-                     solved,
-                     (solved ? pddlIArrSize(&plan) : -1));
-            if (solved){
-                ++num_solved;
-                if (opt.eval_write_plans){
-                    char fn[512];
-                    snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
-                             task->pddl.problem_name);
-                    FILE *fout = fopen(fn, "w");
-                    if (fout != NULL){
-                        int op_id;
-                        PDDL_IARR_FOR_EACH(&plan, op_id){
-                            fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
-                        }
-                        fclose(fout);
-                    }else{
-                        PDDL_LOG(&err, "Could not open file %s", fn);
-                    }
-                }
-            }
-            pddlIArrFree(&plan);
+        switch (cfg.is_osp_problem)
+        {
+        case 0:
+            pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
+            break;
+
+        case 1:
+            pddlASNetsEvaluateOSP(asnets, opt.eval_write_plans, &err);
+            break;
+        
+        default:
+            pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
+            break;
         }
-        PDDL_LOG(&err, "Solved %{eval_num_solved}d out of"
-                 " %{eval_num_tasks}d tasks", num_solved, num_tasks);
+        
 
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);

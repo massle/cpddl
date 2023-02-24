@@ -81,6 +81,12 @@ int pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
                                           const int *state);
 
 /**
+ * Returns the count of variables for which the partial state is consistent with the given state.
+ */
+int pddlFDRCountPartStateConsistentWithState(const pddl_fdr_part_state_t *ps,
+                                             const int *state);
+
+/**
  * Write partial state to the given state.
  */
 void pddlFDRPartStateApplyToState(const pddl_fdr_part_state_t *ps, int *state);

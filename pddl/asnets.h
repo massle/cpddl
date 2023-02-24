@@ -41,8 +41,6 @@ struct pddl_fast_downward_config {
 
     /** Set to true if OSP params expected by FD planner */
     int use_osp_planner;
-    /** Set to true if OSP problem */
-    int is_osp_problem;
     /** Unique Filenames Flag */
     int use_unique_filenames;
 };
@@ -61,6 +59,9 @@ struct pddl_asnets_config {
     int problem_pddl_size;
     /** Problem PDDL files. Set using *AddProblem() */
     char **problem_pddl;
+
+    /** Set to true if OSP problem */
+    int is_osp_problem;
 
     /** Output size of the hidden layers. Default: 16 */
     int hidden_dimension;
@@ -124,7 +125,19 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
                                 const char *problem_fn);
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
 
+struct pddl_asnets_softgoals_result {
+    /** Max Number of Soft Goals Achieved */
+    int max_softgoals_num;
+    /** Number of Policy Rollout Steps in which Max Soft Goals Achieved */
+    int policy_steps_num;
+};
+typedef struct pddl_asnets_softgoals_result pddl_asnets_softgoals_result_t;
 
+#define PDDL_ASNETS_SOFTGOALS_RESULT_INIT \
+    { \
+        0, /* .max_softgoals_num */ \
+        0, /* .policy_steps_num */ \
+    }
 
 /**
  * Creates a new instance of ASNets according to the configuration
@@ -175,17 +188,29 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
 /**
  * Try to solve the task using the ASNets policy.
  * {trace} is filled with the policy trace.
+ * {softgoals_result} captures maximum solved softgoal size and corresponding policy steps, is NULL for non-OSP problems.
  * Return true if a plan was found, and false otherwise.
  */
 int pddlASNetsSolveTask(pddl_asnets_t *a,
                         const pddl_asnets_ground_task_t *task,
                         pddl_iarr_t *trace,
+                        pddl_asnets_softgoals_result_t *softgoals_result,
                         pddl_err_t *err);
 
 /**
  * Train ASNets according to the configuration it was created with.
  */
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
+
+/**
+ * Evaluate ASNets for test problems given in configuration.
+ */
+void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
+
+/**
+ * Evaluate ASNets for test problems given in configuration for OSP problems.
+ */
+void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
 
 #ifdef __cplusplus
 }

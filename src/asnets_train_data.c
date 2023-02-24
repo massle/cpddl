@@ -77,12 +77,43 @@ static void sampleDel(pddl_asnets_train_data_sample_t *sample)
     FREE(sample);
 }
 
-
 void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td)
 {
     ZEROIZE(td);
+    td->task_msgs = NULL;
     td->htable = pddlHTableNew(htableHash, htableEq, NULL);
     td->fail_cache = pddlHTableNew(htableHash, htableEq, NULL);
+}
+
+void pddlASNetsTrainDataMSGSInit(pddl_asnets_train_data_t *td, int num_tasks)
+{
+    if (td->task_msgs != NULL) {
+        FREE(td->task_msgs);
+    }
+    td->task_msgs = ALLOC_ARR(int, num_tasks);
+    // initialize MSGS value for all tasks to -1, until first teacher rollout
+    for (int index = 0; index < num_tasks; index++) {
+        td->task_msgs[index] = -1;
+    }
+}
+
+int pddlASNetsTrainDataMSGSAdd(pddl_asnets_train_data_t *td, int task_id, int msgs)
+{
+    if (td->task_msgs == NULL) {
+        fprintf(stderr, "td->task_msgs is NULL");
+        return -1;
+    }
+    td->task_msgs[task_id] = msgs;
+    return 0;
+}
+
+int pddlASNetsTrainDataMSGSGet(pddl_asnets_train_data_t *td, int task_id)
+{
+    if (td->task_msgs == NULL) {
+        fprintf(stderr, "td->task_msgs is NULL");
+        return -1;
+    }
+    return td->task_msgs[task_id];
 }
 
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
@@ -105,6 +136,8 @@ void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
         sampleDel(td->sample[i]);
     if (td->sample != NULL)
         FREE(td->sample);
+    if (td->task_msgs != NULL)
+        FREE(td->task_msgs);
 }
 
 int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
@@ -173,26 +206,6 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
         pddlFDROpApplyOnStateInPlace(op, state_size, state);
     }
 }
-
-// TO-DO: remove this and clean up
-// void pddlASNetsTrainDataAddPlanFastDownward(pddl_asnets_train_data_t *td,
-//                                 int ground_task_id,
-//                                 int state_size,
-//                                 const int *init_state,
-//                                 const pddl_fdr_ops_t *ops,
-//                                 const int *plan_ops, // integer array "plan_ops" to hold the op_ids
-//                                 const int plan_size) 
-// {
-//     int state[state_size];
-//     memcpy(state, init_state, sizeof(int) * state_size);
-
-//     for (int index = 0; index < plan_size; index++)
-//     {
-//         pddlASNetsTrainDataAdd(td, ground_task_id, state, state_size, plan_ops[index]);
-//         const pddl_fdr_op_t *op = ops->op[plan_ops[index]];
-//         pddlFDROpApplyOnStateInPlace(op, state_size, state);
-//     }
-// }
 
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td)
 {
@@ -340,12 +353,14 @@ int pddlASNetsTrainDataRolloutAStarLMCut(pddl_asnets_train_data_t *td,
 }
 
 int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
-                                    int ground_task_id,
-                                    const int *state,
-                                    const pddl_fdr_t *_fdr,
-                                    float max_time,
-                                    const pddl_fd_config_t *fd_cfg,
-                                    pddl_err_t *err)
+                                           int ground_task_id,
+                                           const int *state,
+                                           const pddl_fdr_t *_fdr,
+                                           int is_osp_problem,
+                                           int save_msgs,
+                                           const pddl_fd_config_t *fd_cfg,
+                                           float max_time,
+                                           pddl_err_t *err)
 {
     CTX(err, "asnets_teacher_rollout_fast_downward", "ASNets-Teacher-Rollout-Fast-Downward");
     LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
@@ -383,27 +398,28 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         sprintf(plan_filename, "%s/%sdefault", fd_cfg->saved_files_path, fd_cfg->plan_file_prefix);
     }
 
-    // write the FDR task with changed initial state and op_id mentioned in op_names to sas file 
+    // write the FDR task with changed initial state and op_id mentioned in op_names to sas file
+    // TO-DO: free cfg after?
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
     cfg.fd = 1;
     cfg.encode_op_ids = 1;
     cfg.use_osp_params = fd_cfg->use_osp_planner; // osp params expected by osp planner even for non-osp problem
-    cfg.all_soft_goals = fd_cfg->is_osp_problem; // currently osp problems handled only for all_soft_goals
-                                                 // TODO - incorporate general OSP problems
+    cfg.all_soft_goals = is_osp_problem;          // currently osp problems handled only for all_soft_goals
+                                                  // TODO - incorporate general OSP problems
     cfg.filename = STRDUP(sas_filename);
     pddlFDRWrite(&fdr, &cfg);
-    // TODO - convert to pinter and free cfg? or just free cfg.filename?? 
-    
+
     // execute fast-downward with sas_file as input and write to plan_file
     // max_time passed as time_limit parameter to execvp() call
     // TO-DO: make this parameterized using fd_config->args[]
     char *search_arg = "astar(lmcut())";
-    if(fd_cfg->is_osp_problem) {
+    if (is_osp_problem)
+    {
         search_arg = "osp_dfs(u_eval=mugs_hmax())";
     }
     char *argv[] = {
-        fd_cfg->fd_interpreter, 
-        fd_cfg->fd_executable_path, 
+        fd_cfg->fd_interpreter,
+        fd_cfg->fd_executable_path,
         "--build",
         "release64",
         "--plan-file",
@@ -416,87 +432,113 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
 
     pddl_exec_status_t status;
     char *solbuf = NULL;
-    int solbuf_size;
+    int solbuf_size = 0;
     int execret = pddlExecvpLimits(argv, &status, NULL, 0,
-                             &solbuf, &solbuf_size, NULL, NULL, max_time, -1, err);
+                                   &solbuf, &solbuf_size, NULL, NULL, max_time, -1, err);
     ASSERT_RUNTIME(execret == 0);
 
-    if (status.exited == 1) {
-        // TO-DO: fix this, make it dynamic, and confine scope to case SUCCESS.
-        int max_size = 25; 
-        char str[max_size];
+    if (status.exited == 1)
+    {
         // use exit_status_code to identify if plan found, plan not found or search timed out internally.
-        switch(status.exit_status) {
-            case 0: // case SUCCESS:
-                // extract planOps and apply in cpddl to retreive intermediate states
-                // then, build the plan and add to train data
-                LOG(err, "Plan Found");
-                FILE *fin = fopen(plan_filename, "r");
-                if (fin == NULL){
-                    fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
-                    return -1;
+        switch (status.exit_status)
+        {
+        case 0: // case SUCCESS:
+            // extract plan ops and apply in cpddl to retreive intermediate states
+            // then, add to train data
+            LOG(err, "Plan Found");
+            FILE *fin = fopen(plan_filename, "r");
+            if (fin == NULL)
+            {
+                fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
+                return -1;
+            }
+            // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string
+            int max_len = 50; // maximum length expected for action names
+            char *str = PDDL_ALLOC_ARR(char, max_len);
+            char *val_str;
+            int val;
+            PDDL_IARR(plan_ops);
+            int plan_size = 0;
+            pddlIArrInit(&plan_ops);
+            while (!feof(fin))
+            {
+                val_str = fgets(str, max_len, fin);
+                if (feof(fin))
+                {
+                    break;
                 }
-                // TO-DO: change to mmap() for efficiency or read whole file and manipulate the string
-                char *str_val;
-                int val;
-                //pddl_iarr_t *plan_ops;
-                PDDL_IARR(plan_ops);
-                int plan_size = 0;
-                pddlIArrInit(&plan_ops);
-                while(!feof(fin)){
-                    LOG(err, "attempting to read from fin");
-                    str_val = fgets(str, max_size, fin);
-                    if(feof(fin)) {
-                        break;
-                    }
-                    LOG(err, "str_val is: %s", str_val);
-                    if(str_val[0] == '(') {
-                        val = strtol(str_val+4,NULL,10); // use regex instead?
-                        LOG(err, "op_id val is: %d", val);
-                        pddlIArrAdd(&plan_ops, val);
-                    }
-                    else if(str_val[0] == ';') {
-                        val = strtol(str_val+9,NULL,10); // use regex instead?
-                        LOG(err, "cost val is: %d", val);
-                        plan_size = val;
-                        break; // remaining info irrelevant
-                    }
+                LOG(err, "val_str is: %s", val_str);
+                if (val_str[0] == '(')
+                {
+                    val = strtol(val_str + 4, NULL, 10); 
+                    LOG(err, "op_id val is: %d", val);
+                    pddlIArrAdd(&plan_ops, val);
                 }
-                fclose(fin);
-                ASSERT(plan_ops.size == plan_size);
-                pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
-                                        state, &fdr.op, &plan_ops);
-                pddlIArrFree(&plan_ops);        
-                break;
+                else if (val_str[0] == ';')
+                {
+                    val = strtol(val_str + 9, NULL, 10); 
+                    LOG(err, "cost val is: %d", val);
+                    plan_size = val;
+                    break; // remaining info irrelevant
+                }
+            }
+            fclose(fin);
+            ASSERT(plan_ops.size == plan_size);
+            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
+                                       state, &fdr.op, &plan_ops);
+            if (save_msgs) {
+                // capture msgs value form solbuf and add to task_msgs
+                val_str = strstr(solbuf, "#solved goals:");
+                val = strtol(val_str + 15, NULL, 10);
+                LOG(err, "msgs val is: %d\n", val);
+                pddlASNetsTrainDataMSGSAdd(td, ground_task_id, val);
+            }
+            pddlIArrFree(&plan_ops);
+            FREE(str);
+            break;
 
-            case 11: // case SEARCH_UNSOLVABLE:
-            case 12: // case SEARCH_UNSOLVABLE_INCOMPLETE:
-                // add to fail
-                LOG(err, "Plan Not Found");
-                pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-                break;
-            
-            case 23: // case SEARCH_OUT_OF_TIME:
-            case 24: // case SEARCH_OUT_OF_MEMORY_AND_TIME:
-                // add to fail
-                LOG(err, "Search Timed Out");
-                pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-                break;
-            
-            default: 
-                // TO-DO: should it be added to fail data??
-                LOG(err, "unexpected search exit code from fast downward");
-                break;
+        case 11: // case SEARCH_UNSOLVABLE:
+        case 12: // case SEARCH_UNSOLVABLE_INCOMPLETE:
+            // add to fail
+            LOG(err, "Plan Not Found");
+            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+            if (save_msgs) {
+                // 0 because all soft goals now but adapt when both hard goals and soft goals included
+                pddlASNetsTrainDataMSGSAdd(td, ground_task_id, 0);
+            }
+            break;
+
+        case 23: // case SEARCH_OUT_OF_TIME:
+        case 24: // case SEARCH_OUT_OF_MEMORY_AND_TIME:
+            // add to fail
+            LOG(err, "Search Timed Out");
+            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+            // TO-DO: what should MSGS value be when timed out? remain unknown?
+            // if (save_msgs) {
+            //     pddlASNetsTrainDataMSGSAdd(td, ground_task_id, 0);
+            // }
+            break;
+
+        default:
+            // TO-DO: should it be added to fail data??
+            LOG(err, "unexpected search exit code from fast downward");
+            break;
         }
     }
     // check if subprocess killed because of TLE 
     else if (status.signaled == 1) {
         LOG(err, "Search Timed Out");
         pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+        // TO-DO: what should MSGS value be when timed out? remain unknown?
+        // if (save_msgs) {
+        //     pddlASNetsTrainDataMSGSAdd(td, ground_task_id, 0);
+        // }
     }
 
     pddlFDRFree(&fdr);
-    // TODO - FREE plan_filename, sas_filename, search_arg etc..??
+    FREE(plan_filename);
+    FREE(sas_filename);
+    FREE(solbuf);
     LOG(err, "num samples: %{num_samples}d", td->sample_size);
     CTXEND(err);
     return 0;

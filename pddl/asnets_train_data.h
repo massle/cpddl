@@ -24,12 +24,17 @@ struct pddl_asnets_train_data {
     int sample_size;
     int sample_alloc;
 
+    int *task_msgs; // used by OSP problems, to save max softgoals size per task
+
     pddl_htable_t *htable;
     pddl_htable_t *fail_cache;
 };
 typedef struct pddl_asnets_train_data pddl_asnets_train_data_t;
 
 void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td);
+void pddlASNetsTrainDataMSGSInit(pddl_asnets_train_data_t *td, int num_tasks);
+int pddlASNetsTrainDataMSGSAdd(pddl_asnets_train_data_t *td, int task_id, int msgs);
+int pddlASNetsTrainDataMSGSGet(pddl_asnets_train_data_t *td, int task_id);
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td);
 
 int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
@@ -52,14 +57,6 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
                                 const pddl_fdr_ops_t *ops,
                                 const pddl_iarr_t *plan);
 
-// void pddlASNetsTrainDataAddPlanFastDownward(pddl_asnets_train_data_t *td,
-//                                 int ground_task_id,
-//                                 int state_size,
-//                                 const int *init_state,
-//                                 const pddl_fdr_ops_t *ops,
-//                                 const int *plan_ops,
-//                                 const int plan_size);
-
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td);
 
 int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
@@ -81,8 +78,10 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                                     int ground_task_id,
                                     const int *state,
                                     const pddl_fdr_t *fdr,
-                                    float max_time,
+                                    int is_osp_problem,
+                                    int save_msgs,
                                     const pddl_fd_config_t *fd_cfg,
+                                    float max_time,
                                     pddl_err_t *err);
 
 #ifdef __cplusplus
