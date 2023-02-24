@@ -437,7 +437,7 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
     if (cfg->problem_pddl != NULL)
         FREE(cfg->problem_pddl);
     if (cfg->fd_config != NULL) {
-        pddlFDConfigFree(cfg->fd_config); // currently throws error, when fd_config points to already freed up space! To Fix!!
+        pddlFDConfigFree(cfg->fd_config);
         FREE(cfg->fd_config);
     }
 }
