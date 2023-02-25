@@ -57,14 +57,6 @@ extern "C" {
 #define LOG_CONFIG_STR(C, NAME, ERR) \
     LOG((ERR), #NAME " = %{" #NAME "}s", (C)->NAME)
 
-/** TODO: Get rid of this */
-#define PDDL_LOG_CONFIG_INT(C, PREFIX, NAME, ERR) \
-    PDDL_INFO((ERR), "%s" #NAME " = %d", (PREFIX), (C)->NAME)
-#define PDDL_LOG_CONFIG_DBL(C, PREFIX, NAME, ERR) \
-    PDDL_INFO((ERR), "%s" #NAME " = %.4f", (PREFIX), (C)->NAME)
-#define PDDL_LOG_CONFIG_BOOL(C, PREFIX, NAME, ERR) \
-    PDDL_INFO((ERR), "%s" #NAME " = %s", (PREFIX), ((C)->NAME ? "true" : "false"))
-
 
 #ifdef PDDL_DEBUG
 #include <assert.h>
@@ -98,23 +90,7 @@ extern "C" {
     } \
     } while (0)
 
-#define PANIC_IF_FMT(COND, MSG, ...) \
-    do { \
-    if (!!(COND)){ \
-        fprintf(stderr, "Fatal Error: " MSG " :: %s:%s:%d " #COND "\n", \
-                __VA_ARGS__, __FILE__, __func__, __LINE__); \
-        exit(-1); \
-    } \
-    } while (0)
-
-#define PANIC_IF(COND, MSG) \
-    do { \
-    if (!!(COND)){ \
-        fprintf(stderr, "Fatal Error: " MSG " :: %s:%s:%d " #COND "\n", \
-                __FILE__, __func__, __LINE__); \
-        exit(-1); \
-    } \
-    } while (0)
+#define PANIC_IF PDDL_PANIC_IF
 
 
 
@@ -138,6 +114,7 @@ extern "C" {
 #define ALLOC_ARR PDDL_ALLOC_ARR
 #define REALLOC_ARR PDDL_REALLOC_ARR
 #define CALLOC_ARR PDDL_CALLOC_ARR
+#define ZALLOC_ARR PDDL_CALLOC_ARR
 #define ZALLOC PDDL_ZALLOC
 #define MALLOC PDDL_MALLOC
 #define ZMALLOC PDDL_ZMALLOC

@@ -789,6 +789,65 @@ struct ModelParameters {
     }
 };
 
+class MissingInput {
+    dynet::Expression input;
+    bool created;
+    int dimension;
+
+  public:
+    MissingInput(int dimension)
+        : created(false), dimension(dimension)
+    {
+    }
+
+    dynet::Expression &get(dynet::ComputationGraph &cg)
+    {
+        if (!created){
+            std::vector<long> d(1, dimension);
+            dynet::Dim dim(d);
+            // Input is set to the minimum value of the activation function.
+            input = dynet::constant(cg, dim, MIN_ACTIVATION_VALUE);
+            created = true;
+        }
+
+        return input;
+    }
+
+};
+
+static void _firstActionLayer(const pddl_asnets_ground_task_t *g,
+                              const ModelParameters &model,
+                              dynet::ComputationGraph &cg,
+                              dynet::Expression input_state,
+                              dynet::Expression input_goal_condition,
+                              dynet::Expression input_applicable_ops,
+                              std::vector<dynet::Expression> &action_layer)
+{
+    MissingInput missing_input(1);
+
+    for (int op_id = 0; op_id < g->op_size; ++op_id){
+        std::vector<dynet::Expression> in_state;
+        std::vector<dynet::Expression> in_goal;
+        dynet::Expression in_applicable;
+        for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
+            int fact_id = g->op[op_id].related_fact[i];
+            if (fact_id < 0){
+                in_state.push_back(missing_input.get(cg));
+                in_goal.push_back(missing_input.get(cg));
+
+            }else{
+                PANIC_IF(fact_id < 0, "xx2");
+                in_state.push_back(dynet::pick(input_state, fact_id));
+                in_goal.push_back(dynet::pick(input_goal_condition, fact_id));
+            }
+            in_applicable = dynet::pick(input_applicable_ops, op_id);
+        }
+        int action_id = g->op[op_id].action->action_id;
+        ActionModule *am = model.action[0][action_id];
+        dynet::Expression e = am->exprInput(cg, in_state, in_goal, in_applicable);
+        action_layer.push_back(e);
+    }
+}
 
 static void _actionLayer(const pddl_asnets_ground_task_t *g,
                          const ModelParameters &model,
@@ -799,11 +858,18 @@ static void _actionLayer(const pddl_asnets_ground_task_t *g,
                          std::vector<dynet::Expression> &action_layer,
                          float dropout_rate)
 {
+    MissingInput missing_input(model.hidden_dim);
+
     for (int op_id = 0; op_id < g->op_size; ++op_id){
         std::vector<dynet::Expression> in;
         for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
             int fact_id = g->op[op_id].related_fact[i];
-            in.push_back(prop_layer[fact_id]);
+            if (fact_id < 0){
+                in.push_back(missing_input.get(cg));
+
+            }else{
+                in.push_back(prop_layer[fact_id]);
+            }
         }
         in.push_back(prev_action_layer[op_id]);
         int action_id = g->op[op_id].action->action_id;
@@ -825,8 +891,7 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
                        std::vector<dynet::Expression> &prop_layer,
                        float dropout_rate)
 {
-    dynet::Expression const_min;
-    bool have_const_min = false;
+    MissingInput missing_input(model.hidden_dim);
 
     for (int fact_id = 0; fact_id < g->fact_size; ++fact_id){
         int pred_id = g->fact[fact_id].pred->pred_id;
@@ -843,19 +908,8 @@ static void _propLayer(const pddl_asnets_ground_task_t *g,
                 input[ri].push_back(action_layer[op_id]);
             }
 
-            if (input[ri].size() == 0){
-                // This means there is no operator having this fact in its
-                // precondition or effect at position ri.
-                // So, we set the input to the minimum value of the
-                // activation function.
-                if (!have_const_min){
-                    std::vector<long> d(1, model.hidden_dim);
-                    dynet::Dim const_min_dim(d);
-                    const_min = dynet::constant(cg, const_min_dim, MIN_ACTIVATION_VALUE);
-                    have_const_min = true;
-                }
-                input[ri].push_back(const_min);
-            }
+            if (input[ri].size() == 0)
+                input[ri].push_back(missing_input.get(cg));
         }
         if (prev_prop_layer != NULL)
             input[input_size - 1].push_back((*prev_prop_layer)[fact_id]);
@@ -883,21 +937,8 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
 
     int layer = 0;
     // First action layer needs to be connected to inputs
-    for (int op_id = 0; op_id < g->op_size; ++op_id){
-        std::vector<dynet::Expression> in_state;
-        std::vector<dynet::Expression> in_goal;
-        dynet::Expression in_applicable;
-        for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
-            int fact_id = g->op[op_id].related_fact[i];
-            in_state.push_back(dynet::pick(input_state, fact_id));
-            in_goal.push_back(dynet::pick(input_goal_condition, fact_id));
-            in_applicable = dynet::pick(input_applicable_ops, op_id);
-        }
-        int action_id = g->op[op_id].action->action_id;
-        ActionModule *am = model.action[layer][action_id];
-        dynet::Expression e = am->exprInput(cg, in_state, in_goal, in_applicable);
-        action_layer[layer].push_back(e);
-    }
+    _firstActionLayer(g, model, cg, input_state, input_goal_condition,
+                      input_applicable_ops, action_layer[0]);
 
     for (; layer < model.num_layers; ++layer){
         const std::vector<dynet::Expression> *prev_prop_layer = NULL;
@@ -989,6 +1030,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
 
     dim[0] = applicable_ops.size();
     dynet::Expression e_applicable_ops = dynet::input(cg, dynet::Dim(dim), applicable_ops);
+    // Dropout is used *only* during training -- we don't need to use it here
     dynet::Expression e_output = asnetsExpr(task, params, cg, e_state, e_goal,
                                             e_applicable_ops, -1);
 
@@ -1650,9 +1692,14 @@ static int sqlInsertWeights(pddl_sqlite3 *db,
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
 
-    const dynet::Tensor *val = ((dynet::Parameter &)param).values();
-    size_t size = sizeof(float) * val->d.size();
-    ret = pddl_sqlite3_bind_blob(stmt, 6, val->v, size, SQLITE_STATIC);
+    // Raw weights are not scaled by weight_decay so we need to do that
+    // before saving the weights
+    const dynet::ParameterStorage &p = param.get_storage();
+    float weight_decay = p.owner->get_weight_decay().current_weight_decay();
+    std::vector<float> vals = dynet::as_scale_vector(p.values, weight_decay);
+    const float *vals_arr = &vals[0];
+    size_t size = sizeof(float) * vals.size();
+    ret = pddl_sqlite3_bind_blob(stmt, 6, vals_arr, size, SQLITE_STATIC);
     if (ret != SQLITE_OK){
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
@@ -1663,6 +1710,14 @@ static int sqlInsertWeights(pddl_sqlite3 *db,
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
+
+    LOG(err, "Weights saved. id: %d, layer: %d, type: %s/%s, name: %s, idx: %d,"
+        " array_size: %d",
+        id, layer,
+        (sig == SIG_ACTION_W || sig == SIG_ACTION_B ? "action" : "proposition"),
+        (sig == SIG_ACTION_W || sig == SIG_PROP_W ? "W" : "bias"),
+        name, idx, (int)vals.size());
+
     return 0;
 }
 
@@ -1723,18 +1778,21 @@ static int sqlSelectWeights(pddl_sqlite3 *db,
 
     const float *w = (const float *)pddl_sqlite3_column_blob(stmt, 4);
     std::vector<float> warr(w, w + w_size);
-    dynet::TensorTools::set_elements(*param.values(), warr);
+    dynet::TensorTools::set_elements(param.get_storage().values, warr);
 
     return 0;
 }
 
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
+    CTX(err, "asnets_save", "ASNets-Save");
+    LOG(err, "Saving model to %s", fn);
     pddl_sqlite3 *db;
     int flags = SQLITE_OPEN_READWRITE
                     | SQLITE_OPEN_CREATE;
     int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
     if (ret != SQLITE_OK){
+        CTXEND(err);
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
@@ -1742,6 +1800,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     Info info(a);
     if (info.create(db, err) != 0 || info.save(db, err) != 0){
         pddl_sqlite3_close_v2(db);
+        CTXEND(err);
         TRACE_RET(err, -1);
     }
 
@@ -1749,6 +1808,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     ret = pddl_sqlite3_exec(db, sql_create_weights, NULL, NULL, &errmsg);
     if (ret != SQLITE_OK){
         pddl_sqlite3_close_v2(db);
+        CTXEND(err);
         ERR(err, "Sqlite Error: %s", errmsg);
         pddl_sqlite3_free(errmsg);
         return -1;
@@ -1758,6 +1818,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
     ret = pddl_sqlite3_prepare_v2(db, sql_insert_weights, -1, &stmt, NULL);
     if (ret != SQLITE_OK){
         pddl_sqlite3_close_v2(db);
+        CTXEND(err);
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
@@ -1771,6 +1832,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, acts[i]->W, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1780,6 +1842,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, acts[i]->bias, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1794,6 +1857,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, props[i]->W, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1803,6 +1867,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
                                    i, props[i]->bias, err);
             if (ret != 0){
                 pddl_sqlite3_close_v2(db);
+                CTXEND(err);
                 TRACE_RET(err, -1);
             }
             ++id;
@@ -1812,9 +1877,12 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 
     ret = pddl_sqlite3_close_v2(db);
     if (ret != SQLITE_OK){
+        CTXEND(err);
         ERR_RET(err, -1, "Sqlite Error: %s: %s",
                 pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
     }
+    LOG(err, "Model saved to '%s'", fn);
+    CTXEND(err);
     return 0;
 }
 
@@ -1972,7 +2040,7 @@ int pddlASNetsSolveTask(pddl_asnets_t *a,
 {
     pddl_fdr_state_pool_t states;
     pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
-    int ret = policyRollout(a, task, &states, trace, softgoals_result, NULL);
+    int ret = policyRollout(a, task, &states, trace, softgoals_result, err);
     pddlFDRStatePoolFree(&states);
     return ret;
 }
@@ -2125,7 +2193,7 @@ static float overallLoss(pddl_asnets_t *a,
     return loss;
 }
 
-static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td)
+static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_err_t *err)
 {
     int num_solved = 0;
     for (int task_id = 0; task_id < a->ground_task_size; ++task_id)
@@ -2136,7 +2204,7 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td)
         if (a->cfg.is_osp_problem)
         {   
             pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
-            policyRollout(a, task, &states, NULL, &softgoals_result, NULL);
+            policyRollout(a, task, &states, NULL, &softgoals_result, err);
             int max_msgs_teacher = pddlASNetsTrainDataMSGSGet(td, task_id);
             if (max_msgs_teacher >= 0 && softgoals_result.max_softgoals_num == max_msgs_teacher) { // compare with msgs size from FD
                num_solved += 1; 
@@ -2144,7 +2212,7 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td)
         }
         else
         {
-            if (policyRollout(a, task, &states, NULL, NULL, NULL))
+            if (policyRollout(a, task, &states, NULL, NULL, err))
                 num_solved += 1;
         }
         pddlFDRStatePoolFree(&states);
@@ -2187,7 +2255,7 @@ static int trainEpoch(pddl_asnets_t *a,
     }
 
     CTX(err, "success_rate", "Success Rate");
-    a->train_stats.success_rate = successRate(a, data);
+    a->train_stats.success_rate = successRate(a, data, err);
     LOG(err, "Success rate: %{success_rate}f", a->train_stats.success_rate);
     CTXEND(err);
     CTX(err, "overall_loss", "Overall Loss");
@@ -2214,9 +2282,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
         pddlASNetsTrainDataMSGSInit(&data, a->ground_task_size);
     }
 
-    float best_success_rate = 0.f;
-    float best_success_rate_loss = 1E10f;
-    a->train_stats.success_rate = successRate(a, &data);
+    a->train_stats.success_rate = successRate(a, &data, err);
 
     for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
         if (a->cfg.double_batch_size_every_epoch > 0
@@ -2234,21 +2300,16 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
             return ret;
         }
 
-        if (a->train_stats.success_rate > best_success_rate
-                || (a->train_stats.success_rate == best_success_rate
-                        && a->train_stats.overall_loss < best_success_rate_loss)){
-            best_success_rate = a->train_stats.success_rate;
-            best_success_rate_loss = a->train_stats.overall_loss;
-            if (a->cfg.save_model_prefix != NULL){
-                char fn[4096];
-                sprintf(fn, "%s-%.2f-%.03f.policy",
-                        a->cfg.save_model_prefix,
-                        best_success_rate,
-                        best_success_rate_loss);
-                LOG(err, "Saving model to %s (success rate: %.2f, loss: %.3f)",
-                    fn, best_success_rate, best_success_rate_loss);
-                pddlASNetsSave(a, fn, err);
-            }
+        if (a->cfg.save_model_prefix != NULL){
+            char fn[4096];
+            sprintf(fn, "%s-%05d-%.2f-%.03f.policy",
+                    a->cfg.save_model_prefix,
+                    epoch,
+                    a->train_stats.success_rate,
+                    a->train_stats.overall_loss);
+            LOG(err, "Saving model to %s (epoch: %d, success rate: %.2f, loss: %.3f)",
+                fn, epoch, a->train_stats.success_rate, a->train_stats.overall_loss);
+            pddlASNetsSave(a, fn, err);
         }
         if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){
             a->train_stats.consecutive_successful_epochs += 1;

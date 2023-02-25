@@ -152,7 +152,7 @@ void _pddlPanic(const char *filename, int line, const char *func,
 {
     va_list ap;
     va_start(ap, format);
-    fprintf(stderr, "FATAL ERROR: %s:%d [%s]: ", __FILE__, __LINE__, __func__);
+    fprintf(stderr, "FATAL ERROR: %s:%d [%s]: ", filename, line, func);
     vfprintf(stderr, format, ap);
     fprintf(stderr, "\n");
     va_end(ap);

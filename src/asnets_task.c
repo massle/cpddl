@@ -249,15 +249,26 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
 static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
                                   pddl_err_t *err)
 {
-    // TODO: Replace asserts with reporting what exactly is wrong
     LOG(err, "Checking everything is properly set up...");
-    ASSERT_RUNTIME(gt->fdr.op.op_size == gt->strips.op.op_size);
-    ASSERT_RUNTIME(gt->strips.op.op_size == gt->op_size);
+    PANIC_IF(gt->fdr.op.op_size != gt->strips.op.op_size,
+             "Different number of operators in the FDR and STRIPS representation.");
+    PANIC_IF(gt->strips.op.op_size != gt->op_size,
+             "Different number of operators in the STRIPS representation"
+             " and the ASNets.");
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
-        ASSERT_RUNTIME(gt->op[op_id].related_fact_size
-                            == gt->op[op_id].action->related_atom_size);
+        PANIC_IF(gt->op[op_id].related_fact_size
+                    != gt->op[op_id].action->related_atom_size,
+                 "Number of related facts do not match the number of"
+                 " related atoms. action: %s",
+                 gt->pddl.action.action[gt->op[op_id].action->action_id].name);
+
         for (int i = 0; i < gt->op[op_id].related_fact_size; ++i){
-            ASSERT_RUNTIME(gt->op[op_id].related_fact[i] >= 0);
+            if (gt->op[op_id].related_fact[i] < 0){
+                PANIC_IF(!gt->op[op_id].action->related_atom[i]->neg,
+                         "Missing related fact %d", i);
+                LOG(err, "Missing related delete effect. action/pos: %s/%d",
+                    gt->pddl.action.action[gt->op[op_id].action->action_id].name, i);
+            }
         }
     }
 

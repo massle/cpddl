@@ -969,7 +969,9 @@ int pddlStripsGround(pddl_strips_t *strips,
                      pddl_err_t *err)
 {
     CTX(err, "ground", "Ground");
-    pddlGroundConfigLog(cfg, "cfg.", err);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlGroundConfigLog(cfg, err);
+    CTXEND(err);
     pddl_strips_ground_t g;
 
     if (pddlStripsGroundStart(&g, pddl, cfg, err, NULL, NULL) != 0

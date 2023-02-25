@@ -189,7 +189,9 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
                         pddl_err_t *err)
 {
     CTX(err, "ground_sql", "Ground SQL");
-    pddlGroundConfigLog(cfg, "cfg.", err);
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlGroundConfigLog(cfg, err);
+    CTXEND(err);
     PDDL_INFO(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
@@ -238,10 +240,12 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
 {
     // TODO: max_atoms
     CTX(err, "ground_sql_layer", "Ground SQL Layer");
-    pddlGroundConfigLog(cfg, "cfg.", err);
-    PDDL_INFO(err, "cfg.max_layers = %d", max_layers);
-    PDDL_INFO(err, "cfg.max_atoms = %d", max_atoms);
-    PDDL_INFO(err, "Grounding using sqlite ...");
+    CTX_NO_TIME(err, "cfg", "Cfg");
+    pddlGroundConfigLog(cfg, err);
+    LOG(err, "max_layers = %d", max_layers);
+    LOG(err, "max_atoms = %d", max_atoms);
+    CTXEND(err);
+    LOG(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
     if (sqlGroundInit(&ground, pddl, cfg, err) != 0){

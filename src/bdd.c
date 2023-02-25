@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/config.h"
 #include "internal.h"
 
