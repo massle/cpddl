@@ -475,7 +475,7 @@ static void sqlActionConstructWhereCond(char *query,
             // This action is not groundable, so add some dummy condition
             //shift += sprintf(query + shift, "arg%d = -10000", pi);
             shift += sprintf(query + shift, "1 = 2");
-        } else if (obj_size == 1){
+        }else if (obj_size == 1){
             shift += sprintf(query + shift, "arg%d = %d", pi, objs[0]);
         }else if (objsConsecutive(objs, obj_size)){
             shift += sprintf(query + shift, "arg%d >= %d AND arg%d <= %d",

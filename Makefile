@@ -313,6 +313,20 @@ doc:
 analyze: clean
 	$(SCAN_BUILD) $(MAKE)
 
+tidy:
+	find src/ -name '*.c' \
+              -a -not -name google-city-hash.c \
+              -a -not -name sqlite3.c \
+              -a -not -name toml.c \
+              -a -not -name sha256.c \
+        | xargs -n1 bash scripts/tidy-code.sh
+	find pddl/ -name '*.h' \
+              -a -not -name google-city-hash.c \
+              -a -not -name sqlite3.c \
+              -a -not -name toml.c \
+              -a -not -name sha256.c \
+        | xargs -n1 bash scripts/tidy-code.sh
+
 list-global-symbols: libpddl.a
 	readelf -s libpddl.a \
         | grep GLOBAL \

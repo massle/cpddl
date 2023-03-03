@@ -433,7 +433,7 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
         }
 
         int is_long = 0;
-        if (ch == 'l') {
+        if (ch == 'l'){
             is_long = 1;
             ch = *(fmt++);
             if (ch == '\0')

@@ -100,14 +100,14 @@ static void del(pddl_lp_t *_lp)
 static void setObj(pddl_lp_t *_lp, int i, double coef)
 {
     lp_t *lp = LP(_lp);
-    PANIC_IF_FMT(i < 0 || i >= lp->col_size, "Column %d out of range", i);
+    PANIC_IF(i < 0 || i >= lp->col_size, "Column %d out of range", i);
     lp->col[i].obj = coef;
 }
 
 static void setVarRange(pddl_lp_t *_lp, int i, double lb, double ub)
 {
     lp_t *lp = LP(_lp);
-    PANIC_IF_FMT(i < 0 || i >= lp->col_size, "Column %d out of range", i);
+    PANIC_IF(i < 0 || i >= lp->col_size, "Column %d out of range", i);
     if (lb <= PDDL_LP_MIN_BOUND)
         lb = PDDL_LP_MIN_BOUND;
     if (ub >= PDDL_LP_MAX_BOUND)
@@ -124,22 +124,22 @@ static void setVarFree(pddl_lp_t *_lp, int i)
 static void setVarInt(pddl_lp_t *_lp, int i)
 {
     lp_t *lp = LP(_lp);
-    PANIC_IF_FMT(i < 0 || i >= lp->col_size, "Column %d out of range", i);
+    PANIC_IF(i < 0 || i >= lp->col_size, "Column %d out of range", i);
     lp->col[i].type = PDDL_LP_COL_TYPE_INT;
 }
 
 static void setVarBinary(pddl_lp_t *_lp, int i)
 {
     lp_t *lp = LP(_lp);
-    PANIC_IF_FMT(i < 0 || i >= lp->col_size, "Column %d out of range", i);
+    PANIC_IF(i < 0 || i >= lp->col_size, "Column %d out of range", i);
     lp->col[i].type = PDDL_LP_COL_TYPE_BINARY;
 }
 
 static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
 {
     lp_t *lp = LP(_lp);
-    PANIC_IF_FMT(row < 0 || row >= lp->row_size, "Row %d out of range", row);
-    PANIC_IF_FMT(col < 0 || col >= lp->col_size, "Column %d out of range", col);
+    PANIC_IF(row < 0 || row >= lp->row_size, "Row %d out of range", row);
+    PANIC_IF(col < 0 || col >= lp->col_size, "Column %d out of range", col);
     pddl_lp_row_t *r = lp->row + row;
     if (r->coef_size == r->coef_alloc){
         if (r->coef_alloc == 0)
@@ -178,7 +178,7 @@ static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
 static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
 {
     lp_t *lp = LP(_lp);
-    PANIC_IF_FMT(row < 0 || row >= lp->row_size, "Row %d out of range", row);
+    PANIC_IF(row < 0 || row >= lp->row_size, "Row %d out of range", row);
     if (sense == 'L'){
         lp->row[row].lb = PDDL_LP_MIN_BOUND;
         lp->row[row].ub = rhs;
@@ -192,7 +192,7 @@ static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
         lp->row[row].ub = rhs;
 
     }else{
-        PANIC_IF_FMT(1, "Unkown sense '%c'", sense);
+        PANIC_IF(1, "Unkown sense '%c'", sense);
     }
 }
 

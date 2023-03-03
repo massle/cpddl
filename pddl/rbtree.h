@@ -219,7 +219,7 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeFind(pddl_rbtree_t *rbtree,
     pddl_rbtree_node_t *tmp = rbtree->root;
     int comp;
 
-    while (tmp) {
+    while (tmp){
         comp = rbtree->cmp(elm, tmp, rbtree->data);
         if (comp < 0){
             tmp = tmp->rbe_left;
@@ -239,9 +239,9 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeFindNearestGE(pddl_rbtree_t *rbtree,
     pddl_rbtree_node_t *res = NULL;
     int comp;
 
-    while (tmp) {
+    while (tmp){
         comp = rbtree->cmp(elm, tmp, rbtree->data);
-        if (comp < 0) {
+        if (comp < 0){
             res = tmp;
             tmp = tmp->rbe_left;
         }else if (comp > 0){
@@ -255,7 +255,7 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeFindNearestGE(pddl_rbtree_t *rbtree,
 
 _pddl_inline pddl_rbtree_node_t *pddlRBTreeNext(pddl_rbtree_node_t *elm)
 {
-    if (elm->rbe_right) {
+    if (elm->rbe_right){
         elm = elm->rbe_right;
         while (elm->rbe_left)
             elm = elm->rbe_left;
@@ -271,9 +271,9 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeNext(pddl_rbtree_node_t *elm)
     return elm;
 }
 
-pddl_rbtree_node_t *pddlRBTreePrev(pddl_rbtree_node_t *elm)
+_pddl_inline pddl_rbtree_node_t *pddlRBTreePrev(pddl_rbtree_node_t *elm)
 {
-    if (elm->rbe_left) {
+    if (elm->rbe_left){
         elm = elm->rbe_left;
         while (elm->rbe_right)
             elm = elm->rbe_right;
@@ -294,7 +294,7 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeMin(pddl_rbtree_t *rbtree)
     pddl_rbtree_node_t *tmp = rbtree->root;
     pddl_rbtree_node_t *parent = NULL;
 
-    while (tmp) {
+    while (tmp){
         parent = tmp;
         tmp = tmp->rbe_left;
     }
@@ -306,7 +306,7 @@ _pddl_inline pddl_rbtree_node_t *pddlRBTreeMax(pddl_rbtree_t *rbtree)
     pddl_rbtree_node_t *tmp = rbtree->root;
     pddl_rbtree_node_t *parent = NULL;
 
-    while (tmp) {
+    while (tmp){
         parent = tmp;
         tmp = tmp->rbe_right;
     }

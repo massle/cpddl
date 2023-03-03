@@ -332,7 +332,7 @@ static int fmPartEq(const pddl_fm_junc_t *p1,
         int found = 0;
         PDDL_LIST_FOR_EACH(&p2->part, item2){
             c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
-            if(fmEq(c1, c2)){
+            if (fmEq(c1, c2)){
                 found = 1;
                 break;
             }
