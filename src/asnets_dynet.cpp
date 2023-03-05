@@ -1188,9 +1188,13 @@ static int policyRollout(pddl_asnets_t *a,
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
     int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
 
+    // Save total number of softgoals to softgoals_result
+    if (softgoals_result != NULL)
+        softgoals_result->total_softgoals = task->fdr.goal.fact_size;
     // Start in the initial state
     pddl_state_id_t state_id = pddlFDRStatePoolInsert(states, task->fdr.init);
-    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step)
+    int step = 0;
+    for (; step < a->cfg.policy_rollout_limit; ++step)
     {
         // get the last reached state
         pddlFDRStatePoolGet(states, state_id, state);
@@ -1199,10 +1203,10 @@ static int policyRollout(pddl_asnets_t *a,
         {
             // TO-DO: pass only soft goals when extending to OSP with both hard goals and soft goals
             int softgoals_num = pddlFDRCountPartStateConsistentWithState(&task->fdr.goal, state);
-            if (softgoals_num > softgoals_result->max_softgoals_num)
+            if (softgoals_num > softgoals_result->max_softgoals_achieved)
             {
-                softgoals_result->max_softgoals_num = softgoals_num;
-                softgoals_result->policy_steps_num = step;
+                softgoals_result->max_softgoals_achieved = softgoals_num;
+                softgoals_result->max_softgoals_policy_steps = step;
             }
         }
         // TO-DO: adapt when extending to OSP with both hard goals and soft goals
@@ -1229,6 +1233,8 @@ static int policyRollout(pddl_asnets_t *a,
             break;
         }
     }
+    if (softgoals_result != NULL)
+        softgoals_result->total_policy_steps = step;
 
     FREE(state);
     FREE(state2);
@@ -2206,7 +2212,7 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
             pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
             policyRollout(a, task, &states, NULL, &softgoals_result, err);
             int max_msgs_teacher = pddlASNetsTrainDataMSGSGet(td, task_id);
-            if (max_msgs_teacher >= 0 && softgoals_result.max_softgoals_num == max_msgs_teacher) { // compare with msgs size from FD
+            if (max_msgs_teacher >= 0 && softgoals_result.max_softgoals_achieved == max_msgs_teacher) { // compare with msgs size from FD
                num_solved += 1; 
             }
         }
@@ -2389,7 +2395,7 @@ void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
 
 void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
 {
-    int num_allgoals_solved = 0; // as of now, all goals are soft goals in OSP
+    int num_allgoals_solved = 0; // TO-DO: as of now, all goals are soft goals in OSP
                                  // adapt as required when extending to both hard goals and soft goals
     int num_tasks = pddlASNetsNumGroundTasks(a);
     for (int task_id = 0; task_id < num_tasks; ++task_id)
@@ -2398,15 +2404,17 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
         task = pddlASNetsGetGroundTask(a, task_id);
         PDDL_IARR(plan);
         pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
-        int allgoals_solved = pddlASNetsSolveTask(a, task, &plan, &softgoals_result, err); // as of now, all goals are soft goals in OSP
+        int allgoals_solved = pddlASNetsSolveTask(a, task, &plan, &softgoals_result, err); // TO-DO: as of now, all goals are soft goals in OSP
                                                                                            // adapt as required when extending to both hard goals and soft goals
         PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s result -"
-                      " all goals solved: %{eval_solved}b, max softgoals solved: %{eval_max_soft}d, steps taken: %{eval_steps}d",
+                      " all goals solved: %{eval_solved}b, total softgoals: %{eval_total_soft}d, max softgoals solved: %{eval_max_soft}d, steps taken for max softgoals: %{eval_max_soft_steps}d, total policy steps: %{eval_total_steps}d",
                  task->pddl.domain_lisp->filename,
                  task->pddl.problem_lisp->filename,
                  allgoals_solved,
-                 softgoals_result.max_softgoals_num,
-                 softgoals_result.policy_steps_num);
+                 softgoals_result.total_softgoals,
+                 softgoals_result.max_softgoals_achieved,
+                 softgoals_result.max_softgoals_policy_steps,
+                 softgoals_result.total_policy_steps);
         if (write_plans)
         {
             char fn[512];
@@ -2414,14 +2422,15 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
             FILE *fout = fopen(fn, "w");
             if (fout != NULL)
             {
+                fprintf(fout, "total softgoals: %d\n", softgoals_result.total_softgoals);
+                fprintf(fout, "max softgoals achieved: %d\n", softgoals_result.max_softgoals_achieved);
+                fprintf(fout, "max softgoals achieved in number of policy steps: %d\n", softgoals_result.max_softgoals_policy_steps);
                 int op_id;
-                for (int index = 0; index < softgoals_result.policy_steps_num; index++)
+                for (int index = 0; index < softgoals_result.max_softgoals_policy_steps; index++)
                 {
                     op_id = pddlIArrGet(&plan, index);
                     fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
                 }
-                fprintf(fout, "max softgoals achieved: %d\n", softgoals_result.max_softgoals_num);
-                fprintf(fout, "max softgoals achieved in number of policy steps: %d\n", softgoals_result.policy_steps_num);
                 fclose(fout);
             }
             else
@@ -2433,13 +2442,13 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
         {
             ++num_allgoals_solved;
         }
-        // compute some aggregate metric for osp
+        // TO-DO: compute some aggregate metric for osp if needed
         pddlIArrFree(&plan);
     }
     PDDL_LOG(err, "Solved all goals for %{eval_num_solved}d out of"
                   " %{eval_num_tasks}d tasks",
              num_allgoals_solved, num_tasks);
-    // report aggregate metric for osp
+    // TO-DO: report aggregate metric for osp
 }
 
 #else /* PDDL_DYNET */

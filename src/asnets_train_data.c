@@ -382,19 +382,43 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     // set sas and plan file names
     char *sas_filename = NULL;
     char *plan_filename = NULL;
-    int id_length = (ground_task_id == 0 ? 1 : (int)(log10(ground_task_id)+1));
     if(fd_cfg->use_unique_filenames){
-        sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + id_length + 2);
-        sprintf(sas_filename, "%s/%s%d", fd_cfg->saved_files_path, fd_cfg->sas_file_prefix, ground_task_id);
+        // note - files will be unique per task (denoted by id), per init state (denoted by state vars).
+        int id_length = (ground_task_id == 0 ? 1 : (int)(log10(ground_task_id)+1));
+        // TO-DO: find a sensible way to note down state id
+        char *state_str = NULL;
+        int var_val_len = 0;
+        char *var_val_str = NULL;
+        for (int index = 0; index < _fdr->var.var_size; index++) {
+            var_val_len = (state[index] == 0 ? 1 : (int)(log10(state[index])+1));
+            if (state_str == NULL) {
+                state_str = ALLOC_ARR(char, var_val_len + 1 + 1);
+                sprintf(state_str, "-%d", state[index]);
+            }
+            else {
+                var_val_str = REALLOC_ARR(var_val_str, char, var_val_len + 1 + 1);
+                state_str = REALLOC_ARR(state_str, char, strlen(state_str) + strlen(var_val_str) + 1);
+                sprintf(var_val_str, "-%d", state[index]);
+                strcat(state_str, var_val_str);
+            }
+            if (index >= 50) {
+                // prevent exeeding max filename length
+                state_str = REALLOC_ARR(state_str, char, strlen(state_str) + 6 + 1);
+                strcat(state_str, "-trunc");
+                break;
+            }
+        }
 
-        plan_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->plan_file_prefix) + id_length + 2);
-        sprintf(plan_filename, "%s/%s%d", fd_cfg->saved_files_path, fd_cfg->plan_file_prefix, ground_task_id);
+        sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + strlen(state_str) + id_length + 4 + 1);
+        sprintf(sas_filename, "%s/%sp%d_s%s", fd_cfg->saved_files_path, fd_cfg->sas_file_prefix, ground_task_id, state_str);
+        plan_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->plan_file_prefix) + strlen(state_str) + id_length + 4 + 1);
+        sprintf(plan_filename, "%s/%sp%d_s%s", fd_cfg->saved_files_path, fd_cfg->plan_file_prefix, ground_task_id, state_str);
     }
     else {
-        sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + 9);
+        // note - the same files will be used and overwritten for all tasks, for all init states.
+        sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + 8 + 1);
         sprintf(sas_filename, "%s/%sdefault", fd_cfg->saved_files_path, fd_cfg->sas_file_prefix);
-
-        plan_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->plan_file_prefix) + 9);
+        plan_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->plan_file_prefix) + 8 + 1);
         sprintf(plan_filename, "%s/%sdefault", fd_cfg->saved_files_path, fd_cfg->plan_file_prefix);
     }
 
@@ -441,7 +465,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     {
         // use exit_status_code to identify if plan found, plan not found or search timed out internally.
         switch (status.exit_status)
-        {
+        { 
         case 0: // case SUCCESS:
             // extract plan ops and apply in cpddl to retreive intermediate states
             // then, add to train data

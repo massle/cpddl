@@ -126,17 +126,23 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
 
 struct pddl_asnets_softgoals_result {
+    /** Total Number of Soft Goals */
+    int total_softgoals;
     /** Max Number of Soft Goals Achieved */
-    int max_softgoals_num;
+    int max_softgoals_achieved;
     /** Number of Policy Rollout Steps in which Max Soft Goals Achieved */
-    int policy_steps_num;
+    int max_softgoals_policy_steps;
+    /** Total Number of Policy Steps Attempted */
+    int total_policy_steps;
 };
 typedef struct pddl_asnets_softgoals_result pddl_asnets_softgoals_result_t;
 
 #define PDDL_ASNETS_SOFTGOALS_RESULT_INIT \
     { \
-        0, /* .max_softgoals_num */ \
-        0, /* .policy_steps_num */ \
+        0, /* .total_softgoals */ \
+        0, /* .max_softgoals_achieved */ \
+        0, /* .max_softgoals_policy_steps */ \
+        0, /* .total_policy_steps */ \
     }
 
 /**
