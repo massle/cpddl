@@ -25,3 +25,7 @@ pddl/cset.h
 src/cset.c
 pddl/iarr.h
 src/iarr.c
+plan_file*
+sas_file*
+*.sas
+*.log
