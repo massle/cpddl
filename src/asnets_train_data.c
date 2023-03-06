@@ -467,6 +467,9 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         switch (status.exit_status)
         { 
         case 0: // case SUCCESS:
+        case 1: // case SEARCH_PLAN_FOUND_AND_OUT_OF_MEMORY
+        case 2: // case SEARCH_PLAN_FOUND_AND_OUT_OF_TIME
+        case 3: // case SEARCH_PLAN_FOUND_AND_OUT_OF_MEMORY_AND_TIME
             // extract plan ops and apply in cpddl to retreive intermediate states
             // then, add to train data
             LOG(err, "Plan Found");
