@@ -29,3 +29,4 @@ plan_file*
 sas_file*
 *.sas
 *.log
+*.plan

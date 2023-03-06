@@ -387,27 +387,36 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
         int id_length = (ground_task_id == 0 ? 1 : (int)(log10(ground_task_id)+1));
         // TO-DO: find a sensible way to note down state id
         char *state_str = NULL;
-        int var_val_len = 0;
-        char *var_val_str = NULL;
-        for (int index = 0; index < _fdr->var.var_size; index++) {
-            var_val_len = (state[index] == 0 ? 1 : (int)(log10(state[index])+1));
-            if (state_str == NULL) {
-                state_str = ALLOC_ARR(char, var_val_len + 1 + 1);
-                sprintf(state_str, "-%d", state[index]);
-            }
-            else {
-                var_val_str = REALLOC_ARR(var_val_str, char, var_val_len + 1 + 1);
-                state_str = REALLOC_ARR(state_str, char, strlen(state_str) + strlen(var_val_str) + 1);
-                sprintf(var_val_str, "-%d", state[index]);
-                strcat(state_str, var_val_str);
-            }
-            if (index >= 50) {
-                // prevent exeeding max filename length
-                state_str = REALLOC_ARR(state_str, char, strlen(state_str) + 6 + 1);
-                strcat(state_str, "-trunc");
-                break;
+        if (save_msgs) {
+            // to save plan for original problem initial state separate, with msgs info appended
+            state_str = ALLOC_ARR(char, 8 + 1);
+            sprintf(state_str, "-initial");
+        }
+        else{
+            int var_val_len = 0;
+            char *var_val_str = NULL;
+            for (int index = 0; index < _fdr->var.var_size; index++) {
+                var_val_len = (state[index] == 0 ? 1 : (int)(log10(state[index])+1));
+                if (state_str == NULL) {
+                    state_str = ALLOC_ARR(char, var_val_len + 1 + 1);
+                    sprintf(state_str, "-%d", state[index]);
+                }
+                else {
+                    var_val_str = REALLOC_ARR(var_val_str, char, var_val_len + 1 + 1);
+                    state_str = REALLOC_ARR(state_str, char, strlen(state_str) + strlen(var_val_str) + 1);
+                    sprintf(var_val_str, "-%d", state[index]);
+                    strcat(state_str, var_val_str);
+                }
+                if (index >= 50) {
+                    // prevent exeeding max filename length
+                    // some files may be overwritten in this case
+                    state_str = REALLOC_ARR(state_str, char, strlen(state_str) + 6 + 1);
+                    strcat(state_str, "-trunc");
+                    break;
+                }
             }
         }
+        
 
         sas_filename = ALLOC_ARR(char, strlen(fd_cfg->saved_files_path) + strlen(fd_cfg->sas_file_prefix) + strlen(state_str) + id_length + 4 + 1);
         sprintf(sas_filename, "%s/%sp%d_s%s", fd_cfg->saved_files_path, fd_cfg->sas_file_prefix, ground_task_id, state_str);
@@ -519,6 +528,15 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                 val = strtol(val_str + 15, NULL, 10);
                 LOG(err, "msgs val is: %d\n", val);
                 pddlASNetsTrainDataMSGSAdd(td, ground_task_id, val);
+                // append msgs info to plan file
+                FILE *fa = fopen(plan_filename, "a");
+                if (fa == NULL)
+                {
+                    fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
+                    return -1;
+                }
+                fprintf(fa, "\nMSGS achieved by FD: %d", val);
+                fclose(fa);
             }
             pddlIArrFree(&plan_ops);
             FREE(str);

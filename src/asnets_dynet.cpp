@@ -2418,7 +2418,8 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
         if (write_plans)
         {
             char fn[512];
-            snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name, task->pddl.problem_name);
+            // snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name, task->pddl.problem_name);
+            snprintf(fn, 511, "%s--%s--p%d.plan", task->pddl.domain_name, task->pddl.problem_name, task_id);
             FILE *fout = fopen(fn, "w");
             if (fout != NULL)
             {
