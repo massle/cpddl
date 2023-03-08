@@ -287,6 +287,19 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
             cfg->early_termination_epochs);
 }
 
+void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d)
+{
+    ZEROIZE(d);
+}
+
+void pddlASNetsPolicyDistributionFree(pddl_asnets_policy_distribution_t *d)
+{
+    if (d->op_id != NULL)
+        FREE(d->op_id);
+    if (d->prob != NULL)
+        FREE(d->prob);
+}
+
 static dynet::Expression poolMax(const std::vector<dynet::Expression> &in)
 {
     if (in.size() == 1)
@@ -808,7 +821,8 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
                      const ModelParameters &params,
                      dynet::ComputationGraph &cg,
                      const int *in_state,
-                     int *out_state)
+                     int *out_state,
+                     pddl_asnets_policy_distribution_t *distr)
 {
     std::vector<float> state;
     std::vector<float> goal;
@@ -843,6 +857,20 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
         if (out[op_id] > best_value){
             best_op_id = op_id;
             best_value = out[op_id];
+        }
+
+        if (distr != NULL){
+            if (distr->op_size == distr->op_alloc){
+                if (distr->op_alloc == 0)
+                    distr->op_alloc = 4;
+                distr->op_alloc *= 2;
+                distr->op_id = REALLOC_ARR(distr->op_id, int, distr->op_alloc);
+                distr->prob = REALLOC_ARR(distr->prob, float, distr->op_alloc);
+            }
+
+            distr->op_id[distr->op_size] = op_id;
+            distr->prob[distr->op_size] = out[op_id];
+            ++distr->op_size;
         }
     }
 
@@ -996,7 +1024,7 @@ static int policyRollout(pddl_asnets_t *a,
 
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
-        int op_id = runPolicy(task, *a->params, *a->cg, state, state2);
+        int op_id = runPolicy(task, *a->params, *a->cg, state, state2, NULL);
         if (op_id < 0){
             break;
         }
@@ -1811,7 +1839,16 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         const int *in_state,
                         int *out_state)
 {
-    return runPolicy(task, *a->params, *a->cg, in_state, out_state);
+    return runPolicy(task, *a->params, *a->cg, in_state, out_state, NULL);
+}
+
+int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
+                                 const pddl_asnets_ground_task_t *task,
+                                 const int *in_state,
+                                 pddl_asnets_policy_distribution_t *distr)
+{
+    runPolicy(task, *a->params, *a->cg, in_state, NULL, distr);
+    return 0;
 }
 
 int pddlASNetsSolveTask(pddl_asnets_t *a,
