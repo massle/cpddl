@@ -76,6 +76,9 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
 int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
                                  const char *filename,
                                  pddl_err_t *err);
+int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
+                                  const char *filename,
+                                  pddl_err_t *err);
 void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);

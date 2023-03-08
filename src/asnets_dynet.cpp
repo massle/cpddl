@@ -1593,6 +1593,35 @@ static int sqlSelectWeights(pddl_sqlite3 *db,
     return 0;
 }
 
+int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
+                                  const char *fn,
+                                  pddl_err_t *err)
+{
+    // TODO: Refactor with pddlASNetsLoad() and decouple from Info
+    pddl_sqlite3 *db;
+    int flags = SQLITE_OPEN_READONLY;
+    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+
+    Info info;
+    if (info.load(db, err) != 0){
+        pddl_sqlite3_close_v2(db);
+        TRACE_RET(err, -1);
+    }
+
+    *cfg = info.cfg;
+
+    ret = pddl_sqlite3_close_v2(db);
+    if (ret != SQLITE_OK){
+        ERR_RET(err, -1, "Sqlite Error: %s: %s",
+                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
+    }
+    return 0;
+}
+
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
     CTX(err, "asnets_save", "ASNets-Save");
