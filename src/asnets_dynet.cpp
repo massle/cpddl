@@ -2151,7 +2151,7 @@ static int trainExploration(pddl_asnets_t *a,
         pddlFDRStatePoolGet(&states, state_id, state);
         int ret;
 
-        LOG(err, "before the switch case - cfg.trainer is: %d", a->cfg.trainer);
+        // LOG(err, "before the switch case - cfg.trainer is: %d", a->cfg.trainer);
         switch (a->cfg.trainer)
         {
         case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
@@ -2202,6 +2202,7 @@ static float overallLoss(pddl_asnets_t *a,
 static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_err_t *err)
 {
     int num_solved = 0;
+    int num_msgs_unknown = 0; // used for osp tasks
     for (int task_id = 0; task_id < a->ground_task_size; ++task_id)
     {
         const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
@@ -2212,7 +2213,11 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
             pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
             policyRollout(a, task, &states, NULL, &softgoals_result, err);
             int max_msgs_teacher = pddlASNetsTrainDataMSGSGet(td, task_id);
-            if (max_msgs_teacher >= 0 && softgoals_result.max_softgoals_achieved == max_msgs_teacher) { // compare with msgs size from FD
+            if (max_msgs_teacher < 0) {
+                // MSGS unknown
+                num_msgs_unknown += 1;
+            }
+            else if (softgoals_result.max_softgoals_achieved >= max_msgs_teacher) { // compare with msgs size from FD
                num_solved += 1; 
             }
         }
@@ -2224,7 +2229,7 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
         pddlFDRStatePoolFree(&states);
     }
 
-    return num_solved / (float)a->ground_task_size;
+    return num_solved / (float)(a->ground_task_size - num_msgs_unknown);
 }
 
 static int trainEpoch(pddl_asnets_t *a,

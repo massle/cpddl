@@ -503,17 +503,17 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                 {
                     break;
                 }
-                LOG(err, "val_str is: %s", val_str);
+                // LOG(err, "val_str is: %s", val_str);
                 if (val_str[0] == '(')
                 {
                     val = strtol(val_str + 4, NULL, 10); 
-                    LOG(err, "op_id val is: %d", val);
+                    // LOG(err, "op_id val is: %d", val);
                     pddlIArrAdd(&plan_ops, val);
                 }
                 else if (val_str[0] == ';')
                 {
                     val = strtol(val_str + 9, NULL, 10); 
-                    LOG(err, "cost val is: %d", val);
+                    // LOG(err, "cost val is: %d", val);
                     plan_size = val;
                     break; // remaining info irrelevant
                 }
@@ -526,7 +526,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                 // capture msgs value form solbuf and add to task_msgs
                 val_str = strstr(solbuf, "#solved goals:");
                 val = strtol(val_str + 15, NULL, 10);
-                LOG(err, "msgs val is: %d\n", val);
+                // LOG(err, "msgs val is: %d\n", val);
                 pddlASNetsTrainDataMSGSAdd(td, ground_task_id, val);
                 // append msgs info to plan file
                 FILE *fa = fopen(plan_filename, "a");
