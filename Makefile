@@ -202,7 +202,7 @@ bin: libpddl.a
 
 libpddl.a: $(OBJS) Makefile pddl/version.h
 	echo "#include \"pddl/version.h\"" >_version.c
-	echo "const char *pddl_build_version = \"$(shell git rev-parse HEAD)\";" >>_version.c
+	echo "const char *pddl_build_commit = \"$(shell git rev-parse HEAD)\";" >>_version.c
 	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>_version.c
 	$(CC) -I. -c -o .objs/_version.o _version.c
 	rm -f _version.c
