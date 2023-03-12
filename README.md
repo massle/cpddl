@@ -78,6 +78,12 @@ The inference of **lifted fact-alternating mutex groups**
 Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical
 Planning Problems, AAAI 2020
 
+Pruning of unreachable and dead-end operators on the PDDL level
+(``pddl/compile_in_lifted_mgroup.h``) is described in
+- Daniel Fišer.
+Operator Pruning using Lifted Mutex Groups via Compilation on Lifted Level,
+ICAPS 2023
+
 **Operator mutexes** (``pddl/op_mutex*.h``) are described in
  - Daniel Fišer, Álvaro Torralba, Alexander Shleyfman.
 Operator Mutexes and Symmetries for Simplifying Planning Tasks,
