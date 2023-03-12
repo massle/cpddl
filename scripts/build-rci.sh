@@ -23,7 +23,7 @@ NCPUS=8
 CPLEX_ROOT=/home/fiserdan/cplex/v22.1.0
 #CPLEX_ROOT=/home/fiserdan/cplex/v12.10
 
-cat >Makefile.local <<EOF
+cat >Makefile.config <<EOF
 CC = clang
 CXX = clang++
 CFLAGS = -march=native

@@ -16,7 +16,7 @@ rsync -av $HOME_ROOT/ $ROOT/
 CPLEX_LIBDIR=/software/cplex/12.8.0/cplex/lib/x86-64_linux/static_pic
 CPLEX_INCDIR=/software/cplex/12.8.0/cplex/include/
 cd $ROOT
-cat >Makefile.local <<EOF
+cat >Makefile.config <<EOF
 CFLAGS = -march=native
 CPLEX_CFLAGS = -I$CPLEX_INCDIR
 CPLEX_LDFLAGS = -L$CPLEX_LIBDIR -lcplex -ldl

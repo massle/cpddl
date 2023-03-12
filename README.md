@@ -44,8 +44,8 @@ copies in ``third-party/`` directory. It also tries to automatically find
 [GLPK](https://www.gnu.org/software/glpk/) and
 [minizinc](https://www.minizinc.org/) installed on your system.
 
-You can change default configuration by adding ``Makefile.local`` file
-containing the new configuration (see ``Makefile.local.tpl``):
+You can change default configuration by adding ``Makefile.config`` file
+containing the new configuration (see ``Makefile.config.tpl``):
  - The easiest way to integrate CPLEX is to install
  [IBM ILOG CPLEX Optimization Studio](https://www.ibm.com/products/ilog-cplex-optimization-studio)
  and set the variable ``IBM_CPLEX_ROOT`` to the top installation directory

@@ -32,11 +32,11 @@ fi
 
 MAKE="
     cd /cpddl
-    rm -f Makefile.local
-    [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.local
+    rm -f Makefile.config
+    [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
     [ -f /usr/bin/clang ] \\
-        && echo \"CC = clang\" >>Makefile.local \\
-        && echo \"CXX = clang++\" >>Makefile.local
+        && echo \"CC = clang\" >>Makefile.config \\
+        && echo \"CXX = clang++\" >>Makefile.config
     make help
     make mrproper
     make -j8 third-party

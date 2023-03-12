@@ -8,7 +8,7 @@
 *_pb2.py
 config.h
 fd-*
-Makefile.local
+Makefile.config
 src/ma_msg.pb.*
 __pycache__
 *.pyc

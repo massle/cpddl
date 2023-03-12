@@ -29,7 +29,7 @@ function gen_make(){
     while [ "$1" != "" ]; do
         if [ "$1" = "cplex" ]; then
             m="
-RUN cd /cpddl && echo \"IBM_CPLEX_ROOT = /cpddl/.cplex\" >>Makefile.local
+RUN cd /cpddl && echo \"IBM_CPLEX_ROOT = /cpddl/.cplex\" >>Makefile.config
 $m
 "
         elif [ "$1" = "third-party" ]; then
@@ -38,8 +38,8 @@ RUN cd /cpddl && make -j8 third-party
 "
         elif [ "$1" = "clang" ]; then
             m="
-RUN cd /cpddl && echo \"CC = clang\" >>Makefile.local
-RUN cd /cpddl && echo \"CXX = clang++\" >>Makefile.local
+RUN cd /cpddl && echo \"CC = clang\" >>Makefile.config
+RUN cd /cpddl && echo \"CXX = clang++\" >>Makefile.config
 $m
 "
 
@@ -51,12 +51,12 @@ $m
     done
 
     pre="
-RUN cd /cpddl && rm -f Makefile.local && make mrproper && make help
+RUN cd /cpddl && rm -f Makefile.config && make mrproper && make help
 "
     if [ "$werror" != "no" ]; then
         pre="
 $pre
-RUN cd /cpddl && echo \"WERROR = yes\" >Makefile.local
+RUN cd /cpddl && echo \"WERROR = yes\" >Makefile.config
 "
     fi
     m="$pre
