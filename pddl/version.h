@@ -7,7 +7,7 @@
 #ifndef __PDDL_VERSION_H__
 #define __PDDL_VERSION_H__
 
-#define PDDL_VERSION_MAJOR 0
+#define PDDL_VERSION_MAJOR 1
 #define PDDL_VERSION_MINOR 0
 
 
