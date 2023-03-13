@@ -12,6 +12,7 @@
 #include "pddl/asnets_train_data.h"
 #include "pddl/sha256.h"
 #include "pddl/pddl_file.h"
+#include "pddl/subprocess.h"
 
 #ifdef PDDL_DYNET
 #include <dynet/dynet.h>
@@ -121,7 +122,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
     switch (cfg->trainer){
-        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+        case PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT:
             LOG(err, "trainer = astar-lmcut");
             break;
         case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
@@ -152,7 +153,7 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->teacher_timeout = 10.f;
     cfg->early_termination_success_rate = 0.999;
     cfg->early_termination_epochs = 20;
-    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT; // default value, will be overwritten by config file if present
+    cfg->trainer = PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT; // default value, will be overwritten by config file if present
     cfg->fd_config = NULL;
     cfg->save_model_prefix = NULL;
 }
@@ -323,7 +324,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             ERR_RET(err, -1, "trainer must be int");
         }
         if (d.u.i == 0){
-            cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+            cfg->trainer = PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT;
         }
         else if (d.u.i == 1){
             cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
@@ -1206,7 +1207,7 @@ static int policyRollout(pddl_asnets_t *a,
             if (softgoals_num > softgoals_result->max_softgoals_achieved)
             {
                 softgoals_result->max_softgoals_achieved = softgoals_num;
-                softgoals_result->max_softgoals_policy_steps = step;
+                softgoals_result->max_softgoals_plan_steps = step;
             }
         }
         // TO-DO: adapt when extending to OSP with both hard goals and soft goals
@@ -2154,7 +2155,7 @@ static int trainExploration(pddl_asnets_t *a,
         // LOG(err, "before the switch case - cfg.trainer is: %d", a->cfg.trainer);
         switch (a->cfg.trainer)
         {
-        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+        case PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT:
             ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
                                                        state, &task->fdr,
                                                        a->cfg.teacher_timeout,
@@ -2398,28 +2399,26 @@ void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
              num_solved, num_tasks);
 }
 
-void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
+void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trainer, pddl_err_t *err)
 {
     int num_allgoals_solved = 0; // TO-DO: as of now, all goals are soft goals in OSP
                                  // adapt as required when extending to both hard goals and soft goals
+    int total_softgoals = 0; // total softgoals over all tasks
+    int total_achieved_softgoals = 0; // total softgoals achieved by policy over all tasks
+    int total_benchmark_msgs = 0; // total softgoals achieved by trainer planner over all tasks
+    int num_benchmark_tle = 0; // number of tasks where trainer planner timed out
+    int total_achieved_softgoals_not_tle = 0; // total softgoals achieved by policy over tasks where trainer planner did not time out
+    int num_achieved_msgs = 0; // number of tasks where policy reached benchamrk msgs
+
     int num_tasks = pddlASNetsNumGroundTasks(a);
     for (int task_id = 0; task_id < num_tasks; ++task_id)
     {
         const pddl_asnets_ground_task_t *task;
         task = pddlASNetsGetGroundTask(a, task_id);
         PDDL_IARR(plan);
-        pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
-        int allgoals_solved = pddlASNetsSolveTask(a, task, &plan, &softgoals_result, err); // TO-DO: as of now, all goals are soft goals in OSP
+        pddl_asnets_softgoals_result_t achieved_softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
+        int allgoals_solved = pddlASNetsSolveTask(a, task, &plan, &achieved_softgoals_result, err); // TO-DO: as of now, all goals are soft goals in OSP
                                                                                            // adapt as required when extending to both hard goals and soft goals
-        PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s result -"
-                      " all goals solved: %{eval_solved}b, total softgoals: %{eval_total_soft}d, max softgoals solved: %{eval_max_soft}d, steps taken for max softgoals: %{eval_max_soft_steps}d, total policy steps: %{eval_total_steps}d",
-                 task->pddl.domain_lisp->filename,
-                 task->pddl.problem_lisp->filename,
-                 allgoals_solved,
-                 softgoals_result.total_softgoals,
-                 softgoals_result.max_softgoals_achieved,
-                 softgoals_result.max_softgoals_policy_steps,
-                 softgoals_result.total_policy_steps);
         if (write_plans)
         {
             char fn[512];
@@ -2428,11 +2427,11 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
             FILE *fout = fopen(fn, "w");
             if (fout != NULL)
             {
-                fprintf(fout, "total softgoals: %d\n", softgoals_result.total_softgoals);
-                fprintf(fout, "max softgoals achieved: %d\n", softgoals_result.max_softgoals_achieved);
-                fprintf(fout, "max softgoals achieved in number of policy steps: %d\n", softgoals_result.max_softgoals_policy_steps);
+                fprintf(fout, "total softgoals: %d\n", achieved_softgoals_result.total_softgoals);
+                fprintf(fout, "max softgoals achieved: %d\n", achieved_softgoals_result.max_softgoals_achieved);
+                fprintf(fout, "max softgoals achieved in number of policy steps: %d\n", achieved_softgoals_result.max_softgoals_plan_steps);
                 int op_id;
-                for (int index = 0; index < softgoals_result.max_softgoals_policy_steps; index++)
+                for (int index = 0; index < achieved_softgoals_result.max_softgoals_plan_steps; index++)
                 {
                     op_id = pddlIArrGet(&plan, index);
                     fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
@@ -2444,17 +2443,150 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
                 PDDL_LOG(err, "Could not open file %s", fn);
             }
         }
+        pddlIArrFree(&plan);
+
+        // compute aggregate metrics and benchmarks
         if (allgoals_solved)
         {
             ++num_allgoals_solved;
         }
-        // TO-DO: compute some aggregate metric for osp if needed
-        pddlIArrFree(&plan);
+        total_softgoals += achieved_softgoals_result.total_softgoals; 
+        total_achieved_softgoals += achieved_softgoals_result.max_softgoals_achieved;
+        if(benchmark_trainer)
+        {
+            pddl_asnets_softgoals_result_t msgs_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
+            if (pddlASNetsBenchmarkTask(&a->cfg, task->pddl.domain_lisp->filename, task->pddl.problem_lisp->filename, &msgs_result, err) == 1)
+            {
+                if (msgs_result.max_softgoals_achieved >= 0) {
+                    total_benchmark_msgs += msgs_result.max_softgoals_achieved;
+                    total_achieved_softgoals_not_tle += achieved_softgoals_result.max_softgoals_achieved;
+                    if (achieved_softgoals_result.max_softgoals_achieved >= msgs_result.max_softgoals_achieved)
+                        ++num_achieved_msgs;
+                    
+                    PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s, Benchmark results - \n"
+                                  " max softgoals solved: %{eval_max_soft}d,\n steps taken for max softgoals: %{eval_max_soft_steps}d\n",
+                             task->pddl.domain_lisp->filename,
+                             task->pddl.problem_lisp->filename,
+                             msgs_result.max_softgoals_achieved,
+                             msgs_result.max_softgoals_plan_steps);
+                }
+                else { // case timed out or unknown error
+                    ++num_benchmark_tle;
+                    PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s, Benchmark results - Time Limit Exceeded\n",
+                             task->pddl.domain_lisp->filename,
+                             task->pddl.problem_lisp->filename);
+                }
+            }
+        } 
+        PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s, Policy result - \n"
+                      " all goals solved: %{eval_solved}b,\n total softgoals: %{eval_total_soft}d,\n max softgoals solved: %{eval_max_soft}d,\n steps taken for max softgoals: %{eval_max_soft_steps}d,\n total policy steps: %{eval_total_steps}d\n",
+                 task->pddl.domain_lisp->filename,
+                 task->pddl.problem_lisp->filename,
+                 allgoals_solved,
+                 achieved_softgoals_result.total_softgoals,
+                 achieved_softgoals_result.max_softgoals_achieved,
+                 achieved_softgoals_result.max_softgoals_plan_steps,
+                 achieved_softgoals_result.total_policy_steps);
     }
-    PDDL_LOG(err, "Solved all goals for %{eval_num_solved}d out of"
-                  " %{eval_num_tasks}d tasks",
+    PDDL_LOG(err, "Aggregate Results: ");
+    PDDL_LOG(err, "Solved all goals for %{eval_num_solved}d out of %{eval_num_tasks}d tasks.",
              num_allgoals_solved, num_tasks);
-    // TO-DO: report aggregate metric for osp
+    PDDL_LOG(err, "Achieved a total of %{eval_num_achieved}d soft goals out of %{eval_num_total}d soft goals over all tasks.",
+             total_achieved_softgoals, total_softgoals);
+    PDDL_LOG(err, "Fraction of soft goals achieved over total soft goals: %{eval_rate_total}.3f",
+             total_achieved_softgoals/ (float) total_softgoals);
+    if (benchmark_trainer && total_benchmark_msgs > 0) {
+        PDDL_LOG(err, "Fraction of soft goals achieved over successful benchmark MSGS: %{eval_rate_benchmark}.3f",
+                 total_achieved_softgoals_not_tle/ (float) total_benchmark_msgs);
+        PDDL_LOG(err, "Number of tasks that achieved MSGS: %{eval_num_msgs_achieved}d", num_achieved_msgs);
+        PDDL_LOG(err, "Fraction of soft goals achieved over benchmark MSGS incl. time limit exceeded: %{eval_rate_benchamrk_tle}.3f",
+                 total_achieved_softgoals/ (float) total_benchmark_msgs);
+        PDDL_LOG(err, "Number of benchmark time limit exceeded: %{eval_num_benchmark_tle}d", num_benchmark_tle);
+    }
+}
+
+int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err){
+ 
+    if (a_config->trainer == PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT) {
+         /* TO-DO: call cpddl search and save results  */
+        return -1;
+    }
+    else if (a_config->trainer == PDDL_ASNETS_TRAINER_FAST_DOWNWARD) {
+        // execute fast-downward with domain and problem pddl files
+        // save results to msgs_result
+        if (msgs_result == NULL) {
+            /* TO-DO: handle this case later*/
+            return -1;
+        }
+        char *search_arg = PDDL_STRDUP("astar(lmcut())");
+        if (a_config->is_osp_problem)
+        {
+            search_arg = PDDL_STRDUP("osp_dfs(u_eval=mugs_hmax(all_softgoals=true))");
+        }
+        char *argv[] = {
+            a_config->fd_config->fd_interpreter,
+            a_config->fd_config->fd_executable_path,
+            PDDL_STRDUP("--build"),
+            PDDL_STRDUP("release64"),
+            domain_filename,
+            problem_filename,
+            PDDL_STRDUP("--search"),
+            search_arg, 
+            NULL
+        };
+        pddl_exec_status_t status;
+        char *solbuf = NULL;
+        int solbuf_size = 0;
+        int execret = pddlExecvpLimits(argv, &status, NULL, 0,
+                                    &solbuf, &solbuf_size, NULL, NULL, a_config->teacher_timeout, -1, err);
+        ASSERT_RUNTIME(execret == 0);
+        if (status.exited == 1)
+        {
+            // use exit_status_code to identify if plan found, plan not found or search timed out internally.
+            switch (status.exit_status)
+            { 
+            case 0: // case SUCCESS:
+            case 1: // case SEARCH_PLAN_FOUND_AND_OUT_OF_MEMORY
+            case 2: // case SEARCH_PLAN_FOUND_AND_OUT_OF_TIME
+            case 3: // case SEARCH_PLAN_FOUND_AND_OUT_OF_MEMORY_AND_TIME
+                    // capture msgs value form solbuf 
+                    char *str;
+                    str = strstr(solbuf, "#solved goals:");
+                    if (str != NULL)
+                        msgs_result->max_softgoals_achieved = strtol(str + 15, NULL, 10);
+                    str = strstr(solbuf, "Plan length:");
+                    if (str != NULL)
+                        msgs_result->max_softgoals_plan_steps = strtol(str + 13, NULL, 10);
+                break;
+
+            case 11: // case SEARCH_UNSOLVABLE:
+            case 12: // case SEARCH_UNSOLVABLE_INCOMPLETE:
+                msgs_result->max_softgoals_achieved = 0;
+                msgs_result->max_softgoals_plan_steps = 0;
+                break;
+
+            case 23: // case SEARCH_OUT_OF_TIME:
+            case 24: // case SEARCH_OUT_OF_MEMORY_AND_TIME:
+                msgs_result->max_softgoals_achieved = -1;
+                msgs_result->max_softgoals_plan_steps = -1;
+                break;
+
+            default:
+                LOG(err, "unexpected search exit code from fast downward");
+                msgs_result->max_softgoals_achieved = -1;
+                msgs_result->max_softgoals_plan_steps = -1;
+                break;
+            }
+        }
+        // check if subprocess killed because of TLE 
+        else if (status.signaled == 1) {
+            msgs_result->max_softgoals_achieved = -1;
+            msgs_result->max_softgoals_plan_steps = -1;
+        }
+        FREE(solbuf);
+        return 1;
+    }
+    return 0;
 }
 
 #else /* PDDL_DYNET */
@@ -2530,7 +2662,13 @@ void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
     return -1;
 }
 
-void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
+void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trainer, pddl_err_t *err)
+{
+    PANIC("This module requires dynet library.");
+    return -1;
+}
+
+int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err)
 {
     PANIC("This module requires dynet library.");
     return -1;

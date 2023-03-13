@@ -17,7 +17,7 @@ extern "C" {
 typedef struct pddl_asnets pddl_asnets_t;
 
 enum pddl_asnets_trainer {
-    PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
+    PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT = 0,
     PDDL_ASNETS_TRAINER_FAST_DOWNWARD,
 };
 typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
@@ -130,9 +130,10 @@ struct pddl_asnets_softgoals_result {
     int total_softgoals;
     /** Max Number of Soft Goals Achieved */
     int max_softgoals_achieved;
-    /** Number of Policy Rollout Steps in which Max Soft Goals Achieved */
-    int max_softgoals_policy_steps;
-    /** Total Number of Policy Steps Attempted */
+    /** Length of Plan achieveing MSGS*/
+    /** i.e, Number of Rollout Steps in which MSGS Achieved when using Policy*/
+    int max_softgoals_plan_steps;
+    /** Total Number of Steps Attempted when using Policy*/
     int total_policy_steps;
 };
 typedef struct pddl_asnets_softgoals_result pddl_asnets_softgoals_result_t;
@@ -216,7 +217,12 @@ void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
 /**
  * Evaluate ASNets for test problems given in configuration for OSP problems.
  */
-void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
+void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trainer, pddl_err_t *err);
+
+/**
+ * Find benchmarks using trainer planner to compare ASNets with.
+ */
+int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err);
 
 #ifdef __cplusplus
 }

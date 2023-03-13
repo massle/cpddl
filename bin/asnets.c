@@ -13,6 +13,7 @@ static struct {
     char *train_save_prefix;
     char *eval;
     int eval_write_plans;
+    int eval_benchmark_trainer;
     char *info;
     char *gen;
 } opt;
@@ -50,6 +51,8 @@ static int parseOpts(int argc, char *argv[])
                "Evaluate model stored in the specified file.");
     optsAddFlag("eval-write-plans", 0x0, &opt.eval_write_plans, 0,
                 "Write plans to files based on domain and problem names.");
+    optsAddFlag("eval-benchmark-trainer", 0x0, &opt.eval_benchmark_trainer, 0,
+                "Use solution found by trainer planner as benchamrk.");
     optsAddStr("info", 'i', &opt.info, NULL,
                "Print info about the stored model.");
     optsAddStr("gen", 'g', &opt.gen, NULL,
@@ -194,7 +197,7 @@ int main(int argc, char *argv[])
             break;
 
         case 1:
-            pddlASNetsEvaluateOSP(asnets, opt.eval_write_plans, &err);
+            pddlASNetsEvaluateOSP(asnets, opt.eval_write_plans, opt.eval_benchmark_trainer, &err);
             break;
         
         default:
