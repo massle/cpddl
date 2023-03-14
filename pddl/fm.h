@@ -264,6 +264,11 @@ void pddlFmRebuild(pddl_fm_t **c,
                    void *userdata);
 
 /**
+ * Returns number of atoms appearing in the formula.
+ */
+int pddlFmNumAtoms(const pddl_fm_t *fm);
+
+/**
  * When first (when ...) node, that has non-static preconditions, is found,
  * it is removed and returned.
  * If no (when ...) is found, NULL is returned.

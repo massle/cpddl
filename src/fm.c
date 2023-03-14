@@ -1289,6 +1289,22 @@ void pddlFmRebuild(pddl_fm_t **c,
     fmRebuild(c, pre, post, u);
 }
 
+static int _countAtoms(pddl_fm_t *fm, void *u)
+{
+    if (pddlFmIsAtom(fm)){
+        int *num = u;
+        *num += 1;
+    }
+    return 0;
+}
+
+int pddlFmNumAtoms(const pddl_fm_t *fm)
+{
+    int num = 0;
+    pddlFmTraverse((pddl_fm_t *)fm, _countAtoms, NULL, (void *)&num);
+    return num;
+}
+
 struct test_static {
     const pddl_t *pddl;
     int ret;

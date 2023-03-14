@@ -121,7 +121,7 @@ void pddlDel(pddl_t *pddl);
 /**
  * Normalize pddl, i.e., make preconditions and effects CNF
  */
-void pddlNormalize(pddl_t *pddl);
+void pddlNormalize(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Generate pddl without conditional effects.
