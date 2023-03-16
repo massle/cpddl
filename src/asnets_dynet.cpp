@@ -172,7 +172,7 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
     }
 
     if (src->fd_config != NULL) {
-        dst->fd_config = new pddl_fd_config_t(); // replace with ZALLOC(pddl_fd_config_t) ??
+        dst->fd_config = ZALLOC(pddl_fd_config_t); // TO-DO clarify new vs ZALLOC
         pddlFDConfigCopy(dst->fd_config, src->fd_config);
     }
 }
@@ -336,8 +336,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     }
 
     if (cfg->trainer == 1) {
-        cfg->fd_config = new pddl_fd_config_t(); // TODO - replace with zalloc??
-                                                 // cfg->fd_config = ZALLOC(pddl_fd_config_t);
+        cfg->fd_config = ZALLOC(pddl_fd_config_t); // TO-DO - clarify new vs ZALLOC
         pddlFDConfigInit(cfg->fd_config);
         pddl_toml_table_t *f = pddl_toml_table_in(top, "fast_downward");
         if (f == NULL){
@@ -2229,7 +2228,9 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
         }
         pddlFDRStatePoolFree(&states);
     }
-
+    if (a->ground_task_size == num_msgs_unknown) { // handle case msgs unknown for all tasks to avoid divide by zero
+        return 0.f;
+    }
     return num_solved / (float)(a->ground_task_size - num_msgs_unknown);
 }
 
@@ -2418,7 +2419,7 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
         PDDL_IARR(plan);
         pddl_asnets_softgoals_result_t achieved_softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
         int allgoals_solved = pddlASNetsSolveTask(a, task, &plan, &achieved_softgoals_result, err); // TO-DO: as of now, all goals are soft goals in OSP
-                                                                                           // adapt as required when extending to both hard goals and soft goals
+                                                                                                    // adapt as required when extending to both hard goals and soft goals
         if (write_plans)
         {
             char fn[512];
@@ -2455,7 +2456,7 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
         if(benchmark_trainer)
         {
             pddl_asnets_softgoals_result_t msgs_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
-            if (pddlASNetsBenchmarkTask(&a->cfg, task->pddl.domain_lisp->filename, task->pddl.problem_lisp->filename, &msgs_result, err) == 1)
+            if (pddlASNetsBenchmarkTrainer(&a->cfg, task->pddl.domain_lisp->filename, task->pddl.problem_lisp->filename, &msgs_result, err) == 0)
             {
                 if (msgs_result.max_softgoals_achieved >= 0) {
                     total_benchmark_msgs += msgs_result.max_softgoals_achieved;
@@ -2495,17 +2496,20 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
              total_achieved_softgoals, total_softgoals);
     PDDL_LOG(err, "Fraction of soft goals achieved over total soft goals: %{eval_rate_total}.3f",
              total_achieved_softgoals/ (float) total_softgoals);
-    if (benchmark_trainer && total_benchmark_msgs > 0) {
-        PDDL_LOG(err, "Fraction of soft goals achieved over successful benchmark MSGS: %{eval_rate_benchmark}.3f",
-                 total_achieved_softgoals_not_tle/ (float) total_benchmark_msgs);
-        PDDL_LOG(err, "Number of tasks that achieved MSGS: %{eval_num_msgs_achieved}d", num_achieved_msgs);
-        PDDL_LOG(err, "Fraction of soft goals achieved over benchmark MSGS incl. time limit exceeded: %{eval_rate_benchamrk_tle}.3f",
-                 total_achieved_softgoals/ (float) total_benchmark_msgs);
-        PDDL_LOG(err, "Number of benchmark time limit exceeded: %{eval_num_benchmark_tle}d", num_benchmark_tle);
+    if (benchmark_trainer) {
+        PDDL_LOG(err, "Total Benchamrk MSGS: %{eval_benchmark_msgs}d", total_benchmark_msgs);
+        if (total_benchmark_msgs > 0) {
+            PDDL_LOG(err, "Fraction of soft goals achieved over successful benchmark MSGS: %{eval_rate_benchmark}.3f",
+                     total_achieved_softgoals_not_tle/ (float) total_benchmark_msgs);
+            PDDL_LOG(err, "Number of tasks that achieved MSGS: %{eval_num_msgs_achieved}d", num_achieved_msgs);
+            PDDL_LOG(err, "Fraction of soft goals achieved over benchmark MSGS incl. time limit exceeded: %{eval_rate_benchamrk_tle}.3f",
+                     total_achieved_softgoals/ (float) total_benchmark_msgs);
+            PDDL_LOG(err, "Number of benchmark time limit exceeded: %{eval_num_benchmark_tle}d", num_benchmark_tle);
+        }
     }
 }
 
-int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err){
+int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err){
  
     if (a_config->trainer == PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT) {
          /* TO-DO: call cpddl search and save results  */
@@ -2549,14 +2553,16 @@ int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filenam
             case 1: // case SEARCH_PLAN_FOUND_AND_OUT_OF_MEMORY
             case 2: // case SEARCH_PLAN_FOUND_AND_OUT_OF_TIME
             case 3: // case SEARCH_PLAN_FOUND_AND_OUT_OF_MEMORY_AND_TIME
-                    // capture msgs value form solbuf 
-                    char *str;
+                // capture msgs value form solbuf 
+                {   
+                    char *str = NULL;
                     str = strstr(solbuf, "#solved goals:");
                     if (str != NULL)
                         msgs_result->max_softgoals_achieved = strtol(str + 15, NULL, 10);
                     str = strstr(solbuf, "Plan length:");
                     if (str != NULL)
                         msgs_result->max_softgoals_plan_steps = strtol(str + 13, NULL, 10);
+                }
                 break;
 
             case 11: // case SEARCH_UNSOLVABLE:
@@ -2583,8 +2589,12 @@ int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filenam
             msgs_result->max_softgoals_achieved = -1;
             msgs_result->max_softgoals_plan_steps = -1;
         }
-        FREE(solbuf);
-        return 1;
+        // TO-DO: should solbuf be FREEed or not? Is it heap memory or not?
+        // if(solbuf != NULL)
+        //     FREE(solbuf);
+        // TO-DO: should search_arg be FREEed?
+        // if (search_arg != NULL)
+        //     FREE(search_arg);
     }
     return 0;
 }
@@ -2668,7 +2678,7 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
     return -1;
 }
 
-int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err)
+int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err)
 {
     PANIC("This module requires dynet library.");
     return -1;

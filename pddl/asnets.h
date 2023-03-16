@@ -222,7 +222,7 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
 /**
  * Find benchmarks using trainer planner to compare ASNets with.
  */
-int pddlASNetsBenchmarkTask(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err);
+int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err);
 
 #ifdef __cplusplus
 }
