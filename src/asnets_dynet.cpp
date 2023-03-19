@@ -2523,7 +2523,10 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
         {
             pddl_asnets_softgoals_result_t msgs_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
             if (pddlASNetsBenchmarkTrainer(&a->cfg, task->pddl.domain_lisp->filename, task->pddl.problem_lisp->filename, &msgs_result, err) == 0)
-            {
+            {   
+                if (msgs_result.max_softgoals_achieved == -2) {
+                    msgs_result.max_softgoals_achieved = achieved_softgoals_result.total_softgoals;
+                }
                 if (msgs_result.max_softgoals_achieved >= 0) {
                     total_benchmark_msgs += msgs_result.max_softgoals_achieved;
                     total_achieved_softgoals_not_tle += achieved_softgoals_result.max_softgoals_achieved;
@@ -2625,6 +2628,8 @@ int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_file
                     str = strstr(solbuf, "#solved goals:");
                     if (str != NULL)
                         msgs_result->max_softgoals_achieved = strtol(str + 15, NULL, 10);
+                    else 
+                        msgs_result->max_softgoals_achieved = -2; // hack to handle case where all softgoals achieved
                     str = strstr(solbuf, "Plan length:");
                     if (str != NULL)
                         msgs_result->max_softgoals_plan_steps = strtol(str + 13, NULL, 10);
