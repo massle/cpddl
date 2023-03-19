@@ -523,20 +523,25 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                 if (save_msgs) {
                     // capture msgs value form solbuf and add to task_msgs
                     char *val_str = strstr(solbuf, "#solved goals:");
+                    val = -1; // default value set as -1 for debugging purposes
                     if(val_str != NULL) {
                         val = strtol(val_str + 15, NULL, 10);
-                        pddlASNetsTrainDataMSGSAdd(td, ground_task_id, val);
-                        // append msgs info to plan file
-                        FILE *fa = fopen(plan_filename, "a");
-                        if (fa == NULL)
-                        {
-                            fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
-                            LOG(err, "Error: Failed to open plan file to append MSGS");
-                            return -1;
-                        }
-                        fprintf(fa, "\nMSGS achieved by FD: %d", val);
-                        fclose(fa);
                     }
+                    else {
+                        // if case SUCCESS but "#solved goals:" missing, then all goals solved!
+                        val = _fdr->goal.fact_size;
+                    }
+                    pddlASNetsTrainDataMSGSAdd(td, ground_task_id, val);
+                    // append msgs info to plan file
+                    FILE *fa = fopen(plan_filename, "a");
+                    if (fa == NULL)
+                    {
+                        fprintf(stderr, "Error: Failed to open file - %s", plan_filename);
+                        LOG(err, "Error: Failed to open plan file to append MSGS");
+                        return -1;
+                    }
+                    fprintf(fa, "\nMSGS achieved by FD: %d", val);
+                    fclose(fa);
                 }
                 pddlIArrFree(&plan_ops);
                 if(str != NULL)
