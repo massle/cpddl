@@ -2740,13 +2740,11 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
 {
     PANIC("This module requires dynet library.");
-    return -1;
 }
 
 void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trainer, pddl_err_t *err)
 {
     PANIC("This module requires dynet library.");
-    return -1;
 }
 
 int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err)
