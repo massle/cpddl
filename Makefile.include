@@ -36,6 +36,7 @@ CPPFLAGS += -Wall -pedantic --std=c++11
 
 ifeq '$(WERROR)' 'yes'
   CFLAGS += -Werror
+  CPPFLAGS += -Werror
 endif
 
 LDFLAGS += -pthread
@@ -202,7 +203,7 @@ ifeq '$(USE_HIGHS)' 'auto'
 
   else ifneq '$(HIGHS_ROOT)' ''
     HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
-    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lz -lstdc++
+    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lstdc++
     USE_HIGHS := yes
   endif
 endif
