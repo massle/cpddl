@@ -4,7 +4,7 @@ HIGHS_VERSION="v1.5.1"
 MINIZINC_LINK="https://github.com/MiniZinc/MiniZincIDE/releases/download/2.7.0/MiniZincIDE-2.7.0-bundle-linux-x86_64.tgz"
 
 if [ "$1" = "" ]; then
-    echo "Usage: $0 [--no-bliss] [--no-cudd] [--highs] [--cplex ibm_studio_installer] [--minizinc] [--git tag/branch/sha] [--werror] [alpine,photon,debian-{bullseye,buster,stretch},ubuntu-{jammy,focal,bionic},fedora]"
+    echo "Usage: $0 [--no-bliss] [--no-cudd] [--highs] [--cplex ibm_studio_installer] [--gurobi] [--minizinc] [--git tag/branch/sha] [--werror] [alpine,photon,debian-{bullseye,buster,stretch},ubuntu-{jammy,focal,bionic},fedora]"
     exit -1
 fi
 
@@ -32,6 +32,10 @@ while true; do
             cp "$cplex_file" \$APPTAINER_ROOTFS/cplex.bin
             chmod +x \$APPTAINER_ROOTFS/cplex.bin
 "
+
+    elif [ "$1" = "--gurobi" ]; then
+        HAS_GUROBI=yes
+        shift
 
     elif [ "$1" = "--highs" ]; then
         HAS_HIGHS=yes
@@ -107,6 +111,9 @@ fi
 if [ "$HAS_CPLEX" = "yes" ]; then
     SUFF="${SUFF}-cplex"
 fi
+if [ "$HAS_GUROBI" = "yes" ]; then
+    SUFF="${SUFF}-gurobi"
+fi
 if [ "$HAS_HIGHS" = "yes" ]; then
     SUFF="${SUFF}-highs"
 fi
@@ -143,6 +150,17 @@ MAKE="
 
     cd /cpddl
     rm -f Makefile.config
+
+    if [ -d /opt/gurobi/linux64 ]; then
+        echo \"GUROBI_CFLAGS = -I/opt/gurobi/linux64/include\" >>Makefile.config
+        if [ -f /opt/gurobi/linux64/lib/libgurobi95.so ]; then
+            echo \"GUROBI_LDFLAGS = -L/opt/gurobi/linux64/lib -Wl,-rpath=/opt/gurobi/linux64/lib -lgurobi95\" >>Makefile.config
+       else
+           echo \"Cannot find gurobi library!\"
+           exit -1
+       fi
+    fi
+
     [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
     [ -d /HiGHS ] && echo \"HIGHS_ROOT = /HiGHS\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
@@ -310,6 +328,12 @@ EOF
     sudo apptainer build cpddl-${name}.img Apptainer.${name}
 }
 
+[ "$HAS_GUROBI" = "yes" ] \
+    && [ "$1" != "debian" ] \
+    && [ "$1" != "debian-bullseye" ] \
+    && echo "Error: --gurobi works only with debian-bullseye" \
+    && exit -1
+
 if [ "$1" = "alpine" ]; then
     if [ "$HAS_MINIZINC" = "yes" ]; then
         build_alpine alpine minizinc/minizinc:latest-alpine
@@ -318,7 +342,11 @@ if [ "$1" = "alpine" ]; then
     fi
 
 elif [ "$1" = "debian" ] || [ "$1" = "debian-bullseye" ]; then
-    build_debian debian-bullseye debian:bullseye-slim
+    if [ "$HAS_GUROBI" = "yes" ]; then
+        build_debian debian-bullseye gurobi/optimizer:9.5.1
+    else
+        build_debian debian-bullseye debian:bullseye-slim
+    fi
 elif [ "$1" = "debian-buster" ]; then
     build_debian debian-buster debian:buster-slim
 elif [ "$1" = "debian-stretch" ]; then
