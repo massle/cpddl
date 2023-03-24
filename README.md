@@ -23,9 +23,9 @@ Austin Appleby and Peter Scott.
  - Two hash functions copyrighted by Google and released under the MIT
  license [CityHash](https://code.google.com/p/cityhash) and
 [FastHash](https://code.google.com/p/fast-hash)
- - [Timsort](https://github.com/swenson/sort/) licensed under MIT license
+ - [Timsort](https://github.com/swenson/sort/) licensed under MIT
 (Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc)
- - [Toml](https://github.com/cktan/tomlc99), MIT license, Copyright (c) CK Tan.
+ - [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan)
 
 
 Other than that, cpddl can be compiled without any other
