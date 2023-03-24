@@ -1,3 +1,5 @@
+#include "opts.h"
+#include "pddl/pddl.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -9,8 +11,6 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
-#include "pddl/pddl.h"
-#include "opts.h"
 
 #define PATHSIZE 512
 
@@ -43,24 +43,24 @@ static pddl_err_t err = PDDL_ERR_INIT;
 
 static void cleanTaskDir(const char *dir)
 {
-    char fn[PATHSIZE];
-    snprintf(fn, PATHSIZE - 1, "%s/task.out", dir);
+    char fn[2 * PATHSIZE];
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.out", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.err", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.err", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.finished", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.finished", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.memout", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.memout", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.timeout", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.timeout", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.time", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.time", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.status", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.status", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.signum", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.signum", dir);
     unlink(fn);
-    snprintf(fn, PATHSIZE - 1, "%s/task.segfault", dir);
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.segfault", dir);
     unlink(fn);
 }
 
@@ -234,13 +234,14 @@ static int genRunFile(char *fn, const char *topdir, int offset)
 
     fprintf(fout, "#!/bin/bash\n");
 
+    int mem = cfg.max_mem + 50;
+    int max_time = cfg.max_time + 30;
+    int days = max_time / (24 * 3600);
+    int hours = (max_time % (24 * 3600)) / 3600;
+    int minutes = ((max_time % (24 * 3600)) % 3600) / 60;
+    int seconds = ((max_time % (24 * 3600)) % 3600) % 60;
+
     if (cfg.target == TARGET_RCI_CPU){
-        int mem = cfg.max_mem + 50;
-        int max_time = cfg.max_time + 30;
-        int days = max_time / (24 * 3600);
-        int hours = (max_time % (24 * 3600)) / 3600;
-        int minutes = ((max_time % (24 * 3600)) % 3600) / 60;
-        int seconds = ((max_time % (24 * 3600)) % 3600) % 60;
         if (max_time < 4 * 3600){
             fprintf(fout, "#SBATCH -p cpufast # partition (queue)\n");
         }else{
@@ -269,34 +270,29 @@ static int genRunFile(char *fn, const char *topdir, int offset)
                 || cfg.target == TARGET_FAI1
                 || cfg.target == TARGET_FAI14
                 || cfg.target == TARGET_FAI_ALL){
-        int num_cores = 1;
-        num_cores = cfg.max_mem / 4096;
-        if (cfg.max_mem % 4096 > 0)
-            num_cores += 1;
-
-        fprintf(fout, "#$ -S /bin/bash\n");
-        fprintf(fout, "#$ -V\n");
-        fprintf(fout, "#$ -cwd\n");
-        fprintf(fout, "#$ -e %s/job-$TASK_ID.err\n", topdir);
-        fprintf(fout, "#$ -o %s/job-$TASK_ID.out\n", topdir);
-        if (num_cores > 1){
-            fprintf(fout, "#$ -pe smp %d\n", num_cores);
-        }
         if (cfg.target == TARGET_FAI0){
-            fprintf(fout, "#$ -q all.q@@fai0x\n");
+            fprintf(fout, "#SBATCH -p fai0x\n");
         }else if (cfg.target == TARGET_FAI1){
-            fprintf(fout, "#$ -q all.q@fai11,all.q@fai12,all.q@fai13\n");
+            fprintf(fout, "#SBATCH -p fai1x\n");
         }else if (cfg.target == TARGET_FAI14){
-            fprintf(fout, "#$ -q all.q@fai14\n");
+            fprintf(fout, "#SBATCH -p fai14\n");
         }else{
-            fprintf(fout, "#$ -q all.q@@allhosts\n");
+            fprintf(fout, "#SBATCH -p fai-all\n");
         }
+        fprintf(fout, "#SBATCH -J %s # job name\n", cfg.topdir);
+        fprintf(fout, "#SBATCH -N 1 # number of nodes\n");
+        fprintf(fout, "#SBATCH -n 1 # number of cores\n");
+        fprintf(fout, "#SBATCH --mem %dM # memory limit\n", mem);
+        fprintf(fout, "#SBATCH -t %d-%d:%d:%d # time (D-HH:MM:SS)\n",
+                days, hours, minutes, seconds);
+        fprintf(fout, "#SBATCH -o %s/%%6a/run.out # STDOUT\n", topdir);
+        fprintf(fout, "#SBATCH -e %s/%%6a/run.err # STDOUT\n", topdir);
 
         fprintf(fout, "\n");
         if (offset == 0){
-            fprintf(fout, "ID=$((${SGE_TASK_ID} - 1))\n");
+            fprintf(fout, "ID=${SLURM_ARRAY_TASK_ID}\n");
         }else{
-            fprintf(fout, "ID=$((${SGE_TASK_ID} - 1 + %d))\n", offset);
+            fprintf(fout, "ID=$((${SLURM_ARRAY_TASK_ID} + %d))\n", offset);
         }
     }
 
@@ -389,29 +385,29 @@ static int cmdGen(void)
             return -1;
         }
 
-        char fn[PATHSIZE];
-        snprintf(fn, PATHSIZE - 1, "%s/domain.pddl", dir);
+        char fn[2 * PATHSIZE];
+        snprintf(fn, 2 * PATHSIZE - 1, "%s/domain.pddl", dir);
         if (symlink(task->pddl_files.domain_pddl, fn) != 0){
             fprintf(stderr, "Error: Failed to create symlink %s -> %s\n",
                     fn, task->pddl_files.domain_pddl);
             return -1;
         }
 
-        snprintf(fn, PATHSIZE - 1, "%s/problem.pddl", dir);
+        snprintf(fn, 2 * PATHSIZE - 1, "%s/problem.pddl", dir);
         if (symlink(task->pddl_files.problem_pddl, fn) != 0){
             fprintf(stderr, "Error: Failed to create symlink %s -> %s\n",
                     fn, task->pddl_files.domain_pddl);
             return -1;
         }
 
-        snprintf(fn, PATHSIZE - 1, "%s/run.sh", dir);
+        snprintf(fn, 2 * PATHSIZE - 1, "%s/run.sh", dir);
         if (symlink(cfg.run_script, fn) != 0){
             fprintf(stderr, "Error: Failed to create symlink %s -> %s\n",
                     fn, task->pddl_files.domain_pddl);
             return -1;
         }
 
-        snprintf(fn, PATHSIZE - 1, "%s/task.prop", dir);
+        snprintf(fn, 2 * PATHSIZE - 1, "%s/task.prop", dir);
         FILE *fout = fopen(fn, "w");
         if (fout == NULL){
             fprintf(stderr, "Error: Failed to create file %s", fn);
@@ -427,8 +423,8 @@ static int cmdGen(void)
     }
     pddlBenchFree(&bench);
 
-    char fn[PATHSIZE];
-    snprintf(fn, PATHSIZE - 1, "%s/submit.sh", topdir);
+    char fn[2 * PATHSIZE];
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/submit.sh", topdir);
     FILE *fout = fopen(fn, "w");
     if (fout == NULL){
         fprintf(stderr, "Error: Failed to create file %s", fn);
@@ -459,10 +455,8 @@ static int cmdGen(void)
         char fnrun[PATHSIZE];
         if (genRunFile(fnrun, topdir, 0) != 0)
             return -1;
-        
         fprintf(fout, "cd %s\n", topdir);
-        fprintf(fout, "qsub -N '%s' -t 1-%d %s 2>&1 | tee submit.log\n",
-                cfg.topdir, bench.task_size, fnrun);
+        fprintf(fout, "sbatch --array=0-%d %s\n", bench.task_size - 1, fnrun);
     }
     fprintf(fout, "\n");
 
@@ -477,8 +471,8 @@ static int cmdGen(void)
 
 static int taskIsFinished(const char *topdir)
 {
-    char fn[PATHSIZE];
-    snprintf(fn, PATHSIZE - 1, "%s/task.finished", topdir);
+    char fn[2 * PATHSIZE];
+    snprintf(fn, 2 * PATHSIZE - 1, "%s/task.finished", topdir);
     PDDL_INFO(&err, "Checking whether the task is finished (%s)", fn);
     return pddlIsFile(fn);
 }
