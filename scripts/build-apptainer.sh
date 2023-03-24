@@ -4,7 +4,26 @@ HIGHS_VERSION="v1.5.1"
 MINIZINC_LINK="https://github.com/MiniZinc/MiniZincIDE/releases/download/2.7.0/MiniZincIDE-2.7.0-bundle-linux-x86_64.tgz"
 
 if [ "$1" = "" ]; then
-    echo "Usage: $0 [--no-bliss] [--no-cudd] [--highs] [--cplex ibm_studio_installer] [--gurobi] [--minizinc] [--git tag/branch/sha] [--werror] [alpine,photon,debian-{bullseye,buster,stretch},ubuntu-{jammy,focal,bionic},fedora]"
+    echo "Usage: $0 [OPTIONS] image"
+    echo "    image:"
+    echo "        alpine (does not support cplex)"
+    echo "        photon"
+    echo "        debian-{bullseye,buster,stretch}"
+    echo "        ubuntu-{jammy,focal,bionic}"
+    echo "        fedora"
+    echo "        gcc-{11,12}"
+    echo ""
+    echo "    OPTIONS:"
+    echo "        --no-bliss"
+    echo "        --no-cudd"
+    echo "        --highs"
+    echo "        --cplex ibm_studio_installer"
+    echo "        --gurobi (supported only with debian-bullseye)"
+    echo "        --minizinc"
+    echo "        --git tag/branch/sha"
+    echo "        --git-dev tag/branch/sha"
+    echo "        --clang (does not work for photon)"
+    echo "        --werror"
     exit -1
 fi
 
@@ -21,6 +40,7 @@ HAS_HIGHS=
 HAS_MINIZINC=
 NO_BLISS=
 NO_CUDD=
+CLANG=
 while true; do
     if [ "$1" = "--cplex" ]; then
         HAS_CPLEX=yes
@@ -85,6 +105,10 @@ while true; do
 
     elif [ "$1" = "--no-cudd" ]; then
         NO_CUDD=yes
+        shift
+
+    elif [ "$1" = "--clang" ]; then
+        CLANG=yes
         shift
 
     else
@@ -202,6 +226,7 @@ $SETUP
     apk update
     apk upgrade
     apk add make gcc g++ autoconf automake cmake git bash libstdc++
+    [ "$CLANG" = "yes" ] && apk add clang
     $MAKE
 
 Bootstrap: docker
@@ -236,6 +261,7 @@ $SETUP
     apt update -y
     apt upgrade -y
     apt install -y make gcc g++ autoconf automake cmake git libstdc++6
+    [ "$CLANG" = "yes" ] && apt install -y clang
     $MAKE
 
 Bootstrap: docker
@@ -272,6 +298,7 @@ $SETUP
 %post
     dnf -y update
     dnf -y install make gcc g++ autoconf automake cmake git libstdc++
+    [ "$CLANG" = "yes" ] && dnf -y install clang
     $MAKE
 
 Bootstrap: docker
@@ -351,6 +378,11 @@ elif [ "$1" = "debian-buster" ]; then
     build_debian debian-buster debian:buster-slim
 elif [ "$1" = "debian-stretch" ]; then
     build_debian debian-stretch debian:stretch-slim
+
+elif [ "$1" = "gcc-12" ]; then
+    build_debian gcc-12 gcc:12
+elif [ "$1" = "gcc-11" ]; then
+    build_debian gcc-11 gcc:11
 
 elif [ "$1" = "ubuntu" ] || [ "$1" = "ubuntu-jammy" ]; then
     build_debian ubuntu-jammy ubuntu:jammy
