@@ -107,6 +107,20 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
         PDDL_LOG(err, "Removing %{rm_facts}d facts, %{rm_operators}d operators",
                  pddlISetSize(&prune->rm_fact),
                  pddlISetSize(&prune->rm_op));
+        if (!pddlISetIsDisjoint(&prune->strips->goal, &prune->rm_fact)){
+            PDDL_ISET(rm_goals);
+            pddlISetIntersect2(&rm_goals, &prune->strips->goal, &prune->rm_fact);
+            int fact_id;
+            PDDL_ISET_FOR_EACH(&rm_goals, fact_id){
+                PDDL_LOG(err, "Removing goal fact (%s)",
+                         prune->strips->fact.fact[fact_id]->name);
+            }
+            pddlISetFree(&rm_goals);
+
+            if (!prune->rm_not_unreachable_or_dead_end)
+                prune->strips->goal_is_unreachable = 1;
+        }
+
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
         if (prune->mgroups != NULL && pddlISetSize(&prune->rm_fact) > 0){
             pddlMGroupsReduce(prune->mgroups, &prune->rm_fact);
@@ -123,6 +137,20 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
         pddlISetEmpty(&prune->rm_fact);
     }
     prune->rm_not_unreachable_or_dead_end = 0;
+
+    if (prune->strips->goal_is_unreachable){
+        PDDL_LOG(err, "Goal is unreachable -- making task artificially unsolvable.");
+        pddlStripsMakeUnsolvable(prune->strips);
+        if (prune->mgroups != NULL){
+            pddlMGroupsFree(prune->mgroups);
+            pddlMGroupsInitEmpty(prune->mgroups);
+        }
+        if (prune->mutex != NULL){
+            pddlMutexPairsFree(prune->mutex);
+            pddlMutexPairsInitStrips(prune->mutex, prune->strips);
+        }
+    }
+
     return 0;
 }
 
