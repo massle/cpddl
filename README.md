@@ -4,29 +4,31 @@
 
 ## License
 
-cpddl is licensed under OSI-approved 3-clause BSD License, text of license
-is distributed along with source code in BSD-LICENSE file.
+cpddl is licensed under OSI-approved 3-clause
+[BSD License](https://opensource.org/licenses/BSD-3-Clause), text of license
+is distributed along with source code in LICENSE file.
 
 The library depends on [sqlite](https://www.sqlite.org/index.html) which is
 [public-domain](https://www.sqlite.org/copyright.html) and it is already part
 of the source code. Other than that, cpddl can be compiled without any other
 dependecies. However, certain functionalities require external libraries:
- - symmetries (``pddl/sym.h``) require
+ - symmetries require
  [bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
- - binary decision diagrams (``pddl/bdd.h``) require
- [cudd](https://davidkebo.com/cudd) library licensed under BSD 3
- - (I)LP solver (``pddl/lp.h``) requires
+ - binary decision diagrams require
+ [cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
+ License
+ - (I)LP solver requires
  [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
  [Gurobi](https://www.gurobi.com/),
  [GLPK](https://www.gnu.org/software/glpk/), or
  [HiGHS](https://highs.dev). CPLEX Optimizer and
  Gurobi are commercial products, but it is possible to obtain an academic
- license, GLPK is licensed under GPLv3, and HiGHS is licensed under MIT
+ license. GLPK is licensed under GPLv3. HiGHS is licensed under MIT
  license.
- - constraint optimization (``pddl/cp.h``) requires either
+ - constraint optimization requires either
  [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
  [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
- library, but it is possible to obtain an academic license, and minizinc is
+ library, but it is possible to obtain an academic license. Minizinc is
  licensed under Mozilla Public License v2.0 (and itself depends on other
  solvers), but it is called as a subprocess from cpddl, i.e., it is never
  statically or dynamically linked to cpddl.
