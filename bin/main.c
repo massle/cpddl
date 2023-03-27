@@ -42,6 +42,18 @@ pddl_mutex_pairs_t mutex;
 int search_started = 0;
 int search_terminate = 0;
 
+static void makeStripsUnsolvable(void)
+{
+    if (strips.goal_is_unreachable)
+        PDDL_LOG(&err, "Goal is unreachable.");
+    PDDL_LOG(&err, "Making task artificially unsolvable.");
+    pddlStripsMakeUnsolvable(&strips);
+    pddlMGroupsFree(&mgroup);
+    pddlMGroupsInitEmpty(&mgroup);
+    pddlMutexPairsFree(&mutex);
+    pddlMutexPairsInitStrips(&mutex, &strips);
+}
+
 
 static int stepPDDL(void)
 {
@@ -434,6 +446,10 @@ static int stepRedBlackFDR(void)
 {
     if (!opt.rb_fdr.enable)
         return 0;
+
+    if (strips.goal_is_unreachable)
+        makeStripsUnsolvable();
+
     pddl_fdr_t fdr[opt.rb_fdr.cfg.mgroup.num_solutions];
     int num = pddlRedBlackFDRInitFromStrips(fdr, &strips, &mgroup, &mutex,
                                             &opt.rb_fdr.cfg, &err);
@@ -479,6 +495,9 @@ static void printPotentials(const pddl_fdr_t *fdr,
 
 static int stepFDR(void)
 {
+    if (strips.goal_is_unreachable)
+        makeStripsUnsolvable();
+
     pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex,
                           opt.fdr.var_flag, opt.fdr.flag, &err);
     fdr_set = 1;

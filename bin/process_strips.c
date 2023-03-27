@@ -119,6 +119,7 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
 
             if (!prune->rm_not_unreachable_or_dead_end)
                 prune->strips->goal_is_unreachable = 1;
+            pddlISetMinus(&prune->rm_fact, &prune->strips->goal);
         }
 
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
@@ -137,19 +138,6 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
         pddlISetEmpty(&prune->rm_fact);
     }
     prune->rm_not_unreachable_or_dead_end = 0;
-
-    if (prune->strips->goal_is_unreachable){
-        PDDL_LOG(err, "Goal is unreachable -- making task artificially unsolvable.");
-        pddlStripsMakeUnsolvable(prune->strips);
-        if (prune->mgroups != NULL){
-            pddlMGroupsFree(prune->mgroups);
-            pddlMGroupsInitEmpty(prune->mgroups);
-        }
-        if (prune->mutex != NULL){
-            pddlMutexPairsFree(prune->mutex);
-            pddlMutexPairsInitStrips(prune->mutex, prune->strips);
-        }
-    }
 
     return 0;
 }
