@@ -10,4 +10,5 @@
 ### Removed
 
 ### Fixed
-- Fixed issue with h^2 pruning of goal facts. Now, task is marked as unsolvable.
+- Fixed h^2 pruning of goal facts which simply removed the goal facts. Now,
+  the task is marked as unsolvable.
