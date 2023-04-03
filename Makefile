@@ -370,6 +370,10 @@ sqlite-amalgam:
 	cat sqlite/sqlite3.h | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.h
 	rm -rf sqlite/
 
+gen-pkgconfig: cpddl.pc
+cpddl.pc: libpddl.a
+	$(SH) ./scripts/gen-pkgconfig.sh "$(BASEPATH_)" "$(LDFLAGS)" >$@
+
 .PHONY: all bin clean help doc install analyze \
   examples mrproper \
   check check-all \

@@ -4,6 +4,7 @@
 
 ### Added
 - Script for building Apptainer images
+- Script for generating pkg-config file
 
 ### Changed
 

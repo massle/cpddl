@@ -25,3 +25,4 @@ pddl/cset.h
 src/cset.c
 pddl/iarr.h
 src/iarr.c
+cpddl.pc

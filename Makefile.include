@@ -269,6 +269,7 @@ help:
 	@echo "  check-gdb           - Run tests in gdb"
 	@echo "  check-all-gdb"
 	@echo ""
+	@echo "  gen-pkgconfig - Generates pkg-config file cpddl.pc referring to this directory"
 	@echo "  analyze - Static analysis with clang's scan-build (SCAN_BUILD = $(SCAN_BUILD))"
 	@echo ""
 	@echo "  tidy - Tidy up source code"
