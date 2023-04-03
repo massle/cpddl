@@ -1,14 +1,7 @@
 -include Makefile.config
 -include Makefile.include
 
-CFLAGS += -I.
-
-CPPFLAGS += -Wno-ignored-attributes
-CPPFLAGS += -I.
-
-CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
-
-TARGETS  = libpddl.a
+TARGETS = libpddl.a
 
 OBJS  = alloc
 OBJS += err
@@ -231,25 +224,25 @@ pddl/config.h: Makefile Makefile.include
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
 pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
 src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
 pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
 src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
 pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
 src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
 pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
 .objs/bdd.o: src/bdd.c pddl/bdd.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
@@ -302,13 +295,8 @@ c:
 
 mrproper: clean third-party-clean
 
-check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
+check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb: libpddl.a
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
-static-check:
-	$(CPPCHECK) $(CPPCHECK_FLAGS) pddl/ src/
-
-doc:
-	$(MAKE) -C doc
 
 analyze: clean
 	$(SCAN_BUILD) $(MAKE)

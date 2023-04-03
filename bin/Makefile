@@ -1,20 +1,6 @@
 -include ../Makefile.config
 -include ../Makefile.include
 
-CFLAGS += -I../
-LDFLAGS += -L../ -lpddl
-LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
-LDFLAGS += $(LP_LDFLAGS)
-LDFLAGS += $(BLISS_LDFLAGS)
-LDFLAGS += $(CLIQUER_LDFLAGS)
-LDFLAGS += $(CUDD_LDFLAGS)
-LDFLAGS += $(DYNET_LDFLAGS)
-LDFLAGS += -pthread -lm
-
-ifeq '$(BIN_STATIC)' 'yes'
-  LDFLAGS += -static
-endif
-
 TARGETS = pddl
 TARGETS += pddl-fdr
 TARGETS += pddl-symba

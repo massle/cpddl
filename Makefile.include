@@ -1,15 +1,15 @@
 BASEPATH_ := $(dir $(realpath $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 #BASEPATH_ := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
-BASH ?= bash
+SH ?= bash
 CC ?= gcc
 CXX ?= g++
 SCAN_BUILD ?= scan-build
-CPPCHECK ?= cppcheck
 
 SYSTEM = $(shell uname)
 
 SYSTEM_LDFLAGS =
+NEED_STDCPP = no
 
 DEBUG ?= no
 PROFIL ?= no
@@ -39,7 +39,6 @@ ifeq '$(WERROR)' 'yes'
   CPPFLAGS += -Werror
 endif
 
-LDFLAGS += -pthread
 LDFLAGS += $(SYSTEM_LDFLAGS)
 
 USE_CPLEX ?= auto
@@ -69,7 +68,8 @@ ifneq '$(IBM_CPLEX_ROOT)' ''
   CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
   CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
   CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
-  CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert -lstdc++
+  CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
+  NEED_STDCPP := yes
   USE_CPLEX := yes
   USE_CPOPTIMIZER := yes
 endif
@@ -107,12 +107,6 @@ endif
 ifeq '$(USE_GLPK)' 'auto'
   ifneq '$(GLPK_CFLAGS)$(GLPK_LDFLAGS)' ''
       USE_GLPK := yes
-  else
-    ifneq '$(wildcard /usr/include/glpk.h)' ''
-      USE_GLPK := yes
-      GLPK_CFLAGS :=
-      GLPK_LDFLAGS := -lglpk
-    endif
   endif
 endif
 
@@ -125,7 +119,8 @@ USE_BLISS = auto
 USE_LOCAL_BLISS ?= $(shell if test -f $(BASEPATH_)/third-party/bliss/libbliss.a; then echo "yes"; else echo "no"; fi;)
 ifeq '$(USE_LOCAL_BLISS)' 'yes'
   BLISS_CFLAGS := -I$(BASEPATH_)/third-party
-  BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss -lstdc++
+  BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss
+  NEED_STDCPP := yes
   USE_BLISS := yes
 endif
 
@@ -203,7 +198,8 @@ ifeq '$(USE_HIGHS)' 'auto'
 
   else ifneq '$(HIGHS_ROOT)' ''
     HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
-    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lstdc++
+    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs
+    NEED_STDCPP := yes
     USE_HIGHS := yes
   endif
 endif
@@ -233,66 +229,98 @@ SQLITE_CFLAGS := -O2 -std=c99 $(SQLITE_BUILD_CFLAGS)
 LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(HIGHS_LDFLAGS) $(GLPK_LDFLAGS)
 LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(HIGHS_CFLAGS) $(GLPK_CFLAGS)
 
+CFLAGS += -I$(BASEPATH_)
+CPPFLAGS += -Wno-ignored-attributes
+CPPFLAGS += -I$(BASEPATH_)
+
+LDFLAGS += -L$(BASEPATH_) -lpddl
+LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
+LDFLAGS += $(LP_LDFLAGS)
+LDFLAGS += $(BLISS_LDFLAGS)
+LDFLAGS += $(CLIQUER_LDFLAGS)
+LDFLAGS += $(CUDD_LDFLAGS)
+LDFLAGS += $(DYNET_LDFLAGS)
+ifeq '$(NEED_STDCPP)' 'yes'
+  LDFLAGS += -lstdc++
+endif
+LDFLAGS += -pthread -lm
+
 .DEFAULT_GOAL := all
 
 help:
 	@echo "Targets:"
-	@echo "    all            - Build library (default)"
-	@echo "    check          - Build & Run automated tests"
-	@echo "    check-valgrind - Build & Run automated tests in valgrind(1)"
-	@echo "    check-segfault - Build & Run automated tests in valgrind(1) set up to detect only segfaults"
-	@echo "    clean          - Remove all generated files"
-	@echo "    analyze        - Perform static analysis using Clang Static Analyzer"
-	@echo "    third-party    - Build all third-party projects."
-	@echo "    third-party-clean - Clean all third-party projects."
+	@echo "  all         - Build library (default)"
+	@echo "  bin         - Bild binaries in bin/"
+	@echo "  bliss       - Build Bliss library from third-party/"
+	@echo "  cudd        - Bild Cudd library from third-party/"
+	@echo "  third-party - Alias for 'bliss cudd'"
 	@echo ""
-	@echo "Options:"
-	@echo "    CC         - Path to C compiler          (=$(CC))"
-	@echo "    CXX        - Path to C++ compiler        (=$(CXX))"
-	@echo "    SCAN_BUILD - Path to scan-build          (=$(SCAN_BUILD))"
+	@echo "  clean             - Remove all generated files"
+	@echo "  c                 - Like clean but does not remove sqlite object file"
+	@echo "  mrproper          - Clean library and third-party/"
+	@echo "  third-party-clean - Clean all third-party projects."
 	@echo ""
-	@echo "    DEBUG      'yes'/'no' - Turn on/off debugging   (=$(DEBUG))"
-	@echo "    PROFIL     'yes'/'no' - Compiles profiling info (=$(PROFIL))"
+	@echo "  check               - Run (short) automated tests"
+	@echo "  check-all           - Run all automated tests"
+	@echo "  check-valgrind      - Run tests with valgrind(1)"
+	@echo "  check-all-valgrind"
+	@echo "  check-segfault      - Run tests with valgrind(1) set up to detect only segfaults"
+	@echo "  check-all-segfault"
+	@echo "  check-gdb           - Run tests in gdb"
+	@echo "  check-all-gdb"
+	@echo ""
+	@echo "  analyze - Static analysis with clang's scan-build (SCAN_BUILD = $(SCAN_BUILD))"
+	@echo ""
+	@echo "  tidy - Tidy up source code"
+	@echo "  list-global-symbols - List all global symbols in libpddl.a"
+	@echo "  sqlite-amalgam - Generate src/sqlite3.{c,h} from SQLite zip file defined in SQLITE_SRC_ZIP"
 	@echo ""
 	@echo "Variables:"
-	@echo "  Note that most of can be preset or changed by user"
-	@echo "    SYSTEM            = $(SYSTEM)"
-	@echo "    CFLAGS            = $(CFLAGS)"
-	@echo "    LDFLAGS           = $(LDFLAGS)"
-	@echo "    USE_BLISS         = $(USE_BLISS)"
-	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
-	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
-	@echo "    USE_CLIQUER       = $(USE_CLIQUER)"
-	@echo "    CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
-	@echo "    CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
-	@echo "    CUDD_CFLAGS       = $(CUDD_CFLAGS)"
-	@echo "    CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
-	@echo "    USE_CUDD          = $(USE_CUDD)"
-	@echo "    DYNET_CFLAGS      = $(DYNET_CFLAGS)"
-	@echo "    DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
-	@echo "    USE_DYNET         = $(USE_DYNET)"
+	@echo "  SYSTEM  = $(SYSTEM)"
+	@echo "  CC      = $(CC)"
+	@echo "  CXX     = $(CXX)"
+	@echo "  SH      = $(SH)"
+	@echo "  SCAN_BUILD = $(SCAN_BUILD)"
+	@echo "  DEBUG   = $(DEBUG)"
+	@echo "  PROFIL  = $(PROFIL)"
+	@echo "  WERROR  = $(WERROR)"
+	@echo "  CFLAGS  = $(CFLAGS)"
+	@echo "  LDFLAGS = $(LDFLAGS)"
+	@echo "  SYSTEM_LDFLAGS = $(SYSTEM_LDFLAGS)"
 	@echo ""
-	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
-	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"
-	@echo "    USE_CPLEX       = $(USE_CPLEX)"
-	@echo "    GUROBI_CFLAGS   = $(GUROBI_CFLAGS)"
-	@echo "    GUROBI_LDFLAGS  = $(GUROBI_LDFLAGS)"
-	@echo "    USE_GUROBI      = $(USE_GUROBI)"
-	@echo "    GLPK_CFLAGS     = $(GLPK_CFLAGS)"
-	@echo "    GLPK_LDFLAGS    = $(GLPK_LDFLAGS)"
-	@echo "    USE_GLPK        = $(USE_GLPK)"
-	@echo "    LP_LDFLAGS      = $(LP_LDFLAGS)"
-	@echo "    LP_CFLAGS       = $(LP_CFLAGS)"
-	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
-	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
-	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
-	@echo "    DYNET_CPPFLAGS  = $(DYNET_CPPFLAGS)"
-	@echo "    DYNET_LDFLAGS   = $(DYNET_LDFLAGS)"
-	@echo "    USE_DYNET       = $(USE_DYNET)"
-	@echo "    HIGHS_CPPFLAGS  = $(HIGHS_CPPFLAGS)"
-	@echo "    HIGHS_LDFLAGS   = $(HIGHS_LDFLAGS)"
-	@echo "    USE_HIGHS       = $(USE_HIGHS)"
-	@echo "    MINIZINC_BIN    = $(MINIZINC_BIN)"
+	@echo "  USE_BLISS         = $(USE_BLISS)"
+	@echo "  BLISS_CFLAGS      = $(BLISS_CFLAGS)"
+	@echo "  BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
+	@echo "  USE_CLIQUER       = $(USE_CLIQUER)"
+	@echo "  CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
+	@echo "  CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
+	@echo "  CUDD_CFLAGS       = $(CUDD_CFLAGS)"
+	@echo "  CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
+	@echo "  USE_CUDD          = $(USE_CUDD)"
+	@echo "  DYNET_CFLAGS      = $(DYNET_CFLAGS)"
+	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
+	@echo "  USE_DYNET         = $(USE_DYNET)"
+	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
+	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
+	@echo "  USE_CPLEX         = $(USE_CPLEX)"
+	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
+	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
+	@echo "  USE_GUROBI        = $(USE_GUROBI)"
+	@echo "  GLPK_CFLAGS       = $(GLPK_CFLAGS)"
+	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
+	@echo "  USE_GLPK          = $(USE_GLPK)"
+	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
+	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"
+	@echo "  CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
+	@echo "  CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
+	@echo "  USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
+	@echo "  DYNET_CPPFLAGS    = $(DYNET_CPPFLAGS)"
+	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
+	@echo "  USE_DYNET         = $(USE_DYNET)"
+	@echo "  HIGHS_CPPFLAGS    = $(HIGHS_CPPFLAGS)"
+	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
+	@echo "  USE_HIGHS         = $(USE_HIGHS)"
+	@echo "  MINIZINC_BIN      = $(MINIZINC_BIN)"
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS
