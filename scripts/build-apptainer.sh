@@ -14,6 +14,7 @@ if [ "$1" = "" ]; then
     echo "        gcc-{11,12}"
     echo ""
     echo "    OPTIONS:"
+    echo "        --output filename"
     echo "        --no-bliss"
     echo "        --no-cudd"
     echo "        --highs"
@@ -33,6 +34,7 @@ SETUP="
 
 ADDITIONAL_FILES=
 
+OUTPUT=
 WERROR=
 USE_GIT=
 HAS_CPLEX=
@@ -109,6 +111,11 @@ while true; do
 
     elif [ "$1" = "--clang" ]; then
         CLANG=yes
+        shift
+
+    elif [ "$1" = "--output" ]; then
+        shift
+        OUTPUT="$1"
         shift
 
     else
@@ -243,7 +250,9 @@ Stage: run
 
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Apptainer.${name}
+    output="$OUTPUT"
+    [ "$output" = "" ] && output=cpddl-${name}.img
+    sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_debian(){
@@ -282,7 +291,9 @@ Stage: run
 
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Apptainer.${name}
+    output="$OUTPUT"
+    [ "$output" = "" ] && output=cpddl-${name}.img
+    sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_fedora(){
@@ -317,7 +328,9 @@ Stage: run
 
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Apptainer.${name}
+    output="$OUTPUT"
+    [ "$output" = "" ] && output=cpddl-${name}.img
+    sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_photon(){
@@ -352,7 +365,9 @@ Stage: run
 
 $RUN
 EOF
-    sudo apptainer build cpddl-${name}.img Apptainer.${name}
+    output="$OUTPUT"
+    [ "$output" = "" ] && output=cpddl-${name}.img
+    sudo apptainer build "$output" Apptainer.${name}
 }
 
 [ "$HAS_GUROBI" = "yes" ] \
