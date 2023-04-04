@@ -597,7 +597,7 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 
 pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
 {
-    CTX(err, "sql_grounder", "SQL Grounder");
+    CTX(err, "SQL Grounder");
     pddl_sql_grounder_t *g = ZALLOC(pddl_sql_grounder_t);
 
     g->pddl = pddl;

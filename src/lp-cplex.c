@@ -58,7 +58,7 @@ static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
     int feasible = 0;
     CPXcallbackgetinfoint(ctx, CPXCALLBACKINFO_FEASIBLE, &feasible);
 
-    CTX_NO_TIME(lp->cls.err, "cplex", "cplex progress");
+    CTX_NO_TIME(lp->cls.err, "cplex progress");
     LOG(lp->cls.err, "best solution: %.2f, best bound: %.2f, feasible: %d",
         best_sol, best_bound, feasible);
     CTXEND(lp->cls.err);
@@ -84,7 +84,7 @@ static int callbackLP(CPXCENVptr env,
     CPXgetcallbackinfo(env, cbdata, wherefrom,
                        CPX_CALLBACK_INFO_DUAL_OBJ, &dual);
 
-    CTX_NO_TIME(lp->cls.err, "cplex", "cplex progress");
+    CTX_NO_TIME(lp->cls.err, "cplex progress");
     LOG(lp->cls.err, "primal: %.4f, dual: %.4f", primal, dual);
     CTXEND(lp->cls.err);
     pddlTimerStart(&lp->log_timer);

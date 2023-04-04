@@ -12,7 +12,6 @@ extern const int is_pddl_lplan;
 options_t opt = { 0 };
 
 FILE *log_out = NULL;
-FILE *prop_out = NULL;
 
 struct op_mutex_cfg {
     int ts;
@@ -406,8 +405,6 @@ static void setBaseOptions(void)
                "Maximum memory in MB if >0.");
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
-    optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
-               "Set output file for properties log.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
                  "Set the default LP solver: cplex/gurobi/glpk/highs");
 
@@ -1098,11 +1095,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         pddlErrInfoEnable(err, log_out);
     }
 
-    if (opt.prop_out != NULL){
-        prop_out = openFile(opt.prop_out);
-        pddlErrPropEnable(err, prop_out);
-    }
-
     if (argc == 2){
         if (pddlFiles1(&opt.files, argv[1], err) != 0)
             PDDL_TRACE_RET(err, -1);
@@ -1130,6 +1122,6 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
             PDDL_ERR_RET(err, -1, "--asnets-fdr-out must be set!");
     }
 
-    PDDL_LOG(err, "Version: %{version}s", pddl_version);
+    PDDL_LOG(err, "Version: %s", pddl_version);
     return 0;
 }

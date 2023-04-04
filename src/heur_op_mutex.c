@@ -235,7 +235,7 @@ pddl_heur_t *pddlHeurOpMutex(const pddl_fdr_t *fdr,
                              const pddl_heur_op_mutex_config_t *cfg,
                              pddl_err_t *err)
 {
-    CTX(err, "heur_op_mutex", "hOPM");
+    CTX(err, "hOPM");
     heur_t *h = ZALLOC(heur_t);
     h->cfg = *cfg;
     pddlFDRInitCopy(&h->fdr, fdr);

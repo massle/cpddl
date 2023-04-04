@@ -109,7 +109,7 @@ static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     const char *err_prefix,
                                     pddl_err_t *err)
 {
-    CTX(err, "bfs", err_prefix);
+    CTX(err, err_prefix);
     pddl_lifted_search_bfs_t *bfs;
 
     bfs = ZALLOC(pddl_lifted_search_bfs_t);
@@ -154,7 +154,7 @@ static void bfsPush(pddl_lifted_search_bfs_t *bfs,
 static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
 {
     pddl_lifted_search_bfs_t *bfs = BFS(s);
-    CTX_NO_TIME(s->err, "bfs", s->err_prefix);
+    CTX_NO_TIME(s->err, s->err_prefix);
     pddl_lifted_search_status_t ret = PDDL_LIFTED_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
@@ -178,7 +178,7 @@ static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
         ++s->_stat.evaluated;
     }
 
-    LOG(s->err, "Heuristic value for the initial state: %{init_hvalue}d", h_value);
+    LOG(s->err, "Heuristic value for the initial state: %d", h_value);
     if (h_value == PDDL_COST_DEAD_END){
         ++s->_stat.dead_end;
         ret = PDDL_LIFTED_SEARCH_UNSOLVABLE;
@@ -243,7 +243,7 @@ static void bfsInsertNextState(pddl_lifted_search_bfs_t *bfs,
 static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
 {
     pddl_lifted_search_bfs_t *bfs = BFS(s);
-    CTX_NO_TIME(s->err, "bfs", s->err_prefix);
+    CTX_NO_TIME(s->err, s->err_prefix);
 
     ++s->_stat.steps;
 
@@ -353,17 +353,17 @@ void pddlLiftedSearchStatLog(const pddl_lifted_search_t *s, pddl_err_t *err)
 {
     pddl_lifted_search_stat_t stat;
     pddlLiftedSearchStat(s, &stat);
-    LOG(err, "Search steps: %{stat_steps}lu,"
-        " expand: %{stat_expanded}lu,"
-        " expand-blfl: %{stat_expanded_blfl}lu,"
-        " eval: %{stat_evaluated}lu,"
-        " gen: %{stat_generated}lu,"
-        " open: %{stat_open}lu,"
-        " closed: %{stat_closed}lu,"
-        " reopen: %{stat_reopen}lu,"
-        " de: %{stat_dead_end}lu,"
-        " de-blfl: %{stat_dead_end_blfl}lu,"
-        " f: %{stat_fvalue}d",
+    LOG(err, "Search steps: %lu,"
+        " expand: %lu,"
+        " expand-blfl: %lu,"
+        " eval: %lu,"
+        " gen: %lu,"
+        " open: %lu,"
+        " closed: %lu,"
+        " reopen: %lu,"
+        " de: %lu,"
+        " de-blfl: %lu,"
+        " f: %d",
         stat.steps,
         stat.expanded,
         stat.expanded_before_last_f_layer,

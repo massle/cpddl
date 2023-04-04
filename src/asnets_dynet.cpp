@@ -25,10 +25,10 @@ static const float MIN_ACTIVATION_VALUE = -1.f;
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->domain_pddl != NULL)
-        LOG(err, "domain_pddl = %{domain_pddl}s", cfg->domain_pddl);
+        LOG(err, "domain_pddl = %s", cfg->domain_pddl);
     LOG_CONFIG_INT(cfg, problem_pddl_size, err);
     for (int i = 0; i < cfg->problem_pddl_size; ++i)
-        LOG(err, "problem_pddl[%d] = %{problem_pddl}s", i, cfg->problem_pddl[i]);
+        LOG(err, "problem_pddl[%d] = %s", i, cfg->problem_pddl[i]);
     LOG_CONFIG_INT(cfg, hidden_dimension, err);
     LOG_CONFIG_INT(cfg, num_layers, err);
     LOG_CONFIG_INT(cfg, random_seed, err);
@@ -982,10 +982,10 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     if (cfg->problem_pddl_size <= 0)
         ERR_RET(err, NULL, "ASNets: At least one problem file is required.");
 
-    CTX(err, "asnets", "ASNets");
+    CTX(err, "ASNets");
     pddl_asnets_t *a = ZALLOC(pddl_asnets_t);
     pddlASNetsConfigInitCopy(&a->cfg, cfg);
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX_NO_TIME(err, "Cfg");
     pddlASNetsConfigLog(&a->cfg, err);
     CTXEND(err);
 
@@ -1602,7 +1602,7 @@ int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 
 int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
-    CTX(err, "asnets_load", "ASNets-Load");
+    CTX(err, "ASNets-Load");
     LOG(err, "Loading model from %s", fn);
     pddl_sqlite3 *db;
     int flags = SQLITE_OPEN_READONLY;
@@ -1703,7 +1703,7 @@ int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 
 int pddlASNetsPrintModelInfo(const char *fn, pddl_err_t *err)
 {
-    CTX(err, "asnets_model_info", "ASNets-Info");
+    CTX(err, "ASNets-Info");
     LOG(err, "Loading model from %s", fn);
     pddl_sqlite3 *db;
     int flags = SQLITE_OPEN_READONLY;
@@ -1818,7 +1818,7 @@ static int trainStep(pddl_asnets_t *a,
 
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d"
-        " | minibatch loss: %{batch_loss}f, size: %{batch_size}d",
+        " | minibatch loss: %f, size: %d",
         a->train_stats.epoch, a->train_stats.max_epochs,
         a->train_stats.train_step, a->train_stats.max_train_steps,
         a->train_stats.overall_loss, a->train_stats.success_rate,
@@ -1836,15 +1836,15 @@ static int trainExploration(pddl_asnets_t *a,
                             pddl_err_t *err)
 {
     const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
-    CTX(err, "exploration", "Exploration Phase");
+    CTX(err, "Exploration Phase");
 
     pddl_fdr_state_pool_t states;
     pddlFDRStatePoolInit(&states, &task->fdr.var, err);
 
     // Collect states from the policy rollout
     int reached_goal = policyRollout(a, task, &states, NULL, err);
-    LOG(err, "Policy rollout: %{policy_rollout_states}d states,"
-        " reached goal: %{reached_goal}d",
+    LOG(err, "Policy rollout: %d states,"
+        " reached goal: %d",
         states.num_states, reached_goal);
 
     // TODO: Here we can add also states from random walks.
@@ -1907,7 +1907,7 @@ static int trainEpoch(pddl_asnets_t *a,
                       pddl_asnets_train_data_t *data,
                       pddl_err_t *err)
 {
-    LOG(err, "epoch: %{epoch}d/%d", epoch, a->cfg.max_train_epochs);
+    LOG(err, "epoch: %d/%d", epoch, a->cfg.max_train_epochs);
     a->train_stats.epoch = epoch + 1;
 
     // Exploration phase
@@ -1925,7 +1925,7 @@ static int trainEpoch(pddl_asnets_t *a,
     int num_steps = a->cfg.train_steps;
     //num_steps = PDDL_MIN(num_steps, data->sample_size / a->cfg.batch_size);
     //num_steps = PDDL_MAX(num_steps, 1);
-    LOG(err, "num training steps: %{training_steps}d", num_steps);
+    LOG(err, "num training steps: %d", num_steps);
     for (int train_step = 0; train_step < num_steps; ++train_step){
         int ret;
         if ((ret = trainStep(a, epoch, train_step, data, err)) != 0){
@@ -1935,15 +1935,15 @@ static int trainEpoch(pddl_asnets_t *a,
         }
     }
 
-    CTX(err, "success_rate", "Success Rate");
+    CTX(err, "Success Rate");
     a->train_stats.success_rate = successRate(a);
-    LOG(err, "Success rate: %{success_rate}f", a->train_stats.success_rate);
+    LOG(err, "Success rate: %f", a->train_stats.success_rate);
     CTXEND(err);
-    CTX(err, "overall_loss", "Overall Loss");
+    CTX(err, "Overall Loss");
     a->train_stats.overall_loss = overallLoss(a, data);
-    LOG(err, "Overall loss: %{overall_loss}f", a->train_stats.overall_loss);
+    LOG(err, "Overall loss: %f", a->train_stats.overall_loss);
     CTXEND(err);
-    LOG(err, "Train samples: %{train_samples}d", a->train_stats.num_samples);
+    LOG(err, "Train samples: %d", a->train_stats.num_samples);
     LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
         " succ epochs: %d",
         a->train_stats.epoch, a->train_stats.max_epochs,
@@ -1956,7 +1956,7 @@ static int trainEpoch(pddl_asnets_t *a,
 
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 {
-    CTX(err, "asnets_train", "ASNets-Train");
+    CTX(err, "ASNets-Train");
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
 

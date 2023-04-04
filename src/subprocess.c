@@ -109,7 +109,7 @@ int pddlExecvp(char *const argv[],
                int *read_stderr_size,
                pddl_err_t *err)
 {
-    CTX(err, "execvp", "exec");
+    CTX(err, "exec");
     logCommand(argv, err);
     fflush(stdout);
     fflush(stderr);
@@ -350,7 +350,7 @@ int pddlForkSharedMem(int (*fn)(void *sharedmem, void *userdata),
                       pddl_exec_status_t *status,
                       pddl_err_t *err)
 {
-    CTX(err, "fork", "fork");
+    CTX(err, "fork");
     fflush(stdout);
     fflush(stderr);
     pddlErrFlush(err);
@@ -399,7 +399,7 @@ int pddlForkPipe(int (*fn)(int fdout, void *userdata),
                  pddl_exec_status_t *status,
                  pddl_err_t *err)
 {
-    CTX(err, "fork", "fork");
+    CTX(err, "fork");
     fflush(stdout);
     fflush(stderr);
     pddlErrFlush(err);

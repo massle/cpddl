@@ -130,7 +130,7 @@ int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
             }
         }
     }
-    LOG(err, "Actions parsed, num actions: %{parsed_actions}d",
+    LOG(err, "Actions parsed, num actions: %d",
         pddl->action.action_size);
     return 0;
 }

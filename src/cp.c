@@ -731,7 +731,7 @@ int pddlCPSolve(const pddl_cp_t *cp,
                 pddl_cp_sol_t *sol,
                 pddl_err_t *err)
 {
-    CTX(err, "cp_solve", "CP-solve");
+    CTX(err, "CP-solve");
     ZEROIZE(sol);
 
     if (cp->unsat){

@@ -234,8 +234,8 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
                                     float max_time,
                                     pddl_err_t *err)
 {
-    CTX(err, "asnets_teacher_rollout", "ASNets-Teacher-Rollout");
-    LOG(err, "start num samples: %{start_num_samples}d", td->sample_size);
+    CTX(err, "ASNets-Teacher-Rollout");
+    LOG(err, "start num samples: %d", td->sample_size);
     if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
         LOG(err, "State already in the data pool -- skipping.");
         CTXEND(err);
@@ -299,7 +299,7 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
     pddlSearchDel(search);
     pddlHeurDel(heur);
     pddlFDRFree(&fdr);
-    LOG(err, "num samples: %{num_samples}d", td->sample_size);
+    LOG(err, "num samples: %d", td->sample_size);
     CTXEND(err);
     return 0;
 }

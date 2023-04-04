@@ -700,11 +700,11 @@ int pddlStripsRemoveStaticFacts(pddl_strips_t *strips, pddl_err_t *err)
         }
     }
 
-    PDDL_LOG(err, "Found %{found_static_facts}d static facts",
+    PDDL_LOG(err, "Found %d static facts",
              pddlISetSize(&del_facts));
     if (pddlISetSize(&del_facts) > 0){
         pddlStripsReduce(strips, &del_facts, NULL);
-        PDDL_LOG(err, "Removed %{rm_static_facts}d static facts",
+        PDDL_LOG(err, "Removed %d static facts",
                  pddlISetSize(&del_facts));
     }
 
@@ -765,10 +765,10 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    pddl_iset_t *changed_ops,
                                    pddl_err_t *err)
 {
-    CTX(err, "rm_useless_del_effs", "rm-useless-del-effs");
+    CTX(err, "rm-useless-del-effs");
     int ret = 0;
     PDDL_LOG(err, "Removing useless delete effects."
-             " num mutex pairs: %{num_mutex_pairs}d",
+             " num mutex pairs: %d",
              (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
 
     PDDL_ISET(useless);
@@ -805,7 +805,7 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     pddlISetFree(&useless);
 
     PDDL_LOG(err, "Removing useless delete effects DONE."
-             " (modified ops: %{modified_ops}d)", ret);
+             " (modified ops: %d)", ret);
     CTXEND(err);
     return ret;
 }
@@ -833,7 +833,7 @@ int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
         }
     }
     pddlISetFree(&part_state);
-    PDDL_LOG(err, "Found %{found_unreachable_ops}d unreachable operators.", num);
+    PDDL_LOG(err, "Found %d unreachable operators.", num);
     return 0;
 }
 
@@ -1030,15 +1030,15 @@ void pddlStripsPrintDebug(const pddl_strips_t *strips, FILE *fout)
 
 void pddlStripsLogInfo(const pddl_strips_t *strips, pddl_err_t *err)
 {
-    PDDL_LOG(err, "Number of Strips Operators: %{ops}d", strips->op.op_size);
-    PDDL_LOG(err, "Number of Strips Facts: %{facts}d", strips->fact.fact_size);
-    PDDL_LOG(err, "Goal is unreachable: %{goal_unreachable}d", strips->goal_is_unreachable);
-    PDDL_LOG(err, "Has Conditional Effects: %{has_ce}d", strips->has_cond_eff);
+    PDDL_LOG(err, "Number of Strips Operators: %d", strips->op.op_size);
+    PDDL_LOG(err, "Number of Strips Facts: %d", strips->fact.fact_size);
+    PDDL_LOG(err, "Goal is unreachable: %d", strips->goal_is_unreachable);
+    PDDL_LOG(err, "Has Conditional Effects: %d", strips->has_cond_eff);
     int count = 0;
     for (int i = 0; i < strips->op.op_size; ++i){
         if (strips->op.op[i]->cond_eff_size > 0)
             ++count;
     }
     PDDL_LOG(err, "Number of Strips Operators"
-             " with Conditional Effects: %{ops_ce}d", count);
+             " with Conditional Effects: %d", count);
 }

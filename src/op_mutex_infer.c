@@ -118,7 +118,7 @@ int pddlOpMutexInferFAMGroups(pddl_op_mutex_pairs_t *m,
                               const pddl_mgroups_t *mgroup,
                               pddl_err_t *err)
 {
-    CTX(err, "opm", "OPM");
+    CTX(err, "OPM");
     PDDL_INFO(err, "Op-mutexes from fam-groups:");
 
     pddl_strips_fact_cross_ref_t cr;
@@ -199,7 +199,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
     pddl_strips_t P2;
     int op_fact_offset;
 
-    CTX(err, "opm", "OPM");
+    CTX(err, "OPM");
     PDDL_INFO(err, "Op-mutexes using h^%d compilation:", m);
 
     pddlStripsInitCopy(&P2, strips);
@@ -317,7 +317,7 @@ int pddlOpMutexInferHmFromEachOp(pddl_op_mutex_pairs_t *opm,
 {
     pddl_iset_t *unreach_map;
 
-    CTX(err, "opm", "OPM");
+    CTX(err, "OPM");
     PDDL_INFO(err, "Op-mutexes using h^%d from each operator:", m);
 
     unreach_map = CALLOC_ARR(pddl_iset_t, strips_in->op.op_size);

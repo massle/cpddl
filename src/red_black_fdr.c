@@ -38,7 +38,7 @@ static void prepareStrips(pddl_strips_t *strips,
                           const pddl_red_black_fdr_config_t *cfg,
                           pddl_err_t *err)
 {
-    CTX(err, "clean_strips", "Clean Strips");
+    CTX(err, "Clean Strips");
     pddlStripsInitCopy(strips, strips_in);
     PDDL_ISET(unreachable_ops);
     pddlStripsFindUnreachableOps(strips, mutex, &unreachable_ops, err);
@@ -239,7 +239,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
 {
     pddl_timer_t timer;
     pddlTimerStart(&timer);
-    CTX(err, "black_fdr", "Black-FDR");
+    CTX(err, "Black-FDR");
     PDDL_INFO(err, "Construction of FDR with black variables...");
 
     // Make sure that mutex groups are contained in the mutex pairs

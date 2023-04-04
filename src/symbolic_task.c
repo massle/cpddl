@@ -104,7 +104,7 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
     LOG_CONFIG_BOOL(cfg, use_goal_splitting, err);
     LOG_CONFIG_DBL(cfg, step_time_limit, err);
 
-    CTX_NO_TIME(err, "pot", "pot");
+    CTX_NO_TIME(err, "pot");
     pddlHPotConfigLog(&cfg->pot_heur_config, err);
     CTXEND(err);
 }
@@ -112,7 +112,7 @@ static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
 
 static void logConfig(const pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
 {
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX_NO_TIME(err, "Cfg");
     LOG_CONFIG_INT(cfg, cache_size, err);
     LOG_CONFIG_ULONG(cfg, constr_max_nodes, err);
     LOG_CONFIG_DBL(cfg, constr_max_time, err);
@@ -120,10 +120,10 @@ static void logConfig(const pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, fam_groups, err);
     LOG_CONFIG_BOOL(cfg, log_every_step, err);
 
-    CTX_NO_TIME(err, "fw", "fw");
+    CTX_NO_TIME(err, "fw");
     logSearchConfig(&cfg->fw, err);
     CTXEND(err);
-    CTX_NO_TIME(err, "bw", "bw");
+    CTX_NO_TIME(err, "bw");
     logSearchConfig(&cfg->bw, err);
     CTXEND(err);
     CTXEND(err);
@@ -239,9 +239,9 @@ static int searchInit(pddl_symbolic_task_t *ss,
                       pddl_err_t *err)
 {
     if (fw){
-        CTX(err, "symba_search_fw_init", "fw-init");
+        CTX(err, "fw-init");
     }else{
-        CTX(err, "symba_search_bw_init", "bw-init");
+        CTX(err, "bw-init");
     }
     ZEROIZE(search);
     search->cfg = *_cfg;
@@ -284,7 +284,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
             && !fw
             && search->use_heur
             && search->cfg.use_goal_splitting){
-        CTX(err, "symba_split_goal", "split-goal");
+        CTX(err, "split-goal");
 
         ASSERT(ss->mg_strips.strips.fact.fact_size == ss->fdr.var.global_id_size);
         pddl_symbolic_states_split_by_pot_t *goals;
@@ -303,9 +303,9 @@ static int searchInit(pddl_symbolic_task_t *ss,
             pddlCostSum(&h, &search->heur_init);
             h.cost += -s->h_int;
             pddlBDDsCostsAdd(ss->mgr, &search->init, s->state, &h);
-            LOG_IN_CTX(err, "bw_unsorted_init", "Determined unsorted bw init",
-                       "h-value: %{init_h_value}s,"
-                       " bdd-size: %{init_bdd_size}d",
+            LOG_IN_CTX(err, "Determined unsorted bw init",
+                       "h-value: %s,"
+                       " bdd-size: %d",
                        F_COST(&h), pddlBDDSize(s->state));
         }
         pddlSymbolicStatesSplitByPotDel(goals, ss->mgr);
@@ -313,9 +313,9 @@ static int searchInit(pddl_symbolic_task_t *ss,
         pddlBDDsCostsSortUniq(ss->mgr, &search->init);
         LOG(err, "Init states sorted.");
         for (int i = 0; i < search->init.bdd_size; ++i){
-            LOG_IN_CTX(err, "bw_init", "Added bw init",
-                       "h-value: %{init_h_value}s,"
-                       " bdd-size: %{init_bdd_size}d",
+            LOG_IN_CTX(err, "Added bw init",
+                       "h-value: %s,"
+                       " bdd-size: %d",
                        F_COST(&search->init.bdd[i].cost),
                        pddlBDDSize(search->init.bdd[i].bdd));
         }
@@ -335,7 +335,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
         " merge max time: %.2fs",
         search->cfg.trans_merge_max_nodes,
         search->cfg.trans_merge_max_time);
-    LOG(err, "Heuristic value for the initial state: %{init_h_value}s",
+    LOG(err, "Heuristic value for the initial state: %s",
         F_COST(&pot_init_h_value));
     pddlSymbolicTransSetsInit(&search->trans, &ss->vars, &ss->constr,
                               &ss->mg_strips.strips,
@@ -686,9 +686,9 @@ static int checkGoal2(pddl_symbolic_task_t *ss,
             if (!pddlBDDIsFalse(ss->mgr, goal)){
                 searchSetBestPlan(search, state, closed_state);
                 searchSetBestPlan(other_search, closed_state, state);
-                LOG(err, "%{found_plan_dir}s: Found plan,"
-                    " steps: %{found_plan_steps}lu,"
-                    " cost: %{found_plan_cost}s",
+                LOG(err, "%s: Found plan,"
+                    " steps: %lu,"
+                    " cost: %s",
                     (search->fw ? "fw" : "bw"),
                     (unsigned long)search->steps,
                     F_COST(&search->state.bound));
@@ -910,12 +910,12 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
             || pddlTimerElapsedInSF(&search->steps_time) > 1.){
 #endif /* PDDL_DEBUG */
         if (other_search == NULL){
-            LOG_IN_CTX(err, "step", "step",
-                       "%{dir}s %{step}lu, g: %{g}s, h: %{h}s, f: %{f}s,"
-                       " gen: %{generated_states}d,"
-                       " closed: %{closed_states}d,"
-                       " cur-bdd-size: %{cur_state_bdd_size}d"
-                       " cur-bdd-states: %{cur_state_num_states}.1f",
+            LOG_IN_CTX(err, "step",
+                       "%s %lu, g: %s, h: %s, f: %s,"
+                       " gen: %d,"
+                       " closed: %d,"
+                       " cur-bdd-size: %d"
+                       " cur-bdd-states: %.1f",
                        (search->fw ? "fw" : "bw"),
                        (unsigned long)search->steps,
                        F_COST(&state->cost),
@@ -933,15 +933,15 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
                 sbw = search;
             }
 
-            LOG_IN_CTX(err, "step", "step",
-                       "%{dir}s %{step}lu, g: %{g}s, h: %{h}s, f: %{f}s,"
-                       " gen: %{generated_states}d,"
-                       " closed: %{closed_states}d,"
-                       " bound: %{bound}s,"
-                       " fw-est: %{fw_estimate}.2f,"
-                       " bw-est: %{bw_estimate}.2f,"
-                       " cur-bdd-size: %{cur_state_bdd_size}d,"
-                       " cur-bdd-states: %{cur_state_num_states}.1f",
+            LOG_IN_CTX(err, "step",
+                       "%s %lu, g: %s, h: %s, f: %s,"
+                       " gen: %d,"
+                       " closed: %d,"
+                       " bound: %s,"
+                       " fw-est: %.2f,"
+                       " bw-est: %.2f,"
+                       " cur-bdd-size: %d,"
+                       " cur-bdd-states: %.1f",
                        (search->fw ? "fw" : "bw"),
                        (unsigned long)search->steps,
                        F_COST(&state->cost),
@@ -991,10 +991,10 @@ static int searchStep(pddl_symbolic_task_t *ss,
 
     if (pddlCostCmp(&state->f_value, &search->state.bound) <= 0){
         if (checkGoal(ss, search, state, err)){
-            LOG(err, "%{found_plan_dir}s: Found plan,"
-                " steps: %{found_plan_steps}lu,"
-                " cost: %{found_plan_cost}s,"
-                " length: %{found_plan_length}d",
+            LOG(err, "%s: Found plan,"
+                " steps: %lu,"
+                " cost: %s,"
+                " length: %d",
                 (search->fw ? "fw" : "bw"),
                 (unsigned long)search->steps,
                 F_COST(&state->cost),
@@ -1256,10 +1256,10 @@ static void fixSearchConfig(pddl_symbolic_search_config_t *cfg,
 
 static void fixConfig(pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
 {
-    CTX_NO_TIME(err, "fw", "fw");
+    CTX_NO_TIME(err, "fw");
     fixSearchConfig(&cfg->fw, 1, err);
     CTXEND(err);
-    CTX_NO_TIME(err, "bw", "bw");
+    CTX_NO_TIME(err, "bw");
     fixSearchConfig(&cfg->bw, 0, err);
     CTXEND(err);
 }
@@ -1291,13 +1291,13 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
                       " potential heuristic");
     }
 
-    CTX(err, "symba_init", "symba-init");
+    CTX(err, "symba-init");
 
     pddl_symbolic_task_t *ss;
     LOG(err, "Constructing symbolic task from FDR with"
-        " vars: %{fdr_vars}d,"
-        " facts: %{fdr_facts}d,"
-        " ops: %{fdr_ops}d",
+        " vars: %d,"
+        " facts: %d,"
+        " ops: %d",
         fdr->var.var_size,
         fdr->var.global_id_size,
         fdr->op.op_size);
@@ -1420,11 +1420,11 @@ static int searchOneDir(pddl_symbolic_task_t *ss,
     while (res == PDDL_SYMBOLIC_CONT){
         res = searchStep(ss, search, NULL, NULL, err);
     }
-    LOG(err, "Expanded BDD Nodes: %{expanded_bdd_nodes}lu",
+    LOG(err, "Expanded BDD Nodes: %lu",
         search->num_expanded_bdd_nodes);
-    LOG(err, "Expanded States: %{expanded_bdds}lu",
+    LOG(err, "Expanded States: %lu",
         search->num_expanded_states);
-    LOG(err, "Avg. Expanded BDD Nodes: %{avg_expanded_bdd_nodes}.2f",
+    LOG(err, "Avg. Expanded BDD Nodes: %.2f",
              search->avg_expanded_bdd_nodes);
     return res;
 }
@@ -1436,7 +1436,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 {
     if (!ss->search_fw.enabled)
         PANIC("Symbolic Task wasn't initialzed with fw search!");
-    CTX(err, "symba_fw", "symba-fw");
+    CTX(err, "symba-fw");
     searchStart(ss, &ss->search_fw, err);
     int res = searchOneDir(ss, &ss->search_fw, err);
     pddlIArrAppendArr(plan, &ss->search_fw.plan);
@@ -1460,7 +1460,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 {
     if (!ss->search_bw.enabled)
         PANIC("Symbolic Task wasn't initialzed with bw search!");
-    CTX(err, "symba_bw", "symba-bw");
+    CTX(err, "symba-bw");
     searchStart(ss, &ss->search_bw, err);
     int res = searchOneDir(ss, &ss->search_bw, err);
     pddlIArrAppendArr(plan, &ss->search_bw.plan);
@@ -1533,7 +1533,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         PANIC("Symbolic Task wasn't initialzed with fw search!");
     if (!ss->search_bw.enabled)
         PANIC("Symbolic Task wasn't initialzed with bw search!");
-    CTX(err, "symba_fwbw", "symba-bi");
+    CTX(err, "symba-bi");
     PDDL_INFO(err, "start");
     searchStart(ss, &ss->search_fw, err);
     searchStart(ss, &ss->search_bw, err);
@@ -1579,12 +1579,12 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         }
 
         if (fw_step){
-            CTX_NO_TIME(err, "fw_step", "fw-step");
+            CTX_NO_TIME(err, "fw-step");
             fw_cont = searchStep(ss, &ss->search_fw, &ss->search_bw, NULL, err);
             CTXEND(err);
 
         }else{
-            CTX_NO_TIME(err, "bw_step", "bw-step");
+            CTX_NO_TIME(err, "bw-step");
             pddl_time_limit_t step_time_limit;
             pddlTimeLimitSet(&step_time_limit, ss->search_bw.cfg.step_time_limit);
             bw_cont = searchStep(ss, &ss->search_bw, &ss->search_fw,
@@ -1604,9 +1604,9 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         goal = pddlSymbolicStatesGet(&ss->search_fw.state,
                                      ss->search_fw.plan_goal_id);
         pddlIArrAppendArr(plan, &ss->search_fw.plan);
-        LOG(err, "Found plan, cost: %{plan_cost}s,"
-            " length: %{plan_length}d,"
-            " using %{plan_dir}s direction",
+        LOG(err, "Found plan, cost: %s,"
+            " length: %d,"
+            " using %s direction",
             F_COST(&goal->cost), pddlIArrSize(plan), "fw");
         res = PDDL_SYMBOLIC_PLAN_FOUND;
 
@@ -1615,9 +1615,9 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         goal = pddlSymbolicStatesGet(&ss->search_bw.state,
                                      ss->search_bw.plan_goal_id);
         pddlIArrAppendArr(plan, &ss->search_bw.plan);
-        LOG(err, "Found plan, cost: %{plan_cost}s,"
-            " length: %{plan_length}d,"
-            " using %{plan_dir}s direction",
+        LOG(err, "Found plan, cost: %s,"
+            " length: %d,"
+            " using %s direction",
             F_COST(&goal->cost), pddlIArrSize(plan), "bw");
         res = PDDL_SYMBOLIC_PLAN_FOUND;
 
@@ -1631,38 +1631,38 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
         }else{
             res = PDDL_SYMBOLIC_PLAN_FOUND;
             fwbwExtractPlan(ss, &ss->search_fw, &ss->search_bw, plan, err);
-            LOG(err, "Found plan, cost: %{plan_cost}s,"
-                " length: %{plan_length}d,"
-                " using %{plan_dir}s direction",
+            LOG(err, "Found plan, cost: %s,"
+                " length: %d,"
+                " using %s direction",
                 F_COST(&ss->search_fw.state.bound), pddlIArrSize(plan), "fwbw");
         }
     }
 
-    LOG(err, "Fw Expanded BDD Nodes: %{fw.expanded_bdd_nodes}lu",
+    LOG(err, "Fw Expanded BDD Nodes: %lu",
         ss->search_fw.num_expanded_bdd_nodes);
-    LOG(err, "Fw Expanded States: %{fw.expanded_bdds}lu",
+    LOG(err, "Fw Expanded States: %lu",
         ss->search_fw.num_expanded_states);
-    LOG(err, "Fw Avg. Expanded BDD Nodes: %{fw.avg_expanded_bdd_nodes}.2f",
+    LOG(err, "Fw Avg. Expanded BDD Nodes: %.2f",
         ss->search_fw.avg_expanded_bdd_nodes);
 
-    LOG(err, "Bw Expanded BDD Nodes: %{bw.expanded_bdd_nodes}lu",
+    LOG(err, "Bw Expanded BDD Nodes: %lu",
         ss->search_bw.num_expanded_bdd_nodes);
-    LOG(err, "Bw Expanded States: %{bw.expanded_bdds}lu",
+    LOG(err, "Bw Expanded States: %lu",
         ss->search_bw.num_expanded_states);
-    LOG(err, "Bw Avg. Expanded BDD Nodes: %{bw.avg_expanded_bdd_nodes}.2f",
+    LOG(err, "Bw Avg. Expanded BDD Nodes: %.2f",
         ss->search_bw.avg_expanded_bdd_nodes);
 
-    LOG(err, "Expanded BDD Nodes: %{expanded_bdd_nodes}lu",
+    LOG(err, "Expanded BDD Nodes: %lu",
              ss->search_fw.num_expanded_bdd_nodes
                 + ss->search_bw.num_expanded_bdd_nodes);
-    LOG(err, "Expanded States: %{expanded_bdds}lu",
+    LOG(err, "Expanded States: %lu",
              ss->search_fw.num_expanded_states + ss->search_bw.num_expanded_states);
     float avg = ss->search_fw.avg_expanded_bdd_nodes
                     * ss->search_fw.num_expanded_states;
     avg += ss->search_bw.avg_expanded_bdd_nodes
                 * ss->search_bw.num_expanded_states;
     avg /= ss->search_fw.num_expanded_states + ss->search_bw.num_expanded_states;
-    LOG(err, "Avg. Expanded BDD Nodes: %{avg_expanded_bdd_nodes}.2f", avg);
+    LOG(err, "Avg. Expanded BDD Nodes: %.2f", avg);
 
 #ifdef PDDL_DEBUG
     int op_id;
