@@ -295,6 +295,9 @@ c:
 
 mrproper: clean third-party-clean
 
+fetch-submodules:
+	git submodule update --init --recursive
+
 check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb: libpddl.a
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 
