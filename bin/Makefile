@@ -19,12 +19,8 @@ OBJS += lifted_planner.o
 
 ASNETS_OBJS = opts.o
 
-EXP_OBJS = opts.o
-
 all: $(TARGETS)
 
-exp: exp.c $(EXP_OBJS) ../libpddl.a
-	$(CC) $(CFLAGS) -o $@ $< $(EXP_OBJS) $(LDFLAGS)
 pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-fdr: main.c ../libpddl.a $(OBJS)
