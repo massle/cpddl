@@ -8,8 +8,8 @@ if [ "$1" = "" ]; then
     echo "    image:"
     echo "        alpine (does not support cplex)"
     echo "        photon"
-    echo "        debian-{bullseye,buster,stretch}"
-    echo "        ubuntu-{jammy,focal,bionic}"
+    echo "        debian-{bullseye,buster,stretch,testing}"
+    echo "        ubuntu-{kinetic,jammy,focal,bionic}"
     echo "        fedora"
     echo "        gcc-{11,12}"
     echo ""
@@ -24,6 +24,7 @@ if [ "$1" = "" ]; then
     echo "        --git tag/branch/sha"
     echo "        --git-dev tag/branch/sha"
     echo "        --clang (does not work for photon)"
+    echo "        --clang-ver version (works only for debian and ubuntu)"
     echo "        --werror"
     exit -1
 fi
@@ -43,6 +44,7 @@ HAS_MINIZINC=
 NO_BLISS=
 NO_CUDD=
 CLANG=
+CLANG_VERSION=
 while true; do
     if [ "$1" = "--cplex" ]; then
         HAS_CPLEX=yes
@@ -113,6 +115,15 @@ while true; do
         CLANG=yes
         shift
 
+    elif [ "$1" = "--clang-ver" ]; then
+        CLANG=yes
+        shift
+        CLANG_VERSION=$1
+        shift
+        SETUP="$SETUP
+            wget -O - https://apt.llvm.org/llvm.sh >\$APPTAINER_ROOTFS/llvm.sh
+"
+
     elif [ "$1" = "--output" ]; then
         shift
         OUTPUT="$1"
@@ -181,6 +192,14 @@ MAKE="
 
     cd /cpddl
     rm -f Makefile.config
+    if [ \"$CLANG_VERSION\" != \"\" ]; then
+        echo \"CC = clang-${CLANG_VERSION}\" >>Makefile.config
+        echo \"CXX = clang++-${CLANG_VERSION}\" >>Makefile.config
+    else
+        [ -f /usr/bin/clang ] \\
+            && echo \"CC = clang\" >>Makefile.config \\
+            && echo \"CXX = clang++\" >>Makefile.config
+    fi
 
     if [ -d /opt/gurobi/linux64 ]; then
         echo \"GUROBI_CFLAGS = -I/opt/gurobi/linux64/include\" >>Makefile.config
@@ -195,9 +214,6 @@ MAKE="
     [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
     [ -d /HiGHS ] && echo \"HIGHS_ROOT = /HiGHS\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
-    [ -f /usr/bin/clang ] \\
-        && echo \"CC = clang\" >>Makefile.config \\
-        && echo \"CXX = clang++\" >>Makefile.config
     [ \"$WERROR\" != \"\" ] && echo \"WERROR = yes\" >>Makefile.config
     make mrproper
     make help
@@ -270,7 +286,10 @@ $SETUP
     apt update -y
     apt upgrade -y
     apt install -y make gcc g++ autoconf automake cmake git libstdc++6
-    [ "$CLANG" = "yes" ] && apt install -y clang
+    [ -f /llvm.sh ] \\
+        && apt install -y lsb-release wget software-properties-common gnupg \\
+        && bash /llvm.sh $CLANG_VERSION
+    [ "$CLANG" = "yes" ] && [ ! -f /llvm.sh ] && apt install -y clang
     $MAKE
 
 Bootstrap: docker
@@ -393,13 +412,17 @@ elif [ "$1" = "debian-buster" ]; then
     build_debian debian-buster debian:buster-slim
 elif [ "$1" = "debian-stretch" ]; then
     build_debian debian-stretch debian:stretch-slim
+elif [ "$1" = "debian-testing" ]; then
+    build_debian debian-testing debian:testing-slim
 
 elif [ "$1" = "gcc-12" ]; then
     build_debian gcc-12 gcc:12
 elif [ "$1" = "gcc-11" ]; then
     build_debian gcc-11 gcc:11
 
-elif [ "$1" = "ubuntu" ] || [ "$1" = "ubuntu-jammy" ]; then
+elif [ "$1" = "ubuntu" ] || [ "$1" = "ubuntu-kinetic" ]; then
+    build_debian ubuntu-kinetic ubuntu:kinetic
+elif [ "$1" = "ubuntu-jammy" ]; then
     build_debian ubuntu-jammy ubuntu:jammy
 elif [ "$1" = "ubuntu-focal" ]; then
     build_debian ubuntu-focal ubuntu:focal
