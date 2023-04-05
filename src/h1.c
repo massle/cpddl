@@ -31,7 +31,7 @@ int pddlH1(const pddl_strips_t *strips,
         PDDL_ERR_RET(err, -1, "pddlH1: Conditional effects are not supported!");
     }
 
-    CTX(err, "h1", "h^1");
+    CTX(err, "h^1");
     int *facts = CALLOC_ARR(int, strips->fact.fact_size);
     int *ops = CALLOC_ARR(int, strips->op.op_size);
     pddl_iset_t *fact_to_op = CALLOC_ARR(pddl_iset_t, strips->fact.fact_size);

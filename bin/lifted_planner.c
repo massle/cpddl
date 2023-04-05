@@ -129,7 +129,7 @@ static pddl_homomorphism_heur_t *liftedHomomorphHeur(const pddl_t *pddl,
 {
     pddl_homomorphism_heur_t *heur = NULL;
 
-    PDDL_CTX_NO_TIME(err, "cfg.heur", "Cfg Heur");
+    PDDL_CTX_NO_TIME(err, "Cfg Heur");
     heur_homo_fn heur_fn = pddlHomomorphismHeurLMCut;
     switch (opt.lifted_planner.heur){
         case LIFTED_PLAN_HEUR_HOMO_LMC:
@@ -141,9 +141,9 @@ static pddl_homomorphism_heur_t *liftedHomomorphHeur(const pddl_t *pddl,
             heur_fn = pddlHomomorphismHeurHFF;
             break;
     }
-    PDDL_CTX_NO_TIME(err, "homomorph", "Homomorph");
+    PDDL_CTX_NO_TIME(err, "Homomorph");
     pddlHomomorphismConfigLog(&opt.lifted_planner.homomorph_cfg, err);
-    PDDL_LOG(err, "samples = %{samples}d", opt.lifted_planner.homomorph_samples);
+    PDDL_LOG(err, "samples = %d", opt.lifted_planner.homomorph_samples);
     PDDL_CTXEND(err);
     PDDL_CTXEND(err);
 
@@ -164,7 +164,7 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     old_sigint = signal(SIGINT, liftedPlannerSigHandlerTerminate);
     old_sigterm = signal(SIGTERM, liftedPlannerSigHandlerTerminate);
 
-    PDDL_CTX(err, "lplan", "LPLAN");
+    PDDL_CTX(err, "LPLAN");
 
     pddl_homomorphism_heur_t *heur_homo = NULL;
     pddl_lifted_heur_t *heur = NULL;
@@ -249,11 +249,6 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     }
     pddlLiftedSearchStatLog(search, err);
 
-    PDDL_PROP_BOOL(err, "finished", 1);
-    PDDL_PROP_BOOL(err, "unsolvable", st == PDDL_LIFTED_SEARCH_UNSOLVABLE);
-    PDDL_PROP_BOOL(err, "found", st == PDDL_LIFTED_SEARCH_FOUND);
-    PDDL_PROP_BOOL(err, "aborted", st == PDDL_LIFTED_SEARCH_ABORT);
-
     if (st == PDDL_LIFTED_SEARCH_UNSOLVABLE){
         PDDL_INFO(err, "Problem is unsolvable.");
 
@@ -261,9 +256,7 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
         PDDL_INFO(err, "Plan found.");
         const pddl_lifted_plan_t *plan = pddlLiftedSearchPlan(search);
         PDDL_INFO(err, "Plan Cost: %d", plan->plan_cost);
-        PDDL_PROP_INT(err, "plan_cost", plan->plan_cost);
         PDDL_INFO(err, "Plan Length: %d", plan->plan_len);
-        PDDL_PROP_INT(err, "plan_length", plan->plan_len);
         PRINT_TO_FILE(err, opt.lifted_planner.plan_out, "plan",
                       pddlLiftedSearchPlanPrint(search, fout));
 

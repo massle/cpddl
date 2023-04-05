@@ -37,8 +37,6 @@ extern "C" {
 #define PDDL_ERR_CTX_MAXLEN 32
 /** Maximum length of an INFO prefix */
 #define PDDL_ERR_CTX_INFO_MAXLEN 32
-/** Maximum length of a keyword */
-#define PDDL_ERR_CTX_KW_MAXLEN 32
 
 
 struct pddl_err_trace {
@@ -50,7 +48,6 @@ typedef struct pddl_err_trace pddl_err_trace_t;
 
 struct pddl_err_ctx {
     char info[PDDL_ERR_CTX_INFO_MAXLEN];
-    char kw[PDDL_ERR_CTX_KW_MAXLEN];
     int use_time;
     pddl_timer_t timer;
 };
@@ -65,12 +62,9 @@ struct pddl_err {
 
     pddl_err_ctx_t ctx[PDDL_ERR_CTX_MAXLEN];
     int ctx_size;
-    pddl_timer_t ctx_timer;
-    int ctx_timer_started;
 
     FILE *warn_out;
     FILE *info_out;
-    FILE *prop_out;
     int info_print_resources_disabled;
     pddl_timer_t info_timer;
     int info_timer_init;
@@ -83,11 +77,6 @@ typedef struct pddl_err pddl_err_t;
  * Initialize error structure.
  */
 void pddlErrInit(pddl_err_t *err);
-
-/**
- * Start global context timer.
- */
-void pddlErrStartCtxTimer(pddl_err_t *err);
 
 /**
  * Returns true if an error message is set.
@@ -109,11 +98,6 @@ void pddlErrWarnEnable(pddl_err_t *err, FILE *fout);
  * Enable/disable info messages.
  */
 void pddlErrInfoEnable(pddl_err_t *err, FILE *fout);
-
-/**
- * Enable/disabled property output.
- */
-void pddlErrPropEnable(pddl_err_t *err, FILE *fout);
 
 /**
  * Disable printing resources with PDDL_INFO
@@ -165,10 +149,8 @@ void pddlErrFlush(pddl_err_t *err);
 /**
  * Enter another level of context.
  */
-#define PDDL_CTX(E, KW, I) _pddlCtx((E), (KW), (I), 1)
-#define PDDL_CTX_F(E, KW, I, ...) _pddlCtxFmt((E), (KW), (I), 1, __VA_ARGS__)
-#define PDDL_CTX_NO_TIME(E, KW, I) _pddlCtx((E), (KW), (I), 0)
-#define PDDL_CTX_NO_TIME_F(E, KW, I, ...) _pddlCtxFmt((E), (KW), (I), 0, __VA_ARGS__)
+#define PDDL_CTX(E, ...) _pddlCtx((E), 1, __VA_ARGS__)
+#define PDDL_CTX_NO_TIME(E, ...) _pddlCtx((E), 0, __VA_ARGS__)
 
 /**
  * Leave current context.
@@ -179,23 +161,13 @@ void pddlErrFlush(pddl_err_t *err);
  * Prints info line with timestamp.
  */
 #define PDDL_LOG(E, ...) _pddlLog((E), __VA_ARGS__)
-#define PDDL_LOG_IN_CTX(E, CTX_KW, CTX_I, format, ...) \
+#define PDDL_LOG_IN_CTX(E, CTX_I, format, ...) \
     do { \
-        PDDL_CTX_NO_TIME((E), (CTX_KW), (CTX_I)); \
+        PDDL_CTX_NO_TIME((E), (CTX_I)); \
         PDDL_LOG((E), format, __VA_ARGS__); \
         PDDL_CTXEND((E)); \
     } while (0)
 
-#define PDDL_PROP_BOOL(E, KEY, V) \
-    _pddlProp((E), (KEY), "%s", ((V) ? "true" : "false"))
-#define PDDL_PROP_INT(E, KEY, V) \
-    _pddlProp((E), (KEY), "%d", (V))
-#define PDDL_PROP_LONG(E, KEY, V) \
-    _pddlProp((E), (KEY), "%ld", (V))
-#define PDDL_PROP_DBL(E, KEY, V) \
-    _pddlProp((E), (KEY), "%.4f", (V))
-#define PDDL_PROP_STR(E, KEY, V) \
-    _pddlProp((E), (KEY), "\"%s\"", (V))
 
 /**
  * Trace the error -- record the current file, line and function.
@@ -231,15 +203,13 @@ void _pddlPanic(const char *filename, int line, const char *func,
                 const char *format, ...);
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
-void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time);
-void _pddlCtxFmt(pddl_err_t *err, const char *kw, const char *info, int time, ...);
+void _pddlCtx(pddl_err_t *err, int time, const char *info, ...);
 void _pddlCtxEnd(pddl_err_t *err);
 void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
                const char *format, ...);
 void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
                const char *format, ...);
 void _pddlLog(pddl_err_t *err, const char *fmt, ...);
-void _pddlProp(pddl_err_t *err, const char *key, const char *fmt, ...);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -818,9 +818,9 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
             if (pddlISetSize(&black_vars) > 0){
                 blackFactsToBlackMGroups(bv, &black_vars, mgroups,
                                          bmgroups + solution, err);
-                LOG(err, "Found non-empty solution %{solution.id}d with"
-                    " %{solution.black_facts}d black facts and"
-                    " %{solution.black_mgroups}d black mgroups",
+                LOG(err, "Found non-empty solution %d with"
+                    " %d black facts and"
+                    " %d black mgroups",
                     solution, pddlISetSize(&black_vars),
                     bmgroups->mgroup_size);
                 ++solution;
@@ -855,7 +855,7 @@ void pddlBlackMGroupsInfer(pddl_black_mgroups_t *bmgroups,
                            const pddl_black_mgroups_config_t *cfg,
                            pddl_err_t *err)
 {
-    CTX(err, "black_mg_lp", "Black-mg-LP");
+    CTX(err, "Black-mg-LP");
     for (int i = 0; i < cfg->num_solutions; ++i)
         ZEROIZE(bmgroups + i);
 

@@ -449,7 +449,7 @@ int pddlH2(const pddl_strips_t *strips,
            float time_limit_in_s,
            pddl_err_t *err)
 {
-    CTX(err, "h2fw", "h^2 fw");
+    CTX(err, "h^2 fw");
     int ret = h2StateFw(strips, &strips->init, m, unreachable_facts,
                         unreachable_ops, time_limit_in_s, err);
     CTXEND(err);
@@ -616,7 +616,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
     if (strips->has_cond_eff)
         PDDL_ERR_RET(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
-    CTX(err, "h2fwbw", "h^2 fw/bw");
+    CTX(err, "h^2 fw/bw");
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
               strips->fact.fact_size,
               strips->op.op_size,

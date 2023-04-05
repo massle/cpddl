@@ -69,7 +69,7 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
                              pddl_err_t *err)
 {
-    CTX(err, "asnets_lifted_task", "ASNets-LiftedTask");
+    CTX(err, "ASNets-LiftedTask");
     ZEROIZE(lt);
     pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
     pddl_cfg.force_adl = 1;
@@ -192,7 +192,7 @@ static void addRelatedOp(pddl_asnets_ground_task_t *gt,
 static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
                                      pddl_err_t *err)
 {
-    CTX(err, "relatedness", "Relatedness");
+    CTX(err, "Relatedness");
     gt->op_size = gt->strips.op.op_size;
     gt->op = CALLOC_ARR(pddl_asnets_op_t, gt->op_size);
     for (int i = 0; i < gt->op_size; ++i){
@@ -286,7 +286,7 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                              const char *problem_fn,
                              pddl_err_t *err)
 {
-    CTX(err, "asnets_ground_task", "ASNets-GroundTask");
+    CTX(err, "ASNets-GroundTask");
     ZEROIZE(gt);
     gt->lifted_task = lt;
 

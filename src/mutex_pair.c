@@ -250,7 +250,7 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_mgroups_t *mgroups,
                                     pddl_err_t *err)
 {
-    CTX(err, "mg_h2", "MG-h2");
+    CTX(err, "MG-h2");
     PDDL_INFO(err, "Inference of h^2 mutex groups...");
     pddl_graph_simple_t graph;
     pddlGraphSimpleInit(&graph, mutex->fact_size);

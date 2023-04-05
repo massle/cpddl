@@ -142,7 +142,7 @@ static int parse(pddl_t *pddl, const pddl_lisp_t *lisp, int kw, int is_const,
     }
 
     if (is_const){
-        LOG(err, ":constants parsed, num constants: %{parsed_consts}d",
+        LOG(err, ":constants parsed, num constants: %d",
             pddl->obj.obj_size);
     }
 
@@ -227,7 +227,7 @@ int pddlObjsParse(pddl_t *pddl, pddl_err_t *err)
     for (i = 0; i < pddl->obj.obj_size; ++i)
         pddlTypesAddObj(&pddl->type, i, pddl->obj.obj[i].type);
 
-    LOG(err, "Objects parsed, num objects: %{parsed_objs}d",
+    LOG(err, "Objects parsed, num objects: %d",
         pddl->obj.obj_size);
     return 0;
 }

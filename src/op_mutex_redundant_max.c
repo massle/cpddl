@@ -81,7 +81,7 @@ static void redundantInit(redundant_t *red,
             }
         }
     }
-    LOG(err, "Relevant ops: %{relevant_ops}d", pddlISetSize(&red->relevant_ops));
+    LOG(err, "Relevant ops: %d", pddlISetSize(&red->relevant_ops));
 
     red->op_to_relevant_op = ALLOC_ARR(int, red->op_size);
     for (int op_id = 0; op_id < red->op_size; ++op_id)
@@ -114,7 +114,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
                                 pddl_iset_t *redundant,
                                 pddl_err_t *err)
 {
-    CTX(err, "opm_redundant_max", "OPM-Redundant-Max");
+    CTX(err, "OPM-Redundant-Max");
     if (sym->gen_size == 0 || op_mutex->num_op_mutex_pairs == 0){
         LOG(err, "Found 0 redundant ops");
         CTXEND(err);
@@ -123,7 +123,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
 
     redundant_t red;
     redundantInit(&red, sym, op_mutex, err);
-    LOG(err, "Relevant ops: %{num_relevant_ops}d / %d",
+    LOG(err, "Relevant ops: %d / %d",
         pddlISetSize(&red.relevant_ops), red.op_size);
 
     if (pddlISetSize(&red.relevant_ops) == 0){
@@ -135,8 +135,8 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
 
     int num_ops = pddlISetSize(&red.relevant_ops);
     int num_vars = 2 * num_ops;
-    LOG(err, "LP vars: %{num_lp_vars}d", num_vars);
-    LOG(err, "LP rows: %{num_lp_rows}d", 2 * num_ops);
+    LOG(err, "LP vars: %d", num_vars);
+    LOG(err, "LP rows: %d", 2 * num_ops);
 
     pddl_lp_config_t lpcfg = PDDL_LP_CONFIG_INIT;
     lpcfg.maximize = 1;

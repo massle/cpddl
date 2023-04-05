@@ -124,7 +124,7 @@ static int stepLiftedEndomorph(void)
         return 0;
     }
 
-    PDDL_CTX(&err, "lend", "LENDO");
+    PDDL_CTX(&err, "LENDO");
     int ret = 0;
     pddl_endomorphism_config_t cfg = PDDL_ENDOMORPHISM_CONFIG_INIT;
     cfg.ignore_costs = opt.lifted_endomorph.ignore_costs;
@@ -181,7 +181,7 @@ static void stripsCompileAwayCondEff(void)
         return;
 
 
-    PDDL_CTX(&err, "strips_ce", "STRIPS CE");
+    PDDL_CTX(&err, "STRIPS CE");
     if (!strips.has_cond_eff){
         PDDL_INFO(&err, "The task has no conditional effects.");
         PDDL_CTXEND(&err);
@@ -270,7 +270,7 @@ static int stepGround(void)
 static int stepReportMGroups(void)
 {
     if (opt.report.mgroups){
-        PDDL_CTX(&err, "report_mgs", "Report MGroups");
+        PDDL_CTX(&err, "Report MGroups");
         reportMGroups(&pddl, &strips, &err);
         PDDL_CTXEND(&err);
         return 1;
@@ -285,7 +285,7 @@ static int stepGroundMGroups(void)
         return 0;
     }
 
-    PDDL_CTX(&err, "ground_lmg", "Ground LMG");
+    PDDL_CTX(&err, "Ground LMG");
     PDDL_INFO(&err, "Grounding of lifted mutex groups ...");
     pddlMGroupsGround(&mgroup, &pddl, &lifted_mgroups, &strips);
     if (opt.ground.mgroup_remove_subsets)
@@ -311,7 +311,7 @@ static int stepInferMGroups(void)
         return 0;
     }
 
-    PDDL_CTX(&err, "mg", "MG");
+    PDDL_CTX(&err, "MG");
     if (opt.mg.method == MG_FAM){
         pddl_famgroup_config_t cfg = PDDL_FAMGROUP_CONFIG_INIT;
         cfg.maximal = opt.mg.fam_maximal;
@@ -508,7 +508,7 @@ static int stepFDR(void)
     }
 
     if (opt.fdr.to_tnf || opt.fdr.to_tnf_multiply){
-        PDDL_CTX(&err, "fdr_to_tnf", "FDR-to-TNF");
+        PDDL_CTX(&err, "FDR-to-TNF");
         if (opt.fdr.to_tnf){
             PDDL_INFO(&err, "Constructing TNF (ops: %d)", fdr.op.op_size);
         }else if (opt.fdr.to_tnf_multiply){
@@ -615,7 +615,7 @@ static int stepGroundPlanner(void)
     if (opt.ground_planner.search == GROUND_PLAN_NONE)
         return 0;
 
-    PDDL_CTX(&err, "gplan", "GPLAN");
+    PDDL_CTX(&err, "GPLAN");
     pddl_heur_config_t heur_cfg = PDDL_HEUR_CONFIG_INIT;
     heur_cfg.fdr = &fdr;
     switch (opt.ground_planner.heur){
@@ -844,7 +844,7 @@ static int stepSymba(void)
     if (opt.symba.search == SYMBA_NONE)
         return 0;
 
-    PDDL_CTX(&err, "symba", "SYMBA");
+    PDDL_CTX(&err, "SYMBA");
 
     int is_tnf = fdrHasTNFOps(&fdr);
     if (opt.symba.cfg.fw.use_pot_heur){
@@ -893,22 +893,19 @@ static int stepSymba(void)
             && opt.symba.bw_off_if_constr_failed
             && pddlSymbolicTaskGoalConstrFailed(task)){
         PDDL_INFO(&err, "Switching to fw-only search.");
-        PDDL_PROP_BOOL(&err, "switch_to_fw_only", 1);
         res = pddlSymbolicTaskSearchFw(task, &plan, &err);
     }else{
         res = pddlSymbolicTaskSearch(task, &plan, &err);
     }
 
 
-    PDDL_PROP_BOOL(&err, "plan_found", res == PDDL_SYMBOLIC_PLAN_FOUND);
-    PDDL_PROP_BOOL(&err, "unsolvable", res == PDDL_SYMBOLIC_PLAN_NOT_EXIST);
     if (res == PDDL_SYMBOLIC_PLAN_FOUND){
         int cost = 0;
         int op;
         PDDL_IARR_FOR_EACH(&plan, op)
             cost += fdr.op.op[op]->cost;
-        PDDL_LOG(&err, "Plan Cost: %{plan_cost}d", cost);
-        PDDL_LOG(&err, "Plan Length: %{plan_length}d", pddlIArrSize(&plan));
+        PDDL_LOG(&err, "Plan Cost: %d", cost);
+        PDDL_LOG(&err, "Plan Length: %d", pddlIArrSize(&plan));
         PRINT_TO_FILE(&err, opt.symba.out, "plan",
                       symbaPlanPrint(&fdr, &plan, cost, fout));
 
@@ -940,14 +937,11 @@ void freeData(void)
         pddlFree(&pddl);
     if (log_out != NULL)
         closeFile(log_out);
-    if (prop_out != NULL)
-        closeFile(prop_out);
     optsFree();
 }
 
 int main(int argc, char *argv[])
 {
-    pddlErrStartCtxTimer(&err);
     pddl_timer_t timer;
     pddlTimerStart(&timer);
     int ret = 0;
@@ -979,7 +973,7 @@ int main(int argc, char *argv[])
     }
 
     pddlTimerStop(&timer);
-    PDDL_LOG(&err, "Overall Elapsed Time: %{overall_elapsed_time}.4fs",
+    PDDL_LOG(&err, "Overall Elapsed Time: %.4fs",
              pddlTimerElapsedInSF(&timer));
     freeData();
     return 0;

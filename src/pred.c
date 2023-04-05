@@ -219,7 +219,7 @@ int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
         }
     }
 
-    LOG(err, "Predicates parsed, num predicates: %{parsed_preds}d",
+    LOG(err, "Predicates parsed, num predicates: %d",
         pddl->pred.pred_size);
     return 0;
 }
@@ -274,7 +274,7 @@ int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
             i += 2;
         }
     }
-    LOG(err, "Functions parsed, num functions: %{parsed_funcs}d",
+    LOG(err, "Functions parsed, num functions: %d",
         pddl->func.pred_size);
     return 0;
 }

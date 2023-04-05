@@ -234,8 +234,8 @@ static void famInit(fam_t *fam,
     for (int i = 0; i < mgroups->mgroup_size; ++i)
         skipMGroup(fam, &mgroups->mgroup[i].mgroup);
 
-    LOG(err, "Created LP with %{lp_vars}d variables"
-        " and %{lp_constrs}d constraints",
+    LOG(err, "Created LP with %d variables"
+        " and %d constraints",
         fam->lp_var_size, fam->row);
 }
 
@@ -290,7 +290,7 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
     if (strips->has_cond_eff)
         PANIC("fam-groups does not support conditional effects");
 
-    CTX(err, "mg_fam", "MG-fam");
+    CTX(err, "MG-fam");
     fam_t fam;
     int start_num = mgs->mgroup_size;
     // TODO: pddlFAMGroupConfigLog()
@@ -310,7 +310,7 @@ int pddlFAMGroupsInfer(pddl_mgroups_t *mgs,
     famInfer(&fam);
     famFree(&fam);
 
-    LOG(err, "Inference of fam-groups DONE: %{fam_groups}d fam-groups found.",
+    LOG(err, "Inference of fam-groups DONE: %d fam-groups found.",
         mgs->mgroup_size - start_num);
     CTXEND(err);
     return 0;

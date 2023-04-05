@@ -264,8 +264,8 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                             const pddl_ground_config_t *cfg,
                             pddl_err_t *err)
 {
-    CTX(err, "ground_dl", "Ground DL");
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX(err, "Ground DL");
+    CTX_NO_TIME(err, "Cfg");
     pddlGroundConfigLog(cfg, err);
     CTXEND(err);
     PDDL_INFO(err, "Grounding using datalog ...");

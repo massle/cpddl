@@ -159,7 +159,7 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
                              pddl_bdd_manager_t *mgr,
                              pddl_err_t *err)
 {
-    CTX(err, "symba_split_state_by_pot", "Split-state-by-pot");
+    CTX(err, "Split-state-by-pot");
     pddl_disambiguate_t disamb;
     if (pddlDisambiguateInit(&disamb, symb_vars->fact_size,
                              mutex, mgroups) != 0){
@@ -246,9 +246,9 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
         s->h_int = (int)ceil(states->key - EPS);
         s->state = pddlBDDClone(mgr, states->states);
 
-        LOG_IN_CTX(err, "found_states", "Found states",
-                   "h-value %{h}.2f (%{h_int}d),"
-                   " bdd size: %{bdd_size}d",
+        LOG_IN_CTX(err, "Found states",
+                   "h-value %.2f (%d),"
+                   " bdd size: %d",
                    s->h, s->h_int, pddlBDDSize(s->state));
     }
 

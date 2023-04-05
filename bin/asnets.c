@@ -7,7 +7,6 @@ static struct {
     int version;
     int max_mem;
     char *log_out;
-    char *prop_out;
 
     char *train;
     char *train_save_prefix;
@@ -19,7 +18,6 @@ static struct {
 
 static pddl_err_t err = PDDL_ERR_INIT;
 static FILE *log_out = NULL;
-static FILE *prop_out = NULL;
 static char *config_file = NULL;
 
 static void help(const char *argv0, FILE *fout)
@@ -39,8 +37,6 @@ static int parseOpts(int argc, char *argv[])
                "Maximum memory in MB if >0.");
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
-    optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
-               "Set output file for properties log.");
     optsAddStr("train", 't', &opt.train, NULL,
                "Train ASNets and save the model to the specified file.");
     optsAddStr("train-save-prefix", 0x0, &opt.train_save_prefix, NULL,
@@ -100,11 +96,6 @@ static int parseOpts(int argc, char *argv[])
         pddlErrInfoEnable(&err, log_out);
     }
 
-    if (opt.prop_out != NULL){
-        prop_out = openFile(opt.prop_out);
-        pddlErrPropEnable(&err, prop_out);
-    }
-
     if (opt.max_mem > 0){
         struct rlimit mem_limit;
         mem_limit.rlim_cur
@@ -115,7 +106,7 @@ static int parseOpts(int argc, char *argv[])
     if (argc > 1)
         config_file = argv[1];
 
-    PDDL_LOG(&err, "Version: %{version}s", pddl_version);
+    PDDL_LOG(&err, "Version: %s", pddl_version);
     return 0;
 }
 
@@ -194,8 +185,8 @@ int main(int argc, char *argv[])
             task = pddlASNetsGetGroundTask(asnets, task_id);
             PDDL_IARR(plan);
             int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
-            PDDL_LOG(&err, "Task %{eval_domain}s %{eval_problem}s"
-                     " solved: %{eval_solved}b, length: %{eval_length}d",
+            PDDL_LOG(&err, "Task %s %s"
+                     " solved: %b, length: %d",
                      task->pddl.domain_lisp->filename,
                      task->pddl.problem_lisp->filename,
                      solved,
@@ -220,8 +211,8 @@ int main(int argc, char *argv[])
             }
             pddlIArrFree(&plan);
         }
-        PDDL_LOG(&err, "Solved %{eval_num_solved}d out of"
-                 " %{eval_num_tasks}d tasks", num_solved, num_tasks);
+        PDDL_LOG(&err, "Solved %d out of"
+                 " %d tasks", num_solved, num_tasks);
 
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);
@@ -243,7 +234,7 @@ int main(int argc, char *argv[])
     }
 
     pddlTimerStop(&timer);
-    PDDL_LOG(&err, "Overall Elapsed Time: %{overall_elapsed_time}.4fs",
+    PDDL_LOG(&err, "Overall Elapsed Time: %.4fs",
              pddlTimerElapsedInSF(&timer));
 
     pddlASNetsConfigFree(&cfg);
@@ -251,7 +242,5 @@ int main(int argc, char *argv[])
         pddlASNetsDel(asnets);
     if (log_out != NULL)
         closeFile(log_out);
-    if (prop_out != NULL)
-        closeFile(prop_out);
     return ret;
 }

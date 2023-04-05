@@ -220,7 +220,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         int id = pddlCPAddIVar(cp, 0, var->val_size - 1, name);
         ASSERT_RUNTIME(id == fi);
     }
-    LOG(err, "Created %{num_fact_vars}d fact variables",
+    LOG(err, "Created %d fact variables",
         fdr->var.global_id_size);
     if (pddlTimeLimitCheck(time_limit) != 0)
         PDDL_ERR_RET(err, -1, "Time limit reached.");
@@ -234,7 +234,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         int id = pddlCPAddIVar(cp, 0, fdr->op.op_size - 1, name);
         ASSERT_RUNTIME(op->id + op_var_offset == id);
     }
-    LOG(err, "Created %{num_op_vars}d operator variables", fdr->op.op_size);
+    LOG(err, "Created %d operator variables", fdr->op.op_size);
     if (pddlTimeLimitCheck(time_limit) != 0)
         PDDL_ERR_RET(err, -1, "Time limit reached.");
 
@@ -274,7 +274,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         //PDDL_INFO(err, "  Created operator constraints %d",
         //         pddlISetSize(&opg.group[group_id]));
     }
-    LOG(err, "Added %{num_op_constrs}d operator constraints", num_op_constr);
+    LOG(err, "Added %d operator constraints", num_op_constr);
 
     PDDL_ISET(op_vars);
     for (int oi = 0; oi < fdr->op.op_size; ++oi)
@@ -323,7 +323,7 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
                         pddl_endomorphism_sol_t *sol,
                         pddl_err_t *err)
 {
-    CTX(err, "endo_fdr", "Endo-FDR");
+    CTX(err, "Endo-FDR");
     ZEROIZE(sol);
 
     pddl_time_limit_t time_limit;

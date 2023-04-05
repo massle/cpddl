@@ -969,7 +969,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
     if (dl->rule_size == 0)
         return 0;
 
-    CTX(err, "reduce_rule_set", "reduce-rule-set");
+    CTX(err, "reduce-rule-set");
     int pred_num_achievers[dl->pred_size];
     ZEROIZE_ARR(pred_num_achievers, dl->pred_size);
     for (int ri = 0; ri < dl->rule_size; ++ri)
@@ -1045,10 +1045,10 @@ int pddlDatalogIsSafe(const pddl_datalog_t *dl)
 
 int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    CTX(err, "dl_normal_form", "DL Normal form");
+    CTX(err, "DL Normal form");
     LOG(err, "Normal form of the datalog program start"
-        " (consts: %{in.consts}d, vars: %{in.vars}d,"
-        " predicates: %{in.predicates}d, rules: %{in.rules}d)",
+        " (consts: %d, vars: %d,"
+        " predicates: %d, rules: %d)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 0, err);
     if (!pddlDatalogIsSafe(dl)){
@@ -1067,8 +1067,8 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
         ;
 
     LOG(err, "Normal form of the datalog program DONE"
-        " (consts: %{out.consts}d, vars: %{out.vars}d,"
-        " predicates: %{out.predicates}d, rules: %{out.rules}d)",
+        " (consts: %d, vars: %d,"
+        " predicates: %d, rules: %d)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     dl->dirty = 1;
     CTXEND(err);
@@ -1295,14 +1295,14 @@ static void applyFactOnRule(pddl_datalog_t *dl,
 
 void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
 {
-    CTX(err, "dl_canonical_model", "DL Canonical Model");
-    LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
-        " predicates: %{in.predicates}d, rules: %{in.rules}d)",
+    CTX(err, "DL Canonical Model");
+    LOG(err, "start (consts: %d, vars: %d,"
+        " predicates: %d, rules: %d)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
     setUp(dl, 1, err);
 
     insertInitialFacts(dl, NO_WEIGHT, err);
-    LOG(err, "Added initial facts: %{initial_facts}d", dl->db.fact_size);
+    LOG(err, "Added initial facts: %d", dl->db.fact_size);
 
     int cur_id = 0;
     while (cur_id < dl->db.fact_size){
@@ -1319,7 +1319,7 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
         }
     }
     dl->db.canonical_model_end = dl->db.fact_size;
-    LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
+    LOG(err, "DONE (facts: %d, db-mem: %luMB)",
         dl->db.fact_size, dbUsedMem(&dl->db) / (1024lu * 1024lu));
     CTXEND(err);
 }
@@ -1345,16 +1345,16 @@ static int weightedCanonicalModel(pddl_datalog_t *dl,
                                   pddl_err_t *err)
 {
     int ret = -1;
-    CTX(err, "dl_weighted_canonical_model", "DL Weighted Canonical Model");
-    LOG(err, "start (consts: %{in.consts}d, vars: %{in.vars}d,"
-        " predicates: %{in.predicates}d, rules: %{in.rules}d,"
-        " weight_type: %{weight_type}s)",
+    CTX(err, "DL Weighted Canonical Model");
+    LOG(err, "start (consts: %d, vars: %d,"
+        " predicates: %d, rules: %d,"
+        " weight_type: %s)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size,
         (weight_type == WEIGHT_ADD ? "add" : "max"));
     setUp(dl, 1, err);
 
     insertInitialFacts(dl, weight_type, err);
-    LOG(err, "Added initial facts: %{initial_facts}d", dl->db.fact_size);
+    LOG(err, "Added initial facts: %d", dl->db.fact_size);
 
     int cur_id = 0;
     while (!pddlPairHeapEmpty(dl->db.fact_queue)){
@@ -1378,7 +1378,7 @@ static int weightedCanonicalModel(pddl_datalog_t *dl,
                 dbUsedMem(&dl->db) / (1024lu * 1024lu));
         }
     }
-    LOG(err, "DONE (facts: %{out.facts}d, db-mem: %luMB)",
+    LOG(err, "DONE (facts: %d, db-mem: %luMB)",
         dl->db.fact_size, dbUsedMem(&dl->db) / (1024lu * 1024lu));
     CTXEND(err);
     return ret;

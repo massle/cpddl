@@ -73,7 +73,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
                                 const pddl_homomorphism_config_t *cfg,
                                 pddl_err_t *err)
 {
-    CTX(err, "homo_lmc", "Homomorph lm-cut");
+    CTX(err, "Homomorph lm-cut");
     lmcut_t *lmc = ALLOC(lmcut_t);
     if (pddlHomomorphismHeurInit(&lmc->homo, pddl, cfg, err) != 0){
         FREE(lmc);
@@ -94,7 +94,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
                                 const pddl_homomorphism_config_t *cfg,
                                 pddl_err_t *err)
 {
-    CTX(err, "homo_hff", "Homomorph hff");
+    CTX(err, "Homomorph hff");
     hff_t *hff = ALLOC(hff_t);
     if (pddlHomomorphismHeurInit(&hff->homo, pddl, cfg, err) != 0){
         FREE(hff);

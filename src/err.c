@@ -17,34 +17,6 @@
 #include "internal.h"
 #include "pddl/err.h"
 
-static void _pddlProp_kw(pddl_err_t *err, const char *kw)
-{
-    for (int i = 0; i < err->ctx_size; ++i)
-        fprintf(err->prop_out, "%s.", err->ctx[i].kw);
-    fprintf(err->prop_out, "%s = ", kw);
-}
-
-static void _pddlProp_i(pddl_err_t *err, const char *kw, const char *v, int vlen)
-{
-    if (err == NULL || err->prop_out == NULL)
-        return;
-    _pddlProp_kw(err, kw);
-    fwrite(v, sizeof(char), vlen, err->prop_out);
-    fwrite("\n", sizeof(char), 1, err->prop_out);
-    fflush(err->prop_out);
-}
-
-static void _pddlProp_s(pddl_err_t *err, const char *kw, const char *v, int vlen)
-{
-    if (err == NULL || err->prop_out == NULL)
-        return;
-    _pddlProp_kw(err, kw);
-    fwrite("\"", sizeof(char), 1, err->prop_out);
-    fwrite(v, sizeof(char), vlen, err->prop_out);
-    fwrite("\"\n", sizeof(char), 2, err->prop_out);
-    fflush(err->prop_out);
-}
-
 static void pddlErrPrintMsg(const pddl_err_t *err, FILE *fout)
 {
     if (!err->err)
@@ -76,12 +48,6 @@ void pddlErrInit(pddl_err_t *err)
     ZEROIZE(err);
 }
 
-void pddlErrStartCtxTimer(pddl_err_t *err)
-{
-    pddlTimerStart(&err->ctx_timer);
-    err->ctx_timer_started = 1;
-}
-
 int pddlErrIsSet(const pddl_err_t *err)
 {
     return err->err;
@@ -104,11 +70,6 @@ void pddlErrInfoEnable(pddl_err_t *err, FILE *fout)
     err->info_out = fout;
 }
 
-void pddlErrPropEnable(pddl_err_t *err, FILE *fout)
-{
-    err->prop_out = fout;
-}
-
 void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable)
 {
     err->info_print_resources_disabled = disable;
@@ -122,8 +83,6 @@ void pddlErrFlush(pddl_err_t *err)
         fflush(err->warn_out);
     if (err->info_out != NULL)
         fflush(err->info_out);
-    if (err->prop_out != NULL)
-        fflush(err->prop_out);
 }
 
 
@@ -191,46 +150,24 @@ void _pddlTrace(pddl_err_t *err, const char *filename, int line, const char *fun
     }
 }
 
-void _pddlCtx(pddl_err_t *err, const char *kw, const char *info, int time)
+void _pddlCtx(pddl_err_t *err, int time, const char *fmt, ...)
 {
     if (err == NULL || err->ctx_size == PDDL_ERR_CTX_MAXLEN)
         return;
 
     pddl_err_ctx_t *ctx = err->ctx + err->ctx_size++;
-    strncpy(ctx->kw, kw, PDDL_ERR_CTX_KW_MAXLEN - 1);
-    ctx->kw[PDDL_ERR_CTX_KW_MAXLEN - 1] = '\0';
-    strncpy(ctx->info, info, PDDL_ERR_CTX_INFO_MAXLEN - 1);
+
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(ctx->info, PDDL_ERR_CTX_INFO_MAXLEN, fmt, ap);
+    va_end(ap);
     ctx->info[PDDL_ERR_CTX_INFO_MAXLEN - 1] = '\0';
+
     ctx->use_time = time;
     if (time){
         pddlTimerStart(&ctx->timer);
         _pddlLog(err, "BEGIN");
-        if (err->ctx_timer_started){
-            pddlTimerStop(&err->ctx_timer);
-            PDDL_PROP_DBL(err, "ctx_start_time",
-                          pddlTimerElapsedInSF(&err->ctx_timer));
-        }
     }
-}
-
-void _pddlCtxFmt(pddl_err_t *err, const char *_kw, const char *_info,
-                 int time, ...)
-{
-    char kw[PDDL_ERR_CTX_MAXLEN];
-    char info[PDDL_ERR_MSG_MAXLEN];
-
-    va_list ap;
-    va_start(ap, time);
-    vsnprintf(kw, PDDL_ERR_CTX_MAXLEN - 1, _kw, ap);
-    va_end(ap);
-    kw[PDDL_ERR_CTX_MAXLEN - 1] = '\x0';
-
-    va_start(ap, time);
-    vsnprintf(info, PDDL_ERR_MSG_MAXLEN - 1, _info, ap);
-    va_end(ap);
-    info[PDDL_ERR_MSG_MAXLEN - 1] = '\x0';
-
-    _pddlCtx(err, kw, info, time);
 }
 
 void _pddlCtxEnd(pddl_err_t *err)
@@ -238,13 +175,8 @@ void _pddlCtxEnd(pddl_err_t *err)
     if (err != NULL && err->ctx_size > 0){
         pddl_err_ctx_t *ctx = err->ctx + err->ctx_size - 1;
         if (ctx->use_time){
-            if (err->ctx_timer_started){
-                pddlTimerStop(&err->ctx_timer);
-                PDDL_PROP_DBL(err, "ctx_end_time",
-                              pddlTimerElapsedInSF(&err->ctx_timer));
-            }
             pddlTimerStop(&ctx->timer);
-            _pddlLog(err, "END elapsed time: %{ctx_elapsed_time}.3f",
+            _pddlLog(err, "END elapsed time: %.3f",
                      pddlTimerElapsedInSF(&ctx->timer));
         }
         --err->ctx_size;
@@ -380,7 +312,6 @@ static const char *ultos(unsigned long value, unsigned long radix, char *buf, in
 
 #define NUM_BUFSIZE 128
 #define MOD_BUFSIZE 128
-#define KW_BUFSIZE PDDL_ERR_CTX_KW_MAXLEN
 void _pddlLog(pddl_err_t *err, const char *fmt, ...)
 {
     if (err == NULL)
@@ -388,7 +319,6 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
 
     char bf[NUM_BUFSIZE];
     char mod[MOD_BUFSIZE];
-    char keyword[KW_BUFSIZE];
     int ins;
     char ch;
 
@@ -401,7 +331,6 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
     va_list va;
     va_start(va, fmt);
     while (1){
-        keyword[0] = '\0';
         const char *fmt_begin = fmt;
         int len = 0;
         for (ch = *(fmt++); ch != '%' && ch != '\0'; ch = *(fmt++), ++len)
@@ -418,18 +347,6 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
         if (ch == '%'){
             logInfo(err, "%", 1);
             continue;
-        }
-
-        if (ch == '{'){
-            ch = *(fmt++);
-            for (ins = 0; ch != '}' && ch != '\0'; ch = *(fmt++)){
-                if (ins < KW_BUFSIZE - 1)
-                    keyword[ins++] = ch;
-            }
-            keyword[ins] = '\0';
-            if (ch == '\0')
-                break;
-            ch = *(fmt++);
         }
 
         int is_long = 0;
@@ -451,12 +368,8 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                 }
                 if (bval){
                     logInfo(err, "true", 4);
-                    if (keyword[0] != '\0')
-                        _pddlProp_i(err, keyword, "true", 4);
                 }else{
                     logInfo(err, "false", 5);
-                    if (keyword[0] != '\0')
-                        _pddlProp_i(err, keyword, "false", 5);
                 }
                 break;
 
@@ -469,8 +382,6 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     s = utos(v, 10, bf, NUM_BUFSIZE);
                 }
                 logInfo(err, s, NUM_BUFSIZE - (s - bf));
-                if (keyword[0] != '\0')
-                    _pddlProp_i(err, keyword, s, NUM_BUFSIZE - (s - bf));
                 break;
 
             case 'd':
@@ -482,8 +393,6 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     s = itos(v, 10, bf, NUM_BUFSIZE);
                 }
                 logInfo(err, s, NUM_BUFSIZE - (s - bf));
-                if (keyword[0] != '\0')
-                    _pddlProp_i(err, keyword, s, NUM_BUFSIZE - (s - bf));
                 break;
 
             case 'x':
@@ -495,23 +404,17 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     s = utos(v, 16, bf, NUM_BUFSIZE);
                 }
                 logInfo(err, s, NUM_BUFSIZE - (s - bf));
-                if (keyword[0] != '\0')
-                    _pddlProp_i(err, keyword, s, NUM_BUFSIZE - (s - bf));
                 break;
 
             case 'c':
                 ch = (char)(va_arg(va, int));
                 logInfo(err, &ch, 1);
-                if (keyword[0] != '\0')
-                    _pddlProp_s(err, keyword, &ch, 1);
                 break;
 
             case 's':
                 s = va_arg(va, char*);
                 len = strlen(s);
                 logInfo(err, s, len);
-                if (keyword[0] != '\0')
-                    _pddlProp_s(err, keyword, s, len);
                 break;
 
             default:
@@ -528,8 +431,6 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     int len = snprintf(bf, NUM_BUFSIZE, mod, v);
                     len = PDDL_MIN(len, NUM_BUFSIZE);
                     logInfo(err, bf, len);
-                    if (keyword[0] != '\0')
-                        _pddlProp_i(err, keyword, bf, len);
                 }else{
                     fprintf(stderr, "Fatal error: unkown format flag '%c'\n", ch);
                     exit(-1);
@@ -543,20 +444,4 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
     }
 
     va_end(va);
-}
-
-#define BUFSIZE 1024
-void _pddlProp(pddl_err_t *err, const char *key, const char *fmt, ...)
-{
-    if (err == NULL || err->prop_out == NULL)
-        return;
-
-    char bf[BUFSIZE];
-    va_list va;
-    va_start(va, fmt);
-    int len = vsnprintf(bf, BUFSIZE - 1, fmt, va);
-    len = PDDL_MIN(len, BUFSIZE - 1);
-    va_end(va);
-    bf[BUFSIZE - 1] = '\0';
-    _pddlProp_i(err, key, bf, len);
 }
