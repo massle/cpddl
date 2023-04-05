@@ -81,6 +81,7 @@ insertionsort(u_char *a, size_t n, size_t size,
  * boundaries.
  */
 /* Assumption: PSIZE is a power of 2. */
+#pragma clang diagnostic ignored "-Wgnu-null-pointer-arithmetic"
 #define EVAL(p) (u_char **)                        \
     ((u_char *)0 +                            \
         (((u_char *)p + PSIZE - 1 - (u_char *) 0) & ~(PSIZE - 1)))
