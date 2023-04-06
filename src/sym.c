@@ -18,11 +18,14 @@
 
 #include "internal.h"
 #include "pddl/config.h"
-#ifdef PDDL_BLISS
 
-#include <bliss/bliss_C.h>
+#ifndef PDDL_BLISS
+# error "sym.c requires bliss library!"
+#endif /* PDDL_BLISS */
+
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
+#include <bliss/bliss_C.h>
 
 struct pdg_sym {
     const pddl_strips_t *strips;
@@ -344,52 +347,3 @@ void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
     if (fact_used != NULL)
         FREE(fact_used);
 }
-
-#else /* PDDL_BLISS */
-
-#include "pddl/sym.h"
-
-#define ERROR PANIC("sym module requires bliss library")
-
-void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
-{
-    ERROR;
-}
-
-void pddlStripsSymFree(pddl_strips_sym_t *sym)
-{
-    ERROR;
-}
-
-void pddlStripsSymAllFactSetSymmetries(const pddl_strips_sym_t *sym,
-                                       pddl_set_iset_t *sym_set)
-{
-    ERROR;
-}
-
-void pddlStripsSymAllOpSetSymmetries(const pddl_strips_sym_t *sym,
-                                     pddl_set_iset_t *sym_set)
-{
-    ERROR;
-}
-
-void pddlStripsSymOpTransitiveClosure(const pddl_strips_sym_t *sym,
-                                      int op_id,
-                                      pddl_iset_t *transitive_closure)
-{
-    ERROR;
-}
-
-void pddlStripsSymOpSet(const pddl_strips_sym_t *sym,
-                        int gen_id,
-                        const pddl_iset_t *inset,
-                        pddl_iset_t *outset)
-{
-    ERROR;
-}
-
-void pddlStripsSymPrintDebug(const pddl_strips_sym_t *sym, FILE *fout)
-{
-    ERROR;
-}
-#endif /* PDDL_BLISS */
