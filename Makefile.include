@@ -9,7 +9,7 @@ SCAN_BUILD ?= scan-build
 SYSTEM = $(shell uname)
 
 SYSTEM_LDFLAGS =
-NEED_STDCPP = no
+NEED_LIBSTDCPP = no
 
 DEBUG ?= no
 PROFIL ?= no
@@ -65,25 +65,17 @@ ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a)' ''
     $(error IBM_CPLEX_ROOT defined, but could not find concert library)
   endif
-  CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
-  CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
-  CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
-  CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
-  NEED_STDCPP := yes
-  USE_CPLEX := yes
-  USE_CPOPTIMIZER := yes
-endif
-
-ifneq '$(GUROBI_ROOT)' ''
-  ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
-    $(error GUROBI_ROOT defined, but could not find Gurobi header files)
+  ifeq '$(USE_CPLEX)' 'auto'
+    CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
+    CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
+    USE_CPLEX := yes
   endif
-  ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi95.so)' ''
-    $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+  ifeq '$(USE_CPOPTIMIZER)' 'auto'
+    CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
+    CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
+    NEED_LIBSTDCPP := yes
+    USE_CPOPTIMIZER := yes
   endif
-  GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
-  GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -lgurobi95
-  USE_GUROBI := yes
 endif
 
 ifeq '$(USE_CPLEX)' 'auto'
@@ -101,8 +93,23 @@ endif
 ifeq '$(USE_GUROBI)' 'auto'
   ifneq '$(GUROBI_CFLAGS)' ''
     USE_GUROBI := yes
+
+  else ifneq '$(GUROBI_ROOT)' ''
+    ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
+      $(error GUROBI_ROOT defined, but could not find Gurobi header files)
+    endif
+    ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so)' ''
+      $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+    endif
+    gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
+    gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
+    gurobi_libname := $(subst lib,,$(basename $(gurobi_libname)))
+    GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
+    GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -l$(gurobi_libname)
+    USE_GUROBI := yes
   endif
 endif
+
 
 ifeq '$(USE_GLPK)' 'auto'
   ifneq '$(GLPK_CFLAGS)$(GLPK_LDFLAGS)' ''
@@ -112,7 +119,6 @@ endif
 
 
 
-BLISS_VERSION = 0.77
 BLISS_CFLAGS ?=
 BLISS_LDFLAGS ?=
 USE_BLISS = auto
@@ -120,7 +126,7 @@ USE_LOCAL_BLISS ?= $(shell if test -f $(BASEPATH_)/third-party/bliss/libbliss.a;
 ifeq '$(USE_LOCAL_BLISS)' 'yes'
   BLISS_CFLAGS := -I$(BASEPATH_)/third-party
   BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss
-  NEED_STDCPP := yes
+  NEED_LIBSTDCPP := yes
   USE_BLISS := yes
 endif
 
@@ -199,7 +205,7 @@ ifeq '$(USE_HIGHS)' 'auto'
   else ifneq '$(HIGHS_ROOT)' ''
     HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
     HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs
-    NEED_STDCPP := yes
+    NEED_LIBSTDCPP := yes
     USE_HIGHS := yes
   endif
 endif
@@ -240,89 +246,12 @@ LDFLAGS += $(BLISS_LDFLAGS)
 LDFLAGS += $(CLIQUER_LDFLAGS)
 LDFLAGS += $(CUDD_LDFLAGS)
 LDFLAGS += $(DYNET_LDFLAGS)
-ifeq '$(NEED_STDCPP)' 'yes'
+ifeq '$(NEED_LIBSTDCPP)' 'yes'
   LDFLAGS += -lstdc++
 endif
 LDFLAGS += -pthread -lm
 
 .DEFAULT_GOAL := all
-
-help:
-	@echo "Targets:"
-	@echo "  all         - Build library (default)"
-	@echo "  bin         - Bild binaries in bin/"
-	@echo "  bliss       - Build Bliss library from third-party/"
-	@echo "  cudd        - Bild Cudd library from third-party/"
-	@echo "  third-party - Alias for 'bliss cudd'"
-	@echo ""
-	@echo "  clean             - Remove all generated files"
-	@echo "  c                 - Like clean but does not remove sqlite object file"
-	@echo "  mrproper          - Clean library and third-party/"
-	@echo "  third-party-clean - Clean all third-party projects."
-	@echo ""
-	@echo "  check               - Run (short) automated tests"
-	@echo "  check-all           - Run all automated tests"
-	@echo "  check-valgrind      - Run tests with valgrind(1)"
-	@echo "  check-all-valgrind"
-	@echo "  check-segfault      - Run tests with valgrind(1) set up to detect only segfaults"
-	@echo "  check-all-segfault"
-	@echo "  check-gdb           - Run tests in gdb"
-	@echo "  check-all-gdb"
-	@echo ""
-	@echo "  fetch-submodules - Fetch all submodules using git"
-	@echo "  gen-pkgconfig - Generates pkg-config file cpddl.pc referring to this directory"
-	@echo "  analyze - Static analysis with clang's scan-build (SCAN_BUILD = $(SCAN_BUILD))"
-	@echo ""
-	@echo "  tidy - Tidy up source code"
-	@echo "  list-global-symbols - List all global symbols in libpddl.a"
-	@echo "  sqlite-amalgam - Generate src/sqlite3.{c,h} from SQLite zip file defined in SQLITE_SRC_ZIP"
-	@echo ""
-	@echo "Variables:"
-	@echo "  SYSTEM  = $(SYSTEM)"
-	@echo "  CC      = $(CC)"
-	@echo "  CXX     = $(CXX)"
-	@echo "  SH      = $(SH)"
-	@echo "  SCAN_BUILD = $(SCAN_BUILD)"
-	@echo "  DEBUG   = $(DEBUG)"
-	@echo "  PROFIL  = $(PROFIL)"
-	@echo "  WERROR  = $(WERROR)"
-	@echo "  CFLAGS  = $(CFLAGS)"
-	@echo "  LDFLAGS = $(LDFLAGS)"
-	@echo "  SYSTEM_LDFLAGS = $(SYSTEM_LDFLAGS)"
-	@echo ""
-	@echo "  USE_BLISS         = $(USE_BLISS)"
-	@echo "  BLISS_CFLAGS      = $(BLISS_CFLAGS)"
-	@echo "  BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
-	@echo "  USE_CLIQUER       = $(USE_CLIQUER)"
-	@echo "  CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
-	@echo "  CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
-	@echo "  CUDD_CFLAGS       = $(CUDD_CFLAGS)"
-	@echo "  CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
-	@echo "  USE_CUDD          = $(USE_CUDD)"
-	@echo "  DYNET_CFLAGS      = $(DYNET_CFLAGS)"
-	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
-	@echo "  USE_DYNET         = $(USE_DYNET)"
-	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
-	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
-	@echo "  USE_CPLEX         = $(USE_CPLEX)"
-	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
-	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
-	@echo "  USE_GUROBI        = $(USE_GUROBI)"
-	@echo "  GLPK_CFLAGS       = $(GLPK_CFLAGS)"
-	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
-	@echo "  USE_GLPK          = $(USE_GLPK)"
-	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
-	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"
-	@echo "  CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
-	@echo "  CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
-	@echo "  USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
-	@echo "  DYNET_CPPFLAGS    = $(DYNET_CPPFLAGS)"
-	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
-	@echo "  USE_DYNET         = $(USE_DYNET)"
-	@echo "  HIGHS_CPPFLAGS    = $(HIGHS_CPPFLAGS)"
-	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
-	@echo "  USE_HIGHS         = $(USE_HIGHS)"
-	@echo "  MINIZINC_BIN      = $(MINIZINC_BIN)"
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS

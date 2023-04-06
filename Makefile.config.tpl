@@ -21,6 +21,7 @@
 #USE_CPOPTIMIZER = no # Do not use CPOptimizer library
 
 # Configuration of Gurobi optimizer
+#GUROBI_ROOT = /opt/gurobi951/linux64
 #GUROBI_CFLAGS = -I/opt/gurobi951/linux64/include
 #GUROBI_LDFLAGS = -L/opt/gurobi951/linux64/lib -Wl,-rpath=/opt/gurobi951/linux64/lib -lgurobi95
 #USE_GUROBI = no # Do not use Gurobi library
