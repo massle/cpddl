@@ -112,7 +112,6 @@ static int parseOpts(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    pddlErrStartCtxTimer(&err);
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 

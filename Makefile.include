@@ -204,7 +204,7 @@ ifeq '$(USE_HIGHS)' 'auto'
 
   else ifneq '$(HIGHS_ROOT)' ''
     HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
-    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs
+    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lz
     NEED_LIBSTDCPP := yes
     USE_HIGHS := yes
   endif
