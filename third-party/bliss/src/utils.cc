@@ -21,7 +21,7 @@
 #include <vector>
 #include "utils.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 size_t
 print_permutation(FILE* const fp,
@@ -103,4 +103,4 @@ is_permutation(const std::vector<unsigned int>& perm)
 }
 
 
-} // namespace bliss
+} // namespace pddl_bliss

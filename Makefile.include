@@ -124,7 +124,7 @@ BLISS_LDFLAGS ?=
 USE_BLISS = auto
 USE_LOCAL_BLISS ?= $(shell if test -f $(BASEPATH_)/third-party/bliss/libbliss.a; then echo "yes"; else echo "no"; fi;)
 ifeq '$(USE_LOCAL_BLISS)' 'yes'
-  BLISS_CFLAGS := -I$(BASEPATH_)/third-party
+  BLISS_CFLAGS :=
   BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss
   NEED_LIBSTDCPP := yes
   USE_BLISS := yes

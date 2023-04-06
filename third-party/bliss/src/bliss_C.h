@@ -38,14 +38,14 @@
 /**
  * \brief The true bliss graph is hiding behind this typedef.
  */
-typedef struct bliss_graph_struct BlissGraph;
+typedef struct pddl_bliss_graph_struct PddlBlissGraph;
 
 
 /**
  * \brief The C API version of the statistics returned by
  * the bliss search algorithm.
  */
-typedef struct bliss_stats_struct
+typedef struct pddl_bliss_stats_struct
 {
   /**
    * \brief An approximation (due to possible rounding errors) of
@@ -64,16 +64,16 @@ typedef struct bliss_stats_struct
   long unsigned int nof_generators;
   /** \brief The maximal depth of the search tree. */
   unsigned long int max_level;
-} BlissStats;
+} PddlBlissStats;
 
 
 /**
  * Create a new graph instance with \a N vertices and no edges.
- * \a N can be zero and bliss_add_vertex() called afterwards
+ * \a N can be zero and pddl_bliss_add_vertex() called afterwards
  * to add new vertices on-the-fly.
  */
-BlissGraph *bliss_new(const unsigned int N);
-BlissGraph *bliss_new_digraph(const unsigned int N);
+PddlBlissGraph *pddl_bliss_new(const unsigned int N);
+PddlBlissGraph *pddl_bliss_new_digraph(const unsigned int N);
 
 
 /**
@@ -84,7 +84,7 @@ BlissGraph *bliss_new_digraph(const unsigned int N);
  * in the bliss C API they are from 0 to N-1.
  * Thus the vertex n in the file corresponds to the vertex n-1 in the API.
  */
-BlissGraph *bliss_read_dimacs(FILE *fp);
+PddlBlissGraph *pddl_bliss_read_dimacs(FILE *fp);
 
 
 /**
@@ -93,62 +93,62 @@ BlissGraph *bliss_read_dimacs(FILE *fp);
  * Note that in the DIMACS file the vertices are numbered from 1 to N while
  * in bliss they are from 0 to N-1.
  */
-void bliss_write_dimacs(BlissGraph *graph, FILE *fp);
+void pddl_bliss_write_dimacs(PddlBlissGraph *graph, FILE *fp);
 
 
 /**
  * Release the graph.
  * Note that the memory pointed by the arguments of hook functions for
- * bliss_find_automorphisms() and bliss_find_canonical_labeling()
+ * pddl_bliss_find_automorphisms() and pddl_bliss_find_canonical_labeling()
  * is deallocated and thus should not be accessed after calling this function.
  */
-void bliss_release(BlissGraph *graph);
+void pddl_bliss_release(PddlBlissGraph *graph);
 
 
 /**
  * Print the graph in graphviz dot format.
  */
-void bliss_write_dot(BlissGraph *graph, FILE *fp);
+void pddl_bliss_write_dot(PddlBlissGraph *graph, FILE *fp);
 
 
 /**
  * Return the number of vertices in the graph.
  */
-unsigned int bliss_get_nof_vertices(BlissGraph *graph);
+unsigned int pddl_bliss_get_nof_vertices(PddlBlissGraph *graph);
 
 
 /**
  * Add a new vertex with color \a c in the graph \a graph and return its index.
  * The vertex indices are always in the range
- * [0,bliss::bliss_get_nof_vertices(\a bliss)-1].
+ * [0,pddl_bliss::pddl_bliss_get_nof_vertices(\a bliss)-1].
  */
-unsigned int bliss_add_vertex(BlissGraph *graph, unsigned int c);
+unsigned int pddl_bliss_add_vertex(PddlBlissGraph *graph, unsigned int c);
 
 
 /**
  * Add a new undirected edge in the graph.
- * \a v1 and \a v2 are vertex indices returned by bliss_add_vertex().
+ * \a v1 and \a v2 are vertex indices returned by pddl_bliss_add_vertex().
  * If duplicate edges are added, they will be ignored (however, they are not
  * necessarily physically ignored immediately but may consume memory for
  * a while so please try to avoid adding duplicate edges whenever possible).
  */
-void bliss_add_edge(BlissGraph *graph, unsigned int v1, unsigned int v2);
+void pddl_bliss_add_edge(PddlBlissGraph *graph, unsigned int v1, unsigned int v2);
 
 
 /**
  * Get a hash value for the graph.
  */
-unsigned int bliss_hash(BlissGraph *graph);
+unsigned int pddl_bliss_hash(PddlBlissGraph *graph);
 
 
 /**
  * Permute the graph with the given permutation \a perm.
  * Returns the permuted graph, the original graph is not modified.
  * The argument \a perm should be an array of
- * N=bliss::bliss_get_nof_vertices(\a graph) elements describing
+ * N=pddl_bliss::pddl_bliss_get_nof_vertices(\a graph) elements describing
  * a bijection on {0,...,N-1}.
  */
-BlissGraph *bliss_permute(BlissGraph *graph, const unsigned int *perm);
+PddlBlissGraph *pddl_bliss_permute(PddlBlissGraph *graph, const unsigned int *perm);
 
 
 /**
@@ -158,40 +158,40 @@ BlissGraph *bliss_permute(BlissGraph *graph, const unsigned int *perm);
  * The first argument \a user_param for the hook function is
  * the \a hook_user_param argument,
  * the second argument \a N is the length of the automorphism (equal to
- * bliss::bliss_get_nof_vertices(\a graph)) and
+ * pddl_bliss::pddl_bliss_get_nof_vertices(\a graph)) and
  * the third argument \a aut is the automorphism (a bijection on {0,...,N-1}).
  * The memory for the automorphism \a aut will be invalidated immediately
  * after the return from the hook;
  * if you want to use the automorphism later, you have to take a copy of it.
- * Do not call bliss_* functions in the hook.
+ * Do not call pddl_bliss_* functions in the hook.
  * If \a stats is non-null, then some search statistics are copied there.
  */
 void
-bliss_find_automorphisms(BlissGraph *graph,
+pddl_bliss_find_automorphisms(PddlBlissGraph *graph,
 			 void (*hook)(void *user_param,
 				      unsigned int N,
 				      const unsigned int *aut),
 			 void *hook_user_param,
-			 BlissStats *stats);
+			 PddlBlissStats *stats);
 
 
 /**
- * Otherwise the same as bliss_find_automorphisms() except that
+ * Otherwise the same as pddl_bliss_find_automorphisms() except that
  * a canonical labeling for the graph (a bijection on {0,...,N-1}) is returned.
  * The returned canonical labeling will remain valid only until
- * the next call to a bliss_* function with the exception that
- * bliss_permute() can be called without invalidating the labeling.
+ * the next call to a pddl_bliss_* function with the exception that
+ * pddl_bliss_permute() can be called without invalidating the labeling.
  * To compute the canonical version of a graph, call this function and
- * then bliss_permute() with the returned canonical labeling.
+ * then pddl_bliss_permute() with the returned canonical labeling.
  * Note that the computed canonical version may depend on the applied version
  * of bliss.
  */
 const unsigned int *
-bliss_find_canonical_labeling(BlissGraph *graph,
+pddl_bliss_find_canonical_labeling(PddlBlissGraph *graph,
 			      void (*hook)(void *user_param,
 					   unsigned int N,
 					   const unsigned int *aut),
 			      void *hook_user_param,
-			      BlissStats *stats);
+			      PddlBlissStats *stats);
 
 #endif

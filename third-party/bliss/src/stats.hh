@@ -23,7 +23,7 @@
 #include "abstractgraph.hh"
 #include "bignum.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief Statistics returned by the bliss search algorithm.
@@ -95,4 +95,4 @@ public:
   unsigned long int get_max_level() const {return max_level;}
 };
 
-} // namespace bliss
+} // namespace pddl_bliss

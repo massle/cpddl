@@ -21,7 +21,7 @@
 
 #include "abstractgraph.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief The class for undirected, vertex colored graphs.
@@ -278,4 +278,4 @@ public:
 
 };
 
-} // namespace bliss
+} // namespace pddl_bliss

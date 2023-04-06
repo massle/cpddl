@@ -30,7 +30,7 @@
 #define BLISS_VERSION_MAJOR 0
 #define BLISS_VERSION_MINOR 77
 
-namespace bliss {
+namespace pddl_bliss {
 
 /** \brief The version number of bliss. */
 static const char * const version = "0.77";
@@ -54,7 +54,7 @@ static const char * const version = "0.77";
 #define BLISS_VERIFY_EQUITABLEDNESS
 #endif
 
-} // namespace bliss
+} // namespace pddl_bliss
 
 
 /*! \mainpage Outline
@@ -70,8 +70,8 @@ static const char * const version = "0.77";
  *
  * The C++ language API is the main API to bliss.
  * It basically consists of the public methods in the classes
- * * bliss::Graph and
- * * bliss::Digraph.
+ * * pddl_bliss::Graph and
+ * * pddl_bliss::Digraph.
  *
  * For an example of its use,
  * see the \ref executable "source of the bliss executable".

@@ -22,7 +22,7 @@
 #include <vector>
 #include <algorithm>
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief A min-heap of unsigned integers.
@@ -86,4 +86,4 @@ public:
   size_t size() const {return contents.size(); }
 };
 
-} // namespace bliss
+} // namespace pddl_bliss

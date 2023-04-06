@@ -21,7 +21,7 @@
 #include "defs.hh"
 #include "orbit.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 Orbit::Orbit()
 {
@@ -149,4 +149,4 @@ unsigned int Orbit::orbit_size(unsigned int element) const
 }
 
 
-} // namespace bliss
+} // namespace pddl_bliss

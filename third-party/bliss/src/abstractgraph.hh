@@ -20,11 +20,11 @@
 */
 
 /**
- * \namespace bliss
- * The namespace bliss contains all the classes and functions of the bliss
+ * \namespace pddl_bliss
+ * The namespace pddl_bliss contains all the classes and functions of the bliss
  * tool except for the C programming language API.
  */
-namespace bliss {
+namespace pddl_bliss {
   class AbstractGraph;
 }
 
@@ -38,7 +38,7 @@ namespace bliss {
 #include "partition.hh"
 #include "uintseqhash.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 
 /**
@@ -181,14 +181,14 @@ public:
    * {0,...,get_nof_vertices()-1}) is returned.
    * The memory allocated for the returned canonical labeling will remain
    * valid only until the next call to a member function with the exception
-   * that constant member functions (for example, bliss::Graph::permute()) can
+   * that constant member functions (for example, pddl_bliss::Graph::permute()) can
    * be called without invalidating the labeling.
    * To compute the canonical version of an undirected graph, call this
-   * function and then bliss::Graph::permute() with the returned canonical
+   * function and then pddl_bliss::Graph::permute() with the returned canonical
    * labeling.
    * Note that the computed canonical version may depend on the applied version
    * of bliss as well as on some other options (for instance, the splitting
-   * heuristic selected with bliss::Graph::set_splitting_heuristic()).
+   * heuristic selected with pddl_bliss::Graph::set_splitting_heuristic()).
    *
    * If the \a terminate function argument is given,
    * it is called in each search tree node: if the function returns true,
@@ -500,4 +500,4 @@ protected:
 
 };
 
-} // namespace bliss
+} // namespace pddl_bliss

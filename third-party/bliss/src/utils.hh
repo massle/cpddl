@@ -27,7 +27,7 @@
 #include <vector>
 #include <cstdio>
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * Print the permutation \a perm of {0,...,N-1} in the cycle format
@@ -62,4 +62,4 @@ bool is_permutation(const unsigned int N, const unsigned int* perm);
  */
 bool is_permutation(const std::vector<unsigned int>& perm);
 
-} // namespace bliss
+} // namespace pddl_bliss

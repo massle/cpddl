@@ -23,7 +23,7 @@
 #include "graph.hh"
 #include "partition.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 Partition::Partition()
 {
@@ -1163,4 +1163,4 @@ Partition::cr_create_at_level_trailed(const unsigned int cell_index,
 }
 
 
-} // namespace bliss
+} // namespace pddl_bliss

@@ -24,9 +24,9 @@
 # error "sym.c requires bliss library!"
 #endif /* PDDL_BLISS */
 
+#include "third-party/bliss/bliss_C.h"
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
-#include <bliss/bliss_C.h>
 
 const char * const pddl_bliss_version = BLISS_VERSION;
 
@@ -66,34 +66,34 @@ static void genCreateOpCycles(pddl_strips_sym_gen_t *gen, int op_size)
         FREE(op_used);
 }
 
-static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
+static PddlBlissGraph *pdgConstruct(const pddl_strips_t *strips)
 {
-    BlissGraph *pdg;
+    PddlBlissGraph *pdg;
     int color_init = 2;
     int color_goal = 4;
     int color_op = 8;
 
-    pdg = bliss_new_digraph(0);
+    pdg = pddl_bliss_new_digraph(0);
     for (int i = 0; i < strips->fact.fact_size; ++i)
-        bliss_add_vertex(pdg, 0); // fact vertex
+        pddl_bliss_add_vertex(pdg, 0); // fact vertex
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
         int color = 1;
         if (pddlISetIn(fact_id, &strips->init))
             color |= color_init;
         if (pddlISetIn(fact_id, &strips->goal))
             color |= color_goal;
-        bliss_add_vertex(pdg, color); // fact true vertex
-        bliss_add_vertex(pdg, 0); // fact false vertex
+        pddl_bliss_add_vertex(pdg, color); // fact true vertex
+        pddl_bliss_add_vertex(pdg, 0); // fact false vertex
     }
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
-        bliss_add_vertex(pdg, color_op + op->cost); // operator vertex
+        pddl_bliss_add_vertex(pdg, color_op + op->cost); // operator vertex
     }
 
     int fsize = strips->fact.fact_size;
     for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
-        bliss_add_edge(pdg, fact_id, fsize + 2 * fact_id);
-        bliss_add_edge(pdg, fact_id, fsize + 2 * fact_id + 1);
+        pddl_bliss_add_edge(pdg, fact_id, fsize + 2 * fact_id);
+        pddl_bliss_add_edge(pdg, fact_id, fsize + 2 * fact_id + 1);
     }
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
@@ -102,15 +102,15 @@ static BlissGraph *pdgConstruct(const pddl_strips_t *strips)
         int fact;
         PDDL_ISET_FOR_EACH(&op->pre, fact){
             int v = fsize + 2 * strips->fact.fact[fact]->id;
-            bliss_add_edge(pdg, v, voi);
+            pddl_bliss_add_edge(pdg, v, voi);
         }
         PDDL_ISET_FOR_EACH(&op->add_eff, fact){
             int v = fsize + 2 * strips->fact.fact[fact]->id;
-            bliss_add_edge(pdg, voi, v);
+            pddl_bliss_add_edge(pdg, voi, v);
         }
         PDDL_ISET_FOR_EACH(&op->del_eff, fact){
             int v = fsize + 2 * strips->fact.fact[fact]->id + 1;
-            bliss_add_edge(pdg, voi, v);
+            pddl_bliss_add_edge(pdg, voi, v);
         }
     }
 
@@ -172,10 +172,10 @@ void pddlStripsSymInitPDG(pddl_strips_sym_t *sym, const pddl_strips_t *strips)
                     " effects.");
     }
 
-    BlissGraph *pdg = pdgConstruct(strips);
+    PddlBlissGraph *pdg = pdgConstruct(strips);
     struct pdg_sym pdg_sym = { strips, sym };
-    bliss_find_automorphisms(pdg, pdgAutomorphismHook, &pdg_sym, NULL);
-    bliss_release(pdg);
+    pddl_bliss_find_automorphisms(pdg, pdgAutomorphismHook, &pdg_sym, NULL);
+    pddl_bliss_release(pdg);
 
     sym->fact_size = strips->fact.fact_size;
     sym->op_size = strips->op.op_size;
