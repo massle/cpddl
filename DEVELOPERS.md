@@ -10,13 +10,13 @@ numbers of the [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 1. Run complete tests
     ```sh
-        $ make check-all
+    make check-all
     ```
 
 1. Run complete build tests
    ```sh
-        $ ./t/scripts/test-build-apptainer.sh --git-dev master
-        $ ./t/scripts/test-build-apptainer.sh --git-dev master --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
+   ./t/scripts/test-build-apptainer.sh --git-dev master
+   ./t/scripts/test-build-apptainer.sh --git-dev master --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
     ```
 
 1. Update `CHANGELOG.md`:
@@ -26,11 +26,11 @@ numbers of the [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 1. Add tag
     ```sh
-        $ git tag -a vX.Y -m "Version X.Y"
+    git tag -a vX.Y -m "Version X.Y"
     ```
 
 1. Push to public repo
     ```sh
-        $ git push public master
-        $ git push public vX.Y
+    git push public master
+    git push public vX.Y
     ```
