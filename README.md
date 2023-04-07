@@ -2,6 +2,8 @@
 
 **cpddl** is a library and a set of programs for PDDL-based automated planning.
 
+[[_TOC_]]
+
 ## License
 
 cpddl is licensed under OSI-approved 3-clause
