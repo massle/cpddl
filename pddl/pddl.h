@@ -22,6 +22,7 @@
 
 #include <pddl/config.h>
 #include <pddl/common.h>
+#include <pddl/libs_info.h>
 #include <pddl/err.h>
 #include <pddl/timer.h>
 #include <pddl/alloc.h>
