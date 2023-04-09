@@ -12,12 +12,18 @@
 #include "pddl/asnets_train_data.h"
 #include "pddl/sha256.h"
 #include "pddl/pddl_file.h"
+#include "pddl/libs_info.h"
 
-#ifdef PDDL_DYNET
+#ifndef PDDL_DYNET
+# error "asnets_dynet.cpp requires DyNet library!"
+#endif /* PDDL_DYNET */
+
 #include <dynet/dynet.h>
 #include <dynet/expr.h>
 #include <dynet/training.h>
 #include <dynet/param-init.h>
+
+const char * const pddl_dynet_version = "not exported";
 
 static const float SMALL_CONST = 1E-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
@@ -2026,71 +2032,3 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     CTXEND(err);
     return 0;
 }
-
-#else /* PDDL_DYNET */
-
-pddl_asnets_t *pddlASNetsNew(const char *domain_fn,
-                             const char **problem_fn,
-                             int problem_fn_size,
-                             const pddl_asnets_config_t *cfg,
-                             pddl_err_t *err)
-{
-    PANIC("This module requires dynet library.");
-    return NULL;
-}
-
-void pddlASNetsDel(pddl_asnets_t *a)
-{
-    PANIC("This module requires dynet library.");
-}
-
-int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
-{
-    PANIC("This module requires dynet library.");
-    return -1;
-}
-
-int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
-{
-    PANIC("This module requires dynet library.");
-    return -1;
-}
-
-int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
-{
-    PANIC("This module requires dynet library.");
-    return -1;
-}
-
-const pddl_asnets_ground_task_t *
-pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
-{
-    PANIC("This module requires dynet library.");
-    return NULL;
-}
-
-int pddlASNetsRunPolicy(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
-                        const int *in_state,
-                        int *out_state)
-{
-    PANIC("This module requires dynet library.");
-    return -1;
-}
-
-int pddlASNetsSolveTask(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
-                        pddl_iarr_t *trace,
-                        pddl_err_t *err)
-{
-    PANIC("This module requires dynet library.");
-    return -1;
-}
-
-int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
-{
-    PANIC("This module requires dynet library.");
-    return -1;
-}
-
-#endif /* PDDL_DYNET */

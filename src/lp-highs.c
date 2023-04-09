@@ -6,10 +6,14 @@
 
 #include "internal.h"
 #include "pddl/lp.h"
+#include "pddl/libs_info.h"
 #include "_lp.h"
 
 #ifdef PDDL_HIGHS
 #include <interfaces/highs_c_api.h>
+
+const char * const pddl_highs_version =
+    PDDL_TOSTR(HIGHS_VERSION_MAJOR.HIGHS_VERSION_MINOR.HIGHS_VERSION_PATCH);
 
 #define TOLERANCE 1E-5
 #define MIP_TOLERANCE 1E-5
@@ -522,7 +526,7 @@ static void cpxWrite(pddl_lp_t *_lp, const char *fn)
 pddl_lp_cls_t pddl_lp_highs = {
     PDDL_LP_HIGHS,
     "HiGHS",
-    TOSTR(HIGHS_VERSION_MAJOR.HIGHS_VERSION_MINOR.HIGHS_VERSION_PATCH),
+    pddl_highs_version,
     new,
     del,
     setObj,
@@ -542,5 +546,6 @@ pddl_lp_cls_t pddl_lp_highs = {
     cpxWrite,
 };
 #else /* PDDL_HIGHS */
+const char * const pddl_highs_version = NULL;
 pddl_lp_cls_t pddl_lp_highs = { 0 };
 #endif /* PDDL_HIGHS */

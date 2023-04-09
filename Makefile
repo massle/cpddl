@@ -81,7 +81,6 @@ OBJS += fdr_state_pool
 OBJS += fdr_state_space
 OBJS += fdr_state_sampler
 OBJS += strips_state_space
-OBJS += sym
 OBJS += famgroup
 OBJS += pot
 OBJS += lm_cut
@@ -138,7 +137,6 @@ OBJS += labeled_transition
 OBJS += trans_system
 OBJS += trans_system_abstr_map
 OBJS += trans_system_graph
-OBJS += bdd
 OBJS += bdds
 OBJS += symbolic_vars
 OBJS += symbolic_constr
@@ -173,9 +171,30 @@ OBJS += asnets_train_data
 OBJS += __sqlite3
 
 OBJS_CPP  = cp-cp-optimizer
-OBJS_CPP += asnets_dynet
 
-OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
+OBJS_STUB =
+
+ifeq '$(USE_BLISS)' 'yes'
+  OBJS += sym
+else
+  OBJS_STUB += sym
+endif
+
+ifeq '$(USE_CUDD)' 'yes'
+  OBJS += bdd
+else
+  OBJS_STUB += bdd
+endif
+
+ifeq '$(USE_DYNET)' 'yes'
+  OBJS_CPP += asnets_dynet
+else
+  OBJS_STUB += asnets_dynet
+endif
+
+OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) \
+        $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o) \
+        $(foreach obj,$(OBJS_STUB),.objs/$(obj)_stub.o) \
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
@@ -244,14 +263,24 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-.objs/bdd.o: src/bdd.c pddl/bdd.h pddl/config.h $(GEN)
+src/tmp.cudd-version.h: third-party/cudd/libcudd.a
+	echo '#include "internal.h"' >src/tmp.cudd-version.c
+	echo '#include <cudd/cudd.h>' >>src/tmp.cudd-version.c
+	echo '#include <stdio.h>' >>src/tmp.cudd-version.c
+	echo "int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; }" >>src/tmp.cudd-version.c
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o src/tmp.cudd-version src/tmp.cudd-version.c $(CUDD_LDFLAGS) -lm
+	echo -n '#define CUDD_VERSION "' >$@
+	./src/tmp.cudd-version | tr -d '\n' >>$@
+	echo '"' >>$@
+	rm -f src/tmp.cudd-version.c
+	rm -f src/tmp.cudd-version
+
+.objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
 .objs/sym.o: src/sym.c pddl/sym.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
 .objs/clique.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
-.objs/asnets_dynet.o: src/asnets_dynet.c pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(DYNET_CFLAGS) -c -o $@ $<
 .objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c
@@ -261,6 +290,13 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 .objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
+
+src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
+src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
+src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -279,7 +315,8 @@ clean:
 	rm -f .objs/*.o
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
-	rm -f src/*.pb.{cc,h}
+	rm -f src/*_stub.c
+	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
@@ -289,6 +326,8 @@ c:
 	rm -f .objs/_[a-zA-Z0-9]*.o
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
+	rm -f src/*_stub.c
+	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;

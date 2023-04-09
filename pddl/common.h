@@ -57,6 +57,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define __PDDL_TOSTR1(x) #x
+#define PDDL_TOSTR(x) __PDDL_TOSTR1(x)
+
 enum pddl_status {
     PDDL_OK = 0,
     PDDL_FAIL = 1,
