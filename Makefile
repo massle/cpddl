@@ -263,7 +263,19 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-.objs/bdd.o: src/bdd.c pddl/bdd.h pddl/config.h $(GEN)
+src/tmp.cudd-version.h: third-party/cudd/libcudd.a
+	echo '#include "internal.h"' >src/tmp.cudd-version.c
+	echo '#include <cudd/cudd.h>' >>src/tmp.cudd-version.c
+	echo '#include <stdio.h>' >>src/tmp.cudd-version.c
+	echo "int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; }" >>src/tmp.cudd-version.c
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o src/tmp.cudd-version src/tmp.cudd-version.c $(CUDD_LDFLAGS) -lm
+	echo -n '#define CUDD_VERSION "' >$@
+	./src/tmp.cudd-version | tr -d '\n' >>$@
+	echo '"' >>$@
+	rm -f src/tmp.cudd-version.c
+	rm -f src/tmp.cudd-version
+
+.objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
 .objs/sym.o: src/sym.c pddl/sym.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
@@ -280,11 +292,11 @@ src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 
 src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." >$@
+	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
 src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." >$@
+	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
 src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." >$@
+	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -304,6 +316,7 @@ clean:
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
 	rm -f src/*_stub.c
+	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
@@ -314,6 +327,7 @@ c:
 	rm -f $(TARGETS)
 	rm -f pddl/config.h
 	rm -f src/*_stub.c
+	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;

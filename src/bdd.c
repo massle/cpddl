@@ -19,6 +19,7 @@
 
 #include "internal.h"
 #include "pddl/config.h"
+#include "pddl/libs_info.h"
 
 #ifndef PDDL_CUDD
 # error "bdd.c requires CUDD library!"
@@ -27,6 +28,8 @@
 #include <cudd/cudd.h>
 #include "pddl/bdd.h"
 
+#include "tmp.cudd-version.h"
+const char * const pddl_cudd_version = CUDD_VERSION;
 
 #define M(P) ((DdManager *)(P))
 #define PM(P) ((pddl_bdd_manager_t *)(P))

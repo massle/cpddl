@@ -12,6 +12,7 @@
 #include "pddl/asnets_train_data.h"
 #include "pddl/sha256.h"
 #include "pddl/pddl_file.h"
+#include "pddl/libs_info.h"
 
 #ifndef PDDL_DYNET
 # error "asnets_dynet.cpp requires DyNet library!"
@@ -21,6 +22,8 @@
 #include <dynet/expr.h>
 #include <dynet/training.h>
 #include <dynet/param-init.h>
+
+const char * const pddl_dynet_version = "not exported";
 
 static const float SMALL_CONST = 1E-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;

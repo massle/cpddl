@@ -18,6 +18,7 @@
 
 #include "internal.h"
 #include "pddl/config.h"
+#include "pddl/libs_info.h"
 
 #ifndef PDDL_BLISS
 # error "sym.c requires bliss library!"
@@ -26,6 +27,8 @@
 #include "pddl/iarr.h"
 #include "pddl/sym.h"
 #include <bliss/bliss_C.h>
+
+const char * const pddl_bliss_version = BLISS_VERSION;
 
 struct pdg_sym {
     const pddl_strips_t *strips;
