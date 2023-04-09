@@ -14,10 +14,13 @@
 
 #include "internal.h"
 #include "pddl/lp.h"
+#include "pddl/libs_info.h"
 #include "_lp.h"
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>
+const char * const pddl_cplex_version =
+    PDDL_TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX);
 
 struct _lp_t {
     pddl_lp_t cls;
@@ -353,7 +356,7 @@ static void cpxWrite(pddl_lp_t *_lp, const char *fn)
 pddl_lp_cls_t pddl_lp_cplex = {
     PDDL_LP_CPLEX,
     "cplex",
-    TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX),
+    pddl_cplex_version,
     new,
     del,
     setObj,
@@ -373,5 +376,6 @@ pddl_lp_cls_t pddl_lp_cplex = {
     cpxWrite,
 };
 #else /* PDDL_CPLEX */
+const char * const pddl_cplex_version = NULL;
 pddl_lp_cls_t pddl_lp_cplex = { 0 };
 #endif /* PDDL_CPLEX */

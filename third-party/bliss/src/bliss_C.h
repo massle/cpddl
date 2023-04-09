@@ -1,6 +1,8 @@
 #ifndef BLISS_C_H
 #define BLISS_C_H
 
+#define BLISS_VERSION "0.77"
+
 /*
   Copyright (c) 2003-2021 Tommi Junttila
   Released under the GNU Lesser General Public License version 3.

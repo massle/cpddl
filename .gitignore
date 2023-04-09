@@ -26,3 +26,5 @@ src/cset.c
 pddl/iarr.h
 src/iarr.c
 cpddl.pc
+src/tmp.*
+src/*_stub.c

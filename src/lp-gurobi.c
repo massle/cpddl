@@ -15,11 +15,14 @@
  */
 
 #include "pddl/lp.h"
+#include "pddl/libs_info.h"
 #include "_lp.h"
 #include "internal.h"
 
 #ifdef PDDL_GUROBI
 # include <gurobi_c.h>
+const char * const pddl_gurobi_version =
+    PDDL_TOSTR(GRB_VERSION_MAJOR.GRB_VERSION_MINOR.GRB_VERSION_TECHNICAL);
 
 #define MAX_COEFS 20000
 struct _lp_t {
@@ -348,7 +351,7 @@ static void lpWrite(pddl_lp_t *_lp, const char *fn)
 pddl_lp_cls_t pddl_lp_gurobi = {
     PDDL_LP_GUROBI,
     "gurobi",
-    TOSTR(GRB_VERSION_MAJOR.GRB_VERSION_MINOR.GRB_VERSION_TECHNICAL),
+    pddl_gurobi_version,
     new,
     del,
     setObj,
@@ -368,5 +371,6 @@ pddl_lp_cls_t pddl_lp_gurobi = {
     lpWrite,
 };
 #else /* PDDL_GUROBI */
+const char * const pddl_gurobi_version = NULL;
 pddl_lp_cls_t pddl_lp_gurobi = { 0 };
 #endif /* PDDL_GUROBI */

@@ -1027,6 +1027,63 @@ static void help(const char *argv0, FILE *fout)
 {
     fprintf(fout, "Usage: %s [OPTIONS] [domain.pddl] problem.pddl\n", argv0);
     fprintf(fout, "version: %s\n", pddl_version);
+    fprintf(fout, "source code: https://gitlab.com/danfis/cpddl\n");
+    if (pddl_bliss_version != NULL
+            || pddl_cudd_version != NULL
+            || pddl_cplex_version != NULL
+            || pddl_cp_optimizer_version != NULL
+            || pddl_gurobi_version != NULL
+            || pddl_highs_version != NULL
+            || pddl_dynet_version != NULL){
+        fprintf(fout, "Used libraries:\n");
+
+        if (pddl_bliss_version != NULL){
+            fprintf(fout, "  Bliss v%s"
+                    " | License LPGL | https://users.aalto.fi/~tjunttil/bliss"
+                    " (modified version from cpddl https://gitlab.com/danfis/cpddl)\n",
+                    pddl_bliss_version);
+        }
+
+        if (pddl_cudd_version != NULL){
+            fprintf(fout, "  CUDD v%s"
+                    " | License BSD | https://davidkebo.com/cudd\n",
+                    pddl_cudd_version);
+        }
+
+        if (pddl_cplex_version != NULL){
+            fprintf(fout, "  CPLEX v%s"
+                    " | Commercial | https://www.ibm.com/analytics/cplex-optimizer\n",
+                    pddl_cplex_version);
+        }
+
+        if (pddl_cp_optimizer_version != NULL){
+            fprintf(fout, "  CPLEX CP Optimizer v%s"
+                    " | Commercial | https://www.ibm.com/analytics/cplex-cp-optimizer\n",
+                    pddl_cp_optimizer_version);
+        }
+
+        if (pddl_gurobi_version != NULL){
+            fprintf(fout, "  Gurobi v%s"
+                    " | Commercial | https://www.gurobi.com\n",
+                    pddl_gurobi_version);
+        }
+
+        if (pddl_highs_version != NULL){
+            fprintf(fout, "  HiGHS v%s"
+                    " | License MIT | https://highs.dev\n",
+                    pddl_highs_version);
+        }
+
+        if (pddl_dynet_version != NULL){
+            fprintf(fout, "  DyNet (version is not exported)"
+                    " | License Apache | https://github.com/clab/dynet\n");
+        }
+#ifdef PDDL_MINIZINC_BIN
+        fprintf(fout, "  Minizinc external binary %s v%s"
+                " | License Mozilla | https://www.minizinc.org\n",
+                PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
+#endif /* PDDL_MINIZINC_BIN */
+    }
     fprintf(fout, "\n");
     fprintf(fout, "OPTIONS:\n");
     optsPrint(fout);
@@ -1123,5 +1180,29 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
     }
 
     PDDL_LOG(err, "Version: %s", pddl_version);
+    if (pddl_bliss_version != NULL)
+        PDDL_LOG(err, "Have library Bliss v%s", pddl_bliss_version);
+
+    if (pddl_cudd_version != NULL)
+        PDDL_LOG(err, "Have library CUDD v%s", pddl_cudd_version);
+
+    if (pddl_cplex_version != NULL)
+        PDDL_LOG(err, "Have library CPLEX v%s", pddl_cplex_version);
+
+    if (pddl_cp_optimizer_version != NULL)
+        PDDL_LOG(err, "Have library CPLEX CP Optimizer v%s", pddl_cp_optimizer_version);
+
+    if (pddl_gurobi_version != NULL)
+        PDDL_LOG(err, "Have library Gurobi v%s", pddl_gurobi_version);
+
+    if (pddl_highs_version != NULL)
+        PDDL_LOG(err, "Have library HiGHS v%s", pddl_highs_version);
+
+    if (pddl_dynet_version != NULL)
+        PDDL_LOG(err, "Have library DyNet");
+#ifdef PDDL_MINIZINC_BIN
+    PDDL_LOG(err, "Have minizinc external binary %s v%s",
+                PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
+#endif /* PDDL_MINIZINC_BIN */
     return 0;
 }
