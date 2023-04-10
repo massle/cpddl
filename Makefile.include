@@ -160,14 +160,17 @@ endif
 
 MINIZINC_BIN ?=
 MINIZINC_VERSION ?=
-ifeq '$(MINIZINC_BIN)' ''
-  MINIZINC_FOUND := $(shell if /usr/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
-  ifeq '$(MINIZINC_FOUND)' 'yes'
-    MINIZINC_BIN := /usr/bin/minizinc
-  else
-    MINIZINC_FOUND := $(shell if /opt/minizinc/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+USE_MINIZINC ?= auto
+ifeq '$(USE_MINIZINC)' 'auto'
+  ifeq '$(MINIZINC_BIN)' ''
+    MINIZINC_FOUND := $(shell if /usr/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
     ifeq '$(MINIZINC_FOUND)' 'yes'
-      MINIZINC_BIN := /opt/minizinc/bin/minizinc
+      MINIZINC_BIN := /usr/bin/minizinc
+    else
+      MINIZINC_FOUND := $(shell if /opt/minizinc/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+      ifeq '$(MINIZINC_FOUND)' 'yes'
+        MINIZINC_BIN := /opt/minizinc/bin/minizinc
+      endif
     endif
   endif
 endif
@@ -239,17 +242,19 @@ CFLAGS += -I$(BASEPATH_)
 CPPFLAGS += -Wno-ignored-attributes
 CPPFLAGS += -I$(BASEPATH_)
 
-LDFLAGS += -L$(BASEPATH_) -lpddl
-LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
-LDFLAGS += $(LP_LDFLAGS)
-LDFLAGS += $(BLISS_LDFLAGS)
-LDFLAGS += $(CLIQUER_LDFLAGS)
-LDFLAGS += $(CUDD_LDFLAGS)
-LDFLAGS += $(DYNET_LDFLAGS)
+LDFLAGS_EXTRA =
+LDFLAGS_EXTRA += $(CPOPTIMIZER_LDFLAGS)
+LDFLAGS_EXTRA += $(LP_LDFLAGS)
+LDFLAGS_EXTRA += $(BLISS_LDFLAGS)
+LDFLAGS_EXTRA += $(CLIQUER_LDFLAGS)
+LDFLAGS_EXTRA += $(CUDD_LDFLAGS)
+LDFLAGS_EXTRA += $(DYNET_LDFLAGS)
 ifeq '$(NEED_LIBSTDCPP)' 'yes'
-  LDFLAGS += -lstdc++
+  LDFLAGS_EXTRA += -lstdc++
 endif
-LDFLAGS += -pthread -lm
+LDFLAGS_EXTRA += -pthread -lm
+
+LDFLAGS = -L$(BASEPATH_) -lpddl $(LDFLAGS_EXTRA)
 
 .DEFAULT_GOAL := all
 

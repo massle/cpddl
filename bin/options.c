@@ -1078,11 +1078,11 @@ static void help(const char *argv0, FILE *fout)
             fprintf(fout, "  DyNet (version is not exported)"
                     " | License Apache | https://github.com/clab/dynet\n");
         }
-#ifdef PDDL_MINIZINC_BIN
+#ifdef PDDL_MINIZINC
         fprintf(fout, "  Minizinc external binary %s v%s"
                 " | License Mozilla | https://www.minizinc.org\n",
                 PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
-#endif /* PDDL_MINIZINC_BIN */
+#endif /* PDDL_MINIZIN */
     }
     fprintf(fout, "\n");
     fprintf(fout, "OPTIONS:\n");

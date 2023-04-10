@@ -34,11 +34,11 @@ pddl-lplan: main.c ../libpddl.a $(OBJS)
 pddl-asnets: asnets.c ../libpddl.a $(ASNETS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(ASNETS_OBJS) $(LDFLAGS)
 
-report_%.o: report_%.c report.h
+report_%.o: report_%.c report.h ../pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
-%.o: %.c %.h
+%.o: %.c %.h ../pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
-%.o: %.c
+%.o: %.c ../pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:

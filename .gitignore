@@ -28,3 +28,4 @@ src/iarr.c
 cpddl.pc
 src/tmp.*
 src/*_stub.c
+src/_version.c
