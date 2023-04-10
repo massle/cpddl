@@ -1,6 +1,8 @@
 -include Makefile.config
 -include Makefile.include
 
+MAKE_FILES := Makefile Makefile.include $(wildcard Makefile.config)
+
 SRC  = alloc
 SRC += err
 SRC += hfunc
@@ -217,15 +219,18 @@ all: libpddl.a
 bin: libpddl.a
 	$(MAKE) -C bin
 
-libpddl.a: $(OBJS) Makefile
+libpddl.a: $(OBJS) $(MAKE_FILES)
 	ar cr $@ $(OBJS)
 	ranlib $@
 
-libpddl.pic.a: $(OBJS_PIC) Makefile
+libpddl.pic.a: $(OBJS_PIC) $(MAKE_FILES)
 	ar cr $@ $(OBJS_PIC)
 	ranlib $@
 
-pddl/config.h: Makefile Makefile.include $(wildcard Makefile.config)
+libpddl.so: $(OBJS_PIC) $(MAKE_FILES)
+	$(CC) -shared -o $@ $(OBJS_PIC)
+
+pddl/config.h: $(MAKE_FILES)
 	echo "#ifndef __PDDL_CONFIG_H__" >$@
 	echo "#define __PDDL_CONFIG_H__" >>$@
 	echo "" >>$@
