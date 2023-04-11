@@ -309,9 +309,9 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
 .objs/lp-%.pic.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(LP_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.o: src/sqlite3.c
+.objs/__sqlite3.o: src/sqlite3.c pddl/config.h
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.pic.o: src/sqlite3.c
+.objs/__sqlite3.pic.o: src/sqlite3.c pddl/config.h
 	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
@@ -351,20 +351,14 @@ src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
 %.c: pddl/config.h
 
 
-clean:
+clean: c
 	rm -f .objs/*.o
-	rm -f *.a
-	rm -f pddl/config.h
-	rm -f src/*_stub.c
-	rm -f src/tmp.*
-	rm -f $(GEN)
-	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
-	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
 
 c:
 	rm -f .objs/[a-zA-Z0-9]*.o
 	rm -f .objs/_[a-zA-Z0-9]*.o
 	rm -f *.a
+	rm -f *.so
 	rm -f pddl/config.h
 	rm -f src/*_stub.c
 	rm -f src/tmp.*
@@ -521,7 +515,7 @@ help:
 	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
 	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
-	@echo "  HIGHS_CPPFLAGS    = $(HIGHS_CPPFLAGS)"
+	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
 	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
 	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
 	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"

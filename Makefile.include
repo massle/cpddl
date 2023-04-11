@@ -67,12 +67,14 @@ ifneq '$(IBM_CPLEX_ROOT)' ''
   endif
   ifeq '$(USE_CPLEX)' 'auto'
     CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
-    CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
+    #CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
+    CPLEX_LDFLAGS := $(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic/libcplex.a -ldl
     USE_CPLEX := yes
   endif
   ifeq '$(USE_CPOPTIMIZER)' 'auto'
     CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
-    CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
+    #CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
+    CPOPTIMIZER_LDFLAGS = $(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/libcp.a $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a
     NEED_LIBSTDCPP := yes
     USE_CPOPTIMIZER := yes
   endif
@@ -89,6 +91,13 @@ ifeq '$(USE_CPOPTIMIZER)' 'auto'
     USE_CPOPTIMIZER := yes
   endif
 endif
+
+ifneq '$(USE_CPLEX)' 'yes'
+  ifeq '$(USE_CPOPTIMIZER)' 'yes'
+    $(error Cannot use CPOPTIMIZER without CPLEX!)
+  endif
+endif
+
 
 ifeq '$(USE_GUROBI)' 'auto'
   ifneq '$(GUROBI_CFLAGS)' ''
@@ -125,7 +134,8 @@ USE_BLISS = auto
 USE_LOCAL_BLISS ?= $(shell if test -f $(BASEPATH_)/third-party/bliss/libbliss.a; then echo "yes"; else echo "no"; fi;)
 ifeq '$(USE_LOCAL_BLISS)' 'yes'
   BLISS_CFLAGS :=
-  BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss
+  #BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss
+  BLISS_LDFLAGS := $(BASEPATH_)/third-party/bliss/libbliss.a
   NEED_LIBSTDCPP := yes
   USE_BLISS := yes
 endif
@@ -151,7 +161,8 @@ ifeq '$(USE_CUDD)' 'auto'
   USE_LOCAL_CUDD ?= $(shell if test -f $(BASEPATH_)/third-party/cudd/libcudd.a; then echo "yes"; else echo "no"; fi;)
   ifeq '$(USE_LOCAL_CUDD)' 'yes'
     CUDD_CFLAGS := -I$(BASEPATH_)/third-party/cudd
-    CUDD_LDFLAGS := -L$(BASEPATH_)/third-party/cudd -lcudd
+    #CUDD_LDFLAGS := -L$(BASEPATH_)/third-party/cudd -lcudd
+    CUDD_LDFLAGS := $(BASEPATH_)/third-party/cudd/libcudd.a
   endif
   ifneq '$(CUDD_CFLAGS)$(CUDD_LDFLAGS)' ''
     USE_CUDD := yes
@@ -192,8 +203,17 @@ ifeq '$(USE_DYNET)' 'auto'
     USE_DYNET := yes
 
   else ifneq '$(DYNET_ROOT)' ''
+    ifeq '$(wildcard $(DYNET_ROOT)/include/dynet/dynet.h)' ''
+      $(error DYNET_ROOT defined, but could not find DyNet header files)
+    endif
+    ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.so)' ''
+      DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
+    else ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.a)' ''
+      DYNET_LDFLAGS := $(DYNET_ROOT)/lib/libdynet.a
+    else
+      $(error DYNET_ROOT defined, but could not find DyNet library files)
+    endif
     DYNET_CPPFLAGS := -I$(DYNET_ROOT)/include
-    DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
     USE_DYNET := yes
   endif
 endif
@@ -206,8 +226,17 @@ ifeq '$(USE_HIGHS)' 'auto'
     USE_HIGHS := yes
 
   else ifneq '$(HIGHS_ROOT)' ''
+    ifeq '$(wildcard $(HIGHS_ROOT)/include/highs/interfaces/highs_c_api.h)' ''
+      $(error HIGHS_ROOT defined, but could not find HiGHS header files)
+    endif
+    ifneq '$(wildcard $(HIGHS_ROOT)/lib/libhighs.so)' ''
+      HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -Wl,-rpath=$(HIGHS_ROOT)/lib -lhighs -lz
+    else ifneq '$(wildcard $(HIGHS_ROOT)/lib/libhighs.a)' ''
+      HIGHS_LDFLAGS := $(HIGHS_ROOT)/lib/libhighs.a -lz
+    else
+      $(error HIGHS_ROOT defined, but could not find HiGHS library files)
+    endif
     HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
-    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lz
     NEED_LIBSTDCPP := yes
     USE_HIGHS := yes
   endif
@@ -254,9 +283,7 @@ ifeq '$(NEED_LIBSTDCPP)' 'yes'
 endif
 LDFLAGS_EXTRA += -pthread -lm
 
-LDFLAGS = -L$(BASEPATH_) -lpddl $(LDFLAGS_EXTRA)
-
-.DEFAULT_GOAL := all
+LDFLAGS = $(BASEPATH_)/libpddl.a $(LDFLAGS_EXTRA)
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS
