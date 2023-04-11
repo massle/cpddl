@@ -32,7 +32,7 @@
 #include "partition.hh"
 #include "utils.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 
 /*-------------------------------------------------------------------------
@@ -1763,4 +1763,4 @@ AbstractGraph::canonical_form(Stats& stats,
   return best_path_labeling;
 }
 
-} // namespace bliss
+} // namespace pddl_bliss

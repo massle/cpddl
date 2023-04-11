@@ -105,7 +105,7 @@ int pddlPruneStripsExecute(pddl_prune_strips_t *prune,
                            pddl_mgroups_t *mgroups,
                            pddl_err_t *err)
 {
-    CTX(err, "strips_prune", "Prune");
+    CTX(err, "Prune");
     PDDL_INFO(err, "Start pruning. facts: %d, ops: %d",
               strips->fact.fact_size, strips->op.op_size);
     ctx_t ctx;

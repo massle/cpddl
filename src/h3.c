@@ -569,7 +569,7 @@ int pddlH3(const pddl_strips_t *strips,
     h3_t h3;
     int updated, ret = 0;
 
-    CTX(err, "h3fw", "h^3 fw");
+    CTX(err, "h^3 fw");
     PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
               " time-limit: %.2f, excess-memory: %lu",
               strips->fact.fact_size,

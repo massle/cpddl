@@ -233,7 +233,7 @@ uint64_t pddlFastHash_64(const void *buf, size_t len, uint64_t seed)
         uint64_t h = seed ^ (len * m);
         uint64_t v;
 
-        while (pos != end) {
+        while (pos != end){
                 v  = *pos++;
                 h ^= fh_mix(v);
                 h *= m;
@@ -242,7 +242,7 @@ uint64_t pddlFastHash_64(const void *buf, size_t len, uint64_t seed)
         pos2 = (const unsigned char*)pos;
         v = 0;
 
-        switch (len & 7) {
+        switch (len & 7){
         case 7: v ^= (uint64_t)pos2[6] << 48;
         case 6: v ^= (uint64_t)pos2[5] << 40;
         case 5: v ^= (uint64_t)pos2[4] << 32;

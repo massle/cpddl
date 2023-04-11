@@ -1,188 +1,206 @@
--include Makefile.local
+-include Makefile.config
 -include Makefile.include
 
-CFLAGS += -I.
+MAKE_FILES := Makefile Makefile.include $(wildcard Makefile.config)
 
-CPPFLAGS += -Wno-ignored-attributes
-CPPFLAGS += -I.
+SRC  = alloc
+SRC += err
+SRC += hfunc
+SRC += sha256
+SRC += google-city-hash
+SRC += toml
+SRC += rand
+SRC += sort
+SRC += qsort
+SRC += timsort
+SRC += mergesort
+SRC += heapsort
+SRC += segmarr
+SRC += extarr
+SRC += pairheap
+SRC += hashset
+SRC += rbtree
+SRC += htable
+SRC += fifo
+SRC += lp
+SRC += lp-cplex
+SRC += lp-gurobi
+SRC += lp-glpk
+SRC += lp-highs
+SRC += cp
+SRC += cp-minizinc
+SRC += lisp
+SRC += require_flags
+SRC += type
+SRC += param
+SRC += obj
+SRC += pred
+SRC += fact
+SRC += action
+SRC += prep_action
+SRC += pddl
+SRC += unify
+SRC += compile_in_lifted_mgroup
+SRC += fm
+SRC += fm_arr
+SRC += strips
+SRC += strips_op
+SRC += strips_fact_cross_ref
+SRC += strips_maker
+SRC += strips_conj
+SRC += sql_grounder
+SRC += strips_ground_tree
+SRC += strips_ground
+SRC += strips_ground_sql
+SRC += strips_ground_datalog
+SRC += action_args
+SRC += ground_atom
+SRC += profile
+SRC += lifted_mgroup
+SRC += lifted_mgroup_infer
+SRC += lifted_mgroup_htable
+SRC += mgroup
+SRC += mgroup_projection
+SRC += mutex_pair
+SRC += pddl_file
+SRC += plan_file
+SRC += irrelevance
+SRC += h1
+SRC += h2
+SRC += h3
+SRC += hm
+SRC += disambiguation
+SRC += bitset
+SRC += set
+SRC += fdr_var
+SRC += fdr_part_state
+SRC += fdr_op
+SRC += fdr
+SRC += fdr_state_packer
+SRC += fdr_state_pool
+SRC += fdr_state_space
+SRC += fdr_state_sampler
+SRC += strips_state_space
+SRC += famgroup
+SRC += pot
+SRC += lm_cut
+SRC += hpot
+SRC += hflow
+SRC += hmax
+SRC += hadd
+SRC += hff
+SRC += pq
+SRC += mg_strips
+SRC += preprocess
+SRC += cg
+SRC += graph
+SRC += clique
+SRC += biclique
+SRC += fdr_app_op
+SRC += random_walk
+SRC += open_list
+SRC += open_list_splaytree1
+SRC += open_list_splaytree2
+SRC += search
+SRC += search_astar
+SRC += search_lazy
+SRC += lifted_app_action
+SRC += lifted_app_action_sql
+SRC += lifted_app_action_datalog
+SRC += lifted_search
+SRC += plan
+SRC += relaxed_plan
+SRC += heur
+SRC += heur_blind
+SRC += heur_dead_end
+SRC += heur_lm_cut
+SRC += heur_hmax
+SRC += heur_hadd
+SRC += heur_hff
+SRC += heur_flow
+SRC += heur_op_mutex
+SRC += dtg
+SRC += scc
+SRC += ts
+SRC += op_mutex_pair
+SRC += op_mutex_infer
+SRC += op_mutex_infer_ts
+SRC += op_mutex_redundant
+SRC += op_mutex_redundant_greedy
+SRC += op_mutex_redundant_max
+SRC += reversibility
+SRC += invertibility
+SRC += cascading_table
+SRC += transition
+SRC += label
+SRC += labeled_transition
+SRC += trans_system
+SRC += trans_system_abstr_map
+SRC += trans_system_graph
+SRC += bdds
+SRC += symbolic_vars
+SRC += symbolic_constr
+SRC += symbolic_trans
+SRC += symbolic_state
+SRC += symbolic_task
+SRC += symbolic_split_goal
+SRC += cost
+SRC += black_mgroup
+SRC += red_black_fdr
+SRC += outbox
+SRC += datalog
+SRC += datalog_pddl
+SRC += endomorphism_fdr
+SRC += endomorphism_ts
+SRC += endomorphism_lifted
+SRC += homomorphism
+SRC += homomorphism_heur
+SRC += prune_strips
+SRC += objset
+SRC += iset
+SRC += lset
+SRC += cset
+SRC += iarr
+SRC += lifted_heur
+SRC += lifted_heur_relaxed
+SRC += subprocess
+SRC += task
+SRC += asnets_task
+SRC += asnets_train_data
 
-CPPCHECK_FLAGS += --platform=unix64 --enable=all -I.
+SRC += __sqlite3
 
-TARGETS  = libpddl.a
+SRC += _version
 
-OBJS  = alloc
-OBJS += err
-OBJS += hfunc
-OBJS += sha256
-OBJS += google-city-hash
-OBJS += toml
-OBJS += rand
-OBJS += sort
-OBJS += qsort
-OBJS += timsort
-OBJS += mergesort
-OBJS += heapsort
-OBJS += segmarr
-OBJS += extarr
-OBJS += pairheap
-OBJS += hashset
-OBJS += rbtree
-OBJS += htable
-OBJS += fifo
-OBJS += lp
-OBJS += lp-cplex
-OBJS += lp-gurobi
-OBJS += lp-glpk
-OBJS += lp-highs
-OBJS += cp
-OBJS += cp-minizinc
-OBJS += lisp
-OBJS += require_flags
-OBJS += type
-OBJS += param
-OBJS += obj
-OBJS += pred
-OBJS += fact
-OBJS += action
-OBJS += prep_action
-OBJS += pddl
-OBJS += unify
-OBJS += compile_in_lifted_mgroup
-OBJS += fm
-OBJS += fm_arr
-OBJS += strips
-OBJS += strips_op
-OBJS += strips_fact_cross_ref
-OBJS += strips_maker
-OBJS += strips_conj
-OBJS += sql_grounder
-OBJS += strips_ground_tree
-OBJS += strips_ground
-OBJS += strips_ground_sql
-OBJS += strips_ground_datalog
-OBJS += action_args
-OBJS += ground_atom
-OBJS += profile
-OBJS += lifted_mgroup
-OBJS += lifted_mgroup_infer
-OBJS += lifted_mgroup_htable
-OBJS += mgroup
-OBJS += mgroup_projection
-OBJS += mutex_pair
-OBJS += pddl_file
-OBJS += plan_file
-OBJS += irrelevance
-OBJS += h1
-OBJS += h2
-OBJS += h3
-OBJS += hm
-OBJS += disambiguation
-OBJS += bitset
-OBJS += set
-OBJS += fdr_var
-OBJS += fdr_part_state
-OBJS += fdr_op
-OBJS += fdr
-OBJS += fdr_state_packer
-OBJS += fdr_state_pool
-OBJS += fdr_state_space
-OBJS += fdr_state_sampler
-OBJS += strips_state_space
-OBJS += sym
-OBJS += famgroup
-OBJS += pot
-OBJS += lm_cut
-OBJS += hpot
-OBJS += hflow
-OBJS += hmax
-OBJS += hadd
-OBJS += hff
-OBJS += pq
-OBJS += mg_strips
-OBJS += preprocess
-OBJS += cg
-OBJS += graph
-OBJS += clique
-OBJS += biclique
-OBJS += fdr_app_op
-OBJS += random_walk
-OBJS += open_list
-OBJS += open_list_splaytree1
-OBJS += open_list_splaytree2
-OBJS += search
-OBJS += search_astar
-OBJS += search_lazy
-OBJS += lifted_app_action
-OBJS += lifted_app_action_sql
-OBJS += lifted_app_action_datalog
-OBJS += lifted_search
-OBJS += plan
-OBJS += relaxed_plan
-OBJS += heur
-OBJS += heur_blind
-OBJS += heur_dead_end
-OBJS += heur_lm_cut
-OBJS += heur_hmax
-OBJS += heur_hadd
-OBJS += heur_hff
-OBJS += heur_flow
-OBJS += heur_op_mutex
-OBJS += dtg
-OBJS += scc
-OBJS += ts
-OBJS += op_mutex_pair
-OBJS += op_mutex_infer
-OBJS += op_mutex_infer_ts
-OBJS += op_mutex_redundant
-OBJS += op_mutex_redundant_greedy
-OBJS += op_mutex_redundant_max
-OBJS += reversibility
-OBJS += invertibility
-OBJS += cascading_table
-OBJS += transition
-OBJS += label
-OBJS += labeled_transition
-OBJS += trans_system
-OBJS += trans_system_abstr_map
-OBJS += trans_system_graph
-OBJS += bdd
-OBJS += bdds
-OBJS += symbolic_vars
-OBJS += symbolic_constr
-OBJS += symbolic_trans
-OBJS += symbolic_state
-OBJS += symbolic_task
-OBJS += symbolic_split_goal
-OBJS += cost
-OBJS += black_mgroup
-OBJS += red_black_fdr
-OBJS += outbox
-OBJS += datalog
-OBJS += datalog_pddl
-OBJS += endomorphism_fdr
-OBJS += endomorphism_ts
-OBJS += endomorphism_lifted
-OBJS += homomorphism
-OBJS += homomorphism_heur
-OBJS += prune_strips
-OBJS += objset
-OBJS += iset
-OBJS += lset
-OBJS += cset
-OBJS += iarr
-OBJS += lifted_heur
-OBJS += lifted_heur_relaxed
-OBJS += subprocess
-OBJS += task
-OBJS += asnets_task
-OBJS += asnets_train_data
+SRC_CPP  = cp-cp-optimizer
 
-OBJS += __sqlite3
+SRC_STUB =
 
-OBJS_CPP  = cp-cp-optimizer
-OBJS_CPP += asnets_dynet
+ifeq '$(USE_BLISS)' 'yes'
+  SRC += sym
+else
+  SRC_STUB += sym
+endif
 
-OBJS := $(foreach obj,$(OBJS),.objs/$(obj).o) $(foreach obj,$(OBJS_CPP),.objs/$(obj).cpp.o)
+ifeq '$(USE_CUDD)' 'yes'
+  SRC += bdd
+else
+  SRC_STUB += bdd
+endif
+
+ifeq '$(USE_DYNET)' 'yes'
+  SRC_CPP += asnets_dynet
+else
+  SRC_STUB += asnets_dynet
+endif
+
+OBJS_PIC := $(foreach obj,$(SRC),.objs/$(obj).pic.o) \
+            $(foreach obj,$(SRC_CPP),.objs/$(obj).pic.cpp.o) \
+            $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.pic.o)
+
+OBJS := $(foreach obj,$(SRC),.objs/$(obj).o) \
+        $(foreach obj,$(SRC_CPP),.objs/$(obj).cpp.o) \
+        $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.o)
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
@@ -194,22 +212,25 @@ GEN += pddl/cset.h
 GEN += src/cset.c
 GEN += pddl/iarr.h
 GEN += src/iarr.c
+GEN += src/_version.c
 
-all: $(TARGETS)
+all: libpddl.a
 
 bin: libpddl.a
 	$(MAKE) -C bin
 
-libpddl.a: $(OBJS) Makefile pddl/version.h
-	echo "#include \"pddl/version.h\"" >_version.c
-	echo "const char *pddl_build_version = \"$(shell git rev-parse HEAD)\";" >>_version.c
-	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>_version.c
-	$(CC) -I. -c -o .objs/_version.o _version.c
-	rm -f _version.c
-	ar cr $@ $(OBJS) .objs/_version.o
+libpddl.a: $(OBJS) $(MAKE_FILES)
+	ar cr $@ $(OBJS)
 	ranlib $@
 
-pddl/config.h: Makefile Makefile.include
+libpddl.pic.a: $(OBJS_PIC) $(MAKE_FILES)
+	ar cr $@ $(OBJS_PIC)
+	ranlib $@
+
+libpddl.so: $(OBJS_PIC) $(MAKE_FILES)
+	$(CC) -shared -o $@ $(OBJS_PIC)
+
+pddl/config.h: $(MAKE_FILES)
 	echo "#ifndef __PDDL_CONFIG_H__" >$@
 	echo "#define __PDDL_CONFIG_H__" >>$@
 	echo "" >>$@
@@ -231,87 +252,144 @@ pddl/config.h: Makefile Makefile.include
 	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
 
 pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
+	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
 src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
 pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
 src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set long l L L <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
 pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
 src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(BASH) scripts/fmt_set.sh set Set long c C C <$< >$@
+	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
 pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
-	$(BASH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
+	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-.objs/bdd.o: src/bdd.c pddl/bdd.h pddl/config.h $(GEN)
+src/_version.c: pddl/version.h
+	echo "#include \"pddl/version.h\"" >$@
+	echo "const char *pddl_build_commit = \"$(shell git rev-parse HEAD)\";" >>$@
+	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>$@
+.objs/_version.o: src/_version.c pddl/version.h
+	$(CC) -I. -c -o $@ $<
+.objs/_version.pic.o: src/_version.c pddl/version.h
+	$(CC) -I. -fPIC -c -o $@ $<
+
+src/tmp.cudd-version.h: third-party/cudd/libcudd.a
+	echo '#include "internal.h"' >src/tmp.cudd-version.c
+	echo '#include <cudd/cudd.h>' >>src/tmp.cudd-version.c
+	echo '#include <stdio.h>' >>src/tmp.cudd-version.c
+	echo "int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; }" >>src/tmp.cudd-version.c
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o src/tmp.cudd-version src/tmp.cudd-version.c $(CUDD_LDFLAGS) -lm
+	echo -n '#define CUDD_VERSION "' >$@
+	./src/tmp.cudd-version | tr -d '\n' >>$@
+	echo '"' >>$@
+	rm -f src/tmp.cudd-version.c
+	rm -f src/tmp.cudd-version
+
+.objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
+.objs/bdd.pic.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(CUDD_CFLAGS) -c -o $@ $<
 .objs/sym.o: src/sym.c pddl/sym.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(BLISS_CFLAGS) -c -o $@ $<
+.objs/sym.pic.o: src/sym.c pddl/sym.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(BLISS_CFLAGS) -c -o $@ $<
 .objs/clique.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
-.objs/asnets_dynet.o: src/asnets_dynet.c pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(DYNET_CFLAGS) -c -o $@ $<
+.objs/clique.pic.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(CLIQUER_CFLAGS) -c -o $@ $<
 .objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.o: src/sqlite3.c
+.objs/lp-%.pic.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(LP_CFLAGS) -c -o $@ $<
+.objs/__sqlite3.o: src/sqlite3.c pddl/config.h
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
+.objs/__sqlite3.pic.o: src/sqlite3.c pddl/config.h
+	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
+.objs/cp-cp-optimizer.pic.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -fPIC -c -o $@ $<
 .objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
+.objs/asnets_dynet.pic.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -fPIC -c -o $@ $<
+
+src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
+src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
+src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/%.pic.o: src/%.c pddl/%.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 .objs/%.o: src/%.c pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/%.pic.o: src/%.c pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 .objs/%.cpp.o: src/%.cpp pddl/%.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
+.objs/%.pic.cpp.o: src/%.cpp pddl/%.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) -fPIC -c -o $@ $<
 .objs/%.cpp.o: src/%.cpp pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
+.objs/%.pic.cpp.o: src/%.cpp pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) -fPIC -c -o $@ $<
 
 %.h: pddl/config.h
 %.c: pddl/config.h
 
 
-clean:
+clean: c
 	rm -f .objs/*.o
-	rm -f $(TARGETS)
-	rm -f pddl/config.h
-	rm -f src/*.pb.{cc,h}
-	rm -f $(GEN)
-	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
-	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
 
 c:
 	rm -f .objs/[a-zA-Z0-9]*.o
 	rm -f .objs/_[a-zA-Z0-9]*.o
-	rm -f $(TARGETS)
+	rm -f *.a
+	rm -f *.so
 	rm -f pddl/config.h
+	rm -f src/*_stub.c
+	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
 	if [ -f t/Makefile ]; then $(MAKE) -C t clean; fi;
 
 mrproper: clean third-party-clean
 
-check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb:
-	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
-static-check:
-	$(CPPCHECK) $(CPPCHECK_FLAGS) pddl/ src/
+fetch-submodules:
+	git submodule update --init --recursive
 
-doc:
-	$(MAKE) -C doc
+check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb: libpddl.a
+	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 
 analyze: clean
 	$(SCAN_BUILD) $(MAKE)
+
+tidy:
+	find src/ -name '*.c' \
+              -a -not -name google-city-hash.c \
+              -a -not -name sqlite3.c \
+              -a -not -name toml.c \
+              -a -not -name sha256.c \
+        | xargs -n1 bash scripts/tidy-code.sh
+	find pddl/ -name '*.h' \
+              -a -not -name google-city-hash.c \
+              -a -not -name sqlite3.c \
+              -a -not -name toml.c \
+              -a -not -name sha256.c \
+        | xargs -n1 bash scripts/tidy-code.sh
 
 list-global-symbols: libpddl.a
 	readelf -s libpddl.a \
@@ -367,6 +445,96 @@ sqlite-amalgam:
 	cat sqlite/sqlite3.c | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.c
 	cat sqlite/sqlite3.h | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.h
 	rm -rf sqlite/
+
+gen-pkgconfig: cpddl.pc
+cpddl.pc: libpddl.a
+	$(SH) ./scripts/gen-pkgconfig.sh "$(BASEPATH_)" "$(LDFLAGS)" >$@
+
+help:
+	@echo "Targets:"
+	@echo "  all         - Build library (default)"
+	@echo "  bin         - Bild binaries in bin/"
+	@echo "  bliss       - Build Bliss library from third-party/"
+	@echo "  cudd        - Bild Cudd library from third-party/"
+	@echo "  third-party - Alias for 'bliss cudd'"
+	@echo ""
+	@echo "  clean             - Remove all generated files"
+	@echo "  c                 - Like clean but does not remove sqlite object file"
+	@echo "  mrproper          - Clean library and third-party/"
+	@echo "  third-party-clean - Clean all third-party projects."
+	@echo ""
+	@echo "  check               - Run (short) automated tests"
+	@echo "  check-all           - Run all automated tests"
+	@echo "  check-valgrind      - Run tests with valgrind(1)"
+	@echo "  check-all-valgrind"
+	@echo "  check-segfault      - Run tests with valgrind(1) set up to detect only segfaults"
+	@echo "  check-all-segfault"
+	@echo "  check-gdb           - Run tests in gdb"
+	@echo "  check-all-gdb"
+	@echo ""
+	@echo "  fetch-submodules - Fetch all submodules using git"
+	@echo "  gen-pkgconfig - Generates pkg-config file cpddl.pc referring to this directory"
+	@echo "  analyze - Static analysis with clang's scan-build (SCAN_BUILD = $(SCAN_BUILD))"
+	@echo ""
+	@echo "  tidy - Tidy up source code"
+	@echo "  list-global-symbols - List all global symbols in libpddl.a"
+	@echo "  sqlite-amalgam - Generate src/sqlite3.{c,h} from SQLite zip file defined in SQLITE_SRC_ZIP"
+	@echo ""
+	@echo "Variables:"
+	@echo "  SYSTEM  = $(SYSTEM)"
+	@echo "  CC      = $(CC)"
+	@echo "  CXX     = $(CXX)"
+	@echo "  SH      = $(SH)"
+	@echo "  SCAN_BUILD = $(SCAN_BUILD)"
+	@echo "  DEBUG   = $(DEBUG)"
+	@echo "  PROFIL  = $(PROFIL)"
+	@echo "  WERROR  = $(WERROR)"
+	@echo "  CFLAGS  = $(CFLAGS)"
+	@echo "  LDFLAGS = $(LDFLAGS)"
+	@echo ""
+	@echo "  LDFLAGS_EXTRA = $(LDFLAGS_EXTRA)"
+	@echo "  SYSTEM_LDFLAGS = $(SYSTEM_LDFLAGS)"
+	@echo ""
+	@echo "  USE_BLISS         = $(USE_BLISS)"
+	@echo "  BLISS_CFLAGS      = $(BLISS_CFLAGS)"
+	@echo "  BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
+	@echo "  USE_CUDD          = $(USE_CUDD)"
+	@echo "  CUDD_CFLAGS       = $(CUDD_CFLAGS)"
+	@echo "  CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
+	@echo ""
+	@echo "  IBM_CPLEX_ROOT    = $(IBM_CPLEX_ROOT)"
+	@echo "  USE_CPLEX         = $(USE_CPLEX)"
+	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
+	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
+	@echo "  GUROBI_ROOT       = $(GUROBI_ROOT)"
+	@echo "  USE_GUROBI        = $(USE_GUROBI)"
+	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
+	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
+	@echo "  USE_GLPK          = $(USE_GLPK)"
+	@echo "  GLPK_CFLAGS       = $(GLPK_CFLAGS)"
+	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
+	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
+	@echo "  USE_HIGHS         = $(USE_HIGHS)"
+	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
+	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
+	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
+	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"
+	@echo ""
+	@echo "  USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
+	@echo "  CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
+	@echo "  CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
+	@echo "  USE_MINIZINC         = $(USE_MINIZINC)"
+	@echo "  MINIZINC_BIN         = $(MINIZINC_BIN)"
+	@echo "  MINIZINC_VERSION     = $(MINIZINC_VERSION)"
+	@echo ""
+	@echo "  DYNET_ROOT        = $(DYNET_ROOT)"
+	@echo "  USE_DYNET         = $(USE_DYNET)"
+	@echo "  DYNET_CPPFLAGS    = $(DYNET_CPPFLAGS)"
+	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
+	@echo ""
+	@echo "  USE_CLIQUER       = $(USE_CLIQUER)"
+	@echo "  CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
+	@echo "  CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
 
 .PHONY: all bin clean help doc install analyze \
   examples mrproper \

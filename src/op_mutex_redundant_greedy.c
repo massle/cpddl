@@ -358,7 +358,7 @@ int pddlOpMutexFindRedundantGreedy(const pddl_op_mutex_pairs_t *op_mutex,
                                    pddl_iset_t *redundant_out,
                                    pddl_err_t *err)
 {
-    CTX(err, "opm_redundant_greedy", "OPM-Redundant-Greedy");
+    CTX(err, "OPM-Redundant-Greedy");
     reduce_t red;
     int change, gen_id;
 

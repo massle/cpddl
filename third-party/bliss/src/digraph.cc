@@ -32,7 +32,7 @@
 #include "partition.hh"
 #include "utils.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 
 /*-------------------------------------------------------------------------
@@ -1359,7 +1359,7 @@ Digraph::make_initial_equitable_partition()
  *-------------------------------------------------------------------------*/
 
 Partition::Cell*
-Digraph::find_next_cell_to_be_splitted(Partition::Cell* cell)
+Digraph::find_next_cell_to_be_splitted(Partition::Cell* )
 {
   switch(sh) {
   case shs_f:   return sh_first();
@@ -2110,4 +2110,4 @@ Digraph::nucr_find_first_component(const unsigned int level,
   return true;
 }
 
-} // namespace bliss
+} // namespace pddl_bliss

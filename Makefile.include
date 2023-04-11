@@ -1,15 +1,15 @@
 BASEPATH_ := $(dir $(realpath $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 #BASEPATH_ := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
-BASH ?= bash
+SH ?= bash
 CC ?= gcc
 CXX ?= g++
 SCAN_BUILD ?= scan-build
-CPPCHECK ?= cppcheck
 
 SYSTEM = $(shell uname)
 
 SYSTEM_LDFLAGS =
+NEED_LIBSTDCPP = no
 
 DEBUG ?= no
 PROFIL ?= no
@@ -36,9 +36,9 @@ CPPFLAGS += -Wall -pedantic --std=c++11
 
 ifeq '$(WERROR)' 'yes'
   CFLAGS += -Werror
+  CPPFLAGS += -Werror
 endif
 
-LDFLAGS += -pthread
 LDFLAGS += $(SYSTEM_LDFLAGS)
 
 USE_CPLEX ?= auto
@@ -65,24 +65,19 @@ ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a)' ''
     $(error IBM_CPLEX_ROOT defined, but could not find concert library)
   endif
-  CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
-  CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
-  CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
-  CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert -lstdc++
-  USE_CPLEX := yes
-  USE_CPOPTIMIZER := yes
-endif
-
-ifneq '$(GUROBI_ROOT)' ''
-  ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
-    $(error GUROBI_ROOT defined, but could not find Gurobi header files)
+  ifeq '$(USE_CPLEX)' 'auto'
+    CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
+    #CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
+    CPLEX_LDFLAGS := $(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic/libcplex.a -ldl
+    USE_CPLEX := yes
   endif
-  ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi95.so)' ''
-    $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+  ifeq '$(USE_CPOPTIMIZER)' 'auto'
+    CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
+    #CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
+    CPOPTIMIZER_LDFLAGS = $(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/libcp.a $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a
+    NEED_LIBSTDCPP := yes
+    USE_CPOPTIMIZER := yes
   endif
-  GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
-  GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -lgurobi95
-  USE_GUROBI := yes
 endif
 
 ifeq '$(USE_CPLEX)' 'auto'
@@ -97,34 +92,51 @@ ifeq '$(USE_CPOPTIMIZER)' 'auto'
   endif
 endif
 
+ifneq '$(USE_CPLEX)' 'yes'
+  ifeq '$(USE_CPOPTIMIZER)' 'yes'
+    $(error Cannot use CPOPTIMIZER without CPLEX!)
+  endif
+endif
+
+
 ifeq '$(USE_GUROBI)' 'auto'
   ifneq '$(GUROBI_CFLAGS)' ''
+    USE_GUROBI := yes
+
+  else ifneq '$(GUROBI_ROOT)' ''
+    ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
+      $(error GUROBI_ROOT defined, but could not find Gurobi header files)
+    endif
+    ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so)' ''
+      $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+    endif
+    gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
+    gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
+    gurobi_libname := $(subst lib,,$(basename $(gurobi_libname)))
+    GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
+    GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -l$(gurobi_libname)
     USE_GUROBI := yes
   endif
 endif
 
+
 ifeq '$(USE_GLPK)' 'auto'
   ifneq '$(GLPK_CFLAGS)$(GLPK_LDFLAGS)' ''
       USE_GLPK := yes
-  else
-    ifneq '$(wildcard /usr/include/glpk.h)' ''
-      USE_GLPK := yes
-      GLPK_CFLAGS :=
-      GLPK_LDFLAGS := -lglpk
-    endif
   endif
 endif
 
 
 
-BLISS_VERSION = 0.77
 BLISS_CFLAGS ?=
 BLISS_LDFLAGS ?=
 USE_BLISS = auto
 USE_LOCAL_BLISS ?= $(shell if test -f $(BASEPATH_)/third-party/bliss/libbliss.a; then echo "yes"; else echo "no"; fi;)
 ifeq '$(USE_LOCAL_BLISS)' 'yes'
-  BLISS_CFLAGS := -I$(BASEPATH_)/third-party
-  BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss -lstdc++
+  BLISS_CFLAGS :=
+  #BLISS_LDFLAGS := -L$(BASEPATH_)/third-party/bliss -lbliss
+  BLISS_LDFLAGS := $(BASEPATH_)/third-party/bliss/libbliss.a
+  NEED_LIBSTDCPP := yes
   USE_BLISS := yes
 endif
 
@@ -149,7 +161,8 @@ ifeq '$(USE_CUDD)' 'auto'
   USE_LOCAL_CUDD ?= $(shell if test -f $(BASEPATH_)/third-party/cudd/libcudd.a; then echo "yes"; else echo "no"; fi;)
   ifeq '$(USE_LOCAL_CUDD)' 'yes'
     CUDD_CFLAGS := -I$(BASEPATH_)/third-party/cudd
-    CUDD_LDFLAGS := -L$(BASEPATH_)/third-party/cudd -lcudd
+    #CUDD_LDFLAGS := -L$(BASEPATH_)/third-party/cudd -lcudd
+    CUDD_LDFLAGS := $(BASEPATH_)/third-party/cudd/libcudd.a
   endif
   ifneq '$(CUDD_CFLAGS)$(CUDD_LDFLAGS)' ''
     USE_CUDD := yes
@@ -158,14 +171,17 @@ endif
 
 MINIZINC_BIN ?=
 MINIZINC_VERSION ?=
-ifeq '$(MINIZINC_BIN)' ''
-  MINIZINC_FOUND := $(shell if /usr/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
-  ifeq '$(MINIZINC_FOUND)' 'yes'
-    MINIZINC_BIN := /usr/bin/minizinc
-  else
-    MINIZINC_FOUND := $(shell if /opt/minizinc/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+USE_MINIZINC ?= auto
+ifeq '$(USE_MINIZINC)' 'auto'
+  ifeq '$(MINIZINC_BIN)' ''
+    MINIZINC_FOUND := $(shell if /usr/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
     ifeq '$(MINIZINC_FOUND)' 'yes'
-      MINIZINC_BIN := /opt/minizinc/bin/minizinc
+      MINIZINC_BIN := /usr/bin/minizinc
+    else
+      MINIZINC_FOUND := $(shell if /opt/minizinc/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
+      ifeq '$(MINIZINC_FOUND)' 'yes'
+        MINIZINC_BIN := /opt/minizinc/bin/minizinc
+      endif
     endif
   endif
 endif
@@ -187,8 +203,17 @@ ifeq '$(USE_DYNET)' 'auto'
     USE_DYNET := yes
 
   else ifneq '$(DYNET_ROOT)' ''
+    ifeq '$(wildcard $(DYNET_ROOT)/include/dynet/dynet.h)' ''
+      $(error DYNET_ROOT defined, but could not find DyNet header files)
+    endif
+    ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.so)' ''
+      DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
+    else ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.a)' ''
+      DYNET_LDFLAGS := $(DYNET_ROOT)/lib/libdynet.a
+    else
+      $(error DYNET_ROOT defined, but could not find DyNet library files)
+    endif
     DYNET_CPPFLAGS := -I$(DYNET_ROOT)/include
-    DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet -lstdc++
     USE_DYNET := yes
   endif
 endif
@@ -201,8 +226,18 @@ ifeq '$(USE_HIGHS)' 'auto'
     USE_HIGHS := yes
 
   else ifneq '$(HIGHS_ROOT)' ''
+    ifeq '$(wildcard $(HIGHS_ROOT)/include/highs/interfaces/highs_c_api.h)' ''
+      $(error HIGHS_ROOT defined, but could not find HiGHS header files)
+    endif
+    ifneq '$(wildcard $(HIGHS_ROOT)/lib/libhighs.so)' ''
+      HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -Wl,-rpath=$(HIGHS_ROOT)/lib -lhighs -lz
+    else ifneq '$(wildcard $(HIGHS_ROOT)/lib/libhighs.a)' ''
+      HIGHS_LDFLAGS := $(HIGHS_ROOT)/lib/libhighs.a -lz
+    else
+      $(error HIGHS_ROOT defined, but could not find HiGHS library files)
+    endif
     HIGHS_CFLAGS := -I$(HIGHS_ROOT)/include/highs
-    HIGHS_LDFLAGS := -L$(HIGHS_ROOT)/lib -lhighs -lz -lstdc++
+    NEED_LIBSTDCPP := yes
     USE_HIGHS := yes
   endif
 endif
@@ -232,66 +267,23 @@ SQLITE_CFLAGS := -O2 -std=c99 $(SQLITE_BUILD_CFLAGS)
 LP_LDFLAGS := $(CPLEX_LDFLAGS) $(GUROBI_LDFLAGS) $(HIGHS_LDFLAGS) $(GLPK_LDFLAGS)
 LP_CFLAGS := $(CPLEX_CFLAGS) $(GUROBI_CFLAGS) $(HIGHS_CFLAGS) $(GLPK_CFLAGS)
 
-.DEFAULT_GOAL := all
+CFLAGS += -I$(BASEPATH_)
+CPPFLAGS += -Wno-ignored-attributes
+CPPFLAGS += -I$(BASEPATH_)
 
-help:
-	@echo "Targets:"
-	@echo "    all            - Build library (default)"
-	@echo "    check          - Build & Run automated tests"
-	@echo "    check-valgrind - Build & Run automated tests in valgrind(1)"
-	@echo "    check-segfault - Build & Run automated tests in valgrind(1) set up to detect only segfaults"
-	@echo "    clean          - Remove all generated files"
-	@echo "    analyze        - Perform static analysis using Clang Static Analyzer"
-	@echo "    third-party    - Build all third-party projects."
-	@echo "    third-party-clean - Clean all third-party projects."
-	@echo ""
-	@echo "Options:"
-	@echo "    CC         - Path to C compiler          (=$(CC))"
-	@echo "    CXX        - Path to C++ compiler        (=$(CXX))"
-	@echo "    SCAN_BUILD - Path to scan-build          (=$(SCAN_BUILD))"
-	@echo ""
-	@echo "    DEBUG      'yes'/'no' - Turn on/off debugging   (=$(DEBUG))"
-	@echo "    PROFIL     'yes'/'no' - Compiles profiling info (=$(PROFIL))"
-	@echo ""
-	@echo "Variables:"
-	@echo "  Note that most of can be preset or changed by user"
-	@echo "    SYSTEM            = $(SYSTEM)"
-	@echo "    CFLAGS            = $(CFLAGS)"
-	@echo "    LDFLAGS           = $(LDFLAGS)"
-	@echo "    USE_BLISS         = $(USE_BLISS)"
-	@echo "    BLISS_CFLAGS      = $(BLISS_CFLAGS)"
-	@echo "    BLISS_LDFLAGS     = $(BLISS_LDFLAGS)"
-	@echo "    USE_CLIQUER       = $(USE_CLIQUER)"
-	@echo "    CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"
-	@echo "    CLIQUER_LDFLAGS   = $(CLIQUER_LDFLAGS)"
-	@echo "    CUDD_CFLAGS       = $(CUDD_CFLAGS)"
-	@echo "    CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
-	@echo "    USE_CUDD          = $(USE_CUDD)"
-	@echo "    DYNET_CFLAGS      = $(DYNET_CFLAGS)"
-	@echo "    DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
-	@echo "    USE_DYNET         = $(USE_DYNET)"
-	@echo ""
-	@echo "    CPLEX_CFLAGS    = $(CPLEX_CFLAGS)"
-	@echo "    CPLEX_LDFLAGS   = $(CPLEX_LDFLAGS)"
-	@echo "    USE_CPLEX       = $(USE_CPLEX)"
-	@echo "    GUROBI_CFLAGS   = $(GUROBI_CFLAGS)"
-	@echo "    GUROBI_LDFLAGS  = $(GUROBI_LDFLAGS)"
-	@echo "    USE_GUROBI      = $(USE_GUROBI)"
-	@echo "    GLPK_CFLAGS     = $(GLPK_CFLAGS)"
-	@echo "    GLPK_LDFLAGS    = $(GLPK_LDFLAGS)"
-	@echo "    USE_GLPK        = $(USE_GLPK)"
-	@echo "    LP_LDFLAGS      = $(LP_LDFLAGS)"
-	@echo "    LP_CFLAGS       = $(LP_CFLAGS)"
-	@echo "    CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
-	@echo "    CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
-	@echo "    USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
-	@echo "    DYNET_CPPFLAGS  = $(DYNET_CPPFLAGS)"
-	@echo "    DYNET_LDFLAGS   = $(DYNET_LDFLAGS)"
-	@echo "    USE_DYNET       = $(USE_DYNET)"
-	@echo "    HIGHS_CPPFLAGS  = $(HIGHS_CPPFLAGS)"
-	@echo "    HIGHS_LDFLAGS   = $(HIGHS_LDFLAGS)"
-	@echo "    USE_HIGHS       = $(USE_HIGHS)"
-	@echo "    MINIZINC_BIN    = $(MINIZINC_BIN)"
+LDFLAGS_EXTRA =
+LDFLAGS_EXTRA += $(CPOPTIMIZER_LDFLAGS)
+LDFLAGS_EXTRA += $(LP_LDFLAGS)
+LDFLAGS_EXTRA += $(BLISS_LDFLAGS)
+LDFLAGS_EXTRA += $(CLIQUER_LDFLAGS)
+LDFLAGS_EXTRA += $(CUDD_LDFLAGS)
+LDFLAGS_EXTRA += $(DYNET_LDFLAGS)
+ifeq '$(NEED_LIBSTDCPP)' 'yes'
+  LDFLAGS_EXTRA += -lstdc++
+endif
+LDFLAGS_EXTRA += -pthread -lm
+
+LDFLAGS = $(BASEPATH_)/libpddl.a $(LDFLAGS_EXTRA)
 
 # These variables should not be passed to sub-makes
 unexport CFLAGS

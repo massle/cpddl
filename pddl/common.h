@@ -57,6 +57,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define __PDDL_TOSTR1(x) #x
+#define PDDL_TOSTR(x) __PDDL_TOSTR1(x)
+
 enum pddl_status {
     PDDL_OK = 0,
     PDDL_FAIL = 1,
@@ -209,7 +212,7 @@ typedef uint32_t pddl_fdr_packer_word_t;
 
 
 extern const char *pddl_version;
-extern const char *pddl_build_version;
+extern const char *pddl_build_commit;
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -74,7 +74,7 @@ static void binaryInsertionStart(char *a,
     char tmp[size];
     char *ca = a;
     ca += start * size;
-    for (size_t i = start; i < nmemb; i++, ca += size) {
+    for (size_t i = start; i < nmemb; i++, ca += size){
         /* If this entry is already correct, just move along */
         if (cmp(ca - size, ca, carg) <= 0)
             continue;
@@ -115,41 +115,41 @@ static void binaryInsertion(char *a,
 static int clzll(uint64_t);
 
 /* adapted from Hacker's Delight */
-static int clzll(uint64_t x) {
+static int clzll(uint64_t x){
     int n;
 
-    if (x == 0) {
+    if (x == 0){
         return 64;
     }
 
     n = 0;
 
-    if (x <= 0x00000000FFFFFFFFL) {
+    if (x <= 0x00000000FFFFFFFFL){
         n = n + 32;
         x = x << 32;
     }
 
-    if (x <= 0x0000FFFFFFFFFFFFL) {
+    if (x <= 0x0000FFFFFFFFFFFFL){
         n = n + 16;
         x = x << 16;
     }
 
-    if (x <= 0x00FFFFFFFFFFFFFFL) {
+    if (x <= 0x00FFFFFFFFFFFFFFL){
         n = n + 8;
         x = x << 8;
     }
 
-    if (x <= 0x0FFFFFFFFFFFFFFFL) {
+    if (x <= 0x0FFFFFFFFFFFFFFFL){
         n = n + 4;
         x = x << 4;
     }
 
-    if (x <= 0x3FFFFFFFFFFFFFFFL) {
+    if (x <= 0x3FFFFFFFFFFFFFFFL){
         n = n + 2;
         x = x << 2;
     }
 
-    if (x <= 0x7FFFFFFFFFFFFFFFL) {
+    if (x <= 0x7FFFFFFFFFFFFFFFL){
         n = n + 1;
     }
 
@@ -167,7 +167,7 @@ _pddl_inline int compute_minrun(const uint64_t size)
     const int minrun = (int)(size >> shift);
     const uint64_t mask = (1ULL << shift) - 1;
 
-    if (mask & size) {
+    if (mask & size){
         return minrun + 1;
     }
 
@@ -189,7 +189,7 @@ _pddl_inline void reverseElements(char *a,
 {
     start *= size;
     end *= size;
-    while (1) {
+    while (1){
         if (start >= end)
             return;
 
@@ -211,7 +211,7 @@ static size_t countRun(char *a,
     if (nmemb - start == 1)
         return 1;
 
-    if (start >= nmemb - 2) {
+    if (start >= nmemb - 2){
         if (cmp(a + (nmemb - 2) * size, a + (nmemb - 1) * size, carg) > 0)
             swap(a + (nmemb - 2) * size, a + (nmemb - 1) * size, size);
 
@@ -220,9 +220,9 @@ static size_t countRun(char *a,
 
     curr = start + 2;
 
-    if (cmp(a + start * size, a + (start + 1) * size, carg) <= 0) {
+    if (cmp(a + start * size, a + (start + 1) * size, carg) <= 0){
         /* increasing run */
-        while (1) {
+        while (1){
             if (curr == nmemb - 1)
                 break;
             if (cmp(a + (curr - 1) * size, a + curr * size, carg) > 0)
@@ -233,14 +233,14 @@ static size_t countRun(char *a,
 
         return curr - start;
 
-    } else {
+    }else{
         /* decreasing run */
-        while (1) {
-            if (curr == nmemb - 1) {
+        while (1){
+            if (curr == nmemb - 1){
                 break;
             }
 
-            if (cmp(a + (curr - 1) * size, a + curr * size, carg) <= 0) {
+            if (cmp(a + (curr - 1) * size, a + curr * size, carg) <= 0){
                 break;
             }
 
@@ -257,15 +257,15 @@ static int checkInvariant(run_t *stack, const int stack_curr)
 {
     size_t A, B, C;
 
-    if (stack_curr < 2) {
+    if (stack_curr < 2){
         return 1;
     }
 
-    if (stack_curr == 2) {
+    if (stack_curr == 2){
         const size_t A1 = stack[stack_curr - 2].length;
         const size_t B1 = stack[stack_curr - 1].length;
 
-        if (A1 <= B1) {
+        if (A1 <= B1){
             return 0;
         }
 
@@ -276,7 +276,7 @@ static int checkInvariant(run_t *stack, const int stack_curr)
     B = stack[stack_curr - 2].length;
     C = stack[stack_curr - 1].length;
 
-    if ((A <= B + C) || (B <= C)) {
+    if ((A <= B + C) || (B <= C)){
         return 0;
     }
 
@@ -287,10 +287,10 @@ static void timSortResize(tmp_storage_t *store,
                           const size_t elsize,
                           const size_t new_size)
 {
-    if ((store->storage == NULL) || (store->alloc < new_size)) {
+    if ((store->storage == NULL) || (store->alloc < new_size)){
         char *tempstore = REALLOC_ARR(store->storage, char, elsize * new_size);
 
-        if (tempstore == NULL) {
+        if (tempstore == NULL){
             fprintf(stderr, "Error allocating temporary storage for tim sort: need %lu bytes",
                     (unsigned long)(elsize * new_size));
             exit(1);
@@ -318,47 +318,47 @@ static void timSortMerge(char *a,
     storage = store->storage;
 
     /* left merge */
-    if (A < B) {
+    if (A < B){
         memcpy(storage, a + (curr * size), A * size);
         i = 0;
         j = curr + A;
 
-        for (k = curr; k < curr + A + B; k++) {
-            if ((i < A) && (j < curr + A + B)) {
-                if (cmp(storage + i * size, a + j * size, carg) <= 0) {
+        for (k = curr; k < curr + A + B; k++){
+            if ((i < A) && (j < curr + A + B)){
+                if (cmp(storage + i * size, a + j * size, carg) <= 0){
                     memcpy(a + k * size, storage + i * size, size);
                     ++i;
-                } else {
+                }else{
                     memcpy(a + k * size, a + j * size, size);
                     ++j;
                 }
-            } else if (i < A) {
+            }else if (i < A){
                 memcpy(a + k * size, storage + i * size, size);
                 ++i;
-            } else {
+            }else{
                 break;
             }
         }
-    } else {
+    }else{
         /* right merge */
         memcpy(storage, a + (curr + A) * size, B * size);
         i = B;
         j = curr + A;
         k = curr + A + B;
 
-        while (k-- > curr) {
-            if ((i > 0) && (j > curr)) {
-                if (cmp(a + (j - 1) * size, storage + (i - 1) * size, carg) > 0) {
+        while (k-- > curr){
+            if ((i > 0) && (j > curr)){
+                if (cmp(a + (j - 1) * size, storage + (i - 1) * size, carg) > 0){
                     memcpy(a + k * size, a + (j - 1) * size, size);
                     --j;
-                } else {
+                }else{
                     memcpy(a + k * size, storage + (i - 1) * size, size);
                     --i;
                 }
-            } else if (i > 0) {
+            }else if (i > 0){
                 memcpy(a + k * size, storage + (i - 1) * size, size);
                 --i;
-            } else {
+            }else{
                 break;
             }
         }
@@ -374,29 +374,29 @@ static int timSortCollapse(char *a,
                            pddl_sort_cmp cmp,
                            void *carg)
 {
-    while (1) {
+    while (1){
         size_t A, B, C, D;
         int ABC, BCD, CD;
 
         /* if the stack only has one thing on it, we are done with the collapse */
-        if (stack_curr <= 1) {
+        if (stack_curr <= 1){
             break;
         }
 
         /* if this is the last merge, just do it */
-        if ((stack_curr == 2) && (stack[0].length + stack[1].length == nmemb)) {
+        if ((stack_curr == 2) && (stack[0].length + stack[1].length == nmemb)){
             timSortMerge(a, size, stack, stack_curr, store, cmp, carg);
             stack[0].length += stack[1].length;
             stack_curr--;
             break;
         }
         /* check if the invariant is off for a stack of 2 elements */
-        else if ((stack_curr == 2) && (stack[0].length <= stack[1].length)) {
+        else if ((stack_curr == 2) && (stack[0].length <= stack[1].length)){
             timSortMerge(a, size, stack, stack_curr, store, cmp, carg);
             stack[0].length += stack[1].length;
             stack_curr--;
             break;
-        } else if (stack_curr == 2) {
+        }else if (stack_curr == 2){
             break;
         }
 
@@ -404,10 +404,10 @@ static int timSortCollapse(char *a,
         C = stack[stack_curr - 2].length;
         D = stack[stack_curr - 1].length;
 
-        if (stack_curr >= 4) {
+        if (stack_curr >= 4){
             A = stack[stack_curr - 4].length;
             ABC = (A <= B + C);
-        } else {
+        }else{
             ABC = 0;
         }
 
@@ -415,17 +415,17 @@ static int timSortCollapse(char *a,
         CD = (C <= D);
 
         /* Both invariants are good */
-        if (!BCD && !CD) {
+        if (!BCD && !CD){
             break;
         }
 
         /* left merge */
-        if (BCD && !CD) {
+        if (BCD && !CD){
             timSortMerge(a, size, stack, stack_curr - 1, store, cmp, carg);
             stack[stack_curr - 3].length += stack[stack_curr - 2].length;
             stack[stack_curr - 2] = stack[stack_curr - 1];
             stack_curr--;
-        } else {
+        }else{
             /* right merge */
             timSortMerge(a, size, stack, stack_curr, store, cmp, carg);
             stack[stack_curr - 2].length += stack[stack_curr - 1].length;
@@ -450,11 +450,11 @@ _pddl_inline int pushNext(char *a,
     size_t len = countRun(a, nmemb, size, *curr, cmp, carg);
     size_t run = minrun;
 
-    if (run > nmemb - *curr) {
+    if (run > nmemb - *curr){
         run = nmemb - *curr;
     }
 
-    if (run > len) {
+    if (run > len){
         binaryInsertionStart(a + *curr * size, len, run, size, cmp, carg);
         len = run;
     }
@@ -464,15 +464,15 @@ _pddl_inline int pushNext(char *a,
     (*stack_curr)++;
     *curr += len;
 
-    if (*curr == nmemb) {
+    if (*curr == nmemb){
         /* finish up */
-        while (*stack_curr > 1) {
+        while (*stack_curr > 1){
             timSortMerge(a, size, run_stack, (int)*stack_curr, store, cmp, carg);
             run_stack[*stack_curr - 2].length += run_stack[*stack_curr - 1].length;
             (*stack_curr)--;
         }
 
-        if (store->storage != NULL) {
+        if (store->storage != NULL){
             free(store->storage);
             store->storage = NULL;
         }
@@ -500,7 +500,7 @@ int pddlTimSort(void *base,
     if (nmemb <= 1)
         return 0;
 
-    if (nmemb < 64) {
+    if (nmemb < 64){
         binaryInsertion(base, nmemb, size, cmp, carg);
         return 0;
     }
@@ -513,22 +513,22 @@ int pddlTimSort(void *base,
     store->storage = NULL;
 
     if (!pushNext(a, nmemb, size, store, minrun, run_stack, &stack_curr,
-                  &curr, cmp, carg)) {
+                  &curr, cmp, carg)){
         return 0;
     }
 
     if (!pushNext(a, nmemb, size, store, minrun, run_stack, &stack_curr,
-                  &curr, cmp, carg)) {
+                  &curr, cmp, carg)){
         return 0;
     }
 
     if (!pushNext(a, nmemb, size, store, minrun, run_stack, &stack_curr,
-                  &curr, cmp, carg)) {
+                  &curr, cmp, carg)){
         return 0;
     }
 
-    while (1) {
-        if (!checkInvariant(run_stack, (int)stack_curr)) {
+    while (1){
+        if (!checkInvariant(run_stack, (int)stack_curr)){
             stack_curr = timSortCollapse(a, nmemb, size, run_stack,
                                          (int)stack_curr, store,
                                          cmp, carg);
@@ -536,7 +536,7 @@ int pddlTimSort(void *base,
         }
 
         if (!pushNext(a, nmemb, size, store, minrun, run_stack,
-                      &stack_curr, &curr, cmp, carg)) {
+                      &stack_curr, &curr, cmp, carg)){
             return 0;
         }
     }

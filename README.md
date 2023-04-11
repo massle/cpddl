@@ -4,29 +4,31 @@
 
 ## License
 
-cpddl is licensed under OSI-approved 3-clause BSD License, text of license
-is distributed along with source code in BSD-LICENSE file.
+cpddl is licensed under OSI-approved 3-clause
+[BSD License](https://opensource.org/licenses/BSD-3-Clause), text of license
+is distributed along with source code in LICENSE file.
 
 The library depends on [sqlite](https://www.sqlite.org/index.html) which is
 [public-domain](https://www.sqlite.org/copyright.html) and it is already part
 of the source code. Other than that, cpddl can be compiled without any other
 dependecies. However, certain functionalities require external libraries:
- - symmetries (``pddl/sym.h``) require
+ - symmetries require
  [bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
- - binary decision diagrams (``pddl/bdd.h``) require
- [cudd](https://davidkebo.com/cudd) library licensed under BSD 3
- - (I)LP solver (``pddl/lp.h``) requires
+ - binary decision diagrams require
+ [cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
+ License
+ - (I)LP solver requires
  [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
  [Gurobi](https://www.gurobi.com/),
  [GLPK](https://www.gnu.org/software/glpk/), or
  [HiGHS](https://highs.dev). CPLEX Optimizer and
  Gurobi are commercial products, but it is possible to obtain an academic
- license, GLPK is licensed under GPLv3, and HiGHS is licensed under MIT
+ license. GLPK is licensed under GPLv3. HiGHS is licensed under MIT
  license.
- - constraint optimization (``pddl/cp.h``) requires either
+ - constraint optimization requires either
  [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
  [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
- library, but it is possible to obtain an academic license, and minizinc is
+ library, but it is possible to obtain an academic license. Minizinc is
  licensed under Mozilla Public License v2.0 (and itself depends on other
  solvers), but it is called as a subprocess from cpddl, i.e., it is never
  statically or dynamically linked to cpddl.
@@ -44,8 +46,8 @@ copies in ``third-party/`` directory. It also tries to automatically find
 [GLPK](https://www.gnu.org/software/glpk/) and
 [minizinc](https://www.minizinc.org/) installed on your system.
 
-You can change default configuration by adding ``Makefile.local`` file
-containing the new configuration (see ``Makefile.local.tpl``):
+You can change default configuration by adding ``Makefile.config`` file
+containing the new configuration (see ``Makefile.config.tpl``):
  - The easiest way to integrate CPLEX is to install
  [IBM ILOG CPLEX Optimization Studio](https://www.ibm.com/products/ilog-cplex-optimization-studio)
  and set the variable ``IBM_CPLEX_ROOT`` to the top installation directory
@@ -77,6 +79,12 @@ The inference of **lifted fact-alternating mutex groups**
 - Daniel Fišer.
 Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical
 Planning Problems, AAAI 2020
+
+Pruning of unreachable and dead-end operators on the PDDL level
+(``pddl/compile_in_lifted_mgroup.h``) is described in
+- Daniel Fišer.
+Operator Pruning using Lifted Mutex Groups via Compilation on Lifted Level,
+ICAPS 2023
 
 **Operator mutexes** (``pddl/op_mutex*.h``) are described in
  - Daniel Fišer, Álvaro Torralba, Alexander Shleyfman.

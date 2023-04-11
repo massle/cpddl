@@ -35,9 +35,7 @@ extern "C" {
 #define PANIC PDDL_PANIC
 #define WARN PDDL_WARN
 #define CTX PDDL_CTX
-#define CTX_F PDDL_CTX_F
 #define CTX_NO_TIME PDDL_CTX_NO_TIME
-#define CTX_NO_TIME_F PDDL_CTX_NO_TIME_F
 #define CTXEND PDDL_CTXEND
 #define LOG PDDL_LOG
 #define LOG_IN_CTX PDDL_LOG_IN_CTX
@@ -47,15 +45,15 @@ extern "C" {
 #define TRACE_PREPEND_RET PDDL_TRACE_PREPEND_RET
 
 #define LOG_CONFIG_INT(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %{" #NAME "}d", (C)->NAME)
+    LOG((ERR), #NAME " = %d", (C)->NAME)
 #define LOG_CONFIG_ULONG(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %{" #NAME "}lu", (C)->NAME)
+    LOG((ERR), #NAME " = %lu", (C)->NAME)
 #define LOG_CONFIG_DBL(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %{" #NAME "}.4f", (C)->NAME)
+    LOG((ERR), #NAME " = %.4f", (C)->NAME)
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %{" #NAME "}b", (C)->NAME)
+    LOG((ERR), #NAME " = %b", (C)->NAME)
 #define LOG_CONFIG_STR(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %{" #NAME "}s", (C)->NAME)
+    LOG((ERR), #NAME " = %s", (C)->NAME)
 
 
 #ifdef PDDL_DEBUG

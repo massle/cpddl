@@ -14,10 +14,13 @@
 
 #include "internal.h"
 #include "pddl/lp.h"
+#include "pddl/libs_info.h"
 #include "_lp.h"
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>
+const char * const pddl_cplex_version =
+    PDDL_TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX);
 
 struct _lp_t {
     pddl_lp_t cls;
@@ -58,7 +61,7 @@ static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
     int feasible = 0;
     CPXcallbackgetinfoint(ctx, CPXCALLBACKINFO_FEASIBLE, &feasible);
 
-    CTX_NO_TIME(lp->cls.err, "cplex", "cplex progress");
+    CTX_NO_TIME(lp->cls.err, "cplex progress");
     LOG(lp->cls.err, "best solution: %.2f, best bound: %.2f, feasible: %d",
         best_sol, best_bound, feasible);
     CTXEND(lp->cls.err);
@@ -84,7 +87,7 @@ static int callbackLP(CPXCENVptr env,
     CPXgetcallbackinfo(env, cbdata, wherefrom,
                        CPX_CALLBACK_INFO_DUAL_OBJ, &dual);
 
-    CTX_NO_TIME(lp->cls.err, "cplex", "cplex progress");
+    CTX_NO_TIME(lp->cls.err, "cplex progress");
     LOG(lp->cls.err, "primal: %.4f, dual: %.4f", primal, dual);
     CTXEND(lp->cls.err);
     pddlTimerStart(&lp->log_timer);
@@ -353,7 +356,7 @@ static void cpxWrite(pddl_lp_t *_lp, const char *fn)
 pddl_lp_cls_t pddl_lp_cplex = {
     PDDL_LP_CPLEX,
     "cplex",
-    TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX),
+    pddl_cplex_version,
     new,
     del,
     setObj,
@@ -373,5 +376,6 @@ pddl_lp_cls_t pddl_lp_cplex = {
     cpxWrite,
 };
 #else /* PDDL_CPLEX */
+const char * const pddl_cplex_version = NULL;
 pddl_lp_cls_t pddl_lp_cplex = { 0 };
 #endif /* PDDL_CPLEX */

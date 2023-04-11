@@ -386,7 +386,7 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  int prune_dead_labels,
                                  pddl_err_t *err)
 {
-    CTX(err, "opm", "OPM");
+    CTX(err, "OPM");
     PDDL_INFO(err, "Computing op-mutex pairs from abstract transition systems."
               " merge-size: %d", merge_size);
     pddl_trans_systems_t tss;

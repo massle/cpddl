@@ -23,7 +23,7 @@
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err)
 {
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX_NO_TIME(err, "Cfg");
     LOG_CONFIG_BOOL(cfg, force_adl, err);
     LOG_CONFIG_BOOL(cfg, normalize, err);
     LOG_CONFIG_BOOL(cfg, remove_empty_types, err);
@@ -192,7 +192,7 @@ static int parseGoal(pddl_t *pddl, pddl_err_t *err)
 int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
              const pddl_config_t *cfg, pddl_err_t *err)
 {
-    CTX(err, "pddl", "PDDL");
+    CTX(err, "PDDL");
     pddlConfigLog(cfg, err);
 
     ZEROIZE(pddl);
@@ -201,7 +201,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     if (problem_fn == NULL)
         pddl->only_domain = 1;
 
-    LOG(err, "Processing %{domain_fn}s and %{problem_fn}s.",
+    LOG(err, "Processing %s and %s.",
         domain_fn, (problem_fn != NULL ? problem_fn : "null"));
 
     if (!checkConfig(cfg)){
@@ -255,11 +255,11 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     if (cfg->normalize){
         pddlNormalize(pddl);
         LOG(err, "PDDL task normalized."
-            " types: %{normalized_types}d,"
-            " objects: %{normalized_objects}d,"
-            " predicates: %{normalized_predicates}d,"
-            " functions: %{normalized_functions}d,"
-            " actions: %{normalized_actions}d",
+            " types: %d,"
+            " objects: %d,"
+            " predicates: %d,"
+            " functions: %d,"
+            " actions: %d",
             pddl->type.type_size,
             pddl->obj.obj_size,
             pddl->pred.pred_size,
@@ -272,11 +272,11 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         if (cfg->normalize){
             pddlNormalize(pddl);
             LOG(err, "PDDL task normalized again."
-                " types: %{normalized_types}d,"
-                " objects: %{normalized_objects}d,"
-                " predicates: %{normalized_predicates}d,"
-                " functions: %{normalized_functions}d,"
-                " actions: %{normalized_actions}d",
+                " types: %d,"
+                " objects: %d,"
+                " predicates: %d,"
+                " functions: %d,"
+                " actions: %d",
                 pddl->type.type_size,
                 pddl->obj.obj_size,
                 pddl->pred.pred_size,
@@ -298,12 +298,12 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     }
 
     pddlCheckSizeTypes(pddl);
-    LOG(err, "Number of PDDL Types: %{num_types}d", pddl->type.type_size);
-    LOG(err, "Number of PDDL Objects: %{num_objs}d", pddl->obj.obj_size);
-    LOG(err, "Number of PDDL Predicates: %{num_preds}d", pddl->pred.pred_size);
-    LOG(err, "Number of PDDL Functions: %{num_funcs}d", pddl->func.pred_size);
-    LOG(err, "Number of PDDL Actions: %{num_actions}d", pddl->action.action_size);
-    LOG(err, "PDDL Metric: %{has_metric}d", pddl->metric);
+    LOG(err, "Number of PDDL Types: %d", pddl->type.type_size);
+    LOG(err, "Number of PDDL Objects: %d", pddl->obj.obj_size);
+    LOG(err, "Number of PDDL Predicates: %d", pddl->pred.pred_size);
+    LOG(err, "Number of PDDL Functions: %d", pddl->func.pred_size);
+    LOG(err, "Number of PDDL Actions: %d", pddl->action.action_size);
+    LOG(err, "PDDL Metric: %d", pddl->metric);
 
     CTXEND(err);
     return 0;
@@ -923,7 +923,7 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
 {
     if (pddlISetSize(rm_obj) == 0)
         return;
-    CTX(err, "pddl_rm_objs", "PDDL rm objs");
+    CTX(err, "PDDL rm objs");
     LOG(err, "Removing %d objects", pddlISetSize(rm_obj));
 
     for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
@@ -958,7 +958,7 @@ void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
 
 void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
 {
-    CTX(err, "pddl_rm_empty_types", "PDDL rm empty-types");
+    CTX(err, "PDDL rm empty-types");
     int *type_remap = CALLOC_ARR(int, pddl->type.type_size);
     int *pred_remap = CALLOC_ARR(int, pddl->pred.pred_size);
     int *func_remap = CALLOC_ARR(int, pddl->func.pred_size);
@@ -1022,7 +1022,7 @@ static int _removeAssignIncrease(pddl_fm_t **c, void *_)
 
 void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
 {
-    CTX(err, "pddl_enforce_unit_cost", "PDDL enforce unit-cost");
+    CTX(err, "PDDL enforce unit-cost");
     // Remove (= ...) from the initial state
     pddl_fm_t *init = &pddl->init->fm;
     pddlFmRebuild(&init, NULL, _removeAssignIncrease, NULL);

@@ -50,7 +50,7 @@ void pddlLPConfigLog(const pddl_lp_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, cols, err);
     LOG_CONFIG_BOOL(cfg, maximize, err);
     const pddl_lp_cls_t *cls = getSolverCls(cfg->solver);
-    LOG(err, "solver = %{solver}s v%{solver_version}s",
+    LOG(err, "solver = %s v%s",
         cls->solver_name, cls->solver_version);
     LOG_CONFIG_INT(cfg, num_threads, err);
     LOG_CONFIG_DBL(cfg, time_limit, err);
@@ -115,8 +115,8 @@ int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
 pddl_lp_t *pddlLPNew(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
     pddl_lp_cls_t *cls = getSolverCls(cfg->solver);
-    CTX_NO_TIME(err, "lp_init", "LP-Init");
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX_NO_TIME(err, "LP-Init");
+    CTX_NO_TIME(err, "Cfg");
     pddlLPConfigLog(cfg, err);
     CTXEND(err);
     pddl_lp_t *lp = cls->new(cfg, err);
@@ -206,7 +206,7 @@ int pddlLPNumCols(const pddl_lp_t *lp)
 
 int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj)
 {
-    CTX(lp->err, "lp_solve", "LP-Solve");
+    CTX(lp->err, "LP-Solve");
     LOG(lp->err, "rows: %d, cols: %d", pddlLPNumRows(lp), pddlLPNumCols(lp));
     int ret = lp->cls->solve(lp, val, obj);
     CTXEND(lp->err);

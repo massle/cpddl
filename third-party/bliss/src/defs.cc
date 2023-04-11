@@ -21,6 +21,6 @@
 #include <cstdio>
 #include "defs.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 }

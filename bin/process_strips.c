@@ -104,9 +104,24 @@ void pddlProcessStripsFree(pddl_process_strips_t *prune)
 static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
 {
     if (pddlISetSize(&prune->rm_fact) > 0 || pddlISetSize(&prune->rm_op) > 0){
-        PDDL_LOG(err, "Removing %{rm_facts}d facts, %{rm_operators}d operators",
+        PDDL_LOG(err, "Removing %d facts, %d operators",
                  pddlISetSize(&prune->rm_fact),
                  pddlISetSize(&prune->rm_op));
+        if (!pddlISetIsDisjoint(&prune->strips->goal, &prune->rm_fact)){
+            PDDL_ISET(rm_goals);
+            pddlISetIntersect2(&rm_goals, &prune->strips->goal, &prune->rm_fact);
+            int fact_id;
+            PDDL_ISET_FOR_EACH(&rm_goals, fact_id){
+                PDDL_LOG(err, "Removing goal fact (%s)",
+                         prune->strips->fact.fact[fact_id]->name);
+            }
+            pddlISetFree(&rm_goals);
+
+            if (!prune->rm_not_unreachable_or_dead_end)
+                prune->strips->goal_is_unreachable = 1;
+            pddlISetMinus(&prune->rm_fact, &prune->strips->goal);
+        }
+
         pddlStripsReduce(prune->strips, &prune->rm_fact, &prune->rm_op);
         if (prune->mgroups != NULL && pddlISetSize(&prune->rm_fact) > 0){
             pddlMGroupsReduce(prune->mgroups, &prune->rm_fact);
@@ -123,6 +138,7 @@ static int apply(pddl_process_strips_t *prune, pddl_err_t *err)
         pddlISetEmpty(&prune->rm_fact);
     }
     prune->rm_not_unreachable_or_dead_end = 0;
+
     return 0;
 }
 
@@ -133,19 +149,19 @@ static int step(pddl_process_strips_t *prune,
     if (!step->can_reuse_rm_op_fact)
         apply(prune, err);
 
-    PDDL_CTX(err, "process_strips", step->name);
+    PDDL_CTX(err, step->name);
     int rm_fact = pddlISetSize(&prune->rm_fact);
     int rm_op = pddlISetSize(&prune->rm_op);
     if (step->execute(prune, step, err) != 0){
         PDDL_CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }
-    PDDL_LOG(err, "Found new redundant: %{new_redundant_facts}d facts,"
-             " %{new_redundant_ops}d operators",
+    PDDL_LOG(err, "Found new redundant: %d facts,"
+             " %d operators",
              pddlISetSize(&prune->rm_fact) - rm_fact,
              pddlISetSize(&prune->rm_op) - rm_op);
-    PDDL_LOG(err, "Found redundant so far: %{redundant_facts_overall}d facts,"
-             " %{redundant_ops_overall}d operators",
+    PDDL_LOG(err, "Found redundant so far: %d facts,"
+             " %d operators",
              prune->removed_fact + pddlISetSize(&prune->rm_fact),
              prune->removed_op + pddlISetSize(&prune->rm_op));
     PDDL_CTXEND(err);
@@ -181,7 +197,7 @@ static int execute(pddl_process_strips_t *prune,
     }
 
     apply(prune, err);
-    PDDL_LOG(err, "Removed %{removed_facts}d facts, %{removed_ops}d operators",
+    PDDL_LOG(err, "Removed %d facts, %d operators",
              prune->removed_fact,
              prune->removed_op);
     pddlStripsLogInfo(strips, err);
@@ -194,7 +210,7 @@ int pddlProcessStripsExecute(pddl_process_strips_t *prune,
                            pddl_mutex_pairs_t *mutex,
                            pddl_err_t *err)
 {
-    PDDL_CTX(err, "process_strips", "STRIPS-P");
+    PDDL_CTX(err, "STRIPS-P");
     int ret = execute(prune, strips, mgroups, mutex, err);
     PDDL_CTXEND(err);
     return ret;
@@ -800,7 +816,7 @@ static int fixpointExecute(pddl_process_strips_t *prune,
     fp = pddl_container_of(step, pddl_process_strips_fixpoint_t, step);
     int cycle = 0;
     do {
-        PDDL_CTX_F(err, "cycle_%d", "Cycle %d", cycle);
+        PDDL_CTX(err, "Cycle %d", cycle);
         apply(prune, err);
         fp->ps.removed_op = 0;
         fp->ps.removed_fact = 0;
@@ -813,7 +829,7 @@ static int fixpointExecute(pddl_process_strips_t *prune,
         PDDL_CTXEND(err);
         ++cycle;
     } while (fp->ps.removed_op > 0 || fp->ps.removed_fact > 0);
-    PDDL_LOG(err, "Cycles: %{num_cycles}d", cycle);
+    PDDL_LOG(err, "Cycles: %d", cycle);
 
     return 0;
 }

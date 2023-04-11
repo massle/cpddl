@@ -203,7 +203,7 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
                                       int collect_best_achiever_facts,
                                       pddl_err_t *err)
 {
-    CTX(err, "lifted_relax_heur", "lifted-relax-heur");
+    CTX(err, "lifted-relax-heur");
     ZEROIZE(h);
     h->pddl = pddl;
     h->collect_best_achiever_facts = collect_best_achiever_facts;

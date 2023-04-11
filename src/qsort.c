@@ -54,7 +54,7 @@ _pddl_inline void swapfunc(char *, char *, int, int);
 
 _pddl_inline void swapfunc(char *a, char *b, int n, int swaptype)
 {
-    if(swaptype <= 1)
+    if (swaptype <= 1)
         swapcode(long, a, b, n)
     else
         swapcode(char, a, b, n)
@@ -86,7 +86,7 @@ int pddlQSort(void *a, size_t n, size_t es, pddl_sort_cmp cmp, void *carg)
 
 loop:    SWAPINIT(a, es);
     swap_cnt = 0;
-    if (n < 7) {
+    if (n < 7){
         for (pm = (char *)a + es; pm < (char *)a + n * es; pm += es)
             for (pl = pm; pl > (char *)a && CMP(carg, pl - es, pl) > 0;
                  pl -= es)
@@ -94,10 +94,10 @@ loop:    SWAPINIT(a, es);
         return 0;
     }
     pm = (char *)a + (n / 2) * es;
-    if (n > 7) {
+    if (n > 7){
         pl = a;
         pn = (char *)a + (n - 1) * es;
-        if (n > 40) {
+        if (n > 40){
             d = (n / 8) * es;
             pl = med3(pl, pl + d, pl + 2 * d, cmp, carg);
             pm = med3(pm - d, pm, pm + d, cmp, carg);
@@ -109,17 +109,17 @@ loop:    SWAPINIT(a, es);
     pa = pb = (char *)a + es;
 
     pc = pd = (char *)a + (n - 1) * es;
-    for (;;) {
-        while (pb <= pc && (r = CMP(carg, pb, a)) <= 0) {
-            if (r == 0) {
+    for (;;){
+        while (pb <= pc && (r = CMP(carg, pb, a)) <= 0){
+            if (r == 0){
                 swap_cnt = 1;
                 swap(pa, pb);
                 pa += es;
             }
             pb += es;
         }
-        while (pb <= pc && (r = CMP(carg, pc, a)) >= 0) {
-            if (r == 0) {
+        while (pb <= pc && (r = CMP(carg, pc, a)) >= 0){
+            if (r == 0){
                 swap_cnt = 1;
                 swap(pc, pd);
                 pd -= es;
@@ -148,7 +148,7 @@ loop:    SWAPINIT(a, es);
     vecswap(pb, pn - r, r);
     if ((r = pb - pa) > es)
         pddlQSort(a, r / es, es, cmp, carg);
-    if ((r = pd - pc) > es) {
+    if ((r = pd - pc) > es){
         /* Iterate rather than recurse to save stack space */
         a = pn - r;
         n = r / es;

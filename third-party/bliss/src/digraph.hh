@@ -21,7 +21,7 @@
 
 #include "abstractgraph.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief The class for directed, vertex colored graphs.
@@ -282,4 +282,4 @@ public:
   bool is_automorphism(const std::vector<unsigned int>& perm) const;
 };
 
-} // namespace bliss
+} // namespace pddl_bliss

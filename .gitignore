@@ -8,7 +8,7 @@
 *_pb2.py
 config.h
 fd-*
-Makefile.local
+Makefile.config
 src/ma_msg.pb.*
 __pycache__
 *.pyc
@@ -25,8 +25,7 @@ pddl/cset.h
 src/cset.c
 pddl/iarr.h
 src/iarr.c
-plan_file*
-sas_file*
-*.sas
-*.log
-*.plan
+cpddl.pc
+src/tmp.*
+src/*_stub.c
+src/_version.c

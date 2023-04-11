@@ -44,7 +44,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           unsigned fdr_flags,
                           pddl_err_t *err)
 {
-    CTX(err, "fdr", "FDR");
+    CTX(err, "FDR");
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 
@@ -71,14 +71,14 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         CTXEND(err);
         return -1;
     }
-    LOG(err, "Created %{num_vars}d variables.", fdr->var.var_size);
-    LOG(err, "Created %{num_facts}d facts.", fdr->var.global_id_size);
+    LOG(err, "Created %d variables.", fdr->var.var_size);
+    LOG(err, "Created %d facts.", fdr->var.global_id_size);
     int num_none_of_those = 0;
     for (int vi = 0; vi < fdr->var.var_size; ++vi){
         if (fdr->var.var[vi].val_none_of_those != -1)
             ++num_none_of_those;
     }
-    LOG(err, "Created %{num_none_of_those}d none-of-those values.",
+    LOG(err, "Created %d none-of-those values.",
         num_none_of_those);
 
     fdr->goal_is_unreachable = strips->goal_is_unreachable;
@@ -97,10 +97,10 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
-    LOG(err, "Created %{num_ops}d operators", fdr->op.op_size);
+    LOG(err, "Created %d operators", fdr->op.op_size);
 
     pddlTimerStop(&timer);
-    PDDL_LOG(err, "Translation took %{translation_time}.2f seconds",
+    PDDL_LOG(err, "Translation took %.2f seconds",
              pddlTimerElapsedInSF(&timer));
     CTXEND(err);
     return 0;
@@ -903,7 +903,7 @@ static void removeUnreachableOps(pddl_fdr_t *fdr,
     if (pddlISetSize(&rm_ops) > 0){
         pddlFDRReduce(fdr, NULL, NULL, &rm_ops);
         pddlFDROpsSortByName(&fdr->op);
-        PDDL_LOG(err, "Removed %{rm_unreachable_ops}d unreachable operators",
+        PDDL_LOG(err, "Removed %d unreachable operators",
                  pddlISetSize(&rm_ops));
     }
     pddlISetFree(&rm_ops);
@@ -926,10 +926,10 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                       "with PDDL_FDR_TNF_MULTIPLY_OPS");
     }
 
-    CTX(err, "tnf", "TNF");
+    CTX(err, "TNF");
     PDDL_LOG(err, "Creating a Transition Normal Form"
-             " (vars: %{tnf_in_vars}d, facts: %{tnf_in_facts}d,"
-             " ops: %{tnf_in_ops}d)",
+             " (vars: %d, facts: %d,"
+             " ops: %d)",
              fdr_in->var.var_size,
              fdr_in->var.global_id_size,
              fdr_in->op.op_size);
@@ -962,7 +962,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     }
 
     PDDL_LOG(err, "Transition Normal Form created."
-             " (vars: %{tnf_vars}d, facts: %{tnf_facts}d, ops: %{tnf_ops}d)",
+             " (vars: %d, facts: %d, ops: %d)",
              fdr->var.var_size,
              fdr->var.global_id_size,
              fdr->op.op_size);

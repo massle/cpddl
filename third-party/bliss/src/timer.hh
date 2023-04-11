@@ -22,7 +22,7 @@
 
 #include <chrono>
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief A simple helper class for measuring elapsed time.
@@ -54,4 +54,4 @@ public:
   }
 };
 
-} // namespace bliss
+} // namespace pddl_bliss

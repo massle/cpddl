@@ -157,7 +157,7 @@ void pddlHeapSort(void *vbase, size_t nmemb, size_t size,
      * final slot, save the displaced element (k), then recreate the
      * heap.
      */
-    while (nmemb > 1) {
+    while (nmemb > 1){
         COPY(k, base + nmemb * size, cnt, size, tmp1, tmp2);
         COPY(base + nmemb * size, base + size, cnt, size, tmp1, tmp2);
         --nmemb;

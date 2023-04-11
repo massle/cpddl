@@ -31,7 +31,7 @@
 #include "defs.hh"
 
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief A simple wrapper class for non-negative big integers (or approximation of them).
@@ -257,4 +257,4 @@ protected:
 
 #endif
 
-} //namespace bliss
+} //namespace pddl_bliss

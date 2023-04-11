@@ -7,7 +7,6 @@ static struct {
     int version;
     int max_mem;
     char *log_out;
-    char *prop_out;
 
     char *train;
     char *train_save_prefix;
@@ -20,7 +19,6 @@ static struct {
 
 static pddl_err_t err = PDDL_ERR_INIT;
 static FILE *log_out = NULL;
-static FILE *prop_out = NULL;
 static char *config_file = NULL;
 
 static void help(const char *argv0, FILE *fout)
@@ -40,8 +38,6 @@ static int parseOpts(int argc, char *argv[])
                "Maximum memory in MB if >0.");
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
-    optsAddStr("prop-out", 0x0, &opt.prop_out, 0x0,
-               "Set output file for properties log.");
     optsAddStr("train", 't', &opt.train, NULL,
                "Train ASNets and save the model to the specified file.");
     optsAddStr("train-save-prefix", 0x0, &opt.train_save_prefix, NULL,
@@ -103,11 +99,6 @@ static int parseOpts(int argc, char *argv[])
         pddlErrInfoEnable(&err, log_out);
     }
 
-    if (opt.prop_out != NULL){
-        prop_out = openFile(opt.prop_out);
-        pddlErrPropEnable(&err, prop_out);
-    }
-
     if (opt.max_mem > 0){
         struct rlimit mem_limit;
         mem_limit.rlim_cur
@@ -118,13 +109,12 @@ static int parseOpts(int argc, char *argv[])
     if (argc > 1)
         config_file = argv[1];
 
-    PDDL_LOG(&err, "Version: %{version}s", pddl_version);
+    PDDL_LOG(&err, "Version: %s", pddl_version);
     return 0;
 }
 
 int main(int argc, char *argv[])
 {
-    pddlErrStartCtxTimer(&err);
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 
@@ -204,7 +194,6 @@ int main(int argc, char *argv[])
             pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
             break;
         }
-        
 
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);
@@ -226,7 +215,7 @@ int main(int argc, char *argv[])
     }
 
     pddlTimerStop(&timer);
-    PDDL_LOG(&err, "Overall Elapsed Time: %{overall_elapsed_time}.4fs",
+    PDDL_LOG(&err, "Overall Elapsed Time: %.4fs",
              pddlTimerElapsedInSF(&timer));
 
     pddlASNetsConfigFree(&cfg);
@@ -234,7 +223,5 @@ int main(int argc, char *argv[])
         pddlASNetsDel(asnets);
     if (log_out != NULL)
         closeFile(log_out);
-    if (prop_out != NULL)
-        closeFile(prop_out);
     return ret;
 }

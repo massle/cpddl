@@ -29,44 +29,44 @@ extern "C" {
 /**
  * \brief The true bliss graph is hiding in this struct.
  */
-struct bliss_graph_struct {
-  bliss::AbstractGraph* g;
+struct pddl_bliss_graph_struct {
+  pddl_bliss::AbstractGraph* g;
 };
 
 extern "C"
-BlissGraph *bliss_new(const unsigned int n)
+PddlBlissGraph *pddl_bliss_new(const unsigned int n)
 {
-  BlissGraph *graph = new bliss_graph_struct;
+  PddlBlissGraph *graph = new pddl_bliss_graph_struct;
   assert(graph);
-  graph->g = new bliss::Graph(n);
+  graph->g = new pddl_bliss::Graph(n);
   assert(graph->g);
   return graph;
 }
 
 extern "C"
-BlissGraph *bliss_new_digraph(const unsigned int n)
+PddlBlissGraph *pddl_bliss_new_digraph(const unsigned int n)
 {
-  BlissGraph *graph = new bliss_graph_struct;
+  PddlBlissGraph *graph = new pddl_bliss_graph_struct;
   assert(graph);
-  graph->g = new bliss::Digraph(n);
+  graph->g = new pddl_bliss::Digraph(n);
   assert(graph->g);
   return graph;
 }
 
 extern "C"
-BlissGraph *bliss_read_dimacs(FILE *fp)
+PddlBlissGraph *pddl_bliss_read_dimacs(FILE *fp)
 {
-  bliss::Graph *g = bliss::Graph::read_dimacs(fp);
+  pddl_bliss::Graph *g = pddl_bliss::Graph::read_dimacs(fp);
   if(!g)
     return 0;
-  BlissGraph *graph = new bliss_graph_struct;
+  PddlBlissGraph *graph = new pddl_bliss_graph_struct;
   assert(graph);
   graph->g = g;
   return graph;
 }
 
 extern "C"
-void bliss_write_dimacs(BlissGraph *graph, FILE *fp)
+void pddl_bliss_write_dimacs(PddlBlissGraph *graph, FILE *fp)
 {
   assert(graph);
   assert(graph->g);
@@ -74,7 +74,7 @@ void bliss_write_dimacs(BlissGraph *graph, FILE *fp)
 }
 
 extern "C"
-void bliss_release(BlissGraph *graph)
+void pddl_bliss_release(PddlBlissGraph *graph)
 {
   assert(graph);
   assert(graph->g);
@@ -83,7 +83,7 @@ void bliss_release(BlissGraph *graph)
 }
 
 extern "C"
-void bliss_write_dot(BlissGraph *graph, FILE *fp)
+void pddl_bliss_write_dot(PddlBlissGraph *graph, FILE *fp)
 {
   assert(graph);
   assert(graph->g);
@@ -91,7 +91,7 @@ void bliss_write_dot(BlissGraph *graph, FILE *fp)
 }
 
 extern "C"
-unsigned int bliss_get_nof_vertices(BlissGraph *graph)
+unsigned int pddl_bliss_get_nof_vertices(PddlBlissGraph *graph)
 {
   assert(graph);
   assert(graph->g);
@@ -99,7 +99,7 @@ unsigned int bliss_get_nof_vertices(BlissGraph *graph)
 }
 
 extern "C"
-unsigned int bliss_add_vertex(BlissGraph *graph, unsigned int l)
+unsigned int pddl_bliss_add_vertex(PddlBlissGraph *graph, unsigned int l)
 {
   assert(graph);
   assert(graph->g);
@@ -107,7 +107,7 @@ unsigned int bliss_add_vertex(BlissGraph *graph, unsigned int l)
 }
 
 extern "C"
-void bliss_add_edge(BlissGraph *graph, unsigned int v1, unsigned int v2)
+void pddl_bliss_add_edge(PddlBlissGraph *graph, unsigned int v1, unsigned int v2)
 {
   assert(graph);
   assert(graph->g);
@@ -115,7 +115,7 @@ void bliss_add_edge(BlissGraph *graph, unsigned int v1, unsigned int v2)
 }
 
 extern "C"
-unsigned int bliss_hash(BlissGraph *graph)
+unsigned int pddl_bliss_hash(PddlBlissGraph *graph)
 {
   assert(graph);
   assert(graph->g);
@@ -123,12 +123,12 @@ unsigned int bliss_hash(BlissGraph *graph)
 }
 
 extern "C"
-BlissGraph *bliss_permute(BlissGraph *graph, const unsigned int *perm)
+PddlBlissGraph *pddl_bliss_permute(PddlBlissGraph *graph, const unsigned int *perm)
 {
   assert(graph);
   assert(graph->g);
   assert(graph->g->get_nof_vertices() == 0 || perm);
-  BlissGraph *permuted_graph = new bliss_graph_struct;
+  PddlBlissGraph *permuted_graph = new pddl_bliss_graph_struct;
   assert(permuted_graph);
   permuted_graph->g = graph->g->permute(perm);
   return permuted_graph;
@@ -136,14 +136,14 @@ BlissGraph *bliss_permute(BlissGraph *graph, const unsigned int *perm)
 
 extern "C"
 void
-bliss_find_automorphisms(BlissGraph *graph,
+pddl_bliss_find_automorphisms(PddlBlissGraph *graph,
 			 void (*hook)(void *user_param,
 				      unsigned int n,
 				      const unsigned int *aut),
 			 void *hook_user_param,
-			 BlissStats *stats)
+			 PddlBlissStats *stats)
 {
-  bliss::Stats s;
+  pddl_bliss::Stats s;
   assert(graph);
   assert(graph->g);
   
@@ -169,14 +169,14 @@ bliss_find_automorphisms(BlissGraph *graph,
 
 extern "C"
 const unsigned int *
-bliss_find_canonical_labeling(BlissGraph *graph,
+pddl_bliss_find_canonical_labeling(PddlBlissGraph *graph,
 			      void (*hook)(void *user_param,
 					   unsigned int n,
 					   const unsigned int *aut),
 			      void *hook_user_param,
-			      BlissStats *stats)
+			      PddlBlissStats *stats)
 {
-  bliss::Stats s;
+  pddl_bliss::Stats s;
   const unsigned int *canonical_labeling = 0;
   assert(graph);
   assert(graph->g);

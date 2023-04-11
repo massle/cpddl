@@ -778,8 +778,8 @@ int pddlHomomorphism(pddl_t *pddl,
         PDDL_ERR_RET(err, -1, "Nothing to do!");
     }
 
-    CTX(err, "homo", "Homomorphism");
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX(err, "Homomorphism");
+    CTX_NO_TIME(err, "Cfg");
     pddlHomomorphismConfigLog(cfg, err);
     CTXEND(err);
     PDDL_INFO(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);

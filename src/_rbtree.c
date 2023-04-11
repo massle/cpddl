@@ -89,7 +89,7 @@ static void rbInsertColor(RB_TREE *rbtree,
                 elm = gparent;
                 continue;
             }
-            if (RB_RIGHT(parent) == elm) {
+            if (RB_RIGHT(parent) == elm){
                 RB_ROTATE_LEFT(rbtree, parent, tmp);
                 tmp = parent;
                 parent = elm;
@@ -97,15 +97,15 @@ static void rbInsertColor(RB_TREE *rbtree,
             }
             RB_SET_BLACKRED(parent, gparent);
             RB_ROTATE_RIGHT(rbtree, gparent, tmp);
-        } else {
+        }else{
             tmp = RB_LEFT(gparent);
-            if (tmp && RB_IS_RED(tmp)) {
+            if (tmp && RB_IS_RED(tmp)){
                 RB_SET_BLACK(tmp);
                 RB_SET_BLACKRED(parent, gparent);
                 elm = gparent;
                 continue;
             }
-            if (RB_LEFT(parent) == elm) {
+            if (RB_LEFT(parent) == elm){
                 RB_ROTATE_RIGHT(rbtree, parent, tmp);
                 tmp = parent;
                 parent = elm;
@@ -160,10 +160,10 @@ static void rbRemoveColor(RB_TREE *rbtree, RB_NODE *parent,
     RB_NODE *tmp;
 
     while ((elm == NULL || RB_IS_BLACK(elm)) &&
-        elm != rbtree->root) {
-        if (RB_LEFT(parent) == elm) {
+        elm != rbtree->root){
+        if (RB_LEFT(parent) == elm){
             tmp = RB_RIGHT(parent);
-            if (RB_IS_RED(tmp)) {
+            if (RB_IS_RED(tmp)){
                 RB_SET_BLACKRED(tmp, parent);
                 RB_ROTATE_LEFT(rbtree, parent, tmp);
                 tmp = RB_RIGHT(parent);
@@ -171,13 +171,13 @@ static void rbRemoveColor(RB_TREE *rbtree, RB_NODE *parent,
             if ((RB_LEFT(tmp) == NULL ||
                 RB_IS_BLACK(RB_LEFT(tmp))) &&
                 (RB_RIGHT(tmp) == NULL ||
-                RB_IS_BLACK(RB_RIGHT(tmp)))) {
+                RB_IS_BLACK(RB_RIGHT(tmp)))){
                 RB_SET_RED(tmp);
                 elm = parent;
                 parent = RB_PARENT(elm);
-            } else {
+            }else{
                 if (RB_RIGHT(tmp) == NULL ||
-                    RB_IS_BLACK(RB_RIGHT(tmp))) {
+                    RB_IS_BLACK(RB_RIGHT(tmp))){
                     RB_NODE *oleft;
                     if ((oleft = RB_LEFT(tmp))
                         != NULL)
@@ -194,9 +194,9 @@ static void rbRemoveColor(RB_TREE *rbtree, RB_NODE *parent,
                 elm = rbtree->root;
                 break;
             }
-        } else {
+        }else{
             tmp = RB_LEFT(parent);
-            if (RB_IS_RED(tmp)) {
+            if (RB_IS_RED(tmp)){
                 RB_SET_BLACKRED(tmp, parent);
                 RB_ROTATE_RIGHT(rbtree, parent, tmp);
                 tmp = RB_LEFT(parent);
@@ -204,13 +204,13 @@ static void rbRemoveColor(RB_TREE *rbtree, RB_NODE *parent,
             if ((RB_LEFT(tmp) == NULL ||
                 RB_IS_BLACK(RB_LEFT(tmp))) &&
                 (RB_RIGHT(tmp) == NULL ||
-                RB_IS_BLACK(RB_RIGHT(tmp)))) {
+                RB_IS_BLACK(RB_RIGHT(tmp)))){
                 RB_SET_RED(tmp);
                 elm = parent;
                 parent = RB_PARENT(elm);
-            } else {
+            }else{
                 if (RB_LEFT(tmp) == NULL ||
-                    RB_IS_BLACK(RB_LEFT(tmp))) {
+                    RB_IS_BLACK(RB_LEFT(tmp))){
                     RB_NODE *oright;
                     if ((oright = RB_RIGHT(tmp))
                         != NULL)
@@ -252,7 +252,7 @@ RB_NODE *RB_REMOVE(RB_TREE *rbtree, RB_NODE *elm)
         color = RB_IS_BLACK(elm);
         if (child)
             RB_PARENT(child) = parent;
-        if (parent) {
+        if (parent){
             if (RB_LEFT(parent) == elm)
                 RB_LEFT(parent) = child;
             else
@@ -262,7 +262,7 @@ RB_NODE *RB_REMOVE(RB_TREE *rbtree, RB_NODE *elm)
         if (RB_PARENT(elm) == old)
             parent = elm;
         RB_CP(elm, old);
-        if (RB_PARENT(old)) {
+        if (RB_PARENT(old)){
             if (RB_LEFT(RB_PARENT(old)) == old)
                 RB_LEFT(RB_PARENT(old)) = elm;
             else
@@ -272,7 +272,7 @@ RB_NODE *RB_REMOVE(RB_TREE *rbtree, RB_NODE *elm)
         RB_PARENT(RB_LEFT(old)) = elm;
         if (RB_RIGHT(old))
             RB_PARENT(RB_RIGHT(old)) = elm;
-        if (parent) {
+        if (parent){
             left = parent;
         }
         goto color;
@@ -281,7 +281,7 @@ RB_NODE *RB_REMOVE(RB_TREE *rbtree, RB_NODE *elm)
     color = RB_IS_BLACK(elm);
     if (child)
         RB_PARENT(child) = parent;
-    if (parent) {
+    if (parent){
         if (RB_LEFT(parent) == elm)
             RB_LEFT(parent) = child;
         else

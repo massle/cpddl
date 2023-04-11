@@ -236,8 +236,8 @@ static void mutexUnify2(const pddl_t *pddl,
             }
         }
         if (action_c != NULL){
-            LOG(err, "Found mutex condition for action '%{mutex.action}s'"
-                " and mgroup %{mutex.mgroup}s: %{mutex.cond}s",
+            LOG(err, "Found mutex condition for action '%s'"
+                " and mgroup %s: %s",
                 action->name,
                 F_LIFTED_MGROUP(pddl, mgroup),
                 F_COND_PDDL(action_c, pddl, pre_param));
@@ -431,8 +431,8 @@ static void deadEndAdd(const pddl_t *pddl,
             }
         }
         if (cond != NULL){
-            LOG(err, "Found dead-end condition for action '%{dead_end.action}s'"
-                " and mgroup %{dead_end.mgroup}s: %{dead_end.cond}s",
+            LOG(err, "Found dead-end condition for action '%s'"
+                " and mgroup %s: %s",
                 action->name,
                 F_LIFTED_MGROUP(pddl, mgroup),
                 F_COND_PDDL_BUFSIZE(cond, pddl, &action->param, 10000));
@@ -576,16 +576,16 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
 {
     int changed = 0;
 
-    CTX(err, "compile_in_lmg", "Compile-in LMG");
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX(err, "Compile-in LMG");
+    CTX_NO_TIME(err, "Cfg");
     LOG_CONFIG_BOOL(cfg, prune_mutex, err);
     LOG_CONFIG_BOOL(cfg, prune_dead_end, err);
     CTXEND(err);
-    LOG(err, "actions: %{in.actions}d, lifted mgroups: %{in.lmgs}d",
+    LOG(err, "actions: %d, lifted mgroups: %d",
         pddl->action.action_size, mgroups->mgroup_size);
     if (mgroups->mgroup_size == 0){
         LOG(err, "No lifted mutex groups.");
-        LOG(err, "DONE. actions: %{out.actions}d, lifted mgroups: %{out.lmgs}d",
+        LOG(err, "DONE. actions: %d, lifted mgroups: %d",
             pddl->action.action_size, mgroups->mgroup_size);
         CTXEND(err);
         return 0;
@@ -633,7 +633,7 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
 
     if (changed)
         pddlNormalize(pddl);
-    LOG(err, "DONE. actions: %{out.actions}d", pddl->action.action_size);
+    LOG(err, "DONE. actions: %d", pddl->action.action_size);
     CTXEND(err);
     return changed;
 }

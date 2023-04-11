@@ -32,7 +32,7 @@
 #include "partition.hh"
 #include "utils.hh"
 
-namespace bliss {
+namespace pddl_bliss {
 
 
 /*-------------------------------------------------------------------------
@@ -1104,7 +1104,7 @@ void Graph::make_initial_equitable_partition()
 
 
 Partition::Cell*
-Graph::find_next_cell_to_be_splitted(Partition::Cell* cell)
+Graph::find_next_cell_to_be_splitted(Partition::Cell* )
 {
   switch(sh) {
   case shs_f:   return sh_first();
@@ -1700,4 +1700,4 @@ Graph::nucr_find_first_component(const unsigned int level,
 
 
 
-} // namespace bliss
+} // namespace pddl_bliss

@@ -33,7 +33,7 @@ void pddlLiftedMGroupsInferConfigLog(const pddl_lifted_mgroups_infer_config_t *c
     LOG_CONFIG_INT(cfg, max_candidates, err);
     LOG_CONFIG_INT(cfg, max_mgroups, err);
     LOG_CONFIG_BOOL(cfg, fd, err);
-    LOG(err, "fd_monotonicity = %{fd_monotonicity}b", cfg->fd_monotonicity != NULL);
+    LOG(err, "fd_monotonicity = %b", cfg->fd_monotonicity != NULL);
 }
 
 int pddlLiftedMGroupsInfer(const pddl_t *pddl,
@@ -41,8 +41,8 @@ int pddlLiftedMGroupsInfer(const pddl_t *pddl,
                            pddl_lifted_mgroups_t *lmg,
                            pddl_err_t *err)
 {
-    CTX(err, "lmg", "LMG");
-    CTX_NO_TIME(err, "cfg", "Cfg");
+    CTX(err, "LMG");
+    CTX_NO_TIME(err, "Cfg");
     pddlLiftedMGroupsInferConfigLog(cfg, err);
     CTXEND(err);
 
@@ -1862,7 +1862,7 @@ static void initialCandidatesAllVarsCounted(const pddl_t *pddl,
         pddlLiftedMGroupFree(&m);
     }
 
-    LOG(refine->err, "  %{num_initial_candidates}d initial candidates.",
+    LOG(refine->err, "  %d initial candidates.",
         refine->cand_size);
 }
 
@@ -1888,7 +1888,7 @@ static void initialCandidatesFD(const pddl_t *pddl, refine_t *refine)
         }
     }
 
-    LOG(refine->err, "  %{num_initial_candidates}d initial candidates.",
+    LOG(refine->err, "  %d initial candidates.",
         refine->cand_size);
 }
 
@@ -2023,13 +2023,13 @@ void pddlLiftedMGroupsInferFAMGroups(
                             pddl_lifted_mgroups_t *mgroups,
                             pddl_err_t *err)
 {
-    CTX(err, "lmg_fam_group", "LMG-FAM-Group");
+    CTX(err, "LMG-FAM-Group");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
-    LOG(err, "limit.max_candidates = %{limit_max_candidates}d", limit->max_candidates);
-    LOG(err, "limit.max_mgroups = %{limit_max_mgroups}d", limit->max_mgroups);
+    LOG(err, "limit.max_candidates = %d", limit->max_candidates);
+    LOG(err, "limit.max_mgroups = %d", limit->max_mgroups);
     LOG(err, "Inference of lifted fam-groups ...");
 
     refineInit(&refine, pddl, limit, err);
@@ -2047,9 +2047,9 @@ void pddlLiftedMGroupsInferFAMGroups(
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            LOG(err, "Tested candidates: %{progress_tested_candidates}d,"
-                " Num candidates: %{progress_num_candidates}d,"
-                " Proved: %{progress_proved_mgroups}d",
+            LOG(err, "Tested candidates: %d,"
+                " Num candidates: %d,"
+                " Proved: %d",
                 tested_candidates,
                 refine.cand_size,
                 mgroups->mgroup_size);
@@ -2058,9 +2058,9 @@ void pddlLiftedMGroupsInferFAMGroups(
     }
 
     if (steps != 0){
-        LOG(err, "Tested candidates: %{num_tested_candidates}d,"
-            " Num candidates: %{num_candidates}d,"
-            " Proved: %{num_mgroups}d",
+        LOG(err, "Tested candidates: %d,"
+            " Num candidates: %d,"
+            " Proved: %d",
             tested_candidates,
             refine.cand_size,
             mgroups->mgroup_size);
@@ -2070,7 +2070,7 @@ void pddlLiftedMGroupsInferFAMGroups(
     refineFree(&refine);
 
     LOG(err, "Inference of lifted fam-groups done."
-        " Found mutex groups: %{found_mgroups}d",
+        " Found mutex groups: %d",
         mgroups->mgroup_size);
     CTXEND(err);
 }
@@ -2082,13 +2082,13 @@ void pddlLiftedMGroupsInferMonotonicity(const pddl_t *pddl,
                                         pddl_lifted_mgroups_t *mgroups,
                                         pddl_err_t *err)
 {
-    CTX(err, "lmg_monotonicity", "LMG-Monotonicity");
+    CTX(err, "LMG-Monotonicity");
     int steps = 0;
     int tested_candidates = 0;
     refine_t refine;
 
-    LOG(err, "limit.max_candidates = %{limit_max_candidates}d", limit->max_candidates);
-    LOG(err, "limit.max_mgroups = %{limit_max_mgroups}d", limit->max_mgroups);
+    LOG(err, "limit.max_candidates = %d", limit->max_candidates);
+    LOG(err, "limit.max_mgroups = %d", limit->max_mgroups);
     LOG(err, "Inference of FD lifted mgroups ...");
 
     refineInitMonotonicity(&refine, pddl, limit, err);
@@ -2114,10 +2114,10 @@ void pddlLiftedMGroupsInferMonotonicity(const pddl_t *pddl,
 
         ++tested_candidates;
         if (++steps == limit->max_candidates / 10){
-            LOG(err, "Tested candidates: %{progress_tested_candidates}d,"
-                " Num candidates: %{progress_num_candidates}d,"
-                " Proved monotonicity invariants: %{progress_proved_monotonicity_invariants}d,"
-                " mutex groups: %{progress_proved_mgroups}d",
+            LOG(err, "Tested candidates: %d,"
+                " Num candidates: %d,"
+                " Proved monotonicity invariants: %d,"
+                " mutex groups: %d",
                 tested_candidates,
                 refine.cand_size,
                 (inv != NULL ? inv->mgroup_size : -1),
@@ -2127,10 +2127,10 @@ void pddlLiftedMGroupsInferMonotonicity(const pddl_t *pddl,
     }
 
     if (steps != 0){
-        LOG(err, "Tested candidates: %{num_tested_candidates}d,"
-            " Num candidates: %{num_candidates}d,"
-            " Proved monotonicity invariants: %{num_monotonicity_invariants}d,"
-            " mutex groups: %{num_mgroups}d",
+        LOG(err, "Tested candidates: %d,"
+            " Num candidates: %d,"
+            " Proved monotonicity invariants: %d,"
+            " mutex groups: %d",
             tested_candidates,
             refine.cand_size,
             (inv != NULL ? inv->mgroup_size : -1),
@@ -2144,8 +2144,8 @@ void pddlLiftedMGroupsInferMonotonicity(const pddl_t *pddl,
     refineFree(&refine);
 
     LOG(err, "Inference of FD lifted mgroups done."
-        " Found monotonicity invariants: %{found_monotonicity_invariants}d,"
-        " mutex groups: %{found_mgroups}d",
+        " Found monotonicity invariants: %d,"
+        " mutex groups: %d",
         (inv != NULL ? inv->mgroup_size : -1),
         (mgroups != NULL ? mgroups->mgroup_size : -1));
     CTXEND(err);
@@ -2228,7 +2228,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
                                    pddl_lifted_mgroups_t *lm,
                                    pddl_err_t *err)
 {
-    CTX(err, "lmg_set_exactly_one", "LMG-Set-Exactly-One");
+    CTX(err, "LMG-Set-Exactly-One");
     LOG(err, "Looking for exactly-one lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
@@ -2238,7 +2238,7 @@ int pddlLiftedMGroupsSetExactlyOne(const pddl_t *pddl,
             ++num;
         }
     }
-    LOG(err, "Found %{num_exactly_one}d exactly-one lifted mgroups.", num);
+    LOG(err, "Found %d exactly-one lifted mgroups.", num);
     CTXEND(err);
     return 0;
 }
@@ -2277,7 +2277,7 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
                                pddl_lifted_mgroups_t *lm,
                                pddl_err_t *err)
 {
-    CTX(err, "lmg_set_static", "LMG-Set-Static");
+    CTX(err, "LMG-Set-Static");
     LOG(err, "Looking for static lifted mgroups ...");
     int num = 0;
     for (int mi = 0; mi < lm->mgroup_size; ++mi){
@@ -2287,7 +2287,7 @@ int pddlLiftedMGroupsSetStatic(const pddl_t *pddl,
             ++num;
         }
     }
-    LOG(err, "Found %{num_static}d static lifted mgroups.", num);
+    LOG(err, "Found %d static lifted mgroups.", num);
     CTXEND(err);
     return 0;
 }

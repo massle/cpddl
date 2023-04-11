@@ -690,7 +690,7 @@ static int liftedSolve(const pddl_t *pddl,
     pddlCPSolFree(&sol);
 
     if (num_redundant >= 0){
-        LOG(err, "Found %{num_redundant}d redundant objects", num_redundant);
+        LOG(err, "Found %d redundant objects", num_redundant);
         ret = 0;
     }else{
         LOG(err, "Solution not found");
@@ -844,7 +844,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     if (!pddl->normalized)
         PDDL_ERR_RET(err, -1, "PDDL needs to be normalized!");
 
-    CTX(err, "lendo", "Lifted endomorphism");
+    CTX(err, "Lifted endomorphism");
     // TODO
     if (cfg->run_in_subprocess)
         LOG(err, "run_in_subprocess is ignored");
@@ -888,7 +888,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
     select_mgroups_t select;
     selectMGroupsInit(&select, pddl, &lifted_mgroups);
     while (selectMGroups(&select, pddl, &lifted_mgroups, cfg) == 0){
-        CTX(err, "select_mgroup", "Select mgroup");
+        CTX(err, "Select mgroup");
         for (int i = 0; i < select.lifted_mgroups.mgroup_size; ++i)
             pddlLiftedMGroupLog(pddl, &select.lifted_mgroups.mgroup[i], err);
         CTXEND(err);
@@ -1014,7 +1014,7 @@ int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
     if (!pddl->normalized)
         ERR_RET(err, -1, "PDDL needs to be normalized!");
 
-    CTX(err, "relax_lendo", "Relaxed lifted endomorphism");
+    CTX(err, "Relaxed lifted endomorphism");
     if (cfg->ignore_costs)
         LOG(err, "Ignoring operator costs");
 

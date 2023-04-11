@@ -19,7 +19,7 @@
   along with bliss.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-namespace bliss {
+namespace pddl_bliss {
   class Partition;
 }
 
@@ -29,7 +29,7 @@ namespace bliss {
 #include "abstractgraph.hh"
 
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief A class for refinable, backtrackable ordered partitions.
@@ -37,9 +37,9 @@ namespace bliss {
  * This is rather a data structure with some helper functions than
  * a proper self-contained class.
  * That is, for efficiency reasons the fields of this class are directly
- * manipulated from bliss::AbstractGraph and its subclasses.
+ * manipulated from pddl_bliss::AbstractGraph and its subclasses.
  * Conversely, some methods of this class modify the fields of
- * bliss::AbstractGraph, too.
+ * pddl_bliss::AbstractGraph, too.
  */
 class Partition
 {
@@ -302,4 +302,4 @@ Partition::cr_get_level(const unsigned int cell_index) const
   return(cr_cells[cell_index].level);
 }
 
-} // namespace bliss
+} // namespace pddl_bliss

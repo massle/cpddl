@@ -17,7 +17,7 @@
  * See the License for more information.
  */
 
-// TODO: Native support for types
+// TODO: Native support for types (unify function + var types in pddl_datalog_atom)
 // TODO: Native support for (in)equality predicates
 
 #ifndef __PDDL_DATALOG_H__

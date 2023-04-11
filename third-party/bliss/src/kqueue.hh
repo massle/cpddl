@@ -22,7 +22,7 @@
 #include <new>
 #include <cassert>
 
-namespace bliss {
+namespace pddl_bliss {
 
 /**
  * \brief A simple implementation of queues with fixed maximum capacity.
@@ -162,4 +162,4 @@ void KQueue<Type>::push_back(Type e)
   assert(head != tail);
 }
 
-} // namespace bliss
+} // namespace pddl_bliss

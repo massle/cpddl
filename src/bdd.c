@@ -19,13 +19,17 @@
 
 #include "internal.h"
 #include "pddl/config.h"
-#include "internal.h"
+#include "pddl/libs_info.h"
 
-#ifdef PDDL_CUDD
+#ifndef PDDL_CUDD
+# error "bdd.c requires CUDD library!"
+#endif /* PDDL_CUDD */
 
 #include <cudd/cudd.h>
 #include "pddl/bdd.h"
 
+#include "tmp.cudd-version.h"
+const char * const pddl_cudd_version = CUDD_VERSION;
 
 #define M(P) ((DdManager *)(P))
 #define PM(P) ((pddl_bdd_manager_t *)(P))
@@ -295,193 +299,3 @@ pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
     Cudd_Ref(b);
     return PB(b);
 }
-
-#else /* PDDL_CUDD */
-
-#include "pddl/err.h"
-#include "pddl/bdd.h"
-
-#define ERROR PANIC("bdd module requires CUDD library")
-
-pddl_bdd_manager_t *pddlBDDManagerNew(int bdd_var_size,
-                                      unsigned int cache_size)
-{
-    ERROR;
-    return NULL;
-}
-
-void pddlBDDManagerDel(pddl_bdd_manager_t *mgr)
-{
-    ERROR;
-}
-
-float pddlBDDMem(pddl_bdd_manager_t *mgr)
-{
-    ERROR;
-    return 0.;
-}
-
-int pddlBDDGCUsed(pddl_bdd_manager_t *mgr)
-{
-    ERROR;
-    return 0;
-}
-
-
-void pddlBDDDel(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
-{
-    ERROR;
-}
-
-
-
-pddl_bdd_t *pddlBDDClone(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
-{
-    ERROR;
-    return NULL;
-}
-
-int pddlBDDIsFalse(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
-{
-    ERROR;
-    return 0;
-}
-
-pddl_bdd_t *pddlBDDNot(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDZero(pddl_bdd_manager_t *mgr)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDOne(pddl_bdd_manager_t *mgr)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDVar(pddl_bdd_manager_t *mgr, int i)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDAnd(pddl_bdd_manager_t *mgr,
-                       pddl_bdd_t *bdd1,
-                       pddl_bdd_t *bdd2)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDAndLimit(pddl_bdd_manager_t *mgr,
-                            pddl_bdd_t *bdd1,
-                            pddl_bdd_t *bdd2,
-                            unsigned int size_limit,
-                            pddl_time_limit_t *time_limit)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDAndAbstract(pddl_bdd_manager_t *mgr,
-                               pddl_bdd_t *bdd1,
-                               pddl_bdd_t *bdd2,
-                               pddl_bdd_t *cube)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDAndAbstractLimit(pddl_bdd_manager_t *mgr,
-                                    pddl_bdd_t *bdd1,
-                                    pddl_bdd_t *bdd2,
-                                    pddl_bdd_t *cube,
-                                    unsigned int size_limit,
-                                    pddl_time_limit_t *time_limit)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDSwapVars(pddl_bdd_manager_t *mgr,
-                            pddl_bdd_t *bdd,
-                            pddl_bdd_t **v1,
-                            pddl_bdd_t **v2,
-                            int n)
-{
-    ERROR;
-    return NULL;
-}
-
-void pddlBDDPickOneCube(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd, char *cube)
-{
-    ERROR;
-}
-
-int pddlBDDAndUpdate(pddl_bdd_manager_t *mgr,
-                     pddl_bdd_t **bdd1,
-                     pddl_bdd_t *bdd2)
-{
-    ERROR;
-    return 0;
-}
-
-pddl_bdd_t *pddlBDDOr(pddl_bdd_manager_t *mgr,
-                      pddl_bdd_t *bdd1,
-                      pddl_bdd_t *bdd2)
-{
-    ERROR;
-    return NULL;
-}
-
-pddl_bdd_t *pddlBDDOrLimit(pddl_bdd_manager_t *mgr,
-                           pddl_bdd_t *bdd1,
-                           pddl_bdd_t *bdd2,
-                           unsigned int size_limit,
-                           pddl_time_limit_t *time_limit)
-{
-    ERROR;
-    return NULL;
-}
-
-int pddlBDDOrUpdate(pddl_bdd_manager_t *mgr,
-                    pddl_bdd_t **bdd1,
-                    pddl_bdd_t *bdd2)
-{
-    ERROR;
-    return 0;
-}
-
-pddl_bdd_t *pddlBDDXnor(pddl_bdd_manager_t *mgr,
-                        pddl_bdd_t *bdd1,
-                        pddl_bdd_t *bdd2)
-{
-    ERROR;
-    return NULL;
-}
-
-int pddlBDDSize(pddl_bdd_t *bdd)
-{
-    ERROR;
-    return 0;
-}
-
-double pddlBDDCountMinterm(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd, int n)
-{
-    ERROR;
-    return 0.;
-}
-
-pddl_bdd_t *pddlBDDCube(pddl_bdd_manager_t *mgr, pddl_bdd_t **bdd, int n)
-{
-    ERROR;
-    return NULL;
-}
-
-#endif /* PDDL_CUDD */

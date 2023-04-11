@@ -1,19 +1,5 @@
--include ../Makefile.local
+-include ../Makefile.config
 -include ../Makefile.include
-
-CFLAGS += -I../
-LDFLAGS += -L../ -lpddl
-LDFLAGS += $(CPOPTIMIZER_LDFLAGS)
-LDFLAGS += $(LP_LDFLAGS)
-LDFLAGS += $(BLISS_LDFLAGS)
-LDFLAGS += $(CLIQUER_LDFLAGS)
-LDFLAGS += $(CUDD_LDFLAGS)
-LDFLAGS += $(DYNET_LDFLAGS)
-LDFLAGS += -pthread -lm
-
-ifeq '$(BIN_STATIC)' 'yes'
-  LDFLAGS += -static
-endif
 
 TARGETS = pddl
 TARGETS += pddl-fdr
@@ -33,12 +19,8 @@ OBJS += lifted_planner.o
 
 ASNETS_OBJS = opts.o
 
-EXP_OBJS = opts.o
-
 all: $(TARGETS)
 
-exp: exp.c $(EXP_OBJS) ../libpddl.a
-	$(CC) $(CFLAGS) -o $@ $< $(EXP_OBJS) $(LDFLAGS)
 pddl: main.c ../libpddl.a $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LDFLAGS)
 pddl-fdr: main.c ../libpddl.a $(OBJS)
@@ -52,11 +34,11 @@ pddl-lplan: main.c ../libpddl.a $(OBJS)
 pddl-asnets: asnets.c ../libpddl.a $(ASNETS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(ASNETS_OBJS) $(LDFLAGS)
 
-report_%.o: report_%.c report.h
+report_%.o: report_%.c report.h ../pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
-%.o: %.c %.h
+%.o: %.c %.h ../pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
-%.o: %.c
+%.o: %.c ../pddl/config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
