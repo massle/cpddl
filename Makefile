@@ -172,7 +172,7 @@ SRC += __sqlite3
 
 SRC += _version
 
-SRC_CPP  = cp-cp-optimizer
+SRC_CPP =
 
 SRC_STUB =
 
@@ -186,6 +186,12 @@ ifeq '$(USE_CUDD)' 'yes'
   SRC += bdd
 else
   SRC_STUB += bdd
+endif
+
+ifeq '$(USE_CPOPTIMIZER)' 'yes'
+  SRC_CPP += cp-cp-optimizer
+else
+  SRC_STUB += cp-cp-optimizer
 endif
 
 ifeq '$(USE_DYNET)' 'yes'
@@ -329,6 +335,8 @@ src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
 	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
 src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
 	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
+src/cp-cp-optimizer_stub.c: pddl/cp.h scripts/gen-stub.sh
+	$(SH) scripts/gen-stub.sh $< "Missing CPLEX CP Optimizer." pddl_cp_optimizer_version >$@
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<

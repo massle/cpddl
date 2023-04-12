@@ -17,7 +17,10 @@
 #include "pddl/libs_info.h"
 #include "_cp.h"
 
-#ifdef PDDL_CPOPTIMIZER
+#ifndef PDDL_CPOPTIMIZER
+# error "cp-cp-optimizer.c requires CPLEX CP Optimizer!"
+#endif /* PDDL_CPOPTIMIZER */
+
 #define IL_STD
 #include <ilcp/cp.h>
 #include <ilcplex/cpxconst.h>
