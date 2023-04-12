@@ -226,15 +226,3 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
     env.end();
     return ret;
 }
-
-#else /* PDDL_CPOPTIMIZER */
-extern const char * const pddl_cp_optimizer_version = NULL;
-int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
-                            const pddl_cp_solve_config_t *cfg,
-                            pddl_cp_sol_t *sol,
-                            pddl_err_t *err)
-{
-    PANIC("Compiled without IBM CP Optimizer");
-    return -1;
-}
-#endif /* PDDL_CPOPTIMIZER */
