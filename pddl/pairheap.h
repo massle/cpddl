@@ -83,7 +83,7 @@ void pddlPairHeapDel(pddl_pairheap_t *ph);
 /**
  * Returns true if heap is empty.
  */
-_pddl_inline int pddlPairHeapEmpty(const pddl_pairheap_t *ph);
+_pddl_inline pddl_bool_t pddlPairHeapEmpty(const pddl_pairheap_t *ph);
 
 /**
  * Returns minimal node.
@@ -134,7 +134,7 @@ void __pddlPairHeapConsolidate(pddl_pairheap_t *ph);
 
 
 /**** INLINES ****/
-_pddl_inline int pddlPairHeapEmpty(const pddl_pairheap_t *ph)
+_pddl_inline pddl_bool_t pddlPairHeapEmpty(const pddl_pairheap_t *ph)
 {
     return pddlListEmpty(&ph->root);
 }

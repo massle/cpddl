@@ -1060,7 +1060,7 @@ static void printFDFactName(const pddl_fdr_var_t *var, int val, FILE *fout)
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mg,
-                    int use_fd_fact_names,
+                    pddl_bool_t use_fd_fact_names,
                     FILE *fout)
 {
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;

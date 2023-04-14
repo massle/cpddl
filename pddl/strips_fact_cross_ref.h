@@ -29,8 +29,8 @@ extern "C" {
 
 struct pddl_strips_fact_cross_ref_fact {
     int fact_id; /*!< ID of the fact */
-    int is_init; /*!< True if the fact is in the initial state */
-    int is_goal; /*!< True if the fact is in the goal */
+    pddl_bool_t is_init; /*!< True if the fact is in the initial state */
+    pddl_bool_t is_goal; /*!< True if the fact is in the goal */
     pddl_iset_t op_pre; /*!< Operators having this fact in its precondition */
     pddl_iset_t op_add; /*!< Operators having this fact in its add effect */
     pddl_iset_t op_del; /*!< Operators having this fact in its del effect */
@@ -48,11 +48,11 @@ typedef struct pddl_strips_fact_cross_ref
 
 void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
                                 const pddl_strips_t *strips,
-                                int init,
-                                int goal,
-                                int op_pre,
-                                int op_add,
-                                int op_del);
+                                pddl_bool_t init,
+                                pddl_bool_t goal,
+                                pddl_bool_t op_pre,
+                                pddl_bool_t op_add,
+                                pddl_bool_t op_del);
 
 void pddlStripsFactCrossRefFree(pddl_strips_fact_cross_ref_t *cref);
 

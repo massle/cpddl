@@ -78,13 +78,13 @@ _pddl_inline int pddlSetSize(const pddl_set_t *s);
 /**
  * Returns true if val \in s
  */
-int pddlSetHas(const pddl_set_t *s, TYPE val);
-_pddl_inline int pddlSetIn(TYPE val, const pddl_set_t *s);
+pddl_bool_t pddlSetHas(const pddl_set_t *s, TYPE val);
+_pddl_inline pddl_bool_t pddlSetIn(TYPE val, const pddl_set_t *s);
 
 /**
  * Return true if s1 \subset s2
  */
-int pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2);
+pddl_bool_t pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * Returns size of s1 \cap s2.
@@ -94,22 +94,23 @@ int pddlSetIntersectionSize(const pddl_set_t *s1, const pddl_set_t *s2);
 /**
  * Returns true if | s1 \cap s2 | >= limit
  */
-int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
-                                   int limit);
+pddl_bool_t pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1,
+                                           const pddl_set_t *s2,
+                                           int limit);
 
 /**
  * Returns true if | s1 \cap s2 \cap s3 | >= limit
  */
-int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
-                                    const pddl_set_t *s2,
-                                    const pddl_set_t *s3,
-                                    int limit);
+pddl_bool_t pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
+                                            const pddl_set_t *s2,
+                                            const pddl_set_t *s3,
+                                            int limit);
 
 /**
  * Returns true if the sets are disjoint.
  */
-_pddl_inline int pddlSetIsDisjunct(const pddl_set_t *s1, const pddl_set_t *s2);
-_pddl_inline int pddlSetIsDisjoint(const pddl_set_t *s1, const pddl_set_t *s2);
+_pddl_inline pddl_bool_t pddlSetIsDisjunct(const pddl_set_t *s1, const pddl_set_t *s2);
+_pddl_inline pddl_bool_t pddlSetIsDisjoint(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * s = \emptyset
@@ -166,7 +167,7 @@ void pddlSetMinus2(pddl_set_t *d, const pddl_set_t *s1, const pddl_set_t *s2);
 /**
  * Returns true if the sets are equal.
  */
-_pddl_inline int pddlSetEq(const pddl_set_t *s1, const pddl_set_t *s2);
+_pddl_inline pddl_bool_t pddlSetEq(const pddl_set_t *s1, const pddl_set_t *s2);
 
 /**
  * Compares sets, return values are the same as by memcmp().
@@ -193,17 +194,17 @@ _pddl_inline int pddlSetSize(const pddl_set_t *s)
     return s->size;
 }
 
-_pddl_inline int pddlSetIn(TYPE val, const pddl_set_t *s)
+_pddl_inline pddl_bool_t pddlSetIn(TYPE val, const pddl_set_t *s)
 {
     return pddlSetHas(s, val);
 }
 
-_pddl_inline int pddlSetIsDisjunct(const pddl_set_t *s1, const pddl_set_t *s2)
+_pddl_inline pddl_bool_t pddlSetIsDisjunct(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     return pddlSetIsDisjoint(s1, s2);
 }
 
-_pddl_inline int pddlSetIsDisjoint(const pddl_set_t *s1, const pddl_set_t *s2)
+_pddl_inline pddl_bool_t pddlSetIsDisjoint(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     return !pddlSetIntersectionSizeAtLeast(s1, s2, 1);
 }
@@ -213,7 +214,7 @@ _pddl_inline void pddlSetEmpty(pddl_set_t *s)
     s->size = 0;
 }
 
-_pddl_inline int pddlSetEq(const pddl_set_t *s1, const pddl_set_t *s2)
+_pddl_inline pddl_bool_t pddlSetEq(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     return s1->size == s2->size
             && memcmp(s1->s, s2->s, sizeof(TYPE) * s1->size) == 0;

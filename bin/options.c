@@ -14,10 +14,10 @@ options_t opt = { 0 };
 FILE *log_out = NULL;
 
 struct op_mutex_cfg {
-    int ts;
+    pddl_bool_t ts;
     int op_fact;
     int hm_op;
-    int no_prune;
+    pddl_bool_t no_prune;
     int prune_method;
     float prune_time_limit;
     char *out;
@@ -32,9 +32,9 @@ typedef struct h3_cfg h3_cfg_t;
 
 struct endomorph_cfg {
     pddl_endomorphism_config_t cfg;
-    int fdr;
-    int ts;
-    int fdr_ts;
+    pddl_bool_t fdr;
+    pddl_bool_t ts;
+    pddl_bool_t fdr_ts;
 };
 typedef struct endomorph_cfg endomorph_cfg_t;
 
@@ -68,7 +68,7 @@ static int setLPSolver(const char *v)
     return 0;
 }
 
-static void hpotSetDisamb(int value, void *_cfg)
+static void hpotSetDisamb(pddl_bool_t value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
     cfg->disambiguation = value;
@@ -76,7 +76,7 @@ static void hpotSetDisamb(int value, void *_cfg)
         cfg->weak_disambiguation = 0;
 }
 
-static void hpotSetWeakDisamb(int value, void *_cfg)
+static void hpotSetWeakDisamb(pddl_bool_t value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
     cfg->weak_disambiguation = value;
@@ -84,14 +84,14 @@ static void hpotSetWeakDisamb(int value, void *_cfg)
         cfg->disambiguation = 0;
 }
 
-static void hpotSetObjInit(int v, void *_cfg)
+static void hpotSetObjInit(pddl_bool_t v, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
     pddl_hpot_config_opt_state_t copt = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
     pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
-static void hpotSetObjAllStates(int v, void *_cfg)
+static void hpotSetObjAllStates(pddl_bool_t v, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
     pddl_hpot_config_opt_all_syntactic_states_t copt
@@ -99,12 +99,12 @@ static void hpotSetObjAllStates(int v, void *_cfg)
     pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
-static void hpotSetObjAllStatesInit(int v, void *_cfg)
+static void hpotSetObjAllStatesInit(pddl_bool_t v, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
     pddl_hpot_config_opt_all_syntactic_states_t copt
             = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
-    copt.add_init_state_constr = 1;
+    copt.add_init_state_constr = pddl_true;
     fprintf(stderr, "%lx\n", (long)copt.add_fdr_state_constr);
     pddlHPotConfigAdd(cfg, &copt.cfg);
 }
@@ -124,7 +124,7 @@ static void hpotSetObjSamplesSumInit(int v, void *_cfg)
     pddl_hpot_config_opt_sampled_states_t copt
             = PDDL_HPOT_CONFIG_OPT_SAMPLED_STATES_INIT;
     copt.num_samples = v;
-    copt.add_init_state_constr = 1;
+    copt.add_init_state_constr = pddl_true;
     pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
@@ -234,7 +234,7 @@ static void hpotParams(opts_params_t *params,
                        hpotSetObjAllMutexCondRand2);
 }
 
-static int optGroundNoPruning(int enabled)
+static int optGroundNoPruning(pddl_bool_t enabled)
 {
     if (enabled){
         opt.ground.cfg.prune_op_pre_mutex = 0;
@@ -244,13 +244,13 @@ static int optGroundNoPruning(int enabled)
 }
 
 
-static int optFDRLargestFirst(int enabled)
+static int optFDRLargestFirst(pddl_bool_t enabled)
 {
     opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
     return 0;
 }
 
-static int optFDREssentialFirst(int enabled)
+static int optFDREssentialFirst(pddl_bool_t enabled)
 {
     opt.fdr.var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
     return 0;

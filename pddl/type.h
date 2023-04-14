@@ -86,7 +86,7 @@ void pddlTypesPrint(const pddl_types_t *t, FILE *fout);
 /**
  * Returns true if the specified type is (either ...) type.
  */
-int pddlTypesIsEither(const pddl_types_t *ts, int tid);
+pddl_bool_t pddlTypesIsEither(const pddl_types_t *ts, int tid);
 
 /**
  * Record the given object as being of the given type.
@@ -117,7 +117,7 @@ int pddlTypeGetObj(const pddl_types_t *ts, int type_id, int idx);
 /**
  * Returns true if the object compatible with the specified type.
  */
-int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj);
+pddl_bool_t pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj);
 
 /**
  * Returns type ID from the lisp node or -1 if error occured.
@@ -129,23 +129,23 @@ int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
 /**
  * Returns true if parent is a parent type of child type.
  */
-int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
+pddl_bool_t pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
 
 /**
  * Returns true if t1 and t2 are disjunct types, i.e., there cannot be
  * object of both types at the same time.
  */
-int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
+pddl_bool_t pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
 
 /**
  * Returns true if D(t1) \subseteq D(t2)
  */
-int pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
+pddl_bool_t pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
 
 /**
  * Returns true if {type} is a minimal type, i.e., it has no sub-types.
  */
-int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
+pddl_bool_t pddlTypesIsMinimal(const pddl_types_t *ts, int type);
 
 /**
  * Returns true if:
@@ -154,8 +154,8 @@ int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
  * 2. union of minimal types (i.e., without subtypes) equals the whole set
  *    of objects.
  */
-int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
-                                   const struct pddl_objs *obj);
+pddl_bool_t pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
+                                           const struct pddl_objs *obj);
 
 /**
  * Remap objects

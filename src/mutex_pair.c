@@ -111,23 +111,23 @@ int pddlMutexPairsSetBwMutex(pddl_mutex_pairs_t *m, int f1, int f2)
     return setMutexFlag(m, f1, f2, BW_MUTEX);
 }
 
-int pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+pddl_bool_t pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
 {
     return M(m, f1, f2);
 }
 
-int pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+pddl_bool_t pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
 {
     return M(m, f1, f2) & FW_MUTEX;
 }
 
-int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
+pddl_bool_t pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2)
 {
     return M(m, f1, f2) & BW_MUTEX;
 }
 
 
-int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs)
+pddl_bool_t pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs)
 {
     const int size = pddlISetSize(fs);
     for (int i = 0; i < size; ++i){
@@ -135,35 +135,36 @@ int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs)
         for (int j = i; j < size; ++j){
             int f2 = pddlISetGet(fs, j);
             if (M(m, f1, f2))
-                return 1;
+                return pddl_true;
         }
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
-                                 int fact, const pddl_iset_t *fs)
+pddl_bool_t pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
+                                         int fact, const pddl_iset_t *fs)
 {
     int fact2;
 
     PDDL_ISET_FOR_EACH(fs, fact2){
         if (M(m, fact, fact2))
-            return 1;
+            return pddl_true;
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
-                                const pddl_iset_t *fs1, const pddl_iset_t *fs2)
+pddl_bool_t pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
+                                        const pddl_iset_t *fs1,
+                                        const pddl_iset_t *fs2)
 {
     int f1, f2;
     PDDL_ISET_FOR_EACH(fs1, f1){
         PDDL_ISET_FOR_EACH(fs2, f2){
             if (M(m, f1, f2))
-                return 1;
+                return pddl_true;
         }
     }
-    return 0;
+    return pddl_false;
 }
 
 void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,

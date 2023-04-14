@@ -33,9 +33,9 @@ static int cmpLiftedMGroups(const void *a, const void *b, void *_)
     int cmp = m1->cond.size - m2->cond.size;
     for (int i = 0; cmp == 0 && i < m1->cond.size; ++i){
         const pddl_fm_t *c1 = m1->cond.fm[i];
-        const pddl_fm_atom_t *a1 = PDDL_FM_CAST(c1, atom);
+        const pddl_fm_atom_t *a1 = pddlFmToAtomConst(c1);
         const pddl_fm_t *c2 = m2->cond.fm[i];
-        const pddl_fm_atom_t *a2 = PDDL_FM_CAST(c2, atom);
+        const pddl_fm_atom_t *a2 = pddlFmToAtomConst(c2);
         cmp = a1->pred - a2->pred;
         for (int j = 0; cmp == 0 && j < a1->arg_size; ++j){
             cmp = a1->arg[j].param - a2->arg[j].param;
@@ -106,8 +106,8 @@ void pddlLiftedMGroupFree(pddl_lifted_mgroup_t *mgroup)
     pddlFmArrFree(&mgroup->cond);
 }
 
-int pddlLiftedMGroupEq(const pddl_lifted_mgroup_t *m1,
-                       const pddl_lifted_mgroup_t *m2)
+pddl_bool_t pddlLiftedMGroupEq(const pddl_lifted_mgroup_t *m1,
+                               const pddl_lifted_mgroup_t *m2)
 {
     return cmpLiftedMGroups(m1, m2, NULL) == 0;
 }
@@ -116,8 +116,8 @@ static int cmpAtoms(const void *a, const void *b, void *_)
 {
     const pddl_fm_t *c1 = *(const pddl_fm_t **)a;
     const pddl_fm_t *c2 = *(const pddl_fm_t **)b;
-    const pddl_fm_atom_t *a1 = PDDL_FM_CAST(c1, atom);
-    const pddl_fm_atom_t *a2 = PDDL_FM_CAST(c2, atom);
+    const pddl_fm_atom_t *a1 = pddlFmToAtomConst(c1);
+    const pddl_fm_atom_t *a2 = pddlFmToAtomConst(c2);
     return a1->pred - a2->pred;
 }
 
@@ -147,7 +147,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     int next = 0;
     int next_counted = num_non_counted;
     for (int i = 0; i < m->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(m->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].obj != PDDL_OBJ_ID_UNDEF)
                 continue;
@@ -183,7 +183,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     m->param = param;
 
     for (int i = 0; i < m->cond.size; ++i){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
+        pddl_fm_atom_t *a = pddlFmToAtom((pddl_fm_t *)m->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0){
                 ASSERT_RUNTIME(remap_param[a->arg[ai].param] >= 0);
@@ -219,7 +219,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
     for (int ci = 0; ci < mg->cond.size; ++ci){
         pddl_fm_t *c = (pddl_fm_t *)mg->cond.fm[ci];
         ASSERT(c->type == PDDL_FM_ATOM);
-        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         int has_counted = 0;
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].param >= 0
@@ -268,7 +268,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
     for (int ci = 0; ci < mg->cond.size; ++ci){
         pddl_fm_t *c = (pddl_fm_t *)mg->cond.fm[ci];
         ASSERT(c->type == PDDL_FM_ATOM);
-        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].param >= 0){
                 ASSERT(remap_param[a->arg[argi].param] >= 0);
@@ -310,11 +310,11 @@ void pddlLiftedMGroupDoubleCounted(pddl_lifted_mgroup_t *mg)
 
     int old_cond_size = mg->cond.size;
     for (int ci = 0; ci < old_cond_size; ++ci){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ci], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(mg->cond.fm[ci]);
         if (!atomHasCountedVar(a, &mg->param))
             continue;
         pddl_fm_t *newc = pddlFmClone(&a->fm);
-        pddl_fm_atom_t *newa = PDDL_FM_CAST(newc, atom);
+        pddl_fm_atom_t *newa = pddlFmToAtom(newc);
         for (int ai = 0; ai < newa->arg_size; ++ai){
             int pi = newa->arg[ai].param;
             if (pi >= 0)
@@ -339,7 +339,7 @@ static void printMGroup(const pddl_t *pddl,
         if (i > 0)
             used += snprintf(line + used, MAX_LINE_SIZE - used, ", ");
 
-        pddl_fm_atom_t *atom = PDDL_FM_CAST(mgroup->cond.fm[i], atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(mgroup->cond.fm[i]);
         used += snprintf(line + used, MAX_LINE_SIZE - used,
                          "%s", pddl->pred.pred[atom->pred].name);
         for (int j = 0; j < atom->arg_size; ++j){
@@ -455,7 +455,7 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
 
     pddl_lifted_mgroup_t *mg = lm->mgroup + lm->mgroup_size - 1;
     for (int i = 0; i < mg->cond.size; ++i){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[i], atom);
+        pddl_fm_atom_t *a = pddlFmToAtom((pddl_fm_t *)mg->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0 && args[a->arg[ai].param] >= 0){
                 a->arg[ai].obj = args[a->arg[ai].param];
@@ -477,7 +477,7 @@ void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
     mg->param.param_size = idx;
 
     for (int i = 0; i < mg->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[i], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(mg->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0)
                 a->arg[ai].param = remap_param[a->arg[ai].param];
@@ -505,16 +505,16 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm)
     lm->mgroup_size = ins;
 }
 
-int pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
-                        const pddl_lifted_mgroups_t *lmg2)
+pddl_bool_t pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
+                                const pddl_lifted_mgroups_t *lmg2)
 {
     if (lmg1->mgroup_size != lmg2->mgroup_size)
-        return 0;
+        return pddl_false;
     for (int i = 0; i < lmg1->mgroup_size; ++i){
         if (!pddlLiftedMGroupEq(lmg1->mgroup + i, lmg2->mgroup + i))
-            return 0;
+            return pddl_false;
     }
-    return 1;
+    return pddl_true;
 }
 
 void pddlLiftedMGroupsDoubleCounted(pddl_lifted_mgroups_t *mgs)

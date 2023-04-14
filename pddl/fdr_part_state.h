@@ -72,13 +72,13 @@ int pddlFDRPartStateGet(const pddl_fdr_part_state_t *ps, int var);
 /**
  * Returns true if variable var is set in the partial state.
  */
-int pddlFDRPartStateIsSet(const pddl_fdr_part_state_t *ps, int var);
+pddl_bool_t pddlFDRPartStateIsSet(const pddl_fdr_part_state_t *ps, int var);
 
 /**
  * Returns true if the partial state is consistent with the given state.
  */
-int pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
-                                          const int *state);
+pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
+                                                  const int *state);
 
 /**
  * Write partial state to the given state.

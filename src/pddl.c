@@ -131,7 +131,7 @@ static int parseMetric(pddl_t *pddl, const pddl_lisp_t *lisp, pddl_err_t *err)
                 " (line %d in %s).", n->lineno, lisp->filename);
     }
 
-    pddl->metric = 1;
+    pddl->metric = pddl_true;
     return 0;
 }
 
@@ -199,7 +199,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     pddl->cfg = *cfg;
 
     if (problem_fn == NULL)
-        pddl->only_domain = 1;
+        pddl->only_domain = pddl_true;
 
     LOG(err, "Processing %s and %s.",
         domain_fn, (problem_fn != NULL ? problem_fn : "null"));
@@ -303,7 +303,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     LOG(err, "Number of PDDL Predicates: %d", pddl->pred.pred_size);
     LOG(err, "Number of PDDL Functions: %d", pddl->func.pred_size);
     LOG(err, "Number of PDDL Actions: %d", pddl->action.action_size);
-    LOG(err, "PDDL Metric: %d", pddl->metric);
+    LOG(err, "PDDL Metric: %b", pddl->metric);
 
     CTXEND(err);
     return 0;
@@ -382,11 +382,10 @@ void pddlFree(pddl_t *pddl)
 
 static int markNegPre(pddl_fm_t *c, void *_m)
 {
-    pddl_fm_atom_t *atom;
     int *m = _m;
 
     if (c->type == PDDL_FM_ATOM){
-        atom = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (atom->neg)
             m[atom->pred] = 1;
     }
@@ -396,10 +395,8 @@ static int markNegPre(pddl_fm_t *c, void *_m)
 
 static int markNegPreWhen(pddl_fm_t *c, void *_m)
 {
-    pddl_fm_when_t *when;
-
     if (c->type == PDDL_FM_WHEN){
-        when = PDDL_FM_CAST(c, when);
+        pddl_fm_when_t *when = pddlFmToWhen(c);
         pddlFmTraverse(when->pre, markNegPre, NULL, _m);
     }
 
@@ -455,10 +452,9 @@ static int replaceNegPre(pddl_fm_t **c, void *_ids)
     int *ids = _ids;
     int pos = ids[0];
     int neg = ids[1];
-    pddl_fm_atom_t *atom;
 
     if ((*c)->type == PDDL_FM_ATOM){
-        atom = PDDL_FM_CAST(*c, atom);
+        pddl_fm_atom_t *atom = pddlFmToAtom(*c);
         if (atom->pred == pos && atom->neg){
             atom->pred = neg;
             atom->neg = 0;
@@ -473,29 +469,25 @@ static int replaceNegEff(pddl_fm_t **c, void *_ids)
     int *ids = _ids;
     int pos = ids[0];
     int neg = ids[1];
-    pddl_fm_t *c2;
-    pddl_fm_atom_t *atom, *not_atom;
-    pddl_fm_when_t *when;
-    pddl_fm_junc_t *and;
 
     if ((*c)->type == PDDL_FM_WHEN){
-        when = PDDL_FM_CAST(*c, when);
+        pddl_fm_when_t *when = pddlFmToWhen(*c);
         pddlFmRebuild(&when->pre, NULL, replaceNegPre, _ids);
         pddlFmRebuild(&when->eff, replaceNegEff, NULL, _ids);
         return -1;
 
     }else if ((*c)->type == PDDL_FM_ATOM){
-        atom = PDDL_FM_CAST(*c, atom);
+        pddl_fm_atom_t *atom = pddlFmToAtom(*c);
         if (atom->pred == pos){
             // Create new NOT atom and flip negation
-            c2 = pddlFmClone(*c);
-            not_atom = PDDL_FM_CAST(c2, atom);
+            pddl_fm_t *c2 = pddlFmClone(*c);
+            pddl_fm_atom_t *not_atom = pddlFmToAtom(c2);
             not_atom->pred = neg;
             not_atom->neg = !atom->neg;
 
             // Transorm atom to (and atom)
             *c = pddlFmAtomToAnd(*c);
-            and = pddlFmToJunc(*c);
+            pddl_fm_junc_t *and = pddlFmToJunc(*c);
             pddlFmJuncAdd(and, c2);
 
             // Prevent recursion
@@ -532,17 +524,16 @@ static int initHasFact(const pddl_t *pddl, int pred,
                        int arg_size, const pddl_obj_id_t *arg)
 {
     pddl_list_t *item;
-    const pddl_fm_t *c;
-    const pddl_fm_atom_t *a;
-    int i;
 
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
-        c = PDDL_LIST_ENTRY(item, const pddl_fm_t, conn);
+        const pddl_fm_t *c = PDDL_LIST_ENTRY(item, const pddl_fm_t, conn);
         if (c->type != PDDL_FM_ATOM)
             continue;
-        a = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
         if (a->pred != pred || a->arg_size != arg_size)
             continue;
+
+        int i;
         for (i = 0; i < arg_size; ++i){
             if (a->arg[i].obj != arg[i])
                 break;
@@ -611,7 +602,7 @@ static void compileOutNonStaticNegPre(pddl_t *pddl)
 static int isFalsePre(const pddl_fm_t *c)
 {
     if (c->type == PDDL_FM_BOOL){
-        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
+        const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         return !b->val;
     }
     return 0;
@@ -786,7 +777,7 @@ void pddlNormalize(pddl_t *pddl)
             pddlResetPredReadWrite(pddl);
         } while (removeUnreachableActions(pddl));
     }
-    pddl->normalized = 1;
+    pddl->normalized = pddl_true;
 }
 
 static void compileAwayCondEff(pddl_t *pddl, int only_non_static)
@@ -1034,7 +1025,7 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
         pddlFmRebuild(&a->eff, NULL, _removeAssignIncrease, NULL);
     }
 
-    pddl->metric = 0;
+    pddl->metric = pddl_false;
     CTXEND(err);
 }
 
@@ -1099,7 +1090,6 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
 {
     pddl_list_t *item;
     pddl_fm_t *c;
-    pddl_fm_atom_t *a;
     pddl_params_t params;
 
     fprintf(fout, "Domain: %s\n", pddl->domain_name);
@@ -1117,7 +1107,7 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type != PDDL_FM_ATOM)
             continue;
-        a = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         fprintf(fout, "  ");
         if (pddlPredIsStatic(&pddl->pred.pred[a->pred]))
             fprintf(fout, "S:");

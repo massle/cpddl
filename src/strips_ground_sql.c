@@ -49,7 +49,7 @@ static int sqlGroundInit(sql_ground_t *g,
     PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type == PDDL_FM_ATOM){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(&g->strips_maker, a, NULL, NULL);
             }else{
@@ -58,7 +58,7 @@ static int sqlGroundInit(sql_ground_t *g,
             pddlSqlGrounderInsertAtom(g->grounder, a, err);
 
         }else if (c->type == PDDL_FM_ASSIGN){
-            const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
+            const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
             ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
@@ -146,7 +146,7 @@ static int sqlGroundStepActionRow(sql_ground_t *g,
     paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
     for (int i = 0; i < paction->add_eff.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->add_eff.fm[i], atom);
+        atom = pddlFmToAtomConst(paction->add_eff.fm[i]);
 
         ASSERT(!pddlPredIsStatic(&g->pddl->pred.pred[atom->pred]));
         updated |= addGroundAtom(g, layer, atom, row, err);

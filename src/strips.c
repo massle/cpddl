@@ -87,7 +87,7 @@ void pddlStripsMakeUnsolvable(pddl_strips_t *strips)
     pddlStripsOpsAdd(&strips->op, &op);
     pddlStripsOpFree(&op);
 
-    strips->goal_is_unreachable = 1;
+    strips->goal_is_unreachable = pddl_true;
 }
 
 void pddlStripsFree(pddl_strips_t *strips)
@@ -336,7 +336,7 @@ void pddlStripsCompileAwayCondEff(pddl_strips_t *strips)
     // And sort operators to get deterministinc results.
     pddlStripsOpsSort(&strips->op);
 
-    strips->has_cond_eff = 0;
+    strips->has_cond_eff = pddl_false;
 }
 
 void pddlStripsCrossRefFactsOps(const pddl_strips_t *strips,
@@ -512,31 +512,32 @@ static int isFAMGroupCE(const pddl_strips_t *strips,
     }
 }
 
-int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const pddl_iset_t *facts)
+pddl_bool_t pddlStripsIsFAMGroup(const pddl_strips_t *strips,
+                                 const pddl_iset_t *facts)
 {
     for (int oi = 0; oi < strips->op.op_size; ++oi){
         const pddl_strips_op_t *op = strips->op.op[oi];
         if (!isFAMGroup(facts, &op->pre, &op->add_eff, &op->del_eff))
-            return 0;
+            return pddl_false;
 
         if (op->cond_eff_size > 0 && !isFAMGroupCE(strips, facts, op))
-            return 0;
+            return pddl_false;
     }
 
-    return 1;
+    return pddl_true;
 }
 
-int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
-                                 const pddl_iset_t *facts)
+pddl_bool_t pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
+                                         const pddl_iset_t *facts)
 {
     if (pddlISetIsDisjunct(facts, &strips->init))
-        return 0;
+        return pddl_false;
 
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         const pddl_strips_op_t *op = strips->op.op[op_id];
         if (!pddlISetIsDisjunct(&op->del_eff, facts)
                 && pddlISetIsDisjunct(&op->add_eff, facts)){
-            return 0;
+            return pddl_false;
         }
 
         for (int ce_id = 0; ce_id < op->cond_eff_size; ++ce_id){
@@ -544,20 +545,20 @@ int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
             if (!pddlISetIsDisjunct(&ce->del_eff, facts)
                     && pddlISetIsDisjunct(&ce->add_eff, facts)
                     && pddlISetIsDisjunct(&op->add_eff, facts)){
-                return 0;
+                return pddl_false;
             }
         }
     }
 
-    return 1;
+    return pddl_true;
 }
 
 static void resetHasCondEffFlag(pddl_strips_t *strips)
 {
-    int has_cond_eff = 0;
+    pddl_bool_t has_cond_eff = pddl_false;
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
         if (strips->op.op[op_id]->cond_eff_size > 0){
-            has_cond_eff = 1;
+            has_cond_eff = pddl_true;
             break;
         }
     }

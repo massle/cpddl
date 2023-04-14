@@ -390,9 +390,9 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
     FREE(order_var);
 }
 
-int pddlCGIsAcyclic(const pddl_cg_t *cg)
+pddl_bool_t pddlCGIsAcyclic(const pddl_cg_t *cg)
 {
-    int is_acyclic = 0;
+    pddl_bool_t is_acyclic = pddl_false;
 
     pddl_scc_graph_t scc_graph;
     pddlSCCGraphInit(&scc_graph, cg->node_size);

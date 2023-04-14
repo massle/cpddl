@@ -80,7 +80,7 @@ static int atomHasParam(const pddl_fm_atom_t *a, const pddl_iset_t *param)
 static int preHasParam(const pddl_prep_action_t *a, const pddl_iset_t *param)
 {
     for (int i = 0; i < a->pre.size; ++i){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[i], atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(a->pre.fm[i]);
         if (atomHasParam(atom, param))
             return 1;
     }
@@ -119,7 +119,7 @@ static void atreeFindConnectedPreParams(const pddl_prep_action_t *a,
             if (used_cond[i])
                 continue;
 
-            const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[i], atom);
+            const pddl_fm_atom_t *atom = pddlFmToAtomConst(a->pre.fm[i]);
             if (atomHasParam(atom, param)){
                 used_cond[i] = 1;
                 changed = 1;
@@ -453,7 +453,7 @@ static void _groundActionAddEff(pddl_strips_ground_t *g,
 
     const pddl_fm_atom_t *atom;
     for (int i = 0; i < a->add_eff.size; ++i){
-        atom = PDDL_FM_CAST(a->add_eff.fm[i], atom);
+        atom = pddlFmToAtomConst(a->add_eff.fm[i]);
         groundAtomsAddFact(g, atom, arg);
     }
 
@@ -510,7 +510,7 @@ static int groundIncrease(pddl_strips_ground_t *g,
 
     // Only (increase (total-cost) ...) is allowed.
     for (int i = 0; i < atoms->size; ++i){
-        inc = PDDL_FM_CAST(atoms->fm[i], func_op);
+        inc = pddlFmToFuncOpConst(atoms->fm[i]);
         if (inc->fvalue != NULL){
             ga = pddlGroundAtomsFindAtom(&g->funcs, inc->fvalue, arg);
             if (ga != NULL){
@@ -538,7 +538,7 @@ static void groundAtoms(pddl_strips_ground_t *g,
     const pddl_ground_atom_t *ga;
 
     for (int i = 0; i < atoms->size; ++i){
-        atom = PDDL_FM_CAST(atoms->fm[i], atom);
+        atom = pddlFmToAtomConst(atoms->fm[i]);
         ga = pddlGroundAtomsFindAtom(&g->facts, atom, arg);
         if (ga != NULL)
             pddlISetAdd(out, g->ground_atom_to_fact_id[ga->id]);
@@ -698,7 +698,7 @@ static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
     PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type == PDDL_FM_ATOM){
-            a = PDDL_FM_CAST(c, atom);
+            a = pddlFmToAtomConst(c);
             ga = pddlGroundAtomsFindAtom(&g->facts, a, NULL);
             if (ga != NULL)
                 pddlISetAdd(&strips->init, g->ground_atom_to_fact_id[ga->id]);
@@ -721,7 +721,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
     pddl_strips_t *strips = ggoal->strips;
 
     if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         if (!pddlFmAtomIsGrounded(atom))
             PDDL_ERR_RET(g->err, -1, "Goal specification cannot contain"
                          " parametrized atoms.");
@@ -747,7 +747,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
         return 0;
 
     }else if (c->type == PDDL_FM_BOOL){
-        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
+        const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         if (!b->val)
             strips->goal_is_unreachable = 1;
         return 0;
@@ -785,7 +785,7 @@ static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type == PDDL_FM_ATOM){
-            a = PDDL_FM_CAST(c, atom);
+            a = pddlFmToAtomConst(c);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 ASSERT(pddlFmAtomIsGrounded(a));
                 pddlGroundAtomsAddAtom(&g->static_facts, a, NULL);
@@ -794,7 +794,7 @@ static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
                 groundAtomsAddFact(g, a, NULL);
             }
         }else if (c->type == PDDL_FM_ASSIGN){
-            ass = PDDL_FM_CAST(c, func_op);
+            ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
             ASSERT(pddlFmAtomIsGrounded(ass->lvalue));

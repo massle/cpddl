@@ -34,9 +34,9 @@ struct pddl_mgroup {
     int lifted_mgroup_id; /*!< ID refering to the corresponding lifted
                                mutex group in pddl_mgroups_t or
                                -1 if there is none */
-    int is_exactly_one; /*!< True if the mutex groups is "exactly-one" */
-    int is_fam_group; /*!< True if it is fam-group */
-    int is_goal; /*!< Has non-empty intersection with the goal */
+    pddl_bool_t is_exactly_one; /*!< True if the mutex groups is "exactly-one" */
+    pddl_bool_t is_fam_group; /*!< True if it is fam-group */
+    pddl_bool_t is_goal; /*!< Has non-empty intersection with the goal */
 };
 typedef struct pddl_mgroup pddl_mgroup_t;
 

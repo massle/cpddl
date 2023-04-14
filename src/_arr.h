@@ -79,7 +79,7 @@ _pddl_inline TYPE *pddlArrGetArr(const pddl_arr_t *a);
 /**
  * Returns true if val \in s
  */
-_pddl_inline int pddlArrIn(TYPE val, const pddl_arr_t *s);
+_pddl_inline pddl_bool_t pddlArrIn(TYPE val, const pddl_arr_t *s);
 
 /**
  * Makes the array empty.
@@ -104,7 +104,7 @@ _pddl_inline void pddlArrRmLast(pddl_arr_t *a);
 /**
  * Returns true if the array are equal.
  */
-_pddl_inline int pddlArrEq(const pddl_arr_t *s1, const pddl_arr_t *s2);
+_pddl_inline pddl_bool_t pddlArrEq(const pddl_arr_t *s1, const pddl_arr_t *s2);
 
 /**
  * Compares arrays, return values are the same as by memcmp().
@@ -170,13 +170,13 @@ _pddl_inline TYPE *pddlArrGetArr(const pddl_arr_t *a)
     return a->arr;
 }
 
-_pddl_inline int pddlArrIn(TYPE val, const pddl_arr_t *a)
+_pddl_inline pddl_bool_t pddlArrIn(TYPE val, const pddl_arr_t *a)
 {
     for (int i = 0; i < a->size; ++i){
         if (a->arr[i] == val)
-            return 1;
+            return pddl_true;
     }
-    return 0;
+    return pddl_false;
 }
 
 _pddl_inline void pddlArrEmpty(pddl_arr_t *a)
@@ -205,7 +205,7 @@ _pddl_inline void pddlArrRmLast(pddl_arr_t *a)
         --a->size;
 }
 
-_pddl_inline int pddlArrEq(const pddl_arr_t *s1, const pddl_arr_t *s2)
+_pddl_inline pddl_bool_t pddlArrEq(const pddl_arr_t *s1, const pddl_arr_t *s2)
 {
     return s1->size == s2->size
             && memcmp(s1->arr, s2->arr, sizeof(TYPE) * s1->size) == 0;

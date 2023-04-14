@@ -231,16 +231,16 @@ int pddlUnifyCheckInequality(const pddl_unify_t *u,
     return -1;
 }
 
-int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
-                         const pddl_params_t *param1,
-                         const pddl_fm_atom_t *a1,
-                         const pddl_params_t *param2,
-                         const pddl_fm_atom_t *a2)
+pddl_bool_t pddlUnifyAtomsDiffer(const pddl_unify_t *u,
+                                 const pddl_params_t *param1,
+                                 const pddl_fm_atom_t *a1,
+                                 const pddl_params_t *param2,
+                                 const pddl_fm_atom_t *a2)
 {
     ASSERT_RUNTIME(param1 == u->param[0] || param1 == u->param[1]);
     ASSERT_RUNTIME(param2 == u->param[0] || param2 == u->param[1]);
     if (a1->pred != a2->pred)
-        return 1;
+        return pddl_true;
 
     int idx1 = 0;
     if (param1 == u->param[1])
@@ -254,12 +254,12 @@ int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
         initVal(&v1, u->map[idx1], a1, i);
         initVal(&v2, u->map[idx2], a2, i);
         if (v1.obj != v2.obj || v1.var != v2.var || v1.var_type != v2.var_type)
-            return 1;
+            return pddl_true;
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2)
+pddl_bool_t pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2)
 {
     return u->param[0] == u2->param[0]
             && u->param[1] == u2->param[1]

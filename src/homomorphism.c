@@ -63,7 +63,7 @@ static int _removeAffectedNegativeAtoms(pddl_fm_t **c, void *_data)
     if ((*c)->type == PDDL_FM_ATOM){
         const struct fix_action *data = _data;
         const pddl_param_t *params = data->action->param.param;
-        pddl_fm_atom_t *atom = PDDL_FM_CAST(*c, atom);
+        pddl_fm_atom_t *atom = pddlFmToAtom(*c);
         if (atom->neg){
             for (int pi = 0; pi < atom->arg_size; ++pi){
                 int param = atom->arg[pi].param;
@@ -76,7 +76,7 @@ static int _removeAffectedNegativeAtoms(pddl_fm_t **c, void *_data)
         }
 
     }else if ((*c)->type == PDDL_FM_WHEN){
-        pddl_fm_when_t *w = PDDL_FM_CAST(*c, when);
+        pddl_fm_when_t *w = pddlFmToWhen(*c);
         if (w->pre == NULL)
             w->pre = &pddlFmNewBool(1)->fm;
         if (w->eff == NULL){
@@ -122,7 +122,7 @@ static int _collectGoalObjs(pddl_fm_t *c, void *_goal_objs)
 {
     pddl_iset_t *goal_objs = _goal_objs;
     if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         for (int i = 0; i < atom->arg_size; ++i){
             if (atom->arg[i].obj >= 0)
                 pddlISetAdd(goal_objs, atom->arg[i].obj);
@@ -712,7 +712,7 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
             item = pddlListNext(item);
             continue;
         }
-        pddl_fm_func_op_t *ass1 = PDDL_FM_CAST(c1, func_op);
+        pddl_fm_func_op_t *ass1 = pddlFmToFuncOp(c1);
         ASSERT_RUNTIME(ass1->lvalue != NULL);
         ASSERT_RUNTIME(ass1->fvalue == NULL);
         int min_value = ass1->value;
@@ -721,7 +721,7 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
         while (item2 != &p->part){
             pddl_fm_t *c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
             if (c2->type == PDDL_FM_ASSIGN){
-                pddl_fm_func_op_t *ass2 = PDDL_FM_CAST(c2, func_op);
+                pddl_fm_func_op_t *ass2 = pddlFmToFuncOp(c2);
                 ASSERT_RUNTIME(ass2->lvalue != NULL);
                 ASSERT_RUNTIME(ass2->fvalue == NULL);
                 if (pddlFmAtomCmp(ass1->lvalue, ass2->lvalue) == 0){

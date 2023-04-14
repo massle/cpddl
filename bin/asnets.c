@@ -3,15 +3,15 @@
 #include "print_to_file.h"
 
 static struct {
-    int help;
-    int version;
+    pddl_bool_t help;
+    pddl_bool_t version;
     int max_mem;
     char *log_out;
 
     char *train;
     char *train_save_prefix;
     char *eval;
-    int eval_write_plans;
+    pddl_bool_t eval_write_plans;
     char *info;
     char *gen;
 } opt;

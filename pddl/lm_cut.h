@@ -39,7 +39,7 @@ struct pddl_lm_cut_op {
     int unsat; /*!< Number of unsatisfied preconditions */
     int supp; /*!< Supporter fact (that maximizes h^max) */
     int supp_cost; /*!< Cost of the supported -- needed for hMaxInc() */
-    int cut_candidate; /*!< True if the operator is candidate for a cut */
+    pddl_bool_t cut_candidate; /*!< True if the operator is candidate for a cut */
 };
 typedef struct pddl_lm_cut_op pddl_lm_cut_op_t;
 

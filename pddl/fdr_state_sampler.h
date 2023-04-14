@@ -20,8 +20,8 @@ struct pddl_fdr_state_sampler {
     const pddl_fdr_t *fdr;
     const pddl_mutex_pairs_t *mutex;
     pddl_random_walk_t random_walk;
-    int use_random_walk;
-    int random_walk_max_steps;
+    pddl_bool_t use_random_walk;
+    pddl_bool_t random_walk_max_steps;
     pddl_rand_t rnd;
     uint32_t seed;
 

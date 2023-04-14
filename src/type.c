@@ -181,7 +181,7 @@ void pddlTypesPrint(const pddl_types_t *t, FILE *fout)
     }
 }
 
-int pddlTypesIsEither(const pddl_types_t *ts, int tid)
+pddl_bool_t pddlTypesIsEither(const pddl_types_t *ts, int tid)
 {
     return pddlISetSize(&ts->type[tid].either) > 0;
 }
@@ -227,7 +227,7 @@ int pddlTypeGetObj(const pddl_types_t *ts, int type_id, int idx)
     return pddlObjSetGet(&ts->type[type_id].obj, idx);
 }
 
-int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj)
+pddl_bool_t pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj)
 {
     if (ts->obj_type_map != NULL){
         return ts->obj_type_map[obj * ts->type_size + type];
@@ -239,9 +239,9 @@ int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj)
         objs = pddlTypesObjsByType(ts, type, &size);
         for (int i = 0; i < size; ++i){
             if (objs[i] == obj)
-                return 1;
+                return pddl_true;
         }
-        return 0;
+        return pddl_false;
     }
 }
 
@@ -329,56 +329,56 @@ int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
     return tid;
 }
 
-int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent)
+pddl_bool_t pddlTypesIsParent(const pddl_types_t *ts, int child, int parent)
 {
     const pddl_type_t *tparent = ts->type + parent;
     int eid;
 
     for (int cur_type = child; cur_type >= 0;){
         if (cur_type == parent)
-            return 1;
+            return pddl_true;
         PDDL_ISET_FOR_EACH(&tparent->either, eid){
             if (cur_type == eid)
-                return 1;
+                return pddl_true;
         }
         cur_type = ts->type[cur_type].parent;
     }
 
-    return 0;
+    return pddl_false;
 }
 
-int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2)
+pddl_bool_t pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2)
 {
     return !pddlTypesIsParent(ts, t1, t2) && !pddlTypesIsParent(ts, t2, t1);
 }
 
-int pddlTypesIsSubset(const pddl_types_t *ts, int t1id, int t2id)
+pddl_bool_t pddlTypesIsSubset(const pddl_types_t *ts, int t1id, int t2id)
 {
     const pddl_type_t *t1 = ts->type + t1id;
     const pddl_type_t *t2 = ts->type + t2id;
     return pddlObjSetIsSubset(&t1->obj, &t2->obj);
 }
 
-int pddlTypesIsMinimal(const pddl_types_t *ts, int type)
+pddl_bool_t pddlTypesIsMinimal(const pddl_types_t *ts, int type)
 {
     return pddlISetSize(&ts->type[type].child) == 0;
 }
 
-int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
-                                   const pddl_objs_t *obj)
+pddl_bool_t pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
+                                           const pddl_objs_t *obj)
 {
     int is_strict = 0;
 
     for (int t1 = 0; t1 < ts->type_size; ++t1){
         if (pddlISetSize(&ts->type[t1].either) > 0)
-            return 0;
+            return pddl_false;
         for (int t2 = 0; t2 < ts->type_size; ++t2){
             if (t1 == t2)
                 continue;
             if (!pddlTypesAreDisjunct(ts, t1, t2)
                     && !pddlTypesIsSubset(ts, t1, t2)
                     && !pddlTypesIsSubset(ts, t2, t1))
-                return 0;
+                return pddl_false;
         }
     }
 

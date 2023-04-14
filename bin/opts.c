@@ -30,7 +30,7 @@ struct opt_opt {
     void *set;
     char *desc;
     int (*parse_tags)(const char *tag);
-    int (*flag_fn)(int);
+    int (*flag_fn)(pddl_bool_t);
     void (*flag_fn2)(void);
     int (*flt_fn)(float);
     int (*str_fn)(const char *);
@@ -128,18 +128,18 @@ static opt_opt_t *optsAdd(int type,
 
 void optsAddFlag(const char *long_name,
                  char short_name,
-                 int *set,
-                 int default_value,
+                 pddl_bool_t *set,
+                 pddl_bool_t default_value,
                  const char *desc)
 {
     opt_opt_t *opt = optsAdd(FLAG, long_name, short_name, set, desc);
     opt->idefault = default_value;
-    *(int *)set = default_value;
+    *(pddl_bool_t *)set = default_value;
 }
 
 void optsAddFlagFn(const char *long_name,
                    char short_name,
-                   int (*fn)(int),
+                   int (*fn)(pddl_bool_t),
                    const char *desc)
 {
     opt_opt_t *opt = optsAdd(FLAG_FN, long_name, short_name, NULL, desc);
@@ -294,14 +294,14 @@ static opt_opt_t *findOptLong(const char *name)
 static void optSetFlag(opt_opt_t *opt)
 {
     if (opt->set){
-        *(int *)opt->set = 1;
+        *(pddl_bool_t *)opt->set = 1;
     }
 }
 
 static void optSetNoFlag(opt_opt_t *opt)
 {
     if (opt->set){
-        *(int *)opt->set = 0;
+        *(pddl_bool_t *)opt->set = 0;
     }
 }
 
@@ -416,7 +416,7 @@ static opt_opt_t *findOpt(char *_arg)
                 }else if (opt->type == FLAG){
                     optSetFlag(opt);
                 }else if (opt->type == FLAG_FN){
-                    if (opt->flag_fn(1))
+                    if (opt->flag_fn(pddl_true))
                         return NULL;
                 }else if (opt->type == FLAG_FN2){
                     opt->flag_fn2();
@@ -446,7 +446,7 @@ int opts(int *argc, char **argv)
             if (opt->type == FLAG){
                 optSetFlag(opt);
             }else if (opt->type == FLAG_FN){
-                if (opt->flag_fn(1) != 0)
+                if (opt->flag_fn(pddl_true) != 0)
                     return -1;
             }else if (opt->type == FLAG_FN2){
                 opt->flag_fn2();
@@ -470,7 +470,7 @@ int opts(int *argc, char **argv)
                     optSetNoFlag(opt);
                     found = 1;
                 }else if (opt != NULL && opt->type == FLAG_FN){
-                    if (opt->flag_fn(0) != 0)
+                    if (opt->flag_fn(pddl_false) != 0)
                         return -1;
                     found = 1;
                 }
@@ -711,7 +711,7 @@ void optsParamsAddFlt(opts_params_t *params, const char *name, float *dst)
     optsParamsAddFltFn(params, name, dst, NULL);
 }
 
-void optsParamsAddFlag(opts_params_t *params, const char *name, int *dst)
+void optsParamsAddFlag(opts_params_t *params, const char *name, pddl_bool_t *dst)
 {
     optsParamsAddFlagFn(params, name, dst, NULL);
 }

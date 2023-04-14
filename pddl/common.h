@@ -155,6 +155,14 @@ typedef enum pddl_status pddl_status_t;
 typedef struct pddl pddl_t;
 typedef struct pddl_strips pddl_strips_t;
 
+/** Boolean type. There seems to be no guarantee on interoperability
+ *  between C and C++ with stdbool.h, so we need to define it locally */
+typedef int pddl_bool_t;
+typedef int pddl_bool_promote_type_t;
+#define pddl_true 1
+#define pddl_false 0
+#define PDDL_BOOL_STR(X) (!!(X) ? "true" : "false")
+
 /** Type for holding number of objects */
 typedef uint16_t pddl_obj_size_t;
 /** Type for holding number of action parameters */

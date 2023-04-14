@@ -37,12 +37,12 @@ struct pddl_endomorphism_config {
     int num_threads;
     /** If set to true, the inference will run in a separate sub-process.
      *  (default: true) */
-    int run_in_subprocess;
+    pddl_bool_t run_in_subprocess;
     /** If set to true, costs of operators are ignored (default: false) */
-    int ignore_costs;
+    pddl_bool_t ignore_costs;
     /** True if sub-combinations of lifted mutex groups should be used.
      *  (default: false) */
-    int lifted_use_combinations;
+    pddl_bool_t lifted_use_combinations;
 };
 typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
 
@@ -50,16 +50,16 @@ typedef struct pddl_endomorphism_config pddl_endomorphism_config_t;
     { 3600.f, /* .max_time */ \
       3600.f, /* .max_search_time */ \
       1, /* .num_threads */ \
-      1, /* .run_in_subprocess */ \
-      0, /* .ignore_costs */ \
-      0, /* .lifted_use_combinations */ \
+      pddl_true, /* .run_in_subprocess */ \
+      pddl_false, /* .ignore_costs */ \
+      pddl_false, /* .lifted_use_combinations */ \
     }
 
 struct pddl_endomorphism_sol {
     pddl_iset_t redundant_ops;
     int op_size;
     int *op_map;
-    int is_optimal;
+    pddl_bool_t is_optimal;
 };
 typedef struct pddl_endomorphism_sol pddl_endomorphism_sol_t;
 

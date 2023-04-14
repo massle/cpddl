@@ -32,7 +32,7 @@ struct pddl_lifted_mgroups_infer_config {
     /** Maximum of proved lifted mutex groups. Default: 10000 */
     int max_mgroups;
     /** Find Fast-Downward type of lifted mutex groups. Default: false */
-    int fd;
+    pddl_bool_t fd;
     /** If set to non-NULL and .fd is true, then it is filled with the
      *  monotonicity invariants. Default: NULL */
     pddl_lifted_mgroups_t *fd_monotonicity;
@@ -44,7 +44,7 @@ typedef struct pddl_lifted_mgroups_infer_config
     { \
         10000, /* .max_candidates */ \
         10000, /* .max_mgroups */ \
-        0, /* .fd */ \
+        pddl_false, /* .fd */ \
         NULL, /* .fd_monotonicity */ \
     }
 
@@ -61,25 +61,25 @@ int pddlLiftedMGroupsInfer(const pddl_t *pddl,
  * Returns true if two or more facts from the initial state are covered by
  * the candidate.
  */
-int pddlLiftedMGroupIsInitTooHeavy(const pddl_lifted_mgroup_t *cand,
-                                   const pddl_t *pddl);
+pddl_bool_t pddlLiftedMGroupIsInitTooHeavy(const pddl_lifted_mgroup_t *cand,
+                                           const pddl_t *pddl);
 
 /**
  * Returns true if the action could add two or more facts from the
  * given candidate.
  */
-int pddlLiftedMGroupIsActionTooHeavy(const pddl_lifted_mgroup_t *cand,
-                                     const pddl_t *pddl,
-                                     int action_id);
+pddl_bool_t pddlLiftedMGroupIsActionTooHeavy(const pddl_lifted_mgroup_t *cand,
+                                             const pddl_t *pddl,
+                                             int action_id);
 
 /**
  * Returns true if the action is balanced with respect to the given mutex
  * group candidate, i.e., every add effect covered by the candidate has at
  * least one delete effect \cap precondition covered by the candidate.
  */
-int pddlLiftedMGroupIsActionBalanced(const pddl_lifted_mgroup_t *cand,
-                                     const pddl_t *pddl,
-                                     int action_id);
+pddl_bool_t pddlLiftedMGroupIsActionBalanced(const pddl_lifted_mgroup_t *cand,
+                                             const pddl_t *pddl,
+                                             int action_id);
 
 /**
  * Fills dst with (partially) instantiated lifted mutex groups from src
@@ -94,22 +94,22 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
  * is too heavy, i.e., if the candidate can be unified with at least two
  * atoms.
  */
-int pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
-                                            const pddl_t *pddl,
-                                            const pddl_fm_arr_t *conj,
-                                            const pddl_obj_id_t *conj_args);
+pddl_bool_t pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
+                                                    const pddl_t *pddl,
+                                                    const pddl_fm_arr_t *conj,
+                                                    const pddl_obj_id_t *conj_args);
 
 /**
  * Returns true if the action (pre, add_eff, del_eff) fully grounded with
  * args deletes the given mutex group, i.e., the resulting state will have
  * empty intersection with mg.
  */
-int pddlLiftedMGroupsAnyIsDeleted(const pddl_lifted_mgroups_t *mgs,
-                                  const pddl_t *pddl,
-                                  const pddl_fm_arr_t *pre,
-                                  const pddl_fm_arr_t *add_eff,
-                                  const pddl_fm_arr_t *del_eff,
-                                  const pddl_obj_id_t *args);
+pddl_bool_t pddlLiftedMGroupsAnyIsDeleted(const pddl_lifted_mgroups_t *mgs,
+                                          const pddl_t *pddl,
+                                          const pddl_fm_arr_t *pre,
+                                          const pddl_fm_arr_t *add_eff,
+                                          const pddl_fm_arr_t *del_eff,
+                                          const pddl_obj_id_t *args);
 
 struct pddl_lifted_mgroups_infer_limits {
     /** Maximum of generated candidates. Default: 10000 */
