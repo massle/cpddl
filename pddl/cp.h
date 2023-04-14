@@ -110,7 +110,7 @@ struct pddl_cp_solve_config {
     const char *minizinc; /*!< Path to minizinc binary in case minizinc
                                solver is used. If set to NULL, default path
                                is used. */
-    int run_in_subprocess; /*!< If true the solver runs in a subprocess */
+    pddl_bool_t run_in_subprocess; /*!< If true the solver runs in a subprocess */
 };
 typedef struct pddl_cp_solve_config pddl_cp_solve_config_t;
 
@@ -120,7 +120,7 @@ typedef struct pddl_cp_solve_config pddl_cp_solve_config_t;
         -1.f, /* .max_search_time */ \
         PDDL_CP_SOLVER_DEFAULT, /*.solver */ \
         NULL, /* .minizinc */ \
-        1, /* .run_in_subprocess */ \
+        pddl_true, /* .run_in_subprocess */ \
     }
 
 struct pddl_cp_sol {

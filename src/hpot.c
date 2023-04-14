@@ -370,68 +370,68 @@ int pddlHPotConfigCheck(const pddl_hpot_config_t *cfg, pddl_err_t *err)
     return 0;
 }
 
-int pddlHPotConfigNeedMGStrips(const pddl_hpot_config_t *cfg)
+pddl_bool_t pddlHPotConfigNeedMGStrips(const pddl_hpot_config_t *cfg)
 {
     if (cfg->disambiguation || cfg->weak_disambiguation)
-        return 1;
-    return 0;
+        return pddl_true;
+    return pddl_false;
 }
 
-int pddlHPotConfigNeedMutex(const pddl_hpot_config_t *cfg)
+pddl_bool_t pddlHPotConfigNeedMutex(const pddl_hpot_config_t *cfg)
 {
     if (cfg->disambiguation || cfg->weak_disambiguation)
-        return 1;
+        return pddl_true;
 
     for (int i = 0; i < cfg->cfg_size; ++i){
         if (cfg->cfg[i]->type == PDDL_HPOT_OPT_SAMPLED_STATES_TYPE){
             CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_sampled_states_t, cfg);
             if (c->use_mutex_samples)
-                return 1;
+                return pddl_true;
 
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE){
             CONTAINER_OF_CONST(c, cfg->cfg[i], pddl_hpot_config_opt_ensemble_sampled_states_t, cfg);
             if (c->use_mutex_samples)
-                return 1;
+                return pddl_true;
 
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE){
             CONTAINER_OF_CONST(c, cfg->cfg[i],
                                pddl_hpot_config_opt_ensemble_diversification_t, cfg);
             if (c->use_mutex_samples)
-                return 1;
+                return pddl_true;
 
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE){
             if (cfg->mutex == NULL)
-                return 1;
+                return pddl_true;
 
         }else if (cfg->cfg[i]->type == PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE){
             if (cfg->mutex == NULL)
-                return 1;
+                return pddl_true;
         }
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg)
+pddl_bool_t pddlHPotConfigIsEmpty(const pddl_hpot_config_t *cfg)
 {
     return cfg->cfg_size == 0;
 }
 
-int pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
+pddl_bool_t pddlHPotConfigIsEnsemble(const pddl_hpot_config_t *cfg)
 {
     if (cfg->cfg_size == 0)
-        return 0;
+        return pddl_false;
     if (cfg->cfg_size > 1)
-        return 1;
+        return pddl_true;
 
     switch (cfg->cfg[0]->type){
         case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
         case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
         case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
-            return 1;
+            return pddl_true;
         default:
-            return 0;
+            return pddl_false;
     }
-    return 0;
+    return pddl_false;
 }
 
 static void setStateToFDRState(const pddl_iset_t *state,

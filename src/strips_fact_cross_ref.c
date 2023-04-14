@@ -22,11 +22,11 @@
 
 void pddlStripsFactCrossRefInit(pddl_strips_fact_cross_ref_t *cref,
                                 const pddl_strips_t *strips,
-                                int init,
-                                int goal,
-                                int op_pre,
-                                int op_add,
-                                int op_del)
+                                pddl_bool_t init,
+                                pddl_bool_t goal,
+                                pddl_bool_t op_pre,
+                                pddl_bool_t op_add,
+                                pddl_bool_t op_del)
 {
     if (strips->has_cond_eff){
         PANIC("pddlStripsFactCrossRefInit() does not support"

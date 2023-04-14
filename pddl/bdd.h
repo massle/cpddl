@@ -43,7 +43,7 @@ void pddlBDDDel(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd);
 
 
 pddl_bdd_t *pddlBDDClone(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd);
-int pddlBDDIsFalse(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd);
+pddl_bool_t pddlBDDIsFalse(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd);
 pddl_bdd_t *pddlBDDNot(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd);
 pddl_bdd_t *pddlBDDZero(pddl_bdd_manager_t *mgr);
 pddl_bdd_t *pddlBDDOne(pddl_bdd_manager_t *mgr);

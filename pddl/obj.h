@@ -31,12 +31,12 @@ extern "C" {
 struct pddl_obj {
     char *name;       /*!< Name of the object */
     int type;         /*!< Type of the object */
-    int is_constant;  /*!< True if it is constant (defined in domain) */
-    int is_private;   /*!< True if the object is private to an agent */
+    pddl_bool_t is_constant; /*!< True if it is constant (defined in domain) */
+    pddl_bool_t is_private; /*!< True if the object is private to an agent */
     pddl_obj_id_t owner; /*!< ID of the object corresponding to an agent in
                               unfactored privacy model or PDDL_OBJ_ID_UNDEF */
-    int is_agent;     /*!< True if the object correspondnds to an agent in
-                           unfactored privacy model */
+    pddl_bool_t is_agent; /*!< True if the object correspondnds to an agent in
+                               unfactored privacy model */
 };
 typedef struct pddl_obj pddl_obj_t;
 

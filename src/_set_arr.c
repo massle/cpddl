@@ -28,22 +28,22 @@ void pddlSetFree(pddl_set_t *s)
         FREE(s->s);
 }
 
-int pddlSetHas(const pddl_set_t *s, TYPE v)
+pddl_bool_t pddlSetHas(const pddl_set_t *s, TYPE v)
 {
     // TODO: binary search
     for (int i = 0; i < s->size; ++i){
         if (s->s[i] == v)
-            return 1;
+            return pddl_true;
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2)
+pddl_bool_t pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2)
 {
     int i, j, size;
 
     if (s1->size > s2->size)
-        return 0;
+        return pddl_false;
 
     size = s1->size;
     for (i = j = 0; i < size && j < s2->size;){
@@ -51,7 +51,7 @@ int pddlSetIsSubset(const pddl_set_t *s1, const pddl_set_t *s2)
             ++i;
             ++j;
         }else if (s1->s[i] < s2->s[j]){
-            return 0;
+            return pddl_false;
         }else{
             ++j;
         }
@@ -79,20 +79,21 @@ int pddlSetIntersectionSize(const pddl_set_t *s1, const pddl_set_t *s2)
     return setsize;
 }
 
-int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
-                                   int limit)
+pddl_bool_t pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1,
+                                           const pddl_set_t *s2,
+                                           int limit)
 {
     int i, j, size, setsize;
 
     if (limit == 0)
-        return 1;
+        return pddl_true;
 
     setsize = 0;
     size = s1->size;
     for (i = j = 0; i < size && j < s2->size;){
         if (s1->s[i] == s2->s[j]){
             if (++setsize == limit)
-                return 1;
+                return pddl_true;
             ++i;
             ++j;
         }else if (s1->s[i] < s2->s[j]){
@@ -101,24 +102,24 @@ int pddlSetIntersectionSizeAtLeast(const pddl_set_t *s1, const pddl_set_t *s2,
             ++j;
         }
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
-                                    const pddl_set_t *s2,
-                                    const pddl_set_t *s3,
-                                    int limit)
+pddl_bool_t pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
+                                            const pddl_set_t *s2,
+                                            const pddl_set_t *s3,
+                                            int limit)
 {
     int i, j, k, setsize;
 
     if (limit == 0)
-        return 1;
+        return pddl_true;
 
     setsize = 0;
     for (i = j = k = 0; i < s1->size && j < s2->size && k < s3->size;){
         if (s1->s[i] == s2->s[j] && s1->s[i] == s3->s[k]){
             if (++setsize == limit)
-                return 1;
+                return pddl_true;
             ++i;
             ++j;
             ++k;
@@ -130,7 +131,7 @@ int pddlSetIntersectionSizeAtLeast3(const pddl_set_t *s1,
             ++k;
         }
     }
-    return 0;
+    return pddl_false;
 }
 
 void pddlSetSet(pddl_set_t *d, const pddl_set_t *s)

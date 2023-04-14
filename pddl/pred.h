@@ -33,17 +33,17 @@ struct pddl_pred {
     char *name;       /*!< Name of the predicate */
     int *param;       /*!< IDs of types of parameters */
     int param_size;   /*!< Number of parameters */
-    int is_private;   /*!< True if the predicate is private */
+    pddl_bool_t is_private; /*!< True if the predicate is private */
     int owner_param;  /*!< Index of the parameter that corresponds to the
                            owner object */
-    int read;         /*!< True if the predicate appears in some precondition */
-    int write;        /*!< True if the predicate appreas in some effect */
-    int in_init;      /*!< True if the predicate appear in the initial state */
+    pddl_bool_t read; /*!< True if the predicate appears in some precondition */
+    pddl_bool_t write; /*!< True if the predicate appreas in some effect */
+    pddl_bool_t in_init; /*!< True if the predicate appear in the initial state */
     int neg_of;       /*!< ID of the predicate this predicate is negation of */
 };
 typedef struct pddl_pred pddl_pred_t;
 
-_pddl_inline int pddlPredIsStatic(const pddl_pred_t *pred);
+_pddl_inline pddl_bool_t pddlPredIsStatic(const pddl_pred_t *pred);
 
 
 struct pddl_preds {
@@ -118,7 +118,7 @@ void pddlFuncsPrintPDDL(const pddl_preds_t *ps,
 
 
 /**** INLINES: ****/
-_pddl_inline int pddlPredIsStatic(const pddl_pred_t *pred)
+_pddl_inline pddl_bool_t pddlPredIsStatic(const pddl_pred_t *pred)
 {
     return !pred->write;
 }

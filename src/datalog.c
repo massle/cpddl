@@ -946,22 +946,22 @@ static int cmpRuleIds(const void *a, const void *b, void *_d)
 }
 
 /** Returns true if rule1 and rule2 can be merged */
-static int canMerge(pddl_datalog_t *dl,
-                    const pddl_datalog_rule_t *rule1,
-                    const pddl_datalog_rule_t *rule2,
-                    const int *pred_num_achievers)
+static pddl_bool_t canMerge(pddl_datalog_t *dl,
+                            const pddl_datalog_rule_t *rule1,
+                            const pddl_datalog_rule_t *rule2,
+                            const int *pred_num_achievers)
 {
     if (pred_num_achievers[rule1->head.pred] != 1)
-        return 0;
+        return pddl_false;
     if (pred_num_achievers[rule2->head.pred] != 1)
-        return 0;
+        return pddl_false;
     if (dl->pred[rule1->head.pred].arity != dl->pred[rule2->head.pred].arity)
-        return 0;
+        return pddl_false;
     if (pddlDatalogAtomCmpArgs(dl, &rule1->head, &rule2->head) != 0)
-        return 0;
+        return pddl_false;
     if (pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2) != 0)
-        return 0;
-    return 1;
+        return pddl_false;
+    return pddl_true;
 }
 
 static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
@@ -1034,13 +1034,13 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
     return 0;
 }
 
-int pddlDatalogIsSafe(const pddl_datalog_t *dl)
+pddl_bool_t pddlDatalogIsSafe(const pddl_datalog_t *dl)
 {
     for (int i = 0; i < dl->rule_size; ++i){
         if (!pddlDatalogRuleIsSafe(dl, dl->rule + i))
-            return 0;
+            return pddl_false;
     }
-    return 1;
+    return pddl_true;
 }
 
 int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
@@ -1712,8 +1712,8 @@ void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
     rule->weight = *weight;
 }
 
-int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
-                          const pddl_datalog_rule_t *rule)
+pddl_bool_t pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
+                                  const pddl_datalog_rule_t *rule)
 {
     PDDL_ISET(body_vars);
     for (int i = 0; i < rule->body_size; ++i){
@@ -1727,12 +1727,12 @@ int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
     for (int j = 0; j < arity; ++j){
         if (IS_VAR(rule->head.arg[j])){
             if (!pddlISetIn(TO_IDX(rule->head.arg[j]), &body_vars))
-                return 0;
+                return pddl_false;
         }
     }
     pddlISetFree(&body_vars);
 
-    return 1;
+    return pddl_true;
 }
 
 

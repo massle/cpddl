@@ -39,7 +39,7 @@ struct pddl_fact {
     pddl_list_t htable;
 
     char *name; /*!< Name of the fact */
-    int is_private; /*!< True if the fact is private */
+    pddl_bool_t is_private; /*!< True if the fact is private */
     int neg_of; /*!< ID of the fact this fact is negation of, or -1 */
     pddl_ground_atom_t *ground_atom; /*!< If the fact was created from a
                                           grounded atom, its copy is stored

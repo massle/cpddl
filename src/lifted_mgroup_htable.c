@@ -36,7 +36,7 @@ static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
 
     bufsize = m->param.param_size * 2;
     for (int i = 0; i < m->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(m->cond.fm[i]);
         bufsize += 1 + a->arg_size;
     }
 
@@ -49,7 +49,7 @@ static pddl_htable_key_t mgroupHash(const pddl_lifted_mgroup_t *m)
 
     int ins = 2 * m->param.param_size;
     for (int i = 0; i < m->cond.size; ++i){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(m->cond.fm[i], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(m->cond.fm[i]);
         buf[ins++] = a->pred;
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0){

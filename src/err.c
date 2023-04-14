@@ -361,11 +361,8 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
         const char *s;
         switch (ch){
             case 'b':
-                if (is_long){
-                    bval = va_arg(va, long);
-                }else{
-                    bval = va_arg(va, int);
-                }
+                PANIC_IF(is_long, "%lb is not supported");
+                bval = va_arg(va, pddl_bool_promote_type_t);
                 if (bval){
                     logInfo(err, "true", 4);
                 }else{

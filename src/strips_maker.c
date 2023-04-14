@@ -251,7 +251,7 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type == PDDL_FM_ATOM){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(sm, a, NULL, NULL);
             }else{
@@ -261,7 +261,7 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
             //sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
 
         }else if (c->type == PDDL_FM_ASSIGN){
-            const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
+            const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
             ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
@@ -329,7 +329,7 @@ static int createInitState(pddl_strips_maker_t *sm,
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type == PDDL_FM_ATOM){
-            a = PDDL_FM_CAST(c, atom);
+            a = pddlFmToAtomConst(c);
             ga = pddlGroundAtomsFindAtom(&sm->ground_atom, a, NULL);
             if (ga != NULL){
                 pddlISetAdd(&strips->init, ground_atom_to_fact_id[ga->id]);
@@ -365,7 +365,7 @@ static int _createGoal(pddl_fm_t *c, void *_g)
     pddl_err_t *err = ggoal->err;
 
     if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (!pddlFmAtomIsGrounded(atom))
             PDDL_ERR_RET(err, -1, "Goal specification cannot contain"
                           " parametrized atoms.");
@@ -391,7 +391,7 @@ static int _createGoal(pddl_fm_t *c, void *_g)
         return 0;
 
     }else if (c->type == PDDL_FM_BOOL){
-        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
+        const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         if (!b->val)
             strips->goal_is_unreachable = 1;
         return 0;
@@ -476,7 +476,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
     action_ctx_t *ctx = ud;
 
     if (c->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         if (a->pred == ctx->pddl->pred.eq_pred){
             int p1 = atomArg(a, 0, ctx->args);
             int p2 = atomArg(a, 1, ctx->args);
@@ -555,7 +555,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
     action_ctx_t *ctx = ud;
 
     if (c->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         pddl_ground_atom_t *ga;
         ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_atom, a, ctx->args);
         ASSERT(ga != NULL || a->neg);
@@ -583,7 +583,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
                           "Costs in conditional effects are not supported.");
         }
 
-        pddl_fm_func_op_t *inc = PDDL_FM_CAST(c, func_op);
+        pddl_fm_func_op_t *inc = pddlFmToFuncOp(c);
         if (inc->fvalue != NULL){
             pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_func,
@@ -613,7 +613,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
         return 0;
 
     }else if (c->type == PDDL_FM_WHEN){
-        pddl_fm_when_t *w = PDDL_FM_CAST(c, when);
+        pddl_fm_when_t *w = pddlFmToWhen(c);
         if (actionCondEff(ctx, w->pre, w->eff) != 0){
             ctx->failed = 1;
             return -2;

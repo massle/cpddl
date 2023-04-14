@@ -123,7 +123,7 @@ static int coverAtomWithMGroup(int *counted,
 
     for (int ci = 0; ci < mgroup->cond.size; ++ci){
         const pddl_fm_t *mc = mgroup->cond.fm[ci];
-        const pddl_fm_atom_t *ma = PDDL_FM_CAST(mc, atom);
+        const pddl_fm_atom_t *ma = pddlFmToAtomConst(mc);
         if (ma->pred != atom->pred)
             continue;
 
@@ -223,7 +223,7 @@ static void analyzeActionAtom(
         return;
 
     pddl_fm_t *pos_c = pddlFmClone(&eff_atom->fm);
-    pddl_fm_atom_t *pos_a = PDDL_FM_CAST(pos_c, atom);
+    pddl_fm_atom_t *pos_a = pddlFmToAtom(pos_c);
     pos_a->neg = 0;
     if (hasAtom(act_pre, pos_a)){
         coverAtomWithMGroups(end, pddl, act_param, eff_atom, lifted_mgroups);
@@ -246,11 +246,11 @@ static int fixConstants(pddl_fm_t *c, void *_end)
 {
     lifted_endomorphism_t *end = (lifted_endomorphism_t *)_end;
     if (c->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         fixAtomConstants(a, end);
 
     }else if (c->type == PDDL_FM_ASSIGN){
-        pddl_fm_func_op_t *a = PDDL_FM_CAST(c, func_op);
+        pddl_fm_func_op_t *a = pddlFmToFuncOp(c);
         if (a->lvalue != NULL)
             fixAtomConstants(a->lvalue, end);
         if (a->fvalue != NULL)
@@ -273,7 +273,7 @@ static void liftedEndomorphismAnalyzeAction(
     pddlFmTraverse((pddl_fm_t *)act_pre, NULL, fixConstants, end);
     pddlFmTraverse((pddl_fm_t *)act_eff, NULL, fixConstants, end);
     if (act_eff->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(act_eff, atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(act_eff);
         analyzeActionAtom(end, pddl, act_param, act_pre, a,
                           lifted_mgroups, cfg, err);
         return;
@@ -285,7 +285,7 @@ static void liftedEndomorphismAnalyzeAction(
     PDDL_LIST_FOR_EACH(&cand->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
         if (c->type == PDDL_FM_ATOM){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             analyzeActionAtom(end, pddl, act_param, act_pre, a,
                               lifted_mgroups, cfg, err);
 
@@ -294,7 +294,7 @@ static void liftedEndomorphismAnalyzeAction(
             // the initial state
 
         }else if (c->type == PDDL_FM_WHEN){
-            const pddl_fm_when_t *w = PDDL_FM_CAST(c, when);
+            const pddl_fm_when_t *w = pddlFmToWhenConst(c);
             liftedEndomorphismAnalyzeAction(end, pddl, act_param,
                                             w->pre, w->eff, lifted_mgroups,
                                             cfg, err);
@@ -310,7 +310,7 @@ static int _liftedEndomorphismFixGoal(pddl_fm_t *c, void *u)
 {
     lifted_endomorphism_t *end = (lifted_endomorphism_t *)u;
     if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         for (int i = 0; i < atom->arg_size; ++i){
             ASSERT(atom->arg[i].obj >= 0);
             end->obj_is_fixed[atom->arg[i].obj] = 1;
@@ -453,7 +453,7 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
 {
     pred_obj_tuples_t *tup = (pred_obj_tuples_t *)u;
     if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         int pred_id = atom->pred;
         pred_obj_tuple_t *tuple = tup->tuple + pred_id;
         ASSERT(atom->arg_size == tuple->size);
@@ -464,7 +464,7 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
         }
 
     }else if (c->type != PDDL_FM_AND){
-        const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
+        const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
         ASSERT(ass->fvalue == NULL);
         ASSERT(ass->lvalue != NULL);
         ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
@@ -740,7 +740,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
 
     for (int condi = 0; condi < mgroup->cond.size; ++condi){
         const pddl_fm_t *c = mgroup->cond.fm[condi];
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].obj >= 0){
                 if (obj_st[a->arg[argi].obj] > 0){

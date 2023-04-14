@@ -36,10 +36,10 @@ extern "C" {
 struct pddl_hflow_fact {
     // Precomputed data that does not ever change:
     int var;                /*!< Variable ID */
-    int is_mutex_with_goal; /*!< True if the fact is mutex with the goal */
-    int is_goal;            /*!< True if the fact is in goal */
-    int is_goal_var;        /*!< True if it is one value of a goal variable */
-    int cause_incomplete_op;/*!< True if the fact causes incompleteness of
+    pddl_bool_t is_mutex_with_goal; /*!< True if the fact is mutex with the goal */
+    pddl_bool_t is_goal;            /*!< True if the fact is in goal */
+    pddl_bool_t is_goal_var;        /*!< True if it is one value of a goal variable */
+    pddl_bool_t cause_incomplete_op;/*!< True if the fact causes incompleteness of
                                  an operator */
     int *constr_idx;        /*!< Index of the constraint variable */
     double *constr_coef;    /*!< Coeficient of the constraint variable */
@@ -47,7 +47,7 @@ struct pddl_hflow_fact {
 
     // These values must be changed according to the state for which is
     // computed heuristic value:
-    int is_init;            /*!< True if the fact is in initial state */
+    pddl_bool_t is_init;            /*!< True if the fact is in initial state */
     double lower_bound;     /*!< Lower bound on constraint */
     double upper_bound;     /*!< Upper bound on constraint */
 };
@@ -59,7 +59,7 @@ typedef struct pddl_hflow_fact pddl_hflow_fact_t;
 struct pddl_hflow {
     const pddl_fdr_t *fdr;
     const pddl_fdr_vars_t *vars;
-    int use_ilp; /*!< True if ILP instead of LP should be used */
+    pddl_bool_t use_ilp; /*!< True if ILP instead of LP should be used */
     pddl_hflow_fact_t *facts; /*!< Array of fact related structures */
     pddl_lp_t *lp; /*!< (I)LP solver */
 };

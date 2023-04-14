@@ -15,16 +15,16 @@ extern "C" {
 
 struct pddl_compile_in_lmg_config {
     /** If true, mutexes are pruned */
-    int prune_mutex;
+    pddl_bool_t prune_mutex;
     /** If true, dead-ends are pruned */
-    int prune_dead_end;
+    pddl_bool_t prune_dead_end;
 };
 typedef struct pddl_compile_in_lmg_config pddl_compile_in_lmg_config_t;
 
 #define PDDL_COMPILE_IN_LMG_CONFIG_INIT \
     { \
-        0, /* .prune_mutex */ \
-        1, /* .prune_dead_end */ \
+        pddl_false, /* .prune_mutex */ \
+        pddl_true, /* .prune_dead_end */ \
     }
 
 

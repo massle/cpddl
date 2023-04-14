@@ -189,7 +189,7 @@ static int setParamToObj(pddl_fm_t *cond, void *ud)
     struct propagate_eq *ctx = ud;
 
     if (cond->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *atom = PDDL_FM_CAST(cond, atom);
+        pddl_fm_atom_t *atom = pddlFmToAtom(cond);
         if (atom == ctx->eq_atom)
             return 0;
 
@@ -209,7 +209,7 @@ static int _propagateEquality(pddl_fm_t *c, void *ud)
     struct propagate_eq *ctx = ud;
 
     if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (atom->pred == ctx->eq_pred && !atom->neg){
             if (atom->arg[0].param >= 0 && atom->arg[1].obj >= 0){
                 ctx->eq_atom = atom;
@@ -246,7 +246,7 @@ void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl)
     a->pre = pddlFmNormalize(a->pre, pddl, &a->param);
     a->eff = pddlFmNormalize(a->eff, pddl, &a->param);
 
-    if (a->pre->type == PDDL_FM_BOOL && PDDL_FM_CAST(a->pre, bool)->val){
+    if (a->pre->type == PDDL_FM_BOOL && pddlFmToBool(a->pre)->val){
         pddlFmDel(a->pre);
         a->pre = pddlFmNewEmptyAnd();
     }

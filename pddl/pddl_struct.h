@@ -36,29 +36,29 @@ extern "C" {
 
 struct pddl_config {
     /** Force ADL to requirements */
-    int force_adl;
+    pddl_bool_t force_adl;
     /** Normalize the task right after parsing */
-    int normalize;
+    pddl_bool_t normalize;
     /** Remove types without any objects */
-    int remove_empty_types;
+    pddl_bool_t remove_empty_types;
     /** Compile away conditional effects */
-    int compile_away_cond_eff;
+    pddl_bool_t compile_away_cond_eff;
     /** Enforce the task to have unit-cost actions */
-    int enforce_unit_cost;
+    pddl_bool_t enforce_unit_cost;
     /** If set to true all actions should be kept in the task even after
      *  normalization */
-    int keep_all_actions;
+    pddl_bool_t keep_all_actions;
 };
 typedef struct pddl_config pddl_config_t;
 
 #define PDDL_CONFIG_INIT \
     { \
-        1, /* .force_adl */ \
-        1, /* .normalize */ \
-        1, /* .remove_empty_types */ \
-        0, /* .compile_away_cond_eff */ \
-        0, /* .enforce_unit_cost */ \
-        0, /* .keep_all_actions */ \
+        pddl_true, /* .force_adl */ \
+        pddl_true, /* .normalize */ \
+        pddl_true, /* .remove_empty_types */ \
+        pddl_false, /* .compile_away_cond_eff */ \
+        pddl_false, /* .enforce_unit_cost */ \
+        pddl_false, /* .keep_all_actions */ \
     }
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err);
@@ -67,7 +67,7 @@ struct pddl {
     /** Configuration */
     pddl_config_t cfg;
     /** True if the pddl struct was built only from the domain file */
-    int only_domain;
+    pddl_bool_t only_domain;
     /** Underlying lisp of the domain file */
     pddl_lisp_t *domain_lisp;
     /** Underlying lisp of the problem file, is NULL iff .only_domain is true */
@@ -93,9 +93,9 @@ struct pddl {
     /** List of actions */
     pddl_actions_t action;
     /** True if metric is defined in the problem file (i.e., (minimize ...)) */
-    int metric;
+    pddl_bool_t metric;
     /** True if the task was normalized */
-    int normalized;
+    pddl_bool_t normalized;
 };
 
 /**

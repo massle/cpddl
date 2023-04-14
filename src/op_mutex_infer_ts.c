@@ -383,7 +383,7 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  const pddl_mutex_pairs_t *mutex,
                                  int merge_size,
                                  size_t max_mem_in_mb,
-                                 int prune_dead_labels,
+                                 pddl_bool_t prune_dead_labels,
                                  pddl_err_t *err)
 {
     CTX(err, "OPM");

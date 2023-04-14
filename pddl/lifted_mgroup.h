@@ -31,8 +31,8 @@ extern "C" {
 struct pddl_lifted_mgroup {
     pddl_params_t param;
     pddl_fm_arr_t cond;
-    int is_exactly_one;
-    int is_static;
+    pddl_bool_t is_exactly_one;
+    pddl_bool_t is_static;
 };
 typedef struct pddl_lifted_mgroup pddl_lifted_mgroup_t;
 
@@ -73,8 +73,8 @@ void pddlLiftedMGroupFree(pddl_lifted_mgroup_t *mgroup);
 /**
  * Returns true if m1 equals to m2.
  */
-int pddlLiftedMGroupEq(const pddl_lifted_mgroup_t *m1,
-                       const pddl_lifted_mgroup_t *m2);
+pddl_bool_t pddlLiftedMGroupEq(const pddl_lifted_mgroup_t *m1,
+                               const pddl_lifted_mgroup_t *m2);
 
 /**
  * Sort mutex group's atoms and parameters.
@@ -157,8 +157,8 @@ void pddlLiftedMGroupsSortAndUniq(pddl_lifted_mgroups_t *lm);
  * Returns true if the two sets of lifted mutex groups are the same.
  * It is assumed both lmg1 and lmg2 are sorted!
  */
-int pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
-                        const pddl_lifted_mgroups_t *lmg2);
+pddl_bool_t pddlLiftedMGroupsEq(const pddl_lifted_mgroups_t *lmg1,
+                                const pddl_lifted_mgroups_t *lmg2);
 
 /**
  * Extend each mutex group with a copy of itself but with fresh counted

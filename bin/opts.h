@@ -3,7 +3,7 @@
 
 #include <pddl/pddl.h>
 
-typedef void (*opts_params_flag_fn)(int value, void *dst);
+typedef void (*opts_params_flag_fn)(pddl_bool_t value, void *dst);
 typedef void (*opts_params_int_fn)(int value, void *dst);
 typedef void (*opts_params_flt_fn)(float value, void *dst);
 
@@ -38,13 +38,13 @@ void optsStartGroup(const char *header);
 
 void optsAddFlag(const char *long_name,
                  char short_name,
-                 int *set,
-                 int default_value,
+                 pddl_bool_t *set,
+                 pddl_bool_t default_value,
                  const char *desc);
 
 void optsAddFlagFn(const char *long_name,
                    char short_name,
-                   int (*fn)(int enabled),
+                   int (*fn)(pddl_bool_t enabled),
                    const char *desc);
 
 void optsAddFlagFn2(const char *long_name,
@@ -112,7 +112,7 @@ void optsParamsInit(opts_params_t *params);
 void optsParamsFree(opts_params_t *params);
 void optsParamsAddInt(opts_params_t *params, const char *name, int *dst);
 void optsParamsAddFlt(opts_params_t *params, const char *name, float *dst);
-void optsParamsAddFlag(opts_params_t *params, const char *name, int *dst);
+void optsParamsAddFlag(opts_params_t *params, const char *name, pddl_bool_t *dst);
 void optsParamsAddStr(opts_params_t *params, const char *name, char **dst);
 void optsParamsAddIntFn(opts_params_t *params, const char *name, void *dst,
                         opts_params_int_fn fn);

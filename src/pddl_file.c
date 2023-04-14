@@ -24,26 +24,26 @@
 #define MAX_LEN 512
 #define BUFSIZE 1024
 
-int pddlIsDir(const char *d)
+pddl_bool_t pddlIsDir(const char *d)
 {
     struct stat st;
     if (stat(d, &st) == -1)
-        return 0;
+        return pddl_false;
 
     if (S_ISDIR(st.st_mode))
-        return 1;
-    return 0;
+        return pddl_true;
+    return pddl_false;
 }
 
-int pddlIsFile(const char *d)
+pddl_bool_t pddlIsFile(const char *d)
 {
     struct stat st;
     if (stat(d, &st) == -1)
-        return 0;
+        return pddl_false;
 
     if (S_ISREG(st.st_mode))
-        return 1;
-    return 0;
+        return pddl_true;
+    return pddl_false;
 }
 
 char *pddlDirname(const char *fn)

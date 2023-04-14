@@ -78,7 +78,7 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
                        const pddl_fdr_part_state_t *goal,
                        int *var_ordering);
 
-int pddlCGIsAcyclic(const pddl_cg_t *cg);
+pddl_bool_t pddlCGIsAcyclic(const pddl_cg_t *cg);
 
 
 void pddlCGPrintDebug(const pddl_cg_t *cg, FILE *fout);

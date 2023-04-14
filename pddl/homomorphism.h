@@ -34,27 +34,27 @@ extern "C" {
 #define PDDL_HOMOMORPHISM_RPG            5
 struct pddl_homomorphism_config {
     int type;
-    int use_endomorphism; /*!< If true, interleave collapsing with lifted
-                               endomorphisms */
+    pddl_bool_t use_endomorphism; /*!< If true, interleave collapsing with
+                                       lifted endomorphisms */
     pddl_endomorphism_config_t endomorphism_cfg;
     pddl_iset_t collapse_types; /*!< Set of types to collapse each to a
                                     single object */
     float rm_ratio; /*!< Ratio of objects that should be removed
                          -- for *_RAND_* types */
     uint32_t random_seed;
-    int keep_goal_objs;
+    pddl_bool_t keep_goal_objs;
     int rpg_max_depth;
 };
 typedef struct pddl_homomorphism_config pddl_homomorphism_config_t;
 
 #define PDDL_HOMOMORPHISM_CONFIG_INIT { \
         PDDL_HOMOMORPHISM_RAND_OBJS, /* .type */ \
-        0, /* .use_endomorphism */ \
+        pddl_false, /* .use_endomorphism */ \
         PDDL_ENDOMORPHISM_CONFIG_INIT, /* .endomorphism_cfg */ \
         PDDL_ISET_INIT, /*. collapse_types */ \
         0.5, /* .rm_ratio */ \
         6899, /* .random_seed */ \
-        1, /* .keep_goal_objs */ \
+        pddl_true, /* .keep_goal_objs */ \
         2, /* .rpg_max_depth */ \
     }
 

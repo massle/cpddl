@@ -61,40 +61,40 @@ enum {
 };
 
 struct options {
-    int help;
-    int version;
+    pddl_bool_t help;
+    pddl_bool_t version;
     int max_mem;
     char *log_out;
     char *prop_out;
     pddl_files_t files;
 
     struct {
-        int force_adl;
-        int remove_empty_types;
-        int compile_away_cond_eff;
-        int compile_in_lmg;
-        int compile_in_lmg_mutex;
-        int compile_in_lmg_dead_end;
-        int enforce_unit_cost;
+        pddl_bool_t force_adl;
+        pddl_bool_t remove_empty_types;
+        pddl_bool_t compile_away_cond_eff;
+        pddl_bool_t compile_in_lmg;
+        pddl_bool_t compile_in_lmg_mutex;
+        pddl_bool_t compile_in_lmg_dead_end;
+        pddl_bool_t enforce_unit_cost;
         char *domain_out;
         char *problem_out;
-        int stop;
+        pddl_bool_t stop;
     } pddl;
 
     struct {
         int max_candidates;
         int max_mgroups;
-        int fd;
-        int fd_monotonicity;
-        int enable;
+        pddl_bool_t fd;
+        pddl_bool_t fd_monotonicity;
+        pddl_bool_t enable;
         char *out;
         char *fd_monotonicity_out;
-        int stop;
+        pddl_bool_t stop;
     } lmg;
 
     struct {
-        int enable;
-        int ignore_costs;
+        pddl_bool_t enable;
+        pddl_bool_t ignore_costs;
     } lifted_endomorph;
 
     struct {
@@ -111,34 +111,34 @@ struct options {
         pddl_ground_config_t cfg;
         int method;
 
-        int mgroup;
-        int mgroup_remove_subsets;
+        pddl_bool_t mgroup;
+        pddl_bool_t mgroup_remove_subsets;
         char *mgroup_out;
     } ground;
 
     struct {
-        int compile_away_cond_eff;
+        pddl_bool_t compile_away_cond_eff;
         pddl_process_strips_t process;
         char *py_out;
         char *fam_dump;
         char *h2_dump;
         char *h3_dump;
-        int stop;
+        pddl_bool_t stop;
     } strips;
 
     struct {
         int method;
-        int fam_lmg;
-        int fam_maximal;
+        pddl_bool_t fam_lmg;
+        pddl_bool_t fam_maximal;
         float fam_time_limit;
         int fam_limit;
-        int remove_subsets;
-        int cover_number;
+        pddl_bool_t remove_subsets;
+        pddl_bool_t cover_number;
         char *out;
     } mg;
 
     struct {
-        int enable;
+        pddl_bool_t enable;
         pddl_red_black_fdr_config_t cfg;
         char *out;
     } rb_fdr;
@@ -146,14 +146,14 @@ struct options {
     struct {
         unsigned flag;
         unsigned var_flag;
-        int order_vars_cg;
+        pddl_bool_t order_vars_cg;
         char *out;
-        int pretty_print_vars;
-        int pretty_print_cg;
-        int pot;
+        pddl_bool_t pretty_print_vars;
+        pddl_bool_t pretty_print_cg;
+        pddl_bool_t pot;
         pddl_hpot_config_t pot_cfg;
-        int to_tnf;
-        int to_tnf_multiply;
+        pddl_bool_t to_tnf;
+        pddl_bool_t to_tnf_multiply;
     } fdr;
 
     struct {
@@ -170,24 +170,24 @@ struct options {
     struct {
         int search;
         pddl_symbolic_task_config_t cfg;
-        int bw_off_if_constr_failed;
+        pddl_bool_t bw_off_if_constr_failed;
         char *out;
     } symba;
 
     struct {
-        int lmg;
-        int reversibility_simple;
-        int reversibility_iterative;
-        int mgroups;
+        pddl_bool_t lmg;
+        pddl_bool_t reversibility_simple;
+        pddl_bool_t reversibility_iterative;
+        pddl_bool_t mgroups;
     } report;
 
     struct {
         int max_depth;
-        int use_mutex;
+        pddl_bool_t use_mutex;
     } reversibility;
 
     struct {
-        int enable;
+        pddl_bool_t enable;
         char *out_task;
         char *out_fdr;
     } asnets;

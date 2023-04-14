@@ -213,7 +213,7 @@ static void buildPredTrees(pred_tree_t *tree,
 {
     ZEROIZE_ARR(tree, mg->cond.size);
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ci], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(mg->cond.fm[ci]);
         predTreeInit(tree + ci, mg, a);
     }
 
@@ -223,7 +223,7 @@ static void buildPredTrees(pred_tree_t *tree,
             continue;
         const pddl_ground_atom_t *ga = fact->ground_atom;
         for (int ci = 0; ci < mg->cond.size; ++ci){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ci], atom);
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(mg->cond.fm[ci]);
             if (a->pred == ga->pred && checkFact(&pddl->type, ga, mg, a))
                 predTreeAdd(&tree[ci], fact);
         }

@@ -117,7 +117,7 @@ static void logConfig(const pddl_symbolic_task_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_ULONG(cfg, constr_max_nodes, err);
     LOG_CONFIG_DBL(cfg, constr_max_time, err);
     LOG_CONFIG_DBL(cfg, goal_constr_max_time, err);
-    LOG_CONFIG_BOOL(cfg, fam_groups, err);
+    LOG_CONFIG_INT(cfg, fam_groups, err);
     LOG_CONFIG_BOOL(cfg, log_every_step, err);
 
     CTX_NO_TIME(err, "fw");

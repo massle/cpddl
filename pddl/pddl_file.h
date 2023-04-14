@@ -41,8 +41,8 @@ int pddlFiles(pddl_files_t *files, const char *s1, const char *s2,
               pddl_err_t *err);
 int pddlFilesFindOptimalCost(pddl_files_t *files, pddl_err_t *err);
 
-int pddlIsFile(const char *);
-int pddlIsDir(const char *);
+pddl_bool_t pddlIsFile(const char *);
+pddl_bool_t pddlIsDir(const char *);
 char *pddlDirname(const char *fn);
 char **pddlListDir(const char *dname, int *list_size, pddl_err_t *err);
 char **pddlListDirPDDLFiles(const char *dname, int *list_size, pddl_err_t *err);
