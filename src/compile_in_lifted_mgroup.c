@@ -95,7 +95,7 @@ static pddl_fm_t *actionCondsMerge(const action_conds_t *acs,
         out = pddlFmSimplify(out, pddl, param);
         out = pddlFmNormalize(out, pddl, param);
         out = pddlFmSimplify(out, pddl, param);
-        if (out->type != PDDL_FM_AND){
+        if (!pddlFmIsAnd(out)){
             pddl_fm_t *n = pddlFmNewEmptyAnd();
             pddlFmJuncAdd(pddlFmToJunc(n), out);
             out = n;

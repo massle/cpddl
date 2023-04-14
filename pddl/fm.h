@@ -173,23 +173,57 @@ typedef struct pddl_fm_imply pddl_fm_imply_t;
 /**
  * Casting functions
  */
+pddl_bool_t pddlFmIsJunc(const pddl_fm_t *c);
 pddl_fm_junc_t *pddlFmToJunc(pddl_fm_t *c);
 const pddl_fm_junc_t *pddlFmToJuncConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsAnd(const pddl_fm_t *c);
 pddl_fm_and_t *pddlFmToAnd(pddl_fm_t *c);
 const pddl_fm_and_t *pddlFmToAndConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsOr(const pddl_fm_t *c);
 pddl_fm_or_t *pddlFmToOr(pddl_fm_t *c);
 const pddl_fm_or_t *pddlFmToOrConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsBool(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsTrue(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsFalse(const pddl_fm_t *c);
 pddl_fm_bool_t *pddlFmToBool(pddl_fm_t *c);
 const pddl_fm_bool_t *pddlFmToBoolConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsAtom(const pddl_fm_t *c);
 pddl_fm_atom_t *pddlFmToAtom(pddl_fm_t *c);
 const pddl_fm_atom_t *pddlFmToAtomConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsWhen(const pddl_fm_t *c);
 pddl_fm_when_t *pddlFmToWhen(pddl_fm_t *c);
 const pddl_fm_when_t *pddlFmToWhenConst(const pddl_fm_t *c);
-const pddl_fm_increase_t *pddlFmToIncreaseConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsFuncOp(const pddl_fm_t *c);
 pddl_fm_func_op_t *pddlFmToFuncOp(pddl_fm_t *c);
 const pddl_fm_func_op_t *pddlFmToFuncOpConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsIncrease(const pddl_fm_t *c);
+pddl_fm_increase_t *pddlFmToIncrease(pddl_fm_t *c);
+const pddl_fm_increase_t *pddlFmToIncreaseConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsAssign(const pddl_fm_t *c);
+pddl_fm_assign_t *pddlFmToAssign(pddl_fm_t *c);
+const pddl_fm_assign_t *pddlFmToAssignConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsQuant(const pddl_fm_t *c);
 pddl_fm_quant_t *pddlFmToQuant(pddl_fm_t *c);
 const pddl_fm_quant_t *pddlFmToQuantConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsForAll(const pddl_fm_t *c);
+pddl_fm_forall_t *pddlFmToForAll(pddl_fm_t *c);
+const pddl_fm_forall_t *pddlFmToForAllConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsExist(const pddl_fm_t *c);
+pddl_fm_exist_t *pddlFmToExist(pddl_fm_t *c);
+const pddl_fm_exist_t *pddlFmToExistConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsImply(const pddl_fm_t *c);
 pddl_fm_imply_t *pddlFmToImply(pddl_fm_t *c);
 const pddl_fm_imply_t *pddlFmToImplyConst(const pddl_fm_t *c);
 

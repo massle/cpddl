@@ -218,7 +218,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
     int num_del = 0;
     for (int ci = 0; ci < mg->cond.size; ++ci){
         pddl_fm_t *c = (pddl_fm_t *)mg->cond.fm[ci];
-        ASSERT(c->type == PDDL_FM_ATOM);
+        ASSERT(pddlFmIsAtom(c));
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         int has_counted = 0;
         for (int argi = 0; argi < a->arg_size; ++argi){
@@ -267,7 +267,7 @@ void pddlLiftedMGroupRemoveFixedAtoms(pddl_lifted_mgroup_t *mg)
     pddlParamsRemap(&mg->param, remap_param);
     for (int ci = 0; ci < mg->cond.size; ++ci){
         pddl_fm_t *c = (pddl_fm_t *)mg->cond.fm[ci];
-        ASSERT(c->type == PDDL_FM_ATOM);
+        ASSERT(pddlFmIsAtom(c));
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].param >= 0){

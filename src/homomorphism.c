@@ -60,7 +60,7 @@ struct fix_action {
 
 static int _removeAffectedNegativeAtoms(pddl_fm_t **c, void *_data)
 {
-    if ((*c)->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(*c)){
         const struct fix_action *data = _data;
         const pddl_param_t *params = data->action->param.param;
         pddl_fm_atom_t *atom = pddlFmToAtom(*c);
@@ -75,7 +75,7 @@ static int _removeAffectedNegativeAtoms(pddl_fm_t **c, void *_data)
             }
         }
 
-    }else if ((*c)->type == PDDL_FM_WHEN){
+    }else if (pddlFmIsWhen(*c)){
         pddl_fm_when_t *w = pddlFmToWhen(*c);
         if (w->pre == NULL)
             w->pre = &pddlFmNewBool(1)->fm;
@@ -121,7 +121,7 @@ static void fixActions(pddl_t *pddl,
 static int _collectGoalObjs(pddl_fm_t *c, void *_goal_objs)
 {
     pddl_iset_t *goal_objs = _goal_objs;
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         for (int i = 0; i < atom->arg_size; ++i){
             if (atom->arg[i].obj >= 0)
@@ -708,7 +708,7 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
     pddl_list_t *item = pddlListNext(&p->part);
     while (item != &p->part){
         pddl_fm_t *c1 = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c1->type != PDDL_FM_ASSIGN){
+        if (!pddlFmIsAssign(c1)){
             item = pddlListNext(item);
             continue;
         }
@@ -720,7 +720,7 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
         pddl_list_t *item2 = pddlListNext(item);
         while (item2 != &p->part){
             pddl_fm_t *c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
-            if (c2->type == PDDL_FM_ASSIGN){
+            if (pddlFmIsAssign(c2)){
                 pddl_fm_func_op_t *ass2 = pddlFmToFuncOp(c2);
                 ASSERT_RUNTIME(ass2->lvalue != NULL);
                 ASSERT_RUNTIME(ass2->fvalue == NULL);
@@ -747,7 +747,7 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
 
 static int _deduplicateCosts(pddl_fm_t **c, void *data)
 {
-    if ((*c)->type == PDDL_FM_AND || (*c)->type == PDDL_FM_OR)
+    if (pddlFmIsAnd(*c) || pddlFmIsOr(*c))
         _deduplicateCostsPart(pddlFmToJunc(*c));
     return 0;
 }
