@@ -697,7 +697,7 @@ static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
 
     PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
+        if (pddlFmIsAtom(c)){
             a = pddlFmToAtomConst(c);
             ga = pddlGroundAtomsFindAtom(&g->facts, a, NULL);
             if (ga != NULL)
@@ -720,7 +720,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
     pddl_strips_ground_t *g = ggoal->g;
     pddl_strips_t *strips = ggoal->strips;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         if (!pddlFmAtomIsGrounded(atom))
             PDDL_ERR_RET(g->err, -1, "Goal specification cannot contain"
@@ -743,10 +743,10 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
 
-    }else if (c->type == PDDL_FM_BOOL){
+    }else if (pddlFmIsBool(c)){
         const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         if (!b->val)
             strips->goal_is_unreachable = 1;
@@ -763,7 +763,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
 static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
 {
     struct ground_goal ggoal = { g, strips, 0 };
-    if (g->pddl->goal->type == PDDL_FM_OR){
+    if (pddlFmIsOr(g->pddl->goal)){
         PDDL_ERR_RET(g->err, -1, "Only conjuctive goal specifications"
                      " are supported. This goal is a disjunction.");
     }
@@ -784,7 +784,7 @@ static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
 
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
+        if (pddlFmIsAtom(c)){
             a = pddlFmToAtomConst(c);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 ASSERT(pddlFmAtomIsGrounded(a));
@@ -793,7 +793,7 @@ static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
                 ASSERT(pddlFmAtomIsGrounded(a));
                 groundAtomsAddFact(g, a, NULL);
             }
-        }else if (c->type == PDDL_FM_ASSIGN){
+        }else if (pddlFmIsAssign(c)){
             ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);

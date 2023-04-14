@@ -384,7 +384,7 @@ static int markNegPre(pddl_fm_t *c, void *_m)
 {
     int *m = _m;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (atom->neg)
             m[atom->pred] = 1;
@@ -395,7 +395,7 @@ static int markNegPre(pddl_fm_t *c, void *_m)
 
 static int markNegPreWhen(pddl_fm_t *c, void *_m)
 {
-    if (c->type == PDDL_FM_WHEN){
+    if (pddlFmIsWhen(c)){
         pddl_fm_when_t *when = pddlFmToWhen(c);
         pddlFmTraverse(when->pre, markNegPre, NULL, _m);
     }
@@ -453,7 +453,7 @@ static int replaceNegPre(pddl_fm_t **c, void *_ids)
     int pos = ids[0];
     int neg = ids[1];
 
-    if ((*c)->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(*c)){
         pddl_fm_atom_t *atom = pddlFmToAtom(*c);
         if (atom->pred == pos && atom->neg){
             atom->pred = neg;
@@ -470,13 +470,13 @@ static int replaceNegEff(pddl_fm_t **c, void *_ids)
     int pos = ids[0];
     int neg = ids[1];
 
-    if ((*c)->type == PDDL_FM_WHEN){
+    if (pddlFmIsWhen(*c)){
         pddl_fm_when_t *when = pddlFmToWhen(*c);
         pddlFmRebuild(&when->pre, NULL, replaceNegPre, _ids);
         pddlFmRebuild(&when->eff, replaceNegEff, NULL, _ids);
         return -1;
 
-    }else if ((*c)->type == PDDL_FM_ATOM){
+    }else if (pddlFmIsAtom(*c)){
         pddl_fm_atom_t *atom = pddlFmToAtom(*c);
         if (atom->pred == pos){
             // Create new NOT atom and flip negation
@@ -527,7 +527,7 @@ static int initHasFact(const pddl_t *pddl, int pred,
 
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, const pddl_fm_t, conn);
-        if (c->type != PDDL_FM_ATOM)
+        if (!pddlFmIsAtom(c))
             continue;
         const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
         if (a->pred != pred || a->arg_size != arg_size)
@@ -601,7 +601,7 @@ static void compileOutNonStaticNegPre(pddl_t *pddl)
 
 static int isFalsePre(const pddl_fm_t *c)
 {
-    if (c->type == PDDL_FM_BOOL){
+    if (pddlFmIsBool(c)){
         const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         return !b->val;
     }
@@ -746,7 +746,7 @@ static void pddlResetPredReadWrite(pddl_t *pddl)
 void pddlNormalize(pddl_t *pddl)
 {
     pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
-    ASSERT_RUNTIME(c->type == PDDL_FM_AND);
+    ASSERT_RUNTIME(pddlFmIsAnd(c));
     pddl->init = pddlFmToAnd(c);
 
     if (!pddl->only_domain && !pddl->cfg.keep_all_actions)
@@ -934,7 +934,7 @@ void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
 {
     pddlFmRemapObjs(&pddl->init->fm, remap);
     pddl_fm_t *c = pddlFmRemoveInvalidAtoms(&pddl->init->fm);
-    ASSERT_RUNTIME(c->type == PDDL_FM_AND);
+    ASSERT_RUNTIME(pddlFmIsAnd(c));
     pddl->init = pddlFmToAnd(c);
 
     pddlFmRemapObjs(pddl->goal, remap);
@@ -1004,7 +1004,7 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err)
 
 static int _removeAssignIncrease(pddl_fm_t **c, void *_)
 {
-    if ((*c)->type == PDDL_FM_ASSIGN || (*c)->type == PDDL_FM_INCREASE){
+    if (pddlFmIsAssign(*c) || pddlFmIsIncrease(*c)){
         pddlFmDel(*c);
         *c = NULL;
     }
@@ -1017,7 +1017,7 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
     // Remove (= ...) from the initial state
     pddl_fm_t *init = &pddl->init->fm;
     pddlFmRebuild(&init, NULL, _removeAssignIncrease, NULL);
-    ASSERT_RUNTIME(init->type == PDDL_FM_AND);
+    ASSERT_RUNTIME(pddlFmIsAnd(init));
     pddl->init = pddlFmToAnd(init);
 
     for (int ai = 0; ai < pddl->action.action_size; ++ai){
@@ -1105,7 +1105,7 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
     fprintf(fout, "Init[%d]:\n", initCondSize(pddl, PDDL_FM_ATOM));
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type != PDDL_FM_ATOM)
+        if (!pddlFmIsAtom(c))
             continue;
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         fprintf(fout, "  ");
@@ -1118,7 +1118,7 @@ void pddlPrintDebug(const pddl_t *pddl, FILE *fout)
     fprintf(fout, "Init[%d]:\n", initCondSize(pddl, PDDL_FM_ASSIGN));
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type != PDDL_FM_ASSIGN)
+        if (!pddlFmIsAssign(c))
             continue;
         fprintf(fout, "  ");
         pddlFmPrintPDDL(c, pddl, &params, fout);
