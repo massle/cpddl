@@ -19,10 +19,6 @@ pddl/objset.h
 src/objset.c
 pddl/iset.h
 src/iset.c
-pddl/lset.h
-src/lset.c
-pddl/cset.h
-src/cset.c
 pddl/iarr.h
 src/iarr.c
 cpddl.pc
