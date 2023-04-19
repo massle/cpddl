@@ -25,7 +25,6 @@ SRC += fifo
 SRC += lp
 SRC += lp-cplex
 SRC += lp-gurobi
-SRC += lp-glpk
 SRC += lp-highs
 SRC += cp
 SRC += cp-minizinc
@@ -247,9 +246,8 @@ pddl/config.h: $(MAKE_FILES)
 	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
-	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
 	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_GLPK)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
+	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
 	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
 	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
@@ -518,9 +516,6 @@ help:
 	@echo "  USE_GUROBI        = $(USE_GUROBI)"
 	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
 	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
-	@echo "  USE_GLPK          = $(USE_GLPK)"
-	@echo "  GLPK_CFLAGS       = $(GLPK_CFLAGS)"
-	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
 	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
 	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
