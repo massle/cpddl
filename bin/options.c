@@ -49,9 +49,6 @@ static int setLPSolver(const char *v)
     }else if (strcmp(v, "gurobi") == 0 || strcmp(v, "grb") == 0){
         solver = PDDL_LP_GUROBI;
 
-    }else if (strcmp(v, "glpk") == 0){
-        solver = PDDL_LP_GLPK;
-
     }else if (strcmp(v, "highs") == 0){
         solver = PDDL_LP_HIGHS;
 
@@ -406,7 +403,7 @@ static void setBaseOptions(void)
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
-                 "Set the default LP solver: cplex/gurobi/glpk/highs");
+                 "Set the default LP solver: cplex/gurobi/highs");
 
 }
 

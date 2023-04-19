@@ -19,12 +19,10 @@ dependecies. However, certain functionalities require external libraries:
  License
  - (I)LP solver requires
  [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
- [Gurobi](https://www.gurobi.com/),
- [GLPK](https://www.gnu.org/software/glpk/), or
+ [Gurobi](https://www.gurobi.com/), or
  [HiGHS](https://highs.dev). CPLEX Optimizer and
  Gurobi are commercial products, but it is possible to obtain an academic
- license. GLPK is licensed under GPLv3. HiGHS is licensed under MIT
- license.
+ license. HiGHS is licensed under MIT license.
  - constraint optimization requires either
  [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
  [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
@@ -43,7 +41,6 @@ library:
 This builds the library with [bliss](https://users.aalto.fi/~tjunttil/bliss)
 and [cudd](https://davidkebo.com/cudd) libraries which are compiled from local
 copies in ``third-party/`` directory. It also tries to automatically find
-[GLPK](https://www.gnu.org/software/glpk/) and
 [minizinc](https://www.minizinc.org/) installed on your system.
 
 You can change default configuration by adding ``Makefile.config`` file
@@ -56,8 +53,6 @@ containing the new configuration (see ``Makefile.config.tpl``):
  variables separately.
  - Gurobi can be used by setting up the ``GUROBI_CFLAGS`` and
  ``GUROBI_LDFLAGS`` variables.
- - If GLPK is not automatically found, you can explicitly set ``GLPK_CFLAGS``
- and ``GLPK_LDFLAGS`` variables.
  - If minizinc is not automatically found, set ``MINIZINC_BIN`` variable to
  the absolute path of the minizinc program.
 

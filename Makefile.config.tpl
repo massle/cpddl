@@ -35,9 +35,6 @@
 # Configuration of Minizinc optimizer
 #MINIZINC_BIN = /opt/minizinc/bin/minizinc
 
-# Configuration of GLPK
-#USE_GLPK = no # Do not use GLPK library
-
 # Configuration of dynet library https://github.com/clab/dynet.git
 #DYNET_ROOT = /opt/dynet
 #DYNET_CPPFLAGS = -I/opt/dynet/include
