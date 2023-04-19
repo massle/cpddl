@@ -48,6 +48,7 @@ enum pddl_lp_solver {
     PDDL_LP_CPLEX,
     PDDL_LP_GUROBI,
     PDDL_LP_HIGHS,
+    PDDL_LP_NO_SOLVER,
 };
 typedef enum pddl_lp_solver pddl_lp_solver_t;
 
@@ -78,7 +79,7 @@ typedef struct pddl_lp_config pddl_lp_config_t;
  * Returns true if the specified solver is available.
  * For PDDL_LP_DEFAULT returns false if there is no LP solver available.
  */
-int pddlLPSolverAvailable(pddl_lp_solver_t solver);
+pddl_bool_t pddlLPSolverAvailable(pddl_lp_solver_t solver);
 
 /**
  * Set default solver.
@@ -168,13 +169,6 @@ int pddlLPNumRows(const pddl_lp_t *lp);
 void pddlLPAddCols(pddl_lp_t *lp, int cnt);
 
 /**
- * Deletes columns with indexes between begin and end including both
- * limits, i.e., first deleted column has index {begin} the last deleted
- * column has index {end}.
- */
-void pddlLPDelCols(pddl_lp_t *lp, int begin, int end);
-
-/**
  * Returns number of columns in model.
  */
 int pddlLPNumCols(const pddl_lp_t *lp);
@@ -188,6 +182,9 @@ int pddlLPNumCols(const pddl_lp_t *lp);
 // TODO: Status: optimal/suboptimal
 int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj);
 
+int pddlLPSolveCPLEX(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err);
+int pddlLPSolveGurobi(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err);
+int pddlLPSolveHiGHS(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err);
 
 void pddlLPWrite(pddl_lp_t *lp, const char *fn);
 
