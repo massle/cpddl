@@ -167,6 +167,7 @@ SRC += subprocess
 SRC += task
 SRC += asnets_task
 SRC += asnets_train_data
+SRC += gaifman
 
 SRC += __sqlite3
 
