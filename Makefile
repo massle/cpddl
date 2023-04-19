@@ -163,6 +163,7 @@ SRC += cset
 SRC += iarr
 SRC += lifted_heur
 SRC += lifted_heur_relaxed
+SRC += lifted_heur_gaifman
 SRC += subprocess
 SRC += task
 SRC += asnets_task

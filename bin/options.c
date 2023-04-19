@@ -508,13 +508,19 @@ static void setLiftedPlannerOptions(void)
                      "  hmax - lifted h^max\n"
                      "  hadd - lifted h^add\n"
                      "  homo-lmc - Homomorphism-based LM-Cut heuristic (see --lplan-h-homo)\n"
-                     "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)",
-                     5,
+                     "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)\n"
+                     "  gaif-lb - Plan length lower bound using gaifman graphs\n"
+                     "  gaif-max - Max distance using gaifman graphs\n"
+                     "  gaif-add - Sum of distances using gaifman graphs",
+                     8,
                      "blind", LIFTED_PLAN_HEUR_BLIND,
                      "hmax", LIFTED_PLAN_HEUR_HMAX,
                      "hadd", LIFTED_PLAN_HEUR_HADD,
                      "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
-                     "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF);
+                     "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF,
+                     "gaif-lb", LIFTED_PLAN_HEUR_GAIF_LB,
+                     "gaif-max", LIFTED_PLAN_HEUR_GAIF_MAX,
+                     "gaif-add", LIFTED_PLAN_HEUR_GAIF_ADD);
     params = optsAddParams("lplan-h-homo", 0x0,
         "Configuration of the homomorphism for the"
         " homomorphism-based heuristics.\n"

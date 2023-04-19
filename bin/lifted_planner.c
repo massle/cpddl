@@ -181,6 +181,18 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             PDDL_INFO(err, "cfg.heur = hadd");
             heur = pddlLiftedHeurHAdd(pddl, err);
             break;
+        case LIFTED_PLAN_HEUR_GAIF_LB:
+            PDDL_INFO(err, "cfg.heur = gaif-lb");
+            heur = pddlLiftedHeurGaifmanMax(pddl, pddl_true, err);
+            break;
+        case LIFTED_PLAN_HEUR_GAIF_MAX:
+            PDDL_INFO(err, "cfg.heur = gaif-max");
+            heur = pddlLiftedHeurGaifmanMax(pddl, pddl_false, err);
+            break;
+        case LIFTED_PLAN_HEUR_GAIF_ADD:
+            PDDL_INFO(err, "cfg.heur = gaif-add");
+            heur = pddlLiftedHeurGaifmanAdd(pddl, err);
+            break;
         case LIFTED_PLAN_HEUR_HOMO_LMC:
         case LIFTED_PLAN_HEUR_HOMO_FF:
             heur_homo = liftedHomomorphHeur(pddl, err);

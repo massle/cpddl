@@ -16,6 +16,17 @@ void pddlGaifmanInit(pddl_gaifman_t *g, int obj_size)
     g->distance_dirty = 1;
 }
 
+void pddlGaifmanInitCopy(pddl_gaifman_t *g, const pddl_gaifman_t *gin)
+{
+    ZEROIZE(g);
+    g->obj_size = gin->obj_size;
+    g->obj_relate_to = ZALLOC_ARR(pddl_iset_t, g->obj_size);
+    for (int i = 0; i < g->obj_size; ++i)
+        pddlISetUnion(g->obj_relate_to + i, gin->obj_relate_to + i);
+    g->distance = ALLOC_ARR(int, g->obj_size * g->obj_size);
+    g->distance_dirty = 1;
+}
+
 void pddlGaifmanFree(pddl_gaifman_t *g)
 {
     for (int i = 0; i < g->obj_size; ++i)
@@ -39,11 +50,24 @@ void pddlGaifmanAddRelationsFromAtom(pddl_gaifman_t *g,
     pddlGaifmanAddRelationsFromFm(g, &atom->fm);
 }
 
+void pddlGaifmanAddRelationsFromGroundAtom(pddl_gaifman_t *g,
+                                           const pddl_ground_atom_t *atom)
+{
+    for (int ai1 = 0; ai1 < atom->arg_size; ++ai1){
+        for (int ai2 = ai1 + 1; ai2 < atom->arg_size; ++ai2){
+            pddlGaifmanAddRelation(g, atom->arg[ai1], atom->arg[ai2]);
+        }
+    }
+}
+
 static int addRelationFromFm(pddl_fm_t *fm, void *_g)
 {
     pddl_gaifman_t *g = _g;
     if (pddlFmIsAtom(fm)){
         pddl_fm_atom_t *a = pddlFmToAtom(fm);
+        if (a->neg)
+            return 0;
+
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0)
                 continue;
@@ -117,24 +141,14 @@ int pddlGaifmanDiameter(pddl_gaifman_t *g)
     return diameter;
 }
 
-struct collect_objs_params {
-    pddl_iset_t *objs;
-    pddl_iset_t *params;
-};
-
-static int fmCollectObjsAndParams(pddl_fm_t *fm, void *_col)
+static int fmCollectObjs(pddl_fm_t *fm, void *_objs)
 {
-    struct collect_objs_params *col = _col;
-    pddl_iset_t *objs = col->objs;
-    pddl_iset_t *params = col->params;
+    pddl_iset_t *objs = _objs;
     if (pddlFmIsAtom(fm)){
         pddl_fm_atom_t *a = pddlFmToAtom(fm);
         for (int ai = 0; ai < a->arg_size; ++ai){
-            if (a->arg[ai].param >= 0){
-                pddlISetAdd(params, a->arg[ai].param);
-            }else{
+            if (a->arg[ai].param < 0)
                 pddlISetAdd(objs, a->arg[ai].obj);
-            }
         }
     }
     return 0;
@@ -142,7 +156,6 @@ static int fmCollectObjsAndParams(pddl_fm_t *fm, void *_col)
 
 struct param_obj_maps {
     pddl_gaifman_t *g;
-    int *param_map;
     int *obj_map;
 };
 
@@ -150,22 +163,24 @@ static int fmAddRelationsParamObj(pddl_fm_t *fm, void *_maps)
 {
     struct param_obj_maps *maps = _maps;
     pddl_gaifman_t *g = maps->g;
-    const int *param_map = maps->param_map;
     const int *obj_map = maps->obj_map;
     if (pddlFmIsAtom(fm)){
         pddl_fm_atom_t *a = pddlFmToAtom(fm);
+        if (a->neg)
+            return 0;
+
         for (int ai = 0; ai < a->arg_size; ++ai){
             int id1 = 0;
             if (a->arg[ai].param >= 0){
-                id1 = param_map[a->arg[ai].param];
+                id1 = a->arg[ai].param;
             }else{
                 id1 = obj_map[a->arg[ai].obj];
             }
 
             for (int ai2 = ai + 1; ai2 < a->arg_size; ++ai2){
                 int id2 = 0;
-                if (a->arg[ai].param >= 0){
-                    id2 = param_map[a->arg[ai2].param];
+                if (a->arg[ai2].param >= 0){
+                    id2 = a->arg[ai2].param;
                 }else{
                     id2 = obj_map[a->arg[ai2].obj];
                 }
@@ -179,40 +194,27 @@ static int fmAddRelationsParamObj(pddl_fm_t *fm, void *_maps)
 int pddlGaifmanActionPreDiameter(const pddl_action_t *a)
 {
     PDDL_ISET(objs);
-    PDDL_ISET(params);
-    struct collect_objs_params col = { &objs, &params };
-    pddlFmTraverse((pddl_fm_t *)a->pre, NULL, fmCollectObjsAndParams, &col);
+    pddlFmTraverse((pddl_fm_t *)a->pre, NULL, fmCollectObjs, &objs);
 
-    if (pddlISetSize(&objs) + pddlISetSize(&params) == 0){
+    if (pddlISetSize(&objs) + a->param.param_size == 0){
         pddlISetFree(&objs);
-        pddlISetFree(&params);
         return 0;
-    }
-
-    int *param_map = NULL;
-    if (pddlISetSize(&params) > 0){
-        int size = pddlISetSize(&params);
-        param_map = ALLOC_ARR(int, pddlISetGet(&params, size - 1) + 1);
-        int idx = 0;
-        int param_id;
-        PDDL_ISET_FOR_EACH(&params, param_id)
-            param_map[param_id] = idx++;
     }
 
     int *obj_map = NULL;
     if (pddlISetSize(&objs) > 0){
         int size = pddlISetSize(&objs);
         obj_map = ALLOC_ARR(int, pddlISetGet(&objs, size - 1) + 1);
-        int idx = pddlISetSize(&params);
+        int idx = a->param.param_size;
         int obj_id;
         PDDL_ISET_FOR_EACH(&objs, obj_id)
             obj_map[obj_id] = idx++;
     }
 
     pddl_gaifman_t g;
-    pddlGaifmanInit(&g, pddlISetSize(&params) + pddlISetSize(&objs));
+    pddlGaifmanInit(&g, a->param.param_size + pddlISetSize(&objs));
 
-    struct param_obj_maps maps = { &g, param_map, obj_map };
+    struct param_obj_maps maps = { &g, obj_map };
     pddlFmTraverse((pddl_fm_t *)a->pre, NULL, fmAddRelationsParamObj, &maps);
 
     int diameter = pddlGaifmanDiameter(&g);
@@ -220,10 +222,7 @@ int pddlGaifmanActionPreDiameter(const pddl_action_t *a)
 
     if (obj_map != NULL)
         FREE(obj_map);
-    if (param_map != NULL)
-        FREE(param_map);
     pddlISetFree(&objs);
-    pddlISetFree(&params);
 
     return diameter;
 }

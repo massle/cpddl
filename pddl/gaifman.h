@@ -10,6 +10,7 @@
 #include <pddl/action.h>
 #include <pddl/obj.h>
 #include <pddl/fm.h>
+#include <pddl/ground_atom.h>
 #include <pddl/iset.h>
 
 #ifdef __cplusplus
@@ -32,6 +33,11 @@ typedef struct pddl_gaifman pddl_gaifman_t;
 void pddlGaifmanInit(pddl_gaifman_t *g, int obj_size);
 
 /**
+ * Initialize g as a copy of gin.
+ */
+void pddlGaifmanInitCopy(pddl_gaifman_t *g, const pddl_gaifman_t *gin);
+
+/**
  * Free allocated memory.
  */
 void pddlGaifmanFree(pddl_gaifman_t *g);
@@ -42,14 +48,16 @@ void pddlGaifmanFree(pddl_gaifman_t *g);
 void pddlGaifmanAddRelation(pddl_gaifman_t *g, int obj1, int obj2);
 
 /**
- * Add all relations between objects appearing in the given atom
+ * Add all relations between objects appearing in the given positive atom.
  */
 void pddlGaifmanAddRelationsFromAtom(pddl_gaifman_t *g,
                                      const pddl_fm_atom_t *atom);
+void pddlGaifmanAddRelationsFromGroundAtom(pddl_gaifman_t *g,
+                                           const pddl_ground_atom_t *atom);
 
 /**
- * Add all relations between objects appearing in any atom of the given
- * formula.
+ * Add all relations between objects appearing in any (positive) atom of
+ * the given formula.
  */
 void pddlGaifmanAddRelationsFromFm(pddl_gaifman_t *g, const pddl_fm_t *fm);
 
