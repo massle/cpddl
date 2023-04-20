@@ -322,22 +322,139 @@ int pddlLPNumCols(const pddl_lp_t *lp)
     return lp->col_size;
 }
 
-int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj)
+pddl_lp_status_t pddlLPSolve(const pddl_lp_t *lp,
+                             pddl_lp_solution_t *sol,
+                             pddl_err_t *err)
 {
     switch (lp->cfg.solver){
         case PDDL_LP_CPLEX:
-            return pddlLPSolveCPLEX(lp, val, obj, NULL);
+            return pddlLPSolveCPLEX(lp, sol, err);
         case PDDL_LP_GUROBI:
-            return pddlLPSolveGurobi(lp, val, obj, NULL);
+            return pddlLPSolveGurobi(lp, sol, err);
         case PDDL_LP_HIGHS:
-            return pddlLPSolveHiGHS(lp, val, obj, NULL);
+            return pddlLPSolveHiGHS(lp, sol, err);
         default:
-            // TODO: ERR_RET(...)
-            return -1;
+            ERR_RET(err, PDDL_LP_STATUS_ERR, "Unknown solver %d", lp->cfg.solver);
     }
 }
 
-void pddlLPWrite(pddl_lp_t *lp, const char *fn)
+void pddlLPWrite(const pddl_lp_t *lp, const char *fn)
 {
-    // TODO
+    FILE *fout = fopen(fn, "w");
+    PANIC_IF(fout == NULL, "Could not open file %s", fn);
+    if (lp->cfg.maximize){
+        fprintf(fout, "Maximize\n");
+    }else{
+        fprintf(fout, "Minimize\n");
+    }
+    fprintf(fout, "  obj:");
+    pddl_bool_t first = pddl_true;
+    int num_written = 0;
+    for (int c = 0; c < lp->col_size; ++c){
+        if (lp->col[c].obj != 0.){
+            fprintf(fout, " %+.4f x%d", lp->col[c].obj, c + 1);
+            first = pddl_false;
+
+            if (++num_written % 5 == 0)
+                fprintf(fout, "\n ");
+        }
+    }
+    fprintf(fout, "\n");
+
+    fprintf(fout, "Subject To\n");
+    for (int r = 0; r < lp->row_size; ++r){
+        if (lp->row[r].coef_size == 0)
+            continue;
+        fprintf(fout, "c%d:", r + 1);
+        int num_written = 0;
+        for (int c = 0; c < lp->row[r].coef_size; ++c){
+            fprintf(fout, " %+.4f x%d", lp->row[r].coef[c].coef,
+                    lp->row[r].coef[c].col + 1);
+
+            if (++num_written % 5 == 0)
+                fprintf(fout, "\n ");
+        }
+        switch (lp->row[r].sense){
+            case 'L':
+                fprintf(fout, " <= ");
+                break;
+            case 'G':
+                fprintf(fout, " >= ");
+                break;
+            case 'E':
+                fprintf(fout, " = ");
+                break;
+        }
+        fprintf(fout, "%.4f\n", lp->row[r].rhs);
+    }
+
+    pddl_bool_t has_bound_header = pddl_false;
+    for (int c = 0; c < lp->col_size; ++c){
+        if (lp->col[c].lb > PDDL_LP_MIN_BOUND || lp->col[c].ub < PDDL_LP_MAX_BOUND){
+            if (!has_bound_header){
+                fprintf(fout, "Bounds\n");
+                has_bound_header = pddl_true;
+            }
+            if (lp->col[c].lb > PDDL_LP_MIN_BOUND)
+               fprintf(fout, "  %.4f <=", lp->col[c].lb);
+            fprintf(fout, " x%d", c + 1);
+            if (lp->col[c].ub < PDDL_LP_MAX_BOUND)
+               fprintf(fout, "  <= %.4f", lp->col[c].ub);
+        }
+    }
+
+    pddl_bool_t has_general_header = pddl_false;
+    for (int c = 0; c < lp->col_size; ++c){
+        if (lp->col[c].type == PDDL_LP_COL_TYPE_INT){
+            if (!has_general_header){
+                fprintf(fout, "General\n");
+                has_general_header = pddl_true;
+            }
+            fprintf(fout, "  x%d\n", c + 1);
+        }
+    }
+
+    pddl_bool_t has_binary_header = pddl_false;
+    for (int c = 0; c < lp->col_size; ++c){
+        if (lp->col[c].type == PDDL_LP_COL_TYPE_BINARY){
+            if (!has_binary_header){
+                fprintf(fout, "Binary\n");
+                has_binary_header = pddl_true;
+            }
+            fprintf(fout, "  x%d\n", c + 1);
+        }
+    }
+
+    fprintf(fout, "End\n");
+    fclose(fout);
+}
+
+void _pddlLPSolutionInit(pddl_lp_solution_t *sol, const pddl_lp_t *lp)
+{
+    sol->solved = pddl_false;
+    sol->solved_optimally = pddl_false;
+    sol->solved_suboptimally = pddl_false;
+    sol->unsolvable = pddl_false;
+    sol->not_solved = pddl_false;
+    sol->error = pddl_false;
+    sol->timed_out = pddl_false;
+    if (sol->var_val != NULL)
+        ZEROIZE_ARR(sol->var_val, lp->col_size);
+    sol->obj_val = 0.;
+}
+
+pddl_lp_status_t _pddlLPSolutionToStatus(const pddl_lp_solution_t *sol)
+{
+    if (sol->solved_optimally)
+        return PDDL_LP_STATUS_OPTIMAL;
+    if (sol->solved_suboptimally)
+        return PDDL_LP_STATUS_SUBOPTIMAL;
+    if (sol->unsolvable)
+        return PDDL_LP_STATUS_INFEASIBLE;
+    if (sol->not_solved)
+        return PDDL_LP_STATUS_NO_SOLUTION_FOUND;
+    if (sol->error)
+        return PDDL_LP_STATUS_ERR;
+    PANIC("Unkown status of the LP solver. This is definitely a bug!");
+    return PDDL_LP_STATUS_ERR;
 }

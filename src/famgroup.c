@@ -247,19 +247,20 @@ static void famFree(fam_t *fam)
 static void famInfer(fam_t *fam)
 {
     PDDL_ISET(famgroup);
-    double val, *obj;
     pddl_mgroup_t *mg;
     pddl_timer_t timer;
     int last_info = 0;
 
     pddlTimerStart(&timer);
 
-    obj = ALLOC_ARR(double, pddlLPNumCols(fam->lp));
-    for (int i = 0;
-            pddlLPSolve(fam->lp, &val, obj) == 0
-                && val > 0.5 && i < fam->cfg.limit;
-            ++i){
-        objToFAMGroup(obj, fam->strips, &famgroup);
+    pddl_lp_solution_t sol;
+    sol.var_val = ALLOC_ARR(double, pddlLPNumCols(fam->lp));
+    for (int i = 0; i < fam->cfg.limit; ++i){
+        pddlLPSolve(fam->lp, &sol, fam->err);
+        if (!sol.solved || sol.obj_val < 0.5)
+            break;
+
+        objToFAMGroup(sol.var_val, fam->strips, &famgroup);
         mg = addFAMGroup(fam->mgroups, &famgroup, fam->strips);
         skipMGroup(fam, &mg->mgroup);
         if (fam->cfg.sym != NULL)
@@ -278,7 +279,7 @@ static void famInfer(fam_t *fam)
         if (fam->cfg.time_limit > 0. && elapsed > fam->cfg.time_limit)
             break;
     }
-    FREE(obj);
+    FREE(sol.var_val);
     pddlISetFree(&famgroup);
 }
 

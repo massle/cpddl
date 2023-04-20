@@ -24,10 +24,11 @@ const char * const pddl_highs_version =
 #define MAX_BOUND 1E20
 
 
-static void *createModel(pddl_lp_t *lp)
+static void *createModel(const pddl_lp_t *lp, pddl_err_t *err)
 {
     void *model = Highs_create();
-    PANIC_IF(model == NULL, "Could not create a HiGHS model.");
+    if (model == NULL)
+        ERR_RET(err, NULL, "HiGHS: Could not create the problem instance");
 
     int num_threads = PDDL_MAX(lp->cfg.num_threads, 1);
     Highs_setIntOptionValue(model, "threads", num_threads);
@@ -71,132 +72,133 @@ static void *createModel(pddl_lp_t *lp)
     compressedRowProblemFree(&P);
 
     if (st == kHighsStatusError){
-        // TODO: Not sure how to recover from this...
-        return NULL;
+        ERR_RET(err, NULL, "HiGHS: Could not create the problem instance");
 
     }else if (st == kHighsStatusWarning){
-        return NULL;
+        ERR_RET(err, NULL, "HiGHS: Could not create the problem instance");
     }
 
-    //Highs_writeModel(model, "model.lp");
     return model;
 }
 
-int pddlLPSolveHiGHS(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err)
+pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
+                                  pddl_lp_solution_t *sol,
+                                  pddl_err_t *err)
 {
-    int ret = 0;
+    _pddlLPSolutionInit(sol, lp);
 
-    void *model = createModel(lp);
-    if (model == NULL){
-        LOG(err, "Something went wrong with the creation of model!");
-        return -1;
-    }
+    void *model = createModel(lp, err);
+    if (model == NULL)
+        TRACE_RET(err, PDDL_LP_STATUS_ERR);
 
     HighsInt st = Highs_run(model);
     if (st == kHighsStatusError){
-        LOG(err, "Something went wrong during solving the model!");
         Highs_destroy(model);
-        return -1;
+        ERR_RET(err, PDDL_LP_STATUS_ERR,
+                "Something went wrong during solving the model!");
+
     }else if (st == kHighsStatusWarning){
-        // TODO
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR,
+                "Something went wrong during solving the model!");
     }
 
     HighsInt modelst = Highs_getModelStatus(model);
     if (modelst == kHighsModelStatusNotset){
-        LOG(err, "Model status not set");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Model status not set");
 
     }else if (modelst == kHighsModelStatusLoadError){
-        LOG(err, "Model load error!");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Model load error");
 
     }else if (modelst == kHighsModelStatusModelError){
-        LOG(err, "Model error!");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Model error");
 
     }else if (modelst == kHighsModelStatusPresolveError){
-        LOG(err, "Presolve error!");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Presolve error");
 
     }else if (modelst == kHighsModelStatusSolveError){
-        LOG(err, "Solve error!");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Solve error");
 
     }else if (modelst == kHighsModelStatusPostsolveError){
-        LOG(err, "Postsolve error!");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Postsolve error");
 
     }else if (modelst == kHighsModelStatusModelEmpty){
-        LOG(err, "Model is empty!");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Model is empty.");
 
     }else if (modelst == kHighsModelStatusOptimal){
-        //LOG(err, "Model has optimal solution.");
-        ret = 0;
+        sol->solved = pddl_true;
+        sol->solved_optimally = pddl_true;
+
+        HighsInt solst;
+        Highs_getIntInfoValue(model, "primal_solution_status", &solst);
+        PANIC_IF(solst != kHighsSolutionStatusFeasible,
+                 "Model status is 'optimal', but solution is not feasible");
 
     }else if (modelst == kHighsModelStatusInfeasible){
-        LOG(err, "Solution is infeasible.");
-        ret = -1;
+        sol->unsolvable = pddl_true;
 
     }else if (modelst == kHighsModelStatusUnboundedOrInfeasible){
-        LOG(err, "Solution is unbounded or infeasible.");
-        ret = -1;
+        sol->unsolvable = pddl_true;
 
     }else if (modelst == kHighsModelStatusUnbounded){
-        LOG(err, "Solution is unbounded.");
-        ret = -1;
-
-    }else if (modelst == kHighsModelStatusObjectiveBound){
-        LOG(err, "Bound on objective reached.");
-        ret = -1;
-
-    }else if (modelst == kHighsModelStatusObjectiveTarget){
-        LOG(err, "Target for objective reached.");
-        ret = -1;
+        sol->unsolvable = pddl_true;
 
     }else if (modelst == kHighsModelStatusTimeLimit){
-        //LOG(err, "Time limit.");
-        //ret = -1;
-        ret = 0;
+        sol->timed_out = pddl_true;
 
-    }else if (modelst == kHighsModelStatusIterationLimit){
-        //LOG(err, "Iteration limit.");
-        //ret = -1;
-        ret = 0;
+        HighsInt solst;
+        Highs_getIntInfoValue(model, "primal_solution_status", &solst);
+        if (solst == kHighsSolutionStatusFeasible){
+            sol->solved_suboptimally = pddl_true;
+        }else{
+            sol->not_solved = pddl_true;
+        }
+
+    }else if (modelst == kHighsModelStatusObjectiveBound
+                || modelst == kHighsModelStatusObjectiveTarget
+                || modelst == kHighsModelStatusIterationLimit){
+        HighsInt solst;
+        Highs_getIntInfoValue(model, "primal_solution_status", &solst);
+        if (solst == kHighsSolutionStatusFeasible){
+            sol->solved_suboptimally = pddl_true;
+        }else{
+            sol->not_solved = pddl_true;
+        }
 
     }else if (modelst == kHighsModelStatusUnknown){
-        LOG(err, "Unkown solution status");
-        ret = -1;
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Unkown solution status");
 
     }else{
-        LOG(err, "Unkown solution status: %d", (int)modelst);
+        Highs_destroy(model);
+        ERR_RET(err, PDDL_LP_STATUS_ERR, "Unkown solution status: %d", (int)modelst);
     }
 
-    HighsInt solst;
-    Highs_getIntInfoValue(model, "primal_solution_status", &solst);
-    if (solst == kHighsSolutionStatusFeasible){
-        if (val != NULL)
-            *val = Highs_getObjectiveValue(model);
-        if (obj != NULL)
-            Highs_getSolution(model, obj, NULL, NULL, NULL);
-        ret = 0;
-
-    }else{
-        ret = -1;
-    }
+    sol->obj_val = Highs_getObjectiveValue(model);
+    if (sol->var_val != NULL)
+        Highs_getSolution(model, sol->var_val, NULL, NULL, NULL);
 
     Highs_destroy(model);
 
-    return ret;
+    return _pddlLPSolutionToStatus(sol);
 }
 
 
 #else /* PDDL_HIGHS */
 const char * const pddl_highs_version = NULL;
 
-int pddlLPSolveHiGHS(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err)
+pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
+                                  pddl_lp_solution_t *sol,
+                                  pddl_err_t *err)
 {
     PANIC("Missing HiGHS solver");
-    return -1;
+    return PDDL_LP_STATUS_ERR;
 }
 #endif /* PDDL_HIGHS */

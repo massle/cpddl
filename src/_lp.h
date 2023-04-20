@@ -67,6 +67,9 @@ struct pddl_lp {
     int row_alloc;
 };
 
+void _pddlLPSolutionInit(pddl_lp_solution_t *sol, const pddl_lp_t *lp);
+pddl_lp_status_t _pddlLPSolutionToStatus(const pddl_lp_solution_t *sol);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

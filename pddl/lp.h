@@ -21,21 +21,53 @@
 extern "C" {
 #endif /* __cplusplus */
 
-// TODO: pddl_lp_status: We need to distinguish at least: no solution
-// exists, cannot find a solution, optimal solution, suboptimal solution
-/*
+/**
+ * Exit status of *Solve() functions.
+ */
 enum pddl_lp_status {
+    /** The problem was solved optimally */
     PDDL_LP_STATUS_OPTIMAL = 0,
+    /** The problem was solved sub-optimally */
     PDDL_LP_STATUS_SUBOPTIMAL = 1,
+    /** The problem does not have a solution */
     PDDL_LP_STATUS_INFEASIBLE = 2,
+    /** The solver wasn't able to find a solution or prove it is not
+     *  solvable */
     PDDL_LP_STATUS_NO_SOLUTION_FOUND = -1,
-    PDDL_LP_STATUS_ERROR = -2,
+    /** An error occurred */
+    PDDL_LP_STATUS_ERR = -2,
 };
 typedef enum pddl_lp_status pddl_lp_status_t;
 
-#define PDDL_LP_HAS_SOLUTION(S) \
-    ((S) == PDDL_LP_STATUS_OPTIMAL || (S) == PDDL_LP_STATUS_SUBOPTIMAL)
-*/
+/**
+ * Solution to MIP/LP problem.
+ */
+struct pddl_lp_solution {
+    /** True if the problem was solved */
+    pddl_bool_t solved;
+    /** True if the problem was solved optimally */
+    pddl_bool_t solved_optimally;
+    /** True if the problem was solved sub-optimally (see .timed_out below) */
+    pddl_bool_t solved_suboptimally;
+    /** True if the solver proved the problem to be unsolvable */
+    pddl_bool_t unsolvable;
+    /** True if the solver wasn't able to solve the problem or prove its
+     *  unsolvability */
+    pddl_bool_t not_solved;
+    /** True if error occurred */
+    pddl_bool_t error;
+    /** True if the solver timed out */
+    pddl_bool_t timed_out;
+    /** If set to non-NULL and the solver found a solution, it is filled
+     *  with the values assigned to each variable. It must be allocated by
+     *  the user, and it must have at pddlLPNumCols() elements */
+    double *var_val;
+    /** If the solver found a solution, it is set to the value of the
+     *  objective function */
+    double obj_val;
+};
+typedef struct pddl_lp_solution pddl_lp_solution_t;
+
 
 /** Forward declaration */
 typedef struct pddl_lp pddl_lp_t;
@@ -174,19 +206,23 @@ void pddlLPAddCols(pddl_lp_t *lp, int cnt);
 int pddlLPNumCols(const pddl_lp_t *lp);
 
 /**
- * Solves (I)LP problem.
- * Return 0 if problem was solved, -1 if the problem has no solution.
- * Objective value is returned via argument val and values of each variable
- * via argument obj if non-NULL.
+ * Solves (I)LP problem using default solver.
  */
-// TODO: Status: optimal/suboptimal
-int pddlLPSolve(pddl_lp_t *lp, double *val, double *obj);
+pddl_lp_status_t pddlLPSolve(const pddl_lp_t *lp,
+                             pddl_lp_solution_t *sol,
+                             pddl_err_t *err);
 
-int pddlLPSolveCPLEX(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err);
-int pddlLPSolveGurobi(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err);
-int pddlLPSolveHiGHS(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err);
+pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
+                                  pddl_lp_solution_t *sol,
+                                  pddl_err_t *err);
+pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
+                                   pddl_lp_solution_t *sol,
+                                   pddl_err_t *err);
+pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
+                                  pddl_lp_solution_t *sol,
+                                  pddl_err_t *err);
 
-void pddlLPWrite(pddl_lp_t *lp, const char *fn);
+void pddlLPWrite(const pddl_lp_t *lp, const char *fn);
 
 #ifdef __cplusplus
 }
