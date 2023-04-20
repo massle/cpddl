@@ -48,7 +48,7 @@ enum pddl_lp_solver {
     PDDL_LP_CPLEX,
     PDDL_LP_GUROBI,
     PDDL_LP_HIGHS,
-    PDDL_LP_NO_SOLVER,
+    PDDL_LP_NO_SOLVER = 100,
 };
 typedef enum pddl_lp_solver pddl_lp_solver_t;
 

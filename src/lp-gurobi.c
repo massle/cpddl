@@ -14,13 +14,14 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/lp.h"
 #include "pddl/libs_info.h"
 #include "_lp.h"
-#include "internal.h"
 
 #ifdef PDDL_GUROBI
 # include <gurobi_c.h>
+#include "_lp_compressed_row_problem.h"
 const char * const pddl_gurobi_version =
     PDDL_TOSTR(GRB_VERSION_MAJOR.GRB_VERSION_MINOR.GRB_VERSION_TECHNICAL);
 
@@ -69,36 +70,26 @@ int pddlLPSolveGurobi(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err)
         grbError(env, lp);
     }
 
-    // TODO
-    double *cobj = ALLOC_ARR(double, lp->col_size);
-    double *lb = ALLOC_ARR(double, lp->col_size);
-    double *ub = ALLOC_ARR(double, lp->col_size);
-    char *vtype = ALLOC_ARR(char, lp->col_size);
-    for (int i = 0; i < lp->col_size; ++i){
-        cobj[i] = lp->col[i].obj;
-        lb[i] = lp->col[i].lb;
-        ub[i] = lp->col[i].ub;
-        switch (lp->col[i].type){
-            case PDDL_LP_COL_TYPE_REAL:
-                vtype[i] = GRB_CONTINUOUS;
-                break;
-            case PDDL_LP_COL_TYPE_INT:
-                vtype[i] = GRB_INTEGER;
-                break;
-            case PDDL_LP_COL_TYPE_BINARY:
-                vtype[i] = GRB_BINARY;
-                break;
-        }
-    }
+    pddl_lp_compressed_row_problem_t P;
+    compressedRowProblemInit(&P, lp, 
+                             GRB_CONTINUOUS,
+                             GRB_INTEGER,
+                             GRB_BINARY,
+                             pddl_false,
+                             -GRB_INFINITY,
+                             GRB_INFINITY);
 
-    if (GRBnewmodel(env, &model, NULL, lp->col_size,
-                    cobj, lb, ub, vtype, NULL) != 0){
-        FREE(cobj);
-        FREE(lb);
-        FREE(ub);
-        FREE(vtype);
+    if (GRBnewmodel(env, &model, NULL, P.num_col,
+                    P.col_obj, P.col_lb, P.col_ub, P.col_type, NULL) != 0){
         grbError(env, lp);
     }
+
+    if (GRBaddconstrs(model, P.num_row, P.num_nz, P.row_beg, P.row_ind,
+                      P.row_val, P.row_sense, P.row_rhs, NULL) != 0){
+        grbError(env, lp);
+    }
+    GRBupdatemodel(model);
+    compressedRowProblemFree(&P);
 
     GRBsetcallbackfunc(model, cb, err);
 
@@ -111,54 +102,11 @@ int pddlLPSolveGurobi(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err)
             grbError(env, lp);
     }
 
-    int num_row = lp->row_size;
-    int num_nz = 0;
-    for (int ri = 0; ri < lp->row_size; ++ri)
-        num_nz += lp->row[ri].coef_size;
-
-    double *rhs = ALLOC_ARR(double, num_row);
-    char *sense = ALLOC_ARR(char, num_row);
-    for (int i = 0; i < lp->row_size; ++i){
-        sense[i] = lp->row[i].sense;
-        rhs[i] = lp->row[i].rhs;
-    }
-
-    int *bag = ALLOC_ARR(int, num_row);
-    int *ind = ALLOC_ARR(int, num_nz);
-    double *rval = ALLOC_ARR(double, num_nz);
-    int ins = 0;
-    for (int ri = 0; ri < num_row; ++ri){
-        bag[ri] = ins;
-        for (int ci = 0; ci < lp->row[ri].coef_size; ++ci){
-            ind[ins] = lp->row[ri].coef[ci].col;
-            rval[ins] = lp->row[ri].coef[ci].coef;
-            ++ins;
-        }
-    }
-
-    if (lp->row_size > 0){
-        if (GRBaddconstrs(model, lp->row_size, num_nz,
-                          bag, ind, rval, sense, rhs, NULL) != 0){
-            grbError(env, lp);
-        }
-    }
-
     int minmax = GRB_MINIMIZE;
     if (lp->cfg.maximize)
         minmax = GRB_MAXIMIZE;
     if (GRBsetintattr(model, GRB_INT_ATTR_MODELSENSE, minmax) != 0)
         grbError(env, lp);
-
-    GRBupdatemodel(model);
-    FREE(cobj);
-    FREE(lb);
-    FREE(ub);
-    FREE(vtype);
-    FREE(rhs);
-    FREE(sense);
-    FREE(bag);
-    FREE(ind);
-    FREE(rval);
 
     int st, i, cols;
 

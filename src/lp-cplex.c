@@ -19,6 +19,7 @@
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>
+#include "_lp_compressed_row_problem.h"
 const char * const pddl_cplex_version =
     PDDL_TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX);
 
@@ -125,74 +126,27 @@ int pddlLPSolveCPLEX(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err)
         CPXchgobjsen(env, prob, CPX_MIN);
     }
 
-    // TODO: Refactor with highs and gurobi
-    pddl_bool_t mip = pddl_false;
-    double *cobj = ALLOC_ARR(double, lp->col_size);
-    double *clb = ALLOC_ARR(double, lp->col_size);
-    double *cub = ALLOC_ARR(double, lp->col_size);
-    char *ctype = ALLOC_ARR(char, lp->col_size);
-    for (int ci = 0; ci < lp->col_size; ++ci){
-        cobj[ci] = lp->col[ci].obj;
-        clb[ci] = lp->col[ci].lb;
-        cub[ci] = lp->col[ci].ub;
-        switch (lp->col[ci].type){
-            case PDDL_LP_COL_TYPE_REAL:
-                ctype[ci] = CPX_CONTINUOUS;
-                break;
-            case PDDL_LP_COL_TYPE_INT:
-                ctype[ci] = CPX_INTEGER;
-                mip = pddl_true;
-                break;
-            case PDDL_LP_COL_TYPE_BINARY:
-                ctype[ci] = CPX_BINARY;
-                mip = pddl_true;
-                break;
-        }
-    }
-    st = CPXnewcols(env, prob, lp->col_size, cobj, clb, cub,
-                    (mip ? ctype : NULL), NULL);
-    if (st != 0)
-        cplexErr(env, st, "Could not create columns");
-    FREE(cobj);
-    FREE(clb);
-    FREE(cub);
-    FREE(ctype);
+    pddl_lp_compressed_row_problem_t P;
+    compressedRowProblemInit(&P, lp, 
+                             CPX_CONTINUOUS,
+                             CPX_INTEGER,
+                             CPX_BINARY,
+                             pddl_false,
+                             -CPX_INFBOUND,
+                             CPX_INFBOUND);
 
-    int num_row = lp->row_size;
-    int num_nz = 0;
-    for (int ri = 0; ri < lp->row_size; ++ri)
-        num_nz += lp->row[ri].coef_size;
-
-    double *rhs = ALLOC_ARR(double, num_row);
-    char *sense = ALLOC_ARR(char, num_row);
-    for (int i = 0; i < lp->row_size; ++i){
-        sense[i] = lp->row[i].sense;
-        rhs[i] = lp->row[i].rhs;
-    }
-
-    int *bag = ALLOC_ARR(int, num_row);
-    int *ind = ALLOC_ARR(int, num_nz);
-    double *rval = ALLOC_ARR(double, num_nz);
-    int ins = 0;
-    for (int ri = 0; ri < num_row; ++ri){
-        bag[ri] = ins;
-        for (int ci = 0; ci < lp->row[ri].coef_size; ++ci){
-            ind[ins] = lp->row[ri].coef[ci].col;
-            rval[ins] = lp->row[ri].coef[ci].coef;
-            ++ins;
-        }
-    }
-    ASSERT(ins == num_nz);
-    st = CPXaddrows(env, prob, 0, num_row, num_nz, rhs, sense, bag, ind,
-                    rval, NULL, NULL);
+    pddl_bool_t is_mip = P.is_mip;
+    st = CPXnewcols(env, prob, P.num_col, P.col_obj, P.col_lb, P.col_ub,
+                    (P.is_mip ? P.col_type : NULL), NULL);
     if (st != 0)
         cplexErr(env, st, "Could not create columns");
 
-    FREE(rhs);
-    FREE(sense);
-    FREE(bag);
-    FREE(ind);
-    FREE(rval);
+    st = CPXaddrows(env, prob, 0, P.num_row, P.num_nz, P.row_rhs,
+                    P.row_sense, P.row_beg, P.row_ind, P.row_val, NULL, NULL);
+    if (st != 0)
+        cplexErr(env, st, "Could not create columns");
+
+    compressedRowProblemFree(&P);
 
     if (lp->cfg.tune_int_operator_potential){
         CPXsetintparam(env, CPXPARAM_Preprocessing_Relax, CPX_ON);
@@ -204,7 +158,7 @@ int pddlLPSolveCPLEX(pddl_lp_t *lp, double *val, double *obj, pddl_err_t *err)
     log_t log;
     log.err = err;
     pddlTimerStart(&log.timer);
-    if (mip){
+    if (is_mip){
         CPXcallbacksetfunc(env, prob,
                            CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS
                                 | CPX_CALLBACKCONTEXT_LOCAL_PROGRESS
