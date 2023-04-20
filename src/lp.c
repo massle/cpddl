@@ -18,8 +18,7 @@
 #include "_lp.h"
 
 #if defined(PDDL_CPLEX)
-//static pddl_lp_solver_t default_solver = PDDL_LP_CPLEX;
-static pddl_lp_solver_t default_solver = PDDL_LP_HIGHS;
+static pddl_lp_solver_t default_solver = PDDL_LP_CPLEX;
 #elif defined(PDDL_GUROBI)
 static pddl_lp_solver_t default_solver = PDDL_LP_GUROBI;
 #elif defined(PDDL_HIGHS)
