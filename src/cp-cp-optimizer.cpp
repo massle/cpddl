@@ -17,9 +17,7 @@
 #include "pddl/libs_info.h"
 #include "_cp.h"
 
-#ifndef PDDL_CPOPTIMIZER
-# error "cp-cp-optimizer.c requires CPLEX CP Optimizer!"
-#endif /* PDDL_CPOPTIMIZER */
+#ifdef PDDL_CPOPTIMIZER
 
 #define IL_STD
 #include <ilcp/cp.h>
@@ -226,3 +224,17 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
     env.end();
     return ret;
 }
+
+#else /* PDDL_CPOPTIMIZER */
+extern const char * const pddl_cp_optimizer_version = NULL;
+
+int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
+                            const pddl_cp_solve_config_t *cfg,
+                            pddl_cp_sol_t *sol,
+                            pddl_err_t *err)
+{
+    PANIC("Missing CPLEX CP Optimizer.");
+    return -1;
+}
+
+#endif /* PDDL_CPOPTIMIZER */
