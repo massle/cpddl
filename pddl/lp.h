@@ -80,6 +80,7 @@ enum pddl_lp_solver {
     PDDL_LP_CPLEX,
     PDDL_LP_GUROBI,
     PDDL_LP_HIGHS,
+    PDDL_LP_COIN_OR,
     PDDL_LP_NO_SOLVER = 100,
 };
 typedef enum pddl_lp_solver pddl_lp_solver_t;
@@ -134,7 +135,7 @@ void pddlLPDel(pddl_lp_t *lp);
 const char *pddlLPSolverName(const pddl_lp_t *lp);
 
 /**
- * Returns one of PDDL_LP_{CPLEX,GUROBI,HIGHS} constants according to the
+ * Returns one of PDDL_LP_{CPLEX,GUROBI,HIGHS,COIN_OR} constants according to the
  * current solver.
  */
 int pddlLPSolverID(const pddl_lp_t *lp);
@@ -221,6 +222,9 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
 pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
                                   pddl_lp_solution_t *sol,
                                   pddl_err_t *err);
+pddl_lp_status_t pddlLPSolveCoinOr(const pddl_lp_t *lp,
+                                   pddl_lp_solution_t *sol,
+                                   pddl_err_t *err);
 
 void pddlLPWrite(const pddl_lp_t *lp, const char *fn);
 

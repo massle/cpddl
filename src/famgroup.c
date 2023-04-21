@@ -257,6 +257,10 @@ static void famInfer(fam_t *fam)
     sol.var_val = ALLOC_ARR(double, pddlLPNumCols(fam->lp));
     for (int i = 0; i < fam->cfg.limit; ++i){
         pddlLPSolve(fam->lp, &sol, fam->err);
+        if (sol.error){
+            pddlErrPrint(fam->err, 1, stderr);
+            PANIC("Error in the LP solver occurred");
+        }
         if (!sol.solved || sol.obj_val < 0.5)
             break;
 

@@ -49,6 +49,7 @@ static void *createModel(const pddl_lp_t *lp, pddl_err_t *err)
                              pddl_true,
                              MIN_BOUND,
                              MAX_BOUND);
+    LOG(err, "problem: non-zero coefficients: %d", P.num_nz);
 
     int sense = kHighsObjSenseMinimize;
     if (lp->cfg.maximize)
@@ -85,20 +86,32 @@ pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
                                   pddl_lp_solution_t *sol,
                                   pddl_err_t *err)
 {
+    CTX_NO_TIME(err, "LP-HiGHS");
+    LOG(err, "version: %s", pddl_highs_version);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
+        " tune-int-op-pot: %b",
+        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
+        lp->cfg.tune_int_operator_potential);
     _pddlLPSolutionInit(sol, lp);
 
     void *model = createModel(lp, err);
-    if (model == NULL)
+    if (model == NULL){
+        sol->error = pddl_true;
         TRACE_RET(err, PDDL_LP_STATUS_ERR);
+    }
 
     HighsInt st = Highs_run(model);
     if (st == kHighsStatusError){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR,
                 "Something went wrong during solving the model!");
 
     }else if (st == kHighsStatusWarning){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR,
                 "Something went wrong during solving the model!");
     }
@@ -106,30 +119,44 @@ pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
     HighsInt modelst = Highs_getModelStatus(model);
     if (modelst == kHighsModelStatusNotset){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Model status not set");
 
     }else if (modelst == kHighsModelStatusLoadError){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Model load error");
 
     }else if (modelst == kHighsModelStatusModelError){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Model error");
 
     }else if (modelst == kHighsModelStatusPresolveError){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Presolve error");
 
     }else if (modelst == kHighsModelStatusSolveError){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Solve error");
 
     }else if (modelst == kHighsModelStatusPostsolveError){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Postsolve error");
 
     }else if (modelst == kHighsModelStatusModelEmpty){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Model is empty.");
 
     }else if (modelst == kHighsModelStatusOptimal){
@@ -174,10 +201,14 @@ pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
 
     }else if (modelst == kHighsModelStatusUnknown){
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Unkown solution status");
 
     }else{
         Highs_destroy(model);
+        sol->error = pddl_true;
+        CTXEND(err);
         ERR_RET(err, PDDL_LP_STATUS_ERR, "Unkown solution status: %d", (int)modelst);
     }
 
@@ -187,6 +218,7 @@ pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
 
     Highs_destroy(model);
 
+    CTXEND(err);
     return _pddlLPSolutionToStatus(sol);
 }
 

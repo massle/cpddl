@@ -23,6 +23,8 @@ static pddl_lp_solver_t default_solver = PDDL_LP_CPLEX;
 static pddl_lp_solver_t default_solver = PDDL_LP_GUROBI;
 #elif defined(PDDL_HIGHS)
 static pddl_lp_solver_t default_solver = PDDL_LP_HIGHS;
+#elif defined(PDDL_COIN_OR)
+static pddl_lp_solver_t default_solver = PDDL_LP_COIN_OR;
 #else
 static pddl_lp_solver_t default_solver = PDDL_LP_NO_SOLVER;
 #endif
@@ -38,6 +40,8 @@ static const char * const _getSolverVersion(pddl_lp_solver_t solver)
             return pddl_gurobi_version;
         case PDDL_LP_HIGHS:
             return pddl_highs_version;
+        case PDDL_LP_COIN_OR:
+            return pddl_coin_or_version;
         default:
             return NULL;
     }
@@ -62,6 +66,8 @@ static const char *getSolverName(pddl_lp_solver_t solver)
             return "gurobi";
         case PDDL_LP_HIGHS:
             return "highs";
+        case PDDL_LP_COIN_OR:
+            return "coin-or";
         default:
             return "No Solver";
     }
@@ -73,7 +79,7 @@ void pddlLPConfigLog(const pddl_lp_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, rows, err);
     LOG_CONFIG_INT(cfg, cols, err);
     LOG_CONFIG_BOOL(cfg, maximize, err);
-    LOG(err, "solver = %s %s", getSolverName(cfg->solver),
+    LOG(err, "default solver = %s %s", getSolverName(cfg->solver),
         getSolverVersion(cfg->solver));
     LOG_CONFIG_INT(cfg, num_threads, err);
     LOG_CONFIG_DBL(cfg, time_limit, err);
@@ -87,7 +93,8 @@ pddl_bool_t pddlLPSolverAvailable(pddl_lp_solver_t solver)
     if (solver == PDDL_LP_DEFAULT){
         return pddlLPSolverAvailable(PDDL_LP_CPLEX)
                 || pddlLPSolverAvailable(PDDL_LP_GUROBI)
-                || pddlLPSolverAvailable(PDDL_LP_HIGHS);
+                || pddlLPSolverAvailable(PDDL_LP_HIGHS)
+                || pddlLPSolverAvailable(PDDL_LP_COIN_OR);
     }
     return getSolverVersion(solver) != NULL;
 }
@@ -105,6 +112,9 @@ int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
             case PDDL_LP_HIGHS:
                 WARN(err, "The HiGHS LP solver is not available");
                 break;
+            case PDDL_LP_COIN_OR:
+                WARN(err, "The Coin-Or LP solver is not available");
+                break;
             default:
                 WARN(err, "Unkown LP solver identifier!");
         }
@@ -113,7 +123,8 @@ int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
 
     if (solver == PDDL_LP_CPLEX
             || solver == PDDL_LP_GUROBI
-            || solver == PDDL_LP_HIGHS){
+            || solver == PDDL_LP_HIGHS
+            || solver == PDDL_LP_COIN_OR){
         default_solver = solver;
     }
 
@@ -333,6 +344,8 @@ pddl_lp_status_t pddlLPSolve(const pddl_lp_t *lp,
             return pddlLPSolveGurobi(lp, sol, err);
         case PDDL_LP_HIGHS:
             return pddlLPSolveHiGHS(lp, sol, err);
+        case PDDL_LP_COIN_OR:
+            return pddlLPSolveCoinOr(lp, sol, err);
         default:
             ERR_RET(err, PDDL_LP_STATUS_ERR, "Unknown solver %d", lp->cfg.solver);
     }

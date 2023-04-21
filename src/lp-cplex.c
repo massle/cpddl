@@ -117,6 +117,12 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
                                   pddl_lp_solution_t *sol,
                                   pddl_err_t *err)
 {
+    CTX_NO_TIME(err, "LP-Cplex");
+    LOG(err, "version: %s", pddl_cplex_version);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
+        " tune-int-op-pot: %b",
+        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
+        lp->cfg.tune_int_operator_potential);
     int st;
     CPXENVptr env;
     CPXLPptr prob;
@@ -124,26 +130,34 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
     _pddlLPSolutionInit(sol, lp);
 
     env = CPXopenCPLEX(&st);
-    if (env == NULL)
+    if (env == NULL){
+        CTXEND(err);
         return cplexErr(&env, NULL, 0, sol, "Could not open CPLEX environment", err);
+    }
 
     // Set number of processing threads
     int num_threads = PDDL_MAX(1, lp->cfg.num_threads);
     st = CPXsetintparam(env, CPX_PARAM_THREADS, num_threads);
-    if (st != 0)
+    if (st != 0){
+        CTXEND(err);
         return cplexErr(&env, NULL, st, sol, "Could not set number of threads", err);
+    }
 
     CPXsetintparam(env, CPXPARAM_ScreenOutput, CPX_OFF);
 
     if (lp->cfg.time_limit > 0.f){
         st = CPXsetdblparam(env, CPXPARAM_TimeLimit, lp->cfg.time_limit);
-        if (st != 0)
+        if (st != 0){
+            CTXEND(err);
             return cplexErr(&env, NULL, st, sol, "Could not set number of threads", err);
+        }
     }
 
     prob = CPXcreateprob(env, &st, "");
-    if (prob == NULL)
+    if (prob == NULL){
+        CTXEND(err);
         return cplexErr(&env, NULL, 0, sol, "Could not create CPLEX problem", err);
+    }
 
     if (lp->cfg.maximize){
         CPXchgobjsen(env, prob, CPX_MAX);
@@ -159,17 +173,22 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
                              pddl_false,
                              -CPX_INFBOUND,
                              CPX_INFBOUND);
+    LOG(err, "problem: non-zero coefficients: %d", P.num_nz);
 
     pddl_bool_t is_mip = P.is_mip;
     st = CPXnewcols(env, prob, P.num_col, P.col_obj, P.col_lb, P.col_ub,
                     (P.is_mip ? P.col_type : NULL), NULL);
-    if (st != 0)
+    if (st != 0){
+        CTXEND(err);
         return cplexErr(&env, &prob, st, sol, "Could not create columns", err);
+    }
 
     st = CPXaddrows(env, prob, 0, P.num_row, P.num_nz, P.row_rhs,
                     P.row_sense, P.row_beg, P.row_ind, P.row_val, NULL, NULL);
-    if (st != 0)
+    if (st != 0){
+        CTXEND(err);
         return cplexErr(&env, &prob, st, sol, "Could not create columns", err);
+    }
 
     compressedRowProblemFree(&P);
 
@@ -190,14 +209,18 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
                                 | CPX_CALLBACKCONTEXT_RELAXATION
                                 | CPX_CALLBACKCONTEXT_CANDIDATE,
                            callback, &log);
-        if ((st = CPXmipopt(env, prob)) != 0)
+        if ((st = CPXmipopt(env, prob)) != 0){
+            CTXEND(err);
             return cplexErr(&env, &prob, st, sol, "Failed to optimize MIP", err);
+        }
         CPXcallbacksetfunc(env, prob, 0, NULL, NULL);
 
     }else{
         CPXsetlpcallbackfunc(env, callbackLP, &log);
-        if ((st = CPXlpopt(env, prob)) != 0)
+        if ((st = CPXlpopt(env, prob)) != 0){
+            CTXEND(err);
             return cplexErr(&env, &prob, st, sol, "Failed to optimize LP", err);
+        }
     }
 
     st = CPXgetstat(env, prob);
@@ -240,18 +263,22 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
         char msg[1024];
         msg[1023] = '\x0';
         snprintf(msg, 1024, "Unrecognized solution status %d", st);
+        CTXEND(err);
         return cplexErr(&env, &prob, 0, sol, msg, err);
     }
 
     if (sol->solved){
         st = CPXsolution(env, prob, NULL, &sol->obj_val, sol->var_val,
                          NULL, NULL, NULL);
-        if (st != 0)
+        if (st != 0){
+            CTXEND(err);
             return cplexErr(&env, &prob, st, sol, "Cannot retrieve solution", err);
+        }
     }
     CPXfreeprob(env, &prob);
     CPXcloseCPLEX(&env);
 
+    CTXEND(err);
     return _pddlLPSolutionToStatus(sol);
 }
 

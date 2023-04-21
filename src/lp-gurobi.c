@@ -59,7 +59,7 @@ static int cb(GRBmodel *model, void *cbdata, int where, void *ud)
             msglen = PDDL_MIN(128, msglen - 1);
             memcpy(out, msg, msglen * sizeof(char));
             out[msglen] = '\x0';
-            LOG(err, "gurobi: %s", out);
+            LOG(err, "log: %s", out);
         }
     }
     return 0;
@@ -70,6 +70,12 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
                                    pddl_lp_solution_t *sol,
                                    pddl_err_t *err)
 {
+    CTX_NO_TIME(err, "LP-Gurobi");
+    LOG(err, "version: %s", pddl_gurobi_version);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
+        " tune-int-op-pot: %b",
+        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
+        lp->cfg.tune_int_operator_potential);
     GRBenv *env = NULL;
     GRBmodel *model = NULL;
     int ret;
@@ -80,15 +86,19 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
         char msg[1024];
         snprintf(msg, 1024, "Could not create environment (error code: %d)", ret);
         msg[1023] = '\x0';
+        CTXEND(err);
         return grbErr(NULL, NULL, sol, msg, err);
     }
-    if (GRBsetintparam(env, "OutputFlag", 0) != 0)
+    if (GRBsetintparam(env, "OutputFlag", 0) != 0){
+        CTXEND(err);
         return grbErr(env, NULL, sol, "Could not set OutputFlag", err);
+    }
 
     if ((ret = GRBstartenv(env)) != 0){
         if (ret == GRB_ERROR_NO_LICENSE)
             WARN(err, "It seems license file wasn't found. Don't forget to"
                   " set GRB_LICENSE_FILE environment variable.");
+        CTXEND(err);
         return grbErr(env, NULL, sol, "Could not start Gurobi environment", err);
     }
 
@@ -100,14 +110,17 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
                              pddl_false,
                              -GRB_INFINITY,
                              GRB_INFINITY);
+    LOG(err, "problem: non-zero coefficients: %d", P.num_nz);
 
     if (GRBnewmodel(env, &model, NULL, P.num_col,
                     P.col_obj, P.col_lb, P.col_ub, P.col_type, NULL) != 0){
+        CTXEND(err);
         return grbErr(env, NULL, sol, "Could create a model", err);
     }
 
     if (GRBaddconstrs(model, P.num_row, P.num_nz, P.row_beg, P.row_ind,
                       P.row_val, P.row_sense, P.row_rhs, NULL) != 0){
+        CTXEND(err);
         return grbErr(env, model, sol, "Could add constraints", err);
     }
     GRBupdatemodel(model);
@@ -116,26 +129,36 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
     GRBsetcallbackfunc(model, cb, err);
 
     int num_threads = PDDL_MAX(1, lp->cfg.num_threads);
-    if (GRBsetintparam(GRBgetenv(model), "Threads", num_threads) != 0)
+    if (GRBsetintparam(GRBgetenv(model), "Threads", num_threads) != 0){
+        CTXEND(err);
         return grbErr(env, model, sol, "Could set number of threads", err);
+    }
 
     if (lp->cfg.time_limit > 0.){
-        if (GRBsetdblparam(GRBgetenv(model), "TimeLimit", lp->cfg.time_limit) != 0)
+        if (GRBsetdblparam(GRBgetenv(model), "TimeLimit", lp->cfg.time_limit) != 0){
+            CTXEND(err);
             return grbErr(env, model, sol, "Could set time limit", err);
+        }
     }
 
     int minmax = GRB_MINIMIZE;
     if (lp->cfg.maximize)
         minmax = GRB_MAXIMIZE;
-    if (GRBsetintattr(model, GRB_INT_ATTR_MODELSENSE, minmax) != 0)
+    if (GRBsetintattr(model, GRB_INT_ATTR_MODELSENSE, minmax) != 0){
+        CTXEND(err);
         return grbErr(env, model, sol, "Could set minimization/maximization", err);
+    }
 
-    if (GRBoptimize(model) != 0)
+    if (GRBoptimize(model) != 0){
+        CTXEND(err);
         return grbErr(env, model, sol, "Could not optimize model", err);
+    }
 
     int st;
-    if (GRBgetintattr(model, "Status", &st) != 0)
+    if (GRBgetintattr(model, "Status", &st) != 0){
+        CTXEND(err);
         return grbErr(env, model, sol, "Could not obtain solution status", err);
+    }
 
     if (st == GRB_OPTIMAL){
         sol->solved = pddl_true;
@@ -160,8 +183,10 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
                 || st == GRB_USER_OBJ_LIMIT
                 || st == GRB_WORK_LIMIT){
         int val;
-        if (GRBgetintattr(model, "SolCount", &val) != 0)
+        if (GRBgetintattr(model, "SolCount", &val) != 0){
+            CTXEND(err);
             return grbErr(env, model, sol, "Could not obtain number of solutions", err);
+        }
 
         if (val <= 0){
             sol->not_solved = pddl_true;
@@ -178,27 +203,35 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
         char msg[1024];
         snprintf(msg, 1024, "Unrecognized solution status %d", st);
         msg[1023] = '\x0';
+        CTXEND(err);
         return grbErr(env, model, sol, msg, err);
     }
 
     if (sol->solved){
-        if (GRBgetdblattr(model, "ObjVal", &sol->obj_val) != 0)
+        if (GRBgetdblattr(model, "ObjVal", &sol->obj_val) != 0){
+            CTXEND(err);
             return grbErr(env, model, sol, "Could not obtain objective value", err);
+        }
 
         if (sol->var_val != NULL){
             int num_cols;
-            if (GRBgetintattr(model, "NumVars", &num_cols) != 0)
+            if (GRBgetintattr(model, "NumVars", &num_cols) != 0){
+                CTXEND(err);
                 return grbErr(env, model, sol, "Could not obtain number of columns", err);
+            }
             PANIC_IF(num_cols != lp->col_size, "Invalid number of columns.");
             for (int i = 0; i < lp->col_size; ++i){
-                if (GRBgetdblattrelement(model, "X", i, sol->var_val + i) != 0)
+                if (GRBgetdblattrelement(model, "X", i, sol->var_val + i) != 0){
+                    CTXEND(err);
                     return grbErr(env, model, sol, "Could not obtain variable value", err);
+                }
             }
         }
     }
 
     GRBfreemodel(model);
     GRBfreeenv(env);
+    CTXEND(err);
     return _pddlLPSolutionToStatus(sol);
 }
 
