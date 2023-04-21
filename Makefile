@@ -188,6 +188,12 @@ else
   SRC_STUB += bdd
 endif
 
+ifeq '$(USE_COIN_OR)' 'yes'
+  SRC_CPP += lp-coin-or
+else
+  SRC += lp-coin-or-stub
+endif
+
 
 ifeq '$(USE_DYNET)' 'yes'
   SRC_CPP += asnets_dynet
@@ -221,10 +227,12 @@ bin: libpddl.a
 	$(MAKE) -C bin
 
 libpddl.a: $(OBJS) $(MAKE_FILES)
+	rm -f $@
 	ar cr $@ $(OBJS)
 	ranlib $@
 
 libpddl.pic.a: $(OBJS_PIC) $(MAKE_FILES)
+	rm -f $@
 	ar cr $@ $(OBJS_PIC)
 	ranlib $@
 
@@ -243,7 +251,8 @@ pddl/config.h: $(MAKE_FILES)
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
 	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
+	if [ "$(USE_COIN_OR)" = "yes" ]; then echo "#define PDDL_COIN_OR" >>$@; fi
+	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ] || [ "$(USE_COIN_OR)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
 	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
 	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
 	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
@@ -305,10 +314,22 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
 .objs/clique.pic.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(CLIQUER_CFLAGS) -c -o $@ $<
-.objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
-.objs/lp-%.pic.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) -fPIC $(LP_CFLAGS) -c -o $@ $<
+.objs/lp-cplex.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -c -o $@ $<
+.objs/lp-cplex.pic.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -fPIC -c -o $@ $<
+.objs/lp-gurobi.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -c -o $@ $<
+.objs/lp-gurobi.pic.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -fPIC -c -o $@ $<
+.objs/lp-highs.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -c -o $@ $<
+.objs/lp-highs.pic.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -fPIC -c -o $@ $<
+.objs/lp-coin-or-stub.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/lp-coin-or-stub.pic.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c pddl/config.h
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.pic.o: src/sqlite3.c pddl/config.h
@@ -322,6 +343,10 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 .objs/asnets_dynet.pic.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -fPIC -c -o $@ $<
+.objs/lp-coin-or.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -c -o $@ $<
+.objs/lp-coin-or.pic.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -fPIC -c -o $@ $<
 
 src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
 	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
@@ -514,6 +539,10 @@ help:
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
 	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
 	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
+	@echo "  COIN_OR_USE_PKGCONFIG = $(COIN_OR_USE_PKGCONFIG)"
+	@echo "  USE_COIN_OR       = $(USE_COIN_OR)"
+	@echo "  COIN_OR_CFLAGS    = $(COIN_OR_CFLAGS)"
+	@echo "  COIN_OR_LDFLAGS   = $(COIN_OR_LDFLAGS)"
 	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
 	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"
 	@echo ""

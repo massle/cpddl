@@ -23,41 +23,52 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct pddl_lp_cls {
-    pddl_lp_solver_t solver_id;
-    const char *solver_name;
-    const char *solver_version;
-    pddl_lp_t *(*new)(const pddl_lp_config_t *cfg, pddl_err_t *err);
-    void (*del)(pddl_lp_t *);
-    void (*set_obj)(pddl_lp_t *lp, int i, double coef);
-    void (*set_var_range)(pddl_lp_t *lp, int i, double lb, double ub);
-    void (*set_var_free)(pddl_lp_t *lp, int i);
-    void (*set_var_int)(pddl_lp_t *lp, int i);
-    void (*set_var_binary)(pddl_lp_t *lp, int i);
-    void (*set_coef)(pddl_lp_t *lp, int row, int col, double coef);
-    void (*set_rhs)(pddl_lp_t *lp, int row, double rhs, char sense);
-    void (*add_rows)(pddl_lp_t *lp, int cnt, const double *rhs, const char *sense);
-    void (*del_rows)(pddl_lp_t *lp, int begin, int end);
-    int (*num_rows)(const pddl_lp_t *lp);
-    void (*add_cols)(pddl_lp_t *lp, int cnt);
-    void (*del_cols)(pddl_lp_t *lp, int begin, int end);
-    int (*num_cols)(const pddl_lp_t *lp);
-    int (*solve)(pddl_lp_t *lp, double *val, double *obj);
-    void (*write)(pddl_lp_t *lp, const char *fn);
+#define PDDL_LP_MIN_BOUND -1E20
+#define PDDL_LP_MAX_BOUND 1E20
+
+enum pddl_lp_col_type {
+    PDDL_LP_COL_TYPE_REAL,
+    PDDL_LP_COL_TYPE_INT,
+    PDDL_LP_COL_TYPE_BINARY,
 };
-typedef struct pddl_lp_cls pddl_lp_cls_t;
+typedef enum pddl_lp_col_type pddl_lp_col_type_t;
+
+struct pddl_lp_col {
+    double obj;
+    pddl_lp_col_type_t type;
+    double lb;
+    double ub;
+};
+typedef struct pddl_lp_col pddl_lp_col_t;
+
+struct pddl_lp_coef {
+    int col;
+    double coef;
+};
+typedef struct pddl_lp_coef pddl_lp_coef_t;
+
+struct pddl_lp_row {
+    pddl_lp_coef_t *coef;
+    int coef_size;
+    int coef_alloc;
+    double rhs;
+    char sense; // 'L', 'G', 'E'
+};
+typedef struct pddl_lp_row pddl_lp_row_t;
 
 struct pddl_lp {
-    pddl_lp_cls_t *cls;
-    pddl_err_t *err;
+    pddl_err_t *err; // TODO: Remove this one
     pddl_lp_config_t cfg;
+    pddl_lp_col_t *col;
+    int col_size;
+    int col_alloc;
+    pddl_lp_row_t *row;
+    int row_size;
+    int row_alloc;
 };
 
-extern pddl_lp_cls_t *pddl_lp_default;
-extern pddl_lp_cls_t pddl_lp_not_available;
-extern pddl_lp_cls_t pddl_lp_cplex;
-extern pddl_lp_cls_t pddl_lp_gurobi;
-extern pddl_lp_cls_t pddl_lp_highs;
+void _pddlLPSolutionInit(pddl_lp_solution_t *sol, const pddl_lp_t *lp);
+pddl_lp_status_t _pddlLPSolutionToStatus(const pddl_lp_solution_t *sol);
 
 #ifdef __cplusplus
 }

@@ -52,6 +52,9 @@ static int setLPSolver(const char *v)
     }else if (strcmp(v, "highs") == 0){
         solver = PDDL_LP_HIGHS;
 
+    }else if (strcmp(v, "coin-or") == 0){
+        solver = PDDL_LP_COIN_OR;
+
     }else{
         fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
         return -1;
@@ -403,7 +406,7 @@ static void setBaseOptions(void)
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
-                 "Set the default LP solver: cplex/gurobi/highs");
+                 "Set the default LP solver: cplex/gurobi/highs/coin-or");
 
 }
 
@@ -1031,6 +1034,7 @@ static void help(const char *argv0, FILE *fout)
             || pddl_cp_optimizer_version != NULL
             || pddl_gurobi_version != NULL
             || pddl_highs_version != NULL
+            || pddl_coin_or_version != NULL
             || pddl_dynet_version != NULL){
         fprintf(fout, "Used libraries:\n");
 
@@ -1069,6 +1073,13 @@ static void help(const char *argv0, FILE *fout)
             fprintf(fout, "  HiGHS v%s"
                     " | License MIT | https://highs.dev\n",
                     pddl_highs_version);
+        }
+
+        if (pddl_coin_or_version != NULL){
+            fprintf(fout, "  Coin-Or %s"
+                    " | Eclipse Public License v2.0 | https://www.coin-or.org/\n",
+                    pddl_coin_or_version);
+            
         }
 
         if (pddl_dynet_version != NULL){
@@ -1194,6 +1205,9 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (pddl_highs_version != NULL)
         PDDL_LOG(err, "Have library HiGHS v%s", pddl_highs_version);
+
+    if (pddl_coin_or_version != NULL)
+        PDDL_LOG(err, "Have library Coin-Or %s", pddl_coin_or_version);
 
     if (pddl_dynet_version != NULL)
         PDDL_LOG(err, "Have library DyNet");

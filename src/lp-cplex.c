@@ -19,33 +19,52 @@
 
 #ifdef PDDL_CPLEX
 # include <ilcplex/cplex.h>
+#include "_lp_compressed_row_problem.h"
 const char * const pddl_cplex_version =
     PDDL_TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX);
 
-struct _lp_t {
-    pddl_lp_t cls;
-    CPXENVptr env;
-    CPXLPptr lp;
-    int mip;
-    pddl_timer_t log_timer;
-};
-typedef struct _lp_t lp_t;
 
-#define LP(l) pddl_container_of((l), lp_t, cls)
-
-static void cplexErr(lp_t *lp, int status, const char *s)
+static pddl_lp_status_t cplexErr(CPXENVptr *env,
+                                 CPXLPptr *prob,
+                                 int status,
+                                 pddl_lp_solution_t *sol,
+                                 const char *s,
+                                 pddl_err_t *err)
 {
-    char errmsg[1024];
-    CPXgeterrorstring(lp->env, status, errmsg);
-    PANIC("Error: CPLEX: %s: %s", s, errmsg);
+    if (status != 0 && env != NULL){
+        char errmsg[1024];
+        CPXgeterrorstring(*env, status, errmsg);
+        ERR(err, "CPLEX: %s: %s", s, errmsg);
+    }else{
+        ERR(err, "CPLEX: %s", s);
+    }
+
+    sol->solved_optimally = pddl_false;
+    sol->solved_suboptimally = pddl_false;
+    sol->unsolvable = pddl_false;
+    sol->not_solved = pddl_false;
+    sol->error = pddl_true;
+    sol->timed_out = pddl_false;
+
+    if (prob != NULL && *prob != NULL)
+        CPXfreeprob(*env, prob);
+    if (env != NULL && *env != NULL)
+        CPXcloseCPLEX(env);
+    return PDDL_LP_STATUS_ERR;
 }
 
-static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
-{
-    lp_t *lp = _lp;
+struct log {
+    pddl_err_t *err;
+    pddl_timer_t timer;
+};
+typedef struct log log_t;
 
-    pddlTimerStop(&lp->log_timer);
-    if (pddlTimerElapsedInSF(&lp->log_timer) < 1.)
+static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_log)
+{
+    log_t *log = _log;
+
+    pddlTimerStop(&log->timer);
+    if (pddlTimerElapsedInSF(&log->timer) < 1.)
         return 0;
 
     double best_sol = 0.;
@@ -61,23 +80,23 @@ static int callback(CPXCALLBACKCONTEXTptr ctx, CPXLONG ctxtid, void *_lp)
     int feasible = 0;
     CPXcallbackgetinfoint(ctx, CPXCALLBACKINFO_FEASIBLE, &feasible);
 
-    CTX_NO_TIME(lp->cls.err, "cplex progress");
-    LOG(lp->cls.err, "best solution: %.2f, best bound: %.2f, feasible: %d",
+    CTX_NO_TIME(log->err, "cplex progress");
+    LOG(log->err, "best solution: %.2f, best bound: %.2f, feasible: %d",
         best_sol, best_bound, feasible);
-    CTXEND(lp->cls.err);
-    pddlTimerStart(&lp->log_timer);
+    CTXEND(log->err);
+    pddlTimerStart(&log->timer);
     return 0;
 }
 
 static int callbackLP(CPXCENVptr env,
                       void *cbdata,
                       int wherefrom,
-                      void *_lp)
+                      void *_log)
 {
-    lp_t *lp = _lp;
+    log_t *log = _log;
 
-    pddlTimerStop(&lp->log_timer);
-    if (pddlTimerElapsedInSF(&lp->log_timer) < 1.)
+    pddlTimerStop(&log->timer);
+    if (pddlTimerElapsedInSF(&log->timer) < 1.)
         return 0;
 
     double primal = 0.;
@@ -87,295 +106,190 @@ static int callbackLP(CPXCENVptr env,
     CPXgetcallbackinfo(env, cbdata, wherefrom,
                        CPX_CALLBACK_INFO_DUAL_OBJ, &dual);
 
-    CTX_NO_TIME(lp->cls.err, "cplex progress");
-    LOG(lp->cls.err, "primal: %.4f, dual: %.4f", primal, dual);
-    CTXEND(lp->cls.err);
-    pddlTimerStart(&lp->log_timer);
+    CTX_NO_TIME(log->err, "cplex progress");
+    LOG(log->err, "primal: %.4f, dual: %.4f", primal, dual);
+    CTXEND(log->err);
+    pddlTimerStart(&log->timer);
     return 0;
 }
 
-static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
+pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
+                                  pddl_lp_solution_t *sol,
+                                  pddl_err_t *err)
 {
-    lp_t *lp;
+    CTX_NO_TIME(err, "LP-Cplex");
+    LOG(err, "version: %s", pddl_cplex_version);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
+        " tune-int-op-pot: %b",
+        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
+        lp->cfg.tune_int_operator_potential);
     int st;
+    CPXENVptr env;
+    CPXLPptr prob;
 
-    lp = ALLOC(lp_t);
-    lp->cls.cls = &pddl_lp_cplex;
-    lp->cls.err = err;
-    lp->cls.cfg = *cfg;
-    lp->mip = 0;
+    _pddlLPSolutionInit(sol, lp);
 
-    // Initialize CPLEX structures
-    lp->env = CPXopenCPLEX(&st);
-    if (lp->env == NULL)
-        cplexErr(lp, st, "Could not open CPLEX environment");
+    env = CPXopenCPLEX(&st);
+    if (env == NULL){
+        CTXEND(err);
+        return cplexErr(&env, NULL, 0, sol, "Could not open CPLEX environment", err);
+    }
 
     // Set number of processing threads
-    int num_threads = PDDL_MAX(1, cfg->num_threads);
-    st = CPXsetintparam(lp->env, CPX_PARAM_THREADS, num_threads);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set number of threads");
-
-    CPXsetintparam(lp->env, CPXPARAM_ScreenOutput, CPX_OFF);
-
-    if (cfg->time_limit > 0.f){
-        st = CPXsetdblparam(lp->env, CPXPARAM_TimeLimit, cfg->time_limit);
-        if (st != 0)
-            cplexErr(lp, st, "Could not set number of threads");
+    int num_threads = PDDL_MAX(1, lp->cfg.num_threads);
+    st = CPXsetintparam(env, CPX_PARAM_THREADS, num_threads);
+    if (st != 0){
+        CTXEND(err);
+        return cplexErr(&env, NULL, st, sol, "Could not set number of threads", err);
     }
 
-    lp->lp = CPXcreateprob(lp->env, &st, "");
-    if (lp->lp == NULL)
-        cplexErr(lp, st, "Could not create CPLEX problem");
+    CPXsetintparam(env, CPXPARAM_ScreenOutput, CPX_OFF);
 
-    if (cfg->maximize){
-        CPXchgobjsen(lp->env, lp->lp, CPX_MAX);
+    if (lp->cfg.time_limit > 0.f){
+        st = CPXsetdblparam(env, CPXPARAM_TimeLimit, lp->cfg.time_limit);
+        if (st != 0){
+            CTXEND(err);
+            return cplexErr(&env, NULL, st, sol, "Could not set number of threads", err);
+        }
+    }
+
+    prob = CPXcreateprob(env, &st, "");
+    if (prob == NULL){
+        CTXEND(err);
+        return cplexErr(&env, NULL, 0, sol, "Could not create CPLEX problem", err);
+    }
+
+    if (lp->cfg.maximize){
+        CPXchgobjsen(env, prob, CPX_MAX);
     }else{
-        CPXchgobjsen(lp->env, lp->lp, CPX_MIN);
+        CPXchgobjsen(env, prob, CPX_MIN);
     }
 
-    st = CPXnewcols(lp->env, lp->lp, cfg->cols, NULL, NULL, NULL, NULL, NULL);
-    if (st != 0)
-        cplexErr(lp, st, "Could not initialize variables");
+    pddl_lp_compressed_row_problem_t P;
+    compressedRowProblemInit(&P, lp, 
+                             CPX_CONTINUOUS,
+                             CPX_INTEGER,
+                             CPX_BINARY,
+                             pddl_false,
+                             -CPX_INFBOUND,
+                             CPX_INFBOUND);
+    LOG(err, "problem: non-zero coefficients: %d", P.num_nz);
 
-    st = CPXnewrows(lp->env, lp->lp, cfg->rows, NULL, NULL, NULL, NULL);
-    if (st != 0)
-        cplexErr(lp, st, "Could not initialize constraints");
-
-    if (cfg->tune_int_operator_potential){
-        CPXsetintparam(lp->env, CPXPARAM_Preprocessing_Relax, CPX_ON);
-        CPXsetintparam(lp->env, CPXPARAM_Preprocessing_Dual, 1);
-        //CPXsetintparam(lp->env, CPXPARAM_Preprocessing_CoeffReduce, 2);
-        //CPXsetintparam(lp->env, CPXPARAM_Preprocessing_Dependency, 3);
+    pddl_bool_t is_mip = P.is_mip;
+    st = CPXnewcols(env, prob, P.num_col, P.col_obj, P.col_lb, P.col_ub,
+                    (P.is_mip ? P.col_type : NULL), NULL);
+    if (st != 0){
+        CTXEND(err);
+        return cplexErr(&env, &prob, st, sol, "Could not create columns", err);
     }
 
-    return &lp->cls;
-}
+    st = CPXaddrows(env, prob, 0, P.num_row, P.num_nz, P.row_rhs,
+                    P.row_sense, P.row_beg, P.row_ind, P.row_val, NULL, NULL);
+    if (st != 0){
+        CTXEND(err);
+        return cplexErr(&env, &prob, st, sol, "Could not create columns", err);
+    }
 
-static void del(pddl_lp_t *_lp)
-{
-    lp_t *lp = LP(_lp);
-    if (lp->lp)
-        CPXfreeprob(lp->env, &lp->lp);
-    if (lp->env)
-        CPXcloseCPLEX(&lp->env);
-    FREE(lp);
-}
+    compressedRowProblemFree(&P);
 
-static void setObj(pddl_lp_t *_lp, int i, double coef)
-{
-    lp_t *lp = LP(_lp);
-    int st;
+    if (lp->cfg.tune_int_operator_potential){
+        CPXsetintparam(env, CPXPARAM_Preprocessing_Relax, CPX_ON);
+        CPXsetintparam(env, CPXPARAM_Preprocessing_Dual, 1);
+        //CPXsetintparam(env, CPXPARAM_Preprocessing_CoeffReduce, 2);
+        //CPXsetintparam(env, CPXPARAM_Preprocessing_Dependency, 3);
+    }
 
-    st = CPXchgcoef(lp->env, lp->lp, -1, i, coef);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set objective coeficient.");
-}
-
-static void setVarRange(pddl_lp_t *_lp, int i, double lb, double ub)
-{
-    lp_t *lp = LP(_lp);
-    if (lb <= -1E20)
-        lb = -CPX_INFBOUND;
-    if (ub >= 1E20)
-        ub = CPX_INFBOUND;
-    static const char lu[2] = { 'L', 'U' };
-    double bd[2] = { lb, ub };
-    int ind[2];
-    int st;
-
-    ind[0] = ind[1] = i;
-    st = CPXchgbds(lp->env, lp->lp, 2, ind, lu, bd);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set variable as free.");
-}
-
-static void setVarFree(pddl_lp_t *_lp, int i)
-{
-    setVarRange(_lp, i, -CPX_INFBOUND, CPX_INFBOUND);
-}
-
-static void setVarInt(pddl_lp_t *_lp, int i)
-{
-    lp_t *lp = LP(_lp);
-    static char type = CPX_INTEGER;
-    int st;
-
-    st = CPXchgctype(lp->env, lp->lp, 1, &i, &type);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set variable as integer.");
-    lp->mip = 1;
-}
-
-static void setVarBinary(pddl_lp_t *_lp, int i)
-{
-    lp_t *lp = LP(_lp);
-    static char type = CPX_BINARY;
-    int st;
-
-    st = CPXchgctype(lp->env, lp->lp, 1, &i, &type);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set variable as binary.");
-    lp->mip = 1;
-}
-
-static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXchgcoef(lp->env, lp->lp, row, col, coef);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set constraint coeficient.");
-}
-
-static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXchgcoef(lp->env, lp->lp, row, -1, rhs);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set right-hand-side.");
-
-    st = CPXchgsense(lp->env, lp->lp, 1, &row, &sense);
-    if (st != 0)
-        cplexErr(lp, st, "Could not set right-hand-side sense.");
-}
-
-static void addRows(pddl_lp_t *_lp, int cnt, const double *rhs, const char *sense)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXnewrows(lp->env, lp->lp, cnt, rhs, sense, NULL, NULL);
-    if (st != 0)
-        cplexErr(lp, st, "Could not add new rows.");
-}
-
-static void delRows(pddl_lp_t *_lp, int begin, int end)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXdelrows(lp->env, lp->lp, begin, end);
-    if (st != 0)
-        cplexErr(lp, st, "Could not delete rows.");
-}
-
-static int numRows(const pddl_lp_t *_lp)
-{
-    lp_t *lp = LP(_lp);
-    return CPXgetnumrows(lp->env, lp->lp);
-}
-
-static void addCols(pddl_lp_t *_lp, int cnt)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXnewcols(lp->env, lp->lp, cnt, NULL, NULL, NULL, NULL, NULL);
-    if (st != 0)
-        cplexErr(lp, st, "Could not add new columns.");
-}
-
-static void delCols(pddl_lp_t *_lp, int begin, int end)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXdelcols(lp->env, lp->lp, begin, end);
-    if (st != 0)
-        cplexErr(lp, st, "Could not delete columns.");
-}
-
-static int numCols(const pddl_lp_t *_lp)
-{
-    lp_t *lp = LP(_lp);
-    return CPXgetnumcols(lp->env, lp->lp);
-}
-
-static int solve(pddl_lp_t *_lp, double *val, double *obj)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    pddlTimerStart(&lp->log_timer);
-    if (lp->mip){
-        CPXcallbacksetfunc(lp->env, lp->lp,
+    log_t log;
+    log.err = err;
+    pddlTimerStart(&log.timer);
+    if (is_mip){
+        CPXcallbacksetfunc(env, prob,
                            CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS
                                 | CPX_CALLBACKCONTEXT_LOCAL_PROGRESS
                                 | CPX_CALLBACKCONTEXT_RELAXATION
                                 | CPX_CALLBACKCONTEXT_CANDIDATE,
-                           callback, lp);
-        if ((st = CPXmipopt(lp->env, lp->lp)) != 0)
-            cplexErr(lp, st, "Failed to optimize LP");
-        CPXcallbacksetfunc(lp->env, lp->lp, 0, NULL, NULL);
+                           callback, &log);
+        if ((st = CPXmipopt(env, prob)) != 0){
+            CTXEND(err);
+            return cplexErr(&env, &prob, st, sol, "Failed to optimize MIP", err);
+        }
+        CPXcallbacksetfunc(env, prob, 0, NULL, NULL);
 
     }else{
-        CPXsetlpcallbackfunc(lp->env, callbackLP, lp);
-        if ((st = CPXlpopt(lp->env, lp->lp)) != 0)
-            cplexErr(lp, st, "Failed to optimize LP");
+        CPXsetlpcallbackfunc(env, callbackLP, &log);
+        if ((st = CPXlpopt(env, prob)) != 0){
+            CTXEND(err);
+            return cplexErr(&env, &prob, st, sol, "Failed to optimize LP", err);
+        }
     }
 
-    st = CPXgetstat(lp->env, lp->lp);
+    st = CPXgetstat(env, prob);
     if (st == CPX_STAT_OPTIMAL
             || st == CPX_STAT_OPTIMAL_INFEAS
             || st == CPXMIP_OPTIMAL
-            || st == CPXMIP_OPTIMAL_TOL
-            || st == CPXMIP_TIME_LIM_FEAS){
-        st = CPXsolution(lp->env, lp->lp, NULL, val, obj, NULL, NULL, NULL);
-        if (st != 0)
-            cplexErr(lp, st, "Cannot retrieve solution");
+            || st == CPXMIP_OPTIMAL_TOL){
+        sol->solved = pddl_true;
+        sol->solved_optimally = pddl_true;
+
+    }else if (st == CPXMIP_TIME_LIM_FEAS){
+        sol->solved = pddl_true;
+        sol->solved_suboptimally = pddl_true;
+        sol->timed_out = pddl_true;
+
+    }else if (st == CPX_STAT_INFEASIBLE
+                || st == CPX_STAT_INForUNBD
+                || st == CPXMIP_INFEASIBLE
+                || st == CPXMIP_INForUNBD){
+        sol->unsolvable = pddl_true;
+
+    }else if (st == CPX_STAT_ABORT_DETTIME_LIM
+                || st == CPX_STAT_ABORT_DUAL_OBJ_LIM
+                || st == CPX_STAT_ABORT_IT_LIM
+                || st == CPX_STAT_ABORT_OBJ_LIM
+                || st == CPX_STAT_ABORT_PRIM_OBJ_LIM
+                || st == CPX_STAT_ABORT_USER
+                || st == CPX_STAT_UNBOUNDED
+                || st == CPXMIP_ABORT_INFEAS
+                || st == CPXMIP_DETTIME_LIM_FEAS
+                || st == CPXMIP_DETTIME_LIM_INFEAS){
+        sol->not_solved = pddl_true;
+
+    }else if (st == CPX_STAT_ABORT_TIME_LIM
+                || st == CPXMIP_TIME_LIM_INFEAS){
+        sol->not_solved = pddl_true;
+        sol->timed_out = pddl_true;
+
     }else{
-        if (obj != NULL){
-            int cols = CPXgetnumcols(lp->env, lp->lp);
-            ZEROIZE_ARR(obj, cols);
-        }
-        if (val != NULL)
-            *val = 0.;
-        return -1;
+        char msg[1024];
+        msg[1023] = '\x0';
+        snprintf(msg, 1024, "Unrecognized solution status %d", st);
+        CTXEND(err);
+        return cplexErr(&env, &prob, 0, sol, msg, err);
     }
-    return 0;
+
+    if (sol->solved){
+        st = CPXsolution(env, prob, NULL, &sol->obj_val, sol->var_val,
+                         NULL, NULL, NULL);
+        if (st != 0){
+            CTXEND(err);
+            return cplexErr(&env, &prob, st, sol, "Cannot retrieve solution", err);
+        }
+    }
+    CPXfreeprob(env, &prob);
+    CPXcloseCPLEX(&env);
+
+    CTXEND(err);
+    return _pddlLPSolutionToStatus(sol);
 }
 
-static void cpxWrite(pddl_lp_t *_lp, const char *fn)
-{
-    lp_t *lp = LP(_lp);
-    int st;
-
-    st = CPXwriteprob(lp->env, lp->lp, fn, "LP");
-    if (st != 0)
-        cplexErr(lp, st, "Failed to optimize ILP");
-}
-
-
-
-#define TOSTR1(x) #x
-#define TOSTR(x) TOSTR1(x)
-pddl_lp_cls_t pddl_lp_cplex = {
-    PDDL_LP_CPLEX,
-    "cplex",
-    pddl_cplex_version,
-    new,
-    del,
-    setObj,
-    setVarRange,
-    setVarFree,
-    setVarInt,
-    setVarBinary,
-    setCoef,
-    setRHS,
-    addRows,
-    delRows,
-    numRows,
-    addCols,
-    delCols,
-    numCols,
-    solve,
-    cpxWrite,
-};
 #else /* PDDL_CPLEX */
 const char * const pddl_cplex_version = NULL;
-pddl_lp_cls_t pddl_lp_cplex = { 0 };
+
+pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
+                                  pddl_lp_solution_t *sol,
+                                  pddl_err_t *err)
+{
+    PANIC("Missing CPLEX solver");
+    return PDDL_LP_STATUS_ERR;
+}
 #endif /* PDDL_CPLEX */

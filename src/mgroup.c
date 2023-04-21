@@ -757,19 +757,21 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     cover_number = fact_size - pddlISetSize(&covered_facts);
     pddlISetFree(&covered_facts);
 
-    double val, *obj;
-    obj = ALLOC_ARR(double, cols);
-    if (pddlLPSolve(lp, &val, obj) == 0){
+    pddl_lp_solution_t sol;
+    sol.var_val = ALLOC_ARR(double, cols);
+    pddlLPSolve(lp, &sol, NULL);
+    if (sol.solved){
         for (int i = fact_size; i < cols; ++i){
-            if (obj[i] > 0.5)
+            if (sol.var_val[i] > 0.5)
                 ++cover_number;
         }
-
     }else{
+        FREE(sol.var_val);
+        pddlLPDel(lp);
         return -1;
     }
 
-    FREE(obj);
+    FREE(sol.var_val);
     pddlLPDel(lp);
 
     return cover_number;
