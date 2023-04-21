@@ -361,13 +361,10 @@ void pddlLPWrite(const pddl_lp_t *lp, const char *fn)
         fprintf(fout, "Minimize\n");
     }
     fprintf(fout, "  obj:");
-    pddl_bool_t first = pddl_true;
     int num_written = 0;
     for (int c = 0; c < lp->col_size; ++c){
         if (lp->col[c].obj != 0.){
             fprintf(fout, " %+.4f x%d", lp->col[c].obj, c + 1);
-            first = pddl_false;
-
             if (++num_written % 5 == 0)
                 fprintf(fout, "\n ");
         }
