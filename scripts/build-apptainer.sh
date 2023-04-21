@@ -18,6 +18,7 @@ if [ "$1" = "" ]; then
     echo "        --no-bliss"
     echo "        --no-cudd"
     echo "        --highs"
+    echo "        --coin-or"
     echo "        --cplex ibm_studio_installer"
     echo "        --gurobi (supported only with debian-bullseye)"
     echo "        --minizinc"
@@ -40,6 +41,7 @@ WERROR=
 USE_GIT=
 HAS_CPLEX=
 HAS_HIGHS=
+HAS_COIN_OR=
 HAS_MINIZINC=
 NO_BLISS=
 NO_CUDD=
@@ -67,6 +69,10 @@ while true; do
         SETUP="$SETUP
     git clone --depth 1 --branch $HIGHS_VERSION https://github.com/ERGO-Code/HiGHS.git \$APPTAINER_ROOTFS/HiGHS-src
 "
+
+    elif [ "$1" = "--coin-or" ]; then
+        HAS_COIN_OR=yes
+        shift
 
     elif [ "$1" = "--minizinc" ]; then
         HAS_MINIZINC=yes
@@ -159,6 +165,9 @@ fi
 if [ "$HAS_HIGHS" = "yes" ]; then
     SUFF="${SUFF}-highs"
 fi
+if [ "$HAS_COIN_OR" = "yes" ]; then
+    SUFF="${SUFF}-coinor"
+fi
 if [ "$HAS_MINIZINC" = "yes" ]; then
     SUFF="${SUFF}-minizinc"
 fi
@@ -213,6 +222,7 @@ MAKE="
 
     [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
     [ -d /HiGHS ] && echo \"HIGHS_ROOT = /HiGHS\" >>Makefile.config
+    [ -f /usr/include/coin/OsiSolverInterface.hpp ] && echo \"COIN_OR_USE_PKGCONFIG = yes\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
     [ \"$WERROR\" != \"\" ] && echo \"WERROR = yes\" >>Makefile.config
     make mrproper
@@ -286,6 +296,7 @@ $SETUP
     apt update -y
     apt upgrade -y
     apt install -y make gcc g++ autoconf automake cmake git libstdc++6
+    [ "$HAS_COIN_OR" = "yes" ] && apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config
     [ -f /llvm.sh ] \\
         && apt install -y lsb-release wget software-properties-common gnupg \\
         && bash /llvm.sh $CLANG_VERSION
@@ -303,6 +314,7 @@ Stage: run
     export DEBIAN_FRONTEND=noninteractive
     apt update -y
     apt install -y libstdc++6
+    [ "$HAS_COIN_OR" = "yes" ] && apt install -y coinor-libclp1 coinor-libcbc3
     apt autoremove -y
     apt-get clean -y
     rm -rf /var/lib/apt/lists/*
@@ -329,6 +341,7 @@ $SETUP
     dnf -y update
     dnf -y install make gcc g++ autoconf automake cmake git libstdc++
     [ "$CLANG" = "yes" ] && dnf -y install clang
+    [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc-devel coin-or-Clp-devel coin-or-Osi-devel
     $MAKE
 
 Bootstrap: docker
@@ -341,6 +354,7 @@ Stage: run
 %post
     dnf -y update
     dnf -y install libstdc++
+    [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi
     dnf -y clean all
     rm -rf /var/lib/dnf
     rm -rf /var/lib/rpm*
