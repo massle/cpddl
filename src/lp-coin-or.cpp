@@ -116,6 +116,9 @@ pddl_lp_status_t pddlLPSolveCoinOr(const pddl_lp_t *lp,
             case 'E':
                 lhs = rhs = lp->row[ri].rhs;
                 break;
+            default:
+                lhs = MIN_BOUND;
+                rhs = MAX_BOUND;
         }
 
         int *cols = ALLOC_ARR(int, lp->row[ri].coef_size);
