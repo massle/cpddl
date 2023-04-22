@@ -203,11 +203,11 @@ endif
 
 OBJS_PIC := $(foreach obj,$(SRC),.objs/$(obj).pic.o) \
             $(foreach obj,$(SRC_CPP),.objs/$(obj).pic.cpp.o) \
-            $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.pic.o)
+            $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.pic.o)
 
 OBJS := $(foreach obj,$(SRC),.objs/$(obj).o) \
         $(foreach obj,$(SRC_CPP),.objs/$(obj).cpp.o) \
-        $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.o)
+        $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.o)
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
@@ -348,13 +348,6 @@ src/tmp.cudd-version: src/tmp.cudd-version.c
 .objs/lp-coin-or.pic.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -fPIC -c -o $@ $<
 
-src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
-src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
-src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
-
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.pic.o: src/%.c pddl/%.h pddl/config.h $(GEN)
@@ -375,6 +368,11 @@ src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
 %.h: pddl/config.h
 %.c: pddl/config.h
 
+gen-stubs:
+	$(SH) scripts/gen-stub.sh pddl/bdd.h "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >src/bdd-stub.c
+	$(SH) scripts/gen-stub.sh pddl/sym.h "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >src/sym-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+
 
 clean: c
 	rm -f .objs/*.o
@@ -385,7 +383,6 @@ c:
 	rm -f *.a
 	rm -f *.so
 	rm -f pddl/config.h
-	rm -f src/*_stub.c
 	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
@@ -572,4 +569,4 @@ help:
   check-gdb check-all-gdb \
   third-party third-party-clean \
   bliss bliss-clean \
-  sqlite-amalgam
+  sqlite-amalgam gen-stubs
