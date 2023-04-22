@@ -228,6 +228,12 @@ pddl_lp_status_t pddlLPSolveCoinOr(const pddl_lp_t *lp,
 
 void pddlLPWrite(const pddl_lp_t *lp, const char *fn);
 
+/**
+ * Dynamically load CPLEX library.
+ * Returns 0 on success.
+ */
+int pddlLPLoadCPLEX(const char *so_fn, pddl_err_t *err);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
