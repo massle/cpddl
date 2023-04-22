@@ -315,13 +315,13 @@ src/tmp.cudd-version: src/tmp.cudd-version.c
 .objs/clique.pic.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(CLIQUER_CFLAGS) -c -o $@ $<
 .objs/lp-cplex.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -c -o $@ $<
 .objs/lp-cplex.pic.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
 .objs/lp-gurobi.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -c -o $@ $<
 .objs/lp-gurobi.pic.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
 .objs/lp-highs.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -c -o $@ $<
 .objs/lp-highs.pic.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
