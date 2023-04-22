@@ -240,26 +240,27 @@ libpddl.so: $(OBJS_PIC) $(MAKE_FILES)
 	$(CC) -shared -o $@ $(OBJS_PIC)
 
 pddl/config.h: $(MAKE_FILES)
-	echo "#ifndef __PDDL_CONFIG_H__" >$@
-	echo "#define __PDDL_CONFIG_H__" >>$@
-	echo "" >>$@
-	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
-	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
-	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
-	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] && [ "$(CPLEX_ONLY_API)" = "yes" ]; then echo "#define PDDL_CPLEX_ONLY_API" >>$@; fi
-	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
-	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
-	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
-	if [ "$(USE_COIN_OR)" = "yes" ]; then echo "#define PDDL_COIN_OR" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ] || [ "$(USE_COIN_OR)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
-	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
-	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
-	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
-	if [ "$(USE_DYNET)" = "yes" ]; then echo "#define PDDL_DYNET" >>$@; fi
-	echo "" >>$@
-	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
+	$(file >$@,#ifndef __PDDL_CONFIG_H__)
+	$(file >>$@,#define __PDDL_CONFIG_H__)
+	$(file >>$@,)
+	$(if $(filter yes,$(DEBUG)), $(file >>$@,#define PDDL_DEBUG))
+	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
+	$(if $(filter yesyes,$(USE_CPLEX)$(CPLEX_ONLY_API)), $(file >>$@,#define PDDL_CPLEX_ONLY_API))
+	$(if $(filter yes,$(USE_CLIQUER)), $(file >>$@,#define PDDL_CLIQUER))
+	$(if $(filter yes,$(USE_CUDD)), $(file >>$@,#define PDDL_CUDD))
+	$(if $(filter yes,$(USE_BLISS)), $(file >>$@,#define PDDL_BLISS))
+	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
+	$(if $(filter yes,$(USE_CPOPTIMIZER)), $(file >>$@,#define PDDL_CPOPTIMIZER))
+	$(if $(filter yes,$(USE_GUROBI)), $(file >>$@,#define PDDL_GUROBI))
+	$(if $(filter yes,$(USE_HIGHS)), $(file >>$@,#define PDDL_HIGHS))
+	$(if $(filter yes,$(USE_COIN_OR)), $(file >>$@,#define PDDL_COIN_OR))
+	$(if $(findstring yes,$(USE_CPLEX)$(USE_GUROBI)$(USE_HIGHS)$(USE_COIN_OR)), $(file >>$@,#define PDDL_LP))
+	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC))
+	$(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)")
+	$(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)")
+	$(if $(filter yes,$(USE_DYNET)), $(file >>$@,#define PDDL_DYNET))
+	$(file >>$@,)
+	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
 pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
@@ -282,26 +283,24 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-src/_version.c: pddl/version.h
-	echo "#include \"pddl/version.h\"" >$@
-	echo "const char *pddl_build_commit = \"$(shell git rev-parse HEAD)\";" >>$@
-	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>$@
+src/_version.c: pddl/version.h pddl/config.h
+	$(file >$@,#include "pddl/version.h")
+	$(file >>$@,const char *pddl_build_commit = "$(shell git rev-parse HEAD)";)
+	$(file >>$@,const char *pddl_version = PDDL_VERSION_STR "-$(shell git rev-parse HEAD)";)
 .objs/_version.o: src/_version.c pddl/version.h
 	$(CC) -I. -c -o $@ $<
 .objs/_version.pic.o: src/_version.c pddl/version.h
 	$(CC) -I. -fPIC -c -o $@ $<
 
-src/tmp.cudd-version.h: third-party/cudd/libcudd.a
-	echo '#include "internal.h"' >src/tmp.cudd-version.c
-	echo '#include <cudd/cudd.h>' >>src/tmp.cudd-version.c
-	echo '#include <stdio.h>' >>src/tmp.cudd-version.c
-	echo "int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; }" >>src/tmp.cudd-version.c
-	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o src/tmp.cudd-version src/tmp.cudd-version.c $(CUDD_LDFLAGS) -lm
-	echo -n '#define CUDD_VERSION "' >$@
-	./src/tmp.cudd-version | tr -d '\n' >>$@
-	echo '"' >>$@
-	rm -f src/tmp.cudd-version.c
-	rm -f src/tmp.cudd-version
+src/tmp.cudd-version.h: src/tmp.cudd-version
+	$(file >$@,#define CUDD_VERSION "$(shell $<)")
+src/tmp.cudd-version.c: third-party/cudd/libcudd.a pddl/config.h
+	$(file >$@,#include "internal.h")
+	$(file >>$@,#include <cudd/cudd.h>)
+	$(file >>$@,#include <stdio.h>)
+	$(file >>$@,int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; })
+src/tmp.cudd-version: src/tmp.cudd-version.c
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o $@ $< $(CUDD_LDFLAGS) -lm
 
 .objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
