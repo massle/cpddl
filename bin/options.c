@@ -409,6 +409,8 @@ static void setBaseOptions(void)
                  "Set the default LP solver: cplex/gurobi/highs/coin-or");
     optsAddStr("cplex-lib", 0x0, &opt.link_cplex, NULL,
                  "Load CPLEX dynamic library. Also sets LP solver to cplex.");
+    optsAddStr("gurobi-lib", 0x0, &opt.link_gurobi, NULL,
+                 "Load Gurobi dynamic library. Also sets LP solver to gurobi.");
 
 }
 
@@ -1078,6 +1080,12 @@ static void help(const char *argv0, FILE *fout)
                     pddl_gurobi_version);
         }
 
+        if (pddl_gurobi_api_version != NULL){
+            fprintf(fout, "  Gurobi API v%s"
+                    " | Commercial | https://www.gurobi.com\n",
+                    pddl_gurobi_api_version);
+        }
+
         if (pddl_highs_version != NULL){
             fprintf(fout, "  HiGHS v%s"
                     " | License MIT | https://highs.dev\n",
@@ -1213,6 +1221,8 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (pddl_gurobi_version != NULL)
         PDDL_LOG(err, "Linked Gurobi v%s", pddl_gurobi_version);
+    if (pddl_gurobi_api_version != NULL)
+        PDDL_LOG(err, "Have Gurobi API v%s", pddl_gurobi_api_version);
 
     if (pddl_highs_version != NULL)
         PDDL_LOG(err, "Linked HiGHS v%s", pddl_highs_version);
@@ -1228,10 +1238,15 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 #endif /* PDDL_MINIZINC_BIN */
 
     if (opt.link_cplex != NULL){
-        if (pddlLPLoadCPLEX(opt.link_cplex, err) != 0){
+        if (pddlLPLoadCPLEX(opt.link_cplex, err) != 0)
             return -1;
-        }
         pddlLPSetDefault(PDDL_LP_CPLEX, err);
+    }
+
+    if (opt.link_gurobi != NULL){
+        if (pddlLPLoadGurobi(opt.link_gurobi, err) != 0)
+            return -1;
+        pddlLPSetDefault(PDDL_LP_GUROBI, err);
     }
 
     return 0;

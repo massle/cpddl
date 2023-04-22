@@ -52,7 +52,7 @@ static const char * const _getSolverVersion(pddl_lp_solver_t solver)
         case PDDL_LP_CPLEX:
             return pddlLPCPLEXVersion();
         case PDDL_LP_GUROBI:
-            return pddl_gurobi_version;
+            return pddlLPGurobiVersion();
         case PDDL_LP_HIGHS:
             return pddl_highs_version;
         case PDDL_LP_COIN_OR:

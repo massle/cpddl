@@ -35,6 +35,9 @@
 # Set to no to completely disable Gurobi library
 #USE_GUROBI = no
 
+# As CPLEX_ONLY_API but for the Gurobi library
+#GUROBI_ONLY_API = yes
+
 # Configuration of HiGHS library https://highs.dev
 #HIGHS_ROOT = /opt/HiGHS
 #HIGHS_CFLAGS = -I/opt/HiGHS/include

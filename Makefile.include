@@ -45,6 +45,7 @@ USE_CPLEX ?= auto
 CPLEX_ONLY_API ?= no
 USE_CPOPTIMIZER ?= auto
 USE_GUROBI ?= auto
+GUROBI_ONLY_API ?= no
 
 ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/include/ilcplex/cplex.h)' ''
@@ -116,14 +117,20 @@ ifeq '$(USE_GUROBI)' 'auto'
     ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
       $(error GUROBI_ROOT defined, but could not find Gurobi header files)
     endif
-    ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so)' ''
-      $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+    ifneq '$(GUROBI_ONLY_API)' 'yes'
+      ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so)' ''
+        $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+      endif
     endif
-    gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
-    gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
-    gurobi_libname := $(subst lib,,$(basename $(gurobi_libname)))
     GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
-    GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -l$(gurobi_libname)
+    ifeq '$(GUROBI_ONLY_API)' 'yes'
+      GUROBI_LDFLAGS :=
+    else
+      gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
+      gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
+      gurobi_libname := $(subst lib,,$(basename $(gurobi_libname)))
+      GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -l$(gurobi_libname)
+    endif
     USE_GUROBI := yes
   endif
 endif

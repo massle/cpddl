@@ -244,14 +244,14 @@ pddl/config.h: $(MAKE_FILES)
 	$(file >>$@,#define __PDDL_CONFIG_H__)
 	$(file >>$@,)
 	$(if $(filter yes,$(DEBUG)), $(file >>$@,#define PDDL_DEBUG))
-	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
-	$(if $(filter yesyes,$(USE_CPLEX)$(CPLEX_ONLY_API)), $(file >>$@,#define PDDL_CPLEX_ONLY_API))
 	$(if $(filter yes,$(USE_CLIQUER)), $(file >>$@,#define PDDL_CLIQUER))
 	$(if $(filter yes,$(USE_CUDD)), $(file >>$@,#define PDDL_CUDD))
 	$(if $(filter yes,$(USE_BLISS)), $(file >>$@,#define PDDL_BLISS))
 	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
+	$(if $(filter yesyes,$(USE_CPLEX)$(CPLEX_ONLY_API)), $(file >>$@,#define PDDL_CPLEX_ONLY_API))
 	$(if $(filter yes,$(USE_CPOPTIMIZER)), $(file >>$@,#define PDDL_CPOPTIMIZER))
 	$(if $(filter yes,$(USE_GUROBI)), $(file >>$@,#define PDDL_GUROBI))
+	$(if $(filter yesyes,$(USE_GUROBI)$(GUROBI_ONLY_API)), $(file >>$@,#define PDDL_GUROBI_ONLY_API))
 	$(if $(filter yes,$(USE_HIGHS)), $(file >>$@,#define PDDL_HIGHS))
 	$(if $(filter yes,$(USE_COIN_OR)), $(file >>$@,#define PDDL_COIN_OR))
 	$(if $(findstring yes,$(USE_CPLEX)$(USE_GUROBI)$(USE_HIGHS)$(USE_COIN_OR)), $(file >>$@,#define PDDL_LP))
@@ -536,6 +536,7 @@ help:
 	@echo "  USE_GUROBI        = $(USE_GUROBI)"
 	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
 	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
+	@echo "  GUROBI_ONLY_API   = $(GUROBI_ONLY_API)"
 	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
 	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
