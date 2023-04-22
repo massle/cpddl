@@ -17,6 +17,7 @@ extern "C" {
 extern const char * const pddl_bliss_version;
 extern const char * const pddl_cudd_version;
 extern const char * const pddl_cplex_version;
+extern const char * const pddl_cplex_api_version;
 extern const char * const pddl_cp_optimizer_version;
 extern const char * const pddl_gurobi_version;
 extern const char * const pddl_highs_version;

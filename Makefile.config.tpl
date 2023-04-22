@@ -22,6 +22,12 @@
 # Set to no to completely disable CPLEX CP Optimizer library
 #USE_CPOPTIMIZER = no
 
+# Set to yes if CPLEX should not be linked. This allows to compile cpddl
+# with ability to load CPLEX dynamically from .so library. Setting this to
+# yes also disables CPOPTIMIZER, i.e., it is not possible to link to CPLEX
+# CP Optimizer but not to CPLEX at the same time.
+#CPLEX_ONLY_API = yes
+
 # Configuration of Gurobi optimizer
 #GUROBI_ROOT = /opt/gurobi951/linux64
 #GUROBI_CFLAGS = -I/opt/gurobi951/linux64/include

@@ -248,6 +248,7 @@ pddl/config.h: $(MAKE_FILES)
 	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
 	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
 	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
+	if [ "$(USE_CPLEX)" = "yes" ] && [ "$(CPLEX_ONLY_API)" = "yes" ]; then echo "#define PDDL_CPLEX_ONLY_API" >>$@; fi
 	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
 	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
 	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
@@ -531,6 +532,7 @@ help:
 	@echo "  USE_CPLEX         = $(USE_CPLEX)"
 	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
 	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
+	@echo "  CPLEX_ONLY_API    = $(CPLEX_ONLY_API)"
 	@echo "  GUROBI_ROOT       = $(GUROBI_ROOT)"
 	@echo "  USE_GUROBI        = $(USE_GUROBI)"
 	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"

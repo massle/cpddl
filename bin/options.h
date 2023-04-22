@@ -67,6 +67,7 @@ struct options {
     char *log_out;
     char *prop_out;
     pddl_files_t files;
+    char *link_cplex;
 
     struct {
         pddl_bool_t force_adl;

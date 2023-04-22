@@ -81,6 +81,13 @@ struct cplex_api {
     api_getcallbackinfo_t getcallbackinfo;
 };
 
+#ifdef PDDL_CPLEX_ONLY_API
+static struct cplex_api api = { 0 };
+const char * const pddl_cplex_version = NULL;
+const char * const pddl_cplex_api_version =
+    PDDL_TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX);
+#else /* PDDL_CPLEX_ONLY_API */
+
 static struct cplex_api api = {
     CPXversion,
     CPXopenCPLEX,
@@ -106,6 +113,9 @@ static struct cplex_api api = {
 
 const char * const pddl_cplex_version =
     PDDL_TOSTR(CPX_VERSION_VERSION.CPX_VERSION_RELEASE.CPX_VERSION_MODIFICATION.CPX_VERSION_FIX);
+const char * const pddl_cplex_api_version = NULL;
+#endif /* PDDL_CPLEX_ONLY_API */
+
 
 
 #define LOAD(NAME) \
@@ -162,6 +172,23 @@ int pddlLPLoadCPLEX(const char *so_fn, pddl_err_t *err)
     return 0;
 }
 
+pddl_bool_t pddlLPIsCPLEXAvailable(void)
+{
+    return api.version != NULL;
+}
+
+const char * const pddlLPCPLEXVersion(void)
+{
+    if (api.version == NULL)
+        return NULL;
+
+    int st;
+    CPXENVptr env = api.openCPLEX(&st);
+    PANIC_IF(env == NULL, "CPLEX library loaded but cannot create CPLEX environment");
+    const char *version = api.version(env);
+    api.closeCPLEX(&env);
+    return version;
+}
 
 static pddl_lp_status_t cplexErr(CPXENVptr *env,
                                  CPXLPptr *prob,
@@ -424,6 +451,7 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
 
 #else /* PDDL_CPLEX */
 const char * const pddl_cplex_version = NULL;
+const char * const pddl_cplex_api_version = NULL;
 
 pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
                                   pddl_lp_solution_t *sol,

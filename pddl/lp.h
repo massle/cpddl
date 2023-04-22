@@ -234,6 +234,16 @@ void pddlLPWrite(const pddl_lp_t *lp, const char *fn);
  */
 int pddlLPLoadCPLEX(const char *so_fn, pddl_err_t *err);
 
+/**
+ * Returns true if the CPLEX library is available.
+ */
+pddl_bool_t pddlLPIsCPLEXAvailable(void);
+
+/**
+ * Returns CPLEX version.
+ */
+const char * const pddlLPCPLEXVersion(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
