@@ -389,6 +389,23 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
 
 #else /* PDDL_GUROBI */
 const char * const pddl_gurobi_version = NULL;
+const char * const pddl_gurobi_api_version = NULL;
+
+int pddlLPLoadGurobi(const char *so_fn, pddl_err_t *err)
+{
+    ERR_RET(err, -1, "Cannot load Gurobi, because cpddl was compiled"
+            " without Gurobi header files.");
+}
+
+pddl_bool_t pddlLPIsGurobiAvailable(void)
+{
+    return pddl_false;
+}
+
+const char * const pddlLPGurobiVersion(void)
+{
+    return NULL;
+}
 
 pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
                                    pddl_lp_solution_t *sol,
@@ -397,4 +414,5 @@ pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
     PANIC("Missing Gurobi solver");
     return PDDL_LP_STATUS_ERR;
 }
+
 #endif /* PDDL_GUROBI */

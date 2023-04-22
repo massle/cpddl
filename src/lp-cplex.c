@@ -453,6 +453,22 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
 const char * const pddl_cplex_version = NULL;
 const char * const pddl_cplex_api_version = NULL;
 
+int pddlLPLoadCPLEX(const char *so_fn, pddl_err_t *err)
+{
+    ERR_RET(err, -1, "Cannot load CPLEX, because cpddl was compiled"
+            " without CPLEX header files.");
+}
+
+pddl_bool_t pddlLPIsCPLEXAvailable(void)
+{
+    return pddl_false;
+}
+
+const char * const pddlLPCPLEXVersion(void)
+{
+    return NULL;
+}
+
 pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
                                   pddl_lp_solution_t *sol,
                                   pddl_err_t *err)
