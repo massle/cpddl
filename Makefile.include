@@ -124,7 +124,7 @@ ifeq '$(USE_GUROBI)' 'auto'
     endif
     GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
     ifeq '$(GUROBI_ONLY_API)' 'yes'
-      GUROBI_LDFLAGS :=
+      GUROBI_LDFLAGS := -ldl
     else
       gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
       gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
