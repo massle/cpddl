@@ -360,6 +360,7 @@ $SETUP
     dnf -y install make gcc g++ autoconf automake cmake git libstdc++
     [ "$CLANG" = "yes" ] && dnf -y install clang
     [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc-devel coin-or-Clp-devel coin-or-Osi-devel
+    [ "$HAS_HIGHS" = "yes" ] && dnf -y install zlib-devel
     $MAKE
 
 Bootstrap: docker
@@ -373,7 +374,6 @@ Stage: run
     dnf -y update
     dnf -y install libstdc++
     [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi
-    [ "$HAS_HIGHS" = "yes" ] && tdnf -y install zlib-devel
     dnf -y clean all
     rm -rf /var/lib/dnf
     rm -rf /var/lib/rpm*
