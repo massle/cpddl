@@ -6,7 +6,7 @@ MINIZINC_LINK="https://github.com/MiniZinc/MiniZincIDE/releases/download/2.7.0/M
 if [ "$1" = "" ]; then
     echo "Usage: $0 [OPTIONS] image"
     echo "    image:"
-    echo "        alpine (does not support cplex)"
+    echo "        alpine (does not support cplex or gurobi)"
     echo "        photon"
     echo "        debian-{bullseye,buster,stretch,testing}"
     echo "        ubuntu-{kinetic,jammy,focal,bionic}"
@@ -20,6 +20,7 @@ if [ "$1" = "" ]; then
     echo "        --highs"
     echo "        --coin-or"
     echo "        --cplex ibm_studio_installer"
+    echo "        --cplex-api /path/to/include/dir"
     echo "        --gurobi (supported only with debian-bullseye)"
     echo "        --minizinc"
     echo "        --git tag/branch/sha"
@@ -40,6 +41,8 @@ OUTPUT=
 WERROR=
 USE_GIT=
 HAS_CPLEX=
+HAS_CPLEX_API=
+HAS_GUROBI=
 HAS_HIGHS=
 HAS_COIN_OR=
 HAS_MINIZINC=
@@ -58,7 +61,16 @@ while true; do
             cp "$cplex_file" \$APPTAINER_ROOTFS/cplex.bin
             chmod +x \$APPTAINER_ROOTFS/cplex.bin
 "
+    elif [ "$1" = "--cplex-api" ]; then
+        HAS_CPLEX_API=yes
+        shift
+        cplex_dir="${1}"
+        shift
 
+        SETUP="$SETUP
+            mkdir -p \$APPTAINER_ROOTFS/cplex/cplex/include
+            cp -rv ${cplex_dir}/* \$APPTAINER_ROOTFS/cplex/cplex/include/
+"
     elif [ "$1" = "--gurobi" ]; then
         HAS_GUROBI=yes
         shift
@@ -159,6 +171,9 @@ fi
 if [ "$HAS_CPLEX" = "yes" ]; then
     SUFF="${SUFF}-cplex"
 fi
+if [ "$HAS_CPLEX_API" = "yes" ]; then
+    SUFF="${SUFF}-cplexapi"
+fi
 if [ "$HAS_GUROBI" = "yes" ]; then
     SUFF="${SUFF}-gurobi"
 fi
@@ -221,6 +236,7 @@ MAKE="
     fi
 
     [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
+    [ \"$HAS_CPLEX_API\" = \"yes\" ] && echo \"CPLEX_ONLY_API = yes\" >>Makefile.config
     [ -d /HiGHS ] && echo \"HIGHS_ROOT = /HiGHS\" >>Makefile.config
     [ -f /usr/include/coin/OsiSolverInterface.hpp ] && echo \"COIN_OR_USE_PKGCONFIG = yes\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
@@ -260,6 +276,7 @@ $SETUP
     apk upgrade
     apk add make gcc g++ autoconf automake cmake git bash libstdc++
     [ "$CLANG" = "yes" ] && apk add clang
+    [ "$HAS_HIGHS" = "yes" ] && apk add zlib-static zlib-dev
     $MAKE
 
 Bootstrap: docker
@@ -301,6 +318,7 @@ $SETUP
         && apt install -y lsb-release wget software-properties-common gnupg \\
         && bash /llvm.sh $CLANG_VERSION
     [ "$CLANG" = "yes" ] && [ ! -f /llvm.sh ] && apt install -y clang
+    [ "$HAS_HIGHS" = "yes" ] && apt install -y libz-dev
     $MAKE
 
 Bootstrap: docker
@@ -342,6 +360,7 @@ $SETUP
     dnf -y install make gcc g++ autoconf automake cmake git libstdc++
     [ "$CLANG" = "yes" ] && dnf -y install clang
     [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc-devel coin-or-Clp-devel coin-or-Osi-devel
+    [ "$HAS_HIGHS" = "yes" ] && dnf -y install zlib-devel
     $MAKE
 
 Bootstrap: docker
@@ -380,6 +399,8 @@ $SETUP
     tdnf -y update
     tdnf -y install gcc glibc-devel binutils libstdc++ linux-api-headers
     tdnf -y install coreutils make autoconf automake cmake git grep gawk gzip
+    [ "$HAS_COIN_OR" = "yes" ] && tdnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi
+    [ "$HAS_HIGHS" = "yes" ] && tdnf -y install zlib-devel
     $MAKE
 
 Bootstrap: docker

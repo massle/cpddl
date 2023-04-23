@@ -29,15 +29,30 @@ static pddl_lp_solver_t default_solver = PDDL_LP_COIN_OR;
 static pddl_lp_solver_t default_solver = PDDL_LP_NO_SOLVER;
 #endif
 
+static pddl_lp_solver_t defaultSolver(void)
+{
+    if (pddlLPSolverAvailable(default_solver))
+        return default_solver;
+    if (pddlLPSolverAvailable(PDDL_LP_CPLEX))
+        return PDDL_LP_CPLEX;
+    if (pddlLPSolverAvailable(PDDL_LP_GUROBI))
+        return PDDL_LP_GUROBI;
+    if (pddlLPSolverAvailable(PDDL_LP_HIGHS))
+        return PDDL_LP_HIGHS;
+    if (pddlLPSolverAvailable(PDDL_LP_COIN_OR))
+        return PDDL_LP_COIN_OR;
+    return PDDL_LP_NO_SOLVER;
+}
+
 static const char * const _getSolverVersion(pddl_lp_solver_t solver)
 {
     if (solver == PDDL_LP_DEFAULT)
-        solver = default_solver;
+        solver = defaultSolver();
     switch (solver){
         case PDDL_LP_CPLEX:
-            return pddl_cplex_version;
+            return pddlLPCPLEXVersion();
         case PDDL_LP_GUROBI:
-            return pddl_gurobi_version;
+            return pddlLPGurobiVersion();
         case PDDL_LP_HIGHS:
             return pddl_highs_version;
         case PDDL_LP_COIN_OR:
@@ -58,7 +73,7 @@ static const char * const getSolverVersion(pddl_lp_solver_t solver)
 static const char *getSolverName(pddl_lp_solver_t solver)
 {
     if (solver == PDDL_LP_DEFAULT)
-        solver = default_solver;
+        solver = defaultSolver();
     switch (solver){
         case PDDL_LP_CPLEX:
             return "cplex";
@@ -96,7 +111,7 @@ pddl_bool_t pddlLPSolverAvailable(pddl_lp_solver_t solver)
                 || pddlLPSolverAvailable(PDDL_LP_HIGHS)
                 || pddlLPSolverAvailable(PDDL_LP_COIN_OR);
     }
-    return getSolverVersion(solver) != NULL;
+    return _getSolverVersion(solver) != NULL;
 }
 
 int pddlLPSetDefault(pddl_lp_solver_t solver, pddl_err_t *err)
@@ -140,14 +155,15 @@ static void freeRow(pddl_lp_row_t *row)
 pddl_lp_t *pddlLPNew(const pddl_lp_config_t *cfg, pddl_err_t *err)
 {
     CTX_NO_TIME(err, "LP-Init");
-    CTX_NO_TIME(err, "Cfg");
-    pddlLPConfigLog(cfg, err);
-    CTXEND(err);
     pddl_lp_t *lp = ZALLOC(pddl_lp_t);
     lp->err = err;
     lp->cfg = *cfg;
     if (lp->cfg.solver == PDDL_LP_DEFAULT)
-        lp->cfg.solver = default_solver;
+        lp->cfg.solver = defaultSolver();
+    CTX_NO_TIME(err, "Cfg");
+    pddlLPConfigLog(&lp->cfg, err);
+    CTXEND(err);
+
     if (cfg->cols > 0)
         pddlLPAddCols(lp, cfg->cols);
     if (cfg->rows > 0){

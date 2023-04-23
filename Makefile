@@ -203,11 +203,11 @@ endif
 
 OBJS_PIC := $(foreach obj,$(SRC),.objs/$(obj).pic.o) \
             $(foreach obj,$(SRC_CPP),.objs/$(obj).pic.cpp.o) \
-            $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.pic.o)
+            $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.pic.o)
 
 OBJS := $(foreach obj,$(SRC),.objs/$(obj).o) \
         $(foreach obj,$(SRC_CPP),.objs/$(obj).cpp.o) \
-        $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.o)
+        $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.o)
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
@@ -244,13 +244,14 @@ pddl/config.h: $(MAKE_FILES)
 	$(file >>$@,#define __PDDL_CONFIG_H__)
 	$(file >>$@,)
 	$(if $(filter yes,$(DEBUG)), $(file >>$@,#define PDDL_DEBUG))
-	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
 	$(if $(filter yes,$(USE_CLIQUER)), $(file >>$@,#define PDDL_CLIQUER))
 	$(if $(filter yes,$(USE_CUDD)), $(file >>$@,#define PDDL_CUDD))
 	$(if $(filter yes,$(USE_BLISS)), $(file >>$@,#define PDDL_BLISS))
 	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
+	$(if $(filter yesyes,$(USE_CPLEX)$(CPLEX_ONLY_API)), $(file >>$@,#define PDDL_CPLEX_ONLY_API))
 	$(if $(filter yes,$(USE_CPOPTIMIZER)), $(file >>$@,#define PDDL_CPOPTIMIZER))
 	$(if $(filter yes,$(USE_GUROBI)), $(file >>$@,#define PDDL_GUROBI))
+	$(if $(filter yesyes,$(USE_GUROBI)$(GUROBI_ONLY_API)), $(file >>$@,#define PDDL_GUROBI_ONLY_API))
 	$(if $(filter yes,$(USE_HIGHS)), $(file >>$@,#define PDDL_HIGHS))
 	$(if $(filter yes,$(USE_COIN_OR)), $(file >>$@,#define PDDL_COIN_OR))
 	$(if $(findstring yes,$(USE_CPLEX)$(USE_GUROBI)$(USE_HIGHS)$(USE_COIN_OR)), $(file >>$@,#define PDDL_LP))
@@ -314,13 +315,13 @@ src/tmp.cudd-version: src/tmp.cudd-version.c
 .objs/clique.pic.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(CLIQUER_CFLAGS) -c -o $@ $<
 .objs/lp-cplex.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -c -o $@ $<
 .objs/lp-cplex.pic.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
 .objs/lp-gurobi.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -c -o $@ $<
 .objs/lp-gurobi.pic.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
 .objs/lp-highs.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -c -o $@ $<
 .objs/lp-highs.pic.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
@@ -347,13 +348,6 @@ src/tmp.cudd-version: src/tmp.cudd-version.c
 .objs/lp-coin-or.pic.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -fPIC -c -o $@ $<
 
-src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
-src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
-src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
-
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/%.pic.o: src/%.c pddl/%.h pddl/config.h $(GEN)
@@ -374,6 +368,11 @@ src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
 %.h: pddl/config.h
 %.c: pddl/config.h
 
+gen-stubs:
+	$(SH) scripts/gen-stub.sh pddl/bdd.h "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >src/bdd-stub.c
+	$(SH) scripts/gen-stub.sh pddl/sym.h "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >src/sym-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+
 
 clean: c
 	rm -f .objs/*.o
@@ -384,7 +383,6 @@ c:
 	rm -f *.a
 	rm -f *.so
 	rm -f pddl/config.h
-	rm -f src/*_stub.c
 	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
@@ -530,10 +528,12 @@ help:
 	@echo "  USE_CPLEX         = $(USE_CPLEX)"
 	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
 	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
+	@echo "  CPLEX_ONLY_API    = $(CPLEX_ONLY_API)"
 	@echo "  GUROBI_ROOT       = $(GUROBI_ROOT)"
 	@echo "  USE_GUROBI        = $(USE_GUROBI)"
 	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
 	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
+	@echo "  GUROBI_ONLY_API   = $(GUROBI_ONLY_API)"
 	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
 	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
@@ -569,4 +569,4 @@ help:
   check-gdb check-all-gdb \
   third-party third-party-clean \
   bliss bliss-clean \
-  sqlite-amalgam
+  sqlite-amalgam gen-stubs

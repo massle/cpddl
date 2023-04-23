@@ -42,40 +42,51 @@ endif
 LDFLAGS += $(SYSTEM_LDFLAGS)
 
 USE_CPLEX ?= auto
+CPLEX_ONLY_API ?= no
 USE_CPOPTIMIZER ?= auto
 USE_GUROBI ?= auto
+GUROBI_ONLY_API ?= no
 
 ifneq '$(IBM_CPLEX_ROOT)' ''
   ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/include/ilcplex/cplex.h)' ''
     $(error IBM_CPLEX_ROOT defined, but could not find cplex header files)
   endif
-  ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cpoptimizer/include/ilcp/cp.h)' ''
-    $(error IBM_CPLEX_ROOT defined, but could not find cpoptimizer header files)
-  endif
-  ifeq '$(wildcard $(IBM_CPLEX_ROOT)/concert/include/ilconcert/iloalg.h)' ''
-    $(error IBM_CPLEX_ROOT defined, but could not find concert header files)
-  endif
-  ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic/libcplex.a)' ''
-    $(error IBM_CPLEX_ROOT defined, but could not find cplex library)
-  endif
-  ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/libcp.a)' ''
-    $(error IBM_CPLEX_ROOT defined, but could not find cpoptimizer library)
-  endif
-  ifeq '$(wildcard $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a)' ''
-    $(error IBM_CPLEX_ROOT defined, but could not find concert library)
+  ifneq '$(CPLEX_ONLY_API)' 'yes'
+    ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cpoptimizer/include/ilcp/cp.h)' ''
+      $(error IBM_CPLEX_ROOT defined, but could not find cpoptimizer header files)
+    endif
+    ifeq '$(wildcard $(IBM_CPLEX_ROOT)/concert/include/ilconcert/iloalg.h)' ''
+      $(error IBM_CPLEX_ROOT defined, but could not find concert header files)
+    endif
+    ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic/libcplex.a)' ''
+      $(error IBM_CPLEX_ROOT defined, but could not find cplex library)
+    endif
+    ifeq '$(wildcard $(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/libcp.a)' ''
+      $(error IBM_CPLEX_ROOT defined, but could not find cpoptimizer library)
+    endif
+    ifeq '$(wildcard $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a)' ''
+      $(error IBM_CPLEX_ROOT defined, but could not find concert library)
+    endif
   endif
   ifeq '$(USE_CPLEX)' 'auto'
     CPLEX_CFLAGS := -I$(IBM_CPLEX_ROOT)/cplex/include
     #CPLEX_LDFLAGS := -L$(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic -lcplex -ldl
-    CPLEX_LDFLAGS := $(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic/libcplex.a -ldl
+    ifeq '$(CPLEX_ONLY_API)' 'yes'
+      CPLEX_LDFLAGS := -ldl
+      USE_CPOPTIMIZER := no
+    else
+      CPLEX_LDFLAGS := $(IBM_CPLEX_ROOT)/cplex/lib/x86-64_linux/static_pic/libcplex.a -ldl
+    endif
     USE_CPLEX := yes
   endif
-  ifeq '$(USE_CPOPTIMIZER)' 'auto'
-    CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
-    #CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
-    CPOPTIMIZER_LDFLAGS = $(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/libcp.a $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a
-    NEED_LIBSTDCPP := yes
-    USE_CPOPTIMIZER := yes
+  ifneq '$(CPLEX_ONLY_API)' 'yes'
+    ifeq '$(USE_CPOPTIMIZER)' 'auto'
+      CPOPTIMIZER_CPPFLAGS = -I$(IBM_CPLEX_ROOT)/cpoptimizer/include -I$(IBM_CPLEX_ROOT)/concert/include/ -I$(IBM_CPLEX_ROOT)/cplex/include
+      #CPOPTIMIZER_LDFLAGS = -L$(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/ -lcp -L$(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/ -lconcert
+      CPOPTIMIZER_LDFLAGS = $(IBM_CPLEX_ROOT)/cpoptimizer/lib/x86-64_linux/static_pic/libcp.a $(IBM_CPLEX_ROOT)/concert/lib/x86-64_linux/static_pic/libconcert.a
+      NEED_LIBSTDCPP := yes
+      USE_CPOPTIMIZER := yes
+    endif
   endif
 endif
 
@@ -106,14 +117,20 @@ ifeq '$(USE_GUROBI)' 'auto'
     ifeq '$(wildcard $(GUROBI_ROOT)/include/gurobi_c.h)' ''
       $(error GUROBI_ROOT defined, but could not find Gurobi header files)
     endif
-    ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so)' ''
-      $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+    ifneq '$(GUROBI_ONLY_API)' 'yes'
+      ifeq '$(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so)' ''
+        $(error GUROBI_ROOT defined, but could not find Gurobi library files)
+      endif
     endif
-    gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
-    gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
-    gurobi_libname := $(subst lib,,$(basename $(gurobi_libname)))
     GUROBI_CFLAGS := -I$(GUROBI_ROOT)/include
-    GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -l$(gurobi_libname)
+    ifeq '$(GUROBI_ONLY_API)' 'yes'
+      GUROBI_LDFLAGS := -ldl
+    else
+      gurobi_libname := $(notdir $(wildcard $(GUROBI_ROOT)/lib/libgurobi*.so))
+      gurobi_libname := $(filter-out libgurobi%_light.so,$(gurobi_libname))
+      gurobi_libname := $(subst lib,,$(basename $(gurobi_libname)))
+      GUROBI_LDFLAGS := -L$(GUROBI_ROOT)/lib -Wl,-rpath,"$(GUROBI_ROOT)/lib" -l$(gurobi_libname)
+    endif
     USE_GUROBI := yes
   endif
 endif

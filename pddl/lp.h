@@ -228,6 +228,38 @@ pddl_lp_status_t pddlLPSolveCoinOr(const pddl_lp_t *lp,
 
 void pddlLPWrite(const pddl_lp_t *lp, const char *fn);
 
+/**
+ * Dynamically load CPLEX library.
+ * Returns 0 on success.
+ */
+int pddlLPLoadCPLEX(const char *so_fn, pddl_err_t *err);
+
+/**
+ * Returns true if the CPLEX library is available.
+ */
+pddl_bool_t pddlLPIsCPLEXAvailable(void);
+
+/**
+ * Returns CPLEX version.
+ */
+const char * const pddlLPCPLEXVersion(void);
+
+/**
+ * Dynamicaly load Gurobi library.
+ * Returns 0 on success
+ */
+int pddlLPLoadGurobi(const char *so_fn, pddl_err_t *err);
+
+/**
+ * Returns true if Gurobi is available.
+ */
+pddl_bool_t pddlLPIsGurobiAvailable(void);
+
+/**
+ * Returns Gurobi library version.\
+ */
+const char * const pddlLPGurobiVersion(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
