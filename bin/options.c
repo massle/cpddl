@@ -1038,6 +1038,7 @@ static void help(const char *argv0, FILE *fout)
             || pddl_cplex_api_version != NULL
             || pddl_cp_optimizer_version != NULL
             || pddl_gurobi_version != NULL
+            || pddl_gurobi_api_version != NULL
             || pddl_highs_version != NULL
             || pddl_coin_or_version != NULL
             || pddl_dynet_version != NULL){
