@@ -1,0 +1,75 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^release-.*$/
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_MESSAGE =~ /:run-pipeline:/
+
+
+.build:
+  stage: build
+  image: debian:bullseye-slim
+
+  parallel:
+    matrix:
+      - WITH_BLISS: [y,n]
+        WITH_CUDD: [y,n]
+        WITH_COIN_OR: [y,n]
+
+  script:
+    - echo "WERROR = yes" >>Makefile.config
+    - '[ "$WITH_COIN_OR" = "y" ] && echo "COIN_OR_USE_PKGCONFIG = yes" >>Makefile.config'
+    - '[ "$WITH_BLISS" = "y" ] && make bliss'
+    - '[ "$WITH_CUDD" = "y" ] && make cudd'
+    - make bin
+    - mv bin bin-$WITH_BLISS-$WITH_CUDD-$WITH_COIN_OR
+
+build-debian-gcc:
+  extends: .build
+  before_script:
+    - apt update && apt -y install make gcc g++ autoconf automake cmake git libstdc++6
+    - '[ "$WITH_COIN_OR" = "y" ] && apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config'
+
+build-debian-clang:
+  extends: .build
+  before_script:
+    - apt update && apt -y install make clang autoconf automake cmake git libstdc++6
+    - '[ "$WITH_COIN_OR" = "y" ] && apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config'
+    - echo "CC = clang" >>Makefile.config
+    - echo "CXX = clang++" >>Makefile.config
+
+
+test-barebone:
+  stage: test
+  image: debian:bullseye-slim
+  before_script:
+    - apt update && apt -y install make gcc g++ git
+    - git clone --depth 1 https://gitlab.com/danfis/pddl-data pddl-data
+    - apt -y purge git
+  script:
+    - echo "WERROR = yes" >>Makefile.config
+    - make bin
+    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
+    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
+    - './bin/pddl-lplan --lplan-o - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
+    - './bin/pddl-lplan --pddl-compile-in-lmg --lplan astar --lplan-h hmax --lplan-o - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
+    - './bin/pddl --gplan astar --gplan-h lmc --gplan-out - pddl-data/test-seq/driverlog/pfile1 | grep -q "Cost: 7$"'
+
+test:
+  stage: test
+  image: debian:bullseye-slim
+  before_script:
+    - apt update && apt -y install make gcc g++ autoconf automake cmake git libstdc++6
+    - apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config
+    - apt install -y git
+    - git clone --depth 1 https://gitlab.com/danfis/pddl-data pddl-data
+  script:
+    - echo "WERROR = yes" >>Makefile.config
+    - echo "COIN_OR_USE_PKGCONFIG = yes" >>Makefile.config
+    - make third-party && make bin
+    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
+    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
+    - './bin/pddl-lplan --lplan-out - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
+    - './bin/pddl-lplan --lplan astar --lplan-h hmax --lplan-o - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
+    - './bin/pddl --mg fam --gplan astar --gplan-h lmc --gplan-out - pddl-data/test-seq/driverlog/pfile1 | grep -q "Cost: 7$"'
+    - './bin/pddl-symba --symba bi --symba-fw-pot --symba-fw-pot-cfg A+I --symba-bw-pot --symba-bw-pot-cfg I --symba-out - pddl-data/test-seq/driverlog/pfile1 | grep -q "Cost: 7$"'
