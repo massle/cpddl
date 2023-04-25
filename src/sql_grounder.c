@@ -71,7 +71,7 @@ static void createTypeTable(pddl_sqlite3 *db, const pddl_t *pddl, int type)
     CHECK_SQL_ERR(db, ret);
 
     int obj_size;
-    const pddl_obj_id_t *objs;
+    const int *objs;
     objs = pddlTypesObjsByType(&pddl->type, type, &obj_size);
     for (int i = 0; i < obj_size; ++i){
         sprintf(query, "INSERT INTO type_%d values(%d);", type, objs[i]);
@@ -216,7 +216,7 @@ static void sqlPredFree(sql_pred_t *qpred, pddl_sqlite3 *db)
 
 static int sqlPredHasAtomArg(sql_pred_t *qpred,
                              pddl_sqlite3 *db,
-                             const pddl_obj_id_t *arg)
+                             const int *arg)
 {
     ASSERT(qpred->stmt_atom != NULL);
     pddl_sqlite3_reset(qpred->stmt_atom);
@@ -235,7 +235,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
                           pddl_sqlite3 *db,
                           const pddl_fm_atom_t *atom)
 {
-    pddl_obj_id_t arg[qpred->arity];
+    int arg[qpred->arity];
     for (int i = 0; i < qpred->arity; ++i){
         ASSERT(atom->arg[i].obj >= 0);
         arg[i] = atom->arg[i].obj;
@@ -245,7 +245,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
 
 static int sqlPredInsertAtomArg(sql_pred_t *qpred,
                                 pddl_sqlite3 *db,
-                                const pddl_obj_id_t *arg,
+                                const int *arg,
                                 pddl_err_t *err)
 {
     pddl_sqlite3_reset(qpred->stmt_insert);
@@ -371,7 +371,7 @@ static void sqlActionConstructJoinCond(char *query,
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 }
 
-static int objsConsecutive(const pddl_obj_id_t *objs, int obj_size)
+static int objsConsecutive(const int *objs, int obj_size)
 {
     for (int i = 1; i < obj_size; ++i){
         if (objs[i - 1] + 1 != objs[i])
@@ -464,7 +464,7 @@ static void sqlActionConstructWhereCond(char *query,
 
         int type = prep_action->param_type[pi];
         int obj_size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(prep_action->type, type, &obj_size);
         if (ins != 0){
             shift += sprintf(query + shift, " AND ");
@@ -536,7 +536,7 @@ static void sqlActionFree(sql_action_t *action, pddl_sqlite3 *db)
 
 static int actionCheckNegPreStatic(pddl_sql_grounder_t *g,
                                    const pddl_prep_action_t *paction,
-                                   const pddl_obj_id_t *row)
+                                   const int *row)
 {
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
         const pddl_fm_atom_t *atom;
@@ -545,7 +545,7 @@ static int actionCheckNegPreStatic(pddl_sql_grounder_t *g,
             if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
                 return 0;
         }else{
-            pddl_obj_id_t arg[atom->arg_size];
+            int arg[atom->arg_size];
             for (int ai = 0; ai < atom->arg_size; ++ai){
                 if (atom->arg[ai].obj >= 0){
                     arg[ai] = atom->arg[ai].obj;
@@ -669,7 +669,7 @@ const pddl_prep_action_t *pddlSqlGrounderPrepAction(
 
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
                                   int pred_id,
-                                  const pddl_obj_id_t *args,
+                                  const int *args,
                                   pddl_err_t *err)
 {
     return sqlPredInsertAtomArg(g->pred + pred_id, g->db, args, err);
@@ -686,7 +686,7 @@ int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
                               const pddl_fm_atom_t *a,
                               pddl_err_t *err)
 {
-    pddl_obj_id_t args[a->arg_size];
+    int args[a->arg_size];
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
             PDDL_ERR_RET(err, -1, "SQL Grounder: Atom is not grounded!");
@@ -716,7 +716,7 @@ int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
 }
 
 int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
-                              pddl_obj_id_t *args,
+                              int *args,
                               pddl_err_t *err)
 {
     if (g->it_action_id < 0)

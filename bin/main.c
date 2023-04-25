@@ -69,7 +69,6 @@ static int stepPDDL(void)
         PDDL_TRACE_RET(&err, -1);
     }
     pddl_set = 1;
-    pddlCheckSizeTypes(&pddl);
 
     return 0;
 }

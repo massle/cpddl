@@ -27,7 +27,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_unify_val {
-    pddl_obj_id_t obj;
+    int obj;
     int var;
     int var_type;
 };

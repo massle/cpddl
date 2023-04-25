@@ -108,8 +108,8 @@ void pddlActionAssertPreConjuction(pddl_action_t *a);
 /**
  * Remap object IDs.
  */
-void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap);
-void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap);
+void pddlActionRemapObjs(pddl_action_t *a, const int *remap);
+void pddlActionsRemapObjs(pddl_actions_t *as, const int *remap);
 int pddlActionRemapTypesAndPreds(pddl_action_t *a,
                                  const int *type_remap,
                                  const int *pred_remap,

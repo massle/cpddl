@@ -30,7 +30,7 @@ typedef struct pred_tnode pred_tnode_t;
 struct pred_tnode {
     int depth;
     int leaf;
-    pddl_obj_id_t obj;
+    int obj;
     pred_tnode_t *child;
     int child_size;
     int child_alloc;
@@ -81,7 +81,7 @@ static void predTNodeFree(pred_tnode_t *tnode)
 static void predTreeInitNode(pred_tree_t *tree,
                              pred_tnode_t *tnode,
                              int next,
-                             pddl_obj_id_t obj)
+                             int obj)
 {
     ZEROIZE(tnode);
     tnode->depth = next;
@@ -177,7 +177,7 @@ static void _predTreeAdd(pred_tree_t *tree,
         pddlISetAdd(&tnode->fact, fact->id);
     }else{
         int argi = tree->arg[tnode->depth];
-        pddl_obj_id_t fact_obj = fact->ground_atom->arg[argi];
+        int fact_obj = fact->ground_atom->arg[argi];
 
         for (int i = 0; i < tnode->child_size; ++i){
             if (tnode->child[i].obj == fact_obj){

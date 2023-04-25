@@ -27,7 +27,7 @@
 static pddl_strips_ground_tnode_t *tnodeNew(pddl_strips_ground_tree_t *t,
                                             pddl_strips_ground_tnode_t *parent,
                                             int param,
-                                            pddl_obj_id_t obj_id)
+                                            int obj_id)
 {
     pddl_strips_ground_tnode_t *n;
 
@@ -64,7 +64,7 @@ static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
 static pddl_strips_ground_tnode_t *tnodeAddChild(pddl_strips_ground_tree_t *t,
                                                  pddl_strips_ground_tnode_t *p,
                                                  int param,
-                                                 pddl_obj_id_t obj_id)
+                                                 int obj_id)
 {
     pddl_strips_ground_tnode_t *n = tnodeNew(t, p, param, obj_id);
     tnodeReserveChild(t, p);
@@ -74,7 +74,7 @@ static pddl_strips_ground_tnode_t *tnodeAddChild(pddl_strips_ground_tree_t *t,
 
 static void propagatePre(pddl_strips_ground_tree_t *tr,
                          pddl_strips_ground_tnode_t *tn,
-                         pddl_obj_id_t *arg)
+                         int *arg)
 {
     // If all preconditions are unified, we can ground the action using
     // assigned arguments. Note that we don't actually need to be in a
@@ -109,7 +109,7 @@ static void propagatePre(pddl_strips_ground_tree_t *tr,
 }
 static void unifyPre(pddl_strips_ground_tree_t *tr,
                      pddl_strips_ground_tnode_t *tn,
-                     pddl_obj_id_t *arg,
+                     int *arg,
                      int pre_i)
 {
     ++tn->pre_unified;
@@ -119,17 +119,17 @@ static void unifyPre(pddl_strips_ground_tree_t *tr,
 
 static void unifyNew(pddl_strips_ground_tree_t *tr,
                      pddl_strips_ground_tnode_t *tn,
-                     pddl_obj_id_t *arg,
+                     int *arg,
                      int remain,
-                     const pddl_obj_id_t *arg_pre,
+                     const int *arg_pre,
                      int pre_i,
                      int static_fact);
 static void unifyNewArg(pddl_strips_ground_tree_t *tr,
                         pddl_strips_ground_tnode_t *tn,
-                        pddl_obj_id_t *arg,
+                        int *arg,
                         int param,
                         int remain,
-                        const pddl_obj_id_t *arg_pre,
+                        const int *arg_pre,
                         int pre_i,
                         int static_fact)
 {
@@ -149,9 +149,9 @@ static void unifyNewArg(pddl_strips_ground_tree_t *tr,
 
 static void unifyNew(pddl_strips_ground_tree_t *tr,
                      pddl_strips_ground_tnode_t *tn,
-                     pddl_obj_id_t *arg,
+                     int *arg,
                      int remain,
-                     const pddl_obj_id_t *arg_pre,
+                     const int *arg_pre,
                      int pre_i,
                      int static_fact)
 {
@@ -181,9 +181,9 @@ static void unifyNew(pddl_strips_ground_tree_t *tr,
 
 static void unify(pddl_strips_ground_tree_t *tr,
                   pddl_strips_ground_tnode_t *tn,
-                  pddl_obj_id_t *arg,
+                  int *arg,
                   int remain,
-                  const pddl_obj_id_t *arg_pre,
+                  const int *arg_pre,
                   int pre_i,
                   int parent_match,
                   int static_fact)
@@ -237,8 +237,8 @@ static void unifyTree(pddl_strips_ground_tree_t *tr,
                       int pre_i,
                       int static_fact)
 {
-    pddl_obj_id_t arg[tr->action->param_size];
-    pddl_obj_id_t arg_pre[tr->action->param_size];
+    int arg[tr->action->param_size];
+    int arg_pre[tr->action->param_size];
 
     // Check whether the fact can be unified -- this test is not enough but
     // it can filter out some facts.
@@ -334,7 +334,7 @@ static int instantiateArgs(pddl_strips_ground_tree_t *tr,
     PDDL_ISET_FOR_EACH(&tr->param, param){
         if (param < param_start)
             continue;
-        const pddl_obj_id_t *obj;
+        const int *obj;
         int size;
         obj = pddlTypesObjsByType(tr->action->type,
                                   tr->action->param_type[param], &size);

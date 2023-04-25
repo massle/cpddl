@@ -365,8 +365,8 @@ static int equalAtomIn(const pddl_fm_atom_t *atom,
     return 0;
 }
 
-static pddl_obj_id_t atomArgObj(const pddl_fm_atom_t *atom, int argi,
-                                const pddl_obj_id_t *args)
+static int atomArgObj(const pddl_fm_atom_t *atom, int argi,
+                                const int *args)
 {
     int param = atom->arg[argi].param;
     if (param >= 0)
@@ -376,7 +376,7 @@ static pddl_obj_id_t atomArgObj(const pddl_fm_atom_t *atom, int argi,
 
 static int atomsEqualObj(const pddl_fm_atom_t *atom1,
                          const pddl_fm_atom_t *atom2,
-                         const pddl_obj_id_t *args)
+                         const int *args)
 {
     if (atom1->pred != atom2->pred)
         return 0;
@@ -390,7 +390,7 @@ static int atomsEqualObj(const pddl_fm_atom_t *atom1,
 
 static int equalAtomInArrObj(const pddl_fm_atom_t *atom,
                              const pddl_fm_arr_t *arr,
-                             const pddl_obj_id_t *args)
+                             const int *args)
 {
     if (arr == NULL)
         return 0;
@@ -475,23 +475,23 @@ static int staticPreHold(const pddl_t *pddl,
 /*** UNIFICATION ***/
 static int _unifyFact(const pddl_t *pddl,
                       const pddl_fm_atom_t *fact,
-                      const pddl_obj_id_t *fact_arg,
+                      const int *fact_arg,
                       const pddl_params_t *cand_params,
                       const pddl_fm_atom_t *cand_atom,
-                      pddl_obj_id_t *cand_arg)
+                      int *cand_arg)
 {
     if (fact->pred != cand_atom->pred)
         return 0;
 
     ASSERT(fact->arg_size == cand_atom->arg_size);
     for (int i = 0; i < fact->arg_size; ++i){
-        pddl_obj_id_t fact_obj = fact->arg[i].obj;
+        int fact_obj = fact->arg[i].obj;
         if (fact_arg != NULL)
             fact_obj = atomArgObj(fact, i, fact_arg);
         ASSERT(fact_obj >= 0);
 
         int param = cand_atom->arg[i].param;
-        pddl_obj_id_t obj = cand_atom->arg[i].obj;
+        int obj = cand_atom->arg[i].obj;
         if (param >= 0){
             if (!pddlTypesObjHasType(&pddl->type,
                                      cand_params->param[param].type,
@@ -520,10 +520,10 @@ static int _unifyFact(const pddl_t *pddl,
 /** Unify fact (grounded with fact_arg) with the candidate atom */
 static int unifyFact(const pddl_t *pddl,
                      const pddl_fm_atom_t *fact,
-                     const pddl_obj_id_t *fact_arg,
+                     const int *fact_arg,
                      const pddl_params_t *cand_params,
                      const pddl_fm_atom_t *cand_atom,
-                     pddl_obj_id_t *cand_arg)
+                     int *cand_arg)
 {
     for (int i = 0; i < cand_params->param_size; ++i)
         cand_arg[i] = PDDL_OBJ_ID_UNDEF;
@@ -534,13 +534,13 @@ static int unifyFact(const pddl_t *pddl,
  *  given candidate atom and arguments. */
 static int canUnifyFact(const pddl_t *pddl,
                         const pddl_fm_atom_t *fact,
-                        const pddl_obj_id_t *fact_arg,
+                        const int *fact_arg,
                         const pddl_params_t *cand_params,
                         const pddl_fm_atom_t *cand_atom,
-                        const pddl_obj_id_t *cand_arg)
+                        const int *cand_arg)
 {
-    pddl_obj_id_t args[cand_params->param_size];
-    memcpy(args, cand_arg, sizeof(pddl_obj_id_t) * cand_params->param_size);
+    int args[cand_params->param_size];
+    memcpy(args, cand_arg, sizeof(int) * cand_params->param_size);
     return _unifyFact(pddl, fact, fact_arg, cand_params, cand_atom, args);
 }
 
@@ -735,7 +735,7 @@ static int checkUnifiedEffPair(unify_action_ctx_t *ctx,
 
 static int isGoalAware(const pddl_t *pddl, const pddl_lifted_mgroup_t *mg)
 {
-    pddl_obj_id_t arg[mg->param.param_size];
+    int arg[mg->param.param_size];
 
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *goal;
@@ -758,7 +758,7 @@ static int initHeaviness(const pddl_t *pddl,
                          const cand_t *cand,
                          refine_t *refine)
 {
-    pddl_obj_id_t arg[cand->mgroup->param.param_size];
+    int arg[cand->mgroup->param.param_size];
     const pddl_fm_atom_t *cand1, *cand2;
     pddl_fm_const_it_atom_t it1, it2;
     const pddl_fm_atom_t *a1, *a2;
@@ -817,9 +817,9 @@ static int isInitTooHeavy(const pddl_t *pddl,
 static int isGroundedCondArrTooHeavy(const cand_t *cand,
                                      const pddl_t *pddl,
                                      const pddl_fm_arr_t *arr,
-                                     const pddl_obj_id_t *arr_args)
+                                     const int *arr_args)
 {
-    pddl_obj_id_t arg[cand->mgroup->param.param_size];
+    int arg[cand->mgroup->param.param_size];
     const pddl_fm_atom_t *cand1, *cand2;
 
     for (int i = 0; i < arr->size; ++i){
@@ -1576,7 +1576,7 @@ static void refineTypes(refine_t *refine,
             ctype = pred_type;
 
         int aparam = atom->arg[argi].param;
-        pddl_obj_id_t aobj = atom->arg[argi].obj;
+        int aobj = atom->arg[argi].obj;
         int atype = -1;
         if (aparam >= 0){
             atype = params->param[aparam].type;
@@ -1779,7 +1779,7 @@ static void refineProved(refine_t *refine,
 static void candInstantiateParamWithObj(pddl_lifted_mgroup_t *dst,
                                         const pddl_lifted_mgroup_t *src,
                                         int param,
-                                        pddl_obj_id_t obj)
+                                        int obj)
 {
     pddlLiftedMGroupInitCopy(dst, src);
     for (int ci = 0; ci < dst->cond.size; ++ci){
@@ -1807,7 +1807,7 @@ static void _removeHeavinessByInst(const pddl_t *pddl,
 {
     ASSERT(!cand->mgroup->param.param[param].is_counted_var);
     ASSERT(cand->mgroup->param.param[param].type >= 0);
-    const pddl_obj_id_t *obj;
+    const int *obj;
     int obj_size;
 
     int type = cand->mgroup->param.param[param].type;
@@ -1930,7 +1930,7 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
 
     for (int i = 0; i < src->mgroup_size; ++i){
         const pddl_lifted_mgroup_t *mg = src->mgroup + i;
-        pddl_obj_id_t arg[mg->param.param_size];
+        int arg[mg->param.param_size];
 
         pddl_fm_const_it_atom_t it;
         const pddl_fm_atom_t *goal;
@@ -1952,7 +1952,7 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
 pddl_bool_t pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
                                                     const pddl_t *pddl,
                                                     const pddl_fm_arr_t *c,
-                                                    const pddl_obj_id_t *args)
+                                                    const int *args)
 {
     for (int i = 0; i < mgs->mgroup_size; ++i){
         CAND_LOCAL(cand, mgs->mgroup + i);
@@ -1967,9 +1967,9 @@ static pddl_bool_t mgroupIsDeleted(const pddl_lifted_mgroup_t *mg,
                                    const pddl_fm_arr_t *pre,
                                    const pddl_fm_arr_t *add_eff,
                                    const pddl_fm_arr_t *del_eff,
-                                   const pddl_obj_id_t *args)
+                                   const int *args)
 {
-    pddl_obj_id_t mg_arg[mg->param.param_size];
+    int mg_arg[mg->param.param_size];
 
     // First check whether there is a matching add effect. If there is one,
     // then mg cannot be deleted
@@ -2005,7 +2005,7 @@ pddl_bool_t pddlLiftedMGroupsAnyIsDeleted(const pddl_lifted_mgroups_t *mgs,
                                           const pddl_fm_arr_t *pre,
                                           const pddl_fm_arr_t *add_eff,
                                           const pddl_fm_arr_t *del_eff,
-                                          const pddl_obj_id_t *args)
+                                          const int *args)
 {
     for (int i = 0; i < mgs->mgroup_size; ++i){
         if (mgroupIsDeleted(mgs->mgroup + i, pddl,

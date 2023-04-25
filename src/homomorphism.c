@@ -138,7 +138,7 @@ static void collectGoalObjs(const pddl_t *pddl, pddl_iset_t *goal_objs)
 
 static int collapseObjs(pddl_t *pddl,
                         int *collapse_map,
-                        pddl_obj_id_t *obj_map,
+                        int *obj_map,
                         int obj_size,
                         pddl_err_t *err)
 {
@@ -150,7 +150,7 @@ static int collapseObjs(pddl_t *pddl,
         }
     }
 
-    pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    int *remap = CALLOC_ARR(int, pddl->obj.obj_size);
     for (int i = 0, idx = 0; i < pddl->obj.obj_size; ++i){
         if (collapse_map[i] && i != repr){
             remap[i] = repr;
@@ -195,7 +195,7 @@ static int _collapseObjs(pddl_homomorphic_task_t *h,
         }
     }
 
-    pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+    int *remap = CALLOC_ARR(int, h->task.obj.obj_size);
     for (int i = 0, idx = 0; i < h->task.obj.obj_size; ++i){
         if (collapse_map[i] && i != repr){
             remap[i] = repr;
@@ -228,8 +228,8 @@ static int _collapseObjs(pddl_homomorphic_task_t *h,
 }
 
 static int collapsePair(pddl_homomorphic_task_t *h,
-                        pddl_obj_id_t o1,
-                        pddl_obj_id_t o2,
+                        int o1,
+                        int o2,
                         pddl_err_t *err)
 {
     int *collapse_map = CALLOC_ARR(int, h->task.obj.obj_size);
@@ -242,7 +242,7 @@ static int collapsePair(pddl_homomorphic_task_t *h,
 static int collapseEndomorphism(pddl_t *pddl,
                                 const pddl_homomorphism_config_t *cfg,
                                 pddl_rand_t *rnd,
-                                pddl_obj_id_t *obj_map,
+                                int *obj_map,
                                 int obj_size,
                                 pddl_err_t *err)
 {
@@ -250,10 +250,10 @@ static int collapseEndomorphism(pddl_t *pddl,
     // TODO
     pddl_endomorphism_config_t ecfg = cfg->endomorphism_cfg;
     PDDL_ISET(redundant);
-    pddl_obj_id_t *map = ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    int *map = ALLOC_ARR(int, pddl->obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(pddl, &ecfg, &redundant, map, err);
     if (ret == 0 && pddlISetSize(&redundant) > 0){
-        pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+        int *remap = CALLOC_ARR(int, pddl->obj.obj_size);
         int oid;
         PDDL_ISET_FOR_EACH(&redundant, oid)
             remap[oid] = PDDL_OBJ_ID_UNDEF;
@@ -286,7 +286,7 @@ static int collapseEndomorphism(pddl_t *pddl,
 static int collapseRandomPairTypeObj(pddl_t *pddl,
                                      const pddl_homomorphism_config_t *cfg,
                                      pddl_rand_t *rnd,
-                                     pddl_obj_id_t *obj_map,
+                                     int *obj_map,
                                      int obj_size,
                                      pddl_err_t *err)
 {
@@ -305,7 +305,7 @@ static int collapseRandomPairTypeObj(pddl_t *pddl,
     int choice = pddlRand(rnd, 0, type_size);
     int type = choose_types[choice];
     int num_objs;
-    const pddl_obj_id_t *objs;
+    const int *objs;
     objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
     int obj1 = objs[(int)pddlRand(rnd, 0, num_objs)];
     int obj2 = obj1;
@@ -322,7 +322,7 @@ static int collapseRandomPairTypeObj(pddl_t *pddl,
 static int collapseRandomPairObj(pddl_t *pddl,
                                  const pddl_homomorphism_config_t *cfg,
                                  pddl_rand_t *rnd,
-                                 pddl_obj_id_t *obj_map,
+                                 int *obj_map,
                                  int obj_size,
                                  pddl_err_t *err)
 {
@@ -339,7 +339,7 @@ static int collapseRandomPairObj(pddl_t *pddl,
         if (pddlTypesIsMinimal(&pddl->type, type)
                 && pddlTypeNumObjs(&pddl->type, type) > 1){
             int num_objs;
-            const pddl_obj_id_t *objs;
+            const int *objs;
             objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
             for (int i = 0; i < num_objs; ++i){
                 if (!pddlISetIn(objs[i], &goal_objs)){
@@ -361,7 +361,7 @@ static int collapseRandomPairObj(pddl_t *pddl,
     int obj1 = choose_objs[choice];
     int type = choose_types[choice];
     int num_objs;
-    const pddl_obj_id_t *objs;
+    const int *objs;
     objs = pddlTypesObjsByType(&pddl->type, type, &num_objs);
     int obj2 = obj1;
     while (obj1 == obj2)
@@ -379,7 +379,7 @@ static int collapseRandomPairObj(pddl_t *pddl,
 
 static int collapseType(pddl_t *pddl,
                         int type,
-                        pddl_obj_id_t *obj_map,
+                        int *obj_map,
                         int obj_size,
                         pddl_err_t *err)
 {
@@ -398,7 +398,7 @@ static int collapseType(pddl_t *pddl,
     int init_num_objs = pddl->obj.obj_size;
     int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
     int objs_size;
-    const pddl_obj_id_t *objs = pddlTypesObjsByType(types, type, &objs_size);
+    const int *objs = pddlTypesObjsByType(types, type, &objs_size);
     for (int i = 0; i < objs_size; ++i)
         collapse_map[objs[i]] = 1;
     int ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
@@ -481,8 +481,8 @@ static void gaifmanFree(gaifman_t *g)
 static int gaifmanFindPairDepth(gaifman_t *g,
                                 const pddl_t *pddl,
                                 int depth,
-                                pddl_obj_id_t *o1,
-                                pddl_obj_id_t *o2)
+                                int *o1,
+                                int *o2)
 {
     int found = 0;
     int found_candidate = 0;
@@ -542,8 +542,8 @@ static int gaifmanFindPairDepth(gaifman_t *g,
 
 static int gaifmanFindPair(gaifman_t *g,
                            const pddl_t *pddl,
-                           pddl_obj_id_t *o1,
-                           pddl_obj_id_t *o2)
+                           int *o1,
+                           int *o2)
 {
     for (int depth = 1; 1; ++depth){
         int ret;
@@ -558,7 +558,7 @@ static int gaifmanFindPair(gaifman_t *g,
 static int collapseGaifman(pddl_t *pddl,
                            const pddl_homomorphism_config_t *cfg,
                            pddl_rand_t *rnd,
-                           pddl_obj_id_t *obj_map,
+                           int *obj_map,
                            int obj_size,
                            pddl_err_t *err)
 {
@@ -569,7 +569,7 @@ static int collapseGaifman(pddl_t *pddl,
               gaif.num_static_objs, pddl->obj.obj_size);
     PDDL_INFO(err, "Non-goal static objects: %d/%d",
               gaif.num_static_nongoal_objs, pddl->obj.obj_size);
-    pddl_obj_id_t o1 = 0, o2 = 0;
+    int o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, pddl, &o1, &o2)){
         PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
                   o1, pddl->obj.obj[o1].name,
@@ -588,7 +588,7 @@ static int collapseGaifman(pddl_t *pddl,
     return ret;
 }
 
-static int atomHasObj(const pddl_fm_atom_t *atom, pddl_obj_id_t o)
+static int atomHasObj(const pddl_fm_atom_t *atom, int o)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         if (atom->arg[i].obj == o)
@@ -600,15 +600,15 @@ static int atomHasObj(const pddl_fm_atom_t *atom, pddl_obj_id_t o)
 
 static int rpgTestPair(const pddl_t *pddl,
                        const pddl_ground_atoms_t *ga,
-                       pddl_obj_id_t o1,
-                       pddl_obj_id_t o2,
+                       int o1,
+                       int o2,
                        pddl_err_t *err)
 {
     pddl_fm_const_it_atom_t it;
     const pddl_fm_atom_t *atom;
     PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom){
         if (atomHasObj(atom, o2)){
-            pddl_obj_id_t args[atom->arg_size];
+            int args[atom->arg_size];
             for (int i = 0; i < atom->arg_size; ++i){
                 if (atom->arg[i].obj == o2){
                     args[i] = o1;
@@ -627,8 +627,8 @@ static int rpgTestPair(const pddl_t *pddl,
 static int rpgFindPair(const pddl_t *pddl,
                        int max_depth,
                        const pddl_iset_t *goal_objs,
-                       pddl_obj_id_t *o1,
-                       pddl_obj_id_t *o2,
+                       int *o1,
+                       int *o2,
                        pddl_err_t *err)
 {
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
@@ -644,8 +644,8 @@ static int rpgFindPair(const pddl_t *pddl,
         const pddl_type_t *type = pddl->type.type + type_id;
         if (pddlISetSize(&type->child) == 0){
             int p1, p2;
-            PDDL_OBJSET_FOR_EACH(&type->obj, p1){
-                PDDL_OBJSET_FOR_EACH(&type->obj, p2){
+            PDDL_ISET_FOR_EACH(&type->obj, p1){
+                PDDL_ISET_FOR_EACH(&type->obj, p2){
                     if (p1 == p2 || pddlISetIn(p2, goal_objs))
                         continue;
                     if (rpgTestPair(pddl, &ga, p1, p2, err)){
@@ -666,7 +666,7 @@ static int rpgFindPair(const pddl_t *pddl,
 static int collapseRPG(pddl_t *pddl,
                        const pddl_homomorphism_config_t *cfg,
                        pddl_rand_t *rnd,
-                       pddl_obj_id_t *obj_map,
+                       int *obj_map,
                        int obj_size,
                        pddl_err_t *err)
 {
@@ -677,7 +677,7 @@ static int collapseRPG(pddl_t *pddl,
 
     int max_depth = cfg->rpg_max_depth;
     for (int depth = 1; depth <= max_depth; ++depth){
-        pddl_obj_id_t o1, o2;
+        int o1, o2;
         int found = rpgFindPair(pddl, depth, &goal_objs, &o1, &o2, err);
         if (found < 0){
             pddlISetFree(&goal_objs);
@@ -769,7 +769,7 @@ static void deduplicate(pddl_t *pddl)
 int pddlHomomorphism(pddl_t *pddl,
                      const pddl_t *src,
                      const pddl_homomorphism_config_t *cfg,
-                     pddl_obj_id_t *obj_map,
+                     int *obj_map,
                      pddl_err_t *err)
 {
     ASSERT_RUNTIME_M(cfg->type != 0u, "Invalid configuration");
@@ -803,7 +803,7 @@ int pddlHomomorphism(pddl_t *pddl,
         int (*fn[2])(pddl_t *pddl,
                      const pddl_homomorphism_config_t *cfg,
                      pddl_rand_t *rnd,
-                     pddl_obj_id_t *obj_map,
+                     int *obj_map,
                      int obj_size,
                      pddl_err_t *err) = { NULL, NULL };
         if (cfg->type == PDDL_HOMOMORPHISM_RAND_OBJS)
@@ -859,7 +859,7 @@ void pddlHomomorphicTaskInit(pddl_homomorphic_task_t *h, const pddl_t *in)
     h->input_obj_size = in->obj.obj_size;
     pddlInitCopy(&h->task, in);
     if (h->input_obj_size > 0){
-        h->obj_map = CALLOC_ARR(pddl_obj_id_t, h->input_obj_size);
+        h->obj_map = CALLOC_ARR(int, h->input_obj_size);
         for (int i = 0; i < h->input_obj_size; ++i)
             h->obj_map[i] = i;
     }
@@ -897,7 +897,7 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
     int init_num_objs = h->task.obj.obj_size;
     int *collapse_map = CALLOC_ARR(int, h->task.obj.obj_size);
     int objs_size;
-    const pddl_obj_id_t *objs = pddlTypesObjsByType(types, type, &objs_size);
+    const int *objs = pddlTypesObjsByType(types, type, &objs_size);
     for (int i = 0; i < objs_size; ++i)
         collapse_map[objs[i]] = 1;
     int ret = _collapseObjs(h, collapse_map, err);
@@ -930,7 +930,7 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
         if (pddlTypesIsMinimal(&h->task.type, type)
                 && pddlTypeNumObjs(&h->task.type, type) > 1){
             int num_objs;
-            const pddl_obj_id_t *objs;
+            const int *objs;
             objs = pddlTypesObjsByType(&h->task.type, type, &num_objs);
             for (int i = 0; i < num_objs; ++i){
                 if (!pddlISetIn(objs[i], &goal_objs)){
@@ -952,7 +952,7 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
     int obj1 = choose_objs[choice];
     int type = choose_types[choice];
     int num_objs;
-    const pddl_obj_id_t *objs;
+    const int *objs;
     objs = pddlTypesObjsByType(&h->task.type, type, &num_objs);
     int obj2 = obj1;
     while (obj1 == obj2)
@@ -976,7 +976,7 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
               gaif.num_static_objs, h->task.obj.obj_size);
     PDDL_INFO(err, "Non-goal static objects: %d/%d",
               gaif.num_static_nongoal_objs, h->task.obj.obj_size);
-    pddl_obj_id_t o1 = 0, o2 = 0;
+    int o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, &h->task, &o1, &o2)){
         PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
                   o1, h->task.obj.obj[o1].name,
@@ -1002,7 +1002,7 @@ int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
         collectGoalObjs(&h->task, &goal_objs);
 
     for (int depth = 1; depth <= max_depth; ++depth){
-        pddl_obj_id_t o1, o2;
+        int o1, o2;
         int found = rpgFindPair(&h->task, depth, &goal_objs, &o1, &o2, err);
         if (found < 0){
             pddlPrintDebug(&h->task, stderr);
@@ -1031,10 +1031,10 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
 {
     PDDL_INFO(err, "Relaxed endomorphisms");
     PDDL_ISET(redundant);
-    pddl_obj_id_t *map = ALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+    int *map = ALLOC_ARR(int, h->task.obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(&h->task, cfg, &redundant, map, err);
     if (ret == 0 && pddlISetSize(&redundant) > 0){
-        pddl_obj_id_t *remap = CALLOC_ARR(pddl_obj_id_t, h->task.obj.obj_size);
+        int *remap = CALLOC_ARR(int, h->task.obj.obj_size);
         int oid;
         PDDL_ISET_FOR_EACH(&redundant, oid)
             remap[oid] = PDDL_OBJ_ID_UNDEF;

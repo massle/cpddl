@@ -449,7 +449,7 @@ void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
 
 void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
                               const pddl_lifted_mgroup_t *lmg,
-                              const pddl_obj_id_t *args)
+                              const int *args)
 {
     pddlLiftedMGroupsAdd(lm, lmg);
 

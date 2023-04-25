@@ -33,7 +33,7 @@ struct pddl_obj {
     int type;         /*!< Type of the object */
     pddl_bool_t is_constant; /*!< True if it is constant (defined in domain) */
     pddl_bool_t is_private; /*!< True if the object is private to an agent */
-    pddl_obj_id_t owner; /*!< ID of the object corresponding to an agent in
+    int owner; /*!< ID of the object corresponding to an agent in
                               unfactored privacy model or PDDL_OBJ_ID_UNDEF */
     pddl_bool_t is_agent; /*!< True if the object correspondnds to an agent in
                                unfactored privacy model */
@@ -66,7 +66,7 @@ void pddlObjsFree(pddl_objs_t *objs);
 /**
  * Returns ID of the object of the specified name.
  */
-pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name);
+int pddlObjsGet(const pddl_objs_t *objs, const char *name);
 
 /**
  * Adds a new obj at the end of the array.
@@ -76,7 +76,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name);
 /**
  * Remap object IDs and remove those where remap[id] == -1
  */
-void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap);
+void pddlObjsRemap(pddl_objs_t *objs, const int *remap);
 
 /**
  * Remap type IDs assuming all object types are preserved.

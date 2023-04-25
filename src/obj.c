@@ -32,7 +32,7 @@ void pddlObjFree(pddl_obj_t *obj)
 }
 
 struct obj_key {
-    pddl_obj_id_t obj_id;
+    int obj_id;
     const char *name;
     uint32_t hash;
     pddl_list_t htable;
@@ -157,7 +157,7 @@ static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
 
     const pddl_lisp_node_t *n, *p;
     int i, factor, pi, parse_from;
-    pddl_obj_id_t owner;
+    int owner;
     set_t set;
 
     factor = pddl->require.factored_privacy;
@@ -294,7 +294,7 @@ static obj_key_t *findByName(const pddl_objs_t *objs, const char *name)
     return key;
 }
 
-pddl_obj_id_t pddlObjsGet(const pddl_objs_t *objs, const char *name)
+int pddlObjsGet(const pddl_objs_t *objs, const char *name)
 {
     obj_key_t *key = findByName(objs, name);
     if (key == NULL)
@@ -334,7 +334,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     return o;
 }
 
-void pddlObjsRemap(pddl_objs_t *objs, const pddl_obj_id_t *remap)
+void pddlObjsRemap(pddl_objs_t *objs, const int *remap)
 {
     int new_size = 0;
     for (int i = 0; i < objs->obj_size; ++i)

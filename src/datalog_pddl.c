@@ -37,7 +37,7 @@ void pddlDatalogPddlAddTypeRules(pddl_datalog_t *dl,
         if (type_to_dlpred[ti] == UINT_MAX)
             continue;
         int size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(&pddl->type, ti, &size);
         for (int i = 0; i < size; ++i){
             pddl_datalog_atom_t atom;
