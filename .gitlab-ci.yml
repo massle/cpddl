@@ -22,7 +22,6 @@ workflow:
     - '[ "$WITH_BLISS" = "y" ] && make bliss'
     - '[ "$WITH_CUDD" = "y" ] && make cudd'
     - make bin
-    - mv bin bin-$WITH_BLISS-$WITH_CUDD-$WITH_COIN_OR
 
 build-debian-gcc:
   extends: .build
@@ -46,14 +45,11 @@ test-barebone:
     - apt update && apt -y install make gcc g++ git
     - git clone --depth 1 https://gitlab.com/danfis/pddl-data pddl-data
     - apt -y purge git
+    - apt -y autoremove
   script:
     - echo "WERROR = yes" >>Makefile.config
     - make bin
-    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
-    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
-    - './bin/pddl-lplan --lplan-o - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
-    - './bin/pddl-lplan --pddl-compile-in-lmg --lplan astar --lplan-h hmax --lplan-o - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
-    - './bin/pddl --gplan astar --gplan-h lmc --gplan-out - pddl-data/test-seq/driverlog/pfile1 | grep -q "Cost: 7$"'
+    - bash ./scripts/gitlab-ci-test-barebone.sh
 
 test:
   stage: test
@@ -63,13 +59,11 @@ test:
     - apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config
     - apt install -y git
     - git clone --depth 1 https://gitlab.com/danfis/pddl-data pddl-data
+    - apt -y purge git
+    - apt -y autoremove
   script:
     - echo "WERROR = yes" >>Makefile.config
     - echo "COIN_OR_USE_PKGCONFIG = yes" >>Makefile.config
     - make third-party && make bin
-    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
-    - ./bin/pddl pddl-data/test-seq/depot/pfile1 >/dev/null
-    - './bin/pddl-lplan --lplan-out - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
-    - './bin/pddl-lplan --lplan astar --lplan-h hmax --lplan-o - pddl-data/test-seq/depot/pfile1 | grep -q "Cost: 10$"'
-    - './bin/pddl --mg fam --gplan astar --gplan-h lmc --gplan-out - pddl-data/test-seq/driverlog/pfile1 | grep -q "Cost: 7$"'
-    - './bin/pddl-symba --symba bi --symba-fw-pot --symba-fw-pot-cfg A+I --symba-bw-pot --symba-bw-pot-cfg I --symba-out - pddl-data/test-seq/driverlog/pfile1 | grep -q "Cost: 7$"'
+    - bash ./scripts/gitlab-ci-test-barebone.sh
+    - bash ./scripts/gitlab-ci-test.sh
