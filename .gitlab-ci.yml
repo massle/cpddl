@@ -45,6 +45,7 @@ test-barebone:
     - apt update && apt -y install make gcc g++ git
     - git clone --depth 1 https://gitlab.com/danfis/pddl-data pddl-data
     - apt -y purge git
+    - apt -y autoremove
   script:
     - echo "WERROR = yes" >>Makefile.config
     - make bin
@@ -58,6 +59,8 @@ test:
     - apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config
     - apt install -y git
     - git clone --depth 1 https://gitlab.com/danfis/pddl-data pddl-data
+    - apt -y purge git
+    - apt -y autoremove
   script:
     - echo "WERROR = yes" >>Makefile.config
     - echo "COIN_OR_USE_PKGCONFIG = yes" >>Makefile.config
