@@ -293,15 +293,8 @@ src/_version.c: pddl/version.h pddl/config.h
 .objs/_version.pic.o: src/_version.c pddl/version.h
 	$(CC) -I. -fPIC -c -o $@ $<
 
-src/tmp.cudd-version.h: src/tmp.cudd-version
-	$(file >$@,#define CUDD_VERSION "$(shell $<)")
-src/tmp.cudd-version.c: third-party/cudd/libcudd.a pddl/config.h
-	$(file >$@,#include "internal.h")
-	$(file >>$@,#include <cudd/cudd.h>)
-	$(file >>$@,#include <stdio.h>)
-	$(file >>$@,int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; })
-src/tmp.cudd-version: src/tmp.cudd-version.c
-	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o $@ $< $(CUDD_LDFLAGS) -lm
+src/tmp.cudd-version.h: third-party/cudd/configure.ac
+	$(file >$@,#define CUDD_VERSION "$(shell grep 'AC_INIT' <$< | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')")
 
 .objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
@@ -442,7 +435,7 @@ bliss-clean:
 	rm -f third-party/bliss/libbliss.a
 	rm -f third-party/bliss/bliss_C.h
 third-party/bliss/libbliss.a:
-	$(MAKE) CC=$(CXX) -C third-party/bliss lib_static
+	$(MAKE) CC=$(CXX) AR=$(AR) RANLIB=$(RANLIB) -C third-party/bliss lib_static
 	cp third-party/bliss/src/bliss_C.h third-party/bliss/
 	mv third-party/bliss/libbliss_static.a $@
 
@@ -455,7 +448,7 @@ third-party/cudd/libcudd.a:
 	cd third-party/cudd && aclocal
 	cd third-party/cudd && autoconf
 	cd third-party/cudd && automake
-	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX)
+	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB)
 	$(MAKE) -C third-party/cudd
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
