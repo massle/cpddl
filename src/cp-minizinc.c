@@ -15,6 +15,7 @@
 #include "internal.h"
 #include "pddl/cp.h"
 #include "pddl/subprocess.h"
+#include "pddl/strstream.h"
 #include "_cp.h"
 
 int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
@@ -33,7 +34,7 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     char *buf = NULL;
     size_t bufsize = 0;
 
-    FILE *fout = open_memstream(&buf, &bufsize);
+    FILE *fout = pddl_strstream(&buf, &bufsize);
     ASSERT_RUNTIME(fout != NULL);
     pddlCPWriteMinizinc(cp, fout);
     fflush(fout);

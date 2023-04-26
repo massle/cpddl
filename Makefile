@@ -5,6 +5,7 @@ MAKE_FILES := Makefile Makefile.include $(wildcard Makefile.config)
 
 SRC  = alloc
 SRC += err
+SRC += strstream
 SRC += hfunc
 SRC += sha256
 SRC += google-city-hash
@@ -228,13 +229,13 @@ bin: libpddl.a
 
 libpddl.a: $(OBJS) $(MAKE_FILES)
 	rm -f $@
-	ar cr $@ $(OBJS)
-	ranlib $@
+	$(AR) cr $@ $(OBJS)
+	$(RANLIB) $@
 
 libpddl.pic.a: $(OBJS_PIC) $(MAKE_FILES)
 	rm -f $@
-	ar cr $@ $(OBJS_PIC)
-	ranlib $@
+	$(AR) cr $@ $(OBJS_PIC)
+	$(RANLIB) $@
 
 libpddl.so: $(OBJS_PIC) $(MAKE_FILES)
 	$(CC) -shared -o $@ $(OBJS_PIC)
@@ -506,6 +507,8 @@ help:
 	@echo "  SYSTEM  = $(SYSTEM)"
 	@echo "  CC      = $(CC)"
 	@echo "  CXX     = $(CXX)"
+	@echo "  AR      = $(AR)"
+	@echo "  RANLIB  = $(RANLIB)"
 	@echo "  SH      = $(SH)"
 	@echo "  SCAN_BUILD = $(SCAN_BUILD)"
 	@echo "  DEBUG   = $(DEBUG)"

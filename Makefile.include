@@ -4,6 +4,8 @@ BASEPATH_ := $(dir $(realpath $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 SH ?= bash
 CC ?= gcc
 CXX ?= g++
+AR ?= ar
+RANLIB ?= ranlib
 SCAN_BUILD ?= scan-build
 
 SYSTEM = $(shell uname)

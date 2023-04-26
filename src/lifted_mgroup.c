@@ -21,6 +21,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
+#include "pddl/strstream.h"
 #include "internal.h"
 
 #define LINESIZE 1024
@@ -396,7 +397,7 @@ const char *pddlLiftedMGroupFmt(const pddl_t *pddl,
                                 char *s,
                                 size_t s_size)
 {
-    FILE *fout = fmemopen(s, s_size - 1, "w");
+    FILE *fout = pddl_staticstrstream(s, s_size - 1);
     printMGroup(pddl, mgroup, fout, NULL);
     fflush(fout);
     if (ferror(fout) != 0 && s_size >= 4){
