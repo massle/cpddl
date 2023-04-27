@@ -49,11 +49,11 @@ static int setLPSolver(const char *v)
     }else if (strcmp(v, "gurobi") == 0 || strcmp(v, "grb") == 0){
         solver = PDDL_LP_GUROBI;
 
-    }else if (strcmp(v, "glpk") == 0){
-        solver = PDDL_LP_GLPK;
-
     }else if (strcmp(v, "highs") == 0){
         solver = PDDL_LP_HIGHS;
+
+    }else if (strcmp(v, "coin-or") == 0){
+        solver = PDDL_LP_COIN_OR;
 
     }else{
         fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
@@ -406,7 +406,11 @@ static void setBaseOptions(void)
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
-                 "Set the default LP solver: cplex/gurobi/glpk/highs");
+                 "Set the default LP solver: cplex/gurobi/highs/coin-or");
+    optsAddStr("cplex-lib", 0x0, &opt.link_cplex, NULL,
+                 "Load CPLEX dynamic library. Also sets LP solver to cplex.");
+    optsAddStr("gurobi-lib", 0x0, &opt.link_gurobi, NULL,
+                 "Load Gurobi dynamic library. Also sets LP solver to gurobi.");
 
 }
 
@@ -1031,9 +1035,12 @@ static void help(const char *argv0, FILE *fout)
     if (pddl_bliss_version != NULL
             || pddl_cudd_version != NULL
             || pddl_cplex_version != NULL
+            || pddl_cplex_api_version != NULL
             || pddl_cp_optimizer_version != NULL
             || pddl_gurobi_version != NULL
+            || pddl_gurobi_api_version != NULL
             || pddl_highs_version != NULL
+            || pddl_coin_or_version != NULL
             || pddl_dynet_version != NULL){
         fprintf(fout, "Used libraries:\n");
 
@@ -1056,6 +1063,12 @@ static void help(const char *argv0, FILE *fout)
                     pddl_cplex_version);
         }
 
+        if (pddl_cplex_api_version != NULL){
+            fprintf(fout, "  CPLEX API v%s"
+                    " | Commercial | https://www.ibm.com/analytics/cplex-optimizer\n",
+                    pddl_cplex_api_version);
+        }
+
         if (pddl_cp_optimizer_version != NULL){
             fprintf(fout, "  CPLEX CP Optimizer v%s"
                     " | Commercial | https://www.ibm.com/analytics/cplex-cp-optimizer\n",
@@ -1068,10 +1081,23 @@ static void help(const char *argv0, FILE *fout)
                     pddl_gurobi_version);
         }
 
+        if (pddl_gurobi_api_version != NULL){
+            fprintf(fout, "  Gurobi API v%s"
+                    " | Commercial | https://www.gurobi.com\n",
+                    pddl_gurobi_api_version);
+        }
+
         if (pddl_highs_version != NULL){
             fprintf(fout, "  HiGHS v%s"
                     " | License MIT | https://highs.dev\n",
                     pddl_highs_version);
+        }
+
+        if (pddl_coin_or_version != NULL){
+            fprintf(fout, "  Coin-Or %s"
+                    " | Eclipse Public License v2.0 | https://www.coin-or.org/\n",
+                    pddl_coin_or_version);
+            
         }
 
         if (pddl_dynet_version != NULL){
@@ -1181,28 +1207,48 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     PDDL_LOG(err, "Version: %s", pddl_version);
     if (pddl_bliss_version != NULL)
-        PDDL_LOG(err, "Have library Bliss v%s", pddl_bliss_version);
+        PDDL_LOG(err, "Linked Bliss v%s", pddl_bliss_version);
 
     if (pddl_cudd_version != NULL)
-        PDDL_LOG(err, "Have library CUDD v%s", pddl_cudd_version);
+        PDDL_LOG(err, "Linked CUDD v%s", pddl_cudd_version);
 
     if (pddl_cplex_version != NULL)
-        PDDL_LOG(err, "Have library CPLEX v%s", pddl_cplex_version);
+        PDDL_LOG(err, "Linked CPLEX v%s", pddl_cplex_version);
+    if (pddl_cplex_api_version != NULL)
+        PDDL_LOG(err, "Have CPLEX API v%s", pddl_cplex_api_version);
 
     if (pddl_cp_optimizer_version != NULL)
-        PDDL_LOG(err, "Have library CPLEX CP Optimizer v%s", pddl_cp_optimizer_version);
+        PDDL_LOG(err, "Linked CPLEX CP Optimizer v%s", pddl_cp_optimizer_version);
 
     if (pddl_gurobi_version != NULL)
-        PDDL_LOG(err, "Have library Gurobi v%s", pddl_gurobi_version);
+        PDDL_LOG(err, "Linked Gurobi v%s", pddl_gurobi_version);
+    if (pddl_gurobi_api_version != NULL)
+        PDDL_LOG(err, "Have Gurobi API v%s", pddl_gurobi_api_version);
 
     if (pddl_highs_version != NULL)
-        PDDL_LOG(err, "Have library HiGHS v%s", pddl_highs_version);
+        PDDL_LOG(err, "Linked HiGHS v%s", pddl_highs_version);
+
+    if (pddl_coin_or_version != NULL)
+        PDDL_LOG(err, "Linked Coin-Or %s", pddl_coin_or_version);
 
     if (pddl_dynet_version != NULL)
-        PDDL_LOG(err, "Have library DyNet");
+        PDDL_LOG(err, "Linked DyNet");
 #ifdef PDDL_MINIZINC_BIN
     PDDL_LOG(err, "Have minizinc external binary %s v%s",
                 PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
 #endif /* PDDL_MINIZINC_BIN */
+
+    if (opt.link_cplex != NULL){
+        if (pddlLPLoadCPLEX(opt.link_cplex, err) != 0)
+            return -1;
+        pddlLPSetDefault(PDDL_LP_CPLEX, err);
+    }
+
+    if (opt.link_gurobi != NULL){
+        if (pddlLPLoadGurobi(opt.link_gurobi, err) != 0)
+            return -1;
+        pddlLPSetDefault(PDDL_LP_GUROBI, err);
+    }
+
     return 0;
 }

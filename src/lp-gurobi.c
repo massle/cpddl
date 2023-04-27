@@ -14,47 +14,188 @@
  *  See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/lp.h"
 #include "pddl/libs_info.h"
 #include "_lp.h"
-#include "internal.h"
 
 #ifdef PDDL_GUROBI
-# include <gurobi_c.h>
-const char * const pddl_gurobi_version =
+#include <dlfcn.h>
+#include <gurobi_c.h>
+#include "_lp_compressed_row_problem.h"
+
+typedef void (*api_version_t)(int *majorP, int *minorP, int *technicalP);
+typedef int (*api_emptyenv_t)(GRBenv **envP);
+typedef int (*api_startenv_t)(GRBenv *env);
+typedef void (*api_freeenv_t)(GRBenv *env);
+typedef int (*api_newmodel_t)(GRBenv *env, GRBmodel **modelP, const char *Pname, int numvars,
+                              double *obj, double *lb, double *ub, char *vtype,
+                              char **varnames);
+typedef int (*api_freemodel_t)(GRBmodel *model);
+typedef int (*api_addconstrs_t)(GRBmodel *model, int numconstrs, int numnz,
+                                int *cbeg, int *cind, double *cval,
+                                char *sense, double *rhs, char **constrnames);
+typedef int (*api_updatemodel_t)(GRBmodel *model);
+typedef int (*api_optimize_t)(GRBmodel *model);
+typedef int (*api_setintparam_t)(GRBenv *env, const char *paramname, int value);
+typedef int (*api_setdblparam_t)(GRBenv *env, const char *paramname, double value);
+typedef int (*api_setintattr_t)(GRBmodel *model, const char *attrname, int newvalue);
+typedef int (*api_getintattr_t)(GRBmodel *model, const char *attrname, int *valueP);
+typedef int (*api_getdblattr_t)(GRBmodel *model, const char *attrname, double *valueP);
+typedef int (*api_getdblattrelement_t)(GRBmodel *model, const char *attrname,
+                                       int element, double *valueP);
+typedef const char * (*api_geterrormsg_t)(GRBenv *env);
+typedef int (*api_cbget_t)(void *cbdata, int where, int what, void *resultP);
+typedef int (*api_setcallbackfunc_t)(GRBmodel *model,
+                                     int (__stdcall *cb)(CB_ARGS),
+                                     void  *usrdata);
+
+struct gurobi_api {
+    api_version_t version;
+    api_emptyenv_t emptyenv;
+    api_startenv_t startenv;
+    api_freeenv_t freeenv;
+    api_newmodel_t newmodel;
+    api_freemodel_t freemodel;
+    api_addconstrs_t addconstrs;
+    api_updatemodel_t updatemodel;
+    api_optimize_t optimize;
+    api_setintparam_t setintparam;
+    api_setdblparam_t setdblparam;
+    api_setintattr_t setintattr;
+    api_getintattr_t getintattr;
+    api_getdblattr_t getdblattr;
+    api_getdblattrelement_t getdblattrelement;
+    api_geterrormsg_t geterrormsg;
+    api_cbget_t cbget;
+    api_setcallbackfunc_t setcallbackfunc;
+};
+
+#ifdef PDDL_GUROBI_ONLY_API
+static struct gurobi_api api = { 0 };
+const char * const pddl_gurobi_version = NULL;
+const char * const pddl_gurobi_api_version =
     PDDL_TOSTR(GRB_VERSION_MAJOR.GRB_VERSION_MINOR.GRB_VERSION_TECHNICAL);
 
-#define MAX_COEFS 20000
-struct _lp_t {
-    pddl_lp_t cls;
-    GRBenv *env;
-    GRBmodel *model;
-    int *coef_row;
-    int *coef_col;
-    double *coef_coef;
-    int coef_size;
+#else /* PDDL_GUROBI_ONLY_API */
+
+static struct gurobi_api api = {
+    GRBversion,
+    GRBemptyenv,
+    GRBstartenv,
+    GRBfreeenv,
+    GRBnewmodel,
+    GRBfreemodel,
+    GRBaddconstrs,
+    GRBupdatemodel,
+    GRBoptimize,
+    GRBsetintparam,
+    GRBsetdblparam,
+    GRBsetintattr,
+    GRBgetintattr,
+    GRBgetdblattr,
+    GRBgetdblattrelement,
+    GRBgeterrormsg,
+    GRBcbget,
+    GRBsetcallbackfunc
 };
-typedef struct _lp_t lp_t;
 
-#define LP(l) pddl_container_of((l), lp_t, cls)
+const char * const pddl_gurobi_version =
+    PDDL_TOSTR(GRB_VERSION_MAJOR.GRB_VERSION_MINOR.GRB_VERSION_TECHNICAL);
+const char * const pddl_gurobi_api_version = NULL;
+#endif /* PDDL_GUROBI_ONLY_API */
 
-static char lpSense(char sense)
+#define LOAD(NAME) \
+    do { \
+        api.NAME = (api_##NAME##_t)dlsym(dl_handle, "GRB" #NAME); \
+        if (api.NAME == NULL){ \
+            ZEROIZE(&api); \
+            dlclose(dl_handle); \
+            ERR_RET(err, -1, "Could not find GRB" #NAME " function: %s", dlerror()); \
+        } \
+    } while (0)
+
+static void *dl_handle = NULL;
+static char dl_version[32] = { 0 };
+int pddlLPLoadGurobi(const char *so_fn, pddl_err_t *err)
 {
-    if (sense == 'L'){
-        return GRB_LESS_EQUAL;
-    }else if (sense == 'G'){
-        return GRB_GREATER_EQUAL;
-    }else if (sense == 'E'){
-        return GRB_EQUAL;
-    }else{
-        fprintf(stderr, "Gurobi Error: Unkown sense: %c\n", sense);
-        return GRB_EQUAL;
+    if (pddl_gurobi_version != NULL){
+        ERR_RET(err, -1, "Cannot dynamically load Gurobi library, because"
+                " it was already linked at compile time.");
     }
+
+    if (dl_handle != NULL)
+        dlclose(dl_handle);
+
+    dl_version[0] = '\x0';
+    dl_handle = dlopen(so_fn, RTLD_NOW);
+    if (dl_handle == NULL)
+        ERR_RET(err, -1, "Could not load Gurobi library: %s", dlerror());
+
+    LOAD(version);
+    LOAD(emptyenv);
+    LOAD(startenv);
+    LOAD(freeenv);
+    LOAD(newmodel);
+    LOAD(freemodel);
+    LOAD(addconstrs);
+    LOAD(updatemodel);
+    LOAD(optimize);
+    LOAD(setintparam);
+    LOAD(setdblparam);
+    LOAD(setintattr);
+    LOAD(getintattr);
+    LOAD(getdblattr);
+    LOAD(getdblattrelement);
+    LOAD(geterrormsg);
+    LOAD(cbget);
+    LOAD(setcallbackfunc);
+
+    int major, minor, technical;
+    api.version(&major, &minor, &technical);
+    snprintf(dl_version, 31, "%d.%d.%d", major, minor, technical);
+    dl_version[31] = '\x0';
+    LOG(err, "Gurobi library successfully loaded from %s. version: %s",
+        so_fn, dl_version);
+
+    return 0;
 }
 
-static void grbError(lp_t *lp)
+pddl_bool_t pddlLPIsGurobiAvailable(void)
 {
-    PANIC("Gurobi Error: %s\n", GRBgeterrormsg(lp->env));
+    return api.version != NULL;
+}
+
+const char * const pddlLPGurobiVersion(void)
+{
+    if (api.version == NULL)
+        return NULL;
+    if (dl_version[0] == '\x0')
+        return pddl_gurobi_version;
+    return dl_version;
+}
+
+static pddl_lp_status_t grbErr(GRBenv *env, GRBmodel *model,
+                               pddl_lp_solution_t *sol, const char *s,
+                               pddl_err_t *err)
+{
+    if (env != NULL){
+        ERR(err, "Gurobi: %s: %s", s, api.geterrormsg(env));
+    }else{
+        ERR(err, "Gurobi: %s", s);
+    }
+    if (model != NULL)
+        api.freemodel(model);
+    if (env != NULL)
+        api.freeenv(env);
+
+    sol->solved_optimally = pddl_false;
+    sol->solved_suboptimally = pddl_false;
+    sol->unsolvable = pddl_false;
+    sol->not_solved = pddl_false;
+    sol->error = pddl_true;
+    sol->timed_out = pddl_false;
+    return PDDL_LP_STATUS_ERR;
 }
 
 static int cb(GRBmodel *model, void *cbdata, int where, void *ud)
@@ -62,315 +203,216 @@ static int cb(GRBmodel *model, void *cbdata, int where, void *ud)
     pddl_err_t *err = ud;
     if (where == GRB_CB_MESSAGE){
         char *msg;
-        if (GRBcbget(cbdata, where, GRB_CB_MSG_STRING, (void *)&msg) == 0){
+        if (api.cbget(cbdata, where, GRB_CB_MSG_STRING, (void *)&msg) == 0){
             char out[128];
             int msglen = strlen(msg);
             msglen = PDDL_MIN(128, msglen - 1);
             memcpy(out, msg, msglen * sizeof(char));
             out[msglen] = '\x0';
-            LOG(err, "gurobi: %s", out);
+            LOG(err, "log: %s", out);
         }
     }
     return 0;
 }
 
-static pddl_lp_t *new(const pddl_lp_config_t *cfg, pddl_err_t *err)
+
+pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
+                                   pddl_lp_solution_t *sol,
+                                   pddl_err_t *err)
 {
+    CTX_NO_TIME(err, "LP-Gurobi");
+    int major, minor, technical;
+    api.version(&major, &minor, &technical);
+    LOG(err, "version: %d.%d.%d", major, minor, technical);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
+        " tune-int-op-pot: %b",
+        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
+        lp->cfg.tune_int_operator_potential);
+    GRBenv *env = NULL;
+    GRBmodel *model = NULL;
     int ret;
 
-    lp_t *lp = ALLOC(lp_t);
-    lp->cls.cls = &pddl_lp_gurobi;
-    lp->cls.err = err;
-    lp->cls.cfg = *cfg;
-    if ((ret = GRBemptyenv(&lp->env)) != 0){
-        PANIC("Gurobi Error: Could not create environment"
-              " (error-code: %d)!", ret);
-    }
-    if (GRBsetintparam(lp->env, "OutputFlag", 0) != 0)
-        grbError(lp);
+    _pddlLPSolutionInit(sol, lp);
 
-    if ((ret = GRBstartenv(lp->env)) != 0){
+    if ((ret = api.emptyenv(&env)) != 0){
+        char msg[1024];
+        snprintf(msg, 1024, "Could not create environment (error code: %d)", ret);
+        msg[1023] = '\x0';
+        CTXEND(err);
+        return grbErr(NULL, NULL, sol, msg, err);
+    }
+    if (api.setintparam(env, "OutputFlag", 0) != 0){
+        CTXEND(err);
+        return grbErr(env, NULL, sol, "Could not set OutputFlag", err);
+    }
+
+    if ((ret = api.startenv(env)) != 0){
         if (ret == GRB_ERROR_NO_LICENSE)
             WARN(err, "It seems license file wasn't found. Don't forget to"
                   " set GRB_LICENSE_FILE environment variable.");
-        grbError(lp);
+        CTXEND(err);
+        return grbErr(env, NULL, sol, "Could not start Gurobi environment", err);
     }
 
-    if (GRBnewmodel(lp->env, &lp->model, NULL, cfg->cols,
-                NULL, NULL, NULL, NULL, NULL) != 0){
-        grbError(lp);
+    pddl_lp_compressed_row_problem_t P;
+    compressedRowProblemInit(&P, lp, 
+                             GRB_CONTINUOUS,
+                             GRB_INTEGER,
+                             GRB_BINARY,
+                             pddl_false,
+                             -GRB_INFINITY,
+                             GRB_INFINITY);
+    LOG(err, "problem: non-zero coefficients: %d", P.num_nz);
+
+    if (api.newmodel(env, &model, NULL, P.num_col,
+                    P.col_obj, P.col_lb, P.col_ub, P.col_type, NULL) != 0){
+        CTXEND(err);
+        return grbErr(env, NULL, sol, "Could create a model", err);
     }
 
-    GRBsetcallbackfunc(lp->model, cb, err);
+    if (api.addconstrs(model, P.num_row, P.num_nz, P.row_beg, P.row_ind,
+                      P.row_val, P.row_sense, P.row_rhs, NULL) != 0){
+        CTXEND(err);
+        return grbErr(env, model, sol, "Could add constraints", err);
+    }
+    api.updatemodel(model);
+    compressedRowProblemFree(&P);
 
-    int num_threads = PDDL_MAX(1, cfg->num_threads);
-    if (GRBsetintparam(GRBgetenv(lp->model), "Threads", num_threads) != 0)
-        grbError(lp);
+    api.setcallbackfunc(model, cb, err);
 
-    if (cfg->time_limit > 0.){
-        if (GRBsetdblparam(GRBgetenv(lp->model), "TimeLimit", cfg->time_limit) != 0)
-            grbError(lp);
+    int num_threads = PDDL_MAX(1, lp->cfg.num_threads);
+    if (api.setintparam(env, "Threads", num_threads) != 0){
+        CTXEND(err);
+        return grbErr(env, model, sol, "Could set number of threads", err);
     }
 
-
-    if (cfg->rows > 0){
-        if (GRBaddconstrs(lp->model, cfg->rows, 0,
-                    NULL, NULL, NULL, NULL, NULL, NULL) != 0){
-            grbError(lp);
+    if (lp->cfg.time_limit > 0.){
+        if (api.setdblparam(env, "TimeLimit", lp->cfg.time_limit) != 0){
+            CTXEND(err);
+            return grbErr(env, model, sol, "Could set time limit", err);
         }
     }
 
-    int sense = GRB_MINIMIZE;
-    if (cfg->maximize)
-        sense = GRB_MAXIMIZE;
-    if (GRBsetintattr(lp->model, GRB_INT_ATTR_MODELSENSE, sense) != 0)
-        grbError(lp);
-
-    GRBupdatemodel(lp->model);
-
-    lp->coef_size = 0;
-    lp->coef_row = ALLOC_ARR(int, MAX_COEFS);
-    lp->coef_col = ALLOC_ARR(int, MAX_COEFS);
-    lp->coef_coef = ALLOC_ARR(double, MAX_COEFS);
-    return &lp->cls;
-}
-
-static void del(pddl_lp_t *_lp)
-{
-    lp_t *lp = LP(_lp);
-    GRBfreemodel(lp->model);
-    GRBfreeenv(lp->env);
-    FREE(lp->coef_row);
-    FREE(lp->coef_col);
-    FREE(lp->coef_coef);
-    FREE(lp);
-}
-
-static void setObj(pddl_lp_t *_lp, int i, double coef)
-{
-    lp_t *lp = LP(_lp);
-    if (GRBsetdblattrelement(lp->model, "Obj", i, coef) != 0)
-        grbError(lp);
-}
-
-static void setVarRange(pddl_lp_t *_lp, int i, double lb, double ub)
-{
-    lp_t *lp = LP(_lp);
-    if (lb <= -1E20)
-        lb = -1E21; // This is infinity in gurobi
-    if (ub >= 1E20)
-        ub = 1E21; // This is infinity in gurobi
-    if (GRBsetdblattrelement(lp->model, "LB", i, lb) != 0)
-        grbError(lp);
-    if (GRBsetdblattrelement(lp->model, "UB", i, ub) != 0)
-        grbError(lp);
-}
-
-static void setVarFree(pddl_lp_t *_lp, int i)
-{
-    setVarRange(_lp, i, -1e21, 1e21);
-}
-
-static void setVarInt(pddl_lp_t *_lp, int i)
-{
-    lp_t *lp = LP(_lp);
-    if (GRBsetcharattrelement(lp->model, "VType", i, 'I') != 0)
-        grbError(lp);
-}
-
-static void setVarBinary(pddl_lp_t *_lp, int i)
-{
-    lp_t *lp = LP(_lp);
-    if (GRBsetcharattrelement(lp->model, "VType", i, 'B') != 0)
-        grbError(lp);
-}
-
-static void setCoef(pddl_lp_t *_lp, int row, int col, double coef)
-{
-    lp_t *lp = LP(_lp);
-    if (lp->coef_size == MAX_COEFS){
-        GRBupdatemodel(lp->model);
-        lp->coef_size = 0;
+    int minmax = GRB_MINIMIZE;
+    if (lp->cfg.maximize)
+        minmax = GRB_MAXIMIZE;
+    if (api.setintattr(model, GRB_INT_ATTR_MODELSENSE, minmax) != 0){
+        CTXEND(err);
+        return grbErr(env, model, sol, "Could set minimization/maximization", err);
     }
-    lp->coef_row[lp->coef_size] = row;
-    lp->coef_col[lp->coef_size] = col;
-    lp->coef_coef[lp->coef_size] = coef;
-    if (GRBchgcoeffs(lp->model, 1,
-                     &lp->coef_row[lp->coef_size],
-                     &lp->coef_col[lp->coef_size],
-                     &lp->coef_coef[lp->coef_size]) != 0){
-        grbError(lp);
+
+    if (api.optimize(model) != 0){
+        CTXEND(err);
+        return grbErr(env, model, sol, "Could not optimize model", err);
     }
-    ++lp->coef_size;
-}
 
-static void setRHS(pddl_lp_t *_lp, int row, double rhs, char sense)
-{
-    lp_t *lp = LP(_lp);
-    if (GRBsetcharattrelement(lp->model, "Sense", row, lpSense(sense)) != 0)
-        grbError(lp);
-    if (GRBsetdblattrelement(lp->model, "RHS", row, rhs) != 0)
-        grbError(lp);
-}
-
-static void addRows(pddl_lp_t *_lp, int cnt, const double *rhs, const char *sense)
-{
-    lp_t *lp = LP(_lp);
-    int i;
-    char *gsense;
-
-    gsense = ALLOC_ARR(char, cnt);
-    for (i = 0; i < cnt; ++i)
-        gsense[i] = lpSense(sense[i]);
-
-    if (GRBaddconstrs(lp->model, cnt, 0, NULL, NULL, NULL,
-                gsense, (double *)rhs, NULL) != 0){
-        FREE(gsense);
-        grbError(lp);
+    int st;
+    if (api.getintattr(model, "Status", &st) != 0){
+        CTXEND(err);
+        return grbErr(env, model, sol, "Could not obtain solution status", err);
     }
-    GRBupdatemodel(lp->model);
-    FREE(gsense);
-}
 
-static void delRows(pddl_lp_t *_lp, int begin, int end)
-{
-    lp_t *lp = LP(_lp);
-    int i, j, *ind;
+    if (st == GRB_OPTIMAL){
+        sol->solved = pddl_true;
+        sol->solved_optimally = pddl_true;
 
-    ind = ALLOC_ARR(int, end - begin + 1);
-    for (j = 0, i = begin; i <= end; ++i, ++j)
-        ind[j] = i;
+    }else if (st == GRB_SUBOPTIMAL){
+        sol->solved = pddl_true;
+        sol->solved_suboptimally = pddl_true;
 
-    if (GRBdelconstrs(lp->model, end - begin + 1, ind) != 0){
-        FREE(ind);
-        grbError(lp);
-    }
-    FREE(ind);
-}
+    }else if (st == GRB_INFEASIBLE
+                || st == GRB_INF_OR_UNBD
+                || st == GRB_UNBOUNDED){
+        sol->unsolvable = pddl_true;
 
-static int numRows(const pddl_lp_t *_lp)
-{
-    lp_t *lp = LP(_lp);
-    int rows;
-    if (GRBgetintattr(lp->model, "NumConstrs", &rows) != 0)
-        grbError(lp);
-    return rows;
-}
+    }else if (st == GRB_TIME_LIMIT
+                || st == GRB_CUTOFF
+                || st == GRB_ITERATION_LIMIT
+                || st == GRB_NODE_LIMIT
+                || st == GRB_SOLUTION_LIMIT
+                || st == GRB_INTERRUPTED
+                || st == GRB_NUMERIC
+                || st == GRB_USER_OBJ_LIMIT
+                || st == GRB_WORK_LIMIT){
+        int val;
+        if (api.getintattr(model, "SolCount", &val) != 0){
+            CTXEND(err);
+            return grbErr(env, model, sol, "Could not obtain number of solutions", err);
+        }
 
-static void addCols(pddl_lp_t *_lp, int cnt)
-{
-    lp_t *lp = LP(_lp);
-
-    if (GRBaddvars(lp->model, cnt, 0, NULL, NULL, NULL,
-                NULL, NULL, NULL, NULL, NULL) != 0){
-        grbError(lp);
-    }
-    GRBupdatemodel(lp->model);
-}
-
-static void delCols(pddl_lp_t *_lp, int begin, int end)
-{
-    lp_t *lp = LP(_lp);
-    int i, j, *ind;
-
-    ind = ALLOC_ARR(int, end - begin + 1);
-    for (j = 0, i = begin; i <= end; ++i, ++j)
-        ind[j] = i;
-
-    if (GRBdelvars(lp->model, end - begin + 1, ind) != 0){
-        FREE(ind);
-        grbError(lp);
-    }
-    GRBupdatemodel(lp->model);
-    FREE(ind);
-}
-
-static int numCols(const pddl_lp_t *_lp)
-{
-    lp_t *lp = LP(_lp);
-    int cols;
-    if (GRBgetintattr(lp->model, "NumVars", &cols) != 0)
-        grbError(lp);
-    return cols;
-}
-
-static int lpSolve(pddl_lp_t *_lp, double *val, double *obj)
-{
-    lp_t *lp = LP(_lp);
-    int st, i, cols;
-
-    if (GRBoptimize(lp->model) != 0)
-        grbError(lp);
-    if (GRBgetintattr(lp->model, "Status", &st) != 0)
-        grbError(lp);
-
-    if (st == GRB_OPTIMAL || st == GRB_TIME_LIMIT){
+        if (val <= 0){
+            sol->not_solved = pddl_true;
+        }else{
+            sol->solved = pddl_true;
+            sol->solved_suboptimally = pddl_true;
+        }
         if (st == GRB_TIME_LIMIT){
-            int val;
-            if (GRBgetintattr(lp->model, "SolCount", &val) != 0)
-                grbError(lp);
-            LOG(_lp->err, "Time limit: solutions: %d", val);
-            if (val <= 0)
-                return -1;
+            LOG(err, "Time limit reached: solutions: %d", val);
+            sol->timed_out = pddl_true;
         }
 
-        if (val != NULL){
-            if (GRBgetdblattr(lp->model, "ObjVal", val) != 0)
-                grbError(lp);
+    }else{
+        char msg[1024];
+        snprintf(msg, 1024, "Unrecognized solution status %d", st);
+        msg[1023] = '\x0';
+        CTXEND(err);
+        return grbErr(env, model, sol, msg, err);
+    }
+
+    if (sol->solved){
+        if (api.getdblattr(model, "ObjVal", &sol->obj_val) != 0){
+            CTXEND(err);
+            return grbErr(env, model, sol, "Could not obtain objective value", err);
         }
-        if (obj != NULL){
-            if (GRBgetintattr(lp->model, "NumVars", &cols) != 0)
-                grbError(lp);
-            for (i = 0; i < cols; ++i){
-                if (GRBgetdblattrelement(lp->model, "X", i, obj + i) != 0)
-                    grbError(lp);
+
+        if (sol->var_val != NULL){
+            int num_cols;
+            if (api.getintattr(model, "NumVars", &num_cols) != 0){
+                CTXEND(err);
+                return grbErr(env, model, sol, "Could not obtain number of columns", err);
+            }
+            PANIC_IF(num_cols != lp->col_size, "Invalid number of columns.");
+            for (int i = 0; i < lp->col_size; ++i){
+                if (api.getdblattrelement(model, "X", i, sol->var_val + i) != 0){
+                    CTXEND(err);
+                    return grbErr(env, model, sol, "Could not obtain variable value", err);
+                }
             }
         }
-        return 0;
-    }else{
-        if (obj != NULL){
-            if (GRBgetintattr(lp->model, "NumVars", &cols) != 0)
-                grbError(lp);
-            ZEROIZE_ARR(obj, cols);
-        }
-        if (val != NULL)
-            *val = 0.;
-        return -1;
     }
+
+    api.freemodel(model);
+    api.freeenv(env);
+    CTXEND(err);
+    return _pddlLPSolutionToStatus(sol);
 }
 
-static void lpWrite(pddl_lp_t *_lp, const char *fn)
-{
-    lp_t *lp = LP(_lp);
-    if (GRBwrite(lp->model, fn) != 0)
-        grbError(lp);
-}
-
-#define TOSTR1(x) #x
-#define TOSTR(x) TOSTR1(x)
-pddl_lp_cls_t pddl_lp_gurobi = {
-    PDDL_LP_GUROBI,
-    "gurobi",
-    pddl_gurobi_version,
-    new,
-    del,
-    setObj,
-    setVarRange,
-    setVarFree,
-    setVarInt,
-    setVarBinary,
-    setCoef,
-    setRHS,
-    addRows,
-    delRows,
-    numRows,
-    addCols,
-    delCols,
-    numCols,
-    lpSolve,
-    lpWrite,
-};
 #else /* PDDL_GUROBI */
 const char * const pddl_gurobi_version = NULL;
-pddl_lp_cls_t pddl_lp_gurobi = { 0 };
+const char * const pddl_gurobi_api_version = NULL;
+
+int pddlLPLoadGurobi(const char *so_fn, pddl_err_t *err)
+{
+    ERR_RET(err, -1, "Cannot load Gurobi, because cpddl was compiled"
+            " without Gurobi header files.");
+}
+
+pddl_bool_t pddlLPIsGurobiAvailable(void)
+{
+    return pddl_false;
+}
+
+const char * const pddlLPGurobiVersion(void)
+{
+    return NULL;
+}
+
+pddl_lp_status_t pddlLPSolveGurobi(const pddl_lp_t *lp,
+                                   pddl_lp_solution_t *sol,
+                                   pddl_err_t *err)
+{
+    PANIC("Missing Gurobi solver");
+    return PDDL_LP_STATUS_ERR;
+}
+
 #endif /* PDDL_GUROBI */

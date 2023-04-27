@@ -43,7 +43,7 @@ static int actionInitPre(pddl_fm_t *c, void *ud)
     action_ctx_t *ctx = ud;
     pddl_fm_atom_t *a;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         a = pddlFmToAtom(c);
         ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->pred == ctx->pddl->pred.eq_pred){
@@ -57,7 +57,7 @@ static int actionInitPre(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
     }else{
         PDDL_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
@@ -73,7 +73,7 @@ static int actionInitEff(pddl_fm_t *c, void *ud)
     action_ctx_t *ctx = ud;
     pddl_fm_atom_t *a;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         a = pddlFmToAtom(c);
         ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->neg){
@@ -83,20 +83,20 @@ static int actionInitEff(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_ASSIGN){
+    }else if (pddlFmIsAssign(c)){
         PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
-    }else if (c->type == PDDL_FM_INCREASE){
+    }else if (pddlFmIsIncrease(c)){
         pddlFmArrAdd(&ctx->a->increase, c);
         return 0;
 
-    }else if (c->type == PDDL_FM_WHEN){
+    }else if (pddlFmIsWhen(c)){
         ++ctx->a->cond_eff_size;
         return -1;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
     }else{
         PDDL_ERR(ctx-> err, "Effect is not a simple conjuction"
@@ -186,7 +186,7 @@ static int actionInitCondEff(pddl_fm_t *c, void *ud)
     const pddl_fm_when_t *when;
     pddl_prep_action_t *a, *parent;
 
-    if (c->type == PDDL_FM_WHEN){
+    if (pddlFmIsWhen(c)){
         when = pddlFmToWhen(c);
 
         // Create a new action

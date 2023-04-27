@@ -250,7 +250,7 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
+        if (pddlFmIsAtom(c)){
             const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(sm, a, NULL, NULL);
@@ -260,7 +260,7 @@ int pddlStripsMakerAddInit(pddl_strips_maker_t *sm, const pddl_t *pddl)
             // TODO
             //sqlPredInsertAtom(g->pred + a->pred, g->db, a, err);
 
-        }else if (c->type == PDDL_FM_ASSIGN){
+        }else if (pddlFmIsAssign(c)){
             const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
@@ -328,7 +328,7 @@ static int createInitState(pddl_strips_maker_t *sm,
 
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
+        if (pddlFmIsAtom(c)){
             a = pddlFmToAtomConst(c);
             ga = pddlGroundAtomsFindAtom(&sm->ground_atom, a, NULL);
             if (ga != NULL){
@@ -364,7 +364,7 @@ static int _createGoal(pddl_fm_t *c, void *_g)
     const int *ground_atom_to_fact_id = ggoal->ground_atom_to_fact_id;
     pddl_err_t *err = ggoal->err;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         const pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (!pddlFmAtomIsGrounded(atom))
             PDDL_ERR_RET(err, -1, "Goal specification cannot contain"
@@ -387,10 +387,10 @@ static int _createGoal(pddl_fm_t *c, void *_g)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
 
-    }else if (c->type == PDDL_FM_BOOL){
+    }else if (pddlFmIsBool(c)){
         const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         if (!b->val)
             strips->goal_is_unreachable = 1;
@@ -412,7 +412,7 @@ static int createGoal(pddl_strips_maker_t *sm,
                       pddl_err_t *err)
 {
     struct create_goal ggoal = { sm, strips, ground_atom_to_fact_id, err, 0 };
-    if (pddl->goal->type == PDDL_FM_OR){
+    if (pddlFmIsOr(pddl->goal)){
         PDDL_ERR_RET(err, -1, "Only conjuctive goal specifications"
                       " are supported. This goal is a disjunction.");
     }
@@ -475,7 +475,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         if (a->pred == ctx->pddl->pred.eq_pred){
             int p1 = atomArg(a, 0, ctx->args);
@@ -540,7 +540,7 @@ static int actionPre(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
     }else{
         PDDL_ERR(ctx->err, "Precondition is not a conjuction."
@@ -554,7 +554,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
 {
     action_ctx_t *ctx = ud;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         pddl_ground_atom_t *ga;
         ga = pddlGroundAtomsFindAtom(&ctx->sm->ground_atom, a, ctx->args);
@@ -567,12 +567,12 @@ static int actionEff(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_ASSIGN){
+    }else if (pddlFmIsAssign(c)){
         PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
-    }else if (c->type == PDDL_FM_INCREASE){
+    }else if (pddlFmIsIncrease(c)){
         if (!ctx->pddl->metric)
             return 0;
 
@@ -612,7 +612,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_WHEN){
+    }else if (pddlFmIsWhen(c)){
         pddl_fm_when_t *w = pddlFmToWhen(c);
         if (actionCondEff(ctx, w->pre, w->eff) != 0){
             ctx->failed = 1;
@@ -620,7 +620,7 @@ static int actionEff(pddl_fm_t *c, void *ud)
         }
         return -1;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
     }else{
         PDDL_ERR(ctx->err, "Effect is not a conjuction"

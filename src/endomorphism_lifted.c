@@ -56,15 +56,15 @@ static void setAtomTypesFixed(lifted_endomorphism_t *end,
 static int hasAtom(const pddl_fm_t *cond,
                    const pddl_fm_atom_t *atom)
 {
-    if (cond->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(cond)){
         return pddlFmEq(cond, &atom->fm);
     }else{
-        ASSERT_RUNTIME(cond->type == PDDL_FM_AND);
+        ASSERT_RUNTIME(pddlFmIsAnd(cond));
         const pddl_fm_junc_t *cand = pddlFmToJuncConst(cond);
         pddl_list_t *item;
         PDDL_LIST_FOR_EACH(&cand->part, item){
             const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-            ASSERT_RUNTIME(c->type == PDDL_FM_ATOM);
+            ASSERT_RUNTIME(pddlFmIsAtom(c));
             if (pddlFmEq(c, &atom->fm))
                 return 1;
         }
@@ -245,11 +245,11 @@ static void fixAtomConstants(pddl_fm_atom_t *a, lifted_endomorphism_t *end)
 static int fixConstants(pddl_fm_t *c, void *_end)
 {
     lifted_endomorphism_t *end = (lifted_endomorphism_t *)_end;
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         fixAtomConstants(a, end);
 
-    }else if (c->type == PDDL_FM_ASSIGN){
+    }else if (pddlFmIsAssign(c)){
         pddl_fm_func_op_t *a = pddlFmToFuncOp(c);
         if (a->lvalue != NULL)
             fixAtomConstants(a->lvalue, end);
@@ -272,28 +272,28 @@ static void liftedEndomorphismAnalyzeAction(
 {
     pddlFmTraverse((pddl_fm_t *)act_pre, NULL, fixConstants, end);
     pddlFmTraverse((pddl_fm_t *)act_eff, NULL, fixConstants, end);
-    if (act_eff->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(act_eff)){
         const pddl_fm_atom_t *a = pddlFmToAtomConst(act_eff);
         analyzeActionAtom(end, pddl, act_param, act_pre, a,
                           lifted_mgroups, cfg, err);
         return;
     }
 
-    ASSERT_RUNTIME(act_eff->type == PDDL_FM_AND);
+    ASSERT_RUNTIME(pddlFmIsAnd(act_eff));
     const pddl_fm_junc_t *cand = pddlFmToJuncConst(act_eff);
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&cand->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
+        if (pddlFmIsAtom(c)){
             const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             analyzeActionAtom(end, pddl, act_param, act_pre, a,
                               lifted_mgroups, cfg, err);
 
-        }else if (c->type == PDDL_FM_INCREASE){
+        }else if (pddlFmIsIncrease(c)){
             // We can ignore this, because it is already handled in
             // the initial state
 
-        }else if (c->type == PDDL_FM_WHEN){
+        }else if (pddlFmIsWhen(c)){
             const pddl_fm_when_t *w = pddlFmToWhenConst(c);
             liftedEndomorphismAnalyzeAction(end, pddl, act_param,
                                             w->pre, w->eff, lifted_mgroups,
@@ -309,7 +309,7 @@ static void liftedEndomorphismAnalyzeAction(
 static int _liftedEndomorphismFixGoal(pddl_fm_t *c, void *u)
 {
     lifted_endomorphism_t *end = (lifted_endomorphism_t *)u;
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         for (int i = 0; i < atom->arg_size; ++i){
             ASSERT(atom->arg[i].obj >= 0);
@@ -452,7 +452,7 @@ static void predObjTuplesFree(pred_obj_tuples_t *tup)
 static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
 {
     pred_obj_tuples_t *tup = (pred_obj_tuples_t *)u;
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         int pred_id = atom->pred;
         pred_obj_tuple_t *tuple = tup->tuple + pred_id;
@@ -463,7 +463,7 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
             t->tuple[i] = atom->arg[i].obj;
         }
 
-    }else if (c->type != PDDL_FM_AND){
+    }else if (!pddlFmIsAnd(c)){
         const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
         ASSERT(ass->fvalue == NULL);
         ASSERT(ass->lvalue != NULL);
@@ -478,7 +478,7 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
             t->tuple[i] = ass->lvalue->arg[i].obj;
         }
 
-    }else if (c->type != PDDL_FM_AND){
+    }else if (!pddlFmIsAnd(c)){
         PANIC("Unexpected atom of type %d:%s\n",
                    c->type, pddlFmTypeName(c->type));
     }

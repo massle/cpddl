@@ -48,7 +48,7 @@ static int sqlGroundInit(sql_ground_t *g,
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&g->pddl->init->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
+        if (pddlFmIsAtom(c)){
             const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(&g->strips_maker, a, NULL, NULL);
@@ -57,7 +57,7 @@ static int sqlGroundInit(sql_ground_t *g,
             }
             pddlSqlGrounderInsertAtom(g->grounder, a, err);
 
-        }else if (c->type == PDDL_FM_ASSIGN){
+        }else if (pddlFmIsAssign(c)){
             const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);

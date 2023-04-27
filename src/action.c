@@ -188,7 +188,7 @@ static int setParamToObj(pddl_fm_t *cond, void *ud)
 {
     struct propagate_eq *ctx = ud;
 
-    if (cond->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(cond)){
         pddl_fm_atom_t *atom = pddlFmToAtom(cond);
         if (atom == ctx->eq_atom)
             return 0;
@@ -208,7 +208,7 @@ static int _propagateEquality(pddl_fm_t *c, void *ud)
 {
     struct propagate_eq *ctx = ud;
 
-    if (c->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(c)){
         const pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (atom->pred == ctx->eq_pred && !atom->neg){
             if (atom->arg[0].param >= 0 && atom->arg[1].obj >= 0){
@@ -235,8 +235,7 @@ static void propagateEquality(pddl_action_t *a, const pddl_t *pddl)
         return;
 
     struct propagate_eq ctx = { a, pddl->pred.eq_pred, NULL, -1, -1 };
-    if (a->pre->type != PDDL_FM_AND
-            && a->pre->type != PDDL_FM_ATOM)
+    if (!pddlFmIsAnd(a->pre) && !pddlFmIsAtom(a->pre))
         return;
     pddlFmTraverse(a->pre, _propagateEquality, NULL, &ctx);
 }
@@ -246,18 +245,14 @@ void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl)
     a->pre = pddlFmNormalize(a->pre, pddl, &a->param);
     a->eff = pddlFmNormalize(a->eff, pddl, &a->param);
 
-    if (a->pre->type == PDDL_FM_BOOL && pddlFmToBool(a->pre)->val){
+    if (pddlFmIsBool(a->pre) && pddlFmToBool(a->pre)->val){
         pddlFmDel(a->pre);
         a->pre = pddlFmNewEmptyAnd();
     }
-    if (a->pre->type == PDDL_FM_ATOM)
+    if (pddlFmIsAtom(a->pre))
         a->pre = pddlFmAtomToAnd(a->pre);
-    if (a->eff->type == PDDL_FM_ATOM
-            || a->eff->type == PDDL_FM_ASSIGN
-            || a->eff->type == PDDL_FM_INCREASE
-            || a->eff->type == PDDL_FM_WHEN){
+    if (!pddlFmIsAnd(a->eff))
         a->eff = pddlFmAtomToAnd(a->eff);
-    }
 
     propagateEquality(a, pddl);
 }
@@ -312,7 +307,7 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     pddl_list_t *item;
     int aidx;
 
-    if (a->pre->type != PDDL_FM_OR)
+    if (!pddlFmIsOr(a->pre))
         return;
 
     pre = pddlFmToJunc(a->pre);
@@ -344,14 +339,14 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     pddl_fm_junc_t *pre;
     pddl_fm_t *c;
 
-    if (a->pre->type != PDDL_FM_AND){
+    if (!pddlFmIsAnd(a->pre)){
         PANIC("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
     pre = pddlFmToJunc(a->pre);
     PDDL_LIST_FOR_EACH(&pre->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type != PDDL_FM_ATOM){
+        if (!pddlFmIsAtom(c)){
             PANIC("Precondition of the action `%s' is"
                        " not a flatten conjuction (conjuction contains"
                        " something else besides atoms).", a->name);

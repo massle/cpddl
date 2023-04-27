@@ -25,7 +25,6 @@ SRC += fifo
 SRC += lp
 SRC += lp-cplex
 SRC += lp-gurobi
-SRC += lp-glpk
 SRC += lp-highs
 SRC += cp
 SRC += cp-minizinc
@@ -170,6 +169,7 @@ SRC += __sqlite3
 SRC += _version
 
 SRC_CPP =
+SRC_CPP += cp-cp-optimizer
 
 SRC_STUB =
 
@@ -185,11 +185,12 @@ else
   SRC_STUB += bdd
 endif
 
-ifeq '$(USE_CPOPTIMIZER)' 'yes'
-  SRC_CPP += cp-cp-optimizer
+ifeq '$(USE_COIN_OR)' 'yes'
+  SRC_CPP += lp-coin-or
 else
-  SRC_STUB += cp-cp-optimizer
+  SRC += lp-coin-or-stub
 endif
+
 
 ifeq '$(USE_DYNET)' 'yes'
   SRC_CPP += asnets_dynet
@@ -199,11 +200,11 @@ endif
 
 OBJS_PIC := $(foreach obj,$(SRC),.objs/$(obj).pic.o) \
             $(foreach obj,$(SRC_CPP),.objs/$(obj).pic.cpp.o) \
-            $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.pic.o)
+            $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.pic.o)
 
 OBJS := $(foreach obj,$(SRC),.objs/$(obj).o) \
         $(foreach obj,$(SRC_CPP),.objs/$(obj).cpp.o) \
-        $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.o)
+        $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.o)
 
 GEN  = pddl/objset.h
 GEN += src/objset.c
@@ -219,10 +220,12 @@ bin: libpddl.a
 	$(MAKE) -C bin
 
 libpddl.a: $(OBJS) $(MAKE_FILES)
+	rm -f $@
 	ar cr $@ $(OBJS)
 	ranlib $@
 
 libpddl.pic.a: $(OBJS_PIC) $(MAKE_FILES)
+	rm -f $@
 	ar cr $@ $(OBJS_PIC)
 	ranlib $@
 
@@ -230,25 +233,27 @@ libpddl.so: $(OBJS_PIC) $(MAKE_FILES)
 	$(CC) -shared -o $@ $(OBJS_PIC)
 
 pddl/config.h: $(MAKE_FILES)
-	echo "#ifndef __PDDL_CONFIG_H__" >$@
-	echo "#define __PDDL_CONFIG_H__" >>$@
-	echo "" >>$@
-	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
-	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
-	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
-	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
-	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
-	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
-	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
-	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_GLPK)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
-	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
-	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
-	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
-	if [ "$(USE_DYNET)" = "yes" ]; then echo "#define PDDL_DYNET" >>$@; fi
-	echo "" >>$@
-	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
+	$(file >$@,#ifndef __PDDL_CONFIG_H__)
+	$(file >>$@,#define __PDDL_CONFIG_H__)
+	$(file >>$@,)
+	$(if $(filter yes,$(DEBUG)), $(file >>$@,#define PDDL_DEBUG))
+	$(if $(filter yes,$(USE_CLIQUER)), $(file >>$@,#define PDDL_CLIQUER))
+	$(if $(filter yes,$(USE_CUDD)), $(file >>$@,#define PDDL_CUDD))
+	$(if $(filter yes,$(USE_BLISS)), $(file >>$@,#define PDDL_BLISS))
+	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
+	$(if $(filter yesyes,$(USE_CPLEX)$(CPLEX_ONLY_API)), $(file >>$@,#define PDDL_CPLEX_ONLY_API))
+	$(if $(filter yes,$(USE_CPOPTIMIZER)), $(file >>$@,#define PDDL_CPOPTIMIZER))
+	$(if $(filter yes,$(USE_GUROBI)), $(file >>$@,#define PDDL_GUROBI))
+	$(if $(filter yesyes,$(USE_GUROBI)$(GUROBI_ONLY_API)), $(file >>$@,#define PDDL_GUROBI_ONLY_API))
+	$(if $(filter yes,$(USE_HIGHS)), $(file >>$@,#define PDDL_HIGHS))
+	$(if $(filter yes,$(USE_COIN_OR)), $(file >>$@,#define PDDL_COIN_OR))
+	$(if $(findstring yes,$(USE_CPLEX)$(USE_GUROBI)$(USE_HIGHS)$(USE_COIN_OR)), $(file >>$@,#define PDDL_LP))
+	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC))
+	$(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)")
+	$(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)")
+	$(if $(filter yes,$(USE_DYNET)), $(file >>$@,#define PDDL_DYNET))
+	$(file >>$@,)
+	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
 pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
@@ -271,26 +276,24 @@ pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 src/iarr.c: src/_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-src/_version.c: pddl/version.h
-	echo "#include \"pddl/version.h\"" >$@
-	echo "const char *pddl_build_commit = \"$(shell git rev-parse HEAD)\";" >>$@
-	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>$@
+src/_version.c: pddl/version.h pddl/config.h
+	$(file >$@,#include "pddl/version.h")
+	$(file >>$@,const char *pddl_build_commit = "$(shell git rev-parse HEAD)";)
+	$(file >>$@,const char *pddl_version = PDDL_VERSION_STR "-$(shell git rev-parse HEAD)";)
 .objs/_version.o: src/_version.c pddl/version.h
 	$(CC) -I. -c -o $@ $<
 .objs/_version.pic.o: src/_version.c pddl/version.h
 	$(CC) -I. -fPIC -c -o $@ $<
 
-src/tmp.cudd-version.h: third-party/cudd/libcudd.a
-	echo '#include "internal.h"' >src/tmp.cudd-version.c
-	echo '#include <cudd/cudd.h>' >>src/tmp.cudd-version.c
-	echo '#include <stdio.h>' >>src/tmp.cudd-version.c
-	echo "int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; }" >>src/tmp.cudd-version.c
-	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o src/tmp.cudd-version src/tmp.cudd-version.c $(CUDD_LDFLAGS) -lm
-	echo -n '#define CUDD_VERSION "' >$@
-	./src/tmp.cudd-version | tr -d '\n' >>$@
-	echo '"' >>$@
-	rm -f src/tmp.cudd-version.c
-	rm -f src/tmp.cudd-version
+src/tmp.cudd-version.h: src/tmp.cudd-version
+	$(file >$@,#define CUDD_VERSION "$(shell $<)")
+src/tmp.cudd-version.c: third-party/cudd/libcudd.a pddl/config.h
+	$(file >$@,#include "internal.h")
+	$(file >>$@,#include <cudd/cudd.h>)
+	$(file >>$@,#include <stdio.h>)
+	$(file >>$@,int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; })
+src/tmp.cudd-version: src/tmp.cudd-version.c
+	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o $@ $< $(CUDD_LDFLAGS) -lm
 
 .objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
@@ -304,10 +307,22 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
 .objs/clique.pic.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(CLIQUER_CFLAGS) -c -o $@ $<
-.objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
-.objs/lp-%.pic.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) -fPIC $(LP_CFLAGS) -c -o $@ $<
+.objs/lp-cplex.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -c -o $@ $<
+.objs/lp-cplex.pic.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
+.objs/lp-gurobi.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -c -o $@ $<
+.objs/lp-gurobi.pic.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
+.objs/lp-highs.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -c -o $@ $<
+.objs/lp-highs.pic.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -fPIC -c -o $@ $<
+.objs/lp-coin-or-stub.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/lp-coin-or-stub.pic.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 .objs/__sqlite3.o: src/sqlite3.c pddl/config.h
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.pic.o: src/sqlite3.c pddl/config.h
@@ -321,15 +336,10 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 .objs/asnets_dynet.pic.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -fPIC -c -o $@ $<
-
-src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
-src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
-src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
-src/cp-cp-optimizer_stub.c: pddl/cp.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Missing CPLEX CP Optimizer." pddl_cp_optimizer_version >$@
+.objs/lp-coin-or.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -c -o $@ $<
+.objs/lp-coin-or.pic.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -351,6 +361,11 @@ src/cp-cp-optimizer_stub.c: pddl/cp.h scripts/gen-stub.sh
 %.h: pddl/config.h
 %.c: pddl/config.h
 
+gen-stubs:
+	$(SH) scripts/gen-stub.sh pddl/bdd.h "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >src/bdd-stub.c
+	$(SH) scripts/gen-stub.sh pddl/sym.h "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >src/sym-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+
 
 clean: c
 	rm -f .objs/*.o
@@ -361,7 +376,6 @@ c:
 	rm -f *.a
 	rm -f *.so
 	rm -f pddl/config.h
-	rm -f src/*_stub.c
 	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
@@ -507,17 +521,20 @@ help:
 	@echo "  USE_CPLEX         = $(USE_CPLEX)"
 	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
 	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
+	@echo "  CPLEX_ONLY_API    = $(CPLEX_ONLY_API)"
 	@echo "  GUROBI_ROOT       = $(GUROBI_ROOT)"
 	@echo "  USE_GUROBI        = $(USE_GUROBI)"
 	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
 	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
-	@echo "  USE_GLPK          = $(USE_GLPK)"
-	@echo "  GLPK_CFLAGS       = $(GLPK_CFLAGS)"
-	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
+	@echo "  GUROBI_ONLY_API   = $(GUROBI_ONLY_API)"
 	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
 	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
 	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
+	@echo "  COIN_OR_USE_PKGCONFIG = $(COIN_OR_USE_PKGCONFIG)"
+	@echo "  USE_COIN_OR       = $(USE_COIN_OR)"
+	@echo "  COIN_OR_CFLAGS    = $(COIN_OR_CFLAGS)"
+	@echo "  COIN_OR_LDFLAGS   = $(COIN_OR_LDFLAGS)"
 	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
 	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"
 	@echo ""
@@ -545,4 +562,4 @@ help:
   check-gdb check-all-gdb \
   third-party third-party-clean \
   bliss bliss-clean \
-  sqlite-amalgam
+  sqlite-amalgam gen-stubs
