@@ -481,6 +481,7 @@ static void setLiftedPlannerOptions(void)
     pddl_homomorphism_config_t _homomorph_cfg = PDDL_HOMOMORPHISM_CONFIG_INIT;
     opt.lifted_planner.homomorph_cfg = _homomorph_cfg;
     opt.lifted_planner.homomorph_samples = 1;
+    opt.lifted_planner.homomorph_sampling_max_time = -1.;
 
     opts_params_t *params;
     optsStartGroup("Lifted Planner:");
@@ -532,6 +533,7 @@ static void setLiftedPlannerOptions(void)
         "  seed = <int> -- random seed\n"
         "  keep-goal-objs = <bool> -- do not collapse goal objects (default: true)\n"
         "  samples = <int> -- number of samples from which 1 is selected (default: 1)\n"
+        "  sampling-max-time = <float> -- maximum time in seconds allocated for sampling (default: off)\n"
         "  rpg-max-depth = <int> -- maximum depth used for the rpg method (default: 2)"
         );
     optsParamsAddIntSwitch(params, "type",
@@ -553,6 +555,8 @@ static void setLiftedPlannerOptions(void)
                       &opt.lifted_planner.homomorph_cfg.keep_goal_objs);
     optsParamsAddInt(params, "samples",
                      &opt.lifted_planner.homomorph_samples);
+    optsParamsAddFlt(params, "sampling-max-time",
+                     &opt.lifted_planner.homomorph_sampling_max_time);
     optsParamsAddInt(params, "rpg-max-depth",
                      &opt.lifted_planner.homomorph_cfg.rpg_max_depth);
 

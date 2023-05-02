@@ -107,6 +107,7 @@ struct options {
         pddl_homomorphism_config_t homomorph_cfg;
         int random_seed;
         int homomorph_samples;
+        float homomorph_sampling_max_time;
         char *plan_out;
     } lifted_planner;
 

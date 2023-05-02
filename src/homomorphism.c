@@ -21,6 +21,7 @@
 #include "pddl/homomorphism.h"
 #include "pddl/endomorphism.h"
 #include "pddl/strips_ground_sql.h"
+#include "pddl/gaifman.h"
 #include "internal.h"
 
 #define METHOD_TYPE 1
@@ -414,177 +415,191 @@ static int collapseType(pddl_t *pddl,
     }
 }
 
-struct gaifman {
-    int obj_size;
-    int *obj_is_static;
-    int num_static_objs;
-    int num_static_nongoal_objs;
-    pddl_iset_t *obj_relate_to;
-    pddl_iset_t goal_objs;
+struct gaifman_pair {
+    int obj[2];
+    int dist;
+    pddl_bool_t is_static;
+    pddl_bool_t is_goal;
 };
-typedef struct gaifman gaifman_t;
+typedef struct gaifman_pair gaifman_pair_t;
 
-static void gaifmanInit(gaifman_t *g, const pddl_t *pddl, int preserve_goals)
+static int gaifmanPairCmp(const gaifman_pair_t *p1, const gaifman_pair_t *p2)
 {
-    ZEROIZE(g);
-    g->obj_size = pddl->obj.obj_size;
-    g->obj_is_static = CALLOC_ARR(int, pddl->obj.obj_size);
-    g->obj_relate_to = CALLOC_ARR(pddl_iset_t, pddl->obj.obj_size);
-    if (preserve_goals)
-        collectGoalObjs(pddl, &g->goal_objs);
-
-    pddl_fm_const_it_atom_t it;
-    const pddl_fm_atom_t *atom;
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom){
-        if (pddlPredIsStatic(pddl->pred.pred + atom->pred)
-                && pddl->pred.pred[atom->pred].param_size > 1){
-            for (int i = 0; i < atom->arg_size; ++i){
-                ASSERT(atom->arg[i].obj >= 0);
-                g->obj_is_static[atom->arg[i].obj] = 1;
-            }
-            for (int i = 0; i < atom->arg_size; ++i){
-                int o1 = atom->arg[i].obj;
-                for (int j = i + 1; j < atom->arg_size; ++j){
-                    int o2 = atom->arg[j].obj;
-                    if (o1 != o2){
-                        pddlISetAdd(g->obj_relate_to + o1, o2);
-                        pddlISetAdd(g->obj_relate_to + o2, o1);
-                        /*
-                        fprintf(stderr, "%d(%s) -- %d(%s)\n",
-                                o1, pddl->obj.obj[o1].name,
-                                o2, pddl->obj.obj[o2].name);
-                        */
-                    }
-                }
-            }
-        }
-    }
-
-    for (int i = 0; i < pddl->obj.obj_size; ++i){
-        g->num_static_objs += g->obj_is_static[i];
-        if (!pddlISetIn(i, &g->goal_objs))
-            g->num_static_nongoal_objs += g->obj_is_static[i];
-    }
-}
-
-static void gaifmanFree(gaifman_t *g)
-{
-    if (g->obj_is_static != NULL)
-        FREE(g->obj_is_static);
-    for (int i = 0; i < g->obj_size; ++i)
-        pddlISetFree(&g->obj_relate_to[i]);
-    if (g->obj_relate_to != NULL)
-        FREE(g->obj_relate_to);
-    pddlISetFree(&g->goal_objs);
-}
-
-static int gaifmanFindPairDepth(gaifman_t *g,
-                                const pddl_t *pddl,
-                                int depth,
-                                pddl_obj_id_t *o1,
-                                pddl_obj_id_t *o2)
-{
-    int found = 0;
-    int found_candidate = 0;
-    int degree = INT_MAX;
-    PDDL_ISET(neigh);
-    PDDL_IARR(queue);
-    int *visited = CALLOC_ARR(int, pddl->obj.obj_size);
-
-    for (int x = 0; x < g->obj_size; ++x){
-        if (!g->obj_is_static[x] || pddlISetSize(&g->obj_relate_to[x]) == 0)
-            continue;
-        if (pddlISetIn(x, &g->goal_objs))
-            continue;
-        int xtype = pddl->obj.obj[x].type;
-        ZEROIZE_ARR(visited, pddl->obj.obj_size);
-        visited[x] = 1;
-        pddlIArrEmpty(&queue);
-        pddlIArrAdd(&queue, x);
-        for (int i = 0; i < pddlIArrSize(&queue); ++i){
-            int o = pddlIArrGet(&queue, i);
-
-            int y;
-            PDDL_ISET_FOR_EACH(&g->obj_relate_to[o], y){
-                if (visited[y])
-                    continue;
-
-                if (visited[o] == depth){
-                    found_candidate = 1;
-                    if (xtype == pddl->obj.obj[y].type
-                            && !pddlISetIn(y, &g->goal_objs)){
-                        pddlISetUnion2(&neigh, &g->obj_relate_to[x],
-                                              &g->obj_relate_to[y]);
-                        if (!found || pddlISetSize(&neigh) < degree){
-                            found = 1;
-                            *o1 = x;
-                            *o2 = y;
-                            degree = pddlISetSize(&neigh);
-                        }
-                    }
-                }else{
-                    pddlIArrAdd(&queue, y);
-                }
-                visited[y] = visited[o] + 1;
-            }
-        }
-    }
-
-    if (visited != NULL)
-        FREE(visited);
-    pddlIArrFree(&queue);
-    pddlISetFree(&neigh);
-
-    if (!found_candidate)
+    if (p1->dist < 0 && p2->dist >= 0)
+        return 1;
+    if (p2->dist < 0 && p1->dist >= 0)
         return -1;
-    return found;
+
+    int cmp = 0;
+    if (p1->dist >= 0 && p2->dist >= 0)
+        cmp = p1->dist - p2->dist;
+    if (cmp == 0){
+        // prefer static
+        cmp = (int)p2->is_static - (int)p1->is_static;
+    }
+
+    if (cmp == 0){
+        // prefer non-goal
+        cmp = (int)p1->is_goal - (int)p2->is_goal;
+    }
+
+    return cmp;
 }
 
-static int gaifmanFindPair(gaifman_t *g,
-                           const pddl_t *pddl,
+static int gaifmanFindPair(const pddl_t *pddl,
+                           pddl_rand_t *rnd,
                            pddl_obj_id_t *o1,
-                           pddl_obj_id_t *o2)
+                           pddl_obj_id_t *o2,
+                           pddl_err_t *err)
 {
-    for (int depth = 1; 1; ++depth){
-        int ret;
-        if ((ret = gaifmanFindPairDepth(g, pddl, depth, o1, o2)) > 0)
-            return 1;
-        if (ret < 0)
-            return 0;
+    int obj_size = pddl->obj.obj_size;
+    if (obj_size <= 1)
+        return 1;
+
+    // Mark static objects
+    pddl_bool_t *obj_is_static = CALLOC_ARR(pddl_bool_t, pddl->obj.obj_size);
+    pddl_fm_const_it_atom_t ait;
+    const pddl_fm_atom_t *atom;
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &ait, atom){
+        if (pddlPredIsStatic(&pddl->pred.pred[atom->pred])){
+            for (int ai = 0; ai < atom->arg_size; ++ai){
+                if (atom->arg[ai].obj >= 0)
+                    obj_is_static[atom->arg[ai].obj] = pddl_true;
+            }
+        }
     }
-    return 0;
+    int num_static_objs = 0;
+    for (int i = 0; i < obj_size; ++i){
+        if (obj_is_static[i])
+            ++num_static_objs;
+    }
+    PDDL_INFO(err, "Static objects: %d/%d", num_static_objs, obj_size);
+
+    // Mark goal objects
+    pddl_bool_t *obj_is_goal = CALLOC_ARR(pddl_bool_t, pddl->obj.obj_size);
+    PDDL_ISET(goal_objs);
+    collectGoalObjs(pddl, &goal_objs);
+    int obj_id;
+    PDDL_ISET_FOR_EACH(&goal_objs, obj_id)
+        obj_is_goal[obj_id] = pddl_true;
+    pddlISetFree(&goal_objs);
+    int num_goal_objs = 0;
+    for (int i = 0; i < obj_size; ++i){
+        if (obj_is_goal[i])
+            ++num_goal_objs;
+    }
+    PDDL_INFO(err, "Goal objects: %d/%d", num_goal_objs, obj_size);
+
+
+    // Construct gaifman graph
+    pddl_gaifman_t init_gaifman;
+    pddlGaifmanInit(&init_gaifman, obj_size);
+    pddlGaifmanAddRelationsFromFm(&init_gaifman, &pddl->init->fm);
+    PDDL_INFO(err, "Gaifman graph constructed.");
+    pddlGaifmanDistance(&init_gaifman, 0, 1);
+    PDDL_INFO(err, "Gaifman graph distance computed.");
+
+    // Enumerate all possible pairs and keep the best ones
+    int pair_size = 0;
+    int pair_alloc = 8;
+    gaifman_pair_t *pair = ALLOC_ARR(gaifman_pair_t, pair_alloc);
+
+    for (int o1 = 0; o1 < obj_size; ++o1){
+        int o1type = pddl->obj.obj[o1].type;
+        pddl_bool_t o1static = obj_is_static[o1];
+        pddl_bool_t o1goal = obj_is_goal[o1];
+
+        for (int o2 = o1 + 1; o2 < obj_size; ++o2){
+            if (pddl->obj.obj[o2].type == o1type){
+                pddl_bool_t o2static = obj_is_static[o2];
+                pddl_bool_t o2goal = obj_is_goal[o2];
+
+                if (pair_size == pair_alloc){
+                    if (pair_alloc == 0)
+                        pair_alloc = 8;
+                    pair_alloc *= 2;
+                    pair = REALLOC_ARR(pair, gaifman_pair_t, pair_alloc);
+                }
+
+                gaifman_pair_t p;
+                p.obj[0] = o1;
+                p.obj[1] = o2;
+                p.dist = pddlGaifmanDistance(&init_gaifman, o1, o2);
+                p.is_static = (o1static || o2static);
+                p.is_goal = (o1goal || o2goal);
+
+
+                if (pair_size == 0){
+                    pair[pair_size++] = p;
+
+                }else{
+                    int cmp = gaifmanPairCmp(pair + 0, &p);
+                    if (cmp == 0){
+                        pair[pair_size++] = p;
+
+                    }else if (cmp > 0){
+                        pair_size = 0;
+                        pair[pair_size++] = p;
+                    }
+                }
+            }
+        }
+    }
+
+    LOG(err, "Number of viable pairs: %d, dist: %d, is-goal: %b, is-static: %b",
+        pair_size,
+        (pair_size > 0 ? pair[0].dist : -1),
+        (pair_size > 0 ? pair[0].is_goal : pddl_false),
+        (pair_size > 0 ? pair[0].is_static : pddl_false));
+
+    int ret = 0;
+
+    if (pair_size == 1){
+        *o1 = pair[0].obj[0];
+        *o2 = pair[0].obj[1];
+        ret = 0;
+
+    }else if (pair_size > 1){
+        int idx = pddlRand(rnd, 0, pair_size);
+        *o1 = pair[idx].obj[0];
+        *o2 = pair[idx].obj[1];
+        ret = 0;
+
+    }else{
+        ret = 1;
+    }
+
+    FREE(obj_is_goal);
+    FREE(obj_is_static);
+    pddlGaifmanFree(&init_gaifman);
+    FREE(pair);
+
+    return ret;
 }
 
 static int collapseGaifman(pddl_t *pddl,
                            const pddl_homomorphism_config_t *cfg,
                            pddl_rand_t *rnd,
                            pddl_obj_id_t *obj_map,
-                           int obj_size,
+                           int original_obj_size,
                            pddl_err_t *err)
 {
     int ret = 0;
-    gaifman_t gaif;
-    gaifmanInit(&gaif, pddl, cfg->keep_goal_objs);
-    PDDL_INFO(err, "Static objects: %d/%d",
-              gaif.num_static_objs, pddl->obj.obj_size);
-    PDDL_INFO(err, "Non-goal static objects: %d/%d",
-              gaif.num_static_nongoal_objs, pddl->obj.obj_size);
     pddl_obj_id_t o1 = 0, o2 = 0;
-    if (gaifmanFindPair(&gaif, pddl, &o1, &o2)){
-        PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
+    if (gaifmanFindPair(pddl, rnd, &o1, &o2, err) == 0){
+        PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s) objs: %d -> %d",
                   o1, pddl->obj.obj[o1].name,
-                  o2, pddl->obj.obj[o2].name);
+                  o2, pddl->obj.obj[o2].name,
+                  original_obj_size, pddl->obj.obj_size - 1);
         int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
         collapse_map[o1] = collapse_map[o2] = 1;
-        ret = collapseObjs(pddl, collapse_map, obj_map, obj_size, err);
+        ret = collapseObjs(pddl, collapse_map, obj_map, original_obj_size, err);
         if (collapse_map != NULL)
             FREE(collapse_map);
     }else{
         PDDL_INFO(err, "Nothing to collapse.");
         ret = 1;
     }
-
-    gaifmanFree(&gaif);
     return ret;
 }
 
@@ -970,14 +985,8 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
                                        pddl_err_t *err)
 {
     int ret = 0;
-    gaifman_t gaif;
-    gaifmanInit(&gaif, &h->task, preserve_goals);
-    PDDL_INFO(err, "Static objects: %d/%d",
-              gaif.num_static_objs, h->task.obj.obj_size);
-    PDDL_INFO(err, "Non-goal static objects: %d/%d",
-              gaif.num_static_nongoal_objs, h->task.obj.obj_size);
     pddl_obj_id_t o1 = 0, o2 = 0;
-    if (gaifmanFindPair(&gaif, &h->task, &o1, &o2)){
+    if (gaifmanFindPair(&h->task, &h->rnd, &o1, &o2, err) == 0){
         PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
                   o1, h->task.obj.obj[o1].name,
                   o2, h->task.obj.obj[o2].name);
@@ -986,8 +995,6 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
         PDDL_INFO(err, "Nothing to collapse.");
         ret = 1;
     }
-
-    gaifmanFree(&gaif);
     return ret;
 }
 

@@ -103,6 +103,9 @@ static pddl_homomorphism_heur_t *
                                     heur_homo_fn heur_fn,
                                     pddl_err_t *err)
 {
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitSet(&time_limit, opt.lifted_planner.homomorph_sampling_max_time);
+
     int seed = opt.lifted_planner.homomorph_cfg.random_seed;
     pddl_homomorphism_heur_t *heur = NULL;
     int best_hval = -1;
@@ -120,6 +123,9 @@ static pddl_homomorphism_heur_t *
             pddlHomomorphismHeurDel(h);
         }
         ++seed;
+
+        if (pddlTimeLimitCheck(&time_limit) != 0)
+            break;
     }
     return heur;
 }
