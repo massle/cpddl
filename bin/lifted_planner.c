@@ -202,7 +202,13 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
         case LIFTED_PLAN_HEUR_HOMO_LMC:
         case LIFTED_PLAN_HEUR_HOMO_FF:
             heur_homo = liftedHomomorphHeur(pddl, err);
-            heur = pddlLiftedHeurHomomorphism(heur_homo);
+            if (heur_homo != NULL){
+                heur = pddlLiftedHeurHomomorphism(heur_homo);
+            }else{
+                PDDL_INFO(err, "Could not find any homomorphism heuristic"
+                          " -- switching to blind heuristic.");
+                heur = pddlLiftedHeurBlind();
+            }
             break;
         default:
             PDDL_PANIC("Unknown lifted heuristic.");
