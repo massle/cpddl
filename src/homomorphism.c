@@ -446,6 +446,46 @@ static int gaifmanPairCmp(const gaifman_pair_t *p1, const gaifman_pair_t *p2)
     return cmp;
 }
 
+static void gaifmanPairAdd(gaifman_pair_t **pair,
+                           int *pair_size,
+                           int *pair_alloc,
+                           int o1,
+                           int o2,
+                           int dist,
+                           pddl_bool_t is_static,
+                           pddl_bool_t is_goal)
+{
+    if (*pair_size == *pair_alloc){
+        if (*pair_alloc == 0)
+            *pair_alloc = 8;
+        *pair_alloc *= 2;
+        *pair = REALLOC_ARR(*pair, gaifman_pair_t, *pair_alloc);
+    }
+
+    gaifman_pair_t p;
+    p.obj[0] = o1;
+    p.obj[1] = o2;
+    p.dist = dist;
+    p.is_static = is_static;
+    p.is_goal = is_goal;
+
+
+    if (*pair_size == 0){
+        (*pair)[(*pair_size)++] = p;
+
+    }else{
+        int cmp = gaifmanPairCmp((*pair) + 0, &p);
+        if (cmp == 0){
+            (*pair)[(*pair_size)++] = p;
+
+        }else if (cmp > 0){
+            (*pair_size) = 0;
+            (*pair)[(*pair_size)++] = p;
+        }
+    }
+}
+
+
 static int gaifmanFindPair(const pddl_t *pddl,
                            pddl_rand_t *rnd,
                            pddl_obj_id_t *o1,
@@ -496,51 +536,46 @@ static int gaifmanFindPair(const pddl_t *pddl,
     pddlGaifmanInit(&init_gaifman, obj_size);
     pddlGaifmanAddRelationsFromFm(&init_gaifman, &pddl->init->fm);
     PDDL_INFO(err, "Gaifman graph constructed.");
-    pddlGaifmanDistance(&init_gaifman, 0, 1);
-    PDDL_INFO(err, "Gaifman graph distance computed.");
 
-    // Enumerate all possible pairs and keep the best ones
     int pair_size = 0;
     int pair_alloc = 8;
     gaifman_pair_t *pair = ALLOC_ARR(gaifman_pair_t, pair_alloc);
 
+    // First try distance 1 without computing distance between all nodes
     for (int o1 = 0; o1 < obj_size; ++o1){
         int o1type = pddl->obj.obj[o1].type;
         pddl_bool_t o1static = obj_is_static[o1];
         pddl_bool_t o1goal = obj_is_goal[o1];
 
-        for (int o2 = o1 + 1; o2 < obj_size; ++o2){
-            if (pddl->obj.obj[o2].type == o1type){
-                pddl_bool_t o2static = obj_is_static[o2];
-                pddl_bool_t o2goal = obj_is_goal[o2];
+        int o2;
+        PDDL_ISET_FOR_EACH(init_gaifman.obj_relate_to + o1, o2){
+            int o2type = pddl->obj.obj[o2].type;
+            if (o2type != o1type)
+                continue;
 
-                if (pair_size == pair_alloc){
-                    if (pair_alloc == 0)
-                        pair_alloc = 8;
-                    pair_alloc *= 2;
-                    pair = REALLOC_ARR(pair, gaifman_pair_t, pair_alloc);
-                }
+            pddl_bool_t o2static = obj_is_static[o2];
+            pddl_bool_t o2goal = obj_is_goal[o2];
 
-                gaifman_pair_t p;
-                p.obj[0] = o1;
-                p.obj[1] = o2;
-                p.dist = pddlGaifmanDistance(&init_gaifman, o1, o2);
-                p.is_static = (o1static || o2static);
-                p.is_goal = (o1goal || o2goal);
+            gaifmanPairAdd(&pair, &pair_size, &pair_alloc,
+                           o1, o2, 1, o1static || o2static, o1goal || o2goal);
+        }
+    }
 
+    // Nothing in distance 1 -- enumerate all possible pairs
+    if (pair_size == 0){
+        for (int o1 = 0; o1 < obj_size; ++o1){
+            int o1type = pddl->obj.obj[o1].type;
+            pddl_bool_t o1static = obj_is_static[o1];
+            pddl_bool_t o1goal = obj_is_goal[o1];
 
-                if (pair_size == 0){
-                    pair[pair_size++] = p;
+            for (int o2 = o1 + 1; o2 < obj_size; ++o2){
+                if (pddl->obj.obj[o2].type == o1type){
+                    pddl_bool_t o2static = obj_is_static[o2];
+                    pddl_bool_t o2goal = obj_is_goal[o2];
 
-                }else{
-                    int cmp = gaifmanPairCmp(pair + 0, &p);
-                    if (cmp == 0){
-                        pair[pair_size++] = p;
-
-                    }else if (cmp > 0){
-                        pair_size = 0;
-                        pair[pair_size++] = p;
-                    }
+                    gaifmanPairAdd(&pair, &pair_size, &pair_alloc,
+                                   o1, o2, pddlGaifmanDistance(&init_gaifman, o1, o2),
+                                   o1static || o2static, o1goal || o2goal);
                 }
             }
         }
