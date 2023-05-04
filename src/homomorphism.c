@@ -549,6 +549,8 @@ static int gaifmanFindPair(const pddl_t *pddl,
 
         int o2;
         PDDL_ISET_FOR_EACH(init_gaifman.obj_relate_to + o1, o2){
+            if (o2 <= o1)
+                continue
             int o2type = pddl->obj.obj[o2].type;
             if (o2type != o1type)
                 continue;
