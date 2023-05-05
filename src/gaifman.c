@@ -5,6 +5,7 @@
  */
 
 #include "pddl/gaifman.h"
+#include "pddl/iarr.h"
 #include "internal.h"
 
 void pddlGaifmanInit(pddl_gaifman_t *g, int obj_size)
@@ -88,32 +89,28 @@ void pddlGaifmanAddRelationsFromFm(pddl_gaifman_t *g, const pddl_fm_t *fm)
 
 static void pddlGaifmanComputeDistances(pddl_gaifman_t *g)
 {
-    int arr_size = g->obj_size * g->obj_size;
-    for (int i = 0; i < arr_size; ++i)
-        g->distance[i] = INT_MAX / 2;
-
-    for (int obj1 = 0; obj1 < g->obj_size; ++obj1){
-        g->distance[obj1 * g->obj_size + obj1] = 0;
-
-        int obj2;
-        PDDL_ISET_FOR_EACH(g->obj_relate_to + obj1, obj2)
-            g->distance[obj1 * g->obj_size + obj2] = 1;
-    }
-
-    for (int obj1 = 0; obj1 < g->obj_size; ++obj1){
-        for (int obj2 = 0; obj2 < g->obj_size; ++obj2){
-            for (int obj3 = 0; obj3 < g->obj_size; ++obj3){
-                int d23 = g->distance[obj2 * g->obj_size + obj3];
-                int d21 = g->distance[obj2 * g->obj_size + obj1];
-                int d13 = g->distance[obj1 * g->obj_size + obj3];
-                g->distance[obj2 * g->obj_size + obj3] = PDDL_MIN(d23, d21 + d13);
+    // Run BFS from each node
+    for (int start = 0; start < g->obj_size; ++start){
+        int *depth = CALLOC_ARR(int, g->obj_size);
+        PDDL_IARR(queue);
+        pddlIArrAdd(&queue, start);
+        depth[start] = 1;
+        for (int i = 0; i < pddlIArrSize(&queue); ++i){
+            int obj = pddlIArrGet(&queue, i);
+            int other;
+            PDDL_ISET_FOR_EACH(&g->obj_relate_to[obj], other){
+                if (other == obj || depth[other] > 0)
+                    continue;
+                pddlIArrAdd(&queue, other);
+                depth[other] = depth[obj] + 1;
             }
         }
+        for (int other = 0; other < g->obj_size; ++other)
+            g->distance[start * g->obj_size + other] = depth[other] - 1;
+        pddlIArrFree(&queue);
+        FREE(depth);
     }
-    for (int i = 0; i < arr_size; ++i){
-        if (g->distance[i] >= INT_MAX / 2)
-            g->distance[i] = -1;
-    }
+
     g->distance_dirty = 0;
 }
 
