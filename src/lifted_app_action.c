@@ -11,7 +11,7 @@
 
 void pddlLiftedAppActionAdd(pddl_lifted_app_action_t *a,
                             int action_id,
-                            const pddl_obj_id_t *args,
+                            const int *args,
                             int args_size)
 {
     if (a->bytesize + a->struct_size > a->bytealloc){
@@ -24,7 +24,7 @@ void pddlLiftedAppActionAdd(pddl_lifted_app_action_t *a,
     _pddl_lifted_app_action_t *d;
     d = (_pddl_lifted_app_action_t *)(a->data + a->bytesize);
     d->action_id = action_id;
-    memcpy((pddl_obj_id_t *)d->args, args, sizeof(pddl_obj_id_t) * args_size);
+    memcpy((int *)d->args, args, sizeof(int) * args_size);
 
     ++a->size;
     a->bytesize += a->struct_size;
@@ -52,7 +52,7 @@ void _pddlLiftedAppActionInit(pddl_lifted_app_action_t *aa,
 
     aa->data = NULL;
     aa->struct_size = sizeof(_pddl_lifted_app_action_t);
-    aa->struct_size += sizeof(pddl_obj_id_t) * max_arity;
+    aa->struct_size += sizeof(int) * max_arity;
     aa->size = 0;
     aa->bytesize = 0;
     aa->bytealloc = 0;
@@ -137,7 +137,7 @@ int pddlLiftedAppActionId(const pddl_lifted_app_action_t *a, int idx)
     return get(a, idx)->action_id;
 }
 
-const pddl_obj_id_t *pddlLiftedAppActionArgs(const pddl_lifted_app_action_t *a, int idx)
+const int *pddlLiftedAppActionArgs(const pddl_lifted_app_action_t *a, int idx)
 {
     return get(a, idx)->args;
 }
@@ -150,7 +150,7 @@ static int cmp(const void *a, const void *b, void *ud)
     int cmp = a1->action_id - a2->action_id;
     if (cmp == 0){
         int arg_size = pddl->action.action[a1->action_id].param.param_size;
-        return memcmp(a1->args, a2->args, sizeof(pddl_obj_id_t) * arg_size);
+        return memcmp(a1->args, a2->args, sizeof(int) * arg_size);
     }
     return cmp;
 }

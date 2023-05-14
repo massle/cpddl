@@ -44,7 +44,7 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
                                     pddl_err_t *err)
 {
     ZEROIZE(h);
-    h->obj_map = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    h->obj_map = CALLOC_ARR(int, pddl->obj.obj_size);
     //pddlInitCopy(&h->homo, pddl);
     if (pddlHomomorphism(&h->homo, pddl, cfg, h->obj_map, err) != 0){
         FREE(h->obj_map);
@@ -161,7 +161,7 @@ static int findStripsFact(const pddl_homomorphism_heur_t *h,
         ASSERT(fga->arg_size == ga->arg_size);
         int eq = 1;
         for (int i = 0; i < fga->arg_size; ++i){
-            pddl_obj_id_t ga_obj = h->obj_map[ga->arg[i]];
+            int ga_obj = h->obj_map[ga->arg[i]];
             if (fga->arg[i] != ga_obj){
                 eq = 0;
                 break;

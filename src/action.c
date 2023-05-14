@@ -181,7 +181,7 @@ struct propagate_eq {
 
     const pddl_fm_atom_t *eq_atom;
     int param;
-    pddl_obj_id_t obj;
+    int obj;
 };
 
 static int setParamToObj(pddl_fm_t *cond, void *ud)
@@ -354,13 +354,13 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     }
 }
 
-void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap)
+void pddlActionRemapObjs(pddl_action_t *a, const int *remap)
 {
     pddlFmRemapObjs(a->pre, remap);
     pddlFmRemapObjs(a->eff, remap);
 }
 
-void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap)
+void pddlActionsRemapObjs(pddl_actions_t *as, const int *remap)
 {
     for (int i = 0; i < as->action_size; ++i)
         pddlActionRemapObjs(as->action + i, remap);

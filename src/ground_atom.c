@@ -26,7 +26,7 @@
 
 #define PDDL_GROUND_ATOM_STACK(NAME, ARG_SIZE) \
     pddl_ground_atom_t NAME; \
-    pddl_obj_id_t __##NAME##__arg[ARG_SIZE]; \
+    int __##NAME##__arg[ARG_SIZE]; \
     NAME.arg = __##NAME##__arg
 
 
@@ -56,7 +56,7 @@ static uint64_t pddlGroundAtomHash(const pddl_ground_atom_t *a)
     hash = pddlCityHash_32(&a->pred, sizeof(int));
     hash <<= 32u;
     hash |= 0xffffffffu \
-                & pddlCityHash_32(a->arg, sizeof(pddl_obj_id_t) * a->arg_size);
+                & pddlCityHash_32(a->arg, sizeof(int) * a->arg_size);
     return hash;
 }
 
@@ -73,8 +73,8 @@ pddl_ground_atom_t *pddlGroundAtomClone(const pddl_ground_atom_t *a)
     pddl_ground_atom_t *c = ALLOC(pddl_ground_atom_t);
     *c = *a;
     if (a->arg != NULL){
-        c->arg = ALLOC_ARR(pddl_obj_id_t, c->arg_size);
-        memcpy(c->arg, a->arg, sizeof(pddl_obj_id_t) * c->arg_size);
+        c->arg = ALLOC_ARR(int, c->arg_size);
+        memcpy(c->arg, a->arg, sizeof(int) * c->arg_size);
     }
     return c;
 }
@@ -85,7 +85,7 @@ static int pddlGroundAtomCmp(const pddl_ground_atom_t *a1,
     if (a1->pred != a2->pred)
         return a1->pred - a2->pred;
     ASSERT(a1->arg_size == a2->arg_size);
-    return memcmp(a1->arg, a2->arg, sizeof(pddl_obj_id_t) * a1->arg_size);
+    return memcmp(a1->arg, a2->arg, sizeof(int) * a1->arg_size);
 }
 
 static pddl_ground_atom_t *nextNewGroundAtom(pddl_ground_atoms_t *ga,
@@ -128,7 +128,7 @@ void pddlGroundAtomsFree(pddl_ground_atoms_t *ga)
 }
 
 static void groundAtom(pddl_ground_atom_t *a,
-                       const pddl_fm_atom_t *c, const pddl_obj_id_t *arg)
+                       const pddl_fm_atom_t *c, const int *arg)
 {
     a->func_val = 0;
     a->pred = c->pred;
@@ -146,7 +146,7 @@ static void groundAtom(pddl_ground_atom_t *a,
 
 pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
                                            const pddl_fm_atom_t *c,
-                                           const pddl_obj_id_t *arg)
+                                           const int *arg)
 {
     pddl_list_t *found;
     pddl_ground_atom_t *out;
@@ -167,7 +167,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
 
 pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
                                            int pred,
-                                           const pddl_obj_id_t *arg,
+                                           const int *arg,
                                            int arg_size)
 {
     pddl_list_t *found;
@@ -176,7 +176,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
 
     loc.func_val = 0;
     loc.pred = pred;
-    memcpy(loc.arg, arg, sizeof(pddl_obj_id_t) * arg_size);
+    memcpy(loc.arg, arg, sizeof(int) * arg_size);
     loc.arg_size = arg_size;
     loc.layer = 0;
 
@@ -195,7 +195,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
 
 pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
                                             const pddl_fm_atom_t *c,
-                                            const pddl_obj_id_t *arg)
+                                            const int *arg)
 {
     pddl_list_t *found;
     pddl_ground_atom_t *out;
@@ -212,7 +212,7 @@ pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
 
 pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
                                             int pred,
-                                            const pddl_obj_id_t *arg,
+                                            const int *arg,
                                             int arg_size)
 {
     pddl_list_t *found;
@@ -221,7 +221,7 @@ pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
 
     loc.func_val = 0;
     loc.pred = pred;
-    memcpy(loc.arg, arg, sizeof(pddl_obj_id_t) * arg_size);
+    memcpy(loc.arg, arg, sizeof(int) * arg_size);
     loc.arg_size = arg_size;
     loc.layer = 0;
 

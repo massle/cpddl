@@ -142,13 +142,6 @@ void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
 int pddlPredFuncMaxParamSize(const pddl_t *pddl);
 
 /**
- * Checks pddl_*_size_t types agains the parsed pddl.
- * If any of these types is too small the program exists with error
- * message.
- */
-void pddlCheckSizeTypes(const pddl_t *pddl);
-
-/**
  * Adds one new type per object if necessary.
  */
 void pddlAddObjectTypes(pddl_t *pddl);
@@ -163,13 +156,13 @@ void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_objs, pddl_err_t *err);
  */
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
                             const pddl_iset_t *rm_obj,
-                            pddl_obj_id_t *remap,
+                            int *remap,
                             pddl_err_t *err);
 
 /**
  * Remap object IDs.
  */
-void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
+void pddlRemapObjs(pddl_t *pddl, const int *remap);
 
 /**
  * Remove empty types and all related predicates and actions from the task

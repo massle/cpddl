@@ -47,7 +47,7 @@ struct pddl_strips_op {
 
     int id;
     int pddl_action_id; /*!< ID of the corresponding PDDL action schema */
-    pddl_obj_id_t *action_args;
+    int *action_args;
     int action_args_size;
 };
 typedef struct pddl_strips_op pddl_strips_op_t;

@@ -97,7 +97,7 @@ void pddlLiftedMGroupsExtractGoalAware(pddl_lifted_mgroups_t *dst,
 pddl_bool_t pddlLiftedMGroupsIsGroundedConjTooHeavy(const pddl_lifted_mgroups_t *mgs,
                                                     const pddl_t *pddl,
                                                     const pddl_fm_arr_t *conj,
-                                                    const pddl_obj_id_t *conj_args);
+                                                    const int *conj_args);
 
 /**
  * Returns true if the action (pre, add_eff, del_eff) fully grounded with
@@ -109,7 +109,7 @@ pddl_bool_t pddlLiftedMGroupsAnyIsDeleted(const pddl_lifted_mgroups_t *mgs,
                                           const pddl_fm_arr_t *pre,
                                           const pddl_fm_arr_t *add_eff,
                                           const pddl_fm_arr_t *del_eff,
-                                          const pddl_obj_id_t *args);
+                                          const int *args);
 
 struct pddl_lifted_mgroups_infer_limits {
     /** Maximum of generated candidates. Default: 10000 */

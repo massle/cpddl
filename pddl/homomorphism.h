@@ -68,13 +68,13 @@ void pddlHomomorphismConfigLog(const pddl_homomorphism_config_t *cfg,
 int pddlHomomorphism(pddl_t *homo_image,
                      const pddl_t *src,
                      const pddl_homomorphism_config_t *cfg,
-                     pddl_obj_id_t *obj_map,
+                     int *obj_map,
                      pddl_err_t *err);
 
 struct pddl_homomorphic_task {
     pddl_t task; /*!< Homomorphic image of the input task */
     int input_obj_size; /*!< Number of objects in the input task */
-    pddl_obj_id_t *obj_map; /*!< Mapping from object IDs of the input task to
+    int *obj_map; /*!< Mapping from object IDs of the input task to
                                  object IDs of .task */
     pddl_rand_t rnd; /*!< Random number generator */
 };

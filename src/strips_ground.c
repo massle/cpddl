@@ -40,7 +40,7 @@ static void atreeUnifyFact(pddl_strips_ground_t *g,
 
 
 struct pddl_strips_ground_args {
-    pddl_obj_id_t *arg;
+    int *arg;
     int action_id;
     const pddl_prep_action_t *action;
     int op_id;
@@ -49,7 +49,7 @@ struct pddl_strips_ground_args {
 static void groundArgsFree(pddl_strips_ground_args_arr_t *ga);
 static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
                           const pddl_prep_action_t *action,
-                          const pddl_obj_id_t *arg);
+                          const int *arg);
 static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
                                   pddl_err_t *err);
 
@@ -59,12 +59,12 @@ static int unifyFacts(pddl_strips_ground_t *g);
 static int groundActions(pddl_strips_ground_t *g, pddl_strips_t *strips);
 static void groundActionAddEff(pddl_strips_ground_t *g,
                                const pddl_prep_action_t *a,
-                               const pddl_obj_id_t *oarg);
+                               const int *oarg);
 static void groundActionAddEffEmptyPre(pddl_strips_ground_t *g,
                                        const pddl_prep_action_t *a);
 static char *groundOpName(const pddl_t *pddl,
                           const pddl_action_t *action,
-                          const pddl_obj_id_t *args);
+                          const int *args);
 
 
 /*** atree_t ***/
@@ -195,7 +195,7 @@ static int atreeAllTreesNonEmpty(const pddl_strips_ground_atree_t *atr)
 static void _atreeActionAddEff(pddl_strips_ground_t *g,
                                const pddl_strips_ground_atree_t *atr,
                                int skip_tree_id,
-                               const pddl_obj_id_t *args_in,
+                               const int *args_in,
                                int tree_id)
 {
     if (tree_id == skip_tree_id)
@@ -208,14 +208,14 @@ static void _atreeActionAddEff(pddl_strips_ground_t *g,
     const pddl_strips_ground_tree_t *tr = atr->tree + tree_id;
     int size = pddlActionArgsSize(&tr->args);
     for (int argi = 0; argi < size; ++argi){
-        const pddl_obj_id_t *tr_args = pddlActionArgsGet(&tr->args, argi);
+        const int *tr_args = pddlActionArgsGet(&tr->args, argi);
 
-        pddl_obj_id_t args[atr->action->param_size];
-        memcpy(args, args_in, sizeof(pddl_obj_id_t) * atr->action->param_size);
+        int args[atr->action->param_size];
+        memcpy(args, args_in, sizeof(int) * atr->action->param_size);
 
         for (int i = 0; i < atr->action->param_size; ++i){
-            if (tr_args[i] != PDDL_OBJ_ID_UNDEF){
-                ASSERT(args[i] == PDDL_OBJ_ID_UNDEF);
+            if (tr_args[i] >= 0){
+                ASSERT(args[i] < 0);
                 args[i] = tr_args[i];
             }
         }
@@ -232,7 +232,7 @@ static void atreeActionAddEff(pddl_strips_ground_t *g,
 
     int size = pddlActionArgsSize(&tr->args);
     for (int argi = start_arg; argi < size; ++argi){
-        const pddl_obj_id_t *args = pddlActionArgsGet(&tr->args, argi);
+        const int *args = pddlActionArgsGet(&tr->args, argi);
         _atreeActionAddEff(g, atr, tree_id, args, 0);
     }
 }
@@ -268,7 +268,7 @@ static void groundArgsFree(pddl_strips_ground_args_arr_t *ga)
 
 static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
                           const pddl_prep_action_t *action,
-                          const pddl_obj_id_t *arg)
+                          const int *arg)
 {
     pddl_strips_ground_args_t *garg;
 
@@ -281,8 +281,8 @@ static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
     }
 
     garg = ga->arg + ga->size++;
-    garg->arg = ALLOC_ARR(pddl_obj_id_t, action->param_size);
-    memcpy(garg->arg, arg, sizeof(pddl_obj_id_t) * action->param_size);
+    garg->arg = ALLOC_ARR(int, action->param_size);
+    memcpy(garg->arg, arg, sizeof(int) * action->param_size);
     garg->action_id = action_id;
     garg->action = action;
     garg->op_id = -1;
@@ -303,7 +303,7 @@ static int groundArgsCmp(const void *a, const void *b, void *_)
 
     if (g1_action_id == g2_action_id){
         cmp = memcmp(g1->arg, g2->arg,
-                     sizeof(pddl_obj_id_t) * g1->action->param_size);
+                     sizeof(int) * g1->action->param_size);
         if (cmp != 0)
             return cmp;
         if (g1->action->parent_action < 0)
@@ -399,7 +399,7 @@ static int unifyFacts(pddl_strips_ground_t *g)
 
 static void groundAtomsAddFact(pddl_strips_ground_t *g,
                                const pddl_fm_atom_t *c,
-                               const pddl_obj_id_t *arg)
+                               const int *arg)
 {
     if (g->unify_new_atom_fn == NULL){
         pddlGroundAtomsAddAtom(&g->facts, c, arg);
@@ -414,9 +414,9 @@ static void groundAtomsAddFact(pddl_strips_ground_t *g,
 
 static void _groundActionAddEff(pddl_strips_ground_t *g,
                                 const pddl_prep_action_t *a,
-                                pddl_obj_id_t *arg, int argi)
+                                int *arg, int argi)
 {
-    const pddl_obj_id_t *obj;
+    const int *obj;
     int size;
 
     // Skip bound arguments
@@ -462,11 +462,10 @@ static void _groundActionAddEff(pddl_strips_ground_t *g,
 
 static void groundActionAddEff(pddl_strips_ground_t *g,
                                const pddl_prep_action_t *a,
-                               const pddl_obj_id_t *oarg)
+                               const int *oarg)
 {
-    pddl_obj_id_t arg[a->param_size];
-    for (int i = 0; i < a->param_size; ++i)
-        arg[i] = (oarg[i] == PDDL_OBJ_ID_UNDEF ? -1 : oarg[i]);
+    int arg[a->param_size];
+    memcpy(arg, oarg, sizeof(int) * a->param_size);
     _groundActionAddEff(g, a, arg, 0);
 }
 
@@ -474,15 +473,15 @@ static void groundActionAddEffEmptyPre(pddl_strips_ground_t *g,
                                        const pddl_prep_action_t *a)
 {
     ASSERT(a->pre.size == 0);
-    pddl_obj_id_t arg[a->param_size];
+    int arg[a->param_size];
     for (int i = 0; i < a->param_size; ++i)
-        arg[i] = PDDL_OBJ_ID_UNDEF;
+        arg[i] = -1;
     _groundActionAddEff(g, a, arg, 0);
 }
 
 static char *groundOpName(const pddl_t *pddl,
                           const pddl_action_t *action,
-                          const pddl_obj_id_t *args)
+                          const int *args)
 {
     int i, slen;
     char *name, *cur;
@@ -500,7 +499,7 @@ static char *groundOpName(const pddl_t *pddl,
 }
 
 static int groundIncrease(pddl_strips_ground_t *g,
-                          const pddl_obj_id_t *arg,
+                          const int *arg,
                           const pddl_fm_arr_t *atoms,
                           const pddl_action_t *action)
 {
@@ -530,7 +529,7 @@ static int groundIncrease(pddl_strips_ground_t *g,
 
 static void groundAtoms(pddl_strips_ground_t *g,
                         int atom_max_arg_size,
-                        const pddl_obj_id_t *arg,
+                        const int *arg,
                         const pddl_fm_arr_t *atoms,
                         pddl_iset_t *out)
 {
@@ -914,7 +913,7 @@ int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g)
 }
 
 int pddlStripsGroundAddGroundAtom(pddl_strips_ground_t *g, int pred,
-                                  const pddl_obj_id_t *arg, int arg_size)
+                                  const int *arg, int arg_size)
 {
     int size = g->facts.atom_size;
     pddlGroundAtomsAddPred(&g->facts, pred, arg, arg_size);

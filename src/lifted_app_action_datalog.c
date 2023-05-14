@@ -61,7 +61,7 @@ static int aaSetStateAtom(pddl_lifted_app_action_t *_aa,
     return 0;
 }
 
-static void addAction(int aid, int arity, const pddl_obj_id_t *args, void *ud)
+static void addAction(int aid, int arity, const int *args, void *ud)
 {
     app_action_t *aa = ud;
     pddlLiftedAppActionAdd(&aa->app_action, aid, args, arity);

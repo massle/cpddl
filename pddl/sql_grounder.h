@@ -57,7 +57,7 @@ const pddl_prep_action_t *pddlSqlGrounderPrepAction(
  */
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
                                   int pred_id,
-                                  const pddl_obj_id_t *args,
+                                  const int *args,
                                   pddl_err_t *err);
 int pddlSqlGrounderInsertGroundAtom(pddl_sql_grounder_t *g,
                                     const pddl_ground_atom_t *ga,
@@ -86,7 +86,7 @@ int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
  * This function can be called only after *ActionStart().
  */
 int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
-                              pddl_obj_id_t *args,
+                              int *args,
                               pddl_err_t *err);
 
 

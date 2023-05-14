@@ -33,7 +33,7 @@ struct pddl_homomorphism_heur {
     pddl_strips_t strips;
     /** Mapping from the objects in the original pddl problem to the
      *  objects in its homomorphic image */
-    pddl_obj_id_t *obj_map;
+    int *obj_map;
     /** Mapping from the ground atoms comming from search to local strips
      *  facts */
     int *ground_atom_to_strips_fact;

@@ -27,7 +27,7 @@
 static pddl_strips_ground_tnode_t *tnodeNew(pddl_strips_ground_tree_t *t,
                                             pddl_strips_ground_tnode_t *parent,
                                             int param,
-                                            pddl_obj_id_t obj_id)
+                                            int obj_id)
 {
     pddl_strips_ground_tnode_t *n;
 
@@ -64,7 +64,7 @@ static void tnodeReserveChild(pddl_strips_ground_tree_t *tr,
 static pddl_strips_ground_tnode_t *tnodeAddChild(pddl_strips_ground_tree_t *t,
                                                  pddl_strips_ground_tnode_t *p,
                                                  int param,
-                                                 pddl_obj_id_t obj_id)
+                                                 int obj_id)
 {
     pddl_strips_ground_tnode_t *n = tnodeNew(t, p, param, obj_id);
     tnodeReserveChild(t, p);
@@ -74,7 +74,7 @@ static pddl_strips_ground_tnode_t *tnodeAddChild(pddl_strips_ground_tree_t *t,
 
 static void propagatePre(pddl_strips_ground_tree_t *tr,
                          pddl_strips_ground_tnode_t *tn,
-                         pddl_obj_id_t *arg)
+                         int *arg)
 {
     // If all preconditions are unified, we can ground the action using
     // assigned arguments. Note that we don't actually need to be in a
@@ -98,10 +98,10 @@ static void propagatePre(pddl_strips_ground_tree_t *tr,
     pddl_strips_ground_tnode_t *ch;
     TNODE_FOR_EACH_CHILD(tn, ch){
         ++ch->pre_unified;
-        if (arg[ch->param] == PDDL_OBJ_ID_UNDEF){
+        if (arg[ch->param] < 0){
             arg[ch->param] = ch->obj_id;
             propagatePre(tr, ch, arg);
-            arg[ch->param] = PDDL_OBJ_ID_UNDEF;
+            arg[ch->param] = -1;
         }else{
             propagatePre(tr, ch, arg);
         }
@@ -109,7 +109,7 @@ static void propagatePre(pddl_strips_ground_tree_t *tr,
 }
 static void unifyPre(pddl_strips_ground_tree_t *tr,
                      pddl_strips_ground_tnode_t *tn,
-                     pddl_obj_id_t *arg,
+                     int *arg,
                      int pre_i)
 {
     ++tn->pre_unified;
@@ -119,17 +119,17 @@ static void unifyPre(pddl_strips_ground_tree_t *tr,
 
 static void unifyNew(pddl_strips_ground_tree_t *tr,
                      pddl_strips_ground_tnode_t *tn,
-                     pddl_obj_id_t *arg,
+                     int *arg,
                      int remain,
-                     const pddl_obj_id_t *arg_pre,
+                     const int *arg_pre,
                      int pre_i,
                      int static_fact);
 static void unifyNewArg(pddl_strips_ground_tree_t *tr,
                         pddl_strips_ground_tnode_t *tn,
-                        pddl_obj_id_t *arg,
+                        int *arg,
                         int param,
                         int remain,
-                        const pddl_obj_id_t *arg_pre,
+                        const int *arg_pre,
                         int pre_i,
                         int static_fact)
 {
@@ -144,14 +144,14 @@ static void unifyNewArg(pddl_strips_ground_tree_t *tr,
     }else{
         unifyPre(tr, new, arg, pre_i);
     }
-    arg[param] = PDDL_OBJ_ID_UNDEF;
+    arg[param] = -1;
 }
 
 static void unifyNew(pddl_strips_ground_tree_t *tr,
                      pddl_strips_ground_tnode_t *tn,
-                     pddl_obj_id_t *arg,
+                     int *arg,
                      int remain,
-                     const pddl_obj_id_t *arg_pre,
+                     const int *arg_pre,
                      int pre_i,
                      int static_fact)
 {
@@ -160,8 +160,7 @@ static void unifyNew(pddl_strips_ground_tree_t *tr,
     // To reduce branching, first try to create a new
     // node using an argument that has some assignements on this level.
     TNODE_FOR_EACH_CHILD(tn, ch){
-        if (arg[ch->param] == PDDL_OBJ_ID_UNDEF
-                && arg_pre[ch->param] != PDDL_OBJ_ID_UNDEF){
+        if (arg[ch->param] < 0 && arg_pre[ch->param] >= 0){
             unifyNewArg(tr, tn, arg, ch->param, remain, arg_pre, pre_i,
                         static_fact);
             return;
@@ -170,8 +169,7 @@ static void unifyNew(pddl_strips_ground_tree_t *tr,
 
     int param;
     PDDL_ISET_FOR_EACH(&tr->param, param){
-        if (arg[param] == PDDL_OBJ_ID_UNDEF
-                && arg_pre[param] != PDDL_OBJ_ID_UNDEF){
+        if (arg[param] < 0 && arg_pre[param] >= 0){
             unifyNewArg(tr, tn, arg, param, remain,
                         arg_pre, pre_i, static_fact);
             return;
@@ -181,9 +179,9 @@ static void unifyNew(pddl_strips_ground_tree_t *tr,
 
 static void unify(pddl_strips_ground_tree_t *tr,
                   pddl_strips_ground_tnode_t *tn,
-                  pddl_obj_id_t *arg,
+                  int *arg,
                   int remain,
-                  const pddl_obj_id_t *arg_pre,
+                  const int *arg_pre,
                   int pre_i,
                   int parent_match,
                   int static_fact)
@@ -199,7 +197,7 @@ static void unify(pddl_strips_ground_tree_t *tr,
     }
 
     TNODE_FOR_EACH_CHILD(tn, ch){
-        ASSERT(ch->obj_id != PDDL_OBJ_ID_UNDEF);
+        ASSERT(ch->obj_id >= 0);
         arg[ch->param] = arg_pre[ch->param];
         if (ch->obj_id == arg[ch->param]){
             if (static_fact)
@@ -208,14 +206,14 @@ static void unify(pddl_strips_ground_tree_t *tr,
             unify(tr, ch, arg, remain - 1, arg_pre, pre_i, 1, static_fact);
             match = 1;
 
-        }else if (arg[ch->param] == PDDL_OBJ_ID_UNDEF){
+        }else if (arg[ch->param] < 0){
             // Argument is not set therefore we need to unify with all set
             // arguments
             arg[ch->param] = ch->obj_id;
             unify(tr, ch, arg, remain, arg_pre, pre_i, 0, static_fact);
-            arg[ch->param] = PDDL_OBJ_ID_UNDEF;
+            arg[ch->param] = -1;
         }
-        arg[ch->param] = PDDL_OBJ_ID_UNDEF;
+        arg[ch->param] = -1;
     }
 
     // Create a new branch only if all of the following holds
@@ -237,8 +235,8 @@ static void unifyTree(pddl_strips_ground_tree_t *tr,
                       int pre_i,
                       int static_fact)
 {
-    pddl_obj_id_t arg[tr->action->param_size];
-    pddl_obj_id_t arg_pre[tr->action->param_size];
+    int arg[tr->action->param_size];
+    int arg_pre[tr->action->param_size];
 
     // Check whether the fact can be unified -- this test is not enough but
     // it can filter out some facts.
@@ -248,7 +246,7 @@ static void unifyTree(pddl_strips_ground_tree_t *tr,
     // Initialize arg[] to undef -- this array will be filled with unified
     // arguments in unify() recursive call.
     for (int i = 0; i < tr->action->param_size; ++i)
-        arg_pre[i] = arg[i] = PDDL_OBJ_ID_UNDEF;
+        arg_pre[i] = arg[i] = -1;
 
     // Set arg_pre[] according to the fact's arguments and count the number
     // of set arguments.
@@ -257,7 +255,7 @@ static void unifyTree(pddl_strips_ground_tree_t *tr,
     atom = pddlFmToAtomConst(tr->action->pre.fm[pre_i]);
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
-        if (param >= 0 && arg_pre[param] == PDDL_OBJ_ID_UNDEF){
+        if (param >= 0 && arg_pre[param] < 0){
             arg_pre[param] = fact->arg[i];
             ++num_args_set;
 
@@ -334,7 +332,7 @@ static int instantiateArgs(pddl_strips_ground_tree_t *tr,
     PDDL_ISET_FOR_EACH(&tr->param, param){
         if (param < param_start)
             continue;
-        const pddl_obj_id_t *obj;
+        const int *obj;
         int size;
         obj = pddlTypesObjsByType(tr->action->type,
                                   tr->action->param_type[param], &size);
@@ -397,7 +395,7 @@ void pddlStripsGroundTreeInit(pddl_strips_ground_tree_t *tr,
 
     pddlActionArgsInit(&tr->args, a->param_size);
 
-    tr->root = tnodeNew(tr, NULL, -1, PDDL_OBJ_ID_UNDEF);
+    tr->root = tnodeNew(tr, NULL, -1, -1);
     // TODO: move constans 1 and 3 into either parameter of grounding or
     //       define constants. Consider also instantiation also a small
     //       number (1 or 2) of bigger arguments.

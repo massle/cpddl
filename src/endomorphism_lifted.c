@@ -34,7 +34,7 @@ static void setAtomTypeFixed(lifted_endomorphism_t *end,
         int param = atom->arg[parami].param;
         int type_id = params->param[param].type;
         int objs_size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(&pddl->type, type_id, &objs_size);
         for (int i = 0; i < objs_size; ++i)
             end->obj_is_fixed[objs[i]] = 1;
@@ -135,7 +135,7 @@ static int coverAtomWithMGroup(int *counted,
             if (ma->arg[argi].param >= 0 && atom->arg[argi].param >= 0){
                 int a_parami = atom->arg[argi].param;
                 int a_type = act_param->param[a_parami].type;
-                const pddl_obj_id_t *a_obj;
+                const int *a_obj;
                 int a_obj_size;
                 a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
 
@@ -192,7 +192,7 @@ static void coverAtomWithMGroups(lifted_endomorphism_t *end,
         if (atom->arg[argi].param >= 0){
             int a_parami = atom->arg[argi].param;
             int a_type = act_param->param[a_parami].type;
-            const pddl_obj_id_t *a_obj;
+            const int *a_obj;
             int a_obj_size;
             a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
             for (int i = 0; i < a_obj_size; ++i){
@@ -613,7 +613,7 @@ static void liftedAddGoalConstr(IloEnv &env,
 static int extractSol(int obj_size,
                       const int *sol,
                       pddl_iset_t *redundant_objs,
-                      pddl_obj_id_t *map)
+                      int *map)
 {
     int *mapped_to = CALLOC_ARR(int, obj_size);
 
@@ -648,7 +648,7 @@ static int liftedSolve(const pddl_t *pddl,
                        const lifted_endomorphism_t *end,
                        const pddl_endomorphism_config_t *cfg,
                        pddl_iset_t *redundant_objs,
-                       pddl_obj_id_t *map,
+                       int *map,
                        pddl_err_t *err)
 {
     int ret = 0;
@@ -756,7 +756,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
         const pddl_param_t *param = mgroup->param.param + parami;
         int type_id = param->type;
         int obj_size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(&pddl->type, type_id, &obj_size);
         for (int obji = 0; obji < obj_size; ++obji){
             int obj = objs[obji];
@@ -838,7 +838,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            pddl_iset_t *redundant_objects,
-                           pddl_obj_id_t *omap,
+                           int *omap,
                            pddl_err_t *err)
 {
     if (!pddl->normalized)
@@ -911,7 +911,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 static int relaxedLifted(const pddl_t *pddl,
                          const pddl_endomorphism_config_t *cfg,
                          pddl_iset_t *redundant_objects,
-                         pddl_obj_id_t *omap,
+                         int *omap,
                          pddl_err_t *err)
 {
     lifted_endomorphism_t end;
@@ -936,7 +936,7 @@ static int relaxedLifted(const pddl_t *pddl,
 static int relaxedLiftedInSubprocess(const pddl_t *pddl,
                                      const pddl_endomorphism_config_t *cfg,
                                      pddl_iset_t *redundant_objects,
-                                     pddl_obj_id_t *omap,
+                                     int *omap,
                                      pddl_err_t *err)
 {
     LOG(err, "Lifted Relaxed Endomorphism in a subprocess ...");
@@ -946,7 +946,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
     fflush(err->info_out);
 
     int obj_size = pddl->obj.obj_size;
-    size_t shared_size = sizeof(int) + (sizeof(pddl_obj_id_t) * obj_size);
+    size_t shared_size = sizeof(int) + (sizeof(int) * obj_size);
     void *shared = mmap(NULL, shared_size, PROT_WRITE | PROT_READ,
                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (shared == MAP_FAILED){
@@ -957,7 +957,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
     }
     ZEROIZE_RAW(shared, shared_size);
     int *shared_ret = (int *)shared;
-    pddl_obj_id_t *shared_map = (pddl_obj_id_t *)(shared_ret + 1);
+    int *shared_map = (int *)(shared_ret + 1);
     *shared_ret = -1;
     LOG(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
 
@@ -982,7 +982,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
         int ret = *shared_ret;
         if (ret == 0){
             if (omap != NULL)
-                memcpy(omap, shared_map, sizeof(pddl_obj_id_t) * obj_size);
+                memcpy(omap, shared_map, sizeof(int) * obj_size);
 
             if (redundant_objects != NULL){
                 for (int i = 0; i < pddl->obj.obj_size; ++i){
@@ -1008,7 +1008,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
 int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   const pddl_endomorphism_config_t *cfg,
                                   pddl_iset_t *redundant_objects,
-                                  pddl_obj_id_t *omap,
+                                  int *omap,
                                   pddl_err_t *err)
 {
     if (!pddl->normalized)

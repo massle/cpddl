@@ -82,7 +82,7 @@ struct pddl_datalog_const {
     unsigned id;
     int idx;
     char *name;
-    pddl_obj_id_t user_id;
+    int user_id;
 };
 typedef struct pddl_datalog_const pddl_datalog_const_t;
 
@@ -1407,12 +1407,12 @@ void pddlDatalogFactsFromCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        void *user_data),
             void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
-    pddl_obj_id_t arg[arity];
+    int arg[arity];
     int fact_id;
     PDDL_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
@@ -1428,13 +1428,13 @@ void pddlDatalogFactsFromWeightedCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
-    pddl_obj_id_t arg[arity];
+    int arg[arity];
     int fact_id;
     PDDL_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
@@ -1450,7 +1450,7 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
             unsigned _goal_pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data)
@@ -1487,7 +1487,7 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
         int p = dl->pred[f->pred].user_id;
         int arity = dl->pred[f->pred].arity;
-        pddl_obj_id_t arg[arity];
+        int arg[arity];
         for (int i = 0; i < arity; ++i)
             arg[i] = dl->c[f->arg[i]].user_id;
         fn(p, arity, arg, &f->weight, user_data);

@@ -238,7 +238,7 @@ static void groundFree(ground_t *g)
     FREE(g->dlvar);
 }
 
-static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
+static void insertAtom(int pred, int arity, const int *arg, void *ud)
 {
     ground_t *g = ud;
 
@@ -252,7 +252,7 @@ static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
 
 static void insertAction(int pred,
                          int arity,
-                         const pddl_obj_id_t *arg,
+                         const int *arg,
                          void *ud)
 {
     ground_t *g = ud;

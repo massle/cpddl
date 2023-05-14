@@ -288,7 +288,7 @@ void pddlPrepActionsFree(pddl_prep_actions_t *as)
 
 static int checkPreAtomFact(const pddl_prep_action_t *a,
                             const pddl_fm_atom_t *atom,
-                            const pddl_obj_id_t *arg)
+                            const int *arg)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
@@ -306,7 +306,7 @@ static int checkPreAtomFact(const pddl_prep_action_t *a,
 
 static int checkPreAtom(const pddl_prep_action_t *a,
                         const pddl_fm_atom_t *atom,
-                        const pddl_obj_id_t *arg)
+                        const int *arg)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
@@ -321,7 +321,7 @@ static int checkPreAtom(const pddl_prep_action_t *a,
 
 static int checkPre(const pddl_prep_action_t *a,
                     const pddl_fm_arr_t *pre,
-                    const pddl_obj_id_t *arg)
+                    const int *arg)
 {
     const pddl_fm_atom_t *atom;
 
@@ -333,13 +333,13 @@ static int checkPre(const pddl_prep_action_t *a,
     return 1;
 }
 
-static int checkEq(const pddl_prep_action_t *a, const pddl_obj_id_t *arg,
+static int checkEq(const pddl_prep_action_t *a, const int *arg,
                    int soft)
 {
     const pddl_fm_atom_t *atom;
     const pddl_fm_t **pre = a->pre_eq.fm;
     int size = a->pre_eq.size;
-    pddl_obj_id_t obj[2];
+    int obj[2];
 
     for (int i = 0; i < size; ++i){
         atom = pddlFmToAtomConst(pre[i]);
@@ -368,7 +368,7 @@ static int checkEq(const pddl_prep_action_t *a, const pddl_obj_id_t *arg,
 
 static int checkPreNegStatic(const pddl_prep_action_t *a,
                              const pddl_ground_atoms_t *static_facts,
-                             const pddl_obj_id_t *arg)
+                             const int *arg)
 {
     if (a->pre_neg_static.size == 0)
         return 1;
@@ -386,7 +386,7 @@ static int checkPreNegStatic(const pddl_prep_action_t *a,
 
 int pddlPrepActionCheck(const pddl_prep_action_t *a,
                         const pddl_ground_atoms_t *static_facts,
-                        const pddl_obj_id_t *arg)
+                        const int *arg)
 {
     return checkPre(a, &a->pre, arg)
             && checkEq(a, arg, 0)
@@ -394,10 +394,10 @@ int pddlPrepActionCheck(const pddl_prep_action_t *a,
 }
 
 int pddlPrepActionCheckFact(const pddl_prep_action_t *a, int pre_i,
-                            const pddl_obj_id_t *fact_args)
+                            const int *fact_args)
 {
     const pddl_fm_atom_t *atom = pddlFmToAtomConst(a->pre.fm[pre_i]);
-    pddl_obj_id_t arg[a->param_size];
+    int arg[a->param_size];
     int param;
 
     if (!checkPreAtomFact(a, atom, fact_args))
@@ -418,7 +418,7 @@ int pddlPrepActionCheckFact(const pddl_prep_action_t *a, int pre_i,
 }
 
 int pddlPrepActionCheckEqDef(const pddl_prep_action_t *a,
-                             const pddl_obj_id_t *arg)
+                             const int *arg)
 {
     return checkEq(a, arg, 1);
 }

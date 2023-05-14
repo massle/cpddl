@@ -24,13 +24,13 @@ struct el {
     int id;
     pddl_htable_key_t key;
     pddl_list_t htable;
-    pddl_obj_id_t args[];
+    int args[];
 };
 typedef struct el el_t;
 
-static pddl_htable_key_t hash(const pddl_obj_id_t *args, int size)
+static pddl_htable_key_t hash(const int *args, int size)
 {
-    return pddlCityHash_64(args, sizeof(pddl_obj_id_t) * size);
+    return pddlCityHash_64(args, sizeof(int) * size);
 }
 
 static pddl_htable_key_t htableHash(const pddl_list_t *key, void *_)
@@ -45,12 +45,12 @@ static int htableEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_arg
     const el_t *el1 = PDDL_LIST_ENTRY(key1, el_t, htable);
     const el_t *el2 = PDDL_LIST_ENTRY(key2, el_t, htable);
     return memcmp(el1->args, el2->args,
-                  sizeof(pddl_obj_id_t) * args->num_args) == 0;
+                  sizeof(int) * args->num_args) == 0;
 }
 
 void pddlActionArgsInit(pddl_action_args_t *args, int num_args)
 {
-    size_t size = sizeof(el_t) + sizeof(pddl_obj_id_t) * num_args;
+    size_t size = sizeof(el_t) + sizeof(int) * num_args;
 
     ZEROIZE(args);
     args->num_args = num_args;
@@ -65,12 +65,12 @@ void pddlActionArgsFree(pddl_action_args_t *args)
     pddlExtArrDel(args->arg_pool);
 }
 
-int pddlActionArgsAdd(pddl_action_args_t *args, const pddl_obj_id_t *a)
+int pddlActionArgsAdd(pddl_action_args_t *args, const int *a)
 {
     el_t *el = pddlExtArrGet(args->arg_pool, args->args_size);
     el->id = args->args_size;
     el->key = hash(a, args->num_args);
-    memcpy(el->args, a, sizeof(pddl_obj_id_t) * args->num_args);
+    memcpy(el->args, a, sizeof(int) * args->num_args);
     pddlListInit(&el->htable);
 
     pddl_list_t *ins = pddlHTableInsertUnique(args->htable, &el->htable);
@@ -83,7 +83,7 @@ int pddlActionArgsAdd(pddl_action_args_t *args, const pddl_obj_id_t *a)
     }
 }
 
-const pddl_obj_id_t *pddlActionArgsGet(const pddl_action_args_t *args, int id)
+const int *pddlActionArgsGet(const pddl_action_args_t *args, int id)
 {
     if (id >= args->args_size)
         return NULL;
