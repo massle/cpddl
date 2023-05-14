@@ -81,7 +81,6 @@
 #include <pddl/pot.h>
 #include <pddl/lm_cut.h>
 #include <pddl/mg_strips.h>
-#include <pddl/preprocess.h>
 #include <pddl/hpot.h>
 #include <pddl/hflow.h>
 #include <pddl/hadd.h>

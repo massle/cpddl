@@ -17,10 +17,6 @@ third-party/preprocess/preprocess
 third-party/bliss/bliss_C.h
 pddl/iset.h
 src/iset.c
-pddl/lset.h
-src/lset.c
-pddl/cset.h
-src/cset.c
 pddl/iarr.h
 src/iarr.c
 cpddl.pc
