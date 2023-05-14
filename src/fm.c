@@ -22,6 +22,7 @@
 #include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/fm.h"
+#include "pddl/strstream.h"
 
 static char *type_names[PDDL_FM_NUM_TYPES] = {
     "and",      /* PDDL_FM_AND */
@@ -3986,7 +3987,7 @@ const char *pddlFmFmt(const pddl_fm_t *fm,
                       char *s,
                       size_t s_size)
 {
-    FILE *fout = fmemopen(s, s_size - 1, "w");
+    FILE *fout = pddl_staticstrstream(s, s_size - 1);
     pddlFmPrint(pddl, fm, params, fout);
     fflush(fout);
     if (ferror(fout) != 0 && s_size >= 4){
@@ -4013,7 +4014,7 @@ const char *pddlFmPDDLFmt(const pddl_fm_t *fm,
                           char *s,
                           size_t s_size)
 {
-    FILE *fout = fmemopen(s, s_size - 1, "w");
+    FILE *fout = pddl_staticstrstream(s, s_size - 1);
     pddlFmPrintPDDL(fm, pddl, params, fout);
     fflush(fout);
     if (ferror(fout) != 0 && s_size >= 4){
