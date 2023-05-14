@@ -118,7 +118,7 @@ typedef struct pddl_fm_when pddl_fm_when_t;
  */
 struct pddl_fm_atom_arg {
     int param; /*!< -1 or index of parameter */
-    pddl_obj_id_t obj; /*!< object ID (constant) or PDDL_OBJ_ID_UNDEF */
+    int obj; /*!< object ID (constant) or -1 */
 };
 typedef struct pddl_fm_atom_arg pddl_fm_atom_arg_t;
 
@@ -371,7 +371,7 @@ pddl_fm_t *pddlFmAtomToAnd(pddl_fm_t *atom);
  */
 pddl_fm_atom_t *pddlFmCreateFactAtom(int pred,
                                      int arg_size, 
-                                     const pddl_obj_id_t *arg);
+                                     const int *arg);
 
 /**
  * Adds {c} to and/or condition.
@@ -475,7 +475,7 @@ pddl_bool_t pddlFmAtomInConflict(const pddl_fm_atom_t *a1,
  * Remap objects.
  * It is assumed no object from {c} is deleted.
  */
-void pddlFmRemapObjs(pddl_fm_t *c, const pddl_obj_id_t *remap);
+void pddlFmRemapObjs(pddl_fm_t *c, const int *remap);
 
 /**
  * TODO

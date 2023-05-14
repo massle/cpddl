@@ -92,7 +92,7 @@ void pddlLiftedMGroupInitCandFromPred(pddl_lifted_mgroup_t *mgroup,
     atom->pred = pred->id;
     for (int param_id = 0; param_id < pred->param_size; ++param_id){
         atom->arg[param_id].param = param_id;
-        atom->arg[param_id].obj = PDDL_OBJ_ID_UNDEF;
+        atom->arg[param_id].obj = -1;
     }
     pddlFmArrAdd(&mgroup->cond, &atom->fm);
 
@@ -150,7 +150,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     for (int i = 0; i < m->cond.size; ++i){
         const pddl_fm_atom_t *a = pddlFmToAtomConst(m->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
-            if (a->arg[ai].obj != PDDL_OBJ_ID_UNDEF)
+            if (a->arg[ai].obj >= 0)
                 continue;
             int param = a->arg[ai].param;
             if (m->param.param[param].is_counted_var){
@@ -450,7 +450,7 @@ void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
 
 void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
                               const pddl_lifted_mgroup_t *lmg,
-                              const pddl_obj_id_t *args)
+                              const int *args)
 {
     pddlLiftedMGroupsAdd(lm, lmg);
 

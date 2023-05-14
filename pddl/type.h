@@ -22,7 +22,6 @@
 
 #include <pddl/iset.h>
 #include <pddl/common.h>
-#include <pddl/objset.h>
 #include <pddl/lisp.h>
 
 #ifdef __cplusplus
@@ -37,7 +36,7 @@ struct pddl_type {
     int parent;        /*!< ID of the parent type */
     pddl_iset_t child;  /*!< IDs of children types */
     pddl_iset_t either; /*!< type IDs for special (either ...) type */
-    pddl_objset_t obj; /*!< Objs of this type */
+    pddl_iset_t obj; /*!< Objs of this type */
 };
 typedef struct pddl_type pddl_type_t;
 
@@ -91,7 +90,7 @@ pddl_bool_t pddlTypesIsEither(const pddl_types_t *ts, int tid);
 /**
  * Record the given object as being of the given type.
  */
-void pddlTypesAddObj(pddl_types_t *ts, pddl_obj_id_t obj_id, int type_id);
+void pddlTypesAddObj(pddl_types_t *ts, int obj_id, int type_id);
 
 /**
  * Build mapping for fast testing whether an object is of a specified type.
@@ -101,8 +100,7 @@ void pddlTypesBuildObjTypeMap(pddl_types_t *ts, int obj_size);
 /**
  * Returns list of object IDs of the specified type.
  */
-const pddl_obj_id_t *pddlTypesObjsByType(const pddl_types_t *ts, int type_id,
-                                         int *size);
+const int *pddlTypesObjsByType(const pddl_types_t *ts, int type_id, int *size);
 
 /**
  * Returns number of objects of the specified type.
@@ -117,7 +115,7 @@ int pddlTypeGetObj(const pddl_types_t *ts, int type_id, int idx);
 /**
  * Returns true if the object compatible with the specified type.
  */
-pddl_bool_t pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj);
+pddl_bool_t pddlTypesObjHasType(const pddl_types_t *ts, int type, int obj);
 
 /**
  * Returns type ID from the lisp node or -1 if error occured.
@@ -160,7 +158,7 @@ pddl_bool_t pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
 /**
  * Remap objects
  */
-void pddlTypesRemapObjs(pddl_types_t *ts, const pddl_obj_id_t *remap);
+void pddlTypesRemapObjs(pddl_types_t *ts, const int *remap);
 
 /**
  * Returns a type ID that is complement of t with respect to p, or -1 if

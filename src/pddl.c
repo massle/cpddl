@@ -297,7 +297,6 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
         LOG(err, "Conditional effects compiled away.");
     }
 
-    pddlCheckSizeTypes(pddl);
     LOG(err, "Number of PDDL Types: %d", pddl->type.type_size);
     LOG(err, "Number of PDDL Objects: %d", pddl->obj.obj_size);
     LOG(err, "Number of PDDL Predicates: %d", pddl->pred.pred_size);
@@ -521,7 +520,7 @@ static void compileOutNegPre(pddl_t *pddl, int pos, int neg)
 }
 
 static int initHasFact(const pddl_t *pddl, int pred,
-                       int arg_size, const pddl_obj_id_t *arg)
+                       int arg_size, const int *arg)
 {
     pddl_list_t *item;
 
@@ -546,11 +545,11 @@ static int initHasFact(const pddl_t *pddl, int pred,
 }
 
 static void addNotPredsToInitRec(pddl_t *pddl, int pos, int neg,
-                                 int arg_size, pddl_obj_id_t *arg,
+                                 int arg_size, int *arg,
                                  const pddl_pred_t *pred, int argi)
 {
     pddl_fm_atom_t *a;
-    const pddl_obj_id_t *obj;
+    const int *obj;
     int obj_size;
 
     if (argi == arg_size){
@@ -573,7 +572,7 @@ static void addNotPredsToInitRec(pddl_t *pddl, int pos, int neg,
 static void addNotPredsToInit(pddl_t *pddl, int pos, int neg)
 {
     const pddl_pred_t *pos_pred = pddl->pred.pred + pos;
-    pddl_obj_id_t arg[pos_pred->param_size];
+    int arg[pos_pred->param_size];
 
     // Recursivelly try all possible objects for each argument
     addNotPredsToInitRec(pddl, pos, neg,
@@ -853,34 +852,9 @@ int pddlPredFuncMaxParamSize(const pddl_t *pddl)
     return max;
 }
 
-void pddlCheckSizeTypes(const pddl_t *pddl)
-{
-    unsigned long max_size;
-
-    max_size = (1ul << (sizeof(pddl_obj_size_t) * 8)) - 1;
-    if (pddl->obj.obj_size > max_size){
-        PANIC("The problem has %d objects, but pddl_obj_size_t can"
-                   " hold only %lu.",
-                   pddl->obj.obj_size,
-                   sizeof(pddl_obj_size_t) * 8 - 1);
-    }
-
-    max_size = (1ul << (sizeof(pddl_action_param_size_t) * 8)) - 1;
-    for (int ai = 0; ai < pddl->action.action_size; ++ai){
-        int param_size = pddl->action.action[ai].param.param_size;
-        if (param_size > max_size){
-            PANIC("The action %s has %d parameters, but"
-                       "pddl_action_param_size_t can hold only %lu.",
-                       pddl->action.action[ai].name,
-                       param_size,
-                       sizeof(pddl_action_param_size_t) * 8 - 1);
-        }
-    }
-}
-
 void pddlAddObjectTypes(pddl_t *pddl)
 {
-    for (pddl_obj_id_t obj_id = 0; obj_id < pddl->obj.obj_size; ++obj_id){
+    for (int obj_id = 0; obj_id < pddl->obj.obj_size; ++obj_id){
         pddl_obj_t *obj = pddl->obj.obj + obj_id;
         ASSERT(obj->type >= 0);
         if (pddlTypeNumObjs(&pddl->type, obj->type) <= 1)
@@ -902,14 +876,14 @@ void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_obj, pddl_err_t *err)
 {
     if (pddlISetSize(rm_obj) == 0)
         return;
-    pddl_obj_id_t *remap = ALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    int *remap = ALLOC_ARR(int, pddl->obj.obj_size);
     pddlRemoveObjsGetRemap(pddl, rm_obj, remap, err);
     FREE(remap);
 }
 
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
                             const pddl_iset_t *rm_obj,
-                            pddl_obj_id_t *remap,
+                            int *remap,
                             pddl_err_t *err)
 {
     if (pddlISetSize(rm_obj) == 0)
@@ -919,7 +893,7 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
 
     for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
         if (idx < pddlISetSize(rm_obj) && pddlISetGet(rm_obj, idx) == i){
-            remap[i] = PDDL_OBJ_ID_UNDEF;
+            remap[i] = -1;
             ++idx;
         }else{
             remap[i] = id++;
@@ -930,7 +904,7 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
     CTXEND(err);
 }
 
-void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap)
+void pddlRemapObjs(pddl_t *pddl, const int *remap)
 {
     pddlFmRemapObjs(&pddl->init->fm, remap);
     pddl_fm_t *c = pddlFmRemoveInvalidAtoms(&pddl->init->fm);

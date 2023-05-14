@@ -54,7 +54,7 @@ static pddl_state_id_t insertInitState(pddl_lifted_search_t *s);
 static int isGoal(const pddl_lifted_search_t *s);
 static void applyAction(pddl_lifted_search_t *s,
                         const pddl_action_t *action,
-                        const pddl_obj_id_t *args,
+                        const int *args,
                         int *args_id,
                         int *cost);
 static void extractPlan(pddl_lifted_search_t *s, pddl_state_id_t goal_state_id);
@@ -305,7 +305,7 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
     for (int app_i = 0; app_i < app_size; ++app_i){
         int action_id = pddlLiftedAppActionId(s->app_action, app_i);
         const pddl_action_t *action = s->pddl->action.action + action_id;
-        const pddl_obj_id_t *args = pddlLiftedAppActionArgs(s->app_action, app_i);
+        const int *args = pddlLiftedAppActionArgs(s->app_action, app_i);
 
         int cost, args_id;
         applyAction(s, action, args, &args_id, &cost);
@@ -474,7 +474,7 @@ static int isGoal(const pddl_lifted_search_t *s)
 
 static void applyAction(pddl_lifted_search_t *s,
                         const pddl_action_t *action,
-                        const pddl_obj_id_t *args,
+                        const int *args,
                         int *args_id,
                         int *cost)
 {

@@ -71,7 +71,7 @@ int pddlLiftedAppActionId(const pddl_lifted_app_action_t *a, int idx);
 /**
  * Arguments of the idx's applicable action
  */
-const pddl_obj_id_t *pddlLiftedAppActionArgs(const pddl_lifted_app_action_t *a, int idx);
+const int *pddlLiftedAppActionArgs(const pddl_lifted_app_action_t *a, int idx);
 
 /**
  * Sort applicable actions

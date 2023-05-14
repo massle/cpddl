@@ -139,10 +139,10 @@ void pddlStripsOpCopy(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
 
     dst->pddl_action_id = src->pddl_action_id;
     if (src->action_args != NULL){
-        dst->action_args = ALLOC_ARR(pddl_obj_id_t, src->action_args_size);
+        dst->action_args = ALLOC_ARR(int, src->action_args_size);
         dst->action_args_size = src->action_args_size;
         memcpy(dst->action_args, src->action_args,
-               sizeof(pddl_obj_id_t) * src->action_args_size);
+               sizeof(int) * src->action_args_size);
     }
 }
 
@@ -175,10 +175,10 @@ void pddlStripsOpCopyDual(pddl_strips_op_t *dst, const pddl_strips_op_t *src)
     }
     dst->pddl_action_id = src->pddl_action_id;
     if (src->action_args != NULL){
-        dst->action_args = ALLOC_ARR(pddl_obj_id_t, src->action_args_size);
+        dst->action_args = ALLOC_ARR(int, src->action_args_size);
         dst->action_args_size = src->action_args_size;
         memcpy(dst->action_args, src->action_args,
-               sizeof(pddl_obj_id_t) * src->action_args_size);
+               sizeof(int) * src->action_args_size);
     }
 }
 

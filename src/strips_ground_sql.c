@@ -95,7 +95,7 @@ static int addLayerToGrounder(sql_ground_t *g, int layer, pddl_err_t *err)
 
 static int addGroundAction(sql_ground_t *g,
                            int action_id,
-                           const pddl_obj_id_t *row)
+                           const int *row)
 {
     const pddl_prep_action_t *paction;
     paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
@@ -114,7 +114,7 @@ static int addGroundAction(sql_ground_t *g,
 static int addGroundAtom(sql_ground_t *g,
                          int layer,
                          const pddl_fm_atom_t *atom,
-                         const pddl_obj_id_t *row,
+                         const int *row,
                          pddl_err_t *err)
 {
     int is_new = 0;
@@ -133,7 +133,7 @@ static int addGroundAtom(sql_ground_t *g,
 static int sqlGroundStepActionRow(sql_ground_t *g,
                                   int layer,
                                   int action_id,
-                                  pddl_obj_id_t *row,
+                                  int *row,
                                   pddl_err_t *err)
 {
     int updated = 0;
@@ -167,7 +167,7 @@ static int sqlGroundStepAction(sql_ground_t *g,
     const pddl_prep_action_t *paction;
     paction = pddlSqlGrounderPrepAction(g->grounder, action_id);
 
-    pddl_obj_id_t row[paction->param_size];
+    int row[paction->param_size];
     int updated = 0;
     while (pddlSqlGrounderActionNext(g->grounder, row, err))
         updated |= sqlGroundStepActionRow(g, layer, action_id, row, err);

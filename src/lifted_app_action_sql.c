@@ -50,7 +50,7 @@ static int aaFindAppActions(pddl_lifted_app_action_t *_aa)
 
         if (pddlSqlGrounderActionStart(aa->grounder, ai, aa->err) != 0)
             continue;
-        pddl_obj_id_t row[pa->param_size];
+        int row[pa->param_size];
         while (pddlSqlGrounderActionNext(aa->grounder, row, aa->err)){
             pddlLiftedAppActionAdd(_aa, pa->action->id, row, pa->param_size);
         }

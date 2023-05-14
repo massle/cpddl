@@ -49,12 +49,12 @@ void pddlActionArgsFree(pddl_action_args_t *args);
  * Adds arguments to the pool and ID is returned, {a} is expected to be
  * .num_args long.
  */
-int pddlActionArgsAdd(pddl_action_args_t *args, const pddl_obj_id_t *a);
+int pddlActionArgsAdd(pddl_action_args_t *args, const int *a);
 
 /**
  * Returns arguments corresponding to the id.
  */
-const pddl_obj_id_t *pddlActionArgsGet(const pddl_action_args_t *args, int id);
+const int *pddlActionArgsGet(const pddl_action_args_t *args, int id);
 
 /**
  * Returns number of stored unique arguments.

@@ -36,13 +36,13 @@ void pddlUnifyInit(pddl_unify_t *u,
 
     int var = 0;
     for (int i = 0; i < u->param[0]->param_size; ++i){
-        u->map[0][i].obj = PDDL_OBJ_ID_UNDEF;
+        u->map[0][i].obj = -1;
         u->map[0][i].var = var;
         u->map[0][i].var_type = u->param[0]->param[i].type;
         ++var;
     }
     for (int i = 0; i < u->param[1]->param_size; ++i){
-        u->map[1][i].obj = PDDL_OBJ_ID_UNDEF;
+        u->map[1][i].obj = -1;
         u->map[1][i].var = var;
         u->map[1][i].var_type = u->param[1]->param[i].type;
         ++var;
@@ -93,7 +93,7 @@ static void unifyVars(pddl_unify_t *u, int var1, int var2, int var_type)
     }
 }
 
-static void unifyVarObj(pddl_unify_t *u, int var, pddl_obj_id_t obj)
+static void unifyVarObj(pddl_unify_t *u, int var, int obj)
 {
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < u->param[i]->param_size; ++j){
@@ -302,7 +302,7 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u, int eq_pred, int idx)
                 && u->map[idx][v].var_type != u->param[idx]->param[v].type){
             pddl_fm_t *or = pddlFmNewEmptyOr();
             int type = u->map[idx][v].var_type;
-            const pddl_obj_id_t *objs;
+            const int *objs;
             int obj_size;
             objs = pddlTypesObjsByType(u->type, type, &obj_size);
             for (int i = 0; i < obj_size; ++i){
@@ -341,7 +341,7 @@ void pddlUnifyResetCountedVars(const pddl_unify_t *u)
     for (int v = 0; v < 2; ++v){
         for (int i = 0; i < u->param[v]->param_size; ++i){
             if (u->param[v]->param[i].is_counted_var){
-                u->map[v][i].obj = PDDL_OBJ_ID_UNDEF;
+                u->map[v][i].obj = -1;
                 u->map[v][i].var = var;
                 u->map[v][i].var_type = u->param[v]->param[i].type;
             }

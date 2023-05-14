@@ -14,8 +14,6 @@ SRC += rand
 SRC += sort
 SRC += qsort
 SRC += timsort
-SRC += mergesort
-SRC += heapsort
 SRC += segmarr
 SRC += extarr
 SRC += pairheap
@@ -91,7 +89,6 @@ SRC += hadd
 SRC += hff
 SRC += pq
 SRC += mg_strips
-SRC += preprocess
 SRC += cg
 SRC += graph
 SRC += clique
@@ -156,10 +153,7 @@ SRC += endomorphism_lifted
 SRC += homomorphism
 SRC += homomorphism_heur
 SRC += prune_strips
-SRC += objset
 SRC += iset
-SRC += lset
-SRC += cset
 SRC += iarr
 SRC += lifted_heur
 SRC += lifted_heur_relaxed
@@ -210,14 +204,8 @@ OBJS := $(foreach obj,$(SRC),.objs/$(obj).o) \
         $(foreach obj,$(SRC_CPP),.objs/$(obj).cpp.o) \
         $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.o)
 
-GEN  = pddl/objset.h
-GEN += src/objset.c
-GEN += pddl/iset.h
+GEN  = pddl/iset.h
 GEN += src/iset.c
-GEN += pddl/lset.h
-GEN += src/lset.c
-GEN += pddl/cset.h
-GEN += src/cset.c
 GEN += pddl/iarr.h
 GEN += src/iarr.c
 GEN += src/_version.c
@@ -263,21 +251,17 @@ pddl/config.h: $(MAKE_FILES)
 	$(file >>$@,)
 	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
-pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
-src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
 pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
-src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+src/iset.c: src/_set_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
 pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
-src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+src/lset.c: src/_set_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
 pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
-src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+src/cset.c: src/_set_arr.c scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
 pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@

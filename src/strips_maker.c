@@ -27,7 +27,7 @@ static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
     uint64_t hash;
     hash = pddlCityHash_64(&ga->action_id, sizeof(ga->action_id));
     hash += pddlCityHash_64(&ga->action_id, sizeof(ga->action_id2));
-    hash += pddlCityHash_64(ga->arg, sizeof(pddl_obj_id_t) * arg_size);
+    hash += pddlCityHash_64(ga->arg, sizeof(int) * arg_size);
     return hash;
 }
 
@@ -102,7 +102,7 @@ void pddlStripsMakerFree(pddl_strips_maker_t *sm)
 static pddl_ground_atom_t *addAtom(pddl_strips_maker_t *sm,
                                    pddl_ground_atoms_t *gas,
                                    const pddl_fm_atom_t *atom,
-                                   const pddl_obj_id_t *args,
+                                   const int *args,
                                    int *is_new)
 {
     if (is_new != NULL)
@@ -117,7 +117,7 @@ static pddl_ground_atom_t *addAtom(pddl_strips_maker_t *sm,
 static pddl_ground_atom_t *addAtomPred(pddl_strips_maker_t *sm,
                                        pddl_ground_atoms_t *gas,
                                        int pred,
-                                       const pddl_obj_id_t *args,
+                                       const int *args,
                                        int arg_size,
                                        int *is_new)
 {
@@ -133,7 +133,7 @@ static pddl_ground_atom_t *addAtomPred(pddl_strips_maker_t *sm,
 
 pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
                                            const pddl_fm_atom_t *atom,
-                                           const pddl_obj_id_t *args,
+                                           const int *args,
                                            int *is_new)
 {
     return addAtom(sm, &sm->ground_atom, atom, args, is_new);
@@ -141,7 +141,7 @@ pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
 
 pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
                                                int pred,
-                                               const pddl_obj_id_t *args,
+                                               const int *args,
                                                int args_size,
                                                int *is_new)
 {
@@ -150,7 +150,7 @@ pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
 
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
                                                  const pddl_fm_atom_t *atom,
-                                                 const pddl_obj_id_t *args,
+                                                 const int *args,
                                                  int *is_new)
 {
     return addAtom(sm, &sm->ground_atom_static, atom, args, is_new);
@@ -158,7 +158,7 @@ pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
 
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
                                                      int pred,
-                                                     const pddl_obj_id_t *args,
+                                                     const int *args,
                                                      int args_size,
                                                      int *is_new)
 {
@@ -168,7 +168,7 @@ pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
 
 pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,
                                            const pddl_fm_func_op_t *func,
-                                           const pddl_obj_id_t *args,
+                                           const int *args,
                                            int *is_new)
 {
     ASSERT(func->fvalue == NULL);
@@ -189,18 +189,18 @@ pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,
 pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
                                                     int action_id,
                                                     int action_id2,
-                                                    const pddl_obj_id_t *args,
+                                                    const int *args,
                                                     int *is_new)
 {
     if (is_new != NULL)
         *is_new = 0;
     int arg_size = sm->action_arg_size[action_id];
     size_t size = sizeof(pddl_ground_action_args_t);
-    size += sizeof(pddl_obj_id_t) * arg_size;
+    size += sizeof(int) * arg_size;
     pddl_ground_action_args_t *ga = MALLOC(size);
     ga->action_id = action_id;
     ga->action_id2 = action_id2;
-    memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
+    memcpy(ga->arg, args, sizeof(int) * arg_size);
     ga->hash = actionComputeHash(ga, arg_size);
     ga->id = -1;
     pddlListInit(&ga->htable);
@@ -225,16 +225,16 @@ pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
 pddl_ground_action_args_t *pddlStripsMakerFindAction(pddl_strips_maker_t *sm,
                                                      int action_id,
                                                      int action_id2,
-                                                     const pddl_obj_id_t *args)
+                                                     const int *args)
 {
     ASSERT(action_id < sm->action_size);
     int arg_size = sm->action_arg_size[action_id];
     size_t size = sizeof(pddl_ground_action_args_t);
-    size += sizeof(pddl_obj_id_t) * arg_size;
+    size += sizeof(int) * arg_size;
     pddl_ground_action_args_t *ga = alloca(size);
     ga->action_id = action_id;
     ga->action_id2 = action_id2;
-    memcpy(ga->arg, args, sizeof(pddl_obj_id_t) * arg_size);
+    memcpy(ga->arg, args, sizeof(int) * arg_size);
     ga->hash = actionComputeHash(ga, arg_size);
     ga->id = -1;
     pddlListInit(&ga->htable);
@@ -430,7 +430,7 @@ struct action_ctx {
     const pddl_t *pddl;
     const pddl_ground_config_t *cfg;
     const pddl_action_t *action;
-    const pddl_obj_id_t *args;
+    const int *args;
     const int *ground_atom_to_fact;
     pddl_err_t *err;
     int failed;
@@ -447,7 +447,7 @@ static int actionCondEff(action_ctx_t *ctx_in,
 
 static char *groundOpName(const pddl_t *pddl,
                           const pddl_action_t *action,
-                          const pddl_obj_id_t *args)
+                          const int *args)
 {
     int i, slen;
     char *name, *cur;
@@ -464,7 +464,7 @@ static char *groundOpName(const pddl_t *pddl,
     return name;
 }
 
-static int atomArg(const pddl_fm_atom_t *a, int i, const pddl_obj_id_t *args)
+static int atomArg(const pddl_fm_atom_t *a, int i, const int *args)
 {
     if (a->arg[i].obj >= 0)
         return a->arg[i].obj;
@@ -665,7 +665,7 @@ static int createOp(pddl_strips_maker_t *sm,
                     const pddl_ground_config_t *cfg,
                     const int *ground_atom_to_fact_id,
                     const pddl_action_t *a,
-                    const pddl_obj_id_t *args,
+                    const int *args,
                     pddl_strips_op_t *op,
                     pddl_err_t *err)
 {
@@ -714,9 +714,9 @@ static int createOpFromGroundActionArgs(pddl_strips_maker_t *sm,
         char *name = groundOpName(pddl, action, ga->arg);
         if (cfg->keep_action_args){
             op.action_args_size = action->param.param_size;
-            op.action_args = ALLOC_ARR(pddl_obj_id_t, op.action_args_size);
+            op.action_args = ALLOC_ARR(int, op.action_args_size);
             memcpy(op.action_args, ga->arg,
-                   sizeof(pddl_obj_id_t) * op.action_args_size);
+                   sizeof(int) * op.action_args_size);
         }
         pddlStripsOpFinalize(&op, name);
         if (pddlISetSize(&op.add_eff) > 0
@@ -851,7 +851,7 @@ const pddl_ground_atom_t *pddlStripsMakerGroundAtomConst(
 static int stripsEffInState(pddl_strips_maker_t *smaker,
                             const pddl_fm_t *pre,
                             const pddl_fm_t *eff,
-                            const pddl_obj_id_t *args,
+                            const int *args,
                             const pddl_iset_t *state,
                             pddl_iset_t *add_eff,
                             pddl_iset_t *del_eff,
@@ -866,11 +866,11 @@ static int stripsEffInState(pddl_strips_maker_t *smaker,
                 const pddl_fm_atom_t *atom = pddlFmToAtomConst(fm);
                 if (atom->pred == smaker->eq_pred){
                     ASSERT(atom->arg_size == 2);
-                    pddl_obj_id_t o1 = atom->arg[0].obj;
+                    int o1 = atom->arg[0].obj;
                     if (atom->arg[0].param >= 0)
                         o1 = args[atom->arg[0].param];
 
-                    pddl_obj_id_t o2 = atom->arg[1].obj;
+                    int o2 = atom->arg[1].obj;
                     if (atom->arg[1].param >= 0)
                         o2 = args[atom->arg[1].param];
 
@@ -938,7 +938,7 @@ static int stripsEffInState(pddl_strips_maker_t *smaker,
 
 void pddlStripsMakerActionEffInState(pddl_strips_maker_t *smaker,
                                      const pddl_action_t *a,
-                                     const pddl_obj_id_t *args,
+                                     const int *args,
                                      const pddl_iset_t *state,
                                      pddl_iset_t *add_eff,
                                      pddl_iset_t *del_eff,

@@ -160,12 +160,12 @@ void pddlASNetsLiftedTaskToSHA256(const pddl_asnets_lifted_task_t *lt,
 
 static int atomEq(const pddl_ground_atom_t *a1,
                   const pddl_fm_atom_t *a2,
-                  const pddl_obj_id_t *args)
+                  const int *args)
 {
     if (a1->pred != a2->pred)
         return 0;
     for (int argi = 0; argi < a1->arg_size; ++argi){
-        pddl_obj_id_t obj2 = a2->arg[argi].obj;
+        int obj2 = a2->arg[argi].obj;
         if (a2->arg[argi].param >= 0)
             obj2 = args[a2->arg[argi].param];
         if (a1->arg[argi] != obj2)
@@ -218,7 +218,7 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
         const pddl_strips_op_t *so = gt->strips.op.op[op_id];
         pddl_asnets_op_t *op = gt->op + op_id;
-        const pddl_obj_id_t *oargs = so->action_args;
+        const int *oargs = so->action_args;
 
         // TODO: Conditional effects not supported yet
         ASSERT(so->cond_eff_size == 0);

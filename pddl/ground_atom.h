@@ -41,7 +41,7 @@ struct pddl_ground_atom {
     int func_val; /*!< Assigned value in the case of function */
     int pred;     /*!< Predicate ID */
     int arg_size; /*!< Number of arguments */
-    pddl_obj_id_t *arg; /*!< Object IDs are arguments */
+    int *arg; /*!< Object IDs are arguments */
 
     int layer; /*!< Layer in RPG */
 };
@@ -82,7 +82,7 @@ void pddlGroundAtomsFree(pddl_ground_atoms_t *fs);
  */
 pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
                                            const pddl_fm_atom_t *c,
-                                           const pddl_obj_id_t *arg);
+                                           const int *arg);
 
 /**
  * Adds a unique ground predicate atom (fact). Returns the newly added atom
@@ -90,7 +90,7 @@ pddl_ground_atom_t *pddlGroundAtomsAddAtom(pddl_ground_atoms_t *ga,
  */
 pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
                                            int pred,
-                                           const pddl_obj_id_t *arg,
+                                           const int *arg,
                                            int arg_size);
 
 /**
@@ -98,10 +98,10 @@ pddl_ground_atom_t *pddlGroundAtomsAddPred(pddl_ground_atoms_t *ga,
  */
 pddl_ground_atom_t *pddlGroundAtomsFindAtom(const pddl_ground_atoms_t *ga,
                                             const pddl_fm_atom_t *c,
-                                            const pddl_obj_id_t *arg);
+                                            const int *arg);
 pddl_ground_atom_t *pddlGroundAtomsFindPred(const pddl_ground_atoms_t *ga,
                                             int pred,
-                                            const pddl_obj_id_t *arg,
+                                            const int *arg,
                                             int arg_size);
 
 /**

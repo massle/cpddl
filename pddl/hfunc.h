@@ -26,19 +26,6 @@ extern "C" {
  * =======================
  */
 
-
-/**
- * Robert Jenkins hash function.
- *
- * Taken from http://burtleburtle.net/bob/c/lookup3.c.
- */
-uint32_t pddlHashJenkins(const uint32_t *k, size_t length, uint32_t initval);
-
-/**
- * Hash function by Dan Bernstein
- */
-uint32_t pddlHashDJB2(const char *str);
-
 /*
  * This algorithm was created for sdbm (a public-domain reimplementation of
  * ndbm) database library. it was found to do well in scrambling bits,
@@ -52,25 +39,6 @@ uint32_t pddlHashDJB2(const char *str);
  * the algorithms used in berkeley db (see sleepycat) and elsewhere.
  */
 uint32_t pddlHashSDBM(const char *str);
-
-
-/**
- * Computes fnv-1a 32-bit hash for the buffer of the given size.
- * Taken from www.isthe.com/chongo/src/fnv/hash_32a.c.
- */
-uint32_t pddlFnv1a_32(const void *buf, size_t size);
-
-/**
- * Computes fnv-1a 64-bit hash for the buffer of the given size.
- * Taken from www.isthe.com/chongo/src/fnv/hash_64a.c.
- */
-uint64_t pddlFnv1a_64(const void *buf, size_t size);
-
-/**
- * Murmur3 32-bit hash function.
- * Taken from https://github.com/PeterScott/murmur3.
- */
-uint32_t pddlMurmur3_32(const void *buf, size_t size);
 
 /**
  * CityHash 32-bit hash function.

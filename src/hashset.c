@@ -18,8 +18,6 @@
 #include "pddl/hfunc.h"
 #include "pddl/hashset.h"
 #include "pddl/iset.h"
-#include "pddl/lset.h"
-#include "pddl/cset.h"
 
 struct pddl_hashset_el {
     int id;
@@ -102,78 +100,6 @@ void pddlHashSetInitISet(pddl_hashset_t *s)
 {
     pddlHashSetInit(s, isetHash, isetEq, isetClone, isetDel, NULL);
 }
-
-static pddl_htable_key_t lsetHash(const void *el, void *_)
-{
-    const pddl_lset_t *s = el;
-    if (pddlLSetSize(s) == 0)
-        return 0;
-    return pddlCityHash_64(s->s, sizeof(*s->s) * s->size);
-}
-
-static int lsetEq(const void *el1, const void *el2, void *_)
-{
-    const pddl_lset_t *s1 = el1;
-    const pddl_lset_t *s2 = el2;
-    return pddlLSetEq(s1, s2);
-}
-
-static void *lsetClone(const void *el, void *_)
-{
-    pddl_lset_t *s = ALLOC(pddl_lset_t);
-    pddlLSetInit(s);
-    pddlLSetUnion(s, (const pddl_lset_t *)el);
-    return s;
-}
-
-static void lsetDel(void *el, void *_)
-{
-    pddl_lset_t *s = el;
-    pddlLSetFree(s);
-    FREE(s);
-}
-
-void pddlHashSetInitLSet(pddl_hashset_t *s)
-{
-    pddlHashSetInit(s, lsetHash, lsetEq, lsetClone, lsetDel, NULL);
-}
-
-static pddl_htable_key_t csetHash(const void *el, void *_)
-{
-    const pddl_cset_t *s = el;
-    if (pddlCSetSize(s) == 0)
-        return 0;
-    return pddlCityHash_64(s->s, sizeof(*s->s) * s->size);
-}
-
-static int csetEq(const void *el1, const void *el2, void *_)
-{
-    const pddl_cset_t *s1 = el1;
-    const pddl_cset_t *s2 = el2;
-    return pddlCSetEq(s1, s2);
-}
-
-static void *csetClone(const void *el, void *_)
-{
-    pddl_cset_t *s = ALLOC(pddl_cset_t);
-    pddlCSetInit(s);
-    pddlCSetUnion(s, (const pddl_cset_t *)el);
-    return s;
-}
-
-static void csetDel(void *el, void *_)
-{
-    pddl_cset_t *s = el;
-    pddlCSetFree(s);
-    FREE(s);
-}
-
-void pddlHashSetInitCSet(pddl_hashset_t *s)
-{
-    pddlHashSetInit(s, csetHash, csetEq, csetClone, csetDel, NULL);
-}
-
-
 
 void pddlHashSetFree(pddl_hashset_t *s)
 {
