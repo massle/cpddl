@@ -256,9 +256,9 @@ static int collapseEndomorphism(pddl_t *pddl,
         int *remap = CALLOC_ARR(int, pddl->obj.obj_size);
         int oid;
         PDDL_ISET_FOR_EACH(&redundant, oid)
-            remap[oid] = PDDL_OBJ_ID_UNDEF;
+            remap[oid] = -1;
         for (int i = 0, idx = 0; i < pddl->obj.obj_size; ++i){
-            if (remap[i] != PDDL_OBJ_ID_UNDEF)
+            if (remap[i] >= 0)
                 remap[i] = idx++;
         }
         PDDL_ISET_FOR_EACH(&redundant, oid){
@@ -1037,9 +1037,9 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
         int *remap = CALLOC_ARR(int, h->task.obj.obj_size);
         int oid;
         PDDL_ISET_FOR_EACH(&redundant, oid)
-            remap[oid] = PDDL_OBJ_ID_UNDEF;
+            remap[oid] = -1;
         for (int i = 0, idx = 0; i < h->task.obj.obj_size; ++i){
-            if (remap[i] != PDDL_OBJ_ID_UNDEF)
+            if (remap[i] >= 0)
                 remap[i] = idx++;
         }
         PDDL_ISET_FOR_EACH(&redundant, oid){

@@ -95,7 +95,7 @@ static int setCB(const pddl_lisp_node_t *root,
         o->type = tid;
         o->is_constant = is_const;
         o->is_private = 0;
-        o->owner = PDDL_OBJ_ID_UNDEF;
+        o->owner = -1;
         o->is_agent = 0;
     }
 
@@ -184,7 +184,7 @@ static int parsePrivate(pddl_t *pddl, const pddl_lisp_t *lisp, int kw,
                          " :objects in %s.", lisp->filename);
         }
 
-        owner = PDDL_OBJ_ID_UNDEF;
+        owner = -1;
         if (!factor){
             owner = pddlObjsGet(&pddl->obj, p->child[1].value);
             if (owner < 0){
@@ -298,7 +298,7 @@ int pddlObjsGet(const pddl_objs_t *objs, const char *name)
 {
     obj_key_t *key = findByName(objs, name);
     if (key == NULL)
-        return PDDL_OBJ_ID_UNDEF;
+        return -1;
     return key->obj_id;
 }
 
@@ -307,7 +307,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     pddl_obj_t *o;
     obj_key_t *key;
 
-    if (pddlObjsGet(objs, name) != PDDL_OBJ_ID_UNDEF)
+    if (pddlObjsGet(objs, name) >= 0)
         return NULL;
 
     if (objs->obj_size >= objs->obj_alloc){
@@ -322,7 +322,7 @@ pddl_obj_t *pddlObjsAdd(pddl_objs_t *objs, const char *name)
     o = objs->obj + objs->obj_size++;
     ZEROIZE(o);
     o->name = STRDUP(name);
-    o->owner = PDDL_OBJ_ID_UNDEF;
+    o->owner = -1;
 
     key = ALLOC(obj_key_t);
     key->obj_id = objs->obj_size - 1;

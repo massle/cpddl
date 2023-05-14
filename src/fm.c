@@ -1543,7 +1543,7 @@ pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args)
         atom->arg = ALLOC_ARR(pddl_fm_atom_arg_t, atom->arg_size);
         for (int i = 0; i < atom->arg_size; ++i){
             atom->arg[i].param = -1;
-            atom->arg[i].obj = PDDL_OBJ_ID_UNDEF;
+            atom->arg[i].obj = -1;
         }
     }
 
@@ -1590,7 +1590,7 @@ static int parseAtomArg(pddl_fm_atom_arg_t *arg,
                          ctx->err_prefix, root->value);
         }
         arg->param = param;
-        arg->obj = PDDL_OBJ_ID_UNDEF;
+        arg->obj = -1;
 
     }else{
         int obj = pddlObjsGet(ctx->objs, root->value);
@@ -3052,7 +3052,7 @@ static pddl_fm_t *instantiate(pddl_fm_t *fm,
         eq->arg_size = 2;
         eq->arg = ALLOC_ARR(pddl_fm_atom_arg_t, 2);
         eq->arg[0].param = param;
-        eq->arg[0].obj = PDDL_OBJ_ID_UNDEF;
+        eq->arg[0].obj = -1;
         eq->arg[1].param = -1;
         eq->arg[1].obj = arg[i];
         pddlFmJuncAdd(and, &eq->fm);
@@ -3316,7 +3316,7 @@ static int reorderEqPredicates(pddl_fm_t **c, void *data)
             }else if (a->arg[1].param >= 0){
                 a->arg[0].param = a->arg[1].param;
                 a->arg[1].obj = a->arg[0].obj;
-                a->arg[0].obj = PDDL_OBJ_ID_UNDEF;
+                a->arg[0].obj = -1;
                 a->arg[1].param = -1;
             }else{
                 pddl_fm_t *b = NULL;

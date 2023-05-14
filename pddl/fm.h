@@ -118,7 +118,7 @@ typedef struct pddl_fm_when pddl_fm_when_t;
  */
 struct pddl_fm_atom_arg {
     int param; /*!< -1 or index of parameter */
-    int obj; /*!< object ID (constant) or PDDL_OBJ_ID_UNDEF */
+    int obj; /*!< object ID (constant) or -1 */
 };
 typedef struct pddl_fm_atom_arg pddl_fm_atom_arg_t;
 

@@ -893,7 +893,7 @@ void pddlRemoveObjsGetRemap(pddl_t *pddl,
 
     for (int i = 0, idx = 0, id = 0; i < pddl->obj.obj_size; ++i){
         if (idx < pddlISetSize(rm_obj) && pddlISetGet(rm_obj, idx) == i){
-            remap[i] = PDDL_OBJ_ID_UNDEF;
+            remap[i] = -1;
             ++idx;
         }else{
             remap[i] = id++;

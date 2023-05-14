@@ -500,7 +500,7 @@ static int _unifyFact(const pddl_t *pddl,
             }
 
             if (!cand_params->param[param].is_counted_var){
-                if (cand_arg[param] == PDDL_OBJ_ID_UNDEF){
+                if (cand_arg[param] < 0){
                     cand_arg[param] = fact_obj;
                 }else if (cand_arg[param] != fact_obj){
                     return 0;
@@ -508,7 +508,7 @@ static int _unifyFact(const pddl_t *pddl,
             }
 
         }else{
-            ASSERT(obj != PDDL_OBJ_ID_UNDEF);
+            ASSERT(obj >= 0);
             if (obj != fact_obj)
                 return 0;
         }
@@ -526,7 +526,7 @@ static int unifyFact(const pddl_t *pddl,
                      int *cand_arg)
 {
     for (int i = 0; i < cand_params->param_size; ++i)
-        cand_arg[i] = PDDL_OBJ_ID_UNDEF;
+        cand_arg[i] = -1;
     return _unifyFact(pddl, fact, fact_arg, cand_params, cand_atom, cand_arg);
 }
 

@@ -214,8 +214,8 @@ static void _atreeActionAddEff(pddl_strips_ground_t *g,
         memcpy(args, args_in, sizeof(int) * atr->action->param_size);
 
         for (int i = 0; i < atr->action->param_size; ++i){
-            if (tr_args[i] != PDDL_OBJ_ID_UNDEF){
-                ASSERT(args[i] == PDDL_OBJ_ID_UNDEF);
+            if (tr_args[i] >= 0){
+                ASSERT(args[i] < 0);
                 args[i] = tr_args[i];
             }
         }
@@ -465,8 +465,7 @@ static void groundActionAddEff(pddl_strips_ground_t *g,
                                const int *oarg)
 {
     int arg[a->param_size];
-    for (int i = 0; i < a->param_size; ++i)
-        arg[i] = (oarg[i] == PDDL_OBJ_ID_UNDEF ? -1 : oarg[i]);
+    memcpy(arg, oarg, sizeof(int) * a->param_size);
     _groundActionAddEff(g, a, arg, 0);
 }
 
@@ -476,7 +475,7 @@ static void groundActionAddEffEmptyPre(pddl_strips_ground_t *g,
     ASSERT(a->pre.size == 0);
     int arg[a->param_size];
     for (int i = 0; i < a->param_size; ++i)
-        arg[i] = PDDL_OBJ_ID_UNDEF;
+        arg[i] = -1;
     _groundActionAddEff(g, a, arg, 0);
 }
 

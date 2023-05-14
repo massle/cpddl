@@ -36,13 +36,13 @@ void pddlUnifyInit(pddl_unify_t *u,
 
     int var = 0;
     for (int i = 0; i < u->param[0]->param_size; ++i){
-        u->map[0][i].obj = PDDL_OBJ_ID_UNDEF;
+        u->map[0][i].obj = -1;
         u->map[0][i].var = var;
         u->map[0][i].var_type = u->param[0]->param[i].type;
         ++var;
     }
     for (int i = 0; i < u->param[1]->param_size; ++i){
-        u->map[1][i].obj = PDDL_OBJ_ID_UNDEF;
+        u->map[1][i].obj = -1;
         u->map[1][i].var = var;
         u->map[1][i].var_type = u->param[1]->param[i].type;
         ++var;
@@ -341,7 +341,7 @@ void pddlUnifyResetCountedVars(const pddl_unify_t *u)
     for (int v = 0; v < 2; ++v){
         for (int i = 0; i < u->param[v]->param_size; ++i){
             if (u->param[v]->param[i].is_counted_var){
-                u->map[v][i].obj = PDDL_OBJ_ID_UNDEF;
+                u->map[v][i].obj = -1;
                 u->map[v][i].var = var;
                 u->map[v][i].var_type = u->param[v]->param[i].type;
             }
