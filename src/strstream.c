@@ -11,14 +11,14 @@
 
 /**
  * The code related to open_memstream (pddl_strstream) was adapted from
- * FreeBSD source * https://github.com/freebsd/freebsd-src, * file
+ * FreeBSD source https://github.com/freebsd/freebsd-src, file
  * lib/libc/stdio/open_memstream.c:
  * Copyright (c) 2013 Hudson River Trading LLC
  * Written by: John H. Baldwin <jhb@FreeBSD.org>
  * All rights reserved.
  *
  * The code related to fmemopen (pddl_staticstrstream) was adapted from
- * FreeBSD source * https://github.com/freebsd/freebsd-src, * file
+ * FreeBSD source https://github.com/freebsd/freebsd-src, file
  * lib/libc/stdio/fmemopen.c:
  * Copyright (C) 2013 Pietro Cerutti <gahr@FreeBSD.org>
  *
@@ -291,7 +291,7 @@ FILE *pddl_staticstrstream(char *buf, size_t size)
         errno = EINVAL;
         return (NULL);
     }
-    
+
     ck = malloc(sizeof(struct fmemopen_cookie));
     if (ck == NULL) {
         return (NULL);
