@@ -163,18 +163,6 @@ typedef int pddl_bool_promote_type_t;
 #define pddl_false 0
 #define PDDL_BOOL_STR(X) (!!(X) ? "true" : "false")
 
-/** Type for holding number of objects */
-typedef uint16_t pddl_obj_size_t;
-/** Type for holding number of action parameters */
-typedef uint16_t pddl_action_param_size_t;
-
-typedef int pddl_obj_id_t;
-
-/** Constant for undefined object ID.
- *  It should be always defined as something negative so we can test object
- *  ID with >= 0 and < 0. */
-#define PDDL_OBJ_ID_UNDEF ((pddl_obj_id_t)-1)
-
 /** Dead-end (infinity) cost */
 #define PDDL_COST_DEAD_END (INT_MAX / 2)
 /** Maximum cost that can be assigned */

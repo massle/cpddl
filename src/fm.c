@@ -1311,7 +1311,7 @@ pddl_bool_t pddlFmIsImplied(const pddl_fm_t *s,
 
             }else if (sa->arg[argi].param >= 0){
                 int type = param->param[sa->arg[argi].param].type;
-                pddl_obj_id_t cobj = ca->arg[argi].obj;
+                int cobj = ca->arg[argi].obj;
                 if (pddlTypeNumObjs(&pddl->type, type) != 1
                         || pddlTypeGetObj(&pddl->type, type, 0) != cobj){
                     return pddl_false;
@@ -1543,7 +1543,7 @@ pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args)
         atom->arg = ALLOC_ARR(pddl_fm_atom_arg_t, atom->arg_size);
         for (int i = 0; i < atom->arg_size; ++i){
             atom->arg[i].param = -1;
-            atom->arg[i].obj = PDDL_OBJ_ID_UNDEF;
+            atom->arg[i].obj = -1;
         }
     }
 
@@ -1590,10 +1590,10 @@ static int parseAtomArg(pddl_fm_atom_arg_t *arg,
                          ctx->err_prefix, root->value);
         }
         arg->param = param;
-        arg->obj = PDDL_OBJ_ID_UNDEF;
+        arg->obj = -1;
 
     }else{
-        pddl_obj_id_t obj = pddlObjsGet(ctx->objs, root->value);
+        int obj = pddlObjsGet(ctx->objs, root->value);
         if (obj < 0){
             ERR_LISP_RET(ctx->err, -1, root, "%sUnkown constant/object `%s'",
                          ctx->err_prefix, root->value);
@@ -2110,7 +2110,7 @@ pddl_fm_t *pddlFmAtomToAnd(pddl_fm_t *atom)
 }
 
 pddl_fm_atom_t *pddlFmCreateFactAtom(int pred, int arg_size, 
-                                     const pddl_obj_id_t *arg)
+                                     const int *arg)
 {
     pddl_fm_atom_t *a;
 
@@ -2382,7 +2382,7 @@ void pddlFmSetPredReadWriteEff(const pddl_fm_t *fm, pddl_preds_t *preds)
 /*** INSTANTIATE QUANTIFIERS ***/
 struct instantiate_cond {
     int param_id;
-    pddl_obj_id_t obj_id;
+    int obj_id;
 };
 typedef struct instantiate_cond instantiate_cond_t;
 
@@ -2438,7 +2438,7 @@ static int instantiateCond(pddl_fm_t *c, void *data)
 
 static pddl_fm_junc_t *instantiatePart(pddl_fm_junc_t *p,
                                        int param_id,
-                                       const pddl_obj_id_t *objs,
+                                       const int *objs,
                                        int objs_size)
 {
     pddl_fm_junc_t *out;
@@ -2468,7 +2468,7 @@ static pddl_fm_t *instantiateQuant(pddl_fm_quant_t *q,
 {
     pddl_fm_junc_t *top;
     const pddl_param_t *param;
-    const pddl_obj_id_t *obj;
+    const int *obj;
     int obj_size, bval;
 
     // The instantiation of universal/existential quantifier is a
@@ -3011,7 +3011,7 @@ static int implyParams(pddl_fm_t *c, void *data)
 
 struct instantiate_ctx {
     const pddl_iset_t *params;
-    const pddl_obj_id_t *arg;
+    const int *arg;
 };
 typedef struct instantiate_ctx instantiate_ctx_t;
 
@@ -3036,7 +3036,7 @@ static int instantiateTraverse(pddl_fm_t *fm, void *ud)
 
 static pddl_fm_t *instantiate(pddl_fm_t *fm,
                               const pddl_iset_t *params,
-                              const pddl_obj_id_t *arg,
+                              const int *arg,
                               int eq_pred)
 {
     pddl_fm_junc_t *and;
@@ -3052,7 +3052,7 @@ static pddl_fm_t *instantiate(pddl_fm_t *fm,
         eq->arg_size = 2;
         eq->arg = ALLOC_ARR(pddl_fm_atom_arg_t, 2);
         eq->arg[0].param = param;
-        eq->arg[0].obj = PDDL_OBJ_ID_UNDEF;
+        eq->arg[0].obj = -1;
         eq->arg[1].param = -1;
         eq->arg[1].obj = arg[i];
         pddlFmJuncAdd(and, &eq->fm);
@@ -3072,9 +3072,9 @@ static void removeStaticImplyRec(pddl_fm_junc_t *top,
                                  const pddl_params_t *params,
                                  const pddl_iset_t *imp_params,
                                  int pidx,
-                                 pddl_obj_id_t *arg)
+                                 int *arg)
 {
-    const pddl_obj_id_t *obj;
+    const int *obj;
     int obj_size;
 
     if (pidx == pddlISetSize(imp_params)){
@@ -3099,14 +3099,14 @@ static int removeStaticImply(pddl_fm_t **fm, const pddl_t *pddl,
 {
     pddl_fm_junc_t *or;
     PDDL_ISET(imply_params);
-    pddl_obj_id_t *obj;
+    int *obj;
 
     if (params == NULL)
         return 0;
 
     pddlFmTraverse(*fm, NULL, implyParams, &imply_params);
     if (pddlISetSize(&imply_params) > 0){
-        obj = ALLOC_ARR(pddl_obj_id_t, pddlISetSize(&imply_params));
+        obj = ALLOC_ARR(int, pddlISetSize(&imply_params));
         or = fmPartNew(PDDL_FM_OR);
         removeStaticImplyRec(or, *fm, pddl, params, &imply_params, 0, obj);
         FREE(obj);
@@ -3316,7 +3316,7 @@ static int reorderEqPredicates(pddl_fm_t **c, void *data)
             }else if (a->arg[1].param >= 0){
                 a->arg[0].param = a->arg[1].param;
                 a->arg[1].obj = a->arg[0].obj;
-                a->arg[0].obj = PDDL_OBJ_ID_UNDEF;
+                a->arg[0].obj = -1;
                 a->arg[1].param = -1;
             }else{
                 pddl_fm_t *b = NULL;
@@ -3716,7 +3716,7 @@ pddl_bool_t pddlFmAtomInConflict(const pddl_fm_atom_t *a1,
     return pddl_false;
 }
 
-static void fmAtomRemapObjs(pddl_fm_atom_t *a, const pddl_obj_id_t *remap)
+static void fmAtomRemapObjs(pddl_fm_atom_t *a, const int *remap)
 {
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].obj >= 0)
@@ -3726,7 +3726,7 @@ static void fmAtomRemapObjs(pddl_fm_atom_t *a, const pddl_obj_id_t *remap)
 
 static int fmRemapObjs(pddl_fm_t *c, void *_remap)
 {
-    const pddl_obj_id_t *remap = _remap;
+    const int *remap = _remap;
     if (c->type == PDDL_FM_ATOM){
         pddl_fm_atom_t *a = pddlFmToAtom(c);
         fmAtomRemapObjs(a, remap);
@@ -3742,7 +3742,7 @@ static int fmRemapObjs(pddl_fm_t *c, void *_remap)
     return 0;
 }
 
-void pddlFmRemapObjs(pddl_fm_t *c, const pddl_obj_id_t *remap)
+void pddlFmRemapObjs(pddl_fm_t *c, const int *remap)
 {
     pddlFmTraverse(c, NULL, fmRemapObjs, (void *)remap);
 }

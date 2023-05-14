@@ -135,7 +135,7 @@ static void compressedRowProblemInit(pddl_lp_compressed_row_problem_t *p,
             ++ins;
         }
     }
-    ASSERT(ins == num_nz);
+    ASSERT(ins == p->num_nz);
 }
 
 static void compressedRowProblemFree(pddl_lp_compressed_row_problem_t *p)

@@ -37,7 +37,7 @@ struct pddl_ground_action_args {
     int action_id; /*!< ID of the action */
     int action_id2; /*!< Additional ID used for distinguishing conditional
                          effects */
-    pddl_obj_id_t arg[]; /*!< Arguments of the action */
+    int arg[]; /*!< Arguments of the action */
 };
 typedef struct pddl_ground_action_args pddl_ground_action_args_t;
 
@@ -62,11 +62,11 @@ void pddlStripsMakerFree(pddl_strips_maker_t *sm);
  */
 pddl_ground_atom_t *pddlStripsMakerAddAtom(pddl_strips_maker_t *sm,
                                            const pddl_fm_atom_t *atom,
-                                           const pddl_obj_id_t *args,
+                                           const int *args,
                                            int *is_new);
 pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
                                                int pred,
-                                               const pddl_obj_id_t *args,
+                                               const int *args,
                                                int args_size,
                                                int *is_new);
 
@@ -75,11 +75,11 @@ pddl_ground_atom_t *pddlStripsMakerAddAtomPred(pddl_strips_maker_t *sm,
  */
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtom(pddl_strips_maker_t *sm,
                                                  const pddl_fm_atom_t *atom,
-                                                 const pddl_obj_id_t *args,
+                                                 const int *args,
                                                  int *is_new);
 pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
                                                      int pred,
-                                                     const pddl_obj_id_t *args,
+                                                     const int *args,
                                                      int args_size,
                                                      int *is_new);
 
@@ -88,7 +88,7 @@ pddl_ground_atom_t *pddlStripsMakerAddStaticAtomPred(pddl_strips_maker_t *sm,
  */
 pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,
                                            const pddl_fm_func_op_t *func,
-                                           const pddl_obj_id_t *args,
+                                           const int *args,
                                            int *is_new);
 
 /**
@@ -97,7 +97,7 @@ pddl_ground_atom_t *pddlStripsMakerAddFunc(pddl_strips_maker_t *sm,
 pddl_ground_action_args_t *pddlStripsMakerAddAction(pddl_strips_maker_t *sm,
                                                     int action_id,
                                                     int action_id2,
-                                                    const pddl_obj_id_t *args,
+                                                    const int *args,
                                                     int *is_new);
 
 /**
@@ -133,7 +133,7 @@ const pddl_ground_atom_t *pddlStripsMakerGroundAtomConst(
  */
 void pddlStripsMakerActionEffInState(pddl_strips_maker_t *smaker,
                                      const pddl_action_t *a,
-                                     const pddl_obj_id_t *args,
+                                     const int *args,
                                      const pddl_iset_t *state,
                                      pddl_iset_t *add_eff,
                                      pddl_iset_t *del_eff,

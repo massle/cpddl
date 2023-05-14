@@ -101,7 +101,7 @@ int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g);
  * This call does *not* trigger unify_new_atom callback.
  */
 int pddlStripsGroundAddGroundAtom(pddl_strips_ground_t *g, int pred,
-                                  const pddl_obj_id_t *arg, int arg_size);
+                                  const int *arg, int arg_size);
 
 /**
  * Finalizes grounding and writes the output STRIPS.
