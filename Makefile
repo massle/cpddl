@@ -37,6 +37,7 @@ SRC += fact
 SRC += action
 SRC += prep_action
 SRC += pddl
+SRC += pddl_compile_away_neg_pre
 SRC += unify
 SRC += compile_in_lifted_mgroup
 SRC += fm

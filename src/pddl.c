@@ -769,7 +769,8 @@ void pddlNormalize(pddl_t *pddl)
     if (pddl->goal)
         pddl->goal = pddlFmNormalize(pddl->goal, pddl, NULL);
 
-    compileOutNonStaticNegPre(pddl);
+    pddlCompileAwayNegativeConditions(pddl, pddl_true, NULL);
+    //compileOutNonStaticNegPre(pddl);
     if (!pddl->only_domain && !pddl->cfg.keep_all_actions){
         removeIrrelevantActions(pddl);
         do {

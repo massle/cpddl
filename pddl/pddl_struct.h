@@ -136,6 +136,12 @@ void pddlCompileAwayCondEff(pddl_t *pddl);
 void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
 
 /**
+ * Compiles away negative preconditions and goals.
+ */
+int pddlCompileAwayNegativeConditions(pddl_t *pddl, pddl_bool_t only_dynamic,
+                                      pddl_err_t *err);
+
+/**
  * Returns maximal number of parameters of all predicates and functions.
  */
 // TODO: rename to *MaxArity
