@@ -195,19 +195,7 @@ static void dlAddInitStaticFacts(pddl_datalog_t *dl,
         if (!pddlPredIsStatic(pddl->pred.pred + a->pred) || a->neg)
             continue;
 
-        pddl_datalog_atom_t atom;
-        pddl_datalog_rule_t rule;
-        pddlDatalogRuleInit(dl, &rule);
-        pddlDatalogAtomInit(dl, &atom, pred_to_dlpred[a->pred]);
-        for (int i = 0; i < a->arg_size; ++i){
-            int obj = a->arg[i].obj;
-            ASSERT(obj >= 0);
-            pddlDatalogAtomSetArg(dl, &atom, i, obj_to_dlconst[obj]);
-        }
-        pddlDatalogRuleSetHead(dl, &rule, &atom);
-        pddlDatalogAtomFree(dl, &atom);
-        pddlDatalogAddRule(dl, &rule);
-        pddlDatalogRuleFree(dl, &rule);
+        pddlDatalogPddlAddFactRuleFromAtom(dl, a, pred_to_dlpred, obj_to_dlconst);
     }
 }
 
@@ -275,15 +263,8 @@ static void dlAddStaticBody(const pddl_t *pddl,
             continue;
 
         pddl_datalog_atom_t atom;
-        pddlDatalogAtomInit(dl, &atom, pred_to_dlpred[satom->pred]);
-        for (int i = 0; i < satom->arg_size; ++i){
-            if (satom->arg[i].obj >= 0){
-                pddlDatalogAtomSetArg(dl, &atom, i,
-                                      obj_to_dlconst[satom->arg[i].obj]);
-            }else{
-                pddlDatalogAtomSetArg(dl, &atom, i, dlvar[satom->arg[i].param]);
-            }
-        }
+        pddlDatalogPddlAtomToDLAtom(dl, &atom, satom, pred_to_dlpred,
+                                    obj_to_dlconst, dlvar);
         pddlDatalogRuleAddBody(dl, rule, &atom);
         pddlDatalogAtomFree(dl, &atom);
     }
@@ -306,14 +287,8 @@ static void dlRulesForPreAndAtom(const pddl_t *pddl,
 
     // Create head
     pddl_datalog_atom_t atom;
-    pddlDatalogAtomInit(dl, &atom, pred_to_dlpred[a->pred]);
-    for (int i = 0; i < a->arg_size; ++i){
-        if (a->arg[i].obj >= 0){
-            pddlDatalogAtomSetArg(dl, &atom, i, obj_to_dlconst[a->arg[i].obj]);
-        }else{
-            pddlDatalogAtomSetArg(dl, &atom, i, dlvar[a->arg[i].param]);
-        }
-    }
+    pddlDatalogPddlAtomToDLAtom(dl, &atom, a, pred_to_dlpred,
+                                obj_to_dlconst, dlvar);
     pddlDatalogRuleSetHead(dl, &rule, &atom);
     pddlDatalogAtomFree(dl, &atom);
 
