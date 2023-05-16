@@ -427,6 +427,43 @@ void pddlActionsRemoveSet(pddl_actions_t *as, const pddl_iset_t *ids)
     as->action_size = ins;
 }
 
+static int cmpFms(const pddl_fm_t *fm1,
+                  const pddl_fm_t *fm2,
+                  void *_pddl)
+{
+    int cmp = (int)pddlFmIsAtom(fm2) - (int)pddlFmIsAtom(fm1);
+    if (cmp == 0 && pddlFmIsAtom(fm1)){
+        const pddl_t *pddl = _pddl;
+        const pddl_fm_atom_t *a1 = pddlFmToAtomConst(fm1);
+        const pddl_fm_atom_t *a2 = pddlFmToAtomConst(fm2);
+
+        int a1static = pddlPredIsStatic(pddl->pred.pred + a1->pred);
+        int a2static = pddlPredIsStatic(pddl->pred.pred + a2->pred);
+        cmp = a2static - a1static;
+        if (cmp == 0)
+            cmp = pddlFmAtomCmp(a1, a2);
+
+    }else if (cmp == 0 && pddlFmIsFuncOp(fm1) && pddlFmIsFuncOp(fm2)){
+        const pddl_fm_func_op_t *f1 = pddlFmToFuncOpConst(fm1);
+        const pddl_fm_func_op_t *f2 = pddlFmToFuncOpConst(fm2);
+        ASSERT(f1->lvalue != NULL && f2->lvalue != NULL);
+        int cmp = pddlFmAtomCmp(f1->lvalue, f2->lvalue);
+        if (cmp == 0){
+            if (f1->fvalue == NULL && f2->fvalue == NULL){
+                cmp = f1->value - f2->value;
+            }else if (f1->fvalue == NULL){
+                cmp = 1;
+            }else if (f2->fvalue == NULL){
+                cmp = -1;
+            }else{
+                cmp = pddlFmAtomCmp(f1->fvalue, f2->fvalue);
+            }
+        }
+    }
+
+    return cmp;
+}
+
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
 {
     fprintf(fout, "    %s: ", a->name);
@@ -434,11 +471,27 @@ void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
     fprintf(fout, "\n");
 
     fprintf(fout, "        pre: ");
-    pddlFmPrint(pddl, a->pre, &a->param, fout);
+    if (a->pre == NULL){
+        fprintf(fout, "()");
+    }else{
+        pddl_fm_t *fm = pddlFmClone(a->pre);
+        if (pddlFmIsJunc(fm))
+            pddlFmJuncSort(pddlFmToJunc(fm), cmpFms, (void *)pddl);
+        pddlFmPrint(pddl, fm, &a->param, fout);
+        pddlFmDel(fm);
+    }
     fprintf(fout, "\n");
 
     fprintf(fout, "        eff: ");
-    pddlFmPrint(pddl, a->eff, &a->param, fout);
+    if (a->eff == NULL){
+        fprintf(fout, "()");
+    }else{
+        pddl_fm_t *fm = pddlFmClone(a->eff);
+        if (pddlFmIsJunc(fm))
+            pddlFmJuncSort(pddlFmToJunc(fm), cmpFms, (void *)pddl);
+        pddlFmPrint(pddl, fm, &a->param, fout);
+        pddlFmDel(fm);
+    }
     fprintf(fout, "\n");
 }
 

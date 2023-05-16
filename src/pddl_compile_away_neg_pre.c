@@ -25,44 +25,6 @@ struct pred {
 };
 typedef struct pred pred_t;
 
-// TODO: Rewrite with PDDL_FM_FOR_EACH_ATOM macro
-static int markPredGoal(pddl_fm_t *c, void *_nc)
-{
-    if (pddlFmIsAtom(c)){
-        pddl_fm_atom_t *atom = pddlFmToAtom(c);
-        if (atom->neg){
-            pred_t *nc = _nc;
-            nc[atom->pred].is_neg = 1;
-            nc[atom->pred].in_goal = 1;
-        }
-    }
-
-    return 0;
-}
-
-static int markPred(pddl_fm_t *c, void *_nc)
-{
-    if (pddlFmIsAtom(c)){
-        pddl_fm_atom_t *atom = pddlFmToAtom(c);
-        if (atom->neg){
-            pred_t *nc = _nc;
-            nc[atom->pred].is_neg = 1;
-        }
-    }
-
-    return 0;
-}
-
-static int markPredWhen(pddl_fm_t *c, void *_nc)
-{
-    if (pddlFmIsWhen(c)){
-        pddl_fm_when_t *when = pddlFmToWhen(c);
-        pddlFmTraverse(when->pre, markPred, NULL, _nc);
-    }
-
-    return 0;
-}
-
 static int predArrInit(pred_t *nc, const pddl_t *pddl)
 {
     ZEROIZE_ARR(nc, pddl->pred.pred_size);
@@ -72,12 +34,35 @@ static int predArrInit(pred_t *nc, const pddl_t *pddl)
     }
 
     for (int i = 0; i < pddl->action.action_size; ++i){
-        pddlFmTraverse(pddl->action.action[i].pre, markPred, NULL, nc);
-        pddlFmTraverse(pddl->action.action[i].eff, markPredWhen, NULL, nc);
+        const pddl_fm_atom_t *atom;
+        pddl_fm_const_it_atom_t it;
+        PDDL_FM_FOR_EACH_ATOM(pddl->action.action[i].pre, &it, atom){
+            if (atom->neg)
+                nc[atom->pred].is_neg = 1;
+        }
+
+        const pddl_fm_when_t *when;
+        pddl_fm_const_it_when_t wit;
+        PDDL_FM_FOR_EACH_WHEN(pddl->action.action[i].eff, &wit, when){
+            const pddl_fm_atom_t *atom;
+            pddl_fm_const_it_atom_t it;
+            PDDL_FM_FOR_EACH_ATOM(when->pre, &it, atom){
+                if (atom->neg)
+                    nc[atom->pred].is_neg = 1;
+            }
+        }
     }
 
-    if (pddl->goal != NULL)
-        pddlFmTraverse(pddl->goal, markPredGoal, NULL, nc);
+    if (pddl->goal != NULL){
+        const pddl_fm_atom_t *atom;
+        pddl_fm_const_it_atom_t it;
+        PDDL_FM_FOR_EACH_ATOM(pddl->goal, &it, atom){
+            if (atom->neg){
+                nc[atom->pred].is_neg = 1;
+                nc[atom->pred].in_goal = 1;
+            }
+        }
+    }
 
     int ret = 0;
     for (int i = 0; i < pddl->pred.pred_size; ++i){
@@ -297,7 +282,6 @@ static void dlRulesForPreAndAtom(const pddl_t *pddl,
         if (a->arg[i].param >= 0){
             int type = params->param[a->arg[i].param].type;
             pddl_datalog_atom_t atom;
-            fprintf(stderr, "dltype: %d %u\n", type, type_to_dlpred[type]);
             pddlDatalogAtomInit(dl, &atom, type_to_dlpred[type]);
             pddlDatalogAtomSetArg(dl, &atom, 0, dlvar[a->arg[i].param]);
             pddlDatalogRuleAddBody(dl, &rule, &atom);
@@ -332,10 +316,30 @@ static void dlRulesForPre(const pddl_t *pddl,
     const pddl_fm_atom_t *atom;
     pddl_fm_const_it_atom_t it;
     PDDL_FM_FOR_EACH_ATOM(pre, &it, atom){
-        if (atom->pred < old_pred_size)
-            continue;
-        dlRulesForPreAndAtom(pddl, params, atom, pre, pre2, dl, type_to_dlpred,
-                             pred_to_dlpred, obj_to_dlconst, dlvar, err);
+        // We need to consider both the positinve and negative forms of the
+        // newly added NOT-* predicate. Especially, when we have
+        // conditional effects that might be compiled away.
+        if (atom->pred >= old_pred_size){
+            ASSERT(!atom->neg);
+            LOG(err, "Adding datalog rule for atom %s",
+                F_COND(&atom->fm, pddl, params));
+            dlRulesForPreAndAtom(pddl, params, atom, pre, pre2, dl,
+                                 type_to_dlpred, pred_to_dlpred,
+                                 obj_to_dlconst, dlvar, err);
+
+        }else if (pddl->pred.pred[atom->pred].neg_of >= old_pred_size){
+            pddl_fm_t *fm = pddlFmClone(&atom->fm);
+            pddl_fm_atom_t *neg_atom = pddlFmToAtom(fm);
+            ASSERT(!neg_atom->neg);
+            neg_atom->pred = pddl->pred.pred[atom->pred].neg_of;
+            LOG(err, "Adding datalog rule for atom %s (from %s)",
+                F_COND(&neg_atom->fm, pddl, params),
+                F_COND(&atom->fm, pddl, params));
+            dlRulesForPreAndAtom(pddl, params, neg_atom, pre, pre2, dl,
+                                 type_to_dlpred, pred_to_dlpred,
+                                 obj_to_dlconst, dlvar, err);
+            pddlFmDel(fm);
+        }
     }
 }
 
@@ -347,8 +351,8 @@ static void dlFactToGroundAtom(int pred_id, int arity, const int *args,
 }
 
 
-static void extendInitialState(pddl_t *pddl, int old_pred_size,
-                               const pred_t *pred, pddl_err_t *err)
+static void extendInitialStateUsingDL(pddl_t *pddl, int old_pred_size,
+                                      const pred_t *pred, pddl_err_t *err)
 {
     pddl_ground_atoms_t gatoms;
     pddlGroundAtomsInit(&gatoms);
@@ -365,6 +369,7 @@ static void extendInitialState(pddl_t *pddl, int old_pred_size,
 
     for (int ai = 0; ai < pddl->action.action_size; ++ai){
         const pddl_action_t *a = pddl->action.action + ai;
+        LOG(err, "Looking for datalog rules in action %s", a->name);
         dlRulesForPre(pddl, old_pred_size, &a->param, a->pre, NULL,
                       dl, type_to_dlpred, pred_to_dlpred, obj_to_dlconst,
                       dlvar, err);
@@ -407,36 +412,97 @@ static void extendInitialState(pddl_t *pddl, int old_pred_size,
 
     // Extend the initial state with atoms that do not appear in the
     // positive form
-    // TODO: Rewrite with only one for-cycle
-    for (int pi = 0; pi < old_pred_size; ++pi){
-        if (pred[pi].neg < 0)
-            continue;
-
-        int neg = pred[pi].neg;
-        int pos = pred[pi].pos;
-        for (int atom_id = 0; atom_id < gatoms.atom_size; ++atom_id){
-            const pddl_ground_atom_t *ga = gatoms.atom[atom_id];
-            if (ga->pred == neg){
-                const pddl_ground_atom_t *pos_atom;
-                pos_atom = pddlGroundAtomsFindPred(&gatoms, pos, ga->arg,
-                                                   ga->arg_size);
-                if (pos_atom == NULL){
-                    pddl_fm_atom_t *a;
-                    a = pddlFmCreateFactAtom(neg, ga->arg_size, ga->arg);
-                    pddlFmJuncAdd(pddl->init, &a->fm);
-                    pddl->pred.pred[a->pred].in_init = 1;
-                }
+    int count_added = 0;
+    for (int atom_id = 0; atom_id < gatoms.atom_size; ++atom_id){
+        const pddl_ground_atom_t *ga = gatoms.atom[atom_id];
+        if (ga->pred >= old_pred_size){
+            int neg = ga->pred;
+            int pos = pddl->pred.pred[ga->pred].neg_of;
+            const pddl_ground_atom_t *pos_atom;
+            pos_atom = pddlGroundAtomsFindPred(&gatoms, pos, ga->arg,
+                                               ga->arg_size);
+            if (pos_atom == NULL){
+                pddl_fm_atom_t *a;
+                a = pddlFmCreateFactAtom(neg, ga->arg_size, ga->arg);
+                pddlFmJuncAdd(pddl->init, &a->fm);
+                pddl->pred.pred[a->pred].in_init = 1;
+                ++count_added;
             }
         }
     }
+    LOG(err, "Number of added NOT- predicates: %d", count_added);
 
     pddlGroundAtomsFree(&gatoms);
 }
 
-int pddlCompileAwayNegativeConditions(pddl_t *pddl, pddl_bool_t only_dynamic,
+static int genAllInitFactsRec(pddl_t *pddl, int pos, int neg,
+                              int arg_size, int *arg,
+                              const pddl_pred_t *pred, int argi,
+                              const pddl_ground_atoms_t *gatoms)
+{
+    int count = 0;
+    pddl_fm_atom_t *a;
+    const int *obj;
+    int obj_size;
+
+    if (argi == arg_size){
+        if (pddlGroundAtomsFindPred(gatoms, pos, arg, arg_size) == NULL){
+            a = pddlFmCreateFactAtom(neg, arg_size, arg);
+            pddlFmJuncAdd(pddl->init, &a->fm);
+            pddl->pred.pred[a->pred].in_init = 1;
+            ++count;
+        }
+
+        return count;
+    }
+
+    obj = pddlTypesObjsByType(&pddl->type, pred->param[argi], &obj_size);
+    for (int i = 0; i < obj_size; ++i){
+        arg[argi] = obj[i];
+        count += genAllInitFactsRec(pddl, pos, neg, arg_size, arg,
+                                    pred, argi + 1, gatoms);
+    }
+
+    return count;
+}
+
+static int genAllInitFacts(pddl_t *pddl, int pos, int neg,
+                           const pddl_ground_atoms_t *gatoms, pddl_err_t *err)
+{
+    const pddl_pred_t *pos_pred = pddl->pred.pred + pos;
+    ASSERT(pos_pred->param_size == pddl->pred.pred[neg].param_size);
+    int arg[pos_pred->param_size];
+
+    // Recursivelly try all possible objects for each argument
+    return genAllInitFactsRec(pddl, pos, neg, pos_pred->param_size, arg,
+                              pos_pred, 0, gatoms);
+}
+
+static void extendInitialStateExhaustively(pddl_t *pddl, int old_pred_size,
+                                           const pred_t *pred, pddl_err_t *err)
+{
+    pddl_ground_atoms_t gatoms;
+    pddlGroundAtomsInit(&gatoms);
+    pddlGroundAtomsAddInit(&gatoms, pddl);
+
+    int count = 0;
+    for (int pred_id = 0; pred_id < old_pred_size; ++pred_id){
+        if (pred[pred_id].neg >= 0){
+            count += genAllInitFacts(pddl, pred[pred_id].pos, pred[pred_id].neg,
+                                     &gatoms, err);
+        }
+    }
+
+    pddlGroundAtomsFree(&gatoms);
+    LOG(err, "Number of added NOT- predicates: %d", count);
+}
+
+int pddlCompileAwayNegativeConditions(pddl_t *pddl,
+                                      pddl_bool_t only_dynamic,
+                                      pddl_bool_t only_relevant_facts_in_init,
                                       pddl_err_t *err)
 {
-    CTX(err, "Comp-Away Neg Cond");
+    CTX(err, "Neg-Cond");
     LOG(err, "Cfg: only_dymanic: %b", only_dynamic);
 
     pred_t pred[pddl->pred.pred_size];
@@ -457,7 +523,6 @@ int pddlCompileAwayNegativeConditions(pddl_t *pddl, pddl_bool_t only_dynamic,
         if (pred_id == pddl->pred.eq_pred)
             continue;
 
-        fprintf(stderr, "pred_id: %d\n", pred_id);
         LOG(err, "Compiling away negations of %d:%s | (not (%s ...))",
             pred_id,
             pddl->pred.pred[pred_id].name,
@@ -476,7 +541,11 @@ int pddlCompileAwayNegativeConditions(pddl_t *pddl, pddl_bool_t only_dynamic,
     }
 
     LOG(err, "Extending initial state...");
-    extendInitialState(pddl, pred_size, pred, err);
+    if (only_relevant_facts_in_init){
+        extendInitialStateUsingDL(pddl, pred_size, pred, err);
+    }else{
+        extendInitialStateExhaustively(pddl, pred_size, pred, err);
+    }
     LOG(err, "Initial state extended.");
 
     LOG(err, "Compiled away negative conditions of %d predicates", count);

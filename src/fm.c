@@ -1440,6 +1440,50 @@ void pddlFmRebuild(pddl_fm_t **c,
     fmRebuild(c, pre, post, u);
 }
 
+void pddlFmJuncSort(pddl_fm_junc_t *fm,
+                    int (*cmp)(const pddl_fm_t *fm1,
+                               const pddl_fm_t *fm2,
+                               void *userdata),
+                    void *userdata)
+{
+    // This is insert-sort on linked list
+    pddl_list_t *list = &fm->part;
+    pddl_list_t sorted;
+
+    // empty list - no need to sort
+    if (pddlListEmpty(list))
+        return;
+
+    // list with one item - no need to sort
+    if (pddlListNext(list) == pddlListPrev(list))
+        return;
+
+    pddlListInit(&sorted);
+    while (!pddlListEmpty(list)){
+        // pick up next item from list
+        pddl_list_t *cur = pddlListNext(list);
+        pddlListDel(cur);
+        const pddl_fm_t *curfm = PDDL_LIST_ENTRY(cur, pddl_fm_t, conn);
+
+        // find the place where to put it
+        pddl_list_t *item = pddlListPrev(&sorted);
+        while (item != &sorted){
+            const pddl_fm_t *itemfm = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+            if (cmp(curfm, itemfm, userdata) >= 0)
+                break;
+            item = pddlListPrev(item);
+        }
+
+        // put it after the item
+        pddlListPrepend(item, cur);
+    }
+
+    // and finally store sorted
+    *list = sorted;
+    list->next->prev = list;
+    list->prev->next = list;
+}
+
 static int _countAtoms(pddl_fm_t *fm, void *u)
 {
     if (pddlFmIsAtom(fm)){
