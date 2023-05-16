@@ -19,7 +19,51 @@
 
 
 #include "pddl/pddl_struct.h"
+#include "pddl/sort.h"
 #include "internal.h"
+
+void pddlLogStatsOneLine(const pddl_t *pddl, const char *prefix, pddl_err_t *err)
+{
+    int pre_size_min = 0;
+    int pre_size_max = 0;
+    float pre_size_avg = 0;
+    float pre_size_median = 0;
+    if (pddl->action.action_size > 0){
+        int *pre_size = ALLOC_ARR(int, pddl->action.action_size);
+        for (int ai = 0; ai < pddl->action.action_size; ++ai)
+            pre_size[ai] = pddlFmNumAtoms(pddl->action.action[ai].pre);
+        pddlSortInt(pre_size, pddl->action.action_size);
+        pre_size_min = pre_size[0];
+        pre_size_max = pre_size[pddl->action.action_size - 1];
+        for (int ai = 0; ai < pddl->action.action_size; ++ai)
+            pre_size_avg += pre_size[ai];
+        pre_size_avg /= (float)pddl->action.action_size;
+
+        if (pddl->action.action_size % 2 == 1){
+            pre_size_median = pre_size[pddl->action.action_size / 2];
+        }else{
+            pre_size_median = pre_size[pddl->action.action_size / 2];
+            pre_size_median += pre_size[pddl->action.action_size / 2 - 1];
+            pre_size_median /= 2.;
+        }
+        FREE(pre_size);
+    }
+
+    LOG(err, "%s"
+        " types: %d,"
+        " objects: %d,"
+        " predicates: %d,"
+        " functions: %d,"
+        " actions: %d,"
+        " action-pre-size: [min: %d, max: %d, avg: %.2f, med: %.2f]",
+        prefix,
+        pddl->type.type_size,
+        pddl->obj.obj_size,
+        pddl->pred.pred_size,
+        pddl->func.pred_size,
+        pddl->action.action_size,
+        pre_size_min, pre_size_max, pre_size_avg, pre_size_median);
+}
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err)
 {
@@ -252,37 +296,13 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     pddlTypesBuildObjTypeMap(&pddl->type, pddl->obj.obj_size);
     LOG(err, "PDDL files processed.");
 
-    if (cfg->normalize){
-        pddlNormalize(pddl);
-        LOG(err, "PDDL task normalized."
-            " types: %d,"
-            " objects: %d,"
-            " predicates: %d,"
-            " functions: %d,"
-            " actions: %d",
-            pddl->type.type_size,
-            pddl->obj.obj_size,
-            pddl->pred.pred_size,
-            pddl->func.pred_size,
-            pddl->action.action_size);
-    }
+    if (cfg->normalize)
+        pddlNormalize(pddl, err);
 
     if (cfg->remove_empty_types){
         pddlRemoveEmptyTypes(pddl, err);
-        if (cfg->normalize){
-            pddlNormalize(pddl);
-            LOG(err, "PDDL task normalized again."
-                " types: %d,"
-                " objects: %d,"
-                " predicates: %d,"
-                " functions: %d,"
-                " actions: %d",
-                pddl->type.type_size,
-                pddl->obj.obj_size,
-                pddl->pred.pred_size,
-                pddl->func.pred_size,
-                pddl->action.action_size);
-        }
+        if (cfg->normalize)
+            pddlNormalize(pddl, err);
     }
 
     if (cfg->enforce_unit_cost){
@@ -742,8 +762,11 @@ static void pddlResetPredReadWrite(pddl_t *pddl)
     }
 }
 
-void pddlNormalize(pddl_t *pddl)
+void pddlNormalize(pddl_t *pddl, pddl_err_t *err)
 {
+    CTX(err, "pddl-normalize", "PDDL-Normalize");
+    pddlLogStatsOneLine(pddl, "Before normalization:", err);
+
     pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
     ASSERT_RUNTIME(pddlFmIsAnd(c));
     pddl->init = pddlFmToAnd(c);
@@ -769,7 +792,7 @@ void pddlNormalize(pddl_t *pddl)
     if (pddl->goal)
         pddl->goal = pddlFmNormalize(pddl->goal, pddl, NULL);
 
-    pddlCompileAwayNegativeConditions(pddl, pddl_true, NULL);
+    pddlCompileAwayNegativeConditions(pddl, pddl_true, err);
     //compileOutNonStaticNegPre(pddl);
     if (!pddl->only_domain && !pddl->cfg.keep_all_actions){
         removeIrrelevantActions(pddl);
@@ -778,6 +801,9 @@ void pddlNormalize(pddl_t *pddl)
         } while (removeUnreachableActions(pddl));
     }
     pddl->normalized = pddl_true;
+
+    pddlLogStatsOneLine(pddl, "PDDL task normalized.", err);
+    CTXEND(err);
 }
 
 static void compileAwayCondEff(pddl_t *pddl, int only_non_static)
@@ -790,7 +816,7 @@ static void compileAwayCondEff(pddl_t *pddl, int only_non_static)
 
     do {
         change = 0;
-        pddlNormalize(pddl);
+        pddlNormalize(pddl, NULL);
 
         asize = pddl->action.action_size;
         for (int ai = 0; ai < asize; ++ai){

@@ -58,6 +58,12 @@ int pddlSort(void *base, size_t nmemb, size_t size,
 int pddlStableSort(void *base, size_t nmemb, size_t size,
                    pddl_sort_cmp cmp, void *carg);
 
+
+/**
+ * Sort array of ints.
+ */
+int pddlSortInt(int *base, size_t nmemb);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

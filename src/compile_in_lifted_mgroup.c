@@ -632,7 +632,7 @@ int pddlCompileInLiftedMGroups(pddl_t *pddl,
     }
 
     if (changed)
-        pddlNormalize(pddl);
+        pddlNormalize(pddl, err);
     LOG(err, "DONE. actions: %d", pddl->action.action_size);
     CTXEND(err);
     return changed;

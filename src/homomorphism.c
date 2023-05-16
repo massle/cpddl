@@ -266,7 +266,7 @@ static int collapseEndomorphism(pddl_t *pddl,
             ASSERT_RUNTIME(remap[oid] >= 0);
         }
         pddlRemapObjs(pddl, remap);
-        pddlNormalize(pddl);
+        pddlNormalize(pddl, err);
 
         if (obj_map != NULL){
             for (int i = 0; i < obj_size; ++i)
@@ -843,7 +843,7 @@ int pddlHomomorphism(pddl_t *pddl,
     }
 
     deduplicate(pddl);
-    pddlNormalize(pddl);
+    pddlNormalize(pddl, err);
     PDDL_INFO(err, "Homomorphism computed (objs: %d, from objs: %d).",
               pddl->obj.obj_size,
               src->obj.obj_size);
@@ -1047,7 +1047,7 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
             ASSERT_RUNTIME(remap[oid] >= 0);
         }
         pddlRemapObjs(&h->task, remap);
-        pddlNormalize(&h->task);
+        pddlNormalize(&h->task, err);
 
         for (int i = 0; i < h->input_obj_size; ++i)
             h->obj_map[i] = remap[h->obj_map[i]];
