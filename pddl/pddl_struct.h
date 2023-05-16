@@ -39,6 +39,20 @@ struct pddl_config {
     pddl_bool_t force_adl;
     /** Normalize the task right after parsing */
     pddl_bool_t normalize;
+    /** When normalizing, compile away negative conditions of dynamic
+     *  (non-static) preconditions in actions' preconditions and goal.
+     *  This takes effect only if .normalize is true. */
+    pddl_bool_t normalize_compile_away_dynamic_neg_cond;
+    /** As .normalize_compile_away_dynamic_neg_cond, but removes all
+     *  negative conditions including of static predicates. */
+    pddl_bool_t normalize_compile_away_all_neg_cond;
+    /** When compiling away negative conditions, the initial state is
+     *  extended with NOT-* facts. If this is set to true, then only the
+     *  facts that are relevant to preconditions or the goal are added.
+     *  Otherwise, all possible facts are generated.
+     *  This takes effect only if .normalize and one of
+     *  normalize_compile_away_*_neg_cond are true. */
+    pddl_bool_t normalize_compile_away_neg_cond_only_relevant_facts;
     /** Remove types without any objects */
     pddl_bool_t remove_empty_types;
     /** Compile away conditional effects */
@@ -55,6 +69,9 @@ typedef struct pddl_config pddl_config_t;
     { \
         pddl_true, /* .force_adl */ \
         pddl_true, /* .normalize */ \
+        pddl_true, /* .normalize_compile_away_dynamic_neg_cond */ \
+        pddl_false, /* .normalize_compile_away_all_neg_cond */ \
+        pddl_true, /* .normalize_compile_away_neg_cond_only_relevant_facts */ \
         pddl_true, /* .remove_empty_types */ \
         pddl_false, /* .compile_away_cond_eff */ \
         pddl_false, /* .enforce_unit_cost */ \
@@ -121,7 +138,7 @@ void pddlDel(pddl_t *pddl);
 /**
  * Normalize pddl, i.e., make preconditions and effects CNF
  */
-void pddlNormalize(pddl_t *pddl);
+void pddlNormalize(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Generate pddl without conditional effects.
@@ -134,6 +151,18 @@ void pddlCompileAwayCondEff(pddl_t *pddl);
  * This is enough for grounding.
  */
 void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
+
+/**
+ * Compiles away negative preconditions and goals.
+ * If only_dynamic is true, the static negative conditions are kept intact.
+ * If only_relevant_facts_in_init is true, then the initial state is
+ * extended only with facts that are relevant for actions or goal, i.e.,
+ * not all possible instances of facts are generated.
+ */
+int pddlCompileAwayNegativeConditions(pddl_t *pddl,
+                                      pddl_bool_t only_dynamic,
+                                      pddl_bool_t only_relevant_facts_in_init,
+                                      pddl_err_t *err);
 
 /**
  * Returns maximal number of parameters of all predicates and functions.

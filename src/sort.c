@@ -90,3 +90,19 @@ int pddlStableSort(void *base, size_t nmemb, size_t size,
 
     return ret;
 }
+
+static int cmpInt(const void *a, const void *b, void *_)
+{
+    int i1 = *(int *)a;
+    int i2 = *(int *)a;
+    if (i1 < i2)
+        return -1;
+    if (i1 > i2)
+        return 1;
+    return 0;
+}
+
+int pddlSortInt(int *base, size_t nmemb)
+{
+    return pddlSort(base, nmemb, sizeof(int), cmpInt, NULL);
+}

@@ -9,6 +9,9 @@
 - Dynamic loading of CPLEX and Gurobi libraries during runtime
 
 ### Changed
+- Algorithm for compiling away negative conditions: Now, it adds only the
+  (potentially) relevant `NOT-*` facts to the initial state; and it can be
+  configured via `pddl_config_t`.
 
 ### Removed
 - Suport for GLPK solver
