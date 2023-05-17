@@ -136,6 +136,11 @@ pddl_t *pddlNew(const char *domain_fn, const char *problem_fn,
 void pddlDel(pddl_t *pddl);
 
 /**
+ * Returns true if the task has an action with a conditional effect.
+ */
+pddl_bool_t pddlHasCondEff(const pddl_t *pddl);
+
+/**
  * Normalize pddl, i.e., make preconditions and effects CNF
  */
 void pddlNormalize(pddl_t *pddl, pddl_err_t *err);

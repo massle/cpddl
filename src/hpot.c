@@ -1372,6 +1372,9 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurPot(const pddl_hpot_config_t *cfg, pddl_err_t *err)
 {
+    if (cfg->fdr->has_cond_eff)
+        ERR_RET(err, NULL, "Potential heuristic does not support conditional effects.");
+
     pddl_heur_pot_t *h = ALLOC(pddl_heur_pot_t);
     pddlPotSolutionsInit(&h->sols);
     int ret = pddlHPot(&h->sols, cfg, err);

@@ -141,6 +141,10 @@ static int taskHeurEstimate(task_t *task,
         hcfg.mg_strips = &mg_strips;
         hcfg.mutex = &task->heur->mutex;
         task->h = pddlHeur(&hcfg, task->heur->err);
+        if (task->h == NULL){
+            pddlErrPrint(task->heur->err, 1, stderr);
+            PANIC("Op-mutex heuristic: Could not create a heuristic.");
+        }
 
         /*
         //pddlFDRStatePoolGet(&state_space->state_pool, node->id, fdr.init);
