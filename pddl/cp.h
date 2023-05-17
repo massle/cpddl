@@ -194,6 +194,11 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout);
 void pddlCPSetDefaultSolver(pddl_cp_solver_t solver_id);
 
 /**
+ * Returns true if the given solver is available.
+ */
+pddl_bool_t pddlCPIsSolverAvailable(pddl_cp_solver_t solver_id);
+
+/**
  * Solve the problem..
  */
 int pddlCPSolve(const pddl_cp_t *cp,

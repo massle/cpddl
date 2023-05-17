@@ -72,6 +72,34 @@ static int setLPSolver(const char *v)
     return 0;
 }
 
+static int setCPSolver(const char *v)
+{
+    int solver = -1;
+    if (strcmp(v, "cpoptimizer") == 0
+            || strcmp(v, "cp-optimizer") == 0
+            || strcmp(v, "cplex") == 0){
+        solver = PDDL_CP_SOLVER_CPOPTIMIZER;
+
+    }else if (strcmp(v, "minizinc") == 0 || strcmp(v, "mzn") == 0){
+        solver = PDDL_CP_SOLVER_MINIZINC;
+
+    }else if (strcmp(v, "?") == 0 || strcmp(v, "help") == 0){
+        opt.list_cp_solvers = pddl_true;
+        return 0;
+
+    }else{
+        fprintf(stderr, "Option Error: Unknown CP solver '%s'\n", v);
+        return -1;
+    }
+
+    if (!pddlLPSolverAvailable(solver)){
+        fprintf(stderr, "Option Error: %s is not an available CP solver!\n", v);
+        return -1;
+    }
+    pddlCPSetDefaultSolver(solver);
+    return 0;
+}
+
 static void hpotSetDisamb(pddl_bool_t value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -411,6 +439,8 @@ static void setBaseOptions(void)
                "Set output file for logs.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
                  "Set the default LP solver: cplex/gurobi/highs/coin-or");
+    optsAddStrFn("cp-solver", 0x0, setCPSolver,
+                 "Set the default CP solver: cpoptimizer/minizinc");
     optsAddStr("cplex-lib", 0x0, &opt.link_cplex, NULL,
                  "Load CPLEX dynamic library. Also sets LP solver to cplex.");
     optsAddStr("gurobi-lib", 0x0, &opt.link_gurobi, NULL,
@@ -1175,6 +1205,15 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
             printf("   highs (v%s)\n", pddl_highs_version);
         if (pddlLPSolverAvailable(PDDL_LP_COIN_OR))
             printf("   coin-or (v%s)\n", pddl_coin_or_version);
+        return 1;
+    }
+
+    if (opt.list_cp_solvers){
+        printf("Available (directly linked) CP solvers:\n");
+        if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_CPOPTIMIZER))
+            printf("   cpoptimier (v%s)\n", pddl_cp_optimizer_version);
+        if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_MINIZINC))
+            printf("   minizinc (%s, v%s)\n", PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
         return 1;
     }
 
