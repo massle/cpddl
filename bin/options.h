@@ -70,6 +70,7 @@ struct options {
     char *link_cplex;
     char *link_gurobi;
     pddl_bool_t list_lp_solvers;
+    pddl_bool_t list_cp_solvers;
 
     struct {
         pddl_bool_t force_adl;
