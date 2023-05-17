@@ -7,6 +7,7 @@
 - Script for generating pkg-config file
 - Support for Coin-Or MIP/LP solver
 - Dynamic loading of CPLEX and Gurobi libraries during runtime
+- Binaries can list available LP and CP solvers
 
 ### Changed
 - Algorithm for compiling away negative conditions: Now, it adds only the
