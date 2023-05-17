@@ -99,6 +99,14 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
     LOG(err, "Created %d operators", fdr->op.op_size);
 
+    int num_cond_eff = 0;
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        if (fdr->op.op[op_id]->cond_eff_size > 0)
+            ++num_cond_eff;
+    }
+    fdr->has_cond_eff = (num_cond_eff > 0);
+    LOG(err, "Created %d operators with conditional effects", num_cond_eff);
+
     pddlTimerStop(&timer);
     PDDL_LOG(err, "Translation took %.2f seconds",
              pddlTimerElapsedInSF(&timer));
@@ -235,10 +243,10 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
         pddlISetFree(&useless_ops);
 
         // Set cond-eff flag
-        fdr->has_cond_eff = 0;
+        fdr->has_cond_eff = pddl_false;
         for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
             if (fdr->op.op[op_id]->cond_eff_size > 0){
-                fdr->has_cond_eff = 1;
+                fdr->has_cond_eff = pddl_true;
                 break;
             }
         }

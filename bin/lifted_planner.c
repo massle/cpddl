@@ -43,11 +43,8 @@ static pddl_homomorphism_heur_t *
             pddlISetAdd(&homo_cfg.collapse_types, type);
     }
     pddl_homomorphism_heur_t *heur;
-    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
-        fprintf(stderr, "Error: ");
-        pddlErrPrint(err, 1, stderr);
-        return NULL;
-    }
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL)
+        PDDL_TRACE_RET(err, NULL);
     return heur;
 }
 
@@ -90,11 +87,8 @@ static pddl_homomorphism_heur_t *
     pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
     homo_cfg.random_seed = seed;
     pddl_homomorphism_heur_t *heur;
-    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
-        fprintf(stderr, "Error: ");
-        pddlErrPrint(err, 1, stderr);
-        return NULL;
-    }
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL)
+        PDDL_TRACE_RET(err, NULL);
     return heur;
 }
 
@@ -109,6 +103,9 @@ static pddl_homomorphism_heur_t *
     for (int i = 0; i < opt.lifted_planner.homomorph_samples; ++i){
         pddl_homomorphism_heur_t *h;
         h = _liftedPlannerHeurCollapseRandom(pddl, heur_fn, seed, err);
+        if (h == NULL)
+            continue;
+
         int hval = pddlHomomorphismHeurEvalGroundInit(h);
         PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
         if (hval > best_hval && hval != PDDL_COST_DEAD_END){
@@ -184,11 +181,17 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
         case LIFTED_PLAN_HEUR_HOMO_LMC:
         case LIFTED_PLAN_HEUR_HOMO_FF:
             heur_homo = liftedHomomorphHeur(pddl, err);
-            heur = pddlLiftedHeurHomomorphism(heur_homo);
+            if (heur_homo != NULL)
+                heur = pddlLiftedHeurHomomorphism(heur_homo);
             break;
         default:
             PDDL_PANIC("Unknown lifted heuristic.");
             break;
+    }
+
+    if (pddlErrIsSet(err)){
+        PDDL_CTXEND(err);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddl_lifted_search_config_t search_cfg = PDDL_LIFTED_SEARCH_CONFIG_INIT;

@@ -43,6 +43,9 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
                                     const pddl_homomorphism_config_t *cfg,
                                     pddl_err_t *err)
 {
+    if (pddlHasCondEff(pddl))
+        ERR_RET(err, -1, "Homomorphism heuristic does not support conditional effects.");
+
     ZEROIZE(h);
     h->obj_map = CALLOC_ARR(int, pddl->obj.obj_size);
     //pddlInitCopy(&h->homo, pddl);

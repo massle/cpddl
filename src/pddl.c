@@ -378,6 +378,19 @@ void pddlDel(pddl_t *pddl)
     FREE(pddl);
 }
 
+pddl_bool_t pddlHasCondEff(const pddl_t *pddl)
+{
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
+        pddl_fm_const_it_when_t it;
+        const pddl_fm_when_t *w;
+        PDDL_FM_FOR_EACH_WHEN(pddl->action.action[ai].eff, &it, w){
+            return pddl_true;
+        }
+    }
+
+    return pddl_false;
+}
+
 void pddlFree(pddl_t *pddl)
 {
     if (pddl->domain_lisp)
