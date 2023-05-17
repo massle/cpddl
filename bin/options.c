@@ -55,13 +55,17 @@ static int setLPSolver(const char *v)
     }else if (strcmp(v, "coin-or") == 0){
         solver = PDDL_LP_COIN_OR;
 
+    }else if (strcmp(v, "?") == 0 || strcmp(v, "help") == 0){
+        opt.list_lp_solvers = pddl_true;
+        return 0;
+
     }else{
         fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
         return -1;
     }
 
     if (!pddlLPSolverAvailable(solver)){
-        fprintf(stderr, "Option Error: %s is not compiled-in!\n", v);
+        fprintf(stderr, "Option Error: %s is not an available LP solver!\n", v);
         return -1;
     }
     pddlLPSetDefault(solver, NULL);
@@ -1158,6 +1162,19 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (opt.version){
         fprintf(stdout, "%s\n", pddl_version);
+        return 1;
+    }
+
+    if (opt.list_lp_solvers){
+        printf("Available (directly linked) LP solvers:\n");
+        if (pddlLPSolverAvailable(PDDL_LP_CPLEX))
+            printf("   cplex (v%s)\n", pddl_cplex_version);
+        if (pddlLPSolverAvailable(PDDL_LP_GUROBI))
+            printf("   gurobi (v%s)\n", pddl_gurobi_version);
+        if (pddlLPSolverAvailable(PDDL_LP_HIGHS))
+            printf("   highs (v%s)\n", pddl_highs_version);
+        if (pddlLPSolverAvailable(PDDL_LP_COIN_OR))
+            printf("   coin-or (v%s)\n", pddl_coin_or_version);
         return 1;
     }
 

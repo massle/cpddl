@@ -69,6 +69,7 @@ struct options {
     pddl_files_t files;
     char *link_cplex;
     char *link_gurobi;
+    pddl_bool_t list_lp_solvers;
 
     struct {
         pddl_bool_t force_adl;
