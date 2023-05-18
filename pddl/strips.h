@@ -23,41 +23,12 @@
 #include <pddl/common.h>
 #include <pddl/iset.h>
 #include <pddl/strips_op.h>
-#include <pddl/lifted_mgroup.h>
 #include <pddl/mutex_pair.h>
+#include <pddl/ground.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-struct pddl_ground_config {
-    const pddl_lifted_mgroups_t *lifted_mgroups;
-    /** If .lifted_mgroups != NULL, use lifted mutex groups to prune
-     *  operators that has mutex preconditions. */
-    pddl_bool_t prune_op_pre_mutex;
-    /** If .lifted_mgroups != NULL, use lifted mutex groups to prune
-     *  dead-end operators. */
-    pddl_bool_t prune_op_dead_end;
-    /** If true static facts are found and removed */
-    pddl_bool_t remove_static_facts;
-    /** Keep action arguments in strips operators */
-    pddl_bool_t keep_action_args;
-    /** Keep all static facts including the ones created from static
-     *  predicates */
-    pddl_bool_t keep_all_static_facts;
-};
-typedef struct pddl_ground_config pddl_ground_config_t;
-
-#define PDDL_GROUND_CONFIG_INIT { \
-        NULL, /* .lifted_mgroups */ \
-        pddl_true, /* .prune_op_pre_mutex */ \
-        pddl_true, /* .prune_op_dead_end */ \
-        pddl_true, /* .remove_static_facts */ \
-        pddl_false, /* .keep_action_args */ \
-        pddl_false, /* .keep_all_static_facts */ \
-    }
-
-void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err);
 
 struct pddl_strips {
     pddl_ground_config_t cfg;

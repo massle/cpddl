@@ -599,21 +599,23 @@ static void setLiftedPlannerOptions(void)
 
 static void setGroundOptions(void)
 {
-    opt.ground.cfg.lifted_mgroups = NULL;
-    opt.ground.cfg.remove_static_facts = 1;
-    opt.ground.method = GROUND_DL;
+    pddl_ground_config_t _cfg = PDDL_GROUND_CONFIG_INIT;
+    opt.ground.cfg = _cfg;
+    opt.ground.cfg.method = PDDL_GROUND_DATALOG;
+    PDDL_PANIC_IF(sizeof(int) != sizeof(opt.ground.cfg.method),
+                  "pddl_ground_method_t enum is not representable as int!");
 
     optsStartGroup("Grounding:");
-    optsAddIntSwitch("ground", 'G', &opt.ground.method,
+    optsAddIntSwitch("ground", 'G', (int *)&opt.ground.cfg.method,
                      "Grounding method, one of:\n"
-                     "  dl - datalog-based grounding method (default)\n"
+                     "  dl/datalog - datalog-based grounding method (default)\n"
                      "  sql - sqlite-based grounding method\n"
                      "  trie - default grounding method",
                      4,
-                     "trie", GROUND_TRIE,
-                     "sql", GROUND_SQL,
-                     "dl", GROUND_DL,
-                     "datalog", GROUND_DL);
+                     "trie", PDDL_GROUND_TRIE,
+                     "sql", PDDL_GROUND_SQL,
+                     "dl", PDDL_GROUND_DATALOG,
+                     "datalog", PDDL_GROUND_DATALOG);
     optsAddFlag("ground-prune-mutex", 0x0,
                 &opt.ground.cfg.prune_op_pre_mutex, 1,
                 "Prune during grounding by checking preconditions of operators");

@@ -202,15 +202,7 @@ static int stepGround(void)
         opt.ground.cfg.lifted_mgroups = &lifted_mgroups;
     }
 
-    int ret = -1;
-    if (opt.ground.method == GROUND_TRIE){
-        ret = pddlStripsGround(&strips, &pddl, &opt.ground.cfg, &err);
-    }else if (opt.ground.method == GROUND_SQL){
-        ret = pddlStripsGroundSql(&strips, &pddl, &opt.ground.cfg, &err);
-    }else if (opt.ground.method == GROUND_DL){
-        ret = pddlStripsGroundDatalog(&strips, &pddl, &opt.ground.cfg, &err);
-    }
-    if (ret != 0){
+    if (pddlGround(&strips, &pddl, &opt.ground.cfg, &err) != 0){
         PDDL_INFO(&err, "Grounding failed.");
         PDDL_TRACE_RET(&err, -1);
     }

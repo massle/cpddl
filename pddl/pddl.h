@@ -56,7 +56,8 @@
 #include <pddl/sql_grounder.h>
 #include <pddl/strips_op.h>
 #include <pddl/strips_fact_cross_ref.h>
-#include <pddl/strips_ground.h>
+#include <pddl/ground.h>
+#include <pddl/strips_ground_trie.h>
 #include <pddl/strips_ground_sql.h>
 #include <pddl/strips_ground_datalog.h>
 #include <pddl/strips_conj.h>

@@ -20,7 +20,7 @@
 #include "internal.h"
 #include "pddl/sort.h"
 #include "pddl/pddl.h"
-#include "pddl/strips_ground.h"
+#include "pddl/strips_ground_trie.h"
 
 struct pddl_strips_ground_atree {
     const pddl_prep_action_t *action;
@@ -33,7 +33,7 @@ static void atreeInit(pddl_strips_ground_atree_t *ga,
                       const pddl_prep_action_t *a);
 static void atreeFree(pddl_strips_ground_atree_t *ga);
 static void atreeBlockStatic(pddl_strips_ground_atree_t *atr);
-static void atreeUnifyFact(pddl_strips_ground_t *g,
+static void atreeUnifyFact(pddl_strips_ground_trie_t *g,
                            pddl_strips_ground_atree_t *ga,
                            const pddl_ground_atom_t *fact,
                            int static_fact);
@@ -53,14 +53,14 @@ static void groundArgsAdd(pddl_strips_ground_args_arr_t *ga, int action_id,
 static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
                                   pddl_err_t *err);
 
-static int unifyStaticFacts(pddl_strips_ground_t *g);
-static int unifyFacts(pddl_strips_ground_t *g);
+static int unifyStaticFacts(pddl_strips_ground_trie_t *g);
+static int unifyFacts(pddl_strips_ground_trie_t *g);
 
-static int groundActions(pddl_strips_ground_t *g, pddl_strips_t *strips);
-static void groundActionAddEff(pddl_strips_ground_t *g,
+static int groundActions(pddl_strips_ground_trie_t *g, pddl_strips_t *strips);
+static void groundActionAddEff(pddl_strips_ground_trie_t *g,
                                const pddl_prep_action_t *a,
                                const int *oarg);
-static void groundActionAddEffEmptyPre(pddl_strips_ground_t *g,
+static void groundActionAddEffEmptyPre(pddl_strips_ground_trie_t *g,
                                        const pddl_prep_action_t *a);
 static char *groundOpName(const pddl_t *pddl,
                           const pddl_action_t *action,
@@ -192,7 +192,7 @@ static int atreeAllTreesNonEmpty(const pddl_strips_ground_atree_t *atr)
     return 1;
 }
 
-static void _atreeActionAddEff(pddl_strips_ground_t *g,
+static void _atreeActionAddEff(pddl_strips_ground_trie_t *g,
                                const pddl_strips_ground_atree_t *atr,
                                int skip_tree_id,
                                const int *args_in,
@@ -223,7 +223,7 @@ static void _atreeActionAddEff(pddl_strips_ground_t *g,
     }
 }
 
-static void atreeActionAddEff(pddl_strips_ground_t *g,
+static void atreeActionAddEff(pddl_strips_ground_trie_t *g,
                               const pddl_strips_ground_atree_t *atr,
                               int tree_id,
                               int start_arg)
@@ -237,7 +237,7 @@ static void atreeActionAddEff(pddl_strips_ground_t *g,
     }
 }
 
-static void atreeUnifyFact(pddl_strips_ground_t *g,
+static void atreeUnifyFact(pddl_strips_ground_trie_t *g,
                            pddl_strips_ground_atree_t *atr,
                            const pddl_ground_atom_t *fact,
                            int static_fact)
@@ -345,7 +345,7 @@ static void groundArgsSortAndUniq(pddl_strips_ground_args_arr_t *ga,
 
 
 /*** unify ***/
-static void _unifyFacts(pddl_strips_ground_t *g, pddl_ground_atoms_t *ga,
+static void _unifyFacts(pddl_strips_ground_trie_t *g, pddl_ground_atoms_t *ga,
                         int start_idx, int static_fact)
 {
     int next_batch = ga->atom_size;
@@ -366,7 +366,7 @@ static void _unifyFacts(pddl_strips_ground_t *g, pddl_ground_atoms_t *ga,
     }
 }
 
-static int unifyStaticFacts(pddl_strips_ground_t *g)
+static int unifyStaticFacts(pddl_strips_ground_trie_t *g)
 {
     // First ground actions without preconditions
     for (int i = 0; i < g->action.action_size; ++i){
@@ -389,7 +389,7 @@ static int unifyStaticFacts(pddl_strips_ground_t *g)
     return 0;
 }
 
-static int unifyFacts(pddl_strips_ground_t *g)
+static int unifyFacts(pddl_strips_ground_trie_t *g)
 {
     _unifyFacts(g, &g->facts, g->unify_start_idx, 0);
     g->unify_start_idx = g->facts.atom_size;
@@ -397,7 +397,7 @@ static int unifyFacts(pddl_strips_ground_t *g)
 }
 /*** unify END ***/
 
-static void groundAtomsAddFact(pddl_strips_ground_t *g,
+static void groundAtomsAddFact(pddl_strips_ground_trie_t *g,
                                const pddl_fm_atom_t *c,
                                const int *arg)
 {
@@ -412,7 +412,7 @@ static void groundAtomsAddFact(pddl_strips_ground_t *g,
     }
 }
 
-static void _groundActionAddEff(pddl_strips_ground_t *g,
+static void _groundActionAddEff(pddl_strips_ground_trie_t *g,
                                 const pddl_prep_action_t *a,
                                 int *arg, int argi)
 {
@@ -460,7 +460,7 @@ static void _groundActionAddEff(pddl_strips_ground_t *g,
     groundArgsAdd(&g->ground_args, a - g->action.action, a, arg);
 }
 
-static void groundActionAddEff(pddl_strips_ground_t *g,
+static void groundActionAddEff(pddl_strips_ground_trie_t *g,
                                const pddl_prep_action_t *a,
                                const int *oarg)
 {
@@ -469,7 +469,7 @@ static void groundActionAddEff(pddl_strips_ground_t *g,
     _groundActionAddEff(g, a, arg, 0);
 }
 
-static void groundActionAddEffEmptyPre(pddl_strips_ground_t *g,
+static void groundActionAddEffEmptyPre(pddl_strips_ground_trie_t *g,
                                        const pddl_prep_action_t *a)
 {
     ASSERT(a->pre.size == 0);
@@ -498,7 +498,7 @@ static char *groundOpName(const pddl_t *pddl,
     return name;
 }
 
-static int groundIncrease(pddl_strips_ground_t *g,
+static int groundIncrease(pddl_strips_ground_trie_t *g,
                           const int *arg,
                           const pddl_fm_arr_t *atoms,
                           const pddl_action_t *action)
@@ -527,7 +527,7 @@ static int groundIncrease(pddl_strips_ground_t *g,
     return cost;
 }
 
-static void groundAtoms(pddl_strips_ground_t *g,
+static void groundAtoms(pddl_strips_ground_trie_t *g,
                         int atom_max_arg_size,
                         const int *arg,
                         const pddl_fm_arr_t *atoms,
@@ -544,7 +544,7 @@ static void groundAtoms(pddl_strips_ground_t *g,
     }
 }
 
-static int setUpOp(pddl_strips_ground_t *g, pddl_strips_op_t *op,
+static int setUpOp(pddl_strips_ground_trie_t *g, pddl_strips_op_t *op,
                     const pddl_strips_ground_args_t *ga)
 {
     const pddl_prep_action_t *a = ga->action;
@@ -571,7 +571,7 @@ static int setUpOp(pddl_strips_ground_t *g, pddl_strips_op_t *op,
     return 0;
 }
 
-static void groundCondEff(pddl_strips_ground_t *g, pddl_strips_t *strips,
+static void groundCondEff(pddl_strips_ground_trie_t *g, pddl_strips_t *strips,
                           pddl_strips_op_t *op,
                           pddl_strips_ground_args_t *ga,
                           pddl_strips_ground_args_t *parent_ga)
@@ -616,7 +616,7 @@ static void groundCondEff(pddl_strips_ground_t *g, pddl_strips_t *strips,
     }
 }
 
-static int groundActions(pddl_strips_ground_t *g, pddl_strips_t *strips)
+static int groundActions(pddl_strips_ground_trie_t *g, pddl_strips_t *strips)
 {
     pddl_strips_ground_args_t *ga, *parent_ga;
     const pddl_prep_action_t *a;
@@ -659,7 +659,7 @@ static int groundActions(pddl_strips_ground_t *g, pddl_strips_t *strips)
     return 0;
 }
 
-static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
+static int createStripsFacts(pddl_strips_ground_trie_t *g, pddl_strips_t *strips)
 {
     const pddl_ground_atom_t *ga;
     int fact_id;
@@ -687,7 +687,7 @@ static int createStripsFacts(pddl_strips_ground_t *g, pddl_strips_t *strips)
     return 0;
 }
 
-static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
+static int groundInitState(pddl_strips_ground_trie_t *g, pddl_strips_t *strips)
 {
     pddl_list_t *item;
     const pddl_fm_t *c;
@@ -707,7 +707,7 @@ static int groundInitState(pddl_strips_ground_t *g, pddl_strips_t *strips)
 }
 
 struct ground_goal {
-    pddl_strips_ground_t *g;
+    pddl_strips_ground_trie_t *g;
     pddl_strips_t *strips;
     int fail;
 };
@@ -716,7 +716,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
 {
     struct ground_goal *ggoal = _g;
     const pddl_ground_atom_t *ga;
-    pddl_strips_ground_t *g = ggoal->g;
+    pddl_strips_ground_trie_t *g = ggoal->g;
     pddl_strips_t *strips = ggoal->strips;
 
     if (pddlFmIsAtom(c)){
@@ -759,7 +759,7 @@ static int _groundGoal(pddl_fm_t *c, void *_g)
     }
 }
 
-static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
+static int groundGoal(pddl_strips_ground_trie_t *g, pddl_strips_t *strips)
 {
     struct ground_goal ggoal = { g, strips, 0 };
     if (pddlFmIsOr(g->pddl->goal)){
@@ -773,7 +773,7 @@ static int groundGoal(pddl_strips_ground_t *g, pddl_strips_t *strips)
     return 0;
 }
 
-static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
+static void groundInitFact(pddl_strips_ground_trie_t *g, const pddl_t *pddl)
 {
     pddl_list_t *item;
     const pddl_fm_t *c;
@@ -803,7 +803,7 @@ static void groundInitFact(pddl_strips_ground_t *g, const pddl_t *pddl)
     }
 }
 
-static int groundInit(pddl_strips_ground_t *g, const pddl_t *pddl,
+static int groundInit(pddl_strips_ground_trie_t *g, const pddl_t *pddl,
                       const pddl_ground_config_t *cfg,
                       pddl_err_t *err,
                       pddl_strips_ground_unify_new_atom_fn new_atom,
@@ -848,7 +848,7 @@ static int groundInit(pddl_strips_ground_t *g, const pddl_t *pddl,
     return 0;
 }
 
-static void groundFree(pddl_strips_ground_t *g)
+static void groundFree(pddl_strips_ground_trie_t *g)
 {
     for (int i = 0; i < g->action.action_size; ++i)
         atreeFree(g->atree + i);
@@ -864,7 +864,7 @@ static void groundFree(pddl_strips_ground_t *g)
     groundArgsFree(&g->ground_args);
 }
 
-int pddlStripsGroundStart(pddl_strips_ground_t *g,
+int pddlStripsGroundTrieStart(pddl_strips_ground_trie_t *g,
                           const pddl_t *pddl,
                           const pddl_ground_config_t *cfg,
                           pddl_err_t *err,
@@ -893,7 +893,7 @@ int pddlStripsGroundStart(pddl_strips_ground_t *g,
     return 0;
 }
 
-int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g)
+int pddlStripsGroundTrieUnifyStep(pddl_strips_ground_trie_t *g)
 {
     if (!g->static_facts_unified && unifyStaticFacts(g) != 0){
         groundFree(g);
@@ -912,7 +912,7 @@ int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g)
     return 0;
 }
 
-int pddlStripsGroundAddGroundAtom(pddl_strips_ground_t *g, int pred,
+int pddlStripsGroundTrieAddGroundAtom(pddl_strips_ground_trie_t *g, int pred,
                                   const int *arg, int arg_size)
 {
     int size = g->facts.atom_size;
@@ -922,7 +922,7 @@ int pddlStripsGroundAddGroundAtom(pddl_strips_ground_t *g, int pred,
     return 0;
 }
 
-int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
+int pddlStripsGroundTrieFinalize(pddl_strips_ground_trie_t *g, pddl_strips_t *strips)
 {
     pddlStripsInit(strips);
     strips->cfg = g->cfg;
@@ -962,20 +962,20 @@ int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips)
     return 0;
 }
 
-int pddlStripsGround(pddl_strips_t *strips,
+int pddlStripsGroundTrie(pddl_strips_t *strips,
                      const pddl_t *pddl,
                      const pddl_ground_config_t *cfg,
                      pddl_err_t *err)
 {
-    CTX(err, "Ground");
+    CTX(err, "Ground Trie");
     CTX_NO_TIME(err, "Cfg");
     pddlGroundConfigLog(cfg, err);
     CTXEND(err);
-    pddl_strips_ground_t g;
+    pddl_strips_ground_trie_t g;
 
-    if (pddlStripsGroundStart(&g, pddl, cfg, err, NULL, NULL) != 0
-            || pddlStripsGroundUnifyStep(&g) != 0
-            || pddlStripsGroundFinalize(&g, strips) != 0){
+    if (pddlStripsGroundTrieStart(&g, pddl, cfg, err, NULL, NULL) != 0
+            || pddlStripsGroundTrieUnifyStep(&g) != 0
+            || pddlStripsGroundTrieFinalize(&g, strips) != 0){
         PDDL_INFO(err, "Grounding failed.");
         CTXEND(err);
         PDDL_TRACE_RET(err, -1);
