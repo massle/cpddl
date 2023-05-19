@@ -582,25 +582,6 @@ static int stepFDR(void)
     return 0;
 }
 
-static void printSearchStat(const pddl_search_t *astar, pddl_err_t *err)
-{
-    pddl_search_stat_t stat;
-    pddlSearchStat(astar, &stat);
-    PDDL_INFO(err, "Search steps: %lu, expand: %lu, eval: %lu,"
-                  " gen: %lu, open: %lu, closed: %lu,"
-                  " reopen: %lu, de: %lu, f: %d",
-                  stat.steps,
-                  stat.expanded,
-                  stat.evaluated,
-                  stat.generated,
-                  stat.open,
-                  stat.closed,
-                  stat.reopen,
-                  stat.dead_end,
-                  stat.last_f_value);
-}
-
-
 static int stepGroundPlanner(void)
 {
     if (opt.ground_planner.search == GROUND_PLAN_NONE)
@@ -715,22 +696,29 @@ static int stepGroundPlanner(void)
     if (heur == NULL)
         PDDL_TRACE_RET(&err, -1);
 
-    pddl_search_t *search = NULL;
+    pddl_search_config_t search_cfg = PDDL_SEARCH_CONFIG_INIT;
+    search_cfg.fdr = &fdr;
+    search_cfg.heur = heur;
     switch (opt.ground_planner.search){
         case GROUND_PLAN_ASTAR:
             PDDL_INFO(&err, "Search: astar");
-            search = pddlSearchAStar(&fdr, heur, &err);
+            search_cfg.alg = PDDL_SEARCH_ASTAR;
             break;
         case GROUND_PLAN_GBFS:
-            PDDL_PANIC("Error: gbfs not implemented yet!\n");
+            PDDL_INFO(&err, "Search: gbfs");
+            search_cfg.alg = PDDL_SEARCH_GBFS;
             break;
         case GROUND_PLAN_LAZY:
             PDDL_INFO(&err, "Search: lazy");
-            search = pddlSearchLazy(&fdr, heur, &err);
+            search_cfg.alg = PDDL_SEARCH_LAZY;
             break;
         default:
             PDDL_PANIC("Unknown planner %d", opt.ground_planner.search);
     }
+
+    pddl_search_t *search = pddlSearchNew(&search_cfg, &err);
+    if (search == NULL)
+        PDDL_TRACE_RET(&err, -1);
 
     int ret = pddlSearchInitStep(search);
     search_started = 1;
@@ -739,7 +727,7 @@ static int stepGroundPlanner(void)
     pddlTimerStart(&info_timer);
     for (int step = 1; ret == PDDL_SEARCH_CONT; ++step){
         if (search_terminate){
-            printSearchStat(search, &err);
+            pddlSearchStatLog(search, &err);
             PDDL_INFO(&err, "Search aborted.");
             pddlSearchDel(search);
             pddlHeurDel(heur);
@@ -748,17 +736,18 @@ static int stepGroundPlanner(void)
         }
 
         ret = pddlSearchStep(search);
+
         // TODO: parametrize
         if (step >= 100){
             pddlTimerStop(&info_timer);
             if (pddlTimerElapsedInSF(&info_timer) >= 1.){
-                printSearchStat(search, &err);
+                pddlSearchStatLog(search, &err);
                 pddlTimerStart(&info_timer);
             }
             step = 0;
         }
     }
-    printSearchStat(search, &err);
+    pddlSearchStatLog(search, &err);
 
     if (ret == PDDL_SEARCH_UNSOLVABLE){
         PDDL_INFO(&err, "Problem is unsolvable.");

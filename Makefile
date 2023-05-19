@@ -103,6 +103,7 @@ SRC += open_list_splaytree2
 SRC += search
 SRC += search_astar
 SRC += search_lazy
+SRC += search_bfs
 SRC += lifted_app_action
 SRC += lifted_app_action_sql
 SRC += lifted_app_action_datalog

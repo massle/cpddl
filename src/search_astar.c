@@ -40,8 +40,8 @@ struct pddl_search_astar {
 typedef struct pddl_search_astar pddl_search_astar_t;
 
 static void pddlSearchAStarDel(pddl_search_t *s);
-static int pddlSearchAStarInitStep(pddl_search_t *s);
-static int pddlSearchAStarStep(pddl_search_t *s);
+static pddl_search_status_t pddlSearchAStarInitStep(pddl_search_t *s);
+static pddl_search_status_t pddlSearchAStarStep(pddl_search_t *s);
 static int pddlSearchAStarExtractPlan(pddl_search_t *s, pddl_plan_t *plan);
 static void pddlSearchAStarStat(const pddl_search_t *s,
                                 pddl_search_stat_t *stat);
@@ -106,7 +106,7 @@ static void push(pddl_search_astar_t *astar,
     ++astar->_stat.open;
 }
 
-static int pddlSearchAStarInitStep(pddl_search_t *s)
+static pddl_search_status_t pddlSearchAStarInitStep(pddl_search_t *s)
 {
     pddl_search_astar_t *astar
         = pddl_container_of(s, pddl_search_astar_t, search);
@@ -180,7 +180,7 @@ static void insertNextState(pddl_search_astar_t *astar,
     pddlFDRStateSpaceSet(&astar->state_space, &astar->next_node);
 }
 
-static int pddlSearchAStarStep(pddl_search_t *s)
+static pddl_search_status_t pddlSearchAStarStep(pddl_search_t *s)
 {
     pddl_search_astar_t *astar
         = pddl_container_of(s, pddl_search_astar_t, search);

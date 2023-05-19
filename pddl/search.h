@@ -28,25 +28,67 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define PDDL_SEARCH_CONT 0
-#define PDDL_SEARCH_UNSOLVABLE 1
-#define PDDL_SEARCH_FOUND 2
-#define PDDL_SEARCH_ABORT 3
+enum pddl_search_status {
+    PDDL_SEARCH_CONT = 0,
+    PDDL_SEARCH_UNSOLVABLE,
+    PDDL_SEARCH_FOUND,
+    PDDL_SEARCH_ABORT,
+};
+typedef enum pddl_search_status pddl_search_status_t;
+
+enum pddl_search_alg {
+    PDDL_SEARCH_ASTAR,
+    PDDL_SEARCH_GBFS,
+    PDDL_SEARCH_LAZY,
+};
+typedef enum pddl_search_alg pddl_search_alg_t;
 
 struct pddl_search_stat {
-    size_t steps; /*!< Number of calls to *Step() */
-    size_t expanded; /*!< Number of times expansions of states */
-    size_t evaluated; /*!< Number of times heuristic function is evaluated */
-    size_t generated; /*!< Number of different states created so far */
-    size_t open; /*!< Number of states currently in the open list */
-    size_t closed; /*!< Number of closed states so far */
-    size_t reopen; /*!< Number of times a state was re-opened. */
-    size_t dead_end; /*!< Number of states detected as dead-end states */
+    /** Number of calls to *Step() */
+    size_t steps;
+    /** Number of times expansions of states */
+    size_t expanded;
+    /** Same as .expanded, but before the last f layer */
+    size_t expanded_before_last_f_layer;
+    /** Number of times heuristic function is evaluated */
+    size_t evaluated;
+    /** Number of different states created so far */
+    size_t generated;
+    /** Number of states currently in the open list */
+    size_t open;
+    /** Number of closed states so far */
+    size_t closed;
+    /** Number of times a state was re-opened. */
+    size_t reopen;
+    /** Number of states detected as dead-end states */
+    size_t dead_end;
+    /** Same as .dead_end, but before the last f layer */
+    size_t dead_end_before_last_f_layer;
+    /** Last f-value encoutered during the search */
     int last_f_value;
 };
 typedef struct pddl_search_stat pddl_search_stat_t;
 
+struct pddl_search_config {
+    /** Input task */
+    const pddl_fdr_t *fdr;
+    /** Algorithm used for the lifted search */
+    pddl_search_alg_t alg;
+    /** Heuristic function */
+    pddl_heur_t *heur;
+};
+typedef struct pddl_search_config pddl_search_config_t;
+
+#define PDDL_SEARCH_CONFIG_INIT \
+    { \
+        NULL, /* .fdr */ \
+        PDDL_LIFTED_SEARCH_ASTAR, /* .alg */ \
+        NULL, /* .heur */ \
+    }
+
 typedef struct pddl_search pddl_search_t;
+
+pddl_search_t *pddlSearchNew(const pddl_search_config_t *cfg, pddl_err_t *err);
 
 pddl_search_t *pddlSearchAStar(const pddl_fdr_t *fdr,
                                pddl_heur_t *heur,
@@ -57,10 +99,12 @@ pddl_search_t *pddlSearchLazy(const pddl_fdr_t *fdr,
                               pddl_err_t *err);
 
 void pddlSearchDel(pddl_search_t *);
-int pddlSearchInitStep(pddl_search_t *);
-int pddlSearchStep(pddl_search_t *);
+pddl_search_status_t pddlSearchInitStep(pddl_search_t *);
+pddl_search_status_t pddlSearchStep(pddl_search_t *);
 int pddlSearchExtractPlan(pddl_search_t *, pddl_plan_t *plan);
+
 void pddlSearchStat(const pddl_search_t *, pddl_search_stat_t *stat);
+void pddlSearchStatLog(const pddl_search_t *s, pddl_err_t *err);
 
 #ifdef __cplusplus
 } /* extern "C" */

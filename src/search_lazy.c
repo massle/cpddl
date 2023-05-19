@@ -40,8 +40,8 @@ struct pddl_search_lazy {
 typedef struct pddl_search_lazy pddl_search_lazy_t;
 
 static void pddlSearchLazyDel(pddl_search_t *s);
-static int pddlSearchLazyInitStep(pddl_search_t *s);
-static int pddlSearchLazyStep(pddl_search_t *s);
+static pddl_search_status_t pddlSearchLazyInitStep(pddl_search_t *s);
+static pddl_search_status_t pddlSearchLazyStep(pddl_search_t *s);
 static int pddlSearchLazyExtractPlan(pddl_search_t *s, pddl_plan_t *plan);
 static void pddlSearchLazyStat(const pddl_search_t *s,
                                pddl_search_stat_t *stat);
@@ -104,7 +104,7 @@ static void push(pddl_search_lazy_t *lazy,
     ++lazy->_stat.open;
 }
 
-static int pddlSearchLazyInitStep(pddl_search_t *s)
+static pddl_search_status_t pddlSearchLazyInitStep(pddl_search_t *s)
 {
     pddl_search_lazy_t *lazy = pddl_container_of(s, pddl_search_lazy_t, search);
     int ret = PDDL_SEARCH_CONT;
@@ -165,7 +165,7 @@ static void insertNextState(pddl_search_lazy_t *lazy,
     pddlFDRStateSpaceSet(&lazy->state_space, &lazy->next_node);
 }
 
-static int pddlSearchLazyStep(pddl_search_t *s)
+static pddl_search_status_t pddlSearchLazyStep(pddl_search_t *s)
 {
     pddl_search_lazy_t *lazy = pddl_container_of(s, pddl_search_lazy_t, search);
 

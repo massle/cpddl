@@ -35,18 +35,38 @@ static void _pddlSearchFree(pddl_search_t *s)
 {
 }
 
-void pddlSearchDel(pddl_search_t *s)
+pddl_search_t *pddlSearchNew(const pddl_search_config_t *cfg, pddl_err_t *err)
 {
-    s->fn_del(s);
-    _pddlSearchFree(s);
+    if (cfg->fdr == NULL)
+        ERR_RET(err, NULL, "FDR planning task must be defined.");
+
+    switch (cfg->alg){
+        case PDDL_SEARCH_ASTAR:
+            return pddlSearchBFSNew(cfg, 1, 1, pddl_false, "A*", err);
+
+        case PDDL_SEARCH_LAZY:
+            return pddlSearchBFSNew(cfg, 0, 1, pddl_true, "Lazy", err);
+
+        case PDDL_SEARCH_GBFS:
+            return pddlSearchBFSNew(cfg, 0, 1, pddl_false, "GBFS", err);
+
+        default:
+            ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);
+    }
 }
 
-int pddlSearchInitStep(pddl_search_t *s)
+void pddlSearchDel(pddl_search_t *s)
+{
+    _pddlSearchFree(s);
+    s->fn_del(s);
+}
+
+pddl_search_status_t pddlSearchInitStep(pddl_search_t *s)
 {
     return s->fn_init_step(s);
 }
 
-int pddlSearchStep(pddl_search_t *s)
+pddl_search_status_t pddlSearchStep(pddl_search_t *s)
 {
     return s->fn_step(s);
 }
@@ -59,4 +79,32 @@ int pddlSearchExtractPlan(pddl_search_t *s, pddl_plan_t *plan)
 void pddlSearchStat(const pddl_search_t *s, pddl_search_stat_t *stat)
 {
     s->fn_stat(s, stat);
+}
+
+void pddlSearchStatLog(const pddl_search_t *s, pddl_err_t *err)
+{
+    pddl_search_stat_t stat;
+    pddlSearchStat(s, &stat);
+    LOG(err, "Search steps: %lu,"
+        " expand: %lu,"
+        " expand-blfl: %lu,"
+        " eval: %lu,"
+        " gen: %lu,"
+        " open: %lu,"
+        " closed: %lu,"
+        " reopen: %lu,"
+        " de: %lu,"
+        " de-blfl: %lu,"
+        " f: %d",
+        stat.steps,
+        stat.expanded,
+        stat.expanded_before_last_f_layer,
+        stat.evaluated,
+        stat.generated,
+        stat.open,
+        stat.closed,
+        stat.reopen,
+        stat.dead_end,
+        stat.dead_end_before_last_f_layer,
+        stat.last_f_value);
 }
