@@ -55,7 +55,7 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
     }
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
-    if (pddlStripsGroundSql(&h->strips, &h->homo, &ground_cfg, err) != 0){
+    if (pddlGround(&h->strips, &h->homo, &ground_cfg, err) != 0){
         FREE(h->obj_map);
         pddlFree(&h->homo);
         PDDL_TRACE_RET(err, -1);
