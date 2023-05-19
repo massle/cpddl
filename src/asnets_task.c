@@ -7,7 +7,7 @@
 #include "internal.h"
 #include "pddl/asnets_task.h"
 #include "pddl/lifted_mgroup_infer.h"
-#include "pddl/strips_ground_datalog.h"
+#include "pddl/ground.h"
 #include "pddl/critical_path.h"
 #include "pddl/sha256.h"
 
@@ -312,12 +312,12 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddlLiftedMGroupsInferFAMGroups(&gt->pddl, &lifted_mgroups_limits, &lmg, err);
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
-    ground_cfg.prune_op_pre_mutex = 0;
-    ground_cfg.prune_op_dead_end = 0;
-    ground_cfg.remove_static_facts = 0;
-    ground_cfg.keep_action_args = 1;
-    ground_cfg.keep_all_static_facts = 1;
-    if (pddlStripsGroundDatalog(&gt->strips, &gt->pddl, &ground_cfg, err) != 0){
+    ground_cfg.prune_op_pre_mutex = pddl_false;
+    ground_cfg.prune_op_dead_end = pddl_false;
+    ground_cfg.remove_static_facts = pddl_false;
+    ground_cfg.keep_action_args = pddl_true;
+    ground_cfg.keep_all_static_facts = pddl_true;
+    if (pddlGround(&gt->strips, &gt->pddl, &ground_cfg, err) != 0){
         pddlFree(&gt->pddl);
         CTXEND(err);
         TRACE_RET(err, -1);

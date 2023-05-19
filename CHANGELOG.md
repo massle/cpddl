@@ -13,6 +13,7 @@
 - Algorithm for compiling away negative conditions: Now, it adds only the
   (potentially) relevant `NOT-*` facts to the initial state; and it can be
   configured via `pddl_config_t`.
+- Unified API for grounding
 
 ### Removed
 - Suport for GLPK solver

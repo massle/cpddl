@@ -25,12 +25,6 @@ enum {
 };
 
 enum {
-    GROUND_TRIE = 0,
-    GROUND_SQL,
-    GROUND_DL
-};
-
-enum {
     MG_NONE = 0,
     MG_FAM,
     MG_H2
@@ -113,7 +107,6 @@ struct options {
 
     struct {
         pddl_ground_config_t cfg;
-        int method;
 
         pddl_bool_t mgroup;
         pddl_bool_t mgroup_remove_subsets;
