@@ -377,6 +377,9 @@ fetch-submodules:
 check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb: libpddl.a
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 
+check-bin check-bin-all: bin
+	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
+
 analyze: clean
 	$(SCAN_BUILD) $(MAKE)
 
@@ -550,6 +553,7 @@ help:
   check-valgrind check-all-valgrind \
   check-segfault check-all-segfault \
   check-gdb check-all-gdb \
+  check-bin check-bin-all \
   third-party third-party-clean \
   bliss bliss-clean \
   sqlite-amalgam gen-stubs
