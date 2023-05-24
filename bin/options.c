@@ -872,8 +872,11 @@ static void setFDROptions(void)
                 "Transform FDR operators to TNF by multiplying its"
                 " preconditions.");
 
-    if (is_pddl_symba)
+    if (is_pddl_symba){
         optFDREssentialFirst(1);
+    }else{
+        optFDRLargestFirst(1);
+    }
 }
 
 static void setGroundPlannerOptions(void)
