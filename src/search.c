@@ -42,12 +42,10 @@ pddl_search_t *pddlSearchNew(const pddl_search_config_t *cfg, pddl_err_t *err)
 
     switch (cfg->alg){
         case PDDL_SEARCH_ASTAR:
-            return pddlSearchAStar(cfg->fdr, cfg->heur, err);
-            //return pddlSearchBFSNew(cfg, 1, 1, pddl_false, "A*", err);
+            return pddlSearchBFSNew(cfg, 1, 1, pddl_false, "A*", err);
 
         case PDDL_SEARCH_LAZY:
-            return pddlSearchLazy(cfg->fdr, cfg->heur, err);
-            //return pddlSearchBFSNew(cfg, 0, 1, pddl_true, "Lazy", err);
+            return pddlSearchBFSNew(cfg, 0, 1, pddl_true, "Lazy", err);
 
         case PDDL_SEARCH_GBFS:
             return pddlSearchBFSNew(cfg, 0, 1, pddl_false, "GBFS", err);
