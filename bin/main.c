@@ -954,10 +954,7 @@ int main(int argc, char *argv[])
             || (ret = stepGroundPlanner()) != 0
             || (ret = stepSymba()) != 0){
         if (ret < 0){
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
             freeData();
             return -1;
         }
