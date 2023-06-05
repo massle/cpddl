@@ -19,15 +19,7 @@
 
 #include "pddl/pddl.h"
 #include "pddl/pred.h"
-#include "lisp_err.h"
 #include "internal.h"
-
-struct _set_t {
-    pddl_pred_t *pred;
-    pddl_types_t *types;
-    const char *owner_var;
-};
-typedef struct _set_t set_t;
 
 static const char *eq_name = "=";
 
@@ -39,120 +31,29 @@ void pddlPredFree(pddl_pred_t *pred)
         FREE(pred->name);
 }
 
-static int setCB(const pddl_lisp_node_t *root,
-                 int child_from, int child_to, int child_type, void *ud,
-                 pddl_err_t *err)
+void pddlPredSetName(pddl_pred_t *pred, const char *name)
 {
-    pddl_pred_t *pred = ((set_t *)ud)->pred;
-    pddl_types_t *types = ((set_t *)ud)->types;
-    const char *owner_var = ((set_t *)ud)->owner_var;
-    int i, j, tid;
-
-    tid = 0;
-    if (child_type >= 0){
-        const pddl_lisp_node_t *node = root->child + child_type;
-        if ((tid = pddlTypeFromLispNode(types, node, err)) < 0)
-            return -1;
-    }
-
-    j = pred->param_size;
-    pred->param_size += child_to - child_from;
-    pred->param = REALLOC_ARR(pred->param, int, pred->param_size);
-    for (i = child_from; i < child_to; ++i, ++j){
-        pred->param[j] = tid;
-        if (owner_var != NULL && strcmp(owner_var, root->child[i].value) == 0){
-            pred->owner_param = j;
-        }
-    }
-    return 0;
+    if (pred->name != NULL)
+        FREE(pred->name);
+    pred->name = STRDUP(name);
 }
 
-static int checkDuplicate(const pddl_preds_t *ps, const char *name)
+void pddlPredAllocParams(pddl_pred_t *pred, int num_params)
 {
-    for (int i = 0; i < ps->pred_size; ++i){
-        if (strcmp(ps->pred[i].name, name) == 0)
-            return 1;
+    if (pred->param_size != num_params){
+        int from = pred->param_size;
+        pred->param_size = num_params;
+        pred->param = REALLOC_ARR(pred->param, int, pred->param_size);
+        for (int i = from; i < pred->param_size; ++i)
+            pred->param[i] = -1;
     }
-    return 0;
 }
 
-static int parsePred(pddl_t *pddl,
-                     const pddl_lisp_node_t *n,
-                     const char *owner_var,
-                     const char *errname,
-                     pddl_preds_t *ps,
-                     pddl_err_t *err)
+int pddlPredSetParamType(pddl_pred_t *pred, int param, int type)
 {
-    pddl_pred_t *p;
-    set_t set;
-
-    if (n->child_size < 1 || n->child[0].value == NULL)
-        ERR_LISP_RET(err, -1, n, "Invalid %s", errname);
-
-    if (checkDuplicate(ps, n->child[0].value)){
-        // TODO: err/warn
-        ERR_LISP_RET(err, -1, n, "Duplicate %s `%s'",
-                     errname, n->child[0].value);
-    }
-
-    p = pddlPredsAdd(ps);
-    set.pred = p;
-    set.types = &pddl->type;
-    set.owner_var = owner_var;
-    if (pddlLispParseTypedList(n, 1, n->child_size, setCB, &set, err) != 0){
-        pddlPredsRemoveLast(ps);
-        PDDL_TRACE_PREPEND_RET(err, -1, "%s `%s': ", errname, n->child[0].value);
-    }
-
-    p->name = STRDUP(n->child[0].value);
-    return 0;
-}
-
-static int parsePrivatePreds(pddl_t *pddl,
-                             const pddl_lisp_node_t *n,
-                             pddl_preds_t *ps,
-                             pddl_err_t *err)
-{
-    const char *owner_var;
-    int from;
-
-    if (pddl->require.factored_privacy){
-        if (n->child_size < 2 || n->child[0].kw != PDDL_KW_PRIVATE){
-            ERR_LISP_RET2(err, -1, n,
-                          "Invalid definition of :private predicate");
-        }
-
-        owner_var = NULL;
-        from = 1;
-
-    }else{
-        if (n->child_size < 3
-                || n->child[0].kw != PDDL_KW_PRIVATE
-                || n->child[1].value == NULL
-                || n->child[1].value[0] != '?'
-                || (n->child[2].value != NULL && n->child_size < 5)){
-            ERR_LISP_RET2(err, -1, n,
-                          "Invalid definition of :private predicate");
-        }
-
-        owner_var = n->child[1].value;
-
-        if (n->child[2].value == NULL){
-            from = 2;
-        }else{
-            from = 4;
-        }
-    }
-
-    for (int i = from; i < n->child_size; ++i){
-        if (parsePred(pddl, n->child + i, owner_var,
-                      "private predicate", ps, err) != 0){
-            PDDL_TRACE_RET(err, -1);
-        }
-
-        ps->pred[ps->pred_size - 1].is_private = 1;
-    }
-
+    if (param < 0 || param >= pred->param_size)
+        return -1;
+    pred->param[param] = type;
     return 0;
 }
 
@@ -167,61 +68,16 @@ static void addEqPredicate(pddl_preds_t *ps)
     ps->eq_pred = ps->pred_size - 1;
 }
 
-int pddlPredsParse(pddl_t *pddl, pddl_err_t *err)
+void pddlPredsInitEmpty(pddl_preds_t *ps)
 {
-    const pddl_lisp_node_t *n;
-    int  private;
+    ZEROIZE(ps);
+    ps->eq_pred = -1;
+}
 
-    pddl->pred.eq_pred = -1;
-    addEqPredicate(&pddl->pred);
-
-    n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_PREDICATES);
-    if (n == NULL){
-        LOG(err, "No predicates found");
-        return 0;
-    }
-
-    // Determine if we can expect :private definitions
-    private = pddl->require.unfactored_privacy || pddl->require.factored_privacy;
-
-    // Fisrt parse non :private predicates
-    for (int i = 1; i < n->child_size; ++i){
-        if (n->child[i].child_size > 0
-                && n->child[i].child[0].kw == PDDL_KW_PRIVATE){
-            if (!private){
-                ERR_LISP_RET(err, -1, n->child + i,
-                             "Private predicates are allowed only"
-                             " with :factored-privacy and"
-                             " :unfactored-privacy (%s).",
-                             pddl->domain_lisp->filename);
-            }
-            continue;
-        }
-
-        if (parsePred(pddl, n->child + i, NULL, "predicate", &pddl->pred,
-                    err) != 0)
-            PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :predicates in %s: ",
-                                   pddl->domain_lisp->filename);
-    }
-
-    // And then the private predicates
-    if (private){
-        for (int i = 1; i < n->child_size; ++i){
-            if (n->child[i].child_size == 0
-                    || n->child[i].child[0].kw != PDDL_KW_PRIVATE){
-                continue;
-            }
-
-            if (parsePrivatePreds(pddl, n->child + i, &pddl->pred, err) != 0)
-                PDDL_TRACE_PREPEND_RET(err, -1, "While parsing private"
-                                       " :predicates in %s: ",
-                                       pddl->domain_lisp->filename);
-        }
-    }
-
-    LOG(err, "Predicates parsed, num predicates: %d",
-        pddl->pred.pred_size);
-    return 0;
+void pddlPredsInitEq(pddl_preds_t *ps)
+{
+    pddlPredsInitEmpty(ps);
+    addEqPredicate(ps);
 }
 
 void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src)
@@ -241,42 +97,6 @@ void pddlPredsInitCopy(pddl_preds_t *dst, const pddl_preds_t *src)
                    sizeof(int) * src->pred[i].param_size);
         }
     }
-}
-
-int pddlFuncsParse(pddl_t *pddl, pddl_err_t *err)
-{
-    const pddl_lisp_node_t *n;
-
-    pddl->func.eq_pred = -1;
-
-    n = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_FUNCTIONS);
-    if (n == NULL){
-        LOG(err, "No functions found.");
-        return 0;
-    }
-
-    for (int i = 1; i < n->child_size; ++i){
-        if (parsePred(pddl, n->child + i, NULL, "function",
-                      &pddl->func, err) != 0){
-            PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :functions in %s: ",
-                                   pddl->domain_lisp->filename);
-        }
-
-        if (i + 2 < n->child_size
-                && n->child[i + 1].value != NULL
-                && strcmp(n->child[i + 1].value, "-") == 0){
-            if (n->child[i + 2].value == NULL
-                    || strcmp(n->child[i + 2].value, "number") != 0){
-                PDDL_ERR_RET(err, -1, "While parsing :functions in %s: Only number"
-                             " functions are supported (line %d).",
-                             pddl->domain_lisp->filename, n->child[i + 2].lineno);
-            }
-            i += 2;
-        }
-    }
-    LOG(err, "Functions parsed, num functions: %d",
-        pddl->func.pred_size);
-    return 0;
 }
 
 void pddlPredsFree(pddl_preds_t *ps)
@@ -313,7 +133,6 @@ pddl_pred_t *pddlPredsAdd(pddl_preds_t *ps)
     p = ps->pred + ps->pred_size++;
     ZEROIZE(p);
     p->id = ps->pred_size - 1;
-    p->owner_param = -1;
     p->neg_of = -1;
     return p;
 }
@@ -382,6 +201,8 @@ void pddlPredsRemapTypes(pddl_preds_t *ps,
 void pddlPredsPrint(const pddl_preds_t *ps,
                     const char *title, FILE *fout)
 {
+    // TODO: Remove is-private, owner-param flags from the print-out
+    // TODO: Rename the function to PrintDebug
     fprintf(fout, "%s[%d]:\n", title, ps->pred_size);
     for (int i = 0; i < ps->pred_size; ++i){
         if (ps->pred[i].id != i)
@@ -391,8 +212,7 @@ void pddlPredsPrint(const pddl_preds_t *ps,
         for (int j = 0; j < ps->pred[i].param_size; ++j){
             fprintf(fout, " %d", ps->pred[i].param[j]);
         }
-        fprintf(fout, " :: is-private: %d, owner-param: %d",
-                ps->pred[i].is_private, ps->pred[i].owner_param);
+        fprintf(fout, " :: is-private: 0, owner-param: -1");
         fprintf(fout, ", read: %d, write: %d",
                 ps->pred[i].read, ps->pred[i].write);
         if (ps->pred[i].neg_of >= 0)

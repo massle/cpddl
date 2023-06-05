@@ -1,0 +1,547 @@
+%name pddlInternalParse
+%extra_context { pddl_parse_ctx_t *ctx }
+%token_type {pddl_parse_token_t}
+%token_prefix PDDL_TOKEN_
+
+%token
+    LPAREN
+    RPAREN
+    DASH
+    IDNT
+    VAR_IDNT
+    INUM
+
+    KEYWORDS
+    UNKNOWN_KW
+
+    DEFINE
+    DOMAIN
+    PROBLEM
+    PROB_DOMAIN
+    REQUIREMENTS
+    TYPES
+    PREDICATES
+    FUNCTIONS
+    CONSTANTS
+    ACTION
+    PARAMETERS
+    PRECONDITION
+    EFFECT
+    DERIVED
+
+    REQUIRE_STRIPS
+    REQUIRE_TYPING
+    REQUIRE_NEGATIVE_PRE
+    REQUIRE_DISJUNCTIVE_PRE
+    REQUIRE_EQUALITY
+    REQUIRE_EXISTENTIAL_PRE
+    REQUIRE_UNIVERSAL_PRE
+    REQUIRE_CONDITIONAL_EFF
+    REQUIRE_NUMERIC_FLUENT
+    REQUIRE_OBJECT_FLUENT
+    REQUIRE_DURATIVE_ACTION
+    REQUIRE_DURATION_INEQUALITY
+    REQUIRE_CONTINUOUS_EFF
+    REQUIRE_DERIVED_PRED
+    REQUIRE_TIMED_INITIAL_LITERAL
+    REQUIRE_PREFERENCE
+    REQUIRE_CONSTRAINT
+    REQUIRE_ACTION_COST
+    REQUIRE_QUANTIFIED_PRE
+    REQUIRE_FLUENTS
+    REQUIRE_ADL
+
+    NUMBER
+    OBJECTS
+    INIT
+    GOAL
+    METRIC
+    MINIMIZE
+    MAXIMIZE
+    ASSIGN
+    INCREASE
+    DECREASE
+    SCALE_UP
+    SCALE_DOWN
+
+    AND
+    OR
+    NOT
+    IMPLY
+    EXISTS
+    FORALL
+    WHEN
+
+    EITHER
+    .
+
+%default_destructor {
+    // Just to shut-up compiler
+    (void)ctx;
+}
+
+%parse_accept {
+    ctx->accept = 1;
+}
+
+%parse_failure {
+    if (!ctx->abort){
+        _ERRS(ctx->err, ctx->tokenizer, &ctx->cur_token, "Syntax error.");
+        ctx->abort = 1;
+    }
+}
+
+%stack_overflow {
+    PANIC("Parser stack overflow while on line %d and column %d."
+          " This should never happen as we allocate the stack dynamically.",
+          ctx->cur_token.line, ctx->cur_token.column);
+    ctx->abort = 1;
+}
+
+%syntax_error {
+    if (!ctx->abort){
+        _ERRSV(ctx->err, ctx->tokenizer, &yyminor,
+               "Syntax error when processing token '%s'.", yyminor.str);
+        ctx->abort = 1;
+    }
+}
+
+%wildcard TERM.
+
+
+root ::= domain_name.
+root ::= prob_name.
+root ::= prob_domain_name.
+root ::= require_section.
+root ::= types_section.
+root ::= constants_section.
+root ::= predicates_section.
+root ::= functions_section.
+root ::= action_section.
+//root ::= durative_action_section.
+root ::= derived_section.
+root ::= objects.
+root ::= init_state.
+root ::= goal.
+root ::= metric.
+
+domain_name ::= LPAREN DOMAIN IDNT(T) RPAREN. {
+    ctx->pddl->domain_name = STRDUP(T.str);
+}
+
+prob_name ::= LPAREN PROBLEM IDNT(T) RPAREN. {
+    ctx->pddl->problem_name = STRDUP(T.str);
+}
+
+prob_domain_name ::= LPAREN PROB_DOMAIN IDNT RPAREN. {
+    // TODO
+}
+
+require_section ::= LPAREN REQUIREMENTS require_kws RPAREN.
+require_kws ::= require_kws require_kw.
+require_kws ::= .
+require_kw ::= REQUIRE_STRIPS. { ctx->pddl->require.strips = 1; }
+require_kw ::= REQUIRE_TYPING. { ctx->pddl->require.typing = 1; }
+require_kw ::= REQUIRE_NEGATIVE_PRE. { ctx->pddl->require.negative_pre = 1; }
+require_kw ::= REQUIRE_DISJUNCTIVE_PRE. { ctx->pddl->require.disjunctive_pre = 1; }
+require_kw ::= REQUIRE_EQUALITY. { ctx->pddl->require.equality = 1; }
+require_kw ::= REQUIRE_EXISTENTIAL_PRE. { ctx->pddl->require.existential_pre = 1; }
+require_kw ::= REQUIRE_UNIVERSAL_PRE. { ctx->pddl->require.universal_pre = 1; }
+require_kw ::= REQUIRE_CONDITIONAL_EFF. { ctx->pddl->require.conditional_eff = 1; }
+require_kw ::= REQUIRE_NUMERIC_FLUENT. { ctx->pddl->require.numeric_fluent = 1; }
+require_kw ::= REQUIRE_OBJECT_FLUENT. { ctx->pddl->require.object_fluent = 1; }
+require_kw ::= REQUIRE_DURATIVE_ACTION. { ctx->pddl->require.durative_action = 1; }
+require_kw ::= REQUIRE_DURATION_INEQUALITY. { ctx->pddl->require.duration_inequality = 1; }
+require_kw ::= REQUIRE_CONTINUOUS_EFF. { ctx->pddl->require.continuous_eff = 1; }
+require_kw ::= REQUIRE_DERIVED_PRED. { ctx->pddl->require.derived_pred = 1; }
+require_kw ::= REQUIRE_TIMED_INITIAL_LITERAL. { ctx->pddl->require.timed_initial_literal = 1; }
+require_kw ::= REQUIRE_PREFERENCE. { ctx->pddl->require.preference = 1; }
+require_kw ::= REQUIRE_CONSTRAINT. { ctx->pddl->require.constraint = 1; }
+require_kw ::= REQUIRE_ACTION_COST. { ctx->pddl->require.action_cost = 1; }
+require_kw ::= REQUIRE_QUANTIFIED_PRE. {
+    ctx->pddl->require.existential_pre = 1;
+    ctx->pddl->require.universal_pre = 1;
+}
+require_kw ::= REQUIRE_FLUENTS. {
+    ctx->pddl->require.strips = 1;
+    ctx->pddl->require.typing = 1;
+}
+require_kw ::= REQUIRE_ADL. {
+    ctx->pddl->require.strips = 1;
+    ctx->pddl->require.typing = 1;
+    ctx->pddl->require.negative_pre = 1;
+    ctx->pddl->require.disjunctive_pre = 1;
+    ctx->pddl->require.equality = 1;
+    ctx->pddl->require.existential_pre = 1;
+    ctx->pddl->require.universal_pre = 1;
+    ctx->pddl->require.conditional_eff = 1;
+}
+require_kw ::= REQUIRE_MULTI_AGENT. { ctx->pddl->require.multi_agent = 1; }
+require_kw ::= REQUIRE_UNFACTORED_PRIVACY. { ctx->pddl->require.unfactored_privacy = 1; }
+require_kw ::= REQUIRE_FACTORED_PRIVACY. { ctx->pddl->require.factored_privacy = 1; }
+require_kw ::= TERM(T). {
+    if (T.token == PDDL_TOKEN_UNKNOWN_KW
+            || T.token == PDDL_TOKEN_IDNT
+            || T.token == PDDL_TOKEN_VAR_IDNT){
+        _ERRSV(ctx->err, ctx->tokenizer, &T,
+              "Invalid keyword %s in the (:requirements ...) section.", T.str);
+    }else{
+        _ERRS(ctx->err, ctx->tokenizer, &T, "Syntax error.");
+    }
+    ctx->abort = 1;
+}
+
+
+types_section ::= LPAREN TYPES(KW) typed_lists(T) RPAREN. {
+    if (!ctx->abort){
+        pddlParseTypedListsSort(T);
+        if (addTypes(ctx->pddl, T, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+
+        if (T->list_size == 0){
+            LOG(ctx->err, "Empty (:types ...) section (line %d, column %d).",
+                KW.line, KW.column);
+        }
+    }
+    pddlParseTypedListsDel(T);
+}
+
+constants_section ::= LPAREN CONSTANTS(KW) typed_lists(T) RPAREN. {
+    if (!ctx->abort){
+        pddlParseTypedListsSort(T);
+        if (addConstants(ctx->pddl, T, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+
+        if (T->list_size == 0){
+            LOG(ctx->err, "Empty (:constants ...) section (line %d, column %d).",
+                KW.line, KW.column);
+        }
+    }
+    pddlParseTypedListsDel(T);
+}
+
+predicates_section ::= LPAREN PREDICATES predicate_list RPAREN.
+
+predicate_list ::= predicate_list predicate_def.
+predicate_list ::= .
+
+predicate_def ::= LPAREN IDNT(H) typed_lists(A) RPAREN. {
+    if (!ctx->abort){
+        pddlParseTypedListsSort(A);
+        if (addPred(ctx->pddl, &H, A, ctx->tokenizer, ctx->err) < 0)
+            ctx->abort = 1;
+    }
+    pddlParseTypedListsDel(A);
+}
+
+functions_section ::= LPAREN FUNCTIONS function_list RPAREN.
+
+function_list ::= function_list function_def.
+function_list ::= .
+
+function_def ::= function_def_notype DASH NUMBER.
+function_def ::= function_def_notype.
+function_def_notype ::= LPAREN IDNT(H) typed_lists(A) RPAREN. {
+    if (!ctx->abort){
+        pddlParseTypedListsSort(A);
+        if (addFunc(ctx->pddl, &H, A, ctx->tokenizer, ctx->err) < 0)
+            ctx->abort = 1;
+    }
+    pddlParseTypedListsDel(A);
+}
+
+
+action_section
+    ::= LPAREN ACTION IDNT(Name)
+            PARAMETERS LPAREN typed_lists(Params) RPAREN
+            action_pre(Pre) action_eff(Eff) RPAREN. {
+    if (!ctx->abort){
+        pddlParseTypedListsSort(Params);
+        if (addAction(ctx->pddl, &Name, Params, Pre, Eff, ctx->tokenizer,
+                      ctx->err) < 0){
+            ctx->abort = 1;
+        }
+    }
+
+    pddlParseTypedListsDel(Params);
+    if (Pre != NULL)
+        pddlParseFmTreeDel(Pre);
+    if (Eff != NULL)
+        pddlParseFmTreeDel(Eff);
+}
+
+%type action_pre { pddl_parse_fm_tree_t * }
+%destructor action_pre { if ($$ != NULL) pddlParseFmTreeDel($$); }
+%type action_eff { pddl_parse_fm_tree_t * }
+%destructor action_eff { if ($$ != NULL) pddlParseFmTreeDel($$); }
+action_pre(E) ::= PRECONDITION LPAREN(Ref) RPAREN. {
+    E = pddlParseFmTreeNew(PDDL_PARSE_FM_AND, &Ref);
+}
+action_pre(E) ::= PRECONDITION pre_formula(F). {
+    E = F;
+}
+action_pre(E) ::= . {
+    E = pddlParseFmTreeNew(PDDL_PARSE_FM_AND, NULL);
+}
+
+action_eff(E) ::= EFFECT LPAREN(Ref) RPAREN. {
+    E = pddlParseFmTreeNew(PDDL_PARSE_FM_AND, &Ref);
+}
+action_eff(E) ::= EFFECT eff_formula(F). {
+    E = F;
+}
+action_eff(E) ::= . {
+    E = pddlParseFmTreeNew(PDDL_PARSE_FM_AND, NULL);
+}
+
+derived_section ::= LPAREN DERIVED(R) LPAREN IDNT typed_lists(P) action_pre(C) RPAREN. {
+    if (!ctx->abort){
+        _ERRS(ctx->err, ctx->tokenizer, &R,
+              "Derived predicates are not supported.");
+        ctx->abort = 1;
+    }
+
+    pddlParseTypedListsDel(P);
+    if (C != NULL)
+        pddlParseFmTreeDel(C);
+}
+
+
+%type pre_formula { pddl_parse_fm_tree_t * }
+%destructor pre_formula { if ($$ != NULL) pddlParseFmTreeDel($$); }
+pre_formula(O) ::= LPAREN AND(Ref) pre_formula_list(IN) RPAREN. {
+    O = IN;
+    O->kind = PDDL_PARSE_FM_AND;
+    O->ref_tok = Ref;
+}
+pre_formula(O) ::= LPAREN OR(Ref) pre_formula_list(IN) RPAREN. {
+    O = IN;
+    O->kind = PDDL_PARSE_FM_OR;
+    O->ref_tok = Ref;
+}
+pre_formula(O) ::= LPAREN NOT(Ref) pre_formula(F) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_NOT, &Ref);
+    pddlParseFmTreeAddChild(O, F);
+}
+pre_formula(O) ::= LPAREN IMPLY(Ref) pre_formula(L) pre_formula(R) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_IMPLY, &Ref);
+    pddlParseFmTreeAddChild(O, L);
+    pddlParseFmTreeAddChild(O, R);
+}
+pre_formula(O) ::= LPAREN EXISTS(Ref) LPAREN typed_lists(P) RPAREN pre_formula(F) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_EXISTS, &Ref);
+    O->params = P;
+    pddlParseFmTreeAddChild(O, F);
+}
+pre_formula(O) ::= LPAREN FORALL(Ref) LPAREN typed_lists(P) RPAREN pre_formula(F) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_FORALL, &Ref);
+    O->params = P;
+    pddlParseFmTreeAddChild(O, F);
+}
+pre_formula(F) ::= atom(A). { F = A; }
+
+%type pre_formula_list { pddl_parse_fm_tree_t * }
+%destructor pre_formula_list { if ($$ != NULL) pddlParseFmTreeDel($$); }
+pre_formula_list(L) ::= pre_formula_list(IN) pre_formula(F). {
+    L = IN;
+    pddlParseFmTreeAddChild(L, F);
+}
+pre_formula_list(L) ::= . {
+    L = pddlParseFmTreeNew(PDDL_PARSE_FM_LIST, NULL);
+}
+
+
+%type eff_formula { pddl_parse_fm_tree_t * }
+%destructor eff_formula { if ($$ != NULL) pddlParseFmTreeDel($$); }
+eff_formula(O) ::= LPAREN AND(Ref) eff_formula_list(IN) RPAREN. {
+    O = IN;
+    O->kind = PDDL_PARSE_FM_AND;
+    O->ref_tok = Ref;
+}
+eff_formula(O) ::= LPAREN NOT(Ref) eff_formula(F) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_NOT, &Ref);
+    pddlParseFmTreeAddChild(O, F);
+}
+eff_formula(O) ::= LPAREN FORALL(Ref) LPAREN typed_lists(P) RPAREN eff_formula(F) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_FORALL, &Ref);
+    O->params = P;
+    pddlParseFmTreeAddChild(O, F);
+}
+eff_formula(O) ::= LPAREN WHEN(Ref) pre_formula(C) eff_formula(E) RPAREN. {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_WHEN, &Ref);
+    pddlParseFmTreeAddChild(O, C);
+    pddlParseFmTreeAddChild(O, E);
+}
+eff_formula(O) ::= LPAREN(Ref) func_op(Type) func_op_dst(Dst) func_op_src(Src) RPAREN. {
+    int type = PDDL_FM_ASSIGN;
+    if (Type.token == PDDL_TOKEN_ASSIGN){
+        type = PDDL_PARSE_FM_ASSIGN;
+    }else if (Type.token == PDDL_TOKEN_INCREASE){
+        type = PDDL_PARSE_FM_INCREASE;
+    }
+    O = pddlParseFmTreeNew(type, &Ref);
+    pddlParseFmTreeAddChild(O, Dst);
+    pddlParseFmTreeAddChild(O, Src);
+}
+
+%type func_op { pddl_parse_token_t }
+//func_op(D) ::= ASSIGN(S). { D = S; }
+func_op(D) ::= INCREASE(S). { D = S; }
+//func_op(D) ::= DECREASE(S). { D = S; }
+//func_op(D) ::= SCALE_UP(S). { D = S; }
+//func_op(D) ::= SCALE_DOWN(S). { D = S; }
+
+%type func_op_dst { pddl_parse_fm_tree_t * }
+%destructor func_op_dst { if ($$ != NULL) pddlParseFmTreeDel($$); }
+func_op_dst(F) ::= IDNT(S). {
+    F = pddlParseFmTreeNew(PDDL_PARSE_FM_FATOM, &S);
+    F->atom = pddlParseToksNew();
+    pddlParseToksAdd(F->atom, &S);
+}
+func_op_dst(D) ::= atom(S). {
+    D = S;
+    D->kind = PDDL_PARSE_FM_FATOM;
+}
+
+%type func_op_src { pddl_parse_fm_tree_t * }
+%destructor func_op_src { if ($$ != NULL) pddlParseFmTreeDel($$); }
+func_op_src(F) ::= INUM(R). {
+    F = pddlParseFmTreeNew(PDDL_PARSE_FM_INUM, &R);
+}
+func_op_src(D) ::= func_op_dst(S). { D = S; }
+
+eff_formula(F) ::= atom(A). { F = A; }
+
+
+%type eff_formula_list { pddl_parse_fm_tree_t * }
+%destructor eff_formula_list { if ($$ != NULL) pddlParseFmTreeDel($$); }
+eff_formula_list(L) ::= eff_formula_list(IN) eff_formula(F). {
+    L = IN;
+    pddlParseFmTreeAddChild(L, F);
+}
+eff_formula_list(L) ::= . {
+    L = pddlParseFmTreeNew(PDDL_PARSE_FM_LIST, NULL);
+}
+
+
+%type atom { pddl_parse_fm_tree_t * }
+%destructor atom { if ($$ != NULL) pddlParseFmTreeDel($$); }
+atom(F) ::= LPAREN(Ref) idnt_list(A) RPAREN. {
+    F = pddlParseFmTreeNew(PDDL_PARSE_FM_ATOM, &Ref);
+    F->atom = A;
+}
+
+
+objects ::= LPAREN OBJECTS(KW) typed_lists(T) RPAREN. {
+    if (!ctx->abort){
+        pddlParseTypedListsSort(T);
+        if (addObjects(ctx->pddl, T, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+
+        if (T->list_size == 0){
+            LOG(ctx->err, "Empty (:objects ...) section (line %d, column %d).",
+                KW.line, KW.column);
+        }
+    }
+    pddlParseTypedListsDel(T);
+}
+
+init_state ::= LPAREN INIT init_state_atoms(I) RPAREN. {
+    if (!ctx->abort){
+        if (setInit(ctx->pddl, I, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+    }
+    pddlParseFmTreeDel(I);
+}
+
+%type init_state_atoms { pddl_parse_fm_tree_t * }
+%destructor init_state_atoms { if ($$ != NULL) pddlParseFmTreeDel($$); }
+init_state_atoms(O) ::= init_state_atoms(L) init_state_atom(A). {
+    O = L;
+    pddlParseFmTreeAddChild(O, A);
+}
+init_state_atoms(O) ::= . {
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_LIST, NULL);
+}
+
+%type init_state_atom { pddl_parse_fm_tree_t * }
+%destructor init_state_atom { if ($$ != NULL) pddlParseFmTreeDel($$); }
+init_state_atom(O) ::= atom(A). { O = A; }
+init_state_atom(O) ::= LPAREN(Ref) IDNT(P) atom(Dst) INUM(Src) RPAREN. {
+    if (strcmp(P.str, "=") != 0){
+        _ERRS(ctx->err, ctx->tokenizer, &P,
+              "Invalid construct in the initial state.");
+        ctx->abort = 1;
+    }
+    O = pddlParseFmTreeNew(PDDL_PARSE_FM_ASSIGN, &Ref);
+    Dst->kind = PDDL_PARSE_FM_FATOM;
+    pddlParseFmTreeAddChild(O, Dst);
+    pddlParseFmTreeAddChild(O, pddlParseFmTreeNew(PDDL_PARSE_FM_INUM, &Src));
+}
+
+goal ::= LPAREN GOAL pre_formula(G) RPAREN. {
+    if (!ctx->abort){
+        if (setGoal(ctx->pddl, G, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+    }
+    pddlParseFmTreeDel(G);
+}
+
+metric ::= LPAREN METRIC metric_opt RPAREN.
+metric_opt ::= MINIMIZE atom(M). {
+    M->kind = PDDL_PARSE_FM_FATOM;
+    if (!ctx->abort){
+        if (setMetric(ctx->pddl, M, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+    }
+    pddlParseFmTreeDel(M);
+}
+//metric_opt ::= MAXIMIZE atom.
+
+
+%type typed_lists { pddl_parse_typed_lists_t * }
+%destructor typed_lists { if ($$ != NULL) pddlParseTypedListsDel($$); }
+%type typed_lists_wtype { pddl_parse_typed_lists_t * }
+%destructor typed_lists_wtype { if ($$ != NULL) pddlParseTypedListsDel($$); }
+%type typed_lists_wotype { pddl_parse_typed_lists_t * }
+%destructor typed_lists_wotype { if ($$ != NULL) pddlParseTypedListsDel($$); }
+typed_lists(L) ::= typed_lists_wtype(H) typed_lists_wotype(T). {
+    L = H;
+    pddlParseTypedListsMerge(L, T);
+    pddlParseTypedListsDel(T);
+}
+
+typed_lists_wtype(L) ::= typed_lists_wtype(LIN)
+        idnt_list(T) DASH LPAREN EITHER(ET) idnt_list(E) RPAREN. {
+    L = LIN;
+    pddl_parse_typed_list_t *tl = pddlParseTypedListNewEither(T, E, &ET);
+    pddlParseTypedListsAdd(L, tl);
+}
+typed_lists_wtype(L) ::= typed_lists_wtype(LIN) idnt_list(S) DASH IDNT(T). {
+    L = LIN;
+    pddl_parse_typed_list_t *tl = pddlParseTypedListNew(S, &T);
+    pddlParseTypedListsAdd(L, tl);
+}
+typed_lists_wtype(L) ::= . { L = pddlParseTypedListsNew(); }
+
+typed_lists_wotype(L) ::= idnt_list(S). {
+    L = pddlParseTypedListsNew();
+    pddl_parse_typed_list_t *tl = pddlParseTypedListNewNoType(S);
+    pddlParseTypedListsAdd(L, tl);
+}
+typed_lists_wotype(L) ::= . { L = pddlParseTypedListsNew(); }
+
+
+%type idnt_list { pddl_parse_toks_t * }
+%destructor idnt_list { if ($$ != NULL) pddlParseToksDel($$); }
+idnt_list(L) ::= idnt_list(L) idnt_list_tok(T). {
+    pddlParseToksAdd(L, &T);
+}
+idnt_list(L) ::= idnt_list_tok(T). {
+    L = pddlParseToksNew();
+    pddlParseToksAdd(L, &T);
+}
+
+%type idnt_list_tok { pddl_parse_token_t }
+idnt_list_tok(D) ::= IDNT(T). { D = T; }
+idnt_list_tok(D) ::= VAR_IDNT(T). { D = T; }

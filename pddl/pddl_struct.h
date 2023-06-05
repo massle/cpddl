@@ -21,7 +21,6 @@
 #define __PDDL_STRUCT_H__
 
 #include <pddl/config.h>
-#include <pddl/lisp.h>
 #include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
@@ -85,10 +84,10 @@ struct pddl {
     pddl_config_t cfg;
     /** True if the pddl struct was built only from the domain file */
     pddl_bool_t only_domain;
-    /** Underlying lisp of the domain file */
-    pddl_lisp_t *domain_lisp;
-    /** Underlying lisp of the problem file, is NULL iff .only_domain is true */
-    pddl_lisp_t *problem_lisp;
+    /** Path to the PDDL domain file */
+    char *domain_file;
+    /** Path to the PDDL problem file */
+    char *problem_file;
     /** Domain name from the domain file */
     char *domain_name;
     /** Problem name from the problem file */
@@ -207,6 +206,19 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err);
  * Remove assign and increase atoms to enforce the task to be unit cost
  */
 void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err);
+
+/**
+ * Resets .read and .write flags of all predicates.
+ * This needs to be called if the actions are modified.
+ * It depends on the correctly set .in_init flag of predicates.
+ */
+void pddlResetPredReadWrite(pddl_t *pddl);
+
+/**
+ * Resets .in_init flag of all predicates.
+ * This needs to be called if the actions are modified.
+ */
+void pddlResetPredInInit(pddl_t *pddl);
 
 /**
  * Prints PDDL domain file.

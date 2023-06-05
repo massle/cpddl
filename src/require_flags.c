@@ -8,128 +8,6 @@
 #include "pddl/pddl_struct.h"
 #include "pddl/require_flags.h"
 
-
-static int requireKw(int kw, pddl_require_flags_t *f)
-{
-    switch (kw){
-        case PDDL_KW_STRIPS:
-            f->strips = 1;
-            break;
-        case PDDL_KW_TYPING:
-            f->typing = 1;
-            break;
-        case PDDL_KW_NEGATIVE_PRE:
-            f->negative_pre = 1;
-            break;
-        case PDDL_KW_DISJUNCTIVE_PRE:
-            f->disjunctive_pre = 1;
-            break;
-        case PDDL_KW_EQUALITY:
-            f->equality = 1;
-            break;
-        case PDDL_KW_EXISTENTIAL_PRE:
-            f->existential_pre = 1;
-            break;
-        case PDDL_KW_UNIVERSAL_PRE:
-            f->universal_pre = 1;
-            break;
-        case PDDL_KW_CONDITIONAL_EFF:
-            f->conditional_eff = 1;
-            break;
-        case PDDL_KW_NUMERIC_FLUENT:
-            f->numeric_fluent = 1;
-            break;
-        case PDDL_KW_OBJECT_FLUENT:
-            f->object_fluent = 1;
-            break;
-        case PDDL_KW_DURATIVE_ACTION:
-            f->durative_action = 1;
-            break;
-        case PDDL_KW_DURATION_INEQUALITY:
-            f->duration_inequality = 1;
-            break;
-        case PDDL_KW_CONTINUOUS_EFF:
-            f->continuous_eff = 1;
-            break;
-        case PDDL_KW_DERIVED_PRED:
-            f->derived_pred = 1;
-            break;
-        case PDDL_KW_TIMED_INITIAL_LITERAL:
-            f->timed_initial_literal = 1;
-            break;
-        case PDDL_KW_PREFERENCE:
-            f->preference = 1;
-            break;
-        case PDDL_KW_CONSTRAINT:
-            f->constraint = 1;
-            break;
-        case PDDL_KW_ACTION_COST:
-            f->action_cost = 1;
-            break;
-        case PDDL_KW_MULTI_AGENT:
-            f->multi_agent = 1;
-            break;
-        case PDDL_KW_UNFACTORED_PRIVACY:
-            f->unfactored_privacy = 1;
-            break;
-        case PDDL_KW_FACTORED_PRIVACY:
-            f->factored_privacy = 1;
-            break;
-        case PDDL_KW_QUANTIFIED_PRE:
-            f->existential_pre = 1;
-            f->universal_pre = 1;
-            break;
-        case PDDL_KW_FLUENTS:
-            f->numeric_fluent = 1;
-            f->object_fluent = 1;
-            break;
-        case PDDL_KW_ADL:
-            f->strips = 1;
-            f->typing = 1;
-            f->negative_pre = 1;
-            f->disjunctive_pre = 1;
-            f->equality = 1;
-            f->existential_pre = 1;
-            f->universal_pre = 1;
-            f->conditional_eff = 1;
-            break;
-        default:
-            return -1;
-    }
-    return 0;
-}
-
-int pddlRequireFlagsParse(pddl_t *pddl, pddl_err_t *err)
-{
-    ZEROIZE(&pddl->require);
-    if (pddl->cfg.force_adl)
-        requireKw(PDDL_KW_ADL, &pddl->require);
-
-    const pddl_lisp_node_t *req_node;
-    req_node = pddlLispFindNode(&pddl->domain_lisp->root, PDDL_KW_REQUIREMENTS);
-    // No :requirements implies :strips
-    if (req_node == NULL){
-        requireKw(PDDL_KW_STRIPS, &pddl->require);
-        return 0;
-    }
-
-    for (int i = 1; i < req_node->child_size; ++i){
-        const pddl_lisp_node_t *n = req_node->child + i;
-        if (n->value == NULL){
-            PDDL_ERR_RET(err, -1, "Invalid :requirements definition in %s"
-                         " on line %d.",
-                         pddl->domain_lisp->filename, n->lineno);
-        }
-        if (requireKw(n->kw, &pddl->require) != 0){
-            PDDL_ERR_RET(err, -1, "Invalid :requirements definition in %s"
-                         " on line %d: Unknown keyword `%s'.",
-                         pddl->domain_lisp->filename, n->lineno, n->value);
-        }
-    }
-
-    return 0;
-}
-
 unsigned pddlRequireFlagsToMask(const pddl_require_flags_t *flags)
 {
     unsigned mask = 0u;
@@ -198,6 +76,18 @@ unsigned pddlRequireFlagsToMask(const pddl_require_flags_t *flags)
         mask |= flag;
 
     return mask;
+}
+
+void pddlRequireFlagsSetADL(pddl_require_flags_t *flags)
+{
+    flags->strips = 1;
+    flags->typing = 1;
+    flags->negative_pre = 1;
+    flags->disjunctive_pre = 1;
+    flags->equality = 1;
+    flags->existential_pre = 1;
+    flags->universal_pre = 1;
+    flags->conditional_eff = 1;
 }
 
 void pddlRequireFlagsPrintPDDL(const pddl_require_flags_t *flags, FILE *fout)

@@ -782,10 +782,10 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         strips->domain_name = STRDUP(pddl->domain_name);
     if (pddl->problem_name)
         strips->problem_name = STRDUP(pddl->problem_name);
-    if (pddl->domain_lisp->filename)
-        strips->domain_file = STRDUP(pddl->domain_lisp->filename);
-    if (pddl->problem_lisp->filename)
-        strips->problem_file = STRDUP(pddl->problem_lisp->filename);
+    if (pddl->domain_file != NULL)
+        strips->domain_file = STRDUP(pddl->domain_file);
+    if (pddl->problem_file)
+        strips->problem_file = STRDUP(pddl->problem_file);
 
     int *ground_atom_to_fact = NULL;
     if (createStripsFacts(sm, strips, pddl, cfg, &ground_atom_to_fact, err) != 0

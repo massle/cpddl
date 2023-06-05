@@ -20,7 +20,6 @@
 #ifndef __PDDL_ACTION_H__
 #define __PDDL_ACTION_H__
 
-#include <pddl/lisp.h>
 #include <pddl/obj.h>
 #include <pddl/param.h>
 #include <pddl/fm.h>
@@ -72,6 +71,11 @@ void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl);
  * Parses actions from domain PDDL.
  */
 int pddlActionsParse(pddl_t *pddl, pddl_err_t *err);
+
+/**
+ * Initializes empty set of actions.
+ */
+void pddlActionsInit(pddl_actions_t *a);
 
 /**
  * Initializes dst as a deep copy of src.

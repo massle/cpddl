@@ -24,7 +24,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 /** Maximal length of an error message */
-#define PDDL_ERR_MSG_MAXLEN 256
+#define PDDL_ERR_MSG_MAXLEN 4096
 /** Maximal length of an error prefix */
 #define PDDL_ERR_MSG_PREFIX_MAXLEN 32
 /** Maximal depth of a trace */
@@ -37,6 +37,8 @@ extern "C" {
 #define PDDL_ERR_CTX_MAXLEN 32
 /** Maximum length of an INFO prefix */
 #define PDDL_ERR_CTX_INFO_MAXLEN 32
+/** Maximum length of a path */
+#define PDDL_ERR_PATH_MAXLEN 1024
 
 
 struct pddl_err_trace {
@@ -53,6 +55,20 @@ struct pddl_err_ctx {
 };
 typedef struct pddl_err_ctx pddl_err_ctx_t;
 
+struct pddl_err_source_file_ptr {
+    /** True if this is set */
+    int is_set;
+    /** Path to the source file */
+    char fn[PDDL_ERR_PATH_MAXLEN];
+    /** Line to print */
+    int line;
+    /** Column to point at */
+    int column;
+    /** Number of additional preceding lines that should be printed */
+    int num_preceding_lines;
+};
+typedef struct pddl_err_source_file_ptr pddl_err_source_file_ptr_t;
+
 struct pddl_err {
     pddl_err_trace_t trace[PDDL_ERR_TRACE_DEPTH];
     int trace_depth;
@@ -68,6 +84,8 @@ struct pddl_err {
     int info_print_resources_disabled;
     pddl_timer_t info_timer;
     int info_timer_init;
+
+    pddl_err_source_file_ptr_t err_source_file;
 };
 typedef struct pddl_err pddl_err_t;
 
@@ -108,6 +126,16 @@ void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
  * Flush all buffers.
  */
 void pddlErrFlush(pddl_err_t *err);
+
+/**
+ * Sets source file with identification of the line and column of the
+ * error. The line and column numbers start at 1.
+ */
+void pddlErrSetSourceFilePointer(pddl_err_t *err,
+                                 const char *source_file_name,
+                                 int line_number,
+                                 int column_number,
+                                 int num_additional_preceding_lines);
 
 /**
  * Sets error message and starts tracing the calls.

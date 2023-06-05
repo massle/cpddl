@@ -1124,7 +1124,7 @@ struct Info {
     {
         strncpy(cpddl_version, pddl_version, sizeof(cpddl_version) - 1);
         strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name) - 1);
-        strncpy(domain_pddl, a->lifted_task.pddl.domain_lisp->filename, sizeof(domain_pddl) - 1);
+        strncpy(domain_pddl, a->lifted_task.pddl.domain_file, sizeof(domain_pddl) - 1);
         pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
         cfg = a->cfg;
         train_stats = a->train_stats;

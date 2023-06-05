@@ -22,7 +22,6 @@
 
 #include <pddl/common.h>
 #include <pddl/list.h>
-#include <pddl/lisp.h>
 #include <pddl/require_flags.h>
 #include <pddl/param.h>
 #include <pddl/obj.h>
@@ -355,25 +354,44 @@ pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args);
 pddl_fm_bool_t *pddlFmNewBool(int is_true);
 
 /**
+ * Constructs a new (imply {left} {right}).
+ * {left} and {right} are used directly, i.e., they are not copied!
+ */
+pddl_fm_imply_t *pddlFmNewImply(pddl_fm_t *left, pddl_fm_t *right);
+
+/**
+ * Constructs a new (when {pre} {eff}).
+ * {pre} and {eff} are used directly, i.e., they are not copied!
+ */
+pddl_fm_when_t *pddlFmNewWhen(pddl_fm_t *pre, pddl_fm_t *eff);
+
+/**
+ * Creates an empty forall/exist formula depending on the specified type.
+ */
+pddl_fm_quant_t *pddlFmNewEmptyQuant(int type);
+
+/**
+ * Creates an empty forall formula
+ */
+pddl_fm_forall_t *pddlFmNewEmptyForAll(void);
+
+/**
+ * Creates an empty exists formula
+ */
+pddl_fm_exist_t *pddlFmNewEmptyExist(void);
+
+/**
+ * Creates a new func_op formula.
+ */
+pddl_fm_func_op_t *pddlFmNewFuncOpVal(int type, pddl_fm_atom_t *lvalue,
+                                      int rvalue);
+pddl_fm_func_op_t *pddlFmNewFuncOpFVal(int type, pddl_fm_atom_t *lvalue,
+                                       pddl_fm_atom_t *fvalue);
+
+/**
  * Returns true if the conditional contains any atom.
  */
 pddl_bool_t pddlFmHasAtom(const pddl_fm_t *c);
-
-/**
- * Parse condition from PDDL lisp.
- */
-pddl_fm_t *pddlFmParse(const pddl_lisp_node_t *root,
-                       pddl_t *pddl,
-                       const pddl_params_t *params,
-                       const char *err_prefix,
-                       pddl_err_t *err);
-
-/**
- * Parse (:init ...) into a conjuction of atoms.
- */
-pddl_fm_and_t *pddlFmParseInit(const pddl_lisp_node_t *root,
-                               pddl_t *pddl,
-                               pddl_err_t *err);
 
 /**
  * Transforms atom into (and atom).

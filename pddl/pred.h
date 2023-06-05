@@ -33,15 +33,16 @@ struct pddl_pred {
     char *name;       /*!< Name of the predicate */
     int *param;       /*!< IDs of types of parameters */
     int param_size;   /*!< Number of parameters */
-    pddl_bool_t is_private; /*!< True if the predicate is private */
-    int owner_param;  /*!< Index of the parameter that corresponds to the
-                           owner object */
     pddl_bool_t read; /*!< True if the predicate appears in some precondition */
     pddl_bool_t write; /*!< True if the predicate appreas in some effect */
     pddl_bool_t in_init; /*!< True if the predicate appear in the initial state */
     int neg_of;       /*!< ID of the predicate this predicate is negation of */
 };
 typedef struct pddl_pred pddl_pred_t;
+
+void pddlPredSetName(pddl_pred_t *pred, const char *name);
+void pddlPredAllocParams(pddl_pred_t *pred, int num_params);
+int pddlPredSetParamType(pddl_pred_t *pred, int param, int type);
 
 _pddl_inline pddl_bool_t pddlPredIsStatic(const pddl_pred_t *pred);
 
@@ -59,6 +60,16 @@ typedef struct pddl_preds pddl_preds_t;
  * Parse :predicates from domain PDDL.
  */
 int pddlPredsParse(pddl_t *pddl, pddl_err_t *err);
+
+/**
+ * Initialize an empty set of predicates.
+ */
+void pddlPredsInitEmpty(pddl_preds_t *ps);
+
+/**
+ * Initialize set of predicates with only equality predicate.
+ */
+void pddlPredsInitEq(pddl_preds_t *ps);
 
 /**
  * Initialize dst as a deep copy of src.

@@ -18,7 +18,6 @@
  */
 
 #include "pddl/param.h"
-#include "lisp_err.h"
 #include "internal.h"
 
 void pddlParamInit(pddl_param_t *param)
@@ -51,6 +50,11 @@ void pddlParamsFree(pddl_params_t *params)
 
 pddl_param_t *pddlParamsAdd(pddl_params_t *params)
 {
+    return pddlParamsAddCopy(params, NULL);
+}
+
+pddl_param_t *pddlParamsAddCopy(pddl_params_t *params, const pddl_param_t *p)
+{
     pddl_param_t *param;
 
     if (params->param_size >= params->param_alloc){
@@ -62,7 +66,11 @@ pddl_param_t *pddlParamsAdd(pddl_params_t *params)
     }
 
     param = params->param + params->param_size++;
-    pddlParamInit(param);
+    if (p != NULL){
+        pddlParamInitCopy(param, p);
+    }else{
+        pddlParamInit(param);
+    }
     return param;
 }
 
@@ -84,85 +92,15 @@ int pddlParamsGetId(const pddl_params_t *param, const char *name)
     return -1;
 }
 
-struct _set_param_t {
-    pddl_params_t *param;
-    pddl_types_t *types;
-};
-typedef struct _set_param_t set_param_t;
-
-static int setParams(const pddl_lisp_node_t *root,
-                     int child_from, int child_to, int child_type, void *ud,
-                     pddl_err_t *err)
+void pddlParamsInherit(pddl_params_t *params, const pddl_params_t *parent)
 {
-    pddl_params_t *params = ((set_param_t *)ud)->param;
-    pddl_types_t *types = ((set_param_t *)ud)->types;
-    pddl_param_t *param;
-    int tid;
-
-    tid = 0;
-    if (child_type >= 0){
-        const pddl_lisp_node_t *node = root->child + child_type;
-        if ((tid = pddlTypeFromLispNode(types, node, err)) < 0)
-            return -1;
-    }
-
-    for (int i = child_from; i < child_to; ++i){
-        ASSERT(root->child[i].value != NULL);
-        if (root->child[i].value == NULL)
-            ERR_LISP_RET2(err, -1, root->child + i, "Unexpected expression");
-
-        if (root->child[i].value[0] != '?'){
-            ERR_LISP_RET(err, -1, root->child + i,
-                         "Expected variable, got `%s'.", root->child[i].value);
+    for (int pari = 0; pari < parent->param_size; ++pari){
+        const pddl_param_t *par = parent->param + pari;
+        if (pddlParamsGetId(params, par->name) < 0){
+            pddl_param_t *p = pddlParamsAddCopy(params, par);
+            p->inherit = pari;
         }
-
-        param = pddlParamsAdd(params);
-        param->name = STRDUP(root->child[i].value);
-        param->type = tid;
-        param->is_agent = 0;
     }
-
-    return 0;
-}
-
-int pddlParamsParse(pddl_params_t *params,
-                    const pddl_lisp_node_t *root,
-                    pddl_types_t *types,
-                    pddl_err_t *err)
-{
-    set_param_t set_param;
-    set_param.param = params;
-    set_param.types = types;
-    if (pddlLispParseTypedList(root, 0, root->child_size,
-                                setParams, &set_param, err) != 0)
-        PDDL_TRACE_RET(err, -1);
-    return 0;
-}
-
-int pddlParamsParseAgent(pddl_params_t *params,
-                         const pddl_lisp_node_t *n,
-                         int nid,
-                         pddl_types_t *types,
-                         pddl_err_t *err)
-{
-    set_param_t set_param;
-    int to;
-
-    if (nid + 2 < n->child_size
-            && n->child[nid + 2].value != NULL
-            && n->child[nid + 2].value[0] == '-'){
-        to = nid + 4;
-    }else{
-        to = nid + 2;
-    }
-
-    set_param.param = params;
-    set_param.types = types;
-    if (pddlLispParseTypedList(n, nid + 1, to, setParams, &set_param, err) != 0)
-        PDDL_TRACE_RET(err, -1);
-
-    params->param[params->param_size - 1].is_agent = 1;
-    return to;
 }
 
 void pddlParamsRemap(pddl_params_t *params, const int *remap)

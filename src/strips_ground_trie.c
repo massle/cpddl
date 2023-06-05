@@ -872,8 +872,8 @@ int pddlStripsGroundTrieStart(pddl_strips_ground_trie_t *g,
                           void *new_atom_data)
 {
     PDDL_INFO(err, "PDDL to STRIPS (domain: %s, problem: %s) ...",
-             pddl->domain_lisp->filename,
-             pddl->problem_lisp->filename);
+              (pddl->domain_file != NULL ? pddl->domain_file : ""),
+              (pddl->problem_file != NULL ? pddl->problem_file : ""));
 
     if (groundInit(g, pddl, cfg, err, new_atom, new_atom_data) != 0){
         groundFree(g);
@@ -931,10 +931,10 @@ int pddlStripsGroundTrieFinalize(pddl_strips_ground_trie_t *g, pddl_strips_t *st
         strips->domain_name = STRDUP(g->pddl->domain_name);
     if (g->pddl->problem_name)
         strips->problem_name = STRDUP(g->pddl->problem_name);
-    if (g->pddl->domain_lisp->filename)
-        strips->domain_file = STRDUP(g->pddl->domain_lisp->filename);
-    if (g->pddl->problem_lisp->filename)
-        strips->problem_file = STRDUP(g->pddl->problem_lisp->filename);
+    if (g->pddl->domain_file)
+        strips->domain_file = STRDUP(g->pddl->domain_file);
+    if (g->pddl->problem_file)
+        strips->problem_file = STRDUP(g->pddl->problem_file);
 
     if (createStripsFacts(g, strips) != 0
             || groundActions(g, strips) != 0

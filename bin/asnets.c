@@ -186,8 +186,8 @@ int main(int argc, char *argv[])
             int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
             PDDL_LOG(&err, "Task %s %s"
                      " solved: %b, length: %d",
-                     task->pddl.domain_lisp->filename,
-                     task->pddl.problem_lisp->filename,
+                     task->pddl.domain_file,
+                     task->pddl.problem_file,
                      solved,
                      (solved ? pddlIArrSize(&plan) : -1));
             if (solved){
