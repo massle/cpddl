@@ -165,7 +165,7 @@ void pddlErrSetSourceFilePointer(pddl_err_t *err,
  * Prints warning.
  */
 #define PDDL_WARN(E, ...) \
-    _pddlWarn((E), __FILE__, __LINE__, __func__,  __VA_ARGS__)
+    _pddlLog((E), "WARNING: " __VA_ARGS__)
 
 /**
  * Prints info line with timestamp.
@@ -233,8 +233,6 @@ void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
 void _pddlCtx(pddl_err_t *err, int time, const char *info, ...);
 void _pddlCtxEnd(pddl_err_t *err);
-void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...);
 void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
                const char *format, ...);
 void _pddlLog(pddl_err_t *err, const char *fmt, ...);

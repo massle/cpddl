@@ -68,6 +68,7 @@ struct options {
 
     struct {
         pddl_bool_t force_adl;
+        pddl_bool_t pedantic;
         pddl_bool_t remove_empty_types;
         pddl_bool_t compile_away_cond_eff;
         pddl_bool_t compile_in_lmg;

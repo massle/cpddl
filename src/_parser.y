@@ -133,8 +133,23 @@ prob_name ::= LPAREN PROBLEM IDNT(T) RPAREN. {
     ctx->pddl->problem_name = STRDUP(T.str);
 }
 
-prob_domain_name ::= LPAREN PROB_DOMAIN IDNT RPAREN. {
-    // TODO
+prob_domain_name ::= LPAREN PROB_DOMAIN IDNT(T) RPAREN. {
+    if (!ctx->abort
+            && ctx->pddl->domain_name != NULL
+            && strcmp(T.str, ctx->pddl->domain_name) != 0){
+        if (ctx->pddl->cfg.pedantic){
+            _ERRSV(ctx->err, ctx->tokenizer, &T,
+                   "Mismatch between the domain names in the domain and"
+                   " problem pddl files; domain pddl: '%s', problem pddl: '%s'.",
+                   ctx->pddl->domain_name, T.str);
+            ctx->abort = 1;
+        }else{
+            WARN(ctx->err, "Mismatch between the domain names in the domain"
+                 " and problem pddl files; domain pddl: '%s',"
+                 " problem pddl: '%s'.",
+                 ctx->pddl->domain_name, T.str);
+        }
+    }
 }
 
 require_section ::= LPAREN REQUIREMENTS require_kws RPAREN.
@@ -163,8 +178,8 @@ require_kw ::= REQUIRE_QUANTIFIED_PRE. {
     ctx->pddl->require.universal_pre = 1;
 }
 require_kw ::= REQUIRE_FLUENTS. {
-    ctx->pddl->require.strips = 1;
-    ctx->pddl->require.typing = 1;
+    ctx->pddl->require.numeric_fluent = 1;
+    ctx->pddl->require.object_fluent = 1;
 }
 require_kw ::= REQUIRE_ADL. {
     ctx->pddl->require.strips = 1;
@@ -248,6 +263,9 @@ function_def_notype ::= LPAREN IDNT(H) typed_lists(A) RPAREN. {
             ctx->abort = 1;
     }
     pddlParseTypedListsDel(A);
+    checkRequire(ctx, ctx->pddl->require.numeric_fluent, &H,
+                 ":numeric-fluents or :fluents",
+                 "a (:functions ...) section", "");
 }
 
 
@@ -318,25 +336,37 @@ pre_formula(O) ::= LPAREN OR(Ref) pre_formula_list(IN) RPAREN. {
     O = IN;
     O->kind = PDDL_PARSE_FM_OR;
     O->ref_tok = Ref;
+    checkRequire(ctx, ctx->pddl->require.disjunctive_pre, &Ref,
+                 ":disjunctive-preconditions or :adl", "an (or ...) formula", "");
 }
 pre_formula(O) ::= LPAREN NOT(Ref) pre_formula(F) RPAREN. {
     O = pddlParseFmTreeNew(PDDL_PARSE_FM_NOT, &Ref);
     pddlParseFmTreeAddChild(O, F);
+    checkRequire(ctx, ctx->pddl->require.negative_pre, &Ref,
+                 ":negative-preconditions or :adl", "a (not ...) formula", "");
 }
 pre_formula(O) ::= LPAREN IMPLY(Ref) pre_formula(L) pre_formula(R) RPAREN. {
     O = pddlParseFmTreeNew(PDDL_PARSE_FM_IMPLY, &Ref);
     pddlParseFmTreeAddChild(O, L);
     pddlParseFmTreeAddChild(O, R);
+    checkRequire(ctx, ctx->pddl->require.disjunctive_pre, &Ref,
+                 ":disjunctive-preconditions or :adl", "an (imply ...) formula", "");
 }
 pre_formula(O) ::= LPAREN EXISTS(Ref) LPAREN typed_lists(P) RPAREN pre_formula(F) RPAREN. {
     O = pddlParseFmTreeNew(PDDL_PARSE_FM_EXISTS, &Ref);
     O->params = P;
     pddlParseFmTreeAddChild(O, F);
+    checkRequire(ctx, ctx->pddl->require.existential_pre, &Ref,
+                 ":existential-preconditions or :quantified-preconditions or :adl",
+                 "an (exists ...) formula", "");
 }
 pre_formula(O) ::= LPAREN FORALL(Ref) LPAREN typed_lists(P) RPAREN pre_formula(F) RPAREN. {
     O = pddlParseFmTreeNew(PDDL_PARSE_FM_FORALL, &Ref);
     O->params = P;
     pddlParseFmTreeAddChild(O, F);
+    checkRequire(ctx, ctx->pddl->require.universal_pre, &Ref,
+                 ":universal-preconditions or :quantified-preconditions or :adl",
+                 "a (forall ...) formula", "");
 }
 pre_formula(F) ::= atom(A). { F = A; }
 
@@ -366,11 +396,16 @@ eff_formula(O) ::= LPAREN FORALL(Ref) LPAREN typed_lists(P) RPAREN eff_formula(F
     O = pddlParseFmTreeNew(PDDL_PARSE_FM_FORALL, &Ref);
     O->params = P;
     pddlParseFmTreeAddChild(O, F);
+    checkRequire(ctx, ctx->pddl->require.conditional_eff, &Ref,
+                 ":conditional-effects or :adl", "a (forall ...) formula",
+                 " in an action effect");
 }
 eff_formula(O) ::= LPAREN WHEN(Ref) pre_formula(C) eff_formula(E) RPAREN. {
     O = pddlParseFmTreeNew(PDDL_PARSE_FM_WHEN, &Ref);
     pddlParseFmTreeAddChild(O, C);
     pddlParseFmTreeAddChild(O, E);
+    checkRequire(ctx, ctx->pddl->require.conditional_eff, &Ref,
+                 ":conditional-effects or :adl", "a (when ...) formula", "");
 }
 eff_formula(O) ::= LPAREN(Ref) func_op(Type) func_op_dst(Dst) func_op_src(Src) RPAREN. {
     int type = PDDL_FM_ASSIGN;
@@ -488,13 +523,15 @@ goal ::= LPAREN GOAL pre_formula(G) RPAREN. {
 }
 
 metric ::= LPAREN METRIC metric_opt RPAREN.
-metric_opt ::= MINIMIZE atom(M). {
+metric_opt ::= MINIMIZE(H) atom(M). {
     M->kind = PDDL_PARSE_FM_FATOM;
     if (!ctx->abort){
         if (setMetric(ctx->pddl, M, ctx->tokenizer, ctx->err) != 0)
             ctx->abort = 1;
     }
     pddlParseFmTreeDel(M);
+    checkRequire(ctx, ctx->pddl->require.action_cost, &H,
+                 ":action-cost", "the (:metric (minimize (totoal-cost)))", "");
 }
 //metric_opt ::= MAXIMIZE atom.
 
@@ -521,6 +558,8 @@ typed_lists_wtype(L) ::= typed_lists_wtype(LIN) idnt_list(S) DASH IDNT(T). {
     L = LIN;
     pddl_parse_typed_list_t *tl = pddlParseTypedListNew(S, &T);
     pddlParseTypedListsAdd(L, tl);
+    checkRequire(ctx, ctx->pddl->require.typing, &T,
+                 ":typing or :adl", "a type", "");
 }
 typed_lists_wtype(L) ::= . { L = pddlParseTypedListsNew(); }
 

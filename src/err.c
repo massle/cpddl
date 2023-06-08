@@ -233,26 +233,6 @@ void _pddlCtxEnd(pddl_err_t *err)
     }
 }
 
-void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...)
-{
-    if (err == NULL)
-        return;
-
-    va_list ap;
-
-    if (err->warn_out == NULL)
-        return;
-
-    va_start(ap, format);
-    fprintf(err->warn_out, "Warning: %s:%d [%s]: ", filename, line, func);
-    vfprintf(err->warn_out, format, ap);
-    va_end(ap);
-    fprintf(err->warn_out, "\n");
-    fflush(err->warn_out);
-}
-
-
 static void infoResources(pddl_err_t *err)
 {
     if (!err->info_timer_init){

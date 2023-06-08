@@ -34,7 +34,10 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_config {
-    /** Force ADL to requirements */
+    /** If true, the parser of PDDL files will be strict and emit errors
+     *  instead of warnings. */
+    pddl_bool_t pedantic;
+    /** Force ADL to requirements before parsing starts */
     pddl_bool_t force_adl;
     /** Normalize the task right after parsing */
     pddl_bool_t normalize;
@@ -58,7 +61,7 @@ struct pddl_config {
     pddl_bool_t compile_away_cond_eff;
     /** Enforce the task to have unit-cost actions */
     pddl_bool_t enforce_unit_cost;
-    /** If set to true all actions should be kept in the task even after
+    /** If set to true, all actions should be kept in the task even after
      *  normalization */
     pddl_bool_t keep_all_actions;
 };
@@ -66,6 +69,7 @@ typedef struct pddl_config pddl_config_t;
 
 #define PDDL_CONFIG_INIT \
     { \
+        pddl_false, /* .pedantic */ \
         pddl_true, /* .force_adl */ \
         pddl_true, /* .normalize */ \
         pddl_true, /* .normalize_compile_away_dynamic_neg_cond */ \

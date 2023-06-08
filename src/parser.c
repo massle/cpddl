@@ -57,6 +57,28 @@ struct pddl_parser {
 typedef struct pddl_parser pddl_parser_t;
 
 
+static void checkRequire(pddl_parse_ctx_t *ctx,
+                         int require_flag,
+                         const pddl_parse_token_t *tok,
+                         const char *require_flag_str,
+                         const char *used_feature,
+                         const char *suffix)
+{
+    if (ctx->abort || require_flag)
+       return;
+
+    if (ctx->pddl->cfg.pedantic){
+        _ERRSV(ctx->err, ctx->tokenizer, tok,
+               "Missing %s in the :requirements section while %s is used%s.",
+               require_flag_str, used_feature, suffix);
+        ctx->abort = 1;
+    }else{
+        WARN(ctx->err, "Missing %s in the :requirements section while %s is used%s."
+             " (line: %d, column: %d)",
+             require_flag_str, used_feature, suffix, tok->line, tok->column);
+    }
+}
+
 static int tokEitherToType(pddl_types_t *types,
                            const pddl_parse_toks_t *either,
                            const pddl_parse_token_t *either_tok,
@@ -591,7 +613,6 @@ static int addTypes(pddl_t *pddl,
             int type = pddlTypesGet(&pddl->type, tok->str);
             // Type "object" (with ID 0) can be defined multiple times
             if (type > 0){
-                continue;
                 // TODO: Configure ignoring this
                 _ERRV(err, -1, tokenizer, tok,
                       "Type %s is defined for the second time.", tok->str);
@@ -1083,7 +1104,6 @@ int pddlParseDomain(pddl_t *pddl, const char *fn, pddl_err_t *err)
     }
 
     // TODO: Report clash between predicate, type, object, action names
-    // TODO: Check that actions use only objects from :constants
 
     pddlParserFree(&par);
     CTXEND(err);
@@ -1111,7 +1131,6 @@ int pddlParseProblem(pddl_t *pddl, const char *fn, pddl_err_t *err)
     }
 
     // TODO: Report clash between predicate, type, object, action names
-    // TODO: Check that actions use only objects from :constants
 
     pddlParserFree(&par);
     CTXEND(err);
