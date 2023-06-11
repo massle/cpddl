@@ -263,8 +263,11 @@ function_def_notype ::= LPAREN IDNT(H) typed_lists(A) RPAREN. {
             ctx->abort = 1;
     }
     pddlParseTypedListsDel(A);
-    checkRequire(ctx, ctx->pddl->require.numeric_fluent, &H,
-                 ":numeric-fluents or :fluents",
+    // TODO: This is not very accurate, because :action-costs specifies
+    // only a small subset of what :numeric-fluents allow
+    checkRequire(ctx, ctx->pddl->require.numeric_fluent
+                        || ctx->pddl->require.action_cost, &H,
+                 ":numeric-fluents or :fluents or :action-costs",
                  "a (:functions ...) section", "");
 }
 
