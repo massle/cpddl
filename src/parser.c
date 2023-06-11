@@ -214,7 +214,7 @@ static pddl_fm_t *_fmAtomFromParser(pddl_t *pddl,
     if (num_args != arity){
         _ERRV(err, NULL, tokenizer, fmtree->atom->tok + 0,
               "The %s '%s' has arity %d, but the atom has %d arguments.",
-              name, pname);
+              name, pname, arity, num_args);
     }
 
     pddl_fm_atom_t *a = pddlFmNewEmptyAtom(num_args);
