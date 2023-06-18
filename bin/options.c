@@ -462,6 +462,18 @@ static void setPddlOptions(void)
                 "Compile away conditional effects on the PDDL level.");
     optsAddFlag("pddl-unit-cost", 0x0, &opt.pddl.enforce_unit_cost, 0,
                 "Enforce unit cost on the PDDL level.");
+    optsAddIntSwitch("pddl-neg-cond", 0x0,
+                     &opt.pddl.compile_away_neg_cond,
+                     "Compile away negative conditions during normalization, one of:\n"
+                     "  dynamic -- only dynamic predicates (default)\n"
+                     "  all -- all conditions including static predicates\n"
+                     "  goal -- only dynamic predicates appearing in the goal\n"
+                     "  none -- do not compile away negative conditions",
+                     4,
+                     "dynamic", COMPILE_AWAY_NEG_COND_DYNAMIC,
+                     "all", COMPILE_AWAY_NEG_COND_ALL,
+                     "goal", COMPILE_AWAY_NEG_COND_GOAL,
+                     "none", COMPILE_AWAY_NEG_COND_NONE);
 }
 
 static void setLMGOptions(void)

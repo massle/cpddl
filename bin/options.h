@@ -54,6 +54,13 @@ enum {
     SYMBA_FWBW,
 };
 
+enum {
+    COMPILE_AWAY_NEG_COND_DYNAMIC = 0,
+    COMPILE_AWAY_NEG_COND_ALL,
+    COMPILE_AWAY_NEG_COND_GOAL,
+    COMPILE_AWAY_NEG_COND_NONE,
+};
+
 struct options {
     pddl_bool_t help;
     pddl_bool_t version;
@@ -71,6 +78,7 @@ struct options {
         pddl_bool_t pedantic;
         pddl_bool_t remove_empty_types;
         pddl_bool_t compile_away_cond_eff;
+        int compile_away_neg_cond;
         pddl_bool_t compile_in_lmg;
         pddl_bool_t compile_in_lmg_mutex;
         pddl_bool_t compile_in_lmg_dead_end;
