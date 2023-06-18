@@ -425,7 +425,7 @@ static void extendInitialStateUsingDL(pddl_t *pddl, int old_pred_size,
                 pddl_fm_atom_t *a;
                 a = pddlFmCreateFactAtom(neg, ga->arg_size, ga->arg);
                 pddlFmJuncAdd(pddl->init, &a->fm);
-                pddl->pred.pred[a->pred].in_init = 1;
+                pddl->pred.pred[a->pred].in_init = pddl_true;
                 ++count_added;
             }
         }
@@ -449,7 +449,7 @@ static int genAllInitFactsRec(pddl_t *pddl, int pos, int neg,
         if (pddlGroundAtomsFindPred(gatoms, pos, arg, arg_size) == NULL){
             a = pddlFmCreateFactAtom(neg, arg_size, arg);
             pddlFmJuncAdd(pddl->init, &a->fm);
-            pddl->pred.pred[a->pred].in_init = 1;
+            pddl->pred.pred[a->pred].in_init = pddl_true;
             ++count;
         }
 
@@ -499,11 +499,15 @@ static void extendInitialStateExhaustively(pddl_t *pddl, int old_pred_size,
 
 int pddlCompileAwayNegativeConditions(pddl_t *pddl,
                                       pddl_bool_t only_dynamic,
+                                      pddl_bool_t only_goal,
                                       pddl_bool_t only_relevant_facts_in_init,
                                       pddl_err_t *err)
 {
     CTX(err, "Neg-Cond");
     LOG(err, "Cfg: only_dymanic: %b", only_dynamic);
+    LOG(err, "Cfg: only_goal: %b", only_goal);
+    LOG(err, "Cfg: only_relevant_facts_in_init: %b",
+        only_relevant_facts_in_init);
 
     pred_t pred[pddl->pred.pred_size];
     if (!predArrInit(pred, pddl)){
@@ -512,10 +516,23 @@ int pddlCompileAwayNegativeConditions(pddl_t *pddl,
         return 0;
     }
 
+    pddl_bool_t *pred_in_goal = NULL;
+    if (only_goal){
+        pred_in_goal = ZALLOC_ARR(pddl_bool_t, pddl->pred.pred_size);
+        if (pddl->goal != NULL){
+            pddl_fm_const_it_atom_t it;
+            const pddl_fm_atom_t *atom;
+            PDDL_FM_FOR_EACH_ATOM(pddl->goal, &it, atom)
+                pred_in_goal[atom->pred] = pddl_true;
+        }
+    }
+
     int count = 0;
     int pred_size = pddl->pred.pred_size;
     for (int pred_id = 0; pred_id < pred_size; ++pred_id){
         ASSERT(pred[pred_id].pos == pred_id);
+        if (only_goal && !pred_in_goal[pred_id])
+            continue;
         if (only_dynamic && pred[pred_id].is_static)
             continue;
         if (!pred[pred_id].is_neg)
@@ -539,6 +556,9 @@ int pddlCompileAwayNegativeConditions(pddl_t *pddl,
 
         ++count;
     }
+
+    if (pred_in_goal != NULL)
+        FREE(pred_in_goal);
 
     LOG(err, "Extending initial state...");
     if (only_relevant_facts_in_init){

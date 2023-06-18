@@ -45,6 +45,9 @@ struct pddl_config {
      *  (non-static) preconditions in actions' preconditions and goal.
      *  This takes effect only if .normalize is true. */
     pddl_bool_t normalize_compile_away_dynamic_neg_cond;
+    /** When normalizing, compile away only the negative conditions
+     *  appearing in the goal condition. */
+    pddl_bool_t normalize_compile_away_only_goal_neg_cond;
     /** As .normalize_compile_away_dynamic_neg_cond, but removes all
      *  negative conditions including of static predicates. */
     pddl_bool_t normalize_compile_away_all_neg_cond;
@@ -73,6 +76,7 @@ typedef struct pddl_config pddl_config_t;
         pddl_true, /* .force_adl */ \
         pddl_true, /* .normalize */ \
         pddl_true, /* .normalize_compile_away_dynamic_neg_cond */ \
+        pddl_false, /* .normalize_compile_away_only_goal_neg_cond */ \
         pddl_false, /* .normalize_compile_away_all_neg_cond */ \
         pddl_true, /* .normalize_compile_away_neg_cond_only_relevant_facts */ \
         pddl_true, /* .remove_empty_types */ \
@@ -169,6 +173,7 @@ void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
  */
 int pddlCompileAwayNegativeConditions(pddl_t *pddl,
                                       pddl_bool_t only_dynamic,
+                                      pddl_bool_t only_goal,
                                       pddl_bool_t only_relevant_facts_in_init,
                                       pddl_err_t *err);
 
