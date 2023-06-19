@@ -18,6 +18,7 @@ struct pddl_search_bfs {
     int g_weight;
     int h_weight;
     pddl_bool_t is_lazy;
+    pddl_bool_t reopen;
 
     pddl_fdr_state_space_t state_space;
     pddl_open_list_t *open;
@@ -49,6 +50,7 @@ pddl_search_t *pddlSearchBFSNew(const pddl_search_config_t *cfg,
                                 int g_weight,
                                 int h_weight,
                                 pddl_bool_t is_lazy,
+                                pddl_bool_t reopen,
                                 const char *err_prefix,
                                 pddl_err_t *err)
 {
@@ -62,6 +64,7 @@ pddl_search_t *pddlSearchBFSNew(const pddl_search_config_t *cfg,
     s->g_weight = g_weight;
     s->h_weight = h_weight;
     s->is_lazy = is_lazy;
+    s->reopen = reopen;
 
     pddlFDRStateSpaceInit(&s->state_space, &s->fdr->var, err);
     s->open = pddlOpenListSplayTree2();
@@ -124,6 +127,12 @@ static void bfsInsertNextState(pddl_search_bfs_t *s,
         return;
     }
 
+    // Skip if we are not allowed to reopen search nodes
+    if (s->next_node.status == PDDL_FDR_STATE_SPACE_STATUS_CLOSED
+            && !s->reopen){
+        return;
+    }
+
     s->next_node.parent_id = s->cur_node.id;
     s->next_node.op_id = op->id;
     s->next_node.g_value = next_g_value;
@@ -172,7 +181,7 @@ static pddl_search_status_t bfsInitStep(pddl_search_t *_s)
     s->cur_node.g_value = 0;
 
     int h_value = 0;
-    if (s->heur != NULL && !s->is_lazy){
+    if (s->heur != NULL){
         h_value = pddlHeurEstimate(s->heur, &s->cur_node, &s->state_space);
         ++s->_stat.evaluated;
     }
@@ -251,6 +260,17 @@ static pddl_search_status_t bfsStep(pddl_search_t *_s)
         if (s->heur != NULL){
             h_value = pddlHeurEstimate(s->heur, &s->cur_node, &s->state_space);
             ++s->_stat.evaluated;
+        }
+
+        if (h_value == PDDL_COST_DEAD_END){
+            ++s->_stat.dead_end;
+            if (s->cur_node.status == PDDL_FDR_STATE_SPACE_STATUS_OPEN)
+                --s->_stat.open;
+            s->cur_node.status = PDDL_FDR_STATE_SPACE_STATUS_CLOSED;
+            ++s->_stat.closed;
+            pddlFDRStateSpaceSet(&s->state_space, &s->cur_node);
+            CTXEND(s->err);
+            return PDDL_SEARCH_CONT;
         }
     }
 

@@ -52,6 +52,7 @@ pddl_search_t *pddlSearchBFSNew(const pddl_search_config_t *cfg,
                                 int g_weight,
                                 int h_weight,
                                 pddl_bool_t is_lazy,
+                                pddl_bool_t reopen,
                                 const char *err_prefix,
                                 pddl_err_t *err);
 

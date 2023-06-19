@@ -82,7 +82,7 @@ typedef struct pddl_search_config pddl_search_config_t;
 #define PDDL_SEARCH_CONFIG_INIT \
     { \
         NULL, /* .fdr */ \
-        PDDL_LIFTED_SEARCH_ASTAR, /* .alg */ \
+        PDDL_SEARCH_ASTAR, /* .alg */ \
         NULL, /* .heur */ \
     }
 
