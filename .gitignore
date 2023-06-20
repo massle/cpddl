@@ -22,3 +22,7 @@ src/iarr.c
 cpddl.pc
 src/tmp.*
 src/_version.c
+src/lemon
+src/_parser.c
+src/_parser.h
+src/_parser.out

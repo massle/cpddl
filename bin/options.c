@@ -454,6 +454,8 @@ static void setPddlOptions(void)
     optsAddFlag("force-adl", 0x0, &opt.pddl.force_adl, 1,
                 "Force :adl requirement if it is not specified in the"
                 " domain file.");
+    optsAddFlag("pedantic", 0x0, &opt.pddl.pedantic, 0,
+                "Turns warnings emitted by the parser into errors.");
     optsAddFlag("remove-empty-types", 0x0, &opt.pddl.remove_empty_types, 1,
                 "Remove empty types");
     optsAddFlag("pddl-ce", 0x0, &opt.pddl.compile_away_cond_eff, 0,

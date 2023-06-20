@@ -31,14 +31,17 @@ extern "C" {
  * Typed parameter
  */
 struct pddl_param {
-    char *name;   /*!< Name of the parameter */
-    int type;     /*!< Type ID */
-    pddl_bool_t is_agent; /*!< True if this is :agent parameter */
-    int inherit;  /*!< -1 or ID of the parent parameter of which this is a
-                       copy */
-
-    pddl_bool_t is_counted_var; /*!< True if it is counted variable -- this is used
-                                     for inference of lifted mutex groups */
+    /** Name of the parameter */
+    char *name;
+    /** Type ID */
+    int type;
+    /** True if this is :agent parameter */
+    pddl_bool_t is_agent;
+    /** -1 or ID of the parent parameter of which this is a copy */
+    int inherit;
+    /** True if it is counted variable -- this is used for inference of
+     *  lifted mutex groups */
+    pddl_bool_t is_counted_var;
 };
 typedef struct pddl_param pddl_param_t;
 
@@ -76,6 +79,11 @@ void pddlParamsFree(pddl_params_t *params);
 pddl_param_t *pddlParamsAdd(pddl_params_t *params);
 
 /**
+ * Adds a copy of the specified parameter.
+ */
+pddl_param_t *pddlParamsAddCopy(pddl_params_t *params, const pddl_param_t *p);
+
+/**
  * Copies src to dst.
  */
 void pddlParamsInitCopy(pddl_params_t *dst, const pddl_params_t *src);
@@ -87,21 +95,11 @@ void pddlParamsInitCopy(pddl_params_t *dst, const pddl_params_t *src);
 int pddlParamsGetId(const pddl_params_t *param, const char *name);
 
 /**
- * Parse typed parameters from lisp.
+ * Extends the parameters {params} with all parameters from the parent list of
+ * parameters {parent} that are not over-shadowed and set the corresponding
+ * .inherit property.
  */
-int pddlParamsParse(pddl_params_t *params,
-                    const pddl_lisp_node_t *root,
-                    pddl_types_t *types,
-                    pddl_err_t *err);
-
-/**
- * Parse :agent var - type parameters
- */
-int pddlParamsParseAgent(pddl_params_t *params,
-                         const pddl_lisp_node_t *root,
-                         int agent_node_index,
-                         pddl_types_t *types,
-                         pddl_err_t *err);
+void pddlParamsInherit(pddl_params_t *params, const pddl_params_t *parent);
 
 /**
  * Remap parameters.

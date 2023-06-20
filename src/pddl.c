@@ -1,26 +1,13 @@
 /***
- * cpddl
- * -------
- * Copyright (c)2016 Daniel Fiser <danfis@danfis.cz>,
- * AI Center, Department of Computer Science,
- * Faculty of Electrical Engineering, Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
+ * Copyright (c)2023 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
-
+#include "parser.h"
+#include "internal.h"
 #include "pddl/pddl_struct.h"
 #include "pddl/sort.h"
-#include "internal.h"
 
 void pddlLogStatsOneLine(const pddl_t *pddl, const char *prefix, pddl_err_t *err)
 {
@@ -76,161 +63,9 @@ void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err)
     CTXEND(err);
 }
 
-static int checkDerivedPredicates(const pddl_t *pddl, pddl_err_t *err)
-{
-    const pddl_lisp_node_t *root = &pddl->domain_lisp->root;
-    for (int i = 0; i < root->child_size; ++i){
-        const pddl_lisp_node_t *n = root->child + i;
-        if (pddlLispNodeHeadKw(n) == PDDL_KW_DERIVED){
-            ERR_RET(err, -1, "Derived predicates are not supported"
-                    " (line %d).", n->lineno);
-        }
-    }
-    return 0;
-}
-
 static int checkConfig(const pddl_config_t *cfg)
 {
     return 1;
-}
-
-static const char *parseName(pddl_lisp_t *lisp, int kw,
-                             const char *err_name, pddl_err_t *err)
-{
-    const pddl_lisp_node_t *n;
-
-    n = pddlLispFindNode(&lisp->root, kw);
-    if (n == NULL){
-        // TODO: Configure warn/err
-        ERR_RET(err, NULL, "Could not find %s name definition in %s.",
-                err_name, lisp->filename);
-    }
-
-    if (n->child_size != 2 || n->child[1].value == NULL){
-        ERR_RET(err, NULL, "Invalid %s name definition in %s.",
-                err_name, lisp->filename);
-    }
-
-    return n->child[1].value;
-}
-
-static char *parseDomainName(pddl_lisp_t *lisp, pddl_err_t *err)
-{
-    const char *name = parseName(lisp, PDDL_KW_DOMAIN, "domain", err);
-    if (name != NULL)
-        return STRDUP(name);
-    return NULL;
-}
-
-static char *parseProblemName(pddl_lisp_t *lisp, pddl_err_t *err)
-{
-    if (lisp == NULL)
-        return STRDUP("no-problem");
-
-    const char *name = parseName(lisp, PDDL_KW_PROBLEM, "problem", err);
-    if (name != NULL)
-        return STRDUP(name);
-    return NULL;
-}
-
-static int checkDomainName(pddl_t *pddl, pddl_err_t *err)
-{
-    if (pddl->problem_lisp == NULL)
-        return 0;
-
-    const char *problem_domain_name;
-
-    // TODO: Configure err/warn/nothing
-    problem_domain_name = parseName(pddl->problem_lisp,
-                                    PDDL_KW_DOMAIN2, ":domain", err);
-    if (problem_domain_name == NULL)
-        TRACE_RET(err, -1);
-
-    if (strcmp(problem_domain_name, pddl->domain_name) != 0){
-        WARN(err, "Domain names does not match: `%s' x `%s'",
-             pddl->domain_name, problem_domain_name);
-        return 0;
-    }
-    return 0;
-}
-
-static int parseMetric(pddl_t *pddl, const pddl_lisp_t *lisp, pddl_err_t *err)
-{
-    if (lisp == NULL)
-        return 0;
-
-    const pddl_lisp_node_t *n;
-
-    n = pddlLispFindNode(&lisp->root, PDDL_KW_METRIC);
-    if (n == NULL)
-        return 0;
-
-    if (n->child_size != 3
-            || n->child[1].value == NULL
-            || n->child[1].kw != PDDL_KW_MINIMIZE
-            || n->child[2].value != NULL
-            || n->child[2].child_size != 1
-            || strcmp(n->child[2].child[0].value, "total-cost") != 0){
-        ERR_RET(err, -1, "Only (:metric minimize (total-cost)) is supported"
-                " (line %d in %s).", n->lineno, lisp->filename);
-    }
-
-    pddl->metric = pddl_true;
-    return 0;
-}
-
-static int parseInit(pddl_t *pddl, pddl_err_t *err)
-{
-    if (pddl->problem_lisp == NULL){
-        pddl->init = pddlFmToAnd(pddlFmNewEmptyAnd());
-        return 0;
-    }
-
-    const pddl_lisp_node_t *ninit;
-
-    ninit = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_INIT);
-    if (ninit == NULL){
-        ERR_RET(err, -1, "Missing :init in %s.", pddl->problem_lisp->filename);
-    }
-
-    pddl->init = pddlFmParseInit(ninit, pddl, err);
-    if (pddl->init == NULL){
-        TRACE_PREPEND_RET(err, -1, "While parsing :init specification"
-                          " in %s: ", pddl->problem_lisp->filename);
-    }
-
-    pddl_fm_const_it_atom_t it;
-    const pddl_fm_atom_t *atom;
-    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom)
-        pddl->pred.pred[atom->pred].in_init = 1;
-
-    return 0;
-}
-
-static int parseGoal(pddl_t *pddl, pddl_err_t *err)
-{
-    if (pddl->problem_lisp == NULL){
-        pddl->goal = &pddlFmNewBool(0)->fm;
-        return 0;
-    }
-
-    const pddl_lisp_node_t *ngoal;
-
-    ngoal = pddlLispFindNode(&pddl->problem_lisp->root, PDDL_KW_GOAL);
-    if (ngoal == NULL)
-        ERR_RET(err, -1, "Missing :goal in %s.", pddl->problem_lisp->filename);
-
-    if (ngoal->child_size != 2 || ngoal->child[1].value != NULL){
-        ERR_RET(err, -1, "Invalid definition of :goal in %s (line %d).",
-                pddl->problem_lisp->filename, ngoal->lineno);
-    }
-
-    pddl->goal = pddlFmParse(ngoal->child + 1, pddl, NULL, "", err);
-    if (pddl->goal == NULL){
-        TRACE_PREPEND_RET(err, -1, "While parsing :goal specification"
-                          " in %s: ", pddl->problem_lisp->filename);
-    }
-    return 0;
 }
 
 int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
@@ -248,53 +83,33 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     LOG(err, "Processing %s and %s.",
         domain_fn, (problem_fn != NULL ? problem_fn : "null"));
 
-    if (!checkConfig(cfg)){
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    LOG(err, "Parsing domain lisp file...");
-    pddl->domain_lisp = pddlLispParse(domain_fn, err);
-    if (pddl->domain_lisp == NULL){
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    if (problem_fn != NULL){
-        LOG(err, "Parsing problem lisp file...");
-        pddl->problem_lisp = pddlLispParse(problem_fn, err);
-        if (pddl->problem_lisp == NULL){
-            CTXEND(err);
-            if (pddl->domain_lisp)
-                pddlLispDel(pddl->domain_lisp);
-            TRACE_RET(err, -1);
-        }
-    }
-
-    LOG(err, "Parsing entire contents of domain/problem PDDL...");
-    pddl->domain_name = parseDomainName(pddl->domain_lisp, err);
-    if (pddl->domain_name == NULL)
+    if (!checkConfig(cfg))
         goto pddl_fail;
 
-    pddl->problem_name = parseProblemName(pddl->problem_lisp, err);
-    if (pddl->domain_name == NULL)
+    if (pddl->cfg.force_adl)
+        pddlRequireFlagsSetADL(&pddl->require);
+
+    if (domain_fn != NULL)
+        pddl->domain_file = STRDUP(domain_fn);
+    if (problem_fn != NULL)
+        pddl->problem_file = STRDUP(problem_fn);
+    pddlTypesInit(&pddl->type);
+    pddlObjsInit(&pddl->obj);
+    pddlPredsInitEq(&pddl->pred);
+    pddlPredsInitEmpty(&pddl->func);
+    pddlActionsInit(&pddl->action);
+
+    if (pddlParseDomain(pddl, domain_fn, err) != 0)
         goto pddl_fail;
 
-    if (checkDerivedPredicates(pddl, err) != 0
-            || checkDomainName(pddl, err) != 0
-            || pddlRequireFlagsParse(pddl, err) != 0
-            || pddlTypesParse(pddl, err) != 0
-            || pddlObjsParse(pddl, err) != 0
-            || pddlPredsParse(pddl, err) != 0
-            || pddlFuncsParse(pddl, err) != 0
-            || parseInit(pddl, err) != 0
-            || parseGoal(pddl, err) != 0
-            || pddlActionsParse(pddl, err) != 0
-            || parseMetric(pddl, pddl->problem_lisp, err) != 0){
-        goto pddl_fail;
+    if (!pddl->only_domain){
+        if (pddlParseProblem(pddl, problem_fn, err) != 0)
+            goto pddl_fail;
     }
-    pddlTypesBuildObjTypeMap(&pddl->type, pddl->obj.obj_size);
-    LOG(err, "PDDL files processed.");
+
+    pddlObjsPropagateToTypes(&pddl->obj, &pddl->type);
+    pddlResetPredInInit(pddl);
+    pddlResetPredReadWrite(pddl);
 
     if (cfg->normalize)
         pddlNormalize(pddl, err);
@@ -338,9 +153,10 @@ void pddlInitCopy(pddl_t *dst, const pddl_t *src)
 {
     ZEROIZE(dst);
     dst->cfg = src->cfg;
-    dst->domain_lisp = pddlLispClone(src->domain_lisp);
-    if (src->problem_lisp != NULL)
-        dst->problem_lisp = pddlLispClone(src->problem_lisp);
+    if (src->domain_file != NULL)
+        dst->domain_file = STRDUP(src->domain_file);
+    if (src->problem_file != NULL)
+        dst->problem_file = STRDUP(src->problem_file);
     if (src->domain_name != NULL)
         dst->domain_name = STRDUP(src->domain_name);
     if (src->problem_name != NULL)
@@ -393,10 +209,10 @@ pddl_bool_t pddlHasCondEff(const pddl_t *pddl)
 
 void pddlFree(pddl_t *pddl)
 {
-    if (pddl->domain_lisp)
-        pddlLispDel(pddl->domain_lisp);
-    if (pddl->problem_lisp)
-        pddlLispDel(pddl->problem_lisp);
+    if (pddl->domain_file != NULL)
+        FREE(pddl->domain_file);
+    if (pddl->problem_file != NULL)
+        FREE(pddl->problem_file);
     if (pddl->domain_name != NULL)
         FREE(pddl->domain_name);
     if (pddl->problem_name != NULL)
@@ -544,17 +360,6 @@ static int removeUnreachableActions(pddl_t *pddl)
     pddlISetFree(&rm);
 
     return ret;
-}
-
-static void pddlResetPredReadWrite(pddl_t *pddl)
-{
-    for (int i = 0; i < pddl->pred.pred_size; ++i)
-        pddl->pred.pred[i].read = pddl->pred.pred[i].write = 0;
-    for (int i = 0; i < pddl->action.action_size; ++i){
-        const pddl_action_t *a = pddl->action.action + i;
-        pddlFmSetPredRead(a->pre, &pddl->pred);
-        pddlFmSetPredReadWriteEff(a->eff, &pddl->pred);
-    }
 }
 
 void pddlNormalize(pddl_t *pddl, pddl_err_t *err)
@@ -832,11 +637,37 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
     CTXEND(err);
 }
 
+void pddlResetPredReadWrite(pddl_t *pddl)
+{
+    for (int i = 0; i < pddl->pred.pred_size; ++i)
+        pddl->pred.pred[i].read = pddl->pred.pred[i].write = pddl_false;
+    for (int i = 0; i < pddl->action.action_size; ++i){
+        const pddl_action_t *a = pddl->action.action + i;
+        pddlFmSetPredRead(a->pre, &pddl->pred);
+        pddlFmSetPredReadWriteEff(a->eff, &pddl->pred);
+    }
+}
+
+void pddlResetPredInInit(pddl_t *pddl)
+{
+    for (int i = 0; i < pddl->pred.pred_size; ++i)
+        pddl->pred.pred[i].read = pddl->pred.pred[i].write = pddl_false;
+
+    if (pddl->init == NULL)
+        return;
+
+    pddl_fm_const_it_atom_t it;
+    const pddl_fm_atom_t *atom;
+    PDDL_FM_FOR_EACH_ATOM(&pddl->init->fm, &it, atom)
+        pddl->pred.pred[atom->pred].in_init = pddl_true;
+}
+
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)
 {
     fprintf(fout, "(define (domain %s)\n", pddl->domain_name);
     pddlRequireFlagsPrintPDDL(&pddl->require, fout);
     pddlTypesPrintPDDL(&pddl->type, fout);
+    // TODO: Print as constants only objects actually used in the domain file
     pddlObjsPrintPDDLConstants(&pddl->obj, &pddl->type, fout);
     pddlPredsPrintPDDL(&pddl->pred, &pddl->type, fout);
     pddlFuncsPrintPDDL(&pddl->func, &pddl->type, fout);
@@ -853,19 +684,24 @@ void pddlPrintPDDLProblem(const pddl_t *pddl, FILE *fout)
     fprintf(fout, "(define (problem %s) (:domain %s)\n",
             pddl->problem_name, pddl->domain_name);
 
+    // TODO: Print objects
+
     pddlParamsInit(&params);
     fprintf(fout, "(:init\n");
-    PDDL_LIST_FOR_EACH(&pddl->init->part, item){
-        c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        fprintf(fout, "  ");
-        pddlFmPrintPDDL(c, pddl, &params, fout);
-        fprintf(fout, "\n");
+    if (pddl->init != NULL){
+        PDDL_LIST_FOR_EACH(&pddl->init->part, item){
+            c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+            fprintf(fout, "  ");
+            pddlFmPrintPDDL(c, pddl, &params, fout);
+            fprintf(fout, "\n");
+        }
     }
     fprintf(fout, ")\n");
     pddlParamsFree(&params);
 
     fprintf(fout, "(:goal ");
-    pddlFmPrintPDDL(pddl->goal, pddl, NULL, fout);
+    if (pddl->goal != NULL)
+        pddlFmPrintPDDL(pddl->goal, pddl, NULL, fout);
     fprintf(fout, ")\n");
 
     if (pddl->metric)

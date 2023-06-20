@@ -22,8 +22,8 @@ ifeq '$(PROFIL)' 'yes'
 endif
 
 ifeq '$(DEBUG)' 'yes'
-  CFLAGS = -g
-  CPPFLAGS = -g
+  CFLAGS = -g -fno-inline -fno-omit-frame-pointer
+  CPPFLAGS = -g -fno-inline -fno-omit-frame-pointer
 else
   # force to use optimizations
   CFLAGS += -O3

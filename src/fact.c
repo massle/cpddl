@@ -62,17 +62,6 @@ static char *makeName(const pddl_ground_atom_t *ga, const pddl_t *pddl)
     return STRDUP(name);
 }
 
-static int isPrivate(const pddl_ground_atom_t *ga, const pddl_t *pddl)
-{
-    if (pddl->pred.pred[ga->pred].is_private)
-        return 1;
-    for (int i = 0; i < ga->arg_size; ++i){
-        if (pddl->obj.obj[ga->arg[i]].is_private)
-            return 1;
-    }
-    return 0;
-}
-
 static pddl_fact_t *factFromGroundAtom(const pddl_ground_atom_t *ga,
                                        const pddl_t *pddl)
 {
@@ -80,7 +69,6 @@ static pddl_fact_t *factFromGroundAtom(const pddl_ground_atom_t *ga,
 
     f = pddlFactNew();
     f->name = makeName(ga, pddl);
-    f->is_private = isPrivate(ga, pddl);
     f->ground_atom = pddlGroundAtomClone(ga);
     f->hash = pddlFactHash(f);
     return f;
@@ -121,7 +109,6 @@ static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src)
     if (src->ground_atom != NULL)
         dst->ground_atom = pddlGroundAtomClone(src->ground_atom);
     dst->hash = pddlFactHash(dst);
-    dst->is_private = src->is_private;
     dst->neg_of = src->neg_of;
 }
 
@@ -136,8 +123,6 @@ void pddlFactPrint(const pddl_fact_t *f,
                    FILE *fout)
 {
     const char *priv = "";
-    if (f->is_private)
-        priv = "P:";
     fprintf(fout, "%s%s(%s)%s", prefix, priv, f->name, suffix);
 }
 

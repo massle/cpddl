@@ -9,7 +9,6 @@
 
 #include <pddl/err.h>
 #include <pddl/common.h>
-#include <pddl/lisp.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,14 +40,14 @@ struct pddl_require_flags {
 typedef struct pddl_require_flags pddl_require_flags_t;
 
 /**
- * Parses :requirements from domain pddl.
- */
-int pddlRequireFlagsParse(pddl_t *pddl, pddl_err_t *err);
-
-/**
  * Transform flags to uint mask
  */
 unsigned pddlRequireFlagsToMask(const pddl_require_flags_t *flags);
+
+/**
+ * Set :adl flag(s)
+ */
+void pddlRequireFlagsSetADL(pddl_require_flags_t *flags);
 
 /**
  * Print requirements in PDDL format.

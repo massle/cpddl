@@ -17,12 +17,46 @@
 #include "internal.h"
 #include "pddl/err.h"
 
+static void printSourceFilePointer(FILE *fout,
+                                   const pddl_err_source_file_ptr_t *p)
+{
+    if (!p->is_set)
+        return;
+    FILE *fin = fopen(p->fn, "r");
+    if (fin == NULL){
+        fprintf(fout, "%s:%d:%d: Cannot open the file\n", p->fn, p->line, p->column);
+        return;
+    }
+
+    int start_line = p->line - p->num_preceding_lines;
+    if (start_line < 1)
+        start_line = 1;
+
+    fprintf(fout, "%s:%d:%d:\n", p->fn, p->line, p->column);
+
+    char *lbuf = NULL;
+    size_t lsize = 0;
+    ssize_t readsize = 0;
+    for (int line = 1;
+            line <= p->line && (readsize = getline(&lbuf, &lsize, fin)) > 0;
+            ++line){
+        if (line >= start_line)
+            fprintf(fout, "% 6d | %s", line, lbuf);
+    }
+    fprintf(fout, "       | ");
+    for (int i = 1; i < p->column; ++i)
+        fprintf(fout, " ");
+    fprintf(fout, "^--- here\n");
+    fclose(fin);
+}
+
 static void pddlErrPrintMsg(const pddl_err_t *err, FILE *fout)
 {
     if (!err->err)
         return;
 
     fprintf(fout, "Error: %s\n", err->msg);
+    printSourceFilePointer(fout, &err->err_source_file);
     fflush(fout);
 }
 
@@ -31,6 +65,7 @@ static void pddlErrPrintTraceback(const pddl_err_t *err, FILE *fout)
     if (!err->err)
         return;
 
+    fprintf(fout, "Traceback:\n");
     for (int i = 0; i < err->trace_depth; ++i){
         for (int j = 0; j < i; ++j)
             fprintf(fout, "  ");
@@ -85,6 +120,21 @@ void pddlErrFlush(pddl_err_t *err)
         fflush(err->info_out);
 }
 
+void pddlErrSetSourceFilePointer(pddl_err_t *err,
+                                 const char *source_file_name,
+                                 int line_number,
+                                 int column_number,
+                                 int num_additional_preceding_lines)
+{
+    PANIC_IF(strlen(source_file_name) >= PDDL_ERR_PATH_MAXLEN,
+             "The path '%s' is too long.");
+
+    err->err_source_file.is_set = 1;
+    strcpy(err->err_source_file.fn, source_file_name);
+    err->err_source_file.line = line_number;
+    err->err_source_file.column = column_number;
+    err->err_source_file.num_preceding_lines = num_additional_preceding_lines;
+}
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
               const char *format, ...)
@@ -182,26 +232,6 @@ void _pddlCtxEnd(pddl_err_t *err)
         --err->ctx_size;
     }
 }
-
-void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...)
-{
-    if (err == NULL)
-        return;
-
-    va_list ap;
-
-    if (err->warn_out == NULL)
-        return;
-
-    va_start(ap, format);
-    fprintf(err->warn_out, "Warning: %s:%d [%s]: ", filename, line, func);
-    vfprintf(err->warn_out, format, ap);
-    va_end(ap);
-    fprintf(err->warn_out, "\n");
-    fflush(err->warn_out);
-}
-
 
 static void infoResources(pddl_err_t *err)
 {

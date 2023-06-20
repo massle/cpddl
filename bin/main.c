@@ -59,6 +59,7 @@ static int stepPDDL(void)
 {
     pddl_config_t pddl_cfg = PDDL_CONFIG_INIT;
     pddl_cfg.force_adl = opt.pddl.force_adl;
+    pddl_cfg.pedantic = opt.pddl.pedantic;
     pddl_cfg.normalize = 1;
     pddl_cfg.remove_empty_types = opt.pddl.remove_empty_types;
     pddl_cfg.compile_away_cond_eff = opt.pddl.compile_away_cond_eff;

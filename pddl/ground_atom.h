@@ -21,7 +21,6 @@
 #define __PDDL_GROUND_ATOM_H__
 
 #include <pddl/common.h>
-#include <pddl/lisp.h>
 #include <pddl/obj.h>
 #include <pddl/pred.h>
 #include <pddl/fm.h>

@@ -126,7 +126,6 @@ static int addNegFact(pddl_strips_t *strips, int fact_id)
     pddl_fact_t *neg_fact = strips->fact.fact[neg_id];
     neg_fact->neg_of = fact_id;
     fact->neg_of = neg_id;
-    neg_fact->is_private = fact->is_private;
 
     for (int opi = 0; opi < strips->op.op_size; ++opi){
         pddl_strips_op_t *op = strips->op.op[opi];

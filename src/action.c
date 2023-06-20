@@ -18,7 +18,6 @@
  */
 
 #include "internal.h"
-#include "lisp_err.h"
 #include "pddl/config.h"
 #include "pddl/pddl.h"
 #include "pddl/action.h"
@@ -28,111 +27,9 @@
 
 #define ERR_PREFIX_MAXSIZE 128
 
-
-static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
-                       pddl_err_t *err)
+void pddlActionsInit(pddl_actions_t *a)
 {
-    char err_prefix[ERR_PREFIX_MAXSIZE];
-    const pddl_lisp_node_t *n;
-    pddl_action_t *a;
-    int i, ret;
-
-    if (root->child_size < 4
-            || root->child_size / 2 == 1
-            || root->child[1].value == NULL){
-        PDDL_ERR_RET(err, -1, "Invalid definition.");
-    }
-
-    a = pddlActionsAddEmpty(&pddl->action);
-    a->name = STRDUP(root->child[1].value);
-    for (i = 2; i < root->child_size; i += 2){
-        n = root->child + i + 1;
-        if (root->child[i].kw == PDDL_KW_AGENT){
-            if (!pddl->require.multi_agent){
-                // TODO: err/warn
-                ERR_LISP_RET2(err, -1, root->child + i,
-                              ":agent is allowed only with :multi-agent"
-                              " requirement");
-            }
-
-            ret = pddlParamsParseAgent(&a->param, root, i, &pddl->type, err);
-            if (ret < 0)
-                PDDL_TRACE_RET(err, -1);
-            i = ret - 2;
-
-        }else if (root->child[i].kw == PDDL_KW_PARAMETERS){
-            if (pddlParamsParse(&a->param, n, &pddl->type, err) != 0)
-                PDDL_TRACE_RET(err, -1);
-
-        }else if (root->child[i].kw == PDDL_KW_PRE){
-            // Skip empty preconditions, i.e., () or (and)
-            //      -- it will be set to the empty conjunction later anyway.
-            if (pddlLispNodeIsEmptyAnd(n))
-                continue;
-
-            snprintf(err_prefix, ERR_PREFIX_MAXSIZE,
-                     "Precondition of the action `%s': ", a->name);
-            a->pre = pddlFmParse(n, pddl, &a->param, err_prefix, err);
-            if (a->pre == NULL)
-                PDDL_TRACE_RET(err, -1);
-            if (pddlFmCheckPre(a->pre, &pddl->require, err) != 0)
-                PDDL_TRACE_RET(err, -1);
-            pddlFmSetPredRead(a->pre, &pddl->pred);
-
-        }else if (root->child[i].kw == PDDL_KW_EFF){
-            if (pddlLispNodeIsEmptyAnd(n))
-                continue;
-
-            snprintf(err_prefix, ERR_PREFIX_MAXSIZE,
-                     "Effect of the action `%s': ", a->name);
-            a->eff = pddlFmParse(n, pddl, &a->param, err_prefix, err);
-            if (a->eff == NULL)
-                PDDL_TRACE_RET(err, -1);
-            if (pddlFmCheckEff(a->eff, &pddl->require, err) != 0)
-                PDDL_TRACE_RET(err, -1);
-            pddlFmSetPredReadWriteEff(a->eff, &pddl->pred);
-
-        }else{
-            ERR_LISP_RET(err, -1, root->child + i, "Unexpected token: %s",
-                         root->child[i].value);
-        }
-    }
-
-    // Empty precondition is allowed meaning the action can be applied in
-    // any state
-    if (a->pre == NULL)
-        a->pre = pddlFmNewEmptyAnd();
-
-    // Empty effect is also allowed because of some domains that contain
-    // these actions. This action can be later removed by pddlNormalize().
-    if (a->eff == NULL)
-        a->eff = pddlFmNewEmptyAnd();
-
-    // TODO: Check compatibility of types of parameters and types of
-    //       arguments of all predicates.
-    //       --> Restrict types instead of disallowing such an action?
-
-    return 0;
-}
-
-int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
-{
-    const pddl_lisp_node_t *root = &pddl->domain_lisp->root;
-    const pddl_lisp_node_t *n;
-
-    for (int i = 0; i < root->child_size; ++i){
-        n = root->child + i;
-        if (pddlLispNodeHeadKw(n) == PDDL_KW_ACTION){
-            if (parseAction(pddl, n, err) != 0){
-                PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
-                                       " on line %d: ",
-                                       pddl->domain_lisp->filename, n->lineno);
-            }
-        }
-    }
-    LOG(err, "Actions parsed, num actions: %d",
-        pddl->action.action_size);
-    return 0;
+    ZEROIZE(a);
 }
 
 void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src)

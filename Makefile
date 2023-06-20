@@ -27,7 +27,6 @@ SRC += lp-gurobi
 SRC += lp-highs
 SRC += cp
 SRC += cp-minizinc
-SRC += lisp
 SRC += require_flags
 SRC += type
 SRC += param
@@ -37,6 +36,9 @@ SRC += fact
 SRC += action
 SRC += prep_action
 SRC += pddl
+SRC += parser
+SRC += parse_tokenizer
+SRC += parse_tree
 SRC += pddl_compile_away_neg_pre
 SRC += unify
 SRC += compile_in_lifted_mgroup
@@ -162,6 +164,7 @@ SRC += subprocess
 SRC += task
 SRC += asnets_task
 SRC += asnets_train_data
+SRC += str_pool
 
 SRC += __sqlite3
 
@@ -252,21 +255,21 @@ pddl/config.h: $(MAKE_FILES)
 	$(file >>$@,)
 	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
-pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
+pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
-src/iset.c: src/_set_arr.c scripts/fmt_set.sh
+src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
-pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
+pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
-src/lset.c: src/_set_arr.c scripts/fmt_set.sh
+src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
-pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
+pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
-src/cset.c: src/_set_arr.c scripts/fmt_set.sh
+src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
-pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
+pddl/iarr.h: src/_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
-src/iarr.c: src/_arr.c scripts/fmt_set.sh
+src/iarr.c: src/_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
 src/_version.c: pddl/version.h pddl/config.h
@@ -280,6 +283,15 @@ src/_version.c: pddl/version.h pddl/config.h
 
 src/tmp.cudd-version.h: third-party/cudd/configure.ac
 	$(file >$@,#define CUDD_VERSION "$(shell grep 'AC_INIT' <$< | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')")
+
+.objs/parser.o: src/parser.c src/_parser.c $(GEN) pddl/config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/parse_%.o: src/parse_%.c src/parse_%.h src/_parser.c $(GEN) pddl/config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+src/_parser%c: src/_parser%y src/lemon $(GEN) pddl/config.h
+	./src/lemon $<
+src/lemon: src/lemon.c src/lempar.c
+	$(CC) -o $@ $<
 
 .objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
@@ -359,6 +371,10 @@ clean: c
 c:
 	rm -f .objs/[a-zA-Z0-9]*.o
 	rm -f .objs/_[a-zA-Z0-9]*.o
+	rm -f src/_parser.c
+	rm -f src/_parser.h
+	rm -f src/_parser.out
+	rm -r src/lemon
 	rm -f *.a
 	rm -f *.so
 	rm -f pddl/config.h
@@ -548,3 +564,4 @@ help:
   third-party third-party-clean \
   bliss bliss-clean \
   sqlite-amalgam gen-stubs
+.DELETE_ON_ERROR:

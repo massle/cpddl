@@ -18,7 +18,6 @@
  */
 
 #include "internal.h"
-#include "lisp_err.h"
 #include "pddl/sort.h"
 #include "pddl/pddl.h"
 #include "pddl/fm.h"
@@ -250,10 +249,6 @@ static pddl_fm_cls_t cond_cls[PDDL_FM_NUM_TYPES] = {
     MCLS(Bool),   // PDDL_FM_BOOL
     MCLS(Imply),  // PDDL_FM_IMPLY
 };
-
-static pddl_fm_t *parse(const pddl_lisp_node_t *root,
-                        const parse_ctx_t *ctx,
-                        pddl_bool_t negated);
 
 #define fmNew(CTYPE, TYPE) \
     (CTYPE *)_fmNew(sizeof(CTYPE), TYPE)
@@ -1616,6 +1611,55 @@ pddl_fm_bool_t *pddlFmNewBool(int is_true)
     return fmBoolNew(is_true);
 }
 
+pddl_fm_imply_t *pddlFmNewImply(pddl_fm_t *left, pddl_fm_t *right)
+{
+    pddl_fm_imply_t *imply = fmImplyNew();
+    imply->left = left;
+    imply->right = right;
+    return imply;
+}
+
+pddl_fm_when_t *pddlFmNewWhen(pddl_fm_t *pre, pddl_fm_t *eff)
+{
+    pddl_fm_when_t *w = fmWhenNew();
+    w->pre = pre;
+    w->eff = eff;
+    return w;
+}
+
+pddl_fm_quant_t *pddlFmNewEmptyQuant(int type)
+{
+    return fmQuantNew(type);
+}
+
+pddl_fm_forall_t *pddlFmNewEmptyForAll(void)
+{
+    return fmQuantNew(PDDL_FM_FORALL);
+}
+
+pddl_fm_exist_t *pddlFmNewEmptyExist(void)
+{
+    return fmQuantNew(PDDL_FM_EXIST);
+}
+
+pddl_fm_func_op_t *pddlFmNewFuncOpVal(int type, pddl_fm_atom_t *lvalue,
+                                      int rvalue)
+{
+    pddl_fm_func_op_t *f = fmFuncOpNew(type);
+    f->lvalue = lvalue;
+    f->value = rvalue;
+    return f;
+}
+
+pddl_fm_func_op_t *pddlFmNewFuncOpFVal(int type, pddl_fm_atom_t *lvalue,
+                                       pddl_fm_atom_t *fvalue)
+{
+    pddl_fm_func_op_t *f = fmFuncOpNew(type);
+    f->lvalue = lvalue;
+    f->fvalue = fvalue;
+    return f;
+}
+
 static int hasAtom(pddl_fm_t *c, void *_ret)
 {
     pddl_bool_t *ret = _ret;
@@ -1632,533 +1676,6 @@ pddl_bool_t pddlFmHasAtom(const pddl_fm_t *c)
     int ret = pddl_false;
     pddlFmTraverse((pddl_fm_t *)c, hasAtom, NULL, &ret);
     return ret;
-}
-
-/*** PARSE ***/
-static int parseAtomArg(pddl_fm_atom_arg_t *arg,
-                        const pddl_lisp_node_t *root,
-                        const parse_ctx_t *ctx)
-{
-    if (root->value[0] == '?'){
-        if (ctx->params == NULL){
-            ERR_LISP_RET(ctx->err, -1, root, "%sUnexpected variable `%s'",
-                         ctx->err_prefix, root->value);
-        }
-
-        int param = pddlParamsGetId(ctx->params, root->value);
-        if (param < 0){
-            ERR_LISP_RET(ctx->err, -1, root, "%sUnkown variable `%s'",
-                         ctx->err_prefix, root->value);
-        }
-        arg->param = param;
-        arg->obj = -1;
-
-    }else{
-        int obj = pddlObjsGet(ctx->objs, root->value);
-        if (obj < 0){
-            ERR_LISP_RET(ctx->err, -1, root, "%sUnkown constant/object `%s'",
-                         ctx->err_prefix, root->value);
-        }
-        arg->param = -1;
-        arg->obj = obj;
-    }
-
-    return 0;
-}
-
-static pddl_fm_t *parseAtom(const pddl_lisp_node_t *root,
-                            const parse_ctx_t *ctx,
-                            pddl_bool_t negated)
-{
-    pddl_fm_atom_t *atom;
-    const char *name;
-    int pred;
-
-    // Get predicate name
-    name = pddlLispNodeHead(root);
-    if (name == NULL){
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sMissing head of the expression", ctx->err_prefix);
-    }
-
-    // And resolve it against known predicates
-    pred = pddlPredsGet(ctx->preds, name);
-    if (pred == -1){
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sUnkown predicate `%s'", ctx->err_prefix, name);
-    }
-
-    // Check correct number of predicates
-    if (root->child_size - 1 != ctx->preds->pred[pred].param_size){
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sInvalid number of arguments of the predicate `%s'",
-                     ctx->err_prefix, name);
-    }
-
-    // Check that all children are terminals
-    for (int i = 1; i < root->child_size; ++i){
-        if (root->child[i].value == NULL){
-            ERR_LISP_RET(ctx->err, NULL, root->child + i,
-                         "%sInvalid %d'th argument of the predicate `%s'",
-                         ctx->err_prefix, i, name);
-        }
-    }
-
-    atom = fmAtomNew();
-    atom->pred = pred;
-    atom->arg_size = root->child_size - 1;
-    atom->arg = ALLOC_ARR(pddl_fm_atom_arg_t, atom->arg_size);
-    for (int i = 0; i < atom->arg_size; ++i){
-        if (parseAtomArg(atom->arg + i, root->child + i + 1, ctx) != 0){
-            fmAtomDel(atom);
-            PDDL_TRACE_RET(ctx->err, NULL);
-        }
-    }
-    atom->neg = negated;
-
-    return &atom->fm;
-}
-
-static pddl_fm_t *parseAssign(const pddl_lisp_node_t *root,
-                              const parse_ctx_t *ctx,
-                              pddl_bool_t negated)
-{
-    const char *head;
-    const pddl_lisp_node_t *nfunc, *nval;
-    pddl_fm_t *lvalue;
-    pddl_fm_func_op_t *assign;
-    parse_ctx_t sub_ctx;
-
-    head = pddlLispNodeHead(root);
-    if (head == NULL
-            || strcmp(head, "=") != 0
-            || root->child_size != 3){
-        ERR_LISP_RET2(ctx->err, NULL, root, "Invalid (= ...) expression.");
-    }
-
-    nfunc = root->child + 1;
-    nval = root->child + 2;
-
-    if (nfunc->child_size < 1 || nfunc->child[0].value == NULL)
-        ERR_LISP_RET2(ctx->err, NULL, root, "Invalid function in (= ...).");
-    if (nval->value == NULL){
-        ERR_LISP_RET2(ctx->err, NULL, root, "Only (= ... N) expressions where"
-                      " N is a number are supported.");
-    }
-
-    sub_ctx = *ctx;
-    sub_ctx.preds = sub_ctx.funcs;
-    lvalue = parseAtom(nfunc, &sub_ctx, negated);
-    if (lvalue == NULL)
-        PDDL_TRACE_RET(ctx->err, NULL);
-
-    assign = fmFuncOpNew(PDDL_FM_ASSIGN);
-    assign->value = atoi(nval->value);
-    assign->lvalue = pddlFmToAtom(lvalue);
-    return &assign->fm;
-}
-
-static pddl_fm_t *parseIncrease(const pddl_lisp_node_t *root,
-                                const parse_ctx_t *ctx,
-                                int negated)
-{
-    pddl_fm_func_op_t *inc;
-    pddl_fm_t *fvalue;
-    parse_ctx_t sub_ctx;
-
-    if (root->child_size != 3
-            || root->child[1].value != NULL
-            || root->child[1].child_size != 1
-            || root->child[1].child[0].value == NULL
-            || strcmp(root->child[1].child[0].value, "total-cost") != 0){
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sOnly (increase (total-cost) int-value) is supported;",
-                     ctx->err_prefix);
-    }
-
-    if (root->child[2].value != NULL){
-        inc = fmFuncOpNew(PDDL_FM_INCREASE);
-        inc->value = atoi(root->child[2].value);
-        if (inc->value < 0){
-            ERR_LISP_RET(ctx->err, NULL, root,
-                         "%sOnly non-negative actions costs are supported;",
-                         ctx->err_prefix);
-        }
-
-    }else{
-        sub_ctx = *ctx;
-        sub_ctx.preds = sub_ctx.funcs;
-        fvalue = parseAtom(root->child + 2, &sub_ctx, negated);
-        if (fvalue == NULL)
-            PDDL_TRACE_RET(ctx->err, NULL);
-        inc = fmFuncOpNew(PDDL_FM_INCREASE);
-        inc->fvalue = (pddl_fm_atom_t *)fvalue;
-    }
-
-    return &inc->fm;
-}
-
-static pddl_fm_t *parsePart(int part_type,
-                            const pddl_lisp_node_t *root,
-                            const parse_ctx_t *ctx,
-                            int negated)
-{
-    pddl_fm_junc_t *part;
-    pddl_fm_t *fm;
-    int i;
-
-    part = fmPartNew(part_type);
-    for (i = 1; i < root->child_size; ++i){
-        fm = parse(root->child + i, ctx, negated);
-        if (fm == NULL){
-            fmPartDel(part);
-            PDDL_TRACE_RET(ctx->err, NULL);
-        }
-        pddlListAppend(&part->part, &fm->conn);
-    }
-
-    return &part->fm;
-}
-
-static pddl_fm_t *parseImply(const pddl_lisp_node_t *left,
-                             const pddl_lisp_node_t *right,
-                             const parse_ctx_t *ctx,
-                             int negated)
-{
-    pddl_fm_junc_t *part;
-    pddl_fm_imply_t *imp;
-    pddl_fm_t *cleft = NULL, *cright = NULL;
-
-    if (negated){
-        if ((cleft = parse(left, ctx, 0)) == NULL)
-            PDDL_TRACE_RET(ctx->err, NULL);
-
-        if ((cright = parse(right, ctx, 1)) == NULL){
-            pddlFmDel(cleft);
-            PDDL_TRACE_RET(ctx->err, NULL);
-        }
-
-        part = fmPartNew(PDDL_FM_AND);
-        pddlListAppend(&part->part, &cleft->conn);
-        pddlListAppend(&part->part, &cright->conn);
-        return &part->fm;
-
-    }else{
-        if ((cleft = parse(left, ctx, 0)) == NULL)
-            PDDL_TRACE_RET(ctx->err, NULL);
-
-        if ((cright = parse(right, ctx, 0)) == NULL){
-            pddlFmDel(cleft);
-            PDDL_TRACE_RET(ctx->err, NULL);
-        }
-
-        imp = fmImplyNew();
-        imp->left = cleft;
-        imp->right = cright;
-        return &imp->fm;
-    }
-}
-
-static int parseQuantParams(pddl_params_t *params,
-                            const pddl_lisp_node_t *root,
-                            const parse_ctx_t *ctx)
-{
-    pddl_param_t *param;
-
-    pddlParamsInit(params);
-
-    // Parse all parameters of the quantifier
-    if (pddlParamsParse(params, root, ctx->types, ctx->err) != 0){
-        pddlParamsFree(params);
-        PDDL_TRACE_RET(ctx->err, -1);
-    }
-
-    // And also add all global parameters that are not shadowed
-    for (int i = 0; ctx->params != NULL && i < ctx->params->param_size; ++i){
-        int use = 1;
-        for (int j = 0; j < params->param_size; ++j){
-            if (strcmp(params->param[j].name, ctx->params->param[i].name) == 0){
-                use = 0;
-                break;
-            }
-        }
-
-        if (use){
-            param = pddlParamsAdd(params);
-            pddlParamInitCopy(param, ctx->params->param + i);
-            param->inherit = i;
-        }
-    }
-
-    return 0;
-}
-
-static pddl_fm_t *parseQuant(int quant_type,
-                             const pddl_lisp_node_t *root,
-                             const parse_ctx_t *ctx,
-                             int negated)
-{
-    pddl_fm_quant_t *q;
-    pddl_params_t params;
-    parse_ctx_t sub_ctx;
-
-    if (root->child_size != 3
-            || root->child[1].value != NULL
-            || root->child[2].value != NULL){
-        if (quant_type == PDDL_FM_FORALL){
-            ERR_LISP(ctx->err, root,
-                     "%sInvalid (forall ...) condition", ctx->err_prefix);
-        }else{
-            ERR_LISP(ctx->err, root,
-                     "%sInvalid (exists ...) condition", ctx->err_prefix);
-        }
-        return NULL;
-    }
-
-    if (parseQuantParams(&params, root->child + 1, ctx) != 0)
-        PDDL_TRACE_RET(ctx->err, NULL);
-
-    if (params.param_size == 0){
-        pddlParamsFree(&params);
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sMissing variables in the quantifier",
-                     ctx->err_prefix);
-    }
-
-    sub_ctx = *ctx;
-    sub_ctx.params = &params;
-    pddl_fm_t *fm = parse(root->child + 2, &sub_ctx, negated);
-    if (fm == NULL){
-        pddlParamsFree(&params);
-        PDDL_TRACE_RET(ctx->err, NULL);
-    }
-
-    q = fmQuantNew(quant_type);
-    q->param = params;
-    q->qfm = fm;
-
-    return &q->fm;
-}
-
-static pddl_fm_t *parseWhen(const pddl_lisp_node_t *root,
-                            const parse_ctx_t *ctx)
-{
-    pddl_fm_when_t *w;
-    pddl_fm_t *pre, *eff;
-
-    if (root->child_size != 3
-            || root->child[1].value != NULL
-            || root->child[2].value != NULL){
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sInvalid (when ...)", ctx->err_prefix);
-    }
-
-    if ((pre = parse(root->child + 1, ctx, 0)) == NULL)
-        PDDL_TRACE_RET(ctx->err, NULL);
-
-    if ((eff = parse(root->child + 2, ctx, 0)) == NULL){
-        pddlFmDel(pre);
-        PDDL_TRACE_RET(ctx->err, NULL);
-    }
-
-    w = fmWhenNew();
-    w->pre = pre;
-    w->eff = eff;
-    return &w->fm;
-}
-
-static pddl_fm_t *parse(const pddl_lisp_node_t *root,
-                        const parse_ctx_t *ctx,
-                        pddl_bool_t negated)
-{
-    int kw;
-
-    kw = pddlLispNodeHeadKw(root);
-
-    if (kw == PDDL_KW_NOT){
-        if (root->child_size != 2)
-            ERR_LISP_RET(ctx->err, NULL, root,
-                         "%sInvalid (not ...)", ctx->err_prefix);
-
-        return parse(root->child + 1, ctx, !negated);
-
-    }else if (kw == PDDL_KW_AND){
-        if (root->child_size <= 1)
-            ERR_LISP_RET(ctx->err, NULL, root,
-                         "%sEmpty (and) expression", ctx->err_prefix);
-
-        if (negated){
-            return parsePart(PDDL_FM_OR, root, ctx, negated);
-        }else{
-            return parsePart(PDDL_FM_AND, root, ctx, negated);
-        }
-
-    }else if (kw == PDDL_KW_OR){
-        if (root->child_size <= 1)
-            ERR_LISP_RET(ctx->err, NULL, root,
-                         "%sEmpty (or) expression", ctx->err_prefix);
-
-        if (negated){
-            return parsePart(PDDL_FM_AND, root, ctx, negated);
-        }else{
-            return parsePart(PDDL_FM_OR, root, ctx, negated);
-        }
-
-    }else if (kw == PDDL_KW_IMPLY){
-        if (root->child_size != 3)
-            ERR_LISP_RET(ctx->err, NULL, root,
-                         "%s(imply ...) requires two arguments",
-                         ctx->err_prefix);
-
-        return parseImply(root->child + 1, root->child + 2, ctx, negated);
-
-    }else if (kw == PDDL_KW_FORALL){
-        // TODO: :conditional-effects || :universal-preconditions
-        if (negated){
-            return parseQuant(PDDL_FM_EXIST, root, ctx, negated);
-        }else{
-            return parseQuant(PDDL_FM_FORALL, root, ctx, negated);
-        }
-
-    }else if (kw == PDDL_KW_EXISTS){
-        // TODO: :existential-preconditions
-        if (negated){
-            return parseQuant(PDDL_FM_FORALL, root, ctx, negated);
-        }else{
-            return parseQuant(PDDL_FM_EXIST, root, ctx, negated);
-        }
-
-    }else if (kw == PDDL_KW_WHEN){
-        // Conditional effect cannot be negated
-        return parseWhen(root, ctx);
-
-    }else if (kw == PDDL_KW_INCREASE){
-        return parseIncrease(root, ctx, negated);
-
-    }else if (kw == -1){
-        return parseAtom(root, ctx, negated);
-    }
-
-    if (root->child_size >= 1 && root->child[0].value != NULL){
-        ERR_LISP_RET(ctx->err, NULL, root, "%sUnexpected token `%s'",
-                     ctx->err_prefix, root->child[0].value);
-    }else{
-        ERR_LISP_RET(ctx->err, NULL, root,
-                     "%sUnexpected token", ctx->err_prefix);
-    }
-}
-
-pddl_fm_t *pddlFmParse(const pddl_lisp_node_t *root,
-                       pddl_t *pddl,
-                       const pddl_params_t *params,
-                       const char *err_prefix,
-                       pddl_err_t *err)
-{
-    parse_ctx_t ctx;
-    pddl_fm_t *c;
-
-    ctx.types = &pddl->type;
-    ctx.objs = &pddl->obj;
-    ctx.preds = &pddl->pred;
-    ctx.funcs = &pddl->func;
-    ctx.params = params;
-    ctx.err_prefix = err_prefix;
-    ctx.err = err;
-
-    c = parse(root, &ctx, pddl_false);
-    if (c == NULL)
-        PDDL_TRACE_RET(err, NULL);
-    return c;
-}
-
-static pddl_fm_t *parseInitFunc(const pddl_lisp_node_t *n, pddl_t *pddl,
-                                pddl_err_t *err)
-{
-    parse_ctx_t ctx;
-    pddl_params_t params;
-    pddl_fm_t *c;
-
-    pddlParamsInit(&params);
-    ctx.types = &pddl->type;
-    ctx.objs = &pddl->obj;
-    ctx.preds = &pddl->pred;
-    ctx.funcs = &pddl->func;
-    ctx.params = &params;
-    ctx.err_prefix = "";
-    ctx.err = err;
-
-    c = parseAssign(n, &ctx, pddl_false);
-    pddlParamsFree(&params);
-
-    if (c == NULL)
-        PDDL_TRACE_RET(err, NULL);
-    return c;
-}
-
-static pddl_fm_t *parseInitFact(const pddl_lisp_node_t *n, pddl_t *pddl,
-                                pddl_err_t *err)
-{
-    parse_ctx_t ctx;
-    pddl_params_t params;
-    pddl_fm_t *c;
-
-    pddlParamsInit(&params);
-    ctx.types = &pddl->type;
-    ctx.objs = &pddl->obj;
-    ctx.preds = &pddl->pred;
-    ctx.funcs = &pddl->func;
-    ctx.params = &params;
-    ctx.err_prefix = "";
-    ctx.err = err;
-
-    c = parseAtom(n, &ctx, pddl_false);
-    pddlParamsFree(&params);
-
-    if (c == NULL)
-        PDDL_TRACE_RET(err, NULL);
-    return c;
-}
-
-static pddl_fm_t *parseInitFactFunc(const pddl_lisp_node_t *n, pddl_t *pddl,
-                                    pddl_err_t *err)
-{
-    const char *head;
-
-    if (n->child_size < 1)
-        ERR_LISP_RET2(err, NULL, n, "Invalid expression in :init.");
-
-    head = pddlLispNodeHead(n);
-    if (head == NULL)
-        ERR_LISP_RET2(err, NULL, n, "Invalid expression in :init.");
-    if (strcmp(head, "=") == 0
-            && n->child_size == 3
-            && n->child[1].value == NULL){
-        return parseInitFunc(n, pddl, err);
-    }else{
-        return parseInitFact(n, pddl, err);
-    }
-}
-
-pddl_fm_junc_t *pddlFmParseInit(const pddl_lisp_node_t *root, pddl_t *pddl,
-                                pddl_err_t *err)
-{
-    const pddl_lisp_node_t *n;
-    pddl_fm_junc_t *and;
-    pddl_fm_t *c;
-
-    and = fmPartNew(PDDL_FM_AND);
-
-    for (int i = 1; i < root->child_size; ++i){
-        n = root->child + i;
-        if ((c = parseInitFactFunc(n, pddl, err)) == NULL){
-            fmPartDel(and);
-            PDDL_TRACE_PREPEND_RET(err, NULL, "While parsing :init in %s: ",
-                                   pddl->problem_lisp->filename);
-        }
-        fmPartAdd(and, c);
-    }
-
-    return and;
 }
 
 pddl_fm_t *pddlFmAtomToAnd(pddl_fm_t *atom)
@@ -2406,7 +1923,7 @@ static int setPredRead(pddl_fm_t *fm, void *data)
 
     if (fm->type == PDDL_FM_ATOM){
         pddl_fm_atom_t *atom = pddlFmToAtom(fm);
-        preds->pred[atom->pred].read = 1;
+        preds->pred[atom->pred].read = pddl_true;
     }
     return 0;
 }
@@ -2430,7 +1947,7 @@ static int setPredReadWrite(pddl_fm_t *fm, void *data)
 
     }else if (fm->type == PDDL_FM_ATOM){
         pddl_fm_atom_t *atom = pddlFmToAtom(fm);
-        preds->pred[atom->pred].write = 1;
+        preds->pred[atom->pred].write = pddl_true;
     }
     return 0;
 }

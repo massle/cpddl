@@ -22,7 +22,6 @@
 
 #include <pddl/iset.h>
 #include <pddl/common.h>
-#include <pddl/lisp.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +36,8 @@ struct pddl_type {
     pddl_iset_t child;  /*!< IDs of children types */
     pddl_iset_t either; /*!< type IDs for special (either ...) type */
     pddl_iset_t obj; /*!< Objs of this type */
+    /** IDs of "either" types this type is part of */
+    pddl_iset_t parent_either;
 };
 typedef struct pddl_type pddl_type_t;
 
@@ -51,9 +52,9 @@ struct pddl_types {
 typedef struct pddl_types pddl_types_t;
 
 /**
- * Parses :types into type array.
+ * Initialize types with the default "object" type.
  */
-int pddlTypesParse(pddl_t *pddl, pddl_err_t *err);
+void pddlTypesInit(pddl_types_t *types);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -76,6 +77,11 @@ int pddlTypesGet(const pddl_types_t *t, const char *name);
  * is returned, otherwise the new type's ID is returned.
  */
 int pddlTypesAdd(pddl_types_t *t, const char *name, int parent);
+
+/**
+ * Adds or returns existing (either ...) type.
+ */
+int pddlTypesAddEither(pddl_types_t *ts, const pddl_iset_t *either);
 
 /**
  * Prints list of types to the specified output.
@@ -118,13 +124,6 @@ int pddlTypeGetObj(const pddl_types_t *ts, int type_id, int idx);
 pddl_bool_t pddlTypesObjHasType(const pddl_types_t *ts, int type, int obj);
 
 /**
- * Returns type ID from the lisp node or -1 if error occured.
- * (either ...) types are created if necessary.
- */
-int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
-                         pddl_err_t *err);
-
-/**
  * Returns true if parent is a parent type of child type.
  */
 pddl_bool_t pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
@@ -134,6 +133,7 @@ pddl_bool_t pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
  * object of both types at the same time.
  */
 pddl_bool_t pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
+pddl_bool_t pddlTypesAreDisjoint(const pddl_types_t *ts, int t1, int t2);
 
 /**
  * Returns true if D(t1) \subseteq D(t2)

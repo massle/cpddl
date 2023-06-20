@@ -29,14 +29,12 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_obj {
-    char *name;       /*!< Name of the object */
-    int type;         /*!< Type of the object */
-    pddl_bool_t is_constant; /*!< True if it is constant (defined in domain) */
-    pddl_bool_t is_private; /*!< True if the object is private to an agent */
-    int owner; /*!< ID of the object corresponding to an agent in
-                              unfactored privacy model or -1 */
-    pddl_bool_t is_agent; /*!< True if the object correspondnds to an agent in
-                               unfactored privacy model */
+    /** Name of the object */
+    char *name;
+    /** Type ID of the object */
+    int type;
+    /** True if it is constant (defined in domain) */
+    pddl_bool_t is_constant;
 };
 typedef struct pddl_obj pddl_obj_t;
 
@@ -49,9 +47,9 @@ struct pddl_objs {
 typedef struct pddl_objs pddl_objs_t;
 
 /**
- * Parse :constants and :objects from domain and problem PDDLs.
+ * Initialize empty set of objects.
  */
-int pddlObjsParse(pddl_t *pddl, pddl_err_t *err);
+void pddlObjsInit(pddl_objs_t *objs);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -82,6 +80,11 @@ void pddlObjsRemap(pddl_objs_t *objs, const int *remap);
  * Remap type IDs assuming all object types are preserved.
  */
 void pddlObjsRemapTypes(pddl_objs_t *objs, const int *remap_type);
+
+/**
+ * Propagate/relate all objects to their respective types.
+ */
+void pddlObjsPropagateToTypes(const pddl_objs_t *objs, pddl_types_t *types);
 
 /**
  * Print formated objects.
