@@ -42,7 +42,8 @@ struct pddl_lifted_search_bfs {
     pddl_lifted_heur_t *heur;
     int g_weight;
     int h_weight;
-    int is_lazy;
+    pddl_bool_t is_lazy;
+    pddl_bool_t reopen;
     pddl_open_list_t *list;
 };
 typedef struct pddl_lifted_search_bfs pddl_lifted_search_bfs_t;
@@ -105,7 +106,8 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *bfs);
 static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     int g_weight,
                                     int h_weight,
-                                    int is_lazy,
+                                    pddl_bool_t is_lazy,
+                                    pddl_bool_t reopen,
                                     const char *err_prefix,
                                     pddl_err_t *err)
 {
@@ -120,6 +122,7 @@ static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
     bfs->g_weight = g_weight;
     bfs->h_weight = h_weight;
     bfs->is_lazy = is_lazy;
+    bfs->reopen = reopen;
     bfs->list = pddlOpenListSplayTree2();
 
     CTXEND(err);
@@ -203,6 +206,12 @@ static void bfsInsertNextState(pddl_lifted_search_bfs_t *bfs,
     // Skip if we have better state already
     if (s->next_node.status != PDDL_STRIPS_STATE_SPACE_STATUS_NEW
             && s->next_node.g_value <= next_g_value){
+        return;
+    }
+
+    // Skip if we are not allowed to reopen search nodes
+    if (s->next_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_CLOSED
+            && !bfs->reopen){
         return;
     }
 
@@ -299,6 +308,17 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
                                                    &s->strips.ground_atom);
             h_value = h.cost;
             ++s->_stat.evaluated;
+        }
+
+        if (h_value == PDDL_COST_DEAD_END){
+            ++s->_stat.dead_end;
+            if (s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_OPEN)
+                --s->_stat.open;
+            s->cur_node.status = PDDL_STRIPS_STATE_SPACE_STATUS_CLOSED;
+            ++s->_stat.closed;
+            pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
+            CTXEND(s->err);
+            return PDDL_LIFTED_SEARCH_CONT;
         }
     }
 
@@ -551,13 +571,13 @@ pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg
 {
     switch (cfg->alg){
         case PDDL_LIFTED_SEARCH_ASTAR:
-            return bfsNew(cfg, 1, 1, 0, "Lifted A*", err);
+            return bfsNew(cfg, 1, 1, pddl_false, pddl_true, "Lifted A*", err);
 
         case PDDL_LIFTED_SEARCH_LAZY:
-            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy", err);
+            return bfsNew(cfg, 0, 1, pddl_true, pddl_false, "Lifted Lazy", err);
 
         case PDDL_LIFTED_SEARCH_GBFS:
-            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS", err);
+            return bfsNew(cfg, 0, 1, pddl_false, pddl_false, "Lifted GBFS", err);
 
         default:
             ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);
