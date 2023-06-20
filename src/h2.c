@@ -184,7 +184,7 @@ static void h2AllocOpFact(h2_t *h2, pddl_err_t *err)
     size_t op_fact_size = (size_t)h2->fact_size * h2->op_size;
     h2->op_fact = calloc(op_fact_size, 1);
     if (h2->op_fact != NULL){
-        PDDL_INFO(err, "uses additional memory of %.2f MB",
+        LOG(err, "uses additional memory of %.2f MB",
                   op_fact_size / (1024. * 1024.));
     }
 }
@@ -411,7 +411,7 @@ static int h2StateFw(const pddl_strips_t *strips,
     if (strips->has_cond_eff)
         PDDL_ERR_RET(err, -1, "h^2: Conditional effects not supported!");
 
-    PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
+    LOG(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
               strips->fact.fact_size,
               strips->op.op_size,
               (unsigned long)m->num_mutex_pairs,
@@ -431,7 +431,7 @@ static int h2StateFw(const pddl_strips_t *strips,
 
     setOutput(&h2, m, unreachable_facts, unreachable_ops);
 
-    PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
+    LOG(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
               " unreachable ops: %d, time-limit reached: %d",
               (unsigned long)m->num_mutex_pairs,
               (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
@@ -617,7 +617,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
         PDDL_ERR_RET(err, -1, "h^2 fw/bw: Conditional effects not supported!");
 
     CTX(err, "h^2 fw/bw");
-    PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
+    LOG(err, "facts: %d, ops: %d, mutex pairs: %lu, time-limit: %.2fs",
               strips->fact.fact_size,
               strips->op.op_size,
               (unsigned long)mutex->num_mutex_pairs,
@@ -677,7 +677,7 @@ int pddlH2FwBw(const pddl_strips_t *strips,
 
     setOutput(&h2, mutex, unreachable_facts, unreachable_ops);
 
-    PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
+    LOG(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
               " unreachable ops: %d, time-limit reached: %d",
               (unsigned long)mutex->num_mutex_pairs,
               (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),

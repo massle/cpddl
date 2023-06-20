@@ -33,7 +33,7 @@ _pddl_inline void closeFile(FILE *f)
     if ((OUT) != NULL){ \
         FILE *fout = openFile((OUT)); \
         if (fout != NULL){ \
-            PDDL_INFO((ERR), "Printing %s to %s ...", (S), (OUT)); \
+            PDDL_LOG((ERR), "Printing %s to %s ...", (S), (OUT)); \
             CMD; \
             closeFile(fout); \
         }else{ \
@@ -47,7 +47,7 @@ _pddl_inline void closeFile(FILE *f)
     if ((OUT) != NULL){ \
         FILE *fout = openFileAppend((OUT)); \
         if (fout != NULL){ \
-            PDDL_INFO((ERR), "Printing %s to %s ...", (S), (OUT)); \
+            PDDL_LOG((ERR), "Printing %s to %s ...", (S), (OUT)); \
             CMD; \
             closeFile(fout); \
         }else{ \

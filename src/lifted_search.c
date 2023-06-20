@@ -111,7 +111,7 @@ static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     const char *err_prefix,
                                     pddl_err_t *err)
 {
-    CTX(err, err_prefix);
+    CTX(err, "%s", err_prefix);
     pddl_lifted_search_bfs_t *bfs;
 
     bfs = ZALLOC(pddl_lifted_search_bfs_t);
@@ -157,7 +157,7 @@ static void bfsPush(pddl_lifted_search_bfs_t *bfs,
 static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
 {
     pddl_lifted_search_bfs_t *bfs = BFS(s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
     pddl_lifted_search_status_t ret = PDDL_LIFTED_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
@@ -252,7 +252,7 @@ static void bfsInsertNextState(pddl_lifted_search_bfs_t *bfs,
 static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
 {
     pddl_lifted_search_bfs_t *bfs = BFS(s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
 
     ++s->_stat.steps;
 

@@ -942,8 +942,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
     LOG(err, "Lifted Relaxed Endomorphism in a subprocess ...");
     fflush(stdout);
     fflush(stderr);
-    fflush(err->warn_out);
-    fflush(err->info_out);
+    pddlErrFlush(err);
 
     int obj_size = pddl->obj.obj_size;
     size_t shared_size = sizeof(int) + (sizeof(int) * obj_size);

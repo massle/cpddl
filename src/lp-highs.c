@@ -88,10 +88,10 @@ pddl_lp_status_t pddlLPSolveHiGHS(const pddl_lp_t *lp,
 {
     CTX_NO_TIME(err, "LP-HiGHS");
     LOG(err, "version: %s", pddl_highs_version);
-    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
-        " tune-int-op-pot: %b",
-        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
-        lp->cfg.tune_int_operator_potential);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %s, time_limit: %.2f,"
+        " tune-int-op-pot: %s",
+        lp->col_size, lp->row_size, F_BOOL(lp->cfg.maximize), lp->cfg.time_limit,
+        F_BOOL(lp->cfg.tune_int_operator_potential));
     _pddlLPSolutionInit(sol, lp);
 
     void *model = createModel(lp, err);

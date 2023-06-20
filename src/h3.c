@@ -230,7 +230,7 @@ static void h3Init(h3_t *h3,
     }
 
     if (h3->meta_fact3 != NULL || h3->op_fact1 != NULL || h3->op_fact2 != NULL){
-        PDDL_INFO(err, "uses additional memory of %.2f MB"
+        LOG(err, "uses additional memory of %.2f MB"
                   "(meta-fact3: %d, op-fact1: %d, op-fact2: %d",
                   used_excess_mem / (1024. * 1024.),
                   (h3->meta_fact3 != NULL ? 1 : 0),
@@ -570,7 +570,7 @@ int pddlH3(const pddl_strips_t *strips,
     int updated, ret = 0;
 
     CTX(err, "h^3 fw");
-    PDDL_INFO(err, "facts: %d, ops: %d, mutex pairs: %lu,"
+    LOG(err, "facts: %d, ops: %d, mutex pairs: %lu,"
               " time-limit: %.2f, excess-memory: %lu",
               strips->fact.fact_size,
               strips->op.op_size,
@@ -617,7 +617,7 @@ int pddlH3(const pddl_strips_t *strips,
 mutex_h3_end:
     h3Free(&h3);
 
-    PDDL_INFO(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
+    LOG(err, "DONE. mutex pairs: %lu, unreachable facts: %d,"
               " unreachable ops: %d, time-limit reached: %d",
               (unsigned long)ms->num_mutex_pairs,
               (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),

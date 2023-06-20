@@ -297,10 +297,10 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
         return cplexErr(&env, NULL, 0, sol, "Could not open CPLEX environment", err);
     }
     LOG(err, "version: %s", api.version(env));
-    LOG(err, "problem: cols: %d, rows: %d, maximize: %b, time_limit: %.2f,"
-        " tune-int-op-pot: %b",
-        lp->col_size, lp->row_size, lp->cfg.maximize, lp->cfg.time_limit,
-        lp->cfg.tune_int_operator_potential);
+    LOG(err, "problem: cols: %d, rows: %d, maximize: %s, time_limit: %.2f,"
+        " tune-int-op-pot: %s",
+        lp->col_size, lp->row_size, F_BOOL(lp->cfg.maximize), lp->cfg.time_limit,
+        F_BOOL(lp->cfg.tune_int_operator_potential));
 
     // Set number of processing threads
     int num_threads = PDDL_MAX(1, lp->cfg.num_threads);

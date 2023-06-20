@@ -88,7 +88,7 @@ struct pddl_symbolic_task {
 };
 
 #define LOG_SEARCH_CFG(N, T, F) \
-    PDDL_INFO(err, "cfg.%s." #N " = " F, dir, (T)cfg->N)
+    LOG(err, "cfg.%s." #N " = " F, dir, (T)cfg->N)
 #define LOG_SEARCH_CFG_I(N) LOG_SEARCH_CFG(N, int, "%d")
 static void logSearchConfig(const pddl_symbolic_search_config_t *cfg,
                             pddl_err_t *err)
@@ -156,7 +156,7 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
 
     const pddl_pot_solution_t *sol = pot.sol + 0;
     double hflt = pddlPotSolutionEvalFDRStateFlt(sol, &fdr->var, fdr->init);
-    PDDL_INFO(err, "Sum of potentials for the initial state: %.4f", hflt);
+    LOG(err, "Sum of potentials for the initial state: %.4f", hflt);
     if (hflt < 0.){
         init_h_value->cost = ceil(hflt - 0.001);
     }else{
@@ -345,7 +345,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
                               op_pot,
                               search->cfg.use_pot_heur_sum_op_cost,
                               err);
-    PDDL_INFO(err, "Transitions created.");
+    LOG(err, "Transitions created.");
     if (op_pot != NULL)
         FREE(op_pot);
     if (pot != NULL)
@@ -363,7 +363,7 @@ static int searchInit(pddl_symbolic_task_t *ss,
     search->plan_goal_id = -1;
     search->plan_other_goal_id = -1;
 
-    PDDL_INFO(err, "DONE");
+    LOG(err, "DONE");
     CTXEND(err);
     return 0;
 }
@@ -374,7 +374,7 @@ static void searchReinit(pddl_symbolic_task_t *ss,
 {
     if (!search->dirty)
         return;
-    PDDL_INFO(err, "Re-init %s search...", (search->fw ? "fw" : "bw"));
+    LOG(err, "Re-init %s search...", (search->fw ? "fw" : "bw"));
     pddlSymbolicStatesFree(&search->state, ss->mgr);
     pddlSymbolicStatesInit(&search->state, ss->mgr,
                            search->cfg.use_pot_heur_inconsistent, err);
@@ -393,7 +393,7 @@ static void searchReinit(pddl_symbolic_task_t *ss,
     search->num_expanded_states = 0ul;
     search->avg_expanded_bdd_nodes = 0.f;
     search->dirty = 0;
-    PDDL_INFO(err, "Re-init %s search. DONE", (search->fw ? "fw" : "bw"));
+    LOG(err, "Re-init %s search. DONE", (search->fw ? "fw" : "bw"));
 }
 
 static void searchStart(pddl_symbolic_task_t *ss,
@@ -781,7 +781,7 @@ static int searchExpandState(pddl_symbolic_task_t *ss,
         // TODO
         if (pddlCostCmp(&state->f_value, &pddl_cost_zero) < 0
                 || pddlCostCmp(&state->f_value, &pddl_cost_max) > 0){
-            PDDL_INFO(err, "MAX f-value HIT");
+            LOG(err, "MAX f-value HIT");
             state->f_value = pddl_cost_max;
         }
 
@@ -971,7 +971,7 @@ static int searchStep(pddl_symbolic_task_t *ss,
     pddlTimerStart(&timer);
     pddl_symbolic_state_t *state = pddlSymbolicStatesNextOpen(&search->state);
     if (state == NULL){
-        PDDL_INFO(err, "%s: Plan does not exist, steps: %lu",
+        LOG(err, "%s: Plan does not exist, steps: %lu",
                  (search->fw ? "fw" : "bw"), (unsigned long)search->steps);
         pddlTimerStop(&timer);
         return PDDL_SYMBOLIC_PLAN_NOT_EXIST;
@@ -1132,7 +1132,7 @@ static void orderCompute(int *order,
     memcpy(order2, order, sizeof(int) * size);
     double cost = orderOptimize(50000, order2, influence, size, &rnd);
     memcpy(order, order2, sizeof(int) * size);
-    PDDL_INFO(err, "Init order cost: %.2f", cost);
+    LOG(err, "Init order cost: %.2f", cost);
 
     for (int i = 0; i < 20; ++i){
         memcpy(order2, order, sizeof(int) * size);
@@ -1141,7 +1141,7 @@ static void orderCompute(int *order,
         if (new_cost < cost){
             memcpy(order, order2, sizeof(int) * size);
             cost = new_cost;
-            PDDL_INFO(err, "New order cost: %.2f", cost);
+            LOG(err, "New order cost: %.2f", cost);
         }
     }
     FREE(order2);
@@ -1170,7 +1170,7 @@ static void prepareTask(pddl_symbolic_task_t *ss,
 
     ASSERT_RUNTIME(ss->mg_strips.mg.mgroup_size == fdr->var.var_size);
     pddlMGStripsReorderMGroups(&ss->mg_strips, var_order);
-    PDDL_INFO(err, "Order computed and applied");
+    LOG(err, "Order computed and applied");
 
 #ifdef PDDL_DEBUG
     for (int i = 0; i < ss->mg_strips.mg.mgroup_size; ++i){
@@ -1198,7 +1198,7 @@ static void initConstr(pddl_symbolic_task_t *ss,
         mg->is_goal = mgin->is_goal;
     }
     if (cfg->fam_groups > 0){
-        PDDL_INFO(err, "Inferring fam-groups: %d exactly-1 mutex groups in"
+        LOG(err, "Inferring fam-groups: %d exactly-1 mutex groups in"
                       " the input", mgs.mgroup_size);
         pddl_famgroup_config_t fam_cfg = PDDL_FAMGROUP_CONFIG_INIT;
         fam_cfg.maximal = 0;
@@ -1210,7 +1210,7 @@ static void initConstr(pddl_symbolic_task_t *ss,
     pddlMGroupsRemoveSmall(&mgs, 1);
     pddlMGroupsSetExactlyOne(&mgs, &ss->mg_strips.strips);
     pddlMGroupsSetGoal(&mgs, &ss->mg_strips.strips);
-    PDDL_INFO(err, "%d exactly-1 mutex groups overall", mgs.mgroup_size);
+    LOG(err, "%d exactly-1 mutex groups overall", mgs.mgroup_size);
 
     pddlSymbolicConstrInit(&ss->constr, &ss->vars, &ss->mutex, &mgs,
                            ss->cfg.constr_max_nodes,
@@ -1314,7 +1314,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     pddlSymbolicVarsInit(&ss->vars,
                          ss->mg_strips.strips.fact.fact_size,
                          &ss->mg_strips.mg);
-    PDDL_INFO(err, "Prepared %d BDD variables covering %d facts and %d mgroups",
+    LOG(err, "Prepared %d BDD variables covering %d facts and %d mgroups",
              ss->vars.bdd_var_size,
              ss->mg_strips.strips.fact.fact_size,
              ss->mg_strips.mg.mgroup_size);
@@ -1324,26 +1324,26 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
         pddlSymbolicTaskDel(ss);
         PDDL_ERR_RET(err, NULL, "Initialization of CUDD failed.");
     }
-    PDDL_INFO(err, "CUDD initialized.");
+    LOG(err, "CUDD initialized.");
 
     pddlSymbolicVarsInitBDD(ss->mgr, &ss->vars);
 
     initConstr(ss, &ss->cfg, err);
-    PDDL_INFO(err, "Constraints created.");
+    LOG(err, "Constraints created.");
 
     ss->init = pddlSymbolicVarsCreateState(&ss->vars,
                                            &ss->mg_strips.strips.init);
-    PDDL_INFO(err, "Initial state created.");
+    LOG(err, "Initial state created.");
     ss->goal = pddlSymbolicVarsCreatePartialState(&ss->vars,
                                                   &ss->mg_strips.strips.goal);
-    PDDL_INFO(err, "Goal state created.");
+    LOG(err, "Goal state created.");
 
-    PDDL_INFO(err, "Applying constraints on the goal ...");
+    LOG(err, "Applying constraints on the goal ...");
     if (pddlSymbolicConstrApplyBwLimit(&ss->constr, &ss->goal,
                                        ss->cfg.goal_constr_max_time) == 0){
-        PDDL_INFO(err, "Goal updated with constraints");
+        LOG(err, "Goal updated with constraints");
     }else{
-        PDDL_INFO(err, "Applying constraints on the goal failed.");
+        LOG(err, "Applying constraints on the goal failed.");
         ss->goal_constr_failed = 1;
     }
 
@@ -1365,7 +1365,7 @@ pddl_symbolic_task_t *pddlSymbolicTaskNew(const pddl_fdr_t *fdr,
     // TODO
     //ASSERT(Cudd_DebugCheck(ss->mgr) == 0);
     /*
-    PDDL_INFO(err, "Symbolic task created."
+    LOG(err, "Symbolic task created."
                   " mem in use: %.2fMB, node count: %ld,"
                   " bdd variables: %d,"
                   " peak node count: %d,"
@@ -1444,7 +1444,7 @@ int pddlSymbolicTaskSearchFw(pddl_symbolic_task_t *ss,
 #ifdef PDDL_DEBUG
     int op_id;
     PDDL_IARR_FOR_EACH(plan, op_id){
-        PDDL_INFO(err, "plan: (%s) ;; id=%d, cost %d",
+        LOG(err, "plan: (%s) ;; id=%d, cost %d",
                  ss->mg_strips.strips.op.op[op_id]->name,
                  op_id,
                  ss->mg_strips.strips.op.op[op_id]->cost);
@@ -1468,7 +1468,7 @@ int pddlSymbolicTaskSearchBw(pddl_symbolic_task_t *ss,
 #ifdef PDDL_DEBUG
     int op_id;
     PDDL_IARR_FOR_EACH(plan, op_id){
-        PDDL_INFO(err, "plan: (%s) ;; id=%d, cost %d",
+        LOG(err, "plan: (%s) ;; id=%d, cost %d",
                  ss->mg_strips.strips.op.op[op_id]->name,
                  op_id,
                  ss->mg_strips.strips.op.op[op_id]->cost);
@@ -1534,7 +1534,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
     if (!ss->search_bw.enabled)
         PANIC("Symbolic Task wasn't initialzed with bw search!");
     CTX(err, "symba-bi");
-    PDDL_INFO(err, "start");
+    LOG(err, "start");
     searchStart(ss, &ss->search_fw, err);
     searchStart(ss, &ss->search_bw, err);
 
@@ -1667,7 +1667,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
 #ifdef PDDL_DEBUG
     int op_id;
     PDDL_IARR_FOR_EACH(plan, op_id){
-        PDDL_INFO(err, "plan: (%s) ;; id=%d, cost %d",
+        LOG(err, "plan: (%s) ;; id=%d, cost %d",
                  ss->mg_strips.strips.op.op[op_id]->name,
                  op_id,
                  ss->mg_strips.strips.op.op[op_id]->cost);
@@ -1689,7 +1689,7 @@ int pddlSymbolicTaskSearchFwBw(pddl_symbolic_task_t *ss,
             res_str = "FAIL";
             break;
     }
-    PDDL_INFO(err, "DONE: %s", res_str);
+    LOG(err, "DONE: %s", res_str);
     CTXEND(err);
     return res;
 }

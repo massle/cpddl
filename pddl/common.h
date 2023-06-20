@@ -137,6 +137,15 @@ typedef enum pddl_status pddl_status_t;
 # define PDDL_UNUSED(f)
 #endif /* defined(__GNUC__) || defined(__clang__) */
 
+/**
+ * Checking printf-style functions
+ */
+#if defined(__GNUC__) || defined(__clang__)
+# define __PDDL_ATTR_PRINTF(FMT, FIRST_TO_CHECK) \
+    __attribute__((format(__printf__, FMT, FIRST_TO_CHECK)))
+#else /* defined(__GNUC__) || defined(__clang__) */
+# define __PDDL_ATTR_PRINTF(FMT, FIRST_TO_CHECK)
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 #define PDDL_MIN(x, y) ((x) < (y) ? (x) : (y)) /*!< minimum */
 #define PDDL_MAX(x, y) ((x) > (y) ? (x) : (y)) /*!< maximum */

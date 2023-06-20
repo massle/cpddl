@@ -137,7 +137,7 @@ int pddlInit(pddl_t *pddl, const char *domain_fn, const char *problem_fn,
     LOG(err, "Number of PDDL Predicates: %d", pddl->pred.pred_size);
     LOG(err, "Number of PDDL Functions: %d", pddl->func.pred_size);
     LOG(err, "Number of PDDL Actions: %d", pddl->action.action_size);
-    LOG(err, "PDDL Metric: %b", pddl->metric);
+    LOG(err, "PDDL Metric: %s", F_BOOL(pddl->metric));
 
     CTXEND(err);
     return 0;
@@ -364,7 +364,7 @@ static int removeUnreachableActions(pddl_t *pddl)
 
 void pddlNormalize(pddl_t *pddl, pddl_err_t *err)
 {
-    CTX(err, "pddl-normalize", "PDDL-Normalize");
+    CTX(err, "PDDL-Norm");
     pddlLogStatsOneLine(pddl, "Before normalization:", err);
 
     pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);

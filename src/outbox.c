@@ -126,7 +126,7 @@ void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, pddl_err_t *err)
     for (int i = 0; i < line_len; ++i)
         line[i] = '-';
     if (err != NULL)
-        PDDL_INFO(err, "%s", line);
+        LOG(err, "%s", line);
     if (fout != NULL)
         fprintf(fout, "%s\n", line);
     for (int bi = 0; bi < b->box_size; ++bi){
@@ -140,14 +140,14 @@ void pddlOutBoxesPrint(const pddl_outboxes_t *b, FILE *fout, pddl_err_t *err)
             line[line_len - 1] = '|';
             line[line_len - 2] = ' ';
             if (err != NULL)
-                PDDL_INFO(err, "%s", line);
+                LOG(err, "%s", line);
             if (fout != NULL)
                 fprintf(fout, "%s\n", line);
         }
         for (int i = 0; i < line_len; ++i)
             line[i] = '-';
         if (err != NULL)
-            PDDL_INFO(err, "%s", line);
+            LOG(err, "%s", line);
         if (fout != NULL)
             fprintf(fout, "%s\n", line);
     }

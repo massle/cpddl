@@ -355,7 +355,7 @@ static void _unifyFacts(pddl_strips_ground_trie_t *g, pddl_ground_atoms_t *ga,
             atreeUnifyFact(g, g->atree + j, fact, static_fact);
 
         if (!static_fact && i == next_batch - 1){
-            PDDL_INFO(g->err, "  Next batch unified. (unified facts: %d,"
+            LOG(g->err, "  Next batch unified. (unified facts: %d,"
                              " facts: %d, funcs: %d, add effs: %d)",
                      i + 1,
                      g->facts.atom_size,
@@ -379,7 +379,7 @@ static int unifyStaticFacts(pddl_strips_ground_trie_t *g)
         atreeBlockStatic(g->atree + i);
     g->static_facts_unified = 1;
 
-    PDDL_INFO(g->err, "  Static facts unified."
+    LOG(g->err, "  Static facts unified."
                      " (static facts: %d, facts: %d, funcs: %d, add effs: %d)",
              g->static_facts.atom_size,
              g->facts.atom_size,
@@ -871,7 +871,7 @@ int pddlStripsGroundTrieStart(pddl_strips_ground_trie_t *g,
                           pddl_strips_ground_unify_new_atom_fn new_atom,
                           void *new_atom_data)
 {
-    PDDL_INFO(err, "PDDL to STRIPS (domain: %s, problem: %s) ...",
+    LOG(err, "PDDL to STRIPS (domain: %s, problem: %s) ...",
               (pddl->domain_file != NULL ? pddl->domain_file : ""),
               (pddl->problem_file != NULL ? pddl->problem_file : ""));
 
@@ -880,15 +880,15 @@ int pddlStripsGroundTrieStart(pddl_strips_ground_trie_t *g,
         PDDL_TRACE_RET(err, -1);
     }
 
-    PDDL_INFO(err, "  lifted mutex groups: %d",
+    LOG(err, "  lifted mutex groups: %d",
              (g->cfg.lifted_mgroups != NULL
                 ?  g->cfg.lifted_mgroups->mgroup_size : -1));
-    PDDL_INFO(err, "  goal-aware lifted mutex groups: %d",
+    LOG(err, "  goal-aware lifted mutex groups: %d",
              (g->cfg.lifted_mgroups != NULL
                 ?  g->goal_mgroup.mgroup_size : -1));
-    PDDL_INFO(err, "  prune-op-pre-mutex: %d", g->cfg.prune_op_pre_mutex);
-    PDDL_INFO(err, "  prune-op-dead-end: %d", g->cfg.prune_op_dead_end);
-    PDDL_INFO(err, "  prep-actions: %d", g->action.action_size);
+    LOG(err, "  prune-op-pre-mutex: %d", g->cfg.prune_op_pre_mutex);
+    LOG(err, "  prune-op-dead-end: %d", g->cfg.prune_op_dead_end);
+    LOG(err, "  prep-actions: %d", g->action.action_size);
 
     return 0;
 }
@@ -904,7 +904,7 @@ int pddlStripsGroundTrieUnifyStep(pddl_strips_ground_trie_t *g)
         PDDL_TRACE_RET(g->err, -1);
     }
 
-    PDDL_INFO(g->err, "  Unification finished."
+    LOG(g->err, "  Unification finished."
                      " (facts: %d, funcs: %d, add effs: %d)",
              g->facts.atom_size,
              g->funcs.atom_size,
@@ -957,7 +957,7 @@ int pddlStripsGroundTrieFinalize(pddl_strips_ground_trie_t *g, pddl_strips_t *st
     if (strips->goal_is_unreachable)
         pddlStripsMakeUnsolvable(strips);
 
-    PDDL_INFO(g->err, "PDDL grounded to STRIPS.");
+    LOG(g->err, "PDDL grounded to STRIPS.");
 
     return 0;
 }
@@ -976,7 +976,7 @@ int pddlStripsGroundTrie(pddl_strips_t *strips,
     if (pddlStripsGroundTrieStart(&g, pddl, cfg, err, NULL, NULL) != 0
             || pddlStripsGroundTrieUnifyStep(&g) != 0
             || pddlStripsGroundTrieFinalize(&g, strips) != 0){
-        PDDL_INFO(err, "Grounding failed.");
+        LOG(err, "Grounding failed.");
         CTXEND(err);
         PDDL_TRACE_RET(err, -1);
     }

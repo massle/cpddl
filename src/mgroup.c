@@ -958,7 +958,7 @@ void pddlMGroupsPrintTable(const pddl_t *pddl,
                            pddl_err_t *err)
 {
     if (mg->mgroup_size == 0){
-        PDDL_INFO(err, "No Mutex Groups");
+        LOG(err, "No Mutex Groups");
         return;
     }
     char line[128];

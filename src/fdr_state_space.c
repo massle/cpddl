@@ -44,7 +44,7 @@ void pddlFDRStateSpaceInit(pddl_fdr_state_space_t *state_space,
                                        MIN_STATES_PER_BLOCK,
                                        NULL, NULL);
 
-    PDDL_INFO(err, "State space created. bytes per state node: %d",
+    LOG(err, "State space created. bytes per state node: %d",
               (int)sizeof(state_node_t));
 }
 
