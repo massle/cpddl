@@ -65,6 +65,36 @@ static int stepPDDL(void)
     pddl_cfg.compile_away_cond_eff = opt.pddl.compile_away_cond_eff;
     pddl_cfg.enforce_unit_cost = opt.pddl.enforce_unit_cost;
 
+    switch (opt.pddl.compile_away_neg_cond){
+        case COMPILE_AWAY_NEG_COND_DYNAMIC:
+            pddl_cfg.normalize_compile_away_dynamic_neg_cond = pddl_true;
+            pddl_cfg.normalize_compile_away_only_goal_neg_cond = pddl_false;
+            pddl_cfg.normalize_compile_away_all_neg_cond = pddl_false;
+            break;
+
+        case COMPILE_AWAY_NEG_COND_ALL:
+            pddl_cfg.normalize_compile_away_dynamic_neg_cond = pddl_false;
+            pddl_cfg.normalize_compile_away_only_goal_neg_cond = pddl_false;
+            pddl_cfg.normalize_compile_away_all_neg_cond = pddl_true;
+            break;
+
+        case COMPILE_AWAY_NEG_COND_GOAL:
+            pddl_cfg.normalize_compile_away_dynamic_neg_cond = pddl_true;
+            pddl_cfg.normalize_compile_away_only_goal_neg_cond = pddl_true;
+            pddl_cfg.normalize_compile_away_all_neg_cond = pddl_false;
+            break;
+
+        case COMPILE_AWAY_NEG_COND_NONE:
+            pddl_cfg.normalize_compile_away_dynamic_neg_cond = pddl_false;
+            pddl_cfg.normalize_compile_away_only_goal_neg_cond = pddl_false;
+            pddl_cfg.normalize_compile_away_all_neg_cond = pddl_false;
+            break;
+
+        default:
+            PDDL_ERR_RET(&err, -1, "Unkown option for compiling away"
+                         " negative conditions");
+    }
+
     if (pddlInit(&pddl, opt.files.domain_pddl, opt.files.problem_pddl,
                  &pddl_cfg, &err) != 0){
         PDDL_TRACE_RET(&err, -1);

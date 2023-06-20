@@ -396,9 +396,11 @@ void pddlNormalize(pddl_t *pddl, pddl_err_t *err)
             || pddl->cfg.normalize_compile_away_all_neg_cond){
         pddl_bool_t only_dynamic
                 = !pddl->cfg.normalize_compile_away_all_neg_cond;
+        pddl_bool_t only_goal = pddl->cfg.normalize_compile_away_only_goal_neg_cond;
         pddl_bool_t only_relevant
                 = pddl->cfg.normalize_compile_away_neg_cond_only_relevant_facts;
-        pddlCompileAwayNegativeConditions(pddl, only_dynamic, only_relevant, err);
+        pddlCompileAwayNegativeConditions(pddl, only_dynamic, only_goal,
+                                          only_relevant, err);
     }
 
     if (!pddl->only_domain && !pddl->cfg.keep_all_actions){
