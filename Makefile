@@ -103,8 +103,7 @@ SRC += open_list
 SRC += open_list_splaytree1
 SRC += open_list_splaytree2
 SRC += search
-SRC += search_astar
-SRC += search_lazy
+SRC += search_bfs
 SRC += lifted_app_action
 SRC += lifted_app_action_sql
 SRC += lifted_app_action_datalog
@@ -389,7 +388,7 @@ mrproper: clean third-party-clean
 fetch-submodules:
 	git submodule update --init --recursive
 
-check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb: libpddl.a
+check check-all check-valgrind check-segfault check-gdb: libpddl.a
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 
 check-bin check-bin-all: bin
@@ -485,13 +484,9 @@ help:
 	@echo "  third-party-clean - Clean all third-party projects."
 	@echo ""
 	@echo "  check               - Run (short) automated tests"
-	@echo "  check-all           - Run all automated tests"
 	@echo "  check-valgrind      - Run tests with valgrind(1)"
-	@echo "  check-all-valgrind"
 	@echo "  check-segfault      - Run tests with valgrind(1) set up to detect only segfaults"
-	@echo "  check-all-segfault"
 	@echo "  check-gdb           - Run tests in gdb"
-	@echo "  check-all-gdb"
 	@echo ""
 	@echo "  fetch-submodules - Fetch all submodules using git"
 	@echo "  gen-pkgconfig - Generates pkg-config file cpddl.pc referring to this directory"
@@ -565,10 +560,7 @@ help:
 .PHONY: all bin clean help doc install analyze \
   examples mrproper \
   check check-all \
-  check-valgrind check-all-valgrind \
-  check-segfault check-all-segfault \
-  check-gdb check-all-gdb \
-  check-bin check-bin-all \
+  check-valgrind check-segfault check-gdb check-bin check-bin-all \
   third-party third-party-clean \
   bliss bliss-clean \
   sqlite-amalgam gen-stubs
