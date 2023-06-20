@@ -311,9 +311,9 @@ src/tmp.cudd-version.h: third-party/cudd/configure.ac
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/lp-coin-or-stub.pic.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
-.objs/__sqlite3.o: src/sqlite3.c pddl/config.h
+.objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.pic.o: src/sqlite3.c pddl/config.h
+.objs/__sqlite3.pic.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
@@ -446,7 +446,7 @@ third-party/cudd/libcudd.a:
 sqlite-amalgam:
 	unzip $(SQLITE_SRC_ZIP)
 	mv sqlite-src-*/ sqlite
-	cd sqlite/ && ./configure --disable-json --disable-load-extension
+	cd sqlite/ && ./configure --disable-json --disable-load-extension --disable-readline --disable-tcl
 	cd sqlite/ && make OPTS="$(SQLITE_GEN_CFLAGS)" sqlite3.c
 	cat sqlite/sqlite3.c | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.c
 	cat sqlite/sqlite3.h | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.h
