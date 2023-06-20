@@ -24,9 +24,9 @@ void pddlUnifyInit(pddl_unify_t *u,
                    const pddl_params_t *param1,
                    const pddl_params_t *param2)
 {
-    ASSERT_RUNTIME(param1 != param2);
-    ASSERT_RUNTIME(param1 != NULL);
-    ASSERT_RUNTIME(param2 != NULL);
+    PANIC_IF(param1 == param2, "pddlUnifyInit: param1 and param2 must differ");
+    PANIC_IF(param1 == NULL, "pddlUnifyInit: param1 must be non-NULL");
+    PANIC_IF(param2 == NULL, "pddlUnifyInit: param2 must be non-NULL");
     ZEROIZE(u);
     u->type = type;
     u->param[0] = param1;
@@ -192,7 +192,7 @@ int pddlUnifyApplyEquality(pddl_unify_t *u,
     }else if (param == u->param[1]){
         return applyEquality(u, 1, eq_pred, cond);
     }
-    ASSERT_RUNTIME_M(0, "Invalid set of parameters");
+    PANIC("Invalid set of parameters");
     return -1;
 }
 
@@ -227,7 +227,7 @@ int pddlUnifyCheckInequality(const pddl_unify_t *u,
     }else if (param == u->param[1]){
         return checkInequality(u->map[1], eq_pred, cond);
     }
-    ASSERT_RUNTIME_M(0, "Invalid set of parameters");
+    PANIC("Invalid set of parameters");
     return -1;
 }
 
@@ -237,8 +237,10 @@ pddl_bool_t pddlUnifyAtomsDiffer(const pddl_unify_t *u,
                                  const pddl_params_t *param2,
                                  const pddl_fm_atom_t *a2)
 {
-    ASSERT_RUNTIME(param1 == u->param[0] || param1 == u->param[1]);
-    ASSERT_RUNTIME(param2 == u->param[0] || param2 == u->param[1]);
+    PANIC_IF(param1 != u->param[0] && param1 != u->param[1],
+             "param1 must be one of u's parameters");
+    PANIC_IF(param2 != u->param[0] && param2 != u->param[1],
+             "param2 must be one of u's parameters");
     if (a1->pred != a2->pred)
         return pddl_true;
 
@@ -331,7 +333,7 @@ pddl_fm_t *pddlUnifyToCond(const pddl_unify_t *u,
         return _pddlUnifyToCond(u, eq_pred, 0);
     if (param == u->param[1])
         return _pddlUnifyToCond(u, eq_pred, 1);
-    ASSERT_RUNTIME_M(0, "Invalid argument param");
+    PANIC("Invalid argument param");
     return NULL;
 }
 

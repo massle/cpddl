@@ -209,8 +209,12 @@ int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
                     && ga->arg_size == ga2->arg_size
                     && memcmp(ga->arg, ga2->arg,
                               sizeof(int) * ga->arg_size) == 0){
-                ASSERT_RUNTIME(fact2->neg_of == -1);
-                ASSERT_RUNTIME(fact->neg_of == -1);
+                PANIC_IF(fact2->neg_of >= 0,
+                         "Fact %s is already a negation of another fact",
+                         fact2->name);
+                PANIC_IF(fact->neg_of >= 0,
+                         "Fact %s is already a negation of another fact",
+                         fact->name);
                 ASSERT(strncmp(fact->name, "NOT-", 4) == 0
                         || strncmp(fact2->name, "NOT-", 4) == 0);
                 ASSERT(strncmp(fact->name, "NOT-", 4) == 0

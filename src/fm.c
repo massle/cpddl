@@ -1264,14 +1264,17 @@ pddl_bool_t pddlFmIsImplied(const pddl_fm_t *s,
                             const pddl_t *pddl,
                             const pddl_params_t *param)
 {
-    ASSERT_RUNTIME(s->type == PDDL_FM_BOOL
-                   || s->type == PDDL_FM_ATOM
-                   || s->type == PDDL_FM_AND
-                   || s->type == PDDL_FM_OR);
-    ASSERT_RUNTIME(c->type == PDDL_FM_BOOL
-                   || c->type == PDDL_FM_ATOM
-                   || c->type == PDDL_FM_AND
-                   || c->type == PDDL_FM_OR);
+    PANIC_IF(s->type != PDDL_FM_BOOL
+                && s->type != PDDL_FM_ATOM
+                && s->type != PDDL_FM_AND
+                && s->type != PDDL_FM_OR,
+             "Works only on bool, atom, and, or formulas");
+    PANIC_IF(c->type != PDDL_FM_BOOL
+                && c->type != PDDL_FM_ATOM
+                && c->type != PDDL_FM_AND
+                && c->type != PDDL_FM_OR,
+             "Works only on bool, atom, and, or formulas");
+
     if (pddlFmEq(s, c))
         return pddl_true;
 
@@ -3738,13 +3741,12 @@ static const pddl_fm_atom_t *constItEffWhen(pddl_fm_const_it_eff_t *it,
         return NULL;
 
     }else{
-        ASSERT_RUNTIME_M(
-                         w->eff->type != PDDL_FM_OR
-                         && w->eff->type != PDDL_FM_FORALL
-                         && w->eff->type != PDDL_FM_EXIST
-                         && w->eff->type != PDDL_FM_IMPLY
-                         && w->eff->type != PDDL_FM_WHEN,
-                         "Effect is not normalized.");
+        PANIC_IF(w->eff->type == PDDL_FM_OR
+                    || w->eff->type == PDDL_FM_FORALL
+                    || w->eff->type == PDDL_FM_EXIST
+                    || w->eff->type == PDDL_FM_IMPLY
+                    || w->eff->type == PDDL_FM_WHEN,
+                 "Effect is not normalized.");
     }
     return NULL;
 }
@@ -3776,12 +3778,11 @@ const pddl_fm_atom_t *pddlFmConstItEffInit(pddl_fm_const_it_eff_t *it,
         return pddlFmConstItEffNext(it, pre);
 
     }else{
-        ASSERT_RUNTIME_M(
-                         fm->type != PDDL_FM_OR
-                         && fm->type != PDDL_FM_FORALL
-                         && fm->type != PDDL_FM_EXIST
-                         && fm->type != PDDL_FM_IMPLY,
-                         "Effect is not normalized.");
+        PANIC_IF(fm->type == PDDL_FM_OR
+                    || fm->type == PDDL_FM_FORALL
+                    || fm->type == PDDL_FM_EXIST
+                    || fm->type == PDDL_FM_IMPLY,
+                 "Effect is not normalized.");
     }
     return NULL;
 }
@@ -3805,14 +3806,13 @@ const pddl_fm_atom_t *pddlFmConstItEffNext(pddl_fm_const_it_eff_t *it,
             if (a != NULL)
                 return a;
         }else{
-            ASSERT_RUNTIME_M(
-                             c->type != PDDL_FM_AND
-                             && c->type != PDDL_FM_OR
-                             && c->type != PDDL_FM_FORALL
-                             && c->type != PDDL_FM_EXIST
-                             && c->type != PDDL_FM_IMPLY
-                             && c->type != PDDL_FM_WHEN,
-                             "Effect is not normalized.");
+            PANIC_IF(c->type == PDDL_FM_AND
+                        || c->type == PDDL_FM_OR
+                        || c->type == PDDL_FM_FORALL
+                        || c->type == PDDL_FM_EXIST
+                        || c->type == PDDL_FM_IMPLY
+                        || c->type == PDDL_FM_WHEN,
+                     "Effect is not normalized.");
         }
     }
 }
