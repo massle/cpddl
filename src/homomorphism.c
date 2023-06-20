@@ -246,7 +246,7 @@ static int collapseEndomorphism(pddl_t *pddl,
                                 int obj_size,
                                 pddl_err_t *err)
 {
-    PDDL_INFO(err, "Collapse with endomorphisms");
+    LOG(err, "Collapse with endomorphisms");
     // TODO
     pddl_endomorphism_config_t ecfg = cfg->endomorphism_cfg;
     PDDL_ISET(redundant);
@@ -279,7 +279,7 @@ static int collapseEndomorphism(pddl_t *pddl,
     pddlISetFree(&redundant);
     if (map != NULL)
         FREE(map);
-    PDDL_INFO(err, "Collapse with endomorphisms. DONE. ret: %d", ret);
+    LOG(err, "Collapse with endomorphisms. DONE. ret: %d", ret);
     return ret;
 }
 
@@ -329,7 +329,7 @@ static int collapseRandomPairObj(pddl_t *pddl,
     PDDL_ISET(goal_objs);
     if (cfg->keep_goal_objs){
         collectGoalObjs(pddl, &goal_objs);
-        //PDDL_INFO(err, "Collected %d goal objects", pddlISetSize(&goal_objs));
+        //LOG(err, "Collected %d goal objects", pddlISetSize(&goal_objs));
     }
 
     int *choose_types = CALLOC_ARR(int, pddl->obj.obj_size);
@@ -389,7 +389,7 @@ static int collapseType(pddl_t *pddl,
                      type, types->type[type].name);
     }
     if (pddlTypeNumObjs(types, type) <= 1){
-        PDDL_INFO(err, "Type %d (%s) has no more than one object:"
+        LOG(err, "Type %d (%s) has no more than one object:"
                   " nothing to collapse",
                   type, types->type[type].name);
         return 0;
@@ -405,7 +405,7 @@ static int collapseType(pddl_t *pddl,
     FREE(collapse_map);
 
     if (ret == 0){
-        PDDL_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
+        LOG(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
                   type, types->type[type].name,
                   init_num_objs, pddl->obj.obj_size);
         return 0;
@@ -565,13 +565,13 @@ static int collapseGaifman(pddl_t *pddl,
     int ret = 0;
     gaifman_t gaif;
     gaifmanInit(&gaif, pddl, cfg->keep_goal_objs);
-    PDDL_INFO(err, "Static objects: %d/%d",
+    LOG(err, "Static objects: %d/%d",
               gaif.num_static_objs, pddl->obj.obj_size);
-    PDDL_INFO(err, "Non-goal static objects: %d/%d",
+    LOG(err, "Non-goal static objects: %d/%d",
               gaif.num_static_nongoal_objs, pddl->obj.obj_size);
     int o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, pddl, &o1, &o2)){
-        PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
+        LOG(err, "Collapsing %d:(%s) and %d:(%s)",
                   o1, pddl->obj.obj[o1].name,
                   o2, pddl->obj.obj[o2].name);
         int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
@@ -580,7 +580,7 @@ static int collapseGaifman(pddl_t *pddl,
         if (collapse_map != NULL)
             FREE(collapse_map);
     }else{
-        PDDL_INFO(err, "Nothing to collapse.");
+        LOG(err, "Nothing to collapse.");
         ret = 1;
     }
 
@@ -683,7 +683,7 @@ static int collapseRPG(pddl_t *pddl,
             pddlISetFree(&goal_objs);
             PDDL_TRACE_RET(err, -1);
         }else if (found > 0){
-            PDDL_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
+            LOG(err, "Found pair %d:(%s) %d:(%s) in depth %d",
                       o1, pddl->obj.obj[o1].name,
                       o2, pddl->obj.obj[o2].name, depth);
             int *collapse_map = CALLOC_ARR(int, pddl->obj.obj_size);
@@ -694,7 +694,7 @@ static int collapseRPG(pddl_t *pddl,
             break;
         }
         if (ret == 1)
-            PDDL_INFO(err, "No pair found in depth %d", depth);
+            LOG(err, "No pair found in depth %d", depth);
     }
 
 
@@ -782,7 +782,7 @@ int pddlHomomorphism(pddl_t *pddl,
     CTX_NO_TIME(err, "Cfg");
     pddlHomomorphismConfigLog(cfg, err);
     CTXEND(err);
-    PDDL_INFO(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);
+    LOG(err, "Computing homomorphism (objs: %d).", src->obj.obj_size);
     if (obj_map != NULL){
         for (int i = 0; i < src->obj.obj_size; ++i)
             obj_map[i] = i;
@@ -819,7 +819,7 @@ int pddlHomomorphism(pddl_t *pddl,
         pddl_rand_t rnd;
         pddlRandInit(&rnd, cfg->random_seed);
         int target = pddl->obj.obj_size * (1.f - cfg->rm_ratio);
-        PDDL_INFO(err, "Target number of objects: %d", target);
+        LOG(err, "Target number of objects: %d", target);
 
         if (cfg->use_endomorphism)
             fn[0] = collapseEndomorphism;
@@ -829,7 +829,7 @@ int pddlHomomorphism(pddl_t *pddl,
                 && pddl->obj.obj_size > target){
             if (fn[fni](pddl, cfg, &rnd, obj_map, obj_size, err) != 0){
                 if (fn[fni] == collapseEndomorphism){
-                    PDDL_INFO(err, "Endomorphism failed -- disabling...");
+                    LOG(err, "Endomorphism failed -- disabling...");
                     fn[fni] = fn[(fni + 1) % 2];
                 }else{
                     break;
@@ -844,7 +844,7 @@ int pddlHomomorphism(pddl_t *pddl,
 
     deduplicate(pddl);
     pddlNormalize(pddl, err);
-    PDDL_INFO(err, "Homomorphism computed (objs: %d, from objs: %d).",
+    LOG(err, "Homomorphism computed (objs: %d, from objs: %d).",
               pddl->obj.obj_size,
               src->obj.obj_size);
     CTXEND(err);
@@ -888,7 +888,7 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
                      type, types->type[type].name);
     }
     if (pddlTypeNumObjs(types, type) <= 1){
-        PDDL_INFO(err, "Type %d (%s) has no more than one object:"
+        LOG(err, "Type %d (%s) has no more than one object:"
                   " nothing to collapse",
                   type, types->type[type].name);
         return 0;
@@ -904,7 +904,7 @@ int pddlHomomorphicTaskCollapseType(pddl_homomorphic_task_t *h,
     FREE(collapse_map);
 
     if (ret == 0){
-        PDDL_INFO(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
+        LOG(err, "Type %d (%s) collapsed. Num objs: %d -> %d",
                   type, types->type[type].name,
                   init_num_objs, h->task.obj.obj_size);
         return 0;
@@ -920,7 +920,7 @@ int pddlHomomorphicTaskCollapseRandomPair(pddl_homomorphic_task_t *h,
     PDDL_ISET(goal_objs);
     if (preserve_goals){
         collectGoalObjs(&h->task, &goal_objs);
-        //PDDL_INFO(err, "Collected %d goal objects", pddlISetSize(&goal_objs));
+        //LOG(err, "Collected %d goal objects", pddlISetSize(&goal_objs));
     }
 
     int *choose_types = CALLOC_ARR(int, h->task.obj.obj_size);
@@ -972,18 +972,18 @@ int pddlHomomorphicTaskCollapseGaifman(pddl_homomorphic_task_t *h,
     int ret = 0;
     gaifman_t gaif;
     gaifmanInit(&gaif, &h->task, preserve_goals);
-    PDDL_INFO(err, "Static objects: %d/%d",
+    LOG(err, "Static objects: %d/%d",
               gaif.num_static_objs, h->task.obj.obj_size);
-    PDDL_INFO(err, "Non-goal static objects: %d/%d",
+    LOG(err, "Non-goal static objects: %d/%d",
               gaif.num_static_nongoal_objs, h->task.obj.obj_size);
     int o1 = 0, o2 = 0;
     if (gaifmanFindPair(&gaif, &h->task, &o1, &o2)){
-        PDDL_INFO(err, "Collapsing %d:(%s) and %d:(%s)",
+        LOG(err, "Collapsing %d:(%s) and %d:(%s)",
                   o1, h->task.obj.obj[o1].name,
                   o2, h->task.obj.obj[o2].name);
         ret = collapsePair(h, o1, o2, err);
     }else{
-        PDDL_INFO(err, "Nothing to collapse.");
+        LOG(err, "Nothing to collapse.");
         ret = 1;
     }
 
@@ -1009,14 +1009,14 @@ int pddlHomomorphicTaskCollapseRPG(pddl_homomorphic_task_t *h,
             pddlISetFree(&goal_objs);
             PDDL_TRACE_RET(err, -1);
         }else if (found > 0){
-            PDDL_INFO(err, "Found pair %d:(%s) %d:(%s) in depth %d",
+            LOG(err, "Found pair %d:(%s) %d:(%s) in depth %d",
                       o1, h->task.obj.obj[o1].name,
                       o2, h->task.obj.obj[o2].name, depth);
             ret = collapsePair(h, o1, o2, err);
             break;
         }
         if (ret == 1)
-            PDDL_INFO(err, "No pair found in depth %d", depth);
+            LOG(err, "No pair found in depth %d", depth);
     }
 
     pddlISetFree(&goal_objs);
@@ -1029,7 +1029,7 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
             const pddl_endomorphism_config_t *cfg,
             pddl_err_t *err)
 {
-    PDDL_INFO(err, "Relaxed endomorphisms");
+    LOG(err, "Relaxed endomorphisms");
     PDDL_ISET(redundant);
     int *map = ALLOC_ARR(int, h->task.obj.obj_size);
     int ret = pddlEndomorphismRelaxedLifted(&h->task, cfg, &redundant, map, err);
@@ -1058,7 +1058,7 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
     pddlISetFree(&redundant);
     if (map != NULL)
         FREE(map);
-    PDDL_INFO(err, "Relaxed endomorphism. DONE. ret: %d", ret);
+    LOG(err, "Relaxed endomorphism. DONE. ret: %d", ret);
     return ret;
 }
 

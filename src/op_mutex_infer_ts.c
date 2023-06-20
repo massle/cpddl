@@ -387,17 +387,17 @@ int pddlOpMutexInferTransSystems(pddl_op_mutex_pairs_t *m,
                                  pddl_err_t *err)
 {
     CTX(err, "OPM");
-    PDDL_INFO(err, "Computing op-mutex pairs from abstract transition systems."
+    LOG(err, "Computing op-mutex pairs from abstract transition systems."
               " merge-size: %d", merge_size);
     pddl_trans_systems_t tss;
     pddlTransSystemsInit(&tss, mg_strips, mutex);
-    PDDL_INFO(err, "  Created %d atomic abstractions", tss.ts_size);
+    LOG(err, "  Created %d atomic abstractions", tss.ts_size);
     if (prune_dead_labels)
         pddlTransSystemsCollectDeadLabelsFromAll(&tss);
     int ret = findOpMutexesRec(m, &tss, max_mem_in_mb, NULL, merge_size,
                                prune_dead_labels, err);
     pddlTransSystemsFree(&tss);
-    PDDL_INFO(err, "Computing op-mutex pairs from abstract transition"
+    LOG(err, "Computing op-mutex pairs from abstract transition"
               " systems DONE. merge-size: %d, num-op-mutex-pairs: %d",
               merge_size, m->num_op_mutex_pairs);
     CTXEND(err);

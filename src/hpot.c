@@ -456,12 +456,12 @@ static double heurForState(pddl_pot_t *pot,
     pddlPotSolutionInit(&sol);
     int ret = pddlPotSolve(pot, &sol, err);
     if (ret != 0){
-        PDDL_INFO(err, "No optimal solution for the initial state");
+        LOG(err, "No optimal solution for the initial state");
         return -1.;
     }
 
     double h = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr_state);
-    PDDL_INFO(err, "Solved for the initial state: sum: %.4f (%a),"
+    LOG(err, "Solved for the initial state: sum: %.4f (%a),"
               " objval: %.4f (%a)", h, h, sol.objval, sol.objval);
     h = sol.objval;
     pddlPotSolutionFree(&sol);
@@ -549,7 +549,7 @@ static void setStateConstr(pddl_pot_t *pot,
     }
     rhs -= INIT_STATE_RHS_DECREASE_STEP;
     pddlPotSetLowerBoundConstr(pot, &vars, rhs);
-    PDDL_INFO(err, "added lower bound constraint with rhs: %.4f (%a)",
+    LOG(err, "added lower bound constraint with rhs: %.4f (%a)",
               rhs, rhs);
     pddlISetFree(&vars);
 }
@@ -563,10 +563,10 @@ static int solveAndAdd(pddl_pot_solutions_t *sols,
     pddlPotSolutionInit(&sol);
     int ret = pddlPotSolve(pot, &sol, err);
     if (ret == 0){
-        PDDL_INFO(err, "Have a solution. objval: %.4f", sol.objval);
+        LOG(err, "Have a solution. objval: %.4f", sol.objval);
         pddlPotSolutionsAdd(sols, &sol);
     }else{
-        PDDL_INFO(err, "Solution not found.");
+        LOG(err, "Solution not found.");
     }
     pddlPotSolutionFree(&sol);
     return ret;
@@ -585,7 +585,7 @@ static int solveAndAddWithStateConstr(pddl_pot_solutions_t *sols,
     for (int i = 0; i < INIT_STATE_RHS_DECREASE_MAX_STEPS && ret != 0; ++i){
         pddlPotDecreaseLowerBoundConstrRHS(pot, INIT_STATE_RHS_DECREASE_STEP);
         double rhs = pddlPotSetLowerBoundConstrRHS(pot);
-        PDDL_INFO(err, "Solution not found. Setting lower bound constraint to "
+        LOG(err, "Solution not found. Setting lower bound constraint to "
                   "%.4f (%a)", rhs, rhs);
         ret = solveAndAdd(sols, pot, cfg, err);
     }
@@ -607,7 +607,7 @@ static int initPot(pddl_pot_t *pot,
         }
 
         if (pddlPotInitMGStripsSingleFactDisamb(pot, cfg->mg_strips, cfg->mutex) == 0){
-            PDDL_INFO(err, "Initialized with weak-disambiguation."
+            LOG(err, "Initialized with weak-disambiguation."
                       " vars: %d, op-constr: %d,"
                       " goal-constr: %d, maxpots: %d",
                       pot->var_size,
@@ -615,7 +615,7 @@ static int initPot(pddl_pot_t *pot,
                       pot->constr_goal.size,
                       pot->maxpot_size);
         }else{
-            PDDL_INFO(err, "Disambiguation proved the task unsolvable.");
+            LOG(err, "Disambiguation proved the task unsolvable.");
             return -1;
         }
 
@@ -629,7 +629,7 @@ static int initPot(pddl_pot_t *pot,
                      " the weak disambiguation is used");
         }
         if (pddlPotInitMGStrips(pot, cfg->mg_strips, cfg->mutex) == 0){
-            PDDL_INFO(err, "Initialized with disambiguation."
+            LOG(err, "Initialized with disambiguation."
                       " vars: %d, op-constr: %d,"
                       " goal-constr: %d, maxpots: %d",
                       pot->var_size,
@@ -637,7 +637,7 @@ static int initPot(pddl_pot_t *pot,
                       pot->constr_goal.size,
                       pot->maxpot_size);
         }else{
-            PDDL_INFO(err, "Disambiguation proved the task unsolvable.");
+            LOG(err, "Disambiguation proved the task unsolvable.");
             return -1;
         }
 
@@ -647,7 +647,7 @@ static int initPot(pddl_pot_t *pot,
                      " the weak disambiguation is used");
         }
         pddlPotInitFDR(pot, cfg->fdr);
-        PDDL_INFO(err, "Initialized without disambiguation."
+        LOG(err, "Initialized without disambiguation."
                   " vars: %d, op-constr: %d,"
                   " goal-constr: %d, maxpots: %d",
                   pot->var_size,
@@ -900,12 +900,12 @@ static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
         if (ret != 0)
             break;
         if ((si + 1) % 100 == 0){
-            PDDL_INFO(err, "Solved for state: %d/%d",
+            LOG(err, "Solved for state: %d/%d",
                       num_states, cfg_opt->num_samples);
         }
         ++num_states;
     }
-    PDDL_INFO(err, "Solved for state: %d/%d", num_states, cfg_opt->num_samples);
+    LOG(err, "Solved for state: %d/%d", num_states, cfg_opt->num_samples);
 
     // TODO: remove dead-ends
     ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
@@ -954,7 +954,7 @@ static void diverseGenStates(diverse_pot_t *div,
                              int num_samples,
                              pddl_err_t *err)
 {
-    PDDL_INFO(err, "generating %d samples and computing potentials...",
+    LOG(err, "generating %d samples and computing potentials...",
               num_samples);
 
     // Samples states, filter out dead-ends and compute estimate for each
@@ -997,7 +997,7 @@ static void diverseGenStates(diverse_pot_t *div,
                 ++num_states;
 
                 if ((si + 1) % 100 == 0){
-                    PDDL_INFO(err, "Diverse: %d/%d (dead-ends: %d)",
+                    LOG(err, "Diverse: %d/%d (dead-ends: %d)",
                               num_states, num_samples, num_dead_ends);
                 }
 
@@ -1010,8 +1010,8 @@ static void diverseGenStates(diverse_pot_t *div,
         }
         pddlPotSolutionFree(&sol);
     }
-    PDDL_INFO(err, "Detected dead-ends: %d", num_dead_ends);
-    PDDL_INFO(err, "Detected duplicates: %d", num_duplicates);
+    LOG(err, "Detected dead-ends: %d", num_dead_ends);
+    LOG(err, "Detected duplicates: %d", num_duplicates);
     ASSERT(num_states == pddlSetISetSize(&div->states));
     div->active_states = pddlSetISetSize(&div->states);
     pddlISetFree(&state);
@@ -1101,7 +1101,7 @@ static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_diversification_t, cfg);
-    PDDL_INFO(err, "Diverse potentials with %d samples", cfg_opt->num_samples);
+    LOG(err, "Diverse potentials with %d samples", cfg_opt->num_samples);
     pddlPotResetLowerBoundConstr(pot);
 
     pddl_fdr_state_sampler_t *sampler;
@@ -1121,7 +1121,7 @@ static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
         diverseFilterOutStates(&div, cfg->fdr, func, err);
     }
     diverseFree(&div);
-    PDDL_INFO(err, "Computed diverse potentials with %d functions",
+    LOG(err, "Computed diverse potentials with %d functions",
               sols->sol_size);
     return 0;
 }
@@ -1182,12 +1182,12 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
                                         mutex_size);
         solveAndAdd(sols, pot, cfg, err);
         if (++count % 10 == 0){
-            PDDL_INFO(err, "Computed conditioned func %d/%d and generated %d"
+            LOG(err, "Computed conditioned func %d/%d and generated %d"
                       " potential functions",
                       count, pddlISetSize(facts), sols->sol_size);
         }
     }
-    PDDL_INFO(err, "Computed conditioned func %d/%d and generated %d"
+    LOG(err, "Computed conditioned func %d/%d and generated %d"
               " potential functions",
               count, pddlISetSize(facts), sols->sol_size);
     pddlISetFree(&cond);
@@ -1224,12 +1224,12 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
                                         mutex_size);
         solveAndAdd(sols, pot, cfg, err);
         if (++count % 10 == 0){
-            PDDL_INFO(err, "Computed conditioned func^2 %d and generated %d"
+            LOG(err, "Computed conditioned func^2 %d and generated %d"
                       " potential functions",
                       count, sols->sol_size);
         }
     }
-    PDDL_INFO(err, "Computed conditioned func^2 %d and generated %d"
+    LOG(err, "Computed conditioned func^2 %d and generated %d"
               " potential functions",
               count, sols->sol_size);
     pddlISetFree(&cond);

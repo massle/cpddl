@@ -374,7 +374,7 @@ static void printMGroup(const pddl_t *pddl,
     if (fout != NULL)
         fprintf(fout, "%s", line);
     if (err != NULL)
-        PDDL_INFO(err, "%s", line);
+        LOG(err, "%s", line);
 }
 
 void pddlLiftedMGroupPrint(const pddl_t *pddl,

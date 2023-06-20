@@ -252,7 +252,7 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
                                     pddl_err_t *err)
 {
     CTX(err, "MG-h2");
-    PDDL_INFO(err, "Inference of h^2 mutex groups...");
+    LOG(err, "Inference of h^2 mutex groups...");
     pddl_graph_simple_t graph;
     pddlGraphSimpleInit(&graph, mutex->fact_size);
 
@@ -263,7 +263,7 @@ void pddlMutexPairsInferMutexGroups(const pddl_mutex_pairs_t *mutex,
     pddlCliqueFindMaximal(&graph, addMGroup, mgroups);
 
     pddlGraphSimpleFree(&graph);
-    PDDL_INFO(err, "Found %d h^2 mutex groups.", mgroups->mgroup_size);
+    LOG(err, "Found %d h^2 mutex groups.", mgroups->mgroup_size);
     CTXEND(err);
 }
 

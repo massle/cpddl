@@ -59,15 +59,11 @@ extern "C" {
 #ifdef PDDL_DEBUG
 #include <assert.h>
 # define ASSERT(x) assert(x)
-# define DBG(E, format, ...) PDDL_INFO((E), "DEBUG: " format, __VA_ARGS__)
-# define DBG2(E, msg) PDDL_INFO((E), "DEBUG: " msg)
 
 #else /* PDDL_DEBUG */
 
 # define NDEBUG
 # define ASSERT(x)
-# define DBG(E, format, ...)
-# define DBG2(E, msg)
 #endif /* PDDL_DEBUG */
 
 #define ASSERT_RUNTIME(x) \

@@ -271,7 +271,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
             num_op_constr += fdrOpConstr(fdr, cfg, op, group, cp,
                                          op_var_offset, err);
         }
-        //PDDL_INFO(err, "  Created operator constraints %d",
+        //LOG(err, "  Created operator constraints %d",
         //         pddlISetSize(&opg.group[group_id]));
     }
     LOG(err, "Added %d operator constraints", num_op_constr);

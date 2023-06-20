@@ -1249,8 +1249,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (opt.log_out != NULL){
         log_out = openFile(opt.log_out);
-        pddlErrWarnEnable(err, log_out);
-        pddlErrInfoEnable(err, log_out);
+        pddlErrLogEnable(err, log_out);
     }
 
     if (argc == 2){

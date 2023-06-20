@@ -95,29 +95,22 @@ void pddlErrPrint(const pddl_err_t *err, int with_traceback, FILE *fout)
         pddlErrPrintTraceback(err, fout);
 }
 
-void pddlErrWarnEnable(pddl_err_t *err, FILE *fout)
+void pddlErrLogEnable(pddl_err_t *err, FILE *fout)
 {
-    err->warn_out = fout;
+    err->log_out = fout;
 }
 
-void pddlErrInfoEnable(pddl_err_t *err, FILE *fout)
+void pddlErrLogDisablePrintResources(pddl_err_t *err, int disable)
 {
-    err->info_out = fout;
-}
-
-void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable)
-{
-    err->info_print_resources_disabled = disable;
+    err->log_print_resources_disabled = disable;
 }
 
 void pddlErrFlush(pddl_err_t *err)
 {
     if (err == NULL)
         return;
-    if (err->warn_out != NULL)
-        fflush(err->warn_out);
-    if (err->info_out != NULL)
-        fflush(err->info_out);
+    if (err->log_out != NULL)
+        fflush(err->log_out);
 }
 
 void pddlErrSetSourceFilePointer(pddl_err_t *err,
@@ -127,7 +120,7 @@ void pddlErrSetSourceFilePointer(pddl_err_t *err,
                                  int num_additional_preceding_lines)
 {
     PANIC_IF(strlen(source_file_name) >= PDDL_ERR_PATH_MAXLEN,
-             "The path '%s' is too long.");
+             "The path '%s' is too long.", source_file_name);
 
     err->err_source_file.is_set = 1;
     strcpy(err->err_source_file.fn, source_file_name);
@@ -209,9 +202,9 @@ void _pddlCtx(pddl_err_t *err, int time, const char *fmt, ...)
 
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(ctx->info, PDDL_ERR_CTX_INFO_MAXLEN, fmt, ap);
+    vsnprintf(ctx->prefix, PDDL_ERR_CTX_PREFIX_MAXLEN, fmt, ap);
     va_end(ap);
-    ctx->info[PDDL_ERR_CTX_INFO_MAXLEN - 1] = '\0';
+    ctx->prefix[PDDL_ERR_CTX_PREFIX_MAXLEN - 1] = '\0';
 
     ctx->use_time = time;
     if (time){
@@ -233,48 +226,31 @@ void _pddlCtxEnd(pddl_err_t *err)
     }
 }
 
-static void infoResources(pddl_err_t *err)
+static void logResources(pddl_err_t *err)
 {
-    if (!err->info_timer_init){
-        pddlTimerStart(&err->info_timer);
-        err->info_timer_init = 1;
+    if (!err->log_timer_init){
+        pddlTimerStart(&err->log_timer);
+        err->log_timer_init = 1;
     }
 
-    if (err->info_out == NULL)
+    if (err->log_out == NULL)
         return;
 
-    if (!err->info_print_resources_disabled){
+    if (!err->log_print_resources_disabled){
         struct rusage usg;
         long peak_mem = 0L;
         if (getrusage(RUSAGE_SELF, &usg) == 0)
             peak_mem = usg.ru_maxrss / 1024L;
-        pddlTimerStop(&err->info_timer);
-        fprintf(err->info_out, "[%.3fs %ldMB] ",
-                pddlTimerElapsedInSF(&err->info_timer), peak_mem);
+        pddlTimerStop(&err->log_timer);
+        fprintf(err->log_out, "[%.3fs %ldMB] ",
+                pddlTimerElapsedInSF(&err->log_timer), peak_mem);
     }
 }
-void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...)
+
+static void logOut(pddl_err_t *err, const char *buf, int len)
 {
-    if (err == NULL || err->info_out == NULL)
-        return;
-
-    infoResources(err);
-
-    va_list ap;
-    va_start(ap, format);
-    for (int pi = 0; pi < err->ctx_size; ++pi)
-        fprintf(err->info_out, "%s: ", err->ctx[pi].info);
-    vfprintf(err->info_out, format, ap);
-    va_end(ap);
-    fprintf(err->info_out, "\n");
-    fflush(err->info_out);
-}
-
-static void logInfo(pddl_err_t *err, const char *buf, int len)
-{
-    if (err->info_out != NULL)
-        fwrite(buf, sizeof(char), len, err->info_out);
+    if (err->log_out != NULL)
+        fwrite(buf, sizeof(char), len, err->log_out);
 }
 
 static char digit_c[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -340,11 +316,18 @@ static const char *ultos(unsigned long value, unsigned long radix, char *buf, in
     return buf + buflen;
 }
 
+#define IS_FLT_SPEC(C) \
+    ((C) == 'f' || (C) == 'F' \
+        || (C) == 'g' || (C) == 'G' \
+        || (C) == 'a' || (C) == 'A')
+#define IS_MOD(C) \
+    ((C) == '#' || (C) == '0' || (C) == '-' || (C) == ' ' || (C) == '+' \
+        || (C) == '\'' || ((C) >= '0' && (C) <= '9') || (C) == '.')
 #define NUM_BUFSIZE 128
 #define MOD_BUFSIZE 128
 void _pddlLog(pddl_err_t *err, const char *fmt, ...)
 {
-    if (err == NULL)
+    if (err == NULL || err->log_out == NULL)
         return;
 
     char bf[NUM_BUFSIZE];
@@ -352,11 +335,9 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
     int ins;
     char ch;
 
-    if (err->info_out != NULL){
-        infoResources(err);
-        for (int pi = 0; pi < err->ctx_size; ++pi)
-            fprintf(err->info_out, "%s: ", err->ctx[pi].info);
-    }
+    logResources(err);
+    for (int pi = 0; pi < err->ctx_size; ++pi)
+        fprintf(err->log_out, "%s: ", err->ctx[pi].prefix);
 
     va_list va;
     va_start(va, fmt);
@@ -366,7 +347,7 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
         for (ch = *(fmt++); ch != '%' && ch != '\0'; ch = *(fmt++), ++len)
             ;
         if (len > 0)
-            logInfo(err, fmt_begin, len);
+            logOut(err, fmt_begin, len);
         if (ch == '\0')
             break;
 
@@ -375,7 +356,7 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
             break;
 
         if (ch == '%'){
-            logInfo(err, "%", 1);
+            logOut(err, "%", 1);
             continue;
         }
 
@@ -391,12 +372,12 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
         const char *s;
         switch (ch){
             case 'b':
-                PANIC_IF(is_long, "%lb is not supported");
+                PANIC_IF(is_long, "%%lb is not supported");
                 bval = va_arg(va, pddl_bool_promote_type_t);
                 if (bval){
-                    logInfo(err, "true", 4);
+                    logOut(err, "true", 4);
                 }else{
-                    logInfo(err, "false", 5);
+                    logOut(err, "false", 5);
                 }
                 break;
 
@@ -408,7 +389,7 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     unsigned int v = va_arg(va, unsigned int);
                     s = utos(v, 10, bf, NUM_BUFSIZE);
                 }
-                logInfo(err, s, NUM_BUFSIZE - (s - bf));
+                logOut(err, s, NUM_BUFSIZE - (s - bf));
                 break;
 
             case 'd':
@@ -419,7 +400,7 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     int v = va_arg(va, int);
                     s = itos(v, 10, bf, NUM_BUFSIZE);
                 }
-                logInfo(err, s, NUM_BUFSIZE - (s - bf));
+                logOut(err, s, NUM_BUFSIZE - (s - bf));
                 break;
 
             case 'x':
@@ -430,45 +411,42 @@ void _pddlLog(pddl_err_t *err, const char *fmt, ...)
                     unsigned int v = va_arg(va, unsigned int);
                     s = utos(v, 16, bf, NUM_BUFSIZE);
                 }
-                logInfo(err, s, NUM_BUFSIZE - (s - bf));
+                logOut(err, s, NUM_BUFSIZE - (s - bf));
                 break;
 
             case 'c':
                 ch = (char)(va_arg(va, int));
-                logInfo(err, &ch, 1);
+                logOut(err, &ch, 1);
                 break;
 
             case 's':
                 s = va_arg(va, char*);
                 len = strlen(s);
-                logInfo(err, s, len);
+                logOut(err, s, len);
                 break;
 
             default:
                 mod[0] = '%';
-                for (ins = 1; ch != 'f' && ch != 'g' && ch != '\0';
-                        ch = *(fmt++)){
+                for (ins = 1; !IS_FLT_SPEC(ch) && IS_MOD(ch); ch = *(fmt++)){
                     mod[ins++] = ch;
                 }
                 mod[ins++] = ch;
                 mod[ins] = '\0';
 
-                if (ch == 'f' || ch == 'g'){
+                if (IS_FLT_SPEC(ch)){
                     double v = va_arg(va, double);
                     int len = snprintf(bf, NUM_BUFSIZE, mod, v);
                     len = PDDL_MIN(len, NUM_BUFSIZE);
-                    logInfo(err, bf, len);
+                    logOut(err, bf, len);
+
                 }else{
-                    fprintf(stderr, "Fatal error: unkown format flag '%c'\n", ch);
+                    fprintf(stderr, "\nFATAL ERROR: unkown format flag '%c'\n", ch);
                     exit(-1);
                 }
         }
     }
 
-    if (err->info_out != NULL){
-        fprintf(err->info_out, "\n");
-        fflush(err->info_out);
-    }
-
+    fprintf(err->log_out, "\n");
+    fflush(err->log_out);
     va_end(va);
 }

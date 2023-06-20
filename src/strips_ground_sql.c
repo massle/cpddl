@@ -65,7 +65,7 @@ static int sqlGroundInit(sql_ground_t *g,
             pddlStripsMakerAddFunc(&g->strips_maker, ass, NULL, NULL);
         }
     }
-    PDDL_INFO(err, "Initial state inserted."
+    LOG(err, "Initial state inserted."
                   " %d atoms, %d static atoms, %d functions",
              g->strips_maker.ground_atom.atom_size,
              g->strips_maker.ground_atom_static.atom_size,
@@ -192,7 +192,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     CTX_NO_TIME(err, "Cfg");
     pddlGroundConfigLog(cfg, err);
     CTXEND(err);
-    PDDL_INFO(err, "Grounding using sqlite ...");
+    LOG(err, "Grounding using sqlite ...");
 
     sql_ground_t ground;
     if (sqlGroundInit(&ground, pddl, cfg, err) != 0){
@@ -201,14 +201,14 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
     }
 
     for (int step = 0; 1; ++step){
-        PDDL_INFO(err, "Grounding step %d"
+        LOG(err, "Grounding step %d"
                       " (%d (split) actions and %d facts grounded so far) ...",
                  step, ground.strips_maker.num_action_args,
                  ground.strips_maker.ground_atom.atom_size);
         if (!sqlGroundStep(&ground, -1, err))
             break;
     }
-    PDDL_INFO(err, "Grounding finished: %d (split) actions, %d facts,"
+    LOG(err, "Grounding finished: %d (split) actions, %d facts,"
                   " %d static facts, %d functions",
              ground.strips_maker.num_action_args,
              ground.strips_maker.ground_atom.atom_size,
@@ -224,7 +224,7 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO(err, "Grounding finished.");
+    LOG(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
     CTXEND(err);
     return 0;
@@ -253,7 +253,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
         PDDL_TRACE_RET(err, -1);
     }
     for (int step = 0; step < max_layers; ++step){
-        PDDL_INFO(err, "Grounding layer %d"
+        LOG(err, "Grounding layer %d"
                       " (%d (split) actions and %d facts grounded so far) ...",
                  step, ground.strips_maker.num_action_args,
                  ground.strips_maker.ground_atom.atom_size);
@@ -261,7 +261,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
             break;
         sqlGroundStep(&ground, step + 1, err);
     }
-    PDDL_INFO(err, "Grounding finished: %d (split) actions, %d facts,"
+    LOG(err, "Grounding finished: %d (split) actions, %d facts,"
                   " %d static facts, %d functions",
              ground.strips_maker.num_action_args,
              ground.strips_maker.ground_atom.atom_size,
@@ -295,7 +295,7 @@ int pddlStripsGroundSqlLayered(const pddl_t *pddl,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO(err, "Grounding finished.");
+    LOG(err, "Grounding finished.");
     if (strips != NULL)
         pddlStripsLogInfo(strips, err);
     CTXEND(err);

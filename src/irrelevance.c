@@ -100,7 +100,7 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
                       " conditional effects.");
     }
 
-    PDDL_INFO(err, "Irrelevance analysis. facts: %d, ops: %d",
+    LOG(err, "Irrelevance analysis. facts: %d, ops: %d",
               strips->fact.fact_size, strips->op.op_size);
 
     pddlStripsFactCrossRefInit(&cref, strips, 1, 1, 0, 1, 1);
@@ -162,7 +162,7 @@ int pddlIrrelevanceAnalysis(const pddl_strips_t *strips,
         FREE(op_irr);
     pddlStripsFactCrossRefFree(&cref);
 
-    PDDL_INFO(err, "Irrelevance analysis DONE: irrelevant facts: %d,"
+    LOG(err, "Irrelevance analysis DONE: irrelevant facts: %d,"
               " irrelevant ops: %d, static facts: %d",
               (irrelevant_facts != NULL ? pddlISetSize(irrelevant_facts) : -1),
               (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1),
@@ -238,7 +238,7 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
                       " conditional effects.");
     }
 
-    PDDL_INFO(err, "Irrelevance analysis on FDR. vars: %d, facts: %d, ops: %d",
+    LOG(err, "Irrelevance analysis on FDR. vars: %d, facts: %d, ops: %d",
               fdr->var.var_size, fdr->var.global_id_size, fdr->op.op_size);
 
     var_to_op = CALLOC_ARR(pddl_iset_t, fdr->var.var_size);
@@ -290,7 +290,7 @@ int pddlIrrelevanceAnalysisFDR(const pddl_fdr_t *fdr,
     if (var_to_op != NULL)
         FREE(var_to_op);
 
-    PDDL_INFO(err, "Irrelevance analysis on FDR DONE: irrelevant vars: %d,"
+    LOG(err, "Irrelevance analysis on FDR DONE: irrelevant vars: %d,"
               " irrelevant ops: %d",
               (irrelevant_vars != NULL ? pddlISetSize(irrelevant_vars) : -1),
               (irrelevant_ops != NULL ? pddlISetSize(irrelevant_ops) : -1));

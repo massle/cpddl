@@ -86,7 +86,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
     lmc->homo._type = LM_CUT_TYPE;
 
     pddlLMCutInitStrips(&lmc->lmc, &lmc->homo.strips, 0, 0);
-    PDDL_INFO(err, "Constructed lm-cut heuristic from the grounded"
+    LOG(err, "Constructed lm-cut heuristic from the grounded"
                " homomorphic image");
     CTXEND(err);
     return &lmc->homo;
@@ -107,7 +107,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
     hff->homo._type = HFF_TYPE;
 
     pddlHFFInitStrips(&hff->hff, &hff->homo.strips);
-    PDDL_INFO(err, "Constructed h^ff heuristic from the grounded"
+    LOG(err, "Constructed h^ff heuristic from the grounded"
                " homomorphic image");
     CTXEND(err);
     return &hff->homo;

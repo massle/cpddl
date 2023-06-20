@@ -92,8 +92,7 @@ static int parseOpts(int argc, char *argv[])
 
     if (opt.log_out != NULL){
         log_out = openFile(opt.log_out);
-        pddlErrWarnEnable(&err, log_out);
-        pddlErrInfoEnable(&err, log_out);
+        pddlErrLogEnable(&err, log_out);
     }
 
     if (opt.max_mem > 0){

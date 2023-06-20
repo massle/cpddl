@@ -762,8 +762,7 @@ static int createOps(pddl_strips_maker_t *sm,
     }
 
     pddlStripsOpsSort(&strips->op);
-    PDDL_INFO(err, "Operators sorted.");
-
+    LOG(err, "Operators sorted.");
     LOG(err, "Created %d operators", strips->op.op_size);
 
     return 0;
@@ -802,14 +801,14 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         pddlStripsRemoveStaticFacts(strips, err);
 
     pddlStripsMergeCondEffIfPossible(strips);
-    PDDL_INFO(err, "Merged conditional effects where possible.");
+    LOG(err, "Merged conditional effects where possible.");
 
     pddlStripsOpsDeduplicate(&strips->op);
     LOG(err, "Operators deduplicated. Num operators: %d",
         strips->op.op_size);
 
     if (strips->goal_is_unreachable){
-        PDDL_INFO(err, "Strips problem marked as unsolvable");
+        LOG(err, "Strips problem marked as unsolvable");
         pddlStripsMakeUnsolvable(strips);
     }
 
@@ -826,7 +825,7 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
     LOG(err, "Has Conditional Effects: %d", strips->has_cond_eff);
 
 
-    PDDL_INFO(err, "PDDL grounded to STRIPS.");
+    LOG(err, "PDDL grounded to STRIPS.");
     CTXEND(err);
     return 0;
 }

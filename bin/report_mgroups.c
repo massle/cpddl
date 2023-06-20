@@ -7,9 +7,9 @@ static void mgroupCoverNumber(const pddl_mgroups_t *mgroups,
                               pddl_err_t *err)
 {
     if (opt.mg.cover_number){
-        PDDL_INFO(err, "Computing mutex group cover number");
+        PDDL_LOG(err, "Computing mutex group cover number");
         int num = pddlMGroupsCoverNumber(mgroups, strips->fact.fact_size);
-        PDDL_INFO(err, "Mutex group cover number: %d", num);
+        PDDL_LOG(err, "Mutex group cover number: %d", num);
     }
 }
 
@@ -23,10 +23,10 @@ static void fdrVars(const pddl_strips_t *strips,
 
     unsigned flags = PDDL_FDR_VARS_LARGEST_FIRST;
     flags |= PDDL_FDR_VARS_NO_NEGATED_FACTS;
-    PDDL_INFO(err, "Creating FDR variables...");
+    PDDL_LOG(err, "Creating FDR variables...");
     pddl_fdr_vars_t vars;
     pddlFDRVarsInitFromStrips(&vars, strips, mgroups, &mutex, flags);
-    PDDL_INFO(err, "Created FDR variables: %d", vars.var_size);
+    PDDL_LOG(err, "Created FDR variables: %d", vars.var_size);
     //pddlFDRVarsPrintDebug(&vars, stderr);
     pddlFDRVarsFree(&vars);
 
@@ -54,7 +54,7 @@ static void mgroupDominance(const pddl_mgroups_t *m1,
         if (!found)
             dom += 1;
     }
-    PDDL_INFO(err, "mutex group dominance %s > %s: %d", m1_name, m2_name, dom);
+    PDDL_LOG(err, "mutex group dominance %s > %s: %d", m1_name, m2_name, dom);
 }
 
 void reportMGroups(const pddl_t *pddl,
@@ -95,7 +95,7 @@ void reportMGroups(const pddl_t *pddl,
 
 
     pddlMGroupsGround(&lmg_mgroups, pddl, &lifted_mgroups, strips);
-    PDDL_INFO(err, "Ground mutex groups from lifted mutex groups: %d",
+    PDDL_LOG(err, "Ground mutex groups from lifted mutex groups: %d",
               lmg_mgroups.mgroup_size);
 
     for (int gi = 0; gi < lmg_mgroups.mgroup_size; ++gi){
@@ -105,13 +105,13 @@ void reportMGroups(const pddl_t *pddl,
     }
 
     pddlMGroupsRemoveSubsets(&lmg_mgroups);
-    PDDL_INFO(err, "Ground maximal mutex groups from lifted mutex"
+    PDDL_LOG(err, "Ground maximal mutex groups from lifted mutex"
               " groups: %d", lmg_mgroups.mgroup_size);
 
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, strips);
     pddlMutexPairsAddMGroups(&mutex, &lmg_mgroups);
-    PDDL_INFO(err, "Lifted mutex groups mutex-pairs: %d",
+    PDDL_LOG(err, "Lifted mutex groups mutex-pairs: %d",
               mutex.num_mutex_pairs);
     pddlMutexPairsFree(&mutex);
 
@@ -131,7 +131,7 @@ void reportMGroups(const pddl_t *pddl,
     pddlH2(strips, &mutex, NULL, NULL, 0., err);
     pddlMGroupsInitEmpty(&h2_mgroups);
     pddlMutexPairsInferMutexGroups(&mutex, &h2_mgroups, err);
-    PDDL_INFO(err, "Found %d h2 mutex groups.",
+    PDDL_LOG(err, "Found %d h2 mutex groups.",
               h2_mgroups.mgroup_size);
 
     for (int gi = 0; gi < h2_mgroups.mgroup_size; ++gi){
@@ -164,7 +164,7 @@ void reportMGroups(const pddl_t *pddl,
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, strips);
     pddlMutexPairsAddMGroups(&mutex, &fam_mgroups);
-    PDDL_INFO(err, "fam-groups: %d, mutex-pairs: %d",
+    PDDL_LOG(err, "fam-groups: %d, mutex-pairs: %d",
               fam_mgroups.mgroup_size, mutex.num_mutex_pairs);
     pddlMutexPairsFree(&mutex);
 

@@ -110,7 +110,7 @@ static void createPredTable(pddl_sqlite3 *db,
     shift += sprintf(query + shift, ");");
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
-    //PDDL_INFO(err, "Predicate table: %s", query);
+    //LOG(err, "Predicate table: %s", query);
     int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -192,7 +192,7 @@ static void sqlPredInit(sql_pred_t *qpred,
     sprintf(query + shift, ");");
     ASSERT_RUNTIME(shift < QUERY_SIZE);
 
-    //PDDL_INFO(err, "Insert atom query: %s", query);
+    //LOG(err, "Insert atom query: %s", query);
     ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -522,7 +522,7 @@ static void sqlActionInit(sql_action_t *action,
                        qcols, qtables, qjoincond, qwhere);
     ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
 
-    //PDDL_INFO(err, "Action query %s: %s", prep_action->action->name, query);
+    //LOG(err, "Action query %s: %s", prep_action->action->name, query);
     int ret = pddl_sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -614,7 +614,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
                     | SQLITE_OPEN_PRIVATECACHE;
     int ret = pddl_sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
-    PDDL_INFO(err, "Sqlite database created");
+    LOG(err, "Sqlite database created");
     ASSERT_RUNTIME(pddl_sqlite3_get_autocommit(g->db));
 
     // Create type tables
@@ -624,7 +624,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
     g->pred = CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
     for (int pi = 0; pi < pddl->pred.pred_size; ++pi)
         sqlPredInit(g->pred + pi, g->db, &g->pddl->pred, pi, err);
-    PDDL_INFO(err, "%d predicate tables created.", pddl->pred.pred_size);
+    LOG(err, "%d predicate tables created.", pddl->pred.pred_size);
 
     // Create sql actions
     g->action = CALLOC_ARR(sql_action_t, g->prep_action.action_size);
@@ -632,7 +632,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
         sqlActionInit(g->action + ai, g->db, g->pred,
                       g->prep_action.action + ai, err);
     }
-    PDDL_INFO(err, "%d action sql queries prepared.",
+    LOG(err, "%d action sql queries prepared.",
              g->prep_action.action_size);
 
     CTXEND(err);
@@ -744,7 +744,7 @@ int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
             }
         }
         if (invalid){
-            PDDL_INFO(err, "Invalid row");
+            LOG(err, "Invalid row");
             continue;
         }
         const pddl_prep_action_t *paction;
