@@ -89,15 +89,6 @@ typedef struct pddl_search_config pddl_search_config_t;
 typedef struct pddl_search pddl_search_t;
 
 pddl_search_t *pddlSearchNew(const pddl_search_config_t *cfg, pddl_err_t *err);
-
-pddl_search_t *pddlSearchAStar(const pddl_fdr_t *fdr,
-                               pddl_heur_t *heur,
-                               pddl_err_t *err);
-
-pddl_search_t *pddlSearchLazy(const pddl_fdr_t *fdr,
-                              pddl_heur_t *heur,
-                              pddl_err_t *err);
-
 void pddlSearchDel(pddl_search_t *);
 pddl_search_status_t pddlSearchInitStep(pddl_search_t *);
 pddl_search_status_t pddlSearchStep(pddl_search_t *);

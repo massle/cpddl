@@ -260,7 +260,11 @@ int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
         TRACE_RET(err, -1);
     }
 
-    pddl_search_t *search = pddlSearchAStar(&fdr, heur, err);
+    pddl_search_config_t search_cfg = PDDL_SEARCH_CONFIG_INIT;
+    search_cfg.fdr = &fdr;
+    search_cfg.alg = PDDL_SEARCH_ASTAR;
+    search_cfg.heur = heur;
+    pddl_search_t *search = pddlSearchNew(&search_cfg, err);
     if (search == NULL){
         pddlFDRFree(&fdr);
         pddlHeurDel(heur);
