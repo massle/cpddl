@@ -16,6 +16,8 @@
   configured via `pddl_config_t`.
 - Unified API for grounding
 - Unified A\*, Lazy, and GBFS search algorithms
+- Parsing of PDDL files completely re-worked with the lemon parser; it now
+  provides much nicer and more helpful error messages.
 
 ### Removed
 - Suport for GLPK solver
