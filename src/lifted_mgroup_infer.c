@@ -33,7 +33,7 @@ void pddlLiftedMGroupsInferConfigLog(const pddl_lifted_mgroups_infer_config_t *c
     LOG_CONFIG_INT(cfg, max_candidates, err);
     LOG_CONFIG_INT(cfg, max_mgroups, err);
     LOG_CONFIG_BOOL(cfg, fd, err);
-    LOG(err, "fd_monotonicity = %b", cfg->fd_monotonicity != NULL);
+    LOG(err, "fd_monotonicity = %s", F_BOOL(cfg->fd_monotonicity != NULL));
 }
 
 int pddlLiftedMGroupsInfer(const pddl_t *pddl,

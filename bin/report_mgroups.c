@@ -111,7 +111,7 @@ void reportMGroups(const pddl_t *pddl,
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, strips);
     pddlMutexPairsAddMGroups(&mutex, &lmg_mgroups);
-    PDDL_LOG(err, "Lifted mutex groups mutex-pairs: %d",
+    PDDL_LOG(err, "Lifted mutex groups mutex-pairs: %lu",
               mutex.num_mutex_pairs);
     pddlMutexPairsFree(&mutex);
 
@@ -164,7 +164,7 @@ void reportMGroups(const pddl_t *pddl,
     pddl_mutex_pairs_t mutex;
     pddlMutexPairsInitStrips(&mutex, strips);
     pddlMutexPairsAddMGroups(&mutex, &fam_mgroups);
-    PDDL_LOG(err, "fam-groups: %d, mutex-pairs: %d",
+    PDDL_LOG(err, "fam-groups: %d, mutex-pairs: %lu",
               fam_mgroups.mgroup_size, mutex.num_mutex_pairs);
     pddlMutexPairsFree(&mutex);
 

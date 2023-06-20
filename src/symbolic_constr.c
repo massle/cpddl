@@ -232,7 +232,7 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
     pddlMutexPairsInit(&bw_mutex, vars->fact_size);
     separateFwBwMutex(mutex, &fw_mutex, &bw_mutex);
 
-    LOG(err, "Mutexes separated: fw-mutex pairs: %d, bw-mutex pairs: %d",
+    LOG(err, "Mutexes separated: fw-mutex pairs: %lu, bw-mutex pairs: %lu",
               fw_mutex.num_mutex_pairs,
               bw_mutex.num_mutex_pairs);
 

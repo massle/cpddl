@@ -756,8 +756,8 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     CTX(err, "rm-useless-del-effs");
     int ret = 0;
     PDDL_LOG(err, "Removing useless delete effects."
-             " num mutex pairs: %d",
-             (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
+             " num mutex pairs: %ld",
+             (mutex != NULL ? (long)mutex->num_mutex_pairs : -1L ));
 
     PDDL_ISET(useless);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){

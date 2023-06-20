@@ -168,7 +168,7 @@ static void bfsInsertNextState(pddl_search_bfs_t *s,
 static pddl_search_status_t bfsInitStep(pddl_search_t *_s)
 {
     S(s, _s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
     pddl_search_status_t ret = PDDL_SEARCH_CONT;
 
     pddl_state_id_t state_id 
@@ -203,7 +203,7 @@ static pddl_search_status_t bfsInitStep(pddl_search_t *_s)
 static pddl_search_status_t bfsStep(pddl_search_t *_s)
 {
     S(s, _s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
     ++s->_stat.steps;
 
     // Get next state from open list
@@ -298,7 +298,7 @@ static pddl_search_status_t bfsStep(pddl_search_t *_s)
 static int bfsExtractPlan(pddl_search_t *_s, pddl_plan_t *plan)
 {
     S(s, _s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
     if (s->goal_state_id == PDDL_NO_STATE_ID)
         return -1;
     pddlPlanLoadBacktrack(plan, s->goal_state_id, &s->state_space);
@@ -309,7 +309,7 @@ static int bfsExtractPlan(pddl_search_t *_s, pddl_plan_t *plan)
 static void bfsStat(const pddl_search_t *_s, pddl_search_stat_t *stat)
 {
     S(s, _s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
     *stat = s->_stat;
     stat->generated = s->state_space.state_pool.num_states;
     CTXEND(s->err);

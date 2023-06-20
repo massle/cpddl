@@ -402,9 +402,9 @@ static void transSetsAddRange(pddl_symbolic_vars_t *vars,
     long nodes = 0;
     for (int i = 0; i < trset->trans_size; ++i)
         nodes += pddlBDDSize(trset->trans[i].bdd);
-    LOG(err, "created trans BDDs: cost: %d, ops: %d, bdds: %d,"
+    LOG(err, "created trans BDDs: cost: %s, ops: %d, bdds: %d,"
               " nodes: %lu, %s",
-              trset->cost, pddlISetSize(&trset->op), trset->trans_size,
+              F_COST(&trset->cost), pddlISetSize(&trset->op), trset->trans_size,
               nodes, (T_size > 1 ? "(time limit reached)" : ""));
 }
 

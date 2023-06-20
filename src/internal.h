@@ -51,7 +51,7 @@ extern "C" {
 #define LOG_CONFIG_DBL(C, NAME, ERR) \
     LOG((ERR), #NAME " = %.4f", (C)->NAME)
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %b", (C)->NAME)
+    LOG((ERR), #NAME " = %s", F_BOOL((C)->NAME))
 #define LOG_CONFIG_STR(C, NAME, ERR) \
     LOG((ERR), #NAME " = %s", (C)->NAME)
 
@@ -88,6 +88,7 @@ extern "C" {
 
 
 
+#define F_BOOL(C) ((C) ? "true" : "false")
 #define F_COST(C) pddlCostFmt((C), ((char [22]){""}), 22)
 #define F_COND(C, PDDL, PARAMS) \
     pddlFmFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)

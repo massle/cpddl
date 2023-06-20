@@ -504,10 +504,10 @@ int pddlCompileAwayNegativeConditions(pddl_t *pddl,
                                       pddl_err_t *err)
 {
     CTX(err, "Neg-Cond");
-    LOG(err, "Cfg: only_dymanic: %b", only_dynamic);
-    LOG(err, "Cfg: only_goal: %b", only_goal);
-    LOG(err, "Cfg: only_relevant_facts_in_init: %b",
-        only_relevant_facts_in_init);
+    LOG(err, "Cfg: only_dymanic: %s", F_BOOL(only_dynamic));
+    LOG(err, "Cfg: only_goal: %s", F_BOOL(only_goal));
+    LOG(err, "Cfg: only_relevant_facts_in_init: %s",
+        F_BOOL(only_relevant_facts_in_init));
 
     pred_t pred[pddl->pred.pred_size];
     if (!predArrInit(pred, pddl)){

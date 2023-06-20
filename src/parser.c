@@ -207,7 +207,7 @@ static pddl_fm_t *_fmAtomFromParser(pddl_t *pddl,
 
     }else{
         _ERRV(err, NULL, tokenizer, fmtree->atom->tok + 0,
-              "Unknown %s '%s'.", name, pname, fmtree->atom->tok[0].line);
+              "Unknown %s '%s'.", name, pname);
     }
 
     int num_args = fmtree->atom->tok_size - 1;
@@ -586,8 +586,9 @@ static int addTypes(pddl_t *pddl,
                     _ERR(err, -1, tokenizer, &tl->type,
                          "Variables cannot be used in the :types section.");
                 }else{
-                    _ERR(err, -1, tokenizer, &tl->type,
-                         "Unexpected identifier '%s' in the :types section.");
+                    _ERRV(err, -1, tokenizer, &tl->type,
+                          "Unexpected identifier '%s' in the :types section.",
+                          tl->type.str);
                 }
             }
             ASSERT(tl->type.str != NULL);

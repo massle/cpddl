@@ -178,11 +178,11 @@ static void hpotConfigLogOptAllSyntacticStates(
     LOG(err, "type: %s", "all-syntactic-states");
     LOG_CONFIG_BOOL(c, add_init_state_constr, err);
     if (c->add_fdr_state_constr != NULL){
-        LOG(err, "add_state_constr: %b", 1);
+        LOG(err, "add_state_constr: true");
         LOG(err, "add_state_constr_coef: %.2f",
             c->add_state_coef);
     }else{
-        LOG(err, "add_state_constr: %b", 0);
+        LOG(err, "add_state_constr: false");
     }
 }
 
@@ -195,11 +195,11 @@ static void hpotConfigLogOptAllStatesMutex(
     LOG_CONFIG_BOOL(c, add_init_state_constr, err);
     
     if (c->add_fdr_state_constr != NULL){
-        LOG(err, "add_state_constr: %b", 1);
+        LOG(err, "add_state_constr: true");
         LOG(err, "add_state_constr_coef: %.2f",
             c->add_state_coef);
     }else{
-        LOG(err, "add_state_constr: %b", 0);
+        LOG(err, "add_state_constr: false");
     }
 }
 
@@ -215,11 +215,11 @@ static void hpotConfigLogOptSampledStates(
     LOG_CONFIG_BOOL(c, add_init_state_constr, err);
     
     if (c->add_fdr_state_constr != NULL){
-        LOG(err, "add_state_constr: %b", 1);
+        LOG(err, "add_state_constr: true");
         LOG(err, "add_state_constr_coef: %.2f",
             c->add_state_coef);
     }else{
-        LOG(err, "add_state_constr: %b", 0);
+        LOG(err, "add_state_constr: false");
     }
 }
 

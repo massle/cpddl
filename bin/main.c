@@ -316,7 +316,7 @@ static int stepGroundMGroups(void)
     pddlMGroupsSetGoal(&mgroup, &strips);
     PDDL_LOG(&err, "Found %d mutex groups", mgroup.mgroup_size);
     pddlMutexPairsAddMGroups(&mutex, &mgroup);
-    PDDL_LOG(&err, "Found %d mutex pairs", mutex.num_mutex_pairs);
+    PDDL_LOG(&err, "Found %lu mutex pairs", mutex.num_mutex_pairs);
     PDDL_CTXEND(&err);
 
 
@@ -371,7 +371,7 @@ static int stepInferMGroups(void)
     pddlMGroupsSetGoal(&mgroup, &strips);
 
     pddlMutexPairsAddMGroups(&mutex, &mgroup);
-    PDDL_LOG(&err, "%d mutex pairs so far", mutex.num_mutex_pairs);
+    PDDL_LOG(&err, "%lu mutex pairs so far", mutex.num_mutex_pairs);
     PDDL_CTXEND(&err);
 
     PRINT_TO_FILE(&err, opt.mg.out, "mutex groups",

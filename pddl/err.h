@@ -212,14 +212,15 @@ void pddlErrSetSourceFilePointer(pddl_err_t *err,
 
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
-              const char *format, ...);
+              const char *format, ...) __PDDL_ATTR_PRINTF(5, 6);
 void _pddlPanic(const char *filename, int line, const char *func,
-                const char *format, ...);
+                const char *format, ...) __PDDL_ATTR_PRINTF(4, 5);
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
-void _pddlCtx(pddl_err_t *err, int time, const char *info, ...);
+void _pddlCtx(pddl_err_t *err, int time, const char *info, ...)
+    __PDDL_ATTR_PRINTF(3, 4);
 void _pddlCtxEnd(pddl_err_t *err);
-void _pddlLog(pddl_err_t *err, const char *fmt, ...);
+void _pddlLog(pddl_err_t *err, const char *fmt, ...) __PDDL_ATTR_PRINTF(2, 3);
 
 #ifdef __cplusplus
 } /* extern "C" */

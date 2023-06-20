@@ -149,7 +149,7 @@ static int step(pddl_process_strips_t *prune,
     if (!step->can_reuse_rm_op_fact)
         apply(prune, err);
 
-    PDDL_CTX(err, step->name);
+    PDDL_CTX(err, "%s", step->name);
     int rm_fact = pddlISetSize(&prune->rm_fact);
     int rm_op = pddlISetSize(&prune->rm_op);
     if (step->execute(prune, step, err) != 0){

@@ -171,10 +171,10 @@ int main(int argc, char *argv[])
             PDDL_IARR(plan);
             int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
             PDDL_LOG(&err, "Task %s %s"
-                     " solved: %b, length: %d",
+                     " solved: %s, length: %d",
                      task->pddl.domain_file,
                      task->pddl.problem_file,
-                     solved,
+                     (solved ? "true" : "false"),
                      (solved ? pddlIArrSize(&plan) : -1));
             if (solved){
                 ++num_solved;

@@ -231,7 +231,7 @@ int pddlOpMutexInferHmOpFactCompilation(pddl_op_mutex_pairs_t *opm,
         pddlMutexPairsAdd(&mutex, op_fact_offset + o1, op_fact_offset + o2);
 
     if (pddlHm(m, &P2, &mutex, NULL, NULL, 0, 0, err) == 0){
-        LOG(err, "  --> h^%d computed with %d mutex pairs.",
+        LOG(err, "  --> h^%d computed with %lu mutex pairs.",
                   m, mutex.num_mutex_pairs);
         int fact_size = P2.fact.fact_size;
         for (int i = op_fact_offset; i < fact_size; ++i){

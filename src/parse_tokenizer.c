@@ -257,7 +257,7 @@ static int tokenizerMatchToken(tokenize_t *tok, pddl_parse_token_t *t,
     if (t->token == PDDL_TOKEN_INUM
             && shift < smaxlen
             && IS_STR(tok->cur[shift])){
-        _ERRV(err, -1, tok->tok, t, "Malformed number token %s. line: %d, column: %d", t->str);
+        _ERRV(err, -1, tok->tok, t, "Malformed number token %s.", t->str);
     }
 
     tok->cur += shift;
