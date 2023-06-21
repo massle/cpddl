@@ -40,6 +40,17 @@ static void printSourceFilePointer(FILE *fout,
     for (int line = 1;
             line <= p->line && (readsize = getline(&lbuf, &lsize, fin)) > 0;
             ++line){
+
+        // Never print more than 180 characters per line unless necessary
+        int maxprintlinesize = 180 - 9; // -9 for "% 6d | "
+        if (line == p->line)
+            maxprintlinesize = PDDL_MAX(maxprintlinesize, p->column + 10);
+        if (lsize > maxprintlinesize){
+            strcpy(lbuf + maxprintlinesize - 7, " [...]");
+            lbuf[maxprintlinesize - 1] = '\n';
+            lbuf[maxprintlinesize] = '\x0';
+        }
+
         if (line >= start_line)
             fprintf(fout, "% 6d | %s", line, lbuf);
     }
