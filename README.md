@@ -55,14 +55,19 @@ statically or dynamically linked to cpddl.
 
 ## Building with Makefile
 
-Easiest way to compile the library and the binaries that come with the
-library:
+This project is built with [GNU Make](https://www.gnu.org/software/make), and
+the compilation can be configured by adding a ``Makefile.config`` file with the
+configuration setting to the top directory. It is recommended to start by
+copying ``Makefile.config.tpl`` to ``Makefile.config`` and modify it to your
+liking.
+
+The easiest and fastest way the build the working system is by calling:
 ```sh
   $ ./scripts/build.sh
 ```
-This builds the library with [bliss](https://users.aalto.fi/~tjunttil/bliss)
+It builds the library with [bliss](https://users.aalto.fi/~tjunttil/bliss)
 and [cudd](https://davidkebo.com/cudd) libraries which are compiled from local
-copies in ``third-party/`` directory. It also tries to automatically find
+copies in the ``third-party/`` directory. It also tries to automatically find
 [minizinc](https://www.minizinc.org/) installed on your system.
 
 You can change default configuration by adding ``Makefile.config`` file
