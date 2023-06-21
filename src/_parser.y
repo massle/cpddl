@@ -291,6 +291,17 @@ action_section
         pddlParseFmTreeDel(Eff);
 }
 
+// This rule is just for better analysis of the error when missing
+// :parameters section which is mandatory according to the specification
+action_section ::= LPAREN ACTION IDNT(Name) action_pre action_eff RPAREN. {
+    if (!ctx->abort){
+        _ERRSV(ctx->err, ctx->tokenizer, &Name,
+               "Syntax error: Missing the mandatory ':parameters' section"
+               " in the action %s", Name.str);
+        ctx->abort = 1;
+    }
+}
+
 %type action_pre { pddl_parse_fm_tree_t * }
 %destructor action_pre { if ($$ != NULL) pddlParseFmTreeDel($$); }
 %type action_eff { pddl_parse_fm_tree_t * }
