@@ -1,6 +1,7 @@
 # cpddl
 
-**cpddl** is a library and a set of programs for PDDL-based automated planning.
+**cpddl** is a library and a set of programs for PDDL-based automated planning
+written in C.
 
 [[_TOC_]]
 
@@ -12,50 +13,47 @@ is distributed along with source code in the LICENSE file.
 
 cpddl directly incorporates several third-party works:
  - The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
-[public-domain](https://www.sqlite.org/copyright.html)
- - Hash functions from public-domain:
-[SHA256](https://github.com/B-Con/crypto-algorithms)
-authored by Brad Conte;
-[Jenkins](http://burtleburtle.net/bob/c/lookup3.c) by Robert Jenkins;
-[32-bit](www.isthe.com/chongo/src/fnv/hash_32a.c) and
-[64-bit](www.isthe.com/chongo/src/fnv/hash_64a.c) variants of Fnv by
-Phong Vo, Glenn Fowler, and Landon Curt Noll;
-[Murmur3](https://github.com/PeterScott/murmur3) by
-Austin Appleby and Peter Scott.
+[public-domain](https://www.sqlite.org/copyright.html);
+ - The [SHA256](https://github.com/B-Con/crypto-algorithms)
+hash function from public-domain authored by Brad Conte;
  - Two hash functions copyrighted by Google and released under the MIT
- license [CityHash](https://code.google.com/p/cityhash) and
-[FastHash](https://code.google.com/p/fast-hash)
+license [CityHash](https://code.google.com/p/cityhash) and
+[FastHash](https://code.google.com/p/fast-hash);
  - [Timsort](https://github.com/swenson/sort/) licensed under MIT
-(Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc)
- - [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan)
+(Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc);
+ - [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
 
 
 Other than that, cpddl can be compiled without any other
 dependecies besides standard C-related tools.
 However, certain functionalities require external libraries:
  - symmetries require
- [bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
- (a slightly modified copy located in the ``third-party`` directory).
+[bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
+(a slightly modified copy located in the ``third-party`` directory).
  - binary decision diagrams require
- [cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
- License
- (a copy is located in the ``third-party`` directory).
+[cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
+License
+(a copy is located in the ``third-party`` directory).
  - (I)LP solver requires
- [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
- [Gurobi](https://www.gurobi.com/), or
- [HiGHS](https://highs.dev). CPLEX Optimizer and
- Gurobi are commercial products, but it is possible to obtain an academic
- license. HiGHS is licensed under MIT license.
+[CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
+[Gurobi](https://www.gurobi.com/),
+[HiGHS](https://highs.dev), or
+[Coin-Or](https://www.coin-or.org/). CPLEX Optimizer and
+Gurobi are commercial products, but it is possible to obtain an academic
+license. HiGHS is licensed under MIT license.
+Coin-Or [Clp](https://github.com/coin-or/Clp/) and
+[Cbc](https://github.com/coin-or/Cbc) modules are licensed under
+Eclipse Public License v2.0.
  - constraint optimization requires either
- [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
- [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
- library, but it is possible to obtain an academic license. Minizinc is
- licensed under Mozilla Public License v2.0 (and itself depends on other
- solvers), but it is called as a subprocess from cpddl, i.e., it is never
- statically or dynamically linked to cpddl.
+[CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
+[minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
+library, but it is possible to obtain an academic license. Minizinc is
+licensed under Mozilla Public License v2.0 (and itself depends on other
+solvers), but it is called as a subprocess from cpddl, i.e., it is never
+statically or dynamically linked to cpddl.
 
 
-## Compile
+## Building with Makefile
 
 Easiest way to compile the library and the binaries that come with the
 library:
@@ -84,6 +82,9 @@ You can check the current configuration by
 ```sh
   $ make help
 ```
+
+
+## Building Apptainer Image
 
 
 ## References
