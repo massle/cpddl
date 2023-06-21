@@ -410,11 +410,10 @@ static void pddlActionPrintPDDL(const pddl_action_t *a,
                                 FILE *fout)
 {
     fprintf(fout, "(:action %s\n", a->name);
-    if (a->param.param_size > 0){
-        fprintf(fout, "    :parameters (");
+    fprintf(fout, "    :parameters (");
+    if (a->param.param_size > 0)
         pddlParamsPrintPDDL(&a->param, &pddl->type, fout);
-        fprintf(fout, ")\n");
-    }
+    fprintf(fout, ")\n");
 
     if (a->pre != NULL){
         fprintf(fout, "    :precondition ");
