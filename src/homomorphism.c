@@ -263,7 +263,7 @@ static int collapseEndomorphism(pddl_t *pddl,
         }
         PDDL_ISET_FOR_EACH(&redundant, oid){
             remap[oid] = remap[map[oid]];
-            ASSERT_RUNTIME(remap[oid] >= 0);
+            ASSERT(remap[oid] >= 0);
         }
         pddlRemapObjs(pddl, remap);
         pddlNormalize(pddl, err);
@@ -713,8 +713,8 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
             continue;
         }
         pddl_fm_func_op_t *ass1 = pddlFmToFuncOp(c1);
-        ASSERT_RUNTIME(ass1->lvalue != NULL);
-        ASSERT_RUNTIME(ass1->fvalue == NULL);
+        ASSERT(ass1->lvalue != NULL);
+        ASSERT(ass1->fvalue == NULL);
         int min_value = ass1->value;
 
         pddl_list_t *item2 = pddlListNext(item);
@@ -722,8 +722,8 @@ static void _deduplicateCostsPart(pddl_fm_junc_t *p)
             pddl_fm_t *c2 = PDDL_LIST_ENTRY(item2, pddl_fm_t, conn);
             if (pddlFmIsAssign(c2)){
                 pddl_fm_func_op_t *ass2 = pddlFmToFuncOp(c2);
-                ASSERT_RUNTIME(ass2->lvalue != NULL);
-                ASSERT_RUNTIME(ass2->fvalue == NULL);
+                ASSERT(ass2->lvalue != NULL);
+                ASSERT(ass2->fvalue == NULL);
                 if (pddlFmAtomCmp(ass1->lvalue, ass2->lvalue) == 0){
                     min_value = PDDL_MIN(min_value, ass2->value);
                     pddl_list_t *item_del = item2;
@@ -772,7 +772,7 @@ int pddlHomomorphism(pddl_t *pddl,
                      int *obj_map,
                      pddl_err_t *err)
 {
-    ASSERT_RUNTIME_M(cfg->type != 0u, "Invalid configuration");
+    PANIC_IF(cfg->type == 0u, "Invalid configuration");
     if (cfg->type == PDDL_HOMOMORPHISM_TYPES
             && pddlISetSize(&cfg->collapse_types) == 0){
         PDDL_ERR_RET(err, -1, "Nothing to do!");
@@ -814,7 +814,7 @@ int pddlHomomorphism(pddl_t *pddl,
             fn[0] = fn[1] = collapseGaifman;
         if (cfg->type == PDDL_HOMOMORPHISM_RPG)
             fn[0] = fn[1] = collapseRPG;
-        ASSERT_RUNTIME(fn[0] != NULL && fn[1] != NULL);
+        ASSERT(fn[0] != NULL && fn[1] != NULL);
         int obj_size = src->obj.obj_size;
         pddl_rand_t rnd;
         pddlRandInit(&rnd, cfg->random_seed);
@@ -1044,7 +1044,7 @@ int pddlHomomorphicTaskApplyRelaxedEndomorphism(
         }
         PDDL_ISET_FOR_EACH(&redundant, oid){
             remap[oid] = remap[map[oid]];
-            ASSERT_RUNTIME(remap[oid] >= 0);
+            ASSERT(remap[oid] >= 0);
         }
         pddlRemapObjs(&h->task, remap);
         pddlNormalize(&h->task, err);

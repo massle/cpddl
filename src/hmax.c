@@ -106,7 +106,8 @@ void pddlHMaxInit(pddl_hmax_t *h, const pddl_fdr_t *fdr)
             PDDL_ISET_FOR_EACH(&ce_pre, fact)
                 pddlISetAdd(&h->fact[fact].pre_op, cond_eff_ins);
             op->pre_size = pddlISetSize(&ce_pre);
-            ASSERT_RUNTIME(op->pre_size > 0);
+            PANIC_IF(op->pre_size == 0, "Conditional effect must have"
+                     " non-empty precondition");
 
             ++cond_eff_ins;
         }
@@ -173,7 +174,8 @@ void pddlHMaxInitStrips(pddl_hmax_t *h, const pddl_strips_t *strips)
             PDDL_ISET_FOR_EACH(&ce->pre, fact)
                 pddlISetAdd(&h->fact[fact].pre_op, cond_eff_ins);
             op->pre_size = pddlISetSize(&src->pre) + pddlISetSize(&ce->pre);
-            ASSERT_RUNTIME(op->pre_size > 0);
+            PANIC_IF(op->pre_size == 0, "Conditional effect must have"
+                     " non-empty precondition");
 
             ++cond_eff_ins;
         }

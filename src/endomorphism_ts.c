@@ -611,11 +611,11 @@ int pddlEndomorphismTransSystem(const pddl_trans_systems_t *tss,
     pddl_cp_sol_t cpsol;
     int sret = pddlCPSolve(&cp, &sol_cfg, &cpsol, err);
     // There must exist a solution -- at least identity
-    ASSERT_RUNTIME(sret == PDDL_CP_FOUND
-                    || sret == PDDL_CP_FOUND_SUBOPTIMAL
-                    || sret == PDDL_CP_ABORTED);
+    PANIC_IF(sret != PDDL_CP_FOUND
+                && sret != PDDL_CP_FOUND_SUBOPTIMAL
+                && sret != PDDL_CP_ABORTED, "Unexpected result.");
     if (sret == PDDL_CP_FOUND || sret == PDDL_CP_FOUND_SUBOPTIMAL){
-        ASSERT_RUNTIME(cpsol.num_solutions == 1);
+        ASSERT(cpsol.num_solutions == 1);
         extractSol(cpsol.isol[0], tss->label.label_size, var_label_offset, sol);
         LOG(err, "Found a solution with %d redundant ops",
             pddlISetSize(&sol->redundant_ops));

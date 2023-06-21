@@ -87,12 +87,12 @@ static int statesMapInsert(pddl_rbtree_t *map,
     if ((find = pddlRBTreeFind(map, &s->rbtree)) != NULL){
         states_t *sfound = pddl_container_of(find, states_t, rbtree);
         int ret = pddlBDDOrUpdate(mgr, &sfound->states, s->states);
-        ASSERT_RUNTIME(ret == 0);
+        PANIC_IF(ret != 0, "pddlBDDOrUpdate() failed.");
         return 0;
 
     }else{
         pddl_rbtree_node_t *n = pddlRBTreeInsert(map, &s->rbtree);
-        ASSERT_RUNTIME(n == NULL);
+        PANIC_IF(n != NULL, "Could not insert a node to the red-black tree.");
         return 1;
     }
 }
@@ -187,7 +187,7 @@ pddlSymbolicStatesSplitByPot(const pddl_iset_t *state,
             if (dret < 0){
                 pddlMGroupsFree(&mgs);
                 pddlDisambiguateFree(&disamb);
-                ASSERT_RUNTIME(0);
+                PANIC("TODO: Unsolvable task.");
                 // TODO: Unsolvable task
             }else if (dret == 0){
                 pddlMGroupsAdd(&mgs, &mgin->mgroup);

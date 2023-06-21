@@ -98,8 +98,7 @@ void pddlFDRStateSpaceGetNoState(const pddl_fdr_state_space_t *state_space,
                                  pddl_state_id_t state_id,
                                  pddl_fdr_state_space_node_t *node)
 {
-    ASSERT_RUNTIME(state_id >= 0
-                   && state_id < state_space->state_pool.num_states);
+    PANIC_IF(state_id >= state_space->state_pool.num_states, "Invalid state ID");
     const state_node_t *sn = pddlExtArrGet(state_space->node, state_id);
     getNoState(state_space, state_id, sn, node);
 }
@@ -107,8 +106,7 @@ void pddlFDRStateSpaceGetNoState(const pddl_fdr_state_space_t *state_space,
 void pddlFDRStateSpaceSet(pddl_fdr_state_space_t *state_space,
                           const pddl_fdr_state_space_node_t *node)
 {
-    ASSERT_RUNTIME(node->id >= 0
-                   && node->id < state_space->state_pool.num_states);
+    PANIC_IF(node->id >= state_space->state_pool.num_states, "Invalid state ID");
     state_node_t *sn = pddlExtArrGet(state_space->node, node->id);
     sn->parent_id = node->parent_id;
     sn->op_id = node->op_id;

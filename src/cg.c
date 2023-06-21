@@ -382,7 +382,6 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
         var_ordering[ins] = minvar->var;
         removeVar(order_var, minvar->var, heap, cg);
     }
-    ASSERT_RUNTIME(ins == cg->node_size);
     //reverseArr(var_ordering, cg->node_size);
     moveUnimportantVarsBack(cg, goal, var_ordering);
 

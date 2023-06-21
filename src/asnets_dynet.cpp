@@ -421,7 +421,7 @@ struct ActionModule {
                                 const std::vector<dynet::Expression> &input_goal,
                                 const dynet::Expression &input_applicable) const
     {
-        ASSERT_RUNTIME(layer == 0);
+        ASSERT(layer == 0);
         std::vector<dynet::Expression> input;
         input.insert(input.end(), input_state.begin(), input_state.end());
         input.insert(input.end(), input_goal.begin(), input_goal.end());
@@ -507,8 +507,8 @@ struct ModelParameters {
             }
 
             for (int pid = 0; pid < task->pred_size; ++pid){
-                ASSERT_RUNTIME(pid != task->pddl.pred.eq_pred
-                                || task->pred[pid].related_action_size == 0);
+                ASSERT(pid != task->pddl.pred.eq_pred
+                        || task->pred[pid].related_action_size == 0);
                 PropositionModule *pm;
                 pm = new PropositionModule(hidden_dimension,
                                            task->pred[pid].related_action_size,
@@ -525,8 +525,8 @@ struct ModelParameters {
             action[num_layers].push_back(am);
         }
 
-        ASSERT_RUNTIME(num_layers == (int)action.size() - 1);
-        ASSERT_RUNTIME(num_layers == (int)prop.size());
+        ASSERT(num_layers == (int)action.size() - 1);
+        ASSERT(num_layers == (int)prop.size());
     }
 
     ~ModelParameters()
@@ -795,7 +795,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
                                             e_applicable_ops, -1);
 
     std::vector<float> out = dynet::as_vector(cg.forward(e_output));
-    ASSERT_RUNTIME((int)out.size() == task->strips.op.op_size);
+    ASSERT((int)out.size() == task->strips.op.op_size);
 
     int best_op_id = -1;
     float best_value = -1;
@@ -876,10 +876,10 @@ struct ASNetsTrainMiniBatchTask {
     {
         if (size == 0)
             return;
-        ASSERT_RUNTIME((int)state.size() == size * fact_size);
-        ASSERT_RUNTIME((int)applicable_ops.size() == size * op_size);
-        ASSERT_RUNTIME((int)selected_op.size() == size);
-        ASSERT_RUNTIME((int)goal.size() == fact_size);
+        ASSERT((int)state.size() == size * fact_size);
+        ASSERT((int)applicable_ops.size() == size * op_size);
+        ASSERT((int)selected_op.size() == size);
+        ASSERT((int)goal.size() == fact_size);
 
         std::vector<long> dim(1);
         dim[0] = fact_size;
@@ -1795,7 +1795,7 @@ static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
         batch_size += b.size;
     }
 
-    ASSERT_RUNTIME(nets.size() > 0);
+    ASSERT(nets.size() > 0);
     // Compute mean over all losses
     dynet::Expression e_loss = dynet::sum(nets) / batch_size;
     return e_loss;

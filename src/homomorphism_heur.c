@@ -158,7 +158,7 @@ static int findStripsFact(const pddl_homomorphism_heur_t *h,
     for (int fact_id = 0; fact_id < h->strips.fact.fact_size; ++fact_id){
         const pddl_fact_t *fact = h->strips.fact.fact[fact_id];
         const pddl_ground_atom_t *fga = fact->ground_atom;
-        ASSERT_RUNTIME(fga != NULL);
+        ASSERT(fga != NULL);
         if (fga->pred != ga->pred)
             continue;
         ASSERT(fga->arg_size == ga->arg_size);

@@ -59,12 +59,12 @@ static int hasAtom(const pddl_fm_t *cond,
     if (pddlFmIsAtom(cond)){
         return pddlFmEq(cond, &atom->fm);
     }else{
-        ASSERT_RUNTIME(pddlFmIsAnd(cond));
+        ASSERT(pddlFmIsAnd(cond));
         const pddl_fm_junc_t *cand = pddlFmToJuncConst(cond);
         pddl_list_t *item;
         PDDL_LIST_FOR_EACH(&cand->part, item){
             const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-            ASSERT_RUNTIME(pddlFmIsAtom(c));
+            ASSERT(pddlFmIsAtom(c));
             if (pddlFmEq(c, &atom->fm))
                 return 1;
         }
@@ -279,7 +279,7 @@ static void liftedEndomorphismAnalyzeAction(
         return;
     }
 
-    ASSERT_RUNTIME(pddlFmIsAnd(act_eff));
+    ASSERT(pddlFmIsAnd(act_eff));
     const pddl_fm_junc_t *cand = pddlFmToJuncConst(act_eff);
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&cand->part, item){
@@ -675,12 +675,12 @@ static int liftedSolve(const pddl_t *pddl,
     pddl_cp_sol_t sol;
     int sret = pddlCPSolve(&cp, &sol_cfg, &sol, err);
     // There must exist a solution -- at least identity
-    ASSERT_RUNTIME(sret == PDDL_CP_FOUND
-                    || sret == PDDL_CP_FOUND_SUBOPTIMAL
-                    || sret == PDDL_CP_ABORTED);
+    PANIC_IF(sret != PDDL_CP_FOUND
+                && sret != PDDL_CP_FOUND_SUBOPTIMAL
+                && sret != PDDL_CP_ABORTED, "Unexpected result.");
     int num_redundant = -1;
     if (sret == PDDL_CP_FOUND || sret == PDDL_CP_FOUND_SUBOPTIMAL){
-        ASSERT_RUNTIME(sol.num_solutions == 1);
+        ASSERT(sol.num_solutions == 1);
         num_redundant = extractSol(obj_size, sol.isol[0], redundant_objs, map);
         LOG(err, "Found a solution with %d redundant objects", num_redundant);
 

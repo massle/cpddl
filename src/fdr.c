@@ -841,7 +841,6 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
     pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
     pddlFDRPartStateToGlobalIDs(&op->eff, &fdr->var, &eff);
 
-    ASSERT_RUNTIME(dis != NULL);
     int disret = pddlDisambiguate(dis, &pre, &eff, 1, sf_flag, &hset, &extend);
     if (disret < 0)
         ret = -1;
