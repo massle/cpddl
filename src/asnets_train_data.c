@@ -179,7 +179,7 @@ void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td)
     pddlRandInitAuto(&rnd);
     for (int dst = td->sample_size - 1; dst > 0; --dst){
         int src = pddlRand(&rnd, 0, dst + 1);
-        ASSERT_RUNTIME(src <= dst && src >= 0);
+        ASSERT(src <= dst && src >= 0);
         if (src != dst){
             pddl_asnets_train_data_sample_t *tmp;
             PDDL_SWAP(td->sample[src], td->sample[dst], tmp);

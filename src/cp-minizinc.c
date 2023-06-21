@@ -35,7 +35,7 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     size_t bufsize = 0;
 
     FILE *fout = pddl_strstream(&buf, &bufsize);
-    ASSERT_RUNTIME(fout != NULL);
+    PANIC_IF(fout == NULL, "Cannot open string stream!");
     pddlCPWriteMinizinc(cp, fout);
     fflush(fout);
     fclose(fout);
@@ -73,7 +73,12 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     int solbuf_size;
     int execret = pddlExecvp(argv, &status, buf, bufsize,
                              &solbuf, &solbuf_size, NULL, NULL, err);
-    ASSERT_RUNTIME(execret == 0);
+    if (execret != 0){
+        LOG(err, "Something went wrong.");
+        LOG(err, "Minizinc return status was %d", execret);
+        ret = PDDL_CP_UNKNOWN;
+        goto minizinc_end;
+    }
     if (status.signaled){
         LOG(err, "Something went wrong.");
         LOG(err, "Minizinc was killed by a signal.");

@@ -251,10 +251,11 @@ void pddlMGStripsInit(pddl_mg_strips_t *mg_strips,
         mg->is_goal = !pddlISetIsDisjunct(&mg->mgroup, &mg_strips->strips.goal);
         mg->is_fam_group = pddlStripsIsFAMGroup(&mg_strips->strips,
                                                 &mg->mgroup);
-        ASSERT_RUNTIME(!pddlISetIsDisjunct(&mg_strips->strips.init,
-                                           &mg->mgroup));
-        ASSERT_RUNTIME(pddlStripsIsExactlyOneMGroup(&mg_strips->strips,
-                                                    &mg->mgroup));
+        PANIC_IF(pddlISetIsDisjunct(&mg_strips->strips.init, &mg->mgroup),
+                 "Something went wrong: The exactly-one mutex group does"
+                 " not have a fact from the initial state.");
+        PANIC_IF(!pddlStripsIsExactlyOneMGroup(&mg_strips->strips, &mg->mgroup),
+                 "Mutex group must be \"exactly-one\".");
     }
 }
 
@@ -312,14 +313,14 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
         int wsize = snprintf(name, 256, "%s %d-%d-%d",
                              val->name, val->var_id, val->val_id,
                              val->global_id);
-        ASSERT_RUNTIME_M(wsize < 256, "Formatting of the fact name failed"
-                                      " when translating from FDR to STRIPS");
+        PANIC_IF(wsize >= 256, "Formatting of the fact name failed"
+                 " when translating from FDR to STRIPS");
 
         pddl_fact_t fact;
         pddlFactInit(&fact);
         fact.name = name;
         int id = pddlFactsAdd(&mg_strips->strips.fact, &fact);
-        ASSERT_RUNTIME(id == fact_id);
+        PANIC_IF(id != fact_id, "Fact IDs don't match.");
         fact.name = NULL;
         pddlFactFree(&fact);
     }
@@ -367,7 +368,7 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
         }
 
         int id = pddlStripsOpsAdd(&mg_strips->strips.op, &op);
-        ASSERT_RUNTIME(id == op_id);
+        PANIC_IF(id != op_id, "Operator IDs don't match.");
         pddlStripsOpFree(&op);
     }
     mg_strips->strips.has_cond_eff = has_cond_eff;
@@ -498,12 +499,12 @@ double pddlMGStripsNumStatesApproxMC(const pddl_mg_strips_t *mg_strips,
                 char *k = found + 24;
                 char *exp;
                 for (exp = k; *exp != '\n' && *exp != ' '; ++exp);
-                ASSERT_RUNTIME(*exp == ' ');
+                PANIC_IF(*exp != ' ', "Invalid format.");
                 *exp = 0x0;
-                ASSERT_RUNTIME(*(++exp) == 'x');
-                ASSERT_RUNTIME(*(++exp) == ' ');
-                ASSERT_RUNTIME(*(++exp) == '2');
-                ASSERT_RUNTIME(*(++exp) == '^');
+                PANIC_IF(*(++exp) != 'x', "Invalid format.");
+                PANIC_IF(*(++exp) != ' ', "Invalid format.");
+                PANIC_IF(*(++exp) != '2', "Invalid format.");
+                PANIC_IF(*(++exp) != '^', "Invalid format.");
                 char *end = ++exp;
                 for (; *end >= '0' && *end <= '9'; ++end);
                 *end = 0x0;

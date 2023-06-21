@@ -1189,7 +1189,7 @@ static void ruleBodyWeight(pddl_datalog_t *dl,
                 *w = f->weight;
 
         }else{
-            ASSERT_RUNTIME(0);
+            PANIC("Unkown weight type.");
         }
     }
 }
@@ -1512,12 +1512,12 @@ void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
                             unsigned in_pred,
                             const unsigned *in_arg)
 {
-    ASSERT_RUNTIME(IS_PRED(in_pred));
+    PANIC_IF(!IS_PRED(in_pred), "Requires a predicate.");
     int pred = TO_IDX(in_pred);
     int arg_size = dl->pred[pred].arity;
     int arg[arg_size];
     for (int i = 0; i < arg_size; ++i){
-        ASSERT_RUNTIME(IS_CONST(in_arg[i]));
+        PANIC_IF(!IS_CONST(in_arg[i]), "Requires constants as arguments.");
         arg[i] = TO_IDX(in_arg[i]);
     }
     dbAddFact(dl, &dl->db, pred, arg);
@@ -1554,7 +1554,8 @@ int pddlDatalogAtomCmpArgs(const pddl_datalog_t *dl,
                            const pddl_datalog_atom_t *atom1,
                            const pddl_datalog_atom_t *atom2)
 {
-    ASSERT_RUNTIME(dl->pred[atom1->pred].arity == dl->pred[atom2->pred].arity);
+    PANIC_IF(dl->pred[atom1->pred].arity != dl->pred[atom2->pred].arity,
+             "Mismatched arities.");
     return memcmp(atom1->arg, atom2->arg,
                   sizeof(unsigned) * dl->pred[atom1->pred].arity);
 }
