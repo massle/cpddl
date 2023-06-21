@@ -666,6 +666,11 @@ void pddlResetPredInInit(pddl_t *pddl)
         pddl->pred.pred[atom->pred].in_init = pddl_true;
 }
 
+void pddlEnforceUniquelyNamedActions(pddl_t *pddl)
+{
+    pddlActionsEnforceUniqueNames(&pddl->action);
+}
+
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout)
 {
     fprintf(fout, "(define (domain %s)\n", pddl->domain_name);

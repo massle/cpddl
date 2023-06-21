@@ -100,6 +100,11 @@ pddl_action_t *pddlActionsAddEmpty(pddl_actions_t *as);
 pddl_action_t *pddlActionsAddCopy(pddl_actions_t *as, int copy_id);
 
 /**
+ * Rename actions so that there are no two actions with the same name.
+ */
+void pddlActionsEnforceUniqueNames(pddl_actions_t *a);
+
+/**
  * Split all actions by disjunctions in .pre assuming all .pre are in DNF.
  */
 void pddlActionSplit(pddl_action_t *a, pddl_t *pddl);

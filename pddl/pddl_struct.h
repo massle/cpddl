@@ -230,6 +230,12 @@ void pddlResetPredReadWrite(pddl_t *pddl);
 void pddlResetPredInInit(pddl_t *pddl);
 
 /**
+ * If necessary, it renames actions so that there are no two actions with
+ * the same name.
+ */
+void pddlEnforceUniquelyNamedActions(pddl_t *pddl);
+
+/**
  * Prints PDDL domain file.
  */
 void pddlPrintPDDLDomain(const pddl_t *pddl, FILE *fout);

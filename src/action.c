@@ -25,8 +25,6 @@
 
 #define PDDL_ACTIONS_ALLOC_INIT 4
 
-#define ERR_PREFIX_MAXSIZE 128
-
 void pddlActionsInit(pddl_actions_t *a)
 {
     ZEROIZE(a);
@@ -193,6 +191,24 @@ void pddlActionsFree(pddl_actions_t *actions)
     }
     if (actions->action != NULL)
         FREE(actions->action);
+}
+
+void pddlActionsEnforceUniqueNames(pddl_actions_t *as)
+{
+    int counter = 0;
+    for (int ai = 0; ai < as->action_size; ++ai){
+        const pddl_action_t *a1 = as->action + ai;
+        for (int ai2 = ai + 1; ai2 < as->action_size; ++ai2){
+            pddl_action_t *a2 = as->action + ai2;
+            if (strcmp(a1->name, a2->name) == 0){
+                char newname[strlen(a1->name) + 32 + 5];
+                sprintf(newname, "%s-dup-%d", a1->name, counter);
+                FREE(a2->name);
+                a2->name = STRDUP(newname);
+                counter++;
+            }
+        }
+    }
 }
 
 void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
