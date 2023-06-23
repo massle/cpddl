@@ -1,64 +1,172 @@
 # cpddl
 
-**cpddl** is a library for automated planning.
+**cpddl** is a library and a set of programs for PDDL-based automated planning
+written in C.
+
+[[_TOC_]]
 
 ## License
 
 cpddl is licensed under OSI-approved 3-clause
 [BSD License](https://opensource.org/licenses/BSD-3-Clause), text of license
-is distributed along with source code in LICENSE file.
+is distributed along with source code in the LICENSE file.
 
-The library depends on [sqlite](https://www.sqlite.org/index.html) which is
-[public-domain](https://www.sqlite.org/copyright.html) and it is already part
-of the source code. Other than that, cpddl can be compiled without any other
-dependecies. However, certain functionalities require external libraries:
- - symmetries require
- [bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
- - binary decision diagrams require
- [cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
- License
- - (I)LP solver requires
- [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
- [Gurobi](https://www.gurobi.com/), or
- [HiGHS](https://highs.dev). CPLEX Optimizer and
- Gurobi are commercial products, but it is possible to obtain an academic
- license. HiGHS is licensed under MIT license.
- - constraint optimization requires either
- [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
- [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
- library, but it is possible to obtain an academic license. Minizinc is
- licensed under Mozilla Public License v2.0 (and itself depends on other
- solvers), but it is called as a subprocess from cpddl, i.e., it is never
- statically or dynamically linked to cpddl.
+cpddl directly incorporates several third-party works:
+- The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
+[public-domain](https://www.sqlite.org/copyright.html);
 
-## Compile
+- The [SHA256](https://github.com/B-Con/crypto-algorithms)
+hash function from public-domain authored by Brad Conte;
 
-Easiest way to compile the library and the binaries that come with the
-library:
+- Two hash functions copyrighted by Google and released under the MIT
+license [CityHash](https://code.google.com/p/cityhash) and
+[FastHash](https://code.google.com/p/fast-hash);
+
+- [Timsort](https://github.com/swenson/sort/) licensed under MIT
+(Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc);
+
+- [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
+
+
+Other than that, cpddl can be compiled without any other
+dependecies besides standard C-related tools.
+However, certain functionalities require external libraries:
+- symmetries require
+[bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
+(a slightly modified copy located in the ``third-party`` directory).
+
+- binary decision diagrams require
+[cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
+License
+(a copy is located in the ``third-party`` directory).
+
+- (I)LP solver requires
+[CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
+[Gurobi](https://www.gurobi.com/),
+[HiGHS](https://highs.dev), or
+[Coin-Or](https://www.coin-or.org/). CPLEX Optimizer and
+Gurobi are commercial products, but it is possible to obtain an academic
+license. HiGHS is licensed under MIT license.
+Coin-Or [Clp](https://github.com/coin-or/Clp/) and
+[Cbc](https://github.com/coin-or/Cbc) modules are licensed under
+Eclipse Public License v2.0.
+
+  The recommended and most tested option is the CPLEX Optimizer.
+
+- constraint optimization requires either
+[CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
+[minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
+library, but it is possible to obtain an academic license. Minizinc is
+licensed under Mozilla Public License v2.0 (and itself depends on other
+solvers), but it is called as a subprocess from cpddl, i.e., it is never
+statically or dynamically linked to cpddl.
+
+  The recommended option is the CPLEX CP Optimizer.
+
+## Building with Makefile
+
+This project is built with [GNU Make](https://www.gnu.org/software/make), and
+the compilation can be configured by adding a ``Makefile.config`` file with the
+configuration setting to the top directory. It is recommended to start by
+copying ``Makefile.config.tpl`` to ``Makefile.config`` and modify it to your
+liking.
+
+The easiest and fastest way the build the working system is by calling:
 ```sh
+  $ cp Makefile.config.tpl Makefile.config
+      # Edit Makefile.config if you need/want to.
   $ ./scripts/build.sh
 ```
-This builds the library with [bliss](https://users.aalto.fi/~tjunttil/bliss)
+It builds the cpddl library and binaries with [bliss](https://users.aalto.fi/~tjunttil/bliss)
 and [cudd](https://davidkebo.com/cudd) libraries which are compiled from local
-copies in ``third-party/`` directory. It also tries to automatically find
-[minizinc](https://www.minizinc.org/) installed on your system.
+copies in the ``third-party/`` directory. It also uses the configuration options
+placed in the ``Makefile.config`` file. ``Makefile.config.tpl`` contains
+detailed instructions how to change the configuration.
 
-You can change default configuration by adding ``Makefile.config`` file
-containing the new configuration (see ``Makefile.config.tpl``):
- - The easiest way to integrate CPLEX is to install
- [IBM ILOG CPLEX Optimization Studio](https://www.ibm.com/products/ilog-cplex-optimization-studio)
- and set the variable ``IBM_CPLEX_ROOT`` to the top installation directory
- of the CPLEX studio. However, you can also set ``CPLEX_CFLAGS``,
- ``CPLEX_LDFLAGS``, ``CPOPTIMIZER_CPPFLAGS``, and ``CPOPTIMIZER_LDFLAGS``
- variables separately.
- - Gurobi can be used by setting up the ``GUROBI_CFLAGS`` and
- ``GUROBI_LDFLAGS`` variables.
- - If minizinc is not automatically found, set ``MINIZINC_BIN`` variable to
- the absolute path of the minizinc program.
-
-You can check the current configuration by
+Another useful commands are:
+- Check the current configuration:
 ```sh
   $ make help
+```
+- Build the (static) library ``libpddl.a``:
+```sh
+  $ make
+```
+- Build the binaries in the ``bin/`` directory:
+```sh
+  $ make bin
+```
+- Remove generated/object/temporary files:
+```sh
+  $ make clean
+```
+- Remove all generated/object/temporary files including the ones in the
+``third-party`` directory:
+```sh
+  $ make mrproper
+```
+- Compile all libraries from the ``third-party/`` directory:
+```sh
+  $ make third-party
+```
+- Compile the [bliss](https://users.aalto.fi/~tjunttil/bliss) library for
+handling symmetries:
+```sh
+  $ make bliss
+```
+Compile the [cudd](https://davidkebo.com/cudd) library for handling binary
+decision diagrams:
+```sh
+  $ make cudd
+```
+
+If you tried everything described above and you still cannot build the project,
+then:
+
+0. If you try to compile it on Windows, then you are out of luck. Although, it
+shouldn't be problem to compile and run it, I'll not provide any support (nor
+will I accept any Windows-specific patches).
+
+1. Run ``make mrproper``.
+
+2. Repeat all steps that you used for (unsuccessfully) building the project and record all
+commands and all their outputs to both stdout and stderr.
+
+3. Contact me at <danfis@danfis.cz>, describe what are you trying to achieve and where is
+the problem, and attach all information gathered in step 2.
+
+
+## Building Apptainer Image
+
+The script ``scripts/build-apptainer.sh`` can be used to build
+[Apptainer](https://apptainer.org/) images of the main binary program
+``./bin/pddl``. It has a lot of options which are printed when the script is
+called without any arguments.
+Here is a list of recommendations how to use it:
+
+1. If you don't need any dependencies, the following will build the smallest
+possible image:
+```sh
+  $ ./scripts/build-apptainer.sh --no-bliss --no-cudd alpine
+```
+
+2. If you want to work with symmetries or binary decision diagrams (e.g., you
+want to use symbolic search), use:
+```sh
+  $ ./scripts/build-apptainer.sh alpine
+```
+
+3. If you want symmetries, binary decision diagrams, and LP/MIP/CSP CPLEX
+solver, then download the installation binary for CPLEX to the location, say,
+``/opt/cplex/cplex_studio2211.linux_x86_64.bin`` and call:
+```sh
+  $ ./scripts/build-apptainer.sh --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin photon
+```
+
+4. If you want the same as above but with the HiGHS LP/MIP solver and Minizinc
+as the CSP solver, call:
+```sh
+  $ ./scripts/build-apptainer.sh --highs --minizinc alpine
 ```
 
 

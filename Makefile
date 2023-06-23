@@ -374,7 +374,7 @@ c:
 	rm -f src/_parser.c
 	rm -f src/_parser.h
 	rm -f src/_parser.out
-	rm -r src/lemon
+	rm -f src/lemon
 	rm -f *.a
 	rm -f *.so
 	rm -f pddl/config.h
