@@ -62,7 +62,7 @@ pddl_lifted_app_action_t *pddlLiftedAppActionNew(const pddl_t *pddl,
                                              pddl_lifted_app_action_backend_t backend,
                                              pddl_err_t *err)
 {
-    ASSERT_RUNTIME(pddl->normalized);
+    PANIC_IF(!pddl->normalized, "PDDL task must be normalized.");
 
     CTX(err, "Lifted-App-Action");
     pddl_lifted_app_action_t *aa = NULL;

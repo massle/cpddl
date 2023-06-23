@@ -105,7 +105,7 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                 addRelatedAction(lt->pred + at->pred, ai, pos);
         }
         PDDL_FM_FOR_EACH_ATOM(a->eff, &it, at){
-            ASSERT_RUNTIME(at->pred != lt->pddl.pred.eq_pred);
+            ASSERT(at->pred != lt->pddl.pred.eq_pred);
             int pos;
             if ((pos = addUniqueRelatedAtom(lt->action + ai, at)) >= 0)
                 addRelatedAction(lt->pred + at->pred, ai, pos);
@@ -235,7 +235,7 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
             for (size_t pos = 0; pos < op->action->related_atom_size; ++pos){
                 const pddl_fm_atom_t *atom = op->action->related_atom[pos];
                 if (atomEq(fatom, atom, oargs)){
-                    ASSERT_RUNTIME(op->related_fact[pos] < 0);
+                    ASSERT(op->related_fact[pos] < 0);
                     op->related_fact[pos] = fact_id;
                     addRelatedOp(gt, fact_id, op_id, pos);
                 }
@@ -249,22 +249,41 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
 static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
                                   pddl_err_t *err)
 {
-    // TODO: Replace asserts with reporting what exactly is wrong
     LOG(err, "Checking everything is properly set up...");
-    ASSERT_RUNTIME(gt->fdr.op.op_size == gt->strips.op.op_size);
-    ASSERT_RUNTIME(gt->strips.op.op_size == gt->op_size);
+    if (gt->fdr.op.op_size != gt->strips.op.op_size){
+        ERR_RET(err, -1, "Different number of operators in the FDR and STRIPS"
+                " representations.");
+    }
+
+    if (gt->strips.op.op_size != gt->op_size){
+        ERR_RET(err, -1, "Invalid number of operators in the STRIPS"
+                " representation.");
+    }
+
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
-        ASSERT_RUNTIME(gt->op[op_id].related_fact_size
-                            == gt->op[op_id].action->related_atom_size);
+        if (gt->op[op_id].related_fact_size
+                != gt->op[op_id].action->related_atom_size){
+            ERR_RET(err, -1, "Different number of related facts and lifted atoms.");
+        }
+
         for (int i = 0; i < gt->op[op_id].related_fact_size; ++i){
-            ASSERT_RUNTIME(gt->op[op_id].related_fact[i] >= 0);
+            if (gt->op[op_id].related_fact[i] < 0){
+                ERR_RET(err, -1, "Missing related fact where there was a"
+                        " related atom.");
+            }
         }
     }
 
-    ASSERT_RUNTIME(gt->strips.fact.fact_size == gt->fact_size);
+    if (gt->strips.fact.fact_size != gt->fact_size){
+        ERR_RET(err, -1, "Invalid number of facts in the STRIPS representation.");
+    }
+
     for (int fact_id = 0; fact_id < gt->fact_size; ++fact_id){
-        ASSERT_RUNTIME(gt->fact[fact_id].related_op_size
-                            == gt->fact[fact_id].pred->related_action_size);
+        if (gt->fact[fact_id].related_op_size
+                != gt->fact[fact_id].pred->related_action_size){
+            ERR_RET(err, -1, "Different number of related operators and"
+                    " lifted actions.");
+        }
         for (int i = 0; i < gt->fact[fact_id].related_op_size; ++i){
             const pddl_iarr_t *rop = gt->fact[fact_id].related_op + i;
             if (pddlIArrSize(rop) == 0){
@@ -302,8 +321,8 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
         TRACE_RET(err, -1);
     }
 
-    ASSERT_RUNTIME(gt->pddl.action.action_size == lt->action_size);
-    ASSERT_RUNTIME(gt->pddl.pred.pred_size == lt->pred_size);
+    ASSERT(gt->pddl.action.action_size == lt->action_size);
+    ASSERT(gt->pddl.pred.pred_size == lt->pred_size);
 
     pddl_lifted_mgroups_infer_limits_t lifted_mgroups_limits
         = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
@@ -339,7 +358,7 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
 
     pddlFDRInitFromStrips(&gt->fdr, &gt->strips, &mgroups, &mutex,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
-    ASSERT_RUNTIME(gt->strips.op.op_size == gt->fdr.op.op_size);
+    ASSERT(gt->strips.op.op_size == gt->fdr.op.op_size);
 
     pddlFDRAppOpInit(&gt->fdr_app_op, &gt->fdr.var, &gt->fdr.op, &gt->fdr.goal);
 

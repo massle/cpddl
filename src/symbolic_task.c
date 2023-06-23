@@ -452,8 +452,7 @@ static const pddl_symbolic_state_t *
         const pddl_symbolic_state_t *state;
         state = pddlSymbolicStatesGet(&search->state, state_id);
         ASSERT(state->trans_id >= 0);
-        // The state BDD must be already constructed
-        ASSERT_RUNTIME(state->bdd != NULL);
+        PANIC_IF(state->bdd == NULL, "The state BDD must be already constructed.");
         pddl_bdd_t *conj = pddlBDDAnd(ss->mgr, bdd, state->bdd);
         if (!pddlBDDIsFalse(ss->mgr, conj)){
             pddlBDDDel(ss->mgr, conj);
@@ -461,7 +460,7 @@ static const pddl_symbolic_state_t *
         }
         pddlBDDDel(ss->mgr, conj);
     }
-    ASSERT_RUNTIME(0);
+    PANIC("Cannot find next state.");
     return state;
 }
 
@@ -506,7 +505,8 @@ static void planInit(pddl_symbolic_task_t *ss,
         // state_prev.
         pddl_symbolic_trans_set_t *trset = search->trans.trans + state->trans_id;
         pddl_bdd_t *preimg = search->pre_image(trset, bdd, NULL);
-        ASSERT_RUNTIME(!pddlBDDIsFalse(ss->mgr, preimg));
+        PANIC_IF(pddlBDDIsFalse(ss->mgr, preimg),
+                 "Found empty set of states when extracting plan. This is a bug.");
         pddlBDDAndUpdate(ss->mgr, &preimg, prev_state->bdd);
 
         // Select one of the states -- again, it doesn't matter which one
@@ -580,7 +580,7 @@ static void planExtractFw(plan_t *plan,
                 }
             }
         }
-        ASSERT_RUNTIME(found);
+        PANIC_IF(!found, "Could not find a single state.");
     }
     pddlISetFree(&res_state);
 }
@@ -1110,7 +1110,7 @@ static void orderCompute(int *order,
     pddl_rand_t rnd;
     pddlRandInit(&rnd, 1371);
 
-    ASSERT_RUNTIME(cg->node_size == size);
+    ASSERT(cg->node_size == size);
 
     for (int i = 0; i < size / 2; ++i){
         int tmp;
@@ -1168,7 +1168,8 @@ static void prepareTask(pddl_symbolic_task_t *ss,
     orderCompute(var_order, fdr->var.var_size, &cg, err);
     pddlCGFree(&cg);
 
-    ASSERT_RUNTIME(ss->mg_strips.mg.mgroup_size == fdr->var.var_size);
+    PANIC_IF(ss->mg_strips.mg.mgroup_size != fdr->var.var_size,
+             "Incorrectly construct MG-STRIPS task.");
     pddlMGStripsReorderMGroups(&ss->mg_strips, var_order);
     LOG(err, "Order computed and applied");
 
@@ -1493,7 +1494,8 @@ static void fwbwExtractPlan(pddl_symbolic_task_t *ss,
 
     // Compute cut between forward and backward search frontier
     pddl_bdd_t *cut = pddlBDDAnd(ss->mgr, fw_goal_bdd, bw_goal_bdd);
-    ASSERT_RUNTIME(!pddlBDDIsFalse(ss->mgr, cut));
+    PANIC_IF(pddlBDDIsFalse(ss->mgr, cut), "Empty set of states when"
+             " extracting a plan. This is a bug.");
 
     // We need to choose one particular state before extracting plans from
     // fw and bw searches

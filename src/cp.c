@@ -613,7 +613,9 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
         fprintf(fout, "solve satisfy;\n");
 
     }else if (cp->objective == OBJ_MIN_COUNT_DIFF){
-        ASSERT_RUNTIME(pddlISetSize(&cp->obj_ivars) > 0);
+        PANIC_IF(pddlISetSize(&cp->obj_ivars) <= 0,
+                 "Cannot minimize number of different values without any"
+                 " integer variable.");
         fprintf(fout, "var int: obj_val = nvalue([x%d",
                 pddlISetGet(&cp->obj_ivars, 0));
         for (int i = 1; i < pddlISetSize(&cp->obj_ivars); ++i)

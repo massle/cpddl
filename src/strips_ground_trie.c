@@ -581,7 +581,8 @@ static void groundCondEff(pddl_strips_ground_trie_t *g, pddl_strips_t *strips,
     // If the operator corresponds to a conditional effect the
     // parent must be known already, because this is the way we
     // sorted pddl_strips_ground_args_t structures.
-    ASSERT_RUNTIME(parent_ga != NULL);
+    PANIC_IF(parent_ga == NULL, "This is conditional effect, but cannot find"
+             " the parent action");
 
     // If parent action is not created then it had to have empty
     // effects. Therefore, we need to create the parent first.

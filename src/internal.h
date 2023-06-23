@@ -33,6 +33,7 @@ extern "C" {
 #define ERR PDDL_ERR
 #define ERR_RET PDDL_ERR_RET
 #define PANIC PDDL_PANIC
+#define PANIC_IF PDDL_PANIC_IF
 #define WARN PDDL_WARN
 #define CTX PDDL_CTX
 #define CTX_NO_TIME PDDL_CTX_NO_TIME
@@ -65,26 +66,6 @@ extern "C" {
 # define NDEBUG
 # define ASSERT(x)
 #endif /* PDDL_DEBUG */
-
-#define ASSERT_RUNTIME(x) \
-    do { \
-    if (!(x)){ \
-        fprintf(stderr, "%s:%d Assertion `" #x "' failed!\n", \
-                __FILE__, __LINE__); \
-        exit(-1); \
-    } \
-    } while (0)
-
-#define ASSERT_RUNTIME_M(X, M) \
-    do { \
-    if (!(X)){ \
-        fprintf(stderr, "%s:%d Assertion `" #X "' failed: %s\n", \
-                __FILE__, __LINE__, (M)); \
-        exit(-1); \
-    } \
-    } while (0)
-
-#define PANIC_IF PDDL_PANIC_IF
 
 
 

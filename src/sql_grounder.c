@@ -108,7 +108,7 @@ static void createPredTable(pddl_sqlite3 *db,
     shift += sprintf(query + shift, ")");
     */
     shift += sprintf(query + shift, ");");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 
     //LOG(err, "Predicate table: %s", query);
     int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
@@ -190,14 +190,14 @@ static void sqlPredInit(sql_pred_t *qpred,
     if (qpred->arity == 0)
         shift += sprintf(query + shift, "1");
     sprintf(query + shift, ");");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 
     //LOG(err, "Insert atom query: %s", query);
     ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
     CHECK_SQL_ERR(db, ret);
 
     shift = sprintf(query, "DELETE FROM %s;", qpred->table_name);
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
     ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_clear, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -306,7 +306,7 @@ static void sqlActionConstructColumns(char *query,
             }
         }
     }
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static void sqlActionConstructTables(char *query,
@@ -331,7 +331,7 @@ static void sqlActionConstructTables(char *query,
         int type = prep_action->param_type[idx];
         shift += sprintf(query + shift, "type_%d as tb_type%d", type, idx);
     }
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static void sqlActionConstructJoinCond(char *query,
@@ -368,7 +368,7 @@ static void sqlActionConstructJoinCond(char *query,
     }
     if (query[0] != 0x0)
         shift += sprintf(query + shift, ")");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static int objsConsecutive(const int *objs, int obj_size)
@@ -491,7 +491,7 @@ static void sqlActionConstructWhereCond(char *query,
         }
         ++ins;
     }
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static void sqlActionInit(sql_action_t *action,
@@ -520,7 +520,7 @@ static void sqlActionInit(sql_action_t *action,
     char query[QUERY_SELECT_SIZE];
     int used = sprintf(query, "SELECT %s FROM %s %s %s;",
                        qcols, qtables, qjoincond, qwhere);
-    ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
+    PANIC_IF(used >= QUERY_SELECT_SIZE, "Overflow of the query buffer");
 
     //LOG(err, "Action query %s: %s", prep_action->action->name, query);
     int ret = pddl_sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
@@ -615,7 +615,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
     int ret = pddl_sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
     LOG(err, "Sqlite database created");
-    ASSERT_RUNTIME(pddl_sqlite3_get_autocommit(g->db));
+    pddl_sqlite3_get_autocommit(g->db);
 
     // Create type tables
     createTypeTables(g->db, g->pddl);

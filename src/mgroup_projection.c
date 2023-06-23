@@ -198,7 +198,7 @@ void pddlMGroupProjectionPruneUnreachableFromInit(pddl_mgroup_projection_t *p,
             }
         }
     }
-    ASSERT_RUNTIME(pddlISetSize(&from_state) == 1);
+    PANIC_IF(pddlISetSize(&from_state) != 1, "There must be exactly one start node.");
     pddlMGroupProjectionPruneUnreachable(p, &from_state, 0);
     pddlISetFree(&from_state);
     pddlISetFree(&init);
@@ -226,7 +226,7 @@ void pddlMGroupProjectionPruneUnreachableFromGoal(pddl_mgroup_projection_t *p,
         }
     }
 
-    ASSERT_RUNTIME(pddlISetSize(&from_state) > 0);
+    PANIC_IF(pddlISetSize(&from_state) != 1, "There must be exactly one start node.");
     pddlMGroupProjectionPruneUnreachable(p, &from_state, 1);
     pddlISetFree(&from_state);
     pddlISetFree(&goal);

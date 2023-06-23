@@ -176,7 +176,6 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     pddl_params_t param;
     pddlParamsInit(&param);
     for (int i = 0; i < m->param.param_size; ++i){
-        ASSERT_RUNTIME(remap_param_inv[i] >= 0);
         pddl_param_t *p = pddlParamsAdd(&param);
         *p = m->param.param[remap_param_inv[i]];
     }
@@ -187,7 +186,6 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
         pddl_fm_atom_t *a = pddlFmToAtom((pddl_fm_t *)m->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0){
-                ASSERT_RUNTIME(remap_param[a->arg[ai].param] >= 0);
                 a->arg[ai].param = remap_param[a->arg[ai].param];
             }
         }

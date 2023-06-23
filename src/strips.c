@@ -113,7 +113,8 @@ void pddlStripsInitCopy(pddl_strips_t *dst, const pddl_strips_t *src)
 static int addNegFact(pddl_strips_t *strips, int fact_id)
 {
     pddl_fact_t *fact = strips->fact.fact[fact_id];
-    ASSERT_RUNTIME(fact->neg_of == -1);
+    PANIC_IF(fact->neg_of >= 0, "Fact %s is already a negation of another fact",
+             fact->name);
 
     pddl_fact_t neg;
     char name[512];
@@ -193,7 +194,7 @@ static void opCompileAwayCondEffNegPre(pddl_strips_t *strips,
         int fact_id;
         PDDL_ISET_FOR_EACH(&ce->pre, fact_id){
             int neg_fact_id = strips->fact.fact[fact_id]->neg_of;
-            ASSERT_RUNTIME(neg_fact_id >= 0);
+            PANIC_IF(neg_fact_id < 0, "Expecting a fact ID");
             pddlISetAdd(&neg_pre[i], neg_fact_id);
         }
     }
@@ -240,7 +241,9 @@ static void opCompileAwayCondEffComb(pddl_strips_t *strips,
 static void opCompileAwayCondEff(pddl_strips_t *strips,
                                  const pddl_strips_op_t *op)
 {
-    ASSERT_RUNTIME(op->cond_eff_size < sizeof(unsigned long) * 8);
+    PANIC_IF(op->cond_eff_size >= sizeof(unsigned long) * 8,
+             "Too many conditional effects (more than %d)",
+             (int)(sizeof(unsigned long) * 8));
     int neg_ce[op->cond_eff_size];
     int neg_ce_size;
     int pos_ce[op->cond_eff_size];
@@ -275,7 +278,6 @@ static void compileAwayCondEffCreateNegFacts(pddl_strips_t *strips)
             PDDL_ISET_FOR_EACH(&ce->pre, fact_id){
                 if (strips->fact.fact[fact_id]->neg_of == -1){
                     addNegFact(strips, fact_id);
-                    ASSERT_RUNTIME(strips->fact.fact[fact_id]->neg_of != -1);
                 }
             }
         }

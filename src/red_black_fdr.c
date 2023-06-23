@@ -209,7 +209,8 @@ static int constructFDR(pddl_fdr_t *fdr,
     unsigned fdr_flags = 0;
     int ret = pddlFDRInitFromStrips(fdr, strips, mgroups, mutex,
                                     fdr_var_flags, fdr_flags, err);
-    ASSERT_RUNTIME(fdr->op.op_size == strips->op.op_size);
+    PANIC_IF(fdr->op.op_size != strips->op.op_size,
+             "Incorrectly constructed FDR task.");
 
     // Find black variables and remember which of them has none-of-those value
     int *none_of_those = CALLOC_ARR(int, black_mgroups->mgroup_size);

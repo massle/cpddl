@@ -159,7 +159,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         PDDL_ISET(not_connected);
         pddlISetMinus2(&not_connected, &red.relevant_ops, red.op_mutex + op_id);
         ASSERT(pddlISetIn(op_id, &not_connected));
-        ASSERT_RUNTIME(pddlISetSize(&not_connected) > 0);
+        ASSERT(pddlISetSize(&not_connected) > 0);
         pddlLPSetRHS(lp, row1, pddlISetSize(&not_connected), 'L');
         pddlLPSetCoef(lp, row1, oi, pddlISetSize(&not_connected));
         int op_id2;
@@ -169,7 +169,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         }
         pddlISetFree(&not_connected);
 
-        ASSERT_RUNTIME(pddlISetSize(red.op_sym + op_id) > 0);
+        ASSERT(pddlISetSize(red.op_sym + op_id) > 0);
         pddlLPSetRHS(lp, row2, 0., 'G');
         pddlLPSetCoef(lp, row2, oi, -1.);
         PDDL_ISET_FOR_EACH(red.op_sym + op_id, op_id2){

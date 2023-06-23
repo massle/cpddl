@@ -368,9 +368,9 @@ static void benchAdd(pddl_bench_t *bench, const pddl_files_t *fs)
     pddl_bench_task_t *task = bench->task + bench->task_size++;
     ZEROIZE(task);
     char *rpath = realpath(fs->domain_pddl, task->pddl_files.domain_pddl);
-    ASSERT_RUNTIME(rpath != NULL);
+    PANIC_IF(rpath == NULL, "Cannot get the path to the domain file.");
     rpath = realpath(fs->problem_pddl, task->pddl_files.problem_pddl);
-    ASSERT_RUNTIME(rpath != NULL);
+    PANIC_IF(rpath == NULL, "Cannot get the path to the problem file.");
     task->optimal_cost = pddlFilesFindOptimalCost(&task->pddl_files, NULL);
 
     char path[PDDL_FILE_MAX_PATH_LEN];

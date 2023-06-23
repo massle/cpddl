@@ -113,7 +113,9 @@ void pddlHPotConfigSetOpPotReal(pddl_hpot_config_t *cfg)
 void pddlHPotConfigAdd(pddl_hpot_config_t *cfg,
                        const _pddl_hpot_config_t *cfg_add)
 {
-    ASSERT_RUNTIME(cfg->cfg_size < PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS);
+    PANIC_IF(cfg->cfg_size >= PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS,
+             "The maximum number configs is %d",
+             PDDL_HPOT_CONFIG_MAX_OPT_CONFIGS);
     cfg->cfg[cfg->cfg_size++] = hpotConfigClone(cfg_add);
 }
 
@@ -523,9 +525,8 @@ static void setStateConstr(pddl_pot_t *pot,
                            double add_state_coef,
                            pddl_err_t *err)
 {
-    ASSERT_RUNTIME_M(add_state_coef >= 0.
-                        && (!add_init_state || add_fdr_state == NULL),
-                     "Invalid hpot configuration");
+    PANIC_IF(add_state_coef < 0. || (add_init_state && add_fdr_state != NULL),
+             "Invalid hpot configuration");
     pddlPotResetLowerBoundConstr(pot);
     if (!add_init_state && add_fdr_state == NULL)
         return;
@@ -672,7 +673,7 @@ static int _hpotOptState(pddl_pot_solutions_t *sols,
 
     pddlPotSetObjFDRState(pot, &cfg->fdr->var, fdr_state);
     int ret = solveAndAdd(sols, pot, cfg, err);
-    ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
+    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
     return ret;
 }
 
@@ -703,7 +704,7 @@ static int hpotOptAllSyntacticStates(pddl_pot_solutions_t *sols,
     pddlPotSetObjFDRAllSyntacticStates(pot, &cfg->fdr->var);
     int ret = solveAndAddWithStateConstr(sols, pot, cfg,
                                          cfg_opt->add_fdr_state_constr, err);
-    ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
+    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
     return 0;
 }
 
@@ -869,7 +870,7 @@ static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
 
     int ret = solveAndAddWithStateConstr(sols, pot, cfg,
                                          cfg_opt->add_fdr_state_constr, err);
-    ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
+    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
     LOG(err, "Solved for average over %d states", num_states);
     return 0;
 }
@@ -908,7 +909,7 @@ static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
     LOG(err, "Solved for state: %d/%d", num_states, cfg_opt->num_samples);
 
     // TODO: remove dead-ends
-    ASSERT_RUNTIME_M(ret == 0, "Could not find a solution. This seems like a bug!");
+    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
     LOG(err, "Solved for %d states", num_states);
     return ret;
 }
@@ -992,7 +993,7 @@ static void diverseGenStates(diverse_pot_t *div,
                 int state_id = pddlSetISetAdd(&div->states, &state);
                 ASSERT(state_id == num_states);
                 div->state_est[state_id] = h;
-                ASSERT_RUNTIME(div->state_est[state_id] >= 0);
+                PANIC_IF(div->state_est[state_id] < 0, "Invalid heuristic value");
                 pddlPotSolutionsAdd(&div->func, &sol);
                 ++num_states;
 
@@ -1068,7 +1069,7 @@ static const pddl_pot_solution_t *diverseSelectFunc(diverse_pot_t *div,
             return div->func.sol + si;
         }
     }
-    ASSERT_RUNTIME_M(0, "The number of active states is invalid!");
+    PANIC("The number of active states is invalid!");
     return NULL;
 }
 
@@ -1158,7 +1159,7 @@ static void setObjAllStatesMutexConditioned(pddl_pot_t *pot,
     }else if (mutex_size == 2){
         setObjAllStatesMutex2(pot, &mgs, s->strips.fact.fact_size, mutex);
     }else{
-        ASSERT_RUNTIME_M(0, "mutex-size >= 3 is not supported!");
+        PANIC("mutex-size >= 3 is not supported!");
     }
     pddlMGroupsFree(&mgs);
 }

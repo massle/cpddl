@@ -368,7 +368,7 @@ void pddlNormalize(pddl_t *pddl, pddl_err_t *err)
     pddlLogStatsOneLine(pddl, "Before normalization:", err);
 
     pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
-    ASSERT_RUNTIME(pddlFmIsAnd(c));
+    PANIC_IF(!pddlFmIsAnd(c), "Deduplication of the init didn't result in a conjunction");
     pddl->init = pddlFmToAnd(c);
 
     if (!pddl->only_domain && !pddl->cfg.keep_all_actions)
@@ -544,7 +544,8 @@ void pddlRemapObjs(pddl_t *pddl, const int *remap)
 {
     pddlFmRemapObjs(&pddl->init->fm, remap);
     pddl_fm_t *c = pddlFmRemoveInvalidAtoms(&pddl->init->fm);
-    ASSERT_RUNTIME(pddlFmIsAnd(c));
+    PANIC_IF(!pddlFmIsAnd(c), "Removing invalid atoms from the init didn't"
+             " result in a conjunction");
     pddl->init = pddlFmToAnd(c);
 
     pddlFmRemapObjs(pddl->goal, remap);
@@ -627,7 +628,8 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
     // Remove (= ...) from the initial state
     pddl_fm_t *init = &pddl->init->fm;
     pddlFmRebuild(&init, NULL, _removeAssignIncrease, NULL);
-    ASSERT_RUNTIME(pddlFmIsAnd(init));
+    PANIC_IF(!pddlFmIsAnd(init), "Enforcing unit cost in the initial state"
+             " didn't result in a conjunction");
     pddl->init = pddlFmToAnd(init);
 
     for (int ai = 0; ai < pddl->action.action_size; ++ai){

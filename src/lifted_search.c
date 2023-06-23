@@ -161,7 +161,7 @@ static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
     pddl_lifted_search_status_t ret = PDDL_LIFTED_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
-    ASSERT_RUNTIME(state_id == 0);
+    PANIC_IF(state_id != 0, "Initial state ID must be 0.");
 
     setGoal(s);
     if (s->goal_is_unreachable)
@@ -187,7 +187,6 @@ static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
         ret = PDDL_LIFTED_SEARCH_UNSOLVABLE;
     }
 
-    ASSERT_RUNTIME(s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_NEW);
     bfsPush(bfs, &s->cur_node, h_value);
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
     CTXEND(s->err);
