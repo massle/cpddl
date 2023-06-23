@@ -14,13 +14,17 @@ is distributed along with source code in the LICENSE file.
 cpddl directly incorporates several third-party works:
 - The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
 [public-domain](https://www.sqlite.org/copyright.html);
+
 - The [SHA256](https://github.com/B-Con/crypto-algorithms)
 hash function from public-domain authored by Brad Conte;
+
 - Two hash functions copyrighted by Google and released under the MIT
 license [CityHash](https://code.google.com/p/cityhash) and
 [FastHash](https://code.google.com/p/fast-hash);
+
 - [Timsort](https://github.com/swenson/sort/) licensed under MIT
 (Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc);
+
 - [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
 
 
@@ -30,10 +34,12 @@ However, certain functionalities require external libraries:
 - symmetries require
 [bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
 (a slightly modified copy located in the ``third-party`` directory).
+
 - binary decision diagrams require
 [cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
 License
 (a copy is located in the ``third-party`` directory).
+
 - (I)LP solver requires
 [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
 [Gurobi](https://www.gurobi.com/),
@@ -44,6 +50,9 @@ license. HiGHS is licensed under MIT license.
 Coin-Or [Clp](https://github.com/coin-or/Clp/) and
 [Cbc](https://github.com/coin-or/Cbc) modules are licensed under
 Eclipse Public License v2.0.
+
+  The recommended and most tested option is the CPLEX Optimizer.
+
 - constraint optimization requires either
 [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
 [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
@@ -52,6 +61,7 @@ licensed under Mozilla Public License v2.0 (and itself depends on other
 solvers), but it is called as a subprocess from cpddl, i.e., it is never
 statically or dynamically linked to cpddl.
 
+  The recommended option is the CPLEX CP Optimizer.
 
 ## Building with Makefile
 
@@ -112,13 +122,17 @@ Decision Diagrams:
 
 If you tried everything described above and you still cannot build the project,
 then:
+
 0. If you try to compile it on Windows, then you are out of luck. Although, it
 shouldn't be problem to compile and run it, I'll not provide any support.
+
 1. Run ``make mrproper``.
-2. Repeat all steps that you used for building the project and record all
+
+2. Repeat all steps that you used for (unsuccessfully) building the project and record all
 commands and all their outputs to both stdout and stderr.
-3. Contact me at <danfis@danfi.cz>, describe your problem, what are you trying
-to achieve, and attach all information gathered in step 2.
+
+3. Contact me at <danfis@danfis.cz>, describe what are you trying to achieve and where is
+the problem, and attach all information gathered in step 2.
 
 
 ## Building Apptainer Image
