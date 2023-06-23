@@ -111,7 +111,7 @@ while true; do
         shift
         GIT_REV="$1"
         shift
-        git clone --depth 1 --branch ${GIT_REV} git@gitlab.com:danfis/cpddl-dev2 tmp-cpddl
+        git clone --depth 1 --branch ${GIT_REV} git@gitlab.com:danfis/cpddl-devel tmp-cpddl
 
         SETUP="$SETUP
             mv tmp-cpddl \$APPTAINER_ROOTFS/cpddl
@@ -155,6 +155,7 @@ done
 if [ "$USE_GIT" != "yes" ]; then
     SETUP="$SETUP
     cp -r ./ \$APPTAINER_ROOTFS/cpddl
+    git -C \$APPTAINER_ROOTFS/cpddl clean -fdx
 "
 fi
 
@@ -241,7 +242,6 @@ MAKE="
     [ -f /usr/include/coin/OsiSolverInterface.hpp ] && echo \"COIN_OR_USE_PKGCONFIG = yes\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
     [ \"$WERROR\" != \"\" ] && echo \"WERROR = yes\" >>Makefile.config
-    make mrproper
     make help
     [ \"$NO_BLISS\" = \"\" ] && make -j8 bliss
     [ \"$NO_CUDD\" = \"\" ] && make -j8 cudd
@@ -437,7 +437,9 @@ if [ "$1" = "alpine" ]; then
         build_alpine alpine alpine:latest
     fi
 
-elif [ "$1" = "debian" ] || [ "$1" = "debian-bullseye" ]; then
+elif [ "$1" = "debian" ] || [ "$1" = "debian-bookworm" ]; then
+    build_debian debian-bookworm debian:bookworm-slim
+elif [ "$1" = "debian-bullseye" ]; then
     if [ "$HAS_GUROBI" = "yes" ]; then
         build_debian debian-bullseye gurobi/optimizer:9.5.1
     else

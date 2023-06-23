@@ -114,8 +114,8 @@ handling symmetries:
 ```sh
   $ make bliss
 ```
-Compile the [cudd](https://davidkebo.com/cudd) library for handling Binary
-Decision Diagrams:
+Compile the [cudd](https://davidkebo.com/cudd) library for handling binary
+decision diagrams:
 ```sh
   $ make cudd
 ```
@@ -124,7 +124,8 @@ If you tried everything described above and you still cannot build the project,
 then:
 
 0. If you try to compile it on Windows, then you are out of luck. Although, it
-shouldn't be problem to compile and run it, I'll not provide any support.
+shouldn't be problem to compile and run it, I'll not provide any support (nor
+will I accept any Windows-specific patches).
 
 1. Run ``make mrproper``.
 
@@ -136,6 +137,37 @@ the problem, and attach all information gathered in step 2.
 
 
 ## Building Apptainer Image
+
+The script ``scripts/build-apptainer.sh`` can be used to build
+[Apptainer](https://apptainer.org/) images of the main binary program
+``./bin/pddl``. It has a lot of options which are printed when the script is
+called without any arguments.
+Here is a list of recommendations how to use it:
+
+1. If you don't need any dependencies, the following will build the smallest
+possible image:
+```sh
+  $ ./scripts/build-apptainer.sh --no-bliss --no-cudd alpine
+```
+
+2. If you want to work with symmetries or binary decision diagrams (e.g., you
+want to use symbolic search), use:
+```sh
+  $ ./scripts/build-apptainer.sh alpine
+```
+
+3. If you want symmetries, binary decision diagrams, and LP/MIP/CSP CPLEX
+solver, then download the installation binary for CPLEX to the location, say,
+``/opt/cplex/cplex_studio2211.linux_x86_64.bin`` and call:
+```sh
+  $ ./scripts/build-apptainer.sh --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin photon
+```
+
+4. If you want the same as above but with the HiGHS LP/MIP solver and Minizinc
+as the CSP solver, call:
+```sh
+  $ ./scripts/build-apptainer.sh --highs --minizinc alpine
+```
 
 
 ## References
