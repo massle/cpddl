@@ -12,29 +12,29 @@ cpddl is licensed under OSI-approved 3-clause
 is distributed along with source code in the LICENSE file.
 
 cpddl directly incorporates several third-party works:
- - The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
+- The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
 [public-domain](https://www.sqlite.org/copyright.html);
- - The [SHA256](https://github.com/B-Con/crypto-algorithms)
+- The [SHA256](https://github.com/B-Con/crypto-algorithms)
 hash function from public-domain authored by Brad Conte;
- - Two hash functions copyrighted by Google and released under the MIT
+- Two hash functions copyrighted by Google and released under the MIT
 license [CityHash](https://code.google.com/p/cityhash) and
 [FastHash](https://code.google.com/p/fast-hash);
- - [Timsort](https://github.com/swenson/sort/) licensed under MIT
+- [Timsort](https://github.com/swenson/sort/) licensed under MIT
 (Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc);
- - [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
+- [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
 
 
 Other than that, cpddl can be compiled without any other
 dependecies besides standard C-related tools.
 However, certain functionalities require external libraries:
- - symmetries require
+- symmetries require
 [bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
 (a slightly modified copy located in the ``third-party`` directory).
- - binary decision diagrams require
+- binary decision diagrams require
 [cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
 License
 (a copy is located in the ``third-party`` directory).
- - (I)LP solver requires
+- (I)LP solver requires
 [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
 [Gurobi](https://www.gurobi.com/),
 [HiGHS](https://highs.dev), or
@@ -44,7 +44,7 @@ license. HiGHS is licensed under MIT license.
 Coin-Or [Clp](https://github.com/coin-or/Clp/) and
 [Cbc](https://github.com/coin-or/Cbc) modules are licensed under
 Eclipse Public License v2.0.
- - constraint optimization requires either
+- constraint optimization requires either
 [CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
 [minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
 library, but it is possible to obtain an academic license. Minizinc is
@@ -63,30 +63,62 @@ liking.
 
 The easiest and fastest way the build the working system is by calling:
 ```sh
+  $ cp Makefile.config.tpl Makefile.config
+      # Edit Makefile.config if you need/want to.
   $ ./scripts/build.sh
 ```
-It builds the library with [bliss](https://users.aalto.fi/~tjunttil/bliss)
+It builds the cpddl library and binaries with [bliss](https://users.aalto.fi/~tjunttil/bliss)
 and [cudd](https://davidkebo.com/cudd) libraries which are compiled from local
-copies in the ``third-party/`` directory. It also tries to automatically find
-[minizinc](https://www.minizinc.org/) installed on your system.
+copies in the ``third-party/`` directory. It also uses the configuration options
+placed in the ``Makefile.config`` file. ``Makefile.config.tpl`` contains
+detailed instructions how to change the configuration.
 
-You can change default configuration by adding ``Makefile.config`` file
-containing the new configuration (see ``Makefile.config.tpl``):
- - The easiest way to integrate CPLEX is to install
- [IBM ILOG CPLEX Optimization Studio](https://www.ibm.com/products/ilog-cplex-optimization-studio)
- and set the variable ``IBM_CPLEX_ROOT`` to the top installation directory
- of the CPLEX studio. However, you can also set ``CPLEX_CFLAGS``,
- ``CPLEX_LDFLAGS``, ``CPOPTIMIZER_CPPFLAGS``, and ``CPOPTIMIZER_LDFLAGS``
- variables separately.
- - Gurobi can be used by setting up the ``GUROBI_CFLAGS`` and
- ``GUROBI_LDFLAGS`` variables.
- - If minizinc is not automatically found, set ``MINIZINC_BIN`` variable to
- the absolute path of the minizinc program.
-
-You can check the current configuration by
+Another useful commands are:
+- Check the current configuration:
 ```sh
   $ make help
 ```
+- Build the (static) library ``libpddl.a``:
+```sh
+  $ make
+```
+- Build the binaries in the ``bin/`` directory:
+```sh
+  $ make bin
+```
+- Remove generated/object/temporary files:
+```sh
+  $ make clean
+```
+- Remove all generated/object/temporary files including the ones in the
+``third-party`` directory:
+```sh
+  $ make mrproper
+```
+- Compile all libraries from the ``third-party/`` directory:
+```sh
+  $ make third-party
+```
+- Compile the [bliss](https://users.aalto.fi/~tjunttil/bliss) library for
+handling symmetries:
+```sh
+  $ make bliss
+```
+Compile the [cudd](https://davidkebo.com/cudd) library for handling Binary
+Decision Diagrams:
+```sh
+  $ make cudd
+```
+
+If you tried everything described above and you still cannot build the project,
+then:
+0. If you try to compile it on Windows, then you are out of luck. Although, it
+shouldn't be problem to compile and run it, I'll not provide any support.
+1. Run ``make mrproper``.
+2. Repeat all steps that you used for building the project and record all
+commands and all their outputs to both stdout and stderr.
+3. Contact me at <danfis@danfi.cz>, describe your problem, what are you trying
+to achieve, and attach all information gathered in step 2.
 
 
 ## Building Apptainer Image
