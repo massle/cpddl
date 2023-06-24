@@ -139,7 +139,7 @@ static int _addParamsFromTypedLists(pddl_params_t *params,
         // Check that the variable wasn't used already
         if (pddlParamsGetId(params, name) >= 0){
             _ERRV(err, -1, tokenizer, &tt->tok,
-                  "Variable %s is used for the second time.", tt->tok.str);
+                  "The variable '%s' is used for the second time.", tt->tok.str);
         }
 
         // Extract type
@@ -615,8 +615,9 @@ static int addTypes(pddl_t *pddl,
             // Type "object" (with ID 0) can be defined multiple times
             if (type > 0){
                 // TODO: Configure ignoring this
+                fprintf(stderr, "%d %d\n", tok->line, tok->column);
                 _ERRV(err, -1, tokenizer, tok,
-                      "Type %s is defined for the second time.", tok->str);
+                      "The type '%s' is defined for the second time.", tok->str);
 
             }else if (type < 0){
                 pddlTypesAdd(&pddl->type, tok->str, parent_type);

@@ -55,8 +55,13 @@ static void printSourceFilePointer(FILE *fout,
             fprintf(fout, "% 6d | %s", line, lbuf);
     }
     fprintf(fout, "       | ");
-    for (int i = 1; i < p->column; ++i)
-        fprintf(fout, " ");
+    for (int i = 1; i < p->column; ++i){
+        if (lbuf[i - 1] == '\t'){
+            fprintf(fout, "\t");
+        }else{
+            fprintf(fout, " ");
+        }
+    }
     fprintf(fout, "^--- here\n");
     fclose(fin);
 }
