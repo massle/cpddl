@@ -8,17 +8,18 @@ if [ "$1" = "" ]; then
     echo "    image:"
     echo "        alpine (does not support cplex or gurobi)"
     echo "        photon"
-    echo "        debian-{bullseye,buster,stretch,testing}"
+    echo "        debian-{bookworm,bullseye,buster,stretch,testing}"
     echo "        ubuntu-{kinetic,jammy,focal,bionic}"
     echo "        fedora"
     echo "        gcc-{11,12}"
     echo ""
     echo "    OPTIONS:"
     echo "        --output filename"
+    echo "        --name name-suffix"
     echo "        --no-bliss"
     echo "        --no-cudd"
     echo "        --highs"
-    echo "        --coin-or"
+    echo "        --coin-or (supported only with debian/ubuntu/fedora)"
     echo "        --cplex ibm_studio_installer"
     echo "        --cplex-api /path/to/include/dir"
     echo "        --gurobi (supported only with debian-bullseye)"
@@ -38,6 +39,7 @@ SETUP="
 ADDITIONAL_FILES=
 
 OUTPUT=
+NAME=
 WERROR=
 USE_GIT=
 HAS_CPLEX=
@@ -145,6 +147,11 @@ while true; do
     elif [ "$1" = "--output" ]; then
         shift
         OUTPUT="$1"
+        shift
+
+    elif [ "$1" = "--name" ]; then
+        shift
+        NAME="$1"
         shift
 
     else
@@ -263,6 +270,7 @@ License BSD
 
 function build_alpine(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -294,12 +302,13 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_debian(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -347,6 +356,7 @@ EOF
 
 function build_fedora(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -387,6 +397,7 @@ EOF
 
 function build_photon(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -399,7 +410,6 @@ $SETUP
     tdnf -y update
     tdnf -y install gcc glibc-devel binutils libstdc++ linux-api-headers
     tdnf -y install coreutils make autoconf automake cmake git grep gawk gzip
-    [ "$HAS_COIN_OR" = "yes" ] && tdnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi
     [ "$HAS_HIGHS" = "yes" ] && tdnf -y install zlib-devel
     $MAKE
 

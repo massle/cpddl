@@ -3,34 +3,60 @@
 [[_TOC_]]
 
 ## Creating a New Release
-Since we never intend to have a stable API/ABI, we use only the last two
-numbers of the [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-1. Make sure you are in the `master` branch.
+1. Make sure you are in the `release-X.Y` branch.
+
+1. Merge the `master` branch so that we can just fast-forward on the master
+branch later.
+
+1. Set version number as the environment variable.
+    ```sh
+    export VER="X.Y"
+    ```
 
 1. Run complete tests
     ```sh
     make check-all
+    make check-bin-all
     ```
 
 1. Run complete build tests
-   ```sh
-   ./t/scripts/test-build-apptainer.sh --git-dev master
-   ./t/scripts/test-build-apptainer.sh --git-dev master --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
+    ```sh
+    ./t/scripts/test-build-apptainer.sh --git-dev master
+    ./t/scripts/test-build-apptainer.sh --git-dev master --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
     ```
 
-1. Update `CHANGELOG.md`:
-    - Change `Unreleased` to the new version and created a new `Unreleased`
-        section.
-    - Commit the changed CHANGELOG.md with commit message "Version X.Y"
+1. Update `CHANGELOG.md` and `pddl/version.h`:
+    - Change `Unreleased` to the new version and created a new `Unreleased` section.
+    - Update `pddl/version.h`
+    - Commit the changes with commit message "Version ${VER}"
+        ```sh
+        git add CHANGELOG.md pddl/version.h && git commit -m "Version ${VER}"
+        ```
 
 1. Add tag
     ```sh
-    git tag -a vX.Y -m "Version X.Y"
+    git tag -a v${VER} -m "Version ${VER}"
     ```
 
-1. Push to public repo
+1. Build Apptainer images:
+    ```sh
+    ./scripts/build-apptainer.sh --no-bliss --no-cudd --git-dev v${VER} \
+                                 --name barebone-${VER} alpine
+    ./scripts/build-apptainer.sh --cplex-api /opt/cplex/v22.1.1/cplex/include \
+                                 --highs --coin-or --minizinc \
+                                 --git-dev v${VER} --name ${VER} debian-bookworm
+    ```
+
+1. Switch to the `master` branch and merge
+    ```sh
+    git switch master
+    git merge --ff-only release-${VER}
+    git push
+    ```
+
+1. Push to the public repo
     ```sh
     git push public master
-    git push public vX.Y
+    git push public v${VER}
     ```
