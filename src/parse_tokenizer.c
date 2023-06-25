@@ -327,7 +327,10 @@ int pddlParseTokenizerInit(pddl_parse_tokenizer_t *tok, const char *fnin,
     ZEROIZE(tok);
 
     char fn[PATH_MAX + 1];
-    realpath(fnin, fn);
+    if (realpath(fnin, fn) == NULL){
+        ERR_RET(err, -1, "Cannot resolve the path `%s': %s",
+                fnin, strerror(errno));
+    }
 
     int fd = open(fn, O_RDONLY);
     if (fd == -1){
