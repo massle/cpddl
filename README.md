@@ -170,61 +170,182 @@ as the CSP solver, call:
 ```
 
 
-## References
-The inference of **fact-alternating mutex groups** (``pddl/famgroup.h``) is
+## Usage Examples
+
+**cpddl** is first and foremost a C library, but it also comes with several
+programs that can be called from the command line. The main program is
+``./bin/pddl``, but there are several other programs that implement a subset of
+features of ``./bin/pddl`` and have a different default values for some options.
+Running any of those programs without an argument (or with ``-h`` or ``--help``)
+prints a (long) list of available options.
+
+### Validation of PDDL Tasks
+To check correctness of the input PDDL files, call
+```sh
+  $ ./bin/pddl --pddl-stop --pedantic domain.pddl problem.pddl
+```
+
+If there is an issue with the PDDL files, it tries to report what exactly is the
+problem and where it occurs. For example, parsing the original storage domain
+from IPC 2006 results in the following error message:
+```
+Error: The type 'area' is defined for the second time. line: 9, column: 9
+/home/danfis/dev/plan/downward-benchmarks/storage/domain.pddl:9:9:
+     6 | (:types hoist surface place area - object
+     7 |         container depot - place
+     8 |         storearea transitarea - area
+     9 |         area crate - surface)
+       |         ^--- here
+```
+
+### PDDL Normalization
+cpddl can be used to normalize PDDL input files, i.e., as a translator that
+takes input domain and problem PDDL files and outputs domain and problem PDDL
+files without disjunctions, quantifiers, or (dynamic) negative conditions.
+```sh
+  $ ./bin/pddl --pddl-domain-out d.pddl --pddl-problem-out p.pddl --pddl-stop domain.pddl problem.pddl
+```
+It is also possible to compile away conditional effects (the option
+``--pddl-ce``), enforce unit cost (``--pddl-unit-cost``), or more precisely
+control which forms of negative conditions are compiled away
+(``--pddl-neg--cond``).
+
+It is also possible to apply pruning of unreachable or dead-end operators via
+a compilation of **lifted fact-alternating mutex groups** on the PDDL level
+(``--pddl-compile-in-lmg``). For description of this method, see
+> Daniel Fišer.
+> *Operator Pruning using Lifted Mutex Groups via Compilation on Lifted Level*,
+> ICAPS 2023
+
+Another pruning on the PDDL level available in cpddl is the method based on
+**PDDL endomorphisms** (options ``--lendo`` and ``--lendo-ignore-costs``). For
+details, see
+> Rostislav Horčík, Daniel Fišer.
+> *Endomorphisms of Lifted Planning Problems*,
+> ICAPS 2021
+
+### Lifted Planning
+cpddl implements lifted planning algorithms, i.e., planning that operates
+directly on the PDDL level without fully grounding the task first. Note that the
+PDDL tasks are normalized first, so the options related PDDL normalization takes
+effect here too.
+
+The blind lifted A\* can be invoked by
+```sh
+  $ ./bin/pddl --lplan astar --lplan-out plan.out domain.pddl problem.pddl
+```
+
+The "lazy" greedy best-first search with the lifted $h^\mathrm{add}$ heuristic
 described in
- - Daniel Fišer, Antonín Komenda.
-Fact-Alternating Mutex Groups for Classical Planning,
-JAIR 61: 475-521 (2018)
+> Augusto B. Corrêa, Guillem Francès, Florian Pommerening and Malte Helmert.
+> *Delete-Relaxation Heuristics for Lifted Classical Planning*,
+> ICAPS 2021
+```sh
+  $ ./bin/pddl --lplan lazy --lplan-h add domain.pddl problem.pddl
+```
 
-The inference of **lifted fact-alternating mutex groups**
-(``pddl/lifted_mgroup*.h``) is described in
-- Daniel Fišer.
-Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical
-Planning Problems, AAAI 2020
+The search with the heuristic computed in the reduced planning task using
+**homomorphisms** is described in
+> Rostislav Horčík, Daniel Fišer, Álvaro Torralba.
+> *Homomorphisms of Lifted Planning Tasks: The Case for Delete-free Relaxation Heuristics*,
+> AAAI 2022
 
-Pruning of unreachable and dead-end operators on the PDDL level
-(``pddl/compile_in_lifted_mgroup.h``) is described in
-- Daniel Fišer.
-Operator Pruning using Lifted Mutex Groups via Compilation on Lifted Level,
-ICAPS 2023
+The best-performing variant of the optimal search from this paper:
+```sh
+  $ ./bin/pddl --lplan astar --lplan-h homo-lmc \
+               --lplan-h-homo type=rnd-objs,rm-ratio=.95,samples=50 \
+               --lplan-out plan.out \
+               domain.pddl problem.pddl
+```
 
-**Operator mutexes** (``pddl/op_mutex*.h``) are described in
- - Daniel Fišer, Álvaro Torralba, Alexander Shleyfman.
-Operator Mutexes and Symmetries for Simplifying Planning Tasks,
-AAAI 2019, 7586-7593
 
-**Multi-fact disambiguations** and potential heuristics strenghtened with
-disambiguations (``pddl/{pot.h,hpot.h,disambiguation.h}``) are described in
- - Daniel Fišer, Rostislav Horčík, Antonín Komenda.
-Strengthening Potential Heuristics with Mutexes and Disambiguations,
-ICAPS 2020
+### Translation to FDR
+cpddl can ground the input PDDL files and translate them into the Finite Domain
+Representaition (FDR). The following command applies forward/backward $h^2$
+pruning, irrelevance analysis, and few other pruning tehchniques, and it writes
+the FDR encoding in the Fast Downward [format](https://www.fast-downward.org/TranslatorOutputFormat)
+to the ``output.sas`` file:
+```sh
+  $ ./bin/pddl --h2 --fdr-out output.sas domain.pddl problem.pddl
+```
 
-**Endomorphisms/Homomorphism**
-(``pddl/endomorphism.h``, ``pddl/homomorphism*.h``) are described in
- - Rostislav Horčík, Daniel Fišer, Álvaro Torralba
-Homomorphisms of Lifted Planning Tasks: The Case for Delete-free Relaxation Heuristics,
-AAAI 2022
- - Rostislav Horčík, Daniel Fišer.
-Endomorphisms of Classical Planning Tasks,
-AAAI 2021
- - Rostislav Horčík, Daniel Fišer.
-Endomorphisms of Lifted Planning Problems,
-ICAPS 2021
+By default, the translator infers *lifted fact-alternating mutex groups*
+(fam-groups) according to the following paper:
+> Daniel Fišer.
+> *Lifted Fact-Alternating Mutex Groups and Pruned Grounding of Classical Planning Problems*,
+> AAAI 2020
 
-**Custom-design FDR encodings** (``pddl/red_black_fdr.h``)
- - Daniel Fišer, Daniel Gnad, Michael Katz, Jörg Hoffmann
-Custom-Design of FDR Encodings: The Case of Red-Black Planning,
-IJCAI 2021
+However, it is possible to switch to the Fast Downard (and weaker) variant of
+the lifted fam-groups by using the option ``--lmg-fd``.
 
-**Symbolic search** (``pddl/symbolic*.h``)
- - Daniel Fišer, Álvaro Torralba, Jörg Hoffmann.
-Operator-Potentials in Symbolic Search: From Forward to Bi-Directional Search,
-ICAPS 2022
- - Daniel Fišer, Álvaro Torralba, Jörg Hoffmann.
-Operator-Potential Heuristics for Symbolic Search,
-AAAI 2022
+It is also possible to use a complete set of **fam-groups** inferred on the
+ground level using the option ``--mg fam`` (this option requires a MIP solver).
+> Daniel Fišer, Antonín Komenda.
+> *Fact-Alternating Mutex Groups for Classical Planning*,
+> JAIR 61: 475-521 (2018)
 
-Please refer to these papers when documenting work that uses the corresponding
-parts of cpddl.
+Pruning using **operator mutexes** can be applied using the option ``--P-opm``.
+> Daniel Fišer, Álvaro Torralba, Alexander Shleyfman.
+> *Operator Mutexes and Symmetries for Simplifying Planning Tasks*,
+> AAAI 2019
+
+For example, the following command prunes operators using operator mutexes
+inferred using the so-called op-fact compilation and symmetries (requires bliss
+is compiled-in):
+```sh
+  $ ./bin/pddl --h2 --P-opm op-fact=2,p=greedy --fdr-out output.sas domain.pddl problem.pddl
+```
+
+Pruning using **endomorphisms** on the ground level can be applied using the
+``--P-endo`` option.
+> Rostislav Horčík, Daniel Fišer.
+> *Endomorphisms of Classical Planning Tasks*,
+> AAAI 2021
+
+
+Translation to the FDR targeting Red-Black planning can be turned on by the
+option ``--rb-fdr``.
+> Daniel Fišer, Daniel Gnad, Michael Katz, Jörg Hoffmann
+> *Custom-Design of FDR Encodings: The Case of Red-Black Planning*,
+> IJCAI 2021
+
+
+### Potential Heuristics
+cpddl also implements ground search algorithms with several heuristics.
+
+**Potential heuristics** strengthened with **disambiguations** is described in
+> Daniel Fišer, Rostislav Horčík, Antonín Komenda.
+> *Strengthening Potential Heuristics with Mutexes and Disambiguations*,
+> ICAPS 2020
+
+The best-peforming variant can be run by
+```sh
+  $ ./bin/pddl --h2 --gplan astar --gplan-h pot --gplan-pot A+I domain.pddl problem.pddl
+```
+
+
+### Symbolic Search
+Symbolic search using binary decision diagrams requires that cpddl is compiled
+with the cudd library.
+
+Besides blind search, we developed also so-called **operator-potential heuristics**
+that significantly improve the performance.
+> Daniel Fišer, Álvaro Torralba, Jörg Hoffmann.
+> *Operator-Potential Heuristics for Symbolic Search*,
+> AAAI 2022
+
+> Daniel Fišer, Álvaro Torralba, Jörg Hoffmann.
+> *Operator-Potentials in Symbolic Search: From Forward to Bi-Directional Search*,
+> ICAPS 2022
+
+The bi-directional symbolic search with the blind backward search and the best
+variant of the operator-potential heuristic for the forward direction can be
+invoked by
+```sh
+  $ ./bin/pddl-symba --fdr-tnfm --symba bi --symba-fw-pot --symba-fw-pot-cfg A+I \
+                     domain.pddl problem.pddl
+```
+
+Please refer to the listed papers when documenting work that uses the
+corresponding parts of cpddl.
 
