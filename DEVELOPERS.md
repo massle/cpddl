@@ -32,11 +32,13 @@ branch later.
     - Commit the changes with commit message "Version ${VER}"
         ```sh
         git add CHANGELOG.md pddl/version.h && git commit -m "Version ${VER}"
+        git push
         ```
 
 1. Add tag
     ```sh
     git tag -a v${VER} -m "Version ${VER}"
+    git push origin v${VER}
     ```
 
 1. Build Apptainer images:
@@ -67,4 +69,4 @@ branch later.
     git push public v${VER}
     ```
 
-1. Create a new release on the cpddl gitlab page.
+1. Create a new release on the cpddl gitlab page: [releases](https://gitlab.com/danfis/cpddl/-/releases)

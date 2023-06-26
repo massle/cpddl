@@ -350,7 +350,7 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
@@ -391,7 +391,7 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
@@ -430,7 +430,7 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
