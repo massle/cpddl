@@ -22,8 +22,8 @@ branch later.
 
 1. Run complete build tests
     ```sh
-    ./t/scripts/test-build-apptainer.sh --git-dev master
-    ./t/scripts/test-build-apptainer.sh --git-dev master --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
+    ./t/scripts/test-build-apptainer.sh --git-dev release-${VER}
+    ./t/scripts/test-build-apptainer.sh --git-dev release-${VER} --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
     ```
 
 1. Update `CHANGELOG.md` and `pddl/version.h`:
@@ -46,6 +46,12 @@ branch later.
     ./scripts/build-apptainer.sh --cplex-api /opt/cplex/v22.1.1/cplex/include \
                                  --highs --coin-or --minizinc \
                                  --git-dev v${VER} --name ${VER} debian-bookworm
+
+    apptainer push cpddl-barebone-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:barebone-v${VER}
+    apptainer push cpddl-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:v${VER}
+
+    apptainer push cpddl-barebone-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:barebone-latest
+    apptainer push cpddl-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:latest
     ```
 
 1. Switch to the `master` branch and merge
@@ -60,3 +66,5 @@ branch later.
     git push public master
     git push public v${VER}
     ```
+
+1. Create a new release on the cpddl gitlab page.
