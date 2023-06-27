@@ -229,6 +229,7 @@ void pddlStripsConjInit(pddl_strips_conj_t *task,
                         const pddl_strips_conj_config_t *cfg,
                         pddl_err_t *err)
 {
+    CTX(err, "Strips-Conj");
     PANIC_IF(in_task->has_cond_eff, "Conditional effects are not supported yet.");
 
     ZEROIZE(task);
@@ -273,6 +274,9 @@ void pddlStripsConjInit(pddl_strips_conj_t *task,
                  task->strips.fact.fact_size, &task->strips.goal);
 
     addFullOps(task, in_task, cfg->mutex, err);
+
+    pddlStripsLogInfo(&task->strips, err);
+    CTXEND(err);
 }
 
 void pddlStripsConjFree(pddl_strips_conj_t *task)
