@@ -263,13 +263,18 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
         if (gt->op[op_id].related_fact_size
                 != gt->op[op_id].action->related_atom_size){
-            ERR_RET(err, -1, "Different number of related facts and lifted atoms.");
+            ERR_RET(err, -1, "Different number of related facts and lifted atoms."
+                    " action: %s", gt->pddl.action.action[gt->op[op_id].action->action_id].name);
         }
 
         for (int i = 0; i < gt->op[op_id].related_fact_size; ++i){
             if (gt->op[op_id].related_fact[i] < 0){
-                ERR_RET(err, -1, "Missing related fact where there was a"
-                        " related atom.");
+                if (!gt->op[op_id].action->related_atom[i]->neg){
+                    ERR_RET(err, -1, "Missing related fact %d where there was a"
+                            " related atom.", i);
+                }
+                LOG(err, "Missing related delete effect. action/pos: %s/%d",
+                    gt->pddl.action.action[gt->op[op_id].action->action_id].name, i);
             }
         }
     }

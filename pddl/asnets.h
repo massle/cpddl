@@ -63,9 +63,8 @@ struct pddl_asnets_config {
 
     /** Which trainer will be used. One of PDDL_ASNETS_TRAINER_* */
     pddl_asnets_trainer_t trainer;
-    /** If set to non-NULL, pddlASNetsTrain() saves a model to the path
-     *  with this prefix every time it finds a model with improved success
-     *  rate */
+    /** If set to non-NULL, pddlASNetsTrain() saves the current model after
+     *  every epoch to the file with this prefix */
     const char *save_model_prefix;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
@@ -77,6 +76,9 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
 int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
                                  const char *filename,
                                  pddl_err_t *err);
+int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
+                                  const char *filename,
+                                  pddl_err_t *err);
 void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);
@@ -85,6 +87,28 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
 
 
+struct pddl_asnets_policy_distribution {
+    /** Number of applicable operators */
+    int op_size;
+    int op_alloc;
+    /** Array of applicable operators */
+    int *op_id;
+    /** Array of probabilities/confidence of the corresponding operator
+     *  being selected by the policy */
+    float *prob;
+};
+typedef struct pddl_asnets_policy_distribution
+    pddl_asnets_policy_distribution_t;
+
+/**
+ * Initialize empty distribution
+ */
+void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d);
+
+/**
+ * Free allocated memory
+ */
+void pddlASNetsPolicyDistributionFree(pddl_asnets_policy_distribution_t *d);
 
 /**
  * Creates a new instance of ASNets according to the configuration
@@ -131,6 +155,18 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         const pddl_asnets_ground_task_t *task,
                         const int *in_state,
                         int *out_state);
+
+/**
+ * Run policy on the given state from the given task and returns a
+ * distribution over applicable actions. The function can be repeatedly
+ * called on the same pddl_asnets_policy_distribution_t struct -- it will
+ * be rewritten every time.
+ * Returns 0 on success, -1 otherwise.
+ */
+int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
+                                 const pddl_asnets_ground_task_t *task,
+                                 const int *in_state,
+                                 pddl_asnets_policy_distribution_t *dist);
 
 /**
  * Try to solve the task using the ASNets policy.
