@@ -228,10 +228,9 @@ void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
                       const pddl_fdr_ops_t *ops,
                       const pddl_fdr_part_state_t *goal)
 {
-    int *sorted_ops = NULL;
+    ZEROIZE(app);
 
     app->ops = ops;
-
     app->var_size = vars->var_size;
     app->var_order = ALLOC_ARR(int, vars->var_size + 1);
     pddl_cg_t cg;
@@ -240,18 +239,19 @@ void pddlFDRAppOpInit(pddl_fdr_app_op_t *app,
     pddlCGFree(&cg);
     app->var_order[vars->var_size] = -1;
 
-    if (ops->op_size > 0)
-        sorted_ops = sortedOps(app);
-
-    app->root = treeNew(sorted_ops, ops->op_size, app->var_order, ops);
-
-    if (sorted_ops)
-        FREE(sorted_ops);
+    if (ops->op_size > 0){
+        int *sorted_ops = sortedOps(app);
+        app->root = treeNew(sorted_ops, ops->op_size, app->var_order, ops);
+        if (sorted_ops)
+            FREE(sorted_ops);
+    }else{
+        app->root = NULL;
+    }
 }
 
 void pddlFDRAppOpFree(pddl_fdr_app_op_t *app)
 {
-    if (app->root)
+    if (app->root != NULL)
         treeDel(app->root);
     if (app->var_order != NULL)
         FREE(app->var_order);
