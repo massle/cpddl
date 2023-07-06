@@ -122,22 +122,22 @@ void pddlPQUpdate(pddl_pq_t *q, int new_key, pddl_pq_el_t *el);
 /**
  * Returns true if the queue is empty.
  */
-_pddl_inline int pddlPQEmpty(const pddl_pq_t *q);
+_pddl_inline pddl_bool_t pddlPQEmpty(const pddl_pq_t *q);
 
 
 
 /**** INLINES ****/
-_pddl_inline int pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
+_pddl_inline pddl_bool_t pddlPQBucketQueueEmpty(const pddl_pq_bucket_queue_t *q)
 {
     return q->size == 0;
 }
 
-_pddl_inline int pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
+_pddl_inline pddl_bool_t pddlPQHeapQueueEmpty(const pddl_pq_heap_queue_t *q)
 {
     return pddlPairHeapEmpty(q->heap);
 }
 
-_pddl_inline int pddlPQEmpty(const pddl_pq_t *q)
+_pddl_inline pddl_bool_t pddlPQEmpty(const pddl_pq_t *q)
 {
     if (q->bucket){
         return pddlPQBucketQueueEmpty(&q->bucket_queue);

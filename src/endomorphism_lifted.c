@@ -34,7 +34,7 @@ static void setAtomTypeFixed(lifted_endomorphism_t *end,
         int param = atom->arg[parami].param;
         int type_id = params->param[param].type;
         int objs_size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(&pddl->type, type_id, &objs_size);
         for (int i = 0; i < objs_size; ++i)
             end->obj_is_fixed[objs[i]] = 1;
@@ -56,15 +56,15 @@ static void setAtomTypesFixed(lifted_endomorphism_t *end,
 static int hasAtom(const pddl_fm_t *cond,
                    const pddl_fm_atom_t *atom)
 {
-    if (cond->type == PDDL_FM_ATOM){
+    if (pddlFmIsAtom(cond)){
         return pddlFmEq(cond, &atom->fm);
     }else{
-        ASSERT_RUNTIME(cond->type == PDDL_FM_AND);
+        ASSERT(pddlFmIsAnd(cond));
         const pddl_fm_junc_t *cand = pddlFmToJuncConst(cond);
         pddl_list_t *item;
         PDDL_LIST_FOR_EACH(&cand->part, item){
             const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-            ASSERT_RUNTIME(c->type == PDDL_FM_ATOM);
+            ASSERT(pddlFmIsAtom(c));
             if (pddlFmEq(c, &atom->fm))
                 return 1;
         }
@@ -123,7 +123,7 @@ static int coverAtomWithMGroup(int *counted,
 
     for (int ci = 0; ci < mgroup->cond.size; ++ci){
         const pddl_fm_t *mc = mgroup->cond.fm[ci];
-        const pddl_fm_atom_t *ma = PDDL_FM_CAST(mc, atom);
+        const pddl_fm_atom_t *ma = pddlFmToAtomConst(mc);
         if (ma->pred != atom->pred)
             continue;
 
@@ -135,7 +135,7 @@ static int coverAtomWithMGroup(int *counted,
             if (ma->arg[argi].param >= 0 && atom->arg[argi].param >= 0){
                 int a_parami = atom->arg[argi].param;
                 int a_type = act_param->param[a_parami].type;
-                const pddl_obj_id_t *a_obj;
+                const int *a_obj;
                 int a_obj_size;
                 a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
 
@@ -192,7 +192,7 @@ static void coverAtomWithMGroups(lifted_endomorphism_t *end,
         if (atom->arg[argi].param >= 0){
             int a_parami = atom->arg[argi].param;
             int a_type = act_param->param[a_parami].type;
-            const pddl_obj_id_t *a_obj;
+            const int *a_obj;
             int a_obj_size;
             a_obj = pddlTypesObjsByType(&pddl->type, a_type, &a_obj_size);
             for (int i = 0; i < a_obj_size; ++i){
@@ -223,7 +223,7 @@ static void analyzeActionAtom(
         return;
 
     pddl_fm_t *pos_c = pddlFmClone(&eff_atom->fm);
-    pddl_fm_atom_t *pos_a = PDDL_FM_CAST(pos_c, atom);
+    pddl_fm_atom_t *pos_a = pddlFmToAtom(pos_c);
     pos_a->neg = 0;
     if (hasAtom(act_pre, pos_a)){
         coverAtomWithMGroups(end, pddl, act_param, eff_atom, lifted_mgroups);
@@ -245,12 +245,12 @@ static void fixAtomConstants(pddl_fm_atom_t *a, lifted_endomorphism_t *end)
 static int fixConstants(pddl_fm_t *c, void *_end)
 {
     lifted_endomorphism_t *end = (lifted_endomorphism_t *)_end;
-    if (c->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        pddl_fm_atom_t *a = pddlFmToAtom(c);
         fixAtomConstants(a, end);
 
-    }else if (c->type == PDDL_FM_ASSIGN){
-        pddl_fm_func_op_t *a = PDDL_FM_CAST(c, func_op);
+    }else if (pddlFmIsAssign(c)){
+        pddl_fm_func_op_t *a = pddlFmToFuncOp(c);
         if (a->lvalue != NULL)
             fixAtomConstants(a->lvalue, end);
         if (a->fvalue != NULL)
@@ -272,29 +272,29 @@ static void liftedEndomorphismAnalyzeAction(
 {
     pddlFmTraverse((pddl_fm_t *)act_pre, NULL, fixConstants, end);
     pddlFmTraverse((pddl_fm_t *)act_eff, NULL, fixConstants, end);
-    if (act_eff->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(act_eff, atom);
+    if (pddlFmIsAtom(act_eff)){
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(act_eff);
         analyzeActionAtom(end, pddl, act_param, act_pre, a,
                           lifted_mgroups, cfg, err);
         return;
     }
 
-    ASSERT_RUNTIME(act_eff->type == PDDL_FM_AND);
+    ASSERT(pddlFmIsAnd(act_eff));
     const pddl_fm_junc_t *cand = pddlFmToJuncConst(act_eff);
     pddl_list_t *item;
     PDDL_LIST_FOR_EACH(&cand->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        if (pddlFmIsAtom(c)){
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             analyzeActionAtom(end, pddl, act_param, act_pre, a,
                               lifted_mgroups, cfg, err);
 
-        }else if (c->type == PDDL_FM_INCREASE){
+        }else if (pddlFmIsIncrease(c)){
             // We can ignore this, because it is already handled in
             // the initial state
 
-        }else if (c->type == PDDL_FM_WHEN){
-            const pddl_fm_when_t *w = PDDL_FM_CAST(c, when);
+        }else if (pddlFmIsWhen(c)){
+            const pddl_fm_when_t *w = pddlFmToWhenConst(c);
             liftedEndomorphismAnalyzeAction(end, pddl, act_param,
                                             w->pre, w->eff, lifted_mgroups,
                                             cfg, err);
@@ -309,8 +309,8 @@ static void liftedEndomorphismAnalyzeAction(
 static int _liftedEndomorphismFixGoal(pddl_fm_t *c, void *u)
 {
     lifted_endomorphism_t *end = (lifted_endomorphism_t *)u;
-    if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         for (int i = 0; i < atom->arg_size; ++i){
             ASSERT(atom->arg[i].obj >= 0);
             end->obj_is_fixed[atom->arg[i].obj] = 1;
@@ -452,8 +452,8 @@ static void predObjTuplesFree(pred_obj_tuples_t *tup)
 static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
 {
     pred_obj_tuples_t *tup = (pred_obj_tuples_t *)u;
-    if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         int pred_id = atom->pred;
         pred_obj_tuple_t *tuple = tup->tuple + pred_id;
         ASSERT(atom->arg_size == tuple->size);
@@ -463,8 +463,8 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
             t->tuple[i] = atom->arg[i].obj;
         }
 
-    }else if (c->type != PDDL_FM_AND){
-        const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
+    }else if (!pddlFmIsAnd(c)){
+        const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
         ASSERT(ass->fvalue == NULL);
         ASSERT(ass->lvalue != NULL);
         ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
@@ -478,7 +478,7 @@ static int _predObjTuplesInitFromCond(pddl_fm_t *c, void *u)
             t->tuple[i] = ass->lvalue->arg[i].obj;
         }
 
-    }else if (c->type != PDDL_FM_AND){
+    }else if (!pddlFmIsAnd(c)){
         PANIC("Unexpected atom of type %d:%s\n",
                    c->type, pddlFmTypeName(c->type));
     }
@@ -613,7 +613,7 @@ static void liftedAddGoalConstr(IloEnv &env,
 static int extractSol(int obj_size,
                       const int *sol,
                       pddl_iset_t *redundant_objs,
-                      pddl_obj_id_t *map)
+                      int *map)
 {
     int *mapped_to = CALLOC_ARR(int, obj_size);
 
@@ -648,7 +648,7 @@ static int liftedSolve(const pddl_t *pddl,
                        const lifted_endomorphism_t *end,
                        const pddl_endomorphism_config_t *cfg,
                        pddl_iset_t *redundant_objs,
-                       pddl_obj_id_t *map,
+                       int *map,
                        pddl_err_t *err)
 {
     int ret = 0;
@@ -675,12 +675,12 @@ static int liftedSolve(const pddl_t *pddl,
     pddl_cp_sol_t sol;
     int sret = pddlCPSolve(&cp, &sol_cfg, &sol, err);
     // There must exist a solution -- at least identity
-    ASSERT_RUNTIME(sret == PDDL_CP_FOUND
-                    || sret == PDDL_CP_FOUND_SUBOPTIMAL
-                    || sret == PDDL_CP_ABORTED);
+    PANIC_IF(sret != PDDL_CP_FOUND
+                && sret != PDDL_CP_FOUND_SUBOPTIMAL
+                && sret != PDDL_CP_ABORTED, "Unexpected result.");
     int num_redundant = -1;
     if (sret == PDDL_CP_FOUND || sret == PDDL_CP_FOUND_SUBOPTIMAL){
-        ASSERT_RUNTIME(sol.num_solutions == 1);
+        ASSERT(sol.num_solutions == 1);
         num_redundant = extractSol(obj_size, sol.isol[0], redundant_objs, map);
         LOG(err, "Found a solution with %d redundant objects", num_redundant);
 
@@ -740,7 +740,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
 
     for (int condi = 0; condi < mgroup->cond.size; ++condi){
         const pddl_fm_t *c = mgroup->cond.fm[condi];
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
         for (int argi = 0; argi < a->arg_size; ++argi){
             if (a->arg[argi].obj >= 0){
                 if (obj_st[a->arg[argi].obj] > 0){
@@ -756,7 +756,7 @@ static int selectMGroupsAdd(select_mgroups_t *select,
         const pddl_param_t *param = mgroup->param.param + parami;
         int type_id = param->type;
         int obj_size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(&pddl->type, type_id, &obj_size);
         for (int obji = 0; obji < obj_size; ++obji){
             int obj = objs[obji];
@@ -838,7 +838,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
                            const pddl_lifted_mgroups_t *lifted_mgroups_in,
                            const pddl_endomorphism_config_t *cfg,
                            pddl_iset_t *redundant_objects,
-                           pddl_obj_id_t *omap,
+                           int *omap,
                            pddl_err_t *err)
 {
     if (!pddl->normalized)
@@ -911,7 +911,7 @@ int pddlEndomorphismLifted(const pddl_t *pddl,
 static int relaxedLifted(const pddl_t *pddl,
                          const pddl_endomorphism_config_t *cfg,
                          pddl_iset_t *redundant_objects,
-                         pddl_obj_id_t *omap,
+                         int *omap,
                          pddl_err_t *err)
 {
     lifted_endomorphism_t end;
@@ -936,17 +936,16 @@ static int relaxedLifted(const pddl_t *pddl,
 static int relaxedLiftedInSubprocess(const pddl_t *pddl,
                                      const pddl_endomorphism_config_t *cfg,
                                      pddl_iset_t *redundant_objects,
-                                     pddl_obj_id_t *omap,
+                                     int *omap,
                                      pddl_err_t *err)
 {
     LOG(err, "Lifted Relaxed Endomorphism in a subprocess ...");
     fflush(stdout);
     fflush(stderr);
-    fflush(err->warn_out);
-    fflush(err->info_out);
+    pddlErrFlush(err);
 
     int obj_size = pddl->obj.obj_size;
-    size_t shared_size = sizeof(int) + (sizeof(pddl_obj_id_t) * obj_size);
+    size_t shared_size = sizeof(int) + (sizeof(int) * obj_size);
     void *shared = mmap(NULL, shared_size, PROT_WRITE | PROT_READ,
                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (shared == MAP_FAILED){
@@ -957,7 +956,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
     }
     ZEROIZE_RAW(shared, shared_size);
     int *shared_ret = (int *)shared;
-    pddl_obj_id_t *shared_map = (pddl_obj_id_t *)(shared_ret + 1);
+    int *shared_map = (int *)(shared_ret + 1);
     *shared_ret = -1;
     LOG(err, "  Allocated %ld bytes of shared memory", (long)shared_size);
 
@@ -982,7 +981,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
         int ret = *shared_ret;
         if (ret == 0){
             if (omap != NULL)
-                memcpy(omap, shared_map, sizeof(pddl_obj_id_t) * obj_size);
+                memcpy(omap, shared_map, sizeof(int) * obj_size);
 
             if (redundant_objects != NULL){
                 for (int i = 0; i < pddl->obj.obj_size; ++i){
@@ -1008,7 +1007,7 @@ static int relaxedLiftedInSubprocess(const pddl_t *pddl,
 int pddlEndomorphismRelaxedLifted(const pddl_t *pddl,
                                   const pddl_endomorphism_config_t *cfg,
                                   pddl_iset_t *redundant_objects,
-                                  pddl_obj_id_t *omap,
+                                  int *omap,
                                   pddl_err_t *err)
 {
     if (!pddl->normalized)

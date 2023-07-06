@@ -22,8 +22,6 @@
 
 #include <pddl/iset.h>
 #include <pddl/common.h>
-#include <pddl/objset.h>
-#include <pddl/lisp.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +35,9 @@ struct pddl_type {
     int parent;        /*!< ID of the parent type */
     pddl_iset_t child;  /*!< IDs of children types */
     pddl_iset_t either; /*!< type IDs for special (either ...) type */
-    pddl_objset_t obj; /*!< Objs of this type */
+    pddl_iset_t obj; /*!< Objs of this type */
+    /** IDs of "either" types this type is part of */
+    pddl_iset_t parent_either;
 };
 typedef struct pddl_type pddl_type_t;
 
@@ -52,9 +52,9 @@ struct pddl_types {
 typedef struct pddl_types pddl_types_t;
 
 /**
- * Parses :types into type array.
+ * Initialize types with the default "object" type.
  */
-int pddlTypesParse(pddl_t *pddl, pddl_err_t *err);
+void pddlTypesInit(pddl_types_t *types);
 
 /**
  * Initialize dst as a deep copy of src.
@@ -79,6 +79,11 @@ int pddlTypesGet(const pddl_types_t *t, const char *name);
 int pddlTypesAdd(pddl_types_t *t, const char *name, int parent);
 
 /**
+ * Adds or returns existing (either ...) type.
+ */
+int pddlTypesAddEither(pddl_types_t *ts, const pddl_iset_t *either);
+
+/**
  * Prints list of types to the specified output.
  */
 void pddlTypesPrint(const pddl_types_t *t, FILE *fout);
@@ -86,12 +91,12 @@ void pddlTypesPrint(const pddl_types_t *t, FILE *fout);
 /**
  * Returns true if the specified type is (either ...) type.
  */
-int pddlTypesIsEither(const pddl_types_t *ts, int tid);
+pddl_bool_t pddlTypesIsEither(const pddl_types_t *ts, int tid);
 
 /**
  * Record the given object as being of the given type.
  */
-void pddlTypesAddObj(pddl_types_t *ts, pddl_obj_id_t obj_id, int type_id);
+void pddlTypesAddObj(pddl_types_t *ts, int obj_id, int type_id);
 
 /**
  * Build mapping for fast testing whether an object is of a specified type.
@@ -101,8 +106,7 @@ void pddlTypesBuildObjTypeMap(pddl_types_t *ts, int obj_size);
 /**
  * Returns list of object IDs of the specified type.
  */
-const pddl_obj_id_t *pddlTypesObjsByType(const pddl_types_t *ts, int type_id,
-                                         int *size);
+const int *pddlTypesObjsByType(const pddl_types_t *ts, int type_id, int *size);
 
 /**
  * Returns number of objects of the specified type.
@@ -117,35 +121,29 @@ int pddlTypeGetObj(const pddl_types_t *ts, int type_id, int idx);
 /**
  * Returns true if the object compatible with the specified type.
  */
-int pddlTypesObjHasType(const pddl_types_t *ts, int type, pddl_obj_id_t obj);
-
-/**
- * Returns type ID from the lisp node or -1 if error occured.
- * (either ...) types are created if necessary.
- */
-int pddlTypeFromLispNode(pddl_types_t *ts, const pddl_lisp_node_t *node,
-                         pddl_err_t *err);
+pddl_bool_t pddlTypesObjHasType(const pddl_types_t *ts, int type, int obj);
 
 /**
  * Returns true if parent is a parent type of child type.
  */
-int pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
+pddl_bool_t pddlTypesIsParent(const pddl_types_t *ts, int child, int parent);
 
 /**
  * Returns true if t1 and t2 are disjunct types, i.e., there cannot be
  * object of both types at the same time.
  */
-int pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
+pddl_bool_t pddlTypesAreDisjunct(const pddl_types_t *ts, int t1, int t2);
+pddl_bool_t pddlTypesAreDisjoint(const pddl_types_t *ts, int t1, int t2);
 
 /**
  * Returns true if D(t1) \subseteq D(t2)
  */
-int pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
+pddl_bool_t pddlTypesIsSubset(const pddl_types_t *ts, int t1, int t2);
 
 /**
  * Returns true if {type} is a minimal type, i.e., it has no sub-types.
  */
-int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
+pddl_bool_t pddlTypesIsMinimal(const pddl_types_t *ts, int type);
 
 /**
  * Returns true if:
@@ -154,13 +152,13 @@ int pddlTypesIsMinimal(const pddl_types_t *ts, int type);
  * 2. union of minimal types (i.e., without subtypes) equals the whole set
  *    of objects.
  */
-int pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
-                                   const struct pddl_objs *obj);
+pddl_bool_t pddlTypesHasStrictPartitioning(const pddl_types_t *ts,
+                                           const struct pddl_objs *obj);
 
 /**
  * Remap objects
  */
-void pddlTypesRemapObjs(pddl_types_t *ts, const pddl_obj_id_t *remap);
+void pddlTypesRemapObjs(pddl_types_t *ts, const int *remap);
 
 /**
  * Returns a type ID that is complement of t with respect to p, or -1 if

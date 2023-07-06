@@ -22,7 +22,6 @@
 
 #include <pddl/common.h>
 #include <pddl/list.h>
-#include <pddl/lisp.h>
 #include <pddl/require_flags.h>
 #include <pddl/param.h>
 #include <pddl/obj.h>
@@ -61,9 +60,6 @@ enum pddl_fm_type {
 typedef enum pddl_fm_type pddl_fm_type_t;
 
 const char *pddlFmTypeName(pddl_fm_type_t type);
-
-#define PDDL_FM_CAST(C, T) \
-    (pddl_container_of((C), pddl_fm_##T##_t, fm))
 
 /**
  * Abstract formula
@@ -121,7 +117,7 @@ typedef struct pddl_fm_when pddl_fm_when_t;
  */
 struct pddl_fm_atom_arg {
     int param; /*!< -1 or index of parameter */
-    pddl_obj_id_t obj; /*!< object ID (constant) or PDDL_OBJ_ID_UNDEF */
+    int obj; /*!< object ID (constant) or -1 */
 };
 typedef struct pddl_fm_atom_arg pddl_fm_atom_arg_t;
 
@@ -133,7 +129,7 @@ struct pddl_fm_atom {
     int pred; /*!< Predicate ID */
     pddl_fm_atom_arg_t *arg; /*!< List of arguments */
     int arg_size; /*!< Number of arguments */
-    int neg; /*!< True if negated */
+    pddl_bool_t neg; /*!< True if negated */
 };
 typedef struct pddl_fm_atom pddl_fm_atom_t;
 
@@ -158,7 +154,7 @@ typedef pddl_fm_func_op_t pddl_fm_increase_t;
  */
 struct pddl_fm_bool {
     pddl_fm_t fm;
-    int val;
+    pddl_bool_t val;
 };
 typedef struct pddl_fm_bool pddl_fm_bool_t;
 
@@ -174,17 +170,61 @@ typedef struct pddl_fm_imply pddl_fm_imply_t;
 
 
 /**
- * Safe casting functions
+ * Casting functions
  */
+pddl_bool_t pddlFmIsJunc(const pddl_fm_t *c);
 pddl_fm_junc_t *pddlFmToJunc(pddl_fm_t *c);
 const pddl_fm_junc_t *pddlFmToJuncConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsAnd(const pddl_fm_t *c);
 pddl_fm_and_t *pddlFmToAnd(pddl_fm_t *c);
+const pddl_fm_and_t *pddlFmToAndConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsOr(const pddl_fm_t *c);
 pddl_fm_or_t *pddlFmToOr(pddl_fm_t *c);
+const pddl_fm_or_t *pddlFmToOrConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsBool(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsTrue(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsFalse(const pddl_fm_t *c);
 pddl_fm_bool_t *pddlFmToBool(pddl_fm_t *c);
+const pddl_fm_bool_t *pddlFmToBoolConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsAtom(const pddl_fm_t *c);
 pddl_fm_atom_t *pddlFmToAtom(pddl_fm_t *c);
 const pddl_fm_atom_t *pddlFmToAtomConst(const pddl_fm_t *c);
-const pddl_fm_increase_t *pddlFmToIncreaseConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsWhen(const pddl_fm_t *c);
+pddl_fm_when_t *pddlFmToWhen(pddl_fm_t *c);
 const pddl_fm_when_t *pddlFmToWhenConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsFuncOp(const pddl_fm_t *c);
+pddl_fm_func_op_t *pddlFmToFuncOp(pddl_fm_t *c);
+const pddl_fm_func_op_t *pddlFmToFuncOpConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsIncrease(const pddl_fm_t *c);
+pddl_fm_increase_t *pddlFmToIncrease(pddl_fm_t *c);
+const pddl_fm_increase_t *pddlFmToIncreaseConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsAssign(const pddl_fm_t *c);
+pddl_fm_assign_t *pddlFmToAssign(pddl_fm_t *c);
+const pddl_fm_assign_t *pddlFmToAssignConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsQuant(const pddl_fm_t *c);
+pddl_fm_quant_t *pddlFmToQuant(pddl_fm_t *c);
+const pddl_fm_quant_t *pddlFmToQuantConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsForAll(const pddl_fm_t *c);
+pddl_fm_forall_t *pddlFmToForAll(pddl_fm_t *c);
+const pddl_fm_forall_t *pddlFmToForAllConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsExist(const pddl_fm_t *c);
+pddl_fm_exist_t *pddlFmToExist(pddl_fm_t *c);
+const pddl_fm_exist_t *pddlFmToExistConst(const pddl_fm_t *c);
+
+pddl_bool_t pddlFmIsImply(const pddl_fm_t *c);
+pddl_fm_imply_t *pddlFmToImply(pddl_fm_t *c);
+const pddl_fm_imply_t *pddlFmToImplyConst(const pddl_fm_t *c);
 
 /**
  * Free memory.
@@ -194,27 +234,27 @@ void pddlFmDel(pddl_fm_t *fm);
 /**
  * Returns true if c is FALSE constant
  */
-int pddlFmIsFalse(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsFalse(const pddl_fm_t *c);
 
 /**
  * Returns true if c is TRUE constant
  */
-int pddlFmIsTrue(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsTrue(const pddl_fm_t *c);
 
 /**
  * Returns true if c is an atom
  */
-int pddlFmIsAtom(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsAtom(const pddl_fm_t *c);
 
 /**
  * Returns true if {c} is a when (conditional effect) node
  */
-int pddlFmIsWhen(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsWhen(const pddl_fm_t *c);
 
 /**
  * Returns true if {c} is (increase ...) atom
  */
-int pddlFmIsIncrease(const pddl_fm_t *c);
+pddl_bool_t pddlFmIsIncrease(const pddl_fm_t *c);
 
 /**
  * Creates an exact copy of the condition.
@@ -229,15 +269,15 @@ pddl_fm_t *pddlFmNegate(const pddl_fm_t *fm, const pddl_t *pddl);
 /**
  * Returns true if the conds match exactly.
  */
-int pddlFmEq(const pddl_fm_t *c1, const pddl_fm_t *c2);
+pddl_bool_t pddlFmEq(const pddl_fm_t *c1, const pddl_fm_t *c2);
 
 /**
  * Returns true if s is implied by c
  */
-int pddlFmIsImplied(const pddl_fm_t *s,
-                    const pddl_fm_t *c,
-                    const pddl_t *pddl,
-                    const pddl_params_t *param);
+pddl_bool_t pddlFmIsImplied(const pddl_fm_t *s,
+                            const pddl_fm_t *c,
+                            const pddl_t *pddl,
+                            const pddl_params_t *param);
 #define pddlFmIsEntailed pddlFmIsImplied
 
 /**
@@ -262,6 +302,20 @@ void pddlFmRebuild(pddl_fm_t **c,
                    int (*pre)(pddl_fm_t **, void *),
                    int (*post)(pddl_fm_t **, void *),
                    void *userdata);
+
+/**
+ * Sort elements with dis/con-junction.
+ */
+void pddlFmJuncSort(pddl_fm_junc_t *fm,
+                    int (*cmp)(const pddl_fm_t *fm1,
+                               const pddl_fm_t *fm2,
+                               void *userdata),
+                    void *userdata);
+
+/**
+ * Returns number of atoms appearing in the formula.
+ */
+int pddlFmNumAtoms(const pddl_fm_t *fm);
 
 /**
  * When first (when ...) node, that has non-static preconditions, is found,
@@ -300,25 +354,44 @@ pddl_fm_atom_t *pddlFmNewEmptyAtom(int num_args);
 pddl_fm_bool_t *pddlFmNewBool(int is_true);
 
 /**
+ * Constructs a new (imply {left} {right}).
+ * {left} and {right} are used directly, i.e., they are not copied!
+ */
+pddl_fm_imply_t *pddlFmNewImply(pddl_fm_t *left, pddl_fm_t *right);
+
+/**
+ * Constructs a new (when {pre} {eff}).
+ * {pre} and {eff} are used directly, i.e., they are not copied!
+ */
+pddl_fm_when_t *pddlFmNewWhen(pddl_fm_t *pre, pddl_fm_t *eff);
+
+/**
+ * Creates an empty forall/exist formula depending on the specified type.
+ */
+pddl_fm_quant_t *pddlFmNewEmptyQuant(int type);
+
+/**
+ * Creates an empty forall formula
+ */
+pddl_fm_forall_t *pddlFmNewEmptyForAll(void);
+
+/**
+ * Creates an empty exists formula
+ */
+pddl_fm_exist_t *pddlFmNewEmptyExist(void);
+
+/**
+ * Creates a new func_op formula.
+ */
+pddl_fm_func_op_t *pddlFmNewFuncOpVal(int type, pddl_fm_atom_t *lvalue,
+                                      int rvalue);
+pddl_fm_func_op_t *pddlFmNewFuncOpFVal(int type, pddl_fm_atom_t *lvalue,
+                                       pddl_fm_atom_t *fvalue);
+
+/**
  * Returns true if the conditional contains any atom.
  */
-int pddlFmHasAtom(const pddl_fm_t *c);
-
-/**
- * Parse condition from PDDL lisp.
- */
-pddl_fm_t *pddlFmParse(const pddl_lisp_node_t *root,
-                       pddl_t *pddl,
-                       const pddl_params_t *params,
-                       const char *err_prefix,
-                       pddl_err_t *err);
-
-/**
- * Parse (:init ...) into a conjuction of atoms.
- */
-pddl_fm_and_t *pddlFmParseInit(const pddl_lisp_node_t *root,
-                               pddl_t *pddl,
-                               pddl_err_t *err);
+pddl_bool_t pddlFmHasAtom(const pddl_fm_t *c);
 
 /**
  * Transforms atom into (and atom).
@@ -330,7 +403,7 @@ pddl_fm_t *pddlFmAtomToAnd(pddl_fm_t *atom);
  */
 pddl_fm_atom_t *pddlFmCreateFactAtom(int pred,
                                      int arg_size, 
-                                     const pddl_obj_id_t *arg);
+                                     const int *arg);
 
 /**
  * Adds {c} to and/or condition.
@@ -345,7 +418,7 @@ void pddlFmJuncRm(pddl_fm_junc_t *part, pddl_fm_t *c);
 /**
  * Returns true if the and/or is empty
  */
-int pddlFmJuncIsEmpty(const pddl_fm_junc_t *part);
+pddl_bool_t pddlFmJuncIsEmpty(const pddl_fm_junc_t *part);
 
 /**
  * Returns 0 if cond is a correct precondition, -1 otherwise.
@@ -411,7 +484,7 @@ pddl_fm_t *pddlFmSimplify(pddl_fm_t *fm,
 /**
  * Returns true if the atom is a grounded fact.
  */
-int pddlFmAtomIsGrounded(const pddl_fm_atom_t *atom);
+pddl_bool_t pddlFmAtomIsGrounded(const pddl_fm_atom_t *atom);
 
 /**
  * Compares two atoms.
@@ -426,15 +499,15 @@ int pddlFmAtomCmpNoNeg(const pddl_fm_atom_t *a1, const pddl_fm_atom_t *a2);
 /**
  * Returns true if a1 and a2 are negations of each other.
  */
-int pddlFmAtomInConflict(const pddl_fm_atom_t *a1,
-                         const pddl_fm_atom_t *a2,
-                         const pddl_t *pddl);
+pddl_bool_t pddlFmAtomInConflict(const pddl_fm_atom_t *a1,
+                                 const pddl_fm_atom_t *a2,
+                                 const pddl_t *pddl);
 
 /**
  * Remap objects.
  * It is assumed no object from {c} is deleted.
  */
-void pddlFmRemapObjs(pddl_fm_t *c, const pddl_obj_id_t *remap);
+void pddlFmRemapObjs(pddl_fm_t *c, const int *remap);
 
 /**
  * TODO

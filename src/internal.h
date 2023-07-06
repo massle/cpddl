@@ -33,6 +33,7 @@ extern "C" {
 #define ERR PDDL_ERR
 #define ERR_RET PDDL_ERR_RET
 #define PANIC PDDL_PANIC
+#define PANIC_IF PDDL_PANIC_IF
 #define WARN PDDL_WARN
 #define CTX PDDL_CTX
 #define CTX_NO_TIME PDDL_CTX_NO_TIME
@@ -51,7 +52,7 @@ extern "C" {
 #define LOG_CONFIG_DBL(C, NAME, ERR) \
     LOG((ERR), #NAME " = %.4f", (C)->NAME)
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %b", (C)->NAME)
+    LOG((ERR), #NAME " = %s", F_BOOL((C)->NAME))
 #define LOG_CONFIG_STR(C, NAME, ERR) \
     LOG((ERR), #NAME " = %s", (C)->NAME)
 
@@ -59,39 +60,16 @@ extern "C" {
 #ifdef PDDL_DEBUG
 #include <assert.h>
 # define ASSERT(x) assert(x)
-# define DBG(E, format, ...) PDDL_INFO((E), "DEBUG: " format, __VA_ARGS__)
-# define DBG2(E, msg) PDDL_INFO((E), "DEBUG: " msg)
 
 #else /* PDDL_DEBUG */
 
 # define NDEBUG
 # define ASSERT(x)
-# define DBG(E, format, ...)
-# define DBG2(E, msg)
 #endif /* PDDL_DEBUG */
 
-#define ASSERT_RUNTIME(x) \
-    do { \
-    if (!(x)){ \
-        fprintf(stderr, "%s:%d Assertion `" #x "' failed!\n", \
-                __FILE__, __LINE__); \
-        exit(-1); \
-    } \
-    } while (0)
-
-#define ASSERT_RUNTIME_M(X, M) \
-    do { \
-    if (!(X)){ \
-        fprintf(stderr, "%s:%d Assertion `" #X "' failed: %s\n", \
-                __FILE__, __LINE__, (M)); \
-        exit(-1); \
-    } \
-    } while (0)
-
-#define PANIC_IF PDDL_PANIC_IF
 
 
-
+#define F_BOOL(C) ((C) ? "true" : "false")
 #define F_COST(C) pddlCostFmt((C), ((char [22]){""}), 22)
 #define F_COND(C, PDDL, PARAMS) \
     pddlFmFmt((C), (PDDL), (PARAMS), ((char [2048]){""}), 2048)

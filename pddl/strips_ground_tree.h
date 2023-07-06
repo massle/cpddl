@@ -30,16 +30,16 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_strips_ground_tnode {
-    pddl_action_param_size_t param; /*!< Parameter this node corresponds to */
-    pddl_obj_id_t obj_id; /*!< Object ID assigned to this param */
+    int param; /*!< Parameter this node corresponds to */
+    int obj_id; /*!< Object ID assigned to this param */
     int pre_unified:29; /*!< Number of unified preconditions */
     unsigned char flag_blocked:1; /*!< True if no new children are allowed */
     unsigned char flag_pre_unified:1; /*!< True if the node unified
                                            a new precondition */
     unsigned char flag_static_arg:1; /*!< True if the node corresponds to an
                                           argument of a static fact */
-    pddl_obj_size_t child_size;
-    pddl_obj_size_t child_alloc;
+    int child_size;
+    int child_alloc;
     struct pddl_strips_ground_tnode **child;
 } pddl_packed;
 typedef struct pddl_strips_ground_tnode pddl_strips_ground_tnode_t;

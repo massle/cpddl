@@ -16,6 +16,8 @@
 #include "pddl/cp.h"
 #include "pddl/hfunc.h"
 #include "pddl/subprocess.h"
+#include "pddl/libs_info.h"
+#include "pddl/pddl_file.h"
 #include "_cp.h"
 
 #define HASH_SEED 7307
@@ -611,7 +613,9 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
         fprintf(fout, "solve satisfy;\n");
 
     }else if (cp->objective == OBJ_MIN_COUNT_DIFF){
-        ASSERT_RUNTIME(pddlISetSize(&cp->obj_ivars) > 0);
+        PANIC_IF(pddlISetSize(&cp->obj_ivars) <= 0,
+                 "Cannot minimize number of different values without any"
+                 " integer variable.");
         fprintf(fout, "var int: obj_val = nvalue([x%d",
                 pddlISetGet(&cp->obj_ivars, 0));
         for (int i = 1; i < pddlISetSize(&cp->obj_ivars); ++i)
@@ -631,6 +635,17 @@ void pddlCPWriteMinizinc(const pddl_cp_t *cp, FILE *fout)
 void pddlCPSetDefaultSolver(pddl_cp_solver_t solver_id)
 {
     default_solver = solver_id;
+}
+
+pddl_bool_t pddlCPIsSolverAvailable(pddl_cp_solver_t solver_id)
+{
+    if (solver_id == PDDL_CP_SOLVER_CPOPTIMIZER){
+        return pddl_cp_optimizer_version != NULL;
+
+    }else if (solver_id == PDDL_CP_SOLVER_MINIZINC){
+        return strlen(PDDL_MINIZINC_BIN) > 0 && pddlIsFile(PDDL_MINIZINC_BIN);
+    }
+    return pddl_false;
 }
 
 static int solve(const pddl_cp_t *cp,

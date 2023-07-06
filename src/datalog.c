@@ -82,7 +82,7 @@ struct pddl_datalog_const {
     unsigned id;
     int idx;
     char *name;
-    pddl_obj_id_t user_id;
+    int user_id;
 };
 typedef struct pddl_datalog_const pddl_datalog_const_t;
 
@@ -946,22 +946,22 @@ static int cmpRuleIds(const void *a, const void *b, void *_d)
 }
 
 /** Returns true if rule1 and rule2 can be merged */
-static int canMerge(pddl_datalog_t *dl,
-                    const pddl_datalog_rule_t *rule1,
-                    const pddl_datalog_rule_t *rule2,
-                    const int *pred_num_achievers)
+static pddl_bool_t canMerge(pddl_datalog_t *dl,
+                            const pddl_datalog_rule_t *rule1,
+                            const pddl_datalog_rule_t *rule2,
+                            const int *pred_num_achievers)
 {
     if (pred_num_achievers[rule1->head.pred] != 1)
-        return 0;
+        return pddl_false;
     if (pred_num_achievers[rule2->head.pred] != 1)
-        return 0;
+        return pddl_false;
     if (dl->pred[rule1->head.pred].arity != dl->pred[rule2->head.pred].arity)
-        return 0;
+        return pddl_false;
     if (pddlDatalogAtomCmpArgs(dl, &rule1->head, &rule2->head) != 0)
-        return 0;
+        return pddl_false;
     if (pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2) != 0)
-        return 0;
-    return 1;
+        return pddl_false;
+    return pddl_true;
 }
 
 static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
@@ -1034,13 +1034,13 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
     return 0;
 }
 
-int pddlDatalogIsSafe(const pddl_datalog_t *dl)
+pddl_bool_t pddlDatalogIsSafe(const pddl_datalog_t *dl)
 {
     for (int i = 0; i < dl->rule_size; ++i){
         if (!pddlDatalogRuleIsSafe(dl, dl->rule + i))
-            return 0;
+            return pddl_false;
     }
-    return 1;
+    return pddl_true;
 }
 
 int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
@@ -1189,7 +1189,7 @@ static void ruleBodyWeight(pddl_datalog_t *dl,
                 *w = f->weight;
 
         }else{
-            ASSERT_RUNTIME(0);
+            PANIC("Unkown weight type.");
         }
     }
 }
@@ -1407,12 +1407,12 @@ void pddlDatalogFactsFromCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        void *user_data),
             void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
-    pddl_obj_id_t arg[arity];
+    int arg[arity];
     int fact_id;
     PDDL_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
@@ -1428,13 +1428,13 @@ void pddlDatalogFactsFromWeightedCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data)
 {
     int arity = dl->pred[TO_IDX(pred)].arity;
-    pddl_obj_id_t arg[arity];
+    int arg[arity];
     int fact_id;
     PDDL_ISET_FOR_EACH(&dl->db.pred_to_fact[TO_IDX(pred)], fact_id){
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
@@ -1450,7 +1450,7 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
             unsigned _goal_pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data)
@@ -1487,7 +1487,7 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
         pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
         int p = dl->pred[f->pred].user_id;
         int arity = dl->pred[f->pred].arity;
-        pddl_obj_id_t arg[arity];
+        int arg[arity];
         for (int i = 0; i < arity; ++i)
             arg[i] = dl->c[f->arg[i]].user_id;
         fn(p, arity, arg, &f->weight, user_data);
@@ -1512,12 +1512,12 @@ void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
                             unsigned in_pred,
                             const unsigned *in_arg)
 {
-    ASSERT_RUNTIME(IS_PRED(in_pred));
+    PANIC_IF(!IS_PRED(in_pred), "Requires a predicate.");
     int pred = TO_IDX(in_pred);
     int arg_size = dl->pred[pred].arity;
     int arg[arg_size];
     for (int i = 0; i < arg_size; ++i){
-        ASSERT_RUNTIME(IS_CONST(in_arg[i]));
+        PANIC_IF(!IS_CONST(in_arg[i]), "Requires constants as arguments.");
         arg[i] = TO_IDX(in_arg[i]);
     }
     dbAddFact(dl, &dl->db, pred, arg);
@@ -1554,7 +1554,8 @@ int pddlDatalogAtomCmpArgs(const pddl_datalog_t *dl,
                            const pddl_datalog_atom_t *atom1,
                            const pddl_datalog_atom_t *atom2)
 {
-    ASSERT_RUNTIME(dl->pred[atom1->pred].arity == dl->pred[atom2->pred].arity);
+    PANIC_IF(dl->pred[atom1->pred].arity != dl->pred[atom2->pred].arity,
+             "Mismatched arities.");
     return memcmp(atom1->arg, atom2->arg,
                   sizeof(unsigned) * dl->pred[atom1->pred].arity);
 }
@@ -1712,8 +1713,8 @@ void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
     rule->weight = *weight;
 }
 
-int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
-                          const pddl_datalog_rule_t *rule)
+pddl_bool_t pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
+                                  const pddl_datalog_rule_t *rule)
 {
     PDDL_ISET(body_vars);
     for (int i = 0; i < rule->body_size; ++i){
@@ -1727,12 +1728,12 @@ int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
     for (int j = 0; j < arity; ++j){
         if (IS_VAR(rule->head.arg[j])){
             if (!pddlISetIn(TO_IDX(rule->head.arg[j]), &body_vars))
-                return 0;
+                return pddl_false;
         }
     }
     pddlISetFree(&body_vars);
 
-    return 1;
+    return pddl_true;
 }
 
 

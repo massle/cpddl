@@ -51,7 +51,7 @@ struct pddl_datalog_rule {
     pddl_cost_t weight;
 
     pddl_iset_t var_set;
-    int is_safe;
+    pddl_bool_t is_safe;
     pddl_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
@@ -120,7 +120,7 @@ void pddlDatalogRmRules(pddl_datalog_t *dl, const pddl_iset_t *rm_rules);
  * Returns true if the program is safe, i.e., all variables from head are
  * in body.
  */
-int pddlDatalogIsSafe(const pddl_datalog_t *dl);
+pddl_bool_t pddlDatalogIsSafe(const pddl_datalog_t *dl);
 
 /**
  * Transforms the datalog to the normal form according to
@@ -182,7 +182,7 @@ void pddlDatalogFactsFromCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        void *user_data),
             void *user_data);
 
@@ -195,7 +195,7 @@ void pddlDatalogFactsFromWeightedCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
@@ -213,7 +213,7 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
             unsigned goal_pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
@@ -347,8 +347,8 @@ void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
  * Returns true if the program is safe, i.e., all variables from head are
  * in body.
  */
-int pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
-                          const pddl_datalog_rule_t *rule);
+pddl_bool_t pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
+                                  const pddl_datalog_rule_t *rule);
 
 
 void pddlDatalogPrintRule(const pddl_datalog_t *dl,

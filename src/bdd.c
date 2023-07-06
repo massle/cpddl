@@ -93,7 +93,7 @@ pddl_bdd_t *pddlBDDClone(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
     return bdd;
 }
 
-int pddlBDDIsFalse(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
+pddl_bool_t pddlBDDIsFalse(pddl_bdd_manager_t *mgr, pddl_bdd_t *bdd)
 {
     return (B(bdd) == Cudd_ReadLogicZero(M(mgr)));
 }

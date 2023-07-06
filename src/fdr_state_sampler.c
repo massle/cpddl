@@ -40,7 +40,7 @@ static void nextSyntacticMutex(pddl_fdr_state_sampler_t *s, int *state)
             pddlISetAdd(&sstate, s->fdr->var.var[var].val[val].global_id);
         }
         if (++count % 100000UL == 0UL)
-            PDDL_INFO(s->err, "state-sampler: tried %lu random states", count);
+            LOG(s->err, "state-sampler: tried %lu random states", count);
     } while (pddlMutexPairsIsMutexSet(s->mutex, &sstate));
     pddlISetFree(&sstate);
 }

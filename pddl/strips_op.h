@@ -47,7 +47,7 @@ struct pddl_strips_op {
 
     int id;
     int pddl_action_id; /*!< ID of the corresponding PDDL action schema */
-    pddl_obj_id_t *action_args;
+    int *action_args;
     int action_args_size;
 };
 typedef struct pddl_strips_op pddl_strips_op_t;
@@ -129,8 +129,8 @@ void pddlStripsOpApplyOnState(const pddl_strips_op_t *op,
 /**
  * Returns true if o enables p, i.e., if add(o) \cap pre(p) \neq \emptyset.
  */
-_pddl_inline int pddlStripsOpEnable(const pddl_strips_op_t *o,
-                                    const pddl_strips_op_t *p)
+_pddl_inline pddl_bool_t pddlStripsOpEnable(const pddl_strips_op_t *o,
+                                            const pddl_strips_op_t *p)
 {
     return pddlISetIntersectionSizeAtLeast(&o->add_eff, &p->pre, 1);
 }
@@ -138,8 +138,8 @@ _pddl_inline int pddlStripsOpEnable(const pddl_strips_op_t *o,
 /**
  * Returns true if o disables p, i.e., if del(o) \cap pre(p) \neq \emptyset.
  */
-_pddl_inline int pddlStripsOpDisable(const pddl_strips_op_t *o,
-                                     const pddl_strips_op_t *p)
+_pddl_inline pddl_bool_t pddlStripsOpDisable(const pddl_strips_op_t *o,
+                                             const pddl_strips_op_t *p)
 {
     return pddlISetIntersectionSizeAtLeast(&o->del_eff, &p->pre, 1);
 }
@@ -148,8 +148,8 @@ _pddl_inline int pddlStripsOpDisable(const pddl_strips_op_t *o,
  * Returns true if o is in conflict with p, i.e., if add(o) \cap del(p)
  * \neq \emptysetif or add(p) \cap del(o) \neq \emptyset.
  */
-_pddl_inline int pddlStripsOpInConflict(const pddl_strips_op_t *o,
-                                        const pddl_strips_op_t *p)
+_pddl_inline pddl_bool_t pddlStripsOpInConflict(const pddl_strips_op_t *o,
+                                                const pddl_strips_op_t *p)
 
 {
     return pddlISetIntersectionSizeAtLeast(&p->del_eff, &o->add_eff, 1)
@@ -160,8 +160,8 @@ _pddl_inline int pddlStripsOpInConflict(const pddl_strips_op_t *o,
  * Returns true if the operators interfere, i.e., if one disables the other
  * or they are in conflict.
  */
-_pddl_inline int pddlStripsOpInterfere(const pddl_strips_op_t *o,
-                                       const pddl_strips_op_t *p)
+_pddl_inline pddl_bool_t pddlStripsOpInterfere(const pddl_strips_op_t *o,
+                                               const pddl_strips_op_t *p)
 {
     return pddlStripsOpDisable(o, p)
             || pddlStripsOpDisable(p, o)

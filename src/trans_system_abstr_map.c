@@ -91,7 +91,7 @@ void pddlTransSystemAbstrMapCondense(pddl_trans_system_abstr_map_t *map,
     int state;
     PDDL_ISET_FOR_EACH(states, state){
         if (map->map[state] >= 0){
-            ASSERT_RUNTIME(map->map[state] == state);
+            ASSERT(map->map[state] == state);
             map->map[state] = to;
         }
     }

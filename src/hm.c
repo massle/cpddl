@@ -16,6 +16,7 @@
  * See the License for more information.
  */
 
+#include "internal.h"
 #include "pddl/critical_path.h"
 
 int pddlHm(int m,
@@ -29,13 +30,13 @@ int pddlHm(int m,
 {
     if (m == 1){
         if (time_limit > 0 || excess_memory > 0 || mutex != NULL)
-            PDDL_INFO(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
+            LOG(err, "h^1 using pddlHm() ignores mutex pairs, time limit"
                        " and memory limit");
         return pddlH1(strips, unreachable_facts, unreachable_ops, err);
 
     }else if (m == 2){
         if (excess_memory > 0)
-            PDDL_INFO(err, "h^2 using pddlHm() ignores the memory limit");
+            LOG(err, "h^2 using pddlHm() ignores the memory limit");
         return pddlH2(strips, mutex, unreachable_facts, unreachable_ops,
                       time_limit, err);
 
@@ -44,7 +45,7 @@ int pddlHm(int m,
                       time_limit, excess_memory, err);
 
     }else{
-        PDDL_INFO(err, "h^%d not supported!", m);
+        LOG(err, "h^%d not supported!", m);
         return -1;
     }
 }

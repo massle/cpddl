@@ -3,16 +3,16 @@
 #include "print_to_file.h"
 
 static struct {
-    int help;
-    int version;
+    pddl_bool_t help;
+    pddl_bool_t version;
     int max_mem;
     char *log_out;
 
     char *train;
     char *train_save_prefix;
     char *eval;
-    int eval_write_plans;
-    int eval_benchmark_trainer;
+    pddl_bool_t eval_write_plans;
+    pddl_bool_t eval_benchmark_trainer;
     char *info;
     char *gen;
 } opt;
@@ -95,8 +95,7 @@ static int parseOpts(int argc, char *argv[])
 
     if (opt.log_out != NULL){
         log_out = openFile(opt.log_out);
-        pddlErrWarnEnable(&err, log_out);
-        pddlErrInfoEnable(&err, log_out);
+        pddlErrLogEnable(&err, log_out);
     }
 
     if (opt.max_mem > 0){
@@ -119,10 +118,7 @@ int main(int argc, char *argv[])
     pddlTimerStart(&timer);
 
     if (parseOpts(argc, argv) != 0){
-        if (pddlErrIsSet(&err)){
-            fprintf(stderr, "Error: ");
-            pddlErrPrint(&err, 1, stderr);
-        }
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
@@ -134,10 +130,7 @@ int main(int argc, char *argv[])
     pddl_asnets_config_t cfg;
     if (config_file != NULL){
         if (pddlASNetsConfigInitFromFile(&cfg, config_file, &err) != 0){
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }else{
@@ -152,10 +145,7 @@ int main(int argc, char *argv[])
     if (opt.train != NULL || opt.eval != NULL){
         asnets = pddlASNetsNew(&cfg, &err);
         if (asnets == NULL){
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }
@@ -166,39 +156,25 @@ int main(int argc, char *argv[])
         if (ret == 0){
             ret = pddlASNetsSave(asnets, opt.train, &err);
         }else{
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
         }
 
     }else if (opt.eval != NULL){
         ret = pddlASNetsLoad(asnets, opt.eval, &err);
         if (ret < 0){
-            fprintf(stderr, "Error: ");
             pddlErrPrint(&err, 1, stderr);
             return -1;
         }
 
-        switch (cfg.is_osp_problem)
-        {
-        case 0:
-            pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
-            break;
-
-        case 1:
+        if (cfg.is_osp_problem){
             pddlASNetsEvaluateOSP(asnets, opt.eval_write_plans, opt.eval_benchmark_trainer, &err);
-            break;
-        
-        default:
+        }else{
             pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
-            break;
         }
 
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);
         if (ret < 0){
-            fprintf(stderr, "Error: ");
             pddlErrPrint(&err, 1, stderr);
             return -1;
         }

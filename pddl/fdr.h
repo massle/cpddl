@@ -32,9 +32,9 @@ struct pddl_fdr {
     pddl_fdr_ops_t op;
     int *init;
     pddl_fdr_part_state_t goal;
-    int goal_is_unreachable;
-    int has_cond_eff;
-    int is_shallow_copy;
+    pddl_bool_t goal_is_unreachable;
+    pddl_bool_t has_cond_eff;
+    pddl_bool_t is_shallow_copy;
 };
 typedef struct pddl_fdr pddl_fdr_t;
 
@@ -109,7 +109,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
 
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,
-                    int use_fd_fact_names,
+                    pddl_bool_t use_fd_fact_names,
                     FILE *fout);
 
 struct pddl_fdr_write_config {
@@ -118,14 +118,14 @@ struct pddl_fdr_write_config {
     /** If set, the task will be written to this stream */
     FILE *fout;
     /** If set to true, Fast Downward format is used. */
-    int fd;
+    pddl_bool_t fd;
     /** If set to true, Fast Downward style of fact names is used */
-    int use_fd_fact_names;
+    pddl_bool_t use_fd_fact_names;
     /** If set, given mutex groups will be printed out */
     const pddl_mgroups_t *mgroups;
     /** If set to true, IDs of operators are incorporated in the names of
      *  operators */
-    int encode_op_ids;
+    pddl_bool_t encode_op_ids;
     /** If set to true, hard_goals, soft_goals and other details are included */
     int use_osp_params;
     /** If set to true, will treat all goals as soft goals*/
@@ -137,10 +137,10 @@ typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
     { \
         NULL, /* .filename */ \
         NULL, /* .fout */ \
-        1, /* .fd */ \
-        0, /* .use_fd_fact_names */ \
+        pddl_true, /* .fd */ \
+        pddl_false, /* .use_fd_fact_names */ \
         NULL, /* .mgroups */ \
-        0, /* .encode_op_ids */ \
+        pddl_false, /* .encode_op_ids */ \
         0, /* .use_osp_params */ \
         0, /* .all_soft_goals */ \
     }

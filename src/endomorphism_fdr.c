@@ -218,7 +218,8 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         char name[128];
         snprintf(name, 128, "%d:(%s)", fi, val->name);
         int id = pddlCPAddIVar(cp, 0, var->val_size - 1, name);
-        ASSERT_RUNTIME(id == fi);
+        PANIC_IF(id != fi, "We require one-to-one mapping between variable"
+                 " and fact IDs.");
     }
     LOG(err, "Created %d fact variables",
         fdr->var.global_id_size);
@@ -232,7 +233,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
         char name[128];
         snprintf(name, 128, "%d:(%s)", oi, op->name);
         int id = pddlCPAddIVar(cp, 0, fdr->op.op_size - 1, name);
-        ASSERT_RUNTIME(op->id + op_var_offset == id);
+        PANIC_IF(op->id + op_var_offset != id, "Invalid variable ID");
     }
     LOG(err, "Created %d operator variables", fdr->op.op_size);
     if (pddlTimeLimitCheck(time_limit) != 0)
@@ -271,7 +272,7 @@ static int fdrSetModel(const pddl_fdr_t *fdr,
             num_op_constr += fdrOpConstr(fdr, cfg, op, group, cp,
                                          op_var_offset, err);
         }
-        //PDDL_INFO(err, "  Created operator constraints %d",
+        //LOG(err, "  Created operator constraints %d",
         //         pddlISetSize(&opg.group[group_id]));
     }
     LOG(err, "Added %d operator constraints", num_op_constr);
@@ -359,11 +360,11 @@ int pddlEndomorphismFDR(const pddl_fdr_t *fdr,
     pddl_cp_sol_t cpsol;
     int sret = pddlCPSolve(&cp, &sol_cfg, &cpsol, err);
     // There must exist a solution -- at least identity
-    ASSERT_RUNTIME(sret == PDDL_CP_FOUND
-                    || sret == PDDL_CP_FOUND_SUBOPTIMAL
-                    || sret == PDDL_CP_ABORTED);
+    PANIC_IF(sret != PDDL_CP_FOUND
+                && sret != PDDL_CP_FOUND_SUBOPTIMAL
+                && sret != PDDL_CP_ABORTED, "Unexpected result.");
     if (sret == PDDL_CP_FOUND || sret == PDDL_CP_FOUND_SUBOPTIMAL){
-        ASSERT_RUNTIME(cpsol.num_solutions == 1);
+        ASSERT(cpsol.num_solutions == 1);
         extractSol(cpsol.isol[0], fdr->var.global_id_size, fdr->op.op_size, sol);
         LOG(err, "Found a solution with %d redundant ops",
             pddlISetSize(&sol->redundant_ops));

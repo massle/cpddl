@@ -238,7 +238,7 @@ static void groundFree(ground_t *g)
     FREE(g->dlvar);
 }
 
-static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
+static void insertAtom(int pred, int arity, const int *arg, void *ud)
 {
     ground_t *g = ud;
 
@@ -252,7 +252,7 @@ static void insertAtom(int pred, int arity, const pddl_obj_id_t *arg, void *ud)
 
 static void insertAction(int pred,
                          int arity,
-                         const pddl_obj_id_t *arg,
+                         const int *arg,
                          void *ud)
 {
     ground_t *g = ud;
@@ -268,7 +268,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
     CTX_NO_TIME(err, "Cfg");
     pddlGroundConfigLog(cfg, err);
     CTXEND(err);
-    PDDL_INFO(err, "Grounding using datalog ...");
+    LOG(err, "Grounding using datalog ...");
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
@@ -291,7 +291,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                                            &ground);
     }
 
-    PDDL_INFO(err, "Grounding finished: %d actions, %d facts,"
+    LOG(err, "Grounding finished: %d actions, %d facts,"
               " %d static facts, %d functions",
               ground.strips_maker.num_action_args,
               ground.strips_maker.ground_atom.atom_size,
@@ -307,7 +307,7 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
         PDDL_TRACE_RET(err, ret);
     }
 
-    PDDL_INFO(err, "Grounding finished.");
+    LOG(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
     CTXEND(err);
     return 0;

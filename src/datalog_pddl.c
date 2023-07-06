@@ -28,6 +28,43 @@ int pddlDatalogPddlMaxVarSize(const pddl_t *pddl)
     return max_var_size;
 }
 
+void pddlDatalogPddlAddFactRule(pddl_datalog_t *dl,
+                                unsigned pred_id,
+                                int arg_size,
+                                const int *args,
+                                const unsigned *obj_to_dlconst)
+{
+    pddl_datalog_atom_t atom;
+    pddl_datalog_rule_t rule;
+    pddlDatalogRuleInit(dl, &rule);
+    pddlDatalogAtomInit(dl, &atom, pred_id);
+    for (int i = 0; i < arg_size; ++i)
+        pddlDatalogAtomSetArg(dl, &atom, i, obj_to_dlconst[args[i]]);
+    pddlDatalogRuleSetHead(dl, &rule, &atom);
+    pddlDatalogAtomFree(dl, &atom);
+    pddlDatalogAddRule(dl, &rule);
+    pddlDatalogRuleFree(dl, &rule);
+}
+
+void pddlDatalogPddlAddFactRuleFromAtom(pddl_datalog_t *dl,
+                                        const pddl_fm_atom_t *a,
+                                        const unsigned *pred_to_dlpred,
+                                        const unsigned *obj_to_dlconst)
+{
+    pddl_datalog_atom_t atom;
+    pddl_datalog_rule_t rule;
+    pddlDatalogRuleInit(dl, &rule);
+    pddlDatalogAtomInit(dl, &atom, pred_to_dlpred[a->pred]);
+    for (int i = 0; i < a->arg_size; ++i){
+        ASSERT(a->arg[i].obj >= 0);
+        pddlDatalogAtomSetArg(dl, &atom, i, obj_to_dlconst[a->arg[i].obj]);
+    }
+    pddlDatalogRuleSetHead(dl, &rule, &atom);
+    pddlDatalogAtomFree(dl, &atom);
+    pddlDatalogAddRule(dl, &rule);
+    pddlDatalogRuleFree(dl, &rule);
+}
+
 void pddlDatalogPddlAddTypeRules(pddl_datalog_t *dl,
                                  const pddl_t *pddl,
                                  const unsigned *type_to_dlpred,
@@ -37,18 +74,10 @@ void pddlDatalogPddlAddTypeRules(pddl_datalog_t *dl,
         if (type_to_dlpred[ti] == UINT_MAX)
             continue;
         int size;
-        const pddl_obj_id_t *objs;
-        objs = pddlTypesObjsByType(&pddl->type, ti, &size);
+        const int *objs = pddlTypesObjsByType(&pddl->type, ti, &size);
         for (int i = 0; i < size; ++i){
-            pddl_datalog_atom_t atom;
-            pddl_datalog_rule_t rule;
-            pddlDatalogRuleInit(dl, &rule);
-            pddlDatalogAtomInit(dl, &atom, type_to_dlpred[ti]);
-            pddlDatalogAtomSetArg(dl, &atom, 0, obj_to_dlconst[objs[i]]);
-            pddlDatalogRuleSetHead(dl, &rule, &atom);
-            pddlDatalogAtomFree(dl, &atom);
-            pddlDatalogAddRule(dl, &rule);
-            pddlDatalogRuleFree(dl, &rule);
+            pddlDatalogPddlAddFactRule(dl, type_to_dlpred[ti], 1, objs + i,
+                                       obj_to_dlconst);
         }
     }
 }
@@ -60,16 +89,9 @@ void pddlDatalogPddlAddEqRules(pddl_datalog_t *dl,
 {
     int eqp = pddl->pred.eq_pred;
     for (int i = 0; i < pddl->obj.obj_size; ++i){
-        pddl_datalog_atom_t atom;
-        pddl_datalog_rule_t rule;
-        pddlDatalogRuleInit(dl, &rule);
-        pddlDatalogAtomInit(dl, &atom, pred_to_dlpred[eqp]);
-        pddlDatalogAtomSetArg(dl, &atom, 0, obj_to_dlconst[i]);
-        pddlDatalogAtomSetArg(dl, &atom, 1, obj_to_dlconst[i]);
-        pddlDatalogRuleSetHead(dl, &rule, &atom);
-        pddlDatalogAtomFree(dl, &atom);
-        pddlDatalogAddRule(dl, &rule);
-        pddlDatalogRuleFree(dl, &rule);
+        int args[2] = { i, i };
+        pddlDatalogPddlAddFactRule(dl, pred_to_dlpred[eqp], 2, args,
+                                   obj_to_dlconst);
     }
 }
 

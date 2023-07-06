@@ -96,7 +96,7 @@ void pddlOpMutexPairsRm(pddl_op_mutex_pairs_t *m, int o1, int o2);
 /**
  * Returns true if two operators are mutex.
  */
-int pddlOpMutexPairsIsMutex(const pddl_op_mutex_pairs_t *m, int o1, int o2);
+pddl_bool_t pddlOpMutexPairsIsMutex(const pddl_op_mutex_pairs_t *m, int o1, int o2);
 
 /**
  * m = m \setminus n

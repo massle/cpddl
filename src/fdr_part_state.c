@@ -106,19 +106,19 @@ int pddlFDRPartStateGet(const pddl_fdr_part_state_t *ps, int var)
     return -1;
 }
 
-int pddlFDRPartStateIsSet(const pddl_fdr_part_state_t *ps, int var)
+pddl_bool_t pddlFDRPartStateIsSet(const pddl_fdr_part_state_t *ps, int var)
 {
     return pddlFDRPartStateGet(ps, var) >= 0;
 }
 
-int pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
-                                          const int *state)
+pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *ps,
+                                                  const int *state)
 {
     for (int i = 0; i < ps->fact_size; ++i){
         if (state[ps->fact[i].var] != ps->fact[i].val)
-            return 0;
+            return pddl_false;
     }
-    return 1;
+    return pddl_true;
 }
 
 int pddlFDRCountPartStateConsistentWithState(const pddl_fdr_part_state_t *ps,

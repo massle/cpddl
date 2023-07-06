@@ -43,11 +43,8 @@ static pddl_homomorphism_heur_t *
             pddlISetAdd(&homo_cfg.collapse_types, type);
     }
     pddl_homomorphism_heur_t *heur;
-    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
-        fprintf(stderr, "Error: ");
-        pddlErrPrint(err, 1, stderr);
-        return NULL;
-    }
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL)
+        PDDL_TRACE_RET(err, NULL);
     return heur;
 }
 
@@ -67,7 +64,7 @@ static pddl_homomorphism_heur_t *
                 continue;
 
             int hval = pddlHomomorphismHeurEvalGroundInit(h);
-            PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
+            PDDL_LOG(err, "Homomorph heur: Heuristic value for the init: %d", hval);
             if (hval > best_hval && hval != PDDL_COST_DEAD_END){
                 if (heur != NULL)
                     pddlHomomorphismHeurDel(heur);
@@ -90,11 +87,8 @@ static pddl_homomorphism_heur_t *
     pddl_homomorphism_config_t homo_cfg = opt.lifted_planner.homomorph_cfg;
     homo_cfg.random_seed = seed;
     pddl_homomorphism_heur_t *heur;
-    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL){
-        fprintf(stderr, "Error: ");
-        pddlErrPrint(err, 1, stderr);
-        return NULL;
-    }
+    if ((heur = heur_fn(pddl, &homo_cfg, err)) == NULL)
+        PDDL_TRACE_RET(err, NULL);
     return heur;
 }
 
@@ -109,8 +103,11 @@ static pddl_homomorphism_heur_t *
     for (int i = 0; i < opt.lifted_planner.homomorph_samples; ++i){
         pddl_homomorphism_heur_t *h;
         h = _liftedPlannerHeurCollapseRandom(pddl, heur_fn, seed, err);
+        if (h == NULL)
+            continue;
+
         int hval = pddlHomomorphismHeurEvalGroundInit(h);
-        PDDL_INFO(err, "Homomorph heur: Heuristic value for the init: %d", hval);
+        PDDL_LOG(err, "Homomorph heur: Heuristic value for the init: %d", hval);
         if (hval > best_hval && hval != PDDL_COST_DEAD_END){
             if (heur != NULL)
                 pddlHomomorphismHeurDel(heur);
@@ -170,25 +167,31 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     pddl_lifted_heur_t *heur = NULL;
     switch (opt.lifted_planner.heur){
         case LIFTED_PLAN_HEUR_BLIND:
-            PDDL_INFO(err, "cfg.heur = blind");
+            PDDL_LOG(err, "cfg.heur = blind");
             heur = pddlLiftedHeurBlind();
             break;
         case LIFTED_PLAN_HEUR_HMAX:
-            PDDL_INFO(err, "cfg.heur = hmax");
+            PDDL_LOG(err, "cfg.heur = hmax");
             heur = pddlLiftedHeurHMax(pddl, err);
             break;
         case LIFTED_PLAN_HEUR_HADD:
-            PDDL_INFO(err, "cfg.heur = hadd");
+            PDDL_LOG(err, "cfg.heur = hadd");
             heur = pddlLiftedHeurHAdd(pddl, err);
             break;
         case LIFTED_PLAN_HEUR_HOMO_LMC:
         case LIFTED_PLAN_HEUR_HOMO_FF:
             heur_homo = liftedHomomorphHeur(pddl, err);
-            heur = pddlLiftedHeurHomomorphism(heur_homo);
+            if (heur_homo != NULL)
+                heur = pddlLiftedHeurHomomorphism(heur_homo);
             break;
         default:
             PDDL_PANIC("Unknown lifted heuristic.");
             break;
+    }
+
+    if (pddlErrIsSet(err)){
+        PDDL_CTXEND(err);
+        PDDL_TRACE_RET(err, -1);
     }
 
     pddl_lifted_search_config_t search_cfg = PDDL_LIFTED_SEARCH_CONFIG_INIT;
@@ -198,11 +201,11 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     switch (opt.lifted_planner.succ_gen){
         case LIFTED_PLAN_SUCC_GEN_DL:
             search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_DL;
-            PDDL_INFO(err, "Search successor generator: datalog");
+            PDDL_LOG(err, "Search successor generator: datalog");
             break;
         case LIFTED_PLAN_SUCC_GEN_SQL:
             search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_SQL;
-            PDDL_INFO(err, "Search successor generator: sql");
+            PDDL_LOG(err, "Search successor generator: sql");
             break;
         default:
             search_cfg.succ_gen = PDDL_LIFTED_APP_ACTION_DL;
@@ -211,15 +214,15 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     switch (opt.lifted_planner.search){
         case LIFTED_PLAN_ASTAR:
             search_cfg.alg = PDDL_LIFTED_SEARCH_ASTAR;
-            PDDL_INFO(err, "Search: astar");
+            PDDL_LOG(err, "Search: astar");
             break;
         case LIFTED_PLAN_GBFS:
             search_cfg.alg = PDDL_LIFTED_SEARCH_GBFS;
-            PDDL_INFO(err, "Search: gbfs");
+            PDDL_LOG(err, "Search: gbfs");
             break;
         case LIFTED_PLAN_LAZY:
             search_cfg.alg = PDDL_LIFTED_SEARCH_LAZY;
-            PDDL_INFO(err, "Search: lazy");
+            PDDL_LOG(err, "Search: lazy");
             break;
         default:
             PDDL_PANIC("Unknown lifted planner %d", opt.lifted_planner.search);
@@ -250,18 +253,18 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
     pddlLiftedSearchStatLog(search, err);
 
     if (st == PDDL_LIFTED_SEARCH_UNSOLVABLE){
-        PDDL_INFO(err, "Problem is unsolvable.");
+        PDDL_LOG(err, "Problem is unsolvable.");
 
     }else if (st == PDDL_LIFTED_SEARCH_FOUND){
-        PDDL_INFO(err, "Plan found.");
+        PDDL_LOG(err, "Plan found.");
         const pddl_lifted_plan_t *plan = pddlLiftedSearchPlan(search);
-        PDDL_INFO(err, "Plan Cost: %d", plan->plan_cost);
-        PDDL_INFO(err, "Plan Length: %d", plan->plan_len);
+        PDDL_LOG(err, "Plan Cost: %d", plan->plan_cost);
+        PDDL_LOG(err, "Plan Length: %d", plan->plan_len);
         PRINT_TO_FILE(err, opt.lifted_planner.plan_out, "plan",
                       pddlLiftedSearchPlanPrint(search, fout));
 
     }else if (st == PDDL_LIFTED_SEARCH_ABORT){
-        PDDL_INFO(err, "Search aborted.");
+        PDDL_LOG(err, "Search aborted.");
 
     }else{
         PDDL_PANIC("Unkown return status: %d", (int)st);

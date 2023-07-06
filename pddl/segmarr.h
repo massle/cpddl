@@ -64,7 +64,7 @@ void pddlSegmArrDel(pddl_segmarr_t *arr);
  * the array is expanded.
  */
 _pddl_inline void *pddlSegmArrGet(pddl_segmarr_t *arr, size_t i);
-_pddl_inline void *pddlSegmArrConstGet(const pddl_segmarr_t *arr, size_t i);
+_pddl_inline const void *pddlSegmArrConstGet(const pddl_segmarr_t *arr, size_t i);
 
 /**
  * Allocates additional segments to have num_segs overall.
@@ -83,7 +83,7 @@ _pddl_inline void *pddlSegmArrGet(pddl_segmarr_t *arr, size_t i)
     return &arr->segm[segm_id][offset];
 }
 
-_pddl_inline void *pddlSegmArrConstGet(const pddl_segmarr_t *arr, size_t i)
+_pddl_inline const void *pddlSegmArrConstGet(const pddl_segmarr_t *arr, size_t i)
 {
     size_t segm_id = i / arr->els_per_segm;
     size_t offset  = (i % arr->els_per_segm) * arr->el_size;

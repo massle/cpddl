@@ -20,7 +20,6 @@
 #ifndef __PDDL_ACTION_H__
 #define __PDDL_ACTION_H__
 
-#include <pddl/lisp.h>
 #include <pddl/obj.h>
 #include <pddl/param.h>
 #include <pddl/fm.h>
@@ -74,6 +73,11 @@ void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl);
 int pddlActionsParse(pddl_t *pddl, pddl_err_t *err);
 
 /**
+ * Initializes empty set of actions.
+ */
+void pddlActionsInit(pddl_actions_t *a);
+
+/**
  * Initializes dst as a deep copy of src.
  */
 void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src);
@@ -96,6 +100,11 @@ pddl_action_t *pddlActionsAddEmpty(pddl_actions_t *as);
 pddl_action_t *pddlActionsAddCopy(pddl_actions_t *as, int copy_id);
 
 /**
+ * Rename actions so that there are no two actions with the same name.
+ */
+void pddlActionsEnforceUniqueNames(pddl_actions_t *a);
+
+/**
  * Split all actions by disjunctions in .pre assuming all .pre are in DNF.
  */
 void pddlActionSplit(pddl_action_t *a, pddl_t *pddl);
@@ -108,8 +117,8 @@ void pddlActionAssertPreConjuction(pddl_action_t *a);
 /**
  * Remap object IDs.
  */
-void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap);
-void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap);
+void pddlActionRemapObjs(pddl_action_t *a, const int *remap);
+void pddlActionsRemapObjs(pddl_actions_t *as, const int *remap);
 int pddlActionRemapTypesAndPreds(pddl_action_t *a,
                                  const int *type_remap,
                                  const int *pred_remap,

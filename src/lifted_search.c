@@ -42,7 +42,8 @@ struct pddl_lifted_search_bfs {
     pddl_lifted_heur_t *heur;
     int g_weight;
     int h_weight;
-    int is_lazy;
+    pddl_bool_t is_lazy;
+    pddl_bool_t reopen;
     pddl_open_list_t *list;
 };
 typedef struct pddl_lifted_search_bfs pddl_lifted_search_bfs_t;
@@ -54,7 +55,7 @@ static pddl_state_id_t insertInitState(pddl_lifted_search_t *s);
 static int isGoal(const pddl_lifted_search_t *s);
 static void applyAction(pddl_lifted_search_t *s,
                         const pddl_action_t *action,
-                        const pddl_obj_id_t *args,
+                        const int *args,
                         int *args_id,
                         int *cost);
 static void extractPlan(pddl_lifted_search_t *s, pddl_state_id_t goal_state_id);
@@ -105,11 +106,12 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *bfs);
 static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     int g_weight,
                                     int h_weight,
-                                    int is_lazy,
+                                    pddl_bool_t is_lazy,
+                                    pddl_bool_t reopen,
                                     const char *err_prefix,
                                     pddl_err_t *err)
 {
-    CTX(err, err_prefix);
+    CTX(err, "%s", err_prefix);
     pddl_lifted_search_bfs_t *bfs;
 
     bfs = ZALLOC(pddl_lifted_search_bfs_t);
@@ -120,6 +122,7 @@ static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
     bfs->g_weight = g_weight;
     bfs->h_weight = h_weight;
     bfs->is_lazy = is_lazy;
+    bfs->reopen = reopen;
     bfs->list = pddlOpenListSplayTree2();
 
     CTXEND(err);
@@ -154,11 +157,11 @@ static void bfsPush(pddl_lifted_search_bfs_t *bfs,
 static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
 {
     pddl_lifted_search_bfs_t *bfs = BFS(s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
     pddl_lifted_search_status_t ret = PDDL_LIFTED_SEARCH_CONT;
 
     pddl_state_id_t state_id = insertInitState(s);
-    ASSERT_RUNTIME(state_id == 0);
+    PANIC_IF(state_id != 0, "Initial state ID must be 0.");
 
     setGoal(s);
     if (s->goal_is_unreachable)
@@ -184,7 +187,6 @@ static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
         ret = PDDL_LIFTED_SEARCH_UNSOLVABLE;
     }
 
-    ASSERT_RUNTIME(s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_NEW);
     bfsPush(bfs, &s->cur_node, h_value);
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
     CTXEND(s->err);
@@ -203,6 +205,12 @@ static void bfsInsertNextState(pddl_lifted_search_bfs_t *bfs,
     // Skip if we have better state already
     if (s->next_node.status != PDDL_STRIPS_STATE_SPACE_STATUS_NEW
             && s->next_node.g_value <= next_g_value){
+        return;
+    }
+
+    // Skip if we are not allowed to reopen search nodes
+    if (s->next_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_CLOSED
+            && !bfs->reopen){
         return;
     }
 
@@ -243,7 +251,7 @@ static void bfsInsertNextState(pddl_lifted_search_bfs_t *bfs,
 static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
 {
     pddl_lifted_search_bfs_t *bfs = BFS(s);
-    CTX_NO_TIME(s->err, s->err_prefix);
+    CTX_NO_TIME(s->err, "%s", s->err_prefix);
 
     ++s->_stat.steps;
 
@@ -300,12 +308,23 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
             h_value = h.cost;
             ++s->_stat.evaluated;
         }
+
+        if (h_value == PDDL_COST_DEAD_END){
+            ++s->_stat.dead_end;
+            if (s->cur_node.status == PDDL_STRIPS_STATE_SPACE_STATUS_OPEN)
+                --s->_stat.open;
+            s->cur_node.status = PDDL_STRIPS_STATE_SPACE_STATUS_CLOSED;
+            ++s->_stat.closed;
+            pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
+            CTXEND(s->err);
+            return PDDL_LIFTED_SEARCH_CONT;
+        }
     }
 
     for (int app_i = 0; app_i < app_size; ++app_i){
         int action_id = pddlLiftedAppActionId(s->app_action, app_i);
         const pddl_action_t *action = s->pddl->action.action + action_id;
-        const pddl_obj_id_t *args = pddlLiftedAppActionArgs(s->app_action, app_i);
+        const int *args = pddlLiftedAppActionArgs(s->app_action, app_i);
 
         int cost, args_id;
         applyAction(s, action, args, &args_id, &cost);
@@ -386,8 +405,8 @@ static int _setGoal(pddl_fm_t *c, void *_s)
     pddl_lifted_search_t *s = _s;
     const pddl_t *pddl = s->pddl;
 
-    if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         if (pddlPredIsStatic(&pddl->pred.pred[atom->pred])){
             const pddl_ground_atom_t *ga;
             ga = pddlGroundAtomsFindAtom(&s->strips.ground_atom_static,
@@ -410,11 +429,11 @@ static int _setGoal(pddl_fm_t *c, void *_s)
 
         return 0;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
 
-    }else if (c->type == PDDL_FM_BOOL){
-        const pddl_fm_bool_t *b = PDDL_FM_CAST(c, bool);
+    }else if (pddlFmIsBool(c)){
+        const pddl_fm_bool_t *b = pddlFmToBoolConst(c);
         if (!b->val)
             s->goal_is_unreachable = 1;
         return 0;
@@ -440,8 +459,8 @@ static pddl_state_id_t insertInitState(pddl_lifted_search_t *s)
     PDDL_ISET(init);
     PDDL_LIST_FOR_EACH(&pddl->init->part, item){
         const pddl_fm_t *c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type == PDDL_FM_ATOM){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(c, atom);
+        if (pddlFmIsAtom(c)){
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(c);
             const pddl_ground_atom_t *ga;
             if (pddlPredIsStatic(&pddl->pred.pred[a->pred])){
                 pddlStripsMakerAddStaticAtom(&s->strips, a, NULL, NULL);
@@ -450,8 +469,8 @@ static pddl_state_id_t insertInitState(pddl_lifted_search_t *s)
                 pddlISetAdd(&init, ga->id);
             }
 
-        }else if (c->type == PDDL_FM_ASSIGN){
-            const pddl_fm_func_op_t *ass = PDDL_FM_CAST(c, func_op);
+        }else if (pddlFmIsAssign(c)){
+            const pddl_fm_func_op_t *ass = pddlFmToFuncOpConst(c);
             ASSERT(ass->fvalue == NULL);
             ASSERT(ass->lvalue != NULL);
             ASSERT(pddlFmAtomIsGrounded(ass->lvalue));
@@ -474,7 +493,7 @@ static int isGoal(const pddl_lifted_search_t *s)
 
 static void applyAction(pddl_lifted_search_t *s,
                         const pddl_action_t *action,
-                        const pddl_obj_id_t *args,
+                        const int *args,
                         int *args_id,
                         int *cost)
 {
@@ -551,13 +570,13 @@ pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg
 {
     switch (cfg->alg){
         case PDDL_LIFTED_SEARCH_ASTAR:
-            return bfsNew(cfg, 1, 1, 0, "Lifted A*", err);
+            return bfsNew(cfg, 1, 1, pddl_false, pddl_true, "Lifted A*", err);
 
         case PDDL_LIFTED_SEARCH_LAZY:
-            return bfsNew(cfg, 0, 1, 1, "Lifted Lazy", err);
+            return bfsNew(cfg, 0, 1, pddl_true, pddl_false, "Lifted Lazy", err);
 
         case PDDL_LIFTED_SEARCH_GBFS:
-            return bfsNew(cfg, 0, 1, 0, "Lifted GBFS", err);
+            return bfsNew(cfg, 0, 1, pddl_false, pddl_false, "Lifted GBFS", err);
 
         default:
             ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);

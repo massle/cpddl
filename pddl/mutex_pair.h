@@ -92,37 +92,38 @@ int pddlMutexPairsSetBwMutex(pddl_mutex_pairs_t *m, int f1, int f2);
 /**
  * Returns true if (f1, f2) is a mutex.
  */
-int pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+pddl_bool_t pddlMutexPairsIsMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
  * Returns true if {f1, f2} is forward mutex.
  */
-int pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+pddl_bool_t pddlMutexPairsIsFwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
  * Returns true if {f1, f2} is backward mutex.
  */
-int pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
+pddl_bool_t pddlMutexPairsIsBwMutex(const pddl_mutex_pairs_t *m, int f1, int f2);
 
 /**
  * Returns true if the set is mutex, i.e., it contains some mutex pair or
  * an unreachable fact.
  */
-int pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs);
+pddl_bool_t pddlMutexPairsIsMutexSet(const pddl_mutex_pairs_t *m, const pddl_iset_t *fs);
 
 /**
  * Returns true if {fact} \cup fs is a mutex assuming that fs is not a
  * mutex.
  */
-int pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
-                                 int fact, const pddl_iset_t *fs);
+pddl_bool_t pddlMutexPairsIsMutexFactSet(const pddl_mutex_pairs_t *m,
+                                         int fact, const pddl_iset_t *fs);
 
 /**
  * Returns true if fs1 \cup fs2 is a mutex assuming fs1 and fs2 are not
  * mutexes.
  */
-int pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
-                                const pddl_iset_t *fs1, const pddl_iset_t *fs2);
+pddl_bool_t pddlMutexPairsIsMutexSetSet(const pddl_mutex_pairs_t *m,
+                                        const pddl_iset_t *fs1,
+                                        const pddl_iset_t *fs2);
 
 /**
  * Add to {mutex_with} facts that are mutex with {fact}.

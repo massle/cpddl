@@ -24,26 +24,26 @@
 #define MAX_LEN 512
 #define BUFSIZE 1024
 
-int pddlIsDir(const char *d)
+pddl_bool_t pddlIsDir(const char *d)
 {
     struct stat st;
     if (stat(d, &st) == -1)
-        return 0;
+        return pddl_false;
 
     if (S_ISDIR(st.st_mode))
-        return 1;
-    return 0;
+        return pddl_true;
+    return pddl_false;
 }
 
-int pddlIsFile(const char *d)
+pddl_bool_t pddlIsFile(const char *d)
 {
     struct stat st;
     if (stat(d, &st) == -1)
-        return 0;
+        return pddl_false;
 
     if (S_ISREG(st.st_mode))
-        return 1;
-    return 0;
+        return pddl_true;
+    return pddl_false;
 }
 
 char *pddlDirname(const char *fn)
@@ -52,8 +52,12 @@ char *pddlDirname(const char *fn)
     int len = strlen(dname);
     int pos = len - 1;
     for (; pos >= 0 && dname[pos] != '/'; --pos);
-    if (pos >= 0 && pos < len - 1)
+    if (pos >= 0 && pos < len - 1){
         dname[pos + 1] = '\x0';
+    }else{
+        dname[0] = '.';
+        dname[1] = '\x0';
+    }
 
     char path[4096];
     if (realpath(dname, path) == NULL)
@@ -368,9 +372,9 @@ static void benchAdd(pddl_bench_t *bench, const pddl_files_t *fs)
     pddl_bench_task_t *task = bench->task + bench->task_size++;
     ZEROIZE(task);
     char *rpath = realpath(fs->domain_pddl, task->pddl_files.domain_pddl);
-    ASSERT_RUNTIME(rpath != NULL);
+    PANIC_IF(rpath == NULL, "Cannot get the path to the domain file.");
     rpath = realpath(fs->problem_pddl, task->pddl_files.problem_pddl);
-    ASSERT_RUNTIME(rpath != NULL);
+    PANIC_IF(rpath == NULL, "Cannot get the path to the problem file.");
     task->optimal_cost = pddlFilesFindOptimalCost(&task->pddl_files, NULL);
 
     char path[PDDL_FILE_MAX_PATH_LEN];

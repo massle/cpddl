@@ -52,6 +52,9 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurLMCut(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
+    if (fdr->has_cond_eff)
+        ERR_RET(err, NULL, "LM-Cut heuristic does not support conditional effects.");
+
     pddl_heur_lmc_t *h = ZALLOC(pddl_heur_lmc_t);
     pddlLMCutInit(&h->lmc, fdr, 0, 0);
     pddlFDRVarsInitCopy(&h->fdr_vars, &fdr->var);

@@ -71,7 +71,7 @@ static void createTypeTable(pddl_sqlite3 *db, const pddl_t *pddl, int type)
     CHECK_SQL_ERR(db, ret);
 
     int obj_size;
-    const pddl_obj_id_t *objs;
+    const int *objs;
     objs = pddlTypesObjsByType(&pddl->type, type, &obj_size);
     for (int i = 0; i < obj_size; ++i){
         sprintf(query, "INSERT INTO type_%d values(%d);", type, objs[i]);
@@ -108,9 +108,9 @@ static void createPredTable(pddl_sqlite3 *db,
     shift += sprintf(query + shift, ")");
     */
     shift += sprintf(query + shift, ");");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 
-    //PDDL_INFO(err, "Predicate table: %s", query);
+    //LOG(err, "Predicate table: %s", query);
     int ret = pddl_sqlite3_exec(db, query, NULL, NULL, NULL);
     CHECK_SQL_ERR(db, ret);
 
@@ -190,14 +190,14 @@ static void sqlPredInit(sql_pred_t *qpred,
     if (qpred->arity == 0)
         shift += sprintf(query + shift, "1");
     sprintf(query + shift, ");");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 
-    //PDDL_INFO(err, "Insert atom query: %s", query);
+    //LOG(err, "Insert atom query: %s", query);
     ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_insert, NULL);
     CHECK_SQL_ERR(db, ret);
 
     shift = sprintf(query, "DELETE FROM %s;", qpred->table_name);
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
     ret = pddl_sqlite3_prepare_v2(db, query, -1, &qpred->stmt_clear, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -216,7 +216,7 @@ static void sqlPredFree(sql_pred_t *qpred, pddl_sqlite3 *db)
 
 static int sqlPredHasAtomArg(sql_pred_t *qpred,
                              pddl_sqlite3 *db,
-                             const pddl_obj_id_t *arg)
+                             const int *arg)
 {
     ASSERT(qpred->stmt_atom != NULL);
     pddl_sqlite3_reset(qpred->stmt_atom);
@@ -235,7 +235,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
                           pddl_sqlite3 *db,
                           const pddl_fm_atom_t *atom)
 {
-    pddl_obj_id_t arg[qpred->arity];
+    int arg[qpred->arity];
     for (int i = 0; i < qpred->arity; ++i){
         ASSERT(atom->arg[i].obj >= 0);
         arg[i] = atom->arg[i].obj;
@@ -245,7 +245,7 @@ static int sqlPredHasAtom(sql_pred_t *qpred,
 
 static int sqlPredInsertAtomArg(sql_pred_t *qpred,
                                 pddl_sqlite3 *db,
-                                const pddl_obj_id_t *arg,
+                                const int *arg,
                                 pddl_err_t *err)
 {
     pddl_sqlite3_reset(qpred->stmt_insert);
@@ -284,7 +284,7 @@ static void sqlActionConstructColumns(char *query,
         int found = 0;
         for (int ci = 0; ci < prep_action->pre.size; ++ci){
             const pddl_fm_t *c = prep_action->pre.fm[ci];
-            const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+            const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
             for (int ai = 0; ai < atom->arg_size; ++ai){
                 if (atom->arg[ai].param >= 0 && atom->arg[ai].param == pi){
                     shift += sprintf(query + shift, "tb%d.x%d as arg%d",
@@ -306,7 +306,7 @@ static void sqlActionConstructColumns(char *query,
             }
         }
     }
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static void sqlActionConstructTables(char *query,
@@ -318,7 +318,7 @@ static void sqlActionConstructTables(char *query,
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
         const pddl_fm_t *c = prep_action->pre.fm[ci];
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         if (ci != 0)
             shift += sprintf(query + shift, ", ");
         shift += sprintf(query + shift, "%s as tb%d",
@@ -331,7 +331,7 @@ static void sqlActionConstructTables(char *query,
         int type = prep_action->param_type[idx];
         shift += sprintf(query + shift, "type_%d as tb_type%d", type, idx);
     }
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static void sqlActionConstructJoinCond(char *query,
@@ -343,10 +343,10 @@ static void sqlActionConstructJoinCond(char *query,
     int shift = 0;
     for (int ci1 = 0; ci1 < prep_action->pre.size; ++ci1){
         const pddl_fm_t *c1 = prep_action->pre.fm[ci1];
-        const pddl_fm_atom_t *atom1 = PDDL_FM_CAST(c1, atom);
+        const pddl_fm_atom_t *atom1 = pddlFmToAtomConst(c1);
         for (int ci2 = ci1 + 1; ci2 < prep_action->pre.size; ++ci2){
             const pddl_fm_t *c2 = prep_action->pre.fm[ci2];
-            const pddl_fm_atom_t *atom2 = PDDL_FM_CAST(c2, atom);
+            const pddl_fm_atom_t *atom2 = pddlFmToAtomConst(c2);
 
             for (int a1 = 0; a1 < atom1->arg_size; ++a1){
                 if (atom1->arg[a1].param < 0)
@@ -368,10 +368,10 @@ static void sqlActionConstructJoinCond(char *query,
     }
     if (query[0] != 0x0)
         shift += sprintf(query + shift, ")");
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
-static int objsConsecutive(const pddl_obj_id_t *objs, int obj_size)
+static int objsConsecutive(const int *objs, int obj_size)
 {
     for (int i = 1; i < obj_size; ++i){
         if (objs[i - 1] + 1 != objs[i])
@@ -416,7 +416,7 @@ static void sqlActionConstructWhereCond(char *query,
     int shift = 0;
     for (int ci = 0; ci < prep_action->pre_eq.size; ++ci){
         const pddl_fm_t *c = prep_action->pre_eq.fm[ci];
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         shift = addEqCond(query, shift, atom,
                           cmp[(atom->neg ? 1 : 0)],
                           prefix[(ins == 0 ? 0 : 1)]);
@@ -427,7 +427,7 @@ static void sqlActionConstructWhereCond(char *query,
     ZEROIZE_ARR(used_param, prep_action->param_size);
     for (int ci = 0; ci < prep_action->pre.size; ++ci){
         const pddl_fm_t *c = prep_action->pre.fm[ci];
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+        const pddl_fm_atom_t *atom = pddlFmToAtomConst(c);
         for (int ai = 0; ai < atom->arg_size; ++ai){
             if (atom->arg[ai].param >= 0)
                 used_param[atom->arg[ai].param] = 1;
@@ -464,7 +464,7 @@ static void sqlActionConstructWhereCond(char *query,
 
         int type = prep_action->param_type[pi];
         int obj_size;
-        const pddl_obj_id_t *objs;
+        const int *objs;
         objs = pddlTypesObjsByType(prep_action->type, type, &obj_size);
         if (ins != 0){
             shift += sprintf(query + shift, " AND ");
@@ -491,7 +491,7 @@ static void sqlActionConstructWhereCond(char *query,
         }
         ++ins;
     }
-    ASSERT_RUNTIME(shift < QUERY_SIZE);
+    PANIC_IF(shift >= QUERY_SIZE, "Overflow of the query buffer");
 }
 
 static void sqlActionInit(sql_action_t *action,
@@ -520,9 +520,9 @@ static void sqlActionInit(sql_action_t *action,
     char query[QUERY_SELECT_SIZE];
     int used = sprintf(query, "SELECT %s FROM %s %s %s;",
                        qcols, qtables, qjoincond, qwhere);
-    ASSERT_RUNTIME(used < QUERY_SELECT_SIZE);
+    PANIC_IF(used >= QUERY_SELECT_SIZE, "Overflow of the query buffer");
 
-    //PDDL_INFO(err, "Action query %s: %s", prep_action->action->name, query);
+    //LOG(err, "Action query %s: %s", prep_action->action->name, query);
     int ret = pddl_sqlite3_prepare_v2(db, query, -1, &action->stmt, NULL);
     CHECK_SQL_ERR(db, ret);
 }
@@ -536,16 +536,16 @@ static void sqlActionFree(sql_action_t *action, pddl_sqlite3 *db)
 
 static int actionCheckNegPreStatic(pddl_sql_grounder_t *g,
                                    const pddl_prep_action_t *paction,
-                                   const pddl_obj_id_t *row)
+                                   const int *row)
 {
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre_neg_static.fm[i], atom);
+        atom = pddlFmToAtomConst(paction->pre_neg_static.fm[i]);
         if (atom->arg_size == 0){
             if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
                 return 0;
         }else{
-            pddl_obj_id_t arg[atom->arg_size];
+            int arg[atom->arg_size];
             for (int ai = 0; ai < atom->arg_size; ++ai){
                 if (atom->arg[ai].obj >= 0){
                     arg[ai] = atom->arg[ai].obj;
@@ -567,7 +567,7 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 {
     for (int i = 0; i < paction->pre_eq.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre_eq.fm[i], atom);
+        atom = pddlFmToAtomConst(paction->pre_eq.fm[i]);
         if (atom->neg){
             if (atom->arg[0].obj == atom->arg[1].obj)
                 return 0;
@@ -579,14 +579,14 @@ static int actionCheckGroundPre(pddl_sql_grounder_t *g,
 
     for (int i = 0; i < paction->pre.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre.fm[i], atom);
+        atom = pddlFmToAtomConst(paction->pre.fm[i]);
         if (!sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
             return 0;
     }
 
     for (int i = 0; i < paction->pre_neg_static.size; ++i){
         const pddl_fm_atom_t *atom;
-        atom = PDDL_FM_CAST(paction->pre_neg_static.fm[i], atom);
+        atom = pddlFmToAtomConst(paction->pre_neg_static.fm[i]);
         if (sqlPredHasAtom(g->pred + atom->pred, g->db, atom))
             return 0;
     }
@@ -614,8 +614,8 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
                     | SQLITE_OPEN_PRIVATECACHE;
     int ret = pddl_sqlite3_open_v2("db.sql", &g->db, flags, NULL);
     CHECK_SQL_ERR(g->db, ret);
-    PDDL_INFO(err, "Sqlite database created");
-    ASSERT_RUNTIME(pddl_sqlite3_get_autocommit(g->db));
+    LOG(err, "Sqlite database created");
+    pddl_sqlite3_get_autocommit(g->db);
 
     // Create type tables
     createTypeTables(g->db, g->pddl);
@@ -624,7 +624,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
     g->pred = CALLOC_ARR(sql_pred_t, pddl->pred.pred_size);
     for (int pi = 0; pi < pddl->pred.pred_size; ++pi)
         sqlPredInit(g->pred + pi, g->db, &g->pddl->pred, pi, err);
-    PDDL_INFO(err, "%d predicate tables created.", pddl->pred.pred_size);
+    LOG(err, "%d predicate tables created.", pddl->pred.pred_size);
 
     // Create sql actions
     g->action = CALLOC_ARR(sql_action_t, g->prep_action.action_size);
@@ -632,7 +632,7 @@ pddl_sql_grounder_t *pddlSqlGrounderNew(const pddl_t *pddl, pddl_err_t *err)
         sqlActionInit(g->action + ai, g->db, g->pred,
                       g->prep_action.action + ai, err);
     }
-    PDDL_INFO(err, "%d action sql queries prepared.",
+    LOG(err, "%d action sql queries prepared.",
              g->prep_action.action_size);
 
     CTXEND(err);
@@ -669,7 +669,7 @@ const pddl_prep_action_t *pddlSqlGrounderPrepAction(
 
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
                                   int pred_id,
-                                  const pddl_obj_id_t *args,
+                                  const int *args,
                                   pddl_err_t *err)
 {
     return sqlPredInsertAtomArg(g->pred + pred_id, g->db, args, err);
@@ -686,7 +686,7 @@ int pddlSqlGrounderInsertAtom(pddl_sql_grounder_t *g,
                               const pddl_fm_atom_t *a,
                               pddl_err_t *err)
 {
-    pddl_obj_id_t args[a->arg_size];
+    int args[a->arg_size];
     for (int i = 0; i < a->arg_size; ++i){
         if (a->arg[i].param >= 0)
             PDDL_ERR_RET(err, -1, "SQL Grounder: Atom is not grounded!");
@@ -716,7 +716,7 @@ int pddlSqlGrounderActionStart(pddl_sql_grounder_t *g,
 }
 
 int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
-                              pddl_obj_id_t *args,
+                              int *args,
                               pddl_err_t *err)
 {
     if (g->it_action_id < 0)
@@ -744,7 +744,7 @@ int pddlSqlGrounderActionNext(pddl_sql_grounder_t *g,
             }
         }
         if (invalid){
-            PDDL_INFO(err, "Invalid row");
+            LOG(err, "Invalid row");
             continue;
         }
         const pddl_prep_action_t *paction;

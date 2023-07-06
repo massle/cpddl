@@ -18,6 +18,7 @@
 #include "_cp.h"
 
 #ifdef PDDL_CPOPTIMIZER
+
 #define IL_STD
 #include <ilcp/cp.h>
 #include <ilcplex/cpxconst.h>
@@ -226,12 +227,14 @@ int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
 
 #else /* PDDL_CPOPTIMIZER */
 extern const char * const pddl_cp_optimizer_version = NULL;
+
 int pddlCPSolve_CPOptimizer(const pddl_cp_t *cp,
                             const pddl_cp_solve_config_t *cfg,
                             pddl_cp_sol_t *sol,
                             pddl_err_t *err)
 {
-    PANIC("Compiled without IBM CP Optimizer");
+    PANIC("Missing CPLEX CP Optimizer.");
     return -1;
 }
+
 #endif /* PDDL_CPOPTIMIZER */

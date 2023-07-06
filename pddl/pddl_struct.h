@@ -21,7 +21,6 @@
 #define __PDDL_STRUCT_H__
 
 #include <pddl/config.h>
-#include <pddl/lisp.h>
 #include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
@@ -35,30 +34,55 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_config {
-    /** Force ADL to requirements */
-    int force_adl;
+    /** If true, the parser of PDDL files will be strict and emit errors
+     *  instead of warnings. */
+    pddl_bool_t pedantic;
+    /** Force ADL to requirements before parsing starts */
+    pddl_bool_t force_adl;
     /** Normalize the task right after parsing */
-    int normalize;
+    pddl_bool_t normalize;
+    /** When normalizing, compile away negative conditions of dynamic
+     *  (non-static) preconditions in actions' preconditions and goal.
+     *  This takes effect only if .normalize is true. */
+    pddl_bool_t normalize_compile_away_dynamic_neg_cond;
+    /** When normalizing, compile away only the negative conditions
+     *  appearing in the goal condition. */
+    pddl_bool_t normalize_compile_away_only_goal_neg_cond;
+    /** As .normalize_compile_away_dynamic_neg_cond, but removes all
+     *  negative conditions including of static predicates. */
+    pddl_bool_t normalize_compile_away_all_neg_cond;
+    /** When compiling away negative conditions, the initial state is
+     *  extended with NOT-* facts. If this is set to true, then only the
+     *  facts that are relevant to preconditions or the goal are added.
+     *  Otherwise, all possible facts are generated.
+     *  This takes effect only if .normalize and one of
+     *  normalize_compile_away_*_neg_cond are true. */
+    pddl_bool_t normalize_compile_away_neg_cond_only_relevant_facts;
     /** Remove types without any objects */
-    int remove_empty_types;
+    pddl_bool_t remove_empty_types;
     /** Compile away conditional effects */
-    int compile_away_cond_eff;
+    pddl_bool_t compile_away_cond_eff;
     /** Enforce the task to have unit-cost actions */
-    int enforce_unit_cost;
-    /** If set to true all actions should be kept in the task even after
+    pddl_bool_t enforce_unit_cost;
+    /** If set to true, all actions should be kept in the task even after
      *  normalization */
-    int keep_all_actions;
+    pddl_bool_t keep_all_actions;
 };
 typedef struct pddl_config pddl_config_t;
 
 #define PDDL_CONFIG_INIT \
     { \
-        1, /* .force_adl */ \
-        1, /* .normalize */ \
-        1, /* .remove_empty_types */ \
-        0, /* .compile_away_cond_eff */ \
-        0, /* .enforce_unit_cost */ \
-        0, /* .keep_all_actions */ \
+        pddl_false, /* .pedantic */ \
+        pddl_true, /* .force_adl */ \
+        pddl_true, /* .normalize */ \
+        pddl_true, /* .normalize_compile_away_dynamic_neg_cond */ \
+        pddl_false, /* .normalize_compile_away_only_goal_neg_cond */ \
+        pddl_false, /* .normalize_compile_away_all_neg_cond */ \
+        pddl_true, /* .normalize_compile_away_neg_cond_only_relevant_facts */ \
+        pddl_true, /* .remove_empty_types */ \
+        pddl_false, /* .compile_away_cond_eff */ \
+        pddl_false, /* .enforce_unit_cost */ \
+        pddl_false, /* .keep_all_actions */ \
     }
 
 void pddlConfigLog(const pddl_config_t *cfg, pddl_err_t *err);
@@ -67,11 +91,11 @@ struct pddl {
     /** Configuration */
     pddl_config_t cfg;
     /** True if the pddl struct was built only from the domain file */
-    int only_domain;
-    /** Underlying lisp of the domain file */
-    pddl_lisp_t *domain_lisp;
-    /** Underlying lisp of the problem file, is NULL iff .only_domain is true */
-    pddl_lisp_t *problem_lisp;
+    pddl_bool_t only_domain;
+    /** Path to the PDDL domain file */
+    char *domain_file;
+    /** Path to the PDDL problem file */
+    char *problem_file;
     /** Domain name from the domain file */
     char *domain_name;
     /** Problem name from the problem file */
@@ -93,9 +117,9 @@ struct pddl {
     /** List of actions */
     pddl_actions_t action;
     /** True if metric is defined in the problem file (i.e., (minimize ...)) */
-    int metric;
+    pddl_bool_t metric;
     /** True if the task was normalized */
-    int normalized;
+    pddl_bool_t normalized;
 };
 
 /**
@@ -119,9 +143,14 @@ pddl_t *pddlNew(const char *domain_fn, const char *problem_fn,
 void pddlDel(pddl_t *pddl);
 
 /**
+ * Returns true if the task has an action with a conditional effect.
+ */
+pddl_bool_t pddlHasCondEff(const pddl_t *pddl);
+
+/**
  * Normalize pddl, i.e., make preconditions and effects CNF
  */
-void pddlNormalize(pddl_t *pddl);
+void pddlNormalize(pddl_t *pddl, pddl_err_t *err);
 
 /**
  * Generate pddl without conditional effects.
@@ -136,17 +165,23 @@ void pddlCompileAwayCondEff(pddl_t *pddl);
 void pddlCompileAwayNonStaticCondEff(pddl_t *pddl);
 
 /**
+ * Compiles away negative preconditions and goals.
+ * If only_dynamic is true, the static negative conditions are kept intact.
+ * If only_relevant_facts_in_init is true, then the initial state is
+ * extended only with facts that are relevant for actions or goal, i.e.,
+ * not all possible instances of facts are generated.
+ */
+int pddlCompileAwayNegativeConditions(pddl_t *pddl,
+                                      pddl_bool_t only_dynamic,
+                                      pddl_bool_t only_goal,
+                                      pddl_bool_t only_relevant_facts_in_init,
+                                      pddl_err_t *err);
+
+/**
  * Returns maximal number of parameters of all predicates and functions.
  */
 // TODO: rename to *MaxArity
 int pddlPredFuncMaxParamSize(const pddl_t *pddl);
-
-/**
- * Checks pddl_*_size_t types agains the parsed pddl.
- * If any of these types is too small the program exists with error
- * message.
- */
-void pddlCheckSizeTypes(const pddl_t *pddl);
 
 /**
  * Adds one new type per object if necessary.
@@ -163,13 +198,13 @@ void pddlRemoveObjs(pddl_t *pddl, const pddl_iset_t *rm_objs, pddl_err_t *err);
  */
 void pddlRemoveObjsGetRemap(pddl_t *pddl,
                             const pddl_iset_t *rm_obj,
-                            pddl_obj_id_t *remap,
+                            int *remap,
                             pddl_err_t *err);
 
 /**
  * Remap object IDs.
  */
-void pddlRemapObjs(pddl_t *pddl, const pddl_obj_id_t *remap);
+void pddlRemapObjs(pddl_t *pddl, const int *remap);
 
 /**
  * Remove empty types and all related predicates and actions from the task
@@ -180,6 +215,25 @@ void pddlRemoveEmptyTypes(pddl_t *pddl, pddl_err_t *err);
  * Remove assign and increase atoms to enforce the task to be unit cost
  */
 void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err);
+
+/**
+ * Resets .read and .write flags of all predicates.
+ * This needs to be called if the actions are modified.
+ * It depends on the correctly set .in_init flag of predicates.
+ */
+void pddlResetPredReadWrite(pddl_t *pddl);
+
+/**
+ * Resets .in_init flag of all predicates.
+ * This needs to be called if the actions are modified.
+ */
+void pddlResetPredInInit(pddl_t *pddl);
+
+/**
+ * If necessary, it renames actions so that there are no two actions with
+ * the same name.
+ */
+void pddlEnforceUniquelyNamedActions(pddl_t *pddl);
 
 /**
  * Prints PDDL domain file.

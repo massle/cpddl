@@ -45,7 +45,7 @@ struct pddl_hff_op {
 
     int value;      /*!< Current value of the operator */
     int unsat;      /*!< Number of unsatisfied preconditions */
-    int marked;     /*!< True if marked as part of relaxed plan */
+    pddl_bool_t marked; /*!< True if marked as part of relaxed plan */
     int order;      /*!< Order in which operators was reached */
 };
 typedef struct pddl_hff_op pddl_hff_op_t;
@@ -55,7 +55,7 @@ struct pddl_hff_fact {
     pddl_iset_t pre_op; /*!< Operators having this fact as its precondition */
 
     pddl_pq_el_t heap; /*!< Connection to priority heap */
-    int marked;        /*!< True if marked as part of relaxed plan */
+    pddl_bool_t marked; /*!< True if marked as part of relaxed plan */
     int reached_by_op; /*!< Operator this fact was first reached by */
 };
 typedef struct pddl_hff_fact pddl_hff_fact_t;

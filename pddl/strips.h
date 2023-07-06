@@ -23,41 +23,12 @@
 #include <pddl/common.h>
 #include <pddl/iset.h>
 #include <pddl/strips_op.h>
-#include <pddl/lifted_mgroup.h>
 #include <pddl/mutex_pair.h>
+#include <pddl/ground.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-struct pddl_ground_config {
-    const pddl_lifted_mgroups_t *lifted_mgroups;
-    /** If .lifted_mgroups != NULL, use lifted mutex groups to prune
-     *  operators that has mutex preconditions. */
-    int prune_op_pre_mutex;
-    /** If .lifted_mgroups != NULL, use lifted mutex groups to prune
-     *  dead-end operators. */
-    int prune_op_dead_end;
-    /** If true static facts are found and removed */
-    int remove_static_facts;
-    /** Keep action arguments in strips operators */
-    int keep_action_args;
-    /** Keep all static facts including the ones created from static
-     *  predicates */
-    int keep_all_static_facts;
-};
-typedef struct pddl_ground_config pddl_ground_config_t;
-
-#define PDDL_GROUND_CONFIG_INIT { \
-        NULL, /* .lifted_mgroups */ \
-        1, /* .prune_op_pre_mutex */ \
-        1, /* .prune_op_dead_end */ \
-        1, /* .remove_static_facts */ \
-        0, /* .keep_action_args */ \
-        0, /* .keep_all_static_facts */ \
-    }
-
-void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err);
 
 struct pddl_strips {
     pddl_ground_config_t cfg;
@@ -69,9 +40,9 @@ struct pddl_strips {
     pddl_strips_ops_t op; /*!< Set of operators */
     pddl_iset_t init; /*!< Initial state */
     pddl_iset_t goal; /*!< Goal specification */
-    int goal_is_unreachable; /*!< True if the goal is not reachable */
-    int has_cond_eff; /*!< True if the problem contains operators with
-                           conditinal effects. */
+    pddl_bool_t goal_is_unreachable; /*!< True if the goal is not reachable */
+    pddl_bool_t has_cond_eff; /*!< True if the problem contains operators with
+                                   conditinal effects. */
 };
 
 /**
@@ -130,13 +101,14 @@ void pddlStripsApplicableOps(const pddl_strips_t *strips,
  * Returns true if the given set of facts form a fact-alternating mutex
  * group.
  */
-int pddlStripsIsFAMGroup(const pddl_strips_t *strips, const pddl_iset_t *facts);
+pddl_bool_t pddlStripsIsFAMGroup(const pddl_strips_t *strips,
+                                 const pddl_iset_t *facts);
 
 /**
  * Returns true if the given set of facts is an exactly-one mutex group.
  */
-int pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
-                                 const pddl_iset_t *facts);
+pddl_bool_t pddlStripsIsExactlyOneMGroup(const pddl_strips_t *strips,
+                                         const pddl_iset_t *facts);
 
 /**
  * Remove conditional effects by merging them into the operator if

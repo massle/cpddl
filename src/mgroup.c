@@ -30,7 +30,7 @@ typedef struct pred_tnode pred_tnode_t;
 struct pred_tnode {
     int depth;
     int leaf;
-    pddl_obj_id_t obj;
+    int obj;
     pred_tnode_t *child;
     int child_size;
     int child_alloc;
@@ -81,7 +81,7 @@ static void predTNodeFree(pred_tnode_t *tnode)
 static void predTreeInitNode(pred_tree_t *tree,
                              pred_tnode_t *tnode,
                              int next,
-                             pddl_obj_id_t obj)
+                             int obj)
 {
     ZEROIZE(tnode);
     tnode->depth = next;
@@ -177,7 +177,7 @@ static void _predTreeAdd(pred_tree_t *tree,
         pddlISetAdd(&tnode->fact, fact->id);
     }else{
         int argi = tree->arg[tnode->depth];
-        pddl_obj_id_t fact_obj = fact->ground_atom->arg[argi];
+        int fact_obj = fact->ground_atom->arg[argi];
 
         for (int i = 0; i < tnode->child_size; ++i){
             if (tnode->child[i].obj == fact_obj){
@@ -213,7 +213,7 @@ static void buildPredTrees(pred_tree_t *tree,
 {
     ZEROIZE_ARR(tree, mg->cond.size);
     for (int ci = 0; ci < mg->cond.size; ++ci){
-        const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ci], atom);
+        const pddl_fm_atom_t *a = pddlFmToAtomConst(mg->cond.fm[ci]);
         predTreeInit(tree + ci, mg, a);
     }
 
@@ -223,7 +223,7 @@ static void buildPredTrees(pred_tree_t *tree,
             continue;
         const pddl_ground_atom_t *ga = fact->ground_atom;
         for (int ci = 0; ci < mg->cond.size; ++ci){
-            const pddl_fm_atom_t *a = PDDL_FM_CAST(mg->cond.fm[ci], atom);
+            const pddl_fm_atom_t *a = pddlFmToAtomConst(mg->cond.fm[ci]);
             if (a->pred == ga->pred && checkFact(&pddl->type, ga, mg, a))
                 predTreeAdd(&tree[ci], fact);
         }
@@ -757,19 +757,21 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
     cover_number = fact_size - pddlISetSize(&covered_facts);
     pddlISetFree(&covered_facts);
 
-    double val, *obj;
-    obj = ALLOC_ARR(double, cols);
-    if (pddlLPSolve(lp, &val, obj) == 0){
+    pddl_lp_solution_t sol;
+    sol.var_val = ALLOC_ARR(double, cols);
+    pddlLPSolve(lp, &sol, NULL);
+    if (sol.solved){
         for (int i = fact_size; i < cols; ++i){
-            if (obj[i] > 0.5)
+            if (sol.var_val[i] > 0.5)
                 ++cover_number;
         }
-
     }else{
+        FREE(sol.var_val);
+        pddlLPDel(lp);
         return -1;
     }
 
-    FREE(obj);
+    FREE(sol.var_val);
     pddlLPDel(lp);
 
     return cover_number;
@@ -956,7 +958,7 @@ void pddlMGroupsPrintTable(const pddl_t *pddl,
                            pddl_err_t *err)
 {
     if (mg->mgroup_size == 0){
-        PDDL_INFO(err, "No Mutex Groups");
+        LOG(err, "No Mutex Groups");
         return;
     }
     char line[128];

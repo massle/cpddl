@@ -43,8 +43,8 @@ static int actionInitPre(pddl_fm_t *c, void *ud)
     action_ctx_t *ctx = ud;
     pddl_fm_atom_t *a;
 
-    if (c->type == PDDL_FM_ATOM){
-        a = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        a = pddlFmToAtom(c);
         ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->pred == ctx->pddl->pred.eq_pred){
             pddlFmArrAdd(&ctx->a->pre_eq, c);
@@ -57,7 +57,7 @@ static int actionInitPre(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
     }else{
         PDDL_ERR(ctx->err, "Precondition is not a simple conjuction of atoms"
@@ -73,8 +73,8 @@ static int actionInitEff(pddl_fm_t *c, void *ud)
     action_ctx_t *ctx = ud;
     pddl_fm_atom_t *a;
 
-    if (c->type == PDDL_FM_ATOM){
-        a = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        a = pddlFmToAtom(c);
         ctx->a->max_arg_size = PDDL_MAX(ctx->a->max_arg_size, a->arg_size);
         if (a->neg){
             pddlFmArrAdd(&ctx->a->del_eff, c);
@@ -83,20 +83,20 @@ static int actionInitEff(pddl_fm_t *c, void *ud)
         }
         return 0;
 
-    }else if (c->type == PDDL_FM_ASSIGN){
+    }else if (pddlFmIsAssign(c)){
         PDDL_ERR(ctx->err, "(= ...) is not supported in operators' effects.");
         ctx->failed = 1;
         return -2;
 
-    }else if (c->type == PDDL_FM_INCREASE){
+    }else if (pddlFmIsIncrease(c)){
         pddlFmArrAdd(&ctx->a->increase, c);
         return 0;
 
-    }else if (c->type == PDDL_FM_WHEN){
+    }else if (pddlFmIsWhen(c)){
         ++ctx->a->cond_eff_size;
         return -1;
 
-    }else if (c->type == PDDL_FM_AND){
+    }else if (pddlFmIsAnd(c)){
         return 0;
     }else{
         PDDL_ERR(ctx-> err, "Effect is not a simple conjuction"
@@ -186,8 +186,8 @@ static int actionInitCondEff(pddl_fm_t *c, void *ud)
     const pddl_fm_when_t *when;
     pddl_prep_action_t *a, *parent;
 
-    if (c->type == PDDL_FM_WHEN){
-        when = PDDL_FM_CAST(c, when);
+    if (pddlFmIsWhen(c)){
+        when = pddlFmToWhen(c);
 
         // Create a new action
         actionsReserve(ctx->as);
@@ -288,7 +288,7 @@ void pddlPrepActionsFree(pddl_prep_actions_t *as)
 
 static int checkPreAtomFact(const pddl_prep_action_t *a,
                             const pddl_fm_atom_t *atom,
-                            const pddl_obj_id_t *arg)
+                            const int *arg)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
@@ -306,7 +306,7 @@ static int checkPreAtomFact(const pddl_prep_action_t *a,
 
 static int checkPreAtom(const pddl_prep_action_t *a,
                         const pddl_fm_atom_t *atom,
-                        const pddl_obj_id_t *arg)
+                        const int *arg)
 {
     for (int i = 0; i < atom->arg_size; ++i){
         int param = atom->arg[i].param;
@@ -321,28 +321,28 @@ static int checkPreAtom(const pddl_prep_action_t *a,
 
 static int checkPre(const pddl_prep_action_t *a,
                     const pddl_fm_arr_t *pre,
-                    const pddl_obj_id_t *arg)
+                    const int *arg)
 {
     const pddl_fm_atom_t *atom;
 
     for (int i = 0; i < pre->size; ++i){
-        atom = PDDL_FM_CAST(pre->fm[i], atom);
+        atom = pddlFmToAtomConst(pre->fm[i]);
         if (!checkPreAtom(a, atom, arg))
             return 0;
     }
     return 1;
 }
 
-static int checkEq(const pddl_prep_action_t *a, const pddl_obj_id_t *arg,
+static int checkEq(const pddl_prep_action_t *a, const int *arg,
                    int soft)
 {
     const pddl_fm_atom_t *atom;
     const pddl_fm_t **pre = a->pre_eq.fm;
     int size = a->pre_eq.size;
-    pddl_obj_id_t obj[2];
+    int obj[2];
 
     for (int i = 0; i < size; ++i){
-        atom = PDDL_FM_CAST(pre[i], atom);
+        atom = pddlFmToAtomConst(pre[i]);
         for (int j = 0; j < 2; ++j){
             if (atom->arg[j].param >= 0){
                 obj[j] = arg[atom->arg[j].param];
@@ -368,7 +368,7 @@ static int checkEq(const pddl_prep_action_t *a, const pddl_obj_id_t *arg,
 
 static int checkPreNegStatic(const pddl_prep_action_t *a,
                              const pddl_ground_atoms_t *static_facts,
-                             const pddl_obj_id_t *arg)
+                             const int *arg)
 {
     if (a->pre_neg_static.size == 0)
         return 1;
@@ -376,7 +376,7 @@ static int checkPreNegStatic(const pddl_prep_action_t *a,
     const pddl_fm_atom_t *atom;
 
     for (int i = 0; i < a->pre_neg_static.size; ++i){
-        atom = PDDL_FM_CAST(a->pre_neg_static.fm[i], atom);
+        atom = pddlFmToAtomConst(a->pre_neg_static.fm[i]);
         if (pddlGroundAtomsFindAtom(static_facts, atom, arg) != NULL)
             return 0;
     }
@@ -386,7 +386,7 @@ static int checkPreNegStatic(const pddl_prep_action_t *a,
 
 int pddlPrepActionCheck(const pddl_prep_action_t *a,
                         const pddl_ground_atoms_t *static_facts,
-                        const pddl_obj_id_t *arg)
+                        const int *arg)
 {
     return checkPre(a, &a->pre, arg)
             && checkEq(a, arg, 0)
@@ -394,10 +394,10 @@ int pddlPrepActionCheck(const pddl_prep_action_t *a,
 }
 
 int pddlPrepActionCheckFact(const pddl_prep_action_t *a, int pre_i,
-                            const pddl_obj_id_t *fact_args)
+                            const int *fact_args)
 {
-    const pddl_fm_atom_t *atom = PDDL_FM_CAST(a->pre.fm[pre_i], atom);
-    pddl_obj_id_t arg[a->param_size];
+    const pddl_fm_atom_t *atom = pddlFmToAtomConst(a->pre.fm[pre_i]);
+    int arg[a->param_size];
     int param;
 
     if (!checkPreAtomFact(a, atom, fact_args))
@@ -418,7 +418,7 @@ int pddlPrepActionCheckFact(const pddl_prep_action_t *a, int pre_i,
 }
 
 int pddlPrepActionCheckEqDef(const pddl_prep_action_t *a,
-                             const pddl_obj_id_t *arg)
+                             const int *arg)
 {
     return checkEq(a, arg, 1);
 }

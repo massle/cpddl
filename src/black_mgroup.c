@@ -629,19 +629,20 @@ static int solveLP(pddl_lp_t *lp,
                    const black_vars_t *bv,
                    pddl_iset_t *black_vars)
 {
-    double *obj = CALLOC_ARR(double, bv->fact_vertex_size);
-    double val;
-    if (pddlLPSolve(lp, &val, obj) != 0){
-        FREE(obj);
+    pddl_lp_solution_t sol;
+    sol.var_val = CALLOC_ARR(double, bv->fact_vertex_size);
+    pddlLPSolve(lp, &sol, NULL);
+    if (!sol.solved){
+        FREE(sol.var_val);
         return -1;
     }
 
     pddlISetEmpty(black_vars);
     for (int v = 0; v < bv->fact_vertex_size; ++v){
-        if (obj[v] >= .5)
+        if (sol.var_val[v] >= .5)
             pddlISetAdd(black_vars, v);
     }
-    FREE(obj);
+    FREE(sol.var_val);
     return 0;
 }
 

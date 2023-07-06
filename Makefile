@@ -5,6 +5,7 @@ MAKE_FILES := Makefile Makefile.include $(wildcard Makefile.config)
 
 SRC  = alloc
 SRC += err
+SRC += strstream
 SRC += hfunc
 SRC += sha256
 SRC += google-city-hash
@@ -13,8 +14,6 @@ SRC += rand
 SRC += sort
 SRC += qsort
 SRC += timsort
-SRC += mergesort
-SRC += heapsort
 SRC += segmarr
 SRC += extarr
 SRC += pairheap
@@ -25,11 +24,9 @@ SRC += fifo
 SRC += lp
 SRC += lp-cplex
 SRC += lp-gurobi
-SRC += lp-glpk
 SRC += lp-highs
 SRC += cp
 SRC += cp-minizinc
-SRC += lisp
 SRC += require_flags
 SRC += type
 SRC += param
@@ -39,6 +36,10 @@ SRC += fact
 SRC += action
 SRC += prep_action
 SRC += pddl
+SRC += parser
+SRC += parse_tokenizer
+SRC += parse_tree
+SRC += pddl_compile_away_neg_pre
 SRC += unify
 SRC += compile_in_lifted_mgroup
 SRC += fm
@@ -48,9 +49,10 @@ SRC += strips_op
 SRC += strips_fact_cross_ref
 SRC += strips_maker
 SRC += strips_conj
+SRC += ground
 SRC += sql_grounder
 SRC += strips_ground_tree
-SRC += strips_ground
+SRC += strips_ground_trie
 SRC += strips_ground_sql
 SRC += strips_ground_datalog
 SRC += action_args
@@ -91,7 +93,6 @@ SRC += hadd
 SRC += hff
 SRC += pq
 SRC += mg_strips
-SRC += preprocess
 SRC += cg
 SRC += graph
 SRC += clique
@@ -102,8 +103,7 @@ SRC += open_list
 SRC += open_list_splaytree1
 SRC += open_list_splaytree2
 SRC += search
-SRC += search_astar
-SRC += search_lazy
+SRC += search_bfs
 SRC += lifted_app_action
 SRC += lifted_app_action_sql
 SRC += lifted_app_action_datalog
@@ -156,10 +156,7 @@ SRC += endomorphism_lifted
 SRC += homomorphism
 SRC += homomorphism_heur
 SRC += prune_strips
-SRC += objset
 SRC += iset
-SRC += lset
-SRC += cset
 SRC += iarr
 SRC += lifted_heur
 SRC += lifted_heur_relaxed
@@ -167,12 +164,14 @@ SRC += subprocess
 SRC += task
 SRC += asnets_task
 SRC += asnets_train_data
+SRC += str_pool
 
 SRC += __sqlite3
 
 SRC += _version
 
-SRC_CPP  = cp-cp-optimizer
+SRC_CPP =
+SRC_CPP += cp-cp-optimizer
 
 SRC_STUB =
 
@@ -188,6 +187,13 @@ else
   SRC_STUB += bdd
 endif
 
+ifeq '$(USE_COIN_OR)' 'yes'
+  SRC_CPP += lp-coin-or
+else
+  SRC += lp-coin-or-stub
+endif
+
+
 ifeq '$(USE_DYNET)' 'yes'
   SRC_CPP += asnets_dynet
 else
@@ -196,20 +202,14 @@ endif
 
 OBJS_PIC := $(foreach obj,$(SRC),.objs/$(obj).pic.o) \
             $(foreach obj,$(SRC_CPP),.objs/$(obj).pic.cpp.o) \
-            $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.pic.o)
+            $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.pic.o)
 
 OBJS := $(foreach obj,$(SRC),.objs/$(obj).o) \
         $(foreach obj,$(SRC_CPP),.objs/$(obj).cpp.o) \
-        $(foreach obj,$(SRC_STUB),.objs/$(obj)_stub.o)
+        $(foreach obj,$(SRC_STUB),.objs/$(obj)-stub.o)
 
-GEN  = pddl/objset.h
-GEN += src/objset.c
-GEN += pddl/iset.h
+GEN  = pddl/iset.h
 GEN += src/iset.c
-GEN += pddl/lset.h
-GEN += src/lset.c
-GEN += pddl/cset.h
-GEN += src/cset.c
 GEN += pddl/iarr.h
 GEN += src/iarr.c
 GEN += src/_version.c
@@ -220,78 +220,78 @@ bin: libpddl.a
 	$(MAKE) -C bin
 
 libpddl.a: $(OBJS) $(MAKE_FILES)
-	ar cr $@ $(OBJS)
-	ranlib $@
+	rm -f $@
+	$(AR) cr $@ $(OBJS)
+	$(RANLIB) $@
 
 libpddl.pic.a: $(OBJS_PIC) $(MAKE_FILES)
-	ar cr $@ $(OBJS_PIC)
-	ranlib $@
+	rm -f $@
+	$(AR) cr $@ $(OBJS_PIC)
+	$(RANLIB) $@
 
 libpddl.so: $(OBJS_PIC) $(MAKE_FILES)
 	$(CC) -shared -o $@ $(OBJS_PIC)
 
 pddl/config.h: $(MAKE_FILES)
-	echo "#ifndef __PDDL_CONFIG_H__" >$@
-	echo "#define __PDDL_CONFIG_H__" >>$@
-	echo "" >>$@
-	if [ "$(DEBUG)" = "yes" ]; then echo "#define PDDL_DEBUG" >>$@; fi
-	if [ "$(USE_CLIQUER)" = "yes" ]; then echo "#define PDDL_CLIQUER" >>$@; fi
-	if [ "$(USE_CUDD)" = "yes" ]; then echo "#define PDDL_CUDD" >>$@; fi
-	if [ "$(USE_BLISS)" = "yes" ]; then echo "#define PDDL_BLISS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ]; then echo "#define PDDL_CPLEX" >>$@; fi
-	if [ "$(USE_CPOPTIMIZER)" = "yes" ]; then echo "#define PDDL_CPOPTIMIZER" >>$@; fi
-	if [ "$(USE_GUROBI)" = "yes" ]; then echo "#define PDDL_GUROBI" >>$@; fi
-	if [ "$(USE_GLPK)" = "yes" ]; then echo "#define PDDL_GLPK" >>$@; fi
-	if [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_HIGHS" >>$@; fi
-	if [ "$(USE_CPLEX)" = "yes" ] || [ "$(USE_GUROBI)" = "yes" ] || [ "$(USE_GLPK)" = "yes" ] || [ "$(USE_HIGHS)" = "yes" ]; then echo "#define PDDL_LP" >>$@; fi
-	if [ "$(MINIZINC_BIN)" != "" ]; then echo "#define PDDL_MINIZINC" >>$@; fi
-	echo "#define PDDL_MINIZINC_BIN \"$(MINIZINC_BIN)\"" >>$@
-	echo "#define PDDL_MINIZINC_VERSION \"$(MINIZINC_VERSION)\"" >>$@
-	if [ "$(USE_DYNET)" = "yes" ]; then echo "#define PDDL_DYNET" >>$@; fi
-	echo "" >>$@
-	echo "#endif /* __PDDL_CONFIG_H__ */" >>$@
+	$(file >$@,#ifndef __PDDL_CONFIG_H__)
+	$(file >>$@,#define __PDDL_CONFIG_H__)
+	$(file >>$@,)
+	$(if $(filter yes,$(DEBUG)), $(file >>$@,#define PDDL_DEBUG))
+	$(if $(filter yes,$(USE_CLIQUER)), $(file >>$@,#define PDDL_CLIQUER))
+	$(if $(filter yes,$(USE_CUDD)), $(file >>$@,#define PDDL_CUDD))
+	$(if $(filter yes,$(USE_BLISS)), $(file >>$@,#define PDDL_BLISS))
+	$(if $(filter yes,$(USE_CPLEX)), $(file >>$@,#define PDDL_CPLEX))
+	$(if $(filter yesyes,$(USE_CPLEX)$(CPLEX_ONLY_API)), $(file >>$@,#define PDDL_CPLEX_ONLY_API))
+	$(if $(filter yes,$(USE_CPOPTIMIZER)), $(file >>$@,#define PDDL_CPOPTIMIZER))
+	$(if $(filter yes,$(USE_GUROBI)), $(file >>$@,#define PDDL_GUROBI))
+	$(if $(filter yesyes,$(USE_GUROBI)$(GUROBI_ONLY_API)), $(file >>$@,#define PDDL_GUROBI_ONLY_API))
+	$(if $(filter yes,$(USE_HIGHS)), $(file >>$@,#define PDDL_HIGHS))
+	$(if $(filter yes,$(USE_COIN_OR)), $(file >>$@,#define PDDL_COIN_OR))
+	$(if $(findstring yes,$(USE_CPLEX)$(USE_GUROBI)$(USE_HIGHS)$(USE_COIN_OR)), $(file >>$@,#define PDDL_LP))
+	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC))
+	$(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)")
+	$(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)")
+	$(if $(filter yes,$(USE_DYNET)), $(file >>$@,#define PDDL_DYNET))
+	$(file >>$@,)
+	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
-pddl/objset.h: src/_set_arr.h scripts/fmt_set.sh
-	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
-src/objset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
-	$(SH) scripts/fmt_set.sh set Set pddl_obj_id_t obj Obj OBJ <$< >$@
-pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh
+pddl/iset.h: src/_set_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
-src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+src/iset.c: src/_set_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set int i I I <$< >$@
-pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh
+pddl/lset.h: src/_set_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
-src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+src/lset.c: src/_set_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long l L L <$< >$@
-pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh
+pddl/cset.h: src/_set_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
-src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/objset.h
+src/cset.c: src/_set_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh set Set long c C C <$< >$@
-pddl/iarr.h: src/_arr.h scripts/fmt_set.sh
+pddl/iarr.h: src/_arr.h scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
-src/iarr.c: src/_arr.c scripts/fmt_set.sh
+src/iarr.c: src/_arr.c scripts/fmt_set.sh pddl/config.h
 	$(SH) scripts/fmt_set.sh arr Arr int i I I <$< >$@
 
-src/_version.c: pddl/version.h
-	echo "#include \"pddl/version.h\"" >$@
-	echo "const char *pddl_build_commit = \"$(shell git rev-parse HEAD)\";" >>$@
-	echo "const char *pddl_version = PDDL_VERSION_STR \"-$(shell git rev-parse HEAD)\";" >>$@
+src/_version.c: pddl/version.h pddl/config.h
+	$(file >$@,#include "pddl/version.h")
+	$(file >>$@,const char *pddl_build_commit = "$(shell git rev-parse HEAD)";)
+	$(file >>$@,const char *pddl_version = PDDL_VERSION_STR "-$(shell git rev-parse HEAD)";)
 .objs/_version.o: src/_version.c pddl/version.h
 	$(CC) -I. -c -o $@ $<
 .objs/_version.pic.o: src/_version.c pddl/version.h
 	$(CC) -I. -fPIC -c -o $@ $<
 
-src/tmp.cudd-version.h: third-party/cudd/libcudd.a
-	echo '#include "internal.h"' >src/tmp.cudd-version.c
-	echo '#include <cudd/cudd.h>' >>src/tmp.cudd-version.c
-	echo '#include <stdio.h>' >>src/tmp.cudd-version.c
-	echo "int main(int argc, char *argv[]){ Cudd_PrintVersion(stdout); return 0; }" >>src/tmp.cudd-version.c
-	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -o src/tmp.cudd-version src/tmp.cudd-version.c $(CUDD_LDFLAGS) -lm
-	echo -n '#define CUDD_VERSION "' >$@
-	./src/tmp.cudd-version | tr -d '\n' >>$@
-	echo '"' >>$@
-	rm -f src/tmp.cudd-version.c
-	rm -f src/tmp.cudd-version
+src/tmp.cudd-version.h: third-party/cudd/configure.ac
+	$(file >$@,#define CUDD_VERSION "$(shell grep 'AC_INIT' <$< | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')")
+
+.objs/parser.o: src/parser.c src/_parser.c $(GEN) pddl/config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/parse_%.o: src/parse_%.c src/parse_%.h src/_parser.c $(GEN) pddl/config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+src/_parser%c: src/_parser%y src/lemon $(GEN) pddl/config.h
+	./src/lemon $<
+src/lemon: src/lemon.c src/lempar.c
+	$(CC) -o $@ $<
 
 .objs/bdd.o: src/bdd.c pddl/bdd.h src/tmp.cudd-version.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CUDD_CFLAGS) -c -o $@ $<
@@ -305,13 +305,25 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CC) $(CFLAGS) $(CLIQUER_CFLAGS) -c -o $@ $<
 .objs/clique.pic.o: src/clique.c pddl/clique.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(CLIQUER_CFLAGS) -c -o $@ $<
-.objs/lp-%.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) $(LP_CFLAGS) -c -o $@ $<
-.objs/lp-%.pic.o: src/lp-%.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
-	$(CC) $(CFLAGS) -fPIC $(LP_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.o: src/sqlite3.c pddl/config.h
+.objs/lp-cplex.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -c -o $@ $<
+.objs/lp-cplex.pic.o: src/lp-cplex.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CPLEX_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
+.objs/lp-gurobi.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -c -o $@ $<
+.objs/lp-gurobi.pic.o: src/lp-gurobi.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(GUROBI_CFLAGS) -Wno-pedantic -fPIC -c -o $@ $<
+.objs/lp-highs.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -c -o $@ $<
+.objs/lp-highs.pic.o: src/lp-highs.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(HIGHS_CFLAGS) -fPIC -c -o $@ $<
+.objs/lp-coin-or-stub.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -c -o $@ $<
+.objs/lp-coin-or-stub.pic.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
+.objs/__sqlite3.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.pic.o: src/sqlite3.c pddl/config.h
+.objs/__sqlite3.pic.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
@@ -322,13 +334,10 @@ src/tmp.cudd-version.h: third-party/cudd/libcudd.a
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 .objs/asnets_dynet.pic.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -fPIC -c -o $@ $<
-
-src/bdd_stub.c: pddl/bdd.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >$@
-src/sym_stub.c: pddl/sym.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >$@
-src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
-	$(SH) scripts/gen-stub.sh $< "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >$@
+.objs/lp-coin-or.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -c -o $@ $<
+.objs/lp-coin-or.pic.cpp.o: src/lp-coin-or.cpp src/_lp.h pddl/lp.h pddl/config.h $(GEN)
+	$(CXX) $(CPPFLAGS) $(COIN_OR_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/%.o: src/%.c pddl/%.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -350,6 +359,11 @@ src/asnets_dynet_stub.c: pddl/asnets.h scripts/gen-stub.sh
 %.h: pddl/config.h
 %.c: pddl/config.h
 
+gen-stubs:
+	$(SH) scripts/gen-stub.sh pddl/bdd.h "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >src/bdd-stub.c
+	$(SH) scripts/gen-stub.sh pddl/sym.h "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >src/sym-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+
 
 clean: c
 	rm -f .objs/*.o
@@ -357,10 +371,13 @@ clean: c
 c:
 	rm -f .objs/[a-zA-Z0-9]*.o
 	rm -f .objs/_[a-zA-Z0-9]*.o
+	rm -f src/_parser.c
+	rm -f src/_parser.h
+	rm -f src/_parser.out
+	rm -f src/lemon
 	rm -f *.a
 	rm -f *.so
 	rm -f pddl/config.h
-	rm -f src/*_stub.c
 	rm -f src/tmp.*
 	rm -f $(GEN)
 	if [ -d bin ]; then $(MAKE) -C bin clean; fi;
@@ -371,7 +388,10 @@ mrproper: clean third-party-clean
 fetch-submodules:
 	git submodule update --init --recursive
 
-check check-all check-valgrind check-all-valgrind check-segfault check-all-segfault check-gdb check-all-gdb: libpddl.a
+check check-all check-valgrind check-segfault check-gdb: libpddl.a
+	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
+
+check-bin check-bin-all: bin
 	if [ -f t/Makefile ]; then $(MAKE) -C t $@; fi
 
 analyze: clean
@@ -419,7 +439,7 @@ bliss-clean:
 	rm -f third-party/bliss/libbliss.a
 	rm -f third-party/bliss/bliss_C.h
 third-party/bliss/libbliss.a:
-	$(MAKE) CC=$(CXX) -C third-party/bliss lib_static
+	$(MAKE) CC=$(CXX) AR=$(AR) RANLIB=$(RANLIB) -C third-party/bliss lib_static
 	cp third-party/bliss/src/bliss_C.h third-party/bliss/
 	mv third-party/bliss/libbliss_static.a $@
 
@@ -432,7 +452,7 @@ third-party/cudd/libcudd.a:
 	cd third-party/cudd && aclocal
 	cd third-party/cudd && autoconf
 	cd third-party/cudd && automake
-	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX)
+	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB)
 	$(MAKE) -C third-party/cudd
 	cp third-party/cudd/cudd/.libs/libcudd.a $@
 	cp third-party/cudd/cudd/cudd.h third-party/cudd/cudd.h
@@ -440,7 +460,7 @@ third-party/cudd/libcudd.a:
 sqlite-amalgam:
 	unzip $(SQLITE_SRC_ZIP)
 	mv sqlite-src-*/ sqlite
-	cd sqlite/ && ./configure --disable-json --disable-load-extension
+	cd sqlite/ && ./configure --disable-json --disable-load-extension --disable-readline --disable-tcl
 	cd sqlite/ && make OPTS="$(SQLITE_GEN_CFLAGS)" sqlite3.c
 	cat sqlite/sqlite3.c | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.c
 	cat sqlite/sqlite3.h | sed 's/sqlite3/pddl_sqlite3/g' >src/sqlite3.h
@@ -464,13 +484,9 @@ help:
 	@echo "  third-party-clean - Clean all third-party projects."
 	@echo ""
 	@echo "  check               - Run (short) automated tests"
-	@echo "  check-all           - Run all automated tests"
 	@echo "  check-valgrind      - Run tests with valgrind(1)"
-	@echo "  check-all-valgrind"
 	@echo "  check-segfault      - Run tests with valgrind(1) set up to detect only segfaults"
-	@echo "  check-all-segfault"
 	@echo "  check-gdb           - Run tests in gdb"
-	@echo "  check-all-gdb"
 	@echo ""
 	@echo "  fetch-submodules - Fetch all submodules using git"
 	@echo "  gen-pkgconfig - Generates pkg-config file cpddl.pc referring to this directory"
@@ -484,6 +500,8 @@ help:
 	@echo "  SYSTEM  = $(SYSTEM)"
 	@echo "  CC      = $(CC)"
 	@echo "  CXX     = $(CXX)"
+	@echo "  AR      = $(AR)"
+	@echo "  RANLIB  = $(RANLIB)"
 	@echo "  SH      = $(SH)"
 	@echo "  SCAN_BUILD = $(SCAN_BUILD)"
 	@echo "  DEBUG   = $(DEBUG)"
@@ -506,17 +524,20 @@ help:
 	@echo "  USE_CPLEX         = $(USE_CPLEX)"
 	@echo "  CPLEX_CFLAGS      = $(CPLEX_CFLAGS)"
 	@echo "  CPLEX_LDFLAGS     = $(CPLEX_LDFLAGS)"
+	@echo "  CPLEX_ONLY_API    = $(CPLEX_ONLY_API)"
 	@echo "  GUROBI_ROOT       = $(GUROBI_ROOT)"
 	@echo "  USE_GUROBI        = $(USE_GUROBI)"
 	@echo "  GUROBI_CFLAGS     = $(GUROBI_CFLAGS)"
 	@echo "  GUROBI_LDFLAGS    = $(GUROBI_LDFLAGS)"
-	@echo "  USE_GLPK          = $(USE_GLPK)"
-	@echo "  GLPK_CFLAGS       = $(GLPK_CFLAGS)"
-	@echo "  GLPK_LDFLAGS      = $(GLPK_LDFLAGS)"
+	@echo "  GUROBI_ONLY_API   = $(GUROBI_ONLY_API)"
 	@echo "  HIGHS_ROOT        = $(HIGHS_ROOT)"
 	@echo "  USE_HIGHS         = $(USE_HIGHS)"
 	@echo "  HIGHS_CFLAGS      = $(HIGHS_CFLAGS)"
 	@echo "  HIGHS_LDFLAGS     = $(HIGHS_LDFLAGS)"
+	@echo "  COIN_OR_USE_PKGCONFIG = $(COIN_OR_USE_PKGCONFIG)"
+	@echo "  USE_COIN_OR       = $(USE_COIN_OR)"
+	@echo "  COIN_OR_CFLAGS    = $(COIN_OR_CFLAGS)"
+	@echo "  COIN_OR_LDFLAGS   = $(COIN_OR_LDFLAGS)"
 	@echo "  LP_LDFLAGS        = $(LP_LDFLAGS)"
 	@echo "  LP_CFLAGS         = $(LP_CFLAGS)"
 	@echo ""
@@ -539,9 +560,8 @@ help:
 .PHONY: all bin clean help doc install analyze \
   examples mrproper \
   check check-all \
-  check-valgrind check-all-valgrind \
-  check-segfault check-all-segfault \
-  check-gdb check-all-gdb \
+  check-valgrind check-segfault check-gdb check-bin check-bin-all \
   third-party third-party-clean \
   bliss bliss-clean \
-  sqlite-amalgam
+  sqlite-amalgam gen-stubs
+.DELETE_ON_ERROR:

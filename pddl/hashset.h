@@ -53,11 +53,9 @@ void pddlHashSetInit(pddl_hashset_t *s,
                      void *userdata);
 
 /**
- * Initialize an empty set of {i,l,c}sets.
+ * Initialize an empty set of isets.
  */
 void pddlHashSetInitISet(pddl_hashset_t *s);
-void pddlHashSetInitLSet(pddl_hashset_t *s);
-void pddlHashSetInitCSet(pddl_hashset_t *s);
 
 /**
  * Free allocated memory.

@@ -199,12 +199,12 @@ static void htablePrintStats(const htable_t *ht)
             cur += writ;
         }
     }
-    PDDL_INFO(ht->state_pool->err, "State pool: rehashing stats %s", info);
+    LOG(ht->state_pool->err, "State pool: rehashing stats %s", info);
 }
 
 static void htableResize(htable_t *ht, size_t size)
 {
-    PDDL_INFO(ht->state_pool->err, "State pool: rehashing size: %lu,"
+    LOG(ht->state_pool->err, "State pool: rehashing size: %lu,"
               " new-size: %lu, elements: %lu",
               ht->size, size, ht->num_elements);
     htablePrintStats(ht);
@@ -217,7 +217,7 @@ static void htableResize(htable_t *ht, size_t size)
         htableInsert(ht, id, packed_state);
     }
 
-    PDDL_INFO(ht->state_pool->err, "State pool: rehashing DONE");
+    LOG(ht->state_pool->err, "State pool: rehashing DONE");
 }
 
 void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
@@ -235,7 +235,7 @@ void pddlFDRStatePoolInit(pddl_fdr_state_pool_t *state_pool,
                                       NULL, NULL);
 
     state_pool->htable = htableNew(state_pool);
-    PDDL_INFO(err, "State pool created. bytes per state: %d", (int)node_size);
+    LOG(err, "State pool created. bytes per state: %d", (int)node_size);
 }
 
 void pddlFDRStatePoolFree(pddl_fdr_state_pool_t *state_pool)

@@ -110,14 +110,14 @@ _pddl_inline int pddlCostCmpSum(const pddl_cost_t *c1,
     return cmp;
 }
 
-_pddl_inline int pddlCostIsDeadEnd(const pddl_cost_t *c)
+_pddl_inline pddl_bool_t pddlCostIsDeadEnd(const pddl_cost_t *c)
 {
     if (c->cost >= PDDL_COST_DEAD_END)
-        return 1;
-    return 0;
+        return pddl_true;
+    return pddl_false;
 }
 
-_pddl_inline int pddlCostIsMax(const pddl_cost_t *c)
+_pddl_inline pddl_bool_t pddlCostIsMax(const pddl_cost_t *c)
 {
     return pddlCostCmp(c, &pddl_cost_max) == 0;
 }

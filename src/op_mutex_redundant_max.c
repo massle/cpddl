@@ -159,7 +159,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         PDDL_ISET(not_connected);
         pddlISetMinus2(&not_connected, &red.relevant_ops, red.op_mutex + op_id);
         ASSERT(pddlISetIn(op_id, &not_connected));
-        ASSERT_RUNTIME(pddlISetSize(&not_connected) > 0);
+        ASSERT(pddlISetSize(&not_connected) > 0);
         pddlLPSetRHS(lp, row1, pddlISetSize(&not_connected), 'L');
         pddlLPSetCoef(lp, row1, oi, pddlISetSize(&not_connected));
         int op_id2;
@@ -169,7 +169,7 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         }
         pddlISetFree(&not_connected);
 
-        ASSERT_RUNTIME(pddlISetSize(red.op_sym + op_id) > 0);
+        ASSERT(pddlISetSize(red.op_sym + op_id) > 0);
         pddlLPSetRHS(lp, row2, 0., 'G');
         pddlLPSetCoef(lp, row2, oi, -1.);
         PDDL_ISET_FOR_EACH(red.op_sym + op_id, op_id2){
@@ -178,14 +178,15 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         }
     }
 
-    double val;
-    double *obj = CALLOC_ARR(double, num_vars);
+    pddl_lp_solution_t sol;
+    sol.var_val = CALLOC_ARR(double, num_vars);
     LOG(err, "Solving the ILP problem...");
-    if (pddlLPSolve(lp, &val, obj) == 0){
-        LOG(err, "Problem solved with objective value %.4f", val);
+    pddlLPSolve(lp, &sol, err);
+    if (sol.solved){
+        LOG(err, "Problem solved with objective value %.4f", sol.obj_val);
         int num = 0;
         for (int oi = 0; oi < num_ops; ++oi){
-            if (obj[oi] > .5){
+            if (sol.var_val[oi] > .5){
                 if (redundant != NULL)
                     pddlISetAdd(redundant, pddlISetGet(&red.relevant_ops, oi));
                 ++num;
@@ -194,14 +195,14 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
         LOG(err, "Found %d redundant ops", num);
         int num_symmetric = 0;
         for (int oi = 0; oi < num_ops; ++oi){
-            if (obj[oi + num_ops] > .5)
+            if (sol.var_val[oi + num_ops] > .5)
                 ++num_symmetric;
         }
         LOG(err, "Kept %d symmetric operators", num_symmetric);
     }else{
         LOG(err, "Found 0 redundant ops");
     }
-    FREE(obj);
+    FREE(sol.var_val);
     pddlLPDel(lp);
 
     redundantFree(&red);

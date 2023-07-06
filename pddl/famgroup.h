@@ -29,18 +29,18 @@ extern "C" {
 
 struct pddl_famgroup_config {
     /** If true (default), only maximal fam-groups are inferred */
-    int maximal;
+    pddl_bool_t maximal;
     /** If true, only fam-groups with non-empty intersection with the goal
      * are inferred. */
-    int goal;
+    pddl_bool_t goal;
     /** If set, the symmetries will be used for generation of all symmetric
      * fam-groups (instead of inferring them using LP) */
     const pddl_strips_sym_t *sym;
     /** In the case symmetries are used, only the asymetric fam-groups are
      *  stored in the output set. */
-    int keep_only_asymetric;
+    pddl_bool_t keep_only_asymetric;
     /** Prioritize fam-groups containing new facts */
-    int prioritize_uncovered;
+    pddl_bool_t prioritize_uncovered;
 
     /** If set to >0, limit on the number of inferred fam-groups */
     int limit;
@@ -50,11 +50,11 @@ struct pddl_famgroup_config {
 typedef struct pddl_famgroup_config pddl_famgroup_config_t;
 
 #define PDDL_FAMGROUP_CONFIG_INIT { \
-        1, /* .maximal */ \
-        0, /* .goal */ \
+        pddl_true, /* .maximal */ \
+        pddl_false, /* .goal */ \
         NULL, /* .sym */ \
-        0, /* .keep_only_asymetric */ \
-        0, /* .prioritize_uncovered */ \
+        pddl_false, /* .keep_only_asymetric */ \
+        pddl_false, /* .prioritize_uncovered */ \
         -1, /* .limit */ \
         -1., /* .time_limit */ \
     }

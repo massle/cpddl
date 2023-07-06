@@ -27,7 +27,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_unify_val {
-    pddl_obj_id_t obj;
+    int obj;
     int var;
     int var_type;
 };
@@ -78,16 +78,16 @@ int pddlUnifyCheckInequality(const pddl_unify_t *u,
  * Returns true if u(a1) != u(a2), i.e., if a1 and a2 differ under the
  * current mapping.
  */
-int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
-                         const pddl_params_t *param1,
-                         const pddl_fm_atom_t *a1,
-                         const pddl_params_t *param2,
-                         const pddl_fm_atom_t *a2);
+pddl_bool_t pddlUnifyAtomsDiffer(const pddl_unify_t *u,
+                                 const pddl_params_t *param1,
+                                 const pddl_fm_atom_t *a1,
+                                 const pddl_params_t *param2,
+                                 const pddl_fm_atom_t *a2);
 
 /**
  * Returns true if u is equal to u2
  */
-int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2);
+pddl_bool_t pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2);
 
 /**
  * TODO

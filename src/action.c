@@ -18,7 +18,6 @@
  */
 
 #include "internal.h"
-#include "lisp_err.h"
 #include "pddl/config.h"
 #include "pddl/pddl.h"
 #include "pddl/action.h"
@@ -26,113 +25,9 @@
 
 #define PDDL_ACTIONS_ALLOC_INIT 4
 
-#define ERR_PREFIX_MAXSIZE 128
-
-
-static int parseAction(pddl_t *pddl, const pddl_lisp_node_t *root,
-                       pddl_err_t *err)
+void pddlActionsInit(pddl_actions_t *a)
 {
-    char err_prefix[ERR_PREFIX_MAXSIZE];
-    const pddl_lisp_node_t *n;
-    pddl_action_t *a;
-    int i, ret;
-
-    if (root->child_size < 4
-            || root->child_size / 2 == 1
-            || root->child[1].value == NULL){
-        PDDL_ERR_RET(err, -1, "Invalid definition.");
-    }
-
-    a = pddlActionsAddEmpty(&pddl->action);
-    a->name = STRDUP(root->child[1].value);
-    for (i = 2; i < root->child_size; i += 2){
-        n = root->child + i + 1;
-        if (root->child[i].kw == PDDL_KW_AGENT){
-            if (!pddl->require.multi_agent){
-                // TODO: err/warn
-                ERR_LISP_RET2(err, -1, root->child + i,
-                              ":agent is allowed only with :multi-agent"
-                              " requirement");
-            }
-
-            ret = pddlParamsParseAgent(&a->param, root, i, &pddl->type, err);
-            if (ret < 0)
-                PDDL_TRACE_RET(err, -1);
-            i = ret - 2;
-
-        }else if (root->child[i].kw == PDDL_KW_PARAMETERS){
-            if (pddlParamsParse(&a->param, n, &pddl->type, err) != 0)
-                PDDL_TRACE_RET(err, -1);
-
-        }else if (root->child[i].kw == PDDL_KW_PRE){
-            // Skip empty preconditions, i.e., () or (and)
-            //      -- it will be set to the empty conjunction later anyway.
-            if (pddlLispNodeIsEmptyAnd(n))
-                continue;
-
-            snprintf(err_prefix, ERR_PREFIX_MAXSIZE,
-                     "Precondition of the action `%s': ", a->name);
-            a->pre = pddlFmParse(n, pddl, &a->param, err_prefix, err);
-            if (a->pre == NULL)
-                PDDL_TRACE_RET(err, -1);
-            if (pddlFmCheckPre(a->pre, &pddl->require, err) != 0)
-                PDDL_TRACE_RET(err, -1);
-            pddlFmSetPredRead(a->pre, &pddl->pred);
-
-        }else if (root->child[i].kw == PDDL_KW_EFF){
-            if (pddlLispNodeIsEmptyAnd(n))
-                continue;
-
-            snprintf(err_prefix, ERR_PREFIX_MAXSIZE,
-                     "Effect of the action `%s': ", a->name);
-            a->eff = pddlFmParse(n, pddl, &a->param, err_prefix, err);
-            if (a->eff == NULL)
-                PDDL_TRACE_RET(err, -1);
-            if (pddlFmCheckEff(a->eff, &pddl->require, err) != 0)
-                PDDL_TRACE_RET(err, -1);
-            pddlFmSetPredReadWriteEff(a->eff, &pddl->pred);
-
-        }else{
-            ERR_LISP_RET(err, -1, root->child + i, "Unexpected token: %s",
-                         root->child[i].value);
-        }
-    }
-
-    // Empty precondition is allowed meaning the action can be applied in
-    // any state
-    if (a->pre == NULL)
-        a->pre = pddlFmNewEmptyAnd();
-
-    // Empty effect is also allowed because of some domains that contain
-    // these actions. This action can be later removed by pddlNormalize().
-    if (a->eff == NULL)
-        a->eff = pddlFmNewEmptyAnd();
-
-    // TODO: Check compatibility of types of parameters and types of
-    //       arguments of all predicates.
-    //       --> Restrict types instead of disallowing such an action?
-
-    return 0;
-}
-
-int pddlActionsParse(pddl_t *pddl, pddl_err_t *err)
-{
-    const pddl_lisp_node_t *root = &pddl->domain_lisp->root;
-    const pddl_lisp_node_t *n;
-
-    for (int i = 0; i < root->child_size; ++i){
-        n = root->child + i;
-        if (pddlLispNodeHeadKw(n) == PDDL_KW_ACTION){
-            if (parseAction(pddl, n, err) != 0){
-                PDDL_TRACE_PREPEND_RET(err, -1, "While parsing :action in %s"
-                                       " on line %d: ",
-                                       pddl->domain_lisp->filename, n->lineno);
-            }
-        }
-    }
-    LOG(err, "Actions parsed, num actions: %d",
-        pddl->action.action_size);
-    return 0;
+    ZEROIZE(a);
 }
 
 void pddlActionsInitCopy(pddl_actions_t *dst, const pddl_actions_t *src)
@@ -181,15 +76,15 @@ struct propagate_eq {
 
     const pddl_fm_atom_t *eq_atom;
     int param;
-    pddl_obj_id_t obj;
+    int obj;
 };
 
 static int setParamToObj(pddl_fm_t *cond, void *ud)
 {
     struct propagate_eq *ctx = ud;
 
-    if (cond->type == PDDL_FM_ATOM){
-        pddl_fm_atom_t *atom = PDDL_FM_CAST(cond, atom);
+    if (pddlFmIsAtom(cond)){
+        pddl_fm_atom_t *atom = pddlFmToAtom(cond);
         if (atom == ctx->eq_atom)
             return 0;
 
@@ -208,8 +103,8 @@ static int _propagateEquality(pddl_fm_t *c, void *ud)
 {
     struct propagate_eq *ctx = ud;
 
-    if (c->type == PDDL_FM_ATOM){
-        const pddl_fm_atom_t *atom = PDDL_FM_CAST(c, atom);
+    if (pddlFmIsAtom(c)){
+        const pddl_fm_atom_t *atom = pddlFmToAtom(c);
         if (atom->pred == ctx->eq_pred && !atom->neg){
             if (atom->arg[0].param >= 0 && atom->arg[1].obj >= 0){
                 ctx->eq_atom = atom;
@@ -235,8 +130,7 @@ static void propagateEquality(pddl_action_t *a, const pddl_t *pddl)
         return;
 
     struct propagate_eq ctx = { a, pddl->pred.eq_pred, NULL, -1, -1 };
-    if (a->pre->type != PDDL_FM_AND
-            && a->pre->type != PDDL_FM_ATOM)
+    if (!pddlFmIsAnd(a->pre) && !pddlFmIsAtom(a->pre))
         return;
     pddlFmTraverse(a->pre, _propagateEquality, NULL, &ctx);
 }
@@ -246,18 +140,14 @@ void pddlActionNormalize(pddl_action_t *a, const pddl_t *pddl)
     a->pre = pddlFmNormalize(a->pre, pddl, &a->param);
     a->eff = pddlFmNormalize(a->eff, pddl, &a->param);
 
-    if (a->pre->type == PDDL_FM_BOOL && PDDL_FM_CAST(a->pre, bool)->val){
+    if (pddlFmIsBool(a->pre) && pddlFmToBool(a->pre)->val){
         pddlFmDel(a->pre);
         a->pre = pddlFmNewEmptyAnd();
     }
-    if (a->pre->type == PDDL_FM_ATOM)
+    if (pddlFmIsAtom(a->pre))
         a->pre = pddlFmAtomToAnd(a->pre);
-    if (a->eff->type == PDDL_FM_ATOM
-            || a->eff->type == PDDL_FM_ASSIGN
-            || a->eff->type == PDDL_FM_INCREASE
-            || a->eff->type == PDDL_FM_WHEN){
+    if (!pddlFmIsAnd(a->eff))
         a->eff = pddlFmAtomToAnd(a->eff);
-    }
 
     propagateEquality(a, pddl);
 }
@@ -303,6 +193,24 @@ void pddlActionsFree(pddl_actions_t *actions)
         FREE(actions->action);
 }
 
+void pddlActionsEnforceUniqueNames(pddl_actions_t *as)
+{
+    int counter = 0;
+    for (int ai = 0; ai < as->action_size; ++ai){
+        const pddl_action_t *a1 = as->action + ai;
+        for (int ai2 = ai + 1; ai2 < as->action_size; ++ai2){
+            pddl_action_t *a2 = as->action + ai2;
+            if (strcmp(a1->name, a2->name) == 0){
+                char newname[strlen(a1->name) + 32 + 5];
+                sprintf(newname, "%s-dup-%d", a1->name, counter);
+                FREE(a2->name);
+                a2->name = STRDUP(newname);
+                counter++;
+            }
+        }
+    }
+}
+
 void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
 {
     pddl_actions_t *as = &pddl->action;
@@ -312,7 +220,7 @@ void pddlActionSplit(pddl_action_t *a, pddl_t *pddl)
     pddl_list_t *item;
     int aidx;
 
-    if (a->pre->type != PDDL_FM_OR)
+    if (!pddlFmIsOr(a->pre))
         return;
 
     pre = pddlFmToJunc(a->pre);
@@ -344,14 +252,14 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     pddl_fm_junc_t *pre;
     pddl_fm_t *c;
 
-    if (a->pre->type != PDDL_FM_AND){
+    if (!pddlFmIsAnd(a->pre)){
         PANIC("Precondition of the action `%s' is" " not a conjuction.", a->name);
     }
 
     pre = pddlFmToJunc(a->pre);
     PDDL_LIST_FOR_EACH(&pre->part, item){
         c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
-        if (c->type != PDDL_FM_ATOM){
+        if (!pddlFmIsAtom(c)){
             PANIC("Precondition of the action `%s' is"
                        " not a flatten conjuction (conjuction contains"
                        " something else besides atoms).", a->name);
@@ -359,13 +267,13 @@ void pddlActionAssertPreConjuction(pddl_action_t *a)
     }
 }
 
-void pddlActionRemapObjs(pddl_action_t *a, const pddl_obj_id_t *remap)
+void pddlActionRemapObjs(pddl_action_t *a, const int *remap)
 {
     pddlFmRemapObjs(a->pre, remap);
     pddlFmRemapObjs(a->eff, remap);
 }
 
-void pddlActionsRemapObjs(pddl_actions_t *as, const pddl_obj_id_t *remap)
+void pddlActionsRemapObjs(pddl_actions_t *as, const int *remap)
 {
     for (int i = 0; i < as->action_size; ++i)
         pddlActionRemapObjs(as->action + i, remap);
@@ -432,6 +340,43 @@ void pddlActionsRemoveSet(pddl_actions_t *as, const pddl_iset_t *ids)
     as->action_size = ins;
 }
 
+static int cmpFms(const pddl_fm_t *fm1,
+                  const pddl_fm_t *fm2,
+                  void *_pddl)
+{
+    int cmp = (int)pddlFmIsAtom(fm2) - (int)pddlFmIsAtom(fm1);
+    if (cmp == 0 && pddlFmIsAtom(fm1)){
+        const pddl_t *pddl = _pddl;
+        const pddl_fm_atom_t *a1 = pddlFmToAtomConst(fm1);
+        const pddl_fm_atom_t *a2 = pddlFmToAtomConst(fm2);
+
+        int a1static = pddlPredIsStatic(pddl->pred.pred + a1->pred);
+        int a2static = pddlPredIsStatic(pddl->pred.pred + a2->pred);
+        cmp = a2static - a1static;
+        if (cmp == 0)
+            cmp = pddlFmAtomCmp(a1, a2);
+
+    }else if (cmp == 0 && pddlFmIsFuncOp(fm1) && pddlFmIsFuncOp(fm2)){
+        const pddl_fm_func_op_t *f1 = pddlFmToFuncOpConst(fm1);
+        const pddl_fm_func_op_t *f2 = pddlFmToFuncOpConst(fm2);
+        ASSERT(f1->lvalue != NULL && f2->lvalue != NULL);
+        int cmp = pddlFmAtomCmp(f1->lvalue, f2->lvalue);
+        if (cmp == 0){
+            if (f1->fvalue == NULL && f2->fvalue == NULL){
+                cmp = f1->value - f2->value;
+            }else if (f1->fvalue == NULL){
+                cmp = 1;
+            }else if (f2->fvalue == NULL){
+                cmp = -1;
+            }else{
+                cmp = pddlFmAtomCmp(f1->fvalue, f2->fvalue);
+            }
+        }
+    }
+
+    return cmp;
+}
+
 void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
 {
     fprintf(fout, "    %s: ", a->name);
@@ -439,11 +384,27 @@ void pddlActionPrint(const pddl_t *pddl, const pddl_action_t *a, FILE *fout)
     fprintf(fout, "\n");
 
     fprintf(fout, "        pre: ");
-    pddlFmPrint(pddl, a->pre, &a->param, fout);
+    if (a->pre == NULL){
+        fprintf(fout, "()");
+    }else{
+        pddl_fm_t *fm = pddlFmClone(a->pre);
+        if (pddlFmIsJunc(fm))
+            pddlFmJuncSort(pddlFmToJunc(fm), cmpFms, (void *)pddl);
+        pddlFmPrint(pddl, fm, &a->param, fout);
+        pddlFmDel(fm);
+    }
     fprintf(fout, "\n");
 
     fprintf(fout, "        eff: ");
-    pddlFmPrint(pddl, a->eff, &a->param, fout);
+    if (a->eff == NULL){
+        fprintf(fout, "()");
+    }else{
+        pddl_fm_t *fm = pddlFmClone(a->eff);
+        if (pddlFmIsJunc(fm))
+            pddlFmJuncSort(pddlFmToJunc(fm), cmpFms, (void *)pddl);
+        pddlFmPrint(pddl, fm, &a->param, fout);
+        pddlFmDel(fm);
+    }
     fprintf(fout, "\n");
 }
 
@@ -465,11 +426,10 @@ static void pddlActionPrintPDDL(const pddl_action_t *a,
                                 FILE *fout)
 {
     fprintf(fout, "(:action %s\n", a->name);
-    if (a->param.param_size > 0){
-        fprintf(fout, "    :parameters (");
+    fprintf(fout, "    :parameters (");
+    if (a->param.param_size > 0)
         pddlParamsPrintPDDL(&a->param, &pddl->type, fout);
-        fprintf(fout, ")\n");
-    }
+    fprintf(fout, ")\n");
 
     if (a->pre != NULL){
         fprintf(fout, "    :precondition ");

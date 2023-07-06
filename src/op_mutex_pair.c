@@ -154,12 +154,12 @@ void pddlOpMutexPairsRm(pddl_op_mutex_pairs_t *m, int o1, int o2)
     }
 }
 
-int pddlOpMutexPairsIsMutex(const pddl_op_mutex_pairs_t *m, int o1, int o2)
+pddl_bool_t pddlOpMutexPairsIsMutex(const pddl_op_mutex_pairs_t *m, int o1, int o2)
 {
     int id1 = m->op_id_to_id[o1];
     int id2 = m->op_id_to_id[o2];
     if (id1 == -1 || id2 == -1)
-        return 0;
+        return pddl_false;
 
     if (o1 <= o2){
         return pddlISetIn(o2, m->op_mutex + id1);

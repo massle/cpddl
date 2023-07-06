@@ -32,22 +32,22 @@ static const float MIN_ACTIVATION_VALUE = -1.f;
 void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
 {
     if (fd_cfg->saved_files_path != NULL)
-        LOG(err, "asnets_curr_dir_path = %{asnets_curr_dir_path}s", fd_cfg->saved_files_path);
+        LOG(err, "asnets_curr_dir_path = %s", fd_cfg->saved_files_path);
     if (fd_cfg->fd_interpreter != NULL)
-        LOG(err, "fd_interpreter = %{fd_interpreter}s", fd_cfg->fd_interpreter);
+        LOG(err, "fd_interpreter = %s", fd_cfg->fd_interpreter);
     if (fd_cfg->fd_executable_path != NULL)
-        LOG(err, "fd_executable_path = %{fd_executable_path}s", fd_cfg->fd_executable_path);
+        LOG(err, "fd_executable_path = %s", fd_cfg->fd_executable_path);
     if (fd_cfg->sas_file_prefix != NULL)
-        LOG(err, "sas_file_prefix = %{sas_file_prefix}s", fd_cfg->sas_file_prefix);
+        LOG(err, "sas_file_prefix = %s", fd_cfg->sas_file_prefix);
     if (fd_cfg->plan_file_prefix != NULL)
-        LOG(err, "plan_file_prefix = %{plan_file_prefix}s", fd_cfg->plan_file_prefix);
+        LOG(err, "plan_file_prefix = %s", fd_cfg->plan_file_prefix);
     LOG_CONFIG_INT(fd_cfg, use_osp_planner, err);
     LOG_CONFIG_INT(fd_cfg, use_unique_filenames, err);
     LOG_CONFIG_INT(fd_cfg, fd_arg_size, err);
     for (int i = 0; i < fd_cfg->fd_arg_size; ++i)
     {
         if (fd_cfg->fd_args[i] != NULL) // not sure if this null check required or not here
-            LOG(err, "fd_args[%d] = %{fd_args}s", i, fd_cfg->fd_args[i]);
+            LOG(err, "fd_args[%d] = %s", i, fd_cfg->fd_args[i]);
     }
 }
 
@@ -638,7 +638,7 @@ struct ActionModule {
                                 const std::vector<dynet::Expression> &input_goal,
                                 const dynet::Expression &input_applicable) const
     {
-        ASSERT_RUNTIME(layer == 0);
+        ASSERT(layer == 0);
         std::vector<dynet::Expression> input;
         input.insert(input.end(), input_state.begin(), input_state.end());
         input.insert(input.end(), input_goal.begin(), input_goal.end());
@@ -724,8 +724,8 @@ struct ModelParameters {
             }
 
             for (int pid = 0; pid < task->pred_size; ++pid){
-                ASSERT_RUNTIME(pid != task->pddl.pred.eq_pred
-                                || task->pred[pid].related_action_size == 0);
+                ASSERT(pid != task->pddl.pred.eq_pred
+                        || task->pred[pid].related_action_size == 0);
                 PropositionModule *pm;
                 pm = new PropositionModule(hidden_dimension,
                                            task->pred[pid].related_action_size,
@@ -742,8 +742,8 @@ struct ModelParameters {
             action[num_layers].push_back(am);
         }
 
-        ASSERT_RUNTIME(num_layers == (int)action.size() - 1);
-        ASSERT_RUNTIME(num_layers == (int)prop.size());
+        ASSERT(num_layers == (int)action.size() - 1);
+        ASSERT(num_layers == (int)prop.size());
     }
 
     ~ModelParameters()
@@ -1055,7 +1055,7 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
                                             e_applicable_ops, -1);
 
     std::vector<float> out = dynet::as_vector(cg.forward(e_output));
-    ASSERT_RUNTIME((int)out.size() == task->strips.op.op_size);
+    ASSERT((int)out.size() == task->strips.op.op_size);
 
     int best_op_id = -1;
     float best_value = -1;
@@ -1150,10 +1150,10 @@ struct ASNetsTrainMiniBatchTask {
     {
         if (size == 0)
             return;
-        ASSERT_RUNTIME((int)state.size() == size * fact_size);
-        ASSERT_RUNTIME((int)applicable_ops.size() == size * op_size);
-        ASSERT_RUNTIME((int)selected_op.size() == size);
-        ASSERT_RUNTIME((int)goal.size() == fact_size);
+        ASSERT((int)state.size() == size * fact_size);
+        ASSERT((int)applicable_ops.size() == size * op_size);
+        ASSERT((int)selected_op.size() == size);
+        ASSERT((int)goal.size() == fact_size);
 
         std::vector<long> dim(1);
         dim[0] = fact_size;
@@ -1418,7 +1418,7 @@ struct Info {
     {
         strncpy(cpddl_version, pddl_version, sizeof(cpddl_version) - 1);
         strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name) - 1);
-        strncpy(domain_pddl, a->lifted_task.pddl.domain_lisp->filename, sizeof(domain_pddl) - 1);
+        strncpy(domain_pddl, a->lifted_task.pddl.domain_file, sizeof(domain_pddl) - 1);
         pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
         cfg = a->cfg;
         train_stats = a->train_stats;
@@ -1854,7 +1854,7 @@ int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
 
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
 {
-    CTX(err, "asnets_save", "ASNets-Save");
+    CTX(err, "ASNets-Save");
     LOG(err, "Saving model to %s", fn);
     pddl_sqlite3 *db;
     int flags = SQLITE_OPEN_READWRITE
@@ -2154,7 +2154,7 @@ static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
         batch_size += b.size;
     }
 
-    ASSERT_RUNTIME(nets.size() > 0);
+    ASSERT(nets.size() > 0);
     // Compute mean over all losses
     dynet::Expression e_loss = dynet::sum(nets) / batch_size;
     return e_loss;
@@ -2435,41 +2435,33 @@ void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
         task = pddlASNetsGetGroundTask(a, task_id);
         PDDL_IARR(plan);
         int solved = pddlASNetsSolveTask(a, task, &plan, NULL, err);
-        PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s"
-                      " solved: %{eval_solved}b, length: %{eval_length}d",
-                 task->pddl.domain_lisp->filename,
-                 task->pddl.problem_lisp->filename,
-                 solved,
-                 (solved ? pddlIArrSize(&plan) : -1));
-        if (solved)
-        {
+        LOG(err, "Task %s %s"
+            " solved: %s, length: %d",
+            task->pddl.domain_file,
+            task->pddl.problem_file,
+            F_BOOL(solved),
+            (solved ? pddlIArrSize(&plan) : -1));
+        if (solved){
             ++num_solved;
-            if (write_plans)
-            {
+            if (write_plans){
                 char fn[512];
                 snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
                          task->pddl.problem_name);
                 FILE *fout = fopen(fn, "w");
-                if (fout != NULL)
-                {
+                if (fout != NULL){
                     int op_id;
-                    PDDL_IARR_FOR_EACH(&plan, op_id)
-                    {
+                    PDDL_IARR_FOR_EACH(&plan, op_id){
                         fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
                     }
                     fclose(fout);
-                }
-                else
-                {
-                    PDDL_LOG(err, "Could not open file %s", fn);
+                }else{
+                    LOG(err, "Could not open file %s", fn);
                 }
             }
         }
         pddlIArrFree(&plan);
     }
-    PDDL_LOG(err, "Solved %{eval_num_solved}d out of"
-                  " %{eval_num_tasks}d tasks",
-             num_solved, num_tasks);
+    LOG(err, "Solved %d out of %d tasks", num_solved, num_tasks);
 }
 
 void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trainer, pddl_err_t *err)
@@ -2528,7 +2520,7 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
         if(benchmark_trainer)
         {
             pddl_asnets_softgoals_result_t msgs_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
-            if (pddlASNetsBenchmarkTrainer(&a->cfg, task->pddl.domain_lisp->filename, task->pddl.problem_lisp->filename, &msgs_result, err) == 0)
+            if (pddlASNetsBenchmarkTrainer(&a->cfg, task->pddl.domain_file, task->pddl.problem_file, &msgs_result, err) == 0)
             {   
                 if (msgs_result.max_softgoals_achieved == -2) {
                     msgs_result.max_softgoals_achieved = achieved_softgoals_result.total_softgoals;
@@ -2539,47 +2531,47 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
                     if (achieved_softgoals_result.max_softgoals_achieved >= msgs_result.max_softgoals_achieved)
                         ++num_achieved_msgs;
                     
-                    PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s, Benchmark results - \n"
-                                  " max softgoals solved: %{eval_max_soft}d,\n steps taken for max softgoals: %{eval_max_soft_steps}d\n",
-                             task->pddl.domain_lisp->filename,
-                             task->pddl.problem_lisp->filename,
+                    PDDL_LOG(err, "Task %s %s, Benchmark results - \n"
+                                  " max softgoals solved: %d,\n steps taken for max softgoals: %d\n",
+                             task->pddl.domain_file,
+                             task->pddl.problem_file,
                              msgs_result.max_softgoals_achieved,
                              msgs_result.max_softgoals_plan_steps);
                 }
                 else { // case timed out or unknown error
                     ++num_benchmark_tle;
-                    PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s, Benchmark results - Time Limit Exceeded\n",
-                             task->pddl.domain_lisp->filename,
-                             task->pddl.problem_lisp->filename);
+                    PDDL_LOG(err, "Task %s %s, Benchmark results - Time Limit Exceeded\n",
+                             task->pddl.domain_file,
+                             task->pddl.problem_file);
                 }
             }
         } 
-        PDDL_LOG(err, "Task %{eval_domain}s %{eval_problem}s, Policy result - \n"
-                      " all goals solved: %{eval_solved}b,\n total softgoals: %{eval_total_soft}d,\n max softgoals solved: %{eval_max_soft}d,\n steps taken for max softgoals: %{eval_max_soft_steps}d,\n total policy steps: %{eval_total_steps}d\n",
-                 task->pddl.domain_lisp->filename,
-                 task->pddl.problem_lisp->filename,
-                 allgoals_solved,
+        PDDL_LOG(err, "Task %s %s, Policy result - \n"
+                      " all goals solved: %s,\n total softgoals: %d,\n max softgoals solved: %d,\n steps taken for max softgoals: %d,\n total policy steps: %d\n",
+                 task->pddl.domain_file,
+                 task->pddl.problem_file,
+                 F_BOOL(allgoals_solved),
                  achieved_softgoals_result.total_softgoals,
                  achieved_softgoals_result.max_softgoals_achieved,
                  achieved_softgoals_result.max_softgoals_plan_steps,
                  achieved_softgoals_result.total_policy_steps);
     }
     PDDL_LOG(err, "Aggregate Results: ");
-    PDDL_LOG(err, "Solved all goals for %{eval_num_solved}d out of %{eval_num_tasks}d tasks.",
+    PDDL_LOG(err, "Solved all goals for %d out of %d tasks.",
              num_allgoals_solved, num_tasks);
-    PDDL_LOG(err, "Achieved a total of %{eval_num_achieved}d soft goals out of %{eval_num_total}d soft goals over all tasks.",
+    PDDL_LOG(err, "Achieved a total of %d soft goals out of %d soft goals over all tasks.",
              total_achieved_softgoals, total_softgoals);
-    PDDL_LOG(err, "Fraction of soft goals achieved over total soft goals: %{eval_rate_total}.3f",
+    PDDL_LOG(err, "Fraction of soft goals achieved over total soft goals: %.3f",
              total_achieved_softgoals/ (float) total_softgoals);
     if (benchmark_trainer) {
-        PDDL_LOG(err, "Total Benchamrk MSGS: %{eval_benchmark_msgs}d", total_benchmark_msgs);
+        PDDL_LOG(err, "Total Benchamrk MSGS: %d", total_benchmark_msgs);
         if (total_benchmark_msgs > 0) {
-            PDDL_LOG(err, "Fraction of soft goals achieved over successful benchmark MSGS: %{eval_rate_benchmark}.3f",
+            PDDL_LOG(err, "Fraction of soft goals achieved over successful benchmark MSGS: %.3f",
                      total_achieved_softgoals_not_tle/ (float) total_benchmark_msgs);
-            PDDL_LOG(err, "Number of tasks that achieved MSGS: %{eval_num_msgs_achieved}d", num_achieved_msgs);
-            PDDL_LOG(err, "Fraction of soft goals achieved over benchmark MSGS incl. time limit exceeded: %{eval_rate_benchamrk_tle}.3f",
+            PDDL_LOG(err, "Number of tasks that achieved MSGS: %d", num_achieved_msgs);
+            PDDL_LOG(err, "Fraction of soft goals achieved over benchmark MSGS incl. time limit exceeded: %.3f",
                      total_achieved_softgoals/ (float) total_benchmark_msgs);
-            PDDL_LOG(err, "Number of benchmark time limit exceeded: %{eval_num_benchmark_tle}d", num_benchmark_tle);
+            PDDL_LOG(err, "Number of benchmark time limit exceeded: %d", num_benchmark_tle);
         }
     }
 }
@@ -2618,7 +2610,7 @@ int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_file
         int solbuf_size = 0;
         int execret = pddlExecvpLimits(argv, &status, NULL, 0,
                                     &solbuf, &solbuf_size, NULL, NULL, a_config->teacher_timeout, -1, err);
-        ASSERT_RUNTIME(execret == 0);
+        PANIC_IF(execret != 0, "Fast Downward subprocess failed.");
         if (status.exited == 1)
         {
             // use exit_status_code to identify if plan found, plan not found or search timed out internally.

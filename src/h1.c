@@ -37,7 +37,7 @@ int pddlH1(const pddl_strips_t *strips,
     pddl_iset_t *fact_to_op = CALLOC_ARR(pddl_iset_t, strips->fact.fact_size);
     PDDL_IARR(queue);
 
-    PDDL_INFO(err, "facts: %d, ops: %d",
+    LOG(err, "facts: %d, ops: %d",
               strips->fact.fact_size,
               strips->op.op_size);
 
@@ -103,7 +103,7 @@ int pddlH1(const pddl_strips_t *strips,
     if (ops != NULL)
         FREE(ops);
 
-    PDDL_INFO(err, "DONE. unreachable facts: %d, unreachable ops: %d",
+    LOG(err, "DONE. unreachable facts: %d, unreachable ops: %d",
               (unreachable_facts != NULL ? pddlISetSize(unreachable_facts) : -1),
               (unreachable_ops != NULL ? pddlISetSize(unreachable_ops) : -1));
     CTXEND(err);

@@ -279,7 +279,7 @@ struct best_achievers {
 };
 static void bestAchieverFacts(int pred,
                               int arity,
-                              const pddl_obj_id_t *arg,
+                              const int *arg,
                               const pddl_cost_t *weight,
                               void *_d)
 {

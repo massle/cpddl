@@ -43,8 +43,11 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
                                     const pddl_homomorphism_config_t *cfg,
                                     pddl_err_t *err)
 {
+    if (pddlHasCondEff(pddl))
+        ERR_RET(err, -1, "Homomorphism heuristic does not support conditional effects.");
+
     ZEROIZE(h);
-    h->obj_map = CALLOC_ARR(pddl_obj_id_t, pddl->obj.obj_size);
+    h->obj_map = CALLOC_ARR(int, pddl->obj.obj_size);
     //pddlInitCopy(&h->homo, pddl);
     if (pddlHomomorphism(&h->homo, pddl, cfg, h->obj_map, err) != 0){
         FREE(h->obj_map);
@@ -52,7 +55,7 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
     }
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
-    if (pddlStripsGroundSql(&h->strips, &h->homo, &ground_cfg, err) != 0){
+    if (pddlGround(&h->strips, &h->homo, &ground_cfg, err) != 0){
         FREE(h->obj_map);
         pddlFree(&h->homo);
         PDDL_TRACE_RET(err, -1);
@@ -83,7 +86,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurLMCut(
     lmc->homo._type = LM_CUT_TYPE;
 
     pddlLMCutInitStrips(&lmc->lmc, &lmc->homo.strips, 0, 0);
-    PDDL_INFO(err, "Constructed lm-cut heuristic from the grounded"
+    LOG(err, "Constructed lm-cut heuristic from the grounded"
                " homomorphic image");
     CTXEND(err);
     return &lmc->homo;
@@ -104,7 +107,7 @@ pddl_homomorphism_heur_t *pddlHomomorphismHeurHFF(
     hff->homo._type = HFF_TYPE;
 
     pddlHFFInitStrips(&hff->hff, &hff->homo.strips);
-    PDDL_INFO(err, "Constructed h^ff heuristic from the grounded"
+    LOG(err, "Constructed h^ff heuristic from the grounded"
                " homomorphic image");
     CTXEND(err);
     return &hff->homo;
@@ -155,13 +158,13 @@ static int findStripsFact(const pddl_homomorphism_heur_t *h,
     for (int fact_id = 0; fact_id < h->strips.fact.fact_size; ++fact_id){
         const pddl_fact_t *fact = h->strips.fact.fact[fact_id];
         const pddl_ground_atom_t *fga = fact->ground_atom;
-        ASSERT_RUNTIME(fga != NULL);
+        ASSERT(fga != NULL);
         if (fga->pred != ga->pred)
             continue;
         ASSERT(fga->arg_size == ga->arg_size);
         int eq = 1;
         for (int i = 0; i < fga->arg_size; ++i){
-            pddl_obj_id_t ga_obj = h->obj_map[ga->arg[i]];
+            int ga_obj = h->obj_map[ga->arg[i]];
             if (fga->arg[i] != ga_obj){
                 eq = 0;
                 break;

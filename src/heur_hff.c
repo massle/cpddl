@@ -46,6 +46,9 @@ static int heurEstimate(pddl_heur_t *_h,
 
 pddl_heur_t *pddlHeurHFF(const pddl_fdr_t *fdr, pddl_err_t *err)
 {
+    if (fdr->has_cond_eff)
+        ERR_RET(err, NULL, "FF heuristic does not support conditional effects.");
+
     pddl_heur_hff_t *h = ZALLOC(pddl_heur_hff_t);
     pddlHFFInit(&h->hff, fdr);
     pddlFDRVarsInitCopy(&h->fdr_vars, &fdr->var);

@@ -137,6 +137,15 @@ typedef enum pddl_status pddl_status_t;
 # define PDDL_UNUSED(f)
 #endif /* defined(__GNUC__) || defined(__clang__) */
 
+/**
+ * Checking printf-style functions
+ */
+#if defined(__GNUC__) || defined(__clang__)
+# define __PDDL_ATTR_PRINTF(FMT, FIRST_TO_CHECK) \
+    __attribute__((format(__printf__, FMT, FIRST_TO_CHECK)))
+#else /* defined(__GNUC__) || defined(__clang__) */
+# define __PDDL_ATTR_PRINTF(FMT, FIRST_TO_CHECK)
+#endif /* defined(__GNUC__) || defined(__clang__) */
 
 #define PDDL_MIN(x, y) ((x) < (y) ? (x) : (y)) /*!< minimum */
 #define PDDL_MAX(x, y) ((x) > (y) ? (x) : (y)) /*!< maximum */
@@ -155,17 +164,13 @@ typedef enum pddl_status pddl_status_t;
 typedef struct pddl pddl_t;
 typedef struct pddl_strips pddl_strips_t;
 
-/** Type for holding number of objects */
-typedef uint16_t pddl_obj_size_t;
-/** Type for holding number of action parameters */
-typedef uint16_t pddl_action_param_size_t;
-
-typedef int pddl_obj_id_t;
-
-/** Constant for undefined object ID.
- *  It should be always defined as something negative so we can test object
- *  ID with >= 0 and < 0. */
-#define PDDL_OBJ_ID_UNDEF ((pddl_obj_id_t)-1)
+/** Boolean type. There seems to be no guarantee on interoperability
+ *  between C and C++ with stdbool.h, so we need to define it locally */
+typedef int pddl_bool_t;
+typedef int pddl_bool_promote_type_t;
+#define pddl_true 1
+#define pddl_false 0
+#define PDDL_BOOL_STR(X) (!!(X) ? "true" : "false")
 
 /** Dead-end (infinity) cost */
 #define PDDL_COST_DEAD_END (INT_MAX / 2)

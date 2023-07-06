@@ -15,7 +15,7 @@ extern "C" {
 
 struct _pddl_lifted_app_action {
     int action_id;
-    const pddl_obj_id_t args[];
+    const int args[];
 };
 typedef struct _pddl_lifted_app_action _pddl_lifted_app_action_t;
 
@@ -34,7 +34,7 @@ struct pddl_lifted_app_action {
 
 void pddlLiftedAppActionAdd(pddl_lifted_app_action_t *a,
                             int action_id,
-                            const pddl_obj_id_t *args,
+                            const int *args,
                             int args_size);
 
 void _pddlLiftedAppActionInit(pddl_lifted_app_action_t *aa,

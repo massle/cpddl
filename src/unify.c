@@ -24,9 +24,9 @@ void pddlUnifyInit(pddl_unify_t *u,
                    const pddl_params_t *param1,
                    const pddl_params_t *param2)
 {
-    ASSERT_RUNTIME(param1 != param2);
-    ASSERT_RUNTIME(param1 != NULL);
-    ASSERT_RUNTIME(param2 != NULL);
+    PANIC_IF(param1 == param2, "pddlUnifyInit: param1 and param2 must differ");
+    PANIC_IF(param1 == NULL, "pddlUnifyInit: param1 must be non-NULL");
+    PANIC_IF(param2 == NULL, "pddlUnifyInit: param2 must be non-NULL");
     ZEROIZE(u);
     u->type = type;
     u->param[0] = param1;
@@ -36,13 +36,13 @@ void pddlUnifyInit(pddl_unify_t *u,
 
     int var = 0;
     for (int i = 0; i < u->param[0]->param_size; ++i){
-        u->map[0][i].obj = PDDL_OBJ_ID_UNDEF;
+        u->map[0][i].obj = -1;
         u->map[0][i].var = var;
         u->map[0][i].var_type = u->param[0]->param[i].type;
         ++var;
     }
     for (int i = 0; i < u->param[1]->param_size; ++i){
-        u->map[1][i].obj = PDDL_OBJ_ID_UNDEF;
+        u->map[1][i].obj = -1;
         u->map[1][i].var = var;
         u->map[1][i].var_type = u->param[1]->param[i].type;
         ++var;
@@ -93,7 +93,7 @@ static void unifyVars(pddl_unify_t *u, int var1, int var2, int var_type)
     }
 }
 
-static void unifyVarObj(pddl_unify_t *u, int var, pddl_obj_id_t obj)
+static void unifyVarObj(pddl_unify_t *u, int var, int obj)
 {
     for (int i = 0; i < 2; ++i){
         for (int j = 0; j < u->param[i]->param_size; ++j){
@@ -192,7 +192,7 @@ int pddlUnifyApplyEquality(pddl_unify_t *u,
     }else if (param == u->param[1]){
         return applyEquality(u, 1, eq_pred, cond);
     }
-    ASSERT_RUNTIME_M(0, "Invalid set of parameters");
+    PANIC("Invalid set of parameters");
     return -1;
 }
 
@@ -227,20 +227,22 @@ int pddlUnifyCheckInequality(const pddl_unify_t *u,
     }else if (param == u->param[1]){
         return checkInequality(u->map[1], eq_pred, cond);
     }
-    ASSERT_RUNTIME_M(0, "Invalid set of parameters");
+    PANIC("Invalid set of parameters");
     return -1;
 }
 
-int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
-                         const pddl_params_t *param1,
-                         const pddl_fm_atom_t *a1,
-                         const pddl_params_t *param2,
-                         const pddl_fm_atom_t *a2)
+pddl_bool_t pddlUnifyAtomsDiffer(const pddl_unify_t *u,
+                                 const pddl_params_t *param1,
+                                 const pddl_fm_atom_t *a1,
+                                 const pddl_params_t *param2,
+                                 const pddl_fm_atom_t *a2)
 {
-    ASSERT_RUNTIME(param1 == u->param[0] || param1 == u->param[1]);
-    ASSERT_RUNTIME(param2 == u->param[0] || param2 == u->param[1]);
+    PANIC_IF(param1 != u->param[0] && param1 != u->param[1],
+             "param1 must be one of u's parameters");
+    PANIC_IF(param2 != u->param[0] && param2 != u->param[1],
+             "param2 must be one of u's parameters");
     if (a1->pred != a2->pred)
-        return 1;
+        return pddl_true;
 
     int idx1 = 0;
     if (param1 == u->param[1])
@@ -254,12 +256,12 @@ int pddlUnifyAtomsDiffer(const pddl_unify_t *u,
         initVal(&v1, u->map[idx1], a1, i);
         initVal(&v2, u->map[idx2], a2, i);
         if (v1.obj != v2.obj || v1.var != v2.var || v1.var_type != v2.var_type)
-            return 1;
+            return pddl_true;
     }
-    return 0;
+    return pddl_false;
 }
 
-int pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2)
+pddl_bool_t pddlUnifyEq(const pddl_unify_t *u, const pddl_unify_t *u2)
 {
     return u->param[0] == u2->param[0]
             && u->param[1] == u2->param[1]
@@ -302,7 +304,7 @@ static pddl_fm_t *_pddlUnifyToCond(const pddl_unify_t *u, int eq_pred, int idx)
                 && u->map[idx][v].var_type != u->param[idx]->param[v].type){
             pddl_fm_t *or = pddlFmNewEmptyOr();
             int type = u->map[idx][v].var_type;
-            const pddl_obj_id_t *objs;
+            const int *objs;
             int obj_size;
             objs = pddlTypesObjsByType(u->type, type, &obj_size);
             for (int i = 0; i < obj_size; ++i){
@@ -331,7 +333,7 @@ pddl_fm_t *pddlUnifyToCond(const pddl_unify_t *u,
         return _pddlUnifyToCond(u, eq_pred, 0);
     if (param == u->param[1])
         return _pddlUnifyToCond(u, eq_pred, 1);
-    ASSERT_RUNTIME_M(0, "Invalid argument param");
+    PANIC("Invalid argument param");
     return NULL;
 }
 
@@ -341,7 +343,7 @@ void pddlUnifyResetCountedVars(const pddl_unify_t *u)
     for (int v = 0; v < 2; ++v){
         for (int i = 0; i < u->param[v]->param_size; ++i){
             if (u->param[v]->param[i].is_counted_var){
-                u->map[v][i].obj = PDDL_OBJ_ID_UNDEF;
+                u->map[v][i].obj = -1;
                 u->map[v][i].var = var;
                 u->map[v][i].var_type = u->param[v]->param[i].type;
             }
