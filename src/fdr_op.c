@@ -91,7 +91,6 @@ void pddlFDROpRemapFacts(pddl_fdr_op_t *op, const pddl_fdr_vars_remap_t *rmp)
         if (ce->pre.fact_size == 0){
             for (int fi = 0; fi < ce->eff.fact_size; ++fi){
                 const pddl_fdr_fact_t *f = ce->eff.fact + fi;
-                ASSERT_RUNTIME(!pddlFDRPartStateIsSet(&ce->eff, f->var));
                 if (!pddlFDRPartStateIsSet(&ce->pre, f->var)
                         || pddlFDRPartStateGet(&ce->pre, f->var) != f->val){
                     pddlFDRPartStateSet(&ce->eff, f->var, f->val);

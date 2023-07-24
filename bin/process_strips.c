@@ -149,7 +149,7 @@ static int step(pddl_process_strips_t *prune,
     if (!step->can_reuse_rm_op_fact)
         apply(prune, err);
 
-    PDDL_CTX(err, step->name);
+    PDDL_CTX(err, "%s", step->name);
     int rm_fact = pddlISetSize(&prune->rm_fact);
     int rm_op = pddlISetSize(&prune->rm_op);
     if (step->execute(prune, step, err) != 0){
@@ -462,7 +462,7 @@ static int sortOps(pddl_process_strips_t *prune,
                    pddl_err_t *err)
 {
     pddlStripsOpsSort(&prune->strips->op);
-    PDDL_INFO(err, "Operators sorted by name");
+    PDDL_LOG(err, "Operators sorted by name");
     return 0;
 }
 
@@ -480,7 +480,7 @@ static int opMutexExecute(pddl_process_strips_t *prune,
     pddl_process_strips_step_op_mutex_t *step
         = pddl_container_of(_step, pddl_process_strips_step_op_mutex_t, step);
 
-    PDDL_INFO(err, "Operator Mutexes [ts: %d, op-fact: %d, hm-op: %d,"
+    PDDL_LOG(err, "Operator Mutexes [ts: %d, op-fact: %d, hm-op: %d,"
                    " prune: %d, output: '%s']",
              step->ts,
              step->op_fact,
@@ -490,13 +490,13 @@ static int opMutexExecute(pddl_process_strips_t *prune,
     if (step->ts < 0
             && step->op_fact < 1
             && step->hm_op < 1){
-        PDDL_INFO(err, "Nothing to do");
+        PDDL_LOG(err, "Nothing to do");
         return 0;
     }
 
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
-    PDDL_INFO(err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
+    PDDL_LOG(err, "Created MG-Strips with %d facts, %d ops, %d mgroups,"
               " input mgroups: %d",
               mg_strips.strips.fact.fact_size,
               mg_strips.strips.op.op_size,
@@ -545,10 +545,10 @@ static int opMutexExecute(pddl_process_strips_t *prune,
     }
 
     if (opm.num_op_mutex_pairs > 0 && !step->no_prune){
-        PDDL_INFO(err, "Computing symmetries on PDG");
+        PDDL_LOG(err, "Computing symmetries on PDG");
         pddl_strips_sym_t sym;
         pddlStripsSymInitPDG(&sym, prune->strips);
-        PDDL_INFO(err, "  Symmetry generators: %d", sym.gen_size);
+        PDDL_LOG(err, "  Symmetry generators: %d", sym.gen_size);
         PDDL_ISET(redundant);
         pddl_op_mutex_redundant_config_t cfg = PDDL_OP_MUTEX_REDUNDANT_CONFIG_INIT;
         cfg.method = step->prune_method;
@@ -612,7 +612,7 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
                                 pddl_err_t *err)
 {
     int ret = 0;
-    PDDL_INFO(err, "Redundant operators using endomorphism on FDR ...");
+    PDDL_LOG(err, "Redundant operators using endomorphism on FDR ...");
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, prune->strips, prune->mgroups, prune->mutex,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
@@ -620,7 +620,7 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
     if (ret >= 0)
         ret = 0;
     pddlFDRFree(&fdr);
-    PDDL_INFO(err, "Redundant operators using endomorphism on FDR DONE");
+    PDDL_LOG(err, "Redundant operators using endomorphism on FDR DONE");
     return ret;
 }
 
@@ -630,7 +630,7 @@ static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
                                pddl_err_t *err)
 {
     int ret = 0;
-    PDDL_INFO(err, "Redundant operators using endomorphism on TSs ...");
+    PDDL_LOG(err, "Redundant operators using endomorphism on TSs ...");
     pddl_mg_strips_t mg_strips;
     pddlMGStripsInit(&mg_strips, prune->strips, prune->mgroups);
 
@@ -646,7 +646,7 @@ static int pruneEndomorphismTS(const pddl_process_strips_t *prune,
     pddlTransSystemsFree(&tss);
     pddlMutexPairsFree(&mg_mutex);
     pddlMGStripsFree(&mg_strips);
-    PDDL_INFO(err, "Redundant operators using endomorphism on TSs DONE");
+    PDDL_LOG(err, "Redundant operators using endomorphism on TSs DONE");
     return ret;
 }
 
@@ -667,7 +667,7 @@ static int pruneEndomorphismFDRTS(const pddl_process_strips_t *prune,
         }
         pddlISetFree(&redundant2);
     }else{
-        PDDL_INFO(err, "Endomorphism on factored TS skipped, because"
+        PDDL_LOG(err, "Endomorphism on factored TS skipped, because"
                         " endomorphism on FDR failed");
     }
 
@@ -763,7 +763,7 @@ static int printExecute(pddl_process_strips_t *ps,
 
     FILE *fout = fopen(step->fn, "w");
     if (fout == NULL){
-        PDDL_INFO(err, "Could not open file %s", step->fn);
+        PDDL_LOG(err, "Could not open file %s", step->fn);
         return 0;
     }
 

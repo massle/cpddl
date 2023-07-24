@@ -72,7 +72,7 @@ static void prepareMGroups(pddl_mgroups_t *mgroups,
     }
     //pddlMGroupsPrintTable(NULL, &strips, &mgroups, NULL, err);
     pddlISetFree(&black_facts);
-    PDDL_INFO(err, "Created %d mutex groups of which %d are black",
+    LOG(err, "Created %d mutex groups of which %d are black",
               mgroups->mgroup_size, black_mgroups->mgroup_size);
 }
 
@@ -95,7 +95,7 @@ static void setBlackVars(pddl_fdr_t *fdr,
         ASSERT(fdr->var.var[var_id].is_black != 1);
         fdr->var.var[var_id].is_black = 1;
     }
-    PDDL_INFO(err, "Black variables with none-of-those: %d", num_none_of_those);
+    LOG(err, "Black variables with none-of-those: %d", num_none_of_those);
 }
 
 static void compileAwayRedDelEffs(pddl_strips_t *strips,
@@ -157,7 +157,7 @@ static void setNoneOfThoseInPre(pddl_fdr_t *fdr,
             }
         }
     }
-    PDDL_INFO(err, "Set %d additional none-of-those preconditions", num_set);
+    LOG(err, "Set %d additional none-of-those preconditions", num_set);
     pddlStripsFactCrossRefFree(&cref);
 }
 
@@ -176,9 +176,9 @@ static void fdrStat(const pddl_fdr_t *fdr, pddl_err_t *err)
             --num_black_facts;
         num_black_facts_with_none_of_those += var->val_size;
     }
-    PDDL_INFO(err, "Num black variables: %d", num_black_vars);
-    PDDL_INFO(err, "Num black STRIPS facts: %d", num_black_facts);
-    PDDL_INFO(err, "Num black FDR facts: %d",
+    LOG(err, "Num black variables: %d", num_black_vars);
+    LOG(err, "Num black STRIPS facts: %d", num_black_facts);
+    LOG(err, "Num black FDR facts: %d",
               num_black_facts_with_none_of_those);
 }
 
@@ -209,7 +209,8 @@ static int constructFDR(pddl_fdr_t *fdr,
     unsigned fdr_flags = 0;
     int ret = pddlFDRInitFromStrips(fdr, strips, mgroups, mutex,
                                     fdr_var_flags, fdr_flags, err);
-    ASSERT_RUNTIME(fdr->op.op_size == strips->op.op_size);
+    PANIC_IF(fdr->op.op_size != strips->op.op_size,
+             "Incorrectly constructed FDR task.");
 
     // Find black variables and remember which of them has none-of-those value
     int *none_of_those = CALLOC_ARR(int, black_mgroups->mgroup_size);
@@ -240,7 +241,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddl_timer_t timer;
     pddlTimerStart(&timer);
     CTX(err, "Black-FDR");
-    PDDL_INFO(err, "Construction of FDR with black variables...");
+    LOG(err, "Construction of FDR with black variables...");
 
     // Make sure that mutex groups are contained in the mutex pairs
     pddl_mutex_pairs_t mutex;
@@ -279,7 +280,7 @@ int pddlRedBlackFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlMutexPairsFree(&mutex);
 
     pddlTimerStop(&timer);
-    PDDL_INFO(err, "Translation took %.2f seconds",
+    LOG(err, "Translation took %.2f seconds",
               pddlTimerElapsedInSF(&timer));
     CTXEND(err);
     return num_created;

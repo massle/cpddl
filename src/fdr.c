@@ -49,17 +49,17 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     pddlTimerStart(&timer);
 
     if (fdr_flags == PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE){
-        PDDL_INFO(err, "cfg.set_none_of_those_in_pre = 1");
+        LOG(err, "cfg.set_none_of_those_in_pre = 1");
     }else{
-        PDDL_INFO(err, "cfg.set_none_of_those_in_pre = 0");
+        LOG(err, "cfg.set_none_of_those_in_pre = 0");
     }
 
     if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_ESSENTIAL_FIRST){
-        PDDL_INFO(err, "cfg.vars_selection_order = essential");
+        LOG(err, "cfg.vars_selection_order = essential");
     }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST){
-        PDDL_INFO(err, "cfg.vars_selection_order = largest");
+        LOG(err, "cfg.vars_selection_order = largest");
     }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
-        PDDL_INFO(err, "cfg.vars_selection_order = largest-multi");
+        LOG(err, "cfg.vars_selection_order = largest-multi");
     }
 
 
@@ -86,18 +86,26 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     // Initial state
     fdr->init = ALLOC_ARR(int, fdr->var.var_size);
     stripsToFDRState(&fdr->var, &strips->init, fdr->init);
-    PDDL_INFO(err, "Created initial state.");
+    LOG(err, "Created initial state.");
 
     // Goal
     pddlFDRPartStateInit(&fdr->goal);
     stripsToFDRPartState(&fdr->var, &strips->goal, &fdr->goal);
-    PDDL_INFO(err, "Created goal specification.");
+    LOG(err, "Created goal specification.");
 
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
         addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
     LOG(err, "Created %d operators", fdr->op.op_size);
+
+    int num_cond_eff = 0;
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
+        if (fdr->op.op[op_id]->cond_eff_size > 0)
+            ++num_cond_eff;
+    }
+    fdr->has_cond_eff = (num_cond_eff > 0);
+    LOG(err, "Created %d operators with conditional effects", num_cond_eff);
 
     pddlTimerStop(&timer);
     PDDL_LOG(err, "Translation took %.2f seconds",
@@ -235,10 +243,10 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
         pddlISetFree(&useless_ops);
 
         // Set cond-eff flag
-        fdr->has_cond_eff = 0;
+        fdr->has_cond_eff = pddl_false;
         for (int op_id = 0; op_id < fdr->op.op_size; ++op_id){
             if (fdr->op.op[op_id]->cond_eff_size > 0){
-                fdr->has_cond_eff = 1;
+                fdr->has_cond_eff = pddl_true;
                 break;
             }
         }
@@ -287,7 +295,7 @@ int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,
     PDDL_IARR_FOR_EACH(plan, op_id){
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         if (!relaxedPreHold(fdr, reached, &op->pre)){
-            PDDL_INFO(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
+            LOG(err, "Relaxed plan failed: %d:(%s) pre unsatisfied",
                       op_id, op->name);
             FREE(reached);
             return 0;
@@ -833,7 +841,6 @@ static int tnfMultiplyOp(pddl_fdr_t *fdr,
     pddlFDRPartStateToGlobalIDs(&op->pre, &fdr->var, &pre);
     pddlFDRPartStateToGlobalIDs(&op->eff, &fdr->var, &eff);
 
-    ASSERT_RUNTIME(dis != NULL);
     int disret = pddlDisambiguate(dis, &pre, &eff, 1, sf_flag, &hset, &extend);
     if (disret < 0)
         ret = -1;
@@ -937,7 +944,7 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     pddlFDRInitCopy(fdr, fdr_in);
 
     if (mutex == NULL){
-        PDDL_INFO(err, "Constructing full TNF");
+        LOG(err, "Constructing full TNF");
         tnfFull(fdr, fdr_in, flags, err);
 
     }else{
@@ -949,11 +956,11 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
         pddlDisambiguateInit(&dis, fdr->var.global_id_size, mutex, &mgs);
 
         if (flags & PDDL_FDR_TNF_MULTIPLY_OPS){
-            PDDL_INFO(err, "Multiply operators with disambiguation");
+            LOG(err, "Multiply operators with disambiguation");
             tnfMultiply(fdr, &dis, flags, err);
             removeUnreachableOps(fdr, mutex, err);
         }else{
-            PDDL_INFO(err, "Using disambiguation");
+            LOG(err, "Using disambiguation");
             tnfDis(fdr, &dis, flags, err);
         }
 
@@ -1153,7 +1160,8 @@ void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)
     FILE *fout = cfg->fout;
     if (fout == NULL){
         fout = fopen(cfg->filename, "w");
-        PANIC_IF(fout == NULL, "Could not open file %s", cfg->filename);
+        PANIC_IF(fout == NULL, "Could not open file %s",
+                 (cfg->filename != NULL ? cfg->filename : "(null)"));
     }
 
     if (cfg->fd)

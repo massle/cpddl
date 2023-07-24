@@ -92,8 +92,7 @@ static int parseOpts(int argc, char *argv[])
 
     if (opt.log_out != NULL){
         log_out = openFile(opt.log_out);
-        pddlErrWarnEnable(&err, log_out);
-        pddlErrInfoEnable(&err, log_out);
+        pddlErrLogEnable(&err, log_out);
     }
 
     if (opt.max_mem > 0){
@@ -116,10 +115,7 @@ int main(int argc, char *argv[])
     pddlTimerStart(&timer);
 
     if (parseOpts(argc, argv) != 0){
-        if (pddlErrIsSet(&err)){
-            fprintf(stderr, "Error: ");
-            pddlErrPrint(&err, 1, stderr);
-        }
+        pddlErrPrint(&err, 1, stderr);
         return -1;
     }
 
@@ -131,10 +127,7 @@ int main(int argc, char *argv[])
     pddl_asnets_config_t cfg;
     if (config_file != NULL){
         if (pddlASNetsConfigInitFromFile(&cfg, config_file, &err) != 0){
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }else{
@@ -149,10 +142,7 @@ int main(int argc, char *argv[])
     if (opt.train != NULL || opt.eval != NULL){
         asnets = pddlASNetsNew(&cfg, &err);
         if (asnets == NULL){
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
             return -1;
         }
     }
@@ -163,16 +153,12 @@ int main(int argc, char *argv[])
         if (ret == 0){
             ret = pddlASNetsSave(asnets, opt.train, &err);
         }else{
-            if (pddlErrIsSet(&err)){
-                fprintf(stderr, "Error: ");
-                pddlErrPrint(&err, 1, stderr);
-            }
+            pddlErrPrint(&err, 1, stderr);
         }
 
     }else if (opt.eval != NULL){
         ret = pddlASNetsLoad(asnets, opt.eval, &err);
         if (ret < 0){
-            fprintf(stderr, "Error: ");
             pddlErrPrint(&err, 1, stderr);
             return -1;
         }
@@ -185,10 +171,10 @@ int main(int argc, char *argv[])
             PDDL_IARR(plan);
             int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
             PDDL_LOG(&err, "Task %s %s"
-                     " solved: %b, length: %d",
-                     task->pddl.domain_lisp->filename,
-                     task->pddl.problem_lisp->filename,
-                     solved,
+                     " solved: %s, length: %d",
+                     task->pddl.domain_file,
+                     task->pddl.problem_file,
+                     (solved ? "true" : "false"),
                      (solved ? pddlIArrSize(&plan) : -1));
             if (solved){
                 ++num_solved;
@@ -216,7 +202,6 @@ int main(int argc, char *argv[])
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);
         if (ret < 0){
-            fprintf(stderr, "Error: ");
             pddlErrPrint(&err, 1, stderr);
             return -1;
         }

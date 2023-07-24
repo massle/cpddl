@@ -170,19 +170,19 @@ int pddlExecvp(char *const argv[],
         if (fd_stdin[1] >= 0)
             close(fd_stdin[1]);
         if (fd_stdin[0] >= 0){
-            ASSERT_RUNTIME(dup2(fd_stdin[0], STDIN_FILENO) == STDIN_FILENO);
+            dup2(fd_stdin[0], STDIN_FILENO);
             close(fd_stdin[0]);
         }
 
         if (fd_stdout[0] >= 0)
             close(fd_stdout[0]);
         if (fd_stdout[1] >= 0){
-            ASSERT_RUNTIME(dup2(fd_stdout[1], STDOUT_FILENO) == STDOUT_FILENO);
+            dup2(fd_stdout[1], STDOUT_FILENO);
             close(fd_stdout[1]);
         }else{
             int fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
             if (fd >= 0){
-                ASSERT_RUNTIME(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO);
+                dup2(fd, STDOUT_FILENO);
                 close(fd);
             }
         }
@@ -190,12 +190,12 @@ int pddlExecvp(char *const argv[],
         if (fd_stderr[0] >= 0)
             close(fd_stderr[0]);
         if (fd_stderr[1] >= 0){
-            ASSERT_RUNTIME(dup2(fd_stderr[1], STDERR_FILENO) == STDERR_FILENO);
+            dup2(fd_stderr[1], STDERR_FILENO);
             close(fd_stderr[1]);
         }else{
             int fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
             if (fd >= 0){
-                ASSERT_RUNTIME(dup2(fd, STDERR_FILENO) == STDERR_FILENO);
+                dup2(fd, STDERR_FILENO);
                 close(fd);
             }
         }

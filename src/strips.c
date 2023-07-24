@@ -21,18 +21,6 @@
 #include "pddl/strips.h"
 #include "internal.h"
 
-void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err)
-{
-    if (cfg->lifted_mgroups == NULL){
-        LOG(err, "lifted_mgroups->mgroup_size = 0");
-    }else{
-        LOG_CONFIG_INT(cfg, lifted_mgroups->mgroup_size, err);
-    }
-    LOG_CONFIG_BOOL(cfg, prune_op_pre_mutex, err);
-    LOG_CONFIG_BOOL(cfg, prune_op_dead_end, err);
-    LOG_CONFIG_BOOL(cfg, remove_static_facts, err);
-}
-
 static void copyBasicInfo(pddl_strips_t *dst, const pddl_strips_t *src)
 {
     if (src->domain_name)
@@ -125,7 +113,8 @@ void pddlStripsInitCopy(pddl_strips_t *dst, const pddl_strips_t *src)
 static int addNegFact(pddl_strips_t *strips, int fact_id)
 {
     pddl_fact_t *fact = strips->fact.fact[fact_id];
-    ASSERT_RUNTIME(fact->neg_of == -1);
+    PANIC_IF(fact->neg_of >= 0, "Fact %s is already a negation of another fact",
+             fact->name);
 
     pddl_fact_t neg;
     char name[512];
@@ -138,7 +127,6 @@ static int addNegFact(pddl_strips_t *strips, int fact_id)
     pddl_fact_t *neg_fact = strips->fact.fact[neg_id];
     neg_fact->neg_of = fact_id;
     fact->neg_of = neg_id;
-    neg_fact->is_private = fact->is_private;
 
     for (int opi = 0; opi < strips->op.op_size; ++opi){
         pddl_strips_op_t *op = strips->op.op[opi];
@@ -206,7 +194,7 @@ static void opCompileAwayCondEffNegPre(pddl_strips_t *strips,
         int fact_id;
         PDDL_ISET_FOR_EACH(&ce->pre, fact_id){
             int neg_fact_id = strips->fact.fact[fact_id]->neg_of;
-            ASSERT_RUNTIME(neg_fact_id >= 0);
+            PANIC_IF(neg_fact_id < 0, "Expecting a fact ID");
             pddlISetAdd(&neg_pre[i], neg_fact_id);
         }
     }
@@ -253,7 +241,9 @@ static void opCompileAwayCondEffComb(pddl_strips_t *strips,
 static void opCompileAwayCondEff(pddl_strips_t *strips,
                                  const pddl_strips_op_t *op)
 {
-    ASSERT_RUNTIME(op->cond_eff_size < sizeof(unsigned long) * 8);
+    PANIC_IF(op->cond_eff_size >= sizeof(unsigned long) * 8,
+             "Too many conditional effects (more than %d)",
+             (int)(sizeof(unsigned long) * 8));
     int neg_ce[op->cond_eff_size];
     int neg_ce_size;
     int pos_ce[op->cond_eff_size];
@@ -288,7 +278,6 @@ static void compileAwayCondEffCreateNegFacts(pddl_strips_t *strips)
             PDDL_ISET_FOR_EACH(&ce->pre, fact_id){
                 if (strips->fact.fact[fact_id]->neg_of == -1){
                     addNegFact(strips, fact_id);
-                    ASSERT_RUNTIME(strips->fact.fact[fact_id]->neg_of != -1);
                 }
             }
         }
@@ -769,8 +758,8 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     CTX(err, "rm-useless-del-effs");
     int ret = 0;
     PDDL_LOG(err, "Removing useless delete effects."
-             " num mutex pairs: %d",
-             (mutex != NULL ? mutex->num_mutex_pairs : -1 ));
+             " num mutex pairs: %ld",
+             (mutex != NULL ? (long)mutex->num_mutex_pairs : -1L ));
 
     PDDL_ISET(useless);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id){

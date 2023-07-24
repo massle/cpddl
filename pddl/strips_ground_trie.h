@@ -43,7 +43,7 @@ typedef struct pddl_strips_ground_args_arr pddl_strips_ground_args_arr_t;
 typedef void (*pddl_strips_ground_unify_new_atom_fn)
                     (const pddl_ground_atom_t *a, void *);
 
-struct pddl_strips_ground {
+struct pddl_strips_ground_trie {
     const pddl_t *pddl;
     pddl_ground_config_t cfg;
     pddl_err_t *err;
@@ -62,37 +62,37 @@ struct pddl_strips_ground {
     pddl_strips_ground_atree_t *atree;
     pddl_strips_ground_args_arr_t ground_args;
 };
-typedef struct pddl_strips_ground pddl_strips_ground_t;
+typedef struct pddl_strips_ground_trie pddl_strips_ground_trie_t;
 
 /**
  * Ground PDDL into STRIPS.
  * It runs:
- *  pddlStripsGroundStart()
- *  pddlStripsGroundUnifyStep()
- *  pddlStripsGroundFinalize()
+ *  pddlStripsGroundTrieStart()
+ *  pddlStripsGroundTrieUnifyStep()
+ *  pddlStripsGroundTrieFinalize()
  */
-int pddlStripsGround(pddl_strips_t *strips,
-                     const pddl_t *pddl,
-                     const pddl_ground_config_t *cfg,
-                     pddl_err_t *err);
+int pddlStripsGroundTrie(pddl_strips_t *strips,
+                         const pddl_t *pddl,
+                         const pddl_ground_config_t *cfg,
+                         pddl_err_t *err);
 
 
 /**
  * Starts grounding.
  */
-int pddlStripsGroundStart(pddl_strips_ground_t *g,
-                          const pddl_t *pddl,
-                          const pddl_ground_config_t *cfg,
-                          pddl_err_t *err,
-                          pddl_strips_ground_unify_new_atom_fn new_atom,
-                          void *new_atom_data);
+int pddlStripsGroundTrieStart(pddl_strips_ground_trie_t *g,
+                              const pddl_t *pddl,
+                              const pddl_ground_config_t *cfg,
+                              pddl_err_t *err,
+                              pddl_strips_ground_unify_new_atom_fn new_atom,
+                              void *new_atom_data);
 
 /**
  * Performs one cycle of fixpoint grounding.
  * For each newly generated fact, *_unify_new_atom_fn callback specified in
- * pddlStripsGroundStart() is called.
+ * pddlStripsGroundTrieStart() is called.
  */
-int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g);
+int pddlStripsGroundTrieUnifyStep(pddl_strips_ground_trie_t *g);
 
 /**
  * Adds a grounded atom to the set of facts.
@@ -100,13 +100,14 @@ int pddlStripsGroundUnifyStep(pddl_strips_ground_t *g);
  * this was a new atom.
  * This call does *not* trigger unify_new_atom callback.
  */
-int pddlStripsGroundAddGroundAtom(pddl_strips_ground_t *g, int pred,
-                                  const pddl_obj_id_t *arg, int arg_size);
+int pddlStripsGroundTrieAddGroundAtom(pddl_strips_ground_trie_t *g, int pred,
+                                      const int *arg, int arg_size);
 
 /**
  * Finalizes grounding and writes the output STRIPS.
  */
-int pddlStripsGroundFinalize(pddl_strips_ground_t *g, pddl_strips_t *strips);
+int pddlStripsGroundTrieFinalize(pddl_strips_ground_trie_t *g,
+                                 pddl_strips_t *strips);
 
 
 #ifdef __cplusplus

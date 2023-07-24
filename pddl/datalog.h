@@ -182,7 +182,7 @@ void pddlDatalogFactsFromCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        void *user_data),
             void *user_data);
 
@@ -195,7 +195,7 @@ void pddlDatalogFactsFromWeightedCanonicalModel(
             unsigned pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);
@@ -213,7 +213,7 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
             unsigned goal_pred,
             void (*fn)(int pred_user_id,
                        int arity,
-                       const pddl_obj_id_t *arg_user_id,
+                       const int *arg_user_id,
                        const pddl_cost_t *weight,
                        void *user_data),
             void *user_data);

@@ -28,12 +28,6 @@ enum {
 };
 
 enum {
-    GROUND_TRIE = 0,
-    GROUND_SQL,
-    GROUND_DL
-};
-
-enum {
     MG_NONE = 0,
     MG_FAM,
     MG_H2
@@ -63,6 +57,13 @@ enum {
     SYMBA_FWBW,
 };
 
+enum {
+    COMPILE_AWAY_NEG_COND_DYNAMIC = 0,
+    COMPILE_AWAY_NEG_COND_ALL,
+    COMPILE_AWAY_NEG_COND_GOAL,
+    COMPILE_AWAY_NEG_COND_NONE,
+};
+
 struct options {
     pddl_bool_t help;
     pddl_bool_t version;
@@ -70,11 +71,17 @@ struct options {
     char *log_out;
     char *prop_out;
     pddl_files_t files;
+    char *link_cplex;
+    char *link_gurobi;
+    pddl_bool_t list_lp_solvers;
+    pddl_bool_t list_cp_solvers;
 
     struct {
         pddl_bool_t force_adl;
+        pddl_bool_t pedantic;
         pddl_bool_t remove_empty_types;
         pddl_bool_t compile_away_cond_eff;
+        int compile_away_neg_cond;
         pddl_bool_t compile_in_lmg;
         pddl_bool_t compile_in_lmg_mutex;
         pddl_bool_t compile_in_lmg_dead_end;
@@ -113,7 +120,6 @@ struct options {
 
     struct {
         pddl_ground_config_t cfg;
-        int method;
 
         pddl_bool_t mgroup;
         pddl_bool_t mgroup_remove_subsets;

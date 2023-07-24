@@ -62,17 +62,6 @@ static char *makeName(const pddl_ground_atom_t *ga, const pddl_t *pddl)
     return STRDUP(name);
 }
 
-static int isPrivate(const pddl_ground_atom_t *ga, const pddl_t *pddl)
-{
-    if (pddl->pred.pred[ga->pred].is_private)
-        return 1;
-    for (int i = 0; i < ga->arg_size; ++i){
-        if (pddl->obj.obj[ga->arg[i]].is_private)
-            return 1;
-    }
-    return 0;
-}
-
 static pddl_fact_t *factFromGroundAtom(const pddl_ground_atom_t *ga,
                                        const pddl_t *pddl)
 {
@@ -80,7 +69,6 @@ static pddl_fact_t *factFromGroundAtom(const pddl_ground_atom_t *ga,
 
     f = pddlFactNew();
     f->name = makeName(ga, pddl);
-    f->is_private = isPrivate(ga, pddl);
     f->ground_atom = pddlGroundAtomClone(ga);
     f->hash = pddlFactHash(f);
     return f;
@@ -121,7 +109,6 @@ static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src)
     if (src->ground_atom != NULL)
         dst->ground_atom = pddlGroundAtomClone(src->ground_atom);
     dst->hash = pddlFactHash(dst);
-    dst->is_private = src->is_private;
     dst->neg_of = src->neg_of;
 }
 
@@ -136,8 +123,6 @@ void pddlFactPrint(const pddl_fact_t *f,
                    FILE *fout)
 {
     const char *priv = "";
-    if (f->is_private)
-        priv = "P:";
     fprintf(fout, "%s%s(%s)%s", prefix, priv, f->name, suffix);
 }
 
@@ -223,9 +208,13 @@ int pddlFactsAddGroundAtom(pddl_facts_t *fs, const pddl_ground_atom_t *ga,
                     && ga2->pred == pred_neg
                     && ga->arg_size == ga2->arg_size
                     && memcmp(ga->arg, ga2->arg,
-                              sizeof(pddl_obj_id_t) * ga->arg_size) == 0){
-                ASSERT_RUNTIME(fact2->neg_of == -1);
-                ASSERT_RUNTIME(fact->neg_of == -1);
+                              sizeof(int) * ga->arg_size) == 0){
+                PANIC_IF(fact2->neg_of >= 0,
+                         "Fact %s is already a negation of another fact",
+                         fact2->name);
+                PANIC_IF(fact->neg_of >= 0,
+                         "Fact %s is already a negation of another fact",
+                         fact->name);
                 ASSERT(strncmp(fact->name, "NOT-", 4) == 0
                         || strncmp(fact2->name, "NOT-", 4) == 0);
                 ASSERT(strncmp(fact->name, "NOT-", 4) == 0

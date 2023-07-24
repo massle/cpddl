@@ -21,6 +21,7 @@
 #include "pddl/hfunc.h"
 #include "pddl/pddl.h"
 #include "pddl/lifted_mgroup.h"
+#include "pddl/strstream.h"
 #include "internal.h"
 
 #define LINESIZE 1024
@@ -91,7 +92,7 @@ void pddlLiftedMGroupInitCandFromPred(pddl_lifted_mgroup_t *mgroup,
     atom->pred = pred->id;
     for (int param_id = 0; param_id < pred->param_size; ++param_id){
         atom->arg[param_id].param = param_id;
-        atom->arg[param_id].obj = PDDL_OBJ_ID_UNDEF;
+        atom->arg[param_id].obj = -1;
     }
     pddlFmArrAdd(&mgroup->cond, &atom->fm);
 
@@ -149,7 +150,7 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     for (int i = 0; i < m->cond.size; ++i){
         const pddl_fm_atom_t *a = pddlFmToAtomConst(m->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
-            if (a->arg[ai].obj != PDDL_OBJ_ID_UNDEF)
+            if (a->arg[ai].obj >= 0)
                 continue;
             int param = a->arg[ai].param;
             if (m->param.param[param].is_counted_var){
@@ -175,7 +176,6 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
     pddl_params_t param;
     pddlParamsInit(&param);
     for (int i = 0; i < m->param.param_size; ++i){
-        ASSERT_RUNTIME(remap_param_inv[i] >= 0);
         pddl_param_t *p = pddlParamsAdd(&param);
         *p = m->param.param[remap_param_inv[i]];
     }
@@ -186,7 +186,6 @@ void pddlLiftedMGroupSort(pddl_lifted_mgroup_t *m)
         pddl_fm_atom_t *a = pddlFmToAtom((pddl_fm_t *)m->cond.fm[i]);
         for (int ai = 0; ai < a->arg_size; ++ai){
             if (a->arg[ai].param >= 0){
-                ASSERT_RUNTIME(remap_param[a->arg[ai].param] >= 0);
                 a->arg[ai].param = remap_param[a->arg[ai].param];
             }
         }
@@ -373,7 +372,7 @@ static void printMGroup(const pddl_t *pddl,
     if (fout != NULL)
         fprintf(fout, "%s", line);
     if (err != NULL)
-        PDDL_INFO(err, "%s", line);
+        LOG(err, "%s", line);
 }
 
 void pddlLiftedMGroupPrint(const pddl_t *pddl,
@@ -396,7 +395,7 @@ const char *pddlLiftedMGroupFmt(const pddl_t *pddl,
                                 char *s,
                                 size_t s_size)
 {
-    FILE *fout = fmemopen(s, s_size - 1, "w");
+    FILE *fout = pddl_staticstrstream(s, s_size - 1);
     printMGroup(pddl, mgroup, fout, NULL);
     fflush(fout);
     if (ferror(fout) != 0 && s_size >= 4){
@@ -449,7 +448,7 @@ void pddlLiftedMGroupsAdd(pddl_lifted_mgroups_t *lm,
 
 void pddlLiftedMGroupsAddInst(pddl_lifted_mgroups_t *lm,
                               const pddl_lifted_mgroup_t *lmg,
-                              const pddl_obj_id_t *args)
+                              const int *args)
 {
     pddlLiftedMGroupsAdd(lm, lmg);
 

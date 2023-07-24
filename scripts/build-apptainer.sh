@@ -6,19 +6,22 @@ MINIZINC_LINK="https://github.com/MiniZinc/MiniZincIDE/releases/download/2.7.0/M
 if [ "$1" = "" ]; then
     echo "Usage: $0 [OPTIONS] image"
     echo "    image:"
-    echo "        alpine (does not support cplex)"
+    echo "        alpine (does not support cplex or gurobi)"
     echo "        photon"
-    echo "        debian-{bullseye,buster,stretch,testing}"
+    echo "        debian-{bookworm,bullseye,buster,stretch,testing}"
     echo "        ubuntu-{kinetic,jammy,focal,bionic}"
     echo "        fedora"
     echo "        gcc-{11,12}"
     echo ""
     echo "    OPTIONS:"
     echo "        --output filename"
+    echo "        --name name-suffix"
     echo "        --no-bliss"
     echo "        --no-cudd"
     echo "        --highs"
+    echo "        --coin-or (supported only with debian/ubuntu/fedora)"
     echo "        --cplex ibm_studio_installer"
+    echo "        --cplex-api /path/to/include/dir"
     echo "        --gurobi (supported only with debian-bullseye)"
     echo "        --minizinc"
     echo "        --git tag/branch/sha"
@@ -36,10 +39,14 @@ SETUP="
 ADDITIONAL_FILES=
 
 OUTPUT=
+NAME=
 WERROR=
 USE_GIT=
 HAS_CPLEX=
+HAS_CPLEX_API=
+HAS_GUROBI=
 HAS_HIGHS=
+HAS_COIN_OR=
 HAS_MINIZINC=
 NO_BLISS=
 NO_CUDD=
@@ -56,7 +63,16 @@ while true; do
             cp "$cplex_file" \$APPTAINER_ROOTFS/cplex.bin
             chmod +x \$APPTAINER_ROOTFS/cplex.bin
 "
+    elif [ "$1" = "--cplex-api" ]; then
+        HAS_CPLEX_API=yes
+        shift
+        cplex_dir="${1}"
+        shift
 
+        SETUP="$SETUP
+            mkdir -p \$APPTAINER_ROOTFS/cplex/cplex/include
+            cp -rv ${cplex_dir}/* \$APPTAINER_ROOTFS/cplex/cplex/include/
+"
     elif [ "$1" = "--gurobi" ]; then
         HAS_GUROBI=yes
         shift
@@ -67,6 +83,10 @@ while true; do
         SETUP="$SETUP
     git clone --depth 1 --branch $HIGHS_VERSION https://github.com/ERGO-Code/HiGHS.git \$APPTAINER_ROOTFS/HiGHS-src
 "
+
+    elif [ "$1" = "--coin-or" ]; then
+        HAS_COIN_OR=yes
+        shift
 
     elif [ "$1" = "--minizinc" ]; then
         HAS_MINIZINC=yes
@@ -93,7 +113,7 @@ while true; do
         shift
         GIT_REV="$1"
         shift
-        git clone --depth 1 --branch ${GIT_REV} git@gitlab.com:danfis/cpddl-dev2 tmp-cpddl
+        git clone --depth 1 --branch ${GIT_REV} git@gitlab.com:danfis/cpddl-devel tmp-cpddl
 
         SETUP="$SETUP
             mv tmp-cpddl \$APPTAINER_ROOTFS/cpddl
@@ -129,6 +149,11 @@ while true; do
         OUTPUT="$1"
         shift
 
+    elif [ "$1" = "--name" ]; then
+        shift
+        NAME="$1"
+        shift
+
     else
         break
     fi
@@ -137,6 +162,7 @@ done
 if [ "$USE_GIT" != "yes" ]; then
     SETUP="$SETUP
     cp -r ./ \$APPTAINER_ROOTFS/cpddl
+    git -C \$APPTAINER_ROOTFS/cpddl clean -fdx
 "
 fi
 
@@ -153,11 +179,17 @@ fi
 if [ "$HAS_CPLEX" = "yes" ]; then
     SUFF="${SUFF}-cplex"
 fi
+if [ "$HAS_CPLEX_API" = "yes" ]; then
+    SUFF="${SUFF}-cplexapi"
+fi
 if [ "$HAS_GUROBI" = "yes" ]; then
     SUFF="${SUFF}-gurobi"
 fi
 if [ "$HAS_HIGHS" = "yes" ]; then
     SUFF="${SUFF}-highs"
+fi
+if [ "$HAS_COIN_OR" = "yes" ]; then
+    SUFF="${SUFF}-coinor"
 fi
 if [ "$HAS_MINIZINC" = "yes" ]; then
     SUFF="${SUFF}-minizinc"
@@ -212,10 +244,11 @@ MAKE="
     fi
 
     [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
+    [ \"$HAS_CPLEX_API\" = \"yes\" ] && echo \"CPLEX_ONLY_API = yes\" >>Makefile.config
     [ -d /HiGHS ] && echo \"HIGHS_ROOT = /HiGHS\" >>Makefile.config
+    [ -f /usr/include/coin/OsiSolverInterface.hpp ] && echo \"COIN_OR_USE_PKGCONFIG = yes\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
     [ \"$WERROR\" != \"\" ] && echo \"WERROR = yes\" >>Makefile.config
-    make mrproper
     make help
     [ \"$NO_BLISS\" = \"\" ] && make -j8 bliss
     [ \"$NO_CUDD\" = \"\" ] && make -j8 cudd
@@ -237,6 +270,7 @@ License BSD
 
 function build_alpine(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -250,6 +284,7 @@ $SETUP
     apk upgrade
     apk add make gcc g++ autoconf automake cmake git bash libstdc++
     [ "$CLANG" = "yes" ] && apk add clang
+    [ "$HAS_HIGHS" = "yes" ] && apk add zlib-static zlib-dev
     $MAKE
 
 Bootstrap: docker
@@ -267,12 +302,13 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_debian(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -286,10 +322,12 @@ $SETUP
     apt update -y
     apt upgrade -y
     apt install -y make gcc g++ autoconf automake cmake git libstdc++6
+    [ "$HAS_COIN_OR" = "yes" ] && apt install -y coinor-libosi-dev coinor-libclp-dev coinor-libcbc-dev zlib1g-dev pkg-config
     [ -f /llvm.sh ] \\
         && apt install -y lsb-release wget software-properties-common gnupg \\
         && bash /llvm.sh $CLANG_VERSION
     [ "$CLANG" = "yes" ] && [ ! -f /llvm.sh ] && apt install -y clang
+    [ "$HAS_HIGHS" = "yes" ] && apt install -y libz-dev
     $MAKE
 
 Bootstrap: docker
@@ -303,6 +341,7 @@ Stage: run
     export DEBIAN_FRONTEND=noninteractive
     apt update -y
     apt install -y libstdc++6
+    [ "$HAS_COIN_OR" = "yes" ] && apt install -y coinor-libclp1 coinor-libcbc3
     apt autoremove -y
     apt-get clean -y
     rm -rf /var/lib/apt/lists/*
@@ -311,12 +350,13 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_fedora(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -329,6 +369,8 @@ $SETUP
     dnf -y update
     dnf -y install make gcc g++ autoconf automake cmake git libstdc++
     [ "$CLANG" = "yes" ] && dnf -y install clang
+    [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc-devel coin-or-Clp-devel coin-or-Osi-devel
+    [ "$HAS_HIGHS" = "yes" ] && dnf -y install zlib-devel
     $MAKE
 
 Bootstrap: docker
@@ -341,6 +383,7 @@ Stage: run
 %post
     dnf -y update
     dnf -y install libstdc++
+    [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi
     dnf -y clean all
     rm -rf /var/lib/dnf
     rm -rf /var/lib/rpm*
@@ -348,12 +391,13 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
 function build_photon(){
     local name="${1}${SUFF}"
+    [ "$NAME" != "" ] && name="$NAME"
     local base="$2"
     cat >Apptainer.${name} <<EOF
 Bootstrap: docker
@@ -366,6 +410,7 @@ $SETUP
     tdnf -y update
     tdnf -y install gcc glibc-devel binutils libstdc++ linux-api-headers
     tdnf -y install coreutils make autoconf automake cmake git grep gawk gzip
+    [ "$HAS_HIGHS" = "yes" ] && tdnf -y install zlib-devel
     $MAKE
 
 Bootstrap: docker
@@ -385,7 +430,7 @@ Stage: run
 $RUN
 EOF
     output="$OUTPUT"
-    [ "$output" = "" ] && output=cpddl-${name}.img
+    [ "$output" = "" ] && output=cpddl-${name}.sif
     sudo apptainer build "$output" Apptainer.${name}
 }
 
@@ -402,7 +447,9 @@ if [ "$1" = "alpine" ]; then
         build_alpine alpine alpine:latest
     fi
 
-elif [ "$1" = "debian" ] || [ "$1" = "debian-bullseye" ]; then
+elif [ "$1" = "debian" ] || [ "$1" = "debian-bookworm" ]; then
+    build_debian debian-bookworm debian:bookworm-slim
+elif [ "$1" = "debian-bullseye" ]; then
     if [ "$HAS_GUROBI" = "yes" ]; then
         build_debian debian-bullseye gurobi/optimizer:9.5.1
     else

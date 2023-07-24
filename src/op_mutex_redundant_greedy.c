@@ -306,7 +306,7 @@ static void pruneRedundantSet(reduce_t *red, const pddl_iset_t *redundant)
 
 static void computeRedundantSets(reduce_t *red, pddl_err_t *err)
 {
-    PDDL_INFO(err, "  --> Computing redundant sets for each symmetry");
+    LOG(err, "  --> Computing redundant sets for each symmetry");
     for (int gi = 0; gi < red->gen_size; ++gi){
         reduce_gen_t *rgen = red->gen + gi;
         if (rgen->is_destroyed){
@@ -317,7 +317,7 @@ static void computeRedundantSets(reduce_t *red, pddl_err_t *err)
 
         findRedundantSet(rgen, red);
         /*
-        PDDL_INFO(err, "    --> Sym %d: size: %d, destroyed symmetries: %d,"
+        LOG(err, "    --> Sym %d: size: %d, destroyed symmetries: %d,"
                       " relevant ops: %d",
                  gi, pddlISetSize(&rgen->redundant_set),
                  rgen->num_destroyed_syms,
@@ -362,10 +362,10 @@ int pddlOpMutexFindRedundantGreedy(const pddl_op_mutex_pairs_t *op_mutex,
     reduce_t red;
     int change, gen_id;
 
-    PDDL_INFO(err, "Redundant set with op-mutexes and symmetries:");
+    LOG(err, "Redundant set with op-mutexes and symmetries:");
 
     reduceInit(&red, sym, op_mutex);
-    PDDL_INFO(err, "  --> Initialized");
+    LOG(err, "  --> Initialized");
 
     change = 1;
     while (change){
@@ -375,7 +375,7 @@ int pddlOpMutexFindRedundantGreedy(const pddl_op_mutex_pairs_t *op_mutex,
         if ((gen_id = selectRedundantSet(&red, err)) >= 0){
             pruneRedundantSet(&red, &red.gen[gen_id].redundant_set);
             change = 1;
-            PDDL_INFO(err, "  --> Selected redundant set from symmetry"
+            LOG(err, "  --> Selected redundant set from symmetry"
                      " %d with size %d destroying %d symmetries"
                      " :: overall: %d",
                      gen_id,
@@ -385,7 +385,7 @@ int pddlOpMutexFindRedundantGreedy(const pddl_op_mutex_pairs_t *op_mutex,
         }
     }
 
-    PDDL_INFO(err, "Op-mutex symmetry redundant operators: %d",
+    LOG(err, "Op-mutex symmetry redundant operators: %d",
              pddlISetSize(&red.pruned_ops));
 
 

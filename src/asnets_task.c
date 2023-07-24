@@ -7,7 +7,7 @@
 #include "internal.h"
 #include "pddl/asnets_task.h"
 #include "pddl/lifted_mgroup_infer.h"
-#include "pddl/strips_ground_datalog.h"
+#include "pddl/ground.h"
 #include "pddl/critical_path.h"
 #include "pddl/sha256.h"
 
@@ -105,7 +105,7 @@ int pddlASNetsLiftedTaskInit(pddl_asnets_lifted_task_t *lt,
                 addRelatedAction(lt->pred + at->pred, ai, pos);
         }
         PDDL_FM_FOR_EACH_ATOM(a->eff, &it, at){
-            ASSERT_RUNTIME(at->pred != lt->pddl.pred.eq_pred);
+            ASSERT(at->pred != lt->pddl.pred.eq_pred);
             int pos;
             if ((pos = addUniqueRelatedAtom(lt->action + ai, at)) >= 0)
                 addRelatedAction(lt->pred + at->pred, ai, pos);
@@ -160,12 +160,12 @@ void pddlASNetsLiftedTaskToSHA256(const pddl_asnets_lifted_task_t *lt,
 
 static int atomEq(const pddl_ground_atom_t *a1,
                   const pddl_fm_atom_t *a2,
-                  const pddl_obj_id_t *args)
+                  const int *args)
 {
     if (a1->pred != a2->pred)
         return 0;
     for (int argi = 0; argi < a1->arg_size; ++argi){
-        pddl_obj_id_t obj2 = a2->arg[argi].obj;
+        int obj2 = a2->arg[argi].obj;
         if (a2->arg[argi].param >= 0)
             obj2 = args[a2->arg[argi].param];
         if (a1->arg[argi] != obj2)
@@ -218,7 +218,7 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
         const pddl_strips_op_t *so = gt->strips.op.op[op_id];
         pddl_asnets_op_t *op = gt->op + op_id;
-        const pddl_obj_id_t *oargs = so->action_args;
+        const int *oargs = so->action_args;
 
         // TODO: Conditional effects not supported yet
         ASSERT(so->cond_eff_size == 0);
@@ -235,7 +235,7 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
             for (size_t pos = 0; pos < op->action->related_atom_size; ++pos){
                 const pddl_fm_atom_t *atom = op->action->related_atom[pos];
                 if (atomEq(fatom, atom, oargs)){
-                    ASSERT_RUNTIME(op->related_fact[pos] < 0);
+                    ASSERT(op->related_fact[pos] < 0);
                     op->related_fact[pos] = fact_id;
                     addRelatedOp(gt, fact_id, op_id, pos);
                 }
@@ -249,22 +249,41 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
 static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
                                   pddl_err_t *err)
 {
-    // TODO: Replace asserts with reporting what exactly is wrong
     LOG(err, "Checking everything is properly set up...");
-    ASSERT_RUNTIME(gt->fdr.op.op_size == gt->strips.op.op_size);
-    ASSERT_RUNTIME(gt->strips.op.op_size == gt->op_size);
+    if (gt->fdr.op.op_size != gt->strips.op.op_size){
+        ERR_RET(err, -1, "Different number of operators in the FDR and STRIPS"
+                " representations.");
+    }
+
+    if (gt->strips.op.op_size != gt->op_size){
+        ERR_RET(err, -1, "Invalid number of operators in the STRIPS"
+                " representation.");
+    }
+
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
-        ASSERT_RUNTIME(gt->op[op_id].related_fact_size
-                            == gt->op[op_id].action->related_atom_size);
+        if (gt->op[op_id].related_fact_size
+                != gt->op[op_id].action->related_atom_size){
+            ERR_RET(err, -1, "Different number of related facts and lifted atoms.");
+        }
+
         for (int i = 0; i < gt->op[op_id].related_fact_size; ++i){
-            ASSERT_RUNTIME(gt->op[op_id].related_fact[i] >= 0);
+            if (gt->op[op_id].related_fact[i] < 0){
+                ERR_RET(err, -1, "Missing related fact where there was a"
+                        " related atom.");
+            }
         }
     }
 
-    ASSERT_RUNTIME(gt->strips.fact.fact_size == gt->fact_size);
+    if (gt->strips.fact.fact_size != gt->fact_size){
+        ERR_RET(err, -1, "Invalid number of facts in the STRIPS representation.");
+    }
+
     for (int fact_id = 0; fact_id < gt->fact_size; ++fact_id){
-        ASSERT_RUNTIME(gt->fact[fact_id].related_op_size
-                            == gt->fact[fact_id].pred->related_action_size);
+        if (gt->fact[fact_id].related_op_size
+                != gt->fact[fact_id].pred->related_action_size){
+            ERR_RET(err, -1, "Different number of related operators and"
+                    " lifted actions.");
+        }
         for (int i = 0; i < gt->fact[fact_id].related_op_size; ++i){
             const pddl_iarr_t *rop = gt->fact[fact_id].related_op + i;
             if (pddlIArrSize(rop) == 0){
@@ -302,8 +321,8 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
         TRACE_RET(err, -1);
     }
 
-    ASSERT_RUNTIME(gt->pddl.action.action_size == lt->action_size);
-    ASSERT_RUNTIME(gt->pddl.pred.pred_size == lt->pred_size);
+    ASSERT(gt->pddl.action.action_size == lt->action_size);
+    ASSERT(gt->pddl.pred.pred_size == lt->pred_size);
 
     pddl_lifted_mgroups_infer_limits_t lifted_mgroups_limits
         = PDDL_LIFTED_MGROUPS_INFER_LIMITS_INIT;
@@ -312,12 +331,12 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddlLiftedMGroupsInferFAMGroups(&gt->pddl, &lifted_mgroups_limits, &lmg, err);
 
     pddl_ground_config_t ground_cfg = PDDL_GROUND_CONFIG_INIT;
-    ground_cfg.prune_op_pre_mutex = 0;
-    ground_cfg.prune_op_dead_end = 0;
-    ground_cfg.remove_static_facts = 0;
-    ground_cfg.keep_action_args = 1;
-    ground_cfg.keep_all_static_facts = 1;
-    if (pddlStripsGroundDatalog(&gt->strips, &gt->pddl, &ground_cfg, err) != 0){
+    ground_cfg.prune_op_pre_mutex = pddl_false;
+    ground_cfg.prune_op_dead_end = pddl_false;
+    ground_cfg.remove_static_facts = pddl_false;
+    ground_cfg.keep_action_args = pddl_true;
+    ground_cfg.keep_all_static_facts = pddl_true;
+    if (pddlGround(&gt->strips, &gt->pddl, &ground_cfg, err) != 0){
         pddlFree(&gt->pddl);
         CTXEND(err);
         TRACE_RET(err, -1);
@@ -339,7 +358,7 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
 
     pddlFDRInitFromStrips(&gt->fdr, &gt->strips, &mgroups, &mutex,
                           PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
-    ASSERT_RUNTIME(gt->strips.op.op_size == gt->fdr.op.op_size);
+    ASSERT(gt->strips.op.op_size == gt->fdr.op.op_size);
 
     pddlFDRAppOpInit(&gt->fdr_app_op, &gt->fdr.var, &gt->fdr.op, &gt->fdr.goal);
 

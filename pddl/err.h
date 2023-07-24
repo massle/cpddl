@@ -24,7 +24,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 /** Maximal length of an error message */
-#define PDDL_ERR_MSG_MAXLEN 256
+#define PDDL_ERR_MSG_MAXLEN 4096
 /** Maximal length of an error prefix */
 #define PDDL_ERR_MSG_PREFIX_MAXLEN 32
 /** Maximal depth of a trace */
@@ -35,8 +35,10 @@ extern "C" {
 #define PDDL_ERR_PREFIX_NUM 8
 /** Maximum number of contexts */
 #define PDDL_ERR_CTX_MAXLEN 32
-/** Maximum length of an INFO prefix */
-#define PDDL_ERR_CTX_INFO_MAXLEN 32
+/** Maximum length of each prefix */
+#define PDDL_ERR_CTX_PREFIX_MAXLEN 32
+/** Maximum length of a path */
+#define PDDL_ERR_PATH_MAXLEN 1024
 
 
 struct pddl_err_trace {
@@ -47,11 +49,25 @@ struct pddl_err_trace {
 typedef struct pddl_err_trace pddl_err_trace_t;
 
 struct pddl_err_ctx {
-    char info[PDDL_ERR_CTX_INFO_MAXLEN];
+    char prefix[PDDL_ERR_CTX_PREFIX_MAXLEN];
     int use_time;
     pddl_timer_t timer;
 };
 typedef struct pddl_err_ctx pddl_err_ctx_t;
+
+struct pddl_err_source_file_ptr {
+    /** True if this is set */
+    int is_set;
+    /** Path to the source file */
+    char fn[PDDL_ERR_PATH_MAXLEN];
+    /** Line to print */
+    int line;
+    /** Column to point at */
+    int column;
+    /** Number of additional preceding lines that should be printed */
+    int num_preceding_lines;
+};
+typedef struct pddl_err_source_file_ptr pddl_err_source_file_ptr_t;
 
 struct pddl_err {
     pddl_err_trace_t trace[PDDL_ERR_TRACE_DEPTH];
@@ -63,11 +79,12 @@ struct pddl_err {
     pddl_err_ctx_t ctx[PDDL_ERR_CTX_MAXLEN];
     int ctx_size;
 
-    FILE *warn_out;
-    FILE *info_out;
-    int info_print_resources_disabled;
-    pddl_timer_t info_timer;
-    int info_timer_init;
+    FILE *log_out;
+    int log_print_resources_disabled;
+    pddl_timer_t log_timer;
+    int log_timer_init;
+
+    pddl_err_source_file_ptr_t err_source_file;
 };
 typedef struct pddl_err pddl_err_t;
 
@@ -89,25 +106,29 @@ int pddlErrIsSet(const pddl_err_t *err);
 void pddlErrPrint(const pddl_err_t *err, int with_traceback, FILE *fout);
 
 /**
- * Enable/disable warnings.
- * Sets the output stream, if fout is NULL the warnings are disabled.
- */
-void pddlErrWarnEnable(pddl_err_t *err, FILE *fout);
-
-/**
  * Enable/disable info messages.
  */
-void pddlErrInfoEnable(pddl_err_t *err, FILE *fout);
+void pddlErrLogEnable(pddl_err_t *err, FILE *fout);
 
 /**
- * Disable printing resources with PDDL_INFO
+ * Disable printing resources with PDDL_LOG
  */
-void pddlErrInfoDisablePrintResources(pddl_err_t *err, int disable);
+void pddlErrLogDisablePrintResources(pddl_err_t *err, int disable);
 
 /**
  * Flush all buffers.
  */
 void pddlErrFlush(pddl_err_t *err);
+
+/**
+ * Sets source file with identification of the line and column of the
+ * error. The line and column numbers start at 1.
+ */
+void pddlErrSetSourceFilePointer(pddl_err_t *err,
+                                 const char *source_file_name,
+                                 int line_number,
+                                 int column_number,
+                                 int num_additional_preceding_lines);
 
 /**
  * Sets error message and starts tracing the calls.
@@ -137,14 +158,7 @@ void pddlErrFlush(pddl_err_t *err);
  * Prints warning.
  */
 #define PDDL_WARN(E, ...) \
-    _pddlWarn((E), __FILE__, __LINE__, __func__,  __VA_ARGS__)
-
-/**
- * Prints info line with timestamp.
- */
-#define PDDL_INFO(E, ...) \
-    _pddlInfo((E), __FILE__, __LINE__, __func__, __VA_ARGS__)
-
+    _pddlLog((E), "WARNING: " __VA_ARGS__)
 
 /**
  * Enter another level of context.
@@ -158,7 +172,7 @@ void pddlErrFlush(pddl_err_t *err);
 #define PDDL_CTXEND(E) _pddlCtxEnd(E)
 
 /**
- * Prints info line with timestamp.
+ * Prints a log line with timestamp and memory consumption.
  */
 #define PDDL_LOG(E, ...) _pddlLog((E), __VA_ARGS__)
 #define PDDL_LOG_IN_CTX(E, CTX_I, format, ...) \
@@ -198,18 +212,15 @@ void pddlErrFlush(pddl_err_t *err);
 
 
 void _pddlErr(pddl_err_t *err, const char *filename, int line, const char *func,
-              const char *format, ...);
+              const char *format, ...) __PDDL_ATTR_PRINTF(5, 6);
 void _pddlPanic(const char *filename, int line, const char *func,
-                const char *format, ...);
+                const char *format, ...) __PDDL_ATTR_PRINTF(4, 5);
 void _pddlErrPrepend(pddl_err_t *err, const char *format, ...);
 void _pddlTrace(pddl_err_t *err, const char *fn, int line, const char *func);
-void _pddlCtx(pddl_err_t *err, int time, const char *info, ...);
+void _pddlCtx(pddl_err_t *err, int time, const char *info, ...)
+    __PDDL_ATTR_PRINTF(3, 4);
 void _pddlCtxEnd(pddl_err_t *err);
-void _pddlWarn(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...);
-void _pddlInfo(pddl_err_t *err, const char *filename, int line, const char *func,
-               const char *format, ...);
-void _pddlLog(pddl_err_t *err, const char *fmt, ...);
+void _pddlLog(pddl_err_t *err, const char *fmt, ...) __PDDL_ATTR_PRINTF(2, 3);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -382,7 +382,6 @@ void pddlCGVarOrdering(const pddl_cg_t *cg,
         var_ordering[ins] = minvar->var;
         removeVar(order_var, minvar->var, heap, cg);
     }
-    ASSERT_RUNTIME(ins == cg->node_size);
     //reverseArr(var_ordering, cg->node_size);
     moveUnimportantVarsBack(cg, goal, var_ordering);
 
@@ -538,7 +537,7 @@ void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err)
     size_t buf_size;
     char *buf = pddlCGAsDot(cg, &buf_size);
     if (buf == NULL){
-        PDDL_INFO(err, "Could not print out causal graph");
+        LOG(err, "Could not print out causal graph");
         return;
     }
 
@@ -551,7 +550,7 @@ void pddlCGPrintAsciiGraph(const pddl_cg_t *cg, FILE *out, pddl_err_t *err)
         for (; cur < graph_size && graph[cur] != '\n'; ++cur);
         graph[cur++] = 0x0;
         if (err != NULL)
-            PDDL_INFO(err, "CG: %s", graph + from);
+            LOG(err, "CG: %s", graph + from);
         if (out != NULL)
             fprintf(out, "CG: %s\n", graph + from);
     }

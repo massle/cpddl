@@ -89,7 +89,7 @@ pddl_trans_system_t *pddlTransSystemNewMGroup(pddl_trans_systems_t *tss,
                                               int mg_id)
 {
     const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mg_id;
-    ASSERT_RUNTIME(mg->is_exactly_one);
+    PANIC_IF(!mg->is_exactly_one, "Mutex group must be \"exactly-one\" type.");
 
     pddl_trans_system_t *ts = ZALLOC(pddl_trans_system_t);
     ts->trans_systems = tss;
@@ -194,7 +194,7 @@ void pddlTransSystemsInit(pddl_trans_systems_t *tss,
                                      tss->fact_size);
     for (int mgi = 0; mgi < mg_strips->mg.mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mg_strips->mg.mgroup + mgi;
-        ASSERT_RUNTIME(mg->is_exactly_one);
+        PANIC_IF(!mg->is_exactly_one, "Mutex group must be \"exactly-one\" type.");
         for (int i = 0; i < pddlISetSize(&mg->mgroup); ++i){
             int fact = pddlISetGet(&mg->mgroup, i);
             pddlMGroupIdxPairsAdd(tss->fact_to_mgroup + fact, mgi, i);
@@ -267,10 +267,10 @@ void pddlTransSystemsAbstract(pddl_trans_systems_t *tss,
         return;
 
     pddl_trans_system_t *ts = tss->ts[ts_id];
-    ASSERT_RUNTIME(map->num_states == ts->num_states);
-    ASSERT_RUNTIME(map->map_num_states >= 1);
+    ASSERT(map->num_states == ts->num_states);
+    ASSERT(map->map_num_states >= 1);
     pddlCascadingTableAbstract(ts->repr, map->map);
-    ASSERT_RUNTIME(map->map_num_states == pddlCascadingTableSize(ts->repr));
+    ASSERT(map->map_num_states == pddlCascadingTableSize(ts->repr));
 
     // Merge labels for the transformed transitions
     int labels_size = map->map_num_states * map->map_num_states;
@@ -664,7 +664,7 @@ static void setInitState(pddl_trans_system_t *ts,
 {
     PDDL_ISET(init);
     pddlISetIntersect2(&init, mgroup, &strips->init);
-    ASSERT_RUNTIME(pddlISetSize(&init) == 1);
+    ASSERT(pddlISetSize(&init) == 1);
     for (int idx = 0; idx < pddlISetSize(mgroup); ++idx){
         if (pddlISetGet(mgroup, idx) == pddlISetGet(&init, 0)){
             ts->init_state = idx;
@@ -715,7 +715,7 @@ static void copyLabeledTransitions(pddl_trans_system_t *ts,
         pddl_labeled_transitions_t *new_ltr;
         int added;
         new_ltr = pddlLabeledTransitionsSetAddLabel(dst, label, &added);
-        ASSERT_RUNTIME(added);
+        ASSERT(added);
         pddlTransitionsUnion(&new_ltr->trans, &ltr->trans);
     }
 }

@@ -396,9 +396,10 @@ static int lpSolve(pddl_lp_t *lp,
     // Add landmarks if provided
     lpAddLandmarks(lp, ldms);
 
-    double z;
-    if (pddlLPSolve(lp, &z, NULL) == 0){
-        h = roundOff(z);
+    pddl_lp_solution_t sol = { 0 };
+    pddlLPSolve(lp, &sol, NULL);
+    if (sol.solved){
+        h = roundOff(sol.obj_val);
     }else{
         h = PDDL_COST_DEAD_END;
     }

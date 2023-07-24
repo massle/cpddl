@@ -780,24 +780,25 @@ int pddlPotSolve(const pddl_pot_t *pot,
     setLBConstr(lp, pot, &row);
 
     int var_size = pddlLPNumCols(lp);
-    double objval, *obj;
-    obj = CALLOC_ARR(double, var_size);
+    pddl_lp_solution_t lpsol;
+    lpsol.var_val = CALLOC_ARR(double, var_size);
 
-    if (pddlLPSolve(lp, &objval, obj) == 0){
-        sol->objval = objval;
+    pddlLPSolve(lp, &lpsol, err);
+    if (lpsol.solved){
+        sol->objval = lpsol.obj_val;
         sol->pot_size = pot->var_size;
         sol->pot = ALLOC_ARR(double, sol->pot_size);
-        memcpy(sol->pot, obj, sizeof(double) * sol->pot_size);
+        memcpy(sol->pot, lpsol.var_val, sizeof(double) * sol->pot_size);
 
         if (pot->op_pot)
-            storeOpPot(lp, obj, op_pot_var_offset, pot, sol);
+            storeOpPot(lp, lpsol.var_val, op_pot_var_offset, pot, sol);
 
     }else{
         ZEROIZE(sol);
         ret = -1;
     }
 
-    FREE(obj);
+    FREE(lpsol.var_val);
     pddlLPDel(lp);
 
     return ret;

@@ -15,6 +15,7 @@
 #include "internal.h"
 #include "pddl/cp.h"
 #include "pddl/subprocess.h"
+#include "pddl/strstream.h"
 #include "_cp.h"
 
 int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
@@ -33,8 +34,8 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     char *buf = NULL;
     size_t bufsize = 0;
 
-    FILE *fout = open_memstream(&buf, &bufsize);
-    ASSERT_RUNTIME(fout != NULL);
+    FILE *fout = pddl_strstream(&buf, &bufsize);
+    PANIC_IF(fout == NULL, "Cannot open string stream!");
     pddlCPWriteMinizinc(cp, fout);
     fflush(fout);
     fclose(fout);
@@ -72,7 +73,12 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     int solbuf_size;
     int execret = pddlExecvp(argv, &status, buf, bufsize,
                              &solbuf, &solbuf_size, NULL, NULL, err);
-    ASSERT_RUNTIME(execret == 0);
+    if (execret != 0){
+        LOG(err, "Something went wrong.");
+        LOG(err, "Minizinc return status was %d", execret);
+        ret = PDDL_CP_UNKNOWN;
+        goto minizinc_end;
+    }
     if (status.signaled){
         LOG(err, "Something went wrong.");
         LOG(err, "Minizinc was killed by a signal.");

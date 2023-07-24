@@ -107,7 +107,7 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
     states->all_closed = pddlBDDZero(mgr);
     if (use_heur_inconsistent){
         states->all_closed_g = pddlRBTreeNew(rbtreeAllClosedCmp, NULL);
-        PDDL_INFO(err, "Created mapping from g-value to close-states BDDs");
+        LOG(err, "Created mapping from g-value to close-states BDDs");
     }
 
     pddlCostSetMax(&states->bound);

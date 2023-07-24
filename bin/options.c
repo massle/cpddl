@@ -49,11 +49,15 @@ static int setLPSolver(const char *v)
     }else if (strcmp(v, "gurobi") == 0 || strcmp(v, "grb") == 0){
         solver = PDDL_LP_GUROBI;
 
-    }else if (strcmp(v, "glpk") == 0){
-        solver = PDDL_LP_GLPK;
-
     }else if (strcmp(v, "highs") == 0){
         solver = PDDL_LP_HIGHS;
+
+    }else if (strcmp(v, "coin-or") == 0){
+        solver = PDDL_LP_COIN_OR;
+
+    }else if (strcmp(v, "?") == 0 || strcmp(v, "help") == 0){
+        opt.list_lp_solvers = pddl_true;
+        return 0;
 
     }else{
         fprintf(stderr, "Option Error: Unknown lp solver '%s'\n", v);
@@ -61,10 +65,38 @@ static int setLPSolver(const char *v)
     }
 
     if (!pddlLPSolverAvailable(solver)){
-        fprintf(stderr, "Option Error: %s is not compiled-in!\n", v);
+        fprintf(stderr, "Option Error: %s is not an available LP solver!\n", v);
         return -1;
     }
     pddlLPSetDefault(solver, NULL);
+    return 0;
+}
+
+static int setCPSolver(const char *v)
+{
+    int solver = -1;
+    if (strcmp(v, "cpoptimizer") == 0
+            || strcmp(v, "cp-optimizer") == 0
+            || strcmp(v, "cplex") == 0){
+        solver = PDDL_CP_SOLVER_CPOPTIMIZER;
+
+    }else if (strcmp(v, "minizinc") == 0 || strcmp(v, "mzn") == 0){
+        solver = PDDL_CP_SOLVER_MINIZINC;
+
+    }else if (strcmp(v, "?") == 0 || strcmp(v, "help") == 0){
+        opt.list_cp_solvers = pddl_true;
+        return 0;
+
+    }else{
+        fprintf(stderr, "Option Error: Unknown CP solver '%s'\n", v);
+        return -1;
+    }
+
+    if (!pddlLPSolverAvailable(solver)){
+        fprintf(stderr, "Option Error: %s is not an available CP solver!\n", v);
+        return -1;
+    }
+    pddlCPSetDefaultSolver(solver);
     return 0;
 }
 
@@ -406,7 +438,13 @@ static void setBaseOptions(void)
     optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
                "Set output file for logs.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
-                 "Set the default LP solver: cplex/gurobi/glpk/highs");
+                 "Set the default LP solver: cplex/gurobi/highs/coin-or");
+    optsAddStrFn("cp-solver", 0x0, setCPSolver,
+                 "Set the default CP solver: cpoptimizer/minizinc");
+    optsAddStr("cplex-lib", 0x0, &opt.link_cplex, NULL,
+                 "Load CPLEX dynamic library. Also sets LP solver to cplex.");
+    optsAddStr("gurobi-lib", 0x0, &opt.link_gurobi, NULL,
+                 "Load Gurobi dynamic library. Also sets LP solver to gurobi.");
 
 }
 
@@ -416,12 +454,26 @@ static void setPddlOptions(void)
     optsAddFlag("force-adl", 0x0, &opt.pddl.force_adl, 1,
                 "Force :adl requirement if it is not specified in the"
                 " domain file.");
+    optsAddFlag("pedantic", 0x0, &opt.pddl.pedantic, 0,
+                "Turns warnings emitted by the parser into errors.");
     optsAddFlag("remove-empty-types", 0x0, &opt.pddl.remove_empty_types, 1,
                 "Remove empty types");
     optsAddFlag("pddl-ce", 0x0, &opt.pddl.compile_away_cond_eff, 0,
                 "Compile away conditional effects on the PDDL level.");
     optsAddFlag("pddl-unit-cost", 0x0, &opt.pddl.enforce_unit_cost, 0,
                 "Enforce unit cost on the PDDL level.");
+    optsAddIntSwitch("pddl-neg-cond", 0x0,
+                     &opt.pddl.compile_away_neg_cond,
+                     "Compile away negative conditions during normalization, one of:\n"
+                     "  dynamic -- only dynamic predicates (default)\n"
+                     "  all -- all conditions including static predicates\n"
+                     "  goal -- only dynamic predicates appearing in the goal\n"
+                     "  none -- do not compile away negative conditions",
+                     4,
+                     "dynamic", COMPILE_AWAY_NEG_COND_DYNAMIC,
+                     "all", COMPILE_AWAY_NEG_COND_ALL,
+                     "goal", COMPILE_AWAY_NEG_COND_GOAL,
+                     "none", COMPILE_AWAY_NEG_COND_NONE);
 }
 
 static void setLMGOptions(void)
@@ -571,21 +623,23 @@ static void setLiftedPlannerOptions(void)
 
 static void setGroundOptions(void)
 {
-    opt.ground.cfg.lifted_mgroups = NULL;
-    opt.ground.cfg.remove_static_facts = 1;
-    opt.ground.method = GROUND_DL;
+    pddl_ground_config_t _cfg = PDDL_GROUND_CONFIG_INIT;
+    opt.ground.cfg = _cfg;
+    opt.ground.cfg.method = PDDL_GROUND_DATALOG;
+    PDDL_PANIC_IF(sizeof(int) != sizeof(opt.ground.cfg.method),
+                  "pddl_ground_method_t enum is not representable as int!");
 
     optsStartGroup("Grounding:");
-    optsAddIntSwitch("ground", 'G', &opt.ground.method,
+    optsAddIntSwitch("ground", 'G', (int *)&opt.ground.cfg.method,
                      "Grounding method, one of:\n"
-                     "  dl - datalog-based grounding method (default)\n"
+                     "  dl/datalog - datalog-based grounding method (default)\n"
                      "  sql - sqlite-based grounding method\n"
                      "  trie - default grounding method",
                      4,
-                     "trie", GROUND_TRIE,
-                     "sql", GROUND_SQL,
-                     "dl", GROUND_DL,
-                     "datalog", GROUND_DL);
+                     "trie", PDDL_GROUND_TRIE,
+                     "sql", PDDL_GROUND_SQL,
+                     "dl", PDDL_GROUND_DATALOG,
+                     "datalog", PDDL_GROUND_DATALOG);
     optsAddFlag("ground-prune-mutex", 0x0,
                 &opt.ground.cfg.prune_op_pre_mutex, 1,
                 "Prune during grounding by checking preconditions of operators");
@@ -842,8 +896,11 @@ static void setFDROptions(void)
                 "Transform FDR operators to TNF by multiplying its"
                 " preconditions.");
 
-    if (is_pddl_symba)
+    if (is_pddl_symba){
         optFDREssentialFirst(1);
+    }else{
+        optFDRLargestFirst(1);
+    }
 }
 
 static void setGroundPlannerOptions(void)
@@ -1041,9 +1098,12 @@ static void help(const char *argv0, FILE *fout)
     if (pddl_bliss_version != NULL
             || pddl_cudd_version != NULL
             || pddl_cplex_version != NULL
+            || pddl_cplex_api_version != NULL
             || pddl_cp_optimizer_version != NULL
             || pddl_gurobi_version != NULL
+            || pddl_gurobi_api_version != NULL
             || pddl_highs_version != NULL
+            || pddl_coin_or_version != NULL
             || pddl_dynet_version != NULL){
         fprintf(fout, "Used libraries:\n");
 
@@ -1066,6 +1126,12 @@ static void help(const char *argv0, FILE *fout)
                     pddl_cplex_version);
         }
 
+        if (pddl_cplex_api_version != NULL){
+            fprintf(fout, "  CPLEX API v%s"
+                    " | Commercial | https://www.ibm.com/analytics/cplex-optimizer\n",
+                    pddl_cplex_api_version);
+        }
+
         if (pddl_cp_optimizer_version != NULL){
             fprintf(fout, "  CPLEX CP Optimizer v%s"
                     " | Commercial | https://www.ibm.com/analytics/cplex-cp-optimizer\n",
@@ -1078,10 +1144,23 @@ static void help(const char *argv0, FILE *fout)
                     pddl_gurobi_version);
         }
 
+        if (pddl_gurobi_api_version != NULL){
+            fprintf(fout, "  Gurobi API v%s"
+                    " | Commercial | https://www.gurobi.com\n",
+                    pddl_gurobi_api_version);
+        }
+
         if (pddl_highs_version != NULL){
             fprintf(fout, "  HiGHS v%s"
                     " | License MIT | https://highs.dev\n",
                     pddl_highs_version);
+        }
+
+        if (pddl_coin_or_version != NULL){
+            fprintf(fout, "  Coin-Or %s"
+                    " | Eclipse Public License v2.0 | https://www.coin-or.org/\n",
+                    pddl_coin_or_version);
+            
         }
 
         if (pddl_dynet_version != NULL){
@@ -1145,6 +1224,28 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         return 1;
     }
 
+    if (opt.list_lp_solvers){
+        printf("Available (directly linked) LP solvers:\n");
+        if (pddlLPSolverAvailable(PDDL_LP_CPLEX))
+            printf("   cplex (v%s)\n", pddl_cplex_version);
+        if (pddlLPSolverAvailable(PDDL_LP_GUROBI))
+            printf("   gurobi (v%s)\n", pddl_gurobi_version);
+        if (pddlLPSolverAvailable(PDDL_LP_HIGHS))
+            printf("   highs (v%s)\n", pddl_highs_version);
+        if (pddlLPSolverAvailable(PDDL_LP_COIN_OR))
+            printf("   coin-or (v%s)\n", pddl_coin_or_version);
+        return 1;
+    }
+
+    if (opt.list_cp_solvers){
+        printf("Available (directly linked) CP solvers:\n");
+        if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_CPOPTIMIZER))
+            printf("   cpoptimier (v%s)\n", pddl_cp_optimizer_version);
+        if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_MINIZINC))
+            printf("   minizinc (%s, v%s)\n", PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
+        return 1;
+    }
+
     if (opt.lmg.fd_monotonicity)
         opt.lmg.fd = 1;
 
@@ -1158,8 +1259,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     if (opt.log_out != NULL){
         log_out = openFile(opt.log_out);
-        pddlErrWarnEnable(err, log_out);
-        pddlErrInfoEnable(err, log_out);
+        pddlErrLogEnable(err, log_out);
     }
 
     if (argc == 2){
@@ -1191,28 +1291,48 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
 
     PDDL_LOG(err, "Version: %s", pddl_version);
     if (pddl_bliss_version != NULL)
-        PDDL_LOG(err, "Have library Bliss v%s", pddl_bliss_version);
+        PDDL_LOG(err, "Linked Bliss v%s", pddl_bliss_version);
 
     if (pddl_cudd_version != NULL)
-        PDDL_LOG(err, "Have library CUDD v%s", pddl_cudd_version);
+        PDDL_LOG(err, "Linked CUDD v%s", pddl_cudd_version);
 
     if (pddl_cplex_version != NULL)
-        PDDL_LOG(err, "Have library CPLEX v%s", pddl_cplex_version);
+        PDDL_LOG(err, "Linked CPLEX v%s", pddl_cplex_version);
+    if (pddl_cplex_api_version != NULL)
+        PDDL_LOG(err, "Have CPLEX API v%s", pddl_cplex_api_version);
 
     if (pddl_cp_optimizer_version != NULL)
-        PDDL_LOG(err, "Have library CPLEX CP Optimizer v%s", pddl_cp_optimizer_version);
+        PDDL_LOG(err, "Linked CPLEX CP Optimizer v%s", pddl_cp_optimizer_version);
 
     if (pddl_gurobi_version != NULL)
-        PDDL_LOG(err, "Have library Gurobi v%s", pddl_gurobi_version);
+        PDDL_LOG(err, "Linked Gurobi v%s", pddl_gurobi_version);
+    if (pddl_gurobi_api_version != NULL)
+        PDDL_LOG(err, "Have Gurobi API v%s", pddl_gurobi_api_version);
 
     if (pddl_highs_version != NULL)
-        PDDL_LOG(err, "Have library HiGHS v%s", pddl_highs_version);
+        PDDL_LOG(err, "Linked HiGHS v%s", pddl_highs_version);
+
+    if (pddl_coin_or_version != NULL)
+        PDDL_LOG(err, "Linked Coin-Or %s", pddl_coin_or_version);
 
     if (pddl_dynet_version != NULL)
-        PDDL_LOG(err, "Have library DyNet");
+        PDDL_LOG(err, "Linked DyNet");
 #ifdef PDDL_MINIZINC_BIN
     PDDL_LOG(err, "Have minizinc external binary %s v%s",
                 PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
 #endif /* PDDL_MINIZINC_BIN */
+
+    if (opt.link_cplex != NULL){
+        if (pddlLPLoadCPLEX(opt.link_cplex, err) != 0)
+            return -1;
+        pddlLPSetDefault(PDDL_LP_CPLEX, err);
+    }
+
+    if (opt.link_gurobi != NULL){
+        if (pddlLPLoadGurobi(opt.link_gurobi, err) != 0)
+            return -1;
+        pddlLPSetDefault(PDDL_LP_GUROBI, err);
+    }
+
     return 0;
 }

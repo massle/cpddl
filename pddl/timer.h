@@ -18,6 +18,10 @@
 
 #include <pddl/common.h>
 
+#if defined(__MACH__) && !defined(CLOCK_MONOTONIC)
+#include <sys/time.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -123,15 +127,31 @@ _pddl_inline unsigned long pddlTimerElapsedInH(const pddl_timer_t *t);
 _pddl_inline double pddlTimerElapsedInSF(const pddl_timer_t *t);
 
 /**** INLINES ****/
+_pddl_inline void __pddlGetTime(struct timespec *c)
+{
+#if defined(__MACH__) && !defined(CLOCK_MONOTONIC)
+    // OS X does not have clock_gettime
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) == -1)
+        return;
+    c->tv_sec = tv.tv_sec;
+    c->tv_nsec = tv.tv_usec * 1000;
+
+
+#else /* __MACH__ */
+    clock_gettime(CLOCK_MONOTONIC, c);
+#endif /* __MACH__ */
+}
+
 _pddl_inline void pddlTimerStart(pddl_timer_t *t)
 {
-    clock_gettime(CLOCK_MONOTONIC, &t->t_start);
+    __pddlGetTime(&t->t_start);
 }
 
 _pddl_inline void pddlTimerStop(pddl_timer_t *t)
 {
     struct timespec cur;
-    clock_gettime(CLOCK_MONOTONIC, &cur);
+    __pddlGetTime(&cur);
 
     /* compute diff */
     if (cur.tv_nsec > t->t_start.tv_nsec){

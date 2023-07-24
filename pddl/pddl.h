@@ -38,7 +38,6 @@
 #include <pddl/cost.h>
 #include <pddl/pddl_file.h>
 #include <pddl/plan_file.h>
-#include <pddl/lisp.h>
 #include <pddl/require_flags.h>
 #include <pddl/type.h>
 #include <pddl/obj.h>
@@ -56,7 +55,8 @@
 #include <pddl/sql_grounder.h>
 #include <pddl/strips_op.h>
 #include <pddl/strips_fact_cross_ref.h>
-#include <pddl/strips_ground.h>
+#include <pddl/ground.h>
+#include <pddl/strips_ground_trie.h>
 #include <pddl/strips_ground_sql.h>
 #include <pddl/strips_ground_datalog.h>
 #include <pddl/strips_conj.h>
@@ -81,7 +81,6 @@
 #include <pddl/pot.h>
 #include <pddl/lm_cut.h>
 #include <pddl/mg_strips.h>
-#include <pddl/preprocess.h>
 #include <pddl/hpot.h>
 #include <pddl/hflow.h>
 #include <pddl/hadd.h>
