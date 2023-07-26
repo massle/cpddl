@@ -37,7 +37,20 @@ static const char *trainerName(pddl_asnets_trainer_t trainer)
         case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
             return "external-fast-downward";
     }
-    return "(unkown)";
+    return "(unknown)";
+}
+
+static int trainerNameToID(const char *name, pddl_asnets_trainer_t *trainer)
+{
+    if (strcmp(name, "astar-lmcut") == 0){
+        *trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+        return 0;
+
+    }else if (strcmp(name, "external-fast-downward") == 0){
+        *trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
+        return 0;
+    }
+    return -1;
 }
 
 void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
@@ -326,24 +339,20 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_INT(early_termination_epochs);
 
     if (pddl_toml_key_exists(c, "trainer")){
-        pddl_toml_datum_t d = pddl_toml_int_in(c, "trainer");
+        pddl_toml_datum_t d = pddl_toml_string_in(c, "trainer");
         if (!d.ok){
             pddl_toml_free(top);
-            ERR_RET(err, -1, "trainer must be int");
+            ERR_RET(err, -1, "trainer must be string");
         }
-        if (d.u.i == 0){
-            cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
-        }
-        else if (d.u.i == 1){
-            cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
-        }
-        else {
+
+        if (trainerNameToID(d.u.s, &cfg->trainer) != 0){
             pddl_toml_free(top);
-            ERR_RET(err, -1, "unknown trainer option");
+            ERR_RET(err, -1, "Unkown trainer type \"%s\"", d.u.s);
         }
+        FREE(d.u.s);
     }
 
-    if (cfg->trainer == 1) {
+    if (cfg->trainer == PDDL_ASNETS_TRAINER_FAST_DOWNWARD) {
         cfg->fd_config = ZALLOC(pddl_fd_config_t); // TO-DO - clarify new vs ZALLOC
         pddlFDConfigInit(cfg->fd_config);
         pddl_toml_table_t *f = pddl_toml_table_in(top, "fast_downward");
