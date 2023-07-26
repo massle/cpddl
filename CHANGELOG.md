@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Action Schema Networks
+
+### Changed
+
+### Removed
+
+### Fixed
+
+
 ## Version 1.1
 
 ### Added
@@ -25,13 +37,3 @@
 ### Fixed
 - Fixed h^2 pruning of goal facts which simply removed the goal facts. Now,
   the task is marked as unsolvable.
-
-## Unreleased
-
-### Added
-
-### Changed
-
-### Removed
-
-### Fixed

@@ -224,6 +224,7 @@ ifeq '$(USE_DYNET)' 'auto'
       $(error DYNET_ROOT defined, but could not find DyNet library files)
     endif
     DYNET_CPPFLAGS := -I$(DYNET_ROOT)/include
+    NEED_LIBSTDCPP := yes
     USE_DYNET := yes
   endif
 endif
