@@ -127,7 +127,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
     switch (cfg->trainer){
-        case PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT:
+        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
             LOG(err, "trainer = astar-lmcut");
             break;
         case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
@@ -157,7 +157,7 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->teacher_timeout = 10.f;
     cfg->early_termination_success_rate = 0.999f;
     cfg->early_termination_epochs = 20;
-    cfg->trainer = PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT; // default value, will be overwritten by config file if present
+    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
     cfg->fd_config = NULL;
     cfg->save_model_prefix = NULL;
 }
@@ -328,7 +328,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             ERR_RET(err, -1, "trainer must be int");
         }
         if (d.u.i == 0){
-            cfg->trainer = PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT;
+            cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
         }
         else if (d.u.i == 1){
             cfg->trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
@@ -2224,7 +2224,7 @@ static int trainExploration(pddl_asnets_t *a,
         // LOG(err, "before the switch case - cfg.trainer is: %d", a->cfg.trainer);
         switch (a->cfg.trainer)
         {
-        case PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT:
+        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
             ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
                                                        state, &task->fdr,
                                                        a->cfg.teacher_timeout,
@@ -2576,7 +2576,7 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
 
 int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err){
  
-    if (a_config->trainer == PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT) {
+    if (a_config->trainer == PDDL_ASNETS_TRAINER_ASTAR_LMCUT) {
          /* TO-DO: call cpddl search and save results  */
         return -1;
     }

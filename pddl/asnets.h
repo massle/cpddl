@@ -17,7 +17,7 @@ extern "C" {
 typedef struct pddl_asnets pddl_asnets_t;
 
 enum pddl_asnets_trainer {
-    PDDL_ASNETS_TRAINER_CPDDL_ASTAR_LMCUT = 0,
+    PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
     PDDL_ASNETS_TRAINER_FAST_DOWNWARD,
 };
 typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
