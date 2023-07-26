@@ -29,6 +29,17 @@ const char * const pddl_dynet_version = "not exported";
 static const float SMALL_CONST = 1e-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
 
+static const char *trainerName(pddl_asnets_trainer_t trainer)
+{
+    switch (trainer){
+        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+            return "astar-lmcut";
+        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
+            return "external-fast-downward";
+    }
+    return "(unkown)";
+}
+
 void pddlFDConfigLog(const pddl_fd_config_t *fd_cfg, pddl_err_t *err)
 {
     if (fd_cfg->saved_files_path != NULL)
@@ -126,14 +137,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
-    switch (cfg->trainer){
-        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
-            LOG(err, "trainer = astar-lmcut");
-            break;
-        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
-            LOG(err, "trainer = external-fast-downward");
-            break;
-    }
+    LOG(err, "trainer = %s", trainerName(cfg->trainer));
     if (cfg->fd_config != NULL) {
         pddlFDConfigLog(cfg->fd_config, err);
     }
@@ -493,6 +497,12 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
             cfg->early_termination_success_rate);
     fprintf(fout, "early_termination_epochs = %d\n",
             cfg->early_termination_epochs);
+
+    fprintf(fout, "\n");
+    fprintf(fout, "# trainer must be one of \"%s\", \"%s\"\n",
+            trainerName(PDDL_ASNETS_TRAINER_ASTAR_LMCUT),
+            trainerName(PDDL_ASNETS_TRAINER_FAST_DOWNWARD));
+    fprintf(fout, "trainer = \"%s\"\n", trainerName(cfg->trainer));
 }
 
 void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d)
