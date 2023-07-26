@@ -121,6 +121,17 @@ pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *p
     return pddl_true;
 }
 
+int pddlFDRCountPartStateConsistentWithState(const pddl_fdr_part_state_t *ps,
+                                          const int *state)
+{
+    int count = 0;
+    for (int i = 0; i < ps->fact_size; ++i){
+        if (state[ps->fact[i].var] == ps->fact[i].val)
+            count++;
+    }
+    return count;
+}
+
 void pddlFDRPartStateApplyToState(const pddl_fdr_part_state_t *ps, int *state)
 {
     for (int i = 0; i < ps->fact_size; ++i)
