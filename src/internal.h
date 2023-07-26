@@ -54,7 +54,7 @@ extern "C" {
 #define LOG_CONFIG_BOOL(C, NAME, ERR) \
     LOG((ERR), #NAME " = %s", F_BOOL((C)->NAME))
 #define LOG_CONFIG_STR(C, NAME, ERR) \
-    LOG((ERR), #NAME " = %s", (C)->NAME)
+    LOG((ERR), #NAME " = %s", ((C)->NAME != NULL ? (C)->NAME : "(null)"))
 
 
 #ifdef PDDL_DEBUG

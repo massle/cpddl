@@ -25,13 +25,12 @@
 
 const char * const pddl_dynet_version = "not exported";
 
-static const float SMALL_CONST = 1E-6f;
+static const float SMALL_CONST = 1e-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
 
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
-    if (cfg->domain_pddl != NULL)
-        LOG(err, "domain_pddl = %s", cfg->domain_pddl);
+    LOG(err, "domain_pddl = %s", cfg->domain_pddl);
     LOG_CONFIG_INT(cfg, problem_pddl_size, err);
     for (int i = 0; i < cfg->problem_pddl_size; ++i)
         LOG(err, "problem_pddl[%d] = %s", i, cfg->problem_pddl[i]);
@@ -53,8 +52,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
             LOG(err, "trainer = astar-lmcut");
             break;
     }
-    if (cfg->save_model_prefix != NULL)
-        LOG_CONFIG_STR(cfg, save_model_prefix, err);
+    LOG_CONFIG_STR(cfg, save_model_prefix, err);
 }
 
 void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
@@ -63,15 +61,15 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->hidden_dimension = 16;
     cfg->num_layers = 2;
     cfg->random_seed = 6961;
-    cfg->weight_decay = 2E-4;
-    cfg->dropout_rate = 0.1;
+    cfg->weight_decay = 2e-4f;
+    cfg->dropout_rate = 0.1f;
     cfg->batch_size = 64;
     cfg->double_batch_size_every_epoch = 0;
     cfg->max_train_epochs = 300;
     cfg->train_steps = 700;
     cfg->policy_rollout_limit = 1000;
     cfg->teacher_timeout = 10.f;
-    cfg->early_termination_success_rate = 0.999;
+    cfg->early_termination_success_rate = 0.999f;
     cfg->early_termination_epochs = 20;
     cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
     cfg->save_model_prefix = NULL;
