@@ -61,9 +61,6 @@ struct pddl_asnets_config {
     /** Problem PDDL files. Set using *AddProblem() */
     char **problem_pddl;
 
-    /** Set to true if OSP problem */
-    int is_osp_problem;
-
     /** Output size of the hidden layers. Default: 16 */
     int hidden_dimension;
     /** Number of the layers. Default: 2 */
@@ -124,6 +121,10 @@ struct pddl_asnets_config {
      *  with this prefix every time it finds a model with improved success
      *  rate */
     const char *save_model_prefix;
+
+    /** If true, all tasks are considered to be OSP tasks where all goal
+     *  facts are soft goals. */
+    pddl_bool_t osp_all_soft_goals;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
 

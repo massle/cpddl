@@ -1142,41 +1142,20 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
     }
     fprintf(fout, "end_goal\n");
 
-    if (cfg->use_osp_params) {
-        
-        // TO-DO: 
-        // For now, all hard_goals for non-osp problems and all soft goals for osp problems
-        // Should be able to handle incoming OSP problems while parsing pddl files and decide which is hard goal and which is soft goalfiles!! -- this is tricky as the parser/translator has to be updated!!
-        if (cfg->all_soft_goals) {
-            // hard_goal
-            fprintf(fout, "begin_hard_goal\n");
-            fprintf(fout, "0\n");
-            fprintf(fout, "end_hard_goal\n");
+    if (cfg->osp_all_soft_goals){
+        // hard_goal
+        fprintf(fout, "begin_hard_goal\n");
+        fprintf(fout, "0\n");
+        fprintf(fout, "end_hard_goal\n");
 
-            // soft_goal
-            fprintf(fout, "begin_soft_goal\n");
-            fprintf(fout, "%d\n", fdr->goal.fact_size);
-            for (int i = 0; i < fdr->goal.fact_size; ++i){
-                const pddl_fdr_fact_t *f = fdr->goal.fact + i;
-                fprintf(fout, "%d %d\n", f->var, f->val);
-            }
-            fprintf(fout, "end_soft_goal\n");
+        // soft_goal
+        fprintf(fout, "begin_soft_goal\n");
+        fprintf(fout, "%d\n", fdr->goal.fact_size);
+        for (int i = 0; i < fdr->goal.fact_size; ++i){
+            const pddl_fdr_fact_t *f = fdr->goal.fact + i;
+            fprintf(fout, "%d %d\n", f->var, f->val);
         }
-        else {
-            // hard_goal
-            fprintf(fout, "begin_hard_goal\n");
-            fprintf(fout, "%d\n", fdr->goal.fact_size);
-            for (int i = 0; i < fdr->goal.fact_size; ++i){
-                const pddl_fdr_fact_t *f = fdr->goal.fact + i;
-                fprintf(fout, "%d %d\n", f->var, f->val);
-            }
-            fprintf(fout, "end_hard_goal\n");
-
-            // soft_goal
-            fprintf(fout, "begin_soft_goal\n");
-            fprintf(fout, "0\n");
-            fprintf(fout, "end_soft_goal\n");
-        }
+        fprintf(fout, "end_soft_goal\n");
 
         // question
         fprintf(fout, "begin_question\n");

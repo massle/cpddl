@@ -142,7 +142,6 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, problem_pddl_size, err);
     for (int i = 0; i < cfg->problem_pddl_size; ++i)
         LOG(err, "problem_pddl[%d] = %s", i, cfg->problem_pddl[i]);
-    LOG_CONFIG_INT(cfg, is_osp_problem, err);
     LOG_CONFIG_INT(cfg, hidden_dimension, err);
     LOG_CONFIG_INT(cfg, num_layers, err);
     LOG_CONFIG_INT(cfg, random_seed, err);
@@ -161,12 +160,12 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
         pddlFDConfigLog(cfg->fd_config, err);
     }
     LOG_CONFIG_STR(cfg, save_model_prefix, err);
+    LOG_CONFIG_BOOL(cfg, osp_all_soft_goals, err);
 }
 
 void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
 {
     ZEROIZE(cfg);
-    cfg->is_osp_problem = 0; // will be overwritten from config file if present
     cfg->hidden_dimension = 16;
     cfg->num_layers = 2;
     cfg->random_seed = 6961;
@@ -183,6 +182,7 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
     cfg->fd_config = NULL;
     cfg->save_model_prefix = NULL;
+    cfg->osp_all_soft_goals = pddl_false;
 }
 
 void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
@@ -235,6 +235,18 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
                 ERR_RET(err, -1, #K " must be float"); \
             } \
             cfg->K = d.u.d; \
+        } \
+    } while (0)
+
+#define TOML_BOOL(K) \
+    do { \
+        if (pddl_toml_key_exists(c, #K)){ \
+            pddl_toml_datum_t d = pddl_toml_bool_in(c, #K); \
+            if (!d.ok){ \
+                pddl_toml_free(top); \
+                ERR_RET(err, -1, #K " must be int"); \
+            } \
+            cfg->K = d.u.b; \
         } \
     } while (0)
 
@@ -339,7 +351,6 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     if (root != NULL)
         FREE(root);
 
-    TOML_INT(is_osp_problem);
     TOML_INT(hidden_dimension);
     TOML_INT(num_layers);
     TOML_INT(random_seed);
@@ -353,6 +364,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_FLT(teacher_timeout);
     TOML_FLT(early_termination_success_rate);
     TOML_INT(early_termination_epochs);
+    TOML_BOOL(osp_all_soft_goals);
 
     if (pddl_toml_key_exists(c, "teacher")){
         pddl_toml_datum_t d = pddl_toml_string_in(c, "teacher");
@@ -602,8 +614,10 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
         }
         fprintf(fout, "]\n");
     }else{
-        fprintf(fout, "# teacher_external_cmd = [\"/bin/bash\", \"/path/to/script.sh\"]");
+        fprintf(fout, "# teacher_external_cmd = [\"/bin/bash\", \"/path/to/script.sh\"]\n");
     }
+
+    fprintf(fout, "osp_all_soft_goals = %s\n", F_BOOL(cfg->osp_all_soft_goals));
 }
 
 void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d)
@@ -2323,7 +2337,7 @@ static int trainExploration(pddl_asnets_t *a,
         states.num_states, reached_goal);
 
     // TODO: Here we can add also states from random walks.
-    //       Maybe for the for the first epoch?
+    //       Maybe only for the first epoch?
 
     // Extend training data with teacher rollouts
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
@@ -2341,12 +2355,12 @@ static int trainExploration(pddl_asnets_t *a,
             case PDDL_ASNETS_TEACHER_FAST_DOWNWARD:
                 // if OSP problem with initial state, then save MSGS value achieved by teacher planner
                 int save_msgs = 0;
-                if (a->cfg.is_osp_problem && state_id == 0) {
+                if (a->cfg.osp_all_soft_goals && state_id == 0) {
                     save_msgs = 1;
                 }
                 ret = pddlASNetsTrainDataRolloutFastDownward(data, ground_task_id,
                                                              state, &task->fdr,
-                                                             a->cfg.is_osp_problem,
+                                                             a->cfg.osp_all_soft_goals,
                                                              save_msgs,
                                                              a->cfg.fd_config,
                                                              a->cfg.teacher_timeout,
@@ -2385,7 +2399,7 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
         const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
         pddl_fdr_state_pool_t states;
         pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
-        if (a->cfg.is_osp_problem)
+        if (a->cfg.osp_all_soft_goals)
         {   
             pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
             policyRollout(a, task, &states, NULL, &softgoals_result, err);
@@ -2468,7 +2482,7 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     CTX(err, "ASNets-Train");
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
-    if (a->cfg.is_osp_problem){ // for OSP problems, initialize the array of MSGS values
+    if (a->cfg.osp_all_soft_goals){ // for OSP problems, initialize the array of MSGS values
         pddlASNetsTrainDataMSGSInit(&data, a->ground_task_size);
     }
 
@@ -2695,7 +2709,7 @@ int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_file
             return -1;
         }
         char *search_arg = PDDL_STRDUP("astar(lmcut())");
-        if (a_config->is_osp_problem)
+        if (a_config->osp_all_soft_goals)
         {
             search_arg = PDDL_STRDUP("osp_dfs(u_eval=mugs_hmax(all_softgoals=true))");
         }

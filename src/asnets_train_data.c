@@ -349,9 +349,7 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
     cfg.fd = 1;
     cfg.encode_op_ids = 1;
-    cfg.use_osp_params = fd_cfg->use_osp_planner; // osp params expected by osp planner even for non-osp problem
-    cfg.all_soft_goals = is_osp_problem;          // currently osp problems handled only for all_soft_goals
-                                                  // TO-DO - incorporate general OSP problems
+    cfg.osp_all_soft_goals = fd_cfg->use_osp_planner; // osp params expected by osp planner even for non-osp problem
     cfg.filename = STRDUP(sas_filename);
     pddlFDRWrite(&fdr, &cfg);
 
@@ -597,6 +595,7 @@ static int rolloutExternalFD(pddl_asnets_train_data_t *td,
                              const int *state,
                              const pddl_fdr_t *_fdr,
                              char * const *cmd,
+                             pddl_bool_t osp_all_soft_goals,
                              pddl_err_t *err)
 {
     PANIC_IF(cmd == NULL, "External command is not specified.");
@@ -615,6 +614,7 @@ static int rolloutExternalFD(pddl_asnets_train_data_t *td,
     wcfg.fout = fdrout;
     wcfg.fd = pddl_true;
     wcfg.encode_op_ids = pddl_true;
+    wcfg.osp_all_soft_goals = osp_all_soft_goals;
     pddlFDRWrite(&fdr, &wcfg);
     fclose(fdrout);
 
@@ -723,7 +723,8 @@ int pddlASNetsTrainDataRollout(pddl_asnets_train_data_t *td,
 
         case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
             ret = rolloutExternalFD(td, ground_task_id, state, fdr,
-                                    cfg->teacher_external_cmd, err);
+                                    cfg->teacher_external_cmd,
+                                    cfg->osp_all_soft_goals, err);
             break;
 
         case PDDL_ASNETS_TEACHER_FAST_DOWNWARD:
