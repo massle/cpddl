@@ -279,6 +279,7 @@ int pddlExecvpLimits(char *const argv[],
             // with SIGKILL
             usleep(100UL * 1000UL);
             kill(pid, SIGKILL);
+            status->timed_out = pddl_true;
             break;
         }
 
