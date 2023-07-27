@@ -2333,20 +2333,11 @@ static int trainExploration(pddl_asnets_t *a,
 
         switch (a->cfg.teacher){
             case PDDL_ASNETS_TEACHER_ASTAR_LMCUT:
-                ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
-                                                           state, &task->fdr,
-                                                           a->cfg.teacher_timeout,
-                                                           err);
-                break;
             case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
-                PANIC_IF(a->cfg.teacher_external_cmd == NULL,
-                         "External command is not specified.");
-                ret = pddlASNetsTrainDataRolloutExternalFastDownward(data, ground_task_id,
-                                                                     state, &task->fdr,
-                                                                     a->cfg.teacher_external_cmd,
-                                                                     a->cfg.teacher_timeout,
-                                                                     err);
+                ret = pddlASNetsTrainDataRollout(data, ground_task_id, state,
+                                                 &task->fdr, &a->cfg, err);
                 break;
+
             case PDDL_ASNETS_TEACHER_FAST_DOWNWARD:
                 // if OSP problem with initial state, then save MSGS value achieved by teacher planner
                 int save_msgs = 0;

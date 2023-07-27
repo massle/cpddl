@@ -261,243 +261,6 @@ static int failExists(const pddl_asnets_train_data_t *td,
     }
 }
 
-int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
-                                    int ground_task_id,
-                                    const int *state,
-                                    const pddl_fdr_t *_fdr,
-                                    const pddl_heur_config_t *heur_cfg,
-                                    float max_time,
-                                    pddl_err_t *err)
-{
-    CTX(err, "ASNets-Teacher-Rollout");
-    LOG(err, "start num samples: %d", td->sample_size);
-    if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG(err, "State already in the data pool -- skipping.");
-        CTXEND(err);
-        return 1;
-
-    }else if (failExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG(err, "State already seen and could not be solved -- skipping.");
-        CTXEND(err);
-        return 1;
-    }
-
-    pddl_timer_t timer;
-    pddlTimerStart(&timer);
-
-    pddl_fdr_t fdr;
-    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
-
-    pddl_heur_t *heur = pddlHeur(heur_cfg, err);
-    if (heur == NULL){
-        pddlFDRFree(&fdr);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    pddl_search_config_t search_cfg = PDDL_SEARCH_CONFIG_INIT;
-    search_cfg.fdr = &fdr;
-    search_cfg.alg = PDDL_SEARCH_ASTAR;
-    search_cfg.heur = heur;
-    pddl_search_t *search = pddlSearchNew(&search_cfg, err);
-    if (search == NULL){
-        pddlFDRFree(&fdr);
-        pddlHeurDel(heur);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    int st = pddlSearchInitStep(search);
-    while (st == PDDL_SEARCH_CONT){
-        pddlTimerStop(&timer);
-        if (pddlTimerElapsedInSF(&timer) > max_time){
-            st = PDDL_SEARCH_ABORT;
-            break;
-        }
-
-        st = pddlSearchStep(search);
-    }
-
-    if (st == PDDL_SEARCH_FOUND){
-        LOG(err, "Plan found");
-        pddl_plan_t plan;
-        pddlPlanInit(&plan);
-        if (pddlSearchExtractPlan(search, &plan) == 0){
-            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
-                                       state, &fdr.op, &plan.op);
-        }
-        pddlPlanFree(&plan);
-
-    }else{
-        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-        if (st == PDDL_SEARCH_ABORT)
-            LOG(err, "Search reached time-out");
-        LOG(err, "Plan not found");
-    }
-
-    pddlSearchDel(search);
-    pddlHeurDel(heur);
-    pddlFDRFree(&fdr);
-    LOG(err, "num samples: %d", td->sample_size);
-    CTXEND(err);
-    return 0;
-}
-
-int pddlASNetsTrainDataRolloutAStarLMCut(pddl_asnets_train_data_t *td,
-                                         int ground_task_id,
-                                         const int *state,
-                                         const pddl_fdr_t *fdr,
-                                         float max_time,
-                                         pddl_err_t *err)
-{
-    pddl_heur_config_t heur_cfg = PDDL_HEUR_CONFIG_INIT;
-    heur_cfg.fdr = fdr;
-    heur_cfg.heur = PDDL_HEUR_LM_CUT;
-    return pddlASNetsTrainDataRolloutAStar(td, ground_task_id, state, fdr,
-                                           &heur_cfg, max_time, err);
-}
-
-static void stringToPlan(const char *str,
-                         const pddl_fdr_t *fdr,
-                         pddl_iarr_t *plan)
-{
-    const char *cur = str;
-
-    while (strncmp(cur, "(id-", 4) == 0){
-        if (cur[4] < '0' || cur[4] > '9')
-            return;
-        int op_id = atoi(cur + 4);
-        pddlIArrAdd(plan, op_id);
-
-        for (; *cur != '\x0' && *cur != '\n'; ++cur);
-        if (*cur == '\n')
-            ++cur;
-    }
-}
-
-int pddlASNetsTrainDataRolloutExternalFastDownward(pddl_asnets_train_data_t *td,
-                                                   int ground_task_id,
-                                                   const int *state,
-                                                   const pddl_fdr_t *_fdr,
-                                                   char * const *cmd,
-                                                   float max_time,
-                                                   pddl_err_t *err)
-{
-    CTX(err, "ASNets-Teacher-Rollout");
-    LOG(err, "start num samples: %d", td->sample_size);
-    if (stateExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG(err, "State already in the data pool -- skipping.");
-        CTXEND(err);
-        return 1;
-
-    }else if (failExists(td, ground_task_id, state, _fdr->var.var_size)){
-        LOG(err, "State already seen and could not be solved -- skipping.");
-        CTXEND(err);
-        return 1;
-    }
-
-    pddl_fdr_t fdr;
-    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
-
-    // Write FDR task in FD format into fdrout buffer
-    size_t fdrout_size = 0;
-    char *fdrout_buf = NULL;
-    FILE *fdrout = pddl_strstream(&fdrout_buf, &fdrout_size);
-    if (fdrout == NULL){
-        CTXEND(err);
-        ERR_RET(err, -1, "Could not create a buffer for FDR task");
-    }
-
-    pddl_fdr_write_config_t cfg = PDDL_FDR_WRITE_CONFIG_INIT;
-    cfg.fout = fdrout;
-    cfg.fd = pddl_true;
-    cfg.encode_op_ids = pddl_true;
-    pddlFDRWrite(&fdr, &cfg);
-    fclose(fdrout);
-
-    // Run external planner. Write FDR task to stdin.
-    int out_size;
-    char *out;
-    int oerr_size;
-    char *oerr;
-    pddl_exec_status_t status;
-    int ret = pddlExecvpLimits(cmd, &status, fdrout_buf, fdrout_size,
-                               &out, &out_size, &oerr, &oerr_size,
-                               max_time, -1, err);
-
-    // Free the input buffer
-    if (fdrout_buf != NULL)
-        FREE(fdrout_buf);
-
-    // Check if running the subprocess failed -- this shouldn't fail
-    if (ret != 0){
-        if (oerr != NULL)
-            FREE(oerr);
-        if (out != NULL)
-            FREE(out);
-        pddlFDRFree(&fdr);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    // If we got something from stderr, then terminate -- this is a bug in
-    // the external planner
-    if (oerr_size > 0){
-        char *outline = oerr;
-        while (*outline != '\x0'){
-            char *end = outline;
-            for (; *end != '\x0' && *end != '\n'; ++end);
-            if (*end == '\n'){
-                *end = '\x0';
-                ++end;
-            }
-            LOG(err, "Error output: %s", outline);
-            outline = end;
-        }
-    }
-    if (oerr != NULL)
-        FREE(oerr);
-
-
-    if (status.timed_out){
-        // TODO: Remove this. We shouldn't allow killing external planner
-        // from here
-        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-        LOG(err, "Plan not found due to time out");
-
-    }else if (status.exit_status != 0 || status.signaled || oerr_size > 0){
-        // Something went wrong with the external planner -- terminate with
-        // an error
-        if (out != NULL)
-            FREE(out);
-        pddlFDRFree(&fdr);
-        CTXEND(err);
-        ERR_RET(err, -1, "Calling external teacher failed.");
-
-    }else{
-        // Extract plan from from stdout of the external planner
-        PDDL_IARR(plan);
-        if (out_size > 0)
-            stringToPlan(out, &fdr, &plan);
-
-        if (pddlIArrSize(&plan) == 0){
-            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-            LOG(err, "Plan not found");
-
-        }else{
-            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
-                                       state, &fdr.op, &plan);
-        }
-        pddlIArrFree(&plan);
-    }
-
-    if (out != NULL)
-        FREE(out);
-    pddlFDRFree(&fdr);
-    LOG(err, "num samples: %d", td->sample_size);
-    CTXEND(err);
-    return 0;
-}
 
 int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                                            int ground_task_id,
@@ -746,3 +509,236 @@ int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
     return 0;
 }
 
+static int rolloutAStar(pddl_asnets_train_data_t *td,
+                        int ground_task_id,
+                        const int *state,
+                        const pddl_fdr_t *_fdr,
+                        const pddl_heur_config_t *heur_cfg,
+                        float max_time,
+                        pddl_err_t *err)
+{
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
+
+    pddl_fdr_t fdr;
+    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
+
+    pddl_heur_t *heur = pddlHeur(heur_cfg, err);
+    if (heur == NULL){
+        pddlFDRFree(&fdr);
+        TRACE_RET(err, -1);
+    }
+
+    pddl_search_config_t search_cfg = PDDL_SEARCH_CONFIG_INIT;
+    search_cfg.fdr = &fdr;
+    search_cfg.alg = PDDL_SEARCH_ASTAR;
+    search_cfg.heur = heur;
+    pddl_search_t *search = pddlSearchNew(&search_cfg, err);
+    if (search == NULL){
+        pddlFDRFree(&fdr);
+        pddlHeurDel(heur);
+        TRACE_RET(err, -1);
+    }
+
+    int st = pddlSearchInitStep(search);
+    while (st == PDDL_SEARCH_CONT){
+        pddlTimerStop(&timer);
+        if (pddlTimerElapsedInSF(&timer) > max_time){
+            st = PDDL_SEARCH_ABORT;
+            break;
+        }
+
+        st = pddlSearchStep(search);
+    }
+
+    if (st == PDDL_SEARCH_FOUND){
+        LOG(err, "Plan found");
+        pddl_plan_t plan;
+        pddlPlanInit(&plan);
+        if (pddlSearchExtractPlan(search, &plan) == 0){
+            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
+                                       state, &fdr.op, &plan.op);
+        }
+        pddlPlanFree(&plan);
+
+    }else{
+        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+        if (st == PDDL_SEARCH_ABORT)
+            LOG(err, "Search reached time-out");
+        LOG(err, "Plan not found");
+    }
+
+    pddlSearchDel(search);
+    pddlHeurDel(heur);
+    pddlFDRFree(&fdr);
+    return 0;
+}
+
+static void stringToPlan(const char *str,
+                         const pddl_fdr_t *fdr,
+                         pddl_iarr_t *plan)
+{
+    const char *cur = str;
+
+    while (strncmp(cur, "(id-", 4) == 0){
+        if (cur[4] < '0' || cur[4] > '9')
+            return;
+        int op_id = atoi(cur + 4);
+        pddlIArrAdd(plan, op_id);
+
+        for (; *cur != '\x0' && *cur != '\n'; ++cur);
+        if (*cur == '\n')
+            ++cur;
+    }
+}
+
+static int rolloutExternalFD(pddl_asnets_train_data_t *td,
+                             int ground_task_id,
+                             const int *state,
+                             const pddl_fdr_t *_fdr,
+                             char * const *cmd,
+                             pddl_err_t *err)
+{
+    PANIC_IF(cmd == NULL, "External command is not specified.");
+    pddl_fdr_t fdr;
+    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
+
+    // Write FDR task in FD format into fdrout buffer
+    size_t fdrout_size = 0;
+    char *fdrout_buf = NULL;
+    FILE *fdrout = pddl_strstream(&fdrout_buf, &fdrout_size);
+    if (fdrout == NULL){
+        ERR_RET(err, -1, "Could not create a buffer for FDR task");
+    }
+
+    pddl_fdr_write_config_t wcfg = PDDL_FDR_WRITE_CONFIG_INIT;
+    wcfg.fout = fdrout;
+    wcfg.fd = pddl_true;
+    wcfg.encode_op_ids = pddl_true;
+    pddlFDRWrite(&fdr, &wcfg);
+    fclose(fdrout);
+
+    // Run external planner. Write FDR task to stdin.
+    int out_size;
+    char *out;
+    int oerr_size;
+    char *oerr;
+    pddl_exec_status_t status;
+    int ret = pddlExecvpLimits(cmd, &status, fdrout_buf, fdrout_size, &out,
+                               &out_size, &oerr, &oerr_size, -1, -1, err);
+
+    // Free the input buffer
+    if (fdrout_buf != NULL)
+        FREE(fdrout_buf);
+
+    // Check if running the subprocess failed -- this shouldn't fail
+    if (ret != 0){
+        if (oerr != NULL)
+            FREE(oerr);
+        if (out != NULL)
+            FREE(out);
+        pddlFDRFree(&fdr);
+        TRACE_RET(err, -1);
+    }
+
+    // If we got something from stderr, then terminate -- this is a bug in
+    // the external planner
+    if (oerr_size > 0){
+        char *outline = oerr;
+        while (*outline != '\x0'){
+            char *end = outline;
+            for (; *end != '\x0' && *end != '\n'; ++end);
+            if (*end == '\n'){
+                *end = '\x0';
+                ++end;
+            }
+            LOG(err, "Error output: %s", outline);
+            outline = end;
+        }
+    }
+    if (oerr != NULL)
+        FREE(oerr);
+
+
+    if (status.timed_out){
+        // TODO: Remove this. We shouldn't allow killing external planner
+        // from here
+        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+        LOG(err, "Plan not found due to time out");
+
+    }else if (status.exit_status != 0 || status.signaled || oerr_size > 0){
+        // Something went wrong with the external planner -- terminate with
+        // an error
+        if (out != NULL)
+            FREE(out);
+        pddlFDRFree(&fdr);
+        ERR_RET(err, -1, "Calling external teacher failed.");
+
+    }else{
+        // Extract plan from from stdout of the external planner
+        PDDL_IARR(plan);
+        if (out_size > 0)
+            stringToPlan(out, &fdr, &plan);
+
+        if (pddlIArrSize(&plan) == 0){
+            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+            LOG(err, "Plan not found");
+
+        }else{
+            pddlASNetsTrainDataAddPlan(td, ground_task_id, fdr.var.var_size,
+                                       state, &fdr.op, &plan);
+        }
+        pddlIArrFree(&plan);
+    }
+
+    if (out != NULL)
+        FREE(out);
+    pddlFDRFree(&fdr);
+    return 0;
+}
+
+int pddlASNetsTrainDataRollout(pddl_asnets_train_data_t *td,
+                               int ground_task_id,
+                               const int *state,
+                               const pddl_fdr_t *fdr,
+                               const pddl_asnets_config_t *cfg,
+                               pddl_err_t *err)
+{
+    CTX(err, "ASNets-Teacher-Rollout");
+    LOG(err, "start num samples: %d", td->sample_size);
+    if (stateExists(td, ground_task_id, state, fdr->var.var_size)){
+        LOG(err, "State already in the data pool -- skipping.");
+        CTXEND(err);
+        return 1;
+
+    }else if (failExists(td, ground_task_id, state, fdr->var.var_size)){
+        LOG(err, "State already seen and could not be solved -- skipping.");
+        CTXEND(err);
+        return 1;
+    }
+
+    pddl_heur_config_t heur_cfg = PDDL_HEUR_CONFIG_INIT;
+    int ret = 0;
+    switch (cfg->teacher){
+        case PDDL_ASNETS_TEACHER_ASTAR_LMCUT:
+            heur_cfg.fdr = fdr;
+            heur_cfg.heur = PDDL_HEUR_LM_CUT;
+            ret = rolloutAStar(td, ground_task_id, state, fdr, &heur_cfg,
+                               cfg->teacher_timeout, err);
+            break;
+
+        case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
+            ret = rolloutExternalFD(td, ground_task_id, state, fdr,
+                                    cfg->teacher_external_cmd, err);
+            break;
+
+        case PDDL_ASNETS_TEACHER_FAST_DOWNWARD:
+            ERR(err, "PDDL_ASNETS_TEACHER_FAST_DOWNWARD is not supported");
+            ret = -1;
+            break;
+    }
+
+    LOG(err, "num samples: %d", td->sample_size);
+    CTXEND(err);
+    return ret;
+}
