@@ -29,25 +29,31 @@ const char * const pddl_dynet_version = "not exported";
 static const float SMALL_CONST = 1e-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
 
-static const char *trainerName(pddl_asnets_trainer_t trainer)
+static const char *teacherName(pddl_asnets_teacher_t teacher)
 {
-    switch (trainer){
-        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
+    switch (teacher){
+        case PDDL_ASNETS_TEACHER_ASTAR_LMCUT:
             return "astar-lmcut";
-        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
+        case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
+            return "external-fd";
+        case PDDL_ASNETS_TEACHER_FAST_DOWNWARD:
             return "external-fast-downward";
     }
     return "(unknown)";
 }
 
-static int trainerNameToID(const char *name, pddl_asnets_trainer_t *trainer)
+static int teacherNameToID(const char *name, pddl_asnets_teacher_t *teacher)
 {
     if (strcmp(name, "astar-lmcut") == 0){
-        *trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+        *teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
+        return 0;
+
+    }else if (strcmp(name, "external-fd") == 0){
+        *teacher = PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD;
         return 0;
 
     }else if (strcmp(name, "external-fast-downward") == 0){
-        *trainer = PDDL_ASNETS_TRAINER_FAST_DOWNWARD;
+        *teacher = PDDL_ASNETS_TEACHER_FAST_DOWNWARD;
         return 0;
     }
     return -1;
@@ -147,10 +153,10 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, max_train_epochs, err);
     LOG_CONFIG_INT(cfg, train_steps, err);
     LOG_CONFIG_INT(cfg, policy_rollout_limit, err);
-    LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
-    LOG(err, "trainer = %s", trainerName(cfg->trainer));
+    LOG_CONFIG_DBL(cfg, teacher_timeout, err);
+    LOG(err, "teacher = %s", teacherName(cfg->teacher));
     if (cfg->fd_config != NULL) {
         pddlFDConfigLog(cfg->fd_config, err);
     }
@@ -171,10 +177,10 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->max_train_epochs = 300;
     cfg->train_steps = 700;
     cfg->policy_rollout_limit = 1000;
-    cfg->teacher_timeout = 10.f;
     cfg->early_termination_success_rate = 0.999f;
     cfg->early_termination_epochs = 20;
-    cfg->trainer = PDDL_ASNETS_TRAINER_ASTAR_LMCUT;
+    cfg->teacher_timeout = 10.f;
+    cfg->teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
     cfg->fd_config = NULL;
     cfg->save_model_prefix = NULL;
 }
@@ -190,6 +196,16 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
         dst->problem_pddl = ALLOC_ARR(char *, dst->problem_pddl_size);
         for (int i = 0; i < dst->problem_pddl_size; ++i)
             dst->problem_pddl[i] = STRDUP(src->problem_pddl[i]);
+    }
+
+    if (src->teacher_external_cmd != NULL){
+        int size = 0;
+        while (src->teacher_external_cmd[size] != NULL)
+            ++size;
+        dst->teacher_external_cmd = ALLOC_ARR(char *, size + 1);
+        for (int i = 0; i < size; ++i)
+            dst->teacher_external_cmd[i] = STRDUP(src->teacher_external_cmd[i]);
+        dst->teacher_external_cmd[size] = NULL;
     }
 
     if (src->fd_config != NULL) {
@@ -338,21 +354,60 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_FLT(early_termination_success_rate);
     TOML_INT(early_termination_epochs);
 
-    if (pddl_toml_key_exists(c, "trainer")){
-        pddl_toml_datum_t d = pddl_toml_string_in(c, "trainer");
+    if (pddl_toml_key_exists(c, "teacher")){
+        pddl_toml_datum_t d = pddl_toml_string_in(c, "teacher");
         if (!d.ok){
             pddl_toml_free(top);
-            ERR_RET(err, -1, "trainer must be string");
+            ERR_RET(err, -1, "teacher must be string");
         }
 
-        if (trainerNameToID(d.u.s, &cfg->trainer) != 0){
+        if (teacherNameToID(d.u.s, &cfg->teacher) != 0){
             pddl_toml_free(top);
-            ERR_RET(err, -1, "Unkown trainer type \"%s\"", d.u.s);
+            ERR_RET(err, -1, "Unkown teacher type \"%s\"", d.u.s);
         }
         FREE(d.u.s);
     }
 
-    if (cfg->trainer == PDDL_ASNETS_TRAINER_FAST_DOWNWARD) {
+    if (pddl_toml_key_exists(c, "teacher_external_cmd")){
+        pddl_toml_array_t *arr = pddl_toml_array_in(c, "teacher_external_cmd");
+        if (arr == NULL){
+            pddl_toml_free(top);
+            ERR_RET(err, -1, "teacher_external_cmd must be array of strings");
+        }
+
+        int size = pddl_toml_array_nelem(arr);
+        if (size == 0){
+            pddl_toml_free(top);
+            ERR_RET(err, -1, "teacher_external_cmd must be non-empty");
+        }
+
+        char **cmd = ALLOC_ARR(char *, size + 1);
+        for (int i = 0; i < size; ++i){
+            pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
+            if (!d.ok){
+                pddl_toml_free(top);
+                ERR_RET(err, -1, "teacher_external_cmd must be array of strings");
+            }
+            cmd[i] = d.u.s;
+        }
+        cmd[size] = NULL;
+        pddlASNetsConfigSetTeacherExternalCmd(cfg, cmd);
+
+        for (int i = 0; i < size; ++i)
+            FREE(cmd[i]);
+        FREE(cmd);
+    }
+
+    if (cfg->teacher == PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD
+            && cfg->teacher_external_cmd == NULL){
+        pddl_toml_free(top);
+        ERR_RET(err, -1, "teacher_external_cmd must be defined if teacher"
+                " \"%s\" is used",
+                teacherName(PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD));
+    }
+
+
+    if (cfg->teacher == PDDL_ASNETS_TEACHER_FAST_DOWNWARD) {
         cfg->fd_config = ZALLOC(pddl_fd_config_t); // TO-DO - clarify new vs ZALLOC
         pddlFDConfigInit(cfg->fd_config);
         pddl_toml_table_t *f = pddl_toml_table_in(top, "fast_downward");
@@ -453,6 +508,13 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
         FREE(cfg->problem_pddl[i]);
     if (cfg->problem_pddl != NULL)
         FREE(cfg->problem_pddl);
+
+    if (cfg->teacher_external_cmd != NULL){
+        for (int i = 0; cfg->teacher_external_cmd[i] != NULL; ++i)
+            FREE(cfg->teacher_external_cmd[i]);
+        FREE(cfg->teacher_external_cmd);
+    }
+
     if (cfg->fd_config != NULL) {
         pddlFDConfigFree(cfg->fd_config);
         FREE(cfg->fd_config);
@@ -471,6 +533,24 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg, const char *fn)
     cfg->problem_pddl = REALLOC_ARR(cfg->problem_pddl, char *,
                                     cfg->problem_pddl_size + 1);
     cfg->problem_pddl[cfg->problem_pddl_size++] = STRDUP(fn);
+}
+
+void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
+                                           char * const * argv)
+{
+    int size = 0;
+    while (argv[size] != NULL)
+        ++size;
+
+    if (cfg->teacher_external_cmd != NULL){
+        for (int i = 0; cfg->teacher_external_cmd[i] != NULL; ++i)
+            FREE(cfg->teacher_external_cmd[i]);
+        FREE(cfg->teacher_external_cmd);
+    }
+    cfg->teacher_external_cmd = ALLOC_ARR(char *, size + 1);
+    for (int i = 0; i < size; ++i)
+        cfg->teacher_external_cmd[i] = STRDUP(argv[i]);
+    cfg->teacher_external_cmd[size] = NULL;
 }
 
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
@@ -507,11 +587,23 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
     fprintf(fout, "early_termination_epochs = %d\n",
             cfg->early_termination_epochs);
 
-    fprintf(fout, "\n");
-    fprintf(fout, "# trainer must be one of \"%s\", \"%s\"\n",
-            trainerName(PDDL_ASNETS_TRAINER_ASTAR_LMCUT),
-            trainerName(PDDL_ASNETS_TRAINER_FAST_DOWNWARD));
-    fprintf(fout, "trainer = \"%s\"\n", trainerName(cfg->trainer));
+    fprintf(fout, "teacher = \"%s\"", teacherName(cfg->teacher));
+    fprintf(fout, " # must be one of \"%s\", \"%s\", \"%s\"\n",
+            teacherName(PDDL_ASNETS_TEACHER_ASTAR_LMCUT),
+            teacherName(PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD),
+            teacherName(PDDL_ASNETS_TEACHER_FAST_DOWNWARD));
+
+    if (cfg->teacher_external_cmd != NULL){
+        fprintf(fout, "teacher_external_cmd = [");
+        for (int i = 0; cfg->teacher_external_cmd[i] != NULL; ++i){
+            if (i != 0)
+                fprintf(fout, ", ");
+            fprintf(fout, "\"%s\"", cfg->teacher_external_cmd[i]);
+        }
+        fprintf(fout, "]\n");
+    }else{
+        fprintf(fout, "# teacher_external_cmd = [\"/bin/bash\", \"/path/to/script.sh\"]");
+    }
 }
 
 void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d)
@@ -2235,38 +2327,43 @@ static int trainExploration(pddl_asnets_t *a,
 
     // Extend training data with teacher rollouts
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
-    for (pddl_state_id_t state_id = 0; state_id < states.num_states; ++state_id)
-    {
+    for (pddl_state_id_t state_id = 0; state_id < states.num_states; ++state_id){
         pddlFDRStatePoolGet(&states, state_id, state);
         int ret;
 
-        // LOG(err, "before the switch case - cfg.trainer is: %d", a->cfg.trainer);
-        switch (a->cfg.trainer)
-        {
-        case PDDL_ASNETS_TRAINER_ASTAR_LMCUT:
-            ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
-                                                       state, &task->fdr,
-                                                       a->cfg.teacher_timeout,
-                                                       err);
-            break;
-        case PDDL_ASNETS_TRAINER_FAST_DOWNWARD:
-            // if OSP problem with initial state, then save MSGS value achieved by teacher planner
-            int save_msgs = 0;
-            if (a->cfg.is_osp_problem && state_id == 0) {
-                save_msgs = 1;
-            }
-            ret = pddlASNetsTrainDataRolloutFastDownward(data, ground_task_id,
-                                                         state, &task->fdr,
-                                                         a->cfg.is_osp_problem,
-                                                         save_msgs,
-                                                         a->cfg.fd_config,
-                                                         a->cfg.teacher_timeout,
-                                                         err);
-            break;
+        switch (a->cfg.teacher){
+            case PDDL_ASNETS_TEACHER_ASTAR_LMCUT:
+                ret = pddlASNetsTrainDataRolloutAStarLMCut(data, ground_task_id,
+                                                           state, &task->fdr,
+                                                           a->cfg.teacher_timeout,
+                                                           err);
+                break;
+            case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
+                PANIC_IF(a->cfg.teacher_external_cmd == NULL,
+                         "External command is not specified.");
+                ret = pddlASNetsTrainDataRolloutExternalFastDownward(data, ground_task_id,
+                                                                     state, &task->fdr,
+                                                                     a->cfg.teacher_external_cmd,
+                                                                     a->cfg.teacher_timeout,
+                                                                     err);
+                break;
+            case PDDL_ASNETS_TEACHER_FAST_DOWNWARD:
+                // if OSP problem with initial state, then save MSGS value achieved by teacher planner
+                int save_msgs = 0;
+                if (a->cfg.is_osp_problem && state_id == 0) {
+                    save_msgs = 1;
+                }
+                ret = pddlASNetsTrainDataRolloutFastDownward(data, ground_task_id,
+                                                             state, &task->fdr,
+                                                             a->cfg.is_osp_problem,
+                                                             save_msgs,
+                                                             a->cfg.fd_config,
+                                                             a->cfg.teacher_timeout,
+                                                             err);
+                break;
         }
 
-        if (ret < 0)
-        {
+        if (ret < 0){
             FREE(state);
             pddlFDRStatePoolFree(&states);
             CTXEND(err);
@@ -2595,11 +2692,11 @@ void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trai
 
 int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err){
  
-    if (a_config->trainer == PDDL_ASNETS_TRAINER_ASTAR_LMCUT) {
+    if (a_config->teacher == PDDL_ASNETS_TEACHER_ASTAR_LMCUT) {
          /* TO-DO: call cpddl search and save results  */
         return -1;
     }
-    else if (a_config->trainer == PDDL_ASNETS_TRAINER_FAST_DOWNWARD) {
+    else if (a_config->teacher == PDDL_ASNETS_TEACHER_FAST_DOWNWARD) {
         // execute fast-downward with domain and problem pddl files
         // save results to msgs_result
         if (msgs_result == NULL) {

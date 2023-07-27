@@ -16,11 +16,12 @@ extern "C" {
 
 typedef struct pddl_asnets pddl_asnets_t;
 
-enum pddl_asnets_trainer {
-    PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
-    PDDL_ASNETS_TRAINER_FAST_DOWNWARD,
+enum pddl_asnets_teacher {
+    PDDL_ASNETS_TEACHER_ASTAR_LMCUT = 0,
+    PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD,
+    PDDL_ASNETS_TEACHER_FAST_DOWNWARD,
 };
-typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
+typedef enum pddl_asnets_teacher pddl_asnets_teacher_t;
 
 struct pddl_fast_downward_config {
     /** Path to SAS and Plan files. */
@@ -85,9 +86,6 @@ struct pddl_asnets_config {
     int train_steps;
     /** Limit on the number of steps for the policy rollout. Default: 1000 */
     int policy_rollout_limit;
-    /** Time limit in seconds for the teacher to solve the given task.
-     *  Default: 10.f */
-    float teacher_timeout;
     /** Minimum success rate in .early_termination_epochs to terminate
      *  early. Default: 0.999 */
     float early_termination_success_rate;
@@ -95,8 +93,26 @@ struct pddl_asnets_config {
      *  .early_termination_success_rate. Default: 20 */
     int early_termination_epochs;
 
-    /** Which trainer will be used. One of PDDL_ASNETS_TRAINER_* */
-    pddl_asnets_trainer_t trainer;
+    /** Time limit in seconds for the teacher to solve the given task.
+     *  Default: 10.f */
+    float teacher_timeout;
+    /** Which teacher will be used. One of PDDL_ASNETS_TEACHER_* */
+    pddl_asnets_teacher_t teacher;
+
+    /** External command used as a teacher. This must be specified when
+     *  .teacher is set to PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD.
+     *
+     *  The external command must read problem in the Fast Downward format
+     *  from stdin, and write the plan to stdout. If the command writes
+     *  anything to stderr or exits non-zero, the training terminates with
+     *  error.
+     *
+     *  It must be specified the same  way as the "argv" parameter of
+     *  execv(3) and the first argument must point to the file being
+     *  executed. (Don't forget that the last argument must be NULL.).
+     *
+     *  Default: NULL */
+    char **teacher_external_cmd;
 
     /** Configure call to Fast Downward trainer.
      *  Is NULL by default.
@@ -126,6 +142,8 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);
 void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
                                 const char *problem_fn);
+void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
+                                           char * const * argv);
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
 
 struct pddl_asnets_softgoals_result {

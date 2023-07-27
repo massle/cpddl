@@ -74,6 +74,14 @@ int pddlASNetsTrainDataRolloutAStarLMCut(pddl_asnets_train_data_t *td,
                                          float max_time,
                                          pddl_err_t *err);
 
+int pddlASNetsTrainDataRolloutExternalFastDownward(pddl_asnets_train_data_t *td,
+                                                   int ground_task_id,
+                                                   const int *state,
+                                                   const pddl_fdr_t *fdr,
+                                                   char * const *cmd,
+                                                   float max_time,
+                                                   pddl_err_t *err);
+
 int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
                                     int ground_task_id,
                                     const int *state,
