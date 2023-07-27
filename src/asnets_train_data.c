@@ -660,13 +660,7 @@ static int rolloutExternalFD(pddl_asnets_train_data_t *td,
         FREE(oerr);
 
 
-    if (status.timed_out){
-        // TODO: Remove this. We shouldn't allow killing external planner
-        // from here
-        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
-        LOG(err, "Plan not found due to time out");
-
-    }else if (status.exit_status != 0 || status.signaled || oerr_size > 0){
+    if (status.exit_status != 0 || status.signaled || oerr_size > 0){
         // Something went wrong with the external planner -- terminate with
         // an error
         if (out != NULL)
