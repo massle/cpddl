@@ -42,6 +42,7 @@ struct pddl_lifted_search_bfs {
     pddl_lifted_heur_t *heur;
     int g_weight;
     int h_weight;
+    pddl_bool_t is_greedy;
     pddl_bool_t is_lazy;
     pddl_bool_t reopen;
     pddl_open_list_t *list;
@@ -52,7 +53,8 @@ typedef struct pddl_lifted_search_bfs pddl_lifted_search_bfs_t;
 
 static void setGoal(pddl_lifted_search_t *s);
 static pddl_state_id_t insertInitState(pddl_lifted_search_t *s);
-static int isGoal(const pddl_lifted_search_t *s);
+static int isGoal(const pddl_lifted_search_t *s,
+                  const pddl_strips_state_space_node_t *node);
 static void applyAction(pddl_lifted_search_t *s,
                         const pddl_action_t *action,
                         const int *args,
@@ -106,6 +108,7 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *bfs);
 static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
                                     int g_weight,
                                     int h_weight,
+                                    pddl_bool_t is_greedy,
                                     pddl_bool_t is_lazy,
                                     pddl_bool_t reopen,
                                     const char *err_prefix,
@@ -121,6 +124,7 @@ static pddl_lifted_search_t *bfsNew(const pddl_lifted_search_config_t *cfg,
     bfs->heur = cfg->heur;
     bfs->g_weight = g_weight;
     bfs->h_weight = h_weight;
+    bfs->is_greedy = is_greedy;
     bfs->is_lazy = is_lazy;
     bfs->reopen = reopen;
     bfs->list = pddlOpenListSplayTree2();
@@ -189,6 +193,12 @@ static pddl_lifted_search_status_t bfsInitStep(pddl_lifted_search_t *s)
 
     bfsPush(bfs, &s->cur_node, h_value);
     pddlStripsStateSpaceSet(&s->state_space, &s->cur_node);
+
+    if (isGoal(s, &s->cur_node)){
+        extractPlan(s, state_id);
+        ret = PDDL_LIFTED_SEARCH_FOUND;
+    }
+
     CTXEND(s->err);
     return ret;
 }
@@ -284,8 +294,8 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
         s->_stat.dead_end_before_last_f_layer = s->_stat.dead_end;
     }
 
-    // Check whether it is a goal
-    if (isGoal(s)){
+    // Check whether it is a goal is the search is not greedy
+    if (!bfs->is_greedy && isGoal(s, &s->cur_node)){
         extractPlan(s, cur_state_id);
         CTXEND(s->err);
         return PDDL_LIFTED_SEARCH_FOUND;
@@ -338,6 +348,13 @@ static pddl_lifted_search_status_t bfsStep(pddl_lifted_search_t *s)
         pddlStripsStateSpaceGetNoState(&s->state_space,
                                        next_state_id, &s->next_node);
         bfsInsertNextState(bfs, args_id, cost, h_value);
+
+        // Check whether it is a goal is the search is greedy
+        if (bfs->is_greedy && isGoal(s, &s->next_node)){
+            extractPlan(s, next_state_id);
+            CTXEND(s->err);
+            return PDDL_LIFTED_SEARCH_FOUND;
+        }
     }
     CTXEND(s->err);
     return PDDL_LIFTED_SEARCH_CONT;
@@ -485,9 +502,10 @@ static pddl_state_id_t insertInitState(pddl_lifted_search_t *s)
     return sid;
 }
 
-static int isGoal(const pddl_lifted_search_t *s)
+static int isGoal(const pddl_lifted_search_t *s,
+                  const pddl_strips_state_space_node_t *node)
 {
-    return pddlISetIsSubset(&s->goal, &s->cur_node.state);
+    return pddlISetIsSubset(&s->goal, &node->state);
 }
 
 
@@ -570,13 +588,13 @@ pddl_lifted_search_t *pddlLiftedSearchNew(const pddl_lifted_search_config_t *cfg
 {
     switch (cfg->alg){
         case PDDL_LIFTED_SEARCH_ASTAR:
-            return bfsNew(cfg, 1, 1, pddl_false, pddl_true, "Lifted A*", err);
+            return bfsNew(cfg, 1, 1, pddl_false, pddl_false, pddl_true, "Lifted A*", err);
 
         case PDDL_LIFTED_SEARCH_LAZY:
-            return bfsNew(cfg, 0, 1, pddl_true, pddl_false, "Lifted Lazy", err);
+            return bfsNew(cfg, 0, 1, pddl_true, pddl_true, pddl_false, "Lifted Lazy", err);
 
         case PDDL_LIFTED_SEARCH_GBFS:
-            return bfsNew(cfg, 0, 1, pddl_false, pddl_false, "Lifted GBFS", err);
+            return bfsNew(cfg, 0, 1, pddl_true, pddl_false, pddl_false, "Lifted GBFS", err);
 
         default:
             ERR_RET(err, NULL, "Unkown algorithm %d", cfg->alg);
