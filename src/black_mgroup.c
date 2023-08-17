@@ -627,11 +627,17 @@ static void updateLPWithCycle(pddl_lp_t *lp,
 
 static int solveLP(pddl_lp_t *lp,
                    const black_vars_t *bv,
-                   pddl_iset_t *black_vars)
+                   pddl_iset_t *black_vars,
+                   pddl_err_t *err)
 {
     pddl_lp_solution_t sol;
     sol.var_val = CALLOC_ARR(double, bv->fact_vertex_size);
-    pddlLPSolve(lp, &sol, NULL);
+    if (pddlLPSolve(lp, &sol, err) == PDDL_LP_STATUS_ERR){
+        // TODO: Propagate this error up
+        pddlErrPrint(err, 1, stderr);
+        PANIC("Error in the LP solver occurred");
+    }
+
     if (!sol.solved){
         FREE(sol.var_val);
         return -1;
@@ -797,7 +803,7 @@ static int findBlackVarsUsingLP(pddl_lp_t *lp,
     int cont = 1;
     int solution = 0;
     int num_updates = 0;
-    while (cont && (ret = solveLP(lp, bv, &black_vars)) == 0){
+    while (cont && (ret = solveLP(lp, bv, &black_vars, err)) == 0){
         LOG(err, "Solved. Candidate set size: %d", pddlISetSize(&black_vars));
 
         pddl_scc_graph_t black_graph;
