@@ -181,7 +181,11 @@ int pddlOpMutexFindRedundantMax(const pddl_op_mutex_pairs_t *op_mutex,
     pddl_lp_solution_t sol;
     sol.var_val = CALLOC_ARR(double, num_vars);
     LOG(err, "Solving the ILP problem...");
-    pddlLPSolve(lp, &sol, err);
+    if (pddlLPSolve(lp, &sol, err) == PDDL_LP_STATUS_ERR){
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
     if (sol.solved){
         LOG(err, "Problem solved with objective value %.4f", sol.obj_val);
         int num = 0;
