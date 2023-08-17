@@ -258,6 +258,21 @@ The best-performing variant of the optimal search from this paper:
                domain.pddl problem.pddl
 ```
 
+The selection of homomorphisms using **Gaifman Graphs** can be enabled by
+setting `type=gaifman` in the `--lplan-h-homo`option.
+> Rostislav Horčík, Daniel Fišer.
+> *Gaifman Graphs in Lifted Planning*,
+> ECAI 2023
+
+The best-performing variant of the optimal planner from the ECAI'23 paper:
+```sh
+  $ ./bin/pddl --lendo --pddl-compile-in-lmg \
+               --lplan astar --lplan-h homo-lmc \
+               --lplan-h-homo type=gaifman,rm-ratio=.95,samples=50,sampling-max-time=60 \
+               --lplan-out plan.out \
+               domain.pddl problem.pddl
+```
+
 
 ### Translation to FDR
 cpddl can ground the input PDDL files and translate them into the Finite Domain
