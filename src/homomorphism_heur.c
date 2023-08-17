@@ -61,6 +61,8 @@ static int pddlHomomorphismHeurInit(pddl_homomorphism_heur_t *h,
         PDDL_TRACE_RET(err, -1);
     }
 
+    pddlStripsCompileAwayCondEff(&h->strips);
+
     pddl_prune_strips_t prune;
     pddlPruneStripsInit(&prune);
     pddlPruneStripsAddIrrelevance(&prune);

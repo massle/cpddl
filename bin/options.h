@@ -22,6 +22,9 @@ enum {
     LIFTED_PLAN_HEUR_HADD,
     LIFTED_PLAN_HEUR_HOMO_LMC,
     LIFTED_PLAN_HEUR_HOMO_FF,
+    LIFTED_PLAN_HEUR_GAIF_LB,
+    LIFTED_PLAN_HEUR_GAIF_MAX,
+    LIFTED_PLAN_HEUR_GAIF_ADD,
 };
 
 enum {
@@ -111,6 +114,7 @@ struct options {
         pddl_homomorphism_config_t homomorph_cfg;
         int random_seed;
         int homomorph_samples;
+        float homomorph_sampling_max_time;
         char *plan_out;
     } lifted_planner;
 
