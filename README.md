@@ -5,63 +5,37 @@ written in C.
 
 [[_TOC_]]
 
-## License
+## Prebuilt Images
+If you don't intend to use cpddl as a library, but as a standalone command line
+tool, you can consider using the prebuilt [Apptainer](https://apptainer.org/)
+images. The latest version of the (almost) full built of the cpddl command line
+tool can be obtained from gitlab:
+```sh
+  $ apptainer pull oras://registry.gitlab.com/danfis/cpddl:latest
+```
+It is built with the support for symmetries ([bliss](https://users.aalto.fi/~tjunttil/bliss)),
+symbolic search ([cudd](https://davidkebo.com/cudd)), LP/MIP solvers
+([HiGHS](https://highs.dev) and [Coin-Or](https://www.coin-or.org/)), and an CP
+solver ([minizinc](https://www.minizinc.org/)).
+It also supports the [CPLEX](https://www.ibm.com/analytics/cplex-optimizer)
+solver, but it is not directly linked-in (as it requires academic or
+commercial license). Instead, you can dymanically link it during runtime. If,
+for example, your installation of CPLEX is located in `/opt/cplex/v22.1.1`, then
+you can pull the CPLEX library using to option `--cplex-lib`:
+```sh
+  $ ./cpddl_latest.sif --cplex-lib /opt/cplex/v22.1.1/cplex/bin/x86-64_linux/libcplex2211.so ...
+```
 
-cpddl is licensed under OSI-approved 3-clause
-[BSD License](https://opensource.org/licenses/BSD-3-Clause), text of license
-is distributed along with source code in the LICENSE file.
-
-cpddl directly incorporates several third-party works:
-- The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
-[public-domain](https://www.sqlite.org/copyright.html);
-
-- The [SHA256](https://github.com/B-Con/crypto-algorithms)
-hash function from public-domain authored by Brad Conte;
-
-- Two hash functions copyrighted by Google and released under the MIT
-license [CityHash](https://code.google.com/p/cityhash) and
-[FastHash](https://code.google.com/p/fast-hash);
-
-- [Timsort](https://github.com/swenson/sort/) licensed under MIT
-(Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc);
-
-- [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
+The very same apptainer image is now part of [planutils](https://github.com/AI-Planning/planutils)
+under the name `cpddl`.
 
 
-Other than that, cpddl can be compiled without any other
-dependecies besides standard C-related tools.
-However, certain functionalities require external libraries:
-- symmetries require
-[bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
-(a slightly modified copy located in the ``third-party`` directory).
+There is also available a much smaller "barebone" image that does not include any
+depdendecies:
+```sh
+  $ apptainer pull oras://registry.gitlab.com/danfis/cpddl:barebone-latest
+```
 
-- binary decision diagrams require
-[cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
-License
-(a copy is located in the ``third-party`` directory).
-
-- (I)LP solver requires
-[CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
-[Gurobi](https://www.gurobi.com/),
-[HiGHS](https://highs.dev), or
-[Coin-Or](https://www.coin-or.org/). CPLEX Optimizer and
-Gurobi are commercial products, but it is possible to obtain an academic
-license. HiGHS is licensed under MIT license.
-Coin-Or [Clp](https://github.com/coin-or/Clp/) and
-[Cbc](https://github.com/coin-or/Cbc) modules are licensed under
-Eclipse Public License v2.0.
-
-  The recommended and most tested option is the CPLEX Optimizer.
-
-- constraint optimization requires either
-[CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
-[minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
-library, but it is possible to obtain an academic license. Minizinc is
-licensed under Mozilla Public License v2.0 (and itself depends on other
-solvers), but it is called as a subprocess from cpddl, i.e., it is never
-statically or dynamically linked to cpddl.
-
-  The recommended option is the CPLEX CP Optimizer.
 
 ## Building with Makefile
 
@@ -78,10 +52,14 @@ The easiest and fastest way the build the working system is by calling:
   $ ./scripts/build.sh
 ```
 It builds the cpddl library and binaries with [bliss](https://users.aalto.fi/~tjunttil/bliss)
-and [cudd](https://davidkebo.com/cudd) libraries which are compiled from local
-copies in the ``third-party/`` directory. It also uses the configuration options
-placed in the ``Makefile.config`` file. ``Makefile.config.tpl`` contains
-detailed instructions how to change the configuration.
+(used for symmetries) and [cudd](https://davidkebo.com/cudd) (used for BDDs in
+the symbolic search) libraries which are compiled from local
+copies in the `third-party/` directory. It also uses the configuration options
+placed in the `Makefile.config` file. `Makefile.config.tpl` contains
+detailed instructions how to change the configuration. In particular, you might
+consider compiling cpddl with the support of LP/MIP/CP solvers required by some
+parts of cpddl (the [CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer)
+is the recommended option here; see License section below for more information).
 
 Another useful commands are:
 - Check the current configuration:
@@ -361,9 +339,6 @@ invoked by
                      domain.pddl problem.pddl
 ```
 
-Please refer to the listed papers when documenting work that uses the
-corresponding parts of cpddl.
-
 
 ### Action Schema Networks
 cpddl includes implementation of Action Schema Networks (ASNets) using the
@@ -393,3 +368,65 @@ To evaluate policy:
 ```sh
   $ ./bin/pddl-asnets -e trained.policy /path/to/config.file
 ```
+
+**Please refer to the listed papers when documenting work that uses the
+corresponding parts of cpddl.**
+
+
+## License
+
+cpddl is licensed under OSI-approved 3-clause
+[BSD License](https://opensource.org/licenses/BSD-3-Clause), text of license
+is distributed along with source code in the LICENSE file.
+
+cpddl directly incorporates several third-party works:
+- The SQL library [sqlite](https://www.sqlite.org/index.html) which is in
+[public-domain](https://www.sqlite.org/copyright.html);
+
+- The [SHA256](https://github.com/B-Con/crypto-algorithms)
+hash function from public-domain authored by Brad Conte;
+
+- Two hash functions copyrighted by Google and released under the MIT
+license [CityHash](https://code.google.com/p/cityhash) and
+[FastHash](https://code.google.com/p/fast-hash);
+
+- [Timsort](https://github.com/swenson/sort/) licensed under MIT
+(Copyright (c) 2010-2019 Christopher Swenson, 2012 Vojtech Fried, 2012 Google Inc);
+
+- [Toml](https://github.com/cktan/tomlc99) licensed under MIT (Copyright (c) CK Tan);
+
+
+Other than that, cpddl can be compiled without any other
+dependecies besides standard C-related tools.
+However, certain functionalities require external libraries:
+- symmetries require
+[bliss](https://users.aalto.fi/~tjunttil/bliss) library licensed under LGPL
+(a slightly modified copy located in the ``third-party`` directory).
+
+- binary decision diagrams require
+[cudd](https://davidkebo.com/cudd) library licensed under 3-clause BSD
+License
+(a copy is located in the ``third-party`` directory).
+
+- (I)LP solver requires
+[CPLEX Optimizer](https://www.ibm.com/analytics/cplex-optimizer),
+[Gurobi](https://www.gurobi.com/),
+[HiGHS](https://highs.dev), or
+[Coin-Or](https://www.coin-or.org/). CPLEX Optimizer and
+Gurobi are commercial products, but it is possible to obtain an academic
+license. HiGHS is licensed under MIT license.
+Coin-Or [Clp](https://github.com/coin-or/Clp/) and
+[Cbc](https://github.com/coin-or/Cbc) modules are licensed under
+Eclipse Public License v2.0.
+
+  The recommended and most tested option is the CPLEX Optimizer.
+
+- constraint optimization requires either
+[CPLEX CP Optimizer](https://www.ibm.com/analytics/cplex-cp-optimizer), or
+[minizinc](https://www.minizinc.org/). CPLEX CP Optimizer is a commercial
+library, but it is possible to obtain an academic license. Minizinc is
+licensed under Mozilla Public License v2.0 (and itself depends on other
+solvers), but it is called as a subprocess from cpddl, i.e., it is never
+statically or dynamically linked to cpddl.
+
+  The recommended option is the CPLEX CP Optimizer.
