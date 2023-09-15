@@ -977,6 +977,28 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     return 0;
 }
 
+void pddlFDRMutexPairsInitCopy(pddl_mutex_pairs_t *fdr_mutex,
+                               const pddl_mutex_pairs_t *strips_mutex,
+                               const pddl_fdr_t *fdr)
+{
+    pddlMutexPairsInit(fdr_mutex, fdr->var.global_id_size);
+    PDDL_MUTEX_PAIRS_FOR_EACH(strips_mutex, f1, f2){
+        if (f1 >= fdr->var.strips_id_size || f2 >= fdr->var.strips_id_size)
+            continue;
+
+        int dst1, dst2;
+        PDDL_ISET_FOR_EACH(&fdr->var.strips_id_to_val[f1], dst1){
+            PDDL_ISET_FOR_EACH(&fdr->var.strips_id_to_val[f2], dst2){
+                pddlMutexPairsAdd(fdr_mutex, dst1, dst2);
+                if (pddlMutexPairsIsFwMutex(strips_mutex, f1, f2))
+                    pddlMutexPairsSetFwMutex(fdr_mutex, dst1, dst2);
+                if (pddlMutexPairsIsBwMutex(strips_mutex, f1, f2))
+                    pddlMutexPairsSetBwMutex(fdr_mutex, dst1, dst2);
+            }
+        }
+    }
+}
+
 static void printFDOp(const pddl_fdr_op_t *op,
                       const pddl_fdr_write_config_t *cfg,
                       FILE *fout)

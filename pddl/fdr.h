@@ -107,6 +107,18 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
                                     unsigned flags,
                                     pddl_err_t *err);
 
+/**
+ * Initialize {dst_fdr_mutex} mutex pairs as a copy of {str_strips_mutex}.
+ * {dst_fdr_mutex} mutex pairs will be valid mutex pairs in the given FDR
+ * planning task {fdr}.
+ * It is assumed that the input mutex pairs {src_strips_mutex} are valid
+ * mutex pairs for the STRIPS-encoded planning task used for the
+ * construction of the FDR planning task {fdr}.
+ */
+void pddlFDRMutexPairsInitCopy(pddl_mutex_pairs_t *dst_fdr_mutex,
+                               const pddl_mutex_pairs_t *src_strips_mutex,
+                               const pddl_fdr_t *fdr);
+
 void pddlFDRPrintFD(const pddl_fdr_t *fdr,
                     const pddl_mgroups_t *mgs,
                     pddl_bool_t use_fd_fact_names,
