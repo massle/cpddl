@@ -356,8 +356,9 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddlMGroupsInitEmpty(&mgroups);
     pddlMGroupsGround(&mgroups, &gt->pddl, &lmg, &gt->strips);
 
-    pddlFDRInitFromStrips(&gt->fdr, &gt->strips, &mgroups, &mutex,
-                          PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
+    pddl_fdr_config_t fdr_cfg = PDDL_FDR_CONFIG_INIT;
+    fdr_cfg.var.alg = PDDL_FDR_VARS_ALG_LARGEST_FIRST;
+    pddlFDRInitFromStrips(&gt->fdr, &gt->strips, &mgroups, &mutex, &fdr_cfg, err);
     ASSERT(gt->strips.op.op_size == gt->fdr.op.op_size);
 
     pddlFDRAppOpInit(&gt->fdr_app_op, &gt->fdr.var, &gt->fdr.op, &gt->fdr.goal);

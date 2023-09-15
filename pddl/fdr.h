@@ -27,13 +27,38 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct pddl_fdr_config {
+    /** Allocation of variables */
+    pddl_fdr_vars_config_t var;
+    /** Add "none-of-those" values to preconditions even if it is not necessary. */
+    pddl_bool_t set_none_of_those_in_pre;
+};
+typedef struct pddl_fdr_config pddl_fdr_config_t;
+
+#define PDDL_FDR_CONFIG_INIT \
+    { \
+        PDDL_FDR_VARS_CONFIG_INIT, /* .var */ \
+        pddl_false, /* .set_none_of_those_in_pre */ \
+    }
+
+void pddlFDRConfigInit(pddl_fdr_config_t *cfg);
+void pddlFDRConfigLog(const pddl_fdr_config_t *cfg, pddl_err_t *err);
+
 struct pddl_fdr {
+    pddl_fdr_config_t cfg;
+    /** Set of variables */
     pddl_fdr_vars_t var;
+    /** Set of operators */
     pddl_fdr_ops_t op;
+    /** Initial state. Array of size .var.var_size */
     int *init;
+    /** Goal specification */
     pddl_fdr_part_state_t goal;
+    /** True if no goal state is reachable */
     pddl_bool_t goal_is_unreachable;
+    /** True if any operator has a conditional effect */
     pddl_bool_t has_cond_eff;
+    /** True if the task a shallow copy of another task */
     pddl_bool_t is_shallow_copy;
 };
 typedef struct pddl_fdr pddl_fdr_t;
@@ -44,8 +69,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mg,
                           const pddl_mutex_pairs_t *mutex,
-                          unsigned fdr_var_flags,
-                          unsigned fdr_flags,
+                          const pddl_fdr_config_t *cfg,
                           pddl_err_t *err);
 void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in);
 void pddlFDRFree(pddl_fdr_t *fdr);

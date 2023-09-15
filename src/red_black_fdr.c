@@ -205,10 +205,10 @@ static int constructFDR(pddl_fdr_t *fdr,
     }
 
     // Construct FDR
-    unsigned fdr_var_flags = PDDL_FDR_VARS_LARGEST_FIRST;
-    unsigned fdr_flags = 0;
-    int ret = pddlFDRInitFromStrips(fdr, strips, mgroups, mutex,
-                                    fdr_var_flags, fdr_flags, err);
+    pddl_fdr_config_t fdr_cfg = PDDL_FDR_CONFIG_INIT;
+    fdr_cfg.var.alg = PDDL_FDR_VARS_ALG_LARGEST_FIRST;
+    fdr_cfg.set_none_of_those_in_pre = pddl_false;
+    int ret = pddlFDRInitFromStrips(fdr, strips, mgroups, mutex, &fdr_cfg, err);
     PANIC_IF(fdr->op.op_size != strips->op.op_size,
              "Incorrectly constructed FDR task.");
 

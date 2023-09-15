@@ -150,8 +150,7 @@ struct options {
     } rb_fdr;
 
     struct {
-        unsigned flag;
-        unsigned var_flag;
+        pddl_fdr_config_t cfg;
         pddl_bool_t order_vars_cg;
         char *out;
         pddl_bool_t pretty_print_vars;

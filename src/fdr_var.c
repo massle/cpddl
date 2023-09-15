@@ -21,7 +21,21 @@
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
 
-#define PDDL_FDR_VARS_METHOD_MASK 0xfu
+void pddlFDRVarsConfigLog(const pddl_fdr_vars_config_t *cfg, pddl_err_t *err)
+{
+    switch (cfg->alg){
+        case PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST:
+            LOG(err, "alg = essential-first");
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST:
+            LOG(err, "alg = largest-first");
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST_MULTI:
+            LOG(err, "alg = largest-first-multi");
+            break;
+    }
+    LOG_CONFIG_BOOL(cfg, ignore_negated_facts, err);
+}
 
 struct vars_mgroup {
     pddl_iset_t uncovered; /*!< The set of uncovered facts from the mgroup */
@@ -368,7 +382,7 @@ static void allocateLargestMulti(vars_t *vars,
 static void allocateUncoveredSingleFacts(vars_t *vars,
                                          const pddl_strips_t *strips,
                                          const pddl_mutex_pairs_t *mutex,
-                                         unsigned flags)
+                                         const pddl_fdr_vars_config_t *cfg)
 {
     PDDL_ISET(var_facts);
 
@@ -385,7 +399,7 @@ static void allocateUncoveredSingleFacts(vars_t *vars,
         pddlISetAdd(&var_facts, fact_id);
         covered[fact_id] = 1;
 
-        if (!(flags & PDDL_FDR_VARS_NO_NEGATED_FACTS)){
+        if (!cfg->ignore_negated_facts){
             int neg_of = strips->fact.fact[fact_id]->neg_of;
             if (neg_of >= 0 && !covered[neg_of]){
                 pddlISetAdd(&var_facts, neg_of);
@@ -404,7 +418,7 @@ static int allocateVars(vars_t *vars,
                         const pddl_strips_t *strips,
                         const pddl_mgroups_t *mg,
                         const pddl_mutex_pairs_t *mutex,
-                        unsigned flags)
+                        const pddl_fdr_vars_config_t *cfg)
 {
     PDDL_ISET(var_facts);
     PDDL_ISET(binary_facts);
@@ -419,18 +433,19 @@ static int allocateVars(vars_t *vars,
         varsAdd(vars, strips, mutex, &var_facts);
     }
 
-    unsigned method = flags & PDDL_FDR_VARS_METHOD_MASK;
-    if (method == PDDL_FDR_VARS_ESSENTIAL_FIRST){
-        allocateEssential(vars, strips, mg, mutex);
-    }else if (method == PDDL_FDR_VARS_LARGEST_FIRST){
-        allocateLargest(vars, strips, mg, mutex);
-    }else if (method == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
-        allocateLargestMulti(vars, strips, mg, mutex);
-    }else{
-        PANIC("Unspecified method for variable allocation.");
+    switch (cfg->alg){
+        case PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST:
+            allocateEssential(vars, strips, mg, mutex);
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST:
+            allocateLargest(vars, strips, mg, mutex);
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST_MULTI:
+            allocateLargestMulti(vars, strips, mg, mutex);
+            break;
     }
 
-    allocateUncoveredSingleFacts(vars, strips, mutex, flags);
+    allocateUncoveredSingleFacts(vars, strips, mutex, cfg);
 
     pddlISetFree(&var_facts);
     pddlISetFree(&binary_facts);
@@ -503,13 +518,13 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
                               const pddl_strips_t *strips,
                               const pddl_mgroups_t *mg,
                               const pddl_mutex_pairs_t *_mutex,
-                              unsigned flags)
+                              const pddl_fdr_vars_config_t *cfg)
 {
     vars_t vars;
     pddl_mutex_pairs_t mutex;
 
     pddlMutexPairsInitCopy(&mutex, _mutex);
-    if (!(flags & PDDL_FDR_VARS_NO_NEGATED_FACTS)){
+    if (!cfg->ignore_negated_facts){
         for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
             const pddl_fact_t *fact = strips->fact.fact[fact_id];
             if (fact->neg_of > fact_id)
@@ -518,9 +533,10 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
     }
 
     ZEROIZE(fdr_vars);
+    fdr_vars->cfg = *cfg;
 
     varsInit(&vars, mg);
-    if (allocateVars(&vars, strips, mg, &mutex, flags) != 0){
+    if (allocateVars(&vars, strips, mg, &mutex, cfg) != 0){
         varsFree(&vars);
         pddlMutexPairsFree(&mutex);
         return -1;

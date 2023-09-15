@@ -613,9 +613,11 @@ static int pruneEndomorphismFDR(const pddl_process_strips_t *prune,
 {
     int ret = 0;
     PDDL_LOG(err, "Redundant operators using endomorphism on FDR ...");
+    pddl_fdr_config_t fdr_cfg = PDDL_FDR_CONFIG_INIT;
+    fdr_cfg.var.alg = PDDL_FDR_VARS_ALG_LARGEST_FIRST;
     pddl_fdr_t fdr;
     pddlFDRInitFromStrips(&fdr, prune->strips, prune->mgroups, prune->mutex,
-                          PDDL_FDR_VARS_LARGEST_FIRST, 0, err);
+                          &fdr_cfg, err);
     ret = pddlEndomorphismFDRRedundantOps(&fdr, cfg, redundant_op, err);
     if (ret >= 0)
         ret = 0;

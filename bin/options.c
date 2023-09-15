@@ -278,13 +278,13 @@ static int optGroundNoPruning(pddl_bool_t enabled)
 
 static int optFDRLargestFirst(pddl_bool_t enabled)
 {
-    opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+    opt.fdr.cfg.var.alg = PDDL_FDR_VARS_ALG_LARGEST_FIRST;
     return 0;
 }
 
 static int optFDREssentialFirst(pddl_bool_t enabled)
 {
-    opt.fdr.var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+    opt.fdr.cfg.var.alg = PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST;
     return 0;
 }
 
@@ -849,6 +849,8 @@ static void setRedBlackOptions(void)
 
 static void setFDROptions(void)
 {
+    pddlFDRConfigInit(&opt.fdr.cfg);
+
     opts_params_t *params;
 
     pddlHPotConfigInit(&opt.fdr.pot_cfg);

@@ -710,8 +710,7 @@ static int stepFDR(void)
 
     return 1;
 
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex,
-                          opt.fdr.var_flag, opt.fdr.flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex, &opt.fdr.cfg, &err);
     fdr_set = 1;
 
     if (opt.fdr.order_vars_cg){

@@ -27,6 +27,38 @@
 extern "C" {
 #endif /* __cplusplus */
 
+/**
+ * Algorithms that can be used for the construction of variables
+ */
+enum pddl_fdr_vars_alg {
+    /** Prioritize mutex groups having higher number of facts not covered
+     *  by any other mutex group. */
+    PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST = 0,
+    /** Prioritize larger mutex groups. */
+    PDDL_FDR_VARS_ALG_LARGEST_FIRST,
+    /** Prioritize larger mutex groups, and encode each fact multiple times
+     *  if it appears in multiple mutex groups, i.e., every input mutex
+     *  group is exactly represented by one variable. */
+    PDDL_FDR_VARS_ALG_LARGEST_FIRST_MULTI,
+};
+
+struct pddl_fdr_vars_config {
+    /** Which algorithm should be used for constructing variables */
+    enum pddl_fdr_vars_alg alg;
+    /** The information about which fact is a negation of which fact is
+     *  ignored (i.e., .neg_of property of facts is ignored) */
+    pddl_bool_t ignore_negated_facts;
+};
+typedef struct pddl_fdr_vars_config pddl_fdr_vars_config_t;
+
+#define PDDL_FDR_VARS_CONFIG_INIT \
+    { \
+        PDDL_FDR_VARS_ALG_LARGEST_FIRST, /* .alg */ \
+        pddl_false, /* .ignore_negated_facts */ \
+    }
+
+void pddlFDRVarsConfigLog(const pddl_fdr_vars_config_t *cfg, pddl_err_t *err);
+
 struct pddl_fdr_val {
     char *name;
     int var_id; /*!< ID of the variable this value belongs to */
@@ -56,25 +88,22 @@ void pddlFDRVarInit(pddl_fdr_var_t *var);
 void pddlFDRVarFree(pddl_fdr_var_t *var);
 
 struct pddl_fdr_vars {
-    pddl_fdr_var_t *var; /*!< List of variables */
-    int var_size; /*!< Number of variables */
+    pddl_fdr_vars_config_t cfg;
+    /** List of variables */
+    pddl_fdr_var_t *var;
+    /** Number of variables */
+    int var_size;
 
-    int global_id_size; /*!< Number of global IDs */
-    pddl_fdr_val_t **global_id_to_val; /*!< Mapping from global ID to FDR
-                                            value */
+    /** Number of global IDs */
+    int global_id_size;
+    /** Mapping from global ID to FDR value */
+    pddl_fdr_val_t **global_id_to_val;
     int strips_id_size;
-    pddl_iset_t *strips_id_to_val; /*!< If the variables were created from
-                                       STRIPS, this maps STRIPS IDs to
-                                       global IDs of variable values */
+    /** If the variables were created from STRIPS, this maps STRIPS IDs to
+     *  global IDs of variable values */
+    pddl_iset_t *strips_id_to_val;
 };
 typedef struct pddl_fdr_vars pddl_fdr_vars_t;
-
-#define PDDL_FDR_VARS_ESSENTIAL_FIRST 0x00u
-#define PDDL_FDR_VARS_LARGEST_FIRST 0x01u
-#define PDDL_FDR_VARS_LARGEST_FIRST_MULTI 0x02u
-// TODO: Minimazion of bits required for storing the whole state
-#define PDDL_FDR_VARS_MIN_BITS
-#define PDDL_FDR_VARS_NO_NEGATED_FACTS 0x10u
 
 /**
  * Initialize the set of variables from the strips representation given a
@@ -84,7 +113,7 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *vars,
                               const pddl_strips_t *strips,
                               const pddl_mgroups_t *mg,
                               const pddl_mutex_pairs_t *mutex,
-                              unsigned flags);
+                              const pddl_fdr_vars_config_t *cfg);
 
 /**
  * Initialize dst as a deep copy of src.
