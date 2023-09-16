@@ -47,6 +47,19 @@ pddl_lifted_heur_t *pddlLiftedHeurHAdd(const pddl_t *pddl, pddl_err_t *err);
 pddl_lifted_heur_t *pddlLiftedHeurHomomorphism(pddl_homomorphism_heur_t *h);
 
 /**
+ * Max variant of the gaifman graph heuristic.
+ */
+pddl_lifted_heur_t *pddlLiftedHeurGaifmanMax(const pddl_t *pddl,
+                                             pddl_bool_t estimate_plan_lengths,
+                                             pddl_err_t *err);
+
+/**
+ * Add variant of the gaifman graph heuristic.
+ */
+pddl_lifted_heur_t *pddlLiftedHeurGaifmanAdd(const pddl_t *pddl,
+                                             pddl_err_t *err);
+
+/**
  * Destructor
  */
 void pddlLiftedHeurDel(pddl_lifted_heur_t *h);

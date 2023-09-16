@@ -397,7 +397,11 @@ static int lpSolve(pddl_lp_t *lp,
     lpAddLandmarks(lp, ldms);
 
     pddl_lp_solution_t sol = { 0 };
-    pddlLPSolve(lp, &sol, NULL);
+    if (pddlLPSolve(lp, &sol, NULL) == PDDL_LP_STATUS_ERR){
+        // TODO: Propagate this error up
+        PANIC("Error in the LP solver occurred");
+    }
+
     if (sol.solved){
         h = roundOff(sol.obj_val);
     }else{

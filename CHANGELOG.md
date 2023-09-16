@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Action Schema Networks
+- Gaifman graphs for homomorphism-based heuristics for lifted planning
+
+### Changed
+- Greedy searches terminate as soon as goal state is generated
+
+### Removed
+
+### Fixed
+
+
 ## Version 1.1
 
 ### Added
@@ -25,13 +39,3 @@
 ### Fixed
 - Fixed h^2 pruning of goal facts which simply removed the goal facts. Now,
   the task is marked as unsolvable.
-
-## Unreleased
-
-### Added
-
-### Changed
-
-### Removed
-
-### Fixed

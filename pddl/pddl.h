@@ -129,5 +129,6 @@
 #include <pddl/subprocess.h>
 #include <pddl/asnets_task.h>
 #include <pddl/asnets.h>
+#include <pddl/gaifman.h>
 
 #endif /* __PDDL_H__ */

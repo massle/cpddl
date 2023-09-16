@@ -40,7 +40,7 @@ static int parseOpts(int argc, char *argv[])
     optsAddStr("train", 't', &opt.train, NULL,
                "Train ASNets and save the model to the specified file.");
     optsAddStr("train-save-prefix", 0x0, &opt.train_save_prefix, NULL,
-               "If set, whenever success rate improves, a new model is"
+               "If set, the model for every epoch is"
                " saved to the file with this prefix.");
     optsAddStr("eval", 'e', &opt.eval, NULL,
                "Evaluate model stored in the specified file.");

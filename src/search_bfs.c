@@ -17,6 +17,7 @@ struct pddl_search_bfs {
     const char *err_prefix;
     int g_weight;
     int h_weight;
+    pddl_bool_t is_greedy;
     pddl_bool_t is_lazy;
     pddl_bool_t reopen;
 
@@ -49,6 +50,7 @@ static void bfsStat(const pddl_search_t *s, pddl_search_stat_t *stat);
 pddl_search_t *pddlSearchBFSNew(const pddl_search_config_t *cfg,
                                 int g_weight,
                                 int h_weight,
+                                pddl_bool_t is_greedy,
                                 pddl_bool_t is_lazy,
                                 pddl_bool_t reopen,
                                 const char *err_prefix,
@@ -63,6 +65,7 @@ pddl_search_t *pddlSearchBFSNew(const pddl_search_config_t *cfg,
     s->err_prefix = err_prefix;
     s->g_weight = g_weight;
     s->h_weight = h_weight;
+    s->is_greedy = is_greedy;
     s->is_lazy = is_lazy;
     s->reopen = reopen;
 
@@ -108,11 +111,26 @@ static void bfsPush(pddl_search_bfs_t *s,
     ++s->_stat.open;
 }
 
-static int bfsIsGoal(const pddl_search_bfs_t *s)
+_pddl_inline int bfsIsGoal(const pddl_search_bfs_t *s, const int *state)
 {
-    return pddlFDRPartStateIsConsistentWithState(&s->fdr->goal,
-                                                 s->cur_node.state);
+    return pddlFDRPartStateIsConsistentWithState(&s->fdr->goal, state);
 }
+
+_pddl_inline pddl_bool_t bfsCheckGoal(pddl_search_bfs_t *s,
+                                      const int *state,
+                                      pddl_state_id_t cur_state_id)
+{
+    if (bfsIsGoal(s, state)){
+        if (s->goal_state_id == PDDL_NO_STATE_ID
+                || s->goal_g_value > s->cur_node.g_value){
+            s->goal_state_id = cur_state_id;
+            s->goal_g_value = s->cur_node.g_value;
+        }
+        return pddl_true;
+    }
+    return pddl_false;
+}
+
 
 static void bfsInsertNextState(pddl_search_bfs_t *s,
                                const pddl_fdr_op_t *op,
@@ -196,6 +214,13 @@ static pddl_search_status_t bfsInitStep(pddl_search_t *_s)
              "Unexpected status of the initial state node.");
     bfsPush(s, &s->cur_node, h_value);
     pddlFDRStateSpaceSet(&s->state_space, &s->cur_node);
+
+    if (bfsCheckGoal(s, s->cur_node.state, state_id)){
+        LOG(s->err, "Found goal state. g: 0, f: %d, h: %d, init state",
+            s->h_weight * h_value, h_value);
+        ret = PDDL_SEARCH_FOUND;
+    }
+
     CTXEND(s->err);
     return ret;
 }
@@ -235,15 +260,10 @@ static pddl_search_status_t bfsStep(pddl_search_t *_s)
         s->_stat.dead_end_before_last_f_layer = s->_stat.dead_end;
     }
 
-    // Check whether it is a goal
-    if (bfsIsGoal(s)){
-        if (s->goal_state_id == PDDL_NO_STATE_ID
-                || s->goal_g_value > s->cur_node.g_value){
-            LOG(s->err, "Found goal state. g: %d, f: %d, h: %d",
-                s->cur_node.g_value, cur_cost[0], cur_cost[1]);
-            s->goal_state_id = cur_state_id;
-            s->goal_g_value = s->cur_node.g_value;
-        }
+    // Check whether it is a goal in case of non-greedy search
+    if (!s->is_greedy && bfsCheckGoal(s, s->cur_node.state, cur_state_id)){
+        LOG(s->err, "Found goal state. g: %d, f: %d, h: %d",
+            s->cur_node.g_value, cur_cost[0], cur_cost[1]);
         CTXEND(s->err);
         return PDDL_SEARCH_FOUND;
     }
@@ -289,6 +309,13 @@ static pddl_search_status_t bfsStep(pddl_search_t *_s)
         pddlFDRStateSpaceGetNoState(&s->state_space,
                                     next_state_id, &s->next_node);
         bfsInsertNextState(s, op, h_value);
+
+        // Check whether it is a goal in case of *greedy* search
+        if (s->is_greedy && bfsCheckGoal(s, s->next_node.state, next_state_id)){
+            LOG(s->err, "Found goal state. g: %d", s->next_node.g_value);
+            CTXEND(s->err);
+            return PDDL_SEARCH_FOUND;
+        }
     }
 
     CTXEND(s->err);

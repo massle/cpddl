@@ -367,9 +367,11 @@ void pddlNormalize(pddl_t *pddl, pddl_err_t *err)
     CTX(err, "PDDL-Norm");
     pddlLogStatsOneLine(pddl, "Before normalization:", err);
 
-    pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
-    PANIC_IF(!pddlFmIsAnd(c), "Deduplication of the init didn't result in a conjunction");
-    pddl->init = pddlFmToAnd(c);
+    if (pddl->init != NULL){
+        pddl_fm_t *c = pddlFmDeduplicateAtoms(&pddl->init->fm, pddl);
+        PANIC_IF(!pddlFmIsAnd(c), "Deduplication of the init didn't result in a conjunction");
+        pddl->init = pddlFmToAnd(c);
+    }
 
     if (!pddl->only_domain && !pddl->cfg.keep_all_actions)
         removeActionsWithUnsatisfiableArgs(pddl);
@@ -626,15 +628,17 @@ void pddlEnforceUnitCost(pddl_t *pddl, pddl_err_t *err)
 {
     CTX(err, "PDDL enforce unit-cost");
     // Remove (= ...) from the initial state
-    pddl_fm_t *init = &pddl->init->fm;
-    pddlFmRebuild(&init, NULL, _removeAssignIncrease, NULL);
-    PANIC_IF(!pddlFmIsAnd(init), "Enforcing unit cost in the initial state"
-             " didn't result in a conjunction");
-    pddl->init = pddlFmToAnd(init);
+    if (pddl->init != NULL){
+        pddl_fm_t *init = &pddl->init->fm;
+        pddlFmRebuild(&init, NULL, _removeAssignIncrease, NULL);
+        PANIC_IF(!pddlFmIsAnd(init), "Enforcing unit cost in the initial state"
+                 " didn't result in a conjunction");
+        pddl->init = pddlFmToAnd(init);
 
-    for (int ai = 0; ai < pddl->action.action_size; ++ai){
-        pddl_action_t *a = pddl->action.action + ai;
-        pddlFmRebuild(&a->eff, NULL, _removeAssignIncrease, NULL);
+        for (int ai = 0; ai < pddl->action.action_size; ++ai){
+            pddl_action_t *a = pddl->action.action + ai;
+            pddlFmRebuild(&a->eff, NULL, _removeAssignIncrease, NULL);
+        }
     }
 
     pddl->metric = pddl_false;

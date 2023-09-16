@@ -52,8 +52,12 @@ char *pddlDirname(const char *fn)
     int len = strlen(dname);
     int pos = len - 1;
     for (; pos >= 0 && dname[pos] != '/'; --pos);
-    if (pos >= 0 && pos < len - 1)
+    if (pos >= 0 && pos < len - 1){
         dname[pos + 1] = '\x0';
+    }else{
+        dname[0] = '.';
+        dname[1] = '\x0';
+    }
 
     char path[4096];
     if (realpath(dname, path) == NULL)

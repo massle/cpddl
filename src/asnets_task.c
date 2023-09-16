@@ -209,7 +209,9 @@ static void computeGroundRelatedness(pddl_asnets_ground_task_t *gt,
     gt->fact = CALLOC_ARR(pddl_asnets_fact_t, gt->fact_size);
     for (int i = 0; i < gt->fact_size; ++i){
         gt->fact[i].fact_id = i;
-        ASSERT(gt->strips.fact.fact[i]->ground_atom != NULL);
+        PANIC_IF(gt->strips.fact.fact[i]->ground_atom == NULL,
+                 "Strips fact %d:(%s) without the corresponding ground atom.",
+                 i, gt->strips.fact.fact[i]->name);
         gt->fact[i].pred = gt->lifted_task->pred + gt->strips.fact.fact[i]->ground_atom->pred;
         gt->fact[i].related_op_size = gt->fact[i].pred->related_action_size;
         gt->fact[i].related_op = CALLOC_ARR(pddl_iarr_t, gt->fact[i].related_op_size);
@@ -263,13 +265,18 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
     for (int op_id = 0; op_id < gt->op_size; ++op_id){
         if (gt->op[op_id].related_fact_size
                 != gt->op[op_id].action->related_atom_size){
-            ERR_RET(err, -1, "Different number of related facts and lifted atoms.");
+            ERR_RET(err, -1, "Different number of related facts and lifted atoms."
+                    " action: %s", gt->pddl.action.action[gt->op[op_id].action->action_id].name);
         }
 
         for (int i = 0; i < gt->op[op_id].related_fact_size; ++i){
             if (gt->op[op_id].related_fact[i] < 0){
-                ERR_RET(err, -1, "Missing related fact where there was a"
-                        " related atom.");
+                if (!gt->op[op_id].action->related_atom[i]->neg){
+                    ERR_RET(err, -1, "Missing related fact %d where there was a"
+                            " related atom.", i);
+                }
+                LOG(err, "Missing related delete effect. action/pos: %s/%d",
+                    gt->pddl.action.action[gt->op[op_id].action->action_id].name, i);
             }
         }
     }
@@ -340,6 +347,20 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
         pddlFree(&gt->pddl);
         CTXEND(err);
         TRACE_RET(err, -1);
+    }
+
+    if (gt->strips.goal_is_unreachable){
+        CTXEND(err);
+        ERR_RET(err, -1, "Strips task is unsolvable. Such task is useless"
+                " for ASNets. (domain: %s, problem: %s)",
+                domain_fn, problem_fn);
+    }
+
+    if (gt->strips.op.op_size == 0){
+        CTXEND(err);
+        ERR_RET(err, -1, "Strips task has no operators. Such task is useless"
+                " for ASNets. (domain: %s, problem: %s)",
+                domain_fn, problem_fn);
     }
 
     pddl_mutex_pairs_t mutex;
