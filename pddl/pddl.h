@@ -82,6 +82,7 @@
 #include <pddl/lm_cut.h>
 #include <pddl/mg_strips.h>
 #include <pddl/hpot.h>
+#include <pddl/pot_conj.h>
 #include <pddl/hflow.h>
 #include <pddl/hadd.h>
 #include <pddl/hmax.h>

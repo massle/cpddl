@@ -87,6 +87,7 @@ SRC += famgroup
 SRC += pot
 SRC += lm_cut
 SRC += hpot
+SRC += pot_conj
 SRC += hflow
 SRC += hmax
 SRC += hadd
