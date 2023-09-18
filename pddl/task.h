@@ -15,15 +15,17 @@
 extern "C" {
 #endif /* __cplusplus */
 
+enum pddl_status {
+    PDDL_OK = 0,
+    PDDL_FAIL = 1,
+    PDDL_ERR = 2,
+};
+typedef enum pddl_status pddl_status_t;
+
 typedef struct pddl_task pddl_task_t;
 
 /**
- * TODO
- */
-pddl_task_t *pddlTaskNew(pddl_err_t *err);
-
-/**
- * TODO
+ * Creates a new task structure from the given FDR-encoded task.
  */
 pddl_task_t *pddlTaskNewFDR(const pddl_fdr_t *fdr, pddl_err_t *err);
 

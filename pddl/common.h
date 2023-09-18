@@ -60,13 +60,6 @@ extern "C" {
 #define __PDDL_TOSTR1(x) #x
 #define PDDL_TOSTR(x) __PDDL_TOSTR1(x)
 
-enum pddl_status {
-    PDDL_OK = 0,
-    PDDL_FAIL = 1,
-    PDDL_ERR = 2,
-};
-typedef enum pddl_status pddl_status_t;
-
 /** Compiler-specific pragmas */
 #if defined(__clang__) && __clang_major__ < 10
 # pragma clang diagnostic ignored "-Wmissing-braces"
