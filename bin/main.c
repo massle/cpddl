@@ -317,7 +317,7 @@ static int stepReportPotConjMaxInitHValue(void)
 
     if (ret >= 0){
         PDDL_LOG(&err, "Maximum heuristic value for init with conjunctions:"
-                 " %d / %d", ret, base);
+                 " %d / base: %d", ret, base);
     }
 
     PDDL_CTXEND(&err);
@@ -998,11 +998,11 @@ int main(int argc, char *argv[])
             || (ret = stepPddlOutput()) != 0
             || (ret = stepLiftedPlanner()) != 0
             || (ret = stepGround()) != 0
-            || (ret = stepReportPotConjMaxInitHValue()) != 0
             || (ret = stepReportMGroups()) != 0
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
+            || (ret = stepReportPotConjMaxInitHValue()) != 0
             || (ret = stepReportReversibility()) != 0
             || (ret = stepRedBlackFDR()) != 0
             || (ret = stepFDR()) != 0

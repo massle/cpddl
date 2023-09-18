@@ -135,7 +135,7 @@ static int pot(const pddl_strips_t *strips,
 
     pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
     //pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., err);
-    //pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &fdr_mutex, NULL, NULL, 0., err);
+    pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &fdr_mutex, NULL, NULL, 0., err);
 
     pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
     pot_cfg.fdr = &fdr;
@@ -198,6 +198,17 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
         pddlStripsConjConfigInit(&cfg);
         pddlStripsConjConfigAddConj(&cfg, conj);
 
+        if (pddlISetSize(conj) > 2){
+            PDDL_ISET(pair);
+            for (int i = 0; i < pddlISetSize(conj) - 1; ++i){
+                for (int j = i + 1; j < pddlISetSize(conj); ++j){
+                    PDDL_ISET_SET(&pair, pddlISetGet(conj, i), pddlISetGet(conj, j));
+                    pddlStripsConjConfigAddConj(&cfg, &pair);
+                }
+            }
+            pddlISetFree(&pair);
+        }
+
         pddl_strips_conj_t pc;
         pddlStripsConjInit(&pc, strips, &cfg, err);
 
@@ -209,10 +220,9 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
         pddlErrLogContinue(err);
         if (hvalue < 0)
             TRACE_RET(err, -1);
-        if (hvalue > max_hvalue){
-            LOG(err, "Found better h-value: %d", hvalue);
+        if (hvalue > max_hvalue)
             max_hvalue = hvalue;
-        }
+        LOG(err, "Heuristic value: %d / best: %d", hvalue, max_hvalue);
 
         pddlMutexPairsFree(&pc_mutex);
         pddlStripsConjFree(&pc);
@@ -292,10 +302,9 @@ static int pddlPotConjMaxInitHValue2(const pddl_strips_t *strips,
             pddlErrLogPause(err);
             int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
             pddlErrLogContinue(err);
-            if (hvalue > max_hvalue){
-                LOG(err, "Found better h-value: %d", hvalue);
+            if (hvalue > max_hvalue)
                 max_hvalue = hvalue;
-            }
+            LOG(err, "Heuristic value: %d / best: %d", hvalue, max_hvalue);
 
             pddlMutexPairsFree(&pc_mutex);
             pddlStripsConjFree(&pc);
