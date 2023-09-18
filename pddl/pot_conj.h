@@ -19,6 +19,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
+int pddlPotConjMaxInitHValueBase(const pddl_strips_t *strips,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 const pddl_mgroups_t *mgroup,
+                                 pddl_err_t *err);
 int pddlPotConjMaxInitHValueOnePair(const pddl_strips_t *strips,
                                     const pddl_mutex_pairs_t *mutex,
                                     const pddl_mgroups_t *mgroup,

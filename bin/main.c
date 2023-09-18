@@ -289,6 +289,41 @@ static int stepGround(void)
     return opt.strips.stop;
 }
 
+static int stepReportPotConjMaxInitHValue(void)
+{
+    if (opt.report.pot_conj_max_init_h_value == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Report Pot-Conj");
+    int base = pddlPotConjMaxInitHValueBase(&strips, &mutex, &mgroup, &err);
+    PDDL_LOG(&err, "Heuristic value for init without conjunctions: %d", base);
+
+    int ret = 0;
+    if (strcmp(opt.report.pot_conj_max_init_h_value, "one-pair") == 0){
+        ret = pddlPotConjMaxInitHValueOnePair(&strips, &mutex, &mgroup, &err);
+
+    }else if (strcmp(opt.report.pot_conj_max_init_h_value, "two-pair") == 0){
+        ret = pddlPotConjMaxInitHValueTwoPairs(&strips, &mutex, &mgroup, &err);
+
+    }else if (strcmp(opt.report.pot_conj_max_init_h_value, "one-triple") == 0){
+        ret = pddlPotConjMaxInitHValueOneTriple(&strips, &mutex, &mgroup, &err);
+
+    }else{
+        PDDL_CTXEND(&err);
+        PDDL_ERR_RET(&err, -1, "Unkown value '%s' for the option"
+                     " --report-pot-conj-max-init-h-value",
+                     opt.report.pot_conj_max_init_h_value);
+    }
+
+    if (ret >= 0){
+        PDDL_LOG(&err, "Maximum heuristic value for init with conjunctions:"
+                 " %d / %d", ret, base);
+    }
+
+    PDDL_CTXEND(&err);
+    return ret;
+}
+
 static int stepReportMGroups(void)
 {
     if (opt.report.mgroups){
@@ -515,200 +550,10 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
-static int pot(const pddl_strips_t *strips, const pddl_mutex_pairs_t *mutex)
-{
-    pddl_fdr_t fdr;
-    pddlFDRInitFromStrips(&fdr, strips, &mgroup, mutex,
-                          PDDL_FDR_VARS_LARGEST_FIRST, 0, &err);
-
-    pddl_mg_strips_t mg_strips;
-    pddl_mutex_pairs_t fdr_mutex;
-    pddlMGStripsInitFDR(&mg_strips, &fdr);
-    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
-
-    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
-    pot_cfg.fdr = &fdr;
-    pot_cfg.mg_strips = &mg_strips;
-    pot_cfg.mutex = &fdr_mutex;
-
-    pddl_hpot_config_opt_state_t cfginit = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
-    PDDL_HPOT_CONFIG_ADD(&pot_cfg, &cfginit);
-
-    pddl_pot_solutions_t sol;
-    pddlPotSolutionsInit(&sol);
-    if (pddlHPot(&sol, &pot_cfg, &err) != 0)
-        return -1;
-
-    if (sol.sol_size > 0){
-        PDDL_LOG(&err, "Heuristic value: %.4f", sol.sol[0].objval);
-    }
-    pddlPotSolutionsFree(&sol);
-
-    pddlMutexPairsFree(&fdr_mutex);
-    pddlMGStripsFree(&mg_strips);
-    pddlFDRFree(&fdr);
-    return 0;
-}
-
-static void genPairs(pddl_set_iset_t *set)
-{
-    PDDL_CTX(&err, "Gen-Pairs");
-    PDDL_ISET(s);
-    for (int f1 = 0; f1 < strips.fact.fact_size; ++f1){
-        for (int f2 = f1 + 1; f2 < strips.fact.fact_size; ++f2){
-            if (pddlMutexPairsIsMutex(&mutex, f1, f2))
-                continue;
-            PDDL_ISET_SET(&s, f1, f2);
-            pddlSetISetAdd(set, &s);
-        }
-    }
-    pddlISetFree(&s);
-    PDDL_CTXEND(&err);
-}
-
-static void genTriples(pddl_set_iset_t *set)
-{
-    PDDL_CTX(&err, "Gen-Triples");
-    PDDL_ISET(s);
-    for (int f1 = 0; f1 < strips.fact.fact_size; ++f1){
-        for (int f2 = f1 + 1; f2 < strips.fact.fact_size; ++f2){
-            if (pddlMutexPairsIsMutex(&mutex, f1, f2))
-                continue;
-            for (int f3 = f2 + 1; f3 < strips.fact.fact_size; ++f3){
-                if (pddlMutexPairsIsMutex(&mutex, f1, f3))
-                    continue;
-                if (pddlMutexPairsIsMutex(&mutex, f2, f3))
-                    continue;
-                PDDL_ISET_SET(&s, f1, f2, f3);
-                pddlSetISetAdd(set, &s);
-            }
-        }
-    }
-    pddlISetFree(&s);
-    PDDL_CTXEND(&err);
-}
-
 static int stepFDR(void)
 {
     if (strips.goal_is_unreachable)
         makeStripsUnsolvable();
-
-    PDDL_CTX(&err, "BASE");
-    if (pot(&strips, &mutex) != 0)
-        return -1;
-    PDDL_CTXEND(&err);
-
-    pddl_set_iset_t pairs;
-    pddlSetISetInit(&pairs);
-    genPairs(&pairs);
-
-    const pddl_iset_t *pair;
-    PDDL_SET_ISET_FOR_EACH_ID_SET(&pairs, set_id, pair){
-        int f1 = pddlISetGet(pair, 0);
-        int f2 = pddlISetGet(pair, 1);
-        PDDL_CTX(&err, "CONJ-1-pair");
-        PDDL_LOG(&err, "Pair set: %d:%s %d:%s",
-                 f1, strips.fact.fact[f1]->name,
-                 f2, strips.fact.fact[f2]->name);
-
-        pddl_strips_conj_config_t cfg;
-        pddlStripsConjConfigInit(&cfg);
-        pddlStripsConjConfigAddConj(&cfg, pair);
-
-        pddl_strips_conj_t pc;
-        pddlStripsConjInit(&pc, &strips, &cfg, &err);
-
-        pddl_mutex_pairs_t pc_mutex;
-        pddlStripsConjMutexPairsInitCopy(&pc_mutex, &mutex, &pc);
-
-        if (pot(&pc.strips, &pc_mutex) != 0)
-            return -1;
-
-        pddlMutexPairsFree(&pc_mutex);
-        pddlStripsConjFree(&pc);
-
-        pddlStripsConjConfigFree(&cfg);
-        PDDL_CTXEND(&err);
-    }
-
-    PDDL_SET_ISET_FOR_EACH_ID_SET(&pairs, set_id, pair){
-        int f1 = pddlISetGet(pair, 0);
-        int f2 = pddlISetGet(pair, 1);
-        for (int i = set_id + 1; i < pairs.set.size; ++i){
-            const pddl_iset_t *pair2 = pddlSetISetGet(&pairs, i);
-            int f3 = pddlISetGet(pair2, 0);
-            int f4 = pddlISetGet(pair2, 1);
-
-            PDDL_CTX(&err, "CONJ-2-pair");
-            PDDL_LOG(&err, "Sets: %d:%s %d:%s | %d:%s %d:%s",
-                     f1, strips.fact.fact[f1]->name,
-                     f2, strips.fact.fact[f2]->name,
-                     f3, strips.fact.fact[f3]->name,
-                     f4, strips.fact.fact[f4]->name);
-
-            pddl_strips_conj_config_t cfg;
-            pddlStripsConjConfigInit(&cfg);
-            pddlStripsConjConfigAddConj(&cfg, pair);
-            pddlStripsConjConfigAddConj(&cfg, pair2);
-
-            pddl_strips_conj_t pc;
-            pddlStripsConjInit(&pc, &strips, &cfg, &err);
-
-            pddl_mutex_pairs_t pc_mutex;
-            pddlStripsConjMutexPairsInitCopy(&pc_mutex, &mutex, &pc);
-
-            if (pot(&pc.strips, &pc_mutex) != 0)
-                return -1;
-
-            pddlMutexPairsFree(&pc_mutex);
-            pddlStripsConjFree(&pc);
-
-            pddlStripsConjConfigFree(&cfg);
-            PDDL_CTXEND(&err);
-        }
-    }
-
-    pddlSetISetFree(&pairs);
-
-    pddl_set_iset_t triples;
-    pddlSetISetInit(&triples);
-    genTriples(&triples);
-
-    const pddl_iset_t *triple;
-    PDDL_SET_ISET_FOR_EACH_ID_SET(&triples, set_id, triple){
-        int f1 = pddlISetGet(triple, 0);
-        int f2 = pddlISetGet(triple, 1);
-        int f3 = pddlISetGet(triple, 2);
-        PDDL_CTX(&err, "CONJ-1-triple");
-        PDDL_LOG(&err, "Pair set: %d:%s %d:%s %d:%s",
-                 f1, strips.fact.fact[f1]->name,
-                 f2, strips.fact.fact[f2]->name,
-                 f3, strips.fact.fact[f3]->name);
-
-        pddl_strips_conj_config_t cfg;
-        pddlStripsConjConfigInit(&cfg);
-        pddlStripsConjConfigAddConj(&cfg, triple);
-
-        pddl_strips_conj_t pc;
-        pddlStripsConjInit(&pc, &strips, &cfg, &err);
-
-        pddl_mutex_pairs_t pc_mutex;
-        pddlStripsConjMutexPairsInitCopy(&pc_mutex, &mutex, &pc);
-
-        if (pot(&pc.strips, &pc_mutex) != 0)
-            return -1;
-
-        pddlMutexPairsFree(&pc_mutex);
-        pddlStripsConjFree(&pc);
-
-        pddlStripsConjConfigFree(&cfg);
-        PDDL_CTXEND(&err);
-    }
-    pddlSetISetFree(&triples);
-
-    return 1;
 
     pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex, &opt.fdr.cfg, &err);
     fdr_set = 1;
@@ -1153,6 +998,7 @@ int main(int argc, char *argv[])
             || (ret = stepPddlOutput()) != 0
             || (ret = stepLiftedPlanner()) != 0
             || (ret = stepGround()) != 0
+            || (ret = stepReportPotConjMaxInitHValue()) != 0
             || (ret = stepReportMGroups()) != 0
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0

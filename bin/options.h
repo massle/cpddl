@@ -188,6 +188,7 @@ struct options {
         pddl_bool_t reversibility_simple;
         pddl_bool_t reversibility_iterative;
         pddl_bool_t mgroups;
+        char *pot_conj_max_init_h_value;
     } report;
 
     struct {

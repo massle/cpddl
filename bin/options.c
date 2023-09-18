@@ -1090,6 +1090,16 @@ static void setReportsOptions(void)
                 "Compute reversibility with the \"iterative\" method.");
     optsAddFlag("report-mgroups", 0x0, &opt.report.mgroups, 0,
                 "Report on mutex groups.");
+
+    optsAddStr("report-pot-conj-max-init-h-value", 0x0,
+               &opt.report.pot_conj_max_init_h_value, NULL,
+               "Exhaustively compute the maximum possible heuristic value"
+               " for the initial state of the potential heuristic computed"
+               " over conjunctions of facts.\n"
+               "Possible values:\n"
+               "  one-pair -- One pair of facts is added.\n"
+               "  two-pair -- Two pairs of facts.\n"
+               "  one-triple -- One triple of facts is added.");
 }
 
 static void help(const char *argv0, FILE *fout)

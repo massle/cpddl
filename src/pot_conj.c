@@ -204,8 +204,15 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
         pddl_mutex_pairs_t pc_mutex;
         pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
 
+        pddlErrLogPause(err);
         int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
-        max_hvalue = PDDL_MAX(max_hvalue, hvalue);
+        pddlErrLogContinue(err);
+        if (hvalue < 0)
+            TRACE_RET(err, -1);
+        if (hvalue > max_hvalue){
+            LOG(err, "Found better h-value: %d", hvalue);
+            max_hvalue = hvalue;
+        }
 
         pddlMutexPairsFree(&pc_mutex);
         pddlStripsConjFree(&pc);
@@ -219,6 +226,7 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
     }
     conjIteratorFree(&it);
 
+    PDDL_LOG(err, "Maximum heuristic value: %d", max_hvalue);
     return max_hvalue;
 }
 
@@ -281,8 +289,13 @@ static int pddlPotConjMaxInitHValue2(const pddl_strips_t *strips,
             pddl_mutex_pairs_t pc_mutex;
             pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
 
+            pddlErrLogPause(err);
             int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
-            max_hvalue = PDDL_MAX(max_hvalue, hvalue);
+            pddlErrLogContinue(err);
+            if (hvalue > max_hvalue){
+                LOG(err, "Found better h-value: %d", hvalue);
+                max_hvalue = hvalue;
+            }
 
             pddlMutexPairsFree(&pc_mutex);
             pddlStripsConjFree(&pc);
@@ -300,9 +313,25 @@ static int pddlPotConjMaxInitHValue2(const pddl_strips_t *strips,
     }
     conjIteratorFree(&it);
 
+    PDDL_LOG(err, "Maximum heuristic value: %d", max_hvalue);
     return max_hvalue;
 }
 
+int pddlPotConjMaxInitHValueBase(const pddl_strips_t *strips,
+                                 const pddl_mutex_pairs_t *mutex,
+                                 const pddl_mgroups_t *mgroup,
+                                 pddl_err_t *err)
+{
+    CTX(err, "BASE");
+
+    pddlErrLogPause(err);
+    int hvalue = pot(strips, mutex, mgroup, err);
+    pddlErrLogContinue(err);
+
+    LOG(err, "Heuristic value: %d", hvalue);
+    CTXEND(err);
+    return hvalue;
+}
 int pddlPotConjMaxInitHValueOnePair(const pddl_strips_t *strips,
                                     const pddl_mutex_pairs_t *mutex,
                                     const pddl_mgroups_t *mgroup,
