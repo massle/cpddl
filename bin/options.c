@@ -837,6 +837,40 @@ static void setProcessStripsOptions(void)
     }
 }
 
+static void enablePotConjFind(void *_)
+{
+    (void)_;
+    opt.pot_conj_find.enable = pddl_true;
+}
+
+static void setPotConjFindOptions(void)
+{
+    pddl_pot_conj_find_config_t _cfg = PDDL_POT_CONJ_FIND_CONFIG_INIT;
+    opt.pot_conj_find.cfg = _cfg;
+
+    optsStartGroup("Potentials over Conjunctions: Generating Conjunctions");
+    opts_params_t *params;
+    params = optsAddParamsAndFn("pot-conj-find", 0x0,
+                                "Find conjunctions for potentials over conjunctions\n"
+                                "Options:\n"
+                                "  out = <str> -- prefix for output files\n"
+                                "  time-limit/tl <dbl> -- time limit in seconds\n"
+                                "  max-epochs <int> -- maximum number of improvements considered\n"
+                                "  max-dim <int> -- maximum considered size of conjunctions\n"
+                                "  random <bool> -- try random conjunctions\n"
+                                "  random-seed <int>\n"
+                                "  log-freq <dbl> -- frequency of logging in seconds",
+                                NULL, enablePotConjFind);
+    optsParamsAddStr(params, "out", (char **)&opt.pot_conj_find.cfg.write_progress_prefix);
+    optsParamsAddDbl(params, "time-limit", &opt.pot_conj_find.cfg.time_limit);
+    optsParamsAddDbl(params, "tl", &opt.pot_conj_find.cfg.time_limit);
+    optsParamsAddInt(params, "max-epochs", &opt.pot_conj_find.cfg.max_epochs);
+    optsParamsAddInt(params, "max-dim", &opt.pot_conj_find.cfg.max_conj_dim);
+    optsParamsAddFlag(params, "random", &opt.pot_conj_find.cfg.random_conjs);
+    optsParamsAddInt(params, "random-seed", &opt.pot_conj_find.cfg.random_seed);
+    optsParamsAddDbl(params, "log-freq", &opt.pot_conj_find.cfg.log_freq);
+}
+
 static void setRedBlackOptions(void)
 {
     pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
@@ -1204,6 +1238,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
             setGroundOptions();
             setMutexGroupOptions();
             setProcessStripsOptions();
+            setPotConjFindOptions();
             if (!is_pddl_fdr && !is_pddl_symba)
                 setRedBlackOptions();
             setFDROptions();

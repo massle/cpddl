@@ -321,7 +321,7 @@ static int stepReportPotConjMaxInitHValue(void)
     }
 
     PDDL_CTXEND(&err);
-    return ret;
+    return 1;
 }
 
 static int stepReportMGroups(void)
@@ -429,6 +429,21 @@ static int stepProcessStrips(void)
     if (ret != 0)
         PDDL_TRACE_RET(&err, -1);
     return ret;
+}
+
+static int stepPotConjFind(void)
+{
+    if (!opt.pot_conj_find.enable)
+        return 0;
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    int st = pddlPotConjFind(&conjs, &strips, &mutex, &mgroup,
+                             &opt.pot_conj_find.cfg, &err);
+    pddlSetISetFree(&conjs);
+
+    if (st != 0)
+        PDDL_TRACE_RET(&err, -1);
+    return 1;
 }
 
 static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
@@ -1002,6 +1017,7 @@ int main(int argc, char *argv[])
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
+            || (ret = stepPotConjFind()) != 0
             || (ret = stepReportPotConjMaxInitHValue()) != 0
             || (ret = stepReportReversibility()) != 0
             || (ret = stepRedBlackFDR()) != 0

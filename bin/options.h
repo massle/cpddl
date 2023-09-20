@@ -149,6 +149,11 @@ struct options {
 
     struct {
         pddl_bool_t enable;
+        pddl_pot_conj_find_config_t cfg;
+    } pot_conj_find;
+
+    struct {
+        pddl_bool_t enable;
         pddl_red_black_fdr_config_t cfg;
         char *out;
     } rb_fdr;

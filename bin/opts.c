@@ -711,6 +711,11 @@ void optsParamsAddFlt(opts_params_t *params, const char *name, float *dst)
     optsParamsAddFltFn(params, name, dst, NULL);
 }
 
+void optsParamsAddDbl(opts_params_t *params, const char *name, double *dst)
+{
+    optsParamsAddDblFn(params, name, dst, NULL);
+}
+
 void optsParamsAddFlag(opts_params_t *params, const char *name, pddl_bool_t *dst)
 {
     optsParamsAddFlagFn(params, name, dst, NULL);
@@ -736,6 +741,14 @@ void optsParamsAddFltFn(opts_params_t *params, const char *name, void *dst,
     opts_param_t *p = paramsAdd(params, name, dst);
     p->is_flt = 1;
     p->flt_fn = fn;
+}
+
+void optsParamsAddDblFn(opts_params_t *params, const char *name, void *dst,
+                        opts_params_dbl_fn fn)
+{
+    opts_param_t *p = paramsAdd(params, name, dst);
+    p->is_dbl = 1;
+    p->dbl_fn = fn;
 }
 
 void optsParamsAddFlagFn(opts_params_t *params, const char *name, void *dst,
@@ -805,6 +818,14 @@ static int setParam(opts_params_t *params,
                     p->flt_fn(val, p->dst);
                 }else{
                     *((float *)p->dst) = val;
+                }
+
+            }else if (p->is_dbl){
+                double val = atof(value);
+                if (p->dbl_fn != NULL){
+                    p->dbl_fn(val, p->dst);
+                }else{
+                    *((double *)p->dst) = val;
                 }
 
             }else if (p->is_flag){
