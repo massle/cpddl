@@ -177,6 +177,16 @@ void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
     }
 }
 
+void pddlMutexPairsGetNotMutexWith(const pddl_mutex_pairs_t *m,
+                                   int fact,
+                                   pddl_iset_t *not_mutex_with)
+{
+    for (int f = 0; f < m->fact_size; ++f){
+        if (f != fact && !M(m, fact, f))
+            pddlISetAdd(not_mutex_with, f);
+    }
+}
+
 void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
                               int new_fact_size,
                               const int *remap)
