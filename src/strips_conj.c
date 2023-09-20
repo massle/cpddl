@@ -25,6 +25,26 @@ void pddlStripsConjConfigAddConj(pddl_strips_conj_config_t *cfg,
         pddlSetISetAdd(&cfg->conj, conj);
 }
 
+void pddlStripsConjConfigAddConjAndSubsets(pddl_strips_conj_config_t *cfg,
+                                           const pddl_iset_t *conj)
+{
+    if (pddlISetSize(conj) <= 2){
+        pddlStripsConjConfigAddConj(cfg, conj);
+        return;
+    }
+
+    PDDL_ISET(c);
+    for (int skipi = 0; skipi < pddlISetSize(conj); ++skipi){
+        pddlISetEmpty(&c);
+        for (int i = 0; i < pddlISetSize(conj); ++i){
+            if (i != skipi)
+                pddlISetAdd(&c, pddlISetGet(conj, i));
+        }
+        pddlStripsConjConfigAddConjAndSubsets(cfg, &c);
+    }
+    pddlISetFree(&c);
+}
+
 
 static void setToMetaSet(const pddl_iset_t *set,
                          const pddl_iset_t *fact_to_conj,

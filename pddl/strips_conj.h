@@ -49,6 +49,12 @@ void pddlStripsConjConfigFree(pddl_strips_conj_config_t *cfg);
 void pddlStripsConjConfigAddConj(pddl_strips_conj_config_t *cfg,
                                  const pddl_iset_t *conj);
 
+/**
+ * Adds the given conjunction and all its (non-singleton) subsets.
+ */
+void pddlStripsConjConfigAddConjAndSubsets(pddl_strips_conj_config_t *cfg,
+                                           const pddl_iset_t *conj);
+
 
 struct pddl_strips_conj {
     /** \Pi^C STRIPS planning task */
