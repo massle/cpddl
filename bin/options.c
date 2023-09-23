@@ -137,7 +137,6 @@ static void hpotSetObjAllStatesInit(pddl_bool_t v, void *_cfg)
     pddl_hpot_config_opt_all_syntactic_states_t copt
             = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
     copt.add_init_state_constr = pddl_true;
-    fprintf(stderr, "%lx\n", (long)copt.add_fdr_state_constr);
     pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
