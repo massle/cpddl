@@ -437,7 +437,7 @@ static int stepPotConjFind(void)
         return 0;
     pddl_set_iset_t conjs;
     pddlSetISetInit(&conjs);
-    int st = pddlPotConjFind(&conjs, &strips, &mutex, &mgroup,
+    int st = pddlPotConjFind(&conjs, NULL, &strips, &mutex, &mgroup,
                              &opt.pot_conj_find.cfg, &err);
     pddlSetISetFree(&conjs);
 
