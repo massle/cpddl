@@ -79,6 +79,12 @@ _pddl_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
         pddlSetISetAdd(dst, pddlSetISetGet(src, i));
 }
 
+/**
+ * Generate all subsets of size at least {min_size}; {ss} is both input and
+ * output set of sets.
+ */
+void pddlSetISetGenAllSubsets(pddl_set_iset_t *ss, int min_size);
+
 void pddlISetPrintCompressed(const pddl_iset_t *set, FILE *fout);
 void pddlISetPrint(const pddl_iset_t *set, FILE *fout);
 void pddlISetPrintln(const pddl_iset_t *set, FILE *fout);

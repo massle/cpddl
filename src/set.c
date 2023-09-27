@@ -19,6 +19,34 @@
 
 #include "pddl/set.h"
 
+static void _genAllSubsets(pddl_set_iset_t *ss,
+                           const pddl_iset_t *set,
+                           int min_size)
+{
+    PDDL_ISET(c);
+    for (int skipi = 0; skipi < pddlISetSize(set); ++skipi){
+        pddlISetEmpty(&c);
+        for (int i = 0; i < pddlISetSize(set); ++i){
+            if (i != skipi)
+                pddlISetAdd(&c, pddlISetGet(set, i));
+        }
+        pddlSetISetAdd(ss, &c);
+        if (pddlISetSize(&c) > min_size)
+            _genAllSubsets(ss, &c, min_size);
+    }
+    pddlISetFree(&c);
+}
+
+void pddlSetISetGenAllSubsets(pddl_set_iset_t *ss, int min_size)
+{
+    int input_size = pddlSetISetSize(ss);
+    for (int seti = 0; seti < input_size; ++seti){
+        const pddl_iset_t *set = pddlSetISetGet(ss, seti);
+        if (pddlISetSize(set) > min_size)
+            _genAllSubsets(ss, set, min_size);
+    }
+}
+
 void pddlISetPrintCompressed(const pddl_iset_t *set, FILE *fout)
 {
     for (int i = 0; i < pddlISetSize(set); ++i){
