@@ -331,11 +331,11 @@ void pddlStripsConjMutexPairsInitCopy(pddl_mutex_pairs_t *mutex,
                 // If fi2 is a mutex with any of the fact from conj, then
                 // it is also mutex with conj.
                 if (pddlMutexPairsIsMutex(in_mutex, fact_id, fi2)){
-                    pddlMutexPairsAdd(mutex, fact_id, fi2);
+                    pddlMutexPairsAdd(mutex, fi, fi2);
                     if (pddlMutexPairsIsFwMutex(in_mutex, fact_id, fi2))
-                        pddlMutexPairsSetFwMutex(mutex, fact_id, fi2);
+                        pddlMutexPairsSetFwMutex(mutex, fi, fi2);
                     if (pddlMutexPairsIsBwMutex(in_mutex, fact_id, fi2))
-                        pddlMutexPairsSetBwMutex(mutex, fact_id, fi2);
+                        pddlMutexPairsSetBwMutex(mutex, fi, fi2);
                 }
             }
         }
