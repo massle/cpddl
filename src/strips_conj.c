@@ -85,25 +85,54 @@ static char *metaFactName(const pddl_facts_t *facts,
     return name;
 }
 
-static void genAllDownwardClosedSubsets(const pddl_iset_t *C_pottrue,
-                                        const pddl_set_iset_t *downward_closed,
-                                        const pddl_iset_t *start_set,
-                                        int start_idx,
-                                        pddl_set_iset_t *subsets)
+/** Returns true if X is downward closed on C, i.e., it returns true if for
+ *  every c \in X and c' \in C s.t. c' \subseteq c it holds that c' \in X  */
+static int isDownwardClosed(const pddl_iset_t *X,
+                            const pddl_iset_t *C,
+                            const pddl_strips_conj_t *task)
 {
-    int size = pddlISetSize(C_pottrue);
-    for (int i = start_idx; i < size; ++i){
-        int si = pddlISetGet(C_pottrue, i);
-        PDDL_ISET(set);
-        pddlISetUnion(&set, start_set);
-        pddlISetUnion(&set, pddlSetISetGet(downward_closed, si));
-        pddlSetISetAdd(subsets, &set);
-        if (i + 1 < size){
-            genAllDownwardClosedSubsets(C_pottrue, downward_closed, &set,
-                                        i + 1, subsets);
+    PDDL_ISET(diff);
+    pddlISetMinus2(&diff, C, X);
+
+    // If any conjunction from diff is not a subset of any x \in X, then X
+    // is not downward closed.
+    int metafact;
+    PDDL_ISET_FOR_EACH(&diff, metafact){
+        const pddl_iset_t *c = task->fact_to_conj + metafact;
+        int xmetafact;
+        PDDL_ISET_FOR_EACH(X, xmetafact){
+            const pddl_iset_t *x = task->fact_to_conj + xmetafact;
+            if (pddlISetIsSubset(c, x)){
+                pddlISetFree(&diff);
+                return 0;
+            }
         }
-        pddlISetFree(&set);
     }
+    pddlISetFree(&diff);
+    return 1;
+}
+
+static void genAllDownwardClosedSubsets(pddl_set_iset_t *subsets,
+                                        const pddl_iset_t *C_pottrue,
+                                        const pddl_strips_conj_t *task)
+{
+    if (pddlISetSize(C_pottrue) == 0)
+        return;
+
+    // Iterate over all subsets and keep only those that are downward
+    // closed
+    pddl_set_iset_t all_subsets;
+    pddlSetISetInit(&all_subsets);
+    pddlSetISetAdd(&all_subsets, C_pottrue);
+    pddlSetISetGenAllSubsets(&all_subsets, 1);
+    for (int i = 0; i < pddlSetISetSize(&all_subsets); ++i){
+        const pddl_iset_t *subset = pddlSetISetGet(&all_subsets, i);
+        if (!isDownwardClosed(subset, C_pottrue, task))
+            continue;
+
+        pddlSetISetAdd(subsets, subset);
+    }
+    pddlSetISetFree(&all_subsets);
 }
 
 static void addFullOpX(pddl_strips_conj_t *task,
@@ -119,6 +148,11 @@ static void addFullOpX(pddl_strips_conj_t *task,
     pddlStripsOpInit(&op);
     pddlStripsOpCopy(&op, in_op);
 
+    // pre_X = (pre \cup \bigcup_{c \in X}(c - add))^C, where
+    // x^C = x \cup {\pi_c | c \in C, c \subseteq x }
+    // First, we set pre_base = pre \cup \bigcup_{c \in X}(c - add).
+    // Note that \bigcup_{c \in X}(c - add) is equal to
+    // \bigcup_{c \in X}c - add
     PDDL_ISET(pre_base);
     int fact_id;
     PDDL_ISET_FOR_EACH(X, fact_id)
@@ -126,13 +160,17 @@ static void addFullOpX(pddl_strips_conj_t *task,
     pddlISetMinus(&pre_base, &in_op->add_eff);
     pddlISetUnion(&pre_base, &in_op->pre);
 
+    // Next, we set op.pre to conjunctions contained in pre_base (or rather
+    // the corresponding meta-facts).
     PDDL_ISET_FOR_EACH(X, fact_id){
         if (pddlISetIsSubset(task->fact_to_conj + fact_id, &pre_base))
             pddlISetAdd(&op.pre, fact_id);
     }
+    // Finally, we add pre_base to op.pre (i.e., we add the singleton facts)
     pddlISetUnion(&op.pre, &pre_base);
     pddlISetFree(&pre_base);
 
+    // Skip operators with unreachable preconditions
     if (mutex != NULL && pddlMutexPairsIsMutexSet(mutex, &op.pre)){
         pddlStripsOpFree(&op);
         return;
@@ -152,7 +190,6 @@ static void addFullOpX(pddl_strips_conj_t *task,
 static void addFullOp(pddl_strips_conj_t *task,
                       const pddl_strips_t *in_task,
                       const pddl_strips_op_t *op,
-                      const pddl_set_iset_t *downward_closed,
                       const pddl_mutex_pairs_t *mutex,
                       pddl_err_t *err)
 {
@@ -166,12 +203,21 @@ static void addFullOp(pddl_strips_conj_t *task,
     pddlISetMinus(&regr, &op->del_eff);
     pddlISetUnion(&regr, &op->add_eff);
 
-    // Construct C_false, C_true, C_pottrue
+    // Construct C_false, C_true, C_pottrue:
+    // Let C denote the set of input conjunctions.
+    //      C_true = {c \in C | c \subseteq regr, c \cap add \neq \emptyset }
+    //      C_false = { c \in C | c \cap del \neq \emptyset }
+    //      C_pottrue = { c \in C | c \cap del = \emptyset,
+    //                              c \cap add \neq \emptyset,
+    //                              c \not\subseteq regr }
     int num_meta_facts = task->strips.fact.fact_size;
     for (int fi = task->num_singletons; fi < num_meta_facts; ++fi){
         const pddl_iset_t *facts = task->fact_to_conj + fi;
+        // c \subseteq regr
         int is_regr_subset = pddlISetIsSubset(facts, &regr);
+        // c \cap del \neq \emptyset
         int is_del_intersect = pddlISetIntersectionSizeAtLeast(facts, &op->del_eff, 1);
+        // c \cap add \neq \emptyset
         int is_add_intersect = pddlISetIntersectionSizeAtLeast(facts, &op->add_eff, 1);
         if (is_regr_subset && is_add_intersect)
             pddlISetAdd(&C_true, fi);
@@ -181,14 +227,18 @@ static void addFullOp(pddl_strips_conj_t *task,
             pddlISetAdd(&C_pottrue, fi);
     }
 
+    // Now, we create an operator for each *downward closed* subset of
+    // C_pottrue (including the empty set).
     PDDL_ISET(empty);
     pddl_set_iset_t C_pottrue_subsets;
     pddlSetISetInit(&C_pottrue_subsets);
-    genAllDownwardClosedSubsets(&C_pottrue, downward_closed, &empty, 0,
-                                &C_pottrue_subsets);
+    genAllDownwardClosedSubsets(&C_pottrue_subsets, &C_pottrue, task);
 
+    // Add operator for the empty subset of C_pottrue
     addFullOpX(task, in_task, op, &C_true, &C_false, &empty, mutex, err);
 
+    // For each *downward closed* and non-empty X \subseteq C_pottrue,
+    // create an additional operator
     int num_subsets = pddlSetISetSize(&C_pottrue_subsets);
     for (int si = 0; si < num_subsets; ++si){
         const pddl_iset_t *X = pddlSetISetGet(&C_pottrue_subsets, si);
@@ -208,40 +258,9 @@ static void addFullOps(pddl_strips_conj_t *task,
                        const pddl_mutex_pairs_t *mutex,
                        pddl_err_t *err)
 {
-    // Prepare downward closed sets
-    pddl_set_iset_t downward_closed;
-    pddlSetISetInit(&downward_closed);
-    for (int fi = 0; fi < task->num_singletons; ++fi){
-        PDDL_ISET(set);
-        pddlISetAdd(&set, fi);
-        pddlSetISetAdd(&downward_closed, &set);
-        pddlISetFree(&set);
-    }
-
-    int num_meta_facts = task->strips.fact.fact_size;
-    for (int fi = task->num_singletons; fi < num_meta_facts; ++fi){
-        const pddl_iset_t *facts = task->fact_to_conj + fi;
-
-        PDDL_ISET(set);
-        pddlISetAdd(&set, fi);
-
-        for (int fi2 = task->num_singletons; fi2 < num_meta_facts; ++fi2){
-            if (fi == fi2)
-                continue;
-            const pddl_iset_t *facts2 = task->fact_to_conj + fi2;
-            if (pddlISetIsSubset(facts2, facts))
-                pddlISetAdd(&set, fi2);
-        }
-
-        pddlSetISetAdd(&downward_closed, &set);
-        pddlISetFree(&set);
-    }
-
-    for (int opi = 0; opi < in_task->op.op_size; ++opi){
-        addFullOp(task, in_task, in_task->op.op[opi], &downward_closed,
-                  mutex, err);
-    }
-    pddlSetISetFree(&downward_closed);
+    for (int opi = 0; opi < in_task->op.op_size; ++opi)
+        addFullOp(task, in_task, in_task->op.op[opi], mutex, err);
+    pddlStripsOpsDeduplicate(&task->strips.op);
 }
 
 void pddlStripsConjInit(pddl_strips_conj_t *task,
