@@ -315,16 +315,28 @@ void pddlStripsConjMutexPairsInitCopy(pddl_mutex_pairs_t *mutex,
                                       const pddl_strips_conj_t *task)
 {
     pddlMutexPairsInitStrips(mutex, &task->strips);
-    PDDL_MUTEX_PAIRS_FOR_EACH(in_mutex, f1, f2)
+    PDDL_MUTEX_PAIRS_FOR_EACH(in_mutex, f1, f2){
         pddlMutexPairsAdd(mutex, f1, f2);
+        if (pddlMutexPairsIsFwMutex(in_mutex, f1, f2))
+            pddlMutexPairsSetFwMutex(mutex, f1, f2);
+        if (pddlMutexPairsIsBwMutex(in_mutex, f1, f2))
+            pddlMutexPairsSetBwMutex(mutex, f1, f2);
+    }
 
     for (int fi = task->num_singletons; fi < task->strips.fact.fact_size; ++fi){
         const pddl_iset_t *conj = task->fact_to_conj + fi;
         int fact_id;
         PDDL_ISET_FOR_EACH(conj, fact_id){
             for (int fi2 = 0; fi2 < in_mutex->fact_size; ++fi2){
-                if (pddlMutexPairsIsMutex(in_mutex, fact_id, fi2))
+                // If fi2 is a mutex with any of the fact from conj, then
+                // it is also mutex with conj.
+                if (pddlMutexPairsIsMutex(in_mutex, fact_id, fi2)){
                     pddlMutexPairsAdd(mutex, fact_id, fi2);
+                    if (pddlMutexPairsIsFwMutex(in_mutex, fact_id, fi2))
+                        pddlMutexPairsSetFwMutex(mutex, fact_id, fi2);
+                    if (pddlMutexPairsIsBwMutex(in_mutex, fact_id, fi2))
+                        pddlMutexPairsSetBwMutex(mutex, fact_id, fi2);
+                }
             }
         }
     }

@@ -85,6 +85,10 @@ void pddlStripsConjFree(pddl_strips_conj_t *task);
 /**
  * Transform {in_mutex} for the original planning task to mutexes for the
  * {task}.
+ * The function preserves also the information about forward and backward
+ * mutexes.
+ * It also extends mutexes to conjunctions: If the fact X is a mutex with
+ * any fact from the conjunction C, then X is also a mutex with C itself.
  */
 void pddlStripsConjMutexPairsInitCopy(pddl_mutex_pairs_t *mutex,
                                       const pddl_mutex_pairs_t *in_mutex,
