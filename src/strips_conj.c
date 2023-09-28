@@ -160,21 +160,23 @@ static void addFullOpX(pddl_strips_conj_t *task,
     pddlISetMinus(&pre_base, &in_op->add_eff);
     pddlISetUnion(&pre_base, &in_op->pre);
 
+    // Skip operators with unreachable preconditions
+    if (mutex != NULL && pddlMutexPairsIsMutexSet(mutex, &pre_base)){
+        pddlISetFree(&pre_base);
+        pddlStripsOpFree(&op);
+        return;
+    }
+
     // Next, we set op.pre to conjunctions contained in pre_base (or rather
     // the corresponding meta-facts).
-    PDDL_ISET_FOR_EACH(X, fact_id){
+    for (int fact_id = task->num_singletons;
+            fact_id < task->strips.fact.fact_size; ++fact_id){
         if (pddlISetIsSubset(task->fact_to_conj + fact_id, &pre_base))
             pddlISetAdd(&op.pre, fact_id);
     }
     // Finally, we add pre_base to op.pre (i.e., we add the singleton facts)
     pddlISetUnion(&op.pre, &pre_base);
     pddlISetFree(&pre_base);
-
-    // Skip operators with unreachable preconditions
-    if (mutex != NULL && pddlMutexPairsIsMutexSet(mutex, &op.pre)){
-        pddlStripsOpFree(&op);
-        return;
-    }
 
     pddlISetUnion(&op.del_eff, C_false);
 
