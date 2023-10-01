@@ -530,7 +530,8 @@ void pddlMGStripsReduce(pddl_mg_strips_t *mg_strips,
                         const pddl_iset_t *del_ops)
 {
     pddlStripsReduce(&mg_strips->strips, del_facts, del_ops);
-    pddlMGroupsReduce(&mg_strips->mg, del_facts);
+    if (del_facts != NULL)
+        pddlMGroupsReduce(&mg_strips->mg, del_facts);
 }
 
 void pddlMGStripsReorderMGroups(pddl_mg_strips_t *mg_strips,
