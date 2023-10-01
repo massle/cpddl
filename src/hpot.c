@@ -1359,6 +1359,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
     _pddlHeurFree(&h->heur);
     pddlPotSolutionsFree(&h->sols);
+    pddlFDRVarsFree(&h->vars);
     FREE(h);
 }
 
@@ -1381,6 +1382,7 @@ pddl_heur_t *pddlHeurPot(const pddl_hpot_config_t *cfg, pddl_err_t *err)
     int ret = pddlHPot(&h->sols, cfg, err);
     if (ret != 0){
         pddlPotSolutionsFree(&h->sols);
+        FREE(h);
         TRACE_RET(err, NULL);
     }
     pddlFDRVarsInitCopy(&h->vars, &cfg->fdr->var);
