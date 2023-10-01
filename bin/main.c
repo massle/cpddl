@@ -695,15 +695,22 @@ static int stepGroundPlanner(void)
             heur_cfg.heur = PDDL_HEUR_POT;
             PDDL_LOG(&err, "Heuristic: pot");
             break;
+        case GROUND_PLAN_HEUR_POT_CONJ:
+            heur_cfg.heur = PDDL_HEUR_POT_CONJ;
+            heur_cfg.pot_conj_file = opt.ground_planner.pot_conj_file;
+            PDDL_LOG(&err, "Heuristic: pot");
+            break;
         case GROUND_PLAN_HEUR_BLIND:
         default:
             heur_cfg.heur = PDDL_HEUR_BLIND;
             PDDL_LOG(&err, "Heuristic: blind");
     }
 
-    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT){
+    pddl_bool_t is_pot = opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
+                            || opt.ground_planner.heur == GROUND_PLAN_HEUR_POT_CONJ;
+
+    if (is_pot)
         pddlHPotConfigInitCopy(&heur_cfg.pot, &opt.ground_planner.pot_cfg);
-    }
 
     pddl_mg_strips_t mg_strips;
     pddl_mutex_pairs_t mutex;
@@ -714,16 +721,11 @@ static int stepGroundPlanner(void)
     if (opt.ground_planner.heur_op_mutex)
         need_mutex = need_mg_strips = 1;
 
-    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
-            && pddlHPotConfigNeedMutex(&heur_cfg.pot)){
+    if (is_pot && pddlHPotConfigNeedMutex(&heur_cfg.pot))
         need_mutex = 1;
-    }
 
-    if (need_mutex
-            || (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
-                    && pddlHPotConfigNeedMGStrips(&heur_cfg.pot))){
+    if (need_mutex || (is_pot && pddlHPotConfigNeedMGStrips(&heur_cfg.pot)))
         need_mg_strips = 1;
-    }
 
     if (need_mg_strips){
         pddlMGStripsInitFDR(&mg_strips, &fdr);

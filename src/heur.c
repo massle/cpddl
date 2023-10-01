@@ -17,6 +17,7 @@
  * See the License for more information.
  */
 
+#include "pddl/pot_conj.h"
 #include "internal.h"
 #include "_heur.h"
 
@@ -34,6 +35,37 @@ pddl_heur_t *pot(const pddl_heur_config_t *cfg, pddl_err_t *err)
     return heur;
 }
 
+pddl_heur_t *potConj(const pddl_heur_config_t *cfg, pddl_err_t *err)
+{
+    if (cfg->pot_conj_file == NULL){
+        ERR_RET(err, NULL, "Missing configuration file defining which"
+                " conjunctions to use (pddl_heur_config_t.pot_conj_file)");
+    }
+    if (cfg->mg_strips == NULL){
+        ERR_RET(err, NULL, "Potentials over conjunctions require .mg_strips"
+                " to be set.");
+    }
+
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    if (pddlPotConjLoadFromFile(&conjs, NULL, NULL, cfg->fdr,
+                                cfg->pot_conj_file, err) != 0){
+        TRACE_RET(err, NULL);
+    }
+
+    pddl_hpot_config_t hcfg;
+    pddlHPotConfigInitCopy(&hcfg, &cfg->pot);
+    hcfg.fdr = cfg->fdr;
+    hcfg.mg_strips = cfg->mg_strips;
+    hcfg.mutex = cfg->mutex;
+    pddl_heur_t *heur = pddlHeurPotConj(&hcfg, &conjs, err);
+    pddlHPotConfigFree(&hcfg);
+    pddlSetISetFree(&conjs);
+    if (heur == NULL)
+        TRACE_RET(err, NULL);
+    return heur;
+}
+
 pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->fdr == NULL)
@@ -46,6 +78,8 @@ pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
             return pddlHeurDeadEnd();
         case PDDL_HEUR_POT:
             return pot(cfg, err);
+        case PDDL_HEUR_POT_CONJ:
+            return potConj(cfg, err);
         case PDDL_HEUR_FLOW:
             return pddlHeurFlow(cfg->fdr, err);
         case PDDL_HEUR_LM_CUT:

@@ -48,6 +48,7 @@ enum {
     GROUND_PLAN_HEUR_FF,
     GROUND_PLAN_HEUR_FLOW,
     GROUND_PLAN_HEUR_POT,
+    GROUND_PLAN_HEUR_POT_CONJ,
 };
 
 enum {
@@ -179,6 +180,7 @@ struct options {
         int heur_op_mutex_hm_op;
         char *plan_out;
         pddl_hpot_config_t pot_cfg;
+        char *pot_conj_file;
     } ground_planner;
 
     struct {

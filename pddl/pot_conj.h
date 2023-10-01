@@ -126,6 +126,17 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
                     const pddl_pot_conj_find_config_t *cfg,
                     pddl_err_t *err);
 
+/**
+ * Loads the set of conjunctions and the best h-value stored in the given
+ * file. It is assumed the file was written by the pddlPotConjFind()
+ * function.
+ */
+int pddlPotConjLoadFromFile(pddl_set_iset_t *conjs,
+                            int *best_hvalue,
+                            const pddl_strips_t *strips,
+                            const pddl_fdr_t *fdr,
+                            const char *filename,
+                            pddl_err_t *err);
 
 int pddlPotConjMaxInitHValueBase(const pddl_strips_t *strips,
                                  const pddl_mutex_pairs_t *mutex,

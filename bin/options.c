@@ -963,8 +963,9 @@ static void setGroundPlannerOptions(void)
                      "  add/hadd - h^add\n"
                      "  ff/hff - FF heuristic\n"
                      "  flow - Flow heuristic\n"
-                     "  pot - Potential heuristic",
-                     11,
+                     "  pot - Potential heuristic\n"
+                     "  pot-conj - Potential heuristic over conjunctions",
+                     12,
                      "none", GROUND_PLAN_HEUR_BLIND,
                      "blind", GROUND_PLAN_HEUR_BLIND,
                      "lmc", GROUND_PLAN_HEUR_LMC,
@@ -975,7 +976,8 @@ static void setGroundPlannerOptions(void)
                      "ff", GROUND_PLAN_HEUR_FF,
                      "hff", GROUND_PLAN_HEUR_FF,
                      "flow", GROUND_PLAN_HEUR_FLOW,
-                     "pot", GROUND_PLAN_HEUR_POT);
+                     "pot", GROUND_PLAN_HEUR_POT,
+                     "pot-conj", GROUND_PLAN_HEUR_POT_CONJ);
 
     params = optsAddParams("gplan-pot", 0x0,
         "Configuration for the potential heuristic"
@@ -994,9 +996,12 @@ static void setGroundPlannerOptions(void)
         "  diverse = <int> -- diversification over the specified number states\n"
         "  all-mutex-cond = <int> -- conditioned ensemble\n"
         "  all-mutex-cond-rand = <int> -- conditioned on fact sets\n"
-        "  all-mutex-cond-rand2 = <int>\n"
+        "  all-mutex-cond-rand2 = <int>"
         );
     hpotParams(params, &opt.ground_planner.pot_cfg);
+
+    optsAddStr("gplan-pot-conj-file", 0x0, &opt.ground_planner.pot_conj_file, NULL,
+               "Input configuration file for potentials over conjunctions.");
 
     static op_mutex_cfg_t opm_cfg = { 0 };
     params = optsAddParamsAndFn("gplan-h-opm", 0x0,

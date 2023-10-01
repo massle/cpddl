@@ -4,11 +4,14 @@
  * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
+#include "internal.h"
+#include "toml.h"
+#include "_heur.h"
 #include "pddl/pot_conj.h"
 #include "pddl/critical_path.h"
 #include "pddl/time_limit.h"
 #include "pddl/rand.h"
-#include "internal.h"
+#include "pddl/heur.h"
 
 static int hpotConfigIsSupported(const pddl_hpot_config_t *cfg_in,
                                  pddl_err_t *err)
@@ -528,8 +531,15 @@ static int pot(const pddl_strips_t *strips,
     pddlMGStripsInitFDR(&mg_strips, &fdr);
 
     pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., err);
+    PDDL_ISET(rm_ops);
+    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, &rm_ops, 0., err);
     //pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &fdr_mutex, NULL, NULL, 0., err);
+    if (pddlISetSize(&rm_ops) > 0){
+        pddlFDRReduce(&fdr, NULL, NULL, &rm_ops);
+        pddlMGStripsReduce(&mg_strips, NULL, &rm_ops);
+        LOG(err, "Removed %d redundant operators", pddlISetSize(&rm_ops));
+    }
+    pddlISetFree(&rm_ops);
 
     pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
     pot_cfg.fdr = &fdr;
@@ -776,6 +786,94 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
     return 0;
 }
 
+int pddlPotConjLoadFromFile(pddl_set_iset_t *conjs,
+                            int *best_hvalue,
+                            const pddl_strips_t *strips,
+                            const pddl_fdr_t *fdr,
+                            const char *filename,
+                            pddl_err_t *err)
+{
+    if ((strips == NULL && fdr == NULL) || (strips != NULL && fdr != NULL)){
+        ERR_RET(err, -1, "Exactly one of strips and fdr parameters must be non-NULL.");
+    }
+
+    FILE *fin = fopen(filename, "r");
+    if (fin == NULL)
+        ERR_RET(err, -1, "Cannot open file %s", filename);
+
+    pddl_toml_table_t *table = pddl_toml_parse_file(fin, err);
+    fclose(fin);
+    if (table == NULL)
+        TRACE_RET(err, -1);
+
+    if (best_hvalue != NULL){
+        pddl_toml_datum_t d = pddl_toml_int_in(table, "hvalue");
+        if (!d.ok){
+            pddl_toml_free(table);
+            ERR_RET(err, -1, "Cannot find integer key 'hvalue' in the file %s",
+                    filename);
+        }
+        *best_hvalue = d.u.i;
+    }
+
+    const pddl_toml_array_t *arr = pddl_toml_array_in(table, "conj");
+    if (arr == NULL){
+        pddl_toml_free(table);
+        ERR_RET(err, -1, "Cannot find array 'conj' in the file %s", filename);
+    }
+    int conj_size = pddl_toml_array_nelem(arr);
+    for (int conji = 0; conji < conj_size; ++conji){
+        const pddl_toml_array_t *conj_arr = pddl_toml_array_at(arr, conji);
+        if (conj_arr == NULL){
+            pddl_toml_free(table);
+            ERR_RET(err, -1, "Input file %s is maloformed: 'conj' has to be"
+                    " array of arrays of strings", filename);
+        }
+        PDDL_ISET(conj);
+        int size = pddl_toml_array_nelem(conj_arr);
+        for (int i = 0; i < size; ++i){
+            pddl_toml_datum_t d = pddl_toml_string_at(conj_arr, i);
+            if (!d.ok){
+                pddl_toml_free(table);
+                pddlISetFree(&conj);
+                ERR_RET(err, -1, "Input file %s is maloformed: 'conj' has to be"
+                        " array of arrays of strings", filename);
+            }
+
+            int fact = -1;
+            if (strips != NULL){
+                for (fact = 0; fact < strips->fact.fact_size; ++fact){
+                    if (strcmp(strips->fact.fact[fact]->name, d.u.s) == 0)
+                        break;
+                }
+                if (fact >= strips->fact.fact_size)
+                    fact = -1;
+
+            }else if (fdr != NULL){
+                for (fact = 0; fact < fdr->var.global_id_size; ++fact){
+                    const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact];
+                    if (strcmp(v->name, d.u.s) == 0)
+                        break;
+                }
+                if (fact >= fdr->var.global_id_size)
+                    fact = -1;
+            }
+
+            if (fact < 0){
+                pddl_toml_free(table);
+                pddlISetFree(&conj);
+                ERR_RET(err, -1, "Could not find fact (%s). The input file %s"
+                        " probably does not match the planning task.",
+                        d.u.s, filename);
+            }
+            pddlISetAdd(&conj, fact);
+        }
+        pddlSetISetAdd(conjs, &conj);
+        pddlISetFree(&conj);
+    }
+
+    return 0;
+}
 
 static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
                                      const pddl_mutex_pairs_t *mutex,
@@ -1017,4 +1115,46 @@ int pddlPotConjDim(const pddl_strips_t *strips,
     if (hvalue < 0)
         TRACE_RET(err, -1);
     return 0;
+}
+
+struct pddl_heur_pot_conj {
+    pddl_heur_t heur;
+    pddl_pot_conj_t pot;
+    pddl_fdr_vars_t vars;
+};
+typedef struct pddl_heur_pot_conj pddl_heur_pot_conj_t;
+
+static void heurDel(pddl_heur_t *_h)
+{
+    CONTAINER_OF(h, _h, pddl_heur_pot_conj_t, heur);
+    _pddlHeurFree(&h->heur);
+    pddlPotConjFree(&h->pot);
+    pddlFDRVarsFree(&h->vars);
+    FREE(h);
+}
+
+static int heurEstimate(pddl_heur_t *_h,
+                        const pddl_fdr_state_space_node_t *node,
+                        const pddl_fdr_state_space_t *state_space)
+{
+    CONTAINER_OF(h, _h, pddl_heur_pot_conj_t, heur);
+    int est = pddlPotConjEvalMaxFDRState(&h->pot, &h->vars, node->state);
+    return est;
+}
+
+pddl_heur_t *pddlHeurPotConj(const pddl_hpot_config_t *cfg,
+                             const pddl_set_iset_t *conjs,
+                             pddl_err_t *err)
+{
+    if (cfg->fdr->has_cond_eff)
+        ERR_RET(err, NULL, "Potential heuristic does not support conditional effects.");
+
+    pddl_heur_pot_conj_t *h = ZALLOC(pddl_heur_pot_conj_t);
+    if (pddlPotConjInit(&h->pot, conjs, cfg, err) != 0){
+        FREE(h);
+        TRACE_RET(err, NULL);
+    }
+    pddlFDRVarsInitCopy(&h->vars, &cfg->fdr->var);
+    _pddlHeurInit(&h->heur, heurDel, heurEstimate);
+    return &h->heur;
 }
