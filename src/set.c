@@ -17,8 +17,9 @@
  * See the License for more information.
  */
 
-#include "pddl/set.h"
 #include "internal.h"
+#include "toml.h"
+#include "pddl/set.h"
 
 static void _genAllSubsetsRec(pddl_set_iset_t *ss,
                               const pddl_iset_t *set,
@@ -124,6 +125,84 @@ void pddlSetISetGenAllSubsets(pddl_set_iset_t *ss, int min_size)
         if (pddlISetSize(set) > min_size)
             genAllSubsets(ss, set, min_size);
     }
+}
+
+int pddlSetISetLoadFromFile(pddl_set_iset_t *ss,
+                            const pddl_strips_t *strips,
+                            const pddl_fdr_t *fdr,
+                            const char *filename,
+                            pddl_err_t *err)
+{
+    if ((strips == NULL && fdr == NULL) || (strips != NULL && fdr != NULL)){
+        ERR_RET(err, -1, "Exactly one of strips and fdr parameters must be non-NULL.");
+    }
+
+    FILE *fin = fopen(filename, "r");
+    if (fin == NULL)
+        ERR_RET(err, -1, "Cannot open file %s", filename);
+
+    pddl_toml_table_t *table = pddl_toml_parse_file(fin, err);
+    fclose(fin);
+    if (table == NULL)
+        TRACE_RET(err, -1);
+
+    const pddl_toml_array_t *arr = pddl_toml_array_in(table, "conj");
+    if (arr == NULL){
+        pddl_toml_free(table);
+        ERR_RET(err, -1, "Cannot find array 'conj' in the file %s", filename);
+    }
+    int conj_size = pddl_toml_array_nelem(arr);
+    for (int conji = 0; conji < conj_size; ++conji){
+        const pddl_toml_array_t *conj_arr = pddl_toml_array_at(arr, conji);
+        if (conj_arr == NULL){
+            pddl_toml_free(table);
+            ERR_RET(err, -1, "Input file %s is maloformed: 'conj' has to be"
+                    " array of arrays of strings", filename);
+        }
+        PDDL_ISET(conj);
+        int size = pddl_toml_array_nelem(conj_arr);
+        for (int i = 0; i < size; ++i){
+            pddl_toml_datum_t d = pddl_toml_string_at(conj_arr, i);
+            if (!d.ok){
+                pddl_toml_free(table);
+                pddlISetFree(&conj);
+                ERR_RET(err, -1, "Input file %s is maloformed: 'conj' has to be"
+                        " array of arrays of strings", filename);
+            }
+
+            int fact = -1;
+            if (strips != NULL){
+                for (fact = 0; fact < strips->fact.fact_size; ++fact){
+                    if (strcmp(strips->fact.fact[fact]->name, d.u.s) == 0)
+                        break;
+                }
+                if (fact >= strips->fact.fact_size)
+                    fact = -1;
+
+            }else if (fdr != NULL){
+                for (fact = 0; fact < fdr->var.global_id_size; ++fact){
+                    const pddl_fdr_val_t *v = fdr->var.global_id_to_val[fact];
+                    if (strcmp(v->name, d.u.s) == 0)
+                        break;
+                }
+                if (fact >= fdr->var.global_id_size)
+                    fact = -1;
+            }
+
+            if (fact < 0){
+                pddl_toml_free(table);
+                pddlISetFree(&conj);
+                ERR_RET(err, -1, "Could not find fact (%s). The input file %s"
+                        " probably does not match the planning task.",
+                        d.u.s, filename);
+            }
+            pddlISetAdd(&conj, fact);
+        }
+        pddlSetISetAdd(ss, &conj);
+        pddlISetFree(&conj);
+    }
+
+    return 0;
 }
 
 void pddlISetPrintCompressed(const pddl_iset_t *set, FILE *fout)

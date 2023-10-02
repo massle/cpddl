@@ -22,6 +22,8 @@
 
 #include <pddl/hashset.h>
 #include <pddl/iset.h>
+#include <pddl/strips.h>
+#include <pddl/fdr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,6 +86,20 @@ _pddl_inline void pddlSetISetUnion(pddl_set_iset_t *dst,
  * output set of sets.
  */
 void pddlSetISetGenAllSubsets(pddl_set_iset_t *ss, int min_size);
+
+/**
+ * Load conjunctions from the input .toml file, where there is expected to
+ * be a key 'conj' assigned array of arrays of strings. Each string is then
+ * matched agains facts either in {strips} or {fdr} to find the
+ * corresponding facts. The set {ss} is extended with the conjunctions
+ * found in the file {filename}.
+ * Excatly one of {strips} and {fdr} has to be non-NULL.
+ */
+int pddlSetISetLoadFromFile(pddl_set_iset_t *ss,
+                            const pddl_strips_t *strips,
+                            const pddl_fdr_t *fdr,
+                            const char *filename,
+                            pddl_err_t *err);
 
 void pddlISetPrintCompressed(const pddl_iset_t *set, FILE *fout);
 void pddlISetPrint(const pddl_iset_t *set, FILE *fout);
