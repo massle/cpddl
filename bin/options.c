@@ -870,6 +870,16 @@ static void setPotConjFindOptions(void)
     optsParamsAddDbl(params, "log-freq", &opt.pot_conj_find.cfg.log_freq);
 }
 
+static void setExtendStripsConjOptions(void)
+{
+    optsStartGroup("Extending STRIPS with Conjunctions (Replacing P with P^C)");
+    optsAddStr("extend-strips-conj-file", 0x0,
+               &opt.extend_strips_conj_file, NULL,
+               "Replace STIRPS task P with P^C where C is read from the"
+               "input .toml file that must contain a key 'conj' assigining"
+               " an array of arrays of strings.");
+}
+
 static void setRedBlackOptions(void)
 {
     pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
@@ -1243,6 +1253,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
             setMutexGroupOptions();
             setProcessStripsOptions();
             setPotConjFindOptions();
+            setExtendStripsConjOptions();
             if (!is_pddl_fdr && !is_pddl_symba)
                 setRedBlackOptions();
             setFDROptions();

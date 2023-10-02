@@ -446,6 +446,77 @@ static int stepPotConjFind(void)
     return 1;
 }
 
+static int stepExtendStripsWithConjunctions(void)
+{
+    if (opt.extend_strips_conj_file == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Extend-Strips-Conj");
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    if (pddlSetISetLoadFromFile(&conjs, &strips, NULL,
+                                opt.extend_strips_conj_file, &err) != 0){
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+    pddlSetISetGenAllSubsets(&conjs, 2);
+
+    // Set up the input conjunctions
+    pddl_strips_conj_config_t cfg_conj;
+    cfg_conj.mutex = &mutex;
+    pddlStripsConjConfigInit(&cfg_conj);
+    pddlStripsConjConfigAddConjs(&cfg_conj, &conjs);
+
+    // Construct P^C
+    pddl_strips_conj_t strips_conj;
+    pddlStripsConjInit(&strips_conj, &strips, &cfg_conj, &err);
+
+    // Replace global strips with the P^C task.
+    // Note that this preserves the fact IDs from the original strips.
+    pddlStripsFree(&strips);
+    pddlStripsInitCopy(&strips, &strips_conj.strips);
+
+    // Replace mutexes (mgroups can stay the same)
+    pddl_mutex_pairs_t conj_mutex;
+    pddlStripsConjMutexPairsInitCopy(&conj_mutex, &mutex, &strips_conj);
+    pddlMutexPairsFree(&mutex);
+    mutex = conj_mutex;
+
+    // Extend mutexes with h^2
+    PDDL_ISET(rm_facts);
+    PDDL_ISET(rm_ops);
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroup);
+    if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex, &rm_facts,
+                   &rm_ops, -1., &err) != 0){
+        pddlMGStripsFree(&mg_strips);
+        pddlISetFree(&rm_facts);
+        pddlISetFree(&rm_ops);
+        pddlStripsConjFree(&strips_conj);
+        pddlStripsConjConfigFree(&cfg_conj);
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    // Prune redundant facts and operators if found any
+    if (pddlISetSize(&rm_facts) > 0 || pddlISetSize(&rm_ops) > 0)
+        pddlStripsReduce(&strips, &rm_facts, &rm_ops);
+
+    pddlMGStripsFree(&mg_strips);
+    pddlISetFree(&rm_facts);
+    pddlISetFree(&rm_ops);
+
+    pddlStripsConjFree(&strips_conj);
+    pddlStripsConjConfigFree(&cfg_conj);
+    pddlSetISetFree(&conjs);
+
+    pddlStripsLogInfo(&strips, &err);
+    PDDL_CTXEND(&err);
+    return 0;
+}
+
 static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
 {
     for (int op_id = 0; op_id < strips.op.op_size; ++op_id){
@@ -1020,6 +1091,7 @@ int main(int argc, char *argv[])
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
             || (ret = stepPotConjFind()) != 0
+            || (ret = stepExtendStripsWithConjunctions()) != 0
             || (ret = stepReportPotConjMaxInitHValue()) != 0
             || (ret = stepReportReversibility()) != 0
             || (ret = stepRedBlackFDR()) != 0

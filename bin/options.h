@@ -153,6 +153,8 @@ struct options {
         pddl_pot_conj_find_config_t cfg;
     } pot_conj_find;
 
+    char *extend_strips_conj_file;
+
     struct {
         pddl_bool_t enable;
         pddl_red_black_fdr_config_t cfg;
