@@ -698,7 +698,7 @@ static int stepGroundPlanner(void)
         case GROUND_PLAN_HEUR_POT_CONJ:
             heur_cfg.heur = PDDL_HEUR_POT_CONJ;
             heur_cfg.pot_conj_file = opt.ground_planner.pot_conj_file;
-            PDDL_LOG(&err, "Heuristic: pot");
+            PDDL_LOG(&err, "Heuristic: pot-conj");
             break;
         case GROUND_PLAN_HEUR_BLIND:
         default:
