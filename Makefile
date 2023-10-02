@@ -453,6 +453,7 @@ cudd-clean:
 	rm -f third-party/cudd/cudd.h
 third-party/cudd/libcudd.a:
 	cd third-party/cudd && aclocal
+	cd third-party/cudd && autoheader
 	cd third-party/cudd && autoconf
 	cd third-party/cudd && automake
 	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB)
