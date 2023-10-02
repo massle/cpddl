@@ -55,6 +55,12 @@ void pddlStripsConjConfigAddConj(pddl_strips_conj_config_t *cfg,
 void pddlStripsConjConfigAddConjAndSubsets(pddl_strips_conj_config_t *cfg,
                                            const pddl_iset_t *conj);
 
+/**
+ * Add all conjunctions from the set {conjs}.
+ */
+void pddlStripsConjConfigAddConjs(pddl_strips_conj_config_t *cfg,
+                                  const pddl_set_iset_t *conjs);
+
 
 struct pddl_strips_conj {
     /** \Pi^C STRIPS planning task */

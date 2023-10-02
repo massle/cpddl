@@ -45,6 +45,13 @@ void pddlStripsConjConfigAddConjAndSubsets(pddl_strips_conj_config_t *cfg,
     pddlISetFree(&c);
 }
 
+void pddlStripsConjConfigAddConjs(pddl_strips_conj_config_t *cfg,
+                                  const pddl_set_iset_t *conjs)
+{
+    int size = pddlSetISetSize(conjs);
+    for (int i = 0; i < size; ++i)
+        pddlStripsConjConfigAddConj(cfg, pddlSetISetGet(conjs, i));
+}
 
 static void setToMetaSet(const pddl_iset_t *set,
                          const pddl_iset_t *fact_to_conj,
