@@ -52,6 +52,7 @@ pddl_heur_t *potConj(const pddl_heur_config_t *cfg, pddl_err_t *err)
                                 cfg->pot_conj_file, err) != 0){
         TRACE_RET(err, NULL);
     }
+    pddlSetISetGenAllSubsets(&conjs, 2);
 
     pddl_hpot_config_t hcfg;
     pddlHPotConfigInitCopy(&hcfg, &cfg->pot);
