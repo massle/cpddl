@@ -90,6 +90,9 @@ struct pddl_pot_conj_find_config {
     pddl_bool_t random_conjs;
     /** Random seed for .random_conjs = true. Default: 1193 */
     int random_seed;
+    /** Time limit for each LP used for computation of potential functions.
+     *  Default: 30 seconds */
+    double lp_time_limit;
     /** Whenever improvement is achieved, write the complete set of
      *  conjunctions into the file {write_progress_prefix}.{epoch_idx}
      *  where {epoch_idx} is index of the epoch formatted as %04d.
@@ -107,6 +110,7 @@ typedef struct pddl_pot_conj_find_config pddl_pot_conj_find_config_t;
         1., /* .log_freq */ \
         pddl_false, /* .random_conjs */ \
         1193, /* .random_seed */ \
+        30., /* .lp_time_limit */ \
         NULL, /* .write_progress_prefix */ \
     }
 

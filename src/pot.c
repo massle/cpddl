@@ -742,6 +742,8 @@ int pddlPotSolve(const pddl_pot_t *pot,
 {
     int ret = 0;
 
+    ZEROIZE(sol);
+
     int rows = pot->constr_op.size;
     rows += pot->constr_goal.size;
     for (int mi = 0; mi < pot->maxpot_size; ++mi){
@@ -756,6 +758,8 @@ int pddlPotSolve(const pddl_pot_t *pot,
     cfg.tune_potential = 1;
     if (pot->op_pot && !pot->op_pot_real)
         cfg.tune_int_operator_potential = 1;
+    if (pot->lp_time_limit > 0.f)
+        cfg.time_limit = pot->lp_time_limit;
     pddl_lp_t *lp = pddlLPNew(&cfg, err);
 
     for (int i = 0; i < pot->var_size; ++i){
@@ -785,10 +789,16 @@ int pddlPotSolve(const pddl_pot_t *pot,
     lpsol.var_val = CALLOC_ARR(double, var_size);
 
     if (pddlLPSolve(lp, &lpsol, err) == PDDL_LP_STATUS_ERR){
-        // TODO: Propagate this error up
-        pddlErrPrint(err, 1, stderr);
-        PANIC("Error in the LP solver occurred");
+        sol->error = pddl_true;
+        FREE(lpsol.var_val);
+        pddlLPDel(lp);
+        TRACE_RET(err, -1);
     }
+
+    sol->found = lpsol.solved;
+    sol->suboptimal = lpsol.solved_suboptimally;
+    sol->timed_out = lpsol.timed_out;
+    ret = -1;
 
     if (lpsol.solved){
         sol->objval = lpsol.obj_val;
@@ -799,9 +809,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
         if (pot->op_pot)
             storeOpPot(lp, lpsol.var_val, op_pot_var_offset, pot, sol);
 
-    }else{
-        ZEROIZE(sol);
-        ret = -1;
+        ret = 0;
     }
 
     FREE(lpsol.var_val);

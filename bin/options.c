@@ -263,6 +263,8 @@ static void hpotParams(opts_params_t *params,
                        hpotSetObjAllMutexCondRand);
     optsParamsAddIntFn(params, "all-mutex-cond-rand2", cfg,
                        hpotSetObjAllMutexCondRand2);
+
+    optsParamsAddFlt(params, "lp-time-limit", &cfg->lp_time_limit);
 }
 
 static int optGroundNoPruning(pddl_bool_t enabled)
@@ -1006,7 +1008,8 @@ static void setGroundPlannerOptions(void)
         "  diverse = <int> -- diversification over the specified number states\n"
         "  all-mutex-cond = <int> -- conditioned ensemble\n"
         "  all-mutex-cond-rand = <int> -- conditioned on fact sets\n"
-        "  all-mutex-cond-rand2 = <int>"
+        "  all-mutex-cond-rand2 = <int>\n"
+        "  lp-time-limit = <flt> -- Time limit for each LP"
         );
     hpotParams(params, &opt.ground_planner.pot_cfg);
 

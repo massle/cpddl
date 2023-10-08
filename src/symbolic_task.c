@@ -148,7 +148,9 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     if (pddlHPot(&pot, &cfg->pot_heur_config, err) != 0){
         TRACE_RET(err, -1);
     }
-    if (pot.sol_size != 1){
+    if (pot.sol_size == 0){
+        PDDL_ERR_RET(err, -1, "No potential heuristic found.");
+    }else if (pot.sol_size != 1){
         PDDL_ERR_RET(err, -1, "Symbolic search supports only a single"
                      " potential function, got %d",
                      pot.sol_size);

@@ -36,6 +36,15 @@ struct pddl_pot_solution {
     /** Change of heuristic value for each operator */
     double *op_pot;
     int op_pot_size;
+
+    /** True if a solution was found */
+    pddl_bool_t found;
+    /** Set true if the solution is suboptimal */
+    pddl_bool_t suboptimal;
+    /** True if the computed timed out */
+    pddl_bool_t timed_out;
+    /** True if error occurred */
+    pddl_bool_t error;
 };
 typedef struct pddl_pot_solution pddl_pot_solution_t;
 
@@ -110,6 +119,9 @@ struct pddl_pot {
     int maxpot_size;
     pddl_htable_t *maxpot_htable; /*!< Set of LP variables grouped into maxpot */
     int enforce_int_init; /*!< Enforce integer value for the initial state */
+
+    /** Maximum time reserved for the LP solver */
+    float lp_time_limit;
 };
 typedef struct pddl_pot pddl_pot_t;
 
@@ -219,10 +231,16 @@ _pddl_inline void pddlPotEnforeIntInit(pddl_pot_t *pot, int enable)
 }
 
 /**
+ * Set time limit for the LP solver.
+ */
+_pddl_inline void pddlPotSetLPTimeLimit(pddl_pot_t *pot, float time_limit)
+{
+    pot->lp_time_limit = time_limit;
+}
+
+/**
  * Solve the LP problem and returns the solution via sol.
  * Return 0 on success, -1 if solution was not found.
- *
- * TODO: Add time-limit option
  */
 int pddlPotSolve(const pddl_pot_t *pot,
                  pddl_pot_solution_t *sol,

@@ -710,7 +710,8 @@ static int stepFDR(void)
 
         if (pddlHPot(&pot, &opt.fdr.pot_cfg, &err) != 0){
             PDDL_ERR_RET(&err, -1, "Cannot find potential heuristic");
-            return -1;
+        }else if (pot.sol_size == 0){
+            PDDL_ERR_RET(&err, -1, "Could not find a single potential function");
         }
         APPEND_TO_FILE(&err, opt.fdr.out, "FDR Pot",
                        printPotentials(&fdr, &pot, fout));

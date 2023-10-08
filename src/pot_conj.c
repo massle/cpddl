@@ -13,6 +13,10 @@
 #include "pddl/rand.h"
 #include "pddl/heur.h"
 
+// Time limit for LP computing potential functions.
+// This value is used for all pddlPotConjMaxInitHValue*() functions.
+#define MAX_INIT_LP_TIME_LIMIT 30.
+
 static int hpotConfigIsSupported(const pddl_hpot_config_t *cfg_in,
                                  pddl_err_t *err)
 {
@@ -283,6 +287,9 @@ int pddlPotConjInit(pddl_pot_conj_t *pot,
     pddlStripsConjFree(&pc);
     pddlStripsConjConfigFree(&pc_cfg);
     CTXEND(err);
+
+    if (pot->pot.sol_size == 0)
+        ERR_RET(err, -1, "No potential function found.");
     return 0;
 }
 
@@ -516,6 +523,7 @@ static const pddl_iset_t *conjIteratorNext(conj_iterator_t *it)
 static int pot(const pddl_strips_t *strips,
                const pddl_mutex_pairs_t *mutex,
                const pddl_mgroups_t *mgroup,
+               float lp_time_limit,
                pddl_err_t *err)
 {
     pddl_fdr_config_t cfg = PDDL_FDR_CONFIG_INIT;
@@ -545,6 +553,8 @@ static int pot(const pddl_strips_t *strips,
     pot_cfg.fdr = &fdr;
     pot_cfg.mg_strips = &mg_strips;
     pot_cfg.mutex = &fdr_mutex;
+    if (lp_time_limit > 0.)
+        pot_cfg.lp_time_limit = lp_time_limit;
 
     pddl_hpot_config_opt_state_t cfginit = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
     PDDL_HPOT_CONFIG_ADD(&pot_cfg, &cfginit);
@@ -558,6 +568,9 @@ static int pot(const pddl_strips_t *strips,
     if (sol.sol_size > 0){
         hvalue = pddlPotSolutionEvalFDRState(sol.sol + 0, &fdr.var, fdr.init);
         PDDL_LOG(err, "Heuristic value: %d", hvalue);
+    }else if (sol.sol_size == 0){
+        PDDL_LOG(err, "Could not find a potential function.");
+        hvalue = 0;
     }else if (sol.unsolvable){
         PDDL_LOG(err, "Task is unsolvable.");
         hvalue = 0;
@@ -575,11 +588,12 @@ static int potConj(const pddl_strips_t *strips,
                    const pddl_mgroups_t *mgroup,
                    const pddl_set_iset_t *conjs,
                    const pddl_iset_t *conj,
+                   float lp_time_limit,
                    pddl_err_t *err)
 {
     if (conj == NULL && (conjs == NULL || pddlSetISetSize(conjs) == 0)){
         pddlErrLogPause(err);
-        int ret = pot(strips, mutex, mgroup, err);
+        int ret = pot(strips, mutex, mgroup, lp_time_limit, err);
         pddlErrLogContinue(err);
         return ret;
     }
@@ -614,7 +628,7 @@ static int potConj(const pddl_strips_t *strips,
     pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
 
     // Compute h-value for P^C
-    int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
+    int hvalue = pot(&pc.strips, &pc_mutex, mgroup, lp_time_limit, err);
 
     pddlErrLogContinue(err);
 
@@ -676,7 +690,8 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
     pddlTimeLimitSet(&time_limit, cfg->time_limit);
 
     // Determine the base heuristic value
-    int best_hvalue = potConj(strips, mutex, mgroup, conjs, NULL, err);
+    int best_hvalue = potConj(strips, mutex, mgroup, conjs, NULL,
+                              cfg->lp_time_limit, err);
     if (best_hvalue_out != NULL)
         *best_hvalue_out = best_hvalue;
     LOG(err, "Base h-value: %d", best_hvalue);
@@ -716,7 +731,8 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
             }
 
             // Compute h-value for P^C
-            int hvalue = potConj(strips, mutex, mgroup, conjs, conj, err);
+            int hvalue = potConj(strips, mutex, mgroup, conjs, conj,
+                                 cfg->lp_time_limit, err);
 
             if (hvalue > best_hvalue){
                 // Found improving conjunction
@@ -928,7 +944,8 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
         pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
 
         pddlErrLogPause(err);
-        int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
+        int hvalue = pot(&pc.strips, &pc_mutex, mgroup,
+                         MAX_INIT_LP_TIME_LIMIT, err);
         pddlErrLogContinue(err);
         if (hvalue < 0)
             TRACE_RET(err, -1);
@@ -1012,7 +1029,8 @@ static int pddlPotConjMaxInitHValue2(const pddl_strips_t *strips,
             pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
 
             pddlErrLogPause(err);
-            int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
+            int hvalue = pot(&pc.strips, &pc_mutex, mgroup,
+                             MAX_INIT_LP_TIME_LIMIT, err);
             pddlErrLogContinue(err);
             if (hvalue > max_hvalue)
                 max_hvalue = hvalue;
@@ -1046,7 +1064,7 @@ int pddlPotConjMaxInitHValueBase(const pddl_strips_t *strips,
     CTX(err, "BASE");
 
     pddlErrLogPause(err);
-    int hvalue = pot(strips, mutex, mgroup, err);
+    int hvalue = pot(strips, mutex, mgroup, MAX_INIT_LP_TIME_LIMIT, err);
     pddlErrLogContinue(err);
 
     LOG(err, "Heuristic value: %d", hvalue);
@@ -1078,44 +1096,6 @@ int pddlPotConjMaxInitHValueTwoPairs(const pddl_strips_t *strips,
     return pddlPotConjMaxInitHValue2(strips, mutex, mgroup, IT_PAIRS, err);
 }
 
-
-int pddlPotConjDim(const pddl_strips_t *strips,
-                   const pddl_mutex_pairs_t *mutex,
-                   const pddl_mgroups_t *mgroup,
-                   int dimension,
-                   pddl_err_t *err)
-{
-    pddl_strips_conj_config_t cfg;
-    pddlStripsConjConfigInit(&cfg);
-
-    conj_iterator_t it;
-    conjIteratorInit(&it, IT_ALL, strips, mutex);
-    const pddl_iset_t *conj = conjIteratorNext(&it);
-    while (conj != NULL){
-        if (pddlISetSize(conj) > dimension)
-            break;
-        pddlStripsConjConfigAddConj(&cfg, conj);
-        conj = conjIteratorNext(&it);
-    }
-    conjIteratorFree(&it);
-
-    pddl_strips_conj_t pc;
-    pddlStripsConjInit(&pc, strips, &cfg, err);
-
-    pddl_mutex_pairs_t pc_mutex;
-    pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
-
-    int hvalue = pot(&pc.strips, &pc_mutex, mgroup, err);
-    LOG(err, "Heuristic value: %d", hvalue);
-
-    pddlMutexPairsFree(&pc_mutex);
-    pddlStripsConjFree(&pc);
-    pddlStripsConjConfigFree(&cfg);
-
-    if (hvalue < 0)
-        TRACE_RET(err, -1);
-    return 0;
-}
 
 struct pddl_heur_pot_conj {
     pddl_heur_t heur;
