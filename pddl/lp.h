@@ -60,7 +60,7 @@ struct pddl_lp_solution {
     pddl_bool_t timed_out;
     /** If set to non-NULL and the solver found a solution, it is filled
      *  with the values assigned to each variable. It must be allocated by
-     *  the user, and it must have at pddlLPNumCols() elements */
+     *  the caller, and it must have at pddlLPNumCols() elements */
     double *var_val;
     /** If the solver found a solution, it is set to the value of the
      *  objective function */
@@ -94,6 +94,8 @@ struct pddl_lp_config {
     float time_limit; /*!< Time limit for solving the problem. */
     int tune_int_operator_potential; /*!< True for tuning inference of
                                           integer operator potentials */
+    /** True for inference of potential functions */
+    int tune_potential;
 };
 typedef struct pddl_lp_config pddl_lp_config_t;
 
@@ -106,6 +108,7 @@ typedef struct pddl_lp_config pddl_lp_config_t;
         1, /* .num_threads */ \
         -1., /* .time_limit */ \
         0, /* .tune_int_operator_potential */ \
+        0, /* .tune_potential */ \
     }
 
 /**

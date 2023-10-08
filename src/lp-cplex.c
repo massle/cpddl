@@ -383,6 +383,19 @@ pddl_lp_status_t pddlLPSolveCPLEX(const pddl_lp_t *lp,
         api.callbacksetfunc(env, prob, 0, NULL, NULL);
 
     }else{
+        if (lp->cfg.tune_potential){
+            // Default setting of CPXPARAM_LPMethod is CPX_ALG_AUTOMATIC
+            // which usually selects CPX_ALG_DUAL (see https://www.ibm.com/support/pages/deciding-which-cplexs-numerous-linear-programming-algorithms-fastest-performance)
+            // However, for some unclear reason, dual simplex gets
+            // sometimes stuck so that not even timeout is respected.
+            // Enforcing the following parameter seems to remedy the
+            // problem.
+            api.setintparam(env, CPXPARAM_Preprocessing_Dual, 1);
+            // what also worked was changing the algorithm, e.g.,
+            // api.setintparam(env, CPXPARAM_LPMethod, CPX_ALG_BARRIER);
+            // but the option above seems to be less intrusive.
+        }
+
         api.setlpcallbackfunc(env, callbackLP, &log);
         if ((st = api.lpopt(env, prob)) != 0){
             CTXEND(err);

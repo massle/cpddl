@@ -753,6 +753,7 @@ int pddlPotSolve(const pddl_pot_t *pot,
     cfg.maximize = 1;
     cfg.rows = rows;
     cfg.cols = pot->var_size;
+    cfg.tune_potential = 1;
     if (pot->op_pot && !pot->op_pot_real)
         cfg.tune_int_operator_potential = 1;
     pddl_lp_t *lp = pddlLPNew(&cfg, err);
