@@ -39,6 +39,7 @@ void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, remove_static_facts, err);
     LOG_CONFIG_BOOL(cfg, keep_action_args, err);
     LOG_CONFIG_BOOL(cfg, keep_all_static_facts, err);
+    LOG_CONFIG_BOOL(cfg, ground_only_facts, err);
 }
 
 int pddlGround(pddl_strips_t *strips,

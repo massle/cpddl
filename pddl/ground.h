@@ -38,6 +38,8 @@ struct pddl_ground_config {
     /** Keep all static facts including the ones created from static
      *  predicates */
     pddl_bool_t keep_all_static_facts;
+    /** Ground only facts, i.e., completely skip grounding of actions */
+    pddl_bool_t ground_only_facts;
 };
 typedef struct pddl_ground_config pddl_ground_config_t;
 
@@ -49,6 +51,7 @@ typedef struct pddl_ground_config pddl_ground_config_t;
         pddl_true, /* .remove_static_facts */ \
         pddl_false, /* .keep_action_args */ \
         pddl_false, /* .keep_all_static_facts */ \
+        pddl_false, /* .ground_only_facts */ \
     }
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err);
