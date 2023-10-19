@@ -130,7 +130,7 @@ void pddlFactsCopy(pddl_facts_t *dst, const pddl_facts_t *src);
 
 /**
  * Sorts facts by their name and returns remapping from the old id to the
- * new id if remap is non-NULL.
+ * new id.
  */
 void pddlFactsSort(pddl_facts_t *fs, int *remap);
 
