@@ -969,7 +969,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
     if (dl->rule_size == 0)
         return 0;
 
-    CTX(err, "reduce-rule-set");
+    CTX_NO_TIME(err, "reduce-rule-set");
     int pred_num_achievers[dl->pred_size];
     ZEROIZE_ARR(pred_num_achievers, dl->pred_size);
     for (int ri = 0; ri < dl->rule_size; ++ri)
