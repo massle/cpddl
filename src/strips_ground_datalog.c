@@ -79,6 +79,25 @@ static void actionToDLAtom(const ground_t *g,
         pddlDatalogAtomSetArg(g->dl, dlatom, i, g->dlvar[i]);
 }
 
+static void addPreToRuleBody(ground_t *g,
+                             pddl_datalog_rule_t *rule,
+                             const pddl_fm_t *pre)
+{
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(pre, &it, catom){
+        pddl_datalog_atom_t atom;
+        pddlDatalogPddlAtomToDLAtom(g->dl, &atom, catom, g->pred_to_dlpred,
+                                    g->obj_to_dlconst, g->dlvar);
+        if (catom->neg){
+            pddlDatalogRuleAddNegStaticBody(g->dl, rule, &atom);
+        }else{
+            pddlDatalogRuleAddBody(g->dl, rule, &atom);
+        }
+        pddlDatalogAtomFree(g->dl, &atom);
+    }
+}
+
 static unsigned addActionRule(ground_t *g,
                               int action_id,
                               const pddl_fm_t *pre,
@@ -112,18 +131,7 @@ static unsigned addActionRule(ground_t *g,
         pddlDatalogAtomFree(g->dl, &atom);
     }
 
-    const pddl_fm_atom_t *catom;
-    pddl_fm_const_it_atom_t it;
-    PDDL_FM_FOR_EACH_ATOM(pre, &it, catom){
-        pddlDatalogPddlAtomToDLAtom(g->dl, &atom, catom, g->pred_to_dlpred,
-                                    g->obj_to_dlconst, g->dlvar);
-        if (catom->neg){
-            pddlDatalogRuleAddNegStaticBody(g->dl, &rule, &atom);
-        }else{
-            pddlDatalogRuleAddBody(g->dl, &rule, &atom);
-        }
-        pddlDatalogAtomFree(g->dl, &atom);
-    }
+    addPreToRuleBody(g, &rule, pre);
     if (cei < 0){
         pddlDatalogPddlSetActionTypeBody(g->dl, &rule, g->pddl, &action->param,
                                          pre, NULL, g->type_to_dlpred, g->dlvar);
@@ -134,6 +142,8 @@ static unsigned addActionRule(ground_t *g,
 
 
     // add-effect :- app-action
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
     PDDL_FM_FOR_EACH_ATOM(eff, &it, catom){
         if (catom->neg)
             continue;
@@ -155,28 +165,87 @@ static unsigned addActionRule(ground_t *g,
     return app_dlpred;
 }
 
-static void addActionRules(ground_t *g, int action_id)
+static void addPreToEffRule(ground_t *g,
+                            int action_id,
+                            const pddl_fm_t *pre,
+                            const pddl_fm_t *ce_pre,
+                            const pddl_fm_t *eff)
+{
+    pddl_datalog_rule_t rule_base;
+
+    pddlDatalogRuleInit(g->dl, &rule_base);
+
+    // Add preconditions to the body of rule_base
+    addPreToRuleBody(g, &rule_base, pre);
+    if (ce_pre != NULL)
+        addPreToRuleBody(g, &rule_base, ce_pre);
+
+    // Set the necessary types in the rule's body
+    const pddl_action_t *action = g->pddl->action.action + action_id;
+    pddlDatalogPddlSetActionTypeBody(g->dl, &rule_base, g->pddl, &action->param,
+                                     pre, ce_pre, g->type_to_dlpred, g->dlvar);
+
+    // For each effect e, add the rule e :- pre, where pre was constructed
+    // and stored in rule_base
+    const pddl_fm_atom_t *catom;
+    pddl_fm_const_it_atom_t it;
+    PDDL_FM_FOR_EACH_ATOM(eff, &it, catom){
+        if (catom->neg)
+            continue;
+
+        // Copy the rule_base template where the body is already set to
+        // equal to the precondition
+        pddl_datalog_rule_t rule;
+        pddlDatalogRuleInit(g->dl, &rule);
+        pddlDatalogRuleCopy(g->dl, &rule, &rule_base);
+
+        // Add head of the rule to be the resulting effect atom
+        pddl_datalog_atom_t atom;
+        pddlDatalogPddlAtomToDLAtom(g->dl, &atom, catom, g->pred_to_dlpred,
+                                    g->obj_to_dlconst, g->dlvar);
+        pddlDatalogRuleSetHead(g->dl, &rule, &atom);
+        pddlDatalogAtomFree(g->dl, &atom);
+
+        // Add rule to the datalog
+        pddlDatalogAddRule(g->dl, &rule);
+        pddlDatalogRuleFree(g->dl, &rule);
+    }
+
+    pddlDatalogRuleFree(g->dl, &rule_base);
+}
+
+static void addActionRules(ground_t *g,
+                           int action_id,
+                           const pddl_ground_config_t *cfg)
 {
     const pddl_action_t *action = g->pddl->action.action + action_id;
 
     action_t *a = g->action + action_id;
     a->id = action_id;
-    a->app_dlpred = addActionRule(g, action_id, action->pre, action->eff, 0, -1);
+    if (cfg->ground_only_facts){
+        addPreToEffRule(g, action_id, action->pre, NULL, action->eff);
+    }else{
+        a->app_dlpred = addActionRule(g, action_id, action->pre, action->eff, 0, -1);
+    }
 
     // Conditional effects
     pddl_fm_const_it_when_t wit;
     const pddl_fm_when_t *when;
     int wi = 0;
     PDDL_FM_FOR_EACH_WHEN(action->eff, &wit, when){
-        addActionRule(g, action_id, when->pre, when->eff, a->app_dlpred, wi);
+        if (cfg->ground_only_facts){
+            addPreToEffRule(g, action_id, action->pre, when->pre, when->eff);
+        }else{
+            addActionRule(g, action_id, when->pre, when->eff, a->app_dlpred, wi);
+        }
         ++wi;
     }
 }
 
-static void addActionsRules(ground_t *g)
+static void addActionsRules(ground_t *g, const pddl_ground_config_t *cfg)
 {
     for (int i = 0; i < g->pddl->action.action_size; ++i)
-        addActionRules(g, i);
+        addActionRules(g, i, cfg);
 }
 
 static int groundInit(ground_t *g,
@@ -219,7 +288,7 @@ static int groundInit(ground_t *g,
 
     pddlDatalogPddlAddEqRules(g->dl, g->pddl, g->pred_to_dlpred,
                               g->obj_to_dlconst);
-    addActionsRules(g);
+    addActionsRules(g, cfg);
     addInitFacts(g);
     pddlDatalogPddlAddTypeRules(g->dl, g->pddl, g->type_to_dlpred,
                                 g->obj_to_dlconst);
@@ -284,11 +353,13 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                                            insertAtom,
                                            &ground);
     }
-    for (int a = 0; a < ground.pddl->action.action_size; ++a){
-        pddlDatalogFactsFromCanonicalModel(ground.dl,
-                                           ground.action[a].app_dlpred,
-                                           insertAction,
-                                           &ground);
+    if (!cfg->ground_only_facts){
+        for (int a = 0; a < ground.pddl->action.action_size; ++a){
+            pddlDatalogFactsFromCanonicalModel(ground.dl,
+                                               ground.action[a].app_dlpred,
+                                               insertAction,
+                                               &ground);
+        }
     }
 
     LOG(err, "Grounding finished: %d actions, %d facts,"

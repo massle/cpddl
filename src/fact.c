@@ -300,6 +300,7 @@ static int factCmpByName(const void *a, const void *b, void *_)
 
 void pddlFactsSort(pddl_facts_t *fs, int *remap)
 {
+    ASSERT(remap != NULL);
     pddlSort(fs->fact, fs->fact_size, sizeof(pddl_fact_t *),
             factCmpByName, NULL);
     for (int i = 0; i < fs->fact_size; ++i){

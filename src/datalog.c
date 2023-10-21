@@ -969,7 +969,7 @@ static int reduceRuleSet(pddl_datalog_t *dl, pddl_err_t *err)
     if (dl->rule_size == 0)
         return 0;
 
-    CTX(err, "reduce-rule-set");
+    CTX_NO_TIME(err, "reduce-rule-set");
     int pred_num_achievers[dl->pred_size];
     ZEROIZE_ARR(pred_num_achievers, dl->pred_size);
     for (int ri = 0; ri < dl->rule_size; ++ri)
@@ -1537,6 +1537,7 @@ void pddlDatalogAtomCopy(pddl_datalog_t *dl,
                          pddl_datalog_atom_t *dst,
                          const pddl_datalog_atom_t *src)
 {
+    ASSERT(src->pred >= 0);
     ZEROIZE(dst);
     dst->pred = src->pred;
     dst->arg = CALLOC_ARR(unsigned, dl->pred[dst->pred].arity);
@@ -1584,14 +1585,16 @@ void pddlDatalogAtomSetArg(pddl_datalog_t *dl,
 void pddlDatalogRuleInit(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
 {
     ZEROIZE(rule);
+    rule->head.pred = -1;
 }
 
 void pddlDatalogRuleCopy(pddl_datalog_t *dl,
                          pddl_datalog_rule_t *dst,
                          const pddl_datalog_rule_t *src)
 {
-    ZEROIZE(dst);
-    pddlDatalogAtomCopy(dl, &dst->head, &src->head);
+    pddlDatalogRuleInit(dl, dst);
+    if (src->head.pred >= 0)
+        pddlDatalogAtomCopy(dl, &dst->head, &src->head);
     dst->body_alloc = src->body_alloc;
     dst->body_size = src->body_size;
     dst->body = ALLOC_ARR(pddl_datalog_atom_t, dst->body_alloc);
