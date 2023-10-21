@@ -328,12 +328,12 @@ static void insertAction(int pred,
     pddlStripsMakerAddAction(&g->strips_maker, pred, 0, arg, NULL);
 }
 
-int pddlStripsGroundDatalog(pddl_strips_t *strips,
-                            const pddl_t *pddl,
-                            const pddl_ground_config_t *cfg,
-                            pddl_err_t *err)
+static int ground(pddl_strips_t *strips,
+                  const pddl_t *pddl,
+                  const pddl_ground_config_t *cfg,
+                  pddl_bool_t use_gringo,
+                  pddl_err_t *err)
 {
-    CTX(err, "Ground DL");
     CTX_NO_TIME(err, "Cfg");
     pddlGroundConfigLog(cfg, err);
     CTXEND(err);
@@ -341,9 +341,18 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
 
     ground_t ground;
     groundInit(&ground, pddl, cfg, err);
-    pddlDatalogToNormalForm(ground.dl, err);
-    //pddlDatalogPrint(ground.dl, stderr);
-    pddlDatalogCanonicalModel(ground.dl, err);
+    if (use_gringo){
+        //pddlDatalogToNormalForm(ground.dl, err);
+        if (pddlDatalogCanonicalModelGringo(ground.dl, err) != 0){
+            groundFree(&ground);
+            TRACE_RET(err, -1);
+        }
+
+    }else{
+        pddlDatalogToNormalForm(ground.dl, err);
+        pddlDatalogCanonicalModel(ground.dl, err);
+    }
+
     pddlStripsMakerAddInit(&ground.strips_maker, ground.pddl);
     for (int p = 0; p < ground.pddl->pred.pred_size; ++p){
         if (p == ground.pddl->pred.eq_pred)
@@ -373,13 +382,32 @@ int pddlStripsGroundDatalog(pddl_strips_t *strips,
                                         strips, err);
 
     groundFree(&ground);
-    if (ret != 0){
-        CTXEND(err);
-        PDDL_TRACE_RET(err, ret);
-    }
+    if (ret != 0)
+        TRACE_RET(err, ret);
 
     LOG(err, "Grounding finished.");
     pddlStripsLogInfo(strips, err);
-    CTXEND(err);
     return 0;
+}
+
+int pddlStripsGroundDatalog(pddl_strips_t *strips,
+                            const pddl_t *pddl,
+                            const pddl_ground_config_t *cfg,
+                            pddl_err_t *err)
+{
+    CTX(err, "Ground DL");
+    int ret = ground(strips, pddl, cfg, pddl_false, err);
+    CTXEND(err);
+    return ret;
+}
+
+int pddlStripsGroundGringo(pddl_strips_t *strips,
+                           const pddl_t *pddl,
+                           const pddl_ground_config_t *cfg,
+                           pddl_err_t *err)
+{
+    CTX(err, "Ground Gringo");
+    int ret = ground(strips, pddl, cfg, pddl_true, err);
+    CTXEND(err);
+    return ret;
 }

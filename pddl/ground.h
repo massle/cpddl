@@ -18,6 +18,7 @@ enum pddl_ground_method {
     PDDL_GROUND_DATALOG = 1,
     PDDL_GROUND_SQL,
     PDDL_GROUND_TRIE,
+    PDDL_GROUND_GRINGO,
 };
 typedef enum pddl_ground_method pddl_ground_method_t;
 

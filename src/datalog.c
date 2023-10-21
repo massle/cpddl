@@ -1886,15 +1886,12 @@ static void encRule(const pddl_datalog_t *dl,
             encAtom(dl, c->body + i, fout);
         }
     }
-    if (c->neg_body_size > 0){
-        if (c->body_size > 0)
+
+    for (int i = 0; i < c->neg_body_size; ++i){
+        if ((c->body_size > 0 && i == 0) || i > 0)
             fprintf(fout, ", ");
         fprintf(fout, "not ");
-        encAtom(dl, c->neg_body + 0, fout);
-        for (int i = 1; i < c->neg_body_size; ++i){
-            fprintf(fout, ", not ");
-            encAtom(dl, c->neg_body + i, fout);
-        }
+        encAtom(dl, c->neg_body + i, fout);
     }
     fprintf(fout, ".");
     //fprintf(fout, "\n");
