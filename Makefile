@@ -328,6 +328,10 @@ src/lemon: src/lemon.c src/lempar.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/__sqlite3.pic.o: src/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
+.objs/datalog.o: src/datalog.c pddl/datalog.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CLINGO_CFLAGS) -c -o $@ $<
+.objs/datalog.pic.o: src/datalog.c pddl/datalog.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(CLINGO_CFLAGS) -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
@@ -556,10 +560,10 @@ help:
 	@echo "  DYNET_CPPFLAGS    = $(DYNET_CPPFLAGS)"
 	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
 	@echo ""
-	@echo "  CLINGO_ROOT       = $(CLINGO_ROOT)"
-	@echo "  USE_CLINGO        = $(USE_CLINGO)"
-	@echo "  CLINGO_CPPFLAGS   = $(CLINGO_CPPFLAGS)"
-	@echo "  CLINGO_LDFLAGS    = $(CLINGO_LDFLAGS)"
+	@echo "  CLINGO_ROOT    = $(CLINGO_ROOT)"
+	@echo "  USE_CLINGO     = $(USE_CLINGO)"
+	@echo "  CLINGO_CFLAGS  = $(CLINGO_CFLAGS)"
+	@echo "  CLINGO_LDFLAGS = $(CLINGO_LDFLAGS)"
 	@echo ""
 	@echo "  USE_CLIQUER       = $(USE_CLIQUER)"
 	@echo "  CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"

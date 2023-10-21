@@ -172,6 +172,15 @@ int pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl,
                                          pddl_err_t *err);
 
 /**
+ * Compute canonical model with the Gringo grounder from the Clingo library
+ * (https://github.com/potassco/clingo).
+ * The cpddl library must be compiled with the Clingo dependency.
+ * This function does *not* require a normalization of the datalog program.
+ * Returns 0 on success.
+ */
+int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl, pddl_err_t *err);
+
+/**
  * Can be called only after pddlDatalogCanonicalModel() function.
  * Iterates over facts of the given predicate from the canonical model, the
  * returned values pred_user_id and arg_user_id are ids previously set by

@@ -277,11 +277,11 @@ ifeq '$(USE_COIN_OR)' 'auto'
 endif
 
 
-CLINGO_CPPFLAGS ?=
+CLINGO_CFLAGS ?=
 CLINGO_LDFLAGS ?=
 USE_CLINGO ?= auto
 ifeq '$(USE_CLINGO)' 'auto'
-  ifneq '$(CLINGO_CPPFLAGS)$(CLINGO_LDFLAGS)' ''
+  ifneq '$(CLINGO_CFLAGS)$(CLINGO_LDFLAGS)' ''
     USE_CLINGO := yes
 
   else ifneq '$(CLINGO_ROOT)' ''
@@ -291,14 +291,11 @@ ifeq '$(USE_CLINGO)' 'auto'
     endif
     ifneq '$(wildcard $(CLINGO_ROOT)/lib/libclingo.so)' ''
       CLINGO_LDFLAGS := -L$(CLINGO_ROOT)/lib -Wl,-rpath=$(CLINGO_ROOT)/lib -lclingo
-    else ifneq '$(wildcard $(CLINGO_ROOT)/libclingo.a)' ''
-      CLINGO_LDFLAGS := $(CLINGO_ROOT)/lib/libclingo.a
     else
       $(error CLINGO_ROOT defined, but could not find Clingo library files \
-              (tried $(CLINGO_ROOT)/lib/libclingo.so and $(CLINGO_ROOT)/lib/libclingo.a))
+              (tried $(CLINGO_ROOT)/lib/libclingo.so))
     endif
-    CLINGO_CPPFLAGS := -I$(CLINGO_ROOT)/include
-    NEED_LIBSTDCPP := yes
+    CLINGO_CFLAGS := -I$(CLINGO_ROOT)/include
     USE_CLINGO := yes
   endif
 endif
