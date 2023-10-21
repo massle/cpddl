@@ -254,6 +254,7 @@ pddl/config.h: $(MAKE_FILES)
 	$(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)")
 	$(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)")
 	$(if $(filter yes,$(USE_DYNET)), $(file >>$@,#define PDDL_DYNET))
+	$(if $(filter yes,$(USE_CLINGO)), $(file >>$@,#define PDDL_CLINGO))
 	$(file >>$@,)
 	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
@@ -554,6 +555,11 @@ help:
 	@echo "  USE_DYNET         = $(USE_DYNET)"
 	@echo "  DYNET_CPPFLAGS    = $(DYNET_CPPFLAGS)"
 	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
+	@echo ""
+	@echo "  CLINGO_ROOT       = $(CLINGO_ROOT)"
+	@echo "  USE_CLINGO        = $(USE_CLINGO)"
+	@echo "  CLINGO_CPPFLAGS   = $(CLINGO_CPPFLAGS)"
+	@echo "  CLINGO_LDFLAGS    = $(CLINGO_LDFLAGS)"
 	@echo ""
 	@echo "  USE_CLIQUER       = $(USE_CLIQUER)"
 	@echo "  CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"

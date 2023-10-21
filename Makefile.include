@@ -277,6 +277,33 @@ ifeq '$(USE_COIN_OR)' 'auto'
 endif
 
 
+CLINGO_CPPFLAGS ?=
+CLINGO_LDFLAGS ?=
+USE_CLINGO ?= auto
+ifeq '$(USE_CLINGO)' 'auto'
+  ifneq '$(CLINGO_CPPFLAGS)$(CLINGO_LDFLAGS)' ''
+    USE_CLINGO := yes
+
+  else ifneq '$(CLINGO_ROOT)' ''
+    ifeq '$(wildcard $(CLINGO_ROOT)/include/clingo.h)' ''
+      $(error CLINGO_ROOT defined, but could not find Clingo header files \
+              (tried $(CLINGO_ROOT)/include/clingo.h))
+    endif
+    ifneq '$(wildcard $(CLINGO_ROOT)/lib/libclingo.so)' ''
+      CLINGO_LDFLAGS := -L$(CLINGO_ROOT)/lib -Wl,-rpath=$(CLINGO_ROOT)/lib -lclingo
+    else ifneq '$(wildcard $(CLINGO_ROOT)/libclingo.a)' ''
+      CLINGO_LDFLAGS := $(CLINGO_ROOT)/lib/libclingo.a
+    else
+      $(error CLINGO_ROOT defined, but could not find Clingo library files \
+              (tried $(CLINGO_ROOT)/lib/libclingo.so and $(CLINGO_ROOT)/lib/libclingo.a))
+    endif
+    CLINGO_CPPFLAGS := -I$(CLINGO_ROOT)/include
+    NEED_LIBSTDCPP := yes
+    USE_CLINGO := yes
+  endif
+endif
+
+
 SQLITE_BUILD_CFLAGS := \
   -DSQLITE_OMIT_AUTHORIZATION \
   -DSQLITE_OMIT_AUTOINCREMENT \
@@ -312,6 +339,7 @@ LDFLAGS_EXTRA += $(BLISS_LDFLAGS)
 LDFLAGS_EXTRA += $(CLIQUER_LDFLAGS)
 LDFLAGS_EXTRA += $(CUDD_LDFLAGS)
 LDFLAGS_EXTRA += $(DYNET_LDFLAGS)
+LDFLAGS_EXTRA += $(CLINGO_LDFLAGS)
 ifeq '$(NEED_LIBSTDCPP)' 'yes'
   LDFLAGS_EXTRA += -lstdc++
 endif
