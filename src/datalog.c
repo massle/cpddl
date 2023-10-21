@@ -26,6 +26,7 @@
 #include "pddl/datalog.h"
 #include "pddl/iarr.h"
 #include "pddl/strstream.h"
+#include "pddl/subprocess.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;
@@ -1833,14 +1834,21 @@ static void clingoLogger(clingo_warning_t code,
 
     pddl_err_t *err = userdata;
     size_t msglen = strlen(message);
-    if (message[msglen - 1] == '\n'){
-        char *msg = STRDUP(message);
-        msg[msglen - 1] = '\x0';
-        LOG(err, "Clingo: %s", msg);
-        FREE(msg);
-    }else{
-        LOG(err, "Clingo: %s", message);
+
+    char *msg = ALLOC_ARR(char, msglen);
+    char *line = msg;
+    memcpy(msg, message, sizeof(char) * msglen);
+    int end = 0;
+    while (end < msglen){
+        for (; msg[end] != '\n' && msg[end] != '\x0'; ++end);
+        msg[end] = '\x0';
+        LOG(err, "Clingo Log: %s", line);
+
+        ++end;
+        line = msg + end;
     }
+
+    FREE(msg);
 }
 
 static void encName(const pddl_datalog_t *dl, unsigned id, FILE *fout)
@@ -1866,7 +1874,7 @@ static void encAtom(const pddl_datalog_t *dl,
     fprintf(fout, "(");
     for (int i = 0; i < dl->pred[p].arity; ++i){
         if (i > 0)
-            fprintf(fout, ", ");
+            fprintf(fout, ",");
         encName(dl, atom->arg[i], fout);
     }
     fprintf(fout, ")");
@@ -1894,13 +1902,83 @@ static void encRule(const pddl_datalog_t *dl,
         encAtom(dl, c->neg_body + i, fout);
     }
     fprintf(fout, ".");
-    //fprintf(fout, "\n");
+    fprintf(fout, "\n");
 }
 
 static void encRules(const pddl_datalog_t *dl, FILE *fout)
 {
     for (int ci = 0; ci < dl->rule_size; ++ci)
         encRule(dl, dl->rule + ci, fout);
+}
+
+static char *clingoEncode(const pddl_datalog_t *dl,
+                          const char *lpopt_bin,
+                          pddl_err_t *err)
+{
+    char *enc = NULL;
+    size_t enc_size;
+    FILE *enc_fin = pddl_strstream(&enc, &enc_size);
+    encRules(dl, enc_fin);
+    fflush(enc_fin);
+    fclose(enc_fin);
+    LOG(err, "Encoded ASP program: %zu bytes", enc_size);
+
+    char *out = NULL;
+    if (lpopt_bin != NULL){
+        LOG(err, "Preprocessing datalog program with lpopt: %s ...", lpopt_bin);
+        CTX(err, "lpopt");
+        char *lpopt_out = NULL;
+        int lpopt_out_size = 0;
+        char *lpopt_err = NULL;
+        int lpopt_err_size = 0;
+        pddl_exec_status_t lpopt_st;
+        char * const lpopt_argv[] = { (char *)lpopt_bin, NULL };
+        int st = pddlExecvp(lpopt_argv, &lpopt_st, enc, enc_size,
+                            &lpopt_out, &lpopt_out_size,
+                            &lpopt_err, &lpopt_err_size, err);
+        if (lpopt_err_size > 0){
+            char *line = lpopt_err;
+            int end = 0;
+            while (end < lpopt_err_size){
+                for (; lpopt_err[end] != '\n' && lpopt_err[end] != '\x0'; ++end);
+                lpopt_err[end] = '\x0';
+                LOG(err, "error output: %s", line);
+
+                ++end;
+                line = lpopt_err + end;
+            }
+        }
+        if (lpopt_err != NULL)
+            FREE(lpopt_err);
+
+        if (st != 0){
+            CTXEND(err);
+            if (lpopt_out != NULL)
+                FREE(lpopt_out);
+            free(enc);
+            TRACE_RET(err, NULL);
+
+        }else if (!lpopt_st.exited || lpopt_st.exit_status != 0){
+            CTXEND(err);
+            if (lpopt_out != NULL)
+                FREE(lpopt_out);
+            free(enc);
+            ERR_RET(err, NULL, "lpopt failed. See log for the error message.");
+        }
+
+        out = REALLOC_ARR(lpopt_out, char, lpopt_out_size + 1);
+        out[lpopt_out_size] = '\x0';
+
+        CTXEND(err);
+
+    }else{
+        out = ALLOC_ARR(char, enc_size + 1);
+        memcpy(out, enc, sizeof(char) * enc_size);
+        out[enc_size] = '\x0';
+    }
+
+    free(enc);
+    return out;
 }
 
 static int clingoGroundAtomsToFacts(pddl_datalog_t *dl,
@@ -1986,9 +2064,12 @@ static int clingoGroundAtomsToFacts(pddl_datalog_t *dl,
 
     return 0;
 }
+
 #endif
 
-int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl, pddl_err_t *err)
+int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl,
+                                    const char *lpopt_bin,
+                                    pddl_err_t *err)
 {
 #ifndef PDDL_CLINGO
     ERR_RET(err, -1, __func__ " requires Clingo library; cpddl must be"
@@ -2011,24 +2092,21 @@ int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl, pddl_err_t *err)
 
     // Encode datalog program in ASP format and so that we can recover
     // constant and predicate IDs
-    char *enc = NULL;
-    size_t enc_size;
-    FILE *enc_fin = pddl_strstream(&enc, &enc_size);
-    encRules(dl, enc_fin);
-    fflush(enc_fin);
-    fclose(enc_fin);
-    LOG(err, "Encoded ASP program: %zu bytes", enc_size);
+    char *enc = clingoEncode(dl, lpopt_bin, err);
+    if (enc == NULL){
+        clingo_control_free(ctl);
+        TRACE_RET(err, -1);
+    }
 
     // Pass the encoded datalog program to clingo
-    int st = clingo_control_add(ctl, "base", NULL, 0, enc);
-    if (enc != NULL)
-        free(enc);
-    if (!st){
+    if (!clingo_control_add(ctl, "base", NULL, 0, enc)){
+        FREE(enc);
         clingo_control_free(ctl);
         ERR_RET(err, -1, "Problem with encoding of the datalog program: %d:%s",
                 clingo_error_code(),
                 (clingo_error_message() != NULL ? clingo_error_message() : ""));
     }
+    FREE(enc);
     LOG(err, "ASP program parsed.");
 
     // Ground the program

@@ -660,6 +660,9 @@ static void setGroundOptions(void)
                 "After grounding lifted mutex groups, remove subsets.");
     optsAddStr("ground-mg-out", 0x0, &opt.ground.mgroup_out, NULL,
                 "Output filename for grounded mutex groups.");
+    optsAddStr("ground-gringo-lpopt", 0x0, (char **)&opt.ground.cfg.gringo_lpopt, NULL,
+               "Path to the lpopt optimizer used for preprocessing datalog"
+               " program before it is passed to Gringo.");
 
     optsStartGroup("STRIPS:");
     optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,

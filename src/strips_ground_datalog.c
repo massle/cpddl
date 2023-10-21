@@ -343,7 +343,8 @@ static int ground(pddl_strips_t *strips,
     groundInit(&ground, pddl, cfg, err);
     if (use_gringo){
         //pddlDatalogToNormalForm(ground.dl, err);
-        if (pddlDatalogCanonicalModelGringo(ground.dl, err) != 0){
+        const char *lpopt = cfg->gringo_lpopt;
+        if (pddlDatalogCanonicalModelGringo(ground.dl, lpopt, err) != 0){
             groundFree(&ground);
             TRACE_RET(err, -1);
         }

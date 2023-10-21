@@ -41,6 +41,11 @@ struct pddl_ground_config {
     pddl_bool_t keep_all_static_facts;
     /** Ground only facts, i.e., completely skip grounding of actions */
     pddl_bool_t ground_only_facts;
+    /** If set to non-NULL, it must contain a path to the lpopt optimizer
+      * binary (https://dbai.tuwien.ac.at/proj/lpopt) that is used for
+      * preprocessing datalog program before it is passed to Gringo.
+      * It has effect only if .method is set to PDDL_GROUND_GRINGO. */
+    const char *gringo_lpopt;
 };
 typedef struct pddl_ground_config pddl_ground_config_t;
 
@@ -53,6 +58,7 @@ typedef struct pddl_ground_config pddl_ground_config_t;
         pddl_false, /* .keep_action_args */ \
         pddl_false, /* .keep_all_static_facts */ \
         pddl_false, /* .ground_only_facts */ \
+        NULL, /* .gringo_lpopt */ \
     }
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err);

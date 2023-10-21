@@ -176,9 +176,14 @@ int pddlDatalogWeightedCanonicalModelMax(pddl_datalog_t *dl,
  * (https://github.com/potassco/clingo).
  * The cpddl library must be compiled with the Clingo dependency.
  * This function does *not* require a normalization of the datalog program.
+ * If lpopt_bin is non-NULL, it must contain path to the lpopt optimizer
+ * binary (https://dbai.tuwien.ac.at/proj/lpopt) that is used for
+ * preprocessing datalog program before it is passed to Gringo.
  * Returns 0 on success.
  */
-int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl, pddl_err_t *err);
+int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl,
+                                    const char *lpopt_bin,
+                                    pddl_err_t *err);
 
 /**
  * Can be called only after pddlDatalogCanonicalModel() function.
