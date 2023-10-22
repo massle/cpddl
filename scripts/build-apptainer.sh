@@ -1,6 +1,7 @@
 #!/bin/bash
 
 HIGHS_VERSION="v1.5.1"
+CLINGO_VERSION="v5.6.2"
 MINIZINC_LINK="https://github.com/MiniZinc/MiniZincIDE/releases/download/2.7.0/MiniZincIDE-2.7.0-bundle-linux-x86_64.tgz"
 
 if [ "$1" = "" ]; then
@@ -19,6 +20,7 @@ if [ "$1" = "" ]; then
     echo "        --no-bliss"
     echo "        --no-cudd"
     echo "        --highs"
+    echo "        --clingo"
     echo "        --coin-or (supported only with debian/ubuntu/fedora)"
     echo "        --cplex ibm_studio_installer"
     echo "        --cplex-api /path/to/include/dir"
@@ -46,6 +48,7 @@ HAS_CPLEX=
 HAS_CPLEX_API=
 HAS_GUROBI=
 HAS_HIGHS=
+HAS_CLINGO=
 HAS_COIN_OR=
 HAS_MINIZINC=
 NO_BLISS=
@@ -82,6 +85,16 @@ while true; do
         shift
         SETUP="$SETUP
     git clone --depth 1 --branch $HIGHS_VERSION https://github.com/ERGO-Code/HiGHS.git \$APPTAINER_ROOTFS/HiGHS-src
+"
+
+    elif [ "$1" = "--clingo" ]; then
+        HAS_CLINGO=yes
+        shift
+        SETUP="$SETUP
+    git clone --depth 1 --branch $CLINGO_VERSION https://github.com/potassco/clingo.git \$APPTAINER_ROOTFS/clingo-src
+"
+        ADDITIONAL_FILES="$ADDITIONAL_FILES
+    /clingo/lib/libclingo.so*
 "
 
     elif [ "$1" = "--coin-or" ]; then
@@ -188,6 +201,9 @@ fi
 if [ "$HAS_HIGHS" = "yes" ]; then
     SUFF="${SUFF}-highs"
 fi
+if [ "$HAS_CLINGO" = "yes" ]; then
+    SUFF="${SUFF}-clingo"
+fi
 if [ "$HAS_COIN_OR" = "yes" ]; then
     SUFF="${SUFF}-coinor"
 fi
@@ -201,6 +217,16 @@ MAKE="
         mkdir build
         cd build
         cmake -DCMAKE_INSTALL_PREFIX=/HiGHS -DCMAKE_INSTALL_LIBDIR=lib -DSHARED=OFF ..
+        make -j8
+        make install
+        cd ../..
+    fi
+
+    if [ -d /clingo-src ]; then
+        cd /clingo-src
+        mkdir build
+        cd build
+        cmake -DCMAKE_INSTALL_PREFIX=/clingo ..
         make -j8
         make install
         cd ../..
@@ -246,6 +272,7 @@ MAKE="
     [ -d /cplex ] && echo \"IBM_CPLEX_ROOT = /cplex\" >>Makefile.config
     [ \"$HAS_CPLEX_API\" = \"yes\" ] && echo \"CPLEX_ONLY_API = yes\" >>Makefile.config
     [ -d /HiGHS ] && echo \"HIGHS_ROOT = /HiGHS\" >>Makefile.config
+    [ -d /clingo ] && echo \"CLINGO_ROOT = /clingo\" >>Makefile.config
     [ -f /usr/include/coin/OsiSolverInterface.hpp ] && echo \"COIN_OR_USE_PKGCONFIG = yes\" >>Makefile.config
     [ -d /minizinc ] && echo \"MINIZINC_BIN = /minizinc/bin/minizinc\" >>Makefile.config
     [ \"$WERROR\" != \"\" ] && echo \"WERROR = yes\" >>Makefile.config
