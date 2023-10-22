@@ -55,6 +55,7 @@ SRC += strips_ground_tree
 SRC += strips_ground_trie
 SRC += strips_ground_sql
 SRC += strips_ground_datalog
+SRC += strips_ground_clingo
 SRC += action_args
 SRC += ground_atom
 SRC += profile
@@ -331,6 +332,10 @@ src/lemon: src/lemon.c src/lempar.c
 .objs/datalog.o: src/datalog.c pddl/datalog.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) $(CLINGO_CFLAGS) -c -o $@ $<
 .objs/datalog.pic.o: src/datalog.c pddl/datalog.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(CLINGO_CFLAGS) -c -o $@ $<
+.objs/strips_ground_clingo.o: src/strips_ground_clingo.c pddl/strips_ground_clingo.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CLINGO_CFLAGS) -c -o $@ $<
+.objs/strips_ground_clingo.pic.o: src/strips_ground_clingo.c pddl/strips_ground_clingo.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC $(CLINGO_CFLAGS) -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)

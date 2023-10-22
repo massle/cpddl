@@ -407,8 +407,13 @@ int pddlStripsGroundGringo(pddl_strips_t *strips,
                            const pddl_ground_config_t *cfg,
                            pddl_err_t *err)
 {
+#ifndef PDDL_CLINGO
+    ERR_RET(err, -1, "Gringo grounder requires Clingo library; cpddl must be"
+            " re-compiled with the Clingo support.");
+#else /* PDDL_CLINGO */
     CTX(err, "Ground Gringo");
     int ret = ground(strips, pddl, cfg, pddl_true, err);
     CTXEND(err);
     return ret;
+#endif /* PDDL_CLINGO */
 }

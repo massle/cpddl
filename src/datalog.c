@@ -2072,8 +2072,8 @@ int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl,
                                     pddl_err_t *err)
 {
 #ifndef PDDL_CLINGO
-    ERR_RET(err, -1, __func__ " requires Clingo library; cpddl must be"
-            " re-compiled with the Clingo support.");
+    ERR_RET(err, -1, "%s requires Clingo library; cpddl must be"
+            " re-compiled with the Clingo support.", __func__);
 #else /* PDDL_CLINGO */
     CTX(err, "DL Canonical Model Gringo");
 

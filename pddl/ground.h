@@ -19,6 +19,7 @@ enum pddl_ground_method {
     PDDL_GROUND_SQL,
     PDDL_GROUND_TRIE,
     PDDL_GROUND_GRINGO,
+    PDDL_GROUND_CLINGO,
 };
 typedef enum pddl_ground_method pddl_ground_method_t;
 

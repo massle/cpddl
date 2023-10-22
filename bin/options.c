@@ -634,14 +634,16 @@ static void setGroundOptions(void)
                      "Grounding method, one of:\n"
                      "  dl/datalog - datalog-based grounding method (default)\n"
                      "  gringo - use Gringo grounder\n"
+                     "  clingo - use Clingo solver (iterative grounding)\n"
                      "  sql - sqlite-based grounding method\n"
                      "  trie - default grounding method",
-                     5,
+                     6,
                      "trie", PDDL_GROUND_TRIE,
                      "sql", PDDL_GROUND_SQL,
                      "dl", PDDL_GROUND_DATALOG,
                      "datalog", PDDL_GROUND_DATALOG,
-                     "gringo", PDDL_GROUND_GRINGO);
+                     "gringo", PDDL_GROUND_GRINGO,
+                     "clingo", PDDL_GROUND_CLINGO);
     optsAddFlag("ground-prune-mutex", 0x0,
                 &opt.ground.cfg.prune_op_pre_mutex, 1,
                 "Prune during grounding by checking preconditions of operators");
