@@ -25,6 +25,8 @@
 #include "pddl/pairheap.h"
 #include "pddl/datalog.h"
 #include "pddl/iarr.h"
+#include "pddl/strstream.h"
+#include "pddl/subprocess.h"
 
 struct pddl_datalog_fact {
     pddl_htable_key_t hash;
@@ -1816,4 +1818,320 @@ void pddlDatalogPrint(const pddl_datalog_t *dl, FILE *fout)
     for (int ci = 0; ci < dl->rule_size; ++ci){
         pddlDatalogPrintRule(dl, dl->rule + ci, fout);
     }
+}
+
+
+
+#ifdef PDDL_CLINGO
+# include <clingo.h>
+
+static void clingoLogger(clingo_warning_t code,
+                         char const *message,
+                         void *userdata)
+{
+    if (message == NULL || *message == '\x0')
+        return;
+
+    pddl_err_t *err = userdata;
+    size_t msglen = strlen(message);
+
+    char *msg = ALLOC_ARR(char, msglen);
+    char *line = msg;
+    memcpy(msg, message, sizeof(char) * msglen);
+    int end = 0;
+    while (end < msglen){
+        for (; msg[end] != '\n' && msg[end] != '\x0'; ++end);
+        msg[end] = '\x0';
+        LOG(err, "Clingo Log: %s", line);
+
+        ++end;
+        line = msg + end;
+    }
+
+    FREE(msg);
+}
+
+static void encName(const pddl_datalog_t *dl, unsigned id, FILE *fout)
+{
+    int idx = TO_IDX(id);
+    if (IS_CONST(id)){
+        fprintf(fout, "c%d", idx);
+
+    }else if (IS_VAR(id)){
+        fprintf(fout, "X%d", idx);
+
+    }else if (IS_PRED(id)){
+        fprintf(fout, "p%d", idx);
+    }
+}
+
+static void encAtom(const pddl_datalog_t *dl,
+                    const pddl_datalog_atom_t *atom,
+                    FILE *fout)
+{
+    encName(dl, IDX_TO_PRED(atom->pred), fout);
+    int p = atom->pred;
+    fprintf(fout, "(");
+    for (int i = 0; i < dl->pred[p].arity; ++i){
+        if (i > 0)
+            fprintf(fout, ",");
+        encName(dl, atom->arg[i], fout);
+    }
+    fprintf(fout, ")");
+}
+
+static void encRule(const pddl_datalog_t *dl,
+                    const pddl_datalog_rule_t *c,
+                    FILE *fout)
+{
+    encAtom(dl, &c->head, fout);
+    if (c->body_size > 0 || c->neg_body_size > 0)
+        fprintf(fout, " :- ");
+    if (c->body_size > 0){
+        encAtom(dl, c->body + 0, fout);
+        for (int i = 1; i < c->body_size; ++i){
+            fprintf(fout, ", ");
+            encAtom(dl, c->body + i, fout);
+        }
+    }
+
+    for (int i = 0; i < c->neg_body_size; ++i){
+        if ((c->body_size > 0 && i == 0) || i > 0)
+            fprintf(fout, ", ");
+        fprintf(fout, "not ");
+        encAtom(dl, c->neg_body + i, fout);
+    }
+    fprintf(fout, ".");
+    fprintf(fout, "\n");
+}
+
+static void encRules(const pddl_datalog_t *dl, FILE *fout)
+{
+    for (int ci = 0; ci < dl->rule_size; ++ci)
+        encRule(dl, dl->rule + ci, fout);
+}
+
+static char *clingoEncode(const pddl_datalog_t *dl,
+                          const char *lpopt_bin,
+                          pddl_err_t *err)
+{
+    char *enc = NULL;
+    size_t enc_size;
+    FILE *enc_fin = pddl_strstream(&enc, &enc_size);
+    encRules(dl, enc_fin);
+    fflush(enc_fin);
+    fclose(enc_fin);
+    LOG(err, "Encoded ASP program: %zu bytes", enc_size);
+
+    char *out = NULL;
+    if (lpopt_bin != NULL){
+        LOG(err, "Preprocessing datalog program with lpopt: %s ...", lpopt_bin);
+        CTX(err, "lpopt");
+        char *lpopt_out = NULL;
+        int lpopt_out_size = 0;
+        char *lpopt_err = NULL;
+        int lpopt_err_size = 0;
+        pddl_exec_status_t lpopt_st;
+        char * const lpopt_argv[] = { (char *)lpopt_bin, NULL };
+        int st = pddlExecvp(lpopt_argv, &lpopt_st, enc, enc_size,
+                            &lpopt_out, &lpopt_out_size,
+                            &lpopt_err, &lpopt_err_size, err);
+        if (lpopt_err_size > 0){
+            char *line = lpopt_err;
+            int end = 0;
+            while (end < lpopt_err_size){
+                for (; lpopt_err[end] != '\n' && lpopt_err[end] != '\x0'; ++end);
+                lpopt_err[end] = '\x0';
+                LOG(err, "error output: %s", line);
+
+                ++end;
+                line = lpopt_err + end;
+            }
+        }
+        if (lpopt_err != NULL)
+            FREE(lpopt_err);
+
+        if (st != 0){
+            CTXEND(err);
+            if (lpopt_out != NULL)
+                FREE(lpopt_out);
+            free(enc);
+            TRACE_RET(err, NULL);
+
+        }else if (!lpopt_st.exited || lpopt_st.exit_status != 0){
+            CTXEND(err);
+            if (lpopt_out != NULL)
+                FREE(lpopt_out);
+            free(enc);
+            ERR_RET(err, NULL, "lpopt failed. See log for the error message.");
+        }
+
+        out = REALLOC_ARR(lpopt_out, char, lpopt_out_size + 1);
+        out[lpopt_out_size] = '\x0';
+
+        CTXEND(err);
+
+    }else{
+        out = ALLOC_ARR(char, enc_size + 1);
+        memcpy(out, enc, sizeof(char) * enc_size);
+        out[enc_size] = '\x0';
+    }
+
+    free(enc);
+    return out;
+}
+
+static int clingoGroundAtomsToFacts(pddl_datalog_t *dl,
+                                    clingo_control_t *ctl,
+                                    pddl_err_t *err)
+{
+    // Obtain atoms
+    clingo_symbolic_atoms_t const *atoms;
+    if (!clingo_control_symbolic_atoms(ctl, &atoms)){
+        ERR_RET(err, -1, "Could not obtain atoms: %d:%s",
+                clingo_error_code(),
+                (clingo_error_message() != NULL ? clingo_error_message() : ""));
+    }
+
+    // Number atoms -- for logging only
+    size_t atoms_size;
+    if (!clingo_symbolic_atoms_size(atoms, &atoms_size)){
+        ERR_RET(err, -1, "Could not obtain number of atoms: %d:%s",
+                clingo_error_code(),
+                (clingo_error_message() != NULL ? clingo_error_message() : ""));
+    }
+    LOG(err, "Number of ground atoms: %zu", atoms_size);
+
+    // Obtain iterators over atoms
+    clingo_symbolic_atom_iterator_t it_atoms, ie_atoms;
+    if (!clingo_symbolic_atoms_begin(atoms, NULL, &it_atoms)
+            || !clingo_symbolic_atoms_end(atoms, &ie_atoms)){
+        ERR_RET(err, -1, "Could not obtain iterator over atoms: %d:%s",
+                clingo_error_code(),
+                (clingo_error_message() != NULL ? clingo_error_message() : ""));
+    }
+
+    for (;;){
+        // check if we are at the end of the sequence
+        bool equal;
+        if (!clingo_symbolic_atoms_iterator_is_equal_to(atoms, it_atoms, ie_atoms, &equal)){
+            ERR_RET(err, -1, "Could not test equality of atom iterators: %d:%s",
+                    clingo_error_code(),
+                    (clingo_error_message() != NULL ? clingo_error_message() : ""));
+        }
+        if (equal)
+            break;
+
+        // Obtain the current symbol
+        clingo_symbol_t symbol;
+        clingo_symbolic_atoms_symbol(atoms, it_atoms, &symbol);
+
+        // Check if it is a fact
+        bool is_fact;
+        clingo_symbolic_atoms_is_fact(atoms, it_atoms, &is_fact);
+        if (is_fact){
+            ASSERT(clingo_symbol_type(symbol) == clingo_symbol_type_function);
+            const char *name;
+            clingo_symbol_name(symbol, &name);
+            // We are interested in the predicates from the input datalog program
+            if (name != NULL && *name == 'p'){
+                ASSERT(strlen(name) >= 2);
+                // Extract ID of the predicate
+                int pred_id = atoi(name + 1);
+
+                // Extract arguments IDs
+                const clingo_symbol_t *args;
+                size_t args_size;
+                clingo_symbol_arguments(symbol, &args, &args_size);
+                ASSERT(dl->pred[pred_id].arity == args_size);
+                int dl_args[args_size];
+                for (int i = 0; i < args_size; ++i){
+                    const char *name;
+                    clingo_symbol_name(args[i], &name);
+                    ASSERT(name != NULL && *name == 'c');
+                    int id = atoi(name + 1);
+                    dl_args[i] = id;
+                }
+
+                // Add the current fact to the database
+                dbAddFact(dl, &dl->db, pred_id, dl_args);
+            }
+        }
+
+        // Move to the next atom
+        clingo_symbolic_atoms_next(atoms, it_atoms, &it_atoms);
+    }
+
+    return 0;
+}
+
+#endif
+
+int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl,
+                                    const char *lpopt_bin,
+                                    pddl_err_t *err)
+{
+#ifndef PDDL_CLINGO
+    ERR_RET(err, -1, "%s requires Clingo library; cpddl must be"
+            " re-compiled with the Clingo support.", __func__);
+#else /* PDDL_CLINGO */
+    CTX(err, "DL Canonical Model Gringo");
+
+    setUp(dl, 1, err);
+
+    clingo_control_t *ctl = NULL;
+    //const char *cl_argv[] = { "-V", "--output-debug=text" };
+    //int cl_args = sizeof(cl_argv) / sizeof(const char *);
+    const char **cl_argv = NULL;
+    int cl_args = 0;
+    if (!clingo_control_new(cl_argv, cl_args, clingoLogger, err, 100, &ctl)){
+        ERR_RET(err, -1, "Initialization of clingo failed: %d:%s",
+                clingo_error_code(),
+                (clingo_error_message() != NULL ? clingo_error_message() : ""));
+    }
+
+    // Encode datalog program in ASP format and so that we can recover
+    // constant and predicate IDs
+    char *enc = clingoEncode(dl, lpopt_bin, err);
+    if (enc == NULL){
+        clingo_control_free(ctl);
+        TRACE_RET(err, -1);
+    }
+
+    // Pass the encoded datalog program to clingo
+    if (!clingo_control_add(ctl, "base", NULL, 0, enc)){
+        FREE(enc);
+        clingo_control_free(ctl);
+        ERR_RET(err, -1, "Problem with encoding of the datalog program: %d:%s",
+                clingo_error_code(),
+                (clingo_error_message() != NULL ? clingo_error_message() : ""));
+    }
+    FREE(enc);
+    LOG(err, "ASP program parsed.");
+
+    // Ground the program
+    LOG(err, "Grounding of ASP program...");
+    clingo_part_t parts[] = {{ "base", NULL, 0 }};
+    if (!clingo_control_ground(ctl, parts, 1, NULL, NULL)){
+        clingo_control_free(ctl);
+        ERR_RET(err, -1, "Grounding failed: %d:%s",
+                clingo_error_code(),
+                (clingo_error_message() != NULL ? clingo_error_message() : ""));
+    }
+    LOG(err, "ASP program grounded.");
+
+    // Store clingo's facts into our database
+    LOG(err, "Transforming clingo facts to datalog facts...");
+    if (clingoGroundAtomsToFacts(dl, ctl, err) != 0){
+        clingo_control_free(ctl);
+        TRACE_RET(err, -1);
+    }
+
+    clingo_control_free(ctl);
+
+    LOG(err, "DONE (facts: %d, db-mem: %luMB)",
+        dl->db.fact_size, dbUsedMem(&dl->db) / (1024lu * 1024lu));
+    CTXEND(err);
+    return 0;
+#endif /* PDDL_CLINGO */
 }

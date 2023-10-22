@@ -59,6 +59,7 @@
 #include <pddl/strips_ground_trie.h>
 #include <pddl/strips_ground_sql.h>
 #include <pddl/strips_ground_datalog.h>
+#include <pddl/strips_ground_clingo.h>
 #include <pddl/strips_conj.h>
 #include <pddl/lifted_mgroup.h>
 #include <pddl/lifted_mgroup_infer.h>

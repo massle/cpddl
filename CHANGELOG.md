@@ -5,6 +5,7 @@
 ### Added
 - Action Schema Networks
 - Gaifman graphs for homomorphism-based heuristics for lifted planning
+- Gringo and Clingo grounders
 
 ### Changed
 - Greedy searches terminate as soon as goal state is generated

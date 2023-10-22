@@ -15,8 +15,9 @@ tool can be obtained from gitlab:
 ```
 It is built with the support for symmetries ([bliss](https://users.aalto.fi/~tjunttil/bliss)),
 symbolic search ([cudd](https://davidkebo.com/cudd)), LP/MIP solvers
-([HiGHS](https://highs.dev) and [Coin-Or](https://www.coin-or.org/)), and an CP
-solver ([minizinc](https://www.minizinc.org/)).
+([HiGHS](https://highs.dev) and [Coin-Or](https://www.coin-or.org/)), a COP
+solver ([minizinc](https://www.minizinc.org/)), and
+[Gringo/Clingo](https://potassco.org/clingo/) grounders.
 It also supports the [CPLEX](https://www.ibm.com/analytics/cplex-optimizer)
 solver, but it is not directly linked-in (as it requires academic or
 commercial license). Instead, you can dymanically link it during runtime. If,
@@ -430,3 +431,6 @@ solvers), but it is called as a subprocess from cpddl, i.e., it is never
 statically or dynamically linked to cpddl.
 
   The recommended option is the CPLEX CP Optimizer.
+
+- Gringo and Clingo grounders require the [clingo](https://potassco.org/clingo)
+library. Clingo is distributed under the MIT License.

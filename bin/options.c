@@ -633,13 +633,17 @@ static void setGroundOptions(void)
     optsAddIntSwitch("ground", 'G', (int *)&opt.ground.cfg.method,
                      "Grounding method, one of:\n"
                      "  dl/datalog - datalog-based grounding method (default)\n"
+                     "  gringo - use Gringo grounder\n"
+                     "  clingo - use Clingo solver (iterative grounding)\n"
                      "  sql - sqlite-based grounding method\n"
                      "  trie - default grounding method",
-                     4,
+                     6,
                      "trie", PDDL_GROUND_TRIE,
                      "sql", PDDL_GROUND_SQL,
                      "dl", PDDL_GROUND_DATALOG,
-                     "datalog", PDDL_GROUND_DATALOG);
+                     "datalog", PDDL_GROUND_DATALOG,
+                     "gringo", PDDL_GROUND_GRINGO,
+                     "clingo", PDDL_GROUND_CLINGO);
     optsAddFlag("ground-prune-mutex", 0x0,
                 &opt.ground.cfg.prune_op_pre_mutex, 1,
                 "Prune during grounding by checking preconditions of operators");
@@ -658,6 +662,9 @@ static void setGroundOptions(void)
                 "After grounding lifted mutex groups, remove subsets.");
     optsAddStr("ground-mg-out", 0x0, &opt.ground.mgroup_out, NULL,
                 "Output filename for grounded mutex groups.");
+    optsAddStr("ground-gringo-lpopt", 0x0, (char **)&opt.ground.cfg.gringo_lpopt, NULL,
+               "Path to the lpopt optimizer used for preprocessing datalog"
+               " program before it is passed to Gringo.");
 
     optsStartGroup("STRIPS:");
     optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,

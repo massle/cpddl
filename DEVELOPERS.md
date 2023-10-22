@@ -46,7 +46,7 @@ branch later.
     ./scripts/build-apptainer.sh --no-bliss --no-cudd --git-dev v${VER} \
                                  --name barebone-${VER} alpine
     ./scripts/build-apptainer.sh --cplex-api /opt/cplex/v22.1.1/cplex/include \
-                                 --highs --coin-or --minizinc \
+                                 --highs --clingo --coin-or --minizinc \
                                  --git-dev v${VER} --name ${VER} debian-bookworm
 
     apptainer push cpddl-barebone-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:barebone-v${VER}
