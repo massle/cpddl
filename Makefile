@@ -9,6 +9,7 @@ SRC += strstream
 SRC += hfunc
 SRC += sha256
 SRC += google-city-hash
+SRC += _toml
 SRC += toml
 SRC += rand
 SRC += sort
