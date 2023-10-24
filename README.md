@@ -430,3 +430,6 @@ solvers), but it is called as a subprocess from cpddl, i.e., it is never
 statically or dynamically linked to cpddl.
 
   The recommended option is the CPLEX CP Optimizer.
+
+- Action Schema Networks require the [DyNet](https://github.com/clab/dynet)
+library licensed under Apache 2.0 license.
