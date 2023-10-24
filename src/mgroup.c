@@ -759,7 +759,11 @@ int pddlMGroupsCoverNumber(const pddl_mgroups_t *mgs, int fact_size)
 
     pddl_lp_solution_t sol;
     sol.var_val = ALLOC_ARR(double, cols);
-    pddlLPSolve(lp, &sol, NULL);
+    if (pddlLPSolve(lp, &sol, NULL) == PDDL_LP_STATUS_ERR){
+        // TODO: Propagate this error up
+        PANIC("Error in the LP solver occurred");
+    }
+
     if (sol.solved){
         for (int i = fact_size; i < cols; ++i){
             if (sol.var_val[i] > 0.5)

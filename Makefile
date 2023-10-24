@@ -161,11 +161,13 @@ SRC += iset
 SRC += iarr
 SRC += lifted_heur
 SRC += lifted_heur_relaxed
+SRC += lifted_heur_gaifman
 SRC += subprocess
 SRC += task
 SRC += asnets_task
 SRC += asnets_train_data
 SRC += str_pool
+SRC += gaifman
 
 SRC += __sqlite3
 

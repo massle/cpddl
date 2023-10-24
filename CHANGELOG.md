@@ -4,8 +4,10 @@
 
 ### Added
 - Action Schema Networks
+- Gaifman graphs for homomorphism-based heuristics for lifted planning
 
 ### Changed
+- Greedy searches terminate as soon as goal state is generated
 
 ### Removed
 

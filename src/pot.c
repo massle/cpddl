@@ -783,7 +783,12 @@ int pddlPotSolve(const pddl_pot_t *pot,
     pddl_lp_solution_t lpsol;
     lpsol.var_val = CALLOC_ARR(double, var_size);
 
-    pddlLPSolve(lp, &lpsol, err);
+    if (pddlLPSolve(lp, &lpsol, err) == PDDL_LP_STATUS_ERR){
+        // TODO: Propagate this error up
+        pddlErrPrint(err, 1, stderr);
+        PANIC("Error in the LP solver occurred");
+    }
+
     if (lpsol.solved){
         sol->objval = lpsol.obj_val;
         sol->pot_size = pot->var_size;

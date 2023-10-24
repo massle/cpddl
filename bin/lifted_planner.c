@@ -97,6 +97,9 @@ static pddl_homomorphism_heur_t *
                                     heur_homo_fn heur_fn,
                                     pddl_err_t *err)
 {
+    pddl_time_limit_t time_limit;
+    pddlTimeLimitSet(&time_limit, opt.lifted_planner.homomorph_sampling_max_time);
+
     int seed = opt.lifted_planner.homomorph_cfg.random_seed;
     pddl_homomorphism_heur_t *heur = NULL;
     int best_hval = -1;
@@ -117,6 +120,9 @@ static pddl_homomorphism_heur_t *
             pddlHomomorphismHeurDel(h);
         }
         ++seed;
+
+        if (pddlTimeLimitCheck(&time_limit) != 0)
+            break;
     }
     return heur;
 }
@@ -178,11 +184,28 @@ int liftedPlanner(const pddl_t *pddl, pddl_err_t *err)
             PDDL_LOG(err, "cfg.heur = hadd");
             heur = pddlLiftedHeurHAdd(pddl, err);
             break;
+        case LIFTED_PLAN_HEUR_GAIF_LB:
+            PDDL_LOG(err, "cfg.heur = gaif-lb");
+            heur = pddlLiftedHeurGaifmanMax(pddl, pddl_true, err);
+            break;
+        case LIFTED_PLAN_HEUR_GAIF_MAX:
+            PDDL_LOG(err, "cfg.heur = gaif-max");
+            heur = pddlLiftedHeurGaifmanMax(pddl, pddl_false, err);
+            break;
+        case LIFTED_PLAN_HEUR_GAIF_ADD:
+            PDDL_LOG(err, "cfg.heur = gaif-add");
+            heur = pddlLiftedHeurGaifmanAdd(pddl, err);
+            break;
         case LIFTED_PLAN_HEUR_HOMO_LMC:
         case LIFTED_PLAN_HEUR_HOMO_FF:
             heur_homo = liftedHomomorphHeur(pddl, err);
-            if (heur_homo != NULL)
+            if (heur_homo != NULL){
                 heur = pddlLiftedHeurHomomorphism(heur_homo);
+            }else{
+                PDDL_LOG(err, "Could not find any homomorphism heuristic"
+                         " -- switching to blind heuristic.");
+                heur = pddlLiftedHeurBlind();
+            }
             break;
         default:
             PDDL_PANIC("Unknown lifted heuristic.");
