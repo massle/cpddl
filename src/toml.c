@@ -7,6 +7,13 @@
 #include "internal.h"
 #include "toml.h"
 
+#define TERR(T, RET, ...) \
+    do { \
+        snprintf((T)->err_msg, PDDL_TOML_ERR_MSG_MAXSIZE, __VA_ARGS__); \
+        (T)->err = pddl_true; \
+        return RET; \
+    } while (0)
+
 int pddlTomlInitFile(pddl_toml_t *t, const char *fn, pddl_err_t *err)
 {
     ZEROIZE(t);
@@ -32,8 +39,11 @@ void pddlTomlFree(pddl_toml_t *t)
         pddl_toml_free(t->root);
 }
 
-int pddlTomlPushTable(pddl_toml_t *t, const char *key, pddl_err_t *err)
+int pddlTomlPush(pddl_toml_t *t, const char *key)
 {
+    if (t->err)
+        return 1;
+
     PANIC_IF(t->stack_size == PDDL_TOML_STACK_MAXSIZE,
              "Maximum allowed number of nested tables in a .toml"
              " configuration file is %d", PDDL_TOML_STACK_MAXSIZE);
@@ -44,14 +54,14 @@ int pddlTomlPushTable(pddl_toml_t *t, const char *key, pddl_err_t *err)
              " configuration file is %d", PDDL_TOML_PATH_MAXSIZE);
 
     if (!pddl_toml_key_exists(c->table, key)){
-        ERR_RET(err, -1, "Key %s%s not found in the config file %s",
-                t->cur_path, key, t->fn);
+        TERR(t, -1, "Key %s%s not found in the config file %s",
+             t->cur_path, key, t->fn);
     }
 
     pddl_toml_table_t *table = pddl_toml_table_in(c->table, key);
     if (table == NULL){
-        ERR_RET(err, -1, "Key %s%s in the config file %s is not a table",
-                t->cur_path, key, t->fn);
+        TERR(t, -1, "Key %s%s in the config file %s is not a table",
+             t->cur_path, key, t->fn);
     }
 
     pddl_toml_ctx_t *next = t->stack + t->stack_size++;
@@ -65,6 +75,9 @@ int pddlTomlPushTable(pddl_toml_t *t, const char *key, pddl_err_t *err)
 
 void pddlTomlPop(pddl_toml_t *t)
 {
+    if (t->err)
+        return;
+
     if (t->stack_size <= 1)
         return;
     pddl_toml_ctx_t *c = t->stack + t->stack_size - 1;
@@ -76,22 +89,24 @@ void pddlTomlPop(pddl_toml_t *t)
 int pddlToml##name_suff(pddl_toml_t *t, \
                         const char *key, \
                         dst_type *dst, \
-                        pddl_bool_t required, \
-                        pddl_err_t *err) \
+                        pddl_bool_t required) \
 { \
+    if (t->err) \
+        return 1; \
+    \
     pddl_toml_ctx_t *c = t->stack + t->stack_size - 1; \
     if (!pddl_toml_key_exists(c->table, key)){ \
         if (required){ \
-            ERR_RET(err, -1, "Key %s%s not found in the config file %s", \
-                    t->cur_path, key, t->fn); \
+            TERR(t, -1, "Key %s%s not found in the config file %s", \
+                 t->cur_path, key, t->fn); \
         } \
         return 1; \
     } \
     \
     pddl_toml_datum_t d = pddl_toml_##read_fn##_in(c->table, key); \
     if (!d.ok){ \
-        ERR_RET(err, -1, "Key %s%s in the config file %s is not an " \
-                #dst_type_name, t->cur_path, key, t->fn); \
+        TERR(t, -1, "Key %s%s in the config file %s is not an " \
+             #dst_type_name, t->cur_path, key, t->fn); \
     } \
     *dst = d.u.read_enum; \
     return 0; \
@@ -104,27 +119,30 @@ READ_FN(Bool, pddl_bool_t, boolean, bool, b)
 READ_FN(Str, char *, string, string, s)
 
 int pddlTomlArrStr(pddl_toml_t *t, const char *key, char ***dst, int *dst_size,
-                   pddl_bool_t required, pddl_err_t *err)
+                   pddl_bool_t required)
 {
+    if (t->err)
+        return 1;
+
     pddl_toml_ctx_t *c = t->stack + t->stack_size - 1;
     if (!pddl_toml_key_exists(c->table, key)){
         if (required){
-            ERR_RET(err, -1, "Key %s%s not found in the config file %s",
-                    t->cur_path, key, t->fn);
+            TERR(t, -1, "Key %s%s not found in the config file %s",
+                 t->cur_path, key, t->fn);
         }
         return 1;
     }
 
     const pddl_toml_array_t *arr = pddl_toml_array_in(c->table, key);
     if (arr == NULL){
-        ERR_RET(err, -1, "Key %s/%s in the config file %s is not an array",
-                t->cur_path, key, t->fn);
+        TERR(t, -1, "Key %s/%s in the config file %s is not an array",
+             t->cur_path, key, t->fn);
     }
 
     if (pddl_toml_array_kind(arr) != 'v'
             || pddl_toml_array_type(arr) != 's'){
-        ERR_RET(err, -1, "Key %s%s in the config file %s is not an array"
-                " of strings", t->cur_path, key, t->fn);
+        TERR(t, -1, "Key %s%s in the config file %s is not an array"
+             " of strings", t->cur_path, key, t->fn);
     }
 
     int size = pddl_toml_array_nelem(arr);
@@ -136,4 +154,11 @@ int pddlTomlArrStr(pddl_toml_t *t, const char *key, char ***dst, int *dst_size,
         (*dst)[i] = d.u.s;
     }
     return 0;
+}
+
+pddl_bool_t pddlTomlErr(pddl_toml_t *t, pddl_err_t *err)
+{
+    if (t->err)
+        ERR_RET(err, pddl_true, "%s", t->err_msg);
+    return pddl_false;
 }
