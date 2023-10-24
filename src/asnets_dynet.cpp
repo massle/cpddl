@@ -2215,9 +2215,6 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     CTX(err, "ASNets-Train");
     pddl_asnets_train_data_t data;
     pddlASNetsTrainDataInit(&data);
-    if (a->cfg.osp_all_soft_goals){ // for OSP problems, initialize the array of MSGS values
-        pddlASNetsTrainDataMSGSInit(&data, a->ground_task_size);
-    }
 
     a->train_stats.success_rate = successRate(a, &data, err);
 

@@ -81,40 +81,8 @@ static void sampleDel(pddl_asnets_train_data_sample_t *sample)
 void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td)
 {
     ZEROIZE(td);
-    td->task_msgs = NULL;
     td->htable = pddlHTableNew(htableHash, htableEq, NULL);
     td->fail_cache = pddlHTableNew(htableHash, htableEq, NULL);
-}
-
-void pddlASNetsTrainDataMSGSInit(pddl_asnets_train_data_t *td, int num_tasks)
-{
-    if (td->task_msgs != NULL) {
-        FREE(td->task_msgs);
-    }
-    td->task_msgs = ALLOC_ARR(int, num_tasks);
-    // initialize MSGS value for all tasks to -1, until first teacher rollout
-    for (int index = 0; index < num_tasks; index++) {
-        td->task_msgs[index] = -1;
-    }
-}
-
-int pddlASNetsTrainDataMSGSAdd(pddl_asnets_train_data_t *td, int task_id, int msgs)
-{
-    if (td->task_msgs == NULL) {
-        fprintf(stderr, "td->task_msgs is NULL");
-        return -1;
-    }
-    td->task_msgs[task_id] = msgs;
-    return 0;
-}
-
-int pddlASNetsTrainDataMSGSGet(pddl_asnets_train_data_t *td, int task_id)
-{
-    if (td->task_msgs == NULL) {
-        fprintf(stderr, "td->task_msgs is NULL");
-        return -1;
-    }
-    return td->task_msgs[task_id];
 }
 
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
@@ -137,8 +105,6 @@ void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
         sampleDel(td->sample[i]);
     if (td->sample != NULL)
         FREE(td->sample);
-    if (td->task_msgs != NULL)
-        FREE(td->task_msgs);
 }
 
 int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,

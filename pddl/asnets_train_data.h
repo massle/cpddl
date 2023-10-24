@@ -24,17 +24,12 @@ struct pddl_asnets_train_data {
     int sample_size;
     int sample_alloc;
 
-    int *task_msgs; // used by OSP problems, to save max softgoals size per task
-
     pddl_htable_t *htable;
     pddl_htable_t *fail_cache;
 };
 typedef struct pddl_asnets_train_data pddl_asnets_train_data_t;
 
 void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td);
-void pddlASNetsTrainDataMSGSInit(pddl_asnets_train_data_t *td, int num_tasks);
-int pddlASNetsTrainDataMSGSAdd(pddl_asnets_train_data_t *td, int task_id, int msgs);
-int pddlASNetsTrainDataMSGSGet(pddl_asnets_train_data_t *td, int task_id);
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td);
 
 int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
