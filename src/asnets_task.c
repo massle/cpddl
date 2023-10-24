@@ -6,6 +6,7 @@
 
 #include "internal.h"
 #include "pddl/asnets_task.h"
+#include "pddl/asnets.h"
 #include "pddl/lifted_mgroup_infer.h"
 #include "pddl/ground.h"
 #include "pddl/critical_path.h"
@@ -310,6 +311,7 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                              const pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
                              const char *problem_fn,
+                             const pddl_asnets_config_t *cfg,
                              pddl_err_t *err)
 {
     CTX(err, "ASNets-GroundTask");
@@ -368,6 +370,20 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     PDDL_ISET(unreachable_fact);
     pddlMutexPairsInitStrips(&mutex, &gt->strips);
     pddlH2(&gt->strips, &mutex, &unreachable_fact, &unreachable_op, -1., err);
+    // For OSP tasks where we consider all goal facts to be soft
+    // goals, it is fine to remove unreachable goal facts, because it is a
+    // valid simplification of the task.
+    // For classical tasks, an unreachable goal fact implies the task is
+    // unsolvable.
+    if (!cfg->osp_all_soft_goals
+            && !pddlISetIsDisjoint(&gt->strips.goal, &unreachable_fact)){
+        pddlISetFree(&unreachable_op);
+        pddlISetFree(&unreachable_fact);
+        CTXEND(err);
+        ERR_RET(err, -1, "Strips task is unsolvable. Such task is useless"
+                " for ASNets. (domain: %s, problem: %s)",
+                domain_fn, problem_fn);
+    }
     pddlStripsReduce(&gt->strips, &unreachable_fact, &unreachable_op);
     pddlMutexPairsReduce(&mutex, &unreachable_fact);
     pddlISetFree(&unreachable_op);

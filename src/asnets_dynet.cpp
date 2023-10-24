@@ -214,41 +214,9 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
     }
 }
 
-#define TOML_INT(K) \
-    do { \
-        if (pddl_toml_key_exists(c, #K)){ \
-            pddl_toml_datum_t d = pddl_toml_int_in(c, #K); \
-            if (!d.ok){ \
-                pddl_toml_free(top); \
-                ERR_RET(err, -1, #K " must be int"); \
-            } \
-            cfg->K = d.u.i; \
-        } \
-    } while (0)
-
-#define TOML_FLT(K) \
-    do { \
-        if (pddl_toml_key_exists(c, #K)){ \
-            pddl_toml_datum_t d = pddl_toml_double_in(c, #K); \
-            if (!d.ok){ \
-                pddl_toml_free(top); \
-                ERR_RET(err, -1, #K " must be float"); \
-            } \
-            cfg->K = d.u.d; \
-        } \
-    } while (0)
-
-#define TOML_BOOL(K) \
-    do { \
-        if (pddl_toml_key_exists(c, #K)){ \
-            pddl_toml_datum_t d = pddl_toml_bool_in(c, #K); \
-            if (!d.ok){ \
-                pddl_toml_free(top); \
-                ERR_RET(err, -1, #K " must be int"); \
-            } \
-            cfg->K = d.u.b; \
-        } \
-    } while (0)
+#define TOML_INT(K) pddlTomlInt(&t, #K, &cfg->K, pddl_false)
+#define TOML_FLT(K) pddlTomlFlt(&t, #K, &cfg->K, pddl_false)
+#define TOML_BOOL(K) pddlTomlBool(&t, #K, &cfg->K, pddl_false)
 
 int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
                                  const char *filename,
@@ -256,97 +224,73 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
 {
     pddlASNetsConfigInit(cfg);
 
-    FILE *fin = fopen(filename, "r");
-    if (fin == NULL)
-        ERR_RET(err, -1, "Could not open file %s", filename);
+    pddl_toml_t t;
+    if (pddlTomlInitFile(&t, filename, err) != 0)
+        TRACE_RET(err, -1);
 
-    pddl_toml_table_t *top = pddl_toml_parse_file(fin, err);
-    fclose(fin);
-    if (top == NULL){
+    pddlTomlPush(&t, "asnets");
+
+    char *root = NULL;
+    pddlTomlStr(&t, "root", &root, pddl_false);
+    if (root != NULL && strcmp(root, "__PWD__") == 0){
+        FREE(root);
+        root = pddlDirname(filename);
+    }
+
+    char *domain = NULL;
+    pddlTomlStr(&t, "domain", &domain, pddl_true);
+    if (pddlTomlErr(&t, err)){
+        pddlTomlFree(&t);
         TRACE_RET(err, -1);
     }
 
-    pddl_toml_table_t *c = pddl_toml_table_in(top, "asnets");
-    if (c == NULL){
-        pddl_toml_free(top);
-        ERR_RET(err, -1, "No [asnets] section in the configuration file.");
+    if (root != NULL){
+        char *fn = ALLOC_ARR(char, strlen(root) + strlen(domain) + 2);
+        sprintf(fn, "%s/%s", root, domain);
+        pddlASNetsConfigSetDomain(cfg, fn);
+        FREE(fn);
+    }else{
+        pddlASNetsConfigSetDomain(cfg, domain);
     }
+    FREE(domain);
 
-    char *root = NULL;
-    if (pddl_toml_key_exists(c, "root")){
-        pddl_toml_datum_t d = pddl_toml_string_in(c, "root");
-        if (!d.ok){
-            pddl_toml_free(top);
-            ERR_RET(err, -1, "root must be string");
-        }
-        root = d.u.s;
-        if (strcmp(root, "__PWD__") == 0){
-            FREE(root);
-            root = pddlDirname(filename);
-        }
-    }
+    char **problems = NULL;
+    int problems_size = 0;
+    pddlTomlArrStr(&t, "problems", &problems, &problems_size, pddl_true);
 
-    if (pddl_toml_key_exists(c, "domain")){
-        pddl_toml_datum_t d = pddl_toml_string_in(c, "domain");
-        if (!d.ok){
-            pddl_toml_free(top);
-            ERR_RET(err, -1, "domain must be string");
-        }
+    for (int i = 0; i < problems_size; ++i){
         if (root != NULL){
-            char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
-            sprintf(fn, "%s/%s", root, d.u.s);
-            pddlASNetsConfigSetDomain(cfg, fn);
+            char *fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
+            sprintf(fn, "%s/%s", root, problems[i]);
+            if (pddlIsFile(fn)){
+                pddlASNetsConfigAddProblem(cfg, fn);
+            }else{
+                int len;
+                char **files = pddlListDirPDDLFiles(fn, &len, err);
+                if (files == NULL){
+                    FREE(fn);
+                    TRACE_RET(err, -1);
+                }
+
+                for (int i = 0; i < len; ++i){
+                    if (strstr(files[i], "domain") != NULL){
+                        FREE(files[i]);
+                        continue;
+                    }
+                    if (pddlIsFile(files[i]))
+                        pddlASNetsConfigAddProblem(cfg, files[i]);
+                    FREE(files[i]);
+                }
+                FREE(files);
+            }
             FREE(fn);
         }else{
-            pddlASNetsConfigSetDomain(cfg, d.u.s);
+            pddlASNetsConfigAddProblem(cfg, problems[i]);
         }
-        FREE(d.u.s);
+        FREE(problems[i]);
     }
-
-    if (pddl_toml_key_exists(c, "problems")){
-        const pddl_toml_array_t *arr = pddl_toml_array_in(c, "problems");
-        if (arr == NULL){
-            pddl_toml_free(top);
-            ERR_RET(err, -1, "problems must be array");
-        }
-        int size = pddl_toml_array_nelem(arr);
-        for (int i = 0; i < size; ++i){
-            pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
-            if (!d.ok){
-                pddl_toml_free(top);
-                ERR_RET(err, -1, "Each element of problems must be string");
-            }
-            if (root != NULL){
-                char *fn = ALLOC_ARR(char, strlen(root) + strlen(d.u.s) + 2);
-                sprintf(fn, "%s/%s", root, d.u.s);
-                if (pddlIsFile(fn)){
-                    pddlASNetsConfigAddProblem(cfg, fn);
-                }else{
-                    int len;
-                    char **files = pddlListDirPDDLFiles(fn, &len, err);
-                    if (files == NULL){
-                        FREE(fn);
-                        TRACE_RET(err, -1);
-                    }
-
-                    for (int i = 0; i < len; ++i){
-                        if (strstr(files[i], "domain") != NULL){
-                            FREE(files[i]);
-                            continue;
-                        }
-                        if (pddlIsFile(files[i]))
-                            pddlASNetsConfigAddProblem(cfg, files[i]);
-                        FREE(files[i]);
-                    }
-                    FREE(files);
-                }
-                FREE(fn);
-            }else{
-                pddlASNetsConfigAddProblem(cfg, d.u.s);
-            }
-            FREE(d.u.s);
-        }
-    }
+    if (problems != NULL)
+        FREE(problems);
 
     if (root != NULL)
         FREE(root);
@@ -366,59 +310,44 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_INT(early_termination_epochs);
     TOML_BOOL(osp_all_soft_goals);
 
-    if (pddl_toml_key_exists(c, "teacher")){
-        pddl_toml_datum_t d = pddl_toml_string_in(c, "teacher");
-        if (!d.ok){
-            pddl_toml_free(top);
-            ERR_RET(err, -1, "teacher must be string");
+    char *teacher = NULL;
+    pddlTomlStr(&t, "teacher", &teacher, pddl_false);
+    if (teacher != NULL){
+        if (teacherNameToID(teacher, &cfg->teacher) != 0){
+            pddlTomlFree(&t);
+            ERR_RET(err, -1, "Unkown teacher type \"%s\"", teacher);
         }
-
-        if (teacherNameToID(d.u.s, &cfg->teacher) != 0){
-            pddl_toml_free(top);
-            ERR_RET(err, -1, "Unkown teacher type \"%s\"", d.u.s);
-        }
-        FREE(d.u.s);
+        FREE(teacher);
     }
 
-    if (pddl_toml_key_exists(c, "teacher_external_cmd")){
-        pddl_toml_array_t *arr = pddl_toml_array_in(c, "teacher_external_cmd");
-        if (arr == NULL){
-            pddl_toml_free(top);
-            ERR_RET(err, -1, "teacher_external_cmd must be array of strings");
-        }
-
-        int size = pddl_toml_array_nelem(arr);
-        if (size == 0){
-            pddl_toml_free(top);
+    char **external_cmd = NULL;
+    int external_cmd_size = 0;
+    if (pddlTomlArrStr(&t, "teacher_external_cmd", &external_cmd,
+                       &external_cmd_size, pddl_false) == 0){
+        if (external_cmd_size == 0){
+            pddlTomlFree(&t);
             ERR_RET(err, -1, "teacher_external_cmd must be non-empty");
         }
-
-        char **cmd = ALLOC_ARR(char *, size + 1);
-        for (int i = 0; i < size; ++i){
-            pddl_toml_datum_t d = pddl_toml_string_at(arr, i);
-            if (!d.ok){
-                pddl_toml_free(top);
-                ERR_RET(err, -1, "teacher_external_cmd must be array of strings");
-            }
-            cmd[i] = d.u.s;
-        }
-        cmd[size] = NULL;
-        pddlASNetsConfigSetTeacherExternalCmd(cfg, cmd);
-
-        for (int i = 0; i < size; ++i)
-            FREE(cmd[i]);
-        FREE(cmd);
+        external_cmd = REALLOC_ARR(external_cmd, char *, external_cmd_size + 1);
+        external_cmd[external_cmd_size] = NULL;
+        pddlASNetsConfigSetTeacherExternalCmd(cfg, external_cmd);
     }
+    for (int i = 0; i < external_cmd_size; ++i)
+        FREE(external_cmd[i]);
+    if (external_cmd != NULL)
+        FREE(external_cmd);
+
 
     if (cfg->teacher == PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD
             && cfg->teacher_external_cmd == NULL){
-        pddl_toml_free(top);
-        ERR_RET(err, -1, "teacher_external_cmd must be defined if teacher"
+        pddlTomlFree(&t);
+        ERR_RET(err, -1, "teacher_external_cmd must be defined if the teacher"
                 " \"%s\" is used",
                 teacherName(PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD));
     }
 
 
+    /*
     if (cfg->teacher == PDDL_ASNETS_TEACHER_FAST_DOWNWARD) {
         cfg->fd_config = ZALLOC(pddl_fd_config_t); // TO-DO - clarify new vs ZALLOC
         pddlFDConfigInit(cfg->fd_config);
@@ -507,8 +436,13 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
             }
         }
     }
+    */
 
-    pddl_toml_free(top);
+    if (pddlTomlErr(&t, err)){
+        pddlTomlFree(&t);
+        TRACE_RET(err, -1);
+    }
+    pddlTomlFree(&t);
     return 0;
 }
 
@@ -1426,6 +1360,7 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
                                       &a->lifted_task,
                                       cfg->domain_pddl,
                                       cfg->problem_pddl[probi],
+                                      cfg,
                                       err);
         if (st < 0){
             pddlASNetsLiftedTaskFree(&a->lifted_task);
@@ -1434,6 +1369,13 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
             FREE(a->ground_task);
             CTXEND(err);
             TRACE_RET(err, NULL);
+        }
+
+        if (cfg->osp_all_soft_goals){
+            // TODO:
+            // Obtain size of the maximum solvable goal set for success
+            // rate computation
+            // a->ground_task[probi].osp_msgs_size_for_init = ...
         }
     }
 
@@ -2401,6 +2343,8 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
         pddlFDRStatePoolInit(&states, &task->fdr.var, NULL);
         if (a->cfg.osp_all_soft_goals)
         {   
+            // TODO: For osp count as solved only when the maximum possible
+            // number of goals is reached
             pddl_asnets_softgoals_result_t softgoals_result = PDDL_ASNETS_SOFTGOALS_RESULT_INIT;
             policyRollout(a, task, &states, NULL, &softgoals_result, err);
             int max_msgs_teacher = pddlASNetsTrainDataMSGSGet(td, task_id);

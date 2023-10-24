@@ -52,6 +52,8 @@ static void applyPruneStrips(ctx_t *c)
     if (pddlISetSize(&c->rm_fact) == 0 && pddlISetSize(&c->rm_op) == 0)
         return;
 
+    // TODO: If c->rm_fact contains *unreachable* goal facts, then the task
+    // must be set as unsolvable instead of removing the goal facts!
     pddlStripsReduce(c->strips, &c->rm_fact, &c->rm_op);
 
     if (pddlISetSize(&c->rm_fact) > 0){

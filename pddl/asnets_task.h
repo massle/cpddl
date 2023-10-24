@@ -17,6 +17,9 @@ extern "C" {
 #include <pddl/fdr_app_op.h>
 #include <pddl/iarr.h>
 
+/** Forward declaration */
+struct pddl_asnets_config;
+
 struct pddl_asnets_action {
     int action_id;
     /** Array of related atoms, index is a position */
@@ -80,6 +83,11 @@ struct pddl_asnets_ground_task {
     int op_size;
     pddl_asnets_fact_t *fact;
     int fact_size;
+
+    // TODO: Size of the maximal solvable goal set for the initial state
+    //       in case of osp tasks -- we need this for computing success
+    //       rate
+    int osp_msgs_size_for_init;
 };
 typedef struct pddl_asnets_ground_task pddl_asnets_ground_task_t;
 
@@ -94,6 +102,7 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                              const pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
                              const char *problem_fn,
+                             const struct pddl_asnets_config *cfg,
                              pddl_err_t *err);
 void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *lt);
 
