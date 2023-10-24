@@ -12,6 +12,7 @@ static struct {
     char *train_save_prefix;
     char *eval;
     pddl_bool_t eval_write_plans;
+    pddl_bool_t eval_benchmark_trainer;
     char *info;
     char *gen;
 } opt;
@@ -46,6 +47,8 @@ static int parseOpts(int argc, char *argv[])
                "Evaluate model stored in the specified file.");
     optsAddFlag("eval-write-plans", 0x0, &opt.eval_write_plans, 0,
                 "Write plans to files based on domain and problem names.");
+    optsAddFlag("eval-benchmark-trainer", 0x0, &opt.eval_benchmark_trainer, 0,
+                "Use solution found by trainer planner as benchamrk.");
     optsAddStr("info", 'i', &opt.info, NULL,
                "Print info about the stored model.");
     optsAddStr("gen", 'g', &opt.gen, NULL,
@@ -163,41 +166,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        int num_solved = 0;
-        int num_tasks = pddlASNetsNumGroundTasks(asnets);
-        for (int task_id = 0; task_id < num_tasks; ++task_id){
-            const pddl_asnets_ground_task_t *task;
-            task = pddlASNetsGetGroundTask(asnets, task_id);
-            PDDL_IARR(plan);
-            int solved = pddlASNetsSolveTask(asnets, task, &plan, &err);
-            PDDL_LOG(&err, "Task %s %s"
-                     " solved: %s, length: %d",
-                     task->pddl.domain_file,
-                     task->pddl.problem_file,
-                     (solved ? "true" : "false"),
-                     (solved ? pddlIArrSize(&plan) : -1));
-            if (solved){
-                ++num_solved;
-                if (opt.eval_write_plans){
-                    char fn[512];
-                    snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
-                             task->pddl.problem_name);
-                    FILE *fout = fopen(fn, "w");
-                    if (fout != NULL){
-                        int op_id;
-                        PDDL_IARR_FOR_EACH(&plan, op_id){
-                            fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
-                        }
-                        fclose(fout);
-                    }else{
-                        PDDL_LOG(&err, "Could not open file %s", fn);
-                    }
-                }
-            }
-            pddlIArrFree(&plan);
-        }
-        PDDL_LOG(&err, "Solved %d out of"
-                 " %d tasks", num_solved, num_tasks);
+        pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
 
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);

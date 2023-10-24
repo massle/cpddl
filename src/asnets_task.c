@@ -5,7 +5,9 @@
  */
 
 #include "internal.h"
+#include "toml.h"
 #include "pddl/asnets_task.h"
+#include "pddl/asnets.h"
 #include "pddl/lifted_mgroup_infer.h"
 #include "pddl/ground.h"
 #include "pddl/critical_path.h"
@@ -306,13 +308,51 @@ static int checkGroundRelatedness(const pddl_asnets_ground_task_t *gt,
     return 1;
 }
 
+static int groundTaskInitTomlFile(pddl_asnets_ground_task_t *gt,
+                                   const char *fn,
+                                   const pddl_asnets_config_t *cfg,
+                                   pddl_err_t *err)
+{
+    LOG(err, "Reading additional .toml file %s", fn);
+
+    pddl_toml_t t;
+    if (pddlTomlInitFile(&t, fn, err) != 0)
+        TRACE_RET(err, -1);
+    if (cfg->osp_all_soft_goals){
+        pddlTomlInt(&t, "msgs_size", &gt->osp_msgs_size_for_init, pddl_true);
+
+        LOG(err, "MSGS size for the initial state: %d",
+            gt->osp_msgs_size_for_init);
+    }
+
+    if (pddlTomlErr(&t, err)){
+        pddlTomlFree(&t);
+        TRACE_RET(err, -1);
+    }
+    pddlTomlFree(&t);
+    LOG(err, "Reading additional .toml file DONE");
+
+    if (cfg->osp_all_soft_goals){
+        if (gt->osp_msgs_size_for_init == 0){
+            ERR_RET(err, -1, "OSP task is unsolvable (size of MSGS is zero)."
+                    " Such task is useless for ASNets.");
+        }
+    }
+
+    return 0;
+}
+
 int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
                              const pddl_asnets_lifted_task_t *lt,
                              const char *domain_fn,
                              const char *problem_fn,
+                             const pddl_asnets_config_t *cfg,
                              pddl_err_t *err)
 {
     CTX(err, "ASNets-GroundTask");
+    LOG(err, "Domain: %s", domain_fn);
+    LOG(err, "Problem: %s", problem_fn);
+
     ZEROIZE(gt);
     gt->lifted_task = lt;
 
@@ -368,6 +408,20 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     PDDL_ISET(unreachable_fact);
     pddlMutexPairsInitStrips(&mutex, &gt->strips);
     pddlH2(&gt->strips, &mutex, &unreachable_fact, &unreachable_op, -1., err);
+    // For OSP tasks where we consider all goal facts to be soft
+    // goals, it is fine to remove unreachable goal facts, because it is a
+    // valid simplification of the task.
+    // For classical tasks, an unreachable goal fact implies the task is
+    // unsolvable.
+    if (!cfg->osp_all_soft_goals
+            && !pddlISetIsDisjoint(&gt->strips.goal, &unreachable_fact)){
+        pddlISetFree(&unreachable_op);
+        pddlISetFree(&unreachable_fact);
+        CTXEND(err);
+        ERR_RET(err, -1, "Strips task is unsolvable. Such task is useless"
+                " for ASNets. (domain: %s, problem: %s)",
+                domain_fn, problem_fn);
+    }
     pddlStripsReduce(&gt->strips, &unreachable_fact, &unreachable_op);
     pddlMutexPairsReduce(&mutex, &unreachable_fact);
     pddlISetFree(&unreachable_op);
@@ -406,6 +460,25 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
         pddlASNetsGroundTaskFree(gt);
         CTXEND(err);
         TRACE_RET(err, -1);
+    }
+
+    if (cfg->osp_all_soft_goals){
+        // Obtain size of the maximum solvable goal set for success
+        // rate computation
+        int problem_fn_len = strlen(problem_fn);
+        PANIC_IF(problem_fn_len < 4, "Unexpected filename of the PDDL problem"
+                 " file %s", problem_fn);
+
+        char *toml_fn = STRDUP(problem_fn);
+        sprintf(toml_fn + problem_fn_len - 4, "%s", "toml");
+        int st = groundTaskInitTomlFile(gt, toml_fn, cfg, err);
+        FREE(toml_fn);
+
+        if (st != 0){
+            pddlASNetsGroundTaskFree(gt);
+            CTXEND(err);
+            TRACE_RET(err, -1);
+        }
     }
 
     CTXEND(err);

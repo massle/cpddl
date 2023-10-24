@@ -14,6 +14,10 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
                                  const char *filename,
                                  pddl_err_t *err)
 { ERROR;return -1;}
+int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
+                                  const char *filename,
+                                  pddl_err_t *err)
+{ ERROR;return -1;}
 void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
 { ERROR;}
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
@@ -21,7 +25,14 @@ void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
 void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
                                 const char *problem_fn)
 { ERROR;}
+void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
+                                           char * const * argv)
+{ ERROR;}
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
+{ ERROR;}
+void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d)
+{ ERROR;}
+void pddlASNetsPolicyDistributionFree(pddl_asnets_policy_distribution_t *d)
 { ERROR;}
 pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 { ERROR;return NULL;}
@@ -40,10 +51,12 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         const int *in_state,
                         int *out_state)
 { ERROR;return -1;}
-int pddlASNetsSolveTask(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
-                        pddl_iarr_t *trace,
-                        pddl_err_t *err)
+int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
+                                 const pddl_asnets_ground_task_t *task,
+                                 const int *in_state,
+                                 pddl_asnets_policy_distribution_t *dist)
 { ERROR;return -1;}
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 { ERROR;return -1;}
+void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
+{ ERROR;}

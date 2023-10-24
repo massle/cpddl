@@ -16,10 +16,13 @@ extern "C" {
 
 typedef struct pddl_asnets pddl_asnets_t;
 
-enum pddl_asnets_trainer {
-    PDDL_ASNETS_TRAINER_ASTAR_LMCUT = 0,
+enum pddl_asnets_teacher {
+    /** Internal A* with LM-Cut heuristic */
+    PDDL_ASNETS_TEACHER_ASTAR_LMCUT = 0,
+    /** External planner accepting encoding in Fast Downward's format */
+    PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD,
 };
-typedef enum pddl_asnets_trainer pddl_asnets_trainer_t;
+typedef enum pddl_asnets_teacher pddl_asnets_teacher_t;
 
 struct pddl_asnets_config {
     /** Domain PDDL file. Set using *SetDomain() */
@@ -51,9 +54,6 @@ struct pddl_asnets_config {
     int train_steps;
     /** Limit on the number of steps for the policy rollout. Default: 1000 */
     int policy_rollout_limit;
-    /** Time limit in seconds for the teacher to solve the given task.
-     *  Default: 10.f */
-    float teacher_timeout;
     /** Minimum success rate in .early_termination_epochs to terminate
      *  early. Default: 0.999 */
     float early_termination_success_rate;
@@ -61,11 +61,50 @@ struct pddl_asnets_config {
      *  .early_termination_success_rate. Default: 20 */
     int early_termination_epochs;
 
-    /** Which trainer will be used. One of PDDL_ASNETS_TRAINER_* */
-    pddl_asnets_trainer_t trainer;
-    /** If set to non-NULL, pddlASNetsTrain() saves the current model after
-     *  every epoch to the file with this prefix */
+    /** Time limit in seconds for the teacher to solve the given task.
+     *  Default: 10.f */
+    float teacher_timeout;
+    /** Which teacher will be used. One of PDDL_ASNETS_TEACHER_* */
+    pddl_asnets_teacher_t teacher;
+
+    /** External command used as a teacher. This must be specified when
+     *  .teacher is set to PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD.
+     *
+     *  The external command ought to read the problem encoded in the Fast
+     *  Downward format from stdin, and write the plan to stdout. The plan
+     *  must be in "lisp" format, i.e., (action-name ...), each action on a
+     *  separate line, and reading of the output stops on a first line that
+     *  does not follow this format. Output containing zero actions is
+     *  interpreted as the external planner wasn't able to solve the task.
+     *  If the command writes anything to stderr or exits non-zero, the
+     *  training terminates with error.
+     *
+     *  It must be specified the same way as the "argv" parameter of
+     *  execv(3) and the first argument must point to the file being
+     *  executed. (Don't forget that the last argument must be NULL.).
+     *
+     *  Default: NULL */
+    char **teacher_external_cmd;
+
+    /** If set to non-NULL, pddlASNetsTrain() saves a model to the path
+     *  with this prefix every time it finds a model with improved success
+     *  rate */
     const char *save_model_prefix;
+
+    /** If true, all tasks are considered to be OSP tasks where all goal
+     *  facts are soft goals. When this option is used, it is expected that
+     *  each input PDDL problem file is accompanied by an additional file
+     *  of the same time with suffix .toml. This file must state the size
+     *  of maximal solvable goal set via key 'msgs_size'.
+     *
+     *  This also affects the encoding of the task in case of using external
+     *  teacher,
+     *
+     *  The success rate is computed as an average ratio of the number of
+     *  reached goal facts over the size of the maximal solvable goal set.
+     *
+     *  Default: False */
+    pddl_bool_t osp_all_soft_goals;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
 
@@ -84,8 +123,9 @@ void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);
 void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
                                 const char *problem_fn);
+void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
+                                           char * const * argv);
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
-
 
 struct pddl_asnets_policy_distribution {
     /** Number of applicable operators */
@@ -169,19 +209,14 @@ int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
                                  pddl_asnets_policy_distribution_t *dist);
 
 /**
- * Try to solve the task using the ASNets policy.
- * {trace} is filled with the policy trace.
- * Return true if a plan was found, and false otherwise.
- */
-int pddlASNetsSolveTask(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
-                        pddl_iarr_t *trace,
-                        pddl_err_t *err);
-
-/**
  * Train ASNets according to the configuration it was created with.
  */
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
+
+/**
+ * Evaluate ASNets for test problems given in configuration.
+ */
+void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
 
 #ifdef __cplusplus
 }

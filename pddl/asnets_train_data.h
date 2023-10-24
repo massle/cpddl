@@ -15,6 +15,7 @@ extern "C" {
 #include <pddl/plan.h>
 #include <pddl/fdr.h>
 #include <pddl/heur.h>
+#include "pddl/asnets.h"
 
 typedef struct pddl_asnets_train_data_sample pddl_asnets_train_data_sample_t;
 
@@ -53,20 +54,12 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
 
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td);
 
-int pddlASNetsTrainDataRolloutAStar(pddl_asnets_train_data_t *td,
-                                    int ground_task_id,
-                                    const int *state,
-                                    const pddl_fdr_t *fdr,
-                                    const pddl_heur_config_t *cfg,
-                                    float max_time,
-                                    pddl_err_t *err);
-
-int pddlASNetsTrainDataRolloutAStarLMCut(pddl_asnets_train_data_t *td,
-                                         int ground_task_id,
-                                         const int *state,
-                                         const pddl_fdr_t *fdr,
-                                         float max_time,
-                                         pddl_err_t *err);
+int pddlASNetsTrainDataRollout(pddl_asnets_train_data_t *td,
+                               int ground_task_id,
+                               const int *state,
+                               const pddl_fdr_t *fdr,
+                               const pddl_asnets_config_t *cfg,
+                               pddl_err_t *err);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
