@@ -84,9 +84,8 @@ struct pddl_asnets_ground_task {
     pddl_asnets_fact_t *fact;
     int fact_size;
 
-    // TODO: Size of the maximal solvable goal set for the initial state
-    //       in case of osp tasks -- we need this for computing success
-    //       rate
+    /** Size of the maximal solvable goal set for the initial state in case
+     *  of osp tasks -- we need this for computing success rate. */
     int osp_msgs_size_for_init;
 };
 typedef struct pddl_asnets_ground_task pddl_asnets_ground_task_t;

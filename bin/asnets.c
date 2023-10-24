@@ -166,11 +166,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        if (cfg.osp_all_soft_goals){
-            pddlASNetsEvaluateOSP(asnets, opt.eval_write_plans, opt.eval_benchmark_trainer, &err);
-        }else{
-            pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
-        }
+        pddlASNetsEvaluate(asnets, opt.eval_write_plans, &err);
 
     }else if (opt.info != NULL){
         ret = pddlASNetsPrintModelInfo(opt.info, &err);

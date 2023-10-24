@@ -59,16 +59,6 @@ void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
 
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td);
 
-int pddlASNetsTrainDataRolloutFastDownward(pddl_asnets_train_data_t *td,
-                                    int ground_task_id,
-                                    const int *state,
-                                    const pddl_fdr_t *fdr,
-                                    int is_osp_problem,
-                                    int save_msgs,
-                                    const pddl_fd_config_t *fd_cfg,
-                                    float max_time,
-                                    pddl_err_t *err);
-
 int pddlASNetsTrainDataRollout(pddl_asnets_train_data_t *td,
                                int ground_task_id,
                                const int *state,

@@ -1157,6 +1157,7 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
         }
         fprintf(fout, "end_soft_goal\n");
 
+        /*
         // question
         fprintf(fout, "begin_question\n");
         fprintf(fout, "0\n");
@@ -1171,6 +1172,7 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
         fprintf(fout, "begin_ltlproperty\n");
         fprintf(fout, "0\n");
         fprintf(fout, "end_ltlproperty\n");
+        */
 
         // relaxed_tasks
         fprintf(fout, "0\n");

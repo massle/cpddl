@@ -17,41 +17,12 @@ extern "C" {
 typedef struct pddl_asnets pddl_asnets_t;
 
 enum pddl_asnets_teacher {
+    /** Internal A* with LM-Cut heuristic */
     PDDL_ASNETS_TEACHER_ASTAR_LMCUT = 0,
+    /** External planner accepting encoding in Fast Downward's format */
     PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD,
-    PDDL_ASNETS_TEACHER_FAST_DOWNWARD,
 };
 typedef enum pddl_asnets_teacher pddl_asnets_teacher_t;
-
-struct pddl_fast_downward_config {
-    /** Path to SAS and Plan files. */
-    char *saved_files_path;
-    /** Python Interpreter*/
-    char *fd_interpreter;
-    /** Path to FD Executable. */
-    char *fd_executable_path;
-    /** SAS filename prefix. */
-    char *sas_file_prefix;
-    /** Plan filename prefix. */
-    char *plan_file_prefix;
-
-     /** Number of arguments to pass to FD */
-    int fd_arg_size;
-    /** Argumement to pass to FD. */
-    char **fd_args;
-
-    /** Set to true if OSP params expected by FD planner */
-    int use_osp_planner;
-    /** Unique Filenames Flag */
-    int use_unique_filenames;
-};
-typedef struct pddl_fast_downward_config pddl_fd_config_t;
-
-void pddlFDConfigLog(const pddl_fd_config_t *cfg, pddl_err_t *err);
-void pddlFDConfigInit(pddl_fd_config_t *cfg);
-void pddlFDConfigFree(pddl_fd_config_t *cfg);
-void pddlFDConfigCopy(pddl_fd_config_t *dst, const pddl_fd_config_t *src);
-
 
 struct pddl_asnets_config {
     /** Domain PDDL file. Set using *SetDomain() */
@@ -99,23 +70,21 @@ struct pddl_asnets_config {
     /** External command used as a teacher. This must be specified when
      *  .teacher is set to PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD.
      *
-     *  The external command must read problem in the Fast Downward format
-     *  from stdin, and write the plan to stdout. If the command writes
-     *  anything to stderr or exits non-zero, the training terminates with
-     *  error.
+     *  The external command ought to read the problem encoded in the Fast
+     *  Downward format from stdin, and write the plan to stdout. The plan
+     *  must be in "lisp" format, i.e., (action-name ...), each action on a
+     *  separate line, and reading of the output stops on a first line that
+     *  does not follow this format. Output containing zero actions is
+     *  interpreted as the external planner wasn't able to solve the task.
+     *  If the command writes anything to stderr or exits non-zero, the
+     *  training terminates with error.
      *
-     *  It must be specified the same  way as the "argv" parameter of
+     *  It must be specified the same way as the "argv" parameter of
      *  execv(3) and the first argument must point to the file being
      *  executed. (Don't forget that the last argument must be NULL.).
      *
      *  Default: NULL */
     char **teacher_external_cmd;
-
-    /** Configure call to Fast Downward trainer.
-     *  Is NULL by default.
-     *  Will be replaced by the config created using config file if FD used as trainer.
-     */
-    pddl_fd_config_t *fd_config;
 
     /** If set to non-NULL, pddlASNetsTrain() saves a model to the path
      *  with this prefix every time it finds a model with improved success
@@ -123,7 +92,18 @@ struct pddl_asnets_config {
     const char *save_model_prefix;
 
     /** If true, all tasks are considered to be OSP tasks where all goal
-     *  facts are soft goals. */
+     *  facts are soft goals. When this option is used, it is expected that
+     *  each input PDDL problem file is accompanied by an additional file
+     *  of the same time with suffix .toml. This file must state the size
+     *  of maximal solvable goal set via key 'msgs_size'.
+     *
+     *  This also affects the encoding of the task in case of using external
+     *  teacher,
+     *
+     *  The success rate is computed as an average ratio of the number of
+     *  reached goal facts over the size of the maximal solvable goal set.
+     *
+     *  Default: False */
     pddl_bool_t osp_all_soft_goals;
 };
 typedef struct pddl_asnets_config pddl_asnets_config_t;
@@ -146,27 +126,6 @@ void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
 void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
                                            char * const * argv);
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
-
-struct pddl_asnets_softgoals_result {
-    /** Total Number of Soft Goals */
-    int total_softgoals;
-    /** Max Number of Soft Goals Achieved */
-    int max_softgoals_achieved;
-    /** Length of Plan achieveing MSGS*/
-    /** i.e, Number of Rollout Steps in which MSGS Achieved when using Policy*/
-    int max_softgoals_plan_steps;
-    /** Total Number of Steps Attempted when using Policy*/
-    int total_policy_steps;
-};
-typedef struct pddl_asnets_softgoals_result pddl_asnets_softgoals_result_t;
-
-#define PDDL_ASNETS_SOFTGOALS_RESULT_INIT \
-    { \
-        0, /* .total_softgoals */ \
-        0, /* .max_softgoals_achieved */ \
-        0, /* .max_softgoals_policy_steps */ \
-        0, /* .total_policy_steps */ \
-    }
 
 struct pddl_asnets_policy_distribution {
     /** Number of applicable operators */
@@ -250,18 +209,6 @@ int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
                                  pddl_asnets_policy_distribution_t *dist);
 
 /**
- * Try to solve the task using the ASNets policy.
- * {trace} is filled with the policy trace.
- * {softgoals_result} captures maximum solved softgoal size and corresponding policy steps, is NULL for non-OSP problems.
- * Return true if a plan was found, and false otherwise.
- */
-int pddlASNetsSolveTask(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
-                        pddl_iarr_t *trace,
-                        pddl_asnets_softgoals_result_t *softgoals_result,
-                        pddl_err_t *err);
-
-/**
  * Train ASNets according to the configuration it was created with.
  */
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
@@ -270,16 +217,6 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
  * Evaluate ASNets for test problems given in configuration.
  */
 void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
-
-/**
- * Evaluate ASNets for test problems given in configuration for OSP problems.
- */
-void pddlASNetsEvaluateOSP(pddl_asnets_t *a, int write_plans, int benchmark_trainer, pddl_err_t *err);
-
-/**
- * Find benchmarks using trainer planner to compare ASNets with.
- */
-int pddlASNetsBenchmarkTrainer(pddl_asnets_config_t* a_config, char* domain_filename, char* problem_filename, pddl_asnets_softgoals_result_t *msgs_result, pddl_err_t *err);
 
 #ifdef __cplusplus
 }
