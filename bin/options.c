@@ -435,7 +435,7 @@ static void setBaseOptions(void)
     optsAddFlag("version", 0x0, &opt.version, 0, "Print version and exit.");
     optsAddInt("max-mem", 0x0, &opt.max_mem, 0,
                "Maximum memory in MB if >0.");
-    optsAddStr("log-out", 0x0, &opt.log_out, "stderr",
+    optsAddStr("log-out", 0x0, &opt.log_out, "-",
                "Set output file for logs.");
     optsAddStrFn("lp-solver", 0x0, setLPSolver,
                  "Set the default LP solver: cplex/gurobi/highs/coin-or");
