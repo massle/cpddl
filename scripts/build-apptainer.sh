@@ -29,6 +29,7 @@ if [ "$1" = "" ]; then
     echo "        --clang (does not work for photon)"
     echo "        --clang-ver version (works only for debian and ubuntu)"
     echo "        --werror"
+    echo "        --run-all-tests"
     exit -1
 fi
 
@@ -52,6 +53,7 @@ NO_BLISS=
 NO_CUDD=
 CLANG=
 CLANG_VERSION=
+RUN_ALL_TESTS=
 while true; do
     if [ "$1" = "--cplex" ]; then
         HAS_CPLEX=yes
@@ -154,10 +156,27 @@ while true; do
         NAME="$1"
         shift
 
+    elif [ "$1" = "--run-all-tests" ]; then
+        RUN_ALL_TESTS=yes
+        shift
+
     else
         break
     fi
 done
+
+if [ "$RUN_ALL_TESTS" = "yes" ]; then
+    [ ! -d tmp-cpddl/ ] \
+        && echo "Error: --run-all-tests requires --git-dev" \
+        && exit -1
+
+    pushd tmp-cpddl
+    git submodule update --init --depth 1 -- t
+    pushd t
+    git submodule update --init --depth 1 -- pddl-data
+    popd
+    popd
+fi
 
 if [ "$USE_GIT" != "yes" ]; then
     SETUP="$SETUP
@@ -258,6 +277,12 @@ MAKE="
     strip --strip-all /pddl
 "
 
+if [ "$RUN_ALL_TESTS" = "yes" ]; then
+    MAKE="$MAKE
+    make -C /cpddl check-all
+"
+fi
+
 RUN="
 %runscript
     /pddl "\$@"
@@ -285,6 +310,7 @@ $SETUP
     apk add make gcc g++ autoconf automake cmake git bash libstdc++
     [ "$CLANG" = "yes" ] && apk add clang
     [ "$HAS_HIGHS" = "yes" ] && apk add zlib-static zlib-dev
+    [ "$RUN_ALL_TESTS" = "yes" ] && apk add python3
     $MAKE
 
 Bootstrap: docker
@@ -328,6 +354,7 @@ $SETUP
         && bash /llvm.sh $CLANG_VERSION
     [ "$CLANG" = "yes" ] && [ ! -f /llvm.sh ] && apt install -y clang
     [ "$HAS_HIGHS" = "yes" ] && apt install -y libz-dev
+    [ "$RUN_ALL_TESTS" = "yes" ] && apt install -y python3
     $MAKE
 
 Bootstrap: docker
@@ -371,6 +398,7 @@ $SETUP
     [ "$CLANG" = "yes" ] && dnf -y install clang
     [ "$HAS_COIN_OR" = "yes" ] && dnf -y install -y coin-or-Cbc-devel coin-or-Clp-devel coin-or-Osi-devel
     [ "$HAS_HIGHS" = "yes" ] && dnf -y install zlib-devel
+    [ "$RUN_ALL_TESTS" = "yes" ] && dnf -y install python3
     $MAKE
 
 Bootstrap: docker
@@ -411,6 +439,7 @@ $SETUP
     tdnf -y install gcc glibc-devel binutils libstdc++ linux-api-headers
     tdnf -y install coreutils make autoconf automake cmake git grep gawk gzip
     [ "$HAS_HIGHS" = "yes" ] && tdnf -y install zlib-devel
+    [ "$RUN_ALL_TESTS" = "yes" ] && tdnf -y install python3
     $MAKE
 
 Bootstrap: docker
@@ -480,4 +509,8 @@ elif [ "$1" = "fedora" ]; then
     build_fedora fedora fedora:36
 elif [ "$1" = "photon" ]; then
     build_photon photon photon:latest
+
+else
+    echo "Target distribution must be specified!"
+    exit -1
 fi
