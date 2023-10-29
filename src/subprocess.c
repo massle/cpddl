@@ -84,6 +84,9 @@ static int bufRead(struct buf *buf, int fd)
     if (r > 0){
         buf->size += r;
         return 0;
+
+    }else if (r < 0){
+        return -2;
     }
     return -1;
 }
@@ -150,9 +153,8 @@ int pddlExecvpLimits(char *const argv[],
     int written = 0;
     if (write_stdin != NULL){
         if (pipe(fd_stdin) != 0){
-            perror("pipe() failed");
             CTXEND(err);
-            return -1.;
+            ERR_RET(err, -1, "pipe() failed: %s", strerror(errno));
         }
     }
     if (read_stdout != NULL){
@@ -161,9 +163,8 @@ int pddlExecvpLimits(char *const argv[],
                 close(fd_stdin[0]);
             if (fd_stdin[1] >= 0)
                 close(fd_stdin[1]);
-            perror("pipe() failed");
             CTXEND(err);
-            return -1.;
+            ERR_RET(err, -1, "pipe() failed: %s", strerror(errno));
         }
     }
 
@@ -177,9 +178,8 @@ int pddlExecvpLimits(char *const argv[],
                 close(fd_stdout[0]);
             if (fd_stdout[1] >= 0)
                 close(fd_stdout[1]);
-            perror("pipe() failed");
             CTXEND(err);
-            return -1.;
+            ERR_RET(err, -1, "pipe() failed: %s", strerror(errno));
         }
     }
 
@@ -229,7 +229,18 @@ int pddlExecvpLimits(char *const argv[],
         }
 
         execvp(argv[0], argv);
-        PANIC("exec failed!");
+        PANIC("exec failed: %s", strerror(errno));
+    }
+
+    sigset_t old_signals;
+    sigset_t blocked_signals;
+    sigemptyset(&blocked_signals);
+    sigaddset(&blocked_signals, SIGPIPE);
+    if (sigprocmask(SIG_BLOCK, &blocked_signals, &old_signals) != 0){
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, 0);
+        CTXEND(err);
+        ERR_RET(err, -1, "Could not block SIGPIPE signal: %s", strerror(errno));
     }
 
     struct pollfd pfd[3];
@@ -290,6 +301,13 @@ int pddlExecvpLimits(char *const argv[],
                     || (pfd[fdi].revents & POLLWRBAND)){
                 int remaining = write_stdin_size - written;
                 ssize_t w = write(fd_stdin[1], write_stdin, remaining);
+                if (w < 0){
+                    LOG(err, "Got error while writing to pipe: %s",
+                        strerror(errno));
+                    LOG(err, "Closing the write pipe...");
+                    close(fd_stdin[1]);
+                    fd_stdin[1] = -1;
+                }
                 if (w > 0)
                     written += w;
                 if (written == write_stdin_size){
@@ -298,6 +316,11 @@ int pddlExecvpLimits(char *const argv[],
                 }
 
             }else if (pfd[fdi].revents & POLLHUP){
+                close(fd_stdin[1]);
+                fd_stdin[1] = -1;
+
+            }else if (pfd[fdi].revents & POLLERR){
+                LOG(err, "Cannot write to the write pipe.");
                 close(fd_stdin[1]);
                 fd_stdin[1] = -1;
             }
@@ -315,7 +338,13 @@ int pddlExecvpLimits(char *const argv[],
                     || (pfd[fdi].revents & POLLRDNORM)
                     || (pfd[fdi].revents & POLLRDBAND)
                     || (pfd[fdi].revents & POLLPRI)){
-                if (bufRead(&bufout, fd_stdout[0]) != 0){
+                int st;
+                if ((st = bufRead(&bufout, fd_stdout[0])) != 0){
+                    if (st < -1){
+                        LOG(err, "Got error while reading from stdout pipe: %s",
+                            strerror(errno));
+                        LOG(err, "Closing the stdout pipe...");
+                    }
                     close(fd_stdout[0]);
                     fd_stdout[0] = -1;
                 }
@@ -323,6 +352,11 @@ int pddlExecvpLimits(char *const argv[],
             }else if (pfd[fdi].revents & POLLHUP){
                 close(fd_stdout[0]);
                 fd_stdout[0] = -1;
+
+            }else if (pfd[fdi].revents & POLLERR){
+                LOG(err, "Error occurred on stdout pipe.");
+                close(fd_stdin[1]);
+                fd_stdin[1] = -1;
             }
 
             if (fd_stdout[0] >= 0){
@@ -338,7 +372,13 @@ int pddlExecvpLimits(char *const argv[],
                     || (pfd[fdi].revents & POLLRDNORM)
                     || (pfd[fdi].revents & POLLRDBAND)
                     || (pfd[fdi].revents & POLLPRI)){
-                if (bufRead(&buferr, fd_stderr[0]) != 0){
+                int st;
+                if ((st = bufRead(&buferr, fd_stderr[0])) != 0){
+                    if (st < -1){
+                        LOG(err, "Got error while reading from stderr pipe: %s",
+                            strerror(errno));
+                        LOG(err, "Closing the stderr pipe...");
+                    }
                     close(fd_stderr[0]);
                     fd_stderr[0] = -1;
                 }
@@ -346,6 +386,11 @@ int pddlExecvpLimits(char *const argv[],
             }else if (pfd[fdi].revents & POLLHUP){
                 close(fd_stderr[0]);
                 fd_stderr[0] = -1;
+
+            }else if (pfd[fdi].revents & POLLERR){
+                LOG(err, "Error occurred on stderr pipe.");
+                close(fd_stdin[1]);
+                fd_stdin[1] = -1;
             }
 
             if (fd_stderr[0] >= 0){
@@ -396,6 +441,11 @@ int pddlExecvpLimits(char *const argv[],
     }
 
     CTXEND(err);
+
+    // Restore blocking of signals
+    if (sigprocmask(SIG_BLOCK, &old_signals, NULL) != 0){
+        ERR_RET(err, -1, "Could not restored signal blocking: %s", strerror(errno));
+    }
     return 0;
 }
 
@@ -489,6 +539,13 @@ int pddlForkPipe(int (*fn)(int fdout, void *userdata),
     LOG(err, "Read %d bytes, allocated %d bytes", buf.size, buf.alloc);
 
     waitForSubprocess(pid, status);
+    if (status != NULL){
+        LOG(err, "status: exited: %d, exit_status: %d,"
+            " signaled: %d, signum: %d (%s)",
+            status->exited, status->exit_status,
+            status->signaled, status->signum,
+            (status->signaled ? strsignal(status->signum) : "" ));
+    }
 
     CTXEND(err);
     return 0;

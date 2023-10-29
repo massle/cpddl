@@ -30,6 +30,7 @@ enum pddl_cp_solver {
     PDDL_CP_SOLVER_DEFAULT = 0,
     PDDL_CP_SOLVER_CPOPTIMIZER,
     PDDL_CP_SOLVER_MINIZINC,
+    PDDL_CP_NO_SOLVER,
 };
 typedef enum pddl_cp_solver pddl_cp_solver_t;
 
@@ -222,6 +223,16 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
                          const pddl_cp_solve_config_t *cfg,
                          pddl_cp_sol_t *sol,
                          pddl_err_t *err);
+
+/**
+ * Set the default path to the Minizinc solver.
+ */
+void pddlCPSetDefaultMinizincBin(const char *fn);
+
+/**
+ * Returns default path to the Minizinc binary.
+ */
+const char *pddlCPDefaultMinizincBin(void);
 
 #ifdef __cplusplus
 }

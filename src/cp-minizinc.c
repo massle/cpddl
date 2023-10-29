@@ -16,7 +16,26 @@
 #include "pddl/cp.h"
 #include "pddl/subprocess.h"
 #include "pddl/strstream.h"
+#include "pddl/pddl_file.h"
 #include "_cp.h"
+
+static char pddl_minizinc_bin[PDDL_FILE_MAX_PATH_LEN];
+
+void pddlCPSetDefaultMinizincBin(const char *fn)
+{
+    strncpy(pddl_minizinc_bin, fn, PDDL_FILE_MAX_PATH_LEN - 1);
+}
+
+const char *pddlCPDefaultMinizincBin(void)
+{
+    if (pddl_minizinc_bin[0] != '\x0')
+        return pddl_minizinc_bin;
+#ifdef PDDL_MINIZINC_BIN
+    return PDDL_MINIZINC_BIN;
+#else /* PDDL_MINIZINC_BIN */
+    return NULL;
+#endif /* PDDL_MINIZINC_BIN */
+}
 
 int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
                          const pddl_cp_solve_config_t *cfg,
@@ -25,11 +44,12 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
 {
     ZEROIZE(sol);
 
-    if (cfg->minizinc == NULL){
-        LOG(err, "default minizinc [%s] version %s", PDDL_MINIZINC_BIN,
-            PDDL_MINIZINC_VERSION);
+    char *minizinc_bin = (char *)cfg->minizinc;
+    if (minizinc_bin == NULL){
+        minizinc_bin = (char *)pddlCPDefaultMinizincBin();
+        LOG(err, "default minizinc [%s]", minizinc_bin);
     }else{
-        LOG(err, "minizinc [%s]", cfg->minizinc);
+        LOG(err, "minizinc [%s]", minizinc_bin);
     }
     char *buf = NULL;
     size_t bufsize = 0;
@@ -40,9 +60,12 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     fflush(fout);
     fclose(fout);
     LOG(err, "Problem written in mzn format");
+    {FILE *f = fopen("x", "w");
+    fprintf(f, "%s\n", buf);
+    fclose(f);}
 
     char *argv[] = {
-        (char *)(cfg->minizinc == NULL ? PDDL_MINIZINC_BIN : cfg->minizinc),
+        minizinc_bin,
         "-a", // list all solutions
         "--soln-sep", "", // empty solution separator
         "--unsat-msg", "UNSAT", // message for unsatisfiable problem
@@ -70,18 +93,26 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
     int ret = PDDL_CP_UNKNOWN;
     pddl_exec_status_t status;
     char *solbuf = NULL;
-    int solbuf_size;
+    int solbuf_size = 0;
+    char *errbuf = NULL;
+    int errbuf_size = 0;
     int execret = pddlExecvp(argv, &status, buf, bufsize,
-                             &solbuf, &solbuf_size, NULL, NULL, err);
+                             &solbuf, &solbuf_size, &errbuf, &errbuf_size, err);
     if (execret != 0){
+        ret = PDDL_CP_UNKNOWN;
+        goto minizinc_end;
+    }
+    if (status.exit_status != 0){
         LOG(err, "Something went wrong.");
-        LOG(err, "Minizinc return status was %d", execret);
+        LOG(err, "Minizinc return status was %d", status.exit_status);
+        LOG(err, "Error output: %s", errbuf);
         ret = PDDL_CP_UNKNOWN;
         goto minizinc_end;
     }
     if (status.signaled){
         LOG(err, "Something went wrong.");
         LOG(err, "Minizinc was killed by a signal.");
+        LOG(err, "Error output: %s", errbuf);
         ret = PDDL_CP_UNKNOWN;
         goto minizinc_end;
     }
@@ -145,7 +176,8 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
         LOG(err, "Unsolvable or unbounded");
     }else if (strncmp(solbuf + offset, "ERR", 3) == 0){
         ret = PDDL_CP_ABORTED;
-        LOG(err, "Error");
+        LOG(err, "Error Detected");
+        LOG(err, "Error output: %s", errbuf);
     }else{
         LOG(err, "Something went wrong.");
         LOG(err, "Minizinc did not print the full output -- missing result indicator.");
@@ -164,6 +196,8 @@ int pddlCPSolve_Minizinc(const pddl_cp_t *cp,
 minizinc_end:
     if (solbuf != NULL)
         FREE(solbuf);
+    if (errbuf != NULL)
+        FREE(errbuf);
     if (buf != NULL)
         free(buf);
     return ret;

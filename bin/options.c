@@ -100,6 +100,18 @@ static int setCPSolver(const char *v)
     return 0;
 }
 
+static int setMinizinc(const char *v)
+{
+    if (!pddlIsFile(v)){
+        fprintf(stderr, "Option Error: Cannot find %s", v);
+        return -1;
+    }
+
+    pddlCPSetDefaultMinizincBin(v);
+    setCPSolver("minizinc");
+    return 0;
+}
+
 static void hpotSetDisamb(pddl_bool_t value, void *_cfg)
 {
     pddl_hpot_config_t *cfg = _cfg;
@@ -445,7 +457,8 @@ static void setBaseOptions(void)
                  "Load CPLEX dynamic library. Also sets LP solver to cplex.");
     optsAddStr("gurobi-lib", 0x0, &opt.link_gurobi, NULL,
                  "Load Gurobi dynamic library. Also sets LP solver to gurobi.");
-
+    optsAddStrFn("minizinc", 0x0, setMinizinc,
+                 "Use the specified minizinc binary as a CP solver.");
 }
 
 static void setPddlOptions(void)
@@ -1242,7 +1255,7 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
         if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_CPOPTIMIZER))
             printf("   cpoptimier (v%s)\n", pddl_cp_optimizer_version);
         if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_MINIZINC))
-            printf("   minizinc (%s, v%s)\n", PDDL_MINIZINC_BIN, PDDL_MINIZINC_VERSION);
+            printf("   minizinc (%s)\n", pddlCPDefaultMinizincBin());
         return 1;
     }
 

@@ -114,8 +114,7 @@
 # Minizinc
 # --------
 #
-# Minizinc is called as a subprocess, MINIZINC_BIN should point to the minizinc
-# binary.
+# Minizinc is called as a subprocess. MINIZINC_BIN can be set as a default path.
 #
 #MINIZINC_BIN = /opt/minizinc/bin/minizinc
 

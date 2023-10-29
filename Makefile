@@ -252,8 +252,8 @@ pddl/config.h: $(MAKE_FILES)
 	$(if $(filter yes,$(USE_COIN_OR)), $(file >>$@,#define PDDL_COIN_OR))
 	$(if $(findstring yes,$(USE_CPLEX)$(USE_GUROBI)$(USE_HIGHS)$(USE_COIN_OR)), $(file >>$@,#define PDDL_LP))
 	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC))
-	$(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)")
-	$(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)")
+	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)"))
+	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)"))
 	$(if $(filter yes,$(USE_DYNET)), $(file >>$@,#define PDDL_DYNET))
 	$(file >>$@,)
 	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
@@ -547,7 +547,6 @@ help:
 	@echo "  USE_CPOPTIMIZER      = $(USE_CPOPTIMIZER)"
 	@echo "  CPOPTIMIZER_CPPFLAGS = $(CPOPTIMIZER_CPPFLAGS)"
 	@echo "  CPOPTIMIZER_LDFLAGS  = $(CPOPTIMIZER_LDFLAGS)"
-	@echo "  USE_MINIZINC         = $(USE_MINIZINC)"
 	@echo "  MINIZINC_BIN         = $(MINIZINC_BIN)"
 	@echo "  MINIZINC_VERSION     = $(MINIZINC_VERSION)"
 	@echo ""
