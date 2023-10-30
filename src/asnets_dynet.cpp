@@ -1126,8 +1126,7 @@ static pddl_bool_t policyRollout(pddl_asnets_t *a,
 
     // Start in the initial state
     pddl_state_id_t state_id = pddlFDRStatePoolInsert(&rollout->states, task->fdr.init);
-    int step = 0;
-    for (; step < a->cfg.policy_rollout_limit; ++step){
+    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
         // get the last reached state
         pddlFDRStatePoolGet(&rollout->states, state_id, state);
 
@@ -1163,7 +1162,7 @@ static pddl_bool_t policyRollout(pddl_asnets_t *a,
 
     if (a->cfg.osp_all_soft_goals){
         if (best_reached_goal_step >= 0){
-            for (int i = 0; i <= best_reached_goal_step; ++i)
+            for (int i = 0; i < best_reached_goal_step; ++i)
                 pddlIArrAdd(&rollout->plan, pddlIArrGet(&rollout->ops, i));
             rollout->osp_reached_goal_size = best_reached_goal_size;
         }
