@@ -121,7 +121,7 @@ pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *p
     return pddl_true;
 }
 
-int pddlFDRCountPartStateConsistentWithState(const pddl_fdr_part_state_t *ps,
+int pddlFDRPartStateStateIntersectionSize(const pddl_fdr_part_state_t *ps,
                                           const int *state)
 {
     int count = 0;

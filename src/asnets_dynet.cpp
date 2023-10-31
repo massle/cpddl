@@ -1138,7 +1138,7 @@ static pddl_bool_t policyRollout(pddl_asnets_t *a,
         }
 
         if (a->cfg.osp_all_soft_goals){
-            int goal_size = pddlFDRCountPartStateConsistentWithState(&task->fdr.goal, state);
+            int goal_size = pddlFDRPartStateStateIntersectionSize(&task->fdr.goal, state);
             if (goal_size > best_reached_goal_size){
                 best_reached_goal_size = goal_size;
                 best_reached_goal_step = step;
@@ -2290,7 +2290,7 @@ void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
             LOG(err, "Task %s solved: %s, length: %d, goal size: %d/%d",
                 task->pddl.problem_file,
                 F_BOOL(solved),
-                (solved ? pddlIArrSize(&rollout.plan) : -1),
+                pddlIArrSize(&rollout.plan),
                 rollout.osp_reached_goal_size,
                 task->osp_msgs_size_for_init);
 

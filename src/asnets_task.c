@@ -481,6 +481,18 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
         }
     }
 
+    if (cfg->osp_all_soft_goals){
+        int solved_in_init
+                = pddlFDRPartStateStateIntersectionSize(&gt->fdr.goal, gt->fdr.init);
+        if (solved_in_init == gt->osp_msgs_size_for_init){
+            CTXEND(err);
+            ERR_RET(err, -1, "Task is achieves the highest number of"
+                    " solvable goals already in the initial state."
+                    " Such task is uselessfor ASNets. (domain: %s, problem: %s)",
+                    domain_fn, problem_fn);
+        }
+    }
+
     CTXEND(err);
     return 0;
 }
