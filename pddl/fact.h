@@ -37,11 +37,16 @@ struct pddl_fact {
     pddl_htable_key_t hash;
     pddl_list_t htable;
 
-    char *name; /*!< Name of the fact */
-    int neg_of; /*!< ID of the fact this fact is negation of, or -1 */
-    pddl_ground_atom_t *ground_atom; /*!< If the fact was created from a
-                                          grounded atom, its copy is stored
-                                          here (may be NULL). */
+    /** Name of the fact */
+    char *name;
+    /** ID of the fact this fact is negation of, or -1 */
+    int neg_of;
+    /** If the fact was created from a grounded atom, its copy is stored
+     *  here (may be NULL). */
+    pddl_ground_atom_t *ground_atom;
+    /** True if this fact corresponds to a conjunction of other facts.
+     *  This is set by when constructing P^C tasks (see strips_conj module) */
+    pddl_bool_t is_conjunction;
 };
 typedef struct pddl_fact pddl_fact_t;
 

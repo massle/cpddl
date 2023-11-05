@@ -101,6 +101,16 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
                    const pddl_iset_t *del_ops);
 
 /**
+ * Same as pddlFDRReduce() except it output also mapping between old and
+ * new facts.
+ */
+void pddlFDRReduceGetRemap(pddl_fdr_t *fdr,
+                           const pddl_iset_t *del_vars,
+                           const pddl_iset_t *_del_facts,
+                           const pddl_iset_t *del_ops,
+                           pddl_fdr_vars_remap_t *remap);
+
+/**
  * Returns true if the plan is a relaxed plan of the problem.
  */
 int pddlFDRIsRelaxedPlan(const pddl_fdr_t *fdr,

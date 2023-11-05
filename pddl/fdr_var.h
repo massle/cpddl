@@ -61,10 +61,16 @@ void pddlFDRVarsConfigLog(const pddl_fdr_vars_config_t *cfg, pddl_err_t *err);
 
 struct pddl_fdr_val {
     char *name;
-    int var_id; /*!< ID of the variable this value belongs to */
-    int val_id; /*!< Value ID within the variable */
-    int global_id; /*!< Global unique ID of this value */
-    int strips_id; /*!< ID of the STRIPS fact this value was created from */
+    /** ID of the variable this value belongs to */
+    int var_id;
+    /** Value ID within the variable */
+    int val_id;
+    /** Global unique ID of this value */
+    int global_id;
+    /** ID of the STRIPS fact this value was created from */
+    int strips_id;
+    /** True if this value corresponds to a conjunction in P^C compilation. */
+    pddl_bool_t is_conjunction;
 };
 typedef struct pddl_fdr_val pddl_fdr_val_t;
 
@@ -122,7 +128,12 @@ void pddlFDRVarsInitCopy(pddl_fdr_vars_t *dst, const pddl_fdr_vars_t *src);
 
 struct pddl_fdr_vars_remap {
     int var_size;
+    /** Mapping from old variable/value pair to new value, i.e., for every
+     *  old variable-value pair (V, v), remap[V][v] points to the
+     *  corresponding pddl_fdr_val_t in the current fdr task. */
     const pddl_fdr_val_t ***remap;
+    /** Mapping from old global IDs to new IDs */
+    int *remap_global_id;
 };
 typedef struct pddl_fdr_vars_remap pddl_fdr_vars_remap_t;
 

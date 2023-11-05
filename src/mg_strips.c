@@ -319,6 +319,7 @@ void pddlMGStripsInitFDR(pddl_mg_strips_t *mg_strips, const pddl_fdr_t *fdr)
         pddl_fact_t fact;
         pddlFactInit(&fact);
         fact.name = name;
+        fact.is_conjunction = val->is_conjunction;
         int id = pddlFactsAdd(&mg_strips->strips.fact, &fact);
         PANIC_IF(id != fact_id, "Fact IDs don't match.");
         fact.name = NULL;

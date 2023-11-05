@@ -20,6 +20,7 @@
 #include "pddl/sort.h"
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
+#include "pddl/fdr_part_state.h"
 
 void pddlFDRVarsConfigLog(const pddl_fdr_vars_config_t *cfg, pddl_err_t *err)
 {
@@ -500,6 +501,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
             if (strips->fact.fact[fact]->name != NULL)
                 val->name = STRDUP(strips->fact.fact[fact]->name);
             val->strips_id = fact;
+            val->is_conjunction = strips->fact.fact[fact]->is_conjunction;
             pddlISetAdd(&fdr_vars->strips_id_to_val[fact], val->global_id);
         }
 
@@ -510,6 +512,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
             pddl_fdr_val_t *val = var->val + var->val_none_of_those;
             val->name = STRDUP("none-of-those");
             val->strips_id = -1;
+            val->is_conjunction = pddl_false;
         }
     }
 }
@@ -572,6 +575,7 @@ static void pddlFDRValCopy(pddl_fdr_val_t *dst, const pddl_fdr_val_t *src)
     dst->val_id = src->val_id;
     dst->global_id = src->global_id;
     dst->strips_id = src->strips_id;
+    dst->is_conjunction = src->is_conjunction;
 }
 
 static void pddlFDRVarCopy(pddl_fdr_var_t *dst, const pddl_fdr_var_t *src)
@@ -618,6 +622,8 @@ void pddlFDRVarsRemapFree(pddl_fdr_vars_remap_t *remap)
         FREE(remap->remap[v]);
     if (remap->remap != NULL)
         FREE(remap->remap);
+    if (remap->remap_global_id != NULL)
+        FREE(remap->remap_global_id);
 }
 
 void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
@@ -630,6 +636,13 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
     for (int v = 0; v < remap->var_size; ++v){
         remap->remap[v] = CALLOC_ARR(const pddl_fdr_val_t *,
                                      vars->var[v].val_size);
+    }
+
+    int old_global_id_size = vars->global_id_size;
+    pddl_fdr_fact_t *id_to_fact = ALLOC_ARR(pddl_fdr_fact_t, vars->global_id_size);
+    for (int id = 0; id < vars->global_id_size; ++id){
+        id_to_fact[id].var = vars->global_id_to_val[id]->var_id;
+        id_to_fact[id].val = vars->global_id_to_val[id]->val_id;
     }
 
     pddl_fdr_val_t delval;
@@ -686,6 +699,19 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
 
     vars->var_size = var_ins;
     vars->global_id_size = global_id;
+
+    remap->remap_global_id = ALLOC_ARR(int, old_global_id_size);
+    for (int id = 0; id < old_global_id_size; ++id){
+        int var = id_to_fact[id].var;
+        int val = id_to_fact[id].val;
+        if (remap->remap[var][val] == NULL){
+            remap->remap_global_id[id] = -1;
+        }else{
+            remap->remap_global_id[id] = remap->remap[var][val]->global_id;
+        }
+    }
+
+    FREE(id_to_fact);
 }
 
 pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,

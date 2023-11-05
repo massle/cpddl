@@ -110,6 +110,7 @@ static void pddlFactCopy(pddl_fact_t *dst, const pddl_fact_t *src)
         dst->ground_atom = pddlGroundAtomClone(src->ground_atom);
     dst->hash = pddlFactHash(dst);
     dst->neg_of = src->neg_of;
+    dst->is_conjunction = src->is_conjunction;
 }
 
 int pddlFactCmp(const pddl_fact_t *f1, const pddl_fact_t *f2)
@@ -153,7 +154,8 @@ void pddlFactsFree(pddl_facts_t *fs)
 {
     pddl_fact_t *fact;
 
-    pddlHTableDel(fs->htable);
+    if (fs->htable != NULL)
+        pddlHTableDel(fs->htable);
     PDDL_FACTS_FOR_EACH(fs, fact)
         pddlFactDel(fact);
     if (fs->fact != NULL)

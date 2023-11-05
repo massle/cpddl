@@ -308,6 +308,7 @@ void pddlStripsConjInit(pddl_strips_conj_t *task,
         pddl_fact_t fact;
         pddlFactInit(&fact);
         fact.name = metaFactName(&in_task->fact, task->fact_to_conj + fi);
+        fact.is_conjunction = pddl_true;
         int id = pddlFactsAdd(&task->strips.fact, &fact);
         PANIC_IF(id != fi, "Invalid fact-ID of a conjunction");
         pddlFactFree(&fact);

@@ -194,11 +194,15 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
     FREE(ordering);
 }
 
-void pddlFDRReduce(pddl_fdr_t *fdr,
-                   const pddl_iset_t *del_vars,
-                   const pddl_iset_t *_del_facts,
-                   const pddl_iset_t *del_ops)
+void pddlFDRReduceGetRemap(pddl_fdr_t *fdr,
+                           const pddl_iset_t *del_vars,
+                           const pddl_iset_t *_del_facts,
+                           const pddl_iset_t *del_ops,
+                           pddl_fdr_vars_remap_t *remap)
 {
+    ASSERT(remap != NULL);
+    ZEROIZE(remap);
+
     if (del_ops != NULL && pddlISetSize(del_ops) > 0)
         pddlFDROpsDelSet(&fdr->op, del_ops);
 
@@ -217,22 +221,21 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
     if (pddlISetSize(&del_facts) > 0){
         int old_var_size = fdr->var.var_size;
 
-        pddl_fdr_vars_remap_t remap;
         // Delete facts
-        pddlFDRVarsDelFacts(&fdr->var, &del_facts, &remap);
+        pddlFDRVarsDelFacts(&fdr->var, &del_facts, remap);
         // Remap facts in operators
-        pddlFDROpsRemapFacts(&fdr->op, &remap);
+        pddlFDROpsRemapFacts(&fdr->op, remap);
 
         // Remap the initial state
         for (int v = 0; v < old_var_size; ++v){
-            if (remap.remap[v][fdr->init[v]] != NULL){
-                const pddl_fdr_val_t *val = remap.remap[v][fdr->init[v]];
+            if (remap->remap[v][fdr->init[v]] != NULL){
+                const pddl_fdr_val_t *val = remap->remap[v][fdr->init[v]];
                 fdr->init[val->var_id] = val->val_id;
             }
         }
 
         // Remap goal
-        pddlFDRPartStateRemapFacts(&fdr->goal, &remap);
+        pddlFDRPartStateRemapFacts(&fdr->goal, remap);
 
         // Remove operators with empty effects
         PDDL_ISET(useless_ops);
@@ -253,10 +256,18 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
                 break;
             }
         }
-
-        pddlFDRVarsRemapFree(&remap);
     }
     pddlISetFree(&del_facts);
+}
+
+void pddlFDRReduce(pddl_fdr_t *fdr,
+                   const pddl_iset_t *del_vars,
+                   const pddl_iset_t *del_facts,
+                   const pddl_iset_t *del_ops)
+{
+    pddl_fdr_vars_remap_t remap;
+    pddlFDRReduceGetRemap(fdr, del_vars, del_facts, del_ops, &remap);
+    pddlFDRVarsRemapFree(&remap);
 }
 
 static int relaxedPreHold(const pddl_fdr_t *fdr,
