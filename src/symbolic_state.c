@@ -116,10 +116,13 @@ void pddlSymbolicStatesInit(pddl_symbolic_states_t *states,
 void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
                             pddl_bdd_manager_t *mgr)
 {
-    pddlPairHeapDel(states->open_cost);
-    pddlPairHeapDel(states->open);
+    if (states->open_cost != NULL)
+        pddlPairHeapDel(states->open_cost);
+    if (states->open != NULL)
+        pddlPairHeapDel(states->open);
 
-    pddlBDDDel(mgr, states->all_closed);
+    if (mgr != NULL && states->all_closed != NULL)
+        pddlBDDDel(mgr, states->all_closed);
 
     if (states->all_closed_g != NULL){
         pddl_rbtree_node_t *tn;
@@ -134,9 +137,11 @@ void pddlSymbolicStatesFree(pddl_symbolic_states_t *states,
 
     for (int si = 0; si < states->num_states; ++si)
         stateFree(pddlExtArrGet(states->pool, si), mgr);
-    pddlExtArrDel(states->pool);
+    if (states->pool != NULL)
+        pddlExtArrDel(states->pool);
 
-    pddlRBTreeDel(states->closed);
+    if (states->closed != NULL)
+        pddlRBTreeDel(states->closed);
 }
 
 pddl_symbolic_state_t *pddlSymbolicStatesGet(pddl_symbolic_states_t *states,
