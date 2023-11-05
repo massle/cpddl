@@ -715,7 +715,7 @@ static void storeOpPot(pddl_lp_t *lp,
                        const pddl_pot_t *pot,
                        pddl_pot_solution_t *sol)
 {
-    sol->op_pot_size = pot->constr_op.size;
+    sol->op_pot_size = pot->op_size;
     sol->op_pot = CALLOC_ARR(double, pot->op_size);
     for (int ci = 0; ci < pot->constr_op.size; ++ci){
         const pddl_pot_constr_t *c = pot->constr_op.c + ci;
