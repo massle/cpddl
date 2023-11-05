@@ -164,8 +164,11 @@ static int preparePotHeur(const pddl_fdr_t *fdr,
     }else{
         init_h_value->cost = pddlPotSolutionEvalFDRState(sol, &fdr->var, fdr->init);
     }
+    PANIC_IF(sol->op_pot_size != fdr->op.op_size,
+             "Different number of operator potentials than operators."
+             " This is probably a bug.");
     *op_pot = CALLOC_ARR(pddl_cost_t, fdr->op.op_size);
-    for (int i = 0; i < sol->op_pot_size && i < fdr->op.op_size; ++i){
+    for (int i = 0; i < fdr->op.op_size; ++i){
         double change = sol->op_pot[i];
         change = floor(change);
 
