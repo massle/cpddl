@@ -966,8 +966,7 @@ static void printStepLog(const pddl_symbolic_task_t *ss,
                        " gen: %d,"
                        " closed: %d,"
                        " bound: %s,"
-                       " fw-est: %.2f,"
-                       " bw-est: %.2f,"
+                       " est: fw:%.2f / bw:%.2f,"
                        " cur-bdd-size: %d,"
                        " cur-bdd-states: %.1f",
                        (search->fw ? "fw" : "bw"),

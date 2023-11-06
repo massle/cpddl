@@ -1117,6 +1117,10 @@ static void setSymbaOptions(void)
                 "Log every step of during the search.");
     optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
                "Output file for the plan.");
+    optsAddFlag("symba-compile-away-conj", 0x0,
+                &opt.symba.cfg.compile_away_conjunctions, 0,
+                "Compile away (meta-)facts corresponding to conjunctions"
+                " before search starts.");
 }
 
 static void setReversibilityOptions(void)
