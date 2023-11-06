@@ -181,21 +181,6 @@ endif
 
 MINIZINC_BIN ?=
 MINIZINC_VERSION ?=
-USE_MINIZINC ?= auto
-ifeq '$(USE_MINIZINC)' 'auto'
-  ifeq '$(MINIZINC_BIN)' ''
-    MINIZINC_FOUND := $(shell if /usr/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
-    ifeq '$(MINIZINC_FOUND)' 'yes'
-      MINIZINC_BIN := /usr/bin/minizinc
-    else
-      MINIZINC_FOUND := $(shell if /opt/minizinc/bin/minizinc --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
-      ifeq '$(MINIZINC_FOUND)' 'yes'
-        MINIZINC_BIN := /opt/minizinc/bin/minizinc
-      endif
-    endif
-  endif
-endif
-
 ifneq '$(MINIZINC_BIN)' ''
   MINIZINC_FOUND := $(shell if $(MINIZINC_BIN) --version >/dev/null 2>&1; then echo "yes"; else echo "no"; fi)
   ifeq '$(MINIZINC_FOUND)' 'yes'

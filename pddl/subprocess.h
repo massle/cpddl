@@ -32,6 +32,8 @@ struct pddl_exec_status {
     /** If .signaled is true, .signum is set to the signal number that
      *  terminated the sub-process */
     int signum;
+    /** True if the process was killed due to time out */
+    pddl_bool_t timed_out;
 };
 typedef struct pddl_exec_status pddl_exec_status_t;
 

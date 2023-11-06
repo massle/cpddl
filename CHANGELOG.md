@@ -3,8 +3,12 @@
 ## Unreleased
 
 ### Added
-- Action Schema Networks
+- Action Schema Networks for classical tasks
+- Action Schema Networks for oversubscription tasks where all goals are
+considered soft goals.
 - Gaifman graphs for homomorphism-based heuristics for lifted planning
+- Function for running subprocesses with time and memory limits
+- High-level API for reading TOML files
 
 ### Changed
 - Greedy searches terminate as soon as goal state is generated
@@ -12,6 +16,8 @@
 ### Removed
 
 ### Fixed
+- Errors from the LP module are propagated (or at least terminates the process)
+- Fixed error in determining a directory from a path to file
 
 
 ## Version 1.1

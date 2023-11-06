@@ -116,7 +116,7 @@ the problem, and attach all information gathered in step 2.
 
 ## Building Apptainer Image
 
-The script ``scripts/build-apptainer.sh`` can be used to build
+The script ``scripts/build-apptainer.py`` can be used to build
 [Apptainer](https://apptainer.org/) images of the main binary program
 ``./bin/pddl``. It has a lot of options which are printed when the script is
 called without any arguments.
@@ -125,26 +125,26 @@ Here is a list of recommendations how to use it:
 1. If you don't need any dependencies, the following will build the smallest
 possible image:
 ```sh
-  $ ./scripts/build-apptainer.sh --no-bliss --no-cudd alpine
+  $ ./scripts/build-apptainer.py --no-bliss --no-cudd alpine
 ```
 
 2. If you want to work with symmetries or binary decision diagrams (e.g., you
 want to use symbolic search), use:
 ```sh
-  $ ./scripts/build-apptainer.sh alpine
+  $ ./scripts/build-apptainer.py alpine
 ```
 
 3. If you want symmetries, binary decision diagrams, and LP/MIP/CSP CPLEX
 solver, then download the installation binary for CPLEX to the location, say,
 ``/opt/cplex/cplex_studio2211.linux_x86_64.bin`` and call:
 ```sh
-  $ ./scripts/build-apptainer.sh --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin photon
+  $ ./scripts/build-apptainer.py --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin photon
 ```
 
 4. If you want the same as above but with the HiGHS LP/MIP solver and Minizinc
 as the CSP solver, call:
 ```sh
-  $ ./scripts/build-apptainer.sh --highs --minizinc alpine
+  $ ./scripts/build-apptainer.py --highs --minizinc debian-bookworm
 ```
 
 
@@ -430,3 +430,6 @@ solvers), but it is called as a subprocess from cpddl, i.e., it is never
 statically or dynamically linked to cpddl.
 
   The recommended option is the CPLEX CP Optimizer.
+
+- Action Schema Networks require the [DyNet](https://github.com/clab/dynet)
+library licensed under Apache 2.0 license.

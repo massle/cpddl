@@ -26,6 +26,11 @@ branch later.
     ./t/scripts/test-build-apptainer.sh --git-dev release-${VER} --cplex /opt/cplex/cplex_studio2211.linux_x86_64.bin
     ```
 
+1. Run complete automatic tests with different build configurations
+    ```sh
+    ./t/scripts/build-and-check-apptainer.sh --git-dev release-${VER}
+    ```
+
 1. Update `CHANGELOG.md` and `pddl/version.h`:
     - Change `Unreleased` to the new version and created a new `Unreleased` section.
     - Update `pddl/version.h`
@@ -43,11 +48,11 @@ branch later.
 
 1. Build Apptainer images:
     ```sh
-    ./scripts/build-apptainer.sh --no-bliss --no-cudd --git-dev v${VER} \
-                                 --name barebone-${VER} alpine
-    ./scripts/build-apptainer.sh --cplex-api /opt/cplex/v22.1.1/cplex/include \
+    ./scripts/build-apptainer.py --no-bliss --no-cudd --git-dev v${VER} \
+                                 -o cpddl-barebone-${VER}.sif alpine
+    ./scripts/build-apptainer.py --cplex-api /opt/cplex/v22.1.1/cplex/include \
                                  --highs --coin-or --minizinc \
-                                 --git-dev v${VER} --name ${VER} debian-bookworm
+                                 --git-dev v${VER} -o cpddl-${VER}.sif debian-bookworm
 
     apptainer push cpddl-barebone-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:barebone-v${VER}
     apptainer push cpddl-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:v${VER}

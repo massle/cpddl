@@ -24,6 +24,27 @@
 
 static int default_solver = PDDL_CP_SOLVER_DEFAULT;
 
+static pddl_cp_solver_t defaultSolver(void)
+{
+    if (default_solver == PDDL_CP_SOLVER_DEFAULT){
+        if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_CPOPTIMIZER))
+            return PDDL_CP_SOLVER_CPOPTIMIZER;
+        if (pddlCPIsSolverAvailable(PDDL_CP_SOLVER_MINIZINC))
+            return PDDL_CP_SOLVER_MINIZINC;
+
+    }else if (pddlCPIsSolverAvailable(default_solver)){
+        return default_solver;
+    }
+    return PDDL_CP_NO_SOLVER;
+}
+
+static pddl_cp_solver_t getSolver(pddl_cp_solver_t solver)
+{
+    if (solver == PDDL_CP_SOLVER_DEFAULT)
+        return defaultSolver();
+    return solver;
+}
+
 struct simplify_change {
     int change;
     int *ivar_change;
@@ -639,11 +660,13 @@ void pddlCPSetDefaultSolver(pddl_cp_solver_t solver_id)
 
 pddl_bool_t pddlCPIsSolverAvailable(pddl_cp_solver_t solver_id)
 {
+    solver_id = getSolver(solver_id);
+
     if (solver_id == PDDL_CP_SOLVER_CPOPTIMIZER){
         return pddl_cp_optimizer_version != NULL;
 
     }else if (solver_id == PDDL_CP_SOLVER_MINIZINC){
-        return strlen(PDDL_MINIZINC_BIN) > 0 && pddlIsFile(PDDL_MINIZINC_BIN);
+        return pddlCPDefaultMinizincBin() != NULL;
     }
     return pddl_false;
 }
@@ -653,27 +676,20 @@ static int solve(const pddl_cp_t *cp,
                  pddl_cp_sol_t *sol,
                  pddl_err_t *err)
 {
-    pddl_cp_solver_t solver = cfg->solver;
-    if (solver == PDDL_CP_SOLVER_DEFAULT){
-#ifdef PDDL_CPOPTIMIZER
-        solver = PDDL_CP_SOLVER_CPOPTIMIZER;
-#else /* PDDL_CPOPTIMIZER */
-        solver = PDDL_CP_SOLVER_MINIZINC;
-#endif /* PDDL_CPOPTIMIZER */
-        if (default_solver != PDDL_CP_SOLVER_DEFAULT)
-            solver = default_solver;
-    }
+    pddl_cp_solver_t solver = getSolver(cfg->solver);
 
     switch (solver){
         case PDDL_CP_SOLVER_CPOPTIMIZER:
             return pddlCPSolve_CPOptimizer(cp, cfg, sol, err);
         case PDDL_CP_SOLVER_MINIZINC:
             return pddlCPSolve_Minizinc(cp, cfg, sol, err);
+        case PDDL_CP_NO_SOLVER:
+            PANIC("No CP solver available.");
         default:
             PANIC("Unkown solver ID %d", solver);
     }
     PANIC("Unkown solver ID %d", solver);
-    return -1;
+    return PDDL_CP_ABORTED;
 }
 
 struct solve_arg {
@@ -710,10 +726,13 @@ static int solveInSubprocess(const pddl_cp_t *cp,
     struct solve_arg arg = { cp, cfg, sol, err };
     if (pddlForkPipe(_solveInSubprocess, &arg, &data, &data_size,
                      &status, err) != 0){
-        return PDDL_CP_ABORTED;
+        ERR_RET(err, PDDL_CP_ABORTED, "An error occured when running CP"
+                " solver in subprocess. See log for more details.");
     }
-    if (status.signaled)
-        return PDDL_CP_ABORTED;
+    if (status.signaled){
+        ERR_RET(err, PDDL_CP_ABORTED, "An error occured when running CP"
+                " solver in subprocess. See log for more details.");
+    }
 
     int ret = status.exit_status;
     LOG(err, "Exit status: %d", ret);
@@ -746,9 +765,11 @@ int pddlCPSolve(const pddl_cp_t *cp,
                 pddl_cp_sol_t *sol,
                 pddl_err_t *err)
 {
-    CTX(err, "CP-solve");
     ZEROIZE(sol);
+    if (!pddlCPIsSolverAvailable(cfg->solver))
+        ERR_RET(err, PDDL_CP_ABORTED, "No CP solver available.");
 
+    CTX(err, "CP-solve");
     if (cp->unsat){
         CTXEND(err);
         return PDDL_CP_NO_SOLUTION;
@@ -760,7 +781,7 @@ int pddlCPSolve(const pddl_cp_t *cp,
     }
 
     int ret = 0;
-    if (cfg->run_in_subprocess){
+    if (0 && cfg->run_in_subprocess){
         ret = solveInSubprocess(cp, cfg, sol, err);
     }else{
         ret = solve(cp, cfg, sol, err);

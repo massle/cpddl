@@ -81,6 +81,12 @@ pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *p
                                                   const int *state);
 
 /**
+ * Returns the number of fact from {ps} appearing in {state}.
+ */
+int pddlFDRPartStateStateIntersectionSize(const pddl_fdr_part_state_t *ps,
+                                          const int *state);
+
+/**
  * Write partial state to the given state.
  */
 void pddlFDRPartStateApplyToState(const pddl_fdr_part_state_t *ps, int *state);
