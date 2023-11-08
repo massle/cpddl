@@ -1,20 +1,7 @@
 /***
- * cpddl
- * -------
- * Copyright (c)2021 Daniel Fiser <danfis@danfis.cz>,
- * Saarland University, and
- * Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
+ * Copyright (c)2023 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
 #include "internal.h"
@@ -43,6 +30,24 @@ struct pddl_datalog_fact {
     int arg[];
 };
 typedef struct pddl_datalog_fact pddl_datalog_fact_t;
+
+struct pddl_datalog_derivation_tree_fact {
+    /** ID of the rule achieving this fact */
+    int rule_id;
+    /** Assuming the datalog program is normalized, this refers to the
+     * facts in the body of the rule achieving this fact. */
+    int predecessor_fact_id[2];
+};
+typedef struct pddl_datalog_derivation_tree_fact pddl_datalog_derivation_tree_fact_t;
+
+struct pddl_datalog_derivation_tree {
+    /** Number of fact elements currently allocated for the derivation tree */
+    int fact_alloc;
+    /** Mapping from each fact to the information necessary to construct
+     *  the derivation tree. */
+    pddl_datalog_derivation_tree_fact_t *fact;
+};
+typedef struct pddl_datalog_derivation_tree pddl_datalog_derivation_tree_t;
 
 struct pddl_datalog_relevant_fact {
     pddl_htable_key_t hash;
@@ -77,6 +82,7 @@ struct pddl_datalog_db {
     int relevant_fact_size[2];
     pddl_datalog_db_freeze_t freeze;
     int canonical_model_end;
+    pddl_datalog_derivation_tree_t derivation_tree;
 };
 typedef struct pddl_datalog_db pddl_datalog_db_t;
 
@@ -126,6 +132,7 @@ struct pddl_datalog {
 
     int dirty;
     int max_pred_arity;
+    int has_annotation;
     pddl_datalog_db_t db;
 };
 
@@ -201,6 +208,26 @@ static int relevantFactEq(const pddl_list_t *key1,
     return f1->rule == f2->rule && memcmp(&f1->rule, &f2->rule, size) == 0;
 }
 
+static void derivationTreeSet(pddl_datalog_derivation_tree_t *tree,
+                              int achieved_fact_id,
+                              int achiever_rule_id,
+                              int achiever_rule_body_atom_id1,
+                              int achiever_rule_body_atom_id2)
+{
+    if (tree->fact_alloc <= achieved_fact_id){
+        if (tree->fact_alloc == 0)
+            tree->fact_alloc = 2;
+        while (tree->fact_alloc <= achieved_fact_id)
+            tree->fact_alloc *= 2;
+        tree->fact = REALLOC_ARR(tree->fact, pddl_datalog_derivation_tree_fact_t,
+                                 tree->fact_alloc);
+    }
+    pddl_datalog_derivation_tree_fact_t *f = tree->fact + achieved_fact_id;
+    f->rule_id = achiever_rule_id;
+    f->predecessor_fact_id[0] = achiever_rule_body_atom_id1;
+    f->predecessor_fact_id[1] = achiever_rule_body_atom_id2;
+}
+
 
 static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db);
 static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
@@ -227,6 +254,8 @@ static void dbInit(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     db->relevant_fact[0] = pddlExtArrNew(size, NULL, init);
     db->relevant_fact[1] = pddlExtArrNew(size, NULL, init);
     db->freeze.pred_to_fact = CALLOC_ARR(pddl_iset_t, dl->pred_size);
+
+    ZEROIZE(&db->derivation_tree);
 }
 
 static size_t dbUsedMem(const pddl_datalog_db_t *db)
@@ -268,6 +297,9 @@ static void dbFree(pddl_datalog_t *dl, pddl_datalog_db_t *db)
     for (int i = 0; i < dl->pred_size; ++i)
         pddlISetFree(db->freeze.pred_to_fact + i);
     FREE(db->freeze.pred_to_fact);
+
+    if (db->derivation_tree.fact != NULL)
+        FREE(db->derivation_tree.fact);
 
     ZEROIZE(db);
 }
@@ -344,7 +376,8 @@ static int dbHasFact(pddl_datalog_t *dl,
 static int dbAddFact(pddl_datalog_t *dl,
                      pddl_datalog_db_t *db,
                      int pred,
-                     const int *arg)
+                     const int *arg,
+                     int *is_new)
 {
     pddl_datalog_fact_t *f;
     f = (pddl_datalog_fact_t *)pddlExtArrGet(db->fact, db->fact_size);
@@ -360,9 +393,13 @@ static int dbAddFact(pddl_datalog_t *dl,
         db->used_mem += db->fact->arr->el_size;
         pddlISetAdd(&db->pred_to_fact[f->pred], f->id);
         db->used_mem += sizeof(int);
+        if (is_new != NULL)
+            *is_new = 1;
 
     }else{
         f = PDDL_LIST_ENTRY(ret, pddl_datalog_fact_t, htable);
+        if (is_new != NULL)
+            *is_new = 0;
     }
     return f->id;
 }
@@ -854,6 +891,9 @@ static void toNormalFormStep(pddl_datalog_t *dl, int rule_id)
 
     pddlDatalogAtomFree(dl, &head);
     pddlISetFree(&vars);
+
+    // Note that we don't need to do anything about annotations. They stay
+    // with the "top" rule.
 }
 
 /** Remap predicates in remap to the predicate target */
@@ -953,6 +993,9 @@ static pddl_bool_t canMerge(pddl_datalog_t *dl,
                             const pddl_datalog_rule_t *rule2,
                             const int *pred_num_achievers)
 {
+    // Do not merge rules with annotations
+    if (rule1->ann_size > 0 || rule2->ann_size > 0)
+        return pddl_false;
     if (pred_num_achievers[rule1->head.pred] != 1)
         return pddl_false;
     if (pred_num_achievers[rule2->head.pred] != 1)
@@ -1099,9 +1142,14 @@ static void insertInitialFacts(pddl_datalog_t *dl,
         }
         if (abort)
             continue;
-        int fact_id = dbAddFact(dl, &dl->db, atom->pred, args);
+        int is_new = 0;
+        int fact_id = dbAddFact(dl, &dl->db, atom->pred, args, &is_new);
         if (use_weight)
             dbSetFactWeight(dl, &dl->db, fact_id, &rule->weight, NULL);
+        if (is_new && dl->has_annotation){
+            // Update derivation tree
+            derivationTreeSet(&dl->db.derivation_tree, fact_id, ri, -1, -1);
+        }
     }
 }
 
@@ -1196,14 +1244,14 @@ static void ruleBodyWeight(pddl_datalog_t *dl,
     }
 }
 
-static void ruleToFact(pddl_datalog_t *dl,
-                       int use_weight,
-                       int use_fact_achievers,
-                       const pddl_datalog_rule_t *rule,
-                       const int *var_map)
+static int ruleToFact(pddl_datalog_t *dl,
+                      int use_weight,
+                      int use_fact_achievers,
+                      const pddl_datalog_rule_t *rule,
+                      const int *var_map)
 {
     if (!ruleNegBodySatisfied(dl, rule, var_map))
-        return;
+        return -1;
 
     const pddl_datalog_atom_t *head = &rule->head;
     int arity = dl->pred[head->pred].arity;
@@ -1215,7 +1263,8 @@ static void ruleToFact(pddl_datalog_t *dl,
             arg[i] = TO_IDX(head->arg[i]);
         }
     }
-    int fact_id = dbAddFact(dl, &dl->db, head->pred, arg);
+    int is_new = 0;
+    int fact_id = dbAddFact(dl, &dl->db, head->pred, arg, &is_new);
     if (use_weight){
         pddl_cost_t w;
         if (use_fact_achievers){
@@ -1231,6 +1280,10 @@ static void ruleToFact(pddl_datalog_t *dl,
             dbSetFactWeight(dl, &dl->db, fact_id, &w, NULL);
         }
     }
+
+    if (is_new)
+        return fact_id;
+    return -1;
 }
 
 static void applyFactOnJoinRule(pddl_datalog_t *dl,
@@ -1264,7 +1317,14 @@ static void applyFactOnJoinRule(pddl_datalog_t *dl,
             if (IS_VAR(b1->arg[i]))
                 var_map[TO_IDX(b1->arg[i])] = f->arg[i];
         }
-        ruleToFact(dl, use_weight, use_fact_achievers, rule, var_map);
+        int new_fact = ruleToFact(dl, use_weight, use_fact_achievers, rule, var_map);
+        // TODO: fact_id + fid -> new fact from ruleToFact()
+
+        if (new_fact >= 0 && dl->has_annotation){
+            // Update derivation tree if necessary
+            derivationTreeSet(&dl->db.derivation_tree, new_fact, rule_id,
+                              fact_id, fid);
+        }
     }
 }
 
@@ -1279,7 +1339,11 @@ static void applyFactOnRule(pddl_datalog_t *dl,
     int var_map[dl->var_size];
     if (rule->body_size == 1
             && unify(dl, f->pred, f->arg, &rule->body[0], var_map) == 0){
-        ruleToFact(dl, use_weight, use_fact_achievers, rule, var_map);
+        int fid = ruleToFact(dl, use_weight, use_fact_achievers, rule, var_map);
+        if (fid >= 0 && dl->has_annotation){
+            // Update derivation tree if necessary
+            derivationTreeSet(&dl->db.derivation_tree, fid, rule_id, f->id, -1);
+        }
     }
 
     if (rule->body_size == 2
@@ -1500,6 +1564,109 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
     FREE(in_queue);
 }
 
+int pddlDatalogFact(pddl_datalog_t *dl,
+                    int fact_id,
+                    int *pred_user_id,
+                    int *arity,
+                    int *arg_user_id,
+                    pddl_cost_t *weight)
+{
+    if (fact_id < 0 || dl->db.fact_size <= fact_id)
+        return -1;
+    pddl_datalog_fact_t *f = dbFact(&dl->db, fact_id);
+    *pred_user_id = dl->pred[f->pred].user_id;
+    *arity = dl->pred[f->pred].arity;
+    for (int i = 0; i < *arity; ++i)
+        arg_user_id[i] = dl->c[f->arg[i]].user_id;
+    if (weight != NULL)
+        *weight = f->weight;
+    return 0;
+}
+
+static void annExecuteRec(pddl_datalog_t *dl,
+                          int fact_id,
+                          int *closed,
+                          pddl_iset_t *body_facts)
+{
+    if (closed[fact_id])
+        return;
+    closed[fact_id] = 1;
+    ASSERT(dl->db.derivation_tree.fact_alloc > fact_id);
+    pddl_datalog_derivation_tree_fact_t *der = dl->db.derivation_tree.fact + fact_id;
+
+    for (int i = 0; i < 2; ++i){
+        int next_fact = der->predecessor_fact_id[i];
+        if (next_fact >= 0 && !closed[next_fact])
+            annExecuteRec(dl, next_fact, closed, body_facts);
+    }
+
+    if (der->rule_id >= 0){
+        pddl_datalog_rule_t *rule = dl->rule + der->rule_id;
+        for (int anni = 0; anni < rule->ann_size; ++anni){
+            rule->ann[anni].fn(dl, fact_id, body_facts + fact_id,
+                               rule->ann[anni].userdata);
+        }
+    }
+}
+
+static void annCollectBodyFactsRec(pddl_datalog_t *dl,
+                                   int fact_id,
+                                   int *closed,
+                                   pddl_iset_t *body_facts)
+{
+    if (closed[fact_id])
+        return;
+    closed[fact_id] = 1;
+    ASSERT(dl->db.derivation_tree.fact_alloc > fact_id);
+    pddl_datalog_derivation_tree_fact_t *der = dl->db.derivation_tree.fact + fact_id;
+
+    for (int i = 0; i < 2; ++i){
+        int next_fact = der->predecessor_fact_id[i];
+        if (next_fact >= 0 && !closed[next_fact])
+            annCollectBodyFactsRec(dl, next_fact, closed, body_facts);
+    }
+    for (int i = 0; i < 2; ++i){
+        int next_fact = der->predecessor_fact_id[i];
+        if (next_fact >= 0){
+            const pddl_datalog_fact_t *f = dbFact(&dl->db, next_fact);
+            if (dl->pred[f->pred].is_aux){
+                pddlISetUnion(body_facts + fact_id, body_facts + next_fact);
+            }else{
+                pddlISetAdd(body_facts + fact_id, next_fact);
+            }
+        }
+    }
+}
+
+void pddlDatalogExecuteAnnotations(pddl_datalog_t *dl,
+                                   unsigned goal_pred)
+{
+    if (!dl->has_annotation)
+        return;
+    if (dl->db.fact_size == 0)
+        return;
+    if (pddlISetSize(&dl->db.pred_to_fact[TO_IDX(goal_pred)]) == 0)
+        return;
+    ASSERT(pddlISetSize(&dl->db.pred_to_fact[TO_IDX(goal_pred)]) == 1);
+
+    int goal_fact_id = pddlISetGet(&dl->db.pred_to_fact[TO_IDX(goal_pred)], 0);
+
+    // First collect recover ground rules. More specifically, for each fact,
+    // collect the facts from the body of the rule achieving this fact.
+    pddl_iset_t *body_facts = ZALLOC_ARR(pddl_iset_t, dl->db.fact_size);
+    int *closed = ZALLOC_ARR(int, dl->db.fact_size);
+    annCollectBodyFactsRec(dl, goal_fact_id, closed, body_facts);
+
+    // And now execute annotations
+    ZEROIZE_ARR(closed, dl->db.fact_size);
+    annExecuteRec(dl, goal_fact_id, closed, body_facts);
+
+    FREE(closed);
+    for (int i = 0; i < dl->db.fact_size; ++i)
+        pddlISetFree(body_facts + i);
+    FREE(body_facts);
+}
+
 void pddlDatalogSaveStateOfDB(pddl_datalog_t *dl)
 {
     dbFreeze(dl, &dl->db);
@@ -1522,7 +1689,10 @@ void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
         PANIC_IF(!IS_CONST(in_arg[i]), "Requires constants as arguments.");
         arg[i] = TO_IDX(in_arg[i]);
     }
-    dbAddFact(dl, &dl->db, pred, arg);
+    int is_new = 0;
+    int fact_id = dbAddFact(dl, &dl->db, pred, arg, &is_new);
+    if (is_new && dl->has_annotation)
+        derivationTreeSet(&dl->db.derivation_tree, fact_id, -1, -1, -1);
 }
 
 void pddlDatalogAtomInit(pddl_datalog_t *dl,
@@ -1610,6 +1780,9 @@ void pddlDatalogRuleCopy(pddl_datalog_t *dl,
         pddlDatalogAtomCopy(dl, dst->neg_body + i, src->neg_body + i);
 
     dst->weight = src->weight;
+
+    for (int i = 0; i < src->ann_size; ++i)
+        pddlDatalogRuleAddAnnotation(dl, dst, src->ann[i].fn, src->ann[i].userdata);
 }
 
 void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
@@ -1625,6 +1798,9 @@ void pddlDatalogRuleFree(pddl_datalog_t *dl, pddl_datalog_rule_t *rule)
         FREE(rule->neg_body);
     pddlISetFree(&rule->var_set);
     pddlISetFree(&rule->common_body_var_set);
+
+    if (rule->ann != NULL)
+        FREE(rule->ann);
 }
 
 int pddlDatalogRuleCmp(const pddl_datalog_t *dl,
@@ -1633,7 +1809,7 @@ int pddlDatalogRuleCmp(const pddl_datalog_t *dl,
 {
     int cmp = pddlDatalogAtomCmp(dl, &rule1->head, &rule2->head);
     if (cmp == 0)
-        cmp = pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2);
+        cmp = pddlDatalogRuleCmpBodyWeightAndAnnotations(dl, rule1, rule2);
     return cmp;
 }
 
@@ -1641,7 +1817,7 @@ int pddlDatalogRuleCmpBodyFirst(const pddl_datalog_t *dl,
                                 const pddl_datalog_rule_t *rule1,
                                 const pddl_datalog_rule_t *rule2)
 {
-    int cmp = pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2);
+    int cmp = pddlDatalogRuleCmpBodyWeightAndAnnotations(dl, rule1, rule2);
     if (cmp == 0)
         cmp = pddlDatalogAtomCmp(dl, &rule1->head, &rule2->head);
     return cmp;
@@ -1660,6 +1836,35 @@ int pddlDatalogRuleCmpBodyAndWeight(const pddl_datalog_t *dl,
         cmp = pddlDatalogAtomCmp(dl, rule1->neg_body + i, rule2->neg_body + i);
     if (cmp == 0)
         cmp = pddlCostCmp(&rule1->weight, &rule2->weight);
+    return cmp;
+}
+
+int pddlDatalogRuleCmpBodyWeightAndAnnotations(const pddl_datalog_t *dl,
+                                               const pddl_datalog_rule_t *rule1,
+                                               const pddl_datalog_rule_t *rule2)
+{
+    int cmp = pddlDatalogRuleCmpBodyAndWeight(dl, rule1, rule2);
+    if (cmp == 0)
+        cmp = rule1->ann_size - rule2->ann_size;
+    if (cmp == 0){
+        for (int anni = 0; cmp == 0 && anni < rule1->ann_size; ++anni){
+            unsigned long fn1 = (unsigned long)rule1->ann[anni].fn;
+            unsigned long fn2 = (unsigned long)rule2->ann[anni].fn;
+            if (fn1 < fn2){
+                cmp = -1;
+            }else if (fn1 > fn2){
+                cmp = 1;
+            }else{
+                void *ud1 = rule1->ann[anni].userdata;
+                void *ud2 = rule2->ann[anni].userdata;
+                if (ud1 < ud2){
+                    cmp = -1;
+                }else if (ud1 > ud2){
+                    cmp = 1;
+                }
+            }
+        }
+    }
     return cmp;
 }
 
@@ -1716,6 +1921,25 @@ void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
                               const pddl_cost_t *weight)
 {
     rule->weight = *weight;
+}
+
+void pddlDatalogRuleAddAnnotation(pddl_datalog_t *dl,
+                                  pddl_datalog_rule_t *rule,
+                                  pddl_datalog_annotation_fn ann_fn,
+                                  void *ann_fn_userdata)
+{
+    if (rule->ann_size == rule->ann_alloc){
+        if (rule->ann_alloc == 0)
+            rule->ann_alloc = 1;
+        rule->ann_alloc *= 2;
+        rule->ann = REALLOC_ARR(rule->ann, pddl_datalog_annotation_t,
+                                rule->ann_alloc);
+    }
+    pddl_datalog_annotation_t *ann = rule->ann + rule->ann_size++;
+    ann->fn = ann_fn;
+    ann->userdata = ann_fn_userdata;
+
+    dl->has_annotation = 1;
 }
 
 pddl_bool_t pddlDatalogRuleIsSafe(const pddl_datalog_t *dl,
@@ -1810,6 +2034,8 @@ void pddlDatalogPrintRule(const pddl_datalog_t *dl,
     fprintf(fout, ".");
     if (pddlCostCmp(&c->weight, &pddl_cost_zero) != 0)
         fprintf(fout, " ; w = %s", F_COST(&c->weight));
+    if (c->ann_size > 0)
+        fprintf(fout, "; ann_size = %d", c->ann_size);
     fprintf(fout, "\n");
 }
 
@@ -2075,6 +2301,11 @@ int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl,
     ERR_RET(err, -1, "%s requires Clingo library; cpddl must be"
             " re-compiled with the Clingo support.", __func__);
 #else /* PDDL_CLINGO */
+    if (dl->has_annotation){
+        ERR_RET(err, -1, "Clingo does not support annotated"
+                " datalog programs.");
+    }
+
     CTX(err, "DL Canonical Model Gringo");
 
     setUp(dl, 1, err);
