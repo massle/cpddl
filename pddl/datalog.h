@@ -21,10 +21,10 @@ extern "C" {
 
 typedef struct pddl_datalog pddl_datalog_t;
 
-typedef int (*pddl_datalog_annotation_fn)(pddl_datalog_t *dl,
-                                          int head_fact_id,
-                                          const pddl_iset_t *body_fact_ids,
-                                          void *userdata);
+typedef void (*pddl_datalog_annotation_fn)(pddl_datalog_t *dl,
+                                           int head_fact_id,
+                                           const pddl_iset_t *body_fact_ids,
+                                           void *userdata);
 struct pddl_datalog_annotation {
     pddl_datalog_annotation_fn fn;
     void *userdata;
