@@ -503,6 +503,10 @@ static int stepExtendStripsWithConjunctions(void)
     // Prune redundant facts and operators if found any
     if (pddlISetSize(&rm_facts) > 0 || pddlISetSize(&rm_ops) > 0)
         pddlStripsReduce(&strips, &rm_facts, &rm_ops);
+    if (pddlISetSize(&rm_facts) > 0){
+        pddlMutexPairsReduce(&mutex, &rm_facts);
+        pddlMGroupsReduce(&mgroup, &rm_facts);
+    }
 
     pddlMGStripsFree(&mg_strips);
     pddlISetFree(&rm_facts);
