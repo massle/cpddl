@@ -110,6 +110,66 @@ pddl_lifted_heur_t *pddlLiftedHeurHAdd(const pddl_t *pddl, pddl_err_t *err)
     return &h->h;
 }
 
+struct hff_max {
+    pddl_lifted_heur_t h;
+    pddl_lifted_hff_max_t hff_max;
+};
+typedef struct hff_max hff_max_t;
+
+static void hffMaxDel(pddl_lifted_heur_t *_h)
+{
+    hff_max_t *h = pddl_container_of(_h, hff_max_t, h);
+    _pddlLiftedHeurFree(&h->h);
+    pddlLiftedHFFMaxFree(&h->hff_max);
+    FREE(h);
+}
+
+static pddl_cost_t hffMaxEstimate(pddl_lifted_heur_t *_h,
+                                  const pddl_iset_t *state,
+                                  const pddl_ground_atoms_t *gatoms)
+{
+    hff_max_t *h = pddl_container_of(_h, hff_max_t, h);
+    return pddlLiftedHFFMax(&h->hff_max, state, gatoms);
+}
+
+pddl_lifted_heur_t *pddlLiftedHeurHFFMax(const pddl_t *pddl, pddl_err_t *err)
+{
+    hff_max_t *h = ALLOC(hff_max_t);
+    _pddlLiftedHeurInit(&h->h, hffMaxDel, hffMaxEstimate);
+    pddlLiftedHFFMaxInit(&h->hff_max, pddl, err);
+    return &h->h;
+}
+
+struct hff_add {
+    pddl_lifted_heur_t h;
+    pddl_lifted_hff_add_t hff_add;
+};
+typedef struct hff_add hff_add_t;
+
+static void hffAddDel(pddl_lifted_heur_t *_h)
+{
+    hff_add_t *h = pddl_container_of(_h, hff_add_t, h);
+    _pddlLiftedHeurFree(&h->h);
+    pddlLiftedHFFAddFree(&h->hff_add);
+    FREE(h);
+}
+
+static pddl_cost_t hffAddEstimate(pddl_lifted_heur_t *_h,
+                                  const pddl_iset_t *state,
+                                  const pddl_ground_atoms_t *gatoms)
+{
+    hff_add_t *h = pddl_container_of(_h, hff_add_t, h);
+    return pddlLiftedHFFAdd(&h->hff_add, state, gatoms);
+}
+
+pddl_lifted_heur_t *pddlLiftedHeurHFFAdd(const pddl_t *pddl, pddl_err_t *err)
+{
+    hff_add_t *h = ALLOC(hff_add_t);
+    _pddlLiftedHeurInit(&h->h, hffAddDel, hffAddEstimate);
+    pddlLiftedHFFAddInit(&h->hff_add, pddl, err);
+    return &h->h;
+}
+
 
 struct homomorph {
     pddl_lifted_heur_t h;

@@ -42,6 +42,16 @@ pddl_lifted_heur_t *pddlLiftedHeurHMax(const pddl_t *pddl, pddl_err_t *err);
 pddl_lifted_heur_t *pddlLiftedHeurHAdd(const pddl_t *pddl, pddl_err_t *err);
 
 /**
+ * h^ff heuristic based on h^max heuristic.
+ */
+pddl_lifted_heur_t *pddlLiftedHeurHFFMax(const pddl_t *pddl, pddl_err_t *err);
+
+/**
+ * h^ff heuristic based on h^add heuristic.
+ */
+pddl_lifted_heur_t *pddlLiftedHeurHFFAdd(const pddl_t *pddl, pddl_err_t *err);
+
+/**
  * Wrapper for homomorphism-based heuristic.
  */
 pddl_lifted_heur_t *pddlLiftedHeurHomomorphism(pddl_homomorphism_heur_t *h);

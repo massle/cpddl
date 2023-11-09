@@ -69,11 +69,6 @@ pddl_datalog_t *pddlDatalogNew(void);
 void pddlDatalogDel(pddl_datalog_t *dl);
 
 /**
- * Clear datalog database.
- */
-void pddlDatalogClear(pddl_datalog_t *dl);
-
-/**
  * Adds constant to the datalog program.
  */
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name);
@@ -274,11 +269,22 @@ void pddlDatalogSaveStateOfDB(pddl_datalog_t *dl);
 void pddlDatalogRollbackDB(pddl_datalog_t *dl);
 
 /**
+ * Clear datalog database.
+ */
+void pddlDatalogClear(pddl_datalog_t *dl);
+
+/**
+ * Clear datalog database and re-initialize it.
+ */
+void pddlDatalogResetDB(pddl_datalog_t *dl);
+
+/**
  * Insert a new fact to the database.
  */
 void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
                             unsigned in_pred,
-                            const unsigned *in_arg);
+                            const unsigned *in_arg,
+                            const pddl_cost_t *weight);
 
 /**
  * Initializes atom of the given predicate previously created with

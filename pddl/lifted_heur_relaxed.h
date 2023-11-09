@@ -32,15 +32,20 @@ struct pddl_lifted_heur_relaxed {
     unsigned *dlvar;
     int dlvar_size;
     unsigned goal_dlpred;
-    int collect_best_achiever_facts;
+    pddl_bool_t collect_best_achiever_facts;
+
+    /** Internal context for computing ff heuristic */
+    void *ff_ctx;
 };
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_heur_relaxed_t;
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_hmax_t;
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_hadd_t;
+typedef struct pddl_lifted_heur_relaxed pddl_lifted_hff_max_t;
+typedef struct pddl_lifted_heur_relaxed pddl_lifted_hff_add_t;
 
 void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
                         const pddl_t *pddl,
-                        int collect_best_achiever_facts,
+                        pddl_bool_t collect_best_achiever_facts,
                         pddl_err_t *err);
 void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h);
 pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
@@ -52,7 +57,7 @@ void pddlLiftedHMaxBestAchieverFacts(pddl_lifted_hmax_t *h,
 
 void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
                         const pddl_t *pddl,
-                        int collect_best_achiever_facts,
+                        pddl_bool_t collect_best_achiever_facts,
                         pddl_err_t *err);
 void pddlLiftedHAddFree(pddl_lifted_hadd_t *h);
 pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
@@ -61,6 +66,22 @@ pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
 void pddlLiftedHAddBestAchieverFacts(pddl_lifted_hadd_t *h,
                                      const pddl_ground_atoms_t *gatoms,
                                      pddl_iset_t *achievers);
+
+void pddlLiftedHFFAddInit(pddl_lifted_hadd_t *h,
+                          const pddl_t *pddl,
+                          pddl_err_t *err);
+void pddlLiftedHFFAddFree(pddl_lifted_hff_add_t *h);
+pddl_cost_t pddlLiftedHFFAdd(pddl_lifted_hff_add_t *h,
+                             const pddl_iset_t *state,
+                             const pddl_ground_atoms_t *gatoms);
+
+void pddlLiftedHFFMaxInit(pddl_lifted_hadd_t *h,
+                          const pddl_t *pddl,
+                          pddl_err_t *err);
+void pddlLiftedHFFMaxFree(pddl_lifted_hff_add_t *h);
+pddl_cost_t pddlLiftedHFFMax(pddl_lifted_hff_add_t *h,
+                             const pddl_iset_t *state,
+                             const pddl_ground_atoms_t *gatoms);
 
 #ifdef __cplusplus
 } /* extern "C" */

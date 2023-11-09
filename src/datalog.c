@@ -545,7 +545,7 @@ static void predsSetUp(pddl_datalog_t *dl)
     }
 }
 
-static void setUp(pddl_datalog_t *dl, int db, pddl_err_t *err)
+static void setUp(pddl_datalog_t *dl, int db)
 {
     if (dl->dirty){
         for (int r = 0; r < dl->rule_size; ++r)
@@ -595,11 +595,6 @@ void pddlDatalogDel(pddl_datalog_t *dl)
         FREE(dl->pred);
     dbFree(dl, &dl->db);
     FREE(dl);
-}
-
-void pddlDatalogClear(pddl_datalog_t *dl)
-{
-    dbFree(dl, &dl->db);
 }
 
 unsigned pddlDatalogAddConst(pddl_datalog_t *dl, const char *name)
@@ -1095,7 +1090,7 @@ int pddlDatalogToNormalForm(pddl_datalog_t *dl, pddl_err_t *err)
         " (consts: %d, vars: %d,"
         " predicates: %d, rules: %d)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
-    setUp(dl, 0, err);
+    setUp(dl, 0);
     if (!pddlDatalogIsSafe(dl)){
         ERR_RET(err, -1, "Cannot create normal form because the"
                  "datalog program is not safe");
@@ -1365,7 +1360,7 @@ void pddlDatalogCanonicalModel(pddl_datalog_t *dl, pddl_err_t *err)
     LOG(err, "start (consts: %d, vars: %d,"
         " predicates: %d, rules: %d)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size);
-    setUp(dl, 1, err);
+    setUp(dl, 1);
 
     insertInitialFacts(dl, NO_WEIGHT, err);
     LOG(err, "Added initial facts: %d", dl->db.fact_size);
@@ -1417,7 +1412,7 @@ static int weightedCanonicalModel(pddl_datalog_t *dl,
         " weight_type: %s)",
         dl->c_size, dl->var_size, dl->pred_size, dl->rule_size,
         (weight_type == WEIGHT_ADD ? "add" : "max"));
-    setUp(dl, 1, err);
+    setUp(dl, 1);
 
     insertInitialFacts(dl, weight_type, err);
     LOG(err, "Added initial facts: %d", dl->db.fact_size);
@@ -1677,9 +1672,21 @@ void pddlDatalogRollbackDB(pddl_datalog_t *dl)
     dbRollback(dl, &dl->db);
 }
 
+void pddlDatalogClearDB(pddl_datalog_t *dl)
+{
+    dbFree(dl, &dl->db);
+}
+
+void pddlDatalogResetDB(pddl_datalog_t *dl)
+{
+    dbFree(dl, &dl->db);
+    setUp(dl, 1);
+}
+
 void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
                             unsigned in_pred,
-                            const unsigned *in_arg)
+                            const unsigned *in_arg,
+                            const pddl_cost_t *weight)
 {
     PANIC_IF(!IS_PRED(in_pred), "Requires a predicate.");
     int pred = TO_IDX(in_pred);
@@ -1691,6 +1698,8 @@ void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
     }
     int is_new = 0;
     int fact_id = dbAddFact(dl, &dl->db, pred, arg, &is_new);
+    if (weight != NULL)
+        dbSetFactWeight(dl, &dl->db, fact_id, weight, NULL);
     if (is_new && dl->has_annotation)
         derivationTreeSet(&dl->db.derivation_tree, fact_id, -1, -1, -1);
 }
