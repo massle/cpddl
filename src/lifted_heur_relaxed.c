@@ -322,6 +322,10 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
                                       const pddl_t *pddl,
                                       pddl_bool_t collect_best_achiever_facts,
                                       pddl_bool_t ff_heur,
+                                      int (*canonical_model)(pddl_datalog_t *,
+                                                             pddl_cost_t *,
+                                                             int collect_fact_achievers,
+                                                             pddl_err_t *),
                                       pddl_err_t *err)
 {
     CTX(err, "lifted-relax-heur");
@@ -330,6 +334,7 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
     h->collect_best_achiever_facts = collect_best_achiever_facts;
     if (ff_heur)
         h->ff_ctx = ffContextNew(pddl);
+    h->canonical_model = canonical_model;
     h->dl = pddlDatalogNew();
     h->type_to_dlpred = ALLOC_ARR(unsigned, h->pddl->type.type_size);
     h->pred_to_dlpred = ALLOC_ARR(unsigned, h->pddl->pred.pred_size);
@@ -368,7 +373,7 @@ static void pddlLiftedHeurRelaxedInit(pddl_lifted_heur_relaxed_t *h,
     CTXEND(err);
 }
 
-static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
+void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
 {
     pddlDatalogDel(h->dl);
     FREE(h->type_to_dlpred);
@@ -377,32 +382,6 @@ static void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h)
     FREE(h->dlvar);
     if (h->ff_ctx != NULL)
         ffContextDel((ff_context_t *)h->ff_ctx);
-}
-
-pddl_cost_t pddlLiftedHeurRelaxed(pddl_lifted_heur_relaxed_t *h,
-                                  const pddl_iset_t *state,
-                                  const pddl_ground_atoms_t *gatoms,
-                                  int (*eval)(pddl_datalog_t *,
-                                              pddl_cost_t *,
-                                              int collect_fact_achievers,
-                                              pddl_err_t *))
-{
-    if (h->ff_ctx != NULL)
-        ffContextClear((ff_context_t *)h->ff_ctx);
-
-    pddlDatalogResetDB(h->dl);
-    addFacts(h, state, gatoms);
-
-    pddl_cost_t w = pddl_cost_zero;
-    if (eval(h->dl, &w, h->collect_best_achiever_facts, NULL) != 0)
-        w = pddl_cost_dead_end;
-
-    if (h->ff_ctx != NULL && pddlCostCmp(&w, &pddl_cost_dead_end) != 0){
-        pddlDatalogExecuteAnnotations(h->dl, h->goal_dlpred);
-        w = ffCost((ff_context_t *)h->ff_ctx, h->pddl);
-    }
-
-    return w;
 }
 
 struct best_achievers {
@@ -434,101 +413,58 @@ void pddlLiftedHeurRelaxedBestAchieverFacts(pddl_lifted_heur_relaxed_t *h,
 }
 
 
-void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
+void pddlLiftedHMaxInit(pddl_lifted_heur_relaxed_t *h,
                         const pddl_t *pddl,
                         pddl_bool_t collect_best_achiever_facts,
                         pddl_err_t *err)
 {
-    pddlLiftedHeurRelaxedInit(h, pddl, collect_best_achiever_facts,
-                              pddl_false, err);
+    pddlLiftedHeurRelaxedInit(h, pddl, collect_best_achiever_facts, pddl_false,
+                              pddlDatalogWeightedCanonicalModelMax, err);
 }
 
-void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h)
-{
-    pddlLiftedHeurRelaxedFree(h);
-}
-
-pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
-                           const pddl_iset_t *state,
-                           const pddl_ground_atoms_t *gatoms)
-{
-    return pddlLiftedHeurRelaxed(h, state, gatoms,
-                                 pddlDatalogWeightedCanonicalModelMax);
-}
-
-void pddlLiftedHMaxBestAchieverFacts(pddl_lifted_hmax_t *h,
-                                     const pddl_ground_atoms_t *gatoms,
-                                     pddl_iset_t *achievers)
-{
-    pddlLiftedHeurRelaxedBestAchieverFacts(h, gatoms, achievers);
-}
-
-void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
+void pddlLiftedHAddInit(pddl_lifted_heur_relaxed_t *h,
                         const pddl_t *pddl,
                         pddl_bool_t collect_best_achiever_facts,
                         pddl_err_t *err)
 {
-    pddlLiftedHeurRelaxedInit(h, pddl, collect_best_achiever_facts,
-                              pddl_false, err);
+    pddlLiftedHeurRelaxedInit(h, pddl, collect_best_achiever_facts, pddl_false,
+                              pddlDatalogWeightedCanonicalModelAdd, err);
 }
 
-void pddlLiftedHAddFree(pddl_lifted_hadd_t *h)
-{
-    pddlLiftedHeurRelaxedFree(h);
-}
-
-pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
-                           const pddl_iset_t *state,
-                           const pddl_ground_atoms_t *gatoms)
-{
-    return pddlLiftedHeurRelaxed(h, state, gatoms,
-                                 pddlDatalogWeightedCanonicalModelAdd);
-}
-
-void pddlLiftedHAddBestAchieverFacts(pddl_lifted_hadd_t *h,
-                                     const pddl_ground_atoms_t *gatoms,
-                                     pddl_iset_t *achievers)
-{
-    pddlLiftedHeurRelaxedBestAchieverFacts(h, gatoms, achievers);
-}
-
-
-void pddlLiftedHFFAddInit(pddl_lifted_hadd_t *h,
+void pddlLiftedHFFAddInit(pddl_lifted_heur_relaxed_t *h,
                           const pddl_t *pddl,
                           pddl_err_t *err)
 {
-    pddlLiftedHeurRelaxedInit(h, pddl, pddl_false, pddl_true, err);
+    pddlLiftedHeurRelaxedInit(h, pddl, pddl_false, pddl_true,
+                              pddlDatalogWeightedCanonicalModelAdd, err);
 }
 
-void pddlLiftedHFFAddFree(pddl_lifted_hff_add_t *h)
-{
-    pddlLiftedHeurRelaxedFree(h);
-}
-
-pddl_cost_t pddlLiftedHFFAdd(pddl_lifted_hff_add_t *h,
-                             const pddl_iset_t *state,
-                             const pddl_ground_atoms_t *gatoms)
-{
-    return pddlLiftedHeurRelaxed(h, state, gatoms,
-                                 pddlDatalogWeightedCanonicalModelAdd);
-}
-
-void pddlLiftedHFFMaxInit(pddl_lifted_hadd_t *h,
+void pddlLiftedHFFMaxInit(pddl_lifted_heur_relaxed_t *h,
                           const pddl_t *pddl,
                           pddl_err_t *err)
 {
-    pddlLiftedHeurRelaxedInit(h, pddl, pddl_false, pddl_true, err);
+    pddlLiftedHeurRelaxedInit(h, pddl, pddl_false, pddl_true,
+                              pddlDatalogWeightedCanonicalModelMax, err);
 }
 
-void pddlLiftedHFFMaxFree(pddl_lifted_hff_add_t *h)
+pddl_cost_t pddlLiftedHeurRelaxedEvalState(pddl_lifted_heur_relaxed_t *h,
+                                           const pddl_iset_t *state,
+                                           const pddl_ground_atoms_t *gatoms)
 {
-    pddlLiftedHeurRelaxedFree(h);
-}
+    if (h->ff_ctx != NULL)
+        ffContextClear((ff_context_t *)h->ff_ctx);
 
-pddl_cost_t pddlLiftedHFFMax(pddl_lifted_hff_add_t *h,
-                             const pddl_iset_t *state,
-                             const pddl_ground_atoms_t *gatoms)
-{
-    return pddlLiftedHeurRelaxed(h, state, gatoms,
-                                 pddlDatalogWeightedCanonicalModelMax);
+    pddlDatalogResetDB(h->dl);
+    addFacts(h, state, gatoms);
+
+    pddl_cost_t w = pddl_cost_zero;
+    if (h->canonical_model(h->dl, &w, h->collect_best_achiever_facts, NULL) != 0)
+        w = pddl_cost_dead_end;
+
+    if (h->ff_ctx != NULL && pddlCostCmp(&w, &pddl_cost_dead_end) != 0){
+        pddlDatalogExecuteAnnotations(h->dl, h->goal_dlpred);
+        w = ffCost((ff_context_t *)h->ff_ctx, h->pddl);
+    }
+
+    return w;
 }
