@@ -12,6 +12,7 @@ static struct {
     char *train_save_prefix;
     char *eval;
     char *fd_enc;
+    char *fd_enc_osp;
     pddl_bool_t eval_write_plans;
     pddl_bool_t eval_benchmark_trainer;
     char *info;
@@ -49,6 +50,9 @@ static int parseOpts(int argc, char *argv[])
     optsAddStr("fd-enc", 0x0, &opt.fd_enc, NULL,
                "Generate FD encoding of the specified task as it is used"
                " by ASNets into the specified file.");
+    optsAddStr("fd-enc-osp", 0x0, &opt.fd_enc_osp, NULL,
+               "Same as --fd-enc but encoded OSP version of the task where"
+               " all goal facts are soft goals.");
     optsAddFlag("eval-write-plans", 0x0, &opt.eval_write_plans, 0,
                 "Write plans to files based on domain and problem names.");
     optsAddFlag("eval-benchmark-trainer", 0x0, &opt.eval_benchmark_trainer, 0,
@@ -65,7 +69,7 @@ static int parseOpts(int argc, char *argv[])
     if (opt.eval != NULL || opt.train != NULL)
         need_config = 1;
 
-    if (opt.fd_enc != NULL){
+    if (opt.fd_enc != NULL || opt.fd_enc_osp){
         if (argc != 3){
             fprintf(stderr, "Error: Missing domain and/or problem file\n");
             help(argv[0], stderr);
@@ -89,9 +93,10 @@ static int parseOpts(int argc, char *argv[])
     req_opts += (int)(opt.info != NULL);
     req_opts += (int)(opt.gen != NULL);
     req_opts += (int)(opt.fd_enc != NULL);
+    req_opts += (int)(opt.fd_enc_osp != NULL);
     if (req_opts != 1){
-        fprintf(stderr, "Error: Either --train, --eval, --info, --gen, or"
-                " --fd-enc option must be used.\n");
+        fprintf(stderr, "Error: Either --train, --eval, --info, --gen,"
+                " --fd-enc, or --fd-enc-osp option must be used.\n");
         help(argv[0], stderr);
         return -1;
     }
@@ -118,7 +123,7 @@ static int parseOpts(int argc, char *argv[])
         setrlimit(RLIMIT_AS, &mem_limit);
     }
 
-    if (opt.fd_enc == NULL && argc > 1)
+    if (opt.fd_enc == NULL && opt.fd_enc_osp == NULL && argc > 1)
         config_file = argv[1];
 
     PDDL_LOG(&err, "Version: %s", pddl_version);
@@ -135,7 +140,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (opt.fd_enc != NULL){
+    if (opt.fd_enc != NULL || opt.fd_enc_osp != NULL){
         pddl_asnets_lifted_task_t lt;
         if (pddlASNetsLiftedTaskInit(&lt, argv[1], &err) != 0){
             pddlErrPrint(&err, 1, stderr);
@@ -153,7 +158,12 @@ int main(int argc, char *argv[])
         }
 
         pddl_fdr_write_config_t wcfg = PDDL_FDR_WRITE_CONFIG_INIT;
-        wcfg.filename = opt.fd_enc;
+        if (opt.fd_enc != NULL){
+            wcfg.filename = opt.fd_enc;
+        }else if (opt.fd_enc_osp != NULL){
+            wcfg.filename = opt.fd_enc_osp;
+            wcfg.osp_all_soft_goals = pddl_true;
+        }
         wcfg.fd = pddl_true;
         pddlFDRWrite(&gt.fdr, &wcfg);
 
