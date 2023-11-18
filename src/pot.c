@@ -116,6 +116,8 @@ void pddlPotSolutionsFree(pddl_pot_solutions_t *sols)
 {
     for (int i = 0; i < sols->sol_size; ++i)
         pddlPotSolutionFree(sols->sol + i);
+    if (sols->sol != NULL)
+        FREE(sols->sol);
 }
 
 void pddlPotSolutionsAdd(pddl_pot_solutions_t *sols,
