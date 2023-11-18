@@ -17,6 +17,8 @@
 // This value is used for all pddlPotConjMaxInitHValue*() functions.
 #define MAX_INIT_LP_TIME_LIMIT 30.
 
+#define EPS 1E-6
+
 static int hpotConfigIsSupported(const pddl_hpot_config_t *cfg_in,
                                  pddl_err_t *err)
 {
@@ -524,6 +526,8 @@ static int pot(const pddl_strips_t *strips,
                const pddl_mutex_pairs_t *mutex,
                const pddl_mgroups_t *mgroup,
                float lp_time_limit,
+               const pddl_hpot_config_t *pot_cfg_in,
+               double *objval,
                pddl_err_t *err)
 {
     pddl_fdr_config_t cfg = PDDL_FDR_CONFIG_INIT;
@@ -549,28 +553,35 @@ static int pot(const pddl_strips_t *strips,
     }
     pddlISetFree(&rm_ops);
 
-    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_config_t pot_cfg;
+    pddlHPotConfigInitCopy(&pot_cfg, pot_cfg_in);
     pot_cfg.fdr = &fdr;
     pot_cfg.mg_strips = &mg_strips;
     pot_cfg.mutex = &fdr_mutex;
     if (lp_time_limit > 0.)
         pot_cfg.lp_time_limit = lp_time_limit;
 
-    pddl_hpot_config_opt_state_t cfginit = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
-    PDDL_HPOT_CONFIG_ADD(&pot_cfg, &cfginit);
-
     pddl_pot_solutions_t sol;
     pddlPotSolutionsInit(&sol);
     if (pddlHPot(&sol, &pot_cfg, err) != 0)
         TRACE_RET(err, -1);
 
+    pddlHPotConfigFree(&pot_cfg);
+
+
     int hvalue = -1;
     if (sol.sol_size > 0){
         hvalue = pddlPotSolutionEvalFDRState(sol.sol + 0, &fdr.var, fdr.init);
         PDDL_LOG(err, "Heuristic value: %d", hvalue);
+        if (objval != NULL){
+            PDDL_LOG(err, "Objective value: %.4f", sol.sol[0].objval);
+            *objval = sol.sol[0].objval;
+        }
+
     }else if (sol.sol_size == 0){
         PDDL_LOG(err, "Could not find a potential function.");
         hvalue = 0;
+
     }else if (sol.unsolvable){
         PDDL_LOG(err, "Task is unsolvable.");
         hvalue = 0;
@@ -589,11 +600,13 @@ static int potConj(const pddl_strips_t *strips,
                    const pddl_set_iset_t *conjs,
                    const pddl_iset_t *conj,
                    float lp_time_limit,
+                   const pddl_hpot_config_t *pot_cfg,
+                   double *objval,
                    pddl_err_t *err)
 {
     if (conj == NULL && (conjs == NULL || pddlSetISetSize(conjs) == 0)){
         pddlErrLogPause(err);
-        int ret = pot(strips, mutex, mgroup, lp_time_limit, err);
+        int ret = pot(strips, mutex, mgroup, lp_time_limit, pot_cfg, objval, err);
         pddlErrLogContinue(err);
         return ret;
     }
@@ -628,7 +641,7 @@ static int potConj(const pddl_strips_t *strips,
     pddlStripsConjMutexPairsInitCopy(&pc_mutex, mutex, &pc);
 
     // Compute h-value for P^C
-    int hvalue = pot(&pc.strips, &pc_mutex, mgroup, lp_time_limit, err);
+    int hvalue = pot(&pc.strips, &pc_mutex, mgroup, lp_time_limit, pot_cfg, objval, err);
 
     pddlErrLogContinue(err);
 
@@ -674,15 +687,23 @@ static int writeProgress(int hvalue,
 
 int pddlPotConjFind(pddl_set_iset_t *conjs,
                     int *best_hvalue_out,
+                    double *best_objval_out,
                     const pddl_strips_t *strips,
                     const pddl_mutex_pairs_t *mutex,
                     const pddl_mgroups_t *mgroup,
                     const pddl_pot_conj_find_config_t *cfg,
+                    const pddl_hpot_config_t *pot_cfg,
                     pddl_err_t *err)
 {
+    if (!hpotConfigIsSupported(pot_cfg, err))
+        TRACE_RET(err, -1);
+
     CTX(err, "Pot-Conj-Find");
     CTX_NO_TIME(err, "Cfg");
     pddlPotConjFindConfigLog(cfg, err);
+    CTXEND(err);
+    CTX_NO_TIME(err, "Cfg-Pot");
+    pddlHPotConfigLog(pot_cfg, err);
     CTXEND(err);
 
     // Set up time limit
@@ -690,10 +711,13 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
     pddlTimeLimitSet(&time_limit, cfg->time_limit);
 
     // Determine the base heuristic value
+    double best_objval;
     int best_hvalue = potConj(strips, mutex, mgroup, conjs, NULL,
-                              cfg->lp_time_limit, err);
+                              cfg->lp_time_limit, pot_cfg, &best_objval, err);
     if (best_hvalue_out != NULL)
         *best_hvalue_out = best_hvalue;
+    if (best_objval_out != NULL)
+        *best_objval_out = best_objval;
     LOG(err, "Base h-value: %d", best_hvalue);
 
     for (int epoch = 0; epoch < cfg->max_epochs; ++epoch){
@@ -731,10 +755,11 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
             }
 
             // Compute h-value for P^C
+            double objval;
             int hvalue = potConj(strips, mutex, mgroup, conjs, conj,
-                                 cfg->lp_time_limit, err);
+                                 cfg->lp_time_limit, pot_cfg, &objval, err);
 
-            if (hvalue > best_hvalue){
+            if (objval - best_objval > EPS){
                 // Found improving conjunction
                 LOG(err, "Tested %d conjunctions, cur size: %d",
                     conji + 1, pddlISetSize(conj));
@@ -752,9 +777,13 @@ int pddlPotConjFind(pddl_set_iset_t *conjs,
                 log[written] = '\x0';
                 LOG(err, "Improving conjunction:%s", log);
                 LOG(err, "Best h-value so far: %d", hvalue);
+                LOG(err, "Best objective value so far: %.4f", objval);
                 best_hvalue = hvalue;
+                best_objval = objval;
                 if (best_hvalue_out != NULL)
                     *best_hvalue_out = best_hvalue;
+                if (best_objval_out != NULL)
+                    *best_objval_out = best_objval;
                 pddlSetISetAdd(conjs, conj);
                 improved = pddl_true;
 
@@ -897,6 +926,10 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
                                      enum conj_iterator_type it_type,
                                      pddl_err_t *err)
 {
+    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_config_opt_state_t cfginit = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+    PDDL_HPOT_CONFIG_ADD(&pot_cfg, &cfginit);
+
     int max_hvalue = -1;
 
     conj_iterator_t it;
@@ -945,7 +978,7 @@ static int pddlPotConjMaxInitHValue1(const pddl_strips_t *strips,
 
         pddlErrLogPause(err);
         int hvalue = pot(&pc.strips, &pc_mutex, mgroup,
-                         MAX_INIT_LP_TIME_LIMIT, err);
+                         MAX_INIT_LP_TIME_LIMIT, &pot_cfg, NULL, err);
         pddlErrLogContinue(err);
         if (hvalue < 0)
             TRACE_RET(err, -1);
@@ -975,6 +1008,10 @@ static int pddlPotConjMaxInitHValue2(const pddl_strips_t *strips,
                                      enum conj_iterator_type it_type,
                                      pddl_err_t *err)
 {
+    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_config_opt_state_t cfginit = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+    PDDL_HPOT_CONFIG_ADD(&pot_cfg, &cfginit);
+
     int max_hvalue = -1;
 
     conj_iterator_t it;
@@ -1030,7 +1067,7 @@ static int pddlPotConjMaxInitHValue2(const pddl_strips_t *strips,
 
             pddlErrLogPause(err);
             int hvalue = pot(&pc.strips, &pc_mutex, mgroup,
-                             MAX_INIT_LP_TIME_LIMIT, err);
+                             MAX_INIT_LP_TIME_LIMIT, &pot_cfg, NULL, err);
             pddlErrLogContinue(err);
             if (hvalue > max_hvalue)
                 max_hvalue = hvalue;
@@ -1061,10 +1098,15 @@ int pddlPotConjMaxInitHValueBase(const pddl_strips_t *strips,
                                  const pddl_mgroups_t *mgroup,
                                  pddl_err_t *err)
 {
+    pddl_hpot_config_t pot_cfg = PDDL_HPOT_CONFIG_INIT;
+    pddl_hpot_config_opt_state_t cfginit = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+    PDDL_HPOT_CONFIG_ADD(&pot_cfg, &cfginit);
+
     CTX(err, "BASE");
 
     pddlErrLogPause(err);
-    int hvalue = pot(strips, mutex, mgroup, MAX_INIT_LP_TIME_LIMIT, err);
+    int hvalue = pot(strips, mutex, mgroup, MAX_INIT_LP_TIME_LIMIT,
+                     &pot_cfg, NULL, err);
     pddlErrLogContinue(err);
 
     LOG(err, "Heuristic value: %d", hvalue);

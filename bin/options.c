@@ -859,6 +859,7 @@ static void enablePotConjFind(void *_)
 
 static void setPotConjFindOptions(void)
 {
+    pddlHPotConfigInit(&opt.pot_conj_find.pot_cfg);
     pddl_pot_conj_find_config_t _cfg = PDDL_POT_CONJ_FIND_CONFIG_INIT;
     opt.pot_conj_find.cfg = _cfg;
 
@@ -883,6 +884,10 @@ static void setPotConjFindOptions(void)
     optsParamsAddFlag(params, "random", &opt.pot_conj_find.cfg.random_conjs);
     optsParamsAddInt(params, "random-seed", &opt.pot_conj_find.cfg.random_seed);
     optsParamsAddDbl(params, "log-freq", &opt.pot_conj_find.cfg.log_freq);
+
+    params = optsAddParams("pot-conj-find-pot", 0x0,
+                           "Configuration for the potential heuristic. Default: I");
+    hpotParams(params, &opt.pot_conj_find.pot_cfg);
 }
 
 static void setExtendStripsConjOptions(void)

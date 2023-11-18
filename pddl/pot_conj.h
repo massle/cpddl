@@ -124,10 +124,12 @@ void pddlPotConjFindConfigLog(const pddl_pot_conj_find_config_t *cfg,
  */
 int pddlPotConjFind(pddl_set_iset_t *conjs,
                     int *best_hvalue,
+                    double *best_objval,
                     const pddl_strips_t *strips,
                     const pddl_mutex_pairs_t *mutex,
                     const pddl_mgroups_t *mgroup,
                     const pddl_pot_conj_find_config_t *cfg,
+                    const pddl_hpot_config_t *pot_cfg,
                     pddl_err_t *err);
 
 /**

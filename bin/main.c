@@ -435,10 +435,19 @@ static int stepPotConjFind(void)
 {
     if (!opt.pot_conj_find.enable)
         return 0;
+
+    if (opt.pot_conj_find.pot_cfg.cfg_size == 0){
+        PDDL_LOG(&err, "Pot-Conj-Find: Setting default potential heuristics"
+                 " to maximization for the initial state.");
+        pddl_hpot_config_opt_state_t c = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+        pddlHPotConfigAdd(&opt.pot_conj_find.pot_cfg, &c.cfg);
+    }
+
     pddl_set_iset_t conjs;
     pddlSetISetInit(&conjs);
-    int st = pddlPotConjFind(&conjs, NULL, &strips, &mutex, &mgroup,
-                             &opt.pot_conj_find.cfg, &err);
+    int st = pddlPotConjFind(&conjs, NULL, NULL, &strips, &mutex, &mgroup,
+                             &opt.pot_conj_find.cfg,
+                             &opt.pot_conj_find.pot_cfg, &err);
     pddlSetISetFree(&conjs);
 
     if (st != 0)

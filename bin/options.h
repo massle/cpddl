@@ -151,6 +151,7 @@ struct options {
     struct {
         pddl_bool_t enable;
         pddl_pot_conj_find_config_t cfg;
+        pddl_hpot_config_t pot_cfg;
     } pot_conj_find;
 
     char *extend_strips_conj_file;
