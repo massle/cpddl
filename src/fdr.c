@@ -1242,3 +1242,19 @@ void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)
     if (cfg->fout == NULL)
         fclose(fout);
 }
+
+void pddlFDRLogInfo(const pddl_fdr_t *fdr, pddl_err_t *err)
+{
+    PDDL_LOG(err, "Number of FDR Operators: %d", fdr->op.op_size);
+    PDDL_LOG(err, "Number of FDR Variables: %d", fdr->var.var_size);
+    PDDL_LOG(err, "Number of FDR Facts: %d", fdr->var.global_id_size);
+    PDDL_LOG(err, "Goal is unreachable: %d", fdr->goal_is_unreachable);
+    PDDL_LOG(err, "Has Conditional Effects: %d", fdr->has_cond_eff);
+    int count = 0;
+    for (int i = 0; i < fdr->op.op_size; ++i){
+        if (fdr->op.op[i]->cond_eff_size > 0)
+            ++count;
+    }
+    PDDL_LOG(err, "Number of FDR Operators"
+             " with Conditional Effects: %d", count);
+}

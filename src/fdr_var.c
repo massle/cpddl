@@ -758,6 +758,38 @@ void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap)
     FREE(var_tmp);
 }
 
+pddl_fdr_var_t *pddlFDRVarsAdd(pddl_fdr_vars_t *vars, int val_size)
+{
+    ASSERT(val_size >= 2);
+    int var_id = vars->var_size;
+    ++vars->var_size;
+    vars->var = REALLOC_ARR(vars->var, pddl_fdr_var_t, vars->var_size);
+    pddl_fdr_var_t *var = vars->var + var_id;
+    ZEROIZE(var);
+    var->var_id = var_id;
+    var->val_size = val_size;
+    var->val = CALLOC_ARR(pddl_fdr_val_t, val_size);
+    var->val_none_of_those = -1;
+    var->is_black = pddl_false;
+
+    int id_start = vars->global_id_size;
+    vars->global_id_to_val = REALLOC_ARR(vars->global_id_to_val,
+                                         pddl_fdr_val_t *,
+                                         vars->global_id_size + val_size);
+    vars->global_id_size += val_size;
+    for (int vi = 0; vi < val_size; ++vi){
+        vars->global_id_to_val[id_start + vi] = var->val + vi;
+        var->val[vi].name = NULL;
+        var->val[vi].var_id = var_id;
+        var->val[vi].val_id = vi;
+        var->val[vi].global_id = id_start + vi;
+        var->val[vi].strips_id = -1;
+        var->val[vi].is_conjunction = pddl_false;
+    }
+
+    return var;
+}
+
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)
 {
     fprintf(fout, "Vars (%d):\n", vars->var_size);

@@ -18,6 +18,7 @@
  */
 
 #include "pddl/pot_conj.h"
+#include "pddl/pot_conj_exact.h"
 #include "internal.h"
 #include "_heur.h"
 
@@ -67,6 +68,33 @@ pddl_heur_t *potConj(const pddl_heur_config_t *cfg, pddl_err_t *err)
     return heur;
 }
 
+pddl_heur_t *potConjExact(const pddl_heur_config_t *cfg, pddl_err_t *err)
+{
+    if (cfg->pot_conj_exact_file == NULL){
+        ERR_RET(err, NULL, "Missing configuration file defining which"
+                " conjunctions to use (pddl_heur_config_t.pot_conj_exact_file)");
+    }
+
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    if (pddlPotConjExactLoadFromFile(&conjs, NULL, cfg->fdr,
+                                     cfg->pot_conj_exact_file, err) != 0){
+        TRACE_RET(err, NULL);
+    }
+    pddlSetISetGenAllSubsets(&conjs, 2);
+
+    pddl_hpot_config_t hcfg;
+    pddlHPotConfigInitCopy(&hcfg, &cfg->pot);
+    hcfg.fdr = cfg->fdr;
+    hcfg.mutex = cfg->mutex;
+    pddl_heur_t *heur = pddlHeurPotConjExact(&hcfg, &conjs, err);
+    pddlHPotConfigFree(&hcfg);
+    pddlSetISetFree(&conjs);
+    if (heur == NULL)
+        TRACE_RET(err, NULL);
+    return heur;
+}
+
 pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
 {
     if (cfg->fdr == NULL)
@@ -81,6 +109,8 @@ pddl_heur_t *pddlHeur(const pddl_heur_config_t *cfg, pddl_err_t *err)
             return pot(cfg, err);
         case PDDL_HEUR_POT_CONJ:
             return potConj(cfg, err);
+        case PDDL_HEUR_POT_CONJ_EXACT:
+            return potConjExact(cfg, err);
         case PDDL_HEUR_FLOW:
             return pddlHeurFlow(cfg->fdr, err);
         case PDDL_HEUR_LM_CUT:

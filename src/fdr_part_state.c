@@ -121,6 +121,21 @@ pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *p
     return pddl_true;
 }
 
+pddl_bool_t pddlFDRPartStateIsConsistentWithPartState(const pddl_fdr_part_state_t *ps1,
+                                                      const pddl_fdr_part_state_t *ps2)
+{
+    int i2 = 0;
+    for (int i1 = 0; i1 < ps1->fact_size; ++i1){
+        int var1 = ps1->fact[i1].var;
+        for (; i2 < ps2->fact_size && ps2->fact[i2].var < var1; ++i2);
+        if (i2 >= ps2->fact_size || ps2->fact[i2].var != var1)
+            return pddl_false;
+        if (ps1->fact[i1].val != ps2->fact[i2].val)
+            return pddl_false;
+    }
+    return pddl_true;
+}
+
 int pddlFDRPartStateStateIntersectionSize(const pddl_fdr_part_state_t *ps,
                                           const int *state)
 {

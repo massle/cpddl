@@ -191,6 +191,8 @@ typedef struct pddl_fdr_write_config pddl_fdr_write_config_t;
 
 void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg);
 
+void pddlFDRLogInfo(const pddl_fdr_t *fdr, pddl_err_t *err);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

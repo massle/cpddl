@@ -49,6 +49,7 @@ enum {
     GROUND_PLAN_HEUR_FLOW,
     GROUND_PLAN_HEUR_POT,
     GROUND_PLAN_HEUR_POT_CONJ,
+    GROUND_PLAN_HEUR_POT_CONJ_EXACT,
 };
 
 enum {
@@ -154,6 +155,12 @@ struct options {
         pddl_hpot_config_t pot_cfg;
     } pot_conj_find;
 
+    struct {
+        pddl_bool_t enable;
+        pddl_pot_conj_exact_find_config_t cfg;
+        pddl_hpot_config_t pot_cfg;
+    } pot_conj_exact_find;
+
     char *extend_strips_conj_file;
 
     struct {
@@ -174,6 +181,8 @@ struct options {
         pddl_bool_t to_tnf_multiply;
     } fdr;
 
+    char *extend_fdr_conj_file;
+
     struct {
         int search;
         int heur;
@@ -184,6 +193,7 @@ struct options {
         char *plan_out;
         pddl_hpot_config_t pot_cfg;
         char *pot_conj_file;
+        char *pot_conj_exact_file;
     } ground_planner;
 
     struct {
@@ -199,6 +209,7 @@ struct options {
         pddl_bool_t reversibility_iterative;
         pddl_bool_t mgroups;
         char *pot_conj_max_init_h_value;
+        char *pot_conj_exact_max_init_h_value;
     } report;
 
     struct {

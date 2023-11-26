@@ -163,6 +163,11 @@ pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
  */
 void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap);
 
+/**
+ * Adds a new variable with the given size of the domain.
+ */
+pddl_fdr_var_t *pddlFDRVarsAdd(pddl_fdr_vars_t *vars, int val_size);
+
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout);
 void pddlFDRVarsPrintTable(const pddl_fdr_vars_t *vars,
                            int linesize,
