@@ -28,10 +28,10 @@ void pddlStripsConjConfigAddConj(pddl_strips_conj_config_t *cfg,
 void pddlStripsConjConfigAddConjAndSubsets(pddl_strips_conj_config_t *cfg,
                                            const pddl_iset_t *conj)
 {
-    if (pddlISetSize(conj) <= 2){
+    if (pddlISetSize(conj) > 1)
         pddlStripsConjConfigAddConj(cfg, conj);
+    if (pddlISetSize(conj) <= 2)
         return;
-    }
 
     PDDL_ISET(c);
     for (int skipi = 0; skipi < pddlISetSize(conj); ++skipi){

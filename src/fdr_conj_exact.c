@@ -28,10 +28,10 @@ void pddlFDRConjExactConfigAddConj(pddl_fdr_conj_exact_config_t *cfg,
 void pddlFDRConjExactConfigAddConjAndSubsets(pddl_fdr_conj_exact_config_t *cfg,
                                              const pddl_iset_t *conj)
 {
-    if (pddlISetSize(conj) <= 2){
+    if (pddlISetSize(conj) > 1)
         pddlFDRConjExactConfigAddConj(cfg, conj);
+    if (pddlISetSize(conj) <= 2)
         return;
-    }
 
     PDDL_ISET(c);
     for (int skipi = 0; skipi < pddlISetSize(conj); ++skipi){
@@ -207,7 +207,7 @@ static void addOpsRec(pddl_fdr_conj_exact_t *task,
                       const pddl_iset_t *effvars,
                       const pddl_mutex_pairs_t *mutex,
                       const pddl_iset_t *affected_conjs,
-                      int *pre,
+                      const int *pre,
                       int pre_size,
                       int next_pre_idx,
                       pddl_err_t *err)
@@ -235,10 +235,10 @@ static void addOpsRec(pddl_fdr_conj_exact_t *task,
         PDDL_ISET_FOR_EACH(&task->conj[conj_id].subset_of, other_conj_id){
             for (int idx = 0; idx < pre_size; ++idx){
                 if (pddlISetGet(affected_conjs, idx) == other_conj_id){
-                    if (pre[idx] == 1){
+                    if (prenext[idx] == 1){
                         ok = 0;
                     }else{
-                        pre[idx] = 0;
+                        prenext[idx] = 0;
                     }
                     break;
                 }
@@ -262,10 +262,10 @@ static void addOpsRec(pddl_fdr_conj_exact_t *task,
         PDDL_ISET_FOR_EACH(&task->conj[conj_id].superset_of, other_conj_id){
             for (int idx = 0; idx < pre_size; ++idx){
                 if (pddlISetGet(affected_conjs, idx) == other_conj_id){
-                    if (pre[idx] == 0){
+                    if (prenext[idx] == 0){
                         ok = 0;
                     }else{
-                        pre[idx] = 1;
+                        prenext[idx] = 1;
                     }
                     break;
                 }
@@ -304,6 +304,7 @@ static void addOps(pddl_fdr_conj_exact_t *task,
                    const pddl_mutex_pairs_t *mutex,
                    pddl_err_t *err)
 {
+    //fprintf(stderr, "ADD OPS %s\n", op->name);
     // Operator's variables
     PDDL_ISET(effvars);
     for (int i = 0; i < op->eff.fact_size; ++i)
