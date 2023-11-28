@@ -395,11 +395,16 @@ void pddlFDRConjExactInit(pddl_fdr_conj_exact_t *task,
         var->val[1].is_conjunction = pddl_true;
 
         const pddl_iset_t *c = pddlSetISetGet(&cfg->conj, i);
+        PANIC_IF(pddlMutexPairsIsMutexSet(cfg->mutex, c),
+                 "The input conjunctions must not be mutex.");
         ASSERT(pddlISetSize(c) > 0);
         char name[1024];
         ssize_t end = snprintf(name, 1024, "NOT");
         for (int ni = 0; ni < pddlISetSize(c) && end < 1024; ++ni){
-            end += snprintf(name + end, 1024 - end, "-%s",
+            end += snprintf(name + end, 1024 - end, "-%d:%d:%d:%s",
+                            task->fdr.var.global_id_to_val[pddlISetGet(c, ni)]->var_id,
+                            task->fdr.var.global_id_to_val[pddlISetGet(c, ni)]->val_id,
+                            pddlISetGet(c, ni),
                             task->fdr.var.global_id_to_val[pddlISetGet(c, ni)]->name);
         }
         ASSERT(strlen(name) > 4);

@@ -666,11 +666,15 @@ static int writeProgress(int hvalue,
     if (fout == NULL)
         ERR_RET(err, -1, "Could not open %s", fn);
 
+    pddl_set_iset_t out_conjs;
+    pddlSetISetInitCopy(&out_conjs, conjs);
+    pddlSetISetGenAllSubsets(&out_conjs, 2);
+
     fprintf(fout, "hvalue = %d\n", hvalue);
     fprintf(fout, "conj = [\n");
-    for (int cid = 0; cid < pddlSetISetSize(conjs); ++cid){
+    for (int cid = 0; cid < pddlSetISetSize(&out_conjs); ++cid){
         fprintf(fout, "  [");
-        const pddl_iset_t *c = pddlSetISetGet(conjs, cid);
+        const pddl_iset_t *c = pddlSetISetGet(&out_conjs, cid);
         for (int i = 0; i < pddlISetSize(c); ++i){
             if (i > 0)
                 fprintf(fout, ", ");
@@ -679,6 +683,8 @@ static int writeProgress(int hvalue,
         fprintf(fout, "],\n");
     }
     fprintf(fout, "]\n");
+
+    pddlSetISetFree(&out_conjs);
 
     fclose(fout);
     return 0;

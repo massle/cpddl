@@ -107,11 +107,15 @@ int pddlPotConjExactInit(pddl_pot_conj_exact_t *pot,
     if (!hpotConfigIsSupported(cfg, err))
         TRACE_RET(err, -1);
 
+    CTX(err, "Pot-Conj-Exact");
     ZEROIZE(pot);
     pot->var_size = cfg->fdr->var.var_size;
     pddlPotSolutionsInit(&pot->pot);
 
-    CTX(err, "Pot-Conj-Exact");
+    pddl_mutex_pairs_t mutex;
+    pddlMutexPairsInitCopy(&mutex, cfg->mutex);
+    pddlMutexPairsAddFDRVars(&mutex, &cfg->fdr->var);
+
     CTX_NO_TIME(err, "Cfg");
     LOG(err, "Number of conjunctions: %d", pddlSetISetSize(conjs));
     for (int i = 0; i < pddlSetISetSize(conjs); ++i){
@@ -126,7 +130,9 @@ int pddlPotConjExactInit(pddl_pot_conj_exact_t *pot,
                                     fact, name);
             }
         }
-        LOG(err, "Conj[%d]:%s", i, str);
+        LOG(err, "Conj[%d]:%s%s", i, str,
+            (pddlMutexPairsIsMutexSet(&mutex, pddlSetISetGet(conjs, i))
+                ? " :: is-mutex, skipping" : ""));
     }
     pddlHPotConfigLog(cfg, err);
     CTXEND(err);
@@ -134,16 +140,18 @@ int pddlPotConjExactInit(pddl_pot_conj_exact_t *pot,
     // Construct P^C_exact FDR task
     pddl_fdr_conj_exact_config_t pc_cfg;
     pddlFDRConjExactConfigInit(&pc_cfg);
-    for (int i = 0; i < pddlSetISetSize(conjs); ++i)
-        pddlFDRConjExactConfigAddConj(&pc_cfg, pddlSetISetGet(conjs, i));
-    pc_cfg.mutex = cfg->mutex;
+    for (int i = 0; i < pddlSetISetSize(conjs); ++i){
+        if (!pddlMutexPairsIsMutexSet(&mutex, pddlSetISetGet(conjs, i)))
+            pddlFDRConjExactConfigAddConj(&pc_cfg, pddlSetISetGet(conjs, i));
+    }
+    pc_cfg.mutex = &mutex;
 
     pddl_fdr_conj_exact_t pc;
     pddlFDRConjExactInit(&pc, cfg->fdr, &pc_cfg, err);
 
     // Fix mutexes
     pddl_mutex_pairs_t fdr_mutex;
-    pddlFDRConjExactMutexPairsInitCopy(&fdr_mutex, cfg->mutex, &pc);
+    pddlFDRConjExactMutexPairsInitCopy(&fdr_mutex, &mutex, &pc);
 
     // Create a copy of the P^C_exact FDR task
     pddl_fdr_t fdr;
@@ -169,6 +177,7 @@ int pddlPotConjExactInit(pddl_pot_conj_exact_t *pot,
 
     // Compute potential functions
     if (pddlHPot(&pot->pot, &pot_cfg, err) != 0){
+        pddlMutexPairsFree(&mutex);
         pddlHPotConfigFree(&pot_cfg);
         pddlMGStripsFree(&mg_strips);
         pddlMutexPairsFree(&fdr_mutex);
@@ -205,6 +214,7 @@ int pddlPotConjExactInit(pddl_pot_conj_exact_t *pot,
         pot->pc_conj[conji].pc_var = pc.conj[conji].var_id;
     }
 
+    pddlMutexPairsFree(&mutex);
     pddlHPotConfigFree(&pot_cfg);
     pddlMGStripsFree(&mg_strips);
     pddlMutexPairsFree(&fdr_mutex);
@@ -358,6 +368,21 @@ static void conjIteratorFree(conj_iterator_t *it)
     }
 }
 
+static pddl_bool_t hasNoneOfThose(const conj_iterator_t *it,
+                                  const pddl_iset_t *conj)
+{
+    int fact;
+    PDDL_ISET_FOR_EACH(conj, fact){
+        PANIC_IF(it->fdr->var.global_id_to_val[fact]->name == NULL,
+                 "The input FDR task has a fact without name."
+                 " This is not supported as the output conjunctions are sets"
+                 " of fact names.");
+        if (strcmp(it->fdr->var.global_id_to_val[fact]->name, "none-of-those") == 0)
+            return pddl_true;
+    }
+    return pddl_false;
+}
+
 static const pddl_iset_t *conjIteratorNext(conj_iterator_t *it)
 {
     while (!it->set_end){
@@ -365,8 +390,10 @@ static const pddl_iset_t *conjIteratorNext(conj_iterator_t *it)
         for (int i = 0; i < it->set_size; ++i)
             pddlISetAdd(&it->conj, it->set[i]);
 
-        if (!pddlMutexPairsIsMutexSet(it->mutex, &it->conj))
+        if (!hasNoneOfThose(it, &it->conj)
+                && !pddlMutexPairsIsMutexSet(it->mutex, &it->conj)){
             break;
+        }
 
         _conjIteratorSetNext(it);
     }
@@ -524,11 +551,15 @@ static int writeProgress(int hvalue,
     if (fout == NULL)
         ERR_RET(err, -1, "Could not open %s", fn);
 
+    pddl_set_iset_t out_conjs;
+    pddlSetISetInitCopy(&out_conjs, conjs);
+    pddlSetISetGenAllSubsets(&out_conjs, 2);
+
     fprintf(fout, "hvalue = %d\n", hvalue);
     fprintf(fout, "conj = [\n");
-    for (int cid = 0; cid < pddlSetISetSize(conjs); ++cid){
+    for (int cid = 0; cid < pddlSetISetSize(&out_conjs); ++cid){
         fprintf(fout, "  [");
-        const pddl_iset_t *c = pddlSetISetGet(conjs, cid);
+        const pddl_iset_t *c = pddlSetISetGet(&out_conjs, cid);
         for (int i = 0; i < pddlISetSize(c); ++i){
             if (i > 0)
                 fprintf(fout, ", ");
@@ -537,6 +568,8 @@ static int writeProgress(int hvalue,
         fprintf(fout, "],\n");
     }
     fprintf(fout, "]\n");
+
+    pddlSetISetFree(&out_conjs);
 
     fclose(fout);
     return 0;
