@@ -21,6 +21,13 @@
 #include "toml.h"
 #include "pddl/set.h"
 
+void pddlSetISetInitCopy(pddl_set_iset_t *ss, const pddl_set_iset_t *sin)
+{
+    pddlSetISetInit(ss);
+    for (int i = 0; i < pddlSetISetSize(sin); ++i)
+        pddlSetISetAdd(ss, pddlSetISetGet(sin, i));
+}
+
 static void _genAllSubsetsRec(pddl_set_iset_t *ss,
                               const pddl_iset_t *set,
                               int cur_idx,

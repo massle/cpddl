@@ -49,6 +49,8 @@ _pddl_inline void pddlSetISetInit(pddl_set_iset_t *ss)
     pddlHashSetInitISet(&ss->set);
 }
 
+void pddlSetISetInitCopy(pddl_set_iset_t *ss, const pddl_set_iset_t *sin);
+
 _pddl_inline void pddlSetISetFree(pddl_set_iset_t *ss)
 {
     pddlHashSetFree(&ss->set);
