@@ -19,6 +19,7 @@
 #include "pddl/mutex_pair.h"
 #include "pddl/strips.h"
 #include "pddl/clique.h"
+#include "pddl/fdr_var.h"
 #include "internal.h"
 
 #define FW_MUTEX 0x2
@@ -248,6 +249,23 @@ void pddlMutexPairsAddMGroups(pddl_mutex_pairs_t *mutex,
     for (int mgi = 0; mgi < mgs->mgroup_size; ++mgi){
         const pddl_mgroup_t *mg = mgs->mgroup + mgi;
         pddlMutexPairsAddMGroup(mutex, mg);
+    }
+}
+
+void pddlMutexPairsAddFDRVars(pddl_mutex_pairs_t *mutex,
+                              const pddl_fdr_vars_t *vars)
+{
+    for (int vari = 0; vari < vars->var_size; ++vari){
+        const pddl_fdr_var_t *var = vars->var + vari;
+        for (int vali1 = 0; vali1 < var->val_size; ++vali1){
+            int fact1 = var->val[vali1].global_id;
+            for (int vali2 = vali1 + 1; vali2 < var->val_size; ++vali2){
+                int fact2 = var->val[vali2].global_id;
+                pddlMutexPairsAdd(mutex, fact1, fact2);
+                pddlMutexPairsSetFwMutex(mutex, fact1, fact2);
+                pddlMutexPairsSetBwMutex(mutex, fact1, fact2);
+            }
+        }
     }
 }
 
