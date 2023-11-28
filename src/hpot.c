@@ -478,6 +478,8 @@ static double heurForState(pddl_pot_t *pot,
               " objval: %.4f (%a), suboptimal: %s",
               h, h, sol.objval, sol.objval, F_BOOL(sol.suboptimal));
     h = sol.objval;
+    if (h < 0.)
+        h = 0.;
     pddlPotSolutionFree(&sol);
     return h;
 }
