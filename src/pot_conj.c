@@ -116,7 +116,7 @@ int pddlPotConjInit(pddl_pot_conj_t *pot,
     pddl_strips_conj_config_t pc_cfg;
     pddlStripsConjConfigInit(&pc_cfg);
     for (int i = 0; i < pddlSetISetSize(conjs); ++i)
-        pddlStripsConjConfigAddConj(&pc_cfg, pddlSetISetGet(conjs, i));
+        pddlStripsConjConfigAddConjAndSubsets(&pc_cfg, pddlSetISetGet(conjs, i));
 
     pddl_strips_conj_t pc;
     pddlStripsConjInit(&pc, &cfg->mg_strips->strips, &pc_cfg, err);

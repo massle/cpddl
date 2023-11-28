@@ -142,7 +142,7 @@ int pddlPotConjExactInit(pddl_pot_conj_exact_t *pot,
     pddlFDRConjExactConfigInit(&pc_cfg);
     for (int i = 0; i < pddlSetISetSize(conjs); ++i){
         if (!pddlMutexPairsIsMutexSet(&mutex, pddlSetISetGet(conjs, i)))
-            pddlFDRConjExactConfigAddConj(&pc_cfg, pddlSetISetGet(conjs, i));
+            pddlFDRConjExactConfigAddConjAndSubsets(&pc_cfg, pddlSetISetGet(conjs, i));
     }
     pc_cfg.mutex = &mutex;
 
