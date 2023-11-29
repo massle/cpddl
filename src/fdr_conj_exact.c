@@ -121,6 +121,8 @@ static void addOpsRec2(pddl_fdr_conj_exact_t *task,
         }
     }
 
+    // Filter out actions where negative conjunction is actually true
+    // (i.e., we require v_c = 1 in the precondition, but c \subseteq pre
     for (int i = 0; i < pddlISetSize(affected_conjs); ++i){
         if (pre[i] == 0){
             int conj_id = pddlISetGet(affected_conjs, i);
@@ -154,13 +156,20 @@ static void addOpsRec2(pddl_fdr_conj_exact_t *task,
             pddlFDRPartStateSet(&op->eff, val->var_id, val->val_id);
         }
 
+        PDDL_ISET(effvars);
+        PDDL_ISET_FOR_EACH(&eff, fact){
+            const pddl_fdr_val_t *val = task->fdr.var.global_id_to_val[fact];
+            pddlISetAdd(&effvars, val->var_id);
+        }
+
         PDDL_ISET(app);
         PDDL_ISET_FOR_EACH(&final_pre, fact){
             const pddl_fdr_val_t *val = task->fdr.var.global_id_to_val[fact];
-            if (!pddlISetIn(val->var_id, effvars))
+            if (!pddlISetIn(val->var_id, &effvars))
                 pddlISetAdd(&app, fact);
         }
         pddlISetUnion(&app, &eff);
+        pddlISetFree(&effvars);
 
         for (int i = 0; i < pddlISetSize(affected_conjs); ++i){
             int conj_id = pddlISetGet(affected_conjs, i);
