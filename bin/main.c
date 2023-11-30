@@ -728,6 +728,92 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
+static int stepExtendFDRWithConjunctions(void)
+{
+    if (opt.extend_fdr_conj_file == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Extend-FDR-Conj");
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    if (pddlSetISetLoadFromFile(&conjs, NULL, &fdr,
+                                opt.extend_fdr_conj_file, &err) != 0){
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+    pddlSetISetGenAllSubsets(&conjs, 2);
+
+    // Infer mutexes
+    pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t fdr_mutex;
+    pddlMGStripsInitFDR(&mg_strips, &fdr);
+    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+    pddlMGStripsFree(&mg_strips);
+
+    // Set up the input conjunctions
+    pddl_fdr_conj_exact_config_t cfg_conj;
+    pddlFDRConjExactConfigInit(&cfg_conj);
+    cfg_conj.mutex = &fdr_mutex;
+    pddlFDRConjExactConfigAddConjs(&cfg_conj, &conjs);
+
+    // Construct P^C_exact
+    pddl_fdr_conj_exact_t fdr_conj;
+    pddlFDRConjExactInit(&fdr_conj, &fdr, &cfg_conj, &err);
+
+    // Replace global fdr with the P^C_exact task.
+    // Note that this preserves the fact IDs from the original strips.
+    pddlFDRFree(&fdr);
+    pddlFDRInitCopy(&fdr, &fdr_conj.fdr);
+
+    // Replace mutexes (mgroups can stay the same)
+    pddl_mutex_pairs_t conj_mutex;
+    pddlFDRConjExactMutexPairsInitCopy(&conj_mutex, &fdr_mutex, &fdr_conj);
+    pddlMutexPairsFree(&fdr_mutex);
+    fdr_mutex = conj_mutex;
+
+    // Extend mutexes with h^2
+    PDDL_ISET(rm_facts);
+    PDDL_ISET(rm_ops);
+    pddlMGStripsInitFDR(&mg_strips, &fdr);
+    if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &fdr_mutex, &rm_facts,
+                   &rm_ops, -1., &err) != 0){
+        pddlMGStripsFree(&mg_strips);
+        pddlISetFree(&rm_facts);
+        pddlISetFree(&rm_ops);
+        pddlMutexPairsFree(&fdr_mutex);
+        pddlFDRConjExactFree(&fdr_conj);
+        pddlFDRConjExactConfigFree(&cfg_conj);
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    // Prune redundant facts and operators if found any
+    if (pddlISetSize(&rm_facts) > 0 || pddlISetSize(&rm_ops) > 0)
+        pddlFDRReduce(&fdr, NULL, &rm_facts, &rm_ops);
+    if (pddlISetSize(&rm_facts) > 0){
+        pddlMutexPairsReduce(&fdr_mutex, &rm_facts);
+        pddlMGroupsReduce(&mgroup, &rm_facts);
+    }
+
+    pddlMGStripsFree(&mg_strips);
+    pddlISetFree(&rm_facts);
+    pddlISetFree(&rm_ops);
+
+    pddlMutexPairsFree(&fdr_mutex);
+    pddlFDRConjExactFree(&fdr_conj);
+    pddlFDRConjExactConfigFree(&cfg_conj);
+    pddlSetISetFree(&conjs);
+
+    pddlStripsLogInfo(&strips, &err);
+    PDDL_CTXEND(&err);
+
+    return 0;
+}
+
 static int stepFDR(void)
 {
     if (strips.goal_is_unreachable)
@@ -740,6 +826,10 @@ static int stepFDR(void)
         pddlFDRReorderVarsCG(&fdr);
         PDDL_LOG(&err, "FDR variables reordered using causal graph.");
     }
+
+    if (stepExtendFDRWithConjunctions() != 0)
+        PDDL_TRACE_RET(&err, -1);
+
 
     if (opt.fdr.to_tnf || opt.fdr.to_tnf_multiply){
         PDDL_CTX(&err, "FDR-to-TNF");
@@ -823,91 +913,6 @@ static int stepFDR(void)
         pddlCGPrintAsciiGraph(&cg, NULL, &err);
         pddlCGFree(&cg);
     }
-    return 0;
-}
-
-static int stepExtendFDRWithConjunctions(void)
-{
-    if (opt.extend_fdr_conj_file == NULL)
-        return 0;
-
-    PDDL_CTX(&err, "Extend-FDR-Conj");
-    pddl_set_iset_t conjs;
-    pddlSetISetInit(&conjs);
-    if (pddlSetISetLoadFromFile(&conjs, NULL, &fdr,
-                                opt.extend_fdr_conj_file, &err) != 0){
-        pddlSetISetFree(&conjs);
-        PDDL_CTXEND(&err);
-        PDDL_TRACE_RET(&err, -1);
-    }
-    pddlSetISetGenAllSubsets(&conjs, 2);
-
-    // Infer mutexes
-    pddl_mg_strips_t mg_strips;
-    pddl_mutex_pairs_t fdr_mutex;
-    pddlMGStripsInitFDR(&mg_strips, &fdr);
-    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
-    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
-    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
-    pddlMGStripsFree(&mg_strips);
-
-    // Set up the input conjunctions
-    pddl_fdr_conj_exact_config_t cfg_conj;
-    pddlFDRConjExactConfigInit(&cfg_conj);
-    cfg_conj.mutex = &fdr_mutex;
-    pddlFDRConjExactConfigAddConjs(&cfg_conj, &conjs);
-
-    // Construct P^C_exact
-    pddl_fdr_conj_exact_t fdr_conj;
-    pddlFDRConjExactInit(&fdr_conj, &fdr, &cfg_conj, &err);
-
-    // Replace global fdr with the P^C_exact task.
-    // Note that this preserves the fact IDs from the original strips.
-    pddlFDRFree(&fdr);
-    pddlFDRInitCopy(&fdr, &fdr_conj.fdr);
-
-    // Replace mutexes (mgroups can stay the same)
-    pddl_mutex_pairs_t conj_mutex;
-    pddlFDRConjExactMutexPairsInitCopy(&conj_mutex, &fdr_mutex, &fdr_conj);
-    pddlMutexPairsFree(&fdr_mutex);
-    fdr_mutex = conj_mutex;
-
-    // Extend mutexes with h^2
-    PDDL_ISET(rm_facts);
-    PDDL_ISET(rm_ops);
-    pddlMGStripsInitFDR(&mg_strips, &fdr);
-    if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &fdr_mutex, &rm_facts,
-                   &rm_ops, -1., &err) != 0){
-        pddlMGStripsFree(&mg_strips);
-        pddlISetFree(&rm_facts);
-        pddlISetFree(&rm_ops);
-        pddlMutexPairsFree(&fdr_mutex);
-        pddlFDRConjExactFree(&fdr_conj);
-        pddlFDRConjExactConfigFree(&cfg_conj);
-        pddlSetISetFree(&conjs);
-        PDDL_CTXEND(&err);
-        PDDL_TRACE_RET(&err, -1);
-    }
-
-    // Prune redundant facts and operators if found any
-    if (pddlISetSize(&rm_facts) > 0 || pddlISetSize(&rm_ops) > 0)
-        pddlFDRReduce(&fdr, NULL, &rm_facts, &rm_ops);
-    if (pddlISetSize(&rm_facts) > 0){
-        pddlMutexPairsReduce(&fdr_mutex, &rm_facts);
-        pddlMGroupsReduce(&mgroup, &rm_facts);
-    }
-
-    pddlMGStripsFree(&mg_strips);
-    pddlISetFree(&rm_facts);
-    pddlISetFree(&rm_ops);
-
-    pddlMutexPairsFree(&fdr_mutex);
-    pddlFDRConjExactFree(&fdr_conj);
-    pddlFDRConjExactConfigFree(&cfg_conj);
-    pddlSetISetFree(&conjs);
-
-    pddlStripsLogInfo(&strips, &err);
-    PDDL_CTXEND(&err);
     return 0;
 }
 
@@ -1285,7 +1290,6 @@ int main(int argc, char *argv[])
             || (ret = stepFDR()) != 0
             || (ret = stepReportPotConjExactMaxInitHValue()) != 0
             || (ret = stepPotConjExactFind()) != 0
-            || (ret = stepExtendFDRWithConjunctions()) != 0
             || (ret = stepGroundPlanner()) != 0
             || (ret = stepSymba()) != 0){
         if (ret < 0){
