@@ -50,63 +50,57 @@ pddl_lifted_heur_t *pddlLiftedHeurBlind(void)
     return h;
 }
 
-struct hmax {
+struct hrelax {
     pddl_lifted_heur_t h;
-    pddl_lifted_hmax_t hmax;
+    pddl_lifted_heur_relaxed_t hrelax;
 };
-typedef struct hmax hmax_t;
+typedef struct hrelax hrelax_t;
 
-static void hmaxDel(pddl_lifted_heur_t *_h)
+static void hrelaxDel(pddl_lifted_heur_t *_h)
 {
-    hmax_t *h = pddl_container_of(_h, hmax_t, h);
+    hrelax_t *h = pddl_container_of(_h, hrelax_t, h);
     _pddlLiftedHeurFree(&h->h);
-    pddlLiftedHMaxFree(&h->hmax);
+    pddlLiftedHeurRelaxedFree(&h->hrelax);
     FREE(h);
 }
 
-static pddl_cost_t hmaxEstimate(pddl_lifted_heur_t *_h,
+static pddl_cost_t hrelaxEstimate(pddl_lifted_heur_t *_h,
                                 const pddl_iset_t *state,
                                 const pddl_ground_atoms_t *gatoms)
 {
-    hmax_t *h = pddl_container_of(_h, hmax_t, h);
-    return pddlLiftedHMax(&h->hmax, state, gatoms);
+    hrelax_t *h = pddl_container_of(_h, hrelax_t, h);
+    return pddlLiftedHeurRelaxedEvalState(&h->hrelax, state, gatoms);
 }
 
 pddl_lifted_heur_t *pddlLiftedHeurHMax(const pddl_t *pddl, pddl_err_t *err)
 {
-    hmax_t *h = ALLOC(hmax_t);
-    _pddlLiftedHeurInit(&h->h, hmaxDel, hmaxEstimate);
-    pddlLiftedHMaxInit(&h->hmax, pddl, 0, err);
+    hrelax_t *h = ALLOC(hrelax_t);
+    _pddlLiftedHeurInit(&h->h, hrelaxDel, hrelaxEstimate);
+    pddlLiftedHMaxInit(&h->hrelax, pddl, 0, err);
     return &h->h;
-}
-
-struct hadd {
-    pddl_lifted_heur_t h;
-    pddl_lifted_hadd_t hadd;
-};
-typedef struct hadd hadd_t;
-
-static void haddDel(pddl_lifted_heur_t *_h)
-{
-    hadd_t *h = pddl_container_of(_h, hadd_t, h);
-    _pddlLiftedHeurFree(&h->h);
-    pddlLiftedHAddFree(&h->hadd);
-    FREE(h);
-}
-
-static pddl_cost_t haddEstimate(pddl_lifted_heur_t *_h,
-                                const pddl_iset_t *state,
-                                const pddl_ground_atoms_t *gatoms)
-{
-    hadd_t *h = pddl_container_of(_h, hadd_t, h);
-    return pddlLiftedHAdd(&h->hadd, state, gatoms);
 }
 
 pddl_lifted_heur_t *pddlLiftedHeurHAdd(const pddl_t *pddl, pddl_err_t *err)
 {
-    hadd_t *h = ALLOC(hadd_t);
-    _pddlLiftedHeurInit(&h->h, haddDel, haddEstimate);
-    pddlLiftedHAddInit(&h->hadd, pddl, 0, err);
+    hrelax_t *h = ALLOC(hrelax_t);
+    _pddlLiftedHeurInit(&h->h, hrelaxDel, hrelaxEstimate);
+    pddlLiftedHAddInit(&h->hrelax, pddl, 0, err);
+    return &h->h;
+}
+
+pddl_lifted_heur_t *pddlLiftedHeurHFFMax(const pddl_t *pddl, pddl_err_t *err)
+{
+    hrelax_t *h = ALLOC(hrelax_t);
+    _pddlLiftedHeurInit(&h->h, hrelaxDel, hrelaxEstimate);
+    pddlLiftedHFFMaxInit(&h->hrelax, pddl, err);
+    return &h->h;
+}
+
+pddl_lifted_heur_t *pddlLiftedHeurHFFAdd(const pddl_t *pddl, pddl_err_t *err)
+{
+    hrelax_t *h = ALLOC(hrelax_t);
+    _pddlLiftedHeurInit(&h->h, hrelaxDel, hrelaxEstimate);
+    pddlLiftedHFFAddInit(&h->hrelax, pddl, err);
     return &h->h;
 }
 

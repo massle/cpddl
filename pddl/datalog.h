@@ -1,20 +1,7 @@
 /***
- * cpddl
- * -------
- * Copyright (c)2021 Daniel Fiser <danfis@danfis.cz>,
- * Saarland University, and
- * Czech Technical University in Prague.
- * All rights reserved.
- *
- * This file is part of cpddl.
- *
- * Distributed under the OSI-approved BSD License (the "License");
- * see accompanying file LICENSE for details or see
- * <http://www.opensource.org/licenses/bsd-license.php>.
- *
- * This software is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the License for more information.
+ * Copyright (c)2023 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * This file is part of cpddl licensed under 3-clause BSD License (see file
+ * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
 // TODO: Native support for types (unify function + var types in pddl_datalog_atom)
@@ -31,6 +18,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+typedef struct pddl_datalog pddl_datalog_t;
+
+typedef void (*pddl_datalog_annotation_fn)(pddl_datalog_t *dl,
+                                           int head_fact_id,
+                                           const pddl_iset_t *body_fact_ids,
+                                           void *userdata);
+struct pddl_datalog_annotation {
+    pddl_datalog_annotation_fn fn;
+    void *userdata;
+};
+typedef struct pddl_datalog_annotation pddl_datalog_annotation_t;
 
 struct pddl_datalog_atom {
     int pred;
@@ -49,14 +48,15 @@ struct pddl_datalog_rule {
     int neg_body_size;
     int neg_body_alloc;
     pddl_cost_t weight;
+    pddl_datalog_annotation_t *ann;
+    int ann_size;
+    int ann_alloc;
 
     pddl_iset_t var_set;
     pddl_bool_t is_safe;
     pddl_iset_t common_body_var_set;
 };
 typedef struct pddl_datalog_rule pddl_datalog_rule_t;
-
-typedef struct pddl_datalog pddl_datalog_t;
 
 /**
  * Creates an empty datalog program.
@@ -67,11 +67,6 @@ pddl_datalog_t *pddlDatalogNew(void);
  * Deletes allocated memory.
  */
 void pddlDatalogDel(pddl_datalog_t *dl);
-
-/**
- * Clear datalog database.
- */
-void pddlDatalogClear(pddl_datalog_t *dl);
 
 /**
  * Adds constant to the datalog program.
@@ -233,6 +228,34 @@ void pddlDatalogAchieverFactsFromWeightedCanonicalModel(
             void *user_data);
 
 /**
+ * Obtain the fact specified with fact_id from the datalog program.
+ * As for predicate ID (pred_user_id) and constant IDs of arguments
+ * (arg_user_id) are user IDs provided by pddlDatalogSetUserId().
+ * The pointer {arg_user_id} must point to an array large enough to contain
+ * all arguments, i.e., maximal arity over all predicates is a safe choice
+ * (internally there are no checks, so providing something smaller can
+ * result in ugly errors).
+ * {weight} can be NULL.
+ * Return 0 on success, -1 if there is no such fact in the database.
+ */
+int pddlDatalogFact(pddl_datalog_t *dl,
+                    int fact_id,
+                    int *pred_user_id,
+                    int *arity,
+                    int *arg_user_id,
+                    pddl_cost_t *weight);
+
+/**
+ * Execute all annotations in the derivation tree starting at the specified
+ * goal predicate -- this must be a predicate added by
+ * pddlDatalogAddGoalPred().
+ * Each annotation associated with a rule is executed for every ground rule
+ * with facts from its head and body.
+ */
+void pddlDatalogExecuteAnnotations(pddl_datalog_t *dl,
+                                   unsigned goal_pred);
+
+/**
  * Save the current state of the database.
  * After calling pddlDatalogRollbackDB(), the database will be restored to
  * this state.
@@ -246,11 +269,22 @@ void pddlDatalogSaveStateOfDB(pddl_datalog_t *dl);
 void pddlDatalogRollbackDB(pddl_datalog_t *dl);
 
 /**
+ * Clear datalog database.
+ */
+void pddlDatalogClear(pddl_datalog_t *dl);
+
+/**
+ * Clear datalog database and re-initialize it.
+ */
+void pddlDatalogResetDB(pddl_datalog_t *dl);
+
+/**
  * Insert a new fact to the database.
  */
 void pddlDatalogAddFactToDB(pddl_datalog_t *dl,
                             unsigned in_pred,
-                            const unsigned *in_arg);
+                            const unsigned *in_arg,
+                            const pddl_cost_t *weight);
 
 /**
  * Initializes atom of the given predicate previously created with
@@ -320,6 +354,9 @@ int pddlDatalogRuleCmpBodyFirst(const pddl_datalog_t *dl,
 int pddlDatalogRuleCmpBodyAndWeight(const pddl_datalog_t *dl,
                                     const pddl_datalog_rule_t *rule1,
                                     const pddl_datalog_rule_t *rule2);
+int pddlDatalogRuleCmpBodyWeightAndAnnotations(const pddl_datalog_t *dl,
+                                               const pddl_datalog_rule_t *rule1,
+                                               const pddl_datalog_rule_t *rule2);
 
 /**
  * Set head of the rule.
@@ -356,6 +393,18 @@ void pddlDatalogRuleRmBody(pddl_datalog_t *dl,
 void pddlDatalogRuleSetWeight(pddl_datalog_t *dl,
                               pddl_datalog_rule_t *rule,
                               const pddl_cost_t *weight);
+
+/**
+ * Add annotation to the datalog rule.
+ * This is a function that is executed when pddlDatalogExecuteAnnotations()
+ * is called.
+ * Note that rules with annotations will not be subject to merging (via
+ * "predicate collapsing") when normalizing the datalog program.
+ */
+void pddlDatalogRuleAddAnnotation(pddl_datalog_t *dl,
+                                  pddl_datalog_rule_t *rule,
+                                  pddl_datalog_annotation_fn ann_fn,
+                                  void *ann_fn_userdata);
 
 /**
  * Returns true if the program is safe, i.e., all variables from head are
