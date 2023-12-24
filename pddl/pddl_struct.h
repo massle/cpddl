@@ -178,6 +178,18 @@ int pddlCompileAwayNegativeConditions(pddl_t *pddl,
                                       pddl_err_t *err);
 
 /**
+ * Compiles away equality predicate.
+ * Returns 0 if nothing was changed, 1 if equality predicate was actually
+ * removed.
+ */
+int pddlCompileAwayEqPred(pddl_t *pddl);
+
+/**
+ * Returns true if the pddl has and uses equality predicate.
+ */
+pddl_bool_t pddlHasEqPred(const pddl_t *pddl);
+
+/**
  * Returns maximal number of parameters of all predicates and functions.
  */
 // TODO: rename to *MaxArity
