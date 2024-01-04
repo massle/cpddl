@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## Version 1.2
 
 ### Added
 - Action Schema Networks for classical tasks
@@ -13,8 +13,6 @@ considered soft goals.
 ### Changed
 - Greedy searches terminate as soon as goal state is generated
 - Log to stdout by default
-
-### Removed
 
 ### Fixed
 - Errors from the LP module are propagated (or at least terminates the process)
@@ -46,3 +44,14 @@ considered soft goals.
 ### Fixed
 - Fixed h^2 pruning of goal facts which simply removed the goal facts. Now,
   the task is marked as unsolvable.
+
+
+## Unreleased
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
