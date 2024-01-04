@@ -21,7 +21,7 @@ def configCplex():
 def setupCplexApi(path):
     return f'''
 mkdir -p $APPTAINER_ROOTFS/cplex/cplex/include
-cp -rv {path}/* \$APPTAINER_ROOTFS/cplex/cplex/include/
+cp -rv {path}/* $APPTAINER_ROOTFS/cplex/cplex/include/
 '''
 
 def configCplexApi():
@@ -206,9 +206,9 @@ apt update -y
 apt install -y libstdc++6
 '''
         if args.coin_or is True:
-            post += 'apt install -y coinor-libclp1 coinor-libcbc3'
+            post += 'apt install -y coinor-libclp1 coinor-libcbc3\n'
         if args.minizinc is True:
-            post += 'apt install -y libgl1 libegl1 libx11-6 libfontconfig1 libfreetype6'
+            post += 'apt install -y libgl1 libegl1 libx11-6 libfontconfig1 libfreetype6\n'
         post += '''
 apt autoremove -y
 apt-get clean -y
@@ -223,9 +223,9 @@ dnf -y update
 dnf -y install libstdc++
 '''
         if args.coin_or is True:
-            post += 'dnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi'
+            post += 'dnf -y install -y coin-or-Cbc coin-or-Clp coin-or-Osi\n'
         if args.minizinc is True:
-            post += 'dnf -y install -y mesa-libGL mesa-libEGL libX11 fontconfig freetype'
+            post += 'dnf -y install -y mesa-libGL mesa-libEGL libX11 fontconfig freetype\n'
         post += '''
 dnf -y clean all
 rm -rf /var/lib/dnf
@@ -367,7 +367,7 @@ Limitations:
 
     if args.cplex_api is not None:
         suff += '-cplexapi'
-        setup += setupCplexApi(args.cplex)
+        setup += setupCplexApi(args.cplex_api)
         config += configCplexApi()
 
     if args.minizinc is True:
