@@ -12,6 +12,7 @@ considered soft goals.
 
 ### Changed
 - Greedy searches terminate as soon as goal state is generated
+- Log to stdout by default
 
 ### Removed
 
