@@ -67,6 +67,12 @@ void pddlTomlFree(pddl_toml_t *t);
 int pddlTomlPush(pddl_toml_t *t, const char *key);
 
 /**
+ * As pddlTomlPush() but it requires that {key} is an array and its element
+ * on index {idx} is a table which gets pushed on top of the stack.
+ */
+int pddlTomlPushFromArr(pddl_toml_t *t, const char *key, int idx);
+
+/**
  * Pop table from top of the stack.
  */
 void pddlTomlPop(pddl_toml_t *t);
@@ -86,6 +92,12 @@ int pddlTomlBool(pddl_toml_t *t, const char *key, pddl_bool_t *dst, pddl_bool_t 
 int pddlTomlStr(pddl_toml_t *t, const char *key, char **dst, pddl_bool_t required);
 int pddlTomlArrStr(pddl_toml_t *t, const char *key, char ***dst, int *dst_size,
                    pddl_bool_t required);
+
+/**
+ * Returns number of elements of the given array, if {key} is not an array,
+ * then -1 is returned.
+ */
+int pddlTomlArrSize(pddl_toml_t *t, const char *key);
 
 /**
  * Returns true if error was set at any point, in which case also sets the

@@ -1,18 +1,11 @@
 /***
- * Copyright (c)2022 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
+ * Copyright (c)2024 Daniel Fiser <danfis@danfis.cz>. All rights reserved.
  * This file is part of cpddl licensed under 3-clause BSD License (see file
  * LICENSE, or https://opensource.org/licenses/BSD-3-Clause)
  */
 
 #include "internal.h"
-#include "sqlite3.h"
-#include "toml.h"
-#include "pddl/asnets.h"
-#include "pddl/asnets_task.h"
-#include "pddl/asnets_train_data.h"
-#include "pddl/sha256.h"
-#include "pddl/pddl_file.h"
-#include "pddl/subprocess.h"
+#include "pddl/asnets_dynet.h"
 #include "pddl/libs_info.h"
 
 #ifndef PDDL_DYNET
@@ -24,358 +17,11 @@
 #include <dynet/training.h>
 #include <dynet/param-init.h>
 
-const char * const pddl_dynet_version = "not exported";
+extern "C" const char * const pddl_dynet_version = "not exported";
 
 static const float SMALL_CONST = 1e-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
 
-static const char *teacherName(pddl_asnets_teacher_t teacher)
-{
-    switch (teacher){
-        case PDDL_ASNETS_TEACHER_ASTAR_LMCUT:
-            return "astar-lmcut";
-        case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
-            return "external-fd";
-    }
-    return "(unknown)";
-}
-
-static int teacherNameToID(const char *name, pddl_asnets_teacher_t *teacher)
-{
-    if (strcmp(name, "astar-lmcut") == 0){
-        *teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
-        return 0;
-
-    }else if (strcmp(name, "external-fd") == 0){
-        *teacher = PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD;
-        return 0;
-    }
-    return -1;
-}
-
-void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
-{
-    LOG(err, "domain_pddl = %s", cfg->domain_pddl);
-    LOG_CONFIG_INT(cfg, problem_pddl_size, err);
-    for (int i = 0; i < cfg->problem_pddl_size; ++i)
-        LOG(err, "problem_pddl[%d] = %s", i, cfg->problem_pddl[i]);
-    LOG_CONFIG_INT(cfg, hidden_dimension, err);
-    LOG_CONFIG_INT(cfg, num_layers, err);
-    LOG_CONFIG_INT(cfg, random_seed, err);
-    LOG_CONFIG_DBL(cfg, weight_decay, err);
-    LOG_CONFIG_DBL(cfg, dropout_rate, err);
-    LOG_CONFIG_INT(cfg, batch_size, err);
-    LOG_CONFIG_INT(cfg, double_batch_size_every_epoch, err);
-    LOG_CONFIG_INT(cfg, max_train_epochs, err);
-    LOG_CONFIG_INT(cfg, train_steps, err);
-    LOG_CONFIG_INT(cfg, policy_rollout_limit, err);
-    LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
-    LOG_CONFIG_INT(cfg, early_termination_epochs, err);
-    LOG_CONFIG_DBL(cfg, teacher_timeout, err);
-    LOG(err, "teacher = %s", teacherName(cfg->teacher));
-    LOG_CONFIG_STR(cfg, save_model_prefix, err);
-    LOG_CONFIG_BOOL(cfg, osp_all_soft_goals, err);
-}
-
-void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
-{
-    ZEROIZE(cfg);
-    cfg->hidden_dimension = 16;
-    cfg->num_layers = 2;
-    cfg->random_seed = 6961;
-    cfg->weight_decay = 2e-4f;
-    cfg->dropout_rate = 0.1f;
-    cfg->batch_size = 64;
-    cfg->double_batch_size_every_epoch = 0;
-    cfg->max_train_epochs = 300;
-    cfg->train_steps = 700;
-    cfg->policy_rollout_limit = 1000;
-    cfg->early_termination_success_rate = 0.999f;
-    cfg->early_termination_epochs = 20;
-    cfg->teacher_timeout = 10.f;
-    cfg->teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
-    cfg->save_model_prefix = NULL;
-    cfg->osp_all_soft_goals = pddl_false;
-}
-
-void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
-                              const pddl_asnets_config_t *src)
-{
-    *dst = *src;
-    if (src->domain_pddl != NULL)
-        dst->domain_pddl = STRDUP(src->domain_pddl);
-
-    if (dst->problem_pddl_size > 0){
-        dst->problem_pddl = ALLOC_ARR(char *, dst->problem_pddl_size);
-        for (int i = 0; i < dst->problem_pddl_size; ++i)
-            dst->problem_pddl[i] = STRDUP(src->problem_pddl[i]);
-    }
-
-    if (src->teacher_external_cmd != NULL){
-        int size = 0;
-        while (src->teacher_external_cmd[size] != NULL)
-            ++size;
-        dst->teacher_external_cmd = ALLOC_ARR(char *, size + 1);
-        for (int i = 0; i < size; ++i)
-            dst->teacher_external_cmd[i] = STRDUP(src->teacher_external_cmd[i]);
-        dst->teacher_external_cmd[size] = NULL;
-    }
-}
-
-#define TOML_INT(K) pddlTomlInt(&t, #K, &cfg->K, pddl_false)
-#define TOML_FLT(K) pddlTomlFlt(&t, #K, &cfg->K, pddl_false)
-#define TOML_BOOL(K) pddlTomlBool(&t, #K, &cfg->K, pddl_false)
-
-int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
-                                 const char *filename,
-                                 pddl_err_t *err)
-{
-    pddlASNetsConfigInit(cfg);
-
-    pddl_toml_t t;
-    if (pddlTomlInitFile(&t, filename, err) != 0)
-        TRACE_RET(err, -1);
-
-    pddlTomlPush(&t, "asnets");
-
-    char *root = NULL;
-    pddlTomlStr(&t, "root", &root, pddl_false);
-    if (root != NULL && strcmp(root, "__PWD__") == 0){
-        FREE(root);
-        root = pddlDirname(filename);
-    }
-
-    char *domain = NULL;
-    pddlTomlStr(&t, "domain", &domain, pddl_true);
-    if (pddlTomlErr(&t, err)){
-        pddlTomlFree(&t);
-        TRACE_RET(err, -1);
-    }
-
-    if (root != NULL){
-        char *fn = ALLOC_ARR(char, strlen(root) + strlen(domain) + 2);
-        sprintf(fn, "%s/%s", root, domain);
-        pddlASNetsConfigSetDomain(cfg, fn);
-        FREE(fn);
-    }else{
-        pddlASNetsConfigSetDomain(cfg, domain);
-    }
-    FREE(domain);
-
-    char **problems = NULL;
-    int problems_size = 0;
-    pddlTomlArrStr(&t, "problems", &problems, &problems_size, pddl_true);
-
-    for (int i = 0; i < problems_size; ++i){
-        if (root != NULL){
-            char *fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
-            sprintf(fn, "%s/%s", root, problems[i]);
-            if (pddlIsFile(fn)){
-                pddlASNetsConfigAddProblem(cfg, fn);
-            }else{
-                int len;
-                char **files = pddlListDirPDDLFiles(fn, &len, err);
-                if (files == NULL){
-                    FREE(fn);
-                    TRACE_RET(err, -1);
-                }
-
-                for (int i = 0; i < len; ++i){
-                    if (strstr(files[i], "domain") != NULL){
-                        FREE(files[i]);
-                        continue;
-                    }
-                    if (pddlIsFile(files[i]))
-                        pddlASNetsConfigAddProblem(cfg, files[i]);
-                    FREE(files[i]);
-                }
-                FREE(files);
-            }
-            FREE(fn);
-        }else{
-            pddlASNetsConfigAddProblem(cfg, problems[i]);
-        }
-        FREE(problems[i]);
-    }
-    if (problems != NULL)
-        FREE(problems);
-
-    if (root != NULL)
-        FREE(root);
-
-    TOML_INT(hidden_dimension);
-    TOML_INT(num_layers);
-    TOML_INT(random_seed);
-    TOML_FLT(weight_decay);
-    TOML_FLT(dropout_rate);
-    TOML_INT(batch_size);
-    TOML_INT(double_batch_size_every_epoch);
-    TOML_INT(max_train_epochs);
-    TOML_INT(train_steps);
-    TOML_INT(policy_rollout_limit);
-    TOML_FLT(teacher_timeout);
-    TOML_FLT(early_termination_success_rate);
-    TOML_INT(early_termination_epochs);
-    TOML_BOOL(osp_all_soft_goals);
-
-    char *teacher = NULL;
-    pddlTomlStr(&t, "teacher", &teacher, pddl_false);
-    if (teacher != NULL){
-        if (teacherNameToID(teacher, &cfg->teacher) != 0){
-            pddlTomlFree(&t);
-            ERR_RET(err, -1, "Unkown teacher type \"%s\"", teacher);
-        }
-        FREE(teacher);
-    }
-
-    char **external_cmd = NULL;
-    int external_cmd_size = 0;
-    if (pddlTomlArrStr(&t, "teacher_external_cmd", &external_cmd,
-                       &external_cmd_size, pddl_false) == 0){
-        if (external_cmd_size == 0){
-            pddlTomlFree(&t);
-            ERR_RET(err, -1, "teacher_external_cmd must be non-empty");
-        }
-        external_cmd = REALLOC_ARR(external_cmd, char *, external_cmd_size + 1);
-        external_cmd[external_cmd_size] = NULL;
-        pddlASNetsConfigSetTeacherExternalCmd(cfg, external_cmd);
-    }
-    for (int i = 0; i < external_cmd_size; ++i)
-        FREE(external_cmd[i]);
-    if (external_cmd != NULL)
-        FREE(external_cmd);
-
-
-    if (cfg->teacher == PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD
-            && cfg->teacher_external_cmd == NULL){
-        pddlTomlFree(&t);
-        ERR_RET(err, -1, "teacher_external_cmd must be defined if the teacher"
-                " \"%s\" is used",
-                teacherName(PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD));
-    }
-
-    if (pddlTomlErr(&t, err)){
-        pddlTomlFree(&t);
-        TRACE_RET(err, -1);
-    }
-    pddlTomlFree(&t);
-    return 0;
-}
-
-void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
-{
-    if (cfg->domain_pddl != NULL)
-        FREE(cfg->domain_pddl);
-    for (int i = 0; i < cfg->problem_pddl_size; ++i)
-        FREE(cfg->problem_pddl[i]);
-    if (cfg->problem_pddl != NULL)
-        FREE(cfg->problem_pddl);
-
-    if (cfg->teacher_external_cmd != NULL){
-        for (int i = 0; cfg->teacher_external_cmd[i] != NULL; ++i)
-            FREE(cfg->teacher_external_cmd[i]);
-        FREE(cfg->teacher_external_cmd);
-    }
-}
-
-void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
-{
-    if (cfg->domain_pddl != NULL)
-        FREE(cfg->domain_pddl);
-    cfg->domain_pddl = STRDUP(fn);
-}
-
-void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg, const char *fn)
-{
-    cfg->problem_pddl = REALLOC_ARR(cfg->problem_pddl, char *,
-                                    cfg->problem_pddl_size + 1);
-    cfg->problem_pddl[cfg->problem_pddl_size++] = STRDUP(fn);
-}
-
-void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
-                                           char * const * argv)
-{
-    int size = 0;
-    while (argv[size] != NULL)
-        ++size;
-
-    if (cfg->teacher_external_cmd != NULL){
-        for (int i = 0; cfg->teacher_external_cmd[i] != NULL; ++i)
-            FREE(cfg->teacher_external_cmd[i]);
-        FREE(cfg->teacher_external_cmd);
-    }
-    cfg->teacher_external_cmd = ALLOC_ARR(char *, size + 1);
-    for (int i = 0; i < size; ++i)
-        cfg->teacher_external_cmd[i] = STRDUP(argv[i]);
-    cfg->teacher_external_cmd[size] = NULL;
-}
-
-void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
-{
-    fprintf(fout, "[asnets]\n");
-    if (cfg->domain_pddl == NULL){
-        fprintf(fout, "#\n");
-        fprintf(fout, "# The following defines the input planning tasks:\n");
-        fprintf(fout, "#\n");
-        fprintf(fout, "# root = \"__PWD__\"\n");
-        fprintf(fout, "# domain = \"domain.pddl\"\n");
-        fprintf(fout, "# problems = [\"prob1.pddl\", \"prob2.pddl\"]\n");
-    }else{
-        fprintf(fout, "domain = \"%s\"\n", cfg->domain_pddl);
-        fprintf(fout, "problems = [\n");
-        for (int i = 0; i < cfg->problem_pddl_size; ++i)
-            fprintf(fout, "    \"%s\",\n", cfg->problem_pddl[i]);
-        fprintf(fout, "]\n");
-    }
-    fprintf(fout, "hidden_dimension = %d\n", cfg->hidden_dimension);
-    fprintf(fout, "num_layers = %d\n", cfg->num_layers);
-    fprintf(fout, "random_seed = %d\n", cfg->random_seed);
-    fprintf(fout, "weight_decay = %f\n", cfg->weight_decay);
-    fprintf(fout, "dropout_rate = %f\n", cfg->dropout_rate);
-    fprintf(fout, "batch_size = %d\n", cfg->batch_size);
-    fprintf(fout, "double_batch_size_every_epoch = %d\n",
-            cfg->double_batch_size_every_epoch);
-    fprintf(fout, "max_train_epochs = %d\n", cfg->max_train_epochs);
-    fprintf(fout, "train_steps = %d\n", cfg->train_steps);
-    fprintf(fout, "policy_rollout_limit = %d\n", cfg->policy_rollout_limit);
-    fprintf(fout, "teacher_timeout = %f\n", cfg->teacher_timeout);
-    fprintf(fout, "early_termination_success_rate = %f\n",
-            cfg->early_termination_success_rate);
-    fprintf(fout, "early_termination_epochs = %d\n",
-            cfg->early_termination_epochs);
-
-    fprintf(fout, "teacher = \"%s\"", teacherName(cfg->teacher));
-    fprintf(fout, " # must be one of \"%s\", \"%s\"\n",
-            teacherName(PDDL_ASNETS_TEACHER_ASTAR_LMCUT),
-            teacherName(PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD));
-
-    if (cfg->teacher_external_cmd != NULL){
-        fprintf(fout, "teacher_external_cmd = [");
-        for (int i = 0; cfg->teacher_external_cmd[i] != NULL; ++i){
-            if (i != 0)
-                fprintf(fout, ", ");
-            fprintf(fout, "\"%s\"", cfg->teacher_external_cmd[i]);
-        }
-        fprintf(fout, "]\n");
-    }else{
-        fprintf(fout, "# teacher_external_cmd = [\"/bin/bash\", \"/path/to/script.sh\"]\n");
-    }
-
-    fprintf(fout, "osp_all_soft_goals = %s\n", F_BOOL(cfg->osp_all_soft_goals));
-}
-
-void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d)
-{
-    ZEROIZE(d);
-}
-
-void pddlASNetsPolicyDistributionFree(pddl_asnets_policy_distribution_t *d)
-{
-    if (d->op_id != NULL)
-        FREE(d->op_id);
-    if (d->prob != NULL)
-        FREE(d->prob);
-}
 
 static dynet::Expression poolMax(const std::vector<dynet::Expression> &in)
 {
@@ -435,12 +81,8 @@ static dynet::Expression crossEntropyLoss(dynet::ComputationGraph &cg,
 
 
 struct ActionModule {
-    int hidden_dim;
-    int related_props;
     int layer;
     bool is_output;
-    int input_vec_size;
-    int output_dim;
     dynet::Parameter W;
     dynet::Parameter bias;
 
@@ -452,30 +94,30 @@ struct ActionModule {
                  int layer,
                  bool is_output,
                  dynet::ParameterCollection &model)
-        : hidden_dim(hidden_dimension),
-          related_props(num_related_propositions),
-          layer(layer),
-          is_output(is_output)
+        : layer(layer), is_output(is_output)
     {
+        int input_vec_size = 0;
+        int output_dim = 0;
+
         if (layer == 0){
             // input state
-            input_vec_size = related_props;
+            input_vec_size = num_related_propositions;
             // goal specification
-            input_vec_size += related_props;
+            input_vec_size += num_related_propositions;
             // applicability of the action
             input_vec_size += 1;
 
         }else{
             // Related propositions
-            input_vec_size = related_props * hidden_dim;
+            input_vec_size = num_related_propositions * hidden_dimension;
             // Skip connection
-            input_vec_size += hidden_dim;
+            input_vec_size += hidden_dimension;
         }
 
         if (is_output){
             output_dim = 1;
         }else{
-            output_dim = hidden_dim;
+            output_dim = hidden_dimension;
         }
 
         std::vector<long> dim_W(2);
@@ -515,10 +157,6 @@ struct ActionModule {
 };
 
 struct PropositionModule {
-    int hidden_dim;
-    int related_acts;
-    int layer;
-    int input_vec_size;
     dynet::Parameter W;
     dynet::Parameter bias;
 
@@ -528,24 +166,21 @@ struct PropositionModule {
                       int num_related_actions,
                       int layer,
                       dynet::ParameterCollection &model)
-        : hidden_dim(hidden_dimension),
-          related_acts(num_related_actions),
-          layer(layer)
     {
         // Related actions
-        input_vec_size = related_acts * hidden_dim;
+        int input_vec_size = num_related_actions * hidden_dimension;
         if (layer > 0){
             // Skip connection
-            input_vec_size += hidden_dim;
+            input_vec_size += hidden_dimension;
         }
 
         std::vector<long> dim_W(2);
-        dim_W[0] = hidden_dim;
+        dim_W[0] = hidden_dimension;
         dim_W[1] = input_vec_size;
         W = model.add_parameters(dynet::Dim(dim_W), dynet::ParameterInitNormal());
 
         std::vector<long> dim_bias(1);
-        dim_bias[0] = hidden_dim;
+        dim_bias[0] = hidden_dimension;
         bias = model.add_parameters(dynet::Dim(dim_bias), dynet::ParameterInitNormal());
     }
 
@@ -622,55 +257,6 @@ struct ModelParameters {
         for (size_t i = 0; i < prop.size(); ++i){
             for (size_t j = 0; j < prop[i].size(); ++j)
                 delete prop[i][j];
-        }
-    }
-
-    void dumpDebug() const
-    {
-        for (size_t layer = 0; layer < action.size(); ++layer){
-            for (size_t ai = 0; ai < action[layer].size(); ++ai){
-                ActionModule *m = action[layer][ai];
-                {
-                    dynet::Tensor *t = m->W.values();
-                    std::vector<float> v = dynet::as_vector(*t);
-                    std::cerr << "Action.W " << layer << " " << ai << std::endl;
-                    for (float x : v)
-                        std::cerr << " " << x;
-                    std::cerr << std::endl;
-                }
-
-                {
-                    dynet::Tensor *t = m->bias.values();
-                    std::vector<float> v = dynet::as_vector(*t);
-                    std::cerr << "Action.bias " << layer << " " << ai << std::endl;
-                    for (float x : v)
-                        std::cerr << " " << x;
-                    std::cerr << std::endl;
-                }
-            }
-        }
-
-        for (size_t layer = 0; layer < prop.size(); ++layer){
-            for (size_t pi = 0; pi < prop[layer].size(); ++pi){
-                PropositionModule *m = prop[layer][pi];
-                {
-                    dynet::Tensor *t = m->W.values();
-                    std::vector<float> v = dynet::as_vector(*t);
-                    std::cerr << "Proposition.W " << layer << " " << pi << std::endl;
-                    for (float x : v)
-                        std::cerr << " " << x;
-                    std::cerr << std::endl;
-                }
-
-                {
-                    dynet::Tensor *t = m->bias.values();
-                    std::vector<float> v = dynet::as_vector(*t);
-                    std::cerr << "Action.bias " << layer << " " << pi << std::endl;
-                    for (float x : v)
-                        std::cerr << " " << x;
-                    std::cerr << std::endl;
-                }
-            }
         }
     }
 };
@@ -842,85 +428,494 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
     return maskedSoftmax(cg, out, input_applicable_ops);
 }
 
+static void setStateVector(const pddl_asnets_ground_task_t *task,
+                           const pddl_iset_t *strips_state,
+                           std::vector<float> &state)
+{
+    state.resize(task->strips.fact.fact_size);
+    for (size_t i = 0; i < state.size(); ++i)
+        state[i] = 0;
+    int fact_id;
+    PDDL_ISET_FOR_EACH(strips_state, fact_id)
+        state[fact_id] = 1;
+}
+
 static void setApplicableOpsVector(const pddl_asnets_ground_task_t *task,
-                                   const int *state,
+                                   const pddl_iset_t *applicable_op_ids,
                                    std::vector<float> &applicable_ops)
 {
     applicable_ops.resize(task->strips.op.op_size);
     for (size_t i = 0; i < applicable_ops.size(); ++i)
         applicable_ops[i] = 0;
 
-    PDDL_ISET(ops);
-    pddlASNetsGroundTaskFDRApplicableOps(task, state, &ops);
     int op_id;
-    PDDL_ISET_FOR_EACH(&ops, op_id)
+    PDDL_ISET_FOR_EACH(applicable_op_ids, op_id)
         applicable_ops[op_id] = 1;
-    pddlISetFree(&ops);
-}
-
-static void setStateVector(const pddl_asnets_ground_task_t *task,
-                           const int *s,
-                           std::vector<float> &state,
-                           std::vector<float> &applicable_ops)
-{
-    state.resize(task->strips.fact.fact_size);
-    for (size_t i = 0; i < state.size(); ++i)
-        state[i] = 0;
-
-    PDDL_ISET(strips_state);
-    pddlASNetsGroundTaskFDRStateToStrips(task, s, &strips_state);
-    int fact_id;
-    PDDL_ISET_FOR_EACH(&strips_state, fact_id)
-        state[fact_id] = 1;
-    pddlISetFree(&strips_state);
-
-    setApplicableOpsVector(task, s, applicable_ops);
 }
 
 static void setGoalVector(const pddl_asnets_ground_task_t *task,
+                          const pddl_iset_t *strips_goal,
                           std::vector<float> &goal)
 {
     goal.resize(task->strips.fact.fact_size);
     for (size_t i = 0; i < goal.size(); ++i)
         goal[i] = 0;
 
-    PDDL_ISET(strips_g);
-    pddlASNetsGroundTaskFDRGoal(task, &strips_g);
     int fact_id;
-    PDDL_ISET_FOR_EACH(&strips_g, fact_id)
+    PDDL_ISET_FOR_EACH(strips_goal, fact_id)
         goal[fact_id] = 1;
+}
+
+static void setFDRStateVector(const pddl_asnets_ground_task_t *task,
+                              const int *s,
+                              std::vector<float> &state,
+                              std::vector<float> &applicable_ops)
+{
+    PDDL_ISET(strips_state);
+    pddlASNetsGroundTaskFDRStateToStrips(task, s, &strips_state);
+    setStateVector(task, &strips_state, state);
+    pddlISetFree(&strips_state);
+
+    PDDL_ISET(ops);
+    pddlASNetsGroundTaskFDRApplicableOps(task, s, &ops);
+    setApplicableOpsVector(task, &ops, applicable_ops);
+    pddlISetFree(&ops);
+}
+
+
+static void setFDRGoalVector(const pddl_asnets_ground_task_t *task,
+                             const pddl_fdr_part_state_t *fdr_goal,
+                             std::vector<float> &goal)
+{
+    PDDL_ISET(strips_g);
+    pddlASNetsGroundTaskFDRPartStateToStrips(task, fdr_goal, &strips_g);
+    setGoalVector(task, &strips_g, goal);
     pddlISetFree(&strips_g);
 }
 
 
-static int runPolicy(const pddl_asnets_ground_task_t *task,
-                     const ModelParameters &params,
-                     dynet::ComputationGraph &cg,
-                     const int *in_state,
-                     int *out_state,
-                     pddl_asnets_policy_distribution_t *distr)
+struct ASNetsTrainMiniBatchTask {
+    int task_id;
+    int size;
+    int fact_size;
+    int op_size;
+    std::vector<float> state;
+    std::vector<float> goal;
+    std::vector<float> applicable_ops;
+    std::vector<unsigned int> selected_op;
+    dynet::Expression e_state;
+    dynet::Expression e_goal;
+    dynet::Expression e_applicable_ops;
+    dynet::Expression e_output;
+
+    ASNetsTrainMiniBatchTask()
+        : task_id(-1), size(0), fact_size(0), op_size(0)
+    {}
+
+    void add(std::vector<float> &in_state,
+             std::vector<float> &in_applicable_ops,
+             std::vector<float> &in_goal,
+             int in_selected_op)
+    {
+        state.insert(state.end(), in_state.begin(), in_state.end());
+        applicable_ops.insert(applicable_ops.end(),
+                              in_applicable_ops.begin(),
+                              in_applicable_ops.end());
+        goal.insert(goal.end(), in_goal.begin(), in_goal.end());
+
+        ASSERT(in_selected_op >= 0 && in_selected_op < op_size);
+        selected_op.push_back(in_selected_op);
+        ++size;
+    }
+
+    void createInputs(dynet::ComputationGraph &cg)
+    {
+        if (size == 0)
+            return;
+        ASSERT((int)state.size() == size * fact_size);
+        ASSERT((int)applicable_ops.size() == size * op_size);
+        ASSERT((int)selected_op.size() == size);
+        ASSERT((int)goal.size() == size * fact_size);
+
+        std::vector<long> dim(1);
+        dim[0] = fact_size;
+        e_state = dynet::input(cg, dynet::Dim(dim, size), state);
+        e_goal = dynet::input(cg, dynet::Dim(dim, size), goal);
+
+        dim[0] = op_size;
+        e_applicable_ops = dynet::input(cg, dynet::Dim(dim, size),
+                                        applicable_ops);
+        e_output = dynet::one_hot(cg, op_size, selected_op);
+    }
+};
+
+struct ASNetsTrainMiniBatch {
+    std::vector<ASNetsTrainMiniBatchTask> batch;
+
+    ASNetsTrainMiniBatch(const pddl_asnets_train_data_t *data,
+                         int minibatch_size)
+    {
+        if (minibatch_size < 0)
+            minibatch_size = data->sample_size;
+        minibatch_size = PDDL_MIN(minibatch_size, data->sample_size);
+        batch.resize(data->task_size);
+        for (int i = 0; i < data->task_size; ++i){
+            batch[i].task_id = i;
+            batch[i].fact_size = data->task[i]->strips.fact.fact_size;
+            batch[i].op_size = data->task[i]->strips.op.op_size;
+        }
+
+        PDDL_ISET(sample_state);
+        PDDL_ISET(sample_applicable_ops);
+        PDDL_ISET(sample_goal);
+        for (int sample = 0; sample < minibatch_size; ++sample){
+            int task_id, selected_op;
+            pddlASNetsTrainDataGetSample(data, sample, &task_id, &selected_op,
+                                         &sample_state, &sample_applicable_ops,
+                                         &sample_goal);
+
+            std::vector<float> state, applicable_ops, goal;
+            setStateVector(data->task[task_id], &sample_state, state);
+            setApplicableOpsVector(data->task[task_id],
+                                   &sample_applicable_ops, applicable_ops);
+            setGoalVector(data->task[task_id], &sample_goal, goal);
+            batch[task_id].add(state, applicable_ops, goal, selected_op);
+        }
+        pddlISetFree(&sample_state);
+        pddlISetFree(&sample_applicable_ops);
+        pddlISetFree(&sample_goal);
+    }
+
+    void createInputs(dynet::ComputationGraph &cg)
+    {
+        for (size_t task_id = 0; task_id < batch.size(); ++task_id){
+            if (batch[task_id].size == 0)
+                continue;
+            batch[task_id].createInputs(cg);
+        }
+    }
+};
+
+
+static dynet::Expression asnetsTrainExpr(pddl_asnets_train_data_t *data,
+                                         const ModelParameters &params,
+                                         int minibatch_size,
+                                         float dropout_rate,
+                                         dynet::ComputationGraph &cg)
+{
+    cg.clear();
+
+    // Sample a minibatch
+    ASNetsTrainMiniBatch batch(data, minibatch_size);
+    batch.createInputs(cg);
+
+    // Construct network for all relevant ground tasks at once
+    std::vector<dynet::Expression> nets;
+    int batch_size = 0;
+    for (int task_id = 0; task_id < data->task_size; ++task_id){
+        if (batch.batch[task_id].size == 0)
+            continue;
+        const ASNetsTrainMiniBatchTask &b = batch.batch[task_id];
+        //LOG(err, "Batch: task: %d, size: %d", task_id, b.size);
+        dynet::Expression e = asnetsExpr(data->task[task_id],
+                                         params,
+                                         cg,
+                                         b.e_state,
+                                         b.e_goal,
+                                         b.e_applicable_ops,
+                                         dropout_rate);
+        dynet::Expression e_loss = crossEntropyLoss(cg, e, b.e_output);
+        nets.push_back(e_loss);
+        batch_size += b.size;
+    }
+
+    ASSERT(nets.size() > 0);
+    // Compute mean over all losses
+    dynet::Expression e_loss = dynet::sum(nets) / batch_size;
+    return e_loss;
+}
+
+
+
+
+struct pddl_asnets_model {
+    pddl_asnets_model_config_t cfg;
+    dynet::ComputationGraph *cg;
+    dynet::Trainer *trainer;
+    ModelParameters *params;
+};
+
+pddl_asnets_model_t *pddlASNetsModelNew(const pddl_asnets_lifted_task_t *task,
+                                        const pddl_asnets_model_config_t *cfg,
+                                        pddl_err_t *err)
+{
+    CTX(err, "ASNets-Model-Init");
+    LOG(err, "Model Init for %s", task->pddl.domain_file);
+    pddl_asnets_model_t *m = ZALLOC(pddl_asnets_model_t);
+    m->cfg = *cfg;
+
+    dynet::DynetParams dynet_params;
+    dynet_params.autobatch = false;
+    //dynet_params.mem_descriptor = "4096";
+    //dynet_params.profiling = 10;
+    dynet_params.random_seed = m->cfg.random_seed;
+    //dynet_params.shared_parameters = true;
+    dynet_params.weight_decay = m->cfg.weight_decay;
+    dynet::initialize(dynet_params);
+
+    m->params = new ModelParameters(m->cfg.hidden_dimension,
+                                    m->cfg.num_layers, task);
+
+    // TODO: Parametrize
+    m->trainer = new dynet::AdamTrainer(m->params->model);
+    m->cg = new dynet::ComputationGraph();
+#ifdef PDDL_DEBUG
+    m->cg->set_check_validity(true);
+    m->cg->set_immediate_compute(true);
+#endif /* PDDL_DEBUG */
+
+    CTXEND(err);
+    return m;
+}
+
+void pddlASNetsModelDel(pddl_asnets_model_t *a)
+{
+    delete a->params;
+    if (a->trainer != NULL)
+        delete a->trainer;
+    if (a->cg != NULL)
+        delete a->cg;
+    FREE(a);
+    dynet::cleanup();
+}
+
+static void paramToArr(const dynet::Parameter &param, float **w, int *w_size)
+{
+    // Raw weights are not scaled by weight_decay so we need to do that
+    // before saving the weights
+    const dynet::ParameterStorage &p = param.get_storage();
+    float weight_decay = p.owner->get_weight_decay().current_weight_decay();
+    std::vector<float> vals = dynet::as_scale_vector(p.values, weight_decay);
+
+    if (*w == NULL){
+        *w = ALLOC_ARR(float, vals.size());
+
+    }else {
+        if (*w_size < (int)vals.size())
+            *w = REALLOC_ARR(*w, float, vals.size());
+    }
+    *w_size = vals.size();
+
+    for (size_t i = 0; i < vals.size(); ++i)
+        (*w)[i] = vals[i];
+}
+
+static int arrToParam(const float *w, int w_size, dynet::Parameter &param,
+                      pddl_err_t *err)
+{
+    std::vector<float> warr(w, w + w_size);
+    dynet::TensorTools::set_elements(param.get_storage().values, warr);
+    if (w_size != (int)param.get_storage().values.d.size()){
+        ERR_RET(err, -1, "Mismatch between the input array and the number"
+                " of model's parameters.");
+    }
+    return 0;
+}
+
+int pddlASNetsModelSetActionWeights(pddl_asnets_model_t *m,
+                                    int layer,
+                                    int action_id,
+                                    const float *w,
+                                    int w_size,
+                                    pddl_err_t *err)
+{
+    if (layer < 0 || layer > m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (action_id < 0 || action_id >= (int)m->params->action[layer].size())
+        ERR_RET(err, -1, "Invalid action ID %d", action_id);
+
+    dynet::Parameter &param = m->params->action[layer][action_id]->W;
+    return arrToParam(w, w_size, param, err);
+}
+
+int pddlASNetsModelSetActionBias(pddl_asnets_model_t *m,
+                                 int layer,
+                                 int action_id,
+                                 const float *w,
+                                 int w_size,
+                                 pddl_err_t *err)
+{
+    if (layer < 0 || layer > m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (action_id < 0 || action_id >= (int)m->params->action[layer].size())
+        ERR_RET(err, -1, "Invalid action ID %d", action_id);
+
+    dynet::Parameter &param = m->params->action[layer][action_id]->bias;
+    return arrToParam(w, w_size, param, err);
+}
+
+int pddlASNetsModelSetPropWeights(pddl_asnets_model_t *m,
+                                  int layer,
+                                  int pred_id,
+                                  const float *w,
+                                  int w_size,
+                                  pddl_err_t *err)
+{
+    if (layer < 0 || layer >= m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (pred_id < 0 || pred_id >= (int)m->params->prop[layer].size())
+        ERR_RET(err, -1, "Invalid pred ID %d", pred_id);
+
+    dynet::Parameter &param = m->params->prop[layer][pred_id]->W;
+    return arrToParam(w, w_size, param, err);
+}
+
+int pddlASNetsModelSetPropBias(pddl_asnets_model_t *m,
+                               int layer,
+                               int pred_id,
+                               const float *w,
+                               int w_size,
+                               pddl_err_t *err)
+{
+    if (layer < 0 || layer >= m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (pred_id < 0 || pred_id >= (int)m->params->prop[layer].size())
+        ERR_RET(err, -1, "Invalid pred ID %d", pred_id);
+
+    dynet::Parameter &param = m->params->prop[layer][pred_id]->bias;
+    return arrToParam(w, w_size, param, err);
+}
+
+int pddlASNetsModelGetActionWeights(pddl_asnets_model_t *m,
+                                    int layer,
+                                    int action_id,
+                                    float **w,
+                                    int *w_size,
+                                    pddl_err_t *err)
+{
+    if (layer < 0 || layer > m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (action_id < 0 || action_id >= (int)m->params->action[layer].size())
+        ERR_RET(err, -1, "Invalid action ID %d", action_id);
+
+    const dynet::Parameter &param = m->params->action[layer][action_id]->W;
+    paramToArr(param, w, w_size);
+    return 0;
+}
+
+int pddlASNetsModelGetActionBias(pddl_asnets_model_t *m,
+                                 int layer,
+                                 int action_id,
+                                 float **w,
+                                 int *w_size,
+                                 pddl_err_t *err)
+{
+    if (layer < 0 || layer > m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (action_id < 0 || action_id >= (int)m->params->action[layer].size())
+        ERR_RET(err, -1, "Invalid action ID %d", action_id);
+
+    const dynet::Parameter &param = m->params->action[layer][action_id]->bias;
+    paramToArr(param, w, w_size);
+    return 0;
+}
+
+int pddlASNetsModelGetPropWeights(pddl_asnets_model_t *m,
+                                  int layer,
+                                  int pred_id,
+                                  float **w,
+                                  int *w_size,
+                                  pddl_err_t *err)
+{
+    if (layer < 0 || layer >= m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (pred_id < 0 || pred_id >= (int)m->params->prop[layer].size())
+        ERR_RET(err, -1, "Invalid pred ID %d", pred_id);
+
+    const dynet::Parameter &param = m->params->prop[layer][pred_id]->W;
+    paramToArr(param, w, w_size);
+    return 0;
+}
+
+int pddlASNetsModelGetPropBias(pddl_asnets_model_t *m,
+                               int layer,
+                               int pred_id,
+                               float **w,
+                               int *w_size,
+                               pddl_err_t *err)
+{
+    if (layer < 0 || layer >= m->params->num_layers)
+        ERR_RET(err, -1, "Invalid layer %d", layer);
+    if (pred_id < 0 || pred_id >= (int)m->params->prop[layer].size())
+        ERR_RET(err, -1, "Invalid pred ID %d", pred_id);
+
+    const dynet::Parameter &param = m->params->prop[layer][pred_id]->bias;
+    paramToArr(param, w, w_size);
+    return 0;
+}
+
+
+int pddlASNetsModelTrainStep(pddl_asnets_model_t *m,
+                             pddl_asnets_train_data_t *data,
+                             int minibatch_size,
+                             float dropout_rate,
+                             float *out_loss,
+                             pddl_err_t *err)
+{
+    // Sample a minibatch
+    pddlASNetsTrainDataShuffle(data);
+
+    // Construct network with the right input data
+    dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, minibatch_size,
+                                               dropout_rate, *m->cg);
+
+    // Learn parameters
+    float loss_val = dynet::as_scalar(m->cg->forward(e_loss));
+    m->cg->backward(e_loss);
+    m->trainer->update();
+
+    if (out_loss != NULL)
+        *out_loss = loss_val;
+    return 0;
+}
+
+float pddlASNetsModelOverallLoss(pddl_asnets_model_t *m,
+                                 pddl_asnets_train_data_t *data,
+                                 float dropout_rate)
+{
+    dynet::Expression e_loss = asnetsTrainExpr(data, *m->params,
+                                               -1, dropout_rate, *m->cg);
+    return dynet::as_scalar(m->cg->forward(e_loss));
+}
+
+int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
+                                const pddl_asnets_ground_task_t *task,
+                                const int *in_state,
+                                const pddl_fdr_part_state_t *in_goal,
+                                pddl_asnets_policy_distribution_t *distr)
 {
     std::vector<float> state;
     std::vector<float> goal;
     std::vector<float> applicable_ops;
 
-    setGoalVector(task, goal);
-    setStateVector(task, in_state, state, applicable_ops);
+    setFDRGoalVector(task, in_goal, goal);
+    setFDRStateVector(task, in_state, state, applicable_ops);
 
-    cg.clear();
+    m->cg->clear();
 
     std::vector<long> dim(1);
     dim[0] = state.size();
-    dynet::Expression e_state = dynet::input(cg, dynet::Dim(dim), state);
-    dynet::Expression e_goal = dynet::input(cg, dynet::Dim(dim), goal);
+    dynet::Expression e_state = dynet::input(*m->cg, dynet::Dim(dim), state);
+    dynet::Expression e_goal = dynet::input(*m->cg, dynet::Dim(dim), goal);
 
     dim[0] = applicable_ops.size();
-    dynet::Expression e_applicable_ops = dynet::input(cg, dynet::Dim(dim), applicable_ops);
+    dynet::Expression e_applicable_ops
+            = dynet::input(*m->cg, dynet::Dim(dim), applicable_ops);
     // Dropout is used *only* during training -- we don't need to use it here
-    dynet::Expression e_output = asnetsExpr(task, params, cg, e_state, e_goal,
-                                            e_applicable_ops, -1);
+    dynet::Expression e_output = asnetsExpr(task, *m->params, *m->cg, e_state,
+                                            e_goal, e_applicable_ops, -1);
 
-    std::vector<float> out = dynet::as_vector(cg.forward(e_output));
+    std::vector<float> out = dynet::as_vector(m->cg->forward(e_output));
     ASSERT((int)out.size() == task->strips.op.op_size);
 
     int best_op_id = -1;
@@ -950,1385 +945,5 @@ static int runPolicy(const pddl_asnets_ground_task_t *task,
         }
     }
 
-    if (out_state != NULL && best_op_id >= 0)
-        pddlASNetsGroundTaskFDRApplyOp(task, in_state, best_op_id, out_state);
-
     return best_op_id;
-}
-
-struct pddl_asnets_train_stats {
-    int max_epochs;
-    int epoch;
-    int max_train_steps;
-    int train_step;
-    float overall_loss;
-    float success_rate;
-    int num_samples;
-    int consecutive_successful_epochs;
-};
-typedef struct pddl_asnets_train_stats pddl_asnets_train_stats_t;
-
-struct pddl_asnets {
-    pddl_asnets_config_t cfg;
-    pddl_asnets_lifted_task_t lifted_task;
-    dynet::ComputationGraph *cg;
-    dynet::Trainer *trainer;
-    ModelParameters *params;
-    pddl_asnets_ground_task_t *ground_task;
-    int ground_task_size;
-
-    pddl_asnets_train_stats_t train_stats;
-};
-
-struct ASNetsTrainMiniBatchTask {
-    int task_id;
-    int size;
-    int fact_size;
-    int op_size;
-    std::vector<float> state;
-    std::vector<float> goal;
-    std::vector<float> applicable_ops;
-    std::vector<unsigned int> selected_op;
-    dynet::Expression e_state;
-    dynet::Expression e_goal;
-    dynet::Expression e_applicable_ops;
-    dynet::Expression e_output;
-
-    ASNetsTrainMiniBatchTask()
-        : task_id(-1), size(0), fact_size(0), op_size(0)
-    {}
-
-    void add(std::vector<float> &in_state,
-             std::vector<float> &in_applicable_ops,
-             int in_selected_op)
-    {
-        state.insert(state.end(), in_state.begin(), in_state.end());
-        applicable_ops.insert(applicable_ops.end(),
-                              in_applicable_ops.begin(),
-                              in_applicable_ops.end());
-
-        ASSERT(in_selected_op >= 0 && in_selected_op < op_size);
-        selected_op.push_back(in_selected_op);
-        ++size;
-    }
-
-    void createInputs(dynet::ComputationGraph &cg)
-    {
-        if (size == 0)
-            return;
-        ASSERT((int)state.size() == size * fact_size);
-        ASSERT((int)applicable_ops.size() == size * op_size);
-        ASSERT((int)selected_op.size() == size);
-        ASSERT((int)goal.size() == fact_size);
-
-        std::vector<long> dim(1);
-        dim[0] = fact_size;
-        e_state = dynet::input(cg, dynet::Dim(dim, size), state);
-
-        std::vector<float> g;
-        for (int i = 0; i < size; ++i)
-            g.insert(g.end(), goal.begin(), goal.end());
-        e_goal = dynet::input(cg, dynet::Dim(dim, size), g);
-
-        dim[0] = op_size;
-        e_applicable_ops = dynet::input(cg, dynet::Dim(dim, size),
-                                        applicable_ops);
-        e_output = dynet::one_hot(cg, op_size, selected_op);
-    }
-};
-
-struct ASNetsTrainMiniBatch {
-    std::vector<ASNetsTrainMiniBatchTask> batch;
-
-    ASNetsTrainMiniBatch(const pddl_asnets_t *a,
-                         const pddl_asnets_train_data_t *data,
-                         int minibatch_size)
-    {
-        if (minibatch_size < 0)
-            minibatch_size = data->sample_size;
-        minibatch_size = PDDL_MIN(minibatch_size, data->sample_size);
-        batch.resize(a->ground_task_size);
-        for (int i = 0; i < a->ground_task_size; ++i){
-            batch[i].task_id = i;
-            batch[i].fact_size = a->ground_task[i].strips.fact.fact_size;
-            batch[i].op_size = a->ground_task[i].strips.op.op_size;
-            setGoalVector(a->ground_task + i, batch[i].goal);
-        }
-
-        for (int sample = 0; sample < minibatch_size; ++sample){
-            int task_id, selected_op;
-            const int *fdr_state;
-            pddlASNetsTrainDataGetSample(data, sample, &task_id,
-                                         &selected_op, NULL, &fdr_state);
-            std::vector<float> state, applicable_ops;
-            setStateVector(a->ground_task + task_id, fdr_state,
-                           state, applicable_ops);
-            batch[task_id].add(state, applicable_ops, selected_op);
-        }
-    }
-
-    void createInputs(dynet::ComputationGraph &cg)
-    {
-        for (size_t task_id = 0; task_id < batch.size(); ++task_id){
-            if (batch[task_id].size == 0)
-                continue;
-            batch[task_id].createInputs(cg);
-        }
-    }
-};
-
-struct pddl_asnets_policy_rollout {
-    /** Intermediate states of the rollout */
-    pddl_fdr_state_pool_t states;
-    /** Trace of operators */
-    pddl_iarr_t ops;
-    /** Set to a plan, if found */
-    pddl_iarr_t plan;
-    /** Number of goal facts satisfied by the rollout.
-     *  Applies only to osp policies. */
-    int osp_reached_goal_size;
-    /** True if plan was found */
-    pddl_bool_t found_plan;
-};
-typedef struct pddl_asnets_policy_rollout pddl_asnets_policy_rollout_t;
-
-static void policyRolloutInit(pddl_asnets_policy_rollout_t *r,
-                              const pddl_asnets_ground_task_t *task)
-{
-    ZEROIZE(r);
-    pddlFDRStatePoolInit(&r->states, &task->fdr.var, NULL);
-    pddlIArrInit(&r->ops);
-    pddlIArrInit(&r->plan);
-    r->osp_reached_goal_size = 0;
-}
-
-static void policyRolloutFree(pddl_asnets_policy_rollout_t *r)
-{
-    pddlFDRStatePoolFree(&r->states);
-    pddlIArrFree(&r->ops);
-    pddlIArrFree(&r->plan);
-}
-
-static pddl_bool_t policyRollout(pddl_asnets_t *a,
-                                 pddl_asnets_policy_rollout_t *rollout,
-                                 const pddl_asnets_ground_task_t *task,
-                                 pddl_err_t *err)
-{
-    policyRolloutInit(rollout, task);
-
-    pddl_bool_t found = pddl_false;
-    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
-    int *state2 = ALLOC_ARR(int, task->fdr.var.var_size);
-
-    // In case of OSP task, count when was reached the highest number of goals
-    int best_reached_goal_size = 0;
-    int best_reached_goal_step = -1;
-
-    // Start in the initial state
-    pddl_state_id_t state_id = pddlFDRStatePoolInsert(&rollout->states, task->fdr.init);
-    for (int step = 0; step < a->cfg.policy_rollout_limit; ++step){
-        // get the last reached state
-        pddlFDRStatePoolGet(&rollout->states, state_id, state);
-
-        if (pddlFDRPartStateIsConsistentWithState(&task->fdr.goal, state)){
-            found = pddl_true;
-            best_reached_goal_size = task->fdr.goal.fact_size;
-            best_reached_goal_step = step;
-            break;
-        }
-
-        if (a->cfg.osp_all_soft_goals){
-            int goal_size = pddlFDRPartStateStateIntersectionSize(&task->fdr.goal, state);
-            if (goal_size > best_reached_goal_size){
-                best_reached_goal_size = goal_size;
-                best_reached_goal_step = step;
-            }
-        }
-
-        // Apply policy. If we get -1, it means the state is dead-end,
-        // because there are no applicable operators
-        int op_id = runPolicy(task, *a->params, *a->cg, state, state2, NULL);
-        if (op_id < 0)
-            break;
-        pddlIArrAdd(&rollout->ops, op_id);
-
-        // Insert current state
-        pddl_state_id_t prev_state_id = state_id;
-        state_id = pddlFDRStatePoolInsert(&rollout->states, state2);
-        // If the new state was already in the pool, then we got a cycle
-        if (state_id <= prev_state_id)
-            break;
-    }
-
-    if (a->cfg.osp_all_soft_goals){
-        if (best_reached_goal_step >= 0){
-            for (int i = 0; i < best_reached_goal_step; ++i)
-                pddlIArrAdd(&rollout->plan, pddlIArrGet(&rollout->ops, i));
-            rollout->osp_reached_goal_size = best_reached_goal_size;
-        }
-
-    }else{
-        if (found)
-            pddlIArrAppendArr(&rollout->plan, &rollout->ops);
-    }
-    rollout->found_plan = found;
-
-    FREE(state);
-    FREE(state2);
-    return found;
-}
-
-
-
-pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
-{
-    if (cfg->problem_pddl_size <= 0)
-        ERR_RET(err, NULL, "ASNets: At least one problem file is required.");
-
-    CTX(err, "ASNets");
-    pddl_asnets_t *a = ZALLOC(pddl_asnets_t);
-    pddlASNetsConfigInitCopy(&a->cfg, cfg);
-    CTX_NO_TIME(err, "Cfg");
-    pddlASNetsConfigLog(&a->cfg, err);
-    CTXEND(err);
-
-    int st;
-    st = pddlASNetsLiftedTaskInit(&a->lifted_task, cfg->domain_pddl, err);
-    if (st < 0){
-        CTXEND(err);
-        TRACE_RET(err, NULL);
-    }
-
-    a->ground_task_size = cfg->problem_pddl_size;
-    a->ground_task = ALLOC_ARR(pddl_asnets_ground_task, a->ground_task_size);
-    for (int probi = 0; probi < cfg->problem_pddl_size; ++probi){
-        st = pddlASNetsGroundTaskInit(&a->ground_task[probi],
-                                      &a->lifted_task,
-                                      cfg->domain_pddl,
-                                      cfg->problem_pddl[probi],
-                                      cfg,
-                                      err);
-        if (st < 0){
-            pddlASNetsLiftedTaskFree(&a->lifted_task);
-            for (int i = 0; i < probi; ++i)
-                pddlASNetsGroundTaskFree(&a->ground_task[i]);
-            FREE(a->ground_task);
-            CTXEND(err);
-            TRACE_RET(err, NULL);
-        }
-    }
-
-    dynet::DynetParams dynet_params;
-    dynet_params.autobatch = false;
-    //dynet_params.mem_descriptor = "4096";
-    //dynet_params.profiling = 10;
-    dynet_params.random_seed = a->cfg.random_seed;
-    //dynet_params.shared_parameters = true;
-    dynet_params.weight_decay = a->cfg.weight_decay;
-    dynet::initialize(dynet_params);
-
-    a->params = new ModelParameters(cfg->hidden_dimension,
-                                    cfg->num_layers,
-                                    &a->lifted_task);
-
-    // TODO: Parametrize
-    a->trainer = new dynet::AdamTrainer(a->params->model);
-    a->cg = new dynet::ComputationGraph();
-#ifdef PDDL_DEBUG
-    a->cg->set_check_validity(true);
-    a->cg->set_immediate_compute(true);
-#endif /* PDDL_DEBUG */
-
-    ZEROIZE(&a->train_stats);
-    a->train_stats.max_epochs = a->cfg.max_train_epochs;
-    a->train_stats.max_train_steps = a->cfg.train_steps;
-    a->train_stats.success_rate = -1.f;
-    a->train_stats.overall_loss = -1.f;
-
-    CTXEND(err);
-    return a;
-}
-
-void pddlASNetsDel(pddl_asnets_t *a)
-{
-    pddlASNetsLiftedTaskFree(&a->lifted_task);
-    for (int i = 0; i < a->ground_task_size; ++i)
-        pddlASNetsGroundTaskFree(&a->ground_task[i]);
-    FREE(a->ground_task);
-
-    delete a->params;
-    if (a->trainer != NULL)
-        delete a->trainer;
-    if (a->cg != NULL)
-        delete a->cg;
-    pddlASNetsConfigFree(&a->cfg);
-    dynet::cleanup();
-}
-
-#define SIG_ACTION_W 0
-#define SIG_ACTION_B 1
-#define SIG_PROP_W 2
-#define SIG_PROP_B 3
-
-static const char sql_create_info[]
-    = "DROP TABLE IF EXISTS asnets_info;"
-      "CREATE TABLE asnets_info ("
-            "parameter TEXT,"
-            "int_value INT DEFAULT -1,"
-            "flt_value REAL DEFAULT -1.,"
-            "str_value TEXT DEFAULT NULL"
-      ");";
-static const char sql_query_info[]
-    = "SELECT int_value, flt_value, str_value"
-      " FROM asnets_info WHERE parameter = ?;";
-
-static const char sql_create_weights[]
-    = "DROP TABLE IF EXISTS asnets_weights;"
-      "CREATE TABLE asnets_weights ("
-            "id INT PRIMARY KEY,"
-            "layer INT,"
-            "sig INT,"
-            "name TEXT,"
-            "idx INT,"
-            "weights BLOB"
-      ");";
-static const char sql_insert_weights[]
-    = "INSERT INTO asnets_weights VALUES(?,?,?,?,?,?);";
-static const char sql_query_weights[]
-    = "SELECT layer, sig, name, idx, weights"
-      " FROM asnets_weights WHERE id = ?;";
-
-
-
-struct Info {
-    char cpddl_version[128];
-    char domain_name[128];
-    char domain_pddl[4096];
-    char domain_hash[PDDL_SHA256_HASH_STR_SIZE];
-    pddl_asnets_config_t cfg;
-    pddl_asnets_train_stats_t train_stats;
-    // TODO: store the whole domain pddl file?
-
-    Info()
-    {
-        cpddl_version[0] = '\x0';
-        domain_name[0] = '\x0';
-        domain_hash[0] = '\x0';
-        ZEROIZE(&cfg);
-        ZEROIZE(&train_stats);
-    }
-
-    Info(const pddl_asnets_t *a)
-    {
-        strncpy(cpddl_version, pddl_version, sizeof(cpddl_version) - 1);
-        strncpy(domain_name, a->lifted_task.pddl.domain_name, sizeof(domain_name) - 1);
-        strncpy(domain_pddl, a->lifted_task.pddl.domain_file, sizeof(domain_pddl) - 1);
-        pddlASNetsLiftedTaskToSHA256(&a->lifted_task, domain_hash);
-        cfg = a->cfg;
-        train_stats = a->train_stats;
-    }
-
-    int checkLoadedInfo(const Info &o, pddl_err_t *err)
-    {
-        if (cfg.hidden_dimension != o.cfg.hidden_dimension){
-            ERR_RET(err, 0, "Hidden dimensions don't match. asnets: %d, loaded: %d",
-                    cfg.hidden_dimension, o.cfg.hidden_dimension);
-        }
-
-        if (cfg.num_layers != o.cfg.num_layers){
-            ERR_RET(err, 0, "Number of layers don't match. asnets: %d, loaded: %d",
-                    cfg.num_layers, o.cfg.num_layers);
-        }
-
-        if (strcmp(domain_name, o.domain_name) != 0){
-            ERR_RET(err, 0, "Domain names differ. asnets: %s, loaded: %s",
-                    domain_name, o.domain_name);
-        }
-
-        if (strcmp(domain_hash, o.domain_hash) != 0){
-            ERR_RET(err, 0, "Domain hash differ. asnets: %s, loaded: %s",
-                    domain_hash, o.domain_hash);
-        }
-
-        return 1;
-    }
-
-    int create(pddl_sqlite3 *db, pddl_err_t *err)
-    {
-        char *errmsg = NULL;
-        int ret = pddl_sqlite3_exec(db, sql_create_info, NULL, NULL, &errmsg);
-        if (ret != SQLITE_OK){
-            ERR(err, "Sqlite Error: %s", errmsg);
-            pddl_sqlite3_free(errmsg);
-            return -1;
-        }
-        return 0;
-    }
-
-    int _sqlInsertInfo(pddl_sqlite3 *db,
-                       const char *param,
-                       int int_val,
-                       float float_val,
-                       const char *str_val,
-                       pddl_err_t *err)
-    {
-        char *query = ALLOC_ARR(char, 1024 * 1024);
-        int query_size = 0;
-        query_size = sprintf(query, "INSERT INTO asnets_info (parameter");
-        if (str_val != NULL){
-            query_size += sprintf(query + query_size, ",str_value)");
-            query_size += sprintf(query + query_size, " VALUES('%s'", param);
-            query_size += sprintf(query + query_size, ",'%s');", str_val);
-
-        }else if (float_val > -FLT_MAX){
-            query_size += sprintf(query + query_size, ",flt_value)");
-            query_size += sprintf(query + query_size, " VALUES('%s'", param);
-            query_size += sprintf(query + query_size, ",%f);", float_val);
-
-        }else{
-            query_size += sprintf(query + query_size, ",int_value)");
-            query_size += sprintf(query + query_size, " VALUES('%s'", param);
-            query_size += sprintf(query + query_size, ",%d);", int_val);
-        }
-
-        char *errmsg = NULL;
-        int ret = pddl_sqlite3_exec(db, query, NULL, NULL, &errmsg);
-        FREE(query);
-        if (ret != SQLITE_OK){
-            ERR(err, "Sqlite Error: %s", errmsg);
-            pddl_sqlite3_free(errmsg);
-            return -1;
-        }
-        return 0;
-    }
-
-#define SQL_INS_INFO_STR(P, V) \
-    _sqlInsertInfo(db, P, INT_MIN, -FLT_MAX, V, err)
-#define SQL_INS_INFO_INT(P, V) \
-    _sqlInsertInfo(db, P, V, -FLT_MAX, NULL, err)
-#define SQL_INS_INFO_FLT(P, V) \
-    _sqlInsertInfo(db, P, INT_MIN, V, NULL, err)
-
-    int save(pddl_sqlite3 *db, pddl_err_t *err)
-    {
-        char *errmsg = NULL;
-        if (SQL_INS_INFO_STR("cpddl_version", pddl_version) != 0
-                || SQL_INS_INFO_STR("domain_name", domain_name) != 0
-                || SQL_INS_INFO_STR("domain_pddl", domain_pddl) != 0
-                || SQL_INS_INFO_STR("domain_hash", domain_hash) != 0
-
-                || SQL_INS_INFO_INT("epoch", train_stats.epoch) != 0
-                || SQL_INS_INFO_INT("num_samples", train_stats.num_samples) != 0
-                || SQL_INS_INFO_FLT("overall_loss", train_stats.overall_loss) != 0
-                || SQL_INS_INFO_FLT("success_rate", train_stats.success_rate) != 0
-
-                || SQL_INS_INFO_INT("cfg_hidden_dimension", cfg.hidden_dimension) != 0
-                || SQL_INS_INFO_INT("cfg_num_layers", cfg.num_layers) != 0
-                || SQL_INS_INFO_INT("cfg_random_seed", cfg.random_seed) != 0
-                || SQL_INS_INFO_FLT("cfg_weight_decay", cfg.weight_decay) != 0
-                || SQL_INS_INFO_FLT("cfg_dropout_rate", cfg.dropout_rate) != 0
-                || SQL_INS_INFO_INT("cfg_batch_size", cfg.batch_size) != 0
-                || SQL_INS_INFO_INT("cfg_double_batch_size_every_epoch",
-                                    cfg.double_batch_size_every_epoch) != 0
-                || SQL_INS_INFO_INT("cfg_max_train_epochs", cfg.max_train_epochs) != 0
-                || SQL_INS_INFO_INT("cfg_train_steps", cfg.train_steps) != 0
-                || SQL_INS_INFO_INT("cfg_policy_rollout_limit", cfg.policy_rollout_limit) != 0
-                || SQL_INS_INFO_FLT("cfg_teacher_timeout", cfg.teacher_timeout) != 0
-                || SQL_INS_INFO_FLT("cfg_early_termination_success_rate",
-                                    cfg.early_termination_success_rate) != 0
-                || SQL_INS_INFO_INT("cfg_early_termination_epochs",
-                                    cfg.early_termination_epochs) != 0){
-            pddl_sqlite3_free(errmsg);
-            TRACE_RET(err, -1);
-        }
-        return 0;
-    }
-
-
-    int _sqlSelectInfo(pddl_sqlite3 *db,
-                       pddl_sqlite3_stmt *stmt,
-                       const char *param,
-                       int *int_val,
-                       float *flt_val,
-                       char *str_val,
-                       pddl_err_t *err)
-    {
-        pddl_sqlite3_reset(stmt);
-        int ret = pddl_sqlite3_bind_text(stmt, 1, param, -1, SQLITE_STATIC);
-        if (ret != SQLITE_OK){
-            ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                    pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-        }
-
-        int found = (ret = pddl_sqlite3_step(stmt)) == SQLITE_ROW;
-        if (ret != SQLITE_ROW && ret != SQLITE_DONE){
-            ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                    pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-        }
-        if (!found)
-            ERR_RET(err, -1, "Parameter %s not found.", param);
-
-        if (int_val != NULL)
-            *int_val = pddl_sqlite3_column_int(stmt, 0);
-        if (flt_val != NULL)
-            *flt_val = pddl_sqlite3_column_double(stmt, 1);
-        if (str_val != NULL){
-            const unsigned char *v = pddl_sqlite3_column_text(stmt, 2);
-            strcpy(str_val, (const char *)v);
-        }
-        return 0;
-    }
-
-    int _sqlSelectInfoInt(pddl_sqlite3 *db,
-                          pddl_sqlite3_stmt *stmt,
-                          const char *param,
-                          pddl_err_t *err)
-    {
-        int val;
-        int ret = _sqlSelectInfo(db, stmt, param, &val, NULL, NULL, err);
-        if (ret < 0)
-            TRACE_RET(err, INT_MIN);
-        return val;
-
-    }
-
-    float _sqlSelectInfoFlt(pddl_sqlite3 *db,
-                            pddl_sqlite3_stmt *stmt,
-                            const char *param,
-                            pddl_err_t *err)
-    {
-        float val;
-        int ret = _sqlSelectInfo(db, stmt, param, NULL, &val, NULL, err);
-        if (ret < 0)
-            TRACE_RET(err, -FLT_MAX);
-        return val;
-
-    }
-
-    int _sqlSelectInfoStr(pddl_sqlite3 *db,
-                          pddl_sqlite3_stmt *stmt,
-                          const char *param,
-                          char *val,
-                          pddl_err_t *err)
-    {
-        int ret = _sqlSelectInfo(db, stmt, param, NULL, NULL, val, err);
-        if (ret < 0)
-            TRACE_RET(err, -1);
-        return 0;
-    }
-
-#define SQL_INFO_CFG_INT(N) \
-    do { \
-        cfg.N = _sqlSelectInfoInt(db, stmt, "cfg_" #N, err); \
-        if (cfg.N == INT_MIN){ \
-            TRACE_RET(err, -1); \
-        }else{ \
-            LOG(err, "cfg." #N " = %d", cfg.N); \
-        } \
-    } while (0)
-
-#define SQL_INFO_CFG_FLT(N) \
-    do { \
-        cfg.N = _sqlSelectInfoFlt(db, stmt, "cfg_" #N, err); \
-        if (cfg.N == -FLT_MAX){ \
-            TRACE_RET(err, -1); \
-        }else{ \
-            LOG(err, "cfg." #N " = %f", cfg.N); \
-        } \
-    } while (0)
-
-    int load(pddl_sqlite3 *db, pddl_err_t *err)
-    {
-        pddl_sqlite3_stmt *stmt;
-        int ret = pddl_sqlite3_prepare_v2(db, sql_query_info, -1, &stmt, NULL);
-        if (ret != SQLITE_OK){
-            ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                    pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-        }
-
-        if (_sqlSelectInfoStr(db, stmt, "cpddl_version", cpddl_version, err) != 0)
-            TRACE_RET(err, -1);
-        LOG(err, "cpddl version = %s", cpddl_version);
-        if (_sqlSelectInfoStr(db, stmt, "domain_name", domain_name, err) != 0)
-            TRACE_RET(err, -1);
-        LOG(err, "domain name = %s", domain_name);
-        if (_sqlSelectInfoStr(db, stmt, "domain_pddl", domain_pddl, err) != 0)
-            TRACE_RET(err, -1);
-        LOG(err, "domain pddl = %s", domain_pddl);
-        if (_sqlSelectInfoStr(db, stmt, "domain_hash", domain_hash, err) != 0)
-            TRACE_RET(err, -1);
-        LOG(err, "domain hash = %s", domain_hash);
-
-        train_stats.epoch = _sqlSelectInfoInt(db, stmt, "epoch", err);
-        if (train_stats.epoch == INT_MIN)
-            TRACE_RET(err, -1);
-        LOG(err, "train epoch = %d", train_stats.epoch);
-        train_stats.num_samples = _sqlSelectInfoInt(db, stmt, "num_samples", err);
-        if (train_stats.num_samples == INT_MIN)
-            TRACE_RET(err, -1);
-        LOG(err, "num samples = %d", train_stats.num_samples);
-        train_stats.success_rate = _sqlSelectInfoFlt(db, stmt, "success_rate", err);
-        if (train_stats.success_rate == -FLT_MAX)
-            TRACE_RET(err, -1);
-        LOG(err, "success rate = %f", train_stats.success_rate);
-        train_stats.overall_loss = _sqlSelectInfoFlt(db, stmt, "overall_loss", err);
-        if (train_stats.overall_loss == -FLT_MAX)
-            TRACE_RET(err, -1);
-        LOG(err, "overall loss = %f", train_stats.overall_loss);
-
-        SQL_INFO_CFG_INT(hidden_dimension);
-        SQL_INFO_CFG_INT(num_layers);
-        SQL_INFO_CFG_FLT(weight_decay);
-        SQL_INFO_CFG_FLT(dropout_rate);
-        SQL_INFO_CFG_INT(random_seed);
-        SQL_INFO_CFG_INT(batch_size);
-        SQL_INFO_CFG_INT(double_batch_size_every_epoch);
-        SQL_INFO_CFG_INT(max_train_epochs);
-        SQL_INFO_CFG_INT(train_steps);
-        SQL_INFO_CFG_INT(policy_rollout_limit);
-        SQL_INFO_CFG_FLT(teacher_timeout);
-        SQL_INFO_CFG_FLT(early_termination_success_rate);
-        SQL_INFO_CFG_INT(early_termination_epochs);
-        return 0;
-    }
-};
-
-
-
-static int sqlInsertWeights(pddl_sqlite3 *db,
-                            pddl_sqlite3_stmt *stmt,
-                            int id,
-                            int layer,
-                            int sig,
-                            const char *name,
-                            int idx,
-                            const dynet::Parameter &param,
-                            pddl_err_t *err)
-{
-    pddl_sqlite3_reset(stmt);
-    int ret = pddl_sqlite3_bind_int(stmt, 1, id);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    ret = pddl_sqlite3_bind_int(stmt, 2, layer);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    ret = pddl_sqlite3_bind_int(stmt, 3, sig);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    ret = pddl_sqlite3_bind_text(stmt, 4, name, -1, SQLITE_STATIC);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    ret = pddl_sqlite3_bind_int(stmt, 5, idx);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    // Raw weights are not scaled by weight_decay so we need to do that
-    // before saving the weights
-    const dynet::ParameterStorage &p = param.get_storage();
-    float weight_decay = p.owner->get_weight_decay().current_weight_decay();
-    std::vector<float> vals = dynet::as_scale_vector(p.values, weight_decay);
-    const float *vals_arr = &vals[0];
-    size_t size = sizeof(float) * vals.size();
-    ret = pddl_sqlite3_bind_blob(stmt, 6, vals_arr, size, SQLITE_STATIC);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    ret = pddl_sqlite3_step(stmt);
-    if (ret != SQLITE_DONE && ret != SQLITE_CONSTRAINT){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    LOG(err, "Weights saved. id: %d, layer: %d, type: %s/%s, name: %s, idx: %d,"
-        " array_size: %d",
-        id, layer,
-        (sig == SIG_ACTION_W || sig == SIG_ACTION_B ? "action" : "proposition"),
-        (sig == SIG_ACTION_W || sig == SIG_PROP_W ? "W" : "bias"),
-        name, idx, (int)vals.size());
-
-    return 0;
-}
-
-
-static int sqlSelectWeights(pddl_sqlite3 *db,
-                            pddl_sqlite3_stmt *stmt,
-                            int id,
-                            int param_layer,
-                            int param_sig,
-                            const char *param_name,
-                            int param_idx,
-                            dynet::Parameter &param,
-                            pddl_err_t *err)
-{
-    pddl_sqlite3_reset(stmt);
-    int ret = pddl_sqlite3_bind_int(stmt, 1, id);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    int found = (ret = pddl_sqlite3_step(stmt)) == SQLITE_ROW;
-    if (ret != SQLITE_ROW && ret != SQLITE_DONE){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-    if (!found)
-        ERR_RET(err, -1, "Weight %d not found.", id);
-
-    int layer = pddl_sqlite3_column_int(stmt, 0);
-    if (layer != param_layer){
-        ERR_RET(err, -1, "Layers do not match (stored layer: %d, requested: %d)",
-                layer, param_layer);
-    }
-
-    int sig = pddl_sqlite3_column_int(stmt, 1);
-    if (sig != param_sig)
-        ERR_RET(err, -1, "Stored weights don't match");
-
-    const unsigned char *name = pddl_sqlite3_column_text(stmt, 2);
-    if (strcmp((const char *)name, param_name) != 0){
-        ERR_RET(err, -1, "Stored weights don't match"
-                " (stored name: %s, requested: %s)", name, param_name);
-    }
-
-    int idx = pddl_sqlite3_column_int(stmt, 3);
-    if (idx != param_idx){
-        ERR_RET(err, -1, "Stored weights don't match"
-                " (stored index: %d, requested: %d)", idx, param_idx);
-    }
-
-    int w_size = pddl_sqlite3_column_bytes(stmt, 4) / sizeof(float);
-    if (w_size != (int)param.dim().size()){
-        ERR_RET(err, -1, "Size of weights don't match"
-                " (stored size: %d, requested: %d)",
-                w_size, (int)param.dim().size());
-    }
-
-    const float *w = (const float *)pddl_sqlite3_column_blob(stmt, 4);
-    std::vector<float> warr(w, w + w_size);
-    dynet::TensorTools::set_elements(param.get_storage().values, warr);
-
-    return 0;
-}
-
-int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
-                                  const char *fn,
-                                  pddl_err_t *err)
-{
-    // TODO: Refactor with pddlASNetsLoad() and decouple from Info
-    pddl_sqlite3 *db;
-    int flags = SQLITE_OPEN_READONLY;
-    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    Info info;
-    if (info.load(db, err) != 0){
-        pddl_sqlite3_close_v2(db);
-        TRACE_RET(err, -1);
-    }
-
-    *cfg = info.cfg;
-
-    ret = pddl_sqlite3_close_v2(db);
-    if (ret != SQLITE_OK){
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-    return 0;
-}
-
-int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err)
-{
-    CTX(err, "ASNets-Save");
-    LOG(err, "Saving model to %s", fn);
-    pddl_sqlite3 *db;
-    int flags = SQLITE_OPEN_READWRITE
-                    | SQLITE_OPEN_CREATE;
-    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
-    if (ret != SQLITE_OK){
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    Info info(a);
-    if (info.create(db, err) != 0 || info.save(db, err) != 0){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    char *errmsg = NULL;
-    ret = pddl_sqlite3_exec(db, sql_create_weights, NULL, NULL, &errmsg);
-    if (ret != SQLITE_OK){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        ERR(err, "Sqlite Error: %s", errmsg);
-        pddl_sqlite3_free(errmsg);
-        return -1;
-    }
-
-    pddl_sqlite3_stmt *stmt;
-    ret = pddl_sqlite3_prepare_v2(db, sql_insert_weights, -1, &stmt, NULL);
-    if (ret != SQLITE_OK){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    int id = 0;
-    for (int layer = 0; layer <= a->params->num_layers; ++layer){
-        const std::vector<ActionModule *> &acts = a->params->action[layer];
-        for (size_t i = 0; i < acts.size(); ++i){
-            ret = sqlInsertWeights(db, stmt, id, layer, SIG_ACTION_W,
-                                   a->lifted_task.pddl.action.action[i].name,
-                                   i, acts[i]->W, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-
-            ret = sqlInsertWeights(db, stmt, id, layer, SIG_ACTION_B,
-                                   a->lifted_task.pddl.action.action[i].name,
-                                   i, acts[i]->bias, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-        }
-        if (layer == a->params->num_layers)
-            break;
-
-        const std::vector<PropositionModule *> &props = a->params->prop[layer];
-        for (size_t i = 0; i < props.size(); ++i){
-            ret = sqlInsertWeights(db, stmt, id, layer, SIG_PROP_W,
-                                   a->lifted_task.pddl.pred.pred[i].name,
-                                   i, props[i]->W, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-
-            ret = sqlInsertWeights(db, stmt, id, layer, SIG_PROP_B,
-                                   a->lifted_task.pddl.pred.pred[i].name,
-                                   i, props[i]->bias, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-        }
-    }
-    pddl_sqlite3_finalize(stmt);
-
-    ret = pddl_sqlite3_close_v2(db);
-    if (ret != SQLITE_OK){
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-    LOG(err, "Model saved to '%s'", fn);
-    CTXEND(err);
-    return 0;
-}
-
-int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err)
-{
-    CTX(err, "ASNets-Load");
-    LOG(err, "Loading model from %s", fn);
-    pddl_sqlite3 *db;
-    int flags = SQLITE_OPEN_READONLY;
-    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
-    if (ret != SQLITE_OK){
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    Info info;
-    if (info.load(db, err) != 0){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    Info info_cur(a);
-    if (!info_cur.checkLoadedInfo(info, err)){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-
-    pddl_sqlite3_stmt *w_stmt;
-    ret = pddl_sqlite3_prepare_v2(db, sql_query_weights, -1, &w_stmt, NULL);
-    if (ret != SQLITE_OK){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    int id = 0;
-    for (int layer = 0; layer <= a->params->num_layers; ++layer){
-        std::vector<ActionModule *> &acts = a->params->action[layer];
-        for (size_t i = 0; i < acts.size(); ++i){
-            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_ACTION_W,
-                                   a->lifted_task.pddl.action.action[i].name,
-                                   i, acts[i]->W, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-
-            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_ACTION_B,
-                                   a->lifted_task.pddl.action.action[i].name,
-                                   i, acts[i]->bias, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-        }
-        if (layer == a->params->num_layers)
-            break;
-
-        std::vector<PropositionModule *> &props = a->params->prop[layer];
-        for (size_t i = 0; i < props.size(); ++i){
-            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_PROP_W,
-                                   a->lifted_task.pddl.pred.pred[i].name,
-                                   i, props[i]->W, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-
-            ret = sqlSelectWeights(db, w_stmt, id, layer, SIG_PROP_B,
-                                   a->lifted_task.pddl.pred.pred[i].name,
-                                   i, props[i]->bias, err);
-            if (ret != 0){
-                pddl_sqlite3_close_v2(db);
-                CTXEND(err);
-                TRACE_RET(err, -1);
-            }
-            ++id;
-        }
-    }
-
-
-    pddl_sqlite3_finalize(w_stmt);
-
-    ret = pddl_sqlite3_close_v2(db);
-    if (ret != SQLITE_OK){
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-    CTXEND(err);
-    return 0;
-}
-
-int pddlASNetsPrintModelInfo(const char *fn, pddl_err_t *err)
-{
-    CTX(err, "ASNets-Info");
-    LOG(err, "Loading model from %s", fn);
-    pddl_sqlite3 *db;
-    int flags = SQLITE_OPEN_READONLY;
-    int ret = pddl_sqlite3_open_v2(fn, &db, flags, NULL);
-    if (ret != SQLITE_OK){
-        CTXEND(err);
-        ERR_RET(err, -1, "Sqlite Error: %s: %s",
-                pddl_sqlite3_errstr(ret), pddl_sqlite3_errmsg(db));
-    }
-
-    Info info;
-    if (info.load(db, err) != 0){
-        pddl_sqlite3_close_v2(db);
-        CTXEND(err);
-        TRACE_RET(err, -1);
-    }
-
-    CTXEND(err);
-    return 0;
-}
-
-int pddlASNetsNumGroundTasks(const pddl_asnets_t *a)
-{
-    return a->ground_task_size;
-}
-
-const pddl_asnets_ground_task_t *
-pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
-{
-    if (id < 0 || id >= a->ground_task_size)
-        return NULL;
-    return a->ground_task + id;
-}
-
-int pddlASNetsRunPolicy(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
-                        const int *in_state,
-                        int *out_state)
-{
-    return runPolicy(task, *a->params, *a->cg, in_state, out_state, NULL);
-}
-
-int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
-                                 const pddl_asnets_ground_task_t *task,
-                                 const int *in_state,
-                                 pddl_asnets_policy_distribution_t *distr)
-{
-    runPolicy(task, *a->params, *a->cg, in_state, NULL, distr);
-    return 0;
-}
-
-static dynet::Expression asnetsTrainExpr(pddl_asnets_t *a,
-                                         pddl_asnets_train_data_t *data,
-                                         int minibatch_size,
-                                         dynet::ComputationGraph &cg)
-{
-    cg.clear();
-
-    // Sample a minibatch
-    ASNetsTrainMiniBatch batch(a, data, minibatch_size);
-    batch.createInputs(cg);
-
-    // Construct network for all relevant ground tasks at once
-    std::vector<dynet::Expression> nets;
-    int batch_size = 0;
-    for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
-        if (batch.batch[task_id].size == 0)
-            continue;
-        const ASNetsTrainMiniBatchTask &b = batch.batch[task_id];
-        //LOG(err, "Batch: task: %d, size: %d", task_id, b.size);
-        dynet::Expression e = asnetsExpr(a->ground_task + task_id,
-                                         *a->params,
-                                         cg,
-                                         b.e_state,
-                                         b.e_goal,
-                                         b.e_applicable_ops,
-                                         a->cfg.dropout_rate);
-        dynet::Expression e_loss = crossEntropyLoss(cg, e, b.e_output);
-        nets.push_back(e_loss);
-        batch_size += b.size;
-    }
-
-    ASSERT(nets.size() > 0);
-    // Compute mean over all losses
-    dynet::Expression e_loss = dynet::sum(nets) / batch_size;
-    return e_loss;
-}
-
-
-static int trainStep(pddl_asnets_t *a,
-                     int epoch,
-                     int train_step,
-                     pddl_asnets_train_data_t *data,
-                     pddl_err_t *err)
-{
-    a->train_stats.train_step = train_step + 1;
-
-    // Sample a minibatch
-    pddlASNetsTrainDataShuffle(data);
-
-    // Construct network with the right input data
-    dynet::Expression e_loss = asnetsTrainExpr(a, data, a->cfg.batch_size, *a->cg);
-    // TODO: L2 regularization -- is it done automatically by dynet?
-
-    // Learn parameters
-    float loss_val = dynet::as_scalar(a->cg->forward(e_loss));
-    a->cg->backward(e_loss);
-    a->trainer->update();
-
-    LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
-        " succ epochs: %d"
-        " | minibatch loss: %f, size: %d",
-        a->train_stats.epoch, a->train_stats.max_epochs,
-        a->train_stats.train_step, a->train_stats.max_train_steps,
-        a->train_stats.overall_loss, a->train_stats.success_rate,
-        a->train_stats.num_samples,
-        a->train_stats.consecutive_successful_epochs,
-        loss_val, a->cfg.batch_size);
-
-    return 0;
-}
-
-static int trainExploration(pddl_asnets_t *a,
-                            int epoch,
-                            int ground_task_id,
-                            pddl_asnets_train_data_t *data,
-                            pddl_err_t *err)
-{
-    const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
-    CTX(err, "Exploration Phase");
-
-    LOG(err, "Task: %s", task->pddl.problem_file);
-    pddl_asnets_policy_rollout_t rollout;
-    pddl_bool_t found_plan = policyRollout(a, &rollout, task, err);
-    LOG(err, "Policy rollout: %d states, found_plan: %s",
-        rollout.states.num_states, F_BOOL(found_plan));
-
-    // TODO: Here we can add also states from random walks.
-    //       Maybe only for the first epoch?
-
-    // Extend training data with teacher rollouts
-    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
-    for (pddl_state_id_t state_id = 0; state_id < rollout.states.num_states; ++state_id){
-        pddlFDRStatePoolGet(&rollout.states, state_id, state);
-        int ret = pddlASNetsTrainDataRollout(data, ground_task_id, state,
-                                             &task->fdr, &a->cfg, err);
-        if (ret < 0){
-            FREE(state);
-            policyRolloutFree(&rollout);
-            CTXEND(err);
-            TRACE_RET(err, -1);
-        }
-    }
-    FREE(state);
-    policyRolloutFree(&rollout);
-    CTXEND(err);
-    return 0;
-}
-
-static float overallLoss(pddl_asnets_t *a,
-                         pddl_asnets_train_data_t *data)
-{
-    dynet::Expression e_loss = asnetsTrainExpr(a, data, -1, *a->cg);
-    float loss = dynet::as_scalar(a->cg->forward(e_loss));
-    return loss;
-}
-
-static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_err_t *err)
-{
-    int num_solved = 0;
-    float osp_sum_score = 0.;
-    for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
-        const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
-
-        pddl_asnets_policy_rollout_t rollout;
-        if (policyRollout(a, &rollout, task, err))
-            num_solved += 1;
-
-        if (a->cfg.osp_all_soft_goals){
-            PANIC_IF(task->osp_msgs_size_for_init == 0,
-                     "MSGS size is zero, therefore the task %s is unsolvable"
-                     " and useless for us.", task->pddl.problem_file);
-            osp_sum_score += rollout.osp_reached_goal_size
-                                / (float)task->osp_msgs_size_for_init;
-        }
-
-        policyRolloutFree(&rollout);
-    }
-
-    if (a->cfg.osp_all_soft_goals)
-        return osp_sum_score / (float)a->ground_task_size;
-    return num_solved / (float)a->ground_task_size;
-}
-
-static int trainEpoch(pddl_asnets_t *a,
-                      int epoch,
-                      pddl_asnets_train_data_t *data,
-                      pddl_err_t *err)
-{
-    LOG(err, "epoch: %d/%d", epoch, a->cfg.max_train_epochs);
-    a->train_stats.epoch = epoch + 1;
-
-    // Exploration phase
-    for (int ground_task = 0; ground_task < a->ground_task_size; ++ground_task){
-        int ret;
-        if ((ret = trainExploration(a, epoch, ground_task, data, err)) != 0){
-            if (ret < 0)
-                TRACE_RET(err, ret);
-            return ret;
-        }
-    }
-    a->train_stats.num_samples = data->sample_size;
-
-    // Training phase
-    int num_steps = a->cfg.train_steps;
-    //num_steps = PDDL_MIN(num_steps, data->sample_size / a->cfg.batch_size);
-    //num_steps = PDDL_MAX(num_steps, 1);
-    LOG(err, "num training steps: %d", num_steps);
-    for (int train_step = 0; train_step < num_steps; ++train_step){
-        int ret;
-        if ((ret = trainStep(a, epoch, train_step, data, err)) != 0){
-            if (ret < 0)
-                TRACE_RET(err, ret);
-            return ret;
-        }
-    }
-
-    CTX(err, "Success Rate");
-    a->train_stats.success_rate = successRate(a, data, err);
-    LOG(err, "Success rate: %f", a->train_stats.success_rate);
-    CTXEND(err);
-    CTX(err, "Overall Loss");
-    a->train_stats.overall_loss = overallLoss(a, data);
-    LOG(err, "Overall loss: %f", a->train_stats.overall_loss);
-    CTXEND(err);
-    LOG(err, "Train samples: %d", a->train_stats.num_samples);
-    LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
-        " succ epochs: %d",
-        a->train_stats.epoch, a->train_stats.max_epochs,
-        a->train_stats.train_step, a->train_stats.max_train_steps,
-        a->train_stats.overall_loss, a->train_stats.success_rate,
-        a->train_stats.num_samples,
-        a->train_stats.consecutive_successful_epochs);
-    return 0;
-}
-
-int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
-{
-    CTX(err, "ASNets-Train");
-    pddl_asnets_train_data_t data;
-    pddlASNetsTrainDataInit(&data);
-
-    a->train_stats.success_rate = successRate(a, &data, err);
-
-    for (int epoch = 0; epoch < a->cfg.max_train_epochs; ++epoch){
-        if (a->cfg.double_batch_size_every_epoch > 0
-                && epoch > 0
-                && epoch % a->cfg.double_batch_size_every_epoch == 0){
-            a->cfg.batch_size *= 2;
-        }
-
-        int ret;
-        if ((ret = trainEpoch(a, epoch, &data, err)) != 0){
-            pddlASNetsTrainDataFree(&data);
-            CTXEND(err);
-            if (ret < 0)
-                TRACE_RET(err, ret);
-            return ret;
-        }
-
-        if (a->cfg.save_model_prefix != NULL){
-            char fn[4096];
-            sprintf(fn, "%s-%05d-%.2f-%.03f.policy",
-                    a->cfg.save_model_prefix,
-                    epoch,
-                    a->train_stats.success_rate,
-                    a->train_stats.overall_loss);
-            LOG(err, "Saving model to %s (epoch: %d, success rate: %.2f, loss: %.3f)",
-                fn, epoch, a->train_stats.success_rate, a->train_stats.overall_loss);
-            pddlASNetsSave(a, fn, err);
-        }
-        if (a->train_stats.success_rate >= a->cfg.early_termination_success_rate){
-            a->train_stats.consecutive_successful_epochs += 1;
-        }else{
-            a->train_stats.consecutive_successful_epochs = 0;
-        }
-
-        LOG(err, "Consecutive successful epochs: %d",
-            a->train_stats.consecutive_successful_epochs);
-        if (a->train_stats.consecutive_successful_epochs
-                >= a->cfg.early_termination_epochs){
-            LOG(err, "Reached %d/%d consecutive successful epochs.",
-                a->train_stats.consecutive_successful_epochs,
-                a->cfg.early_termination_epochs);
-            LOG(err, "Terminating training.");
-            break;
-        }
-    }
-    LOG(err, "epoch %d/%d, step: %d/%d, loss: %.3f, succ: %.2f, samples: %d,"
-        " succ epochs: %d",
-        a->train_stats.epoch, a->train_stats.max_epochs,
-        a->train_stats.train_step, a->train_stats.max_train_steps,
-        a->train_stats.overall_loss, a->train_stats.success_rate,
-        a->train_stats.num_samples,
-        a->train_stats.consecutive_successful_epochs);
-    pddlASNetsTrainDataFree(&data);
-    CTXEND(err);
-    return 0;
-}
-
-void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
-{
-    LOG(err, "Evaluating for domain %s", a->lifted_task.pddl.domain_file);
-
-    int num_solved = 0;
-    float osp_sum_score = 0.;
-    int num_tasks = pddlASNetsNumGroundTasks(a);
-    for (int task_id = 0; task_id < num_tasks; ++task_id){
-        const pddl_asnets_ground_task_t *task;
-        task = pddlASNetsGetGroundTask(a, task_id);
-
-        pddl_asnets_policy_rollout_t rollout;
-        pddl_bool_t solved = policyRollout(a, &rollout, task, err);
-        if (a->cfg.osp_all_soft_goals){
-            LOG(err, "Task %s solved: %s, length: %d, goal size: %d/%d",
-                task->pddl.problem_file,
-                F_BOOL(solved),
-                pddlIArrSize(&rollout.plan),
-                rollout.osp_reached_goal_size,
-                task->osp_msgs_size_for_init);
-
-            if (task->osp_msgs_size_for_init > 0){
-                osp_sum_score += rollout.osp_reached_goal_size
-                                        / (float)task->osp_msgs_size_for_init;
-            }
-
-        }else{
-            LOG(err, "Task %s solved: %s, length: %d",
-                task->pddl.problem_file,
-                F_BOOL(solved),
-                (solved ? pddlIArrSize(&rollout.plan) : -1));
-        }
-
-        if (solved){
-            ++num_solved;
-            if (write_plans){
-                char fn[512];
-                snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
-                         task->pddl.problem_name);
-                FILE *fout = fopen(fn, "w");
-                if (fout != NULL){
-                    int op_id;
-                    PDDL_IARR_FOR_EACH(&rollout.plan, op_id){
-                        fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
-                    }
-                    fclose(fout);
-                }else{
-                    LOG(err, "Could not open file %s", fn);
-                }
-            }
-        }
-
-        policyRolloutFree(&rollout);
-    }
-    LOG(err, "Solved %d out of %d tasks", num_solved, num_tasks);
-    if (a->cfg.osp_all_soft_goals){
-        LOG(err, "Average OSP score: %.4f", osp_sum_score / num_tasks);
-    }
 }

@@ -8,6 +8,7 @@ SRC += err
 SRC += strstream
 SRC += hfunc
 SRC += sha256
+SRC += base64
 SRC += google-city-hash
 SRC += _toml
 SRC += toml
@@ -164,8 +165,11 @@ SRC += lifted_heur_relaxed
 SRC += lifted_heur_gaifman
 SRC += subprocess
 SRC += task
+SRC += asnets
+SRC += asnets_policy_distribution
 SRC += asnets_task
 SRC += asnets_train_data
+SRC += asnets_convert_from_sql
 SRC += str_pool
 SRC += gaifman
 
@@ -333,7 +337,7 @@ src/lemon: src/lemon.c src/lempar.c
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 .objs/cp-cp-optimizer.pic.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -fPIC -c -o $@ $<
-.objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
+.objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets_dynet.h pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 .objs/asnets_dynet.pic.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -fPIC -c -o $@ $<
@@ -365,7 +369,9 @@ src/lemon: src/lemon.c src/lempar.c
 gen-stubs:
 	$(SH) scripts/gen-stub.sh pddl/bdd.h "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >src/bdd-stub.c
 	$(SH) scripts/gen-stub.sh pddl/sym.h "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >src/sym-stub.c
-	$(SH) scripts/gen-stub.sh pddl/asnets.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets_dynet.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets_convert_from_sql.h "Conversion from old ASNets models require the sqlite library: Re-compile with the USE_SQLITE=yes flag in Makefile.config." pddl_sqlite_version >src/asnets_convert_from_sql-stub.c
+	$(SH) scripts/gen-stub.sh pddl/sql_grounder.h "SQL Grounder requires the sqlite library: Re-compile with the USE_SQLITE=yes flag in Makefile.config." pddl_sqlite_version >src/sql_grounder-stub.c
 
 
 clean: c

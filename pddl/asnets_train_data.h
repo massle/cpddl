@@ -15,7 +15,7 @@ extern "C" {
 #include <pddl/plan.h>
 #include <pddl/fdr.h>
 #include <pddl/heur.h>
-#include "pddl/asnets.h"
+#include <pddl/asnets.h>
 
 typedef struct pddl_asnets_train_data_sample pddl_asnets_train_data_sample_t;
 
@@ -24,20 +24,26 @@ struct pddl_asnets_train_data {
     int sample_size;
     int sample_alloc;
 
+    const pddl_asnets_ground_task_t **task;
+    int task_size;
+
     pddl_htable_t *htable;
     pddl_htable_t *fail_cache;
 };
 typedef struct pddl_asnets_train_data pddl_asnets_train_data_t;
 
-void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td);
+void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td,
+                             const pddl_asnets_ground_task_t *task,
+                             int task_size);
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td);
 
 int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
                                  int sample_id,
                                  int *ground_task_id,
                                  int *selected_op_id,
-                                 int *fdr_state_size,
-                                 const int **fdr_state);
+                                 pddl_iset_t *strips_state,
+                                 pddl_iset_t *applicable_ops,
+                                 pddl_iset_t *strips_goal);
 
 void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
                             int ground_task_id,

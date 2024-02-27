@@ -22,6 +22,7 @@ int pddlTomlInitFile(pddl_toml_t *t, const char *fn, pddl_err_t *err)
         ERR_RET(err, -1, "Cannot open file %s", fn);
 
     t->root = pddl_toml_parse_file(fin, err);
+    fclose(fin);
     if (t->root == NULL)
         TRACE_RET(err, -1);
     snprintf(t->fn, PDDL_TOML_FN_MAXSIZE, "%s", fn);
@@ -73,6 +74,46 @@ int pddlTomlPush(pddl_toml_t *t, const char *key)
     return 0;
 }
 
+int pddlTomlPushFromArr(pddl_toml_t *t, const char *key, int idx)
+{
+    if (t->err)
+        return 1;
+
+    PANIC_IF(t->stack_size == PDDL_TOML_STACK_MAXSIZE,
+             "Maximum allowed number of nested tables in a .toml"
+             " configuration file is %d", PDDL_TOML_STACK_MAXSIZE);
+
+    pddl_toml_ctx_t *c = t->stack + t->stack_size - 1;
+    PANIC_IF(c->path_idx + strlen(key) + 1 >= PDDL_TOML_PATH_MAXSIZE,
+             "Maximum allowed length of a path of keys in a .toml"
+             " configuration file is %d", PDDL_TOML_PATH_MAXSIZE);
+
+    if (!pddl_toml_key_exists(c->table, key)){
+        TERR(t, -1, "Key %s%s not found in the config file %s",
+             t->cur_path, key, t->fn);
+    }
+
+    const pddl_toml_array_t *arr = pddl_toml_array_in(c->table, key);
+    if (arr == NULL){
+        TERR(t, -1, "Key %s/%s in the config file %s is not an array",
+             t->cur_path, key, t->fn);
+    }
+
+    pddl_toml_table_t *table = pddl_toml_table_at(arr, idx);
+    if (table == NULL){
+        TERR(t, -1, "Key %s%s[%d] in the config file %s is not a table",
+             t->cur_path, key, idx, t->fn);
+    }
+
+    pddl_toml_ctx_t *next = t->stack + t->stack_size++;
+    next->table = table;
+    int written = sprintf(t->cur_path + t->cur_path_size, "%s[%d]/", key, idx);
+    next->path_idx = t->cur_path_size;
+    t->cur_path_size += written;
+
+    return 0;
+}
+
 void pddlTomlPop(pddl_toml_t *t)
 {
     if (t->err)
@@ -82,6 +123,7 @@ void pddlTomlPop(pddl_toml_t *t)
         return;
     pddl_toml_ctx_t *c = t->stack + t->stack_size - 1;
     t->cur_path[c->path_idx] = '\x0';
+    t->cur_path_size = c->path_idx;
     --t->stack_size;
 }
 
@@ -154,6 +196,22 @@ int pddlTomlArrStr(pddl_toml_t *t, const char *key, char ***dst, int *dst_size,
         (*dst)[i] = d.u.s;
     }
     return 0;
+}
+
+int pddlTomlArrSize(pddl_toml_t *t, const char *key)
+{
+    if (t->err)
+        return -1;
+
+    pddl_toml_ctx_t *c = t->stack + t->stack_size - 1;
+    if (!pddl_toml_key_exists(c->table, key))
+        return -1;
+
+    const pddl_toml_array_t *arr = pddl_toml_array_in(c->table, key);
+    if (arr == NULL)
+        return -1;
+
+    return pddl_toml_array_nelem(arr);
 }
 
 pddl_bool_t pddlTomlErr(pddl_toml_t *t, pddl_err_t *err)

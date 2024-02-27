@@ -109,12 +109,13 @@ void pddlASNetsGroundTaskFDRStateToStrips(const pddl_asnets_ground_task_t *gt,
                                           const int *fdr_state,
                                           pddl_iset_t *strips_state);
 
+void pddlASNetsGroundTaskFDRPartStateToStrips(const pddl_asnets_ground_task_t *gt,
+                                              const pddl_fdr_part_state_t *ps,
+                                              pddl_iset_t *strips_ps);
+
 void pddlASNetsGroundTaskFDRApplicableOps(const pddl_asnets_ground_task_t *gt,
                                           const int *fdr_state,
                                           pddl_iset_t *ops);
-
-void pddlASNetsGroundTaskFDRGoal(const pddl_asnets_ground_task_t *gt,
-                                 pddl_iset_t *strips_goal);
 
 void pddlASNetsGroundTaskFDRApplyOp(const pddl_asnets_ground_task_t *gt,
                                     const int *state,

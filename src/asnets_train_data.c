@@ -78,11 +78,18 @@ static void sampleDel(pddl_asnets_train_data_sample_t *sample)
     FREE(sample);
 }
 
-void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td)
+void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td,
+                             const pddl_asnets_ground_task_t *task,
+                             int task_size)
 {
     ZEROIZE(td);
     td->htable = pddlHTableNew(htableHash, htableEq, NULL);
     td->fail_cache = pddlHTableNew(htableHash, htableEq, NULL);
+
+    td->task_size = task_size;
+    td->task = ALLOC_ARR(const pddl_asnets_ground_task_t *, td->task_size);
+    for (int ti = 0; ti < td->task_size; ++ti)
+        td->task[ti] = task + ti;
 }
 
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td)
@@ -111,18 +118,32 @@ int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
                                  int sample_id,
                                  int *ground_task_id,
                                  int *selected_op_id,
-                                 int *fdr_state_size,
-                                 const int **fdr_state)
+                                 pddl_iset_t *strips_state,
+                                 pddl_iset_t *applicable_ops,
+                                 pddl_iset_t *strips_goal)
 {
     const pddl_asnets_train_data_sample_t *sample = td->sample[sample_id];
     if (ground_task_id != NULL)
         *ground_task_id = sample->ground_task_id;
     if (selected_op_id != NULL)
         *selected_op_id = sample->selected_op_id;
-    if (fdr_state_size != NULL)
-        *fdr_state_size = sample->fdr_state_size;
-    if (fdr_state != NULL)
-        *fdr_state = sample->fdr_state;
+    if (strips_state != NULL){
+        pddlISetEmpty(strips_state);
+        pddlASNetsGroundTaskFDRStateToStrips(td->task[sample->ground_task_id],
+                                             sample->fdr_state, strips_state);
+    }
+    if (applicable_ops != NULL){
+        pddlISetEmpty(applicable_ops);
+        pddlASNetsGroundTaskFDRApplicableOps(td->task[sample->ground_task_id],
+                                             sample->fdr_state, applicable_ops);
+    }
+    if (strips_goal != NULL){
+        pddlISetEmpty(strips_goal);
+        // TODO: We might want to allow different goals for the given sample
+        pddlASNetsGroundTaskFDRPartStateToStrips(td->task[sample->ground_task_id],
+                                                 &td->task[sample->ground_task_id]->fdr.goal,
+                                                 strips_goal);
+    }
     return 0;
 }
 
