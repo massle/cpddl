@@ -137,6 +137,8 @@ ifeq '$(USE_GUROBI)' 'auto'
   endif
 endif
 
+USE_SQLITE ?= no
+
 
 BLISS_CFLAGS ?=
 BLISS_LDFLAGS ?=

@@ -23,6 +23,8 @@
 #include "internal.h"
 #include "sqlite3.h"
 
+const char * const pddl_sqlite_version = SQLITE_VERSION;
+
 #define QUERY_SIZE 4096
 #define QUERY_SELECT_SIZE (5 * QUERY_SIZE)
 

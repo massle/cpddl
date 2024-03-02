@@ -9,7 +9,7 @@ void pddlSqlGrounderDel(pddl_sql_grounder_t *g)
 { ERROR;}
 int pddlSqlGrounderPrepActionSize(const pddl_sql_grounder_t *g)
 { ERROR;return -1;}
-pddl_prep_action_t *pddlSqlGrounderPrepAction(
+const pddl_prep_action_t *pddlSqlGrounderPrepAction(
                 const pddl_sql_grounder_t *g, int action_id)
 { ERROR;return NULL;}
 int pddlSqlGrounderInsertAtomArgs(pddl_sql_grounder_t *g,
