@@ -23,9 +23,9 @@ struct pddl_asnets_model_config {
     int num_layers;
     int random_seed;
     float weight_decay;
+    pddl_bool_t lmc;
 
     // TODO
-    // use_lmcut
     // use_operator_history
 };
 typedef struct pddl_asnets_model_config pddl_asnets_model_config_t;
@@ -129,6 +129,7 @@ int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
                                 const pddl_asnets_ground_task_t *task,
                                 const int *fdr_state,
                                 const pddl_fdr_part_state_t *fdr_goal,
+                                const pddl_set_iset_t *ldms,
                                 pddl_asnets_policy_distribution_t *distr);
 
 #ifdef __cplusplus

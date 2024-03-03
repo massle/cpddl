@@ -92,6 +92,7 @@ struct ActionModule {
     ActionModule(int hidden_dimension,
                  int num_related_propositions,
                  int layer,
+                 bool use_lmc,
                  bool is_output,
                  dynet::ParameterCollection &model)
         : layer(layer), is_output(is_output)
@@ -106,6 +107,9 @@ struct ActionModule {
             input_vec_size += num_related_propositions;
             // applicability of the action
             input_vec_size += 1;
+            // three flags for landmarks
+            if (use_lmc)
+                input_vec_size += 3;
 
         }else{
             // Related propositions
@@ -145,13 +149,15 @@ struct ActionModule {
     dynet::Expression exprInput(dynet::ComputationGraph &cg,
                                 const std::vector<dynet::Expression> &input_state,
                                 const std::vector<dynet::Expression> &input_goal,
-                                const dynet::Expression &input_applicable) const
+                                const dynet::Expression &input_applicable,
+                                const std::vector<dynet::Expression> &input_ldms) const
     {
         ASSERT(layer == 0);
         std::vector<dynet::Expression> input;
         input.insert(input.end(), input_state.begin(), input_state.end());
         input.insert(input.end(), input_goal.begin(), input_goal.end());
         input.push_back(input_applicable);
+        input.insert(input.end(), input_ldms.begin(), input_ldms.end());
         return expr(cg, input);
     }
 };
@@ -209,6 +215,7 @@ struct ModelParameters {
 
     ModelParameters(int hidden_dimension,
                     int num_layers,
+                    bool use_lmc,
                     const pddl_asnets_lifted_task_t *task)
         : num_layers(num_layers),
           hidden_dim(hidden_dimension)
@@ -221,7 +228,7 @@ struct ModelParameters {
                 ActionModule *am;
                 am = new ActionModule(hidden_dimension,
                                       task->action[aid].related_atom_size,
-                                      layer, false, model);
+                                      layer, use_lmc, false, model);
                 action[layer].push_back(am);
             }
 
@@ -240,7 +247,7 @@ struct ModelParameters {
             ActionModule *am;
             am = new ActionModule(hidden_dimension,
                                   task->action[aid].related_atom_size,
-                                  num_layers, true, model);
+                                  num_layers, use_lmc, true, model);
             action[num_layers].push_back(am);
         }
 
@@ -293,6 +300,7 @@ static void _firstActionLayer(const pddl_asnets_ground_task_t *g,
                               dynet::Expression input_state,
                               dynet::Expression input_goal_condition,
                               dynet::Expression input_applicable_ops,
+                              dynet::Expression input_ldms,
                               std::vector<dynet::Expression> &action_layer)
 {
     MissingInput missing_input(1);
@@ -301,6 +309,7 @@ static void _firstActionLayer(const pddl_asnets_ground_task_t *g,
         std::vector<dynet::Expression> in_state;
         std::vector<dynet::Expression> in_goal;
         dynet::Expression in_applicable;
+        std::vector<dynet::Expression> in_ldms;
         for (int i = 0; i < g->op[op_id].related_fact_size; ++i){
             int fact_id = g->op[op_id].related_fact[i];
             if (fact_id < 0){
@@ -311,11 +320,19 @@ static void _firstActionLayer(const pddl_asnets_ground_task_t *g,
                 in_state.push_back(dynet::pick(input_state, fact_id));
                 in_goal.push_back(dynet::pick(input_goal_condition, fact_id));
             }
-            in_applicable = dynet::pick(input_applicable_ops, op_id);
         }
+        in_applicable = dynet::pick(input_applicable_ops, op_id);
+
+        if (!input_ldms.is_stale()){
+            in_ldms.push_back(dynet::pick(input_ldms, 3 * op_id));
+            in_ldms.push_back(dynet::pick(input_ldms, 3 * op_id + 1));
+            in_ldms.push_back(dynet::pick(input_ldms, 3 * op_id + 2));
+        }
+
         int action_id = g->op[op_id].action->action_id;
         ActionModule *am = model.action[0][action_id];
-        dynet::Expression e = am->exprInput(cg, in_state, in_goal, in_applicable);
+        dynet::Expression e = am->exprInput(cg, in_state, in_goal,
+                                            in_applicable, in_ldms);
         action_layer.push_back(e);
     }
 }
@@ -399,6 +416,7 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
                                     dynet::Expression input_state,
                                     dynet::Expression input_goal_condition,
                                     dynet::Expression input_applicable_ops,
+                                    dynet::Expression input_ldms,
                                     float dropout_rate)
 {
     std::vector<std::vector<dynet::Expression>> action_layer;
@@ -409,7 +427,7 @@ static dynet::Expression asnetsExpr(const pddl_asnets_ground_task_t *g,
     int layer = 0;
     // First action layer needs to be connected to inputs
     _firstActionLayer(g, model, cg, input_state, input_goal_condition,
-                      input_applicable_ops, action_layer[0]);
+                      input_applicable_ops, input_ldms, action_layer[0]);
 
     for (; layer < model.num_layers; ++layer){
         const std::vector<dynet::Expression> *prev_prop_layer = NULL;
@@ -493,6 +511,31 @@ static void setFDRGoalVector(const pddl_asnets_ground_task_t *task,
     pddlISetFree(&strips_g);
 }
 
+static void setLDMs(const pddl_asnets_ground_task_t *task,
+                    const pddl_set_iset_t *in_ldms,
+                    std::vector<float> &ldms)
+{
+    if (in_ldms == NULL)
+        return;
+
+    ldms.resize(task->strips.op.op_size * 3, 0.f);
+    const pddl_iset_t *ldm;
+    PDDL_SET_ISET_FOR_EACH_ID_SET(in_ldms, ldm_id, ldm){
+        if (pddlISetSize(ldm) == 1){
+            int op_id = pddlISetGet(ldm, 0);
+            ldms[3 * op_id] = 1;
+        }
+        int op_id;
+        PDDL_ISET_FOR_EACH(ldm, op_id)
+            ldms[3 * op_id + 1] = 1;
+    }
+
+    for (int op_id = 0; op_id < task->strips.op.op_size; ++op_id){
+        if (ldms[3 * op_id] < .5 && ldms[3 * op_id + 1] < .5)
+            ldms[3 * op_id + 2] = 1;
+    }
+}
+
 
 struct ASNetsTrainMiniBatchTask {
     int task_id;
@@ -502,10 +545,12 @@ struct ASNetsTrainMiniBatchTask {
     std::vector<float> state;
     std::vector<float> goal;
     std::vector<float> applicable_ops;
+    std::vector<float> ldms;
     std::vector<unsigned int> selected_op;
     dynet::Expression e_state;
     dynet::Expression e_goal;
     dynet::Expression e_applicable_ops;
+    dynet::Expression e_ldms;
     dynet::Expression e_output;
 
     ASNetsTrainMiniBatchTask()
@@ -515,7 +560,8 @@ struct ASNetsTrainMiniBatchTask {
     void add(std::vector<float> &in_state,
              std::vector<float> &in_applicable_ops,
              std::vector<float> &in_goal,
-             int in_selected_op)
+             int in_selected_op,
+             std::vector<float> &in_ldms)
     {
         state.insert(state.end(), in_state.begin(), in_state.end());
         applicable_ops.insert(applicable_ops.end(),
@@ -525,6 +571,7 @@ struct ASNetsTrainMiniBatchTask {
 
         ASSERT(in_selected_op >= 0 && in_selected_op < op_size);
         selected_op.push_back(in_selected_op);
+        ldms.insert(ldms.end(), in_ldms.begin(), in_ldms.end());
         ++size;
     }
 
@@ -545,6 +592,12 @@ struct ASNetsTrainMiniBatchTask {
         dim[0] = op_size;
         e_applicable_ops = dynet::input(cg, dynet::Dim(dim, size),
                                         applicable_ops);
+
+        if (ldms.size() > 0){
+            dim[0] = 3 * op_size;
+            e_ldms = dynet::input(cg, dynet::Dim(dim, size), ldms);
+        }
+
         e_output = dynet::one_hot(cg, op_size, selected_op);
     }
 };
@@ -553,7 +606,8 @@ struct ASNetsTrainMiniBatch {
     std::vector<ASNetsTrainMiniBatchTask> batch;
 
     ASNetsTrainMiniBatch(const pddl_asnets_train_data_t *data,
-                         int minibatch_size)
+                         int minibatch_size,
+                         bool use_ldms)
     {
         if (minibatch_size < 0)
             minibatch_size = data->sample_size;
@@ -570,16 +624,20 @@ struct ASNetsTrainMiniBatch {
         PDDL_ISET(sample_goal);
         for (int sample = 0; sample < minibatch_size; ++sample){
             int task_id, selected_op;
+            const pddl_set_iset_t *sample_ldms;
             pddlASNetsTrainDataGetSample(data, sample, &task_id, &selected_op,
                                          &sample_state, &sample_applicable_ops,
-                                         &sample_goal);
+                                         &sample_goal,
+                                         (use_ldms ? &sample_ldms : NULL));
 
-            std::vector<float> state, applicable_ops, goal;
+            std::vector<float> state, applicable_ops, goal, ldms;
             setStateVector(data->task[task_id], &sample_state, state);
             setApplicableOpsVector(data->task[task_id],
                                    &sample_applicable_ops, applicable_ops);
             setGoalVector(data->task[task_id], &sample_goal, goal);
-            batch[task_id].add(state, applicable_ops, goal, selected_op);
+            if (use_ldms)
+                setLDMs(data->task[task_id], sample_ldms, ldms);
+            batch[task_id].add(state, applicable_ops, goal, selected_op, ldms);
         }
         pddlISetFree(&sample_state);
         pddlISetFree(&sample_applicable_ops);
@@ -601,12 +659,13 @@ static dynet::Expression asnetsTrainExpr(pddl_asnets_train_data_t *data,
                                          const ModelParameters &params,
                                          int minibatch_size,
                                          float dropout_rate,
+                                         bool use_lmc,
                                          dynet::ComputationGraph &cg)
 {
     cg.clear();
 
     // Sample a minibatch
-    ASNetsTrainMiniBatch batch(data, minibatch_size);
+    ASNetsTrainMiniBatch batch(data, minibatch_size, use_lmc);
     batch.createInputs(cg);
 
     // Construct network for all relevant ground tasks at once
@@ -623,6 +682,7 @@ static dynet::Expression asnetsTrainExpr(pddl_asnets_train_data_t *data,
                                          b.e_state,
                                          b.e_goal,
                                          b.e_applicable_ops,
+                                         b.e_ldms,
                                          dropout_rate);
         dynet::Expression e_loss = crossEntropyLoss(cg, e, b.e_output);
         nets.push_back(e_loss);
@@ -664,7 +724,8 @@ pddl_asnets_model_t *pddlASNetsModelNew(const pddl_asnets_lifted_task_t *task,
     dynet::initialize(dynet_params);
 
     m->params = new ModelParameters(m->cfg.hidden_dimension,
-                                    m->cfg.num_layers, task);
+                                    m->cfg.num_layers,
+                                    m->cfg.lmc, task);
 
     // TODO: Parametrize
     m->trainer = new dynet::AdamTrainer(m->params->model);
@@ -867,7 +928,7 @@ int pddlASNetsModelTrainStep(pddl_asnets_model_t *m,
 
     // Construct network with the right input data
     dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, minibatch_size,
-                                               dropout_rate, *m->cg);
+                                               dropout_rate, m->cfg.lmc, *m->cg);
 
     // Learn parameters
     float loss_val = dynet::as_scalar(m->cg->forward(e_loss));
@@ -883,8 +944,8 @@ float pddlASNetsModelOverallLoss(pddl_asnets_model_t *m,
                                  pddl_asnets_train_data_t *data,
                                  float dropout_rate)
 {
-    dynet::Expression e_loss = asnetsTrainExpr(data, *m->params,
-                                               -1, dropout_rate, *m->cg);
+    dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, -1,
+                                               dropout_rate, m->cfg.lmc, *m->cg);
     return dynet::as_scalar(m->cg->forward(e_loss));
 }
 
@@ -892,14 +953,18 @@ int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
                                 const pddl_asnets_ground_task_t *task,
                                 const int *in_state,
                                 const pddl_fdr_part_state_t *in_goal,
+                                const pddl_set_iset_t *in_ldms,
                                 pddl_asnets_policy_distribution_t *distr)
 {
     std::vector<float> state;
     std::vector<float> goal;
     std::vector<float> applicable_ops;
+    std::vector<float> ldms;
 
     setFDRGoalVector(task, in_goal, goal);
     setFDRStateVector(task, in_state, state, applicable_ops);
+    if (in_ldms != NULL)
+        setLDMs(task, in_ldms, ldms);
 
     m->cg->clear();
 
@@ -911,9 +976,17 @@ int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
     dim[0] = applicable_ops.size();
     dynet::Expression e_applicable_ops
             = dynet::input(*m->cg, dynet::Dim(dim), applicable_ops);
+
+    dynet::Expression e_ldms;
+    if (in_ldms != NULL){
+        dim[0] = ldms.size();
+        e_ldms = dynet::input(*m->cg, dynet::Dim(dim), ldms);
+    }
+
     // Dropout is used *only* during training -- we don't need to use it here
     dynet::Expression e_output = asnetsExpr(task, *m->params, *m->cg, e_state,
-                                            e_goal, e_applicable_ops, -1);
+                                            e_goal, e_applicable_ops,
+                                            e_ldms, -1);
 
     std::vector<float> out = dynet::as_vector(m->cg->forward(e_output));
     ASSERT((int)out.size() == task->strips.op.op_size);

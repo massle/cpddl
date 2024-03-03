@@ -13,6 +13,10 @@
 #include "pddl/sha256.h"
 #include "pddl/pddl_file.h"
 #include "pddl/base64.h"
+#include "pddl/search.h"
+#include "pddl/subprocess.h"
+#include "pddl/strstream.h"
+#include "pddl/lm_cut.h"
 
 
 static const char *teacherName(pddl_asnets_teacher_t teacher)
@@ -57,6 +61,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, policy_rollout_limit, err);
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
+    LOG_CONFIG_BOOL(cfg, lmc, err);
     LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG(err, "teacher = %s", teacherName(cfg->teacher));
     LOG_CONFIG_STR(cfg, save_model_prefix, err);
@@ -78,6 +83,7 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->policy_rollout_limit = 1000;
     cfg->early_termination_success_rate = 0.999f;
     cfg->early_termination_epochs = 20;
+    cfg->lmc = pddl_false;
     cfg->teacher_timeout = 10.f;
     cfg->teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
     cfg->save_model_prefix = NULL;
@@ -200,6 +206,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_FLT(teacher_timeout);
     TOML_FLT(early_termination_success_rate);
     TOML_INT(early_termination_epochs);
+    TOML_BOOL(lmc);
     TOML_BOOL(osp_all_soft_goals);
 
     char *teacher = NULL;
@@ -334,6 +341,7 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
             cfg->early_termination_success_rate);
     fprintf(fout, "early_termination_epochs = %d\n",
             cfg->early_termination_epochs);
+    fprintf(fout, "lmc = %s\n", F_BOOL(cfg->lmc));
 
     fprintf(fout, "teacher = \"%s\"", teacherName(cfg->teacher));
     fprintf(fout, " # must be one of \"%s\", \"%s\"\n",
@@ -359,10 +367,12 @@ static int runPolicy(pddl_asnets_model_t *model,
                      const pddl_asnets_ground_task_t *task,
                      const int *in_state,
                      const pddl_fdr_part_state_t *in_goal,
+                     const pddl_set_iset_t *in_ldms,
                      int *out_state,
                      pddl_asnets_policy_distribution_t *distr)
 {
-    int op_id = pddlASNetsModelEvalFDRState(model, task, in_state, in_goal, distr);
+    int op_id = pddlASNetsModelEvalFDRState(model, task, in_state, in_goal,
+                                            in_ldms, distr);
     if (op_id < 0)
         return -1;
 
@@ -414,7 +424,7 @@ void pddlASNetsPolicyRolloutFree(pddl_asnets_policy_rollout_t *r)
 
 pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
                                     pddl_asnets_policy_rollout_t *rollout,
-                                    const pddl_asnets_ground_task_t *task,
+                                    pddl_asnets_ground_task_t *task,
                                     int max_number_of_steps,
                                     pddl_err_t *err)
 {
@@ -450,9 +460,20 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
             }
         }
 
+        pddl_set_iset_t ldms;
+        if (a->cfg.lmc){
+            PANIC_IF(!task->use_lmc, "Task with intialized LM-Cut but it is required.");
+            pddlSetISetInit(&ldms);
+            pddlLMCut(&task->lmc, state, &task->fdr.var, NULL, &ldms);
+            //LOG(err, "Found %d landmarks", pddlSetISetSize(&ldms));
+        }
+
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
-        int op_id = runPolicy(a->model, task, state, &task->fdr.goal, state2, NULL);
+        int op_id = runPolicy(a->model, task, state, &task->fdr.goal,
+                              (a->cfg.lmc ? &ldms : NULL), state2, NULL);
+        if (a->cfg.lmc)
+            pddlSetISetFree(&ldms);
         if (op_id < 0)
             break;
         pddlIArrAdd(&rollout->ops, op_id);
@@ -528,6 +549,7 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     model_cfg.num_layers = a->cfg.num_layers;
     model_cfg.random_seed = a->cfg.random_seed;
     model_cfg.weight_decay = a->cfg.weight_decay;
+    model_cfg.lmc = a->cfg.lmc;
     a->model = pddlASNetsModelNew(&a->lifted_task, &model_cfg, err);
     if (a->model == NULL){
         pddlASNetsDel(a);
@@ -956,6 +978,7 @@ pddl_asnets_t *pddlASNetsNewLoad(const char *model_fn,
     model_cfg.num_layers = a->cfg.num_layers;
     model_cfg.random_seed = a->cfg.random_seed;
     model_cfg.weight_decay = a->cfg.weight_decay;
+    model_cfg.lmc = a->cfg.lmc;
     a->model = pddlASNetsModelNew(&a->lifted_task, &model_cfg, err);
     if (a->model == NULL){
         pddlTomlFree(&t);
@@ -1051,19 +1074,40 @@ pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
 }
 
 int pddlASNetsRunPolicy(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
+                        pddl_asnets_ground_task_t *task,
                         const int *in_state,
                         int *out_state)
 {
-    return runPolicy(a->model, task, in_state, &task->fdr.goal, out_state, NULL);
+    pddl_set_iset_t ldms;
+    if (a->cfg.lmc){
+        PANIC_IF(!task->use_lmc, "Task with intialized LM-Cut but it is required.");
+        pddlSetISetInit(&ldms);
+        pddlLMCut(&task->lmc, in_state, &task->fdr.var, NULL, &ldms);
+    }
+    int ret = runPolicy(a->model, task, in_state, &task->fdr.goal,
+                        (a->cfg.lmc ? &ldms : NULL), out_state, NULL);
+    if (a->cfg.lmc)
+        pddlSetISetFree(&ldms);
+    return ret;
 }
 
 int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
-                                 const pddl_asnets_ground_task_t *task,
+                                 pddl_asnets_ground_task_t *task,
                                  const int *in_state,
                                  pddl_asnets_policy_distribution_t *distr)
 {
-    runPolicy(a->model, task, in_state, &task->fdr.goal, NULL, distr);
+    pddl_set_iset_t ldms;
+    if (a->cfg.lmc){
+        PANIC_IF(!task->use_lmc, "Task with intialized LM-Cut but it is required.");
+        pddlSetISetInit(&ldms);
+        pddlLMCut(&task->lmc, in_state, &task->fdr.var, NULL, &ldms);
+    }
+
+    runPolicy(a->model, task, in_state, &task->fdr.goal,
+              (a->cfg.lmc ? &ldms : NULL), NULL, distr);
+
+    if (a->cfg.lmc)
+        pddlSetISetFree(&ldms);
     return 0;
 }
 
@@ -1097,13 +1141,274 @@ static int trainStep(pddl_asnets_t *a,
     return 0;
 }
 
+static void dataAddPlan(pddl_asnets_train_data_t *td,
+                        int ground_task_id,
+                        pddl_asnets_ground_task_t *gt,
+                        const pddl_asnets_config_t *cfg,
+                        const pddl_fdr_t *fdr,
+                        const int *init_state,
+                        const pddl_iarr_t *plan)
+{
+    int state_size = fdr->var.var_size;
+    int state[state_size];
+    memcpy(state, init_state, sizeof(int) * state_size);
+
+    int op_id;
+    PDDL_IARR_FOR_EACH(plan, op_id){
+        pddl_set_iset_t ldms;
+        if (cfg->lmc){
+            pddlSetISetInit(&ldms);
+            pddlLMCut(&gt->lmc, state, &fdr->var, NULL, &ldms);
+        }
+
+        pddlASNetsTrainDataAdd(td, ground_task_id, state, state_size, op_id,
+                               (cfg->lmc ? &ldms : NULL));
+        const pddl_fdr_op_t *op = fdr->op.op[op_id];
+        pddlFDROpApplyOnStateInPlace(op, state_size, state);
+        if (cfg->lmc)
+            pddlSetISetFree(&ldms);
+    }
+}
+
+static int rolloutAStar(pddl_asnets_train_data_t *td,
+                        int ground_task_id,
+                        pddl_asnets_ground_task_t *gt,
+                        const pddl_asnets_config_t *cfg,
+                        const int *state,
+                        const pddl_fdr_t *_fdr,
+                        const pddl_heur_config_t *heur_cfg,
+                        float max_time,
+                        pddl_err_t *err)
+{
+    pddl_timer_t timer;
+    pddlTimerStart(&timer);
+
+    pddl_fdr_t fdr;
+    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
+
+    pddl_heur_t *heur = pddlHeur(heur_cfg, err);
+    if (heur == NULL){
+        pddlFDRFree(&fdr);
+        TRACE_RET(err, -1);
+    }
+
+    pddl_search_config_t search_cfg = PDDL_SEARCH_CONFIG_INIT;
+    search_cfg.fdr = &fdr;
+    search_cfg.alg = PDDL_SEARCH_ASTAR;
+    search_cfg.heur = heur;
+    pddl_search_t *search = pddlSearchNew(&search_cfg, err);
+    if (search == NULL){
+        pddlFDRFree(&fdr);
+        pddlHeurDel(heur);
+        TRACE_RET(err, -1);
+    }
+
+    int st = pddlSearchInitStep(search);
+    while (st == PDDL_SEARCH_CONT){
+        pddlTimerStop(&timer);
+        if (pddlTimerElapsedInSF(&timer) > max_time){
+            st = PDDL_SEARCH_ABORT;
+            break;
+        }
+
+        st = pddlSearchStep(search);
+    }
+
+    if (st == PDDL_SEARCH_FOUND){
+        LOG(err, "Plan found");
+        pddl_plan_t plan;
+        pddlPlanInit(&plan);
+        if (pddlSearchExtractPlan(search, &plan) == 0)
+            dataAddPlan(td, ground_task_id, gt, cfg, &fdr, state, &plan.op);
+        pddlPlanFree(&plan);
+
+    }else{
+        pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+        if (st == PDDL_SEARCH_ABORT)
+            LOG(err, "Search reached time-out");
+        LOG(err, "Plan not found");
+    }
+
+    pddlSearchDel(search);
+    pddlHeurDel(heur);
+    pddlFDRFree(&fdr);
+    return 0;
+}
+
+static void stringToPlan(const char *str,
+                         const pddl_fdr_t *fdr,
+                         pddl_iarr_t *plan)
+{
+    const char *cur = str;
+
+    while (strncmp(cur, "(id-", 4) == 0){
+        if (cur[4] < '0' || cur[4] > '9')
+            return;
+        int op_id = atoi(cur + 4);
+        pddlIArrAdd(plan, op_id);
+
+        for (; *cur != '\x0' && *cur != '\n'; ++cur);
+        if (*cur == '\n')
+            ++cur;
+    }
+}
+
+static int rolloutExternalFD(pddl_asnets_train_data_t *td,
+                             int ground_task_id,
+                             pddl_asnets_ground_task_t *gt,
+                             const pddl_asnets_config_t *cfg,
+                             const int *state,
+                             const pddl_fdr_t *_fdr,
+                             char * const *cmd,
+                             pddl_bool_t osp_all_soft_goals,
+                             pddl_err_t *err)
+{
+    PANIC_IF(cmd == NULL, "External command is not specified.");
+    pddl_fdr_t fdr;
+    pddlFDRInitShallowCopyWithDifferentInitState(&fdr, _fdr, state);
+
+    // Write FDR task in FD format into fdrout buffer
+    size_t fdrout_size = 0;
+    char *fdrout_buf = NULL;
+    FILE *fdrout = pddl_strstream(&fdrout_buf, &fdrout_size);
+    if (fdrout == NULL){
+        ERR_RET(err, -1, "Could not create a buffer for FDR task");
+    }
+
+    pddl_fdr_write_config_t wcfg = PDDL_FDR_WRITE_CONFIG_INIT;
+    wcfg.fout = fdrout;
+    wcfg.fd = pddl_true;
+    wcfg.encode_op_ids = pddl_true;
+    wcfg.osp_all_soft_goals = osp_all_soft_goals;
+    pddlFDRWrite(&fdr, &wcfg);
+    fclose(fdrout);
+
+    // Run external planner. Write FDR task to stdin.
+    int out_size;
+    char *out;
+    int oerr_size;
+    char *oerr;
+    pddl_exec_status_t status;
+    int ret = pddlExecvpLimits(cmd, &status, fdrout_buf, fdrout_size, &out,
+                               &out_size, &oerr, &oerr_size, -1, -1, err);
+
+    // Free the input buffer
+    if (fdrout_buf != NULL)
+        FREE(fdrout_buf);
+
+    // Check if running the subprocess failed -- this shouldn't fail
+    if (ret != 0){
+        if (oerr != NULL)
+            FREE(oerr);
+        if (out != NULL)
+            FREE(out);
+        pddlFDRFree(&fdr);
+        TRACE_RET(err, -1);
+    }
+
+    // If we got something from stderr, then terminate -- this is a bug in
+    // the external planner
+    if (oerr_size > 0){
+        char *outline = oerr;
+        while (*outline != '\x0'){
+            char *end = outline;
+            for (; *end != '\x0' && *end != '\n'; ++end);
+            if (*end == '\n'){
+                *end = '\x0';
+                ++end;
+            }
+            LOG(err, "Error output: %s", outline);
+            outline = end;
+        }
+    }
+    if (oerr != NULL)
+        FREE(oerr);
+
+
+    if (status.exit_status != 0 || status.signaled || oerr_size > 0){
+        // Something went wrong with the external planner -- terminate with
+        // an error
+        if (out != NULL)
+            FREE(out);
+        pddlFDRFree(&fdr);
+        ERR_RET(err, -1, "Calling external teacher failed.");
+
+    }else{
+        // Extract plan from from stdout of the external planner
+        PDDL_IARR(plan);
+        if (out_size > 0)
+            stringToPlan(out, &fdr, &plan);
+
+        if (pddlIArrSize(&plan) == 0){
+            pddlASNetsTrainDataAddFail(td, ground_task_id, state, fdr.var.var_size);
+            LOG(err, "Plan not found");
+
+        }else{
+            dataAddPlan(td, ground_task_id, gt, cfg, &fdr, state, &plan);
+        }
+        pddlIArrFree(&plan);
+    }
+
+    if (out != NULL)
+        FREE(out);
+    pddlFDRFree(&fdr);
+    return 0;
+}
+
+static int teacherRollout(pddl_asnets_t *a,
+                          pddl_asnets_train_data_t *td,
+                          int ground_task_id,
+                          const int *state,
+                          const pddl_fdr_t *fdr,
+                          const pddl_asnets_config_t *cfg,
+                          pddl_err_t *err)
+{
+    CTX(err, "Teacher Rollout");
+    LOG(err, "start num samples: %d", td->sample_size);
+    if (pddlASNetsTrainDataExists(td, ground_task_id, state, fdr->var.var_size)){
+        LOG(err, "State already in the data pool -- skipping.");
+        CTXEND(err);
+        return 1;
+
+    }else if (pddlASNetsTrainDataExistsFail(td, ground_task_id, state, fdr->var.var_size)){
+        LOG(err, "State already seen and could not be solved -- skipping.");
+        CTXEND(err);
+        return 1;
+    }
+
+    pddl_heur_config_t heur_cfg = PDDL_HEUR_CONFIG_INIT;
+    int ret = 0;
+    switch (cfg->teacher){
+        case PDDL_ASNETS_TEACHER_ASTAR_LMCUT:
+            heur_cfg.fdr = fdr;
+            heur_cfg.heur = PDDL_HEUR_LM_CUT;
+            ret = rolloutAStar(td, ground_task_id,
+                               a->ground_task + ground_task_id,
+                               &a->cfg, state, fdr, &heur_cfg,
+                               cfg->teacher_timeout, err);
+            break;
+
+        case PDDL_ASNETS_TEACHER_EXTERNAL_FAST_DOWNWARD:
+            ret = rolloutExternalFD(td, ground_task_id,
+                                    a->ground_task + ground_task_id,
+                                    &a->cfg, state, fdr,
+                                    cfg->teacher_external_cmd,
+                                    cfg->osp_all_soft_goals, err);
+            break;
+    }
+
+    LOG(err, "num samples: %d", td->sample_size);
+    CTXEND(err);
+    return ret;
+}
+
 static int trainExploration(pddl_asnets_t *a,
                             int epoch,
                             int ground_task_id,
                             pddl_asnets_train_data_t *data,
                             pddl_err_t *err)
 {
-    const pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
+    pddl_asnets_ground_task_t *task = a->ground_task + ground_task_id;
     CTX(err, "Exploration Phase");
 
     LOG(err, "Task: %s", task->pddl.problem_file);
@@ -1120,9 +1425,8 @@ static int trainExploration(pddl_asnets_t *a,
     int *state = ALLOC_ARR(int, task->fdr.var.var_size);
     for (pddl_state_id_t state_id = 0; state_id < rollout.states.num_states; ++state_id){
         pddlFDRStatePoolGet(&rollout.states, state_id, state);
-        // TODO: Move from asnets_train_data here
-        int ret = pddlASNetsTrainDataRollout(data, ground_task_id, state,
-                                             &task->fdr, &a->cfg, err);
+        int ret = teacherRollout(a, data, ground_task_id, state, &task->fdr,
+                                 &a->cfg, err);
         if (ret < 0){
             FREE(state);
             pddlASNetsPolicyRolloutFree(&rollout);
@@ -1142,7 +1446,7 @@ static float successRate(pddl_asnets_t *a, pddl_asnets_train_data_t *td, pddl_er
     int num_solved = 0;
     float osp_sum_score = 0.;
     for (int task_id = 0; task_id < a->ground_task_size; ++task_id){
-        const pddl_asnets_ground_task_t *task = a->ground_task + task_id;
+        pddl_asnets_ground_task_t *task = a->ground_task + task_id;
 
         pddl_asnets_policy_rollout_t rollout;
         pddlASNetsPolicyRolloutInit(&rollout, task);
@@ -1222,7 +1526,8 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
 {
     CTX(err, "ASNets-Train");
     pddl_asnets_train_data_t data;
-    pddlASNetsTrainDataInit(&data, a->ground_task, a->ground_task_size);
+    pddlASNetsTrainDataInit(&data, a->ground_task, a->ground_task_size,
+                            a->cfg.random_seed);
 
     a->train_stats.success_rate = successRate(a, &data, err);
 
@@ -1283,65 +1588,4 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     pddlASNetsTrainDataFree(&data);
     CTXEND(err);
     return 0;
-}
-
-void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err)
-{
-    LOG(err, "Evaluating for domain %s", a->lifted_task.pddl.domain_file);
-
-    int num_solved = 0;
-    float osp_sum_score = 0.;
-    int num_tasks = pddlASNetsNumGroundTasks(a);
-    for (int task_id = 0; task_id < num_tasks; ++task_id){
-        const pddl_asnets_ground_task_t *task;
-        task = pddlASNetsGetGroundTask(a, task_id);
-
-        pddl_asnets_policy_rollout_t rollout;
-        pddlASNetsPolicyRolloutInit(&rollout, task);
-        pddl_bool_t solved = pddlASNetsPolicyRollout(a, &rollout, task, -1, err);
-        if (a->cfg.osp_all_soft_goals){
-            LOG(err, "Task %s solved: %s, length: %d, goal size: %d/%d",
-                task->pddl.problem_file,
-                F_BOOL(solved),
-                pddlIArrSize(&rollout.plan),
-                rollout.osp_reached_goal_size,
-                task->osp_msgs_size_for_init);
-
-            if (task->osp_msgs_size_for_init > 0){
-                osp_sum_score += rollout.osp_reached_goal_size
-                                        / (float)task->osp_msgs_size_for_init;
-            }
-
-        }else{
-            LOG(err, "Task %s solved: %s, length: %d",
-                task->pddl.problem_file,
-                F_BOOL(solved),
-                (solved ? pddlIArrSize(&rollout.plan) : -1));
-        }
-
-        if (solved){
-            ++num_solved;
-            if (write_plans){
-                char fn[512];
-                snprintf(fn, 511, "%s--%s.plan", task->pddl.domain_name,
-                         task->pddl.problem_name);
-                FILE *fout = fopen(fn, "w");
-                if (fout != NULL){
-                    int op_id;
-                    PDDL_IARR_FOR_EACH(&rollout.plan, op_id){
-                        fprintf(fout, "(%s)\n", task->fdr.op.op[op_id]->name);
-                    }
-                    fclose(fout);
-                }else{
-                    LOG(err, "Could not open file %s", fn);
-                }
-            }
-        }
-
-        pddlASNetsPolicyRolloutFree(&rollout);
-    }
-    LOG(err, "Solved %d out of %d tasks", num_solved, num_tasks);
-    if (a->cfg.osp_all_soft_goals){
-        LOG(err, "Average OSP score: %.4f", osp_sum_score / num_tasks);
-    }
 }

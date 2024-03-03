@@ -9,6 +9,8 @@ static struct {
     int max_mem;
     char *log_out;
 
+    int train_seed;
+
     char *eval_out;
 } opt;
 
@@ -82,6 +84,10 @@ static int parseOpts(int *argc, char *argv[])
                "Maximum memory in MB if >0.");
     optsAddStr("log-out", 0x0, &opt.log_out, "stdout",
                "Set output file for logs.");
+
+    optsAddInt("train-seed", 0x0, &opt.train_seed, -1,
+               "This takes effect only for the 'train' command."
+               " It overwrites the random_seed parameter from the configutation file.");
 
     optsAddStr("eval-out", 0x0, &opt.eval_out, NULL,
                "This takes effect only for the 'eval' command."
@@ -174,6 +180,9 @@ static int train(int argc, char *argv[])
     if (pddlASNetsConfigInitFromFile(&cfg, argv[1], &err) != 0)
         PDDL_TRACE_RET(&err, -1);
 
+    if (opt.train_seed > 0)
+        cfg.random_seed = opt.train_seed;
+
     cfg.save_model_prefix = argv[2];
 
     pddl_asnets_t *asnets = pddlASNetsNew(&cfg, &err);
@@ -204,6 +213,7 @@ static int evaluate(int argc, char *argv[])
     int num_probs = argc - 3;
     struct eval_stats stats[num_probs];
 
+    int num_solved = 0;
     for (int pi = 0; pi < num_probs; ++pi){
         PDDL_CTX(&err, "Task %d", pi);
         pddl_asnets_ground_task_t gt;
@@ -232,6 +242,9 @@ static int evaluate(int argc, char *argv[])
             stats[pi].plan_length = pddlIArrSize(&rollout.plan);
         stats[pi].osp_goal_size = rollout.osp_reached_goal_size;
         stats[pi].osp_msgs_size = gt.osp_msgs_size_for_init;
+
+        if (stats[pi].solved)
+            num_solved += 1;
 
         if (rollout.found_plan && opt.eval_out != NULL){
             char fn[512];
@@ -270,6 +283,9 @@ static int evaluate(int argc, char *argv[])
                      stats[pi].plan_length, argv[pi + 3]);
         }
     }
+
+    PDDL_LOG(&err, "Solved: %d / %d", num_solved, num_probs);
+    PDDL_LOG(&err, "Success rate: %.2f", (float)num_solved / (float)num_probs);
 
     pddlASNetsDel(asnets);
     return 0;

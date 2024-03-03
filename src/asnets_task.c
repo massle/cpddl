@@ -455,6 +455,11 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddlMutexPairsFree(&mutex);
     pddlLiftedMGroupsFree(&lmg);
 
+    if (cfg->lmc){
+        pddlLMCutInit(&gt->lmc, &gt->fdr, 0, 0);
+        gt->use_lmc = pddl_true;
+    }
+
     computeGroundRelatedness(gt, err);
     if (!checkGroundRelatedness(gt, err)){
         pddlASNetsGroundTaskFree(gt);
@@ -514,6 +519,9 @@ void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *gt)
     }
     if (gt->fact != NULL)
         FREE(gt->fact);
+
+    if (gt->use_lmc)
+        pddlLMCutFree(&gt->lmc);
 
     pddlISetFree(&gt->static_fact);
     pddlFDRAppOpFree(&gt->fdr_app_op);

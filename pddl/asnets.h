@@ -63,6 +63,9 @@ struct pddl_asnets_config {
      *  .early_termination_success_rate. Default: 20 */
     int early_termination_epochs;
 
+    /** Use LM-Cut landmarks as part of the input */
+    pddl_bool_t lmc;
+
     /** Time limit in seconds for the teacher to solve the given task.
      *  Default: 10.f */
     float teacher_timeout;
@@ -184,7 +187,7 @@ pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id);
  * Returns ID of the selected operator, or -1 if no operator is applicable.
  */
 int pddlASNetsRunPolicy(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
+                        pddl_asnets_ground_task_t *task,
                         const int *in_state,
                         int *out_state);
 
@@ -196,7 +199,7 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
  * Returns 0 on success, -1 otherwise.
  */
 int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
-                                 const pddl_asnets_ground_task_t *task,
+                                 pddl_asnets_ground_task_t *task,
                                  const int *in_state,
                                  pddl_asnets_policy_distribution_t *dist);
 
@@ -204,11 +207,6 @@ int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
  * Train ASNets according to the configuration it was created with.
  */
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
-
-/**
- * Evaluate ASNets for test problems given in configuration.
- */
-void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
 
 
 struct pddl_asnets_policy_rollout {
@@ -236,7 +234,7 @@ void pddlASNetsPolicyRolloutFree(pddl_asnets_policy_rollout_t *r);
  */
 pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
                                     pddl_asnets_policy_rollout_t *rollout,
-                                    const pddl_asnets_ground_task_t *task,
+                                    pddl_asnets_ground_task_t *task,
                                     int max_number_of_steps,
                                     pddl_err_t *err);
 
