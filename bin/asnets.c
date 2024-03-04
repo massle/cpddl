@@ -11,6 +11,7 @@ static struct {
 
     int train_seed;
 
+    int eval_max_steps;
     char *eval_out;
 } opt;
 
@@ -96,6 +97,10 @@ static int parseOpts(int *argc, char *argv[])
                "This takes effect only for the 'train' command."
                " It overwrites the random_seed parameter from the configutation file.");
 
+    optsAddInt("eval-max-steps", 0x0, &opt.eval_max_steps, -1,
+               "This takes effect only for the 'eval' command."
+               " Sets the maximum number of steps a policy can take"
+               " (it overwrites 'policy_rollout_limit' option in the input file.");
     optsAddStr("eval-out", 0x0, &opt.eval_out, NULL,
                "This takes effect only for the 'eval' command."
                " If set, it specifies a prefix for files where found plans"
@@ -229,6 +234,8 @@ static int evaluate(int argc, char *argv[])
     const pddl_asnets_lifted_task_t *lt = pddlASNetsGetLiftedTask(asnets);
 
     int policy_rollout_limit = cfg->policy_rollout_limit;
+    if (opt.eval_max_steps > 0)
+        policy_rollout_limit = opt.eval_max_steps;
 
     int num_probs = argc - 3;
     struct eval_stats stats[num_probs];
