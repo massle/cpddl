@@ -19,7 +19,8 @@ static enum {
     CMD_EVAL,
     CMD_GEN_FD_ENC,
     CMD_GEN_FD_OSP_ENC,
-    CMD_CONVERT_OLD_MODEL
+    CMD_CONVERT_OLD_MODEL,
+    CMD_GEN_TRAIN_CONFIG_FILE,
 } cmd;
 
 
@@ -63,6 +64,12 @@ static void help(const char *argv0, FILE *fout)
     fprintf(fout, "  %s convert-old-model input-file output-file\n", argv0);
     fprintf(fout, "\n");
     fprintf(fout, "  Convert old sqlite-based model files to the current format:\n");
+    fprintf(fout, "\n");
+    fprintf(fout, "\n");
+    fprintf(fout, "COMMAND gen-train-config-file:\n");
+    fprintf(fout, "  %s gen-train-config-file config.toml\n", argv0);
+    fprintf(fout, "\n");
+    fprintf(fout, "  Generates a training config file with default values.\n");
     fprintf(fout, "\n");
     fprintf(fout, "\n");
     fprintf(fout, "OPTIONS:\n");
@@ -119,6 +126,10 @@ static int parseOpts(int *argc, char *argv[])
         shiftCmdArgs(argc, argv);
         cmd = CMD_CONVERT_OLD_MODEL;
 
+    }else if (strcmp(argv[1], "gen-train-config-file") == 0){
+        shiftCmdArgs(argc, argv);
+        cmd = CMD_GEN_TRAIN_CONFIG_FILE;
+
     }else{
         fprintf(stderr, "Error: Unknown command %s\n", argv[1]);
         help(argv[0], stderr);
@@ -165,6 +176,15 @@ static int parseOpts(int *argc, char *argv[])
         if (*argc != 3){
             fprintf(stderr, "Error: Command convert-old-model takes exactly"
                     " two additional arguments, but %d were given.\n",
+                    *argc - 1);
+            help(argv[0], stderr);
+            return -1;
+        }
+
+    }else if (cmd == CMD_GEN_TRAIN_CONFIG_FILE){
+        if (*argc != 2){
+            fprintf(stderr, "Error: Command gen-train-config-file takes exactly"
+                    " one arguments, but %d were given.\n",
                     *argc - 1);
             help(argv[0], stderr);
             return -1;
@@ -326,6 +346,19 @@ static int convertOldModel(int argc, char *argv[])
     return pddlASNetsConvertFromSql(argv[1], argv[2], &err);
 }
 
+static int genTrainConfigFile(int argc, char *argv[])
+{
+    FILE *fout = fopen(argv[1], "w");
+    if (fout == NULL)
+        PDDL_ERR_RET(&err, -1, "Could not open file %s", argv[1]);
+
+    pddl_asnets_config_t cfg;
+    pddlASNetsConfigInit(&cfg);
+    pddlASNetsConfigWrite(&cfg, fout);
+    fclose(fout);
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     pddl_timer_t timer;
@@ -369,6 +402,10 @@ int main(int argc, char *argv[])
 
         case CMD_CONVERT_OLD_MODEL:
             ret = convertOldModel(argc, argv);
+            break;
+
+        case CMD_GEN_TRAIN_CONFIG_FILE:
+            ret = genTrainConfigFile(argc, argv);
             break;
     }
 
