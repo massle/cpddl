@@ -29,10 +29,11 @@ typedef enum pddl_asnets_teacher pddl_asnets_teacher_t;
 struct pddl_asnets_config {
     /** Domain PDDL file. Set using *SetDomain() */
     char *domain_pddl;
-    /** Number of input problem PDDL files (i.e., size of .problem_pddl[]) */
-    int problem_pddl_size;
-    /** Problem PDDL files. Set using *AddProblem() */
-    char **problem_pddl;
+    /** Number of input training problem PDDL files
+     *  (i.e., size of .train_problem_pddl[]) */
+    int train_problem_pddl_size;
+    /** Training problem PDDL files. Set using *AddTrainProblem() */
+    char **train_problem_pddl;
 
     /** Output size of the hidden layers. Default: 16 */
     int hidden_dimension;
@@ -131,8 +132,8 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
 void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);
-void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
-                                const char *problem_fn);
+void pddlASNetsConfigAddTrainProblem(pddl_asnets_config_t *cfg,
+                                     const char *problem_fn);
 void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
                                            char * const * argv);
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);

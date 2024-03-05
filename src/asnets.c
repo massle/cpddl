@@ -46,9 +46,9 @@ static int teacherNameToID(const char *name, pddl_asnets_teacher_t *teacher)
 void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
     LOG(err, "domain_pddl = %s", cfg->domain_pddl);
-    LOG_CONFIG_INT(cfg, problem_pddl_size, err);
-    for (int i = 0; i < cfg->problem_pddl_size; ++i)
-        LOG(err, "problem_pddl[%d] = %s", i, cfg->problem_pddl[i]);
+    LOG_CONFIG_INT(cfg, train_problem_pddl_size, err);
+    for (int i = 0; i < cfg->train_problem_pddl_size; ++i)
+        LOG(err, "train_problem_pddl[%d] = %s", i, cfg->train_problem_pddl[i]);
     LOG_CONFIG_INT(cfg, hidden_dimension, err);
     LOG_CONFIG_INT(cfg, num_layers, err);
     LOG_CONFIG_INT(cfg, random_seed, err);
@@ -101,10 +101,10 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
     if (src->domain_pddl != NULL)
         dst->domain_pddl = STRDUP(src->domain_pddl);
 
-    if (dst->problem_pddl_size > 0){
-        dst->problem_pddl = ALLOC_ARR(char *, dst->problem_pddl_size);
-        for (int i = 0; i < dst->problem_pddl_size; ++i)
-            dst->problem_pddl[i] = STRDUP(src->problem_pddl[i]);
+    if (dst->train_problem_pddl_size > 0){
+        dst->train_problem_pddl = ALLOC_ARR(char *, dst->train_problem_pddl_size);
+        for (int i = 0; i < dst->train_problem_pddl_size; ++i)
+            dst->train_problem_pddl[i] = STRDUP(src->train_problem_pddl[i]);
     }
 
     if (src->teacher_external_cmd != NULL){
@@ -116,6 +116,67 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
             dst->teacher_external_cmd[i] = STRDUP(src->teacher_external_cmd[i]);
         dst->teacher_external_cmd[size] = NULL;
     }
+}
+
+static int cfgLoadProb(pddl_asnets_config_t *cfg,
+                       void (*add_fn)(pddl_asnets_config_t *cfg, const char *fn),
+                       const char *fn,
+                       pddl_err_t *err)
+{
+    if (pddlIsFile(fn)){
+        add_fn(cfg, fn);
+
+    }else{
+        int len;
+        char **files = pddlListDirPDDLFiles(fn, &len, err);
+        if (files == NULL)
+            TRACE_RET(err, -1);
+
+        for (int i = 0; i < len; ++i){
+            if (strstr(files[i], "domain") != NULL){
+                FREE(files[i]);
+                continue;
+            }
+            if (pddlIsFile(files[i]))
+                add_fn(cfg, files[i]);
+            FREE(files[i]);
+        }
+        FREE(files);
+    }
+
+    return 0;
+}
+
+static int cfgLoadProbsArr(pddl_asnets_config_t *cfg,
+                           void (*add_fn)(pddl_asnets_config_t *cfg, const char *fn),
+                           pddl_toml_t *t,
+                           const char *key,
+                           const char *root,
+                           pddl_err_t *err)
+{
+    char **problems = NULL;
+    int problems_size = 0;
+    pddlTomlArrStr(t, key, &problems, &problems_size, pddl_false);
+
+    int ret = 0;
+    for (int i = 0; ret == 0 && i < problems_size; ++i){
+        char *fn = problems[i];
+        if (root != NULL){
+            char *fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
+            sprintf(fn, "%s/%s", root, problems[i]);
+        }
+
+        ret = cfgLoadProb(cfg, add_fn, fn, err);
+
+        if (fn != problems[i])
+            FREE(fn);
+    }
+
+    for (int i = 0; i < problems_size; ++i)
+        FREE(problems[i]);
+    if (problems != NULL)
+        FREE(problems);
+    return 0;
 }
 
 #define TOML_INT(K) pddlTomlInt(&t, #K, &cfg->K, pddl_false)
@@ -156,43 +217,14 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
         FREE(domain);
     }
 
-    char **problems = NULL;
-    int problems_size = 0;
-    pddlTomlArrStr(&t, "problems", &problems, &problems_size, pddl_false);
-
-    for (int i = 0; i < problems_size; ++i){
-        if (root != NULL){
-            char *fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
-            sprintf(fn, "%s/%s", root, problems[i]);
-            if (pddlIsFile(fn)){
-                pddlASNetsConfigAddProblem(cfg, fn);
-            }else{
-                int len;
-                char **files = pddlListDirPDDLFiles(fn, &len, err);
-                if (files == NULL){
-                    FREE(fn);
-                    TRACE_RET(err, -1);
-                }
-
-                for (int i = 0; i < len; ++i){
-                    if (strstr(files[i], "domain") != NULL){
-                        FREE(files[i]);
-                        continue;
-                    }
-                    if (pddlIsFile(files[i]))
-                        pddlASNetsConfigAddProblem(cfg, files[i]);
-                    FREE(files[i]);
-                }
-                FREE(files);
-            }
-            FREE(fn);
-        }else{
-            pddlASNetsConfigAddProblem(cfg, problems[i]);
-        }
-        FREE(problems[i]);
+    if (cfgLoadProbsArr(cfg, pddlASNetsConfigAddTrainProblem, &t,
+                        "problems", root, err) != 0
+            || cfgLoadProbsArr(cfg, pddlASNetsConfigAddTrainProblem, &t,
+                               "train_problems", root, err) != 0){
+        if (root != NULL)
+            FREE(root);
+        TRACE_RET(err, -1);
     }
-    if (problems != NULL)
-        FREE(problems);
 
     if (root != NULL)
         FREE(root);
@@ -261,12 +293,12 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
 
 static void pddlASNetsConfigRemoveProblems(pddl_asnets_config_t *cfg)
 {
-    for (int i = 0; i < cfg->problem_pddl_size; ++i)
-        FREE(cfg->problem_pddl[i]);
-    if (cfg->problem_pddl != NULL)
-        FREE(cfg->problem_pddl);
-    cfg->problem_pddl_size = 0;
-    cfg->problem_pddl = NULL;
+    for (int i = 0; i < cfg->train_problem_pddl_size; ++i)
+        FREE(cfg->train_problem_pddl[i]);
+    if (cfg->train_problem_pddl != NULL)
+        FREE(cfg->train_problem_pddl);
+    cfg->train_problem_pddl_size = 0;
+    cfg->train_problem_pddl = NULL;
 }
 
 void pddlASNetsConfigFree(pddl_asnets_config_t *cfg)
@@ -289,11 +321,11 @@ void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn)
     cfg->domain_pddl = STRDUP(fn);
 }
 
-void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg, const char *fn)
+void pddlASNetsConfigAddTrainProblem(pddl_asnets_config_t *cfg, const char *fn)
 {
-    cfg->problem_pddl = REALLOC_ARR(cfg->problem_pddl, char *,
-                                    cfg->problem_pddl_size + 1);
-    cfg->problem_pddl[cfg->problem_pddl_size++] = STRDUP(fn);
+    cfg->train_problem_pddl = REALLOC_ARR(cfg->train_problem_pddl, char *,
+                                          cfg->train_problem_pddl_size + 1);
+    cfg->train_problem_pddl[cfg->train_problem_pddl_size++] = STRDUP(fn);
 }
 
 void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
@@ -323,12 +355,12 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
         fprintf(fout, "#\n");
         fprintf(fout, "# root = \"__PWD__\"\n");
         fprintf(fout, "# domain = \"domain.pddl\"\n");
-        fprintf(fout, "# problems = [\"prob1.pddl\", \"prob2.pddl\"]\n");
+        fprintf(fout, "# train_problems = [\"prob1.pddl\", \"prob2.pddl\"]\n");
     }else{
         fprintf(fout, "domain = \"%s\"\n", cfg->domain_pddl);
-        fprintf(fout, "problems = [\n");
-        for (int i = 0; i < cfg->problem_pddl_size; ++i)
-            fprintf(fout, "    \"%s\",\n", cfg->problem_pddl[i]);
+        fprintf(fout, "train_problems = [\n");
+        for (int i = 0; i < cfg->train_problem_pddl_size; ++i)
+            fprintf(fout, "    \"%s\",\n", cfg->train_problem_pddl[i]);
         fprintf(fout, "]\n");
     }
     fprintf(fout, "hidden_dimension = %d\n", cfg->hidden_dimension);
@@ -517,8 +549,8 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
 
 pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
 {
-    if (cfg->problem_pddl_size <= 0)
-        ERR_RET(err, NULL, "ASNets: At least one problem file is required.");
+    if (cfg->train_problem_pddl_size <= 0)
+        ERR_RET(err, NULL, "ASNets: At least one training problem file is required.");
 
     CTX(err, "ASNets");
     pddl_asnets_t *a = ZALLOC(pddl_asnets_t);
@@ -534,13 +566,13 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
         TRACE_RET(err, NULL);
     }
 
-    a->ground_task_size = cfg->problem_pddl_size;
+    a->ground_task_size = cfg->train_problem_pddl_size;
     a->ground_task = ALLOC_ARR(pddl_asnets_ground_task_t, a->ground_task_size);
-    for (int probi = 0; probi < cfg->problem_pddl_size; ++probi){
+    for (int probi = 0; probi < cfg->train_problem_pddl_size; ++probi){
         st = pddlASNetsGroundTaskInit(&a->ground_task[probi],
                                       &a->lifted_task,
                                       cfg->domain_pddl,
-                                      cfg->problem_pddl[probi],
+                                      cfg->train_problem_pddl[probi],
                                       cfg,
                                       err);
         if (st < 0){
