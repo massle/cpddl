@@ -157,12 +157,14 @@ static int cfgLoadProbsArr(pddl_asnets_config_t *cfg,
     char **problems = NULL;
     int problems_size = 0;
     pddlTomlArrStr(t, key, &problems, &problems_size, pddl_false);
+    if (problems_size == 0)
+        return 0;
 
     int ret = 0;
     for (int i = 0; ret == 0 && i < problems_size; ++i){
         char *fn = problems[i];
         if (root != NULL){
-            char *fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
+            fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
             sprintf(fn, "%s/%s", root, problems[i]);
         }
 
@@ -658,6 +660,8 @@ static int saveActionModule(const pddl_asnets_t *a,
 
     if (saveFloatArr(fout, "weights", *w, w_size, err) != 0)
         TRACE_RET(err, -1);
+    LOG(err, "Saved %d weights for action module, layer: %d, action_id: %d",
+        w_size, layer, action_id);
 
     w_size = *w_alloc;
     st = pddlASNetsModelGetActionBias(a->model, layer, action_id,
@@ -668,6 +672,9 @@ static int saveActionModule(const pddl_asnets_t *a,
 
     if (saveFloatArr(fout, "bias", *w, w_size, err) != 0)
         TRACE_RET(err, -1);
+    LOG(err, "Saved %d bias weights for action module, layer: %d, action_id: %d",
+        w_size, layer, action_id);
+
     return 0;
 }
 
@@ -693,6 +700,8 @@ static int savePropModule(const pddl_asnets_t *a,
 
     if (saveFloatArr(fout, "weights", *w, w_size, err) != 0)
         TRACE_RET(err, -1);
+    LOG(err, "Saved %d weights for proposition module, layer: %d, pred_id: %d",
+        w_size, layer, pred_id);
 
     w_size = *w_alloc;
     st = pddlASNetsModelGetPropBias(a->model, layer, pred_id, w, &w_size, err);
@@ -702,6 +711,8 @@ static int savePropModule(const pddl_asnets_t *a,
 
     if (saveFloatArr(fout, "bias", *w, w_size, err) != 0)
         TRACE_RET(err, -1);
+    LOG(err, "Saved %d bias weights for proposition module, layer: %d, pred_id: %d",
+        w_size, layer, pred_id);
 
     return 0;
 }
