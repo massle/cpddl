@@ -157,12 +157,14 @@ static int cfgLoadProbsArr(pddl_asnets_config_t *cfg,
     char **problems = NULL;
     int problems_size = 0;
     pddlTomlArrStr(t, key, &problems, &problems_size, pddl_false);
+    if (problems_size == 0)
+        return 0;
 
     int ret = 0;
     for (int i = 0; ret == 0 && i < problems_size; ++i){
         char *fn = problems[i];
         if (root != NULL){
-            char *fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
+            fn = ALLOC_ARR(char, strlen(root) + strlen(problems[i]) + 2);
             sprintf(fn, "%s/%s", root, problems[i]);
         }
 
