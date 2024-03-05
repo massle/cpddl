@@ -205,6 +205,9 @@ ifeq '$(USE_DYNET)' 'auto'
     endif
     ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.so)' ''
       DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath=$(DYNET_ROOT)/lib -ldynet
+    else ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.dylib)' ''
+      # For compilation on Mac
+      DYNET_LDFLAGS := -L$(DYNET_ROOT)/lib -Wl,-rpath $(DYNET_ROOT)/lib -ldynet
     else ifneq '$(wildcard $(DYNET_ROOT)/lib/libdynet.a)' ''
       DYNET_LDFLAGS := $(DYNET_ROOT)/lib/libdynet.a
     else
