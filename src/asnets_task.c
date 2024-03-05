@@ -455,6 +455,14 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
     pddlMutexPairsFree(&mutex);
     pddlLiftedMGroupsFree(&lmg);
 
+    if (cfg->lmc){
+        pddlLMCutInit(&gt->lmc, &gt->fdr, 0, 0);
+        gt->use_lmc = pddl_true;
+    }
+
+    pddlRandomWalkInitSeed(&gt->random_walk, &gt->fdr, &gt->fdr_app_op,
+                           cfg->random_seed);
+
     computeGroundRelatedness(gt, err);
     if (!checkGroundRelatedness(gt, err)){
         pddlASNetsGroundTaskFree(gt);
@@ -515,6 +523,10 @@ void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *gt)
     if (gt->fact != NULL)
         FREE(gt->fact);
 
+    if (gt->use_lmc)
+        pddlLMCutFree(&gt->lmc);
+    pddlRandomWalkFree(&gt->random_walk);
+
     pddlISetFree(&gt->static_fact);
     pddlFDRAppOpFree(&gt->fdr_app_op);
     pddlFDRFree(&gt->fdr);
@@ -534,24 +546,25 @@ void pddlASNetsGroundTaskFDRStateToStrips(const pddl_asnets_ground_task_t *gt,
     }
 }
 
+void pddlASNetsGroundTaskFDRPartStateToStrips(const pddl_asnets_ground_task_t *gt,
+                                              const pddl_fdr_part_state_t *ps,
+                                              pddl_iset_t *strips_ps)
+{
+    pddlISetEmpty(strips_ps);
+    for (int i = 0; i < ps->fact_size; ++i){
+        int var = ps->fact[i].var;
+        int val = ps->fact[i].val;
+        if (gt->fdr.var.var[var].val[val].strips_id >= 0)
+            pddlISetAdd(strips_ps, gt->fdr.var.var[var].val[val].strips_id);
+    }
+}
+
 void pddlASNetsGroundTaskFDRApplicableOps(const pddl_asnets_ground_task_t *gt,
                                           const int *fdr_state,
                                           pddl_iset_t *ops)
 {
     pddlISetEmpty(ops);
     pddlFDRAppOpFind(&gt->fdr_app_op, fdr_state, ops);
-}
-
-void pddlASNetsGroundTaskFDRGoal(const pddl_asnets_ground_task_t *gt,
-                                 pddl_iset_t *strips_goal)
-{
-    pddlISetEmpty(strips_goal);
-    for (int i = 0; i < gt->fdr.goal.fact_size; ++i){
-        int var = gt->fdr.goal.fact[i].var;
-        int val = gt->fdr.goal.fact[i].val;
-        if (gt->fdr.var.var[var].val[val].strips_id >= 0)
-            pddlISetAdd(strips_goal, gt->fdr.var.var[var].val[val].strips_id);
-    }
 }
 
 void pddlASNetsGroundTaskFDRApplyOp(const pddl_asnets_ground_task_t *gt,

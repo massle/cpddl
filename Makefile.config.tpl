@@ -13,6 +13,14 @@
 # off by default.
 #PROFIL = yes
 
+# Configuration of SQLite
+# ------------------------
+#
+# The source code of SQLite (https://www.sqlite.org/) is already part of
+# the cpddl library. To enable its integration, set USE_SQLITE to yes.
+#
+#USE_SQLITE = no
+
 
 # Configuration of IBM CPLEX Optimization Studio
 # -----------------------------------------------

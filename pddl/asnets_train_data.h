@@ -12,10 +12,9 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <pddl/htable.h>
-#include <pddl/plan.h>
-#include <pddl/fdr.h>
-#include <pddl/heur.h>
-#include "pddl/asnets.h"
+#include <pddl/set.h>
+#include <pddl/asnets.h>
+#include <pddl/rand.h>
 
 typedef struct pddl_asnets_train_data_sample pddl_asnets_train_data_sample_t;
 
@@ -24,42 +23,55 @@ struct pddl_asnets_train_data {
     int sample_size;
     int sample_alloc;
 
+    const pddl_asnets_ground_task_t **task;
+    int task_size;
+
     pddl_htable_t *htable;
     pddl_htable_t *fail_cache;
+
+    pddl_rand_t rnd;
 };
 typedef struct pddl_asnets_train_data pddl_asnets_train_data_t;
 
-void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td);
+void pddlASNetsTrainDataInit(pddl_asnets_train_data_t *td,
+                             const pddl_asnets_ground_task_t *task,
+                             int task_size,
+                             int random_seed);
 void pddlASNetsTrainDataFree(pddl_asnets_train_data_t *td);
 
 int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
                                  int sample_id,
                                  int *ground_task_id,
                                  int *selected_op_id,
-                                 int *fdr_state_size,
-                                 const int **fdr_state);
+                                 pddl_iset_t *strips_state,
+                                 pddl_iset_t *applicable_ops,
+                                 pddl_iset_t *strips_goal,
+                                 const pddl_set_iset_t **ldms);
 
 void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
                             int ground_task_id,
                             const int *state,
                             int state_size,
-                            int selected_op_id);
+                            int selected_op_id,
+                            const pddl_set_iset_t *lmc_landmarks);
 
-void pddlASNetsTrainDataAddPlan(pddl_asnets_train_data_t *td,
+void pddlASNetsTrainDataAddFail(pddl_asnets_train_data_t *td,
                                 int ground_task_id,
-                                int state_size,
-                                const int *init_state,
-                                const pddl_fdr_ops_t *ops,
-                                const pddl_iarr_t *plan);
+                                const int *state,
+                                int state_size);
+
+pddl_bool_t pddlASNetsTrainDataExists(const pddl_asnets_train_data_t *td,
+                                      int ground_task_id,
+                                      const int *state,
+                                      int state_size);
+
+pddl_bool_t pddlASNetsTrainDataExistsFail(const pddl_asnets_train_data_t *td,
+                                          int ground_task_id,
+                                          const int *state,
+                                          int state_size);
 
 void pddlASNetsTrainDataShuffle(pddl_asnets_train_data_t *td);
 
-int pddlASNetsTrainDataRollout(pddl_asnets_train_data_t *td,
-                               int ground_task_id,
-                               const int *state,
-                               const pddl_fdr_t *fdr,
-                               const pddl_asnets_config_t *cfg,
-                               pddl_err_t *err);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -9,6 +9,8 @@
 
 #include <pddl/iarr.h>
 #include <pddl/asnets_task.h>
+#include <pddl/asnets_policy_distribution.h>
+#include <pddl/fdr_state_space.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,10 +29,11 @@ typedef enum pddl_asnets_teacher pddl_asnets_teacher_t;
 struct pddl_asnets_config {
     /** Domain PDDL file. Set using *SetDomain() */
     char *domain_pddl;
-    /** Number of input problem PDDL files (i.e., size of .problem_pddl[]) */
-    int problem_pddl_size;
-    /** Problem PDDL files. Set using *AddProblem() */
-    char **problem_pddl;
+    /** Number of input training problem PDDL files
+     *  (i.e., size of .train_problem_pddl[]) */
+    int train_problem_pddl_size;
+    /** Training problem PDDL files. Set using *AddTrainProblem() */
+    char **train_problem_pddl;
 
     /** Output size of the hidden layers. Default: 16 */
     int hidden_dimension;
@@ -60,6 +63,17 @@ struct pddl_asnets_config {
     /** Number of epochs in which the success rate must be at higher than
      *  .early_termination_success_rate. Default: 20 */
     int early_termination_epochs;
+    /** How many random walks are used to generate training data in
+     *  addition to policy rollouts. Default: 0 */
+    int train_num_random_walks;
+    /** Maximum number of steps taken by the random walks used for
+     *  generating addtional training data. The actual number of steps will
+     *  be sampled from a binomial distribution between 0 and this number.
+     *  Default: 5 */
+    int train_random_walk_max_steps;
+
+    /** Use LM-Cut landmarks as part of the input. Default: false */
+    pddl_bool_t lmc;
 
     /** Time limit in seconds for the teacher to solve the given task.
      *  Default: 10.f */
@@ -115,40 +129,14 @@ void pddlASNetsConfigInitCopy(pddl_asnets_config_t *dst,
 int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
                                  const char *filename,
                                  pddl_err_t *err);
-int pddlASNetsConfigInitFromModel(pddl_asnets_config_t *cfg,
-                                  const char *filename,
-                                  pddl_err_t *err);
 void pddlASNetsConfigFree(pddl_asnets_config_t *cfg);
 
 void pddlASNetsConfigSetDomain(pddl_asnets_config_t *cfg, const char *fn);
-void pddlASNetsConfigAddProblem(pddl_asnets_config_t *cfg,
-                                const char *problem_fn);
+void pddlASNetsConfigAddTrainProblem(pddl_asnets_config_t *cfg,
+                                     const char *problem_fn);
 void pddlASNetsConfigSetTeacherExternalCmd(pddl_asnets_config_t *cfg,
                                            char * const * argv);
 void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout);
-
-struct pddl_asnets_policy_distribution {
-    /** Number of applicable operators */
-    int op_size;
-    int op_alloc;
-    /** Array of applicable operators */
-    int *op_id;
-    /** Array of probabilities/confidence of the corresponding operator
-     *  being selected by the policy */
-    float *prob;
-};
-typedef struct pddl_asnets_policy_distribution
-    pddl_asnets_policy_distribution_t;
-
-/**
- * Initialize empty distribution
- */
-void pddlASNetsPolicyDistributionInit(pddl_asnets_policy_distribution_t *d);
-
-/**
- * Free allocated memory
- */
-void pddlASNetsPolicyDistributionFree(pddl_asnets_policy_distribution_t *d);
 
 /**
  * Creates a new instance of ASNets according to the configuration
@@ -166,14 +154,30 @@ void pddlASNetsDel(pddl_asnets_t *a);
 int pddlASNetsSave(const pddl_asnets_t *a, const char *fn, pddl_err_t *err);
 
 /**
- * Load ASNets from the given file.
+ * Creates and loads an instance of ASNets.
+ * It requires a file containing a model (mainly parameters of the network)
+ * and the corresponding PDDL domain file.
+ * If {domain_file} is NULL, the function tries to use the file specified
+ * in the file {model_fn}.
  */
-int pddlASNetsLoad(pddl_asnets_t *a, const char *fn, pddl_err_t *err);
+pddl_asnets_t *pddlASNetsNewLoad(const char *model_fn,
+                                 const char *domain_file,
+                                 pddl_err_t *err);
+
+/**
+ * Returns config structure used by the ASNets instance.
+ */
+const pddl_asnets_config_t *pddlASNetsGetConfig(const pddl_asnets_t *a);
 
 /**
  * Load model information from the given file and print it out.
  */
 int pddlASNetsPrintModelInfo(const char *fn, pddl_err_t *err);
+
+/**
+ * Returns ASNets lifted task.
+ */
+const pddl_asnets_lifted_task_t *pddlASNetsGetLiftedTask(const pddl_asnets_t *a);
 
 /**
  * Returns number of ground tasks stored in the given object.
@@ -192,7 +196,7 @@ pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id);
  * Returns ID of the selected operator, or -1 if no operator is applicable.
  */
 int pddlASNetsRunPolicy(pddl_asnets_t *a,
-                        const pddl_asnets_ground_task_t *task,
+                        pddl_asnets_ground_task_t *task,
                         const int *in_state,
                         int *out_state);
 
@@ -204,7 +208,7 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
  * Returns 0 on success, -1 otherwise.
  */
 int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
-                                 const pddl_asnets_ground_task_t *task,
+                                 pddl_asnets_ground_task_t *task,
                                  const int *in_state,
                                  pddl_asnets_policy_distribution_t *dist);
 
@@ -213,10 +217,35 @@ int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
  */
 int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err);
 
+
+struct pddl_asnets_policy_rollout {
+    /** Intermediate states of the rollout */
+    pddl_fdr_state_pool_t states;
+    /** Trace of operators */
+    pddl_iarr_t ops;
+    /** Set to a plan, if found */
+    pddl_iarr_t plan;
+    /** Number of goal facts satisfied by the rollout.
+     *  Applies only to osp policies. */
+    int osp_reached_goal_size;
+    /** True if plan was found */
+    pddl_bool_t found_plan;
+};
+typedef struct pddl_asnets_policy_rollout pddl_asnets_policy_rollout_t;
+
+void pddlASNetsPolicyRolloutInit(pddl_asnets_policy_rollout_t *r,
+                                 const pddl_asnets_ground_task_t *task);
+void pddlASNetsPolicyRolloutFree(pddl_asnets_policy_rollout_t *r);
+
 /**
- * Evaluate ASNets for test problems given in configuration.
+ * Runs policy rollout from the initial state.
+ * If {max_number_of_steps} <= 0, then a->cfg.policy_rollout_limit is used.
  */
-void pddlASNetsEvaluate(pddl_asnets_t *a, int write_plans, pddl_err_t *err);
+pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
+                                    pddl_asnets_policy_rollout_t *rollout,
+                                    pddl_asnets_ground_task_t *task,
+                                    int max_number_of_steps,
+                                    pddl_err_t *err);
 
 #ifdef __cplusplus
 }

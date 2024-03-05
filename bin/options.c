@@ -1110,6 +1110,7 @@ static void help(const char *argv0, FILE *fout)
     fprintf(fout, "source code: https://gitlab.com/danfis/cpddl\n");
     if (pddl_bliss_version != NULL
             || pddl_cudd_version != NULL
+            || pddl_sqlite_version != NULL
             || pddl_cplex_version != NULL
             || pddl_cplex_api_version != NULL
             || pddl_cp_optimizer_version != NULL
@@ -1131,6 +1132,12 @@ static void help(const char *argv0, FILE *fout)
             fprintf(fout, "  CUDD v%s"
                     " | License BSD | https://davidkebo.com/cudd\n",
                     pddl_cudd_version);
+        }
+
+        if (pddl_sqlite_version != NULL){
+            fprintf(fout, "  SQLite v%s"
+                    " | public domain | https://www.sqlite.org\n",
+                    pddl_sqlite_version);
         }
 
         if (pddl_cplex_version != NULL){

@@ -312,6 +312,7 @@ Limitations:
                         help = 'Output .sif file')
     parser.add_argument('--no-bliss', action = 'store_true')
     parser.add_argument('--no-cudd', action = 'store_true')
+    parser.add_argument('--no-sqlite', action = 'store_true')
     parser.add_argument('--highs', action = 'store_true')
     parser.add_argument('--coin-or', action = 'store_true')
     parser.add_argument('--cplex',
@@ -358,6 +359,10 @@ Limitations:
         suff += '-nocudd'
     if args.no_bliss is True:
         suff += '-nobliss'
+    if args.no_sqlite is True:
+        suff += '-nosqlite'
+    else:
+        config += ['USE_SQLITE = yes']
 
     if args.cplex is not None:
         suff += '-cplex'

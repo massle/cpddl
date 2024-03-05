@@ -8,6 +8,7 @@ SRC += err
 SRC += strstream
 SRC += hfunc
 SRC += sha256
+SRC += base64
 SRC += google-city-hash
 SRC += _toml
 SRC += toml
@@ -51,7 +52,6 @@ SRC += strips_fact_cross_ref
 SRC += strips_maker
 SRC += strips_conj
 SRC += ground
-SRC += sql_grounder
 SRC += strips_ground_tree
 SRC += strips_ground_trie
 SRC += strips_ground_sql
@@ -164,12 +164,12 @@ SRC += lifted_heur_relaxed
 SRC += lifted_heur_gaifman
 SRC += subprocess
 SRC += task
+SRC += asnets
+SRC += asnets_policy_distribution
 SRC += asnets_task
 SRC += asnets_train_data
 SRC += str_pool
 SRC += gaifman
-
-SRC += __sqlite3
 
 SRC += _version
 
@@ -177,6 +177,15 @@ SRC_CPP =
 SRC_CPP += cp-cp-optimizer
 
 SRC_STUB =
+
+ifeq '$(USE_SQLITE)' 'yes'
+  SRC += sqlite3
+  SRC += sql_grounder
+  SRC += asnets_convert_from_sql
+else
+  SRC_STUB += sql_grounder
+  SRC_STUB += asnets_convert_from_sql
+endif
 
 ifeq '$(USE_BLISS)' 'yes'
   SRC += sym
@@ -324,16 +333,16 @@ src/lemon: src/lemon.c src/lempar.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 .objs/lp-coin-or-stub.pic.o: src/lp-coin-or-stub.c src/_lp.h pddl/lp.h pddl/config.h $(GEN)
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
-.objs/__sqlite3.o: src/sqlite3.c
+.objs/sqlite3.o: src/sqlite3.c pddl/config.h $(GEN)
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
-.objs/__sqlite3.pic.o: src/sqlite3.c
+.objs/sqlite3.pic.o: src/sqlite3.c pddl/config.h $(GEN)
 	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
 .objs/cp-cp-optimizer.pic.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -fPIC -c -o $@ $<
-.objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
+.objs/asnets_dynet.cpp.o: src/asnets_dynet.cpp pddl/asnets_dynet.h pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -c -o $@ $<
 .objs/asnets_dynet.pic.cpp.o: src/asnets_dynet.cpp pddl/asnets.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(DYNET_CPPFLAGS) -fPIC -c -o $@ $<
@@ -365,15 +374,13 @@ src/lemon: src/lemon.c src/lempar.c
 gen-stubs:
 	$(SH) scripts/gen-stub.sh pddl/bdd.h "Binary decision diagrams require the CUDD library; cpddl must be re-compiled with the CUDD support." pddl_cudd_version >src/bdd-stub.c
 	$(SH) scripts/gen-stub.sh pddl/sym.h "Symmetries require the Bliss library; cpddl must be re-compiled with the Bliss support." pddl_bliss_version >src/sym-stub.c
-	$(SH) scripts/gen-stub.sh pddl/asnets.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets_dynet.h "ASNets require the DyNet library; cpddl must be re-compiled with the DyNet support." pddl_dynet_version >src/asnets_dynet-stub.c
+	$(SH) scripts/gen-stub.sh pddl/sql_grounder.h "SQL Grounder requires the sqlite library: Re-compile with the USE_SQLITE=yes flag in Makefile.config." pddl_sqlite_version >src/sql_grounder-stub.c
+	$(SH) scripts/gen-stub.sh pddl/asnets_convert_from_sql.h "Conversion from old ASNets models require the sqlite library: Re-compile with the USE_SQLITE=yes flag in Makefile.config." "" >src/asnets_convert_from_sql-stub.c
 
 
-clean: c
+clean:
 	rm -f .objs/*.o
-
-c:
-	rm -f .objs/[a-zA-Z0-9]*.o
-	rm -f .objs/_[a-zA-Z0-9]*.o
 	rm -f src/_parser.c
 	rm -f src/_parser.h
 	rm -f src/_parser.out
@@ -522,6 +529,9 @@ help:
 	@echo "  USE_CUDD          = $(USE_CUDD)"
 	@echo "  CUDD_CFLAGS       = $(CUDD_CFLAGS)"
 	@echo "  CUDD_LDFLAGS      = $(CUDD_LDFLAGS)"
+	@echo ""
+	@echo "  USE_SQLITE    = $(USE_SQLITE)"
+	@echo "  SQLITE_CFLAGS = $(SQLITE_CFLAGS)"
 	@echo ""
 	@echo "  IBM_CPLEX_ROOT    = $(IBM_CPLEX_ROOT)"
 	@echo "  USE_CPLEX         = $(USE_CPLEX)"
