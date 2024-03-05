@@ -460,6 +460,9 @@ int pddlASNetsGroundTaskInit(pddl_asnets_ground_task_t *gt,
         gt->use_lmc = pddl_true;
     }
 
+    pddlRandomWalkInitSeed(&gt->random_walk, &gt->fdr, &gt->fdr_app_op,
+                           cfg->random_seed);
+
     computeGroundRelatedness(gt, err);
     if (!checkGroundRelatedness(gt, err)){
         pddlASNetsGroundTaskFree(gt);
@@ -522,6 +525,7 @@ void pddlASNetsGroundTaskFree(pddl_asnets_ground_task_t *gt)
 
     if (gt->use_lmc)
         pddlLMCutFree(&gt->lmc);
+    pddlRandomWalkFree(&gt->random_walk);
 
     pddlISetFree(&gt->static_fact);
     pddlFDRAppOpFree(&gt->fdr_app_op);

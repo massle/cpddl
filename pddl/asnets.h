@@ -62,8 +62,16 @@ struct pddl_asnets_config {
     /** Number of epochs in which the success rate must be at higher than
      *  .early_termination_success_rate. Default: 20 */
     int early_termination_epochs;
+    /** How many random walks are used to generate training data in
+     *  addition to policy rollouts. Default: 0 */
+    int train_num_random_walks;
+    /** Maximum number of steps taken by the random walks used for
+     *  generating addtional training data. The actual number of steps will
+     *  be sampled from a binomial distribution between 0 and this number.
+     *  Default: 5 */
+    int train_random_walk_max_steps;
 
-    /** Use LM-Cut landmarks as part of the input */
+    /** Use LM-Cut landmarks as part of the input. Default: false */
     pddl_bool_t lmc;
 
     /** Time limit in seconds for the teacher to solve the given task.

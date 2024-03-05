@@ -61,6 +61,8 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, policy_rollout_limit, err);
     LOG_CONFIG_DBL(cfg, early_termination_success_rate, err);
     LOG_CONFIG_INT(cfg, early_termination_epochs, err);
+    LOG_CONFIG_INT(cfg, train_num_random_walks, err);
+    LOG_CONFIG_INT(cfg, train_random_walk_max_steps, err);
     LOG_CONFIG_BOOL(cfg, lmc, err);
     LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG(err, "teacher = %s", teacherName(cfg->teacher));
@@ -83,6 +85,8 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->policy_rollout_limit = 1000;
     cfg->early_termination_success_rate = 0.999f;
     cfg->early_termination_epochs = 20;
+    cfg->train_num_random_walks = 0;
+    cfg->train_random_walk_max_steps = 5;
     cfg->lmc = pddl_false;
     cfg->teacher_timeout = 10.f;
     cfg->teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
@@ -206,6 +210,8 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_FLT(teacher_timeout);
     TOML_FLT(early_termination_success_rate);
     TOML_INT(early_termination_epochs);
+    TOML_INT(train_num_random_walks);
+    TOML_INT(train_random_walk_max_steps);
     TOML_BOOL(lmc);
     TOML_BOOL(osp_all_soft_goals);
 
@@ -341,6 +347,9 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
             cfg->early_termination_success_rate);
     fprintf(fout, "early_termination_epochs = %d\n",
             cfg->early_termination_epochs);
+    fprintf(fout, "train_num_random_walks = %d\n", cfg->train_num_random_walks);
+    fprintf(fout, "train_random_walk_max_steps = %d\n",
+            cfg->train_random_walk_max_steps);
     fprintf(fout, "lmc = %s\n", F_BOOL(cfg->lmc));
 
     fprintf(fout, "teacher = \"%s\"", teacherName(cfg->teacher));
@@ -1080,7 +1089,7 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
 {
     pddl_set_iset_t ldms;
     if (a->cfg.lmc){
-        PANIC_IF(!task->use_lmc, "Task with intialized LM-Cut but it is required.");
+        PANIC_IF(!task->use_lmc, "Task without intialized LM-Cut but it is required.");
         pddlSetISetInit(&ldms);
         pddlLMCut(&task->lmc, in_state, &task->fdr.var, NULL, &ldms);
     }
@@ -1098,7 +1107,7 @@ int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
 {
     pddl_set_iset_t ldms;
     if (a->cfg.lmc){
-        PANIC_IF(!task->use_lmc, "Task with intialized LM-Cut but it is required.");
+        PANIC_IF(!task->use_lmc, "Task without intialized LM-Cut but it is required.");
         pddlSetISetInit(&ldms);
         pddlLMCut(&task->lmc, in_state, &task->fdr.var, NULL, &ldms);
     }
@@ -1412,17 +1421,15 @@ static int trainExploration(pddl_asnets_t *a,
     CTX(err, "Exploration Phase");
 
     LOG(err, "Task: %s", task->pddl.problem_file);
+    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
+
     pddl_asnets_policy_rollout_t rollout;
     pddlASNetsPolicyRolloutInit(&rollout, task);
     pddl_bool_t found_plan = pddlASNetsPolicyRollout(a, &rollout, task, -1, err);
     LOG(err, "Policy rollout: %d states, found_plan: %s",
         rollout.states.num_states, F_BOOL(found_plan));
 
-    // TODO: Here we can add also states from random walks.
-    //       Maybe only for the first epoch?
-
     // Extend training data with teacher rollouts
-    int *state = ALLOC_ARR(int, task->fdr.var.var_size);
     for (pddl_state_id_t state_id = 0; state_id < rollout.states.num_states; ++state_id){
         pddlFDRStatePoolGet(&rollout.states, state_id, state);
         int ret = teacherRollout(a, data, ground_task_id, state, &task->fdr,
@@ -1434,8 +1441,31 @@ static int trainExploration(pddl_asnets_t *a,
             TRACE_RET(err, -1);
         }
     }
-    FREE(state);
     pddlASNetsPolicyRolloutFree(&rollout);
+
+    // Add sample states from random walks
+    LOG(err, "Using random walks to generate %d more starting states"
+        " for teacher rollouts.", a->cfg.train_num_random_walks);
+    for (int i = 0; i < a->cfg.train_num_random_walks; ++i){
+        CTX(err, "Random walk %d", i);
+        int steps = pddlRandomWalkSampleState(&task->random_walk, task->fdr.init,
+                                              a->cfg.train_random_walk_max_steps,
+                                              state);
+        LOG(err, "Steps: %d", steps);
+        if (steps > 0){
+            int ret = teacherRollout(a, data, ground_task_id, state,
+                                     &task->fdr, &a->cfg, err);
+            if (ret < 0){
+                FREE(state);
+                CTXEND(err);
+                CTXEND(err);
+                TRACE_RET(err, -1);
+            }
+        }
+        CTXEND(err);
+    }
+
+    FREE(state);
     CTXEND(err);
     return 0;
 }
