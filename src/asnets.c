@@ -64,6 +64,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, train_num_random_walks, err);
     LOG_CONFIG_INT(cfg, train_random_walk_max_steps, err);
     LOG_CONFIG_BOOL(cfg, lmc, err);
+    LOG_CONFIG_BOOL(cfg, op_history, err);
     LOG_CONFIG_DBL(cfg, teacher_timeout, err);
     LOG(err, "teacher = %s", teacherName(cfg->teacher));
     LOG_CONFIG_STR(cfg, save_model_prefix, err);
@@ -88,6 +89,7 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->train_num_random_walks = 0;
     cfg->train_random_walk_max_steps = 5;
     cfg->lmc = pddl_false;
+    cfg->op_history = pddl_false;
     cfg->teacher_timeout = 10.f;
     cfg->teacher = PDDL_ASNETS_TEACHER_ASTAR_LMCUT;
     cfg->save_model_prefix = NULL;
@@ -247,6 +249,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_INT(train_num_random_walks);
     TOML_INT(train_random_walk_max_steps);
     TOML_BOOL(lmc);
+    TOML_BOOL(op_history);
     TOML_BOOL(osp_all_soft_goals);
 
     char *teacher = NULL;
@@ -385,6 +388,7 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
     fprintf(fout, "train_random_walk_max_steps = %d\n",
             cfg->train_random_walk_max_steps);
     fprintf(fout, "lmc = %s\n", F_BOOL(cfg->lmc));
+    fprintf(fout, "op_history = %s\n", F_BOOL(cfg->op_history));
 
     fprintf(fout, "teacher = \"%s\"", teacherName(cfg->teacher));
     fprintf(fout, " # must be one of \"%s\", \"%s\"\n",
@@ -411,11 +415,12 @@ static int runPolicy(pddl_asnets_model_t *model,
                      const int *in_state,
                      const pddl_fdr_part_state_t *in_goal,
                      const pddl_set_iset_t *in_ldms,
+                     const pddl_iarr_t *in_path,
                      int *out_state,
                      pddl_asnets_policy_distribution_t *distr)
 {
     int op_id = pddlASNetsModelEvalFDRState(model, task, in_state, in_goal,
-                                            in_ldms, distr);
+                                            in_ldms, in_path, distr);
     if (op_id < 0)
         return -1;
 
@@ -511,10 +516,14 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
             //LOG(err, "Found %d landmarks", pddlSetISetSize(&ldms));
         }
 
+        // TODO: op_history
+
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
         int op_id = runPolicy(a->model, task, state, &task->fdr.goal,
-                              (a->cfg.lmc ? &ldms : NULL), state2, NULL);
+                              (a->cfg.lmc ? &ldms : NULL),
+                              (a->cfg.op_history ? &rollout->ops : NULL),
+                              state2, NULL);
         if (a->cfg.lmc)
             pddlSetISetFree(&ldms);
         if (op_id < 0)
@@ -593,6 +602,7 @@ pddl_asnets_t *pddlASNetsNew(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     model_cfg.random_seed = a->cfg.random_seed;
     model_cfg.weight_decay = a->cfg.weight_decay;
     model_cfg.lmc = a->cfg.lmc;
+    model_cfg.op_history = a->cfg.op_history;
     a->model = pddlASNetsModelNew(&a->lifted_task, &model_cfg, err);
     if (a->model == NULL){
         pddlASNetsDel(a);
@@ -1025,12 +1035,14 @@ pddl_asnets_t *pddlASNetsNewLoad(const char *model_fn,
         TRACE_RET(err, NULL);
     }
 
+    // TODO: refactor with pddlASNetsNew()
     pddl_asnets_model_config_t model_cfg;
     model_cfg.hidden_dimension = a->cfg.hidden_dimension;
     model_cfg.num_layers = a->cfg.num_layers;
     model_cfg.random_seed = a->cfg.random_seed;
     model_cfg.weight_decay = a->cfg.weight_decay;
     model_cfg.lmc = a->cfg.lmc;
+    model_cfg.op_history = a->cfg.op_history;
     a->model = pddlASNetsModelNew(&a->lifted_task, &model_cfg, err);
     if (a->model == NULL){
         pddlTomlFree(&t);
@@ -1128,6 +1140,7 @@ pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id)
 int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         pddl_asnets_ground_task_t *task,
                         const int *in_state,
+                        const pddl_iarr_t *path,
                         int *out_state)
 {
     pddl_set_iset_t ldms;
@@ -1137,7 +1150,9 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
         pddlLMCut(&task->lmc, in_state, &task->fdr.var, NULL, &ldms);
     }
     int ret = runPolicy(a->model, task, in_state, &task->fdr.goal,
-                        (a->cfg.lmc ? &ldms : NULL), out_state, NULL);
+                        (a->cfg.lmc ? &ldms : NULL),
+                        (a->cfg.op_history ? path : NULL),
+                        out_state, NULL);
     if (a->cfg.lmc)
         pddlSetISetFree(&ldms);
     return ret;
@@ -1146,6 +1161,7 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
 int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
                                  pddl_asnets_ground_task_t *task,
                                  const int *in_state,
+                                 const pddl_iarr_t *path,
                                  pddl_asnets_policy_distribution_t *distr)
 {
     pddl_set_iset_t ldms;
@@ -1156,7 +1172,8 @@ int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
     }
 
     runPolicy(a->model, task, in_state, &task->fdr.goal,
-              (a->cfg.lmc ? &ldms : NULL), NULL, distr);
+              (a->cfg.lmc ? &ldms : NULL), (a->cfg.op_history ? path : NULL),
+              NULL, distr);
 
     if (a->cfg.lmc)
         pddlSetISetFree(&ldms);
@@ -1205,6 +1222,7 @@ static void dataAddPlan(pddl_asnets_train_data_t *td,
     int state[state_size];
     memcpy(state, init_state, sizeof(int) * state_size);
 
+    PDDL_IARR(path);
     int op_id;
     PDDL_IARR_FOR_EACH(plan, op_id){
         pddl_set_iset_t ldms;
@@ -1214,12 +1232,17 @@ static void dataAddPlan(pddl_asnets_train_data_t *td,
         }
 
         pddlASNetsTrainDataAdd(td, ground_task_id, state, state_size, op_id,
-                               (cfg->lmc ? &ldms : NULL));
+                               (cfg->lmc ? &ldms : NULL),
+                               (cfg->op_history ? &path : NULL));
         const pddl_fdr_op_t *op = fdr->op.op[op_id];
         pddlFDROpApplyOnStateInPlace(op, state_size, state);
         if (cfg->lmc)
             pddlSetISetFree(&ldms);
+
+        if (cfg->op_history)
+            pddlIArrAdd(&path, op_id);
     }
+    pddlIArrFree(&path);
 }
 
 static int rolloutAStar(pddl_asnets_train_data_t *td,
@@ -1417,7 +1440,8 @@ static int teacherRollout(pddl_asnets_t *a,
 {
     CTX(err, "Teacher Rollout");
     LOG(err, "start num samples: %d", td->sample_size);
-    if (pddlASNetsTrainDataExists(td, ground_task_id, state, fdr->var.var_size)){
+    // TODO: path
+    if (pddlASNetsTrainDataExists(td, ground_task_id, state, NULL, fdr->var.var_size)){
         LOG(err, "State already in the data pool -- skipping.");
         CTXEND(err);
         return 1;
