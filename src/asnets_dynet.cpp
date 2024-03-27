@@ -524,10 +524,12 @@ static void setLDMs(const pddl_asnets_ground_task_t *task,
         if (pddlISetSize(ldm) == 1){
             int op_id = pddlISetGet(ldm, 0);
             ldms[3 * op_id] = 1;
+
+        }else{
+            int op_id;
+            PDDL_ISET_FOR_EACH(ldm, op_id)
+                ldms[3 * op_id + 1] = 1;
         }
-        int op_id;
-        PDDL_ISET_FOR_EACH(ldm, op_id)
-            ldms[3 * op_id + 1] = 1;
     }
 
     for (int op_id = 0; op_id < task->strips.op.op_size; ++op_id){
