@@ -50,6 +50,7 @@ considered soft goals.
 
 ### Added
 - ASNets: Support for landmarks and action history
+- Potential heuristics over conjunctions.
 
 ### Changed
 - Refactored ASNets
