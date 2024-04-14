@@ -516,8 +516,6 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
             //LOG(err, "Found %d landmarks", pddlSetISetSize(&ldms));
         }
 
-        // TODO: op_history
-
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
         int op_id = runPolicy(a->model, task, state, &task->fdr.goal,
@@ -1440,7 +1438,6 @@ static int teacherRollout(pddl_asnets_t *a,
 {
     CTX(err, "Teacher Rollout");
     LOG(err, "start num samples: %d", td->sample_size);
-    // TODO: path
     if (pddlASNetsTrainDataExists(td, ground_task_id, state, NULL, fdr->var.var_size)){
         LOG(err, "State already in the data pool -- skipping.");
         CTXEND(err);
