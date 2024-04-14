@@ -52,6 +52,9 @@ considered soft goals.
 - ASNets: Support for landmarks and action history
 
 ### Changed
+- Refactored ASNets
+- ASNets: Changed format of output policy files from sqlite to TOML.
+- SQLite: Not included by default. It needs to be enabled in Makefile.config.
 
 ### Removed
 
