@@ -46,14 +46,16 @@ int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
                                  pddl_iset_t *strips_state,
                                  pddl_iset_t *applicable_ops,
                                  pddl_iset_t *strips_goal,
-                                 const pddl_set_iset_t **ldms);
+                                 const pddl_set_iset_t **ldms,
+                                 const pddl_iarr_t **path);
 
 void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
                             int ground_task_id,
                             const int *state,
                             int state_size,
                             int selected_op_id,
-                            const pddl_set_iset_t *lmc_landmarks);
+                            const pddl_set_iset_t *lmc_landmarks,
+                            const pddl_iarr_t *path);
 
 void pddlASNetsTrainDataAddFail(pddl_asnets_train_data_t *td,
                                 int ground_task_id,
@@ -63,6 +65,7 @@ void pddlASNetsTrainDataAddFail(pddl_asnets_train_data_t *td,
 pddl_bool_t pddlASNetsTrainDataExists(const pddl_asnets_train_data_t *td,
                                       int ground_task_id,
                                       const int *state,
+                                      const pddl_iarr_t *path,
                                       int state_size);
 
 pddl_bool_t pddlASNetsTrainDataExistsFail(const pddl_asnets_train_data_t *td,

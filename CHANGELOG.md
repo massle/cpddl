@@ -49,6 +49,7 @@ considered soft goals.
 ## Unreleased
 
 ### Added
+- ASNets: Support for landmarks and action history
 
 ### Changed
 

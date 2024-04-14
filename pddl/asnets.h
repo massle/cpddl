@@ -75,6 +75,9 @@ struct pddl_asnets_config {
     /** Use LM-Cut landmarks as part of the input. Default: false */
     pddl_bool_t lmc;
 
+    /** Use operator history as part of the input. Default: false */
+    pddl_bool_t op_history;
+
     /** Time limit in seconds for the teacher to solve the given task.
      *  Default: 10.f */
     float teacher_timeout;
@@ -193,11 +196,14 @@ pddlASNetsGetGroundTask(const pddl_asnets_t *a, int id);
 /**
  * Run policy on the given state from the given task.
  * If {out_state} is non-NULL, it is filled with the resulting state.
+ * If the 'op_history' configuration option is set to false, {path} is
+ * ignored, otherwise it is required.
  * Returns ID of the selected operator, or -1 if no operator is applicable.
  */
 int pddlASNetsRunPolicy(pddl_asnets_t *a,
                         pddl_asnets_ground_task_t *task,
                         const int *in_state,
+                        const pddl_iarr_t *path,
                         int *out_state);
 
 /**
@@ -205,11 +211,14 @@ int pddlASNetsRunPolicy(pddl_asnets_t *a,
  * distribution over applicable actions. The function can be repeatedly
  * called on the same pddl_asnets_policy_distribution_t struct -- it will
  * be rewritten every time.
+ * If the 'op_history' configuration option is set to false, {path} is
+ * ignored, otherwise it is required.
  * Returns 0 on success, -1 otherwise.
  */
 int pddlASNetsPolicyDistribution(pddl_asnets_t *a,
                                  pddl_asnets_ground_task_t *task,
                                  const int *in_state,
+                                 const pddl_iarr_t *path,
                                  pddl_asnets_policy_distribution_t *dist);
 
 /**

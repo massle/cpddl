@@ -17,6 +17,7 @@ struct pddl_asnets_train_data_sample {
     int *fdr_state;
     int selected_op_id;
     pddl_set_iset_t ldms;
+    pddl_iarr_t path;
 };
 
 static pddl_htable_key_t htableHash(const pddl_list_t *key, void *_)
@@ -37,7 +38,9 @@ static int htableEq(const pddl_list_t *key1, const pddl_list_t *key2, void *_)
         cmp = memcmp(sample1->fdr_state, sample2->fdr_state,
                      sizeof(int) * sample1->fdr_state_size);
     }
-    return cmp == 0;
+    if (cmp == 0)
+        return pddlIArrEq(&sample1->path, &sample2->path);
+    return 0;
 }
 
 static pddl_htable_key_t sampleHash(const pddl_asnets_train_data_sample_t *s)
@@ -48,6 +51,14 @@ static pddl_htable_key_t sampleHash(const pddl_asnets_train_data_sample_t *s)
                                      sizeof(int) * s->fdr_state_size,
                                      3929);
     key |= fkey;
+
+    if (pddlIArrSize(&s->path) > 0){
+        uint64_t fkey =  pddlFastHash_64(s->path.arr,
+                                         sizeof(int) * pddlIArrSize(&s->path),
+                                         3929);
+        key |= fkey;
+    }
+
     return key;
 }
 
@@ -63,6 +74,7 @@ static pddl_asnets_train_data_sample_t *sampleNew(int ground_task_id,
     memcpy(sample->fdr_state, state, sizeof(int) * state_size);
     sample->selected_op_id = selected_op_id;
     pddlSetISetInit(&sample->ldms);
+    pddlIArrInit(&sample->path);
     sample->hash = sampleHash(sample);
     return sample;
 }
@@ -72,6 +84,7 @@ static void sampleDel(pddl_asnets_train_data_sample_t *sample)
     if (sample->fdr_state != NULL)
         FREE(sample->fdr_state);
     pddlSetISetFree(&sample->ldms);
+    pddlIArrFree(&sample->path);
     FREE(sample);
 }
 
@@ -123,7 +136,8 @@ int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
                                  pddl_iset_t *strips_state,
                                  pddl_iset_t *applicable_ops,
                                  pddl_iset_t *strips_goal,
-                                 const pddl_set_iset_t **ldms)
+                                 const pddl_set_iset_t **ldms,
+                                 const pddl_iarr_t **path)
 {
     const pddl_asnets_train_data_sample_t *sample = td->sample[sample_id];
     if (ground_task_id != NULL)
@@ -150,6 +164,10 @@ int pddlASNetsTrainDataGetSample(const pddl_asnets_train_data_t *td,
 
     if (ldms != NULL)
         *ldms = &sample->ldms;
+
+    if (path != NULL)
+        *path = &sample->path;
+
     return 0;
 }
 
@@ -158,7 +176,8 @@ void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
                             const int *state,
                             int state_size,
                             int selected_op_id,
-                            const pddl_set_iset_t *lmc_landmarks)
+                            const pddl_set_iset_t *lmc_landmarks,
+                            const pddl_iarr_t *path)
 {
     pddl_asnets_train_data_sample_t *sample;
     sample = sampleNew(ground_task_id, state, state_size, selected_op_id);
@@ -166,6 +185,8 @@ void pddlASNetsTrainDataAdd(pddl_asnets_train_data_t *td,
     if (pddlHTableInsertUnique(td->htable, &sample->htable) == NULL){
         if (lmc_landmarks != NULL)
             pddlSetISetUnion(&sample->ldms, lmc_landmarks);
+        if (path != NULL)
+            pddlIArrAppendArr(&sample->path, path);
 
         ARR_MAKE_SPACE(td->sample, pddl_asnets_train_data_sample_t *,
                        td->sample_size, td->sample_alloc, 2);
@@ -190,6 +211,7 @@ void pddlASNetsTrainDataAddFail(pddl_asnets_train_data_t *td,
 pddl_bool_t pddlASNetsTrainDataExists(const pddl_asnets_train_data_t *td,
                                       int ground_task_id,
                                       const int *state,
+                                      const pddl_iarr_t *path,
                                       int state_size)
 {
     pddl_asnets_train_data_sample_t *sample;
@@ -199,6 +221,8 @@ pddl_bool_t pddlASNetsTrainDataExists(const pddl_asnets_train_data_t *td,
     sample->ground_task_id = ground_task_id;
     sample->fdr_state = alloca(sizeof(int) * state_size);
     memcpy(sample->fdr_state, state, sizeof(int) * state_size);
+    if (path != NULL)
+        sample->path = *path;
     sample->hash = sampleHash(sample);
 
     if (pddlHTableFind(td->htable, &sample->htable) == NULL){
