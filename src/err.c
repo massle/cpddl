@@ -101,11 +101,15 @@ void pddlErrInit(pddl_err_t *err)
 
 int pddlErrIsSet(const pddl_err_t *err)
 {
+    if (err == NULL)
+        return 0;
     return err->err;
 }
 
 void pddlErrPrint(const pddl_err_t *err, int with_traceback, FILE *fout)
 {
+    if (err == NULL)
+        return;
     pddlErrPrintMsg(err, fout);
     if (with_traceback)
         pddlErrPrintTraceback(err, fout);
@@ -113,11 +117,31 @@ void pddlErrPrint(const pddl_err_t *err, int with_traceback, FILE *fout)
 
 void pddlErrLogEnable(pddl_err_t *err, FILE *fout)
 {
+    if (err == NULL)
+        return;
     err->log_out = fout;
+}
+
+void pddlErrLogPause(pddl_err_t *err)
+{
+    if (err == NULL)
+        return;
+    err->log_out_pause = err->log_out;
+    err->log_out = NULL;
+}
+
+void pddlErrLogContinue(pddl_err_t *err)
+{
+    if (err == NULL)
+        return;
+    err->log_out = err->log_out_pause;
+    err->log_out_pause = NULL;
 }
 
 void pddlErrLogDisablePrintResources(pddl_err_t *err, int disable)
 {
+    if (err == NULL)
+        return;
     err->log_print_resources_disabled = disable;
 }
 

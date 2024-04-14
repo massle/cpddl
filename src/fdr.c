@@ -23,6 +23,20 @@
 #include "pddl/disambiguation.h"
 #include "pddl/cg.h"
 
+void pddlFDRConfigInit(pddl_fdr_config_t *cfg)
+{
+    pddl_fdr_config_t _cfg = PDDL_FDR_CONFIG_INIT;
+    *cfg = _cfg;
+}
+
+void pddlFDRConfigLog(const pddl_fdr_config_t *cfg, pddl_err_t *err)
+{
+    CTX_NO_TIME(err, "var");
+    pddlFDRVarsConfigLog(&cfg->var, err);
+    CTXEND(err);
+    LOG_CONFIG_BOOL(cfg, set_none_of_those_in_pre, err);
+}
+
 static void stripsToFDRState(const pddl_fdr_vars_t *fdr_var,
                              const pddl_iset_t *state,
                              int *fdr_state);
@@ -33,41 +47,30 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
                   const pddl_fdr_vars_t *fdr_var,
                   const pddl_strips_t *strips,
                   const pddl_mutex_pairs_t *mutex,
-                  unsigned fdr_flags,
+                  const pddl_fdr_config_t *cfg,
                   int op_id);
 
 int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
                           const pddl_strips_t *strips,
                           const pddl_mgroups_t *mg,
                           const pddl_mutex_pairs_t *mutex,
-                          unsigned fdr_var_flags,
-                          unsigned fdr_flags,
+                          const pddl_fdr_config_t *cfg,
                           pddl_err_t *err)
 {
     CTX(err, "FDR");
+
+    CTX_NO_TIME(err, "Cfg");
+    pddlFDRConfigLog(cfg, err);
+    CTXEND(err);
+
     pddl_timer_t timer;
     pddlTimerStart(&timer);
 
-    if (fdr_flags == PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE){
-        LOG(err, "cfg.set_none_of_those_in_pre = 1");
-    }else{
-        LOG(err, "cfg.set_none_of_those_in_pre = 0");
-    }
-
-    if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_ESSENTIAL_FIRST){
-        LOG(err, "cfg.vars_selection_order = essential");
-    }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST){
-        LOG(err, "cfg.vars_selection_order = largest");
-    }else if ((fdr_var_flags & 0xfu) == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
-        LOG(err, "cfg.vars_selection_order = largest-multi");
-    }
-
-
     ZEROIZE(fdr);
+    fdr->cfg = *cfg;
 
     // variables
-    if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex,
-                                  fdr_var_flags) != 0){
+    if (pddlFDRVarsInitFromStrips(&fdr->var, strips, mg, mutex, &cfg->var) != 0){
         CTXEND(err);
         return -1;
     }
@@ -96,7 +99,7 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
-        addOp(&fdr->op, &fdr->var, strips, mutex, fdr_flags, op_id);
+        addOp(&fdr->op, &fdr->var, strips, mutex, cfg, op_id);
     LOG(err, "Created %d operators", fdr->op.op_size);
 
     int num_cond_eff = 0;
@@ -191,11 +194,15 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
     FREE(ordering);
 }
 
-void pddlFDRReduce(pddl_fdr_t *fdr,
-                   const pddl_iset_t *del_vars,
-                   const pddl_iset_t *_del_facts,
-                   const pddl_iset_t *del_ops)
+void pddlFDRReduceGetRemap(pddl_fdr_t *fdr,
+                           const pddl_iset_t *del_vars,
+                           const pddl_iset_t *_del_facts,
+                           const pddl_iset_t *del_ops,
+                           pddl_fdr_vars_remap_t *remap)
 {
+    ASSERT(remap != NULL);
+    ZEROIZE(remap);
+
     if (del_ops != NULL && pddlISetSize(del_ops) > 0)
         pddlFDROpsDelSet(&fdr->op, del_ops);
 
@@ -214,22 +221,21 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
     if (pddlISetSize(&del_facts) > 0){
         int old_var_size = fdr->var.var_size;
 
-        pddl_fdr_vars_remap_t remap;
         // Delete facts
-        pddlFDRVarsDelFacts(&fdr->var, &del_facts, &remap);
+        pddlFDRVarsDelFacts(&fdr->var, &del_facts, remap);
         // Remap facts in operators
-        pddlFDROpsRemapFacts(&fdr->op, &remap);
+        pddlFDROpsRemapFacts(&fdr->op, remap);
 
         // Remap the initial state
         for (int v = 0; v < old_var_size; ++v){
-            if (remap.remap[v][fdr->init[v]] != NULL){
-                const pddl_fdr_val_t *val = remap.remap[v][fdr->init[v]];
+            if (remap->remap[v][fdr->init[v]] != NULL){
+                const pddl_fdr_val_t *val = remap->remap[v][fdr->init[v]];
                 fdr->init[val->var_id] = val->val_id;
             }
         }
 
         // Remap goal
-        pddlFDRPartStateRemapFacts(&fdr->goal, &remap);
+        pddlFDRPartStateRemapFacts(&fdr->goal, remap);
 
         // Remove operators with empty effects
         PDDL_ISET(useless_ops);
@@ -250,10 +256,18 @@ void pddlFDRReduce(pddl_fdr_t *fdr,
                 break;
             }
         }
-
-        pddlFDRVarsRemapFree(&remap);
     }
     pddlISetFree(&del_facts);
+}
+
+void pddlFDRReduce(pddl_fdr_t *fdr,
+                   const pddl_iset_t *del_vars,
+                   const pddl_iset_t *del_facts,
+                   const pddl_iset_t *del_ops)
+{
+    pddl_fdr_vars_remap_t remap;
+    pddlFDRReduceGetRemap(fdr, del_vars, del_facts, del_ops, &remap);
+    pddlFDRVarsRemapFree(&remap);
 }
 
 static int relaxedPreHold(const pddl_fdr_t *fdr,
@@ -481,7 +495,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
                   const pddl_fdr_vars_t *fdr_var,
                   const pddl_strips_t *strips,
                   const pddl_mutex_pairs_t *mutex,
-                  unsigned fdr_flags,
+                  const pddl_fdr_config_t *cfg,
                   int op_id)
 {
     const pddl_strips_op_t *op = strips->op.op[op_id];
@@ -508,7 +522,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
     stripsToFDRDelEff(fdr_var, &op->del_eff, &fdr_op->eff,
                       mutex, &op->pre, NULL);
     stripsToFDRPartState(fdr_var, &op->add_eff, &fdr_op->eff);
-    if (fdr_flags & PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE)
+    if (cfg->set_none_of_those_in_pre)
         setNoneOfThoseInPre(fdr_var, mutex, &fdr_op->eff, &fdr_op->pre);
 
     for (int cei = 0; cei < op->cond_eff_size; ++cei){
@@ -526,7 +540,7 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
         stripsToFDRDelEff(fdr_var, &ce->del_eff, &fdr_ce->eff,
                           mutex, &op->pre, &ce->pre);
         stripsToFDRPartState(fdr_var, &ce->add_eff, &fdr_ce->eff);
-        if (fdr_flags & PDDL_FDR_SET_NONE_OF_THOSE_IN_PRE)
+        if (cfg->set_none_of_those_in_pre)
             setNoneOfThoseInPre(fdr_var, mutex, &fdr_ce->eff, &fdr_ce->pre);
     }
 
@@ -977,6 +991,28 @@ int pddlFDRInitTransitionNormalForm(pddl_fdr_t *fdr,
     return 0;
 }
 
+void pddlFDRMutexPairsInitCopy(pddl_mutex_pairs_t *fdr_mutex,
+                               const pddl_mutex_pairs_t *strips_mutex,
+                               const pddl_fdr_t *fdr)
+{
+    pddlMutexPairsInit(fdr_mutex, fdr->var.global_id_size);
+    PDDL_MUTEX_PAIRS_FOR_EACH(strips_mutex, f1, f2){
+        if (f1 >= fdr->var.strips_id_size || f2 >= fdr->var.strips_id_size)
+            continue;
+
+        int dst1, dst2;
+        PDDL_ISET_FOR_EACH(&fdr->var.strips_id_to_val[f1], dst1){
+            PDDL_ISET_FOR_EACH(&fdr->var.strips_id_to_val[f2], dst2){
+                pddlMutexPairsAdd(fdr_mutex, dst1, dst2);
+                if (pddlMutexPairsIsFwMutex(strips_mutex, f1, f2))
+                    pddlMutexPairsSetFwMutex(fdr_mutex, dst1, dst2);
+                if (pddlMutexPairsIsBwMutex(strips_mutex, f1, f2))
+                    pddlMutexPairsSetBwMutex(fdr_mutex, dst1, dst2);
+            }
+        }
+    }
+}
+
 static void printFDOp(const pddl_fdr_op_t *op,
                       const pddl_fdr_write_config_t *cfg,
                       FILE *fout)
@@ -1205,4 +1241,20 @@ void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)
 
     if (cfg->fout == NULL)
         fclose(fout);
+}
+
+void pddlFDRLogInfo(const pddl_fdr_t *fdr, pddl_err_t *err)
+{
+    PDDL_LOG(err, "Number of FDR Operators: %d", fdr->op.op_size);
+    PDDL_LOG(err, "Number of FDR Variables: %d", fdr->var.var_size);
+    PDDL_LOG(err, "Number of FDR Facts: %d", fdr->var.global_id_size);
+    PDDL_LOG(err, "Goal is unreachable: %d", fdr->goal_is_unreachable);
+    PDDL_LOG(err, "Has Conditional Effects: %d", fdr->has_cond_eff);
+    int count = 0;
+    for (int i = 0; i < fdr->op.op_size; ++i){
+        if (fdr->op.op[i]->cond_eff_size > 0)
+            ++count;
+    }
+    PDDL_LOG(err, "Number of FDR Operators"
+             " with Conditional Effects: %d", count);
 }

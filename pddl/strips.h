@@ -145,6 +145,24 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
                                    pddl_err_t *err);
 
 /**
+ * Disambiguate all preconditions.
+ * That is, preconditions of operators are extended by those facts that
+ * have to hold in states where the operator is applicable even though they
+ * are not explicitly mentioned in the precondition. The disambiguation is
+ * based on the given mutexes and exactly-one mutex groups.
+ * If non-NULL, {changed_ops} is filled with IDs of operators that were
+ * changed.
+ * If non-NULL, {redundant_ops} is filled with operators detected as
+ * unreachable/dead-end based on the given mutexes.
+ */
+int pddlStripsDisambiguatePres(pddl_strips_t *strips,
+                               const pddl_mutex_pairs_t *mutex,
+                               const pddl_mgroups_t *mgs,
+                               pddl_iset_t *changed_ops,
+                               pddl_iset_t *redundant_ops,
+                               pddl_err_t *err);
+
+/**
  * Use mutexes to find unreachable operators.
  */
 int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,

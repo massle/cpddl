@@ -27,6 +27,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct pddl_strips;
+struct pddl_fdr_vars;
 
 /**
  * A set of mutexes of size at most 1, i.e., inreachable facts and mutex
@@ -133,6 +134,14 @@ void pddlMutexPairsGetMutexWith(const pddl_mutex_pairs_t *m,
                                 pddl_iset_t *mutex_with);
 
 /**
+ * Add to {not_mutex_with} facts that are NOT mutex with {fact} (excluding
+ * {fact} itself).
+ */
+void pddlMutexPairsGetNotMutexWith(const pddl_mutex_pairs_t *m,
+                                   int fact,
+                                   pddl_iset_t *not_mutex_with);
+
+/**
  * Resize the struct and remap fact IDs according to remap.
  */
 void pddlMutexPairsRemapFacts(pddl_mutex_pairs_t *m,
@@ -156,6 +165,12 @@ void pddlMutexPairsAddMGroup(pddl_mutex_pairs_t *mutex,
 void pddlMutexPairsAddMGroups(pddl_mutex_pairs_t *mutex,
                               const pddl_mgroups_t *mgs);
 
+
+/**
+ * Add FDmutex pairs from all the given mutex groups.
+ */
+void pddlMutexPairsAddFDRVars(pddl_mutex_pairs_t *mutex,
+                              const struct pddl_fdr_vars *vars);
 
 /**
  * Infer mutex groups from the given set of mutex pairs.

@@ -23,6 +23,7 @@
 #include <pddl/fdr_state_space.h>
 #include <pddl/hpot.h>
 #include <pddl/op_mutex_pair.h>
+#include <pddl/set.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +35,8 @@ enum pddl_heur_type {
     PDDL_HEUR_BLIND = 1,
     PDDL_HEUR_DEAD_END,
     PDDL_HEUR_POT,
+    PDDL_HEUR_POT_CONJ,
+    PDDL_HEUR_POT_CONJ_EXACT,
     PDDL_HEUR_FLOW,
     PDDL_HEUR_LM_CUT,
     PDDL_HEUR_HMAX,
@@ -64,8 +67,14 @@ struct pddl_heur_config {
     const pddl_mutex_pairs_t *mutex;
     /** Type of the heuristic */
     pddl_heur_type_t heur;
-    /** Configuration for the PDDL_HEUR_POT heuristic */
+    /** Configuration for the PDDL_HEUR_POT* heuristics */
     pddl_hpot_config_t pot;
+    /** Additional file for PDDL_HEUR_POT_CONJ defining which conjunctions
+     *  to use. */
+    const char *pot_conj_file;
+    /** Additional file for PDDL_HEUR_POT_CONJ_EXACT defining which conjunctions
+     *  to use. */
+    const char *pot_conj_exact_file;
     /** Configuration for the PDDL_HEUR_OP_MUTEX heuristic */
     pddl_heur_op_mutex_config_t op_mutex;
 };
@@ -77,6 +86,8 @@ struct pddl_heur_config {
         NULL, /* .mutex */ \
         PDDL_HEUR_BLIND, /* .heur */ \
         PDDL_HPOT_CONFIG_INIT, /* .pot */ \
+        NULL, /* .pot_conj_file */ \
+        NULL, /* .pot_conj_exact_file */ \
         PDDL_HEUR_CONFIG_OP_MUTEX_INIT, /* .op_mutex */ \
     }
 
@@ -100,6 +111,20 @@ pddl_heur_t *pddlHeurDeadEnd(void);
  * Potential heuristic.
  */
 pddl_heur_t *pddlHeurPot(const pddl_hpot_config_t *cfg, pddl_err_t *err);
+
+/**
+ * Potential heuristic over conjunctions.
+ */
+pddl_heur_t *pddlHeurPotConj(const pddl_hpot_config_t *cfg,
+                             const pddl_set_iset_t *conjs,
+                             pddl_err_t *err);
+
+/**
+ * Potential heuristic over conjunctions -- P^C_exact compilation.
+ */
+pddl_heur_t *pddlHeurPotConjExact(const pddl_hpot_config_t *cfg,
+                                  const pddl_set_iset_t *conjs,
+                                  pddl_err_t *err);
 
 /**
  * Flow heuristic

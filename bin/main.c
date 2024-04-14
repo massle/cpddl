@@ -289,6 +289,87 @@ static int stepGround(void)
     return opt.strips.stop;
 }
 
+static int stepReportPotConjMaxInitHValue(void)
+{
+    if (opt.report.pot_conj_max_init_h_value == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Report Pot-Conj");
+    int base = pddlPotConjMaxInitHValueBase(&strips, &mutex, &mgroup, &err);
+    PDDL_LOG(&err, "Heuristic value for init without conjunctions: %d", base);
+
+    int ret = 0;
+    if (strcmp(opt.report.pot_conj_max_init_h_value, "one-pair") == 0){
+        ret = pddlPotConjMaxInitHValueOnePair(&strips, &mutex, &mgroup, &err);
+
+    }else if (strcmp(opt.report.pot_conj_max_init_h_value, "two-pair") == 0){
+        ret = pddlPotConjMaxInitHValueTwoPairs(&strips, &mutex, &mgroup, &err);
+
+    }else if (strcmp(opt.report.pot_conj_max_init_h_value, "one-triple") == 0){
+        ret = pddlPotConjMaxInitHValueOneTriple(&strips, &mutex, &mgroup, &err);
+
+    }else{
+        PDDL_CTXEND(&err);
+        PDDL_ERR_RET(&err, -1, "Unkown value '%s' for the option"
+                     " --report-pot-conj-max-init-h-value",
+                     opt.report.pot_conj_max_init_h_value);
+    }
+
+    if (ret >= 0){
+        PDDL_LOG(&err, "Maximum heuristic value for init with conjunctions:"
+                 " %d / base: %d", ret, base);
+    }
+
+    PDDL_CTXEND(&err);
+    return 1;
+}
+
+static int stepReportPotConjExactMaxInitHValue(void)
+{
+    if (opt.report.pot_conj_exact_max_init_h_value == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Report Pot-Conj");
+
+    pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t fdr_mutex;
+    pddlMGStripsInitFDR(&mg_strips, &fdr);
+    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+
+    int base = pddlPotConjExactMaxInitHValueBase(&fdr, &fdr_mutex, &err);
+    PDDL_LOG(&err, "Heuristic value for init without conjunctions: %d", base);
+
+    int ret = 0;
+    if (strcmp(opt.report.pot_conj_exact_max_init_h_value, "one-pair") == 0){
+        ret = pddlPotConjExactMaxInitHValueOnePair(&fdr, &fdr_mutex, &err);
+
+    }else if (strcmp(opt.report.pot_conj_exact_max_init_h_value, "two-pair") == 0){
+        ret = pddlPotConjExactMaxInitHValueTwoPairs(&fdr, &fdr_mutex, &err);
+
+    }else if (strcmp(opt.report.pot_conj_exact_max_init_h_value, "one-triple") == 0){
+        ret = pddlPotConjExactMaxInitHValueOneTriple(&fdr, &fdr_mutex, &err);
+
+    }else{
+        PDDL_CTXEND(&err);
+        PDDL_ERR_RET(&err, -1, "Unkown value '%s' for the option"
+                     " --report-pot-conj-exact-max-init-h-value",
+                     opt.report.pot_conj_exact_max_init_h_value);
+    }
+
+    if (ret >= 0){
+        PDDL_LOG(&err, "Maximum heuristic value for init with conjunctions:"
+                 " %d / base: %d", ret, base);
+    }
+
+    pddlMutexPairsFree(&fdr_mutex);
+    pddlMGStripsFree(&mg_strips);
+
+    PDDL_CTXEND(&err);
+    return 1;
+}
+
 static int stepReportMGroups(void)
 {
     if (opt.report.mgroups){
@@ -394,6 +475,138 @@ static int stepProcessStrips(void)
     if (ret != 0)
         PDDL_TRACE_RET(&err, -1);
     return ret;
+}
+
+static int stepPotConjFind(void)
+{
+    if (!opt.pot_conj_find.enable)
+        return 0;
+
+    if (opt.pot_conj_find.pot_cfg.cfg_size == 0){
+        PDDL_LOG(&err, "Pot-Conj-Find: Setting default potential heuristics"
+                 " to maximization for the initial state.");
+        pddl_hpot_config_opt_state_t c = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+        pddlHPotConfigAdd(&opt.pot_conj_find.pot_cfg, &c.cfg);
+    }
+
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    int st = pddlPotConjFind(&conjs, NULL, NULL, &strips, &mutex, &mgroup,
+                             &opt.pot_conj_find.cfg,
+                             &opt.pot_conj_find.pot_cfg, &err);
+    pddlSetISetFree(&conjs);
+
+    if (st != 0)
+        PDDL_TRACE_RET(&err, -1);
+    return 1;
+}
+
+static int stepPotConjExactFind(void)
+{
+    if (!opt.pot_conj_exact_find.enable)
+        return 0;
+
+    if (opt.pot_conj_exact_find.pot_cfg.cfg_size == 0){
+        PDDL_LOG(&err, "Pot-Conj-Find: Setting default potential heuristics"
+                 " to maximization for the initial state.");
+        pddl_hpot_config_opt_state_t c = PDDL_HPOT_CONFIG_OPT_STATE_INIT;
+        pddlHPotConfigAdd(&opt.pot_conj_exact_find.pot_cfg, &c.cfg);
+    }
+
+    pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t fdr_mutex;
+    pddlMGStripsInitFDR(&mg_strips, &fdr);
+    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    int st = pddlPotConjExactFind(&conjs, NULL, NULL, &fdr, &fdr_mutex,
+                                  &opt.pot_conj_exact_find.cfg,
+                                  &opt.pot_conj_exact_find.pot_cfg, &err);
+    pddlSetISetFree(&conjs);
+    pddlMutexPairsFree(&fdr_mutex);
+    pddlMGStripsFree(&mg_strips);
+
+    if (st != 0)
+        PDDL_TRACE_RET(&err, -1);
+    return 1;
+}
+
+static int stepExtendStripsWithConjunctions(void)
+{
+    if (opt.extend_strips_conj_file == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Extend-Strips-Conj");
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    if (pddlSetISetLoadFromFile(&conjs, &strips, NULL,
+                                opt.extend_strips_conj_file, &err) != 0){
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+    pddlSetISetGenAllSubsets(&conjs, 2);
+
+    // Set up the input conjunctions
+    pddl_strips_conj_config_t cfg_conj;
+    pddlStripsConjConfigInit(&cfg_conj);
+    cfg_conj.mutex = &mutex;
+    pddlStripsConjConfigAddConjs(&cfg_conj, &conjs);
+
+    // Construct P^C
+    pddl_strips_conj_t strips_conj;
+    pddlStripsConjInit(&strips_conj, &strips, &cfg_conj, &err);
+
+    // Replace global strips with the P^C task.
+    // Note that this preserves the fact IDs from the original strips.
+    pddlStripsFree(&strips);
+    pddlStripsInitCopy(&strips, &strips_conj.strips);
+
+    // Replace mutexes (mgroups can stay the same)
+    pddl_mutex_pairs_t conj_mutex;
+    pddlStripsConjMutexPairsInitCopy(&conj_mutex, &mutex, &strips_conj);
+    pddlMutexPairsFree(&mutex);
+    mutex = conj_mutex;
+
+    // Extend mutexes with h^2
+    PDDL_ISET(rm_facts);
+    PDDL_ISET(rm_ops);
+    pddl_mg_strips_t mg_strips;
+    pddlMGStripsInit(&mg_strips, &strips, &mgroup);
+    if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &mutex, &rm_facts,
+                   &rm_ops, -1., &err) != 0){
+        pddlMGStripsFree(&mg_strips);
+        pddlISetFree(&rm_facts);
+        pddlISetFree(&rm_ops);
+        pddlStripsConjFree(&strips_conj);
+        pddlStripsConjConfigFree(&cfg_conj);
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    // Prune redundant facts and operators if found any
+    if (pddlISetSize(&rm_facts) > 0 || pddlISetSize(&rm_ops) > 0)
+        pddlStripsReduce(&strips, &rm_facts, &rm_ops);
+    if (pddlISetSize(&rm_facts) > 0){
+        pddlMutexPairsReduce(&mutex, &rm_facts);
+        pddlMGroupsReduce(&mgroup, &rm_facts);
+    }
+
+    pddlMGStripsFree(&mg_strips);
+    pddlISetFree(&rm_facts);
+    pddlISetFree(&rm_ops);
+
+    pddlStripsConjFree(&strips_conj);
+    pddlStripsConjConfigFree(&cfg_conj);
+    pddlSetISetFree(&conjs);
+
+    pddlStripsLogInfo(&strips, &err);
+    PDDL_CTXEND(&err);
+    return 0;
 }
 
 static void reversibilityIterativeDepth(int *skip, int max_depth, FILE *fout)
@@ -515,19 +728,108 @@ static void printPotentials(const pddl_fdr_t *fdr,
     }
 }
 
+static int stepExtendFDRWithConjunctions(void)
+{
+    if (opt.extend_fdr_conj_file == NULL)
+        return 0;
+
+    PDDL_CTX(&err, "Extend-FDR-Conj");
+    pddl_set_iset_t conjs;
+    pddlSetISetInit(&conjs);
+    if (pddlSetISetLoadFromFile(&conjs, NULL, &fdr,
+                                opt.extend_fdr_conj_file, &err) != 0){
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+    pddlSetISetGenAllSubsets(&conjs, 2);
+
+    // Infer mutexes
+    pddl_mg_strips_t mg_strips;
+    pddl_mutex_pairs_t fdr_mutex;
+    pddlMGStripsInitFDR(&mg_strips, &fdr);
+    pddlMutexPairsInitStrips(&fdr_mutex, &mg_strips.strips);
+    pddlMutexPairsAddMGroups(&fdr_mutex, &mg_strips.mg);
+    pddlH2(&mg_strips.strips, &fdr_mutex, NULL, NULL, 0., &err);
+    pddlMGStripsFree(&mg_strips);
+
+    // Set up the input conjunctions
+    pddl_fdr_conj_exact_config_t cfg_conj;
+    pddlFDRConjExactConfigInit(&cfg_conj);
+    cfg_conj.mutex = &fdr_mutex;
+    pddlFDRConjExactConfigAddConjs(&cfg_conj, &conjs);
+
+    // Construct P^C_exact
+    pddl_fdr_conj_exact_t fdr_conj;
+    pddlFDRConjExactInit(&fdr_conj, &fdr, &cfg_conj, &err);
+
+    // Replace global fdr with the P^C_exact task.
+    // Note that this preserves the fact IDs from the original strips.
+    pddlFDRFree(&fdr);
+    pddlFDRInitCopy(&fdr, &fdr_conj.fdr);
+
+    // Replace mutexes (mgroups can stay the same)
+    pddl_mutex_pairs_t conj_mutex;
+    pddlFDRConjExactMutexPairsInitCopy(&conj_mutex, &fdr_mutex, &fdr_conj);
+    pddlMutexPairsFree(&fdr_mutex);
+    fdr_mutex = conj_mutex;
+
+    // Extend mutexes with h^2
+    PDDL_ISET(rm_facts);
+    PDDL_ISET(rm_ops);
+    pddlMGStripsInitFDR(&mg_strips, &fdr);
+    if (pddlH2FwBw(&mg_strips.strips, &mg_strips.mg, &fdr_mutex, &rm_facts,
+                   &rm_ops, -1., &err) != 0){
+        pddlMGStripsFree(&mg_strips);
+        pddlISetFree(&rm_facts);
+        pddlISetFree(&rm_ops);
+        pddlMutexPairsFree(&fdr_mutex);
+        pddlFDRConjExactFree(&fdr_conj);
+        pddlFDRConjExactConfigFree(&cfg_conj);
+        pddlSetISetFree(&conjs);
+        PDDL_CTXEND(&err);
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    // Prune redundant facts and operators if found any
+    if (pddlISetSize(&rm_facts) > 0 || pddlISetSize(&rm_ops) > 0)
+        pddlFDRReduce(&fdr, NULL, &rm_facts, &rm_ops);
+    if (pddlISetSize(&rm_facts) > 0){
+        pddlMutexPairsReduce(&fdr_mutex, &rm_facts);
+        pddlMGroupsReduce(&mgroup, &rm_facts);
+    }
+
+    pddlMGStripsFree(&mg_strips);
+    pddlISetFree(&rm_facts);
+    pddlISetFree(&rm_ops);
+
+    pddlMutexPairsFree(&fdr_mutex);
+    pddlFDRConjExactFree(&fdr_conj);
+    pddlFDRConjExactConfigFree(&cfg_conj);
+    pddlSetISetFree(&conjs);
+
+    pddlStripsLogInfo(&strips, &err);
+    PDDL_CTXEND(&err);
+
+    return 0;
+}
+
 static int stepFDR(void)
 {
     if (strips.goal_is_unreachable)
         makeStripsUnsolvable();
 
-    pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex,
-                          opt.fdr.var_flag, opt.fdr.flag, &err);
+    pddlFDRInitFromStrips(&fdr, &strips, &mgroup, &mutex, &opt.fdr.cfg, &err);
     fdr_set = 1;
 
     if (opt.fdr.order_vars_cg){
         pddlFDRReorderVarsCG(&fdr);
         PDDL_LOG(&err, "FDR variables reordered using causal graph.");
     }
+
+    if (stepExtendFDRWithConjunctions() != 0)
+        PDDL_TRACE_RET(&err, -1);
+
 
     if (opt.fdr.to_tnf || opt.fdr.to_tnf_multiply){
         PDDL_CTX(&err, "FDR-to-TNF");
@@ -590,7 +892,8 @@ static int stepFDR(void)
 
         if (pddlHPot(&pot, &opt.fdr.pot_cfg, &err) != 0){
             PDDL_ERR_RET(&err, -1, "Cannot find potential heuristic");
-            return -1;
+        }else if (pot.sol_size == 0){
+            PDDL_ERR_RET(&err, -1, "Could not find a single potential function");
         }
         APPEND_TO_FILE(&err, opt.fdr.out, "FDR Pot",
                        printPotentials(&fdr, &pot, fout));
@@ -646,15 +949,28 @@ static int stepGroundPlanner(void)
             heur_cfg.heur = PDDL_HEUR_POT;
             PDDL_LOG(&err, "Heuristic: pot");
             break;
+        case GROUND_PLAN_HEUR_POT_CONJ:
+            heur_cfg.heur = PDDL_HEUR_POT_CONJ;
+            heur_cfg.pot_conj_file = opt.ground_planner.pot_conj_file;
+            PDDL_LOG(&err, "Heuristic: pot-conj");
+            break;
+        case GROUND_PLAN_HEUR_POT_CONJ_EXACT:
+            heur_cfg.heur = PDDL_HEUR_POT_CONJ_EXACT;
+            heur_cfg.pot_conj_exact_file = opt.ground_planner.pot_conj_exact_file;
+            PDDL_LOG(&err, "Heuristic: pot-conj-exact");
+            break;
         case GROUND_PLAN_HEUR_BLIND:
         default:
             heur_cfg.heur = PDDL_HEUR_BLIND;
             PDDL_LOG(&err, "Heuristic: blind");
     }
 
-    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT){
+    pddl_bool_t is_pot = opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
+                            || opt.ground_planner.heur == GROUND_PLAN_HEUR_POT_CONJ
+                            || opt.ground_planner.heur == GROUND_PLAN_HEUR_POT_CONJ_EXACT;
+
+    if (is_pot)
         pddlHPotConfigInitCopy(&heur_cfg.pot, &opt.ground_planner.pot_cfg);
-    }
 
     pddl_mg_strips_t mg_strips;
     pddl_mutex_pairs_t mutex;
@@ -662,19 +978,17 @@ static int stepGroundPlanner(void)
     int need_mutex = 0;
     int need_mg_strips = 0;
 
+    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT_CONJ_EXACT)
+        need_mutex = 1;
+
     if (opt.ground_planner.heur_op_mutex)
         need_mutex = need_mg_strips = 1;
 
-    if (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
-            && pddlHPotConfigNeedMutex(&heur_cfg.pot)){
+    if (is_pot && pddlHPotConfigNeedMutex(&heur_cfg.pot))
         need_mutex = 1;
-    }
 
-    if (need_mutex
-            || (opt.ground_planner.heur == GROUND_PLAN_HEUR_POT
-                    && pddlHPotConfigNeedMGStrips(&heur_cfg.pot))){
+    if (need_mutex || (is_pot && pddlHPotConfigNeedMGStrips(&heur_cfg.pot)))
         need_mg_strips = 1;
-    }
 
     if (need_mg_strips){
         pddlMGStripsInitFDR(&mg_strips, &fdr);
@@ -968,9 +1282,14 @@ int main(int argc, char *argv[])
             || (ret = stepGroundMGroups()) != 0
             || (ret = stepInferMGroups()) != 0
             || (ret = stepProcessStrips()) != 0
+            || (ret = stepPotConjFind()) != 0
+            || (ret = stepExtendStripsWithConjunctions()) != 0
+            || (ret = stepReportPotConjMaxInitHValue()) != 0
             || (ret = stepReportReversibility()) != 0
             || (ret = stepRedBlackFDR()) != 0
             || (ret = stepFDR()) != 0
+            || (ret = stepReportPotConjExactMaxInitHValue()) != 0
+            || (ret = stepPotConjExactFind()) != 0
             || (ret = stepGroundPlanner()) != 0
             || (ret = stepSymba()) != 0){
         if (ret < 0){

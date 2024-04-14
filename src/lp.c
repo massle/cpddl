@@ -66,7 +66,7 @@ static const char * const getSolverVersion(pddl_lp_solver_t solver)
 {
     const char * const ver = _getSolverVersion(solver);
     if (ver == NULL)
-        return "missing-solver";
+        return "";
     return ver;
 }
 
@@ -353,6 +353,7 @@ pddl_lp_status_t pddlLPSolve(const pddl_lp_t *lp,
                              pddl_lp_solution_t *sol,
                              pddl_err_t *err)
 {
+    _pddlLPSolutionInit(sol, lp);
     switch (lp->cfg.solver){
         case PDDL_LP_CPLEX:
             return pddlLPSolveCPLEX(lp, sol, err);
@@ -362,7 +363,12 @@ pddl_lp_status_t pddlLPSolve(const pddl_lp_t *lp,
             return pddlLPSolveHiGHS(lp, sol, err);
         case PDDL_LP_COIN_OR:
             return pddlLPSolveCoinOr(lp, sol, err);
+        case PDDL_LP_NO_SOLVER:
+            sol->error = pddl_true;
+            ERR_RET(err, PDDL_LP_STATUS_ERR, "Missing an MIP/LP solver."
+                    " Recompile with a support of one of the supported solvers.");
         default:
+            sol->error = pddl_true;
             ERR_RET(err, PDDL_LP_STATUS_ERR, "Unknown solver %d", lp->cfg.solver);
     }
 }

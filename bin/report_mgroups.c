@@ -21,11 +21,12 @@ static void fdrVars(const pddl_strips_t *strips,
     pddlMutexPairsInitStrips(&mutex, strips);
     pddlMutexPairsAddMGroups(&mutex, mgroups);
 
-    unsigned flags = PDDL_FDR_VARS_LARGEST_FIRST;
-    flags |= PDDL_FDR_VARS_NO_NEGATED_FACTS;
+    pddl_fdr_vars_config_t cfg = PDDL_FDR_VARS_CONFIG_INIT;
+    cfg.alg = PDDL_FDR_VARS_ALG_LARGEST_FIRST;
+    cfg.ignore_negated_facts = pddl_true;
     PDDL_LOG(err, "Creating FDR variables...");
     pddl_fdr_vars_t vars;
-    pddlFDRVarsInitFromStrips(&vars, strips, mgroups, &mutex, flags);
+    pddlFDRVarsInitFromStrips(&vars, strips, mgroups, &mutex, &cfg);
     PDDL_LOG(err, "Created FDR variables: %d", vars.var_size);
     //pddlFDRVarsPrintDebug(&vars, stderr);
     pddlFDRVarsFree(&vars);

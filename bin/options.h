@@ -48,6 +48,8 @@ enum {
     GROUND_PLAN_HEUR_FF,
     GROUND_PLAN_HEUR_FLOW,
     GROUND_PLAN_HEUR_POT,
+    GROUND_PLAN_HEUR_POT_CONJ,
+    GROUND_PLAN_HEUR_POT_CONJ_EXACT,
 };
 
 enum {
@@ -149,13 +151,26 @@ struct options {
 
     struct {
         pddl_bool_t enable;
+        pddl_pot_conj_find_config_t cfg;
+        pddl_hpot_config_t pot_cfg;
+    } pot_conj_find;
+
+    struct {
+        pddl_bool_t enable;
+        pddl_pot_conj_exact_find_config_t cfg;
+        pddl_hpot_config_t pot_cfg;
+    } pot_conj_exact_find;
+
+    char *extend_strips_conj_file;
+
+    struct {
+        pddl_bool_t enable;
         pddl_red_black_fdr_config_t cfg;
         char *out;
     } rb_fdr;
 
     struct {
-        unsigned flag;
-        unsigned var_flag;
+        pddl_fdr_config_t cfg;
         pddl_bool_t order_vars_cg;
         char *out;
         pddl_bool_t pretty_print_vars;
@@ -166,6 +181,8 @@ struct options {
         pddl_bool_t to_tnf_multiply;
     } fdr;
 
+    char *extend_fdr_conj_file;
+
     struct {
         int search;
         int heur;
@@ -175,6 +192,8 @@ struct options {
         int heur_op_mutex_hm_op;
         char *plan_out;
         pddl_hpot_config_t pot_cfg;
+        char *pot_conj_file;
+        char *pot_conj_exact_file;
     } ground_planner;
 
     struct {
@@ -189,6 +208,8 @@ struct options {
         pddl_bool_t reversibility_simple;
         pddl_bool_t reversibility_iterative;
         pddl_bool_t mgroups;
+        char *pot_conj_max_init_h_value;
+        char *pot_conj_exact_max_init_h_value;
     } report;
 
     struct {

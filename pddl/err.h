@@ -80,6 +80,7 @@ struct pddl_err {
     int ctx_size;
 
     FILE *log_out;
+    FILE *log_out_pause;
     int log_print_resources_disabled;
     pddl_timer_t log_timer;
     int log_timer_init;
@@ -109,6 +110,16 @@ void pddlErrPrint(const pddl_err_t *err, int with_traceback, FILE *fout);
  * Enable/disable info messages.
  */
 void pddlErrLogEnable(pddl_err_t *err, FILE *fout);
+
+/**
+ * Temporarily disable logging.
+ */
+void pddlErrLogPause(pddl_err_t *err);
+
+/**
+ * Continue logging after it was previously paused by pddlErrLogPause()
+ */
+void pddlErrLogContinue(pddl_err_t *err);
 
 /**
  * Disable printing resources with PDDL_LOG

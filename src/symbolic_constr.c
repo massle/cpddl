@@ -279,28 +279,39 @@ void pddlSymbolicConstrInit(pddl_symbolic_constr_t *constr,
 
 void pddlSymbolicConstrFree(pddl_symbolic_constr_t *constr)
 {
-    for (int i = 0; i < constr->vars->group_size; ++i){
-        pddlBDDDel(constr->vars->mgr, constr->group_mutex[i]);
-        pddlBDDDel(constr->vars->mgr, constr->group_mgroup[i]);
+    if (constr->vars != NULL){
+        for (int i = 0; i < constr->vars->group_size; ++i){
+            pddlBDDDel(constr->vars->mgr, constr->group_mutex[i]);
+            pddlBDDDel(constr->vars->mgr, constr->group_mgroup[i]);
+        }
     }
-    FREE(constr->group_mutex);
-    FREE(constr->group_mgroup);
+    if (constr->group_mutex != NULL)
+        FREE(constr->group_mutex);
+    if (constr->group_mgroup != NULL)
+        FREE(constr->group_mgroup);
 
     pddlMGroupsFree(&constr->mgroup);
 
-    for (int i = 0; i < constr->vars->fact_size; ++i){
-        pddlISetFree(constr->fact_mutex + i);
-        pddlISetFree(constr->fact_mutex_fw + i);
-        pddlISetFree(constr->fact_mutex_bw + i);
+    if (constr->vars != NULL){
+        for (int i = 0; i < constr->vars->fact_size; ++i){
+            pddlISetFree(constr->fact_mutex + i);
+            pddlISetFree(constr->fact_mutex_fw + i);
+            pddlISetFree(constr->fact_mutex_bw + i);
+        }
     }
-    FREE(constr->fact_mutex);
-    FREE(constr->fact_mutex_fw);
-    FREE(constr->fact_mutex_bw);
+    if (constr->fact_mutex != NULL)
+        FREE(constr->fact_mutex);
+    if (constr->fact_mutex_fw != NULL)
+        FREE(constr->fact_mutex_fw);
+    if (constr->fact_mutex_bw != NULL)
+        FREE(constr->fact_mutex_bw);
 
-    pddlBDDsFree(constr->vars->mgr, &constr->fw_mutex);
-    pddlBDDsFree(constr->vars->mgr, &constr->fw_mgroup);
-    pddlBDDsFree(constr->vars->mgr, &constr->bw_mutex);
-    pddlBDDsFree(constr->vars->mgr, &constr->bw_mgroup);
+    if (constr->vars != NULL){
+        pddlBDDsFree(constr->vars->mgr, &constr->fw_mutex);
+        pddlBDDsFree(constr->vars->mgr, &constr->fw_mgroup);
+        pddlBDDsFree(constr->vars->mgr, &constr->bw_mutex);
+        pddlBDDsFree(constr->vars->mgr, &constr->bw_mgroup);
+    }
 
     pddlDisambiguateFree(&constr->disambiguate);
 }

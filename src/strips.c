@@ -800,6 +800,35 @@ int pddlStripsRemoveUselessDelEffs(pddl_strips_t *strips,
     return ret;
 }
 
+int pddlStripsDisambiguatePres(pddl_strips_t *strips,
+                               const pddl_mutex_pairs_t *mutex,
+                               const pddl_mgroups_t *mgs,
+                               pddl_iset_t *changed_ops,
+                               pddl_iset_t *redundant_ops,
+                               pddl_err_t *err)
+{
+    CTX(err, "Disamb-Pres");
+    pddl_disambiguate_t dis;
+    pddlDisambiguateInit(&dis, strips->fact.fact_size, mutex, mgs);
+    int num_changed = 0;
+    for (int op_id = 0; op_id < strips->op.op_size; ++op_id){
+        pddl_strips_op_t *op = strips->op.op[op_id];
+        int st = pddlDisambiguate(&dis, &op->pre, NULL, 0, 0, NULL, &op->pre);
+        if (st > 0){
+            if (changed_ops != NULL)
+                pddlISetAdd(changed_ops, op_id);
+            ++num_changed;
+        }
+        if (st < 0 && redundant_ops != NULL)
+            pddlISetAdd(redundant_ops, op_id);
+    }
+    LOG(err, "Number of changed operators: %d / %d",
+        num_changed, strips->op.op_size);
+    pddlDisambiguateFree(&dis);
+    CTXEND(err);
+    return 0;
+}
+
 int pddlStripsFindUnreachableOps(const pddl_strips_t *strips,
                                  const pddl_mutex_pairs_t *mutex,
                                  pddl_iset_t *unreachable_ops,

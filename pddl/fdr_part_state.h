@@ -81,6 +81,13 @@ pddl_bool_t pddlFDRPartStateIsConsistentWithState(const pddl_fdr_part_state_t *p
                                                   const int *state);
 
 /**
+ * Returns true if ps1 is consistent with ps2, i.e., if for every variable
+ * defined in ps1, ps2 has the same value.
+ */
+pddl_bool_t pddlFDRPartStateIsConsistentWithPartState(const pddl_fdr_part_state_t *ps1,
+                                                      const pddl_fdr_part_state_t *ps2);
+
+/**
  * Returns the number of fact from {ps} appearing in {state}.
  */
 int pddlFDRPartStateStateIntersectionSize(const pddl_fdr_part_state_t *ps,

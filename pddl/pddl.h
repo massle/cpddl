@@ -77,11 +77,14 @@
 #include <pddl/fdr_state_packer.h>
 #include <pddl/fdr_state_space.h>
 #include <pddl/fdr_state_pool.h>
+#include <pddl/fdr_conj_exact.h>
 #include <pddl/sym.h>
 #include <pddl/pot.h>
 #include <pddl/lm_cut.h>
 #include <pddl/mg_strips.h>
 #include <pddl/hpot.h>
+#include <pddl/pot_conj.h>
+#include <pddl/pot_conj_exact.h>
 #include <pddl/hflow.h>
 #include <pddl/hadd.h>
 #include <pddl/hmax.h>

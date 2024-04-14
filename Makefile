@@ -83,11 +83,14 @@ SRC += fdr_state_packer
 SRC += fdr_state_pool
 SRC += fdr_state_space
 SRC += fdr_state_sampler
+SRC += fdr_conj_exact
 SRC += strips_state_space
 SRC += famgroup
 SRC += pot
 SRC += lm_cut
 SRC += hpot
+SRC += pot_conj
+SRC += pot_conj_exact
 SRC += hflow
 SRC += hmax
 SRC += hadd
@@ -460,6 +463,7 @@ cudd-clean:
 	rm -f third-party/cudd/cudd.h
 third-party/cudd/libcudd.a:
 	cd third-party/cudd && aclocal
+	cd third-party/cudd && autoheader
 	cd third-party/cudd && autoconf
 	cd third-party/cudd && automake
 	cd third-party/cudd && ./configure --disable-shared CC=$(CC) CXX=$(CXX) AR=$(AR) RANLIB=$(RANLIB)

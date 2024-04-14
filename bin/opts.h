@@ -6,6 +6,7 @@
 typedef void (*opts_params_flag_fn)(pddl_bool_t value, void *dst);
 typedef void (*opts_params_int_fn)(int value, void *dst);
 typedef void (*opts_params_flt_fn)(float value, void *dst);
+typedef void (*opts_params_dbl_fn)(double value, void *dst);
 
 struct opts_param {
     char *name;
@@ -13,11 +14,13 @@ struct opts_param {
     opts_params_flag_fn flag_fn;
     opts_params_int_fn int_fn;
     opts_params_flt_fn flt_fn;
+    opts_params_dbl_fn dbl_fn;
     int switch_size;
     char **switch_tag;
     int *switch_ival;
     int is_int;
     int is_flt;
+    int is_dbl;
     int is_flag;
     int is_int_switch;
     int is_str;
@@ -112,12 +115,15 @@ void optsParamsInit(opts_params_t *params);
 void optsParamsFree(opts_params_t *params);
 void optsParamsAddInt(opts_params_t *params, const char *name, int *dst);
 void optsParamsAddFlt(opts_params_t *params, const char *name, float *dst);
+void optsParamsAddDbl(opts_params_t *params, const char *name, double *dst);
 void optsParamsAddFlag(opts_params_t *params, const char *name, pddl_bool_t *dst);
 void optsParamsAddStr(opts_params_t *params, const char *name, char **dst);
 void optsParamsAddIntFn(opts_params_t *params, const char *name, void *dst,
                         opts_params_int_fn fn);
 void optsParamsAddFltFn(opts_params_t *params, const char *name, void *dst,
                         opts_params_flt_fn fn);
+void optsParamsAddDblFn(opts_params_t *params, const char *name, void *dst,
+                        opts_params_dbl_fn fn);
 void optsParamsAddFlagFn(opts_params_t *params, const char *name, void *dst,
                          opts_params_flag_fn fn);
 void optsParamsAddIntSwitch(opts_params_t *params,

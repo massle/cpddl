@@ -20,8 +20,23 @@
 #include "pddl/sort.h"
 #include "pddl/outbox.h"
 #include "pddl/fdr_var.h"
+#include "pddl/fdr_part_state.h"
 
-#define PDDL_FDR_VARS_METHOD_MASK 0xfu
+void pddlFDRVarsConfigLog(const pddl_fdr_vars_config_t *cfg, pddl_err_t *err)
+{
+    switch (cfg->alg){
+        case PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST:
+            LOG(err, "alg = essential-first");
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST:
+            LOG(err, "alg = largest-first");
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST_MULTI:
+            LOG(err, "alg = largest-first-multi");
+            break;
+    }
+    LOG_CONFIG_BOOL(cfg, ignore_negated_facts, err);
+}
 
 struct vars_mgroup {
     pddl_iset_t uncovered; /*!< The set of uncovered facts from the mgroup */
@@ -368,7 +383,7 @@ static void allocateLargestMulti(vars_t *vars,
 static void allocateUncoveredSingleFacts(vars_t *vars,
                                          const pddl_strips_t *strips,
                                          const pddl_mutex_pairs_t *mutex,
-                                         unsigned flags)
+                                         const pddl_fdr_vars_config_t *cfg)
 {
     PDDL_ISET(var_facts);
 
@@ -385,7 +400,7 @@ static void allocateUncoveredSingleFacts(vars_t *vars,
         pddlISetAdd(&var_facts, fact_id);
         covered[fact_id] = 1;
 
-        if (!(flags & PDDL_FDR_VARS_NO_NEGATED_FACTS)){
+        if (!cfg->ignore_negated_facts){
             int neg_of = strips->fact.fact[fact_id]->neg_of;
             if (neg_of >= 0 && !covered[neg_of]){
                 pddlISetAdd(&var_facts, neg_of);
@@ -404,7 +419,7 @@ static int allocateVars(vars_t *vars,
                         const pddl_strips_t *strips,
                         const pddl_mgroups_t *mg,
                         const pddl_mutex_pairs_t *mutex,
-                        unsigned flags)
+                        const pddl_fdr_vars_config_t *cfg)
 {
     PDDL_ISET(var_facts);
     PDDL_ISET(binary_facts);
@@ -419,18 +434,19 @@ static int allocateVars(vars_t *vars,
         varsAdd(vars, strips, mutex, &var_facts);
     }
 
-    unsigned method = flags & PDDL_FDR_VARS_METHOD_MASK;
-    if (method == PDDL_FDR_VARS_ESSENTIAL_FIRST){
-        allocateEssential(vars, strips, mg, mutex);
-    }else if (method == PDDL_FDR_VARS_LARGEST_FIRST){
-        allocateLargest(vars, strips, mg, mutex);
-    }else if (method == PDDL_FDR_VARS_LARGEST_FIRST_MULTI){
-        allocateLargestMulti(vars, strips, mg, mutex);
-    }else{
-        PANIC("Unspecified method for variable allocation.");
+    switch (cfg->alg){
+        case PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST:
+            allocateEssential(vars, strips, mg, mutex);
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST:
+            allocateLargest(vars, strips, mg, mutex);
+            break;
+        case PDDL_FDR_VARS_ALG_LARGEST_FIRST_MULTI:
+            allocateLargestMulti(vars, strips, mg, mutex);
+            break;
     }
 
-    allocateUncoveredSingleFacts(vars, strips, mutex, flags);
+    allocateUncoveredSingleFacts(vars, strips, mutex, cfg);
 
     pddlISetFree(&var_facts);
     pddlISetFree(&binary_facts);
@@ -485,6 +501,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
             if (strips->fact.fact[fact]->name != NULL)
                 val->name = STRDUP(strips->fact.fact[fact]->name);
             val->strips_id = fact;
+            val->is_conjunction = strips->fact.fact[fact]->is_conjunction;
             pddlISetAdd(&fdr_vars->strips_id_to_val[fact], val->global_id);
         }
 
@@ -495,6 +512,7 @@ static void createVars(pddl_fdr_vars_t *fdr_vars,
             pddl_fdr_val_t *val = var->val + var->val_none_of_those;
             val->name = STRDUP("none-of-those");
             val->strips_id = -1;
+            val->is_conjunction = pddl_false;
         }
     }
 }
@@ -503,13 +521,13 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
                               const pddl_strips_t *strips,
                               const pddl_mgroups_t *mg,
                               const pddl_mutex_pairs_t *_mutex,
-                              unsigned flags)
+                              const pddl_fdr_vars_config_t *cfg)
 {
     vars_t vars;
     pddl_mutex_pairs_t mutex;
 
     pddlMutexPairsInitCopy(&mutex, _mutex);
-    if (!(flags & PDDL_FDR_VARS_NO_NEGATED_FACTS)){
+    if (!cfg->ignore_negated_facts){
         for (int fact_id = 0; fact_id < strips->fact.fact_size; ++fact_id){
             const pddl_fact_t *fact = strips->fact.fact[fact_id];
             if (fact->neg_of > fact_id)
@@ -518,9 +536,10 @@ int pddlFDRVarsInitFromStrips(pddl_fdr_vars_t *fdr_vars,
     }
 
     ZEROIZE(fdr_vars);
+    fdr_vars->cfg = *cfg;
 
     varsInit(&vars, mg);
-    if (allocateVars(&vars, strips, mg, &mutex, flags) != 0){
+    if (allocateVars(&vars, strips, mg, &mutex, cfg) != 0){
         varsFree(&vars);
         pddlMutexPairsFree(&mutex);
         return -1;
@@ -556,6 +575,7 @@ static void pddlFDRValCopy(pddl_fdr_val_t *dst, const pddl_fdr_val_t *src)
     dst->val_id = src->val_id;
     dst->global_id = src->global_id;
     dst->strips_id = src->strips_id;
+    dst->is_conjunction = src->is_conjunction;
 }
 
 static void pddlFDRVarCopy(pddl_fdr_var_t *dst, const pddl_fdr_var_t *src)
@@ -602,6 +622,8 @@ void pddlFDRVarsRemapFree(pddl_fdr_vars_remap_t *remap)
         FREE(remap->remap[v]);
     if (remap->remap != NULL)
         FREE(remap->remap);
+    if (remap->remap_global_id != NULL)
+        FREE(remap->remap_global_id);
 }
 
 void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
@@ -614,6 +636,13 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
     for (int v = 0; v < remap->var_size; ++v){
         remap->remap[v] = CALLOC_ARR(const pddl_fdr_val_t *,
                                      vars->var[v].val_size);
+    }
+
+    int old_global_id_size = vars->global_id_size;
+    pddl_fdr_fact_t *id_to_fact = ALLOC_ARR(pddl_fdr_fact_t, vars->global_id_size);
+    for (int id = 0; id < vars->global_id_size; ++id){
+        id_to_fact[id].var = vars->global_id_to_val[id]->var_id;
+        id_to_fact[id].val = vars->global_id_to_val[id]->val_id;
     }
 
     pddl_fdr_val_t delval;
@@ -670,6 +699,19 @@ void pddlFDRVarsDelFacts(pddl_fdr_vars_t *vars,
 
     vars->var_size = var_ins;
     vars->global_id_size = global_id;
+
+    remap->remap_global_id = ALLOC_ARR(int, old_global_id_size);
+    for (int id = 0; id < old_global_id_size; ++id){
+        int var = id_to_fact[id].var;
+        int val = id_to_fact[id].val;
+        if (remap->remap[var][val] == NULL){
+            remap->remap_global_id[id] = -1;
+        }else{
+            remap->remap_global_id[id] = remap->remap[var][val]->global_id;
+        }
+    }
+
+    FREE(id_to_fact);
 }
 
 pddl_fdr_val_t *pddlFDRVarsAddVal(pddl_fdr_vars_t *vars,
@@ -714,6 +756,38 @@ void pddlFDRVarsRemap(pddl_fdr_vars_t *vars, const int *remap)
             var->val[val_id].var_id = remap[var_id];
     }
     FREE(var_tmp);
+}
+
+pddl_fdr_var_t *pddlFDRVarsAdd(pddl_fdr_vars_t *vars, int val_size)
+{
+    ASSERT(val_size >= 2);
+    int var_id = vars->var_size;
+    ++vars->var_size;
+    vars->var = REALLOC_ARR(vars->var, pddl_fdr_var_t, vars->var_size);
+    pddl_fdr_var_t *var = vars->var + var_id;
+    ZEROIZE(var);
+    var->var_id = var_id;
+    var->val_size = val_size;
+    var->val = CALLOC_ARR(pddl_fdr_val_t, val_size);
+    var->val_none_of_those = -1;
+    var->is_black = pddl_false;
+
+    int id_start = vars->global_id_size;
+    vars->global_id_to_val = REALLOC_ARR(vars->global_id_to_val,
+                                         pddl_fdr_val_t *,
+                                         vars->global_id_size + val_size);
+    vars->global_id_size += val_size;
+    for (int vi = 0; vi < val_size; ++vi){
+        vars->global_id_to_val[id_start + vi] = var->val + vi;
+        var->val[vi].name = NULL;
+        var->val[vi].var_id = var_id;
+        var->val[vi].val_id = vi;
+        var->val[vi].global_id = id_start + vi;
+        var->val[vi].strips_id = -1;
+        var->val[vi].is_conjunction = pddl_false;
+    }
+
+    return var;
 }
 
 void pddlFDRVarsPrintDebug(const pddl_fdr_vars_t *vars, FILE *fout)

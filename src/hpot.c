@@ -16,6 +16,14 @@
 static const uint32_t rand_diverse_seed = 131071;
 static const uint32_t rand_seed = 131071;
 
+enum status {
+    ST_SOLVED = 0,
+    ST_NOT_SOLVED = 1,
+    ST_ERR = -1,
+    ST_TIMEOUT = -2,
+};
+typedef enum status status_t;
+
 struct state_sampler {
     pddl_fdr_state_sampler_t state_sampler_random_walk;
     int state_sampler_random_walk_set;
@@ -298,7 +306,7 @@ void pddlHPotConfigLog(const pddl_hpot_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, weak_disambiguation, err);
     LOG_CONFIG_BOOL(cfg, op_pot, err);
     LOG_CONFIG_BOOL(cfg, op_pot_real, err);
-    LOG_CONFIG_DBL(cfg, time_limit, err);
+    LOG_CONFIG_DBL(cfg, lp_time_limit, err);
     for (int idx = 0; idx < cfg->cfg_size; ++idx){
         CTX_NO_TIME(err, "Opt[%d]", idx);
         hpotConfigLog(cfg->cfg[idx], err);
@@ -458,14 +466,20 @@ static double heurForState(pddl_pot_t *pot,
     pddlPotSolutionInit(&sol);
     int ret = pddlPotSolve(pot, &sol, err);
     if (ret != 0){
-        LOG(err, "No optimal solution for the initial state");
+        ASSERT(!sol.found);
+        LOG(err, "No solution for the initial state."
+            " suboptimal: %s, timed-out: %s",
+            F_BOOL(sol.suboptimal), F_BOOL(sol.timed_out));
         return -1.;
     }
 
     double h = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr_state);
     LOG(err, "Solved for the initial state: sum: %.4f (%a),"
-              " objval: %.4f (%a)", h, h, sol.objval, sol.objval);
+              " objval: %.4f (%a), suboptimal: %s",
+              h, h, sol.objval, sol.objval, F_BOOL(sol.suboptimal));
     h = sol.objval;
+    if (h < 0.)
+        h = 0.;
     pddlPotSolutionFree(&sol);
     return h;
 }
@@ -493,6 +507,9 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
         if (ss->state_sampler_random_walk_set)
             return &ss->state_sampler_random_walk;
         double hinit_flt = heurForState(pot, fdr, fdr->init, err);
+        if (hinit_flt < 0.)
+            ERR_RET(err, NULL, "Could not create a sampler.");
+
         int hinit = pddlPotSolutionRoundHValue(hinit_flt);
         int max_steps = pddlFDRStateSamplerComputeMaxStepsFromHeurInit(fdr, hinit);
         pddlFDRStateSamplerInitRandomWalk(&ss->state_sampler_random_walk,
@@ -518,18 +535,18 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
     return NULL;
 }
 
-static void setStateConstr(pddl_pot_t *pot,
-                           const pddl_fdr_t *fdr,
-                           int add_init_state,
-                           const int *add_fdr_state,
-                           double add_state_coef,
-                           pddl_err_t *err)
+static status_t setStateConstr(pddl_pot_t *pot,
+                               const pddl_fdr_t *fdr,
+                               int add_init_state,
+                               const int *add_fdr_state,
+                               double add_state_coef,
+                               pddl_err_t *err)
 {
     PANIC_IF(add_state_coef < 0. || (add_init_state && add_fdr_state != NULL),
              "Invalid hpot configuration");
     pddlPotResetLowerBoundConstr(pot);
     if (!add_init_state && add_fdr_state == NULL)
-        return;
+        return ST_SOLVED;
 
     const int *add_state = NULL;
     if (add_init_state){
@@ -541,6 +558,8 @@ static void setStateConstr(pddl_pot_t *pot,
     if (add_state_coef <= 0.)
         add_state_coef = 1.;
     double h_value = heurForState(pot, fdr, add_state, err);
+    if (h_value < 0.)
+        return ST_NOT_SOLVED;
     double rhs = h_value * add_state_coef;
 
     PDDL_ISET(vars);
@@ -553,44 +572,70 @@ static void setStateConstr(pddl_pot_t *pot,
     LOG(err, "added lower bound constraint with rhs: %.4f (%a)",
               rhs, rhs);
     pddlISetFree(&vars);
+    return ST_SOLVED;
 }
 
-static int solveAndAdd(pddl_pot_solutions_t *sols,
-                       pddl_pot_t *pot,
-                       const pddl_hpot_config_t *cfg,
-                       pddl_err_t *err)
+static status_t solveAndAdd(pddl_pot_solutions_t *sols,
+                            pddl_pot_t *pot,
+                            const pddl_hpot_config_t *cfg,
+                            pddl_err_t *err)
 {
+    status_t ret = ST_SOLVED;
     pddl_pot_solution_t sol;
     pddlPotSolutionInit(&sol);
-    int ret = pddlPotSolve(pot, &sol, err);
-    if (ret == 0){
-        LOG(err, "Have a solution. objval: %.4f", sol.objval);
+    int st = pddlPotSolve(pot, &sol, err);
+    if (st == 0){
+        LOG(err, "Have a solution. objval: %.4f, suboptimal: %s",
+            sol.objval, F_BOOL(sol.suboptimal));
         pddlPotSolutionsAdd(sols, &sol);
+        ret = ST_SOLVED;
+
+    }else if (sol.timed_out){
+        LOG(err, "Solution not found. timed-out: %s", F_BOOL(sol.timed_out));
+        ret = ST_TIMEOUT;
+
+    }else if (sol.error){
+        LOG(err, "Error occurred while searching for a solution.");
+        TRACE(err);
+        ret = ST_ERR;
+
     }else{
         LOG(err, "Solution not found.");
+        ret = ST_NOT_SOLVED;
     }
     pddlPotSolutionFree(&sol);
     return ret;
 }
 
-static int solveAndAddWithStateConstr(pddl_pot_solutions_t *sols,
-                                      pddl_pot_t *pot,
-                                      const pddl_hpot_config_t *cfg,
-                                      const int *add_fdr_state,
-                                      pddl_err_t *err)
+static status_t solveAndAddWithStateConstr(pddl_pot_solutions_t *sols,
+                                           pddl_pot_t *pot,
+                                           const pddl_hpot_config_t *cfg,
+                                           const int *add_fdr_state,
+                                           pddl_err_t *err)
 {
     if (add_fdr_state == NULL)
         return solveAndAdd(sols, pot, cfg, err);
 
-    int ret = solveAndAdd(sols, pot, cfg, err);
-    for (int i = 0; i < INIT_STATE_RHS_DECREASE_MAX_STEPS && ret != 0; ++i){
+    int st = solveAndAdd(sols, pot, cfg, err);
+    if (st == ST_TIMEOUT){
+        return st;
+    }else if (st == ST_ERR){
+        TRACE_RET(err, st);
+    }
+
+    for (int i = 0; i < INIT_STATE_RHS_DECREASE_MAX_STEPS && st != ST_SOLVED; ++i){
         pddlPotDecreaseLowerBoundConstrRHS(pot, INIT_STATE_RHS_DECREASE_STEP);
         double rhs = pddlPotSetLowerBoundConstrRHS(pot);
         LOG(err, "Solution not found. Setting lower bound constraint to "
                   "%.4f (%a)", rhs, rhs);
-        ret = solveAndAdd(sols, pot, cfg, err);
+        st = solveAndAdd(sols, pot, cfg, err);
+        if (st == ST_TIMEOUT){
+            return st;
+        }else if (st == ST_ERR){
+            TRACE_RET(err, st);
+        }
     }
-    return ret;
+    return st;
 }
 
 static int initPot(pddl_pot_t *pot,
@@ -660,28 +705,29 @@ static int initPot(pddl_pot_t *pot,
     if (cfg->op_pot)
         pddlPotEnableOpPot(pot, 1, cfg->op_pot_real);
 
+    if (cfg->lp_time_limit > 0.)
+        pddlPotSetLPTimeLimit(pot, cfg->lp_time_limit);
+
     return 0;
 }
 
-static int _hpotOptState(pddl_pot_solutions_t *sols,
-                         pddl_pot_t *pot,
-                         const pddl_hpot_config_t *cfg,
-                         const int *fdr_state,
-                         pddl_err_t *err)
+static status_t _hpotOptState(pddl_pot_solutions_t *sols,
+                              pddl_pot_t *pot,
+                              const pddl_hpot_config_t *cfg,
+                              const int *fdr_state,
+                              pddl_err_t *err)
 {
     pddlPotResetLowerBoundConstr(pot);
 
     pddlPotSetObjFDRState(pot, &cfg->fdr->var, fdr_state);
-    int ret = solveAndAdd(sols, pot, cfg, err);
-    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
-    return ret;
+    return solveAndAdd(sols, pot, cfg, err);
 }
 
-static int hpotOptState(pddl_pot_solutions_t *sols,
-                        pddl_pot_t *pot,
-                        const pddl_hpot_config_t *cfg,
-                        const _pddl_hpot_config_t *_cfg,
-                        pddl_err_t *err)
+static status_t hpotOptState(pddl_pot_solutions_t *sols,
+                             pddl_pot_t *pot,
+                             const pddl_hpot_config_t *cfg,
+                             const _pddl_hpot_config_t *_cfg,
+                             pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_state_t, cfg);
     const int *state = cfg_opt->fdr_state;
@@ -690,22 +736,22 @@ static int hpotOptState(pddl_pot_solutions_t *sols,
     return _hpotOptState(sols, pot, cfg, state, err);
 }
 
-static int hpotOptAllSyntacticStates(pddl_pot_solutions_t *sols,
-                                     pddl_pot_t *pot,
-                                     const pddl_hpot_config_t *cfg,
-                                     const _pddl_hpot_config_t *_cfg,
-                                     pddl_err_t *err)
+static status_t hpotOptAllSyntacticStates(pddl_pot_solutions_t *sols,
+                                          pddl_pot_t *pot,
+                                          const pddl_hpot_config_t *cfg,
+                                          const _pddl_hpot_config_t *_cfg,
+                                          pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_all_syntactic_states_t, cfg);
-    setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
-                   cfg_opt->add_fdr_state_constr,
-                   cfg_opt->add_state_coef, err);
+    status_t st = setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
+                                 cfg_opt->add_fdr_state_constr,
+                                 cfg_opt->add_state_coef, err);
+    if (st != ST_SOLVED)
+        return st;
 
     pddlPotSetObjFDRAllSyntacticStates(pot, &cfg->fdr->var);
-    int ret = solveAndAddWithStateConstr(sols, pot, cfg,
-                                         cfg_opt->add_fdr_state_constr, err);
-    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
-    return 0;
+    return solveAndAddWithStateConstr(sols, pot, cfg,
+                                      cfg_opt->add_fdr_state_constr, err);
 }
 
 static double countStatesMutex(const pddl_mgroups_t *mgs,
@@ -806,17 +852,19 @@ static void setObjAllStatesMutex2(pddl_pot_t *pot,
         FREE(coef);
 }
 
-static int hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
-                                 pddl_pot_t *pot,
-                                 const pddl_hpot_config_t *cfg,
-                                 const _pddl_hpot_config_t *_cfg,
-                                 pddl_err_t *err)
+static status_t hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
+                                      pddl_pot_t *pot,
+                                      const pddl_hpot_config_t *cfg,
+                                      const _pddl_hpot_config_t *_cfg,
+                                      pddl_err_t *err)
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_all_states_mutex_t, cfg);
-    setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
-                   cfg_opt->add_fdr_state_constr,
-                   cfg_opt->add_state_coef, err);
+    status_t st = setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
+                                 cfg_opt->add_fdr_state_constr,
+                                 cfg_opt->add_state_coef, err);
+    if (st != ST_SOLVED)
+        return st;
 
     if (cfg_opt->mutex_size == 1){
         setObjAllStatesMutex1(pot, &cfg->mg_strips->mg, cfg->mutex);
@@ -835,17 +883,19 @@ static int hpotOptAllStatesMutex(pddl_pot_solutions_t *sols,
                                       cfg_opt->add_fdr_state_constr, err);
 }
 
-static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
-                                pddl_pot_t *pot,
-                                state_sampler_t *state_sampler,
-                                const pddl_hpot_config_t *cfg,
-                                const _pddl_hpot_config_t *_cfg,
-                                pddl_err_t *err)
+static status_t hpotOptSampledStates(pddl_pot_solutions_t *sols,
+                                     pddl_pot_t *pot,
+                                     state_sampler_t *state_sampler,
+                                     const pddl_hpot_config_t *cfg,
+                                     const _pddl_hpot_config_t *_cfg,
+                                     pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_sampled_states_t, cfg);
-    setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
-                   cfg_opt->add_fdr_state_constr,
-                   cfg_opt->add_state_coef, err);
+    status_t st = setStateConstr(pot, cfg->fdr, cfg_opt->add_init_state_constr,
+                                 cfg_opt->add_fdr_state_constr,
+                                 cfg_opt->add_state_coef, err);
+    if (st != ST_SOLVED)
+        return st;
 
     pddl_fdr_state_sampler_t *sampler;
     sampler = stateSamplerGet(state_sampler, pot, cfg->fdr, cfg->mutex,
@@ -853,6 +903,8 @@ static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
                               cfg_opt->use_syntactic_samples,
                               cfg_opt->use_mutex_samples,
                               err);
+    if (sampler == NULL)
+        TRACE_RET(err, ST_ERR);
 
     int state[cfg->fdr->var.var_size];
     int num_states = 0;
@@ -868,19 +920,19 @@ static int hpotOptSampledStates(pddl_pot_solutions_t *sols,
     if (coef != NULL)
         FREE(coef);
 
-    int ret = solveAndAddWithStateConstr(sols, pot, cfg,
-                                         cfg_opt->add_fdr_state_constr, err);
-    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
-    LOG(err, "Solved for average over %d states", num_states);
-    return 0;
+    st = solveAndAddWithStateConstr(sols, pot, cfg,
+                                    cfg_opt->add_fdr_state_constr, err);
+    if (st == ST_SOLVED)
+        LOG(err, "Solved for average over %d states", num_states);
+    return st;
 }
 
-static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
-                                        pddl_pot_t *pot,
-                                        state_sampler_t *state_sampler,
-                                        const pddl_hpot_config_t *cfg,
-                                        const _pddl_hpot_config_t *_cfg,
-                                        pddl_err_t *err)
+static status_t hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
+                                             pddl_pot_t *pot,
+                                             state_sampler_t *state_sampler,
+                                             const pddl_hpot_config_t *cfg,
+                                             const _pddl_hpot_config_t *_cfg,
+                                             pddl_err_t *err)
 {
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_sampled_states_t, cfg);
     pddlPotResetLowerBoundConstr(pot);
@@ -891,27 +943,29 @@ static int hpotOptEnsembleSampledStates(pddl_pot_solutions_t *sols,
                               cfg_opt->use_syntactic_samples,
                               cfg_opt->use_mutex_samples,
                               err);
+    if (sampler == NULL)
+        TRACE_RET(err, ST_ERR);
 
-    int ret = 0;
+    // TODO: remove dead-ends
+
     int state[cfg->fdr->var.var_size];
     int num_states = 0;
     for (int si = 0; si < cfg_opt->num_samples; ++si){
         pddlFDRStateSamplerNext(sampler, state);
-        ret = _hpotOptState(sols, pot, cfg, state, err);
-        if (ret != 0)
-            break;
+        status_t st = _hpotOptState(sols, pot, cfg, state, err);
+        if (st == ST_ERR)
+            TRACE_RET(err, st);
+        if (st == ST_SOLVED)
+            ++num_states;
         if ((si + 1) % 100 == 0){
-            LOG(err, "Solved for state: %d/%d",
+            LOG(err, "Solved for %d/%d states",
                       num_states, cfg_opt->num_samples);
         }
-        ++num_states;
     }
-    LOG(err, "Solved for state: %d/%d", num_states, cfg_opt->num_samples);
-
-    // TODO: remove dead-ends
-    PANIC_IF(ret != 0, "Could not find a solution. This seems like a bug!");
-    LOG(err, "Solved for %d states", num_states);
-    return ret;
+    LOG(err, "Solved for %d/%d states", num_states, cfg_opt->num_samples);
+    if (num_states > 0)
+        return ST_SOLVED;
+    return ST_NOT_SOLVED;
 }
 
 struct diverse_pot {
@@ -963,6 +1017,7 @@ static void diverseGenStates(diverse_pot_t *div,
     int num_states = 0;
     int num_dead_ends = 0;
     int num_duplicates = 0;
+    int num_timeouts = 0;
     int fdr_state[fdr->var.var_size];
     PDDL_ISET(state);
     for (int si = 0; si < num_samples; ++si){
@@ -987,6 +1042,7 @@ static void diverseGenStates(diverse_pot_t *div,
         pddl_pot_solution_t sol;
         pddlPotSolutionInit(&sol);
         if (pddlPotSolve(pot, &sol, err) == 0){
+            ASSERT(sol.found);
             int h = pddlPotSolutionEvalFDRState(&sol, &fdr->var, fdr_state);
             if (h != PDDL_COST_DEAD_END){
                 // Add state to the set of states and store heuristic estimate
@@ -1003,7 +1059,11 @@ static void diverseGenStates(diverse_pot_t *div,
                 }
 
             }else{
-                ++num_dead_ends;
+                if (sol.timed_out){
+                    ++num_timeouts;
+                }else{
+                    ++num_dead_ends;
+                }
             }
         }else{
             // Dead-ends are simply skipped
@@ -1013,6 +1073,7 @@ static void diverseGenStates(diverse_pot_t *div,
     }
     LOG(err, "Detected dead-ends: %d", num_dead_ends);
     LOG(err, "Detected duplicates: %d", num_duplicates);
+    LOG(err, "Timeouts: %d", num_timeouts);
     ASSERT(num_states == pddlSetISetSize(&div->states));
     div->active_states = pddlSetISetSize(&div->states);
     pddlISetFree(&state);
@@ -1093,12 +1154,12 @@ static void diverseFilterOutStates(diverse_pot_t *div,
     FREE(fdr_state);
 }
 
-static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
-                                          pddl_pot_t *pot,
-                                          state_sampler_t *state_sampler,
-                                          const pddl_hpot_config_t *cfg,
-                                          const _pddl_hpot_config_t *_cfg,
-                                          pddl_err_t *err)
+static status_t hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
+                                               pddl_pot_t *pot,
+                                               state_sampler_t *state_sampler,
+                                               const pddl_hpot_config_t *cfg,
+                                               const _pddl_hpot_config_t *_cfg,
+                                               pddl_err_t *err)
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_diversification_t, cfg);
@@ -1111,6 +1172,9 @@ static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
                               cfg_opt->use_syntactic_samples,
                               cfg_opt->use_mutex_samples,
                               err);
+    if (sampler == NULL)
+        TRACE_RET(err, ST_ERR);
+
     diverse_pot_t div;
     diverseInit(&div, pot, cfg->fdr, cfg_opt->num_samples);
     diverseGenStates(&div, pot, sampler, cfg->fdr, cfg_opt->num_samples, err);
@@ -1124,7 +1188,9 @@ static int hpotOptEnsembleDiversification(pddl_pot_solutions_t *sols,
     diverseFree(&div);
     LOG(err, "Computed diverse potentials with %d functions",
               sols->sol_size);
-    return 0;
+    if (sols->sol_size > 0)
+        return ST_SOLVED;
+    return ST_NOT_SOLVED;
 }
 
 static void setObjAllStatesMutexConditioned(pddl_pot_t *pot,
@@ -1164,14 +1230,14 @@ static void setObjAllStatesMutexConditioned(pddl_pot_t *pot,
     pddlMGroupsFree(&mgs);
 }
 
-static int allStatesMutexCond(pddl_pot_solutions_t *sols,
-                              pddl_pot_t *pot,
-                              const pddl_mg_strips_t *mg_strips,
-                              const pddl_mutex_pairs_t *mutex,
-                              const pddl_hpot_config_t *cfg,
-                              int mutex_size,
-                              const pddl_iset_t *facts,
-                              pddl_err_t *err)
+static status_t allStatesMutexCond(pddl_pot_solutions_t *sols,
+                                   pddl_pot_t *pot,
+                                   const pddl_mg_strips_t *mg_strips,
+                                   const pddl_mutex_pairs_t *mutex,
+                                   const pddl_hpot_config_t *cfg,
+                                   int mutex_size,
+                                   const pddl_iset_t *facts,
+                                   pddl_err_t *err)
 {
     PDDL_ISET(cond);
     int fact_id;
@@ -1181,8 +1247,16 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
         pddlISetAdd(&cond, fact_id);
         setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
                                         mutex_size);
-        solveAndAdd(sols, pot, cfg, err);
-        if (++count % 10 == 0){
+        status_t st = solveAndAdd(sols, pot, cfg, err);
+        if (st == ST_SOLVED){
+            ++count;
+
+        }else if (st == ST_ERR){
+            pddlISetFree(&cond);
+            TRACE_RET(err, st);
+        }
+
+        if (count % 10 == 0){
             LOG(err, "Computed conditioned func %d/%d and generated %d"
                       " potential functions",
                       count, pddlISetSize(facts), sols->sol_size);
@@ -1194,18 +1268,18 @@ static int allStatesMutexCond(pddl_pot_solutions_t *sols,
     pddlISetFree(&cond);
 
     if (sols->sol_size > 0)
-        return 0;
-    return -1;
+        return ST_SOLVED;
+    return ST_NOT_SOLVED;
 }
 
-static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
-                               pddl_pot_t *pot,
-                               const pddl_mg_strips_t *mg_strips,
-                               const pddl_mutex_pairs_t *mutex,
-                               const pddl_hpot_config_t *cfg,
-                               int mutex_size,
-                               int num_samples,
-                               pddl_err_t *err)
+static status_t allStatesMutexCond2(pddl_pot_solutions_t *sols,
+                                    pddl_pot_t *pot,
+                                    const pddl_mg_strips_t *mg_strips,
+                                    const pddl_mutex_pairs_t *mutex,
+                                    const pddl_hpot_config_t *cfg,
+                                    int mutex_size,
+                                    int num_samples,
+                                    pddl_err_t *err)
 {
     pddl_rand_t rnd;
     pddlRandInit(&rnd, rand_seed);
@@ -1223,8 +1297,16 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
 
         setObjAllStatesMutexConditioned(pot, &cond, mg_strips, mutex,
                                         mutex_size);
-        solveAndAdd(sols, pot, cfg, err);
-        if (++count % 10 == 0){
+        status_t st = solveAndAdd(sols, pot, cfg, err);
+        if (st == ST_SOLVED){
+            ++count;
+
+        }else if (st == ST_ERR){
+            pddlISetFree(&cond);
+            TRACE_RET(err, st);
+        }
+
+        if (count % 10 == 0){
             LOG(err, "Computed conditioned func^2 %d and generated %d"
                       " potential functions",
                       count, sols->sol_size);
@@ -1236,28 +1318,28 @@ static int allStatesMutexCond2(pddl_pot_solutions_t *sols,
     pddlISetFree(&cond);
 
     if (sols->sol_size > 0)
-        return 0;
-    return -1;
+        return ST_SOLVED;
+    return ST_NOT_SOLVED;
 }
 
-static int hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
-                                         pddl_pot_t *pot,
-                                         state_sampler_t *state_sampler,
-                                         const pddl_hpot_config_t *cfg,
-                                         const _pddl_hpot_config_t *_cfg,
-                                         pddl_err_t *err)
+static status_t hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
+                                              pddl_pot_t *pot,
+                                              state_sampler_t *state_sampler,
+                                              const pddl_hpot_config_t *cfg,
+                                              const _pddl_hpot_config_t *_cfg,
+                                              pddl_err_t *err)
 {
     // TODO: refactor
     CONTAINER_OF_CONST(cfg_opt, _cfg, pddl_hpot_config_opt_ensemble_all_states_mutex_t, cfg);
     pddlPotResetLowerBoundConstr(pot);
 
-    int ret = 0;
+    status_t st = ST_SOLVED;
     if (cfg_opt->num_rand_samples == 0){
         PDDL_ISET(facts);
         for (int f = 0; f < cfg->mg_strips->strips.fact.fact_size; ++f)
             pddlISetAdd(&facts, f);
-        ret = allStatesMutexCond(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
-                                 cfg_opt->mutex_size, &facts, err);
+        st = allStatesMutexCond(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
+                                cfg_opt->mutex_size, &facts, err);
         pddlISetFree(&facts);
 
     }else if (cfg_opt->cond_size == 1){
@@ -1268,16 +1350,16 @@ static int hpotOptEnsembleAllStatesMutex(pddl_pot_solutions_t *sols,
         for (int i = 0; i < cfg_opt->num_rand_samples; ++i)
             pddlISetAdd(&facts, pddlRand(&rnd, 0, fact_size));
 
-        ret = allStatesMutexCond(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
-                                 cfg_opt->mutex_size, &facts, err);
+        st = allStatesMutexCond(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
+                                cfg_opt->mutex_size, &facts, err);
         pddlISetFree(&facts);
 
     }else if (cfg_opt->cond_size == 2){
-        ret = allStatesMutexCond2(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
-                                  cfg_opt->mutex_size,
-                                  cfg_opt->num_rand_samples, err);
+        st = allStatesMutexCond2(sols, pot, cfg->mg_strips, cfg->mutex, cfg,
+                                 cfg_opt->mutex_size,
+                                 cfg_opt->num_rand_samples, err);
     }
-    return ret;
+    return st;
 }
 
 int pddlHPot(pddl_pot_solutions_t *sols,
@@ -1302,47 +1384,70 @@ int pddlHPot(pddl_pot_solutions_t *sols,
     state_sampler_t sampler;
     ZEROIZE(&sampler);
 
-    int ret = 0;
+    status_t st = ST_SOLVED;
     for (int i = 0; i < cfg->cfg_size; ++i){
         const _pddl_hpot_config_t *_cfg = cfg->cfg[i];
 
         switch (_cfg->type){
             case PDDL_HPOT_OPT_STATE_TYPE:
-                ret = hpotOptState(sols, &pot, cfg, _cfg, err);
+                st = hpotOptState(sols, &pot, cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ALL_SYNTACTIC_STATES_TYPE:
-                ret = hpotOptAllSyntacticStates(sols, &pot, cfg, _cfg, err);
+                st = hpotOptAllSyntacticStates(sols, &pot, cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ALL_STATES_MUTEX_TYPE:
-                ret = hpotOptAllStatesMutex(sols, &pot, cfg, _cfg, err);
+                st = hpotOptAllStatesMutex(sols, &pot, cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_SAMPLED_STATES_TYPE:
-                ret = hpotOptSampledStates(sols, &pot, &sampler,
-                                           cfg, _cfg, err);
+                st = hpotOptSampledStates(sols, &pot, &sampler,
+                                          cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ENSEMBLE_SAMPLED_STATES_TYPE:
-                ret = hpotOptEnsembleSampledStates(sols, &pot, &sampler,
-                                                   cfg, _cfg, err);
+                st = hpotOptEnsembleSampledStates(sols, &pot, &sampler,
+                                                  cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ENSEMBLE_DIVERSIFICATION_TYPE:
-                ret = hpotOptEnsembleDiversification(sols, &pot, &sampler,
-                                                     cfg, _cfg, err);
+                st = hpotOptEnsembleDiversification(sols, &pot, &sampler,
+                                                    cfg, _cfg, err);
                 break;
 
             case PDDL_HPOT_OPT_ENSEMBLE_ALL_STATES_MUTEX_TYPE:
-                ret = hpotOptEnsembleAllStatesMutex(sols, &pot, &sampler,
-                                                    cfg, _cfg, err);
+                st = hpotOptEnsembleAllStatesMutex(sols, &pot, &sampler,
+                                                   cfg, _cfg, err);
                 break;
         }
     }
 
     stateSamplerFree(&sampler);
     pddlPotFree(&pot);
+    if (st == ST_NOT_SOLVED){
+    }else if (st == ST_TIMEOUT){
+        LOG(err, "Potential heuristics not found!");
+    }
+    int ret = 0;
+    switch (st){
+        case ST_SOLVED:
+            ret = 0;
+            break;
+        case ST_NOT_SOLVED:
+            LOG(err, "Potential heuristics not found!");
+            ret = 0;
+            break;
+        case ST_TIMEOUT:
+            LOG(err, "Inference of potential heuristics timed out.");
+            ret = 0;
+            break;
+        case ST_ERR:
+            TRACE(err);
+            ret = -1;
+            break;
+    }
+
     CTXEND(err);
     return ret;
 }
@@ -1359,6 +1464,7 @@ static void heurDel(pddl_heur_t *_h)
     pddl_heur_pot_t *h = pddl_container_of(_h, pddl_heur_pot_t, heur);
     _pddlHeurFree(&h->heur);
     pddlPotSolutionsFree(&h->sols);
+    pddlFDRVarsFree(&h->vars);
     FREE(h);
 }
 
@@ -1381,7 +1487,13 @@ pddl_heur_t *pddlHeurPot(const pddl_hpot_config_t *cfg, pddl_err_t *err)
     int ret = pddlHPot(&h->sols, cfg, err);
     if (ret != 0){
         pddlPotSolutionsFree(&h->sols);
+        FREE(h);
         TRACE_RET(err, NULL);
+
+    }else if (h->sols.sol_size == 0){
+        pddlPotSolutionsFree(&h->sols);
+        FREE(h);
+        ERR_RET(err, NULL, "Could not find a potential function.");
     }
     pddlFDRVarsInitCopy(&h->vars, &cfg->fdr->var);
     _pddlHeurInit(&h->heur, heurDel, heurEstimate);

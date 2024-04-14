@@ -69,12 +69,28 @@ typedef struct pddl_symbolic_search_config pddl_symbolic_search_config_t;
     }
 
 struct pddl_symbolic_task_config {
+    /** Size of internal cache used by the BDD library */
     int cache_size;
+    /** Maximal number of BDD nodes in the mutex constraint BDD. Higher
+     *  number of nodes will lead to disjunctive partitioning. */
     size_t constr_max_nodes;
+    /** Maximum time allowed to use for constructing constraint BDD. When
+     *  time limit is reached, disjunctive partitioning is used. */
     float constr_max_time;
+    /** Same as .constr_max_time but for construction of goal BDD */
     float goal_constr_max_time;
+    /** If >0, fam-groups are inferred on the ground level and .fam_groups
+     *  specifies maximum number of maximal fam-groups that are inferred. */
     int fam_groups;
+    /** If true, every search step is logged */
     pddl_bool_t log_every_step;
+    /** If true, (meta-)facts corresponding to conjunctions are compiled
+     *  away before search starts, i.e., potential heuristics are computed
+     *  on the input P^C task, but search is performed on the projection.
+     *  This also means that goal-splitting cannot be performed, because
+     *  the potential heuristic on P^C is not valid in P (in contrast to
+     *  operator-potential heuristics). */
+    pddl_bool_t compile_away_conjunctions;
 
     pddl_symbolic_search_config_t fw;
     pddl_symbolic_search_config_t bw;
@@ -89,6 +105,7 @@ typedef struct pddl_symbolic_task_config pddl_symbolic_task_config_t;
         -1., /* .goal_constr_max_time */ \
         pddl_false, /* .fam_groups */ \
         pddl_false, /* .log_every_step */ \
+        pddl_false, /* .compile_away_conjunctions */ \
         __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(1), /* .fw */ \
         __PDDL_SYMBOLIC_SEARCH_CONFIG_INIT(0), /* .bw */ \
     }

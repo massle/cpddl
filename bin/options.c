@@ -149,7 +149,6 @@ static void hpotSetObjAllStatesInit(pddl_bool_t v, void *_cfg)
     pddl_hpot_config_opt_all_syntactic_states_t copt
             = PDDL_HPOT_CONFIG_OPT_ALL_SYNTACTIC_STATES_INIT;
     copt.add_init_state_constr = pddl_true;
-    fprintf(stderr, "%lx\n", (long)copt.add_fdr_state_constr);
     pddlHPotConfigAdd(cfg, &copt.cfg);
 }
 
@@ -276,6 +275,8 @@ static void hpotParams(opts_params_t *params,
                        hpotSetObjAllMutexCondRand);
     optsParamsAddIntFn(params, "all-mutex-cond-rand2", cfg,
                        hpotSetObjAllMutexCondRand2);
+
+    optsParamsAddFlt(params, "lp-time-limit", &cfg->lp_time_limit);
 }
 
 static int optGroundNoPruning(pddl_bool_t enabled)
@@ -290,13 +291,13 @@ static int optGroundNoPruning(pddl_bool_t enabled)
 
 static int optFDRLargestFirst(pddl_bool_t enabled)
 {
-    opt.fdr.var_flag = PDDL_FDR_VARS_LARGEST_FIRST;
+    opt.fdr.cfg.var.alg = PDDL_FDR_VARS_ALG_LARGEST_FIRST;
     return 0;
 }
 
 static int optFDREssentialFirst(pddl_bool_t enabled)
 {
-    opt.fdr.var_flag = PDDL_FDR_VARS_ESSENTIAL_FIRST;
+    opt.fdr.cfg.var.alg = PDDL_FDR_VARS_ALG_ESSENTIAL_FIRST;
     return 0;
 }
 
@@ -850,6 +851,92 @@ static void setProcessStripsOptions(void)
     }
 }
 
+static void enablePotConjFind(void *_)
+{
+    (void)_;
+    opt.pot_conj_find.enable = pddl_true;
+}
+
+static void setPotConjFindOptions(void)
+{
+    pddlHPotConfigInit(&opt.pot_conj_find.pot_cfg);
+    pddl_pot_conj_find_config_t _cfg = PDDL_POT_CONJ_FIND_CONFIG_INIT;
+    opt.pot_conj_find.cfg = _cfg;
+
+    optsStartGroup("Potentials over Conjunctions: Generating Conjunctions");
+    opts_params_t *params;
+    params = optsAddParamsAndFn("pot-conj-find", 0x0,
+                                "Find conjunctions for potentials over conjunctions\n"
+                                "Options:\n"
+                                "  out = <str> -- prefix for output files\n"
+                                "  time-limit/tl <dbl> -- time limit in seconds\n"
+                                "  max-epochs <int> -- maximum number of improvements considered\n"
+                                "  max-dim <int> -- maximum considered size of conjunctions\n"
+                                "  random <bool> -- try random conjunctions\n"
+                                "  random-seed <int>\n"
+                                "  log-freq <dbl> -- frequency of logging in seconds",
+                                NULL, enablePotConjFind);
+    optsParamsAddStr(params, "out", (char **)&opt.pot_conj_find.cfg.write_progress_prefix);
+    optsParamsAddDbl(params, "time-limit", &opt.pot_conj_find.cfg.time_limit);
+    optsParamsAddDbl(params, "tl", &opt.pot_conj_find.cfg.time_limit);
+    optsParamsAddInt(params, "max-epochs", &opt.pot_conj_find.cfg.max_epochs);
+    optsParamsAddInt(params, "max-dim", &opt.pot_conj_find.cfg.max_conj_dim);
+    optsParamsAddFlag(params, "random", &opt.pot_conj_find.cfg.random_conjs);
+    optsParamsAddInt(params, "random-seed", &opt.pot_conj_find.cfg.random_seed);
+    optsParamsAddDbl(params, "log-freq", &opt.pot_conj_find.cfg.log_freq);
+
+    params = optsAddParams("pot-conj-find-pot", 0x0,
+                           "Configuration for the potential heuristic. Default: I");
+    hpotParams(params, &opt.pot_conj_find.pot_cfg);
+}
+
+static void enablePotConjExactFind(void *_)
+{
+    (void)_;
+    opt.pot_conj_exact_find.enable = pddl_true;
+}
+
+static void setPotConjExactFindOptions(void)
+{
+    pddlHPotConfigInit(&opt.pot_conj_exact_find.pot_cfg);
+    pddl_pot_conj_exact_find_config_t _cfg = PDDL_POT_CONJ_EXACT_FIND_CONFIG_INIT;
+    opt.pot_conj_exact_find.cfg = _cfg;
+
+    optsStartGroup("Potentials over Conjunctions: Generating Conjunctions");
+    opts_params_t *params;
+    params = optsAddParamsAndFn("pot-conj-exact-find", 0x0,
+                                "Find conjunctions for potentials over conjunctions\n"
+                                "Options:\n"
+                                "  out = <str> -- prefix for output files\n"
+                                "  time-limit/tl <dbl> -- time limit in seconds\n"
+                                "  max-epochs <int> -- maximum number of improvements considered\n"
+                                "  max-dim <int> -- maximum considered size of conjunctions\n"
+                                "  random <bool> -- try random conjunctions\n"
+                                "  random-seed <int>\n"
+                                "  log-freq <dbl> -- frequency of logging in seconds",
+                                NULL, enablePotConjExactFind);
+    optsParamsAddStr(params, "out", (char **)&opt.pot_conj_exact_find.cfg.write_progress_prefix);
+    optsParamsAddDbl(params, "time-limit", &opt.pot_conj_exact_find.cfg.time_limit);
+    optsParamsAddDbl(params, "tl", &opt.pot_conj_exact_find.cfg.time_limit);
+    optsParamsAddInt(params, "max-epochs", &opt.pot_conj_exact_find.cfg.max_epochs);
+    optsParamsAddInt(params, "max-dim", &opt.pot_conj_exact_find.cfg.max_conj_dim);
+    optsParamsAddDbl(params, "log-freq", &opt.pot_conj_exact_find.cfg.log_freq);
+
+    params = optsAddParams("pot-conj-exact-find-pot", 0x0,
+                           "Configuration for the potential heuristic. Default: I");
+    hpotParams(params, &opt.pot_conj_exact_find.pot_cfg);
+}
+
+static void setExtendStripsConjOptions(void)
+{
+    optsStartGroup("Extending STRIPS with Conjunctions (Replacing P with P^C)");
+    optsAddStr("extend-strips-conj-file", 0x0,
+               &opt.extend_strips_conj_file, NULL,
+               "Replace STIRPS task P with P^C where C is read from the"
+               "input .toml file that must contain a key 'conj' assigining"
+               " an array of arrays of strings.");
+}
+
 static void setRedBlackOptions(void)
 {
     pddl_red_black_fdr_config_t _rb_cfg = PDDL_RED_BLACK_FDR_CONFIG_INIT;
@@ -872,6 +959,8 @@ static void setRedBlackOptions(void)
 
 static void setFDROptions(void)
 {
+    pddlFDRConfigInit(&opt.fdr.cfg);
+
     opts_params_t *params;
 
     pddlHPotConfigInit(&opt.fdr.pot_cfg);
@@ -916,6 +1005,16 @@ static void setFDROptions(void)
     }
 }
 
+static void setExtendFDRConjOptions(void)
+{
+    optsStartGroup("Extending FDR with Conjunctions (Replacing P with P^C_exact)");
+    optsAddStr("extend-fdr-conj-file", 0x0,
+               &opt.extend_fdr_conj_file, NULL,
+               "Replace FDR task P with P^C_exact where C is read from the"
+               "input .toml file that must contain a key 'conj' assigining"
+               " an array of arrays of strings.");
+}
+
 static void setGroundPlannerOptions(void)
 {
     pddlHPotConfigInit(&opt.ground_planner.pot_cfg);
@@ -941,8 +1040,10 @@ static void setGroundPlannerOptions(void)
                      "  add/hadd - h^add\n"
                      "  ff/hff - FF heuristic\n"
                      "  flow - Flow heuristic\n"
-                     "  pot - Potential heuristic",
-                     11,
+                     "  pot - Potential heuristic\n"
+                     "  pot-conj - Potential heuristic over conjunctions"
+                     "  pot-conj-exact - Potential heuristic over conjunctions (P^C_exact compilation)",
+                     13,
                      "none", GROUND_PLAN_HEUR_BLIND,
                      "blind", GROUND_PLAN_HEUR_BLIND,
                      "lmc", GROUND_PLAN_HEUR_LMC,
@@ -953,7 +1054,9 @@ static void setGroundPlannerOptions(void)
                      "ff", GROUND_PLAN_HEUR_FF,
                      "hff", GROUND_PLAN_HEUR_FF,
                      "flow", GROUND_PLAN_HEUR_FLOW,
-                     "pot", GROUND_PLAN_HEUR_POT);
+                     "pot", GROUND_PLAN_HEUR_POT,
+                     "pot-conj", GROUND_PLAN_HEUR_POT_CONJ,
+                     "pot-conj-exact", GROUND_PLAN_HEUR_POT_CONJ_EXACT);
 
     params = optsAddParams("gplan-pot", 0x0,
         "Configuration for the potential heuristic"
@@ -973,8 +1076,14 @@ static void setGroundPlannerOptions(void)
         "  all-mutex-cond = <int> -- conditioned ensemble\n"
         "  all-mutex-cond-rand = <int> -- conditioned on fact sets\n"
         "  all-mutex-cond-rand2 = <int>\n"
+        "  lp-time-limit = <flt> -- Time limit for each LP"
         );
     hpotParams(params, &opt.ground_planner.pot_cfg);
+
+    optsAddStr("gplan-pot-conj-file", 0x0, &opt.ground_planner.pot_conj_file, NULL,
+               "Input configuration file for potentials over conjunctions.");
+    optsAddStr("gplan-pot-conj-exact-file", 0x0, &opt.ground_planner.pot_conj_exact_file, NULL,
+               "Input configuration file for potentials over conjunctions (FDR P^C_exact compilation).");
 
     static op_mutex_cfg_t opm_cfg = { 0 };
     params = optsAddParamsAndFn("gplan-h-opm", 0x0,
@@ -1064,6 +1173,10 @@ static void setSymbaOptions(void)
                 "Log every step of during the search.");
     optsAddStr("symba-out", 0x0, &opt.symba.out, NULL,
                "Output file for the plan.");
+    optsAddFlag("symba-compile-away-conj", 0x0,
+                &opt.symba.cfg.compile_away_conjunctions, 0,
+                "Compile away (meta-)facts corresponding to conjunctions"
+                " before search starts.");
 }
 
 static void setReversibilityOptions(void)
@@ -1101,6 +1214,26 @@ static void setReportsOptions(void)
                 "Compute reversibility with the \"iterative\" method.");
     optsAddFlag("report-mgroups", 0x0, &opt.report.mgroups, 0,
                 "Report on mutex groups.");
+
+    optsAddStr("report-pot-conj-max-init-h-value", 0x0,
+               &opt.report.pot_conj_max_init_h_value, NULL,
+               "Exhaustively compute the maximum possible heuristic value"
+               " for the initial state of the potential heuristic computed"
+               " over conjunctions of facts.\n"
+               "Possible values:\n"
+               "  one-pair -- One pair of facts is added.\n"
+               "  two-pair -- Two pairs of facts.\n"
+               "  one-triple -- One triple of facts is added.");
+
+    optsAddStr("report-pot-conj-exact-max-init-h-value", 0x0,
+               &opt.report.pot_conj_exact_max_init_h_value, NULL,
+               "Exhaustively compute the maximum possible heuristic value"
+               " for the initial state of the potential heuristic computed"
+               " over conjunctions of facts (P^C_exact compilation).\n"
+               "Possible values:\n"
+               "  one-pair -- One pair of facts is added.\n"
+               "  two-pair -- Two pairs of facts.\n"
+               "  one-triple -- One triple of facts is added.");
 }
 
 static void help(const char *argv0, FILE *fout)
@@ -1212,9 +1345,13 @@ int setOptions(int argc, char *argv[], pddl_err_t *err)
             setGroundOptions();
             setMutexGroupOptions();
             setProcessStripsOptions();
+            setPotConjFindOptions();
+            setExtendStripsConjOptions();
             if (!is_pddl_fdr && !is_pddl_symba)
                 setRedBlackOptions();
             setFDROptions();
+            setExtendFDRConjOptions();
+            setPotConjExactFindOptions();
             if (!is_pddl_fdr && !is_pddl_symba)
                 setGroundPlannerOptions();
             if (!is_pddl_fdr)
