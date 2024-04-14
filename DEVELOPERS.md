@@ -48,11 +48,11 @@ branch later.
 
 1. Build Apptainer images:
     ```sh
-    ./scripts/build-apptainer.py --no-bliss --no-cudd --git-dev v${VER} \
-                                 -o cpddl-barebone-${VER}.sif alpine
-    ./scripts/build-apptainer.py --cplex-api /opt/cplex/v22.1.1/cplex/include \
-                                 --highs --coin-or --minizinc \
-                                 --git-dev v${VER} -o cpddl-${VER}.sif debian-bookworm
+    ./scripts/build-apptainer.sh --no-bliss --no-cudd --git-dev v${VER} \
+                                 --name barebone-${VER} alpine
+    ./scripts/build-apptainer.sh --cplex-api /opt/cplex/v22.1.1/cplex/include \
+                                 --highs --clingo --coin-or --minizinc \
+                                 --git-dev v${VER} --name ${VER} debian-bookworm
 
     apptainer push cpddl-barebone-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:barebone-v${VER}
     apptainer push cpddl-${VER}.sif oras://registry.gitlab.com/danfis/cpddl:v${VER}

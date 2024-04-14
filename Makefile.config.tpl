@@ -137,3 +137,16 @@
 #DYNET_ROOT = /opt/dynet
 #DYNET_CPPFLAGS = -I/opt/dynet/include
 #DYNET_LDFLAGS = -L/opt/dynet/lib -ldynet
+
+
+# Clingo
+# -------
+# https://github.com/potassco/clingo
+#
+# If the Clingo library is installed in a separate directory, set CLINGO_ROOT
+# to the that directory. Otherwise, CLINGO_CPPFLAGS and CLINGO_LDFLAGS can be set
+# directly.
+#
+#CLINGO_ROOT = /opt/clingo/v5.6.2
+#CLINGO_CPPFLAGS = -I/opt/clingo/v5.6.2/include
+#CLINGO_LDFLAGS = -L/opt/clingo/v5.6.2/lib -Wl,-rpath=/opt/clingo/v5.6.2/lib -lclingo

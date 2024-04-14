@@ -188,6 +188,11 @@ int pddlStripsGroundSql(pddl_strips_t *strips,
                         const pddl_ground_config_t *cfg,
                         pddl_err_t *err)
 {
+    if (cfg->ground_only_facts){
+        ERR_RET(err, -1, "Grounding facts only is not supported by the SQL"
+                " grounder yet.");
+    }
+
     CTX(err, "Ground SQL");
     CTX_NO_TIME(err, "Cfg");
     pddlGroundConfigLog(cfg, err);

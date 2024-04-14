@@ -51,6 +51,10 @@ considered soft goals.
 ### Added
 - ASNets: Support for landmarks and action history
 - Potential heuristics over conjunctions.
+- Gringo and Clingo grounders.
+- Allowed to ground only facts.
+- Lifted FF heuristic.
+- Function for compiling away equality predicates.
 
 ### Changed
 - Refactored ASNets

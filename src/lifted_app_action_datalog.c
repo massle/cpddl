@@ -57,7 +57,7 @@ static int aaSetStateAtom(pddl_lifted_app_action_t *_aa,
     unsigned args[atom->arg_size];
     for (int i = 0; i < atom->arg_size; ++i)
         args[i] = aa->obj_to_dlconst[atom->arg[i]];
-    pddlDatalogAddFactToDB(aa->dl, pred, args);
+    pddlDatalogAddFactToDB(aa->dl, pred, args, NULL);
     return 0;
 }
 

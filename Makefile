@@ -56,6 +56,7 @@ SRC += strips_ground_tree
 SRC += strips_ground_trie
 SRC += strips_ground_sql
 SRC += strips_ground_datalog
+SRC += strips_ground_clingo
 SRC += action_args
 SRC += ground_atom
 SRC += profile
@@ -267,6 +268,7 @@ pddl/config.h: $(MAKE_FILES)
 	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC_BIN "$(MINIZINC_BIN)"))
 	$(if $(MINIZINC_BIN), $(file >>$@,#define PDDL_MINIZINC_VERSION "$(MINIZINC_VERSION)"))
 	$(if $(filter yes,$(USE_DYNET)), $(file >>$@,#define PDDL_DYNET))
+	$(if $(filter yes,$(USE_CLINGO)), $(file >>$@,#define PDDL_CLINGO))
 	$(file >>$@,)
 	$(file >>$@,#endif /* __PDDL_CONFIG_H__ */)
 
@@ -340,6 +342,14 @@ src/lemon: src/lemon.c src/lempar.c
 	$(CC) $(SQLITE_CFLAGS) -c -o $@ $<
 .objs/sqlite3.pic.o: src/sqlite3.c pddl/config.h $(GEN)
 	$(CC) $(SQLITE_CFLAGS) -fPIC -c -o $@ $<
+.objs/datalog.o: src/datalog.c pddl/datalog.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CLINGO_CFLAGS) -c -o $@ $<
+.objs/datalog.pic.o: src/datalog.c pddl/datalog.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(CLINGO_CFLAGS) -c -o $@ $<
+.objs/strips_ground_clingo.o: src/strips_ground_clingo.c pddl/strips_ground_clingo.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) $(CLINGO_CFLAGS) -c -o $@ $<
+.objs/strips_ground_clingo.pic.o: src/strips_ground_clingo.c pddl/strips_ground_clingo.h pddl/config.h $(GEN)
+	$(CC) $(CFLAGS) -fPIC $(CLINGO_CFLAGS) -c -o $@ $<
 
 .objs/cp-cp-optimizer.cpp.o: src/cp-cp-optimizer.cpp src/_cp.h pddl/cp.h pddl/config.h $(GEN)
 	$(CXX) $(CPPFLAGS) $(CPOPTIMIZER_CPPFLAGS) -c -o $@ $<
@@ -568,6 +578,11 @@ help:
 	@echo "  USE_DYNET         = $(USE_DYNET)"
 	@echo "  DYNET_CPPFLAGS    = $(DYNET_CPPFLAGS)"
 	@echo "  DYNET_LDFLAGS     = $(DYNET_LDFLAGS)"
+	@echo ""
+	@echo "  CLINGO_ROOT    = $(CLINGO_ROOT)"
+	@echo "  USE_CLINGO     = $(USE_CLINGO)"
+	@echo "  CLINGO_CFLAGS  = $(CLINGO_CFLAGS)"
+	@echo "  CLINGO_LDFLAGS = $(CLINGO_LDFLAGS)"
 	@echo ""
 	@echo "  USE_CLIQUER       = $(USE_CLIQUER)"
 	@echo "  CLIQUER_CFLAGS    = $(CLIQUER_CFLAGS)"

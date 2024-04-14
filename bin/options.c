@@ -574,15 +574,20 @@ static void setLiftedPlannerOptions(void)
                      "  blind - Blind heuristic (default)\n"
                      "  hmax - lifted h^max\n"
                      "  hadd - lifted h^add\n"
+                     "  hff-max - lifted h^ff based on h^max\n"
+                     "  hff/hff-add - lifted h^ff based on h^add\n"
                      "  homo-lmc - Homomorphism-based LM-Cut heuristic (see --lplan-h-homo)\n"
                      "  homo-ff - Homomorphism-based FF heuristic (see --lplan-h-homo)\n"
                      "  gaif-lb - Plan length lower bound using gaifman graphs\n"
                      "  gaif-max - Max distance using gaifman graphs\n"
                      "  gaif-add - Sum of distances using gaifman graphs",
-                     8,
+                     11,
                      "blind", LIFTED_PLAN_HEUR_BLIND,
                      "hmax", LIFTED_PLAN_HEUR_HMAX,
                      "hadd", LIFTED_PLAN_HEUR_HADD,
+                     "hff-max", LIFTED_PLAN_HEUR_HFF_MAX,
+                     "hff", LIFTED_PLAN_HEUR_HFF_ADD,
+                     "hff-add", LIFTED_PLAN_HEUR_HFF_ADD,
                      "homo-lmc", LIFTED_PLAN_HEUR_HOMO_LMC,
                      "homo-ff", LIFTED_PLAN_HEUR_HOMO_FF,
                      "gaif-lb", LIFTED_PLAN_HEUR_GAIF_LB,
@@ -647,13 +652,17 @@ static void setGroundOptions(void)
     optsAddIntSwitch("ground", 'G', (int *)&opt.ground.cfg.method,
                      "Grounding method, one of:\n"
                      "  dl/datalog - datalog-based grounding method (default)\n"
+                     "  gringo - use Gringo grounder\n"
+                     "  clingo - use Clingo solver (iterative grounding)\n"
                      "  sql - sqlite-based grounding method\n"
                      "  trie - default grounding method",
-                     4,
+                     6,
                      "trie", PDDL_GROUND_TRIE,
                      "sql", PDDL_GROUND_SQL,
                      "dl", PDDL_GROUND_DATALOG,
-                     "datalog", PDDL_GROUND_DATALOG);
+                     "datalog", PDDL_GROUND_DATALOG,
+                     "gringo", PDDL_GROUND_GRINGO,
+                     "clingo", PDDL_GROUND_CLINGO);
     optsAddFlag("ground-prune-mutex", 0x0,
                 &opt.ground.cfg.prune_op_pre_mutex, 1,
                 "Prune during grounding by checking preconditions of operators");
@@ -672,6 +681,9 @@ static void setGroundOptions(void)
                 "After grounding lifted mutex groups, remove subsets.");
     optsAddStr("ground-mg-out", 0x0, &opt.ground.mgroup_out, NULL,
                 "Output filename for grounded mutex groups.");
+    optsAddStr("ground-gringo-lpopt", 0x0, (char **)&opt.ground.cfg.gringo_lpopt, NULL,
+               "Path to the lpopt optimizer used for preprocessing datalog"
+               " program before it is passed to Gringo.");
 
     optsStartGroup("STRIPS:");
     optsAddFlag("ce", 0x0, &opt.strips.compile_away_cond_eff, 0,

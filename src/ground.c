@@ -9,6 +9,7 @@
 #include "pddl/strips_ground_datalog.h"
 #include "pddl/strips_ground_sql.h"
 #include "pddl/strips_ground_trie.h"
+#include "pddl/strips_ground_clingo.h"
 
 void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err)
 {
@@ -25,6 +26,14 @@ void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err)
             LOG(err, "method = trie");
             break;
 
+        case PDDL_GROUND_GRINGO:
+            LOG(err, "method = gringo");
+            break;
+
+        case PDDL_GROUND_CLINGO:
+            LOG(err, "method = clingo");
+            break;
+
         default:
             LOG(err, "method = unknown");
     }
@@ -39,6 +48,8 @@ void pddlGroundConfigLog(const pddl_ground_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_BOOL(cfg, remove_static_facts, err);
     LOG_CONFIG_BOOL(cfg, keep_action_args, err);
     LOG_CONFIG_BOOL(cfg, keep_all_static_facts, err);
+    LOG_CONFIG_BOOL(cfg, ground_only_facts, err);
+    LOG_CONFIG_STR(cfg, gringo_lpopt, err);
 }
 
 int pddlGround(pddl_strips_t *strips,
@@ -63,6 +74,14 @@ int pddlGround(pddl_strips_t *strips,
 
         case PDDL_GROUND_TRIE:
             ret = pddlStripsGroundTrie(strips, pddl, cfg, err);
+            break;
+
+        case PDDL_GROUND_GRINGO:
+            ret = pddlStripsGroundGringo(strips, pddl, cfg, err);
+            break;
+
+        case PDDL_GROUND_CLINGO:
+            ret = pddlStripsGroundClingo(strips, pddl, cfg, err);
             break;
 
         default:

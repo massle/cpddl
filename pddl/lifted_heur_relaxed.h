@@ -32,36 +32,63 @@ struct pddl_lifted_heur_relaxed {
     unsigned *dlvar;
     int dlvar_size;
     unsigned goal_dlpred;
-    int collect_best_achiever_facts;
+    pddl_bool_t collect_best_achiever_facts;
+
+    int (*canonical_model)(pddl_datalog_t *,
+                           pddl_cost_t *,
+                           int collect_fact_achievers,
+                           pddl_err_t *);
+
+    /** Internal context for computing ff heuristic */
+    void *ff_ctx;
 };
 typedef struct pddl_lifted_heur_relaxed pddl_lifted_heur_relaxed_t;
-typedef struct pddl_lifted_heur_relaxed pddl_lifted_hmax_t;
-typedef struct pddl_lifted_heur_relaxed pddl_lifted_hadd_t;
 
-void pddlLiftedHMaxInit(pddl_lifted_hmax_t *h,
+/**
+ * Initialize heuristic as lifted h^max
+ */
+void pddlLiftedHMaxInit(pddl_lifted_heur_relaxed_t *h,
                         const pddl_t *pddl,
-                        int collect_best_achiever_facts,
+                        pddl_bool_t collect_best_achiever_facts,
                         pddl_err_t *err);
-void pddlLiftedHMaxFree(pddl_lifted_hmax_t *h);
-pddl_cost_t pddlLiftedHMax(pddl_lifted_hmax_t *h,
-                           const pddl_iset_t *state,
-                           const pddl_ground_atoms_t *gatoms);
-void pddlLiftedHMaxBestAchieverFacts(pddl_lifted_hmax_t *h,
-                                     const pddl_ground_atoms_t *gatoms,
-                                     pddl_iset_t *achievers);
 
-void pddlLiftedHAddInit(pddl_lifted_hadd_t *h,
+/**
+ * Initialize heuristic as lifted h^add
+ */
+void pddlLiftedHAddInit(pddl_lifted_heur_relaxed_t *h,
                         const pddl_t *pddl,
-                        int collect_best_achiever_facts,
+                        pddl_bool_t collect_best_achiever_facts,
                         pddl_err_t *err);
-void pddlLiftedHAddFree(pddl_lifted_hadd_t *h);
-pddl_cost_t pddlLiftedHAdd(pddl_lifted_hadd_t *h,
-                           const pddl_iset_t *state,
-                           const pddl_ground_atoms_t *gatoms);
-void pddlLiftedHAddBestAchieverFacts(pddl_lifted_hadd_t *h,
-                                     const pddl_ground_atoms_t *gatoms,
-                                     pddl_iset_t *achievers);
 
+/**
+ * Initialize heuristic as lifted h^ff based on h^add
+ */
+void pddlLiftedHFFAddInit(pddl_lifted_heur_relaxed_t *h,
+                          const pddl_t *pddl,
+                          pddl_err_t *err);
+
+/**
+ * Initialize heuristic as lifted h^ff based on h^max
+ */
+void pddlLiftedHFFMaxInit(pddl_lifted_heur_relaxed_t *h,
+                          const pddl_t *pddl,
+                          pddl_err_t *err);
+
+/**
+ * Free allocated memory.
+ */
+void pddlLiftedHeurRelaxedFree(pddl_lifted_heur_relaxed_t *h);
+
+/**
+ * Returns heuristic value for the given state.
+ */
+pddl_cost_t pddlLiftedHeurRelaxedEvalState(pddl_lifted_heur_relaxed_t *h,
+                                           const pddl_iset_t *state,
+                                           const pddl_ground_atoms_t *gatoms);
+
+void pddlLiftedHeurRelaxedBestAchieverFacts(pddl_lifted_heur_relaxed_t *h,
+                                            const pddl_ground_atoms_t *gatoms,
+                                            pddl_iset_t *achievers);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

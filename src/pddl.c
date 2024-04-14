@@ -478,6 +478,142 @@ void pddlCompileAwayNonStaticCondEff(pddl_t *pddl)
     compileAwayCondEff(pddl, 1);
 }
 
+struct compile_away_eq_pred {
+    const pddl_t *pddl;
+    int eq_pred;
+    pddl_iset_t relevant_objs;
+    const pddl_params_t *params;
+};
+
+static int compileAwayEqPred(pddl_fm_t *fm, void *_data)
+{
+    struct compile_away_eq_pred *data = _data;
+    if (pddlFmIsQuant(fm)){
+        pddl_fm_quant_t *q = pddlFmToQuant(fm);
+        const pddl_params_t *old_params = data->params;
+        data->params = &q->param;
+        pddlFmTraverse(q->qfm, compileAwayEqPred, NULL, data);
+        data->params = old_params;
+        return -1;
+
+    }else if (pddlFmIsAtom(fm)){
+        pddl_fm_atom_t *atom = pddlFmToAtom(fm);
+        if (atom->pred == data->pddl->pred.eq_pred){
+            atom->pred = data->eq_pred;
+            ASSERT(atom->arg_size == 2);
+            for (int argi = 0; argi < atom->arg_size; ++argi){
+                if (atom->arg[argi].param >= 0){
+                    ASSERT(data->params != NULL);
+                    int type = data->params->param[atom->arg[argi].param].type;
+                    int size = 0;
+                    const int *objs = pddlTypesObjsByType(&data->pddl->type,
+                                                          type, &size);
+                    for (int i = 0; i < size; ++i)
+                        pddlISetAdd(&data->relevant_objs, objs[i]);
+
+                }else{
+                    pddlISetAdd(&data->relevant_objs, atom->arg[argi].obj);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+int pddlCompileAwayEqPred(pddl_t *pddl)
+{
+    if (pddl->pred.eq_pred < 0)
+        return 0;
+
+    if (!pddlHasEqPred(pddl))
+        return 0;
+
+    // Create a new equality predicate
+    char name[256];
+    strcpy(name, "equal");
+    while (pddlPredsGet(&pddl->pred, name) >= 0){
+        int len = strlen(name);
+        name[len] = 'x';
+        name[len + 1] = '\x0';
+    }
+    pddl_pred_t *eq_pred = pddlPredsAddCopy(&pddl->pred, pddl->pred.eq_pred);
+    if (eq_pred->name != NULL)
+        FREE(eq_pred->name);
+    eq_pred->name = STRDUP(name);
+
+    // Replace '=' with the new equality predicate and collect relevant
+    // objects
+    struct compile_away_eq_pred data;
+    data.pddl = pddl;
+    data.eq_pred = eq_pred->id;
+    pddlISetInit(&data.relevant_objs);
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
+        const pddl_action_t *a = pddl->action.action + ai;
+        data.params = &a->param;
+        if (a->pre != NULL)
+            pddlFmTraverse(a->pre, compileAwayEqPred, NULL, &data);
+        if (a->eff != NULL)
+            pddlFmTraverse(a->eff, compileAwayEqPred, NULL, &data);
+    }
+
+    // Set up initial state
+    if (pddl->init == NULL && pddlISetSize(&data.relevant_objs) > 0)
+        pddl->init = pddlFmToAnd(pddlFmNewEmptyAnd());
+
+    int obj_id;
+    PDDL_ISET_FOR_EACH(&data.relevant_objs, obj_id){
+        int arg[2] = { obj_id, obj_id };
+        pddl_fm_atom_t *a = pddlFmCreateFactAtom(eq_pred->id, 2, arg);
+        pddlFmJuncAdd(pddl->init, &a->fm);
+    }
+    pddlISetFree(&data.relevant_objs);
+
+    pddlResetPredReadWrite(pddl);
+
+    return 1;
+}
+
+struct has_eq_pred {
+    const pddl_t *pddl;
+    pddl_bool_t found;
+};
+
+static int hasEqPred(pddl_fm_t *fm, void *_data)
+{
+    struct has_eq_pred *data = _data;
+    if (pddlFmIsAtom(fm)){
+        const pddl_fm_atom_t *atom = pddlFmToAtom(fm);
+        if (atom->pred == data->pddl->pred.eq_pred){
+            data->found = pddl_true;
+            return -2;
+        }
+    }
+    return 0;
+}
+
+pddl_bool_t pddlHasEqPred(const pddl_t *pddl)
+{
+    if (pddl->pred.eq_pred < 0)
+        return pddl_false;
+
+    struct has_eq_pred data = { .pddl = pddl, .found = pddl_false };
+    for (int ai = 0; ai < pddl->action.action_size; ++ai){
+        const pddl_action_t *a = pddl->action.action + ai;
+        if (a->pre != NULL)
+            pddlFmTraverse(a->pre, hasEqPred, NULL, &data);
+        if (data.found)
+            return pddl_true;
+
+        if (a->eff != NULL)
+            pddlFmTraverse(a->eff, hasEqPred, NULL, &data);
+        if (data.found)
+            return pddl_true;
+    }
+
+    return pddl_false;
+}
+
 int pddlPredFuncMaxParamSize(const pddl_t *pddl)
 {
     int max = 0;
