@@ -455,10 +455,11 @@ static void setStateToFDRState(const pddl_iset_t *state,
     }
 }
 
-static double heurForState(pddl_pot_t *pot,
-                           const pddl_fdr_t *fdr,
-                           const int *fdr_state,
-                           pddl_err_t *err)
+static status_t heurForState(pddl_pot_t *pot,
+                             const pddl_fdr_t *fdr,
+                             const int *fdr_state,
+                             double *heur,
+                             pddl_err_t *err)
 {
     pddlPotResetLowerBoundConstr(pot);
     pddlPotSetObjFDRState(pot, &fdr->var, fdr_state);
@@ -467,10 +468,14 @@ static double heurForState(pddl_pot_t *pot,
     int ret = pddlPotSolve(pot, &sol, err);
     if (ret != 0){
         ASSERT(!sol.found);
-        LOG(err, "No solution for the initial state."
-            " suboptimal: %s, timed-out: %s",
-            F_BOOL(sol.suboptimal), F_BOOL(sol.timed_out));
-        return -1.;
+        LOG(err, "No solution for the state."
+            " suboptimal: %s, timed-out: %s, error: %s",
+            F_BOOL(sol.suboptimal), F_BOOL(sol.timed_out), F_BOOL(sol.error));
+        if (sol.error)
+            TRACE_RET(err, ST_ERR);
+        if (sol.timed_out)
+            return ST_TIMEOUT;
+        return ST_NOT_SOLVED;
     }
 
     double h = pddlPotSolutionEvalFDRStateFlt(&sol, &fdr->var, fdr_state);
@@ -481,7 +486,9 @@ static double heurForState(pddl_pot_t *pot,
     if (h < 0.)
         h = 0.;
     pddlPotSolutionFree(&sol);
-    return h;
+
+    *heur = h;
+    return ST_SOLVED;
 }
 
 static void stateSamplerFree(state_sampler_t *ss)
@@ -506,9 +513,14 @@ static pddl_fdr_state_sampler_t *stateSamplerGet(state_sampler_t *ss,
     if (use_random_walk){
         if (ss->state_sampler_random_walk_set)
             return &ss->state_sampler_random_walk;
-        double hinit_flt = heurForState(pot, fdr, fdr->init, err);
-        if (hinit_flt < 0.)
-            ERR_RET(err, NULL, "Could not create a sampler.");
+        double hinit_flt;
+        status_t st = heurForState(pot, fdr, fdr->init, &hinit_flt, err);
+        if (st == ST_ERR){
+            TRACE_RET(err, NULL);
+        }else if (st != ST_SOLVED){
+            ERR_RET(err, NULL, "Could not create a sampler because of"
+                    " a missing heuristic estimate for the initial state.");
+        }
 
         int hinit = pddlPotSolutionRoundHValue(hinit_flt);
         int max_steps = pddlFDRStateSamplerComputeMaxStepsFromHeurInit(fdr, hinit);
@@ -557,7 +569,13 @@ static status_t setStateConstr(pddl_pot_t *pot,
 
     if (add_state_coef <= 0.)
         add_state_coef = 1.;
-    double h_value = heurForState(pot, fdr, add_state, err);
+    double h_value;
+    status_t st = heurForState(pot, fdr, add_state, &h_value, err);
+    if (st == ST_ERR){
+        TRACE_RET(err, ST_ERR);
+    }else if (st != ST_SOLVED){
+        return st;
+    }
     if (h_value < 0.)
         return ST_NOT_SOLVED;
     double rhs = h_value * add_state_coef;
@@ -1425,10 +1443,6 @@ int pddlHPot(pddl_pot_solutions_t *sols,
 
     stateSamplerFree(&sampler);
     pddlPotFree(&pot);
-    if (st == ST_NOT_SOLVED){
-    }else if (st == ST_TIMEOUT){
-        LOG(err, "Potential heuristics not found!");
-    }
     int ret = 0;
     switch (st){
         case ST_SOLVED:
@@ -1439,6 +1453,7 @@ int pddlHPot(pddl_pot_solutions_t *sols,
             ret = 0;
             break;
         case ST_TIMEOUT:
+            LOG(err, "Potential heuristics not found!");
             LOG(err, "Inference of potential heuristics timed out.");
             ret = 0;
             break;
