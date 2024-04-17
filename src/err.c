@@ -259,8 +259,12 @@ void _pddlCtxEnd(pddl_err_t *err)
         pddl_err_ctx_t *ctx = err->ctx + err->ctx_size - 1;
         if (ctx->use_time){
             pddlTimerStop(&ctx->timer);
-            _pddlLog(err, "END elapsed time: %.3f",
-                     pddlTimerElapsedInSF(&ctx->timer));
+            if (err->log_print_resources_disabled){
+                _pddlLog(err, "END");
+            }else{
+                _pddlLog(err, "END elapsed time: %.3f",
+                         pddlTimerElapsedInSF(&ctx->timer));
+            }
         }
         --err->ctx_size;
     }
