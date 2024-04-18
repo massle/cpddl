@@ -2289,7 +2289,7 @@ static int clingoGroundAtomsToFacts(pddl_datalog_t *dl,
                 }
 
                 // Add the current fact to the database
-                dbAddFact(dl, &dl->db, pred_id, dl_args);
+                dbAddFact(dl, &dl->db, pred_id, dl_args, NULL);
             }
         }
 
@@ -2317,7 +2317,7 @@ int pddlDatalogCanonicalModelGringo(pddl_datalog_t *dl,
 
     CTX(err, "DL Canonical Model Gringo");
 
-    setUp(dl, 1, err);
+    setUp(dl, 1);
 
     clingo_control_t *ctl = NULL;
     //const char *cl_argv[] = { "-V", "--output-debug=text" };
