@@ -66,6 +66,30 @@ make install
 def configHighs():
     return ['HIGHS_ROOT = /highs']
 
+def setupClingo():
+    return '''
+CLINGO_REPO=https://github.com/potassco/clingo.git
+CLINGO_BRANCH=v5.6.2
+git clone --depth 1 --branch $CLINGO_BRANCH $CLINGO_REPO $APPTAINER_ROOTFS/clingo-src
+'''
+
+def postClingo():
+    return '''
+cd /clingo-src
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/clingo ..
+make -j8
+make install
+cd ../..
+'''
+
+def configClingo():
+    return ['CLINGO_ROOT = /clingo']
+
+def filesClingo():
+    return '/clingo/lib/libclingo.so*'
+
 def setupGit(branch):
     return f'''
 git clone --depth 1 --branch {branch} https://gitlab.com/danfis/cpddl $APPTAINER_ROOTFS/cpddl
@@ -119,6 +143,8 @@ def postBuild(args):
             pkgs += ['clang']
         if args.highs is True:
             pkgs += ['cmake', 'libz-dev']
+        if args.clingo is True:
+            pkgs += ['cmake']
         if args.run_all_tests is True:
             pkgs += ['python3', 'valgrind', 'gdb']
         if args.coin_or is True:
@@ -145,6 +171,8 @@ apt install -y {pkgs}
             pkgs += ['clang']
         if args.highs is True:
             pkgs += ['cmake', 'zlib-devel']
+        if args.clingo is True:
+            pkgs += ['cmake']
         if args.run_all_tests is True:
             pkgs += ['python3', 'valgrind', 'gdb']
         if args.coin_or is True:
@@ -167,6 +195,8 @@ dnf -y install {pkgs}
             pkgs += ['clang']
         if args.highs is True:
             pkgs += ['cmake', 'zlib-devel']
+        if args.clingo is True:
+            pkgs += ['cmake']
         if args.run_all_tests is True:
             pkgs += ['python3', 'gdb', 'diffutils', 'findutils']
 
@@ -185,6 +215,8 @@ tdnf -y install {pkgs}
             pkgs += ['clang']
         if args.highs is True:
             pkgs += ['cmake', 'zlib-static', 'zlib-dev']
+        if args.clingo is True:
+            pkgs += ['cmake']
         if args.run_all_tests is True:
             pkgs += ['python3', 'gdb', 'diffutils',
                      'findutils', 'coreutils']
@@ -314,6 +346,7 @@ Limitations:
     parser.add_argument('--no-cudd', action = 'store_true')
     parser.add_argument('--no-sqlite', action = 'store_true')
     parser.add_argument('--highs', action = 'store_true')
+    parser.add_argument('--clingo', action = 'store_true')
     parser.add_argument('--coin-or', action = 'store_true')
     parser.add_argument('--cplex',
                         help = 'Path to IBM studio installer')
@@ -387,6 +420,13 @@ Limitations:
         setup += setupHighs()
         post += postHighs()
         config += configHighs()
+
+    if args.clingo is True:
+        suff += '-highs'
+        setup += setupClingo()
+        post += postClingo()
+        files += filesClingo()
+        config += configClingo()
 
     if args.coin_or is True:
         suff += '-coinor'
