@@ -69,7 +69,7 @@ def configHighs():
 def setupClingo():
     return '''
 CLINGO_REPO=https://github.com/potassco/clingo.git
-CLINGO_BRANCH=v5.6.2
+CLINGO_BRANCH=v5.7.1
 git clone --depth 1 --branch $CLINGO_BRANCH $CLINGO_REPO $APPTAINER_ROOTFS/clingo-src
 '''
 
@@ -88,7 +88,7 @@ def configClingo():
     return ['CLINGO_ROOT = /clingo']
 
 def filesClingo():
-    return '/clingo/lib/libclingo.so*'
+    return '/clingo/lib*/libclingo.so*'
 
 def setupGit(branch):
     return f'''

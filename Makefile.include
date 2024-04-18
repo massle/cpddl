@@ -281,6 +281,8 @@ ifeq '$(USE_CLINGO)' 'auto'
     endif
     ifneq '$(wildcard $(CLINGO_ROOT)/lib/libclingo.so)' ''
       CLINGO_LDFLAGS := -L$(CLINGO_ROOT)/lib -Wl,-rpath=$(CLINGO_ROOT)/lib -lclingo
+    else ifneq '$(wildcard $(CLINGO_ROOT)/lib64/libclingo.so)' ''
+      CLINGO_LDFLAGS := -L$(CLINGO_ROOT)/lib64 -Wl,-rpath=$(CLINGO_ROOT)/lib64 -lclingo
     else
       $(error CLINGO_ROOT defined, but could not find Clingo library files \
               (tried $(CLINGO_ROOT)/lib/libclingo.so))
