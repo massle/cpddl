@@ -41,7 +41,7 @@ mv /MiniZinc* /minizinc
 '''
 
 def filesMinizinc():
-    return '/minizinc'
+    return ['/minizinc']
 
 def configMinizinc():
     return ['MINIZINC_BIN = /minizinc/bin/minizinc']
@@ -88,7 +88,7 @@ def configClingo():
     return ['CLINGO_ROOT = /clingo']
 
 def filesClingo():
-    return '/clingo/lib*/libclingo.so*'
+    return ['/clingo/lib*/libclingo.so*']
 
 def setupGit(branch):
     return f'''
@@ -238,7 +238,10 @@ apt update -y
 apt install -y libstdc++6
 '''
         if args.coin_or is True:
-            post += 'apt install -y coinor-libclp1 coinor-libcbc3\n'
+            if img == 'ubuntu-mantic':
+                post += 'apt install -y coinor-libclp1 coinor-libcbc3.1\n'
+            else:
+                post += 'apt install -y coinor-libclp1 coinor-libcbc3\n'
         if args.minizinc is True:
             post += 'apt install -y libgl1 libegl1 libx11-6 libfontconfig1 libfreetype6\n'
         post += '''
@@ -337,8 +340,11 @@ Limitations:
                                    'ubuntu-focal',
                                    'ubuntu-bionic',
                                    'fedora',
+                                   'gcc-9',
+                                   'gcc-10',
                                    'gcc-11',
-                                   'gcc-12'],
+                                   'gcc-12',
+                                   'gcc-13'],
                         help = 'Base image')
     parser.add_argument('-o', '--output',
                         help = 'Output .sif file')
@@ -367,7 +373,7 @@ Limitations:
 
     setup = ''
     post = postBuild(args)
-    files = ''
+    files = []
     config = []
 
     suff = args.image
@@ -422,7 +428,7 @@ Limitations:
         config += configHighs()
 
     if args.clingo is True:
-        suff += '-highs'
+        suff += '-clingo'
         setup += setupClingo()
         post += postClingo()
         files += filesClingo()
@@ -460,7 +466,8 @@ Limitations:
 
 
     post += postMake(args, config)
-    files += '\n/pddl\n'
+    files += ['/pddl']
+    files = '\n'.join(files)
     post_run = postRun(args)
 
     base_image = baseImage(args.image)
