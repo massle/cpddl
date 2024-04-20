@@ -14,8 +14,8 @@ tool can be obtained from gitlab:
   $ apptainer pull oras://registry.gitlab.com/danfis/cpddl:latest
 ```
 It is built with the support for symmetries ([bliss](https://users.aalto.fi/~tjunttil/bliss)),
-symbolic search ([cudd](https://davidkebo.com/cudd)), LP/MIP solvers
-([HiGHS](https://highs.dev) and [Coin-Or](https://www.coin-or.org/)), a COP
+symbolic search ([cudd](https://davidkebo.com/cudd)), LP/MIP solver
+([HiGHS](https://highs.dev), a COP
 solver ([minizinc](https://www.minizinc.org/)), and
 [Gringo/Clingo](https://potassco.org/clingo/) grounders.
 It also supports the [CPLEX](https://www.ibm.com/analytics/cplex-optimizer)

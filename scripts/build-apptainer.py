@@ -136,7 +136,7 @@ def postBuild(args):
     post = ''
     if img.startswith('debian') or img.startswith('ubuntu') or img.startswith('gcc'):
         pkgs = []
-        pkgs += ['make', 'gcc', 'g++', 'bash', 'libstdc++6']
+        pkgs += ['make', 'gcc', 'g++', 'bash', 'libstdc++6', 'git']
         if not args.no_cudd is True:
             pkgs += ['autoconf', 'automake']
         if args.clang is True:
@@ -164,7 +164,7 @@ apt install -y {pkgs}
 
     elif img == 'fedora':
         pkgs = []
-        pkgs += ['make', 'gcc', 'g++', 'bash', 'libstdc++']
+        pkgs += ['make', 'gcc', 'g++', 'bash', 'libstdc++', 'git']
         if not args.no_cudd is True:
             pkgs += ['autoconf', 'automake']
         if args.clang is True:
@@ -187,7 +187,7 @@ dnf -y install {pkgs}
 
     elif img == 'photon':
         pkgs = []
-        pkgs += ['make', 'gcc', 'glibc-devel', 'binutils', 'libstdc++',
+        pkgs += ['make', 'gcc', 'glibc-devel', 'binutils', 'libstdc++', 'git',
                  'linux-api-headers', 'coreutils', 'grep', 'gawk', 'gzip']
         if not args.no_cudd is True:
             pkgs += ['autoconf', 'automake']
@@ -208,7 +208,7 @@ tdnf -y install {pkgs}
 
     elif img == 'alpine':
         pkgs = []
-        pkgs += ['make', 'gcc', 'g++', 'bash', 'libstdc++']
+        pkgs += ['make', 'gcc', 'g++', 'bash', 'libstdc++', 'git']
         if not args.no_cudd is True:
             pkgs += ['autoconf', 'automake']
         if args.clang is True:
