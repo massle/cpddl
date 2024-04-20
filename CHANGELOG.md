@@ -1,5 +1,21 @@
 # Changelog
 
+## Version 1.3
+
+### Added
+- ASNets: Support for landmarks and action history
+- Potential heuristics over conjunctions.
+- Gringo and Clingo grounders.
+- Allowed to ground only facts.
+- Lifted FF heuristic.
+- Function for compiling away equality predicates.
+
+### Changed
+- Refactored ASNets
+- ASNets: Changed format of output policy files from sqlite to TOML.
+- SQLite: Not included by default. It needs to be enabled in Makefile.config.
+
+
 ## Version 1.2
 
 ### Added
@@ -49,17 +65,8 @@ considered soft goals.
 ## Unreleased
 
 ### Added
-- ASNets: Support for landmarks and action history
-- Potential heuristics over conjunctions.
-- Gringo and Clingo grounders.
-- Allowed to ground only facts.
-- Lifted FF heuristic.
-- Function for compiling away equality predicates.
 
 ### Changed
-- Refactored ASNets
-- ASNets: Changed format of output policy files from sqlite to TOML.
-- SQLite: Not included by default. It needs to be enabled in Makefile.config.
 
 ### Removed
 

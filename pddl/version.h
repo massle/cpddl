@@ -8,7 +8,7 @@
 #define __PDDL_VERSION_H__
 
 #define PDDL_VERSION_MAJOR 1
-#define PDDL_VERSION_MINOR 2
+#define PDDL_VERSION_MINOR 3
 
 
 #define _PDDL_VERSION_TO_STR1(x) #x
