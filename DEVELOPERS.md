@@ -15,10 +15,11 @@ branch later.
     ```
 
 1. Run complete tests
-    ```sh
-    make check-all
-    make check-bin-all
-    ```
+    - Re-compile with CUDD, SQLite and CPLEX and run:
+        ```sh
+        make check-all
+        make check-bin-all
+        ```
 
 1. Run complete build tests
     ```sh
