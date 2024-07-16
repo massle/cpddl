@@ -757,10 +757,28 @@ struct pddl_asnets_model {
     ModelParameters *params;
 };
 
+static pddl_asnets_model_t *asnets_model_singleton = NULL;
+static int asnets_model_counter = 0;
+
 pddl_asnets_model_t *pddlASNetsModelNew(const pddl_asnets_lifted_task_t *task,
                                         const pddl_asnets_model_config_t *cfg,
                                         pddl_err_t *err)
 {
+    if (asnets_model_counter > 0){
+        // TODO: Add check for the version of DyNet with correctly implemented
+        //       ::cleanup() function which allows to call this function
+        //       more than once without memory leak.
+        ERR_RET(err, NULL,
+                "Creating more than one instance of ASNets leads to a"
+                " memory leak due to current DyNet implementation."
+                " Therefore, we disallow it completely.");
+    }
+    if (asnets_model_singleton != NULL){
+        ERR_RET(err, NULL,
+                "Cannot create a second instance of an ASNets model."
+                " DyNet allows us to have at most one ASNets model at the time.");
+    }
+
     CTX(err, "ASNets-Model-Init");
     LOG(err, "Model Init for %s", task->pddl.domain_file);
     pddl_asnets_model_t *m = ZALLOC(pddl_asnets_model_t);
@@ -790,11 +808,19 @@ pddl_asnets_model_t *pddlASNetsModelNew(const pddl_asnets_lifted_task_t *task,
 #endif /* PDDL_DEBUG */
 
     CTXEND(err);
+
+    // Store the singleton object
+    asnets_model_singleton = m;
+    // Increase the counter of calls to this function
+    ++asnets_model_counter;
     return m;
 }
 
 void pddlASNetsModelDel(pddl_asnets_model_t *a)
 {
+    PANIC_IF(asnets_model_singleton != a,
+             "Something is wrong: Trying to delete ASNets model that wasn't"
+             " created before.");
     delete a->params;
     if (a->trainer != NULL)
         delete a->trainer;
@@ -802,6 +828,9 @@ void pddlASNetsModelDel(pddl_asnets_model_t *a)
         delete a->cg;
     FREE(a);
     dynet::cleanup();
+
+    // Clear the pointer to the singleton object
+    asnets_model_singleton = NULL;
 }
 
 static void paramToArr(const dynet::Parameter &param, float **w, int *w_size)
