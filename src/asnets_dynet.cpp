@@ -19,6 +19,11 @@
 
 extern "C" const char * const pddl_dynet_version = "not exported";
 
+#define DYNET_PANIC_EXCEPTION(e) \
+    PANIC("Something went wrong (probably) in DyNet: %s" \
+          " (Inf/NaN errors can be caused by having too many layers)", \
+          (e).what())
+
 static const float SMALL_CONST = 1e-6f;
 static const float MIN_ACTIVATION_VALUE = -1.f;
 
@@ -972,46 +977,53 @@ int pddlASNetsModelTrainStep(pddl_asnets_model_t *m,
                              float *out_loss,
                              pddl_err_t *err)
 {
-    // Sample a minibatch
-    pddlASNetsTrainDataShuffle(data);
+    try {
+        // Sample a minibatch
+        pddlASNetsTrainDataShuffle(data);
 
-    // Construct network with the right input data
-    dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, minibatch_size,
-                                               dropout_rate, m->cfg.lmc,
-                                               m->cfg.op_history, *m->cg);
+        // Construct network with the right input data
+        dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, minibatch_size,
+                                                   dropout_rate, m->cfg.lmc,
+                                                   m->cfg.op_history, *m->cg);
 
-    // Learn parameters
-    float loss_val = dynet::as_scalar(m->cg->forward(e_loss));
-    m->cg->backward(e_loss);
-    m->trainer->update();
+        // Learn parameters
+        float loss_val = dynet::as_scalar(m->cg->forward(e_loss));
+        m->cg->backward(e_loss);
+        m->trainer->update();
 
-    if (out_loss != NULL)
-        *out_loss = loss_val;
-    return 0;
+        if (out_loss != NULL)
+            *out_loss = loss_val;
+        return 0;
+
+    } catch(std::runtime_error &e){
+        DYNET_PANIC_EXCEPTION(e);
+        return -1;
+    }
 }
 
 float pddlASNetsModelOverallLoss(pddl_asnets_model_t *m,
                                  pddl_asnets_train_data_t *data,
                                  float dropout_rate)
 {
-    dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, -1,
-                                               dropout_rate, m->cfg.lmc,
-                                               m->cfg.op_history, *m->cg);
-    return dynet::as_scalar(m->cg->forward(e_loss));
+    try {
+        dynet::Expression e_loss = asnetsTrainExpr(data, *m->params, -1,
+                                                   dropout_rate, m->cfg.lmc,
+                                                   m->cfg.op_history, *m->cg);
+        return dynet::as_scalar(m->cg->forward(e_loss));
+    } catch(std::runtime_error &e){
+        DYNET_PANIC_EXCEPTION(e);
+        return -1.;
+    }
 }
 
-int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
-                                const pddl_asnets_ground_task_t *task,
-                                const int *in_state,
-                                const pddl_fdr_part_state_t *in_goal,
-                                const pddl_set_iset_t *in_ldms,
-                                const pddl_iarr_t *in_path,
-                                pddl_asnets_policy_distribution_t *distr)
+static int _pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
+                                        const pddl_asnets_ground_task_t *task,
+                                        const int *in_state,
+                                        const pddl_fdr_part_state_t *in_goal,
+                                        const pddl_set_iset_t *in_ldms,
+                                        const pddl_iarr_t *in_path,
+                                        pddl_asnets_policy_distribution_t *distr)
 {
-    PANIC_IF(m->cfg.lmc && in_ldms == NULL,
-             "Landmarks are required by this model but none were provided.");
-    PANIC_IF(m->cfg.op_history && in_path == NULL,
-             "Operator history is required by this model but it was not provided.");
     std::vector<float> state;
     std::vector<float> goal;
     std::vector<float> applicable_ops;
@@ -1084,4 +1096,26 @@ int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
     }
 
     return best_op_id;
+}
+
+int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
+                                const pddl_asnets_ground_task_t *task,
+                                const int *in_state,
+                                const pddl_fdr_part_state_t *in_goal,
+                                const pddl_set_iset_t *in_ldms,
+                                const pddl_iarr_t *in_path,
+                                pddl_asnets_policy_distribution_t *distr)
+{
+    PANIC_IF(m->cfg.lmc && in_ldms == NULL,
+             "Landmarks are required by this model but none were provided.");
+    PANIC_IF(m->cfg.op_history && in_path == NULL,
+             "Operator history is required by this model but it was not provided.");
+
+    try {
+        return _pddlASNetsModelEvalFDRState(m, task, in_state, in_goal,
+                                            in_ldms, in_path, distr);
+    } catch(std::runtime_error &e){
+        DYNET_PANIC_EXCEPTION(e);
+        return -1;
+    }
 }
