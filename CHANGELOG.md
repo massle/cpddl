@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 1.4
+
+### Added
+- ASNets: Optional logging of evaluation time per evaluated state
+
+### Changed
+- ASNets: Allowed only one instance of a model to prevent memory leak from the
+  DyNet library
+- ASNets: Better reporting of numerical issues from DyNet
+
+
 ## Version 1.3
 
 ### Added
