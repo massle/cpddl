@@ -470,11 +470,12 @@ void pddlASNetsPolicyRolloutFree(pddl_asnets_policy_rollout_t *r)
     pddlIArrFree(&r->plan);
 }
 
-pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
-                                    pddl_asnets_policy_rollout_t *rollout,
-                                    pddl_asnets_ground_task_t *task,
-                                    int max_number_of_steps,
-                                    pddl_err_t *err)
+static pddl_bool_t policyRollout(pddl_asnets_t *a,
+                                 pddl_asnets_policy_rollout_t *rollout,
+                                 pddl_asnets_ground_task_t *task,
+                                 int max_number_of_steps,
+                                 pddl_bool_t verbose,
+                                 pddl_err_t *err)
 {
     if (max_number_of_steps <= 0)
         max_number_of_steps = a->cfg.policy_rollout_limit;
@@ -516,12 +517,22 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
             //LOG(err, "Found %d landmarks", pddlSetISetSize(&ldms));
         }
 
+        pddl_timer_t policy_eval_timer;
+        if (verbose)
+            pddlTimerStart(&policy_eval_timer);
+
         // Apply policy. If we get -1, it means the state is dead-end,
         // because there are no applicable operators
         int op_id = runPolicy(a->model, task, state, &task->fdr.goal,
                               (a->cfg.lmc ? &ldms : NULL),
                               (a->cfg.op_history ? &rollout->ops : NULL),
                               state2, NULL);
+        if (verbose){
+            pddlTimerStop(&policy_eval_timer);
+            LOG(err, "Step %d: policy eval time: %.8fs",
+                step, pddlTimerElapsedInSF(&policy_eval_timer));
+        }
+
         if (a->cfg.lmc)
             pddlSetISetFree(&ldms);
         if (op_id < 0)
@@ -552,6 +563,24 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
     FREE(state);
     FREE(state2);
     return found;
+}
+
+pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
+                                    pddl_asnets_policy_rollout_t *rollout,
+                                    pddl_asnets_ground_task_t *task,
+                                    int max_number_of_steps,
+                                    pddl_err_t *err)
+{
+    return policyRollout(a, rollout, task, max_number_of_steps, pddl_false, err);
+}
+
+pddl_bool_t pddlASNetsPolicyRolloutVerbose(pddl_asnets_t *a,
+                                           pddl_asnets_policy_rollout_t *rollout,
+                                           pddl_asnets_ground_task_t *task,
+                                           int max_number_of_steps,
+                                           pddl_err_t *err)
+{
+    return policyRollout(a, rollout, task, max_number_of_steps, pddl_true, err);
 }
 
 

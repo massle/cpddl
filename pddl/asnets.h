@@ -256,6 +256,15 @@ pddl_bool_t pddlASNetsPolicyRollout(pddl_asnets_t *a,
                                     int max_number_of_steps,
                                     pddl_err_t *err);
 
+/**
+ * Same as pddlASNetsPolicyRollout() except more logs are printed out.
+ */
+pddl_bool_t pddlASNetsPolicyRolloutVerbose(pddl_asnets_t *a,
+                                           pddl_asnets_policy_rollout_t *rollout,
+                                           pddl_asnets_ground_task_t *task,
+                                           int max_number_of_steps,
+                                           pddl_err_t *err);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -13,6 +13,7 @@ static struct {
 
     int eval_max_steps;
     char *eval_out;
+    pddl_bool_t eval_verbose;
 } opt;
 
 static enum {
@@ -105,6 +106,8 @@ static int parseOpts(int *argc, char *argv[])
                "This takes effect only for the 'eval' command."
                " If set, it specifies a prefix for files where found plans"
                " are written, namely they are written to {prefix}-{task_index}.plan.");
+    optsAddFlag("eval-verbose", 'h', &opt.eval_verbose, 0,
+                "More logs of the 'eval' command.");
 
     if (*argc <= 1){
         help(argv[0], stderr);
@@ -255,7 +258,13 @@ static int evaluate(int argc, char *argv[])
         PDDL_LOG(&err, "Rollout of policy ...");
         pddl_asnets_policy_rollout_t rollout;
         pddlASNetsPolicyRolloutInit(&rollout, &gt);
-        pddlASNetsPolicyRollout(asnets, &rollout, &gt, policy_rollout_limit, &err);
+        if (opt.eval_verbose){
+            pddlASNetsPolicyRolloutVerbose(asnets, &rollout, &gt,
+                                           policy_rollout_limit, &err);
+        }else{
+            pddlASNetsPolicyRollout(asnets, &rollout, &gt,
+                                    policy_rollout_limit, &err);
+        }
         PDDL_LOG(&err, "Found plan: %s", (rollout.found_plan ? "true" : "false"));
         PDDL_LOG(&err, "Num states: %d", rollout.states.num_states);
         PDDL_LOG(&err, "Num ops: %d", pddlIArrSize(&rollout.ops));
