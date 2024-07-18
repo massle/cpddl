@@ -1,3 +1,7 @@
+ifneq (4.0,$(firstword $(sort $(MAKE_VERSION) 4.0)))
+  $(error The minimum required verion of make is 4.0 (you have $(MAKE_VERSION)).)
+endif
+
 BASEPATH_ := $(dir $(realpath $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 #BASEPATH_ := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 

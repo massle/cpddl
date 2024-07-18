@@ -76,6 +76,7 @@ considered soft goals.
 ## Unreleased
 
 ### Added
+- Added check in Makefile for the minimum required version of make.
 
 ### Changed
 
