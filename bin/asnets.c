@@ -106,7 +106,7 @@ static int parseOpts(int *argc, char *argv[])
                "This takes effect only for the 'eval' command."
                " If set, it specifies a prefix for files where found plans"
                " are written, namely they are written to {prefix}-{task_index}.plan.");
-    optsAddFlag("eval-verbose", 'h', &opt.eval_verbose, 0,
+    optsAddFlag("eval-verbose", 0x0, &opt.eval_verbose, 0,
                 "More logs of the 'eval' command.");
 
     if (*argc <= 1){
