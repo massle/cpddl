@@ -83,3 +83,6 @@ considered soft goals.
 ### Removed
 
 ### Fixed
+- Bug in compiling away negative preconditions: When using datalog to infer
+which NOT-* facts are necessary in the initial state, inequality preconditions
+were treated as equality preconditions.

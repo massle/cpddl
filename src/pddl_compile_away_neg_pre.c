@@ -229,7 +229,7 @@ static void dlAddStaticBody(const pddl_t *pddl,
     const pddl_fm_atom_t *satom;
     pddl_fm_const_it_atom_t it;
     PDDL_FM_FOR_EACH_ATOM(pre, &it, satom){
-        if (!pddlPredIsStatic(pddl->pred.pred + satom->pred) || a->neg)
+        if (!pddlPredIsStatic(pddl->pred.pred + satom->pred) || satom->neg)
             continue;
 
         // Check if the static atom has a common variable with the input atom
