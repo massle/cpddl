@@ -86,3 +86,4 @@ considered soft goals.
 - Bug in compiling away negative preconditions: When using datalog to infer
 which NOT-* facts are necessary in the initial state, inequality preconditions
 were treated as equality preconditions.
+- ASNets: Sensible error message when no training data are available.

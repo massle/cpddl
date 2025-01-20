@@ -1006,6 +1006,11 @@ int pddlASNetsModelTrainStep(pddl_asnets_model_t *m,
                              float *out_loss,
                              pddl_err_t *err)
 {
+    if (data->sample_size == 0){
+        ERR_RET(err, -1, "No training data samples: Cannot train a model"
+                " without any input data.");
+    }
+
     try {
         // Sample a minibatch
         pddlASNetsTrainDataShuffle(data);
