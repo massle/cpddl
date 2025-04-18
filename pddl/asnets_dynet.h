@@ -108,6 +108,7 @@ int pddlASNetsModelTrainStep(pddl_asnets_model_t *m,
                              pddl_asnets_train_data_t *data,
                              int minibatch_size,
                              float dropout_rate,
+                             float l1_regularization,
                              float *loss,
                              pddl_err_t *err);
 
@@ -116,7 +117,8 @@ int pddlASNetsModelTrainStep(pddl_asnets_model_t *m,
  */
 float pddlASNetsModelOverallLoss(pddl_asnets_model_t *m,
                                  pddl_asnets_train_data_t *data,
-                                 float dropout_rate);
+                                 float dropout_rate,
+                                 float l1_regularization);
 
 /**
  * Evaluate the model on the given task/state/goal.

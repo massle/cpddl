@@ -54,6 +54,7 @@ void pddlASNetsConfigLog(const pddl_asnets_config_t *cfg, pddl_err_t *err)
     LOG_CONFIG_INT(cfg, random_seed, err);
     LOG_CONFIG_DBL(cfg, weight_decay, err);
     LOG_CONFIG_DBL(cfg, dropout_rate, err);
+    LOG_CONFIG_DBL(cfg, l1_regularization, err);
     LOG_CONFIG_INT(cfg, batch_size, err);
     LOG_CONFIG_INT(cfg, double_batch_size_every_epoch, err);
     LOG_CONFIG_INT(cfg, max_train_epochs, err);
@@ -79,6 +80,7 @@ void pddlASNetsConfigInit(pddl_asnets_config_t *cfg)
     cfg->random_seed = 6961;
     cfg->weight_decay = 2e-4f;
     cfg->dropout_rate = 0.1f;
+    cfg->l1_regularization = 0.f;
     cfg->batch_size = 64;
     cfg->double_batch_size_every_epoch = 0;
     cfg->max_train_epochs = 300;
@@ -238,6 +240,7 @@ int pddlASNetsConfigInitFromFile(pddl_asnets_config_t *cfg,
     TOML_INT(random_seed);
     TOML_FLT(weight_decay);
     TOML_FLT(dropout_rate);
+    TOML_FLT(l1_regularization);
     TOML_INT(batch_size);
     TOML_INT(double_batch_size_every_epoch);
     TOML_INT(max_train_epochs);
@@ -373,6 +376,7 @@ void pddlASNetsConfigWrite(const pddl_asnets_config_t *cfg, FILE *fout)
     fprintf(fout, "random_seed = %d\n", cfg->random_seed);
     fprintf(fout, "weight_decay = %f\n", cfg->weight_decay);
     fprintf(fout, "dropout_rate = %f\n", cfg->dropout_rate);
+    fprintf(fout, "l1_regularization = %f\n", cfg->dropout_rate);
     fprintf(fout, "batch_size = %d\n", cfg->batch_size);
     fprintf(fout, "double_batch_size_every_epoch = %d\n",
             cfg->double_batch_size_every_epoch);
@@ -1220,7 +1224,8 @@ static int trainStep(pddl_asnets_t *a,
     a->train_stats.train_step = train_step + 1;
 
     int ret = pddlASNetsModelTrainStep(a->model, data, a->cfg.batch_size,
-                                       a->cfg.dropout_rate, &loss, err);
+                                       a->cfg.dropout_rate, a->cfg.l1_regularization,
+                                       &loss, err);
     if (ret < 0)
         TRACE_RET(err, -1);
 
@@ -1631,7 +1636,7 @@ static int trainEpoch(pddl_asnets_t *a,
     CTXEND(err);
     CTX(err, "Overall Loss");
     a->train_stats.overall_loss
-            = pddlASNetsModelOverallLoss(a->model, data, a->cfg.dropout_rate);
+            = pddlASNetsModelOverallLoss(a->model, data, a->cfg.dropout_rate, a->cfg.l1_regularization);
     LOG(err, "Overall loss: %f", a->train_stats.overall_loss);
     CTXEND(err);
     LOG(err, "Train samples: %d", a->train_stats.num_samples);

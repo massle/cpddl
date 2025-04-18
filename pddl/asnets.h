@@ -47,6 +47,8 @@ struct pddl_asnets_config {
     float weight_decay;
     /** Dropout rate if set to >0. Default: 0.1 */
     float dropout_rate;
+    /** L1 regularization term. Default: 0 */
+    float l1_regularization;
     /** Number of samples in a minibatch. Default: 64 */
     int batch_size;
     /** Double .batch_size every specified number of epochs. Default: 0 */
