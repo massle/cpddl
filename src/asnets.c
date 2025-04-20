@@ -1717,3 +1717,10 @@ int pddlASNetsTrain(pddl_asnets_t *a, pddl_err_t *err)
     CTXEND(err);
     return 0;
 }
+
+pddl_ground_asnets_t* pddlASNetsPolicyGround(pddl_asnets_t *a,
+                                             pddl_asnets_ground_task_t *task,
+                                             pddl_err_t *err)
+{
+    return pddlASNetsGroundModelGet(a->model, task, err);
+}

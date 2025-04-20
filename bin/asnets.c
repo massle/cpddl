@@ -23,6 +23,7 @@ static enum {
     CMD_GEN_FD_OSP_ENC,
     CMD_CONVERT_OLD_MODEL,
     CMD_GEN_TRAIN_CONFIG_FILE,
+    CMD_GROUND
 } cmd;
 
 
@@ -138,6 +139,10 @@ static int parseOpts(int *argc, char *argv[])
         shiftCmdArgs(argc, argv);
         cmd = CMD_GEN_TRAIN_CONFIG_FILE;
 
+    }else if (strcmp(argv[1], "ground") == 0) {
+        shiftCmdArgs(argc, argv);
+        cmd = CMD_GROUND;
+
     }else{
         fprintf(stderr, "Error: Unknown command %s\n", argv[1]);
         help(argv[0], stderr);
@@ -194,6 +199,12 @@ static int parseOpts(int *argc, char *argv[])
             fprintf(stderr, "Error: Command gen-train-config-file takes exactly"
                     " one arguments, but %d were given.\n",
                     *argc - 1);
+            help(argv[0], stderr);
+            return -1;
+        }
+    } else if (cmd == CMD_TRAIN){
+        if (*argc != 4){
+            fprintf(stderr, "Error: Command ground expects three arguments.");
             help(argv[0], stderr);
             return -1;
         }
@@ -375,6 +386,33 @@ static int genTrainConfigFile(int argc, char *argv[])
     return 0;
 }
 
+static int ground(int argc, char *argv[])
+{
+    pddl_asnets_t *asnets = pddlASNetsNewLoad(argv[1], argv[2], &err);
+    if (asnets == NULL)
+        PDDL_TRACE_RET(&err, -1);
+
+    const pddl_asnets_config_t *cfg = pddlASNetsGetConfig(asnets);
+    const pddl_asnets_lifted_task_t *lt = pddlASNetsGetLiftedTask(asnets);
+
+    pddl_asnets_ground_task_t gt;
+    int st = pddlASNetsGroundTaskInit(&gt, lt, argv[2], argv[3],
+                                        cfg, &err);
+    if (st != 0){
+        pddlASNetsDel(asnets);
+        PDDL_TRACE_RET(&err, -1);
+    }
+
+    pddl_ground_asnets_t* gAsnets = pddlASNetsPolicyGround(asnets, &gt, &err);
+    pddlDumpGroundASNetsModel(gAsnets, "asnets.nnet", &err);
+
+    pddlGroundASNetsDel(gAsnets);
+    pddlASNetsGroundTaskFree(&gt);
+    pddlASNetsDel(asnets);
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     pddl_timer_t timer;
@@ -422,6 +460,10 @@ int main(int argc, char *argv[])
 
         case CMD_GEN_TRAIN_CONFIG_FILE:
             ret = genTrainConfigFile(argc, argv);
+            break;
+
+        case CMD_GROUND:
+            ret = ground(argc, argv);
             break;
     }
 

@@ -11,6 +11,7 @@
 #include <pddl/asnets_task.h>
 #include <pddl/asnets_policy_distribution.h>
 #include <pddl/asnets_train_data.h>
+#include <pddl/asnets_ground_model.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,6 +133,11 @@ int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
                                 const pddl_set_iset_t *in_ldms,
                                 const pddl_iarr_t *in_path,
                                 pddl_asnets_policy_distribution_t *distr);
+
+pddl_ground_asnets_t* pddlASNetsGroundModelGet(
+        pddl_asnets_model_t *m,
+        const pddl_asnets_ground_task_t *task,
+        pddl_err_t *err);
 
 #ifdef __cplusplus
 }

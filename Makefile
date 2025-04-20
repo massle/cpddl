@@ -172,6 +172,7 @@ SRC += asnets
 SRC += asnets_policy_distribution
 SRC += asnets_task
 SRC += asnets_train_data
+SRC += asnets_ground_model
 SRC += str_pool
 SRC += gaifman
 

@@ -9,6 +9,8 @@
 #include "internal.h"
 #include "pddl/libs_info.h"
 
+#include <pddl/asnets_ground_model.h>
+
 #ifndef PDDL_DYNET
 #error "asnets_dynet.cpp requires DyNet library!"
 #endif /* PDDL_DYNET */
@@ -150,7 +152,7 @@ struct ActionModule {
             dynet::Dim(dim_bias), dynet::ParameterInitNormal());
     }
 
-    dynet::Expression expr(
+    dynet::Expression _expr(
         dynet::ComputationGraph& cg,
         const std::vector<dynet::Expression>& input) const
     {
@@ -158,12 +160,10 @@ struct ActionModule {
         dynet::Expression b = dynet::parameter(cg, bias);
         dynet::Expression u = dynet::concatenate(input);
         dynet::Expression e = (w * u) + b;
-        if (is_output)
-            return e;
-        return dynet::rectify(e);
+        return e;
     }
 
-    dynet::Expression exprInput(
+    dynet::Expression _exprInput(
         dynet::ComputationGraph& cg,
         const std::vector<dynet::Expression>& input_state,
         const std::vector<dynet::Expression>& input_goal,
@@ -179,7 +179,37 @@ struct ActionModule {
         input.insert(input.end(), input_ldms.begin(), input_ldms.end());
         input.insert(
             input.end(), input_op_history.begin(), input_op_history.end());
-        return expr(cg, input);
+        return _expr(cg, input);
+    }
+
+    dynet::Expression expr(
+        dynet::ComputationGraph& cg,
+        const std::vector<dynet::Expression>& input) const
+    {
+        dynet::Expression e = _expr(cg, input);
+        if (is_output)
+            return e;
+        return dynet::rectify(e);
+    }
+
+    dynet::Expression exprInput(
+        dynet::ComputationGraph& cg,
+        const std::vector<dynet::Expression>& input_state,
+        const std::vector<dynet::Expression>& input_goal,
+        const dynet::Expression& input_applicable,
+        const std::vector<dynet::Expression>& input_ldms,
+        const std::vector<dynet::Expression>& input_op_history) const
+    {
+        dynet::Expression e = _exprInput(
+            cg,
+            input_state,
+            input_goal,
+            input_applicable,
+            input_ldms,
+            input_op_history);
+        if (is_output)
+            return e;
+        return dynet::rectify(e);
     }
 
     dynet::Expression l1_parameter_loss(dynet::ComputationGraph& cg) const
@@ -486,6 +516,160 @@ _propLayer(
         }
         prop_layer.push_back(e);
     }
+}
+
+static pddl_ground_asnets_proposition_layer_t*
+_groundPropLayer(
+    const pddl_asnets_ground_task_t* g,
+    const ModelParameters& model,
+    int layer)
+{
+    pddl_ground_asnets_proposition_layer_t* res = pddlGroundASNetsPLayerNew();
+
+    // precompute layer size information for allocating arrays
+    int pool_output_size = 0;
+    int pool_num_indices = 0;
+    for (int fact_id = 0; fact_id < g->fact_size; ++fact_id) {
+        pool_output_size += g->fact[fact_id].related_op_size;
+        for (int ri = 0; ri < g->fact[fact_id].related_op_size; ++ri) {
+            pool_num_indices += g->fact[fact_id].related_op[ri].size;
+        }
+    }
+
+    // pool layer
+    pddl_nn_layer_max_pool_t* pooling = pddlNNLayerPoolNew(
+        pool_num_indices * model.hidden_dim,
+        pool_output_size * model.hidden_dim);
+    for (int fact_id = 0, idx = 0, out = 0; fact_id < g->fact_size; ++fact_id) {
+        for (int ri = 0; ri < g->fact[fact_id].related_op_size; ++ri) {
+            int op_id;
+            for (int h = 0; h < model.hidden_dim; ++h, ++out) {
+                PDDL_IARR_FOR_EACH(g->fact[fact_id].related_op + ri, op_id)
+                {
+                    pooling->indices[idx] = op_id * model.hidden_dim + h;
+                    ++idx;
+                }
+                pooling->inputs[out] = g->fact[fact_id].related_op[ri].size;
+            }
+        }
+    }
+    res->pool = pooling;
+
+    pddl_nn_layer_feed_forward_t* ff = pddlNNLayerFFNew(
+        pool_output_size * model.hidden_dim, g->fact_size * model.hidden_dim);
+    for (int fact_id = 0, w = 0, b = 0, offset = 0; fact_id < g->fact_size;
+         ++fact_id) {
+        int pred_id = g->fact[fact_id].pred->pred_id;
+        PropositionModule* pm = model.prop[layer][pred_id];
+        for (unsigned h = 0; h < pm->W.dim()[0];
+             ++h, w += pool_output_size * model.hidden_dim, ++b) {
+            for (unsigned ri = 0; ri < pm->W.dim()[1]; ++ri) {
+                ff->weights[w + offset + ri] =
+                    dynet::TensorTools::access_element(
+                        *pm->W.values(), dynet::Dim({ h, ri }));
+            }
+            ff->biases[b] =
+                dynet::TensorTools::access_element(*pm->bias.values(), h);
+        }
+        offset += g->fact[fact_id].related_op_size * model.hidden_dim;
+    }
+    res->perceptron = ff;
+
+    return res;
+}
+
+static pddl_nn_layer_feed_forward_t*
+_groundActionLayer(
+    const pddl_asnets_ground_task_t* g,
+    const ModelParameters& model,
+    int layer)
+{
+    pddl_nn_layer_feed_forward_t* res = pddlNNLayerFFNew(
+        g->fact_size * model.hidden_dim,
+        g->op_size * (model.num_layers == layer ? 1 : model.hidden_dim));
+    for (int op_id = 0, offset = 0, b = 0; op_id < g->op_size; ++op_id) {
+        int action_id = g->op[op_id].action->action_id;
+        ActionModule* am = model.action[layer][action_id];
+        for (unsigned h = 0; h < am->W.dim()[0];
+             ++h, offset += g->fact_size * model.hidden_dim, ++b) {
+            for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
+                int fact_id = g->op[op_id].related_fact[i];
+                for (int hi = 0; hi < model.hidden_dim; ++hi) {
+                    unsigned local_index = i * model.hidden_dim + hi;
+                    res->weights[offset + fact_id * model.hidden_dim + hi] =
+                        dynet::TensorTools::access_element(
+                            *am->W.values(), dynet::Dim({ h, local_index }));
+                }
+            }
+            res->biases[b] =
+                dynet::TensorTools::access_element(*am->bias.values(), h);
+        }
+    }
+    return res;
+}
+
+static std::vector<float>
+_removeGoalInput(
+    const pddl_asnets_ground_task_t* g,
+    const ModelParameters& model,
+    dynet::ComputationGraph& cg,
+    int op_id)
+{
+    cg.clear();
+    std::vector<float> state(g->fact_size, 0);
+    std::vector<float> goal(g->fact_size, 0);
+    {
+        int fact_id;
+        PDDL_ISET_FOR_EACH(&g->strips.goal, fact_id) { goal[fact_id] = 1; }
+    }
+    std::vector<long> dim(1);
+    dim[0] = state.size();
+    dynet::Expression e_state = dynet::input(cg, dynet::Dim(dim), state);
+    dynet::Expression e_goal = dynet::input(cg, dynet::Dim(dim), goal);
+    dynet::Expression e_applicable_ops;
+    dynet::Expression e_ldms;
+    dynet::Expression e_op_history;
+    std::vector<dynet::Expression> in_state;
+    std::vector<dynet::Expression> in_goal;
+    dynet::Expression in_applicable;
+    std::vector<dynet::Expression> in_ldms;
+    std::vector<dynet::Expression> in_op_history;
+    for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
+        int fact_id = g->op[op_id].related_fact[i];
+        in_state.push_back(dynet::pick(e_state, fact_id));
+        in_goal.push_back(dynet::pick(e_goal, fact_id));
+    }
+    int action_id = g->op[op_id].action->action_id;
+    ActionModule* am = model.action[0][action_id];
+    dynet::Expression e = am->_exprInput(
+        cg, in_state, in_goal, in_applicable, in_ldms, in_op_history);
+    return dynet::as_vector(cg.forward(e));
+}
+
+static pddl_nn_layer_feed_forward_t*
+_groundFirstActionLayer(
+    const pddl_asnets_ground_task_t* g,
+    const ModelParameters& model,
+    dynet::ComputationGraph& cg)
+{
+    pddl_nn_layer_feed_forward_t* res =
+        pddlNNLayerFFNew(g->fact_size, g->op_size * model.hidden_dim);
+    for (int op_id = 0, offset = 0, b = 0; op_id < g->op_size; ++op_id) {
+        int action_id = g->op[op_id].action->action_id;
+        ActionModule* am = model.action[0][action_id];
+        const std::vector<float> biases = _removeGoalInput(g, model, cg, op_id);
+        for (unsigned h = 0; h < am->W.dim()[0];
+             ++h, offset += g->fact_size, ++b) {
+            for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
+                unsigned fact_id = g->op[op_id].related_fact[i];
+                res->weights[offset + fact_id] =
+                    dynet::TensorTools::access_element(
+                        *am->W.values(), dynet::Dim({ h, fact_id }));
+            }
+            res->biases[b] = biases[h];
+        }
+    }
+    return res;
 }
 
 static dynet::Expression
@@ -847,9 +1031,8 @@ asnetsTrainExpr(
             b.e_ldms,
             b.e_op_history,
             dropout_rate);
-        dynet::Expression e_loss =
-            crossEntropyLoss(cg, e, b.e_output);
-        if (l1_regularization > 0.){
+        dynet::Expression e_loss = crossEntropyLoss(cg, e, b.e_output);
+        if (l1_regularization > 0.) {
             e_loss = e_loss + params.l1_parameter_loss(cg) * l1_regularization;
         }
         nets.push_back(e_loss);
@@ -1326,4 +1509,24 @@ pddlASNetsModelEvalFDRState(
         DYNET_PANIC_EXCEPTION(e);
         return -1;
     }
+}
+
+pddl_ground_asnets_t*
+pddlASNetsGroundModelGet(
+    pddl_asnets_model_t* m,
+    const pddl_asnets_ground_task_t* task,
+    pddl_err_t* err)
+{
+    printf("grounding asnets policy...\n");
+    pddl_ground_asnets_t* res = pddlGroundASNetsNew(m->params->num_layers);
+    printf("grounding first action layer...\n");
+    res->action_layers[0] = _groundFirstActionLayer(task, *m->params, *m->cg);
+    for (int l = 0; l < m->params->num_layers; ++l) {
+        printf("grounding proposition layer %d...\n", l);
+        res->proposition_layers[l] = _groundPropLayer(task, *m->params, l);
+        printf("grounding action layer %d...\n", l + 1);
+        res->action_layers[l + 1] = _groundActionLayer(task, *m->params, l + 1);
+    }
+    printf("asnets policy grounded\n");
+    return res;
 }

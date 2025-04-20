@@ -7,8 +7,10 @@
 #ifndef __PDDL_ASNETS_H__
 #define __PDDL_ASNETS_H__
 
+#include "asnets_ground_model.h"
 #include <pddl/iarr.h>
 #include <pddl/asnets_task.h>
+#include <pddl/asnets_ground_model.h>
 #include <pddl/asnets_policy_distribution.h>
 #include <pddl/fdr_state_space.h>
 
@@ -266,6 +268,11 @@ pddl_bool_t pddlASNetsPolicyRolloutVerbose(pddl_asnets_t *a,
                                            pddl_asnets_ground_task_t *task,
                                            int max_number_of_steps,
                                            pddl_err_t *err);
+
+pddl_ground_asnets_t* pddlASNetsPolicyGround(pddl_asnets_t *a,
+                                             pddl_asnets_ground_task_t *task,
+                                             pddl_err_t *err);
+
 
 #ifdef __cplusplus
 }
