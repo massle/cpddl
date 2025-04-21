@@ -518,14 +518,13 @@ _propLayer(
     }
 }
 
-static pddl_ground_asnets_proposition_layer_t*
+static void
 _groundPropLayer(
+    pddl_ground_asnets_proposition_layer_t* res,
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     int layer)
 {
-    pddl_ground_asnets_proposition_layer_t* res = pddlGroundASNetsPLayerNew();
-
     // precompute layer size information for allocating arrays
     int pool_output_size = 0;
     int pool_num_indices = 0;
@@ -537,7 +536,8 @@ _groundPropLayer(
     }
 
     // pool layer
-    pddl_nn_layer_max_pool_t* pooling = pddlNNLayerPoolNew(
+    pddlNNLayerPoolInit(
+        &res->pool,
         pool_num_indices * model.hidden_dim,
         pool_output_size * model.hidden_dim);
     for (int fact_id = 0, idx = 0, out = 0; fact_id < g->fact_size; ++fact_id) {
@@ -546,17 +546,18 @@ _groundPropLayer(
             for (int h = 0; h < model.hidden_dim; ++h, ++out) {
                 PDDL_IARR_FOR_EACH(g->fact[fact_id].related_op + ri, op_id)
                 {
-                    pooling->indices[idx] = op_id * model.hidden_dim + h;
+                    res->pool.indices[idx] = op_id * model.hidden_dim + h;
                     ++idx;
                 }
-                pooling->inputs[out] = g->fact[fact_id].related_op[ri].size;
+                res->pool.inputs[out] = g->fact[fact_id].related_op[ri].size;
             }
         }
     }
-    res->pool = pooling;
 
-    pddl_nn_layer_feed_forward_t* ff = pddlNNLayerFFNew(
-        pool_output_size * model.hidden_dim, g->fact_size * model.hidden_dim);
+    pddlNNLayerFFInit(
+        &res->perceptron,
+        pool_output_size * model.hidden_dim,
+        g->fact_size * model.hidden_dim);
     for (int fact_id = 0, w = 0, b = 0, offset = 0; fact_id < g->fact_size;
          ++fact_id) {
         int pred_id = g->fact[fact_id].pred->pred_id;
@@ -564,27 +565,26 @@ _groundPropLayer(
         for (unsigned h = 0; h < pm->W.dim()[0];
              ++h, w += pool_output_size * model.hidden_dim, ++b) {
             for (unsigned ri = 0; ri < pm->W.dim()[1]; ++ri) {
-                ff->weights[w + offset + ri] =
+                res->perceptron.weights[w + offset + ri] =
                     dynet::TensorTools::access_element(
                         *pm->W.values(), dynet::Dim({ h, ri }));
             }
-            ff->biases[b] =
+            res->perceptron.biases[b] =
                 dynet::TensorTools::access_element(*pm->bias.values(), h);
         }
         offset += g->fact[fact_id].related_op_size * model.hidden_dim;
     }
-    res->perceptron = ff;
-
-    return res;
 }
 
-static pddl_nn_layer_feed_forward_t*
+static void
 _groundActionLayer(
+    pddl_nn_layer_feed_forward_t* res,
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     int layer)
 {
-    pddl_nn_layer_feed_forward_t* res = pddlNNLayerFFNew(
+    pddlNNLayerFFInit(
+        res,
         g->fact_size * model.hidden_dim,
         g->op_size * (model.num_layers == layer ? 1 : model.hidden_dim));
     for (int op_id = 0, offset = 0, b = 0; op_id < g->op_size; ++op_id) {
@@ -605,7 +605,6 @@ _groundActionLayer(
                 dynet::TensorTools::access_element(*am->bias.values(), h);
         }
     }
-    return res;
 }
 
 static std::vector<float>
@@ -613,11 +612,21 @@ _removeGoalInput(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     dynet::ComputationGraph& cg,
-    int op_id)
+    int op_id,
+    const pddl_ground_asnets_conf_t* conf)
 {
     cg.clear();
     std::vector<float> state(g->fact_size, 0);
     std::vector<float> goal(g->fact_size, 0);
+    {
+        int fact_id;
+        PDDL_ISET_FOR_EACH(&g->strips.init, fact_id)
+        {
+            if (conf->variable[fact_id] < 0) {
+                state[fact_id] = 1;
+            }
+        }
+    }
     {
         int fact_id;
         PDDL_ISET_FOR_EACH(&g->strips.goal, fact_id) { goal[fact_id] = 1; }
@@ -646,30 +655,41 @@ _removeGoalInput(
     return dynet::as_vector(cg.forward(e));
 }
 
-static pddl_nn_layer_feed_forward_t*
+static void
 _groundFirstActionLayer(
+    pddl_nn_layer_feed_forward_t* res,
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
-    dynet::ComputationGraph& cg)
+    dynet::ComputationGraph& cg,
+    const pddl_ground_asnets_conf_t* conf)
 {
-    pddl_nn_layer_feed_forward_t* res =
-        pddlNNLayerFFNew(g->fact_size, g->op_size * model.hidden_dim);
+    std::vector<int> new_fact_id(g->fact_size, -1);
+    int non_static_facts = 0;
+    for (int fact_id = 0; fact_id < g->fact_size; ++fact_id) {
+        if (conf->variable[fact_id] >= 0) {
+            new_fact_id[fact_id] = non_static_facts++;
+        }
+    }
+    pddlNNLayerFFInit(res, non_static_facts, g->op_size * model.hidden_dim);
     for (int op_id = 0, offset = 0, b = 0; op_id < g->op_size; ++op_id) {
         int action_id = g->op[op_id].action->action_id;
         ActionModule* am = model.action[0][action_id];
-        const std::vector<float> biases = _removeGoalInput(g, model, cg, op_id);
+        const std::vector<float> biases =
+            _removeGoalInput(g, model, cg, op_id, conf);
         for (unsigned h = 0; h < am->W.dim()[0];
-             ++h, offset += g->fact_size, ++b) {
+             ++h, offset += non_static_facts, ++b) {
             for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
                 unsigned fact_id = g->op[op_id].related_fact[i];
-                res->weights[offset + fact_id] =
+                if (new_fact_id[fact_id] < 0) {
+                    continue;
+                }
+                res->weights[offset + new_fact_id[fact_id]] =
                     dynet::TensorTools::access_element(
                         *am->W.values(), dynet::Dim({ h, fact_id }));
             }
             res->biases[b] = biases[h];
         }
     }
-    return res;
 }
 
 static dynet::Expression
@@ -1511,22 +1531,74 @@ pddlASNetsModelEvalFDRState(
     }
 }
 
-pddl_ground_asnets_t*
-pddlASNetsGroundModelGet(
+static void
+_groundAsnetsInput(
+    pddl_ground_asnets_input_interface_t* inp,
+    const pddl_asnets_ground_task_t* task,
+    const pddl_ground_asnets_conf_t* conf)
+{
+    pddlNNLayerFFInit(&inp->l0, conf->num_variables, 2 * conf->num_facts);
+    pddlNNLayerFFInit(&inp->l1, 2 * conf->num_facts, conf->num_facts);
+    for (int fact_id = 0, remapped_id = 0; fact_id < task->fact_size;
+         ++fact_id) {
+        if (conf->variable[fact_id] < 0)
+            continue;
+        int var_id = conf->variable[fact_id];
+        int value = conf->value[fact_id];
+        inp->l0.weights[2 * remapped_id * conf->num_variables + var_id] = 1;
+        inp->l0
+            .weights[(2 * remapped_id + 1) * conf->num_variables + var_id + 1] =
+            1;
+        inp->l0.biases[2 * remapped_id] = -value + 1;
+        inp->l0.biases[2 * remapped_id + 1] = -value;
+        inp->l1.weights[remapped_id * 2 * conf->num_facts + 2 * remapped_id] =
+            1;
+        inp->l1
+            .weights[remapped_id * 2 * conf->num_facts + 2 * remapped_id + 1] =
+            -1;
+        ++remapped_id;
+    }
+}
+
+static void
+_groundAsnetsOutput(
+    pddl_nn_layer_max_pool_t* out,
+    const pddl_asnets_ground_task_t* task,
+    const pddl_ground_asnets_conf_t* conf)
+{
+    pddlNNLayerPoolInit(out, conf->num_operators, conf->num_labels);
+    for (int label = 0, idx = 0; label < conf->num_labels; ++label) {
+        for (int op_id = 0; op_id < task->op_size; ++op_id) {
+            if (conf->label[op_id] == label) {
+                out->indices[idx] = op_id;
+                ++idx;
+                ++out->inputs[label];
+            }
+        }
+    }
+}
+
+void
+pddlASNetsPolicyGroundImpl(
+    pddl_ground_asnets_t* res,
     pddl_asnets_model_t* m,
     const pddl_asnets_ground_task_t* task,
+    const pddl_ground_asnets_conf_t* conf,
     pddl_err_t* err)
 {
     printf("grounding asnets policy...\n");
-    pddl_ground_asnets_t* res = pddlGroundASNetsNew(m->params->num_layers);
+    pddlGroundASNetsInit(res, m->params->num_layers);
+    printf("input interface...\n");
+    _groundAsnetsInput(&res->input_interface, task, conf);
+    printf("output interface...\n");
+    _groundAsnetsOutput(&res->output_interface, task, conf);
     printf("grounding first action layer...\n");
-    res->action_layers[0] = _groundFirstActionLayer(task, *m->params, *m->cg);
+    _groundFirstActionLayer(res->action_layers, task, *m->params, *m->cg, conf);
     for (int l = 0; l < m->params->num_layers; ++l) {
         printf("grounding proposition layer %d...\n", l);
-        res->proposition_layers[l] = _groundPropLayer(task, *m->params, l);
+        _groundPropLayer(res->proposition_layers + l, task, *m->params, l);
         printf("grounding action layer %d...\n", l + 1);
-        res->action_layers[l + 1] = _groundActionLayer(task, *m->params, l + 1);
+        _groundActionLayer(res->action_layers + l + 1, task, *m->params, l + 1);
     }
     printf("asnets policy grounded\n");
-    return res;
 }

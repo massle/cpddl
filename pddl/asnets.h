@@ -269,9 +269,12 @@ pddl_bool_t pddlASNetsPolicyRolloutVerbose(pddl_asnets_t *a,
                                            int max_number_of_steps,
                                            pddl_err_t *err);
 
-pddl_ground_asnets_t* pddlASNetsPolicyGround(pddl_asnets_t *a,
-                                             pddl_asnets_ground_task_t *task,
-                                             pddl_err_t *err);
+void pddlASNetsPolicyGround(
+        pddl_ground_asnets_t*  a,
+        pddl_asnets_t *m,
+        const pddl_asnets_ground_task_t *task,
+        const pddl_ground_asnets_conf_t* conf,
+        pddl_err_t *err);
 
 
 #ifdef __cplusplus

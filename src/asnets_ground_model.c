@@ -2,96 +2,69 @@
 
 #include <pddl/asnets_ground_model.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-pddl_nn_layer_feed_forward_t*
-pddlNNLayerFFNew(int input, int output)
+void
+pddlNNLayerFFInit(pddl_nn_layer_feed_forward_t* l, int input, int output)
 {
-    pddl_nn_layer_feed_forward_t* l = ZALLOC(pddl_nn_layer_feed_forward_t);
     l->inputs = input;
     l->outputs = output;
     l->weights = ZALLOC_ARR(float, (input * output));
     l->biases = ZALLOC_ARR(float, output);
-    return l;
 }
 
 void
-pddlNNLayerFFDel(pddl_nn_layer_feed_forward_t* l)
+pddlNNLayerFFFree(pddl_nn_layer_feed_forward_t* l)
 {
     FREE(l->weights);
     FREE(l->biases);
-    FREE(l);
 }
 
-pddl_nn_layer_max_pool_t*
-pddlNNLayerPoolNew(int num_indices, int num_outputs)
+void
+pddlNNLayerPoolInit(
+    pddl_nn_layer_max_pool_t* l,
+    int num_indices,
+    int num_outputs)
 {
-    pddl_nn_layer_max_pool_t* l = ZALLOC(pddl_nn_layer_max_pool_t);
     l->indices = ZALLOC_ARR(int, num_indices);
     l->inputs = ZALLOC_ARR(int, num_outputs);
     l->outputs = num_outputs;
-    return l;
 }
 
 void
-pddlNNLayerPoolDel(pddl_nn_layer_max_pool_t* l)
+pddlNNLayerPoolFree(pddl_nn_layer_max_pool_t* l)
 {
     FREE(l->indices);
     FREE(l->inputs);
-    FREE(l);
-}
-
-pddl_ground_asnets_proposition_layer_t*
-pddlGroundASNetsPLayerNew()
-{
-    pddl_ground_asnets_proposition_layer_t* l =
-        ZALLOC(pddl_ground_asnets_proposition_layer_t);
-    l->perceptron = NULL;
-    l->pool = NULL;
-    return l;
 }
 
 void
-pddlGroundASNetsPLayerDel(pddl_ground_asnets_proposition_layer_t* l)
+pddlGroundASNetsPLayerFree(pddl_ground_asnets_proposition_layer_t* l)
 {
-    if (l->perceptron != NULL) {
-        pddlNNLayerFFDel(l->perceptron);
-        l->perceptron = NULL;
-    }
-    if (l->pool != NULL) {
-        pddlNNLayerPoolDel(l->pool);
-        l->pool = NULL;
-    }
-    FREE(l);
+    pddlNNLayerFFFree(&l->perceptron);
+    pddlNNLayerPoolFree(&l->pool);
 }
 
-pddl_ground_asnets_t*
-pddlGroundASNetsNew(int layers)
+void
+pddlGroundASNetsInit(pddl_ground_asnets_t* a, int layers)
 {
-    pddl_ground_asnets_t* a = ZALLOC(pddl_ground_asnets_t);
     a->layers = layers;
     a->proposition_layers =
-        ZALLOC_ARR(pddl_ground_asnets_proposition_layer_t*, layers);
-    a->action_layers = ZALLOC_ARR(pddl_nn_layer_feed_forward_t*, layers + 1);
-    return a;
+        ZALLOC_ARR(pddl_ground_asnets_proposition_layer_t, layers);
+    a->action_layers = ZALLOC_ARR(pddl_nn_layer_feed_forward_t, layers + 1);
 }
 
 void
-pddlGroundASNetsDel(pddl_ground_asnets_t* m)
+pddlGroundASNetsFree(pddl_ground_asnets_t* m)
 {
     for (int i = m->layers - 1; i >= 0; --i) {
-        if (m->proposition_layers[i] != NULL) {
-            pddlGroundASNetsPLayerDel(m->proposition_layers[i]);
-        }
-        if (m->action_layers[i] != NULL) {
-            pddlNNLayerFFDel(m->action_layers[i]);
-        }
+        pddlGroundASNetsPLayerFree(m->proposition_layers + i);
+        pddlNNLayerFFFree(m->action_layers + i);
     }
-    if (m->action_layers[m->layers] != NULL) {
-        pddlNNLayerFFDel(m->action_layers[m->layers]);
-    }
+    pddlNNLayerFFFree(m->action_layers + m->layers);
     FREE(m->proposition_layers);
     FREE(m->action_layers);
-    FREE(m);
 }
 
 void
@@ -142,17 +115,154 @@ pddlDumpGroundASNetsModel(
         PANIC("Could not open file");
     }
 
-    const char* ACTIVATION = "relu";
-
-    fprintf(out, "// ASNets dump\n");
-    fprintf(out, "%d\n", m->action_layers[0]->inputs);
-    fprintf(out, "%d\n", m->layers);
-    pddlDumpNNLayerFF(m->action_layers[0], out, err);
+    fprintf(out, "%d\n", m->input_interface.l0.inputs);
+    fprintf(out, "%d\n", m->layers + 3);
+    pddlDumpNNLayerFF(&m->input_interface.l0, out, err);
+    pddlDumpNNLayerFF(&m->input_interface.l1, out, err);
+    pddlDumpNNLayerFF(m->action_layers, out, err);
     for (int l = 0; l < m->layers; ++l) {
-        pddlDumpNNLayerPool(m->proposition_layers[l]->pool, out, err);
-        pddlDumpNNLayerFF(m->proposition_layers[l]->perceptron, out, err);
-        pddlDumpNNLayerFF(m->action_layers[l + 1], out, err);
+        pddlDumpNNLayerPool(&m->proposition_layers[l].pool, out, err);
+        pddlDumpNNLayerFF(&m->proposition_layers[l].perceptron, out, err);
+        pddlDumpNNLayerFF(m->action_layers + l + 1, out, err);
     }
+    pddlDumpNNLayerPool(&m->output_interface, out, err);
 
     fclose(out);
+}
+
+void
+pddlGroundASNetsConfInit(
+    pddl_ground_asnets_conf_t* conf,
+    int num_facts,
+    int num_operators)
+{
+    conf->variable = ZALLOC_ARR(int, num_facts);
+    conf->value = ZALLOC_ARR(int, num_facts);
+    conf->label = ZALLOC_ARR(int, num_operators);
+    for (int fact_id = 0; fact_id < num_facts; ++fact_id) {
+        conf->variable[fact_id] = -1;
+    }
+    for (int op_id = 0; op_id < num_operators; ++op_id) {
+        conf->label[op_id] = -1;
+    }
+}
+
+void
+pddlGroundASNetsConfLoad(
+    pddl_ground_asnets_conf_t* conf,
+    const char* fn,
+    const pddl_asnets_ground_task_t* task)
+{
+    FILE* f = fopen(fn, "r");
+    if (f == NULL) {
+        PANIC("could not open interface specification file");
+    }
+
+    int n;
+    size_t buffer_size;
+    char* buffer = NULL;
+    char num[256];
+    memset(num, 0, 256);
+
+    fscanf(f, "%d\n", &n);
+    conf->num_labels = n;
+
+    ssize_t read = getline(&buffer, &buffer_size, f);
+    if (read == -1 || strcmp(buffer, "begin-operators\n")) {
+        PANIC("expected begin-operators");
+    }
+    conf->num_operators = 0;
+    while ((read = getline(&buffer, &buffer_size, f)) != -1) {
+        if (strcmp(buffer, "end-operators\n") == 0) {
+            break;
+        }
+        buffer[read - 1] = '\0';
+
+        memset(num, 0, 256);
+        size_t i = 0;
+        for (; i < read && buffer[i] != ' '; num[i] = buffer[i], ++i) { }
+        if (i == read) {
+            PANIC("invalid operator spec");
+        }
+        ++i;
+
+        int label = atoi(num);
+        int op_id_ = -1;
+        for (int op_id = 0; op_id < task->op_size; ++op_id) {
+            const pddl_strips_op_t* op = task->strips.op.op[op_id];
+            if (strcmp(buffer + i, op->name) == 0) {
+                op_id_ = op_id;
+                break;
+            }
+        }
+        if (op_id_ < 0) {
+            printf("could not find operator with name %s", (buffer + i));
+            PANIC("could not find operator");
+        }
+
+        conf->label[op_id_] = label;
+        ++conf->num_operators;
+    }
+
+    fscanf(f, "%d\n", &n);
+    conf->num_variables = n;
+
+    read = getline(&buffer, &buffer_size, f);
+    if (read == -1 || strcmp(buffer, "begin-variables\n")) {
+        PANIC("expected begin-variables");
+    }
+    conf->num_facts = 0;
+    while ((read = getline(&buffer, &buffer_size, f)) != -1) {
+        if (strcmp(buffer, "end-variables\n") == 0) {
+            break;
+        }
+        buffer[read - 1] = '\0';
+
+        memset(num, 0, 256);
+        size_t i = 0;
+        for (; i < read && buffer[i] != ' '; num[i] = buffer[i], ++i) { }
+        if (i == read) {
+            PANIC("invalid fact spec");
+        }
+        ++i;
+        int var_id = atoi(num);
+
+        memset(num, 0, 256);
+        for (int j = 0; i < read && buffer[i] != ' ';
+             num[j] = buffer[i], ++i, ++j) { }
+        if (i == read) {
+            PANIC("invalid fact spec");
+        }
+        ++i;
+        int value = atoi(num);
+
+        int fact_id_ = -1;
+        for (int fact_id = 0; fact_id < task->fact_size; ++fact_id) {
+            const pddl_fact_t* fact = task->strips.fact.fact[fact_id];
+            if (strcmp(buffer + i, fact->name) == 0) {
+                fact_id_ = fact_id;
+                break;
+            }
+        }
+        if (fact_id_ < 0) {
+            printf("could not find fact with name %s", (buffer + i));
+            PANIC("could not find fact");
+        }
+
+        conf->variable[fact_id_] = var_id;
+        conf->value[fact_id_] = value;
+        ++conf->num_facts;
+    }
+
+    free(buffer);
+    fclose(f);
+}
+
+void
+pddlGroundASNetsConfFree(pddl_ground_asnets_conf_t* conf)
+{
+    FREE(conf->variable);
+    FREE(conf->value);
+    FREE(conf->label);
+    // FREE(conf);
 }

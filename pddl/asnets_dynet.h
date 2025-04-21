@@ -7,6 +7,7 @@
 #ifndef __PDDL_ASNETS_DYNET_H__
 #define __PDDL_ASNETS_DYNET_H__
 
+#include "asnets_ground_model.h"
 #include <pddl/iarr.h>
 #include <pddl/asnets_task.h>
 #include <pddl/asnets_policy_distribution.h>
@@ -134,9 +135,11 @@ int pddlASNetsModelEvalFDRState(pddl_asnets_model_t *m,
                                 const pddl_iarr_t *in_path,
                                 pddl_asnets_policy_distribution_t *distr);
 
-pddl_ground_asnets_t* pddlASNetsGroundModelGet(
+void pddlASNetsPolicyGroundImpl(
+        pddl_ground_asnets_t* a,
         pddl_asnets_model_t *m,
         const pddl_asnets_ground_task_t *task,
+        const pddl_ground_asnets_conf_t* conf,
         pddl_err_t *err);
 
 #ifdef __cplusplus
