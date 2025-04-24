@@ -29,7 +29,13 @@ extern "C" const char* const pddl_dynet_version = "not exported";
         (e).what())
 
 static const float SMALL_CONST = 1e-6f;
-static const float MIN_ACTIVATION_VALUE = -1.f;
+static const float MIN_ACTIVATION_VALUE = 0.f;
+
+static dynet::Expression
+activationFn(const dynet::Expression& e)
+{
+    return dynet::rectify(e);
+}
 
 static dynet::Expression
 poolMax(const std::vector<dynet::Expression>& in)
@@ -189,7 +195,7 @@ struct ActionModule {
         dynet::Expression e = _expr(cg, input);
         if (is_output)
             return e;
-        return dynet::rectify(e);
+        return activationFn(e);
     }
 
     dynet::Expression exprInput(
@@ -209,7 +215,7 @@ struct ActionModule {
             input_op_history);
         if (is_output)
             return e;
-        return dynet::rectify(e);
+        return activationFn(e);
     }
 
     dynet::Expression l1_parameter_loss(dynet::ComputationGraph& cg) const
@@ -261,7 +267,7 @@ struct PropositionModule {
         dynet::Expression w = dynet::parameter(cg, W);
         dynet::Expression b = dynet::parameter(cg, bias);
         dynet::Expression u = dynet::concatenate(pooled_input);
-        return dynet::rectify((w * u) + b);
+        return activationFn((w * u) + b);
     }
 
     dynet::Expression l1_parameter_loss(dynet::ComputationGraph& cg) const
@@ -412,6 +418,7 @@ _firstActionLayer(
         std::vector<dynet::Expression> in_op_history;
         for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
             int fact_id = g->op[op_id].related_fact[i];
+            PANIC_IF(fact_id < 0, "fact id < 0");
             if (fact_id < 0) {
                 in_state.push_back(missing_input.get(cg));
                 in_goal.push_back(missing_input.get(cg));
@@ -544,8 +551,13 @@ _groundPropLayer(
         for (int ri = 0; ri < g->fact[fact_id].related_op_size; ++ri) {
             int op_id;
             for (int h = 0; h < model.hidden_dim; ++h, ++out) {
+                // PANIC_IF(
+                //     g->fact[fact_id].related_op[ri].size == 0,
+                //     "fact has no related operators");
                 PDDL_IARR_FOR_EACH(g->fact[fact_id].related_op + ri, op_id)
                 {
+                    PANIC_IF(idx >= pool_num_indices * model.hidden_dim, "X");
+                    PANIC_IF(op_id >= g->op_size, "Y");
                     res->pool.indices[idx] = op_id * model.hidden_dim + h;
                     ++idx;
                 }
@@ -592,8 +604,16 @@ _groundActionLayer(
         ActionModule* am = model.action[layer][action_id];
         for (unsigned h = 0; h < am->W.dim()[0];
              ++h, offset += g->fact_size * model.hidden_dim, ++b) {
+            PANIC_IF(
+                g->op[op_id].related_fact_size == 0,
+                "operator has no related facts");
+            PANIC_IF(
+                static_cast<int>(am->W.dim()[1])
+                    != model.hidden_dim * g->op[op_id].related_fact_size,
+                "unexpected imension");
             for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
                 int fact_id = g->op[op_id].related_fact[i];
+                PANIC_IF(fact_id < 0, "fact_id is < 0");
                 for (int hi = 0; hi < model.hidden_dim; ++hi) {
                     unsigned local_index = i * model.hidden_dim + hi;
                     res->weights[offset + fact_id * model.hidden_dim + hi] =
@@ -645,6 +665,7 @@ _removeGoalInput(
     std::vector<dynet::Expression> in_op_history;
     for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
         int fact_id = g->op[op_id].related_fact[i];
+        PANIC_IF(fact_id < 0, "fact_id < 0");
         in_state.push_back(dynet::pick(e_state, fact_id));
         in_goal.push_back(dynet::pick(e_goal, fact_id));
     }
@@ -676,16 +697,22 @@ _groundFirstActionLayer(
         ActionModule* am = model.action[0][action_id];
         const std::vector<float> biases =
             _removeGoalInput(g, model, cg, op_id, conf);
+        PANIC_IF(
+            static_cast<int>(am->W.dim()[1])
+                != 2 * g->op[op_id].related_fact_size,
+            "unexpected imension");
         for (unsigned h = 0; h < am->W.dim()[0];
              ++h, offset += non_static_facts, ++b) {
             for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
                 unsigned fact_id = g->op[op_id].related_fact[i];
+                PANIC_IF(fact_id < 0, "fact_id < 0");
                 if (new_fact_id[fact_id] < 0) {
                     continue;
                 }
                 res->weights[offset + new_fact_id[fact_id]] =
                     dynet::TensorTools::access_element(
-                        *am->W.values(), dynet::Dim({ h, fact_id }));
+                        *am->W.values(),
+                        dynet::Dim({ h, static_cast<unsigned>(i) }));
             }
             res->biases[b] = biases[h];
         }
@@ -1538,24 +1565,36 @@ _groundAsnetsInput(
     const pddl_ground_asnets_conf_t* conf)
 {
     pddlNNLayerFFInit(&inp->l0, conf->num_variables, 2 * conf->num_facts);
-    pddlNNLayerFFInit(&inp->l1, 2 * conf->num_facts, conf->num_facts);
+    pddlNNLayerFFInit(&inp->l1, 2 * conf->num_facts, 2 * conf->num_facts);
+    pddlNNLayerFFInit(&inp->l2, 2 * conf->num_facts, conf->num_facts);
     for (int fact_id = 0, remapped_id = 0; fact_id < task->fact_size;
          ++fact_id) {
         if (conf->variable[fact_id] < 0)
             continue;
+
         int var_id = conf->variable[fact_id];
         int value = conf->value[fact_id];
-        inp->l0.weights[2 * remapped_id * conf->num_variables + var_id] = 1;
-        inp->l0
-            .weights[(2 * remapped_id + 1) * conf->num_variables + var_id + 1] =
-            1;
-        inp->l0.biases[2 * remapped_id] = -value + 1;
-        inp->l0.biases[2 * remapped_id + 1] = -value;
-        inp->l1.weights[remapped_id * 2 * conf->num_facts + 2 * remapped_id] =
-            1;
-        inp->l1
-            .weights[remapped_id * 2 * conf->num_facts + 2 * remapped_id + 1] =
-            -1;
+
+        int row0a = 2 * remapped_id * conf->num_variables;
+        inp->l0.weights[row0a + var_id] = -1;
+        inp->l0.biases[2 * remapped_id] = value;
+
+        int row1a = 4 * remapped_id * conf->num_facts;
+        inp->l1.weights[row1a + 2 * remapped_id] = -1;
+        inp->l1.biases[2 * remapped_id] = 1;
+
+        int row0b = (2 * remapped_id + 1) * conf->num_variables;
+        inp->l0.weights[row0b + var_id] = -1;
+        inp->l0.biases[2 * remapped_id + 1] = value + 1;
+
+        int row1b = (2 * remapped_id + 1) * 2 * conf->num_facts;
+        inp->l1.weights[row1b + 2 * remapped_id + 1] = -1;
+        inp->l1.biases[2 * remapped_id + 1] = 1;
+
+        int row2 = remapped_id * 2 * conf->num_facts;
+        inp->l2.weights[row2 + 2 * remapped_id] = 1;
+        inp->l2.weights[row2 + 2 * remapped_id + 1] = -1;
+
         ++remapped_id;
     }
 }
@@ -1575,6 +1614,9 @@ _groundAsnetsOutput(
                 ++out->inputs[label];
             }
         }
+    }
+    for (int op_id = 0; op_id < task->op_size; ++op_id) {
+        PANIC_IF(conf->label[op_id] < 0, "operator has no label");
     }
 }
 

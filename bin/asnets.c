@@ -253,7 +253,7 @@ parseOpts(int* argc, char* argv[])
             return -1;
         }
     } else if (cmd == CMD_GROUND) {
-        if (*argc != 5) {
+        if (*argc != 6) {
             fprintf(stderr, "Error: Command ground expects four arguments.");
             help(argv[0], stderr);
             return -1;
@@ -475,7 +475,7 @@ ground(int argc, char* argv[])
 
     pddl_ground_asnets_t gAsnets;
     pddlASNetsPolicyGround(&gAsnets, asnets, &gt, &gConf, &err);
-    pddlDumpGroundASNetsModel(&gAsnets, "asnets.nnet", &err);
+    pddlDumpGroundASNetsModel(&gAsnets, argv[5], &err);
 
     // for (int i = 0; i < gt.strips.fact.fact_size; ++i) {
     //     printf("fact#%d = %s\n", i, gt.strips.fact.fact[i]->name);

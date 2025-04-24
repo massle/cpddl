@@ -95,12 +95,15 @@ pddlDumpNNLayerPool(
 {
     fprintf(out, "max-pool\n");
     fprintf(out, "%d\n", m->outputs);
-    for (int o = 0, k = 0; o < m->outputs; ++o, ++k) {
+    for (int o = 0, k = 0; o < m->outputs; ++o) {
         fprintf(out, "%d\n", m->inputs[o]);
+        if (m->inputs[o] == 0)
+            continue;
         for (int i = 0; i + 1 < m->inputs[o]; ++i, ++k) {
             fprintf(out, "%d ", m->indices[k]);
         }
         fprintf(out, "%d\n", m->indices[k]);
+        ++k;
     }
 }
 
@@ -115,14 +118,22 @@ pddlDumpGroundASNetsModel(
         PANIC("Could not open file");
     }
 
+    const char* ACTIVATION = "relu";
+
     fprintf(out, "%d\n", m->input_interface.l0.inputs);
-    fprintf(out, "%d\n", m->layers + 3);
+    fprintf(out, "%d\n", 5 * m->layers + 7);
     pddlDumpNNLayerFF(&m->input_interface.l0, out, err);
+    fprintf(out, "%s\n", ACTIVATION);
     pddlDumpNNLayerFF(&m->input_interface.l1, out, err);
+    fprintf(out, "%s\n", ACTIVATION);
+    pddlDumpNNLayerFF(&m->input_interface.l2, out, err);
+    // no activation necessary
     pddlDumpNNLayerFF(m->action_layers, out, err);
     for (int l = 0; l < m->layers; ++l) {
+        fprintf(out, "%s\n", ACTIVATION);
         pddlDumpNNLayerPool(&m->proposition_layers[l].pool, out, err);
         pddlDumpNNLayerFF(&m->proposition_layers[l].perceptron, out, err);
+        fprintf(out, "%s\n", ACTIVATION);
         pddlDumpNNLayerFF(m->action_layers + l + 1, out, err);
     }
     pddlDumpNNLayerPool(&m->output_interface, out, err);

@@ -30,6 +30,7 @@ typedef struct {
 typedef struct {
     pddl_nn_layer_feed_forward_t l0;
     pddl_nn_layer_feed_forward_t l1;
+    pddl_nn_layer_feed_forward_t l2;
 } pddl_ground_asnets_input_interface_t;
 
 typedef struct {
