@@ -96,6 +96,15 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     stripsToFDRPartState(&fdr->var, &strips->goal, &fdr->goal);
     LOG(err, "Created goal specification.");
 
+    fdr->avoid_size = strips->avoid_size;
+    if (strips->avoid_size) {
+        fdr->avoid = ALLOC_ARR(pddl_fdr_part_state_t, strips->avoid_size);
+        for (int i = 0; i < strips->avoid_size; ++i) {
+            pddlFDRPartStateInit(fdr->avoid + i) ;
+            stripsToFDRPartState(&fdr->var, strips->avoid + i, fdr->avoid + i);
+        }
+    }
+
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
@@ -125,6 +134,13 @@ void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
     fdr->init = ALLOC_ARR(int, fdr->var.var_size);
     memcpy(fdr->init, fdr_in->init, sizeof(int) * fdr->var.var_size);
     pddlFDRPartStateInitCopy(&fdr->goal, &fdr_in->goal);
+    if (fdr_in->avoid_size > 0) {
+        fdr->avoid_size = fdr_in->avoid_size;
+        fdr->avoid = ALLOC_ARR(pddl_fdr_part_state_t, fdr->avoid_size);
+        for (int i = 0; i < fdr->avoid_size; ++i) {
+            pddlFDRPartStateInitCopy(fdr->avoid + i, fdr_in->avoid + i);
+        }
+    }
     fdr->goal_is_unreachable = fdr_in->goal_is_unreachable;
     fdr->has_cond_eff = fdr_in->has_cond_eff;
 }
@@ -136,6 +152,12 @@ void pddlFDRFree(pddl_fdr_t *fdr)
 
     if (!fdr->is_shallow_copy){
         pddlFDRPartStateFree(&fdr->goal);
+        for (int i = 0; i < fdr->avoid_size; ++i) {
+            pddlFDRPartStateFree(fdr->avoid + i);
+        }
+        if (fdr->avoid) {
+            FREE(fdr->avoid);
+        }
         pddlFDROpsFree(&fdr->op);
         pddlFDRVarsFree(&fdr->var);
     }
@@ -182,6 +204,9 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
     pddlFDRVarsRemap(&fdr->var, remap);
     pddlFDROpsRemapVars(&fdr->op, remap);
     pddlFDRPartStateRemapVars(&fdr->goal, remap);
+    for (int i = 0; i < fdr->avoid_size; ++i) {
+        pddlFDRPartStateRemapVars(fdr->avoid + i, remap);
+    }
 
     int *init = ALLOC_ARR(int, fdr->var.var_size);
     memcpy(init, fdr->init, sizeof(int) * fdr->var.var_size);
@@ -236,6 +261,9 @@ void pddlFDRReduceGetRemap(pddl_fdr_t *fdr,
 
         // Remap goal
         pddlFDRPartStateRemapFacts(&fdr->goal, remap);
+        for (int i = 0; i < fdr->avoid_size; ++i) {
+            pddlFDRPartStateRemapFacts(fdr->avoid + i, remap);
+        }
 
         // Remove operators with empty effects
         PDDL_ISET(useless_ops);
@@ -1221,6 +1249,20 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
 
     // axioms
     fprintf(fout, "0\n");
+
+    if (fdr->avoid_size > 0) {
+        fprintf(fout, "begin_dnf\n");
+        fprintf(fout, "%d\n", fdr->avoid_size);
+        for (int i = 0; i < fdr->avoid_size; ++i) {
+            fprintf(fout, "%d", fdr->avoid[i].fact_size);
+            for (int j = 0; j < fdr->avoid[i].fact_size; ++j){
+                const pddl_fdr_fact_t *f = fdr->avoid[i].fact + j;
+                fprintf(fout, " %d %d", f->var, f->val);
+            }
+            fprintf(fout, "\n");
+        }
+        fprintf(fout, "end_dnf\n");
+    }
 }
 
 void pddlFDRWrite(const pddl_fdr_t *fdr, const pddl_fdr_write_config_t *cfg)

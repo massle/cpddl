@@ -31,6 +31,8 @@ static void copyBasicInfo(pddl_strips_t *dst, const pddl_strips_t *src)
         dst->domain_file = STRDUP(src->domain_file);
     if (src->problem_file)
         dst->problem_file = STRDUP(src->problem_file);
+    if (src->avoid_cond_file)
+        dst->avoid_cond_file = STRDUP(src->avoid_cond_file);
 }
 
 void pddlStripsInit(pddl_strips_t *strips)
@@ -88,10 +90,16 @@ void pddlStripsFree(pddl_strips_t *strips)
         FREE(strips->domain_file);
     if (strips->problem_file)
         FREE(strips->problem_file);
+    if (strips->avoid_cond_file)
+        FREE(strips->avoid_cond_file);
     pddlFactsFree(&strips->fact);
     pddlStripsOpsFree(&strips->op);
     pddlISetFree(&strips->init);
     pddlISetFree(&strips->goal);
+    for (int i = 0; i < strips->avoid_size; ++i)
+        pddlISetFree(strips->avoid + i);
+    if (strips->avoid)
+        FREE(strips->avoid);
     ZEROIZE(strips);
 }
 
@@ -105,6 +113,14 @@ void pddlStripsInitCopy(pddl_strips_t *dst, const pddl_strips_t *src)
     pddlStripsOpsCopy(&dst->op, &src->op);
     pddlISetUnion(&dst->init, &src->init);
     pddlISetUnion(&dst->goal, &src->goal);
+    if (src->avoid_size > 0) {
+        dst->avoid_size = src->avoid_size;
+        dst->avoid = ALLOC_ARR(pddl_iset_t, src->avoid_size);
+        for (int i = 0; i < src->avoid_size; ++i) {
+            pddlISetInit(dst->avoid + i);
+            pddlISetUnion(dst->avoid + i, src->avoid + i);
+        }
+    }
     dst->goal_is_unreachable = src->goal_is_unreachable;
     dst->has_cond_eff = src->has_cond_eff;
 }
@@ -290,6 +306,8 @@ static void compileAwayCondEffCreateNegFacts(pddl_strips_t *strips)
         pddlFactsSort(&strips->fact, fact_remap);
         pddlISetRemap(&strips->init, fact_remap);
         pddlISetRemap(&strips->goal, fact_remap);
+        for (int i = 0; i < strips->avoid_size; ++i)
+            pddlISetRemap(strips->avoid + i, fact_remap);
         pddlStripsOpsRemapFacts(&strips->op, fact_remap);
         FREE(fact_remap);
     }
@@ -631,6 +649,10 @@ void pddlStripsReduce(pddl_strips_t *strips,
         pddlISetRemap(&strips->init, remap_fact);
         pddlISetMinus(&strips->goal, del_facts);
         pddlISetRemap(&strips->goal, remap_fact);
+        for (int i = 0; i < strips->avoid_size; ++i) {
+            pddlISetMinus(strips->avoid + i, del_facts);
+            pddlISetRemap(strips->avoid + i, remap_fact);
+        }
 
         if (remap_fact != NULL)
             FREE(remap_fact);

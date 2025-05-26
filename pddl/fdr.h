@@ -60,6 +60,8 @@ struct pddl_fdr {
     pddl_bool_t has_cond_eff;
     /** True if the task a shallow copy of another task */
     pddl_bool_t is_shallow_copy;
+    int avoid_size;
+    pddl_fdr_part_state_t* avoid;
 };
 typedef struct pddl_fdr pddl_fdr_t;
 

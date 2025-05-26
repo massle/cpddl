@@ -139,8 +139,6 @@ pddlInit(
             goto pddl_fail;
     }
 
-    printf("DOMAIN: %s\n", domain_fn);
-    printf("AVOID: %s\n", pddl->avoid_cond_file);
     if (access(pddl->avoid_cond_file, F_OK) == 0) {
         if (pddlParseAvoidCondition(pddl, pddl->avoid_cond_file, err) != 0)
             goto pddl_fail;

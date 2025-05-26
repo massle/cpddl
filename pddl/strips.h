@@ -43,6 +43,9 @@ struct pddl_strips {
     pddl_bool_t goal_is_unreachable; /*!< True if the goal is not reachable */
     pddl_bool_t has_cond_eff; /*!< True if the problem contains operators with
                                    conditinal effects. */
+    char *avoid_cond_file;
+    int avoid_size;
+    pddl_iset_t* avoid; /*!< Avoid condition specification */
 };
 
 /**

@@ -19,6 +19,7 @@
 
 #include "pddl/hfunc.h"
 #include "pddl/strips_maker.h"
+#include "pddl/list.h"
 #include "internal.h"
 
 static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
@@ -425,6 +426,115 @@ static int createGoal(pddl_strips_maker_t *sm,
     return 0;
 }
 
+struct create_avoid {
+    pddl_strips_maker_t *sm;
+    pddl_strips_t *strips;
+    int part;
+    const int *ground_atom_to_fact_id;
+    pddl_err_t *err;
+    int fail;
+};
+
+static int _createAvoid(pddl_fm_t *c, void *_g)
+{
+    struct create_avoid *ggoal = _g;
+    ggoal->fail = 0;
+    const pddl_ground_atom_t *ga;
+    pddl_strips_maker_t *sm = ggoal->sm;
+    pddl_strips_t *strips = ggoal->strips;
+    const int *ground_atom_to_fact_id = ggoal->ground_atom_to_fact_id;
+    pddl_err_t *err = ggoal->err;
+
+    if (pddlFmIsAtom(c)){
+        const pddl_fm_atom_t *atom = pddlFmToAtom(c);
+        if (!pddlFmAtomIsGrounded(atom))
+            PDDL_ERR_RET(err, -1, "Goal specification cannot contain"
+                          " parametrized atoms.");
+
+        // Find fact in the set of reachable facts
+        ga = pddlGroundAtomsFindAtom(&sm->ground_atom, atom, NULL);
+        if (ga != NULL){
+            // Add the fact to the goal specification
+            pddlISetAdd(strips->avoid + ggoal->part, ground_atom_to_fact_id[ga->id]);
+        }else{
+            // The goal can be static fact in which case we simply skip
+            // this fact
+            ga = pddlGroundAtomsFindAtom(&sm->ground_atom_static, atom, NULL);
+            if (ga == NULL){
+                // The problem is unsolvable, because a goal fact is not
+                // reachable.
+                ggoal->fail = 2;
+                return -2;
+            }
+        }
+        return 0;
+
+    }else if (pddlFmIsAnd(c)){
+        return 0;
+    } else if (pddlFmIsBool(c)) {
+        if (pddlFmIsFalse(c)) {
+            ggoal->fail = 2;
+            return -2;
+        }
+        return 0;
+    }else{
+        PDDL_ERR(err, "Only conjuctive goal specifications are supported."
+                 " (Goal contains %s.)", pddlFmTypeName(c->type));
+        ggoal->fail = 1;
+        return -2;
+    }
+}
+
+static int createAvoid(pddl_strips_maker_t *sm,
+                      pddl_strips_t *strips,
+                      const pddl_t *pddl,
+                      const pddl_ground_config_t *cfg,
+                      const int *ground_atom_to_fact_id,
+                      pddl_err_t *err)
+{
+    if (pddl->avoid == NULL) {
+        return 0;
+    }
+
+    struct create_avoid gavoid = { sm, strips, 0, ground_atom_to_fact_id, err, 0 };
+
+    if (pddlFmIsOr(pddl->avoid)){
+        pddl_fm_junc_t* disj = pddlFmToJunc(pddl->avoid);
+        int size = pddlListSize(&disj->part);
+        printf("%d ELEMENTS\n", size);
+        strips->avoid = ALLOC_ARR(pddl_iset_t, size);
+        for (int i = 0; i < size; ++i)
+            pddlISetInit(strips->avoid + i);
+        pddl_fm_t *c;
+        pddl_list_t* item;
+        pddl_list_t* tmp;
+        PDDL_LIST_FOR_EACH_SAFE(&disj->part, item, tmp) {
+            c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
+            pddlFmTraverse(c, _createAvoid, NULL, &gavoid);
+            if (gavoid.fail == 0) {
+                ++gavoid.part;
+            } else if (gavoid.fail == 2) {
+                printf("found unsolvable\n");
+                pddlISetMinus(strips->avoid + gavoid.part, strips->avoid + gavoid.part);
+            } else {
+                PDDL_TRACE_RET(err, -1);
+            }
+        }
+        strips->avoid_size = gavoid.part;
+    } else {
+        strips->avoid = ALLOC_ARR(pddl_iset_t, 1);
+        pddlISetInit(strips->avoid);
+        pddlFmTraverse(pddl->avoid, _createAvoid, NULL, &gavoid);
+        if (gavoid.fail)
+            PDDL_TRACE_RET(err, -1);
+        strips->avoid_size = 1;
+    }
+
+    LOG(err, "Avoid created consisting of %d conjunctions",
+        strips->avoid_size);
+    return 0;
+}
+
 struct action_ctx {
     pddl_strips_maker_t *sm;
     const pddl_t *pddl;
@@ -785,11 +895,14 @@ int pddlStripsMakerMakeStrips(pddl_strips_maker_t *sm,
         strips->domain_file = STRDUP(pddl->domain_file);
     if (pddl->problem_file)
         strips->problem_file = STRDUP(pddl->problem_file);
+    if (pddl->avoid_cond_file)
+        strips->avoid_cond_file = STRDUP(pddl->avoid_cond_file);
 
     int *ground_atom_to_fact = NULL;
     if (createStripsFacts(sm, strips, pddl, cfg, &ground_atom_to_fact, err) != 0
             || createInitState(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0
             || createGoal(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0
+            || createAvoid(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0
             || createOps(sm, strips, pddl, cfg, ground_atom_to_fact, err) != 0){
         CTXEND(err);
         PDDL_TRACE_RET(err, -1);
