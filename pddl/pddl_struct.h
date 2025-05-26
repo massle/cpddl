@@ -96,6 +96,8 @@ struct pddl {
     char *domain_file;
     /** Path to the PDDL problem file */
     char *problem_file;
+    /** Path to the PDDL avoid condition file */
+    char *avoid_cond_file;
     /** Domain name from the domain file */
     char *domain_name;
     /** Problem name from the problem file */
@@ -114,6 +116,8 @@ struct pddl {
     pddl_fm_and_t *init;
     /** The goal condition */
     pddl_fm_t *goal;
+    /** The avoid condition */
+    pddl_fm_t *avoid;
     /** List of actions */
     pddl_actions_t action;
     /** True if metric is defined in the problem file (i.e., (minimize ...)) */

@@ -5,6 +5,7 @@
  */
 
 
+#include "parser.h"
 #include "_parser.h"
 #include "parse_tokenizer.h"
 #include "parse_tree.h"
@@ -818,6 +819,18 @@ static int setGoal(pddl_t *pddl, const pddl_parse_fm_tree_t *goal,
     return 0;
 }
 
+static int setAvoid(pddl_t *pddl, const pddl_parse_fm_tree_t *goal,
+                   const pddl_parse_tokenizer_t *tokenizer,
+                   pddl_err_t *err)
+{
+    if (pddl->avoid != NULL)
+        pddlFmDel(pddl->avoid);
+    pddl->avoid = fmFromParser(pddl, NULL, goal, tokenizer, err);
+    if (pddl->avoid == NULL)
+        TRACE_RET(err, -1);
+    return 0;
+}
+
 static int setInit(pddl_t *pddl, const pddl_parse_fm_tree_t *fmtree,
                    const pddl_parse_tokenizer_t *tokenizer,
                    pddl_err_t *err)
@@ -1008,6 +1021,11 @@ static int parseGoal(pddl_parser_t *p, pddl_err_t *err)
     return parseSection(p, PDDL_TOKEN_GOAL, ":goal", pddl_true, err);
 }
 
+static int parseAvoid(pddl_parser_t *p, pddl_err_t *err)
+{
+    return parseSection(p, PDDL_TOKEN_AVOID, ":avoid", pddl_true, err);
+}
+
 static int parseMetric(pddl_parser_t *p, pddl_err_t *err)
 {
     return parseSection(p, PDDL_TOKEN_METRIC, ":metric", pddl_false, err);
@@ -1127,6 +1145,27 @@ int pddlParseProblem(pddl_t *pddl, const char *fn, pddl_err_t *err)
             || parseGoal(&par, err) != 0
             || parseMetric(&par, err) != 0
             || parseAllParsed(&par, err) != 0){
+        pddlParserFree(&par);
+        CTXEND(err);
+        TRACE_RET(err, -1);
+    }
+
+    // TODO: Report clash between predicate, type, object, action names
+
+    pddlParserFree(&par);
+    CTXEND(err);
+    return 0;
+}
+
+int pddlParseAvoidCondition(pddl_t *pddl, const char *fn, pddl_err_t *err)
+{
+    CTX(err, "Parse Avoid Condition");
+    LOG(err, "Parsing avoid condition file %s", fn);
+    pddl_parser_t par;
+    if (pddlParserInit(&par, pddl, fn, err) != 0)
+        TRACE_RET(err, -1);
+
+    if (parseAvoid(&par, err) != 0) {
         pddlParserFree(&par);
         CTXEND(err);
         TRACE_RET(err, -1);

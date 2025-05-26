@@ -64,6 +64,8 @@
     SCALE_UP
     SCALE_DOWN
 
+    AVOID
+
     AND
     OR
     NOT
@@ -124,6 +126,7 @@ root ::= objects.
 root ::= init_state.
 root ::= goal.
 root ::= metric.
+root ::= avoid.
 
 domain_name ::= LPAREN DOMAIN IDNT(T) RPAREN. {
     ctx->pddl->domain_name = STRDUP(T.str);
@@ -531,6 +534,14 @@ init_state_atom(O) ::= LPAREN(Ref) IDNT(P) atom(Dst) INUM(Src) RPAREN. {
 goal ::= LPAREN GOAL pre_formula(G) RPAREN. {
     if (!ctx->abort){
         if (setGoal(ctx->pddl, G, ctx->tokenizer, ctx->err) != 0)
+            ctx->abort = 1;
+    }
+    pddlParseFmTreeDel(G);
+}
+
+avoid ::= LPAREN AVOID pre_formula(G) RPAREN. {
+    if (!ctx->abort){
+        if (setAvoid(ctx->pddl, G, ctx->tokenizer, ctx->err) != 0)
             ctx->abort = 1;
     }
     pddlParseFmTreeDel(G);

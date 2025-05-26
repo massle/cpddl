@@ -111,6 +111,7 @@ static kw_t kw[] = {
     // These are sometimes re-used as identifiers
     //KW_DEF("domain", PDDL_TOKEN_DOMAIN),
     //KW_DEF("problem", PDDL_TOKEN_PROBLEM),
+    KW_DEF(":avoid", PDDL_TOKEN_AVOID),
 };
 static int kw_size = sizeof(kw) / sizeof(kw_t);
 
