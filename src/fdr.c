@@ -128,6 +128,16 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     fdr->has_cond_eff = (num_cond_eff > 0);
     LOG(err, "Created %d operators with conditional effects", num_cond_eff);
 
+    // pddl_fdr_write_config_t write_cfg;
+    // write_cfg.filename = "output.sas";
+    // write_cfg.fout = NULL;
+    // write_cfg.fd = pddl_true;
+    // write_cfg.use_fd_fact_names = pddl_true;
+    // write_cfg.mgroups = NULL;
+    // write_cfg.encode_op_ids = pddl_false;
+    // write_cfg.osp_all_soft_goals = pddl_false;
+    // pddlFDRWrite(fdr, &write_cfg);
+
     pddlTimerStop(&timer);
     PDDL_LOG(err, "Translation took %.2f seconds",
              pddlTimerElapsedInSF(&timer));

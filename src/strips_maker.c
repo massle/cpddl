@@ -21,6 +21,7 @@
 #include "pddl/strips_maker.h"
 #include "pddl/list.h"
 #include "internal.h"
+#include <stdio.h>
 
 static pddl_htable_key_t actionComputeHash(const pddl_ground_action_args_t *ga,
                                            int arg_size)
@@ -441,7 +442,6 @@ static int _createCondition(pddl_fm_t *c, void *_g)
     ggoal->fail = 0;
     const pddl_ground_atom_t *ga;
     pddl_strips_maker_t *sm = ggoal->sm;
-    pddl_strips_t *strips = ggoal->strips;
     const int *ground_atom_to_fact_id = ggoal->ground_atom_to_fact_id;
     pddl_err_t *err = ggoal->err;
 
@@ -499,40 +499,83 @@ static int createCondition(pddl_strips_maker_t *sm,
         return 0;
     }
 
+    pddl_iset_t* conds = NULL;
+    int num_conds = 0;
     struct create_condition args = { sm, strips, NULL, ground_atom_to_fact_id, err, 0 };
 
     if (pddlFmIsOr(cond)){
         pddl_fm_junc_t* disj = pddlFmToJunc(cond);
         int size = pddlListSize(&disj->part);
-        *dest = ALLOC_ARR(pddl_iset_t, size);
-        args.dest = *dest;
+        conds = ALLOC_ARR(pddl_iset_t, size);
+        args.dest = conds;
         for (int i = 0; i < size; ++i)
-            pddlISetInit(*dest + i);
+            pddlISetInit(conds + i);
         pddl_fm_t *c;
         pddl_list_t* item;
         pddl_list_t* tmp;
+        int i = 0;
         PDDL_LIST_FOR_EACH_SAFE(&disj->part, item, tmp) {
             c = PDDL_LIST_ENTRY(item, pddl_fm_t, conn);
             pddlFmTraverse(c, _createCondition, NULL, &args);
             if (args.fail == 0) {
-                ++args.dest;
+                int not_dominated = 1;
+                for (int j = i - 1; j >= 0; --j) {
+                    if (pddlISetIsSubset(conds + j, conds + i)) { 
+                        not_dominated = 0;
+                        pddlISetMinus(args.dest, args.dest);
+                        --size;
+                        break;
+                    }
+                }
+                i += not_dominated;
+                args.dest += not_dominated;
+                num_conds += not_dominated;
             } else if (args.fail == 2) {
                 printf("found unsolvable\n");
                 pddlISetMinus(args.dest, args.dest);
-                --size;
             } else {
                 PDDL_TRACE_RET(err, -1);
             }
         }
-        *dest_size = size;
     } else {
-        *dest = ALLOC_ARR(pddl_iset_t, 1);
-        args.dest = *dest;
-        pddlISetInit(*dest);
+        conds = ALLOC_ARR(pddl_iset_t, 1);
+        args.dest = conds;
+        pddlISetInit(conds);
         pddlFmTraverse(cond, _createCondition, NULL, &args);
         if (args.fail)
             PDDL_TRACE_RET(err, -1);
-        *dest_size = 1;
+        num_conds = 1;
+    }
+ 
+    int total = 0;
+    for (int i = num_conds - 1; i > 0; --i) {
+        if (pddlISetSize(conds + i) == 0) {
+            continue;
+        }
+        for (int j = i - 1; j >= 0; --j) {
+            if (pddlISetIsSubset(conds + i, conds + j)) {
+                pddlISetMinus(conds + j, conds + j);
+            }
+        }
+        ++total;
+    }
+
+    total += pddlISetSize(conds) > 0;
+        *dest_size = total;
+
+    if (total == num_conds) {
+        *dest = conds;
+    } else {
+        *dest = ALLOC_ARR(pddl_iset_t, total);
+        for (int i = 0, j = 0; i < num_conds; ++i) {
+            if (pddlISetSize(conds + i) > 0) {
+                pddlISetInit(*dest + j);
+                pddlISetUnion(*dest + j, conds + i);
+                ++j;
+            }
+            pddlISetFree(conds + i);
+        }
+        FREE(conds);
     }
 
     LOG(err, "Condition created consisting of %d conjunctions",
