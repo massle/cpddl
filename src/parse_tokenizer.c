@@ -112,6 +112,7 @@ static kw_t kw[] = {
     //KW_DEF("domain", PDDL_TOKEN_DOMAIN),
     //KW_DEF("problem", PDDL_TOKEN_PROBLEM),
     KW_DEF(":avoid", PDDL_TOKEN_AVOID),
+    KW_DEF(":start", PDDL_TOKEN_START),
 };
 static int kw_size = sizeof(kw) / sizeof(kw_t);
 

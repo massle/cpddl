@@ -119,9 +119,16 @@ pddlInit(
                 pddl->avoid_cond_file[i] = domain_fn[i];
             }
             sprintf(pddl->avoid_cond_file + sep + 1, "avoid.pddl");
+            pddl->start_cond_file = ALLOC_ARR(char, sep + 11);
+            for (int i = 0; i <= sep; ++i) {
+                pddl->start_cond_file[i] = domain_fn[i];
+            }
+            sprintf(pddl->start_cond_file + sep + 1, "start.pddl");
         } else {
             pddl->avoid_cond_file = ALLOC_ARR(char, 10);
             sprintf(pddl->avoid_cond_file, "avoid.pddl");
+            pddl->start_cond_file = ALLOC_ARR(char, 10);
+            sprintf(pddl->start_cond_file, "start.pddl");
         }
     }
 
@@ -145,6 +152,14 @@ pddlInit(
     } else {
         FREE(pddl->avoid_cond_file);
         pddl->avoid_cond_file = NULL;
+    }
+
+    if (access(pddl->start_cond_file, F_OK) == 0) {
+        if (pddlParseStartCondition(pddl, pddl->start_cond_file, err) != 0)
+            goto pddl_fail;
+    } else {
+        FREE(pddl->start_cond_file);
+        pddl->start_cond_file = NULL;
     }
 
     pddlObjsPropagateToTypes(&pddl->obj, &pddl->type);
@@ -200,6 +215,8 @@ pddlInitCopy(pddl_t* dst, const pddl_t* src)
         dst->problem_file = STRDUP(src->problem_file);
     if (src->avoid_cond_file != NULL)
         dst->avoid_cond_file = STRDUP(src->avoid_cond_file);
+    if (src->start_cond_file != NULL)
+        dst->start_cond_file = STRDUP(src->start_cond_file);
     if (src->domain_name != NULL)
         dst->domain_name = STRDUP(src->domain_name);
     if (src->problem_name != NULL)
@@ -215,6 +232,8 @@ pddlInitCopy(pddl_t* dst, const pddl_t* src)
         dst->goal = pddlFmClone(src->goal);
     if (src->avoid != NULL)
         dst->avoid = pddlFmClone(src->avoid);
+    if (src->start != NULL)
+        dst->start = pddlFmClone(src->start);
     pddlActionsInitCopy(&dst->action, &src->action);
     dst->metric = src->metric;
     dst->normalized = src->normalized;
@@ -270,6 +289,8 @@ pddlFree(pddl_t* pddl)
         FREE(pddl->domain_name);
     if (pddl->avoid_cond_file != NULL)
         FREE(pddl->avoid_cond_file);
+    if (pddl->start_cond_file != NULL)
+        FREE(pddl->start_cond_file);
     if (pddl->problem_name != NULL)
         FREE(pddl->problem_name);
     pddlTypesFree(&pddl->type);
@@ -282,6 +303,8 @@ pddlFree(pddl_t* pddl)
         pddlFmDel(pddl->goal);
     if (pddl->avoid)
         pddlFmDel(pddl->avoid);
+    if (pddl->start)
+        pddlFmDel(pddl->start);
     pddlActionsFree(&pddl->action);
 }
 
@@ -458,8 +481,17 @@ pddlNormalize(pddl_t* pddl, pddl_err_t* err)
     if (pddl->goal != NULL)
         pddl->goal = pddlFmNormalize(pddl->goal, pddl, NULL);
 
+    printf("Normalize avoid...\n");
+
     if (pddl->avoid != NULL)
         pddl->avoid = pddlFmNormalize(pddl->avoid, pddl, NULL);
+
+    printf("Normalize start...\n");
+
+    if (pddl->start != NULL)
+        pddl->start = pddlFmNormalize(pddl->start, pddl, NULL);
+
+    printf("continue normalize...\n");
 
     if (pddl->cfg.normalize_compile_away_dynamic_neg_cond
         || pddl->cfg.normalize_compile_away_all_neg_cond) {

@@ -16,6 +16,7 @@ extern "C" {
 int pddlParseDomain(pddl_t *pddl, const char *fn, pddl_err_t *err);
 int pddlParseProblem(pddl_t *pddl, const char *fn, pddl_err_t *err);
 int pddlParseAvoidCondition(pddl_t *pddl, const char *fn, pddl_err_t *err);
+int pddlParseStartCondition(pddl_t *pddl, const char *fn, pddl_err_t *err);
 
 
 #ifdef __cplusplus

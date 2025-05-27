@@ -105,6 +105,15 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
         }
     }
 
+    fdr->start_size = strips->start_size;
+    if (strips->start_size) {
+        fdr->start = ALLOC_ARR(pddl_fdr_part_state_t, strips->start_size);
+        for (int i = 0; i < strips->start_size; ++i) {
+            pddlFDRPartStateInit(fdr->start + i) ;
+            stripsToFDRPartState(&fdr->var, strips->start + i, fdr->start + i);
+        }
+    }
+
     // Operators
     pddlFDROpsInit(&fdr->op);
     for (int op_id = 0; op_id < strips->op.op_size; ++op_id)
@@ -141,6 +150,13 @@ void pddlFDRInitCopy(pddl_fdr_t *fdr, const pddl_fdr_t *fdr_in)
             pddlFDRPartStateInitCopy(fdr->avoid + i, fdr_in->avoid + i);
         }
     }
+    if (fdr_in->start_size > 0) {
+        fdr->start_size = fdr_in->start_size;
+        fdr->start = ALLOC_ARR(pddl_fdr_part_state_t, fdr->start_size);
+        for (int i = 0; i < fdr->start_size; ++i) {
+            pddlFDRPartStateInitCopy(fdr->start + i, fdr_in->start + i);
+        }
+    }
     fdr->goal_is_unreachable = fdr_in->goal_is_unreachable;
     fdr->has_cond_eff = fdr_in->has_cond_eff;
 }
@@ -157,6 +173,12 @@ void pddlFDRFree(pddl_fdr_t *fdr)
         }
         if (fdr->avoid) {
             FREE(fdr->avoid);
+        }
+        for (int i = 0; i < fdr->start_size; ++i) {
+            pddlFDRPartStateFree(fdr->start + i);
+        }
+        if (fdr->start) {
+            FREE(fdr->start);
         }
         pddlFDROpsFree(&fdr->op);
         pddlFDRVarsFree(&fdr->var);
@@ -206,6 +228,9 @@ void pddlFDRReorderVarsCG(pddl_fdr_t *fdr)
     pddlFDRPartStateRemapVars(&fdr->goal, remap);
     for (int i = 0; i < fdr->avoid_size; ++i) {
         pddlFDRPartStateRemapVars(fdr->avoid + i, remap);
+    }
+    for (int i = 0; i < fdr->start_size; ++i) {
+        pddlFDRPartStateRemapVars(fdr->start + i, remap);
     }
 
     int *init = ALLOC_ARR(int, fdr->var.var_size);
@@ -263,6 +288,9 @@ void pddlFDRReduceGetRemap(pddl_fdr_t *fdr,
         pddlFDRPartStateRemapFacts(&fdr->goal, remap);
         for (int i = 0; i < fdr->avoid_size; ++i) {
             pddlFDRPartStateRemapFacts(fdr->avoid + i, remap);
+        }
+        for (int i = 0; i < fdr->start_size; ++i) {
+            pddlFDRPartStateRemapFacts(fdr->start + i, remap);
         }
 
         // Remove operators with empty effects
@@ -1251,7 +1279,7 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
     fprintf(fout, "0\n");
 
     if (fdr->avoid_size > 0) {
-        fprintf(fout, "begin_dnf\n");
+        fprintf(fout, "begin_avoid_condition\n");
         fprintf(fout, "%d\n", fdr->avoid_size);
         for (int i = 0; i < fdr->avoid_size; ++i) {
             fprintf(fout, "%d", fdr->avoid[i].fact_size);
@@ -1261,7 +1289,21 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
             }
             fprintf(fout, "\n");
         }
-        fprintf(fout, "end_dnf\n");
+        fprintf(fout, "end_avoid_condition\n");
+    }
+
+    if (fdr->start_size > 0) {
+        fprintf(fout, "begin_start_condition\n");
+        fprintf(fout, "%d\n", fdr->start_size);
+        for (int i = 0; i < fdr->start_size; ++i) {
+            fprintf(fout, "%d", fdr->start[i].fact_size);
+            for (int j = 0; j < fdr->start[i].fact_size; ++j){
+                const pddl_fdr_fact_t *f = fdr->start[i].fact + j;
+                fprintf(fout, " %d %d", f->var, f->val);
+            }
+            fprintf(fout, "\n");
+        }
+        fprintf(fout, "end_start_condition\n");
     }
 }
 

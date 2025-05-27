@@ -62,6 +62,8 @@ struct pddl_fdr {
     pddl_bool_t is_shallow_copy;
     int avoid_size;
     pddl_fdr_part_state_t* avoid;
+    int start_size;
+    pddl_fdr_part_state_t* start;
 };
 typedef struct pddl_fdr pddl_fdr_t;
 

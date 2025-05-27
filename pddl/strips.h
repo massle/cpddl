@@ -46,6 +46,9 @@ struct pddl_strips {
     char *avoid_cond_file;
     int avoid_size;
     pddl_iset_t* avoid; /*!< Avoid condition specification */
+    char *start_cond_file;
+    int start_size;
+    pddl_iset_t* start; /*!< Start condition specification */
 };
 
 /**
