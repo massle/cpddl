@@ -128,15 +128,15 @@ int pddlFDRInitFromStrips(pddl_fdr_t *fdr,
     fdr->has_cond_eff = (num_cond_eff > 0);
     LOG(err, "Created %d operators with conditional effects", num_cond_eff);
 
-    // pddl_fdr_write_config_t write_cfg;
-    // write_cfg.filename = "output.sas";
-    // write_cfg.fout = NULL;
-    // write_cfg.fd = pddl_true;
-    // write_cfg.use_fd_fact_names = pddl_true;
-    // write_cfg.mgroups = NULL;
-    // write_cfg.encode_op_ids = pddl_false;
-    // write_cfg.osp_all_soft_goals = pddl_false;
-    // pddlFDRWrite(fdr, &write_cfg);
+    pddl_fdr_write_config_t write_cfg;
+    write_cfg.filename = "output.sas";
+    write_cfg.fout = NULL;
+    write_cfg.fd = pddl_true;
+    write_cfg.use_fd_fact_names = pddl_true;
+    write_cfg.mgroups = NULL;
+    write_cfg.encode_op_ids = pddl_false;
+    write_cfg.osp_all_soft_goals = pddl_false;
+    pddlFDRWrite(fdr, &write_cfg);
 
     pddlTimerStop(&timer);
     PDDL_LOG(err, "Translation took %.2f seconds",
@@ -1184,7 +1184,7 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
                            const pddl_fdr_write_config_t *cfg,
                            FILE *fout)
 {
-    fprintf(fout, "begin_version\n3\nend_version\n");
+    fprintf(fout, "begin_version\n2\nend_version\n");
     fprintf(fout, "begin_metric\n1\nend_metric\n");
 
     // variables
@@ -1282,8 +1282,17 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
 
     // operators
     fprintf(fout, "%d\n", fdr->op.op_size);
-    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id)
-        printFDOp(fdr->op.op[op_id], cfg, fout);
+    pddl_fdr_op_t** ops = ALLOC_ARR(pddl_fdr_op_t*, fdr->op.op_size);
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id) {
+        int id = fdr->op.op[op_id]->id;
+        PANIC_IF(id >= fdr->op.op_size || ops[id] != NULL, "");
+        ops[id] = fdr->op.op[op_id];
+    }
+    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id) {
+        PANIC_IF(ops[op_id] == NULL, "");
+        printFDOp(ops[op_id], cfg, fout);
+    }
+    FREE(ops);
 
     // axioms
     fprintf(fout, "0\n");

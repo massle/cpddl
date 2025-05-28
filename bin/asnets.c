@@ -471,11 +471,39 @@ ground(int argc, char* argv[])
 
     pddl_ground_asnets_conf_t gConf;
     pddlGroundASNetsConfInit(&gConf, gt.fact_size, gt.op_size);
-    pddlGroundASNetsConfLoad(&gConf, argv[4], &gt);
+
+    if (argc == 6) {
+        pddlGroundASNetsConfLoad(&gConf, argv[4], &gt);
+    } else {
+        pddl_fdr_t* fdr = &gt.fdr;
+        for (int var_id = 0; var_id < fdr->var.var_size; ++var_id) {
+            const pddl_fdr_var_t* var = fdr->var.var + var_id;
+            for (int val_id = 0; val_id < var->val_size; ++val_id) {
+                const pddl_fdr_val_t* val = var->val + val_id;
+                int fact_id = val->strips_id;
+                gConf.variable[fact_id] = var_id;
+                gConf.value[fact_id] = val_id;
+            }
+        }
+        gConf.num_variables = fdr->var.var_size;
+        gConf.num_labels = gt.op_size;
+        for (int op_id = 0; op_id < gt.op_size; ++op_id) {
+            gConf.label[op_id] = op_id;
+        }
+        pddl_fdr_write_config_t write_cfg;
+        write_cfg.filename = "output.sas";
+        write_cfg.fout = NULL;
+        write_cfg.fd = pddl_true;
+        write_cfg.use_fd_fact_names = pddl_true;
+        write_cfg.mgroups = NULL;
+        write_cfg.encode_op_ids = pddl_false;
+        write_cfg.osp_all_soft_goals = pddl_false;
+        pddlFDRWrite(fdr, &write_cfg);
+    }
 
     pddl_ground_asnets_t gAsnets;
     pddlASNetsPolicyGround(&gAsnets, asnets, &gt, &gConf, &err);
-    pddlDumpGroundASNetsModel(&gAsnets, argv[5], &err);
+    pddlDumpGroundASNetsModel(&gAsnets, argc == 6 ? argv[5] : argv[4], &err);
 
     // for (int i = 0; i < gt.strips.fact.fact_size; ++i) {
     //     printf("fact#%d = %s\n", i, gt.strips.fact.fact[i]->name);
