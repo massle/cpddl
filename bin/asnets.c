@@ -2,6 +2,7 @@
 #include "pddl/asnets_convert_from_sql.h"
 #include "pddl/pddl.h"
 #include "print_to_file.h"
+#include "pddl/err.h"
 
 static struct {
     pddl_bool_t help;
@@ -253,7 +254,7 @@ parseOpts(int* argc, char* argv[])
             return -1;
         }
     } else if (cmd == CMD_GROUND) {
-        if (*argc != 6) {
+        if (*argc < 5 || *argc > 6) {
             fprintf(stderr, "Error: Command ground expects four arguments.");
             help(argv[0], stderr);
             return -1;
@@ -476,20 +477,33 @@ ground(int argc, char* argv[])
         pddlGroundASNetsConfLoad(&gConf, argv[4], &gt);
     } else {
         pddl_fdr_t* fdr = &gt.fdr;
+
+        gConf.num_facts = 0 ;
+        gConf.num_operators = fdr->op.op_size;
+        gConf.num_variables = fdr->var.var_size;
+        gConf.num_labels = fdr->op.op_size;
+
         for (int var_id = 0; var_id < fdr->var.var_size; ++var_id) {
             const pddl_fdr_var_t* var = fdr->var.var + var_id;
             for (int val_id = 0; val_id < var->val_size; ++val_id) {
                 const pddl_fdr_val_t* val = var->val + val_id;
                 int fact_id = val->strips_id;
+                if (fact_id < 0 || fact_id >= gt.fact_size) {
+                    continue;
+                }
                 gConf.variable[fact_id] = var_id;
                 gConf.value[fact_id] = val_id;
+                ++gConf.num_facts ;
             }
         }
         gConf.num_variables = fdr->var.var_size;
         gConf.num_labels = gt.op_size;
-        for (int op_id = 0; op_id < gt.op_size; ++op_id) {
-            gConf.label[op_id] = op_id;
+        for (int fdr_op_id = 0; fdr_op_id < fdr->op.op_size; ++fdr_op_id) {
+            const pddl_fdr_op_t* op = fdr->op.op[fdr_op_id];
+            PDDL_PANIC_IF(op->strips_id < 0 || op->strips_id >= fdr->op.op_size, "op_id out of bounds");
+            gConf.label[op->strips_id] = fdr_op_id;
         }
+
         pddl_fdr_write_config_t write_cfg;
         write_cfg.filename = "output.sas";
         write_cfg.fout = NULL;
@@ -499,6 +513,25 @@ ground(int argc, char* argv[])
         write_cfg.encode_op_ids = pddl_false;
         write_cfg.osp_all_soft_goals = pddl_false;
         pddlFDRWrite(fdr, &write_cfg);
+
+        FILE* interface = fopen("asnets.jani2nnet", "w");
+        fprintf(interface, "{\n");
+        fprintf(interface, "  \"elements\": [],\n");
+        fprintf(interface, "  \"file\": \"\",\n");
+        fprintf(interface, "  \"filter\": false,\n");
+        fprintf(interface, "  \"input\": [\n");
+        for (int var_id = 0; var_id < fdr->var.var_size; ++var_id) {
+            fprintf(interface, "    { \"automaton\": null, \"name\": \"var%d\" }%s", var_id, var_id + 1 < fdr->var.var_size ? ",\n" : "\n");
+        }
+        fprintf(interface, "  ],\n");
+        fprintf(interface, "  \"output\": [\n");
+        for (int op_id = 0; op_id < fdr->op.op_size; ++op_id) {
+            const pddl_fdr_op_t* op = gt.fdr.op.op[op_id];
+            fprintf(interface, "    \"%s\"%s", op->name, op_id + 1 < gt.op_size ? ",\n" : "\n");
+        }
+        fprintf(interface, "  ]\n");
+        fprintf(interface, "}\n");
+        fclose(interface);
     }
 
     pddl_ground_asnets_t gAsnets;
@@ -514,9 +547,9 @@ ground(int argc, char* argv[])
     // }
 
     pddlGroundASNetsConfFree(&gConf);
-    pddlGroundASNetsFree(&gAsnets);
-    pddlASNetsGroundTaskFree(&gt);
-    pddlASNetsDel(asnets);
+    // pddlGroundASNetsFree(&gAsnets);
+    // pddlASNetsGroundTaskFree(&gt);
+    // pddlASNetsDel(asnets);
 
     return 0;
 }

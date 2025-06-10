@@ -43,6 +43,7 @@ struct pddl_fdr_op {
     int cond_eff_alloc;
 
     int id;
+    int strips_id;
 };
 typedef struct pddl_fdr_op pddl_fdr_op_t;
 

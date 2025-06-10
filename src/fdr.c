@@ -571,6 +571,8 @@ static void addOp(pddl_fdr_ops_t *fdr_ops,
     pddl_fdr_op_t *fdr_op = pddlFDROpNewEmpty();
     pddl_fdr_part_state_t pre;
 
+    fdr_op->strips_id = op_id;
+
     if (op->name != NULL)
         fdr_op->name = STRDUP(op->name);
     fdr_op->cost = op->cost;
@@ -1282,17 +1284,9 @@ static void pddlFDRWriteFD(const pddl_fdr_t *fdr,
 
     // operators
     fprintf(fout, "%d\n", fdr->op.op_size);
-    pddl_fdr_op_t** ops = ALLOC_ARR(pddl_fdr_op_t*, fdr->op.op_size);
     for (int op_id = 0; op_id < fdr->op.op_size; ++op_id) {
-        int id = fdr->op.op[op_id]->id;
-        PANIC_IF(id >= fdr->op.op_size || ops[id] != NULL, "");
-        ops[id] = fdr->op.op[op_id];
+        printFDOp(fdr->op.op[op_id], cfg, fout);
     }
-    for (int op_id = 0; op_id < fdr->op.op_size; ++op_id) {
-        PANIC_IF(ops[op_id] == NULL, "");
-        printFDOp(ops[op_id], cfg, fout);
-    }
-    FREE(ops);
 
     // axioms
     fprintf(fout, "0\n");

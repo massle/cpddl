@@ -38,6 +38,7 @@ pddl_fdr_op_t *pddlFDROpClone(const pddl_fdr_op_t *op_in)
         op->name = STRDUP(op_in->name);
     op->cost = op_in->cost;
     op->id = op_in->id;
+    op->strips_id = op_in->strips_id;
     pddlFDRPartStateInitCopy(&op->pre, &op_in->pre);
     pddlFDRPartStateInitCopy(&op->eff, &op_in->eff);
 
