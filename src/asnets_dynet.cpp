@@ -20,35 +20,33 @@
 #include <dynet/param-init.h>
 #include <dynet/training.h>
 
+#define PRINT_LAYERS 0
+
 extern "C" const char* const pddl_dynet_version = "not exported";
 
-#define DYNET_PANIC_EXCEPTION(e)                                     \
-    PANIC(                                                           \
-        "Something went wrong (probably) in DyNet: %s"               \
-        " (Inf/NaN errors can be caused by having too many layers)", \
+#define DYNET_PANIC_EXCEPTION(e)                                               \
+    PANIC(                                                                     \
+        "Something went wrong (probably) in DyNet: %s"                         \
+        " (Inf/NaN errors can be caused by having too many layers)",           \
         (e).what())
 
 static const float SMALL_CONST = 1e-6f;
 static const float MIN_ACTIVATION_VALUE = 0.f;
 
-static dynet::Expression
-activationFn(const dynet::Expression& e)
+static dynet::Expression activationFn(const dynet::Expression& e)
 {
     return dynet::rectify(e);
 }
 
-static dynet::Expression
-poolMax(const std::vector<dynet::Expression>& in)
+static dynet::Expression poolMax(const std::vector<dynet::Expression>& in)
 {
-    if (in.size() == 1)
-        return in[0];
+    if (in.size() == 1) return in[0];
 
     dynet::Expression mat = dynet::concatenate(in, 1);
     return dynet::max_dim(mat, 1);
 }
 
-static dynet::Expression
-maskedSoftmax(
+static dynet::Expression maskedSoftmax(
     dynet::ComputationGraph& cg,
     const dynet::Expression& in,
     const dynet::Expression& mask)
@@ -60,10 +58,10 @@ maskedSoftmax(
     sm = dynet::exp(sm);
 
     // Multiply by the mask
-    sm = dynet::cmult(sm, mask);
+    // sm = dynet::cmult(sm, mask);
 
     // Compute sum and clip it so that we don't divide by zero
-    dynet::Dim min_sum_dim({ 1 }, sm.dim().batch_elems());
+    dynet::Dim min_sum_dim({1}, sm.dim().batch_elems());
     dynet::Expression min_sum = dynet::constant(cg, min_sum_dim, SMALL_CONST);
     dynet::Expression sum = dynet::max(dynet::sum_rows(sm), min_sum);
 
@@ -73,8 +71,7 @@ maskedSoftmax(
     return sm;
 }
 
-static dynet::Expression
-crossEntropyLoss(
+static dynet::Expression crossEntropyLoss(
     dynet::ComputationGraph& cg,
     dynet::Expression output,
     dynet::Expression labels)
@@ -128,10 +125,8 @@ struct ActionModule {
             // applicability of the action
             // input_vec_size += 1;
             // three flags for landmarks
-            if (use_lmc)
-                input_vec_size += 3;
-            if (use_op_history)
-                input_vec_size += 1;
+            if (use_lmc) input_vec_size += 3;
+            if (use_op_history) input_vec_size += 1;
 
         } else {
             // Related propositions
@@ -150,12 +145,14 @@ struct ActionModule {
         dim_W[0] = output_dim;
         dim_W[1] = input_vec_size;
         W = model.add_parameters(
-            dynet::Dim(dim_W), dynet::ParameterInitNormal());
+            dynet::Dim(dim_W),
+            dynet::ParameterInitNormal());
 
         std::vector<long> dim_bias(1);
         dim_bias[0] = output_dim;
         bias = model.add_parameters(
-            dynet::Dim(dim_bias), dynet::ParameterInitNormal());
+            dynet::Dim(dim_bias),
+            dynet::ParameterInitNormal());
     }
 
     dynet::Expression _expr(
@@ -184,7 +181,9 @@ struct ActionModule {
         // input.push_back(input_applicable);
         input.insert(input.end(), input_ldms.begin(), input_ldms.end());
         input.insert(
-            input.end(), input_op_history.begin(), input_op_history.end());
+            input.end(),
+            input_op_history.begin(),
+            input_op_history.end());
         return _expr(cg, input);
     }
 
@@ -193,8 +192,7 @@ struct ActionModule {
         const std::vector<dynet::Expression>& input) const
     {
         dynet::Expression e = _expr(cg, input);
-        if (is_output)
-            return e;
+        if (is_output) return e;
         return activationFn(e);
     }
 
@@ -213,15 +211,14 @@ struct ActionModule {
             input_applicable,
             input_ldms,
             input_op_history);
-        if (is_output)
-            return e;
+        if (is_output) return e;
         return activationFn(e);
     }
 
     dynet::Expression l1_parameter_loss(dynet::ComputationGraph& cg) const
     {
-        return dynet::sum_elems(dynet::abs(dynet::parameter(cg, W)))
-             + dynet::sum_elems(dynet::abs(dynet::parameter(cg, bias)));
+        return dynet::sum_elems(dynet::abs(dynet::parameter(cg, W))) +
+               dynet::sum_elems(dynet::abs(dynet::parameter(cg, bias)));
     }
 };
 
@@ -248,12 +245,14 @@ struct PropositionModule {
         dim_W[0] = hidden_dimension;
         dim_W[1] = input_vec_size;
         W = model.add_parameters(
-            dynet::Dim(dim_W), dynet::ParameterInitNormal());
+            dynet::Dim(dim_W),
+            dynet::ParameterInitNormal());
 
         std::vector<long> dim_bias(1);
         dim_bias[0] = hidden_dimension;
         bias = model.add_parameters(
-            dynet::Dim(dim_bias), dynet::ParameterInitNormal());
+            dynet::Dim(dim_bias),
+            dynet::ParameterInitNormal());
     }
 
     dynet::Expression expr(
@@ -272,8 +271,8 @@ struct PropositionModule {
 
     dynet::Expression l1_parameter_loss(dynet::ComputationGraph& cg) const
     {
-        return dynet::sum_elems(dynet::abs(dynet::parameter(cg, W)))
-             + dynet::sum_elems(dynet::abs(dynet::parameter(cg, bias)));
+        return dynet::sum_elems(dynet::abs(dynet::parameter(cg, W))) +
+               dynet::sum_elems(dynet::abs(dynet::parameter(cg, bias)));
     }
 };
 
@@ -314,8 +313,8 @@ struct ModelParameters {
 
             for (int pid = 0; pid < task->pred_size; ++pid) {
                 ASSERT(
-                    pid != task->pddl.pred.eq_pred
-                    || task->pred[pid].related_action_size == 0);
+                    pid != task->pddl.pred.eq_pred ||
+                    task->pred[pid].related_action_size == 0);
                 PropositionModule* pm;
                 pm = new PropositionModule(
                     hidden_dimension,
@@ -346,12 +345,10 @@ struct ModelParameters {
     ~ModelParameters()
     {
         for (size_t i = 0; i < action.size(); ++i) {
-            for (size_t j = 0; j < action[i].size(); ++j)
-                delete action[i][j];
+            for (size_t j = 0; j < action[i].size(); ++j) delete action[i][j];
         }
         for (size_t i = 0; i < prop.size(); ++i) {
-            for (size_t j = 0; j < prop[i].size(); ++j)
-                delete prop[i][j];
+            for (size_t j = 0; j < prop[i].size(); ++j) delete prop[i][j];
         }
     }
 
@@ -396,8 +393,7 @@ public:
     }
 };
 
-static void
-_firstActionLayer(
+static void _firstActionLayer(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     dynet::ComputationGraph& cg,
@@ -442,13 +438,17 @@ _firstActionLayer(
         int action_id = g->op[op_id].action->action_id;
         ActionModule* am = model.action[0][action_id];
         dynet::Expression e = am->exprInput(
-            cg, in_state, in_goal, in_applicable, in_ldms, in_op_history);
+            cg,
+            in_state,
+            in_goal,
+            in_applicable,
+            in_ldms,
+            in_op_history);
         action_layer.push_back(e);
     }
 }
 
-static void
-_actionLayer(
+static void _actionLayer(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     dynet::ComputationGraph& cg,
@@ -464,6 +464,7 @@ _actionLayer(
         std::vector<dynet::Expression> in;
         for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
             int fact_id = g->op[op_id].related_fact[i];
+            PANIC_IF(fact_id < 0, "fact_id < 0");
             if (fact_id < 0) {
                 in.push_back(missing_input.get(cg));
 
@@ -482,8 +483,7 @@ _actionLayer(
     }
 }
 
-static void
-_propLayer(
+static void _propLayer(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     dynet::ComputationGraph& cg,
@@ -525,8 +525,7 @@ _propLayer(
     }
 }
 
-static void
-_groundPropLayer(
+static void _groundPropLayer(
     pddl_ground_asnets_proposition_layer_t* res,
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
@@ -579,7 +578,8 @@ _groundPropLayer(
             for (unsigned ri = 0; ri < pm->W.dim()[1]; ++ri) {
                 res->perceptron.weights[w + offset + ri] =
                     dynet::TensorTools::access_element(
-                        *pm->W.values(), dynet::Dim({ h, ri }));
+                        *pm->W.values(),
+                        dynet::Dim({h, ri}));
             }
             res->perceptron.biases[b] =
                 dynet::TensorTools::access_element(*pm->bias.values(), h);
@@ -588,8 +588,7 @@ _groundPropLayer(
     }
 }
 
-static void
-_groundActionLayer(
+static void _groundActionLayer(
     pddl_nn_layer_feed_forward_t* res,
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
@@ -608,8 +607,8 @@ _groundActionLayer(
                 g->op[op_id].related_fact_size == 0,
                 "operator has no related facts");
             PANIC_IF(
-                static_cast<int>(am->W.dim()[1])
-                    != model.hidden_dim * g->op[op_id].related_fact_size,
+                static_cast<int>(am->W.dim()[1]) !=
+                    model.hidden_dim * g->op[op_id].related_fact_size,
                 "unexpected imension");
             for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
                 int fact_id = g->op[op_id].related_fact[i];
@@ -618,7 +617,8 @@ _groundActionLayer(
                     unsigned local_index = i * model.hidden_dim + hi;
                     res->weights[offset + fact_id * model.hidden_dim + hi] =
                         dynet::TensorTools::access_element(
-                            *am->W.values(), dynet::Dim({ h, local_index }));
+                            *am->W.values(),
+                            dynet::Dim({h, local_index}));
                 }
             }
             res->biases[b] =
@@ -627,8 +627,7 @@ _groundActionLayer(
     }
 }
 
-static std::vector<float>
-_removeGoalInput(
+static std::vector<float> _removeGoalInput(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     dynet::ComputationGraph& cg,
@@ -649,7 +648,10 @@ _removeGoalInput(
     }
     {
         int fact_id;
-        PDDL_ISET_FOR_EACH(&g->strips.goal, fact_id) { goal[fact_id] = 1; }
+        PDDL_ISET_FOR_EACH(&g->strips.goal, fact_id)
+        {
+            goal[fact_id] = 1;
+        }
     }
     std::vector<long> dim(1);
     dim[0] = state.size();
@@ -672,12 +674,16 @@ _removeGoalInput(
     int action_id = g->op[op_id].action->action_id;
     ActionModule* am = model.action[0][action_id];
     dynet::Expression e = am->_exprInput(
-        cg, in_state, in_goal, in_applicable, in_ldms, in_op_history);
+        cg,
+        in_state,
+        in_goal,
+        in_applicable,
+        in_ldms,
+        in_op_history);
     return dynet::as_vector(cg.forward(e));
 }
 
-static void
-_groundFirstActionLayer(
+static void _groundFirstActionLayer(
     pddl_nn_layer_feed_forward_t* res,
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
@@ -689,6 +695,9 @@ _groundFirstActionLayer(
     for (int fact_id = 0; fact_id < g->fact_size; ++fact_id) {
         if (conf->variable[fact_id] >= 0) {
             new_fact_id[fact_id] = non_static_facts++;
+        } else {
+            // printf("omitting fact %s (%d)\n",
+            // g->strips.fact.fact[fact_id]->name, fact_id);
         }
     }
     pddlNNLayerFFInit(res, non_static_facts, g->op_size * model.hidden_dim);
@@ -698,8 +707,8 @@ _groundFirstActionLayer(
         const std::vector<float> biases =
             _removeGoalInput(g, model, cg, op_id, conf);
         PANIC_IF(
-            static_cast<int>(am->W.dim()[1])
-                != 2 * g->op[op_id].related_fact_size,
+            static_cast<int>(am->W.dim()[1]) !=
+                2 * g->op[op_id].related_fact_size,
             "unexpected imension");
         for (unsigned h = 0; h < am->W.dim()[0];
              ++h, offset += non_static_facts, ++b) {
@@ -712,15 +721,14 @@ _groundFirstActionLayer(
                 res->weights[offset + new_fact_id[fact_id]] =
                     dynet::TensorTools::access_element(
                         *am->W.values(),
-                        dynet::Dim({ h, static_cast<unsigned>(i) }));
+                        dynet::Dim({h, static_cast<unsigned>(i)}));
             }
             res->biases[b] = biases[h];
         }
     }
 }
 
-static dynet::Expression
-asnetsExpr(
+static dynet::Expression asnetsExpr(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
     dynet::ComputationGraph& cg,
@@ -736,6 +744,25 @@ asnetsExpr(
     std::vector<std::vector<dynet::Expression>> prop_layer;
     prop_layer.resize(model.num_layers);
 
+#if PRINT_LAYERS
+    {
+        std::vector<float> out = dynet::as_vector(cg.forward(input_state));
+        std::cout << " state:";
+        for (unsigned i = 0; i < out.size(); ++i) {
+            if (out[i] > 0.) {
+                std::cout << " (" << i << ":" << g->strips.fact.fact[i]->name
+                          << ")";
+            }
+        }
+        std::cout << std::endl;
+        std::cout << "    <0> [";
+        for (unsigned i = 0; i < out.size(); ++i) {
+            std::cout << " " << out[i];
+        }
+        std::cout << " ]" << std::endl;
+    }
+#endif
+
     int layer = 0;
     // First action layer needs to be connected to inputs
     _firstActionLayer(
@@ -749,10 +776,21 @@ asnetsExpr(
         input_op_history,
         action_layer[0]);
 
+#if PRINT_LAYERS
+    {
+        std::vector<float> out =
+            dynet::as_vector(cg.forward(dynet::concatenate(action_layer[0])));
+        std::cout << "    <1> [";
+        for (unsigned i = 0; i < out.size(); ++i) {
+            std::cout << " " << out[i];
+        }
+        std::cout << " ]" << std::endl;
+    }
+#endif
+
     for (; layer < model.num_layers; ++layer) {
         const std::vector<dynet::Expression>* prev_prop_layer = NULL;
-        if (layer > 0)
-            prev_prop_layer = &prop_layer[layer - 1];
+        if (layer > 0) prev_prop_layer = &prop_layer[layer - 1];
         _propLayer(
             g,
             model,
@@ -763,6 +801,18 @@ asnetsExpr(
             prop_layer[layer],
             dropout_rate);
 
+#if PRINT_LAYERS
+        {
+            std::vector<float> out = dynet::as_vector(
+                cg.forward(dynet::concatenate(prop_layer[layer])));
+            std::cout << "    <" << (2 * layer + 2) << "> [";
+            for (unsigned i = 0; i < out.size(); ++i) {
+                std::cout << " " << out[i];
+            }
+            std::cout << " ]" << std::endl;
+        }
+#endif
+
         _actionLayer(
             g,
             model,
@@ -772,6 +822,18 @@ asnetsExpr(
             action_layer[layer],
             action_layer[layer + 1],
             dropout_rate);
+
+#if PRINT_LAYERS
+        {
+            std::vector<float> out = dynet::as_vector(
+                cg.forward(dynet::concatenate(action_layer[layer + 1])));
+            std::cout << "    <" << (2 * layer + 3) << "> [";
+            for (unsigned i = 0; i < out.size(); ++i) {
+                std::cout << " " << out[i];
+            }
+            std::cout << " ]" << std::endl;
+        }
+#endif
     }
 
     dynet::Expression out = dynet::concatenate(action_layer[layer]);
@@ -779,52 +841,45 @@ asnetsExpr(
     return maskedSoftmax(cg, out, input_applicable_ops);
 }
 
-static void
-setStateVector(
+static void setStateVector(
     const pddl_asnets_ground_task_t* task,
     const pddl_iset_t* strips_state,
     std::vector<float>& state)
 {
     state.resize(task->strips.fact.fact_size);
-    for (size_t i = 0; i < state.size(); ++i)
-        state[i] = 0;
+    for (size_t i = 0; i < state.size(); ++i) state[i] = 0;
     int fact_id;
     PDDL_ISET_FOR_EACH(strips_state, fact_id)
     state[fact_id] = 1;
 }
 
-static void
-setApplicableOpsVector(
+static void setApplicableOpsVector(
     const pddl_asnets_ground_task_t* task,
     const pddl_iset_t* applicable_op_ids,
     std::vector<float>& applicable_ops)
 {
     applicable_ops.resize(task->strips.op.op_size);
-    for (size_t i = 0; i < applicable_ops.size(); ++i)
-        applicable_ops[i] = 0;
+    for (size_t i = 0; i < applicable_ops.size(); ++i) applicable_ops[i] = 0;
 
     int op_id;
     PDDL_ISET_FOR_EACH(applicable_op_ids, op_id)
     applicable_ops[op_id] = 1;
 }
 
-static void
-setGoalVector(
+static void setGoalVector(
     const pddl_asnets_ground_task_t* task,
     const pddl_iset_t* strips_goal,
     std::vector<float>& goal)
 {
     goal.resize(task->strips.fact.fact_size);
-    for (size_t i = 0; i < goal.size(); ++i)
-        goal[i] = 0;
+    for (size_t i = 0; i < goal.size(); ++i) goal[i] = 0;
 
     int fact_id;
     PDDL_ISET_FOR_EACH(strips_goal, fact_id)
     goal[fact_id] = 1;
 }
 
-static void
-setFDRStateVector(
+static void setFDRStateVector(
     const pddl_asnets_ground_task_t* task,
     const int* s,
     std::vector<float>& state,
@@ -841,8 +896,7 @@ setFDRStateVector(
     pddlISetFree(&ops);
 }
 
-static void
-setFDRGoalVector(
+static void setFDRGoalVector(
     const pddl_asnets_ground_task_t* task,
     const pddl_fdr_part_state_t* fdr_goal,
     std::vector<float>& goal)
@@ -853,14 +907,12 @@ setFDRGoalVector(
     pddlISetFree(&strips_g);
 }
 
-static void
-setLDMs(
+static void setLDMs(
     const pddl_asnets_ground_task_t* task,
     const pddl_set_iset_t* in_ldms,
     std::vector<float>& ldms)
 {
-    if (in_ldms == NULL)
-        return;
+    if (in_ldms == NULL) return;
 
     ldms.resize(task->strips.op.op_size * 3, 0.f);
     const pddl_iset_t* ldm;
@@ -883,14 +935,12 @@ setLDMs(
     }
 }
 
-static void
-setOpHistory(
+static void setOpHistory(
     const pddl_asnets_ground_task_t* task,
     const pddl_iarr_t* path,
     std::vector<float>& op_history)
 {
-    if (path == NULL)
-        return;
+    if (path == NULL) return;
 
     op_history.resize(task->strips.op.op_size, 0.f);
     int op_id;
@@ -943,14 +993,15 @@ struct ASNetsTrainMiniBatchTask {
         selected_op.push_back(in_selected_op);
         ldms.insert(ldms.end(), in_ldms.begin(), in_ldms.end());
         op_history.insert(
-            op_history.end(), in_op_history.begin(), in_op_history.end());
+            op_history.end(),
+            in_op_history.begin(),
+            in_op_history.end());
         ++size;
     }
 
     void createInputs(dynet::ComputationGraph& cg)
     {
-        if (size == 0)
-            return;
+        if (size == 0) return;
         ASSERT((int)state.size() == size * fact_size);
         ASSERT((int)applicable_ops.size() == size * op_size);
         ASSERT((int)selected_op.size() == size);
@@ -988,8 +1039,7 @@ struct ASNetsTrainMiniBatch {
         bool use_ldms,
         bool use_op_history)
     {
-        if (minibatch_size < 0)
-            minibatch_size = data->sample_size;
+        if (minibatch_size < 0) minibatch_size = data->sample_size;
         minibatch_size = PDDL_MIN(minibatch_size, data->sample_size);
         batch.resize(data->task_size);
         for (int i = 0; i < data->task_size; ++i) {
@@ -1019,14 +1069,20 @@ struct ASNetsTrainMiniBatch {
             std::vector<float> state, applicable_ops, goal, ldms, op_history;
             setStateVector(data->task[task_id], &sample_state, state);
             setApplicableOpsVector(
-                data->task[task_id], &sample_applicable_ops, applicable_ops);
+                data->task[task_id],
+                &sample_applicable_ops,
+                applicable_ops);
             setGoalVector(data->task[task_id], &sample_goal, goal);
-            if (use_ldms)
-                setLDMs(data->task[task_id], sample_ldms, ldms);
+            if (use_ldms) setLDMs(data->task[task_id], sample_ldms, ldms);
             if (use_op_history)
                 setOpHistory(data->task[task_id], sample_path, op_history);
             batch[task_id].add(
-                state, applicable_ops, goal, selected_op, ldms, op_history);
+                state,
+                applicable_ops,
+                goal,
+                selected_op,
+                ldms,
+                op_history);
         }
         pddlISetFree(&sample_state);
         pddlISetFree(&sample_applicable_ops);
@@ -1036,15 +1092,13 @@ struct ASNetsTrainMiniBatch {
     void createInputs(dynet::ComputationGraph& cg)
     {
         for (size_t task_id = 0; task_id < batch.size(); ++task_id) {
-            if (batch[task_id].size == 0)
-                continue;
+            if (batch[task_id].size == 0) continue;
             batch[task_id].createInputs(cg);
         }
     }
 };
 
-static dynet::Expression
-asnetsTrainExpr(
+static dynet::Expression asnetsTrainExpr(
     pddl_asnets_train_data_t* data,
     const ModelParameters& params,
     int minibatch_size,
@@ -1064,8 +1118,7 @@ asnetsTrainExpr(
     std::vector<dynet::Expression> nets;
     int batch_size = 0;
     for (int task_id = 0; task_id < data->task_size; ++task_id) {
-        if (batch.batch[task_id].size == 0)
-            continue;
+        if (batch.batch[task_id].size == 0) continue;
         const ASNetsTrainMiniBatchTask& b = batch.batch[task_id];
         // LOG(err, "Batch: task: %d, size: %d", task_id, b.size);
         dynet::Expression e = asnetsExpr(
@@ -1102,8 +1155,7 @@ struct pddl_asnets_model {
 static pddl_asnets_model_t* asnets_model_singleton = NULL;
 static int asnets_model_counter = 0;
 
-pddl_asnets_model_t*
-pddlASNetsModelNew(
+pddl_asnets_model_t* pddlASNetsModelNew(
     const pddl_asnets_lifted_task_t* task,
     const pddl_asnets_model_config_t* cfg,
     pddl_err_t* err)
@@ -1165,18 +1217,15 @@ pddlASNetsModelNew(
     return m;
 }
 
-void
-pddlASNetsModelDel(pddl_asnets_model_t* a)
+void pddlASNetsModelDel(pddl_asnets_model_t* a)
 {
     PANIC_IF(
         asnets_model_singleton != a,
         "Something is wrong: Trying to delete ASNets model that wasn't"
         " created before.");
     delete a->params;
-    if (a->trainer != NULL)
-        delete a->trainer;
-    if (a->cg != NULL)
-        delete a->cg;
+    if (a->trainer != NULL) delete a->trainer;
+    if (a->cg != NULL) delete a->cg;
     FREE(a);
     dynet::cleanup();
 
@@ -1184,8 +1233,7 @@ pddlASNetsModelDel(pddl_asnets_model_t* a)
     asnets_model_singleton = NULL;
 }
 
-static void
-paramToArr(const dynet::Parameter& param, float** w, int* w_size)
+static void paramToArr(const dynet::Parameter& param, float** w, int* w_size)
 {
     // Raw weights are not scaled by weight_decay so we need to do that
     // before saving the weights
@@ -1202,8 +1250,7 @@ paramToArr(const dynet::Parameter& param, float** w, int* w_size)
     }
     *w_size = vals.size();
 
-    for (size_t i = 0; i < vals.size(); ++i)
-        (*w)[i] = vals[i];
+    for (size_t i = 0; i < vals.size(); ++i) (*w)[i] = vals[i];
 }
 
 static int
@@ -1221,8 +1268,7 @@ arrToParam(const float* w, int w_size, dynet::Parameter& param, pddl_err_t* err)
     return 0;
 }
 
-int
-pddlASNetsModelSetActionWeights(
+int pddlASNetsModelSetActionWeights(
     pddl_asnets_model_t* m,
     int layer,
     int action_id,
@@ -1239,8 +1285,7 @@ pddlASNetsModelSetActionWeights(
     return arrToParam(w, w_size, param, err);
 }
 
-int
-pddlASNetsModelSetActionBias(
+int pddlASNetsModelSetActionBias(
     pddl_asnets_model_t* m,
     int layer,
     int action_id,
@@ -1257,8 +1302,7 @@ pddlASNetsModelSetActionBias(
     return arrToParam(w, w_size, param, err);
 }
 
-int
-pddlASNetsModelSetPropWeights(
+int pddlASNetsModelSetPropWeights(
     pddl_asnets_model_t* m,
     int layer,
     int pred_id,
@@ -1275,8 +1319,7 @@ pddlASNetsModelSetPropWeights(
     return arrToParam(w, w_size, param, err);
 }
 
-int
-pddlASNetsModelSetPropBias(
+int pddlASNetsModelSetPropBias(
     pddl_asnets_model_t* m,
     int layer,
     int pred_id,
@@ -1293,8 +1336,7 @@ pddlASNetsModelSetPropBias(
     return arrToParam(w, w_size, param, err);
 }
 
-int
-pddlASNetsModelGetActionWeights(
+int pddlASNetsModelGetActionWeights(
     pddl_asnets_model_t* m,
     int layer,
     int action_id,
@@ -1312,8 +1354,7 @@ pddlASNetsModelGetActionWeights(
     return 0;
 }
 
-int
-pddlASNetsModelGetActionBias(
+int pddlASNetsModelGetActionBias(
     pddl_asnets_model_t* m,
     int layer,
     int action_id,
@@ -1331,8 +1372,7 @@ pddlASNetsModelGetActionBias(
     return 0;
 }
 
-int
-pddlASNetsModelGetPropWeights(
+int pddlASNetsModelGetPropWeights(
     pddl_asnets_model_t* m,
     int layer,
     int pred_id,
@@ -1350,8 +1390,7 @@ pddlASNetsModelGetPropWeights(
     return 0;
 }
 
-int
-pddlASNetsModelGetPropBias(
+int pddlASNetsModelGetPropBias(
     pddl_asnets_model_t* m,
     int layer,
     int pred_id,
@@ -1369,8 +1408,7 @@ pddlASNetsModelGetPropBias(
     return 0;
 }
 
-int
-pddlASNetsModelTrainStep(
+int pddlASNetsModelTrainStep(
     pddl_asnets_model_t* m,
     pddl_asnets_train_data_t* data,
     int minibatch_size,
@@ -1407,8 +1445,7 @@ pddlASNetsModelTrainStep(
         m->cg->backward(e_loss);
         m->trainer->update();
 
-        if (out_loss != NULL)
-            *out_loss = loss_val;
+        if (out_loss != NULL) *out_loss = loss_val;
         return 0;
 
     } catch (std::runtime_error& e) {
@@ -1417,8 +1454,7 @@ pddlASNetsModelTrainStep(
     }
 }
 
-float
-pddlASNetsModelOverallLoss(
+float pddlASNetsModelOverallLoss(
     pddl_asnets_model_t* m,
     pddl_asnets_train_data_t* data,
     float dropout_rate,
@@ -1441,8 +1477,7 @@ pddlASNetsModelOverallLoss(
     }
 }
 
-static int
-_pddlASNetsModelEvalFDRState(
+static int _pddlASNetsModelEvalFDRState(
     pddl_asnets_model_t* m,
     const pddl_asnets_ground_task_t* task,
     const int* in_state,
@@ -1459,12 +1494,16 @@ _pddlASNetsModelEvalFDRState(
 
     setFDRGoalVector(task, in_goal, goal);
     setFDRStateVector(task, in_state, state, applicable_ops);
-    if (in_ldms != NULL)
-        setLDMs(task, in_ldms, ldms);
-    if (in_path != NULL)
-        setOpHistory(task, in_path, op_history);
+    if (in_ldms != NULL) setLDMs(task, in_ldms, ldms);
+    if (in_path != NULL) setOpHistory(task, in_path, op_history);
 
     m->cg->clear();
+
+    // std::cout << "state: [";
+    // for (unsigned i = 0; i < state.size(); ++i) {
+    //     std::cout << " " << state[i];
+    // }
+    // std::cout << " ]" << std::endl;
 
     std::vector<long> dim(1);
     dim[0] = state.size();
@@ -1502,13 +1541,18 @@ _pddlASNetsModelEvalFDRState(
     std::vector<float> out = dynet::as_vector(m->cg->forward(e_output));
     ASSERT((int)out.size() == task->strips.op.op_size);
 
+    // std::cout << "[";
+    // for (unsigned i = 0; i < out.size(); ++i) {
+    //     std::cout << " " << out[i];
+    // }
+    // std::cout << " ]" << std::endl;
+
     int best_op_id = -1;
     float best_value = -1;
     for (size_t op_id = 0; op_id < out.size(); ++op_id) {
         ASSERT(out[op_id] >= 0.f);
         // Skip operators that are not applicable
-        if (applicable_ops[op_id] < .5)
-            continue;
+        if (applicable_ops[op_id] < .5) continue;
         if (out[op_id] > best_value) {
             best_op_id = op_id;
             best_value = out[op_id];
@@ -1516,8 +1560,7 @@ _pddlASNetsModelEvalFDRState(
 
         if (distr != NULL) {
             if (distr->op_size == distr->op_alloc) {
-                if (distr->op_alloc == 0)
-                    distr->op_alloc = 4;
+                if (distr->op_alloc == 0) distr->op_alloc = 4;
                 distr->op_alloc *= 2;
                 distr->op_id = REALLOC_ARR(distr->op_id, int, distr->op_alloc);
                 distr->prob = REALLOC_ARR(distr->prob, float, distr->op_alloc);
@@ -1529,11 +1572,14 @@ _pddlASNetsModelEvalFDRState(
         }
     }
 
+    std::cout << "=> operator " << best_op_id << " ("
+              << task->strips.op.op[best_op_id]->name << ")" << " with value "
+              << best_value << std::endl;
+
     return best_op_id;
 }
 
-int
-pddlASNetsModelEvalFDRState(
+int pddlASNetsModelEvalFDRState(
     pddl_asnets_model_t* m,
     const pddl_asnets_ground_task_t* task,
     const int* in_state,
@@ -1551,56 +1597,73 @@ pddlASNetsModelEvalFDRState(
 
     try {
         return _pddlASNetsModelEvalFDRState(
-            m, task, in_state, in_goal, in_ldms, in_path, distr);
+            m,
+            task,
+            in_state,
+            in_goal,
+            in_ldms,
+            in_path,
+            distr);
     } catch (std::runtime_error& e) {
         DYNET_PANIC_EXCEPTION(e);
         return -1;
     }
 }
 
-static void
-_groundAsnetsInput(
+static int _cell(int num_cols, int row, int col)
+{
+    return row * num_cols + col;
+}
+
+static void _groundAsnetsInput(
     pddl_ground_asnets_input_interface_t* inp,
     const pddl_asnets_ground_task_t* task,
     const pddl_ground_asnets_conf_t* conf)
 {
+    printf(
+        "GROUNDING ====> VARS=%d FACTS=%d\n",
+        conf->num_variables,
+        conf->num_facts);
     pddlNNLayerFFInit(&inp->l0, conf->num_variables, 2 * conf->num_facts);
     pddlNNLayerFFInit(&inp->l1, 2 * conf->num_facts, 2 * conf->num_facts);
     pddlNNLayerFFInit(&inp->l2, 2 * conf->num_facts, conf->num_facts);
     for (int fact_id = 0, remapped_id = 0; fact_id < task->fact_size;
          ++fact_id) {
-        if (conf->variable[fact_id] < 0)
-            continue;
+        if (conf->variable[fact_id] < 0) continue;
 
         int var_id = conf->variable[fact_id];
         int value = conf->value[fact_id];
 
-        int row0a = 2 * remapped_id * conf->num_variables;
-        inp->l0.weights[row0a + var_id] = -1;
+        inp->l0.weights[_cell(conf->num_variables, 2 * remapped_id, var_id)] =
+            -1;
         inp->l0.biases[2 * remapped_id] = value;
 
-        int row1a = 4 * remapped_id * conf->num_facts;
-        inp->l1.weights[row1a + 2 * remapped_id] = -1;
-        inp->l1.biases[2 * remapped_id] = 1;
-
-        int row0b = (2 * remapped_id + 1) * conf->num_variables;
-        inp->l0.weights[row0b + var_id] = -1;
+        inp->l0
+            .weights[_cell(conf->num_variables, 2 * remapped_id + 1, var_id)] =
+            -1;
         inp->l0.biases[2 * remapped_id + 1] = value + 1;
 
-        int row1b = (2 * remapped_id + 1) * 2 * conf->num_facts;
-        inp->l1.weights[row1b + 2 * remapped_id + 1] = -1;
+        inp->l1.weights
+            [_cell(2 * conf->num_facts, 2 * remapped_id, 2 * remapped_id)] = -1;
+        inp->l1.biases[2 * remapped_id] = 1;
+
+        inp->l1.weights[_cell(
+            2 * conf->num_facts,
+            2 * remapped_id + 1,
+            2 * remapped_id + 1)] = -1;
         inp->l1.biases[2 * remapped_id + 1] = 1;
 
-        int row2 = remapped_id * 2 * conf->num_facts;
-        inp->l2.weights[row2 + 2 * remapped_id] = 1;
-        inp->l2.weights[row2 + 2 * remapped_id + 1] = -1;
+        inp->l2
+            .weights[_cell(2 * conf->num_facts, remapped_id, 2 * remapped_id)] =
+            1;
+        inp->l2.weights
+            [_cell(2 * conf->num_facts, remapped_id, 2 * remapped_id + 1)] = -1;
 
         ++remapped_id;
     }
 }
 
-static void
-_groundAsnetsOutput(
+static void _groundAsnetsOutput(
     pddl_nn_layer_max_pool_t* out,
     const pddl_asnets_ground_task_t* task,
     const pddl_ground_asnets_conf_t* conf)
@@ -1620,8 +1683,7 @@ _groundAsnetsOutput(
     }
 }
 
-void
-pddlASNetsPolicyGroundImpl(
+void pddlASNetsPolicyGroundImpl(
     pddl_ground_asnets_t* res,
     pddl_asnets_model_t* m,
     const pddl_asnets_ground_task_t* task,
@@ -1644,3 +1706,5 @@ pddlASNetsPolicyGroundImpl(
     }
     printf("asnets policy grounded\n");
 }
+
+#undef PRINT_LAYERS
