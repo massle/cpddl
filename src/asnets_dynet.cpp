@@ -627,6 +627,7 @@ static void _groundActionLayer(
     }
 }
 
+#if 1
 static std::vector<float> _removeGoalInput(
     const pddl_asnets_ground_task_t* g,
     const ModelParameters& model,
@@ -712,8 +713,12 @@ static void _groundFirstActionLayer(
             "unexpected imension");
         for (unsigned h = 0; h < am->W.dim()[0];
              ++h, offset += non_static_facts, ++b) {
+            PANIC_IF(
+                g->op[op_id].related_fact_size !=
+                    g->lifted_task->action[action_id].related_atom_size,
+                "input mismatch");
             for (int i = 0; i < g->op[op_id].related_fact_size; ++i) {
-                unsigned fact_id = g->op[op_id].related_fact[i];
+                int fact_id = g->op[op_id].related_fact[i];
                 PANIC_IF(fact_id < 0, "fact_id < 0");
                 if (new_fact_id[fact_id] < 0) {
                     continue;
@@ -727,6 +732,38 @@ static void _groundFirstActionLayer(
         }
     }
 }
+#else
+static void _groundFirstActionLayer(
+    pddl_nn_layer_feed_forward_t* res,
+    const pddl_asnets_ground_task_t* g,
+    const ModelParameters& model,
+    dynet::ComputationGraph& cg,
+    const pddl_ground_asnets_conf_t* conf)
+{
+    pddlNNLayerFFInit(res, 2 * g->fact_size, g->op_size * model.hidden_dim);
+    for (int op_id = 0, offset = 0, b = 0; op_id < g->op_size; ++op_id) {
+        int action_id = g->op[op_id].action->action_id;
+        ActionModule* am = model.action[0][action_id];
+        for (unsigned h = 0; h < am->W.dim()[0];
+             ++h, offset += 2 * g->fact_size, ++b) {
+            int d = g->op[op_id].related_fact_size;
+            for (int i = 0; i < d; ++i) {
+                int fact_id = g->op[op_id].related_fact[i];
+                res->weights[offset + fact_id] =
+                    dynet::TensorTools::access_element(
+                        *am->W.values(),
+                        dynet::Dim({h, i}));
+                res->weights[offset + g->fact_size + fact_id] =
+                    dynet::TensorTools::access_element(
+                        *am->W.values(),
+                        dynet::Dim({h, d + i}));
+            }
+            res->biases[b] =
+                dynet::TensorTools::access_element(*am->bias.values(), h);
+        }
+    }
+}
+#endif
 
 static dynet::Expression asnetsExpr(
     const pddl_asnets_ground_task_t* g,
@@ -1572,9 +1609,11 @@ static int _pddlASNetsModelEvalFDRState(
         }
     }
 
+#if PRINT_LAYERS
     std::cout << "=> operator " << best_op_id << " ("
               << task->strips.op.op[best_op_id]->name << ")" << " with value "
               << best_value << std::endl;
+#endif
 
     return best_op_id;
 }
@@ -1615,6 +1654,7 @@ static int _cell(int num_cols, int row, int col)
     return row * num_cols + col;
 }
 
+#if 1
 static void _groundAsnetsInput(
     pddl_ground_asnets_input_interface_t* inp,
     const pddl_asnets_ground_task_t* task,
@@ -1662,6 +1702,76 @@ static void _groundAsnetsInput(
         ++remapped_id;
     }
 }
+#else
+static void _groundAsnetsInput(
+    pddl_ground_asnets_input_interface_t* inp,
+    const pddl_asnets_ground_task_t* task,
+    const pddl_ground_asnets_conf_t* conf)
+{
+    std::vector<bool> state(task->fact_size, 0);
+    std::vector<bool> goal(task->fact_size, 0);
+    {
+        int fact_id;
+        PDDL_ISET_FOR_EACH(&task->strips.init, fact_id)
+        {
+            if (conf->variable[fact_id] < 0) {
+                state[fact_id] = 1;
+            }
+        }
+    }
+    {
+        int fact_id;
+        PDDL_ISET_FOR_EACH(&task->strips.goal, fact_id)
+        {
+            goal[fact_id] = 1;
+        }
+    }
+
+    pddlNNLayerFFInit(&inp->l0, conf->num_variables, 2 * conf->num_facts);
+    pddlNNLayerFFInit(&inp->l1, 2 * conf->num_facts, 2 * conf->num_facts);
+    pddlNNLayerFFInit(&inp->l2, 2 * conf->num_facts, 2 * task->fact_size);
+    for (int fact_id = 0, remapped_id = 0; fact_id < task->fact_size;
+         ++fact_id) {
+
+        inp->l2.biases[task->fact_size + fact_id] =
+            static_cast<float>(goal[fact_id]);
+        if (conf->variable[fact_id] < 0) {
+            inp->l2.biases[fact_id] = static_cast<float>(state[fact_id]);
+            continue;
+        }
+
+        int var_id = conf->variable[fact_id];
+        int value = conf->value[fact_id];
+
+        inp->l0.weights[_cell(conf->num_variables, 2 * remapped_id, var_id)] =
+            -1;
+        inp->l0.biases[2 * remapped_id] = value;
+
+        inp->l0
+            .weights[_cell(conf->num_variables, 2 * remapped_id + 1, var_id)] =
+            -1;
+        inp->l0.biases[2 * remapped_id + 1] = value + 1;
+
+        inp->l1.weights
+            [_cell(2 * conf->num_facts, 2 * remapped_id, 2 * remapped_id)] = -1;
+        inp->l1.biases[2 * remapped_id] = 1;
+
+        inp->l1.weights[_cell(
+            2 * conf->num_facts,
+            2 * remapped_id + 1,
+            2 * remapped_id + 1)] = -1;
+        inp->l1.biases[2 * remapped_id + 1] = 1;
+
+        inp->l2.weights[_cell(2 * conf->num_facts, fact_id, 2 * remapped_id)] =
+            1;
+        inp->l2
+            .weights[_cell(2 * conf->num_facts, fact_id, 2 * remapped_id + 1)] =
+            -1;
+
+        ++remapped_id;
+    }
+}
+#endif
 
 static void _groundAsnetsOutput(
     pddl_nn_layer_max_pool_t* out,
@@ -1678,9 +1788,9 @@ static void _groundAsnetsOutput(
             }
         }
     }
-    for (int op_id = 0; op_id < task->op_size; ++op_id) {
-        PANIC_IF(conf->label[op_id] < 0, "operator has no label");
-    }
+    // for (int op_id = 0; op_id < task->op_size; ++op_id) {
+    //     PANIC_IF(conf->label[op_id] < 0, "operator has no label");
+    // }
 }
 
 void pddlASNetsPolicyGroundImpl(
